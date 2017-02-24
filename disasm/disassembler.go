@@ -19,11 +19,7 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 		if sec.Name == ".text" {
 			data, _ := sec.Data()
 			co := NewHsaCo(data)
-			fmt.Println(
-				len(co.Data),
-				co.CodeVersionMajor(),
-				co.KernelCodeEntryByteOffset(),
-				co.RuntimeLoaderKernelSymbol())
+			fmt.Printf("%+v\n", co.HsaCoHeader)
 
 			/*
 				id := co.InstructionData()
