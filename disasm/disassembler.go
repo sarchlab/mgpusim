@@ -42,7 +42,7 @@ type Format struct {
 	OpcodeHigh        uint8
 }
 
-func retrieveBits(number uint32, lo uint8, hi uint8) uint32 {
+func extractBits(number uint32, lo uint8, hi uint8) uint32 {
 	var mask uint32
 	var extracted uint32
 	mask = ((1 << (hi - lo + 1)) - 1) << lo
@@ -52,7 +52,7 @@ func retrieveBits(number uint32, lo uint8, hi uint8) uint32 {
 
 func (f *Format) retrieveOpcode(firstFourBytes uint32) Opcode {
 	var opcode uint32
-	opcode = retrieveBits(firstFourBytes, f.OpcodeLow, f.OpcodeHigh)
+	opcode = extractBits(firstFourBytes, f.OpcodeLow, f.OpcodeHigh)
 	return Opcode(opcode)
 }
 
@@ -88,6 +88,102 @@ func (d *Disassembler) addInstType(info *InstType) {
 		d.decodeTables[info.Format.formatType] = newDecodeTable()
 	}
 	d.decodeTables[info.Format.formatType].insts[info.Opcode] = info
+}
+
+// NewDisassembler creates a new disassembler
+func NewDisassembler() *Disassembler {
+	d := new(Disassembler)
+
+	d.initializeFormatTable()
+	d.initializeDecodeTable()
+
+	return d
+}
+
+func (d *Disassembler) matchFormat(firstTwoBytes uint16) (*Format, error) {
+	for _, f := range d.formatTable {
+		if (firstTwoBytes^f.Encoding)&f.Mask == 0 {
+			return f, nil
+		}
+	}
+	bytesString := fmt.Sprintf("%04x", firstTwoBytes)
+	return nil, errors.New("cannot find the instruction format, first two " +
+		"bytes are " + bytesString)
+}
+
+func (d *Disassembler) loopUp(format *Format, opcode Opcode) (*InstType, error) {
+	if d.decodeTables[format.formatType] != nil &&
+		d.decodeTables[format.formatType].insts[opcode] != nil {
+		return d.decodeTables[format.formatType].insts[opcode], nil
+	}
+
+	errString := fmt.Sprintf("Instruction format %s, opcode %d not found",
+		format.FormatName, opcode)
+	return nil, errors.New(errString)
+}
+
+func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
+	bytes := binary.LittleEndian.Uint32(buf)
+
+	ssrc0Value := extractBits(bytes, 0, 7)
+	ssrcOperand, _ := getOperand(uint16(ssrc0Value))
+
+	fmt.Printf("ssrc0: %+v", ssrcOperand)
+}
+
+// Decode parses the head of the buffer and returns the next instruction
+func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
+	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	opcode := format.retrieveOpcode(binary.LittleEndian.Uint32(buf))
+	instType, err := d.loopUp(format, opcode)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	inst := new(Instruction)
+	inst.Format = format
+	inst.InstType = instType
+	inst.ByteSize = format.ByteSizeExLiteral
+
+	switch format.formatType {
+	case sop2:
+		d.decodeSop2(inst, buf)
+	default:
+		break
+	}
+
+	fmt.Printf("%s\n", inst)
+
+	return inst, nil
+}
+
+// Disassemble take a binary file as an input and put the assembly code in a
+// write
+func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
+	sections := file.Sections
+
+	for _, sec := range sections {
+		if sec.Name == ".text" {
+			data, _ := sec.Data()
+			co := NewHsaCo(data)
+
+			instructionData := co.InstructionData()
+			for len(instructionData) > 0 {
+				inst, _ := d.Decode(instructionData)
+				if inst == nil {
+					instructionData = instructionData[4:]
+				} else {
+					instructionData = instructionData[inst.ByteSize:]
+				}
+			}
+		}
+	}
 }
 
 func (d *Disassembler) initializeFormatTable() {
@@ -213,95 +309,4 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_min_u16", 49, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_min_i16", 50, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_ldexp_f16", 51, d.formatTable[vop2]})
-}
-
-// NewDisassembler creates a new disassembler
-func NewDisassembler() *Disassembler {
-	d := new(Disassembler)
-
-	d.initializeFormatTable()
-	d.initializeDecodeTable()
-
-	return d
-}
-
-func (d *Disassembler) matchFormat(firstTwoBytes uint16) (*Format, error) {
-	for _, f := range d.formatTable {
-		if (firstTwoBytes^f.Encoding)&f.Mask == 0 {
-			return f, nil
-		}
-	}
-	bytesString := fmt.Sprintf("%04x", firstTwoBytes)
-	return nil, errors.New("cannot find the instruction format, first two " +
-		"bytes are " + bytesString)
-}
-
-func (d *Disassembler) loopUp(format *Format, opcode Opcode) (*InstType, error) {
-	if d.decodeTables[format.formatType] != nil &&
-		d.decodeTables[format.formatType].insts[opcode] != nil {
-		return d.decodeTables[format.formatType].insts[opcode], nil
-	}
-
-	errString := fmt.Sprintf("Instruction format %s, opcode %d not found",
-		format.FormatName, opcode)
-	return nil, errors.New(errString)
-}
-
-func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
-
-}
-
-// Decode parses the head of the buffer and returns the next instruction
-func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
-	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, err
-	}
-
-	opcode := format.retrieveOpcode(binary.LittleEndian.Uint32(buf))
-	instType, err := d.loopUp(format, opcode)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, err
-	}
-
-	inst := new(Instruction)
-	inst.Format = format
-	inst.InstType = instType
-	inst.ByteSize = format.ByteSizeExLiteral
-
-	switch format.formatType {
-	case sop2:
-		d.decodeSop2(inst, buf)
-	default:
-		break
-	}
-
-	fmt.Printf("%s\n", inst)
-
-	return inst, nil
-}
-
-// Disassemble take a binary file as an input and put the assembly code in a
-// write
-func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
-	sections := file.Sections
-
-	for _, sec := range sections {
-		if sec.Name == ".text" {
-			data, _ := sec.Data()
-			co := NewHsaCo(data)
-
-			instructionData := co.InstructionData()
-			for len(instructionData) > 0 {
-				inst, _ := d.Decode(instructionData)
-				if inst == nil {
-					instructionData = instructionData[4:]
-				} else {
-					instructionData = instructionData[inst.ByteSize:]
-				}
-			}
-		}
-	}
 }
