@@ -16,7 +16,7 @@ func main() {
 	}
 	defer elfFile.Close()
 
-	disasm := new(disasm.Disassembler)
+	disasm := disasm.NewDisassembler()
 
 	disasm.Disassemble(elfFile, os.Stdout)
 
