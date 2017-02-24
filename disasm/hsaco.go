@@ -60,3 +60,8 @@ func NewHsaCo(data []byte) *HsaCo {
 
 	return o
 }
+
+// InstructionData returns the instruction binaries in the HsaCo
+func (o *HsaCo) InstructionData() []byte {
+	return o.Data[256:]
+}

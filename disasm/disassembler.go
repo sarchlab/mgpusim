@@ -21,18 +21,16 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 			co := NewHsaCo(data)
 			fmt.Printf("%+v\n", co.HsaCoHeader)
 
-			/*
-				id := co.InstructionData()
-				i := 0
-				for _, b := range id {
-					fmt.Printf("%08b ", b)
-					i++
-					if i == 8 {
-						i = 0
-						fmt.Printf("\n")
-					}
+			id := co.InstructionData()
+			i := 0
+			for _, b := range id {
+				fmt.Printf("%08b ", b)
+				i++
+				if i == 8 {
+					i = 0
+					fmt.Printf("\n")
 				}
-			*/
+			}
 		}
 	}
 }
