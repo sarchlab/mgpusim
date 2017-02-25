@@ -33,7 +33,7 @@ type formatType int
 
 // Format defines the possible microcode format of instructions
 type Format struct {
-	formatType        formatType
+	FormatType        formatType
 	FormatName        string
 	Encoding          uint16
 	Mask              uint16
@@ -84,10 +84,10 @@ type Disassembler struct {
 }
 
 func (d *Disassembler) addInstType(info *InstType) {
-	if d.decodeTables[info.Format.formatType] == nil {
-		d.decodeTables[info.Format.formatType] = newDecodeTable()
+	if d.decodeTables[info.Format.FormatType] == nil {
+		d.decodeTables[info.Format.FormatType] = newDecodeTable()
 	}
-	d.decodeTables[info.Format.formatType].insts[info.Opcode] = info
+	d.decodeTables[info.Format.FormatType].insts[info.Opcode] = info
 }
 
 // NewDisassembler creates a new disassembler
@@ -112,9 +112,9 @@ func (d *Disassembler) matchFormat(firstTwoBytes uint16) (*Format, error) {
 }
 
 func (d *Disassembler) loopUp(format *Format, opcode Opcode) (*InstType, error) {
-	if d.decodeTables[format.formatType] != nil &&
-		d.decodeTables[format.formatType].insts[opcode] != nil {
-		return d.decodeTables[format.formatType].insts[opcode], nil
+	if d.decodeTables[format.FormatType] != nil &&
+		d.decodeTables[format.FormatType].insts[opcode] != nil {
+		return d.decodeTables[format.FormatType].insts[opcode], nil
 	}
 
 	errString := fmt.Sprintf("Instruction format %s, opcode %d not found",
@@ -126,9 +126,19 @@ func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	ssrc0Value := extractBits(bytes, 0, 7)
-	ssrcOperand, _ := getOperand(uint16(ssrc0Value))
+	inst.SSRC0, _ = getOperand(uint16(ssrc0Value))
+	if inst.SSRC0.OperandType == LiteralConstant {
+		inst.ByteSize += 4
+	}
 
-	fmt.Printf("ssrc0: %+v", ssrcOperand)
+	ssrc1Value := extractBits(bytes, 8, 15)
+	inst.SSRC1, _ = getOperand(uint16(ssrc1Value))
+	if inst.SSRC1.OperandType == LiteralConstant {
+		inst.ByteSize += 4
+	}
+
+	sdstValue := extractBits(bytes, 16, 22)
+	inst.SDST, _ = getOperand(uint16(sdstValue))
 }
 
 // Decode parses the head of the buffer and returns the next instruction
@@ -151,14 +161,12 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	inst.InstType = instType
 	inst.ByteSize = format.ByteSizeExLiteral
 
-	switch format.formatType {
+	switch format.FormatType {
 	case sop2:
 		d.decodeSop2(inst, buf)
 	default:
 		break
 	}
-
-	fmt.Printf("%s\n", inst)
 
 	return inst, nil
 }
@@ -176,6 +184,7 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 			instructionData := co.InstructionData()
 			for len(instructionData) > 0 {
 				inst, _ := d.Decode(instructionData)
+				fmt.Printf("%s\n", inst)
 				if inst == nil {
 					instructionData = instructionData[4:]
 				} else {

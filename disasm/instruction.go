@@ -26,6 +26,21 @@ type Operand struct {
 	LiteralConstant uint64
 }
 
+func (o Operand) String() string {
+	switch o.OperandType {
+	case RegOperand:
+		return o.Register.Name
+	case IntOperand:
+		return fmt.Sprintf("%d", o.IntValue)
+	case FloatOperand:
+		return fmt.Sprintf("%f", o.FloatValue)
+	case LiteralConstant:
+		return "LiteralConstant"
+	default:
+		return ""
+	}
+}
+
 // Reg is the representation of a register
 type Reg struct {
 	RegType  RegType
@@ -116,13 +131,25 @@ type Instruction struct {
 	*InstType
 	ByteSize int
 
-	SSRC0 Operand
-	SSRC1 Operand
-	SDST  Operand
+	SSRC0 *Operand
+	SSRC1 *Operand
+	SDST  *Operand
+}
+
+func (i Instruction) sop2String() string {
+	return i.InstName + " " +
+		i.SDST.String() + ", " +
+		i.SSRC0.String() + ", " +
+		i.SSRC1.String()
 }
 
 func (i Instruction) String() string {
-	return i.InstName
+	switch i.FormatType {
+	case sop2:
+		return i.sop2String()
+	default:
+		return i.InstName
+	}
 }
 
 // RegType is the register type
