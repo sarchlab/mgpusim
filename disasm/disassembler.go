@@ -156,6 +156,39 @@ func (d *Disassembler) decodeVop1(inst *Instruction, buf []byte) {
 	inst.Dst, _ = getOperand(uint16(dstValue + 256))
 }
 
+func (d *Disassembler) decodeFlat(inst *Instruction, buf []byte) {
+	bytesLo := binary.LittleEndian.Uint32(buf)
+	bytesHi := binary.LittleEndian.Uint32(buf[4:])
+
+	if extractBits(bytesLo, 17, 17) != 0 {
+		inst.SystemLevelCoherent = true
+	}
+
+	if extractBits(bytesLo, 16, 16) != 0 {
+		inst.GlobalLevelCoherent = true
+	}
+
+	if extractBits(bytesHi, 23, 23) != 0 {
+		inst.TextureFailEnable = true
+	}
+
+	inst.Addr = NewVRegOperand(int(extractBits(bytesHi, 0, 7)), 2)
+
+	inst.Dst = NewVRegOperand(int(extractBits(bytesHi, 24, 31)), 0)
+	inst.Data = NewVRegOperand(int(extractBits(bytesHi, 8, 15)), 0)
+	switch inst.Opcode {
+	case 20, 29, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93:
+		inst.Data.RegCount = 2
+		inst.Dst.RegCount = 2
+	case 21, 30:
+		inst.Data.RegCount = 4
+		inst.Dst.RegCount = 2
+	case 22, 31:
+		inst.Data.RegCount = 3
+		inst.Dst.RegCount = 2
+	}
+}
+
 // Decode parses the head of the buffer and returns the next instruction
 func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
@@ -183,6 +216,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		d.decodeSop2(inst, buf)
 	case vop1:
 		d.decodeVop1(inst, buf)
+	case flat:
+		d.decodeFlat(inst, buf)
 	default:
 		break
 	}
@@ -426,14 +461,17 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_log_legacy_f32", 76, d.formatTable[vop1]})
 
 	// Flat Instructions
-	d.addInstType(&InstType{"flat_load_ubyte", 8, d.formatTable[flat]})
-	d.addInstType(&InstType{"flat_load_sbyte", 9, d.formatTable[flat]})
-	d.addInstType(&InstType{"flat_load_ushort", 10, d.formatTable[flat]})
-	d.addInstType(&InstType{"flat_load_sshort", 11, d.formatTable[flat]})
-	d.addInstType(&InstType{"flat_load_dword", 12, d.formatTable[flat]})
-	d.addInstType(&InstType{"flat_load_dwordx2", 13, d.formatTable[flat]})
-	d.addInstType(&InstType{"flat_load_dwordx4", 14, d.formatTable[flat]})
-	d.addInstType(&InstType{"flat_load_dwordx3", 15, d.formatTable[flat]})
+	// I am not sure why, but seems the numbers in the official disassembler
+	// does not match the documentation. Here follows the official disassembler.
+	d.addInstType(&InstType{"flat_load_ubyte", 16, d.formatTable[flat]})
+	d.addInstType(&InstType{"flat_load_sbyte", 17, d.formatTable[flat]})
+	d.addInstType(&InstType{"flat_load_ushort", 18, d.formatTable[flat]})
+	d.addInstType(&InstType{"flat_load_sshort", 19, d.formatTable[flat]})
+	d.addInstType(&InstType{"flat_load_dword", 20, d.formatTable[flat]})
+	d.addInstType(&InstType{"flat_load_dwordx2", 21, d.formatTable[flat]})
+	d.addInstType(&InstType{"flat_load_dwordx4", 22, d.formatTable[flat]})
+	d.addInstType(&InstType{"flat_load_dwordx3", 23, d.formatTable[flat]})
+	// Unitl here
 	d.addInstType(&InstType{"flat_store_byte", 24, d.formatTable[flat]})
 	d.addInstType(&InstType{"flat_store_short", 26, d.formatTable[flat]})
 	d.addInstType(&InstType{"flat_store_dword", 28, d.formatTable[flat]})

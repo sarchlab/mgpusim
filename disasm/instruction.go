@@ -21,14 +21,68 @@ type OperandType int
 type Operand struct {
 	OperandType     OperandType
 	Register        *Reg
+	RegCount        int // for cases like v[0:3]
 	FloatValue      float64
 	IntValue        int64
 	LiteralConstant uint64
 }
 
+// NewRegOperand returns a new operand of register type
+func NewRegOperand(reg RegType, count int) *Operand {
+	o := new(Operand)
+	o.OperandType = RegOperand
+	o.Register = Regs[reg]
+	o.RegCount = count
+	return o
+}
+
+// NewSRegOperand returns a new operand of s register type
+func NewSRegOperand(index int, count int) *Operand {
+	o := new(Operand)
+	o.OperandType = RegOperand
+	o.Register = Regs[S0+RegType(index)]
+	o.RegCount = count
+	return o
+}
+
+// NewVRegOperand returns a new operand of v register type
+func NewVRegOperand(index int, count int) *Operand {
+	o := new(Operand)
+	o.OperandType = RegOperand
+	o.Register = Regs[V0+RegType(index)]
+	o.RegCount = count
+	return o
+}
+
+// NewIntOperand returns a new operand of an integer type
+func NewIntOperand(value int64) *Operand {
+	o := new(Operand)
+	o.OperandType = IntOperand
+	o.IntValue = value
+	return o
+}
+
+// NewFloatOperand returns a new operand of an floating point type
+func NewFloatOperand(value float64) *Operand {
+	o := new(Operand)
+	o.OperandType = FloatOperand
+	o.FloatValue = value
+	return o
+}
+
 func (o Operand) String() string {
 	switch o.OperandType {
 	case RegOperand:
+		if o.RegCount > 1 {
+			if o.Register.IsSReg() {
+				return fmt.Sprintf("s[%d:%d]",
+					o.Register.RegIndex(), o.Register.RegIndex()+o.RegCount-1)
+			} else if o.Register.IsVReg() {
+				return fmt.Sprintf("v[%d:%d]",
+					o.Register.RegIndex(), o.Register.RegIndex()+o.RegCount-1)
+			}
+			return fmt.Sprintf("<unknown: %+v>", o.Register)
+		}
 		return o.Register.Name
 	case IntOperand:
 		return fmt.Sprintf("%d", o.IntValue)
@@ -49,82 +103,103 @@ type Reg struct {
 	IsBool   bool
 }
 
+// IsVReg checks if a register is a vector register
+func (r *Reg) IsVReg() bool {
+	return r.RegType >= V0 && r.RegType <= V255
+}
+
+// IsSReg checks if a register is a scalar register
+func (r *Reg) IsSReg() bool {
+	return r.RegType >= S0 && r.RegType <= S101
+}
+
+// RegIndex returns the index of the index in the s-series or the v-series.
+// If the register is not s or v register, -1 is returned.
+func (r *Reg) RegIndex() int {
+	if r.IsSReg() {
+		return int(r.RegType - S0)
+	} else if r.IsVReg() {
+		return int(r.RegType - V0)
+	}
+	return -1
+}
+
 func getOperand(num uint16) (*Operand, error) {
 	switch {
 	case num >= 0 && num <= 101:
-		return &Operand{RegOperand, Regs[S0+RegType(num)], 0, 0, 0}, nil
+		return NewSRegOperand(int(num), 0), nil
 
 	case num == 102:
-		return &Operand{RegOperand, Regs[FlatSratchLo], 0, 0, 0}, nil
+		return NewRegOperand(FlatSratchLo, 0), nil
 	case num == 103:
-		return &Operand{RegOperand, Regs[FlatSratchHi], 0, 0, 0}, nil
+		return NewRegOperand(FlatSratchHi, 0), nil
 	case num == 104:
-		return &Operand{RegOperand, Regs[XnackMaskLo], 0, 0, 0}, nil
+		return NewRegOperand(XnackMaskLo, 0), nil
 	case num == 105:
-		return &Operand{RegOperand, Regs[XnackMaskHi], 0, 0, 0}, nil
+		return NewRegOperand(XnackMaskHi, 0), nil
 	case num == 106:
-		return &Operand{RegOperand, Regs[VccLo], 0, 0, 0}, nil
+		return NewRegOperand(VccLo, 0), nil
 	case num == 107:
-		return &Operand{RegOperand, Regs[VccHi], 0, 0, 0}, nil
+		return NewRegOperand(VccHi, 0), nil
 	case num == 108:
-		return &Operand{RegOperand, Regs[TbaLo], 0, 0, 0}, nil
+		return NewRegOperand(TbaLo, 0), nil
 	case num == 109:
-		return &Operand{RegOperand, Regs[TbaHi], 0, 0, 0}, nil
+		return NewRegOperand(TbaHi, 0), nil
 	case num == 110:
-		return &Operand{RegOperand, Regs[TmaLo], 0, 0, 0}, nil
+		return NewRegOperand(TmaLo, 0), nil
 	case num == 111:
-		return &Operand{RegOperand, Regs[TmaHi], 0, 0, 0}, nil
+		return NewRegOperand(TmaHi, 0), nil
 
 	case num >= 112 && num < 123:
-		return &Operand{RegOperand, Regs[Timp0+RegType(num-112)], 0, 0, 0}, nil
+		return NewRegOperand(Timp0+RegType(num-112), 0), nil
 
 	case num == 124:
-		return &Operand{RegOperand, Regs[M0], 0, 0, 0}, nil
+		return NewRegOperand(M0, 0), nil
 	case num == 126:
-		return &Operand{RegOperand, Regs[ExecLo], 0, 0, 0}, nil
+		return NewRegOperand(ExecLo, 0), nil
 	case num == 127:
-		return &Operand{RegOperand, Regs[ExecHi], 0, 0, 0}, nil
+		return NewRegOperand(ExecHi, 0), nil
 
 	case num >= 128 && num <= 192:
-		return &Operand{IntOperand, nil, 0, int64(num) - 128, 0}, nil
+		return NewIntOperand(int64(num) - 128), nil
 
 	case num >= 193 && num <= 208:
-		return &Operand{IntOperand, nil, 0, 192 - int64(num), 0}, nil
+		return NewIntOperand(192 - int64(num)), nil
 
 	case num == 240:
-		return &Operand{FloatOperand, nil, 0.5, 0, 0}, nil
+		return NewFloatOperand(0.5), nil
 	case num == 241:
-		return &Operand{FloatOperand, nil, -0.5, 0, 0}, nil
+		return NewFloatOperand(-0.5), nil
 	case num == 242:
-		return &Operand{FloatOperand, nil, 1.0, 0, 0}, nil
+		return NewFloatOperand(1.0), nil
 	case num == 243:
-		return &Operand{FloatOperand, nil, -1.0, 0, 0}, nil
+		return NewFloatOperand(-1.0), nil
 	case num == 244:
-		return &Operand{FloatOperand, nil, 2.0, 0, 0}, nil
+		return NewFloatOperand(2.0), nil
 	case num == 245:
-		return &Operand{FloatOperand, nil, -2.0, 0, 0}, nil
+		return NewFloatOperand(-2.0), nil
 	case num == 247:
-		return &Operand{FloatOperand, nil, 4.0, 0, 0}, nil
+		return NewFloatOperand(4.0), nil
 	case num == 247:
-		return &Operand{FloatOperand, nil, -4.0, 0, 0}, nil
+		return NewFloatOperand(-4.0), nil
 	case num == 248:
-		return &Operand{FloatOperand, nil, 1.0 / (2.0 * math.Pi), 0, 0}, nil
+		return NewFloatOperand(1.0 / (2.0 * math.Pi)), nil
 
 	case num == 251:
-		return &Operand{RegOperand, Regs[Vccz], 0, 0, 0}, nil
+		return NewRegOperand(Vccz, 0), nil
 	case num == 252:
-		return &Operand{RegOperand, Regs[Execz], 0, 0, 0}, nil
+		return NewRegOperand(Execz, 0), nil
 	case num == 253:
-		return &Operand{RegOperand, Regs[Scc], 0, 0, 0}, nil
+		return NewRegOperand(Scc, 0), nil
 
 	case num == 255:
-		return &Operand{LiteralConstant, nil, 0, 0, 0}, nil
+		return &Operand{LiteralConstant, nil, 0, 0, 0, 0}, nil
 
 	case num >= 256 && num <= 511:
-		return &Operand{RegOperand, Regs[V0+RegType(num-256)], 0, 0, 0}, nil
+		return NewVRegOperand(int(num)-256, 0), nil
 
 	default:
-		return nil, fmt.Errorf("cannot find S Operand %d", num)
+		return nil, fmt.Errorf("cannot find Operand %d", num)
 	}
 }
 
@@ -137,6 +212,13 @@ type Instruction struct {
 	Src0 *Operand
 	Src1 *Operand
 	Dst  *Operand
+
+	Addr *Operand
+	Data *Operand
+
+	SystemLevelCoherent bool
+	GlobalLevelCoherent bool
+	TextureFailEnable   bool
 }
 
 func (i Instruction) sop2String() string {
@@ -152,12 +234,26 @@ func (i Instruction) vop1String() string {
 		i.Src0.String()
 }
 
+func (i Instruction) flatString() string {
+	var s string
+	if i.Opcode >= 16 && i.Opcode <= 23 {
+		s = i.InstName + " " + i.Dst.String() + ", " +
+			i.Addr.String()
+	} else if i.Opcode >= 24 && i.Opcode <= 31 {
+		s = i.InstName + " " + i.Addr.String() + ", " +
+			i.Dst.String()
+	}
+	return s
+}
+
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
 		return i.sop2String()
 	case vop1:
 		return i.vop1String()
+	case flat:
+		return i.flatString()
 	default:
 		return i.InstName
 	}
