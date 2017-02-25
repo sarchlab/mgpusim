@@ -46,7 +46,7 @@ type Reg struct {
 	RegType  RegType
 	Name     string
 	ByteSize int
-	isBool   bool
+	IsBool   bool
 }
 
 func getOperand(num uint16) (*Operand, error) {

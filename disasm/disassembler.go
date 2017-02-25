@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"sort"
 )
 
 const (
@@ -78,6 +80,7 @@ func newDecodeTable() *decodeTable {
 // Disassembler is the unit that can decode .hsaco file
 type Disassembler struct {
 	formatTable map[formatType]*Format
+	formatList  []*Format
 
 	// Maps from the format to table
 	decodeTables map[formatType]*decodeTable
@@ -101,7 +104,7 @@ func NewDisassembler() *Disassembler {
 }
 
 func (d *Disassembler) matchFormat(firstTwoBytes uint16) (*Format, error) {
-	for _, f := range d.formatTable {
+	for _, f := range d.formatList {
 		if (firstTwoBytes^f.Encoding)&f.Mask == 0 {
 			return f, nil
 		}
@@ -117,9 +120,8 @@ func (d *Disassembler) loopUp(format *Format, opcode Opcode) (*InstType, error) 
 		return d.decodeTables[format.FormatType].insts[opcode], nil
 	}
 
-	errString := fmt.Sprintf("Instruction format %s, opcode %d not found",
+	return nil, fmt.Errorf("Instruction format %s, opcode %d not found",
 		format.FormatName, opcode)
-	return nil, errors.New(errString)
 }
 
 func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
@@ -145,14 +147,16 @@ func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
 func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
 		return nil, err
 	}
 
 	opcode := format.retrieveOpcode(binary.LittleEndian.Uint32(buf))
 	instType, err := d.loopUp(format, opcode)
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		fmt.Fprint(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, " %032b\n",
+			binary.LittleEndian.Uint32(buf))
+
 		return nil, err
 	}
 
@@ -183,11 +187,11 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 
 			instructionData := co.InstructionData()
 			for len(instructionData) > 0 {
-				inst, _ := d.Decode(instructionData)
-				fmt.Printf("%s\n", inst)
-				if inst == nil {
+				inst, err := d.Decode(instructionData)
+				if err != nil {
 					instructionData = instructionData[4:]
 				} else {
+					fmt.Println(inst)
 					instructionData = instructionData[inst.ByteSize:]
 				}
 			}
@@ -214,6 +218,15 @@ func (d *Disassembler) initializeFormatTable() {
 	d.formatTable[sopk] = &Format{sopk, "sopk", 0xB000, 0xF000, 4, 23, 27}
 	d.formatTable[sop2] = &Format{sop2, "sop2", 0x8000, 0xA000, 4, 23, 29}
 	d.formatTable[vop2] = &Format{vop2, "vop2", 0x0000, 0x8000, 4, 25, 30}
+
+	d.formatList = make([]*Format, 0, 17)
+	for _, value := range d.formatTable {
+		d.formatList = append(d.formatList, value)
+	}
+	sort.Slice(d.formatList,
+		func(i, j int) bool {
+			return d.formatList[i].Mask > d.formatList[j].Mask
+		})
 }
 
 func (d *Disassembler) initializeDecodeTable() {
