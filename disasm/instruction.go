@@ -213,12 +213,15 @@ type Instruction struct {
 	Src1 *Operand
 	Dst  *Operand
 
-	Addr *Operand
-	Data *Operand
+	Addr   *Operand
+	Data   *Operand
+	Base   *Operand
+	Offset *Operand
 
 	SystemLevelCoherent bool
 	GlobalLevelCoherent bool
 	TextureFailEnable   bool
+	Imm                 bool
 }
 
 func (i Instruction) sop2String() string {
@@ -246,10 +249,19 @@ func (i Instruction) flatString() string {
 	return s
 }
 
+func (i Instruction) smemString() string {
+	// TODO: Consider store instructions, and the case if imm = 0
+	s := fmt.Sprintf("%s %s, %s, %#x",
+		i.InstName, i.Data.String(), i.Base.String(), uint16(i.Offset.IntValue))
+	return s
+}
+
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
 		return i.sop2String()
+	case smem:
+		return i.smemString()
 	case vop1:
 		return i.vop1String()
 	case flat:

@@ -189,6 +189,41 @@ func (d *Disassembler) decodeFlat(inst *Instruction, buf []byte) {
 	}
 }
 
+func (d *Disassembler) decodeSmem(inst *Instruction, buf []byte) {
+	bytesLo := binary.LittleEndian.Uint32(buf)
+	bytesHi := binary.LittleEndian.Uint32(buf[4:])
+
+	if extractBits(bytesLo, 16, 16) != 0 {
+		inst.GlobalLevelCoherent = true
+	}
+
+	if extractBits(bytesLo, 17, 17) != 0 {
+		inst.Imm = true
+	}
+
+	sbaseValue := extractBits(bytesLo, 0, 5)
+	inst.Base = NewSRegOperand(int(sbaseValue<<1), 2)
+
+	sdataValue := extractBits(bytesLo, 6, 12)
+	inst.Data, _ = getOperand(uint16(sdataValue))
+	switch inst.Opcode {
+	case 1, 9, 17, 25:
+		inst.Data.RegCount = 2
+	case 2, 10, 18, 26:
+		inst.Data.RegCount = 4
+	case 3, 11, 19, 27:
+		inst.Data.RegCount = 8
+	case 4, 12, 20, 28:
+		inst.Data.RegCount = 16
+	}
+
+	if inst.Imm {
+		inst.Offset = NewIntOperand(int64(extractBits(bytesHi, 0, 19)))
+	} else {
+		inst.Offset = NewSRegOperand(int(extractBits(bytesHi, 0, 19)), 1)
+	}
+}
+
 // Decode parses the head of the buffer and returns the next instruction
 func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
@@ -214,6 +249,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	switch format.FormatType {
 	case sop2:
 		d.decodeSop2(inst, buf)
+	case smem:
+		d.decodeSmem(inst, buf)
 	case vop1:
 		d.decodeVop1(inst, buf)
 	case flat:
@@ -504,4 +541,30 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"flat_atomic_xor_x2", 91, d.formatTable[flat]})
 	d.addInstType(&InstType{"flat_atomic_inc_x2", 92, d.formatTable[flat]})
 	d.addInstType(&InstType{"flat_atomic_dec_x2", 93, d.formatTable[flat]})
+
+	// SMEM operations
+	d.addInstType(&InstType{"s_load_dword", 0, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_load_dwordx2", 1, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_load_dwordx4", 2, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_load_dwordx8", 3, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_load_dwordx16", 4, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_load_dword", 8, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_load_dwordx2", 9, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_load_dwordx4", 10, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_load_dwordx8", 11, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_load_dwordx16", 12, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_store_dword", 16, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_store_dwordx2", 17, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_store_dwordx4", 18, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_store_dword", 24, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_store_dwordx2", 25, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_buffer_store_dwordx4", 26, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_dcache_inv", 32, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_dcache_wb", 33, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_dcache_inv_vol", 34, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_dcache_wb_vol", 35, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_memtime", 36, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_memrealtime", 37, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_atc_probe", 38, d.formatTable[smem]})
+	d.addInstType(&InstType{"s_atc_probe_buffer", 39, d.formatTable[smem]})
 }
