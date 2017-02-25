@@ -120,6 +120,9 @@ func getOperand(num uint16) (*Operand, error) {
 	case num == 255:
 		return &Operand{LiteralConstant, nil, 0, 0, 0}, nil
 
+	case num >= 256 && num <= 511:
+		return &Operand{RegOperand, Regs[V0+RegType(num-256)], 0, 0, 0}, nil
+
 	default:
 		return nil, fmt.Errorf("cannot find S Operand %d", num)
 	}
@@ -131,22 +134,30 @@ type Instruction struct {
 	*InstType
 	ByteSize int
 
-	SSRC0 *Operand
-	SSRC1 *Operand
-	SDST  *Operand
+	Src0 *Operand
+	Src1 *Operand
+	Dst  *Operand
 }
 
 func (i Instruction) sop2String() string {
 	return i.InstName + " " +
-		i.SDST.String() + ", " +
-		i.SSRC0.String() + ", " +
-		i.SSRC1.String()
+		i.Dst.String() + ", " +
+		i.Src0.String() + ", " +
+		i.Src1.String()
+}
+
+func (i Instruction) vop1String() string {
+	return i.InstName + " " +
+		i.Dst.String() + ", " +
+		i.Src0.String()
 }
 
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
 		return i.sop2String()
+	case vop1:
+		return i.vop1String()
 	default:
 		return i.InstName
 	}

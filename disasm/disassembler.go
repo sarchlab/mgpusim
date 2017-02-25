@@ -127,20 +127,33 @@ func (d *Disassembler) loopUp(format *Format, opcode Opcode) (*InstType, error) 
 func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
-	ssrc0Value := extractBits(bytes, 0, 7)
-	inst.SSRC0, _ = getOperand(uint16(ssrc0Value))
-	if inst.SSRC0.OperandType == LiteralConstant {
+	src0Value := extractBits(bytes, 0, 7)
+	inst.Src0, _ = getOperand(uint16(src0Value))
+	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 	}
 
-	ssrc1Value := extractBits(bytes, 8, 15)
-	inst.SSRC1, _ = getOperand(uint16(ssrc1Value))
-	if inst.SSRC1.OperandType == LiteralConstant {
+	src1Value := extractBits(bytes, 8, 15)
+	inst.Src1, _ = getOperand(uint16(src1Value))
+	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 	}
 
 	sdstValue := extractBits(bytes, 16, 22)
-	inst.SDST, _ = getOperand(uint16(sdstValue))
+	inst.Dst, _ = getOperand(uint16(sdstValue))
+}
+
+func (d *Disassembler) decodeVop1(inst *Instruction, buf []byte) {
+	bytes := binary.LittleEndian.Uint32(buf)
+
+	src0Value := extractBits(bytes, 0, 8)
+	inst.Src0, _ = getOperand(uint16(src0Value))
+	if inst.Src0.OperandType == LiteralConstant {
+		inst.ByteSize += 4
+	}
+
+	dstValue := extractBits(bytes, 17, 24)
+	inst.Dst, _ = getOperand(uint16(dstValue + 256))
 }
 
 // Decode parses the head of the buffer and returns the next instruction
@@ -168,6 +181,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	switch format.FormatType {
 	case sop2:
 		d.decodeSop2(inst, buf)
+	case vop1:
+		d.decodeVop1(inst, buf)
 	default:
 		break
 	}
