@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 )
 
@@ -255,13 +254,13 @@ func (d *Disassembler) decodeVopc(inst *Instruction, buf []byte) {
 
 func (d *Disassembler) decodeSopc(inst *Instruction, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
-	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
+	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 	}
 
-	inst.Src1, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
-	if inst.Src0.OperandType == LiteralConstant {
+	inst.Src1, _ = getOperand(uint16(extractBits(bytes, 8, 15)))
+	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 	}
 }
@@ -299,10 +298,6 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	opcode := format.retrieveOpcode(binary.LittleEndian.Uint32(buf))
 	instType, err := d.loopUp(format, opcode)
 	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		fmt.Fprintf(os.Stderr, " %032b\n",
-			binary.LittleEndian.Uint32(buf))
-
 		return nil, err
 	}
 
@@ -353,14 +348,7 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 				if err != nil {
 					buf = buf[4:]
 				} else {
-					fmt.Printf("%08b %08b %08b %08b: %s",
-						buf[3], buf[2], buf[1], buf[0], inst)
-					if inst.ByteSize == 8 {
-						fmt.Printf(" %08b %08b %08b %08b\n",
-							buf[8], buf[7], buf[6], buf[5])
-					} else {
-						fmt.Println()
-					}
+					fmt.Printf("%s\n", inst)
 					buf = buf[inst.ByteSize:]
 				}
 			}
@@ -503,7 +491,7 @@ func (d *Disassembler) initializeDecodeTable() {
 
 	// VOP1 instructions
 	d.addInstType(&InstType{"v_nop", 0, d.formatTable[vop1]})
-	d.addInstType(&InstType{"v_mov_b32", 1, d.formatTable[vop1]})
+	d.addInstType(&InstType{"v_mov_b32_e32", 1, d.formatTable[vop1]})
 	d.addInstType(&InstType{"v_readfirstlane_b32", 2, d.formatTable[vop1]})
 	d.addInstType(&InstType{"v_cvt_i32_f64", 3, d.formatTable[vop1]})
 	d.addInstType(&InstType{"v_cvt_f64_i32", 4, d.formatTable[vop1]})
