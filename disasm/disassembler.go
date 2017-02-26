@@ -156,6 +156,13 @@ func (d *Disassembler) decodeVop1(inst *Instruction, buf []byte) {
 	inst.Dst, _ = getOperand(uint16(dstValue + 256))
 }
 
+func (d *Disassembler) decodeVop2(inst *Instruction, buf []byte) {
+	bytes := binary.LittleEndian.Uint32(buf)
+	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
+	inst.Src1 = NewVRegOperand(int(extractBits(bytes, 9, 16)), 0)
+	inst.Dst = NewVRegOperand(int(extractBits(bytes, 17, 24)), 0)
+}
+
 func (d *Disassembler) decodeFlat(inst *Instruction, buf []byte) {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
@@ -257,6 +264,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		d.decodeSop2(inst, buf)
 	case smem:
 		d.decodeSmem(inst, buf)
+	case vop2:
+		d.decodeVop2(inst, buf)
 	case vop1:
 		d.decodeVop1(inst, buf)
 	case flat:
@@ -334,7 +343,7 @@ func (d *Disassembler) initializeFormatTable() {
 func (d *Disassembler) initializeDecodeTable() {
 	d.decodeTables = make(map[formatType]*decodeTable)
 
-	// SOP instructions
+	// SOP2 instructions
 	d.addInstType(&InstType{"s_add_u32", 0, d.formatTable[sop2]})
 	d.addInstType(&InstType{"s_sub_u32", 1, d.formatTable[sop2]})
 	d.addInstType(&InstType{"s_add_i32", 2, d.formatTable[sop2]})

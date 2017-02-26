@@ -266,11 +266,18 @@ func (i Instruction) soppString() string {
 		if extractBits(uint32(i.SImm16.IntValue), 8, 12) == 0 {
 			operandStr += " lgkmcnt(0)"
 		}
+	} else if i.Opcode == 1 || i.Opcode == 10 {
+
 	} else {
 		operandStr = " " + i.SImm16.String()
 	}
 	s := i.InstName + operandStr
 	return s
+}
+
+func (i Instruction) vop2String() string {
+	return fmt.Sprintf("%s %s, vcc, %s, %s", i.InstName,
+		i.Dst.String(), i.Src0.String(), i.Src1.String())
 }
 
 func (i Instruction) String() string {
@@ -281,6 +288,8 @@ func (i Instruction) String() string {
 		return i.smemString()
 	case vop1:
 		return i.vop1String()
+	case vop2:
+		return i.vop2String()
 	case flat:
 		return i.flatString()
 	case sopp:
