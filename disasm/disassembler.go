@@ -266,6 +266,29 @@ func (d *Disassembler) decodeSopc(inst *Instruction, buf []byte) {
 	}
 }
 
+func (d *Disassembler) decodeVop3(inst *Instruction, buf []byte) {
+	bytesLo := binary.LittleEndian.Uint32(buf)
+	bytesHi := binary.LittleEndian.Uint32(buf[4:])
+
+	// TODO: Consider the VOP3b format
+	if inst.Opcode <= 255 { // The comparison instructions
+		inst.Dst, _ = getOperand(uint16(extractBits(bytesLo, 0, 7)))
+	} else {
+		inst.Dst = NewVRegOperand(int(extractBits(bytesLo, 0, 7)), 0)
+	}
+	inst.Abs = int(extractBits(bytesLo, 8, 10))
+	if extractBits(bytesLo, 15, 15) != 0 {
+		inst.Clamp = true
+	}
+
+	inst.Src0, _ = getOperand(uint16(extractBits(bytesHi, 0, 8)))
+	inst.Src1, _ = getOperand(uint16(extractBits(bytesHi, 9, 17)))
+	inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
+
+	inst.Omod = int(extractBits(bytesHi, 27, 28))
+	inst.Neg = int(extractBits(bytesHi, 29, 31))
+}
+
 // Decode parses the head of the buffer and returns the next instruction
 func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
@@ -305,6 +328,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		d.decodeVopc(inst, buf)
 	case sopc:
 		d.decodeSopc(inst, buf)
+	case vop3:
+		d.decodeVop3(inst, buf)
 	default:
 		break
 	}

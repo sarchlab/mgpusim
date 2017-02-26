@@ -212,6 +212,7 @@ type Instruction struct {
 
 	Src0 *Operand
 	Src1 *Operand
+	Src2 *Operand
 	Dst  *Operand
 
 	Addr   *Operand
@@ -220,10 +221,14 @@ type Instruction struct {
 	Offset *Operand
 	SImm16 *Operand
 
+	Abs                 int
+	Omod                int
+	Neg                 int
 	SystemLevelCoherent bool
 	GlobalLevelCoherent bool
 	TextureFailEnable   bool
 	Imm                 bool
+	Clamp               bool
 }
 
 func (i Instruction) sop2String() string {
@@ -296,6 +301,13 @@ func (i Instruction) sopcString() string {
 		i.InstName, i.Src0.String(), i.Src1.String())
 }
 
+func (i Instruction) vop3String() string {
+	// TODO: Lots of things not considered here
+	return fmt.Sprintf("%s %s, %s, %s, %s",
+		i.InstName, i.Dst.String(),
+		i.Src0.String(), i.Src1.String(), i.Src2.String())
+}
+
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
@@ -314,6 +326,8 @@ func (i Instruction) String() string {
 		return i.vopcString()
 	case sopc:
 		return i.sopcString()
+	case vop3:
+		return i.vop3String()
 	default:
 		return i.InstName
 	}
