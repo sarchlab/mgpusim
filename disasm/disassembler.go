@@ -243,6 +243,16 @@ func (d *Disassembler) decodeSopp(inst *Instruction, buf []byte) {
 	inst.SImm16 = NewIntOperand(int64(extractBits(bytes, 0, 15)))
 }
 
+func (d *Disassembler) decodeVopc(inst *Instruction, buf []byte) {
+	bytes := binary.LittleEndian.Uint32(buf)
+	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
+	if inst.Src0.OperandType == LiteralConstant {
+		inst.ByteSize += 4
+	}
+
+	inst.Src1 = NewVRegOperand(int(extractBits(bytes, 9, 16)), 0)
+}
+
 // Decode parses the head of the buffer and returns the next instruction
 func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
@@ -278,6 +288,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		d.decodeFlat(inst, buf)
 	case sopp:
 		d.decodeSopp(inst, buf)
+	case vopc:
+		d.decodeVopc(inst, buf)
 	default:
 		break
 	}

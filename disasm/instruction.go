@@ -3,6 +3,7 @@ package disasm
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // Operand types
@@ -280,6 +281,16 @@ func (i Instruction) vop2String() string {
 		i.Dst.String(), i.Src0.String(), i.Src1.String())
 }
 
+func (i Instruction) vopcString() string {
+	dst := "vcc"
+	if strings.Contains(i.InstName, "cmpx") {
+		dst = "exec"
+	}
+
+	return fmt.Sprintf("%s %s, %s, %s",
+		i.InstName, dst, i.Src0.String(), i.Src1.String())
+}
+
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
@@ -294,6 +305,8 @@ func (i Instruction) String() string {
 		return i.flatString()
 	case sopp:
 		return i.soppString()
+	case vopc:
+		return i.vopcString()
 	default:
 		return i.InstName
 	}
