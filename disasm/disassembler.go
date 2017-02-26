@@ -253,6 +253,19 @@ func (d *Disassembler) decodeVopc(inst *Instruction, buf []byte) {
 	inst.Src1 = NewVRegOperand(int(extractBits(bytes, 9, 16)), 0)
 }
 
+func (d *Disassembler) decodeSopc(inst *Instruction, buf []byte) {
+	bytes := binary.LittleEndian.Uint32(buf)
+	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
+	if inst.Src0.OperandType == LiteralConstant {
+		inst.ByteSize += 4
+	}
+
+	inst.Src1, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
+	if inst.Src0.OperandType == LiteralConstant {
+		inst.ByteSize += 4
+	}
+}
+
 // Decode parses the head of the buffer and returns the next instruction
 func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
@@ -290,6 +303,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		d.decodeSopp(inst, buf)
 	case vopc:
 		d.decodeVopc(inst, buf)
+	case sopc:
+		d.decodeSopc(inst, buf)
 	default:
 		break
 	}
@@ -336,7 +351,7 @@ func (d *Disassembler) initializeFormatTable() {
 	d.formatTable[vop1] = &Format{vop1, "vop1", 0x7E00, 0xFE00, 4, 9, 16}
 	d.formatTable[vopc] = &Format{vopc, "vopc", 0x7C00, 0xFE00, 4, 17, 24}
 	d.formatTable[smem] = &Format{smem, "smem", 0xC000, 0xFC00, 8, 18, 25}
-	d.formatTable[vop3] = &Format{vop3, "vop3", 0xD000, 0xFC00, 4, 16, 25}
+	d.formatTable[vop3] = &Format{vop3, "vop3", 0xD000, 0xFC00, 8, 16, 25}
 	d.formatTable[vintrp] = &Format{vintrp, "vintrp", 0xC800, 0xFC00, 4, 16, 17}
 	d.formatTable[ds] = &Format{ds, "ds", 0xD800, 0xFC00, 8, 17, 24}
 	d.formatTable[mubuf] = &Format{mubuf, "mubuf", 0xE000, 0xFC00, 8, 18, 24}
@@ -932,6 +947,8 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pk_u8_f32", 477, d.formatTable[vop3]})
 	d.addInstType(&InstType{"v_div_fixup_f32", 478, d.formatTable[vop3]})
 	d.addInstType(&InstType{"v_div_fixup_f64", 479, d.formatTable[vop3]})
+	d.addInstType(&InstType{"v_div_scale_f32", 480, d.formatTable[vop3]})
+	d.addInstType(&InstType{"v_div_scale_f64", 481, d.formatTable[vop3]})
 	d.addInstType(&InstType{"v_div_fmas_f32", 482, d.formatTable[vop3]})
 	d.addInstType(&InstType{"v_div_fmas_f64", 483, d.formatTable[vop3]})
 	d.addInstType(&InstType{"v_msad_u8", 484, d.formatTable[vop3]})
@@ -977,5 +994,56 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_pkrtz_f16_f32", 662, d.formatTable[vop3]})
 	d.addInstType(&InstType{"v_cvt_pk_u16_u32", 663, d.formatTable[vop3]})
 	d.addInstType(&InstType{"v_cvt_pk_i16_i32", 664, d.formatTable[vop3]})
+
+	// SOP1 Instructions
+	d.addInstType(&InstType{"s_mov_b32", 0, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_mov_b64", 1, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_cmov_b32", 2, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_cmov_b64", 3, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_not_b32", 4, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_not_b64", 5, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_wqm_b32", 6, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_wqm_b64 ", 7, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_brev_b32", 8, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_brev_b64", 9, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bcnt0_i32_b32", 10, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bcnt0_i32_b64", 11, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bcnt1_i32_b32", 12, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bcnt1_i32_b64", 13, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_ff0_i32_b32", 14, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_ff0_i32_b64", 15, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_ff1_i32_b32", 16, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_ff1_i32_b64", 17, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_flbit_i32_b32", 18, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_flbit_i32_b64", 19, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_flbit_i32", 20, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_flbit_i32_i64", 21, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_sext_i32_i8", 22, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_sext_i32_i16", 23, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bitset0_b32", 24, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bitset0_b64", 25, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bitset1_b32", 26, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_bitset1_b64", 27, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_getpc_b64", 28, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_setpc_b64", 29, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_swappc_b64", 30, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_rfe_b64", 31, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_and_saveexec_b64", 32, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_or_saveexec_b64", 33, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_xor_saveexec_b64", 34, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_andn2_saveexec_b64", 35, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_orn2_saveexec_b64", 36, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_nand_saveexec_b64", 37, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_nor_saveexec_b64", 38, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_xnor_saveexec_b64", 39, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_quadmask_b32", 40, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_quadmask_b64", 41, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_movrels_b32", 42, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_movrels_b64", 43, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_movreld_b32", 44, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_movreld_b64", 45, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_cbranch_join", 46, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_abs_i32", 48, d.formatTable[sop1]})
+	d.addInstType(&InstType{"s_set_gpr_idx_idx", 49, d.formatTable[sop1]})
 
 }

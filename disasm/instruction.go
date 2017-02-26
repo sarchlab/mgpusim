@@ -291,6 +291,11 @@ func (i Instruction) vopcString() string {
 		i.InstName, dst, i.Src0.String(), i.Src1.String())
 }
 
+func (i Instruction) sopcString() string {
+	return fmt.Sprintf("%s %s, %s",
+		i.InstName, i.Src0.String(), i.Src1.String())
+}
+
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
@@ -307,6 +312,8 @@ func (i Instruction) String() string {
 		return i.soppString()
 	case vopc:
 		return i.vopcString()
+	case sopc:
+		return i.sopcString()
 	default:
 		return i.InstName
 	}
