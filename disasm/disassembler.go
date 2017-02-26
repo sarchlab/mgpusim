@@ -224,6 +224,12 @@ func (d *Disassembler) decodeSmem(inst *Instruction, buf []byte) {
 	}
 }
 
+func (d *Disassembler) decodeSopp(inst *Instruction, buf []byte) {
+	bytes := binary.LittleEndian.Uint32(buf)
+
+	inst.SImm16 = NewIntOperand(int64(extractBits(bytes, 0, 15)))
+}
+
 // Decode parses the head of the buffer and returns the next instruction
 func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
@@ -255,6 +261,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		d.decodeVop1(inst, buf)
 	case flat:
 		d.decodeFlat(inst, buf)
+	case sopp:
+		d.decodeSopp(inst, buf)
 	default:
 		break
 	}
@@ -272,14 +280,21 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 			data, _ := sec.Data()
 			co := NewHsaCo(data)
 
-			instructionData := co.InstructionData()
-			for len(instructionData) > 0 {
-				inst, err := d.Decode(instructionData)
+			buf := co.InstructionData()
+			for len(buf) > 0 {
+				inst, err := d.Decode(buf)
 				if err != nil {
-					instructionData = instructionData[4:]
+					buf = buf[4:]
 				} else {
-					fmt.Println(inst)
-					instructionData = instructionData[inst.ByteSize:]
+					fmt.Printf("%08b %08b %08b %08b: %s",
+						buf[3], buf[2], buf[1], buf[0], inst)
+					if inst.ByteSize == 8 {
+						fmt.Printf(" %08b %08b %08b %08b\n",
+							buf[8], buf[7], buf[6], buf[5])
+					} else {
+						fmt.Println()
+					}
+					buf = buf[inst.ByteSize:]
 				}
 			}
 		}
@@ -542,7 +557,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"flat_atomic_inc_x2", 92, d.formatTable[flat]})
 	d.addInstType(&InstType{"flat_atomic_dec_x2", 93, d.formatTable[flat]})
 
-	// SMEM operations
+	// SMEM instructions
 	d.addInstType(&InstType{"s_load_dword", 0, d.formatTable[smem]})
 	d.addInstType(&InstType{"s_load_dwordx2", 1, d.formatTable[smem]})
 	d.addInstType(&InstType{"s_load_dwordx4", 2, d.formatTable[smem]})
@@ -567,4 +582,35 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"s_memrealtime", 37, d.formatTable[smem]})
 	d.addInstType(&InstType{"s_atc_probe", 38, d.formatTable[smem]})
 	d.addInstType(&InstType{"s_atc_probe_buffer", 39, d.formatTable[smem]})
+
+	// SOPP instructions
+	d.addInstType(&InstType{"s_nop", 0, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_endpgm", 1, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_branch", 2, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_scc0", 4, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_scc1", 5, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_vccz", 6, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_vccnz", 7, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_execz", 8, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_execnz", 9, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_barrier", 10, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_setkill", 11, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_waitcnt", 12, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_sethalt", 13, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_sleep", 14, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_setprio", 15, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_sendmsg", 16, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_sendmsghalt", 17, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_trap", 18, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_icache_inv", 19, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_incperflevel", 20, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_decperflevel", 21, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_ttracedata", 22, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_cdbgsys", 23, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_cdbguser", 24, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_cdbgsys_or_user", 25, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_cbranch_cdbgsys_and_user", 26, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_endpgm_saved", 27, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_set_gpr_idx_off", 28, d.formatTable[sopp]})
+	d.addInstType(&InstType{"s_set_gpr_idx_mode", 29, d.formatTable[sopp]})
 }

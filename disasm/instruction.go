@@ -217,6 +217,7 @@ type Instruction struct {
 	Data   *Operand
 	Base   *Operand
 	Offset *Operand
+	SImm16 *Operand
 
 	SystemLevelCoherent bool
 	GlobalLevelCoherent bool
@@ -256,6 +257,22 @@ func (i Instruction) smemString() string {
 	return s
 }
 
+func (i Instruction) soppString() string {
+	operandStr := ""
+	if i.Opcode == 12 { // S_WAITCNT
+		if extractBits(uint32(i.SImm16.IntValue), 0, 3) == 0 {
+			operandStr += " vmcnt(0)"
+		}
+		if extractBits(uint32(i.SImm16.IntValue), 8, 12) == 0 {
+			operandStr += " lgkmcnt(0)"
+		}
+	} else {
+		operandStr = " " + i.SImm16.String()
+	}
+	s := i.InstName + operandStr
+	return s
+}
+
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
@@ -266,6 +283,8 @@ func (i Instruction) String() string {
 		return i.vop1String()
 	case flat:
 		return i.flatString()
+	case sopp:
+		return i.soppString()
 	default:
 		return i.InstName
 	}
