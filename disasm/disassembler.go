@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 )
 
 const (
@@ -140,6 +141,12 @@ func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
 
 	sdstValue := extractBits(bytes, 16, 22)
 	inst.Dst, _ = getOperand(uint16(sdstValue))
+
+	if strings.Contains(inst.InstName, "64") {
+		inst.Src0.RegCount = 2
+		inst.Src1.RegCount = 2
+		inst.Dst.RegCount = 2
+	}
 }
 
 func (d *Disassembler) decodeVop1(inst *Instruction, buf []byte) {
