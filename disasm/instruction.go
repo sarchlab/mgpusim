@@ -83,10 +83,17 @@ func (i Instruction) soppString() string {
 }
 
 func (i Instruction) vop2String() string {
-	s := fmt.Sprintf("%s %s, vcc, %s, %s", i.InstName,
-		i.Dst.String(), i.Src0.String(), i.Src1.String())
+	s := fmt.Sprintf("%s %s", i.InstName, i.Dst.String())
 
-	if i.Opcode == 28 {
+	switch i.Opcode {
+	case 25, 26, 27, 28, 29, 30:
+		s += ", vcc"
+	}
+
+	s += fmt.Sprintf(", %s, %s", i.Src0.String(), i.Src1.String())
+
+	switch i.Opcode {
+	case 28, 29:
 		s += ", vcc"
 	}
 

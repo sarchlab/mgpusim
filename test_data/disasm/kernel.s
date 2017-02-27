@@ -26,19 +26,19 @@ v_mov_b32_e32 v5, v0
 s_waitcnt lgkmcnt(0)
 v_mov_b32_e32 v4, s1
 v_mov_b32_e32 v3, s0
-v_cmp_lt_u32_e64 s[0:1], v0, v1
+v_cmp_lt_u32 s0, v0, v1
 v_mov_b32_e32 v6, s9
-v_cndmask_b32_e64 v6, 0, v6, s[0:1]
+v_cndmask_b32 v6, 0, v6
 v_add_i32_e32 v6, vcc, v6, v5
 v_mov_b32_e32 v7, 0
 v_mov_b32_e32 v8, s10
 v_mov_b32_e32 v9, s2
 v_mov_b32_e32 v10, s11
 v_mov_b32_e32 v11, s3
-v_cndmask_b32_e64 v8, v8, v9, s[0:1]
+v_cndmask_b32 v8, v8, v9
 v_lshlrev_b64 v[6:7], 2, v[6:7]
 v_add_i32_e32 v8, vcc, v8, v6
-v_cndmask_b32_e64 v9, v10, v11, s[0:1]
+v_cndmask_b32 v9, v10, v11
 v_addc_u32_e32 v9, vcc, v9, v7, vcc
 flat_load_dword v6, v[3:4]
 s_nop 0
@@ -47,7 +47,7 @@ v_add_i32_e32 v1, vcc, 1, v1
 v_add_i32_e32 v5, vcc, -1, v5
 v_add_i32_e32 v3, vcc, 4, v3
 v_addc_u32_e32 v4, vcc, 0, v4, vcc
-v_cmp_ne_u32_e32 vcc, s9, v1
+v_cmp_ne_u32 vcc, s9, v1
 s_and_b64 vcc, exec, vcc
 s_waitcnt vmcnt(0) lgkmcnt(0)
 v_mac_f32_e32 v2, v7, v6
@@ -61,7 +61,7 @@ flat_store_dword v[5:6], v2
 s_waitcnt vmcnt(0) lgkmcnt(0)
 s_barrier
 s_sub_i32 s0, s4, s9
-v_cmp_le_u32_e32 vcc, s0, v0
+v_cmp_le_u32 vcc, s0, v0
 s_and_saveexec_b64 s[0:1], vcc
 s_xor_b64 s[0:1], exec, s[0:1]
 s_cbranch_execz 19

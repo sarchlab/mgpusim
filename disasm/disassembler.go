@@ -393,8 +393,8 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 				if err != nil {
 					buf = buf[4:]
 				} else {
-					fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
-					// fmt.Fprintf(w, "%s\n", inst)
+					// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
+					fmt.Fprintf(w, "%s\n", inst)
 					buf = buf[inst.ByteSize:]
 				}
 			}
@@ -504,7 +504,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_and_b32", 19, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_or_b32", 20, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_xor_b32", 21, d.formatTable[vop2]})
-	d.addInstType(&InstType{"v_mac_f32", 22, d.formatTable[vop2]})
+	d.addInstType(&InstType{"v_mac_f32_e32", 22, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_madmk_f32", 23, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_madak_f32", 24, d.formatTable[vop2]})
 	// On documentation, this is v_add_u32
