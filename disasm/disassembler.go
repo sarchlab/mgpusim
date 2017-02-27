@@ -275,6 +275,10 @@ func (d *Disassembler) decodeSopc(inst *Instruction, buf []byte) {
 func (d *Disassembler) decodeVop3(inst *Instruction, buf []byte) {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
+	is64Bit := false
+	if strings.Contains(inst.InstName, "64") {
+		is64Bit = true
+	}
 
 	// TODO: Consider the VOP3b format
 	if inst.Opcode <= 255 { // The comparison instructions
@@ -282,13 +286,23 @@ func (d *Disassembler) decodeVop3(inst *Instruction, buf []byte) {
 	} else {
 		inst.Dst = NewVRegOperand(int(extractBits(bytesLo, 0, 7)), 0)
 	}
+	if is64Bit {
+		inst.Dst.RegCount = 2
+	}
+
 	inst.Abs = int(extractBits(bytesLo, 8, 10))
 	if extractBits(bytesLo, 15, 15) != 0 {
 		inst.Clamp = true
 	}
 
 	inst.Src0, _ = getOperand(uint16(extractBits(bytesHi, 0, 8)))
+	if is64Bit {
+		inst.Src0.RegCount = 2
+	}
 	inst.Src1, _ = getOperand(uint16(extractBits(bytesHi, 9, 17)))
+	if is64Bit {
+		inst.Src1.RegCount = 2
+	}
 
 	if inst.Opcode <= 447 ||
 		(inst.Opcode >= 464 && inst.Opcode <= 469) ||
@@ -296,10 +310,25 @@ func (d *Disassembler) decodeVop3(inst *Instruction, buf []byte) {
 		// Do not use inst.Src2
 	} else {
 		inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
+		if is64Bit {
+			inst.Src2.RegCount = 2
+		}
+
 	}
 
 	inst.Omod = int(extractBits(bytesHi, 27, 28))
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
+}
+
+func (d *Disassembler) decodeSop1(inst *Instruction, buf []byte) {
+	bytes := binary.LittleEndian.Uint32(buf)
+	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
+	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
+
+	if strings.Contains(inst.InstName, "64") {
+		inst.Src0.RegCount = 2
+		inst.Dst.RegCount = 2
+	}
 }
 
 // Decode parses the head of the buffer and returns the next instruction
@@ -339,6 +368,8 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		d.decodeSopc(inst, buf)
 	case vop3:
 		d.decodeVop3(inst, buf)
+	case sop1:
+		d.decodeSop1(inst, buf)
 	default:
 		break
 	}
@@ -362,8 +393,8 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 				if err != nil {
 					buf = buf[4:]
 				} else {
-					// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
-					fmt.Fprintf(w, "%s\n", inst)
+					fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
+					// fmt.Fprintf(w, "%s\n", inst)
 					buf = buf[inst.ByteSize:]
 				}
 			}
@@ -877,7 +908,8 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cmp_eq_u32", 0xca, d.formatTable[vopc]})
 	d.addInstType(&InstType{"v_cmp_le_u32", 0xcb, d.formatTable[vopc]})
 	d.addInstType(&InstType{"v_cmp_gt_u32", 0xcc, d.formatTable[vopc]})
-	d.addInstType(&InstType{"v_cmp_lg_u32", 0xcd, d.formatTable[vopc]})
+	// It is lg in the documentation
+	d.addInstType(&InstType{"v_cmp_ne_u32", 0xcd, d.formatTable[vopc]})
 	d.addInstType(&InstType{"v_cmp_ge_u32", 0xce, d.formatTable[vopc]})
 	d.addInstType(&InstType{"v_cmp_tru_u32", 0xcf, d.formatTable[vopc]})
 	d.addInstType(&InstType{"v_cmpx_f_i32", 0xd0, d.formatTable[vopc]})

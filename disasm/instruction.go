@@ -52,7 +52,7 @@ func (i Instruction) flatString() string {
 			i.Addr.String()
 	} else if i.Opcode >= 24 && i.Opcode <= 31 {
 		s = i.InstName + " " + i.Addr.String() + ", " +
-			i.Dst.String()
+			i.Data.String()
 	}
 	return s
 }
@@ -120,6 +120,10 @@ func (i Instruction) vop3String() string {
 	return s
 }
 
+func (i Instruction) sop1String() string {
+	return fmt.Sprintf("%s %s, %s", i.InstName, i.Dst.String(), i.Src0.String())
+}
+
 func (i Instruction) String() string {
 	switch i.FormatType {
 	case sop2:
@@ -140,6 +144,8 @@ func (i Instruction) String() string {
 		return i.sopcString()
 	case vop3:
 		return i.vop3String()
+	case sop1:
+		return i.sop1String()
 	default:
 		return i.InstName
 	}
