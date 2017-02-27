@@ -83,8 +83,14 @@ func (i Instruction) soppString() string {
 }
 
 func (i Instruction) vop2String() string {
-	return fmt.Sprintf("%s %s, vcc, %s, %s", i.InstName,
+	s := fmt.Sprintf("%s %s, vcc, %s, %s", i.InstName,
 		i.Dst.String(), i.Src0.String(), i.Src1.String())
+
+	if i.Opcode == 28 {
+		s += ", vcc"
+	}
+
+	return s
 }
 
 func (i Instruction) vopcString() string {
@@ -104,9 +110,14 @@ func (i Instruction) sopcString() string {
 
 func (i Instruction) vop3String() string {
 	// TODO: Lots of things not considered here
-	return fmt.Sprintf("%s %s, %s, %s, %s",
+	s := fmt.Sprintf("%s %s, %s, %s",
 		i.InstName, i.Dst.String(),
-		i.Src0.String(), i.Src1.String(), i.Src2.String())
+		i.Src0.String(), i.Src1.String())
+
+	if i.Src2 != nil {
+		s += ", " + i.Src2.String()
+	}
+	return s
 }
 
 func (i Instruction) String() string {

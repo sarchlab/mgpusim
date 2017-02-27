@@ -289,7 +289,14 @@ func (d *Disassembler) decodeVop3(inst *Instruction, buf []byte) {
 
 	inst.Src0, _ = getOperand(uint16(extractBits(bytesHi, 0, 8)))
 	inst.Src1, _ = getOperand(uint16(extractBits(bytesHi, 9, 17)))
-	inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
+
+	if inst.Opcode <= 447 ||
+		(inst.Opcode >= 464 && inst.Opcode <= 469) ||
+		(inst.Opcode >= 640 && inst.Opcode <= 664) {
+		// Do not use inst.Src2
+	} else {
+		inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
+	}
 
 	inst.Omod = int(extractBits(bytesHi, 27, 28))
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
@@ -355,7 +362,8 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 				if err != nil {
 					buf = buf[4:]
 				} else {
-					fmt.Printf("%s\n", inst)
+					// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
+					fmt.Fprintf(w, "%s\n", inst)
 					buf = buf[inst.ByteSize:]
 				}
 			}
@@ -468,10 +476,11 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_mac_f32", 22, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_madmk_f32", 23, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_madak_f32", 24, d.formatTable[vop2]})
-	d.addInstType(&InstType{"v_add_u32", 25, d.formatTable[vop2]})
+	// On documentation, this is v_add_u32
+	d.addInstType(&InstType{"v_add_i32_e32", 25, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_sub_u32", 26, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_subrev_u32", 27, d.formatTable[vop2]})
-	d.addInstType(&InstType{"v_addc_u32", 28, d.formatTable[vop2]})
+	d.addInstType(&InstType{"v_addc_u32_e32", 28, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_subb_u32", 29, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_subbrev_u32", 30, d.formatTable[vop2]})
 	d.addInstType(&InstType{"v_add_f16", 31, d.formatTable[vop2]})
