@@ -19,5 +19,4 @@ func main() {
 	disasm := disasm.NewDisassembler()
 
 	disasm.Disassemble(elfFile, os.Stdout)
-
 }
