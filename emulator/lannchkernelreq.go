@@ -8,5 +8,12 @@ import (
 type LaunchKernelReq struct {
 	*conn.BasicRequest
 
-	packet *HsaKernelDispatchPacket
+	Packet *HsaKernelDispatchPacket
+}
+
+// NewLaunchKernelReq returns a new LaunchKernelReq
+func NewLaunchKernelReq() *LaunchKernelReq {
+	r := new(LaunchKernelReq)
+	r.BasicRequest = conn.NewBasicRequest()
+	return r
 }

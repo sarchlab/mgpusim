@@ -17,5 +17,5 @@ type HsaKernelDispatchPacket struct {
 	KernelObject       uint64
 	KernargAddress     uint64
 	reserved2          uint64
-	CompletiongSignal  uint64
+	CompletionSignal   uint64
 }
