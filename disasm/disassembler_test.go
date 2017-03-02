@@ -13,7 +13,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/disasm"
 )
 
-func TestEventSys(t *testing.T) {
+func TestDisassembler(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "GCN3 Disassembler")
 }
