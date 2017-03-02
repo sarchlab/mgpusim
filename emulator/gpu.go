@@ -42,14 +42,12 @@ func (g *Gpu) Handle(e event.Event) error {
 // The GPU itself does not respond to requests, but it always forward to the
 // CommandProcessor.
 func (g *Gpu) Receive(req conn.Request) *conn.Error {
-	log.Printf("Called")
 	if req.Source() == g.CommandProcessor { // From the CommandProcessor
 		req.SetSource(g)
 		req.SetDestination(g.Driver)
 		g.GetConnection("ToDriver").Send(req)
 		return nil
 	} else if req.Source() == g.Driver { // From the Driver
-		log.Printf("Forwarding to CommandProcessor")
 		req.SetSource(g)
 		req.SetDestination(g.CommandProcessor)
 		g.GetConnection("ToCommandProcessor").Send(req)

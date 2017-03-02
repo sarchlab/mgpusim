@@ -18,7 +18,9 @@ type CommandProcessor struct {
 
 // NewCommandProcessor creates a new CommandProcessor
 func NewCommandProcessor(name string) *CommandProcessor {
-	return &CommandProcessor{conn.NewBasicComponent(name)}
+	c := &CommandProcessor{conn.NewBasicComponent(name)}
+	c.AddPort("ToDriver")
+	return c
 }
 
 // Receive processes the incomming requests

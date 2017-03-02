@@ -24,7 +24,6 @@ var _ = ginkgo.Describe("Gpu (unit test)", func() {
 		gpu.Driver = driver
 		gpu.CommandProcessor = commandProcessor
 
-		commandProcessor.AddPort("ToDriver")
 		driver.AddPort("ToGPU")
 
 		connection = conn.NewDirectConnection()
