@@ -17,14 +17,15 @@ var _ = ginkgo.Describe("Gpu (unit test)", func() {
 	)
 
 	ginkgo.BeforeEach(func() {
-		commandProcessor = conn.NewMockComponent()
+		commandProcessor = conn.NewMockComponent("CommandProcessor")
 		gpu = emulator.NewGpu("gpu")
-		driver = conn.NewMockComponent()
+		driver = conn.NewMockComponent("Driver")
 
 		gpu.Driver = driver
 		gpu.CommandProcessor = commandProcessor
 
 		driver.AddPort("ToGPU")
+		commandProcessor.AddPort("ToDriver")
 
 		connection = conn.NewDirectConnection()
 		conn.PlugIn(commandProcessor, "ToDriver", connection)
