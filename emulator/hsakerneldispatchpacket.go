@@ -8,7 +8,7 @@ type HsaKernelDispatchPacket struct {
 	WorkgroupSizeX     uint16
 	WorkgroupSizeY     uint16
 	WorkgroupSizeZ     uint16
-	Reserverd0         uint16
+	reserverd0         uint16
 	GridSizeX          uint32
 	GridSizeY          uint32
 	GridSizeZ          uint32

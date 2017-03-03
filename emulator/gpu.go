@@ -2,7 +2,6 @@ package emulator
 
 import (
 	"fmt"
-	"log"
 
 	"gitlab.com/yaotsu/core/conn"
 	"gitlab.com/yaotsu/core/event"
