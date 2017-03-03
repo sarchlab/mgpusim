@@ -54,7 +54,9 @@ func (cu *ComputeUnit) handleMapWorkGroupReq(req *MapWorkGroupReq) *conn.Error {
 		req.IsReply = true
 		req.Succeed = false
 		cu.GetConnection("ToDispatcher").Send(req)
+		return nil
 	}
+
 	return nil
 }
 

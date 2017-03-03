@@ -40,20 +40,24 @@ func initPlatform() {
 	globalMem.Latency = 2
 
 	// Host
-	host = conn.NewMockComponent()
+	host = conn.NewMockComponent("host")
 	host.AddPort("ToGpu")
 
 	// Gpu
 	gpu = emulator.NewGpu("Gpu")
 	commandProcessor := emulator.NewCommandProcessor("Gpu.CommandProcessor")
+	dispatcher := emulator.NewDispatcher("Gpu.Dispatcher")
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
+	commandProcessor.Dispatcher = dispatcher
 
 	// Connection
 	connection = conn.NewDirectConnection()
 	conn.PlugIn(gpu, "ToCommandProcessor", connection)
 	conn.PlugIn(commandProcessor, "ToDriver", connection)
+	conn.PlugIn(commandProcessor, "ToDispatcher", connection)
 	conn.PlugIn(host, "ToGpu", connection)
+	conn.PlugIn(dispatcher, "ToCommandProcessor", connection)
 }
 
 func loadProgram() {
