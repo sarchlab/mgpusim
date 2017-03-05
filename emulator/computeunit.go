@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/yaotsu/core/conn"
 	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/mem"
 )
 
 // A MapWorkGroupReq is a request sent from a dispatcher to a compute unit
@@ -47,13 +48,17 @@ func NewMapWorkGroupReqFactory() MapWorkGroupReqFactory {
 
 // A ComputeUnit is the unit that can execute workgroups.
 //
-// A ComputeUnit is a Yaotsu component. It defines port "ToDispatcher" to
-// receive the dispatching request
+// A ComputeUnit is a Yaotsu component
+//   ToDispatcher <=> Receive the dispatch request and respond with the
+//                    Completion signal
 type ComputeUnit struct {
 	*conn.BasicComponent
 
 	MaxNumWGs  int
 	WorkGroups []*WorkGroup
+
+	VgprStorage *mem.Storage //
+	SgprStorage *mem.Storage
 }
 
 // NewComputeUnit creates a ComputeUnit
