@@ -34,6 +34,9 @@ func initPlatform() {
 	// Simulation engine
 	engine = event.NewSerialEngine()
 
+	// Connection
+	connection = conn.NewDirectConnection()
+
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
 	globalMem.Frequency = 800 * event.MHz
@@ -46,13 +49,19 @@ func initPlatform() {
 	// Gpu
 	gpu = emulator.NewGpu("Gpu")
 	commandProcessor := emulator.NewCommandProcessor("Gpu.CommandProcessor")
-	dispatcher := emulator.NewDispatcher("Gpu.Dispatcher")
+	dispatcher := emulator.NewDispatcher("Gpu.Dispatcher",
+		emulator.NewMapWorkGroupReqFactory())
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
+	for i := 0; i < 4; i++ {
+		cu := emulator.NewComputeUnit("Gpu.CU" + string(i))
+		dispatcher.RegisterComputeUnit(cu)
+		conn.PlugIn(cu, "ToDispatcher", connection)
+		conn.PlugIn(dispatcher, "ToComputeUnits", connection)
+	}
 
 	// Connection
-	connection = conn.NewDirectConnection()
 	conn.PlugIn(gpu, "ToCommandProcessor", connection)
 	conn.PlugIn(commandProcessor, "ToDriver", connection)
 	conn.PlugIn(commandProcessor, "ToDispatcher", connection)
