@@ -9,13 +9,17 @@ type Grid struct {
 	CodeObject *disasm.HsaCo
 	Packet     *HsaKernelDispatchPacket
 
-	WorkGroups []*WorkGroup
+	WorkGroups        []*WorkGroup
+	WorkGroupsRunning []*WorkGroup
+	WorkGroupsDone    []*WorkGroup
 }
 
 // NewGrid creates and returns a new grid object
 func NewGrid() *Grid {
 	g := new(Grid)
 	g.WorkGroups = make([]*WorkGroup, 0)
+	g.WorkGroupsRunning = make([]*WorkGroup, 0)
+	g.WorkGroupsDone = make([]*WorkGroup, 0)
 	return g
 }
 

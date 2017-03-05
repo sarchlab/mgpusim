@@ -2,6 +2,7 @@ package emulator
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 
 	"gitlab.com/yaotsu/core/conn"
@@ -18,12 +19,30 @@ type MapWorkGroupReq struct {
 	Succeed bool
 }
 
+// NewMapWorkGroupReq returns a new MapWorkGroupReq
 func NewMapWorkGroupReq() *MapWorkGroupReq {
 	r := new(MapWorkGroupReq)
 	r.BasicRequest = conn.NewBasicRequest()
 
 	return r
+}
 
+// MapWorkGroupReqFactory is the factory that creates MapWorkGroupReq
+type MapWorkGroupReqFactory interface {
+	Create() *MapWorkGroupReq
+}
+
+type mapWorkGroupReqFactoryImpl struct {
+}
+
+func (f *mapWorkGroupReqFactoryImpl) Create() *MapWorkGroupReq {
+	return NewMapWorkGroupReq()
+}
+
+// NewMapWorkGroupReqFactory returns the default factory for the
+// MapWorkGroupReq
+func NewMapWorkGroupReqFactory() MapWorkGroupReqFactory {
+	return &mapWorkGroupReqFactoryImpl{}
 }
 
 // A ComputeUnit is the unit that can execute workgroups.
@@ -56,6 +75,8 @@ func (cu *ComputeUnit) handleMapWorkGroupReq(req *MapWorkGroupReq) *conn.Error {
 		cu.GetConnection("ToDispatcher").Send(req)
 		return nil
 	}
+
+	log.Printf("CU starts\n")
 
 	return nil
 }

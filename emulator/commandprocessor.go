@@ -13,7 +13,6 @@ import (
 // GPU.
 //
 //     ToDriver <=> Receive request and send feedback to the driver
-//
 //     ToDispatcher <=> Dispatcher of compute kernels
 type CommandProcessor struct {
 	*conn.BasicComponent
