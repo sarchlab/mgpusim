@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/yaotsu/core/conn"
 	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emulator"
 	"gitlab.com/yaotsu/mem"
 )
@@ -20,6 +21,7 @@ var (
 	gpu        *emulator.Gpu
 	host       *conn.MockComponent
 	connection conn.Connection
+	hsaco      *disasm.HsaCo
 )
 
 func main() {
@@ -85,6 +87,8 @@ func loadProgram() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	hsaco = disasm.NewHsaCoFromData(hsacoData)
 }
 
 func initMem() {
@@ -125,6 +129,7 @@ func run() {
 	}
 
 	req := emulator.NewLaunchKernelReq()
+	req.HsaCo = hsaco
 	req.Packet = new(emulator.HsaKernelDispatchPacket)
 	req.Packet.GridSizeX = 1024
 	req.Packet.GridSizeY = 1

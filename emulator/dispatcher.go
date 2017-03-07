@@ -61,6 +61,7 @@ func (d *Dispatcher) dispatch(cu conn.Component, wg *WorkGroup, time event.VTime
 func (d *Dispatcher) handleLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
 	grid := NewGrid()
 	grid.Packet = req.Packet
+	grid.CodeObject = req.HsaCo
 	grid.SpawnWorkGroups()
 
 	d.InFlightGrids = append(d.InFlightGrids, grid)
