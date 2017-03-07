@@ -8,6 +8,14 @@ type Reg struct {
 	IsBool   bool
 }
 
+func VReg(index int) *Reg {
+	return Regs[V0+RegType(index)]
+}
+
+func SReg(index int) *Reg {
+	return Regs[S0+RegType(index)]
+}
+
 // IsVReg checks if a register is a vector register
 func (r *Reg) IsVReg() bool {
 	return r.RegType >= V0 && r.RegType <= V255

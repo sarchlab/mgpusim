@@ -26,8 +26,8 @@ var _ = Describe("ComputeUnit", func() {
 	})
 
 	Context("on MapWorkGroupReq", func() {
-		It("should reject if max number of workgroup reached", func() {
-			cu.WorkGroups = append(cu.WorkGroups, nil)
+		It("should reject if there is workgroup executing", func() {
+			cu.WorkGroup = emulator.NewWorkGroup()
 
 			req := emulator.NewMapWorkGroupReq()
 			req.SetSource(mockDispatcher)

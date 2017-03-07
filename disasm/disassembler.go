@@ -385,7 +385,7 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 	for _, sec := range sections {
 		if sec.Name == ".text" {
 			data, _ := sec.Data()
-			co := NewHsaCo(data)
+			co := NewHsaCoFromData(data)
 
 			buf := co.InstructionData()
 			for len(buf) > 0 {
