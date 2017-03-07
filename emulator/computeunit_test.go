@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core/conn"
+	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emulator"
 )
 
@@ -41,5 +42,20 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(req.IsReply).To(BeTrue())
 			Expect(req.Succeed).NotTo(BeTrue())
 		})
+	})
+
+	Context("on Read and write registers", func() {
+		It("should read and write vgrs", func() {
+			cu.WriteRegister(disasm.VReg(0), 0, []byte{0, 1, 2, 3})
+			res := cu.ReadRegister(disasm.VReg(0), 0, 4)
+			Expect(res).To(ConsistOf([]byte{0, 1, 2, 3}))
+		})
+
+		It("should read and write sgrs", func() {
+			cu.WriteRegister(disasm.SReg(0), 0, []byte{0, 1, 2, 3})
+			res := cu.ReadRegister(disasm.SReg(0), 0, 4)
+			Expect(res).To(ConsistOf([]byte{0, 1, 2, 3}))
+		})
+
 	})
 })

@@ -63,6 +63,7 @@ type ComputeUnit struct {
 	VgprPerWorkItem      int
 	SgprPerWavefront     int
 	WorkItemPerWavefront int
+	MaxNumOfWIs          int
 }
 
 // NewComputeUnit creates a ComputeUnit
@@ -76,15 +77,15 @@ func NewComputeUnit(name string) *ComputeUnit {
 	cu.VgprPerWorkItem = 256
 	cu.SgprPerWavefront = 102
 	cu.WorkItemPerWavefront = 64
+	cu.MaxNumOfWIs = 1024
 
 	cu.AddPort("ToDispatcher")
 	return cu
 }
 
 // vgprToAddress converts a VGPR to the address in the vector register file
-func (cu *ComputeUnit) vgprToAddress(reg disasm.Reg, wiFlattenedId int) int {
-	wg := cu.WorkGroup
-	wiInWgId := wiFlattenedId % (wg.SizeX * wg.SizeY * wg.SizeZ)
+func (cu *ComputeUnit) vgprToAddress(reg *disasm.Reg, wiFlattenedId int) int {
+	wiInWgId := wiFlattenedId % cu.MaxNumOfWIs
 	return wiInWgId*cu.VgprPerWorkItem + reg.RegIndex()
 
 	log.Panic("Registers other othan SGPR and VGPR are not supported yet")
@@ -92,13 +93,14 @@ func (cu *ComputeUnit) vgprToAddress(reg disasm.Reg, wiFlattenedId int) int {
 }
 
 // sgprToAddress converts a SGPR to the address in the scalar register file
-func (cu *ComputeUnit) sgprToAddress(reg disasm.Reg, wiFlattenedId int) int {
+func (cu *ComputeUnit) sgprToAddress(reg *disasm.Reg, wiFlattenedId int) int {
 	wfId := wiFlattenedId / cu.WorkItemPerWavefront
 	return wfId*cu.SgprPerWavefront + reg.RegIndex()
 }
 
 // WriteRegister updates the value in the register file
-func (cu *ComputeUnit) WriteRegister(reg disasm.Reg, wiFlattenedId int, data []byte) {
+func (cu *ComputeUnit) WriteRegister(reg *disasm.Reg,
+	wiFlattenedId int, data []byte) {
 	if reg.IsVReg() {
 		addr := cu.vgprToAddress(reg, wiFlattenedId)
 		err := cu.VgprStorage.Write(uint64(addr), data)
@@ -111,13 +113,14 @@ func (cu *ComputeUnit) WriteRegister(reg disasm.Reg, wiFlattenedId int, data []b
 		if err != nil {
 			log.Panic(err)
 		}
+	} else {
+		log.Panic("Only VGPRs and SGPRs are supported")
 	}
-
-	log.Panic("Only VGPRs and SGPRs are supported")
 }
 
 // ReadRegsiter returns the register value in the register file
-func (cu *ComputeUnit) ReadRegister(reg disasm.Reg, wiFlattenedId int, byteSize int) []byte {
+func (cu *ComputeUnit) ReadRegister(reg *disasm.Reg,
+	wiFlattenedId int, byteSize int) []byte {
 	if reg.IsVReg() {
 		addr := cu.vgprToAddress(reg, wiFlattenedId)
 		data, err := cu.VgprStorage.Read(uint64(addr), uint64(byteSize))
