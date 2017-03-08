@@ -70,7 +70,7 @@ func (g *Grid) SpawnWorkGroups() {
 	}
 }
 
-// A Workgroup is part of the kernel that runs on one ComputeUnit
+// A WorkGroup is part of the kernel that runs on one ComputeUnit
 type WorkGroup struct {
 	Grid                *Grid
 	SizeX, SizeY, SizeZ int
