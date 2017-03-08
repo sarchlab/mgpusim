@@ -1,6 +1,7 @@
 package emulator
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"reflect"
@@ -94,8 +95,9 @@ func (cu *ComputeUnit) vgprToAddress(reg *disasm.Reg, wiFlattenedId int) int {
 
 // sgprToAddress converts a SGPR to the address in the scalar register file
 func (cu *ComputeUnit) sgprToAddress(reg *disasm.Reg, wiFlattenedId int) int {
-	wfId := wiFlattenedId / cu.WorkItemPerWavefront
-	return wfId*cu.SgprPerWavefront + reg.RegIndex()
+	wiInWgId := wiFlattenedId % cu.MaxNumOfWIs
+	wfInWgId := wiInWgId / cu.WorkItemPerWavefront
+	return wfInWgId*cu.SgprPerWavefront + reg.RegIndex()
 }
 
 // WriteRegister updates the value in the register file
@@ -143,7 +145,7 @@ func (cu *ComputeUnit) ReadRegister(reg *disasm.Reg,
 	return nil
 }
 
-func (cu *ComputeUnit) initializeRegisters() {
+func (cu *ComputeUnit) initializeScalarRegisterForWavefront(wiId int) {
 	count := 0
 	if cu.WorkGroup.Grid.CodeObject.EnableSgprPrivateSegmentWaveByteOffset() {
 		log.Panic("Initializing register PrivateSegmentWaveByteOffset is not supported")
@@ -151,9 +153,10 @@ func (cu *ComputeUnit) initializeRegisters() {
 	}
 
 	if cu.WorkGroup.Grid.CodeObject.EnableSgprDispatchPtr() {
-		// reg := disasm.SReg(count)
-
-		log.Println("Initializing register DispatchPtr is not supported")
+		reg := disasm.SReg(count)
+		bytes := make([]byte, 8)
+		binary.PutUvarint(bytes, uint64(0))
+		cu.WriteRegister(reg, wiId, bytes)
 		count += 2
 	}
 
@@ -163,7 +166,10 @@ func (cu *ComputeUnit) initializeRegisters() {
 	}
 
 	if cu.WorkGroup.Grid.CodeObject.EnableSgprKernelArgSegmentPtr() {
-		log.Println("Initializing register KernargSegmentPtr is not supported")
+		reg := disasm.SReg(count)
+		bytes := make([]byte, 8)
+		binary.PutUvarint(bytes, uint64(cu.WorkGroup.Grid.Packet.KernargAddress))
+		cu.WriteRegister(reg, wiId, bytes)
 		count += 2
 	}
 
@@ -198,15 +204,24 @@ func (cu *ComputeUnit) initializeRegisters() {
 	}
 
 	if cu.WorkGroup.Grid.CodeObject.EnableSgprWorkGroupIdX() {
-		log.Println("Initializing register GridWorkGroupIdX is not supported")
+		reg := disasm.SReg(count)
+		bytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(bytes, uint32(cu.WorkGroup.IDX))
+		cu.WriteRegister(reg, wiId, bytes)
 		count += 1
 	}
 	if cu.WorkGroup.Grid.CodeObject.EnableSgprWorkGroupIdY() {
-		log.Println("Initializing register GridWorkGroupIdY is not supported")
+		reg := disasm.SReg(count)
+		bytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(bytes, uint32(cu.WorkGroup.IDY))
+		cu.WriteRegister(reg, wiId, bytes)
 		count += 1
 	}
 	if cu.WorkGroup.Grid.CodeObject.EnableSgprWorkGroupIdZ() {
-		log.Println("Initializing register GridWorkGroupIdZ is not supported")
+		reg := disasm.SReg(count)
+		bytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(bytes, uint32(cu.WorkGroup.IDZ))
+		cu.WriteRegister(reg, wiId, bytes)
 		count += 1
 	}
 
@@ -220,7 +235,25 @@ func (cu *ComputeUnit) initializeRegisters() {
 		count += 1
 	}
 
-	log.Println("Initializing register WorkItemIdX is not supported")
+}
+
+func (cu *ComputeUnit) initializeScalarRegisters() {
+	workItemsRemaining := cu.WorkGroup.SizeX * cu.WorkGroup.SizeY *
+		cu.WorkGroup.SizeZ
+	wiId := 0
+	for workItemsRemaining > 0 {
+		cu.initializeScalarRegisterForWavefront(wiId)
+		wiId += cu.WorkItemPerWavefront
+		workItemsRemaining -= cu.WorkItemPerWavefront
+	}
+}
+
+func (cu *ComputeUnit) initializeVectorRegisterForWorkItem(
+	wiIDX, wiIDY, wiIDZ, wiFlatId int) {
+	reg := disasm.VReg(0)
+	bytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bytes, uint32(wiIDX))
+	cu.WriteRegister(reg, wiFlatId, bytes)
 
 	if cu.WorkGroup.Grid.CodeObject.EnableVgprWorkItemId() > 0 {
 		log.Println("Initializing register WorkItemIdY is not supported")
@@ -228,6 +261,24 @@ func (cu *ComputeUnit) initializeRegisters() {
 	if cu.WorkGroup.Grid.CodeObject.EnableVgprWorkItemId() > 1 {
 		log.Println("Initializing register WorkItemIdZ is not supported")
 	}
+
+}
+
+func (cu *ComputeUnit) initializeVectorRegisters() {
+	for x := 0; x < cu.WorkGroup.SizeX; x++ {
+		for y := 0; y < cu.WorkGroup.SizeY; y++ {
+			for z := 0; z < cu.WorkGroup.SizeZ; z++ {
+				cu.initializeVectorRegisterForWorkItem(
+					x, y, z,
+					x+y*cu.WorkGroup.SizeX+z*cu.WorkGroup.SizeX*cu.WorkGroup.SizeY)
+			}
+		}
+	}
+}
+
+func (cu *ComputeUnit) initializeRegisters() {
+	cu.initializeScalarRegisters()
+	cu.initializeVectorRegisters()
 
 	log.Printf("Done initialize registers\n")
 }
@@ -244,6 +295,7 @@ func (cu *ComputeUnit) handleMapWorkGroupReq(req *MapWorkGroupReq) *conn.Error {
 		return nil
 	}
 
+	// TODO: Change this part to a event
 	cu.WorkGroup = req.WG
 	cu.initializeRegisters()
 	cu.startExecution()

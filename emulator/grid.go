@@ -39,6 +39,9 @@ func (g *Grid) SpawnWorkGroups() {
 	yLeft := g.Packet.GridSizeY
 	zLeft := g.Packet.GridSizeZ
 
+	wgIDX := 0
+	wgIDY := 0
+	wgIDZ := 0
 	for zLeft > 0 {
 		zToAllocate := min(zLeft, uint32(g.Packet.WorkgroupSizeZ))
 		for yLeft > 0 {
@@ -50,14 +53,20 @@ func (g *Grid) SpawnWorkGroups() {
 				wg.SizeX = int(xToAllocate)
 				wg.SizeY = int(yToAllocate)
 				wg.SizeZ = int(zToAllocate)
+				wg.IDX = wgIDX
+				wg.IDY = wgIDY
+				wg.IDY = wgIDZ
 				xLeft -= xToAllocate
 				g.WorkGroups = append(g.WorkGroups, wg)
+				wgIDX++
 			}
 			yLeft -= yToAllocate
 			xLeft = g.Packet.GridSizeX
+			wgIDY++
 		}
 		zLeft -= zToAllocate
 		yLeft = g.Packet.GridSizeY
+		wgIDZ++
 	}
 }
 
@@ -65,6 +74,7 @@ func (g *Grid) SpawnWorkGroups() {
 type WorkGroup struct {
 	Grid                *Grid
 	SizeX, SizeY, SizeZ int
+	IDX, IDY, IDZ       int
 }
 
 // NewWorkGroup creates a workgroup object
