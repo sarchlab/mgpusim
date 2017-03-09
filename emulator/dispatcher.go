@@ -43,6 +43,8 @@ func NewDispatcher(name string,
 	return d
 }
 
+// RegisterComputeUnit allows the dispatcher to dispatch workgroups to the
+// ComputeUnit
 func (d *Dispatcher) RegisterComputeUnit(cu conn.Component) {
 	d.ComputeUnits = append(d.ComputeUnits, cu)
 	d.ComputeUnitsRunning = append(d.ComputeUnitsRunning, false)
