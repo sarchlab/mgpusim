@@ -128,7 +128,7 @@ func (cu *ComputeUnit) ReadRegister(reg *disasm.Reg,
 	}
 
 	if reg.IsSReg() {
-		addr := cu.sgprToAddress(reg, wiFlattenedId)
+		addr := cu.sgprToAddress(reg, wiFlatID)
 		data, err := cu.SgprStorage.Read(uint64(addr), uint64(byteSize))
 		if err != nil {
 			log.Panic(err)
@@ -163,7 +163,7 @@ func (cu *ComputeUnit) initializeScalarRegisterForWavefront(wiID int) {
 	if cu.WorkGroup.Grid.CodeObject.EnableSgprKernelArgSegmentPtr() {
 		reg := disasm.SReg(count)
 		bytes := make([]byte, 8)
-		binary.PutUvarint(bytes, uint64(cu.WorkGroup.Grid.Packet.KernargAddress))
+		binary.LittleEndian.PutUint64(bytes, uint64(cu.WorkGroup.Grid.Packet.KernargAddress))
 		cu.WriteRegister(reg, wiID, bytes)
 		count += 2
 	}
@@ -251,10 +251,16 @@ func (cu *ComputeUnit) initializeVectorRegisterForWorkItem(
 	cu.WriteRegister(reg, wiFlatID, bytes)
 
 	if cu.WorkGroup.Grid.CodeObject.EnableVgprWorkItemId() > 0 {
-		log.Println("Initializing register WorkItemIdY is not supported")
+		reg = disasm.VReg(1)
+		bytes = make([]byte, 4)
+		binary.LittleEndian.PutUint32(bytes, uint32(wiIDY))
+		cu.WriteRegister(reg, wiFlatID, bytes)
 	}
 	if cu.WorkGroup.Grid.CodeObject.EnableVgprWorkItemId() > 1 {
-		log.Println("Initializing register WorkItemIdZ is not supported")
+		reg = disasm.VReg(2)
+		bytes = make([]byte, 4)
+		binary.LittleEndian.PutUint32(bytes, uint32(wiIDZ))
+		cu.WriteRegister(reg, wiFlatID, bytes)
 	}
 
 }
