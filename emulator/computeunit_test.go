@@ -28,7 +28,7 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("on MapWorkGroupReq", func() {
 		It("should reject if there is workgroup executing", func() {
-			cu.WorkGroup = emulator.NewWorkGroup()
+			cu.WG = emulator.NewWorkGroup()
 
 			req := emulator.NewMapWorkGroupReq()
 			req.SetSource(mockDispatcher)
@@ -46,14 +46,14 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("on Read and write registers", func() {
 		It("should read and write vgrs", func() {
-			cu.WriteRegister(disasm.VReg(0), 0, []byte{0, 1, 2, 3})
-			res := cu.ReadRegister(disasm.VReg(0), 0, 4)
+			cu.WriteReg(disasm.VReg(0), 0, []byte{0, 1, 2, 3})
+			res := cu.ReadReg(disasm.VReg(0), 0, 4)
 			Expect(res).To(ConsistOf([]byte{0, 1, 2, 3}))
 		})
 
 		It("should read and write sgrs", func() {
-			cu.WriteRegister(disasm.SReg(0), 0, []byte{0, 1, 2, 3})
-			res := cu.ReadRegister(disasm.SReg(0), 0, 4)
+			cu.WriteReg(disasm.SReg(0), 0, []byte{0, 1, 2, 3})
+			res := cu.ReadReg(disasm.SReg(0), 0, 4)
 			Expect(res).To(ConsistOf([]byte{0, 1, 2, 3}))
 		})
 

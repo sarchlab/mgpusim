@@ -8,10 +8,12 @@ type Reg struct {
 	IsBool   bool
 }
 
+// VReg returns a vector register object given a certain index
 func VReg(index int) *Reg {
 	return Regs[V0+RegType(index)]
 }
 
+// SReg returns a scalar register object given a certain index
 func SReg(index int) *Reg {
 	return Regs[S0+RegType(index)]
 }

@@ -31,10 +31,10 @@ func NewCommandProcessor(name string) *CommandProcessor {
 	return c
 }
 
-func (c *CommandProcessor) handleLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
-	req.SetSource(c)
-	req.SetDestination(c.Dispatcher)
-	return c.GetConnection("ToDispatcher").Send(req)
+func (p *CommandProcessor) handleLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
+	req.SetSource(p)
+	req.SetDestination(p.Dispatcher)
+	return p.GetConnection("ToDispatcher").Send(req)
 }
 
 // Receive processes the incomming requests
