@@ -52,15 +52,21 @@ func initPlatform() {
 	gpu = emulator.NewGpu("Gpu")
 	commandProcessor := emulator.NewCommandProcessor("Gpu.CommandProcessor")
 	dispatcher := emulator.NewDispatcher("Gpu.Dispatcher",
-		emulator.NewMapWorkGroupReqFactory())
+		emulator.NewMapWGReqFactory())
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	for i := 0; i < 4; i++ {
-		cu := emulator.NewComputeUnit("Gpu.CU" + string(i))
-		dispatcher.RegisterComputeUnit(cu)
+		cu := emulator.NewComputeUnit(
+			"Gpu.CU"+string(i),
+			engine,
+			disasm.NewDisassembler(),
+			globalMem,
+		)
+		dispatcher.RegisterCU(cu)
 		conn.PlugIn(cu, "ToDispatcher", connection)
 		conn.PlugIn(dispatcher, "ToComputeUnits", connection)
+		conn.PlugIn(cu, "ToInstMem", connection)
 	}
 
 	// Connection
@@ -69,6 +75,7 @@ func initPlatform() {
 	conn.PlugIn(commandProcessor, "ToDispatcher", connection)
 	conn.PlugIn(host, "ToGpu", connection)
 	conn.PlugIn(dispatcher, "ToCommandProcessor", connection)
+	conn.PlugIn(globalMem, "Top", connection)
 }
 
 func loadProgram() {
