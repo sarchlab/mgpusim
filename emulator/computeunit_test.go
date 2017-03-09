@@ -20,7 +20,7 @@ var _ = Describe("ComputeUnit", func() {
 		mockDispatcher = conn.NewMockComponent("MockDispatcher")
 		mockDispatcher.AddPort("ToCU")
 		connection = conn.NewDirectConnection()
-		cu = emulator.NewComputeUnit("cu")
+		cu = emulator.NewComputeUnit("cu", nil, nil, nil)
 
 		conn.PlugIn(mockDispatcher, "ToCU", connection)
 		conn.PlugIn(cu, "ToDispatcher", connection)
@@ -30,7 +30,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should reject if there is workgroup executing", func() {
 			cu.WG = emulator.NewWorkGroup()
 
-			req := emulator.NewMapWorkGroupReq()
+			req := emulator.NewMapWGReq()
 			req.SetSource(mockDispatcher)
 			req.SetDestination(cu)
 

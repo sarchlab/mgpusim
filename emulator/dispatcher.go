@@ -23,15 +23,15 @@ type Dispatcher struct {
 	ComputeUnitsRunning []bool
 	InFlightGrids       []*Grid
 
-	MapWorkGroupReqFactory MapWorkGroupReqFactory
+	mapWGReqFactory MapWGReqFactory
 }
 
 // NewDispatcher creates a new dispatcher
 func NewDispatcher(name string,
-	mapWorkGroupReqFactory MapWorkGroupReqFactory) *Dispatcher {
+	mapWorkGroupReqFactory MapWGReqFactory) *Dispatcher {
 	d := new(Dispatcher)
 	d.BasicComponent = conn.NewBasicComponent(name)
-	d.MapWorkGroupReqFactory = mapWorkGroupReqFactory
+	d.mapWGReqFactory = mapWorkGroupReqFactory
 
 	d.ComputeUnits = make([]conn.Component, 0)
 	d.ComputeUnitsRunning = make([]bool, 0)
@@ -43,15 +43,15 @@ func NewDispatcher(name string,
 	return d
 }
 
-// RegisterComputeUnit allows the dispatcher to dispatch workgroups to the
+// RegisterCU allows the dispatcher to dispatch workgroups to the
 // ComputeUnit
-func (d *Dispatcher) RegisterComputeUnit(cu conn.Component) {
+func (d *Dispatcher) RegisterCU(cu conn.Component) {
 	d.ComputeUnits = append(d.ComputeUnits, cu)
 	d.ComputeUnitsRunning = append(d.ComputeUnitsRunning, false)
 }
 
 func (d *Dispatcher) dispatch(cu conn.Component, wg *WorkGroup, time event.VTimeInSec) {
-	req := d.MapWorkGroupReqFactory.Create()
+	req := d.mapWGReqFactory.Create()
 	req.SetSource(d)
 	req.SetDestination(cu)
 	req.SetSendTime(time)
@@ -60,7 +60,18 @@ func (d *Dispatcher) dispatch(cu conn.Component, wg *WorkGroup, time event.VTime
 	d.GetConnection("ToComputeUnits").Send(req)
 }
 
-func (d *Dispatcher) handleLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
+// Receive processes the incomming requests
+func (d *Dispatcher) Receive(req conn.Request) *conn.Error {
+	switch req := req.(type) {
+	case *LaunchKernelReq:
+		return d.processLaunchKernelReq(req)
+	default:
+		return conn.NewError(
+			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
+	}
+}
+
+func (d *Dispatcher) processLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
 	grid := NewGrid()
 	grid.Packet = req.Packet
 	grid.CodeObject = req.HsaCo
@@ -87,17 +98,6 @@ func (d *Dispatcher) handleLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
 	}
 
 	return nil
-}
-
-// Receive processes the incomming requests
-func (d *Dispatcher) Receive(req conn.Request) *conn.Error {
-	switch req := req.(type) {
-	case *LaunchKernelReq:
-		return d.handleLaunchKernelReq(req)
-	default:
-		return conn.NewError(
-			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
-	}
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor

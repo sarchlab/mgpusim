@@ -8,14 +8,14 @@ import (
 )
 
 type MockMapWorkGroupReqFactory struct {
-	Reqs []*emulator.MapWorkGroupReq
+	Reqs []*emulator.MapWgReq
 }
 
 func NewMockMapWorkGroupReqFactory() *MockMapWorkGroupReqFactory {
-	return &MockMapWorkGroupReqFactory{make([]*emulator.MapWorkGroupReq, 0)}
+	return &MockMapWorkGroupReqFactory{make([]*emulator.MapWgReq, 0)}
 }
 
-func (f *MockMapWorkGroupReqFactory) Create() *emulator.MapWorkGroupReq {
+func (f *MockMapWorkGroupReqFactory) Create() *emulator.MapWgReq {
 	req := f.Reqs[0]
 	f.Reqs = f.Reqs[1:]
 	return req
@@ -45,10 +45,10 @@ var _ = Describe("Dispatcher", func() {
 		cu3.AddPort("ToDispatcher")
 		connection = conn.NewDirectConnection()
 
-		dispatcher.RegisterComputeUnit(cu0)
-		dispatcher.RegisterComputeUnit(cu1)
-		dispatcher.RegisterComputeUnit(cu2)
-		dispatcher.RegisterComputeUnit(cu3)
+		dispatcher.RegisterCU(cu0)
+		dispatcher.RegisterCU(cu1)
+		dispatcher.RegisterCU(cu2)
+		dispatcher.RegisterCU(cu3)
 
 		conn.PlugIn(dispatcher, "ToComputeUnits", connection)
 		conn.PlugIn(cu0, "ToDispatcher", connection)
@@ -69,10 +69,10 @@ var _ = Describe("Dispatcher", func() {
 		req.Packet = packet
 		req.SetSendTime(0)
 
-		mapReq0 := emulator.NewMapWorkGroupReq()
-		mapReq1 := emulator.NewMapWorkGroupReq()
-		mapReq2 := emulator.NewMapWorkGroupReq()
-		mapReq3 := emulator.NewMapWorkGroupReq()
+		mapReq0 := emulator.NewMapWGReq()
+		mapReq1 := emulator.NewMapWGReq()
+		mapReq2 := emulator.NewMapWGReq()
+		mapReq3 := emulator.NewMapWGReq()
 		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq0)
 		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq1)
 		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq2)

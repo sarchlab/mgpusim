@@ -12,40 +12,21 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
-// A MapWorkGroupReq is a request sent from a dispatcher to a compute unit
-// to request the compute unit to execute a workgroup.
-type MapWorkGroupReq struct {
-	*conn.BasicRequest
-
-	WG      *WorkGroup
-	IsReply bool
-	Succeed bool
+type memAccessInfo struct {
+	IsInstFetch bool
 }
 
-// NewMapWorkGroupReq returns a new MapWorkGroupReq
-func NewMapWorkGroupReq() *MapWorkGroupReq {
-	r := new(MapWorkGroupReq)
-	r.BasicRequest = conn.NewBasicRequest()
-
-	return r
+// an evalEvent is the event that happens after the cu fetches the instruction
+// from memory. In this event, the instruction is decoded and evaluated.
+type evalEvent struct {
+	*event.BasicEvent
+	Buf []byte
 }
 
-// MapWorkGroupReqFactory is the factory that creates MapWorkGroupReq
-type MapWorkGroupReqFactory interface {
-	Create() *MapWorkGroupReq
-}
-
-type mapWorkGroupReqFactoryImpl struct {
-}
-
-func (f *mapWorkGroupReqFactoryImpl) Create() *MapWorkGroupReq {
-	return NewMapWorkGroupReq()
-}
-
-// NewMapWorkGroupReqFactory returns the default factory for the
-// MapWorkGroupReq
-func NewMapWorkGroupReqFactory() MapWorkGroupReqFactory {
-	return &mapWorkGroupReqFactoryImpl{}
+func newEvalEvent() *evalEvent {
+	e := new(evalEvent)
+	e.BasicEvent = event.NewBasicEvent()
+	return e
 }
 
 // A ComputeUnit is the unit that can execute workgroups.
@@ -53,8 +34,16 @@ func NewMapWorkGroupReqFactory() MapWorkGroupReqFactory {
 // A ComputeUnit is a Yaotsu component
 //   ToDispatcher <=> Receive the dispatch request and respond with the
 //                    Completion signal
+// 	 ToInstMem <=> Memory system for the instructions
 type ComputeUnit struct {
 	*conn.BasicComponent
+
+	Freq   event.Freq
+	Engine event.Engine
+
+	Disassembler *disasm.Disassembler
+
+	InstMem conn.Component
 
 	WG     *WorkGroup
 	co     *disasm.HsaCo
@@ -64,32 +53,41 @@ type ComputeUnit struct {
 	wiRegFile *mem.Storage
 	wfRegFile *mem.Storage
 
-	vgprPerWi     int
+	vgprPerWI     int
 	sgprPerWf     int
 	miscRegsBytes int
 	wfRegByteSize int
 	wiPerWf       int
-	maxWi         int
+	maxWI         int
 	maxWf         int
 }
 
 // NewComputeUnit creates a ComputeUnit
-func NewComputeUnit(name string) *ComputeUnit {
+func NewComputeUnit(name string,
+	engine event.Engine,
+	disassembler *disasm.Disassembler,
+	instMem conn.Component) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.BasicComponent = conn.NewBasicComponent(name)
 
-	cu.vgprPerWi = 256
+	cu.Freq = 800 * event.MHz
+	cu.Engine = engine
+	cu.Disassembler = disassembler
+	cu.InstMem = instMem
+
+	cu.vgprPerWI = 256
 	cu.sgprPerWf = 102
 	cu.miscRegsBytes = 114
 	cu.wiPerWf = 64
-	cu.maxWi = 1024
-	cu.maxWf = cu.maxWi / cu.wiPerWf
+	cu.maxWI = 1024
+	cu.maxWf = cu.maxWI / cu.wiPerWf
 	cu.wfRegByteSize = 4*(cu.sgprPerWf) + cu.miscRegsBytes
 
-	cu.wiRegFile = mem.NewStorage(uint64(4 * cu.vgprPerWi * cu.maxWi))
+	cu.wiRegFile = mem.NewStorage(uint64(4 * cu.vgprPerWI * cu.maxWI))
 	cu.wfRegFile = mem.NewStorage(uint64(cu.wfRegByteSize * cu.maxWf))
 
 	cu.AddPort("ToDispatcher")
+	cu.AddPort("ToInstMem")
 
 	return cu
 }
@@ -97,15 +95,18 @@ func NewComputeUnit(name string) *ComputeUnit {
 // Receive processes the incomming requests
 func (cu *ComputeUnit) Receive(req conn.Request) *conn.Error {
 	switch req := req.(type) {
-	case *MapWorkGroupReq:
-		return cu.processMapWorkGroupReq(req)
+	case *MapWgReq:
+		return cu.processMapWGReq(req)
+	case *mem.AccessReq:
+		return cu.processAccessReq(req)
 	default:
+		log.Panicf("ComputeUnit cannot process request of type %s", reflect.TypeOf(req))
 		return conn.NewError(
 			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
 	}
 }
 
-func (cu *ComputeUnit) processMapWorkGroupReq(req *MapWorkGroupReq) *conn.Error {
+func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *conn.Error {
 	if cu.WG != nil {
 		req.SwapSrcAndDst()
 		req.IsReply = true
@@ -121,8 +122,20 @@ func (cu *ComputeUnit) processMapWorkGroupReq(req *MapWorkGroupReq) *conn.Error 
 	cu.packet = cu.grid.Packet
 
 	cu.initRegs()
-	cu.startExecution()
+	cu.startExecution(req.RecvTime())
 
+	return nil
+}
+
+func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *conn.Error {
+	info := req.Info.(*memAccessInfo)
+	if info.IsInstFetch {
+		evt := newEvalEvent()
+		evt.SetHandler(cu)
+		evt.SetTime(req.RecvTime())
+		evt.Buf = req.Buf
+		cu.Engine.Schedule(evt)
+	}
 	return nil
 }
 
@@ -130,8 +143,6 @@ func (cu *ComputeUnit) initRegs() {
 	cu.initSRegs()
 	cu.initVRegs()
 	cu.initMiscRegs()
-
-	log.Printf("Done initialize registers\n")
 }
 
 func (cu *ComputeUnit) initSRegs() {
@@ -238,8 +249,7 @@ func (cu *ComputeUnit) initVRegs() {
 		for y := 0; y < cu.WG.SizeY; y++ {
 			for z := 0; z < cu.WG.SizeZ; z++ {
 				cu.initVRegsForWI(
-					x, y, z,
-					x+y*cu.WG.SizeX+z*cu.WG.SizeX*cu.WG.SizeY)
+					x, y, z, x+y*cu.WG.SizeX+z*cu.WG.SizeX*cu.WG.SizeY)
 			}
 		}
 	}
@@ -283,11 +293,60 @@ func (cu *ComputeUnit) initMiscRegs() {
 	}
 }
 
-func (cu *ComputeUnit) startExecution() {
+func (cu *ComputeUnit) startExecution(time event.VTimeInSec) {
+	evt := NewCUExeEvent()
+	evt.SetHandler(cu)
+	evt.SetTime(cu.Freq.NextTick(time))
+	cu.Engine.Schedule(evt)
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
-func (cu *ComputeUnit) Handle(e event.Event) error {
+func (cu *ComputeUnit) Handle(evt event.Event) error {
+	switch evt := evt.(type) {
+	case *CUExeEvent:
+		return cu.handleCUExeEvent(evt)
+	case *evalEvent:
+		return cu.handleEvalEvent(evt)
+	default:
+		log.Panicf("event %s is not supported by component %s",
+			reflect.TypeOf(evt), cu.Name())
+	}
+	return nil
+}
+
+func (cu *ComputeUnit) handleCUExeEvent(evt *CUExeEvent) error {
+	fetchReq := mem.NewAccessReq()
+	fetchReq.Address = cu.pc(0)
+	fetchReq.ByteSize = 8
+	fetchReq.SetSource(cu)
+	fetchReq.SetDestination(cu.InstMem)
+	fetchReq.Info = &memAccessInfo{true}
+	log.Println(evt.Time())
+	fetchReq.SetSendTime(evt.Time())
+	err := cu.GetConnection("ToInstMem").Send(fetchReq)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	evt.FinishChan() <- true
+	return nil
+}
+
+// pc returns the program counter of a certain wavefront
+func (cu *ComputeUnit) pc(wfID int) uint64 {
+	data := cu.ReadReg(disasm.Regs[disasm.Pc], wfID*cu.wiPerWf, 8)
+	return binary.LittleEndian.Uint64(data)
+}
+
+func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
+	inst, err := cu.Disassembler.Decode(evt.Buf)
+	if err != nil {
+		log.Panic(err)
+		return err
+	}
+
+	log.Print(inst)
+	evt.FinishChan() <- true
 	return nil
 }
 
@@ -347,7 +406,7 @@ func (cu *ComputeUnit) ReadReg(reg *disasm.Reg,
 
 // vgprAddr converts a VGPR to the address in the vector register file
 func (cu *ComputeUnit) vgprAddr(reg *disasm.Reg, wiFlatID int) int {
-	return (wiFlatID*cu.vgprPerWi + reg.RegIndex()) * 4
+	return (wiFlatID*cu.vgprPerWI + reg.RegIndex()) * 4
 }
 
 // sgprAddr converts a SGPR to the address in the scalar register file
