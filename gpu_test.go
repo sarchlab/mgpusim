@@ -1,24 +1,24 @@
-package emulator_test
+package gcn3_test
 
 import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/gcn3/emulator"
+	"gitlab.com/yaotsu/gcn3"
 )
 
 var _ = ginkgo.Describe("Gpu (unit test)", func() {
 
 	var (
 		commandProcessor *conn.MockComponent
-		gpu              *emulator.Gpu
+		gpu              *gcn3.Gpu
 		driver           *conn.MockComponent
 		connection       *conn.DirectConnection
 	)
 
 	ginkgo.BeforeEach(func() {
 		commandProcessor = conn.NewMockComponent("CommandProcessor")
-		gpu = emulator.NewGpu("gpu")
+		gpu = gcn3.NewGpu("gpu")
 		driver = conn.NewMockComponent("Driver")
 
 		gpu.Driver = driver

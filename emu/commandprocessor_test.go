@@ -1,10 +1,10 @@
-package emulator_test
+package emu_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/gcn3/emulator"
+	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 var _ = Describe("CommandProcessor", func() {
@@ -12,7 +12,7 @@ var _ = Describe("CommandProcessor", func() {
 	var (
 		driver           *conn.MockComponent
 		dispatcher       *conn.MockComponent
-		commandProcessor *emulator.CommandProcessor
+		commandProcessor *emu.CommandProcessor
 		connection       *conn.DirectConnection
 	)
 
@@ -23,7 +23,7 @@ var _ = Describe("CommandProcessor", func() {
 		driver.AddPort("ToGPU")
 		dispatcher = conn.NewMockComponent("dispatcher")
 		dispatcher.AddPort("ToCommandProcessor")
-		commandProcessor = emulator.NewCommandProcessor("commandProcessor")
+		commandProcessor = emu.NewCommandProcessor("commandProcessor")
 
 		commandProcessor.Dispatcher = dispatcher
 
@@ -33,7 +33,7 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should forward kernel launching request to Dispatcher", func() {
-		req := emulator.NewLaunchKernelReq()
+		req := emu.NewLaunchKernelReq()
 		req.SetSource(driver)
 		req.SetDestination(commandProcessor)
 

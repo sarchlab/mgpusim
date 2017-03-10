@@ -1,4 +1,4 @@
-package emulator_test
+package emu_test
 
 import (
 	"testing"

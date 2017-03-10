@@ -1,21 +1,21 @@
-package emulator_test
+package emu_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3/disasm"
-	"gitlab.com/yaotsu/gcn3/emulator"
+	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 var _ = Describe("Grid", func() {
 
 	It("should spawn workgroups, 1D", func() {
-		grid := emulator.NewGrid()
+		grid := emu.NewGrid()
 
 		codeObject := new(disasm.HsaCo)
 		grid.CodeObject = codeObject
 
-		packet := new(emulator.HsaKernelDispatchPacket)
+		packet := new(emu.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 256
 		packet.WorkgroupSizeY = 1
 		packet.WorkgroupSizeZ = 1
@@ -36,12 +36,12 @@ var _ = Describe("Grid", func() {
 	})
 
 	It("should spawn workgroups, 2D", func() {
-		grid := emulator.NewGrid()
+		grid := emu.NewGrid()
 
 		codeObject := new(disasm.HsaCo)
 		grid.CodeObject = codeObject
 
-		packet := new(emulator.HsaKernelDispatchPacket)
+		packet := new(emu.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 16
 		packet.WorkgroupSizeY = 16
 		packet.WorkgroupSizeZ = 1
@@ -56,12 +56,12 @@ var _ = Describe("Grid", func() {
 	})
 
 	It("should spawn workgroups, 3D", func() {
-		grid := emulator.NewGrid()
+		grid := emu.NewGrid()
 
 		codeObject := new(disasm.HsaCo)
 		grid.CodeObject = codeObject
 
-		packet := new(emulator.HsaKernelDispatchPacket)
+		packet := new(emu.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 16
 		packet.WorkgroupSizeY = 16
 		packet.WorkgroupSizeZ = 4

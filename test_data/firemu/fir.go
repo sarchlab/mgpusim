@@ -10,15 +10,16 @@ import (
 
 	"gitlab.com/yaotsu/core/conn"
 	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/disasm"
-	"gitlab.com/yaotsu/gcn3/emulator"
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/mem"
 )
 
 var (
 	engine     event.Engine
 	globalMem  *mem.IdealMemController
-	gpu        *emulator.Gpu
+	gpu        *gcn3.Gpu
 	host       *conn.MockComponent
 	connection conn.Connection
 	hsaco      *disasm.HsaCo
@@ -49,20 +50,23 @@ func initPlatform() {
 	host.AddPort("ToGpu")
 
 	// Gpu
-	gpu = emulator.NewGpu("Gpu")
-	commandProcessor := emulator.NewCommandProcessor("Gpu.CommandProcessor")
-	dispatcher := emulator.NewDispatcher("Gpu.Dispatcher",
-		emulator.NewMapWGReqFactory())
+	gpu = gcn3.NewGpu("Gpu")
+	commandProcessor := emu.NewCommandProcessor("Gpu.CommandProcessor")
+	dispatcher := emu.NewDispatcher("Gpu.Dispatcher",
+		emu.NewMapWGReqFactory())
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	for i := 0; i < 4; i++ {
-		cu := emulator.NewComputeUnit(
+		scalarInstWorker := emu.NewScalarInstWorker()
+		cu := emu.NewComputeUnit(
 			"Gpu.CU"+string(i),
 			engine,
 			disasm.NewDisassembler(),
 			globalMem,
+			scalarInstWorker,
 		)
+		scalarInstWorker.CU = cu
 		dispatcher.RegisterCU(cu)
 		conn.PlugIn(cu, "ToDispatcher", connection)
 		conn.PlugIn(dispatcher, "ToComputeUnits", connection)
@@ -135,9 +139,9 @@ func run() {
 		log.Fatal(err)
 	}
 
-	req := emulator.NewLaunchKernelReq()
+	req := emu.NewLaunchKernelReq()
 	req.HsaCo = hsaco
-	req.Packet = new(emulator.HsaKernelDispatchPacket)
+	req.Packet = new(emu.HsaKernelDispatchPacket)
 	req.Packet.GridSizeX = 1024
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1

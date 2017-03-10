@@ -1,4 +1,4 @@
-package emulator
+package emu
 
 import (
 	"encoding/binary"
@@ -16,7 +16,7 @@ type memAccessInfo struct {
 	IsInstFetch bool
 }
 
-// an evalEvent is the event that happens after the cu fetches the instruction
+// An evalEvent is the event that happens after the cu fetches the instruction
 // from memory. In this event, the instruction is decoded and evaluated.
 type evalEvent struct {
 	*event.BasicEvent
@@ -45,6 +45,8 @@ type ComputeUnit struct {
 
 	InstMem conn.Component
 
+	scalarInstWorker *ScalarInstWorker
+
 	WG     *WorkGroup
 	co     *disasm.HsaCo
 	packet *HsaKernelDispatchPacket
@@ -66,7 +68,9 @@ type ComputeUnit struct {
 func NewComputeUnit(name string,
 	engine event.Engine,
 	disassembler *disasm.Disassembler,
-	instMem conn.Component) *ComputeUnit {
+	instMem conn.Component,
+	scalarInstWorker *ScalarInstWorker,
+) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.BasicComponent = conn.NewBasicComponent(name)
 
@@ -74,6 +78,7 @@ func NewComputeUnit(name string,
 	cu.Engine = engine
 	cu.Disassembler = disassembler
 	cu.InstMem = instMem
+	cu.scalarInstWorker = scalarInstWorker
 
 	cu.vgprPerWI = 256
 	cu.sgprPerWf = 102
@@ -321,7 +326,6 @@ func (cu *ComputeUnit) handleCUExeEvent(evt *CUExeEvent) error {
 	fetchReq.SetSource(cu)
 	fetchReq.SetDestination(cu.InstMem)
 	fetchReq.Info = &memAccessInfo{true}
-	log.Println(evt.Time())
 	fetchReq.SetSendTime(evt.Time())
 	err := cu.GetConnection("ToInstMem").Send(fetchReq)
 	if err != nil {
@@ -345,7 +349,15 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 		return err
 	}
 
-	log.Print(inst)
+	switch inst.FormatType {
+	case disasm.Sop2, disasm.Sopk, disasm.Sop1, disasm.Sopc, disasm.Sopp:
+		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
+		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
+			cu.scalarInstWorker.Run(inst, wiFlatID)
+		}
+
+	}
+
 	evt.FinishChan() <- true
 	return nil
 }
