@@ -1,4 +1,4 @@
-package emulator
+package emu
 
 // An HsaKernelDispatchPacket is an AQL packet for launching a kernel on a
 // GPU.

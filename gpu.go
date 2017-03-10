@@ -1,4 +1,4 @@
-package emulator
+package gcn3
 
 import (
 	"fmt"

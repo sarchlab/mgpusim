@@ -1,21 +1,21 @@
-package emulator_test
+package emu_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/gcn3/emulator"
+	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 type MockMapWorkGroupReqFactory struct {
-	Reqs []*emulator.MapWgReq
+	Reqs []*emu.MapWgReq
 }
 
 func NewMockMapWorkGroupReqFactory() *MockMapWorkGroupReqFactory {
-	return &MockMapWorkGroupReqFactory{make([]*emulator.MapWgReq, 0)}
+	return &MockMapWorkGroupReqFactory{make([]*emu.MapWgReq, 0)}
 }
 
-func (f *MockMapWorkGroupReqFactory) Create() *emulator.MapWgReq {
+func (f *MockMapWorkGroupReqFactory) Create() *emu.MapWgReq {
 	req := f.Reqs[0]
 	f.Reqs = f.Reqs[1:]
 	return req
@@ -23,7 +23,7 @@ func (f *MockMapWorkGroupReqFactory) Create() *emulator.MapWgReq {
 
 var _ = Describe("Dispatcher", func() {
 	var (
-		dispatcher             *emulator.Dispatcher
+		dispatcher             *emu.Dispatcher
 		cu0                    *conn.MockComponent
 		cu1                    *conn.MockComponent
 		cu2                    *conn.MockComponent
@@ -34,7 +34,7 @@ var _ = Describe("Dispatcher", func() {
 
 	BeforeEach(func() {
 		mapWorkGroupReqFactory = NewMockMapWorkGroupReqFactory()
-		dispatcher = emulator.NewDispatcher("dispatcher", mapWorkGroupReqFactory)
+		dispatcher = emu.NewDispatcher("dispatcher", mapWorkGroupReqFactory)
 		cu0 = conn.NewMockComponent("cu0")
 		cu0.AddPort("ToDispatcher")
 		cu1 = conn.NewMockComponent("cu1")
@@ -58,8 +58,8 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should dispatch", func() {
-		req := emulator.NewLaunchKernelReq()
-		packet := new(emulator.HsaKernelDispatchPacket)
+		req := emu.NewLaunchKernelReq()
+		packet := new(emu.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 256
 		packet.WorkgroupSizeY = 1
 		packet.WorkgroupSizeZ = 1
@@ -69,10 +69,10 @@ var _ = Describe("Dispatcher", func() {
 		req.Packet = packet
 		req.SetSendTime(0)
 
-		mapReq0 := emulator.NewMapWGReq()
-		mapReq1 := emulator.NewMapWGReq()
-		mapReq2 := emulator.NewMapWGReq()
-		mapReq3 := emulator.NewMapWGReq()
+		mapReq0 := emu.NewMapWGReq()
+		mapReq1 := emu.NewMapWGReq()
+		mapReq2 := emu.NewMapWGReq()
+		mapReq3 := emu.NewMapWGReq()
 		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq0)
 		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq1)
 		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq2)

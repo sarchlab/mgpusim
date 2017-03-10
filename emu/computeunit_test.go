@@ -1,11 +1,11 @@
-package emulator_test
+package emu_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core/conn"
 	"gitlab.com/yaotsu/gcn3/disasm"
-	"gitlab.com/yaotsu/gcn3/emulator"
+	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 var _ = Describe("ComputeUnit", func() {
@@ -13,14 +13,14 @@ var _ = Describe("ComputeUnit", func() {
 	var (
 		mockDispatcher *conn.MockComponent
 		connection     *conn.DirectConnection
-		cu             *emulator.ComputeUnit
+		cu             *emu.ComputeUnit
 	)
 
 	BeforeEach(func() {
 		mockDispatcher = conn.NewMockComponent("MockDispatcher")
 		mockDispatcher.AddPort("ToCU")
 		connection = conn.NewDirectConnection()
-		cu = emulator.NewComputeUnit("cu", nil, nil, nil)
+		cu = emu.NewComputeUnit("cu", nil, nil, nil)
 
 		conn.PlugIn(mockDispatcher, "ToCU", connection)
 		conn.PlugIn(cu, "ToDispatcher", connection)
@@ -28,9 +28,9 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("on MapWorkGroupReq", func() {
 		It("should reject if there is workgroup executing", func() {
-			cu.WG = emulator.NewWorkGroup()
+			cu.WG = emu.NewWorkGroup()
 
-			req := emulator.NewMapWGReq()
+			req := emu.NewMapWGReq()
 			req.SetSource(mockDispatcher)
 			req.SetDestination(cu)
 

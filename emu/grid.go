@@ -1,4 +1,4 @@
-package emulator
+package emu
 
 import (
 	"gitlab.com/yaotsu/gcn3/disasm"

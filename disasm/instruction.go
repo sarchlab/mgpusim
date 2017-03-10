@@ -133,25 +133,25 @@ func (i Instruction) sop1String() string {
 
 func (i Instruction) String() string {
 	switch i.FormatType {
-	case sop2:
+	case Sop2:
 		return i.sop2String()
-	case smem:
+	case Smem:
 		return i.smemString()
-	case vop1:
+	case Vop1:
 		return i.vop1String()
-	case vop2:
+	case Vop2:
 		return i.vop2String()
-	case flat:
+	case Flat:
 		return i.flatString()
-	case sopp:
+	case Sopp:
 		return i.soppString()
-	case vopc:
+	case Vopc:
 		return i.vopcString()
-	case sopc:
+	case Sopc:
 		return i.sopcString()
-	case vop3:
+	case Vop3:
 		return i.vop3String()
-	case sop1:
+	case Sop1:
 		return i.sop1String()
 	default:
 		return i.InstName
