@@ -32,6 +32,14 @@ type Instruction struct {
 	Clamp               bool
 }
 
+// NewInstruction creates a zero-filled instruction
+func NewInstruction() *Instruction {
+	i := new(Instruction)
+	i.Format = new(Format)
+	i.InstType = new(InstType)
+	return i
+}
+
 func (i Instruction) sop2String() string {
 	return i.InstName + " " +
 		i.Dst.String() + ", " +
