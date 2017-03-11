@@ -348,7 +348,9 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 	case disasm.Sop2, disasm.Sopk, disasm.Sop1, disasm.Sopc, disasm.Sopp:
 		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
 		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
+			cu.dumpSRegs(wiFlatID)
 			cu.scalarInstWorker.Run(inst, wiFlatID)
+			cu.dumpSRegs(wiFlatID)
 		}
 
 	}
@@ -364,7 +366,17 @@ func (cu *ComputeUnit) scheduleNextInst(time event.VTimeInSec) {
 	evt.SetHandler(cu)
 	evt.SetTime(cu.Freq.NextTick(time))
 	cu.Engine.Schedule(evt)
+}
 
+func (cu *ComputeUnit) dumpSRegs(wiFlatID int) {
+	fmt.Printf("***** SRegs for wavefront %d *****\n", wiFlatID/cu.wiPerWf)
+	for i := 0; i < cu.sgprPerWf; i++ {
+		value := disasm.BytesToUint32(cu.ReadReg(disasm.SReg(i), wiFlatID, 4))
+		if value != 0 {
+			fmt.Printf("\ts%d 0x%08x\n", i, value)
+		}
+	}
+	fmt.Printf("***** *****\n")
 }
 
 // WriteReg updates the value in the register file
