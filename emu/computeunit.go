@@ -127,7 +127,7 @@ func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *conn.Error {
 	cu.packet = cu.grid.Packet
 
 	cu.initRegs()
-	cu.startExecution(req.RecvTime())
+	cu.scheduleNextInst(cu.Freq.NextTick(req.RecvTime()))
 
 	return nil
 }
@@ -298,13 +298,6 @@ func (cu *ComputeUnit) initMiscRegs() {
 	}
 }
 
-func (cu *ComputeUnit) startExecution(time event.VTimeInSec) {
-	evt := NewCUExeEvent()
-	evt.SetHandler(cu)
-	evt.SetTime(cu.Freq.NextTick(time))
-	cu.Engine.Schedule(evt)
-}
-
 // Handle processes the events that is scheduled for the CommandProcessor
 func (cu *ComputeUnit) Handle(evt event.Event) error {
 	switch evt := evt.(type) {
@@ -349,6 +342,8 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 		return err
 	}
 
+	log.Println(inst)
+
 	switch inst.FormatType {
 	case disasm.Sop2, disasm.Sopk, disasm.Sop1, disasm.Sopc, disasm.Sopp:
 		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
@@ -358,8 +353,18 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 
 	}
 
+	cu.scheduleNextInst(cu.Freq.NextTick(evt.Time()))
+
 	evt.FinishChan() <- true
 	return nil
+}
+
+func (cu *ComputeUnit) scheduleNextInst(time event.VTimeInSec) {
+	evt := NewCUExeEvent()
+	evt.SetHandler(cu)
+	evt.SetTime(cu.Freq.NextTick(time))
+	cu.Engine.Schedule(evt)
+
 }
 
 // WriteReg updates the value in the register file
