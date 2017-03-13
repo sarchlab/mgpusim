@@ -20,7 +20,7 @@ var _ = Describe("ComputeUnit", func() {
 		mockDispatcher = core.NewMockComponent("MockDispatcher")
 		mockDispatcher.AddPort("ToCU")
 		connection = core.NewDirectConnection()
-		cu = emu.NewComputeUnit("cu", nil, nil, nil, nil)
+		cu = emu.NewComputeUnit("cu", nil, nil, nil, nil, nil)
 
 		core.PlugIn(mockDispatcher, "ToCU", connection)
 		core.PlugIn(cu, "ToDispatcher", connection)
