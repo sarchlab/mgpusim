@@ -37,13 +37,10 @@ func newEvalEvent() *evalEvent {
 type ComputeUnit struct {
 	*core.BasicComponent
 
-	Freq   core.Freq
-	Engine core.Engine
-
-	Disassembler *disasm.Disassembler
-
-	InstMem core.Component
-
+	Freq             core.Freq
+	Engine           core.Engine
+	Disassembler     *disasm.Disassembler
+	InstMem          core.Component
 	scalarInstWorker *ScalarInstWorker
 
 	WG     *WorkGroup
@@ -299,6 +296,8 @@ func (cu *ComputeUnit) initMiscRegs() {
 
 // Handle processes the events that is scheduled for the CommandProcessor
 func (cu *ComputeUnit) Handle(evt core.Event) error {
+	cu.InvokeHook(evt, core.BeforeEvent)
+	defer cu.InvokeHook(evt, core.AfterEvent)
 	switch evt := evt.(type) {
 	case *CUExeEvent:
 		return cu.handleCUExeEvent(evt)
@@ -341,15 +340,11 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 		return err
 	}
 
-	log.Println(inst)
-
 	switch inst.FormatType {
 	case disasm.Sop2, disasm.Sopk, disasm.Sop1, disasm.Sopc, disasm.Sopp:
 		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
 		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
-			cu.dumpSRegs(wiFlatID)
 			cu.scalarInstWorker.Run(inst, wiFlatID)
-			cu.dumpSRegs(wiFlatID)
 		}
 
 	}
