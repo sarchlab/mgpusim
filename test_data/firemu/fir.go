@@ -61,12 +61,14 @@ func initPlatform() {
 		disassembler)
 	for i := 0; i < 4; i++ {
 		scalarInstWorker := emu.NewScalarInstWorker()
+		vectorInstWorker := emu.NewVectorInstWorker()
 		cu := emu.NewComputeUnit(
 			"Gpu.CU"+string(i),
 			engine,
 			disassembler,
 			globalMem,
 			scalarInstWorker,
+			vectorInstWorker,
 		)
 
 		if i == 0 {
@@ -74,6 +76,7 @@ func initPlatform() {
 		}
 
 		scalarInstWorker.CU = cu
+		vectorInstWorker.CU = cu
 		dispatcher.RegisterCU(cu)
 		core.PlugIn(cu, "ToDispatcher", connection)
 		core.PlugIn(dispatcher, "ToComputeUnits", connection)
