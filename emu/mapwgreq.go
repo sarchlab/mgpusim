@@ -1,11 +1,11 @@
 package emu
 
-import "gitlab.com/yaotsu/core/conn"
+import "gitlab.com/yaotsu/core"
 
 // A MapWgReq is a request sent from a dispatcher to a compute unit
 // to request the compute unit to execute a workgroup.
 type MapWgReq struct {
-	*conn.BasicRequest
+	*core.BasicRequest
 
 	WG      *WorkGroup
 	IsReply bool
@@ -15,7 +15,7 @@ type MapWgReq struct {
 // NewMapWGReq returns a new MapWorkGroupReq
 func NewMapWGReq() *MapWgReq {
 	r := new(MapWgReq)
-	r.BasicRequest = conn.NewBasicRequest()
+	r.BasicRequest = core.NewBasicRequest()
 
 	return r
 }

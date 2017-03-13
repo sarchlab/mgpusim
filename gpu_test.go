@@ -3,23 +3,23 @@ package gcn3_test
 import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core/conn"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 )
 
 var _ = ginkgo.Describe("Gpu (unit test)", func() {
 
 	var (
-		commandProcessor *conn.MockComponent
+		commandProcessor *core.MockComponent
 		gpu              *gcn3.Gpu
-		driver           *conn.MockComponent
-		connection       *conn.DirectConnection
+		driver           *core.MockComponent
+		connection       *core.DirectConnection
 	)
 
 	ginkgo.BeforeEach(func() {
-		commandProcessor = conn.NewMockComponent("CommandProcessor")
+		commandProcessor = core.NewMockComponent("CommandProcessor")
 		gpu = gcn3.NewGpu("gpu")
-		driver = conn.NewMockComponent("Driver")
+		driver = core.NewMockComponent("Driver")
 
 		gpu.Driver = driver
 		gpu.CommandProcessor = commandProcessor
@@ -27,15 +27,15 @@ var _ = ginkgo.Describe("Gpu (unit test)", func() {
 		driver.AddPort("ToGPU")
 		commandProcessor.AddPort("ToDriver")
 
-		connection = conn.NewDirectConnection()
-		conn.PlugIn(commandProcessor, "ToDriver", connection)
-		conn.PlugIn(gpu, "ToDriver", connection)
-		conn.PlugIn(gpu, "ToCommandProcessor", connection)
-		conn.PlugIn(driver, "ToGPU", connection)
+		connection = core.NewDirectConnection()
+		core.PlugIn(commandProcessor, "ToDriver", connection)
+		core.PlugIn(gpu, "ToDriver", connection)
+		core.PlugIn(gpu, "ToCommandProcessor", connection)
+		core.PlugIn(driver, "ToGPU", connection)
 	})
 
 	ginkgo.It("Should forward all request to CommandProcessor", func() {
-		req := conn.NewBasicRequest()
+		req := core.NewBasicRequest()
 		req.SetSource(driver)
 		req.SetDestination(gpu)
 

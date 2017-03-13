@@ -6,8 +6,7 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/mem"
 )
@@ -19,13 +18,13 @@ type memAccessInfo struct {
 // An evalEvent is the event that happens after the cu fetches the instruction
 // from memory. In this event, the instruction is decoded and evaluated.
 type evalEvent struct {
-	*event.BasicEvent
+	*core.BasicEvent
 	Buf []byte
 }
 
 func newEvalEvent() *evalEvent {
 	e := new(evalEvent)
-	e.BasicEvent = event.NewBasicEvent()
+	e.BasicEvent = core.NewBasicEvent()
 	return e
 }
 
@@ -36,14 +35,14 @@ func newEvalEvent() *evalEvent {
 //                    Completion signal
 // 	 ToInstMem <=> Memory system for the instructions
 type ComputeUnit struct {
-	*conn.BasicComponent
+	*core.BasicComponent
 
-	Freq   event.Freq
-	Engine event.Engine
+	Freq   core.Freq
+	Engine core.Engine
 
 	Disassembler *disasm.Disassembler
 
-	InstMem conn.Component
+	InstMem core.Component
 
 	scalarInstWorker *ScalarInstWorker
 
@@ -66,15 +65,15 @@ type ComputeUnit struct {
 
 // NewComputeUnit creates a ComputeUnit
 func NewComputeUnit(name string,
-	engine event.Engine,
+	engine core.Engine,
 	disassembler *disasm.Disassembler,
-	instMem conn.Component,
+	instMem core.Component,
 	scalarInstWorker *ScalarInstWorker,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
-	cu.BasicComponent = conn.NewBasicComponent(name)
+	cu.BasicComponent = core.NewBasicComponent(name)
 
-	cu.Freq = 800 * event.MHz
+	cu.Freq = 800 * core.MHz
 	cu.Engine = engine
 	cu.Disassembler = disassembler
 	cu.InstMem = instMem
@@ -98,7 +97,7 @@ func NewComputeUnit(name string,
 }
 
 // Receive processes the incomming requests
-func (cu *ComputeUnit) Receive(req conn.Request) *conn.Error {
+func (cu *ComputeUnit) Receive(req core.Request) *core.Error {
 	switch req := req.(type) {
 	case *MapWgReq:
 		return cu.processMapWGReq(req)
@@ -106,12 +105,12 @@ func (cu *ComputeUnit) Receive(req conn.Request) *conn.Error {
 		return cu.processAccessReq(req)
 	default:
 		log.Panicf("ComputeUnit cannot process request of type %s", reflect.TypeOf(req))
-		return conn.NewError(
+		return core.NewError(
 			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
 	}
 }
 
-func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *conn.Error {
+func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
 	if cu.WG != nil {
 		req.SwapSrcAndDst()
 		req.IsReply = true
@@ -132,7 +131,7 @@ func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *conn.Error {
 	return nil
 }
 
-func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *conn.Error {
+func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *core.Error {
 	info := req.Info.(*memAccessInfo)
 	if info.IsInstFetch {
 		evt := newEvalEvent()
@@ -299,7 +298,7 @@ func (cu *ComputeUnit) initMiscRegs() {
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
-func (cu *ComputeUnit) Handle(evt event.Event) error {
+func (cu *ComputeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *CUExeEvent:
 		return cu.handleCUExeEvent(evt)
@@ -361,7 +360,7 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 	return nil
 }
 
-func (cu *ComputeUnit) scheduleNextInst(time event.VTimeInSec) {
+func (cu *ComputeUnit) scheduleNextInst(time core.VTimeInSec) {
 	evt := NewCUExeEvent()
 	evt.SetHandler(cu)
 	evt.SetTime(cu.Freq.NextTick(time))

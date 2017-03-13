@@ -8,8 +8,7 @@ import (
 
 	"encoding/binary"
 
-	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
@@ -17,11 +16,11 @@ import (
 )
 
 var (
-	engine     event.Engine
+	engine     core.Engine
 	globalMem  *mem.IdealMemController
 	gpu        *gcn3.Gpu
-	host       *conn.MockComponent
-	connection conn.Connection
+	host       *core.MockComponent
+	connection core.Connection
 	hsaco      *disasm.HsaCo
 )
 
@@ -35,18 +34,18 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = event.NewSerialEngine()
+	engine = core.NewSerialEngine()
 
 	// Connection
-	connection = conn.NewDirectConnection()
+	connection = core.NewDirectConnection()
 
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Frequency = 800 * event.MHz
+	globalMem.Frequency = 800 * core.MHz
 	globalMem.Latency = 2
 
 	// Host
-	host = conn.NewMockComponent("host")
+	host = core.NewMockComponent("host")
 	host.AddPort("ToGpu")
 
 	// Gpu
@@ -68,18 +67,18 @@ func initPlatform() {
 		)
 		scalarInstWorker.CU = cu
 		dispatcher.RegisterCU(cu)
-		conn.PlugIn(cu, "ToDispatcher", connection)
-		conn.PlugIn(dispatcher, "ToComputeUnits", connection)
-		conn.PlugIn(cu, "ToInstMem", connection)
+		core.PlugIn(cu, "ToDispatcher", connection)
+		core.PlugIn(dispatcher, "ToComputeUnits", connection)
+		core.PlugIn(cu, "ToInstMem", connection)
 	}
 
 	// Connection
-	conn.PlugIn(gpu, "ToCommandProcessor", connection)
-	conn.PlugIn(commandProcessor, "ToDriver", connection)
-	conn.PlugIn(commandProcessor, "ToDispatcher", connection)
-	conn.PlugIn(host, "ToGpu", connection)
-	conn.PlugIn(dispatcher, "ToCommandProcessor", connection)
-	conn.PlugIn(globalMem, "Top", connection)
+	core.PlugIn(gpu, "ToCommandProcessor", connection)
+	core.PlugIn(commandProcessor, "ToDriver", connection)
+	core.PlugIn(commandProcessor, "ToDispatcher", connection)
+	core.PlugIn(host, "ToGpu", connection)
+	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
+	core.PlugIn(globalMem, "Top", connection)
 }
 
 func loadProgram() {

@@ -3,14 +3,13 @@ package gcn3
 import (
 	"github.com/onsi/gomega"
 
-	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/disasm"
 )
 
 // A ComputeUnit is where the GPU kernel is executed, in the unit of work group.
 type ComputeUnit interface {
-	conn.Component
+	core.Component
 
 	WriteReg(reg *disasm.Reg, wiFlatID int, data []byte)
 	ReadReg(reg *disasm.Reg, wiFlatID int, byteSize int) []byte
@@ -31,7 +30,7 @@ type regRead struct {
 
 // MockComputeUnit is a ComputeUnit that is designed for help with testing
 type MockComputeUnit struct {
-	*conn.BasicComponent
+	*core.BasicComponent
 	expectedRegWrite []regWrite
 	expectedRegRead  []regRead
 }
@@ -39,7 +38,7 @@ type MockComputeUnit struct {
 // NewMockComputeUnit returns a new MockComputeUnit
 func NewMockComputeUnit(name string) *MockComputeUnit {
 	cu := new(MockComputeUnit)
-	cu.BasicComponent = conn.NewBasicComponent(name)
+	cu.BasicComponent = core.NewBasicComponent(name)
 	cu.expectedRegWrite = make([]regWrite, 0)
 	cu.expectedRegRead = make([]regRead, 0)
 	return cu
@@ -100,11 +99,11 @@ func (cu *MockComputeUnit) AllExpectedAccessed() {
 }
 
 // Receive function of a MockComputeUnit dost not do anything.
-func (cu *MockComputeUnit) Receive(req conn.Request) *conn.Error {
+func (cu *MockComputeUnit) Receive(req core.Request) *core.Error {
 	return nil
 }
 
 // Handle function of a MockComputeUnit does not do anything
-func (cu *MockComputeUnit) Handle(evt event.Event) error {
+func (cu *MockComputeUnit) Handle(evt core.Event) error {
 	return nil
 }

@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/core"
 )
 
 // CommandProcessor is a Yaotsu component that is responsible for receiving
@@ -15,15 +14,15 @@ import (
 //     ToDriver <=> Receive request and send feedback to the driver
 //     ToDispatcher <=> Dispatcher of compute kernels
 type CommandProcessor struct {
-	*conn.BasicComponent
+	*core.BasicComponent
 
-	Dispatcher conn.Component
+	Dispatcher core.Component
 }
 
 // NewCommandProcessor creates a new CommandProcessor
 func NewCommandProcessor(name string) *CommandProcessor {
 	c := new(CommandProcessor)
-	c.BasicComponent = conn.NewBasicComponent(name)
+	c.BasicComponent = core.NewBasicComponent(name)
 
 	c.AddPort("ToDriver")
 	c.AddPort("ToDispatcher")
@@ -31,24 +30,24 @@ func NewCommandProcessor(name string) *CommandProcessor {
 	return c
 }
 
-func (p *CommandProcessor) handleLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
+func (p *CommandProcessor) handleLaunchKernelReq(req *LaunchKernelReq) *core.Error {
 	req.SetSource(p)
 	req.SetDestination(p.Dispatcher)
 	return p.GetConnection("ToDispatcher").Send(req)
 }
 
 // Receive processes the incomming requests
-func (p *CommandProcessor) Receive(req conn.Request) *conn.Error {
+func (p *CommandProcessor) Receive(req core.Request) *core.Error {
 	switch req := req.(type) {
 	case *LaunchKernelReq:
 		return p.handleLaunchKernelReq(req)
 	default:
-		return conn.NewError(
+		return core.NewError(
 			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
 	}
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
-func (p *CommandProcessor) Handle(e event.Event) error {
+func (p *CommandProcessor) Handle(e core.Event) error {
 	return nil
 }
