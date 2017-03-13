@@ -43,24 +43,47 @@ func (w *ScalarInstWorker) runSop2(inst *disasm.Instruction,
 func (w *ScalarInstWorker) runSAddU32(inst *disasm.Instruction,
 	wiFlatID int) error {
 
-	pc := w.getRegisterValueUint64(disasm.Regs[disasm.Pc], wiFlatID)
+	pc := w.getRegUint64(disasm.Regs[disasm.Pc], wiFlatID)
+	src1Value := w.getOperandValueUint32(inst.Src1, wiFlatID)
+	src0Value := w.getOperandValueUint32(inst.Src0, wiFlatID)
+
+	// Overflow check
+	var sccValue uint8
+	if src1Value&(1<<31) != 0 && src0Value&(1<<31) != 0 {
+		sccValue = 1
+	}
+
+	dstValue := src0Value + src1Value
+	pc += uint64(inst.ByteSize)
+
+	w.putRegUint32(inst.Dst.Register, wiFlatID, dstValue)
+	w.putRegUint64(disasm.Regs[disasm.Pc], wiFlatID, pc)
+	w.putRegUint8(disasm.Regs[disasm.Scc], wiFlatID, sccValue)
+
+	return nil
+}
+
+func (w *ScalarInstWorker) runSAddCU32(inst *disasm.Instruction,
+	wiFlatID int) error {
+
+	pc := w.getRegUint64(disasm.Regs[disasm.Pc], wiFlatID)
 	src1Value := w.getOperandValueUint32(inst.Src1, wiFlatID)
 	src0Value := w.getOperandValueUint32(inst.Src0, wiFlatID)
 	dstValue := src0Value + src1Value
 	pc += uint64(inst.ByteSize)
-	w.putRegisterValueUint32(inst.Dst.Register, wiFlatID, dstValue)
-	w.putRegisterValueUint64(disasm.Regs[disasm.Pc], wiFlatID, pc)
+	w.putRegUint32(inst.Dst.Register, wiFlatID, dstValue)
+	w.putRegUint64(disasm.Regs[disasm.Pc], wiFlatID, pc)
 	return nil
 }
 
-func (w *ScalarInstWorker) getRegisterValueUint64(
+func (w *ScalarInstWorker) getRegUint64(
 	reg *disasm.Reg, wiFlatID int,
 ) uint64 {
 	data := w.CU.ReadReg(reg, wiFlatID, 8)
 	return disasm.BytesToUint64(data)
 }
 
-func (w *ScalarInstWorker) getRegisterValueUint32(
+func (w *ScalarInstWorker) getRegUint32(
 	reg *disasm.Reg, wiFlatID int,
 ) uint32 {
 	data := w.CU.ReadReg(reg, wiFlatID, 4)
@@ -72,7 +95,7 @@ func (w *ScalarInstWorker) getOperandValueUint32(
 ) uint32 {
 	switch operand.OperandType {
 	case disasm.RegOperand:
-		return w.getRegisterValueUint32(operand.Register, wiFlatID)
+		return w.getRegUint32(operand.Register, wiFlatID)
 	case disasm.IntOperand:
 		return uint32(operand.IntValue)
 	case disasm.LiteralConstant:
@@ -83,14 +106,21 @@ func (w *ScalarInstWorker) getOperandValueUint32(
 	return 0
 }
 
-func (w *ScalarInstWorker) putRegisterValueUint32(
+func (w *ScalarInstWorker) putRegUint8(
+	reg *disasm.Reg, wiFlatID int, value uint8,
+) {
+	data := disasm.Uint8ToBytes(value)
+	w.CU.WriteReg(reg, wiFlatID, data)
+}
+
+func (w *ScalarInstWorker) putRegUint32(
 	reg *disasm.Reg, wiFlatID int, value uint32,
 ) {
 	data := disasm.Uint32ToBytes(value)
 	w.CU.WriteReg(reg, wiFlatID, data)
 }
 
-func (w *ScalarInstWorker) putRegisterValueUint64(
+func (w *ScalarInstWorker) putRegUint64(
 	reg *disasm.Reg, wiFlatID int, value uint64,
 ) {
 	data := disasm.Uint64ToBytes(value)
