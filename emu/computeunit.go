@@ -275,7 +275,6 @@ func (cu *ComputeUnit) initVRegsForWI(
 		binary.LittleEndian.PutUint32(bytes, uint32(wiIDZ))
 		cu.WriteReg(reg, wiFlatID, bytes)
 	}
-
 }
 
 func (cu *ComputeUnit) initMiscRegs() {
