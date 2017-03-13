@@ -3,6 +3,7 @@ package gcn3
 import (
 	"log"
 	"reflect"
+	"sync"
 
 	"github.com/onsi/gomega"
 
@@ -34,6 +35,7 @@ type regRead struct {
 // MockComputeUnit is a ComputeUnit that is designed for help with testing
 type MockComputeUnit struct {
 	*core.BasicComponent
+	lock             sync.Mutex
 	expectedRegWrite []regWrite
 	expectedRegRead  []regRead
 }
@@ -70,13 +72,17 @@ func (cu *MockComputeUnit) ExpectRegRead(
 
 // WriteReg function of a MockComputeUnit checks if a write action is expected
 func (cu *MockComputeUnit) WriteReg(reg *disasm.Reg, wiFlatID int,
-	data []byte) {
+	data []byte,
+) {
+
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
 
 	for i, regWrite := range cu.expectedRegWrite {
 		if regWrite.reg == reg &&
 			regWrite.wiFlatID == wiFlatID &&
 			reflect.DeepEqual(regWrite.data, data) {
-			cu.expectedRegWrite = append(cu.expectedRegWrite[:i-1],
+			cu.expectedRegWrite = append(cu.expectedRegWrite[:i],
 				cu.expectedRegWrite[i+1:]...)
 			return
 		}
@@ -87,13 +93,16 @@ func (cu *MockComputeUnit) WriteReg(reg *disasm.Reg, wiFlatID int,
 
 // ReadReg function of a MockComputeUnit checks if a read action is expected
 func (cu *MockComputeUnit) ReadReg(reg *disasm.Reg, wiFlatID int,
-	byteSize int) []byte {
+	byteSize int,
+) []byte {
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
 
 	for i, regRead := range cu.expectedRegRead {
 		if regRead.reg == reg &&
 			regRead.wiFlatID == wiFlatID &&
 			regRead.byteSize == byteSize {
-			cu.expectedRegRead = append(cu.expectedRegRead[:i-1],
+			cu.expectedRegRead = append(cu.expectedRegRead[:i],
 				cu.expectedRegRead[i+1:]...)
 			return regRead.data
 		}
