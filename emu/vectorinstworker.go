@@ -2,6 +2,7 @@ package emu
 
 import (
 	"log"
+	"sync"
 
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/disasm"
@@ -29,7 +30,8 @@ func (w *VectorInstWorker) Run(inst *disasm.Instruction, wiFlatID int) error {
 	return nil
 }
 
-type instFunc func(inst *disasm.Instruction, wiFlatID int) error
+type instFunc func(inst *disasm.Instruction, wiFlatID int,
+	waitGroup *sync.WaitGroup) error
 
 func (w *VectorInstWorker) runForActiveWI(
 	f instFunc,
@@ -37,16 +39,20 @@ func (w *VectorInstWorker) runForActiveWI(
 	wiFlatID int,
 ) error {
 	exec := w.getRegUint64(disasm.Regs[disasm.Exec], wiFlatID)
+	waitGroup := new(sync.WaitGroup)
 	for i := 0; i < 64; i++ {
 		mask := uint64(1) << uint(i)
 		if exec&mask != 0 {
-			f(inst, int(wiFlatID+i))
+			waitGroup.Add(1)
+			go f(inst, int(wiFlatID+i), waitGroup)
 		}
 	}
 
 	pc := w.getRegUint64(disasm.Regs[disasm.Pc], wiFlatID)
 	pc += uint64(inst.ByteSize)
 	w.putRegUint64(disasm.Regs[disasm.Pc], wiFlatID, pc)
+
+	waitGroup.Wait()
 
 	return nil
 }
@@ -72,7 +78,8 @@ func (w *VectorInstWorker) runVop1(inst *disasm.Instruction,
 }
 
 func (w *VectorInstWorker) runVMovB32(inst *disasm.Instruction,
-	wiFlatID int) error {
+	wiFlatID int, waitGroup *sync.WaitGroup) error {
+	defer waitGroup.Done()
 	src0Value := w.getOperandValueUint32(inst.Src0, wiFlatID)
 	w.putRegUint32(inst.Dst.Register, wiFlatID, src0Value)
 	return nil
