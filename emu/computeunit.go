@@ -42,6 +42,7 @@ type ComputeUnit struct {
 	Disassembler     *disasm.Disassembler
 	InstMem          core.Component
 	scalarInstWorker *ScalarInstWorker
+	vectorInstWorker *VectorInstWorker
 
 	WG     *WorkGroup
 	co     *disasm.HsaCo
@@ -66,6 +67,7 @@ func NewComputeUnit(name string,
 	disassembler *disasm.Disassembler,
 	instMem core.Component,
 	scalarInstWorker *ScalarInstWorker,
+	vectorInstWorker *VectorInstWorker,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.BasicComponent = core.NewBasicComponent(name)
@@ -75,6 +77,7 @@ func NewComputeUnit(name string,
 	cu.Disassembler = disassembler
 	cu.InstMem = instMem
 	cu.scalarInstWorker = scalarInstWorker
+	cu.vectorInstWorker = vectorInstWorker
 
 	cu.vgprPerWI = 256
 	cu.sgprPerWf = 102
@@ -345,6 +348,12 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
 			cu.scalarInstWorker.Run(inst, wiFlatID)
 		}
+	case disasm.Vop1, disasm.Vop2:
+		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
+		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
+			cu.vectorInstWorker.Run(inst, wiFlatID)
+		}
+
 	default:
 		log.Panicf("Instruction format %s is not supported.", inst.FormatName)
 
