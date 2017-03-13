@@ -1,6 +1,9 @@
 package gcn3
 
 import (
+	"log"
+	"reflect"
+
 	"github.com/onsi/gomega"
 
 	"gitlab.com/yaotsu/core"
@@ -69,26 +72,35 @@ func (cu *MockComputeUnit) ExpectRegRead(
 func (cu *MockComputeUnit) WriteReg(reg *disasm.Reg, wiFlatID int,
 	data []byte) {
 
-	gomega.Expect(cu.expectedRegWrite).NotTo(gomega.BeEmpty())
+	for i, regWrite := range cu.expectedRegWrite {
+		if regWrite.reg == reg &&
+			regWrite.wiFlatID == wiFlatID &&
+			reflect.DeepEqual(regWrite.data, data) {
+			cu.expectedRegWrite = append(cu.expectedRegWrite[:i-1],
+				cu.expectedRegWrite[i+1:]...)
+			return
+		}
+	}
 
-	head := cu.expectedRegWrite[0]
-	gomega.Expect(head.reg).To(gomega.Equal(reg))
-	gomega.Expect(head.wiFlatID).To(gomega.Equal(wiFlatID))
-	gomega.Expect(head.data).To(gomega.ConsistOf(data))
-	cu.expectedRegWrite = cu.expectedRegWrite[1:]
+	log.Panicf("Writing to register %s is not expected", reg.Name)
 }
 
 // ReadReg function of a MockComputeUnit checks if a read action is expected
 func (cu *MockComputeUnit) ReadReg(reg *disasm.Reg, wiFlatID int,
 	byteSize int) []byte {
 
-	gomega.Expect(cu.expectedRegRead).NotTo(gomega.BeEmpty())
-	head := cu.expectedRegRead[0]
-	gomega.Expect(head.reg).To(gomega.Equal(reg))
-	gomega.Expect(head.wiFlatID).To(gomega.Equal(wiFlatID))
-	gomega.Expect(head.byteSize).To(gomega.Equal(byteSize))
-	cu.expectedRegRead = cu.expectedRegRead[1:]
-	return head.data
+	for i, regRead := range cu.expectedRegRead {
+		if regRead.reg == reg &&
+			regRead.wiFlatID == wiFlatID &&
+			regRead.byteSize == byteSize {
+			cu.expectedRegRead = append(cu.expectedRegRead[:i-1],
+				cu.expectedRegRead[i+1:]...)
+			return regRead.data
+		}
+	}
+
+	log.Panicf("Reading register %s is not expected", reg.Name)
+	return nil
 }
 
 // AllExpectedAccessed expects that all the expected read an write actions
