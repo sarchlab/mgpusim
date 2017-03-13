@@ -3,7 +3,7 @@ package emu_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core/conn"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
 )
 
@@ -24,37 +24,37 @@ func (f *MockMapWorkGroupReqFactory) Create() *emu.MapWgReq {
 var _ = Describe("Dispatcher", func() {
 	var (
 		dispatcher             *emu.Dispatcher
-		cu0                    *conn.MockComponent
-		cu1                    *conn.MockComponent
-		cu2                    *conn.MockComponent
-		cu3                    *conn.MockComponent
-		connection             *conn.DirectConnection
+		cu0                    *core.MockComponent
+		cu1                    *core.MockComponent
+		cu2                    *core.MockComponent
+		cu3                    *core.MockComponent
+		connection             *core.DirectConnection
 		mapWorkGroupReqFactory *MockMapWorkGroupReqFactory
 	)
 
 	BeforeEach(func() {
 		mapWorkGroupReqFactory = NewMockMapWorkGroupReqFactory()
 		dispatcher = emu.NewDispatcher("dispatcher", mapWorkGroupReqFactory)
-		cu0 = conn.NewMockComponent("cu0")
+		cu0 = core.NewMockComponent("cu0")
 		cu0.AddPort("ToDispatcher")
-		cu1 = conn.NewMockComponent("cu1")
+		cu1 = core.NewMockComponent("cu1")
 		cu1.AddPort("ToDispatcher")
-		cu2 = conn.NewMockComponent("cu2")
+		cu2 = core.NewMockComponent("cu2")
 		cu2.AddPort("ToDispatcher")
-		cu3 = conn.NewMockComponent("cu3")
+		cu3 = core.NewMockComponent("cu3")
 		cu3.AddPort("ToDispatcher")
-		connection = conn.NewDirectConnection()
+		connection = core.NewDirectConnection()
 
 		dispatcher.RegisterCU(cu0)
 		dispatcher.RegisterCU(cu1)
 		dispatcher.RegisterCU(cu2)
 		dispatcher.RegisterCU(cu3)
 
-		conn.PlugIn(dispatcher, "ToComputeUnits", connection)
-		conn.PlugIn(cu0, "ToDispatcher", connection)
-		conn.PlugIn(cu1, "ToDispatcher", connection)
-		conn.PlugIn(cu2, "ToDispatcher", connection)
-		conn.PlugIn(cu3, "ToDispatcher", connection)
+		core.PlugIn(dispatcher, "ToComputeUnits", connection)
+		core.PlugIn(cu0, "ToDispatcher", connection)
+		core.PlugIn(cu1, "ToDispatcher", connection)
+		core.PlugIn(cu2, "ToDispatcher", connection)
+		core.PlugIn(cu3, "ToDispatcher", connection)
 	})
 
 	It("should dispatch", func() {

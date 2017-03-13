@@ -3,7 +3,7 @@ package emu_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core/conn"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
 )
@@ -11,19 +11,19 @@ import (
 var _ = Describe("ComputeUnit", func() {
 
 	var (
-		mockDispatcher *conn.MockComponent
-		connection     *conn.DirectConnection
+		mockDispatcher *core.MockComponent
+		connection     *core.DirectConnection
 		cu             *emu.ComputeUnit
 	)
 
 	BeforeEach(func() {
-		mockDispatcher = conn.NewMockComponent("MockDispatcher")
+		mockDispatcher = core.NewMockComponent("MockDispatcher")
 		mockDispatcher.AddPort("ToCU")
-		connection = conn.NewDirectConnection()
+		connection = core.NewDirectConnection()
 		cu = emu.NewComputeUnit("cu", nil, nil, nil, nil)
 
-		conn.PlugIn(mockDispatcher, "ToCU", connection)
-		conn.PlugIn(cu, "ToDispatcher", connection)
+		core.PlugIn(mockDispatcher, "ToCU", connection)
+		core.PlugIn(cu, "ToDispatcher", connection)
 	})
 
 	Context("on MapWorkGroupReq", func() {

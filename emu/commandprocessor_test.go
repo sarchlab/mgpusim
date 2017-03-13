@@ -3,33 +3,33 @@ package emu_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core/conn"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 var _ = Describe("CommandProcessor", func() {
 
 	var (
-		driver           *conn.MockComponent
-		dispatcher       *conn.MockComponent
+		driver           *core.MockComponent
+		dispatcher       *core.MockComponent
 		commandProcessor *emu.CommandProcessor
-		connection       *conn.DirectConnection
+		connection       *core.DirectConnection
 	)
 
 	BeforeEach(func() {
-		connection = conn.NewDirectConnection()
+		connection = core.NewDirectConnection()
 
-		driver = conn.NewMockComponent("dispatcher")
+		driver = core.NewMockComponent("dispatcher")
 		driver.AddPort("ToGPU")
-		dispatcher = conn.NewMockComponent("dispatcher")
+		dispatcher = core.NewMockComponent("dispatcher")
 		dispatcher.AddPort("ToCommandProcessor")
 		commandProcessor = emu.NewCommandProcessor("commandProcessor")
 
 		commandProcessor.Dispatcher = dispatcher
 
-		conn.PlugIn(dispatcher, "ToCommandProcessor", connection)
-		conn.PlugIn(commandProcessor, "ToDispatcher", connection)
-		conn.PlugIn(driver, "ToGPU", connection)
+		core.PlugIn(dispatcher, "ToCommandProcessor", connection)
+		core.PlugIn(commandProcessor, "ToDispatcher", connection)
+		core.PlugIn(driver, "ToGPU", connection)
 	})
 
 	It("should forward kernel launching request to Dispatcher", func() {

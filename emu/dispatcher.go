@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/core"
 )
 
 // A Dispatcher is a Yaotsu component that is responsible for distributing
@@ -17,9 +16,9 @@ import (
 //                      receives from the compute units about the completion
 //                      of the workgroups.
 type Dispatcher struct {
-	*conn.BasicComponent
+	*core.BasicComponent
 
-	ComputeUnits        []conn.Component
+	ComputeUnits        []core.Component
 	ComputeUnitsRunning []bool
 	InFlightGrids       []*Grid
 
@@ -30,10 +29,10 @@ type Dispatcher struct {
 func NewDispatcher(name string,
 	mapWorkGroupReqFactory MapWGReqFactory) *Dispatcher {
 	d := new(Dispatcher)
-	d.BasicComponent = conn.NewBasicComponent(name)
+	d.BasicComponent = core.NewBasicComponent(name)
 	d.mapWGReqFactory = mapWorkGroupReqFactory
 
-	d.ComputeUnits = make([]conn.Component, 0)
+	d.ComputeUnits = make([]core.Component, 0)
 	d.ComputeUnitsRunning = make([]bool, 0)
 	d.InFlightGrids = make([]*Grid, 0)
 
@@ -45,12 +44,12 @@ func NewDispatcher(name string,
 
 // RegisterCU allows the dispatcher to dispatch workgroups to the
 // ComputeUnit
-func (d *Dispatcher) RegisterCU(cu conn.Component) {
+func (d *Dispatcher) RegisterCU(cu core.Component) {
 	d.ComputeUnits = append(d.ComputeUnits, cu)
 	d.ComputeUnitsRunning = append(d.ComputeUnitsRunning, false)
 }
 
-func (d *Dispatcher) dispatch(cu conn.Component, wg *WorkGroup, time event.VTimeInSec) {
+func (d *Dispatcher) dispatch(cu core.Component, wg *WorkGroup, time core.VTimeInSec) {
 	req := d.mapWGReqFactory.Create()
 	req.SetSource(d)
 	req.SetDestination(cu)
@@ -61,17 +60,17 @@ func (d *Dispatcher) dispatch(cu conn.Component, wg *WorkGroup, time event.VTime
 }
 
 // Receive processes the incomming requests
-func (d *Dispatcher) Receive(req conn.Request) *conn.Error {
+func (d *Dispatcher) Receive(req core.Request) *core.Error {
 	switch req := req.(type) {
 	case *LaunchKernelReq:
 		return d.processLaunchKernelReq(req)
 	default:
-		return conn.NewError(
+		return core.NewError(
 			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
 	}
 }
 
-func (d *Dispatcher) processLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
+func (d *Dispatcher) processLaunchKernelReq(req *LaunchKernelReq) *core.Error {
 	grid := NewGrid()
 	grid.Packet = req.Packet
 	grid.CodeObject = req.HsaCo
@@ -101,6 +100,6 @@ func (d *Dispatcher) processLaunchKernelReq(req *LaunchKernelReq) *conn.Error {
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
-func (d *Dispatcher) Handle(e event.Event) error {
+func (d *Dispatcher) Handle(e core.Event) error {
 	return nil
 }

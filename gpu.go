@@ -3,8 +3,7 @@ package gcn3
 import (
 	"fmt"
 
-	"gitlab.com/yaotsu/core/conn"
-	"gitlab.com/yaotsu/core/event"
+	"gitlab.com/yaotsu/core"
 )
 
 // A Gpu is the unit that one kernel can run on.
@@ -14,25 +13,25 @@ import (
 // CPU-GPU communication happens on the connection connecting the "ToDriver"
 // port.
 type Gpu struct {
-	*conn.BasicComponent
+	*core.BasicComponent
 
-	Driver           conn.Component // The DriverComponent
-	CommandProcessor conn.Component // The CommandProcessor
+	Driver           core.Component // The DriverComponent
+	CommandProcessor core.Component // The CommandProcessor
 }
 
 // NewGpu returns a newly created GPU
 func NewGpu(name string) *Gpu {
 	g := new(Gpu)
-	g.BasicComponent = conn.NewBasicComponent(name)
+	g.BasicComponent = core.NewBasicComponent(name)
 	g.AddPort("ToDriver")
 	g.AddPort("ToCommandProcessor")
 	return g
 }
 
-// Handle defines how a GPU handles event.
+// Handle defines how a GPU handles core.
 //
 // A GPU should not handle any event by itself.
-func (g *Gpu) Handle(e event.Event) error {
+func (g *Gpu) Handle(e core.Event) error {
 	return nil
 }
 
@@ -40,7 +39,7 @@ func (g *Gpu) Handle(e event.Event) error {
 //
 // The GPU itself does not respond to requests, but it always forward to the
 // CommandProcessor.
-func (g *Gpu) Receive(req conn.Request) *conn.Error {
+func (g *Gpu) Receive(req core.Request) *core.Error {
 	if req.Source() == g.CommandProcessor { // From the CommandProcessor
 		req.SetSource(g)
 		req.SetDestination(g.Driver)
@@ -53,6 +52,6 @@ func (g *Gpu) Receive(req conn.Request) *conn.Error {
 		return nil
 	}
 
-	return conn.NewError(
+	return core.NewError(
 		fmt.Sprintf("Unrecognized source %s", req.Source().Name()), false, 0)
 }
