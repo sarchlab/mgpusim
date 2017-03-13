@@ -345,6 +345,8 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
 			cu.scalarInstWorker.Run(inst, wiFlatID)
 		}
+	default:
+		log.Panicf("Instruction format %s is not supported.", inst.FormatName)
 
 	}
 

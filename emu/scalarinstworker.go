@@ -34,6 +34,8 @@ func (w *ScalarInstWorker) runSop2(inst *disasm.Instruction,
 	switch inst.Opcode {
 	case 0:
 		return w.runSAddU32(inst, wiFlatID)
+	case 4:
+		return w.runSAddCU32(inst, wiFlatID)
 	default:
 		log.Panicf("opcode %d of Sop2 format is not supported", inst.Opcode)
 	}
@@ -65,15 +67,25 @@ func (w *ScalarInstWorker) runSAddU32(inst *disasm.Instruction,
 
 func (w *ScalarInstWorker) runSAddCU32(inst *disasm.Instruction,
 	wiFlatID int) error {
-
 	pc := w.getRegUint64(disasm.Regs[disasm.Pc], wiFlatID)
 	src1Value := w.getOperandValueUint32(inst.Src1, wiFlatID)
 	src0Value := w.getOperandValueUint32(inst.Src0, wiFlatID)
-	dstValue := src0Value + src1Value
+
+	// Overflow check
+	sccValue := w.getRegUint8(disasm.Regs[disasm.Scc], wiFlatID)
+
+	dstValue := src0Value + src1Value + uint32(sccValue)
+	if src1Value&(1<<31) != 0 && src0Value&(1<<31) != 0 {
+		sccValue = 1
+	}
 	pc += uint64(inst.ByteSize)
+
 	w.putRegUint32(inst.Dst.Register, wiFlatID, dstValue)
 	w.putRegUint64(disasm.Regs[disasm.Pc], wiFlatID, pc)
+	w.putRegUint8(disasm.Regs[disasm.Scc], wiFlatID, sccValue)
+
 	return nil
+
 }
 
 func (w *ScalarInstWorker) getRegUint64(
@@ -88,6 +100,13 @@ func (w *ScalarInstWorker) getRegUint32(
 ) uint32 {
 	data := w.CU.ReadReg(reg, wiFlatID, 4)
 	return disasm.BytesToUint32(data)
+}
+
+func (w *ScalarInstWorker) getRegUint8(
+	reg *disasm.Reg, wiFlatID int,
+) uint8 {
+	data := w.CU.ReadReg(reg, wiFlatID, 1)
+	return disasm.BytesToUint8(data)
 }
 
 func (w *ScalarInstWorker) getOperandValueUint32(
