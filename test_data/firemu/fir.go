@@ -57,7 +57,7 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	disassembler := disasm.NewDisassembler()
-	isaTracer := emu.NewIsaTracer(log.New(os.Stdout, "IsaTracer: ", log.LstdFlags),
+	isaTracer := emu.NewIsaTracer(log.New(os.Stdout, "IsaTracer: ", 0),
 		disassembler)
 	for i := 0; i < 4; i++ {
 		scalarInstWorker := emu.NewScalarInstWorker()
