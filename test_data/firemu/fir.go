@@ -56,15 +56,23 @@ func initPlatform() {
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
+	disassembler := disasm.NewDisassembler()
+	isaTracer := emu.NewIsaTracer(log.New(os.Stdout, "IsaTracer: ", log.LstdFlags),
+		disassembler)
 	for i := 0; i < 4; i++ {
 		scalarInstWorker := emu.NewScalarInstWorker()
 		cu := emu.NewComputeUnit(
 			"Gpu.CU"+string(i),
 			engine,
-			disasm.NewDisassembler(),
+			disassembler,
 			globalMem,
 			scalarInstWorker,
 		)
+
+		if i == 0 {
+			cu.AcceptHook(isaTracer)
+		}
+
 		scalarInstWorker.CU = cu
 		dispatcher.RegisterCU(cu)
 		core.PlugIn(cu, "ToDispatcher", connection)
