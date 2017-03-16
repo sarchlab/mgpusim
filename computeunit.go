@@ -17,6 +17,9 @@ type ComputeUnit interface {
 
 	WriteReg(reg *disasm.Reg, wiFlatID int, data []byte)
 	ReadReg(reg *disasm.Reg, wiFlatID int, byteSize int) []byte
+
+	WriteMem(address uint64, data []byte) *core.Error
+	ReadMem(address uint64, size int) *core.Error
 }
 
 type regWrite struct {
@@ -47,6 +50,16 @@ func NewMockComputeUnit(name string) *MockComputeUnit {
 	cu.expectedRegWrite = make([]regWrite, 0)
 	cu.expectedRegRead = make([]regRead, 0)
 	return cu
+}
+
+// Receive function of a MockComputeUnit dost not do anything.
+func (cu *MockComputeUnit) Receive(req core.Request) *core.Error {
+	return nil
+}
+
+// Handle function of a MockComputeUnit does not do anything
+func (cu *MockComputeUnit) Handle(evt core.Event) error {
+	return nil
 }
 
 // ExpectRegWrite registers a write register action that is expected to happen
@@ -119,12 +132,12 @@ func (cu *MockComputeUnit) AllExpectedAccessed() {
 	gomega.Expect(cu.expectedRegWrite).To(gomega.BeEmpty())
 }
 
-// Receive function of a MockComputeUnit dost not do anything.
-func (cu *MockComputeUnit) Receive(req core.Request) *core.Error {
+// WriteMem is not implmented
+func (cu *MockComputeUnit) WriteMem(address uint64, data []byte) *core.Error {
 	return nil
 }
 
-// Handle function of a MockComputeUnit does not do anything
-func (cu *MockComputeUnit) Handle(evt core.Event) error {
+// ReadMem is not implmented
+func (cu *MockComputeUnit) ReadMem(address uint64, size int) *core.Error {
 	return nil
 }

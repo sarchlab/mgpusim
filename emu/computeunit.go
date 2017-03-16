@@ -11,29 +11,13 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
-type memAccessInfo struct {
-	IsInstFetch bool
-}
-
-// An evalEvent is the event that happens after the cu fetches the instruction
-// from memory. In this event, the instruction is decoded and evaluated.
-type evalEvent struct {
-	*core.BasicEvent
-	Buf []byte
-}
-
-func newEvalEvent() *evalEvent {
-	e := new(evalEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	return e
-}
-
 // A ComputeUnit is the unit that can execute workgroups.
 //
 // A ComputeUnit is a Yaotsu component
 //   ToDispatcher <=> Receive the dispatch request and respond with the
 //                    Completion signal
 // 	 ToInstMem <=> Memory system for the instructions
+//   ToDataMem <=> Memory system for the data in GPU memory
 type ComputeUnit struct {
 	*core.BasicComponent
 
@@ -41,6 +25,7 @@ type ComputeUnit struct {
 	Engine           core.Engine
 	Disassembler     *disasm.Disassembler
 	InstMem          core.Component
+	DataMem          core.Component
 	scalarInstWorker *ScalarInstWorker
 	vectorInstWorker *VectorInstWorker
 
@@ -65,7 +50,6 @@ type ComputeUnit struct {
 func NewComputeUnit(name string,
 	engine core.Engine,
 	disassembler *disasm.Disassembler,
-	instMem core.Component,
 	scalarInstWorker *ScalarInstWorker,
 	vectorInstWorker *VectorInstWorker,
 ) *ComputeUnit {
@@ -75,7 +59,6 @@ func NewComputeUnit(name string,
 	cu.Freq = 800 * core.MHz
 	cu.Engine = engine
 	cu.Disassembler = disassembler
-	cu.InstMem = instMem
 	cu.scalarInstWorker = scalarInstWorker
 	cu.vectorInstWorker = vectorInstWorker
 
@@ -92,6 +75,7 @@ func NewComputeUnit(name string,
 
 	cu.AddPort("ToDispatcher")
 	cu.AddPort("ToInstMem")
+	cu.AddPort("ToDataMem")
 
 	return cu
 }
@@ -111,6 +95,7 @@ func (cu *ComputeUnit) Receive(req core.Request) *core.Error {
 }
 
 func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
+	// ComputeUnit is busy
 	if cu.WG != nil {
 		req.SwapSrcAndDst()
 		req.IsReply = true
@@ -132,9 +117,9 @@ func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
 }
 
 func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *core.Error {
-	info := req.Info.(*memAccessInfo)
+	info := req.Info.(*MemAccessInfo)
 	if info.IsInstFetch {
-		evt := newEvalEvent()
+		evt := NewEvalEvent()
 		evt.SetHandler(cu)
 		evt.SetTime(req.RecvTime())
 		evt.Buf = req.Buf
@@ -300,10 +285,11 @@ func (cu *ComputeUnit) initMiscRegs() {
 func (cu *ComputeUnit) Handle(evt core.Event) error {
 	cu.InvokeHook(evt, core.BeforeEvent)
 	defer cu.InvokeHook(evt, core.AfterEvent)
+
 	switch evt := evt.(type) {
 	case *CUExeEvent:
 		return cu.handleCUExeEvent(evt)
-	case *evalEvent:
+	case *EvalEvent:
 		return cu.handleEvalEvent(evt)
 	default:
 		log.Panicf("event %s is not supported by component %s",
@@ -318,7 +304,7 @@ func (cu *ComputeUnit) handleCUExeEvent(evt *CUExeEvent) error {
 	fetchReq.ByteSize = 8
 	fetchReq.SetSource(cu)
 	fetchReq.SetDestination(cu.InstMem)
-	fetchReq.Info = &memAccessInfo{true}
+	fetchReq.Info = &MemAccessInfo{true}
 	fetchReq.SetSendTime(evt.Time())
 	err := cu.GetConnection("ToInstMem").Send(fetchReq)
 	if err != nil {
@@ -335,7 +321,7 @@ func (cu *ComputeUnit) pc(wfID int) uint64 {
 	return binary.LittleEndian.Uint64(data)
 }
 
-func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
+func (cu *ComputeUnit) handleEvalEvent(evt *EvalEvent) error {
 	inst, err := cu.Disassembler.Decode(evt.Buf)
 	if err != nil {
 		log.Panic(err)
@@ -351,7 +337,12 @@ func (cu *ComputeUnit) handleEvalEvent(evt *evalEvent) error {
 	case disasm.Vop1, disasm.Vop2:
 		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
 		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
-			cu.vectorInstWorker.Run(inst, wiFlatID)
+			cu.vectorInstWorker.Run(evt, wiFlatID)
+		}
+	case disasm.Flat:
+		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
+		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
+			cu.vectorInstWorker.Run(evt, wiFlatID)
 		}
 
 	default:
@@ -435,6 +426,16 @@ func (cu *ComputeUnit) ReadReg(reg *disasm.Reg,
 	}
 
 	return data
+}
+
+// WriteMem provides convenient method to write into the GPU memory
+func (cu *ComputeUnit) WriteMem(address uint64, data []byte) *core.Error {
+	return nil
+}
+
+// ReadMem provides convenient method to read from the GPU memory
+func (cu *ComputeUnit) ReadMem(address uint64, byteSize int) *core.Error {
+	return nil
 }
 
 // vgprAddr converts a VGPR to the address in the vector register file
