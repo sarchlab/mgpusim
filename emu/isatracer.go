@@ -25,17 +25,17 @@ func NewIsaTracer(logger *log.Logger,
 // Type of the IsaTracer that is the evalEvent, where the instruction will
 // get evaluated
 func (t *IsaTracer) Type() reflect.Type {
-	return reflect.TypeOf((*evalEvent)(nil))
+	return reflect.TypeOf((*EvalEvent)(nil))
 }
 
-// Pos the IsaTracer is AfterEvent
+// Pos of the IsaTracer
 func (t *IsaTracer) Pos() core.HookPos {
-	return core.AfterEvent
+	return core.BeforeEvent
 }
 
 // Func defines that when the hook is called, log the instruction executed.
 func (t *IsaTracer) Func(item interface{}, domain core.Hookable) {
-	evt := item.(*evalEvent)
+	evt := item.(*EvalEvent)
 	inst, err := t.disassembler.Decode(evt.Buf)
 	if err != nil {
 		t.logger.Panic(err)

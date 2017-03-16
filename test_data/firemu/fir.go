@@ -66,10 +66,11 @@ func initPlatform() {
 			"Gpu.CU"+string(i),
 			engine,
 			disassembler,
-			globalMem,
 			scalarInstWorker,
 			vectorInstWorker,
 		)
+		cu.InstMem = globalMem
+		cu.DataMem = globalMem
 
 		if i == 0 {
 			cu.AcceptHook(isaTracer)
@@ -81,6 +82,7 @@ func initPlatform() {
 		core.PlugIn(cu, "ToDispatcher", connection)
 		core.PlugIn(dispatcher, "ToComputeUnits", connection)
 		core.PlugIn(cu, "ToInstMem", connection)
+		core.PlugIn(cu, "ToDataMem", connection)
 	}
 
 	// Connection
