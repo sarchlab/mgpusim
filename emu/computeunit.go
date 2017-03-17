@@ -118,7 +118,6 @@ func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
 	cu.RegInitiator.CO = cu.co
 	cu.RegInitiator.WG = cu.WG
 	cu.RegInitiator.InitRegs()
-	cu.scheduleNextInst(cu.Freq.NextTick(req.RecvTime()))
 
 	return nil
 }
@@ -141,31 +140,12 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	defer cu.InvokeHook(evt, core.AfterEvent)
 
 	switch evt := evt.(type) {
-	case *CUExeEvent:
-		return cu.handleCUExeEvent(evt)
 	case *EvalEvent:
 		return cu.handleEvalEvent(evt)
 	default:
 		log.Panicf("event %s is not supported by component %s",
 			reflect.TypeOf(evt), cu.Name())
 	}
-	return nil
-}
-
-func (cu *ComputeUnit) handleCUExeEvent(evt *CUExeEvent) error {
-	fetchReq := mem.NewAccessReq()
-	fetchReq.Address = cu.pc(0)
-	fetchReq.ByteSize = 8
-	fetchReq.SetSource(cu)
-	fetchReq.SetDestination(cu.InstMem)
-	fetchReq.Info = &MemAccessInfo{true}
-	fetchReq.SetSendTime(evt.Time())
-	err := cu.GetConnection("ToInstMem").Send(fetchReq)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	evt.FinishChan() <- true
 	return nil
 }
 
@@ -204,17 +184,8 @@ func (cu *ComputeUnit) handleEvalEvent(evt *EvalEvent) error {
 
 	}
 
-	cu.scheduleNextInst(cu.Freq.NextTick(evt.Time()))
-
 	evt.FinishChan() <- true
 	return nil
-}
-
-func (cu *ComputeUnit) scheduleNextInst(time core.VTimeInSec) {
-	evt := NewCUExeEvent()
-	evt.SetHandler(cu)
-	evt.SetTime(cu.Freq.NextTick(time))
-	cu.Engine.Schedule(evt)
 }
 
 func (cu *ComputeUnit) dumpSRegs(wiFlatID int) {
