@@ -7,15 +7,22 @@ import (
 	"gitlab.com/yaotsu/gcn3/emu"
 )
 
-type MockMapWorkGroupReqFactory struct {
+type MockGridBuilder struct {
+	GridToBuild *emu.Grid
+}
+
+func (b *MockGridBuilder) Build(req *emu.LaunchKernelReq) *emu.Grid {
+	return b.GridToBuild
+}
+
+type MockMapWGReqFactory struct {
 	Reqs []*emu.MapWgReq
 }
 
-func NewMockMapWorkGroupReqFactory() *MockMapWorkGroupReqFactory {
-	return &MockMapWorkGroupReqFactory{make([]*emu.MapWgReq, 0)}
+func NewMockMapWGReqFactory() *MockMapWGReqFactory {
+	return &MockMapWGReqFactory{make([]*emu.MapWgReq, 0)}
 }
-
-func (f *MockMapWorkGroupReqFactory) Create() *emu.MapWgReq {
+func (f *MockMapWGReqFactory) Create() *emu.MapWgReq {
 	req := f.Reqs[0]
 	f.Reqs = f.Reqs[1:]
 	return req
@@ -23,18 +30,22 @@ func (f *MockMapWorkGroupReqFactory) Create() *emu.MapWgReq {
 
 var _ = Describe("Dispatcher", func() {
 	var (
-		dispatcher             *emu.Dispatcher
-		cu0                    *core.MockComponent
-		cu1                    *core.MockComponent
-		cu2                    *core.MockComponent
-		cu3                    *core.MockComponent
-		connection             *core.DirectConnection
-		mapWorkGroupReqFactory *MockMapWorkGroupReqFactory
+		dispatcher      *emu.Dispatcher
+		cu0             *core.MockComponent
+		cu1             *core.MockComponent
+		cu2             *core.MockComponent
+		cu3             *core.MockComponent
+		connection      *core.DirectConnection
+		gridBuilder     *MockGridBuilder
+		mapWGReqFactory *MockMapWGReqFactory
 	)
 
 	BeforeEach(func() {
-		mapWorkGroupReqFactory = NewMockMapWorkGroupReqFactory()
-		dispatcher = emu.NewDispatcher("dispatcher", mapWorkGroupReqFactory)
+		gridBuilder = new(MockGridBuilder)
+		mapWGReqFactory = NewMockMapWGReqFactory()
+		dispatcher = emu.NewDispatcher("dispatcher",
+			gridBuilder, mapWGReqFactory)
+
 		cu0 = core.NewMockComponent("cu0")
 		cu0.AddPort("ToDispatcher")
 		cu1 = core.NewMockComponent("cu1")
@@ -58,37 +69,69 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should dispatch", func() {
-		req := emu.NewLaunchKernelReq()
-		packet := new(emu.HsaKernelDispatchPacket)
-		packet.WorkgroupSizeX = 256
-		packet.WorkgroupSizeY = 1
-		packet.WorkgroupSizeZ = 1
-		packet.GridSizeX = 1025
-		packet.GridSizeY = 1
-		packet.GridSizeZ = 1
-		req.Packet = packet
-		req.SetSendTime(0)
+		wg1 := emu.NewWorkGroup()
+		dispatcher.PendingWGs = append(dispatcher.PendingWGs, wg1)
 
-		mapReq0 := emu.NewMapWGReq()
-		mapReq1 := emu.NewMapWGReq()
-		mapReq2 := emu.NewMapWGReq()
-		mapReq3 := emu.NewMapWGReq()
-		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq0)
-		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq1)
-		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq2)
-		mapWorkGroupReqFactory.Reqs = append(mapWorkGroupReqFactory.Reqs, mapReq3)
+		req := emu.NewMapWGReq()
+		mapWGReqFactory.Reqs = append(mapWGReqFactory.Reqs, req)
+		cu0.ToReceiveReq(req, nil)
 
-		cu0.ToReceiveReq(mapReq0, nil)
-		cu1.ToReceiveReq(mapReq1, nil)
-		cu2.ToReceiveReq(mapReq2, nil)
-		cu3.ToReceiveReq(mapReq3, nil)
+		dispatcher.Dispatch(0)
 
-		dispatcher.Receive(req)
+		Expect(cu0.AllReqReceived()).To(BeTrue())
+
+		Expect(req.SendTime()).To(BeNumerically("~", 0, 1e-12))
+		Expect(req.Source()).To(BeIdenticalTo(dispatcher))
+		Expect(req.Destination()).To(BeIdenticalTo(cu0))
+		Expect(req.WG).To(BeIdenticalTo(wg1))
+	})
+
+	It("should only dispatch to idle cus", func() {
+		wgs := make([]*emu.WorkGroup, 5)
+		reqs := make([]*emu.MapWgReq, 5)
+		for i := 0; i < 5; i++ {
+			wgs[i] = emu.NewWorkGroup()
+			reqs[i] = emu.NewMapWGReq()
+		}
+		dispatcher.PendingWGs = append(dispatcher.PendingWGs, wgs...)
+		mapWGReqFactory.Reqs = append(mapWGReqFactory.Reqs, reqs...)
+
+		cu0.ToReceiveReq(reqs[0], nil)
+		cu1.ToReceiveReq(reqs[1], nil)
+		cu2.ToReceiveReq(reqs[2], nil)
+		cu3.ToReceiveReq(reqs[3], nil)
+
+		dispatcher.Dispatch(0)
 
 		Expect(cu0.AllReqReceived()).To(BeTrue())
 		Expect(cu1.AllReqReceived()).To(BeTrue())
 		Expect(cu2.AllReqReceived()).To(BeTrue())
 		Expect(cu3.AllReqReceived()).To(BeTrue())
-
 	})
+
+	It("should expand grids to dispatch", func() {
+		grid := emu.NewGrid()
+		wgs := make([]*emu.WorkGroup, 5)
+		reqs := make([]*emu.MapWgReq, 5)
+		for i := 0; i < 5; i++ {
+			wgs[i] = emu.NewWorkGroup()
+			reqs[i] = emu.NewMapWGReq()
+		}
+		grid.WorkGroups = append(grid.WorkGroups, wgs...)
+		mapWGReqFactory.Reqs = append(mapWGReqFactory.Reqs, reqs...)
+		dispatcher.PendingGrids = append(dispatcher.PendingGrids, grid)
+
+		cu0.ToReceiveReq(reqs[0], nil)
+		cu1.ToReceiveReq(reqs[1], nil)
+		cu2.ToReceiveReq(reqs[2], nil)
+		cu3.ToReceiveReq(reqs[3], nil)
+
+		dispatcher.Dispatch(0)
+
+		Expect(cu0.AllReqReceived()).To(BeTrue())
+		Expect(cu1.AllReqReceived()).To(BeTrue())
+		Expect(cu2.AllReqReceived()).To(BeTrue())
+		Expect(cu3.AllReqReceived()).To(BeTrue())
+	})
+
 })
