@@ -66,6 +66,7 @@ func initPlatform() {
 		cu := emu.NewComputeUnit(
 			"Gpu.CU"+string(i),
 			engine,
+			new(emu.RegInitiator),
 			disassembler,
 			scalarInstWorker,
 			vectorInstWorker,

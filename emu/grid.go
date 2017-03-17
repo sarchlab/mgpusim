@@ -24,10 +24,34 @@ type WorkGroup struct {
 	Grid                *Grid
 	SizeX, SizeY, SizeZ int
 	IDX, IDY, IDZ       int
+
+	Wavefronts []*Wavefront
 }
 
 // NewWorkGroup creates a workgroup object
 func NewWorkGroup() *WorkGroup {
 	wg := new(WorkGroup)
+	wg.Wavefronts = make([]*Wavefront, 0)
 	return wg
+}
+
+// A Wavefront is a collection of
+type Wavefront struct {
+	WorkItems []*WorkItem
+}
+
+// NewWavefront returns a new Wavefront
+func NewWavefront() *Wavefront {
+	wf := new(Wavefront)
+	wf.WorkItems = make([]*WorkItem, 0)
+	return wf
+}
+
+// A WorkItem defins a set of vector registers
+type WorkItem struct {
+	IDX, IDY, IDZ          int
+	FlatID                 int
+	CurrFlatID             int
+	AbsIDX, AbsIDY, AbsIDZ int
+	FlatAbsID              int
 }

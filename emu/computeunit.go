@@ -24,6 +24,7 @@ type ComputeUnit struct {
 	Freq             core.Freq
 	Engine           core.Engine
 	Disassembler     *disasm.Disassembler
+	RegInitiator     *RegInitiator
 	InstMem          core.Component
 	DataMem          core.Component
 	scalarInstWorker *ScalarInstWorker
@@ -37,18 +38,19 @@ type ComputeUnit struct {
 	wiRegFile *mem.Storage
 	wfRegFile *mem.Storage
 
-	vgprPerWI     int
-	sgprPerWf     int
-	miscRegsBytes int
-	wfRegByteSize int
-	wiPerWf       int
-	maxWI         int
-	maxWf         int
+	VgprPerWI     int
+	SgprPerWf     int
+	MiscRegsBytes int
+	WfRegByteSize int
+	WiPerWf       int
+	MaxWI         int
+	MaxWf         int
 }
 
 // NewComputeUnit creates a ComputeUnit
 func NewComputeUnit(name string,
 	engine core.Engine,
+	regInitiator *RegInitiator,
 	disassembler *disasm.Disassembler,
 	scalarInstWorker *ScalarInstWorker,
 	vectorInstWorker *VectorInstWorker,
@@ -58,20 +60,21 @@ func NewComputeUnit(name string,
 
 	cu.Freq = 800 * core.MHz
 	cu.Engine = engine
+	cu.RegInitiator = regInitiator
 	cu.Disassembler = disassembler
 	cu.scalarInstWorker = scalarInstWorker
 	cu.vectorInstWorker = vectorInstWorker
 
-	cu.vgprPerWI = 256
-	cu.sgprPerWf = 102
-	cu.miscRegsBytes = 114
-	cu.wiPerWf = 64
-	cu.maxWI = 1024
-	cu.maxWf = cu.maxWI / cu.wiPerWf
-	cu.wfRegByteSize = 4*(cu.sgprPerWf) + cu.miscRegsBytes
+	cu.VgprPerWI = 256
+	cu.SgprPerWf = 102
+	cu.MiscRegsBytes = 114
+	cu.WiPerWf = 64
+	cu.MaxWI = 1024
+	cu.MaxWf = cu.MaxWI / cu.WiPerWf
+	cu.WfRegByteSize = 4*(cu.SgprPerWf) + cu.MiscRegsBytes
 
-	cu.wiRegFile = mem.NewStorage(uint64(4 * cu.vgprPerWI * cu.maxWI))
-	cu.wfRegFile = mem.NewStorage(uint64(cu.wfRegByteSize * cu.maxWf))
+	cu.wiRegFile = mem.NewStorage(uint64(4 * cu.VgprPerWI * cu.MaxWI))
+	cu.wfRegFile = mem.NewStorage(uint64(cu.WfRegByteSize * cu.MaxWf))
 
 	cu.AddPort("ToDispatcher")
 	cu.AddPort("ToInstMem")
@@ -110,7 +113,11 @@ func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
 	cu.co = cu.grid.CodeObject
 	cu.packet = cu.grid.Packet
 
-	cu.initRegs()
+	cu.RegInitiator.CU = cu
+	cu.RegInitiator.Packet = cu.packet
+	cu.RegInitiator.CO = cu.co
+	cu.RegInitiator.WG = cu.WG
+	cu.RegInitiator.InitRegs()
 	cu.scheduleNextInst(cu.Freq.NextTick(req.RecvTime()))
 
 	return nil
@@ -126,159 +133,6 @@ func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *core.Error {
 		cu.Engine.Schedule(evt)
 	}
 	return nil
-}
-
-func (cu *ComputeUnit) initRegs() {
-	cu.initSRegs()
-	cu.initVRegs()
-	cu.initMiscRegs()
-}
-
-func (cu *ComputeUnit) initSRegs() {
-	numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-	for wiID := 0; wiID < numWi; wiID += cu.wiPerWf {
-		cu.initSRegsForWf(wiID)
-	}
-}
-
-func (cu *ComputeUnit) initSRegsForWf(wiID int) {
-	count := 0
-	if cu.co.EnableSgprPrivateSegmentWaveByteOffset() {
-		log.Panic("Initializing register PrivateSegmentWaveByteOffset is not supported")
-		count += 4
-	}
-
-	if cu.co.EnableSgprDispatchPtr() {
-		reg := disasm.SReg(count)
-		bytes := make([]byte, 8)
-		binary.PutUvarint(bytes, uint64(0))
-		cu.WriteReg(reg, wiID, bytes)
-		count += 2
-	}
-
-	if cu.co.EnableSgprQueuePtr() {
-		log.Println("Initializing register QueuePtr is not supported")
-		count += 2
-	}
-
-	if cu.co.EnableSgprKernelArgSegmentPtr() {
-		reg := disasm.SReg(count)
-		bytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(bytes, uint64(cu.packet.KernargAddress))
-		cu.WriteReg(reg, wiID, bytes)
-		count += 2
-	}
-
-	if cu.co.EnableSgprDispatchId() {
-		log.Println("Initializing register DispatchId is not supported")
-		count += 2
-	}
-
-	if cu.co.EnableSgprFlatScratchInit() {
-		log.Println("Initializing register FlatScratchInit is not supported")
-		count += 2
-	}
-
-	if cu.co.EnableSgprPrivateSegementSize() {
-		log.Println("Initializing register PrivateSegementSize is not supported")
-		count++
-	}
-
-	if cu.co.EnableSgprGridWorkGroupCountX() {
-		log.Println("Initializing register GridWorkGroupCountX is not supported")
-		count++
-	}
-
-	if cu.co.EnableSgprGridWorkGroupCountY() {
-		log.Println("Initializing register GridWorkGroupCountY is not supported")
-		count++
-	}
-
-	if cu.co.EnableSgprGridWorkGroupCountZ() {
-		log.Println("Initializing register GridWorkGroupCountZ is not supported")
-		count++
-	}
-
-	if cu.co.EnableSgprWorkGroupIdX() {
-		reg := disasm.SReg(count)
-		bytes := make([]byte, 4)
-		binary.LittleEndian.PutUint32(bytes, uint32(cu.WG.IDX))
-		cu.WriteReg(reg, wiID, bytes)
-		count++
-	}
-	if cu.co.EnableSgprWorkGroupIdY() {
-		reg := disasm.SReg(count)
-		bytes := make([]byte, 4)
-		binary.LittleEndian.PutUint32(bytes, uint32(cu.WG.IDY))
-		cu.WriteReg(reg, wiID, bytes)
-		count++
-	}
-	if cu.co.EnableSgprWorkGroupIdZ() {
-		reg := disasm.SReg(count)
-		bytes := make([]byte, 4)
-		binary.LittleEndian.PutUint32(bytes, uint32(cu.WG.IDZ))
-		cu.WriteReg(reg, wiID, bytes)
-		count++
-	}
-
-	if cu.co.EnableSgprWorkGroupInfo() {
-		log.Println("Initializing register GridWorkGroupInfo is not supported")
-		count++
-	}
-
-	if cu.co.EnableSgprPrivateSegmentWaveByteOffset() {
-		log.Println("Initializing register PrivateSegmentWaveByteOffset is not supported")
-		count++
-	}
-
-}
-
-func (cu *ComputeUnit) initVRegs() {
-	for x := 0; x < cu.WG.SizeX; x++ {
-		for y := 0; y < cu.WG.SizeY; y++ {
-			for z := 0; z < cu.WG.SizeZ; z++ {
-				cu.initVRegsForWI(
-					x, y, z, x+y*cu.WG.SizeX+z*cu.WG.SizeX*cu.WG.SizeY)
-			}
-		}
-	}
-}
-
-func (cu *ComputeUnit) initVRegsForWI(
-	wiIDX, wiIDY, wiIDZ, wiFlatID int) {
-	reg := disasm.VReg(0)
-	bytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(bytes, uint32(wiIDX))
-	cu.WriteReg(reg, wiFlatID, bytes)
-
-	if cu.co.EnableVgprWorkItemId() > 0 {
-		reg = disasm.VReg(1)
-		bytes = make([]byte, 4)
-		binary.LittleEndian.PutUint32(bytes, uint32(wiIDY))
-		cu.WriteReg(reg, wiFlatID, bytes)
-	}
-	if cu.co.EnableVgprWorkItemId() > 1 {
-		reg = disasm.VReg(2)
-		bytes = make([]byte, 4)
-		binary.LittleEndian.PutUint32(bytes, uint32(wiIDZ))
-		cu.WriteReg(reg, wiFlatID, bytes)
-	}
-}
-
-func (cu *ComputeUnit) initMiscRegs() {
-	numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-	for wiID := 0; wiID < numWi; wiID += cu.wiPerWf {
-		reg := disasm.Regs[disasm.Pc]
-		bytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(bytes, uint64(
-			cu.packet.KernelObject+cu.co.KernelCodeEntryByteOffset))
-		cu.WriteReg(reg, wiID, bytes)
-
-		reg = disasm.Regs[disasm.Exec]
-		bytes = make([]byte, 8)
-		binary.LittleEndian.PutUint64(bytes, uint64(0xffffffff))
-		cu.WriteReg(reg, wiID, bytes)
-	}
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
@@ -317,7 +171,7 @@ func (cu *ComputeUnit) handleCUExeEvent(evt *CUExeEvent) error {
 
 // pc returns the program counter of a certain wavefront
 func (cu *ComputeUnit) pc(wfID int) uint64 {
-	data := cu.ReadReg(disasm.Regs[disasm.Pc], wfID*cu.wiPerWf, 8)
+	data := cu.ReadReg(disasm.Regs[disasm.Pc], wfID*cu.WiPerWf, 8)
 	return binary.LittleEndian.Uint64(data)
 }
 
@@ -331,17 +185,17 @@ func (cu *ComputeUnit) handleEvalEvent(evt *EvalEvent) error {
 	switch inst.FormatType {
 	case disasm.Sop2, disasm.Sopk, disasm.Sop1, disasm.Sopc, disasm.Sopp:
 		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
+		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.WiPerWf {
 			cu.scalarInstWorker.Run(inst, wiFlatID)
 		}
 	case disasm.Vop1, disasm.Vop2:
 		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
+		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.WiPerWf {
 			cu.vectorInstWorker.Run(evt, wiFlatID)
 		}
 	case disasm.Flat:
 		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.wiPerWf {
+		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.WiPerWf {
 			cu.vectorInstWorker.Run(evt, wiFlatID)
 		}
 
@@ -364,8 +218,8 @@ func (cu *ComputeUnit) scheduleNextInst(time core.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) dumpSRegs(wiFlatID int) {
-	fmt.Printf("***** SRegs for wavefront %d *****\n", wiFlatID/cu.wiPerWf)
-	for i := 0; i < cu.sgprPerWf; i++ {
+	fmt.Printf("***** SRegs for wavefront %d *****\n", wiFlatID/cu.WiPerWf)
+	for i := 0; i < cu.SgprPerWf; i++ {
 		value := disasm.BytesToUint32(cu.ReadReg(disasm.SReg(i), wiFlatID, 4))
 		if value != 0 {
 			fmt.Printf("\ts%d 0x%08x\n", i, value)
@@ -440,20 +294,20 @@ func (cu *ComputeUnit) ReadMem(address uint64, byteSize int) *core.Error {
 
 // vgprAddr converts a VGPR to the address in the vector register file
 func (cu *ComputeUnit) vgprAddr(reg *disasm.Reg, wiFlatID int) int {
-	return (wiFlatID*cu.vgprPerWI + reg.RegIndex()) * 4
+	return (wiFlatID*cu.VgprPerWI + reg.RegIndex()) * 4
 }
 
 // sgprAddr converts a SGPR to the address in the scalar register file
 func (cu *ComputeUnit) sgprAddr(reg *disasm.Reg, wiFlatID int) int {
-	wfID := wiFlatID / cu.wiPerWf
-	return (wfID*cu.wfRegByteSize + reg.RegIndex()) * 4
+	wfID := wiFlatID / cu.WiPerWf
+	return (wfID*cu.WfRegByteSize + reg.RegIndex()) * 4
 }
 
 // miscRegAddr returns the register's physical address in the scalar
 // register file
 func (cu *ComputeUnit) miscRegAddr(reg *disasm.Reg, wiFlatID int) int {
-	wfID := wiFlatID / cu.wiPerWf
-	offset := cu.wfRegByteSize * wfID
+	wfID := wiFlatID / cu.WiPerWf
+	offset := cu.WfRegByteSize * wfID
 	switch reg {
 	case disasm.Regs[disasm.Pc]:
 		offset += 408 // 102 * 4
