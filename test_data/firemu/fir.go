@@ -63,10 +63,12 @@ func initPlatform() {
 	for i := 0; i < 4; i++ {
 		scalarInstWorker := emu.NewScalarInstWorker()
 		vectorInstWorker := emu.NewVectorInstWorker()
+		scheduler := emu.NewScheduler()
 		cu := emu.NewComputeUnit(
 			"Gpu.CU"+string(i),
 			engine,
 			new(emu.RegInitiator),
+			scheduler,
 			disassembler,
 			scalarInstWorker,
 			vectorInstWorker,
@@ -80,6 +82,8 @@ func initPlatform() {
 
 		scalarInstWorker.CU = cu
 		vectorInstWorker.CU = cu
+		scheduler.CU = cu
+		scheduler.Decoder = disassembler
 		dispatcher.RegisterCU(cu)
 		core.PlugIn(cu, "ToDispatcher", connection)
 		core.PlugIn(dispatcher, "ToComputeUnits", connection)

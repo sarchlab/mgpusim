@@ -11,6 +11,18 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
+// ScheduleEvent asks the compute unit to schedule
+type ScheduleEvent struct {
+	*core.BasicEvent
+}
+
+// NewScheduleEvent creates a new ScheduleEvent
+func NewScheduleEvent() *ScheduleEvent {
+	e := new(ScheduleEvent)
+	e.BasicEvent = core.NewBasicEvent()
+	return e
+}
+
 // A ComputeUnit is the unit that can execute workgroups.
 //
 // A ComputeUnit is a Yaotsu component
@@ -25,6 +37,7 @@ type ComputeUnit struct {
 	Engine           core.Engine
 	Disassembler     *disasm.Disassembler
 	RegInitiator     *RegInitiator
+	Scheduler        *Scheduler
 	InstMem          core.Component
 	DataMem          core.Component
 	scalarInstWorker *ScalarInstWorker
@@ -45,12 +58,15 @@ type ComputeUnit struct {
 	WiPerWf       int
 	MaxWI         int
 	MaxWf         int
+
+	Scheduling bool
 }
 
 // NewComputeUnit creates a ComputeUnit
 func NewComputeUnit(name string,
 	engine core.Engine,
 	regInitiator *RegInitiator,
+	scheduler *Scheduler,
 	disassembler *disasm.Disassembler,
 	scalarInstWorker *ScalarInstWorker,
 	vectorInstWorker *VectorInstWorker,
@@ -61,6 +77,7 @@ func NewComputeUnit(name string,
 	cu.Freq = 800 * core.MHz
 	cu.Engine = engine
 	cu.RegInitiator = regInitiator
+	cu.Scheduler = scheduler
 	cu.Disassembler = disassembler
 	cu.scalarInstWorker = scalarInstWorker
 	cu.vectorInstWorker = vectorInstWorker
@@ -115,7 +132,26 @@ func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
 	cu.RegInitiator.WG = cu.WG
 	cu.RegInitiator.InitRegs()
 
+	numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
+	for wiID := 0; wiID < numWi; wiID += cu.WiPerWf {
+		wf := NewWavefront()
+		wf.FirstWiFlatID = wiID
+		cu.Scheduler.AddWf(wf)
+	}
+
+	if !cu.Scheduling {
+		cu.scheduleNextCycle(req.RecvTime())
+		cu.Scheduling = true
+	}
+
 	return nil
+}
+
+func (cu *ComputeUnit) scheduleNextCycle(now core.VTimeInSec) {
+	evt := NewScheduleEvent()
+	evt.SetHandler(cu)
+	evt.SetTime(cu.Freq.NextTick(now))
+	cu.Engine.Schedule(evt)
 }
 
 func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *core.Error {
@@ -136,6 +172,11 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	defer cu.InvokeHook(evt, core.AfterEvent)
 
 	switch evt := evt.(type) {
+	case *ScheduleEvent:
+		cu.Scheduler.Schedule(evt.Time())
+		cu.scheduleNextCycle(evt.Time())
+		evt.FinishChan() <- true
+		return nil
 	case *EvalEvent:
 		return cu.handleEvalEvent(evt)
 	default:
@@ -257,6 +298,25 @@ func (cu *ComputeUnit) WriteMem(address uint64, data []byte) *core.Error {
 // ReadMem provides convenient method to read from the GPU memory
 func (cu *ComputeUnit) ReadMem(address uint64, byteSize int) *core.Error {
 	return nil
+}
+
+// ReadInstMem is not implemented
+func (cu *ComputeUnit) ReadInstMem(addr uint64, size int,
+	info interface{}, now core.VTimeInSec,
+) *core.Error {
+	fetchReq := mem.NewAccessReq()
+	fetchReq.Address = addr
+	fetchReq.ByteSize = uint64(size)
+	fetchReq.SetSource(cu)
+	fetchReq.SetDestination(cu.InstMem)
+	fetchReq.Info = info
+	fetchReq.SetSendTime(now)
+	err := cu.GetConnection("ToInstMem").Send(fetchReq)
+	if err != nil {
+		log.Panic(err)
+	}
+	return nil
+
 }
 
 // vgprAddr converts a VGPR to the address in the vector register file
