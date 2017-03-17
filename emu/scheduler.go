@@ -1,6 +1,9 @@
 package emu
 
 import (
+	"log"
+
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/disasm"
 )
@@ -28,8 +31,16 @@ type WfScheduleInfo struct {
 //
 // In the emulator, we do not define the scheduler as a Yaotsu component.
 type Scheduler struct {
-	CU  gcn3.ComputeUnit
-	Wfs []*WfScheduleInfo
+	CU      gcn3.ComputeUnit
+	Decoder *disasm.Disassembler
+	Wfs     []*WfScheduleInfo
+}
+
+// NewScheduler returns a new scheduler
+func NewScheduler() *Scheduler {
+	s := new(Scheduler)
+	s.Wfs = make([]*WfScheduleInfo, 0)
+	return s
 }
 
 // AddWf registers a wavefront that needs to be scheduled
@@ -41,11 +52,11 @@ func (s *Scheduler) AddWf(wf *Wavefront) {
 }
 
 // Schedule will initiate the events to fetch and run instructions
-func (s *Scheduler) Schedule() {
+func (s *Scheduler) Schedule(now core.VTimeInSec) {
 	for _, wf := range s.Wfs {
 		switch wf.State {
 		case ready:
-			s.doFetch(wf)
+			s.doFetch(wf, now)
 		case fetched:
 		// Do issue
 		default:
@@ -54,11 +65,21 @@ func (s *Scheduler) Schedule() {
 	}
 }
 
-func (s *Scheduler) doFetch(wf *WfScheduleInfo) {
+func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
 	info := &MemAccessInfo{true, wf}
 	addr := disasm.BytesToUint64(s.CU.ReadReg(disasm.Regs[disasm.Pc],
 		wf.Wf.FirstWiFlatID, 8))
-	s.CU.ReadInstMem(addr, 8, info)
+	s.CU.ReadInstMem(addr, 8, info, now)
+}
+
+func (s *Scheduler) doDecodeAndIssue(wf *WfScheduleInfo) {
+	inst, err := s.Decoder.Decode(wf.InstBuf)
+	if err != nil {
+		log.Panic(err)
+	}
+	wf.Inst = inst
+
+	// TODO issue
 }
 
 // Fetched is called when the ComputeUnit receives the instruction fetching

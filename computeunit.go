@@ -20,7 +20,8 @@ type ComputeUnit interface {
 
 	WriteMem(address uint64, data []byte) *core.Error
 	ReadMem(address uint64, size int) *core.Error
-	ReadInstMem(addr uint64, size int, info interface{}) *core.Error
+	ReadInstMem(addr uint64, size int, info interface{},
+		now core.VTimeInSec) *core.Error
 }
 
 type regWrite struct {
@@ -145,7 +146,7 @@ func (cu *MockComputeUnit) ReadMem(address uint64, size int) *core.Error {
 
 // ReadInstMem is not implemented
 func (cu *MockComputeUnit) ReadInstMem(addr uint64, size int,
-	info interface{},
+	info interface{}, now core.VTimeInSec,
 ) *core.Error {
 	return nil
 }
