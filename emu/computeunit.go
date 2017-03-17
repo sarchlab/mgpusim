@@ -100,11 +100,7 @@ func (cu *ComputeUnit) Receive(req core.Request) *core.Error {
 func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
 	// ComputeUnit is busy
 	if cu.WG != nil {
-		req.SwapSrcAndDst()
-		req.IsReply = true
-		req.Succeed = false
-		cu.GetConnection("ToDispatcher").Send(req)
-		return nil
+		log.Panicf("CU %s is busy", cu.Name())
 	}
 
 	// TODO: Change this part to a event

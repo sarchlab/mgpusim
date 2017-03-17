@@ -1,6 +1,7 @@
 package gcn3_test
 
 import (
+	"log"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -8,6 +9,7 @@ import (
 )
 
 func TestEmulator(t *testing.T) {
+	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "GCN3")
 }
