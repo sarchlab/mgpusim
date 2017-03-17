@@ -28,20 +28,10 @@ var _ = Describe("ComputeUnit", func() {
 	})
 
 	Context("on MapWorkGroupReq", func() {
-		It("should reject if there is workgroup executing", func() {
+		It("should panic if there is workgroup executing", func() {
 			cu.WG = emu.NewWorkGroup()
-
 			req := emu.NewMapWGReq()
-			req.SetSource(mockDispatcher)
-			req.SetDestination(cu)
-
-			mockDispatcher.ToReceiveReq(req, nil)
-
-			cu.Receive(req)
-
-			Expect(mockDispatcher.AllReqReceived()).To(BeTrue())
-			Expect(req.IsReply).To(BeTrue())
-			Expect(req.Succeed).NotTo(BeTrue())
+			Expect(func() { cu.Receive(req) }).To(Panic())
 		})
 	})
 
