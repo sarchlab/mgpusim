@@ -37,7 +37,8 @@ func NewWorkGroup() *WorkGroup {
 
 // A Wavefront is a collection of
 type Wavefront struct {
-	WorkItems []*WorkItem
+	FirstWiFlatID int
+	WorkItems     []*WorkItem
 }
 
 // NewWavefront returns a new Wavefront
