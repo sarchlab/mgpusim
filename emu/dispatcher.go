@@ -18,23 +18,30 @@ import (
 type Dispatcher struct {
 	*core.BasicComponent
 
-	ComputeUnits        []core.Component
-	ComputeUnitsRunning []bool
-	InFlightGrids       []*Grid
+	GridBuilder     GridBuilder
+	MapWGReqFactory MapWGReqFactory
 
-	mapWGReqFactory MapWGReqFactory
+	ComputeUnits        []core.Component // All the CUs
+	ComputeUnitsRunning []bool           // A mask for which cu is running
+	PendingGrids        []*Grid          // The Grid that had not been started
+	PendingWGs          []*WorkGroup     // A Queue for all the work-groups
 }
 
 // NewDispatcher creates a new dispatcher
-func NewDispatcher(name string,
-	mapWorkGroupReqFactory MapWGReqFactory) *Dispatcher {
+func NewDispatcher(
+	name string,
+	gridBuilder GridBuilder,
+	mapWGReqFactory MapWGReqFactory,
+) *Dispatcher {
 	d := new(Dispatcher)
 	d.BasicComponent = core.NewBasicComponent(name)
-	d.mapWGReqFactory = mapWorkGroupReqFactory
+
+	d.GridBuilder = gridBuilder
+	d.MapWGReqFactory = mapWGReqFactory
 
 	d.ComputeUnits = make([]core.Component, 0)
 	d.ComputeUnitsRunning = make([]bool, 0)
-	d.InFlightGrids = make([]*Grid, 0)
+	d.PendingGrids = make([]*Grid, 0)
 
 	d.AddPort("ToCommandProcessor")
 	d.AddPort("ToComputeUnits")
@@ -49,16 +56,6 @@ func (d *Dispatcher) RegisterCU(cu core.Component) {
 	d.ComputeUnitsRunning = append(d.ComputeUnitsRunning, false)
 }
 
-func (d *Dispatcher) dispatch(cu core.Component, wg *WorkGroup, time core.VTimeInSec) {
-	req := d.mapWGReqFactory.Create()
-	req.SetSource(d)
-	req.SetDestination(cu)
-	req.SetSendTime(time)
-	req.WG = wg
-
-	d.GetConnection("ToComputeUnits").Send(req)
-}
-
 // Receive processes the incomming requests
 func (d *Dispatcher) Receive(req core.Request) *core.Error {
 	switch req := req.(type) {
@@ -70,31 +67,63 @@ func (d *Dispatcher) Receive(req core.Request) *core.Error {
 	}
 }
 
-func (d *Dispatcher) processLaunchKernelReq(req *LaunchKernelReq) *core.Error {
-	grid := NewGrid()
-	grid.Packet = req.Packet
-	grid.CodeObject = req.HsaCo
-	grid.SpawnWorkGroups()
+// Dispatch function search for idle compute units and send not-started
+// work-groups to them.
+func (d *Dispatcher) Dispatch(now core.VTimeInSec) {
 
-	d.InFlightGrids = append(d.InFlightGrids, grid)
-
-	// Dispatch workgroups for the first round
-	for i, cu := range d.ComputeUnits {
-		// Skip running CUs
-		if d.ComputeUnitsRunning[i] {
-			continue
-		}
-
-		// No more workgroups to schedule
-		if len(grid.WorkGroups) == 0 {
-			break
-		}
-
-		d.dispatch(cu, grid.WorkGroups[0], req.RecvTime())
-		grid.WorkGroupsRunning = append(grid.WorkGroupsRunning, grid.WorkGroups[0])
-		grid.WorkGroups = grid.WorkGroups[1:]
-
+	for d.numPendingWG() < d.numIdleCU() && len(d.PendingGrids) > 0 {
+		g := d.PendingGrids[0]
+		d.PendingGrids = d.PendingGrids[1:]
+		d.PendingWGs = append(d.PendingWGs, g.WorkGroups...)
 	}
+
+	for d.numPendingWG() != 0 && d.numIdleCU() != 0 {
+		wg := d.PendingWGs[0]
+		d.PendingWGs = d.PendingWGs[1:]
+		for i, cu := range d.ComputeUnits {
+			if !d.ComputeUnitsRunning[i] {
+				d.doDispatch(cu, wg, now)
+				d.ComputeUnitsRunning[i] = true
+				break
+			}
+
+		}
+	}
+}
+
+func (d *Dispatcher) doDispatch(
+	cu core.Component,
+	wg *WorkGroup,
+	time core.VTimeInSec,
+) {
+	req := d.MapWGReqFactory.Create()
+	req.SetSource(d)
+	req.SetDestination(cu)
+	req.SetSendTime(time)
+	req.WG = wg
+
+	d.GetConnection("ToComputeUnits").Send(req)
+}
+
+func (d *Dispatcher) numIdleCU() int {
+	count := 0
+	for _, running := range d.ComputeUnitsRunning {
+		if !running {
+			count++
+		}
+	}
+	return count
+}
+
+func (d *Dispatcher) numPendingWG() int {
+	return len(d.PendingWGs)
+}
+
+func (d *Dispatcher) processLaunchKernelReq(req *LaunchKernelReq) *core.Error {
+	grid := d.GridBuilder.Build(req)
+	d.PendingGrids = append(d.PendingGrids, grid)
+
+	d.Dispatch(req.RecvTime())
 
 	return nil
 }
