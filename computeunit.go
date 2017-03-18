@@ -18,9 +18,16 @@ type ComputeUnit interface {
 	WriteReg(reg *disasm.Reg, wiFlatID int, data []byte)
 	ReadReg(reg *disasm.Reg, wiFlatID int, byteSize int) []byte
 
-	WriteMem(address uint64, data []byte) *core.Error
-	ReadMem(address uint64, size int) *core.Error
-	ReadInstMem(addr uint64, size int, info interface{},
+	WriteMem(
+		address uint64, data []byte,
+		info interface{},
+		now core.VTimeInSec) *core.Error
+	ReadMem(address uint64, size int,
+		info interface{},
+		now core.VTimeInSec) *core.Error
+	ReadInstMem(
+		addr uint64, size int,
+		info interface{},
 		now core.VTimeInSec) *core.Error
 }
 
@@ -37,12 +44,20 @@ type regRead struct {
 	data     []byte
 }
 
+type instMemRead struct {
+	addr uint64
+	size int
+	info interface{}
+	now  core.VTimeInSec
+}
+
 // MockComputeUnit is a ComputeUnit that is designed for help with testing
 type MockComputeUnit struct {
 	*core.BasicComponent
-	lock             sync.Mutex
-	expectedRegWrite []regWrite
-	expectedRegRead  []regRead
+	lock                sync.Mutex
+	expectedRegWrite    []regWrite
+	expectedRegRead     []regRead
+	expectedInstMemRead []instMemRead
 }
 
 // NewMockComputeUnit returns a new MockComputeUnit
@@ -132,21 +147,53 @@ func (cu *MockComputeUnit) ReadReg(reg *disasm.Reg, wiFlatID int,
 func (cu *MockComputeUnit) AllExpectedAccessed() {
 	gomega.Expect(cu.expectedRegRead).To(gomega.BeEmpty())
 	gomega.Expect(cu.expectedRegWrite).To(gomega.BeEmpty())
+	gomega.Expect(cu.expectedInstMemRead).To(gomega.BeEmpty())
 }
 
 // WriteMem is not implmented
-func (cu *MockComputeUnit) WriteMem(address uint64, data []byte) *core.Error {
+func (cu *MockComputeUnit) WriteMem(
+	address uint64,
+	data []byte,
+	info interface{},
+	now core.VTimeInSec,
+) *core.Error {
 	return nil
 }
 
 // ReadMem is not implmented
-func (cu *MockComputeUnit) ReadMem(address uint64, size int) *core.Error {
+func (cu *MockComputeUnit) ReadMem(
+	address uint64,
+	size int,
+	info interface{},
+	now core.VTimeInSec,
+) *core.Error {
 	return nil
 }
 
+// ExpectReadInstMem registers an ReadInstMem action that is to happen in the
+// future
+func (cu *MockComputeUnit) ExpectReadInstMem(
+	addr uint64, size int,
+	info interface{}, now core.VTimeInSec,
+) {
+	r := instMemRead{addr, size, info, now}
+	cu.expectedInstMemRead = append(cu.expectedInstMemRead, r)
+}
+
 // ReadInstMem is not implemented
-func (cu *MockComputeUnit) ReadInstMem(addr uint64, size int,
+func (cu *MockComputeUnit) ReadInstMem(
+	addr uint64, size int,
 	info interface{}, now core.VTimeInSec,
 ) *core.Error {
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
+
+	gomega.Expect(cu.expectedInstMemRead).NotTo(gomega.BeEmpty())
+	gomega.Expect(addr).To(gomega.Equal(cu.expectedInstMemRead[0].addr))
+	gomega.Expect(size).To(gomega.Equal(cu.expectedInstMemRead[0].size))
+	gomega.Expect(now).To(gomega.Equal(cu.expectedInstMemRead[0].now))
+
+	cu.expectedInstMemRead = cu.expectedInstMemRead[1:]
+
 	return nil
 }
