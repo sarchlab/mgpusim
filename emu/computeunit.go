@@ -291,17 +291,24 @@ func (cu *ComputeUnit) ReadReg(reg *disasm.Reg,
 }
 
 // WriteMem provides convenient method to write into the GPU memory
-func (cu *ComputeUnit) WriteMem(address uint64, data []byte) *core.Error {
+func (cu *ComputeUnit) WriteMem(
+	addr uint64, data []byte,
+	info interface{}, now core.VTimeInSec,
+) *core.Error {
 	return nil
 }
 
 // ReadMem provides convenient method to read from the GPU memory
-func (cu *ComputeUnit) ReadMem(address uint64, byteSize int) *core.Error {
+func (cu *ComputeUnit) ReadMem(
+	addr uint64, byteSize int,
+	info interface{}, now core.VTimeInSec,
+) *core.Error {
 	return nil
 }
 
 // ReadInstMem is not implemented
-func (cu *ComputeUnit) ReadInstMem(addr uint64, size int,
+func (cu *ComputeUnit) ReadInstMem(
+	addr uint64, size int,
 	info interface{}, now core.VTimeInSec,
 ) *core.Error {
 	fetchReq := mem.NewAccessReq()

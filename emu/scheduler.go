@@ -66,6 +66,7 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 }
 
 func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
+	log.Println(wf)
 	info := &MemAccessInfo{true, wf}
 	addr := disasm.BytesToUint64(s.CU.ReadReg(disasm.Regs[disasm.Pc],
 		wf.Wf.FirstWiFlatID, 8))
