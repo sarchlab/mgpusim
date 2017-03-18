@@ -2,6 +2,7 @@ package emu_test
 
 import (
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
@@ -34,5 +35,19 @@ var _ = ginkgo.Describe("Schedule", func() {
 		scheduler.Schedule(0)
 
 		cu.AllExpectedAccessed()
+	})
+
+	ginkgo.It("should mark fetched", func() {
+		data := make([]byte, 8)
+		wf := new(emu.WfScheduleInfo)
+
+		scheduler.Fetched(wf, data)
+
+		gomega.Expect(wf.State).To(gomega.Equal(emu.Fetched))
+		gomega.Expect(wf.InstBuf).To(gomega.Equal(data))
+	})
+
+	ginkgo.It("should schedule issue", func() {
+
 	})
 })

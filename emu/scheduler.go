@@ -11,11 +11,12 @@ import (
 // WfState represent what state a wf is in
 type WfState int
 
+// The Wavefront states
 const (
-	fetching WfState = iota
-	fetched
-	running
-	ready
+	Fetching WfState = iota
+	Fetched
+	Running
+	Ready
 )
 
 // WfScheduleInfo stores the information associated with a wavefront in the
@@ -47,7 +48,7 @@ func NewScheduler() *Scheduler {
 func (s *Scheduler) AddWf(wf *Wavefront) {
 	info := new(WfScheduleInfo)
 	info.Wf = wf
-	info.State = ready
+	info.State = Ready
 	s.Wfs = append(s.Wfs, info)
 }
 
@@ -55,12 +56,12 @@ func (s *Scheduler) AddWf(wf *Wavefront) {
 func (s *Scheduler) Schedule(now core.VTimeInSec) {
 	for _, wf := range s.Wfs {
 		switch wf.State {
-		case ready:
+		case Ready:
 			s.doFetch(wf, now)
-		case fetched:
+		case Fetched:
 		// Do issue
 		default:
-			// Fo nothing
+			// Do nothing
 		}
 	}
 }
@@ -73,19 +74,18 @@ func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
 	s.CU.ReadInstMem(addr, 8, info, now)
 }
 
-func (s *Scheduler) doDecodeAndIssue(wf *WfScheduleInfo) {
+func (s *Scheduler) doDecodeAndIssue(wf *WfScheduleInfo, now core.VTimeInSec) {
 	inst, err := s.Decoder.Decode(wf.InstBuf)
 	if err != nil {
 		log.Panic(err)
 	}
 	wf.Inst = inst
 
-	// TODO issue
 }
 
 // Fetched is called when the ComputeUnit receives the instruction fetching
 // respond
 func (s *Scheduler) Fetched(wf *WfScheduleInfo, buf []byte) {
 	wf.InstBuf = buf
-	wf.State = fetched
+	wf.State = Fetched
 }
