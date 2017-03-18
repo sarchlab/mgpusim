@@ -157,11 +157,7 @@ func (cu *ComputeUnit) scheduleNextCycle(now core.VTimeInSec) {
 func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *core.Error {
 	info := req.Info.(*MemAccessInfo)
 	if info.IsInstFetch {
-		evt := NewEvalEvent()
-		evt.SetHandler(cu)
-		evt.SetTime(req.RecvTime())
-		evt.Buf = req.Buf
-		cu.Engine.Schedule(evt)
+		cu.Scheduler.Fetched(info.WfScheduleInfo, req.Buf)
 	}
 	return nil
 }
