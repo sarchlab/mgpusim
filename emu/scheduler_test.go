@@ -8,19 +8,29 @@ import (
 	"gitlab.com/yaotsu/gcn3/emu"
 )
 
+type MockDecoder struct {
+	Buf          []byte
+	InstToReturn *disasm.Instruction
+}
+
+func (d *MockDecoder) Decode(buf []byte) (*disasm.Instruction, error) {
+	d.Buf = buf
+	return d.InstToReturn, nil
+}
+
 var _ = ginkgo.Describe("Schedule", func() {
 	var (
-		scheduler    *emu.Scheduler
-		cu           *gcn3.MockComputeUnit
-		disassembler *disasm.Disassembler
+		scheduler *emu.Scheduler
+		cu        *gcn3.MockComputeUnit
+		decoder   *MockDecoder
 	)
 
 	ginkgo.BeforeEach(func() {
 		scheduler = emu.NewScheduler()
-		disassembler = disasm.NewDisassembler()
+		decoder = new(MockDecoder)
 		cu = gcn3.NewMockComputeUnit("cu")
 		scheduler.CU = cu
-		scheduler.Decoder = disassembler
+		scheduler.Decoder = decoder
 	})
 
 	ginkgo.It("should schedule fetch", func() {
@@ -47,7 +57,17 @@ var _ = ginkgo.Describe("Schedule", func() {
 		gomega.Expect(wf.InstBuf).To(gomega.Equal(data))
 	})
 
-	ginkgo.It("should schedule issue", func() {
+	ginkgo.It("should decode", func() {
+		inst := disasm.NewInstruction()
+		decoder.InstToReturn = inst
 
+		wf := emu.NewWavefront()
+		wf.FirstWiFlatID = 0
+		scheduler.AddWf(wf)
+		scheduler.Wfs[0].State = emu.Fetched
+
+		scheduler.Schedule(0)
+
+		gomega.Expect(scheduler.Wfs[0].State).To(gomega.Equal(emu.Running))
 	})
 })
