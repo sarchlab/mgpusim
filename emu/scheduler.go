@@ -15,6 +15,7 @@ type WfState int
 const (
 	Fetching WfState = iota
 	Fetched
+	Decoded
 	Running
 	Ready
 )
@@ -28,13 +29,26 @@ type WfScheduleInfo struct {
 	State   WfState
 }
 
+// ScheduleEvent asks the compute unit to schedule
+type ScheduleEvent struct {
+	*core.BasicEvent
+}
+
+// NewScheduleEvent creates a new ScheduleEvent
+func NewScheduleEvent() *ScheduleEvent {
+	e := new(ScheduleEvent)
+	e.BasicEvent = core.NewBasicEvent()
+	return e
+}
+
 // A Scheduler defines which wavefront in a ComputeUnit should execute
 //
 // In the emulator, we do not define the scheduler as a Yaotsu component.
 type Scheduler struct {
-	CU      gcn3.ComputeUnit
-	Decoder *disasm.Disassembler
-	Wfs     []*WfScheduleInfo
+	CU         gcn3.ComputeUnit
+	Decoder    Decoder
+	InstWorker *InstWorker
+	Wfs        []*WfScheduleInfo
 }
 
 // NewScheduler returns a new scheduler
@@ -59,9 +73,11 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 		case Ready:
 			s.doFetch(wf, now)
 		case Fetched:
-		// Do issue
+			s.doDecode(wf, now)
+		case Running:
+			// Do nothing, wait for the instruction to finish
 		default:
-			// Do nothing
+			log.Panic("unknown wf state")
 		}
 	}
 }
@@ -74,13 +90,13 @@ func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
 	s.CU.ReadInstMem(addr, 8, info, now)
 }
 
-func (s *Scheduler) doDecodeAndIssue(wf *WfScheduleInfo, now core.VTimeInSec) {
+func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
 	inst, err := s.Decoder.Decode(wf.InstBuf)
 	if err != nil {
 		log.Panic(err)
 	}
 	wf.Inst = inst
-
+	wf.State = Decoded
 }
 
 // Fetched is called when the ComputeUnit receives the instruction fetching

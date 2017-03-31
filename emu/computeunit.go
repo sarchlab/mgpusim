@@ -11,16 +11,9 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
-// ScheduleEvent asks the compute unit to schedule
-type ScheduleEvent struct {
-	*core.BasicEvent
-}
-
-// NewScheduleEvent creates a new ScheduleEvent
-func NewScheduleEvent() *ScheduleEvent {
-	e := new(ScheduleEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	return e
+// A Decoder is a unit that can decode gcn3 instructions
+type Decoder interface {
+	Decode(buf []byte) (*disasm.Instruction, error)
 }
 
 // A ComputeUnit is the unit that can execute workgroups.
@@ -33,15 +26,19 @@ func NewScheduleEvent() *ScheduleEvent {
 type ComputeUnit struct {
 	*core.BasicComponent
 
-	Freq             core.Freq
-	Engine           core.Engine
-	Disassembler     *disasm.Disassembler
-	RegInitiator     *RegInitiator
-	Scheduler        *Scheduler
-	InstMem          core.Component
-	DataMem          core.Component
-	scalarInstWorker *ScalarInstWorker
-	vectorInstWorker *VectorInstWorker
+	// Connected Components
+	InstMem core.Component
+	DataMem core.Component
+
+	// Properties
+	Freq core.Freq
+
+	// Dependencies
+	Engine       core.Engine
+	Disassembler Decoder
+	RegInitiator *RegInitiator
+	Scheduler    *Scheduler
+	InstWorker   *InstWorker
 
 	WG     *WorkGroup
 	co     *disasm.HsaCo
@@ -68,8 +65,7 @@ func NewComputeUnit(name string,
 	regInitiator *RegInitiator,
 	scheduler *Scheduler,
 	disassembler *disasm.Disassembler,
-	scalarInstWorker *ScalarInstWorker,
-	vectorInstWorker *VectorInstWorker,
+	instWorker *InstWorker,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.BasicComponent = core.NewBasicComponent(name)
@@ -79,8 +75,7 @@ func NewComputeUnit(name string,
 	cu.RegInitiator = regInitiator
 	cu.Scheduler = scheduler
 	cu.Disassembler = disassembler
-	cu.scalarInstWorker = scalarInstWorker
-	cu.vectorInstWorker = vectorInstWorker
+	cu.InstWorker = instWorker
 
 	cu.VgprPerWI = 256
 	cu.SgprPerWf = 102
@@ -173,8 +168,6 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		cu.scheduleNextCycle(evt.Time())
 		evt.FinishChan() <- true
 		return nil
-	case *EvalEvent:
-		return cu.handleEvalEvent(evt)
 	default:
 		log.Panicf("event %s is not supported by component %s",
 			reflect.TypeOf(evt), cu.Name())
@@ -186,39 +179,6 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 func (cu *ComputeUnit) pc(wfID int) uint64 {
 	data := cu.ReadReg(disasm.Regs[disasm.Pc], wfID*cu.WiPerWf, 8)
 	return binary.LittleEndian.Uint64(data)
-}
-
-func (cu *ComputeUnit) handleEvalEvent(evt *EvalEvent) error {
-	inst, err := cu.Disassembler.Decode(evt.Buf)
-	if err != nil {
-		log.Panic(err)
-		return err
-	}
-
-	switch inst.FormatType {
-	case disasm.Sop2, disasm.Sopk, disasm.Sop1, disasm.Sopc, disasm.Sopp:
-		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.WiPerWf {
-			cu.scalarInstWorker.Run(inst, wiFlatID)
-		}
-	case disasm.Vop1, disasm.Vop2:
-		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.WiPerWf {
-			cu.vectorInstWorker.Run(evt, wiFlatID)
-		}
-	case disasm.Flat:
-		numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
-		for wiFlatID := 0; wiFlatID < numWi; wiFlatID += cu.WiPerWf {
-			cu.vectorInstWorker.Run(evt, wiFlatID)
-		}
-
-	default:
-		log.Panicf("Instruction format %s is not supported.", inst.FormatName)
-
-	}
-
-	evt.FinishChan() <- true
-	return nil
 }
 
 func (cu *ComputeUnit) dumpSRegs(wiFlatID int) {
