@@ -74,6 +74,8 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 			s.doFetch(wf, now)
 		case Fetched:
 			s.doDecode(wf, now)
+		case Decoded:
+			s.doIssue(wf, now)
 		case Running:
 			// Do nothing, wait for the instruction to finish
 		default:
@@ -99,9 +101,20 @@ func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
 	wf.State = Decoded
 }
 
+func (s *Scheduler) doIssue(wf *WfScheduleInfo, now core.VTimeInSec) {
+
+}
+
 // Fetched is called when the ComputeUnit receives the instruction fetching
 // respond
 func (s *Scheduler) Fetched(wf *WfScheduleInfo, buf []byte) {
 	wf.InstBuf = buf
 	wf.State = Fetched
+}
+
+// Completed is used for the instruction worker to notify that the instruction
+// is completed and the scheduler can schedule another instruction from the
+// wavefront
+func (s *Scheduler) Completed(wf *WfScheduleInfo) {
+	wf.State = Ready
 }
