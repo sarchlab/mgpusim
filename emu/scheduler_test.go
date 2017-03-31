@@ -68,6 +68,6 @@ var _ = ginkgo.Describe("Schedule", func() {
 
 		scheduler.Schedule(0)
 
-		gomega.Expect(scheduler.Wfs[0].State).To(gomega.Equal(emu.Running))
+		gomega.Expect(scheduler.Wfs[0].State).To(gomega.Equal(emu.Decoded))
 	})
 })
