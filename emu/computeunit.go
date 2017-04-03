@@ -151,8 +151,14 @@ func (cu *ComputeUnit) scheduleNextCycle(now core.VTimeInSec) {
 
 func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *core.Error {
 	info := req.Info.(*MemAccessInfo)
+	info.Ready = true
 	if info.IsInstFetch {
 		cu.Scheduler.Fetched(info.WfScheduleInfo, req.Buf)
+	} else {
+		wf := info.WfScheduleInfo
+		if wf.IsAllMemAccessReady() {
+			cu.InstWorker.Continue(wf, req.RecvTime())
+		}
 	}
 	return nil
 }
@@ -165,7 +171,9 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *ScheduleEvent:
 		cu.Scheduler.Schedule(evt.Time())
-		cu.scheduleNextCycle(evt.Time())
+		if cu.Scheduling {
+			cu.scheduleNextCycle(evt.Time())
+		}
 		evt.FinishChan() <- true
 		return nil
 	default:

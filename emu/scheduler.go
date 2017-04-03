@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/mem"
 )
 
 // WfState represent what state a wf is in
@@ -23,10 +24,32 @@ const (
 // WfScheduleInfo stores the information associated with a wavefront in the
 // scheduler
 type WfScheduleInfo struct {
-	Wf      *Wavefront
-	Inst    *disasm.Instruction
-	InstBuf []byte
-	State   WfState
+	Wf             *Wavefront
+	Inst           *disasm.Instruction
+	InstBuf        []byte
+	State          WfState
+	MemAccess      []*mem.AccessReq
+	WIMemRequested []bool // Keep track of WIs that has sent memory request
+}
+
+// NewWfScheduleInfo returns a new WfScheduleInfo
+func NewWfScheduleInfo() *WfScheduleInfo {
+	i := new(WfScheduleInfo)
+	i.MemAccess = make([]*mem.AccessReq, 0, 64)
+	i.WIMemRequested = make([]bool, 64)
+	return i
+}
+
+// IsAllMemAccessReady checks is all the memory access that the wavefront is
+// waiting is completed or not
+func (i *WfScheduleInfo) IsAllMemAccessReady() bool {
+	for _, access := range i.MemAccess {
+		info := access.Info.(*MemAccessInfo)
+		if info.Ready == false {
+			return false
+		}
+	}
+	return true
 }
 
 // ScheduleEvent asks the compute unit to schedule
@@ -60,7 +83,7 @@ func NewScheduler() *Scheduler {
 
 // AddWf registers a wavefront that needs to be scheduled
 func (s *Scheduler) AddWf(wf *Wavefront) {
-	info := new(WfScheduleInfo)
+	info := NewWfScheduleInfo()
 	info.Wf = wf
 	info.State = Ready
 	s.Wfs = append(s.Wfs, info)
@@ -74,10 +97,10 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 			s.doFetch(wf, now)
 		case Fetched:
 			s.doDecode(wf, now)
-		case Decoded:
+		case Decoded, Running:
 			s.doIssue(wf, now)
-		case Fetching, Running:
-			// Do nothing, wait for the instruction to finish
+		case Fetching:
+			// Do nothing, wait for the instruction to be fetched
 		default:
 			log.Panic("unknown wf state")
 		}
@@ -85,7 +108,9 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 }
 
 func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
-	info := &MemAccessInfo{true, wf}
+	info := new(MemAccessInfo)
+	info.IsInstFetch = true
+	info.WfScheduleInfo = wf
 	addr := disasm.BytesToUint64(s.CU.ReadReg(disasm.Regs[disasm.Pc],
 		wf.Wf.FirstWiFlatID, 8))
 	s.CU.ReadInstMem(addr, 8, info, now)
@@ -102,8 +127,8 @@ func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
 }
 
 func (s *Scheduler) doIssue(wf *WfScheduleInfo, now core.VTimeInSec) {
-	wf.State = Running
 	s.InstWorker.Run(wf, now)
+	wf.State = Running
 }
 
 // Fetched is called when the ComputeUnit receives the instruction fetching
