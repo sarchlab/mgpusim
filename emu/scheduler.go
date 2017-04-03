@@ -47,7 +47,7 @@ func NewScheduleEvent() *ScheduleEvent {
 type Scheduler struct {
 	CU         gcn3.ComputeUnit
 	Decoder    Decoder
-	InstWorker *InstWorker
+	InstWorker InstWorker
 	Wfs        []*WfScheduleInfo
 }
 
@@ -102,7 +102,8 @@ func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
 }
 
 func (s *Scheduler) doIssue(wf *WfScheduleInfo, now core.VTimeInSec) {
-
+	wf.State = Running
+	s.InstWorker.Run(wf.Wf, wf.Inst, now)
 }
 
 // Fetched is called when the ComputeUnit receives the instruction fetching
