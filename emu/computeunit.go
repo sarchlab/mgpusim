@@ -38,7 +38,7 @@ type ComputeUnit struct {
 	Disassembler Decoder
 	RegInitiator *RegInitiator
 	Scheduler    *Scheduler
-	InstWorker   *InstWorker
+	InstWorker   InstWorker
 
 	WG     *WorkGroup
 	co     *disasm.HsaCo
@@ -65,7 +65,7 @@ func NewComputeUnit(name string,
 	regInitiator *RegInitiator,
 	scheduler *Scheduler,
 	disassembler *disasm.Disassembler,
-	instWorker *InstWorker,
+	instWorker InstWorker,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.BasicComponent = core.NewBasicComponent(name)
@@ -262,7 +262,7 @@ func (cu *ComputeUnit) ReadMem(
 	return nil
 }
 
-// ReadInstMem is not implemented
+// ReadInstMem generate an event to the instruction memory
 func (cu *ComputeUnit) ReadInstMem(
 	addr uint64, size int,
 	info interface{}, now core.VTimeInSec,
@@ -279,7 +279,6 @@ func (cu *ComputeUnit) ReadInstMem(
 		log.Panic(err)
 	}
 	return nil
-
 }
 
 // vgprAddr converts a VGPR to the address in the vector register file
