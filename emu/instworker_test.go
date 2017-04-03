@@ -51,4 +51,53 @@ var _ = Describe("InstWorkerImpl", func() {
 		cu.AllExpectedAccessed()
 		Expect(wf.State).To(Equal(emu.Ready))
 	})
+
+	It("should run s_add_u32 with carry", func() {
+		inst := disasm.NewInstruction()
+		inst.FormatType = disasm.Sop2
+		inst.Opcode = 0
+		inst.ByteSize = 4
+		inst.Src0 = disasm.NewIntOperand(1 << 31)
+		inst.Src1 = disasm.NewIntOperand(1 << 31)
+		inst.Dst = disasm.NewSRegOperand(2, 1)
+
+		wf.Inst = inst
+		wf.Wf = new(emu.Wavefront)
+		wf.Wf.FirstWiFlatID = 0
+
+		cu.ExpectRegRead(disasm.Regs[disasm.Pc], 0, 8, disasm.Uint64ToBytes(6000))
+		cu.ExpectRegWrite(disasm.SReg(2), 0, disasm.Uint32ToBytes(uint32(0)))
+		cu.ExpectRegWrite(disasm.Regs[disasm.Pc], 0, disasm.Uint64ToBytes(6004))
+		cu.ExpectRegWrite(disasm.Regs[disasm.Scc], 0, disasm.Uint8ToBytes(1))
+
+		w.Run(wf, 0)
+
+		cu.AllExpectedAccessed()
+		Expect(wf.State).To(Equal(emu.Ready))
+	})
+
+	It("should run s_addc_u32", func() {
+		inst := disasm.NewInstruction()
+		inst.FormatType = disasm.Sop2
+		inst.Opcode = 4
+		inst.ByteSize = 4
+		inst.Src0 = disasm.NewIntOperand(1 << 31)
+		inst.Src1 = disasm.NewIntOperand(1 << 31)
+		inst.Dst = disasm.NewSRegOperand(2, 1)
+
+		wf.Inst = inst
+		wf.Wf = new(emu.Wavefront)
+		wf.Wf.FirstWiFlatID = 0
+
+		cu.ExpectRegRead(disasm.Regs[disasm.Pc], 0, 8, disasm.Uint64ToBytes(6000))
+		cu.ExpectRegRead(disasm.Regs[disasm.Scc], 0, 1, disasm.Uint8ToBytes(1))
+		cu.ExpectRegWrite(disasm.SReg(2), 0, disasm.Uint32ToBytes(uint32(1)))
+		cu.ExpectRegWrite(disasm.Regs[disasm.Pc], 0, disasm.Uint64ToBytes(6004))
+		cu.ExpectRegWrite(disasm.Regs[disasm.Scc], 0, disasm.Uint8ToBytes(1))
+
+		w.Run(wf, 0)
+
+		cu.AllExpectedAccessed()
+		Expect(wf.State).To(Equal(emu.Ready))
+	})
 })
