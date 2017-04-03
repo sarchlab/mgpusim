@@ -71,6 +71,7 @@ func initPlatform() {
 			disassembler,
 			instWorker,
 		)
+		cu.Freq = 1e9
 		cu.InstMem = globalMem
 		cu.DataMem = globalMem
 

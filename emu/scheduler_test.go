@@ -3,6 +3,7 @@ package emu_test
 import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
@@ -18,19 +19,33 @@ func (d *MockDecoder) Decode(buf []byte) (*disasm.Instruction, error) {
 	return d.InstToReturn, nil
 }
 
+type MockInstWorker struct {
+	Wf  *emu.WfScheduleInfo
+	Now core.VTimeInSec
+}
+
+func (w *MockInstWorker) Run(wf *emu.WfScheduleInfo, now core.VTimeInSec) error {
+	w.Wf = wf
+	w.Now = now
+	return nil
+}
+
 var _ = ginkgo.Describe("Schedule", func() {
 	var (
-		scheduler *emu.Scheduler
-		cu        *gcn3.MockComputeUnit
-		decoder   *MockDecoder
+		scheduler  *emu.Scheduler
+		cu         *gcn3.MockComputeUnit
+		decoder    *MockDecoder
+		instWorker *MockInstWorker
 	)
 
 	ginkgo.BeforeEach(func() {
 		scheduler = emu.NewScheduler()
 		decoder = new(MockDecoder)
+		instWorker = new(MockInstWorker)
 		cu = gcn3.NewMockComputeUnit("cu")
 		scheduler.CU = cu
 		scheduler.Decoder = decoder
+		scheduler.InstWorker = instWorker
 	})
 
 	ginkgo.It("should schedule fetch", func() {
@@ -45,6 +60,7 @@ var _ = ginkgo.Describe("Schedule", func() {
 		scheduler.Schedule(0)
 
 		cu.AllExpectedAccessed()
+		gomega.Expect(scheduler.Wfs[0].State).To(gomega.Equal(emu.Fetching))
 	})
 
 	ginkgo.It("should mark fetched", func() {
@@ -69,5 +85,21 @@ var _ = ginkgo.Describe("Schedule", func() {
 		scheduler.Schedule(0)
 
 		gomega.Expect(scheduler.Wfs[0].State).To(gomega.Equal(emu.Decoded))
+	})
+
+	ginkgo.It("should issue", func() {
+		inst := disasm.NewInstruction()
+
+		wf := emu.NewWavefront()
+		wf.FirstWiFlatID = 0
+		scheduler.AddWf(wf)
+		scheduler.Wfs[0].State = emu.Decoded
+		scheduler.Wfs[0].Inst = inst
+
+		scheduler.Schedule(0)
+
+		gomega.Expect(scheduler.Wfs[0].State).To(gomega.Equal(emu.Running))
+		gomega.Expect(instWorker.Wf).To(gomega.BeIdenticalTo(scheduler.Wfs[0]))
+		gomega.Expect(instWorker.Now).To(gomega.BeNumerically("~", 0, 1e-9))
 	})
 })

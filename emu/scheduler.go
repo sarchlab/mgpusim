@@ -76,7 +76,7 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 			s.doDecode(wf, now)
 		case Decoded:
 			s.doIssue(wf, now)
-		case Running:
+		case Fetching, Running:
 			// Do nothing, wait for the instruction to finish
 		default:
 			log.Panic("unknown wf state")
@@ -85,11 +85,11 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 }
 
 func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
-	log.Println(wf)
 	info := &MemAccessInfo{true, wf}
 	addr := disasm.BytesToUint64(s.CU.ReadReg(disasm.Regs[disasm.Pc],
 		wf.Wf.FirstWiFlatID, 8))
 	s.CU.ReadInstMem(addr, 8, info, now)
+	wf.State = Fetching
 }
 
 func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
@@ -103,7 +103,7 @@ func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
 
 func (s *Scheduler) doIssue(wf *WfScheduleInfo, now core.VTimeInSec) {
 	wf.State = Running
-	s.InstWorker.Run(wf.Wf, wf.Inst, now)
+	s.InstWorker.Run(wf, now)
 }
 
 // Fetched is called when the ComputeUnit receives the instruction fetching
