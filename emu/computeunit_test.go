@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 var _ = Describe("ComputeUnit", func() {
@@ -29,7 +30,7 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("on MapWorkGroupReq", func() {
 		It("should panic if there is workgroup executing", func() {
-			cu.WG = emu.NewWorkGroup()
+			cu.WG = kernels.NewWorkGroup()
 			req := emu.NewMapWGReq()
 			Expect(func() { cu.Receive(req) }).To(Panic())
 		})

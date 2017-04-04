@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 var _ = Describe("InstWorkerImpl", func() {
@@ -35,7 +36,7 @@ var _ = Describe("InstWorkerImpl", func() {
 		inst.Dst = insts.NewSRegOperand(2, 1)
 
 		wf.Inst = inst
-		wf.Wf = new(emu.Wavefront)
+		wf.Wf = new(kernels.Wavefront)
 		wf.Wf.FirstWiFlatID = 0
 
 		cu.ExpectRegRead(insts.Regs[insts.Pc], 0, 8,
@@ -62,7 +63,7 @@ var _ = Describe("InstWorkerImpl", func() {
 		inst.Dst = insts.NewSRegOperand(2, 1)
 
 		wf.Inst = inst
-		wf.Wf = new(emu.Wavefront)
+		wf.Wf = new(kernels.Wavefront)
 		wf.Wf.FirstWiFlatID = 0
 
 		cu.ExpectRegRead(insts.Regs[insts.Pc], 0, 8, insts.Uint64ToBytes(6000))
@@ -86,7 +87,7 @@ var _ = Describe("InstWorkerImpl", func() {
 		inst.Dst = insts.NewSRegOperand(2, 1)
 
 		wf.Inst = inst
-		wf.Wf = new(emu.Wavefront)
+		wf.Wf = new(kernels.Wavefront)
 		wf.Wf.FirstWiFlatID = 0
 
 		cu.ExpectRegRead(insts.Regs[insts.Pc], 0, 8, insts.Uint64ToBytes(6000))

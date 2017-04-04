@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 // CommandProcessor is a Yaotsu component that is responsible for receiving
@@ -30,7 +31,9 @@ func NewCommandProcessor(name string) *CommandProcessor {
 	return c
 }
 
-func (p *CommandProcessor) handleLaunchKernelReq(req *LaunchKernelReq) *core.Error {
+func (p *CommandProcessor) handleLaunchKernelReq(
+	req *kernels.LaunchKernelReq,
+) *core.Error {
 	req.SetSource(p)
 	req.SetDestination(p.Dispatcher)
 	return p.GetConnection("ToDispatcher").Send(req)
@@ -39,7 +42,7 @@ func (p *CommandProcessor) handleLaunchKernelReq(req *LaunchKernelReq) *core.Err
 // Receive processes the incomming requests
 func (p *CommandProcessor) Receive(req core.Request) *core.Error {
 	switch req := req.(type) {
-	case *LaunchKernelReq:
+	case *kernels.LaunchKernelReq:
 		return p.handleLaunchKernelReq(req)
 	default:
 		return core.NewError(

@@ -5,14 +5,15 @@ import (
 	"log"
 
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 // RegInitiator can initiate the CU's register when starting a workgroup
 type RegInitiator struct {
 	CU     *ComputeUnit
-	WG     *WorkGroup
+	WG     *kernels.WorkGroup
 	CO     *insts.HsaCo
-	Packet *HsaKernelDispatchPacket
+	Packet *kernels.HsaKernelDispatchPacket
 }
 
 // InitRegs initiate the CU's register initial state

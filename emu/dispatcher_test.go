@@ -5,13 +5,14 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 type MockGridBuilder struct {
-	GridToBuild *emu.Grid
+	GridToBuild *kernels.Grid
 }
 
-func (b *MockGridBuilder) Build(req *emu.LaunchKernelReq) *emu.Grid {
+func (b *MockGridBuilder) Build(req *kernels.LaunchKernelReq) *kernels.Grid {
 	return b.GridToBuild
 }
 
@@ -69,7 +70,7 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should dispatch", func() {
-		wg1 := emu.NewWorkGroup()
+		wg1 := kernels.NewWorkGroup()
 		dispatcher.PendingWGs = append(dispatcher.PendingWGs, wg1)
 
 		req := emu.NewMapWGReq()
@@ -87,10 +88,10 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should only dispatch to idle cus", func() {
-		wgs := make([]*emu.WorkGroup, 5)
+		wgs := make([]*kernels.WorkGroup, 5)
 		reqs := make([]*emu.MapWgReq, 5)
 		for i := 0; i < 5; i++ {
-			wgs[i] = emu.NewWorkGroup()
+			wgs[i] = kernels.NewWorkGroup()
 			reqs[i] = emu.NewMapWGReq()
 		}
 		dispatcher.PendingWGs = append(dispatcher.PendingWGs, wgs...)
@@ -110,11 +111,11 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should expand grids to dispatch", func() {
-		grid := emu.NewGrid()
-		wgs := make([]*emu.WorkGroup, 5)
+		grid := kernels.NewGrid()
+		wgs := make([]*kernels.WorkGroup, 5)
 		reqs := make([]*emu.MapWgReq, 5)
 		for i := 0; i < 5; i++ {
-			wgs[i] = emu.NewWorkGroup()
+			wgs[i] = kernels.NewWorkGroup()
 			reqs[i] = emu.NewMapWGReq()
 		}
 		grid.WorkGroups = append(grid.WorkGroups, wgs...)

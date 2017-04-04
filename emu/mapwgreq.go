@@ -1,13 +1,16 @@
 package emu
 
-import "gitlab.com/yaotsu/core"
+import (
+	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/kernels"
+)
 
 // A MapWgReq is a request sent from a dispatcher to a compute unit
 // to request the compute unit to execute a workgroup.
 type MapWgReq struct {
 	*core.BasicRequest
 
-	WG      *WorkGroup
+	WG      *kernels.WorkGroup
 	IsReply bool
 	Succeed bool
 }

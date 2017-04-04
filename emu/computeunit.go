@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -39,10 +40,10 @@ type ComputeUnit struct {
 	Scheduler    *Scheduler
 	InstWorker   InstWorker
 
-	WG     *WorkGroup
+	WG     *kernels.WorkGroup
 	co     *insts.HsaCo
-	packet *HsaKernelDispatchPacket
-	grid   *Grid
+	packet *kernels.HsaKernelDispatchPacket
+	grid   *kernels.Grid
 
 	wiRegFile *mem.Storage
 	wfRegFile *mem.Storage
@@ -128,7 +129,7 @@ func (cu *ComputeUnit) processMapWGReq(req *MapWgReq) *core.Error {
 
 	numWi := cu.WG.SizeX * cu.WG.SizeY * cu.WG.SizeZ
 	for wiID := 0; wiID < numWi; wiID += cu.WiPerWf {
-		wf := NewWavefront()
+		wf := kernels.NewWavefront()
 		wf.FirstWiFlatID = wiID
 		cu.Scheduler.AddWf(wf)
 	}

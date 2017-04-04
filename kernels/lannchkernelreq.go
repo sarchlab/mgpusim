@@ -1,4 +1,4 @@
-package emu
+package kernels
 
 import (
 	"gitlab.com/yaotsu/core"
