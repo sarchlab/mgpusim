@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/mem"
 )
 
 // A ComputeUnit is where the GPU kernel is executed, in the unit of work group.
@@ -21,14 +22,14 @@ type ComputeUnit interface {
 	WriteMem(
 		address uint64, data []byte,
 		info interface{},
-		now core.VTimeInSec) *core.Error
+		now core.VTimeInSec) (*mem.AccessReq, *core.Error)
 	ReadMem(address uint64, size int,
 		info interface{},
-		now core.VTimeInSec) *core.Error
+		now core.VTimeInSec) (*mem.AccessReq, *core.Error)
 	ReadInstMem(
 		addr uint64, size int,
 		info interface{},
-		now core.VTimeInSec) *core.Error
+		now core.VTimeInSec) (*mem.AccessReq, *core.Error)
 }
 
 type regWrite struct {
@@ -156,8 +157,8 @@ func (cu *MockComputeUnit) WriteMem(
 	data []byte,
 	info interface{},
 	now core.VTimeInSec,
-) *core.Error {
-	return nil
+) (*mem.AccessReq, *core.Error) {
+	return nil, nil
 }
 
 // ReadMem is not implmented
@@ -166,8 +167,8 @@ func (cu *MockComputeUnit) ReadMem(
 	size int,
 	info interface{},
 	now core.VTimeInSec,
-) *core.Error {
-	return nil
+) (*mem.AccessReq, *core.Error) {
+	return nil, nil
 }
 
 // ExpectReadInstMem registers an ReadInstMem action that is to happen in the
@@ -184,7 +185,7 @@ func (cu *MockComputeUnit) ExpectReadInstMem(
 func (cu *MockComputeUnit) ReadInstMem(
 	addr uint64, size int,
 	info interface{}, now core.VTimeInSec,
-) *core.Error {
+) (*mem.AccessReq, *core.Error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
@@ -195,5 +196,5 @@ func (cu *MockComputeUnit) ReadInstMem(
 
 	cu.expectedInstMemRead = cu.expectedInstMemRead[1:]
 
-	return nil
+	return nil, nil
 }

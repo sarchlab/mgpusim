@@ -113,8 +113,15 @@ func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
 	info.WfScheduleInfo = wf
 	addr := disasm.BytesToUint64(s.CU.ReadReg(disasm.Regs[disasm.Pc],
 		wf.Wf.FirstWiFlatID, 8))
-	s.CU.ReadInstMem(addr, 8, info, now)
-	wf.State = Fetching
+	_, err := s.CU.ReadInstMem(addr, 8, info, now)
+	if err != nil && !err.Recoverable {
+		log.Panic(err)
+	} else if err != nil {
+		// Retry fetching next cycle
+		// TODO: should retry according to the time that err suggested
+	} else {
+		wf.State = Fetching
+	}
 }
 
 func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
@@ -127,8 +134,8 @@ func (s *Scheduler) doDecode(wf *WfScheduleInfo, now core.VTimeInSec) {
 }
 
 func (s *Scheduler) doIssue(wf *WfScheduleInfo, now core.VTimeInSec) {
-	s.InstWorker.Run(wf, now)
 	wf.State = Running
+	s.InstWorker.Run(wf, now)
 }
 
 // Fetched is called when the ComputeUnit receives the instruction fetching

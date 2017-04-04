@@ -23,21 +23,6 @@ func (w *InstWorkerImpl) runFlat(
 	return nil
 }
 
-func (w *InstWorkerImpl) continueFlat(
-	wf *WfScheduleInfo,
-	now core.VTimeInSec,
-) error {
-	inst := wf.Inst
-	switch inst.Opcode {
-	case 18:
-		return w.continueFlatLoadUShort(wf, now)
-	default:
-		log.Panicf("instruction opcode %d for type flat not supported\n",
-			inst.Opcode)
-	}
-	return nil
-}
-
 func (w *InstWorkerImpl) runFlatLoadUShort(
 	wf *WfScheduleInfo,
 	now core.VTimeInSec,
@@ -57,38 +42,27 @@ func (w *InstWorkerImpl) runFlatLoadUShort(
 			info.RegToSet = inst.Dst.Register
 			info.WfScheduleInfo = wf
 
-			req := mem.NewAccessReq()
-			req.Address = addr
-			req.ByteSize = 2
-			req.Info = info
-			req.SetSendTime(now)
-			req.SetSource(w.CU)
-			req.SetDestination(w.DataMem)
+			req, err := w.CU.ReadMem(addr, 2, info, now)
 
-			error := w.ToDataMem.Send(req)
-			if error != nil && error.Recoverable == false {
-				log.Panic(error)
-			} else if error != nil {
-				// Leave the look and the scheduler will schedule next cycle
-				// to retry
-				break
-			} else {
-				wf.WIMemRequested[i] = true
-				wf.MemAccess = append(wf.MemAccess, req)
+			if err != nil {
+				return nil
 			}
+
+			wf.WIMemRequested[i] = true
+			wf.MemAccess = append(wf.MemAccess, req)
 		}
 		mask = mask << 1
 	}
 
 	// The commit process
+	if wf.IsAllMemAccessReady() {
+		wf.MemAccess = make([]*mem.AccessReq, 0, 64)
+		wf.WIMemRequested = make([]bool, 64)
+		pc := w.getRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID)
+		pc += uint64(inst.ByteSize)
+		w.putRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID, pc)
+		w.Scheduler.Completed(wf)
+	}
 
-	return nil
-}
-
-func (w *InstWorkerImpl) continueFlatLoadUShort(
-	wf *WfScheduleInfo,
-	now core.VTimeInSec,
-) error {
-	w.Scheduler.Completed(wf)
 	return nil
 }
