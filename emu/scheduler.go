@@ -35,7 +35,7 @@ type WfScheduleInfo struct {
 // NewWfScheduleInfo returns a new WfScheduleInfo
 func NewWfScheduleInfo() *WfScheduleInfo {
 	i := new(WfScheduleInfo)
-	i.MemAccess = make([]*mem.AccessReq, 0, 64)
+	i.MemAccess = make([]*mem.AccessReq, 64)
 	i.WIMemRequested = make([]bool, 64)
 	return i
 }
