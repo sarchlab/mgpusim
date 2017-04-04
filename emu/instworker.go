@@ -2,11 +2,19 @@ package emu
 
 import (
 	"log"
+	"sync"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
+
+type instFunc func(
+	wf *WfScheduleInfo,
+	wiFlatID int,
+	now core.VTimeInSec,
+	wg *sync.WaitGroup,
+) error
 
 // A InstWorker is where instructions got executed
 type InstWorker interface {

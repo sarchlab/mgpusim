@@ -8,13 +8,6 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
-type instFunc func(
-	wf *WfScheduleInfo,
-	wiFlatID int,
-	now core.VTimeInSec,
-	wg *sync.WaitGroup,
-) error
-
 func (w *InstWorkerImpl) runVop1(
 	wf *WfScheduleInfo,
 	now core.VTimeInSec,
