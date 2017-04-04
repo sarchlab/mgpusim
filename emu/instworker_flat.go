@@ -45,6 +45,8 @@ func (w *InstWorkerImpl) runFlatLoadUShort(
 			req, err := w.CU.ReadMem(addr, 2, info, now)
 
 			if err != nil {
+				// Cannot continue, return now. The scheduler can re-enter
+				// this function to continue execution
 				return nil
 			}
 
@@ -58,9 +60,7 @@ func (w *InstWorkerImpl) runFlatLoadUShort(
 	if wf.IsAllMemAccessReady() {
 		wf.MemAccess = make([]*mem.AccessReq, 0, 64)
 		wf.WIMemRequested = make([]bool, 64)
-		pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
-		pc += uint64(inst.ByteSize)
-		w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
+		w.IncreasePc(wf, inst.ByteSize)
 		w.Scheduler.Completed(wf)
 	}
 

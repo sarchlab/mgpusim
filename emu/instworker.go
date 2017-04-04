@@ -42,6 +42,13 @@ func (w *InstWorkerImpl) Run(
 	return nil
 }
 
+// IncreasePc increase PC by a certain amount
+func (w *InstWorkerImpl) IncreasePc(wf *WfScheduleInfo, amount int) {
+	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
+	pc += uint64(amount)
+	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
+}
+
 func (w *InstWorkerImpl) getRegUint64(
 	reg *insts.Reg, wiFlatID int,
 ) uint64 {
