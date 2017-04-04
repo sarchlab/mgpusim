@@ -1,6 +1,6 @@
 package emu
 
-import "gitlab.com/yaotsu/gcn3/disasm"
+import "gitlab.com/yaotsu/gcn3/insts"
 
 // MemAccessInfo is the information attached to memory access request.
 // When a memory access request returns, the info will be available and the
@@ -10,6 +10,6 @@ type MemAccessInfo struct {
 	WfScheduleInfo *WfScheduleInfo
 	Ready          bool
 
-	RegToSet *disasm.Reg
+	RegToSet *insts.Reg
 	wiFlatID int
 }

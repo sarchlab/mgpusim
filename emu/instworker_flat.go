@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -28,7 +28,7 @@ func (w *InstWorkerImpl) runFlatLoadUShort(
 	now core.VTimeInSec,
 ) error {
 	inst := wf.Inst
-	exec := w.getRegUint64(disasm.Regs[disasm.Exec], wf.Wf.FirstWiFlatID)
+	exec := w.getRegUint64(insts.Regs[insts.Exec], wf.Wf.FirstWiFlatID)
 	mask := uint64(1)
 
 	// The request process
@@ -58,9 +58,9 @@ func (w *InstWorkerImpl) runFlatLoadUShort(
 	if wf.IsAllMemAccessReady() {
 		wf.MemAccess = make([]*mem.AccessReq, 0, 64)
 		wf.WIMemRequested = make([]bool, 64)
-		pc := w.getRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID)
+		pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
 		pc += uint64(inst.ByteSize)
-		w.putRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID, pc)
+		w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
 		w.Scheduler.Completed(wf)
 	}
 

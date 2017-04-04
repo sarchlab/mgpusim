@@ -1,4 +1,4 @@
-package disasm
+package insts
 
 // All the GCN3 instruction formats
 const (

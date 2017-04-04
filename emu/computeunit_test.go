@@ -4,8 +4,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 var _ = Describe("ComputeUnit", func() {
@@ -37,14 +37,14 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("on Read and write registers", func() {
 		It("should read and write vgrs", func() {
-			cu.WriteReg(disasm.VReg(0), 0, []byte{0, 1, 2, 3})
-			res := cu.ReadReg(disasm.VReg(0), 0, 4)
+			cu.WriteReg(insts.VReg(0), 0, []byte{0, 1, 2, 3})
+			res := cu.ReadReg(insts.VReg(0), 0, 4)
 			Expect(res).To(ConsistOf([]byte{0, 1, 2, 3}))
 		})
 
 		It("should read and write sgrs", func() {
-			cu.WriteReg(disasm.SReg(0), 0, []byte{0, 1, 2, 3})
-			res := cu.ReadReg(disasm.SReg(0), 0, 4)
+			cu.WriteReg(insts.SReg(0), 0, []byte{0, 1, 2, 3})
+			res := cu.ReadReg(insts.SReg(0), 0, 4)
 			Expect(res).To(ConsistOf([]byte{0, 1, 2, 3}))
 		})
 	})

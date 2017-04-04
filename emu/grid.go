@@ -1,12 +1,12 @@
 package emu
 
 import (
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // A Grid is a running instance of a kernel
 type Grid struct {
-	CodeObject *disasm.HsaCo
+	CodeObject *insts.HsaCo
 	Packet     *HsaKernelDispatchPacket
 
 	WorkGroups []*WorkGroup

@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 func (w *InstWorkerImpl) runSop2(
@@ -29,7 +29,7 @@ func (w *InstWorkerImpl) runSADDU32(
 	now core.VTimeInSec,
 ) error {
 	inst := wf.Inst
-	pc := w.getRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID)
+	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
 	src1Value := w.getOperandValueUint32(inst.Src1, wf.Wf.FirstWiFlatID)
 	src0Value := w.getOperandValueUint32(inst.Src0, wf.Wf.FirstWiFlatID)
 	var sccValue uint8
@@ -39,8 +39,8 @@ func (w *InstWorkerImpl) runSADDU32(
 	dstValue := src0Value + src1Value
 	pc += uint64(inst.ByteSize)
 	w.putRegUint32(inst.Dst.Register, wf.Wf.FirstWiFlatID, dstValue)
-	w.putRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID, pc)
-	w.putRegUint8(disasm.Regs[disasm.Scc], wf.Wf.FirstWiFlatID, sccValue)
+	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
+	w.putRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID, sccValue)
 
 	w.Scheduler.Completed(wf)
 	return nil
@@ -51,18 +51,18 @@ func (w *InstWorkerImpl) runSAddCU32(
 	now core.VTimeInSec,
 ) error {
 	inst := wf.Inst
-	pc := w.getRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID)
+	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
 	src1Value := w.getOperandValueUint32(inst.Src1, wf.Wf.FirstWiFlatID)
 	src0Value := w.getOperandValueUint32(inst.Src0, wf.Wf.FirstWiFlatID)
-	sccValue := w.getRegUint8(disasm.Regs[disasm.Scc], wf.Wf.FirstWiFlatID)
+	sccValue := w.getRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID)
 	dstValue := src0Value + src1Value + uint32(sccValue)
 	if src1Value&(1<<31) != 0 && src0Value&(1<<31) != 0 {
 		sccValue = 1
 	}
 	pc += uint64(inst.ByteSize)
 	w.putRegUint32(inst.Dst.Register, wf.Wf.FirstWiFlatID, dstValue)
-	w.putRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID, pc)
-	w.putRegUint8(disasm.Regs[disasm.Scc], wf.Wf.FirstWiFlatID, sccValue)
+	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
+	w.putRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID, sccValue)
 	w.Scheduler.Completed(wf)
 	return nil
 }

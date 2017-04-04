@@ -5,7 +5,7 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -25,7 +25,7 @@ const (
 // scheduler
 type WfScheduleInfo struct {
 	Wf             *Wavefront
-	Inst           *disasm.Instruction
+	Inst           *insts.Inst
 	InstBuf        []byte
 	State          WfState
 	MemAccess      []*mem.AccessReq
@@ -102,7 +102,7 @@ func (s *Scheduler) Schedule(now core.VTimeInSec) {
 		case Fetching:
 			// Do nothing, wait for the instruction to be fetched
 		default:
-			log.Panic("unknown wf state")
+			log.Panic("unknown wavefront state")
 		}
 	}
 }
@@ -111,7 +111,7 @@ func (s *Scheduler) doFetch(wf *WfScheduleInfo, now core.VTimeInSec) {
 	info := new(MemAccessInfo)
 	info.IsInstFetch = true
 	info.WfScheduleInfo = wf
-	addr := disasm.BytesToUint64(s.CU.ReadReg(disasm.Regs[disasm.Pc],
+	addr := insts.BytesToUint64(s.CU.ReadReg(insts.Regs[insts.Pc],
 		wf.Wf.FirstWiFlatID, 8))
 	_, err := s.CU.ReadInstMem(addr, 8, info, now)
 	if err != nil && !err.Recoverable {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func main() {
 	}
 	defer elfFile.Close()
 
-	disasm := disasm.NewDisassembler()
+	disasm := insts.NewDisassembler()
 
 	disasm.Disassemble(elfFile, os.Stdout)
 }

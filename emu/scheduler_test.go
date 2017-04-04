@@ -5,16 +5,16 @@ import (
 	"github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 type MockDecoder struct {
 	Buf          []byte
-	InstToReturn *disasm.Instruction
+	InstToReturn *insts.Inst
 }
 
-func (d *MockDecoder) Decode(buf []byte) (*disasm.Instruction, error) {
+func (d *MockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 	d.Buf = buf
 	return d.InstToReturn, nil
 }
@@ -53,8 +53,8 @@ var _ = ginkgo.Describe("Schedule", func() {
 		wf.FirstWiFlatID = 0
 		scheduler.AddWf(wf)
 
-		cu.ExpectRegRead(disasm.Regs[disasm.Pc], 0, 8,
-			disasm.Uint64ToBytes(4000))
+		cu.ExpectRegRead(insts.Regs[insts.Pc], 0, 8,
+			insts.Uint64ToBytes(4000))
 		cu.ExpectReadInstMem(4000, 8, nil, 0)
 
 		scheduler.Schedule(0)
@@ -74,7 +74,7 @@ var _ = ginkgo.Describe("Schedule", func() {
 	})
 
 	ginkgo.It("should decode", func() {
-		inst := disasm.NewInstruction()
+		inst := insts.NewInstruction()
 		decoder.InstToReturn = inst
 
 		wf := emu.NewWavefront()
@@ -88,7 +88,7 @@ var _ = ginkgo.Describe("Schedule", func() {
 	})
 
 	ginkgo.It("should issue", func() {
-		inst := disasm.NewInstruction()
+		inst := insts.NewInstruction()
 
 		wf := emu.NewWavefront()
 		wf.FirstWiFlatID = 0

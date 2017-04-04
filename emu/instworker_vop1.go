@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 type instFunc func(
@@ -36,7 +36,7 @@ func (w *InstWorkerImpl) runForActiveWI(
 	now core.VTimeInSec,
 ) error {
 	inst := wf.Inst
-	exec := w.getRegUint64(disasm.Regs[disasm.Exec], wf.Wf.FirstWiFlatID)
+	exec := w.getRegUint64(insts.Regs[insts.Exec], wf.Wf.FirstWiFlatID)
 	waitGroup := new(sync.WaitGroup)
 	for i := 0; i < 64; i++ {
 		mask := uint64(1) << uint(i)
@@ -45,9 +45,9 @@ func (w *InstWorkerImpl) runForActiveWI(
 			go f(wf, int(wf.Wf.FirstWiFlatID+i), now, waitGroup)
 		}
 	}
-	pc := w.getRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID)
+	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
 	pc += uint64(inst.ByteSize)
-	w.putRegUint64(disasm.Regs[disasm.Pc], wf.Wf.FirstWiFlatID, pc)
+	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
 	w.Scheduler.Completed(wf)
 	waitGroup.Wait()
 	return nil
