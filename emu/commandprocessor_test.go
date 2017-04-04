@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 var _ = Describe("CommandProcessor", func() {
@@ -33,7 +34,7 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should forward kernel launching request to Dispatcher", func() {
-		req := emu.NewLaunchKernelReq()
+		req := kernels.NewLaunchKernelReq()
 		req.SetSource(driver)
 		req.SetDestination(commandProcessor)
 

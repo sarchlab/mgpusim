@@ -1,4 +1,4 @@
-package emu
+package kernels
 
 // A GridBuilder is the unit that can build a grid and its internal structure
 // from a kernel and its launch parameters.

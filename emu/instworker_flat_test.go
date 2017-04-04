@@ -5,6 +5,7 @@ import (
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -34,7 +35,7 @@ var _ = Describe("InstWorkerImpl_Sop2", func() {
 		inst.Dst = insts.NewVRegOperand(2, 1)
 
 		wf.Inst = inst
-		wf.Wf = new(emu.Wavefront)
+		wf.Wf = new(kernels.Wavefront)
 		wf.Wf.FirstWiFlatID = 0
 
 		cu.ExpectRegRead(insts.Regs[insts.Exec], 0, 8,

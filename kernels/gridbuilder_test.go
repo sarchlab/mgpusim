@@ -1,27 +1,27 @@
-package emu_test
+package kernels_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 var _ = Describe("GridBuilder", func() {
 
 	var (
-		builder *emu.GridBuilderImpl
+		builder *kernels.GridBuilderImpl
 	)
 
 	BeforeEach(func() {
-		builder = new(emu.GridBuilderImpl)
+		builder = new(kernels.GridBuilderImpl)
 	})
 
 	It("should build 1D grid", func() {
 
 		codeObject := new(insts.HsaCo)
 
-		packet := new(emu.HsaKernelDispatchPacket)
+		packet := new(kernels.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 256
 		packet.WorkgroupSizeY = 1
 		packet.WorkgroupSizeZ = 1
@@ -29,7 +29,7 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeY = 1
 		packet.GridSizeZ = 1
 
-		req := emu.NewLaunchKernelReq()
+		req := kernels.NewLaunchKernelReq()
 		req.HsaCo = codeObject
 		req.Packet = packet
 
@@ -48,7 +48,7 @@ var _ = Describe("GridBuilder", func() {
 
 		codeObject := new(insts.HsaCo)
 
-		packet := new(emu.HsaKernelDispatchPacket)
+		packet := new(kernels.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 16
 		packet.WorkgroupSizeY = 16
 		packet.WorkgroupSizeZ = 1
@@ -56,7 +56,7 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeY = 1025
 		packet.GridSizeZ = 1
 
-		req := emu.NewLaunchKernelReq()
+		req := kernels.NewLaunchKernelReq()
 		req.HsaCo = codeObject
 		req.Packet = packet
 
@@ -68,7 +68,7 @@ var _ = Describe("GridBuilder", func() {
 	It("should build 3D grid", func() {
 		codeObject := new(insts.HsaCo)
 
-		packet := new(emu.HsaKernelDispatchPacket)
+		packet := new(kernels.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 16
 		packet.WorkgroupSizeY = 16
 		packet.WorkgroupSizeZ = 4
@@ -76,7 +76,7 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeY = 32
 		packet.GridSizeZ = 17
 
-		req := emu.NewLaunchKernelReq()
+		req := kernels.NewLaunchKernelReq()
 		req.HsaCo = codeObject
 		req.Packet = packet
 

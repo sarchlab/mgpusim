@@ -7,6 +7,7 @@ import (
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 type MockDecoder struct {
@@ -49,7 +50,7 @@ var _ = ginkgo.Describe("Schedule", func() {
 	})
 
 	ginkgo.It("should schedule fetch", func() {
-		wf := emu.NewWavefront()
+		wf := kernels.NewWavefront()
 		wf.FirstWiFlatID = 0
 		scheduler.AddWf(wf)
 
@@ -77,7 +78,7 @@ var _ = ginkgo.Describe("Schedule", func() {
 		inst := insts.NewInstruction()
 		decoder.InstToReturn = inst
 
-		wf := emu.NewWavefront()
+		wf := kernels.NewWavefront()
 		wf.FirstWiFlatID = 0
 		scheduler.AddWf(wf)
 		scheduler.Wfs[0].State = emu.Fetched
@@ -90,7 +91,7 @@ var _ = ginkgo.Describe("Schedule", func() {
 	ginkgo.It("should issue", func() {
 		inst := insts.NewInstruction()
 
-		wf := emu.NewWavefront()
+		wf := kernels.NewWavefront()
 		wf.FirstWiFlatID = 0
 		scheduler.AddWf(wf)
 		scheduler.Wfs[0].State = emu.Decoded

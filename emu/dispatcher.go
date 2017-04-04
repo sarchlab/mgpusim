@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
 // A Dispatcher is a Yaotsu component that is responsible for distributing
@@ -18,19 +19,19 @@ import (
 type Dispatcher struct {
 	*core.BasicComponent
 
-	GridBuilder     GridBuilder
+	GridBuilder     kernels.GridBuilder
 	MapWGReqFactory MapWGReqFactory
 
-	ComputeUnits        []core.Component // All the CUs
-	ComputeUnitsRunning []bool           // A mask for which cu is running
-	PendingGrids        []*Grid          // The Grid that had not been started
-	PendingWGs          []*WorkGroup     // A Queue for all the work-groups
+	ComputeUnits        []core.Component     // All the CUs
+	ComputeUnitsRunning []bool               // A mask for which cu is running
+	PendingGrids        []*kernels.Grid      // The Grid that had not been started
+	PendingWGs          []*kernels.WorkGroup // A Queue for all the work-groups
 }
 
 // NewDispatcher creates a new dispatcher
 func NewDispatcher(
 	name string,
-	gridBuilder GridBuilder,
+	gridBuilder kernels.GridBuilder,
 	mapWGReqFactory MapWGReqFactory,
 ) *Dispatcher {
 	d := new(Dispatcher)
@@ -41,7 +42,7 @@ func NewDispatcher(
 
 	d.ComputeUnits = make([]core.Component, 0)
 	d.ComputeUnitsRunning = make([]bool, 0)
-	d.PendingGrids = make([]*Grid, 0)
+	d.PendingGrids = make([]*kernels.Grid, 0)
 
 	d.AddPort("ToCommandProcessor")
 	d.AddPort("ToComputeUnits")
@@ -59,7 +60,7 @@ func (d *Dispatcher) RegisterCU(cu core.Component) {
 // Receive processes the incomming requests
 func (d *Dispatcher) Receive(req core.Request) *core.Error {
 	switch req := req.(type) {
-	case *LaunchKernelReq:
+	case *kernels.LaunchKernelReq:
 		return d.processLaunchKernelReq(req)
 	default:
 		return core.NewError(
@@ -93,7 +94,7 @@ func (d *Dispatcher) Dispatch(now core.VTimeInSec) {
 
 func (d *Dispatcher) doDispatch(
 	cu core.Component,
-	wg *WorkGroup,
+	wg *kernels.WorkGroup,
 	time core.VTimeInSec,
 ) {
 	req := d.MapWGReqFactory.Create()
@@ -119,7 +120,9 @@ func (d *Dispatcher) numPendingWG() int {
 	return len(d.PendingWGs)
 }
 
-func (d *Dispatcher) processLaunchKernelReq(req *LaunchKernelReq) *core.Error {
+func (d *Dispatcher) processLaunchKernelReq(
+	req *kernels.LaunchKernelReq,
+) *core.Error {
 	grid := d.GridBuilder.Build(req)
 	d.PendingGrids = append(d.PendingGrids, grid)
 

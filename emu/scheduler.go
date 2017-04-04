@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -24,7 +25,7 @@ const (
 // WfScheduleInfo stores the information associated with a wavefront in the
 // scheduler
 type WfScheduleInfo struct {
-	Wf             *Wavefront
+	Wf             *kernels.Wavefront
 	Inst           *insts.Inst
 	InstBuf        []byte
 	State          WfState
@@ -82,7 +83,7 @@ func NewScheduler() *Scheduler {
 }
 
 // AddWf registers a wavefront that needs to be scheduled
-func (s *Scheduler) AddWf(wf *Wavefront) {
+func (s *Scheduler) AddWf(wf *kernels.Wavefront) {
 	info := NewWfScheduleInfo()
 	info.Wf = wf
 	info.State = Ready
