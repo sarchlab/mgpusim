@@ -11,7 +11,6 @@ import (
 // A InstWorker is where instructions got executed
 type InstWorker interface {
 	Run(wf *WfScheduleInfo, now core.VTimeInSec) error
-	Continue(wf *WfScheduleInfo, now core.VTimeInSec) error
 }
 
 // InstWorkerImpl is the standard implmentation of a InstWorker
@@ -37,21 +36,6 @@ func (w *InstWorkerImpl) Run(
 		return w.runVop1(wf, now)
 	case disasm.Flat:
 		return w.runFlat(wf, now)
-	default:
-		log.Panicf("instruction type %s not supported\n", inst.FormatName)
-	}
-	return nil
-}
-
-// Continue picks up where instruction is stopped and continue its execution
-func (w *InstWorkerImpl) Continue(
-	wf *WfScheduleInfo,
-	now core.VTimeInSec,
-) error {
-	inst := wf.Inst
-	switch inst.FormatType {
-	case disasm.Flat:
-		return w.continueFlat(wf, now)
 	default:
 		log.Panicf("instruction type %s not supported\n", inst.FormatName)
 	}

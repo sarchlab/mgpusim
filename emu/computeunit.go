@@ -1,7 +1,6 @@
 package emu
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 	"reflect"
@@ -154,11 +153,9 @@ func (cu *ComputeUnit) processAccessReq(req *mem.AccessReq) *core.Error {
 	info.Ready = true
 	if info.IsInstFetch {
 		cu.Scheduler.Fetched(info.WfScheduleInfo, req.Buf)
-	} else {
-		wf := info.WfScheduleInfo
-		if wf.IsAllMemAccessReady() {
-			cu.InstWorker.Continue(wf, req.RecvTime())
-		}
+	}
+	if info.RegToSet != nil {
+		cu.WriteReg(info.RegToSet, info.wiFlatID, req.Buf)
 	}
 	return nil
 }
@@ -181,12 +178,6 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 			reflect.TypeOf(evt), cu.Name())
 	}
 	return nil
-}
-
-// pc returns the program counter of a certain wavefront
-func (cu *ComputeUnit) pc(wfID int) uint64 {
-	data := cu.ReadReg(disasm.Regs[disasm.Pc], wfID*cu.WiPerWf, 8)
-	return binary.LittleEndian.Uint64(data)
 }
 
 func (cu *ComputeUnit) dumpSRegs(wiFlatID int) {
@@ -258,35 +249,48 @@ func (cu *ComputeUnit) ReadReg(reg *disasm.Reg,
 func (cu *ComputeUnit) WriteMem(
 	addr uint64, data []byte,
 	info interface{}, now core.VTimeInSec,
-) *core.Error {
-	return nil
+) (*mem.AccessReq, *core.Error) {
+	return nil, nil
 }
 
 // ReadMem provides convenient method to read from the GPU memory
 func (cu *ComputeUnit) ReadMem(
 	addr uint64, byteSize int,
 	info interface{}, now core.VTimeInSec,
-) *core.Error {
-	return nil
+) (*mem.AccessReq, *core.Error) {
+	req := mem.NewAccessReq()
+	req.Type = mem.Read
+	req.Address = addr
+	req.ByteSize = uint64(byteSize)
+	req.SetSource(cu)
+	req.SetDestination(cu.DataMem)
+	req.Info = info
+	req.SetSendTime(now)
+	err := cu.GetConnection("ToDataMem").Send(req)
+	if err != nil && err.Recoverable == false {
+		log.Panic(err)
+	}
+	return req, err
 }
 
 // ReadInstMem generate an event to the instruction memory
 func (cu *ComputeUnit) ReadInstMem(
-	addr uint64, size int,
+	addr uint64, byteSize int,
 	info interface{}, now core.VTimeInSec,
-) *core.Error {
-	fetchReq := mem.NewAccessReq()
-	fetchReq.Address = addr
-	fetchReq.ByteSize = uint64(size)
-	fetchReq.SetSource(cu)
-	fetchReq.SetDestination(cu.InstMem)
-	fetchReq.Info = info
-	fetchReq.SetSendTime(now)
-	err := cu.GetConnection("ToInstMem").Send(fetchReq)
-	if err != nil {
+) (*mem.AccessReq, *core.Error) {
+	req := mem.NewAccessReq()
+	req.Type = mem.Read
+	req.Address = addr
+	req.ByteSize = uint64(byteSize)
+	req.SetSource(cu)
+	req.SetDestination(cu.InstMem)
+	req.Info = info
+	req.SetSendTime(now)
+	err := cu.GetConnection("ToInstMem").Send(req)
+	if err != nil && err.Recoverable == false {
 		log.Panic(err)
 	}
-	return nil
+	return req, err
 }
 
 // vgprAddr converts a VGPR to the address in the vector register file

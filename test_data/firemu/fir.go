@@ -58,8 +58,6 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	disassembler := disasm.NewDisassembler()
-	isaTracer := emu.NewIsaTracer(log.New(os.Stdout, "IsaTracer: ", 0),
-		disassembler)
 	for i := 0; i < 4; i++ {
 		instWorker := new(emu.InstWorkerImpl)
 		scheduler := emu.NewScheduler()
@@ -75,15 +73,12 @@ func initPlatform() {
 		cu.InstMem = globalMem
 		cu.DataMem = globalMem
 
-		if i == 0 {
-			cu.AcceptHook(isaTracer)
-		}
-
 		instWorker.CU = cu
 		scheduler.CU = cu
 		scheduler.InstWorker = instWorker
 		scheduler.Decoder = disassembler
 		dispatcher.RegisterCU(cu)
+
 		core.PlugIn(cu, "ToDispatcher", connection)
 		core.PlugIn(dispatcher, "ToComputeUnits", connection)
 		core.PlugIn(cu, "ToInstMem", connection)
