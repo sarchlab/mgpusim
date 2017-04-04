@@ -45,11 +45,22 @@ type regRead struct {
 	data     []byte
 }
 
-type instMemRead struct {
+type memRead struct {
 	addr uint64
 	size int
 	info interface{}
 	now  core.VTimeInSec
+	req  *mem.AccessReq
+	err  *core.Error
+}
+
+type memWrite struct {
+	addr uint64
+	data []byte
+	info interface{}
+	now  core.VTimeInSec
+	req  *mem.AccessReq
+	err  *core.Error
 }
 
 // MockComputeUnit is a ComputeUnit that is designed for help with testing
@@ -58,7 +69,8 @@ type MockComputeUnit struct {
 	lock                sync.Mutex
 	expectedRegWrite    []regWrite
 	expectedRegRead     []regRead
-	expectedInstMemRead []instMemRead
+	expectedInstMemRead []memRead
+	expectedMemRead     []memRead
 }
 
 // NewMockComputeUnit returns a new MockComputeUnit
@@ -67,6 +79,8 @@ func NewMockComputeUnit(name string) *MockComputeUnit {
 	cu.BasicComponent = core.NewBasicComponent(name)
 	cu.expectedRegWrite = make([]regWrite, 0)
 	cu.expectedRegRead = make([]regRead, 0)
+	cu.expectedInstMemRead = make([]memRead, 0)
+	cu.expectedMemRead = make([]memRead, 0)
 	return cu
 }
 
@@ -149,6 +163,7 @@ func (cu *MockComputeUnit) AllExpectedAccessed() {
 	gomega.Expect(cu.expectedRegRead).To(gomega.BeEmpty())
 	gomega.Expect(cu.expectedRegWrite).To(gomega.BeEmpty())
 	gomega.Expect(cu.expectedInstMemRead).To(gomega.BeEmpty())
+	gomega.Expect(cu.expectedMemRead).To(gomega.BeEmpty())
 }
 
 // WriteMem is not implmented
@@ -168,7 +183,27 @@ func (cu *MockComputeUnit) ReadMem(
 	info interface{},
 	now core.VTimeInSec,
 ) (*mem.AccessReq, *core.Error) {
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
+	for i, r := range cu.expectedMemRead {
+		if r.addr == address {
+			cu.expectedMemRead = append(cu.expectedMemRead[:i],
+				cu.expectedMemRead[i+1:]...)
+			return r.req, r.err
+		}
+	}
+	log.Panicf("Memory Read to address %d is not expected", address)
 	return nil, nil
+}
+
+// ExpectReadMem registers an ReadMem action that is to be called in the future
+func (cu *MockComputeUnit) ExpectReadMem(
+	address uint64, size int,
+	info interface{}, now core.VTimeInSec,
+	req *mem.AccessReq, err *core.Error,
+) {
+	r := memRead{address, size, info, now, req, err}
+	cu.expectedMemRead = append(cu.expectedMemRead, r)
 }
 
 // ExpectReadInstMem registers an ReadInstMem action that is to happen in the
@@ -176,8 +211,9 @@ func (cu *MockComputeUnit) ReadMem(
 func (cu *MockComputeUnit) ExpectReadInstMem(
 	addr uint64, size int,
 	info interface{}, now core.VTimeInSec,
+	req *mem.AccessReq, err *core.Error,
 ) {
-	r := instMemRead{addr, size, info, now}
+	r := memRead{addr, size, info, now, req, err}
 	cu.expectedInstMemRead = append(cu.expectedInstMemRead, r)
 }
 

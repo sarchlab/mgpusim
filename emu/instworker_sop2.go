@@ -38,7 +38,7 @@ func (w *InstWorkerImpl) runSADDU32(
 	dstValue := src0Value + src1Value
 	w.putRegUint32(inst.Dst.Register, wf.Wf.FirstWiFlatID, dstValue)
 	w.putRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID, sccValue)
-	w.IncreasePc(wf, inst.ByteSize)
+	w.IncreasePC(wf, inst.ByteSize)
 
 	w.Scheduler.Completed(wf)
 	return nil
@@ -58,7 +58,7 @@ func (w *InstWorkerImpl) runSAddCU32(
 	}
 	w.putRegUint32(inst.Dst.Register, wf.Wf.FirstWiFlatID, dstValue)
 	w.putRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID, sccValue)
-	w.IncreasePc(wf, inst.ByteSize)
+	w.IncreasePC(wf, inst.ByteSize)
 	w.Scheduler.Completed(wf)
 	return nil
 }

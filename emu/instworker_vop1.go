@@ -45,7 +45,7 @@ func (w *InstWorkerImpl) runForActiveWI(
 			go f(wf, int(wf.Wf.FirstWiFlatID+i), now, waitGroup)
 		}
 	}
-	w.IncreasePc(wf, inst.ByteSize)
+	w.IncreasePC(wf, inst.ByteSize)
 	w.Scheduler.Completed(wf)
 	waitGroup.Wait()
 	return nil

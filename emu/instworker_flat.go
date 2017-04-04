@@ -33,7 +33,7 @@ func (w *InstWorkerImpl) runFlatLoadUShort(
 
 	// The request process
 	for i := 0; i < 64; i++ {
-		if wf.WIMemRequested[i] == false && exec&mask != 0 {
+		if wf.WIMemRequested[i] == false && exec&(mask<<uint(i)) != 0 {
 			wiFlatID := wf.Wf.FirstWiFlatID + i
 			addr := w.getRegUint64(inst.Addr.Register, wiFlatID)
 
@@ -45,22 +45,19 @@ func (w *InstWorkerImpl) runFlatLoadUShort(
 			req, err := w.CU.ReadMem(addr, 2, info, now)
 
 			if err != nil {
-				// Cannot continue, return now. The scheduler can re-enter
-				// this function to continue execution
 				return nil
 			}
 
 			wf.WIMemRequested[i] = true
 			wf.MemAccess = append(wf.MemAccess, req)
 		}
-		mask = mask << 1
 	}
 
 	// The commit process
 	if wf.IsAllMemAccessReady() {
 		wf.MemAccess = make([]*mem.AccessReq, 0, 64)
 		wf.WIMemRequested = make([]bool, 64)
-		w.IncreasePc(wf, inst.ByteSize)
+		w.IncreasePC(wf, inst.ByteSize)
 		w.Scheduler.Completed(wf)
 	}
 
