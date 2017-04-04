@@ -29,7 +29,6 @@ func (w *InstWorkerImpl) runSADDU32(
 	now core.VTimeInSec,
 ) error {
 	inst := wf.Inst
-	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
 	src1Value := w.getOperandValueUint32(inst.Src1, wf.Wf.FirstWiFlatID)
 	src0Value := w.getOperandValueUint32(inst.Src0, wf.Wf.FirstWiFlatID)
 	var sccValue uint8
@@ -37,10 +36,9 @@ func (w *InstWorkerImpl) runSADDU32(
 		sccValue = 1
 	}
 	dstValue := src0Value + src1Value
-	pc += uint64(inst.ByteSize)
 	w.putRegUint32(inst.Dst.Register, wf.Wf.FirstWiFlatID, dstValue)
-	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
 	w.putRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID, sccValue)
+	w.IncreasePc(wf, inst.ByteSize)
 
 	w.Scheduler.Completed(wf)
 	return nil
@@ -51,7 +49,6 @@ func (w *InstWorkerImpl) runSAddCU32(
 	now core.VTimeInSec,
 ) error {
 	inst := wf.Inst
-	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
 	src1Value := w.getOperandValueUint32(inst.Src1, wf.Wf.FirstWiFlatID)
 	src0Value := w.getOperandValueUint32(inst.Src0, wf.Wf.FirstWiFlatID)
 	sccValue := w.getRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID)
@@ -59,10 +56,9 @@ func (w *InstWorkerImpl) runSAddCU32(
 	if src1Value&(1<<31) != 0 && src0Value&(1<<31) != 0 {
 		sccValue = 1
 	}
-	pc += uint64(inst.ByteSize)
 	w.putRegUint32(inst.Dst.Register, wf.Wf.FirstWiFlatID, dstValue)
-	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
 	w.putRegUint8(insts.Regs[insts.Scc], wf.Wf.FirstWiFlatID, sccValue)
+	w.IncreasePc(wf, inst.ByteSize)
 	w.Scheduler.Completed(wf)
 	return nil
 }

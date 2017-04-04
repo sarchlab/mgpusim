@@ -45,9 +45,7 @@ func (w *InstWorkerImpl) runForActiveWI(
 			go f(wf, int(wf.Wf.FirstWiFlatID+i), now, waitGroup)
 		}
 	}
-	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
-	pc += uint64(inst.ByteSize)
-	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
+	w.IncreasePc(wf, inst.ByteSize)
 	w.Scheduler.Completed(wf)
 	waitGroup.Wait()
 	return nil
