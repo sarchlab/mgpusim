@@ -1,4 +1,4 @@
-package disasm
+package insts
 
 import (
 	"debug/elf"
@@ -96,7 +96,7 @@ func (d *Disassembler) lookUp(format *Format, opcode Opcode) (*InstType, error) 
 		format.FormatName, opcode)
 }
 
-func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeSop2(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	src0Value := extractBits(bytes, 0, 7)
@@ -121,7 +121,7 @@ func (d *Disassembler) decodeSop2(inst *Instruction, buf []byte) {
 	}
 }
 
-func (d *Disassembler) decodeVop1(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeVop1(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	src0Value := extractBits(bytes, 0, 8)
@@ -134,7 +134,7 @@ func (d *Disassembler) decodeVop1(inst *Instruction, buf []byte) {
 	inst.Dst, _ = getOperand(uint16(dstValue + 256))
 }
 
-func (d *Disassembler) decodeVop2(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
 	if inst.Src0.OperandType == LiteralConstant {
@@ -144,7 +144,7 @@ func (d *Disassembler) decodeVop2(inst *Instruction, buf []byte) {
 	inst.Dst = NewVRegOperand(int(extractBits(bytes, 17, 24)), 0)
 }
 
-func (d *Disassembler) decodeFlat(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeFlat(inst *Inst, buf []byte) {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
@@ -177,7 +177,7 @@ func (d *Disassembler) decodeFlat(inst *Instruction, buf []byte) {
 	}
 }
 
-func (d *Disassembler) decodeSmem(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeSmem(inst *Inst, buf []byte) {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
@@ -215,13 +215,13 @@ func (d *Disassembler) decodeSmem(inst *Instruction, buf []byte) {
 	}
 }
 
-func (d *Disassembler) decodeSopp(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeSopp(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	inst.SImm16 = NewIntOperand(int64(extractBits(bytes, 0, 15)))
 }
 
-func (d *Disassembler) decodeVopc(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeVopc(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
 	if inst.Src0.OperandType == LiteralConstant {
@@ -231,7 +231,7 @@ func (d *Disassembler) decodeVopc(inst *Instruction, buf []byte) {
 	inst.Src1 = NewVRegOperand(int(extractBits(bytes, 9, 16)), 0)
 }
 
-func (d *Disassembler) decodeSopc(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeSopc(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
 	if inst.Src0.OperandType == LiteralConstant {
@@ -244,7 +244,7 @@ func (d *Disassembler) decodeSopc(inst *Instruction, buf []byte) {
 	}
 }
 
-func (d *Disassembler) decodeVop3(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeVop3(inst *Inst, buf []byte) {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 	is64Bit := false
@@ -292,7 +292,7 @@ func (d *Disassembler) decodeVop3(inst *Instruction, buf []byte) {
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
 }
 
-func (d *Disassembler) decodeSop1(inst *Instruction, buf []byte) {
+func (d *Disassembler) decodeSop1(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
 	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
@@ -304,7 +304,7 @@ func (d *Disassembler) decodeSop1(inst *Instruction, buf []byte) {
 }
 
 // Decode parses the head of the buffer and returns the next instruction
-func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
+func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint16(buf[2:]))
 	if err != nil {
 		return nil, err
@@ -316,7 +316,7 @@ func (d *Disassembler) Decode(buf []byte) (*Instruction, error) {
 		return nil, err
 	}
 
-	inst := new(Instruction)
+	inst := new(Inst)
 	inst.Format = format
 	inst.InstType = instType
 	inst.ByteSize = format.ByteSizeExLiteral

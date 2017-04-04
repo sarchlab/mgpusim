@@ -6,13 +6,13 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
 
 // A Decoder is a unit that can decode gcn3 instructions
 type Decoder interface {
-	Decode(buf []byte) (*disasm.Instruction, error)
+	Decode(buf []byte) (*insts.Inst, error)
 }
 
 // A ComputeUnit is the unit that can execute workgroups.
@@ -40,7 +40,7 @@ type ComputeUnit struct {
 	InstWorker   InstWorker
 
 	WG     *WorkGroup
-	co     *disasm.HsaCo
+	co     *insts.HsaCo
 	packet *HsaKernelDispatchPacket
 	grid   *Grid
 
@@ -63,7 +63,7 @@ func NewComputeUnit(name string,
 	engine core.Engine,
 	regInitiator *RegInitiator,
 	scheduler *Scheduler,
-	disassembler *disasm.Disassembler,
+	disassembler *insts.Disassembler,
 	instWorker InstWorker,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
@@ -183,7 +183,7 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 func (cu *ComputeUnit) dumpSRegs(wiFlatID int) {
 	fmt.Printf("***** SRegs for wavefront %d *****\n", wiFlatID/cu.WiPerWf)
 	for i := 0; i < cu.SgprPerWf; i++ {
-		value := disasm.BytesToUint32(cu.ReadReg(disasm.SReg(i), wiFlatID, 4))
+		value := insts.BytesToUint32(cu.ReadReg(insts.SReg(i), wiFlatID, 4))
 		if value != 0 {
 			fmt.Printf("\ts%d 0x%08x\n", i, value)
 		}
@@ -192,7 +192,7 @@ func (cu *ComputeUnit) dumpSRegs(wiFlatID int) {
 }
 
 // WriteReg updates the value in the register file
-func (cu *ComputeUnit) WriteReg(reg *disasm.Reg,
+func (cu *ComputeUnit) WriteReg(reg *insts.Reg,
 	wiFlatID int, data []byte) {
 	if reg.IsVReg() {
 		addr := cu.vgprAddr(reg, wiFlatID)
@@ -216,7 +216,7 @@ func (cu *ComputeUnit) WriteReg(reg *disasm.Reg,
 }
 
 // ReadReg returns the register value in the register file
-func (cu *ComputeUnit) ReadReg(reg *disasm.Reg,
+func (cu *ComputeUnit) ReadReg(reg *insts.Reg,
 	wiFlatID int, byteSize int) []byte {
 	if reg.IsVReg() {
 		addr := cu.vgprAddr(reg, wiFlatID)
@@ -294,75 +294,75 @@ func (cu *ComputeUnit) ReadInstMem(
 }
 
 // vgprAddr converts a VGPR to the address in the vector register file
-func (cu *ComputeUnit) vgprAddr(reg *disasm.Reg, wiFlatID int) int {
+func (cu *ComputeUnit) vgprAddr(reg *insts.Reg, wiFlatID int) int {
 	return (wiFlatID*cu.VgprPerWI + reg.RegIndex()) * 4
 }
 
 // sgprAddr converts a SGPR to the address in the scalar register file
-func (cu *ComputeUnit) sgprAddr(reg *disasm.Reg, wiFlatID int) int {
+func (cu *ComputeUnit) sgprAddr(reg *insts.Reg, wiFlatID int) int {
 	wfID := wiFlatID / cu.WiPerWf
 	return (wfID*cu.WfRegByteSize + reg.RegIndex()) * 4
 }
 
 // miscRegAddr returns the register's physical address in the scalar
 // register file
-func (cu *ComputeUnit) miscRegAddr(reg *disasm.Reg, wiFlatID int) int {
+func (cu *ComputeUnit) miscRegAddr(reg *insts.Reg, wiFlatID int) int {
 	wfID := wiFlatID / cu.WiPerWf
 	offset := cu.WfRegByteSize * wfID
 	switch reg {
-	case disasm.Regs[disasm.Pc]:
+	case insts.Regs[insts.Pc]:
 		offset += 408 // 102 * 4
-	case disasm.Regs[disasm.Exec]:
+	case insts.Regs[insts.Exec]:
 		offset += 416
-	case disasm.Regs[disasm.Execz]:
+	case insts.Regs[insts.Execz]:
 		offset += 424
-	case disasm.Regs[disasm.Vcc]:
+	case insts.Regs[insts.Vcc]:
 		offset += 425
-	case disasm.Regs[disasm.Vccz]:
+	case insts.Regs[insts.Vccz]:
 		offset += 433
-	case disasm.Regs[disasm.Scc]:
+	case insts.Regs[insts.Scc]:
 		offset += 434
-	case disasm.Regs[disasm.FlatSratch]:
+	case insts.Regs[insts.FlatSratch]:
 		offset += 435
-	case disasm.Regs[disasm.XnackMask]:
+	case insts.Regs[insts.XnackMask]:
 		offset += 443
-	case disasm.Regs[disasm.Status]:
+	case insts.Regs[insts.Status]:
 		offset += 451
-	case disasm.Regs[disasm.M0]:
+	case insts.Regs[insts.M0]:
 		offset += 455
-	case disasm.Regs[disasm.Trapsts]:
+	case insts.Regs[insts.Trapsts]:
 		offset += 459
-	case disasm.Regs[disasm.Tma]:
+	case insts.Regs[insts.Tma]:
 		offset += 463
-	case disasm.Regs[disasm.Timp0]:
+	case insts.Regs[insts.Timp0]:
 		offset += 471
-	case disasm.Regs[disasm.Timp1]:
+	case insts.Regs[insts.Timp1]:
 		offset += 475
-	case disasm.Regs[disasm.Timp2]:
+	case insts.Regs[insts.Timp2]:
 		offset += 479
-	case disasm.Regs[disasm.Timp3]:
+	case insts.Regs[insts.Timp3]:
 		offset += 483
-	case disasm.Regs[disasm.Timp4]:
+	case insts.Regs[insts.Timp4]:
 		offset += 487
-	case disasm.Regs[disasm.Timp5]:
+	case insts.Regs[insts.Timp5]:
 		offset += 491
-	case disasm.Regs[disasm.Timp6]:
+	case insts.Regs[insts.Timp6]:
 		offset += 495
-	case disasm.Regs[disasm.Timp7]:
+	case insts.Regs[insts.Timp7]:
 		offset += 499
-	case disasm.Regs[disasm.Timp8]:
+	case insts.Regs[insts.Timp8]:
 		offset += 503
-	case disasm.Regs[disasm.Timp9]:
+	case insts.Regs[insts.Timp9]:
 		offset += 507
-	case disasm.Regs[disasm.Timp10]:
+	case insts.Regs[insts.Timp10]:
 		offset += 511
-	case disasm.Regs[disasm.Timp11]:
+	case insts.Regs[insts.Timp11]:
 		offset += 515
-	case disasm.Regs[disasm.Vmcnt]:
+	case insts.Regs[insts.Vmcnt]:
 		offset += 519
-	case disasm.Regs[disasm.Expcnt]:
+	case insts.Regs[insts.Expcnt]:
 		offset += 520
-	case disasm.Regs[disasm.Lgkmcnt]:
+	case insts.Regs[insts.Lgkmcnt]:
 		offset += 521
 	default:
 		log.Panicf("Cannot find register %s's physical address", reg.Name)

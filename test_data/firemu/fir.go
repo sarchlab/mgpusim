@@ -10,8 +10,8 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -21,7 +21,7 @@ var (
 	gpu        *gcn3.Gpu
 	host       *core.MockComponent
 	connection core.Connection
-	hsaco      *disasm.HsaCo
+	hsaco      *insts.HsaCo
 )
 
 func main() {
@@ -57,7 +57,7 @@ func initPlatform() {
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
-	disassembler := disasm.NewDisassembler()
+	disassembler := insts.NewDisassembler()
 	for i := 0; i < 4; i++ {
 		instWorker := new(emu.InstWorkerImpl)
 		scheduler := emu.NewScheduler()
@@ -111,7 +111,7 @@ func loadProgram() {
 		log.Fatal(err)
 	}
 
-	hsaco = disasm.NewHsaCoFromData(hsacoData)
+	hsaco = insts.NewHsaCoFromData(hsacoData)
 }
 
 func initMem() {

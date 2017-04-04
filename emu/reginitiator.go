@@ -4,14 +4,14 @@ import (
 	"encoding/binary"
 	"log"
 
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // RegInitiator can initiate the CU's register when starting a workgroup
 type RegInitiator struct {
 	CU     *ComputeUnit
 	WG     *WorkGroup
-	CO     *disasm.HsaCo
+	CO     *insts.HsaCo
 	Packet *HsaKernelDispatchPacket
 }
 
@@ -37,7 +37,7 @@ func (i *RegInitiator) initSRegsForWf(wiID int) {
 	}
 
 	if i.CO.EnableSgprDispatchPtr() {
-		reg := disasm.SReg(count)
+		reg := insts.SReg(count)
 		bytes := make([]byte, 8)
 		binary.PutUvarint(bytes, uint64(0))
 		i.CU.WriteReg(reg, wiID, bytes)
@@ -50,8 +50,8 @@ func (i *RegInitiator) initSRegsForWf(wiID int) {
 	}
 
 	if i.CO.EnableSgprKernelArgSegmentPtr() {
-		reg := disasm.SReg(count)
-		bytes := disasm.Uint64ToBytes(i.Packet.KernargAddress)
+		reg := insts.SReg(count)
+		bytes := insts.Uint64ToBytes(i.Packet.KernargAddress)
 		i.CU.WriteReg(reg, wiID, bytes)
 		count += 2
 	}
@@ -87,21 +87,21 @@ func (i *RegInitiator) initSRegsForWf(wiID int) {
 	}
 
 	if i.CO.EnableSgprWorkGroupIdX() {
-		reg := disasm.SReg(count)
+		reg := insts.SReg(count)
 		bytes := make([]byte, 4)
 		binary.LittleEndian.PutUint32(bytes, uint32(i.WG.IDX))
 		i.CU.WriteReg(reg, wiID, bytes)
 		count++
 	}
 	if i.CO.EnableSgprWorkGroupIdY() {
-		reg := disasm.SReg(count)
+		reg := insts.SReg(count)
 		bytes := make([]byte, 4)
 		binary.LittleEndian.PutUint32(bytes, uint32(i.WG.IDY))
 		i.CU.WriteReg(reg, wiID, bytes)
 		count++
 	}
 	if i.CO.EnableSgprWorkGroupIdZ() {
-		reg := disasm.SReg(count)
+		reg := insts.SReg(count)
 		bytes := make([]byte, 4)
 		binary.LittleEndian.PutUint32(bytes, uint32(i.WG.IDZ))
 		i.CU.WriteReg(reg, wiID, bytes)
@@ -133,19 +133,19 @@ func (i *RegInitiator) initVRegs() {
 
 func (i *RegInitiator) initVRegsForWI(
 	wiIDX, wiIDY, wiIDZ, wiFlatID int) {
-	reg := disasm.VReg(0)
+	reg := insts.VReg(0)
 	bytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(bytes, uint32(wiIDX))
 	i.CU.WriteReg(reg, wiFlatID, bytes)
 
 	if i.CO.EnableVgprWorkItemId() > 0 {
-		reg = disasm.VReg(1)
+		reg = insts.VReg(1)
 		bytes = make([]byte, 4)
 		binary.LittleEndian.PutUint32(bytes, uint32(wiIDY))
 		i.CU.WriteReg(reg, wiFlatID, bytes)
 	}
 	if i.CO.EnableVgprWorkItemId() > 1 {
-		reg = disasm.VReg(2)
+		reg = insts.VReg(2)
 		bytes = make([]byte, 4)
 		binary.LittleEndian.PutUint32(bytes, uint32(wiIDZ))
 		i.CU.WriteReg(reg, wiFlatID, bytes)
@@ -155,12 +155,12 @@ func (i *RegInitiator) initVRegsForWI(
 func (i *RegInitiator) initMiscRegs() {
 	numWi := i.WG.SizeX * i.WG.SizeY * i.WG.SizeZ
 	for wiID := 0; wiID < numWi; wiID += i.CU.WiPerWf {
-		reg := disasm.Regs[disasm.Pc]
-		bytes := disasm.Uint64ToBytes(
+		reg := insts.Regs[insts.Pc]
+		bytes := insts.Uint64ToBytes(
 			i.Packet.KernelObject + i.CO.KernelCodeEntryByteOffset)
 		i.CU.WriteReg(reg, wiID, bytes)
 
-		reg = disasm.Regs[disasm.Exec]
+		reg = insts.Regs[insts.Exec]
 		bytes = make([]byte, 8)
 		binary.LittleEndian.PutUint64(bytes, uint64(0xffffffff))
 		i.CU.WriteReg(reg, wiID, bytes)

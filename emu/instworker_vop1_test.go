@@ -4,8 +4,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 var _ = Describe("InstWorkerImpl_Sop2", func() {
@@ -26,26 +26,26 @@ var _ = Describe("InstWorkerImpl_Sop2", func() {
 	})
 
 	It("should run v_mov_b32", func() {
-		inst := disasm.NewInstruction()
-		inst.FormatType = disasm.Vop1
+		inst := insts.NewInstruction()
+		inst.FormatType = insts.Vop1
 		inst.Opcode = 1
 		inst.ByteSize = 4
-		inst.Src0 = disasm.NewSRegOperand(0, 1)
-		inst.Dst = disasm.NewVRegOperand(2, 1)
+		inst.Src0 = insts.NewSRegOperand(0, 1)
+		inst.Dst = insts.NewVRegOperand(2, 1)
 
 		wf.Inst = inst
 		wf.Wf = new(emu.Wavefront)
 		wf.Wf.FirstWiFlatID = 0
 
-		cu.ExpectRegRead(disasm.Regs[disasm.Exec], 0, 8,
-			disasm.Uint64ToBytes(0xffffffffffffffff))
+		cu.ExpectRegRead(insts.Regs[insts.Exec], 0, 8,
+			insts.Uint64ToBytes(0xffffffffffffffff))
 		for i := 0; i < 64; i++ {
-			cu.ExpectRegRead(disasm.SReg(0), i, 4, disasm.Uint32ToBytes(uint32(15)))
-			cu.ExpectRegWrite(disasm.VReg(2), i, disasm.Uint32ToBytes(uint32(15)))
+			cu.ExpectRegRead(insts.SReg(0), i, 4, insts.Uint32ToBytes(uint32(15)))
+			cu.ExpectRegWrite(insts.VReg(2), i, insts.Uint32ToBytes(uint32(15)))
 		}
-		cu.ExpectRegRead(disasm.Regs[disasm.Pc], 0, 8,
-			disasm.Uint64ToBytes(6000))
-		cu.ExpectRegWrite(disasm.Regs[disasm.Pc], 0, disasm.Uint64ToBytes(6004))
+		cu.ExpectRegRead(insts.Regs[insts.Pc], 0, 8,
+			insts.Uint64ToBytes(6000))
+		cu.ExpectRegWrite(insts.Regs[insts.Pc], 0, insts.Uint64ToBytes(6004))
 
 		w.Run(wf, 0)
 

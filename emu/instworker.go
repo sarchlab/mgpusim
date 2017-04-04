@@ -5,7 +5,7 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // A InstWorker is where instructions got executed
@@ -30,11 +30,11 @@ func (w *InstWorkerImpl) Run(
 	log.Printf("%.10f: Inst %s\n", now, wf.Inst.String())
 	inst := wf.Inst
 	switch inst.FormatType {
-	case disasm.Sop2:
+	case insts.Sop2:
 		return w.runSop2(wf, now)
-	case disasm.Vop1:
+	case insts.Vop1:
 		return w.runVop1(wf, now)
-	case disasm.Flat:
+	case insts.Flat:
 		return w.runFlat(wf, now)
 	default:
 		log.Panicf("instruction type %s not supported\n", inst.FormatName)
@@ -43,35 +43,35 @@ func (w *InstWorkerImpl) Run(
 }
 
 func (w *InstWorkerImpl) getRegUint64(
-	reg *disasm.Reg, wiFlatID int,
+	reg *insts.Reg, wiFlatID int,
 ) uint64 {
 	data := w.CU.ReadReg(reg, wiFlatID, 8)
-	return disasm.BytesToUint64(data)
+	return insts.BytesToUint64(data)
 }
 
 func (w *InstWorkerImpl) getRegUint32(
-	reg *disasm.Reg, wiFlatID int,
+	reg *insts.Reg, wiFlatID int,
 ) uint32 {
 	data := w.CU.ReadReg(reg, wiFlatID, 4)
-	return disasm.BytesToUint32(data)
+	return insts.BytesToUint32(data)
 }
 
 func (w *InstWorkerImpl) getRegUint8(
-	reg *disasm.Reg, wiFlatID int,
+	reg *insts.Reg, wiFlatID int,
 ) uint8 {
 	data := w.CU.ReadReg(reg, wiFlatID, 1)
-	return disasm.BytesToUint8(data)
+	return insts.BytesToUint8(data)
 }
 
 func (w *InstWorkerImpl) getOperandValueUint32(
-	operand *disasm.Operand, wiFlatID int,
+	operand *insts.Operand, wiFlatID int,
 ) uint32 {
 	switch operand.OperandType {
-	case disasm.RegOperand:
+	case insts.RegOperand:
 		return w.getRegUint32(operand.Register, wiFlatID)
-	case disasm.IntOperand:
+	case insts.IntOperand:
 		return uint32(operand.IntValue)
-	case disasm.LiteralConstant:
+	case insts.LiteralConstant:
 		return uint32(operand.LiteralConstant)
 	default:
 		log.Panic("invalid operand type")
@@ -80,22 +80,22 @@ func (w *InstWorkerImpl) getOperandValueUint32(
 }
 
 func (w *InstWorkerImpl) putRegUint8(
-	reg *disasm.Reg, wiFlatID int, value uint8,
+	reg *insts.Reg, wiFlatID int, value uint8,
 ) {
-	data := disasm.Uint8ToBytes(value)
+	data := insts.Uint8ToBytes(value)
 	w.CU.WriteReg(reg, wiFlatID, data)
 }
 
 func (w *InstWorkerImpl) putRegUint32(
-	reg *disasm.Reg, wiFlatID int, value uint32,
+	reg *insts.Reg, wiFlatID int, value uint32,
 ) {
-	data := disasm.Uint32ToBytes(value)
+	data := insts.Uint32ToBytes(value)
 	w.CU.WriteReg(reg, wiFlatID, data)
 }
 
 func (w *InstWorkerImpl) putRegUint64(
-	reg *disasm.Reg, wiFlatID int, value uint64,
+	reg *insts.Reg, wiFlatID int, value uint64,
 ) {
-	data := disasm.Uint64ToBytes(value)
+	data := insts.Uint64ToBytes(value)
 	w.CU.WriteReg(reg, wiFlatID, data)
 }

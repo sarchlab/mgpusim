@@ -8,7 +8,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -16,8 +16,8 @@ import (
 type ComputeUnit interface {
 	core.Component
 
-	WriteReg(reg *disasm.Reg, wiFlatID int, data []byte)
-	ReadReg(reg *disasm.Reg, wiFlatID int, byteSize int) []byte
+	WriteReg(reg *insts.Reg, wiFlatID int, data []byte)
+	ReadReg(reg *insts.Reg, wiFlatID int, byteSize int) []byte
 
 	WriteMem(
 		address uint64, data []byte,
@@ -33,13 +33,13 @@ type ComputeUnit interface {
 }
 
 type regWrite struct {
-	reg      *disasm.Reg
+	reg      *insts.Reg
 	wiFlatID int
 	data     []byte
 }
 
 type regRead struct {
-	reg      *disasm.Reg
+	reg      *insts.Reg
 	wiFlatID int
 	byteSize int
 	data     []byte
@@ -82,7 +82,7 @@ func (cu *MockComputeUnit) Handle(evt core.Event) error {
 
 // ExpectRegWrite registers a write register action that is expected to happen
 func (cu *MockComputeUnit) ExpectRegWrite(
-	reg *disasm.Reg,
+	reg *insts.Reg,
 	wiFlatID int,
 	data []byte,
 ) {
@@ -92,7 +92,7 @@ func (cu *MockComputeUnit) ExpectRegWrite(
 
 // ExpectRegRead registers a write register action that is expected to happen
 func (cu *MockComputeUnit) ExpectRegRead(
-	reg *disasm.Reg,
+	reg *insts.Reg,
 	wiFlatID int,
 	byteSize int,
 	data []byte,
@@ -102,7 +102,7 @@ func (cu *MockComputeUnit) ExpectRegRead(
 }
 
 // WriteReg function of a MockComputeUnit checks if a write action is expected
-func (cu *MockComputeUnit) WriteReg(reg *disasm.Reg, wiFlatID int,
+func (cu *MockComputeUnit) WriteReg(reg *insts.Reg, wiFlatID int,
 	data []byte,
 ) {
 
@@ -123,7 +123,7 @@ func (cu *MockComputeUnit) WriteReg(reg *disasm.Reg, wiFlatID int,
 }
 
 // ReadReg function of a MockComputeUnit checks if a read action is expected
-func (cu *MockComputeUnit) ReadReg(reg *disasm.Reg, wiFlatID int,
+func (cu *MockComputeUnit) ReadReg(reg *insts.Reg, wiFlatID int,
 	byteSize int,
 ) []byte {
 	cu.lock.Lock()

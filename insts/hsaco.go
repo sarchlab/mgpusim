@@ -1,4 +1,4 @@
-package disasm
+package insts
 
 import (
 	"bytes"

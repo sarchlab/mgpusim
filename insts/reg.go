@@ -1,4 +1,4 @@
-package disasm
+package insts
 
 // Reg is the representation of a register
 type Reg struct {

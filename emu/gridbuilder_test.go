@@ -3,8 +3,8 @@ package emu_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/gcn3/disasm"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 var _ = Describe("GridBuilder", func() {
@@ -19,7 +19,7 @@ var _ = Describe("GridBuilder", func() {
 
 	It("should build 1D grid", func() {
 
-		codeObject := new(disasm.HsaCo)
+		codeObject := new(insts.HsaCo)
 
 		packet := new(emu.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 256
@@ -46,7 +46,7 @@ var _ = Describe("GridBuilder", func() {
 
 	It("should build 2D grid", func() {
 
-		codeObject := new(disasm.HsaCo)
+		codeObject := new(insts.HsaCo)
 
 		packet := new(emu.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 16
@@ -66,7 +66,7 @@ var _ = Describe("GridBuilder", func() {
 	})
 
 	It("should build 3D grid", func() {
-		codeObject := new(disasm.HsaCo)
+		codeObject := new(insts.HsaCo)
 
 		packet := new(emu.HsaKernelDispatchPacket)
 		packet.WorkgroupSizeX = 16
