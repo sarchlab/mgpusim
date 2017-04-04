@@ -55,7 +55,7 @@ var _ = ginkgo.Describe("Schedule", func() {
 
 		cu.ExpectRegRead(insts.Regs[insts.Pc], 0, 8,
 			insts.Uint64ToBytes(4000))
-		cu.ExpectReadInstMem(4000, 8, nil, 0)
+		cu.ExpectReadInstMem(4000, 8, nil, 0, nil, nil)
 
 		scheduler.Schedule(0)
 

@@ -17,9 +17,6 @@ type InstWorker interface {
 type InstWorkerImpl struct {
 	CU        gcn3.ComputeUnit
 	Scheduler *Scheduler
-
-	DataMem   core.Component
-	ToDataMem core.Connection
 }
 
 // Run will emulate the result of a instruction execution
@@ -42,8 +39,8 @@ func (w *InstWorkerImpl) Run(
 	return nil
 }
 
-// IncreasePc increase PC by a certain amount
-func (w *InstWorkerImpl) IncreasePc(wf *WfScheduleInfo, amount int) {
+// IncreasePC increase PC by a certain amount
+func (w *InstWorkerImpl) IncreasePC(wf *WfScheduleInfo, amount int) {
 	pc := w.getRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID)
 	pc += uint64(amount)
 	w.putRegUint64(insts.Regs[insts.Pc], wf.Wf.FirstWiFlatID, pc)
