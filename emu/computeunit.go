@@ -172,7 +172,6 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		if cu.Scheduling {
 			cu.scheduleNextCycle(evt.Time())
 		}
-		evt.FinishChan() <- true
 		return nil
 	default:
 		log.Panicf("event %s is not supported by component %s",
