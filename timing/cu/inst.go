@@ -1,4 +1,4 @@
-package timing
+package cu
 
 import "gitlab.com/yaotsu/gcn3/insts"
 import "gitlab.com/yaotsu/core"
