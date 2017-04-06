@@ -1,4 +1,4 @@
-package timing
+package cu
 
 import "gitlab.com/yaotsu/core"
 
