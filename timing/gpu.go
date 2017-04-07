@@ -9,9 +9,8 @@ import (
 type GPU struct {
 	*core.BasicComponent
 
-	HWSes []*HWS
-	ACEs  []*ACE
-	CUs   []*ComputeUnit
+	Dispatcher []*core.Component
+	CUs        []*core.Component
 
 	// TODO Caches and Networks
 }
