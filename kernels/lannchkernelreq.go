@@ -7,7 +7,7 @@ import (
 
 // A LaunchKernelReq is a request that asks a GPU to launch a kernel
 type LaunchKernelReq struct {
-	*core.BasicRequest
+	*core.ReqBase
 
 	Packet *HsaKernelDispatchPacket
 	HsaCo  *insts.HsaCo
@@ -16,6 +16,6 @@ type LaunchKernelReq struct {
 // NewLaunchKernelReq returns a new LaunchKernelReq
 func NewLaunchKernelReq() *LaunchKernelReq {
 	r := new(LaunchKernelReq)
-	r.BasicRequest = core.NewBasicRequest()
+	r.ReqBase = core.NewReqBase()
 	return r
 }

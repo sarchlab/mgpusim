@@ -32,7 +32,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should panic if there is workgroup executing", func() {
 			cu.WG = kernels.NewWorkGroup()
 			req := emu.NewMapWGReq()
-			Expect(func() { cu.Receive(req) }).To(Panic())
+			Expect(func() { cu.Recv(req) }).To(Panic())
 		})
 	})
 

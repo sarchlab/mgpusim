@@ -19,8 +19,7 @@ import (
 type Dispatcher struct {
 	*core.BasicComponent
 
-	GridBuilder     kernels.GridBuilder
-	MapWGReqFactory MapWGReqFactory
+	GridBuilder kernels.GridBuilder
 
 	ComputeUnits        []core.Component     // All the CUs
 	ComputeUnitsRunning []bool               // A mask for which cu is running
@@ -32,13 +31,11 @@ type Dispatcher struct {
 func NewDispatcher(
 	name string,
 	gridBuilder kernels.GridBuilder,
-	mapWGReqFactory MapWGReqFactory,
 ) *Dispatcher {
 	d := new(Dispatcher)
 	d.BasicComponent = core.NewBasicComponent(name)
 
 	d.GridBuilder = gridBuilder
-	d.MapWGReqFactory = mapWGReqFactory
 
 	d.ComputeUnits = make([]core.Component, 0)
 	d.ComputeUnitsRunning = make([]bool, 0)
@@ -57,8 +54,8 @@ func (d *Dispatcher) RegisterCU(cu core.Component) {
 	d.ComputeUnitsRunning = append(d.ComputeUnitsRunning, false)
 }
 
-// Receive processes the incomming requests
-func (d *Dispatcher) Receive(req core.Request) *core.Error {
+// Recv processes the incomming requests
+func (d *Dispatcher) Recv(req core.Req) *core.Error {
 	switch req := req.(type) {
 	case *kernels.LaunchKernelReq:
 		return d.processLaunchKernelReq(req)
@@ -97,9 +94,9 @@ func (d *Dispatcher) doDispatch(
 	wg *kernels.WorkGroup,
 	time core.VTimeInSec,
 ) {
-	req := d.MapWGReqFactory.Create()
-	req.SetSource(d)
-	req.SetDestination(cu)
+	req := NewMapWGReq()
+	req.SetSrc(d)
+	req.SetDst(cu)
 	req.SetSendTime(time)
 	req.WG = wg
 

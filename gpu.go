@@ -35,23 +35,23 @@ func (g *Gpu) Handle(e core.Event) error {
 	return nil
 }
 
-// Receive processes incoming request to the GPU.
+// Recv processes incoming request to the GPU.
 //
 // The GPU itself does not respond to requests, but it always forward to the
 // CommandProcessor.
-func (g *Gpu) Receive(req core.Request) *core.Error {
-	if req.Source() == g.CommandProcessor { // From the CommandProcessor
-		req.SetSource(g)
-		req.SetDestination(g.Driver)
+func (g *Gpu) Recv(req core.Req) *core.Error {
+	if req.Src() == g.CommandProcessor { // From the CommandProcessor
+		req.SetSrc(g)
+		req.SetDst(g.Driver)
 		g.GetConnection("ToDriver").Send(req)
 		return nil
-	} else if req.Source() == g.Driver { // From the Driver
-		req.SetSource(g)
-		req.SetDestination(g.CommandProcessor)
+	} else if req.Src() == g.Driver { // From the Driver
+		req.SetSrc(g)
+		req.SetDst(g.CommandProcessor)
 		g.GetConnection("ToCommandProcessor").Send(req)
 		return nil
 	}
 
 	return core.NewError(
-		fmt.Sprintf("Unrecognized source %s", req.Source().Name()), false, 0)
+		fmt.Sprintf("Unrecognized source %s", req.Src().Name()), false, 0)
 }

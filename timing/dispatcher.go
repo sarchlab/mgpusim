@@ -17,7 +17,7 @@ type kernelDispatchStatus struct {
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
 // ask the ComputeUnit to reserve resources for the work-group
 type MapWGReq struct {
-	*core.BasicRequest
+	*core.ReqBase
 
 	WG *kernels.WorkGroup
 	Ok bool
@@ -43,6 +43,6 @@ func NewDispatcher(name string, gridBuilder kernels.GridBuilder) *Dispatcher {
 }
 
 // Receive starts processing incomming requests
-func (d *Dispatcher) Receive(req core.Request) *core.Error {
+func (d *Dispatcher) Receive(req core.Req) *core.Error {
 	return nil
 }
