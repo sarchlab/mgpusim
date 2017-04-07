@@ -35,12 +35,12 @@ var _ = Describe("CommandProcessor", func() {
 
 	It("should forward kernel launching request to Dispatcher", func() {
 		req := kernels.NewLaunchKernelReq()
-		req.SetSource(driver)
-		req.SetDestination(commandProcessor)
+		req.SetSrc(driver)
+		req.SetDst(commandProcessor)
 
 		dispatcher.ToReceiveReq(req, nil)
 
-		commandProcessor.Receive(req)
+		commandProcessor.Recv(req)
 
 		Expect(dispatcher.AllReqReceived()).To(BeTrue())
 	})

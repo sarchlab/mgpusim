@@ -95,8 +95,8 @@ func NewComputeUnit(name string,
 	return cu
 }
 
-// Receive processes the incomming requests
-func (cu *ComputeUnit) Receive(req core.Request) *core.Error {
+// Recv processes the incomming requests
+func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
 	switch req := req.(type) {
 	case *MapWgReq:
 		return cu.processMapWGReq(req)
@@ -262,8 +262,8 @@ func (cu *ComputeUnit) ReadMem(
 	req.Type = mem.Read
 	req.Address = addr
 	req.ByteSize = uint64(byteSize)
-	req.SetSource(cu)
-	req.SetDestination(cu.DataMem)
+	req.SetSrc(cu)
+	req.SetDst(cu.DataMem)
 	req.Info = info
 	req.SetSendTime(now)
 	err := cu.GetConnection("ToDataMem").Send(req)
@@ -282,8 +282,8 @@ func (cu *ComputeUnit) ReadInstMem(
 	req.Type = mem.Read
 	req.Address = addr
 	req.ByteSize = uint64(byteSize)
-	req.SetSource(cu)
-	req.SetDestination(cu.InstMem)
+	req.SetSrc(cu)
+	req.SetDst(cu.InstMem)
 	req.Info = info
 	req.SetSendTime(now)
 	err := cu.GetConnection("ToInstMem").Send(req)

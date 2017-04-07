@@ -12,6 +12,7 @@ import (
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -53,7 +54,7 @@ func initPlatform() {
 	commandProcessor := emu.NewCommandProcessor("Gpu.CommandProcessor")
 
 	dispatcher := emu.NewDispatcher("Gpu.Dispatcher",
-		new(emu.GridBuilderImpl), emu.NewMapWGReqFactory())
+		new(kernels.GridBuilderImpl), emu.NewMapWGReqFactory())
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
@@ -151,9 +152,9 @@ func run() {
 		log.Fatal(err)
 	}
 
-	req := emu.NewLaunchKernelReq()
+	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
-	req.Packet = new(emu.HsaKernelDispatchPacket)
+	req.Packet = new(kernels.HsaKernelDispatchPacket)
 	req.Packet.GridSizeX = 1024
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
@@ -163,8 +164,8 @@ func run() {
 	req.Packet.KernelObject = 0
 	req.Packet.KernargAddress = 65536
 
-	req.SetSource(host)
-	req.SetDestination(gpu)
+	req.SetSrc(host)
+	req.SetDst(gpu)
 	connErr := connection.Send(req)
 	if connErr != nil {
 		log.Fatal(connErr)

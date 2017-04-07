@@ -34,13 +34,13 @@ func NewCommandProcessor(name string) *CommandProcessor {
 func (p *CommandProcessor) handleLaunchKernelReq(
 	req *kernels.LaunchKernelReq,
 ) *core.Error {
-	req.SetSource(p)
-	req.SetDestination(p.Dispatcher)
+	req.SetSrc(p)
+	req.SetDst(p.Dispatcher)
 	return p.GetConnection("ToDispatcher").Send(req)
 }
 
-// Receive processes the incomming requests
-func (p *CommandProcessor) Receive(req core.Request) *core.Error {
+// Recv processes the incomming requests
+func (p *CommandProcessor) Recv(req core.Req) *core.Error {
 	switch req := req.(type) {
 	case *kernels.LaunchKernelReq:
 		return p.handleLaunchKernelReq(req)

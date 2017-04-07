@@ -35,16 +35,16 @@ var _ = ginkgo.Describe("Gpu (unit test)", func() {
 	})
 
 	ginkgo.It("Should forward all request to CommandProcessor", func() {
-		req := core.NewBasicRequest()
-		req.SetSource(driver)
-		req.SetDestination(gpu)
+		req := core.NewReqBase()
+		req.SetSrc(driver)
+		req.SetDst(gpu)
 
 		commandProcessor.ToReceiveReq(req, nil)
 
 		err := connection.Send(req)
 		Expect(err).To(BeNil())
 
-		Expect(req.Source()).To(BeIdenticalTo(gpu))
-		Expect(req.Destination()).To(BeIdenticalTo(commandProcessor))
+		Expect(req.Src()).To(BeIdenticalTo(gpu))
+		Expect(req.Dst()).To(BeIdenticalTo(commandProcessor))
 	})
 })

@@ -84,8 +84,8 @@ func NewMockComputeUnit(name string) *MockComputeUnit {
 	return cu
 }
 
-// Receive function of a MockComputeUnit dost not do anything.
-func (cu *MockComputeUnit) Receive(req core.Request) *core.Error {
+// Recv function of a MockComputeUnit dost not do anything.
+func (cu *MockComputeUnit) Recv(req core.Req) *core.Error {
 	return nil
 }
 

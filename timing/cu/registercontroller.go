@@ -8,7 +8,7 @@ import (
 
 // A RegReadReq is a request to read a set of register
 type RegReadReq struct {
-	*core.BasicRequest
+	*core.ReqBase
 
 	Reg      *insts.Reg
 	ByteSize int
@@ -17,7 +17,7 @@ type RegReadReq struct {
 
 // A WriteReadReq is a request to read a set of register
 type WriteReadReq struct {
-	*core.BasicRequest
+	*core.ReqBase
 
 	Reg *insts.Reg
 	Buf []byte
