@@ -75,10 +75,9 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should process MapWGReq", func() {
-		mapWGReq := timing.NewMapWGReq()
+		mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0],
+			timing.NewKernelDispatchStatus())
 		mapWGReq.Ok = true
-		mapWGReq.WG = grid.WorkGroups[0]
-		mapWGReq.KernelStatus = timing.NewKernelDispatchStatus()
 
 		dispatcher.Recv(mapWGReq)
 
@@ -89,10 +88,9 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should mark CU busy if the MapWGReq is failed", func() {
-		mapWGReq := timing.NewMapWGReq()
+		mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0],
+			timing.NewKernelDispatchStatus())
 		mapWGReq.Ok = false
-		mapWGReq.WG = grid.WorkGroups[0]
-		mapWGReq.KernelStatus = timing.NewKernelDispatchStatus()
 		mapWGReq.KernelStatus.CUBusy = make([]bool, 2)
 
 		dispatcher.Recv(mapWGReq)
@@ -118,12 +116,8 @@ var _ = Describe("Dispatcher", func() {
 			status.CUBusy = make([]bool, 2)
 			status.DispatchingCUID = -1
 
-			mapWGReq := timing.NewMapWGReq()
-			mapWGReq.WG = grid.WorkGroups[0]
-			mapWGReq.KernelStatus = status
-			mapWGReq.SetSrc(dispatcher)
-			mapWGReq.SetDst(cu0)
-			mapWGReq.SetSendTime(10)
+			mapWGReq := timing.NewMapWGReq(dispatcher, cu0, 10, grid.WorkGroups[0],
+				status)
 			connection.ExpectSend(mapWGReq, nil)
 
 			dispatcher.Handle(evt)
@@ -168,12 +162,8 @@ var _ = Describe("Dispatcher", func() {
 			status.CUBusy[0] = true
 			status.DispatchingCUID = -1
 
-			mapWGReq := timing.NewMapWGReq()
-			mapWGReq.WG = grid.WorkGroups[0]
-			mapWGReq.KernelStatus = status
-			mapWGReq.SetSrc(dispatcher)
-			mapWGReq.SetDst(cu1)
-			mapWGReq.SetSendTime(10)
+			mapWGReq := timing.NewMapWGReq(dispatcher, cu1, 10, grid.WorkGroups[0],
+				status)
 			connection.ExpectSend(mapWGReq, nil)
 
 			dispatcher.Handle(evt)
