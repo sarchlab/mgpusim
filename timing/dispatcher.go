@@ -41,9 +41,19 @@ type MapWGReq struct {
 }
 
 // NewMapWGReq returns a newly created MapWGReq
-func NewMapWGReq() *MapWGReq {
+func NewMapWGReq(
+	src, dst core.Component,
+	time core.VTimeInSec,
+	wg *kernels.WorkGroup,
+	status *KernelDispatchStatus,
+) *MapWGReq {
 	r := new(MapWGReq)
 	r.ReqBase = core.NewReqBase()
+	r.SetSrc(src)
+	r.SetDst(dst)
+	r.SetSendTime(time)
+	r.WG = wg
+	r.KernelStatus = status
 	return r
 }
 
@@ -201,35 +211,41 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 func (d *Dispatcher) handleKernalDispatchEvent(evt *KernelDispatchEvent) error {
 	status := evt.Status
 	if status.Mapped {
-		req := NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
-			status.DispatchingWfs[0])
-		err := d.GetConnection("ToCUs").Send(req)
-		if err != nil && err.Recoverable {
-			log.Panic(err)
-		} else if err != nil {
-			evt.SetTime(d.Freq.NoEarlierThan(err.EarliestRetry))
-			d.engine.Schedule(evt)
-		} else {
-			status.DispatchingWfs = status.DispatchingWfs[1:]
-		}
-
+		d.dispatchWf(evt)
 	} else {
-		if !d.isAllCUsBusy(status) {
-			req := NewMapWGReq()
-			req.SetSrc(d)
-			req.SetSendTime(evt.Time())
-
-			cuID := d.nextAvailableCU(status)
-			req.SetDst(d.CUs[cuID])
-
-			req.WG = status.WGs[0]
-			req.KernelStatus = status
-
-			d.GetConnection("ToCUs").Send(req)
-		}
+		d.mapWG(evt)
 	}
 
 	return nil
+}
+
+func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
+	status := evt.Status
+	req := NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
+		status.DispatchingWfs[0])
+
+	err := d.GetConnection("ToCUs").Send(req)
+	if err != nil && err.Recoverable {
+		log.Panic(err)
+	} else if err != nil {
+		evt.SetTime(d.Freq.NoEarlierThan(err.EarliestRetry))
+		d.engine.Schedule(evt)
+	} else {
+		status.DispatchingWfs = status.DispatchingWfs[1:]
+	}
+}
+
+func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
+	status := evt.Status
+	if !d.isAllCUsBusy(status) {
+		cuID := d.nextAvailableCU(status)
+		cu := d.CUs[cuID]
+		wg := status.WGs[0]
+		req := NewMapWGReq(d, cu, evt.Time(), wg, status)
+
+		d.GetConnection("ToCUs").Send(req)
+	}
+
 }
 
 func (d *Dispatcher) isAllCUsBusy(status *KernelDispatchStatus) bool {
