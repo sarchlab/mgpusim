@@ -150,6 +150,32 @@ var _ = Describe("Dispatcher", func() {
 				BeIdenticalTo(wf)))
 		})
 
+		It("should map another workgroud after dispatching wavefronts", func() {
+			evt := timing.NewKernelDispatchEvent()
+			status := timing.NewKernelDispatchStatus()
+			evt.Status = status
+			evt.SetTime(10)
+
+			status.WGs = append(status.WGs, grid.WorkGroups[1:]...)
+			status.DispatchingWfs = append(status.DispatchingWfs,
+				grid.WorkGroups[0].Wavefronts[0])
+			status.Grid = grid
+			status.DispatchingCUID = 0
+			status.Mapped = true
+
+			wf := status.DispatchingWfs[0]
+			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf)
+
+			connection.ExpectSend(req, nil)
+
+			dispatcher.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(status.DispatchingWfs).To(BeEmpty())
+			Expect(status.Mapped).To(BeFalse())
+
+		})
+
 		It("should find not busy CUs to dispatch", func() {
 			evt := timing.NewKernelDispatchEvent()
 			status := timing.NewKernelDispatchStatus()

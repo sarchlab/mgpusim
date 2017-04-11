@@ -70,7 +70,7 @@ var _ = Describe("Dispatcher", func() {
 		Expect(req.WG).To(BeIdenticalTo(wg1))
 	})
 
-	It("should only dispatch to idle cus", func() {
+	It("should only dispatch to idle compute units", func() {
 		wgs := make([]*kernels.WorkGroup, 5)
 		reqs := make([]*emu.MapWgReq, 5)
 		for i := 0; i < 5; i++ {
