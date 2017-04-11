@@ -232,6 +232,9 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 		d.engine.Schedule(evt)
 	} else {
 		status.DispatchingWfs = status.DispatchingWfs[1:]
+		if len(status.DispatchingWfs) == 0 {
+			status.Mapped = false
+		}
 	}
 }
 
