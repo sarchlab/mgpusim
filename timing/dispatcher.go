@@ -11,20 +11,22 @@ import (
 
 // KernelDispatchStatus keeps the state of the dispatching process
 type KernelDispatchStatus struct {
+	Req             *kernels.LaunchKernelReq
 	Packet          *kernels.HsaKernelDispatchPacket
 	Grid            *kernels.Grid
 	WGs             []*kernels.WorkGroup
+	CompletedWGs    []*kernels.WorkGroup
 	DispatchingWfs  []*kernels.Wavefront
 	DispatchingCUID int
 	Mapped          bool
-
-	CUBusy []bool
+	CUBusy          []bool
 }
 
 // NewKernelDispatchStatus returns a newly created KernelDispatchStatus
 func NewKernelDispatchStatus() *KernelDispatchStatus {
 	s := new(KernelDispatchStatus)
 	s.WGs = make([]*kernels.WorkGroup, 0)
+	s.CompletedWGs = make([]*kernels.WorkGroup, 0)
 	s.DispatchingWfs = make([]*kernels.Wavefront, 0)
 	s.CUBusy = make([]bool, 0)
 	return s
@@ -78,6 +80,34 @@ func NewDispatchWfReq(
 	return r
 }
 
+// A WGFinishMesg is sent by a compute unit to noitify about the completion of
+// a workgroup
+type WGFinishMesg struct {
+	*core.ReqBase
+
+	WG     *kernels.WorkGroup
+	Status *KernelDispatchStatus
+}
+
+// NewWGFinishMesg creates and returns a newly created WGFinishMesg
+func NewWGFinishMesg(
+	src, dst core.Component,
+	time core.VTimeInSec,
+	wg *kernels.WorkGroup,
+	status *KernelDispatchStatus,
+) *WGFinishMesg {
+	m := new(WGFinishMesg)
+	m.ReqBase = core.NewReqBase()
+
+	m.SetSrc(src)
+	m.SetDst(dst)
+	m.SetSendTime(time)
+	m.WG = wg
+	m.Status = status
+
+	return m
+}
+
 // A KernelDispatchEvent is a event to continue the kernel dispatch process
 type KernelDispatchEvent struct {
 	*core.BasicEvent
@@ -96,6 +126,10 @@ func NewKernelDispatchEvent() *KernelDispatchEvent {
 //
 //     <=> ToCUs The connection that is connecting the dispatcher and the
 //         compute units
+//
+//     <=> ToCommandProcessor The connection that is connecting the dispatcher
+//         with the command processor
+//
 type Dispatcher struct {
 	*core.BasicComponent
 	sync.Mutex
@@ -120,6 +154,7 @@ func NewDispatcher(
 	d.engine = engine
 
 	d.AddPort("ToCUs")
+	d.AddPort("ToCommandProcessor")
 
 	return d
 }
@@ -134,6 +169,9 @@ func NewDispatcher(
 //     MapWGReq ---- The request return from the compute unit tells if the
 //                   compute unit is able to run the work-group
 //
+//     WGFinishMesg ---- The CU send this message to the dispatcher to notify
+//                       the completion of a workgroup
+//
 func (d *Dispatcher) Recv(req core.Req) *core.Error {
 	d.Lock()
 	defer d.Unlock()
@@ -143,6 +181,8 @@ func (d *Dispatcher) Recv(req core.Req) *core.Error {
 		return d.processLaunchKernelReq(req)
 	case *MapWGReq:
 		return d.processMapWGReq(req)
+	case *WGFinishMesg:
+		return d.processWGFinishWGMesg(req)
 	default:
 		log.Panicf("Unable to process request %s", reflect.TypeOf(req))
 	}
@@ -156,6 +196,7 @@ func (d *Dispatcher) processLaunchKernelReq(
 	status := NewKernelDispatchStatus()
 	evt.Status = status
 
+	status.Req = req
 	status.Packet = req.Packet
 	status.Grid = d.gridBuilder.Build(req)
 	status.WGs = append(status.WGs, status.Grid.WorkGroups...)
@@ -191,6 +232,20 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 	d.engine.Schedule(evt)
 
 	return nil
+}
+
+func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
+	status := mesg.Status
+
+	status.CompletedWGs = append(status.CompletedWGs, mesg.WG)
+
+	if len(status.CompletedWGs) == len(status.Grid.WorkGroups) {
+		status.Req.SwapSrcAndDst()
+		d.GetConnection("ToCommandProcessor").Send(status.Req)
+	}
+
+	return nil
+
 }
 
 // Handle performe actions when an event is triggered

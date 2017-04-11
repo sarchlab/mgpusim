@@ -57,6 +57,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.CUs = append(dispatcher.CUs, cu1)
 
 		core.PlugIn(dispatcher, "ToCUs", connection)
+		core.PlugIn(dispatcher, "ToCommandProcessor", connection)
 	})
 
 	It("should process launch kernel request", func() {
@@ -230,5 +231,38 @@ var _ = Describe("Dispatcher", func() {
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 		})
 
+		It("should process WGFinishMesg", func() {
+			status := timing.NewKernelDispatchStatus()
+			status.Grid = grid
+
+			req := timing.NewWGFinishMesg(cu0, dispatcher, 10,
+				grid.WorkGroups[0], status)
+
+			dispatcher.Recv(req)
+
+			Expect(status.CompletedWGs).To(ContainElement(grid.WorkGroups[0]))
+		})
+
+		It("should send back the LaunchKernelReq to the driver", func() {
+			launchReq := kernels.NewLaunchKernelReq()
+			launchReq.SetSrc(nil)
+			launchReq.SetDst(dispatcher)
+
+			status := timing.NewKernelDispatchStatus()
+			status.Grid = grid
+			status.CompletedWGs = append(status.CompletedWGs,
+				status.Grid.WorkGroups[1:]...)
+			status.Req = launchReq
+
+			req := timing.NewWGFinishMesg(cu0, dispatcher, 10,
+				grid.WorkGroups[0], status)
+
+			connection.ExpectSend(launchReq, nil)
+
+			dispatcher.Recv(req)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+		})
 	})
+
 })
