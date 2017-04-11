@@ -240,7 +240,7 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 
 func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
 	status := evt.Status
-	if !d.isAllCUsBusy(status) {
+	if len(status.WGs) != 0 && !d.isAllCUsBusy(status) {
 		cuID := d.nextAvailableCU(status)
 		cu := d.CUs[cuID]
 		wg := status.WGs[0]
@@ -248,7 +248,6 @@ func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
 
 		d.GetConnection("ToCUs").Send(req)
 	}
-
 }
 
 func (d *Dispatcher) isAllCUsBusy(status *KernelDispatchStatus) bool {

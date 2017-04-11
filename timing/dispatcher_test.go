@@ -215,5 +215,20 @@ var _ = Describe("Dispatcher", func() {
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 		})
 
+		It("should do nothing if no more pending work-groups", func() {
+			evt := timing.NewKernelDispatchEvent()
+			status := timing.NewKernelDispatchStatus()
+			evt.Status = status
+			evt.SetTime(10)
+
+			status.Grid = grid
+			status.CUBusy = make([]bool, 2)
+			status.DispatchingCUID = 2
+
+			dispatcher.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+		})
+
 	})
 })
