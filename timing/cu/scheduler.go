@@ -22,7 +22,9 @@ type Scheduler struct {
 	engine core.Engine
 
 	WfPools []*WavefrontPool
-	Freq    core.Freq
+
+	Freq            core.Freq
+	NumWfsCanHandle int
 
 	MappedWGs []*timing.MapWGReq
 }
@@ -36,6 +38,8 @@ func NewScheduler(name string, engine core.Engine) *Scheduler {
 	for i := 0; i < 4; i++ {
 		s.WfPools = append(s.WfPools, NewWavefrontPool())
 	}
+
+	s.NumWfsCanHandle = 40
 
 	s.AddPort("ToDispatcher")
 	return s
@@ -77,7 +81,11 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	req := evt.Req
 	req.SwapSrcAndDst()
 
-	req.Ok = true
+	if s.NumWfsCanHandle < len(req.WG.Wavefronts) {
+	} else {
+		req.Ok = true
+		s.NumWfsCanHandle -= len(req.WG.Wavefronts)
+	}
 
 	s.GetConnection("ToDispatcher").Send(req)
 	return nil

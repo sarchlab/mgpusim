@@ -67,6 +67,22 @@ var _ = Describe("Scheduler", func() {
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeTrue())
+			Expect(scheduler.NumWfsCanHandle).To(Equal(30))
 		})
+
+		It("shoule send NACK to dispatcher, if too many wavefronts", func() {
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0], status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
+
+			connection.ExpectSend(req, nil)
+			scheduler.NumWfsCanHandle = 8
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeFalse())
+			Expect(scheduler.NumWfsCanHandle).To(Equal(8))
+		})
+
 	})
 })
