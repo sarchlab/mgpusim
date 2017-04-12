@@ -1,19 +1,72 @@
 package cu_test
 
-import . "github.com/onsi/ginkgo"
-import "gitlab.com/yaotsu/gcn3/timing/cu"
+import (
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/timing"
+	"gitlab.com/yaotsu/gcn3/timing/cu"
+)
+
+func prepareGrid() *kernels.Grid {
+	// Prepare a mock grid that is expanded
+	grid := kernels.NewGrid()
+	for i := 0; i < 5; i++ {
+		wg := kernels.NewWorkGroup()
+		grid.WorkGroups = append(grid.WorkGroups, wg)
+		for j := 0; j < 10; j++ {
+			wf := kernels.NewWavefront()
+			wg.Wavefronts = append(wg.Wavefronts, wf)
+		}
+	}
+	return grid
+}
 
 var _ = Describe("Scheduler", func() {
 	var (
-		scheduler *cu.Scheduler
+		scheduler  *cu.Scheduler
+		connection *core.MockConnection
+		engine     *core.MockEngine
+		grid       *kernels.Grid
+		status     *timing.KernelDispatchStatus
 	)
 
 	BeforeEach(func() {
-		scheduler = cu.NewScheduler("scheduler")
+		engine = core.NewMockEngine()
+		scheduler = cu.NewScheduler("scheduler", engine)
+		scheduler.Freq = 1 * core.GHz
+		connection = core.NewMockConnection()
+		core.PlugIn(scheduler, "ToDispatcher", connection)
+
+		grid = prepareGrid()
+		status = timing.NewKernelDispatchStatus()
+		status.Grid = grid
 	})
 
 	Context("when processing MapWGReq", func() {
 		It("should map wg if resource available", func() {
+			wg := kernels.NewWorkGroup()
+			status := timing.NewKernelDispatchStatus()
+			req := timing.NewMapWGReq(nil, scheduler, 10, wg, status)
+
+			scheduler.Recv(req)
+
+			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+		})
+	})
+
+	Context("when handling MapWGEvent", func() {
+		It("shoule send ACK to dispatcher", func() {
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0], status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
+
+			connection.ExpectSend(req, nil)
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeTrue())
 		})
 	})
 })
