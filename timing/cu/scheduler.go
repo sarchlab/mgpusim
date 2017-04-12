@@ -12,6 +12,8 @@ import (
 
 // A Scheduler is responsible for determine which wavefront can fetch, decode,
 // and issue
+//
+//    <=> ToDispatcher The port conneting the scheduler and the dispatcher
 type Scheduler struct {
 	*core.BasicComponent
 	sync.Mutex
@@ -29,6 +31,8 @@ func NewScheduler(name string) *Scheduler {
 	for i := 0; i < 4; i++ {
 		s.WfPools = append(s.WfPools, NewWavefrontPool())
 	}
+
+	s.AddPort("ToDispatcher")
 	return s
 }
 
