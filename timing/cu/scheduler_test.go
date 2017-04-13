@@ -97,6 +97,19 @@ var _ = Describe("Scheduler", func() {
 			Expect(req.Ok).To(BeFalse())
 			Expect(scheduler.NumWfsCanHandle).To(Equal(8))
 		})
+	})
 
+	Context("when handling dispatch wavefront request", func() {
+		It("should handle wavefront diapatch", func() {
+			wf := grid.WorkGroups[0].Wavefronts[0]
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf)
+			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
+
+			scheduler.Handle(evt)
+
+			Expect(scheduler.Running).To(BeTrue())
+			Expect(scheduler.WfPools[0].Wfs).NotTo(BeEmpty())
+			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+		})
 	})
 })
