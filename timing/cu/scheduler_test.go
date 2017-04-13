@@ -45,7 +45,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Context("when processing MapWGReq", func() {
-		It("should map wg if resource available", func() {
+		It("should map wg", func() {
 			wg := kernels.NewWorkGroup()
 			status := timing.NewKernelDispatchStatus()
 			req := timing.NewMapWGReq(nil, scheduler, 10, wg, status)
@@ -56,9 +56,22 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
+	Context("when processing DispatchWfReq", func() {
+		It("should schedule DispatchWfEvent", func() {
+			wg := grid.WorkGroups[0]
+			wf := wg.Wavefronts[0]
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf)
+
+			scheduler.Recv(req)
+
+			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+		})
+	})
+
 	Context("when handling MapWGEvent", func() {
 		It("shoule send ACK to dispatcher", func() {
-			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0], status)
+			req := timing.NewMapWGReq(nil, scheduler, 10,
+				grid.WorkGroups[0], status)
 			evt := cu.NewMapWGEvent(scheduler, 10, req)
 
 			connection.ExpectSend(req, nil)
@@ -71,7 +84,8 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("shoule send NACK to dispatcher, if too many wavefronts", func() {
-			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0], status)
+			req := timing.NewMapWGReq(nil, scheduler, 10,
+				grid.WorkGroups[0], status)
 			evt := cu.NewMapWGEvent(scheduler, 10, req)
 
 			connection.ExpectSend(req, nil)

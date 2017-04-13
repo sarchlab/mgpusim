@@ -53,6 +53,8 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 	switch req := req.(type) {
 	case *timing.MapWGReq:
 		return s.processMapWGReq(req)
+	case *timing.DispatchWfReq:
+		return s.processDispatchWfReq(req)
 	default:
 		log.Panicf("Unable to process req %s", reflect.TypeOf(req))
 	}
@@ -61,7 +63,15 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 }
 
 func (s *Scheduler) processMapWGReq(req *timing.MapWGReq) *core.Error {
-	evt := NewMapWGEvent(s, req.RecvTime(), req)
+	evt := NewMapWGEvent(s, s.Freq.NextTick(req.RecvTime()), req)
+	s.engine.Schedule(evt)
+	return nil
+}
+
+func (s *Scheduler) processDispatchWfReq(
+	req *timing.DispatchWfReq,
+) *core.Error {
+	evt := NewDispatchWfEvent(s, s.Freq.NextTick(req.RecvTime()), req)
 	s.engine.Schedule(evt)
 	return nil
 }
@@ -124,12 +134,36 @@ type MapWGEvent struct {
 }
 
 // NewMapWGEvent creates a new MapWGEvent
-func NewMapWGEvent(handler core.Handler,
+func NewMapWGEvent(
+	handler core.Handler,
 	time core.VTimeInSec,
 	req *timing.MapWGReq,
 ) *MapWGEvent {
 	e := new(MapWGEvent)
 	e.BasicEvent = core.NewBasicEvent()
+	e.SetHandler(handler)
+	e.SetTime(time)
+	e.Req = req
+	return e
+}
+
+// DispatchWfEvent requires the scheduler shart to schedule for the event.
+type DispatchWfEvent struct {
+	*core.BasicEvent
+
+	Req *timing.DispatchWfReq
+}
+
+// NewDispatchWfEvent returns a newly created DispatchWfEvent
+func NewDispatchWfEvent(
+	handler core.Handler,
+	time core.VTimeInSec,
+	req *timing.DispatchWfReq,
+) *DispatchWfEvent {
+	e := new(DispatchWfEvent)
+	e.BasicEvent = core.NewBasicEvent()
+	e.SetHandler(handler)
+	e.SetTime(time)
 	e.Req = req
 	return e
 }
