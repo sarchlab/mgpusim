@@ -25,6 +25,8 @@ type Scheduler struct {
 
 	Freq            core.Freq
 	NumWfsCanHandle int
+	Running         bool
+	NextWfPool      int
 
 	MappedWGs []*timing.MapWGReq
 }
@@ -38,6 +40,7 @@ func NewScheduler(name string, engine core.Engine) *Scheduler {
 	for i := 0; i < 4; i++ {
 		s.WfPools = append(s.WfPools, NewWavefrontPool())
 	}
+	s.NextWfPool = 0
 
 	s.NumWfsCanHandle = 40
 
@@ -81,6 +84,8 @@ func (s *Scheduler) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *MapWGEvent:
 		return s.handleMapWGEvent(evt)
+	case *DispatchWfEvent:
+		return s.handleDispatchWfEvent(evt)
 	default:
 		log.Panicf("Cannot handle event type %s", reflect.TypeOf(evt))
 	}
@@ -90,6 +95,7 @@ func (s *Scheduler) Handle(evt core.Event) error {
 func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	req := evt.Req
 	req.SwapSrcAndDst()
+	req.SetSendTime(evt.Time())
 
 	if s.NumWfsCanHandle < len(req.WG.Wavefronts) {
 	} else {
@@ -98,6 +104,29 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	}
 
 	s.GetConnection("ToDispatcher").Send(req)
+	return nil
+}
+
+func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
+	req := evt.Req
+	wf := req.Wf
+
+	wfPool := s.WfPools[s.NextWfPool]
+	managedWf := new(Wavefront)
+	managedWf.Wavefront = wf
+	wfPool.Wfs = append(wfPool.Wfs, managedWf)
+
+	s.NextWfPool++
+	if s.NextWfPool >= len(s.WfPools) {
+		s.NextWfPool = 0
+	}
+
+	if !s.Running {
+		s.Running = true
+		evt := NewScheduleEvent(s, s.Freq.NextTick(evt.Time()))
+		s.engine.Schedule(evt)
+	}
+
 	return nil
 }
 
@@ -165,5 +194,22 @@ func NewDispatchWfEvent(
 	e.SetHandler(handler)
 	e.SetTime(time)
 	e.Req = req
+	return e
+}
+
+// ScheduleEvent requires the scheduler to schedule for the next cycle
+type ScheduleEvent struct {
+	*core.BasicEvent
+}
+
+// NewScheduleEvent returns a newly created ScheduleEvent
+func NewScheduleEvent(
+	handler core.Handler,
+	time core.VTimeInSec,
+) *ScheduleEvent {
+	e := new(ScheduleEvent)
+	e.BasicEvent = core.NewBasicEvent()
+	e.SetHandler(handler)
+	e.SetTime(time)
 	return e
 }
