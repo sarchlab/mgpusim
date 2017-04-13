@@ -62,7 +62,8 @@ func NewMapWGReq(
 // A DispatchWfReq is the request to dispatch a wavefron to the compute unit
 type DispatchWfReq struct {
 	*core.ReqBase
-	Wf *kernels.Wavefront
+	Wf         *kernels.Wavefront
+	EntryPoint uint64
 }
 
 // NewDispatchWfReq creates a DispatchWfReq
@@ -70,6 +71,7 @@ func NewDispatchWfReq(
 	src, dst core.Component,
 	time core.VTimeInSec,
 	wf *kernels.Wavefront,
+	EntryPoint uint64,
 ) *DispatchWfReq {
 	r := new(DispatchWfReq)
 	r.ReqBase = core.NewReqBase()
@@ -77,6 +79,7 @@ func NewDispatchWfReq(
 	r.SetDst(dst)
 	r.SetSendTime(time)
 	r.Wf = wf
+	r.EntryPoint = EntryPoint
 	return r
 }
 
@@ -276,8 +279,10 @@ func (d *Dispatcher) handleKernalDispatchEvent(evt *KernelDispatchEvent) error {
 
 func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 	status := evt.Status
+	entryPoint := status.Grid.Packet.KernelObject +
+		status.Grid.CodeObject.KernelCodeEntryByteOffset
 	req := NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
-		status.DispatchingWfs[0])
+		status.DispatchingWfs[0], entryPoint)
 
 	err := d.GetConnection("ToCUs").Send(req)
 	if err != nil && err.Recoverable {

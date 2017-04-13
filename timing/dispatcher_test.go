@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 )
@@ -34,6 +35,8 @@ var _ = Describe("Dispatcher", func() {
 	var (
 		engine      *core.MockEngine
 		grid        *kernels.Grid
+		codeObject  *insts.HsaCo
+		packet      *kernels.HsaKernelDispatchPacket
 		gridBuilder *MockGridBuilder
 		dispatcher  *timing.Dispatcher
 		connection  *core.MockConnection
@@ -44,6 +47,13 @@ var _ = Describe("Dispatcher", func() {
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
 		grid = prepareGrid()
+		codeObject = insts.NewHsaCo()
+		codeObject.KernelCodeEntryByteOffset = 256
+		packet = new(kernels.HsaKernelDispatchPacket)
+		packet.KernelObject = 6000
+		grid.CodeObject = codeObject
+		grid.Packet = packet
+
 		gridBuilder = new(MockGridBuilder)
 		gridBuilder.Grid = grid
 		dispatcher = timing.NewDispatcher("dispatcher", engine, gridBuilder)
@@ -140,7 +150,7 @@ var _ = Describe("Dispatcher", func() {
 			status.Mapped = true
 
 			wf := status.DispatchingWfs[0]
-			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf)
+			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf, 6256)
 
 			connection.ExpectSend(req, nil)
 
@@ -165,7 +175,7 @@ var _ = Describe("Dispatcher", func() {
 			status.Mapped = true
 
 			wf := status.DispatchingWfs[0]
-			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf)
+			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf, 6256)
 
 			connection.ExpectSend(req, nil)
 

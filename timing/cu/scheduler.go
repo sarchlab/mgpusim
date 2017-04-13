@@ -130,18 +130,13 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	return nil
 }
 
-// FetchInfo keeps record of the information of a fetch action
-type FetchInfo struct {
-	Buf []byte
-	Wf  *Wavefront
-}
-
 // A Wavefront in the timing package contains the information of the progress
 // of a wavefront
 type Wavefront struct {
 	*kernels.Wavefront
 
-	PC uint64
+	PC          uint64
+	FetchBuffer []byte
 }
 
 // A FetchArbitrator can decide which wavefront in a scheduler can fetch
