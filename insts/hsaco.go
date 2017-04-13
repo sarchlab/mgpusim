@@ -51,10 +51,12 @@ type HsaCoHeader struct {
 
 // NewHsaCo creates a zero-filled HsaCo object
 func NewHsaCo() *HsaCo {
-	return new(HsaCo)
+	co := new(HsaCo)
+	co.HsaCoHeader = new(HsaCoHeader)
+	return co
 }
 
-// NewHsaCo creates an HsaCo with the provided data
+// NewHsaCoFromData creates an HsaCo with the provided data
 func NewHsaCoFromData(data []byte) *HsaCo {
 	o := new(HsaCo)
 	o.Data = data

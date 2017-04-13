@@ -5,8 +5,7 @@ package cu
 type WavefrontPool struct {
 	capacity int
 
-	Wfs         []*Wavefront
-	FetchBuffer []*FetchInfo
+	Wfs []*Wavefront
 }
 
 // NewWavefrontPool creates and returns a new WavefrontPool
