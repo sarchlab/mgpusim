@@ -110,7 +110,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(scheduler.Running).To(BeTrue())
 			Expect(scheduler.WfPools[0].Wfs).NotTo(BeEmpty())
 			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-			Expect(scheduler.WfPools[0].Wfs[0]).To(Equal(6256))
+			Expect(scheduler.WfPools[0].Wfs[0].PC).To(Equal(uint64(6256)))
 		})
 	})
 })
