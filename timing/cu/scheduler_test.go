@@ -60,7 +60,7 @@ var _ = Describe("Scheduler", func() {
 		It("should schedule DispatchWfEvent", func() {
 			wg := grid.WorkGroups[0]
 			wf := wg.Wavefronts[0]
-			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf)
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, 6256)
 
 			scheduler.Recv(req)
 
@@ -102,7 +102,7 @@ var _ = Describe("Scheduler", func() {
 	Context("when handling dispatch wavefront request", func() {
 		It("should handle wavefront diapatch", func() {
 			wf := grid.WorkGroups[0].Wavefronts[0]
-			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf)
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, 6256)
 			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
 
 			scheduler.Handle(evt)
@@ -110,6 +110,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(scheduler.Running).To(BeTrue())
 			Expect(scheduler.WfPools[0].Wfs).NotTo(BeEmpty())
 			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+			Expect(scheduler.WfPools[0].Wfs[0]).To(Equal(6256))
 		})
 	})
 })
