@@ -139,15 +139,6 @@ type Wavefront struct {
 	FetchBuffer []byte
 }
 
-// A FetchArbitrator can decide which wavefront in a scheduler can fetch
-// instructions
-type FetchArbitrator interface {
-}
-
-// An IssueArbitrator decides which wavefront can issue instruction
-type IssueArbitrator interface {
-}
-
 // MapWGEvent requres the Scheduler to reserve space for a workgroup.
 // The workgroup will not run immediately. The dispatcher will wait for the
 // scheduler to dispatch wavefronts to it.
