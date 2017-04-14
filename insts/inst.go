@@ -1,12 +1,12 @@
-package disasm
+package insts
 
 import (
 	"fmt"
 	"strings"
 )
 
-// An Instruction is a GCN3 instructino
-type Instruction struct {
+// An Inst is a GCN3 instructino
+type Inst struct {
 	*Format
 	*InstType
 	ByteSize int
@@ -32,20 +32,28 @@ type Instruction struct {
 	Clamp               bool
 }
 
-func (i Instruction) sop2String() string {
+// NewInstruction creates a zero-filled instruction
+func NewInstruction() *Inst {
+	i := new(Inst)
+	i.Format = new(Format)
+	i.InstType = new(InstType)
+	return i
+}
+
+func (i Inst) sop2String() string {
 	return i.InstName + " " +
 		i.Dst.String() + ", " +
 		i.Src0.String() + ", " +
 		i.Src1.String()
 }
 
-func (i Instruction) vop1String() string {
+func (i Inst) vop1String() string {
 	return i.InstName + " " +
 		i.Dst.String() + ", " +
 		i.Src0.String()
 }
 
-func (i Instruction) flatString() string {
+func (i Inst) flatString() string {
 	var s string
 	if i.Opcode >= 16 && i.Opcode <= 23 {
 		s = i.InstName + " " + i.Dst.String() + ", " +
@@ -57,14 +65,14 @@ func (i Instruction) flatString() string {
 	return s
 }
 
-func (i Instruction) smemString() string {
+func (i Inst) smemString() string {
 	// TODO: Consider store instructions, and the case if imm = 0
 	s := fmt.Sprintf("%s %s, %s, %#x",
 		i.InstName, i.Data.String(), i.Base.String(), uint16(i.Offset.IntValue))
 	return s
 }
 
-func (i Instruction) soppString() string {
+func (i Inst) soppString() string {
 	operandStr := ""
 	if i.Opcode == 12 { // S_WAITCNT
 		if extractBits(uint32(i.SImm16.IntValue), 0, 3) == 0 {
@@ -82,7 +90,7 @@ func (i Instruction) soppString() string {
 	return s
 }
 
-func (i Instruction) vop2String() string {
+func (i Inst) vop2String() string {
 	s := fmt.Sprintf("%s %s", i.InstName, i.Dst.String())
 
 	switch i.Opcode {
@@ -100,7 +108,7 @@ func (i Instruction) vop2String() string {
 	return s
 }
 
-func (i Instruction) vopcString() string {
+func (i Inst) vopcString() string {
 	dst := "vcc"
 	if strings.Contains(i.InstName, "cmpx") {
 		dst = "exec"
@@ -110,12 +118,12 @@ func (i Instruction) vopcString() string {
 		i.InstName, dst, i.Src0.String(), i.Src1.String())
 }
 
-func (i Instruction) sopcString() string {
+func (i Inst) sopcString() string {
 	return fmt.Sprintf("%s %s, %s",
 		i.InstName, i.Src0.String(), i.Src1.String())
 }
 
-func (i Instruction) vop3String() string {
+func (i Inst) vop3String() string {
 	// TODO: Lots of things not considered here
 	s := fmt.Sprintf("%s %s, %s, %s",
 		i.InstName, i.Dst.String(),
@@ -127,31 +135,31 @@ func (i Instruction) vop3String() string {
 	return s
 }
 
-func (i Instruction) sop1String() string {
+func (i Inst) sop1String() string {
 	return fmt.Sprintf("%s %s, %s", i.InstName, i.Dst.String(), i.Src0.String())
 }
 
-func (i Instruction) String() string {
+func (i Inst) String() string {
 	switch i.FormatType {
-	case sop2:
+	case Sop2:
 		return i.sop2String()
-	case smem:
+	case Smem:
 		return i.smemString()
-	case vop1:
+	case Vop1:
 		return i.vop1String()
-	case vop2:
+	case Vop2:
 		return i.vop2String()
-	case flat:
+	case Flat:
 		return i.flatString()
-	case sopp:
+	case Sopp:
 		return i.soppString()
-	case vopc:
+	case Vopc:
 		return i.vopcString()
-	case sopc:
+	case Sopc:
 		return i.sopcString()
-	case vop3:
+	case Vop3:
 		return i.vop3String()
-	case sop1:
+	case Sop1:
 		return i.sop1String()
 	default:
 		return i.InstName

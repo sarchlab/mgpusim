@@ -1,4 +1,4 @@
-package disasm_test
+package insts_test
 
 import (
 	"bufio"
@@ -10,10 +10,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"gitlab.com/yaotsu/gcn3/disasm"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
-func TestEventSys(t *testing.T) {
+func TestDisassembler(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "GCN3 Disassembler")
 }
@@ -30,7 +30,7 @@ var _ = Describe("Disassembler", func() {
 		Expect(err).To(BeNil())
 		defer targetFile.Close()
 
-		disasm := disasm.NewDisassembler()
+		disasm := insts.NewDisassembler()
 
 		disasm.Disassemble(elfFile, &buf)
 
