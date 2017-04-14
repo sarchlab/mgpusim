@@ -114,6 +114,7 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	wfPool := s.WfPools[s.NextWfPool]
 	managedWf := new(Wavefront)
 	managedWf.Wavefront = wf
+	managedWf.PC = req.EntryPoint
 	wfPool.Wfs = append(wfPool.Wfs, managedWf)
 
 	s.NextWfPool++
