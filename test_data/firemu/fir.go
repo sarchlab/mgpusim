@@ -54,7 +54,7 @@ func initPlatform() {
 	commandProcessor := emu.NewCommandProcessor("Gpu.CommandProcessor")
 
 	dispatcher := emu.NewDispatcher("Gpu.Dispatcher",
-		new(kernels.GridBuilderImpl), emu.NewMapWGReqFactory())
+		new(kernels.GridBuilderImpl))
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
