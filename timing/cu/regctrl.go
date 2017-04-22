@@ -1,13 +1,16 @@
 package cu
 
 import (
+	"log"
+	"reflect"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
 
-// A RegReadReq is a request to read a set of register
-type RegReadReq struct {
+// A ReadRegReq is a request to read a set of register
+type ReadRegReq struct {
 	*core.ReqBase
 
 	Reg      *insts.Reg
@@ -16,17 +19,85 @@ type RegReadReq struct {
 	Buf      []byte
 }
 
-// NewReadReq returns a newly create RegReadReq
-func NewReadReq(reg *inst.Reg, ByteSize int) *RegReadReq {
+// NewReadRegReq returns a newly create ReadRegReq
+func NewReadRegReq(sendTime core.VTimeInSec,
+	reg *insts.Reg, byteSize int, offset int) *ReadRegReq {
+	r := new(ReadRegReq)
+
+	r.ReqBase = core.NewReqBase()
+	r.SetSendTime(sendTime)
+
+	r.Reg = reg
+	r.ByteSize = byteSize
+	r.Offset = offset
+
+	return r
 }
 
-// A WriteReadReq is a request to read a set of register
-type WriteReadReq struct {
+// A ReadRegEvent is the event that request the register file to return
+// the register value
+type ReadRegEvent struct {
+	*core.BasicEvent
+
+	Req *ReadRegReq
+}
+
+// NewReadRegEvent returns a newly created ReadRegReq
+func NewReadRegEvent(
+	handler core.Handler,
+	time core.VTimeInSec,
+	req *ReadRegReq,
+) *ReadRegEvent {
+	e := new(ReadRegEvent)
+	e.BasicEvent = core.NewBasicEvent()
+	e.SetTime(time)
+	e.SetHandler(handler)
+	e.Req = req
+	return e
+}
+
+// A WriteRegReq is a request to read a set of register
+type WriteRegReq struct {
 	*core.ReqBase
 
 	Reg    *insts.Reg
 	Offset int
 	Buf    []byte
+}
+
+// NewWriteRegReq creates a new WriteRegReq
+func NewWriteRegReq(sendTime core.VTimeInSec,
+	reg *insts.Reg,
+	offset int,
+	data []byte,
+) *WriteRegReq {
+	r := new(WriteRegReq)
+	r.ReqBase = core.NewReqBase()
+	r.SetSendTime(sendTime)
+	r.Reg = reg
+	r.Offset = offset
+	r.Buf = data
+	return r
+}
+
+// A WriteRegEvent is an event that request the register file to write
+// data into the register storage
+type WriteRegEvent struct {
+	*core.BasicEvent
+
+	Req *WriteRegReq
+}
+
+// NewWriteRegEvent returns a newly created WriteRegEvent
+func NewWriteRegEvent(handler core.Handler, time core.VTimeInSec,
+	req *WriteRegReq,
+) *WriteRegEvent {
+	e := new(WriteRegEvent)
+	e.BasicEvent = core.NewBasicEvent()
+	e.SetHandler(handler)
+	e.SetTime(time)
+	e.Req = req
+	return e
 }
 
 // A RegCtrl is a Yaotsu component that is responsible for the
@@ -37,20 +108,45 @@ type WriteReadReq struct {
 type RegCtrl struct {
 	*core.BasicComponent
 
+	Engine core.Engine
+
+	latency core.VTimeInSec
 	storage *mem.Storage
 }
 
 // NewRegCtrl returns a newly created RegCtrl
-func NewRegCtrl(name string, byteSize uint64) *RegCtrl {
+func NewRegCtrl(name string, byteSize uint64, engine core.Engine) *RegCtrl {
 	c := new(RegCtrl)
+
 	c.BasicComponent = core.NewBasicComponent(name)
 	c.storage = mem.NewStorage(byteSize)
+	c.Engine = engine
+
+	c.AddPort("ToOutside")
 	return c
 }
 
-// Recv processes incomming requests
+// Recv processes incomming requests, including ReadRegReq and WriteRegReq
 func (c *RegCtrl) Recv(req core.Req) *core.Error {
+	switch req := req.(type) {
+	case *ReadRegReq:
+		c.processReadRegReq(req)
+	case *WriteRegReq:
+		c.processWriteRegReq(req)
+	default:
+		log.Panicf("cannor process the request of type %s", reflect.TypeOf(req))
+	}
 	return nil
+}
+
+func (c *RegCtrl) processReadRegReq(req *ReadRegReq) {
+	evt := NewReadRegEvent(c, req.RecvTime()+c.latency, req)
+	c.Engine.Schedule(evt)
+}
+
+func (c *RegCtrl) processWriteRegReq(req *WriteRegReq) {
+	evt := NewWriteRegEvent(c, req.RecvTime()+c.latency, req)
+	c.Engine.Schedule(evt)
 }
 
 // Handle processes the event that is scheduled on the RegCtrl
