@@ -115,11 +115,11 @@ type RegCtrl struct {
 }
 
 // NewRegCtrl returns a newly created RegCtrl
-func NewRegCtrl(name string, byteSize uint64, engine core.Engine) *RegCtrl {
+func NewRegCtrl(name string, storage *mem.Storage, engine core.Engine) *RegCtrl {
 	c := new(RegCtrl)
 
 	c.BasicComponent = core.NewBasicComponent(name)
-	c.storage = mem.NewStorage(byteSize)
+	c.storage = storage
 	c.Engine = engine
 
 	c.AddPort("ToOutside")
@@ -151,5 +151,58 @@ func (c *RegCtrl) processWriteRegReq(req *WriteRegReq) {
 
 // Handle processes the event that is scheduled on the RegCtrl
 func (c *RegCtrl) Handle(evt core.Event) error {
+	switch evt := evt.(type) {
+	case *ReadRegEvent:
+		return c.handleReadRegEvent(evt)
+	case *WriteRegEvent:
+		return c.handleWriteRegEvent(evt)
+	default:
+		log.Panicf("cannot handle event event of type %s", reflect.TypeOf(evt))
+	}
 	return nil
+}
+
+func (c *RegCtrl) handleReadRegEvent(evt *ReadRegEvent) error {
+	req := evt.Req
+	offset := c.getRegOffset(req.Reg) + req.Offset
+
+	data, err := c.storage.Read(uint64(offset), uint64(req.ByteSize))
+	if err != nil {
+		return err
+	}
+
+	req.Buf = data
+	req.SwapSrcAndDst()
+	req.SetSendTime(evt.Time())
+	c.GetConnection("ToOutside").Send(req)
+
+	return nil
+}
+
+func (c *RegCtrl) handleWriteRegEvent(evt *WriteRegEvent) error {
+	req := evt.Req
+	offset := c.getRegOffset(req.Reg) + req.Offset
+
+	err := c.storage.Write(uint64(offset), req.Buf)
+	if err != nil {
+		return err
+	}
+
+	req.SwapSrcAndDst()
+	req.SetSendTime(evt.Time())
+	c.GetConnection("ToOutside").Send(req)
+
+	return nil
+}
+
+func (c *RegCtrl) getRegOffset(reg *insts.Reg) int {
+	if reg.IsSReg() {
+		return reg.RegIndex()
+	}
+
+	if reg.IsVReg() {
+		return reg.RegIndex()
+	}
+
+	return 0
 }
