@@ -164,7 +164,7 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 			required := int(req.KernelStatus.CodeObject.WIVgprCount)
 			for firstTry || nextSIMD != firstSIMDTested {
 				firstTry = false
-				available := s.VGprFreeCount[nextSIMD] * 4
+				available := s.VGprFreeCount[nextSIMD]
 				if required <= available {
 					found = true
 					vgprToUse[nextSIMD] += required
@@ -187,7 +187,7 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	if ok {
 		s.NumWfsCanHandle -= len(req.WG.Wavefronts)
 		s.SGprFreeCount -= int(req.KernelStatus.CodeObject.WFSgprCount)
-		s.LDSFreeCount -= int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize) / 4
+		s.LDSFreeCount -= int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize)
 		for i := 0; i < 4; i++ {
 			s.VGprFreeCount[0] -= vgprToUse[0]
 		}

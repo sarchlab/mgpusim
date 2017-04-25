@@ -135,6 +135,27 @@ var _ = Describe("Scheduler", func() {
 			Expect(req.Ok).To(BeFalse())
 		})
 
+		It("should send NACK if too many VGPRs", func() {
+			// 6400 cannot fulfill 102 VGPRs per WI, 64 WI per wavefront
+			scheduler.VGprFreeCount[0] = 6400
+			scheduler.VGprFreeCount[1] = 6400
+			scheduler.VGprFreeCount[2] = 6400
+			scheduler.VGprFreeCount[3] = 6400
+
+			co.WIVgprCount = 102
+
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
+
+			connection.ExpectSend(req, nil)
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeFalse())
+		})
+
 	})
 
 	Context("when handling dispatch wavefront request", func() {
