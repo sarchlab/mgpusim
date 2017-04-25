@@ -31,12 +31,12 @@ type Scheduler struct {
 
 	engine core.Engine
 
-	WfPools []*WavefrontPool
+	WfPools         []*WavefrontPool
+	WfPoolFreeCount [4]int
 
-	Freq            core.Freq
-	NumWfsCanHandle int
-	Running         bool
-	NextWfPool      int
+	Freq       core.Freq
+	Running    bool
+	NextWfPool int
 
 	MappedWGs []*timing.MapWGReq
 
@@ -63,17 +63,20 @@ func NewScheduler(name string, engine core.Engine) *Scheduler {
 	s.BasicComponent = core.NewBasicComponent(name)
 	s.WfPools = make([]*WavefrontPool, 0, 4)
 	for i := 0; i < 4; i++ {
-		s.WfPools = append(s.WfPools, NewWavefrontPool())
+		s.WfPools = append(s.WfPools, NewWavefrontPool(10))
 	}
 	s.NextWfPool = 0
 
-	s.NumWfsCanHandle = 40
 	s.SGprFreeCount = 2048
 	s.VGprFreeCount[0] = 16384
 	s.VGprFreeCount[1] = 16384
 	s.VGprFreeCount[2] = 16384
 	s.VGprFreeCount[3] = 16384
 	s.LDSFreeCount = 64 * 1024
+	s.WfPoolFreeCount[0] = 10
+	s.WfPoolFreeCount[1] = 10
+	s.WfPoolFreeCount[2] = 10
+	s.WfPoolFreeCount[3] = 10
 
 	s.AddPort("ToDispatcher")
 	return s
@@ -129,11 +132,6 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 
 	ok := true
 
-	// Wavefront count
-	if s.NumWfsCanHandle < len(req.WG.Wavefronts) {
-		ok = false
-	}
-
 	// SReg limitation
 	if ok {
 		required := int(req.KernelStatus.CodeObject.WFSgprCount) *
@@ -156,18 +154,23 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	// VGPR limitation
 	nextSIMD := 0
 	var vgprToUse [4]int
+	var wfPoolEntryUsed [4]int
+	wfSIMDMap := make(map[*kernels.Wavefront]int)
 	if ok {
 		for i := 0; i < len(req.WG.Wavefronts); i++ {
 			firstSIMDTested := nextSIMD
 			firstTry := true
 			found := false
-			required := int(req.KernelStatus.CodeObject.WIVgprCount)
+			required := int(req.KernelStatus.CodeObject.WIVgprCount) * 64
 			for firstTry || nextSIMD != firstSIMDTested {
 				firstTry = false
-				available := s.VGprFreeCount[nextSIMD]
-				if required <= available {
+				available := s.VGprFreeCount[nextSIMD] - vgprToUse[nextSIMD]
+				if required <= available &&
+					s.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
 					found = true
 					vgprToUse[nextSIMD] += required
+					wfPoolEntryUsed[nextSIMD]++
+					wfSIMDMap[req.WG.Wavefronts[i]] = nextSIMD
 				}
 				nextSIMD++
 				if nextSIMD >= 4 {
@@ -185,7 +188,6 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	}
 
 	if ok {
-		s.NumWfsCanHandle -= len(req.WG.Wavefronts)
 		s.SGprFreeCount -= int(req.KernelStatus.CodeObject.WFSgprCount)
 		s.LDSFreeCount -= int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize)
 		for i := 0; i < 4; i++ {

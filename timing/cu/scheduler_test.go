@@ -87,19 +87,23 @@ var _ = Describe("Scheduler", func() {
 		// 	Expect(scheduler.NumWfsCanHandle).To(Equal(30))
 		// })
 
-		It("shoule send NACK to dispatcher, if too many wavefronts", func() {
-			req := timing.NewMapWGReq(nil, scheduler, 10,
-				grid.WorkGroups[0], status)
-			evt := cu.NewMapWGEvent(scheduler, 10, req)
+		It("should send NACK if too many Wavefronts", func() {
+			// Each SIMD is running 8 wf in each SIMD. 8 more wfs can handle.
+			for i := 0; i < 4; i++ {
+				scheduler.WfPoolFreeCount[i] = 2
+			}
+
+			req := timing.NewMapWGReq(nil, scheduler, 0, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 0, req)
 
 			connection.ExpectSend(req, nil)
-			scheduler.NumWfsCanHandle = 8
 
 			scheduler.Handle(evt)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeFalse())
-			Expect(scheduler.NumWfsCanHandle).To(Equal(8))
+
 		})
 
 		It("should send NACK to the dispatcher if too many SReg", func() {
@@ -156,6 +160,25 @@ var _ = Describe("Scheduler", func() {
 			Expect(req.Ok).To(BeFalse())
 		})
 
+		It("should send NACK if not all Wavefront can fit the VGPRs requirement", func() {
+			// SIMD 0 and 1 do not have enouth VGPRs
+			scheduler.VGprFreeCount[0] = 3200
+			scheduler.VGprFreeCount[1] = 3200
+			scheduler.WfPoolFreeCount[2] = 2
+			scheduler.WfPoolFreeCount[3] = 2
+
+			co.WIVgprCount = 102
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
+
+			connection.ExpectSend(req, nil)
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeFalse())
+		})
 	})
 
 	Context("when handling dispatch wavefront request", func() {
