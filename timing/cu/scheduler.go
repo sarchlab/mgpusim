@@ -10,6 +10,16 @@ import (
 	"gitlab.com/yaotsu/gcn3/timing"
 )
 
+// AllocStatus represents the allocation status of SGPRs, VGPRs, or LDS units
+type AllocStatus byte
+
+// A list of possible status for CU binded storage allocation
+const (
+	AllocStatusFree     AllocStatus = iota
+	AllocStatusReserved             // Work-Group mapped, but wavefront not dispatched
+	AllocStatusUsed                 // Currently in use
+)
+
 // A Scheduler is responsible for determine which wavefront can fetch, decode,
 // and issue
 //
@@ -29,6 +39,21 @@ type Scheduler struct {
 	NextWfPool      int
 
 	MappedWGs []*timing.MapWGReq
+
+	// 2048 SRegs, allocate in a guanularity of 16 registers
+	SGprUsageMask [128]AllocStatus
+	SGprFreeCount int
+
+	// The first index is the SIMD id, the second id is from the
+	// 16K VGPRs per SIMD and 4 GPRs allocation guanularity.
+	// Since VGPRS always allocation is batches of 64 regs, the mask is
+	// further shrinked to 64 bit
+	VGprUsageMask [4][64]AllocStatus
+	VGprFreeCount [4]int
+
+	// 64 KB LDS, allocate in a guanularity of 256B
+	LDSUsageMask [256]AllocStatus
+	LDSFreeCount int
 }
 
 // NewScheduler creates and returns a new Scheduler
@@ -43,6 +68,12 @@ func NewScheduler(name string, engine core.Engine) *Scheduler {
 	s.NextWfPool = 0
 
 	s.NumWfsCanHandle = 40
+	s.SGprFreeCount = 2048
+	s.VGprFreeCount[0] = 16384
+	s.VGprFreeCount[1] = 16384
+	s.VGprFreeCount[2] = 16384
+	s.VGprFreeCount[3] = 16384
+	s.LDSFreeCount = 64 * 1024
 
 	s.AddPort("ToDispatcher")
 	return s
@@ -61,7 +92,6 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 	default:
 		log.Panicf("Unable to process req %s", reflect.TypeOf(req))
 	}
-
 	return nil
 }
 
@@ -97,12 +127,73 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	req.SwapSrcAndDst()
 	req.SetSendTime(evt.Time())
 
+	ok := true
+
+	// Wavefront count
 	if s.NumWfsCanHandle < len(req.WG.Wavefronts) {
-	} else {
-		req.Ok = true
-		s.NumWfsCanHandle -= len(req.WG.Wavefronts)
+		ok = false
 	}
 
+	// SReg limitation
+	if ok {
+		required := int(req.KernelStatus.CodeObject.WFSgprCount) *
+			len(req.WG.Wavefronts)
+		available := s.SGprFreeCount
+		if available < required {
+			ok = false
+		}
+	}
+
+	// LDS limitation
+	if ok {
+		required := int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize)
+		available := s.LDSFreeCount
+		if available < required {
+			ok = false
+		}
+	}
+
+	// VGPR limitation
+	nextSIMD := 0
+	var vgprToUse [4]int
+	if ok {
+		for i := 0; i < len(req.WG.Wavefronts); i++ {
+			firstSIMDTested := nextSIMD
+			firstTry := true
+			found := false
+			required := int(req.KernelStatus.CodeObject.WIVgprCount)
+			for firstTry || nextSIMD != firstSIMDTested {
+				firstTry = false
+				available := s.VGprFreeCount[nextSIMD] * 4
+				if required <= available {
+					found = true
+					vgprToUse[nextSIMD] += required
+				}
+				nextSIMD++
+				if nextSIMD >= 4 {
+					nextSIMD = 0
+				}
+				if found {
+					break
+				}
+			}
+			if !found {
+				ok = false
+				break
+			}
+		}
+	}
+
+	if ok {
+		s.NumWfsCanHandle -= len(req.WG.Wavefronts)
+		s.SGprFreeCount -= int(req.KernelStatus.CodeObject.WFSgprCount)
+		s.LDSFreeCount -= int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize) / 4
+		for i := 0; i < 4; i++ {
+			s.VGprFreeCount[0] -= vgprToUse[0]
+		}
+	}
+
+	req.Ok = ok
 	s.GetConnection("ToDispatcher").Send(req)
 	return nil
 }
@@ -114,8 +205,9 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	wfPool := s.WfPools[s.NextWfPool]
 	managedWf := new(Wavefront)
 	managedWf.Wavefront = wf
-	managedWf.PC = req.EntryPoint
 	wfPool.Wfs = append(wfPool.Wfs, managedWf)
+
+	s.initWfRegs(managedWf, req)
 
 	s.NextWfPool++
 	if s.NextWfPool >= len(s.WfPools) {
@@ -129,6 +221,14 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	}
 
 	return nil
+}
+
+func (s *Scheduler) allocateWfRegs(wf *Wavefront, req *timing.DispatchWfReq) {
+
+}
+
+func (s *Scheduler) initWfRegs(wf *Wavefront, req *timing.DispatchWfReq) {
+	wf.PC = req.EntryPoint
 }
 
 // A Wavefront in the timing package contains the information of the progress

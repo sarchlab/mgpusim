@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
@@ -13,10 +14,11 @@ import (
 type KernelDispatchStatus struct {
 	Req             *kernels.LaunchKernelReq
 	Packet          *kernels.HsaKernelDispatchPacket
+	CodeObject      *insts.HsaCo
 	Grid            *kernels.Grid
 	WGs             []*kernels.WorkGroup
 	CompletedWGs    []*kernels.WorkGroup
-	DispatchingWfs  []*kernels.Wavefront
+	DispatchingWfs  map[*kernels.Wavefront]int // maps from wf to the simd id
 	DispatchingCUID int
 	Mapped          bool
 	CUBusy          []bool
@@ -27,7 +29,7 @@ func NewKernelDispatchStatus() *KernelDispatchStatus {
 	s := new(KernelDispatchStatus)
 	s.WGs = make([]*kernels.WorkGroup, 0)
 	s.CompletedWGs = make([]*kernels.WorkGroup, 0)
-	s.DispatchingWfs = make([]*kernels.Wavefront, 0)
+	s.DispatchingWfs = make(map[*kernels.Wavefront]int)
 	s.CUBusy = make([]bool, 0)
 	return s
 }
@@ -37,9 +39,10 @@ func NewKernelDispatchStatus() *KernelDispatchStatus {
 type MapWGReq struct {
 	*core.ReqBase
 
-	WG           *kernels.WorkGroup
-	KernelStatus *KernelDispatchStatus
-	Ok           bool
+	WG            *kernels.WorkGroup
+	KernelStatus  *KernelDispatchStatus
+	Ok            bool
+	WfDispatchMap map[*kernels.Wavefront]int // Tells where a wf should fit in
 }
 
 // NewMapWGReq returns a newly created MapWGReq
@@ -56,6 +59,8 @@ func NewMapWGReq(
 	r.SetSendTime(time)
 	r.WG = wg
 	r.KernelStatus = status
+
+	r.WfDispatchMap = make(map[*kernels.Wavefront]int)
 	return r
 }
 
@@ -63,6 +68,7 @@ func NewMapWGReq(
 type DispatchWfReq struct {
 	*core.ReqBase
 	Wf         *kernels.Wavefront
+	SIMDID     int
 	EntryPoint uint64
 }
 
@@ -71,6 +77,7 @@ func NewDispatchWfReq(
 	src, dst core.Component,
 	time core.VTimeInSec,
 	wf *kernels.Wavefront,
+	simdID int,
 	EntryPoint uint64,
 ) *DispatchWfReq {
 	r := new(DispatchWfReq)
@@ -79,6 +86,7 @@ func NewDispatchWfReq(
 	r.SetDst(dst)
 	r.SetSendTime(time)
 	r.Wf = wf
+	r.SIMDID = simdID
 	r.EntryPoint = EntryPoint
 	return r
 }
@@ -204,6 +212,7 @@ func (d *Dispatcher) processLaunchKernelReq(
 	status.Grid = d.gridBuilder.Build(req)
 	status.WGs = append(status.WGs, status.Grid.WorkGroups...)
 	status.DispatchingCUID = -1
+	status.CodeObject = req.HsaCo
 
 	for _ = range d.CUs {
 		status.CUBusy = append(status.CUBusy, false)
@@ -221,8 +230,7 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 	status := req.KernelStatus
 
 	if req.Ok {
-		status.DispatchingWfs = append(status.DispatchingWfs,
-			req.WG.Wavefronts...)
+		status.DispatchingWfs = req.WfDispatchMap
 		status.Mapped = true
 	} else {
 		status.CUBusy[status.DispatchingCUID] = true
@@ -248,25 +256,24 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 	}
 
 	return nil
-
 }
 
-// Handle performe actions when an event is triggered
+// Handle perform actions when an event is triggered
 //
 // Dispatcher processes
 //     KernalDispatchEvent ---- continues the kernel dispatching process.
 //
 func (d *Dispatcher) Handle(evt core.Event) error {
-	switch evt := evt.(type) {
+	switch e := evt.(type) {
 	case *KernelDispatchEvent:
-		d.handleKernalDispatchEvent(evt)
+		d.handleKernelDispatchEvent(e)
 	default:
 		log.Panicf("Unable to process evevt %+v", evt)
 	}
 	return nil
 }
 
-func (d *Dispatcher) handleKernalDispatchEvent(evt *KernelDispatchEvent) error {
+func (d *Dispatcher) handleKernelDispatchEvent(evt *KernelDispatchEvent) error {
 	status := evt.Status
 	if status.Mapped {
 		d.dispatchWf(evt)
@@ -281,8 +288,15 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 	status := evt.Status
 	entryPoint := status.Grid.Packet.KernelObject +
 		status.Grid.CodeObject.KernelCodeEntryByteOffset
-	req := NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
-		status.DispatchingWfs[0], entryPoint)
+
+	var wf *kernels.Wavefront
+	var simdID int
+	var req *DispatchWfReq
+	for wf, simdID = range status.DispatchingWfs {
+		req = NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
+			wf, simdID, entryPoint)
+		break
+	}
 
 	err := d.GetConnection("ToCUs").Send(req)
 	if err != nil && err.Recoverable {
@@ -291,7 +305,7 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 		evt.SetTime(d.Freq.NoEarlierThan(err.EarliestRetry))
 		d.engine.Schedule(evt)
 	} else {
-		status.DispatchingWfs = status.DispatchingWfs[1:]
+		delete(status.DispatchingWfs, wf)
 		if len(status.DispatchingWfs) == 0 {
 			status.Mapped = false
 		}
