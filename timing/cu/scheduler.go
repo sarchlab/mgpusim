@@ -10,16 +10,6 @@ import (
 	"gitlab.com/yaotsu/gcn3/timing"
 )
 
-// AllocStatus represents the allocation status of SGPRs, VGPRs, or LDS units
-type AllocStatus byte
-
-// A list of possible status for CU binded storage allocation
-const (
-	AllocStatusFree     AllocStatus = iota
-	AllocStatusReserved             // Work-Group mapped, but wavefront not dispatched
-	AllocStatusUsed                 // Currently in use
-)
-
 // A Scheduler is responsible for determine which wavefront can fetch, decode,
 // and issue
 //
@@ -262,7 +252,6 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 }
 
 func (s *Scheduler) allocateWfRegs(wf *Wavefront, req *timing.DispatchWfReq) {
-
 }
 
 func (s *Scheduler) initWfRegs(wf *Wavefront, req *timing.DispatchWfReq) {
@@ -276,6 +265,8 @@ type Wavefront struct {
 
 	PC          uint64
 	FetchBuffer []byte
+	SRegOffset  int
+	VRegOffset  int
 }
 
 // MapWGEvent requres the Scheduler to reserve space for a workgroup.
