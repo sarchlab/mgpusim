@@ -245,9 +245,9 @@ var _ = Describe("Scheduler", func() {
 			scheduler.Handle(evt)
 
 			Expect(scheduler.Running).To(BeTrue())
-			Expect(scheduler.WfPools[0].Wfs).NotTo(BeEmpty())
+			Expect(scheduler.WfPools[1].Wfs).NotTo(BeEmpty())
 			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-			Expect(scheduler.WfPools[0].Wfs[0].PC).To(Equal(uint64(6256)))
+			Expect(scheduler.WfPools[1].Wfs[0].PC).To(Equal(uint64(6256)))
 		})
 	})
 })
