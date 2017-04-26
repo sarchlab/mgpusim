@@ -41,6 +41,7 @@ func (m *ResourceMask) NextRegion(
 		} else {
 			currLength = 0
 		}
+		offset++
 	}
 	return -1
 }
