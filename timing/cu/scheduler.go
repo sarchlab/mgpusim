@@ -127,77 +127,88 @@ func (s *Scheduler) Handle(evt core.Event) error {
 
 func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	req := evt.Req
-	req.SwapSrcAndDst()
-	req.SetSendTime(evt.Time())
-
 	ok := true
 
-	// SReg limitation
-	if ok {
-		required := int(req.KernelStatus.CodeObject.WFSgprCount) *
-			len(req.WG.Wavefronts)
-		available := s.SGprFreeCount
-		if available < required {
-			ok = false
-		}
+	// CU level limitations
+	if !s.withinSGPRLimitation(req) || !s.withinLDSLimitation(req) {
+		ok = false
 	}
 
-	// LDS limitation
-	if ok {
-		required := int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize)
-		available := s.LDSFreeCount
-		if available < required {
-			ok = false
-		}
-	}
-
-	// VGPR limitation
-	nextSIMD := 0
-	var vgprToUse [4]int
-	var wfPoolEntryUsed [4]int
-	wfSIMDMap := make(map[*kernels.Wavefront]int)
-	if ok {
-		for i := 0; i < len(req.WG.Wavefronts); i++ {
-			firstSIMDTested := nextSIMD
-			firstTry := true
-			found := false
-			required := int(req.KernelStatus.CodeObject.WIVgprCount) * 64
-			for firstTry || nextSIMD != firstSIMDTested {
-				firstTry = false
-				available := s.VGprFreeCount[nextSIMD] - vgprToUse[nextSIMD]
-				if required <= available &&
-					s.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
-					found = true
-					vgprToUse[nextSIMD] += required
-					wfPoolEntryUsed[nextSIMD]++
-					wfSIMDMap[req.WG.Wavefronts[i]] = nextSIMD
-				}
-				nextSIMD++
-				if nextSIMD >= 4 {
-					nextSIMD = 0
-				}
-				if found {
-					break
-				}
-			}
-			if !found {
-				ok = false
-				break
-			}
-		}
+	// SIMD level limitation
+	if ok && !s.matchWfWithSIMDs(req) {
+		ok = false
 	}
 
 	if ok {
 		s.SGprFreeCount -= int(req.KernelStatus.CodeObject.WFSgprCount)
 		s.LDSFreeCount -= int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize)
-		for i := 0; i < 4; i++ {
-			s.VGprFreeCount[0] -= vgprToUse[0]
-		}
 	}
 
+	req.SwapSrcAndDst()
+	req.SetSendTime(evt.Time())
 	req.Ok = ok
 	s.GetConnection("ToDispatcher").Send(req)
 	return nil
+}
+
+func (s *Scheduler) withinSGPRLimitation(req *timing.MapWGReq) bool {
+	required := int(req.KernelStatus.CodeObject.WFSgprCount) *
+		len(req.WG.Wavefronts)
+	available := s.SGprFreeCount
+	if available < required {
+		return false
+	}
+	return true
+}
+
+func (s *Scheduler) withinLDSLimitation(req *timing.MapWGReq) bool {
+	required := int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize)
+	available := s.LDSFreeCount
+	if available < required {
+		return false
+	}
+	return true
+}
+
+// Maps the wfs of a workgroup to the SIMDs in the compute unit
+// This function sets the value of req.WfDispatchMap, to keep the information
+// about which SIMD should a wf dispatch to. This function also returns
+// a boolean value for if the matching is successful.
+func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
+	nextSIMD := 0
+	var vgprToUse [4]int
+	var wfPoolEntryUsed [4]int
+	wfSIMDMap := make(map[*kernels.Wavefront]int)
+
+	for i := 0; i < len(req.WG.Wavefronts); i++ {
+		firstSIMDTested := nextSIMD
+		firstTry := true
+		found := false
+		required := int(req.KernelStatus.CodeObject.WIVgprCount) * 64
+		for firstTry || nextSIMD != firstSIMDTested {
+			firstTry = false
+			available := s.VGprFreeCount[nextSIMD] - vgprToUse[nextSIMD]
+			if required <= available &&
+				s.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
+				found = true
+				vgprToUse[nextSIMD] += required
+				wfPoolEntryUsed[nextSIMD]++
+				wfSIMDMap[req.WG.Wavefronts[i]] = nextSIMD
+			}
+			nextSIMD++
+			if nextSIMD >= 4 {
+				nextSIMD = 0
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
