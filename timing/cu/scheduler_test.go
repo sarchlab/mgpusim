@@ -179,6 +179,24 @@ var _ = Describe("Scheduler", func() {
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeFalse())
 		})
+
+		It("should reserve resources and send ACK back if all requirement satisfy", func() {
+			co.WIVgprCount = 20
+			co.WFSgprCount = 15
+			co.WGGroupSegmentByteSize = 1024
+
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
+
+			connection.ExpectSend(req, nil)
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeTrue())
+
+		})
 	})
 
 	Context("when handling dispatch wavefront request", func() {
