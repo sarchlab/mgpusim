@@ -31,9 +31,11 @@ type Scheduler struct {
 
 	engine core.Engine
 
+	NumWfPool       int
 	WfPools         []*WavefrontPool
-	WfPoolFreeCount [4]int
+	WfPoolFreeCount []int
 
+	used       bool
 	Freq       core.Freq
 	Running    bool
 	NextWfPool int
@@ -48,8 +50,8 @@ type Scheduler struct {
 	// 16K VGPRs per SIMD and 4 GPRs allocation guanularity.
 	// Since VGPRS always allocation is batches of 64 regs, the mask is
 	// further shrinked to 64 bit
-	VGprUsageMask [4][64]AllocStatus
-	VGprFreeCount [4]int
+	VGprUsageMask [][64]AllocStatus
+	VGprFreeCount []int
 
 	// 64 KB LDS, allocate in a guanularity of 256B
 	LDSUsageMask [256]AllocStatus
@@ -61,25 +63,45 @@ func NewScheduler(name string, engine core.Engine) *Scheduler {
 	s := new(Scheduler)
 	s.engine = engine
 	s.BasicComponent = core.NewBasicComponent(name)
-	s.WfPools = make([]*WavefrontPool, 0, 4)
-	for i := 0; i < 4; i++ {
-		s.WfPools = append(s.WfPools, NewWavefrontPool(10))
-	}
-	s.NextWfPool = 0
 
+	s.NumWfPool = 4
+	s.WfPools = make([]*WavefrontPool, 0, s.NumWfPool)
+	s.WfPoolFreeCount = make([]int, s.NumWfPool)
+	s.VGprFreeCount = make([]int, s.NumWfPool)
+	for i := 0; i < s.NumWfPool; i++ {
+		s.WfPools = append(s.WfPools, NewWavefrontPool(10))
+		s.VGprFreeCount[i] = 16384
+		s.WfPoolFreeCount[i] = 10
+	}
 	s.SGprFreeCount = 2048
-	s.VGprFreeCount[0] = 16384
-	s.VGprFreeCount[1] = 16384
-	s.VGprFreeCount[2] = 16384
-	s.VGprFreeCount[3] = 16384
 	s.LDSFreeCount = 64 * 1024
-	s.WfPoolFreeCount[0] = 10
-	s.WfPoolFreeCount[1] = 10
-	s.WfPoolFreeCount[2] = 10
-	s.WfPoolFreeCount[3] = 10
+
+	s.used = false
 
 	s.AddPort("ToDispatcher")
 	return s
+}
+
+// SetWfPoolSize changes the number of wavefront that the scheduler can handle
+// The first argument is the number of wavefront pools, which should always
+// match the number of SIMDs that the comput unit has. The second argument is
+// a slice indicating the number of wavefronts that each wavefront pool can
+// hold. This function must be called before the scheduler has been used,
+// otherwise it will panic.
+func (s *Scheduler) SetWfPoolSize(numWfPool int, numWfs []int) {
+	if s.used {
+		log.Panic("Scheduler cannot resize after mapped with a work-group")
+	}
+
+	s.NumWfPool = numWfPool
+	s.WfPools = make([]*WavefrontPool, 0, s.NumWfPool)
+	s.WfPoolFreeCount = make([]int, s.NumWfPool)
+	s.VGprFreeCount = make([]int, s.NumWfPool)
+	for i := 0; i < s.NumWfPool; i++ {
+		s.WfPools = append(s.WfPools, NewWavefrontPool(numWfs[i]))
+		s.VGprFreeCount[i] = 16384
+		s.WfPoolFreeCount[i] = numWfs[i]
+	}
 }
 
 // Recv function process the incoming requests
@@ -99,6 +121,7 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 }
 
 func (s *Scheduler) processMapWGReq(req *timing.MapWGReq) *core.Error {
+	s.used = true
 	evt := NewMapWGEvent(s, s.Freq.NextTick(req.RecvTime()), req)
 	s.engine.Schedule(evt)
 	return nil
@@ -173,8 +196,8 @@ func (s *Scheduler) withinLDSLimitation(req *timing.MapWGReq) bool {
 // a boolean value for if the matching is successful.
 func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	nextSIMD := 0
-	var vgprToUse [4]int
-	var wfPoolEntryUsed [4]int
+	vgprToUse := make([]int, s.NumWfPool)
+	wfPoolEntryUsed := make([]int, s.NumWfPool)
 
 	for i := 0; i < len(req.WG.Wavefronts); i++ {
 		firstSIMDTested := nextSIMD
@@ -192,7 +215,7 @@ func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 				req.WfDispatchMap[req.WG.Wavefronts[i]] = nextSIMD
 			}
 			nextSIMD++
-			if nextSIMD >= 4 {
+			if nextSIMD >= s.NumWfPool {
 				nextSIMD = 0
 			}
 			if found {
