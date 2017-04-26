@@ -195,6 +195,16 @@ var _ = Describe("Scheduler", func() {
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeTrue())
+			Expect(scheduler.SGprFreeCount).To(Equal(2048 - 150))
+			Expect(scheduler.LDSFreeCount).To(Equal(64*1024 - 1024))
+			Expect(scheduler.VGprFreeCount[0]).To(Equal(16384 - 64*3*20))
+			Expect(scheduler.VGprFreeCount[1]).To(Equal(16384 - 64*3*20))
+			Expect(scheduler.VGprFreeCount[2]).To(Equal(16384 - 64*2*20))
+			Expect(scheduler.VGprFreeCount[3]).To(Equal(16384 - 64*2*20))
+			Expect(scheduler.WfPoolFreeCount[0]).To(Equal(7))
+			Expect(scheduler.WfPoolFreeCount[1]).To(Equal(7))
+			Expect(scheduler.WfPoolFreeCount[2]).To(Equal(8))
+			Expect(scheduler.WfPoolFreeCount[3]).To(Equal(8))
 
 		})
 	})
