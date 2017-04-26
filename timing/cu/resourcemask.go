@@ -24,26 +24,26 @@ func NewResourceMask(size int) *ResourceMask {
 
 // NextRegion finds a region that is masked by the resourceMask in
 // the state define by statusReq. This function returns the offset of the
-// starting point of the region. A negtive value is returned if no such region
-// can be found.
+// starting point of the region. It also returns a boolean value that
+// tells if a region is found
 func (m *ResourceMask) NextRegion(
 	length int,
 	statusReq AllocStatus,
-) int {
+) (int, bool) {
 	offset := 0
 	currLength := 0
 	for offset < len(m.mask) {
 		if m.mask[offset] == statusReq {
 			currLength++
 			if currLength == length {
-				return offset - currLength + 1
+				return offset - currLength + 1, true
 			}
 		} else {
 			currLength = 0
 		}
 		offset++
 	}
-	return -1
+	return 0, false
 }
 
 // SetStatus alters the status from the position of offset to offset + length

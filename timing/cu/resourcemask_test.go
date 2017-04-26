@@ -18,8 +18,9 @@ var _ = Describe("Resource Mask", func() {
 		mask.SetStatus(0, 5, cu.AllocStatusReserved)
 		mask.SetStatus(15, 5, cu.AllocStatusReserved)
 
-		offset := mask.NextRegion(20, cu.AllocStatusFree)
+		offset, ok := mask.NextRegion(20, cu.AllocStatusFree)
 		Expect(offset).To(Equal(20))
+		Expect(ok).To(BeTrue())
 	})
 
 	It("should return negtive value if no consecutive region is found", func() {
@@ -27,7 +28,8 @@ var _ = Describe("Resource Mask", func() {
 		mask.SetStatus(15, 80, cu.AllocStatusReserved)
 		mask.SetStatus(100, 25, cu.AllocStatusReserved)
 
-		offset := mask.NextRegion(20, cu.AllocStatusFree)
-		Expect(offset).To(Equal(-1))
+		offset, ok := mask.NextRegion(20, cu.AllocStatusFree)
+		Expect(offset).To(Equal(0))
+		Expect(ok).To(BeFalse())
 	})
 })
