@@ -35,10 +35,9 @@ type Scheduler struct {
 	WfPools         []*WavefrontPool
 	WfPoolFreeCount []int
 
-	used       bool
-	Freq       core.Freq
-	Running    bool
-	NextWfPool int
+	used    bool
+	Freq    core.Freq
+	Running bool
 
 	MappedWGs []*timing.MapWGReq
 
@@ -161,7 +160,7 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	}
 
 	if ok {
-		s.researveResources(req)
+		s.reserveResources(req)
 	}
 
 	req.SwapSrcAndDst()
@@ -230,7 +229,7 @@ func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	return true
 }
 
-func (s *Scheduler) researveResources(req *timing.MapWGReq) {
+func (s *Scheduler) reserveResources(req *timing.MapWGReq) {
 	s.SGprFreeCount -= int(req.KernelStatus.CodeObject.WFSgprCount) *
 		len(req.WG.Wavefronts)
 	s.LDSFreeCount -= int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize)
@@ -246,17 +245,12 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	req := evt.Req
 	wf := req.Wf
 
-	wfPool := s.WfPools[s.NextWfPool]
+	wfPool := s.WfPools[req.SIMDID]
 	managedWf := new(Wavefront)
 	managedWf.Wavefront = wf
 	wfPool.Wfs = append(wfPool.Wfs, managedWf)
 
 	s.initWfRegs(managedWf, req)
-
-	s.NextWfPool++
-	if s.NextWfPool >= len(s.WfPools) {
-		s.NextWfPool = 0
-	}
 
 	if !s.Running {
 		s.Running = true
