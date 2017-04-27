@@ -151,52 +151,52 @@ var _ = Describe("Scheduler", func() {
 			Expect(req.Ok).To(BeFalse())
 		})
 
-		// It("should send NACK if not all Wavefront can fit the VGPRs requirement", func() {
-		// 	// SIMD 0 and 1 do not have enouth VGPRs
-		// 	scheduler.VGprFreeCount[0] = 3200
-		// 	scheduler.VGprFreeCount[1] = 3200
-		// 	scheduler.WfPoolFreeCount[2] = 2
-		// 	scheduler.WfPoolFreeCount[3] = 2
+		It("should send NACK if not all Wavefront can fit the VGPRs requirement", func() {
+			// SIMD 0 and 1 do not have enouth VGPRs
+			scheduler.VGprMask[0].SetStatus(0, 60, cu.AllocStatusReserved)
+			scheduler.VGprMask[1].SetStatus(0, 60, cu.AllocStatusReserved)
+			scheduler.WfPoolFreeCount[2] = 2
+			scheduler.WfPoolFreeCount[3] = 2
 
-		// 	co.WIVgprCount = 102
-		// 	req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
-		// 		status)
-		// 	evt := cu.NewMapWGEvent(scheduler, 10, req)
+			co.WIVgprCount = 102
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
 
-		// 	connection.ExpectSend(req, nil)
+			connection.ExpectSend(req, nil)
 
-		// 	scheduler.Handle(evt)
+			scheduler.Handle(evt)
 
-		// 	Expect(connection.AllExpectedSent()).To(BeTrue())
-		// 	Expect(req.Ok).To(BeFalse())
-		// })
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeFalse())
+		})
 
-		// It("should reserve resources and send ACK back if all requirement satisfy", func() {
-		// 	co.WIVgprCount = 20
-		// 	co.WFSgprCount = 15
-		// 	co.WGGroupSegmentByteSize = 1024
+		It("should reserve resources and send ACK back if all requirement satisfy", func() {
+			co.WIVgprCount = 20
+			co.WFSgprCount = 15
+			co.WGGroupSegmentByteSize = 1024
 
-		// 	req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
-		// 		status)
-		// 	evt := cu.NewMapWGEvent(scheduler, 10, req)
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
 
-		// 	connection.ExpectSend(req, nil)
+			connection.ExpectSend(req, nil)
 
-		// 	scheduler.Handle(evt)
+			scheduler.Handle(evt)
 
-		// 	Expect(connection.AllExpectedSent()).To(BeTrue())
-		// 	Expect(req.Ok).To(BeTrue())
-		// 	Expect(scheduler.SGprFreeCount).To(Equal(2048 - 150))
-		// 	Expect(scheduler.LDSFreeCount).To(Equal(64*1024 - 1024))
-		// 	Expect(scheduler.VGprFreeCount[0]).To(Equal(16384 - 64*3*20))
-		// 	Expect(scheduler.VGprFreeCount[1]).To(Equal(16384 - 64*3*20))
-		// 	Expect(scheduler.VGprFreeCount[2]).To(Equal(16384 - 64*2*20))
-		// 	Expect(scheduler.VGprFreeCount[3]).To(Equal(16384 - 64*2*20))
-		// 	Expect(scheduler.WfPoolFreeCount[0]).To(Equal(7))
-		// 	Expect(scheduler.WfPoolFreeCount[1]).To(Equal(7))
-		// 	Expect(scheduler.WfPoolFreeCount[2]).To(Equal(8))
-		// 	Expect(scheduler.WfPoolFreeCount[3]).To(Equal(8))
-		// })
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeTrue())
+			// Expect(scheduler.SGprFreeCount).To(Equal(2048 - 150))
+			// Expect(scheduler.LDSFreeCount).To(Equal(64*1024 - 1024))
+			// Expect(scheduler.VGprFreeCount[0]).To(Equal(16384 - 64*3*20))
+			// Expect(scheduler.VGprFreeCount[1]).To(Equal(16384 - 64*3*20))
+			// Expect(scheduler.VGprFreeCount[2]).To(Equal(16384 - 64*2*20))
+			// Expect(scheduler.VGprFreeCount[3]).To(Equal(16384 - 64*2*20))
+			Expect(scheduler.WfPoolFreeCount[0]).To(Equal(7))
+			Expect(scheduler.WfPoolFreeCount[1]).To(Equal(7))
+			Expect(scheduler.WfPoolFreeCount[2]).To(Equal(8))
+			Expect(scheduler.WfPoolFreeCount[3]).To(Equal(8))
+		})
 
 		// It("should support non-standard CU size", func() {
 		// 	scheduler.SetWfPoolSize(5, []int{10, 10, 8, 8, 8})

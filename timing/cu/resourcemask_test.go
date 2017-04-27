@@ -38,6 +38,24 @@ var _ = Describe("Resource Mask", func() {
 		offset, ok := mask.NextRegion(0, cu.AllocStatusFree)
 		Expect(offset).To(Equal(0))
 		Expect(ok).To(BeTrue())
+	})
 
+	It("should be able to convert status", func() {
+		mask.SetStatus(0, 5, cu.AllocStatusToReserve)
+		mask.SetStatus(10, 20, cu.AllocStatusToReserve)
+
+		mask.ConvertStatus(cu.AllocStatusToReserve, cu.AllocStatusReserved)
+
+		offset, ok := mask.NextRegion(20, cu.AllocStatusReserved)
+		Expect(offset).To(Equal(10))
+		Expect(ok).To(BeTrue())
+	})
+
+	It("should be able to get the element count of a certain status", func() {
+		mask.SetStatus(0, 5, cu.AllocStatusToReserve)
+		mask.SetStatus(10, 20, cu.AllocStatusReserved)
+
+		Expect(mask.StatusCount(cu.AllocStatusToReserve)).To(Equal(5))
+		Expect(mask.StatusCount(cu.AllocStatusReserved)).To(Equal(20))
 	})
 })
