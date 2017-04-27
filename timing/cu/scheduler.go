@@ -88,7 +88,8 @@ func (s *Scheduler) initVGPRInfo(count []int) {
 	s.VGprGranularity = 64 * 4 // 64 lanes, 4 register minimum allocation
 	s.VGprMask = make([]*ResourceMask, 0, s.NumWfPool)
 	for i := 0; i < s.NumWfPool; i++ {
-		s.VGprMask[i] = NewResourceMask(s.VGprCount[i] / s.VGprGranularity)
+		s.VGprMask = append(s.VGprMask,
+			NewResourceMask(s.VGprCount[i]/s.VGprGranularity))
 	}
 }
 
@@ -220,15 +221,13 @@ func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 		firstSIMDTested := nextSIMD
 		firstTry := true
 		found := false
-		required := int(req.KernelStatus.CodeObject.WIVgprCount) /
-			s.VGprGranularity * 64
+		required := int(req.KernelStatus.CodeObject.WIVgprCount) * 64 /
+			s.VGprGranularity
 		for firstTry || nextSIMD != firstSIMDTested {
 			firstTry = false
-			offset, ok := s.VGprMask[nextSIMD].NextRegion(
-				required, AllocStatusFree)
+			offset, ok := s.VGprMask[nextSIMD].NextRegion(required, AllocStatusFree)
 
-			if ok &&
-				s.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
+			if ok && s.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
 				found = true
 				vgprToUse[nextSIMD] += required
 				wfPoolEntryUsed[nextSIMD]++
