@@ -32,4 +32,12 @@ var _ = Describe("Resource Mask", func() {
 		Expect(offset).To(Equal(0))
 		Expect(ok).To(BeFalse())
 	})
+
+	It("should always return offset 0 and ok if input length is 0", func() {
+		mask.SetStatus(0, 5, cu.AllocStatusReserved)
+		offset, ok := mask.NextRegion(0, cu.AllocStatusFree)
+		Expect(offset).To(Equal(0))
+		Expect(ok).To(BeTrue())
+
+	})
 })

@@ -31,6 +31,9 @@ func (m *ResourceMask) NextRegion(
 	length int,
 	statusReq AllocStatus,
 ) (int, bool) {
+	if length == 0 {
+		return 0, true
+	}
 	offset := 0
 	currLength := 0
 	for offset < len(m.mask) {
