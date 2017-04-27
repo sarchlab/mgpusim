@@ -105,7 +105,7 @@ func (s *Scheduler) SetWfPoolSize(numWfPool int, numWfs []int) {
 	}
 
 	s.initWfPools(numWfPool, numWfs)
-	s.initVGPRInfo(s.VGprCount)
+	s.initVGPRInfo(append(s.VGprCount, s.VGprCount[0]))
 }
 
 // Recv function process the incoming requests
