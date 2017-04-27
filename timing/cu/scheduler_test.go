@@ -173,11 +173,11 @@ var _ = Describe("Scheduler", func() {
 
 		It("should reserve resources and send ACK back if all requirement satisfy", func() {
 			co.WIVgprCount = 20
-			co.WFSgprCount = 15
+			co.WFSgprCount = 16
 			co.WGGroupSegmentByteSize = 1024
 
-			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
-				status)
+			wg := grid.WorkGroups[0]
+			req := timing.NewMapWGReq(nil, scheduler, 10, wg, status)
 			evt := cu.NewMapWGEvent(scheduler, 10, req)
 
 			connection.ExpectSend(req, nil)
@@ -186,16 +186,45 @@ var _ = Describe("Scheduler", func() {
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeTrue())
-			// Expect(scheduler.SGprFreeCount).To(Equal(2048 - 150))
-			// Expect(scheduler.LDSFreeCount).To(Equal(64*1024 - 1024))
-			// Expect(scheduler.VGprFreeCount[0]).To(Equal(16384 - 64*3*20))
-			// Expect(scheduler.VGprFreeCount[1]).To(Equal(16384 - 64*3*20))
-			// Expect(scheduler.VGprFreeCount[2]).To(Equal(16384 - 64*2*20))
-			// Expect(scheduler.VGprFreeCount[3]).To(Equal(16384 - 64*2*20))
+			Expect(scheduler.SGprMask.StatusCount(cu.AllocStatusFree)).To(
+				Equal(118))
+			Expect(scheduler.SGprMask.StatusCount(cu.AllocStatusReserved)).To(
+				Equal(10))
+			Expect(scheduler.LDSMask.StatusCount(cu.AllocStatusFree)).To(
+				Equal(252))
+			Expect(scheduler.LDSMask.StatusCount(cu.AllocStatusReserved)).To(
+				Equal(4))
+			Expect(scheduler.VGprMask[0].StatusCount(cu.AllocStatusFree)).To(
+				Equal(49))
+			Expect(scheduler.VGprMask[0].StatusCount(cu.AllocStatusReserved)).To(
+				Equal(15))
+			Expect(scheduler.VGprMask[1].StatusCount(cu.AllocStatusFree)).To(
+				Equal(49))
+			Expect(scheduler.VGprMask[1].StatusCount(cu.AllocStatusReserved)).To(
+				Equal(15))
+			Expect(scheduler.VGprMask[2].StatusCount(cu.AllocStatusFree)).To(
+				Equal(54))
+			Expect(scheduler.VGprMask[2].StatusCount(cu.AllocStatusReserved)).To(
+				Equal(10))
+			Expect(scheduler.VGprMask[3].StatusCount(cu.AllocStatusFree)).To(
+				Equal(54))
+			Expect(scheduler.VGprMask[3].StatusCount(cu.AllocStatusReserved)).To(
+				Equal(10))
 			Expect(scheduler.WfPoolFreeCount[0]).To(Equal(7))
 			Expect(scheduler.WfPoolFreeCount[1]).To(Equal(7))
 			Expect(scheduler.WfPoolFreeCount[2]).To(Equal(8))
 			Expect(scheduler.WfPoolFreeCount[3]).To(Equal(8))
+
+			for i := 0; i < len(wg.Wavefronts); i++ {
+				Expect(req.WfDispatchMap[wg.Wavefronts[i]].SIMDID).To(
+					Equal(i % 4))
+				Expect(req.WfDispatchMap[wg.Wavefronts[i]].SGPROffset).To(
+					Equal(i * 64))
+				Expect(req.WfDispatchMap[wg.Wavefronts[i]].LDSOffset).To(
+					Equal(0))
+				Expect(req.WfDispatchMap[wg.Wavefronts[i]].VGPROffset).To(
+					Equal((i / 4) * 20 * 64 * 4))
+			}
 		})
 
 		// It("should support non-standard CU size", func() {

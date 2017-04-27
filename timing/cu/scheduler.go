@@ -186,7 +186,7 @@ func (s *Scheduler) withinSGPRLimitation(req *timing.MapWGReq) bool {
 		if !ok {
 			return false
 		}
-		req.WfDispatchMap[wf].SGPROffset = offset
+		req.WfDispatchMap[wf].SGPROffset = offset * 64 // 16 reg, 4 byte each
 		s.SGprMask.SetStatus(offset, required, AllocStatusToReserve)
 	}
 	return true
@@ -202,7 +202,7 @@ func (s *Scheduler) withinLDSLimitation(req *timing.MapWGReq) bool {
 
 	// Set the information
 	for _, wf := range req.WG.Wavefronts {
-		req.WfDispatchMap[wf].LDSOffset = offset
+		req.WfDispatchMap[wf].LDSOffset = offset * 256
 	}
 	s.LDSMask.SetStatus(offset, required, AllocStatusToReserve)
 	return true
@@ -232,7 +232,8 @@ func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 				vgprToUse[nextSIMD] += required
 				wfPoolEntryUsed[nextSIMD]++
 				req.WfDispatchMap[req.WG.Wavefronts[i]].SIMDID = nextSIMD
-				req.WfDispatchMap[req.WG.Wavefronts[i]].VGPROffset = offset
+				req.WfDispatchMap[req.WG.Wavefronts[i]].VGPROffset =
+					offset * 4 * 64 * 4 // 4 regs per group, 64 lanes, 4 bytes
 				s.VGprMask[nextSIMD].SetStatus(offset, required,
 					AllocStatusToReserve)
 			}
