@@ -18,7 +18,7 @@ type KernelDispatchStatus struct {
 	Grid            *kernels.Grid
 	WGs             []*kernels.WorkGroup
 	CompletedWGs    []*kernels.WorkGroup
-	DispatchingWfs  map[*kernels.Wavefront]int // maps from wf to the simd id
+	DispatchingWfs  map[*kernels.Wavefront]*WfDispatchInfo
 	DispatchingCUID int
 	Mapped          bool
 	CUBusy          []bool
@@ -29,9 +29,19 @@ func NewKernelDispatchStatus() *KernelDispatchStatus {
 	s := new(KernelDispatchStatus)
 	s.WGs = make([]*kernels.WorkGroup, 0)
 	s.CompletedWGs = make([]*kernels.WorkGroup, 0)
-	s.DispatchingWfs = make(map[*kernels.Wavefront]int)
+	s.DispatchingWfs = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	s.CUBusy = make([]bool, 0)
 	return s
+}
+
+// WfDispatchInfo stores the information about where the wf should dispatch to.
+// When the dispatcher maps the workgroup, the compute unit should tell the
+// dispatcher where to dispatch the wavefront.
+type WfDispatchInfo struct {
+	SIMDID     int
+	VGPROffset int
+	SGPROffset int
+	LDSOffset  int
 }
 
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
@@ -42,7 +52,7 @@ type MapWGReq struct {
 	WG            *kernels.WorkGroup
 	KernelStatus  *KernelDispatchStatus
 	Ok            bool
-	WfDispatchMap map[*kernels.Wavefront]int // Tells where a wf should fit in
+	WfDispatchMap map[*kernels.Wavefront]*WfDispatchInfo // Tells where a wf should fit in
 }
 
 // NewMapWGReq returns a newly created MapWGReq
@@ -60,7 +70,7 @@ func NewMapWGReq(
 	r.WG = wg
 	r.KernelStatus = status
 
-	r.WfDispatchMap = make(map[*kernels.Wavefront]int)
+	r.WfDispatchMap = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	return r
 }
 
@@ -68,7 +78,7 @@ func NewMapWGReq(
 type DispatchWfReq struct {
 	*core.ReqBase
 	Wf         *kernels.Wavefront
-	SIMDID     int
+	Info       *WfDispatchInfo
 	EntryPoint uint64
 }
 
@@ -77,7 +87,7 @@ func NewDispatchWfReq(
 	src, dst core.Component,
 	time core.VTimeInSec,
 	wf *kernels.Wavefront,
-	simdID int,
+	info *WfDispatchInfo,
 	EntryPoint uint64,
 ) *DispatchWfReq {
 	r := new(DispatchWfReq)
@@ -86,7 +96,7 @@ func NewDispatchWfReq(
 	r.SetDst(dst)
 	r.SetSendTime(time)
 	r.Wf = wf
-	r.SIMDID = simdID
+	r.Info = info
 	r.EntryPoint = EntryPoint
 	return r
 }
@@ -290,11 +300,11 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 		status.Grid.CodeObject.KernelCodeEntryByteOffset
 
 	var wf *kernels.Wavefront
-	var simdID int
+	var info *WfDispatchInfo
 	var req *DispatchWfReq
-	for wf, simdID = range status.DispatchingWfs {
+	for wf, info = range status.DispatchingWfs {
 		req = NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
-			wf, simdID, entryPoint)
+			wf, info, entryPoint)
 		break
 	}
 

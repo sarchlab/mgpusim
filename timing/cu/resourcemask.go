@@ -5,9 +5,10 @@ type AllocStatus byte
 
 // A list of possible status for CU binded storage allocation
 const (
-	AllocStatusFree     AllocStatus = iota
-	AllocStatusReserved             // Work-Group mapped, but wavefront not dispatched
-	AllocStatusUsed                 // Currently in use
+	AllocStatusFree      AllocStatus = iota
+	AllocStatusToReserve             // A value that is used for reservation caculation
+	AllocStatusReserved              // Work-Group mapped, but wavefront not dispatched
+	AllocStatusUsed                  // Currently in use
 )
 
 // A ResourceMask is data structure to mask the status of some resources
