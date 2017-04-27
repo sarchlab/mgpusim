@@ -253,6 +253,15 @@ func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 }
 
 func (s *Scheduler) reserveResources(req *timing.MapWGReq) {
+	for _, info := range req.WfDispatchMap {
+		s.WfPoolFreeCount[info.SIMDID]--
+	}
+
+	s.SGprMask.ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
+	s.LDSMask.ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
+	for i := 0; i < s.NumWfPool; i++ {
+		s.VGprMask[i].ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
+	}
 }
 
 func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {

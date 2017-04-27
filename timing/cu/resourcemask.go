@@ -56,3 +56,23 @@ func (m *ResourceMask) SetStatus(offset, length int, status AllocStatus) {
 		m.mask[offset+i] = status
 	}
 }
+
+// ConvertStatus change all the element of one status to another
+func (m *ResourceMask) ConvertStatus(from, to AllocStatus) {
+	for i := 0; i < len(m.mask); i++ {
+		if m.mask[i] == from {
+			m.mask[i] = to
+		}
+	}
+}
+
+// StatusCount returns the number of element that is in the target status
+func (m *ResourceMask) StatusCount(status AllocStatus) int {
+	count := 0
+	for i := 0; i < len(m.mask); i++ {
+		if m.mask[i] == status {
+			count++
+		}
+	}
+	return count
+}
