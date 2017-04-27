@@ -143,15 +143,18 @@ var _ = Describe("Dispatcher", func() {
 			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups[1:]...)
+			wfDispatchInfo := &timing.WfDispatchInfo{
+				SIMDID: 1, VGPROffset: 0, SGPROffset: 0, LDSOffset: 0}
 			for _, wf := range grid.WorkGroups[0].Wavefronts {
-				status.DispatchingWfs[wf] = 1
+				status.DispatchingWfs[wf] = wfDispatchInfo
 			}
 			status.Grid = grid
 			status.DispatchingCUID = 0
 			status.Mapped = true
 
 			wf := grid.WorkGroups[0].Wavefronts[0]
-			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf, 1, 6256)
+			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf,
+				wfDispatchInfo, 6256)
 
 			connection.ExpectSend(req, nil)
 
@@ -169,13 +172,17 @@ var _ = Describe("Dispatcher", func() {
 			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups[1:]...)
-			status.DispatchingWfs[grid.WorkGroups[0].Wavefronts[0]] = 0
+			wfDispatchInfo := &timing.WfDispatchInfo{
+				SIMDID: 1, VGPROffset: 0, SGPROffset: 0, LDSOffset: 0}
+			status.DispatchingWfs[grid.WorkGroups[0].Wavefronts[0]] =
+				wfDispatchInfo
 			status.Grid = grid
 			status.DispatchingCUID = 0
 			status.Mapped = true
 
 			wf := grid.WorkGroups[0].Wavefronts[0]
-			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf, 0, 6256)
+			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf,
+				wfDispatchInfo, 6256)
 
 			connection.ExpectSend(req, nil)
 

@@ -73,19 +73,6 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Context("when handling MapWGEvent", func() {
-		// It("shoule send ACK to dispatcher", func() {
-		// 	req := timing.NewMapWGReq(nil, scheduler, 10,
-		// 		grid.WorkGroups[0], status)
-		// 	evt := cu.NewMapWGEvent(scheduler, 10, req)
-
-		// 	connection.ExpectSend(req, nil)
-
-		// 	scheduler.Handle(evt)
-
-		// 	Expect(connection.AllExpectedSent()).To(BeTrue())
-		// 	Expect(req.Ok).To(BeTrue())
-		// 	Expect(scheduler.NumWfsCanHandle).To(Equal(30))
-		// })
 
 		It("should send NACK if too many Wavefronts", func() {
 			// Each SIMD is running 8 wf in each SIMD. 8 more wfs can handle.
