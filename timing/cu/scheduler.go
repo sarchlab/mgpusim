@@ -19,7 +19,8 @@ type Scheduler struct {
 	*core.BasicComponent
 	sync.Mutex
 
-	engine core.Engine
+	engine   core.Engine
+	wgMapper *WgMapper
 
 	NumWfPool       int
 	WfPools         []*WavefrontPool
@@ -30,32 +31,18 @@ type Scheduler struct {
 	Running bool
 
 	MappedWGs []*timing.MapWGReq
-
-	SGprCount       int
-	SGprGranularity int
-	SGprMask        *ResourceMask
-
-	VGprCount       []int
-	VGprGranularity int
-	VGprMask        []*ResourceMask
-
-	LDSByteSize    int
-	LDSGranularity int
-	LDSMask        *ResourceMask
 }
 
 // NewScheduler creates and returns a new Scheduler
-func NewScheduler(name string, engine core.Engine) *Scheduler {
+func NewScheduler(name string, engine core.Engine, wgMapper *WgMapper) *Scheduler {
 	s := new(Scheduler)
 	s.engine = engine
 	s.BasicComponent = core.NewBasicComponent(name)
 
 	s.initWfPools(4, []int{10, 10, 10, 10})
-	s.initLDSInfo(64 * 1024) // 64K
-	s.initSGPRInfo(2048)
-	s.initVGPRInfo([]int{16384, 16384, 16384, 16384})
-
 	s.used = false
+
+	s.wgMapper = wgMapper
 
 	s.AddPort("ToDispatcher")
 	return s
@@ -71,28 +58,6 @@ func (s *Scheduler) initWfPools(numWfPool int, numWfs []int) {
 	}
 }
 
-func (s *Scheduler) initSGPRInfo(count int) {
-	s.SGprCount = count
-	s.SGprGranularity = 16
-	s.SGprMask = NewResourceMask(s.SGprCount / s.SGprGranularity)
-}
-
-func (s *Scheduler) initLDSInfo(byteSize int) {
-	s.LDSByteSize = byteSize
-	s.LDSGranularity = 256
-	s.LDSMask = NewResourceMask(s.LDSByteSize / s.LDSGranularity)
-}
-
-func (s *Scheduler) initVGPRInfo(count []int) {
-	s.VGprCount = count
-	s.VGprGranularity = 64 * 4 // 64 lanes, 4 register minimum allocation
-	s.VGprMask = make([]*ResourceMask, 0, s.NumWfPool)
-	for i := 0; i < s.NumWfPool; i++ {
-		s.VGprMask = append(s.VGprMask,
-			NewResourceMask(s.VGprCount[i]/s.VGprGranularity))
-	}
-}
-
 // SetWfPoolSize changes the number of wavefront that the scheduler can handle
 // The first argument is the number of wavefront pools, which should always
 // match the number of SIMDs that the comput unit has. The second argument is
@@ -104,8 +69,8 @@ func (s *Scheduler) SetWfPoolSize(numWfPool int, numWfs []int) {
 		log.Panic("Scheduler cannot resize after mapped with a work-group")
 	}
 
-	s.initWfPools(numWfPool, numWfs)
-	s.initVGPRInfo(append(s.VGprCount, s.VGprCount[0]))
+	// s.initWfPools(numWfPool, numWfs)
+	// s.initVGPRInfo(append(s.VGprCount, s.VGprCount[0]))
 }
 
 // Recv function process the incoming requests
@@ -143,126 +108,13 @@ func (s *Scheduler) processDispatchWfReq(
 func (s *Scheduler) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *MapWGEvent:
-		return s.handleMapWGEvent(evt)
+		return s.wgMapper.handleMapWGEvent(evt)
 	case *DispatchWfEvent:
 		return s.handleDispatchWfEvent(evt)
 	default:
 		log.Panicf("Cannot handle event type %s", reflect.TypeOf(evt))
 	}
 	return nil
-}
-
-func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
-	req := evt.Req
-	ok := true
-
-	for _, wf := range req.WG.Wavefronts {
-		req.WfDispatchMap[wf] = new(timing.WfDispatchInfo)
-	}
-
-	if !s.withinSGPRLimitation(req) || !s.withinLDSLimitation(req) {
-		ok = false
-	}
-
-	if ok && !s.matchWfWithSIMDs(req) {
-		ok = false
-	}
-
-	if ok {
-		s.reserveResources(req)
-	}
-
-	req.SwapSrcAndDst()
-	req.SetSendTime(evt.Time())
-	req.Ok = ok
-	s.GetConnection("ToDispatcher").Send(req)
-	return nil
-}
-
-func (s *Scheduler) withinSGPRLimitation(req *timing.MapWGReq) bool {
-	required := int(req.KernelStatus.CodeObject.WFSgprCount) / s.SGprGranularity
-	for _, wf := range req.WG.Wavefronts {
-		offset, ok := s.SGprMask.NextRegion(required, AllocStatusFree)
-		if !ok {
-			return false
-		}
-		req.WfDispatchMap[wf].SGPROffset = offset * 64 // 16 reg, 4 byte each
-		s.SGprMask.SetStatus(offset, required, AllocStatusToReserve)
-	}
-	return true
-}
-
-func (s *Scheduler) withinLDSLimitation(req *timing.MapWGReq) bool {
-	required := int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize) /
-		s.LDSGranularity
-	offset, ok := s.LDSMask.NextRegion(required, AllocStatusFree)
-	if !ok {
-		return false
-	}
-
-	// Set the information
-	for _, wf := range req.WG.Wavefronts {
-		req.WfDispatchMap[wf].LDSOffset = offset * 256
-	}
-	s.LDSMask.SetStatus(offset, required, AllocStatusToReserve)
-	return true
-}
-
-// Maps the wfs of a workgroup to the SIMDs in the compute unit
-// This function sets the value of req.WfDispatchMap, to keep the information
-// about which SIMD should a wf dispatch to. This function also returns
-// a boolean value for if the matching is successful.
-func (s *Scheduler) matchWfWithSIMDs(req *timing.MapWGReq) bool {
-	nextSIMD := 0
-	vgprToUse := make([]int, s.NumWfPool)
-	wfPoolEntryUsed := make([]int, s.NumWfPool)
-
-	for i := 0; i < len(req.WG.Wavefronts); i++ {
-		firstSIMDTested := nextSIMD
-		firstTry := true
-		found := false
-		required := int(req.KernelStatus.CodeObject.WIVgprCount) * 64 /
-			s.VGprGranularity
-		for firstTry || nextSIMD != firstSIMDTested {
-			firstTry = false
-			offset, ok := s.VGprMask[nextSIMD].NextRegion(required, AllocStatusFree)
-
-			if ok && s.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
-				found = true
-				vgprToUse[nextSIMD] += required
-				wfPoolEntryUsed[nextSIMD]++
-				req.WfDispatchMap[req.WG.Wavefronts[i]].SIMDID = nextSIMD
-				req.WfDispatchMap[req.WG.Wavefronts[i]].VGPROffset =
-					offset * 4 * 64 * 4 // 4 regs per group, 64 lanes, 4 bytes
-				s.VGprMask[nextSIMD].SetStatus(offset, required,
-					AllocStatusToReserve)
-			}
-			nextSIMD++
-			if nextSIMD >= s.NumWfPool {
-				nextSIMD = 0
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (s *Scheduler) reserveResources(req *timing.MapWGReq) {
-	for _, info := range req.WfDispatchMap {
-		s.WfPoolFreeCount[info.SIMDID]--
-	}
-
-	s.SGprMask.ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
-	s.LDSMask.ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
-	for i := 0; i < s.NumWfPool; i++ {
-		s.VGprMask[i].ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
-	}
 }
 
 func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
