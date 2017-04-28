@@ -197,11 +197,11 @@ func (c *RegCtrl) handleWriteRegEvent(evt *WriteRegEvent) error {
 
 func (c *RegCtrl) getRegOffset(reg *insts.Reg) int {
 	if reg.IsSReg() {
-		return reg.RegIndex()
+		return reg.RegIndex() * 4
 	}
 
 	if reg.IsVReg() {
-		return reg.RegIndex()
+		return reg.RegIndex() * 4
 	}
 
 	return 0
