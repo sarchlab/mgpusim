@@ -24,12 +24,20 @@ func prepareGrid() *kernels.Grid {
 	return grid
 }
 
+type MockWGMapper struct {
+	OK bool
+}
+
+func (m *MockWGMapper) MapWG(req *timing.MapWGReq) bool {
+	return m.OK
+}
+
 var _ = Describe("Scheduler", func() {
 	var (
 		scheduler  *cu.Scheduler
 		connection *core.MockConnection
 		engine     *core.MockEngine
-		wgMapper   *cu.WGMapperImpl
+		wgMapper   *MockWGMapper
 		grid       *kernels.Grid
 		status     *timing.KernelDispatchStatus
 		co         *insts.HsaCo
@@ -37,7 +45,7 @@ var _ = Describe("Scheduler", func() {
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
-		wgMapper = cu.NewWGMapper(4)
+		wgMapper = new(MockWGMapper)
 		scheduler = cu.NewScheduler("scheduler", engine, wgMapper)
 		scheduler.Freq = 1 * core.GHz
 		connection = core.NewMockConnection()
@@ -76,6 +84,33 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Context("when handling MapWGEvent", func() {
+		It("should reply OK if wgMapper say OK", func() {
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
+
+			wgMapper.OK = true
+			connection.ExpectSend(req, nil)
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeTrue())
+		})
+
+		It("should reply not OK if wgMapper say not OK", func() {
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
+			evt := cu.NewMapWGEvent(scheduler, 10, req)
+
+			wgMapper.OK = false
+			connection.ExpectSend(req, nil)
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(req.Ok).To(BeFalse())
+		})
 
 		// It("should support non-standard CU size", func() {
 		// 	scheduler.SetWfPoolSize(5, []int{10, 10, 8, 8, 8})

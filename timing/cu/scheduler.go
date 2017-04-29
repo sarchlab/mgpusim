@@ -20,7 +20,7 @@ type Scheduler struct {
 	sync.Mutex
 
 	engine   core.Engine
-	wgMapper *WGMapperImpl
+	wgMapper WGMapper
 
 	WfPools []*WavefrontPool
 
@@ -32,7 +32,7 @@ type Scheduler struct {
 }
 
 // NewScheduler creates and returns a new Scheduler
-func NewScheduler(name string, engine core.Engine, wgMapper *WGMapperImpl) *Scheduler {
+func NewScheduler(name string, engine core.Engine, wgMapper WGMapper) *Scheduler {
 	s := new(Scheduler)
 	s.engine = engine
 	s.BasicComponent = core.NewBasicComponent(name)
@@ -103,12 +103,25 @@ func (s *Scheduler) processDispatchWfReq(
 func (s *Scheduler) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *MapWGEvent:
-		// return s.wgMapper.handleMapWGEvent(evt)
+		return s.handleMapWGEvent(evt)
 	case *DispatchWfEvent:
 		return s.handleDispatchWfEvent(evt)
 	default:
 		log.Panicf("Cannot handle event type %s", reflect.TypeOf(evt))
 	}
+	return nil
+}
+
+func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
+	req := evt.Req
+
+	ok := s.wgMapper.MapWG(req)
+
+	req.Ok = ok
+	req.SwapSrcAndDst()
+	req.SetSendTime(evt.Time())
+	s.GetConnection("ToDispatcher").Send(req)
+
 	return nil
 }
 
