@@ -20,7 +20,7 @@ type Scheduler struct {
 	sync.Mutex
 
 	engine   core.Engine
-	wgMapper *WgMapper
+	wgMapper *WGMapperImpl
 
 	WfPools []*WavefrontPool
 
@@ -32,7 +32,7 @@ type Scheduler struct {
 }
 
 // NewScheduler creates and returns a new Scheduler
-func NewScheduler(name string, engine core.Engine, wgMapper *WgMapper) *Scheduler {
+func NewScheduler(name string, engine core.Engine, wgMapper *WGMapperImpl) *Scheduler {
 	s := new(Scheduler)
 	s.engine = engine
 	s.BasicComponent = core.NewBasicComponent(name)
@@ -103,7 +103,7 @@ func (s *Scheduler) processDispatchWfReq(
 func (s *Scheduler) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *MapWGEvent:
-		return s.wgMapper.handleMapWGEvent(evt)
+		// return s.wgMapper.handleMapWGEvent(evt)
 	case *DispatchWfEvent:
 		return s.handleDispatchWfEvent(evt)
 	default:
