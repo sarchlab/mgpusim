@@ -7,6 +7,9 @@ import "gitlab.com/yaotsu/gcn3/timing"
 type WgMapper struct {
 	Scheduler *Scheduler
 
+	NumWfPool       int
+	WfPoolFreeCount []int
+
 	SGprCount       int
 	SGprGranularity int
 	SGprMask        *ResourceMask
@@ -22,14 +25,21 @@ type WgMapper struct {
 
 // NewWgMapper returns a newly created WgMapper with default compute unit
 // setting
-func NewWgMapper() *WgMapper {
+func NewWgMapper(numWfPool int) *WgMapper {
 	m := new(WgMapper)
 
+	m.NumWfPool = numWfPool
+
+	m.initWfInfo([]int{10, 10, 10, 10})
 	m.initLDSInfo(64 * 1024) // 64K
 	m.initSGPRInfo(2048)
 	m.initVGPRInfo([]int{16384, 16384, 16384, 16384})
 
 	return m
+}
+
+func (m *WgMapper) initWfInfo(numWfsPerPool []int) {
+	m.WfPoolFreeCount = numWfsPerPool
 }
 
 func (m *WgMapper) initSGPRInfo(count int) {
@@ -47,8 +57,8 @@ func (m *WgMapper) initLDSInfo(byteSize int) {
 func (m *WgMapper) initVGPRInfo(count []int) {
 	m.VGprCount = count
 	m.VGprGranularity = 64 * 4 // 64 lanes, 4 register minimum allocation
-	m.VGprMask = make([]*ResourceMask, 0, m.Scheduler.NumWfPool)
-	for i := 0; i < m.Scheduler.NumWfPool; i++ {
+	m.VGprMask = make([]*ResourceMask, 0, m.NumWfPool)
+	for i := 0; i < m.NumWfPool; i++ {
 		m.VGprMask = append(m.VGprMask,
 			NewResourceMask(m.VGprCount[i]/m.VGprGranularity))
 	}
@@ -116,8 +126,8 @@ func (m *WgMapper) withinLDSLimitation(req *timing.MapWGReq) bool {
 // a boolean value for if the matching is successful.
 func (m *WgMapper) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	nextSIMD := 0
-	vgprToUse := make([]int, m.Scheduler.NumWfPool)
-	wfPoolEntryUsed := make([]int, m.Scheduler.NumWfPool)
+	vgprToUse := make([]int, m.NumWfPool)
+	wfPoolEntryUsed := make([]int, m.NumWfPool)
 
 	for i := 0; i < len(req.WG.Wavefronts); i++ {
 		firstSIMDTested := nextSIMD
@@ -129,7 +139,7 @@ func (m *WgMapper) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 			firstTry = false
 			offset, ok := m.VGprMask[nextSIMD].NextRegion(required, AllocStatusFree)
 
-			if ok && m.Scheduler.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
+			if ok && m.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
 				found = true
 				vgprToUse[nextSIMD] += required
 				wfPoolEntryUsed[nextSIMD]++
@@ -140,7 +150,7 @@ func (m *WgMapper) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 					AllocStatusToReserve)
 			}
 			nextSIMD++
-			if nextSIMD >= m.Scheduler.NumWfPool {
+			if nextSIMD >= m.NumWfPool {
 				nextSIMD = 0
 			}
 			if found {
@@ -157,12 +167,12 @@ func (m *WgMapper) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 
 func (m *WgMapper) reserveResources(req *timing.MapWGReq) {
 	for _, info := range req.WfDispatchMap {
-		m.Scheduler.WfPoolFreeCount[info.SIMDID]--
+		m.WfPoolFreeCount[info.SIMDID]--
 	}
 
 	m.SGprMask.ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
 	m.LDSMask.ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
-	for i := 0; i < m.Scheduler.NumWfPool; i++ {
+	for i := 0; i < m.NumWfPool; i++ {
 		m.VGprMask[i].ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
 	}
 }

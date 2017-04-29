@@ -22,9 +22,7 @@ type Scheduler struct {
 	engine   core.Engine
 	wgMapper *WgMapper
 
-	NumWfPool       int
-	WfPools         []*WavefrontPool
-	WfPoolFreeCount []int
+	WfPools []*WavefrontPool
 
 	used    bool
 	Freq    core.Freq
@@ -39,7 +37,7 @@ func NewScheduler(name string, engine core.Engine, wgMapper *WgMapper) *Schedule
 	s.engine = engine
 	s.BasicComponent = core.NewBasicComponent(name)
 
-	s.initWfPools(4, []int{10, 10, 10, 10})
+	s.initWfPools([]int{10, 10, 10, 10})
 	s.used = false
 
 	s.wgMapper = wgMapper
@@ -48,13 +46,10 @@ func NewScheduler(name string, engine core.Engine, wgMapper *WgMapper) *Schedule
 	return s
 }
 
-func (s *Scheduler) initWfPools(numWfPool int, numWfs []int) {
-	s.NumWfPool = numWfPool
-	s.WfPools = make([]*WavefrontPool, 0, s.NumWfPool)
-	s.WfPoolFreeCount = make([]int, s.NumWfPool)
-	for i := 0; i < s.NumWfPool; i++ {
+func (s *Scheduler) initWfPools(numWfs []int) {
+	s.WfPools = make([]*WavefrontPool, 0, len(numWfs))
+	for i := 0; i < len(numWfs); i++ {
 		s.WfPools = append(s.WfPools, NewWavefrontPool(numWfs[i]))
-		s.WfPoolFreeCount[i] = numWfs[i]
 	}
 }
 
