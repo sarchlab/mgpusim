@@ -37,7 +37,7 @@ var _ = Describe("Scheduler", func() {
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
-		wgMapper = cu.NewWgMapper()
+		wgMapper = cu.NewWgMapper(4)
 		scheduler = cu.NewScheduler("scheduler", engine, wgMapper)
 		wgMapper.Scheduler = scheduler
 		scheduler.Freq = 1 * core.GHz
@@ -81,7 +81,7 @@ var _ = Describe("Scheduler", func() {
 		It("should send NACK if too many Wavefronts", func() {
 			// Each SIMD is running 8 wf in each SIMD. 8 more wfs can handle.
 			for i := 0; i < 4; i++ {
-				scheduler.WfPoolFreeCount[i] = 2
+				wgMapper.WfPoolFreeCount[i] = 2
 			}
 
 			req := timing.NewMapWGReq(nil, scheduler, 0, grid.WorkGroups[0],
@@ -158,8 +158,8 @@ var _ = Describe("Scheduler", func() {
 			// SIMD 0 and 1 do not have enouth VGPRs
 			wgMapper.VGprMask[0].SetStatus(0, 60, cu.AllocStatusReserved)
 			wgMapper.VGprMask[1].SetStatus(0, 60, cu.AllocStatusReserved)
-			scheduler.WfPoolFreeCount[2] = 2
-			scheduler.WfPoolFreeCount[3] = 2
+			wgMapper.WfPoolFreeCount[2] = 2
+			wgMapper.WfPoolFreeCount[3] = 2
 
 			co.WIVgprCount = 102
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
@@ -213,10 +213,10 @@ var _ = Describe("Scheduler", func() {
 				Equal(54))
 			Expect(wgMapper.VGprMask[3].StatusCount(cu.AllocStatusReserved)).To(
 				Equal(10))
-			Expect(scheduler.WfPoolFreeCount[0]).To(Equal(7))
-			Expect(scheduler.WfPoolFreeCount[1]).To(Equal(7))
-			Expect(scheduler.WfPoolFreeCount[2]).To(Equal(8))
-			Expect(scheduler.WfPoolFreeCount[3]).To(Equal(8))
+			Expect(wgMapper.WfPoolFreeCount[0]).To(Equal(7))
+			Expect(wgMapper.WfPoolFreeCount[1]).To(Equal(7))
+			Expect(wgMapper.WfPoolFreeCount[2]).To(Equal(8))
+			Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(8))
 
 			for i := 0; i < len(wg.Wavefronts); i++ {
 				Expect(req.WfDispatchMap[wg.Wavefronts[i]].SIMDID).To(
