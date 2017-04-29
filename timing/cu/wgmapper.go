@@ -2,11 +2,20 @@ package cu
 
 import "gitlab.com/yaotsu/gcn3/timing"
 
-// WgMapper is a sub-component of scheduler. It is responsible for allocate
-// and reserve resources for the incomming MapWgReq.
-type WgMapper struct {
-	Scheduler *Scheduler
+// WGMapper defines the behavior of how a workgroup is mapped in the compute
+// unit.
+//
+// It is responsible for allocating SIMD number, VGPRs offset, SGPRs
+// offset and LDS offset for each wavefront in the workgroup.
+// A WGMapper is not a component and we assume the mapping process is done
+// within a cycle
+type WGMapper interface {
+	MapWG(req *timing.MapWGReq) bool
+}
 
+// WGMapperImpl is a sub-component of scheduler. It is responsible for allocate
+// and reserve resources for the incomming MapWgReq.
+type WGMapperImpl struct {
 	NumWfPool       int
 	WfPoolFreeCount []int
 
@@ -23,10 +32,10 @@ type WgMapper struct {
 	LDSMask        *ResourceMask
 }
 
-// NewWgMapper returns a newly created WgMapper with default compute unit
+// NewWGMapper returns a newly created WgMapper with default compute unit
 // setting
-func NewWgMapper(numWfPool int) *WgMapper {
-	m := new(WgMapper)
+func NewWGMapper(numWfPool int) *WGMapperImpl {
+	m := new(WGMapperImpl)
 
 	m.NumWfPool = numWfPool
 
@@ -38,23 +47,23 @@ func NewWgMapper(numWfPool int) *WgMapper {
 	return m
 }
 
-func (m *WgMapper) initWfInfo(numWfsPerPool []int) {
+func (m *WGMapperImpl) initWfInfo(numWfsPerPool []int) {
 	m.WfPoolFreeCount = numWfsPerPool
 }
 
-func (m *WgMapper) initSGPRInfo(count int) {
+func (m *WGMapperImpl) initSGPRInfo(count int) {
 	m.SGprCount = count
 	m.SGprGranularity = 16
 	m.SGprMask = NewResourceMask(m.SGprCount / m.SGprGranularity)
 }
 
-func (m *WgMapper) initLDSInfo(byteSize int) {
+func (m *WGMapperImpl) initLDSInfo(byteSize int) {
 	m.LDSByteSize = byteSize
 	m.LDSGranularity = 256
 	m.LDSMask = NewResourceMask(m.LDSByteSize / m.LDSGranularity)
 }
 
-func (m *WgMapper) initVGPRInfo(count []int) {
+func (m *WGMapperImpl) initVGPRInfo(count []int) {
 	m.VGprCount = count
 	m.VGprGranularity = 64 * 4 // 64 lanes, 4 register minimum allocation
 	m.VGprMask = make([]*ResourceMask, 0, m.NumWfPool)
@@ -64,8 +73,9 @@ func (m *WgMapper) initVGPRInfo(count []int) {
 	}
 }
 
-func (m *WgMapper) handleMapWGEvent(evt *MapWGEvent) error {
-	req := evt.Req
+// MapWG uses a first fit algorithm to allocate SGPR, VGPR, and LDS resources.
+// In terms of SIMD selection, it uses a round robin policy.
+func (m *WGMapperImpl) MapWG(req *timing.MapWGReq) bool {
 	ok := true
 
 	for _, wf := range req.WG.Wavefronts {
@@ -84,14 +94,14 @@ func (m *WgMapper) handleMapWGEvent(evt *MapWGEvent) error {
 		m.reserveResources(req)
 	}
 
-	req.SwapSrcAndDst()
-	req.SetSendTime(evt.Time())
-	req.Ok = ok
-	m.Scheduler.GetConnection("ToDispatcher").Send(req)
-	return nil
+	// req.SwapSrcAndDst()
+	// req.SetSendTime(evt.Time())
+	// req.Ok = ok
+	// m.Scheduler.GetConnection("ToDispatcher").Send(req)
+	return ok
 }
 
-func (m *WgMapper) withinSGPRLimitation(req *timing.MapWGReq) bool {
+func (m *WGMapperImpl) withinSGPRLimitation(req *timing.MapWGReq) bool {
 	required := int(req.KernelStatus.CodeObject.WFSgprCount) / m.SGprGranularity
 	for _, wf := range req.WG.Wavefronts {
 		offset, ok := m.SGprMask.NextRegion(required, AllocStatusFree)
@@ -104,7 +114,7 @@ func (m *WgMapper) withinSGPRLimitation(req *timing.MapWGReq) bool {
 	return true
 }
 
-func (m *WgMapper) withinLDSLimitation(req *timing.MapWGReq) bool {
+func (m *WGMapperImpl) withinLDSLimitation(req *timing.MapWGReq) bool {
 	required := int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize) /
 		m.LDSGranularity
 	offset, ok := m.LDSMask.NextRegion(required, AllocStatusFree)
@@ -124,7 +134,7 @@ func (m *WgMapper) withinLDSLimitation(req *timing.MapWGReq) bool {
 // This function sets the value of req.WfDispatchMap, to keep the information
 // about which SIMD should a wf dispatch to. This function also returns
 // a boolean value for if the matching is successful.
-func (m *WgMapper) matchWfWithSIMDs(req *timing.MapWGReq) bool {
+func (m *WGMapperImpl) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	nextSIMD := 0
 	vgprToUse := make([]int, m.NumWfPool)
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
@@ -165,7 +175,7 @@ func (m *WgMapper) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	return true
 }
 
-func (m *WgMapper) reserveResources(req *timing.MapWGReq) {
+func (m *WGMapperImpl) reserveResources(req *timing.MapWGReq) {
 	for _, info := range req.WfDispatchMap {
 		m.WfPoolFreeCount[info.SIMDID]--
 	}
