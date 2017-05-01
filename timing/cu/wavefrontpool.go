@@ -1,10 +1,13 @@
 package cu
 
+import "gitlab.com/yaotsu/core"
+
 // A WavefrontPool holds the wavefronts that will be scheduled in one SIMD
 // unit
 type WavefrontPool struct {
 	Capacity int
 	Wfs      []*Wavefront
+	VRegFile core.Component
 }
 
 // NewWavefrontPool creates and returns a new WavefrontPool
