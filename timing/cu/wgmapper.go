@@ -73,6 +73,19 @@ func (m *WGMapperImpl) initVGPRInfo(count []int) {
 	}
 }
 
+// SetWfPoolSizes updates the number of WfPools and it number of wavefronts
+// that a wavefront pool can handle.
+func (m *WGMapperImpl) SetWfPoolSizes(numWfs []int) {
+	m.NumWfPool = len(numWfs)
+	m.initWfInfo(numWfs)
+
+	vgprCount := make([]int, len(numWfs))
+	for i := 0; i < len(numWfs); i++ {
+		vgprCount[i] = 16384
+	}
+	m.initVGPRInfo(vgprCount)
+}
+
 // MapWG uses a first fit algorithm to allocate SGPR, VGPR, and LDS resources.
 // In terms of SIMD selection, it uses a round robin policy.
 func (m *WGMapperImpl) MapWG(req *timing.MapWGReq) bool {

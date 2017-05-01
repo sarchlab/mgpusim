@@ -148,4 +148,22 @@ var _ = Describe("WGMapper", func() {
 		}
 	})
 
+	It("should support non-standard CU size", func() {
+		wgMapper.SetWfPoolSizes([]int{10, 10, 8, 8, 8})
+
+		co.WIVgprCount = 20
+
+		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0],
+			status)
+
+		ok := wgMapper.MapWG(req)
+
+		Expect(ok).To(BeTrue())
+		Expect(wgMapper.WfPoolFreeCount[0]).To(Equal(8))
+		Expect(wgMapper.WfPoolFreeCount[1]).To(Equal(8))
+		Expect(wgMapper.WfPoolFreeCount[2]).To(Equal(6))
+		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(6))
+		Expect(wgMapper.WfPoolFreeCount[4]).To(Equal(6))
+	})
+
 })
