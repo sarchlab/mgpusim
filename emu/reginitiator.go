@@ -94,6 +94,7 @@ func (i *RegInitiator) initSRegsForWf(wiID int) {
 		i.CU.WriteReg(reg, wiID, bytes)
 		count++
 	}
+
 	if i.CO.EnableSgprWorkGroupIdY() {
 		reg := insts.SReg(count)
 		bytes := make([]byte, 4)
@@ -101,6 +102,7 @@ func (i *RegInitiator) initSRegsForWf(wiID int) {
 		i.CU.WriteReg(reg, wiID, bytes)
 		count++
 	}
+
 	if i.CO.EnableSgprWorkGroupIdZ() {
 		reg := insts.SReg(count)
 		bytes := make([]byte, 4)

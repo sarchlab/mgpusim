@@ -207,6 +207,7 @@ func (d *Dispatcher) Recv(req core.Req) *core.Error {
 	default:
 		log.Panicf("Unable to process request %s", reflect.TypeOf(req))
 	}
+
 	return nil
 }
 

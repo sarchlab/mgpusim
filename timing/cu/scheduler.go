@@ -6,21 +6,25 @@ import (
 	"sync"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/timing"
 )
 
 // A Scheduler is responsible for determine which wavefront can fetch, decode,
 // and issue
 //
-//    <=> ToDispatcher The port conneting the scheduler and the dispatcher
-//
+//     ToDispatcher <=>  The port conneting the scheduler and the dispatcher
+//     ToSReg <=> The port connecting the scheduler with the scalar register
+// 				  file
+//     ToVRegs <=> The port connecting ithe scheduler with the vector register
+//                files
 type Scheduler struct {
 	*core.BasicComponent
 	sync.Mutex
 
 	engine   core.Engine
 	wgMapper WGMapper
+	SRegFile core.Component
 
 	WfPools []*WavefrontPool
 
@@ -43,6 +47,8 @@ func NewScheduler(name string, engine core.Engine, wgMapper WGMapper) *Scheduler
 	s.wgMapper = wgMapper
 
 	s.AddPort("ToDispatcher")
+	s.AddPort("ToSReg")
+	s.AddPort("ToVRegs")
 	return s
 }
 
@@ -51,21 +57,6 @@ func (s *Scheduler) initWfPools(numWfs []int) {
 	for i := 0; i < len(numWfs); i++ {
 		s.WfPools = append(s.WfPools, NewWavefrontPool(numWfs[i]))
 	}
-}
-
-// SetWfPoolSize changes the number of wavefront that the scheduler can handle
-// The first argument is the number of wavefront pools, which should always
-// match the number of SIMDs that the comput unit has. The second argument is
-// a slice indicating the number of wavefronts that each wavefront pool can
-// hold. This function must be called before the scheduler has been used,
-// otherwise it will panic.
-func (s *Scheduler) SetWfPoolSize(numWfPool int, numWfs []int) {
-	if s.used {
-		log.Panic("Scheduler cannot resize after mapped with a work-group")
-	}
-
-	// s.initWfPools(numWfPool, numWfs)
-	// s.initVGPRInfo(append(s.VGprCount, s.VGprCount[0]))
 }
 
 // Recv function process the incoming requests
@@ -133,9 +124,12 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	wfPool := s.WfPools[info.SIMDID]
 	managedWf := new(Wavefront)
 	managedWf.Wavefront = wf
+	managedWf.LDSOffset = info.LDSOffset
+	managedWf.SRegOffset = info.SGPROffset
+	managedWf.VRegOffset = info.VGPROffset
 	wfPool.Wfs = append(wfPool.Wfs, managedWf)
 
-	s.initWfRegs(managedWf, req)
+	s.initWfRegs(managedWf, evt)
 
 	if !s.Running {
 		s.Running = true
@@ -146,22 +140,127 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	return nil
 }
 
-func (s *Scheduler) allocateWfRegs(wf *Wavefront, req *timing.DispatchWfReq) {
-}
-
-func (s *Scheduler) initWfRegs(wf *Wavefront, req *timing.DispatchWfReq) {
+func (s *Scheduler) initWfRegs(wf *Wavefront, evt *DispatchWfEvent) {
+	req := evt.Req
 	wf.PC = req.EntryPoint
+	s.initSRegs(wf, evt)
+	s.initVRegs(wf, evt)
 }
 
-// A Wavefront in the timing package contains the information of the progress
-// of a wavefront
-type Wavefront struct {
-	*kernels.Wavefront
+func (s *Scheduler) initSRegs(wf *Wavefront, evt *DispatchWfEvent) {
+	req := evt.Req
+	co := req.Wf.WG.Grid.CodeObject
+	packet := req.Wf.WG.Grid.Packet
+	now := evt.Time()
+	count := 0
 
-	PC          uint64
-	FetchBuffer []byte
-	SRegOffset  int
-	VRegOffset  int
+	if co.EnableSgprPrivateSegmentBuffer() {
+		log.Panic("Initializing register PrivateSegmentBuffer is not supported")
+		count += 4
+	}
+
+	if co.EnableSgprDispatchPtr() {
+		reg := insts.SReg(count)
+		// FIXME: Fillin the correct value
+		bytes := insts.Uint64ToBytes(0)
+		s.writeReg(wf, reg, bytes, now)
+		count += 2
+	}
+
+	if co.EnableSgprQueuePtr() {
+		log.Println("Initializing register QueuePtr is not supported")
+		count += 2
+	}
+
+	if co.EnableSgprKernelArgSegmentPtr() {
+		reg := insts.SReg(count)
+		bytes := insts.Uint64ToBytes(packet.KernargAddress)
+		s.writeReg(wf, reg, bytes, now)
+		count += 2
+	}
+
+	if co.EnableSgprDispatchId() {
+		log.Println("Initializing register DispatchId is not supported")
+		count += 2
+	}
+
+	if co.EnableSgprFlatScratchInit() {
+		log.Println("Initializing register FlatScratchInit is not supported")
+		count += 2
+	}
+
+	if co.EnableSgprPrivateSegementSize() {
+		log.Println("Initializing register PrivateSegementSize is not supported")
+		count++
+	}
+
+	if co.EnableSgprGridWorkGroupCountX() {
+		log.Println("Initializing register GridWorkGroupCountX is not supported")
+		count++
+	}
+
+	if co.EnableSgprGridWorkGroupCountY() {
+		log.Println("Initializing register GridWorkGroupCountY is not supported")
+		count++
+	}
+
+	if co.EnableSgprGridWorkGroupCountZ() {
+		log.Println("Initializing register GridWorkGroupCountZ is not supported")
+		count++
+	}
+
+	if co.EnableSgprWorkGroupIdX() {
+		reg := insts.SReg(count)
+		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDX))
+		s.writeReg(wf, reg, bytes, now)
+		count++
+	}
+
+	if co.EnableSgprWorkGroupIdY() {
+		reg := insts.SReg(count)
+		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDY))
+		s.writeReg(wf, reg, bytes, now)
+		count++
+	}
+
+	if co.EnableSgprWorkGroupIdZ() {
+		reg := insts.SReg(count)
+		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDZ))
+		s.writeReg(wf, reg, bytes, now)
+		count++
+	}
+
+	if co.EnableSgprWorkGroupInfo() {
+		log.Println("Initializing register GridWorkGroupInfo is not supported")
+		count++
+	}
+
+	if co.EnableSgprPrivateSegmentWaveByteOffset() {
+		log.Println("Initializing register PrivateSegmentWaveByteOffset is not supported")
+		count++
+	}
+}
+
+func (s *Scheduler) initVRegs(wf *Wavefront, evt *DispatchWfEvent) {
+}
+
+func (s *Scheduler) writeReg(
+	wf *Wavefront,
+	reg *insts.Reg,
+	data []byte,
+	now core.VTimeInSec,
+) {
+	if reg.IsSReg() {
+		req := NewWriteRegReq(now, reg, wf.SRegOffset, data)
+		req.SetSrc(s)
+		req.SetDst(s.SRegFile)
+		s.GetConnection("ToSReg").Send(req)
+	} else {
+		req := NewWriteRegReq(now, reg, wf.VRegOffset, data)
+		req.SetSrc(s)
+		req.SetDst(s.WfPools[wf.SIMDID].VRegFile)
+		s.GetConnection("ToVRegs").Send(req)
+	}
 }
 
 // MapWGEvent requres the Scheduler to reserve space for a workgroup.
