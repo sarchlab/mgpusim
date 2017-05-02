@@ -13,10 +13,11 @@ import (
 type ReadRegReq struct {
 	*core.ReqBase
 
-	Reg      *insts.Reg
-	ByteSize int
-	Offset   int
-	Buf      []byte
+	Reg       *insts.Reg
+	ByteSize  int
+	Offset    int
+	Buf       []byte
+	Completed bool // Used by the sender to mark the ACK has been received
 }
 
 // NewReadRegReq returns a newly create ReadRegReq
@@ -60,9 +61,10 @@ func NewReadRegEvent(
 type WriteRegReq struct {
 	*core.ReqBase
 
-	Reg    *insts.Reg
-	Offset int
-	Buf    []byte
+	Reg       *insts.Reg
+	Offset    int
+	Buf       []byte
+	Completed bool // Used by the sender to mark the ACK has been received
 }
 
 // NewWriteRegReq creates a new WriteRegReq

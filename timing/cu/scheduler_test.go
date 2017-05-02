@@ -32,21 +32,31 @@ func (m *MockWGMapper) MapWG(req *timing.MapWGReq) bool {
 	return m.OK
 }
 
+type MockWfDispatcher struct {
+	OK bool
+}
+
+func (m *MockWfDispatcher) DispatchWf(evt *cu.DispatchWfEvent) bool {
+	return m.OK
+}
+
 var _ = Describe("Scheduler", func() {
 	var (
-		scheduler  *cu.Scheduler
-		connection *core.MockConnection
-		engine     *core.MockEngine
-		wgMapper   *MockWGMapper
-		grid       *kernels.Grid
-		status     *timing.KernelDispatchStatus
-		co         *insts.HsaCo
+		scheduler    *cu.Scheduler
+		connection   *core.MockConnection
+		engine       *core.MockEngine
+		wgMapper     *MockWGMapper
+		wfDispatcher *MockWfDispatcher
+		grid         *kernels.Grid
+		status       *timing.KernelDispatchStatus
+		co           *insts.HsaCo
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
 		wgMapper = new(MockWGMapper)
-		scheduler = cu.NewScheduler("scheduler", engine, wgMapper)
+		wfDispatcher = new(MockWfDispatcher)
+		scheduler = cu.NewScheduler("scheduler", engine, wgMapper, wfDispatcher)
 		scheduler.Freq = 1 * core.GHz
 		connection = core.NewMockConnection()
 		core.PlugIn(scheduler, "ToDispatcher", connection)
@@ -115,19 +125,17 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Context("when handling dispatch wavefront request", func() {
-		It("should handle wavefront diapatch", func() {
+		It("should reschedule DispatchWfEvent if not complete", func() {
 			wf := grid.WorkGroups[0].Wavefronts[0]
 			info := new(timing.WfDispatchInfo)
 			info.SIMDID = 1
 			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
 			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
 
+			wfDispatcher.OK = false
 			scheduler.Handle(evt)
 
-			Expect(scheduler.Running).To(BeTrue())
-			Expect(scheduler.WfPools[1].Wfs).NotTo(BeEmpty())
-			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-			Expect(scheduler.WfPools[1].Wfs[0].PC).To(Equal(uint64(6256)))
+			Expect(len(engine.ScheduledEvent)).To(Equal(1))
 		})
 	})
 })
