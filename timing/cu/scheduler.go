@@ -263,50 +263,6 @@ func (s *Scheduler) writeReg(
 	}
 }
 
-// MapWGEvent requres the Scheduler to reserve space for a workgroup.
-// The workgroup will not run immediately. The dispatcher will wait for the
-// scheduler to dispatch wavefronts to it.
-type MapWGEvent struct {
-	*core.BasicEvent
-
-	Req *timing.MapWGReq
-}
-
-// NewMapWGEvent creates a new MapWGEvent
-func NewMapWGEvent(
-	handler core.Handler,
-	time core.VTimeInSec,
-	req *timing.MapWGReq,
-) *MapWGEvent {
-	e := new(MapWGEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
-	e.Req = req
-	return e
-}
-
-// DispatchWfEvent requires the scheduler shart to schedule for the event.
-type DispatchWfEvent struct {
-	*core.BasicEvent
-
-	Req *timing.DispatchWfReq
-}
-
-// NewDispatchWfEvent returns a newly created DispatchWfEvent
-func NewDispatchWfEvent(
-	handler core.Handler,
-	time core.VTimeInSec,
-	req *timing.DispatchWfReq,
-) *DispatchWfEvent {
-	e := new(DispatchWfEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
-	e.Req = req
-	return e
-}
-
 // ScheduleEvent requires the scheduler to schedule for the next cycle
 type ScheduleEvent struct {
 	*core.BasicEvent
