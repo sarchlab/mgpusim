@@ -22,9 +22,10 @@ type Scheduler struct {
 	*core.BasicComponent
 	sync.Mutex
 
-	engine   core.Engine
-	wgMapper WGMapper
-	SRegFile core.Component
+	engine       core.Engine
+	wgMapper     WGMapper
+	wfDispatcher WfDispatcher
+	SRegFile     core.Component
 
 	WfPools []*WavefrontPool
 
@@ -36,15 +37,21 @@ type Scheduler struct {
 }
 
 // NewScheduler creates and returns a new Scheduler
-func NewScheduler(name string, engine core.Engine, wgMapper WGMapper) *Scheduler {
+func NewScheduler(
+	name string,
+	engine core.Engine,
+	wgMapper WGMapper,
+	wfDispatcher WfDispatcher,
+) *Scheduler {
 	s := new(Scheduler)
-	s.engine = engine
 	s.BasicComponent = core.NewBasicComponent(name)
+
+	s.engine = engine
+	s.wgMapper = wgMapper
+	s.wfDispatcher = wfDispatcher
 
 	s.initWfPools([]int{10, 10, 10, 10})
 	s.used = false
-
-	s.wgMapper = wgMapper
 
 	s.AddPort("ToDispatcher")
 	s.AddPort("ToSReg")
@@ -117,131 +124,12 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 }
 
 func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
-	req := evt.Req
-	wf := req.Wf
-	info := req.Info
-
-	wfPool := s.WfPools[info.SIMDID]
-	managedWf := new(Wavefront)
-	managedWf.Wavefront = wf
-	managedWf.LDSOffset = info.LDSOffset
-	managedWf.SRegOffset = info.SGPROffset
-	managedWf.VRegOffset = info.VGPROffset
-	wfPool.Wfs = append(wfPool.Wfs, managedWf)
-
-	s.initWfRegs(managedWf, evt)
-
-	if !s.Running {
-		s.Running = true
-		evt := NewScheduleEvent(s, s.Freq.NextTick(evt.Time()))
+	done := s.wfDispatcher.DispatchWf(evt)
+	if !done {
+		evt.SetTime(s.Freq.NextTick(evt.Time()))
 		s.engine.Schedule(evt)
 	}
-
 	return nil
-}
-
-func (s *Scheduler) initWfRegs(wf *Wavefront, evt *DispatchWfEvent) {
-	req := evt.Req
-	wf.PC = req.EntryPoint
-	s.initSRegs(wf, evt)
-	s.initVRegs(wf, evt)
-}
-
-func (s *Scheduler) initSRegs(wf *Wavefront, evt *DispatchWfEvent) {
-	req := evt.Req
-	co := req.Wf.WG.Grid.CodeObject
-	packet := req.Wf.WG.Grid.Packet
-	now := evt.Time()
-	count := 0
-
-	if co.EnableSgprPrivateSegmentBuffer() {
-		log.Panic("Initializing register PrivateSegmentBuffer is not supported")
-		count += 4
-	}
-
-	if co.EnableSgprDispatchPtr() {
-		reg := insts.SReg(count)
-		// FIXME: Fillin the correct value
-		bytes := insts.Uint64ToBytes(0)
-		s.writeReg(wf, reg, bytes, now)
-		count += 2
-	}
-
-	if co.EnableSgprQueuePtr() {
-		log.Println("Initializing register QueuePtr is not supported")
-		count += 2
-	}
-
-	if co.EnableSgprKernelArgSegmentPtr() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint64ToBytes(packet.KernargAddress)
-		s.writeReg(wf, reg, bytes, now)
-		count += 2
-	}
-
-	if co.EnableSgprDispatchId() {
-		log.Println("Initializing register DispatchId is not supported")
-		count += 2
-	}
-
-	if co.EnableSgprFlatScratchInit() {
-		log.Println("Initializing register FlatScratchInit is not supported")
-		count += 2
-	}
-
-	if co.EnableSgprPrivateSegementSize() {
-		log.Println("Initializing register PrivateSegementSize is not supported")
-		count++
-	}
-
-	if co.EnableSgprGridWorkGroupCountX() {
-		log.Println("Initializing register GridWorkGroupCountX is not supported")
-		count++
-	}
-
-	if co.EnableSgprGridWorkGroupCountY() {
-		log.Println("Initializing register GridWorkGroupCountY is not supported")
-		count++
-	}
-
-	if co.EnableSgprGridWorkGroupCountZ() {
-		log.Println("Initializing register GridWorkGroupCountZ is not supported")
-		count++
-	}
-
-	if co.EnableSgprWorkGroupIdX() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDX))
-		s.writeReg(wf, reg, bytes, now)
-		count++
-	}
-
-	if co.EnableSgprWorkGroupIdY() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDY))
-		s.writeReg(wf, reg, bytes, now)
-		count++
-	}
-
-	if co.EnableSgprWorkGroupIdZ() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDZ))
-		s.writeReg(wf, reg, bytes, now)
-		count++
-	}
-
-	if co.EnableSgprWorkGroupInfo() {
-		log.Println("Initializing register GridWorkGroupInfo is not supported")
-		count++
-	}
-
-	if co.EnableSgprPrivateSegmentWaveByteOffset() {
-		log.Println("Initializing register PrivateSegmentWaveByteOffset is not supported")
-		count++
-	}
-}
-
-func (s *Scheduler) initVRegs(wf *Wavefront, evt *DispatchWfEvent) {
 }
 
 func (s *Scheduler) writeReg(
