@@ -69,7 +69,6 @@ func (b *Builder) initRegFiles(computeUnit *ComputeUnit) {
 // connections inside the compute unit
 func (b *Builder) connect(computeUnit *ComputeUnit) {
 	connection := core.NewDirectConnection()
-	core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
 	core.PlugIn(computeUnit.Scheduler, "ToSReg", connection)
 	core.PlugIn(computeUnit.Scheduler, "ToVRegs", connection)
 
