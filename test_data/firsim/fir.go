@@ -13,6 +13,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
+	"gitlab.com/yaotsu/gcn3/timing/cu"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -58,8 +59,14 @@ func initPlatform() {
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
-	disassembler := insts.NewDisassembler()
+	// disassembler := insts.NewDisassembler()
+	cuBuilder := cu.NewBuilder()
+	cuBuilder.Engine = engine
 	for i := 0; i < 4; i++ {
+		cuBuilder.CUName = "cu" + string(i)
+		computeUnit := cuBuilder.Build()
+		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
+		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
 	}
 
 	// Connection
@@ -68,6 +75,7 @@ func initPlatform() {
 	core.PlugIn(commandProcessor, "ToDispatcher", connection)
 	core.PlugIn(host, "ToGpu", connection)
 	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
+	core.PlugIn(dispatcher, "ToCUs", connection)
 	core.PlugIn(globalMem, "Top", connection)
 }
 
