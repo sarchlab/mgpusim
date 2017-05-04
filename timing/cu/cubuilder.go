@@ -32,6 +32,7 @@ func (b *Builder) Build() *ComputeUnit {
 
 	computeUnit.Scheduler = b.initScheduler()
 	b.initRegFiles(computeUnit)
+	b.connect(computeUnit)
 
 	return computeUnit
 }
@@ -58,4 +59,22 @@ func (b *Builder) initRegFiles(computeUnit *ComputeUnit) {
 	storage = mem.NewStorage(uint64(b.SGPRCount * 4))
 	regFile = NewRegCtrl(b.CUName+".sgprs", storage, b.Engine)
 	computeUnit.SRegFile = regFile
+}
+
+// connect uses a direct connection to connect all the internal component of
+// the compute unit.
+//
+// Since direct connection is the default connection to use, no latency is
+// considered. However, users can overwrite this function to use other type of
+// connections inside the compute unit
+func (b *Builder) connect(computeUnit *ComputeUnit) {
+	connection := core.NewDirectConnection()
+	core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
+	core.PlugIn(computeUnit.Scheduler, "ToSReg", connection)
+	core.PlugIn(computeUnit.Scheduler, "ToVRegs", connection)
+
+	for i := 0; i < b.SIMDCount; i++ {
+		core.PlugIn(computeUnit.VRegFiles[i], "ToOutside", connection)
+	}
+	core.PlugIn(computeUnit.SRegFile, "ToOutside", connection)
 }
