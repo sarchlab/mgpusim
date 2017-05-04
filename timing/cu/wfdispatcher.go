@@ -82,26 +82,26 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) bool {
 		case Initialized:
 			done := d.initSRegs(managedWf, evt)
 			if done {
-				evt.State = Completed
+				evt.State = SRegSet
 			} else {
 				return false
 			}
 		case SRegSet:
-			// done := d.initVRegs(managedWf, evt)
-			// if done {
-			// 	evt.State = VRegSet
-			// } else {
-			// 	return false
-			// }
+			done := d.initVRegs(managedWf, evt)
+			if done {
+				evt.State = VRegSet
+			} else {
+				return false
+			}
 		case VRegSet:
-			// done := d.allReqCompleted(evt)
-			// if done {
-			// 	evt.State = Completed
-			// } else {
-			// 	return false
-			// }
+			done := d.allReqCompleted(evt)
+			if done {
+				evt.State = Completed
+			} else {
+				return false
+			}
 		case Completed:
-			// managedWf.Status = Running
+			managedWf.Status = Running
 			return true
 		}
 	}
