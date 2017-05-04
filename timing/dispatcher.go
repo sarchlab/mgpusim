@@ -78,6 +78,8 @@ func NewMapWGReq(
 type DispatchWfReq struct {
 	*core.ReqBase
 	Wf         *kernels.Wavefront
+	CodeObject *insts.HsaCo
+	Packet     *kernels.HsaKernelDispatchPacket
 	Info       *WfDispatchInfo
 	EntryPoint uint64
 }
