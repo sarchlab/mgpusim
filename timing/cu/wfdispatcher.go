@@ -73,33 +73,36 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) bool {
 			managedWf.LDSOffset = info.LDSOffset
 			managedWf.SRegOffset = info.SGPROffset
 			managedWf.VRegOffset = info.VGPROffset
+			managedWf.CodeObject = req.CodeObject
+			managedWf.Packet = req.Packet
 			wfPool.Wfs = append(wfPool.Wfs, managedWf)
+			evt.ManagedWf = managedWf
 			d.initCtrlRegs(evt)
 			evt.State = Initialized
 		case Initialized:
 			done := d.initSRegs(managedWf, evt)
 			if done {
-				evt.State = SRegSet
-			} else {
-				return false
-			}
-		case SRegSet:
-			done := d.initVRegs(managedWf, evt)
-			if done {
-				evt.State = VRegSet
-			} else {
-				return false
-			}
-		case VRegSet:
-			done := d.allReqCompleted(evt)
-			if done {
 				evt.State = Completed
 			} else {
 				return false
 			}
+		case SRegSet:
+			// done := d.initVRegs(managedWf, evt)
+			// if done {
+			// 	evt.State = VRegSet
+			// } else {
+			// 	return false
+			// }
+		case VRegSet:
+			// done := d.allReqCompleted(evt)
+			// if done {
+			// 	evt.State = Completed
+			// } else {
+			// 	return false
+			// }
 		case Completed:
-			managedWf.Status = Running
-			return false
+			// managedWf.Status = Running
+			return true
 		}
 	}
 }
@@ -111,8 +114,8 @@ func (d *WfDispatcherImpl) initCtrlRegs(evt *DispatchWfEvent) {
 
 func (d *WfDispatcherImpl) initSRegs(wf *Wavefront, evt *DispatchWfEvent) bool {
 	req := evt.Req
-	co := req.Wf.WG.Grid.CodeObject
-	packet := req.Wf.WG.Grid.Packet
+	co := req.CodeObject
+	packet := req.Packet
 	now := evt.Time()
 	count := 0
 

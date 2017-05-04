@@ -1,6 +1,7 @@
 package cu
 
 import "gitlab.com/yaotsu/gcn3/kernels"
+import "gitlab.com/yaotsu/gcn3/insts"
 
 // WfState marks what state that wavefront it in.
 type WfState int
@@ -15,6 +16,9 @@ const (
 // of a wavefront
 type Wavefront struct {
 	*kernels.Wavefront
+
+	CodeObject *insts.HsaCo
+	Packet     *kernels.HsaKernelDispatchPacket
 
 	Status WfState
 
