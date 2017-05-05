@@ -40,9 +40,12 @@ func (b *GridBuilderImpl) spawnWorkGroups(g *Grid) {
 				xToAllocate := min(xLeft, uint32(g.Packet.WorkgroupSizeX))
 				wg := NewWorkGroup()
 				wg.Grid = g
-				wg.SizeX = int(xToAllocate)
-				wg.SizeY = int(yToAllocate)
-				wg.SizeZ = int(zToAllocate)
+				wg.CurrSizeX = int(xToAllocate)
+				wg.CurrSizeY = int(yToAllocate)
+				wg.CurrSizeZ = int(zToAllocate)
+				wg.SizeX = int(g.Packet.WorkgroupSizeX)
+				wg.SizeY = int(g.Packet.WorkgroupSizeY)
+				wg.SizeZ = int(g.Packet.WorkgroupSizeZ)
 				wg.IDX = wgIDX
 				wg.IDY = wgIDY
 				wg.IDY = wgIDZ
@@ -59,6 +62,9 @@ func (b *GridBuilderImpl) spawnWorkGroups(g *Grid) {
 		wgIDZ++
 	}
 
+}
+
+func (b *GridBuilderImpl) spawnWorkItems(wg *WorkGroup) {
 }
 
 func min(a, b uint32) uint32 {
