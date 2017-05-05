@@ -10,20 +10,23 @@ type Grid struct {
 	Packet     *HsaKernelDispatchPacket
 
 	WorkGroups []*WorkGroup
+	WorkItems  []*WorkItem
 }
 
 // NewGrid creates and returns a new grid object
 func NewGrid() *Grid {
 	g := new(Grid)
 	g.WorkGroups = make([]*WorkGroup, 0)
+	g.WorkItems = make([]*WorkItem, 0)
 	return g
 }
 
 // A WorkGroup is part of the kernel that runs on one ComputeUnit
 type WorkGroup struct {
-	Grid                *Grid
-	SizeX, SizeY, SizeZ int
-	IDX, IDY, IDZ       int
+	Grid                            *Grid
+	SizeX, SizeY, SizeZ             int
+	IDX, IDY, IDZ                   int
+	CurrSizeX, CurrSizeY, CurrSizeZ int
 
 	Wavefronts []*Wavefront
 }
@@ -51,9 +54,6 @@ func NewWavefront() *Wavefront {
 
 // A WorkItem defins a set of vector registers
 type WorkItem struct {
-	IDX, IDY, IDZ          int
-	FlatID                 int
-	CurrFlatID             int
-	AbsIDX, AbsIDY, AbsIDZ int
-	FlatAbsID              int
+	WG            *WorkGroup
+	IDX, IDY, IDZ int
 }
