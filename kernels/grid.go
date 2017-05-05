@@ -29,12 +29,14 @@ type WorkGroup struct {
 	CurrSizeX, CurrSizeY, CurrSizeZ int
 
 	Wavefronts []*Wavefront
+	WorkItems  []*WorkItem
 }
 
 // NewWorkGroup creates a workgroup object
 func NewWorkGroup() *WorkGroup {
 	wg := new(WorkGroup)
 	wg.Wavefronts = make([]*Wavefront, 0)
+	wg.WorkItems = make([]*WorkItem, 0)
 	return wg
 }
 
@@ -48,7 +50,7 @@ type Wavefront struct {
 // NewWavefront returns a new Wavefront
 func NewWavefront() *Wavefront {
 	wf := new(Wavefront)
-	wf.WorkItems = make([]*WorkItem, 0)
+	wf.WorkItems = make([]*WorkItem, 0, 64)
 	return wf
 }
 

@@ -50,6 +50,8 @@ func (b *GridBuilderImpl) spawnWorkGroups(g *Grid) {
 				wg.IDY = wgIDY
 				wg.IDY = wgIDZ
 				xLeft -= xToAllocate
+				b.spawnWorkItems(wg)
+				b.formWavefronts(wg)
 				g.WorkGroups = append(g.WorkGroups, wg)
 				wgIDX++
 			}
@@ -65,6 +67,31 @@ func (b *GridBuilderImpl) spawnWorkGroups(g *Grid) {
 }
 
 func (b *GridBuilderImpl) spawnWorkItems(wg *WorkGroup) {
+	for z := 0; z < wg.CurrSizeZ; z++ {
+		for y := 0; y < wg.CurrSizeY; y++ {
+			for x := 0; x < wg.CurrSizeX; x++ {
+				wi := new(WorkItem)
+				wi.WG = wg
+				wi.IDX = x
+				wi.IDY = y
+				wi.IDZ = z
+				wg.WorkItems = append(wg.WorkItems, wi)
+			}
+		}
+	}
+}
+
+func (b *GridBuilderImpl) formWavefronts(wg *WorkGroup) {
+	var wf *Wavefront
+	wavefrontSize := 64
+	for i := 0; i < len(wg.WorkItems); i++ {
+		if i%wavefrontSize == 0 {
+			wf = NewWavefront()
+			wf.WG = wg
+			wg.Wavefronts = append(wg.Wavefronts, wf)
+		}
+		wf.WorkItems = append(wf.WorkItems, wg.WorkItems[i])
+	}
 }
 
 func min(a, b uint32) uint32 {
