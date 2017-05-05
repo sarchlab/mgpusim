@@ -207,8 +207,9 @@ var _ = Describe("Dispatcher", func() {
 			status.CUBusy[0] = true
 			status.DispatchingCUID = -1
 
-			mapWGReq := timing.NewMapWGReq(dispatcher, cu1, 10, grid.WorkGroups[0],
-				status)
+			mapWGReq := timing.NewMapWGReq(dispatcher, cu1, 10,
+				grid.WorkGroups[0], status)
+			mapWGReq.CUID = 1
 			connection.ExpectSend(mapWGReq, nil)
 
 			dispatcher.Handle(evt)

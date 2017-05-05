@@ -53,6 +53,7 @@ type MapWGReq struct {
 	KernelStatus  *KernelDispatchStatus
 	Ok            bool
 	WfDispatchMap map[*kernels.Wavefront]*WfDispatchInfo // Tells where a wf should fit in
+	CUID          int
 }
 
 // NewMapWGReq returns a newly created MapWGReq
@@ -244,6 +245,7 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 
 	if req.Ok {
 		status.DispatchingWfs = req.WfDispatchMap
+		status.DispatchingCUID = req.CUID
 		status.Mapped = true
 	} else {
 		status.CUBusy[status.DispatchingCUID] = true
@@ -332,6 +334,7 @@ func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
 		cu := d.CUs[cuID]
 		wg := status.WGs[0]
 		req := NewMapWGReq(d, cu, evt.Time(), wg, status)
+		req.CUID = cuID
 
 		d.GetConnection("ToCUs").Send(req)
 	}
