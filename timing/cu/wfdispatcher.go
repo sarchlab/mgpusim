@@ -120,7 +120,7 @@ func (d *WfDispatcherImpl) initSRegs(wf *Wavefront, evt *DispatchWfEvent) bool {
 	count := 0
 
 	if co.EnableSgprPrivateSegmentBuffer() {
-		log.Panic("Initializing register PrivateSegmentBuffer is not supported")
+		log.Println("Initializing register PrivateSegmentBuffer is not supported")
 		count += 4
 	}
 

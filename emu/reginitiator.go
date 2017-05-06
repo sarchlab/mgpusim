@@ -32,8 +32,8 @@ func (i *RegInitiator) initSRegs() {
 
 func (i *RegInitiator) initSRegsForWf(wiID int) {
 	count := 0
-	if i.CO.EnableSgprPrivateSegmentWaveByteOffset() {
-		log.Panic("Initializing register PrivateSegmentWaveByteOffset is not supported")
+	if i.CO.EnableSgprPrivateSegmentBuffer() {
+		log.Panic("Initializing register PrivateSegmentBuffer is not supported")
 		count += 4
 	}
 

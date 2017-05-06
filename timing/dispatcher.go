@@ -310,6 +310,8 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 	for wf, info = range status.DispatchingWfs {
 		req = NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
 			wf, info, entryPoint)
+		req.CodeObject = status.CodeObject
+		req.Packet = status.Packet
 		break
 	}
 
