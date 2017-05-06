@@ -358,19 +358,17 @@ func (d *Dispatcher) isAllCUsBusy(status *KernelDispatchStatus) bool {
 }
 
 func (d *Dispatcher) nextAvailableCU(status *KernelDispatchStatus) int {
-	startingFrom := status.DispatchingCUID
-	cuID := startingFrom
-	for {
+	count := len(status.CUBusy)
+	cuID := status.DispatchingCUID
+	for i := 0; i < count; i++ {
 		cuID++
 		if cuID >= len(status.CUBusy) {
 			cuID = 0
-		}
-		if cuID == startingFrom {
-			return -1 // Not found. Should call isAllCUBusy to check first.
 		}
 
 		if !status.CUBusy[cuID] {
 			return cuID
 		}
 	}
+	return -1
 }
