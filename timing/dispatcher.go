@@ -248,7 +248,8 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 		status.DispatchingCUID = req.CUID
 		status.Mapped = true
 	} else {
-		status.CUBusy[status.DispatchingCUID] = true
+		log.Printf("Marking cu %d as busy\n", req.CUID)
+		status.CUBusy[req.CUID] = true
 	}
 
 	evt := NewKernelDispatchEvent()
@@ -326,6 +327,10 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 		if len(status.DispatchingWfs) == 0 {
 			status.Mapped = false
 		}
+		if len(status.DispatchingWfs) > 0 || len(status.WGs) > 0 {
+			evt.SetTime(d.Freq.NextTick(evt.Time()))
+			d.engine.Schedule(evt)
+		}
 	}
 }
 
@@ -338,6 +343,7 @@ func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
 		req := NewMapWGReq(d, cu, evt.Time(), wg, status)
 		req.CUID = cuID
 
+		log.Printf("Trying to map wg to cu %d\n", cuID)
 		d.GetConnection("ToCUs").Send(req)
 	}
 }

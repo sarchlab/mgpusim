@@ -99,6 +99,9 @@ func (s *Scheduler) processDispatchWfReq(
 
 // Handle processes the event that is scheduled on this scheduler
 func (s *Scheduler) Handle(evt core.Event) error {
+	s.InvokeHook(evt, core.BeforeEvent)
+	defer s.InvokeHook(evt, core.AfterEvent)
+
 	switch evt := evt.(type) {
 	case *MapWGEvent:
 		return s.handleMapWGEvent(evt)
