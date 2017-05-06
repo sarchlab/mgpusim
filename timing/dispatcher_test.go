@@ -99,9 +99,11 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should mark CU busy if the MapWGReq is failed", func() {
-		mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0],
-			timing.NewKernelDispatchStatus())
+		status := timing.NewKernelDispatchStatus()
+		status.DispatchingCUID = 0 // This is not the CU to be marked as busy
+		mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0], status)
 		mapWGReq.Ok = false
+		mapWGReq.CUID = 1 // This is the CU to be marked as busy
 		mapWGReq.KernelStatus.CUBusy = make([]bool, 2)
 
 		dispatcher.Recv(mapWGReq)
@@ -110,7 +112,7 @@ var _ = Describe("Dispatcher", func() {
 		evt := engine.ScheduledEvent[0].(*timing.KernelDispatchEvent)
 		Expect(evt.Time()).To(BeNumerically("~", 1e-9, 1e-12))
 
-		Expect(mapWGReq.KernelStatus.CUBusy[0]).To(BeTrue())
+		Expect(mapWGReq.KernelStatus.CUBusy[1]).To(BeTrue())
 		Expect(mapWGReq.KernelStatus.Mapped).To(BeFalse())
 	})
 
@@ -163,6 +165,7 @@ var _ = Describe("Dispatcher", func() {
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(status.DispatchingWfs).NotTo(ContainElement(
 				BeIdenticalTo(wf)))
+			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
 		})
 
 		It("should map another workgroup after dispatching wavefronts", func() {
@@ -193,6 +196,7 @@ var _ = Describe("Dispatcher", func() {
 				BeIdenticalTo(wf)))
 			Expect(status.DispatchingWfs).To(BeEmpty())
 			Expect(status.Mapped).To(BeFalse())
+			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
 		})
 
 		It("should find not busy CUs to dispatch", func() {
@@ -205,7 +209,7 @@ var _ = Describe("Dispatcher", func() {
 			status.Grid = grid
 			status.CUBusy = make([]bool, 2)
 			status.CUBusy[0] = true
-			status.DispatchingCUID = -1
+			status.DispatchingCUID = 1
 
 			mapWGReq := timing.NewMapWGReq(dispatcher, cu1, 10,
 				grid.WorkGroups[0], status)

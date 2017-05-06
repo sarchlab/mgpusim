@@ -67,6 +67,12 @@ func initPlatform() {
 		computeUnit := cuBuilder.Build()
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
 		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
+
+		// Hook
+		mapWGHook := cu.NewMapWGHook()
+		computeUnit.Scheduler.AcceptHook(mapWGHook)
+		dispatchWfHook := cu.NewDispatchWfHook()
+		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
 	}
 
 	// Connection
