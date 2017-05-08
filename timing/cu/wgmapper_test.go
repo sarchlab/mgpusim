@@ -166,4 +166,29 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[4]).To(Equal(6))
 	})
 
+	It("should clear reservation when unmap wg", func() {
+		wg := kernels.NewWorkGroup()
+		for i := 0; i < 10; i++ {
+			wf := kernels.NewWavefront()
+			wg.Wavefronts = append(wg.Wavefronts, wf)
+		}
+		co.WIVgprCount = 16
+		co.WGGroupSegmentByteSize = 1024
+		co.WFSgprCount = 64
+		status.CodeObject = co
+		req := timing.NewMapWGReq(nil, nil, 0, wg, status)
+
+		managedWG := cu.NewWorkGroup(wg, req)
+
+		wgMapper.MapWG(req)
+		wgMapper.UnmapWG(managedWG)
+
+		Expect(wgMapper.WfPoolFreeCount[0]).To(Equal(10))
+		Expect(wgMapper.LDSMask.StatusCount(cu.AllocStatusFree)).To(Equal(256))
+		Expect(wgMapper.SGprMask.StatusCount(cu.AllocStatusFree)).To(Equal(128))
+		Expect(wgMapper.VGprMask[0].StatusCount(cu.AllocStatusFree)).To(Equal(64))
+		Expect(wgMapper.VGprMask[1].StatusCount(cu.AllocStatusFree)).To(Equal(64))
+		Expect(wgMapper.VGprMask[2].StatusCount(cu.AllocStatusFree)).To(Equal(64))
+		Expect(wgMapper.VGprMask[3].StatusCount(cu.AllocStatusFree)).To(Equal(64))
+	})
 })

@@ -45,6 +45,7 @@ type WorkGroup struct {
 func NewWorkGroup(raw *kernels.WorkGroup, req *timing.MapWGReq) *WorkGroup {
 	wg := new(WorkGroup)
 	wg.WorkGroup = raw
+	wg.MapReq = req
 	wg.Wfs = make([]*Wavefront, 0)
 	return wg
 }
