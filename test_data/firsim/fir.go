@@ -156,6 +156,7 @@ func run() {
 
 	req.SetSrc(host)
 	req.SetDst(gpu)
+	req.SetSendTime(0)
 	connErr := connection.Send(req)
 	if connErr != nil {
 		log.Fatal(connErr)

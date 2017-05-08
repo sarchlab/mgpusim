@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -30,5 +31,7 @@ func (h *MapWGHook) Pos() core.HookPos {
 // Func defines the behavior when the hook is triggered
 func (h *MapWGHook) Func(item interface{}, domain core.Hookable) {
 	evt := item.(*MapWGEvent)
-	log.Printf("MapWG: ok: %t", evt.Req.Ok)
+	req := evt.Req
+	str := fmt.Sprintf("%f MapWG ok: %t, CU: %d", evt.Time(), req.Ok, req.CUID)
+	log.Print(str)
 }
