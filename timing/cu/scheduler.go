@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 )
 
@@ -33,7 +34,8 @@ type Scheduler struct {
 	Freq    core.Freq
 	Running bool
 
-	MappedWGs []*timing.MapWGReq
+	// A set of workgroups running on current CU
+	RunningWGs map[*kernels.WorkGroup]*WorkGroup
 }
 
 // NewScheduler creates and returns a new Scheduler
@@ -52,6 +54,7 @@ func NewScheduler(
 
 	s.initWfPools([]int{10, 10, 10, 10})
 	s.used = false
+	s.RunningWGs = make(map[*kernels.WorkGroup]*WorkGroup)
 
 	s.AddPort("ToDispatcher")
 	s.AddPort("ToSReg")
@@ -118,6 +121,11 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 
 	ok := s.wgMapper.MapWG(req)
 
+	if ok {
+		managedWG := NewWorkGroup(req.WG)
+		s.RunningWGs[req.WG] = managedWG
+	}
+
 	req.Ok = ok
 	req.SwapSrcAndDst()
 	req.SetSendTime(evt.Time())
@@ -169,4 +177,9 @@ func NewScheduleEvent(
 	e.SetHandler(handler)
 	e.SetTime(time)
 	return e
+}
+
+// A WfCompleteEvent marks the competion of a wavefront
+type WfCompleteEvent struct {
+	*core.BasicEvent
 }
