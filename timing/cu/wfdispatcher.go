@@ -48,7 +48,7 @@ func NewDispatchWfEvent(
 
 // A WfDispatcher initiaize wavefronts
 type WfDispatcher interface {
-	DispatchWf(evt *DispatchWfEvent) bool
+	DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront)
 }
 
 // A WfDispatcherImpl will register the wavefront in wavefront pool and
@@ -58,7 +58,7 @@ type WfDispatcherImpl struct {
 }
 
 // DispatchWf starts or continues a wavefront dispatching process.
-func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) bool {
+func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
 	req := evt.Req
 	wf := req.Wf
 	info := req.Info
@@ -84,25 +84,25 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) bool {
 			if done {
 				evt.State = SRegSet
 			} else {
-				return false
+				return false, nil
 			}
 		case SRegSet:
 			done := d.initVRegs(managedWf, evt)
 			if done {
 				evt.State = VRegSet
 			} else {
-				return false
+				return false, nil
 			}
 		case VRegSet:
 			done := d.allReqCompleted(evt)
 			if done {
 				evt.State = Done
 			} else {
-				return false
+				return false, nil
 			}
 		case Done:
 			managedWf.Status = Ready
-			return true
+			return true, managedWf
 		}
 	}
 }

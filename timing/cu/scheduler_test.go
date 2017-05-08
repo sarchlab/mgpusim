@@ -36,8 +36,8 @@ type MockWfDispatcher struct {
 	OK bool
 }
 
-func (m *MockWfDispatcher) DispatchWf(evt *cu.DispatchWfEvent) bool {
-	return m.OK
+func (m *MockWfDispatcher) DispatchWf(evt *cu.DispatchWfEvent) (bool, *cu.Wavefront) {
+	return m.OK, nil
 }
 
 var _ = Describe("Scheduler", func() {
@@ -122,7 +122,6 @@ var _ = Describe("Scheduler", func() {
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeFalse())
 		})
-
 	})
 
 	Context("when handling dispatch wavefront request", func() {
@@ -137,6 +136,23 @@ var _ = Describe("Scheduler", func() {
 			scheduler.Handle(evt)
 
 			Expect(len(engine.ScheduledEvent)).To(Equal(1))
+		})
+
+		It("should add wavefront to workgroup", func() {
+			wf := grid.WorkGroups[0].Wavefronts[0]
+			wf.WG = grid.WorkGroups[0]
+			managedWG := cu.NewWorkGroup(wf.WG)
+			info := new(timing.WfDispatchInfo)
+			info.SIMDID = 1
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
+			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
+			scheduler.RunningWGs[grid.WorkGroups[0]] = managedWG
+
+			wfDispatcher.OK = true
+			scheduler.Handle(evt)
+
+			Expect(len(engine.ScheduledEvent)).To(Equal(0))
+			Expect(len(managedWG.Wfs)).To(Equal(1))
 		})
 	})
 })

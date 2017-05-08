@@ -135,11 +135,15 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 }
 
 func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
-	done := s.wfDispatcher.DispatchWf(evt)
+	done, wf := s.wfDispatcher.DispatchWf(evt)
 	if !done {
 		evt.SetTime(s.Freq.NextTick(evt.Time()))
 		s.engine.Schedule(evt)
+	} else {
+		wg := s.RunningWGs[evt.Req.Wf.WG]
+		wg.Wfs = append(wg.Wfs, wf)
 	}
+
 	return nil
 }
 
