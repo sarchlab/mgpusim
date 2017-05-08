@@ -18,6 +18,7 @@ func prepareGrid() *kernels.Grid {
 		grid.WorkGroups = append(grid.WorkGroups, wg)
 		for j := 0; j < 10; j++ {
 			wf := kernels.NewWavefront()
+			wf.WG = wg
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 	}
@@ -141,7 +142,7 @@ var _ = Describe("Scheduler", func() {
 		It("should add wavefront to workgroup", func() {
 			wf := grid.WorkGroups[0].Wavefronts[0]
 			wf.WG = grid.WorkGroups[0]
-			managedWG := cu.NewWorkGroup(wf.WG)
+			managedWG := cu.NewWorkGroup(wf.WG, nil)
 			info := new(timing.WfDispatchInfo)
 			info.SIMDID = 1
 			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
@@ -153,6 +154,37 @@ var _ = Describe("Scheduler", func() {
 
 			Expect(len(engine.ScheduledEvent)).To(Equal(0))
 			Expect(len(managedWG.Wfs)).To(Equal(1))
+		})
+	})
+
+	Context("when handling WfCompleteEvent", func() {
+		It("should clear all the wg reservation and send a message back", func() {
+			// status := timing.NewKernelDispatchStatus()
+			wg := grid.WorkGroups[0]
+			mapReq := timing.NewMapWGReq(nil, scheduler, 0, wg, nil)
+			mapReq.SwapSrcAndDst()
+			managedWG := cu.NewWorkGroup(wg, nil)
+			managedWG.MapReq = mapReq
+			scheduler.RunningWGs[wg] = managedWG
+
+			var wfToComplete *cu.Wavefront
+			for i := 0; i < len(wg.Wavefronts); i++ {
+				managedWf := new(cu.Wavefront)
+				managedWf.Wavefront = wg.Wavefronts[i]
+				managedWf.Status = cu.Completed
+				if i == 6 {
+					managedWf.Status = cu.Running
+					wfToComplete = managedWf
+				}
+			}
+
+			evt := cu.NewWfCompleteEvent(0, wfToComplete)
+			reqToSend := timing.NewWGFinishMesg(scheduler, nil, 0, wg, nil)
+			connection.ExpectSend(reqToSend, nil)
+
+			scheduler.Handle(evt)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
 		})
 	})
 })

@@ -110,6 +110,8 @@ func (s *Scheduler) Handle(evt core.Event) error {
 		return s.handleMapWGEvent(evt)
 	case *DispatchWfEvent:
 		return s.handleDispatchWfEvent(evt)
+	case *WfCompleteEvent:
+		return s.handleWfCompleteEvent(evt)
 	default:
 		log.Panicf("Cannot handle event type %s", reflect.TypeOf(evt))
 	}
@@ -122,7 +124,7 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	ok := s.wgMapper.MapWG(req)
 
 	if ok {
-		managedWG := NewWorkGroup(req.WG)
+		managedWG := NewWorkGroup(req.WG, req)
 		s.RunningWGs[req.WG] = managedWG
 	}
 
@@ -145,6 +147,56 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	}
 
 	return nil
+}
+
+func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
+	wf := evt.Wf
+	wg := s.RunningWGs[wf.WG]
+	wf.Status = Completed
+
+	if s.isAllWfInWGCompleted(wg) {
+		ok := s.sendWGCompletionMessage(evt, wg)
+		if ok {
+			s.clearWGResource(wg)
+		}
+	}
+
+	return nil
+}
+
+func (s *Scheduler) isAllWfInWGCompleted(wg *WorkGroup) bool {
+	for _, wf := range wg.Wfs {
+		// FIXME, is there data race here, or only scheduler can change
+		// wavefront status?
+		if wf.Status != Completed {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Scheduler) sendWGCompletionMessage(evt *WfCompleteEvent, wg *WorkGroup) bool {
+	mapReq := wg.MapReq
+	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
+	now := evt.Time()
+	mesg := timing.NewWGFinishMesg(s, dispatcher, now, wg.WorkGroup,
+		mapReq.KernelStatus)
+
+	err := s.GetConnection("ToDispatcher").Send(mesg)
+	if err != nil {
+		if !err.Recoverable {
+			log.Fatal(err)
+		} else {
+			evt.SetTime(s.Freq.NoEarlierThan(err.EarliestRetry))
+			s.engine.Schedule(evt)
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Scheduler) clearWGResource(wg *WorkGroup) {
+
 }
 
 func (s *Scheduler) writeReg(
@@ -186,4 +238,14 @@ func NewScheduleEvent(
 // A WfCompleteEvent marks the competion of a wavefront
 type WfCompleteEvent struct {
 	*core.BasicEvent
+	Wf *Wavefront
+}
+
+// NewWfCompleteEvent returns a newly constructed WfCompleteEvent
+func NewWfCompleteEvent(time core.VTimeInSec, wf *Wavefront) *WfCompleteEvent {
+	evt := new(WfCompleteEvent)
+	evt.BasicEvent = core.NewBasicEvent()
+	evt.SetTime(time)
+	evt.Wf = wf
+	return evt
 }
