@@ -164,7 +164,7 @@ func (m *WGMapperImpl) withinLDSLimitation(req *timing.MapWGReq) bool {
 
 	// Set the information
 	for _, wf := range req.WG.Wavefronts {
-		req.WfDispatchMap[wf].LDSOffset = offset * 256
+		req.WfDispatchMap[wf].LDSOffset = offset * m.LDSGranularity
 	}
 	m.LDSMask.SetStatus(offset, required, AllocStatusToReserve)
 	return true
@@ -229,5 +229,20 @@ func (m *WGMapperImpl) reserveResources(req *timing.MapWGReq) {
 
 // UnmapWG will remove all the resource reservation of a workgroup
 func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
-	// TODO
+	req := wg.MapReq
+	co := req.KernelStatus.CodeObject
+	for _, info := range wg.MapReq.WfDispatchMap {
+		m.WfPoolFreeCount[info.SIMDID]++
+		m.LDSMask.SetStatus(info.LDSOffset/m.LDSGranularity,
+			int(co.WGGroupSegmentByteSize)/m.LDSGranularity,
+			AllocStatusFree)
+		m.SGprMask.SetStatus(info.SGPROffset/4/m.SGprGranularity,
+			int(co.WFSgprCount)/m.SGprGranularity,
+			AllocStatusFree)
+		m.VGprMask[info.SIMDID].SetStatus(
+			info.VGPROffset/4/m.VGprGranularity,
+			int(co.WIVgprCount)*64/m.VGprGranularity,
+			AllocStatusFree)
+	}
+
 }
