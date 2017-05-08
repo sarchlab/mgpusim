@@ -2,6 +2,7 @@ package cu
 
 import "gitlab.com/yaotsu/gcn3/kernels"
 import "gitlab.com/yaotsu/gcn3/insts"
+import "gitlab.com/yaotsu/gcn3/timing"
 
 // WfState marks what state that wavefront it in.
 type WfState int
@@ -36,11 +37,12 @@ type Wavefront struct {
 type WorkGroup struct {
 	*kernels.WorkGroup
 
-	Wfs []*Wavefront
+	Wfs    []*Wavefront
+	MapReq *timing.MapWGReq
 }
 
 // NewWorkGroup returns a newly constructed WorkGroup
-func NewWorkGroup(raw *kernels.WorkGroup) *WorkGroup {
+func NewWorkGroup(raw *kernels.WorkGroup, req *timing.MapWGReq) *WorkGroup {
 	wg := new(WorkGroup)
 	wg.WorkGroup = raw
 	wg.Wfs = make([]*Wavefront, 0)
