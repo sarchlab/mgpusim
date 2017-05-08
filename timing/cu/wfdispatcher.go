@@ -17,7 +17,7 @@ const (
 	Initialized                    // Inserted in the wavefront pool,
 	SRegSet                        // Done with sending s reg write request
 	VRegSet                        // Done with sending v reg write request
-	Completed                      // All the register writing has completed
+	Done                           // All the register writing has completed
 )
 
 // DispatchWfEvent requires the scheduler shart to schedule for the event.
@@ -96,12 +96,12 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) bool {
 		case VRegSet:
 			done := d.allReqCompleted(evt)
 			if done {
-				evt.State = Completed
+				evt.State = Done
 			} else {
 				return false
 			}
-		case Completed:
-			managedWf.Status = Running
+		case Done:
+			managedWf.Status = Ready
 			return true
 		}
 	}

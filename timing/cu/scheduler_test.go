@@ -105,6 +105,7 @@ var _ = Describe("Scheduler", func() {
 			scheduler.Handle(evt)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(scheduler.RunningWGs).NotTo(BeEmpty())
 			Expect(req.Ok).To(BeTrue())
 		})
 
