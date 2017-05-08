@@ -26,11 +26,16 @@ func prepareGrid() *kernels.Grid {
 }
 
 type MockWGMapper struct {
-	OK bool
+	OK         bool
+	UnmappedWg *cu.WorkGroup
 }
 
 func (m *MockWGMapper) MapWG(req *timing.MapWGReq) bool {
 	return m.OK
+}
+
+func (m *MockWGMapper) UnmapWG(wg *cu.WorkGroup) {
+	m.UnmappedWg = wg
 }
 
 type MockWfDispatcher struct {
@@ -172,10 +177,14 @@ var _ = Describe("Scheduler", func() {
 				managedWf := new(cu.Wavefront)
 				managedWf.Wavefront = wg.Wavefronts[i]
 				managedWf.Status = cu.Completed
+				managedWf.SIMDID = i % 4
 				if i == 6 {
 					managedWf.Status = cu.Running
 					wfToComplete = managedWf
 				}
+				managedWG.Wfs = append(managedWG.Wfs, managedWf)
+
+				scheduler.WfPools[i%4].AddWf(managedWf)
 			}
 
 			evt := cu.NewWfCompleteEvent(0, wfToComplete)
@@ -185,6 +194,11 @@ var _ = Describe("Scheduler", func() {
 			scheduler.Handle(evt)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(wgMapper.UnmappedWg).To(BeIdenticalTo(managedWG))
+			for i := 0; i < 4; i++ {
+				Expect(scheduler.WfPools[i].Availability()).To(Equal(10))
+			}
+
 		})
 	})
 })

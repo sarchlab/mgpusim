@@ -37,6 +37,7 @@ func NewMapWGEvent(
 // within a cycle
 type WGMapper interface {
 	MapWG(req *timing.MapWGReq) bool
+	UnmapWG(wg *WorkGroup)
 }
 
 // WGMapperImpl is a sub-component of scheduler. It is responsible for allocate
@@ -224,4 +225,9 @@ func (m *WGMapperImpl) reserveResources(req *timing.MapWGReq) {
 	for i := 0; i < m.NumWfPool; i++ {
 		m.VGprMask[i].ConvertStatus(AllocStatusToReserve, AllocStatusReserved)
 	}
+}
+
+// UnmapWG will remove all the resource reservation of a workgroup
+func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
+	// TODO
 }

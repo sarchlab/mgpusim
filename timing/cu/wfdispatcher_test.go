@@ -35,7 +35,7 @@ var _ = Describe("WfDispatcher", func() {
 		ok, managedWf := wfDispatcher.DispatchWf(evt)
 
 		Expect(ok).To(BeTrue())
-		Expect(len(scheduler.WfPools[0].Wfs)).To(Equal(1))
+		Expect(scheduler.WfPools[0].Availability()).To(Equal(9))
 		Expect(managedWf.PC).To(Equal(uint64(6064)))
 		Expect(managedWf.Status).To(Equal(cu.Ready))
 	})
