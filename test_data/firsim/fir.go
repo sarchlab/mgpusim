@@ -56,6 +56,7 @@ func initPlatform() {
 
 	dispatcher := timing.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
+	dispatcher.Freq = 800 * core.MHz
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
