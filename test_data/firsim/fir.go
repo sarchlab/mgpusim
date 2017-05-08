@@ -17,11 +17,30 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
+type hostComponent struct {
+	*core.BasicComponent
+}
+
+func newHostComponnent() *hostComponent {
+	h := new(hostComponent)
+	h.BasicComponent = core.NewBasicComponent("host")
+	h.AddPort("ToGpu")
+	return h
+}
+
+func (h *hostComponent) Recv(req core.Req) *core.Error {
+	return nil
+}
+
+func (h *hostComponent) Handle(evt core.Event) error {
+	return nil
+}
+
 var (
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
 	gpu        *gcn3.Gpu
-	host       *core.MockComponent
+	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
 )
@@ -36,7 +55,7 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewParallelEngine()
+	engine = core.NewSerialEngine()
 
 	// Connection
 	connection = core.NewDirectConnection()
@@ -47,8 +66,7 @@ func initPlatform() {
 	globalMem.Latency = 2
 
 	// Host
-	host = core.NewMockComponent("host")
-	host.AddPort("ToGpu")
+	host = newHostComponnent()
 
 	// Gpu
 	gpu = gcn3.NewGpu("Gpu")
@@ -60,6 +78,7 @@ func initPlatform() {
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
+	commandProcessor.Driver = gpu
 	// disassembler := insts.NewDisassembler()
 	cuBuilder := cu.NewBuilder()
 	cuBuilder.Engine = engine
@@ -78,6 +97,7 @@ func initPlatform() {
 
 	// Connection
 	core.PlugIn(gpu, "ToCommandProcessor", connection)
+	core.PlugIn(gpu, "ToDriver", connection)
 	core.PlugIn(commandProcessor, "ToDriver", connection)
 	core.PlugIn(commandProcessor, "ToDispatcher", connection)
 	core.PlugIn(host, "ToGpu", connection)

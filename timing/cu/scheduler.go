@@ -144,6 +144,11 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	} else {
 		wg := s.RunningWGs[evt.Req.Wf.WG]
 		wg.Wfs = append(wg.Wfs, wf)
+
+		// This is temporary code, to be removed later
+		wfCompleteEvent := NewWfCompleteEvent(
+			s.Freq.NCyclesLater(3000, evt.Time()), s, wf)
+		s.engine.Schedule(wfCompleteEvent)
 	}
 
 	return nil
@@ -246,10 +251,13 @@ type WfCompleteEvent struct {
 }
 
 // NewWfCompleteEvent returns a newly constructed WfCompleteEvent
-func NewWfCompleteEvent(time core.VTimeInSec, wf *Wavefront) *WfCompleteEvent {
+func NewWfCompleteEvent(time core.VTimeInSec, handler core.Handler,
+	wf *Wavefront,
+) *WfCompleteEvent {
 	evt := new(WfCompleteEvent)
 	evt.BasicEvent = core.NewBasicEvent()
 	evt.SetTime(time)
+	evt.SetHandler(handler)
 	evt.Wf = wf
 	return evt
 }

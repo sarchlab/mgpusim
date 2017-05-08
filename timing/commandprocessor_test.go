@@ -14,23 +14,20 @@ var _ = Describe("CommandProcessor", func() {
 		driver           *core.MockComponent
 		dispatcher       *core.MockComponent
 		commandProcessor *timing.CommandProcessor
-		connection       *core.DirectConnection
+		connection       *core.MockConnection
 	)
 
 	BeforeEach(func() {
-		connection = core.NewDirectConnection()
+		connection = core.NewMockConnection()
 
 		driver = core.NewMockComponent("dispatcher")
-		driver.AddPort("ToGPU")
 		dispatcher = core.NewMockComponent("dispatcher")
-		dispatcher.AddPort("ToCommandProcessor")
 		commandProcessor = timing.NewCommandProcessor("commandProcessor")
 
 		commandProcessor.Dispatcher = dispatcher
+		commandProcessor.Driver = driver
 
-		core.PlugIn(dispatcher, "ToCommandProcessor", connection)
 		core.PlugIn(commandProcessor, "ToDispatcher", connection)
-		core.PlugIn(driver, "ToGPU", connection)
 	})
 
 	It("should forward kernel launching request to Dispatcher", func() {
@@ -38,10 +35,31 @@ var _ = Describe("CommandProcessor", func() {
 		req.SetSrc(driver)
 		req.SetDst(commandProcessor)
 
-		dispatcher.ToReceiveReq(req, nil)
+		reqExpect := kernels.NewLaunchKernelReq()
+		reqExpect.SetSrc(commandProcessor)
+		reqExpect.SetDst(dispatcher)
+
+		connection.ExpectSend(reqExpect, nil)
 
 		commandProcessor.Recv(req)
 
-		Expect(dispatcher.AllReqReceived()).To(BeTrue())
+		Expect(connection.AllExpectedSent()).To(BeTrue())
+	})
+
+	It("should forward kernel launching request to the Driver", func() {
+		req := kernels.NewLaunchKernelReq()
+		req.SetSrc(dispatcher)
+		req.SetDst(commandProcessor)
+
+		reqExpect := kernels.NewLaunchKernelReq()
+		reqExpect.SetSrc(commandProcessor)
+		reqExpect.SetDst(driver)
+
+		connection.ExpectSend(reqExpect, nil)
+
+		commandProcessor.Recv(req)
+
+		Expect(connection.AllExpectedSent()).To(BeTrue())
+
 	})
 })
