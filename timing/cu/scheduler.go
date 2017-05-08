@@ -196,7 +196,11 @@ func (s *Scheduler) sendWGCompletionMessage(evt *WfCompleteEvent, wg *WorkGroup)
 }
 
 func (s *Scheduler) clearWGResource(wg *WorkGroup) {
-
+	s.wgMapper.UnmapWG(wg)
+	for _, wf := range wg.Wfs {
+		wfPool := s.WfPools[wf.SIMDID]
+		wfPool.RemoveWf(wf)
+	}
 }
 
 func (s *Scheduler) writeReg(

@@ -75,7 +75,7 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
 			managedWf.VRegOffset = info.VGPROffset
 			managedWf.CodeObject = req.CodeObject
 			managedWf.Packet = req.Packet
-			wfPool.Wfs = append(wfPool.Wfs, managedWf)
+			wfPool.AddWf(managedWf)
 			evt.ManagedWf = managedWf
 			d.initCtrlRegs(evt)
 			evt.State = Initialized
