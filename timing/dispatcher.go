@@ -277,7 +277,7 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 	if len(status.CompletedWGs) == len(status.Grid.WorkGroups) {
 		status.Req.SwapSrcAndDst()
 		d.GetConnection("ToCommandProcessor").Send(status.Req)
-	} else if !status.Dispatching {
+	} else {
 		status.CUBusy[mesg.CUID] = false
 		status.Dispatching = true
 		evt := NewKernelDispatchEvent()
