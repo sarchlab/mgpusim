@@ -59,7 +59,7 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewSerialEngine()
+	engine = core.NewParallelEngine()
 
 	// Connection
 	connection = core.NewDirectConnection()
