@@ -257,9 +257,11 @@ var _ = Describe("Dispatcher", func() {
 		It("should process WGFinishMesg", func() {
 			status := timing.NewKernelDispatchStatus()
 			status.Grid = grid
+			status.CUBusy = make([]bool, 4)
 
 			req := timing.NewWGFinishMesg(cu0, dispatcher, 10,
 				grid.WorkGroups[0], status)
+			req.CUID = 0
 
 			dispatcher.Recv(req)
 

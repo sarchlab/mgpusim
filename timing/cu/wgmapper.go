@@ -134,10 +134,6 @@ func (m *WGMapperImpl) MapWG(req *timing.MapWGReq) bool {
 		m.reserveResources(req)
 	}
 
-	// req.SwapSrcAndDst()
-	// req.SetSendTime(evt.Time())
-	// req.Ok = ok
-	// m.Scheduler.GetConnection("ToDispatcher").Send(req)
 	return ok
 }
 

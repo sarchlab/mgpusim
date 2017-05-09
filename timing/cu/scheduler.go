@@ -186,6 +186,7 @@ func (s *Scheduler) sendWGCompletionMessage(evt *WfCompleteEvent, wg *WorkGroup)
 	now := evt.Time()
 	mesg := timing.NewWGFinishMesg(s, dispatcher, now, wg.WorkGroup,
 		mapReq.KernelStatus)
+	mesg.CUID = mapReq.CUID
 
 	err := s.GetConnection("ToDispatcher").Send(mesg)
 	if err != nil {
