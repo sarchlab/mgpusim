@@ -79,6 +79,7 @@ func initPlatform() {
 	dispatcher := timing.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 800 * core.MHz
+	dispatcher.AcceptHook(new(timing.WGCompleteLogger))
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
@@ -169,7 +170,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 48
+	req.Packet.GridSizeX = 1024
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256

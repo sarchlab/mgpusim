@@ -201,6 +201,8 @@ func (d *Dispatcher) Recv(req core.Req) *core.Error {
 	d.Lock()
 	defer d.Unlock()
 
+	d.InvokeHook(req, core.OnRecvReq)
+
 	switch req := req.(type) {
 	case *kernels.LaunchKernelReq:
 		return d.processLaunchKernelReq(req)
@@ -271,7 +273,6 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 	status := mesg.Status
 
 	status.CompletedWGs = append(status.CompletedWGs, mesg.WG)
-	log.Printf("Workgroup completed\n")
 
 	if len(status.CompletedWGs) == len(status.Grid.WorkGroups) {
 		status.Req.SwapSrcAndDst()
