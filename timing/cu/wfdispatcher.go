@@ -70,6 +70,7 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
 			wfPool := d.Scheduler.WfPools[info.SIMDID]
 			managedWf = new(Wavefront)
 			managedWf.Wavefront = wf
+			managedWf.SIMDID = info.SIMDID
 			managedWf.LDSOffset = info.LDSOffset
 			managedWf.SRegOffset = info.SGPROffset
 			managedWf.VRegOffset = info.VGPROffset

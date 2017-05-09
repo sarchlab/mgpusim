@@ -83,7 +83,6 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
-	// disassembler := insts.NewDisassembler()
 	cuBuilder := cu.NewBuilder()
 	cuBuilder.Engine = engine
 	for i := 0; i < 4; i++ {
@@ -170,7 +169,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 1000
+	req.Packet.GridSizeX = 256 * 48
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256
