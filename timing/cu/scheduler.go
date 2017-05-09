@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 )
@@ -13,39 +14,59 @@ import (
 // A Scheduler is responsible for determine which wavefront can fetch, decode,
 // and issue
 //
-//    <=> ToDispatcher The port conneting the scheduler and the dispatcher
-//
+//     ToDispatcher <=>  The port conneting the scheduler and the dispatcher
+//     ToSReg <=> The port connecting the scheduler with the scalar register
+// 				  file
+//     ToVRegs <=> The port connecting ithe scheduler with the vector register
+//                files
 type Scheduler struct {
 	*core.BasicComponent
 	sync.Mutex
 
-	engine core.Engine
+	engine       core.Engine
+	wgMapper     WGMapper
+	wfDispatcher WfDispatcher
+	SRegFile     core.Component
 
 	WfPools []*WavefrontPool
 
-	Freq            core.Freq
-	NumWfsCanHandle int
-	Running         bool
-	NextWfPool      int
+	used    bool
+	Freq    core.Freq
+	Running bool
 
-	MappedWGs []*timing.MapWGReq
+	// A set of workgroups running on current CU
+	RunningWGs map[*kernels.WorkGroup]*WorkGroup
 }
 
 // NewScheduler creates and returns a new Scheduler
-func NewScheduler(name string, engine core.Engine) *Scheduler {
+func NewScheduler(
+	name string,
+	engine core.Engine,
+	wgMapper WGMapper,
+	wfDispatcher WfDispatcher,
+) *Scheduler {
 	s := new(Scheduler)
-	s.engine = engine
 	s.BasicComponent = core.NewBasicComponent(name)
-	s.WfPools = make([]*WavefrontPool, 0, 4)
-	for i := 0; i < 4; i++ {
-		s.WfPools = append(s.WfPools, NewWavefrontPool())
-	}
-	s.NextWfPool = 0
 
-	s.NumWfsCanHandle = 40
+	s.engine = engine
+	s.wgMapper = wgMapper
+	s.wfDispatcher = wfDispatcher
+
+	s.initWfPools([]int{10, 10, 10, 10})
+	s.used = false
+	s.RunningWGs = make(map[*kernels.WorkGroup]*WorkGroup)
 
 	s.AddPort("ToDispatcher")
+	s.AddPort("ToSReg")
+	s.AddPort("ToVRegs")
 	return s
+}
+
+func (s *Scheduler) initWfPools(numWfs []int) {
+	s.WfPools = make([]*WavefrontPool, 0, len(numWfs))
+	for i := 0; i < len(numWfs); i++ {
+		s.WfPools = append(s.WfPools, NewWavefrontPool(numWfs[i]))
+	}
 }
 
 // Recv function process the incoming requests
@@ -61,11 +82,11 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 	default:
 		log.Panicf("Unable to process req %s", reflect.TypeOf(req))
 	}
-
 	return nil
 }
 
 func (s *Scheduler) processMapWGReq(req *timing.MapWGReq) *core.Error {
+	s.used = true
 	evt := NewMapWGEvent(s, s.Freq.NextTick(req.RecvTime()), req)
 	s.engine.Schedule(evt)
 	return nil
@@ -81,11 +102,16 @@ func (s *Scheduler) processDispatchWfReq(
 
 // Handle processes the event that is scheduled on this scheduler
 func (s *Scheduler) Handle(evt core.Event) error {
+	s.InvokeHook(evt, core.BeforeEvent)
+	defer s.InvokeHook(evt, core.AfterEvent)
+
 	switch evt := evt.(type) {
 	case *MapWGEvent:
 		return s.handleMapWGEvent(evt)
 	case *DispatchWfEvent:
 		return s.handleDispatchWfEvent(evt)
+	case *WfCompleteEvent:
+		return s.handleWfCompleteEvent(evt)
 	default:
 		log.Panicf("Cannot handle event type %s", reflect.TypeOf(evt))
 	}
@@ -94,93 +120,112 @@ func (s *Scheduler) Handle(evt core.Event) error {
 
 func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 	req := evt.Req
-	req.SwapSrcAndDst()
-	req.SetSendTime(evt.Time())
 
-	if s.NumWfsCanHandle < len(req.WG.Wavefronts) {
-	} else {
-		req.Ok = true
-		s.NumWfsCanHandle -= len(req.WG.Wavefronts)
+	ok := s.wgMapper.MapWG(req)
+
+	if ok {
+		managedWG := NewWorkGroup(req.WG, req)
+		s.RunningWGs[req.WG] = managedWG
 	}
 
+	req.Ok = ok
+	req.SwapSrcAndDst()
+	req.SetSendTime(evt.Time())
 	s.GetConnection("ToDispatcher").Send(req)
+
 	return nil
 }
 
 func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
-	req := evt.Req
-	wf := req.Wf
-
-	wfPool := s.WfPools[s.NextWfPool]
-	managedWf := new(Wavefront)
-	managedWf.Wavefront = wf
-	wfPool.Wfs = append(wfPool.Wfs, managedWf)
-
-	s.NextWfPool++
-	if s.NextWfPool >= len(s.WfPools) {
-		s.NextWfPool = 0
-	}
-
-	if !s.Running {
-		s.Running = true
-		evt := NewScheduleEvent(s, s.Freq.NextTick(evt.Time()))
+	done, wf := s.wfDispatcher.DispatchWf(evt)
+	if !done {
+		evt.SetTime(s.Freq.NextTick(evt.Time()))
 		s.engine.Schedule(evt)
+	} else {
+		wg := s.RunningWGs[evt.Req.Wf.WG]
+		wg.Wfs = append(wg.Wfs, wf)
+
+		// This is temporary code, to be removed later
+		wfCompleteEvent := NewWfCompleteEvent(
+			s.Freq.NCyclesLater(3000, evt.Time()), s, wf)
+		s.engine.Schedule(wfCompleteEvent)
 	}
 
 	return nil
 }
 
-// A Wavefront in the timing package contains the information of the progress
-// of a wavefront
-type Wavefront struct {
-	*kernels.Wavefront
+func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
+	wf := evt.Wf
+	wg := s.RunningWGs[wf.WG]
+	wf.Status = Completed
 
-	PC          uint64
-	FetchBuffer []byte
+	if s.isAllWfInWGCompleted(wg) {
+		ok := s.sendWGCompletionMessage(evt, wg)
+		if ok {
+			s.clearWGResource(wg)
+		}
+	}
+
+	return nil
 }
 
-// MapWGEvent requres the Scheduler to reserve space for a workgroup.
-// The workgroup will not run immediately. The dispatcher will wait for the
-// scheduler to dispatch wavefronts to it.
-type MapWGEvent struct {
-	*core.BasicEvent
-
-	Req *timing.MapWGReq
+func (s *Scheduler) isAllWfInWGCompleted(wg *WorkGroup) bool {
+	for _, wf := range wg.Wfs {
+		// FIXME, is there data race here, or only scheduler can change
+		// wavefront status?
+		if wf.Status != Completed {
+			return false
+		}
+	}
+	return true
 }
 
-// NewMapWGEvent creates a new MapWGEvent
-func NewMapWGEvent(
-	handler core.Handler,
-	time core.VTimeInSec,
-	req *timing.MapWGReq,
-) *MapWGEvent {
-	e := new(MapWGEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
-	e.Req = req
-	return e
+func (s *Scheduler) sendWGCompletionMessage(evt *WfCompleteEvent, wg *WorkGroup) bool {
+	mapReq := wg.MapReq
+	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
+	now := evt.Time()
+	mesg := timing.NewWGFinishMesg(s, dispatcher, now, wg.WorkGroup,
+		mapReq.KernelStatus)
+	mesg.CUID = mapReq.CUID
+
+	err := s.GetConnection("ToDispatcher").Send(mesg)
+	if err != nil {
+		if !err.Recoverable {
+			log.Fatal(err)
+		} else {
+			evt.SetTime(s.Freq.NoEarlierThan(err.EarliestRetry))
+			s.engine.Schedule(evt)
+			return false
+		}
+	}
+	return true
 }
 
-// DispatchWfEvent requires the scheduler shart to schedule for the event.
-type DispatchWfEvent struct {
-	*core.BasicEvent
-
-	Req *timing.DispatchWfReq
+func (s *Scheduler) clearWGResource(wg *WorkGroup) {
+	s.wgMapper.UnmapWG(wg)
+	for _, wf := range wg.Wfs {
+		wfPool := s.WfPools[wf.SIMDID]
+		wfPool.RemoveWf(wf)
+	}
 }
 
-// NewDispatchWfEvent returns a newly created DispatchWfEvent
-func NewDispatchWfEvent(
-	handler core.Handler,
-	time core.VTimeInSec,
-	req *timing.DispatchWfReq,
-) *DispatchWfEvent {
-	e := new(DispatchWfEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
-	e.Req = req
-	return e
+func (s *Scheduler) writeReg(
+	wf *Wavefront,
+	reg *insts.Reg,
+	data []byte,
+	now core.VTimeInSec,
+) {
+	if reg.IsSReg() {
+		req := NewWriteRegReq(now, reg, wf.SRegOffset, data)
+		req.SetSrc(s)
+		req.SetDst(s.SRegFile)
+		s.GetConnection("ToSReg").Send(req)
+	} else {
+		req := NewWriteRegReq(now, reg, wf.VRegOffset, data)
+		req.SetSrc(s)
+		req.SetDst(s.WfPools[wf.SIMDID].VRegFile)
+		s.GetConnection("ToVRegs").Send(req)
+	}
 }
 
 // ScheduleEvent requires the scheduler to schedule for the next cycle
@@ -198,4 +243,22 @@ func NewScheduleEvent(
 	e.SetHandler(handler)
 	e.SetTime(time)
 	return e
+}
+
+// A WfCompleteEvent marks the competion of a wavefront
+type WfCompleteEvent struct {
+	*core.BasicEvent
+	Wf *Wavefront
+}
+
+// NewWfCompleteEvent returns a newly constructed WfCompleteEvent
+func NewWfCompleteEvent(time core.VTimeInSec, handler core.Handler,
+	wf *Wavefront,
+) *WfCompleteEvent {
+	evt := new(WfCompleteEvent)
+	evt.BasicEvent = core.NewBasicEvent()
+	evt.SetTime(time)
+	evt.SetHandler(handler)
+	evt.Wf = wf
+	return evt
 }
