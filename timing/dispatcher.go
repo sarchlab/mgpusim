@@ -21,6 +21,7 @@ type KernelDispatchStatus struct {
 	DispatchingWfs  map[*kernels.Wavefront]*WfDispatchInfo
 	DispatchingCUID int
 	Mapped          bool
+	Dispatching     bool
 	CUBusy          []bool
 }
 
@@ -111,6 +112,7 @@ type WGFinishMesg struct {
 
 	WG     *kernels.WorkGroup
 	Status *KernelDispatchStatus
+	CUID   int
 }
 
 // NewWGFinishMesg creates and returns a newly created WGFinishMesg
@@ -244,6 +246,11 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 	status := req.KernelStatus
 
 	if req.Ok {
+		for i, wgToDel := range status.WGs {
+			if wgToDel == req.WG {
+				status.WGs = append(status.WGs[:i], status.WGs[i+1:]...)
+			}
+		}
 		status.DispatchingWfs = req.WfDispatchMap
 		status.DispatchingCUID = req.CUID
 		status.Mapped = true
@@ -265,10 +272,19 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 	status := mesg.Status
 
 	status.CompletedWGs = append(status.CompletedWGs, mesg.WG)
+	log.Printf("Workgroup completed\n")
 
 	if len(status.CompletedWGs) == len(status.Grid.WorkGroups) {
 		status.Req.SwapSrcAndDst()
 		d.GetConnection("ToCommandProcessor").Send(status.Req)
+	} else if !status.Dispatching {
+		status.CUBusy[mesg.CUID] = false
+		status.Dispatching = true
+		evt := NewKernelDispatchEvent()
+		evt.Status = status
+		evt.SetTime(d.Freq.NextTick(mesg.RecvTime()))
+		evt.SetHandler(d)
+		d.engine.Schedule(evt)
 	}
 
 	return nil
@@ -291,6 +307,7 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 
 func (d *Dispatcher) handleKernelDispatchEvent(evt *KernelDispatchEvent) error {
 	status := evt.Status
+	status.Dispatching = true
 	if status.Mapped {
 		d.dispatchWf(evt)
 	} else {
@@ -345,6 +362,8 @@ func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
 
 		log.Printf("Trying to map wg to cu %d\n", cuID)
 		d.GetConnection("ToCUs").Send(req)
+	} else {
+		status.Dispatching = false
 	}
 }
 
