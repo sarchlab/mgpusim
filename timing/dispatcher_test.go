@@ -99,9 +99,11 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should mark CU busy if the MapWGReq is failed", func() {
-		mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0],
-			timing.NewKernelDispatchStatus())
+		status := timing.NewKernelDispatchStatus()
+		status.DispatchingCUID = 0 // This is not the CU to be marked as busy
+		mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0], status)
 		mapWGReq.Ok = false
+		mapWGReq.CUID = 1 // This is the CU to be marked as busy
 		mapWGReq.KernelStatus.CUBusy = make([]bool, 2)
 
 		dispatcher.Recv(mapWGReq)
@@ -110,7 +112,7 @@ var _ = Describe("Dispatcher", func() {
 		evt := engine.ScheduledEvent[0].(*timing.KernelDispatchEvent)
 		Expect(evt.Time()).To(BeNumerically("~", 1e-9, 1e-12))
 
-		Expect(mapWGReq.KernelStatus.CUBusy[0]).To(BeTrue())
+		Expect(mapWGReq.KernelStatus.CUBusy[1]).To(BeTrue())
 		Expect(mapWGReq.KernelStatus.Mapped).To(BeFalse())
 	})
 
@@ -143,14 +145,18 @@ var _ = Describe("Dispatcher", func() {
 			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups[1:]...)
-			status.DispatchingWfs = append(status.DispatchingWfs,
-				grid.WorkGroups[0].Wavefronts...)
+			wfDispatchInfo := &timing.WfDispatchInfo{
+				SIMDID: 1, VGPROffset: 0, SGPROffset: 0, LDSOffset: 0}
+			for _, wf := range grid.WorkGroups[0].Wavefronts {
+				status.DispatchingWfs[wf] = wfDispatchInfo
+			}
 			status.Grid = grid
 			status.DispatchingCUID = 0
 			status.Mapped = true
 
-			wf := status.DispatchingWfs[0]
-			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf, 6256)
+			wf := grid.WorkGroups[0].Wavefronts[0]
+			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf,
+				wfDispatchInfo, 6256)
 
 			connection.ExpectSend(req, nil)
 
@@ -159,32 +165,38 @@ var _ = Describe("Dispatcher", func() {
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(status.DispatchingWfs).NotTo(ContainElement(
 				BeIdenticalTo(wf)))
+			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
 		})
 
-		It("should map another workgroud after dispatching wavefronts", func() {
+		It("should map another workgroup after dispatching wavefronts", func() {
 			evt := timing.NewKernelDispatchEvent()
 			status := timing.NewKernelDispatchStatus()
 			evt.Status = status
 			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups[1:]...)
-			status.DispatchingWfs = append(status.DispatchingWfs,
-				grid.WorkGroups[0].Wavefronts[0])
+			wfDispatchInfo := &timing.WfDispatchInfo{
+				SIMDID: 1, VGPROffset: 0, SGPROffset: 0, LDSOffset: 0}
+			status.DispatchingWfs[grid.WorkGroups[0].Wavefronts[0]] =
+				wfDispatchInfo
 			status.Grid = grid
 			status.DispatchingCUID = 0
 			status.Mapped = true
 
-			wf := status.DispatchingWfs[0]
-			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf, 6256)
+			wf := grid.WorkGroups[0].Wavefronts[0]
+			req := timing.NewDispatchWfReq(dispatcher, cu0, 10, wf,
+				wfDispatchInfo, 6256)
 
 			connection.ExpectSend(req, nil)
 
 			dispatcher.Handle(evt)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(status.DispatchingWfs).NotTo(ContainElement(
+				BeIdenticalTo(wf)))
 			Expect(status.DispatchingWfs).To(BeEmpty())
 			Expect(status.Mapped).To(BeFalse())
-
+			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
 		})
 
 		It("should find not busy CUs to dispatch", func() {
@@ -197,10 +209,11 @@ var _ = Describe("Dispatcher", func() {
 			status.Grid = grid
 			status.CUBusy = make([]bool, 2)
 			status.CUBusy[0] = true
-			status.DispatchingCUID = -1
+			status.DispatchingCUID = 1
 
-			mapWGReq := timing.NewMapWGReq(dispatcher, cu1, 10, grid.WorkGroups[0],
-				status)
+			mapWGReq := timing.NewMapWGReq(dispatcher, cu1, 10,
+				grid.WorkGroups[0], status)
+			mapWGReq.CUID = 1
 			connection.ExpectSend(mapWGReq, nil)
 
 			dispatcher.Handle(evt)
@@ -244,9 +257,11 @@ var _ = Describe("Dispatcher", func() {
 		It("should process WGFinishMesg", func() {
 			status := timing.NewKernelDispatchStatus()
 			status.Grid = grid
+			status.CUBusy = make([]bool, 4)
 
 			req := timing.NewWGFinishMesg(cu0, dispatcher, 10,
 				grid.WorkGroups[0], status)
+			req.CUID = 0
 
 			dispatcher.Recv(req)
 

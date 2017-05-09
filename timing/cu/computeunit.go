@@ -12,5 +12,15 @@ type ComputeUnit struct {
 	Scheduler *Scheduler
 
 	VRegFiles []*RegCtrl
-	SRegFiles []*RegCtrl
+	SRegFile  *RegCtrl
+}
+
+// NewComputeUnit returns a newly constructed compute unit
+func NewComputeUnit(name string) *ComputeUnit {
+	computeUnit := new(ComputeUnit)
+	computeUnit.BasicComponent = core.NewBasicComponent(name)
+
+	computeUnit.VRegFiles = make([]*RegCtrl, 0)
+
+	return computeUnit
 }

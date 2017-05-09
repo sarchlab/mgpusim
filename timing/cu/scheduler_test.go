@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/gcn3/timing/cu"
@@ -17,24 +18,51 @@ func prepareGrid() *kernels.Grid {
 		grid.WorkGroups = append(grid.WorkGroups, wg)
 		for j := 0; j < 10; j++ {
 			wf := kernels.NewWavefront()
+			wf.WG = wg
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 	}
 	return grid
 }
 
+type MockWGMapper struct {
+	OK         bool
+	UnmappedWg *cu.WorkGroup
+}
+
+func (m *MockWGMapper) MapWG(req *timing.MapWGReq) bool {
+	return m.OK
+}
+
+func (m *MockWGMapper) UnmapWG(wg *cu.WorkGroup) {
+	m.UnmappedWg = wg
+}
+
+type MockWfDispatcher struct {
+	OK bool
+}
+
+func (m *MockWfDispatcher) DispatchWf(evt *cu.DispatchWfEvent) (bool, *cu.Wavefront) {
+	return m.OK, nil
+}
+
 var _ = Describe("Scheduler", func() {
 	var (
-		scheduler  *cu.Scheduler
-		connection *core.MockConnection
-		engine     *core.MockEngine
-		grid       *kernels.Grid
-		status     *timing.KernelDispatchStatus
+		scheduler    *cu.Scheduler
+		connection   *core.MockConnection
+		engine       *core.MockEngine
+		wgMapper     *MockWGMapper
+		wfDispatcher *MockWfDispatcher
+		grid         *kernels.Grid
+		status       *timing.KernelDispatchStatus
+		co           *insts.HsaCo
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
-		scheduler = cu.NewScheduler("scheduler", engine)
+		wgMapper = new(MockWGMapper)
+		wfDispatcher = new(MockWfDispatcher)
+		scheduler = cu.NewScheduler("scheduler", engine, wgMapper, wfDispatcher)
 		scheduler.Freq = 1 * core.GHz
 		connection = core.NewMockConnection()
 		core.PlugIn(scheduler, "ToDispatcher", connection)
@@ -42,10 +70,12 @@ var _ = Describe("Scheduler", func() {
 		grid = prepareGrid()
 		status = timing.NewKernelDispatchStatus()
 		status.Grid = grid
+		co = insts.NewHsaCo()
+		status.CodeObject = co
 	})
 
 	Context("when processing MapWGReq", func() {
-		It("should map wg", func() {
+		It("should process MapWGReq", func() {
 			wg := kernels.NewWorkGroup()
 			status := timing.NewKernelDispatchStatus()
 			req := timing.NewMapWGReq(nil, scheduler, 10, wg, status)
@@ -60,7 +90,8 @@ var _ = Describe("Scheduler", func() {
 		It("should schedule DispatchWfEvent", func() {
 			wg := grid.WorkGroups[0]
 			wf := wg.Wavefronts[0]
-			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, 6256)
+			info := new(timing.WfDispatchInfo)
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
 
 			scheduler.Recv(req)
 
@@ -69,48 +100,105 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Context("when handling MapWGEvent", func() {
-		It("shoule send ACK to dispatcher", func() {
-			req := timing.NewMapWGReq(nil, scheduler, 10,
-				grid.WorkGroups[0], status)
+		It("should reply OK if wgMapper say OK", func() {
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
 			evt := cu.NewMapWGEvent(scheduler, 10, req)
 
+			wgMapper.OK = true
 			connection.ExpectSend(req, nil)
 
 			scheduler.Handle(evt)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(scheduler.RunningWGs).NotTo(BeEmpty())
 			Expect(req.Ok).To(BeTrue())
-			Expect(scheduler.NumWfsCanHandle).To(Equal(30))
 		})
 
-		It("shoule send NACK to dispatcher, if too many wavefronts", func() {
-			req := timing.NewMapWGReq(nil, scheduler, 10,
-				grid.WorkGroups[0], status)
+		It("should reply not OK if wgMapper say not OK", func() {
+			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
+				status)
 			evt := cu.NewMapWGEvent(scheduler, 10, req)
 
+			wgMapper.OK = false
 			connection.ExpectSend(req, nil)
-			scheduler.NumWfsCanHandle = 8
 
 			scheduler.Handle(evt)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeFalse())
-			Expect(scheduler.NumWfsCanHandle).To(Equal(8))
 		})
 	})
 
 	Context("when handling dispatch wavefront request", func() {
-		It("should handle wavefront diapatch", func() {
+		It("should reschedule DispatchWfEvent if not complete", func() {
 			wf := grid.WorkGroups[0].Wavefronts[0]
-			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, 6256)
+			info := new(timing.WfDispatchInfo)
+			info.SIMDID = 1
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
 			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
+
+			wfDispatcher.OK = false
+			scheduler.Handle(evt)
+
+			Expect(len(engine.ScheduledEvent)).To(Equal(1))
+		})
+
+		It("should add wavefront to workgroup", func() {
+			wf := grid.WorkGroups[0].Wavefronts[0]
+			wf.WG = grid.WorkGroups[0]
+			managedWG := cu.NewWorkGroup(wf.WG, nil)
+			info := new(timing.WfDispatchInfo)
+			info.SIMDID = 1
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
+			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
+			scheduler.RunningWGs[grid.WorkGroups[0]] = managedWG
+
+			wfDispatcher.OK = true
+			scheduler.Handle(evt)
+
+			// Expect(len(engine.ScheduledEvent)).To(Equal(0))
+			Expect(len(managedWG.Wfs)).To(Equal(1))
+		})
+	})
+
+	Context("when handling WfCompleteEvent", func() {
+		It("should clear all the wg reservation and send a message back", func() {
+			// status := timing.NewKernelDispatchStatus()
+			wg := grid.WorkGroups[0]
+			mapReq := timing.NewMapWGReq(nil, scheduler, 0, wg, nil)
+			mapReq.SwapSrcAndDst()
+			managedWG := cu.NewWorkGroup(wg, nil)
+			managedWG.MapReq = mapReq
+			scheduler.RunningWGs[wg] = managedWG
+
+			var wfToComplete *cu.Wavefront
+			for i := 0; i < len(wg.Wavefronts); i++ {
+				managedWf := new(cu.Wavefront)
+				managedWf.Wavefront = wg.Wavefronts[i]
+				managedWf.Status = cu.Completed
+				managedWf.SIMDID = i % 4
+				if i == 6 {
+					managedWf.Status = cu.Running
+					wfToComplete = managedWf
+				}
+				managedWG.Wfs = append(managedWG.Wfs, managedWf)
+
+				scheduler.WfPools[i%4].AddWf(managedWf)
+			}
+
+			evt := cu.NewWfCompleteEvent(0, scheduler, wfToComplete)
+			reqToSend := timing.NewWGFinishMesg(scheduler, nil, 0, wg, nil)
+			connection.ExpectSend(reqToSend, nil)
 
 			scheduler.Handle(evt)
 
-			Expect(scheduler.Running).To(BeTrue())
-			Expect(scheduler.WfPools[0].Wfs).NotTo(BeEmpty())
-			Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-			Expect(scheduler.WfPools[0].Wfs[0]).To(Equal(6256))
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(wgMapper.UnmappedWg).To(BeIdenticalTo(managedWG))
+			for i := 0; i < 4; i++ {
+				Expect(scheduler.WfPools[i].Availability()).To(Equal(10))
+			}
+
 		})
 	})
 })

@@ -10,17 +10,41 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/timing"
+	"gitlab.com/yaotsu/gcn3/timing/cu"
 	"gitlab.com/yaotsu/mem"
 )
+
+type hostComponent struct {
+	*core.BasicComponent
+}
+
+func newHostComponnent() *hostComponent {
+	h := new(hostComponent)
+	h.BasicComponent = core.NewBasicComponent("host")
+	h.AddPort("ToGpu")
+	return h
+}
+
+func (h *hostComponent) Recv(req core.Req) *core.Error {
+	switch req.(type) {
+	case *kernels.LaunchKernelReq:
+		log.Println("Kernel completed.")
+	}
+	return nil
+}
+
+func (h *hostComponent) Handle(evt core.Event) error {
+	return nil
+}
 
 var (
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
 	gpu        *gcn3.Gpu
-	host       *core.MockComponent
+	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
 )
@@ -35,7 +59,7 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewSerialEngine()
+	engine = core.NewParallelEngine()
 
 	// Connection
 	connection = core.NewDirectConnection()
@@ -46,52 +70,42 @@ func initPlatform() {
 	globalMem.Latency = 2
 
 	// Host
-	host = core.NewMockComponent("host")
-	host.AddPort("ToGpu")
+	host = newHostComponnent()
 
 	// Gpu
 	gpu = gcn3.NewGpu("Gpu")
-	commandProcessor := emu.NewCommandProcessor("Gpu.CommandProcessor")
+	commandProcessor := timing.NewCommandProcessor("Gpu.CommandProcessor")
 
-	dispatcher := emu.NewDispatcher("Gpu.Dispatcher",
+	dispatcher := timing.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
+	dispatcher.Freq = 800 * core.MHz
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
-	disassembler := insts.NewDisassembler()
+	commandProcessor.Driver = gpu
+	cuBuilder := cu.NewBuilder()
+	cuBuilder.Engine = engine
 	for i := 0; i < 4; i++ {
-		instWorker := new(emu.InstWorkerImpl)
-		scheduler := emu.NewScheduler()
-		cu := emu.NewComputeUnit(
-			"Gpu.CU"+string(i),
-			engine,
-			new(emu.RegInitiator),
-			scheduler,
-			disassembler,
-			instWorker,
-		)
-		cu.Freq = 1e9
-		cu.InstMem = globalMem
-		cu.DataMem = globalMem
+		cuBuilder.CUName = "cu" + string(i)
+		computeUnit := cuBuilder.Build()
+		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
+		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
 
-		instWorker.CU = cu
-		scheduler.CU = cu
-		scheduler.InstWorker = instWorker
-		scheduler.Decoder = disassembler
-		dispatcher.RegisterCU(cu)
-
-		core.PlugIn(cu, "ToDispatcher", connection)
-		core.PlugIn(dispatcher, "ToComputeUnits", connection)
-		core.PlugIn(cu, "ToInstMem", connection)
-		core.PlugIn(cu, "ToDataMem", connection)
+		// Hook
+		mapWGHook := cu.NewMapWGHook()
+		computeUnit.Scheduler.AcceptHook(mapWGHook)
+		dispatchWfHook := cu.NewDispatchWfHook()
+		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
 	}
 
 	// Connection
 	core.PlugIn(gpu, "ToCommandProcessor", connection)
+	core.PlugIn(gpu, "ToDriver", connection)
 	core.PlugIn(commandProcessor, "ToDriver", connection)
 	core.PlugIn(commandProcessor, "ToDispatcher", connection)
 	core.PlugIn(host, "ToGpu", connection)
 	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
+	core.PlugIn(dispatcher, "ToCUs", connection)
 	core.PlugIn(globalMem, "Top", connection)
 }
 
@@ -155,7 +169,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 1024
+	req.Packet.GridSizeX = 256 * 48
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256
@@ -166,6 +180,7 @@ func run() {
 
 	req.SetSrc(host)
 	req.SetDst(gpu)
+	req.SetSendTime(0)
 	connErr := connection.Send(req)
 	if connErr != nil {
 		log.Fatal(connErr)
