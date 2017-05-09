@@ -21,7 +21,6 @@ type KernelDispatchStatus struct {
 	DispatchingWfs  map[*kernels.Wavefront]*WfDispatchInfo
 	DispatchingCUID int
 	Mapped          bool
-	Dispatching     bool
 	CUBusy          []bool
 }
 
@@ -279,7 +278,6 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 		d.GetConnection("ToCommandProcessor").Send(status.Req)
 	} else {
 		status.CUBusy[mesg.CUID] = false
-		status.Dispatching = true
 		evt := NewKernelDispatchEvent()
 		evt.Status = status
 		evt.SetTime(d.Freq.NextTick(mesg.RecvTime()))
@@ -307,7 +305,6 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 
 func (d *Dispatcher) handleKernelDispatchEvent(evt *KernelDispatchEvent) error {
 	status := evt.Status
-	status.Dispatching = true
 	if status.Mapped {
 		d.dispatchWf(evt)
 	} else {
@@ -362,8 +359,6 @@ func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
 
 		log.Printf("Trying to map wg to cu %d\n", cuID)
 		d.GetConnection("ToCUs").Send(req)
-	} else {
-		status.Dispatching = false
 	}
 }
 
