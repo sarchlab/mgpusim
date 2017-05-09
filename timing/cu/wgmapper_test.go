@@ -272,6 +272,16 @@ var _ = Describe("WGMapper", func() {
 		managedWG := cu.NewWorkGroup(wg, req)
 
 		wgMapper.MapWG(req)
+		for wf, info := range req.WfDispatchMap {
+			managedWf := new(cu.Wavefront)
+			managedWf.Wavefront = wf
+			managedWf.LDSOffset = info.LDSOffset
+			managedWf.SIMDID = info.SIMDID
+			managedWf.SRegOffset = info.SGPROffset
+			managedWf.VRegOffset = info.VGPROffset
+			managedWG.Wfs = append(managedWG.Wfs, managedWf)
+		}
+
 		wgMapper.UnmapWG(managedWG)
 
 		assertAllResourcesFree(wgMapper)

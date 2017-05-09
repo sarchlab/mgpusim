@@ -239,21 +239,21 @@ func (m *WGMapperImpl) clearTempReservation(req *timing.MapWGReq) {
 func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
 	req := wg.MapReq
 	co := req.KernelStatus.CodeObject
-	for _, info := range wg.MapReq.WfDispatchMap {
-		m.WfPoolFreeCount[info.SIMDID]++
+	for _, wf := range wg.Wfs {
+		m.WfPoolFreeCount[wf.SIMDID]++
 
 		ldsUnits := m.unitsOccupy(int(co.WGGroupSegmentByteSize),
 			m.LDSGranularity)
-		m.LDSMask.SetStatus(info.LDSOffset/m.LDSGranularity, ldsUnits,
+		m.LDSMask.SetStatus(wf.LDSOffset/m.LDSGranularity, ldsUnits,
 			AllocStatusFree)
 
 		sgprUnits := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
-		m.SGprMask.SetStatus(info.SGPROffset/4/m.SGprGranularity,
+		m.SGprMask.SetStatus(wf.SRegOffset/4/m.SGprGranularity,
 			sgprUnits, AllocStatusFree)
 
 		vgprUnits := m.unitsOccupy(int(co.WIVgprCount)*64, m.VGprGranularity)
-		m.VGprMask[info.SIMDID].SetStatus(
-			info.VGPROffset/4/m.VGprGranularity, vgprUnits,
+		m.VGprMask[wf.SIMDID].SetStatus(
+			wf.VRegOffset/4/m.VGprGranularity, vgprUnits,
 			AllocStatusFree)
 	}
 }
