@@ -132,13 +132,16 @@ func (m *WGMapperImpl) MapWG(req *timing.MapWGReq) bool {
 
 	if ok {
 		m.reserveResources(req)
+	} else {
+		m.clearTempReservation(req)
 	}
 
 	return ok
 }
 
 func (m *WGMapperImpl) withinSGPRLimitation(req *timing.MapWGReq) bool {
-	required := int(req.KernelStatus.CodeObject.WFSgprCount) / m.SGprGranularity
+	co := req.KernelStatus.CodeObject
+	required := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
 	for _, wf := range req.WG.Wavefronts {
 		offset, ok := m.SGprMask.NextRegion(required, AllocStatusFree)
 		if !ok {
@@ -151,8 +154,8 @@ func (m *WGMapperImpl) withinSGPRLimitation(req *timing.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) withinLDSLimitation(req *timing.MapWGReq) bool {
-	required := int(req.KernelStatus.CodeObject.WGGroupSegmentByteSize) /
-		m.LDSGranularity
+	co := req.KernelStatus.CodeObject
+	required := m.unitsOccupy(int(co.WGGroupSegmentByteSize), m.LDSGranularity)
 	offset, ok := m.LDSMask.NextRegion(required, AllocStatusFree)
 	if !ok {
 		return false
@@ -174,13 +177,13 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	nextSIMD := 0
 	vgprToUse := make([]int, m.NumWfPool)
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
+	co := req.KernelStatus.CodeObject
 
 	for i := 0; i < len(req.WG.Wavefronts); i++ {
 		firstSIMDTested := nextSIMD
 		firstTry := true
 		found := false
-		required := int(req.KernelStatus.CodeObject.WIVgprCount) * 64 /
-			m.VGprGranularity
+		required := m.unitsOccupy(int(co.WIVgprCount)*64, m.VGprGranularity)
 		for firstTry || nextSIMD != firstSIMDTested {
 			firstTry = false
 			offset, ok := m.VGprMask[nextSIMD].NextRegion(required, AllocStatusFree)
@@ -223,22 +226,41 @@ func (m *WGMapperImpl) reserveResources(req *timing.MapWGReq) {
 	}
 }
 
+func (m *WGMapperImpl) clearTempReservation(req *timing.MapWGReq) {
+	m.SGprMask.ConvertStatus(AllocStatusToReserve, AllocStatusFree)
+	m.LDSMask.ConvertStatus(AllocStatusToReserve, AllocStatusFree)
+	for i := 0; i < m.NumWfPool; i++ {
+		m.VGprMask[i].ConvertStatus(AllocStatusToReserve,
+			AllocStatusFree)
+	}
+}
+
 // UnmapWG will remove all the resource reservation of a workgroup
 func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
 	req := wg.MapReq
 	co := req.KernelStatus.CodeObject
 	for _, info := range wg.MapReq.WfDispatchMap {
 		m.WfPoolFreeCount[info.SIMDID]++
-		m.LDSMask.SetStatus(info.LDSOffset/m.LDSGranularity,
-			int(co.WGGroupSegmentByteSize)/m.LDSGranularity,
+
+		ldsUnits := m.unitsOccupy(int(co.WGGroupSegmentByteSize),
+			m.LDSGranularity)
+		m.LDSMask.SetStatus(info.LDSOffset/m.LDSGranularity, ldsUnits,
 			AllocStatusFree)
+
+		sgprUnits := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
 		m.SGprMask.SetStatus(info.SGPROffset/4/m.SGprGranularity,
-			int(co.WFSgprCount)/m.SGprGranularity,
-			AllocStatusFree)
+			sgprUnits, AllocStatusFree)
+
+		vgprUnits := m.unitsOccupy(int(co.WIVgprCount)*64, m.VGprGranularity)
 		m.VGprMask[info.SIMDID].SetStatus(
-			info.VGPROffset/4/m.VGprGranularity,
-			int(co.WIVgprCount)*64/m.VGprGranularity,
+			info.VGPROffset/4/m.VGprGranularity, vgprUnits,
 			AllocStatusFree)
 	}
+}
 
+func (m *WGMapperImpl) unitsOccupy(amount, granularity int) int {
+	if amount%granularity == 0 {
+		return amount / granularity
+	}
+	return amount/granularity + 1
 }
