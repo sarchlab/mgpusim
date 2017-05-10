@@ -39,7 +39,7 @@ func NewDispatchWfEvent(
 	req *timing.DispatchWfReq,
 ) *DispatchWfEvent {
 	e := new(DispatchWfEvent)
-	e.EventBase = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewEventBase(time, handler)
 	e.Req = req
 	return e
 }

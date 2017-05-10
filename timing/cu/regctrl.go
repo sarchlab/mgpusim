@@ -54,7 +54,7 @@ func NewReadRegEvent(
 	req *ReadRegReq,
 ) *ReadRegEvent {
 	e := new(ReadRegEvent)
-	e.EventBase = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewEventBase(time, handler)
 	e.Req = req
 	return e
 }
@@ -99,7 +99,7 @@ func NewWriteRegEvent(
 	req *WriteRegReq,
 ) *WriteRegEvent {
 	e := new(WriteRegEvent)
-	e.EventBase = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewEventBase(time, handler)
 	e.Req = req
 	return e
 }
