@@ -9,7 +9,7 @@ import (
 // The workgroup will not run immediately. The dispatcher will wait for the
 // scheduler to dispatch wavefronts to it.
 type MapWGEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 
 	Req *timing.MapWGReq
 }
@@ -21,7 +21,7 @@ func NewMapWGEvent(
 	req *timing.MapWGReq,
 ) *MapWGEvent {
 	e := new(MapWGEvent)
-	e.BasicEvent = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewBasicEvent(time, handler)
 	e.Req = req
 	return e
 }

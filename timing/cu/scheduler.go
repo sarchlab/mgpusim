@@ -230,7 +230,7 @@ func (s *Scheduler) writeReg(
 
 // ScheduleEvent requires the scheduler to schedule for the next cycle
 type ScheduleEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 }
 
 // NewScheduleEvent returns a newly created ScheduleEvent
@@ -239,13 +239,13 @@ func NewScheduleEvent(
 	handler core.Handler,
 ) *ScheduleEvent {
 	e := new(ScheduleEvent)
-	e.BasicEvent = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewBasicEvent(time, handler)
 	return e
 }
 
 // A WfCompleteEvent marks the competion of a wavefront
 type WfCompleteEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 	Wf *Wavefront
 }
 
@@ -254,7 +254,7 @@ func NewWfCompleteEvent(time core.VTimeInSec, handler core.Handler,
 	wf *Wavefront,
 ) *WfCompleteEvent {
 	evt := new(WfCompleteEvent)
-	evt.BasicEvent = core.NewBasicEvent(time, handler)
+	evt.EventBase = core.NewBasicEvent(time, handler)
 	evt.Wf = wf
 	return evt
 }
