@@ -119,7 +119,7 @@ var _ = Describe("Dispatcher", func() {
 	Context("when handling LaunchKernelEvent", func() {
 
 		It("should start to map work-group", func() {
-			evt := timing.NewKernelDispatchEvent()
+			evt := timing.NewKernelDispatchEvent(0, nil)
 			status := timing.NewKernelDispatchStatus()
 			evt.Status = status
 			evt.SetTime(10)
@@ -139,10 +139,9 @@ var _ = Describe("Dispatcher", func() {
 		})
 
 		It("should dispatch wavefront", func() {
-			evt := timing.NewKernelDispatchEvent()
+			evt := timing.NewKernelDispatchEvent(10, nil)
 			status := timing.NewKernelDispatchStatus()
 			evt.Status = status
-			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups[1:]...)
 			wfDispatchInfo := &timing.WfDispatchInfo{
@@ -169,10 +168,9 @@ var _ = Describe("Dispatcher", func() {
 		})
 
 		It("should map another workgroup after dispatching wavefronts", func() {
-			evt := timing.NewKernelDispatchEvent()
+			evt := timing.NewKernelDispatchEvent(10, nil)
 			status := timing.NewKernelDispatchStatus()
 			evt.Status = status
-			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups[1:]...)
 			wfDispatchInfo := &timing.WfDispatchInfo{
@@ -200,10 +198,9 @@ var _ = Describe("Dispatcher", func() {
 		})
 
 		It("should find not busy CUs to dispatch", func() {
-			evt := timing.NewKernelDispatchEvent()
+			evt := timing.NewKernelDispatchEvent(10, nil)
 			status := timing.NewKernelDispatchStatus()
 			evt.Status = status
-			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups...)
 			status.Grid = grid
@@ -222,10 +219,9 @@ var _ = Describe("Dispatcher", func() {
 		})
 
 		It("should wait if all the cus are busy", func() {
-			evt := timing.NewKernelDispatchEvent()
+			evt := timing.NewKernelDispatchEvent(10, nil)
 			status := timing.NewKernelDispatchStatus()
 			evt.Status = status
-			evt.SetTime(10)
 
 			status.WGs = append(status.WGs, grid.WorkGroups...)
 			status.Grid = grid
@@ -240,7 +236,7 @@ var _ = Describe("Dispatcher", func() {
 		})
 
 		It("should do nothing if no more pending work-groups", func() {
-			evt := timing.NewKernelDispatchEvent()
+			evt := timing.NewKernelDispatchEvent(10, nil)
 			status := timing.NewKernelDispatchStatus()
 			evt.Status = status
 			evt.SetTime(10)

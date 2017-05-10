@@ -103,7 +103,7 @@ var _ = Describe("Scheduler", func() {
 		It("should reply OK if wgMapper say OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
 				status)
-			evt := cu.NewMapWGEvent(scheduler, 10, req)
+			evt := cu.NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = true
 			connection.ExpectSend(req, nil)
@@ -118,7 +118,7 @@ var _ = Describe("Scheduler", func() {
 		It("should reply not OK if wgMapper say not OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
 				status)
-			evt := cu.NewMapWGEvent(scheduler, 10, req)
+			evt := cu.NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = false
 			connection.ExpectSend(req, nil)
@@ -136,7 +136,7 @@ var _ = Describe("Scheduler", func() {
 			info := new(timing.WfDispatchInfo)
 			info.SIMDID = 1
 			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
-			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
+			evt := cu.NewDispatchWfEvent(10, scheduler, req)
 
 			wfDispatcher.OK = false
 			scheduler.Handle(evt)
@@ -151,7 +151,7 @@ var _ = Describe("Scheduler", func() {
 			info := new(timing.WfDispatchInfo)
 			info.SIMDID = 1
 			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
-			evt := cu.NewDispatchWfEvent(scheduler, 10, req)
+			evt := cu.NewDispatchWfEvent(10, scheduler, req)
 			scheduler.RunningWGs[grid.WorkGroups[0]] = managedWG
 
 			wfDispatcher.OK = true

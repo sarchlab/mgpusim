@@ -16,14 +16,12 @@ type MapWGEvent struct {
 
 // NewMapWGEvent creates a new MapWGEvent
 func NewMapWGEvent(
-	handler core.Handler,
 	time core.VTimeInSec,
+	handler core.Handler,
 	req *timing.MapWGReq,
 ) *MapWGEvent {
 	e := new(MapWGEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
+	e.BasicEvent = core.NewBasicEvent(time, handler)
 	e.Req = req
 	return e
 }
