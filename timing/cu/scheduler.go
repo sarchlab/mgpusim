@@ -87,7 +87,7 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 
 func (s *Scheduler) processMapWGReq(req *timing.MapWGReq) *core.Error {
 	s.used = true
-	evt := NewMapWGEvent(s, s.Freq.NextTick(req.RecvTime()), req)
+	evt := NewMapWGEvent(s.Freq.NextTick(req.RecvTime()), s, req)
 	s.engine.Schedule(evt)
 	return nil
 }
@@ -95,7 +95,7 @@ func (s *Scheduler) processMapWGReq(req *timing.MapWGReq) *core.Error {
 func (s *Scheduler) processDispatchWfReq(
 	req *timing.DispatchWfReq,
 ) *core.Error {
-	evt := NewDispatchWfEvent(s, s.Freq.NextTick(req.RecvTime()), req)
+	evt := NewDispatchWfEvent(s.Freq.NextTick(req.RecvTime()), s, req)
 	s.engine.Schedule(evt)
 	return nil
 }
@@ -235,13 +235,11 @@ type ScheduleEvent struct {
 
 // NewScheduleEvent returns a newly created ScheduleEvent
 func NewScheduleEvent(
-	handler core.Handler,
 	time core.VTimeInSec,
+	handler core.Handler,
 ) *ScheduleEvent {
 	e := new(ScheduleEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
+	e.BasicEvent = core.NewBasicEvent(time, handler)
 	return e
 }
 
@@ -256,9 +254,7 @@ func NewWfCompleteEvent(time core.VTimeInSec, handler core.Handler,
 	wf *Wavefront,
 ) *WfCompleteEvent {
 	evt := new(WfCompleteEvent)
-	evt.BasicEvent = core.NewBasicEvent()
-	evt.SetTime(time)
-	evt.SetHandler(handler)
+	evt.BasicEvent = core.NewBasicEvent(time, handler)
 	evt.Wf = wf
 	return evt
 }

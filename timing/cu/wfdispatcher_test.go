@@ -30,7 +30,7 @@ var _ = Describe("WfDispatcher", func() {
 		req.CodeObject = co
 		req.Packet = packet
 
-		evt := cu.NewDispatchWfEvent(scheduler, 0, req)
+		evt := cu.NewDispatchWfEvent(0, scheduler, req)
 
 		ok, managedWf := wfDispatcher.DispatchWf(evt)
 

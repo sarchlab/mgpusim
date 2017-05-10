@@ -135,14 +135,17 @@ func NewWGFinishMesg(
 
 // A KernelDispatchEvent is a event to continue the kernel dispatch process
 type KernelDispatchEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 	Status *KernelDispatchStatus
 }
 
 // NewKernelDispatchEvent returne a newly created KernelDispatchEvent
-func NewKernelDispatchEvent() *KernelDispatchEvent {
+func NewKernelDispatchEvent(
+	time core.VTimeInSec,
+	handler core.Handler,
+) *KernelDispatchEvent {
 	e := new(KernelDispatchEvent)
-	e.BasicEvent = core.NewBasicEvent()
+	e.EventBase = core.NewBasicEvent(time, handler)
 	return e
 }
 
@@ -220,7 +223,7 @@ func (d *Dispatcher) Recv(req core.Req) *core.Error {
 func (d *Dispatcher) processLaunchKernelReq(
 	req *kernels.LaunchKernelReq,
 ) *core.Error {
-	evt := NewKernelDispatchEvent()
+	evt := NewKernelDispatchEvent(d.Freq.NextTick(req.RecvTime()), d)
 	status := NewKernelDispatchStatus()
 	evt.Status = status
 
@@ -234,9 +237,6 @@ func (d *Dispatcher) processLaunchKernelReq(
 	for _ = range d.CUs {
 		status.CUBusy = append(status.CUBusy, false)
 	}
-
-	evt.SetTime(d.Freq.NextTick(req.RecvTime()))
-	evt.SetHandler(d)
 
 	d.engine.Schedule(evt)
 
@@ -260,9 +260,7 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 		status.CUBusy[req.CUID] = true
 	}
 
-	evt := NewKernelDispatchEvent()
-	evt.SetTime(d.Freq.NextTick(req.RecvTime()))
-	evt.SetHandler(d)
+	evt := NewKernelDispatchEvent(d.Freq.NextTick(req.RecvTime()), d)
 	evt.Status = status
 	d.engine.Schedule(evt)
 
@@ -279,10 +277,8 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 		d.GetConnection("ToCommandProcessor").Send(status.Req)
 	} else {
 		status.CUBusy[mesg.CUID] = false
-		evt := NewKernelDispatchEvent()
+		evt := NewKernelDispatchEvent(d.Freq.NextTick(mesg.RecvTime()), d)
 		evt.Status = status
-		evt.SetTime(d.Freq.NextTick(mesg.RecvTime()))
-		evt.SetHandler(d)
 		d.engine.Schedule(evt)
 	}
 

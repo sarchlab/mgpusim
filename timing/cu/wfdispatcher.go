@@ -34,14 +34,12 @@ type DispatchWfEvent struct {
 
 // NewDispatchWfEvent returns a newly created DispatchWfEvent
 func NewDispatchWfEvent(
-	handler core.Handler,
 	time core.VTimeInSec,
+	handler core.Handler,
 	req *timing.DispatchWfReq,
 ) *DispatchWfEvent {
 	e := new(DispatchWfEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
+	e.BasicEvent = core.NewBasicEvent(time, handler)
 	e.Req = req
 	return e
 }

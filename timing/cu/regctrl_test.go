@@ -51,7 +51,7 @@ var _ = Describe("RegCtrl", func() {
 	Context("when handling event", func() {
 		It("shoud read register", func() {
 			req := cu.NewReadRegReq(0, insts.SReg(0), 4, 100)
-			evt := cu.NewReadRegEvent(regCtrl, 0.1, req)
+			evt := cu.NewReadRegEvent(0.1, regCtrl, req)
 
 			storage.Write(100, insts.Uint32ToBytes(54))
 			connection.ExpectSend(req, nil)
@@ -67,7 +67,7 @@ var _ = Describe("RegCtrl", func() {
 			offset := 100
 			req := cu.NewWriteRegReq(0, insts.SReg(0), offset,
 				insts.Uint32ToBytes(54))
-			evt := cu.NewWriteRegEvent(regCtrl, 0.1, req)
+			evt := cu.NewWriteRegEvent(0.1, regCtrl, req)
 
 			connection.ExpectSend(req, nil)
 
