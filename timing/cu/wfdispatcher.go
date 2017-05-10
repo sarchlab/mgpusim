@@ -22,7 +22,7 @@ const (
 
 // DispatchWfEvent requires the scheduler shart to schedule for the event.
 type DispatchWfEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 
 	Req *timing.DispatchWfReq
 
@@ -39,7 +39,7 @@ func NewDispatchWfEvent(
 	req *timing.DispatchWfReq,
 ) *DispatchWfEvent {
 	e := new(DispatchWfEvent)
-	e.BasicEvent = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewBasicEvent(time, handler)
 	e.Req = req
 	return e
 }
