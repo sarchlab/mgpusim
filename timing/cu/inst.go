@@ -7,7 +7,7 @@ import "gitlab.com/yaotsu/core"
 // an ID and is hookable
 type Inst struct {
 	*insts.Inst
-	*core.BasicHookable
+	*core.HookableBase
 
 	ID int
 }

@@ -145,7 +145,7 @@ func NewKernelDispatchEvent(
 	handler core.Handler,
 ) *KernelDispatchEvent {
 	e := new(KernelDispatchEvent)
-	e.EventBase = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewEventBase(time, handler)
 	return e
 }
 

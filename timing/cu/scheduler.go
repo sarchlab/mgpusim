@@ -239,7 +239,7 @@ func NewScheduleEvent(
 	handler core.Handler,
 ) *ScheduleEvent {
 	e := new(ScheduleEvent)
-	e.EventBase = core.NewBasicEvent(time, handler)
+	e.EventBase = core.NewEventBase(time, handler)
 	return e
 }
 
@@ -254,7 +254,7 @@ func NewWfCompleteEvent(time core.VTimeInSec, handler core.Handler,
 	wf *Wavefront,
 ) *WfCompleteEvent {
 	evt := new(WfCompleteEvent)
-	evt.EventBase = core.NewBasicEvent(time, handler)
+	evt.EventBase = core.NewEventBase(time, handler)
 	evt.Wf = wf
 	return evt
 }
