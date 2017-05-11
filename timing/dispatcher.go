@@ -129,20 +129,20 @@ func NewWGFinishMesg(
 }
 
 // A KernelDispatchEvent is a event to continue the kernel dispatch process
-type KernelDispatchEvent struct {
-	*core.EventBase
-	Status *KernelDispatchStatus
-}
+// type KernelDispatchEvent struct {
+// 	*core.EventBase
+// 	Status *KernelDispatchStatus
+// }
 
-// NewKernelDispatchEvent returne a newly created KernelDispatchEvent
-func NewKernelDispatchEvent(
-	time core.VTimeInSec,
-	handler core.Handler,
-) *KernelDispatchEvent {
-	e := new(KernelDispatchEvent)
-	e.EventBase = core.NewEventBase(time, handler)
-	return e
-}
+// // NewKernelDispatchEvent returne a newly created KernelDispatchEvent
+// func NewKernelDispatchEvent(
+// 	time core.VTimeInSec,
+// 	handler core.Handler,
+// ) *KernelDispatchEvent {
+// 	e := new(KernelDispatchEvent)
+// 	e.EventBase = core.NewEventBase(time, handler)
+// 	return e
+// }
 
 // A Dispatcher is a component that can dispatch workgroups and wavefronts
 // to ComputeUnits.
@@ -277,10 +277,7 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 		status.CUBusy[req.CUID] = true
 	}
 
-	evt := NewKernelDispatchEvent(d.Freq.NextTick(req.RecvTime()), d)
-	evt.Status = status
-	d.engine.Schedule(evt)
-
+	d.tryScheduleTick(d.Freq.NextTick(req.RecvTime()))
 	return nil
 }
 
@@ -315,7 +312,7 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 	case *core.TickEvent:
 		d.handleTickEvent(e)
 	default:
-		log.Panicf("Unable to process evevt %+v", evt)
+		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
 	}
 	return nil
 }
