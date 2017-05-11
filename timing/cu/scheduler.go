@@ -225,12 +225,7 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 	wfs := s.issueArbitor.Arbitrate(s.WfPools)
 	for _, wf := range wfs {
 		if wf.IssueDir == IssueDirInternal {
-			if s.internalExecuting == nil {
-				s.internalExecuting = wf
-				wf.State = WfRunning
-			} else {
-				wf.State = WfFetched
-			}
+			s.issueToInternal(wf)
 			continue
 		}
 
@@ -244,6 +239,16 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 			wf.State = WfRunning
 		}
 	}
+}
+
+func (s *Scheduler) issueToInternal(wf *Wavefront) {
+	if s.internalExecuting == nil {
+		s.internalExecuting = wf
+		wf.State = WfRunning
+	} else {
+		wf.State = WfFetched
+	}
+
 }
 
 func (s *Scheduler) getUnitToIssueTo(dir IssueDirection) core.Component {
@@ -281,8 +286,6 @@ func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
 
 func (s *Scheduler) isAllWfInWGCompleted(wg *WorkGroup) bool {
 	for _, wf := range wg.Wfs {
-		// FIXME, is there data race here, or only scheduler can change
-		// wavefront status?
 		if wf.State != WfCompleted {
 			return false
 		}
