@@ -208,41 +208,23 @@ var _ = Describe("Dispatcher", func() {
 		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
 	})
 
-	// 	It("should find not busy CUs to dispatch", func() {
-	// 		evt := timing.NewKernelDispatchEvent(10, nil)
-	// 		status := timing.NewKernelDispatchStatus()
-	// 		evt.Status = status
+	It("should find not busy CUs to dispatch", func() {
+		status := NewKernelDispatchStatus()
+		status.WGs = append(status.WGs, grid.WorkGroups...)
+		status.Grid = grid
+		status.CUBusy = make([]bool, 2)
+		status.CUBusy[0] = true
+		status.DispatchingCUID = 1
+		dispatcher.dispatchingKernel = status
 
-	// 		status.WGs = append(status.WGs, grid.WorkGroups...)
-	// 		status.Grid = grid
-	// 		status.CUBusy = make([]bool, 2)
-	// 		status.CUBusy[0] = true
-	// 		status.DispatchingCUID = 1
+		mapWGReq := NewMapWGReq(dispatcher, cu1, 10, grid.WorkGroups[0], nil)
+		mapWGReq.CUID = 1
+		connection.ExpectSend(mapWGReq, nil)
 
-	// 		mapWGReq := timing.NewMapWGReq(dispatcher, cu1, 10,
-	// 			grid.WorkGroups[0], status)
-	// 		mapWGReq.CUID = 1
-	// 		connection.ExpectSend(mapWGReq, nil)
+		dispatcher.Handle(core.NewTickEvent(10, dispatcher))
 
-	// 		dispatcher.Handle(evt)
-
-	// 		Expect(connection.AllExpectedSent()).To(BeTrue())
-	// 	})
-
-	// 	It("should do nothing if no more pending work-groups", func() {
-	// 		evt := timing.NewKernelDispatchEvent(10, nil)
-	// 		status := timing.NewKernelDispatchStatus()
-	// 		evt.Status = status
-	// 		evt.SetTime(10)
-
-	// 		status.Grid = grid
-	// 		status.CUBusy = make([]bool, 2)
-	// 		status.DispatchingCUID = 2
-
-	// 		dispatcher.Handle(evt)
-
-	// 		Expect(connection.AllExpectedSent()).To(BeTrue())
-	// 	})
+		Expect(connection.AllExpectedSent()).To(BeTrue())
+	})
 
 	It("should process WGFinishMesg", func() {
 		status := NewKernelDispatchStatus()
