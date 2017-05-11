@@ -3,12 +3,12 @@ package cu
 import (
 	"log"
 	"reflect"
-	"sync"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
+	"gitlab.com/yaotsu/mem"
 )
 
 // A Scheduler is responsible for determine which wavefront can fetch, decode,
@@ -17,22 +17,34 @@ import (
 //     ToDispatcher <=>  The port conneting the scheduler and the dispatcher
 //     ToSReg <=> The port connecting the scheduler with the scalar register
 // 				  file
-//     ToVRegs <=> The port connecting ithe scheduler with the vector register
+//     ToVRegs <=> The port connecting the scheduler with the vector register
 //                files
+// 	   ToInstMem <=> The port connecting the scheduler with the instruction
+//                   memory unit
+//     ToDecoders <=> The port connecting the scheduler with the decoders
 type Scheduler struct {
 	*core.ComponentBase
-	sync.Mutex
 
 	engine       core.Engine
 	wgMapper     WGMapper
 	wfDispatcher WfDispatcher
-	SRegFile     core.Component
+	fetchArbitor WfArbitor
+	issueArbitor WfArbitor
+
+	InstMem          core.Component
+	SRegFile         core.Component
+	BranchUnit       core.Component
+	VectorMemDecoder core.Component
+	ScalarDecoder    core.Component
+	VectorDecoder    core.Component
+	LDSDecoder       core.Component
 
 	WfPools []*WavefrontPool
 
-	used    bool
-	Freq    core.Freq
-	Running bool
+	used              bool
+	Freq              core.Freq
+	running           bool
+	internalExecuting *Wavefront
 
 	// A set of workgroups running on current CU
 	RunningWGs map[*kernels.WorkGroup]*WorkGroup
@@ -44,6 +56,8 @@ func NewScheduler(
 	engine core.Engine,
 	wgMapper WGMapper,
 	wfDispatcher WfDispatcher,
+	fetchArbitor WfArbitor,
+	issueArbitor WfArbitor,
 ) *Scheduler {
 	s := new(Scheduler)
 	s.ComponentBase = core.NewComponentBase(name)
@@ -51,6 +65,8 @@ func NewScheduler(
 	s.engine = engine
 	s.wgMapper = wgMapper
 	s.wfDispatcher = wfDispatcher
+	s.fetchArbitor = fetchArbitor
+	s.issueArbitor = issueArbitor
 
 	s.initWfPools([]int{10, 10, 10, 10})
 	s.used = false
@@ -59,6 +75,9 @@ func NewScheduler(
 	s.AddPort("ToDispatcher")
 	s.AddPort("ToSReg")
 	s.AddPort("ToVRegs")
+	s.AddPort("ToInstMem")
+	s.AddPort("ToDecoders")
+
 	return s
 }
 
@@ -102,6 +121,8 @@ func (s *Scheduler) processDispatchWfReq(
 
 // Handle processes the event that is scheduled on this scheduler
 func (s *Scheduler) Handle(evt core.Event) error {
+	s.Lock()
+	defer s.Unlock()
 	s.InvokeHook(evt, core.BeforeEvent)
 	defer s.InvokeHook(evt, core.AfterEvent)
 
@@ -110,6 +131,8 @@ func (s *Scheduler) Handle(evt core.Event) error {
 		return s.handleMapWGEvent(evt)
 	case *DispatchWfEvent:
 		return s.handleDispatchWfEvent(evt)
+	case *core.TickEvent:
+		return s.handleTickEvent(evt)
 	case *WfCompleteEvent:
 		return s.handleWfCompleteEvent(evt)
 	default:
@@ -145,19 +168,106 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 		wg := s.RunningWGs[evt.Req.Wf.WG]
 		wg.Wfs = append(wg.Wfs, wf)
 
+		s.tryScheduleTick(s.Freq.NextTick(evt.Time()))
+
 		// This is temporary code, to be removed later
-		wfCompleteEvent := NewWfCompleteEvent(
-			s.Freq.NCyclesLater(3000, evt.Time()), s, wf)
-		s.engine.Schedule(wfCompleteEvent)
+		// wfCompleteEvent := NewWfCompleteEvent(
+		// 	s.Freq.NCyclesLater(3000, evt.Time()), s, wf)
+		// s.engine.Schedule(wfCompleteEvent)
 	}
 
+	return nil
+}
+
+func (s *Scheduler) tryScheduleTick(t core.VTimeInSec) {
+	if !s.running {
+		s.scheduleTick(t)
+	}
+}
+
+func (s *Scheduler) scheduleTick(t core.VTimeInSec) {
+	evt := core.NewTickEvent(t, s)
+	s.engine.Schedule(evt)
+}
+
+func (s *Scheduler) handleTickEvent(evt *core.TickEvent) error {
+	s.fetch(evt.Time())
+	s.issue(evt.Time())
+	return nil
+}
+
+func (s *Scheduler) fetch(now core.VTimeInSec) {
+	wfs := s.fetchArbitor.Arbitrate(s.WfPools)
+
+	if len(wfs) > 0 {
+		wf := wfs[0]
+		req := mem.NewAccessReq()
+		req.Address = wf.PC
+		req.Type = mem.Read
+		req.ByteSize = 8
+		req.SetDst(s.InstMem)
+		req.SetSrc(s)
+		req.SetSendTime(now)
+		req.Info = wf
+
+		err := s.GetConnection("ToInstMem").Send(req)
+		if err != nil && !err.Recoverable {
+			log.Fatal(err)
+		} else if err != nil {
+			// Do not do anything
+		} else {
+			wf.State = WfFetching
+		}
+	}
+}
+
+func (s *Scheduler) issue(now core.VTimeInSec) {
+	wfs := s.issueArbitor.Arbitrate(s.WfPools)
+	for _, wf := range wfs {
+		if wf.IssueDir == IssueDirInternal {
+			if s.internalExecuting == nil {
+				s.internalExecuting = wf
+				wf.State = WfRunning
+			} else {
+				wf.State = WfFetched
+			}
+			continue
+		}
+
+		req := NewIssueInstReq(s, s.getUnitToIssueTo(wf.IssueDir), now, wf)
+		err := s.GetConnection("ToDecoders").Send(req)
+		if err != nil && !err.Recoverable {
+			log.Panic(err)
+		} else if err != nil {
+			wf.State = WfFetched
+		} else {
+			wf.State = WfRunning
+		}
+	}
+}
+
+func (s *Scheduler) getUnitToIssueTo(dir IssueDirection) core.Component {
+	switch dir {
+	case IssueDirBranch:
+		return s.BranchUnit
+	case IssueDirLDS:
+		return s.LDSDecoder
+	case IssueDirVALU:
+		return s.VectorDecoder
+	case IssueDirVMem:
+		return s.VectorMemDecoder
+	case IssueDirScalar:
+		return s.ScalarDecoder
+	default:
+		log.Panic("not sure where to dispatch instrcution")
+	}
 	return nil
 }
 
 func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
 	wf := evt.Wf
 	wg := s.RunningWGs[wf.WG]
-	wf.Status = Completed
+	wf.State = WfCompleted
 
 	if s.isAllWfInWGCompleted(wg) {
 		ok := s.sendWGCompletionMessage(evt, wg)
@@ -173,7 +283,7 @@ func (s *Scheduler) isAllWfInWGCompleted(wg *WorkGroup) bool {
 	for _, wf := range wg.Wfs {
 		// FIXME, is there data race here, or only scheduler can change
 		// wavefront status?
-		if wf.Status != Completed {
+		if wf.State != WfCompleted {
 			return false
 		}
 	}
@@ -225,21 +335,6 @@ func (s *Scheduler) writeReg(
 		req.SetDst(s.WfPools[wf.SIMDID].VRegFile)
 		s.GetConnection("ToVRegs").Send(req)
 	}
-}
-
-// ScheduleEvent requires the scheduler to schedule for the next cycle
-type ScheduleEvent struct {
-	*core.EventBase
-}
-
-// NewScheduleEvent returns a newly created ScheduleEvent
-func NewScheduleEvent(
-	time core.VTimeInSec,
-	handler core.Handler,
-) *ScheduleEvent {
-	e := new(ScheduleEvent)
-	e.EventBase = core.NewEventBase(time, handler)
-	return e
 }
 
 // A WfCompleteEvent marks the competion of a wavefront

@@ -1,4 +1,4 @@
-package cu_test
+package cu
 
 import (
 	"log"

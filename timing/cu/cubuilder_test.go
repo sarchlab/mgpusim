@@ -1,16 +1,15 @@
-package cu_test
+package cu
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/gcn3/timing/cu"
 )
 
 var _ = Describe("Builder", func() {
-	var b *cu.Builder
+	var b *Builder
 
 	BeforeEach(func() {
-		b = cu.NewBuilder()
+		b = NewBuilder()
 	})
 
 	It("should build default compute unit", func() {

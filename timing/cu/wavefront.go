@@ -9,10 +9,12 @@ type WfState int
 
 // A list of all possible WfState
 const (
-	Dispatching WfState = iota // Dispatching in progress, not ready to run
-	Ready                      // Allow the scheduler to schedule instruction
-	Running                    // Instruction in fight
-	Completed                  // Wavefront completed
+	WfDispatching WfState = iota // Dispatching in progress, not ready to run
+	WfReady                      // Allow the scheduler to schedule instruction
+	WfFetching                   // Fetch request sent, but not returned
+	WfFetched                    // Instruction fetched, but not issued
+	WfRunning                    // Instruction in fight
+	WfCompleted                  // Wavefront completed
 )
 
 // A Wavefront in the timing package contains the information of the progress
@@ -23,7 +25,10 @@ type Wavefront struct {
 	CodeObject *insts.HsaCo
 	Packet     *kernels.HsaKernelDispatchPacket
 
-	Status WfState
+	State      WfState
+	Inst       *Inst          // The instruction that is being executed
+	ScratchPad []byte         // A temp data buf that is shared by different stages
+	IssueDir   IssueDirection // Suggesting where to issue the instruction
 
 	PC          uint64
 	FetchBuffer []byte

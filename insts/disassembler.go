@@ -46,11 +46,11 @@ func newDecodeTable() *decodeTable {
 
 // Disassembler is the unit that can decode .hsaco file
 type Disassembler struct {
-	formatTable map[formatType]*Format
+	formatTable map[FormatType]*Format
 	formatList  []*Format
 
 	// Maps from the format to table
-	decodeTables map[formatType]*decodeTable
+	decodeTables map[FormatType]*decodeTable
 	nextInstID   int
 }
 
@@ -375,7 +375,7 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 }
 
 func (d *Disassembler) initializeFormatTable() {
-	d.formatTable = make(map[formatType]*Format)
+	d.formatTable = make(map[FormatType]*Format)
 	d.formatTable[Sop1] = &Format{Sop1, "sop1", 0xBE80, 0xFF80, 4, 8, 15}
 	d.formatTable[Sopc] = &Format{Sopc, "sopc", 0xBF00, 0xFF80, 4, 16, 22}
 	d.formatTable[Sopp] = &Format{Sopp, "sopp", 0xBF80, 0xFF80, 4, 16, 22}
@@ -405,7 +405,7 @@ func (d *Disassembler) initializeFormatTable() {
 }
 
 func (d *Disassembler) initializeDecodeTable() {
-	d.decodeTables = make(map[formatType]*decodeTable)
+	d.decodeTables = make(map[FormatType]*decodeTable)
 
 	// SOP2 instructions
 	d.addInstType(&InstType{"s_add_u32", 0, d.formatTable[Sop2], 0})
