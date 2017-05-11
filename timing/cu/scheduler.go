@@ -20,7 +20,7 @@ import (
 //     ToVRegs <=> The port connecting ithe scheduler with the vector register
 //                files
 type Scheduler struct {
-	*core.BasicComponent
+	*core.ComponentBase
 	sync.Mutex
 
 	engine       core.Engine
@@ -46,7 +46,7 @@ func NewScheduler(
 	wfDispatcher WfDispatcher,
 ) *Scheduler {
 	s := new(Scheduler)
-	s.BasicComponent = core.NewBasicComponent(name)
+	s.ComponentBase = core.NewComponentBase(name)
 
 	s.engine = engine
 	s.wgMapper = wgMapper

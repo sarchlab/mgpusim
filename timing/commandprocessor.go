@@ -17,7 +17,7 @@ import (
 //     ToDriver <=> Receive request and send feedback to the driver
 //     ToDispatcher <=> Dispatcher of compute kernels
 type CommandProcessor struct {
-	*core.BasicComponent
+	*core.ComponentBase
 
 	Dispatcher core.Component
 	Driver     core.Component
@@ -26,7 +26,7 @@ type CommandProcessor struct {
 // NewCommandProcessor creates a new CommandProcessor
 func NewCommandProcessor(name string) *CommandProcessor {
 	c := new(CommandProcessor)
-	c.BasicComponent = core.NewBasicComponent(name)
+	c.ComponentBase = core.NewComponentBase(name)
 
 	c.AddPort("ToDriver")
 	c.AddPort("ToDispatcher")

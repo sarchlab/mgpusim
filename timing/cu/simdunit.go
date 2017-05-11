@@ -10,7 +10,7 @@ import (
 //    <=> ToVReg
 //    <=> ToSReg
 type SIMDUnit struct {
-	*core.BasicComponent
+	*core.ComponentBase
 
 	VRegFile *RegCtrl
 	SRegFile *RegCtrl

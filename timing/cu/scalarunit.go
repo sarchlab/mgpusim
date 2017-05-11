@@ -7,5 +7,5 @@ import "gitlab.com/yaotsu/core"
 //    <=> ToScheduler Receives IssueReq from the scheduler and send the
 //        same request back to the scheduler when complete
 type ScalarUnit struct {
-	*core.BasicComponent
+	*core.ComponentBase
 }

@@ -18,12 +18,12 @@ import (
 )
 
 type hostComponent struct {
-	*core.BasicComponent
+	*core.ComponentBase
 }
 
 func newHostComponnent() *hostComponent {
 	h := new(hostComponent)
-	h.BasicComponent = core.NewBasicComponent("host")
+	h.ComponentBase = core.NewComponentBase("host")
 	h.AddPort("ToGpu")
 	return h
 }
@@ -170,7 +170,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 1024
+	req.Packet.GridSizeX = 256 * 1000
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256

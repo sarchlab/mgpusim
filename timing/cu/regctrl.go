@@ -110,7 +110,7 @@ func NewWriteRegEvent(
 //     <=> ToOutside the only port that the RegCtrl use to connect to the
 //         outside world.
 type RegCtrl struct {
-	*core.BasicComponent
+	*core.ComponentBase
 
 	Engine core.Engine
 
@@ -122,7 +122,7 @@ type RegCtrl struct {
 func NewRegCtrl(name string, storage *mem.Storage, engine core.Engine) *RegCtrl {
 	c := new(RegCtrl)
 
-	c.BasicComponent = core.NewBasicComponent(name)
+	c.ComponentBase = core.NewComponentBase(name)
 	c.storage = storage
 	c.Engine = engine
 

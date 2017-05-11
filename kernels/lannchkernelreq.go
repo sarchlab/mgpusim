@@ -11,6 +11,8 @@ type LaunchKernelReq struct {
 
 	Packet *HsaKernelDispatchPacket
 	HsaCo  *insts.HsaCo
+
+	OK bool
 }
 
 // NewLaunchKernelReq returns a new LaunchKernelReq
