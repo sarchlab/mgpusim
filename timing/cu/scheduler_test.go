@@ -77,8 +77,7 @@ var _ = Describe("Scheduler", func() {
 	Context("when processing MapWGReq", func() {
 		It("should process MapWGReq", func() {
 			wg := kernels.NewWorkGroup()
-			status := timing.NewKernelDispatchStatus()
-			req := timing.NewMapWGReq(nil, scheduler, 10, wg, status)
+			req := timing.NewMapWGReq(nil, scheduler, 10, wg, co)
 
 			scheduler.Recv(req)
 
@@ -102,7 +101,7 @@ var _ = Describe("Scheduler", func() {
 	Context("when handling MapWGEvent", func() {
 		It("should reply OK if wgMapper say OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
-				status)
+				co)
 			evt := cu.NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = true
@@ -117,7 +116,7 @@ var _ = Describe("Scheduler", func() {
 
 		It("should reply not OK if wgMapper say not OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
-				status)
+				co)
 			evt := cu.NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = false
@@ -188,7 +187,7 @@ var _ = Describe("Scheduler", func() {
 			}
 
 			evt := cu.NewWfCompleteEvent(0, scheduler, wfToComplete)
-			reqToSend := timing.NewWGFinishMesg(scheduler, nil, 0, wg, nil)
+			reqToSend := timing.NewWGFinishMesg(scheduler, nil, 0, wg)
 			connection.ExpectSend(reqToSend, nil)
 
 			scheduler.Handle(evt)
