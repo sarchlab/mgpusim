@@ -1,4 +1,4 @@
-package timing_test
+package timing
 
 import (
 	"log"
