@@ -1,8 +1,11 @@
 package cu
 
-import "gitlab.com/yaotsu/gcn3/kernels"
-import "gitlab.com/yaotsu/gcn3/insts"
-import "gitlab.com/yaotsu/gcn3/timing"
+import (
+	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/timing"
+)
 
 // WfState marks what state that wavefront it in.
 type WfState int
@@ -25,10 +28,11 @@ type Wavefront struct {
 	CodeObject *insts.HsaCo
 	Packet     *kernels.HsaKernelDispatchPacket
 
-	State      WfState
-	Inst       *Inst          // The instruction that is being executed
-	ScratchPad []byte         // A temp data buf that is shared by different stages
-	IssueDir   IssueDirection // Suggesting where to issue the instruction
+	State         WfState
+	Inst          *Inst           // The instruction that is being executed
+	ScratchPad    []byte          // A temp data buf that is shared by different stages
+	IssueDir      IssueDirection  // Suggesting where to issue the instruction
+	LastFetchTime core.VTimeInSec // The time that the last instruction was fetched
 
 	PC          uint64
 	FetchBuffer []byte
