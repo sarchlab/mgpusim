@@ -138,7 +138,7 @@ func (m *WGMapperImpl) MapWG(req *timing.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) withinSGPRLimitation(req *timing.MapWGReq) bool {
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 	required := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
 	for _, wf := range req.WG.Wavefronts {
 		offset, ok := m.SGprMask.NextRegion(required, AllocStatusFree)
@@ -152,7 +152,7 @@ func (m *WGMapperImpl) withinSGPRLimitation(req *timing.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) withinLDSLimitation(req *timing.MapWGReq) bool {
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 	required := m.unitsOccupy(int(co.WGGroupSegmentByteSize), m.LDSGranularity)
 	offset, ok := m.LDSMask.NextRegion(required, AllocStatusFree)
 	if !ok {
@@ -175,7 +175,7 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	nextSIMD := 0
 	vgprToUse := make([]int, m.NumWfPool)
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 
 	for i := 0; i < len(req.WG.Wavefronts); i++ {
 		firstSIMDTested := nextSIMD
@@ -236,7 +236,7 @@ func (m *WGMapperImpl) clearTempReservation(req *timing.MapWGReq) {
 // UnmapWG will remove all the resource reservation of a workgroup
 func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
 	req := wg.MapReq
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 	for _, wf := range wg.Wfs {
 		m.WfPoolFreeCount[wf.SIMDID]++
 

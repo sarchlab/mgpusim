@@ -45,7 +45,7 @@ var _ = Describe("WGMapper", func() {
 			wgMapper.WfPoolFreeCount[i] = 2
 		}
 
-		req := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0], status)
+		req := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0], co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -69,7 +69,7 @@ var _ = Describe("WGMapper", func() {
 
 		// 10 Wfs, 64 SGPRs per wf. That is 640 in total
 		co.WFSgprCount = 64
-		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], status)
+		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -92,7 +92,7 @@ var _ = Describe("WGMapper", func() {
 		wgMapper.LDSMask.SetStatus(0, 240, cu.AllocStatusReserved)
 
 		co.WGGroupSegmentByteSize = 8192
-		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], status)
+		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -120,7 +120,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 256
 		co.WIVgprCount = 20
 
-		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], status)
+		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -145,7 +145,7 @@ var _ = Describe("WGMapper", func() {
 		wgMapper.WfPoolFreeCount[3] = 2
 
 		co.WIVgprCount = 102
-		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], status)
+		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -168,7 +168,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 1024
 
 		wg := grid.WorkGroups[0]
-		req := timing.NewMapWGReq(nil, nil, 10, wg, status)
+		req := timing.NewMapWGReq(nil, nil, 10, wg, co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -208,7 +208,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 900
 
 		wg := grid.WorkGroups[0]
-		req := timing.NewMapWGReq(nil, nil, 10, wg, status)
+		req := timing.NewMapWGReq(nil, nil, 10, wg, co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -244,8 +244,7 @@ var _ = Describe("WGMapper", func() {
 
 		co.WIVgprCount = 20
 
-		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0],
-			status)
+		req := timing.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
 
 		ok := wgMapper.MapWG(req)
 
@@ -267,7 +266,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 1024
 		co.WFSgprCount = 64
 		status.CodeObject = co
-		req := timing.NewMapWGReq(nil, nil, 0, wg, status)
+		req := timing.NewMapWGReq(nil, nil, 0, wg, co)
 
 		managedWG := cu.NewWorkGroup(wg, req)
 

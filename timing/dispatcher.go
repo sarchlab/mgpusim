@@ -49,10 +49,10 @@ type MapWGReq struct {
 	*core.ReqBase
 
 	WG            *kernels.WorkGroup
-	KernelStatus  *KernelDispatchStatus
 	Ok            bool
 	WfDispatchMap map[*kernels.Wavefront]*WfDispatchInfo // Tells where a wf should fit in
 	CUID          int
+	CodeObject    *insts.HsaCo
 }
 
 // NewMapWGReq returns a newly created MapWGReq
@@ -60,7 +60,7 @@ func NewMapWGReq(
 	src, dst core.Component,
 	time core.VTimeInSec,
 	wg *kernels.WorkGroup,
-	status *KernelDispatchStatus,
+	co *insts.HsaCo,
 ) *MapWGReq {
 	r := new(MapWGReq)
 	r.ReqBase = core.NewReqBase()
@@ -68,8 +68,7 @@ func NewMapWGReq(
 	r.SetDst(dst)
 	r.SetSendTime(time)
 	r.WG = wg
-	r.KernelStatus = status
-
+	r.CodeObject = co
 	r.WfDispatchMap = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	return r
 }
@@ -108,9 +107,8 @@ func NewDispatchWfReq(
 type WGFinishMesg struct {
 	*core.ReqBase
 
-	WG     *kernels.WorkGroup
-	Status *KernelDispatchStatus
-	CUID   int
+	WG   *kernels.WorkGroup
+	CUID int
 }
 
 // NewWGFinishMesg creates and returns a newly created WGFinishMesg
@@ -118,7 +116,6 @@ func NewWGFinishMesg(
 	src, dst core.Component,
 	time core.VTimeInSec,
 	wg *kernels.WorkGroup,
-	status *KernelDispatchStatus,
 ) *WGFinishMesg {
 	m := new(WGFinishMesg)
 	m.ReqBase = core.NewReqBase()
@@ -127,7 +124,6 @@ func NewWGFinishMesg(
 	m.SetDst(dst)
 	m.SetSendTime(time)
 	m.WG = wg
-	m.Status = status
 
 	return m
 }
@@ -265,7 +261,7 @@ func (d *Dispatcher) scheduleTick(t core.VTimeInSec) {
 }
 
 func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
-	status := req.KernelStatus
+	status := d.dispatchingKernel
 
 	if req.Ok {
 		for i, wgToDel := range status.WGs {
@@ -289,8 +285,7 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 }
 
 func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
-	status := mesg.Status
-
+	status := d.dispatchingKernel
 	status.CompletedWGs = append(status.CompletedWGs, mesg.WG)
 
 	if len(status.CompletedWGs) == len(status.Grid.WorkGroups) {
@@ -298,9 +293,7 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 		d.GetConnection("ToCommandProcessor").Send(status.Req)
 	} else {
 		status.CUBusy[mesg.CUID] = false
-		evt := NewKernelDispatchEvent(d.Freq.NextTick(mesg.RecvTime()), d)
-		evt.Status = status
-		d.engine.Schedule(evt)
+		d.tryScheduleTick(d.Freq.NextTick(d.Freq.NextTick(mesg.RecvTime())))
 	}
 
 	return nil
@@ -376,7 +369,7 @@ func (d *Dispatcher) mapWG(now core.VTimeInSec) {
 		cuID := d.nextAvailableCU(status)
 		cu := d.CUs[cuID]
 		wg := status.WGs[0]
-		req := NewMapWGReq(d, cu, now, wg, status)
+		req := NewMapWGReq(d, cu, now, wg, status.CodeObject)
 		req.CUID = cuID
 
 		log.Printf("Trying to map wg to cu %d\n", cuID)

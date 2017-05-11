@@ -184,8 +184,7 @@ func (s *Scheduler) sendWGCompletionMessage(evt *WfCompleteEvent, wg *WorkGroup)
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
 	now := evt.Time()
-	mesg := timing.NewWGFinishMesg(s, dispatcher, now, wg.WorkGroup,
-		mapReq.KernelStatus)
+	mesg := timing.NewWGFinishMesg(s, dispatcher, now, wg.WorkGroup)
 	mesg.CUID = mapReq.CUID
 
 	err := s.GetConnection("ToDispatcher").Send(mesg)

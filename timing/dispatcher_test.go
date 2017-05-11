@@ -97,36 +97,43 @@ var _ = Describe("Dispatcher", func() {
 		Expect(dispatcher.running).To(BeTrue())
 	})
 
-	// It("should process MapWGReq", func() {
-	// 	mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0],
-	// 		timing.NewKernelDispatchStatus())
-	// 	mapWGReq.Ok = true
+	It("should continue dispatching after receiving MapWGReq", func() {
+		status := NewKernelDispatchStatus()
+		status.Mapped = false
+		dispatcher.dispatchingKernel = status
+		dispatcher.running = false
 
-	// 	dispatcher.Recv(mapWGReq)
+		wg := grid.WorkGroups[0]
+		mapWGReq := NewMapWGReq(nil, nil, 0, wg, nil)
+		mapWGReq.Ok = true
+		status.WGs = append(status.WGs, wg)
 
-	// 	Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-	// 	evt := engine.ScheduledEvent[0].(*timing.KernelDispatchEvent)
-	// 	Expect(evt.Time()).To(BeNumerically("~", 1e-9, 1e-12))
-	// 	Expect(mapWGReq.KernelStatus.Mapped).To(BeTrue())
-	// })
+		dispatcher.Recv(mapWGReq)
 
-	// It("should mark CU busy if the MapWGReq is failed", func() {
-	// 	status := timing.NewKernelDispatchStatus()
-	// 	status.DispatchingCUID = 0 // This is not the CU to be marked as busy
-	// 	mapWGReq := timing.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0], status)
-	// 	mapWGReq.Ok = false
-	// 	mapWGReq.CUID = 1 // This is the CU to be marked as busy
-	// 	mapWGReq.KernelStatus.CUBusy = make([]bool, 2)
+		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+		Expect(status.Mapped).To(BeTrue())
+		Expect(status.WGs).NotTo(ContainElement(BeIdenticalTo(wg)))
+	})
 
-	// 	dispatcher.Recv(mapWGReq)
+	It("should mark CU busy if the MapWGReq is failed", func() {
+		status := NewKernelDispatchStatus()
+		status.DispatchingCUID = 0 // This is not the CU to be marked as busy
+		dispatcher.dispatchingKernel = status
 
-	// 	Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-	// 	evt := engine.ScheduledEvent[0].(*timing.KernelDispatchEvent)
-	// 	Expect(evt.Time()).To(BeNumerically("~", 1e-9, 1e-12))
+		wg := grid.WorkGroups[0]
+		mapWGReq := NewMapWGReq(nil, nil, 0, wg, nil)
+		mapWGReq.Ok = false
+		mapWGReq.CUID = 1 // This is the CU to be marked as busy
+		status.CUBusy = make([]bool, 2)
+		status.WGs = append(status.WGs, wg)
 
-	// 	Expect(mapWGReq.KernelStatus.CUBusy[1]).To(BeTrue())
-	// 	Expect(mapWGReq.KernelStatus.Mapped).To(BeFalse())
-	// })
+		dispatcher.Recv(mapWGReq)
+
+		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+		Expect(status.CUBusy[1]).To(BeTrue())
+		Expect(status.Mapped).To(BeFalse())
+		Expect(status.WGs).To(ContainElement(BeIdenticalTo(wg)))
+	})
 
 	It("should start to map work-group", func() {
 		status := NewKernelDispatchStatus()
@@ -136,8 +143,7 @@ var _ = Describe("Dispatcher", func() {
 		status.DispatchingCUID = -1
 		dispatcher.dispatchingKernel = status
 
-		mapWGReq := NewMapWGReq(dispatcher, cu0, 10, grid.WorkGroups[0],
-			status)
+		mapWGReq := NewMapWGReq(dispatcher, cu0, 10, grid.WorkGroups[0], nil)
 		connection.ExpectSend(mapWGReq, nil)
 
 		dispatcher.Handle(core.NewTickEvent(10, dispatcher))
@@ -238,39 +244,61 @@ var _ = Describe("Dispatcher", func() {
 	// 		Expect(connection.AllExpectedSent()).To(BeTrue())
 	// 	})
 
-	// 	It("should process WGFinishMesg", func() {
-	// 		status := timing.NewKernelDispatchStatus()
-	// 		status.Grid = grid
-	// 		status.CUBusy = make([]bool, 4)
+	It("should process WGFinishMesg", func() {
+		status := NewKernelDispatchStatus()
+		status.Grid = grid
+		status.CUBusy = make([]bool, 4)
+		status.CUBusy[0] = true
+		dispatcher.dispatchingKernel = status
 
-	// 		req := timing.NewWGFinishMesg(cu0, dispatcher, 10,
-	// 			grid.WorkGroups[0], status)
-	// 		req.CUID = 0
+		req := NewWGFinishMesg(cu0, dispatcher, 10, grid.WorkGroups[0])
+		req.CUID = 0
 
-	// 		dispatcher.Recv(req)
+		dispatcher.Recv(req)
 
-	// 		Expect(status.CompletedWGs).To(ContainElement(grid.WorkGroups[0]))
-	// 	})
+		Expect(status.CompletedWGs).To(ContainElement(grid.WorkGroups[0]))
+		Expect(status.CUBusy[0]).To(BeFalse())
+		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+	})
 
-	// 	It("should send back the LaunchKernelReq to the driver", func() {
-	// 		launchReq := kernels.NewLaunchKernelReq()
-	// 		launchReq.SetSrc(nil)
-	// 		launchReq.SetDst(dispatcher)
+	It("should not scheduler tick, if dispatcher is running, when processing "+
+		"WGFinishMesg", func() {
+		status := NewKernelDispatchStatus()
+		status.Grid = grid
+		status.CUBusy = make([]bool, 4)
+		status.CUBusy[0] = true
+		dispatcher.dispatchingKernel = status
+		dispatcher.running = true
 
-	// 		status := timing.NewKernelDispatchStatus()
-	// 		status.Grid = grid
-	// 		status.CompletedWGs = append(status.CompletedWGs,
-	// 			status.Grid.WorkGroups[1:]...)
-	// 		status.Req = launchReq
+		req := NewWGFinishMesg(cu0, dispatcher, 10, grid.WorkGroups[0])
+		req.CUID = 0
 
-	// 		req := timing.NewWGFinishMesg(cu0, dispatcher, 10,
-	// 			grid.WorkGroups[0], status)
+		dispatcher.Recv(req)
 
-	// 		connection.ExpectSend(launchReq, nil)
+		Expect(status.CompletedWGs).To(ContainElement(grid.WorkGroups[0]))
+		Expect(status.CUBusy[0]).To(BeFalse())
+		Expect(engine.ScheduledEvent).To(BeEmpty())
+	})
 
-	// 		dispatcher.Recv(req)
+	It("should send back the LaunchKernelReq to the driver", func() {
+		launchReq := kernels.NewLaunchKernelReq()
+		launchReq.SetSrc(nil)
+		launchReq.SetDst(dispatcher)
 
-	// 		Expect(connection.AllExpectedSent()).To(BeTrue())
-	// 	})
+		status := NewKernelDispatchStatus()
+		status.Grid = grid
+		status.CompletedWGs = append(status.CompletedWGs,
+			status.Grid.WorkGroups[1:]...)
+		status.Req = launchReq
+		dispatcher.dispatchingKernel = status
+
+		req := NewWGFinishMesg(cu0, dispatcher, 10, grid.WorkGroups[0])
+
+		connection.ExpectSend(launchReq, nil)
+
+		dispatcher.Recv(req)
+
+		Expect(connection.AllExpectedSent()).To(BeTrue())
+	})
 
 })
