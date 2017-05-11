@@ -41,7 +41,7 @@ func (b *Builder) initScheduler() *Scheduler {
 	wgMapper := NewWGMapper(b.SIMDCount)
 	wfDispatcher := new(WfDispatcherImpl)
 	scheduler := NewScheduler(b.CUName+".scheduler", b.Engine, wgMapper,
-		wfDispatcher)
+		wfDispatcher, nil, nil)
 	scheduler.Freq = b.Freq
 	wfDispatcher.Scheduler = scheduler
 	return scheduler

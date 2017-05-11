@@ -1,4 +1,4 @@
-package cu_test
+package cu
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/timing/cu"
+	"gitlab.com/yaotsu/mem"
 )
 
 func prepareGrid() *kernels.Grid {
@@ -25,47 +25,92 @@ func prepareGrid() *kernels.Grid {
 	return grid
 }
 
-type MockWGMapper struct {
+type mockWGMapper struct {
 	OK         bool
-	UnmappedWg *cu.WorkGroup
+	UnmappedWg *WorkGroup
 }
 
-func (m *MockWGMapper) MapWG(req *timing.MapWGReq) bool {
+func (m *mockWGMapper) MapWG(req *timing.MapWGReq) bool {
 	return m.OK
 }
 
-func (m *MockWGMapper) UnmapWG(wg *cu.WorkGroup) {
+func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
 	m.UnmappedWg = wg
 }
 
-type MockWfDispatcher struct {
+type mockWfDispatcher struct {
 	OK bool
 }
 
-func (m *MockWfDispatcher) DispatchWf(evt *cu.DispatchWfEvent) (bool, *cu.Wavefront) {
+func (m *mockWfDispatcher) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
 	return m.OK, nil
+}
+
+type mockWfArbitor struct {
+	wfsToReturn [][]*Wavefront
+}
+
+func newMockWfArbitor() *mockWfArbitor {
+	a := new(mockWfArbitor)
+	a.wfsToReturn = make([][]*Wavefront, 0)
+	return a
+}
+
+func (m *mockWfArbitor) Arbitrate([]*WavefrontPool) []*Wavefront {
+	if len(m.wfsToReturn) == 0 {
+		return nil
+	}
+	wfs := m.wfsToReturn[0]
+	m.wfsToReturn = m.wfsToReturn[1:]
+	return wfs
 }
 
 var _ = Describe("Scheduler", func() {
 	var (
-		scheduler    *cu.Scheduler
-		connection   *core.MockConnection
-		engine       *core.MockEngine
-		wgMapper     *MockWGMapper
-		wfDispatcher *MockWfDispatcher
-		grid         *kernels.Grid
-		status       *timing.KernelDispatchStatus
-		co           *insts.HsaCo
+		scheduler        *Scheduler
+		connection       *core.MockConnection
+		engine           *core.MockEngine
+		wgMapper         *mockWGMapper
+		wfDispatcher     *mockWfDispatcher
+		fetchArbitor     *mockWfArbitor
+		issueArbitor     *mockWfArbitor
+		instMem          *core.MockComponent
+		branchUnit       *core.MockComponent
+		vectorMemDecoder *core.MockComponent
+		scalarDecoder    *core.MockComponent
+		vectorDecoder    *core.MockComponent
+		ldsDecoder       *core.MockComponent
+		grid             *kernels.Grid
+		status           *timing.KernelDispatchStatus
+		co               *insts.HsaCo
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
-		wgMapper = new(MockWGMapper)
-		wfDispatcher = new(MockWfDispatcher)
-		scheduler = cu.NewScheduler("scheduler", engine, wgMapper, wfDispatcher)
+		wgMapper = new(mockWGMapper)
+		wfDispatcher = new(mockWfDispatcher)
+		fetchArbitor = newMockWfArbitor()
+		issueArbitor = newMockWfArbitor()
+		branchUnit = core.NewMockComponent("branchUnit")
+		vectorMemDecoder = core.NewMockComponent("vectorMemDecoder")
+		scalarDecoder = core.NewMockComponent("scalarDecodor")
+		vectorDecoder = core.NewMockComponent("vectorDecoder")
+		ldsDecoder = core.NewMockComponent("ldsDecoder")
+		instMem = core.NewMockComponent("instMem")
+		scheduler = NewScheduler("scheduler", engine, wgMapper, wfDispatcher,
+			fetchArbitor, issueArbitor)
 		scheduler.Freq = 1 * core.GHz
+		scheduler.InstMem = instMem
+		scheduler.BranchUnit = branchUnit
+		scheduler.VectorMemDecoder = vectorMemDecoder
+		scheduler.ScalarDecoder = scalarDecoder
+		scheduler.VectorDecoder = vectorDecoder
+		scheduler.LDSDecoder = ldsDecoder
+
 		connection = core.NewMockConnection()
 		core.PlugIn(scheduler, "ToDispatcher", connection)
+		core.PlugIn(scheduler, "ToDecoders", connection)
+		core.PlugIn(scheduler, "ToInstMem", connection)
 
 		grid = prepareGrid()
 		status = timing.NewKernelDispatchStatus()
@@ -102,7 +147,7 @@ var _ = Describe("Scheduler", func() {
 		It("should reply OK if wgMapper say OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
 				co)
-			evt := cu.NewMapWGEvent(10, scheduler, req)
+			evt := NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = true
 			connection.ExpectSend(req, nil)
@@ -117,7 +162,7 @@ var _ = Describe("Scheduler", func() {
 		It("should reply not OK if wgMapper say not OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
 				co)
-			evt := cu.NewMapWGEvent(10, scheduler, req)
+			evt := NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = false
 			connection.ExpectSend(req, nil)
@@ -129,13 +174,13 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
-	Context("when handling dispatch wavefront request", func() {
+	Context("when handling DispatchWfEvent", func() {
 		It("should reschedule DispatchWfEvent if not complete", func() {
 			wf := grid.WorkGroups[0].Wavefronts[0]
 			info := new(timing.WfDispatchInfo)
 			info.SIMDID = 1
 			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
-			evt := cu.NewDispatchWfEvent(10, scheduler, req)
+			evt := NewDispatchWfEvent(10, scheduler, req)
 
 			wfDispatcher.OK = false
 			scheduler.Handle(evt)
@@ -146,19 +191,137 @@ var _ = Describe("Scheduler", func() {
 		It("should add wavefront to workgroup", func() {
 			wf := grid.WorkGroups[0].Wavefronts[0]
 			wf.WG = grid.WorkGroups[0]
-			managedWG := cu.NewWorkGroup(wf.WG, nil)
+			managedWG := NewWorkGroup(wf.WG, nil)
 			info := new(timing.WfDispatchInfo)
 			info.SIMDID = 1
 			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
-			evt := cu.NewDispatchWfEvent(10, scheduler, req)
+			evt := NewDispatchWfEvent(10, scheduler, req)
 			scheduler.RunningWGs[grid.WorkGroups[0]] = managedWG
+			scheduler.running = false
 
 			wfDispatcher.OK = true
 			scheduler.Handle(evt)
 
-			// Expect(len(engine.ScheduledEvent)).To(Equal(0))
+			Expect(len(engine.ScheduledEvent)).To(Equal(1))
 			Expect(len(managedWG.Wfs)).To(Equal(1))
 		})
+
+		It("should not schedule tick if scheduling is already running", func() {
+			wf := grid.WorkGroups[0].Wavefronts[0]
+			wf.WG = grid.WorkGroups[0]
+			managedWG := NewWorkGroup(wf.WG, nil)
+			info := new(timing.WfDispatchInfo)
+			info.SIMDID = 1
+			req := timing.NewDispatchWfReq(nil, scheduler, 10, wf, info, 6256)
+			evt := NewDispatchWfEvent(10, scheduler, req)
+			scheduler.RunningWGs[grid.WorkGroups[0]] = managedWG
+			scheduler.running = true
+
+			wfDispatcher.OK = true
+			scheduler.Handle(evt)
+
+			Expect(len(engine.ScheduledEvent)).To(Equal(0))
+			Expect(len(managedWG.Wfs)).To(Equal(1))
+		})
+	})
+
+	Context("when handling TickEvent", func() {
+		It("should fetch", func() {
+			wf := new(Wavefront)
+			wf.PC = 8064
+			fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
+				[]*Wavefront{wf})
+
+			reqToExpect := mem.NewAccessReq()
+			reqToExpect.SetSrc(scheduler)
+			reqToExpect.SetDst(instMem)
+			reqToExpect.Address = 8064
+			reqToExpect.ByteSize = 8
+			reqToExpect.Type = mem.Read
+			reqToExpect.SetSendTime(10)
+			reqToExpect.Info = wf
+			connection.ExpectSend(reqToExpect, nil)
+
+			scheduler.Handle(core.NewTickEvent(10, scheduler))
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(wf.State).To(Equal(WfFetching))
+		})
+
+		It("should issue", func() {
+			wfs := make([]*Wavefront, 0)
+			issueDirs := []IssueDirection{
+				IssueDirBranch, IssueDirLDS, IssueDirVMem, IssueDirVALU,
+				IssueDirScalar,
+			}
+			issueTo := []core.Component{
+				branchUnit, ldsDecoder, vectorMemDecoder, vectorDecoder,
+				scalarDecoder,
+			}
+			issueError := []*core.Error{
+				nil,
+				core.NewError("err", true, 11),
+				core.NewError("err", true, 12),
+				nil,
+				nil,
+			}
+
+			for i := 0; i < 5; i++ {
+				wf := new(Wavefront)
+				wf.State = WfFetched
+				wf.IssueDir = issueDirs[i]
+				wfs = append(wfs, wf)
+
+				if issueTo[i] != nil {
+					req := NewIssueInstReq(scheduler, issueTo[i], 10, wf)
+					connection.ExpectSend(req, issueError[i])
+				}
+			}
+
+			issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
+
+			scheduler.Handle(core.NewTickEvent(10, scheduler))
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(wfs[0].State).To(Equal(WfRunning))
+			Expect(wfs[1].State).To(Equal(WfFetched))
+			Expect(wfs[2].State).To(Equal(WfFetched))
+			Expect(wfs[3].State).To(Equal(WfRunning))
+			Expect(wfs[4].State).To(Equal(WfRunning))
+		})
+
+		It("should issue internal instruction", func() {
+			wfs := make([]*Wavefront, 0)
+			wf := new(Wavefront)
+			wf.IssueDir = IssueDirInternal
+			wf.State = WfFetched
+			wfs = append(wfs, wf)
+
+			issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
+			scheduler.internalExecuting = nil
+
+			scheduler.Handle(core.NewTickEvent(10, scheduler))
+
+			Expect(scheduler.internalExecuting).To(BeIdenticalTo(wf))
+			Expect(wf.State).To(Equal(WfRunning))
+		})
+
+		It("should not issue internal instruction, if there is one internal instruction in flight", func() {
+			wfs := make([]*Wavefront, 0)
+			wf := new(Wavefront)
+			wf.IssueDir = IssueDirInternal
+			wf.State = WfFetched
+			wfs = append(wfs, wf)
+
+			issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
+			scheduler.internalExecuting = new(Wavefront)
+
+			scheduler.Handle(core.NewTickEvent(10, scheduler))
+
+			Expect(scheduler.internalExecuting).NotTo(BeIdenticalTo(wf))
+			Expect(wf.State).To(Equal(WfFetched))
+		})
+
 	})
 
 	Context("when handling WfCompleteEvent", func() {
@@ -167,18 +330,18 @@ var _ = Describe("Scheduler", func() {
 			wg := grid.WorkGroups[0]
 			mapReq := timing.NewMapWGReq(nil, scheduler, 0, wg, nil)
 			mapReq.SwapSrcAndDst()
-			managedWG := cu.NewWorkGroup(wg, nil)
+			managedWG := NewWorkGroup(wg, nil)
 			managedWG.MapReq = mapReq
 			scheduler.RunningWGs[wg] = managedWG
 
-			var wfToComplete *cu.Wavefront
+			var wfToComplete *Wavefront
 			for i := 0; i < len(wg.Wavefronts); i++ {
-				managedWf := new(cu.Wavefront)
+				managedWf := new(Wavefront)
 				managedWf.Wavefront = wg.Wavefronts[i]
-				managedWf.Status = cu.Completed
+				managedWf.State = WfCompleted
 				managedWf.SIMDID = i % 4
 				if i == 6 {
-					managedWf.Status = cu.Running
+					managedWf.State = WfRunning
 					wfToComplete = managedWf
 				}
 				managedWG.Wfs = append(managedWG.Wfs, managedWf)
@@ -186,7 +349,7 @@ var _ = Describe("Scheduler", func() {
 				scheduler.WfPools[i%4].AddWf(managedWf)
 			}
 
-			evt := cu.NewWfCompleteEvent(0, scheduler, wfToComplete)
+			evt := NewWfCompleteEvent(0, scheduler, wfToComplete)
 			reqToSend := timing.NewWGFinishMesg(scheduler, nil, 0, wg)
 			connection.ExpectSend(reqToSend, nil)
 

@@ -22,11 +22,11 @@ const (
 	formatTypeCount
 )
 
-type formatType int
+type FormatType int
 
 // Format defines the possible microcode format of instructions
 type Format struct {
-	FormatType        formatType
+	FormatType        FormatType
 	FormatName        string
 	Encoding          uint16
 	Mask              uint16
