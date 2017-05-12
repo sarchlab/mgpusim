@@ -334,9 +334,25 @@ var _ = Describe("Scheduler", func() {
 
 	})
 
+	Context("when processing the mem.AccessReq", func() {
+		It("should set wavefront status", func() {
+			wf := new(Wavefront)
+			req := mem.NewAccessReq()
+			req.Info = wf
+			req.SetRecvTime(10)
+			inst := insts.NewInstruction()
+			decoder.Inst = inst
+
+			scheduler.Recv(req)
+
+			Expect(wf.State).To(Equal(WfFetched))
+			Expect(wf.LastFetchTime).To(Equal(core.VTimeInSec(10)))
+			Expect(wf.Inst.Inst).To(BeIdenticalTo(inst))
+		})
+	})
+
 	Context("when handling WfCompleteEvent", func() {
 		It("should clear all the wg reservation and send a message back", func() {
-			// status := timing.NewKernelDispatchStatus()
 			wg := grid.WorkGroups[0]
 			mapReq := timing.NewMapWGReq(nil, scheduler, 0, wg, nil)
 			mapReq.SwapSrcAndDst()

@@ -132,6 +132,16 @@ func (s *Scheduler) processDispatchWfReq(
 }
 
 func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
+	wf := req.Info.(*Wavefront)
+	wf.State = WfFetched
+	wf.LastFetchTime = req.RecvTime()
+
+	inst, err := s.decoder.Decode(req.Buf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	wf.Inst = NewInst(inst)
+
 	return nil
 }
 
