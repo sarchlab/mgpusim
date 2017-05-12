@@ -16,7 +16,7 @@ var _ = Describe("WfDispatcher", func() {
 
 	BeforeEach(func() {
 		wfDispatcher = new(WfDispatcherImpl)
-		scheduler = NewScheduler("scheduler", nil, nil, wfDispatcher, nil, nil)
+		scheduler = NewScheduler("scheduler", nil, nil, wfDispatcher, nil, nil, nil)
 		wfDispatcher.Scheduler = scheduler
 	})
 

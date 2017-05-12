@@ -65,6 +65,14 @@ func (m *mockWfArbitor) Arbitrate([]*WavefrontPool) []*Wavefront {
 	return wfs
 }
 
+type mockDecoder struct {
+	Inst *insts.Inst
+}
+
+func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
+	return d.Inst, nil
+}
+
 var _ = Describe("Scheduler", func() {
 	var (
 		scheduler        *Scheduler
@@ -80,6 +88,7 @@ var _ = Describe("Scheduler", func() {
 		scalarDecoder    *core.MockComponent
 		vectorDecoder    *core.MockComponent
 		ldsDecoder       *core.MockComponent
+		decoder          *mockDecoder
 		grid             *kernels.Grid
 		status           *timing.KernelDispatchStatus
 		co               *insts.HsaCo
@@ -97,8 +106,9 @@ var _ = Describe("Scheduler", func() {
 		vectorDecoder = core.NewMockComponent("vectorDecoder")
 		ldsDecoder = core.NewMockComponent("ldsDecoder")
 		instMem = core.NewMockComponent("instMem")
+		decoder = new(mockDecoder)
 		scheduler = NewScheduler("scheduler", engine, wgMapper, wfDispatcher,
-			fetchArbitor, issueArbitor)
+			fetchArbitor, issueArbitor, decoder)
 		scheduler.Freq = 1 * core.GHz
 		scheduler.InstMem = instMem
 		scheduler.BranchUnit = branchUnit
