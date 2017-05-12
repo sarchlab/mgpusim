@@ -11,8 +11,13 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
-// A Scheduler is responsible for determine which wavefront can fetch, decode,
-// and issue
+// A Scheduler is the central controller of a compute unit.
+//
+// It is responsible for communicating with the task dispatchers. So it can
+// decide whether or not a work-group can be mapped to current CU. It also
+// handles the dispatching of wavefronts.
+//
+// It is also responsible for arbitrating the instruction fetching and issuing.
 //
 //     ToDispatcher <=>  The port conneting the scheduler and the dispatcher
 //     ToSReg <=> The port connecting the scheduler with the scalar register
@@ -22,6 +27,7 @@ import (
 // 	   ToInstMem <=> The port connecting the scheduler with the instruction
 //                   memory unit
 //     ToDecoders <=> The port connecting the scheduler with the decoders
+//
 type Scheduler struct {
 	*core.ComponentBase
 
@@ -98,6 +104,8 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 		return s.processMapWGReq(req)
 	case *timing.DispatchWfReq:
 		return s.processDispatchWfReq(req)
+	case *mem.AccessReq: // Fetch return
+		return s.processAccessReq(req)
 	default:
 		log.Panicf("Unable to process req %s", reflect.TypeOf(req))
 	}
@@ -116,6 +124,10 @@ func (s *Scheduler) processDispatchWfReq(
 ) *core.Error {
 	evt := NewDispatchWfEvent(s.Freq.NextTick(req.RecvTime()), s, req)
 	s.engine.Schedule(evt)
+	return nil
+}
+
+func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 	return nil
 }
 
