@@ -19,14 +19,15 @@ import (
 //
 // It is also responsible for arbitrating the instruction fetching and issuing.
 //
-//     ToDispatcher <=>  The port conneting the scheduler and the dispatcher
-//     ToSReg <=> The port connecting the scheduler with the scalar register
-// 				  file
-//     ToVRegs <=> The port connecting the scheduler with the vector register
-//                files
-// 	   ToInstMem <=> The port connecting the scheduler with the instruction
-//                   memory unit
-//     ToDecoders <=> The port connecting the scheduler with the decoders
+// ToDispatcher <=>  The port conneting the scheduler and the dispatcher
+//
+// ToSReg <=> The port connecting the scheduler with the scalar register file
+//
+// ToVRegs <=> The port connecting the scheduler with the vector register files
+//
+// ToInstMem <=> The port connecting the scheduler with the instruction memory unit
+//
+// ToDecoders <=> The port connecting the scheduler with the decoders
 //
 type Scheduler struct {
 	*core.ComponentBase
