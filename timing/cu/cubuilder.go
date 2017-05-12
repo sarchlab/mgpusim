@@ -14,6 +14,8 @@ type Builder struct {
 	SIMDCount int
 	VGPRCount []int
 	SGPRCount int
+
+	Decoder Decoder
 }
 
 // NewBuilder returns a default builder object
@@ -41,7 +43,7 @@ func (b *Builder) initScheduler() *Scheduler {
 	wgMapper := NewWGMapper(b.SIMDCount)
 	wfDispatcher := new(WfDispatcherImpl)
 	scheduler := NewScheduler(b.CUName+".scheduler", b.Engine, wgMapper,
-		wfDispatcher, nil, nil)
+		wfDispatcher, nil, nil, b.Decoder)
 	scheduler.Freq = b.Freq
 	wfDispatcher.Scheduler = scheduler
 	return scheduler

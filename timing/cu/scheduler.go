@@ -37,6 +37,7 @@ type Scheduler struct {
 	wfDispatcher WfDispatcher
 	fetchArbitor WfArbitor
 	issueArbitor WfArbitor
+	decoder      Decoder // Decoder used to parse fetched instruction
 
 	InstMem          core.Component
 	SRegFile         core.Component
@@ -65,6 +66,7 @@ func NewScheduler(
 	wfDispatcher WfDispatcher,
 	fetchArbitor WfArbitor,
 	issueArbitor WfArbitor,
+	decoder Decoder,
 ) *Scheduler {
 	s := new(Scheduler)
 	s.ComponentBase = core.NewComponentBase(name)
@@ -74,6 +76,7 @@ func NewScheduler(
 	s.wfDispatcher = wfDispatcher
 	s.fetchArbitor = fetchArbitor
 	s.issueArbitor = issueArbitor
+	s.decoder = decoder
 
 	s.initWfPools([]int{10, 10, 10, 10})
 	s.used = false
