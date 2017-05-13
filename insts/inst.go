@@ -5,6 +5,30 @@ import (
 	"strings"
 )
 
+// ExeUnit defines which execution unit should execute the instruction
+type ExeUnit int
+
+// Defines all possible execution units
+const (
+	ExeUnitVALU ExeUnit = iota
+	ExeUnitScalar
+	ExeUnitVMem
+	ExeUnitBranch
+	ExeUnitLDS
+	ExeUnitGDS
+	ExeUnitSpecial
+)
+
+// A InstType represents an instruction type. For example s_barrier instruction
+// is a intruction type
+type InstType struct {
+	InstName string
+	Opcode   Opcode
+	Format   *Format
+	ID       int
+	ExeUnit  ExeUnit
+}
+
 // An Inst is a GCN3 instructino
 type Inst struct {
 	*Format
