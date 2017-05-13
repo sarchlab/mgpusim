@@ -261,12 +261,12 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 func (s *Scheduler) issue(now core.VTimeInSec) {
 	wfs := s.issueArbitor.Arbitrate(s.WfPools)
 	for _, wf := range wfs {
-		if wf.IssueDir == IssueDirInternal {
+		if wf.Inst.ExeUnit == insts.ExeUnitSpecial {
 			s.issueToInternal(wf)
 			continue
 		}
 
-		req := NewIssueInstReq(s, s.getUnitToIssueTo(wf.IssueDir), now, wf)
+		req := NewIssueInstReq(s, s.getUnitToIssueTo(wf.Inst.ExeUnit), now, wf)
 		err := s.GetConnection("ToDecoders").Send(req)
 		if err != nil && !err.Recoverable {
 			log.Panic(err)
@@ -288,17 +288,17 @@ func (s *Scheduler) issueToInternal(wf *Wavefront) {
 
 }
 
-func (s *Scheduler) getUnitToIssueTo(dir IssueDirection) core.Component {
-	switch dir {
-	case IssueDirBranch:
+func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) core.Component {
+	switch u {
+	case insts.ExeUnitBranch:
 		return s.BranchUnit
-	case IssueDirLDS:
+	case insts.ExeUnitLDS:
 		return s.LDSDecoder
-	case IssueDirVALU:
+	case insts.ExeUnitVALU:
 		return s.VectorDecoder
-	case IssueDirVMem:
+	case insts.ExeUnitVMem:
 		return s.VectorMemDecoder
-	case IssueDirScalar:
+	case insts.ExeUnitScalar:
 		return s.ScalarDecoder
 	default:
 		log.Panic("not sure where to dispatch instrcution")

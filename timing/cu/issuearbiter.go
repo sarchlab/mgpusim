@@ -1,19 +1,5 @@
 package cu
 
-// IssueDirection tells the category of an instruction
-type IssueDirection int
-
-// A list of all possible issue directions
-const (
-	IssueDirVALU IssueDirection = iota
-	IssueDirScalar
-	IssueDirVMem
-	IssueDirBranch
-	IssueDirLDS
-	IssueDirInternal
-	issueDirCount
-)
-
 // An IssueArbiter decides which wavefront can issue instruction
 type IssueArbiter struct {
 	lastSIMDID int
@@ -38,13 +24,13 @@ func (a *IssueArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 		a.lastSIMDID = 0
 	}
 
-	typeMask := make([]bool, int(issueDirCount))
+	typeMask := make([]bool, 7)
 	wfPool := wfPools[a.lastSIMDID]
 	list := make([]*Wavefront, 0)
 	for _, wf := range wfPool.wfs {
-		if wf.State == WfFetched && typeMask[wf.IssueDir] == false {
+		if wf.State == WfFetched && typeMask[wf.Inst.ExeUnit] == false {
 			list = append(list, wf)
-			typeMask[wf.IssueDir] = true
+			typeMask[wf.Inst.ExeUnit] = true
 		}
 	}
 	return list

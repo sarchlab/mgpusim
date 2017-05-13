@@ -260,9 +260,12 @@ var _ = Describe("Scheduler", func() {
 
 		It("should issue", func() {
 			wfs := make([]*Wavefront, 0)
-			issueDirs := []IssueDirection{
-				IssueDirBranch, IssueDirLDS, IssueDirVMem, IssueDirVALU,
-				IssueDirScalar,
+			issueDirs := []insts.ExeUnit{
+				insts.ExeUnitBranch,
+				insts.ExeUnitLDS,
+				insts.ExeUnitVMem,
+				insts.ExeUnitVALU,
+				insts.ExeUnitScalar,
 			}
 			issueTo := []core.Component{
 				branchUnit, ldsDecoder, vectorMemDecoder, vectorDecoder,
@@ -279,7 +282,8 @@ var _ = Describe("Scheduler", func() {
 			for i := 0; i < 5; i++ {
 				wf := new(Wavefront)
 				wf.State = WfFetched
-				wf.IssueDir = issueDirs[i]
+				wf.Inst = NewInst(insts.NewInstruction())
+				wf.Inst.ExeUnit = issueDirs[i]
 				wfs = append(wfs, wf)
 
 				if issueTo[i] != nil {
@@ -303,7 +307,8 @@ var _ = Describe("Scheduler", func() {
 		It("should issue internal instruction", func() {
 			wfs := make([]*Wavefront, 0)
 			wf := new(Wavefront)
-			wf.IssueDir = IssueDirInternal
+			wf.Inst = NewInst(insts.NewInstruction())
+			wf.Inst.ExeUnit = insts.ExeUnitSpecial
 			wf.State = WfFetched
 			wfs = append(wfs, wf)
 
@@ -319,7 +324,8 @@ var _ = Describe("Scheduler", func() {
 		It("should not issue internal instruction, if there is one internal instruction in flight", func() {
 			wfs := make([]*Wavefront, 0)
 			wf := new(Wavefront)
-			wf.IssueDir = IssueDirInternal
+			wf.Inst = NewInst(insts.NewInstruction())
+			wf.Inst.ExeUnit = insts.ExeUnitSpecial
 			wf.State = WfFetched
 			wfs = append(wfs, wf)
 

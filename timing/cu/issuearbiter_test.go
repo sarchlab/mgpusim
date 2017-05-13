@@ -3,6 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 var _ = Describe("IssueArbiter", func() {
@@ -24,18 +25,19 @@ var _ = Describe("IssueArbiter", func() {
 			WfRunning, WfFetched, WfFetched, WfReady, WfFetched,
 			WfFetched, WfFetched, WfFetched, WfFetched, WfFetched,
 		}
-		IssueDirs := []IssueDirection{
-			IssueDirVALU, IssueDirScalar, IssueDirVMem,
-			IssueDirBranch, IssueDirLDS, IssueDirInternal,
-			IssueDirVALU, IssueDirBranch, IssueDirVALU,
-			IssueDirVMem,
+		exeUnits := []insts.ExeUnit{
+			insts.ExeUnitVALU, insts.ExeUnitScalar, insts.ExeUnitVMem,
+			insts.ExeUnitBranch, insts.ExeUnitLDS, insts.ExeUnitSpecial,
+			insts.ExeUnitVALU, insts.ExeUnitBranch, insts.ExeUnitVALU,
+			insts.ExeUnitVMem,
 		}
 		wfs := make([]*Wavefront, 0)
 
 		for i := 0; i < len(wfState); i++ {
 			wf := new(Wavefront)
 			wf.State = wfState[i]
-			wf.IssueDir = IssueDirs[i]
+			wf.Inst = NewInst(insts.NewInstruction())
+			wf.Inst.ExeUnit = exeUnits[i]
 			wfs = append(wfs, wf)
 			wfPools[0].AddWf(wf)
 		}
