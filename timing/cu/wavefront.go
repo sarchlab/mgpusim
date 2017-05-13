@@ -31,7 +31,6 @@ type Wavefront struct {
 	State         WfState
 	Inst          *Inst           // The instruction that is being executed
 	ScratchPad    []byte          // A temp data buf that is shared by different stages
-	IssueDir      IssueDirection  // Suggesting where to issue the instruction
 	LastFetchTime core.VTimeInSec // The time that the last instruction was fetched
 
 	PC          uint64
