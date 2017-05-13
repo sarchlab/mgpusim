@@ -136,13 +136,24 @@ func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 	wf.State = WfFetched
 	wf.LastFetchTime = req.RecvTime()
 
-	inst, err := s.decoder.Decode(req.Buf)
+	s.decode(req.Buf, wf)
+	s.decideIssueDir(wf)
+
+	return nil
+}
+
+// This decode is just a virtual step for the simulator. In the simulator,
+// there is no difference when the decode actually happen.
+func (s *Scheduler) decode(buf []byte, wf *Wavefront) {
+	inst, err := s.decoder.Decode(buf)
 	if err != nil {
 		log.Fatal(err)
 	}
 	wf.Inst = NewInst(inst)
+}
 
-	return nil
+func (s *Scheduler) decideIssueDir(wf *Wavefront) {
+
 }
 
 // Handle processes the event that is scheduled on this scheduler
