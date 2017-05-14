@@ -137,7 +137,6 @@ func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 	wf.LastFetchTime = req.RecvTime()
 
 	s.decode(req.Buf, wf)
-	s.decideIssueDir(wf)
 
 	return nil
 }
@@ -150,10 +149,6 @@ func (s *Scheduler) decode(buf []byte, wf *Wavefront) {
 		log.Fatal(err)
 	}
 	wf.Inst = NewInst(inst)
-}
-
-func (s *Scheduler) decideIssueDir(wf *Wavefront) {
-
 }
 
 // Handle processes the event that is scheduled on this scheduler
