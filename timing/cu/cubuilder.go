@@ -14,8 +14,9 @@ type Builder struct {
 	SIMDCount int
 	VGPRCount []int
 	SGPRCount int
-
-	Decoder Decoder
+	Decoder   Decoder
+	InstMem   core.Component
+	ToInstMem core.Connection
 }
 
 // NewBuilder returns a default builder object
@@ -42,9 +43,14 @@ func (b *Builder) Build() *ComputeUnit {
 func (b *Builder) initScheduler() *Scheduler {
 	wgMapper := NewWGMapper(b.SIMDCount)
 	wfDispatcher := new(WfDispatcherImpl)
+	fetchArbiter := new(FetchArbiter)
+	issueArbiter := NewIssueArbiter()
 	scheduler := NewScheduler(b.CUName+".scheduler", b.Engine, wgMapper,
-		wfDispatcher, nil, nil, b.Decoder)
+		wfDispatcher, fetchArbiter, issueArbiter, b.Decoder)
+
 	scheduler.Freq = b.Freq
+	scheduler.InstMem = b.InstMem
+
 	wfDispatcher.Scheduler = scheduler
 	return scheduler
 }
@@ -78,4 +84,7 @@ func (b *Builder) connect(computeUnit *ComputeUnit) {
 		core.PlugIn(computeUnit.VRegFiles[i], "ToOutside", connection)
 	}
 	core.PlugIn(computeUnit.SRegFile, "ToOutside", connection)
+
+	// External
+	core.PlugIn(computeUnit.Scheduler, "ToInstMem", b.ToInstMem)
 }
