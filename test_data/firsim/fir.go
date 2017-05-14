@@ -86,6 +86,9 @@ func initPlatform() {
 	commandProcessor.Driver = gpu
 	cuBuilder := cu.NewBuilder()
 	cuBuilder.Engine = engine
+	cuBuilder.InstMem = globalMem
+	cuBuilder.Decoder = insts.NewDisassembler()
+	cuBuilder.ToInstMem = connection
 	for i := 0; i < 4; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
