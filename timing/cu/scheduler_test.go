@@ -287,7 +287,8 @@ var _ = Describe("Scheduler", func() {
 				wfs = append(wfs, wf)
 
 				if issueTo[i] != nil {
-					req := NewIssueInstReq(scheduler, issueTo[i], 10, wf)
+					req := NewIssueInstReq(scheduler, issueTo[i], 10,
+						scheduler, wf)
 					connection.ExpectSend(req, issueError[i])
 				}
 			}

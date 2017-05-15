@@ -261,7 +261,8 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 			continue
 		}
 
-		req := NewIssueInstReq(s, s.getUnitToIssueTo(wf.Inst.ExeUnit), now, wf)
+		req := NewIssueInstReq(s, s.getUnitToIssueTo(wf.Inst.ExeUnit), now,
+			s, wf)
 		err := s.GetConnection("ToDecoders").Send(req)
 		if err != nil && !err.Recoverable {
 			log.Panic(err)
