@@ -78,3 +78,86 @@ var _ = Describe("SimpleDecodeUnit", func() {
 	})
 
 })
+
+var _ = Describe("VectorDecodeUnit", func() {
+
+	var (
+		decodeUnit *VectorDecodeUnit
+		simdUnits  []*core.MockComponent
+		engine     *core.MockEngine
+		conn       *core.MockConnection
+	)
+
+	BeforeEach(func() {
+		engine = core.NewMockEngine()
+		conn = core.NewMockConnection()
+		decodeUnit = NewVectorDecodeUnit("DecodeU", engine)
+		for i := 0; i < 4; i++ {
+			simdUnit := core.NewMockComponent("simd")
+			simdUnits = append(simdUnits, simdUnit)
+			decodeUnit.SIMDUnits = append(decodeUnit.SIMDUnits, simdUnit)
+		}
+		decodeUnit.Freq = 1
+		decodeUnit.Latency = 1
+		core.PlugIn(decodeUnit, "ToExecUnit", conn)
+	})
+
+	It("should schedule decode completion event", func() {
+		decodeUnit.available = true
+		issueInstReq := NewIssueInstReq(nil, decodeUnit, 10, nil, nil)
+		issueInstReq.SetRecvTime(10)
+		decodeUnit.Recv(issueInstReq)
+		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+		Expect(decodeUnit.available).To(BeFalse())
+		Expect(decodeUnit.nextPossibleTime).To(BeNumerically("~", 12, 1e-9))
+	})
+
+	It("should reject decode request if not available", func() {
+		decodeUnit.available = false
+		decodeUnit.nextPossibleTime = 14
+		issueInstReq := NewIssueInstReq(nil, decodeUnit, 10, nil, nil)
+		issueInstReq.SetRecvTime(10)
+		err := decodeUnit.Recv(issueInstReq)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Recoverable).To(BeTrue())
+		Expect(err.EarliestRetry).To(BeNumerically("~", 14, 1e-9))
+	})
+
+	It("should send IssueInstReq to the ExecUnit", func() {
+		decodeUnit.available = false
+		wf := new(Wavefront)
+		wf.SIMDID = 0
+
+		issueInstReq := NewIssueInstReq(nil, decodeUnit, 10, nil, wf)
+		evt := NewDecodeCompletionEvent(11, decodeUnit, issueInstReq)
+
+		reqToExpect := NewIssueInstReq(decodeUnit, decodeUnit.SIMDUnits[0],
+			11, nil, wf)
+		conn.ExpectSend(reqToExpect, nil)
+
+		decodeUnit.Handle(evt)
+
+		Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(decodeUnit.available).To(BeTrue())
+	})
+
+	It("should reschedule event if cannot send IssueInstReq", func() {
+		decodeUnit.available = false
+		wf := new(Wavefront)
+		wf.SIMDID = 0
+		issueInstReq := NewIssueInstReq(nil, decodeUnit, 10, nil, wf)
+		evt := NewDecodeCompletionEvent(11, decodeUnit, issueInstReq)
+
+		reqToExpect := NewIssueInstReq(decodeUnit, decodeUnit.SIMDUnits[0],
+			11, nil, wf)
+		conn.ExpectSend(reqToExpect, core.NewError("err", true, 13))
+
+		decodeUnit.Handle(evt)
+
+		Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(decodeUnit.available).To(BeFalse())
+		Expect(decodeUnit.nextPossibleTime).To(BeNumerically("~", 14, 1e-9))
+		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
+	})
+
+})
