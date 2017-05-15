@@ -7,12 +7,16 @@ import "gitlab.com/yaotsu/core"
 type ComputeUnit struct {
 	*core.ComponentBase
 
-	DataMem *core.Component
-
-	Scheduler *Scheduler
+	Scheduler    *Scheduler
+	VMemDecode   core.Component
+	ScalarDecode core.Component
+	VectorDecode core.Component
+	LDSDecode    core.Component
 
 	VRegFiles []*RegCtrl
 	SRegFile  *RegCtrl
+
+	DataMem *core.Component
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -21,6 +25,5 @@ func NewComputeUnit(name string) *ComputeUnit {
 	computeUnit.ComponentBase = core.NewComponentBase(name)
 
 	computeUnit.VRegFiles = make([]*RegCtrl, 0)
-
 	return computeUnit
 }

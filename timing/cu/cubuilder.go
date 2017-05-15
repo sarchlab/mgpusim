@@ -34,6 +34,7 @@ func (b *Builder) Build() *ComputeUnit {
 	computeUnit := NewComputeUnit(b.CUName)
 
 	computeUnit.Scheduler = b.initScheduler()
+	b.initDecodeUnits(computeUnit)
 	b.initRegFiles(computeUnit)
 	b.connect(computeUnit)
 
@@ -55,6 +56,13 @@ func (b *Builder) initScheduler() *Scheduler {
 	return scheduler
 }
 
+func (b *Builder) initDecodeUnits(computeUnit *ComputeUnit) {
+	computeUnit.VMemDecode = NewSimpleDecodeUnit(b.CUName+".vmem_decode", b.Engine)
+	computeUnit.ScalarDecode = NewSimpleDecodeUnit(b.CUName+".scalar_decode", b.Engine)
+	computeUnit.LDSDecode = NewSimpleDecodeUnit(b.CUName+".lds_decode", b.Engine)
+	computeUnit.VectorDecode = NewVectorDecodeUnit(b.CUName+".vector_decode", b.Engine)
+}
+
 func (b *Builder) initRegFiles(computeUnit *ComputeUnit) {
 	var storage *mem.Storage
 	var regFile *RegCtrl
@@ -67,6 +75,10 @@ func (b *Builder) initRegFiles(computeUnit *ComputeUnit) {
 	storage = mem.NewStorage(uint64(b.SGPRCount * 4))
 	regFile = NewRegCtrl(b.CUName+".sgprs", storage, b.Engine)
 	computeUnit.SRegFile = regFile
+}
+
+func (b *Builder) setUpDependency(computeUnit *ComputeUnit) {
+
 }
 
 // connect uses a direct connection to connect all the internal component of
@@ -84,6 +96,16 @@ func (b *Builder) connect(computeUnit *ComputeUnit) {
 		core.PlugIn(computeUnit.VRegFiles[i], "ToOutside", connection)
 	}
 	core.PlugIn(computeUnit.SRegFile, "ToOutside", connection)
+
+	// Decode Units
+	core.PlugIn(computeUnit.VMemDecode, "FromScheduler", connection)
+	core.PlugIn(computeUnit.VectorDecode, "FromScheduler", connection)
+	core.PlugIn(computeUnit.ScalarDecode, "FromScheduler", connection)
+	core.PlugIn(computeUnit.LDSDecode, "FromScheduler", connection)
+	core.PlugIn(computeUnit.VMemDecode, "ToExecUnit", connection)
+	core.PlugIn(computeUnit.VectorDecode, "ToExecUnit", connection)
+	core.PlugIn(computeUnit.ScalarDecode, "ToExecUnit", connection)
+	core.PlugIn(computeUnit.LDSDecode, "ToExecUnit", connection)
 
 	// External
 	core.PlugIn(computeUnit.Scheduler, "ToInstMem", b.ToInstMem)

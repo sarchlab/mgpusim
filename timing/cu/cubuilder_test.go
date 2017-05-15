@@ -21,13 +21,18 @@ var _ = Describe("Builder", func() {
 		computeUnit := b.Build()
 
 		Expect(computeUnit).NotTo(BeNil())
-		Expect(computeUnit.Scheduler).NotTo(BeNil())
 		Expect(len(computeUnit.VRegFiles)).To(Equal(4))
 		Expect(computeUnit.SRegFile).NotTo(BeNil())
+		Expect(computeUnit.Scheduler).NotTo(BeNil())
 		Expect(computeUnit.Scheduler.fetchArbitor).NotTo(BeNil())
 		Expect(computeUnit.Scheduler.issueArbitor).NotTo(BeNil())
 		Expect(computeUnit.Scheduler.InstMem).To(BeIdenticalTo(b.InstMem))
 		Expect(computeUnit.Scheduler.decoder).To(BeIdenticalTo(b.Decoder))
+
+		Expect(computeUnit.VectorDecode).NotTo(BeNil())
+		Expect(computeUnit.VMemDecode).NotTo(BeNil())
+		Expect(computeUnit.ScalarDecode).NotTo(BeNil())
+		Expect(computeUnit.LDSDecode).NotTo(BeNil())
 
 		Expect(computeUnit.Scheduler.GetConnection("ToInstMem")).To(
 			BeIdenticalTo(b.ToInstMem))
