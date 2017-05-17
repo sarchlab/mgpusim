@@ -3,10 +3,9 @@ package main
 import (
 	"bytes"
 	"debug/elf"
+	"encoding/binary"
 	"log"
 	"os"
-
-	"encoding/binary"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"

@@ -241,7 +241,7 @@ func (d *Dispatcher) initStatus(req *kernels.LaunchKernelReq) {
 	status.WGs = append(status.WGs, status.Grid.WorkGroups...)
 	status.DispatchingCUID = -1
 	status.CodeObject = req.HsaCo
-	for _ = range d.CUs {
+	for range d.CUs {
 		status.CUBusy = append(status.CUBusy, false)
 	}
 	d.dispatchingKernel = status

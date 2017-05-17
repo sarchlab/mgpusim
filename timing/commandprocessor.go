@@ -2,9 +2,8 @@ package timing
 
 import (
 	"fmt"
-	"reflect"
-
 	"log"
+	"reflect"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/kernels"
