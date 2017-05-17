@@ -93,6 +93,13 @@ func (b *Builder) initRegFiles(computeUnit *ComputeUnit) {
 }
 
 func (b *Builder) setUpDependency(computeUnit *ComputeUnit) {
+	scheduler := computeUnit.Scheduler.(*Scheduler)
+	scheduler.LDSDecoder = computeUnit.LDSDecode
+	scheduler.ScalarDecoder = computeUnit.ScalarDecode
+	scheduler.VectorDecoder = computeUnit.VectorDecode
+	scheduler.VectorMemDecoder = computeUnit.VMemDecode
+	scheduler.BranchUnit = computeUnit.BranchUnit
+
 	vectorDecode := computeUnit.VectorDecode.(*VectorDecodeUnit)
 	vectorDecode.SIMDUnits = append(vectorDecode.SIMDUnits,
 		computeUnit.SIMDUnits...)
@@ -102,6 +109,9 @@ func (b *Builder) setUpDependency(computeUnit *ComputeUnit) {
 
 	vMemDecode := computeUnit.VMemDecode.(*SimpleDecodeUnit)
 	vMemDecode.ExecUnit = computeUnit.VMemUnit
+
+	ldsDecode := computeUnit.LDSDecode.(*SimpleDecodeUnit)
+	ldsDecode.ExecUnit = computeUnit.LDSUnit
 }
 
 // connect uses a direct connection to connect all the internal component of
@@ -121,14 +131,28 @@ func (b *Builder) connect(computeUnit *ComputeUnit) {
 	core.PlugIn(computeUnit.SRegFile, "ToOutside", connection)
 
 	// Decode Units
-	core.PlugIn(computeUnit.VMemDecode, "FromScheduler", connection)
-	core.PlugIn(computeUnit.VectorDecode, "FromScheduler", connection)
-	core.PlugIn(computeUnit.ScalarDecode, "FromScheduler", connection)
-	core.PlugIn(computeUnit.LDSDecode, "FromScheduler", connection)
 	core.PlugIn(computeUnit.VMemDecode, "ToExecUnit", connection)
+	core.PlugIn(computeUnit.VMemDecode, "FromScheduler", connection)
 	core.PlugIn(computeUnit.VectorDecode, "ToExecUnit", connection)
+	core.PlugIn(computeUnit.VectorDecode, "FromScheduler", connection)
 	core.PlugIn(computeUnit.ScalarDecode, "ToExecUnit", connection)
+	core.PlugIn(computeUnit.ScalarDecode, "FromScheduler", connection)
 	core.PlugIn(computeUnit.LDSDecode, "ToExecUnit", connection)
+	core.PlugIn(computeUnit.LDSDecode, "FromScheduler", connection)
+
+	// Execution Units
+	core.PlugIn(computeUnit.BranchUnit, "ToScheduler", connection)
+	core.PlugIn(computeUnit.ScalarUnit, "FromDecoder", connection)
+	core.PlugIn(computeUnit.ScalarUnit, "ToScheduler", connection)
+	core.PlugIn(computeUnit.VMemUnit, "FromDecoder", connection)
+	core.PlugIn(computeUnit.VMemUnit, "ToScheduler", connection)
+	core.PlugIn(computeUnit.LDSUnit, "FromDecoder", connection)
+	core.PlugIn(computeUnit.LDSUnit, "ToScheduler", connection)
+
+	for i := 0; i < b.SIMDCount; i++ {
+		core.PlugIn(computeUnit.SIMDUnits[i], "FromDecoder", connection)
+		core.PlugIn(computeUnit.SIMDUnits[i], "ToScheduler", connection)
+	}
 
 	// External
 	core.PlugIn(computeUnit.Scheduler, "ToInstMem", b.ToInstMem)

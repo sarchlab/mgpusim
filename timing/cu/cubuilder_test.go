@@ -23,23 +23,17 @@ var _ = Describe("Builder", func() {
 
 		Expect(computeUnit).NotTo(BeNil())
 
-		Expect(len(computeUnit.VRegFiles)).To(Equal(4))
-		Expect(computeUnit.SRegFile).NotTo(BeNil())
-
 		expectSchedulerSet(computeUnit, b)
 		expectDecodersSet(computeUnit, b)
-
-		Expect(len(computeUnit.SIMDUnits)).To(Equal(4))
-		Expect(computeUnit.BranchUnit).NotTo(BeNil())
-		Expect(computeUnit.ScalarUnit).NotTo(BeNil())
-		Expect(computeUnit.LDSUnit).NotTo(BeNil())
-		Expect(computeUnit.VMemUnit).NotTo(BeNil())
-
-		Expect(computeUnit.Scheduler.GetConnection("ToInstMem")).To(
-			BeIdenticalTo(b.ToInstMem))
+		expectExecUnitsSet(computeUnit, b)
 
 	})
 })
+
+func expectRegisterFilesSet(computeUnit *ComputeUnit) {
+	Expect(len(computeUnit.VRegFiles)).To(Equal(4))
+	Expect(computeUnit.SRegFile).NotTo(BeNil())
+}
 
 func expectSchedulerSet(computeUnit *ComputeUnit, b *Builder) {
 	Expect(computeUnit.Scheduler).NotTo(BeNil())
@@ -48,6 +42,13 @@ func expectSchedulerSet(computeUnit *ComputeUnit, b *Builder) {
 	Expect(scheduler.issueArbitor).NotTo(BeNil())
 	Expect(scheduler.InstMem).To(BeIdenticalTo(b.InstMem))
 	Expect(scheduler.decoder).To(BeIdenticalTo(b.Decoder))
+	Expect(scheduler.LDSDecoder).To(BeIdenticalTo(computeUnit.LDSDecode))
+	Expect(scheduler.ScalarDecoder).To(BeIdenticalTo(computeUnit.ScalarDecode))
+	Expect(scheduler.VectorDecoder).To(BeIdenticalTo(computeUnit.VectorDecode))
+	Expect(scheduler.VectorMemDecoder).To(BeIdenticalTo(computeUnit.VMemDecode))
+	Expect(scheduler.BranchUnit).To(BeIdenticalTo(computeUnit.BranchUnit))
+	Expect(computeUnit.Scheduler.GetConnection("ToInstMem")).To(
+		BeIdenticalTo(b.ToInstMem))
 }
 
 func expectDecodersSet(computeUnit *ComputeUnit, b *Builder) {
@@ -60,5 +61,18 @@ func expectDecodersSet(computeUnit *ComputeUnit, b *Builder) {
 	Expect(vMemDecode.ExecUnit).To(BeIdenticalTo(computeUnit.VMemUnit))
 
 	Expect(computeUnit.ScalarDecode).NotTo(BeNil())
+	scalarDecode := computeUnit.ScalarDecode.(*SimpleDecodeUnit)
+	Expect(scalarDecode.ExecUnit).To(BeIdenticalTo(computeUnit.ScalarUnit))
+
 	Expect(computeUnit.LDSDecode).NotTo(BeNil())
+	ldsDecode := computeUnit.LDSDecode.(*SimpleDecodeUnit)
+	Expect(ldsDecode.ExecUnit).To(BeIdenticalTo(computeUnit.LDSUnit))
+}
+
+func expectExecUnitsSet(computeUnit *ComputeUnit, b *Builder) {
+	Expect(len(computeUnit.SIMDUnits)).To(Equal(4))
+	Expect(computeUnit.BranchUnit).NotTo(BeNil())
+	Expect(computeUnit.ScalarUnit).NotTo(BeNil())
+	Expect(computeUnit.LDSUnit).NotTo(BeNil())
+	Expect(computeUnit.VMemUnit).NotTo(BeNil())
 }

@@ -6,9 +6,13 @@ import (
 
 // SIMDUnit is a unit that can execute vector instructions
 //
-//    <=> ToScheduler
-//    <=> ToVReg
-//    <=> ToSReg
+// FromDecoder <=>
+//
+// ToScheduler <=>
+//
+// ToVReg <=>
+//
+// ToSReg <=>
 type SIMDUnit struct {
 	*core.ComponentBase
 
@@ -20,6 +24,10 @@ type SIMDUnit struct {
 func NewSIMDUnit(name string) *SIMDUnit {
 	u := new(SIMDUnit)
 	u.ComponentBase = core.NewComponentBase(name)
+	u.AddPort("FromDecoder")
+	u.AddPort("ToScheduler")
+	u.AddPort("ToVReg")
+	u.AddPort("ToSReg")
 	return u
 }
 
