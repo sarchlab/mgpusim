@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"fmt"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/mem"
 )
@@ -35,7 +37,9 @@ func (b *Builder) Build() *ComputeUnit {
 
 	computeUnit.Scheduler = b.initScheduler()
 	b.initDecodeUnits(computeUnit)
+	b.initExecUnits(computeUnit)
 	b.initRegFiles(computeUnit)
+	b.setUpDependency(computeUnit)
 	b.connect(computeUnit)
 
 	return computeUnit
@@ -63,6 +67,17 @@ func (b *Builder) initDecodeUnits(computeUnit *ComputeUnit) {
 	computeUnit.VectorDecode = NewVectorDecodeUnit(b.CUName+".vector_decode", b.Engine)
 }
 
+func (b *Builder) initExecUnits(computeUnit *ComputeUnit) {
+	for i := 0; i < b.SIMDCount; i++ {
+		computeUnit.SIMDUnits = append(computeUnit.SIMDUnits, NewSIMDUnit(
+			fmt.Sprintf("%s.%s%d", b.CUName, "simd", i)))
+	}
+	computeUnit.BranchUnit = NewBranchUnit(b.CUName + ".branch_unit")
+	computeUnit.ScalarUnit = NewScalarUnit(b.CUName + ".scalar_unit")
+	computeUnit.LDSUnit = NewLDSUnit(b.CUName + ".lds_unit")
+	computeUnit.VMemUnit = NewVMemUnit(b.CUName + ".vmem_unit")
+}
+
 func (b *Builder) initRegFiles(computeUnit *ComputeUnit) {
 	var storage *mem.Storage
 	var regFile *RegCtrl
@@ -78,7 +93,15 @@ func (b *Builder) initRegFiles(computeUnit *ComputeUnit) {
 }
 
 func (b *Builder) setUpDependency(computeUnit *ComputeUnit) {
+	vectorDecode := computeUnit.VectorDecode.(*VectorDecodeUnit)
+	vectorDecode.SIMDUnits = append(vectorDecode.SIMDUnits,
+		computeUnit.SIMDUnits...)
 
+	scalarDecode := computeUnit.ScalarDecode.(*SimpleDecodeUnit)
+	scalarDecode.ExecUnit = computeUnit.ScalarUnit
+
+	vMemDecode := computeUnit.VMemDecode.(*SimpleDecodeUnit)
+	vMemDecode.ExecUnit = computeUnit.VMemUnit
 }
 
 // connect uses a direct connection to connect all the internal component of
