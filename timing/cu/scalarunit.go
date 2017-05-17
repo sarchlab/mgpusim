@@ -4,6 +4,10 @@ import "gitlab.com/yaotsu/core"
 
 // ScalarUnit is the execution unit that is responsible for executing the
 // local data share instuctions
+//
+// ToScheduler <=>
+//
+// FromDecoder <=>
 type ScalarUnit struct {
 	*core.ComponentBase
 }
@@ -12,6 +16,8 @@ type ScalarUnit struct {
 func NewScalarUnit(name string) *ScalarUnit {
 	u := new(ScalarUnit)
 	u.ComponentBase = core.NewComponentBase(name)
+	u.AddPort("ToScheduler")
+	u.AddPort("FromDecoder")
 	return u
 }
 

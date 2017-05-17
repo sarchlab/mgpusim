@@ -4,6 +4,10 @@ import "gitlab.com/yaotsu/core"
 
 // LDSUnit is the execution unit that is responsible for executing the
 // local data share instuctions
+//
+// ToScheduler <=> The port that is used to send InstCompletionReq
+//
+// FromDecoder <=> The port that is used to receive IssueInstReq from decoder
 type LDSUnit struct {
 	*core.ComponentBase
 }
@@ -12,6 +16,8 @@ type LDSUnit struct {
 func NewLDSUnit(name string) *LDSUnit {
 	u := new(LDSUnit)
 	u.ComponentBase = core.NewComponentBase(name)
+	u.AddPort("ToScheduler")
+	u.AddPort("FromDecoder")
 	return u
 }
 

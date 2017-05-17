@@ -4,6 +4,8 @@ import "gitlab.com/yaotsu/core"
 
 // BranchUnit is the execution unit that is responsible for executing the
 // local data share instuctions
+//
+// ToScheduler <=> The port that connects the BranchUnit and the Scheduler
 type BranchUnit struct {
 	*core.ComponentBase
 }
@@ -12,6 +14,7 @@ type BranchUnit struct {
 func NewBranchUnit(name string) *BranchUnit {
 	u := new(BranchUnit)
 	u.ComponentBase = core.NewComponentBase(name)
+	u.AddPort("ToScheduler")
 	return u
 }
 
