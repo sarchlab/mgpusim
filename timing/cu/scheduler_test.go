@@ -153,6 +153,18 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
+	Context("when processing InstCompletionReq", func() {
+		It("should mark wavefront to ready", func() {
+			wf := new(Wavefront)
+			wf.State = WfRunning
+			req := NewInstCompletionReq(nil, scheduler, 10, wf)
+
+			scheduler.Recv(req)
+
+			Expect(wf.State).To(Equal(WfReady))
+		})
+	})
+
 	Context("when handling MapWGEvent", func() {
 		It("should reply OK if wgMapper say OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
