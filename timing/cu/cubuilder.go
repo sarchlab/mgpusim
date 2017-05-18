@@ -124,6 +124,8 @@ func (b *Builder) connect(computeUnit *ComputeUnit) {
 	connection := core.NewDirectConnection()
 	core.PlugIn(computeUnit.Scheduler, "ToSReg", connection)
 	core.PlugIn(computeUnit.Scheduler, "ToVRegs", connection)
+	core.PlugIn(computeUnit.Scheduler, "ToDecoders", connection)
+	core.PlugIn(computeUnit.Scheduler, "FromExecUnits", connection)
 
 	for i := 0; i < b.SIMDCount; i++ {
 		core.PlugIn(computeUnit.VRegFiles[i], "ToOutside", connection)

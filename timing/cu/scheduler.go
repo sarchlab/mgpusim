@@ -29,6 +29,8 @@ import (
 //
 // ToDecoders <=> The port connecting the scheduler with the decoders
 //
+// FromExecUnits <=> The port to receive InstCompletionReq from execution units
+//
 type Scheduler struct {
 	*core.ComponentBase
 
@@ -87,6 +89,7 @@ func NewScheduler(
 	s.AddPort("ToVRegs")
 	s.AddPort("ToInstMem")
 	s.AddPort("ToDecoders")
+	s.AddPort("FromExecUnits")
 
 	return s
 }
@@ -110,6 +113,8 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 		return s.processDispatchWfReq(req)
 	case *mem.AccessReq: // Fetch return
 		return s.processAccessReq(req)
+	case *InstCompletionReq: // Issue return
+		return s.processInstCompletionReq(req)
 	default:
 		log.Panicf("Unable to process req %s", reflect.TypeOf(req))
 	}
@@ -138,6 +143,11 @@ func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 
 	s.decode(req.Buf, wf)
 
+	return nil
+}
+
+func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error {
+	req.Wf.State = WfReady
 	return nil
 }
 
