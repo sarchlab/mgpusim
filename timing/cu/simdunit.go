@@ -1,6 +1,9 @@
 package cu
 
 import (
+	"log"
+	"reflect"
+
 	"gitlab.com/yaotsu/core"
 )
 
@@ -33,6 +36,14 @@ func NewSIMDUnit(name string) *SIMDUnit {
 
 // Recv defines how an SIMDUnit processes incomming request
 func (u *SIMDUnit) Recv(req core.Req) *core.Error {
+	switch req := req.(type) {
+	case *IssueInstReq:
+		replyReq := NewInstCompletionReq(u, req.Scheduler, req.RecvTime(),
+			req.Wf)
+		u.GetConnection("ToScheduler").Send(replyReq)
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+	}
 	return nil
 }
 
