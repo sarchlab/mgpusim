@@ -236,6 +236,7 @@ func (s *Scheduler) scheduleTick(t core.VTimeInSec) {
 func (s *Scheduler) handleTickEvent(evt *core.TickEvent) error {
 	s.fetch(evt.Time())
 	s.issue(evt.Time())
+	s.executeInternalInst()
 	return nil
 }
 
@@ -311,6 +312,10 @@ func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) core.Component {
 		log.Panic("not sure where to dispatch instrcution")
 	}
 	return nil
+}
+
+func (s *Scheduler) executeInternalInst() {
+
 }
 
 func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
