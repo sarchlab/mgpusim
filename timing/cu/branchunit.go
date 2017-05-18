@@ -1,6 +1,11 @@
 package cu
 
-import "gitlab.com/yaotsu/core"
+import (
+	"log"
+	"reflect"
+
+	"gitlab.com/yaotsu/core"
+)
 
 // BranchUnit is the execution unit that is responsible for executing the
 // local data share instuctions
@@ -20,6 +25,14 @@ func NewBranchUnit(name string) *BranchUnit {
 
 // Recv defines the how the BranchUnit process incomming requests
 func (u *BranchUnit) Recv(req core.Req) *core.Error {
+	switch req := req.(type) {
+	case *IssueInstReq:
+		replyReq := NewInstCompletionReq(u, req.Scheduler, req.RecvTime(),
+			req.Wf)
+		u.GetConnection("ToScheduler").Send(replyReq)
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+	}
 	return nil
 }
 

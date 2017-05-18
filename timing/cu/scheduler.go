@@ -142,6 +142,7 @@ func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 	wf.LastFetchTime = req.RecvTime()
 
 	s.decode(req.Buf, wf)
+	wf.PC += uint64(wf.Inst.ByteSize)
 
 	return nil
 }

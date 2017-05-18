@@ -356,10 +356,12 @@ var _ = Describe("Scheduler", func() {
 	Context("when processing the mem.AccessReq", func() {
 		It("should set wavefront status", func() {
 			wf := new(Wavefront)
+			wf.PC = 6604
 			req := mem.NewAccessReq()
 			req.Info = wf
 			req.SetRecvTime(10)
 			inst := insts.NewInstruction()
+			inst.ByteSize = 4
 			decoder.Inst = inst
 
 			scheduler.Recv(req)
@@ -367,6 +369,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(Equal(core.VTimeInSec(10)))
 			Expect(wf.Inst.Inst).To(BeIdenticalTo(inst))
+			Expect(wf.PC).To(Equal(uint64(6608)))
 		})
 	})
 
