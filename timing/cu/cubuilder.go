@@ -61,10 +61,25 @@ func (b *Builder) initScheduler() *Scheduler {
 }
 
 func (b *Builder) initDecodeUnits(computeUnit *ComputeUnit) {
-	computeUnit.VMemDecode = NewSimpleDecodeUnit(b.CUName+".vmem_decode", b.Engine)
-	computeUnit.ScalarDecode = NewSimpleDecodeUnit(b.CUName+".scalar_decode", b.Engine)
-	computeUnit.LDSDecode = NewSimpleDecodeUnit(b.CUName+".lds_decode", b.Engine)
-	computeUnit.VectorDecode = NewVectorDecodeUnit(b.CUName+".vector_decode", b.Engine)
+	vMemDecode := NewSimpleDecodeUnit(b.CUName+".vmem_decode", b.Engine)
+	vMemDecode.Latency = 1
+	vMemDecode.Freq = b.Freq
+	computeUnit.VMemDecode = vMemDecode
+
+	scalarDecode := NewSimpleDecodeUnit(b.CUName+".scalar_decode", b.Engine)
+	scalarDecode.Latency = 1
+	scalarDecode.Freq = b.Freq
+	computeUnit.ScalarDecode = scalarDecode
+
+	ldsDecode := NewSimpleDecodeUnit(b.CUName+".lds_decode", b.Engine)
+	ldsDecode.Latency = 1
+	ldsDecode.Freq = b.Freq
+	computeUnit.LDSDecode = ldsDecode
+
+	vectorDecode := NewVectorDecodeUnit(b.CUName+".vector_decode", b.Engine)
+	vectorDecode.Latency = 1
+	vectorDecode.Freq = b.Freq
+	computeUnit.VectorDecode = vectorDecode
 }
 
 func (b *Builder) initExecUnits(computeUnit *ComputeUnit) {
@@ -121,7 +136,7 @@ func (b *Builder) setUpDependency(computeUnit *ComputeUnit) {
 // considered. However, users can overwrite this function to use other type of
 // connections inside the compute unit
 func (b *Builder) connect(computeUnit *ComputeUnit) {
-	connection := core.NewDirectConnection()
+	connection := core.NewDirectConnection(b.Engine)
 	core.PlugIn(computeUnit.Scheduler, "ToSReg", connection)
 	core.PlugIn(computeUnit.Scheduler, "ToVRegs", connection)
 	core.PlugIn(computeUnit.Scheduler, "ToDecoders", connection)
