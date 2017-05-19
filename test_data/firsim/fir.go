@@ -6,6 +6,9 @@ import (
 	"encoding/binary"
 	"log"
 	"os"
+	"runtime/pprof"
+
+	"flag"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -20,7 +23,7 @@ type hostComponent struct {
 	*core.ComponentBase
 }
 
-func newHostComponnent() *hostComponent {
+func newHostComponent() *hostComponent {
 	h := new(hostComponent)
 	h.ComponentBase = core.NewComponentBase("host")
 	h.AddPort("ToGpu")
@@ -48,7 +51,20 @@ var (
 	hsaco      *insts.HsaCo
 )
 
+var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
+var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
+
 func main() {
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	initPlatform()
 	loadProgram()
 	initMem()
@@ -66,10 +82,10 @@ func initPlatform() {
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
 	globalMem.Frequency = 800 * core.MHz
-	globalMem.Latency = 100
+	globalMem.Latency = 2
 
 	// Host
-	host = newHostComponnent()
+	host = newHostComponent()
 
 	// Gpu
 	gpu = gcn3.NewGpu("Gpu")
@@ -88,7 +104,7 @@ func initPlatform() {
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 32; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
@@ -113,7 +129,7 @@ func initPlatform() {
 }
 
 func loadProgram() {
-	executable, err := elf.Open(os.Args[1])
+	executable, err := elf.Open(*kernel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -172,7 +188,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 1024
+	req.Packet.GridSizeX = 256 * 1000
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256

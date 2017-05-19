@@ -54,7 +54,7 @@ func NewWavefront() *Wavefront {
 	return wf
 }
 
-// A WorkItem defins a set of vector registers
+// A WorkItem defines a set of vector registers
 type WorkItem struct {
 	WG            *WorkGroup
 	IDX, IDY, IDZ int
