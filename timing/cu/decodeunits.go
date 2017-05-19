@@ -55,8 +55,11 @@ func NewSimpleDecodeUnit(name string, engine core.Engine) *SimpleDecodeUnit {
 	return u
 }
 
-// Recv processes the imcoming requests
+// Recv processes the incoming requests
 func (u *SimpleDecodeUnit) Recv(req core.Req) *core.Error {
+	u.Lock()
+	defer u.Unlock()
+
 	switch req := req.(type) {
 	case *IssueInstReq:
 		return u.processIssueInstReq(req)
@@ -80,6 +83,9 @@ func (u *SimpleDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 
 // Handle defines what happens on event triggered on this component
 func (u *SimpleDecodeUnit) Handle(evt core.Event) error {
+	u.Lock()
+	defer u.Unlock()
+
 	switch evt := evt.(type) {
 	case *DecodeCompletionEvent:
 		return u.handleDecodeCompletionEvent(evt)
@@ -145,8 +151,11 @@ func NewVectorDecodeUnit(name string, engine core.Engine) *VectorDecodeUnit {
 	return u
 }
 
-// Recv processes the imcoming requests
+// Recv processes the incoming requests
 func (u *VectorDecodeUnit) Recv(req core.Req) *core.Error {
+	u.Lock()
+	defer u.Unlock()
+
 	switch req := req.(type) {
 	case *IssueInstReq:
 		return u.processIssueInstReq(req)
@@ -170,6 +179,9 @@ func (u *VectorDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 
 // Handle defines what happens on event triggered on this component
 func (u *VectorDecodeUnit) Handle(evt core.Event) error {
+	u.Lock()
+	defer u.Unlock()
+
 	switch evt := evt.(type) {
 	case *DecodeCompletionEvent:
 		return u.handleDecodeCompletionEvent(evt)
