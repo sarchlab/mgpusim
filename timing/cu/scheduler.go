@@ -56,7 +56,7 @@ type Scheduler struct {
 	running           bool
 	internalExecuting *Wavefront
 
-	// A set of workgroups running on current CU
+	// A set of work-groups running on current CU
 	RunningWGs map[*kernels.WorkGroup]*WorkGroup
 }
 
@@ -149,6 +149,11 @@ func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 
 func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error {
 	req.Wf.State = WfReady
+
+	wf := req.Wf
+	log.Printf("%.10f, wf %d, instruction ready %s\n",
+		req.SendTime(), wf.WorkItems[0].IDX, wf.Inst)
+
 	return nil
 }
 
@@ -166,6 +171,7 @@ func (s *Scheduler) decode(buf []byte, wf *Wavefront) {
 func (s *Scheduler) Handle(evt core.Event) error {
 	s.Lock()
 	defer s.Unlock()
+
 	s.InvokeHook(evt, core.BeforeEvent)
 	defer s.InvokeHook(evt, core.AfterEvent)
 
@@ -231,12 +237,16 @@ func (s *Scheduler) tryScheduleTick(t core.VTimeInSec) {
 func (s *Scheduler) scheduleTick(t core.VTimeInSec) {
 	evt := core.NewTickEvent(t, s)
 	s.engine.Schedule(evt)
+	s.running = true
 }
 
 func (s *Scheduler) handleTickEvent(evt *core.TickEvent) error {
 	s.fetch(evt.Time())
 	s.issue(evt.Time())
 	s.executeInternalInst()
+	if s.running {
+		s.scheduleTick(s.Freq.NextTick(evt.Time()))
+	}
 	return nil
 }
 
@@ -269,7 +279,10 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 	wfs := s.issueArbitor.Arbitrate(s.WfPools)
 	for _, wf := range wfs {
 		if wf.Inst.ExeUnit == insts.ExeUnitSpecial {
-			s.issueToInternal(wf)
+			s.issueToInternal(wf, now)
+			log.Printf("%.10f, wf %d, issuing to internal %s\n",
+				now, wf.WorkItems[0].IDX, wf.Inst)
+
 			continue
 		}
 
@@ -282,14 +295,24 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 			wf.State = WfFetched
 		} else {
 			wf.State = WfRunning
+			log.Printf("%.10f, wf %d, issuing instructions %s\n",
+				now, wf.WorkItems[0].IDX, wf.Inst)
 		}
 	}
 }
 
-func (s *Scheduler) issueToInternal(wf *Wavefront) {
+func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 	if s.internalExecuting == nil {
 		s.internalExecuting = wf
 		wf.State = WfRunning
+
+		// Testing code
+		s.internalExecuting = nil
+		wf.State = WfReady
+		if wf.Inst.FormatType == insts.Sopp && wf.Inst.Opcode == 1 { // S_ENGPGM
+			wfCompleteEvt := NewWfCompleteEvent(now, s, wf)
+			s.engine.Schedule(wfCompleteEvt)
+		}
 	} else {
 		wf.State = WfFetched
 	}
@@ -327,7 +350,12 @@ func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
 		ok := s.sendWGCompletionMessage(evt, wg)
 		if ok {
 			s.clearWGResource(wg)
+			delete(s.RunningWGs, wf.WG)
 		}
+	}
+
+	if len(s.RunningWGs) == 0 {
+		s.running = false
 	}
 
 	return nil
@@ -341,6 +369,7 @@ func (s *Scheduler) isAllWfInWGCompleted(wg *WorkGroup) bool {
 	}
 	return true
 }
+
 
 func (s *Scheduler) sendWGCompletionMessage(evt *WfCompleteEvent, wg *WorkGroup) bool {
 	mapReq := wg.MapReq
@@ -389,7 +418,7 @@ func (s *Scheduler) writeReg(
 	}
 }
 
-// A WfCompleteEvent marks the competion of a wavefront
+// A WfCompleteEvent marks the completion of a wavefront
 type WfCompleteEvent struct {
 	*core.EventBase
 	Wf *Wavefront
