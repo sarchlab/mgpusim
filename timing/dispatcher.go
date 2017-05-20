@@ -128,22 +128,6 @@ func NewWGFinishMesg(
 	return m
 }
 
-// A KernelDispatchEvent is a event to continue the kernel dispatch process
-// type KernelDispatchEvent struct {
-// 	*core.EventBase
-// 	Status *KernelDispatchStatus
-// }
-
-// // NewKernelDispatchEvent returne a newly created KernelDispatchEvent
-// func NewKernelDispatchEvent(
-// 	time core.VTimeInSec,
-// 	handler core.Handler,
-// ) *KernelDispatchEvent {
-// 	e := new(KernelDispatchEvent)
-// 	e.EventBase = core.NewEventBase(time, handler)
-// 	return e
-// }
-
 // A Dispatcher is a component that can dispatch workgroups and wavefronts
 // to ComputeUnits.
 //

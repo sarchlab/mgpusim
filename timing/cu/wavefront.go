@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"sync"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
@@ -24,6 +26,7 @@ const (
 // of a wavefront
 type Wavefront struct {
 	*kernels.Wavefront
+	sync.RWMutex
 
 	CodeObject *insts.HsaCo
 	Packet     *kernels.HsaKernelDispatchPacket

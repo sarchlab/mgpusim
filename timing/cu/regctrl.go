@@ -132,6 +132,9 @@ func NewRegCtrl(name string, storage *mem.Storage, engine core.Engine) *RegCtrl 
 
 // Recv processes incomming requests, including ReadRegReq and WriteRegReq
 func (c *RegCtrl) Recv(req core.Req) *core.Error {
+	c.Lock()
+	defer c.Unlock()
+
 	switch req := req.(type) {
 	case *ReadRegReq:
 		c.processReadRegReq(req)
