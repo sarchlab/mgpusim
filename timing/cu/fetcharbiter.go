@@ -16,13 +16,16 @@ func (a *FetchArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 	var toFetch *Wavefront
 	for _, wfPool := range wfPools {
 		for _, wf := range wfPool.wfs {
+			wf.RLock()
 			if wf.State != WfReady {
+				wf.RUnlock()
 				break
 			}
 
 			if wf.LastFetchTime < oldestTime {
 				toFetch = wf
 			}
+			wf.RUnlock()
 		}
 	}
 

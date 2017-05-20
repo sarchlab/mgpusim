@@ -61,12 +61,20 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
 	wf := req.Wf
 	info := req.Info
 	managedWf := evt.ManagedWf
+	if managedWf != nil {
+		managedWf.Lock()
+		defer managedWf.Unlock()
+	}
 
 	for {
 		switch evt.State {
 		case WfDispatchingNotStarted:
 			wfPool := d.Scheduler.WfPools[info.SIMDID]
 			managedWf = new(Wavefront)
+
+			managedWf.Lock()
+			defer managedWf.Unlock()
+
 			managedWf.Wavefront = wf
 			managedWf.SIMDID = info.SIMDID
 			managedWf.LDSOffset = info.LDSOffset

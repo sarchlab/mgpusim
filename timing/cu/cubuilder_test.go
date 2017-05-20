@@ -26,7 +26,6 @@ var _ = Describe("Builder", func() {
 		expectSchedulerSet(computeUnit, b)
 		expectDecodersSet(computeUnit, b)
 		expectExecUnitsSet(computeUnit, b)
-
 	})
 })
 

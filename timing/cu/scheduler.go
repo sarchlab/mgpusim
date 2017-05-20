@@ -103,9 +103,6 @@ func (s *Scheduler) initWfPools(numWfs []int) {
 
 // Recv function process the incoming requests
 func (s *Scheduler) Recv(req core.Req) *core.Error {
-	s.Lock()
-	defer s.Unlock()
-
 	switch req := req.(type) {
 	case *timing.MapWGReq:
 		return s.processMapWGReq(req)
@@ -122,7 +119,6 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 }
 
 func (s *Scheduler) processMapWGReq(req *timing.MapWGReq) *core.Error {
-	s.used = true
 	evt := NewMapWGEvent(s.Freq.NextTick(req.RecvTime()), s, req)
 	s.engine.Schedule(evt)
 	return nil
@@ -138,21 +134,12 @@ func (s *Scheduler) processDispatchWfReq(
 
 func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 	wf := req.Info.(*Wavefront)
+	wf.Lock()
 	wf.State = WfFetched
 	wf.LastFetchTime = req.RecvTime()
-
 	s.decode(req.Buf, wf)
 	wf.PC += uint64(wf.Inst.ByteSize)
-
-	return nil
-}
-
-func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error {
-	req.Wf.State = WfReady
-
-	wf := req.Wf
-	log.Printf("%.10f, wf %d, instruction ready %s\n",
-		req.SendTime(), wf.WorkItems[0].IDX, wf.Inst)
+	wf.Unlock()
 
 	return nil
 }
@@ -165,6 +152,20 @@ func (s *Scheduler) decode(buf []byte, wf *Wavefront) {
 		log.Fatal(err)
 	}
 	wf.Inst = NewInst(inst)
+}
+
+func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error {
+	wf := req.Wf
+	wf.Lock()
+	wf.State = WfReady
+	wf.Unlock()
+
+	wf.RLock()
+	// log.Printf("%.10f, wf %d, instruction ready %s\n",
+	// 	req.SendTime(), wf.WorkItems[0].IDX, wf.Inst)
+	wf.RUnlock()
+
+	return nil
 }
 
 // Handle processes the event that is scheduled on this scheduler
@@ -191,6 +192,7 @@ func (s *Scheduler) Handle(evt core.Event) error {
 }
 
 func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
+	s.used = true
 	req := evt.Req
 
 	ok := s.wgMapper.MapWG(req)
@@ -218,11 +220,6 @@ func (s *Scheduler) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 		wg.Wfs = append(wg.Wfs, wf)
 
 		s.tryScheduleTick(s.Freq.NextTick(evt.Time()))
-
-		// This is temporary code, to be removed later
-		// wfCompleteEvent := NewWfCompleteEvent(
-		// 	s.Freq.NCyclesLater(3000, evt.Time()), s, wf)
-		// s.engine.Schedule(wfCompleteEvent)
 	}
 
 	return nil
@@ -278,11 +275,12 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 func (s *Scheduler) issue(now core.VTimeInSec) {
 	wfs := s.issueArbitor.Arbitrate(s.WfPools)
 	for _, wf := range wfs {
+		wf.Lock()
 		if wf.Inst.ExeUnit == insts.ExeUnitSpecial {
 			s.issueToInternal(wf, now)
-			log.Printf("%.10f, wf %d, issuing to internal %s\n",
-				now, wf.WorkItems[0].IDX, wf.Inst)
-
+			// log.Printf("%.10f, wf %d, issuing to internal %s\n",
+			// 	now, wf.WorkItems[0].IDX, wf.Inst)
+			wf.Unlock()
 			continue
 		}
 
@@ -295,9 +293,10 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 			wf.State = WfFetched
 		} else {
 			wf.State = WfRunning
-			log.Printf("%.10f, wf %d, issuing instructions %s\n",
-				now, wf.WorkItems[0].IDX, wf.Inst)
+			// log.Printf("%.10f, wf %d, issuing instructions %s\n",
+			// 	now, wf.WorkItems[0].IDX, wf.Inst)
 		}
+		wf.Unlock()
 	}
 }
 
@@ -369,7 +368,6 @@ func (s *Scheduler) isAllWfInWGCompleted(wg *WorkGroup) bool {
 	}
 	return true
 }
-
 
 func (s *Scheduler) sendWGCompletionMessage(evt *WfCompleteEvent, wg *WorkGroup) bool {
 	mapReq := wg.MapReq

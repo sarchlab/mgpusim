@@ -81,7 +81,7 @@ func initPlatform() {
 
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Frequency = 800 * core.MHz
+	globalMem.Frequency = 1 * core.GHz
 	globalMem.Latency = 2
 
 	// Host
@@ -93,7 +93,7 @@ func initPlatform() {
 
 	dispatcher := timing.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
-	dispatcher.Freq = 800 * core.MHz
+	dispatcher.Freq = 1 * core.GHz
 	dispatcher.AcceptHook(new(timing.WGCompleteLogger))
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
