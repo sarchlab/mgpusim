@@ -353,7 +353,15 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("should evaluate internal executing insts", func() {
+			wf := new(Wavefront)
+			wf.Inst = NewInst(insts.NewInst())
+			wf.Inst.Format = insts.FormatTable[insts.Sopp]
+			wf.Inst.Opcode = 1 // S_ENFPGM
 
+			scheduler.internalExecuting = wf
+			scheduler.Handle(core.NewTickEvent(10, scheduler))
+
+			Expect(len(engine.ScheduledEvent)).To(Equal(1))
 		})
 
 	})
