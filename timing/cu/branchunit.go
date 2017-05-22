@@ -50,6 +50,7 @@ func (u *BranchUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 	}
 
 	u.reading = req.Wf
+	u.tryStartTick(req.RecvTime())
 	return nil
 }
 

@@ -36,5 +36,6 @@ var _ = Describe("Branch Unit", func() {
 
 		Expect(err).To(BeNil())
 		Expect(unit.reading).To(BeIdenticalTo(wf))
+		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 })
