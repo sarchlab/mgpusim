@@ -334,23 +334,23 @@ var _ = Describe("Scheduler", func() {
 			Expect(wf.State).To(Equal(WfRunning))
 		})
 
-		It("should not issue internal instruction, if there is one internal instruction in flight", func() {
-			wfs := make([]*Wavefront, 0)
-			wf := new(Wavefront)
-			wf.Inst = NewInst(insts.NewInst())
-			wf.Inst.ExeUnit = insts.ExeUnitSpecial
-			wf.State = WfFetched
-			wfs = append(wfs, wf)
+		// It("should not issue internal instruction, if there is one internal instruction in flight", func() {
+		// 	wfs := make([]*Wavefront, 0)
+		// 	wf := new(Wavefront)
+		// 	wf.Inst = NewInst(insts.NewInst())
+		// 	wf.Inst.ExeUnit = insts.ExeUnitSpecial
+		// 	wf.State = WfFetched
+		// 	wfs = append(wfs, wf)
 
-			issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
-			scheduler.internalExecuting = new(Wavefront)
-			scheduler.internalExecuting.Inst = NewInst(insts.NewInst())
+		// 	issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
+		// 	scheduler.internalExecuting = new(Wavefront)
+		// 	scheduler.internalExecuting.Inst = NewInst(insts.NewInst())
 
-			scheduler.Handle(core.NewTickEvent(10, scheduler))
+		// 	scheduler.Handle(core.NewTickEvent(10, scheduler))
 
-			Expect(scheduler.internalExecuting).NotTo(BeIdenticalTo(wf))
-			Expect(wf.State).To(Equal(WfFetched))
-		})
+		// 	Expect(scheduler.internalExecuting).NotTo(BeIdenticalTo(wf))
+		// 	Expect(wf.State).To(Equal(WfFetched))
+		// })
 
 		It("should evaluate internal executing insts", func() {
 			wf := new(Wavefront)

@@ -337,6 +337,10 @@ func (s *Scheduler) executeInternalInst(now core.VTimeInSec) {
 	default:
 		log.Printf("Inst %s is not implemented in scheduler internal",
 			s.internalExecuting.Inst)
+
+		// The program has to make progress
+		s.internalExecuting.State = WfReady
+		s.internalExecuting = nil
 	}
 }
 

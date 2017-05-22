@@ -87,9 +87,16 @@ func (b *Builder) initExecUnits(computeUnit *ComputeUnit) {
 		computeUnit.SIMDUnits = append(computeUnit.SIMDUnits, NewSIMDUnit(
 			fmt.Sprintf("%s.%s%d", b.CUName, "simd", i)))
 	}
-	computeUnit.BranchUnit = NewBranchUnit(b.CUName + ".branch_unit")
+
+	branchUnit := NewBranchUnit(b.CUName+".branch_unit",
+		b.Engine)
+	branchUnit.Freq = b.Freq
+	computeUnit.BranchUnit = branchUnit
+
 	computeUnit.ScalarUnit = NewScalarUnit(b.CUName + ".scalar_unit")
+
 	computeUnit.LDSUnit = NewLDSUnit(b.CUName + ".lds_unit")
+
 	computeUnit.VMemUnit = NewVMemUnit(b.CUName + ".vmem_unit")
 }
 

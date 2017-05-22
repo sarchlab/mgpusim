@@ -188,7 +188,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 1000
+	req.Packet.GridSizeX = 256 * 10000
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256
