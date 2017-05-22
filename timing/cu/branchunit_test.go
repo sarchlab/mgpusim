@@ -8,13 +8,15 @@ import (
 
 var _ = Describe("Branch Unit", func() {
 	var (
-		engine *core.MockEngine
-		unit   *BranchUnit
+		engine    *core.MockEngine
+		scheduler *core.MockComponent
+		unit      *BranchUnit
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
-		unit = NewBranchUnit("branch_unit", engine)
+		scheduler = core.NewMockComponent("scheduler")
+		unit = NewBranchUnit("branch_unit", engine, scheduler)
 		unit.Freq = 1
 	})
 

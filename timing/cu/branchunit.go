@@ -16,8 +16,9 @@ type BranchUnit struct {
 
 	Freq core.Freq
 
-	engine  core.Engine
-	running bool
+	engine    core.Engine
+	scheduler core.Component
+	running   bool
 
 	reading   *Wavefront
 	executing *Wavefront
@@ -25,10 +26,11 @@ type BranchUnit struct {
 }
 
 // NewBranchUnit creates and retuns a new BranchUnit
-func NewBranchUnit(name string, engine core.Engine) *BranchUnit {
+func NewBranchUnit(name string, engine core.Engine, scheduler core.Component) *BranchUnit {
 	u := new(BranchUnit)
 	u.ComponentBase = core.NewComponentBase(name)
 	u.engine = engine
+	u.scheduler = scheduler
 	u.AddPort("ToScheduler")
 	return u
 }
@@ -56,7 +58,49 @@ func (u *BranchUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 
 // Handle defines how the BranchUnit handles events
 func (u *BranchUnit) Handle(evt core.Event) error {
+	switch evt := evt.(type) {
+	case *core.TickEvent:
+		return u.handleTickEvent(evt)
+	default:
+		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
+	}
 	return nil
+}
+
+func (u *BranchUnit) handleTickEvent(evt *core.TickEvent) error {
+	u.doWrite(evt.Time())
+	u.doExec(evt.Time())
+	u.doRead(evt.Time())
+
+	u.continueTick(evt.Time())
+
+	return nil
+}
+
+func (u *BranchUnit) doWrite(now core.VTimeInSec) {
+	if u.writing != nil {
+		req := NewInstCompletionReq(u, u.scheduler, now, u.writing)
+		u.GetConnection("ToScheduler").Send(req)
+		u.writing = nil
+	}
+}
+
+func (u *BranchUnit) doExec(now core.VTimeInSec) {
+	if u.executing != nil {
+		if u.writing == nil {
+			u.writing = u.executing
+			u.executing = nil
+		}
+	}
+}
+
+func (u *BranchUnit) doRead(now core.VTimeInSec) {
+	if u.reading != nil {
+		if u.executing == nil {
+			u.executing = u.reading
+			u.reading = nil
+		}
+	}
 }
 
 func (u *BranchUnit) tryStartTick(now core.VTimeInSec) {
@@ -66,6 +110,12 @@ func (u *BranchUnit) tryStartTick(now core.VTimeInSec) {
 }
 
 func (u *BranchUnit) continueTick(now core.VTimeInSec) {
+	if u.reading == nil &&
+		u.executing == nil &&
+		u.writing == nil {
+		u.running = false
+	}
+
 	if u.running {
 		u.scheduleTick(now)
 	}

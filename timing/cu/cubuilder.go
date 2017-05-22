@@ -89,7 +89,7 @@ func (b *Builder) initExecUnits(computeUnit *ComputeUnit) {
 	}
 
 	branchUnit := NewBranchUnit(b.CUName+".branch_unit",
-		b.Engine)
+		b.Engine, computeUnit.Scheduler)
 	branchUnit.Freq = b.Freq
 	computeUnit.BranchUnit = branchUnit
 
