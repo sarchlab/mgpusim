@@ -93,9 +93,13 @@ func (b *Builder) initExecUnits(computeUnit *ComputeUnit) {
 	branchUnit.Freq = b.Freq
 	computeUnit.BranchUnit = branchUnit
 
-	computeUnit.ScalarUnit = NewScalarUnit(b.CUName + ".scalar_unit")
+	scalarUnit := NewScalarUnit(b.CUName+".scalar_unit", b.Engine, computeUnit.Scheduler)
+	scalarUnit.Freq = b.Freq
+	computeUnit.ScalarUnit = scalarUnit
 
-	computeUnit.LDSUnit = NewLDSUnit(b.CUName + ".lds_unit")
+	ldsUnit := NewLDSUnit(b.CUName+".lds_unit", b.Engine, computeUnit.Scheduler)
+	ldsUnit.Freq = b.Freq
+	computeUnit.LDSUnit = ldsUnit
 
 	computeUnit.VMemUnit = NewVMemUnit(b.CUName + ".vmem_unit")
 }
