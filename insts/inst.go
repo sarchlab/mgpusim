@@ -56,8 +56,8 @@ type Inst struct {
 	Clamp               bool
 }
 
-// NewInstruction creates a zero-filled instruction
-func NewInstruction() *Inst {
+// NewInst creates a zero-filled instruction
+func NewInst() *Inst {
 	i := new(Inst)
 	i.Format = new(Format)
 	i.InstType = new(InstType)

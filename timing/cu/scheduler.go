@@ -37,8 +37,8 @@ type Scheduler struct {
 	engine       core.Engine
 	wgMapper     WGMapper
 	wfDispatcher WfDispatcher
-	fetchArbitor WfArbitor
-	issueArbitor WfArbitor
+	fetchArbiter WfArbiter
+	issueArbiter WfArbiter
 	decoder      Decoder // Decoder used to parse fetched instruction
 
 	InstMem          core.Component
@@ -66,8 +66,8 @@ func NewScheduler(
 	engine core.Engine,
 	wgMapper WGMapper,
 	wfDispatcher WfDispatcher,
-	fetchArbitor WfArbitor,
-	issueArbitor WfArbitor,
+	fetchArbitor WfArbiter,
+	issueArbitor WfArbiter,
 	decoder Decoder,
 ) *Scheduler {
 	s := new(Scheduler)
@@ -76,8 +76,8 @@ func NewScheduler(
 	s.engine = engine
 	s.wgMapper = wgMapper
 	s.wfDispatcher = wfDispatcher
-	s.fetchArbitor = fetchArbitor
-	s.issueArbitor = issueArbitor
+	s.fetchArbiter = fetchArbitor
+	s.issueArbiter = issueArbitor
 	s.decoder = decoder
 
 	s.initWfPools([]int{10, 10, 10, 10})
@@ -238,17 +238,19 @@ func (s *Scheduler) scheduleTick(t core.VTimeInSec) {
 }
 
 func (s *Scheduler) handleTickEvent(evt *core.TickEvent) error {
+	s.executeInternalInst(evt.Time())
 	s.fetch(evt.Time())
 	s.issue(evt.Time())
-	s.executeInternalInst()
+
 	if s.running {
 		s.scheduleTick(s.Freq.NextTick(evt.Time()))
 	}
+
 	return nil
 }
 
 func (s *Scheduler) fetch(now core.VTimeInSec) {
-	wfs := s.fetchArbitor.Arbitrate(s.WfPools)
+	wfs := s.fetchArbiter.Arbitrate(s.WfPools)
 
 	if len(wfs) > 0 {
 		wf := wfs[0]
@@ -273,19 +275,17 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 }
 
 func (s *Scheduler) issue(now core.VTimeInSec) {
-	wfs := s.issueArbitor.Arbitrate(s.WfPools)
+	wfs := s.issueArbiter.Arbitrate(s.WfPools)
 	for _, wf := range wfs {
 		wf.Lock()
 		if wf.Inst.ExeUnit == insts.ExeUnitSpecial {
 			s.issueToInternal(wf, now)
-			// log.Printf("%.10f, wf %d, issuing to internal %s\n",
-			// 	now, wf.WorkItems[0].IDX, wf.Inst)
 			wf.Unlock()
 			continue
 		}
 
-		req := NewIssueInstReq(s, s.getUnitToIssueTo(wf.Inst.ExeUnit), now,
-			s, wf)
+		unit := s.getUnitToIssueTo(wf.Inst.ExeUnit)
+		req := NewIssueInstReq(s, unit, now, s, wf)
 		err := s.GetConnection("ToDecoders").Send(req)
 		if err != nil && !err.Recoverable {
 			log.Panic(err)
@@ -293,8 +293,6 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 			wf.State = WfFetched
 		} else {
 			wf.State = WfRunning
-			// log.Printf("%.10f, wf %d, issuing instructions %s\n",
-			// 	now, wf.WorkItems[0].IDX, wf.Inst)
 		}
 		wf.Unlock()
 	}
@@ -304,14 +302,6 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 	if s.internalExecuting == nil {
 		s.internalExecuting = wf
 		wf.State = WfRunning
-
-		// Testing code
-		s.internalExecuting = nil
-		wf.State = WfReady
-		if wf.Inst.FormatType == insts.Sopp && wf.Inst.Opcode == 1 { // S_ENGPGM
-			wfCompleteEvt := NewWfCompleteEvent(now, s, wf)
-			s.engine.Schedule(wfCompleteEvt)
-		}
 	} else {
 		wf.State = WfFetched
 	}
@@ -336,8 +326,24 @@ func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) core.Component {
 	return nil
 }
 
-func (s *Scheduler) executeInternalInst() {
+func (s *Scheduler) executeInternalInst(now core.VTimeInSec) {
+	if s.internalExecuting == nil {
+		return
+	}
 
+	switch s.internalExecuting.Inst.Opcode {
+	case 1: // S_ENDPGM
+		s.evalSEndPgm(s.internalExecuting, now)
+	default:
+		log.Printf("Inst %s is not implemented in scheduler internal",
+			s.internalExecuting.Inst)
+	}
+}
+
+func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
+	wfCompleteEvt := NewWfCompleteEvent(now, s, wf)
+	s.engine.Schedule(wfCompleteEvt)
+	s.internalExecuting = nil
 }
 
 func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {

@@ -1,7 +1,7 @@
 package cu
 
-// An WfArbitor can decide which wavefront can take action,
+// An WfArbiter can decide which wavefront can take action,
 // in a list of wavefront pools
-type WfArbitor interface {
+type WfArbiter interface {
 	Arbitrate(wfpools []*WavefrontPool) []*Wavefront
 }

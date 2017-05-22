@@ -36,7 +36,7 @@ var _ = Describe("IssueArbiter", func() {
 		for i := 0; i < len(wfState); i++ {
 			wf := new(Wavefront)
 			wf.State = wfState[i]
-			wf.Inst = NewInst(insts.NewInstruction())
+			wf.Inst = NewInst(insts.NewInst())
 			wf.Inst.ExeUnit = exeUnits[i]
 			wfs = append(wfs, wf)
 			wfPools[0].AddWf(wf)
