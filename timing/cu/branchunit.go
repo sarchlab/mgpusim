@@ -80,8 +80,10 @@ func (u *BranchUnit) handleTickEvent(evt *core.TickEvent) error {
 func (u *BranchUnit) doWrite(now core.VTimeInSec) {
 	if u.writing != nil {
 		req := NewInstCompletionReq(u, u.scheduler, now, u.writing)
-		u.GetConnection("ToScheduler").Send(req)
-		u.writing = nil
+		err := u.GetConnection("ToScheduler").Send(req)
+		if err == nil {
+			u.writing = nil
+		}
 	}
 }
 
