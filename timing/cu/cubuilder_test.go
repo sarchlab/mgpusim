@@ -37,8 +37,8 @@ func expectRegisterFilesSet(computeUnit *ComputeUnit) {
 func expectSchedulerSet(computeUnit *ComputeUnit, b *Builder) {
 	Expect(computeUnit.Scheduler).NotTo(BeNil())
 	scheduler := computeUnit.Scheduler.(*Scheduler)
-	Expect(scheduler.fetchArbitor).NotTo(BeNil())
-	Expect(scheduler.issueArbitor).NotTo(BeNil())
+	Expect(scheduler.fetchArbiter).NotTo(BeNil())
+	Expect(scheduler.issueArbiter).NotTo(BeNil())
 	Expect(scheduler.InstMem).To(BeIdenticalTo(b.InstMem))
 	Expect(scheduler.decoder).To(BeIdenticalTo(b.Decoder))
 	Expect(scheduler.LDSDecoder).To(BeIdenticalTo(computeUnit.LDSDecode))

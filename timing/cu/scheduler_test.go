@@ -294,7 +294,7 @@ var _ = Describe("Scheduler", func() {
 			for i := 0; i < 5; i++ {
 				wf := new(Wavefront)
 				wf.State = WfFetched
-				wf.Inst = NewInst(insts.NewInstruction())
+				wf.Inst = NewInst(insts.NewInst())
 				wf.Inst.ExeUnit = issueDirs[i]
 				wfs = append(wfs, wf)
 
@@ -320,7 +320,7 @@ var _ = Describe("Scheduler", func() {
 		It("should issue internal instruction", func() {
 			wfs := make([]*Wavefront, 0)
 			wf := new(Wavefront)
-			wf.Inst = NewInst(insts.NewInstruction())
+			wf.Inst = NewInst(insts.NewInst())
 			wf.Inst.ExeUnit = insts.ExeUnitSpecial
 			wf.State = WfFetched
 			wfs = append(wfs, wf)
@@ -337,18 +337,23 @@ var _ = Describe("Scheduler", func() {
 		It("should not issue internal instruction, if there is one internal instruction in flight", func() {
 			wfs := make([]*Wavefront, 0)
 			wf := new(Wavefront)
-			wf.Inst = NewInst(insts.NewInstruction())
+			wf.Inst = NewInst(insts.NewInst())
 			wf.Inst.ExeUnit = insts.ExeUnitSpecial
 			wf.State = WfFetched
 			wfs = append(wfs, wf)
 
 			issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
 			scheduler.internalExecuting = new(Wavefront)
+			scheduler.internalExecuting.Inst = NewInst(insts.NewInst())
 
 			scheduler.Handle(core.NewTickEvent(10, scheduler))
 
 			Expect(scheduler.internalExecuting).NotTo(BeIdenticalTo(wf))
 			Expect(wf.State).To(Equal(WfFetched))
+		})
+
+		It("should evaluate internal executing insts", func() {
+
 		})
 
 	})
@@ -360,7 +365,7 @@ var _ = Describe("Scheduler", func() {
 			req := mem.NewAccessReq()
 			req.Info = wf
 			req.SetRecvTime(10)
-			inst := insts.NewInstruction()
+			inst := insts.NewInst()
 			inst.ByteSize = 4
 			decoder.Inst = inst
 
