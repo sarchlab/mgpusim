@@ -37,6 +37,8 @@ func NewBranchUnit(name string, engine core.Engine, scheduler core.Component) *B
 
 // Recv defines the how the BranchUnit process incomming requests
 func (u *BranchUnit) Recv(req core.Req) *core.Error {
+	u.Lock()
+	defer u.Unlock()
 	switch req := req.(type) {
 	case *IssueInstReq:
 		return u.processIssueInstReq(req)
@@ -58,6 +60,9 @@ func (u *BranchUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 
 // Handle defines how the BranchUnit handles events
 func (u *BranchUnit) Handle(evt core.Event) error {
+	u.Lock()
+	defer u.Unlock()
+
 	switch evt := evt.(type) {
 	case *core.TickEvent:
 		return u.handleTickEvent(evt)

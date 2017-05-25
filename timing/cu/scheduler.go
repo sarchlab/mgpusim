@@ -160,10 +160,10 @@ func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error
 	wf.State = WfReady
 	wf.Unlock()
 
-	wf.RLock()
+	// wf.RLock()
 	// log.Printf("%.10f, wf %d, instruction ready %s\n",
 	// 	req.SendTime(), wf.WorkItems[0].IDX, wf.Inst)
-	wf.RUnlock()
+	// wf.RUnlock()
 
 	return nil
 }
@@ -345,7 +345,7 @@ func (s *Scheduler) executeInternalInst(now core.VTimeInSec) {
 }
 
 func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
-	wfCompleteEvt := NewWfCompleteEvent(now, s, wf)
+	wfCompleteEvt := NewWfCompleteEvent(s.Freq.NextTick(now), s, wf)
 	s.engine.Schedule(wfCompleteEvt)
 	s.internalExecuting = nil
 }
@@ -353,7 +353,9 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
 func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
 	wf := evt.Wf
 	wg := s.RunningWGs[wf.WG]
+	wf.Lock()
 	wf.State = WfCompleted
+	wf.Unlock()
 
 	if s.isAllWfInWGCompleted(wg) {
 		ok := s.sendWGCompletionMessage(evt, wg)
@@ -372,9 +374,12 @@ func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
 
 func (s *Scheduler) isAllWfInWGCompleted(wg *WorkGroup) bool {
 	for _, wf := range wg.Wfs {
+		wf.RLock()
 		if wf.State != WfCompleted {
+			wf.RUnlock()
 			return false
 		}
+		wf.RUnlock()
 	}
 	return true
 }
