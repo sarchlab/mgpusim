@@ -104,7 +104,7 @@ func initPlatform() {
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
@@ -188,7 +188,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 100
+	req.Packet.GridSizeX = 256 * 10000
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256

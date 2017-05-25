@@ -42,6 +42,9 @@ func NewScalarUnit(name string, engine core.Engine, scheduler core.Component) *S
 
 // Recv defines the how the ScalarUnit process incomming requests
 func (u *ScalarUnit) Recv(req core.Req) *core.Error {
+	u.Lock()
+	defer u.Unlock()
+
 	switch req := req.(type) {
 	case *IssueInstReq:
 		return u.processIssueInstReq(req)
@@ -63,6 +66,9 @@ func (u *ScalarUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 
 // Handle defines how the ScalarUnit handles events
 func (u *ScalarUnit) Handle(evt core.Event) error {
+	u.Lock()
+	defer u.Unlock()
+
 	switch evt := evt.(type) {
 	case *core.TickEvent:
 		return u.handleTickEvent(evt)
