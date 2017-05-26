@@ -5,6 +5,7 @@ import (
 	"debug/elf"
 	"encoding/binary"
 	"log"
+	_ "net/http/pprof"
 	"os"
 	"runtime/pprof"
 
@@ -64,6 +65,11 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+
+	// runtime.SetBlockProfileRate(1)
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
 
 	initPlatform()
 	loadProgram()
