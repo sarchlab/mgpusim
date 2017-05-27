@@ -335,8 +335,8 @@ func (s *Scheduler) executeInternalInst(now core.VTimeInSec) {
 	case 1: // S_ENDPGM
 		s.evalSEndPgm(s.internalExecuting, now)
 	default:
-		log.Printf("Inst %s is not implemented in scheduler internal",
-			s.internalExecuting.Inst)
+		// log.Printf("Inst %s is not implemented in scheduler internal",
+		// 	s.internalExecuting.Inst)
 
 		// The program has to make progress
 		s.internalExecuting.State = WfReady

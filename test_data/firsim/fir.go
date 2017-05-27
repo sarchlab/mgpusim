@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"debug/elf"
 	"encoding/binary"
+	"io/ioutil"
 	"log"
 	_ "net/http/pprof"
-	"os"
-	"runtime/pprof"
 
 	"flag"
 
@@ -56,20 +55,22 @@ var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to fi
 var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
 
 func main() {
-	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
+	// flag.Parse()
+	// if *cpuprofile != "" {
+	// 	f, err := os.Create(*cpuprofile)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	pprof.StartCPUProfile(f)
+	// 	defer pprof.StopCPUProfile()
+	// }
 
 	// runtime.SetBlockProfileRate(1)
 	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// 	log.Println(http.ListenAndServe("localhost:8080", nil))
 	// }()
+
+	log.SetOutput(ioutil.Discard)
 
 	initPlatform()
 	loadProgram()
@@ -107,6 +108,7 @@ func initPlatform() {
 	commandProcessor.Driver = gpu
 	cuBuilder := cu.NewBuilder()
 	cuBuilder.Engine = engine
+	cuBuilder.Freq = 1 * core.GHz
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection
@@ -194,7 +196,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 10000
+	req.Packet.GridSizeX = 256 * 1000
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256
