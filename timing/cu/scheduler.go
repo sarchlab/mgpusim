@@ -419,10 +419,10 @@ func (s *Scheduler) writeReg(
 	now core.VTimeInSec,
 ) {
 	if reg.IsSReg() {
-		req := NewWriteRegReq(now, reg, wf.SRegOffset, data)
-		req.SetSrc(s)
-		req.SetDst(s.SRegFile)
-		s.GetConnection("ToSReg").Send(req)
+		// req := NewWriteRegReq(now, reg, wf.SRegOffset, data)
+		// req.SetSrc(s)
+		// req.SetDst(s.SRegFile)
+		// s.GetConnection("ToSReg").Send(req)
 	} else {
 		req := NewWriteRegReq(now, reg, wf.VRegOffset, data)
 		req.SetSrc(s)
