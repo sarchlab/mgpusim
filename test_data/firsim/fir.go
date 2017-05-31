@@ -8,7 +8,9 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"runtime"
+	"runtime/pprof"
 
 	"flag"
 
@@ -57,15 +59,15 @@ var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to fi
 var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
 
 func main() {
-	// flag.Parse()
-	// if *cpuprofile != "" {
-	// 	f, err := os.Create(*cpuprofile)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	pprof.StartCPUProfile(f)
-	// 	defer pprof.StopCPUProfile()
-	// }
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
 	runtime.SetBlockProfileRate(1)
 	go func() {

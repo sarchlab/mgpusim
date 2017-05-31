@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/timing"
 )
 
 // MapWGHook is the hook that hooks to MapWGEvent
@@ -20,7 +21,7 @@ func NewMapWGHook() *MapWGHook {
 
 // Type returns type timing.MapWGReq
 func (h *MapWGHook) Type() reflect.Type {
-	return reflect.TypeOf((*MapWGEvent)(nil))
+	return reflect.TypeOf((*timing.MapWGReq)(nil))
 }
 
 // Pos return AfterEvent
@@ -30,11 +31,10 @@ func (h *MapWGHook) Pos() core.HookPos {
 
 // Func defines the behavior when the hook is triggered
 func (h *MapWGHook) Func(item interface{}, domain core.Hookable) {
-	evt := item.(*MapWGEvent)
-	req := evt.Req
+	req := item.(*timing.MapWGReq)
 	wg := req.WG
 	str := fmt.Sprintf("%.10f MapWG %d ok: %t, CU: %d\n",
-		evt.Time(), wg.IDX, req.Ok, req.CUID)
+		req.Time(), wg.IDX, req.Ok, req.CUID)
 	if req.Ok {
 		for _, info := range req.WfDispatchMap {
 			str += fmt.Sprintf("\t wf SIMD %d, SGPR offset %d, VGPR offset %d, LDS offset %d\n",

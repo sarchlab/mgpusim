@@ -119,8 +119,7 @@ func (s *Scheduler) Recv(req core.Req) *core.Error {
 }
 
 func (s *Scheduler) processMapWGReq(req *timing.MapWGReq) *core.Error {
-	evt := NewMapWGEvent(s.Freq.NextTick(req.RecvTime()), s, req)
-	s.engine.Schedule(evt)
+	s.engine.Schedule(req)
 	return nil
 }
 
@@ -177,8 +176,8 @@ func (s *Scheduler) Handle(evt core.Event) error {
 	defer s.InvokeHook(evt, core.AfterEvent)
 
 	switch evt := evt.(type) {
-	case *MapWGEvent:
-		return s.handleMapWGEvent(evt)
+	case *timing.MapWGReq:
+		return s.handleMapWGReq(evt)
 	case *DispatchWfEvent:
 		return s.handleDispatchWfEvent(evt)
 	case *core.TickEvent:
@@ -191,9 +190,8 @@ func (s *Scheduler) Handle(evt core.Event) error {
 	return nil
 }
 
-func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
+func (s *Scheduler) handleMapWGReq(req *timing.MapWGReq) error {
 	s.used = true
-	req := evt.Req
 
 	ok := s.wgMapper.MapWG(req)
 
@@ -204,7 +202,7 @@ func (s *Scheduler) handleMapWGEvent(evt *MapWGEvent) error {
 
 	req.Ok = ok
 	req.SwapSrcAndDst()
-	req.SetSendTime(evt.Time())
+	req.SetSendTime(req.Time())
 	s.GetConnection("ToDispatcher").Send(req)
 
 	return nil

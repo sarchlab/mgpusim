@@ -169,12 +169,11 @@ var _ = Describe("Scheduler", func() {
 		It("should reply OK if wgMapper say OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
 				co)
-			evt := NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = true
 			connection.ExpectSend(req, nil)
 
-			scheduler.Handle(evt)
+			scheduler.Handle(req)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(scheduler.RunningWGs).NotTo(BeEmpty())
@@ -184,12 +183,11 @@ var _ = Describe("Scheduler", func() {
 		It("should reply not OK if wgMapper say not OK", func() {
 			req := timing.NewMapWGReq(nil, scheduler, 10, grid.WorkGroups[0],
 				co)
-			evt := NewMapWGEvent(10, scheduler, req)
 
 			wgMapper.OK = false
 			connection.ExpectSend(req, nil)
 
-			scheduler.Handle(evt)
+			scheduler.Handle(req)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(req.Ok).To(BeFalse())
