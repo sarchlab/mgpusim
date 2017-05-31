@@ -38,6 +38,7 @@ var _ = Describe("SIMD Unit", func() {
 		err := unit.Recv(req)
 		Expect(err).To(BeNil())
 		Expect(unit.readWaiting).To(BeIdenticalTo(wf))
+
 	})
 
 	It("should move instruction from read to exec", func() {
@@ -53,7 +54,7 @@ var _ = Describe("SIMD Unit", func() {
 		Expect(unit.reading).To(BeNil())
 	})
 
-	It("should move instruction from exec to write", func() {
+	It("should stay in exec stage if not completed", func() {
 		wf := new(Wavefront)
 		wf.CompletedLanes = 16
 
@@ -63,17 +64,14 @@ var _ = Describe("SIMD Unit", func() {
 
 		unit.Handle(core.NewTickEvent(10, unit))
 
-		Expect(unit.writing).To(BeIdenticalTo(wf))
-		Expect(unit.executing).To(BeNil())
-		Expect(wf.CompletedLanes).To(Equal(32))
+		Expect(unit.writing).To(BeNil())
+		Expect(unit.executing).To(BeIdenticalTo(wf))
+		Expect(unit.executing.CompletedLanes).To(Equal(32))
 	})
 
-	It("should send InstCompletionReq if instruction completed", func() {
-
-	})
-
-	It("should move instruction from write to read again if inst not done", func() {
+	It("should move instruction from exec to write", func() {
 		wf := new(Wavefront)
+		wf.CompletedLanes = 48
 
 		unit.reading = nil
 		unit.executing = wf
@@ -83,6 +81,21 @@ var _ = Describe("SIMD Unit", func() {
 
 		Expect(unit.writing).To(BeIdenticalTo(wf))
 		Expect(unit.executing).To(BeNil())
+		Expect(wf.CompletedLanes).To(Equal(64))
+	})
+
+	It("should move instruction from readWaiting to read", func() {
+		wf := new(Wavefront)
+		wf.CompletedLanes = 64 // From previous run
+
+		unit.readWaiting = wf
+		unit.reading = nil
+
+		unit.Handle(core.NewTickEvent(10, unit))
+
+		Expect(unit.reading).To(BeIdenticalTo(wf))
+		Expect(unit.readWaiting).To(BeNil())
+		Expect(wf.CompletedLanes).To(Equal(0)) // Clear up the counter from last run
 	})
 
 })
