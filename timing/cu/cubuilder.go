@@ -26,7 +26,7 @@ func NewBuilder() *Builder {
 	b := new(Builder)
 	b.Freq = 800 * core.MHz
 	b.SIMDCount = 4
-	b.SGPRCount = 2048
+	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}
 	return b
 }
@@ -84,8 +84,10 @@ func (b *Builder) initDecodeUnits(computeUnit *ComputeUnit) {
 
 func (b *Builder) initExecUnits(computeUnit *ComputeUnit) {
 	for i := 0; i < b.SIMDCount; i++ {
-		computeUnit.SIMDUnits = append(computeUnit.SIMDUnits, NewSIMDUnit(
-			fmt.Sprintf("%s.%s%d", b.CUName, "simd", i)))
+		simdUnit := NewSIMDUnit(fmt.Sprintf("%s.%s%d", b.CUName, "simd", i),
+			b.Engine, computeUnit.Scheduler)
+		simdUnit.Freq = b.Freq
+		computeUnit.SIMDUnits = append(computeUnit.SIMDUnits, simdUnit)
 	}
 
 	branchUnit := NewBranchUnit(b.CUName+".branch_unit",

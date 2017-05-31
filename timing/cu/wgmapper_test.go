@@ -14,7 +14,7 @@ func assertAllResourcesFree(wgMapper *WGMapperImpl) {
 	Expect(wgMapper.WfPoolFreeCount[2]).To(Equal(10))
 	Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(10))
 	Expect(wgMapper.LDSMask.StatusCount(AllocStatusFree)).To(Equal(256))
-	Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(128))
+	Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(200))
 	Expect(wgMapper.VGprMask[0].StatusCount(AllocStatusFree)).To(Equal(64))
 	Expect(wgMapper.VGprMask[1].StatusCount(AllocStatusFree)).To(Equal(64))
 	Expect(wgMapper.VGprMask[2].StatusCount(AllocStatusFree)).To(Equal(64))
@@ -31,6 +31,11 @@ var _ = Describe("WGMapper", func() {
 
 	BeforeEach(func() {
 		wgMapper = NewWGMapper(4)
+		wgMapper.initWfInfo([]int{10, 10, 10, 10})
+		wgMapper.initLDSInfo(64 * 1024) // 64K
+		wgMapper.initSGPRInfo(3200)
+		wgMapper.initVGPRInfo([]int{256, 256, 256, 256})
+
 		grid = prepareGrid()
 		status = timing.NewKernelDispatchStatus()
 		status.Grid = grid
@@ -54,7 +59,7 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[2]).To(Equal(2))
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(2))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusFree)).To(Equal(256))
-		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(128))
+		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(200))
 		Expect(wgMapper.VGprMask[0].StatusCount(AllocStatusFree)).To(Equal(64))
 		Expect(wgMapper.VGprMask[1].StatusCount(AllocStatusFree)).To(Equal(64))
 		Expect(wgMapper.VGprMask[2].StatusCount(AllocStatusFree)).To(Equal(64))
@@ -62,9 +67,9 @@ var _ = Describe("WGMapper", func() {
 	})
 
 	It("should send NACK to the dispatcher if too many SReg", func() {
-		// 128 groups in total, 125 groups occupied.
+		// 200 groups in total, 197 groups occupied.
 		// 3 groups are free -> 48 registers available
-		wgMapper.SGprMask.SetStatus(0, 125, AllocStatusReserved)
+		wgMapper.SGprMask.SetStatus(0, 197, AllocStatusReserved)
 
 		// 10 Wfs, 64 SGPRs per wf. That is 640 in total
 		co.WFSgprCount = 64
@@ -101,7 +106,7 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[2]).To(Equal(10))
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(10))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusFree)).To(Equal(16))
-		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(128))
+		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(200))
 		Expect(wgMapper.VGprMask[0].StatusCount(AllocStatusFree)).To(Equal(64))
 		Expect(wgMapper.VGprMask[1].StatusCount(AllocStatusFree)).To(Equal(64))
 		Expect(wgMapper.VGprMask[2].StatusCount(AllocStatusFree)).To(Equal(64))
@@ -129,7 +134,7 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[2]).To(Equal(10))
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(10))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusFree)).To(Equal(256))
-		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(128))
+		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(200))
 		Expect(wgMapper.VGprMask[0].StatusCount(AllocStatusFree)).To(Equal(4))
 		Expect(wgMapper.VGprMask[1].StatusCount(AllocStatusFree)).To(Equal(4))
 		Expect(wgMapper.VGprMask[2].StatusCount(AllocStatusFree)).To(Equal(4))
@@ -154,7 +159,7 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[2]).To(Equal(2))
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(2))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusFree)).To(Equal(256))
-		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(128))
+		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(200))
 		Expect(wgMapper.VGprMask[0].StatusCount(AllocStatusFree)).To(Equal(4))
 		Expect(wgMapper.VGprMask[1].StatusCount(AllocStatusFree)).To(Equal(4))
 		Expect(wgMapper.VGprMask[2].StatusCount(AllocStatusFree)).To(Equal(64))
@@ -172,7 +177,7 @@ var _ = Describe("WGMapper", func() {
 		ok := wgMapper.MapWG(req)
 
 		Expect(ok).To(BeTrue())
-		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(118))
+		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(190))
 		Expect(wgMapper.SGprMask.StatusCount(AllocStatusReserved)).To(Equal(10))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusFree)).To(Equal(252))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusReserved)).To(Equal(4))
@@ -197,7 +202,7 @@ var _ = Describe("WGMapper", func() {
 			Expect(req.WfDispatchMap[wg.Wavefronts[i]].LDSOffset).To(
 				Equal(0))
 			Expect(req.WfDispatchMap[wg.Wavefronts[i]].VGPROffset).To(
-				Equal((i / 4) * 20 * 64 * 4))
+				Equal((i / 4) * 20 * 4))
 		}
 	})
 
@@ -212,7 +217,7 @@ var _ = Describe("WGMapper", func() {
 		ok := wgMapper.MapWG(req)
 
 		Expect(ok).To(BeTrue())
-		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(118))
+		Expect(wgMapper.SGprMask.StatusCount(AllocStatusFree)).To(Equal(190))
 		Expect(wgMapper.SGprMask.StatusCount(AllocStatusReserved)).To(Equal(10))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusFree)).To(Equal(252))
 		Expect(wgMapper.LDSMask.StatusCount(AllocStatusReserved)).To(Equal(4))
@@ -234,7 +239,7 @@ var _ = Describe("WGMapper", func() {
 			Expect(req.WfDispatchMap[wg.Wavefronts[i]].SGPROffset).To(Equal(i * 64))
 			Expect(req.WfDispatchMap[wg.Wavefronts[i]].LDSOffset).To(Equal(0))
 			Expect(req.WfDispatchMap[wg.Wavefronts[i]].VGPROffset).To(
-				Equal((i / 4) * 20 * 64 * 4))
+				Equal((i / 4) * 20 * 4))
 		}
 	})
 

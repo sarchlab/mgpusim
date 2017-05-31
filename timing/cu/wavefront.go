@@ -31,10 +31,11 @@ type Wavefront struct {
 	CodeObject *insts.HsaCo
 	Packet     *kernels.HsaKernelDispatchPacket
 
-	State         WfState
-	Inst          *Inst           // The instruction that is being executed
-	ScratchPad    []byte          // A temp data buf that is shared by different stages
-	LastFetchTime core.VTimeInSec // The time that the last instruction was fetched
+	State          WfState
+	Inst           *Inst           // The instruction that is being executed
+	ScratchPad     []byte          // A temp data buf that is shared by different stages
+	LastFetchTime  core.VTimeInSec // The time that the last instruction was fetched
+	CompletedLanes int             // The number of lanes that is completed in the SIMD unit
 
 	PC          uint64
 	FetchBuffer []byte

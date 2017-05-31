@@ -44,8 +44,8 @@ func NewWGMapper(numWfPool int) *WGMapperImpl {
 
 	m.initWfInfo([]int{10, 10, 10, 10})
 	m.initLDSInfo(64 * 1024) // 64K
-	m.initSGPRInfo(2048)
-	m.initVGPRInfo([]int{16384, 16384, 16384, 16384})
+	m.initSGPRInfo(3200)
+	m.initVGPRInfo([]int{256, 256, 256, 256}) // 64KB per SIMD, 64 lanes, 4 bytes
 
 	return m
 }
@@ -68,7 +68,7 @@ func (m *WGMapperImpl) initLDSInfo(byteSize int) {
 
 func (m *WGMapperImpl) initVGPRInfo(count []int) {
 	m.VGprCount = count
-	m.VGprGranularity = 64 * 4 // 64 lanes, 4 register minimum allocation
+	m.VGprGranularity = 4 // 4 register minimum allocation
 	m.VGprMask = make([]*ResourceMask, 0, m.NumWfPool)
 	for i := 0; i < m.NumWfPool; i++ {
 		m.VGprMask = append(m.VGprMask,
@@ -84,7 +84,7 @@ func (m *WGMapperImpl) SetWfPoolSizes(numWfs []int) {
 
 	vgprCount := make([]int, len(numWfs))
 	for i := 0; i < len(numWfs); i++ {
-		vgprCount[i] = 16384
+		vgprCount[i] = 1024
 	}
 	m.initVGPRInfo(vgprCount)
 }
@@ -159,7 +159,7 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 		firstSIMDTested := nextSIMD
 		firstTry := true
 		found := false
-		required := m.unitsOccupy(int(co.WIVgprCount)*64, m.VGprGranularity)
+		required := m.unitsOccupy(int(co.WIVgprCount), m.VGprGranularity)
 		for firstTry || nextSIMD != firstSIMDTested {
 			firstTry = false
 			offset, ok := m.VGprMask[nextSIMD].NextRegion(required, AllocStatusFree)
@@ -170,7 +170,7 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 				wfPoolEntryUsed[nextSIMD]++
 				req.WfDispatchMap[req.WG.Wavefronts[i]].SIMDID = nextSIMD
 				req.WfDispatchMap[req.WG.Wavefronts[i]].VGPROffset =
-					offset * 4 * 64 * 4 // 4 regs per group, 64 lanes, 4 bytes
+					offset * 4 * 4 // 4 regs per group, 4 bytes
 				m.VGprMask[nextSIMD].SetStatus(offset, required,
 					AllocStatusToReserve)
 			}
@@ -227,7 +227,7 @@ func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
 		m.SGprMask.SetStatus(wf.SRegOffset/4/m.SGprGranularity,
 			sgprUnits, AllocStatusFree)
 
-		vgprUnits := m.unitsOccupy(int(co.WIVgprCount)*64, m.VGprGranularity)
+		vgprUnits := m.unitsOccupy(int(co.WIVgprCount), m.VGprGranularity)
 		m.VGprMask[wf.SIMDID].SetStatus(
 			wf.VRegOffset/4/m.VGprGranularity, vgprUnits,
 			AllocStatusFree)
