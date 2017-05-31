@@ -99,6 +99,7 @@ func (u *SIMDUnit) handleTickEvent(evt *core.TickEvent) error {
 	u.doWrite(evt.Time())
 	u.doExec(evt.Time())
 	u.doRead(evt.Time())
+	u.tryStartNewInst()
 
 	u.continueTick(evt.Time())
 
@@ -119,8 +120,10 @@ func (u *SIMDUnit) doExec(now core.VTimeInSec) {
 	if u.executing != nil {
 		if u.writing == nil {
 			u.executing.CompletedLanes += u.SingleALUWidth
-			u.writing = u.executing
-			u.executing = nil
+			if u.executing.CompletedLanes == 64 {
+				u.writing = u.executing
+				u.executing = nil
+			}
 		}
 	}
 }
@@ -131,6 +134,14 @@ func (u *SIMDUnit) doRead(now core.VTimeInSec) {
 			u.executing = u.reading
 			u.reading = nil
 		}
+	}
+}
+
+func (u *SIMDUnit) tryStartNewInst() {
+	if u.reading == nil && u.readWaiting != nil {
+		u.reading = u.readWaiting
+		u.readWaiting = nil
+		u.reading.CompletedLanes = 0
 	}
 }
 
