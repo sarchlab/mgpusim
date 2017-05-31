@@ -1,30 +1,8 @@
 package cu
 
 import (
-	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/timing"
 )
-
-// MapWGEvent requires the Scheduler to reserve space for a workgroup.
-// The workgroup will not run immediately. The dispatcher will wait for the
-// scheduler to dispatch wavefronts to it.
-type MapWGEvent struct {
-	*core.EventBase
-
-	Req *timing.MapWGReq
-}
-
-// NewMapWGEvent creates a new MapWGEvent
-func NewMapWGEvent(
-	time core.VTimeInSec,
-	handler core.Handler,
-	req *timing.MapWGReq,
-) *MapWGEvent {
-	e := new(MapWGEvent)
-	e.EventBase = core.NewEventBase(time, handler)
-	e.Req = req
-	return e
-}
 
 // WGMapper defines the behavior of how a workgroup is mapped in the compute
 // unit.
