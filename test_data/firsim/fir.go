@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"debug/elf"
 	"encoding/binary"
-	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -53,6 +52,7 @@ var (
 	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
+	logger     *log.Logger
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -74,7 +74,8 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:8080", nil))
 	}()
 
-	log.SetOutput(ioutil.Discard)
+	// log.SetOutput(ioutil.Discard)
+	logger = log.New(os.Stdout, "", 0)
 
 	initPlatform()
 	loadProgram()
@@ -105,7 +106,10 @@ func initPlatform() {
 	dispatcher := timing.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 1 * core.GHz
-	dispatcher.AcceptHook(new(timing.WGCompleteLogger))
+	wgCompleteLogger := new(timing.WGCompleteLogger)
+	wgCompleteLogger.Logger = logger
+	dispatcher.AcceptHook(wgCompleteLogger)
+
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
@@ -116,16 +120,16 @@ func initPlatform() {
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 4; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
 		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
 
 		// Hook
-		mapWGHook := cu.NewMapWGHook()
-		computeUnit.Scheduler.AcceptHook(mapWGHook)
-		dispatchWfHook := cu.NewDispatchWfHook()
+		mapWGLog := cu.NewMapWGLog(logger)
+		computeUnit.Scheduler.AcceptHook(mapWGLog)
+		dispatchWfHook := cu.NewDispatchWfLog(logger)
 		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
 	}
 
@@ -200,7 +204,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 10000
+	req.Packet.GridSizeX = 256 * 4
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256
