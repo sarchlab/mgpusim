@@ -1,7 +1,6 @@
 package timing
 
 import (
-	"log"
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
@@ -10,6 +9,7 @@ import (
 // WGCompleteLogger is the logger that writes the information of work-group
 // completion
 type WGCompleteLogger struct {
+	core.LogHookBase
 }
 
 // Type returns type timing.MapWGReq
@@ -26,6 +26,6 @@ func (l *WGCompleteLogger) Pos() core.HookPos {
 func (l *WGCompleteLogger) Func(item interface{}, domain core.Hookable) {
 	req := item.(*WGFinishMesg)
 	wg := req.WG
-	log.Printf("%.10f, Work-group(%d, %d, %d) completed\n", req.RecvTime(),
+	l.Logger.Printf("%.10f, Work-group(%d, %d, %d) completed\n", req.RecvTime(),
 		wg.IDX, wg.IDY, wg.IDZ)
 }
