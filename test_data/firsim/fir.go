@@ -142,6 +142,12 @@ func initPlatform() {
 		if i == 0 {
 			tracer := trace.NewInstTracer(traceOutput)
 			computeUnit.Scheduler.AcceptHook(tracer)
+			computeUnit.BranchUnit.AcceptHook(tracer)
+			computeUnit.ScalarUnit.AcceptHook(tracer)
+			computeUnit.SIMDUnits[0].AcceptHook(tracer)
+			computeUnit.SIMDUnits[1].AcceptHook(tracer)
+			computeUnit.SIMDUnits[2].AcceptHook(tracer)
+			computeUnit.SIMDUnits[3].AcceptHook(tracer)
 		}
 
 	}

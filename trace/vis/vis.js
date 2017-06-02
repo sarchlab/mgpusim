@@ -48,7 +48,7 @@
         ])
         .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     function visualize(data) {
-        let tooltip = $('#tooltip')
+        let tooltip = $('#tooltip');
 
         let svg = d3.select('#figure').append('svg')
             .attr('width', window.innerWidth)
@@ -69,7 +69,7 @@
                     .attr('width', function(d){
                         return (d.endTime - d.time) * scalingFactor;
                     })
-                    .attr('height', 9)
+                    .attr('height', 7)
                     .style('fill', function(d) {
                         return stageColor(d.stage);
                     })
@@ -99,6 +99,4 @@
     $(document).ready(function() {
         loadTraceData(0, 100);
     });
-    
-
 })();
