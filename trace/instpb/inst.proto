@@ -1,4 +1,5 @@
 syntax='proto3';
+package instpb;
 
 enum Stage {
     UNKNOWN = 0;
