@@ -23,7 +23,7 @@ func (l *WGCompleteLogger) Pos() core.HookPos {
 }
 
 // Func defines the logging action
-func (l *WGCompleteLogger) Func(item interface{}, domain core.Hookable) {
+func (l *WGCompleteLogger) Func(item interface{}, domain core.Hookable, info interface{}) {
 	req := item.(*WGFinishMesg)
 	wg := req.WG
 	l.Logger.Printf("%.10f, Work-group(%d, %d, %d) completed\n", req.RecvTime(),

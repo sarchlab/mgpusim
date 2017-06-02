@@ -172,8 +172,8 @@ func (s *Scheduler) Handle(evt core.Event) error {
 	s.Lock()
 	defer s.Unlock()
 
-	s.InvokeHook(evt, core.BeforeEvent)
-	defer s.InvokeHook(evt, core.AfterEvent)
+	s.InvokeHook(evt, s, core.BeforeEvent, nil)
+	defer s.InvokeHook(evt, s, core.AfterEvent, nil)
 
 	switch evt := evt.(type) {
 	case *timing.MapWGReq:
