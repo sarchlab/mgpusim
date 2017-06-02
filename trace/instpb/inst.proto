@@ -22,6 +22,9 @@ message Event {
 
 message Inst {
     uint64 id = 1;
-    string asm = 2;
-    repeated Event events=3;
+    uint32 simd_id = 2;
+    uint32 wavefront_id = 3;
+    uint32 workgroup_id = 4;
+    string asm = 5;
+    repeated Event events=6;
 }
