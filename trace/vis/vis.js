@@ -33,9 +33,10 @@
 
     let scalingFactor = 1e10;
     let stageColor = d3.scaleOrdinal()
-        .range(['black', 
-            '#E1F5FE',
-            '#B3E5FC',
+        .range(['black',  // UNKNOWN
+            '#E1F5FE', // FETCH START
+            'white',   // FETCH DONE
+            '#B3E5FC', 
             '#81D4FA',
             '#4FC3F7',
             '#29B6F6',
@@ -72,15 +73,26 @@
                     .style('fill', function(d) {
                         return stageColor(d.stage);
                     })
+                    .style('stroke', function(d) {
+                        if (d.stage == 2) { // Fetch Done
+                            return '#888888';
+                        }
+                        return null;
+                    })
                     .on("mouseover", function(d) {
+                        let content  = 
+                            "wg: " + (d.inst.workgroup_id ? d.inst.workgroup_id: 0) +
+                            ", wf: " + (d.inst.wavefront_id ? d.inst.wavefront_id: 0) + 
+                            ", simd: " + (d.inst.simd_id ? d.inst.simd_id : 0) +
+                            "<br/>inst: " + d.inst.asm + 
+                            "<br/>stage: " + d.stage;
                         tooltip.show()
                             .css({left:d3.event.pageX, top:d3.event.pageY})
-                            .html("inst: " + d.inst.asm + 
-                                ", \nstage: " + d.stage);
+                            .html(content);
                     })
                     .on("mouseout", function(d) {
                         tooltip.hide();
-                    })
+                    });
 
     }
 

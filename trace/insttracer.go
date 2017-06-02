@@ -82,6 +82,8 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 	case "Completed":
 		instTraceItem.Id = inst.ID
 		instTraceItem.Asm = inst.String()
+		instTraceItem.WavefrontId = uint32(wf.FirstWiFlatID)
+		instTraceItem.SimdId = uint32(wf.SIMDID)
 		instTraceItem.Events = append(instTraceItem.Events,
 			&instpb.Event{
 				Time:  float64(instInfo.Now),

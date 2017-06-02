@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strconv"
 
 	"gitlab.com/yaotsu/gcn3/trace/instpb"
@@ -91,6 +92,10 @@ func parseTrace() {
 
 		trace = append(trace, instTraceItem)
 	}
+
+	sort.Slice(trace, func(i, j int) bool {
+		return trace[i].Events[0].Time < trace[j].Events[0].Time
+	})
 }
 
 func startServer() {
