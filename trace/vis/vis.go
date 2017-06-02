@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
@@ -56,14 +57,32 @@ func startServer() {
 	openbrowser("http://" + ln.Addr().String())
 
 	http.HandleFunc("/", httpMain)
+	http.HandleFunc("/trace", httpTrace)
 	err = http.Serve(ln, nil)
 	if err != nil {
 		log.Panic(err)
 	}
 }
 
+var mainHTML = template.Must(template.New("").Parse(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>GCN3Sim visualization tool</title>
+    </head>
+    <body>
+    </body>
+</html>
+`))
+
 func httpMain(w http.ResponseWriter, r *http.Request) {
-	log.Println("handling")
+	if err := mainHTML.Execute(w, nil); err != nil {
+		log.Panic(err)
+	}
+}
+
+func httpTrace(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.FormValue("start"), r.FormValue("end"))
 }
 
 func openbrowser(url string) {
@@ -79,6 +98,7 @@ func openbrowser(url string) {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
