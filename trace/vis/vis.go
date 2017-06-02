@@ -93,6 +93,7 @@ func parseTrace() {
 		trace = append(trace, instTraceItem)
 	}
 
+	log.Printf("%d", len(trace))
 	sort.Slice(trace, func(i, j int) bool {
 		return trace[i].Events[0].Time < trace[j].Events[0].Time
 	})

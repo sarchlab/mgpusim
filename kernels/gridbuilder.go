@@ -87,6 +87,7 @@ func (b *GridBuilderImpl) formWavefronts(wg *WorkGroup) {
 	for i := 0; i < len(wg.WorkItems); i++ {
 		if i%wavefrontSize == 0 {
 			wf = NewWavefront()
+			wf.FirstWiFlatID = wg.WorkItems[i].FlattenedID()
 			wf.WG = wg
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}

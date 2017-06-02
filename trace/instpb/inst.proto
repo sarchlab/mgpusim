@@ -6,13 +6,15 @@ enum Stage {
     FetchStart = 1;
     FetchDone = 2;
     Issue = 3;
-    ReadStart = 4;
-    ReadEnd = 5;
-    ExecStart = 6;
-    ExecEnd = 7;
-    WriteStart = 8;
-    WriteEnd = 9;
-    Complete = 10;
+    DecodeStart = 4;
+    DecodeDone = 5;
+    ReadStart = 6;
+    ReadDone = 7;
+    ExecStart = 8;
+    ExecDone = 9;
+    WriteStart = 10;
+    WriteDone = 11;
+    Complete = 12;
 }
 
 message Event {

@@ -101,7 +101,7 @@ func initPlatform() {
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
 	globalMem.Frequency = 1 * core.GHz
-	globalMem.Latency = 2
+	globalMem.Latency = 1
 
 	// Host
 	host = newHostComponent()
@@ -148,6 +148,8 @@ func initPlatform() {
 			computeUnit.SIMDUnits[1].AcceptHook(tracer)
 			computeUnit.SIMDUnits[2].AcceptHook(tracer)
 			computeUnit.SIMDUnits[3].AcceptHook(tracer)
+			computeUnit.VectorDecode.AcceptHook(tracer)
+			computeUnit.ScalarDecode.AcceptHook(tracer)
 		}
 
 	}

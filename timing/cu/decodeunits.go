@@ -73,6 +73,7 @@ func (u *SimpleDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 	if !u.available {
 		return core.NewError("busy", true, u.nextPossibleTime)
 	}
+	u.InvokeHook(req.Wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
 	completionTime := u.Freq.NCyclesLater(u.Latency, req.RecvTime())
 	evt := NewDecodeCompletionEvent(completionTime, u, req)
 	u.engine.Schedule(evt)
@@ -102,6 +103,7 @@ func (u *SimpleDecodeUnit) handleDecodeCompletionEvent(
 	req.SetSrc(u)
 	req.SetDst(u.ExecUnit)
 	req.SetSendTime(evt.Time())
+	u.InvokeHook(req.Wf, u, core.Any, &InstHookInfo{evt.Time(), "DecodeDone"})
 
 	err := u.GetConnection("ToExecUnit").Send(req)
 	if err != nil {
@@ -169,6 +171,7 @@ func (u *VectorDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 	if !u.available {
 		return core.NewError("busy", true, u.nextPossibleTime)
 	}
+	u.InvokeHook(req.Wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
 	completionTime := u.Freq.NCyclesLater(u.Latency, req.RecvTime())
 	evt := NewDecodeCompletionEvent(completionTime, u, req)
 	u.engine.Schedule(evt)
@@ -199,6 +202,7 @@ func (u *VectorDecodeUnit) handleDecodeCompletionEvent(
 	req.SetSrc(u)
 	req.SetDst(u.SIMDUnits[wf.SIMDID])
 	req.SetSendTime(evt.Time())
+	u.InvokeHook(wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
 
 	err := u.GetConnection("ToExecUnit").Send(req)
 	if err != nil {

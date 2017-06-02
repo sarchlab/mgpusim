@@ -23,9 +23,9 @@ var _ = Describe("Branch Unit", func() {
 		unit.Freq = 1
 	})
 
-	It("should not accept instruction is reading stage is occupied", func() {
+	It("should not accept instruction if buffer is occupied", func() {
 		wf := new(Wavefront)
-		unit.reading = wf
+		unit.readWaiting = wf
 
 		req := NewIssueInstReq(nil, unit, 10, nil, wf)
 		err := unit.Recv(req)
@@ -33,14 +33,14 @@ var _ = Describe("Branch Unit", func() {
 		Expect(err).NotTo(BeNil())
 	})
 
-	It("should accept instruction is reading stage is not occupied", func() {
+	It("should accept instruction is buf is not occupied", func() {
 		wf := new(Wavefront)
 
 		req := NewIssueInstReq(nil, unit, 10, nil, wf)
 		err := unit.Recv(req)
 
 		Expect(err).To(BeNil())
-		Expect(unit.reading).To(BeIdenticalTo(wf))
+		Expect(unit.readWaiting).To(BeIdenticalTo(wf))
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
@@ -84,6 +84,18 @@ var _ = Describe("Branch Unit", func() {
 		Expect(unit.writing).To(BeNil())
 		Expect(len(engine.ScheduledEvent)).To(Equal(0))
 		Expect(conn.AllExpectedSent()).To(BeTrue())
+	})
+
+	It("should start new inst", func() {
+		wf := new(Wavefront)
+		unit.readWaiting = wf
+		unit.running = true
+
+		evt := core.NewTickEvent(10, unit)
+		unit.Handle(evt)
+
+		Expect(unit.reading).To(BeIdenticalTo(wf))
+		Expect(unit.readWaiting).To(BeNil())
 	})
 
 })
