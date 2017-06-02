@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"reflect"
+	"sync"
 
 	"encoding/binary"
 
@@ -15,6 +16,7 @@ import (
 
 // A InstTracer is a LogHook that keep record of instruction execution status
 type InstTracer struct {
+	mutex        sync.Mutex
 	writer       io.Writer
 	tracingInsts map[*cu.Inst]*instpb.Inst
 }
@@ -40,8 +42,13 @@ func (t *InstTracer) Pos() core.HookPos {
 
 // Func defines the behavior of the tracer when the tracer is invoked.
 func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface{}) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	wf := item.(*cu.Wavefront)
+	wf.RLock()
 	inst := wf.Inst
+	wf.RUnlock()
 	instInfo := info.(*cu.InstHookInfo)
 
 	instTraceItem, ok := t.tracingInsts[inst]
@@ -60,12 +67,22 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 			},
 		)
 	case "Completed":
+		instTraceItem.Id = inst.ID
+		instTraceItem.Asm = inst.String()
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_Complete,
+			},
+		)
+
 		data, err := proto.Marshal(instTraceItem)
 		if err != nil {
 			log.Panic(err)
 		}
 
-		err = binary.Write(t.writer, binary.LittleEndian, len(data))
+		size := uint32(len(data))
+		err = binary.Write(t.writer, binary.LittleEndian, size)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -75,5 +92,4 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 			log.Panic(err)
 		}
 	}
-
 }

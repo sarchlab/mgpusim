@@ -1,15 +1,24 @@
 package main
 
 import (
+	"encoding/binary"
+	"errors"
 	"flag"
 	"fmt"
-	"html/template"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+
+	"gitlab.com/yaotsu/gcn3/trace/instpb"
+
+	"encoding/json"
+
+	"github.com/golang/protobuf/proto"
 )
 
 const usageMessage = "" +
@@ -28,6 +37,7 @@ var (
 
 func main() {
 	parseArgs()
+	parseTrace()
 	startServer()
 }
 
@@ -45,44 +55,78 @@ func parseArgs() {
 	default:
 		flag.Usage()
 	}
+}
 
+var trace = make([]*instpb.Inst, 0)
+
+func parseTrace() {
+	f, err := os.Open(traceFile)
+	dieOnErr(err)
+
+	var length uint32
+	for {
+		err = binary.Read(f, binary.LittleEndian, &length)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Panic(err)
+		}
+
+		buf := make([]byte, length)
+		n, err := f.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Panic(err)
+		}
+		if uint32(n) != length {
+			log.Panic(errors.New("No enough bytes to load"))
+		}
+
+		instTraceItem := new(instpb.Inst)
+		err = proto.Unmarshal(buf, instTraceItem)
+		dieOnErr(err)
+
+		// spew.Dump(instTraceItem)
+		trace = append(trace, instTraceItem)
+	}
 }
 
 func startServer() {
 	ln, err := net.Listen("tcp", *httpFlag)
-	if err != nil {
-		log.Panic(err)
-	}
+	dieOnErr(err)
 
 	openbrowser("http://" + ln.Addr().String())
 
-	http.HandleFunc("/", httpMain)
 	http.HandleFunc("/trace", httpTrace)
+	http.Handle("/", http.FileServer(http.Dir("")))
 	err = http.Serve(ln, nil)
-	if err != nil {
-		log.Panic(err)
-	}
-}
-
-var mainHTML = template.Must(template.New("").Parse(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>GCN3Sim visualization tool</title>
-    </head>
-    <body>
-    </body>
-</html>
-`))
-
-func httpMain(w http.ResponseWriter, r *http.Request) {
-	if err := mainHTML.Execute(w, nil); err != nil {
-		log.Panic(err)
-	}
+	dieOnErr(err)
 }
 
 func httpTrace(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.FormValue("start"), r.FormValue("end"))
+	start, err := strconv.Atoi(r.FormValue("start"))
+	dieOnErr(err)
+
+	end, err := strconv.Atoi(r.FormValue("end"))
+	dieOnErr(err)
+
+	respond := "["
+	for i := start; i < end; i++ {
+		bytes, err := json.Marshal(trace[i])
+		dieOnErr(err)
+
+		if i != start {
+			respond += ","
+		}
+		respond += string(bytes)
+	}
+	respond += "]"
+
+	_, err = w.Write([]byte(respond))
+	dieOnErr(err)
 }
 
 func openbrowser(url string) {
@@ -99,8 +143,11 @@ func openbrowser(url string) {
 		err = fmt.Errorf("unsupported platform")
 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	dieOnErr(err)
+}
 
+func dieOnErr(err error) {
+	if err != nil {
+		log.Panic(err)
+	}
 }

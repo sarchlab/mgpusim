@@ -150,11 +150,12 @@ func (s *Scheduler) decode(buf []byte, wf *Wavefront) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	wf.Inst = NewInst(inst)
+	wf.Inst.Inst = inst
 }
 
 func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error {
 	wf := req.Wf
+	s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.RecvTime(), "Completed"})
 	wf.Lock()
 	wf.State = WfReady
 	wf.Unlock()
@@ -252,6 +253,10 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 
 	if len(wfs) > 0 {
 		wf := wfs[0]
+		wf.Lock()
+		wf.Inst = NewInst(nil)
+		wf.Unlock()
+
 		req := mem.NewAccessReq()
 		req.Address = wf.PC
 		req.Type = mem.Read
@@ -268,6 +273,7 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 			// Do not do anything
 		} else {
 			wf.State = WfFetching
+			s.InvokeHook(wf, s, core.Any, &InstHookInfo{now, "FetchStart"})
 		}
 	}
 }

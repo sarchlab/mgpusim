@@ -12,6 +12,7 @@ enum Stage {
     ExecEnd = 7;
     WriteStart = 8;
     WriteEnd = 9;
+    Complete = 10;
 }
 
 message Event {
