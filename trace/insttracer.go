@@ -66,6 +66,19 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 				Stage: instpb.Stage_FetchStart,
 			},
 		)
+	case "FetchDone":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_FetchDone,
+			},
+		)
+	case "Issue":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_Issue,
+			})
 	case "Completed":
 		instTraceItem.Id = inst.ID
 		instTraceItem.Asm = inst.String()

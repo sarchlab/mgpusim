@@ -89,7 +89,6 @@ func parseTrace() {
 		err = proto.Unmarshal(buf, instTraceItem)
 		dieOnErr(err)
 
-		// spew.Dump(instTraceItem)
 		trace = append(trace, instTraceItem)
 	}
 }

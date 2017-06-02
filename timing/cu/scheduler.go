@@ -140,6 +140,8 @@ func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 	wf.PC += uint64(wf.Inst.ByteSize)
 	wf.Unlock()
 
+	s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.RecvTime(), "FetchDone"})
+
 	return nil
 }
 
@@ -281,24 +283,30 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 func (s *Scheduler) issue(now core.VTimeInSec) {
 	wfs := s.issueArbiter.Arbitrate(s.WfPools)
 	for _, wf := range wfs {
-		wf.Lock()
 		if wf.Inst.ExeUnit == insts.ExeUnitSpecial {
+			wf.Lock()
 			s.issueToInternal(wf, now)
 			wf.Unlock()
 			continue
 		}
 
+		wf.RLock()
 		unit := s.getUnitToIssueTo(wf.Inst.ExeUnit)
 		req := NewIssueInstReq(s, unit, now, s, wf)
+		wf.RUnlock()
 		err := s.GetConnection("ToDecoders").Send(req)
 		if err != nil && !err.Recoverable {
 			log.Panic(err)
 		} else if err != nil {
+			wf.Lock()
 			wf.State = WfFetched
+			wf.Unlock()
 		} else {
+			s.InvokeHook(wf, s, core.Any, &InstHookInfo{now, "Issue"})
+			wf.Lock()
 			wf.State = WfRunning
+			wf.Unlock()
 		}
-		wf.Unlock()
 	}
 }
 
