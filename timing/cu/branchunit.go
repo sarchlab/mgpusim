@@ -20,9 +20,10 @@ type BranchUnit struct {
 	scheduler core.Component
 	running   bool
 
-	reading   *Wavefront
-	executing *Wavefront
-	writing   *Wavefront
+	readWaiting *Wavefront
+	reading     *Wavefront
+	executing   *Wavefront
+	writing     *Wavefront
 }
 
 // NewBranchUnit creates and retuns a new BranchUnit
@@ -49,11 +50,11 @@ func (u *BranchUnit) Recv(req core.Req) *core.Error {
 }
 
 func (u *BranchUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
-	if u.reading != nil {
+	if u.readWaiting != nil {
 		return core.NewError("unit busy", true, u.Freq.NextTick(req.RecvTime()))
 	}
 
-	u.reading = req.Wf
+	u.readWaiting = req.Wf
 	u.tryStartTick(req.RecvTime())
 	return nil
 }
@@ -76,6 +77,7 @@ func (u *BranchUnit) handleTickEvent(evt *core.TickEvent) error {
 	u.doWrite(evt.Time())
 	u.doExec(evt.Time())
 	u.doRead(evt.Time())
+	u.tryStartNewInst(evt.Time())
 
 	u.continueTick(u.Freq.NextTick(evt.Time()))
 
@@ -113,6 +115,15 @@ func (u *BranchUnit) doRead(now core.VTimeInSec) {
 			u.executing = u.reading
 			u.reading = nil
 		}
+	}
+}
+
+func (u *BranchUnit) tryStartNewInst(now core.VTimeInSec) {
+	if u.reading == nil && u.readWaiting != nil {
+		u.InvokeHook(u.readWaiting, u, core.Any, &InstHookInfo{now, "ReadStart"})
+		u.reading = u.readWaiting
+		u.readWaiting = nil
+		u.reading.CompletedLanes = 0
 	}
 }
 

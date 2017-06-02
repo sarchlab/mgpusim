@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"reflect"
+	"sort"
 	"sync"
 
 	"encoding/binary"
@@ -79,17 +80,29 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 				Time:  float64(instInfo.Now),
 				Stage: instpb.Stage_Issue,
 			})
+	case "DecodeStart":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_DecodeStart,
+			})
+	case "DecodeDone":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_DecodeDone,
+			})
 	case "ReadStart":
 		instTraceItem.Events = append(instTraceItem.Events,
 			&instpb.Event{
 				Time:  float64(instInfo.Now),
 				Stage: instpb.Stage_ReadStart,
 			})
-	case "ReadEnd":
+	case "ReadDone":
 		instTraceItem.Events = append(instTraceItem.Events,
 			&instpb.Event{
 				Time:  float64(instInfo.Now),
-				Stage: instpb.Stage_ReadEnd,
+				Stage: instpb.Stage_ReadDone,
 			})
 	case "ExecStart":
 		instTraceItem.Events = append(instTraceItem.Events,
@@ -97,11 +110,11 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 				Time:  float64(instInfo.Now),
 				Stage: instpb.Stage_ExecStart,
 			})
-	case "ExecEnd":
+	case "ExecDone":
 		instTraceItem.Events = append(instTraceItem.Events,
 			&instpb.Event{
 				Time:  float64(instInfo.Now),
-				Stage: instpb.Stage_ExecEnd,
+				Stage: instpb.Stage_ExecDone,
 			})
 	case "WriteStart":
 		instTraceItem.Events = append(instTraceItem.Events,
@@ -109,11 +122,11 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 				Time:  float64(instInfo.Now),
 				Stage: instpb.Stage_WriteStart,
 			})
-	case "WriteEnd":
+	case "WriteDone":
 		instTraceItem.Events = append(instTraceItem.Events,
 			&instpb.Event{
 				Time:  float64(instInfo.Now),
-				Stage: instpb.Stage_WriteEnd,
+				Stage: instpb.Stage_WriteDone,
 			})
 
 	case "Completed":
@@ -127,6 +140,10 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 				Stage: instpb.Stage_Complete,
 			},
 		)
+
+		sort.Slice(instTraceItem.Events, func(i, j int) bool {
+			return instTraceItem.Events[i].Stage < instTraceItem.Events[j].Stage
+		})
 
 		data, err := proto.Marshal(instTraceItem)
 		if err != nil {

@@ -99,7 +99,7 @@ func (u *SIMDUnit) handleTickEvent(evt *core.TickEvent) error {
 	u.doWrite(evt.Time())
 	u.doExec(evt.Time())
 	u.doRead(evt.Time())
-	u.tryStartNewInst()
+	u.tryStartNewInst(evt.Time())
 
 	u.continueTick(u.Freq.NextTick(evt.Time()))
 
@@ -134,7 +134,7 @@ func (u *SIMDUnit) doExec(now core.VTimeInSec) {
 func (u *SIMDUnit) doRead(now core.VTimeInSec) {
 	if u.reading != nil {
 		if u.executing == nil {
-			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ReadEnd"})
+			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ReadDone"})
 			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ExecStart"})
 			u.executing = u.reading
 			u.reading = nil
@@ -142,8 +142,9 @@ func (u *SIMDUnit) doRead(now core.VTimeInSec) {
 	}
 }
 
-func (u *SIMDUnit) tryStartNewInst() {
+func (u *SIMDUnit) tryStartNewInst(now core.VTimeInSec) {
 	if u.reading == nil && u.readWaiting != nil {
+		u.InvokeHook(u.readWaiting, u, core.Any, &InstHookInfo{now, "ReadStart"})
 		u.reading = u.readWaiting
 		u.readWaiting = nil
 		u.reading.CompletedLanes = 0

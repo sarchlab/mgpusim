@@ -33,20 +33,39 @@
 
     let scalingFactor = 1e10;
     let stageColor = d3.scaleOrdinal()
-        .range(['black',  // UNKNOWN
-            '#E1F5FE', // FETCH START
-            'white',   // FETCH DONE
-            '#B3E5FC', 
-            '#81D4FA',
-            '#4FC3F7',
-            '#29B6F6',
-            '#03A9F4',
-            '#039BE5',
-            '#0288D1',
-            '#0277BD',
-            '#01579B'
-        ])
-        .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        .range([
+            'black', // unknown
+            '#67001f', // fetch start
+            'white', // fetch done
+            '#b2182b',  // issue
+            '#d6604d', // decode start
+            'white', // decode done
+            '#f4a582', // read start
+            'white', // read done
+            '#fddbc7', // exec start
+            'white', // exec done
+            '#92c5de', // write start
+            'white', // write done
+            '#4394c3', // complete
+            '#2166ac','#053061']);
+    let stageName = d3.scaleOrdinal()
+        .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        .range([
+            'unknown', 
+            'fetch start',
+            'wait issue',
+            'issue', 
+            'decode', 
+            'decode done', 
+            'read', 
+            'read done', 
+            'exec', 
+            'exec done', 
+            'write',
+            'write done',
+            'complete'
+        ]);
     function visualize(data) {
         let tooltip = $('#tooltip');
 
@@ -54,7 +73,10 @@
             .attr('width', window.innerWidth)
             .attr('height', window.innerHeight);
 
-        svg.selectAll('.bar')
+        let mainArea = svg.append('g')
+            .attr('viewBox', "50, 0, 1000, 500");
+
+        mainArea.selectAll('.g')
             .data(data)
             .enter()
             .append('g')
@@ -85,13 +107,16 @@
                             ", wf: " + (d.inst.wavefront_id ? d.inst.wavefront_id: 0) + 
                             ", simd: " + (d.inst.simd_id ? d.inst.simd_id : 0) +
                             "<br/>inst: " + d.inst.asm + 
-                            "<br/>stage: " + d.stage;
+                            "<br/>stage: " + stageName(d.stage);
                         tooltip.show()
                             .css({left:d3.event.pageX, top:d3.event.pageY})
                             .html(content);
                     })
                     .on("mouseout", function(d) {
                         tooltip.hide();
+                    })
+                    .on("click", function(d) {
+                        console.log(d);
                     });
 
     }
