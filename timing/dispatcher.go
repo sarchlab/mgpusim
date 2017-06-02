@@ -184,7 +184,7 @@ func (d *Dispatcher) Recv(req core.Req) *core.Error {
 	d.Lock()
 	defer d.Unlock()
 
-	d.InvokeHook(req, core.OnRecvReq)
+	d.InvokeHook(req, d, core.OnRecvReq, nil)
 
 	switch req := req.(type) {
 	case *kernels.LaunchKernelReq:
@@ -289,8 +289,8 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 	d.Lock()
 	defer d.Unlock()
 
-	d.InvokeHook(evt, core.BeforeEvent)
-	defer d.InvokeHook(evt, core.AfterEvent)
+	d.InvokeHook(evt, d, core.BeforeEvent, nil)
+	defer d.InvokeHook(evt, d, core.AfterEvent, nil)
 
 	switch e := evt.(type) {
 	case *core.TickEvent:

@@ -32,7 +32,7 @@ func (h *MapWGLog) Pos() core.HookPos {
 }
 
 // Func defines the behavior when the hook is triggered
-func (h *MapWGLog) Func(item interface{}, domain core.Hookable) {
+func (h *MapWGLog) Func(item interface{}, domain core.Hookable, info interface{}) {
 	req := item.(*timing.MapWGReq)
 	wg := req.WG
 	str := fmt.Sprintf("%.10f MapWG %d ok: %t, CU: %d\n",

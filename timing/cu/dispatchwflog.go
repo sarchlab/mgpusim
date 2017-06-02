@@ -30,7 +30,7 @@ func (l *DispatchWfLog) Pos() core.HookPos {
 }
 
 // Func defines the behavior when the hook is triggered
-func (l *DispatchWfLog) Func(item interface{}, domain core.Hookable) {
+func (l *DispatchWfLog) Func(item interface{}, domain core.Hookable, info interface{}) {
 	evt := item.(*DispatchWfEvent)
 	l.Logger.Printf("%.10f Dispatch WF: to SIMD %d", evt.Time(),
 		evt.Req.Info.SIMDID)
