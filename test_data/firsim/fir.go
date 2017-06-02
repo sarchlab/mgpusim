@@ -19,6 +19,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/gcn3/timing/cu"
+	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -46,13 +47,14 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-	engine     core.Engine
-	globalMem  *mem.IdealMemController
-	gpu        *gcn3.Gpu
-	host       *hostComponent
-	connection core.Connection
-	hsaco      *insts.HsaCo
-	logger     *log.Logger
+	engine      core.Engine
+	globalMem   *mem.IdealMemController
+	gpu         *gcn3.Gpu
+	host        *hostComponent
+	connection  core.Connection
+	hsaco       *insts.HsaCo
+	logger      *log.Logger
+	traceOutput *os.File
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -76,6 +78,11 @@ func main() {
 
 	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
+	traceFile, err := os.Create("trace.out")
+	if err != nil {
+		log.Panic(err)
+	}
+	traceOutput = traceFile
 
 	initPlatform()
 	loadProgram()
@@ -131,6 +138,12 @@ func initPlatform() {
 		computeUnit.Scheduler.AcceptHook(mapWGLog)
 		dispatchWfHook := cu.NewDispatchWfLog(logger)
 		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
+
+		if i == 0 {
+			tracer := trace.NewInstTracer(traceOutput)
+			computeUnit.Scheduler.AcceptHook(tracer)
+		}
+
 	}
 
 	// Connection

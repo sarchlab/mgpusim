@@ -367,6 +367,7 @@ var _ = Describe("Scheduler", func() {
 	Context("when processing the mem.AccessReq", func() {
 		It("should set wavefront status", func() {
 			wf := new(Wavefront)
+			wf.Inst = NewInst(nil)
 			wf.PC = 6604
 			req := mem.NewAccessReq()
 			req.Info = wf
