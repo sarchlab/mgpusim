@@ -79,6 +79,43 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 				Time:  float64(instInfo.Now),
 				Stage: instpb.Stage_Issue,
 			})
+	case "ReadStart":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_ReadStart,
+			})
+	case "ReadEnd":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_ReadEnd,
+			})
+	case "ExecStart":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_ExecStart,
+			})
+	case "ExecEnd":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_ExecEnd,
+			})
+	case "WriteStart":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_WriteStart,
+			})
+	case "WriteEnd":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_WriteEnd,
+			})
+
 	case "Completed":
 		instTraceItem.Id = inst.ID
 		instTraceItem.Asm = inst.String()

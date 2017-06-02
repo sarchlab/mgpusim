@@ -83,7 +83,7 @@ func (u *ScalarUnit) handleTickEvent(evt *core.TickEvent) error {
 	u.doExec(evt.Time())
 	u.doRead(evt.Time())
 
-	u.continueTick(evt.Time())
+	u.continueTick(u.Freq.NextTick(evt.Time()))
 
 	return nil
 }
@@ -93,6 +93,7 @@ func (u *ScalarUnit) doWrite(now core.VTimeInSec) {
 		req := NewInstCompletionReq(u, u.scheduler, now, u.writing)
 		err := u.GetConnection("ToScheduler").Send(req)
 		if err == nil {
+			u.InvokeHook(u.writing, u, core.Any, &InstHookInfo{now, "WriteDone"})
 			u.writing = nil
 		}
 	}
@@ -101,6 +102,8 @@ func (u *ScalarUnit) doWrite(now core.VTimeInSec) {
 func (u *ScalarUnit) doExec(now core.VTimeInSec) {
 	if u.executing != nil {
 		if u.writing == nil {
+			u.InvokeHook(u.executing, u, core.Any, &InstHookInfo{now, "ExecEnd"})
+			u.InvokeHook(u.executing, u, core.Any, &InstHookInfo{now, "WriteStart"})
 			u.writing = u.executing
 			u.executing = nil
 		}
@@ -110,6 +113,8 @@ func (u *ScalarUnit) doExec(now core.VTimeInSec) {
 func (u *ScalarUnit) doRead(now core.VTimeInSec) {
 	if u.reading != nil {
 		if u.executing == nil {
+			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ReadEnd"})
+			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ExecStart"})
 			u.executing = u.reading
 			u.reading = nil
 		}
