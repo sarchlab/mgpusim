@@ -53,17 +53,17 @@
         .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
         .range([
             'unknown', 
-            'fetch start',
+            'fetch',
             'wait issue',
             'issue', 
             'decode', 
-            'decode done', 
+            'wait', 
             'read', 
-            'read done', 
+            'wait', 
             'exec', 
-            'exec done', 
+            'wait', 
             'write',
-            'write done',
+            'wait',
             'complete'
         ]);
     function visualize(data) {
