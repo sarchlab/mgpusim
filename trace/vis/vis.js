@@ -96,7 +96,8 @@
                         return stageColor(d.stage);
                     })
                     .style('stroke', function(d) {
-                        if (d.stage == 2) { // Fetch Done
+                        switch (d.stage) {
+                        case 2: case 5: case 7: case 9: case 11:
                             return '#888888';
                         }
                         return null;
