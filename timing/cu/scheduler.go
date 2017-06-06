@@ -394,7 +394,9 @@ func (s *Scheduler) doSendMemAccessReq(req *mem.AccessReq) error {
 	} else if err != nil {
 		// Do not do anything
 	} else {
+		wf.Lock()
 		wf.State = WfFetching
+		wf.Unlock()
 		s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.SendTime(), "FetchStart"})
 	}
 	return nil

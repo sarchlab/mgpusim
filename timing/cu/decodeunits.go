@@ -108,14 +108,15 @@ func (u *SimpleDecodeUnit) handleDecodeCompletionEvent(
 	}
 
 	// Schedule send
-	u.decoded = u.toDecode
-	u.toDecode = nil
 	req := evt.IssueInstReq
 	req.SetSrc(u)
 	req.SetDst(u.ExecUnit)
 	req.SetSendTime(u.Freq.HalfTick(evt.Time()))
 	u.InvokeHook(req.Wf, u, core.Any,
 		&InstHookInfo{evt.Time(), "DecodeDone"})
+
+	u.decoded = u.toDecode
+	u.toDecode = nil
 
 	deferredSend := core.NewDeferredSend(req)
 	u.engine.Schedule(deferredSend)
@@ -152,9 +153,9 @@ type VectorDecodeUnit struct {
 	Latency int
 	engine  core.Engine
 
-	SIMDUnits        []core.Component
-	available        bool
-	nextPossibleTime core.VTimeInSec
+	SIMDUnits []core.Component
+	toDecode  *Wavefront
+	decoded   *Wavefront
 }
 
 // NewVectorDecodeUnit returns a newly constructed SimpleDecodeUnit
@@ -162,7 +163,6 @@ func NewVectorDecodeUnit(name string, engine core.Engine) *VectorDecodeUnit {
 	u := new(VectorDecodeUnit)
 	u.ComponentBase = core.NewComponentBase(name)
 	u.engine = engine
-	u.available = true
 	u.SIMDUnits = make([]core.Component, 0)
 
 	u.AddPort("FromScheduler")
@@ -186,15 +186,14 @@ func (u *VectorDecodeUnit) Recv(req core.Req) *core.Error {
 }
 
 func (u *VectorDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
-	if !u.available {
-		return core.NewError("busy", true, u.nextPossibleTime)
+	if u.toDecode != nil {
+		return core.NewError("busy", true, u.Freq.NextTick(req.RecvTime()))
 	}
+
 	u.InvokeHook(req.Wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
-	completionTime := u.Freq.NCyclesLater(u.Latency, req.RecvTime())
+	completionTime := u.Freq.NCyclesLater(u.Latency-1, req.RecvTime())
 	evt := NewDecodeCompletionEvent(completionTime, u, req)
 	u.engine.Schedule(evt)
-	u.available = false
-	u.nextPossibleTime = u.Freq.NextTick(completionTime)
 	return nil
 }
 
@@ -206,6 +205,8 @@ func (u *VectorDecodeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *DecodeCompletionEvent:
 		return u.handleDecodeCompletionEvent(evt)
+	case *core.DeferredSend:
+		return u.handleDeferredSend(evt)
 	default:
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
 	}
@@ -219,21 +220,30 @@ func (u *VectorDecodeUnit) handleDecodeCompletionEvent(
 	req := evt.IssueInstReq
 	req.SetSrc(u)
 	req.SetDst(u.SIMDUnits[wf.SIMDID])
-	req.SetSendTime(evt.Time())
-	u.InvokeHook(wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
+	req.SetSendTime(u.Freq.HalfTick(evt.Time()))
+	u.InvokeHook(wf, u, core.Any, &InstHookInfo{evt.Time(), "DecodeDone"})
 
+	u.decoded = u.toDecode
+	u.toDecode = nil
+
+	deferredSend := core.NewDeferredSend(req)
+	u.engine.Schedule(deferredSend)
+
+	return nil
+}
+
+func (u *VectorDecodeUnit) handleDeferredSend(evt *core.DeferredSend) error {
+	req := evt.Req
 	err := u.GetConnection("ToExecUnit").Send(req)
 	if err != nil {
 		if !err.Recoverable {
 			log.Fatal(err)
 		} else {
-			u.nextPossibleTime = u.Freq.NextTick(err.EarliestRetry)
-			evt.SetTime(err.EarliestRetry)
+			evt.SetTime(u.Freq.HalfTick(err.EarliestRetry))
 			u.engine.Schedule(evt)
 		}
 	} else {
-		u.available = true
+		u.decoded = nil
 	}
-
 	return nil
 }

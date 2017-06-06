@@ -8,10 +8,14 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/pprof"
+	"syscall"
 
 	"flag"
+
+	"runtime/debug"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -74,6 +78,14 @@ func main() {
 	runtime.SetBlockProfileRate(1)
 	go func() {
 		log.Println(http.ListenAndServe("localhost:8080", nil))
+	}()
+
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		debug.PrintStack()
+		os.Exit(1)
 	}()
 
 	// log.SetOutput(ioutil.Discard)
