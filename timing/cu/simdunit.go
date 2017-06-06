@@ -31,10 +31,10 @@ type SIMDUnit struct {
 	VRegFile *RegCtrl
 	SRegFile *RegCtrl
 
-	readWaiting *Wavefront // A buffer that the instruction is issued, but the read stage is not available yet
-	reading     *Wavefront
-	executing   *Wavefront
-	writing     *Wavefront
+	reading   *Wavefront
+	executing *Wavefront
+	writing   *Wavefront
+	writeDone *Wavefront
 }
 
 // NewSIMDUnit returns a newly created SIMDUnit
@@ -72,11 +72,11 @@ func (u *SIMDUnit) Recv(req core.Req) *core.Error {
 }
 
 func (u *SIMDUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
-	if u.readWaiting != nil {
+	if u.reading != nil {
 		return core.NewError("unit busy", true, u.Freq.NextTick(req.RecvTime()))
 	}
 
-	u.readWaiting = req.Wf
+	u.reading = req.Wf
 	u.tryStartTick(req.RecvTime())
 	return nil
 }
@@ -89,6 +89,8 @@ func (u *SIMDUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *core.TickEvent:
 		return u.handleTickEvent(evt)
+	case *core.DeferredSend:
+		return u.handleDeferredSend(evt)
 	default:
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
 	}
@@ -99,21 +101,20 @@ func (u *SIMDUnit) handleTickEvent(evt *core.TickEvent) error {
 	u.doWrite(evt.Time())
 	u.doExec(evt.Time())
 	u.doRead(evt.Time())
-	u.tryStartNewInst(evt.Time())
 
 	u.continueTick(u.Freq.NextTick(evt.Time()))
-
 	return nil
 }
 
 func (u *SIMDUnit) doWrite(now core.VTimeInSec) {
-	if u.writing != nil {
-		req := NewInstCompletionReq(u, u.scheduler, now, u.writing)
-		err := u.GetConnection("ToScheduler").Send(req)
-		if err == nil {
-			u.InvokeHook(u.writing, u, core.Any, &InstHookInfo{now, "WriteDone"})
-			u.writing = nil
-		}
+	if u.writing != nil && u.writeDone == nil {
+		u.InvokeHook(u.writing, u, core.Any, &InstHookInfo{now, "WriteDone"})
+		u.writeDone = u.writing
+		u.writing = nil
+
+		req := NewInstCompletionReq(u, u.scheduler, u.Freq.HalfTick(now), u.writeDone)
+		deferredSend := core.NewDeferredSend(req)
+		u.engine.Schedule(deferredSend)
 	}
 }
 
@@ -142,13 +143,19 @@ func (u *SIMDUnit) doRead(now core.VTimeInSec) {
 	}
 }
 
-func (u *SIMDUnit) tryStartNewInst(now core.VTimeInSec) {
-	if u.reading == nil && u.readWaiting != nil {
-		u.InvokeHook(u.readWaiting, u, core.Any, &InstHookInfo{now, "ReadStart"})
-		u.reading = u.readWaiting
-		u.readWaiting = nil
-		u.reading.CompletedLanes = 0
+func (u *SIMDUnit) handleDeferredSend(evt *core.DeferredSend) error {
+	req := evt.Req
+	err := u.GetConnection("ToScheduler").Send(req)
+	if err != nil {
+		if !err.Recoverable {
+			log.Panic(err)
+		}
+		evt.SetTime(u.Freq.HalfTick(err.EarliestRetry))
+		u.engine.Schedule(evt)
+	} else {
+		u.writeDone = nil
 	}
+	return nil
 }
 
 func (u *SIMDUnit) tryStartTick(now core.VTimeInSec) {
@@ -158,8 +165,7 @@ func (u *SIMDUnit) tryStartTick(now core.VTimeInSec) {
 }
 
 func (u *SIMDUnit) continueTick(now core.VTimeInSec) {
-	if u.readWaiting == nil &&
-		u.reading == nil &&
+	if u.reading == nil &&
 		u.executing == nil &&
 		u.writing == nil {
 		u.running = false
