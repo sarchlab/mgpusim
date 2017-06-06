@@ -267,18 +267,21 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 		req.ByteSize = 8
 		req.SetDst(s.InstMem)
 		req.SetSrc(s)
-		req.SetSendTime(now)
+		req.SetSendTime(s.Freq.HalfTick(now))
 		req.Info = wf
 
-		err := s.GetConnection("ToInstMem").Send(req)
-		if err != nil && !err.Recoverable {
-			log.Fatal(err)
-		} else if err != nil {
-			// Do not do anything
-		} else {
-			wf.State = WfFetching
-			s.InvokeHook(wf, s, core.Any, &InstHookInfo{now, "FetchStart"})
-		}
+		deferredSend := core.NewDeferredSend(req)
+		s.engine.Schedule(deferredSend)
+
+		// err := s.GetConnection("ToInstMem").Send(req)
+		// if err != nil && !err.Recoverable {
+		// 	log.Fatal(err)
+		// } else if err != nil {
+		// 	// Do not do anything
+		// } else {
+		// 	wf.State = WfFetching
+		// 	s.InvokeHook(wf, s, core.Any, &InstHookInfo{now, "FetchStart"})
+		// }
 	}
 }
 
@@ -358,20 +361,41 @@ func (s *Scheduler) handleDeferredSend(evt *core.DeferredSend) error {
 	req := evt.Req
 	switch req := req.(type) {
 	case *IssueInstReq:
-		wf := req.Wf
-		err := s.GetConnection("ToDecoders").Send(req)
-		if err != nil && !err.Recoverable {
-			log.Panic(err)
-		} else if err != nil {
-			wf.Lock()
-			wf.State = WfFetched
-			wf.Unlock()
-		} else {
-			s.InvokeHook(wf, s, core.Any, &InstHookInfo{evt.Time(), "Issue"})
-			wf.Lock()
-			wf.State = WfRunning
-			wf.Unlock()
-		}
+		return s.doSendIssueInstReq(req)
+	case *mem.AccessReq:
+		return s.doSendMemAccessReq(req)
+	}
+	return nil
+}
+
+func (s *Scheduler) doSendIssueInstReq(req *IssueInstReq) error {
+	wf := req.Wf
+	err := s.GetConnection("ToDecoders").Send(req)
+	if err != nil && !err.Recoverable {
+		log.Panic(err)
+	} else if err != nil {
+		wf.Lock()
+		wf.State = WfFetched
+		wf.Unlock()
+	} else {
+		s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.SendTime(), "Issue"})
+		wf.Lock()
+		wf.State = WfRunning
+		wf.Unlock()
+	}
+	return nil
+}
+
+func (s *Scheduler) doSendMemAccessReq(req *mem.AccessReq) error {
+	wf := req.Info.(*Wavefront)
+	err := s.GetConnection("ToInstMem").Send(req)
+	if err != nil && !err.Recoverable {
+		log.Fatal(err)
+	} else if err != nil {
+		// Do not do anything
+	} else {
+		wf.State = WfFetching
+		s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.SendTime(), "FetchStart"})
 	}
 	return nil
 }

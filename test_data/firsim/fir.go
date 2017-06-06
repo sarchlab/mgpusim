@@ -100,7 +100,7 @@ func initPlatform() {
 
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Frequency = 1 * core.GHz
+	globalMem.Freq = 1 * core.GHz
 	globalMem.Latency = 1
 
 	// Host

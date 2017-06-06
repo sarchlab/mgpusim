@@ -75,7 +75,7 @@ func (u *SimpleDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 
 	u.toDecode = req.Wf
 	u.InvokeHook(req.Wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
-	completionTime := u.Freq.NCyclesLater(u.Latency, req.RecvTime())
+	completionTime := u.Freq.NCyclesLater(u.Latency-1, req.RecvTime())
 	evt := NewDecodeCompletionEvent(completionTime, u, req)
 	u.engine.Schedule(evt)
 	return nil

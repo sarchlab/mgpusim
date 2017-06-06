@@ -23,7 +23,7 @@ var _ = Describe("SimpleDecodeUnit", func() {
 		decodeUnit = NewSimpleDecodeUnit("DecodeU", engine)
 		decodeUnit.ExecUnit = execUnit
 		decodeUnit.Freq = 1
-		decodeUnit.Latency = 0
+		decodeUnit.Latency = 1
 		wavefront = new(Wavefront)
 		core.PlugIn(decodeUnit, "ToExecUnit", conn)
 	})
