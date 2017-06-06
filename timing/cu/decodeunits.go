@@ -89,7 +89,7 @@ func (u *SimpleDecodeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *DecodeCompletionEvent:
 		return u.handleDecodeCompletionEvent(evt)
-	case *core.DefferedSend:
+	case *core.DeferredSend:
 		return u.handleDeferredSend(evt)
 	default:
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
@@ -117,20 +117,20 @@ func (u *SimpleDecodeUnit) handleDecodeCompletionEvent(
 	u.InvokeHook(req.Wf, u, core.Any,
 		&InstHookInfo{evt.Time(), "DecodeDone"})
 
-	deferredSend := core.NewDefferedSend(req)
+	deferredSend := core.NewDeferredSend(req)
 	u.engine.Schedule(deferredSend)
 
 	return nil
 }
 
-func (u *SimpleDecodeUnit) handleDeferredSend(evt *core.DefferedSend) error {
+func (u *SimpleDecodeUnit) handleDeferredSend(evt *core.DeferredSend) error {
 	req := evt.Req
 	err := u.GetConnection("ToExecUnit").Send(req)
 	if err != nil {
 		if !err.Recoverable {
 			log.Fatal(err)
 		} else {
-			evt.SetTime(err.EarliestRetry)
+			evt.SetTime(u.Freq.HalfTick(err.EarliestRetry))
 			u.engine.Schedule(evt)
 		}
 	} else {

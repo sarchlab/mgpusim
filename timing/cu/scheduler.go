@@ -185,6 +185,8 @@ func (s *Scheduler) Handle(evt core.Event) error {
 		return s.handleDispatchWfEvent(evt)
 	case *core.TickEvent:
 		return s.handleTickEvent(evt)
+	case *core.DeferredSend:
+		return s.handleDeferredSend(evt)
 	case *WfCompleteEvent:
 		return s.handleWfCompleteEvent(evt)
 	default:
@@ -292,21 +294,11 @@ func (s *Scheduler) issue(now core.VTimeInSec) {
 
 		wf.RLock()
 		unit := s.getUnitToIssueTo(wf.Inst.ExeUnit)
-		req := NewIssueInstReq(s, unit, now, s, wf)
+		req := NewIssueInstReq(s, unit, s.Freq.HalfTick(now), s, wf)
 		wf.RUnlock()
-		err := s.GetConnection("ToDecoders").Send(req)
-		if err != nil && !err.Recoverable {
-			log.Panic(err)
-		} else if err != nil {
-			wf.Lock()
-			wf.State = WfFetched
-			wf.Unlock()
-		} else {
-			s.InvokeHook(wf, s, core.Any, &InstHookInfo{now, "Issue"})
-			wf.Lock()
-			wf.State = WfRunning
-			wf.Unlock()
-		}
+
+		deferredSend := core.NewDeferredSend(req)
+		s.engine.Schedule(deferredSend)
 	}
 }
 
@@ -360,6 +352,28 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
 	wfCompleteEvt := NewWfCompleteEvent(s.Freq.NextTick(now), s, wf)
 	s.engine.Schedule(wfCompleteEvt)
 	s.internalExecuting = nil
+}
+
+func (s *Scheduler) handleDeferredSend(evt *core.DeferredSend) error {
+	req := evt.Req
+	switch req := req.(type) {
+	case *IssueInstReq:
+		wf := req.Wf
+		err := s.GetConnection("ToDecoders").Send(req)
+		if err != nil && !err.Recoverable {
+			log.Panic(err)
+		} else if err != nil {
+			wf.Lock()
+			wf.State = WfFetched
+			wf.Unlock()
+		} else {
+			s.InvokeHook(wf, s, core.Any, &InstHookInfo{evt.Time(), "Issue"})
+			wf.Lock()
+			wf.State = WfRunning
+			wf.Unlock()
+		}
+	}
+	return nil
 }
 
 func (s *Scheduler) handleWfCompleteEvent(evt *WfCompleteEvent) error {
