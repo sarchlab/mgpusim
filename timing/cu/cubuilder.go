@@ -62,17 +62,17 @@ func (b *Builder) initScheduler() *Scheduler {
 
 func (b *Builder) initDecodeUnits(computeUnit *ComputeUnit) {
 	vMemDecode := NewSimpleDecodeUnit(b.CUName+".vmem_decode", b.Engine)
-	vMemDecode.Latency = 1
+	vMemDecode.Latency = 0
 	vMemDecode.Freq = b.Freq
 	computeUnit.VMemDecode = vMemDecode
 
 	scalarDecode := NewSimpleDecodeUnit(b.CUName+".scalar_decode", b.Engine)
-	scalarDecode.Latency = 1
+	scalarDecode.Latency = 0
 	scalarDecode.Freq = b.Freq
 	computeUnit.ScalarDecode = scalarDecode
 
 	ldsDecode := NewSimpleDecodeUnit(b.CUName+".lds_decode", b.Engine)
-	ldsDecode.Latency = 1
+	ldsDecode.Latency = 0
 	ldsDecode.Freq = b.Freq
 	computeUnit.LDSDecode = ldsDecode
 
