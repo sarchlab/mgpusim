@@ -158,7 +158,8 @@ func (u *SIMDUnit) tryStartTick(now core.VTimeInSec) {
 }
 
 func (u *SIMDUnit) continueTick(now core.VTimeInSec) {
-	if u.reading == nil &&
+	if u.readWaiting == nil &&
+		u.reading == nil &&
 		u.executing == nil &&
 		u.writing == nil {
 		u.running = false
