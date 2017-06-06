@@ -22,10 +22,10 @@ type ScalarUnit struct {
 	scheduler core.Component
 	running   bool
 
-	// readWaiting *Wavefront
 	reading   *Wavefront
 	executing *Wavefront
 	writing   *Wavefront
+	writeDone *Wavefront
 }
 
 // NewScalarUnit creates and retuns a new ScalarUnit
@@ -75,6 +75,8 @@ func (u *ScalarUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *core.TickEvent:
 		return u.handleTickEvent(evt)
+	case *core.DeferredSend:
+		return u.handleDeferredSend(evt)
 	default:
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
 	}
@@ -92,13 +94,14 @@ func (u *ScalarUnit) handleTickEvent(evt *core.TickEvent) error {
 }
 
 func (u *ScalarUnit) doWrite(now core.VTimeInSec) {
-	if u.writing != nil {
-		req := NewInstCompletionReq(u, u.scheduler, now, u.writing)
-		err := u.GetConnection("ToScheduler").Send(req)
-		if err == nil {
-			u.InvokeHook(u.writing, u, core.Any, &InstHookInfo{now, "WriteDone"})
-			u.writing = nil
-		}
+	if u.writing != nil && u.writeDone == nil {
+		req := NewInstCompletionReq(u, u.scheduler, u.Freq.HalfTick(now),
+			u.writing)
+		deferredSend := core.NewDeferredSend(req)
+		u.engine.Schedule(deferredSend)
+		u.writeDone = u.writing
+		u.writing = nil
+		u.InvokeHook(u.writeDone, u, core.Any, &InstHookInfo{now, "WriteDone"})
 	}
 }
 
@@ -122,6 +125,15 @@ func (u *ScalarUnit) doRead(now core.VTimeInSec) {
 			u.reading = nil
 		}
 	}
+}
+
+func (u *ScalarUnit) handleDeferredSend(evt *core.DeferredSend) error {
+	req := evt.Req
+	err := u.GetConnection("ToScheduler").Send(req)
+	if err == nil {
+		u.writeDone = nil
+	}
+	return nil
 }
 
 func (u *ScalarUnit) tryStartTick(now core.VTimeInSec) {

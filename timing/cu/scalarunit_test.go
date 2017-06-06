@@ -75,15 +75,12 @@ var _ = Describe("Scalar Unit", func() {
 		unit.writing = wf
 		unit.running = true
 
-		req := NewInstCompletionReq(unit, scheduler, 10, wf)
-		conn.ExpectSend(req, nil)
-
 		evt := core.NewTickEvent(10, unit)
 		unit.Handle(evt)
 
+		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 		Expect(unit.writing).To(BeNil())
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(unit.writeDone).To(BeIdenticalTo(wf))
 	})
 
 })
