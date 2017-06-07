@@ -105,7 +105,8 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewParallelEngine()
+	engine = core.NewSerialEngine()
+	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
 
 	// Connection
 	connection = core.NewDirectConnection(engine)
