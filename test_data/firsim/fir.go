@@ -8,10 +8,14 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/pprof"
+	"syscall"
 
 	"flag"
+
+	"runtime/debug"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -76,6 +80,14 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:8080", nil))
 	}()
 
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		debug.PrintStack()
+		os.Exit(1)
+	}()
+
 	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
 	traceFile, err := os.Create("trace.out")
@@ -93,14 +105,15 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewParallelEngine()
+	engine = core.NewSerialEngine()
+	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
 
 	// Connection
 	connection = core.NewDirectConnection(engine)
 
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Frequency = 1 * core.GHz
+	globalMem.Freq = 1 * core.GHz
 	globalMem.Latency = 1
 
 	// Host
