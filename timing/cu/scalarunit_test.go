@@ -25,7 +25,7 @@ var _ = Describe("Scalar Unit", func() {
 
 	It("should not accept instruction if buffer is occupied", func() {
 		wf := new(Wavefront)
-		unit.readWaiting = wf
+		unit.reading = wf
 
 		req := NewIssueInstReq(nil, unit, 10, nil, wf)
 		err := unit.Recv(req)
@@ -40,7 +40,7 @@ var _ = Describe("Scalar Unit", func() {
 		err := unit.Recv(req)
 
 		Expect(err).To(BeNil())
-		Expect(unit.readWaiting).To(BeIdenticalTo(wf))
+		Expect(unit.reading).To(BeIdenticalTo(wf))
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
@@ -75,27 +75,12 @@ var _ = Describe("Scalar Unit", func() {
 		unit.writing = wf
 		unit.running = true
 
-		req := NewInstCompletionReq(unit, scheduler, 10, wf)
-		conn.ExpectSend(req, nil)
-
 		evt := core.NewTickEvent(10, unit)
 		unit.Handle(evt)
 
+		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 		Expect(unit.writing).To(BeNil())
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
-	})
-
-	It("should start new inst", func() {
-		wf := new(Wavefront)
-		unit.readWaiting = wf
-		unit.running = true
-
-		evt := core.NewTickEvent(10, unit)
-		unit.Handle(evt)
-
-		Expect(unit.reading).To(BeIdenticalTo(wf))
-		Expect(unit.readWaiting).To(BeNil())
+		Expect(unit.writeDone).To(BeIdenticalTo(wf))
 	})
 
 })

@@ -10,18 +10,22 @@ var _ = Describe("SIMD Unit", func() {
 
 	var (
 		engine *core.MockEngine
+		conn   *core.MockConnection
 		unit   *SIMDUnit
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
+		conn = core.NewMockConnection()
 		unit = NewSIMDUnit("simd", engine, nil)
 		unit.Freq = 1
+
+		core.PlugIn(unit, "ToScheduler", conn)
 	})
 
 	It("should not accept instruction if there is another instruction is waiting", func() {
 		wf := new(Wavefront)
-		unit.readWaiting = wf
+		unit.reading = wf
 
 		req := NewIssueInstReq(nil, unit, 10, nil, wf)
 		err := unit.Recv(req)
@@ -30,21 +34,22 @@ var _ = Describe("SIMD Unit", func() {
 	})
 
 	It("should accept instruction if readWaiting is not occupied", func() {
-		unit.readWaiting = nil
+		unit.reading = nil
 
 		wf := new(Wavefront)
+		wf.CompletedLanes = 64 // From last execution
 		req := NewIssueInstReq(nil, unit, 10, nil, wf)
 
 		err := unit.Recv(req)
 		Expect(err).To(BeNil())
-		Expect(unit.readWaiting).To(BeIdenticalTo(wf))
+		Expect(unit.reading).To(BeIdenticalTo(wf))
+		Expect(wf.CompletedLanes).To(Equal(0))
 
 	})
 
 	It("should move instruction from read to exec", func() {
 		wf := new(Wavefront)
 
-		unit.readWaiting = nil
 		unit.reading = wf
 		unit.executing = nil
 
@@ -84,18 +89,32 @@ var _ = Describe("SIMD Unit", func() {
 		Expect(wf.CompletedLanes).To(Equal(64))
 	})
 
-	It("should move instruction from readWaiting to read", func() {
+	It("should move instruction from write to write done", func() {
 		wf := new(Wavefront)
-		wf.CompletedLanes = 64 // From previous run
 
-		unit.readWaiting = wf
-		unit.reading = nil
+		unit.writing = wf
+		unit.writeDone = nil
 
 		unit.Handle(core.NewTickEvent(10, unit))
 
-		Expect(unit.reading).To(BeIdenticalTo(wf))
-		Expect(unit.readWaiting).To(BeNil())
-		Expect(wf.CompletedLanes).To(Equal(0)) // Clear up the counter from last run
+		Expect(unit.writing).To(BeNil())
+		Expect(unit.writeDone).To(BeIdenticalTo(wf))
+		Expect(len(engine.ScheduledEvent)).To(Equal(1))
+		Expect(engine.ScheduledEvent[0].Time()).To(BeNumerically("~", 10.5, 1e-12))
+	})
+
+	It("should handle deferred send", func() {
+		wf := new(Wavefront)
+		unit.writeDone = wf
+		req := NewInstCompletionReq(unit, nil, 10.5, wf)
+		deferredSend := core.NewDeferredSend(req)
+
+		conn.ExpectSend(req, nil)
+
+		unit.Handle(deferredSend)
+
+		Expect(unit.writeDone).To(BeNil())
+		Expect(conn.AllExpectedSent()).To(BeTrue())
 	})
 
 })

@@ -109,7 +109,7 @@ var _ = Describe("Scheduler", func() {
 		decoder = new(mockDecoder)
 		scheduler = NewScheduler("scheduler", engine, wgMapper, wfDispatcher,
 			fetchArbitor, issueArbitor, decoder)
-		scheduler.Freq = 1 * core.GHz
+		scheduler.Freq = 1
 		scheduler.InstMem = instMem
 		scheduler.BranchUnit = branchUnit
 		scheduler.VectorMemDecoder = vectorMemDecoder
@@ -260,12 +260,13 @@ var _ = Describe("Scheduler", func() {
 			reqToExpect.Type = mem.Read
 			reqToExpect.SetSendTime(10)
 			reqToExpect.Info = wf
-			connection.ExpectSend(reqToExpect, nil)
+			// connection.ExpectSend(reqToExpect, nil)
 
 			scheduler.Handle(core.NewTickEvent(10, scheduler))
 
-			Expect(connection.AllExpectedSent()).To(BeTrue())
-			Expect(wf.State).To(Equal(WfFetching))
+			Expect(len(engine.ScheduledEvent)).To(Equal(1))
+			// Expect(connection.AllExpectedSent()).To(BeTrue())
+			// Expect(wf.State).To(Equal(WfFetching))
 		})
 
 		It("should issue", func() {
@@ -281,13 +282,7 @@ var _ = Describe("Scheduler", func() {
 				branchUnit, ldsDecoder, vectorMemDecoder, vectorDecoder,
 				scalarDecoder,
 			}
-			issueError := []*core.Error{
-				nil,
-				core.NewError("err", true, 11),
-				core.NewError("err", true, 12),
-				nil,
-				nil,
-			}
+			reqs := make([]core.Req, 0)
 
 			for i := 0; i < 5; i++ {
 				wf := new(Wavefront)
@@ -297,9 +292,9 @@ var _ = Describe("Scheduler", func() {
 				wfs = append(wfs, wf)
 
 				if issueTo[i] != nil {
-					req := NewIssueInstReq(scheduler, issueTo[i], 10,
+					req := NewIssueInstReq(scheduler, issueTo[i], 10.5,
 						scheduler, wf)
-					connection.ExpectSend(req, issueError[i])
+					reqs = append(reqs, req)
 				}
 			}
 
@@ -307,12 +302,11 @@ var _ = Describe("Scheduler", func() {
 
 			scheduler.Handle(core.NewTickEvent(10, scheduler))
 
-			Expect(connection.AllExpectedSent()).To(BeTrue())
-			Expect(wfs[0].State).To(Equal(WfRunning))
-			Expect(wfs[1].State).To(Equal(WfFetched))
-			Expect(wfs[2].State).To(Equal(WfFetched))
-			Expect(wfs[3].State).To(Equal(WfRunning))
-			Expect(wfs[4].State).To(Equal(WfRunning))
+			Expect(len(engine.ScheduledEvent)).To(Equal(5))
+			for i := 0; i < 5; i++ {
+				reqToSend := engine.ScheduledEvent[i].(*core.DeferredSend).Req
+				Expect(core.ReqEquivalent(reqToSend, reqs[i])).To(BeTrue())
+			}
 		})
 
 		It("should issue internal instruction", func() {
