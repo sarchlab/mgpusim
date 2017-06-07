@@ -77,6 +77,8 @@ func (u *SIMDUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 	}
 
 	u.reading = req.Wf
+	req.Wf.CompletedLanes = 0
+	u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{req.RecvTime(), "ReadStart"})
 	u.tryStartTick(req.RecvTime())
 	return nil
 }
@@ -102,7 +104,7 @@ func (u *SIMDUnit) handleTickEvent(evt *core.TickEvent) error {
 	u.doExec(evt.Time())
 	u.doRead(evt.Time())
 
-	u.continueTick(u.Freq.NextTick(evt.Time()))
+	u.continueTick(evt.Time())
 	return nil
 }
 
@@ -111,6 +113,7 @@ func (u *SIMDUnit) doWrite(now core.VTimeInSec) {
 		u.InvokeHook(u.writing, u, core.Any, &InstHookInfo{now, "WriteDone"})
 		u.writeDone = u.writing
 		u.writing = nil
+		log.Printf("write to write done")
 
 		req := NewInstCompletionReq(u, u.scheduler, u.Freq.HalfTick(now), u.writeDone)
 		deferredSend := core.NewDeferredSend(req)
@@ -120,14 +123,20 @@ func (u *SIMDUnit) doWrite(now core.VTimeInSec) {
 
 func (u *SIMDUnit) doExec(now core.VTimeInSec) {
 	if u.executing != nil {
-		if u.writing == nil {
+		if u.executing.CompletedLanes < 64 {
 			u.executing.CompletedLanes += u.SingleALUWidth
+		}
+
+		if u.writing == nil {
 			if u.executing.CompletedLanes == 64 {
 				u.InvokeHook(u.executing, u, core.Any, &InstHookInfo{now, "ExecEnd"})
 				u.InvokeHook(u.executing, u, core.Any, &InstHookInfo{now, "WriteStart"})
 				u.writing = u.executing
 				u.executing = nil
+				log.Printf("executing to writing")
 			}
+		} else {
+			log.Printf("Write stage busy")
 		}
 	}
 }
@@ -139,6 +148,7 @@ func (u *SIMDUnit) doRead(now core.VTimeInSec) {
 			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ExecStart"})
 			u.executing = u.reading
 			u.reading = nil
+			log.Printf("reading to executing")
 		}
 	}
 }
@@ -160,7 +170,7 @@ func (u *SIMDUnit) handleDeferredSend(evt *core.DeferredSend) error {
 
 func (u *SIMDUnit) tryStartTick(now core.VTimeInSec) {
 	if !u.running {
-		u.scheduleTick(now)
+		u.scheduleTick(u.Freq.NextTick(now))
 	}
 }
 
@@ -172,7 +182,7 @@ func (u *SIMDUnit) continueTick(now core.VTimeInSec) {
 	}
 
 	if u.running {
-		u.scheduleTick(now)
+		u.scheduleTick(u.Freq.NextTick(now))
 	}
 }
 
