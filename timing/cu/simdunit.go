@@ -113,7 +113,6 @@ func (u *SIMDUnit) doWrite(now core.VTimeInSec) {
 		u.InvokeHook(u.writing, u, core.Any, &InstHookInfo{now, "WriteDone"})
 		u.writeDone = u.writing
 		u.writing = nil
-		log.Printf("write to write done")
 
 		req := NewInstCompletionReq(u, u.scheduler, u.Freq.HalfTick(now), u.writeDone)
 		deferredSend := core.NewDeferredSend(req)
@@ -133,10 +132,7 @@ func (u *SIMDUnit) doExec(now core.VTimeInSec) {
 				u.InvokeHook(u.executing, u, core.Any, &InstHookInfo{now, "WriteStart"})
 				u.writing = u.executing
 				u.executing = nil
-				log.Printf("executing to writing")
 			}
-		} else {
-			log.Printf("Write stage busy")
 		}
 	}
 }
@@ -148,7 +144,6 @@ func (u *SIMDUnit) doRead(now core.VTimeInSec) {
 			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ExecStart"})
 			u.executing = u.reading
 			u.reading = nil
-			log.Printf("reading to executing")
 		}
 	}
 }
