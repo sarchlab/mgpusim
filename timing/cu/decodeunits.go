@@ -223,6 +223,12 @@ func (u *VectorDecodeUnit) handleDecodeCompletionEvent(
 	req.SetSendTime(u.Freq.HalfTick(evt.Time()))
 	u.InvokeHook(wf, u, core.Any, &InstHookInfo{evt.Time(), "DecodeDone"})
 
+	if u.decoded != nil {
+		evt.SetTime(u.Freq.NextTick(evt.Time()))
+		u.engine.Schedule(evt)
+		return nil
+	}
+
 	u.decoded = u.toDecode
 	u.toDecode = nil
 

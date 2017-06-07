@@ -272,16 +272,6 @@ func (s *Scheduler) fetch(now core.VTimeInSec) {
 
 		deferredSend := core.NewDeferredSend(req)
 		s.engine.Schedule(deferredSend)
-
-		// err := s.GetConnection("ToInstMem").Send(req)
-		// if err != nil && !err.Recoverable {
-		// 	log.Fatal(err)
-		// } else if err != nil {
-		// 	// Do not do anything
-		// } else {
-		// 	wf.State = WfFetching
-		// 	s.InvokeHook(wf, s, core.Any, &InstHookInfo{now, "FetchStart"})
-		// }
 	}
 }
 
