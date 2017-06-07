@@ -314,6 +314,17 @@ func (d *Dispatcher) handleTickEvent(evt *core.TickEvent) error {
 
 func (d *Dispatcher) dispatchWf(now core.VTimeInSec) {
 	status := d.dispatchingKernel
+
+	// In case there is no wf to disaptch
+	if len(status.DispatchingWfs) == 0 {
+		status.Mapped = false
+		if len(status.WGs) > 0 {
+			d.scheduleTick(d.Freq.NextTick(now))
+		}
+
+		return
+	}
+
 	entryPoint := status.Grid.Packet.KernelObject +
 		status.Grid.CodeObject.KernelCodeEntryByteOffset
 
@@ -335,9 +346,12 @@ func (d *Dispatcher) dispatchWf(now core.VTimeInSec) {
 		d.scheduleTick(d.Freq.NoEarlierThan(err.EarliestRetry))
 	} else {
 		delete(status.DispatchingWfs, wf)
+
 		if len(status.DispatchingWfs) == 0 {
 			status.Mapped = false
+			return
 		}
+
 		if len(status.DispatchingWfs) > 0 || len(status.WGs) > 0 {
 			d.scheduleTick(d.Freq.NextTick(now))
 		}
