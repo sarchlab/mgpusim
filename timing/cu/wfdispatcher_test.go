@@ -1,4 +1,4 @@
-package cu_test
+package cu
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -6,18 +6,17 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/timing/cu"
 )
 
 var _ = Describe("WfDispatcher", func() {
 	var (
-		wfDispatcher *cu.WfDispatcherImpl
-		scheduler    *cu.Scheduler
+		wfDispatcher *WfDispatcherImpl
+		scheduler    *Scheduler
 	)
 
 	BeforeEach(func() {
-		wfDispatcher = new(cu.WfDispatcherImpl)
-		scheduler = cu.NewScheduler("scheduler", nil, nil, wfDispatcher)
+		wfDispatcher = new(WfDispatcherImpl)
+		scheduler = NewScheduler("scheduler", nil, nil, wfDispatcher, nil, nil, nil)
 		wfDispatcher.Scheduler = scheduler
 	})
 
@@ -30,13 +29,13 @@ var _ = Describe("WfDispatcher", func() {
 		req.CodeObject = co
 		req.Packet = packet
 
-		evt := cu.NewDispatchWfEvent(scheduler, 0, req)
+		evt := NewDispatchWfEvent(0, scheduler, req)
 
 		ok, managedWf := wfDispatcher.DispatchWf(evt)
 
 		Expect(ok).To(BeTrue())
 		Expect(scheduler.WfPools[0].Availability()).To(Equal(9))
 		Expect(managedWf.PC).To(Equal(uint64(6064)))
-		Expect(managedWf.Status).To(Equal(cu.Ready))
+		Expect(managedWf.State).To(Equal(WfReady))
 	})
 })

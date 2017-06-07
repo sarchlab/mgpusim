@@ -3,10 +3,19 @@ package main
 import (
 	"bytes"
 	"debug/elf"
-	"log"
-	"os"
-
 	"encoding/binary"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"runtime"
+	"runtime/pprof"
+	"syscall"
+
+	"flag"
+
+	"runtime/debug"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -14,16 +23,17 @@ import (
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/gcn3/timing/cu"
+	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem"
 )
 
 type hostComponent struct {
-	*core.BasicComponent
+	*core.ComponentBase
 }
 
-func newHostComponnent() *hostComponent {
+func newHostComponent() *hostComponent {
 	h := new(hostComponent)
-	h.BasicComponent = core.NewBasicComponent("host")
+	h.ComponentBase = core.NewComponentBase("host")
 	h.AddPort("ToGpu")
 	return h
 }
@@ -41,15 +51,51 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-	engine     core.Engine
-	globalMem  *mem.IdealMemController
-	gpu        *gcn3.Gpu
-	host       *hostComponent
-	connection core.Connection
-	hsaco      *insts.HsaCo
+	engine      core.Engine
+	globalMem   *mem.IdealMemController
+	gpu         *gcn3.Gpu
+	host        *hostComponent
+	connection  core.Connection
+	hsaco       *insts.HsaCo
+	logger      *log.Logger
+	traceOutput *os.File
 )
 
+var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
+var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
+
 func main() {
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
+	runtime.SetBlockProfileRate(1)
+	go func() {
+		log.Println(http.ListenAndServe("localhost:8080", nil))
+	}()
+
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		debug.PrintStack()
+		os.Exit(1)
+	}()
+
+	// log.SetOutput(ioutil.Discard)
+	logger = log.New(os.Stdout, "", 0)
+	traceFile, err := os.Create("trace.out")
+	if err != nil {
+		log.Panic(err)
+	}
+	traceOutput = traceFile
+
 	initPlatform()
 	loadProgram()
 	initMem()
@@ -59,18 +105,19 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewParallelEngine()
+	engine = core.NewSerialEngine()
+	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
 
 	// Connection
-	connection = core.NewDirectConnection()
+	connection = core.NewDirectConnection(engine)
 
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Frequency = 800 * core.MHz
-	globalMem.Latency = 2
+	globalMem.Freq = 1 * core.GHz
+	globalMem.Latency = 1
 
 	// Host
-	host = newHostComponnent()
+	host = newHostComponent()
 
 	// Gpu
 	gpu = gcn3.NewGpu("Gpu")
@@ -78,13 +125,21 @@ func initPlatform() {
 
 	dispatcher := timing.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
-	dispatcher.Freq = 800 * core.MHz
+	dispatcher.Freq = 1 * core.GHz
+	wgCompleteLogger := new(timing.WGCompleteLogger)
+	wgCompleteLogger.Logger = logger
+	dispatcher.AcceptHook(wgCompleteLogger)
+
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
 	cuBuilder := cu.NewBuilder()
 	cuBuilder.Engine = engine
+	cuBuilder.Freq = 1 * core.GHz
+	cuBuilder.InstMem = globalMem
+	cuBuilder.Decoder = insts.NewDisassembler()
+	cuBuilder.ToInstMem = connection
 	for i := 0; i < 4; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
@@ -92,10 +147,24 @@ func initPlatform() {
 		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
 
 		// Hook
-		mapWGHook := cu.NewMapWGHook()
-		computeUnit.Scheduler.AcceptHook(mapWGHook)
-		dispatchWfHook := cu.NewDispatchWfHook()
+		mapWGLog := cu.NewMapWGLog(logger)
+		computeUnit.Scheduler.AcceptHook(mapWGLog)
+		dispatchWfHook := cu.NewDispatchWfLog(logger)
 		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
+
+		if i == 0 {
+			tracer := trace.NewInstTracer(traceOutput)
+			computeUnit.Scheduler.AcceptHook(tracer)
+			computeUnit.BranchUnit.AcceptHook(tracer)
+			computeUnit.ScalarUnit.AcceptHook(tracer)
+			computeUnit.SIMDUnits[0].AcceptHook(tracer)
+			computeUnit.SIMDUnits[1].AcceptHook(tracer)
+			computeUnit.SIMDUnits[2].AcceptHook(tracer)
+			computeUnit.SIMDUnits[3].AcceptHook(tracer)
+			computeUnit.VectorDecode.AcceptHook(tracer)
+			computeUnit.ScalarDecode.AcceptHook(tracer)
+		}
+
 	}
 
 	// Connection
@@ -110,7 +179,7 @@ func initPlatform() {
 }
 
 func loadProgram() {
-	executable, err := elf.Open(os.Args[1])
+	executable, err := elf.Open(*kernel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -169,7 +238,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 48
+	req.Packet.GridSizeX = 256 * 4
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256

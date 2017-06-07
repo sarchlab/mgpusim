@@ -21,8 +21,12 @@ type ReadRegReq struct {
 }
 
 // NewReadRegReq returns a newly create ReadRegReq
-func NewReadRegReq(sendTime core.VTimeInSec,
-	reg *insts.Reg, byteSize int, offset int) *ReadRegReq {
+func NewReadRegReq(
+	sendTime core.VTimeInSec,
+	reg *insts.Reg,
+	byteSize int,
+	offset int,
+) *ReadRegReq {
 	r := new(ReadRegReq)
 
 	r.ReqBase = core.NewReqBase()
@@ -38,21 +42,19 @@ func NewReadRegReq(sendTime core.VTimeInSec,
 // A ReadRegEvent is the event that request the register file to return
 // the register value
 type ReadRegEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 
 	Req *ReadRegReq
 }
 
 // NewReadRegEvent returns a newly created ReadRegReq
 func NewReadRegEvent(
-	handler core.Handler,
 	time core.VTimeInSec,
+	handler core.Handler,
 	req *ReadRegReq,
 ) *ReadRegEvent {
 	e := new(ReadRegEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetTime(time)
-	e.SetHandler(handler)
+	e.EventBase = core.NewEventBase(time, handler)
 	e.Req = req
 	return e
 }
@@ -85,19 +87,19 @@ func NewWriteRegReq(sendTime core.VTimeInSec,
 // A WriteRegEvent is an event that request the register file to write
 // data into the register storage
 type WriteRegEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 
 	Req *WriteRegReq
 }
 
 // NewWriteRegEvent returns a newly created WriteRegEvent
-func NewWriteRegEvent(handler core.Handler, time core.VTimeInSec,
+func NewWriteRegEvent(
+	time core.VTimeInSec,
+	handler core.Handler,
 	req *WriteRegReq,
 ) *WriteRegEvent {
 	e := new(WriteRegEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
+	e.EventBase = core.NewEventBase(time, handler)
 	e.Req = req
 	return e
 }
@@ -108,7 +110,7 @@ func NewWriteRegEvent(handler core.Handler, time core.VTimeInSec,
 //     <=> ToOutside the only port that the RegCtrl use to connect to the
 //         outside world.
 type RegCtrl struct {
-	*core.BasicComponent
+	*core.ComponentBase
 
 	Engine core.Engine
 
@@ -120,7 +122,7 @@ type RegCtrl struct {
 func NewRegCtrl(name string, storage *mem.Storage, engine core.Engine) *RegCtrl {
 	c := new(RegCtrl)
 
-	c.BasicComponent = core.NewBasicComponent(name)
+	c.ComponentBase = core.NewComponentBase(name)
 	c.storage = storage
 	c.Engine = engine
 
@@ -130,6 +132,9 @@ func NewRegCtrl(name string, storage *mem.Storage, engine core.Engine) *RegCtrl 
 
 // Recv processes incomming requests, including ReadRegReq and WriteRegReq
 func (c *RegCtrl) Recv(req core.Req) *core.Error {
+	c.Lock()
+	defer c.Unlock()
+
 	switch req := req.(type) {
 	case *ReadRegReq:
 		c.processReadRegReq(req)
@@ -142,12 +147,12 @@ func (c *RegCtrl) Recv(req core.Req) *core.Error {
 }
 
 func (c *RegCtrl) processReadRegReq(req *ReadRegReq) {
-	evt := NewReadRegEvent(c, req.RecvTime()+c.latency, req)
+	evt := NewReadRegEvent(req.RecvTime()+c.latency, c, req)
 	c.Engine.Schedule(evt)
 }
 
 func (c *RegCtrl) processWriteRegReq(req *WriteRegReq) {
-	evt := NewWriteRegEvent(c, req.RecvTime()+c.latency, req)
+	evt := NewWriteRegEvent(req.RecvTime()+c.latency, c, req)
 	c.Engine.Schedule(evt)
 }
 

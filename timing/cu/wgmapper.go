@@ -1,32 +1,8 @@
 package cu
 
 import (
-	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/timing"
 )
-
-// MapWGEvent requires the Scheduler to reserve space for a workgroup.
-// The workgroup will not run immediately. The dispatcher will wait for the
-// scheduler to dispatch wavefronts to it.
-type MapWGEvent struct {
-	*core.BasicEvent
-
-	Req *timing.MapWGReq
-}
-
-// NewMapWGEvent creates a new MapWGEvent
-func NewMapWGEvent(
-	handler core.Handler,
-	time core.VTimeInSec,
-	req *timing.MapWGReq,
-) *MapWGEvent {
-	e := new(MapWGEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
-	e.Req = req
-	return e
-}
 
 // WGMapper defines the behavior of how a workgroup is mapped in the compute
 // unit.
@@ -68,8 +44,8 @@ func NewWGMapper(numWfPool int) *WGMapperImpl {
 
 	m.initWfInfo([]int{10, 10, 10, 10})
 	m.initLDSInfo(64 * 1024) // 64K
-	m.initSGPRInfo(2048)
-	m.initVGPRInfo([]int{16384, 16384, 16384, 16384})
+	m.initSGPRInfo(3200)
+	m.initVGPRInfo([]int{256, 256, 256, 256}) // 64KB per SIMD, 64 lanes, 4 bytes
 
 	return m
 }
@@ -92,7 +68,7 @@ func (m *WGMapperImpl) initLDSInfo(byteSize int) {
 
 func (m *WGMapperImpl) initVGPRInfo(count []int) {
 	m.VGprCount = count
-	m.VGprGranularity = 64 * 4 // 64 lanes, 4 register minimum allocation
+	m.VGprGranularity = 4 // 4 register minimum allocation
 	m.VGprMask = make([]*ResourceMask, 0, m.NumWfPool)
 	for i := 0; i < m.NumWfPool; i++ {
 		m.VGprMask = append(m.VGprMask,
@@ -108,7 +84,7 @@ func (m *WGMapperImpl) SetWfPoolSizes(numWfs []int) {
 
 	vgprCount := make([]int, len(numWfs))
 	for i := 0; i < len(numWfs); i++ {
-		vgprCount[i] = 16384
+		vgprCount[i] = 1024
 	}
 	m.initVGPRInfo(vgprCount)
 }
@@ -140,7 +116,7 @@ func (m *WGMapperImpl) MapWG(req *timing.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) withinSGPRLimitation(req *timing.MapWGReq) bool {
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 	required := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
 	for _, wf := range req.WG.Wavefronts {
 		offset, ok := m.SGprMask.NextRegion(required, AllocStatusFree)
@@ -154,7 +130,7 @@ func (m *WGMapperImpl) withinSGPRLimitation(req *timing.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) withinLDSLimitation(req *timing.MapWGReq) bool {
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 	required := m.unitsOccupy(int(co.WGGroupSegmentByteSize), m.LDSGranularity)
 	offset, ok := m.LDSMask.NextRegion(required, AllocStatusFree)
 	if !ok {
@@ -177,13 +153,13 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 	nextSIMD := 0
 	vgprToUse := make([]int, m.NumWfPool)
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 
 	for i := 0; i < len(req.WG.Wavefronts); i++ {
 		firstSIMDTested := nextSIMD
 		firstTry := true
 		found := false
-		required := m.unitsOccupy(int(co.WIVgprCount)*64, m.VGprGranularity)
+		required := m.unitsOccupy(int(co.WIVgprCount), m.VGprGranularity)
 		for firstTry || nextSIMD != firstSIMDTested {
 			firstTry = false
 			offset, ok := m.VGprMask[nextSIMD].NextRegion(required, AllocStatusFree)
@@ -194,7 +170,7 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *timing.MapWGReq) bool {
 				wfPoolEntryUsed[nextSIMD]++
 				req.WfDispatchMap[req.WG.Wavefronts[i]].SIMDID = nextSIMD
 				req.WfDispatchMap[req.WG.Wavefronts[i]].VGPROffset =
-					offset * 4 * 64 * 4 // 4 regs per group, 64 lanes, 4 bytes
+					offset * 4 * 4 // 4 regs per group, 4 bytes
 				m.VGprMask[nextSIMD].SetStatus(offset, required,
 					AllocStatusToReserve)
 			}
@@ -238,7 +214,7 @@ func (m *WGMapperImpl) clearTempReservation(req *timing.MapWGReq) {
 // UnmapWG will remove all the resource reservation of a workgroup
 func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
 	req := wg.MapReq
-	co := req.KernelStatus.CodeObject
+	co := req.CodeObject
 	for _, wf := range wg.Wfs {
 		m.WfPoolFreeCount[wf.SIMDID]++
 
@@ -251,7 +227,7 @@ func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
 		m.SGprMask.SetStatus(wf.SRegOffset/4/m.SGprGranularity,
 			sgprUnits, AllocStatusFree)
 
-		vgprUnits := m.unitsOccupy(int(co.WIVgprCount)*64, m.VGprGranularity)
+		vgprUnits := m.unitsOccupy(int(co.WIVgprCount), m.VGprGranularity)
 		m.VGprMask[wf.SIMDID].SetStatus(
 			wf.VRegOffset/4/m.VGprGranularity, vgprUnits,
 			AllocStatusFree)

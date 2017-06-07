@@ -1,11 +1,10 @@
-package timing_test
+package timing
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/timing"
 )
 
 var _ = Describe("CommandProcessor", func() {
@@ -13,7 +12,7 @@ var _ = Describe("CommandProcessor", func() {
 	var (
 		driver           *core.MockComponent
 		dispatcher       *core.MockComponent
-		commandProcessor *timing.CommandProcessor
+		commandProcessor *CommandProcessor
 		connection       *core.MockConnection
 	)
 
@@ -22,7 +21,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		driver = core.NewMockComponent("dispatcher")
 		dispatcher = core.NewMockComponent("dispatcher")
-		commandProcessor = timing.NewCommandProcessor("commandProcessor")
+		commandProcessor = NewCommandProcessor("commandProcessor")
 
 		commandProcessor.Dispatcher = dispatcher
 		commandProcessor.Driver = driver

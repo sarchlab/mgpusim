@@ -65,7 +65,7 @@ type memWrite struct {
 
 // MockComputeUnit is a ComputeUnit that is designed for help with testing
 type MockComputeUnit struct {
-	*core.BasicComponent
+	*core.ComponentBase
 	lock                sync.Mutex
 	expectedRegWrite    []regWrite
 	expectedRegRead     []regRead
@@ -76,7 +76,7 @@ type MockComputeUnit struct {
 // NewMockComputeUnit returns a new MockComputeUnit
 func NewMockComputeUnit(name string) *MockComputeUnit {
 	cu := new(MockComputeUnit)
-	cu.BasicComponent = core.NewBasicComponent(name)
+	cu.ComponentBase = core.NewComponentBase(name)
 	cu.expectedRegWrite = make([]regWrite, 0)
 	cu.expectedRegRead = make([]regRead, 0)
 	cu.expectedInstMemRead = make([]memRead, 0)

@@ -152,7 +152,7 @@ func getOperand(num uint16) (*Operand, error) {
 		return NewFloatOperand(2.0), nil
 	case num == 245:
 		return NewFloatOperand(-2.0), nil
-	case num == 247:
+	case num == 246:
 		return NewFloatOperand(4.0), nil
 	case num == 247:
 		return NewFloatOperand(-4.0), nil
