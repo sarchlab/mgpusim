@@ -13,7 +13,7 @@ import (
 // CPU-GPU communication happens on the connection connecting the "ToDriver"
 // port.
 type Gpu struct {
-	*core.BasicComponent
+	*core.ComponentBase
 
 	Driver           core.Component // The DriverComponent
 	CommandProcessor core.Component // The CommandProcessor
@@ -22,7 +22,7 @@ type Gpu struct {
 // NewGpu returns a newly created GPU
 func NewGpu(name string) *Gpu {
 	g := new(Gpu)
-	g.BasicComponent = core.NewBasicComponent(name)
+	g.ComponentBase = core.NewComponentBase(name)
 	g.AddPort("ToDriver")
 	g.AddPort("ToCommandProcessor")
 	return g

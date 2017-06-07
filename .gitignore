@@ -1,3 +1,9 @@
 .*.swp
 *.test
 *.coverprofile
+*.prof
+*.png
+*.log
+*.svg
+*.exe
+*.out

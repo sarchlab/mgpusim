@@ -13,16 +13,16 @@ type WfDispatchingState int
 
 // A list of possible dispatching states
 const (
-	NotStarted  WfDispatchingState = iota
-	Initialized                    // Inserted in the wavefront pool,
-	SRegSet                        // Done with sending s reg write request
-	VRegSet                        // Done with sending v reg write request
-	Done                           // All the register writing has completed
+	WfDispatchingNotStarted  WfDispatchingState = iota
+	WfDispatchingInitialized                    // Inserted in the wavefront pool,
+	WfDispatchingSRegSet                        // Done with sending s reg write request
+	WfDispatchingVRegSet                        // Done with sending v reg write request
+	WfDispatchingDone                           // All the register writing has completed
 )
 
 // DispatchWfEvent requires the scheduler shart to schedule for the event.
 type DispatchWfEvent struct {
-	*core.BasicEvent
+	*core.EventBase
 
 	Req *timing.DispatchWfReq
 
@@ -34,14 +34,12 @@ type DispatchWfEvent struct {
 
 // NewDispatchWfEvent returns a newly created DispatchWfEvent
 func NewDispatchWfEvent(
-	handler core.Handler,
 	time core.VTimeInSec,
+	handler core.Handler,
 	req *timing.DispatchWfReq,
 ) *DispatchWfEvent {
 	e := new(DispatchWfEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	e.SetHandler(handler)
-	e.SetTime(time)
+	e.EventBase = core.NewEventBase(time, handler)
 	e.Req = req
 	return e
 }
@@ -63,12 +61,20 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
 	wf := req.Wf
 	info := req.Info
 	managedWf := evt.ManagedWf
+	if managedWf != nil {
+		managedWf.Lock()
+		defer managedWf.Unlock()
+	}
 
 	for {
 		switch evt.State {
-		case NotStarted:
+		case WfDispatchingNotStarted:
 			wfPool := d.Scheduler.WfPools[info.SIMDID]
 			managedWf = new(Wavefront)
+
+			managedWf.Lock()
+			defer managedWf.Unlock()
+
 			managedWf.Wavefront = wf
 			managedWf.SIMDID = info.SIMDID
 			managedWf.LDSOffset = info.LDSOffset
@@ -79,30 +85,30 @@ func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
 			wfPool.AddWf(managedWf)
 			evt.ManagedWf = managedWf
 			d.initCtrlRegs(evt)
-			evt.State = Initialized
-		case Initialized:
+			evt.State = WfDispatchingInitialized
+		case WfDispatchingInitialized:
 			done := d.initSRegs(managedWf, evt)
 			if done {
-				evt.State = SRegSet
+				evt.State = WfDispatchingSRegSet
 			} else {
 				return false, nil
 			}
-		case SRegSet:
+		case WfDispatchingSRegSet:
 			done := d.initVRegs(managedWf, evt)
 			if done {
-				evt.State = VRegSet
+				evt.State = WfDispatchingVRegSet
 			} else {
 				return false, nil
 			}
-		case VRegSet:
+		case WfDispatchingVRegSet:
 			done := d.allReqCompleted(evt)
 			if done {
-				evt.State = Done
+				evt.State = WfDispatchingDone
 			} else {
 				return false, nil
 			}
-		case Done:
-			managedWf.Status = Ready
+		case WfDispatchingDone:
+			managedWf.State = WfReady
 			return true, managedWf
 		}
 	}

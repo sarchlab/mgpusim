@@ -54,8 +54,13 @@ func NewWavefront() *Wavefront {
 	return wf
 }
 
-// A WorkItem defins a set of vector registers
+// A WorkItem defines a set of vector registers
 type WorkItem struct {
 	WG            *WorkGroup
 	IDX, IDY, IDZ int
+}
+
+// FlattenedID returns the workitem flattened ID
+func (wi *WorkItem) FlattenedID() int {
+	return wi.IDX + wi.IDY*wi.WG.SizeX + wi.IDZ*wi.WG.SizeX*wi.WG.SizeY
 }

@@ -3,7 +3,6 @@ package timing
 import (
 	"log"
 	"reflect"
-	"sync"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
@@ -50,10 +49,10 @@ type MapWGReq struct {
 	*core.ReqBase
 
 	WG            *kernels.WorkGroup
-	KernelStatus  *KernelDispatchStatus
 	Ok            bool
 	WfDispatchMap map[*kernels.Wavefront]*WfDispatchInfo // Tells where a wf should fit in
 	CUID          int
+	CodeObject    *insts.HsaCo
 }
 
 // NewMapWGReq returns a newly created MapWGReq
@@ -61,7 +60,7 @@ func NewMapWGReq(
 	src, dst core.Component,
 	time core.VTimeInSec,
 	wg *kernels.WorkGroup,
-	status *KernelDispatchStatus,
+	co *insts.HsaCo,
 ) *MapWGReq {
 	r := new(MapWGReq)
 	r.ReqBase = core.NewReqBase()
@@ -69,8 +68,7 @@ func NewMapWGReq(
 	r.SetDst(dst)
 	r.SetSendTime(time)
 	r.WG = wg
-	r.KernelStatus = status
-
+	r.CodeObject = co
 	r.WfDispatchMap = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	return r
 }
@@ -109,9 +107,8 @@ func NewDispatchWfReq(
 type WGFinishMesg struct {
 	*core.ReqBase
 
-	WG     *kernels.WorkGroup
-	Status *KernelDispatchStatus
-	CUID   int
+	WG   *kernels.WorkGroup
+	CUID int
 }
 
 // NewWGFinishMesg creates and returns a newly created WGFinishMesg
@@ -119,7 +116,6 @@ func NewWGFinishMesg(
 	src, dst core.Component,
 	time core.VTimeInSec,
 	wg *kernels.WorkGroup,
-	status *KernelDispatchStatus,
 ) *WGFinishMesg {
 	m := new(WGFinishMesg)
 	m.ReqBase = core.NewReqBase()
@@ -128,22 +124,8 @@ func NewWGFinishMesg(
 	m.SetDst(dst)
 	m.SetSendTime(time)
 	m.WG = wg
-	m.Status = status
 
 	return m
-}
-
-// A KernelDispatchEvent is a event to continue the kernel dispatch process
-type KernelDispatchEvent struct {
-	*core.BasicEvent
-	Status *KernelDispatchStatus
-}
-
-// NewKernelDispatchEvent returne a newly created KernelDispatchEvent
-func NewKernelDispatchEvent() *KernelDispatchEvent {
-	e := new(KernelDispatchEvent)
-	e.BasicEvent = core.NewBasicEvent()
-	return e
 }
 
 // A Dispatcher is a component that can dispatch workgroups and wavefronts
@@ -156,14 +138,15 @@ func NewKernelDispatchEvent() *KernelDispatchEvent {
 //         with the command processor
 //
 type Dispatcher struct {
-	*core.BasicComponent
-	sync.Mutex
+	*core.ComponentBase
 
 	CUs  []core.Component
 	Freq core.Freq
 
-	engine      core.Engine
-	gridBuilder kernels.GridBuilder
+	engine            core.Engine
+	gridBuilder       kernels.GridBuilder
+	dispatchingKernel *KernelDispatchStatus
+	running           bool
 }
 
 // NewDispatcher creates a new dispatcher
@@ -173,7 +156,7 @@ func NewDispatcher(
 	gridBuilder kernels.GridBuilder,
 ) *Dispatcher {
 	d := new(Dispatcher)
-	d.BasicComponent = core.NewBasicComponent(name)
+	d.ComponentBase = core.NewComponentBase(name)
 	d.CUs = make([]core.Component, 0)
 	d.gridBuilder = gridBuilder
 	d.engine = engine
@@ -201,6 +184,8 @@ func (d *Dispatcher) Recv(req core.Req) *core.Error {
 	d.Lock()
 	defer d.Unlock()
 
+	d.InvokeHook(req, d, core.OnRecvReq, nil)
+
 	switch req := req.(type) {
 	case *kernels.LaunchKernelReq:
 		return d.processLaunchKernelReq(req)
@@ -218,31 +203,49 @@ func (d *Dispatcher) Recv(req core.Req) *core.Error {
 func (d *Dispatcher) processLaunchKernelReq(
 	req *kernels.LaunchKernelReq,
 ) *core.Error {
-	evt := NewKernelDispatchEvent()
-	status := NewKernelDispatchStatus()
-	evt.Status = status
 
+	// FIXME: Rather than processing the request, dispatcher should retrieve
+	// request from some queue
+	if d.dispatchingKernel != nil {
+		err := core.NewError("Cannot Dispatch", true,
+			d.Freq.NCyclesLater(10, req.RecvTime()))
+		return err
+	}
+
+	d.initStatus(req)
+	d.tryScheduleTick(d.Freq.NextTick(req.RecvTime()))
+	return nil
+}
+
+func (d *Dispatcher) initStatus(req *kernels.LaunchKernelReq) {
+	status := NewKernelDispatchStatus()
 	status.Req = req
 	status.Packet = req.Packet
 	status.Grid = d.gridBuilder.Build(req)
 	status.WGs = append(status.WGs, status.Grid.WorkGroups...)
 	status.DispatchingCUID = -1
 	status.CodeObject = req.HsaCo
-
-	for _ = range d.CUs {
+	for range d.CUs {
 		status.CUBusy = append(status.CUBusy, false)
 	}
+	d.dispatchingKernel = status
+}
 
-	evt.SetTime(d.Freq.NextTick(req.RecvTime()))
-	evt.SetHandler(d)
+func (d *Dispatcher) tryScheduleTick(t core.VTimeInSec) {
+	if !d.running {
+		d.scheduleTick(t)
+	}
+}
 
+func (d *Dispatcher) scheduleTick(t core.VTimeInSec) {
+	evt := core.NewTickEvent(t, d)
 	d.engine.Schedule(evt)
+	d.running = true
 
-	return nil
 }
 
 func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
-	status := req.KernelStatus
+	status := d.dispatchingKernel
 
 	if req.Ok {
 		for i, wgToDel := range status.WGs {
@@ -258,31 +261,20 @@ func (d *Dispatcher) processMapWGReq(req *MapWGReq) *core.Error {
 		status.CUBusy[req.CUID] = true
 	}
 
-	evt := NewKernelDispatchEvent()
-	evt.SetTime(d.Freq.NextTick(req.RecvTime()))
-	evt.SetHandler(d)
-	evt.Status = status
-	d.engine.Schedule(evt)
-
+	d.tryScheduleTick(d.Freq.NextTick(req.RecvTime()))
 	return nil
 }
 
 func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
-	status := mesg.Status
-
+	status := d.dispatchingKernel
 	status.CompletedWGs = append(status.CompletedWGs, mesg.WG)
-	log.Printf("Workgroup completed\n")
 
 	if len(status.CompletedWGs) == len(status.Grid.WorkGroups) {
 		status.Req.SwapSrcAndDst()
 		d.GetConnection("ToCommandProcessor").Send(status.Req)
 	} else {
 		status.CUBusy[mesg.CUID] = false
-		evt := NewKernelDispatchEvent()
-		evt.Status = status
-		evt.SetTime(d.Freq.NextTick(mesg.RecvTime()))
-		evt.SetHandler(d)
-		d.engine.Schedule(evt)
+		d.tryScheduleTick(d.Freq.NextTick(d.Freq.NextTick(mesg.RecvTime())))
 	}
 
 	return nil
@@ -294,28 +286,34 @@ func (d *Dispatcher) processWGFinishWGMesg(mesg *WGFinishMesg) *core.Error {
 //     KernalDispatchEvent ---- continues the kernel dispatching process.
 //
 func (d *Dispatcher) Handle(evt core.Event) error {
+	d.Lock()
+	defer d.Unlock()
+
+	d.InvokeHook(evt, d, core.BeforeEvent, nil)
+	defer d.InvokeHook(evt, d, core.AfterEvent, nil)
+
 	switch e := evt.(type) {
-	case *KernelDispatchEvent:
-		d.handleKernelDispatchEvent(e)
+	case *core.TickEvent:
+		d.handleTickEvent(e)
 	default:
-		log.Panicf("Unable to process evevt %+v", evt)
+		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
 	}
 	return nil
 }
 
-func (d *Dispatcher) handleKernelDispatchEvent(evt *KernelDispatchEvent) error {
-	status := evt.Status
+func (d *Dispatcher) handleTickEvent(evt *core.TickEvent) error {
+	status := d.dispatchingKernel
 	if status.Mapped {
-		d.dispatchWf(evt)
+		d.dispatchWf(evt.Time())
 	} else {
-		d.mapWG(evt)
+		d.mapWG(evt.Time())
 	}
 
 	return nil
 }
 
-func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
-	status := evt.Status
+func (d *Dispatcher) dispatchWf(now core.VTimeInSec) {
+	status := d.dispatchingKernel
 	entryPoint := status.Grid.Packet.KernelObject +
 		status.Grid.CodeObject.KernelCodeEntryByteOffset
 
@@ -323,7 +321,7 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 	var info *WfDispatchInfo
 	var req *DispatchWfReq
 	for wf, info = range status.DispatchingWfs {
-		req = NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], evt.Time(),
+		req = NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], now,
 			wf, info, entryPoint)
 		req.CodeObject = status.CodeObject
 		req.Packet = status.Packet
@@ -334,32 +332,34 @@ func (d *Dispatcher) dispatchWf(evt *KernelDispatchEvent) {
 	if err != nil && err.Recoverable {
 		log.Panic(err)
 	} else if err != nil {
-		evt.SetTime(d.Freq.NoEarlierThan(err.EarliestRetry))
-		d.engine.Schedule(evt)
+		d.scheduleTick(d.Freq.NoEarlierThan(err.EarliestRetry))
 	} else {
 		delete(status.DispatchingWfs, wf)
 		if len(status.DispatchingWfs) == 0 {
 			status.Mapped = false
 		}
 		if len(status.DispatchingWfs) > 0 || len(status.WGs) > 0 {
-			evt.SetTime(d.Freq.NextTick(evt.Time()))
-			d.engine.Schedule(evt)
+			d.scheduleTick(d.Freq.NextTick(now))
 		}
 	}
 }
 
-func (d *Dispatcher) mapWG(evt *KernelDispatchEvent) {
-	status := evt.Status
+func (d *Dispatcher) mapWG(now core.VTimeInSec) {
+	status := d.dispatchingKernel
 	if len(status.WGs) != 0 && !d.isAllCUsBusy(status) {
 		cuID := d.nextAvailableCU(status)
 		cu := d.CUs[cuID]
 		wg := status.WGs[0]
-		req := NewMapWGReq(d, cu, evt.Time(), wg, status)
+		req := NewMapWGReq(d, cu, now, wg, status.CodeObject)
 		req.CUID = cuID
 
 		log.Printf("Trying to map wg to cu %d\n", cuID)
 		d.GetConnection("ToCUs").Send(req)
 	}
+
+	// Always pause the dispatching and wait for the reply to determine whether
+	// to continue
+	d.running = false
 }
 
 func (d *Dispatcher) isAllCUsBusy(status *KernelDispatchStatus) bool {
