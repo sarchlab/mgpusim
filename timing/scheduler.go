@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
@@ -39,7 +40,7 @@ type Scheduler struct {
 	wfDispatcher WfDispatcher
 	fetchArbiter WfArbiter
 	issueArbiter WfArbiter
-	decoder      Decoder // Decoder used to parse fetched instruction
+	decoder      emu.Decoder // Decoder used to parse fetched instruction
 
 	InstMem          core.Component
 	SRegFile         core.Component
@@ -161,11 +162,6 @@ func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error
 	wf.Lock()
 	wf.State = WfReady
 	wf.Unlock()
-
-	// wf.RLock()
-	// log.Printf("%.10f, wf %d, instruction ready %s\n",
-	// 	req.SendTime(), wf.WorkItems[0].IDX, wf.Inst)
-	// wf.RUnlock()
 
 	return nil
 }

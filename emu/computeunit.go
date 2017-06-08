@@ -6,6 +6,9 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/mem"
 )
 
 // A ComputeUnit in the emu package is a component that omit the pipeline design
@@ -16,18 +19,27 @@ import (
 type ComputeUnit struct {
 	*core.ComponentBase
 
-	engine core.Engine
-	Freq   core.Freq
+	engine  core.Engine
+	decoder Decoder
 
-	running *gcn3.MapWGReq
+	Freq core.Freq
+
+	running    *gcn3.MapWGReq
+	wfs        []*Wavefront
+	instCount  int
+	LDSStorage []byte
+
+	GlobalMemStorage *mem.Storage
 }
 
 // NewComputeUnit creates a new ComputeUnit with the given name
-func NewComputeUnit(name string, engine core.Engine) *ComputeUnit {
+func NewComputeUnit(name string, engine core.Engine, decoder Decoder) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)
 
 	cu.engine = engine
+	cu.decoder = decoder
+	cu.wfs = make([]*Wavefront, 0)
 
 	cu.AddPort("ToDispatcher")
 
@@ -39,8 +51,6 @@ func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
 	switch req := req.(type) {
 	case *gcn3.MapWGReq:
 		return cu.processMapWGReq(req)
-	case *gcn3.DispatchWfReq:
-		return cu.processDispatchWfReq(req)
 	default:
 		log.Panicf("cannot process req %s", reflect.TypeOf(req))
 	}
@@ -53,11 +63,9 @@ func (cu *ComputeUnit) processMapWGReq(req *gcn3.MapWGReq) *core.Error {
 	} else {
 		req.Ok = true
 		cu.running = req
+		cu.instCount = 0
 
-		log.Printf("WG mapped")
-
-		evt := NewWGCompleteEvent(cu.Freq.NCyclesLater(3000, req.RecvTime()),
-			cu, req.WG)
+		evt := core.NewTickEvent(req.RecvTime(), cu)
 		cu.engine.Schedule(evt)
 	}
 
@@ -69,16 +77,11 @@ func (cu *ComputeUnit) processMapWGReq(req *gcn3.MapWGReq) *core.Error {
 	return nil
 }
 
-func (cu *ComputeUnit) processDispatchWfReq(req core.Req) *core.Error {
-	// This function is itentionally left blank
-	// The emulator does not need to deal with DispatchWfReq since the
-	// execution will start when it processes the MapWGReq
-	return nil
-}
-
 // Handle defines the behavior on event scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
+	case *core.TickEvent:
+		return cu.handleTickEvent(evt)
 	case *WGCompleteEvent:
 		return cu.handleWGCompleteEvent(evt)
 	case *core.DeferredSend:
@@ -87,6 +90,101 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		log.Panicf("cannot handle event %s", reflect.TypeOf(evt))
 	}
 	return nil
+}
+
+func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
+	wg := cu.running.WG
+
+	if cu.running != nil {
+		return cu.runWG(wg, evt.Time())
+	}
+
+	return nil
+}
+
+func (cu *ComputeUnit) runWG(wg *kernels.WorkGroup, now core.VTimeInSec) error {
+	cu.wfs = nil
+	cu.initWfs(wg)
+
+	for !cu.isAllWfCompleted() {
+		for _, wf := range cu.wfs {
+			cu.runWfUntilBarrier(wf)
+		}
+		cu.resolveBarrier()
+	}
+
+	evt := NewWGCompleteEvent(cu.Freq.NCyclesLater(cu.instCount, now), cu, wg)
+	cu.engine.Schedule(evt)
+
+	return nil
+}
+
+func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup) error {
+	for _, wf := range wg.Wavefronts {
+		managedWf := NewWavefront(wf)
+		cu.wfs = append(cu.wfs, managedWf)
+	}
+
+	for _, managedWf := range cu.wfs {
+		cu.initWfRegs(managedWf)
+	}
+
+	return nil
+}
+
+func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
+	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
+}
+
+func (cu *ComputeUnit) isAllWfCompleted() bool {
+	for _, wf := range cu.wfs {
+		if !wf.Completed {
+			return false
+		}
+	}
+	return true
+}
+
+func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
+	for {
+		instBuf, err := cu.GlobalMemStorage.Read(wf.PC, 8)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		inst, err := cu.decoder.Decode(instBuf)
+		wf.PC += uint64(inst.ByteSize)
+
+		log.Printf("wg - (%d, %d, %d), wf - %d, %s",
+			wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID, inst)
+		cu.instCount++
+
+		if inst.FormatType == insts.Sopp && inst.Opcode == 10 { // S_ENDPGM
+			wf.AtBarrier = true
+			break
+		}
+
+		if inst.FormatType == insts.Sopp && inst.Opcode == 1 { // S_BARRIER
+			wf.Completed = true
+			break
+		}
+
+	}
+
+	return nil
+}
+
+func (cu *ComputeUnit) resolveBarrier() {
+	if cu.isAllWfCompleted() {
+		return
+	}
+
+	for _, wf := range cu.wfs {
+		if !wf.AtBarrier {
+			log.Panic("not all wavefronts at barrier")
+		}
+		wf.AtBarrier = false
+	}
 }
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {

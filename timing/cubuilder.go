@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -16,7 +17,7 @@ type Builder struct {
 	SIMDCount int
 	VGPRCount []int
 	SGPRCount int
-	Decoder   Decoder
+	Decoder   emu.Decoder
 	InstMem   core.Component
 	ToInstMem core.Connection
 }
