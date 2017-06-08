@@ -23,7 +23,6 @@ import (
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -100,7 +99,7 @@ func main() {
 func initPlatform() {
 	// Simulation engine
 	engine = core.NewSerialEngine()
-	engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
 
 	// Connection
 	connection = core.NewDirectConnection(engine)
@@ -128,16 +127,12 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
-	cuBuilder := timing.NewBuilder()
-	cuBuilder.Engine = engine
-	cuBuilder.Freq = 1 * core.GHz
-	cuBuilder.InstMem = globalMem
-	cuBuilder.Decoder = insts.NewDisassembler()
-	cuBuilder.ToInstMem = connection
+	disassembler := insts.NewDisassembler()
 	for i := 0; i < 4; i++ {
 		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
-			engine)
+			engine, disassembler)
 		computeUnit.Freq = 1 * core.GHz
+		computeUnit.GlobalMemStorage = globalMem.Storage
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
 	}

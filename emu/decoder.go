@@ -1,4 +1,4 @@
-package timing
+package emu
 
 import "gitlab.com/yaotsu/gcn3/insts"
 
