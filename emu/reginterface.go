@@ -45,6 +45,8 @@ func (i *RegInterfaceImpl) ReadReg(
 	} else if reg.IsVReg() {
 		regFile = emuWf.VRegFile
 		offset = (laneID*256 + reg.RegIndex()) * 4
+	} else if reg.RegType == insts.Scc {
+		writeTo[0] = emuWf.SCC
 	} else {
 		log.Panic("Only SGPRs and VGPRs are supported ")
 	}
@@ -70,6 +72,8 @@ func (i *RegInterfaceImpl) WriteReg(
 	} else if reg.IsVReg() {
 		regFile = emuWf.VRegFile
 		offset = (laneID*256 + reg.RegIndex()) * 4
+	} else if reg.RegType == insts.Scc {
+		emuWf.SCC = writeFrom[0]
 	} else {
 		log.Panic("Only SGPRs and VGPRs are supported ")
 	}
