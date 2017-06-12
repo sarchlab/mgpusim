@@ -14,8 +14,8 @@ type Wavefront struct {
 
 	Completed  bool
 	AtBarrier  bool
-	Inst       *insts.Inst
-	ScratchPad []byte
+	inst       *insts.Inst
+	scratchpad []byte
 	PC         uint64
 	SRegFile   []byte
 	VRegFile   []byte
@@ -35,4 +35,14 @@ func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 	wf.VRegFile = make([]byte, 4*64*256)
 
 	return wf
+}
+
+// Inst returns the instruction that the wavefront is executing
+func (wf *Wavefront) Inst() *insts.Inst {
+	return wf.inst
+}
+
+// Scratchpad returns the sratchpad that is associated with the wavefront
+func (wf *Wavefront) Scratchpad() []byte {
+	return wf.scratchpad
 }

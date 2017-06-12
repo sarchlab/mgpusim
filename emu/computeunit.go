@@ -19,8 +19,10 @@ import (
 type ComputeUnit struct {
 	*core.ComponentBase
 
-	engine  core.Engine
-	decoder Decoder
+	engine             core.Engine
+	decoder            Decoder
+	scratchpadPreparer ScratchpadPreparer
+	alu                *ALU
 
 	Freq core.Freq
 
@@ -33,12 +35,21 @@ type ComputeUnit struct {
 }
 
 // NewComputeUnit creates a new ComputeUnit with the given name
-func NewComputeUnit(name string, engine core.Engine, decoder Decoder) *ComputeUnit {
+func NewComputeUnit(
+	name string,
+	engine core.Engine,
+	decoder Decoder,
+	scratchpadPreparer ScratchpadPreparer,
+	alu *ALU,
+) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)
 
 	cu.engine = engine
 	cu.decoder = decoder
+	cu.scratchpadPreparer = scratchpadPreparer
+	cu.alu = alu
+
 	cu.wfs = make([]*Wavefront, 0)
 
 	cu.AddPort("ToDispatcher")
@@ -153,6 +164,7 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 		}
 
 		inst, err := cu.decoder.Decode(instBuf)
+		wf.inst = inst
 		wf.PC += uint64(inst.ByteSize)
 
 		log.Printf("wg - (%d, %d, %d), wf - %d, %s",
@@ -169,9 +181,16 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 			break
 		}
 
+		cu.executeInst(wf)
 	}
 
 	return nil
+}
+
+func (cu *ComputeUnit) executeInst(wf *Wavefront) {
+	cu.scratchpadPreparer.Prepare(wf, wf)
+	cu.alu.Run(wf)
+	cu.scratchpadPreparer.Commit(wf, wf)
 }
 
 func (cu *ComputeUnit) resolveBarrier() {
