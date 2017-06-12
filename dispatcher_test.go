@@ -191,6 +191,7 @@ var _ = Describe("Dispatcher", func() {
 		status.Grid = grid
 		status.DispatchingCUID = 0
 		status.Mapped = true
+
 		dispatcher.dispatchingKernel = status
 		dispatcher.running = true
 
