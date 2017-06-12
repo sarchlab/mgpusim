@@ -53,7 +53,31 @@ func (p *ScratchpadPreparerImpl) prepareSOP2ScratchPad(
 	scratchPad := instEmuState.Scratchpad()
 	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
 	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
-	p.readScc(wf, scratchPad[16:17])
+	p.readScc(wf, scratchPad[24:25])
+}
+
+// Commit write to the register file according to the scratchpad layout
+func (p *ScratchpadPreparerImpl) Commit(
+	instEmuState InstEmuState,
+	wf interface{},
+) {
+	inst := instEmuState.Inst()
+	switch inst.FormatType {
+	case insts.Sop2:
+		p.commitSOP2(instEmuState, wf)
+	default:
+		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
+	}
+}
+
+func (p *ScratchpadPreparerImpl) commitSOP2(
+	instEmuState InstEmuState,
+	wf interface{},
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+	p.writeOperand(inst.Dst, wf, 0, scratchPad[16:24])
+	p.writeScc(wf, scratchPad[24:25])
 }
 
 func (p *ScratchpadPreparerImpl) readOperand(
@@ -82,16 +106,21 @@ func (p *ScratchpadPreparerImpl) readScc(
 	p.regInterface.ReadReg(wf, 0, insts.Regs[insts.Scc], buf)
 }
 
-// Commit write to the register file according to the scratchpad layout
-func (p *ScratchpadPreparerImpl) Commit(
-	instEmuState InstEmuState,
+func (p *ScratchpadPreparerImpl) writeOperand(
+	operand *insts.Operand,
 	wf interface{},
+	laneID int,
+	buf []byte,
 ) {
-	inst := instEmuState.Inst()
-	switch inst.FormatType {
-	default:
-		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
+	if operand.OperandType != insts.RegOperand {
+		log.Panic("Can only write into reg operand")
 	}
+
+	p.regInterface.WriteReg(wf, laneID, operand.Register, buf)
+}
+
+func (p *ScratchpadPreparerImpl) writeScc(wf interface{}, buf []byte) {
+	p.regInterface.WriteReg(wf, 0, insts.Regs[insts.Scc], buf)
 }
 
 func (p *ScratchpadPreparerImpl) clear(buf []byte) {

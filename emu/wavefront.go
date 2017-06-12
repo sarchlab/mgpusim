@@ -16,9 +16,11 @@ type Wavefront struct {
 	AtBarrier  bool
 	inst       *insts.Inst
 	scratchpad []byte
-	PC         uint64
-	SRegFile   []byte
-	VRegFile   []byte
+
+	PC       uint64
+	SCC      byte
+	SRegFile []byte
+	VRegFile []byte
 }
 
 // NewWavefront returns the Wavefront that wraps the nativeWf
