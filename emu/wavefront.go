@@ -26,8 +26,13 @@ func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 	wf := new(Wavefront)
 	wf.Wavefront = nativeWf
 
-	wf.CodeObject = nativeWf.WG.Grid.CodeObject
-	wf.Packet = nativeWf.WG.Grid.Packet
+	if nativeWf != nil {
+		wf.CodeObject = nativeWf.WG.Grid.CodeObject
+		wf.Packet = nativeWf.WG.Grid.Packet
+	}
+
+	wf.SRegFile = make([]byte, 4*102)
+	wf.VRegFile = make([]byte, 4*64*100)
 
 	return wf
 }
