@@ -129,8 +129,11 @@ func initPlatform() {
 	commandProcessor.Driver = gpu
 	disassembler := insts.NewDisassembler()
 	for i := 0; i < 4; i++ {
+		regInterface := new(emu.RegInterfaceImpl)
+		scratchpadPreparer := emu.NewScratchpadPreparerImpl(regInterface)
+		alu := new(emu.ALU)
 		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
-			engine, disassembler)
+			engine, disassembler, scratchpadPreparer, alu)
 		computeUnit.Freq = 1 * core.GHz
 		computeUnit.GlobalMemStorage = globalMem.Storage
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
