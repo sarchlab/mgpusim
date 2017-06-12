@@ -69,7 +69,7 @@ func NewScheduler(
 	wfDispatcher WfDispatcher,
 	fetchArbitor WfArbiter,
 	issueArbitor WfArbiter,
-	decoder Decoder,
+	decoder emu.Decoder,
 ) *Scheduler {
 	s := new(Scheduler)
 	s.ComponentBase = core.NewComponentBase(name)
