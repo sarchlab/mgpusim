@@ -321,7 +321,6 @@ func (d *Dispatcher) dispatchWf(now core.VTimeInSec) {
 		if len(status.WGs) > 0 {
 			d.scheduleTick(d.Freq.NextTick(now))
 		}
-
 		return
 	}
 
@@ -349,7 +348,6 @@ func (d *Dispatcher) dispatchWf(now core.VTimeInSec) {
 
 		if len(status.DispatchingWfs) == 0 {
 			status.Mapped = false
-			return
 		}
 
 		if len(status.DispatchingWfs) > 0 || len(status.WGs) > 0 {

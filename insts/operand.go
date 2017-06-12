@@ -20,6 +20,7 @@ type OperandType int
 
 // An Operand is an operand
 type Operand struct {
+	Code            int
 	OperandType     OperandType
 	Register        *Reg
 	RegCount        int // for cases like v[0:3]
@@ -29,8 +30,9 @@ type Operand struct {
 }
 
 // NewRegOperand returns a new operand of register type
-func NewRegOperand(reg RegType, count int) *Operand {
+func NewRegOperand(code int, reg RegType, count int) *Operand {
 	o := new(Operand)
+	o.Code = code
 	o.OperandType = RegOperand
 	o.Register = Regs[reg]
 	o.RegCount = count
@@ -38,8 +40,9 @@ func NewRegOperand(reg RegType, count int) *Operand {
 }
 
 // NewSRegOperand returns a new operand of s register type
-func NewSRegOperand(index int, count int) *Operand {
+func NewSRegOperand(code int, index int, count int) *Operand {
 	o := new(Operand)
+	o.Code = code
 	o.OperandType = RegOperand
 	o.Register = Regs[S0+RegType(index)]
 	o.RegCount = count
@@ -47,8 +50,9 @@ func NewSRegOperand(index int, count int) *Operand {
 }
 
 // NewVRegOperand returns a new operand of v register type
-func NewVRegOperand(index int, count int) *Operand {
+func NewVRegOperand(code int, index int, count int) *Operand {
 	o := new(Operand)
+	o.Code = code
 	o.OperandType = RegOperand
 	o.Register = Regs[V0+RegType(index)]
 	o.RegCount = count
@@ -56,16 +60,18 @@ func NewVRegOperand(index int, count int) *Operand {
 }
 
 // NewIntOperand returns a new operand of an integer type
-func NewIntOperand(value int64) *Operand {
+func NewIntOperand(code int, value int64) *Operand {
 	o := new(Operand)
+	o.Code = code
 	o.OperandType = IntOperand
 	o.IntValue = value
 	return o
 }
 
 // NewFloatOperand returns a new operand of an floating point type
-func NewFloatOperand(value float64) *Operand {
+func NewFloatOperand(code int, value float64) *Operand {
 	o := new(Operand)
+	o.Code = code
 	o.OperandType = FloatOperand
 	o.FloatValue = value
 	return o
@@ -99,78 +105,79 @@ func (o Operand) String() string {
 }
 
 func getOperand(num uint16) (*Operand, error) {
+	code := int(num)
 	switch {
 	case num >= 0 && num <= 101:
-		return NewSRegOperand(int(num), 0), nil
+		return NewSRegOperand(code, code, 0), nil
 
 	case num == 102:
-		return NewRegOperand(FlatSratchLo, 0), nil
+		return NewRegOperand(code, FlatSratchLo, 0), nil
 	case num == 103:
-		return NewRegOperand(FlatSratchHi, 0), nil
+		return NewRegOperand(code, FlatSratchHi, 0), nil
 	case num == 104:
-		return NewRegOperand(XnackMaskLo, 0), nil
+		return NewRegOperand(code, XnackMaskLo, 0), nil
 	case num == 105:
-		return NewRegOperand(XnackMaskHi, 0), nil
+		return NewRegOperand(code, XnackMaskHi, 0), nil
 	case num == 106:
-		return NewRegOperand(VccLo, 0), nil
+		return NewRegOperand(code, VccLo, 0), nil
 	case num == 107:
-		return NewRegOperand(VccHi, 0), nil
+		return NewRegOperand(code, VccHi, 0), nil
 	case num == 108:
-		return NewRegOperand(TbaLo, 0), nil
+		return NewRegOperand(code, TbaLo, 0), nil
 	case num == 109:
-		return NewRegOperand(TbaHi, 0), nil
+		return NewRegOperand(code, TbaHi, 0), nil
 	case num == 110:
-		return NewRegOperand(TmaLo, 0), nil
+		return NewRegOperand(code, TmaLo, 0), nil
 	case num == 111:
-		return NewRegOperand(TmaHi, 0), nil
+		return NewRegOperand(code, TmaHi, 0), nil
 
 	case num >= 112 && num < 123:
-		return NewRegOperand(Timp0+RegType(num-112), 0), nil
+		return NewRegOperand(code, Timp0+RegType(num-112), 0), nil
 
 	case num == 124:
-		return NewRegOperand(M0, 0), nil
+		return NewRegOperand(code, M0, 0), nil
 	case num == 126:
-		return NewRegOperand(ExecLo, 0), nil
+		return NewRegOperand(code, ExecLo, 0), nil
 	case num == 127:
-		return NewRegOperand(ExecHi, 0), nil
+		return NewRegOperand(code, ExecHi, 0), nil
 
 	case num >= 128 && num <= 192:
-		return NewIntOperand(int64(num) - 128), nil
+		return NewIntOperand(code, int64(num)-128), nil
 
 	case num >= 193 && num <= 208:
-		return NewIntOperand(192 - int64(num)), nil
+		return NewIntOperand(code, 192-int64(num)), nil
 
 	case num == 240:
-		return NewFloatOperand(0.5), nil
+		return NewFloatOperand(code, 0.5), nil
 	case num == 241:
-		return NewFloatOperand(-0.5), nil
+		return NewFloatOperand(code, -0.5), nil
 	case num == 242:
-		return NewFloatOperand(1.0), nil
+		return NewFloatOperand(code, 1.0), nil
 	case num == 243:
-		return NewFloatOperand(-1.0), nil
+		return NewFloatOperand(code, -1.0), nil
 	case num == 244:
-		return NewFloatOperand(2.0), nil
+		return NewFloatOperand(code, 2.0), nil
 	case num == 245:
-		return NewFloatOperand(-2.0), nil
+		return NewFloatOperand(code, -2.0), nil
 	case num == 246:
-		return NewFloatOperand(4.0), nil
+		return NewFloatOperand(code, 4.0), nil
 	case num == 247:
-		return NewFloatOperand(-4.0), nil
+		return NewFloatOperand(code, -4.0), nil
 	case num == 248:
-		return NewFloatOperand(1.0 / (2.0 * math.Pi)), nil
+		return NewFloatOperand(code, 1.0/(2.0*math.Pi)), nil
 
 	case num == 251:
-		return NewRegOperand(Vccz, 0), nil
+		return NewRegOperand(code, Vccz, 0), nil
 	case num == 252:
-		return NewRegOperand(Execz, 0), nil
+		return NewRegOperand(code, Execz, 0), nil
 	case num == 253:
-		return NewRegOperand(Scc, 0), nil
+		return NewRegOperand(code, Scc, 0), nil
 
 	case num == 255:
-		return &Operand{LiteralConstant, nil, 0, 0, 0, 0}, nil
+		return &Operand{code, LiteralConstant, nil, 0, 0, 0, 0}, nil
 
 	case num >= 256 && num <= 511:
-		return NewVRegOperand(int(num)-256, 0), nil
+		return NewVRegOperand(code, int(num)-256, 0), nil
 
 	default:
 		return nil, fmt.Errorf("cannot find Operand %d", num)

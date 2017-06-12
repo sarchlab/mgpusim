@@ -196,7 +196,6 @@ var _ = Describe("Dispatcher", func() {
 
 		wf := grid.WorkGroups[0].Wavefronts[0]
 		req := NewDispatchWfReq(dispatcher, cu0, 10, wf, wfDispatchInfo, 6256)
-
 		connection.ExpectSend(req, nil)
 
 		dispatcher.Handle(core.NewTickEvent(10, dispatcher))

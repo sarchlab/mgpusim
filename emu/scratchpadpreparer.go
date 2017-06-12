@@ -1,6 +1,10 @@
 package emu
 
-import "log"
+import (
+	"log"
+
+	"gitlab.com/yaotsu/gcn3/insts"
+)
 
 // ScratchpadPreparer is the unit that sets the instruction scratchpad
 // before the instruction can be emulated.
@@ -34,9 +38,19 @@ func (p *ScratchpadPreparerImpl) Prepare(
 ) {
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
+	case insts.Sop2:
+		p.prepareSOP2ScratchPad(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
+}
+
+func (p *ScratchpadPreparerImpl) prepareSOP2ScratchPad(
+	instEmuState InstEmuState,
+	wf interface{},
+) {
+	// inst := instEmuState.Inst()
+	// inst.Src0.
 }
 
 // Commit write to the register file according to the scratchpad layout

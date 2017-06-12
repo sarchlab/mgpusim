@@ -33,6 +33,7 @@ func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 
 	wf.SRegFile = make([]byte, 4*102)
 	wf.VRegFile = make([]byte, 4*64*256)
+	wf.scratchpad = make([]byte, 32)
 
 	return wf
 }
