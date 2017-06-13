@@ -4,6 +4,7 @@ import (
 	"log"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
@@ -74,7 +75,7 @@ func (i *mockRegInterface) WriteReg(
 	reg *insts.Reg,
 	writeFrom []byte,
 ) {
-	for index, regToAccess := range i.regToRead {
+	for index, regToAccess := range i.regToWrite {
 		if regToAccess.Wf == wf &&
 			regToAccess.laneID == laneID &&
 			reg == regToAccess.Reg &&
@@ -131,5 +132,25 @@ var _ = Describe("ScratchpadPreparer", func() {
 		regInterface.RegToRead(wf, 0, insts.Regs[insts.Scc], []byte{1})
 
 		sp.Prepare(wf, wf)
+
+		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
+	})
+
+	It("should commit for SOP2", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sop2
+		inst.Dst = insts.NewSRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		for i := range wf.scratchpad {
+			wf.scratchpad[i] = byte(i)
+		}
+
+		regInterface.RegToWrite(wf, 0, insts.Regs[insts.S0], []byte{16, 17, 18, 19})
+		regInterface.RegToWrite(wf, 0, insts.Regs[insts.Scc], []byte{24})
+
+		sp.Commit(wf, wf)
+
+		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
 	})
 })
