@@ -39,13 +39,13 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
 	case insts.Sop2:
-		p.prepareSOP2ScratchPad(instEmuState, wf)
+		p.prepareSOP2(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
 }
 
-func (p *ScratchpadPreparerImpl) prepareSOP2ScratchPad(
+func (p *ScratchpadPreparerImpl) prepareSOP2(
 	instEmuState InstEmuState,
 	wf interface{},
 ) {
@@ -91,7 +91,13 @@ func (p *ScratchpadPreparerImpl) readOperand(
 
 	switch operand.OperandType {
 	case insts.RegOperand:
-		p.regInterface.ReadReg(wf, laneID, operand.Register, buf)
+		if operand.RegCount == 0 || operand.RegCount == 1 {
+			p.regInterface.ReadReg(wf, laneID, operand.Register, buf[0:4])
+		} else if operand.RegCount == 2 {
+			p.regInterface.ReadReg(wf, laneID, operand.Register, buf[0:8])
+		} else {
+			log.Panicf("Register count of %d is not supported", operand.RegCount)
+		}
 	case insts.IntOperand:
 		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
 	default:
@@ -116,7 +122,13 @@ func (p *ScratchpadPreparerImpl) writeOperand(
 		log.Panic("Can only write into reg operand")
 	}
 
-	p.regInterface.WriteReg(wf, laneID, operand.Register, buf)
+	if operand.RegCount == 0 || operand.RegCount == 1 {
+		p.regInterface.WriteReg(wf, laneID, operand.Register, buf[0:4])
+	} else if operand.RegCount == 2 {
+		p.regInterface.WriteReg(wf, laneID, operand.Register, buf[0:8])
+	} else {
+		log.Panicf("Register count of %d is not supported", operand.RegCount)
+	}
 }
 
 func (p *ScratchpadPreparerImpl) writeScc(wf interface{}, buf []byte) {
