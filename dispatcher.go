@@ -17,7 +17,7 @@ type KernelDispatchStatus struct {
 	Grid            *kernels.Grid
 	WGs             []*kernels.WorkGroup
 	CompletedWGs    []*kernels.WorkGroup
-	DispatchingWfs  map[*kernels.Wavefront]*WfDispatchInfo
+	DispatchingWfs  []*WfDispatchInfo
 	DispatchingCUID int
 	Mapped          bool
 	CUBusy          []bool
@@ -28,7 +28,7 @@ func NewKernelDispatchStatus() *KernelDispatchStatus {
 	s := new(KernelDispatchStatus)
 	s.WGs = make([]*kernels.WorkGroup, 0)
 	s.CompletedWGs = make([]*kernels.WorkGroup, 0)
-	s.DispatchingWfs = make(map[*kernels.Wavefront]*WfDispatchInfo)
+	s.DispatchingWfs = make([]*WfDispatchInfo, 0)
 	s.CUBusy = make([]bool, 0)
 	return s
 }
@@ -37,6 +37,7 @@ func NewKernelDispatchStatus() *KernelDispatchStatus {
 // When the dispatcher maps the workgroup, the compute unit should tell the
 // dispatcher where to dispatch the wavefront.
 type WfDispatchInfo struct {
+	Wavefront  *kernels.Wavefront
 	SIMDID     int
 	VGPROffset int
 	SGPROffset int
@@ -50,7 +51,7 @@ type MapWGReq struct {
 
 	WG            *kernels.WorkGroup
 	Ok            bool
-	WfDispatchMap map[*kernels.Wavefront]*WfDispatchInfo // Tells where a wf should fit in
+	WfDispatchMap []*WfDispatchInfo // Tells where a wf should fit in
 	CUID          int
 	CodeObject    *insts.HsaCo
 }
@@ -69,7 +70,7 @@ func NewMapWGReq(
 	r.SetSendTime(time)
 	r.WG = wg
 	r.CodeObject = co
-	r.WfDispatchMap = make(map[*kernels.Wavefront]*WfDispatchInfo)
+	r.WfDispatchMap = make([]*WfDispatchInfo, 0)
 	return r
 }
 
@@ -327,16 +328,12 @@ func (d *Dispatcher) dispatchWf(now core.VTimeInSec) {
 	entryPoint := status.Grid.Packet.KernelObject +
 		status.Grid.CodeObject.KernelCodeEntryByteOffset
 
-	var wf *kernels.Wavefront
-	var info *WfDispatchInfo
-	var req *DispatchWfReq
-	for wf, info = range status.DispatchingWfs {
-		req = NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], now,
-			wf, info, entryPoint)
-		req.CodeObject = status.CodeObject
-		req.Packet = status.Packet
-		break
-	}
+	info := status.DispatchingWfs[0]
+	wf := info.Wavefront
+	req := NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], now,
+		wf, info, entryPoint)
+	req.CodeObject = status.CodeObject
+	req.Packet = status.Packet
 
 	err := d.GetConnection("ToCUs").Send(req)
 	if err != nil && err.Recoverable {
@@ -344,7 +341,7 @@ func (d *Dispatcher) dispatchWf(now core.VTimeInSec) {
 	} else if err != nil {
 		d.scheduleTick(d.Freq.NoEarlierThan(err.EarliestRetry))
 	} else {
-		delete(status.DispatchingWfs, wf)
+		status.DispatchingWfs = status.DispatchingWfs[1:]
 
 		if len(status.DispatchingWfs) == 0 {
 			status.Mapped = false
