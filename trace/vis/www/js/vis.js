@@ -138,10 +138,62 @@
         $(window).resize(function () {
             resize();
         });
-        loadTraceData(0, 100);
+
+        // loadTraceData(0, 100);
+        loadMinimapData();
     });
 
     function loadMinimapData() {
+        $.ajax({
+            url: 'minimap',
+            method: 'GET',
+            dataType: "json"
+        }).done(function (data) {
+            console.log(data);
+            renderMinimap(data);
+        });
+    }
+
+    function renderMinimap(data) {
+        let svg = d3.select('#minimap').selectAll('svg')
+            .attr('preserveAspectRatio','none')
+            .attr('viewBox', '0, 0, 1000, 500');
+
+        let mainArea = svg.append('g');
+
+        let totalWidth = 1000;
+        let startTime = data[0].start_time;
+        let endTime = data[data.length - 1].end_time;
+        let totalTime = endTime - startTime;
+        let scaleFactor = totalWidth / totalTime;
+
+        let highestCount = 0;
+        for (let i = 0; i < data.length; i++) {
+            if (highestCount < data[i].count) {
+                highestCount = data[i].count;
+            }
+        }
+        let verticalScaling = 500/highestCount;
+
+
+        svg.selectAll('rect')
+            .data(data)
+            .enter()
+            .append('rect')
+            .attr('x', function(d) {
+                return (d.start_time - startTime) * scaleFactor;
+            })
+            .attr('y', function(d) {
+                return 500 - (d.count * verticalScaling);
+            })
+            .attr('width', function(d) {
+                return (d.end_time - d.start_time) * scaleFactor;
+            })
+            .attr('height', function(d) {
+                return d.count * verticalScaling;
+            })
+            .style('fill', '#ffd385');
+            // .style('opacity', '0.5');
 
     }
 
