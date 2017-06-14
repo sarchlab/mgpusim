@@ -107,7 +107,7 @@ func startServer() {
 
 	http.HandleFunc("/trace", httpTrace)
 	http.HandleFunc("/minimap", httpMinimap)
-	http.Handle("/", http.FileServer(http.Dir("")))
+	http.Handle("/", http.FileServer(http.Dir("www")))
 	err = http.Serve(ln, nil)
 	dieOnErr(err)
 }
