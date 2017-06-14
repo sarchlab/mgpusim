@@ -11,7 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/timing/cu"
+	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/gcn3/trace/instpb"
 )
 
@@ -19,20 +19,20 @@ import (
 type InstTracer struct {
 	mutex        sync.Mutex
 	writer       io.Writer
-	tracingInsts map[*cu.Inst]*instpb.Inst
+	tracingInsts map[*timing.Inst]*instpb.Inst
 }
 
 // NewInstTracer creates a new InstTracer
 func NewInstTracer(writer io.Writer) *InstTracer {
 	t := new(InstTracer)
 	t.writer = writer
-	t.tracingInsts = make(map[*cu.Inst]*instpb.Inst)
+	t.tracingInsts = make(map[*timing.Inst]*instpb.Inst)
 	return t
 }
 
-// Type of InstTracer claims the inst tracer is hooking to the cu.Wavefront type
+// Type of InstTracer claims the inst tracer is hooking to the timing.Wavefront type
 func (t *InstTracer) Type() reflect.Type {
-	return reflect.TypeOf((*cu.Wavefront)(nil))
+	return reflect.TypeOf((*timing.Wavefront)(nil))
 }
 
 // Pos of InstTracer returns core.Any. Since InstTracer is not standard hook
@@ -46,11 +46,11 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	wf := item.(*cu.Wavefront)
+	wf := item.(*timing.Wavefront)
 	wf.RLock()
 	inst := wf.Inst
 	wf.RUnlock()
-	instInfo := info.(*cu.InstHookInfo)
+	instInfo := info.(*timing.InstHookInfo)
 
 	instTraceItem, ok := t.tracingInsts[inst]
 	if !ok {

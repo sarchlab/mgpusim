@@ -1,0 +1,7 @@
+package timing
+
+// An WfArbiter can decide which wavefront can take action,
+// in a list of wavefront pools
+type WfArbiter interface {
+	Arbitrate(wfpools []*WavefrontPool) []*Wavefront
+}
