@@ -35,7 +35,7 @@ var _ = Describe("SimpleDecodeUnit", func() {
 		decodeUnit.Recv(issueInstReq)
 		Expect(decodeUnit.toDecode).To(BeIdenticalTo(wavefront))
 		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-		Expect(engine.ScheduledEvent[0].Time()).To(BeNumerically("~", 11, 1e-12))
+		Expect(engine.ScheduledEvent[0].Time()).To(BeNumerically("~", 12, 1e-12))
 	})
 
 	It("should reject decode request if not available", func() {
@@ -127,7 +127,7 @@ var _ = Describe("VectorDecodeUnit", func() {
 		issueInstReq.SetRecvTime(10.5)
 		decodeUnit.Recv(issueInstReq)
 		Expect(engine.ScheduledEvent).NotTo(BeEmpty())
-		Expect(engine.ScheduledEvent[0].Time()).To(BeNumerically("~", 11, 1e-12))
+		Expect(engine.ScheduledEvent[0].Time()).To(BeNumerically("~", 12, 1e-12))
 	})
 
 	It("should reject decode request if not available", func() {
