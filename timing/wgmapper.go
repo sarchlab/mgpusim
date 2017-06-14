@@ -93,7 +93,9 @@ func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 	ok := true
 
 	for _, wf := range req.WG.Wavefronts {
-		req.WfDispatchMap[wf] = new(gcn3.WfDispatchInfo)
+		info := new(gcn3.WfDispatchInfo)
+		info.Wavefront = wf
+		req.WfDispatchMap = append(req.WfDispatchMap, info)
 	}
 
 	if !m.withinSGPRLimitation(req) || !m.withinLDSLimitation(req) {
@@ -116,12 +118,12 @@ func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 func (m *WGMapperImpl) withinSGPRLimitation(req *gcn3.MapWGReq) bool {
 	co := req.CodeObject
 	required := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
-	for _, wf := range req.WG.Wavefronts {
+	for _, info := range req.WfDispatchMap {
 		offset, ok := m.SGprMask.NextRegion(required, AllocStatusFree)
 		if !ok {
 			return false
 		}
-		req.WfDispatchMap[wf].SGPROffset = offset * 64 // 16 reg, 4 byte each
+		info.SGPROffset = offset * 16 * 4 // 16 reg, 4 byte each
 		m.SGprMask.SetStatus(offset, required, AllocStatusToReserve)
 	}
 	return true
@@ -136,8 +138,8 @@ func (m *WGMapperImpl) withinLDSLimitation(req *gcn3.MapWGReq) bool {
 	}
 
 	// Set the information
-	for _, wf := range req.WG.Wavefronts {
-		req.WfDispatchMap[wf].LDSOffset = offset * m.LDSGranularity
+	for _, info := range req.WfDispatchMap {
+		info.LDSOffset = offset * m.LDSGranularity
 	}
 	m.LDSMask.SetStatus(offset, required, AllocStatusToReserve)
 	return true
@@ -153,7 +155,7 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
 	co := req.CodeObject
 
-	for i := 0; i < len(req.WG.Wavefronts); i++ {
+	for _, info := range req.WfDispatchMap {
 		firstSIMDTested := nextSIMD
 		firstTry := true
 		found := false
@@ -166,9 +168,8 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
 				found = true
 				vgprToUse[nextSIMD] += required
 				wfPoolEntryUsed[nextSIMD]++
-				req.WfDispatchMap[req.WG.Wavefronts[i]].SIMDID = nextSIMD
-				req.WfDispatchMap[req.WG.Wavefronts[i]].VGPROffset =
-					offset * 4 * 4 // 4 regs per group, 4 bytes
+				info.SIMDID = nextSIMD
+				info.VGPROffset = offset * 4 * 4 // 4 regs per group, 4 bytes
 				m.VGprMask[nextSIMD].SetStatus(offset, required,
 					AllocStatusToReserve)
 			}
