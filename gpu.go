@@ -17,6 +17,8 @@ type Gpu struct {
 
 	Driver           core.Component // The DriverComponent
 	CommandProcessor core.Component // The CommandProcessor
+	Dispatchers      []core.Component
+	CUs              []core.Component
 }
 
 // NewGpu returns a newly created GPU

@@ -1,4 +1,4 @@
-package gcn3_test
+package gcn3
 
 import (
 	"log"

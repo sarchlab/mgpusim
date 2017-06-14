@@ -130,8 +130,11 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
 	}
-	inst.Src1 = NewVRegOperand(int(extractBits(bytes, 9, 16)), 0)
-	inst.Dst = NewVRegOperand(int(extractBits(bytes, 17, 24)), 0)
+
+	bits := int(extractBits(bytes, 9, 16))
+	inst.Src1 = NewVRegOperand(bits, bits, 0)
+	bits = int(extractBits(bytes, 17, 24))
+	inst.Dst = NewVRegOperand(bits, bits, 0)
 }
 
 func (d *Disassembler) decodeFlat(inst *Inst, buf []byte) {
@@ -150,10 +153,13 @@ func (d *Disassembler) decodeFlat(inst *Inst, buf []byte) {
 		inst.TextureFailEnable = true
 	}
 
-	inst.Addr = NewVRegOperand(int(extractBits(bytesHi, 0, 7)), 2)
+	bits := int(extractBits(bytesHi, 0, 7))
+	inst.Addr = NewVRegOperand(bits, bits, 2)
+	bits = int(extractBits(bytesHi, 24, 31))
+	inst.Dst = NewVRegOperand(bits, bits, 0)
+	bits = int(extractBits(bytesHi, 8, 15))
+	inst.Data = NewVRegOperand(bits, bits, 0)
 
-	inst.Dst = NewVRegOperand(int(extractBits(bytesHi, 24, 31)), 0)
-	inst.Data = NewVRegOperand(int(extractBits(bytesHi, 8, 15)), 0)
 	switch inst.Opcode {
 	case 21, 29, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93:
 		inst.Data.RegCount = 2
@@ -180,7 +186,8 @@ func (d *Disassembler) decodeSmem(inst *Inst, buf []byte) {
 	}
 
 	sbaseValue := extractBits(bytesLo, 0, 5)
-	inst.Base = NewSRegOperand(int(sbaseValue<<1), 2)
+	bits := int(sbaseValue << 1)
+	inst.Base = NewSRegOperand(bits, bits, 2)
 
 	sdataValue := extractBits(bytesLo, 6, 12)
 	inst.Data, _ = getOperand(uint16(sdataValue))
@@ -199,16 +206,18 @@ func (d *Disassembler) decodeSmem(inst *Inst, buf []byte) {
 	}
 
 	if inst.Imm {
-		inst.Offset = NewIntOperand(int64(extractBits(bytesHi, 0, 19)))
+		bits64 := int64(extractBits(bytesHi, 0, 19))
+		inst.Offset = NewIntOperand(0, bits64)
 	} else {
-		inst.Offset = NewSRegOperand(int(extractBits(bytesHi, 0, 19)), 1)
+		bits := int(extractBits(bytesHi, 0, 19))
+		inst.Offset = NewSRegOperand(bits, bits, 1)
 	}
 }
 
 func (d *Disassembler) decodeSopp(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
-	inst.SImm16 = NewIntOperand(int64(extractBits(bytes, 0, 15)))
+	inst.SImm16 = NewIntOperand(0, int64(extractBits(bytes, 0, 15)))
 }
 
 func (d *Disassembler) decodeVopc(inst *Inst, buf []byte) {
@@ -218,7 +227,8 @@ func (d *Disassembler) decodeVopc(inst *Inst, buf []byte) {
 		inst.ByteSize += 4
 	}
 
-	inst.Src1 = NewVRegOperand(int(extractBits(bytes, 9, 16)), 0)
+	bits := int(extractBits(bytes, 9, 16))
+	inst.Src1 = NewVRegOperand(bits, bits, 0)
 }
 
 func (d *Disassembler) decodeSopc(inst *Inst, buf []byte) {
@@ -246,7 +256,8 @@ func (d *Disassembler) decodeVop3(inst *Inst, buf []byte) {
 	if inst.Opcode <= 255 { // The comparison instructions
 		inst.Dst, _ = getOperand(uint16(extractBits(bytesLo, 0, 7)))
 	} else {
-		inst.Dst = NewVRegOperand(int(extractBits(bytesLo, 0, 7)), 0)
+		bits := int(extractBits(bytesLo, 0, 7))
+		inst.Dst = NewVRegOperand(bits, bits, 0)
 	}
 	if is64Bit {
 		inst.Dst.RegCount = 2

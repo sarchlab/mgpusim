@@ -22,7 +22,6 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/timing/cu"
 	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem"
 )
@@ -121,12 +120,12 @@ func initPlatform() {
 
 	// Gpu
 	gpu = gcn3.NewGpu("Gpu")
-	commandProcessor := timing.NewCommandProcessor("Gpu.CommandProcessor")
+	commandProcessor := gcn3.NewCommandProcessor("Gpu.CommandProcessor")
 
-	dispatcher := timing.NewDispatcher("Gpu.Dispatcher", engine,
+	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 1 * core.GHz
-	wgCompleteLogger := new(timing.WGCompleteLogger)
+	wgCompleteLogger := new(gcn3.WGCompleteLogger)
 	wgCompleteLogger.Logger = logger
 	dispatcher.AcceptHook(wgCompleteLogger)
 
@@ -134,7 +133,7 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
-	cuBuilder := cu.NewBuilder()
+	cuBuilder := timing.NewBuilder()
 	cuBuilder.Engine = engine
 	cuBuilder.Freq = 1 * core.GHz
 	cuBuilder.InstMem = globalMem
@@ -147,9 +146,9 @@ func initPlatform() {
 		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
 
 		// Hook
-		mapWGLog := cu.NewMapWGLog(logger)
+		mapWGLog := timing.NewMapWGLog(logger)
 		computeUnit.Scheduler.AcceptHook(mapWGLog)
-		dispatchWfHook := cu.NewDispatchWfLog(logger)
+		dispatchWfHook := timing.NewDispatchWfLog(logger)
 		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
 
 		if i == 0 {
