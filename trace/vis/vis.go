@@ -106,6 +106,7 @@ func startServer() {
 	openbrowser("http://" + ln.Addr().String())
 
 	http.HandleFunc("/trace", httpTrace)
+	http.HandleFunc("/minimap", httpMinimap)
 	http.Handle("/", http.FileServer(http.Dir("")))
 	err = http.Serve(ln, nil)
 	dieOnErr(err)
@@ -132,6 +133,10 @@ func httpTrace(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write([]byte(respond))
 	dieOnErr(err)
+}
+
+func httpMinimap(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func openbrowser(url string) {
