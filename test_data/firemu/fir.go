@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"debug/elf"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -19,10 +20,9 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -50,14 +50,13 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-	engine      core.Engine
-	globalMem   *mem.IdealMemController
-	gpu         *gcn3.Gpu
-	host        *hostComponent
-	connection  core.Connection
-	hsaco       *insts.HsaCo
-	logger      *log.Logger
-	traceOutput *os.File
+	engine     core.Engine
+	globalMem  *mem.IdealMemController
+	gpu        *gcn3.Gpu
+	host       *hostComponent
+	connection core.Connection
+	hsaco      *insts.HsaCo
+	logger     *log.Logger
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -89,11 +88,6 @@ func main() {
 
 	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
-	traceFile, err := os.Create("trace.out")
-	if err != nil {
-		log.Panic(err)
-	}
-	traceOutput = traceFile
 
 	initPlatform()
 	loadProgram()
@@ -119,10 +113,10 @@ func initPlatform() {
 	host = newHostComponent()
 
 	// Gpu
-	gpu = gcn3.NewGpu("Gpu")
-	commandProcessor := gcn3.NewCommandProcessor("Gpu.CommandProcessor")
+	gpu = gcn3.NewGpu("GPU")
+	commandProcessor := gcn3.NewCommandProcessor("GPU.CommandProcessor")
 
-	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
+	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 1 * core.GHz
 	wgCompleteLogger := new(gcn3.WGCompleteLogger)
@@ -133,37 +127,17 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
-	cuBuilder := timing.NewBuilder()
-	cuBuilder.Engine = engine
-	cuBuilder.Freq = 1 * core.GHz
-	cuBuilder.InstMem = globalMem
-	cuBuilder.Decoder = insts.NewDisassembler()
-	cuBuilder.ToInstMem = connection
+	disassembler := insts.NewDisassembler()
 	for i := 0; i < 4; i++ {
-		cuBuilder.CUName = "cu" + string(i)
-		computeUnit := cuBuilder.Build()
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
-		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
-
-		// Hook
-		mapWGLog := timing.NewMapWGLog(logger)
-		computeUnit.Scheduler.AcceptHook(mapWGLog)
-		dispatchWfHook := timing.NewDispatchWfLog(logger)
-		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
-
-		if i == 0 {
-			tracer := trace.NewInstTracer(traceOutput)
-			computeUnit.Scheduler.AcceptHook(tracer)
-			computeUnit.BranchUnit.AcceptHook(tracer)
-			computeUnit.ScalarUnit.AcceptHook(tracer)
-			computeUnit.SIMDUnits[0].AcceptHook(tracer)
-			computeUnit.SIMDUnits[1].AcceptHook(tracer)
-			computeUnit.SIMDUnits[2].AcceptHook(tracer)
-			computeUnit.SIMDUnits[3].AcceptHook(tracer)
-			computeUnit.VectorDecode.AcceptHook(tracer)
-			computeUnit.ScalarDecode.AcceptHook(tracer)
-		}
-
+		regInterface := new(emu.RegInterfaceImpl)
+		scratchpadPreparer := emu.NewScratchpadPreparerImpl(regInterface)
+		alu := new(emu.ALU)
+		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
+			engine, disassembler, scratchpadPreparer, alu)
+		computeUnit.Freq = 1 * core.GHz
+		computeUnit.GlobalMemStorage = globalMem.Storage
+		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
+		core.PlugIn(computeUnit, "ToDispatcher", connection)
 	}
 
 	// Connection

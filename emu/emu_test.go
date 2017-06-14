@@ -1,4 +1,4 @@
-package gcn3
+package emu
 
 import (
 	"log"
@@ -11,5 +11,5 @@ import (
 func TestEmulator(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GCN3")
+	RunSpecs(t, "GCN3 Emulator")
 }
