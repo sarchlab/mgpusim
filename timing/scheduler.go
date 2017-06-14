@@ -141,7 +141,8 @@ func (s *Scheduler) processAccessReq(req *mem.AccessReq) *core.Error {
 	wf.PC += uint64(wf.Inst.ByteSize)
 	wf.Unlock()
 
-	s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.RecvTime(), "FetchDone"})
+	s.InvokeHook(wf, s, core.Any,
+		&InstHookInfo{req.RecvTime() + s.Freq.Period()/2, "FetchDone"})
 
 	return nil
 }
@@ -158,7 +159,8 @@ func (s *Scheduler) decode(buf []byte, wf *Wavefront) {
 
 func (s *Scheduler) processInstCompletionReq(req *InstCompletionReq) *core.Error {
 	wf := req.Wf
-	s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.RecvTime(), "Completed"})
+	s.InvokeHook(wf, s, core.Any,
+		&InstHookInfo{req.RecvTime() - s.Freq.Period()/2, "Completed"})
 	wf.Lock()
 	wf.State = WfReady
 	wf.Unlock()
@@ -367,7 +369,8 @@ func (s *Scheduler) doSendIssueInstReq(req *IssueInstReq) error {
 		wf.State = WfFetched
 		wf.Unlock()
 	} else {
-		s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.SendTime(), "Issue"})
+		s.InvokeHook(wf, s, core.Any,
+			&InstHookInfo{req.SendTime() - s.Freq.Period()/2, "Issue"})
 		wf.Lock()
 		wf.State = WfRunning
 		wf.Unlock()
@@ -386,7 +389,8 @@ func (s *Scheduler) doSendMemAccessReq(req *mem.AccessReq) error {
 		wf.Lock()
 		wf.State = WfFetching
 		wf.Unlock()
-		s.InvokeHook(wf, s, core.Any, &InstHookInfo{req.SendTime(), "FetchStart"})
+		s.InvokeHook(wf, s, core.Any,
+			&InstHookInfo{req.SendTime() - s.Freq.Period()/2, "FetchStart"})
 	}
 	return nil
 }

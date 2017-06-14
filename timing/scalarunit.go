@@ -62,7 +62,7 @@ func (u *ScalarUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 
 	u.reading = req.Wf
 	u.InvokeHook(u.reading, u, core.Any,
-		&InstHookInfo{req.RecvTime(), "ReadStart"})
+		&InstHookInfo{req.RecvTime() - u.Freq.Period()/2, "ReadStart"})
 	u.tryStartTick(req.RecvTime())
 	return nil
 }

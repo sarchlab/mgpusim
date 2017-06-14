@@ -89,13 +89,22 @@
                     })
                     .attr('y', function(d){return d.instCount * 10;})
                     .attr('width', function(d){
+                        if (d.endTime - d.time <= 1e-10) {
+                            return 0;
+                        }
                         return (d.endTime - d.time) * scalingFactor;
                     })
                     .attr('height', 7)
                     .style('fill', function(d) {
+                        if (d.time == 0) {
+                            return null;
+                        }
                         return stageColor(d.stage);
                     })
                     .style('stroke', function(d) {
+                        if (d.time == 0) {
+                            return null;
+                        }
                         switch (d.stage) {
                         case 2: case 5: case 7: case 9: case 11:
                             return '#888888';

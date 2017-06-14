@@ -74,8 +74,9 @@ func (u *SimpleDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 	}
 
 	u.toDecode = req.Wf
-	u.InvokeHook(req.Wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
-	completionTime := u.Freq.NCyclesLater(u.Latency-1, req.RecvTime())
+	u.InvokeHook(req.Wf, u, core.Any,
+		&InstHookInfo{req.RecvTime() + u.Freq.Period()/2, "DecodeStart"})
+	completionTime := u.Freq.NCyclesLater(u.Latency, req.RecvTime())
 	evt := NewDecodeCompletionEvent(completionTime, u, req)
 	u.engine.Schedule(evt)
 	return nil
@@ -190,8 +191,9 @@ func (u *VectorDecodeUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
 		return core.NewError("busy", true, u.Freq.NextTick(req.RecvTime()))
 	}
 
-	u.InvokeHook(req.Wf, u, core.Any, &InstHookInfo{req.RecvTime(), "DecodeStart"})
-	completionTime := u.Freq.NCyclesLater(u.Latency-1, req.RecvTime())
+	u.InvokeHook(req.Wf, u, core.Any,
+		&InstHookInfo{req.RecvTime() + u.Freq.Period()/2, "DecodeStart"})
+	completionTime := u.Freq.NCyclesLater(u.Latency, req.RecvTime())
 	evt := NewDecodeCompletionEvent(completionTime, u, req)
 	u.engine.Schedule(evt)
 	return nil
