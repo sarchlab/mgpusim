@@ -133,7 +133,7 @@
 
     }
 
-    $(document).ready(function () {
+    $(document).ready(debouncer(function () {
         resize();
         $(window).resize(function () {
             resize();
@@ -141,7 +141,9 @@
 
         // loadTraceData(0, 100);
         loadMinimapData();
-    });
+    }));
+
+    var minimapData;
 
     function loadMinimapData() {
         $.ajax({
@@ -150,22 +152,29 @@
             dataType: "json"
         }).done(function (data) {
             console.log(data);
+            minimapData = data;
             renderMinimap(data);
         });
     }
 
-    function renderMinimap(data) {
+    function renderMinimap() {
+        let data = minimapData;
+        let width = window.innerWidth;
+        let height = 200;
+
         let svg = d3.select('#minimap').selectAll('svg')
-            .attr('preserveAspectRatio','none')
-            .attr('viewBox', '0, 0, 1000, 500');
+             .attr('height', height)
+            .attr('width', width);
 
-        let mainArea = svg.append('g');
-
-        let totalWidth = 1000;
         let startTime = data[0].start_time;
         let endTime = data[data.length - 1].end_time;
-        let totalTime = endTime - startTime;
-        let scaleFactor = totalWidth / totalTime;
+        let horizontalScale = d3.scaleLinear()
+            .domain([startTime, endTime])
+            .range([0, width]);
+        let widthScale = d3.scaleLinear()
+            .domain([0, endTime - startTime])
+            .range([0, width]);
+        let xAxis = d3.axisTop(horizontalScale);
 
         let highestCount = 0;
         for (let i = 0; i < data.length; i++) {
@@ -173,28 +182,43 @@
                 highestCount = data[i].count;
             }
         }
-        let verticalScaling = 500/highestCount;
+        let verticalScaling = height/highestCount;
 
 
-        svg.selectAll('rect')
+        svg.select('.main-area')
+            .selectAll('rect')
             .data(data)
             .enter()
             .append('rect')
             .attr('x', function(d) {
-                return (d.start_time - startTime) * scaleFactor;
+                return horizontalScale(d.start_time);
             })
             .attr('y', function(d) {
-                return 500 - (d.count * verticalScaling);
+                return 200 - (d.count * verticalScaling);
             })
             .attr('width', function(d) {
-                return (d.end_time - d.start_time) * scaleFactor;
+                return widthScale(d.end_time - d.start_time);
             })
             .attr('height', function(d) {
                 return d.count * verticalScaling;
             })
             .style('fill', '#ffd385');
-            // .style('opacity', '0.5');
 
+        svg.selectAll('.x-axis')
+            .attr("transform", "translate(0, 200)")
+            .call(xAxis);
+
+    }
+
+    function debouncer( func , timeout ) {
+        var timeoutID , timeout = timeout || 200;
+        return function () {
+            var scope = this , args = arguments;
+            clearTimeout( timeoutID );
+            timeoutID = setTimeout( function () {
+                func.apply( scope , Array.prototype.slice.call( args ) );
+            } , timeout );
+        };
     }
 
     function resize() {
@@ -212,5 +236,13 @@
         $('#pipeline-figure')
             .height(windowHeight - 200)
             .width(windowWidth);
+
+        redrawMinimap();
+    }
+
+    function redrawMinimap() {
+        if (minimapData !== undefined) {
+            renderMinimap();
+        }
     }
 })();
