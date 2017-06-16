@@ -149,6 +149,7 @@
         $.ajax({
             url: 'minimap',
             method: 'GET',
+            data: { num_samples: Math.floor(window.innerWidth / 2) },
             dataType: "json"
         }).done(function (data) {
             console.log(data);
@@ -252,8 +253,9 @@
     }
 
     function redrawMinimap() {
-        if (minimapData !== undefined) {
-            renderMinimap();
-        }
+        // if (minimapData !== undefined) {
+            // renderMinimap();
+        loadMinimapData();
+        // }
     }
 })();
