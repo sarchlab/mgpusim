@@ -163,7 +163,7 @@
         let height = 200;
 
         let svg = d3.select('#minimap').selectAll('svg')
-             .attr('height', height)
+            .attr('height', height)
             .attr('width', width);
 
         let startTime = data[0].start_time;
@@ -182,31 +182,42 @@
                 highestCount = data[i].count;
             }
         }
-        let verticalScaling = height/highestCount;
+        let verticalScale = d3.scaleLinear()
+            .domain([0, highestCount])
+            .range([height, 0]);
+        let yAxis = d3.axisRight(verticalScale);
 
 
-        svg.select('.main-area')
+        let minimapBars = svg.select('.main-area')
             .selectAll('rect')
-            .data(data)
-            .enter()
+            .data(data);
+
+        let minimapBarsEnter = minimapBars.enter()
             .append('rect')
+            .style('fill', '#ffd385');
+
+        minimapBars.merge(minimapBarsEnter)
+            .transition()
             .attr('x', function(d) {
                 return horizontalScale(d.start_time);
             })
             .attr('y', function(d) {
-                return 200 - (d.count * verticalScaling);
+                return verticalScale(d.count);
             })
             .attr('width', function(d) {
                 return widthScale(d.end_time - d.start_time);
             })
             .attr('height', function(d) {
-                return d.count * verticalScaling;
-            })
-            .style('fill', '#ffd385');
+                return height - verticalScale(d.count);
+            });
+
 
         svg.selectAll('.x-axis')
             .attr("transform", "translate(0, 200)")
             .call(xAxis);
+        svg.selectAll('.y-axis')
+            .call(yAxis);
+
 
     }
 
