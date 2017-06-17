@@ -1,22 +1,24 @@
 (function () {
     'strict mode';
 
-    function loadTraceData(start, end) {
+    function loadTraceData(timeRange) {
         $.ajax({
             url: 'trace',
             method: 'GET',
-            data: { start: 0, end: 100 },
+            data: { start: timeRange[0], end: timeRange[1] },
             dataType: "json"
         }).done(function (data) {
             preprocess(data);
             console.log(data);
-            visualize(data);
+            visualize(data, timeRange[0], timeRange[1]);
         });
     }
 
     function preprocess(data) {
         for (let i = 0; i < data.length; i++) {
             let inst = data[i];
+            inst.startTime = inst.events[0].time;
+            inst.endTime = inst.events[inst.events.length - 1].time;
             for (let j = 0; j < inst.events.length; j++) {
                 let event = inst.events[j];
                 event.instCount = i;
@@ -31,7 +33,6 @@
         }
     }
 
-    let scalingFactor = 1e10;
     let stageColor = d3.scaleOrdinal()
         .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
         .range([
@@ -67,36 +68,57 @@
             'complete'
         ]);
 
-    function visualize(data) {
+    function visualize(data, startTime, endTime) {
         let tooltip = $('#tooltip');
+        
+        let width = window.innerWidth;
+        let height = window.innerHeight - 200;
 
         let svg = d3.select('#pipeline-figure').selectAll('svg');
+        let mainArea = svg.select('.main-area');
 
-            // .attr('width', window.innerWidth)
-            // .attr('height', window.innerHeight);
+        let xScale = d3.scaleLinear()
+            .domain([startTime, endTime])
+            .range([0, width]);
+        let widthScale = d3.scaleLinear()
+            .domain([0, endTime - startTime])
+            .range([0, width]);
+        let instHeight = height / data.length;
+        let xAxis = d3.axisBottom(xScale)
+            .tickSize(height - 20)
+            .tickFormat(function(d) {
+                return d.toString();
+            });
+        svg.selectAll('.x-axis')
+            // .attr("transform", "translate(0, 200)")
+            .call(xAxis);
 
-        let mainArea = svg.append('g')
-            .attr('viewBox', "50, 0, 1000, 500");
 
-        mainArea.selectAll('g')
-            .data(data)
-            .enter()
-            .append('g')
-            .selectAll('rect')
-            .data(function (d) { return d.events; })
-            .enter()
-            .append('rect')
+        let instBars = mainArea.selectAll('g')
+            .data(data);
+
+        instBars.exit().remove();
+
+        let instBarsEnter = instBars.enter()
+            .append('g');
+
+        let instStage = instBars.merge(instBarsEnter).selectAll('rect')
+            .data(function (d) { return d.events; });
+
+        instStage.exit().remove();
+
+        let instStageEnter = instStage.enter()
+            .append('rect');
+        
+        instStage.merge(instStageEnter)
             .attr('x', function (d) {
-                return d.time * scalingFactor;
+                return xScale(d.time);
             })
-            .attr('y', function (d) { return d.instCount * 10; })
+            .attr('y', function (d) { return d.instCount * instHeight; })
             .attr('width', function (d) {
-                if (d.endTime - d.time <= 1e-10) {
-                    return 0;
-                }
-                return (d.endTime - d.time) * scalingFactor;
+                return widthScale(d.endTime - d.time);
             })
-            .attr('height', 7)
+            .attr('height', instHeight * 0.7)
             .style('fill', function (d) {
                 if (d.time == 0) {
                     return null;
@@ -133,15 +155,15 @@
 
     }
 
-    $(document).ready(debouncer(function () {
+    $(document).ready(function () {
         resize();
-        $(window).resize(function () {
+        $(window).resize(debouncer(function () {
             resize();
-        });
+        }));
 
         // loadTraceData(0, 100);
         loadMinimapData();
-    }));
+    });
 
     var minimapData;
 
@@ -158,6 +180,7 @@
         });
     }
 
+    var minimapX;
     function renderMinimap() {
         let data = minimapData;
         let width = window.innerWidth;
@@ -169,13 +192,13 @@
 
         let startTime = data[0].start_time;
         let endTime = data[data.length - 1].end_time;
-        let horizontalScale = d3.scaleLinear()
+        minimapX = d3.scaleLinear()
             .domain([startTime, endTime])
             .range([0, width]);
         let widthScale = d3.scaleLinear()
             .domain([0, endTime - startTime])
             .range([0, width]);
-        let xAxis = d3.axisTop(horizontalScale);
+        let xAxis = d3.axisTop(minimapX);
 
         let highestCount = 0;
         for (let i = 0; i < data.length; i++) {
@@ -200,7 +223,7 @@
         minimapBars.merge(minimapBarsEnter)
             .transition()
             .attr('x', function(d) {
-                return horizontalScale(d.start_time);
+                return minimapX(d.start_time);
             })
             .attr('y', function(d) {
                 return verticalScale(d.count);
@@ -212,14 +235,29 @@
                 return height - verticalScale(d.count);
             });
 
+        
+        let brush = d3.brushX()
+            .extent([[0, 0], [width, height]])
+            .on('end', brushed);
+        svg.select('.brush')
+            .call(brush)
+            .call(brush.move, [width/10, width/5]);
+
 
         svg.selectAll('.x-axis')
             .attr("transform", "translate(0, 200)")
             .call(xAxis);
         svg.selectAll('.y-axis')
             .call(yAxis);
+    }
 
+    function brushed() {
+        let s = d3.event.selection;
+        let timeRange = s.map(minimapX.invert, minimapX);
 
+        console.log(timeRange);
+
+        loadTraceData(timeRange);
     }
 
     function debouncer( func , timeout ) {
