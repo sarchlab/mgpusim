@@ -57,20 +57,32 @@ func parseTrace() {
 }
 
 func httpTrace(w http.ResponseWriter, r *http.Request) {
-	start, err := strconv.Atoi(r.FormValue("start"))
+	start, err := strconv.ParseFloat(r.FormValue("start"), 64)
 	dieOnErr(err)
 
-	end, err := strconv.Atoi(r.FormValue("end"))
+	end, err := strconv.ParseFloat(r.FormValue("end"), 64)
 	dieOnErr(err)
 
 	respond := "["
-	for i := start; i < end; i++ {
-		bytes, err := json.Marshal(trace[i])
+	isFirst := true
+	for i := 0; i < len(trace); i++ {
+		inst := trace[i]
+
+		if inst.Events[len(inst.Events)-1].Time < start {
+			continue
+		}
+
+		if inst.Events[0].Time > end {
+			break
+		}
+
+		bytes, err := json.Marshal(inst)
 		dieOnErr(err)
 
-		if i != start {
+		if !isFirst {
 			respond += ","
 		}
+		isFirst = false
 		respond += string(bytes)
 	}
 	respond += "]"
