@@ -105,7 +105,6 @@ func main() {
 func initPlatform() {
 	// Simulation engine
 	engine = core.NewSerialEngine()
-	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
 
 	// Connection
 	connection = core.NewDirectConnection(engine)
@@ -139,7 +138,7 @@ func initPlatform() {
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
@@ -237,7 +236,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 4
+	req.Packet.GridSizeX = 256 * 1000
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256
