@@ -105,9 +105,6 @@ func main() {
 func initPlatform() {
 	// Simulation engine
 	engine = core.NewSerialEngine()
-	// engine.AcceptHook(core.NewEventLogger(log.New(os.Stdout, "", 0)))
-	f, _ := os.Create("width.csv")
-	engine.AcceptHook(core.NewEventIssueWidthLogger(log.New(f, "", 0)))
 
 	// Connection
 	connection = core.NewDirectConnection(engine)
