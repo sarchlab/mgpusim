@@ -22,11 +22,11 @@ var _ = Describe("Disassembler", func() {
 	It("should disassemble kernel 1", func() {
 		var buf bytes.Buffer
 
-		elfFile, err := elf.Open("../test_data/disasm/kernels.hsaco")
+		elfFile, err := elf.Open("../samples/fir/disasm/kernels.hsaco")
 		defer elfFile.Close()
 		Expect(err).To(BeNil())
 
-		targetFile, err := os.Open("..//test_data/disasm/kernel.s")
+		targetFile, err := os.Open("../samples/fir/disasm/kernel.s")
 		Expect(err).To(BeNil())
 		defer targetFile.Close()
 
