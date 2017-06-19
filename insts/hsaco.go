@@ -3,6 +3,7 @@ package insts
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 // An HsaCo is the kernel code to be executed on an AMD GPU
@@ -167,4 +168,40 @@ func (h *HsaCoHeader) EnableSgprGridWorkGroupCountY() bool {
 
 func (h *HsaCoHeader) EnableSgprGridWorkGroupCountZ() bool {
 	return extractBits(h.Flags, 9, 9) != 0
+}
+
+// Info prints the human readable information that is carried by the HsaCoHeader
+func (h *HsaCoHeader) Info() string {
+	s := "HSA Code Object:\n"
+	s += fmt.Sprintf("\tVersion: %d.%d\n", h.CodeVersionMajor, h.CodeVersionMinor)
+	s += fmt.Sprintf("\tMachine: %d.%d.%d\n", h.MachineVersionMajor, h.MachineVersionMinor, h.MachineVersionStepping)
+	s += fmt.Sprintf("\tCode Entry Byte Offset: %d\n", h.KernelCodeEntryByteOffset)
+	s += fmt.Sprintf("\tPrefetch: %d (size: %d)\n", h.KernelCodePrefetchByteOffset, h.KernelCodePrefetchByteSize)
+	s += fmt.Sprintf("\tMax Scratch Memory: %d\n", h.MaxScratchBackingMemoryByteSize)
+	s += fmt.Sprintf("\tGranulated WI VGPR Count:%d\n", h.WIVgprCount)
+	s += fmt.Sprintf("\tGranulated Wf SGPR Count:%d\n", h.WFSgprCount)
+	s += fmt.Sprintf("\tRegisters:\n")
+	s += fmt.Sprintf("\t\tEnable SGPR Private SegmentBuffer: %t\n", h.EnableSgprPrivateSegmentBuffer())
+	s += fmt.Sprintf("\t\tEnable SGPR Dispatch Ptr: %t\n", h.EnableSgprDispatchPtr())
+	s += fmt.Sprintf("\t\tEnable SGPR Queue Ptr: %t\n", h.EnableSgprQueuePtr())
+	s += fmt.Sprintf("\t\tEnable SGPR Kernarg Segment Ptr: %t\n", h.EnableSgprKernelArgSegmentPtr())
+	s += fmt.Sprintf("\t\tEnable SGPR Dispatch ID: %t\n", h.EnableSgprDispatchId())
+	s += fmt.Sprintf("\t\tEnable SGPR Flat Scratch Init: %t\n", h.EnableSgprFlatScratchInit())
+	s += fmt.Sprintf("\t\tEnable SGPR Private Segment Size: %t\n", h.EnableSgprPrivateSegementSize())
+	s += fmt.Sprintf("\t\tEnable SGPR Work-Group Count (X, Y, Z): %t %t %t\n",
+		h.EnableSgprGridWorkGroupCountX(),
+		h.EnableSgprGridWorkGroupCountY(),
+		h.EnableSgprGridWorkGroupCountZ())
+	s += fmt.Sprintf("\t\tEnable SGPR Work-Group ID (X, Y, Z): %t %t %t\n",
+		h.EnableSgprWorkGroupIdX(),
+		h.EnableSgprWorkGroupIdY(),
+		h.EnableSgprWorkGroupIdZ())
+	s += fmt.Sprintf("\t\tEnable SGPR Work-Group Info %t\n", h.EnableSgprWorkGroupInfo())
+	s += fmt.Sprintf("\t\tEnable SGPR Private Segment Wave Byte Offset: %t\n", h.EnableSgprPrivateSegmentWaveByteOffset())
+
+	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID X: %t\n", true)
+	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Y: %t\n", h.EnableVgprWorkItemId() > 0)
+	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Z: %t\n", h.EnableVgprWorkItemId() > 1)
+
+	return s
 }
