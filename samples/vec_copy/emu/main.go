@@ -140,6 +140,7 @@ func loadProgram() {
 	}
 
 	hsaco = insts.NewHsaCoFromData(hsacoData)
+	log.Println(hsaco.Info())
 }
 
 func initMem() {
@@ -154,29 +155,37 @@ func initMem() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }
 
 func run() {
 	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 36))
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
-	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
+	err := globalMem.Storage.Write(0x10000, kernelArgsBuffer.Bytes())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	packet := new(kernels.HsaKernelDispatchPacket)
+	packet.GridSizeX = 256 * 4
+	packet.GridSizeY = 1
+	packet.GridSizeZ = 1
+	packet.WorkgroupSizeX = 256
+	packet.WorkgroupSizeY = 1
+	packet.WorkgroupSizeZ = 1
+	packet.KernelObject = 0
+	packet.KernargAddress = 0x10000
+	var buffer bytes.Buffer
+	binary.Write(&buffer, binary.LittleEndian, packet)
+	err = globalMem.Storage.Write(0x11000, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
-	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 4
-	req.Packet.GridSizeY = 1
-	req.Packet.GridSizeZ = 1
-	req.Packet.WorkgroupSizeX = 256
-	req.Packet.WorkgroupSizeY = 1
-	req.Packet.WorkgroupSizeZ = 1
-	req.Packet.KernelObject = 0
-	req.Packet.KernargAddress = 65536
+	req.Packet = packet
+	req.PacketAddress = 0x11000
 
 	req.SetSrc(host)
 	req.SetDst(gpu)

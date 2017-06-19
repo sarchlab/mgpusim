@@ -144,7 +144,14 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup) error {
 }
 
 func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
-	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
+	co := wf.CodeObject
+	pkt := wf.Packet
+
+	wf.PC = pkt.KernelObject + co.KernelCodeEntryByteOffset
+
+	if co.EnableSgprPrivateSegmentBuffer() {
+		log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
+	}
 }
 
 func (cu *ComputeUnit) isAllWfCompleted() bool {
