@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"encoding/binary"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
@@ -149,8 +151,103 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 
 	wf.PC = pkt.KernelObject + co.KernelCodeEntryByteOffset
 
+	SGPRPtr := 0
 	if co.EnableSgprPrivateSegmentBuffer() {
 		log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
+		SGPRPtr += 16
+	}
+
+	if co.EnableSgprDispatchPtr() {
+		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], wf.PacketAddress)
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprQueuePtr() {
+		log.Printf("EnableSgprQueuePtr is not supported")
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprKernelArgSegmentPtr() {
+		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], pkt.KernargAddress)
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprDispatchId() {
+		log.Printf("EnableSgprDispatchID is not supported")
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprFlatScratchInit() {
+		log.Printf("EnableSgprFlatScratchInit is not supported")
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprPrivateSegementSize() {
+		log.Printf("EnableSgprPrivateSegmentSize is not supported")
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprGridWorkGroupCountX() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			(pkt.GridSizeX+uint32(pkt.WorkgroupSizeX)-1)/uint32(pkt.WorkgroupSizeX))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprGridWorkGroupCountY() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			(pkt.GridSizeY+uint32(pkt.WorkgroupSizeY)-1)/uint32(pkt.WorkgroupSizeY))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprGridWorkGroupCountZ() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			(pkt.GridSizeZ+uint32(pkt.WorkgroupSizeZ)-1)/uint32(pkt.WorkgroupSizeZ))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupIdX() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			uint32(wf.WG.IDX))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupIdY() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			uint32(wf.WG.IDY))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupIdZ() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			uint32(wf.WG.IDZ))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupInfo() {
+		log.Printf("EnableSgprPrivateSegmentSize is not supported")
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprPrivateSegmentWaveByteOffset() {
+		log.Printf("EnableSgprPrivateSegentWaveByteOffset is not supported")
+		SGPRPtr += 4
+	}
+
+	var x, y, z int
+	for i := wf.FirstWiFlatID; i < wf.FirstWiFlatID+64; i++ {
+		z = i / (wf.WG.SizeX * wf.WG.SizeY)
+		y = i % (wf.WG.SizeX * wf.WG.SizeY) / wf.WG.SizeX
+		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
+
+		binary.LittleEndian.PutUint32(wf.VRegFile[i*256:i*256+4], uint32(x))
+
+		if co.EnableVgprWorkItemId() > 0 {
+			binary.LittleEndian.PutUint32(wf.VRegFile[i*256:i*256+4], uint32(y))
+		}
+
+		if co.EnableVgprWorkItemId() > 1 {
+			binary.LittleEndian.PutUint32(wf.VRegFile[i*256:i*256+4], uint32(z))
+		}
 	}
 }
 

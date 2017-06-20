@@ -9,8 +9,9 @@ import (
 type Wavefront struct {
 	*kernels.Wavefront
 
-	CodeObject *insts.HsaCo
-	Packet     *kernels.HsaKernelDispatchPacket
+	CodeObject    *insts.HsaCo
+	Packet        *kernels.HsaKernelDispatchPacket
+	PacketAddress uint64
 
 	Completed  bool
 	AtBarrier  bool
@@ -31,6 +32,7 @@ func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 	if nativeWf != nil {
 		wf.CodeObject = nativeWf.WG.Grid.CodeObject
 		wf.Packet = nativeWf.WG.Grid.Packet
+		wf.PacketAddress = nativeWf.WG.Grid.PacketAddress
 	}
 
 	wf.SRegFile = make([]byte, 4*102)
