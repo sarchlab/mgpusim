@@ -51,6 +51,7 @@ func (p *ScratchpadPreparerImpl) prepareSOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
+	p.clear(scratchPad)
 	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
 	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
 	p.readScc(wf, scratchPad[24:25])
@@ -86,9 +87,6 @@ func (p *ScratchpadPreparerImpl) readOperand(
 	laneID int,
 	buf []byte,
 ) {
-
-	p.clear(buf)
-
 	switch operand.OperandType {
 	case insts.RegOperand:
 		if operand.RegCount == 0 || operand.RegCount == 1 {
