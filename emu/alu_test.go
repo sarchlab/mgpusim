@@ -37,12 +37,28 @@ var _ = Describe("ALU", func() {
 		state.inst.FormatType = insts.Sop2
 		state.inst.Opcode = 0
 
-		copy(state.scratchpad[0:8], insts.Uint32ToBytes(1<<31+10))  // SRC0
+		copy(state.scratchpad[0:8], insts.Uint32ToBytes(1<<31-1))   // SRC0
 		copy(state.scratchpad[8:16], insts.Uint32ToBytes(1<<31+15)) // SRC1
 
 		alu.Run(state)
 
-		Expect(insts.BytesToUint32(state.scratchpad[16:24])).To(Equal(uint32(25)))
+		Expect(insts.BytesToUint32(state.scratchpad[16:24])).To(Equal(uint32(14)))
 		Expect(state.scratchpad[24]).To(Equal(byte(1)))
 	})
+
+	It("should run S_ADDC_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop2
+		state.inst.Opcode = 4
+
+		copy(state.scratchpad[0:8], insts.Uint32ToBytes(1<<31-1)) // SRC0
+		copy(state.scratchpad[8:16], insts.Uint32ToBytes(1<<31))  // SRC1
+		state.scratchpad[24] = 1                                  // SCC
+
+		alu.Run(state)
+
+		Expect(insts.BytesToUint32(state.scratchpad[16:24])).To(Equal(uint32(0)))
+		Expect(state.scratchpad[24]).To(Equal(byte(1)))
+	})
+
 })
