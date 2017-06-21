@@ -136,6 +136,22 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
 	})
 
+	It("should prepare for VOP1", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Vop1
+		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		for i := 0; i < 64; i++ {
+			regInterface.RegToRead(wf, i, insts.Regs[insts.V0],
+				[]byte{1, 2, 3, 4})
+		}
+
+		sp.Prepare(wf, wf)
+
+		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
+	})
+
 	It("should commit for SOP2", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Sop2
@@ -153,4 +169,21 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
 	})
+
+	It("should commit for VOP1", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Vop1
+		inst.Dst = insts.NewVRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		for i := 0; i < 64; i++ {
+			regInterface.RegToWrite(wf, i, insts.Regs[insts.V0],
+				[]byte{0, 0, 0, 0})
+		}
+
+		sp.Commit(wf, wf)
+
+		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
+	})
+
 })
