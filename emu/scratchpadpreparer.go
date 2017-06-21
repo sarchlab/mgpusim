@@ -36,10 +36,13 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	instEmuState InstEmuState,
 	wf interface{},
 ) {
+	p.clear(instEmuState.Scratchpad())
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
 	case insts.Sop2:
 		p.prepareSOP2(instEmuState, wf)
+	case insts.Vop1:
+		p.prepareVOP1(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -51,10 +54,17 @@ func (p *ScratchpadPreparerImpl) prepareSOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
-	p.clear(scratchPad)
 	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
 	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
 	p.readScc(wf, scratchPad[24:25])
+}
+
+func (p *ScratchpadPreparerImpl) prepareVOP1(
+	instEmuState InstEmuState,
+	wf interface{},
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
 }
 
 // Commit write to the register file according to the scratchpad layout

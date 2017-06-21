@@ -7,3 +7,9 @@ type SOP2Layout struct {
 	DST  uint64
 	SCC  byte
 }
+
+// VOP1Layout represents the scratchpad layout for VOP1 instructions
+type VOP1Layout struct {
+	SRC0 [64]uint64
+	DST  [64]uint64
+}
