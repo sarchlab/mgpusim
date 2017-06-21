@@ -25,7 +25,9 @@ type ScratchpadPreparerImpl struct {
 
 // NewScratchpadPreparerImpl returns a newly created ScratchpadPreparerImpl,
 // injecting the dependency of the RegInterface.
-func NewScratchpadPreparerImpl(regInterface RegInterface) *ScratchpadPreparerImpl {
+func NewScratchpadPreparerImpl(
+	regInterface RegInterface,
+) *ScratchpadPreparerImpl {
 	p := new(ScratchpadPreparerImpl)
 	p.regInterface = regInterface
 	return p
@@ -65,6 +67,11 @@ func (p *ScratchpadPreparerImpl) prepareVOP1(
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
+
+	for i := 0; i < 64; i++ {
+		p.readOperand(inst.Src0, wf, i, scratchPad[i*8:i*8+8])
+	}
+
 }
 
 // Commit write to the register file according to the scratchpad layout
@@ -76,6 +83,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 	switch inst.FormatType {
 	case insts.Sop2:
 		p.commitSOP2(instEmuState, wf)
+	case insts.Vop1:
+		p.commitVOP1(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -86,9 +95,23 @@ func (p *ScratchpadPreparerImpl) commitSOP2(
 	wf interface{},
 ) {
 	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
-	p.writeOperand(inst.Dst, wf, 0, scratchPad[16:24])
-	p.writeScc(wf, scratchPad[24:25])
+	scratchpad := instEmuState.Scratchpad()
+	p.writeOperand(inst.Dst, wf, 0, scratchpad[16:24])
+	p.writeScc(wf, scratchpad[24:25])
+}
+
+func (p *ScratchpadPreparerImpl) commitVOP1(
+	instEmuState InstEmuState,
+	wf interface{},
+) {
+	inst := instEmuState.Inst()
+	scratchpad := instEmuState.Scratchpad()
+
+	offset := 512
+	for i := 0; i < 64; i++ {
+		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
+		offset += 8
+	}
 }
 
 func (p *ScratchpadPreparerImpl) readOperand(
