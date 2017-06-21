@@ -23,6 +23,8 @@ func (u *ALU) Run(state InstEmuState) {
 	switch inst.FormatType {
 	case insts.Sop2:
 		u.runSop2(state)
+	case insts.Vop1:
+		u.runVOP1(state)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -77,6 +79,21 @@ func (u *ALU) runSADDCU32(state InstEmuState) {
 
 	copy(sp[16:24], insts.Uint32ToBytes(dst))
 	sp[24] = scc
+}
+
+func (u *ALU) runVOP1(state InstEmuState) {
+	inst := state.Inst()
+	switch inst.Opcode {
+	case 1:
+		u.runVMOVB32(state)
+	default:
+		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runVMOVB32(state InstEmuState) {
+	sp := state.Scratchpad()
+	copy(sp[512:1024], sp[0:512])
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
