@@ -16,9 +16,10 @@ type Wavefront struct {
 	Completed  bool
 	AtBarrier  bool
 	inst       *insts.Inst
-	scratchpad []byte
+	scratchpad Scratchpad
 
 	PC       uint64
+	Exec     uint64
 	SCC      byte
 	SRegFile []byte
 	VRegFile []byte
@@ -48,6 +49,56 @@ func (wf *Wavefront) Inst() *insts.Inst {
 }
 
 // Scratchpad returns the sratchpad that is associated with the wavefront
-func (wf *Wavefront) Scratchpad() []byte {
+func (wf *Wavefront) Scratchpad() Scratchpad {
 	return wf.scratchpad
+}
+
+// SRegValue returns s(i)'s value
+func (wf *Wavefront) SRegValue(i int) uint32 {
+	return insts.BytesToUint32(wf.SRegFile[i*4 : i*4+4])
+}
+
+// VRegValue returns the value of v(i) of a certain lain
+func (wf *Wavefront) VRegValue(lane int, i int) uint32 {
+	offset := lane*1024 + i*4
+	return insts.BytesToUint32(wf.VRegFile[offset : offset+4])
+}
+
+// ReadReg returns the raw register value
+func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
+	numBytes := reg.ByteSize
+	if regCount == 2 {
+		numBytes *= 2
+	}
+
+	var value = make([]byte, numBytes)
+	if reg.IsSReg() {
+		offset := reg.RegIndex() * 4
+		copy(value, wf.SRegFile[offset:offset+numBytes])
+	} else if reg.IsVReg() {
+		offset := laneID*256*4 + reg.RegIndex()*4
+		copy(value, wf.VRegFile[offset:offset+numBytes])
+	} else if reg.RegType == insts.Scc {
+		value[0] = wf.SCC
+	}
+
+	return value
+}
+
+// WriteReg returns the raw register value
+func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []byte) {
+	numBytes := reg.ByteSize
+	if regCount == 2 {
+		numBytes *= 2
+	}
+
+	if reg.IsSReg() {
+		offset := reg.RegIndex() * 4
+		copy(wf.SRegFile[offset:offset+numBytes], data)
+	} else if reg.IsVReg() {
+		offset := laneID*256*4 + reg.RegIndex()*4
+		copy(wf.VRegFile[offset:offset+numBytes], data)
+	} else if reg.RegType == insts.Scc {
+		wf.SCC = data[0]
+	}
 }

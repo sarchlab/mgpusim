@@ -8,5 +8,5 @@ import (
 // execution status.
 type InstEmuState interface {
 	Inst() *insts.Inst
-	Scratchpad() []byte
+	Scratchpad() Scratchpad
 }

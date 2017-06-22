@@ -8,14 +8,14 @@ import (
 
 type mockInstState struct {
 	inst       *insts.Inst
-	scratchpad []byte
+	scratchpad Scratchpad
 }
 
 func (s *mockInstState) Inst() *insts.Inst {
 	return s.inst
 }
 
-func (s *mockInstState) Scratchpad() []byte {
+func (s *mockInstState) Scratchpad() Scratchpad {
 	return s.scratchpad
 }
 
@@ -29,7 +29,7 @@ var _ = Describe("ALU", func() {
 	BeforeEach(func() {
 		alu = new(ALU)
 		state = new(mockInstState)
-		state.scratchpad = make([]byte, 32)
+		state.scratchpad = make([]byte, 1024)
 	})
 
 	It("should run S_ADD_U32", func() {
@@ -39,7 +39,6 @@ var _ = Describe("ALU", func() {
 
 		copy(state.scratchpad[0:8], insts.Uint32ToBytes(1<<31-1))   // SRC0
 		copy(state.scratchpad[8:16], insts.Uint32ToBytes(1<<31+15)) // SRC1
-
 		alu.Run(state)
 
 		Expect(insts.BytesToUint32(state.scratchpad[16:24])).To(Equal(uint32(14)))
@@ -59,6 +58,19 @@ var _ = Describe("ALU", func() {
 
 		Expect(insts.BytesToUint32(state.scratchpad[16:24])).To(Equal(uint32(0)))
 		Expect(state.scratchpad[24]).To(Equal(byte(1)))
+	})
+
+	It("should run V_MOV_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop1
+		state.inst.Opcode = 1
+
+		alu.Run(state)
+
+		sp := state.Scratchpad()
+		for i := 0; i < 64*8; i++ {
+			Expect(sp[i]).To(Equal(sp[i+512]))
+		}
 	})
 
 })
