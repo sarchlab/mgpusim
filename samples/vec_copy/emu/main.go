@@ -100,8 +100,7 @@ func initPlatform() {
 	commandProcessor.Driver = gpu
 	disassembler := insts.NewDisassembler()
 	for i := 0; i < 4; i++ {
-		regInterface := new(emu.RegInterfaceImpl)
-		scratchpadPreparer := emu.NewScratchpadPreparerImpl(regInterface)
+		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
 		alu := new(emu.ALU)
 		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
 			engine, disassembler, scratchpadPreparer, alu)

@@ -87,7 +87,7 @@ func (u *ALU) runVOP1(state InstEmuState) {
 	case 1:
 		u.runVMOVB32(state)
 	default:
-		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
+		log.Panicf("Opcode %d for VOP1 format is not implemented", inst.Opcode)
 	}
 }
 

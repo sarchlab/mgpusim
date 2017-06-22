@@ -1,123 +1,22 @@
 package emu
 
 import (
-	"log"
+	"bytes"
+	"encoding/binary"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
-type regToAccess struct {
-	Wf     interface{}
-	laneID int
-	Reg    *insts.Reg
-	Data   []byte
-}
-
-type mockRegInterface struct {
-	regToRead  []*regToAccess
-	regToWrite []*regToAccess
-}
-
-func newMockRegInterface() *mockRegInterface {
-	i := new(mockRegInterface)
-	i.regToRead = make([]*regToAccess, 0)
-	i.regToWrite = make([]*regToAccess, 0)
-	return i
-}
-
-func (i *mockRegInterface) RegToRead(
-	wf interface{},
-	laneID int,
-	reg *insts.Reg,
-	data []byte,
-) {
-	i.regToRead = append(i.regToRead, &regToAccess{wf, laneID, reg, data})
-}
-
-func (i *mockRegInterface) RegToWrite(
-	wf interface{},
-	laneID int,
-	reg *insts.Reg,
-	data []byte,
-) {
-	i.regToWrite = append(i.regToWrite, &regToAccess{wf, laneID, reg, data})
-}
-
-func (i *mockRegInterface) ReadReg(
-	wf interface{},
-	laneID int,
-	reg *insts.Reg,
-	writeTo []byte,
-) {
-	for index, regToAccess := range i.regToRead {
-		if regToAccess.Wf == wf &&
-			regToAccess.laneID == laneID &&
-			reg == regToAccess.Reg &&
-			len(writeTo) == len(regToAccess.Data) {
-
-			i.regToRead[index] = i.regToRead[len(i.regToRead)-1]
-			i.regToRead = i.regToRead[:len(i.regToRead)-1]
-
-			copy(writeTo, regToAccess.Data)
-
-			return
-		}
-	}
-
-	log.Panicf("Register %s reading not expected", reg.Name)
-}
-
-func (i *mockRegInterface) WriteReg(
-	wf interface{},
-	laneID int,
-	reg *insts.Reg,
-	writeFrom []byte,
-) {
-	for index, regToAccess := range i.regToWrite {
-		if regToAccess.Wf == wf &&
-			regToAccess.laneID == laneID &&
-			reg == regToAccess.Reg &&
-			len(writeFrom) == len(regToAccess.Data) {
-
-			writeSameData := true
-			for j := range writeFrom {
-				if writeFrom[j] != regToAccess.Data[j] {
-					writeSameData = false
-					break
-				}
-			}
-
-			if !writeSameData {
-				break
-			}
-
-			i.regToWrite[index] = i.regToWrite[len(i.regToWrite)-1]
-			i.regToWrite = i.regToWrite[:len(i.regToWrite)-1]
-
-			return
-		}
-	}
-
-	log.Panicf("Register %s writing not expected", reg.Name)
-}
-
-func (i *mockRegInterface) AllExpectedAccessed() bool {
-	return len(i.regToRead) == 0 && len(i.regToWrite) == 0
-}
-
 var _ = Describe("ScratchpadPreparer", func() {
-
 	var (
-		regInterface *mockRegInterface
-		sp           *ScratchpadPreparerImpl
-		wf           *Wavefront
+		sp *ScratchpadPreparerImpl
+		wf *Wavefront
 	)
 
 	BeforeEach(func() {
-		regInterface = newMockRegInterface()
-		sp = NewScratchpadPreparerImpl(regInterface)
+		sp = NewScratchpadPreparerImpl()
 		wf = NewWavefront(nil)
 	})
 
@@ -128,12 +27,17 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src1 = insts.NewIntOperand(1, 1)
 		wf.inst = inst
 
-		regInterface.RegToRead(wf, 0, insts.Regs[insts.S0], []byte{1, 2, 3, 4})
-		regInterface.RegToRead(wf, 0, insts.Regs[insts.Scc], []byte{1})
+		copy(wf.SRegFile[0:4], insts.Uint32ToBytes(517))
+		wf.SCC = 1
 
 		sp.Prepare(wf, wf)
 
-		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
+		layout := wf.Scratchpad().AsSOP2()
+		binary.Read(bytes.NewBuffer(wf.scratchpad), binary.LittleEndian, layout)
+		Expect(layout.SRC0).To(Equal(uint64(517)))
+		Expect(layout.SRC1).To(Equal(uint64(1)))
+		Expect(layout.SCC).To(Equal(byte(1)))
+
 	})
 
 	It("should prepare for VOP1", func() {
@@ -143,13 +47,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		for i := 0; i < 64; i++ {
-			regInterface.RegToRead(wf, i, insts.Regs[insts.V0],
-				[]byte{1, 2, 3, 4})
+			copy(wf.VRegFile[i*256*4:i*256*4+4], insts.Uint32ToBytes(uint32(i)))
 		}
 
 		sp.Prepare(wf, wf)
 
-		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
+		layout := wf.Scratchpad().AsVop1()
+		for i := 0; i < 64; i++ {
+			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
+		}
 	})
 
 	It("should commit for SOP2", func() {
@@ -158,16 +64,14 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		wf.inst = inst
 
-		for i := range wf.scratchpad {
-			wf.scratchpad[i] = byte(i)
-		}
-
-		regInterface.RegToWrite(wf, 0, insts.Regs[insts.S0], []byte{16, 17, 18, 19})
-		regInterface.RegToWrite(wf, 0, insts.Regs[insts.Scc], []byte{24})
+		layout := wf.Scratchpad().AsSOP2()
+		layout.DST = 517
+		layout.SCC = 1
 
 		sp.Commit(wf, wf)
 
-		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
+		Expect(wf.SCC).To(Equal(byte(1)))
+		Expect(wf.SRegValue(0)).To(Equal(uint32(517)))
 	})
 
 	It("should commit for VOP1", func() {
@@ -176,14 +80,16 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.inst = inst
 
+		layout := wf.Scratchpad().AsVop1()
+
 		for i := 0; i < 64; i++ {
-			regInterface.RegToWrite(wf, i, insts.Regs[insts.V0],
-				[]byte{0, 0, 0, 0})
+			layout.DST[i] = uint64(i)
 		}
 
 		sp.Commit(wf, wf)
 
-		Expect(regInterface.AllExpectedAccessed()).To(BeTrue())
+		for i := 0; i < 64; i++ {
+			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
+		}
 	})
-
 })
