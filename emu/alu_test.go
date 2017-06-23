@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/mem"
 )
 
 type mockInstState struct {
@@ -22,14 +23,18 @@ func (s *mockInstState) Scratchpad() Scratchpad {
 var _ = Describe("ALU", func() {
 
 	var (
-		alu   *ALU
-		state *mockInstState
+		alu     *ALU
+		state   *mockInstState
+		storage *mem.Storage
 	)
 
 	BeforeEach(func() {
+		storage = mem.NewStorage(1 * mem.GB)
 		alu = new(ALU)
+		alu.Storage = storage
+
 		state = new(mockInstState)
-		state.scratchpad = make([]byte, 1024)
+		state.scratchpad = make([]byte, 4096)
 	})
 
 	It("should run S_ADD_U32", func() {
@@ -70,6 +75,24 @@ var _ = Describe("ALU", func() {
 		sp := state.Scratchpad()
 		for i := 0; i < 64*8; i++ {
 			Expect(sp[i]).To(Equal(sp[i+512]))
+		}
+	})
+
+	It("should run FLAT_LOAD_USHORT", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Flat
+		state.inst.Opcode = 18
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 4)
+			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
 		}
 	})
 

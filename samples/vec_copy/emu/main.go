@@ -102,6 +102,7 @@ func initPlatform() {
 	for i := 0; i < 4; i++ {
 		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
 		alu := new(emu.ALU)
+		alu.Storage = globalMem.Storage
 		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
 			engine, disassembler, scratchpadPreparer, alu)
 		computeUnit.Freq = 1 * core.GHz
