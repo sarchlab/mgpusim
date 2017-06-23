@@ -10,10 +10,12 @@ import (
 	"math"
 
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/mem"
 )
 
 // ALU is where the instructions get executed.
 type ALU struct {
+	Storage *mem.Storage
 }
 
 // Run executes the instruction in the scatchpad of the InstEmuState
@@ -25,6 +27,8 @@ func (u *ALU) Run(state InstEmuState) {
 		u.runSop2(state)
 	case insts.Vop1:
 		u.runVOP1(state)
+	case insts.Flat:
+		u.runFlat(state)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -94,6 +98,31 @@ func (u *ALU) runVOP1(state InstEmuState) {
 func (u *ALU) runVMOVB32(state InstEmuState) {
 	sp := state.Scratchpad()
 	copy(sp[512:1024], sp[0:512])
+}
+
+func (u *ALU) runFlat(state InstEmuState) {
+	inst := state.Inst()
+	switch inst.Opcode {
+	case 18:
+		u.runFlatLoadUShort(state)
+	default:
+		log.Panicf("Opcode %d for FLAT format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runFlatLoadUShort(state InstEmuState) {
+	sp := state.Scratchpad().AsFlat()
+	for i := 0; i < 64; i++ {
+		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
+		if err != nil {
+			log.Panic(err)
+		}
+
+		buf[2] = 0
+		buf[3] = 0
+
+		sp.DST[i*4] = insts.BytesToUint32(buf)
+	}
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
