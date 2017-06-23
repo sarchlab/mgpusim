@@ -14,8 +14,14 @@ func (sp Scratchpad) AsSOP2() *SOP2Layout {
 
 // AsVOP1 returns the ScratchPad as a struct representing the VOP1 scratchpad
 // layout
-func (sp Scratchpad) AsVop1() *VOP1Layout {
+func (sp Scratchpad) AsVOP1() *VOP1Layout {
 	return (*VOP1Layout)(unsafe.Pointer(&sp[0]))
+}
+
+// AsFlat returns the ScratchPad as a struct representing the Flat scratchpad
+// layout
+func (sp Scratchpad) AsFlat() *FlatLayout {
+	return (*FlatLayout)(unsafe.Pointer(&sp[0]))
 }
 
 // SOP2Layout represents the scratchpad layout for SOP2 instructions
@@ -30,4 +36,11 @@ type SOP2Layout struct {
 type VOP1Layout struct {
 	SRC0 [64]uint64
 	DST  [64]uint64
+}
+
+// FlatLayout represents the scratchpad layout for Flat instructions
+type FlatLayout struct {
+	ADDR [64]uint64
+	DATA [256]uint32 // 256 to consider the X4 instructions
+	DST  [256]uint32
 }

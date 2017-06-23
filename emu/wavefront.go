@@ -38,7 +38,7 @@ func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 
 	wf.SRegFile = make([]byte, 4*102)
 	wf.VRegFile = make([]byte, 4*64*256)
-	wf.scratchpad = make([]byte, 1024)
+	wf.scratchpad = make([]byte, 4096)
 
 	return wf
 }
@@ -67,8 +67,8 @@ func (wf *Wavefront) VRegValue(lane int, i int) uint32 {
 // ReadReg returns the raw register value
 func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	numBytes := reg.ByteSize
-	if regCount == 2 {
-		numBytes *= 2
+	if regCount >= 2 {
+		numBytes *= regCount
 	}
 
 	var value = make([]byte, numBytes)
@@ -88,8 +88,8 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 // WriteReg returns the raw register value
 func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []byte) {
 	numBytes := reg.ByteSize
-	if regCount == 2 {
-		numBytes *= 2
+	if regCount >= 2 {
+		numBytes *= regCount
 	}
 
 	if reg.IsSReg() {

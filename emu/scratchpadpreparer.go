@@ -40,6 +40,8 @@ func (p *ScratchpadPreparerImpl) Prepare(
 		p.prepareSOP2(instEmuState, wf)
 	case insts.Vop1:
 		p.prepareVOP1(instEmuState, wf)
+	case insts.Flat:
+		p.prepareFlat(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -66,7 +68,19 @@ func (p *ScratchpadPreparerImpl) prepareVOP1(
 	for i := 0; i < 64; i++ {
 		p.readOperand(inst.Src0, wf, i, scratchPad[i*8:i*8+8])
 	}
+}
 
+func (p *ScratchpadPreparerImpl) prepareFlat(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+
+	for i := 0; i < 64; i++ {
+		p.readOperand(inst.Addr, wf, i, scratchPad[i*8:i*8+8])
+		p.readOperand(inst.Data, wf, i, scratchPad[512+i*16:512+i*16+16])
+	}
 }
 
 // Commit write to the register file according to the scratchpad layout
@@ -80,10 +94,13 @@ func (p *ScratchpadPreparerImpl) Commit(
 		p.commitSOP2(instEmuState, wf)
 	case insts.Vop1:
 		p.commitVOP1(instEmuState, wf)
+	case insts.Flat:
+		p.commitFlat(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
 }
+
 func (p *ScratchpadPreparerImpl) commitSOP2(
 	instEmuState InstEmuState,
 	wf *Wavefront,
@@ -105,6 +122,18 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 	for i := 0; i < 64; i++ {
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 		offset += 8
+	}
+}
+
+func (p *ScratchpadPreparerImpl) commitFlat(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+
+	for i := 0; i < 64; i++ {
+		p.writeOperand(inst.Dst, wf, i, scratchPad[1536+i*16:1536+i*16+16])
 	}
 }
 
