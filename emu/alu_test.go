@@ -112,4 +112,22 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[0]).To(Equal(uint32(217)))
 	})
 
+	It("should run S_LOAD_DWORDX2", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Smem
+		state.inst.Opcode = 1
+
+		layout := state.Scratchpad().AsSMEM()
+		layout.Base = 1024
+		layout.Offset = 16
+
+		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
+		storage.Write(uint64(1044), insts.Uint32ToBytes(218))
+
+		alu.Run(state)
+
+		Expect(layout.DST[0]).To(Equal(uint32(217)))
+		Expect(layout.DST[1]).To(Equal(uint32(218)))
+	})
+
 })

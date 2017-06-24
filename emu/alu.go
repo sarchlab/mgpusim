@@ -132,6 +132,8 @@ func (u *ALU) runSMEM(state InstEmuState) {
 	switch inst.Opcode {
 	case 0:
 		u.runSLOADDWORD(state)
+	case 1:
+		u.runSLOADDWORDX2(state)
 	default:
 		log.Panicf("Opcode %d for SMEM format is not implemented", inst.Opcode)
 	}
@@ -146,6 +148,18 @@ func (u *ALU) runSLOADDWORD(state InstEmuState) {
 	}
 
 	sp.DST[0] = insts.BytesToUint32(buf)
+}
+
+func (u *ALU) runSLOADDWORDX2(state InstEmuState) {
+	sp := state.Scratchpad().AsSMEM()
+	spRaw := state.Scratchpad()
+
+	buf, err := u.Storage.Read(sp.Base+sp.Offset, 8)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	copy(spRaw[32:40], buf)
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
