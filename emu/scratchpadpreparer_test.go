@@ -88,6 +88,33 @@ var _ = Describe("ScratchpadPreparer", func() {
 		}
 	})
 
+	It("should prepare for SMEM", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Smem
+		inst.Opcode = 18
+		inst.Data = insts.NewSRegOperand(0, 0, 4)
+		inst.Offset = insts.NewIntOperand(1, 1)
+		inst.Base = insts.NewSRegOperand(4, 4, 2)
+		wf.inst = inst
+
+		wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(100))
+		wf.WriteReg(insts.SReg(1), 1, 0, insts.Uint32ToBytes(101))
+		wf.WriteReg(insts.SReg(2), 1, 0, insts.Uint32ToBytes(102))
+		wf.WriteReg(insts.SReg(3), 1, 0, insts.Uint32ToBytes(103))
+		wf.WriteReg(insts.SReg(4), 2, 0, insts.Uint64ToBytes(1024))
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsSMEM()
+		Expect(layout.DATA[0]).To(Equal(uint32(100)))
+		Expect(layout.DATA[1]).To(Equal(uint32(101)))
+		Expect(layout.DATA[2]).To(Equal(uint32(102)))
+		Expect(layout.DATA[3]).To(Equal(uint32(103)))
+		Expect(layout.Offset).To(Equal(uint64(1)))
+		Expect(layout.Base).To(Equal(uint64(1024)))
+
+	})
+
 	It("should commit for SOP2", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Sop2
@@ -146,4 +173,24 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(wf.VRegValue(i, 6)).To(Equal(uint32(i)))
 		}
 	})
+
+	It("should commit for SMEM", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Smem
+		inst.Opcode = 4
+		inst.Data = insts.NewSRegOperand(0, 0, 16)
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsSMEM()
+		for i := 0; i < 16; i++ {
+			layout.DST[i] = uint32(i)
+		}
+
+		sp.Commit(wf, wf)
+
+		for i := 0; i < 16; i++ {
+			Expect(wf.SRegValue(i)).To(Equal(uint32(i)))
+		}
+	})
+
 })

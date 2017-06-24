@@ -24,12 +24,25 @@ func (sp Scratchpad) AsFlat() *FlatLayout {
 	return (*FlatLayout)(unsafe.Pointer(&sp[0]))
 }
 
+// AsSMEM returns the ScratchPad as a struct representing the SMEM scratchpad
+// layout
+func (sp Scratchpad) AsSMEM() *SMEMLayout {
+	return (*SMEMLayout)(unsafe.Pointer(&sp[0]))
+}
+
 // SOP2Layout represents the scratchpad layout for SOP2 instructions
 type SOP2Layout struct {
 	SRC0 uint64
 	SRC1 uint64
 	DST  uint64
 	SCC  byte
+}
+
+type SMEMLayout struct {
+	DATA   [4]uint32  // 0:16
+	Offset uint64     // 16:24
+	Base   uint64     // 24:32
+	DST    [16]uint32 // 32:96
 }
 
 // VOP1Layout represents the scratchpad layout for VOP1 instructions
