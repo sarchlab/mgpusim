@@ -31,6 +31,8 @@ func (u *ALU) Run(state InstEmuState) {
 		u.runVOP1(state)
 	case insts.Flat:
 		u.runFlat(state)
+	case insts.Sopp:
+		u.runSOPP(state)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -160,6 +162,19 @@ func (u *ALU) runSLOADDWORDX2(state InstEmuState) {
 	}
 
 	copy(spRaw[32:40], buf)
+}
+
+func (u *ALU) runSOPP(state InstEmuState) {
+	inst := state.Inst()
+	switch inst.Opcode {
+	case 0: // S_NOP
+	// Do nothing
+	case 12: // S_WAITCNT
+	// Do nothing
+	default:
+		log.Panicf("Opcode %d for SOPP format is not implemented", inst.Opcode)
+	}
+
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {

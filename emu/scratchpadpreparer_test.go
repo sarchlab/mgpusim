@@ -115,6 +115,18 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	})
 
+	It("should prepare for SOPP", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sopp
+		inst.SImm16 = insts.NewIntOperand(1, 1)
+		wf.inst = inst
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsSOPP()
+		Expect(layout.IMM).To(Equal(uint32(1)))
+	})
+
 	It("should commit for SOP2", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Sop2

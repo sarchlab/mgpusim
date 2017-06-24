@@ -44,6 +44,8 @@ func (p *ScratchpadPreparerImpl) Prepare(
 		p.prepareFlat(instEmuState, wf)
 	case insts.Smem:
 		p.prepareSMEM(instEmuState, wf)
+	case insts.Sopp:
+		p.prepareSOPP(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -100,6 +102,16 @@ func (p *ScratchpadPreparerImpl) prepareSMEM(
 	p.readOperand(inst.Base, wf, 0, scratchpad[24:32])
 }
 
+func (p *ScratchpadPreparerImpl) prepareSOPP(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+
+	p.readOperand(inst.SImm16, wf, 0, scratchPad[0:4])
+}
+
 // Commit write to the register file according to the scratchpad layout
 func (p *ScratchpadPreparerImpl) Commit(
 	instEmuState InstEmuState,
@@ -115,6 +127,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 		p.commitFlat(instEmuState, wf)
 	case insts.Smem:
 		p.commitSMEM(instEmuState, wf)
+	case insts.Sopp:
+		// Nothing to commit
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
