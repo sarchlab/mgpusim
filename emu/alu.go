@@ -24,7 +24,9 @@ func (u *ALU) Run(state InstEmuState) {
 
 	switch inst.FormatType {
 	case insts.Sop2:
-		u.runSop2(state)
+		u.runSOP2(state)
+	case insts.Smem:
+		u.runSMEM(state)
 	case insts.Vop1:
 		u.runVOP1(state)
 	case insts.Flat:
@@ -35,7 +37,7 @@ func (u *ALU) Run(state InstEmuState) {
 
 }
 
-func (u *ALU) runSop2(state InstEmuState) {
+func (u *ALU) runSOP2(state InstEmuState) {
 	log.Println("before: ", u.dumpScratchpadAsSop2(state, -1))
 	inst := state.Inst()
 	switch inst.Opcode {
@@ -123,6 +125,27 @@ func (u *ALU) runFlatLoadUShort(state InstEmuState) {
 
 		sp.DST[i*4] = insts.BytesToUint32(buf)
 	}
+}
+
+func (u *ALU) runSMEM(state InstEmuState) {
+	inst := state.Inst()
+	switch inst.Opcode {
+	case 0:
+		u.runSLOADDWORD(state)
+	default:
+		log.Panicf("Opcode %d for SMEM format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runSLOADDWORD(state InstEmuState) {
+	sp := state.Scratchpad().AsSMEM()
+
+	buf, err := u.Storage.Read(sp.Base+sp.Offset, 4)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	sp.DST[0] = insts.BytesToUint32(buf)
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
