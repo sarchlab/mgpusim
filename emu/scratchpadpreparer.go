@@ -87,7 +87,9 @@ func (p *ScratchpadPreparerImpl) prepareVOP3(
 	for i := 0; i < 64; i++ {
 		p.readOperand(inst.Src0, wf, i, spRaw[i*8:i*8+8])
 		p.readOperand(inst.Src1, wf, i, spRaw[512+i*8:512+i*8+8])
-		p.readOperand(inst.Src2, wf, i, spRaw[1024+i*8:1024+i*8+8])
+		if inst.Src2 != nil {
+			p.readOperand(inst.Src2, wf, i, spRaw[1024+i*8:1024+i*8+8])
+		}
 	}
 
 	sp.ABS = byte(inst.Abs)
