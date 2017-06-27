@@ -18,6 +18,12 @@ func (sp Scratchpad) AsVOP1() *VOP1Layout {
 	return (*VOP1Layout)(unsafe.Pointer(&sp[0]))
 }
 
+// AsVOP3A returns the ScratchPad as a struct representing the VOP3a scratchpad
+// layout
+func (sp Scratchpad) AsVOP3A() *VOP3ALayout {
+	return (*VOP3ALayout)(unsafe.Pointer(&sp[0]))
+}
+
 // AsFlat returns the ScratchPad as a struct representing the Flat scratchpad
 // layout
 func (sp Scratchpad) AsFlat() *FlatLayout {
@@ -61,6 +67,18 @@ type SOPPLayout struct {
 type VOP1Layout struct {
 	SRC0 [64]uint64
 	DST  [64]uint64
+}
+
+// VOP3ALayout represents the scratchpad layout for VOP3a instructions
+type VOP3ALayout struct {
+	SRC0  [64]uint64
+	SRC1  [64]uint64
+	SRC2  [64]uint64
+	VDST  [64]uint64
+	NEG   byte
+	ABS   byte
+	OMOD  byte
+	CLAMP byte
 }
 
 // FlatLayout represents the scratchpad layout for Flat instructions
