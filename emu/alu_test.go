@@ -92,7 +92,7 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			Expect(sp.VDST[i]).To(Equal(uint64(i * 2)))
+			Expect(sp.DST[i]).To(Equal(uint64(i * 2)))
 		}
 
 	})

@@ -130,7 +130,7 @@ func (u *ALU) vop3aPostprocess(state InstEmuState) {
 func (u *ALU) runVMULLOU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 	for i := 0; i < 64; i++ {
-		sp.VDST[i] = sp.SRC0[i] * sp.SRC1[i]
+		sp.DST[i] = sp.SRC0[i] * sp.SRC1[i]
 	}
 }
 
