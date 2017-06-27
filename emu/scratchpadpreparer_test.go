@@ -59,15 +59,33 @@ var _ = Describe("ScratchpadPreparer", func() {
 		}
 	})
 
+	It("should prepare for VOP2", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Vop2
+		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
+		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
+		wf.inst = inst
+
+		for i := 0; i < 64; i++ {
+			wf.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i)))
+			wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i)))
+		}
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsVOP3A()
+		for i := 0; i < 64; i++ {
+			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
+		}
+	})
+
 	It("should prepare for VOP3", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Vop3
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
 		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
 		inst.Src2 = insts.NewIntOperand(1, 1)
-		inst.Abs = 7
-		inst.Neg = 7
-		inst.Clamp = true
 		wf.inst = inst
 
 		for i := 0; i < 64; i++ {
@@ -83,10 +101,6 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
 			Expect(layout.SRC2[i]).To(Equal(uint64(1)))
 		}
-		Expect(layout.ABS).To(Equal(byte(7)))
-		Expect(layout.NEG).To(Equal(byte(7)))
-		Expect(layout.CLAMP).To(Equal(byte(1)))
-
 	})
 
 	It("should prepare for Flat", func() {
@@ -192,6 +206,25 @@ var _ = Describe("ScratchpadPreparer", func() {
 		}
 	})
 
+	It("should commit for VOP2", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Vop2
+		inst.Dst = insts.NewVRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsVOP2()
+
+		for i := 0; i < 64; i++ {
+			layout.DST[i] = uint64(i)
+		}
+
+		sp.Commit(wf, wf)
+
+		for i := 0; i < 64; i++ {
+			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
+		}
+	})
+
 	It("should commit for VOP3", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Vop3
@@ -200,7 +233,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		layout := wf.Scratchpad().AsVOP3A()
 		for i := 0; i < 64; i++ {
-			layout.VDST[i] = uint64(i)
+			layout.DST[i] = uint64(i)
 		}
 
 		sp.Commit(wf, wf)
