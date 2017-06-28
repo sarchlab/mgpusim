@@ -122,8 +122,15 @@ func (u *ALU) runVADDI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	for i := 0; i < 64; i++ {
-		sp.DST[i] = uint64(int32ToBits(
-			asInt32(uint32(sp.SRC0[i])) + asInt32(uint32(sp.SRC1[i]))))
+		src0 := asInt32(uint32(sp.SRC0[i]))
+		src1 := asInt32(uint32(sp.SRC1[i]))
+
+		if (src1 > 0 && src0 > math.MaxInt32-src1) ||
+			(src1 < 0 && src0 < math.MinInt32+src1) {
+			sp.VCC |= 1 << uint32(i)
+		}
+
+		sp.DST[i] = uint64(int32ToBits(src0 + src1))
 	}
 }
 

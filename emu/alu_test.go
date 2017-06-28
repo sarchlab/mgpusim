@@ -1,6 +1,8 @@
 package emu
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3/insts"
@@ -94,6 +96,46 @@ var _ = Describe("ALU", func() {
 		for i := 0; i < 64; i++ {
 			Expect(asInt32(uint32(sp.DST[0]))).To(Equal(int32(-90)))
 		}
+	})
+
+	It("should run V_ADD_I32, with positive overflow", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 25
+
+		sp := state.Scratchpad().AsVOP2()
+		for i := 0; i < 64; i++ {
+			sp.SRC0[i] = uint64(int32ToBits(math.MaxInt32 - 10))
+			sp.SRC1[i] = uint64(int32ToBits(12))
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(asInt32(uint32(sp.DST[0]))).To(
+				Equal(int32(math.MinInt32 + 1)))
+		}
+		Expect(sp.VCC).To(Equal(uint64(0xffffffffffffffff)))
+	})
+
+	It("should run V_ADD_I32, with negtive overflow", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 25
+
+		sp := state.Scratchpad().AsVOP2()
+		for i := 0; i < 64; i++ {
+			sp.SRC0[i] = uint64(int32ToBits(math.MinInt32 + 10))
+			sp.SRC1[i] = uint64(int32ToBits(-12))
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(asInt32(uint32(sp.DST[0]))).To(
+				Equal(int32(math.MaxInt32 - 1)))
+		}
+		Expect(sp.VCC).To(Equal(uint64(0xffffffffffffffff)))
 	})
 
 	It("should run V_MUL_LO_U32", func() {
