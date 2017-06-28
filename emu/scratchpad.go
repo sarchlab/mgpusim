@@ -72,12 +72,14 @@ type SOPPLayout struct {
 // VOP1Layout represents the scratchpad layout for VOP1 instructions
 type VOP1Layout struct {
 	DST  [64]uint64
+	VCC  uint64
 	SRC0 [64]uint64
 }
 
 // VOP2Layout represents the scratchpad layout for VOP2 instructions
 type VOP2Layout struct {
 	DST  [64]uint64
+	VCC  uint64
 	SRC0 [64]uint64
 	SRC1 [64]uint64
 }
@@ -85,6 +87,7 @@ type VOP2Layout struct {
 // VOP3ALayout represents the scratchpad layout for VOP3a instructions
 type VOP3ALayout struct {
 	DST  [64]uint64
+	VCC  uint64
 	SRC0 [64]uint64
 	SRC1 [64]uint64
 	SRC2 [64]uint64
@@ -95,4 +98,16 @@ type FlatLayout struct {
 	ADDR [64]uint64
 	DATA [256]uint32 // 256 to consider the X4 instructions
 	DST  [256]uint32
+}
+
+func asInt32(bits uint32) int32 {
+	return *((*int32)((unsafe.Pointer(&bits))))
+}
+
+func asInt64(bits uint64) int64 {
+	return *((*int64)((unsafe.Pointer(&bits))))
+}
+
+func int32ToBits(num int32) uint32 {
+	return *((*uint32)((unsafe.Pointer(&num))))
 }

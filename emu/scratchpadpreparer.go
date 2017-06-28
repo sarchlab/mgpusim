@@ -71,10 +71,14 @@ func (p *ScratchpadPreparerImpl) prepareVOP1(
 	wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
+	sp := instEmuState.Scratchpad()
 
+	copy(sp[512:520], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
+
+	offset := 520
 	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, scratchPad[512+i*8:512+i*8+8])
+		p.readOperand(inst.Src0, wf, i, sp[offset:offset+8])
+		offset += 8
 	}
 }
 
@@ -83,11 +87,17 @@ func (p *ScratchpadPreparerImpl) prepareVOP2(
 	wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
-	spRaw := instEmuState.Scratchpad()
+	sp := instEmuState.Scratchpad()
 
+	copy(sp[512:520], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
+
+	src0Offset := 520
+	src1Offset := 1032
 	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, spRaw[512+i*8:512+i*8+8])
-		p.readOperand(inst.Src1, wf, i, spRaw[1024+i*8:1024+i*8+8])
+		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
+		src0Offset += 8
+		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
+		src1Offset += 8
 	}
 
 }
@@ -97,20 +107,27 @@ func (p *ScratchpadPreparerImpl) prepareVOP3(
 	wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
-	spRaw := instEmuState.Scratchpad()
+	sp := instEmuState.Scratchpad()
 
+	copy(sp[512:520], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
+
+	src0Offset := 520
+	src1Offset := 1032
+	src2Offset := 1544
 	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Src0, wf, i, spRaw[512+i*8:512+i*8+8])
-		p.readOperand(inst.Src1, wf, i, spRaw[1024+i*8:1024+i*8+8])
+		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
+		src0Offset += 8
+		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
+		src1Offset += 8
 		if inst.Src2 != nil {
-			p.readOperand(inst.Src2, wf, i, spRaw[1536+i*8:1536+i*8+8])
+			p.readOperand(inst.Src2, wf, i, sp[src2Offset:src2Offset+8])
+			src2Offset += 8
 		}
 	}
 }
 
 func (p *ScratchpadPreparerImpl) prepareFlat(
-	instEmuState InstEmuState,
-	wf *Wavefront,
+	instEmuState InstEmuState, wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
@@ -189,6 +206,8 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 
+	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[512:520])
+
 	offset := 0
 	for i := 0; i < 64; i++ {
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
@@ -202,6 +221,8 @@ func (p *ScratchpadPreparerImpl) commitVOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+
+	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[512:520])
 
 	offset := 0
 	for i := 0; i < 64; i++ {
@@ -217,8 +238,12 @@ func (p *ScratchpadPreparerImpl) commitVOP3A(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 
+	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, sp[512:520])
+
+	offset := 0
 	for i := 0; i < 64; i++ {
-		p.writeOperand(inst.Dst, wf, i, sp[i*8:i*8+8])
+		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
+		offset += 8
 	}
 }
 

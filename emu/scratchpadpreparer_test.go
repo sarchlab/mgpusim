@@ -50,6 +50,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			wf.WriteReg(insts.VReg(0), 1, i, insts.Uint32ToBytes(uint32(i)))
 		}
+		wf.WriteReg(insts.Regs[insts.Vcc], 1, 0,
+			insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
 
 		sp.Prepare(wf, wf)
 
@@ -57,6 +59,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
 		}
+		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should prepare for VOP2", func() {
@@ -70,6 +73,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 			wf.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i)))
 			wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i)))
 		}
+		wf.WriteReg(insts.Regs[insts.Vcc], 1, 0,
+			insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
 
 		sp.Prepare(wf, wf)
 
@@ -78,6 +83,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
 			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
 		}
+		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should prepare for VOP3", func() {
@@ -92,6 +98,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 			wf.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i)))
 			wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i)))
 		}
+		wf.WriteReg(insts.Regs[insts.Vcc], 1, 0,
+			insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
 
 		sp.Prepare(wf, wf)
 
@@ -101,6 +109,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
 			Expect(layout.SRC2[i]).To(Equal(uint64(1)))
 		}
+		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should prepare for Flat", func() {
@@ -194,16 +203,17 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsVOP1()
-
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
+		layout.VCC = uint64(0xffff0000ffff0000)
 
 		sp.Commit(wf, wf)
 
 		for i := 0; i < 64; i++ {
 			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
 		}
+		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should commit for VOP2", func() {
@@ -213,16 +223,17 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsVOP2()
-
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
+		layout.VCC = uint64(0xffff0000ffff0000)
 
 		sp.Commit(wf, wf)
 
 		for i := 0; i < 64; i++ {
 			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
 		}
+		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should commit for VOP3", func() {
@@ -235,12 +246,14 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
+		layout.VCC = uint64(0xffff0000ffff0000)
 
 		sp.Commit(wf, wf)
 
 		for i := 0; i < 64; i++ {
 			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
 		}
+		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
 	It("should commit for FLAT", func() {
