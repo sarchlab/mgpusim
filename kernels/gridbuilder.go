@@ -18,6 +18,7 @@ func (b *GridBuilderImpl) Build(req *LaunchKernelReq) *Grid {
 
 	grid.Packet = req.Packet
 	grid.CodeObject = req.HsaCo
+	grid.PacketAddress = req.PacketAddress
 
 	b.spawnWorkGroups(grid)
 
