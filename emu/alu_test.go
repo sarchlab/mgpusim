@@ -225,7 +225,7 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
-	It("should run FLAT_STORE_DWROD", func() {
+	It("should run FLAT_STORE_DWORD", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Flat
 		state.inst.Opcode = 28
@@ -233,8 +233,7 @@ var _ = Describe("ALU", func() {
 		layout := state.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
 			layout.ADDR[i] = uint64(i * 4)
-			layout.DATA[i] = uint32(i)
-			// Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+			layout.DATA[i*4] = uint32(i)
 		}
 
 		alu.Run(state)

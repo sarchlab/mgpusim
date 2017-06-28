@@ -109,6 +109,10 @@ func initPlatform() {
 		computeUnit.GlobalMemStorage = globalMem.Storage
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
+
+		file, _ := os.Open("isa.debug")
+		wfHook := emu.NewWfHook(log.New(file, "", 0))
+		computeUnit.AcceptHook(wfHook)
 	}
 
 	// Connection
@@ -145,20 +149,20 @@ func loadProgram() {
 
 func initMem() {
 	// Write the input
-	inputData := make([]byte, 1024*4)
+	inputData := make([]byte, 0)
 	buffer := bytes.NewBuffer(inputData)
 	for i := 0; i < 1024; i++ {
 		binary.Write(buffer, binary.LittleEndian, int32(i))
 	}
 
-	err := globalMem.Storage.Write(8*mem.KB, inputData)
+	err := globalMem.Storage.Write(8*mem.KB, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 36))
+	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
 	err := globalMem.Storage.Write(0x10000, kernelArgsBuffer.Bytes())
