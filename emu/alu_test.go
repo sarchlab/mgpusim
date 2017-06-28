@@ -138,6 +138,22 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(0xffffffffffffffff)))
 	})
 
+	It("should run V_ADDC_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 28
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = math.MaxUint32 - 10
+		sp.SRC1[0] = 10
+		sp.VCC = uint64(1)
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0)))
+		Expect(sp.VCC).To(Equal(uint64(1)))
+	})
+
 	It("should run V_MUL_LO_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop3
@@ -177,6 +193,24 @@ var _ = Describe("ALU", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Flat
 		state.inst.Opcode = 18
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 4)
+			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+		}
+	})
+
+	It("should run FLAT_LOAD_DWROD", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Flat
+		state.inst.Opcode = 20
 
 		layout := state.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {

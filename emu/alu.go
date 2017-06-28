@@ -113,6 +113,8 @@ func (u *ALU) runVOP2(state InstEmuState) {
 	switch inst.Opcode {
 	case 25:
 		u.runVADDI32(state)
+	case 28:
+		u.runVADDCU32(state)
 	default:
 		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
 	}
@@ -131,6 +133,20 @@ func (u *ALU) runVADDI32(state InstEmuState) {
 		}
 
 		sp.DST[i] = uint64(int32ToBits(src0 + src1))
+	}
+}
+
+func (u *ALU) runVADDCU32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	for i := 0; i < 64; i++ {
+		carry := (sp.VCC & (1 << uint(i))) >> uint(i)
+
+		if sp.SRC0[i] > math.MaxUint32-carry-sp.SRC1[i] {
+			sp.VCC |= 1 << uint32(i)
+		}
+
+		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i] + carry
 	}
 }
 
@@ -176,12 +192,29 @@ func (u *ALU) runFlat(state InstEmuState) {
 	switch inst.Opcode {
 	case 18:
 		u.runFlatLoadUShort(state)
+	case 20:
+		u.runFlatLoadDWord(state)
 	default:
 		log.Panicf("Opcode %d for FLAT format is not implemented", inst.Opcode)
 	}
 }
 
 func (u *ALU) runFlatLoadUShort(state InstEmuState) {
+	sp := state.Scratchpad().AsFlat()
+	for i := 0; i < 64; i++ {
+		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
+		if err != nil {
+			log.Panic(err)
+		}
+
+		buf[2] = 0
+		buf[3] = 0
+
+		sp.DST[i*4] = insts.BytesToUint32(buf)
+	}
+}
+
+func (u *ALU) runFlatLoadDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	for i := 0; i < 64; i++ {
 		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
