@@ -225,6 +225,27 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run FLAT_STORE_DWROD", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Flat
+		state.inst.Opcode = 28
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 4)
+			layout.DATA[i] = uint32(i)
+			// Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			buf, err := storage.Read(uint64(i*4), uint64(4))
+			Expect(err).To(BeNil())
+			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(i)))
+		}
+	})
+
 	It("should run S_LOAD_DWORD", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Smem
