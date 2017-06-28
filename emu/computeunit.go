@@ -238,15 +238,16 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 		z = i / (wf.WG.SizeX * wf.WG.SizeY)
 		y = i % (wf.WG.SizeX * wf.WG.SizeY) / wf.WG.SizeX
 		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
+		laneID := i - wf.FirstWiFlatID
 
-		binary.LittleEndian.PutUint32(wf.VRegFile[i*256:i*256+4], uint32(x))
+		wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
 
 		if co.EnableVgprWorkItemId() > 0 {
-			binary.LittleEndian.PutUint32(wf.VRegFile[i*256:i*256+4], uint32(y))
+			wf.WriteReg(insts.VReg(1), 1, laneID, insts.Uint32ToBytes(uint32(y)))
 		}
 
 		if co.EnableVgprWorkItemId() > 1 {
-			binary.LittleEndian.PutUint32(wf.VRegFile[i*256:i*256+4], uint32(z))
+			wf.WriteReg(insts.VReg(2), 1, laneID, insts.Uint32ToBytes(uint32(z)))
 		}
 	}
 }
@@ -269,11 +270,10 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		inst, err := cu.decoder.Decode(instBuf)
 		wf.inst = inst
-		wf.PC += uint64(inst.ByteSize)
 
-		log.Printf("wg - (%d, %d, %d), wf - %d, %s",
-			wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID, inst)
 		cu.instCount++
+
+		wf.PC += uint64(inst.ByteSize)
 
 		if inst.FormatType == insts.Sopp && inst.Opcode == 10 { // S_ENDPGM
 			wf.AtBarrier = true
@@ -286,6 +286,7 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 		}
 
 		cu.executeInst(wf)
+		cu.InvokeHook(wf, cu, core.Any, inst)
 	}
 
 	return nil

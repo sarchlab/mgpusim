@@ -44,7 +44,6 @@ func (u *ALU) Run(state InstEmuState) {
 }
 
 func (u *ALU) runSOP2(state InstEmuState) {
-	log.Println("before: ", u.dumpScratchpadAsSop2(state, -1))
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -54,7 +53,6 @@ func (u *ALU) runSOP2(state InstEmuState) {
 	default:
 		log.Panicf("Opcode %d for SOP2 format is not implemented", inst.Opcode)
 	}
-	log.Println("after : ", u.dumpScratchpadAsSop2(state, -1))
 }
 
 func (u *ALU) runSADDU32(state InstEmuState) {
@@ -104,8 +102,10 @@ func (u *ALU) runVOP1(state InstEmuState) {
 }
 
 func (u *ALU) runVMOVB32(state InstEmuState) {
-	sp := state.Scratchpad()
-	copy(sp[512:1024], sp[0:512])
+	sp := state.Scratchpad().AsVOP1()
+	for i := 0; i < 64; i++ {
+		sp.DST[i] = sp.SRC0[i]
+	}
 }
 
 func (u *ALU) runVOP2(state InstEmuState) {
@@ -231,7 +231,7 @@ func (u *ALU) runFlatLoadDWord(state InstEmuState) {
 func (u *ALU) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	for i := 0; i < 64; i++ {
-		err := u.Storage.Write(sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i]))
+		err := u.Storage.Write(sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
 		if err != nil {
 			log.Panic(err)
 		}
