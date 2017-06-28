@@ -21,6 +21,7 @@ type Wavefront struct {
 	PC       uint64
 	Exec     uint64
 	SCC      byte
+	VCC      uint64
 	SRegFile []byte
 	VRegFile []byte
 }
@@ -80,6 +81,8 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		copy(value, wf.VRegFile[offset:offset+numBytes])
 	} else if reg.RegType == insts.Scc {
 		value[0] = wf.SCC
+	} else if reg.RegType == insts.Vcc {
+		copy(value, insts.Uint64ToBytes(wf.VCC))
 	}
 
 	return value
@@ -100,5 +103,8 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 		copy(wf.VRegFile[offset:offset+numBytes], data)
 	} else if reg.RegType == insts.Scc {
 		wf.SCC = data[0]
+	} else if reg.RegType == insts.Vcc {
+		wf.VCC = insts.BytesToUint64(data)
 	}
+
 }

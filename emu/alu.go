@@ -29,6 +29,8 @@ func (u *ALU) Run(state InstEmuState) {
 		u.runSMEM(state)
 	case insts.Vop1:
 		u.runVOP1(state)
+	case insts.Vop2:
+		u.runVOP2(state)
 	case insts.Vop3:
 		u.runVOP3A(state)
 	case insts.Flat:
@@ -104,6 +106,25 @@ func (u *ALU) runVOP1(state InstEmuState) {
 func (u *ALU) runVMOVB32(state InstEmuState) {
 	sp := state.Scratchpad()
 	copy(sp[512:1024], sp[0:512])
+}
+
+func (u *ALU) runVOP2(state InstEmuState) {
+	inst := state.Inst()
+	switch inst.Opcode {
+	case 25:
+		u.runVADDI32(state)
+	default:
+		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runVADDI32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	for i := 0; i < 64; i++ {
+		sp.DST[i] = uint64(int32ToBits(
+			asInt32(uint32(sp.SRC0[i])) + asInt32(uint32(sp.SRC1[i]))))
+	}
 }
 
 func (u *ALU) runVOP3A(state InstEmuState) {
