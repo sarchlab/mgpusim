@@ -6,8 +6,9 @@ import (
 
 // A Grid is a running instance of a kernel
 type Grid struct {
-	CodeObject *insts.HsaCo
-	Packet     *HsaKernelDispatchPacket
+	CodeObject    *insts.HsaCo
+	Packet        *HsaKernelDispatchPacket
+	PacketAddress uint64
 
 	WorkGroups []*WorkGroup
 	WorkItems  []*WorkItem

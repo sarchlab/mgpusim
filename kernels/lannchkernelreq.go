@@ -9,8 +9,9 @@ import (
 type LaunchKernelReq struct {
 	*core.ReqBase
 
-	Packet *HsaKernelDispatchPacket
-	HsaCo  *insts.HsaCo
+	Packet        *HsaKernelDispatchPacket
+	PacketAddress uint64
+	HsaCo         *insts.HsaCo
 
 	OK bool
 }

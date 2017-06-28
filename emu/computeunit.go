@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"encoding/binary"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
@@ -144,7 +146,110 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup) error {
 }
 
 func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
-	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
+	co := wf.CodeObject
+	pkt := wf.Packet
+
+	wf.PC = pkt.KernelObject + co.KernelCodeEntryByteOffset
+
+	SGPRPtr := 0
+	if co.EnableSgprPrivateSegmentBuffer() {
+		log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
+		SGPRPtr += 16
+	}
+
+	if co.EnableSgprDispatchPtr() {
+		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], wf.PacketAddress)
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprQueuePtr() {
+		log.Printf("EnableSgprQueuePtr is not supported")
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprKernelArgSegmentPtr() {
+		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], pkt.KernargAddress)
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprDispatchId() {
+		log.Printf("EnableSgprDispatchID is not supported")
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprFlatScratchInit() {
+		log.Printf("EnableSgprFlatScratchInit is not supported")
+		SGPRPtr += 8
+	}
+
+	if co.EnableSgprPrivateSegementSize() {
+		log.Printf("EnableSgprPrivateSegmentSize is not supported")
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprGridWorkGroupCountX() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			(pkt.GridSizeX+uint32(pkt.WorkgroupSizeX)-1)/uint32(pkt.WorkgroupSizeX))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprGridWorkGroupCountY() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			(pkt.GridSizeY+uint32(pkt.WorkgroupSizeY)-1)/uint32(pkt.WorkgroupSizeY))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprGridWorkGroupCountZ() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			(pkt.GridSizeZ+uint32(pkt.WorkgroupSizeZ)-1)/uint32(pkt.WorkgroupSizeZ))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupIdX() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			uint32(wf.WG.IDX))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupIdY() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			uint32(wf.WG.IDY))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupIdZ() {
+		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
+			uint32(wf.WG.IDZ))
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprWorkGroupInfo() {
+		log.Printf("EnableSgprPrivateSegmentSize is not supported")
+		SGPRPtr += 4
+	}
+
+	if co.EnableSgprPrivateSegmentWaveByteOffset() {
+		log.Printf("EnableSgprPrivateSegentWaveByteOffset is not supported")
+		SGPRPtr += 4
+	}
+
+	var x, y, z int
+	for i := wf.FirstWiFlatID; i < wf.FirstWiFlatID+64; i++ {
+		z = i / (wf.WG.SizeX * wf.WG.SizeY)
+		y = i % (wf.WG.SizeX * wf.WG.SizeY) / wf.WG.SizeX
+		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
+		laneID := i - wf.FirstWiFlatID
+
+		wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
+
+		if co.EnableVgprWorkItemId() > 0 {
+			wf.WriteReg(insts.VReg(1), 1, laneID, insts.Uint32ToBytes(uint32(y)))
+		}
+
+		if co.EnableVgprWorkItemId() > 1 {
+			wf.WriteReg(insts.VReg(2), 1, laneID, insts.Uint32ToBytes(uint32(z)))
+		}
+	}
 }
 
 func (cu *ComputeUnit) isAllWfCompleted() bool {
@@ -165,11 +270,10 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		inst, err := cu.decoder.Decode(instBuf)
 		wf.inst = inst
-		wf.PC += uint64(inst.ByteSize)
 
-		log.Printf("wg - (%d, %d, %d), wf - %d, %s",
-			wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID, inst)
 		cu.instCount++
+
+		wf.PC += uint64(inst.ByteSize)
 
 		if inst.FormatType == insts.Sopp && inst.Opcode == 10 { // S_ENDPGM
 			wf.AtBarrier = true
@@ -182,6 +286,7 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 		}
 
 		cu.executeInst(wf)
+		cu.InvokeHook(wf, cu, core.Any, inst)
 	}
 
 	return nil
