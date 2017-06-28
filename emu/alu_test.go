@@ -154,7 +154,23 @@ var _ = Describe("ALU", func() {
 		for i := 0; i < 64; i++ {
 			Expect(sp.DST[i]).To(Equal(uint64(i * 2)))
 		}
+	})
 
+	It("should run V_ASHRREV_I64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop3
+		state.inst.Opcode = 657
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC1[0] = uint64(0x0000000000010000)
+		sp.SRC1[1] = uint64(0xffffffff00010000)
+		sp.SRC0[0] = 4
+		sp.SRC0[1] = 4
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0x0000000000001000)))
+		Expect(sp.DST[1]).To(Equal(uint64(0xfffffffff0001000)))
 	})
 
 	It("should run FLAT_LOAD_USHORT", func() {
