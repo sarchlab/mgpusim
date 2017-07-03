@@ -1,9 +1,25 @@
 package main
 
-import "gitlab.com/yaotsu/gcn3/driver"
+import (
+	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/driver"
+	"gitlab.com/yaotsu/gcn3/emu"
+)
 
 func main() {
 	driver := driver.NewDriver("driver")
 
+	gpu := createGPU()
+	driver.GPUs = append(driver.GPUs, gpu)
 	driver.Listen()
+}
+
+func createGPU() *gcn3.GPU {
+	gpu := gcn3.NewGPU("GPU0")
+	for i := 0; i < 4; i++ {
+		cu := emu.NewComputeUnit("GPU0.CU"+string(i), nil, nil, nil, nil)
+		gpu.CUs = append(gpu.CUs, cu)
+	}
+
+	return gpu
 }

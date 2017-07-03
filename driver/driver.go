@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"encoding/binary"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
@@ -17,12 +19,17 @@ import (
 // the runtime and directly controls the simulator.
 type Driver struct {
 	*core.ComponentBase
+
+	GPUs []*gcn3.GPU
 }
 
 // NewDriver returns a newly created driver.
 func NewDriver(name string) *Driver {
 	d := new(Driver)
 	d.ComponentBase = core.NewComponentBase(name)
+
+	d.GPUs = make([]*gcn3.GPU, 0)
+
 	return d
 }
 
@@ -50,7 +57,7 @@ func (d *Driver) handleConnection(conn net.Conn) {
 	for {
 		numberBuf := make([]byte, 8)
 		lengthBuf := make([]byte, 8)
-		var arg []byte
+		var args []byte
 
 		if _, err := io.ReadFull(conn, numberBuf); err != nil {
 			log.Print(err)
@@ -65,23 +72,27 @@ func (d *Driver) handleConnection(conn net.Conn) {
 		length := insts.BytesToUint64(lengthBuf)
 
 		if length > 0 {
-			arg = make([]byte, length)
-			if _, err := io.ReadFull(conn, arg); err != nil {
+			args = make([]byte, length)
+			if _, err := io.ReadFull(conn, args); err != nil {
 				log.Print(err)
 				break
 			}
 		}
 
-		d.handleIOCTL(number, arg, conn)
+		d.handleIOCTL(number, args, conn)
 	}
 }
 
-func (d *Driver) handleIOCTL(number uint64, arg []byte, conn net.Conn) {
+func (d *Driver) handleIOCTL(number uint64, args []byte, conn net.Conn) {
 	switch number {
 	case 0x01:
 		d.handleIOCTLGetVersion(conn)
+	case 0x21:
+		d.handleIOCTLAcquireSystemProperties(conn)
+	case 0x22:
+		d.handleIOCTLGetNodeProperties(args, conn)
 	default:
-		log.Printf("IOCTL number %d is not supported.", number)
+		log.Printf("IOCTL number 0x%02x is not supported.", number)
 	}
 }
 
@@ -91,9 +102,40 @@ type kfdIOCTLGetVersionArgs struct {
 
 // IOCTL 0x01
 func (d *Driver) handleIOCTLGetVersion(conn net.Conn) {
-	v := new(kfdIOCTLGetVersionArgs)
-	v.majorVersion = 1
-	v.minorVersion = 0
+	args := new(kfdIOCTLGetVersionArgs)
+	args.majorVersion = 1
+	args.minorVersion = 0
 
-	binary.Write(conn, binary.LittleEndian, v)
+	binary.Write(conn, binary.LittleEndian, args)
+}
+
+type kfdIOCTLAcquireSystemProperties struct {
+	numNodes uint32
+}
+
+// IOCTL 0x21
+func (d *Driver) handleIOCTLAcquireSystemProperties(conn net.Conn) {
+	args := new(kfdIOCTLAcquireSystemProperties)
+	args.numNodes = uint32(len(d.GPUs))
+
+	binary.Write(conn, binary.LittleEndian, args)
+}
+
+type kfdIOCTLGetNodeProperties struct {
+	nodeID uint32
+	numCU  uint32
+}
+
+// IOCTL 0x22
+func (d *Driver) handleIOCTLGetNodeProperties(
+	args []byte,
+	conn net.Conn,
+) {
+	prop := new(kfdIOCTLGetNodeProperties)
+	binary.Read(bytes.NewReader(args), binary.LittleEndian, &prop)
+
+	node := d.GPUs[prop.nodeID]
+	prop.numCU = uint32(len(node.CUs))
+
+	binary.Write(conn, binary.LittleEndian, prop)
 }
