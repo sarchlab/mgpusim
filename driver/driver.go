@@ -2,11 +2,15 @@ package driver
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 
+	"encoding/binary"
+
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // A Driver of the GCN3Sim is a Yaotsu component that receives requests from
@@ -43,18 +47,53 @@ func (d *Driver) Listen() {
 }
 
 func (d *Driver) handleConnection(conn net.Conn) {
-	// Make a buffer to hold incoming data.
-	buf := make([]byte, 1024)
+	for {
+		numberBuf := make([]byte, 8)
+		lengthBuf := make([]byte, 8)
+		var arg []byte
 
-	// Read the incoming connection into the buffer.
-	_, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println("Error reading:", err.Error())
+		if _, err := io.ReadFull(conn, numberBuf); err != nil {
+			log.Print(err)
+			break
+		}
+		number := insts.BytesToUint64(numberBuf)
+
+		if _, err := io.ReadFull(conn, lengthBuf); err != nil {
+			log.Print(err)
+			break
+		}
+		length := insts.BytesToUint64(lengthBuf)
+
+		if length > 0 {
+			arg = make([]byte, length)
+			if _, err := io.ReadFull(conn, arg); err != nil {
+				log.Print(err)
+				break
+			}
+		}
+
+		d.handleIOCTL(number, arg, conn)
 	}
+}
 
-	// Send a response back to person contacting us.
-	conn.Write([]byte("Message received."))
+func (d *Driver) handleIOCTL(number uint64, arg []byte, conn net.Conn) {
+	switch number {
+	case 0x01:
+		d.handleIOCTLGetVersion(conn)
+	default:
+		log.Printf("IOCTL number %d is not supported.", number)
+	}
+}
 
-	// Close the connection when you're done with it.
-	conn.Close()
+type kfdIOCTLGetVersionArgs struct {
+	majorVersion, minorVersion uint32
+}
+
+// IOCTL 0x01
+func (d *Driver) handleIOCTLGetVersion(conn net.Conn) {
+	v := new(kfdIOCTLGetVersionArgs)
+	v.majorVersion = 1
+	v.minorVersion = 0
+
+	binary.Write(conn, binary.LittleEndian, v)
 }
