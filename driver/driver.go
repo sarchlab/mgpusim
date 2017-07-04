@@ -87,6 +87,8 @@ func (d *Driver) handleIOCTL(number uint64, args []byte, conn net.Conn) {
 	switch number {
 	case 0x01:
 		d.handleIOCTLGetVersion(conn)
+	case 0x05:
+		d.handleIOCTLGetClockCounters(args, conn)
 	case 0x21:
 		d.handleIOCTLAcquireSystemProperties(conn)
 	case 0x22:
@@ -109,6 +111,22 @@ func (d *Driver) handleIOCTLGetVersion(conn net.Conn) {
 	binary.Write(conn, binary.LittleEndian, args)
 }
 
+type kfdIOCTLGetClockCounters struct {
+	gpuClockCounter, cpuClockCounter, systemClockCounter, systemClockFreq uint64
+	nodeID, pad                                                           uint32
+}
+
+// IOCTL 0x05
+func (d *Driver) handleIOCTLGetClockCounters(args []byte, conn net.Conn) {
+	prop := new(kfdIOCTLGetClockCounters)
+	binary.Read(bytes.NewReader(args), binary.LittleEndian, &prop)
+
+	node := d.GPUs[prop.nodeID]
+	prop.systemClockFreq = uint64(node.Freq)
+
+	binary.Write(conn, binary.LittleEndian, prop)
+}
+
 type kfdIOCTLAcquireSystemProperties struct {
 	numNodes uint32
 }
@@ -122,8 +140,10 @@ func (d *Driver) handleIOCTLAcquireSystemProperties(conn net.Conn) {
 }
 
 type kfdIOCTLGetNodeProperties struct {
-	nodeID uint32
-	numCU  uint32
+	nodeID      uint32
+	numCU       uint32
+	engineID    uint32
+	numMemBanks uint32
 }
 
 // IOCTL 0x22
@@ -136,6 +156,8 @@ func (d *Driver) handleIOCTLGetNodeProperties(
 
 	node := d.GPUs[prop.nodeID]
 	prop.numCU = uint32(len(node.CUs))
+	prop.engineID = 3<<24 + 0<<16 + 8<<10 // GFX 803
+	prop.numMemBanks = 1
 
 	binary.Write(conn, binary.LittleEndian, prop)
 }
