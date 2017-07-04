@@ -93,6 +93,8 @@ func (d *Driver) handleIOCTL(number uint64, args []byte, conn net.Conn) {
 		d.handleIOCTLAcquireSystemProperties(conn)
 	case 0x22:
 		d.handleIOCTLGetNodeProperties(args, conn)
+	case 0x23:
+		d.handleIOCTLGetNodeMemProperties(args, conn)
 	default:
 		log.Printf("IOCTL number 0x%02x is not supported.", number)
 	}
@@ -158,6 +160,35 @@ func (d *Driver) handleIOCTLGetNodeProperties(
 	prop.numCU = uint32(len(node.CUs))
 	prop.engineID = 3<<24 + 0<<16 + 8<<10 // GFX 803
 	prop.numMemBanks = 1
+
+	binary.Write(conn, binary.LittleEndian, prop)
+}
+
+type kfdIOCTLGetNodeMemoryProperties struct {
+	nodeID             uint32
+	bankID             uint32
+	heapType           uint32
+	flags              uint32
+	width              uint32
+	maxClockMHz        uint32
+	byteSize           uint64
+	virtualBaseAddress uint64
+}
+
+func (d *Driver) handleIOCTLGetNodeMemProperties(
+	args []byte,
+	conn net.Conn,
+) {
+	prop := new(kfdIOCTLGetNodeMemoryProperties)
+	binary.Read(bytes.NewReader(args), binary.LittleEndian, &prop)
+
+	// node := d.GPUs[prop.nodeID]
+	prop.heapType = 2 // Private
+	prop.flags = 0
+	prop.width = 512
+	prop.maxClockMHz = 500
+	prop.byteSize = 4 << 30 // 4 GB
+	prop.virtualBaseAddress = 0
 
 	binary.Write(conn, binary.LittleEndian, prop)
 }
