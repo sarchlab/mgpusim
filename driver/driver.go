@@ -114,17 +114,17 @@ func (d *Driver) handleIOCTLGetVersion(conn net.Conn) {
 }
 
 type kfdIOCTLGetClockCounters struct {
-	gpuClockCounter, cpuClockCounter, systemClockCounter, systemClockFreq uint64
-	nodeID, pad                                                           uint32
+	GPUClockCounter, CPUClockCounter, SystemClockCounter, SystemClockFreq uint64
+	NodeID, Pad                                                           uint32
 }
 
 // IOCTL 0x05
 func (d *Driver) handleIOCTLGetClockCounters(args []byte, conn net.Conn) {
 	prop := new(kfdIOCTLGetClockCounters)
-	binary.Read(bytes.NewReader(args), binary.LittleEndian, &prop)
+	binary.Read(bytes.NewReader(args), binary.LittleEndian, prop)
 
-	node := d.GPUs[prop.nodeID]
-	prop.systemClockFreq = uint64(node.Freq)
+	node := d.GPUs[prop.NodeID]
+	prop.SystemClockFreq = uint64(node.Freq)
 
 	binary.Write(conn, binary.LittleEndian, prop)
 }
@@ -142,10 +142,11 @@ func (d *Driver) handleIOCTLAcquireSystemProperties(conn net.Conn) {
 }
 
 type kfdIOCTLGetNodeProperties struct {
-	nodeID      uint32
-	numCU       uint32
-	engineID    uint32
-	numMemBanks uint32
+	NodeID           uint32
+	NumFComputeCores uint32
+	NumSIMDPerCU     uint32
+	EngineID         uint32
+	NumMemBanks      uint32
 }
 
 // IOCTL 0x22
@@ -154,25 +155,26 @@ func (d *Driver) handleIOCTLGetNodeProperties(
 	conn net.Conn,
 ) {
 	prop := new(kfdIOCTLGetNodeProperties)
-	binary.Read(bytes.NewReader(args), binary.LittleEndian, &prop)
+	binary.Read(bytes.NewReader(args), binary.LittleEndian, prop)
 
-	node := d.GPUs[prop.nodeID]
-	prop.numCU = uint32(len(node.CUs))
-	prop.engineID = 3<<24 + 0<<16 + 8<<10 // GFX 803
-	prop.numMemBanks = 1
+	node := d.GPUs[prop.NodeID]
+	prop.NumFComputeCores = uint32(len(node.CUs)) * 4
+	prop.NumSIMDPerCU = 4
+	prop.EngineID = 8<<10 + 0<<16 + 3<<24 // GFX 803
+	prop.NumMemBanks = 4                  // GPU DRAM, LDS, SCRATCH, SVM aperture
 
 	binary.Write(conn, binary.LittleEndian, prop)
 }
 
 type kfdIOCTLGetNodeMemoryProperties struct {
-	nodeID             uint32
-	bankID             uint32
-	heapType           uint32
-	flags              uint32
-	width              uint32
-	maxClockMHz        uint32
-	byteSize           uint64
-	virtualBaseAddress uint64
+	NodeID             uint32
+	BankID             uint32
+	HeapType           uint32
+	Flags              uint32
+	Width              uint32
+	MaxClockMHz        uint32
+	ByteSize           uint64
+	VirtualBaseAddress uint64
 }
 
 func (d *Driver) handleIOCTLGetNodeMemProperties(
@@ -180,15 +182,26 @@ func (d *Driver) handleIOCTLGetNodeMemProperties(
 	conn net.Conn,
 ) {
 	prop := new(kfdIOCTLGetNodeMemoryProperties)
-	binary.Read(bytes.NewReader(args), binary.LittleEndian, &prop)
+	binary.Read(bytes.NewReader(args), binary.LittleEndian, prop)
+	log.Printf("bankid: %d\n", prop.BankID)
 
-	// node := d.GPUs[prop.nodeID]
-	prop.heapType = 2 // Private
-	prop.flags = 0
-	prop.width = 512
-	prop.maxClockMHz = 500
-	prop.byteSize = 4 << 30 // 4 GB
-	prop.virtualBaseAddress = 0
+	switch prop.BankID {
+	case 0: // GPU Main Memory
+		prop.HeapType = 2 // Private
+		prop.Flags = 0
+		prop.Width = 512
+		prop.MaxClockMHz = 500
+		prop.ByteSize = 4 << 30 // 4 GB
+		prop.VirtualBaseAddress = 0
+	case 1:
+		prop.HeapType = 4 // LDS
+	case 2:
+		prop.HeapType = 5 // SCRATCH
+	case 3:
+		prop.HeapType = 6 // SVM
+	default:
+		log.Fatalf("Not sure about what memory bank %d is", prop.BankID)
+	}
 
 	binary.Write(conn, binary.LittleEndian, prop)
 }
