@@ -89,8 +89,10 @@ func (d *Driver) handleIOCTL(number uint64, args []byte, conn net.Conn) {
 		d.handleIOCTLGetVersion(conn)
 	case 0x05:
 		d.handleIOCTLGetClockCounters(args, conn)
+	case 0x19:
+		d.handleIOCTLDeviceApertureNew(args, conn)
 	case 0x21:
-		d.handleIOCTLAcquireSystemProperties(conn)
+		d.handleIOCTLGetSystemProperties(conn)
 	case 0x22:
 		d.handleIOCTLGetNodeProperties(args, conn)
 	case 0x23:
@@ -129,24 +131,78 @@ func (d *Driver) handleIOCTLGetClockCounters(args []byte, conn net.Conn) {
 	binary.Write(conn, binary.LittleEndian, prop)
 }
 
-type kfdIOCTLAcquireSystemProperties struct {
-	numNodes uint32
+type kfdIOCTLDeviceApertureNewArgs struct {
+	NodeID       uint32
+	Pad          uint32
+	LDSBase      uint64
+	LDSLimit     uint64
+	ScratchBase  uint64
+	ScratchLimit uint64
+	GPUVMBase    uint64
+	GPUVMLimit   uint64
+}
+
+// IOCTL 0x19
+func (d *Driver) handleIOCTLDeviceApertureNew(args []byte, conn net.Conn) {
+	aperture := new(kfdIOCTLDeviceApertureNewArgs)
+	binary.Read(bytes.NewReader(args), binary.LittleEndian, aperture)
+
+	aperture.GPUVMBase = (uint64(aperture.NodeID) << 61) + uint64(0x1000000000000)
+	aperture.GPUVMLimit = (uint64(aperture.GPUVMBase) & uint64(0xFFFFFF0000000000)) + 4<<30 - 1
+
+	aperture.ScratchBase = (uint64(1) << 61) + uint64(0x100000000)
+	aperture.ScratchLimit = aperture.ScratchBase&uint64(0xFFFFFFFF00000000) | uint64(0xFFFFFFFF)
+
+	aperture.LDSBase = (uint64(1) << 61)
+	aperture.LDSLimit = aperture.LDSBase&uint64(0xFFFFFFFF00000000) | uint64(0xFFFFFFFF)
+
+	binary.Write(conn, binary.LittleEndian, aperture)
+}
+
+type kfdIOCTLGetSystemPropertiesArgs struct {
+	numNodes    uint32
+	platformOEM uint32
+	platformID  uint32
+	platformRev uint32
 }
 
 // IOCTL 0x21
-func (d *Driver) handleIOCTLAcquireSystemProperties(conn net.Conn) {
-	args := new(kfdIOCTLAcquireSystemProperties)
+func (d *Driver) handleIOCTLGetSystemProperties(conn net.Conn) {
+	args := new(kfdIOCTLGetSystemPropertiesArgs)
 	args.numNodes = uint32(len(d.GPUs))
 
 	binary.Write(conn, binary.LittleEndian, args)
 }
 
 type kfdIOCTLGetNodeProperties struct {
-	NodeID           uint32
-	NumFComputeCores uint32
-	NumSIMDPerCU     uint32
-	EngineID         uint32
-	NumMemBanks      uint32
+	NodeID,
+	CPUCoresCount,
+	SIMDCount,
+	MemBanksCount,
+	CachesCount,
+	IOLinksCount,
+	CPUCoreIDBase,
+	SimdIDBase,
+	Capability,
+	MaxWavesPerSIMD,
+	LdsSizeInKB,
+	GdsSizeInKB,
+	WavefrontSize,
+	ArrayCount,
+	SIMDArrayPerEngine,
+	CUPerSIMDArray,
+	SIMDPerCU,
+	MaxSlotsScratchCU,
+	FWVersion,
+	VendorID,
+	DevideID,
+	LocationID,
+	MaxEngineCLKFcompute,
+	MaxEngineCLKCcompute,
+	EngineID,
+	Pad uint32
+	LocalMemSize        uint64
+	MarketName, AMDName [64]byte
 }
 
 // IOCTL 0x22
@@ -158,10 +214,13 @@ func (d *Driver) handleIOCTLGetNodeProperties(
 	binary.Read(bytes.NewReader(args), binary.LittleEndian, prop)
 
 	node := d.GPUs[prop.NodeID]
-	prop.NumFComputeCores = uint32(len(node.CUs)) * 4
-	prop.NumSIMDPerCU = 4
+	prop = new(kfdIOCTLGetNodeProperties) // Clear
+	prop.SIMDCount = uint32(len(node.CUs)) * 4
+	prop.SIMDPerCU = 4
 	prop.EngineID = 8<<10 + 0<<16 + 3<<24 // GFX 803
-	prop.NumMemBanks = 4                  // GPU DRAM, LDS, SCRATCH, SVM aperture
+	prop.MemBanksCount = 1
+	prop.DevideID = 0x730F
+	prop.LocalMemSize = 4 << 30
 
 	binary.Write(conn, binary.LittleEndian, prop)
 }
