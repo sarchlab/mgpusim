@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
@@ -142,7 +143,7 @@ type Dispatcher struct {
 	*core.ComponentBase
 
 	CUs  []core.Component
-	Freq core.Freq
+	Freq util.Freq
 
 	engine            core.Engine
 	gridBuilder       kernels.GridBuilder

@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 )
 
 // ScalarUnit is the execution unit that is responsible for executing the
@@ -16,7 +17,7 @@ import (
 type ScalarUnit struct {
 	*core.ComponentBase
 
-	Freq core.Freq
+	Freq util.Freq
 
 	engine    core.Engine
 	scheduler core.Component

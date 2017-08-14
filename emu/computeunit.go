@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
@@ -26,7 +27,7 @@ type ComputeUnit struct {
 	scratchpadPreparer ScratchpadPreparer
 	alu                *ALU
 
-	Freq core.Freq
+	Freq util.Freq
 
 	running    *gcn3.MapWGReq
 	wfs        []*Wavefront

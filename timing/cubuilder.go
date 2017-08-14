@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/connections"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/mem"
 )
@@ -12,7 +14,7 @@ import (
 // It simplify the compute unit building process.
 type Builder struct {
 	Engine    core.Engine
-	Freq      core.Freq
+	Freq      util.Freq
 	CUName    string
 	SIMDCount int
 	VGPRCount []int
@@ -25,7 +27,7 @@ type Builder struct {
 // NewBuilder returns a default builder object
 func NewBuilder() *Builder {
 	b := new(Builder)
-	b.Freq = 800 * core.MHz
+	b.Freq = 800 * util.MHz
 	b.SIMDCount = 4
 	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}
@@ -150,7 +152,7 @@ func (b *Builder) setUpDependency(computeUnit *ComputeUnit) {
 // considered. However, users can overwrite this function to use other type of
 // connections inside the compute unit
 func (b *Builder) connect(computeUnit *ComputeUnit) {
-	connection := core.NewDirectConnection(b.Engine)
+	connection := connections.NewDirectConnection(b.Engine)
 	core.PlugIn(computeUnit.Scheduler, "ToSReg", connection)
 	core.PlugIn(computeUnit.Scheduler, "ToVRegs", connection)
 	core.PlugIn(computeUnit.Scheduler, "ToDecoders", connection)

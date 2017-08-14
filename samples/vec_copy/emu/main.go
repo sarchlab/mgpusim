@@ -12,6 +12,9 @@ import (
 	"flag"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/connections"
+	"gitlab.com/yaotsu/core/engines"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
@@ -70,14 +73,14 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewSerialEngine()
+	engine = engines.NewSerialEngine()
 
 	// Connection
-	connection = core.NewDirectConnection(engine)
+	connection = connections.NewDirectConnection(engine)
 
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Freq = 1 * core.GHz
+	globalMem.Freq = 1 * util.GHz
 	globalMem.Latency = 1
 
 	// Host
@@ -89,7 +92,7 @@ func initPlatform() {
 
 	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
-	dispatcher.Freq = 1 * core.GHz
+	dispatcher.Freq = 1 * util.GHz
 	wgCompleteLogger := new(gcn3.WGCompleteLogger)
 	wgCompleteLogger.Logger = logger
 	dispatcher.AcceptHook(wgCompleteLogger)
@@ -105,7 +108,7 @@ func initPlatform() {
 		alu.Storage = globalMem.Storage
 		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
 			engine, disassembler, scratchpadPreparer, alu)
-		computeUnit.Freq = 1 * core.GHz
+		computeUnit.Freq = 1 * util.GHz
 		computeUnit.GlobalMemStorage = globalMem.Storage
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)

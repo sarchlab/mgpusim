@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 )
 
 // BranchUnit is the execution unit that is responsible for executing the
@@ -14,7 +15,7 @@ import (
 type BranchUnit struct {
 	*core.ComponentBase
 
-	Freq core.Freq
+	Freq util.Freq
 
 	engine    core.Engine
 	scheduler core.Component
