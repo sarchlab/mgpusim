@@ -6,12 +6,13 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // WfHook is a hook that hooks to a emulator computeunit for each intruction
 type WfHook struct {
-	core.LogHookBase
+	util.LogHookBase
 }
 
 // NewWfHook returns a new WfHook that keeps instruction log in logger

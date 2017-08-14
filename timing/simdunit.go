@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 )
 
 // SIMDUnit is a unit that can execute vector instructions
@@ -20,7 +21,7 @@ type SIMDUnit struct {
 	*core.ComponentBase
 
 	engine    core.Engine
-	Freq      core.Freq
+	Freq      util.Freq
 	scheduler core.Component
 	running   bool
 
