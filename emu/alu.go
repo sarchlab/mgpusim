@@ -32,6 +32,8 @@ func (u *ALU) Run(state InstEmuState) {
 	switch inst.FormatType {
 	case insts.Sop2:
 		u.runSOP2(state)
+	case insts.Sopc:
+		u.runSOPC(state)
 	case insts.Smem:
 		u.runSMEM(state)
 	case insts.Vop1:
@@ -96,6 +98,14 @@ func (u *ALU) runSADDCU32(state InstEmuState) {
 
 	copy(sp[16:24], insts.Uint32ToBytes(dst))
 	sp[24] = scc
+}
+
+func (u *ALU) runSOPC(state InstEmuState) {
+	inst := state.Inst()
+	switch inst.Opcode {
+	default:
+		log.Panicf("Opcode %d for SOPC format is not implemented", inst.Opcode)
+	}
 }
 
 func (u *ALU) runVOP1(state InstEmuState) {
@@ -210,7 +220,6 @@ func (u *ALU) runFlat(state InstEmuState) {
 
 func (u *ALU) runFlatLoadUShort(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
-	fmt.Println(sp)
 	for i := 0; i < 64; i++ {
 		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
 		if err != nil {

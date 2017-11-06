@@ -131,7 +131,7 @@ func initPlatform() {
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
 	disassembler := insts.NewDisassembler()
-	isaDebug, err := os.Open("isa.debug")
+	isaDebug, err := os.Create("isa.debug")
 	if err != nil {
 		fmt.Print("Isa debug file failed to open\n")
 	}
