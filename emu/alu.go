@@ -102,7 +102,14 @@ func (u *ALU) runSADDCU32(state InstEmuState) {
 
 func (u *ALU) runSOPC(state InstEmuState) {
 	inst := state.Inst()
+	sp := state.Scratchpad().AsSOPC()
 	switch inst.Opcode {
+	case 6:
+		if sp.SRC0 == sp.SRC1 {
+			sp.SCC = 1
+		} else {
+			sp.SCC = 0
+		}
 	default:
 		log.Panicf("Opcode %d for SOPC format is not implemented", inst.Opcode)
 	}
