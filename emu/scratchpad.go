@@ -48,11 +48,24 @@ func (sp Scratchpad) AsSOPP() *SOPPLayout {
 	return (*SOPPLayout)(unsafe.Pointer(&sp[0]))
 }
 
+// AsSOPC returns the ScratchPad as a struct representing the SOPC scratchpad
+// layout
+func (sp Scratchpad) AsSOPC() *SOPCLayout {
+	return (*SOPCLayout)(unsafe.Pointer(&sp[0]))
+}
+
 // SOP2Layout represents the scratchpad layout for SOP2 instructions
 type SOP2Layout struct {
 	SRC0 uint64
 	SRC1 uint64
 	DST  uint64
+	SCC  byte
+}
+
+// SOPCLayout represents the scratchpad layout for SOPC instructions
+type SOPCLayout struct {
+	SRC0 uint64
+	SRC1 uint64
 	SCC  byte
 }
 

@@ -38,6 +38,8 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	switch inst.FormatType {
 	case insts.Sop2:
 		p.prepareSOP2(instEmuState, wf)
+	case insts.Sopc:
+		p.prepareSOPC(instEmuState, wf)
 	case insts.Vop1:
 		p.prepareVOP1(instEmuState, wf)
 	case insts.Vop2:
@@ -163,6 +165,17 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 	p.readOperand(inst.SImm16, wf, 0, scratchPad[0:4])
 }
 
+func (p *ScratchpadPreparerImpl) prepareSOPC(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+
+	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
+	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
+}
+
 // Commit write to the register file according to the scratchpad layout
 func (p *ScratchpadPreparerImpl) Commit(
 	instEmuState InstEmuState,
@@ -184,6 +197,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 		p.commitSMEM(instEmuState, wf)
 	case insts.Sopp:
 		// Nothing to commit
+	case insts.Sopc:
+		p.commitSOPC(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -269,6 +284,14 @@ func (p *ScratchpadPreparerImpl) commitSMEM(
 	if inst.Opcode <= 12 { // Load instructions
 		p.writeOperand(inst.Data, wf, 0, scratchpad[32:96])
 	}
+}
+
+func (p *ScratchpadPreparerImpl) commitSOPC(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	scratchpad := instEmuState.Scratchpad()
+	wf.SCC = scratchpad.AsSOPC().SCC
 }
 
 func (p *ScratchpadPreparerImpl) readOperand(

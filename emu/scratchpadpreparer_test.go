@@ -180,6 +180,21 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(layout.IMM).To(Equal(uint32(1)))
 	})
 
+	It("should prepare for SOPC", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sopc
+		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
+		wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(100))
+		inst.Src1 = insts.NewIntOperand(192, 64)
+		wf.inst = inst
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsSOPC()
+		Expect(layout.SRC0).To(Equal(uint64(100)))
+		Expect(layout.SRC1).To(Equal(uint64(64)))
+	})
+
 	It("should commit for SOP2", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Sop2
@@ -297,6 +312,19 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 16; i++ {
 			Expect(wf.SRegValue(i)).To(Equal(uint32(i)))
 		}
+	})
+
+	It("should commit for SOPC", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sopc
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsSOPC()
+		layout.SCC = 1
+
+		sp.Commit(wf, wf)
+
+		Expect(wf.SCC).To(Equal(byte(1)))
 	})
 
 })
