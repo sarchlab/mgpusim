@@ -131,15 +131,22 @@ func initPlatform() {
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
 	disassembler := insts.NewDisassembler()
+	isaDebug, err := os.Open("isa.debug")
+	if err != nil {
+		fmt.Print("Isa debug file failed to open\n")
+	}
 	for i := 0; i < 4; i++ {
 		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
-		alu := new(emu.ALU)
+		alu := emu.NewALU(globalMem.Storage)
 		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
 			engine, disassembler, scratchpadPreparer, alu)
 		computeUnit.Freq = 1 * util.GHz
 		computeUnit.GlobalMemStorage = globalMem.Storage
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
+
+		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
+		computeUnit.AcceptHook(wfHook)
 	}
 
 	// Connection

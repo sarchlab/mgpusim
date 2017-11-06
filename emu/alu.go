@@ -18,6 +18,13 @@ type ALU struct {
 	Storage *mem.Storage
 }
 
+// NewALU creates a new ALU with a storage as a dependency.
+func NewALU(storage *mem.Storage) *ALU {
+	alu := new(ALU)
+	alu.Storage = storage
+	return alu
+}
+
 // Run executes the instruction in the scatchpad of the InstEmuState
 func (u *ALU) Run(state InstEmuState) {
 	inst := state.Inst()
@@ -203,6 +210,7 @@ func (u *ALU) runFlat(state InstEmuState) {
 
 func (u *ALU) runFlatLoadUShort(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+	fmt.Println(sp)
 	for i := 0; i < 64; i++ {
 		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
 		if err != nil {
