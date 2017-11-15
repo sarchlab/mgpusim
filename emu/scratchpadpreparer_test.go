@@ -173,6 +173,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.Sopp
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		wf.PC = 160
+		wf.SCC = 1
 		wf.inst = inst
 
 		sp.Prepare(wf, wf)
@@ -180,6 +181,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		layout := wf.Scratchpad().AsSOPP()
 		Expect(layout.IMM).To(Equal(uint64(1)))
 		Expect(layout.PC).To(Equal(uint64(160)))
+		Expect(layout.SCC).To(Equal(byte(1)))
 	})
 
 	It("should prepare for SOPC", func() {

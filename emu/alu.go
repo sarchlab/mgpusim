@@ -302,12 +302,21 @@ func (u *ALU) runSOPP(state InstEmuState) {
 	switch inst.Opcode {
 	case 0: // S_NOP
 	// Do nothing
+	case 5: // S_CBRANCH_SCC1
+		u.runSCBRANCHSCC1(state)
 	case 12: // S_WAITCNT
 	// Do nothing
 	default:
 		log.Panicf("Opcode %d for SOPP format is not implemented", inst.Opcode)
 	}
+}
 
+func (u *ALU) runSCBRANCHSCC1(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	fmt.Printf("%d", sp.IMM)
+	if sp.SCC == 1 {
+		sp.PC += sp.IMM * 4
+	}
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {

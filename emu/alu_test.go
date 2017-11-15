@@ -307,4 +307,49 @@ var _ = Describe("ALU", func() {
 		Expect(layout.SCC).To(Equal(byte(1)))
 	})
 
+	It("should run S_CBRANCH_SCC1", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sopp
+		state.inst.Opcode = 5
+
+		layout := state.Scratchpad().AsSOPP()
+		layout.PC = 160
+		layout.IMM = 16
+		layout.SCC = 1
+
+		alu.Run(state)
+
+		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+	})
+
+	It("should run S_CBRANCH_SCC1, when IMM is negative", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sopp
+		state.inst.Opcode = 5
+
+		layout := state.Scratchpad().AsSOPP()
+		layout.PC = 1024
+		layout.IMM = int64ToBits(-32)
+		layout.SCC = 1
+
+		alu.Run(state)
+
+		Expect(layout.PC).To(Equal(uint64(1024 - 32*4)))
+	})
+
+	It("should skip S_CBRANCH_SCC1, if SCC is 0", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sopp
+		state.inst.Opcode = 5
+
+		layout := state.Scratchpad().AsSOPP()
+		layout.PC = 160
+		layout.IMM = 16
+		layout.SCC = 0
+
+		alu.Run(state)
+
+		Expect(layout.PC).To(Equal(uint64(160)))
+	})
+
 })
