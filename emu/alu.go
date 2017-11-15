@@ -135,12 +135,27 @@ func (u *ALU) runVMOVB32(state InstEmuState) {
 func (u *ALU) runVOP2(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
+	case 0:
+		u.runVCNDMASKB32(state)
 	case 25:
 		u.runVADDI32(state)
 	case 28:
 		u.runVADDCU32(state)
 	default:
 		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runVCNDMASKB32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if (sp.VCC & (1 << i)) > 0 {
+			sp.DST[i] = sp.SRC1[i]
+		} else {
+			sp.DST[i] = sp.SRC0[i]
+		}
 	}
 }
 

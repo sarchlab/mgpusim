@@ -80,6 +80,24 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run V_CNDMASK_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 0
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.VCC = 1
+		sp.SRC0[0] = 1
+		sp.SRC0[1] = 2
+		sp.SRC1[0] = 3
+		sp.SRC1[1] = 4
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(3)))
+		Expect(sp.DST[1]).To(Equal(uint64(2)))
+	})
+
 	It("should run V_ADD_I32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
