@@ -79,7 +79,8 @@ type SMEMLayout struct {
 
 // SOPPLayout reqpresents the scratchpad layout for SOPP instructions
 type SOPPLayout struct {
-	IMM uint32
+	PC  uint64
+	IMM uint64
 }
 
 // VOP1Layout represents the scratchpad layout for VOP1 instructions
