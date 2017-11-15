@@ -161,8 +161,10 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
+	layout := scratchPad.AsSOPP()
 
-	copy(scratchPad[0:8], insts.Uint64ToBytes(wf.PC))
+	layout.PC = wf.PC
+	layout.SCC = wf.SCC
 	p.readOperand(inst.SImm16, wf, 0, scratchPad[8:16])
 }
 
