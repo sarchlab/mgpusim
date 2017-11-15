@@ -172,6 +172,20 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run V_LSHLREV_B64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop3
+		state.inst.Opcode = 655
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC1[0] = uint64(0x0000000000010000)
+		sp.SRC0[0] = uint64(3)
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0x0000000000080000)))
+	})
+
 	It("should run V_ASHRREV_I64", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop3
