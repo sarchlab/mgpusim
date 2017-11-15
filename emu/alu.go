@@ -182,6 +182,8 @@ func (u *ALU) runVOP3A(state InstEmuState) {
 	switch inst.Opcode {
 	case 645:
 		u.runVMULLOU32(state)
+	case 655:
+		u.runVLSHLREVB64(state)
 	case 657:
 		u.runVASHRREVI64(state)
 	default:
@@ -201,6 +203,13 @@ func (u *ALU) runVMULLOU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 	for i := 0; i < 64; i++ {
 		sp.DST[i] = sp.SRC0[i] * sp.SRC1[i]
+	}
+}
+
+func (u *ALU) runVLSHLREVB64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	for i := 0; i < 64; i++ {
+		sp.DST[i] = sp.SRC1[i] << sp.SRC0[i]
 	}
 }
 
