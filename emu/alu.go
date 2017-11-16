@@ -42,6 +42,8 @@ func (u *ALU) Run(state InstEmuState) {
 		u.runVOP2(state)
 	case insts.Vop3:
 		u.runVOP3A(state)
+	case insts.Vopc:
+		u.runVOPC(state)
 	case insts.Flat:
 		u.runFlat(state)
 	case insts.Sopp:
@@ -341,6 +343,10 @@ func (u *ALU) runSCBRANCHSCC1(state InstEmuState) {
 	if sp.SCC == 1 {
 		sp.PC += sp.IMM * 4
 	}
+}
+
+func (u *ALU) laneMasked(Exec uint64, laneID uint) bool {
+	return Exec&(1<<laneID) > 0
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {

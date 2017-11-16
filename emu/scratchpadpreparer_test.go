@@ -306,10 +306,12 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		layout := wf.Scratchpad().AsVOPC()
 		layout.VCC = uint64(0xff)
+		layout.EXEC = uint64(0x01)
 
 		sp.Commit(wf, wf)
 
 		Expect(wf.VCC).To(Equal(uint64(0xff)))
+		Expect(wf.Exec).To(Equal(uint64(0x01)))
 	})
 
 	It("should commit for FLAT", func() {
