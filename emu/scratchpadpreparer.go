@@ -293,8 +293,9 @@ func (p *ScratchpadPreparerImpl) commitVOPC(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
-	sp := instEmuState.Scratchpad()
-	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, sp[8:16])
+	sp := instEmuState.Scratchpad().AsVOPC()
+	wf.VCC = sp.VCC
+	wf.Exec = sp.EXEC
 }
 
 func (p *ScratchpadPreparerImpl) commitFlat(
