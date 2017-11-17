@@ -37,6 +37,44 @@ var _ = Describe("ALU", func() {
 		Expect(state.scratchpad[24]).To(Equal(byte(1)))
 	})
 
+	It("should run S_SUB_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop2
+		state.inst.Opcode = 3
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 10
+		sp.SRC1 = 6
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(4)))
+	})
+
+	It("should run S_SUB_I32, when input is negative", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop2
+		state.inst.Opcode = 3
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = uint64((int32ToBits(-6)))
+		sp.SRC1 = 15
+
+		alu.Run(state)
+
+		Expect(asInt32(uint32(sp.DST))).To(Equal(int32(-21)))
+	})
+
+	It("should run S_SUB_I32, when overflow", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop2
+		state.inst.Opcode = 3
+
+		// sp := state.Scratchpad().AsSOP2()
+		// sp.
+
+	})
+
 	It("should run S_ADDC_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Sop2

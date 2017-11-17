@@ -12,6 +12,8 @@ func (u *ALU) runSOP2(state InstEmuState) {
 	switch inst.Opcode {
 	case 0:
 		u.runSADDU32(state)
+	case 3:
+		u.runSSUBI32(state)
 	case 4:
 		u.runSADDCU32(state)
 	case 13:
@@ -37,6 +39,16 @@ func (u *ALU) runSADDU32(state InstEmuState) {
 
 	copy(sp[16:24], insts.Uint32ToBytes(dst))
 	sp[24] = scc
+}
+
+func (u *ALU) runSSUBI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	src0 := asInt32(uint32(sp.SRC0))
+	src1 := asInt32(uint32(sp.SRC1))
+	dst := src0 - src1
+
+	sp.DST = uint64(int32ToBits(dst))
 }
 
 func (u *ALU) runSADDCU32(state InstEmuState) {
