@@ -67,23 +67,27 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.Vop2
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
 		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
+		inst.Dst = insts.NewVRegOperand(6, 6, 2)
 		wf.inst = inst
 
 		for i := 0; i < 64; i++ {
 			wf.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i)))
-			wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i)))
+			wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i+1)))
+			wf.WriteReg(insts.VReg(6), 2, i, insts.Uint64ToBytes(uint64(i+2)))
 		}
-		wf.WriteReg(insts.Regs[insts.Vcc], 1, 0,
-			insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
+		wf.VCC = 0xffff0000ffff0000
+		wf.Exec = 0xff
 
 		sp.Prepare(wf, wf)
 
-		layout := wf.Scratchpad().AsVOP3A()
+		layout := wf.Scratchpad().AsVOP2()
 		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i]).To(Equal(uint64(i + 2)))
 			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC1[i]).To(Equal(uint64(i + 1)))
 		}
 		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 	})
 
 	It("should prepare for VOP3", func() {

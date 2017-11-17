@@ -99,6 +99,7 @@ type VOP1Layout struct {
 
 // VOP2Layout represents the scratchpad layout for VOP2 instructions
 type VOP2Layout struct {
+	EXEC uint64
 	DST  [64]uint64
 	VCC  uint64
 	SRC0 [64]uint64

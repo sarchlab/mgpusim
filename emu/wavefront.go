@@ -1,6 +1,8 @@
 package emu
 
 import (
+	"log"
+
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
@@ -83,6 +85,10 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		value[0] = wf.SCC
 	} else if reg.RegType == insts.Vcc {
 		copy(value, insts.Uint64ToBytes(wf.VCC))
+	} else if reg.RegType == insts.Exec {
+		copy(value, insts.Uint64ToBytes(wf.Exec))
+	} else {
+		log.Panicf("Register type %s not supported", reg.Name)
 	}
 
 	return value
@@ -105,6 +111,10 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 		wf.SCC = data[0]
 	} else if reg.RegType == insts.Vcc {
 		wf.VCC = insts.BytesToUint64(data)
+	} else if reg.RegType == insts.Exec {
+		wf.Exec = insts.BytesToUint64(data)
+	} else {
+		log.Panicf("Register type %s not supported", reg.Name)
 	}
 
 }

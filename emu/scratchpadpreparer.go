@@ -93,17 +93,20 @@ func (p *ScratchpadPreparerImpl) prepareVOP2(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 
-	copy(sp[512:520], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
+	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
+	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
 
-	src0Offset := 520
-	src1Offset := 1032
+	dstOffset := 8
+	src0Offset := 528
+	src1Offset := 1040
 	for i := 0; i < 64; i++ {
+		p.readOperand(inst.Dst, wf, i, sp[dstOffset:dstOffset+8])
+		dstOffset += 8
 		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
 		src0Offset += 8
 		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
 		src1Offset += 8
 	}
-
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP3(
@@ -264,9 +267,9 @@ func (p *ScratchpadPreparerImpl) commitVOP2(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 
-	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[512:520])
+	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[520:528])
 
-	offset := 0
+	offset := 8
 	for i := 0; i < 64; i++ {
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 		offset += 8
