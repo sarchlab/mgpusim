@@ -7,8 +7,6 @@ import (
 
 	"encoding/binary"
 
-	"math"
-
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
@@ -83,63 +81,6 @@ func (u *ALU) runVMOVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	for i := 0; i < 64; i++ {
 		sp.DST[i] = sp.SRC0[i]
-	}
-}
-
-func (u *ALU) runVOP2(state InstEmuState) {
-	inst := state.Inst()
-	switch inst.Opcode {
-	case 0:
-		u.runVCNDMASKB32(state)
-	case 25:
-		u.runVADDI32(state)
-	case 28:
-		u.runVADDCU32(state)
-	default:
-		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
-	}
-}
-
-func (u *ALU) runVCNDMASKB32(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP2()
-
-	var i uint
-	for i = 0; i < 64; i++ {
-		if (sp.VCC & (1 << i)) > 0 {
-			sp.DST[i] = sp.SRC1[i]
-		} else {
-			sp.DST[i] = sp.SRC0[i]
-		}
-	}
-}
-
-func (u *ALU) runVADDI32(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP2()
-
-	for i := 0; i < 64; i++ {
-		src0 := asInt32(uint32(sp.SRC0[i]))
-		src1 := asInt32(uint32(sp.SRC1[i]))
-
-		if (src1 > 0 && src0 > math.MaxInt32-src1) ||
-			(src1 < 0 && src0 < math.MinInt32+src1) {
-			sp.VCC |= 1 << uint32(i)
-		}
-
-		sp.DST[i] = uint64(int32ToBits(src0 + src1))
-	}
-}
-
-func (u *ALU) runVADDCU32(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP2()
-
-	for i := 0; i < 64; i++ {
-		carry := (sp.VCC & (1 << uint(i))) >> uint(i)
-
-		if sp.SRC0[i] > math.MaxUint32-carry-sp.SRC1[i] {
-			sp.VCC |= 1 << uint32(i)
-		}
-
-		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i] + carry
 	}
 }
 
