@@ -26,6 +26,10 @@ func (u *ALU) runVCNDMASKB32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		if (sp.VCC & (1 << i)) > 0 {
 			sp.DST[i] = sp.SRC1[i]
 		} else {
@@ -37,7 +41,12 @@ func (u *ALU) runVCNDMASKB32(state InstEmuState) {
 func (u *ALU) runVADDI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
-	for i := 0; i < 64; i++ {
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		src0 := asInt32(uint32(sp.SRC0[i]))
 		src1 := asInt32(uint32(sp.SRC1[i]))
 
@@ -53,7 +62,12 @@ func (u *ALU) runVADDI32(state InstEmuState) {
 func (u *ALU) runVADDCU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
-	for i := 0; i < 64; i++ {
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		carry := (sp.VCC & (1 << uint(i))) >> uint(i)
 
 		if sp.SRC0[i] > math.MaxUint32-carry-sp.SRC1[i] {
@@ -71,7 +85,12 @@ func (u *ALU) runVMACF32(state InstEmuState) {
 	var src0 float32
 	var src1 float32
 
-	for i := 0; i < 64; i++ {
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		dst = asFloat32(uint32(sp.DST[i]))
 		src0 = asFloat32(uint32(sp.SRC0[i]))
 		src1 = asFloat32(uint32(sp.SRC1[i]))

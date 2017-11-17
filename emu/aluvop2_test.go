@@ -38,6 +38,7 @@ var _ = Describe("ALU", func() {
 		sp.SRC0[1] = 2
 		sp.SRC1[0] = 3
 		sp.SRC1[1] = 4
+		sp.EXEC = 3
 
 		alu.Run(state)
 
@@ -55,6 +56,7 @@ var _ = Describe("ALU", func() {
 			sp.SRC0[i] = uint64(int32ToBits(-100))
 			sp.SRC1[i] = uint64(int32ToBits(10))
 		}
+		sp.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -73,6 +75,7 @@ var _ = Describe("ALU", func() {
 			sp.SRC0[i] = uint64(int32ToBits(math.MaxInt32 - 10))
 			sp.SRC1[i] = uint64(int32ToBits(12))
 		}
+		sp.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -93,6 +96,7 @@ var _ = Describe("ALU", func() {
 			sp.SRC0[i] = uint64(int32ToBits(math.MinInt32 + 10))
 			sp.SRC1[i] = uint64(int32ToBits(-12))
 		}
+		sp.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -112,6 +116,7 @@ var _ = Describe("ALU", func() {
 		sp.SRC0[0] = math.MaxUint32 - 10
 		sp.SRC1[0] = 10
 		sp.VCC = uint64(1)
+		sp.EXEC = 1
 
 		alu.Run(state)
 
@@ -128,6 +133,7 @@ var _ = Describe("ALU", func() {
 		sp.SRC0[0] = uint64(float32ToBits(4))
 		sp.SRC1[0] = uint64(float32ToBits(16))
 		sp.DST[0] = uint64(float32ToBits(1024))
+		sp.EXEC = 1
 
 		alu.Run(state)
 
