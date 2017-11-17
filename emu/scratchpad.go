@@ -128,19 +128,3 @@ type FlatLayout struct {
 	DATA [256]uint32 // 256 to consider the X4 instructions
 	DST  [256]uint32
 }
-
-func asInt32(bits uint32) int32 {
-	return *((*int32)((unsafe.Pointer(&bits))))
-}
-
-func asInt64(bits uint64) int64 {
-	return *((*int64)((unsafe.Pointer(&bits))))
-}
-
-func int32ToBits(num int32) uint32 {
-	return *((*uint32)((unsafe.Pointer(&num))))
-}
-
-func int64ToBits(num int64) uint64 {
-	return *((*uint64)((unsafe.Pointer(&num))))
-}
