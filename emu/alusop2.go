@@ -1,6 +1,7 @@
 package emu
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -47,6 +48,15 @@ func (u *ALU) runSSUBI32(state InstEmuState) {
 	src0 := asInt32(uint32(sp.SRC0))
 	src1 := asInt32(uint32(sp.SRC1))
 	dst := src0 - src1
+	fmt.Printf("%d, %d, %d\n", src0, src1, dst)
+
+	if src1 > 0 && dst > src0 {
+		sp.SCC = 1
+	} else if src1 < 0 && dst < src0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
 
 	sp.DST = uint64(int32ToBits(dst))
 }
