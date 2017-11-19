@@ -49,6 +49,7 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(sp.DST).To(Equal(uint64(4)))
+		Expect(sp.SCC).To(Equal(byte(0)))
 	})
 
 	It("should run S_SUB_I32, when input is negative", func() {
@@ -63,16 +64,35 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(asInt32(uint32(sp.DST))).To(Equal(int32(-21)))
+		Expect(sp.SCC).To(Equal(byte(0)))
 	})
 
-	It("should run S_SUB_I32, when overflow", func() {
+	It("should run S_SUB_I32, when overflow and src1 is positve", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Sop2
 		state.inst.Opcode = 3
 
-		// sp := state.Scratchpad().AsSOP2()
-		// sp.
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 0x7ffffffe
+		sp.SRC1 = 0xfffffffc
 
+		alu.Run(state)
+
+		Expect(sp.SCC).To(Equal(byte(1)))
+	})
+
+	It("should run S_SUB_I32, when overflow and src1 is negtive", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop2
+		state.inst.Opcode = 3
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 0x80000001
+		sp.SRC1 = 10
+
+		alu.Run(state)
+
+		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 
 	It("should run S_ADDC_U32", func() {
