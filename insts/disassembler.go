@@ -361,14 +361,17 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 			co := NewHsaCoFromData(data)
 
 			buf := co.InstructionData()
+			pc := 0x100
 			for len(buf) > 0 {
 				inst, err := d.Decode(buf)
 				if err != nil {
 					buf = buf[4:]
+					pc += 4
 				} else {
 					// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
-					fmt.Fprintf(w, "%s\n", inst)
+					fmt.Fprintf(w, "0x%016x\t%s\n", pc, inst)
 					buf = buf[inst.ByteSize:]
+					pc += inst.ByteSize
 				}
 			}
 		}
