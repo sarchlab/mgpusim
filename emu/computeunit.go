@@ -151,6 +151,7 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	pkt := wf.Packet
 
 	wf.PC = pkt.KernelObject + co.KernelCodeEntryByteOffset
+	wf.Exec = 0xffffffffffffffff
 
 	SGPRPtr := 0
 	if co.EnableSgprPrivateSegmentBuffer() {
