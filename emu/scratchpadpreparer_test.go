@@ -21,6 +21,20 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf = NewWavefront(nil)
 	})
 
+	It("should prepare for SOP1", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sop1
+		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(517))
+
+		sp.Prepare(wf, wf)
+
+		sp := wf.Scratchpad().AsSOP1()
+		Expect(sp.SRC0).To(Equal(uint64(517)))
+	})
+
 	It("should prepare for SOP2", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Sop2
@@ -225,6 +239,22 @@ var _ = Describe("ScratchpadPreparer", func() {
 		layout := wf.Scratchpad().AsSOPC()
 		Expect(layout.SRC0).To(Equal(uint64(100)))
 		Expect(layout.SRC1).To(Equal(uint64(64)))
+	})
+
+	It("should commit for SOP1", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sop1
+		inst.Dst = insts.NewSRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsSOP1()
+		layout.DST = 517
+		layout.SCC = 1
+
+		sp.Commit(wf, wf)
+
+		Expect(wf.SCC).To(Equal(byte(1)))
+		Expect(wf.SRegValue(0)).To(Equal(uint32(517)))
 	})
 
 	It("should commit for SOP2", func() {

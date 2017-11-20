@@ -36,6 +36,8 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	p.clear(instEmuState.Scratchpad())
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
+	case insts.Sop1:
+		p.prepareSOP1(instEmuState, wf)
 	case insts.Sop2:
 		p.prepareSOP2(instEmuState, wf)
 	case insts.Sopc:
@@ -57,6 +59,17 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
+}
+
+func (p *ScratchpadPreparerImpl) prepareSOP1(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+
+	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
+
 }
 
 func (p *ScratchpadPreparerImpl) prepareSOP2(
@@ -211,6 +224,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 ) {
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
+	case insts.Sop1:
+		p.commitSOP1(instEmuState, wf)
 	case insts.Sop2:
 		p.commitSOP2(instEmuState, wf)
 	case insts.Vop1:
@@ -232,6 +247,17 @@ func (p *ScratchpadPreparerImpl) Commit(
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
+}
+
+func (p *ScratchpadPreparerImpl) commitSOP1(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchpad := instEmuState.Scratchpad()
+
+	p.writeOperand(inst.Dst, wf, 0, scratchpad[8:15])
+	wf.WriteReg(insts.Regs[insts.Scc], 1, 0, scratchpad[24:25])
 }
 
 func (p *ScratchpadPreparerImpl) commitSOP2(

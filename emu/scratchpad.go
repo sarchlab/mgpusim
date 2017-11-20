@@ -6,10 +6,28 @@ import "unsafe"
 // and output data
 type Scratchpad []byte
 
+// AsSOP1 returns the ScratchPad as a struct representing the SOP1 scratchpad
+// layout
+func (sp Scratchpad) AsSOP1() *SOP1Layout {
+	return (*SOP1Layout)(unsafe.Pointer(&sp[0]))
+}
+
 // AsSOP2 returns the ScratchPad as a struct representing the SOP2 scratchpad
 // layout
 func (sp Scratchpad) AsSOP2() *SOP2Layout {
 	return (*SOP2Layout)(unsafe.Pointer(&sp[0]))
+}
+
+// AsSOPP returns the ScratchPad as a struct representing the SOPP scratchpad
+// layout
+func (sp Scratchpad) AsSOPP() *SOPPLayout {
+	return (*SOPPLayout)(unsafe.Pointer(&sp[0]))
+}
+
+// AsSOPC returns the ScratchPad as a struct representing the SOPC scratchpad
+// layout
+func (sp Scratchpad) AsSOPC() *SOPCLayout {
+	return (*SOPCLayout)(unsafe.Pointer(&sp[0]))
 }
 
 // AsVOP1 returns the ScratchPad as a struct representing the VOP1 scratchpad
@@ -48,16 +66,12 @@ func (sp Scratchpad) AsSMEM() *SMEMLayout {
 	return (*SMEMLayout)(unsafe.Pointer(&sp[0]))
 }
 
-// AsSOPP returns the ScratchPad as a struct representing the SOPP scratchpad
-// layout
-func (sp Scratchpad) AsSOPP() *SOPPLayout {
-	return (*SOPPLayout)(unsafe.Pointer(&sp[0]))
-}
-
-// AsSOPC returns the ScratchPad as a struct representing the SOPC scratchpad
-// layout
-func (sp Scratchpad) AsSOPC() *SOPCLayout {
-	return (*SOPCLayout)(unsafe.Pointer(&sp[0]))
+// SOP1Layout represents the scratchpad layout for SOP1 instructions
+type SOP1Layout struct {
+	SRC0 uint64
+	DST  uint64
+	EXEC uint64
+	SCC  byte
 }
 
 // SOP2Layout represents the scratchpad layout for SOP2 instructions
