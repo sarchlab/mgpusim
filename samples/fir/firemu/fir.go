@@ -182,7 +182,7 @@ func loadProgram() {
 
 func initMem() {
 	// Write the filter
-	filterData := make([]byte, 16*4)
+	filterData := make([]byte, 0)
 	buffer := bytes.NewBuffer(filterData)
 	for i := 0; i < 16; i++ {
 		binary.Write(buffer, binary.LittleEndian, float32(i))
@@ -193,7 +193,7 @@ func initMem() {
 	}
 
 	// Write the input
-	inputData := make([]byte, 1024*4)
+	inputData := make([]byte, 0)
 	buffer = bytes.NewBuffer(inputData)
 	for i := 0; i < 1024; i++ {
 		binary.Write(buffer, binary.LittleEndian, float32(i))
@@ -206,7 +206,7 @@ func initMem() {
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 36))
+	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
