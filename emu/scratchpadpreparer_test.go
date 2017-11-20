@@ -28,11 +28,15 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(517))
+		wf.SCC = 1
+		wf.Exec = 0xffffffff00000000
 
 		sp.Prepare(wf, wf)
 
 		sp := wf.Scratchpad().AsSOP1()
 		Expect(sp.SRC0).To(Equal(uint64(517)))
+		Expect(sp.EXEC).To(Equal(uint64(0xffffffff00000000)))
+		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 
 	It("should prepare for SOP2", func() {
@@ -249,11 +253,13 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		layout := wf.Scratchpad().AsSOP1()
 		layout.DST = 517
+		layout.EXEC = 0xffffffff00000000
 		layout.SCC = 1
 
 		sp.Commit(wf, wf)
 
 		Expect(wf.SCC).To(Equal(byte(1)))
+		Expect(wf.Exec).To(Equal(uint64(0xffffffff00000000)))
 		Expect(wf.SRegValue(0)).To(Equal(uint32(517)))
 	})
 
