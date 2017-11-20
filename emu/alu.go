@@ -28,6 +28,8 @@ func (u *ALU) Run(state InstEmuState) {
 	inst := state.Inst()
 
 	switch inst.FormatType {
+	case insts.Sop1:
+		u.runSOP1(state)
 	case insts.Sop2:
 		u.runSOP2(state)
 	case insts.Sopc:
