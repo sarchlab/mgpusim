@@ -340,8 +340,10 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 
-	for i := 0; i < 64; i++ {
-		p.writeOperand(inst.Dst, wf, i, scratchpad[1536+i*16:1536+i*16+16])
+	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
+		for i := 0; i < 64; i++ {
+			p.writeOperand(inst.Dst, wf, i, scratchpad[1536+i*16:1536+i*16+16])
+		}
 	}
 }
 
