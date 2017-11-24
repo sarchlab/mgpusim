@@ -107,6 +107,7 @@ type SOPPLayout struct {
 
 // VOP1Layout represents the scratchpad layout for VOP1 instructions
 type VOP1Layout struct {
+	EXEC uint64
 	DST  [64]uint64
 	VCC  uint64
 	SRC0 [64]uint64
@@ -123,6 +124,7 @@ type VOP2Layout struct {
 
 // VOP3ALayout represents the scratchpad layout for VOP3a instructions
 type VOP3ALayout struct {
+	EXEC uint64
 	DST  [64]uint64
 	VCC  uint64
 	SRC0 [64]uint64

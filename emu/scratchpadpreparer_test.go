@@ -70,6 +70,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		}
 		wf.WriteReg(insts.Regs[insts.Vcc], 1, 0,
 			insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
+		wf.Exec = 0xff
 
 		sp.Prepare(wf, wf)
 
@@ -78,6 +79,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
 		}
 		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 	})
 
 	It("should prepare for VOP2", func() {
@@ -122,6 +124,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		}
 		wf.WriteReg(insts.Regs[insts.Vcc], 1, 0,
 			insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
+		wf.Exec = 0xff
 
 		sp.Prepare(wf, wf)
 
@@ -132,6 +135,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(layout.SRC2[i]).To(Equal(uint64(1)))
 		}
 		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 	})
 
 	It("should prepare for VOPC", func() {
