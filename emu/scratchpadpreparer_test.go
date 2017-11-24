@@ -359,6 +359,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 	It("should commit for FLAT", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Flat
+		inst.Opcode = 20 // Load Dword
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
 		wf.inst = inst
 
@@ -377,6 +378,31 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(wf.VRegValue(i, 4)).To(Equal(uint32(i)))
 			Expect(wf.VRegValue(i, 5)).To(Equal(uint32(i)))
 			Expect(wf.VRegValue(i, 6)).To(Equal(uint32(i)))
+		}
+	})
+
+	It("should not commit for FLAT store operation", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Flat
+		inst.Dst = insts.NewVRegOperand(3, 3, 4)
+		inst.Opcode = 28 // Store dword
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.DST[i*4+0] = uint32(i)
+			layout.DST[i*4+1] = uint32(i)
+			layout.DST[i*4+2] = uint32(i)
+			layout.DST[i*4+3] = uint32(i)
+		}
+
+		sp.Commit(wf, wf)
+
+		for i := 0; i < 64; i++ {
+			Expect(wf.VRegValue(i, 3)).To(Equal(uint32(0)))
+			Expect(wf.VRegValue(i, 4)).To(Equal(uint32(0)))
+			Expect(wf.VRegValue(i, 5)).To(Equal(uint32(0)))
+			Expect(wf.VRegValue(i, 6)).To(Equal(uint32(0)))
 		}
 	})
 

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -229,6 +230,14 @@ func run() {
 	req.Packet.KernelObject = 0
 	req.Packet.KernargAddress = 65536
 
+	var buffer bytes.Buffer
+	binary.Write(&buffer, binary.LittleEndian, req.Packet)
+	err = globalMem.Storage.Write(0x11000, buffer.Bytes())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.PacketAddress = 0x11000
 	req.SetSrc(host)
 	req.SetDst(gpu)
 	req.SetSendTime(0)
@@ -241,5 +250,15 @@ func run() {
 }
 
 func checkResult() {
+	buf, err := globalMem.Storage.Read(12*mem.KB, 1024*4)
+	if err != nil {
+		log.Fatal(nil)
+	}
 
+	for i := 0; i < 1024; i++ {
+		bits := binary.LittleEndian.Uint32(buf[i*4 : i*4+4])
+		filtered := math.Float32frombits(bits)
+
+		fmt.Printf("%d: %f\n", i, filtered)
+	}
 }
