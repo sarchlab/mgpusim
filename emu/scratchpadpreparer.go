@@ -207,7 +207,8 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 
 	layout.PC = wf.PC
 	layout.SCC = wf.SCC
-	p.readOperand(inst.SImm16, wf, 0, scratchPad[8:16])
+	layout.EXEC = wf.Exec
+	p.readOperand(inst.SImm16, wf, 0, scratchPad[16:24])
 }
 
 func (p *ScratchpadPreparerImpl) prepareSOPC(

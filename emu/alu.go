@@ -225,6 +225,8 @@ func (u *ALU) runSOPP(state InstEmuState) {
 	// Do nothing
 	case 5: // S_CBRANCH_SCC1
 		u.runSCBRANCHSCC1(state)
+	case 8: // S_CBRANCH_EXECZ
+		u.runSCBRANCHEXECZ(state)
 	case 12: // S_WAITCNT
 	// Do nothing
 	default:
@@ -234,8 +236,14 @@ func (u *ALU) runSOPP(state InstEmuState) {
 
 func (u *ALU) runSCBRANCHSCC1(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
-	fmt.Printf("%d", sp.IMM)
 	if sp.SCC == 1 {
+		sp.PC += sp.IMM * 4
+	}
+}
+
+func (u *ALU) runSCBRANCHEXECZ(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	if sp.EXEC == 0 {
 		sp.PC += sp.IMM * 4
 	}
 }
