@@ -176,11 +176,13 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 	instEmuState InstEmuState, wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
+	sp := instEmuState.Scratchpad()
+
+	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
 
 	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, scratchPad[i*8:i*8+8])
-		p.readOperand(inst.Data, wf, i, scratchPad[512+i*16:512+i*16+16])
+		p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
+		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
 	}
 }
 
@@ -344,7 +346,7 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 
 	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
 		for i := 0; i < 64; i++ {
-			p.writeOperand(inst.Dst, wf, i, scratchpad[1536+i*16:1536+i*16+16])
+			p.writeOperand(inst.Dst, wf, i, scratchpad[1544+i*16:1544+i*16+16])
 		}
 	}
 }
