@@ -177,6 +177,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 			wf.WriteReg(insts.VReg(4), 1, i, insts.Uint32ToBytes(uint32(i)))
 			wf.WriteReg(insts.VReg(5), 1, i, insts.Uint32ToBytes(uint32(i)))
 		}
+		wf.Exec = 0xff
 
 		sp.Prepare(wf, wf)
 
@@ -189,6 +190,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(layout.DATA[i*4+2]).To(Equal(uint32(i)))
 			Expect(layout.DATA[i*4+3]).To(Equal(uint32(i)))
 		}
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 	})
 
 	It("should prepare for SMEM", func() {

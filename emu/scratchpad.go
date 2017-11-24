@@ -142,6 +142,7 @@ type VOPCLayout struct {
 
 // FlatLayout represents the scratchpad layout for Flat instructions
 type FlatLayout struct {
+	EXEC uint64
 	ADDR [64]uint64
 	DATA [256]uint32 // 256 to consider the X4 instructions
 	DST  [256]uint32
