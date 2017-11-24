@@ -18,6 +18,8 @@ func (u *ALU) runSOP2(state InstEmuState) {
 		u.runSADDCU32(state)
 	case 13:
 		u.runSANDB64(state)
+	case 17:
+		u.runSXOR64(state)
 	default:
 		log.Panicf("Opcode %d for SOP2 format is not implemented", inst.Opcode)
 	}
@@ -81,6 +83,17 @@ func (u *ALU) runSANDB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	sp.DST = sp.SRC0 & sp.SRC1
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALU) runSXOR64(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	sp.DST = sp.SRC0 ^ sp.SRC1
 	if sp.DST != 0 {
 		sp.SCC = 1
 	} else {
