@@ -91,6 +91,8 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
 	} else if reg.RegType == insts.Exec {
 		copy(value, insts.Uint64ToBytes(wf.Exec))
+	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+		copy(value, insts.Uint64ToBytes(wf.Exec))
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}
@@ -120,6 +122,8 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 	} else if reg.RegType == insts.VccHi {
 		wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
 	} else if reg.RegType == insts.Exec {
+		wf.Exec = insts.BytesToUint64(data)
+	} else if reg.RegType == insts.ExecLo && regCount == 2 {
 		wf.Exec = insts.BytesToUint64(data)
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)

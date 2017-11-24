@@ -79,6 +79,9 @@ func (p *ScratchpadPreparerImpl) prepareSOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
+	// if inst.Src0.Register != nil && inst.Src1.Register != nil {
+	// 	fmt.Println(inst, inst.Src0.Register.Name, inst.Src0.RegCount, inst.Src1.Register.Name)
+	// }
 	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
 	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
 	copy(scratchPad[24:25], wf.ReadReg(insts.Regs[insts.Scc], 1, 0))
