@@ -391,7 +391,7 @@ func (p *ScratchpadPreparerImpl) readOperand(
 	case insts.IntOperand:
 		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
 	case insts.LiteralConstant:
-		copy(buf, insts.Uint64ToBytes(operand.LiteralConstant))
+		copy(buf, insts.Uint32ToBytes(operand.LiteralConstant))
 	default:
 		log.Panicf("Operand %s is not supported", operand.String())
 	}

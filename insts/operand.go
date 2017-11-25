@@ -26,7 +26,7 @@ type Operand struct {
 	RegCount        int // for cases like v[0:3]
 	FloatValue      float64
 	IntValue        int64
-	LiteralConstant uint64
+	LiteralConstant uint32
 }
 
 // NewRegOperand returns a new operand of register type
@@ -98,7 +98,7 @@ func (o Operand) String() string {
 	case FloatOperand:
 		return fmt.Sprintf("%f", o.FloatValue)
 	case LiteralConstant:
-		return "LiteralConstant"
+		return fmt.Sprintf("0x%08x", o.LiteralConstant)
 	default:
 		return ""
 	}
