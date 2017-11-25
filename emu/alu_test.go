@@ -37,19 +37,6 @@ var _ = Describe("ALU", func() {
 		state.scratchpad = make([]byte, 4096)
 	})
 
-	It("should run V_MOV_B32", func() {
-		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
-		state.inst.Opcode = 1
-
-		alu.Run(state)
-
-		sp := state.Scratchpad()
-		for i := 0; i < 64*8; i++ {
-			Expect(sp[i]).To(Equal(sp[i+512]))
-		}
-	})
-
 	It("should run V_MUL_LO_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop3
