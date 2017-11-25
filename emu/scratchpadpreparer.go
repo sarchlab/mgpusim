@@ -390,6 +390,8 @@ func (p *ScratchpadPreparerImpl) readOperand(
 		copy(buf, wf.ReadReg(operand.Register, operand.RegCount, laneID))
 	case insts.IntOperand:
 		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
+	case insts.LiteralConstant:
+		copy(buf, insts.Uint64ToBytes(operand.LiteralConstant))
 	default:
 		log.Panicf("Operand %s is not supported", operand.String())
 	}
