@@ -53,7 +53,6 @@ func (u *ALU) runVMULF32(state InstEmuState) {
 		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
 		dst := src0 * src1
 		sp.DST[i] = uint64(math.Float32bits(dst))
-
 	}
 }
 
