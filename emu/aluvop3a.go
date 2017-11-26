@@ -8,6 +8,8 @@ func (u *ALU) runVOP3A(state InstEmuState) {
 	u.vop3aPreprocess(state)
 
 	switch inst.Opcode {
+	case 202: // 0xCA
+		u.runVCmpEqU32(state)
 	case 645:
 		u.runVMULLOU32(state)
 	case 646:
