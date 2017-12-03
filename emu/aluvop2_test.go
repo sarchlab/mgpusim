@@ -61,6 +61,22 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(math.Float32bits(float32(6.2)))))
 	})
 
+	It("should run V_MAC_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 22
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = uint64(float32ToBits(4))
+		sp.SRC1[0] = uint64(float32ToBits(16))
+		sp.DST[0] = uint64(float32ToBits(1024))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(asFloat32(uint32(sp.DST[0]))).To(Equal(float32(1024.0 + 16.0*4.0)))
+	})
+
 	It("should run V_ADD_I32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
@@ -122,6 +138,38 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(0xffffffffffffffff)))
 	})
 
+	It("should run V_SUB_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 26
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 10
+		sp.SRC1[0] = 4
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(6)))
+		Expect(sp.VCC).To(Equal(uint64(0)))
+	})
+
+	It("should run V_SUB_I32, when underflow", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 26
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 4
+		sp.SRC1[0] = 10
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0xfffffffa)))
+		Expect(sp.VCC).To(Equal(uint64(1)))
+	})
+
 	It("should run V_ADDC_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
@@ -139,19 +187,4 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(1)))
 	})
 
-	It("should run V_MAC_F32", func() {
-		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
-		state.inst.Opcode = 22
-
-		sp := state.Scratchpad().AsVOP2()
-		sp.SRC0[0] = uint64(float32ToBits(4))
-		sp.SRC1[0] = uint64(float32ToBits(16))
-		sp.DST[0] = uint64(float32ToBits(1024))
-		sp.EXEC = 1
-
-		alu.Run(state)
-
-		Expect(asFloat32(uint32(sp.DST[0]))).To(Equal(float32(1024.0 + 16.0*4.0)))
-	})
 })
