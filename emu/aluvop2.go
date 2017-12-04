@@ -137,6 +137,7 @@ func (u *ALU) runVMACF32(state InstEmuState) {
 
 func (u *ALU) runVADDI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	sp.VCC = 0
 
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -158,6 +159,7 @@ func (u *ALU) runVADDI32(state InstEmuState) {
 
 func (u *ALU) runVSUBI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	sp.VCC = 0
 
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -178,6 +180,7 @@ func (u *ALU) runVSUBI32(state InstEmuState) {
 
 func (u *ALU) runVSUBREVI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	sp.VCC = 0
 
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -198,6 +201,7 @@ func (u *ALU) runVSUBREVI32(state InstEmuState) {
 
 func (u *ALU) runVADDCU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
+	newVCC := uint64(0)
 
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -208,9 +212,10 @@ func (u *ALU) runVADDCU32(state InstEmuState) {
 		carry := (sp.VCC & (1 << uint(i))) >> uint(i)
 
 		if sp.SRC0[i] > math.MaxUint32-carry-sp.SRC1[i] {
-			sp.VCC |= 1 << uint32(i)
+			newVCC |= 1 << uint32(i)
 		}
 
 		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i] + carry
 	}
+	sp.VCC = newVCC
 }

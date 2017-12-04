@@ -24,6 +24,7 @@ func (u *ALU) runVOPC(state InstEmuState) {
 
 func (u *ALU) runVCmpLtU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if !u.laneMasked(sp.EXEC, i) {
@@ -38,6 +39,7 @@ func (u *ALU) runVCmpLtU32(state InstEmuState) {
 
 func (u *ALU) runVCmpEqU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if !u.laneMasked(sp.EXEC, i) {
@@ -53,6 +55,7 @@ func (u *ALU) runVCmpEqU32(state InstEmuState) {
 
 func (u *ALU) runVCmpLeU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if u.laneMasked(sp.EXEC, i) {
@@ -65,6 +68,7 @@ func (u *ALU) runVCmpLeU32(state InstEmuState) {
 
 func (u *ALU) runVCmpGtU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if u.laneMasked(sp.EXEC, i) {
@@ -77,6 +81,7 @@ func (u *ALU) runVCmpGtU32(state InstEmuState) {
 
 func (u *ALU) runVCmpNeU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if u.laneMasked(sp.EXEC, i) {
@@ -89,6 +94,7 @@ func (u *ALU) runVCmpNeU32(state InstEmuState) {
 
 func (u *ALU) runVCmpGeU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
 		if u.laneMasked(sp.EXEC, i) {
