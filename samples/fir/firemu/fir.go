@@ -179,6 +179,7 @@ func loadProgram() {
 	}
 
 	hsaco = insts.NewHsaCoFromData(hsacoData)
+	fmt.Println(hsaco.Info())
 }
 
 func initMem() {

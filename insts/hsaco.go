@@ -180,6 +180,7 @@ func (h *HsaCoHeader) Info() string {
 	s += fmt.Sprintf("\tMax Scratch Memory: %d\n", h.MaxScratchBackingMemoryByteSize)
 	s += fmt.Sprintf("\tGranulated WI VGPR Count:%d\n", h.WIVgprCount)
 	s += fmt.Sprintf("\tGranulated Wf SGPR Count:%d\n", h.WFSgprCount)
+	s += fmt.Sprintf("\tKernarg Segment Byte Size:%d\n", h.KernargSegmentByteSize)
 	s += fmt.Sprintf("\tRegisters:\n")
 	s += fmt.Sprintf("\t\tEnable SGPR Private SegmentBuffer: %t\n", h.EnableSgprPrivateSegmentBuffer())
 	s += fmt.Sprintf("\t\tEnable SGPR Dispatch Ptr: %t\n", h.EnableSgprDispatchPtr())
