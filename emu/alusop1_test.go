@@ -32,7 +32,7 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(sp.EXEC).To(Equal(uint64(0x0000ffff00000000)))
-		Expect(sp.DST).To(Equal(uint64(0x0000ffff00000000)))
+		Expect(sp.DST).To(Equal(uint64(0xffffffff00000000)))
 		Expect(sp.SCC).To(Equal(byte(0x1)))
 	})
 
