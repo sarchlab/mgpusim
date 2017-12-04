@@ -8,10 +8,20 @@ func (u *ALU) runVOP3A(state InstEmuState) {
 	u.vop3aPreprocess(state)
 
 	switch inst.Opcode {
+	case 201: // 0xC9
+		u.runVCmpLtU32VOP3a(state)
 	case 202: // 0xCA
-		u.runVCmpEqU32(state)
+		u.runVCmpEqU32VOP3a(state)
+	case 203: // 0xCB
+		u.runVCmpLeU32VOP3a(state)
+	case 204: // 0xCC
+		u.runVCmpGtU32VOP3a(state)
+	case 205: // 0xCD
+		u.runVCmpLgU32VOP3a(state)
+	case 206: // 0xCE
+		u.runVCmpGeU32VOP3a(state)
 	case 256:
-		u.runVCNDMASKB32Vop3a(state)
+		u.runVCNDMASKB32VOP3a(state)
 	case 645:
 		u.runVMULLOU32(state)
 	case 646:
@@ -23,7 +33,6 @@ func (u *ALU) runVOP3A(state InstEmuState) {
 	default:
 		log.Panicf("Opcode %d for VOP3a format is not implemented", inst.Opcode)
 	}
-
 	u.vop3aPostprocess(state)
 }
 
@@ -47,7 +56,115 @@ func (u *ALU) vop3aPostprocess(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCNDMASKB32Vop3a(state InstEmuState) {
+func (u *ALU) runVCmpLtU32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+
+		if src0 < src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpEqU32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+
+		if src0 == src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpLeU32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+
+		if src0 <= src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpGtU32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+
+		if src0 > src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpLgU32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+
+		if src0 != src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCmpGeU32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+
+		if src0 >= src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALU) runVCNDMASKB32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
