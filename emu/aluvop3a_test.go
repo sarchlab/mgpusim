@@ -20,6 +20,25 @@ var _ = Describe("ALU", func() {
 		state.scratchpad = make([]byte, 4096)
 	})
 
+	It("should run V_CNDMASK_B32 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop3
+		state.inst.Opcode = 256
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = 1
+		sp.SRC1[0] = 2
+		sp.SRC0[1] = 1
+		sp.SRC1[1] = 2
+		sp.SRC2[0] = 1
+		sp.EXEC = 3
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(2)))
+		Expect(sp.DST[1]).To(Equal(uint64(1)))
+	})
+
 	It("should run V_MUL_LO_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop3
