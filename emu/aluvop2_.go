@@ -18,6 +18,8 @@ func (u *ALU) runVOP2(state InstEmuState) {
 		u.runVADDI32(state)
 	case 26:
 		u.runVSUBI32(state)
+	case 27:
+		u.runVSUBREVI32(state)
 	case 28:
 		u.runVADDCU32(state)
 	default:
@@ -117,6 +119,26 @@ func (u *ALU) runVSUBI32(state InstEmuState) {
 		}
 
 		sp.DST[i] = uint64(src0 - src1)
+	}
+}
+
+func (u *ALU) runVSUBREVI32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+
+		if src0 > src1 {
+			sp.VCC |= 1 << uint32(i)
+		}
+
+		sp.DST[i] = uint64(src1 - src0)
 	}
 }
 
