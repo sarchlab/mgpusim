@@ -12,6 +12,12 @@ func (u *ALU) runVOP2(state InstEmuState) {
 		u.runVCNDMASKB32(state)
 	case 5:
 		u.runVMULF32(state)
+	case 19:
+		u.runVANDB32(state)
+	case 20:
+		u.runVORB32(state)
+	case 21:
+		u.runVXORB32(state)
 	case 22:
 		u.runVMACF32(state)
 	case 25:
@@ -57,6 +63,54 @@ func (u *ALU) runVMULF32(state InstEmuState) {
 		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
 		dst := src0 * src1
 		sp.DST[i] = uint64(math.Float32bits(dst))
+	}
+}
+
+func (u *ALU) runVANDB32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		dst := src0 & src1
+		sp.DST[i] = uint64(dst)
+	}
+}
+
+func (u *ALU) runVORB32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		dst := src0 | src1
+		sp.DST[i] = uint64(dst)
+	}
+}
+
+func (u *ALU) runVXORB32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		dst := src0 ^ src1
+		sp.DST[i] = uint64(dst)
 	}
 }
 
