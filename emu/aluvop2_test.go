@@ -61,6 +61,51 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(math.Float32bits(float32(6.2)))))
 	})
 
+	It("should run V_AND_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 19
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 2 // 10
+		sp.SRC1[0] = 3 // 11
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(2)))
+	})
+
+	It("should run V_OR_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 20
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 2 // 10
+		sp.SRC1[0] = 3 // 11
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(3)))
+	})
+
+	It("should run V_XOR_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 21
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 2 // 10
+		sp.SRC1[0] = 3 // 11
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(1)))
+	})
+
 	It("should run V_MAC_F32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
