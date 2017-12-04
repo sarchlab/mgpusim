@@ -262,6 +262,7 @@ func (d *Disassembler) decodeVop3(inst *Inst, buf []byte) {
 	// TODO: Consider the VOP3b format
 	if inst.Opcode <= 255 { // The comparison instructions
 		inst.Dst, _ = getOperand(uint16(extractBits(bytesLo, 0, 7)))
+		inst.Dst.RegCount = 2
 	} else {
 		bits := int(extractBits(bytesLo, 0, 7))
 		inst.Dst = NewVRegOperand(bits, bits, 0)
