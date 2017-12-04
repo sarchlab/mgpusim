@@ -14,8 +14,8 @@ func (u *ALU) runSOP1(state InstEmuState) {
 
 func (u *ALU) runSANDSAVEEXECB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
-	sp.EXEC = sp.SRC0 & sp.EXEC
 	sp.DST = sp.EXEC
+	sp.EXEC = sp.SRC0 & sp.EXEC
 	if sp.EXEC != 0 {
 		sp.SCC = 1
 	} else {
