@@ -127,34 +127,6 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[1]).To(Equal(uint32(218)))
 	})
 
-	It("should run S_CMP_EQ_U32 when input is not equal", func() {
-		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
-		state.inst.Opcode = 6
-
-		layout := state.Scratchpad().AsSOPC()
-		layout.SRC0 = 1
-		layout.SRC1 = 2
-
-		alu.Run(state)
-
-		Expect(layout.SCC).To(Equal(byte(0)))
-	})
-
-	It("should run S_CMP_EQ_U32 when input is equal", func() {
-		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
-		state.inst.Opcode = 6
-
-		layout := state.Scratchpad().AsSOPC()
-		layout.SRC0 = 1
-		layout.SRC1 = 1
-
-		alu.Run(state)
-
-		Expect(layout.SCC).To(Equal(byte(1)))
-	})
-
 	It("should run S_CBRANCH_SCC1", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Sopp
