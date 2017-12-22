@@ -1,7 +1,6 @@
 package emu
 
 import (
-	"fmt"
 	"log"
 	"math"
 
