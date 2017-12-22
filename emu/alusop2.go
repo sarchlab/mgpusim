@@ -1,6 +1,7 @@
 package emu
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -26,6 +27,8 @@ func (u *ALU) runSOP2(state InstEmuState) {
 		u.runSORB64(state)
 	case 17:
 		u.runSXOR64(state)
+	case 36:
+		u.runSMULI32(state)
 	default:
 		log.Panicf("Opcode %d for SOP2 format is not implemented", inst.Opcode)
 	}
@@ -144,4 +147,14 @@ func (u *ALU) runSXOR64(state InstEmuState) {
 	} else {
 		sp.SCC = 0
 	}
+}
+
+func (u *ALU) runSMULI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	src0 := asInt32(uint32(sp.SRC0))
+	src1 := asInt32(uint32(sp.SRC1))
+	dst := src0 * src1
+
+	sp.DST = uint64(int32ToBits(dst))
 }
