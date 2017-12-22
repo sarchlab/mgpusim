@@ -18,6 +18,8 @@ func (u *ALU) runSOP2(state InstEmuState) {
 		u.runSSUBI32(state)
 	case 4:
 		u.runSADDCU32(state)
+	case 12:
+		u.runSANDB32(state)
 	case 13:
 		u.runSANDB64(state)
 	case 15:
@@ -99,6 +101,17 @@ func (u *ALU) runSADDCU32(state InstEmuState) {
 
 	copy(sp[16:24], insts.Uint32ToBytes(dst))
 	sp[24] = scc
+}
+
+func (u *ALU) runSANDB32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	sp.DST = sp.SRC0 & sp.SRC1
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
 }
 
 func (u *ALU) runSANDB64(state InstEmuState) {
