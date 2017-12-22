@@ -26,7 +26,7 @@ var _ = Describe("Disassembler", func() {
 		defer elfFile.Close()
 		Expect(err).To(BeNil())
 
-		targetFile, err := os.Open("../samples/fir/disasm/kernel.s")
+		targetFile, err := os.Open("../samples/fir/disasm/kernels.s")
 		Expect(err).To(BeNil())
 		defer targetFile.Close()
 
