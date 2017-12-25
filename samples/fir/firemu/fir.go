@@ -212,7 +212,7 @@ func run() {
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int(16))           // NumTap
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint32(16))        // NumTap
 	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
