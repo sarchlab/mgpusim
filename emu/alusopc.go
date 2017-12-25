@@ -1,6 +1,8 @@
 package emu
 
-import "log"
+import (
+	"log"
+)
 
 func (u *ALU) runSOPC(state InstEmuState) {
 	inst := state.Inst()
@@ -33,7 +35,7 @@ func (u *ALU) runSCMPGTI32(state InstEmuState) {
 
 func (u *ALU) runSCMPEQU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 == sp.SRC1 {
+	if (sp.SRC0 & 0xffff) == (sp.SRC1 & 0xffff) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -42,7 +44,7 @@ func (u *ALU) runSCMPEQU32(state InstEmuState) {
 
 func (u *ALU) runSCMPLGU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 != sp.SRC1 {
+	if (sp.SRC0 & 0xffff) != (sp.SRC1 & 0xffff) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0

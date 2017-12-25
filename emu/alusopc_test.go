@@ -159,5 +159,4 @@ var _ = Describe("ALU", func() {
 
 		Expect(layout.SCC).To(Equal(byte(0)))
 	})
-
 })
