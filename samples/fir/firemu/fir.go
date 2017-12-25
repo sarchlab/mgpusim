@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -131,15 +132,22 @@ func initPlatform() {
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
 	disassembler := insts.NewDisassembler()
+	isaDebug, err := os.Create("isa.debug")
+	if err != nil {
+		fmt.Print("Isa debug file failed to open\n")
+	}
 	for i := 0; i < 4; i++ {
 		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
-		alu := new(emu.ALU)
+		alu := emu.NewALU(globalMem.Storage)
 		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
 			engine, disassembler, scratchpadPreparer, alu)
 		computeUnit.Freq = 1 * util.GHz
 		computeUnit.GlobalMemStorage = globalMem.Storage
 		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
+
+		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
+		computeUnit.AcceptHook(wfHook)
 	}
 
 	// Connection
@@ -171,27 +179,28 @@ func loadProgram() {
 	}
 
 	hsaco = insts.NewHsaCoFromData(hsacoData)
+	fmt.Println(hsaco.Info())
 }
 
 func initMem() {
 	// Write the filter
-	filterData := make([]byte, 16*4)
+	filterData := make([]byte, 0)
 	buffer := bytes.NewBuffer(filterData)
 	for i := 0; i < 16; i++ {
 		binary.Write(buffer, binary.LittleEndian, float32(i))
 	}
-	err := globalMem.Storage.Write(4*mem.KB, filterData)
+	err := globalMem.Storage.Write(4*mem.KB, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Write the input
-	inputData := make([]byte, 1024*4)
+	inputData := make([]byte, 0)
 	buffer = bytes.NewBuffer(inputData)
-	for i := 0; i < 1024; i++ {
+	for i := 0; i < 1024+16; i++ {
 		binary.Write(buffer, binary.LittleEndian, float32(i))
 	}
-	err = globalMem.Storage.Write(8*mem.KB, inputData)
+	err = globalMem.Storage.Write(8*mem.KB, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -199,12 +208,11 @@ func initMem() {
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 36))
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
+	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+8192)) // History
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int(16))           // NumTap
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint32(16))        // NumTap
 	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
@@ -222,6 +230,14 @@ func run() {
 	req.Packet.KernelObject = 0
 	req.Packet.KernargAddress = 65536
 
+	var buffer bytes.Buffer
+	binary.Write(&buffer, binary.LittleEndian, req.Packet)
+	err = globalMem.Storage.Write(0x11000, buffer.Bytes())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.PacketAddress = 0x11000
 	req.SetSrc(host)
 	req.SetDst(gpu)
 	req.SetSendTime(0)
@@ -234,5 +250,15 @@ func run() {
 }
 
 func checkResult() {
+	buf, err := globalMem.Storage.Read(12*mem.KB, 1024*4)
+	if err != nil {
+		log.Fatal(nil)
+	}
 
+	for i := 0; i < 1024; i++ {
+		bits := binary.LittleEndian.Uint32(buf[i*4 : i*4+4])
+		filtered := math.Float32frombits(bits)
+
+		fmt.Printf("%d: %f\n", i, filtered)
+	}
 }
