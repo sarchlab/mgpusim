@@ -2,6 +2,10 @@ package emu
 
 import "unsafe"
 
+func asInt16(bits uint16) int16 {
+	return *((*int16)((unsafe.Pointer(&bits))))
+}
+
 func asInt32(bits uint32) int32 {
 	return *((*int32)((unsafe.Pointer(&bits))))
 }
@@ -16,6 +20,10 @@ func asFloat32(bits uint32) float32 {
 
 func asFloat64(bits uint64) float64 {
 	return *((*float64)((unsafe.Pointer(&bits))))
+}
+
+func int16ToBits(num int16) uint16 {
+	return *((*uint16)((unsafe.Pointer(&num))))
 }
 
 func int32ToBits(num int32) uint32 {

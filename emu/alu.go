@@ -158,15 +158,17 @@ func (u *ALU) runSOPP(state InstEmuState) {
 
 func (u *ALU) runSCBRANCHSCC1(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.SCC == 1 {
-		sp.PC += sp.IMM * 4
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
 	}
 }
 
 func (u *ALU) runSCBRANCHEXECZ(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.EXEC == 0 {
-		sp.PC += sp.IMM * 4
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
 	}
 }
 

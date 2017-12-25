@@ -189,7 +189,7 @@ func initMem() {
 	for i := 0; i < 16; i++ {
 		binary.Write(buffer, binary.LittleEndian, float32(i))
 	}
-	err := globalMem.Storage.Write(4*mem.KB, filterData)
+	err := globalMem.Storage.Write(4*mem.KB, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -197,10 +197,10 @@ func initMem() {
 	// Write the input
 	inputData := make([]byte, 0)
 	buffer = bytes.NewBuffer(inputData)
-	for i := 0; i < 1024; i++ {
+	for i := 0; i < 1024+16; i++ {
 		binary.Write(buffer, binary.LittleEndian, float32(i))
 	}
-	err = globalMem.Storage.Write(8*mem.KB, inputData)
+	err = globalMem.Storage.Write(8*mem.KB, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -209,10 +209,9 @@ func initMem() {
 
 func run() {
 	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+8192)) // History
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, int(16))           // NumTap
 	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
 	if err != nil {
