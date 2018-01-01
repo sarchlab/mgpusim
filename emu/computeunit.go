@@ -64,16 +64,27 @@ func NewComputeUnit(
 // Recv accepts requests from other components
 func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
 	util.ProcessReqAsEvent(req, cu.engine, cu.Freq)
-	switch req := req.(type) {
+	return nil
+}
+
+// Handle defines the behavior on event scheduled on the ComputeUnit
+func (cu *ComputeUnit) Handle(evt core.Event) error {
+	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
-		return cu.processMapWGReq(req)
+		return cu.handleMapWGReq(evt)
+	case *gcn3.DispatchWfReq:
+		return nil // Ignored
+	case *core.TickEvent:
+		return cu.handleTickEvent(evt)
+	case *WGCompleteEvent:
+		return cu.handleWGCompleteEvent(evt)
 	default:
-		log.Panicf("cannot process req %s", reflect.TypeOf(req))
+		log.Panicf("cannot handle event %s", reflect.TypeOf(evt))
 	}
 	return nil
 }
 
-func (cu *ComputeUnit) processMapWGReq(req *gcn3.MapWGReq) *core.Error {
+func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	if cu.running != nil {
 		req.Ok = false
 	} else {
@@ -86,25 +97,9 @@ func (cu *ComputeUnit) processMapWGReq(req *gcn3.MapWGReq) *core.Error {
 	}
 
 	req.SwapSrcAndDst()
-	req.SetSendTime(cu.Freq.HalfTick(req.RecvTime()))
-	deferredSend := core.NewDeferredSend(req)
-	cu.engine.Schedule(deferredSend)
+	req.SetSendTime(req.Time())
+	cu.GetConnection("ToDispatcher").Send(req)
 
-	return nil
-}
-
-// Handle defines the behavior on event scheduled on the ComputeUnit
-func (cu *ComputeUnit) Handle(evt core.Event) error {
-	switch evt := evt.(type) {
-	case *core.TickEvent:
-		return cu.handleTickEvent(evt)
-	case *WGCompleteEvent:
-		return cu.handleWGCompleteEvent(evt)
-	case *core.DeferredSend:
-		return cu.handleDeferredSend(evt)
-	default:
-		log.Panicf("cannot handle event %s", reflect.TypeOf(evt))
-	}
 	return nil
 }
 
@@ -332,11 +327,5 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	req := gcn3.NewWGFinishMesg(cu, cu.running.Dst(), evt.Time(), cu.running.WG)
 	cu.GetConnection("ToDispatcher").Send(req)
 	cu.running = nil
-	return nil
-}
-
-func (cu *ComputeUnit) handleDeferredSend(evt *core.DeferredSend) error {
-	req := evt.Req
-	cu.GetConnection("ToDispatcher").Send(req)
 	return nil
 }
