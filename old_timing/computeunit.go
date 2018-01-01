@@ -1,11 +1,8 @@
 package timing
 
 import (
-	"log"
-
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
-	"gitlab.com/yaotsu/gcn3"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
@@ -13,16 +10,34 @@ import (
 type ComputeUnit struct {
 	*core.ComponentBase
 
-	wgMapper WGMapper
-
 	engine core.Engine
 	Freq   util.Freq
+
+	Scheduler    core.Component
+	VMemDecode   core.Component
+	ScalarDecode core.Component
+	VectorDecode core.Component
+	LDSDecode    core.Component
+
+	SIMDUnits  []core.Component
+	LDSUnit    core.Component
+	VMemUnit   core.Component
+	ScalarUnit core.Component
+	BranchUnit core.Component
+
+	VRegFiles []*RegCtrl
+	SRegFile  *RegCtrl
+
+	DataMem *core.Component
 }
 
 // NewComputeUnit returns a newly constructed compute unit
 func NewComputeUnit(name string) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)
+
+	cu.VRegFiles = make([]*RegCtrl, 0)
+	cu.SIMDUnits = make([]core.Component, 0)
 
 	cu.AddPort("ToACE")
 	cu.AddPort("ToInstMem")
@@ -43,32 +58,10 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	defer cu.InvokeHook(evt, cu, core.AfterEvent, nil)
 
 	switch evt := evt.(type) {
-	case *gcn3.MapWGReq:
-		return cu.handleMapWGReq(evt)
-	case *gcn3.DispatchWfReq:
-		return cu.handleDispatchWfReq(evt)
 	case *core.TickEvent:
 		return cu.handleTickEvent(evt)
 	}
 
-	return nil
-}
-
-func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) *core.Error {
-	ok := cu.wgMapper.MapWG(req)
-
-	req.Ok = ok
-	req.SwapSrcAndDst()
-	req.SetSendTime(req.Time())
-	err := cu.GetConnection("ToACE").Send(req)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	return nil
-}
-
-func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) *core.Error {
 	return nil
 }
 
