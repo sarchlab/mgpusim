@@ -377,15 +377,6 @@ func (d *Dispatcher) RegisterCU(cu core.Component) {
 	d.cuBusy = append(d.cuBusy, false)
 }
 
-func (d *Dispatcher) isAllCUsBusy() bool {
-	for _, busy := range d.cuBusy {
-		if !busy {
-			return false
-		}
-	}
-	return true
-}
-
 func (d *Dispatcher) nextAvailableCU() (int, bool) {
 	count := len(d.cuBusy)
 	cuID := d.dispatchingCUID
