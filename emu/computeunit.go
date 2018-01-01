@@ -63,6 +63,7 @@ func NewComputeUnit(
 
 // Recv accepts requests from other components
 func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
+	util.ProcessReqAsEvent(req, cu.engine, cu.Freq)
 	switch req := req.(type) {
 	case *gcn3.MapWGReq:
 		return cu.processMapWGReq(req)

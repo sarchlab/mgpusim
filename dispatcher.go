@@ -131,8 +131,13 @@ type Dispatcher struct {
 	dispatchingReq  *kernels.LaunchKernelReq
 	dispatchingGrid *kernels.Grid
 	dispatchingWGs  []*kernels.WorkGroup
+	completedWGs    []*kernels.WorkGroup
 	dispatchingWfs  []*kernels.Wavefront
 	dispatchingCUID int
+
+	// If the dispatcher has pending MapWGEvent or DispatchWfEvent, no other
+	// events should be scheduled.
+	hasPendingEvent bool
 }
 
 // NewDispatcher creates a new dispatcher
@@ -150,6 +155,7 @@ func NewDispatcher(
 	d.CUs = make([]core.Component, 0)
 	d.CUBusy = make([]bool, 0)
 	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
+	d.completedWGs = make([]*kernels.WorkGroup, 0)
 	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
 
 	d.AddPort("ToCUs")
@@ -210,6 +216,8 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 		return d.handleDispatchWfEvent(evt)
 	case *DispatchWfReq:
 		return d.handleDispatchWfReq(evt)
+	case *WGFinishMesg:
+		return d.handleWGFinishMesg(evt)
 
 	default:
 		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
@@ -248,6 +256,8 @@ func (d *Dispatcher) replyLaunchKernelReq(ok bool, req *kernels.LaunchKernelReq)
 
 // handleMapWGEvent initiates work-group mapping
 func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
+	d.hasPendingEvent = false
+
 	if len(d.dispatchingWGs) == 0 {
 		return nil
 	}
@@ -279,8 +289,10 @@ func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
 }
 
 func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
-	evt := NewMapWGEvent(time, d)
-	d.engine.Schedule(evt)
+	if !d.hasPendingEvent {
+		evt := NewMapWGEvent(time, d)
+		d.engine.Schedule(evt)
+	}
 }
 
 // handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
@@ -300,11 +312,14 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
-	evt := NewDispatchWfEvent(time, d)
-	d.engine.Schedule(evt)
+	if !d.hasPendingEvent {
+		evt := NewDispatchWfEvent(time, d)
+		d.engine.Schedule(evt)
+	}
 }
 
 func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
+	d.hasPendingEvent = false
 	wf := d.dispatchingWfs[0]
 	cu := d.CUs[d.dispatchingCUID]
 
@@ -335,6 +350,26 @@ func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
 	}
 
 	return nil
+}
+
+func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
+	d.completedWGs = append(d.completedWGs, mesg.WG)
+	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
+		d.replyKernelFinish(mesg.Time())
+		return nil
+	}
+
+	d.scheduleMapWG(d.Freq.NextTick(mesg.Time()))
+	return nil
+}
+
+func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
+	req := d.dispatchingReq
+	req.SwapSrcAndDst()
+	req.SetSendTime(now)
+	d.GetConnection("ToCommandProcessor").Send(req)
+
+	d.dispatchingReq = nil
 }
 
 //
