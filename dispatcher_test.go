@@ -275,6 +275,50 @@ var _ = Describe("Dispatcher", func() {
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
+	It("should continue dispatching when receiving WGFinishMesg", func() {
+		dispatcher.dispatchingGrid = grid
+
+		wg := grid.WorkGroups[0]
+		req := NewWGFinishMesg(cu0, dispatcher, 10, wg)
+
+		dispatcher.Handle(req)
+
+		Expect(len(engine.ScheduledEvent)).To(Equal(1))
+	})
+
+	It("should not continue dispatching when receiving WGFinishMesg and "+
+		"the dispatcher is dispatching", func() {
+		dispatcher.dispatchingGrid = grid
+		dispatcher.hasPendingEvent = true
+
+		wg := grid.WorkGroups[0]
+		req := NewWGFinishMesg(cu0, dispatcher, 10, wg)
+
+		dispatcher.Handle(req)
+
+		Expect(len(engine.ScheduledEvent)).To(Equal(0))
+	})
+
+	It("should send the KernelLaunchingReq back to the command processor, "+
+		"when receiving WGFinishMesg and there is no more work-groups", func() {
+		kernelLaunchingReq := kernels.NewLaunchKernelReq()
+		dispatcher.dispatchingReq = kernelLaunchingReq
+		dispatcher.dispatchingGrid = grid
+
+		wg := grid.WorkGroups[0]
+		req := NewWGFinishMesg(cu0, dispatcher, 10, wg)
+
+		dispatcher.completedWGs = append(dispatcher.completedWGs,
+			grid.WorkGroups[1:]...)
+
+		toCommandProcessorConn.ExpectSend(kernelLaunchingReq, nil)
+		dispatcher.Handle(req)
+
+		Expect(len(engine.ScheduledEvent)).To(Equal(0))
+		Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
+		Expect(dispatcher.dispatchingReq).To(BeNil())
+	})
+
 	//
 	//It("should process WGFinishMesg", func() {
 	//	status := NewKernelDispatchStatus()
