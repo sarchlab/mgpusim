@@ -208,6 +208,8 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 		return d.handleMapWGReq(evt)
 	case *DispatchWfEvent:
 		return d.handleDispatchWfEvent(evt)
+	case *DispatchWfReq:
+		return d.handleDispatchWfReq(evt)
 
 	default:
 		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
@@ -246,6 +248,10 @@ func (d *Dispatcher) replyLaunchKernelReq(ok bool, req *kernels.LaunchKernelReq)
 
 // handleMapWGEvent initiates work-group mapping
 func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
+	if len(d.dispatchingWGs) == 0 {
+		return nil
+	}
+
 	cuID, hasAvailableCU := d.nextAvailableCU()
 	if !hasAvailableCU {
 		return nil
@@ -305,6 +311,26 @@ func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	req := NewDispatchWfReq(d, cu, evt.Time(), wf)
 	err := d.GetConnection("ToCUs").Send(req)
 	if err != nil {
+		d.scheduleDispatchWfEvent(err.EarliestRetry)
+	}
+
+	return nil
+}
+
+func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
+	if len(d.dispatchingWfs) <= 1 {
+		d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
+		return nil
+	}
+
+	d.dispatchingWfs = d.dispatchingWfs[1:]
+	wf := d.dispatchingWfs[0]
+
+	nextReq := NewDispatchWfReq(d, d.CUs[d.dispatchingCUID], req.Time(), wf)
+	err := d.GetConnection("ToCUs").Send(nextReq)
+	if err != nil && !err.Recoverable {
+		log.Panic(err)
+	} else if err != nil {
 		d.scheduleDispatchWfEvent(err.EarliestRetry)
 	}
 
