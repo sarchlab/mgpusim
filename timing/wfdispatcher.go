@@ -26,10 +26,8 @@ type DispatchWfEvent struct {
 
 	Req *gcn3.DispatchWfReq
 
-	ManagedWf    *Wavefront
-	State        WfDispatchingState
-	RegInitCount int            // The number of registers that has been initiated
-	RegWriteReqs []*WriteRegReq // Outgoing register write requests
+	ManagedWf *Wavefront
+	State     WfDispatchingState
 }
 
 // NewDispatchWfEvent returns a newly created DispatchWfEvent
@@ -44,7 +42,7 @@ func NewDispatchWfEvent(
 	return e
 }
 
-// A WfDispatcher initiaize wavefronts
+// A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
 	DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront)
 }
@@ -133,7 +131,7 @@ func (d *WfDispatcherImpl) initSRegs(wf *Wavefront, evt *DispatchWfEvent) bool {
 
 	if co.EnableSgprDispatchPtr() {
 		reg := insts.SReg(count)
-		// FIXME: Fillin the correct value
+		// FIXME: Fill in the correct value
 		bytes := insts.Uint64ToBytes(0)
 		d.Scheduler.writeReg(wf, reg, bytes, now)
 		count += 2
