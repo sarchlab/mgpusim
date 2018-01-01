@@ -144,7 +144,7 @@ func initPlatform() {
 	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
+		dispatcher.cus = append(dispatcher.cus, computeUnit.Scheduler)
 		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
 
 		// Hook

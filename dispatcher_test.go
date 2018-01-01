@@ -149,9 +149,9 @@ var _ = Describe("Dispatcher", func() {
 		Expect(len(engine.ScheduledEvent)).To(Equal(0))
 	})
 
-	It("should do nothing if all CUs are busy", func() {
-		dispatcher.CUBusy[0] = true
-		dispatcher.CUBusy[1] = true
+	It("should do nothing if all cus are busy", func() {
+		dispatcher.cuBusy[0] = true
+		dispatcher.cuBusy[1] = true
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
@@ -167,7 +167,7 @@ var _ = Describe("Dispatcher", func() {
 
 		dispatcher.Handle(req)
 
-		Expect(dispatcher.CUBusy[0]).To(BeTrue())
+		Expect(dispatcher.cuBusy[0]).To(BeTrue())
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
@@ -323,8 +323,8 @@ var _ = Describe("Dispatcher", func() {
 	//It("should process WGFinishMesg", func() {
 	//	status := NewKernelDispatchStatus()
 	//	status.Grid = grid
-	//	status.CUBusy = make([]bool, 4)
-	//	status.CUBusy[0] = true
+	//	status.cuBusy = make([]bool, 4)
+	//	status.cuBusy[0] = true
 	//	dispatcher.dispatchingKernel = status
 	//
 	//	req := NewWGFinishMesg(cu0, dispatcher, 10, grid.WorkGroups[0])
@@ -333,7 +333,7 @@ var _ = Describe("Dispatcher", func() {
 	//	dispatcher.Recv(req)
 	//
 	//	Expect(status.CompletedWGs).To(ContainElement(grid.WorkGroups[0]))
-	//	Expect(status.CUBusy[0]).To(BeFalse())
+	//	Expect(status.cuBusy[0]).To(BeFalse())
 	//	Expect(engine.ScheduledEvent).NotTo(BeEmpty())
 	//})
 	//
@@ -341,8 +341,8 @@ var _ = Describe("Dispatcher", func() {
 	//	"WGFinishMesg", func() {
 	//	status := NewKernelDispatchStatus()
 	//	status.Grid = grid
-	//	status.CUBusy = make([]bool, 4)
-	//	status.CUBusy[0] = true
+	//	status.cuBusy = make([]bool, 4)
+	//	status.cuBusy[0] = true
 	//	dispatcher.dispatchingKernel = status
 	//	dispatcher.running = true
 	//
@@ -352,7 +352,7 @@ var _ = Describe("Dispatcher", func() {
 	//	dispatcher.Recv(req)
 	//
 	//	Expect(status.CompletedWGs).To(ContainElement(grid.WorkGroups[0]))
-	//	Expect(status.CUBusy[0]).To(BeFalse())
+	//	Expect(status.cuBusy[0]).To(BeFalse())
 	//	Expect(engine.ScheduledEvent).To(BeEmpty())
 	//})
 	//

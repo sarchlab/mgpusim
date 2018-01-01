@@ -120,8 +120,8 @@ func NewWGFinishMesg(
 type Dispatcher struct {
 	*core.ComponentBase
 
-	CUs    []core.Component
-	CUBusy []bool
+	cus    []core.Component
+	cuBusy []bool
 
 	engine      core.Engine
 	gridBuilder kernels.GridBuilder
@@ -152,8 +152,8 @@ func NewDispatcher(
 	d.gridBuilder = gridBuilder
 	d.engine = engine
 
-	d.CUs = make([]core.Component, 0)
-	d.CUBusy = make([]bool, 0)
+	d.cus = make([]core.Component, 0)
+	d.cuBusy = make([]bool, 0)
 	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
 	d.completedWGs = make([]*kernels.WorkGroup, 0)
 	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
@@ -267,7 +267,7 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 		return nil
 	}
 
-	CU := d.CUs[cuID]
+	CU := d.cus[cuID]
 	req := NewMapWGReq(d, CU, evt.Time(), d.dispatchingWGs[0])
 	err := d.GetConnection("ToCUs").Send(req)
 	if err != nil {
@@ -298,7 +298,7 @@ func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
 // handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
 func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	if !req.Ok {
-		d.CUBusy[d.dispatchingCUID] = true
+		d.cuBusy[d.dispatchingCUID] = true
 		d.scheduleMapWG(req.RecvTime())
 		return nil
 	}
@@ -321,7 +321,7 @@ func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
 func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 	d.hasPendingEvent = false
 	wf := d.dispatchingWfs[0]
-	cu := d.CUs[d.dispatchingCUID]
+	cu := d.cus[d.dispatchingCUID]
 
 	req := NewDispatchWfReq(d, cu, evt.Time(), wf)
 	err := d.GetConnection("ToCUs").Send(req)
@@ -341,7 +341,7 @@ func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
 	d.dispatchingWfs = d.dispatchingWfs[1:]
 	wf := d.dispatchingWfs[0]
 
-	nextReq := NewDispatchWfReq(d, d.CUs[d.dispatchingCUID], req.Time(), wf)
+	nextReq := NewDispatchWfReq(d, d.cus[d.dispatchingCUID], req.Time(), wf)
 	err := d.GetConnection("ToCUs").Send(nextReq)
 	if err != nil && !err.Recoverable {
 		log.Panic(err)
@@ -381,7 +381,7 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 //		status.Req.SwapSrcAndDst()
 //		d.GetConnection("ToCommandProcessor").Send(status.Req)
 //	} else {
-//		status.CUBusy[mesg.CUID] = false
+//		status.cuBusy[mesg.CUID] = false
 //		d.tryScheduleTick(d.Freq.NextTick(d.Freq.NextTick(mesg.RecvTime())))
 //	}
 //
@@ -416,7 +416,7 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 //
 //	info := status.DispatchingWfs[0]
 //	wf := info.Wavefront
-//	req := NewDispatchWfReq(d, d.CUs[status.DispatchingCUID], now,
+//	req := NewDispatchWfReq(d, d.cus[status.DispatchingCUID], now,
 //		wf, info, entryPoint)
 //	req.CodeObject = status.CodeObject
 //	req.Packet = status.Packet
@@ -443,7 +443,7 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 //	status := d.dispatchingKernel
 //	if len(status.WGs) != 0 && !d.isAllCUsBusy(status) {
 //		cuID := d.nextAvailableCU(status)
-//		cu := d.CUs[cuID]
+//		cu := d.cus[cuID]
 //		wg := status.WGs[0]
 //		req := NewMapWGReq(d, cu, now, wg, status.CodeObject)
 //		req.CUID = cuID
@@ -458,12 +458,12 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 //}
 
 func (d *Dispatcher) RegisterCU(cu core.Component) {
-	d.CUs = append(d.CUs, cu)
-	d.CUBusy = append(d.CUBusy, false)
+	d.cus = append(d.cus, cu)
+	d.cuBusy = append(d.cuBusy, false)
 }
 
 func (d *Dispatcher) isAllCUsBusy() bool {
-	for _, busy := range d.CUBusy {
+	for _, busy := range d.cuBusy {
 		if !busy {
 			return false
 		}
@@ -472,15 +472,15 @@ func (d *Dispatcher) isAllCUsBusy() bool {
 }
 
 func (d *Dispatcher) nextAvailableCU() (int, bool) {
-	count := len(d.CUBusy)
+	count := len(d.cuBusy)
 	cuID := d.dispatchingCUID
 	for i := 0; i < count; i++ {
 		cuID++
-		if cuID >= len(d.CUBusy) {
+		if cuID >= len(d.cuBusy) {
 			cuID = 0
 		}
 
-		if !d.CUBusy[cuID] {
+		if !d.cuBusy[cuID] {
 			return cuID, true
 		}
 	}
