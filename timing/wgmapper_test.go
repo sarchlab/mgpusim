@@ -30,7 +30,7 @@ var _ = Describe("WGMapper", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("cu")
+		cu = NewComputeUnit("cu", nil)
 		wgMapper = NewWGMapper(cu, 4)
 		wgMapper.initWfInfo([]int{10, 10, 10, 10})
 		wgMapper.initLDSInfo(64 * 1024) // 64K

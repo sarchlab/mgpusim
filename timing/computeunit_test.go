@@ -21,18 +21,30 @@ func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
 	m.UnmappedWg = wg
 }
 
+type mockWfDispatcher struct {
+	dispatchedWf *gcn3.DispatchWfReq
+}
+
+func (m *mockWfDispatcher) DispatchWf(req *gcn3.DispatchWfReq) {
+	m.dispatchedWf = req
+}
+
 var _ = Describe("ComputeUnit", func() {
 	var (
-		cu       *ComputeUnit
-		wgMapper *mockWGMapper
+		cu           *ComputeUnit
+		wgMapper     *mockWGMapper
+		wfDispatcher *mockWfDispatcher
 
 		connection *core.MockConnection
 	)
 
 	BeforeEach(func() {
 		wgMapper = new(mockWGMapper)
-		cu = NewComputeUnit("cu")
-		cu.wgMapper = wgMapper
+		wfDispatcher = new(mockWfDispatcher)
+
+		cu = NewComputeUnit("cu", nil)
+		cu.WGMapper = wgMapper
+		cu.WfDispatcher = wfDispatcher
 		cu.Freq = 1
 
 		connection = core.NewMockConnection()
@@ -89,6 +101,19 @@ var _ = Describe("ComputeUnit", func() {
 			cu.Handle(req)
 
 			Expect(connection.AllExpectedSent()).To(BeTrue())
+		})
+	})
+
+	Context("when processing DispatchWfReq", func() {
+		It("should dispatch wf", func() {
+			req := gcn3.NewDispatchWfReq(nil, cu, 10, nil)
+			cu.Handle(req)
+			Expect(wfDispatcher.dispatchedWf).To(BeIdenticalTo(req))
+		})
+
+		It("should handle WfDispatchCompletionEvent", func() {
+			evt := NewWfDispatchCompletionEvent(10, cu, nil)
+			cu.Handle(evt)
 		})
 	})
 })
