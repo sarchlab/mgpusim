@@ -44,11 +44,28 @@ var _ = Describe("ComputeUnit", func() {
 			wgMapper.OK = true
 
 			wg := kernels.NewWorkGroup()
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg, nil)
+			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
 			req.SetRecvTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg, nil)
+			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
 			expectedResponse.Ok = true
+			expectedResponse.SetRecvTime(10)
+			connection.ExpectSend(expectedResponse, nil)
+
+			cu.Handle(req)
+
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+		})
+
+		It("should reply not OK if there are pending wavefronts", func() {
+			cu.WfToDispatch = append(cu.WfToDispatch, new(WfDispatchInfo))
+
+			wg := kernels.NewWorkGroup()
+			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
+			req.SetRecvTime(10)
+
+			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
+			expectedResponse.Ok = false
 			expectedResponse.SetRecvTime(10)
 			connection.ExpectSend(expectedResponse, nil)
 
@@ -61,10 +78,10 @@ var _ = Describe("ComputeUnit", func() {
 			wgMapper.OK = false
 
 			wg := kernels.NewWorkGroup()
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg, nil)
+			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
 			req.SetRecvTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg, nil)
+			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
 			expectedResponse.Ok = false
 			expectedResponse.SetRecvTime(10)
 			connection.ExpectSend(expectedResponse, nil)

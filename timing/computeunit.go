@@ -17,12 +17,16 @@ type ComputeUnit struct {
 
 	engine core.Engine
 	Freq   util.Freq
+
+	WfToDispatch []*WfDispatchInfo
 }
 
 // NewComputeUnit returns a newly constructed compute unit
 func NewComputeUnit(name string) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)
+
+	cu.WfToDispatch = make([]*WfDispatchInfo, 0)
 
 	cu.AddPort("ToACE")
 	cu.AddPort("ToInstMem")
@@ -55,7 +59,11 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 }
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) *core.Error {
-	ok := cu.wgMapper.MapWG(req)
+	ok := false
+
+	if len(cu.WfToDispatch) == 0 {
+		ok = cu.wgMapper.MapWG(req)
+	}
 
 	req.Ok = ok
 	req.SwapSrcAndDst()
