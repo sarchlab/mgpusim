@@ -2,6 +2,7 @@ package timing
 
 import (
 	"log"
+	"reflect"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
@@ -13,7 +14,8 @@ import (
 type ComputeUnit struct {
 	*core.ComponentBase
 
-	wgMapper WGMapper
+	WGMapper     WGMapper
+	WfDispatcher WfDispatcher
 
 	engine core.Engine
 	Freq   util.Freq
@@ -22,9 +24,11 @@ type ComputeUnit struct {
 }
 
 // NewComputeUnit returns a newly constructed compute unit
-func NewComputeUnit(name string) *ComputeUnit {
+func NewComputeUnit(name string, engine core.Engine) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)
+
+	cu.engine = engine
 
 	cu.WfToDispatch = make([]*WfDispatchInfo, 0)
 
@@ -53,16 +57,21 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		return cu.handleDispatchWfReq(evt)
 	case *core.TickEvent:
 		return cu.handleTickEvent(evt)
+	case *WfDispatchCompletionEvent:
+		return cu.handleWfDispatchCompletionEvent(evt)
+	default:
+		log.Panicf("Unable to process evevt of type %s",
+			reflect.TypeOf(evt))
 	}
 
 	return nil
 }
 
-func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) *core.Error {
+func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	ok := false
 
 	if len(cu.WfToDispatch) == 0 {
-		ok = cu.wgMapper.MapWG(req)
+		ok = cu.WGMapper.MapWG(req)
 	}
 
 	req.Ok = ok
@@ -76,7 +85,14 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) *core.Error {
 	return nil
 }
 
-func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) *core.Error {
+func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
+	cu.WfDispatcher.DispatchWf(req)
+	return nil
+}
+
+func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
+	evt *WfDispatchCompletionEvent,
+) error {
 	return nil
 }
 
