@@ -21,6 +21,7 @@ type ComputeUnit struct {
 	Freq   util.Freq
 
 	WfToDispatch []*WfDispatchInfo
+	running      bool
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -93,7 +94,48 @@ func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
 func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	evt *WfDispatchCompletionEvent,
 ) error {
+	if !cu.running {
+		tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
+		cu.engine.Schedule(tick)
+	}
 	return nil
+}
+
+func (cu *ComputeUnit) handleWfCompleteEvent(evt *WfCompleteEvent) error {
+	wf := evt.Wf
+	wg := wf.WG
+	wf.State = WfCompleted
+
+	if cu.isAllWfInWGCompleted(wg) {
+		ok := cu.sendWGCompletionMessage(evt, wg)
+		if ok {
+			cu.clearWGResource(wg)
+			// delete(s.RunningWGs, wf.WG)
+		}
+	}
+
+	if len(s.RunningWGs) == 0 {
+		s.running = false
+	}
+
+	return nil
+}
+
+func (cu *ComputeUnit) clearWGResource(wg *WorkGroup) {
+	cu.WGMapper.UnmapWG(wg)
+	//for _, wf := range wg.Wfs {
+	//	wfPool := s.WfPools[wf.SIMDID]
+	//	wfPool.RemoveWf(wf)
+	//}
+}
+
+func (cu *ComputeUnit) isAllWfInWGCompleted(wg *WorkGroup) bool {
+	for _, wf := range wg.Wfs {
+		if wf.State != WfCompleted {
+			return false
+		}
+	}
+	return true
 }
 
 func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {

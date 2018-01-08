@@ -27,6 +27,8 @@ type Wavefront struct {
 	*kernels.Wavefront
 	sync.RWMutex
 
+	WG *WorkGroup
+
 	CodeObject *insts.HsaCo
 	Packet     *kernels.HsaKernelDispatchPacket
 
