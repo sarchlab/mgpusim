@@ -32,6 +32,7 @@ func (m *mockWfDispatcher) DispatchWf(req *gcn3.DispatchWfReq) {
 var _ = Describe("ComputeUnit", func() {
 	var (
 		cu           *ComputeUnit
+		engine       *core.MockEngine
 		wgMapper     *mockWGMapper
 		wfDispatcher *mockWfDispatcher
 
@@ -39,10 +40,11 @@ var _ = Describe("ComputeUnit", func() {
 	)
 
 	BeforeEach(func() {
+		engine = core.NewMockEngine()
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
 
-		cu = NewComputeUnit("cu", nil)
+		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
 		cu.WfDispatcher = wfDispatcher
 		cu.Freq = 1
@@ -112,8 +114,21 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle WfDispatchCompletionEvent", func() {
+			cu.running = false
 			evt := NewWfDispatchCompletionEvent(10, cu, nil)
+
 			cu.Handle(evt)
+
+			Expect(len(engine.ScheduledEvent)).To(Equal(1))
+		})
+
+		It("should handle WfDispatchCompletionEvent", func() {
+			cu.running = true
+			evt := NewWfDispatchCompletionEvent(10, cu, nil)
+
+			cu.Handle(evt)
+
+			Expect(len(engine.ScheduledEvent)).To(Equal(0))
 		})
 	})
 })
