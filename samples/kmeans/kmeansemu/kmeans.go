@@ -24,10 +24,9 @@ import (
 	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -55,14 +54,13 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-	engine      core.Engine
-	globalMem   *mem.IdealMemController
-	gpu         *gcn3.Gpu
-	host        *hostComponent
-	connection  core.Connection
-	hsaco       *insts.HsaCo
-	logger      *log.Logger
-	traceOutput *os.File
+	engine     core.Engine
+	globalMem  *mem.IdealMemController
+	gpu        *gcn3.Gpu
+	host       *hostComponent
+	connection core.Connection
+	hsaco      *insts.HsaCo
+	logger     *log.Logger
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -94,11 +92,6 @@ func main() {
 
 	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
-	traceFile, err := os.Create("trace.out")
-	if err != nil {
-		log.Panic(err)
-	}
-	traceOutput = traceFile
 
 	initPlatform()
 	loadProgram()
@@ -110,6 +103,7 @@ func main() {
 func initPlatform() {
 	// Simulation engine
 	engine = engines.NewSerialEngine()
+	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
 
 	// Connection
 	connection = connections.NewDirectConnection(engine)
@@ -123,10 +117,10 @@ func initPlatform() {
 	host = newHostComponent()
 
 	// Gpu
-	gpu = gcn3.NewGpu("Gpu")
-	commandProcessor := gcn3.NewCommandProcessor("Gpu.CommandProcessor")
+	gpu = gcn3.NewGpu("GPU")
+	commandProcessor := gcn3.NewCommandProcessor("GPU.CommandProcessor")
 
-	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
+	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 1 * util.GHz
 	wgCompleteLogger := new(gcn3.WGCompleteLogger)
@@ -137,37 +131,23 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
-	cuBuilder := timing.NewBuilder()
-	cuBuilder.Engine = engine
-	cuBuilder.Freq = 1 * util.GHz
-	cuBuilder.InstMem = globalMem
-	cuBuilder.Decoder = insts.NewDisassembler()
-	cuBuilder.ToInstMem = connection
-	for i := 0; i < 64; i++ {
-		cuBuilder.CUName = "cu" + string(i)
-		computeUnit := cuBuilder.Build()
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
-		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
+	disassembler := insts.NewDisassembler()
+	isaDebug, err := os.Create("isa.debug")
+	if err != nil {
+		fmt.Print("Isa debug file failed to open\n")
+	}
+	for i := 0; i < 4; i++ {
+		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
+		alu := emu.NewALU(globalMem.Storage)
+		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
+			engine, disassembler, scratchpadPreparer, alu)
+		computeUnit.Freq = 1 * util.GHz
+		computeUnit.GlobalMemStorage = globalMem.Storage
+		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
+		core.PlugIn(computeUnit, "ToDispatcher", connection)
 
-		// Hook
-		mapWGLog := timing.NewMapWGLog(logger)
-		computeUnit.Scheduler.AcceptHook(mapWGLog)
-		dispatchWfHook := timing.NewDispatchWfLog(logger)
-		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
-
-		if i == 0 {
-			tracer := trace.NewInstTracer(traceOutput)
-			computeUnit.Scheduler.AcceptHook(tracer)
-			computeUnit.BranchUnit.AcceptHook(tracer)
-			computeUnit.ScalarUnit.AcceptHook(tracer)
-			computeUnit.SIMDUnits[0].AcceptHook(tracer)
-			computeUnit.SIMDUnits[1].AcceptHook(tracer)
-			computeUnit.SIMDUnits[2].AcceptHook(tracer)
-			computeUnit.SIMDUnits[3].AcceptHook(tracer)
-			computeUnit.VectorDecode.AcceptHook(tracer)
-			computeUnit.ScalarDecode.AcceptHook(tracer)
-		}
-
+		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
+		computeUnit.AcceptHook(wfHook)
 	}
 
 	// Connection
@@ -199,6 +179,7 @@ func loadProgram() {
 	}
 
 	hsaco = insts.NewHsaCoFromData(hsacoData)
+	fmt.Println(hsaco.Info())
 }
 
 var (
@@ -246,6 +227,14 @@ func run() {
 	req.Packet.KernelObject = 0
 	req.Packet.KernargAddress = 65536
 
+	var buffer bytes.Buffer
+	binary.Write(&buffer, binary.LittleEndian, req.Packet)
+	err = globalMem.Storage.Write(0x11000, buffer.Bytes())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.PacketAddress = 0x11000
 	req.SetSrc(host)
 	req.SetDst(gpu)
 	req.SetSendTime(0)
