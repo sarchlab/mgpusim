@@ -58,8 +58,6 @@ var (
 	host        *hostComponent
 	connection  core.Connection
 	hsaco       *insts.HsaCo
-	logger      *log.Logger
-	traceOutput *os.File
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -89,13 +87,6 @@ func main() {
 		os.Exit(1)
 	}()
 
-	// log.SetOutput(ioutil.Discard)
-	logger = log.New(os.Stdout, "", 0)
-	traceFile, err := os.Create("trace.out")
-	if err != nil {
-		log.Panic(err)
-	}
-	traceOutput = traceFile
 
 	initPlatform()
 	loadProgram()
@@ -126,9 +117,9 @@ func initPlatform() {
 	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 1 * util.GHz
-	wgCompleteLogger := new(gcn3.WGCompleteLogger)
-	wgCompleteLogger.Logger = logger
-	dispatcher.AcceptHook(wgCompleteLogger)
+	//wgCompleteLogger := new(gcn3.WGCompleteLogger)
+	//wgCompleteLogger.Logger = logger
+	//dispatcher.AcceptHook(wgCompleteLogger)
 
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host

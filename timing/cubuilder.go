@@ -33,6 +33,9 @@ func NewBuilder() *Builder {
 // Build returns a newly constructed compute unit according to the configuration
 func (b *Builder) Build() *ComputeUnit {
 	computeUnit := NewComputeUnit(b.CUName, b.Engine)
+	computeUnit.Freq = b.Freq
+	computeUnit.WGMapper = NewWGMapper(computeUnit, 4)
+	computeUnit.WfDispatcher = NewWfDispatcher(computeUnit)
 
 	return computeUnit
 }
