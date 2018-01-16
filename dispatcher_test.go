@@ -150,8 +150,8 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should do nothing if all cus are busy", func() {
-		dispatcher.cuBusy[0] = true
-		dispatcher.cuBusy[1] = true
+		dispatcher.cuBusy[cu0] = true
+		dispatcher.cuBusy[cu1] = true
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
@@ -167,7 +167,7 @@ var _ = Describe("Dispatcher", func() {
 
 		dispatcher.Handle(req)
 
-		Expect(dispatcher.cuBusy[0]).To(BeTrue())
+		Expect(dispatcher.cuBusy[cu0]).To(BeTrue())
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
@@ -277,6 +277,7 @@ var _ = Describe("Dispatcher", func() {
 
 	It("should continue dispatching when receiving WGFinishMesg", func() {
 		dispatcher.dispatchingGrid = grid
+		dispatcher.cuBusy[cu0] = true
 
 		wg := grid.WorkGroups[0]
 		req := NewWGFinishMesg(cu0, dispatcher, 10, wg)
@@ -284,6 +285,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.Handle(req)
 
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
+		Expect(dispatcher.cuBusy[cu0]).To(BeFalse())
 	})
 
 	It("should not continue dispatching when receiving WGFinishMesg and "+

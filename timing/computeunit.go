@@ -22,6 +22,17 @@ type ComputeUnit struct {
 
 	WfToDispatch []*WfDispatchInfo
 	running      bool
+
+	Scheduler       Scheduler
+	BranchUnit      CUComponent
+	VectorMemDecode CUComponent
+	VectorMemUnit   CUComponent
+	ScalarDecode    CUComponent
+	VectorDecode    CUComponent
+	LDSDecode       CUComponent
+	ScalarUnit      CUComponent
+	SIMDUnit        []CUComponent
+	LDSUnit         CUComponent
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -56,10 +67,12 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		return cu.handleMapWGReq(evt)
 	case *gcn3.DispatchWfReq:
 		return cu.handleDispatchWfReq(evt)
-	case *core.TickEvent:
-		return cu.handleTickEvent(evt)
 	case *WfDispatchCompletionEvent:
 		return cu.handleWfDispatchCompletionEvent(evt)
+	case *core.TickEvent:
+		return cu.handleTickEvent(evt)
+	case *WfCompletionEvent:
+		return cu.handleWfCompletionEvent(evt)
 	default:
 		log.Panicf("Unable to process evevt of type %s",
 			reflect.TypeOf(evt))
@@ -94,14 +107,20 @@ func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
 func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	evt *WfDispatchCompletionEvent,
 ) error {
-	if !cu.running {
-		tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
-		cu.engine.Schedule(tick)
-	}
+	// if !cu.running {
+	// 	tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
+	// 	cu.engine.Schedule(tick)
+	// }
+
+	wfCompletionEvent := NewWfCompletionEvent(
+		cu.Freq.NCyclesLater(10000, evt.Time()),
+		cu, evt.ManagedWf)
+	cu.engine.Schedule(wfCompletionEvent)
+
 	return nil
 }
 
-func (cu *ComputeUnit) handleWfCompleteEvent(evt *WfCompleteEvent) error {
+func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	wf := evt.Wf
 	wg := wf.WG
 	wf.State = WfCompleted
@@ -112,10 +131,6 @@ func (cu *ComputeUnit) handleWfCompleteEvent(evt *WfCompleteEvent) error {
 			cu.clearWGResource(wg)
 			// delete(s.RunningWGs, wf.WG)
 		}
-	}
-
-	if len(s.RunningWGs) == 0 {
-		s.running = false
 	}
 
 	return nil
@@ -138,6 +153,30 @@ func (cu *ComputeUnit) isAllWfInWGCompleted(wg *WorkGroup) bool {
 	return true
 }
 
+func (cu *ComputeUnit) sendWGCompletionMessage(
+	evt *WfCompletionEvent,
+	wg *WorkGroup,
+) bool {
+	mapReq := wg.MapReq
+	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
+	now := evt.Time()
+	mesg := gcn3.NewWGFinishMesg(cu, dispatcher, now, wg.WorkGroup)
+
+	err := cu.GetConnection("ToACE").Send(mesg)
+	if err != nil {
+		if !err.Recoverable {
+			log.Fatal(err)
+		} else {
+			evt.SetTime(cu.Freq.NoEarlierThan(err.EarliestRetry))
+			cu.engine.Schedule(evt)
+			return false
+		}
+	}
+	return true
+}
+
 func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
+	cu.Scheduler.DoIssue()
+	cu.Scheduler.DoFetch()
 	return nil
 }

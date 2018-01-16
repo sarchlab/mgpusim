@@ -122,13 +122,13 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(len(engine.ScheduledEvent)).To(Equal(1))
 		})
 
-		It("should handle WfDispatchCompletionEvent", func() {
-			cu.running = true
-			evt := NewWfDispatchCompletionEvent(10, cu, nil)
+		// It("should handle WfDispatchCompletionEvent", func() {
+		// 	cu.running = true
+		// 	evt := NewWfDispatchCompletionEvent(10, cu, nil)
 
-			cu.Handle(evt)
+		// 	cu.Handle(evt)
 
-			Expect(len(engine.ScheduledEvent)).To(Equal(0))
-		})
+		// 	Expect(len(engine.ScheduledEvent)).To(Equal(0))
+		// })
 	})
 })
