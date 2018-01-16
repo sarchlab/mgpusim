@@ -199,6 +199,8 @@ func (d *Disassembler) decodeSmem(inst *Inst, buf []byte) {
 		inst.ByteSize += 4
 	}
 	switch inst.Opcode {
+	case 0:
+		inst.Data.RegCount = 1
 	case 1, 9, 17, 25:
 		inst.Data.RegCount = 2
 	case 2, 10, 18, 26:
