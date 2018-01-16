@@ -23,8 +23,9 @@ var _ = Describe("WfDispatcher", func() {
 	})
 
 	It("should dispatch wavefront", func() {
+		wf := new(Wavefront)
 		req := gcn3.NewDispatchWfReq(nil, cu, 10, nil)
-		wfDispatcher.DispatchWf(req)
+		wfDispatcher.DispatchWf(wf, req)
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 })

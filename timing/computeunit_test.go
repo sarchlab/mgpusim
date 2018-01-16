@@ -25,7 +25,7 @@ type mockWfDispatcher struct {
 	dispatchedWf *gcn3.DispatchWfReq
 }
 
-func (m *mockWfDispatcher) DispatchWf(req *gcn3.DispatchWfReq) {
+func (m *mockWfDispatcher) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
 	m.dispatchedWf = req
 }
 
@@ -108,7 +108,8 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when processing DispatchWfReq", func() {
 		It("should dispatch wf", func() {
-			req := gcn3.NewDispatchWfReq(nil, cu, 10, nil)
+			wf := kernels.NewWavefront()
+			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
 			cu.Handle(req)
 			Expect(wfDispatcher.dispatchedWf).To(BeIdenticalTo(req))
 		})

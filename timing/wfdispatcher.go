@@ -26,7 +26,7 @@ func NewWfDispatchCompletionEvent(
 
 // A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
-	DispatchWf(req *gcn3.DispatchWfReq)
+	DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq)
 }
 
 // A WfDispatcherImpl will register the wavefront in wavefront pool and
@@ -46,10 +46,7 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 }
 
 // DispatchWf starts or continues a wavefront dispatching process.
-func (d *WfDispatcherImpl) DispatchWf(req *gcn3.DispatchWfReq) {
-	wf := new(Wavefront)
-	wf.Wavefront = req.Wf
-
+func (d *WfDispatcherImpl) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
 	evt := NewWfDispatchCompletionEvent(
 		d.cu.Freq.NCyclesLater(d.Latency, req.RecvTime()),
 		d.cu, wf)

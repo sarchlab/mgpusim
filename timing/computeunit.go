@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/yaotsu/gcn3/kernels"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
@@ -20,8 +22,9 @@ type ComputeUnit struct {
 	engine core.Engine
 	Freq   util.Freq
 
-	WfToDispatch []*WfDispatchInfo
-	running      bool
+	WfToDispatch         []*WfDispatchInfo
+	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
+	running              bool
 
 	Scheduler       Scheduler
 	BranchUnit      CUComponent
@@ -43,6 +46,7 @@ func NewComputeUnit(name string, engine core.Engine) *ComputeUnit {
 	cu.engine = engine
 
 	cu.WfToDispatch = make([]*WfDispatchInfo, 0)
+	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
 
 	cu.AddPort("ToACE")
 	cu.AddPort("ToInstMem")
@@ -88,6 +92,10 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 		ok = cu.WGMapper.MapWG(req)
 	}
 
+	if ok {
+		cu.wrapWG(req.WG, req)
+	}
+
 	req.Ok = ok
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.Time())
@@ -100,7 +108,8 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 }
 
 func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
-	cu.WfDispatcher.DispatchWf(req)
+	wf := cu.wrapWf(req.Wf)
+	cu.WfDispatcher.DispatchWf(wf, req)
 	return nil
 }
 
@@ -179,4 +188,20 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	cu.Scheduler.DoIssue()
 	cu.Scheduler.DoFetch()
 	return nil
+}
+
+func (cu *ComputeUnit) wrapWG(
+	raw *kernels.WorkGroup,
+	req *gcn3.MapWGReq,
+) *WorkGroup {
+	wg := NewWorkGroup(raw, req)
+	cu.wgToManagedWgMapping[raw] = wg
+	return wg
+}
+
+func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
+	wf := new(Wavefront)
+	wf.Wavefront = raw
+	wf.WG = cu.wgToManagedWgMapping[raw.WG]
+	return wf
 }
