@@ -87,8 +87,7 @@ func NewDispatchWfEvent(
 type WGFinishMesg struct {
 	*core.ReqBase
 
-	WG   *kernels.WorkGroup
-	CUID int
+	WG *kernels.WorkGroup
 }
 
 // NewWGFinishMesg creates and returns a newly created WGFinishMesg
@@ -121,7 +120,7 @@ type Dispatcher struct {
 	*core.ComponentBase
 
 	cus    []core.Component
-	cuBusy []bool
+	cuBusy map[core.Component]bool
 
 	engine      core.Engine
 	gridBuilder kernels.GridBuilder
@@ -153,7 +152,7 @@ func NewDispatcher(
 	d.engine = engine
 
 	d.cus = make([]core.Component, 0)
-	d.cuBusy = make([]bool, 0)
+	d.cuBusy = make(map[core.Component]bool, 0)
 	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
 	d.completedWGs = make([]*kernels.WorkGroup, 0)
 	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
@@ -298,7 +297,7 @@ func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
 // handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
 func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	if !req.Ok {
-		d.cuBusy[d.dispatchingCUID] = true
+		d.cuBusy[d.cus[d.dispatchingCUID]] = true
 		d.scheduleMapWG(req.RecvTime())
 		return nil
 	}
@@ -354,6 +353,7 @@ func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
 
 func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	d.completedWGs = append(d.completedWGs, mesg.WG)
+	d.cuBusy[mesg.Src()] = false
 	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
 		d.replyKernelFinish(mesg.Time())
 		return nil
@@ -374,7 +374,8 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 
 func (d *Dispatcher) RegisterCU(cu core.Component) {
 	d.cus = append(d.cus, cu)
-	d.cuBusy = append(d.cuBusy, false)
+	//d.cuBusy = append(d.cuBusy, false)
+	d.cuBusy[cu] = false
 }
 
 func (d *Dispatcher) nextAvailableCU() (int, bool) {
@@ -386,7 +387,7 @@ func (d *Dispatcher) nextAvailableCU() (int, bool) {
 			cuID = 0
 		}
 
-		if !d.cuBusy[cuID] {
+		if !d.cuBusy[d.cus[cuID]] {
 			return cuID, true
 		}
 	}

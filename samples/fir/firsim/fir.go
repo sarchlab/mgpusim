@@ -25,7 +25,6 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -144,27 +143,28 @@ func initPlatform() {
 	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
-		dispatcher.cus = append(dispatcher.cus, computeUnit.Scheduler)
-		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
+		dispatcher.RegisterCU(computeUnit)
+
+		core.PlugIn(computeUnit, "ToACE", connection)
 
 		// Hook
-		mapWGLog := timing.NewMapWGLog(logger)
-		computeUnit.Scheduler.AcceptHook(mapWGLog)
-		dispatchWfHook := timing.NewDispatchWfLog(logger)
-		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
-
-		if i == 0 {
-			tracer := trace.NewInstTracer(traceOutput)
-			computeUnit.Scheduler.AcceptHook(tracer)
-			computeUnit.BranchUnit.AcceptHook(tracer)
-			computeUnit.ScalarUnit.AcceptHook(tracer)
-			computeUnit.SIMDUnits[0].AcceptHook(tracer)
-			computeUnit.SIMDUnits[1].AcceptHook(tracer)
-			computeUnit.SIMDUnits[2].AcceptHook(tracer)
-			computeUnit.SIMDUnits[3].AcceptHook(tracer)
-			computeUnit.VectorDecode.AcceptHook(tracer)
-			computeUnit.ScalarDecode.AcceptHook(tracer)
-		}
+		//mapWGLog := timing.NewMapWGLog(logger)
+		//computeUnit.Scheduler.AcceptHook(mapWGLog)
+		//dispatchWfHook := timing.NewDispatchWfLog(logger)
+		//computeUnit.Scheduler.AcceptHook(dispatchWfHook)
+		//
+		//if i == 0 {
+		//	tracer := trace.NewInstTracer(traceOutput)
+		//	computeUnit.Scheduler.AcceptHook(tracer)
+		//	computeUnit.BranchUnit.AcceptHook(tracer)
+		//	computeUnit.ScalarUnit.AcceptHook(tracer)
+		//	computeUnit.SIMDUnits[0].AcceptHook(tracer)
+		//	computeUnit.SIMDUnits[1].AcceptHook(tracer)
+		//	computeUnit.SIMDUnits[2].AcceptHook(tracer)
+		//	computeUnit.SIMDUnits[3].AcceptHook(tracer)
+		//	computeUnit.VectorDecode.AcceptHook(tracer)
+		//	computeUnit.ScalarDecode.AcceptHook(tracer)
+		//}
 
 	}
 
