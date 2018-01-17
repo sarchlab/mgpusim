@@ -190,7 +190,7 @@ var (
 
 func initMem() {
 	// Write the input
-	inputData := make([]byte, inputDataSize)
+	inputData := make([]byte, 0)
 	buffer := bytes.NewBuffer(inputData)
 	for i := 0; i < numSample; i++ {
 		for j := 0; j < numFeature; j++ {
@@ -205,11 +205,11 @@ func initMem() {
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 24))
+	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // feature
 	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096+4096)) // feature_swap
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int(numSample))    // npoints
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int(numFeature))   // nfeatures
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numSample))  // npoints
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numFeature)) // nfeatures
 	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
