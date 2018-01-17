@@ -192,6 +192,7 @@ func NewDispatcher(
 //                       the completion of a workgroup
 //
 func (d *Dispatcher) Recv(req core.Req) *core.Error {
+	d.InvokeHook(req, d, core.OnRecvReq, nil)
 	util.ProcessReqAsEvent(req, d.engine, d.Freq)
 	return nil
 }
@@ -236,21 +237,25 @@ func (d *Dispatcher) handleLaunchKernelReq(
 		ok = true
 	}
 
-	d.replyLaunchKernelReq(ok, req)
-
 	if ok {
 		d.initKernelDispatching(req)
 		d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
+	} else {
+		d.replyLaunchKernelReq(false, req, req.Time())
 	}
 
 	return nil
 }
 
-func (d *Dispatcher) replyLaunchKernelReq(ok bool, req *kernels.LaunchKernelReq) {
+func (d *Dispatcher) replyLaunchKernelReq(
+	ok bool,
+	req *kernels.LaunchKernelReq,
+	now core.VTimeInSec,
+) *core.Error {
 	req.OK = ok
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.RecvTime())
-	d.GetConnection("ToCommandProcessor").Send(req)
+	return d.GetConnection("ToCommandProcessor").Send(req)
 }
 
 // handleMapWGEvent initiates work-group mapping
