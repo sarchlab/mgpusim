@@ -110,17 +110,27 @@ var _ = Describe("ComputeUnit", func() {
 		It("should dispatch wf", func() {
 			wf := kernels.NewWavefront()
 			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
+			req.SetRecvTime(11)
+
 			cu.Handle(req)
+
 			Expect(wfDispatcher.dispatchedWf).To(BeIdenticalTo(req))
 		})
 
 		It("should handle WfDispatchCompletionEvent", func() {
 			cu.running = false
-			evt := NewWfDispatchCompletionEvent(10, cu, nil)
+			req := gcn3.NewDispatchWfReq(nil, cu, 10, nil)
+			evt := NewWfDispatchCompletionEvent(11, cu, nil)
+			evt.DispatchWfReq = req
+
+			expectedResponse := gcn3.NewDispatchWfReq(cu, nil, 11, nil)
+			expectedResponse.SetSendTime(11)
+			connection.ExpectSend(expectedResponse, nil)
 
 			cu.Handle(evt)
 
 			Expect(len(engine.ScheduledEvent)).To(Equal(1))
+			Expect(connection.AllExpectedSent()).To(BeTrue())
 		})
 
 		// It("should handle WfDispatchCompletionEvent", func() {
