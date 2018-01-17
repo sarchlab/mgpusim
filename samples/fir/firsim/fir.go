@@ -52,12 +52,13 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-	engine      core.Engine
-	globalMem   *mem.IdealMemController
-	gpu         *gcn3.Gpu
-	host        *hostComponent
-	connection  core.Connection
-	hsaco       *insts.HsaCo
+	engine     core.Engine
+	globalMem  *mem.IdealMemController
+	gpu        *gcn3.Gpu
+	host       *hostComponent
+	connection core.Connection
+	hsaco      *insts.HsaCo
+	logger     *log.Logger
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -87,6 +88,7 @@ func main() {
 		os.Exit(1)
 	}()
 
+	logger = log.New(os.Stdout, "", 0)
 
 	initPlatform()
 	loadProgram()
@@ -117,9 +119,9 @@ func initPlatform() {
 	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 1 * util.GHz
-	//wgCompleteLogger := new(gcn3.WGCompleteLogger)
-	//wgCompleteLogger.Logger = logger
-	//dispatcher.AcceptHook(wgCompleteLogger)
+	wgCompleteLogger := new(gcn3.WGCompleteLogger)
+	wgCompleteLogger.Logger = logger
+	dispatcher.AcceptHook(wgCompleteLogger)
 
 	gpu.CommandProcessor = commandProcessor
 	gpu.Driver = host
@@ -230,7 +232,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 1000
+	req.Packet.GridSizeX = 256 * 4
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256

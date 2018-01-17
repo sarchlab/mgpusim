@@ -108,7 +108,11 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when processing DispatchWfReq", func() {
 		It("should dispatch wf", func() {
+			wg := kernels.NewWorkGroup()
+			cu.wrapWG(wg, nil)
+
 			wf := kernels.NewWavefront()
+			wf.WG = wg
 			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
 			req.SetRecvTime(11)
 

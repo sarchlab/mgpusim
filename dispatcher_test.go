@@ -71,17 +71,8 @@ var _ = Describe("Dispatcher", func() {
 		req.SetDst(dispatcher)
 		req.SetRecvTime(10)
 
-		expectedReq := kernels.NewLaunchKernelReq()
-		expectedReq.OK = true
-		expectedReq.SetSrc(dispatcher)
-		expectedReq.SetDst(nil)
-		expectedReq.SetSendTime(10)
-		expectedReq.SetRecvTime(10)
-		toCommandProcessorConn.ExpectSend(expectedReq, nil)
-
 		dispatcher.Handle(req)
 
-		Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
@@ -152,6 +143,8 @@ var _ = Describe("Dispatcher", func() {
 	It("should do nothing if all cus are busy", func() {
 		dispatcher.cuBusy[cu0] = true
 		dispatcher.cuBusy[cu1] = true
+		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
+			grid.WorkGroups[0])
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
