@@ -110,6 +110,7 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
 	wf := cu.wrapWf(req.Wf)
 	cu.WfDispatcher.DispatchWf(wf, req)
+
 	return nil
 }
 
@@ -121,6 +122,13 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	// 	cu.engine.Schedule(tick)
 	// }
 
+	// Respond ACK
+	req := evt.DispatchWfReq
+	req.SwapSrcAndDst()
+	req.SetSendTime(evt.Time())
+	cu.GetConnection("ToACE").Send(req)
+
+	// This is temporary code
 	wfCompletionEvent := NewWfCompletionEvent(
 		cu.Freq.NCyclesLater(10000, evt.Time()),
 		cu, evt.ManagedWf)
@@ -202,6 +210,8 @@ func (cu *ComputeUnit) wrapWG(
 func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 	wf := new(Wavefront)
 	wf.Wavefront = raw
-	wf.WG = cu.wgToManagedWgMapping[raw.WG]
+	wg := cu.wgToManagedWgMapping[raw.WG]
+	wg.Wfs = append(wg.Wfs, wf)
+	wf.WG = wg
 	return wf
 }

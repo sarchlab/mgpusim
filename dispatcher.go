@@ -332,12 +332,13 @@ func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
 }
 
 func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
-	if len(d.dispatchingWfs) <= 1 {
+	d.dispatchingWfs = d.dispatchingWfs[1:]
+
+	if len(d.dispatchingWfs) == 0 {
 		d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
 		return nil
 	}
 
-	d.dispatchingWfs = d.dispatchingWfs[1:]
 	wf := d.dispatchingWfs[0]
 
 	nextReq := NewDispatchWfReq(d, d.cus[d.dispatchingCUID], req.Time(), wf)

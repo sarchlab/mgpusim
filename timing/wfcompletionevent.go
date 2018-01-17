@@ -1,6 +1,8 @@
 package timing
 
-import "gitlab.com/yaotsu/core"
+import (
+	"gitlab.com/yaotsu/core"
+)
 
 // A WfCompletionEvent marks the completion of a wavefront
 type WfCompletionEvent struct {
