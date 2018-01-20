@@ -49,6 +49,10 @@ var _ = Describe("ComputeUnit", func() {
 		cu.WfDispatcher = wfDispatcher
 		cu.Freq = 1
 
+		for i := 0; i < 4; i++ {
+			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
+		}
+
 		connection = core.NewMockConnection()
 		core.PlugIn(cu, "ToACE", connection)
 	})
@@ -72,7 +76,8 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should reply not OK if there are pending wavefronts", func() {
-			cu.WfToDispatch = append(cu.WfToDispatch, new(WfDispatchInfo))
+			wf := kernels.NewWavefront()
+			cu.WfToDispatch[wf] = new(WfDispatchInfo)
 
 			wg := kernels.NewWorkGroup()
 			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
@@ -123,11 +128,20 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle WfDispatchCompletionEvent", func() {
 			cu.running = false
-			req := gcn3.NewDispatchWfReq(nil, cu, 10, nil)
-			evt := NewWfDispatchCompletionEvent(11, cu, nil)
+			wf := kernels.NewWavefront()
+			managedWf := new(Wavefront)
+			managedWf.Wavefront = wf
+
+			info := new(WfDispatchInfo)
+			info.Wavefront = wf
+			info.SIMDID = 0
+			cu.WfToDispatch[wf] = info
+
+			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
+			evt := NewWfDispatchCompletionEvent(11, cu, managedWf)
 			evt.DispatchWfReq = req
 
-			expectedResponse := gcn3.NewDispatchWfReq(cu, nil, 11, nil)
+			expectedResponse := gcn3.NewDispatchWfReq(cu, nil, 11, wf)
 			expectedResponse.SetSendTime(11)
 			connection.ExpectSend(expectedResponse, nil)
 
@@ -135,6 +149,8 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(len(engine.ScheduledEvent)).To(Equal(1))
 			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(len(cu.WfPools[0].wfs)).To(Equal(1))
+			Expect(len(cu.WfToDispatch)).To(Equal(0))
 		})
 
 		// It("should handle WfDispatchCompletionEvent", func() {

@@ -99,7 +99,7 @@ func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 	for _, wf := range req.WG.Wavefronts {
 		info := new(WfDispatchInfo)
 		info.Wavefront = wf
-		m.cu.WfToDispatch = append(m.cu.WfToDispatch, info)
+		m.cu.WfToDispatch[wf] = info
 	}
 
 	if !m.withinSGPRLimitation(req) || !m.withinLDSLimitation(req) {
@@ -122,7 +122,9 @@ func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 func (m *WGMapperImpl) withinSGPRLimitation(req *gcn3.MapWGReq) bool {
 	co := req.WG.CodeObject()
 	required := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
-	for _, info := range m.cu.WfToDispatch {
+	for _, wf := range req.WG.Wavefronts {
+		// for _, info := range m.cu.WfToDispatch {
+		info := m.cu.WfToDispatch[wf]
 		offset, ok := m.SGprMask.NextRegion(required, AllocStatusFree)
 		if !ok {
 			return false
@@ -142,7 +144,8 @@ func (m *WGMapperImpl) withinLDSLimitation(req *gcn3.MapWGReq) bool {
 	}
 
 	// Set the information
-	for _, info := range m.cu.WfToDispatch {
+	for _, wf := range req.WG.Wavefronts {
+		info := m.cu.WfToDispatch[wf]
 		info.LDSOffset = offset * m.LDSGranularity
 	}
 	m.LDSMask.SetStatus(offset, required, AllocStatusToReserve)
@@ -159,7 +162,8 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
 	co := req.WG.CodeObject()
 
-	for _, info := range m.cu.WfToDispatch {
+	for _, wf := range req.WG.Wavefronts {
+		info := m.cu.WfToDispatch[wf]
 		firstSIMDTested := nextSIMD
 		firstTry := true
 		found := false
