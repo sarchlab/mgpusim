@@ -37,6 +37,8 @@ type ComputeUnit struct {
 	SIMDUnit        []CUComponent
 	WfPools         []*WavefrontPool
 	LDSUnit         CUComponent
+
+	InstMem core.Component
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -200,8 +202,8 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 }
 
 func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
-	cu.Scheduler.DoIssue()
-	cu.Scheduler.DoFetch()
+	// cu.Scheduler.DoIssue()
+	cu.Scheduler.DoFetch(evt.Time())
 	return nil
 }
 
