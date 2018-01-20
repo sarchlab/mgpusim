@@ -194,10 +194,10 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(8))
 
 		for i := 0; i < len(wg.Wavefronts); i++ {
-			Expect(cu.WfToDispatch[i].SIMDID).To(Equal(i % 4))
-			Expect(cu.WfToDispatch[i].SGPROffset).To(Equal(i * 64))
-			Expect(cu.WfToDispatch[i].LDSOffset).To(Equal(0))
-			Expect(cu.WfToDispatch[i].VGPROffset).To(Equal((i / 4) * 20 * 4))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SIMDID).To(Equal(i % 4))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SGPROffset).To(Equal(i * 64))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].LDSOffset).To(Equal(0))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].VGPROffset).To(Equal((i / 4) * 20 * 4))
 		}
 	})
 
@@ -230,10 +230,10 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(8))
 
 		for i := 0; i < len(wg.Wavefronts); i++ {
-			Expect(cu.WfToDispatch[i].SIMDID).To(Equal(i % 4))
-			Expect(cu.WfToDispatch[i].SGPROffset).To(Equal(i * 64))
-			Expect(cu.WfToDispatch[i].LDSOffset).To(Equal(0))
-			Expect(cu.WfToDispatch[i].VGPROffset).To(
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SIMDID).To(Equal(i % 4))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SGPROffset).To(Equal(i * 64))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].LDSOffset).To(Equal(0))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].VGPROffset).To(
 				Equal((i / 4) * 20 * 4))
 		}
 	})

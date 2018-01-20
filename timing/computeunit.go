@@ -22,7 +22,7 @@ type ComputeUnit struct {
 	engine core.Engine
 	Freq   util.Freq
 
-	WfToDispatch         []*WfDispatchInfo
+	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
 	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
 	running              bool
 
@@ -35,6 +35,7 @@ type ComputeUnit struct {
 	LDSDecode       CUComponent
 	ScalarUnit      CUComponent
 	SIMDUnit        []CUComponent
+	WfPools         []*WavefrontPool
 	LDSUnit         CUComponent
 }
 
@@ -45,7 +46,7 @@ func NewComputeUnit(name string, engine core.Engine) *ComputeUnit {
 
 	cu.engine = engine
 
-	cu.WfToDispatch = make([]*WfDispatchInfo, 0)
+	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
 
 	cu.AddPort("ToACE")
@@ -121,6 +122,11 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	// 	tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
 	// 	cu.engine.Schedule(tick)
 	// }
+	wf := evt.ManagedWf
+	info := cu.WfToDispatch[wf.Wavefront]
+
+	cu.WfPools[info.SIMDID].AddWf(wf)
+	delete(cu.WfToDispatch, wf.Wavefront)
 
 	// Respond ACK
 	req := evt.DispatchWfReq
