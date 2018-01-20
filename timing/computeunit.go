@@ -118,10 +118,6 @@ func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
 func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	evt *WfDispatchCompletionEvent,
 ) error {
-	// if !cu.running {
-	// 	tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
-	// 	cu.engine.Schedule(tick)
-	// }
 	wf := evt.ManagedWf
 	info := cu.WfToDispatch[wf.Wavefront]
 
@@ -133,6 +129,11 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	req.SwapSrcAndDst()
 	req.SetSendTime(evt.Time())
 	cu.GetConnection("ToACE").Send(req)
+
+	// if !cu.running {
+	// 	tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
+	// 	cu.engine.Schedule(tick)
+	// }
 
 	// This is temporary code
 	wfCompletionEvent := NewWfCompletionEvent(

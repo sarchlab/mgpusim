@@ -37,5 +37,9 @@ func (b *Builder) Build() *ComputeUnit {
 	computeUnit.WGMapper = NewWGMapper(computeUnit, 4)
 	computeUnit.WfDispatcher = NewWfDispatcher(computeUnit)
 
+	for i := 0; i < 4; i++ {
+		computeUnit.WfPools = append(computeUnit.WfPools, NewWavefrontPool(10))
+	}
+
 	return computeUnit
 }
