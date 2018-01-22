@@ -1,6 +1,8 @@
 package emu
 
-import "log"
+import (
+	"log"
+)
 
 func (u *ALU) runVOP3A(state InstEmuState) {
 	inst := state.Inst()
@@ -8,6 +10,8 @@ func (u *ALU) runVOP3A(state InstEmuState) {
 	u.vop3aPreprocess(state)
 
 	switch inst.Opcode {
+	case 196: // 0xC4
+		u.runVCmpGtI32VOP3a(state)
 	case 201: // 0xC9
 		u.runVCmpLtU32VOP3a(state)
 	case 202: // 0xCA
@@ -53,6 +57,24 @@ func (u *ALU) vop3aPostprocess(state InstEmuState) {
 
 	if inst.Omod != 0 {
 		log.Panic("Output modifiers are not supported.")
+	}
+}
+
+func (u *ALU) runVCmpGtI32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := int32(sp.SRC0[i])
+		src1 := int32(sp.SRC1[i])
+
+		if src0 > src1 {
+			sp.DST[0] |= (1 << i)
+		}
 	}
 }
 
