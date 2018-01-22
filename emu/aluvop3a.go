@@ -69,8 +69,8 @@ func (u *ALU) runVCmpGtI32VOP3a(state InstEmuState) {
 			continue
 		}
 
-		src0 := int32(sp.SRC0[i])
-		src1 := int32(sp.SRC1[i])
+		src0 := asInt32(uint32(sp.SRC0[i]))
+		src1 := asInt32(uint32(sp.SRC1[i]))
 
 		if src0 > src1 {
 			sp.DST[0] |= (1 << i)
