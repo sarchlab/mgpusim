@@ -85,10 +85,8 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		value[0] = wf.SCC
 	} else if reg.RegType == insts.Vcc {
 		copy(value, insts.Uint64ToBytes(wf.VCC))
-	} else if reg.RegType == insts.VccLo {
-		copy(value, insts.Uint32ToBytes(uint32(wf.VCC)))
-	} else if reg.RegType == insts.VccHi {
-		copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
+	} else if reg.RegType == insts.VccLo && regCount == 2 {
+		copy(value, insts.Uint64ToBytes(wf.VCC))
 	} else if reg.RegType == insts.Exec {
 		copy(value, insts.Uint64ToBytes(wf.Exec))
 	} else if reg.RegType == insts.ExecLo && regCount == 2 {
