@@ -197,7 +197,7 @@ func initMem() {
 			binary.Write(buffer, binary.LittleEndian, float32(i*numFeature+j))
 		}
 	}
-	err := globalMem.Storage.Write(4*mem.KB, inputData)
+	err := globalMem.Storage.Write(4*mem.KB, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 2
+	req.Packet.GridSizeX = 2 * 64
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 64
