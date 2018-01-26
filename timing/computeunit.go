@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/mem"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
@@ -26,7 +27,7 @@ type ComputeUnit struct {
 	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
 	running              bool
 
-	Scheduler       Scheduler
+	Scheduler       *Scheduler
 	BranchUnit      CUComponent
 	VectorMemDecode CUComponent
 	VectorMemUnit   CUComponent
@@ -80,6 +81,8 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		return cu.handleTickEvent(evt)
 	case *WfCompletionEvent:
 		return cu.handleWfCompletionEvent(evt)
+	case *mem.AccessReq:
+		return cu.handleMemAccessReq(evt)
 	default:
 		log.Panicf("Unable to process evevt of type %s",
 			reflect.TypeOf(evt))
@@ -125,6 +128,7 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 
 	cu.WfPools[info.SIMDID].AddWf(wf)
 	delete(cu.WfToDispatch, wf.Wavefront)
+	wf.State = WfReady
 
 	// Respond ACK
 	req := evt.DispatchWfReq
@@ -132,16 +136,16 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	req.SetSendTime(evt.Time())
 	cu.GetConnection("ToACE").Send(req)
 
-	// if !cu.running {
-	// 	tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
-	// 	cu.engine.Schedule(tick)
-	// }
+	if !cu.running {
+		tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
+		cu.engine.Schedule(tick)
+	}
 
 	// This is temporary code
-	wfCompletionEvent := NewWfCompletionEvent(
-		cu.Freq.NCyclesLater(10000, evt.Time()),
-		cu, evt.ManagedWf)
-	cu.engine.Schedule(wfCompletionEvent)
+	// wfCompletionEvent := NewWfCompletionEvent(
+	// 	cu.Freq.NCyclesLater(10000, evt.Time()),
+	// 	cu, evt.ManagedWf)
+	// cu.engine.Schedule(wfCompletionEvent)
 
 	return nil
 }
@@ -223,4 +227,8 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 	wg.Wfs = append(wg.Wfs, wf)
 	wf.WG = wg
 	return wf
+}
+
+func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
+	return nil
 }

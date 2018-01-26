@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/mem"
 )
 
 type mockWGMapper struct {
@@ -131,6 +132,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf := kernels.NewWavefront()
 			managedWf := new(Wavefront)
 			managedWf.Wavefront = wf
+			managedWf.State = WfDispatching
 
 			info := new(WfDispatchInfo)
 			info.Wavefront = wf
@@ -151,6 +153,7 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(len(cu.WfPools[0].wfs)).To(Equal(1))
 			Expect(len(cu.WfToDispatch)).To(Equal(0))
+			Expect(managedWf.State).To(Equal(WfReady))
 		})
 
 		// It("should handle WfDispatchCompletionEvent", func() {
@@ -161,5 +164,21 @@ var _ = Describe("ComputeUnit", func() {
 
 		// 	Expect(len(engine.ScheduledEvent)).To(Equal(0))
 		// })
+	})
+
+	Context("when handling mem.AccessReq", func() {
+		It("should handle fetch return", func() {
+			wf := new(Wavefront)
+
+			req := mem.NewAccessReq()
+			req.SetSrc(nil)
+			req.SetDst(cu)
+			req.SetRecvTime(10)
+			req.Type = mem.Read
+			req.Info = wf
+
+			cu.Handle(req)
+
+		})
 	})
 })
