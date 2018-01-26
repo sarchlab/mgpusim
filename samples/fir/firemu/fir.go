@@ -7,17 +7,10 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"os/signal"
-	"runtime"
-	"runtime/pprof"
-	"syscall"
 
 	"flag"
-
-	"runtime/debug"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/connections"
@@ -68,27 +61,39 @@ var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco 
 
 func main() {
 	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
+	// if *cpuprofile != "" {
+	// 	f, err := os.Create(*cpuprofile)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	pprof.StartCPUProfile(f)
+	// 	defer pprof.StopCPUProfile()
+	// }
 
-	runtime.SetBlockProfileRate(1)
-	go func() {
-		log.Println(http.ListenAndServe("localhost:8080", nil))
-	}()
+	// runtime.SetBlockProfileRate(1)
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:8080", nil))
+	// }()
 
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		debug.PrintStack()
-		os.Exit(1)
-	}()
+	// c := make(chan os.Signal, 2)
+	// signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	// go func() {
+	// 	<-c
+	// 	debug.PrintStack()
+	// 	os.Exit(1)
+	// }()
+
+	// f, err := os.Create("trace.out")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer f.Close()
+
+	// err = trace.Start(f)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer trace.Stop()
 
 	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
@@ -97,13 +102,13 @@ func main() {
 	loadProgram()
 	initMem()
 	run()
-	checkResult()
+	// checkResult()
 }
 
 func initPlatform() {
 	// Simulation engine
-	engine = engines.NewSerialEngine()
-	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
+	engine = engines.NewParallelEngine()
+	// engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	// Connection
 	connection = connections.NewDirectConnection(engine)
@@ -132,10 +137,10 @@ func initPlatform() {
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
 	disassembler := insts.NewDisassembler()
-	isaDebug, err := os.Create("isa.debug")
-	if err != nil {
-		fmt.Print("Isa debug file failed to open\n")
-	}
+	// isaDebug, err := os.Create("isa.debug")
+	// if err != nil {
+	// fmt.Print("Isa debug file failed to open\n")
+	// }
 	for i := 0; i < 4; i++ {
 		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
 		alu := emu.NewALU(globalMem.Storage)
@@ -146,8 +151,8 @@ func initPlatform() {
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
 		dispatcher.RegisterCU(computeUnit)
 
-		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
-		computeUnit.AcceptHook(wfHook)
+		// wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
+		// computeUnit.AcceptHook(wfHook)
 	}
 
 	// Connection
