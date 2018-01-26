@@ -32,14 +32,29 @@ func NewBuilder() *Builder {
 
 // Build returns a newly constructed compute unit according to the configuration
 func (b *Builder) Build() *ComputeUnit {
-	computeUnit := NewComputeUnit(b.CUName, b.Engine)
-	computeUnit.Freq = b.Freq
-	computeUnit.WGMapper = NewWGMapper(computeUnit, 4)
-	computeUnit.WfDispatcher = NewWfDispatcher(computeUnit)
+	cu := NewComputeUnit(b.CUName, b.Engine)
+	cu.Freq = b.Freq
+	cu.WGMapper = NewWGMapper(cu, 4)
+	cu.WfDispatcher = NewWfDispatcher(cu)
 
 	for i := 0; i < 4; i++ {
-		computeUnit.WfPools = append(computeUnit.WfPools, NewWavefrontPool(10))
+		cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
 	}
 
-	return computeUnit
+	b.equipScheduler(cu)
+	b.connectToInstMem(cu)
+
+	return cu
+}
+
+func (b *Builder) equipScheduler(cu *ComputeUnit) {
+	fetchArbitor := new(FetchArbiter)
+	issueArbitor := new(IssueArbiter)
+	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
+	cu.Scheduler = scheduler
+}
+
+func (b *Builder) connectToInstMem(cu *ComputeUnit) {
+	cu.InstMem = b.InstMem
+	core.PlugIn(cu, "ToInstMem", b.ToInstMem)
 }
