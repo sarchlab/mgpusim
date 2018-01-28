@@ -47,5 +47,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 
 		s.cu.GetConnection("ToInstMem").Send(req)
 		wf.State = WfFetching
+
+		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "FetchStart"})
 	}
 }
