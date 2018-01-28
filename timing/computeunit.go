@@ -4,6 +4,7 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 
@@ -19,6 +20,7 @@ type ComputeUnit struct {
 
 	WGMapper     WGMapper
 	WfDispatcher WfDispatcher
+	Decoder      emu.Decoder
 
 	engine core.Engine
 	Freq   util.Freq
@@ -43,7 +45,10 @@ type ComputeUnit struct {
 }
 
 // NewComputeUnit returns a newly constructed compute unit
-func NewComputeUnit(name string, engine core.Engine) *ComputeUnit {
+func NewComputeUnit(
+	name string,
+	engine core.Engine,
+) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)
 
@@ -141,12 +146,6 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 		cu.engine.Schedule(tick)
 	}
 
-	// This is temporary code
-	// wfCompletionEvent := NewWfCompletionEvent(
-	// 	cu.Freq.NCyclesLater(10000, evt.Time()),
-	// 	cu, evt.ManagedWf)
-	// cu.engine.Schedule(wfCompletionEvent)
-
 	return nil
 }
 
@@ -230,5 +229,25 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 }
 
 func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
+	if req.Src() == cu.InstMem {
+		return cu.handleFetchReturn(req)
+	}
+	return nil
+}
+
+func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
+	wf := req.Info.(*Wavefront)
+	wf.State = WfFetched
+	wf.LastFetchTime = req.Time()
+
+	inst, err := cu.Decoder.Decode(req.Buf)
+	if err != nil {
+		return err
+	}
+	wf.Inst = NewInst(inst)
+	wf.PC += uint64(wf.Inst.ByteSize)
+
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.RecvTime(), "FetchDone"})
+
 	return nil
 }

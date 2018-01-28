@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 )
@@ -30,24 +31,36 @@ func (m *mockWfDispatcher) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
 	m.dispatchedWf = req
 }
 
+type mockDecoder struct {
+	Inst *insts.Inst
+}
+
+func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
+	return d.Inst, nil
+}
+
 var _ = Describe("ComputeUnit", func() {
 	var (
 		cu           *ComputeUnit
 		engine       *core.MockEngine
 		wgMapper     *mockWGMapper
 		wfDispatcher *mockWfDispatcher
+		decoder      *mockDecoder
 
 		connection *core.MockConnection
+		instMem    *core.MockComponent
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
+		decoder = new(mockDecoder)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
 		cu.WfDispatcher = wfDispatcher
+		cu.Decoder = decoder
 		cu.Freq = 1
 
 		for i := 0; i < 4; i++ {
@@ -56,6 +69,9 @@ var _ = Describe("ComputeUnit", func() {
 
 		connection = core.NewMockConnection()
 		core.PlugIn(cu, "ToACE", connection)
+
+		instMem = core.NewMockComponent("InstMem")
+		cu.InstMem = instMem
 	})
 
 	Context("when processing MapWGReq", func() {
@@ -169,15 +185,25 @@ var _ = Describe("ComputeUnit", func() {
 	Context("when handling mem.AccessReq", func() {
 		It("should handle fetch return", func() {
 			wf := new(Wavefront)
+			wf.PC = 0x1000
 
 			req := mem.NewAccessReq()
-			req.SetSrc(nil)
+			req.SetSrc(instMem)
 			req.SetDst(cu)
 			req.SetRecvTime(10)
 			req.Type = mem.Read
 			req.Info = wf
+			req.ByteSize = 4
+
+			decoder.Inst = insts.NewInst()
+			decoder.Inst.ByteSize = 4
 
 			cu.Handle(req)
+
+			Expect(wf.State).To(Equal(WfFetched))
+			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
+			Expect(wf.PC).To(Equal(uint64(0x1004)))
+			Expect(wf.Inst).NotTo(BeNil())
 
 		})
 	})
