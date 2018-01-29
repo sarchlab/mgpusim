@@ -168,4 +168,10 @@ func (u *ALU) runSASHRI32(state InstEmuState) {
 	dst := src0 >> src1
 
 	sp.DST = uint64(int32ToBits(dst))
+
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
 }
