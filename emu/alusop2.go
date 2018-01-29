@@ -26,6 +26,8 @@ func (u *ALU) runSOP2(state InstEmuState) {
 		u.runSORB64(state)
 	case 17:
 		u.runSXOR64(state)
+	case 32:
+		u.runSASHRI32(state)
 	case 36:
 		u.runSMULI32(state)
 	default:
@@ -154,6 +156,16 @@ func (u *ALU) runSMULI32(state InstEmuState) {
 	src0 := asInt32(uint32(sp.SRC0))
 	src1 := asInt32(uint32(sp.SRC1))
 	dst := src0 * src1
+
+	sp.DST = uint64(int32ToBits(dst))
+}
+
+func (u *ALU) runSASHRI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	src0 := asInt32(uint32(sp.SRC0))
+	src1 := uint8(sp.SRC1)
+	dst := src0 >> src1
 
 	sp.DST = uint64(int32ToBits(dst))
 }
