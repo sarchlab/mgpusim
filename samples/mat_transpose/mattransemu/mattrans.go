@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -182,13 +183,12 @@ func loadProgram() {
 }
 
 var (
-	numSample   = 128
-	numFeature  = 8
-	numClusters = 5
+	numSample     = 128
+	numFeature    = 8
+	inputDataSize = 1024 * 4
 )
 
 func initMem() {
-	dataStoreAddr := 4 * mem.KB
 	// Write the input
 	inputData := make([]byte, 0)
 	buffer := bytes.NewBuffer(inputData)
@@ -197,21 +197,7 @@ func initMem() {
 			binary.Write(buffer, binary.LittleEndian, float32(i*numFeature+j))
 		}
 	}
-	err := globalMem.Storage.Write(dataStoreAddr, buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dataStoreAddr = dataStoreAddr + uint64(numSample*numFeature*4)
-	// Write the clusters
-	clustersData := make([]byte, 0)
-	buffer = bytes.NewBuffer(clustersData)
-	for i := 0; i < numClusters; i++ {
-		for j := 0; j < numFeature; j++ {
-			binary.Write(buffer, binary.LittleEndian, float32(i))
-		}
-	}
-	err = globalMem.Storage.Write(dataStoreAddr, buffer.Bytes())
+	err := globalMem.Storage.Write(4*mem.KB, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -220,14 +206,10 @@ func initMem() {
 
 func run() {
 	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))           // feature
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096+4096))      // clusters
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096+4096+4096)) // membership
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numSample))       // npoints
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numClusters))     // nclusters
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numFeature))      // nfeatures
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(0))               // offset
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(0))               // size
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // feature
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096+4096)) // feature_swap
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numSample))  // npoints
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numFeature)) // nfeatures
 	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
@@ -265,14 +247,15 @@ func run() {
 }
 
 func checkResult() {
-	buf, err := globalMem.Storage.Read(12*mem.KB, 128*4)
+	buf, err := globalMem.Storage.Read(8*mem.KB, 1024*4)
 	if err != nil {
 		log.Fatal(nil)
 	}
 
-	for i := 0; i < numSample; i++ {
+	for i := 0; i < numSample*numFeature; i++ {
 		bits := binary.LittleEndian.Uint32(buf[i*4 : i*4+4])
-		outputs := int32(bits)
-		fmt.Printf("%d: %d\n", i, outputs)
+		outputs := math.Float32frombits(bits)
+
+		fmt.Printf("%d: %f\n", i, outputs)
 	}
 }
