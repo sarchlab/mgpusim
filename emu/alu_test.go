@@ -127,6 +127,34 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[1]).To(Equal(uint32(218)))
 	})
 
+	It("should run S_CBRANCH", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sopp
+		state.inst.Opcode = 2
+
+		layout := state.Scratchpad().AsSOPP()
+		layout.PC = 160
+		layout.IMM = 16
+
+		alu.Run(state)
+
+		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+	})
+
+	It("should run S_CBRANCH, when IMM is negative", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sopp
+		state.inst.Opcode = 2
+
+		layout := state.Scratchpad().AsSOPP()
+		layout.PC = 1024
+		layout.IMM = int64ToBits(-32)
+
+		alu.Run(state)
+
+		Expect(layout.PC).To(Equal(uint64(1024 - 32*4)))
+	})
+
 	It("should run S_CBRANCH_SCC0", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Sopp

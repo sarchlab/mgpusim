@@ -145,6 +145,8 @@ func (u *ALU) runSOPP(state InstEmuState) {
 	switch inst.Opcode {
 	case 0: // S_NOP
 	// Do nothing
+	case 2: // S_CBRANCH
+		u.runSCBRANCH(state)
 	case 4: // S_CBRANCH_SCC0
 		u.runSCBRANCHSCC0(state)
 	case 5: // S_CBRANCH_SCC1
@@ -160,6 +162,12 @@ func (u *ALU) runSOPP(state InstEmuState) {
 	default:
 		log.Panicf("Opcode %d for SOPP format is not implemented", inst.Opcode)
 	}
+}
+
+func (u *ALU) runSCBRANCH(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
 }
 
 func (u *ALU) runSCBRANCHSCC0(state InstEmuState) {
