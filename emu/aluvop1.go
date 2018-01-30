@@ -10,6 +10,8 @@ func (u *ALU) runVOP1(state InstEmuState) {
 	switch inst.Opcode {
 	case 1:
 		u.runVMOVB32(state)
+	case 2:
+		u.runVREADFIRSTLANEB32(state)
 	case 6:
 		u.runVCVTF32U32(state)
 	case 7:
@@ -30,6 +32,23 @@ func (u *ALU) runVMOVB32(state InstEmuState) {
 		}
 
 		sp.DST[i] = sp.SRC0[i]
+	}
+}
+
+func (u *ALU) runVREADFIRSTLANEB32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+	var i uint
+	var laneid uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+		laneid = i
+		break
+	}
+
+	for i = 0; i < 64; i++ {
+		sp.DST[i] = sp.SRC0[laneid]
 	}
 }
 
