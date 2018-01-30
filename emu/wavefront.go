@@ -85,6 +85,10 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		value[0] = wf.SCC
 	} else if reg.RegType == insts.Vcc {
 		copy(value, insts.Uint64ToBytes(wf.VCC))
+	} else if reg.RegType == insts.VccLo && regCount == 1 {
+		copy(value, insts.Uint32ToBytes(uint32(wf.VCC)))
+	} else if reg.RegType == insts.VccHi && regCount == 1 {
+		copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
 	} else if reg.RegType == insts.VccLo && regCount == 2 {
 		copy(value, insts.Uint64ToBytes(wf.VCC))
 	} else if reg.RegType == insts.Exec {
@@ -117,10 +121,10 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 		wf.VCC = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.VccLo && regCount == 2 {
 		wf.VCC = insts.BytesToUint64(data)
-	} else if reg.RegType == insts.VccLo {
+	} else if reg.RegType == insts.VccLo && regCount == 1 {
 		wf.VCC &= uint64(0xffffffff00000000)
 		wf.VCC |= uint64(insts.BytesToUint32(data))
-	} else if reg.RegType == insts.VccHi {
+	} else if reg.RegType == insts.VccHi && regCount == 1 {
 		wf.VCC &= uint64(0x00000000ffffffff)
 		wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
 	} else if reg.RegType == insts.Exec {
