@@ -75,7 +75,7 @@ func (u *ALU) runVCmpLtF32VOP3a(state InstEmuState) {
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
 		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
 		if src0 < src1 {
-			sp.VCC = sp.VCC | (1 << i)
+			sp.DST[0] |= (1 << i)
 		}
 	}
 }

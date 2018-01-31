@@ -38,7 +38,7 @@ var _ = Describe("ALU", func() {
 
 		alu.Run(state)
 
-		Expect(sp.VCC).To(Equal(uint64(0x2)))
+		Expect(sp.DST[0]).To(Equal(uint64(0x2)))
 	})
 
 	It("should run v_cmp_gt_i32 VOP3a", func() {

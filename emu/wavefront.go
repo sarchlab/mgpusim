@@ -74,6 +74,7 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		numBytes *= regCount
 	}
 
+	// There are some concerns in terms of reading VCC and EXEC (64 or 32? And how to decide?)
 	var value = make([]byte, numBytes)
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
@@ -109,6 +110,7 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 		numBytes *= regCount
 	}
 
+	// There are some concerns in terms of reading VCC and EXEC (64 or 32? And how to decide?)
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
 		copy(wf.SRegFile[offset:offset+numBytes], data)
@@ -122,10 +124,10 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 	} else if reg.RegType == insts.VccLo && regCount == 2 {
 		wf.VCC = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.VccLo && regCount == 1 {
-		wf.VCC &= uint64(0xffffffff00000000)
+		wf.VCC &= uint64(0x00000000ffffffff)
 		wf.VCC |= uint64(insts.BytesToUint32(data))
 	} else if reg.RegType == insts.VccHi && regCount == 1 {
-		wf.VCC &= uint64(0x00000000ffffffff)
+		wf.VCC &= uint64(0xffffffff00000000)
 		wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
 	} else if reg.RegType == insts.Exec {
 		wf.Exec = insts.BytesToUint64(data)
