@@ -212,6 +212,7 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 	layout.PC = wf.PC
 	layout.SCC = wf.SCC
 	layout.EXEC = wf.Exec
+	layout.VCC = wf.VCC
 	p.readOperand(inst.SImm16, wf, 0, scratchPad[16:24])
 }
 

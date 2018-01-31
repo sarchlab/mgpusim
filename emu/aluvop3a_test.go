@@ -1,6 +1,8 @@
 package emu
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3/insts"
@@ -18,6 +20,44 @@ var _ = Describe("ALU", func() {
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
+	})
+
+	It("should run v_cmp_lt_f32 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop3
+		state.inst.Opcode = 65
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.EXEC = 0x7
+		sp.SRC0[0] = uint64(math.Float32bits(-1.2))
+		sp.SRC1[0] = uint64(math.Float32bits(-1.2))
+		sp.SRC0[1] = uint64(math.Float32bits(-2.5))
+		sp.SRC1[1] = uint64(math.Float32bits(0.0))
+		sp.SRC0[2] = uint64(math.Float32bits(1.5))
+		sp.SRC1[2] = uint64(math.Float32bits(0.0))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0x2)))
+	})
+
+	It("should run v_cmp_gt_i32 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop3
+		state.inst.Opcode = 196
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.EXEC = 0x7
+		sp.SRC0[0] = uint64(int32ToBits(-1))
+		sp.SRC1[0] = uint64(int32ToBits(1))
+		sp.SRC0[1] = uint64(int32ToBits(2))
+		sp.SRC1[1] = uint64(int32ToBits(1))
+		sp.SRC0[2] = uint64(int32ToBits(0))
+		sp.SRC1[2] = uint64(int32ToBits(-1))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0x6)))
 	})
 
 	It("should run V_CMP_LT_U32 VOP3a", func() {
