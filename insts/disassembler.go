@@ -124,7 +124,12 @@ func (d *Disassembler) decodeVop1(inst *Inst, buf []byte) {
 	}
 
 	dstValue := extractBits(bytes, 17, 24)
-	inst.Dst, _ = getOperand(uint16(dstValue + 256))
+	if inst.Opcode == 2 {
+		// v_readfirstlane_b32
+		inst.Dst, _ = getOperand(uint16(dstValue))
+	} else {
+		inst.Dst, _ = getOperand(uint16(dstValue + 256))
+	}
 }
 
 func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
@@ -287,11 +292,15 @@ func (d *Disassembler) decodeVop3(inst *Inst, buf []byte) {
 		inst.Src1.RegCount = 2
 	}
 
-	if inst.Opcode <= 447 ||
+	if (inst.Opcode <= 447 && inst.Opcode != 256) ||
 		(inst.Opcode >= 464 && inst.Opcode <= 469) ||
 		(inst.Opcode >= 640 && inst.Opcode <= 664) {
 		// Do not use inst.Src2
 	} else {
+		// For V_CNDMASK_B32 in VOP3a only
+		if inst.Opcode == 256 {
+			is64Bit = true
+		}
 		inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
 		if is64Bit {
 			inst.Src2.RegCount = 2

@@ -184,7 +184,7 @@ func loadProgram() {
 var (
 	numSample   = 128
 	numFeature  = 8
-	numClusters = 5
+	numClusters = 4
 )
 
 func initMem() {
@@ -192,9 +192,10 @@ func initMem() {
 	// Write the input
 	inputData := make([]byte, 0)
 	buffer := bytes.NewBuffer(inputData)
-	for i := 0; i < numSample; i++ {
-		for j := 0; j < numFeature; j++ {
-			binary.Write(buffer, binary.LittleEndian, float32(i*numFeature+j))
+	for i := 0; i < numFeature; i++ {
+		for j := 0; j < numSample; j++ {
+			temp := j % numClusters
+			binary.Write(buffer, binary.LittleEndian, float32(temp))
 		}
 	}
 	err := globalMem.Storage.Write(dataStoreAddr, buffer.Bytes())
