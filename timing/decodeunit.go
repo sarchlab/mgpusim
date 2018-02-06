@@ -8,16 +8,19 @@ import (
 
 // A DecodeUnit is any type of decode unit that takes one cycle to decode
 type DecodeUnit struct {
+	cu        *ComputeUnit
 	ExecUnits []CUComponent // Execution units, index by SIMD number
 
 	toDecode *Wavefront
+	decoded  bool
 }
 
 // NewDecodeUnit creates a new decode unit
-func NewDecodeUnit() *DecodeUnit {
+func NewDecodeUnit(cu *ComputeUnit) *DecodeUnit {
 	du := new(DecodeUnit)
+	du.cu = cu
+	du.decoded = false
 	return du
-
 }
 
 // AddExecutionUnit registers an executions unit to the decode unit, so that
@@ -34,11 +37,15 @@ func (du *DecodeUnit) CanAcceptWave() bool {
 }
 
 // AcceptWave takes a wavefront and decode the instruction in the next cycle
-func (du *DecodeUnit) AcceptWave(wave *Wavefront) {
+func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	if du.toDecode != nil {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
 	}
 	du.toDecode = wave
+	du.decoded = false
+
+	du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
+		&InstHookInfo{now, "DecodeStart"})
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
@@ -48,7 +55,10 @@ func (du *DecodeUnit) Run(now core.VTimeInSec) {
 	execUnit := du.ExecUnits[simdID]
 
 	if execUnit.CanAcceptWave() {
-		execUnit.AcceptWave(du.toDecode)
+		execUnit.AcceptWave(du.toDecode, now)
 		du.toDecode = nil
+
+		du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
+			&InstHookInfo{now, "DecodeDone"})
 	}
 }
