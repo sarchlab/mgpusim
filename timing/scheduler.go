@@ -68,7 +68,7 @@ func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 
 		unit := s.getUnitToIssueTo(wf.Inst.ExeUnit)
 		if unit.CanAcceptWave() {
-			unit.AcceptWave(wf)
+			unit.AcceptWave(wf, now)
 			wf.State = WfRunning
 			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "Issue"})
 		}

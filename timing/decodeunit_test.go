@@ -7,12 +7,14 @@ import (
 
 var _ = Describe("DecodeUnit", func() {
 	var (
+		cu        *ComputeUnit
 		du        *DecodeUnit
 		execUnits []*mockCUComponent
 	)
 
 	BeforeEach(func() {
-		du = NewDecodeUnit()
+		cu = NewComputeUnit("cu", nil)
+		du = NewDecodeUnit(cu)
 		execUnits = make([]*mockCUComponent, 4)
 		for i := 0; i < 4; i++ {
 			execUnits[i] = new(mockCUComponent)
@@ -34,7 +36,7 @@ var _ = Describe("DecodeUnit", func() {
 	It("should accept wave", func() {
 		wave := new(Wavefront)
 		du.toDecode = nil
-		du.AcceptWave(wave)
+		du.AcceptWave(wave, 10)
 		Expect(du.toDecode).To(BeIdenticalTo(wave))
 	})
 
@@ -43,7 +45,7 @@ var _ = Describe("DecodeUnit", func() {
 		wave2 := new(Wavefront)
 		du.toDecode = wave
 
-		Expect(func() { du.AcceptWave(wave2) }).Should(Panic())
+		Expect(func() { du.AcceptWave(wave2, 10) }).Should(Panic())
 		Expect(du.toDecode).To(BeIdenticalTo(wave))
 	})
 

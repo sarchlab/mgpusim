@@ -36,7 +36,7 @@ func (c *mockCUComponent) CanAcceptWave() bool {
 	return c.canAccept
 }
 
-func (c *mockCUComponent) AcceptWave(wave *Wavefront) {
+func (c *mockCUComponent) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	c.acceptedWave = append(c.acceptedWave, wave)
 }
 
