@@ -5,11 +5,12 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 )
 
 // DispatchWfLog is the hook that hooks to MapWGEvent
 type DispatchWfLog struct {
-	core.LogHookBase
+	util.LogHookBase
 }
 
 // NewDispatchWfLog returns a newly created DispatchWfHook

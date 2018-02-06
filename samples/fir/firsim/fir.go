@@ -18,6 +18,9 @@ import (
 	"runtime/debug"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/connections"
+	"gitlab.com/yaotsu/core/engines"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
@@ -104,14 +107,14 @@ func main() {
 
 func initPlatform() {
 	// Simulation engine
-	engine = core.NewSerialEngine()
+	engine = engines.NewSerialEngine()
 
 	// Connection
-	connection = core.NewDirectConnection(engine)
+	connection = connections.NewDirectConnection(engine)
 
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Freq = 1 * core.GHz
+	globalMem.Freq = 1 * util.GHz
 	globalMem.Latency = 1
 
 	// Host
@@ -123,7 +126,7 @@ func initPlatform() {
 
 	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
-	dispatcher.Freq = 1 * core.GHz
+	dispatcher.Freq = 1 * util.GHz
 	wgCompleteLogger := new(gcn3.WGCompleteLogger)
 	wgCompleteLogger.Logger = logger
 	dispatcher.AcceptHook(wgCompleteLogger)
@@ -134,7 +137,7 @@ func initPlatform() {
 	commandProcessor.Driver = gpu
 	cuBuilder := timing.NewBuilder()
 	cuBuilder.Engine = engine
-	cuBuilder.Freq = 1 * core.GHz
+	cuBuilder.Freq = 1 * util.GHz
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection

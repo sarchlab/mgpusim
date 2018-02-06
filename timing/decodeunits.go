@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 )
 
 // DecodeCompletionEvent is an event that marks the completion of decoding
@@ -33,7 +34,7 @@ func NewDecodeCompletionEvent(
 type SimpleDecodeUnit struct {
 	*core.ComponentBase
 
-	Freq    core.Freq
+	Freq    util.Freq
 	Latency int
 	engine  core.Engine
 
@@ -150,7 +151,7 @@ func (u *SimpleDecodeUnit) handleDeferredSend(evt *core.DeferredSend) error {
 type VectorDecodeUnit struct {
 	*core.ComponentBase
 
-	Freq    core.Freq
+	Freq    util.Freq
 	Latency int
 	engine  core.Engine
 

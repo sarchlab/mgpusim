@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
@@ -56,7 +57,7 @@ var _ = Describe("Dispatcher", func() {
 		gridBuilder = new(MockGridBuilder)
 		gridBuilder.Grid = grid
 		dispatcher = NewDispatcher("dispatcher", engine, gridBuilder)
-		dispatcher.Freq = 1 * core.GHz
+		dispatcher.Freq = 1 * util.GHz
 
 		connection = core.NewMockConnection()
 		cu0 = core.NewMockComponent("mockCU0")
