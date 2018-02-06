@@ -15,8 +15,6 @@ import (
 type GPU struct {
 	*core.ComponentBase
 
-	Freq core.Freq
-
 	Driver           core.Component // The DriverComponent
 	CommandProcessor core.Component // The CommandProcessor
 	Dispatchers      []core.Component
