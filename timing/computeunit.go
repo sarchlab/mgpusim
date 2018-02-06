@@ -248,14 +248,16 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 }
 
 func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
-	if req.Src() == cu.InstMem {
+	info := req.Info.(*MemAccessInfo)
+	if info.Action == MemAccessInstFetch {
 		return cu.handleFetchReturn(req)
 	}
 	return nil
 }
 
 func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
-	wf := req.Info.(*Wavefront)
+	info := req.Info.(*MemAccessInfo)
+	wf := info.Wf
 	wf.State = WfFetched
 	wf.LastFetchTime = req.Time()
 
