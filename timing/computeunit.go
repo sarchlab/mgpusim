@@ -25,21 +25,21 @@ type ComputeUnit struct {
 	engine core.Engine
 	Freq   util.Freq
 
+	WfPools              []*WavefrontPool
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
 	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
 	running              bool
 
-	Scheduler       *Scheduler
-	BranchUnit      CUComponent
-	VectorMemDecode CUComponent
-	VectorMemUnit   CUComponent
-	ScalarDecode    CUComponent
-	VectorDecode    CUComponent
-	LDSDecode       CUComponent
-	ScalarUnit      CUComponent
-	SIMDUnit        []CUComponent
-	WfPools         []*WavefrontPool
-	LDSUnit         CUComponent
+	Scheduler        *Scheduler
+	BranchUnit       CUComponent
+	VectorMemDecoder CUComponent
+	VectorMemUnit    CUComponent
+	ScalarDecoder    CUComponent
+	VectorDecoder    CUComponent
+	LDSDecoder       CUComponent
+	ScalarUnit       CUComponent
+	SIMDUnit         []CUComponent
+	LDSUnit          CUComponent
 
 	InstMem core.Component
 }
