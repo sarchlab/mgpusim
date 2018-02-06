@@ -52,7 +52,6 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-<<<<<<< HEAD
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
 	gpu        *gcn3.Gpu
@@ -60,16 +59,6 @@ var (
 	connection core.Connection
 	hsaco      *insts.HsaCo
 	logger     *log.Logger
-=======
-	engine      core.Engine
-	globalMem   *mem.IdealMemController
-	gpu         *gcn3.GPU
-	host        *hostComponent
-	connection  core.Connection
-	hsaco       *insts.HsaCo
-	logger      *log.Logger
-	traceOutput *os.File
->>>>>>> 5d214d64b112be38e33ef9ef364cdd835310691b
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
