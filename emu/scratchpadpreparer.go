@@ -36,14 +36,20 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	p.clear(instEmuState.Scratchpad())
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
+	case insts.Sop1:
+		p.prepareSOP1(instEmuState, wf)
 	case insts.Sop2:
 		p.prepareSOP2(instEmuState, wf)
+	case insts.Sopc:
+		p.prepareSOPC(instEmuState, wf)
 	case insts.Vop1:
 		p.prepareVOP1(instEmuState, wf)
 	case insts.Vop2:
 		p.prepareVOP2(instEmuState, wf)
 	case insts.Vop3:
 		p.prepareVOP3(instEmuState, wf)
+	case insts.Vopc:
+		p.prepareVOPC(instEmuState, wf)
 	case insts.Flat:
 		p.prepareFlat(instEmuState, wf)
 	case insts.Smem:
@@ -55,12 +61,27 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	}
 }
 
+func (p *ScratchpadPreparerImpl) prepareSOP1(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+
+	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
+	copy(scratchPad[24:25], wf.ReadReg(insts.Regs[insts.Scc], 1, 0))
+	copy(scratchPad[16:24], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
+}
+
 func (p *ScratchpadPreparerImpl) prepareSOP2(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
+	// if inst.Src0.Register != nil && inst.Src1.Register != nil {
+	// 	fmt.Println(inst, inst.Src0.Register.Name, inst.Src0.RegCount, inst.Src1.Register.Name)
+	// }
 	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
 	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
 	copy(scratchPad[24:25], wf.ReadReg(insts.Regs[insts.Scc], 1, 0))
@@ -73,9 +94,10 @@ func (p *ScratchpadPreparerImpl) prepareVOP1(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 
-	copy(sp[512:520], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
+	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
+	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
 
-	offset := 520
+	offset := 528
 	for i := 0; i < 64; i++ {
 		p.readOperand(inst.Src0, wf, i, sp[offset:offset+8])
 		offset += 8
@@ -89,17 +111,20 @@ func (p *ScratchpadPreparerImpl) prepareVOP2(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 
-	copy(sp[512:520], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
+	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
+	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
 
-	src0Offset := 520
-	src1Offset := 1032
+	dstOffset := 8
+	src0Offset := 528
+	src1Offset := 1040
 	for i := 0; i < 64; i++ {
+		p.readOperand(inst.Dst, wf, i, sp[dstOffset:dstOffset+8])
+		dstOffset += 8
 		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
 		src0Offset += 8
 		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
 		src1Offset += 8
 	}
-
 }
 
 func (p *ScratchpadPreparerImpl) prepareVOP3(
@@ -109,11 +134,12 @@ func (p *ScratchpadPreparerImpl) prepareVOP3(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 
-	copy(sp[512:520], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
+	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
+	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
 
-	src0Offset := 520
-	src1Offset := 1032
-	src2Offset := 1544
+	src0Offset := 528
+	src1Offset := 1040
+	src2Offset := 1552
 	for i := 0; i < 64; i++ {
 		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
 		src0Offset += 8
@@ -126,15 +152,37 @@ func (p *ScratchpadPreparerImpl) prepareVOP3(
 	}
 }
 
+func (p *ScratchpadPreparerImpl) prepareVOPC(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	sp := instEmuState.Scratchpad()
+
+	src0Offset := 16
+	src1Offset := 16 + 64*8
+	for i := 0; i < 64; i++ {
+		p.readOperand(inst.Src0, wf, i, sp[src0Offset:src0Offset+8])
+		src0Offset += 8
+		p.readOperand(inst.Src1, wf, i, sp[src1Offset:src1Offset+8])
+		src1Offset += 8
+	}
+
+	layout := sp.AsVOPC()
+	layout.EXEC = wf.Exec
+}
+
 func (p *ScratchpadPreparerImpl) prepareFlat(
 	instEmuState InstEmuState, wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
-	scratchPad := instEmuState.Scratchpad()
+	sp := instEmuState.Scratchpad()
+
+	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
 
 	for i := 0; i < 64; i++ {
-		p.readOperand(inst.Addr, wf, i, scratchPad[i*8:i*8+8])
-		p.readOperand(inst.Data, wf, i, scratchPad[512+i*16:512+i*16+16])
+		p.readOperand(inst.Addr, wf, i, sp[8+i*8:8+i*8+8])
+		p.readOperand(inst.Data, wf, i, sp[520+i*16:520+i*16+16])
 	}
 }
 
@@ -159,8 +207,24 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
+	layout := scratchPad.AsSOPP()
 
-	p.readOperand(inst.SImm16, wf, 0, scratchPad[0:4])
+	layout.PC = wf.PC
+	layout.SCC = wf.SCC
+	layout.EXEC = wf.Exec
+	layout.VCC = wf.VCC
+	p.readOperand(inst.SImm16, wf, 0, scratchPad[16:24])
+}
+
+func (p *ScratchpadPreparerImpl) prepareSOPC(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+
+	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
+	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
 }
 
 // Commit write to the register file according to the scratchpad layout
@@ -170,6 +234,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 ) {
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
+	case insts.Sop1:
+		p.commitSOP1(instEmuState, wf)
 	case insts.Sop2:
 		p.commitSOP2(instEmuState, wf)
 	case insts.Vop1:
@@ -178,15 +244,31 @@ func (p *ScratchpadPreparerImpl) Commit(
 		p.commitVOP2(instEmuState, wf)
 	case insts.Vop3:
 		p.commitVOP3A(instEmuState, wf)
+	case insts.Vopc:
+		p.commitVOPC(instEmuState, wf)
 	case insts.Flat:
 		p.commitFlat(instEmuState, wf)
 	case insts.Smem:
 		p.commitSMEM(instEmuState, wf)
 	case insts.Sopp:
-		// Nothing to commit
+		p.commitSOPP(instEmuState, wf)
+	case insts.Sopc:
+		p.commitSOPC(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
+}
+
+func (p *ScratchpadPreparerImpl) commitSOP1(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchpad := instEmuState.Scratchpad()
+
+	p.writeOperand(inst.Dst, wf, 0, scratchpad[8:16])
+	wf.WriteReg(insts.Regs[insts.Exec], 1, 0, scratchpad[16:24])
+	wf.WriteReg(insts.Regs[insts.Scc], 1, 0, scratchpad[24:25])
 }
 
 func (p *ScratchpadPreparerImpl) commitSOP2(
@@ -206,12 +288,11 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 
-	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[512:520])
+	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[520:528])
 
-	offset := 0
-	for i := 0; i < 64; i++ {
+	for i := 63; i >= 0; i-- {
+		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
-		offset += 8
 	}
 }
 
@@ -222,12 +303,11 @@ func (p *ScratchpadPreparerImpl) commitVOP2(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 
-	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[512:520])
+	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, scratchpad[520:528])
 
-	offset := 0
-	for i := 0; i < 64; i++ {
+	for i := 63; i >= 0; i-- {
+		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
-		offset += 8
 	}
 }
 
@@ -238,13 +318,21 @@ func (p *ScratchpadPreparerImpl) commitVOP3A(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 
-	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, sp[512:520])
+	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0, sp[520:528])
 
-	offset := 0
-	for i := 0; i < 64; i++ {
+	for i := 63; i >= 0; i-- {
+		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
-		offset += 8
 	}
+}
+
+func (p *ScratchpadPreparerImpl) commitVOPC(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	sp := instEmuState.Scratchpad().AsVOPC()
+	wf.VCC = sp.VCC
+	wf.Exec = sp.EXEC
 }
 
 func (p *ScratchpadPreparerImpl) commitFlat(
@@ -254,8 +342,10 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 
-	for i := 0; i < 64; i++ {
-		p.writeOperand(inst.Dst, wf, i, scratchpad[1536+i*16:1536+i*16+16])
+	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
+		for i := 0; i < 64; i++ {
+			p.writeOperand(inst.Dst, wf, i, scratchpad[1544+i*16:1544+i*16+16])
+		}
 	}
 }
 
@@ -271,6 +361,22 @@ func (p *ScratchpadPreparerImpl) commitSMEM(
 	}
 }
 
+func (p *ScratchpadPreparerImpl) commitSOPC(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	scratchpad := instEmuState.Scratchpad()
+	wf.SCC = scratchpad.AsSOPC().SCC
+}
+
+func (p *ScratchpadPreparerImpl) commitSOPP(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	scratchpad := instEmuState.Scratchpad()
+	wf.PC = scratchpad.AsSOPP().PC
+}
+
 func (p *ScratchpadPreparerImpl) readOperand(
 	operand *insts.Operand,
 	wf *Wavefront,
@@ -282,6 +388,8 @@ func (p *ScratchpadPreparerImpl) readOperand(
 		copy(buf, wf.ReadReg(operand.Register, operand.RegCount, laneID))
 	case insts.IntOperand:
 		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
+	case insts.LiteralConstant:
+		copy(buf, insts.Uint32ToBytes(operand.LiteralConstant))
 	default:
 		log.Panicf("Operand %s is not supported", operand.String())
 	}

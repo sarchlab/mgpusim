@@ -7,8 +7,6 @@ import (
 
 	"encoding/binary"
 
-	"math"
-
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
 )
@@ -18,13 +16,24 @@ type ALU struct {
 	Storage *mem.Storage
 }
 
+// NewALU creates a new ALU with a storage as a dependency.
+func NewALU(storage *mem.Storage) *ALU {
+	alu := new(ALU)
+	alu.Storage = storage
+	return alu
+}
+
 // Run executes the instruction in the scatchpad of the InstEmuState
 func (u *ALU) Run(state InstEmuState) {
 	inst := state.Inst()
 
 	switch inst.FormatType {
+	case insts.Sop1:
+		u.runSOP1(state)
 	case insts.Sop2:
 		u.runSOP2(state)
+	case insts.Sopc:
+		u.runSOPC(state)
 	case insts.Smem:
 		u.runSMEM(state)
 	case insts.Vop1:
@@ -33,6 +42,8 @@ func (u *ALU) Run(state InstEmuState) {
 		u.runVOP2(state)
 	case insts.Vop3:
 		u.runVOP3A(state)
+	case insts.Vopc:
+		u.runVOPC(state)
 	case insts.Flat:
 		u.runFlat(state)
 	case insts.Sopp:
@@ -41,150 +52,6 @@ func (u *ALU) Run(state InstEmuState) {
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
 
-}
-
-func (u *ALU) runSOP2(state InstEmuState) {
-	inst := state.Inst()
-	switch inst.Opcode {
-	case 0:
-		u.runSADDU32(state)
-	case 4:
-		u.runSADDCU32(state)
-	default:
-		log.Panicf("Opcode %d for SOP2 format is not implemented", inst.Opcode)
-	}
-}
-
-func (u *ALU) runSADDU32(state InstEmuState) {
-	sp := state.Scratchpad()
-
-	src0 := insts.BytesToUint32(sp[0:8])
-	src1 := insts.BytesToUint32(sp[8:16])
-
-	dst := src0 + src1
-	scc := byte(0)
-	if src0 > math.MaxUint32-src1 {
-		scc = 1
-	} else {
-		scc = 0
-	}
-
-	copy(sp[16:24], insts.Uint32ToBytes(dst))
-	sp[24] = scc
-}
-
-func (u *ALU) runSADDCU32(state InstEmuState) {
-	sp := state.Scratchpad()
-
-	src0 := insts.BytesToUint32(sp[0:8])
-	src1 := insts.BytesToUint32(sp[8:16])
-	scc := sp[24]
-
-	dst := src0 + src1 + uint32(scc)
-	if src0 < math.MaxUint32-uint32(scc)-src1 {
-		scc = 0
-	} else {
-		scc = 1
-	}
-
-	copy(sp[16:24], insts.Uint32ToBytes(dst))
-	sp[24] = scc
-}
-
-func (u *ALU) runVOP1(state InstEmuState) {
-	inst := state.Inst()
-	switch inst.Opcode {
-	case 1:
-		u.runVMOVB32(state)
-	default:
-		log.Panicf("Opcode %d for VOP1 format is not implemented", inst.Opcode)
-	}
-}
-
-func (u *ALU) runVMOVB32(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP1()
-	for i := 0; i < 64; i++ {
-		sp.DST[i] = sp.SRC0[i]
-	}
-}
-
-func (u *ALU) runVOP2(state InstEmuState) {
-	inst := state.Inst()
-	switch inst.Opcode {
-	case 25:
-		u.runVADDI32(state)
-	case 28:
-		u.runVADDCU32(state)
-	default:
-		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
-	}
-}
-
-func (u *ALU) runVADDI32(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP2()
-
-	for i := 0; i < 64; i++ {
-		src0 := asInt32(uint32(sp.SRC0[i]))
-		src1 := asInt32(uint32(sp.SRC1[i]))
-
-		if (src1 > 0 && src0 > math.MaxInt32-src1) ||
-			(src1 < 0 && src0 < math.MinInt32+src1) {
-			sp.VCC |= 1 << uint32(i)
-		}
-
-		sp.DST[i] = uint64(int32ToBits(src0 + src1))
-	}
-}
-
-func (u *ALU) runVADDCU32(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP2()
-
-	for i := 0; i < 64; i++ {
-		carry := (sp.VCC & (1 << uint(i))) >> uint(i)
-
-		if sp.SRC0[i] > math.MaxUint32-carry-sp.SRC1[i] {
-			sp.VCC |= 1 << uint32(i)
-		}
-
-		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i] + carry
-	}
-}
-
-func (u *ALU) runVOP3A(state InstEmuState) {
-	inst := state.Inst()
-
-	u.vop3aPreprocess(state)
-
-	switch inst.Opcode {
-	case 645:
-		u.runVMULLOU32(state)
-	case 657:
-		u.runVASHRREVI64(state)
-	default:
-		log.Panicf("Opcode %d for VOP3a format is not implemented", inst.Opcode)
-	}
-
-	u.vop3aPostprocess(state)
-}
-
-func (u *ALU) vop3aPreprocess(state InstEmuState) {
-}
-
-func (u *ALU) vop3aPostprocess(state InstEmuState) {
-}
-
-func (u *ALU) runVMULLOU32(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-	for i := 0; i < 64; i++ {
-		sp.DST[i] = sp.SRC0[i] * sp.SRC1[i]
-	}
-}
-
-func (u *ALU) runVASHRREVI64(state InstEmuState) {
-	sp := state.Scratchpad().AsVOP3A()
-	for i := 0; i < 64; i++ {
-		sp.DST[i] = int64ToBits(asInt64(sp.SRC1[i]) >> sp.SRC0[i])
-	}
 }
 
 func (u *ALU) runFlat(state InstEmuState) {
@@ -278,12 +145,73 @@ func (u *ALU) runSOPP(state InstEmuState) {
 	switch inst.Opcode {
 	case 0: // S_NOP
 	// Do nothing
+	case 2: // S_CBRANCH
+		u.runSCBRANCH(state)
+	case 4: // S_CBRANCH_SCC0
+		u.runSCBRANCHSCC0(state)
+	case 5: // S_CBRANCH_SCC1
+		u.runSCBRANCHSCC1(state)
+	case 6: // S_CBRANCH_VCCZ
+		u.runSCBRANCHVCCZ(state)
+	case 7: // S_CBRANCH_VCCNZ
+		u.runSCBRANCHVCCNZ(state)
+	case 8: // S_CBRANCH_EXECZ
+		u.runSCBRANCHEXECZ(state)
 	case 12: // S_WAITCNT
 	// Do nothing
 	default:
 		log.Panicf("Opcode %d for SOPP format is not implemented", inst.Opcode)
 	}
+}
 
+func (u *ALU) runSCBRANCH(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+}
+
+func (u *ALU) runSCBRANCHSCC0(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	if sp.SCC == 0 {
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	}
+}
+
+func (u *ALU) runSCBRANCHSCC1(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	if sp.SCC == 1 {
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	}
+}
+
+func (u *ALU) runSCBRANCHVCCZ(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	if sp.VCC == 0 {
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	}
+}
+
+func (u *ALU) runSCBRANCHVCCNZ(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	if sp.VCC != 0 {
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	}
+}
+
+func (u *ALU) runSCBRANCHEXECZ(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	if sp.EXEC == 0 {
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	}
+}
+
+func (u *ALU) laneMasked(Exec uint64, laneID uint) bool {
+	return Exec&(1<<laneID) > 0
 }
 
 func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {

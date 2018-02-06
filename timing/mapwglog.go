@@ -6,12 +6,13 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 )
 
 // MapWGLog is a LogHook that hooks to a the MapWGReq Event
 type MapWGLog struct {
-	core.LogHookBase
+	util.LogHookBase
 }
 
 // NewMapWGLog returns a newly created MapWGHook

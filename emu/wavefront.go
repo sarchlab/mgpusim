@@ -1,6 +1,8 @@
 package emu
 
 import (
+	"log"
+
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
@@ -72,6 +74,7 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		numBytes *= regCount
 	}
 
+	// There are some concerns in terms of reading VCC and EXEC (64 or 32? And how to decide?)
 	var value = make([]byte, numBytes)
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
@@ -83,6 +86,18 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		value[0] = wf.SCC
 	} else if reg.RegType == insts.Vcc {
 		copy(value, insts.Uint64ToBytes(wf.VCC))
+	} else if reg.RegType == insts.VccLo && regCount == 1 {
+		copy(value, insts.Uint32ToBytes(uint32(wf.VCC)))
+	} else if reg.RegType == insts.VccHi && regCount == 1 {
+		copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
+	} else if reg.RegType == insts.VccLo && regCount == 2 {
+		copy(value, insts.Uint64ToBytes(wf.VCC))
+	} else if reg.RegType == insts.Exec {
+		copy(value, insts.Uint64ToBytes(wf.Exec))
+	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+		copy(value, insts.Uint64ToBytes(wf.Exec))
+	} else {
+		log.Panicf("Register type %s not supported", reg.Name)
 	}
 
 	return value
@@ -95,6 +110,7 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 		numBytes *= regCount
 	}
 
+	// There are some concerns in terms of reading VCC and EXEC (64 or 32? And how to decide?)
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
 		copy(wf.SRegFile[offset:offset+numBytes], data)
@@ -105,6 +121,20 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 		wf.SCC = data[0]
 	} else if reg.RegType == insts.Vcc {
 		wf.VCC = insts.BytesToUint64(data)
+	} else if reg.RegType == insts.VccLo && regCount == 2 {
+		wf.VCC = insts.BytesToUint64(data)
+	} else if reg.RegType == insts.VccLo && regCount == 1 {
+		wf.VCC &= uint64(0x00000000ffffffff)
+		wf.VCC |= uint64(insts.BytesToUint32(data))
+	} else if reg.RegType == insts.VccHi && regCount == 1 {
+		wf.VCC &= uint64(0xffffffff00000000)
+		wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
+	} else if reg.RegType == insts.Exec {
+		wf.Exec = insts.BytesToUint64(data)
+	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+		wf.Exec = insts.BytesToUint64(data)
+	} else {
+		log.Panicf("Register type %s not supported", reg.Name)
 	}
 
 }

@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
@@ -53,7 +54,7 @@ type Scheduler struct {
 	WfPools []*WavefrontPool
 
 	used              bool
-	Freq              core.Freq
+	Freq              util.Freq
 	running           bool
 	internalExecuting *Wavefront
 

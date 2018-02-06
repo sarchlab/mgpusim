@@ -93,12 +93,14 @@ func (d *Disassembler) decodeSop2(inst *Inst, buf []byte) {
 	inst.Src0, _ = getOperand(uint16(src0Value))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	src1Value := extractBits(bytes, 8, 15)
 	inst.Src1, _ = getOperand(uint16(src1Value))
 	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		inst.Src1.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	sdstValue := extractBits(bytes, 16, 22)
@@ -118,10 +120,16 @@ func (d *Disassembler) decodeVop1(inst *Inst, buf []byte) {
 	inst.Src0, _ = getOperand(uint16(src0Value))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	dstValue := extractBits(bytes, 17, 24)
-	inst.Dst, _ = getOperand(uint16(dstValue + 256))
+	if inst.Opcode == 2 {
+		// v_readfirstlane_b32
+		inst.Dst, _ = getOperand(uint16(dstValue))
+	} else {
+		inst.Dst, _ = getOperand(uint16(dstValue + 256))
+	}
 }
 
 func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
@@ -129,6 +137,7 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
@@ -195,6 +204,8 @@ func (d *Disassembler) decodeSmem(inst *Inst, buf []byte) {
 		inst.ByteSize += 4
 	}
 	switch inst.Opcode {
+	case 0:
+		inst.Data.RegCount = 1
 	case 1, 9, 17, 25:
 		inst.Data.RegCount = 2
 	case 2, 10, 18, 26:
@@ -225,6 +236,7 @@ func (d *Disassembler) decodeVopc(inst *Inst, buf []byte) {
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
@@ -236,11 +248,13 @@ func (d *Disassembler) decodeSopc(inst *Inst, buf []byte) {
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	inst.Src1, _ = getOperand(uint16(extractBits(bytes, 8, 15)))
 	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		inst.Src1.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 }
 
@@ -255,6 +269,7 @@ func (d *Disassembler) decodeVop3(inst *Inst, buf []byte) {
 	// TODO: Consider the VOP3b format
 	if inst.Opcode <= 255 { // The comparison instructions
 		inst.Dst, _ = getOperand(uint16(extractBits(bytesLo, 0, 7)))
+		inst.Dst.RegCount = 2
 	} else {
 		bits := int(extractBits(bytesLo, 0, 7))
 		inst.Dst = NewVRegOperand(bits, bits, 0)
@@ -277,11 +292,15 @@ func (d *Disassembler) decodeVop3(inst *Inst, buf []byte) {
 		inst.Src1.RegCount = 2
 	}
 
-	if inst.Opcode <= 447 ||
+	if (inst.Opcode <= 447 && inst.Opcode != 256) ||
 		(inst.Opcode >= 464 && inst.Opcode <= 469) ||
 		(inst.Opcode >= 640 && inst.Opcode <= 664) {
 		// Do not use inst.Src2
 	} else {
+		// For V_CNDMASK_B32 in VOP3a only
+		if inst.Opcode == 256 {
+			is64Bit = true
+		}
 		inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
 		if is64Bit {
 			inst.Src2.RegCount = 2
@@ -361,14 +380,17 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 			co := NewHsaCoFromData(data)
 
 			buf := co.InstructionData()
+			pc := 0x100
 			for len(buf) > 0 {
 				inst, err := d.Decode(buf)
 				if err != nil {
 					buf = buf[4:]
+					pc += 4
 				} else {
 					// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
-					fmt.Fprintf(w, "%s\n", inst)
+					fmt.Fprintf(w, "0x%016x\t%s\n", pc, inst)
 					buf = buf[inst.ByteSize:]
+					pc += inst.ByteSize
 				}
 			}
 		}
