@@ -51,3 +51,9 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "FetchStart"})
 	}
 }
+
+// DoIssue function of the scheduler issues fetched instruction to the decoding
+// units
+func (s *Scheduler) DoIssue(now core.VTimeInSec) {
+
+}

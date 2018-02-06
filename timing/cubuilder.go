@@ -43,6 +43,7 @@ func (b *Builder) Build() *ComputeUnit {
 
 	b.equipScheduler(cu)
 	b.connectToInstMem(cu)
+	cu.Decoder = b.Decoder
 
 	return cu
 }

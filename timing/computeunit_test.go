@@ -170,16 +170,8 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(len(cu.WfPools[0].wfs)).To(Equal(1))
 			Expect(len(cu.WfToDispatch)).To(Equal(0))
 			Expect(managedWf.State).To(Equal(WfReady))
+			Expect(cu.running).To(BeTrue())
 		})
-
-		// It("should handle WfDispatchCompletionEvent", func() {
-		// 	cu.running = true
-		// 	evt := NewWfDispatchCompletionEvent(10, cu, nil)
-
-		// 	cu.Handle(evt)
-
-		// 	Expect(len(engine.ScheduledEvent)).To(Equal(0))
-		// })
 	})
 
 	Context("when handling mem.AccessReq", func() {
@@ -204,7 +196,7 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1004)))
 			Expect(wf.Inst).NotTo(BeNil())
-
 		})
 	})
+
 })

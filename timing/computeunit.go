@@ -144,6 +144,7 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	if !cu.running {
 		tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
 		cu.engine.Schedule(tick)
+		cu.running = true
 	}
 
 	return nil
@@ -158,7 +159,10 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
 			cu.clearWGResource(wg)
-			// delete(s.RunningWGs, wf.WG)
+		}
+
+		if !cu.hasMoreWfsToRun() {
+			cu.running = false
 		}
 	}
 
@@ -167,10 +171,10 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 
 func (cu *ComputeUnit) clearWGResource(wg *WorkGroup) {
 	cu.WGMapper.UnmapWG(wg)
-	//for _, wf := range wg.Wfs {
-	//	wfPool := s.WfPools[wf.SIMDID]
-	//	wfPool.RemoveWf(wf)
-	//}
+	for _, wf := range wg.Wfs {
+		wfPool := cu.WfPools[wf.SIMDID]
+		wfPool.RemoveWf(wf)
+	}
 }
 
 func (cu *ComputeUnit) isAllWfInWGCompleted(wg *WorkGroup) bool {
@@ -204,9 +208,24 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 	return true
 }
 
+func (cu *ComputeUnit) hasMoreWfsToRun() bool {
+	for _, wfpool := range cu.WfPools {
+		if len(wfpool.wfs) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
-	// cu.Scheduler.DoIssue()
+	cu.Scheduler.DoIssue(evt.Time())
 	cu.Scheduler.DoFetch(evt.Time())
+
+	if cu.running {
+		evt.SetTime(cu.Freq.NextTick(evt.Time()))
+		cu.engine.Schedule(evt)
+	}
+
 	return nil
 }
 
@@ -246,6 +265,9 @@ func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
 	}
 	wf.Inst = NewInst(inst)
 	wf.PC += uint64(wf.Inst.ByteSize)
+
+	// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
+	// wf.State = WfReady
 
 	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.RecvTime(), "FetchDone"})
 
