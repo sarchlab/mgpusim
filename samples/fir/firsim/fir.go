@@ -54,7 +54,7 @@ func (h *hostComponent) Handle(evt core.Event) error {
 var (
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
-	gpu        *gcn3.Gpu
+	gpu        *gcn3.GPU
 	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
