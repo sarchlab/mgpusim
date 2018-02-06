@@ -64,6 +64,7 @@ var _ = Describe("Scheduler", func() {
 		toInstMemConn = core.NewMockConnection()
 		engine = core.NewMockEngine()
 		cu = NewComputeUnit("cu", engine)
+		cu.Freq = 1
 
 		vectorDecoder = new(mockCUComponent)
 		cu.VectorDecoder = vectorDecoder
