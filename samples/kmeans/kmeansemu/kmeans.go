@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"debug/elf"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -22,9 +23,9 @@ import (
 	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -52,28 +53,17 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-<<<<<<< HEAD
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
-	gpu        *gcn3.Gpu
+	gpu        *gcn3.GPU
 	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
 	logger     *log.Logger
-=======
-	engine      core.Engine
-	globalMem   *mem.IdealMemController
-	gpu         *gcn3.GPU
-	host        *hostComponent
-	connection  core.Connection
-	hsaco       *insts.HsaCo
-	logger      *log.Logger
-	traceOutput *os.File
->>>>>>> 5d214d64b112be38e33ef9ef364cdd835310691b
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
-var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
+var kernel = flag.String("kernel", "../disasm/kernel.hsaco", "the kernel hsaco file")
 
 func main() {
 	flag.Parse()
@@ -99,6 +89,7 @@ func main() {
 		os.Exit(1)
 	}()
 
+	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
 
 	initPlatform()
@@ -111,6 +102,7 @@ func main() {
 func initPlatform() {
 	// Simulation engine
 	engine = engines.NewSerialEngine()
+	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
 
 	// Connection
 	connection = connections.NewDirectConnection(engine)
@@ -124,10 +116,10 @@ func initPlatform() {
 	host = newHostComponent()
 
 	// Gpu
-	gpu = gcn3.NewGPU("Gpu")
-	commandProcessor := gcn3.NewCommandProcessor("Gpu.CommandProcessor")
+	gpu = gcn3.NewGPU("GPU")
+	commandProcessor := gcn3.NewCommandProcessor("GPU.CommandProcessor")
 
-	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
+	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = 1 * util.GHz
 	wgCompleteLogger := new(gcn3.WGCompleteLogger)
@@ -138,38 +130,23 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
-	cuBuilder := timing.NewBuilder()
-	cuBuilder.Engine = engine
-	cuBuilder.Freq = 1 * util.GHz
-	cuBuilder.InstMem = globalMem
-	cuBuilder.Decoder = insts.NewDisassembler()
-	cuBuilder.ToInstMem = connection
-	for i := 0; i < 64; i++ {
-		cuBuilder.CUName = "cu" + string(i)
-		computeUnit := cuBuilder.Build()
-		dispatcher.RegisterCU(computeUnit)
+	disassembler := insts.NewDisassembler()
+	isaDebug, err := os.Create("isa.debug")
+	if err != nil {
+		fmt.Print("Isa debug file failed to open\n")
+	}
+	for i := 0; i < 4; i++ {
+		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
+		alu := emu.NewALU(globalMem.Storage)
+		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
+			engine, disassembler, scratchpadPreparer, alu)
+		computeUnit.Freq = 1 * util.GHz
+		computeUnit.GlobalMemStorage = globalMem.Storage
+		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
+		core.PlugIn(computeUnit, "ToDispatcher", connection)
 
-		core.PlugIn(computeUnit, "ToACE", connection)
-
-		// Hook
-		//mapWGLog := timing.NewMapWGLog(logger)
-		//computeUnit.Scheduler.AcceptHook(mapWGLog)
-		//dispatchWfHook := timing.NewDispatchWfLog(logger)
-		//computeUnit.Scheduler.AcceptHook(dispatchWfHook)
-		//
-		//if i == 0 {
-		//	tracer := trace.NewInstTracer(traceOutput)
-		//	computeUnit.Scheduler.AcceptHook(tracer)
-		//	computeUnit.BranchUnit.AcceptHook(tracer)
-		//	computeUnit.ScalarUnit.AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[0].AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[1].AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[2].AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[3].AcceptHook(tracer)
-		//	computeUnit.VectorDecode.AcceptHook(tracer)
-		//	computeUnit.ScalarDecode.AcceptHook(tracer)
-		//}
-
+		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
+		computeUnit.AcceptHook(wfHook)
 	}
 
 	// Connection
@@ -201,27 +178,41 @@ func loadProgram() {
 	}
 
 	hsaco = insts.NewHsaCoFromData(hsacoData)
+	fmt.Println(hsaco.Info())
 }
 
+var (
+	numSample   = 128
+	numFeature  = 8
+	numClusters = 4
+)
+
 func initMem() {
-	// Write the filter
-	filterData := make([]byte, 16*4)
-	buffer := bytes.NewBuffer(filterData)
-	for i := 0; i < 16; i++ {
-		binary.Write(buffer, binary.LittleEndian, float32(i))
+	dataStoreAddr := 4 * mem.KB
+	// Write the input
+	inputData := make([]byte, 0)
+	buffer := bytes.NewBuffer(inputData)
+	for i := 0; i < numFeature; i++ {
+		for j := 0; j < numSample; j++ {
+			temp := j % numClusters
+			binary.Write(buffer, binary.LittleEndian, float32(temp))
+		}
 	}
-	err := globalMem.Storage.Write(4*mem.KB, filterData)
+	err := globalMem.Storage.Write(dataStoreAddr, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Write the input
-	inputData := make([]byte, 1024*4)
-	buffer = bytes.NewBuffer(inputData)
-	for i := 0; i < 1024; i++ {
-		binary.Write(buffer, binary.LittleEndian, float32(i))
+	dataStoreAddr = dataStoreAddr + uint64(numSample*numFeature*4)
+	// Write the clusters
+	clustersData := make([]byte, 0)
+	buffer = bytes.NewBuffer(clustersData)
+	for i := 0; i < numClusters; i++ {
+		for j := 0; j < numFeature; j++ {
+			binary.Write(buffer, binary.LittleEndian, float32(i))
+		}
 	}
-	err = globalMem.Storage.Write(8*mem.KB, inputData)
+	err = globalMem.Storage.Write(dataStoreAddr, buffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -229,12 +220,15 @@ func initMem() {
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 36))
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+8192)) // History
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int(16))           // NumTap
+	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))           // feature
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096+4096))      // clusters
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096+4096+4096)) // membership
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numSample))       // npoints
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numClusters))     // nclusters
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(numFeature))      // nfeatures
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(0))               // offset
+	binary.Write(kernelArgsBuffer, binary.LittleEndian, int32(0))               // size
 	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
 	if err != nil {
 		log.Fatal(err)
@@ -243,15 +237,23 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 4
+	req.Packet.GridSizeX = 2 * 64
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
-	req.Packet.WorkgroupSizeX = 256
+	req.Packet.WorkgroupSizeX = 64
 	req.Packet.WorkgroupSizeY = 1
 	req.Packet.WorkgroupSizeZ = 1
 	req.Packet.KernelObject = 0
 	req.Packet.KernargAddress = 65536
 
+	var buffer bytes.Buffer
+	binary.Write(&buffer, binary.LittleEndian, req.Packet)
+	err = globalMem.Storage.Write(0x11000, buffer.Bytes())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.PacketAddress = 0x11000
 	req.SetSrc(host)
 	req.SetDst(gpu)
 	req.SetSendTime(0)
@@ -264,5 +266,14 @@ func run() {
 }
 
 func checkResult() {
+	buf, err := globalMem.Storage.Read(12*mem.KB, 128*4)
+	if err != nil {
+		log.Fatal(nil)
+	}
 
+	for i := 0; i < numSample; i++ {
+		bits := binary.LittleEndian.Uint32(buf[i*4 : i*4+4])
+		outputs := int32(bits)
+		fmt.Printf("%d: %d\n", i, outputs)
+	}
 }

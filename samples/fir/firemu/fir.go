@@ -49,7 +49,7 @@ func (h *hostComponent) Handle(evt core.Event) error {
 var (
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
-	gpu        *gcn3.Gpu
+	gpu        *gcn3.GPU
 	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
@@ -122,7 +122,7 @@ func initPlatform() {
 	host = newHostComponent()
 
 	// Gpu
-	gpu = gcn3.NewGpu("GPU")
+	gpu = gcn3.NewGPU("GPU")
 	commandProcessor := gcn3.NewCommandProcessor("GPU.CommandProcessor")
 
 	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
