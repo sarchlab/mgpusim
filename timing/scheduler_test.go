@@ -36,12 +36,11 @@ func (c *mockCUComponent) CanAcceptWave() bool {
 	return c.canAccept
 }
 
-func (c *mockCUComponent) AcceptWave(wave *Wavefront) error {
+func (c *mockCUComponent) AcceptWave(wave *Wavefront) {
 	c.acceptedWave = append(c.acceptedWave, wave)
-	return nil
 }
 
-func (c *mockCUComponent) Run() {
+func (c *mockCUComponent) Run(now core.VTimeInSec) {
 }
 
 var _ = Describe("Scheduler", func() {
