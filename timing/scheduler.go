@@ -47,7 +47,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		req.SetDst(s.cu.InstMem)
 		req.SetSrc(s.cu)
 		req.SetSendTime(now)
-		req.Info = wf
+		req.Info = &MemAccessInfo{MemAccessInstFetch, wf}
 
 		s.cu.GetConnection("ToInstMem").Send(req)
 		wf.State = WfFetching

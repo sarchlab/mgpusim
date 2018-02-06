@@ -184,7 +184,7 @@ var _ = Describe("ComputeUnit", func() {
 			req.SetDst(cu)
 			req.SetRecvTime(10)
 			req.Type = mem.Read
-			req.Info = wf
+			req.Info = &MemAccessInfo{MemAccessInstFetch, wf}
 			req.ByteSize = 4
 
 			decoder.Inst = insts.NewInst()
