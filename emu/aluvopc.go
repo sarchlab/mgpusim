@@ -1,10 +1,15 @@
 package emu
 
-import "log"
+import (
+	"log"
+	"math"
+)
 
 func (u *ALU) runVOPC(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
+	case 0x41: // v_cmp_lt_f32
+		u.runVCmpLtF32(state)
 	case 0xC9: // v_cmp_lt_u32
 		u.runVCmpLtU32(state)
 	case 0xCA: // v_cmp_eq_u32
@@ -19,6 +24,23 @@ func (u *ALU) runVOPC(state InstEmuState) {
 		u.runVCmpGeU32(state)
 	default:
 		log.Panicf("Opcode 0x%02X for VOPC format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runVCmpLtF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if src0 < src1 {
+			sp.VCC = sp.VCC | (1 << i)
+		}
 	}
 }
 
