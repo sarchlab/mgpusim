@@ -72,6 +72,7 @@ type SOP1Layout struct {
 	DST  uint64
 	EXEC uint64
 	SCC  byte
+	PC   uint64
 }
 
 // SOP2Layout represents the scratchpad layout for SOP2 instructions

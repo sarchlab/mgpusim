@@ -67,7 +67,9 @@ func (p *ScratchpadPreparerImpl) prepareSOP1(
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
+	layout := scratchPad.AsSOP1()
 
+	layout.PC = wf.PC
 	p.readOperand(inst.Src0, wf, 0, scratchPad[0:8])
 	copy(scratchPad[24:25], wf.ReadReg(insts.Regs[insts.Scc], 1, 0))
 	copy(scratchPad[16:24], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
@@ -268,7 +270,8 @@ func (p *ScratchpadPreparerImpl) commitSOP1(
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[8:16])
 	wf.WriteReg(insts.Regs[insts.Exec], 1, 0, scratchpad[16:24])
 	wf.WriteReg(insts.Regs[insts.Scc], 1, 0, scratchpad[24:25])
-}
+	wf.PC = scratchpad.AsSOP1().PC
+	}
 
 func (p *ScratchpadPreparerImpl) commitSOP2(
 	instEmuState InstEmuState,
