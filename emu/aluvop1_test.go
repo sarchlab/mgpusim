@@ -135,6 +135,62 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(math.MaxUint32)))
 	})
 
+	It("should run V_CVT_I32_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop1
+		state.inst.Opcode = 8
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(1.5))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(1)))
+	})
+
+	It("should run V_CVT_I32_F32, when input is nan", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop1
+		state.inst.Opcode = 8
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(float32(0 - math.NaN())))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0)))
+	})
+
+	It("should run V_CVT_I32_F32, when the input is negative", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop1
+		state.inst.Opcode = 8
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(-1.5))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(int32ToBits(-1))))
+	})
+
+	It("should run V_CVT_I32_F32, when the input is very large", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop1
+		state.inst.Opcode = 8
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(0 - float32(math.MaxInt32) - 1))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(int32ToBits(0 - math.MaxInt32))))
+	})
+
 	It("should run V_RCP_IFLAG_F32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop1
