@@ -72,6 +72,24 @@ var _ = Describe("ALU", func() {
 			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
 		}
 	})
+	It("should run FLAT_LOAD_DWORDX3", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Flat
+		state.inst.Opcode = 23
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 12)
+			storage.Write(uint64(i*12), insts.Uint32ToBytes(uint32(i)))
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+		}
+	})
+
 
 	It("should run FLAT_STORE_DWORD", func() {
 		state.inst = insts.NewInst()
@@ -126,6 +144,29 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[0]).To(Equal(uint32(217)))
 		Expect(layout.DST[1]).To(Equal(uint32(218)))
 	})
+	It("should run S_LOAD_DWORDX4", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Smem
+		state.inst.Opcode = 2
+
+		layout := state.Scratchpad().AsSMEM()
+		layout.Base = 1024
+		layout.Offset = 16
+
+		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
+		storage.Write(uint64(1044), insts.Uint32ToBytes(218))
+		storage.Write(uint64(1048), insts.Uint32ToBytes(219))
+		storage.Write(uint64(1052), insts.Uint32ToBytes(220))
+
+		alu.Run(state)
+
+		Expect(layout.DST[0]).To(Equal(uint32(217)))
+		Expect(layout.DST[1]).To(Equal(uint32(218)))
+		Expect(layout.DST[2]).To(Equal(uint32(219)))
+		Expect(layout.DST[3]).To(Equal(uint32(220)))
+
+	})
+
 
 	It("should run S_CBRANCH_SCC1", func() {
 		state.inst = insts.NewInst()

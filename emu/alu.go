@@ -61,6 +61,8 @@ func (u *ALU) runFlat(state InstEmuState) {
 		u.runFlatLoadUShort(state)
 	case 20:
 		u.runFlatLoadDWord(state)
+	case 23:
+		 u.runFlatLoadDWordX3(state)
 	case 28:
 		u.runFlatStoreDWord(state)
 	default:
@@ -91,9 +93,24 @@ func (u *ALU) runFlatLoadDWord(state InstEmuState) {
 			log.Panic(err)
 		}
 
+
 		sp.DST[i*4] = insts.BytesToUint32(buf)
 	}
 }
+
+func (u *ALU) runFlatLoadDWordX3(state InstEmuState) {
+	sp := state.Scratchpad().AsFlat()
+	for i := 0; i < 64; i++ {
+		buf, err := u.Storage.Read(sp.ADDR[i], uint64(12))
+		if err != nil {
+			log.Panic(err)
+		}
+
+		sp.DST[i*4] = insts.BytesToUint32(buf)
+	}
+
+}
+
 
 func (u *ALU) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
@@ -112,6 +129,8 @@ func (u *ALU) runSMEM(state InstEmuState) {
 		u.runSLOADDWORD(state)
 	case 1:
 		u.runSLOADDWORDX2(state)
+	case 2:
+		u.runSLOADADDWORDX4(state)
 	default:
 		log.Panicf("Opcode %d for SMEM format is not implemented", inst.Opcode)
 	}
@@ -140,6 +159,17 @@ func (u *ALU) runSLOADDWORDX2(state InstEmuState) {
 	copy(spRaw[32:40], buf)
 }
 
+func (u *ALU) runSLOADADDWORDX4(state InstEmuState) {
+	sp := state.Scratchpad().AsSMEM()
+	spRaw := state.Scratchpad()
+
+	buf, err := u.Storage.Read(sp.Base+sp.Offset, 16)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	copy(spRaw[32:48], buf)
+}
 func (u *ALU) runSOPP(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
