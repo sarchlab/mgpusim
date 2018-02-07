@@ -30,7 +30,8 @@ func NewBuilder() *Builder {
 	return b
 }
 
-// Build returns a newly constructed compute unit according to the configuration
+// Build returns a newly constructed compute unit according to the
+// configuration
 func (b *Builder) Build() *ComputeUnit {
 	cu := NewComputeUnit(b.CUName, b.Engine)
 	cu.Freq = b.Freq
@@ -42,6 +43,7 @@ func (b *Builder) Build() *ComputeUnit {
 	}
 
 	b.equipScheduler(cu)
+	b.equipSIMDUnits(cu)
 	b.connectToInstMem(cu)
 	cu.Decoder = b.Decoder
 
@@ -53,6 +55,17 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	issueArbitor := new(IssueArbiter)
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	cu.Scheduler = scheduler
+}
+
+func (b *Builder) equipExecutionUnits(cu *ComputeUnit) {
+	cu.BranchUnit = NewBranchUnit(cu)
+}
+
+func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
+	for i := 0; i < b.SIMDCount; i++ {
+		simdUnit := NewSIMDUnit(cu)
+		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+	}
 }
 
 func (b *Builder) connectToInstMem(cu *ComputeUnit) {
