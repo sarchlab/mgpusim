@@ -2,6 +2,7 @@ package emu
 
 import (
 	"log"
+	"math"
 
 	"gitlab.com/yaotsu/gcn3/insts"
 )
@@ -389,7 +390,7 @@ func (p *ScratchpadPreparerImpl) readOperand(
 	case insts.IntOperand:
 		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
 	case insts.FloatOperand:
-		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
+		copy(buf, insts.Uint64ToBytes(uint64(math.Float32bits(float32(operand.FloatValue)))))
 	case insts.LiteralConstant:
 		copy(buf, insts.Uint32ToBytes(operand.LiteralConstant))
 	default:
