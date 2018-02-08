@@ -2,8 +2,8 @@ package timing
 
 import "gitlab.com/yaotsu/core"
 
-// A BranchUnit performs branch operations
-type BranchUnit struct {
+// A ScalarUnit performs Scalar operations
+type ScalarUnit struct {
 	cu *ComputeUnit
 
 	toRead  *Wavefront
@@ -11,32 +11,32 @@ type BranchUnit struct {
 	toWrite *Wavefront
 }
 
-// NewBranchUnit creates a new branch unit, injecting the dependency of
+// NewScalarUnit creates a new Scalar unit, injecting the dependency of
 // the compute unit.
-func NewBranchUnit(cu *ComputeUnit) *BranchUnit {
-	u := new(BranchUnit)
+func NewScalarUnit(cu *ComputeUnit) *ScalarUnit {
+	u := new(ScalarUnit)
 	u.cu = cu
 	return u
 }
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
-func (u *BranchUnit) CanAcceptWave() bool {
+func (u *ScalarUnit) CanAcceptWave() bool {
 	return u.toRead == nil
 }
 
-// AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *BranchUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
+// AcceptWave moves one wavefront into the read buffer of the Scalar unit
+func (u *ScalarUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	u.toRead = wave
 }
 
-// Run executes three pipeline stages that are controlled by the BranchUnit
-func (u *BranchUnit) Run(now core.VTimeInSec) {
+// Run executes three pipeline stages that are controlled by the ScalarUnit
+func (u *ScalarUnit) Run(now core.VTimeInSec) {
 	u.runWriteStage(now)
 	u.runExecStage(now)
 	u.runReadStage(now)
 }
 
-func (u *BranchUnit) runReadStage(now core.VTimeInSec) {
+func (u *ScalarUnit) runReadStage(now core.VTimeInSec) {
 	if u.toRead == nil {
 		return
 	}
@@ -50,7 +50,7 @@ func (u *BranchUnit) runReadStage(now core.VTimeInSec) {
 	}
 }
 
-func (u *BranchUnit) runExecStage(now core.VTimeInSec) {
+func (u *ScalarUnit) runExecStage(now core.VTimeInSec) {
 	if u.toExec == nil {
 		return
 	}
@@ -64,7 +64,7 @@ func (u *BranchUnit) runExecStage(now core.VTimeInSec) {
 	}
 }
 
-func (u *BranchUnit) runWriteStage(now core.VTimeInSec) {
+func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {
 	if u.toWrite == nil {
 		return
 	}

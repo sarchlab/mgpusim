@@ -218,8 +218,21 @@ func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 }
 
 func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
-	cu.Scheduler.DoIssue(evt.Time())
-	cu.Scheduler.DoFetch(evt.Time())
+	now := evt.Time()
+
+	cu.BranchUnit.Run(now)
+
+	cu.ScalarUnit.Run(now)
+	cu.ScalarDecoder.Run(now)
+
+	for _, simdUnit := range cu.SIMDUnit {
+		simdUnit.Run(now)
+	}
+	cu.VectorDecoder.Run(now)
+
+	cu.Scheduler.EvaluateInternalInst(now)
+	cu.Scheduler.DoIssue(now)
+	cu.Scheduler.DoFetch(now)
 
 	if cu.running {
 		evt.SetTime(cu.Freq.NextTick(evt.Time()))
@@ -243,6 +256,8 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 	wg := cu.wgToManagedWgMapping[raw.WG]
 	wg.Wfs = append(wg.Wfs, wf)
 	wf.WG = wg
+	wf.CodeObject = wf.WG.Grid.CodeObject
+	wf.Packet = wf.WG.Grid.Packet
 	return wf
 }
 

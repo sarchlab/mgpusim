@@ -43,6 +43,7 @@ func (b *Builder) Build() *ComputeUnit {
 	}
 
 	b.equipScheduler(cu)
+	b.equipExecutionUnits(cu)
 	b.equipSIMDUnits(cu)
 	b.connectToInstMem(cu)
 	cu.Decoder = b.Decoder
@@ -59,12 +60,24 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 
 func (b *Builder) equipExecutionUnits(cu *ComputeUnit) {
 	cu.BranchUnit = NewBranchUnit(cu)
+
+	scalarDecoder := NewDecodeUnit(cu)
+	cu.ScalarDecoder = scalarDecoder
+	scalarUnit := NewScalarUnit(cu)
+	cu.ScalarUnit = NewScalarUnit(cu)
+	for i := 0; i < b.SIMDCount; i++ {
+		scalarDecoder.AddExecutionUnit(scalarUnit)
+	}
 }
 
 func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
+	vectorDecoder := NewDecodeUnit(cu)
+	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.SIMDCount; i++ {
 		simdUnit := NewSIMDUnit(cu)
+		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+
 	}
 }
 

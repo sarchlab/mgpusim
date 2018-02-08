@@ -38,6 +38,10 @@ func (u *SIMDUnit) Run(now core.VTimeInSec) {
 }
 
 func (u *SIMDUnit) runReadStage(now core.VTimeInSec) {
+	if u.toRead == nil {
+		return
+	}
+
 	if u.toExec == nil {
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ReadEnd"})
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ExecStart"})
@@ -49,11 +53,13 @@ func (u *SIMDUnit) runReadStage(now core.VTimeInSec) {
 }
 
 func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
-	if u.toExec != nil {
-		u.execCycleLeft--
-		if u.execCycleLeft > 0 {
-			return
-		}
+	if u.toExec == nil {
+		return
+	}
+
+	u.execCycleLeft--
+	if u.execCycleLeft > 0 {
+		return
 	}
 
 	if u.toWrite == nil {
@@ -66,6 +72,10 @@ func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
 }
 
 func (u *SIMDUnit) runWriteStage(now core.VTimeInSec) {
+	if u.toWrite == nil {
+		return
+	}
+
 	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "WriteEnd"})
 	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "Completed"})
 

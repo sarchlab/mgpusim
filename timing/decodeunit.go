@@ -51,6 +51,10 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 // Run decodes the instruction and sends the instruction to the next pipeline
 // stage
 func (du *DecodeUnit) Run(now core.VTimeInSec) {
+	if du.toDecode == nil {
+		return
+	}
+
 	simdID := du.toDecode.SIMDID
 	execUnit := du.ExecUnits[simdID]
 
