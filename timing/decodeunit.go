@@ -41,6 +41,7 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	if du.toDecode != nil {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
 	}
+
 	du.toDecode = wave
 	du.decoded = false
 
@@ -51,18 +52,21 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 // Run decodes the instruction and sends the instruction to the next pipeline
 // stage
 func (du *DecodeUnit) Run(now core.VTimeInSec) {
-	if du.toDecode == nil {
-		return
-	}
-
-	simdID := du.toDecode.SIMDID
-	execUnit := du.ExecUnits[simdID]
-
-	if execUnit.CanAcceptWave() {
+	if du.toDecode != nil && !du.decoded {
 		du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
 			&InstHookInfo{now, "DecodeDone"})
-
-		execUnit.AcceptWave(du.toDecode, now)
-		du.toDecode = nil
+		du.decoded = true
 	}
+
+	if du.toDecode != nil {
+		simdID := du.toDecode.SIMDID
+		execUnit := du.ExecUnits[simdID]
+
+		if execUnit.CanAcceptWave() {
+			execUnit.AcceptWave(du.toDecode, now)
+			du.toDecode = nil
+		}
+
+	}
+
 }

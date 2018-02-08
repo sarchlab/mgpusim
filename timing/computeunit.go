@@ -279,13 +279,13 @@ func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
 	if err != nil {
 		return err
 	}
-	wf.Inst = NewInst(inst)
+	wf.Inst.Inst = inst
 	wf.PC += uint64(wf.Inst.ByteSize)
 
 	// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
 	// wf.State = WfReady
 
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.RecvTime(), "FetchDone"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), "FetchDone"})
 
 	return nil
 }

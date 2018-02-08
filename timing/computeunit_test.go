@@ -183,6 +183,8 @@ var _ = Describe("ComputeUnit", func() {
 	Context("when handling mem.AccessReq", func() {
 		It("should handle fetch return", func() {
 			wf := new(Wavefront)
+			inst := NewInst(nil)
+			wf.Inst = inst
 			wf.PC = 0x1000
 
 			req := mem.NewAccessReq()
@@ -193,7 +195,8 @@ var _ = Describe("ComputeUnit", func() {
 			req.Info = &MemAccessInfo{MemAccessInstFetch, wf}
 			req.ByteSize = 4
 
-			decoder.Inst = insts.NewInst()
+			rawInst := insts.NewInst()
+			decoder.Inst = rawInst
 			decoder.Inst.ByteSize = 4
 
 			cu.Handle(req)
@@ -201,7 +204,8 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1004)))
-			Expect(wf.Inst).NotTo(BeNil())
+			Expect(wf.Inst).To(BeIdenticalTo(inst))
+			Expect(wf.Inst.Inst).To(BeIdenticalTo(rawInst))
 		})
 	})
 

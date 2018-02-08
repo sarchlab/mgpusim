@@ -39,7 +39,9 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 	if len(wfs) > 0 {
 		wf := wfs[0]
 		wf.Inst = NewInst(nil)
-		log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
+		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
+
+		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "FetchStart"})
 
 		req := mem.NewAccessReq()
 		req.Address = wf.PC
@@ -52,8 +54,6 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 
 		s.cu.GetConnection("ToInstMem").Send(req)
 		wf.State = WfFetching
-
-		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "FetchStart"})
 	}
 }
 
@@ -71,7 +71,7 @@ func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 		unit := s.getUnitToIssueTo(wf.Inst.ExeUnit)
 		if unit.CanAcceptWave() {
 			unit.AcceptWave(wf, now)
-			log.Printf("%f: %s from wf %d issued.\n", now, wf.Inst.String(), wf.FirstWiFlatID)
+			// log.Printf("%f: %s from wf %d issued.\n", now, wf.Inst.String(), wf.FirstWiFlatID)
 			wf.State = WfRunning
 			wf.PC += uint64(wf.Inst.ByteSize)
 			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "Issue"})
