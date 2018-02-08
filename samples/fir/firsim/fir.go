@@ -90,7 +90,6 @@ func main() {
 		os.Exit(1)
 	}()
 
-	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
 	traceFile, err := os.Create("trace.out")
 	if err != nil {
@@ -115,7 +114,7 @@ func initPlatform() {
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
 	globalMem.Freq = 1 * util.GHz
-	globalMem.Latency = 1
+	globalMem.Latency = 2
 
 	// Host
 	host = newHostComponent()
@@ -141,29 +140,30 @@ func initPlatform() {
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 1; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit.Scheduler)
-		core.PlugIn(computeUnit.Scheduler, "ToDispatcher", connection)
+		dispatcher.RegisterCU(computeUnit)
+
+		core.PlugIn(computeUnit, "ToACE", connection)
 
 		// Hook
-		mapWGLog := timing.NewMapWGLog(logger)
-		computeUnit.Scheduler.AcceptHook(mapWGLog)
-		dispatchWfHook := timing.NewDispatchWfLog(logger)
-		computeUnit.Scheduler.AcceptHook(dispatchWfHook)
-
+		//mapWGLog := timing.NewMapWGLog(logger)
+		//computeUnit.Scheduler.AcceptHook(mapWGLog)
+		//dispatchWfHook := timing.NewDispatchWfLog(logger)
+		//computeUnit.Scheduler.AcceptHook(dispatchWfHook)
+		//
 		if i == 0 {
 			tracer := trace.NewInstTracer(traceOutput)
-			computeUnit.Scheduler.AcceptHook(tracer)
-			computeUnit.BranchUnit.AcceptHook(tracer)
-			computeUnit.ScalarUnit.AcceptHook(tracer)
-			computeUnit.SIMDUnits[0].AcceptHook(tracer)
-			computeUnit.SIMDUnits[1].AcceptHook(tracer)
-			computeUnit.SIMDUnits[2].AcceptHook(tracer)
-			computeUnit.SIMDUnits[3].AcceptHook(tracer)
-			computeUnit.VectorDecode.AcceptHook(tracer)
-			computeUnit.ScalarDecode.AcceptHook(tracer)
+			computeUnit.AcceptHook(tracer)
+			//	computeUnit.BranchUnit.AcceptHook(tracer)
+			//	computeUnit.ScalarUnit.AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[0].AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[1].AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[2].AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[3].AcceptHook(tracer)
+			//	computeUnit.VectorDecode.AcceptHook(tracer)
+			//	computeUnit.ScalarDecode.AcceptHook(tracer)
 		}
 
 	}
@@ -239,7 +239,7 @@ func run() {
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = hsaco
 	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 1000
+	req.Packet.GridSizeX = 256 * 4
 	req.Packet.GridSizeY = 1
 	req.Packet.GridSizeZ = 1
 	req.Packet.WorkgroupSizeX = 256

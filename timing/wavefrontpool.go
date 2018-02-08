@@ -15,7 +15,7 @@ func NewWavefrontPool(capacity int) *WavefrontPool {
 	p := new(WavefrontPool)
 
 	p.Capacity = capacity
-	p.wfs = make([]*Wavefront, 0, 0)
+	p.wfs = make([]*Wavefront, 0)
 
 	return p
 }

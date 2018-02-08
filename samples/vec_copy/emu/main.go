@@ -110,7 +110,7 @@ func initPlatform() {
 			engine, disassembler, scratchpadPreparer, alu)
 		computeUnit.Freq = 1 * util.GHz
 		computeUnit.GlobalMemStorage = globalMem.Storage
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
+		dispatcher.RegisterCU(computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
 
 		file, _ := os.Open("isa.debug")

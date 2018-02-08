@@ -25,22 +25,21 @@ var _ = Describe("WGMapper", func() {
 	var (
 		wgMapper *WGMapperImpl
 		grid     *kernels.Grid
-		status   *gcn3.KernelDispatchStatus
 		co       *insts.HsaCo
+		cu       *ComputeUnit
 	)
 
 	BeforeEach(func() {
-		wgMapper = NewWGMapper(4)
+		cu = NewComputeUnit("cu", nil)
+		wgMapper = NewWGMapper(cu, 4)
 		wgMapper.initWfInfo([]int{10, 10, 10, 10})
 		wgMapper.initLDSInfo(64 * 1024) // 64K
 		wgMapper.initSGPRInfo(3200)
 		wgMapper.initVGPRInfo([]int{256, 256, 256, 256})
 
-		grid = prepareGrid()
-		status = gcn3.NewKernelDispatchStatus()
-		status.Grid = grid
 		co = insts.NewHsaCo()
-		status.CodeObject = co
+		grid = prepareGrid()
+		grid.CodeObject = co
 	})
 
 	It("should send NACK if too many Wavefronts", func() {
@@ -49,7 +48,7 @@ var _ = Describe("WGMapper", func() {
 			wgMapper.WfPoolFreeCount[i] = 2
 		}
 
-		req := gcn3.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0], co)
+		req := gcn3.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -73,7 +72,7 @@ var _ = Describe("WGMapper", func() {
 
 		// 10 Wfs, 64 SGPRs per wf. That is 640 in total
 		co.WFSgprCount = 64
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
+		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -96,7 +95,7 @@ var _ = Describe("WGMapper", func() {
 		wgMapper.LDSMask.SetStatus(0, 240, AllocStatusReserved)
 
 		co.WGGroupSegmentByteSize = 8192
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
+		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -124,7 +123,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 256
 		co.WIVgprCount = 20
 
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
+		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -149,7 +148,7 @@ var _ = Describe("WGMapper", func() {
 		wgMapper.WfPoolFreeCount[3] = 2
 
 		co.WIVgprCount = 102
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
+		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -172,7 +171,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 1024
 
 		wg := grid.WorkGroups[0]
-		req := gcn3.NewMapWGReq(nil, nil, 10, wg, co)
+		req := gcn3.NewMapWGReq(nil, nil, 10, wg)
 
 		ok := wgMapper.MapWG(req)
 
@@ -195,10 +194,10 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(8))
 
 		for i := 0; i < len(wg.Wavefronts); i++ {
-			Expect(req.WfDispatchMap[i].SIMDID).To(Equal(i % 4))
-			Expect(req.WfDispatchMap[i].SGPROffset).To(Equal(i * 64))
-			Expect(req.WfDispatchMap[i].LDSOffset).To(Equal(0))
-			Expect(req.WfDispatchMap[i].VGPROffset).To(Equal((i / 4) * 20 * 4))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SIMDID).To(Equal(i % 4))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SGPROffset).To(Equal(i * 64))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].LDSOffset).To(Equal(0))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].VGPROffset).To(Equal((i / 4) * 20 * 4))
 		}
 	})
 
@@ -208,7 +207,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 900
 
 		wg := grid.WorkGroups[0]
-		req := gcn3.NewMapWGReq(nil, nil, 10, wg, co)
+		req := gcn3.NewMapWGReq(nil, nil, 10, wg)
 
 		ok := wgMapper.MapWG(req)
 
@@ -231,10 +230,10 @@ var _ = Describe("WGMapper", func() {
 		Expect(wgMapper.WfPoolFreeCount[3]).To(Equal(8))
 
 		for i := 0; i < len(wg.Wavefronts); i++ {
-			Expect(req.WfDispatchMap[i].SIMDID).To(Equal(i % 4))
-			Expect(req.WfDispatchMap[i].SGPROffset).To(Equal(i * 64))
-			Expect(req.WfDispatchMap[i].LDSOffset).To(Equal(0))
-			Expect(req.WfDispatchMap[i].VGPROffset).To(
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SIMDID).To(Equal(i % 4))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].SGPROffset).To(Equal(i * 64))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].LDSOffset).To(Equal(0))
+			Expect(cu.WfToDispatch[wg.Wavefronts[i]].VGPROffset).To(
 				Equal((i / 4) * 20 * 4))
 		}
 	})
@@ -244,7 +243,7 @@ var _ = Describe("WGMapper", func() {
 
 		co.WIVgprCount = 20
 
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0], co)
+		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -258,6 +257,7 @@ var _ = Describe("WGMapper", func() {
 
 	It("should clear reservation when unmap wg", func() {
 		wg := kernels.NewWorkGroup()
+		wg.Grid = grid
 		for i := 0; i < 10; i++ {
 			wf := kernels.NewWavefront()
 			wg.Wavefronts = append(wg.Wavefronts, wf)
@@ -265,13 +265,12 @@ var _ = Describe("WGMapper", func() {
 		co.WIVgprCount = 16
 		co.WGGroupSegmentByteSize = 1024
 		co.WFSgprCount = 64
-		status.CodeObject = co
-		req := gcn3.NewMapWGReq(nil, nil, 0, wg, co)
+		req := gcn3.NewMapWGReq(nil, nil, 0, wg)
 
 		managedWG := NewWorkGroup(wg, req)
 
 		wgMapper.MapWG(req)
-		for _, info := range req.WfDispatchMap {
+		for _, info := range cu.WfToDispatch {
 			wf := info.Wavefront
 			managedWf := new(Wavefront)
 			managedWf.Wavefront = wf

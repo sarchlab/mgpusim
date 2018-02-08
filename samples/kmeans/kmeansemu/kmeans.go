@@ -142,7 +142,7 @@ func initPlatform() {
 			engine, disassembler, scratchpadPreparer, alu)
 		computeUnit.Freq = 1 * util.GHz
 		computeUnit.GlobalMemStorage = globalMem.Storage
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
+		dispatcher.RegisterCU(computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
 
 		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
