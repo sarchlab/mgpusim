@@ -7,6 +7,8 @@ func (u *ALU) runSOP1(state InstEmuState) {
 	switch inst.Opcode {
 	case 0:
 		u.runSMOVB32(state)
+	case 1:
+		u.runSMOVB64(state)
 	case 28:
 		u.runSGETPCB64(state)
 	case 32:
@@ -17,6 +19,11 @@ func (u *ALU) runSOP1(state InstEmuState) {
 }
 
 func (u *ALU) runSMOVB32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP1()
+	sp.DST = sp.SRC0
+}
+
+func (u *ALU) runSMOVB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.SRC0
 }
@@ -35,3 +42,5 @@ func (u *ALU) runSANDSAVEEXECB64(state InstEmuState) {
 		sp.SCC = 0
 	}
 }
+
+

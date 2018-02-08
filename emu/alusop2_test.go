@@ -262,7 +262,7 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST).To(Equal(uint64(int32ToBits(32))))
 		Expect(sp.SCC).To(Equal(uint8(1)))
 	})
-	
+
 	It("should run S_MUL_I32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Sop2
