@@ -59,10 +59,10 @@ func (du *DecodeUnit) Run(now core.VTimeInSec) {
 	execUnit := du.ExecUnits[simdID]
 
 	if execUnit.CanAcceptWave() {
-		execUnit.AcceptWave(du.toDecode, now)
-		du.toDecode = nil
-
 		du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
 			&InstHookInfo{now, "DecodeDone"})
+
+		execUnit.AcceptWave(du.toDecode, now)
+		du.toDecode = nil
 	}
 }
