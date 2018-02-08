@@ -48,6 +48,23 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run V_READFIRSTLANE_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop1
+		state.inst.Opcode = 2
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[8] = 1
+		sp.EXEC = 0x0000000000000100
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(sp.SRC0[8]).To(Equal(sp.DST[i]))
+		}
+
+	})
+
 	It("should run V_CVT_F32_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop1
