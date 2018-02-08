@@ -25,8 +25,8 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/mem"
 	"gitlab.com/yaotsu/gcn3/trace"
+	"gitlab.com/yaotsu/mem"
 )
 
 type hostComponent struct {
@@ -53,13 +53,13 @@ func (h *hostComponent) Handle(evt core.Event) error {
 }
 
 var (
-	engine     core.Engine
-	globalMem  *mem.IdealMemController
-	gpu        *gcn3.GPU
-	host       *hostComponent
-	connection core.Connection
-	hsaco      *insts.HsaCo
-	logger     *log.Logger
+	engine      core.Engine
+	globalMem   *mem.IdealMemController
+	gpu         *gcn3.GPU
+	host        *hostComponent
+	connection  core.Connection
+	hsaco       *insts.HsaCo
+	logger      *log.Logger
 	traceOutput *os.File
 )
 
@@ -114,7 +114,7 @@ func initPlatform() {
 	// Memory
 	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
 	globalMem.Freq = 1 * util.GHz
-	globalMem.Latency = 1
+	globalMem.Latency = 2
 
 	// Host
 	host = newHostComponent()
@@ -156,14 +156,14 @@ func initPlatform() {
 		if i == 0 {
 			tracer := trace.NewInstTracer(traceOutput)
 			computeUnit.AcceptHook(tracer)
-		//	computeUnit.BranchUnit.AcceptHook(tracer)
-		//	computeUnit.ScalarUnit.AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[0].AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[1].AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[2].AcceptHook(tracer)
-		//	computeUnit.SIMDUnits[3].AcceptHook(tracer)
-		//	computeUnit.VectorDecode.AcceptHook(tracer)
-		//	computeUnit.ScalarDecode.AcceptHook(tracer)
+			//	computeUnit.BranchUnit.AcceptHook(tracer)
+			//	computeUnit.ScalarUnit.AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[0].AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[1].AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[2].AcceptHook(tracer)
+			//	computeUnit.SIMDUnits[3].AcceptHook(tracer)
+			//	computeUnit.VectorDecode.AcceptHook(tracer)
+			//	computeUnit.ScalarDecode.AcceptHook(tracer)
 		}
 
 	}

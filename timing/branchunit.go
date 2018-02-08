@@ -27,6 +27,7 @@ func (u *BranchUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *BranchUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	u.toRead = wave
+	u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ReadStart"})
 }
 
 // Run executes three pipeline stages that are controlled by the BranchUnit
