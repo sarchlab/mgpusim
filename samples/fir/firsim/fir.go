@@ -133,7 +133,7 @@ func initPlatform() {
 	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ToInstMem = connection
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 1; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
 		dispatcher.RegisterCU(computeUnit)
