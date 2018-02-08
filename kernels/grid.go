@@ -41,6 +41,10 @@ func NewWorkGroup() *WorkGroup {
 	return wg
 }
 
+func (wg *WorkGroup) CodeObject() *insts.HsaCo {
+	return wg.Grid.CodeObject
+}
+
 // A Wavefront is a collection of
 type Wavefront struct {
 	WG            *WorkGroup

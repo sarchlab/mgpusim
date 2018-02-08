@@ -209,7 +209,7 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(0xffffffffffffffff)))
 	})
 
-	It("should run V_ADD_I32, with negtive overflow", func() {
+	It("should run V_ADD_I32, with negative overflow", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
 		state.inst.Opcode = 25
