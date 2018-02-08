@@ -45,3 +45,9 @@ type Wavefront struct {
 	VRegOffset  int
 	LDSOffset   int
 }
+
+func NewWavefront(wf *kernels.Wavefront) *Wavefront {
+	managedWf := new(Wavefront)
+	mangaedWf.Wavefront = wf
+	return managedWf
+}
