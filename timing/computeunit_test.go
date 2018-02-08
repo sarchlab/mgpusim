@@ -130,7 +130,13 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when processing DispatchWfReq", func() {
 		It("should dispatch wf", func() {
+			packet := new(kernels.HsaKernelDispatchPacket)
+			co := new(insts.HsaCo)
+			grid := kernels.NewGrid()
+			grid.Packet = packet
+			grid.CodeObject = co
 			wg := kernels.NewWorkGroup()
+			wg.Grid = grid
 			cu.wrapWG(wg, nil)
 
 			wf := kernels.NewWavefront()

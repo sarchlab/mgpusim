@@ -61,6 +61,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 	wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 	for _, wf := range wfs {
+		log.Printf("%s issued.\n", wf.Inst.String())
 		if wf.Inst.ExeUnit == insts.ExeUnitSpecial {
 			s.issueToInternal(wf, now)
 			continue
