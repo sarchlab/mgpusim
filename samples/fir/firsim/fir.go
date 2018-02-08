@@ -26,6 +26,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/mem"
+	"gitlab.com/yaotsu/gcn3/trace"
 )
 
 type hostComponent struct {
@@ -59,6 +60,7 @@ var (
 	connection core.Connection
 	hsaco      *insts.HsaCo
 	logger     *log.Logger
+	traceOutput *os.File
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -89,6 +91,11 @@ func main() {
 	}()
 
 	logger = log.New(os.Stdout, "", 0)
+	traceFile, err := os.Create("trace.out")
+	if err != nil {
+		log.Panic(err)
+	}
+	traceOutput = traceFile
 
 	initPlatform()
 	loadProgram()
@@ -146,9 +153,9 @@ func initPlatform() {
 		//dispatchWfHook := timing.NewDispatchWfLog(logger)
 		//computeUnit.Scheduler.AcceptHook(dispatchWfHook)
 		//
-		//if i == 0 {
-		//	tracer := trace.NewInstTracer(traceOutput)
-		//	computeUnit.Scheduler.AcceptHook(tracer)
+		if i == 0 {
+			tracer := trace.NewInstTracer(traceOutput)
+			computeUnit.AcceptHook(tracer)
 		//	computeUnit.BranchUnit.AcceptHook(tracer)
 		//	computeUnit.ScalarUnit.AcceptHook(tracer)
 		//	computeUnit.SIMDUnits[0].AcceptHook(tracer)
@@ -157,7 +164,7 @@ func initPlatform() {
 		//	computeUnit.SIMDUnits[3].AcceptHook(tracer)
 		//	computeUnit.VectorDecode.AcceptHook(tracer)
 		//	computeUnit.ScalarDecode.AcceptHook(tracer)
-		//}
+		}
 
 	}
 
