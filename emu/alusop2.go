@@ -26,8 +26,15 @@ func (u *ALU) runSOP2(state InstEmuState) {
 		u.runSORB64(state)
 	case 17:
 		u.runSXOR64(state)
+<<<<<<< HEAD
 	case 30:
 		u.runSLSHRB32(state)
+=======
+	case 29:
+		u.runSLSHLB64(state)
+	case 32:
+		u.runSASHRI32(state)
+>>>>>>> ddbd1fb9ec8880c92a50cfceb3aae8e39490f59c
 	case 36:
 		u.runSMULI32(state)
 	default:
@@ -150,6 +157,7 @@ func (u *ALU) runSXOR64(state InstEmuState) {
 	}
 }
 
+
 func (u *ALU) runSLSHRB32(state InstEmuState) {
 
 	sp := state.Scratchpad().AsSOP2()
@@ -161,6 +169,40 @@ func (u *ALU) runSLSHRB32(state InstEmuState) {
 		sp.SCC = 0
 	}
 }
+
+func (u *ALU) runSLSHLB64(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	src0 := sp.SRC0
+	src1 := uint8(sp.SRC1)
+	dst := src0 << src1
+
+	sp.DST = dst
+
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALU) runSASHRI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	src0 := asInt32(uint32(sp.SRC0))
+	src1 := uint8(sp.SRC1)
+	dst := src0 >> src1
+
+	sp.DST = uint64(int32ToBits(dst))
+
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+>>>>>>> ddbd1fb9ec8880c92a50cfceb3aae8e39490f59c
 func (u *ALU) runSMULI32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
