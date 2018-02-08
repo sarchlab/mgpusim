@@ -1,6 +1,8 @@
 package timing
 
 import (
+	"log"
+
 	"gitlab.com/yaotsu/gcn3"
 )
 
@@ -28,7 +30,7 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 // DispatchWf starts or continues a wavefront dispatching process.
 func (d *WfDispatcherImpl) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
 
-	d.setWfInformation(wf)
+	d.setWfInfo(wf)
 
 	evt := NewWfDispatchCompletionEvent(
 		d.cu.Freq.NCyclesLater(d.Latency, req.RecvTime()),
@@ -45,8 +47,9 @@ func (d *WfDispatcherImpl) setWfInfo(wf *Wavefront) {
 			"unit before.")
 	}
 
-}
-
-func setWfPC(wf *Wavefront) {
-
+	wf.SIMDID = wfInfo.SIMDID
+	wf.SRegOffset = wfInfo.SGPROffset
+	wf.VRegOffset = wfInfo.VGPROffset
+	wf.LDSOffset = wfInfo.LDSOffset
+	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
 }

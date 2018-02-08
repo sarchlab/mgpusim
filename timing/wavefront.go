@@ -46,8 +46,10 @@ type Wavefront struct {
 	LDSOffset   int
 }
 
+// NewWavefront creates a new Wavefront of the timing package, wrapping the
+// wavefront from the kernels package.
 func NewWavefront(wf *kernels.Wavefront) *Wavefront {
 	managedWf := new(Wavefront)
-	mangaedWf.Wavefront = wf
+	managedWf.Wavefront = wf
 	return managedWf
 }
