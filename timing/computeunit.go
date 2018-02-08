@@ -239,8 +239,7 @@ func (cu *ComputeUnit) wrapWG(
 }
 
 func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
-	wf := new(Wavefront)
-	wf.Wavefront = raw
+	wf := NewWavefront(raw)
 	wg := cu.wgToManagedWgMapping[raw.WG]
 	wg.Wfs = append(wg.Wfs, wf)
 	wf.WG = wg
