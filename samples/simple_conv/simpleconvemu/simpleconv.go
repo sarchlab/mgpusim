@@ -55,7 +55,7 @@ func (h *hostComponent) Handle(evt core.Event) error {
 var (
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
-	gpu        *gcn3.Gpu
+	gpu        *gcn3.GPU
 	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
@@ -116,7 +116,7 @@ func initPlatform() {
 	host = newHostComponent()
 
 	// Gpu
-	gpu = gcn3.NewGpu("GPU")
+	gpu = gcn3.NewGPU("GPU")
 	commandProcessor := gcn3.NewCommandProcessor("GPU.CommandProcessor")
 
 	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
@@ -142,7 +142,7 @@ func initPlatform() {
 			engine, disassembler, scratchpadPreparer, alu)
 		computeUnit.Freq = 1 * util.GHz
 		computeUnit.GlobalMemStorage = globalMem.Storage
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
+		dispatcher.RegisterCU(computeUnit)
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
 
 		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
