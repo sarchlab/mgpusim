@@ -60,7 +60,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 		dispatcher.RegisterCU(computeUnit)
 	}
 
-	gpu := gcn3.NewGPU("GPU")
+	gpu := gcn3.NewGPU(b.GPUName)
 	gpu.CommandProcessor = commandProcessor
 	commandProcessor.Driver = gpu
 
