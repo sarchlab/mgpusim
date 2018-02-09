@@ -16,8 +16,14 @@ type Builder struct {
 	VGPRCount []int
 	SGPRCount int
 	Decoder   emu.Decoder
+
 	InstMem   core.Component
-	ToInstMem core.Connection
+	ScalarMem core.Component
+	VectorMem core.Component
+
+	ToInstMem   core.Connection
+	ToScalarMem core.Connection
+	ToVectorMem core.Connection
 }
 
 // NewBuilder returns a default builder object
@@ -35,6 +41,7 @@ func NewBuilder() *Builder {
 func (b *Builder) Build() *ComputeUnit {
 	cu := NewComputeUnit(b.CUName, b.Engine)
 	cu.Freq = b.Freq
+	cu.Decoder = b.Decoder
 	cu.WGMapper = NewWGMapper(cu, 4)
 	cu.WfDispatcher = NewWfDispatcher(cu)
 
@@ -45,8 +52,8 @@ func (b *Builder) Build() *ComputeUnit {
 	b.equipScheduler(cu)
 	b.equipExecutionUnits(cu)
 	b.equipSIMDUnits(cu)
-	b.connectToInstMem(cu)
-	cu.Decoder = b.Decoder
+
+	b.connectToMem(cu)
 
 	return cu
 }
@@ -63,7 +70,7 @@ func (b *Builder) equipExecutionUnits(cu *ComputeUnit) {
 
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
-	scalarUnit := NewScalarUnit(cu)
+	scalarUnit := NewScalarUnit(cu, nil, nil)
 	cu.ScalarUnit = scalarUnit
 	for i := 0; i < b.SIMDCount; i++ {
 		scalarDecoder.AddExecutionUnit(scalarUnit)
@@ -77,11 +84,14 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 		simdUnit := NewSIMDUnit(cu)
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
-
 	}
 }
 
-func (b *Builder) connectToInstMem(cu *ComputeUnit) {
+func (b *Builder) connectToMem(cu *ComputeUnit) {
 	cu.InstMem = b.InstMem
+	cu.ScalarMem = b.ScalarMem
+	cu.VectorMem = b.VectorMem
 	core.PlugIn(cu, "ToInstMem", b.ToInstMem)
+	core.PlugIn(cu, "ToScalarMem", b.ToScalarMem)
+	core.PlugIn(cu, "ToVectorMem", b.ToVectorMem)
 }

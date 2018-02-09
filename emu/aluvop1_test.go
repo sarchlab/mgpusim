@@ -12,15 +12,14 @@ import (
 var _ = Describe("ALU", func() {
 
 	var (
-		alu     *ALU
+		alu     *ALUImpl
 		state   *mockInstState
 		storage *mem.Storage
 	)
 
 	BeforeEach(func() {
 		storage = mem.NewStorage(1 * mem.GB)
-		alu = new(ALU)
-		alu.Storage = storage
+		alu = NewALUImpl(storage)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)

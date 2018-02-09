@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-func (u *ALU) runVOP1(state InstEmuState) {
+func (u *ALUImpl) runVOP1(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 1:
@@ -25,7 +25,7 @@ func (u *ALU) runVOP1(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMOVB32(state InstEmuState) {
+func (u *ALUImpl) runVMOVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -37,7 +37,7 @@ func (u *ALU) runVMOVB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVREADFIRSTLANEB32(state InstEmuState) {
+func (u *ALUImpl) runVREADFIRSTLANEB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	var laneid uint
@@ -54,7 +54,7 @@ func (u *ALU) runVREADFIRSTLANEB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCVTF32U32(state InstEmuState) {
+func (u *ALUImpl) runVCVTF32U32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
 	var i uint
@@ -67,7 +67,7 @@ func (u *ALU) runVCVTF32U32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCVTU32F32(state InstEmuState) {
+func (u *ALUImpl) runVCVTU32F32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
 	var i uint
@@ -92,7 +92,7 @@ func (u *ALU) runVCVTU32F32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCVTI32F32(state InstEmuState) {
+func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -117,7 +117,7 @@ func (u *ALU) runVCVTI32F32(state InstEmuState) {
 
 }
 
-func (u *ALU) runVRCPIFLAGF32(state InstEmuState) {
+func (u *ALUImpl) runVRCPIFLAGF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
 	var i uint

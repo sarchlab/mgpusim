@@ -7,7 +7,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
-func (u *ALU) runSOP2(state InstEmuState) {
+func (u *ALUImpl) runSOP2(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -37,7 +37,7 @@ func (u *ALU) runSOP2(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSADDU32(state InstEmuState) {
+func (u *ALUImpl) runSADDU32(state InstEmuState) {
 	sp := state.Scratchpad()
 
 	src0 := insts.BytesToUint32(sp[0:8])
@@ -55,7 +55,7 @@ func (u *ALU) runSADDU32(state InstEmuState) {
 	sp[24] = scc
 }
 
-func (u *ALU) runSADDI32(state InstEmuState) {
+func (u *ALUImpl) runSADDI32(state InstEmuState) {
 	sp := state.Scratchpad()
 
 	src0 := insts.BytesToUint32(sp[0:8])
@@ -73,7 +73,7 @@ func (u *ALU) runSADDI32(state InstEmuState) {
 	sp[24] = scc
 }
 
-func (u *ALU) runSSUBI32(state InstEmuState) {
+func (u *ALUImpl) runSSUBI32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	src0 := asInt32(uint32(sp.SRC0))
@@ -91,7 +91,7 @@ func (u *ALU) runSSUBI32(state InstEmuState) {
 	sp.DST = uint64(int32ToBits(dst))
 }
 
-func (u *ALU) runSADDCU32(state InstEmuState) {
+func (u *ALUImpl) runSADDCU32(state InstEmuState) {
 	sp := state.Scratchpad()
 
 	src0 := insts.BytesToUint32(sp[0:8])
@@ -109,7 +109,7 @@ func (u *ALU) runSADDCU32(state InstEmuState) {
 	sp[24] = scc
 }
 
-func (u *ALU) runSANDB32(state InstEmuState) {
+func (u *ALUImpl) runSANDB32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	sp.DST = sp.SRC0 & sp.SRC1
@@ -120,7 +120,7 @@ func (u *ALU) runSANDB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSANDB64(state InstEmuState) {
+func (u *ALUImpl) runSANDB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	sp.DST = sp.SRC0 & sp.SRC1
@@ -131,7 +131,7 @@ func (u *ALU) runSANDB64(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSORB64(state InstEmuState) {
+func (u *ALUImpl) runSORB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 	sp.DST = sp.SRC0 | sp.SRC1
 	if sp.DST != 0 {
@@ -141,7 +141,7 @@ func (u *ALU) runSORB64(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSXOR64(state InstEmuState) {
+func (u *ALUImpl) runSXOR64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	sp.DST = sp.SRC0 ^ sp.SRC1
@@ -152,7 +152,7 @@ func (u *ALU) runSXOR64(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSLSHLB64(state InstEmuState) {
+func (u *ALUImpl) runSLSHLB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	src0 := sp.SRC0
@@ -168,7 +168,7 @@ func (u *ALU) runSLSHLB64(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSASHRI32(state InstEmuState) {
+func (u *ALUImpl) runSASHRI32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	src0 := asInt32(uint32(sp.SRC0))
@@ -184,7 +184,7 @@ func (u *ALU) runSASHRI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSMULI32(state InstEmuState) {
+func (u *ALUImpl) runSMULI32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	src0 := asInt32(uint32(sp.SRC0))
