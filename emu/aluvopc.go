@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-func (u *ALU) runVOPC(state InstEmuState) {
+func (u *ALUImpl) runVOPC(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0x41: // v_cmp_lt_f32
@@ -27,7 +27,7 @@ func (u *ALU) runVOPC(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpLtF32(state InstEmuState) {
+func (u *ALUImpl) runVCmpLtF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
 	var i uint
@@ -44,7 +44,7 @@ func (u *ALU) runVCmpLtF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpLtU32(state InstEmuState) {
+func (u *ALUImpl) runVCmpLtU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
 	var i uint
@@ -59,7 +59,7 @@ func (u *ALU) runVCmpLtU32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpEqU32(state InstEmuState) {
+func (u *ALUImpl) runVCmpEqU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
 	var i uint
@@ -75,7 +75,7 @@ func (u *ALU) runVCmpEqU32(state InstEmuState) {
 
 }
 
-func (u *ALU) runVCmpLeU32(state InstEmuState) {
+func (u *ALUImpl) runVCmpLeU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
 	var i uint
@@ -88,7 +88,7 @@ func (u *ALU) runVCmpLeU32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpGtU32(state InstEmuState) {
+func (u *ALUImpl) runVCmpGtU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
 	var i uint
@@ -101,7 +101,7 @@ func (u *ALU) runVCmpGtU32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpNeU32(state InstEmuState) {
+func (u *ALUImpl) runVCmpNeU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
 	var i uint
@@ -114,7 +114,7 @@ func (u *ALU) runVCmpNeU32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpGeU32(state InstEmuState) {
+func (u *ALUImpl) runVCmpGeU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
 	var i uint

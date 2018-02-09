@@ -1,10 +1,16 @@
 package timing
 
-import "gitlab.com/yaotsu/core"
+import (
+	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/emu"
+)
 
 // A ScalarUnit performs Scalar operations
 type ScalarUnit struct {
 	cu *ComputeUnit
+
+	scratchpadPreparer emu.ScratchpadPreparer
+	alu                *emu.ALU
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -13,7 +19,7 @@ type ScalarUnit struct {
 
 // NewScalarUnit creates a new Scalar unit, injecting the dependency of
 // the compute unit.
-func NewScalarUnit(cu *ComputeUnit) *ScalarUnit {
+func NewScalarUnit(cu *ComputeUnit, scratchpadPreparer *emu.ScratchpadPreparer, alu *emu.ALU) *ScalarUnit {
 	u := new(ScalarUnit)
 	u.cu = cu
 	return u

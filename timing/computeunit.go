@@ -41,7 +41,9 @@ type ComputeUnit struct {
 	SIMDUnit         []CUComponent
 	LDSUnit          CUComponent
 
-	InstMem core.Component
+	InstMem   core.Component
+	ScalarMem core.Component
+	VectorMem core.Component
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -59,7 +61,7 @@ func NewComputeUnit(
 
 	cu.AddPort("ToACE")
 	cu.AddPort("ToInstMem")
-	cu.AddPort("ToDataMem")
+	cu.AddPort("ToVectorMem")
 
 	return cu
 }

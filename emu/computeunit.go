@@ -26,7 +26,7 @@ type ComputeUnit struct {
 	engine             core.Engine
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
-	alu                *ALU
+	alu                ALU
 
 	Freq util.Freq
 
@@ -44,7 +44,7 @@ func NewComputeUnit(
 	engine core.Engine,
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
-	alu *ALU,
+	alu ALU,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)

@@ -134,12 +134,18 @@ func initPlatform() {
 	gpu.Driver = host
 	commandProcessor.Dispatcher = dispatcher
 	commandProcessor.Driver = gpu
+
 	cuBuilder := timing.NewBuilder()
 	cuBuilder.Engine = engine
 	cuBuilder.Freq = 1 * util.GHz
-	cuBuilder.InstMem = globalMem
 	cuBuilder.Decoder = insts.NewDisassembler()
+	cuBuilder.InstMem = globalMem
+	cuBuilder.ScalarMem = globalMem
+	cuBuilder.VectorMem = globalMem
 	cuBuilder.ToInstMem = connection
+	cuBuilder.ToScalarMem = connection
+	cuBuilder.ToVectorMem = connection
+
 	for i := 0; i < 1; i++ {
 		cuBuilder.CUName = "cu" + string(i)
 		computeUnit := cuBuilder.Build()
@@ -156,14 +162,6 @@ func initPlatform() {
 		if i == 0 {
 			tracer := trace.NewInstTracer(traceOutput)
 			computeUnit.AcceptHook(tracer)
-			//	computeUnit.BranchUnit.AcceptHook(tracer)
-			//	computeUnit.ScalarUnit.AcceptHook(tracer)
-			//	computeUnit.SIMDUnits[0].AcceptHook(tracer)
-			//	computeUnit.SIMDUnits[1].AcceptHook(tracer)
-			//	computeUnit.SIMDUnits[2].AcceptHook(tracer)
-			//	computeUnit.SIMDUnits[3].AcceptHook(tracer)
-			//	computeUnit.VectorDecode.AcceptHook(tracer)
-			//	computeUnit.ScalarDecode.AcceptHook(tracer)
 		}
 
 	}

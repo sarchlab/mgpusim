@@ -2,7 +2,7 @@ package emu
 
 import "log"
 
-func (u *ALU) runSOP1(state InstEmuState) {
+func (u *ALUImpl) runSOP1(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -14,12 +14,12 @@ func (u *ALU) runSOP1(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSMOVB32(state InstEmuState) {
+func (u *ALUImpl) runSMOVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.SRC0
 }
 
-func (u *ALU) runSANDSAVEEXECB64(state InstEmuState) {
+func (u *ALUImpl) runSANDSAVEEXECB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.EXEC
 	sp.EXEC = sp.SRC0 & sp.EXEC
