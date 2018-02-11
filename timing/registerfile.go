@@ -1,6 +1,8 @@
 package timing
 
 import (
+	"log"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
@@ -10,6 +12,7 @@ import (
 type RegisterAccess struct {
 	Time       core.VTimeInSec
 	Reg        *insts.Reg
+	RegCount 	int
 	LaneID     int
 	WaveOffset int
 	Data       []byte
@@ -36,7 +39,42 @@ func NewSimpleRegisterFile(byteSize uint64) *SimpleRegisterFile {
 }
 
 func (r *SimpleRegisterFile) Write(access *RegisterAccess) {
+	offset := r.getRegOffset(access)
+
+	err := r.storage.Write(uint64(offset), access.Data)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	access.OK = true
 }
 
 func (r *SimpleRegisterFile) Read(access *RegisterAccess) {
+	offset := r.getRegOffset(access)
+
+	data, err := r.storage.Read(uint64(offset), uint64(4*access.RegCount))
+	if err != nil {
+		log.Panic(err)
+	}
+
+	access.Data = data
+	access.OK = true
+}
+
+func (r *SimpleRegisterFile) getRegOffset(access *RegisterAccess) int {
+
+	reg := access.Reg
+	offset := access.WaveOffset
+
+	if reg.IsSReg() {
+		return reg.RegIndex()*4 + offset
+	}
+
+	if reg.IsVReg() {
+		return reg.RegIndex()*4 + offset
+	}
+
+	log.Panic("Register type not supported by register files")
+
+	return 0
 }
