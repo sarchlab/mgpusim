@@ -9,7 +9,7 @@ import (
 )
 
 // ScalarUnit is the execution unit that is responsible for executing the
-// local data share instuctions
+// local data share instructions
 //
 // ToScheduler <=>
 //
