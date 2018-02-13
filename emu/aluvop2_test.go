@@ -119,7 +119,6 @@ var _ = Describe("ALU", func() {
 		sp.EXEC = 1
 
 		alu.Run(state)
-		asInt32(uint32(sp.DST[0]))
 		Expect(asInt32(uint32(sp.DST[0]))).To(Equal(int32(-32)))
 
 	})
