@@ -9,8 +9,7 @@ import (
 type ScalarUnit struct {
 	cu *ComputeUnit
 
-	scratchpadPreparer emu.ScratchpadPreparer
-	alu                *emu.ALU
+	alu emu.ALU
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -19,9 +18,10 @@ type ScalarUnit struct {
 
 // NewScalarUnit creates a new Scalar unit, injecting the dependency of
 // the compute unit.
-func NewScalarUnit(cu *ComputeUnit, scratchpadPreparer *emu.ScratchpadPreparer, alu *emu.ALU) *ScalarUnit {
+func NewScalarUnit(cu *ComputeUnit, alu emu.ALU) *ScalarUnit {
 	u := new(ScalarUnit)
 	u.cu = cu
+	u.alu = alu
 	return u
 }
 
