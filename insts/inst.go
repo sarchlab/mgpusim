@@ -77,6 +77,8 @@ func (i Inst) vop1String() string {
 		i.Src0.String()
 }
 
+
+
 func (i Inst) flatString() string {
 	var s string
 	if i.Opcode >= 16 && i.Opcode <= 23 {
@@ -163,6 +165,12 @@ func (i Inst) sop1String() string {
 	return fmt.Sprintf("%s %s, %s", i.InstName, i.Dst.String(), i.Src0.String())
 }
 
+func (i Inst) sopkString() string {
+	s := fmt.Sprintf("%s,%s,%s",
+		i.InstName,i.Dst.String(),i.SImm16.String())
+
+	return s
+}
 func (i Inst) String() string {
 	switch i.FormatType {
 	case Sop2:
@@ -185,6 +193,8 @@ func (i Inst) String() string {
 		return i.vop3String()
 	case Sop1:
 		return i.sop1String()
+	case Sopk:
+		return i.sopkString()
 	default:
 		return i.InstName
 	}

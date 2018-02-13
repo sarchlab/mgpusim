@@ -48,6 +48,8 @@ func (u *ALU) Run(state InstEmuState) {
 		u.runFlat(state)
 	case insts.Sopp:
 		u.runSOPP(state)
+	case insts.Sopk:
+		u.runSOPK(state)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
