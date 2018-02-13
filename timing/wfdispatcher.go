@@ -53,3 +53,7 @@ func (d *WfDispatcherImpl) setWfInfo(wf *Wavefront) {
 	wf.LDSOffset = wfInfo.LDSOffset
 	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
 }
+
+func (d *WfDispatcherImpl) initRegisters(wf *Wavefront) {
+
+}
