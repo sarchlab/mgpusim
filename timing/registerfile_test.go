@@ -13,7 +13,7 @@ var _ = Describe("Simple Register File", func() {
 	)
 
 	BeforeEach(func() {
-		registerFile = NewSimpleRegisterFile(26152)
+		registerFile = NewSimpleRegisterFile(26152, 0)
 	})
 
 	It("should write scalar registers", func() {
@@ -43,7 +43,22 @@ var _ = Describe("Simple Register File", func() {
 
 		Expect(regRead.OK).To(BeTrue())
 		Expect(insts.BytesToUint32(regRead.Data)).To(Equal(uint32(16)))
+	})
 
+	It("should write vector registers", func() {
+		registerFile.ByteSizePerLane = 1024
+
+		regWrite := new(RegisterAccess)
+		regWrite.Reg = insts.VReg(10)
+		regWrite.LaneID = 5
+		regWrite.WaveOffset = 100
+		regWrite.Data = insts.Uint32ToBytes(15)
+
+		registerFile.Write(regWrite)
+
+		data, _ := registerFile.storage.Read(100+10*4+1024*5, 4)
+		Expect(regWrite.OK).To(BeTrue())
+		Expect(insts.BytesToUint32(data)).To(Equal(uint32(15)))
 	})
 
 })

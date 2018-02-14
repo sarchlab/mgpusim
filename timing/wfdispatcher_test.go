@@ -9,7 +9,6 @@ import (
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
-//
 var _ = Describe("WfDispatcher", func() {
 	var (
 		engine       *core.MockEngine

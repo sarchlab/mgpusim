@@ -12,7 +12,7 @@ import (
 type RegisterAccess struct {
 	Time       core.VTimeInSec
 	Reg        *insts.Reg
-	RegCount 	int
+	RegCount   int
 	LaneID     int
 	WaveOffset int
 	Data       []byte
@@ -29,12 +29,21 @@ type RegisterFile interface {
 // registers immediately
 type SimpleRegisterFile struct {
 	storage *mem.Storage
+
+	// In vector register, each lane can have up-to 256 VGPRs. Then the offset
+	// difference from v0 lane 0 to v0 lane 1 is 256*4 = 1024B. Field
+	// ByteSizePerLane should be set to 1024 in vector registers.
+	ByteSizePerLane int
 }
 
 // NewSimpleRegisterFile creates and returns a new SimpleRegisterFile
-func NewSimpleRegisterFile(byteSize uint64) *SimpleRegisterFile {
+func NewSimpleRegisterFile(
+	byteSize uint64,
+	byteSizePerLane int,
+) *SimpleRegisterFile {
 	r := new(SimpleRegisterFile)
 	r.storage = mem.NewStorage(byteSize)
+	r.ByteSizePerLane = byteSizePerLane
 	return r
 }
 
@@ -71,7 +80,7 @@ func (r *SimpleRegisterFile) getRegOffset(access *RegisterAccess) int {
 	}
 
 	if reg.IsVReg() {
-		return reg.RegIndex()*4 + offset
+		return reg.RegIndex()*4 + access.LaneID*r.ByteSizePerLane + offset
 	}
 
 	log.Panic("Register type not supported by register files")
