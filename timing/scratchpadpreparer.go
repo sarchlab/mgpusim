@@ -424,7 +424,7 @@ func (p *ScratchpadPreparerImpl) readReg(
 		regRead.Reg = reg
 		regRead.RegCount = regCount
 		regRead.LaneID = laneID
-		regRead.WaveOffset = wf.SRegOffset
+		regRead.WaveOffset = wf.VRegOffset
 
 		regFile.Read(regRead)
 
@@ -463,7 +463,7 @@ func (p *ScratchpadPreparerImpl) writeReg(
 		regWrite.WaveOffset = wf.SRegOffset
 		regWrite.Data = buf
 
-		regFile.Read(regWrite)
+		regFile.Write(regWrite)
 
 	} else if reg.IsVReg() {
 		regFile := p.cu.VRegFile[wf.SIMDID]
@@ -471,7 +471,7 @@ func (p *ScratchpadPreparerImpl) writeReg(
 		regWrite.Reg = reg
 		regWrite.RegCount = regCount
 		regWrite.LaneID = laneID
-		regWrite.WaveOffset = wf.SRegOffset
+		regWrite.WaveOffset = wf.VRegOffset
 		regWrite.Data = buf
 
 		regFile.Write(regWrite)
