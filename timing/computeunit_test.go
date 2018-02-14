@@ -184,7 +184,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should handle fetch return", func() {
 			wf := new(Wavefront)
 			inst := NewInst(nil)
-			wf.Inst = inst
+			wf.inst = inst
 			wf.PC = 0x1000
 
 			req := mem.NewAccessReq()
@@ -204,8 +204,8 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1004)))
-			Expect(wf.Inst).To(BeIdenticalTo(inst))
-			Expect(wf.Inst.Inst).To(BeIdenticalTo(rawInst))
+			Expect(wf.inst).To(BeIdenticalTo(inst))
+			Expect(wf.inst.Inst).To(BeIdenticalTo(rawInst))
 		})
 	})
 

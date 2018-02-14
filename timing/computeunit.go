@@ -40,6 +40,8 @@ type ComputeUnit struct {
 	ScalarUnit       CUComponent
 	SIMDUnit         []CUComponent
 	LDSUnit          CUComponent
+	SRegFile         RegisterFile
+	VRegFile         []RegisterFile
 
 	InstMem   core.Component
 	ScalarMem core.Component
@@ -281,8 +283,9 @@ func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
 	if err != nil {
 		return err
 	}
-	wf.Inst.Inst = inst
-	wf.PC += uint64(wf.Inst.ByteSize)
+	managedInst := wf.ManagedInst()
+	managedInst.Inst = inst
+	wf.PC += uint64(managedInst.ByteSize)
 
 	// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
 	// wf.State = WfReady
