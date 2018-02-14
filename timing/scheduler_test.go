@@ -125,9 +125,9 @@ var _ = Describe("Scheduler", func() {
 			wf := new(Wavefront)
 			wf.PC = 10
 			wf.State = WfFetched
-			wf.Inst = NewInst(insts.NewInst())
-			wf.Inst.ExeUnit = issueDirs[i]
-			wf.Inst.ByteSize = 4
+			wf.inst = NewInst(insts.NewInst())
+			wf.inst.ExeUnit = issueDirs[i]
+			wf.inst.ByteSize = 4
 			wfs = append(wfs, wf)
 		}
 
@@ -157,9 +157,9 @@ var _ = Describe("Scheduler", func() {
 	It("should issue internal instruction", func() {
 		wfs := make([]*Wavefront, 0)
 		wf := new(Wavefront)
-		wf.Inst = NewInst(insts.NewInst())
-		wf.Inst.ExeUnit = insts.ExeUnitSpecial
-		wf.Inst.ByteSize = 4
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.ExeUnit = insts.ExeUnitSpecial
+		wf.inst.ByteSize = 4
 		wf.PC = 10
 		wf.State = WfFetched
 		wfs = append(wfs, wf)
@@ -176,9 +176,9 @@ var _ = Describe("Scheduler", func() {
 
 	It("should evaluate internal executing insts", func() {
 		wf := new(Wavefront)
-		wf.Inst = NewInst(insts.NewInst())
-		wf.Inst.Format = insts.FormatTable[insts.Sopp]
-		wf.Inst.Opcode = 1 // S_ENDPGM
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.Sopp]
+		wf.inst.Opcode = 1 // S_ENDPGM
 
 		scheduler.internalExecuting = wf
 		scheduler.EvaluateInternalInst(10)

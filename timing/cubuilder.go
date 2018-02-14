@@ -52,6 +52,7 @@ func (b *Builder) Build() *ComputeUnit {
 	b.equipScheduler(cu)
 	b.equipExecutionUnits(cu)
 	b.equipSIMDUnits(cu)
+	b.equipRegisterFiles(cu)
 
 	b.connectToMem(cu)
 
@@ -84,6 +85,16 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 		simdUnit := NewSIMDUnit(cu)
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+	}
+}
+
+func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
+	sRegFile := NewSimpleRegisterFile(uint64(b.SGPRCount*4), 0)
+	cu.SRegFile = sRegFile
+
+	for i := 0; i < b.SIMDCount; i++ {
+		vRegFile := NewSimpleRegisterFile(uint64(b.SGPRCount*4), 1024)
+		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
 }
 

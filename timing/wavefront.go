@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 // WfState marks what state that wavefront it in.
@@ -33,23 +34,48 @@ type Wavefront struct {
 	Packet     *kernels.HsaKernelDispatchPacket
 
 	State          WfState
-	Inst           *Inst           // The instruction that is being executed
-	ScratchPad     []byte          // A temp data buf that is shared by different stages
+	inst           *Inst           // The instruction that is being executed
+	scratchpad     emu.Scratchpad  // A temp data buf that is shared by different stages
 	LastFetchTime  core.VTimeInSec // The time that the last instruction was fetched
 	CompletedLanes int             // The number of lanes that is completed in the SIMD unit
 
-	PC          uint64
 	FetchBuffer []byte
 	SIMDID      int
 	SRegOffset  int
 	VRegOffset  int
 	LDSOffset   int
+
+	PC   uint64
+	EXEC uint64
+	VCC  uint64
+	SCC  uint8
 }
 
 // NewWavefront creates a new Wavefront of the timing package, wrapping the
 // wavefront from the kernels package.
-func NewWavefront(wf *kernels.Wavefront) *Wavefront {
-	managedWf := new(Wavefront)
-	managedWf.Wavefront = wf
-	return managedWf
+func NewWavefront(raw *kernels.Wavefront) *Wavefront {
+	wf := new(Wavefront)
+	wf.Wavefront = raw
+
+	wf.scratchpad = make([]byte, 4096)
+
+	return wf
 }
+
+// Inst return the instruction that is being simulated
+func (wf *Wavefront) Inst() *insts.Inst {
+	return wf.inst.Inst
+}
+
+// ManagedInst returns the wrapped Inst
+func (wf *Wavefront) ManagedInst() *Inst {
+	return wf.inst
+}
+
+// Scratchpad returns the scratchpad of the wavefront
+func (wf *Wavefront) Scratchpad() emu.Scratchpad {
+	return wf.scratchpad
+}
+
+
+
