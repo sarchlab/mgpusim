@@ -14,7 +14,7 @@ var _ = Describe("Scalar Unit", func() {
 
 	BeforeEach(func() {
 		cu = NewComputeUnit("cu", nil)
-		bu = NewScalarUnit(cu, nil, nil)
+		bu = NewScalarUnit(cu, nil)
 	})
 
 	It("should allow accepting wavefront", func() {
