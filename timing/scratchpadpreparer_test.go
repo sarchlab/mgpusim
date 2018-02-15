@@ -3,6 +3,7 @@ package timing
 import (
 	"bytes"
 	"encoding/binary"
+	"log"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,21 +12,20 @@ import (
 
 var _ = Describe("ScratchpadPreparer", func() {
 	var (
-		sRegFile *SimpleRegisterFile
+		sRegFile  *SimpleRegisterFile
 		vRegFile0 *SimpleRegisterFile
-		cu *ComputeUnit
-		sp *ScratchpadPreparerImpl
-		wf *Wavefront
+		cu        *ComputeUnit
+		sp        *ScratchpadPreparerImpl
+		wf        *Wavefront
 	)
 
 	BeforeEach(func() {
-		sRegFile = NewSimpleRegisterFile(3200 * 4, 0)
-		vRegFile0 = NewSimpleRegisterFile(256 * 64 *4, 1024)
+		sRegFile = NewSimpleRegisterFile(3200*4, 0)
+		vRegFile0 = NewSimpleRegisterFile(256*64*4, 1024)
 
 		cu = NewComputeUnit("cu", nil)
 		cu.SRegFile = sRegFile
 		cu.VRegFile = append(cu.VRegFile, vRegFile0)
-
 
 		sp = NewScratchpadPreparerImpl(cu)
 		wf = NewWavefront(nil)
@@ -79,7 +79,6 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
-			//wf.WriteReg(insts.VReg(0), 1, i, insts.Uint32ToBytes(uint32(i)))
 		}
 		wf.VCC = uint64(0xffff0000ffff0000)
 		wf.EXEC = 0xff
@@ -94,144 +93,142 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 	})
 
-	//It("should prepare for VOP2", func() {
-	//	inst := insts.NewInst()
-	//	inst.FormatType = insts.Vop2
-	//	inst.Src0 = insts.NewVRegOperand(0, 0, 2)
-	//	inst.Src1 = insts.NewVRegOperand(2, 2, 2)
-	//	inst.Dst = insts.NewVRegOperand(6, 6, 2)
-	//	wf.inst = NewInst(inst)
-	//
-	//	for i := 0; i < 64; i++ {
-	//		wf.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i)))
-	//		wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i+1)))
-	//		wf.WriteReg(insts.VReg(6), 2, i, insts.Uint64ToBytes(uint64(i+2)))
-	//	}
-	//	wf.VCC = 0xffff0000ffff0000
-	//	wf.EXEC = 0xff
-	//
-	//	sp.Prepare(wf, wf)
-	//
-	//	layout := wf.Scratchpad().AsVOP2()
-	//	for i := 0; i < 64; i++ {
-	//		Expect(layout.DST[i]).To(Equal(uint64(i + 2)))
-	//		Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-	//		Expect(layout.SRC1[i]).To(Equal(uint64(i + 1)))
-	//	}
-	//	Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
-	//	Expect(layout.EXEC).To(Equal(uint64(0xff)))
-	//})
-	//
-	//It("should prepare for VOP3", func() {
-	//	inst := insts.NewInst()
-	//	inst.FormatType = insts.Vop3
-	//	inst.Src0 = insts.NewVRegOperand(0, 0, 2)
-	//	inst.Src1 = insts.NewVRegOperand(2, 2, 2)
-	//	inst.Src2 = insts.NewIntOperand(1, 1)
-	//	wf.inst = NewInst(inst)
-	//
-	//	for i := 0; i < 64; i++ {
-	//		wf.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i)))
-	//		wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i)))
-	//	}
-	//	wf.WriteReg(insts.Regs[insts.Vcc], 1, 0,
-	//		insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
-	//	wf.EXEC = 0xff
-	//
-	//	sp.Prepare(wf, wf)
-	//
-	//	layout := wf.Scratchpad().AsVOP3A()
-	//	for i := 0; i < 64; i++ {
-	//		Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-	//		Expect(layout.SRC1[i]).To(Equal(uint64(i)))
-	//		Expect(layout.SRC2[i]).To(Equal(uint64(1)))
-	//	}
-	//	Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
-	//	Expect(layout.EXEC).To(Equal(uint64(0xff)))
-	//})
-	//
-	//It("should prepare for VOPC", func() {
-	//	inst := insts.NewInst()
-	//	inst.FormatType = insts.Vopc
-	//	inst.Src0 = insts.NewVRegOperand(0, 0, 1)
-	//	inst.Src1 = insts.NewVRegOperand(1, 1, 1)
-	//	wf.inst = NewInst(inst)
-	//
-	//	for i := 0; i < 64; i++ {
-	//		wf.WriteReg(insts.VReg(0), 1, i, insts.Uint64ToBytes(uint64(i)))
-	//		wf.WriteReg(insts.VReg(1), 1, i, insts.Uint64ToBytes(uint64(i+1)))
-	//	}
-	//	wf.VCC = 1
-	//	wf.EXEC = 0xff
-	//
-	//	sp.Prepare(wf, wf)
-	//
-	//	layout := wf.Scratchpad().AsVOPC()
-	//	Expect(layout.EXEC).To(Equal(uint64(0xff)))
-	//	for i := 0; i < 64; i++ {
-	//		Expect(layout.SRC0[i]).To(Equal(uint64(i)))
-	//		Expect(layout.SRC1[i]).To(Equal(uint64(i + 1)))
-	//	}
-	//})
-	//
-	//It("should prepare for Flat", func() {
-	//	inst := insts.NewInst()
-	//	inst.FormatType = insts.Flat
-	//	inst.Addr = insts.NewVRegOperand(0, 0, 2)
-	//	inst.Data = insts.NewVRegOperand(2, 2, 4)
-	//	wf.inst = NewInst(inst)
-	//
-	//	for i := 0; i < 64; i++ {
-	//		wf.WriteReg(insts.VReg(0), 2, i,
-	//			insts.Uint64ToBytes(uint64(i+1024)))
-	//		wf.WriteReg(insts.VReg(2), 1, i, insts.Uint32ToBytes(uint32(i)))
-	//		wf.WriteReg(insts.VReg(3), 1, i, insts.Uint32ToBytes(uint32(i)))
-	//		wf.WriteReg(insts.VReg(4), 1, i, insts.Uint32ToBytes(uint32(i)))
-	//		wf.WriteReg(insts.VReg(5), 1, i, insts.Uint32ToBytes(uint32(i)))
-	//	}
-	//	wf.EXEC = 0xff
-	//
-	//	sp.Prepare(wf, wf)
-	//
-	//	layout := wf.Scratchpad().AsFlat()
-	//	for i := 0; i < 64; i++ {
-	//		log.Printf("iter %d", i)
-	//		Expect(layout.ADDR[i]).To(Equal(uint64(i + 1024)))
-	//		Expect(layout.DATA[i*4+0]).To(Equal(uint32(i)))
-	//		Expect(layout.DATA[i*4+1]).To(Equal(uint32(i)))
-	//		Expect(layout.DATA[i*4+2]).To(Equal(uint32(i)))
-	//		Expect(layout.DATA[i*4+3]).To(Equal(uint32(i)))
-	//	}
-	//	Expect(layout.EXEC).To(Equal(uint64(0xff)))
-	//})
-	//
-	//It("should prepare for SMEM", func() {
-	//	inst := insts.NewInst()
-	//	inst.FormatType = insts.Smem
-	//	inst.Opcode = 18
-	//	inst.Data = insts.NewSRegOperand(0, 0, 4)
-	//	inst.Offset = insts.NewIntOperand(1, 1)
-	//	inst.Base = insts.NewSRegOperand(4, 4, 2)
-	//	wf.inst = NewInst(inst)
-	//
-	//	wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(100))
-	//	wf.WriteReg(insts.SReg(1), 1, 0, insts.Uint32ToBytes(101))
-	//	wf.WriteReg(insts.SReg(2), 1, 0, insts.Uint32ToBytes(102))
-	//	wf.WriteReg(insts.SReg(3), 1, 0, insts.Uint32ToBytes(103))
-	//	wf.WriteReg(insts.SReg(4), 2, 0, insts.Uint64ToBytes(1024))
-	//
-	//	sp.Prepare(wf, wf)
-	//
-	//	layout := wf.Scratchpad().AsSMEM()
-	//	Expect(layout.DATA[0]).To(Equal(uint32(100)))
-	//	Expect(layout.DATA[1]).To(Equal(uint32(101)))
-	//	Expect(layout.DATA[2]).To(Equal(uint32(102)))
-	//	Expect(layout.DATA[3]).To(Equal(uint32(103)))
-	//	Expect(layout.Offset).To(Equal(uint64(1)))
-	//	Expect(layout.Base).To(Equal(uint64(1024)))
-	//
-	//})
-	//
+	It("should prepare for VOP2", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Vop2
+		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
+		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
+		inst.Dst = insts.NewVRegOperand(6, 6, 2)
+		wf.inst = NewInst(inst)
+
+		for i := 0; i < 64; i++ {
+			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
+			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i+1)))
+			sp.writeReg(insts.VReg(6), 2, wf, i, insts.Uint64ToBytes(uint64(i+2)))
+		}
+		wf.VCC = 0xffff0000ffff0000
+		wf.EXEC = 0xff
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsVOP2()
+		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i]).To(Equal(uint64(i + 2)))
+			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC1[i]).To(Equal(uint64(i + 1)))
+		}
+		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+	})
+
+	It("should prepare for VOP3", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Vop3
+		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
+		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
+		inst.Src2 = insts.NewIntOperand(1, 1)
+		wf.inst = NewInst(inst)
+
+		for i := 0; i < 64; i++ {
+			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
+			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
+		}
+		wf.VCC = 0xffff0000ffff0000
+		wf.EXEC = 0xff
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsVOP3A()
+		for i := 0; i < 64; i++ {
+			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC2[i]).To(Equal(uint64(1)))
+		}
+		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+	})
+
+	It("should prepare for VOPC", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Vopc
+		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
+		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
+		wf.inst = NewInst(inst)
+
+		for i := 0; i < 64; i++ {
+			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint64ToBytes(uint64(i)))
+			sp.writeReg(insts.VReg(1), 1, wf, i, insts.Uint64ToBytes(uint64(i+1)))
+		}
+		wf.VCC = 1
+		wf.EXEC = 0xff
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsVOPC()
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+		for i := 0; i < 64; i++ {
+			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC1[i]).To(Equal(uint64(i + 1)))
+		}
+	})
+
+	It("should prepare for Flat", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Flat
+		inst.Addr = insts.NewVRegOperand(0, 0, 2)
+		inst.Data = insts.NewVRegOperand(2, 2, 4)
+		wf.inst = NewInst(inst)
+
+		for i := 0; i < 64; i++ {
+			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i+1024)))
+			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
+			sp.writeReg(insts.VReg(3), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
+			sp.writeReg(insts.VReg(4), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
+			sp.writeReg(insts.VReg(5), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
+		}
+		wf.EXEC = 0xff
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			log.Printf("iter %d", i)
+			Expect(layout.ADDR[i]).To(Equal(uint64(i + 1024)))
+			Expect(layout.DATA[i*4+0]).To(Equal(uint32(i)))
+			Expect(layout.DATA[i*4+1]).To(Equal(uint32(i)))
+			Expect(layout.DATA[i*4+2]).To(Equal(uint32(i)))
+			Expect(layout.DATA[i*4+3]).To(Equal(uint32(i)))
+		}
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+	})
+
+	It("should prepare for SMEM", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Smem
+		inst.Opcode = 18
+		inst.Data = insts.NewSRegOperand(0, 0, 4)
+		inst.Offset = insts.NewIntOperand(1, 1)
+		inst.Base = insts.NewSRegOperand(4, 4, 2)
+		wf.inst = NewInst(inst)
+
+		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(100))
+		sp.writeReg(insts.SReg(1), 1, wf, 0, insts.Uint32ToBytes(101))
+		sp.writeReg(insts.SReg(2), 1, wf, 0, insts.Uint32ToBytes(102))
+		sp.writeReg(insts.SReg(3), 1, wf, 0, insts.Uint32ToBytes(103))
+		sp.writeReg(insts.SReg(4), 2, wf, 0, insts.Uint64ToBytes(1024))
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsSMEM()
+		Expect(layout.DATA[0]).To(Equal(uint32(100)))
+		Expect(layout.DATA[1]).To(Equal(uint32(101)))
+		Expect(layout.DATA[2]).To(Equal(uint32(102)))
+		Expect(layout.DATA[3]).To(Equal(uint32(103)))
+		Expect(layout.Offset).To(Equal(uint64(1)))
+		Expect(layout.Base).To(Equal(uint64(1024)))
+
+	})
+
 	//It("should prepare for SOPP", func() {
 	//	inst := insts.NewInst()
 	//	inst.FormatType = insts.Sopp
