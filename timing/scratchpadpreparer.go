@@ -400,6 +400,16 @@ func (p *ScratchpadPreparerImpl) readOperand(
 	}
 }
 
+func (p *ScratchpadPreparerImpl) readRegAsUint32(
+	reg *insts.Reg,
+	wf *Wavefront,
+	laneID int,
+) uint32 {
+	buf := make([]byte, 4)
+	p.readReg(reg, 1, wf, laneID, buf)
+	return insts.BytesToUint32(buf)
+}
+
 func (p *ScratchpadPreparerImpl) readReg(
 	reg *insts.Reg,
 	regCount int,
