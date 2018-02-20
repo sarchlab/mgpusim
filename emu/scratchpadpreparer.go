@@ -2,7 +2,6 @@ package emu
 
 import (
 	"log"
-
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
