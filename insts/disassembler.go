@@ -203,6 +203,10 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	} else {
 		inst.Src0, _ = getOperand(operand_bits)
 	}
+
+	fmt.Printf("%s\n", inst.InstName)
+	src0Bits := extractBits(bytes, 0, 8)
+	inst.Src0, _ = getOperand(uint16(src0Bits))
 	if inst.Src0.OperandType == LiteralConstant {
 	inst.ByteSize += 4
 	inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
@@ -394,7 +398,7 @@ func (d *Disassembler) decodeSop1(inst *Inst, buf []byte) {
 func (d *Disassembler) decodeSopk(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.SImm16 = NewIntOperand(0, int64(extractBits(bytes, 0, 15)))
-	inst.Dst, _    = getOperand(uint16(extractBits(bytes,16,22)))
+	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
 }
 
 // Decode parses the head of the buffer and returns the next instruction
@@ -437,7 +441,7 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	case Sop1:
 		d.decodeSop1(inst, buf)
 	case Sopk:
-		d.decodeSopk(inst,buf)
+		d.decodeSopk(inst, buf)
 	default:
 		break
 	}
