@@ -115,8 +115,7 @@ type SOPKLayout struct {
 	DST  uint64
 	IMM  uint64
 	SCC  byte
-
-}
+	}
 
 // VOP1Layout represents the scratchpad layout for VOP1 instructions
 type VOP1Layout struct {
