@@ -20,8 +20,10 @@ func (u *ALU) runVOP2(state InstEmuState) {
 		u.runVMULF32(state)
 	case 5:
 		u.runVMULF32(state)
+	case 16:
+		u.runVLSHRREVB32(state)
 	case 17:
-		u.runASHRREVI32(state)
+		u.runVASHRREVI32(state)
 	case 18:
 		u.runVLSHLREVB32(state)
 	case 19:
@@ -125,8 +127,20 @@ func (u *ALU) runVMULF32(state InstEmuState) {
 		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }
-
-func (u *ALU) runASHRREVI32(state InstEmuState) {
+func (u *ALU) runVLSHRREVB32(state InstEmuState){
+	sp := state.Scratchpad().AsVOP2()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+		dst  := src1 >> (src0 & 15)
+		sp.DST[i] = uint64(dst)
+	}
+}
+func (u *ALU) runVASHRREVI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	var i uint
 	for i = 0; i < 64; i++ {
