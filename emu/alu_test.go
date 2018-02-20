@@ -37,6 +37,25 @@ var _ = Describe("ALU", func() {
 		state.scratchpad = make([]byte, 4096)
 	})
 
+	It("should run FLAT_LOAD_UBYTE", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Flat
+		state.inst.Opcode = 16;
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 4)
+			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+		}
+
+
+	})
 	It("should run FLAT_LOAD_USHORT", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Flat
