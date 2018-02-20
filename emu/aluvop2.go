@@ -143,7 +143,6 @@ func (u *ALU) runASHRREVI32(state InstEmuState) {
 
 func (u *ALU) runVLSHLREVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
-
 	var i uint
 	for i = 0; i < 64; i++ {
 		if !u.laneMasked(sp.EXEC, i) {
@@ -189,17 +188,22 @@ func (u *ALU) runVORB32(state InstEmuState) {
 
 func (u *ALU) runVXORB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
-
+    inst := state.Inst()
 	var i uint
+
 	for i = 0; i < 64; i++ {
 		if !u.laneMasked(sp.EXEC, i) {
 			continue
 		}
+        if inst.IsSdwa == false  {
+			src0 := uint32(sp.SRC0[i])
+			src1 := uint32(sp.SRC1[i])
+			dst := src0 ^ src1
+			sp.DST[i] = uint64(dst)
+		} else {
 
-		src0 := uint32(sp.SRC0[i])
-		src1 := uint32(sp.SRC1[i])
-		dst := src0 ^ src1
-		sp.DST[i] = uint64(dst)
+		}
+
 	}
 }
 

@@ -46,6 +46,7 @@ type Inst struct {
 	Offset *Operand
 	SImm16 *Operand
 
+
 	Abs                 int
 	Omod                int
 	Neg                 int
@@ -54,6 +55,20 @@ type Inst struct {
 	TextureFailEnable   bool
 	Imm                 bool
 	Clamp               bool
+
+	//Fields for SDWA extensions
+	IsSdwa				bool
+	Dst_Sel             uint32
+	Dst_Unused			int
+	Src0_Sel            uint32
+	Src0_Sext           bool
+	Src0_Neg            bool
+	Src0_Abs            bool
+	Src1_Sel            uint32
+	Src1_Sext           bool
+	Src1_Neg            bool
+	Src1_Abs            bool
+
 }
 
 // NewInst creates a zero-filled instruction

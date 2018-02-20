@@ -18,6 +18,10 @@ func extractBits(number uint32, lo uint8, hi uint8) uint32 {
 	return extracted
 }
 
+func extractBit(number uint32, bit_position uint8) uint32 {
+	return number & uint32(bit_position)
+}
+
 func (f *Format) retrieveOpcode(firstFourBytes uint32) Opcode {
 	var opcode uint32
 	opcode = extractBits(firstFourBytes, f.OpcodeLow, f.OpcodeHigh)
@@ -134,18 +138,82 @@ func (d *Disassembler) decodeVop1(inst *Inst, buf []byte) {
 
 func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
-	fmt.Printf("%s\n",inst.InstName)
-	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
+	operand_bits := uint16(extractBits(bytes,0,8))
+	if operand_bits == 249 {
+       inst.IsSdwa = true
+       sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
+       src0_bits := int(extractBits(sdwa_bytes,0,7))
+       inst.Src0 = NewVRegOperand(src0_bits,src0_bits,0)
+       dst_sel_info    := int(extractBits(sdwa_bytes,8,10))
+       //dst_unused_info := int(extractBits(sdwa_bytes,11,12))
+       src0_sel_info   := int(extractBits(sdwa_bytes,16,18))
+       src1_sel_info   := int(extractBits(sdwa_bytes,24,26))
+
+       switch  dst_sel_info {
+	   case 0:
+		   inst.Dst_Sel = 255
+	   case 1:
+		   inst.Dst_Sel = 65280
+	   case 2:
+		   inst.Dst_Sel = 16711680
+	   case 3:
+		   inst.Dst_Sel = 4278190080
+	   case 4:
+		   inst.Dst_Sel = 65535
+	   case 5:
+		   inst.Dst_Sel = 4294901760
+	   case 6:
+		   inst.Dst_Sel = 4294967295
+	   }
+
+	   switch  src0_sel_info {
+	   case 0:
+		   inst.Src0_Sel = 255
+	   case 1:
+		   inst.Src0_Sel  = 65280
+	   case 2:
+		   inst.Src0_Sel  = 16711680
+	   case 3:
+		   inst.Src0_Sel  = 4278190080
+	   case 4:
+		   inst.Src0_Sel  = 65535
+	   case 5:
+		   inst.Src0_Sel  = 4294901760
+	   case 6:
+		   inst.Src0_Sel = 4294967295
+	   }
+
+		switch  src1_sel_info {
+		case 0:
+			inst.Src1_Sel = 255
+		case 1:
+			inst.Src1_Sel  = 65280
+		case 2:
+			inst.Src1_Sel  = 16711680
+		case 3:
+			inst.Src1_Sel  = 4278190080
+		case 4:
+			inst.Src1_Sel  = 65535
+		case 5:
+			inst.Src1_Sel  = 4294901760
+		case 6:
+			inst.Src1_Sel = 4294967295
+		}
+
+	} else {
+		inst.Src0, _ = getOperand(operand_bits)
+	}
 	if inst.Src0.OperandType == LiteralConstant {
-		inst.ByteSize += 4
-		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
+	inst.ByteSize += 4
+	inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
 	inst.Src1 = NewVRegOperand(bits, bits, 0)
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
-}
+
+	}
 
 func (d *Disassembler) decodeFlat(inst *Inst, buf []byte) {
 	bytesLo := binary.LittleEndian.Uint32(buf)

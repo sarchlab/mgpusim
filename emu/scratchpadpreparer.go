@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"gitlab.com/yaotsu/gcn3/insts"
-	"fmt"
 )
 
 // ScratchpadPreparer is the unit that sets the instruction scratchpad
@@ -115,7 +114,6 @@ func (p *ScratchpadPreparerImpl) prepareVOP2(
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
-	fmt.Printf("+%v\n",inst)
 	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.Exec], 1, 0))
 	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.Vcc], 1, 0))
 

@@ -59,6 +59,8 @@ func (u *ALU) Run(state InstEmuState) {
 func (u *ALU) runFlat(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
+	case 16:
+		u.runFlatLoadUByte(state)
 	case 18:
 		u.runFlatLoadUShort(state)
 	case 20:
@@ -69,6 +71,21 @@ func (u *ALU) runFlat(state InstEmuState) {
 		u.runFlatStoreDWord(state)
 	default:
 		log.Panicf("Opcode %d for FLAT format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALU) runFlatLoadUByte(state InstEmuState) {
+	sp := state.Scratchpad().AsFlat()
+	for i := 0; i < 64; i++ {
+		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
+		if err != nil {
+			log.Panic(err)
+		}
+		buf[1] = 0
+		buf[2] = 0
+		buf[3] = 0
+
+		sp.DST[i*4] = insts.BytesToUint32(buf)
 	}
 }
 
