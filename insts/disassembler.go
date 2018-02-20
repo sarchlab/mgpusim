@@ -121,6 +121,7 @@ func (d *Disassembler) decodeVop1(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	src0Value := extractBits(bytes, 0, 8)
+
 	inst.Src0, _ = getOperand(uint16(src0Value))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
@@ -140,6 +141,7 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	operand_bits := uint16(extractBits(bytes,0,8))
 	if operand_bits == 249 {
+
        inst.IsSdwa = true
        sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
        src0_bits := int(extractBits(sdwa_bytes,0,7))
@@ -204,9 +206,6 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 		inst.Src0, _ = getOperand(operand_bits)
 	}
 
-	fmt.Printf("%s\n", inst.InstName)
-	src0Bits := extractBits(bytes, 0, 8)
-	inst.Src0, _ = getOperand(uint16(src0Bits))
 	if inst.Src0.OperandType == LiteralConstant {
 	inst.ByteSize += 4
 	inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
@@ -216,6 +215,7 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	inst.Src1 = NewVRegOperand(bits, bits, 0)
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
+
 
 	}
 

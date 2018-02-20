@@ -34,6 +34,20 @@ var _ = Describe("ALU", func() {
 
 		Expect(asInt16(uint16(sp.DST))).To(Equal(int16(-12)))
 	})
+
+	It("shoulr run s_cmpk_lg_i32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sopk
+		state.inst.Opcode = 3
+
+		sp := state.Scratchpad().AsSOPK()
+		sp.IMM = uint64(int16ToBits(100))
+		sp.DST = 200
+
+		alu.Run(state)
+
+		Expect(sp.SCC).To(Equal(uint8(1)))
+	})
 })
 
 
