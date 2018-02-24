@@ -54,9 +54,8 @@ func (u *ScalarUnit) runReadStage(now core.VTimeInSec) {
 		return
 	}
 
-	u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-
 	if u.toExec == nil {
+		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ReadEnd"})
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ExecStart"})
 
@@ -70,9 +69,8 @@ func (u *ScalarUnit) runExecStage(now core.VTimeInSec) {
 		return
 	}
 
-	u.alu.Run(u.toExec)
-
 	if u.toWrite == nil {
+		u.alu.Run(u.toExec)
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "ExecEnd"})
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "WriteStart"})
 

@@ -1,10 +1,16 @@
 package timing
 
-import "gitlab.com/yaotsu/core"
+import (
+	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/emu"
+)
 
 // A SIMDUnit performs branch operations
 type SIMDUnit struct {
 	cu *ComputeUnit
+
+	scratchpadPreparer ScratchpadPreparer
+	alu                emu.ALU
 
 	toRead        *Wavefront
 	toExec        *Wavefront
@@ -14,9 +20,15 @@ type SIMDUnit struct {
 
 // NewSIMDUnit creates a new branch unit, injecting the dependency of
 // the compute unit.
-func NewSIMDUnit(cu *ComputeUnit) *SIMDUnit {
+func NewSIMDUnit(
+	cu *ComputeUnit,
+	scratchpadPreparer ScratchpadPreparer,
+	alu emu.ALU,
+) *SIMDUnit {
 	u := new(SIMDUnit)
 	u.cu = cu
+	u.scratchpadPreparer = scratchpadPreparer
+	u.alu = alu
 	return u
 }
 
@@ -44,6 +56,7 @@ func (u *SIMDUnit) runReadStage(now core.VTimeInSec) {
 	}
 
 	if u.toExec == nil {
+		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ReadEnd"})
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ExecStart"})
 
@@ -64,6 +77,7 @@ func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
 	}
 
 	if u.toWrite == nil {
+		u.alu.Run(u.toExec)
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "ExecEnd"})
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "WriteStart"})
 
@@ -76,6 +90,8 @@ func (u *SIMDUnit) runWriteStage(now core.VTimeInSec) {
 	if u.toWrite == nil {
 		return
 	}
+
+	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
 	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "WriteEnd"})
 	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "Completed"})
