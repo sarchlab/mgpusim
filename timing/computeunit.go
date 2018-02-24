@@ -63,6 +63,7 @@ func NewComputeUnit(
 
 	cu.AddPort("ToACE")
 	cu.AddPort("ToInstMem")
+	cu.AddPort("ToScalarMem")
 	cu.AddPort("ToVectorMem")
 
 	return cu

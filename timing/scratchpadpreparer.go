@@ -444,6 +444,20 @@ func (p *ScratchpadPreparerImpl) readReg(
 		regFile.Read(regRead)
 
 		copy(buf, regRead.Data)
+	} else if reg.RegType == insts.Scc {
+		buf[0] = wf.SCC
+	} else if reg.RegType == insts.Vcc {
+		copy(buf, insts.Uint64ToBytes(wf.VCC))
+	} else if reg.RegType == insts.VccLo && regCount == 1 {
+		copy(buf, insts.Uint32ToBytes(uint32(wf.VCC)))
+	} else if reg.RegType == insts.VccHi && regCount == 1 {
+		copy(buf, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
+	} else if reg.RegType == insts.VccLo && regCount == 2 {
+		copy(buf, insts.Uint64ToBytes(wf.VCC))
+	} else if reg.RegType == insts.Exec {
+		copy(buf, insts.Uint64ToBytes(wf.EXEC))
+	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+		copy(buf, insts.Uint64ToBytes(wf.EXEC))
 	} else {
 		log.Panicf("Unsupported register read %s\n", reg.Name)
 	}
@@ -490,8 +504,24 @@ func (p *ScratchpadPreparerImpl) writeReg(
 		regWrite.Data = buf
 
 		regFile.Write(regWrite)
+	} else if reg.RegType == insts.Scc {
+		wf.SCC = buf[0]
+	} else if reg.RegType == insts.Vcc {
+		wf.VCC = insts.BytesToUint64(buf)
+	} else if reg.RegType == insts.VccLo && regCount == 2 {
+		wf.VCC = insts.BytesToUint64(buf)
+	} else if reg.RegType == insts.VccLo && regCount == 1 {
+		wf.VCC &= uint64(0x00000000ffffffff)
+		wf.VCC |= uint64(insts.BytesToUint32(buf))
+	} else if reg.RegType == insts.VccHi && regCount == 1 {
+		wf.VCC &= uint64(0xffffffff00000000)
+		wf.VCC |= uint64(insts.BytesToUint32(buf)) << 32
+	} else if reg.RegType == insts.Exec {
+		wf.EXEC = insts.BytesToUint64(buf)
+	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+		wf.EXEC = insts.BytesToUint64(buf)
 	} else {
-		log.Panicf("Unsupported register read %s\n", reg.Name)
+		log.Panicf("Unsupported register write %s\n", reg.Name)
 	}
 }
 

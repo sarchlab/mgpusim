@@ -4,6 +4,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/mem"
 )
 
 // A Builder can construct a fully functional ComputeUnit to the outside world.
@@ -15,15 +16,20 @@ type Builder struct {
 	SIMDCount int
 	VGPRCount []int
 	SGPRCount int
-	Decoder   emu.Decoder
+
+	// TODO: Remove the requirement for global storage, this is just temporary
+	GlobalStorage      *mem.Storage
+	Decoder            emu.Decoder
+	ScratchpadPreparer ScratchpadPreparer
+	ALU                emu.ALU
 
 	InstMem   core.Component
 	ScalarMem core.Component
 	VectorMem core.Component
 
-	ToInstMem   core.Connection
-	ToScalarMem core.Connection
-	ToVectorMem core.Connection
+	ConnToInstMem   core.Connection
+	ConnToScalarMem core.Connection
+	ConnToVectorMem core.Connection
 }
 
 // NewBuilder returns a default builder object
@@ -33,6 +39,7 @@ func NewBuilder() *Builder {
 	b.SIMDCount = 4
 	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}
+
 	return b
 }
 
@@ -44,6 +51,9 @@ func (b *Builder) Build() *ComputeUnit {
 	cu.Decoder = b.Decoder
 	cu.WGMapper = NewWGMapper(cu, 4)
 	cu.WfDispatcher = NewWfDispatcher(cu)
+
+	b.ALU = emu.NewALUImpl(b.GlobalStorage)
+	b.ScratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {
 		cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -71,7 +81,7 @@ func (b *Builder) equipExecutionUnits(cu *ComputeUnit) {
 
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
-	scalarUnit := NewScalarUnit(cu, nil, nil)
+	scalarUnit := NewScalarUnit(cu, b.ScratchpadPreparer, b.ALU)
 	cu.ScalarUnit = scalarUnit
 	for i := 0; i < b.SIMDCount; i++ {
 		scalarDecoder.AddExecutionUnit(scalarUnit)
@@ -102,7 +112,7 @@ func (b *Builder) connectToMem(cu *ComputeUnit) {
 	cu.InstMem = b.InstMem
 	cu.ScalarMem = b.ScalarMem
 	cu.VectorMem = b.VectorMem
-	core.PlugIn(cu, "ToInstMem", b.ToInstMem)
-	core.PlugIn(cu, "ToScalarMem", b.ToScalarMem)
-	core.PlugIn(cu, "ToVectorMem", b.ToVectorMem)
+	core.PlugIn(cu, "ToInstMem", b.ConnToInstMem)
+	core.PlugIn(cu, "ToScalarMem", b.ConnToScalarMem)
+	core.PlugIn(cu, "ToVectorMem", b.ConnToVectorMem)
 }
