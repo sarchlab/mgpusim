@@ -71,7 +71,7 @@ func (b *Builder) equipExecutionUnits(cu *ComputeUnit) {
 
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
-	scalarUnit := NewScalarUnit(cu, nil)
+	scalarUnit := NewScalarUnit(cu, nil, nil)
 	cu.ScalarUnit = scalarUnit
 	for i := 0; i < b.SIMDCount; i++ {
 		scalarDecoder.AddExecutionUnit(scalarUnit)

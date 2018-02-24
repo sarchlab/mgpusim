@@ -9,7 +9,8 @@ import (
 type ScalarUnit struct {
 	cu *ComputeUnit
 
-	alu emu.ALU
+	scratchpadPreparer ScratchpadPreparer
+	alu                emu.ALU
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -18,9 +19,14 @@ type ScalarUnit struct {
 
 // NewScalarUnit creates a new Scalar unit, injecting the dependency of
 // the compute unit.
-func NewScalarUnit(cu *ComputeUnit, alu emu.ALU) *ScalarUnit {
+func NewScalarUnit(
+	cu *ComputeUnit,
+	scratchpadPreparer ScratchpadPreparer,
+	alu emu.ALU,
+) *ScalarUnit {
 	u := new(ScalarUnit)
 	u.cu = cu
+	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
 	return u
 }
@@ -48,6 +54,8 @@ func (u *ScalarUnit) runReadStage(now core.VTimeInSec) {
 		return
 	}
 
+	u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
+
 	if u.toExec == nil {
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ReadEnd"})
 		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ExecStart"})
@@ -62,6 +70,8 @@ func (u *ScalarUnit) runExecStage(now core.VTimeInSec) {
 		return
 	}
 
+	u.alu.Run(u.toExec)
+
 	if u.toWrite == nil {
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "ExecEnd"})
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "WriteStart"})
@@ -75,6 +85,8 @@ func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {
 	if u.toWrite == nil {
 		return
 	}
+
+	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
 	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "WriteEnd"})
 	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "Completed"})

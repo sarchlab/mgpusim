@@ -8,6 +8,11 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
+type ScratchpadPreparer interface {
+	Prepare(instEmuState emu.InstEmuState, wf *Wavefront)
+	Commit(instEmuState emu.InstEmuState, wf *Wavefront)
+}
+
 // ScratchpadPreparerImpl reads and write registers for the emulator
 type ScratchpadPreparerImpl struct {
 	cu *ComputeUnit
