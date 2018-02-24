@@ -142,9 +142,10 @@ func initPlatform() {
 	cuBuilder.InstMem = globalMem
 	cuBuilder.ScalarMem = globalMem
 	cuBuilder.VectorMem = globalMem
-	cuBuilder.ToInstMem = connection
-	cuBuilder.ToScalarMem = connection
-	cuBuilder.ToVectorMem = connection
+	cuBuilder.GlobalStorage = globalMem.Storage
+	cuBuilder.ConnToInstMem = connection
+	cuBuilder.ConnToScalarMem = connection
+	cuBuilder.ConnToVectorMem = connection
 
 	for i := 0; i < 1; i++ {
 		cuBuilder.CUName = "cu" + string(i)
