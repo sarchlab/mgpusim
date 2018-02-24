@@ -92,7 +92,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	vectorDecoder := NewDecodeUnit(cu)
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.SIMDCount; i++ {
-		simdUnit := NewSIMDUnit(cu)
+		simdUnit := NewSIMDUnit(cu, b.ScratchpadPreparer, b.ALU)
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
 	}
