@@ -4,9 +4,9 @@ import (
 	"sync"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 // WfState marks what state that wavefront it in.
@@ -30,8 +30,9 @@ type Wavefront struct {
 
 	WG *WorkGroup
 
-	CodeObject *insts.HsaCo
-	Packet     *kernels.HsaKernelDispatchPacket
+	CodeObject    *insts.HsaCo
+	Packet        *kernels.HsaKernelDispatchPacket
+	PacketAddress uint64
 
 	State          WfState
 	inst           *Inst           // The instruction that is being executed
@@ -76,6 +77,3 @@ func (wf *Wavefront) ManagedInst() *Inst {
 func (wf *Wavefront) Scratchpad() emu.Scratchpad {
 	return wf.scratchpad
 }
-
-
-
