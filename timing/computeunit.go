@@ -263,6 +263,7 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 	wf.WG = wg
 	wf.CodeObject = wf.WG.Grid.CodeObject
 	wf.Packet = wf.WG.Grid.Packet
+	wf.PacketAddress = wf.WG.Grid.PacketAddress
 	return wf
 }
 

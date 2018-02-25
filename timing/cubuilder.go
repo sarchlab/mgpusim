@@ -103,7 +103,7 @@ func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
 	cu.SRegFile = sRegFile
 
 	for i := 0; i < b.SIMDCount; i++ {
-		vRegFile := NewSimpleRegisterFile(uint64(b.SGPRCount*4), 1024)
+		vRegFile := NewSimpleRegisterFile(uint64(b.VGPRCount[i]*4), 1024)
 		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
 }
