@@ -77,7 +77,7 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 }
 
 func (b *Builder) equipExecutionUnits(cu *ComputeUnit) {
-	cu.BranchUnit = NewBranchUnit(cu)
+	cu.BranchUnit = NewBranchUnit(cu, b.ScratchpadPreparer, b.ALU)
 
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
