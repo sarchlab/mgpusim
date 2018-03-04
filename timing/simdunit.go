@@ -1,190 +1,101 @@
 package timing
 
 import (
-	"log"
-	"reflect"
-
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
+	"gitlab.com/yaotsu/gcn3/emu"
 )
 
-// SIMDUnit is a unit that can execute vector instructions
-//
-// FromDecoder <=>
-//
-// ToScheduler <=>
-//
-// ToVReg <=>
-//
-// ToSReg <=>
+// A SIMDUnit performs branch operations
 type SIMDUnit struct {
-	*core.ComponentBase
+	cu *ComputeUnit
 
-	engine    core.Engine
-	Freq      util.Freq
-	scheduler core.Component
-	running   bool
+	scratchpadPreparer ScratchpadPreparer
+	alu                emu.ALU
 
-	IntALUWidth    int
-	DoubleALUWidth int
-	SingleALUWidth int
-
-	VRegFile *RegCtrl
-	SRegFile *RegCtrl
-
-	reading   *Wavefront
-	executing *Wavefront
-	writing   *Wavefront
-	writeDone *Wavefront
+	toRead        *Wavefront
+	toExec        *Wavefront
+	execCycleLeft int
+	toWrite       *Wavefront
 }
 
-// NewSIMDUnit returns a newly created SIMDUnit
-func NewSIMDUnit(name string, engine core.Engine, scheduler core.Component) *SIMDUnit {
+// NewSIMDUnit creates a new branch unit, injecting the dependency of
+// the compute unit.
+func NewSIMDUnit(
+	cu *ComputeUnit,
+	scratchpadPreparer ScratchpadPreparer,
+	alu emu.ALU,
+) *SIMDUnit {
 	u := new(SIMDUnit)
-	u.ComponentBase = core.NewComponentBase(name)
-
-	u.engine = engine
-	u.scheduler = scheduler
-
-	u.IntALUWidth = 16
-	u.SingleALUWidth = 16
-	u.DoubleALUWidth = 2
-
-	u.AddPort("FromDecoder")
-	u.AddPort("ToScheduler")
-	u.AddPort("ToVReg")
-	u.AddPort("ToSReg")
-
+	u.cu = cu
+	u.scratchpadPreparer = scratchpadPreparer
+	u.alu = alu
 	return u
 }
 
-// Recv defines the how the SIMDUnit process incomming requests
-func (u *SIMDUnit) Recv(req core.Req) *core.Error {
-	u.Lock()
-	defer u.Unlock()
+// CanAcceptWave checks if the buffer of the read stage is occupied or not
+func (u *SIMDUnit) CanAcceptWave() bool {
+	return u.toRead == nil
+}
 
-	switch req := req.(type) {
-	case *IssueInstReq:
-		return u.processIssueInstReq(req)
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+// AcceptWave moves one wavefront into the read buffer of the branch unit
+func (u *SIMDUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
+	u.toRead = wave
+	u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ReadStart"})
+}
+
+// Run executes three pipeline stages that are controlled by the SIMDUnit
+func (u *SIMDUnit) Run(now core.VTimeInSec) {
+	u.runWriteStage(now)
+	u.runExecStage(now)
+	u.runReadStage(now)
+}
+
+func (u *SIMDUnit) runReadStage(now core.VTimeInSec) {
+	if u.toRead == nil {
+		return
 	}
-	return nil
-}
 
-func (u *SIMDUnit) processIssueInstReq(req *IssueInstReq) *core.Error {
-	if u.reading != nil {
-		return core.NewError("unit busy", true, u.Freq.NextTick(req.RecvTime()))
-	}
+	if u.toExec == nil {
+		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
+		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ReadEnd"})
+		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, "ExecStart"})
 
-	u.reading = req.Wf
-	req.Wf.CompletedLanes = 0
-	u.InvokeHook(u.reading, u, core.Any,
-		&InstHookInfo{req.RecvTime() - u.Freq.Period()/2, "ReadStart"})
-	u.tryStartTick(req.RecvTime())
-	return nil
-}
-
-// Handle defines how the SIMDUnit handles events
-func (u *SIMDUnit) Handle(evt core.Event) error {
-	u.Lock()
-	defer u.Unlock()
-
-	switch evt := evt.(type) {
-	case *core.TickEvent:
-		return u.handleTickEvent(evt)
-	case *core.DeferredSend:
-		return u.handleDeferredSend(evt)
-	default:
-		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
-	}
-	return nil
-}
-
-func (u *SIMDUnit) handleTickEvent(evt *core.TickEvent) error {
-	u.doWrite(evt.Time())
-	u.doExec(evt.Time())
-	u.doRead(evt.Time())
-
-	u.continueTick(evt.Time())
-	return nil
-}
-
-func (u *SIMDUnit) doWrite(now core.VTimeInSec) {
-	if u.writing != nil && u.writeDone == nil {
-		u.InvokeHook(u.writing, u, core.Any, &InstHookInfo{now, "WriteDone"})
-		u.writeDone = u.writing
-		u.writing = nil
-
-		req := NewInstCompletionReq(u, u.scheduler, u.Freq.HalfTick(now), u.writeDone)
-		deferredSend := core.NewDeferredSend(req)
-		u.engine.Schedule(deferredSend)
+		u.toExec = u.toRead
+		u.execCycleLeft = 4
+		u.toRead = nil
 	}
 }
 
-func (u *SIMDUnit) doExec(now core.VTimeInSec) {
-	if u.executing != nil {
-		if u.executing.CompletedLanes < 64 {
-			u.executing.CompletedLanes += u.SingleALUWidth
-		}
+func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
+	if u.toExec == nil {
+		return
+	}
 
-		if u.writing == nil {
-			if u.executing.CompletedLanes == 64 {
-				u.InvokeHook(u.executing, u, core.Any, &InstHookInfo{now, "ExecEnd"})
-				u.InvokeHook(u.executing, u, core.Any, &InstHookInfo{now, "WriteStart"})
-				u.writing = u.executing
-				u.executing = nil
-			}
-		}
+	u.execCycleLeft--
+	if u.execCycleLeft > 0 {
+		return
+	}
+
+	if u.toWrite == nil {
+		u.alu.Run(u.toExec)
+		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "ExecEnd"})
+		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "WriteStart"})
+
+		u.toWrite = u.toExec
+		u.toExec = nil
 	}
 }
 
-func (u *SIMDUnit) doRead(now core.VTimeInSec) {
-	if u.reading != nil {
-		if u.executing == nil {
-			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ReadDone"})
-			u.InvokeHook(u.reading, u, core.Any, &InstHookInfo{now, "ExecStart"})
-			u.executing = u.reading
-			u.reading = nil
-		}
-	}
-}
-
-func (u *SIMDUnit) handleDeferredSend(evt *core.DeferredSend) error {
-	req := evt.Req
-	err := u.GetConnection("ToScheduler").Send(req)
-	if err != nil {
-		if !err.Recoverable {
-			log.Panic(err)
-		}
-		evt.SetTime(u.Freq.HalfTick(err.EarliestRetry))
-		u.engine.Schedule(evt)
-	} else {
-		u.writeDone = nil
-	}
-	return nil
-}
-
-func (u *SIMDUnit) tryStartTick(now core.VTimeInSec) {
-	if !u.running {
-		u.scheduleTick(u.Freq.NextTick(now))
-	}
-}
-
-func (u *SIMDUnit) continueTick(now core.VTimeInSec) {
-	if u.reading == nil &&
-		u.executing == nil &&
-		u.writing == nil {
-		u.running = false
+func (u *SIMDUnit) runWriteStage(now core.VTimeInSec) {
+	if u.toWrite == nil {
+		return
 	}
 
-	if u.running {
-		u.scheduleTick(u.Freq.NextTick(now))
-	}
-}
+	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-func (u *SIMDUnit) scheduleTick(now core.VTimeInSec) {
-	evt := core.NewTickEvent(now, u)
-	u.engine.Schedule(evt)
-	u.running = true
+	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "WriteEnd"})
+	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, "Completed"})
+
+	u.toWrite.State = WfReady
+	u.toWrite = nil
 }

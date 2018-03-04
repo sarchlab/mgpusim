@@ -4,7 +4,7 @@ import (
 	"log"
 )
 
-func (u *ALU) runSOPC(state InstEmuState) {
+func (u *ALUImpl) runSOPC(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -24,7 +24,7 @@ func (u *ALU) runSOPC(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCMPGTI32(state InstEmuState) {
+func (u *ALUImpl) runSCMPGTI32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
 	src0 := asInt32(uint32(sp.SRC0))
 	src1 := asInt32(uint32(sp.SRC1))
@@ -35,7 +35,7 @@ func (u *ALU) runSCMPGTI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCMPLTI32(state InstEmuState) {
+func (u *ALUImpl) runSCMPLTI32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
 	src0 := asInt32(uint32(sp.SRC0))
 	src1 := asInt32(uint32(sp.SRC1))
@@ -46,7 +46,7 @@ func (u *ALU) runSCMPLTI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCMPEQU32(state InstEmuState) {
+func (u *ALUImpl) runSCMPEQU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
 	if (sp.SRC0 & 0xffff) == (sp.SRC1 & 0xffff) {
 		sp.SCC = 1
@@ -55,7 +55,7 @@ func (u *ALU) runSCMPEQU32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCMPLGU32(state InstEmuState) {
+func (u *ALUImpl) runSCMPLGU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
 	if (sp.SRC0 & 0xffff) != (sp.SRC1 & 0xffff) {
 		sp.SCC = 1

@@ -40,6 +40,5 @@ var _ = Describe("FetchArbiter", func() {
 
 		Expect(len(wfs)).To(Equal(1))
 		Expect(wfs[0].LastFetchTime).To(Equal(core.VTimeInSec(9.5)))
-
 	})
 })

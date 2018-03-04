@@ -11,20 +11,24 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
+type ALU interface {
+	Run(state InstEmuState)
+}
+
 // ALU is where the instructions get executed.
-type ALU struct {
+type ALUImpl struct {
 	Storage *mem.Storage
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
-func NewALU(storage *mem.Storage) *ALU {
-	alu := new(ALU)
+func NewALUImpl(storage *mem.Storage) *ALUImpl {
+	alu := new(ALUImpl)
 	alu.Storage = storage
 	return alu
 }
 
 // Run executes the instruction in the scatchpad of the InstEmuState
-func (u *ALU) Run(state InstEmuState) {
+func (u *ALUImpl) Run(state InstEmuState) {
 	inst := state.Inst()
 
 	switch inst.FormatType {
@@ -54,7 +58,7 @@ func (u *ALU) Run(state InstEmuState) {
 
 }
 
-func (u *ALU) runFlat(state InstEmuState) {
+func (u *ALUImpl) runFlat(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 18:
@@ -68,7 +72,7 @@ func (u *ALU) runFlat(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runFlatLoadUShort(state InstEmuState) {
+func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	for i := 0; i < 64; i++ {
 		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
@@ -83,7 +87,7 @@ func (u *ALU) runFlatLoadUShort(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runFlatLoadDWord(state InstEmuState) {
+func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	for i := 0; i < 64; i++ {
 		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
@@ -95,7 +99,7 @@ func (u *ALU) runFlatLoadDWord(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runFlatStoreDWord(state InstEmuState) {
+func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	for i := 0; i < 64; i++ {
 		err := u.Storage.Write(sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
@@ -105,7 +109,7 @@ func (u *ALU) runFlatStoreDWord(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSMEM(state InstEmuState) {
+func (u *ALUImpl) runSMEM(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -117,7 +121,7 @@ func (u *ALU) runSMEM(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSLOADDWORD(state InstEmuState) {
+func (u *ALUImpl) runSLOADDWORD(state InstEmuState) {
 	sp := state.Scratchpad().AsSMEM()
 
 	buf, err := u.Storage.Read(sp.Base+sp.Offset, 4)
@@ -128,7 +132,7 @@ func (u *ALU) runSLOADDWORD(state InstEmuState) {
 	sp.DST[0] = insts.BytesToUint32(buf)
 }
 
-func (u *ALU) runSLOADDWORDX2(state InstEmuState) {
+func (u *ALUImpl) runSLOADDWORDX2(state InstEmuState) {
 	sp := state.Scratchpad().AsSMEM()
 	spRaw := state.Scratchpad()
 
@@ -140,7 +144,7 @@ func (u *ALU) runSLOADDWORDX2(state InstEmuState) {
 	copy(spRaw[32:40], buf)
 }
 
-func (u *ALU) runSOPP(state InstEmuState) {
+func (u *ALUImpl) runSOPP(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0: // S_NOP
@@ -164,13 +168,13 @@ func (u *ALU) runSOPP(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCBRANCH(state InstEmuState) {
+func (u *ALUImpl) runSCBRANCH(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
 }
 
-func (u *ALU) runSCBRANCHSCC0(state InstEmuState) {
+func (u *ALUImpl) runSCBRANCHSCC0(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.SCC == 0 {
@@ -178,7 +182,7 @@ func (u *ALU) runSCBRANCHSCC0(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCBRANCHSCC1(state InstEmuState) {
+func (u *ALUImpl) runSCBRANCHSCC1(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.SCC == 1 {
@@ -186,7 +190,7 @@ func (u *ALU) runSCBRANCHSCC1(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCBRANCHVCCZ(state InstEmuState) {
+func (u *ALUImpl) runSCBRANCHVCCZ(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.VCC == 0 {
@@ -194,7 +198,7 @@ func (u *ALU) runSCBRANCHVCCZ(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCBRANCHVCCNZ(state InstEmuState) {
+func (u *ALUImpl) runSCBRANCHVCCNZ(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.VCC != 0 {
@@ -202,7 +206,7 @@ func (u *ALU) runSCBRANCHVCCNZ(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSCBRANCHEXECZ(state InstEmuState) {
+func (u *ALUImpl) runSCBRANCHEXECZ(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.EXEC == 0 {
@@ -210,11 +214,11 @@ func (u *ALU) runSCBRANCHEXECZ(state InstEmuState) {
 	}
 }
 
-func (u *ALU) laneMasked(Exec uint64, laneID uint) bool {
+func (u *ALUImpl) laneMasked(Exec uint64, laneID uint) bool {
 	return Exec&(1<<laneID) > 0
 }
 
-func (u *ALU) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
+func (u *ALUImpl) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
 	scratchpad := state.Scratchpad()
 	layout := new(SOP2Layout)
 

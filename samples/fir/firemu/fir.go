@@ -7,24 +7,21 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/pprof"
+	"runtime/debug"
 	"syscall"
+
+	"gitlab.com/yaotsu/core/connections"
+	"gitlab.com/yaotsu/core/util"
 
 	"flag"
 
-	"runtime/debug"
-
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/connections"
 	"gitlab.com/yaotsu/core/engines"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/gpubuilder"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
@@ -68,19 +65,19 @@ var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco 
 
 func main() {
 	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
+	// if *cpuprofile != "" {
+	// 	f, err := os.Create(*cpuprofile)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	pprof.StartCPUProfile(f)
+	// 	defer pprof.StopCPUProfile()
+	// }
 
-	runtime.SetBlockProfileRate(1)
-	go func() {
-		log.Println(http.ListenAndServe("localhost:8080", nil))
-	}()
+	// runtime.SetBlockProfileRate(1)
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:8080", nil))
+	// }()
 
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -89,6 +86,18 @@ func main() {
 		debug.PrintStack()
 		os.Exit(1)
 	}()
+
+	// f, err := os.Create("trace.out")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer f.Close()
+
+	// err = trace.Start(f)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer trace.Stop()
 
 	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
@@ -101,64 +110,18 @@ func main() {
 }
 
 func initPlatform() {
-	// Simulation engine
 	engine = engines.NewSerialEngine()
-	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
+	engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	// Connection
+	host = newHostComponent()
 	connection = connections.NewDirectConnection(engine)
 
-	// Memory
-	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Freq = 1 * util.GHz
-	globalMem.Latency = 1
+	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
+	gpuBuilder.Driver = host
+	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
 
-	// Host
-	host = newHostComponent()
-
-	// Gpu
-	gpu = gcn3.NewGPU("GPU")
-	commandProcessor := gcn3.NewCommandProcessor("GPU.CommandProcessor")
-
-	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
-		new(kernels.GridBuilderImpl))
-	dispatcher.Freq = 1 * util.GHz
-	wgCompleteLogger := new(gcn3.WGCompleteLogger)
-	wgCompleteLogger.Logger = logger
-	dispatcher.AcceptHook(wgCompleteLogger)
-
-	gpu.CommandProcessor = commandProcessor
-	gpu.Driver = host
-	commandProcessor.Dispatcher = dispatcher
-	commandProcessor.Driver = gpu
-	disassembler := insts.NewDisassembler()
-	isaDebug, err := os.Create("isa.debug")
-	if err != nil {
-		fmt.Print("Isa debug file failed to open\n")
-	}
-	for i := 0; i < 4; i++ {
-		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
-		alu := emu.NewALU(globalMem.Storage)
-		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
-			engine, disassembler, scratchpadPreparer, alu)
-		computeUnit.Freq = 1 * util.GHz
-		computeUnit.GlobalMemStorage = globalMem.Storage
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
-		core.PlugIn(computeUnit, "ToDispatcher", connection)
-
-		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
-		computeUnit.AcceptHook(wfHook)
-	}
-
-	// Connection
-	core.PlugIn(gpu, "ToCommandProcessor", connection)
 	core.PlugIn(gpu, "ToDriver", connection)
-	core.PlugIn(commandProcessor, "ToDriver", connection)
-	core.PlugIn(commandProcessor, "ToDispatcher", connection)
-	core.PlugIn(host, "ToGpu", connection)
-	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
-	core.PlugIn(dispatcher, "ToCUs", connection)
-	core.PlugIn(globalMem, "Top", connection)
+	gpu.Driver = host
 }
 
 func loadProgram() {
