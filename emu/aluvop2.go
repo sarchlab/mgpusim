@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-func (u *ALU) runVOP2(state InstEmuState) {
+func (u *ALUImpl) runVOP2(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -41,7 +41,7 @@ func (u *ALU) runVOP2(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCNDMASKB32(state InstEmuState) {
+func (u *ALUImpl) runVCNDMASKB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -58,7 +58,7 @@ func (u *ALU) runVCNDMASKB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVADDF32(state InstEmuState) {
+func (u *ALUImpl) runVADDF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -74,7 +74,7 @@ func (u *ALU) runVADDF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVSUBF32(state InstEmuState) {
+func (u *ALUImpl) runVSUBF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -90,7 +90,7 @@ func (u *ALU) runVSUBF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVSUBREVF32(state InstEmuState) {
+func (u *ALUImpl) runVSUBREVF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -106,7 +106,7 @@ func (u *ALU) runVSUBREVF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMULF32(state InstEmuState) {
+func (u *ALUImpl) runVMULF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -122,7 +122,7 @@ func (u *ALU) runVMULF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVANDB32(state InstEmuState) {
+func (u *ALUImpl) runVANDB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -138,7 +138,7 @@ func (u *ALU) runVANDB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVORB32(state InstEmuState) {
+func (u *ALUImpl) runVORB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -154,7 +154,7 @@ func (u *ALU) runVORB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVXORB32(state InstEmuState) {
+func (u *ALUImpl) runVXORB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var i uint
@@ -170,7 +170,7 @@ func (u *ALU) runVXORB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMACF32(state InstEmuState) {
+func (u *ALUImpl) runVMACF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 
 	var dst float32
@@ -191,7 +191,7 @@ func (u *ALU) runVMACF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVADDI32(state InstEmuState) {
+func (u *ALUImpl) runVADDI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	sp.VCC = 0
 
@@ -213,7 +213,7 @@ func (u *ALU) runVADDI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVSUBI32(state InstEmuState) {
+func (u *ALUImpl) runVSUBI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	sp.VCC = 0
 
@@ -234,7 +234,7 @@ func (u *ALU) runVSUBI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVSUBREVI32(state InstEmuState) {
+func (u *ALUImpl) runVSUBREVI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	sp.VCC = 0
 
@@ -255,7 +255,7 @@ func (u *ALU) runVSUBREVI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVADDCU32(state InstEmuState) {
+func (u *ALUImpl) runVADDCU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	newVCC := uint64(0)
 

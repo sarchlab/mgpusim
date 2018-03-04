@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-func (u *ALU) runVOP3A(state InstEmuState) {
+func (u *ALUImpl) runVOP3A(state InstEmuState) {
 	inst := state.Inst()
 
 	u.vop3aPreprocess(state)
@@ -43,7 +43,7 @@ func (u *ALU) runVOP3A(state InstEmuState) {
 	u.vop3aPostprocess(state)
 }
 
-func (u *ALU) vop3aPreprocess(state InstEmuState) {
+func (u *ALUImpl) vop3aPreprocess(state InstEmuState) {
 	inst := state.Inst()
 
 	if inst.Abs != 0 {
@@ -55,7 +55,7 @@ func (u *ALU) vop3aPreprocess(state InstEmuState) {
 	}
 }
 
-func (u *ALU) vop3aPostprocess(state InstEmuState) {
+func (u *ALUImpl) vop3aPostprocess(state InstEmuState) {
 	inst := state.Inst()
 
 	if inst.Omod != 0 {
@@ -63,7 +63,7 @@ func (u *ALU) vop3aPostprocess(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpLtF32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 	sp.VCC = 0
 	var i uint
@@ -80,7 +80,7 @@ func (u *ALU) runVCmpLtF32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpGtI32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpGtI32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -98,7 +98,7 @@ func (u *ALU) runVCmpGtI32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpLtU32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpLtU32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -116,7 +116,7 @@ func (u *ALU) runVCmpLtU32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpEqU32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpEqU32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -134,7 +134,7 @@ func (u *ALU) runVCmpEqU32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpLeU32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpLeU32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -152,7 +152,7 @@ func (u *ALU) runVCmpLeU32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpGtU32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpGtU32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -170,7 +170,7 @@ func (u *ALU) runVCmpGtU32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpLgU32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpLgU32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -188,7 +188,7 @@ func (u *ALU) runVCmpLgU32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCmpGeU32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCmpGeU32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -206,7 +206,7 @@ func (u *ALU) runVCmpGeU32VOP3a(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCNDMASKB32VOP3a(state InstEmuState) {
+func (u *ALUImpl) runVCNDMASKB32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -225,7 +225,7 @@ func (u *ALU) runVCNDMASKB32VOP3a(state InstEmuState) {
 
 }
 
-func (u *ALU) runVMULLOU32(state InstEmuState) {
+func (u *ALUImpl) runVMULLOU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -238,7 +238,7 @@ func (u *ALU) runVMULLOU32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMULHIU32(state InstEmuState) {
+func (u *ALUImpl) runVMULHIU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -252,7 +252,7 @@ func (u *ALU) runVMULHIU32(state InstEmuState) {
 
 }
 
-func (u *ALU) runVLSHLREVB64(state InstEmuState) {
+func (u *ALUImpl) runVLSHLREVB64(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint
@@ -265,7 +265,7 @@ func (u *ALU) runVLSHLREVB64(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVASHRREVI64(state InstEmuState) {
+func (u *ALUImpl) runVASHRREVI64(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
 
 	var i uint

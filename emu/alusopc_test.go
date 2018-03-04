@@ -9,12 +9,12 @@ import (
 var _ = Describe("ALU", func() {
 
 	var (
-		alu   *ALU
+		alu   *ALUImpl
 		state *mockInstState
 	)
 
 	BeforeEach(func() {
-		alu = new(ALU)
+		alu = NewALUImpl(nil)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)

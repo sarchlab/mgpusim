@@ -51,7 +51,7 @@ func (wf *Wavefront) Inst() *insts.Inst {
 	return wf.inst
 }
 
-// Scratchpad returns the sratchpad that is associated with the wavefront
+// Scratchpad returns the scratchpad that is associated with the wavefront
 func (wf *Wavefront) Scratchpad() Scratchpad {
 	return wf.scratchpad
 }

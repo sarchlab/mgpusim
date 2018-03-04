@@ -3,222 +3,235 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
-// WfDispatchingState represents to progress of a wavefront dispatching
-type WfDispatchingState int
-
-// A list of possible dispatching states
-const (
-	WfDispatchingNotStarted  WfDispatchingState = iota
-	WfDispatchingInitialized                    // Inserted in the wavefront pool,
-	WfDispatchingSRegSet                        // Done with sending s reg write request
-	WfDispatchingVRegSet                        // Done with sending v reg write request
-	WfDispatchingDone                           // All the register writing has completed
-)
-
-// DispatchWfEvent requires the scheduler shart to schedule for the event.
-type DispatchWfEvent struct {
-	*core.EventBase
-
-	Req *gcn3.DispatchWfReq
-
-	ManagedWf    *Wavefront
-	State        WfDispatchingState
-	RegInitCount int            // The number of registers that has been initiated
-	RegWriteReqs []*WriteRegReq // Outgoing register write requests
-}
-
-// NewDispatchWfEvent returns a newly created DispatchWfEvent
-func NewDispatchWfEvent(
-	time core.VTimeInSec,
-	handler core.Handler,
-	req *gcn3.DispatchWfReq,
-) *DispatchWfEvent {
-	e := new(DispatchWfEvent)
-	e.EventBase = core.NewEventBase(time, handler)
-	e.Req = req
-	return e
-}
-
-// A WfDispatcher initiaize wavefronts
+// A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
-	DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront)
+	DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq)
 }
 
 // A WfDispatcherImpl will register the wavefront in wavefront pool and
 // initialize all the registers
 type WfDispatcherImpl struct {
-	Scheduler *Scheduler
+	cu *ComputeUnit
+
+	Latency int
+}
+
+// NewWfDispatcher creates a default WfDispatcher
+func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
+	d := new(WfDispatcherImpl)
+	d.cu = cu
+	d.Latency = 0
+	return d
 }
 
 // DispatchWf starts or continues a wavefront dispatching process.
-func (d *WfDispatcherImpl) DispatchWf(evt *DispatchWfEvent) (bool, *Wavefront) {
-	req := evt.Req
-	wf := req.Wf
-	info := req.Info
-	managedWf := evt.ManagedWf
-	if managedWf != nil {
-		managedWf.Lock()
-		defer managedWf.Unlock()
-	}
+func (d *WfDispatcherImpl) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
 
-	for {
-		switch evt.State {
-		case WfDispatchingNotStarted:
-			wfPool := d.Scheduler.WfPools[info.SIMDID]
-			managedWf = new(Wavefront)
+	d.setWfInfo(wf)
 
-			managedWf.Lock()
-			defer managedWf.Unlock()
-
-			managedWf.Wavefront = wf
-			managedWf.SIMDID = info.SIMDID
-			managedWf.LDSOffset = info.LDSOffset
-			managedWf.SRegOffset = info.SGPROffset
-			managedWf.VRegOffset = info.VGPROffset
-			managedWf.CodeObject = req.CodeObject
-			managedWf.Packet = req.Packet
-			wfPool.AddWf(managedWf)
-			evt.ManagedWf = managedWf
-			d.initCtrlRegs(evt)
-			evt.State = WfDispatchingInitialized
-		case WfDispatchingInitialized:
-			done := d.initSRegs(managedWf, evt)
-			if done {
-				evt.State = WfDispatchingSRegSet
-			} else {
-				return false, nil
-			}
-		case WfDispatchingSRegSet:
-			done := d.initVRegs(managedWf, evt)
-			if done {
-				evt.State = WfDispatchingVRegSet
-			} else {
-				return false, nil
-			}
-		case WfDispatchingVRegSet:
-			done := d.allReqCompleted(evt)
-			if done {
-				evt.State = WfDispatchingDone
-			} else {
-				return false, nil
-			}
-		case WfDispatchingDone:
-			managedWf.State = WfReady
-			return true, managedWf
-		}
-	}
+	evt := NewWfDispatchCompletionEvent(
+		d.cu.Freq.NCyclesLater(d.Latency, req.RecvTime()),
+		d.cu, wf)
+	evt.DispatchWfReq = req
+	d.cu.engine.Schedule(evt)
 }
 
-func (d *WfDispatcherImpl) initCtrlRegs(evt *DispatchWfEvent) {
-	wf := evt.ManagedWf
-	wf.PC = evt.Req.EntryPoint
+func (d *WfDispatcherImpl) setWfInfo(wf *Wavefront) {
+	wfInfo, ok := d.cu.WfToDispatch[wf.Wavefront]
+	if !ok {
+		log.Panic("Wf dispatching information is not found. This indicates " +
+			"that the wavefront dispatched may not be mapped to the compute " +
+			"unit before.")
+	}
+
+	wf.SIMDID = wfInfo.SIMDID
+	wf.SRegOffset = wfInfo.SGPROffset
+	wf.VRegOffset = wfInfo.VGPROffset
+	wf.LDSOffset = wfInfo.LDSOffset
+	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
+	wf.EXEC = 0xffffffffffffffff
 }
 
-func (d *WfDispatcherImpl) initSRegs(wf *Wavefront, evt *DispatchWfEvent) bool {
-	req := evt.Req
-	co := req.CodeObject
-	packet := req.Packet
-	now := evt.Time()
-	count := 0
+func (d *WfDispatcherImpl) initRegisters(wf *Wavefront) {
+	co := wf.CodeObject
+	pkt := wf.Packet
 
+	SGPRPtr := 0
 	if co.EnableSgprPrivateSegmentBuffer() {
-		log.Println("Initializing register PrivateSegmentBuffer is not supported")
-		count += 4
+		// log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
+		// fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
+		SGPRPtr += 16
 	}
 
 	if co.EnableSgprDispatchPtr() {
-		reg := insts.SReg(count)
-		// FIXME: Fillin the correct value
-		bytes := insts.Uint64ToBytes(0)
-		d.Scheduler.writeReg(wf, reg, bytes, now)
-		count += 2
+
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
+			insts.Uint64ToBytes(wf.PacketAddress),
+			false,
+		})
+
+		// fmt.Printf("s%d SGPRDispatchPtr\n", SGPRPtr/4)
+		SGPRPtr += 8
 	}
 
 	if co.EnableSgprQueuePtr() {
-		log.Println("Initializing register QueuePtr is not supported")
-		count += 2
+		log.Printf("EnableSgprQueuePtr is not supported")
+		// fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
+		SGPRPtr += 8
 	}
 
 	if co.EnableSgprKernelArgSegmentPtr() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint64ToBytes(packet.KernargAddress)
-		d.Scheduler.writeReg(wf, reg, bytes, now)
-		count += 2
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
+			insts.Uint64ToBytes(pkt.KernargAddress),
+			false,
+		})
+
+		// fmt.Printf("s%d SGPRKernelArgSegmentPtr\n", SGPRPtr/4)
+		SGPRPtr += 8
 	}
 
 	if co.EnableSgprDispatchId() {
-		log.Println("Initializing register DispatchId is not supported")
-		count += 2
+		log.Printf("EnableSgprDispatchID is not supported")
+		// fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
+		SGPRPtr += 8
 	}
 
 	if co.EnableSgprFlatScratchInit() {
-		log.Println("Initializing register FlatScratchInit is not supported")
-		count += 2
+		log.Printf("EnableSgprFlatScratchInit is not supported")
+		// fmt.Printf("s%d SGPRFlatScratchInit\n", SGPRPtr/4)
+		SGPRPtr += 8
 	}
 
 	if co.EnableSgprPrivateSegementSize() {
-		log.Println("Initializing register PrivateSegementSize is not supported")
-		count++
+		log.Printf("EnableSgprPrivateSegmentSize is not supported")
+		// fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprGridWorkGroupCountX() {
-		log.Println("Initializing register GridWorkGroupCountX is not supported")
-		count++
+		// fmt.Printf("s%d WorkGroupCountX\n", SGPRPtr/4)
+
+		wgCountX := (pkt.GridSizeX + uint32(pkt.WorkgroupSizeX) - 1) /
+			uint32(pkt.WorkgroupSizeX)
+
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			insts.Uint32ToBytes(wgCountX),
+			false,
+		})
+
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprGridWorkGroupCountY() {
-		log.Println("Initializing register GridWorkGroupCountY is not supported")
-		count++
+		// fmt.Printf("s%d WorkGroupCountY\n", SGPRPtr/4)
+
+		wgCountY := (pkt.GridSizeY + uint32(pkt.WorkgroupSizeY) - 1) /
+			uint32(pkt.WorkgroupSizeY)
+
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			insts.Uint32ToBytes(wgCountY),
+			false,
+		})
+
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprGridWorkGroupCountZ() {
-		log.Println("Initializing register GridWorkGroupCountZ is not supported")
-		count++
+		// fmt.Printf("s%d WorkGroupCountZ\n", SGPRPtr/4)
+
+		wgCountZ := (pkt.GridSizeZ + uint32(pkt.WorkgroupSizeZ) - 1) /
+			uint32(pkt.WorkgroupSizeZ)
+
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			insts.Uint32ToBytes(wgCountZ),
+			false,
+		})
+
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupIdX() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDX))
-		d.Scheduler.writeReg(wf, reg, bytes, now)
-		count++
+
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			insts.Uint32ToBytes(uint32(wf.WG.IDX)),
+			false,
+		})
+
+		// fmt.Printf("s%d WorkGroupIdX\n", SGPRPtr/4)
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupIdY() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDY))
-		d.Scheduler.writeReg(wf, reg, bytes, now)
-		count++
+
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			insts.Uint32ToBytes(uint32(wf.WG.IDY)),
+			false,
+		})
+
+		// fmt.Printf("s%d WorkGroupIdY\n", SGPRPtr/4)
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupIdZ() {
-		reg := insts.SReg(count)
-		bytes := insts.Uint32ToBytes(uint32(wf.WG.IDZ))
-		d.Scheduler.writeReg(wf, reg, bytes, now)
-		count++
+		d.cu.SRegFile.Write(&RegisterAccess{
+			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
+			insts.Uint32ToBytes(uint32(wf.WG.IDZ)),
+			false,
+		})
+
+		// fmt.Printf("s%d WorkGroupIdZ\n", SGPRPtr/4)
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupInfo() {
-		log.Println("Initializing register GridWorkGroupInfo is not supported")
-		count++
+		log.Printf("EnableSgprPrivateSegmentSize is not supported")
+		SGPRPtr += 4
 	}
 
 	if co.EnableSgprPrivateSegmentWaveByteOffset() {
-		log.Println("Initializing register PrivateSegmentWaveByteOffset is not supported")
-		count++
+		log.Printf("EnableSgprPrivateSegentWaveByteOffset is not supported")
+		SGPRPtr += 4
 	}
 
-	return true
-}
+	var x, y, z int
+	for i := wf.FirstWiFlatID; i < wf.FirstWiFlatID+64; i++ {
+		z = i / (wf.WG.SizeX * wf.WG.SizeY)
+		y = i % (wf.WG.SizeX * wf.WG.SizeY) / wf.WG.SizeX
+		x = i % (wf.WG.SizeX * wf.WG.SizeY) % wf.WG.SizeX
+		laneID := i - wf.FirstWiFlatID
 
-func (d *WfDispatcherImpl) initVRegs(wf *Wavefront, evt *DispatchWfEvent) bool {
-	return true
-}
+		d.cu.VRegFile[wf.SIMDID].Write(&RegisterAccess{
+			0, insts.VReg(0), 1, laneID, wf.VRegOffset,
+			insts.Uint32ToBytes(uint32(x)),
+			false,
+		})
 
-func (d *WfDispatcherImpl) allReqCompleted(evt *DispatchWfEvent) bool {
-	return true
+		if co.EnableVgprWorkItemId() > 0 {
+			d.cu.VRegFile[wf.SIMDID].Write(&RegisterAccess{
+				0, insts.VReg(1), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(uint32(y)),
+				false,
+			})
+		}
+
+		if co.EnableVgprWorkItemId() > 1 {
+			d.cu.VRegFile[wf.SIMDID].Write(&RegisterAccess{
+				0, insts.VReg(2), 1, laneID, wf.VRegOffset,
+				insts.Uint32ToBytes(uint32(z)),
+				false,
+			})
+		}
+	}
+
 }
