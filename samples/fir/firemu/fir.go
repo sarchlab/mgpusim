@@ -6,9 +6,6 @@ import (
 	"log"
 	_ "net/http/pprof"
 	"os"
-	"os/signal"
-	"runtime/debug"
-	"syscall"
 
 	"gitlab.com/yaotsu/core/connections"
 	"gitlab.com/yaotsu/core/util"
@@ -25,10 +22,13 @@ import (
 )
 
 type FirKernelArgs struct {
-	output    driver.GPUPtr
-	filter    driver.GPUPtr
-	tempInput driver.GPUPtr
-	numTaps   uint32
+	output              driver.GPUPtr
+	filter              driver.GPUPtr
+	tempInput           driver.GPUPtr
+	numTaps             uint32
+	hiddenGlobalOffsetX int64
+	hiddenGlobalOffsetY int64
+	hiddenGlobalOffsetZ int64
 }
 
 var (
@@ -52,61 +52,27 @@ var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco 
 
 func main() {
 	flag.Parse()
-	// if *cpuprofile != "" {
-	// 	f, err := os.Create(*cpuprofile)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	pprof.StartCPUProfile(f)
-	// 	defer pprof.StopCPUProfile()
-	// }
 
-	// runtime.SetBlockProfileRate(1)
-	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:8080", nil))
-	// }()
-
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		debug.PrintStack()
-		os.Exit(1)
-	}()
-
-	// f, err := os.Create("trace.out")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer f.Close()
-
-	// err = trace.Start(f)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer trace.Stop()
-
-	// log.SetOutput(ioutil.Discard)
 	logger = log.New(os.Stdout, "", 0)
 
 	initPlatform()
 	loadProgram()
 	initMem()
 	run()
-	checkResult()
+	//checkResult()
 }
 
 func initPlatform() {
-	engine = engines.NewSerialEngine()
+	//engine = engines.NewSerialEngine()
+	engine = engines.NewParallelEngine()
 	engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	//host = newHostComponent()
 	gpuDriver = driver.NewDriver(engine)
 	connection = connections.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.EnableISADebug = true
+	gpuBuilder.EnableISADebug = false
 	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
 
 	core.PlugIn(gpu, "ToDriver", connection)
@@ -130,10 +96,10 @@ func loadProgram() {
 }
 
 func initMem() {
-	dataSize = 1024
+	dataSize = 409600
 	numTaps = 16
 	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
-	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64((dataSize+numTaps)*4))
 	gOutputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
 
 	filterData := make([]float32, numTaps)
@@ -156,6 +122,7 @@ func run() {
 		gFilterData,
 		gInputData,
 		uint32(numTaps),
+		0, 0, 0,
 	}
 
 	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
@@ -166,9 +133,8 @@ func run() {
 }
 
 func checkResult() {
-
 	output := make([]float32, dataSize)
-	gpuDriver.MemoryCopyDeviceToHost(output, gInputData, globalMem.Storage)
+	gpuDriver.MemoryCopyDeviceToHost(output, gOutputData, globalMem.Storage)
 
 	for i, o := range output {
 		fmt.Printf("%d: %f\n", i, o)

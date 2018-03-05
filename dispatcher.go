@@ -296,6 +296,7 @@ func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
 	if !d.hasPendingEvent {
 		evt := NewMapWGEvent(time, d)
 		d.engine.Schedule(evt)
+		d.hasPendingEvent = true
 	}
 }
 
@@ -319,6 +320,7 @@ func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
 	if !d.hasPendingEvent {
 		evt := NewDispatchWfEvent(time, d)
 		d.engine.Schedule(evt)
+		d.hasPendingEvent = true
 	}
 }
 
@@ -340,19 +342,20 @@ func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
 	d.dispatchingWfs = d.dispatchingWfs[1:]
 
 	if len(d.dispatchingWfs) == 0 {
-		d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
+		d.scheduleMapWG(d.Freq.NextTick(req.Time()))
 		return nil
 	}
 
-	wf := d.dispatchingWfs[0]
+	// wf := d.dispatchingWfs[0]
+	d.scheduleDispatchWfEvent(d.Freq.NextTick(req.Time()))
 
-	nextReq := NewDispatchWfReq(d, d.cus[d.dispatchingCUID], req.Time(), wf)
-	err := d.GetConnection("ToCUs").Send(nextReq)
-	if err != nil && !err.Recoverable {
-		log.Panic(err)
-	} else if err != nil {
-		d.scheduleDispatchWfEvent(err.EarliestRetry)
-	}
+	//nextReq := NewDispatchWfReq(d, d.cus[d.dispatchingCUID], req.Time(), wf)
+	//err := d.GetConnection("ToCUs").Send(nextReq)
+	//if err != nil && !err.Recoverable {
+	//	log.Panic(err)
+	//} else if err != nil {
+	//	d.scheduleDispatchWfEvent(err.EarliestRetry)
+	//}
 
 	return nil
 }

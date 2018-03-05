@@ -7,6 +7,8 @@ import (
 
 	"encoding/binary"
 
+	"sync"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
@@ -22,6 +24,7 @@ import (
 //
 type ComputeUnit struct {
 	*core.ComponentBase
+	sync.Mutex
 
 	engine             core.Engine
 	decoder            Decoder
@@ -69,6 +72,9 @@ func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
 
 // Handle defines the behavior on event scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt core.Event) error {
+	cu.Lock()
+	defer cu.Unlock()
+
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
 		return cu.handleMapWGReq(evt)
