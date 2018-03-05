@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"debug/elf"
-	"encoding/binary"
 	"fmt"
 	"log"
-	"math"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -21,6 +18,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/driver"
 	"gitlab.com/yaotsu/gcn3/gpubuilder"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
@@ -54,10 +52,15 @@ var (
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
 	gpu        *gcn3.GPU
-	host       *hostComponent
 	connection core.Connection
 	hsaco      *insts.HsaCo
 	logger     *log.Logger
+	gpuDriver  *driver.Driver
+
+	dataSize    uint64
+	gFilterData driver.GPUPtr
+	gInputData  driver.GPUPtr
+	gOutputData driver.GPUPtr
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -113,15 +116,16 @@ func initPlatform() {
 	engine = engines.NewSerialEngine()
 	engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	host = newHostComponent()
+	//host = newHostComponent()
+	gpuDriver = driver.NewDriver(engine)
 	connection = connections.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
-	gpuBuilder.Driver = host
+	gpuBuilder.Driver = gpuDriver
 	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
 
 	core.PlugIn(gpu, "ToDriver", connection)
-	gpu.Driver = host
+	gpu.Driver = gpuDriver
 }
 
 func loadProgram() {
@@ -146,82 +150,80 @@ func loadProgram() {
 }
 
 func initMem() {
-	// Write the filter
-	filterData := make([]byte, 0)
-	buffer := bytes.NewBuffer(filterData)
-	for i := 0; i < 16; i++ {
-		binary.Write(buffer, binary.LittleEndian, float32(i))
-	}
-	err := globalMem.Storage.Write(4*mem.KB, buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
+	var i uint64
+
+	dataSize = 1024
+	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, 16*4)
+	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, dataSize*4)
+	gOutputData = gpuDriver.AllocateMemory(globalMem.Storage, dataSize*4)
+
+	filterData := make([]float32, 16)
+	for i = 0; i < 16; i++ {
+		filterData[i] = float32(i)
 	}
 
-	// Write the input
-	inputData := make([]byte, 0)
-	buffer = bytes.NewBuffer(inputData)
-	for i := 0; i < 1024+16; i++ {
-		binary.Write(buffer, binary.LittleEndian, float32(i))
-	}
-	err = globalMem.Storage.Write(8*mem.KB, buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
+	inputData := make([]float32, dataSize)
+	for i = 0; i < dataSize; i++ {
+		inputData[i] = float32(i)
 	}
 
+	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, globalMem.Storage)
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint32(16))        // NumTap
-	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req := kernels.NewLaunchKernelReq()
-	req.HsaCo = hsaco
-	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 4
-	req.Packet.GridSizeY = 1
-	req.Packet.GridSizeZ = 1
-	req.Packet.WorkgroupSizeX = 256
-	req.Packet.WorkgroupSizeY = 1
-	req.Packet.WorkgroupSizeZ = 1
-	req.Packet.KernelObject = 0
-	req.Packet.KernargAddress = 65536
-
-	var buffer bytes.Buffer
-	binary.Write(&buffer, binary.LittleEndian, req.Packet)
-	err = globalMem.Storage.Write(0x11000, buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req.PacketAddress = 0x11000
-	req.SetSrc(host)
-	req.SetDst(gpu)
-	req.SetSendTime(0)
-	connErr := connection.Send(req)
-	if connErr != nil {
-		log.Fatal(connErr)
-	}
-
-	engine.Run()
+	//kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
+	//binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
+	//binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
+	//binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
+	//binary.Write(kernelArgsBuffer, binary.LittleEndian, uint32(16))        // NumTap
+	//err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//req := kernels.NewLaunchKernelReq()
+	//req.HsaCo = hsaco
+	//req.Packet = new(kernels.HsaKernelDispatchPacket)
+	//req.Packet.GridSizeX = 256 * 4
+	//req.Packet.GridSizeY = 1
+	//req.Packet.GridSizeZ = 1
+	//req.Packet.WorkgroupSizeX = 256
+	//req.Packet.WorkgroupSizeY = 1
+	//req.Packet.WorkgroupSizeZ = 1
+	//req.Packet.KernelObject = 0
+	//req.Packet.KernargAddress = 65536
+	//
+	//var buffer bytes.Buffer
+	//binary.Write(&buffer, binary.LittleEndian, req.Packet)
+	//err = globalMem.Storage.Write(0x11000, buffer.Bytes())
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//req.PacketAddress = 0x11000
+	//req.SetSrc(host)
+	//req.SetDst(gpu)
+	//req.SetSendTime(0)
+	//connErr := connection.Send(req)
+	//if connErr != nil {
+	//	log.Fatal(connErr)
+	//}
+	//
+	//engine.Run()
 }
 
 func checkResult() {
-	buf, err := globalMem.Storage.Read(12*mem.KB, 1024*4)
-	if err != nil {
-		log.Fatal(nil)
-	}
+	//buf, err := globalMem.Storage.Read(12*mem.KB, 1024*4)
+	//if err != nil {
+	//	log.Fatal(nil)
+	//}
+	//
+	//for i := 0; i < 1024; i++ {
+	//	bits := binary.LittleEndian.Uint32(buf[i*4 : i*4+4])
+	//	filtered := math.Float32frombits(bits)
+	//
+	//	fmt.Printf("%d: %f\n", i, filtered)
+	//}
 
-	for i := 0; i < 1024; i++ {
-		bits := binary.LittleEndian.Uint32(buf[i*4 : i*4+4])
-		filtered := math.Float32frombits(bits)
-
-		fmt.Printf("%d: %f\n", i, filtered)
-	}
 }
