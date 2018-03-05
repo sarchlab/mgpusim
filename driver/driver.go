@@ -19,6 +19,8 @@ func NewDriver(engine core.Engine) *Driver {
 	driver := new(Driver)
 	driver.ComponentBase = core.NewComponentBase("driver")
 
+	driver.engine = engine
+
 	driver.AddPort("ToGPUs")
 
 	driver.memoryMasks = make(map[*mem.Storage]*MemoryMask)

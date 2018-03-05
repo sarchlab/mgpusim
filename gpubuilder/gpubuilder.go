@@ -5,6 +5,10 @@ import (
 
 	"gitlab.com/yaotsu/mem"
 
+	"log"
+
+	"os"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/connections"
 	"gitlab.com/yaotsu/core/util"
@@ -20,6 +24,8 @@ type GPUBuilder struct {
 	freq    util.Freq
 	Driver  core.Component
 	GPUName string
+
+	EnableISADebug bool
 }
 
 // NewGPUBuilder returns a new GPUBuilder
@@ -28,6 +34,8 @@ func NewGPUBuilder(engine core.Engine) *GPUBuilder {
 	b.engine = engine
 	b.freq = 1 * util.GHz
 	b.GPUName = "GPU"
+
+	b.EnableISADebug = false
 	return b
 }
 
@@ -58,6 +66,15 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 		computeUnit.GlobalMemStorage = gpuMem.Storage
 		core.PlugIn(computeUnit, "ToDispatcher", connection)
 		dispatcher.RegisterCU(computeUnit)
+
+		if b.EnableISADebug {
+			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", computeUnit.Name()))
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
+			computeUnit.AcceptHook(wfHook)
+		}
 	}
 
 	gpu := gcn3.NewGPU(b.GPUName)
