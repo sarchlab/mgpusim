@@ -67,7 +67,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	core.PlugIn(gpu, "ToCommandProcessor", connection)
 	core.PlugIn(commandProcessor, "ToDriver", connection)
 	core.PlugIn(commandProcessor, "ToDispatcher", connection)
-	core.PlugIn(b.Driver, "ToGpu", connection)
+	core.PlugIn(b.Driver, "ToGPUs", connection)
 	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
 	core.PlugIn(dispatcher, "ToCUs", connection)
 	core.PlugIn(gpuMem, "Top", connection)
