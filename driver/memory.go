@@ -110,5 +110,4 @@ func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, storage *m
 
 	buf := bytes.NewReader(rawData)
 	binary.Read(buf, binary.LittleEndian, data)
-
 }
