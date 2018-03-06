@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	_ "net/http/pprof"
-	"os"
-	"runtime/trace"
 
 	"gitlab.com/yaotsu/core/connections"
 
@@ -51,21 +49,21 @@ var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to fi
 var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
 
 func main() {
-	flag.Parse()
-
-	f, err := os.Create("trace.out")
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	err = trace.Start(f)
-	if err != nil {
-		panic(err)
-	}
-	defer trace.Stop()
-
-	logger = log.New(os.Stdout, "", 0)
+	//flag.Parse()
+	//
+	//f, err := os.Create("trace.out")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer f.Close()
+	//
+	//err = trace.Start(f)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer trace.Stop()
+	//
+	//logger = log.New(os.Stdout, "", 0)
 
 	initPlatform()
 	loadProgram()
@@ -75,8 +73,8 @@ func main() {
 }
 
 func initPlatform() {
-	//engine = engines.NewSerialEngine()
-	engine = engines.NewParallelEngine()
+	engine = engines.NewSerialEngine()
+	//engine = engines.NewParallelEngine()
 	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver = driver.NewDriver(engine)

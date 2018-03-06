@@ -349,16 +349,7 @@ func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
 		return nil
 	}
 
-	// wf := d.dispatchingWfs[0]
 	d.scheduleDispatchWfEvent(d.Freq.NextTick(req.Time()))
-
-	//nextReq := NewDispatchWfReq(d, d.cus[d.dispatchingCUID], req.Time(), wf)
-	//err := d.GetConnection("ToCUs").Send(nextReq)
-	//if err != nil && !err.Recoverable {
-	//	log.Panic(err)
-	//} else if err != nil {
-	//	d.scheduleDispatchWfEvent(err.EarliestRetry)
-	//}
 
 	return nil
 }
