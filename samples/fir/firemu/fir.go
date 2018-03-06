@@ -6,9 +6,9 @@ import (
 	"log"
 	_ "net/http/pprof"
 	"os"
+	"runtime/trace"
 
 	"gitlab.com/yaotsu/core/connections"
-	"gitlab.com/yaotsu/core/util"
 
 	"flag"
 
@@ -53,6 +53,18 @@ var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco 
 func main() {
 	flag.Parse()
 
+	f, err := os.Create("trace.out")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	err = trace.Start(f)
+	if err != nil {
+		panic(err)
+	}
+	defer trace.Stop()
+
 	logger = log.New(os.Stdout, "", 0)
 
 	initPlatform()
@@ -65,7 +77,7 @@ func main() {
 func initPlatform() {
 	//engine = engines.NewSerialEngine()
 	engine = engines.NewParallelEngine()
-	engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver = driver.NewDriver(engine)
 	connection = connections.NewDirectConnection(engine)

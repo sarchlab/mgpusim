@@ -137,6 +137,7 @@ type Dispatcher struct {
 	// If the dispatcher has pending MapWGEvent or DispatchWfEvent, no other
 	// events should be scheduled.
 	hasPendingEvent bool
+	busyUntil       core.VTimeInSec
 }
 
 // NewDispatcher creates a new dispatcher
@@ -293,10 +294,11 @@ func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
 }
 
 func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
-	if !d.hasPendingEvent {
+	if !d.hasPendingEvent && d.busyUntil < time {
 		evt := NewMapWGEvent(time, d)
 		d.engine.Schedule(evt)
 		d.hasPendingEvent = true
+		d.busyUntil = time
 	}
 }
 
@@ -317,10 +319,11 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
-	if !d.hasPendingEvent {
+	if !d.hasPendingEvent && d.busyUntil < time {
 		evt := NewDispatchWfEvent(time, d)
 		d.engine.Schedule(evt)
 		d.hasPendingEvent = true
+		d.busyUntil = time
 	}
 }
 
