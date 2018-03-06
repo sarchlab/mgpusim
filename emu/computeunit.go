@@ -33,10 +33,10 @@ type ComputeUnit struct {
 
 	Freq util.Freq
 
-	running    *gcn3.MapWGReq
-	wfs        []*Wavefront
-	instCount  int
-	LDSStorage []byte
+	nextTick    core.VTimeInSec
+	queueingWGs []*gcn3.MapWGReq
+	wfs         map[*kernels.WorkGroup][]*Wavefront
+	LDSStorage  []byte
 
 	GlobalMemStorage *mem.Storage
 }
@@ -57,7 +57,8 @@ func NewComputeUnit(
 	cu.scratchpadPreparer = scratchpadPreparer
 	cu.alu = alu
 
-	cu.wfs = make([]*Wavefront, 0)
+	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
+	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
 	cu.AddPort("ToDispatcher")
 
@@ -91,20 +92,19 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 }
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
-	if cu.running != nil {
-		req.Ok = false
-	} else {
-		req.Ok = true
-		cu.running = req
-		cu.instCount = 0
-
+	if cu.nextTick <= req.Time() {
+		cu.nextTick = core.VTimeInSec(math.Ceil(float64(req.RecvTime())))
 		evt := core.NewTickEvent(
-			core.VTimeInSec(math.Ceil(float64(req.RecvTime()))),
+			cu.nextTick,
 			cu,
 		)
 		cu.engine.Schedule(evt)
 	}
 
+	cu.queueingWGs = append(cu.queueingWGs, req)
+	cu.wfs[req.WG] = make([]*Wavefront, 0, 64)
+
+	req.Ok = true
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.Time())
 	cu.GetConnection("ToDispatcher").Send(req)
@@ -120,27 +120,34 @@ func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
 }
 
 func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
-	wg := cu.running.WG
 
-	if cu.running != nil {
-		return cu.runWG(wg, evt.Time())
+	for len(cu.queueingWGs) > 0 {
+		wg := cu.queueingWGs[0]
+		cu.queueingWGs = cu.queueingWGs[1:]
+		cu.runWG(wg, evt.Time())
 	}
-
 	return nil
+	//wg := cu.running.WG
+	//
+	//if cu.running != nil {
+	//	return cu.runWG(wg, evt.Time())
+	//}
+	//
+	//return nil
 }
 
-func (cu *ComputeUnit) runWG(wg *kernels.WorkGroup, now core.VTimeInSec) error {
-	cu.wfs = nil
+func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now core.VTimeInSec) error {
+	wg := req.WG
 	cu.initWfs(wg)
 
-	for !cu.isAllWfCompleted() {
-		for _, wf := range cu.wfs {
+	for !cu.isAllWfCompleted(wg) {
+		for _, wf := range cu.wfs[wg] {
 			cu.runWfUntilBarrier(wf)
 		}
-		cu.resolveBarrier()
+		cu.resolveBarrier(wg)
 	}
 
-	evt := NewWGCompleteEvent(cu.Freq.NCyclesLater(cu.instCount, now), cu, wg)
+	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu, req)
 	cu.engine.Schedule(evt)
 
 	return nil
@@ -149,10 +156,10 @@ func (cu *ComputeUnit) runWG(wg *kernels.WorkGroup, now core.VTimeInSec) error {
 func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup) error {
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
-		cu.wfs = append(cu.wfs, managedWf)
+		cu.wfs[wg] = append(cu.wfs[wg], managedWf)
 	}
 
-	for _, managedWf := range cu.wfs {
+	for _, managedWf := range cu.wfs[wg] {
 		cu.initWfRegs(managedWf)
 	}
 
@@ -280,8 +287,8 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	}
 }
 
-func (cu *ComputeUnit) isAllWfCompleted() bool {
-	for _, wf := range cu.wfs {
+func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
+	for _, wf := range cu.wfs[wg] {
 		if !wf.Completed {
 			return false
 		}
@@ -298,8 +305,6 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		inst, err := cu.decoder.Decode(instBuf)
 		wf.inst = inst
-
-		cu.instCount++
 
 		wf.PC += uint64(inst.ByteSize)
 
@@ -326,12 +331,12 @@ func (cu *ComputeUnit) executeInst(wf *Wavefront) {
 	cu.scratchpadPreparer.Commit(wf, wf)
 }
 
-func (cu *ComputeUnit) resolveBarrier() {
-	if cu.isAllWfCompleted() {
+func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
+	if cu.isAllWfCompleted(wg) {
 		return
 	}
 
-	for _, wf := range cu.wfs {
+	for _, wf := range cu.wfs[wg] {
 		if !wf.AtBarrier {
 			log.Panic("not all wavefronts at barrier")
 		}
@@ -340,8 +345,8 @@ func (cu *ComputeUnit) resolveBarrier() {
 }
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
-	req := gcn3.NewWGFinishMesg(cu, cu.running.Dst(), evt.Time(), cu.running.WG)
+	delete(cu.wfs, evt.Req.WG)
+	req := gcn3.NewWGFinishMesg(cu, evt.Req.Dst(), evt.Time(), evt.Req.WG)
 	cu.GetConnection("ToDispatcher").Send(req)
-	cu.running = nil
 	return nil
 }
