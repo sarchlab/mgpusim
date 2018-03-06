@@ -15,7 +15,7 @@ var _ = Describe("Driver", func() {
 
 	BeforeEach(func() {
 		storage = mem.NewStorage(4 * mem.GB)
-		driver = NewDriver()
+		driver = NewDriver(nil)
 	})
 
 	It("should allocate memory", func() {

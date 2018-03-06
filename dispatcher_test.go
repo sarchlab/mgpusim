@@ -50,6 +50,7 @@ var _ = Describe("Dispatcher", func() {
 		gridBuilder.Grid = grid
 
 		dispatcher = NewDispatcher("dispatcher", engine, gridBuilder)
+		dispatcher.busyUntil = 1
 		dispatcher.Freq = 1
 
 		toCommandProcessorConn = core.NewMockConnection()
@@ -156,6 +157,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatchingCUID = 0
 		wg := grid.WorkGroups[0]
 		req := NewMapWGReq(cu0, dispatcher, 10, wg)
+		req.SetRecvTime(11)
 		req.Ok = false
 
 		dispatcher.Handle(req)
@@ -172,6 +174,7 @@ var _ = Describe("Dispatcher", func() {
 
 		wg := grid.WorkGroups[0]
 		req := NewMapWGReq(cu0, dispatcher, 10, wg)
+		req.SetRecvTime(11)
 		req.Ok = true
 
 		dispatcher.Handle(req)
@@ -218,38 +221,12 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatchingWfs = append(dispatcher.dispatchingWfs,
 			grid.WorkGroups[0].Wavefronts...)
 		wf := dispatcher.dispatchingWfs[0]
-		wf2 := dispatcher.dispatchingWfs[1]
 
 		req := NewDispatchWfReq(cu0, dispatcher, 10, wf)
-		req.SetRecvTime(10)
-
-		expectedReq := NewDispatchWfReq(dispatcher, cu0, 10, wf2)
-		toCUsConn.ExpectSend(expectedReq, nil)
+		req.SetRecvTime(11)
 
 		dispatcher.Handle(req)
 
-		Expect(toCUsConn.AllExpectedSent()).To(BeTrue())
-		Expect(len(dispatcher.dispatchingWfs)).To(
-			Equal(len(grid.WorkGroups[0].Wavefronts) - 1))
-	})
-
-	It("should retry dispatching wavefronts upon error on network", func() {
-		dispatcher.dispatchingCUID = 0
-		dispatcher.dispatchingWfs = append(dispatcher.dispatchingWfs,
-			grid.WorkGroups[0].Wavefronts...)
-		wf := dispatcher.dispatchingWfs[0]
-		wf2 := dispatcher.dispatchingWfs[1]
-
-		req := NewDispatchWfReq(cu0, dispatcher, 10, wf)
-		req.SetRecvTime(10)
-
-		expectedReq := NewDispatchWfReq(dispatcher, cu0, 10, wf2)
-		toCUsConn.ExpectSend(expectedReq,
-			core.NewError("busy", true, 12))
-
-		dispatcher.Handle(req)
-
-		Expect(toCUsConn.AllExpectedSent()).To(BeTrue())
 		Expect(len(dispatcher.dispatchingWfs)).To(
 			Equal(len(grid.WorkGroups[0].Wavefronts) - 1))
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
@@ -274,6 +251,7 @@ var _ = Describe("Dispatcher", func() {
 
 		wg := grid.WorkGroups[0]
 		req := NewWGFinishMesg(cu0, dispatcher, 10, wg)
+		req.SetRecvTime(11)
 
 		dispatcher.Handle(req)
 
