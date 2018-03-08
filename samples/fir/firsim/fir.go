@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"debug/elf"
-	"encoding/binary"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -17,50 +15,43 @@ import (
 
 	"runtime/debug"
 
+	"fmt"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/connections"
 	"gitlab.com/yaotsu/core/engines"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/driver"
+	"gitlab.com/yaotsu/gcn3/gpubuilder"
 	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem"
 )
 
-type hostComponent struct {
-	*core.ComponentBase
-}
-
-func newHostComponent() *hostComponent {
-	h := new(hostComponent)
-	h.ComponentBase = core.NewComponentBase("host")
-	h.AddPort("ToGpu")
-	return h
-}
-
-func (h *hostComponent) Recv(req core.Req) *core.Error {
-	switch req.(type) {
-	case *kernels.LaunchKernelReq:
-		log.Println("Kernel completed.")
-	}
-	return nil
-}
-
-func (h *hostComponent) Handle(evt core.Event) error {
-	return nil
+type FirKernelArgs struct {
+	output              driver.GPUPtr
+	filter              driver.GPUPtr
+	tempInput           driver.GPUPtr
+	numTaps             uint32
+	hiddenGlobalOffsetX int64
+	hiddenGlobalOffsetY int64
+	hiddenGlobalOffsetZ int64
 }
 
 var (
 	engine      core.Engine
 	globalMem   *mem.IdealMemController
 	gpu         *gcn3.GPU
-	host        *hostComponent
+	gpuDriver   *driver.Driver
 	connection  core.Connection
 	hsaco       *insts.HsaCo
 	logger      *log.Logger
 	traceOutput *os.File
+
+	dataSize    int
+	numTaps     int
+	gFilterData driver.GPUPtr
+	gInputData  driver.GPUPtr
+	gOutputData driver.GPUPtr
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -111,71 +102,17 @@ func initPlatform() {
 	// Connection
 	connection = connections.NewDirectConnection(engine)
 
-	// Memory
-	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Freq = 1 * util.GHz
-	globalMem.Latency = 2
+	// GPU
+	gpuDriver = driver.NewDriver(engine)
+	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
+	gpuBuilder.Driver = gpuDriver
+	gpuBuilder.EnableISADebug = true
+	gpu, globalMem = gpuBuilder.BuildR9Nano()
 
-	// Host
-	host = newHostComponent()
-
-	// Gpu
-	gpu = gcn3.NewGPU("Gpu")
-	commandProcessor := gcn3.NewCommandProcessor("Gpu.CommandProcessor")
-
-	dispatcher := gcn3.NewDispatcher("Gpu.Dispatcher", engine,
-		new(kernels.GridBuilderImpl))
-	dispatcher.Freq = 1 * util.GHz
-	wgCompleteLogger := new(gcn3.WGCompleteLogger)
-	wgCompleteLogger.Logger = logger
-	dispatcher.AcceptHook(wgCompleteLogger)
-
-	gpu.CommandProcessor = commandProcessor
-	gpu.Driver = host
-	commandProcessor.Dispatcher = dispatcher
-	commandProcessor.Driver = gpu
-
-	cuBuilder := timing.NewBuilder()
-	cuBuilder.Engine = engine
-	cuBuilder.Freq = 1 * util.GHz
-	cuBuilder.Decoder = insts.NewDisassembler()
-	cuBuilder.InstMem = globalMem
-	cuBuilder.ScalarMem = globalMem
-	cuBuilder.VectorMem = globalMem
-	cuBuilder.GlobalStorage = globalMem.Storage
-	cuBuilder.ConnToInstMem = connection
-	cuBuilder.ConnToScalarMem = connection
-	cuBuilder.ConnToVectorMem = connection
-
-	for i := 0; i < 1; i++ {
-		cuBuilder.CUName = "cu" + string(i)
-		computeUnit := cuBuilder.Build()
-		dispatcher.RegisterCU(computeUnit)
-
-		core.PlugIn(computeUnit, "ToACE", connection)
-
-		// Hook
-		//mapWGLog := timing.NewMapWGLog(logger)
-		//computeUnit.Scheduler.AcceptHook(mapWGLog)
-		//dispatchWfHook := timing.NewDispatchWfLog(logger)
-		//computeUnit.Scheduler.AcceptHook(dispatchWfHook)
-		//
-		if i == 0 {
-			tracer := trace.NewInstTracer(traceOutput)
-			computeUnit.AcceptHook(tracer)
-		}
-
-	}
-
-	// Connection
-	core.PlugIn(gpu, "ToCommandProcessor", connection)
+	core.PlugIn(gpuDriver, "ToGPUs", connection)
 	core.PlugIn(gpu, "ToDriver", connection)
-	core.PlugIn(commandProcessor, "ToDriver", connection)
-	core.PlugIn(commandProcessor, "ToDispatcher", connection)
-	core.PlugIn(host, "ToGpu", connection)
-	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
-	core.PlugIn(dispatcher, "ToCUs", connection)
-	core.PlugIn(globalMem, "Top", connection)
+	gpu.Driver = gpuDriver
+
 }
 
 func loadProgram() {
@@ -190,74 +127,52 @@ func loadProgram() {
 		log.Fatal(err)
 	}
 
-	err = globalMem.Storage.Write(0, hsacoData)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	hsaco = insts.NewHsaCoFromData(hsacoData)
+	fmt.Println(hsaco.Info())
 }
 
 func initMem() {
-	// Write the filter
-	filterData := make([]byte, 16*4)
-	buffer := bytes.NewBuffer(filterData)
-	for i := 0; i < 16; i++ {
-		binary.Write(buffer, binary.LittleEndian, float32(i))
-	}
-	err := globalMem.Storage.Write(4*mem.KB, filterData)
-	if err != nil {
-		log.Fatal(err)
+	dataSize = 256
+	numTaps = 16
+	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
+	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64((dataSize+numTaps)*4))
+	gOutputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+
+	filterData := make([]float32, numTaps)
+	for i := 0; i < numTaps; i++ {
+		filterData[i] = float32(i)
 	}
 
-	// Write the input
-	inputData := make([]byte, 1024*4)
-	buffer = bytes.NewBuffer(inputData)
-	for i := 0; i < 1024; i++ {
-		binary.Write(buffer, binary.LittleEndian, float32(i))
-	}
-	err = globalMem.Storage.Write(8*mem.KB, inputData)
-	if err != nil {
-		log.Fatal(err)
+	inputData := make([]float32, dataSize+numTaps)
+	for i := 0; i < dataSize+numTaps; i++ {
+		inputData[i] = float32(i)
 	}
 
+	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, globalMem.Storage)
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 36))
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192))      // Input
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+4096)) // Output
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096))      // Coeff
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192+8192)) // History
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, int(16))           // NumTap
-	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
+	kernArg := FirKernelArgs{
+		gOutputData,
+		gFilterData,
+		gInputData,
+		uint32(numTaps),
+		0, 0, 0,
 	}
 
-	req := kernels.NewLaunchKernelReq()
-	req.HsaCo = hsaco
-	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 4
-	req.Packet.GridSizeY = 1
-	req.Packet.GridSizeZ = 1
-	req.Packet.WorkgroupSizeX = 256
-	req.Packet.WorkgroupSizeY = 1
-	req.Packet.WorkgroupSizeZ = 1
-	req.Packet.KernelObject = 0
-	req.Packet.KernargAddress = 65536
-
-	req.SetSrc(host)
-	req.SetDst(gpu)
-	req.SetSendTime(0)
-	connErr := connection.Send(req)
-	if connErr != nil {
-		log.Fatal(connErr)
-	}
-
-	engine.Run()
+	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
+		[3]uint32{uint32(dataSize), 1, 1},
+		[3]uint16{256, 1, 1},
+		&kernArg,
+	)
 }
 
 func checkResult() {
+	output := make([]float32, dataSize)
+	gpuDriver.MemoryCopyDeviceToHost(output, gOutputData, globalMem.Storage)
 
+	for i, o := range output {
+		fmt.Printf("%d: %f\n", i, o)
+	}
 }
