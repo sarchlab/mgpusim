@@ -8,6 +8,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"log"
 )
 
 func extractBits(number uint32, lo uint8, hi uint8) uint32 {
@@ -146,61 +147,126 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
        sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
        src0_bits := int(extractBits(sdwa_bytes,0,7))
        inst.Src0 = NewVRegOperand(src0_bits,src0_bits,0)
-       dst_sel_info    := int(extractBits(sdwa_bytes,8,10))
-       //dst_unused_info := int(extractBits(sdwa_bytes,11,12))
-       src0_sel_info   := int(extractBits(sdwa_bytes,16,18))
-       src1_sel_info   := int(extractBits(sdwa_bytes,24,26))
 
-       switch  dst_sel_info {
+       dst_sel         := int(extractBits(sdwa_bytes,8,10))
+       dst_unused      := int(extractBits(sdwa_bytes,11,12))
+       clamp           := int(extractBits(sdwa_bytes,13,13))
+       src0_sel        := int(extractBits(sdwa_bytes,16,18))
+       src0_sext       := int(extractBits(sdwa_bytes,19,19))
+       src0_neg        := int(extractBits(sdwa_bytes,20,20))
+       src0_abs        := int(extractBits(sdwa_bytes,21,21))
+       src1_sel        := int(extractBits(sdwa_bytes,24,26))
+       src1_sext       := int(extractBits(sdwa_bytes,27,27))
+       src1_neg        := int(extractBits(sdwa_bytes,28,28))
+       src1_abs        := int(extractBits(sdwa_bytes,29,29))
+
+
+
+       inst.Dst_Unused  = uint32(extractBits(sdwa_bytes,11,12))
+
+
+       switch  dst_sel {
 	   case 0:
-		   inst.Dst_Sel = 255
+		   inst.Dst_Sel = 0xff
 	   case 1:
-		   inst.Dst_Sel = 65280
+		   inst.Dst_Sel = 0xff00
 	   case 2:
-		   inst.Dst_Sel = 16711680
+		   inst.Dst_Sel = 0xff0000
 	   case 3:
-		   inst.Dst_Sel = 4278190080
+		   inst.Dst_Sel = 0xff000000
 	   case 4:
-		   inst.Dst_Sel = 65535
+		   inst.Dst_Sel = 0xffff
 	   case 5:
-		   inst.Dst_Sel = 4294901760
+		   inst.Dst_Sel = 0xFFFF0000
 	   case 6:
-		   inst.Dst_Sel = 4294967295
+		   inst.Dst_Sel = 0xFFFFFFFF
 	   }
 
-	   switch  src0_sel_info {
-	   case 0:
-		   inst.Src0_Sel = 255
-	   case 1:
-		   inst.Src0_Sel  = 65280
-	   case 2:
-		   inst.Src0_Sel  = 16711680
-	   case 3:
-		   inst.Src0_Sel  = 4278190080
-	   case 4:
-		   inst.Src0_Sel  = 65535
-	   case 5:
-		   inst.Src0_Sel  = 4294901760
-	   case 6:
-		   inst.Src0_Sel = 4294967295
-	   }
-
-		switch  src1_sel_info {
+	   switch dst_unused {
 		case 0:
-			inst.Src1_Sel = 255
+	    case 1:
+			log.Panicf("DST_UNUSED SEXT is not implemented")
+	    case 2:
+			log.Panicf("DST_UNUSED PRESERVE is not implemented")
+	   }
+
+	   switch clamp {
+	   case 0:
+	   case 1:
+		   log.Panicf("CLAMP is not implemented")
+	   }
+
+	   switch  src0_sel {
+	   case 0:
+		   inst.Src0_Sel = 0xff
+	   case 1:
+		   inst.Src0_Sel  = 0xff00
+	   case 2:
+		   inst.Src0_Sel  =  0xff0000
+	   case 3:
+		   inst.Src0_Sel  =  0xff000000
+	   case 4:
+		   inst.Src0_Sel  = 0xffff
+	   case 5:
+		   inst.Src0_Sel  =  0xFFFF0000
+	   case 6:
+		   inst.Src0_Sel = 0xFFFFFFFF
+	   }
+
+	   switch src0_sext {
+	   case 0:
+	   case 1:
+		   log.Panicf("SRC0_SEXT is not implemented")
+	   }
+
+	   switch src0_neg {
+	   case 0:
+	   case 1:
+		   log.Panicf("SRC0_NEG when true is not implemented")
+	   }
+
+	   switch src0_abs {
+	   case 0:
+	   case 1:
+		   log.Panicf("SRC0_ABS is not implemented")
+	   }
+
+		switch  src1_sel {
+		case 0:
+			inst.Src1_Sel = 0xff
 		case 1:
-			inst.Src1_Sel  = 65280
+			inst.Src1_Sel  = 0xff00
 		case 2:
-			inst.Src1_Sel  = 16711680
+			inst.Src1_Sel  =  0xff0000
 		case 3:
-			inst.Src1_Sel  = 4278190080
+			inst.Src1_Sel  =  0xff000000
 		case 4:
-			inst.Src1_Sel  = 65535
+			inst.Src1_Sel  = 0xffff
 		case 5:
-			inst.Src1_Sel  = 4294901760
+			inst.Src1_Sel  =  0xFFFF0000
 		case 6:
-			inst.Src1_Sel = 4294967295
+			inst.Src1_Sel = 0xFFFFFFFF
 		}
+
+		switch src1_sext {
+		case 0:
+		case 1:
+			log.Panicf("SRC1_SEXT is not implemented")
+		}
+
+		switch src1_neg {
+		case 0:
+		case 1:
+			log.Panicf("SRC1_NEG when true is not implemented")
+		}
+
+		switch src1_abs {
+		case 0:
+		case 1:
+			log.Panicf("SRC1_ABS is not implemented")
+		}
+
+		inst.ByteSize += 4
 
 	} else {
 		inst.Src0, _ = getOperand(operand_bits)
