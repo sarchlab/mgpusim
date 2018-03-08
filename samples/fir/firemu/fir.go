@@ -10,6 +10,8 @@ import (
 
 	"flag"
 
+	"math"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/gcn3"
@@ -22,7 +24,8 @@ import (
 type FirKernelArgs struct {
 	output              driver.GPUPtr
 	filter              driver.GPUPtr
-	tempInput           driver.GPUPtr
+	input               driver.GPUPtr
+	history             driver.GPUPtr
 	numTaps             uint32
 	hiddenGlobalOffsetX int64
 	hiddenGlobalOffsetY int64
@@ -38,11 +41,14 @@ var (
 	logger     *log.Logger
 	gpuDriver  *driver.Driver
 
-	dataSize    int
-	numTaps     int
-	gFilterData driver.GPUPtr
-	gInputData  driver.GPUPtr
-	gOutputData driver.GPUPtr
+	dataSize     int
+	numTaps      int
+	inputData    []float32
+	filterData   []float32
+	gFilterData  driver.GPUPtr
+	gHistoryData driver.GPUPtr
+	gInputData   driver.GPUPtr
+	gOutputData  driver.GPUPtr
 )
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
@@ -69,7 +75,7 @@ func main() {
 	loadProgram()
 	initMem()
 	run()
-	//checkResult()
+	checkResult()
 }
 
 func initPlatform() {
@@ -107,19 +113,20 @@ func loadProgram() {
 }
 
 func initMem() {
-	dataSize = 409600
+	dataSize = 1024
 	numTaps = 16
 	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
-	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64((dataSize+numTaps)*4))
+	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
+	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
 	gOutputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
 
-	filterData := make([]float32, numTaps)
+	filterData = make([]float32, numTaps)
 	for i := 0; i < numTaps; i++ {
 		filterData[i] = float32(i)
 	}
 
-	inputData := make([]float32, dataSize+numTaps)
-	for i := 0; i < dataSize+numTaps; i++ {
+	inputData = make([]float32, dataSize)
+	for i := 0; i < dataSize; i++ {
 		inputData[i] = float32(i)
 	}
 
@@ -132,6 +139,7 @@ func run() {
 		gOutputData,
 		gFilterData,
 		gInputData,
+		gHistoryData,
 		uint32(numTaps),
 		0, 0, 0,
 	}
@@ -144,10 +152,25 @@ func run() {
 }
 
 func checkResult() {
-	output := make([]float32, dataSize)
-	gpuDriver.MemoryCopyDeviceToHost(output, gOutputData, globalMem.Storage)
+	gpuOutput := make([]float32, dataSize)
+	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, globalMem.Storage)
 
-	for i, o := range output {
-		fmt.Printf("%d: %f\n", i, o)
+	for i := 0; i < dataSize; i++ {
+		var sum float32
+		sum = 0
+
+		for j := 0; j < numTaps; j++ {
+			if i < j {
+				continue
+			}
+			sum += inputData[i-j] * filterData[j]
+		}
+
+		if math.Abs(float64(sum-gpuOutput[i])) >= 1e-5 {
+			log.Fatalf("At position %d, expected %f, but get %f.\n",
+				i, sum, gpuOutput[i])
+		}
 	}
+
+	log.Printf("Passed!\n")
 }
