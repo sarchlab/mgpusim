@@ -104,6 +104,7 @@ func main() {
 func initPlatform() {
 	// Simulation engine
 	engine = engines.NewSerialEngine()
+	//engine = engines.NewParallelEngine()
 
 	// Connection
 	connection = connections.NewDirectConnection(engine)
@@ -112,7 +113,7 @@ func initPlatform() {
 	gpuDriver = driver.NewDriver(engine)
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.EnableISADebug = true
+	gpuBuilder.EnableISADebug = false
 	gpu, globalMem = gpuBuilder.BuildR9Nano()
 
 	core.PlugIn(gpuDriver, "ToGPUs", connection)
@@ -138,7 +139,7 @@ func loadProgram() {
 }
 
 func initMem() {
-	dataSize = 256
+	dataSize = 1048576
 	numTaps = 16
 	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
 	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
