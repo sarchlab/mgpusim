@@ -85,6 +85,7 @@ func initPlatform() {
 	gpuBuilder.EnableISADebug = false
 	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
 
+	core.PlugIn(gpuDriver, "ToGPUs", connection)
 	core.PlugIn(gpu, "ToDriver", connection)
 	gpu.Driver = gpuDriver
 }
