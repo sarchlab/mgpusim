@@ -88,7 +88,7 @@ func initPlatform() {
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.EnableISADebug = false
+	gpuBuilder.EnableISADebug = true
 	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
 
 	core.PlugIn(gpuDriver, "ToGPUs", connection)
@@ -113,7 +113,7 @@ func loadProgram() {
 }
 
 func initMem() {
-	dataSize = 1024
+	dataSize = 256
 	numTaps = 16
 	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
 	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))

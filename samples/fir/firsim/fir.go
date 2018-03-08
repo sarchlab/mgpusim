@@ -138,7 +138,7 @@ func loadProgram() {
 }
 
 func initMem() {
-	dataSize = 1024
+	dataSize = 256
 	numTaps = 16
 	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
 	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
