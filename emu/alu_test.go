@@ -130,6 +130,28 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run FLAT_STORE_DWORDX3", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Flat
+		state.inst.Opcode = 31
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 12)
+			layout.DATA[i*4] = uint32(i)
+			layout.DATA[(i*4)+1] = uint32(i)
+			layout.DATA[(i*4)+2] = uint32(i)
+		}
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			buf, err := storage.Read(uint64(i*4), uint64(12))
+			Expect(err).To(BeNil())
+			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(i)))
+		}
+	})
+
 	It("should run S_LOAD_DWORD", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Smem

@@ -59,7 +59,7 @@ type Inst struct {
 	//Fields for SDWA extensions
 	IsSdwa				bool
 	Dst_Sel             uint32
-	Dst_Unused			int
+	Dst_Unused			uint32
 	Src0_Sel            uint32
 	Src0_Sext           bool
 	Src0_Neg            bool

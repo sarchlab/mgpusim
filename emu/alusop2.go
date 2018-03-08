@@ -158,7 +158,7 @@ func (u *ALU) runSXOR64(state InstEmuState) {
 func (u *ALU) runSLSHRB32(state InstEmuState) {
 
 	sp := state.Scratchpad().AsSOP2()
-	sp.DST = sp.SRC0 << (sp.SRC1 & 15)
+	sp.DST = sp.SRC0 >> (sp.SRC1 & 15)
 
 	if sp.DST != 0 {
 		sp.SCC = 1
