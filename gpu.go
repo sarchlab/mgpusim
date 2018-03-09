@@ -6,13 +6,13 @@ import (
 	"gitlab.com/yaotsu/core"
 )
 
-// A Gpu is the unit that one kernel can run on.
+// A GPU is the unit that one kernel can run on.
 //
-// A Gpu is a Yaotsu component and it defines the port "ToDriver". Driver is
+// A GPU is a Yaotsu component and it defines the port "ToDriver". Driver is
 // a piece of software that conceptually runs in the Cpu. Therefore, all the
 // CPU-GPU communication happens on the connection connecting the "ToDriver"
 // port.
-type Gpu struct {
+type GPU struct {
 	*core.ComponentBase
 
 	Driver           core.Component // The DriverComponent
@@ -21,9 +21,9 @@ type Gpu struct {
 	CUs              []core.Component
 }
 
-// NewGpu returns a newly created GPU
-func NewGpu(name string) *Gpu {
-	g := new(Gpu)
+// NewGPU returns a newly created GPU
+func NewGPU(name string) *GPU {
+	g := new(GPU)
 	g.ComponentBase = core.NewComponentBase(name)
 	g.AddPort("ToDriver")
 	g.AddPort("ToCommandProcessor")
@@ -33,7 +33,7 @@ func NewGpu(name string) *Gpu {
 // Handle defines how a GPU handles core.
 //
 // A GPU should not handle any event by itself.
-func (g *Gpu) Handle(e core.Event) error {
+func (g *GPU) Handle(e core.Event) error {
 	return nil
 }
 
@@ -41,7 +41,7 @@ func (g *Gpu) Handle(e core.Event) error {
 //
 // The GPU itself does not respond to requests, but it always forward to the
 // CommandProcessor.
-func (g *Gpu) Recv(req core.Req) *core.Error {
+func (g *GPU) Recv(req core.Req) *core.Error {
 	if req.Src() == g.CommandProcessor { // From the CommandProcessor
 		req.SetSrc(g)
 		req.SetDst(g.Driver)

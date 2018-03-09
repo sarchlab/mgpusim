@@ -36,13 +36,7 @@ func (h *MapWGLog) Pos() core.HookPos {
 func (h *MapWGLog) Func(item interface{}, domain core.Hookable, info interface{}) {
 	req := item.(*gcn3.MapWGReq)
 	wg := req.WG
-	str := fmt.Sprintf("%.10f MapWG %d ok: %t, CU: %d\n",
-		req.Time(), wg.IDX, req.Ok, req.CUID)
-	if req.Ok {
-		for _, info := range req.WfDispatchMap {
-			str += fmt.Sprintf("\t wf SIMD %d, SGPR offset %d, VGPR offset %d, LDS offset %d\n",
-				info.SIMDID, info.SGPROffset, info.VGPROffset, info.LDSOffset)
-		}
-	}
+	str := fmt.Sprintf("%.10f MapWG %d ok: %t\n",
+		req.Time(), wg.IDX, req.Ok)
 	h.Logger.Print(str)
 }

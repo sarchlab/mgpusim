@@ -48,7 +48,7 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 
 	wf := item.(*timing.Wavefront)
 	wf.RLock()
-	inst := wf.Inst
+	inst := wf.ManagedInst()
 	wf.RUnlock()
 	instInfo := info.(*timing.InstHookInfo)
 

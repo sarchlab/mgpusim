@@ -15,8 +15,10 @@ type WGMapper interface {
 }
 
 // WGMapperImpl is a sub-component of scheduler. It is responsible for allocate
-// and reserve resources for the incomming MapWgReq.
+// and reserve resources for the incoming MapWgReq.
 type WGMapperImpl struct {
+	cu *ComputeUnit
+
 	NumWfPool       int
 	WfPoolFreeCount []int
 
@@ -35,8 +37,10 @@ type WGMapperImpl struct {
 
 // NewWGMapper returns a newly created WgMapper with default compute unit
 // setting
-func NewWGMapper(numWfPool int) *WGMapperImpl {
+func NewWGMapper(cu *ComputeUnit, numWfPool int) *WGMapperImpl {
 	m := new(WGMapperImpl)
+
+	m.cu = cu
 
 	m.NumWfPool = numWfPool
 
@@ -93,9 +97,9 @@ func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 	ok := true
 
 	for _, wf := range req.WG.Wavefronts {
-		info := new(gcn3.WfDispatchInfo)
+		info := new(WfDispatchInfo)
 		info.Wavefront = wf
-		req.WfDispatchMap = append(req.WfDispatchMap, info)
+		m.cu.WfToDispatch[wf] = info
 	}
 
 	if !m.withinSGPRLimitation(req) || !m.withinLDSLimitation(req) {
@@ -116,9 +120,11 @@ func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) withinSGPRLimitation(req *gcn3.MapWGReq) bool {
-	co := req.CodeObject
+	co := req.WG.CodeObject()
 	required := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
-	for _, info := range req.WfDispatchMap {
+	for _, wf := range req.WG.Wavefronts {
+		// for _, info := range m.cu.WfToDispatch {
+		info := m.cu.WfToDispatch[wf]
 		offset, ok := m.SGprMask.NextRegion(required, AllocStatusFree)
 		if !ok {
 			return false
@@ -130,7 +136,7 @@ func (m *WGMapperImpl) withinSGPRLimitation(req *gcn3.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) withinLDSLimitation(req *gcn3.MapWGReq) bool {
-	co := req.CodeObject
+	co := req.WG.CodeObject()
 	required := m.unitsOccupy(int(co.WGGroupSegmentByteSize), m.LDSGranularity)
 	offset, ok := m.LDSMask.NextRegion(required, AllocStatusFree)
 	if !ok {
@@ -138,14 +144,15 @@ func (m *WGMapperImpl) withinLDSLimitation(req *gcn3.MapWGReq) bool {
 	}
 
 	// Set the information
-	for _, info := range req.WfDispatchMap {
+	for _, wf := range req.WG.Wavefronts {
+		info := m.cu.WfToDispatch[wf]
 		info.LDSOffset = offset * m.LDSGranularity
 	}
 	m.LDSMask.SetStatus(offset, required, AllocStatusToReserve)
 	return true
 }
 
-// Maps the wfs of a workgroup to the SIMDs in the compute unit
+// Maps the wfs of a work-group to the SIMDs in the compute unit
 // This function sets the value of req.WfDispatchMap, to keep the information
 // about which SIMD should a wf dispatch to. This function also returns
 // a boolean value for if the matching is successful.
@@ -153,9 +160,10 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
 	nextSIMD := 0
 	vgprToUse := make([]int, m.NumWfPool)
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
-	co := req.CodeObject
+	co := req.WG.CodeObject()
 
-	for _, info := range req.WfDispatchMap {
+	for _, wf := range req.WG.Wavefronts {
+		info := m.cu.WfToDispatch[wf]
 		firstSIMDTested := nextSIMD
 		firstTry := true
 		found := false
@@ -190,7 +198,7 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
 }
 
 func (m *WGMapperImpl) reserveResources(req *gcn3.MapWGReq) {
-	for _, info := range req.WfDispatchMap {
+	for _, info := range m.cu.WfToDispatch {
 		m.WfPoolFreeCount[info.SIMDID]--
 	}
 
@@ -202,6 +210,7 @@ func (m *WGMapperImpl) reserveResources(req *gcn3.MapWGReq) {
 }
 
 func (m *WGMapperImpl) clearTempReservation(req *gcn3.MapWGReq) {
+	m.cu.WfToDispatch = nil
 	m.SGprMask.ConvertStatus(AllocStatusToReserve, AllocStatusFree)
 	m.LDSMask.ConvertStatus(AllocStatusToReserve, AllocStatusFree)
 	for i := 0; i < m.NumWfPool; i++ {
@@ -210,10 +219,9 @@ func (m *WGMapperImpl) clearTempReservation(req *gcn3.MapWGReq) {
 	}
 }
 
-// UnmapWG will remove all the resource reservation of a workgroup
+// UnmapWG will remove all the resource reservation of a work-group
 func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
-	req := wg.MapReq
-	co := req.CodeObject
+	co := wg.CodeObject()
 	for _, wf := range wg.Wfs {
 		m.WfPoolFreeCount[wf.SIMDID]++
 
