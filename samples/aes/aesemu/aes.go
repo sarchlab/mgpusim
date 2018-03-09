@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"debug/elf"
 	"encoding/binary"
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -22,52 +20,41 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/connections"
 	"gitlab.com/yaotsu/core/engines"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/driver"
+	"gitlab.com/yaotsu/gcn3/gpubuilder"
 	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 )
 
-
-type hostComponent struct {
-   *core.ComponentBase
-}
-
-func newHostComponent() *hostComponent {
-	h := new(hostComponent)
-	h.ComponentBase = core.NewComponentBase( "host")
-	h.AddPort("ToGpu")
-	return h
-}
-
-func (h *hostComponent) Recv(req core.Req) *core.Error {
-	switch req.(type) {
-	case *kernels.LaunchKernelReq:
-		log.Println("Kernel completed.")
-	}
-	return nil
-}
-
-func (h *hostComponent) Handle(evt core.Event) error {
-	return nil
+type AesKernelArgs struct {
+	input               driver.GPUPtr
+	expandedKey         driver.GPUPtr
+	s                   driver.GPUPtr
+	hiddenGlobalOffsetX int64
+	hiddenGlobalOffsetY int64
+	hiddenGlobalOffsetZ int64
 }
 
 var (
 	engine     core.Engine
 	globalMem  *mem.IdealMemController
-	gpu        *gcn3.Gpu
-	host       *hostComponent
+	gpu        *gcn3.GPU
 	connection core.Connection
 	hsaco      *insts.HsaCo
 	logger     *log.Logger
-)
+	gpuDriver  *driver.Driver
 
+	key        []uint32
+	input      []uint8
+	s          []uint8
+	gInputData driver.GPUPtr
+	gKeyData   driver.GPUPtr
+	gSData     driver.GPUPtr
+)
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
 var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
-
 
 func main() {
 	flag.Parse()
@@ -103,66 +90,22 @@ func main() {
 	checkResult()
 }
 
-
 func initPlatform() {
-	// Simulation engine
 	engine = engines.NewSerialEngine()
-	// engine.AcceptHook(core.NewLogEventHook(log.New(os.Stdout, "", 0)))
+	//engine = engines.NewParallelEngine()
+	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	// Connection
+	gpuDriver = driver.NewDriver(engine)
 	connection = connections.NewDirectConnection(engine)
 
-	// Memory
-	globalMem = mem.NewIdealMemController("GlobalMem", engine, 4*mem.GB)
-	globalMem.Freq = 1 * util.GHz
-	globalMem.Latency = 1
+	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
+	gpuBuilder.Driver = gpuDriver
+	gpuBuilder.EnableISADebug = false
+	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
 
-	// Host
-	host = newHostComponent()
-
-	// Gpu
-	gpu = gcn3.NewGpu("GPU")
-	commandProcessor := gcn3.NewCommandProcessor("GPU.CommandProcessor")
-
-	dispatcher := gcn3.NewDispatcher("GPU.Dispatcher", engine,
-		new(kernels.GridBuilderImpl))
-	dispatcher.Freq = 1 * util.GHz
-	wgCompleteLogger := new(gcn3.WGCompleteLogger)
-	wgCompleteLogger.Logger = logger
-	dispatcher.AcceptHook(wgCompleteLogger)
-
-	gpu.CommandProcessor = commandProcessor
-	gpu.Driver = host
-	commandProcessor.Dispatcher = dispatcher
-	commandProcessor.Driver = gpu
-	disassembler := insts.NewDisassembler()
-	isaDebug, err := os.Create("isa.debug")
-	if err != nil {
-		fmt.Print("Isa debug file failed to open\n")
-	}
-	for i := 0; i < 4; i++ {
-		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
-		alu := emu.NewALU(globalMem.Storage)
-		computeUnit := emu.NewComputeUnit(fmt.Sprintf("%s.cu%d", gpu.Name(), i),
-			engine, disassembler, scratchpadPreparer, alu)
-		computeUnit.Freq = 1 * util.GHz
-		computeUnit.GlobalMemStorage = globalMem.Storage
-		dispatcher.CUs = append(dispatcher.CUs, computeUnit)
-		core.PlugIn(computeUnit, "ToDispatcher", connection)
-
-		wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
-		computeUnit.AcceptHook(wfHook)
-	}
-
-	// Connection
-	core.PlugIn(gpu, "ToCommandProcessor", connection)
+	core.PlugIn(gpuDriver, "ToGPUs", connection)
 	core.PlugIn(gpu, "ToDriver", connection)
-	core.PlugIn(commandProcessor, "ToDriver", connection)
-	core.PlugIn(commandProcessor, "ToDispatcher", connection)
-	core.PlugIn(host, "ToGpu", connection)
-	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
-	core.PlugIn(dispatcher, "ToCUs", connection)
-	core.PlugIn(globalMem, "Top", connection)
+	gpu.Driver = gpuDriver
 }
 
 func loadProgram() {
@@ -177,100 +120,81 @@ func loadProgram() {
 		log.Fatal(err)
 	}
 
-	err = globalMem.Storage.Write(0, hsacoData)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	hsaco = insts.NewHsaCoFromData(hsacoData)
 	fmt.Println(hsaco.Info())
 }
 
 func initMem() {
-	// Write the key
-	key := []uint{2775827103,2708915352,2843725459,2775761052,374450381,38059738,442344641,104905438,
-		2928140272,267459432,2794378747,66852199,1843523912,1873104786,1979247443,1941459341,3327558271,
-		3383204119,1864977644,1825921419,1038236277,1380414951,666869428,1409797945,199004255,3262843208,
-		2907850148,3246857263,1173726816,397595527,806178099,1678410250,2094003996,3199532628,333888496,
-		3529615327,4028300030,3886557561,3617940554,3014649408,625081969,2616524837,2282994645,1517427722,
-		1314547353,2851229664,2119642026,3455634922,620526028,3205069289,924500540,1835589174}
-	keybuffer := make([]byte,0)
-	buffer := bytes.NewBuffer(keybuffer)
-	binary.Write(buffer, binary.LittleEndian,key)
 
-	err := globalMem.Storage.Write(4*mem.KB, buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
+	key = []uint32{
+		0x00010203, 0x04050607, 0x08090a0b, 0x0c0d0e0f, 0x10111213, 0x14151617,
+		0x18191a1b, 0x1c1d1e1f, 0xa573c29f, 0xa176c498, 0xa97fce93, 0xa572c09c,
+		0x1651a8cd, 0x0244beda, 0x1a5da4c1, 0x0640bade, 0xae87dff0, 0x0ff11b68,
+		0xa68ed5fb, 0x03fc1567, 0x6de1f148, 0x6fa54f92, 0x75f8eb53, 0x73b8518d,
+		0xc656827f, 0xc9a79917, 0x6f294cec, 0x6cd5598b, 0x3de23a75, 0x524775e7,
+		0x27bf9eb4, 0x5407cf39, 0x0bdc905f, 0xc27b0948, 0xad5245a4, 0xc1871c2f,
+		0x45f5a660, 0x17b2d387, 0x300d4d33, 0x640a820a, 0x7ccff71c, 0xbeb4fe54,
+		0x13e6bbf0, 0xd261a7df, 0xf01afafe, 0xe7a82979, 0xd7a5644a, 0xb3afe640,
+		0x2541fe71, 0x9bf50025, 0x8813bbd5, 0x5a721c0a, 0x4e5a6699, 0xa9f24fe0,
+		0x7e572baa, 0xcdf8cdea, 0x24fc79cc, 0xbf0979e9, 0x371ac23c, 0x6d68de36,
 	}
 
-	// Write the input
-	inputData := make([]byte, 0)
-	buffer = bytes.NewBuffer(inputData)
-	for i := 0; i < 32768; i++ {
-		binary.Write(buffer, binary.LittleEndian, uint8(i))
-	}
-	err = globalMem.Storage.Write(8*mem.KB, buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
+	s = []uint8{
+		0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+		0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+		0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+		0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+		0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+		0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+		0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+		0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+		0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+		0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+		0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+		0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+		0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+		0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+		0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+		0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 	}
 
+	input = []uint8{
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+		0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+	}
+
+	gKeyData = gpuDriver.AllocateMemory(globalMem.Storage,
+		uint64(binary.Size(key)))
+	gSData = gpuDriver.AllocateMemory(globalMem.Storage,
+		uint64(binary.Size(s)))
+	gInputData = gpuDriver.AllocateMemory(globalMem.Storage,
+		uint64(binary.Size(input)))
+
+	gpuDriver.MemoryCopyHostToDevice(gKeyData, key, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gSData, s, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gInputData, input, globalMem.Storage)
 }
 
 func run() {
-	kernelArgsBuffer := bytes.NewBuffer(make([]byte, 0))
-
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(8192)) // Input
-	binary.Write(kernelArgsBuffer, binary.LittleEndian, uint64(4096)) // Key
-
-	err := globalMem.Storage.Write(65536, kernelArgsBuffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
+	kernArg := AesKernelArgs{
+		gInputData, gKeyData, gSData,
+		0, 0, 0,
 	}
 
-	req := kernels.NewLaunchKernelReq()
-	req.HsaCo = hsaco
-	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = 256 * 4
-	req.Packet.GridSizeY = 1
-	req.Packet.GridSizeZ = 1
-	req.Packet.WorkgroupSizeX = 256
-	req.Packet.WorkgroupSizeY = 1
-	req.Packet.WorkgroupSizeZ = 1
-	req.Packet.KernelObject = 0
-	req.Packet.KernargAddress = 65536
+	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
+		[3]uint32{uint32(len(input)), 1, 1},
+		[3]uint16{256, 1, 1},
+		&kernArg,
+	)
 
-	var buffer bytes.Buffer
-	binary.Write(&buffer, binary.LittleEndian, req.Packet)
-	err = globalMem.Storage.Write(0x11000, buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req.PacketAddress = 0x11000
-	req.SetSrc(host)
-	req.SetDst(gpu)
-	req.SetSendTime(0)
-	connErr := connection.Send(req)
-	if connErr != nil {
-		log.Fatal(connErr)
-	}
-
-	engine.Run()
 }
 
 func checkResult() {
-	buf, err := globalMem.Storage.Read(12*mem.KB, 1024*4)
-	if err != nil {
-		log.Fatal(nil)
+	output := make([]uint8, len(input))
+	gpuDriver.MemoryCopyDeviceToHost(output, gInputData, globalMem.Storage)
+
+	for i, o := range output {
+		fmt.Printf("%d: %d\n", i, o)
 	}
 
-	for i := 0; i < 1024; i++ {
-		bits := binary.LittleEndian.Uint32(buf[i*4 : i*4+4])
-		filtered := math.Float32frombits(bits)
-
-		fmt.Printf("%d: %f\n", i, filtered)
-	}
 }
-
-
-
