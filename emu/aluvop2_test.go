@@ -13,15 +13,14 @@ import (
 var _ = Describe("ALU", func() {
 
 	var (
-		alu     *ALU
+		alu     *ALUImpl
 		state   *mockInstState
 		storage *mem.Storage
 	)
 
 	BeforeEach(func() {
 		storage = mem.NewStorage(1 * mem.GB)
-		alu = new(ALU)
-		alu.Storage = storage
+		alu = NewALUImpl(storage)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
@@ -254,7 +253,7 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(0xffffffffffffffff)))
 	})
 
-	It("should run V_ADD_I32, with negtive overflow", func() {
+	It("should run V_ADD_I32, with negative overflow", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
 		state.inst.Opcode = 25

@@ -23,7 +23,7 @@ message Event {
 }
 
 message Inst {
-    uint64 id = 1;
+    string id = 1;
     uint32 simd_id = 2;
     uint32 wavefront_id = 3;
     uint32 workgroup_id = 4;

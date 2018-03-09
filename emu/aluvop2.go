@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-func (u *ALU) runVOP2(state InstEmuState) {
+func (u *ALUImpl) runVOP2(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -47,7 +47,7 @@ func (u *ALU) runVOP2(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCNDMASKB32(state InstEmuState) {
+func (u *ALUImpl) runVCNDMASKB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	if inst.IsSdwa == false {
@@ -69,7 +69,7 @@ func (u *ALU) runVCNDMASKB32(state InstEmuState) {
 
 }
 
-func (u *ALU) runVADDF32(state InstEmuState) {
+func (u *ALUImpl) runVADDF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	if inst.IsSdwa == false {
@@ -90,10 +90,10 @@ func (u *ALU) runVADDF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVSUBF32(state InstEmuState) {
+func (u *ALUImpl) runVSUBF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
-	if inst.IsSdwa ==false {
+	if inst.IsSdwa == false {
 		var i uint
 		for i = 0; i < 64; i++ {
 			if !u.laneMasked(sp.EXEC, i) {
@@ -110,7 +110,7 @@ func (u *ALU) runVSUBF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVSUBREVF32(state InstEmuState) {
+func (u *ALUImpl) runVSUBREVF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	if inst.IsSdwa == false {
@@ -130,7 +130,7 @@ func (u *ALU) runVSUBREVF32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMULF32(state InstEmuState) {
+func (u *ALUImpl) runVMULF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	if inst.IsSdwa == false {
@@ -146,11 +146,12 @@ func (u *ALU) runVMULF32(state InstEmuState) {
 			sp.DST[i] = uint64(math.Float32bits(dst))
 		}
 	} else {
-		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
+		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
 
 	}
 }
-func (u *ALU) runVLSHRREVB32(state InstEmuState){
+
+func (u *ALUImpl) runVLSHRREVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	if inst.IsSdwa == false {
@@ -165,11 +166,12 @@ func (u *ALU) runVLSHRREVB32(state InstEmuState){
 			sp.DST[i] = uint64(dst)
 		}
 	} else {
-		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
+		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
 
 	}
 }
-func (u *ALU) runVASHRREVI32(state InstEmuState) {
+
+func (u *ALUImpl) runVASHRREVI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	if inst.IsSdwa == false {
@@ -187,9 +189,9 @@ func (u *ALU) runVASHRREVI32(state InstEmuState) {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
 
 	}
-	}
+}
 
-func (u *ALU) runVLSHLREVB32(state InstEmuState) {
+func (u *ALUImpl) runVLSHLREVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	if inst.IsSdwa == false {
@@ -209,7 +211,7 @@ func (u *ALU) runVLSHLREVB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVANDB32(state InstEmuState) {
+func (u *ALUImpl) runVANDB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	var i uint
@@ -223,7 +225,7 @@ func (u *ALU) runVANDB32(state InstEmuState) {
 			dst := src0 & src1
 			sp.DST[i] = uint64(dst)
 		}
-	}else {
+	} else {
 		for i = 0; i < 64; i++ {
 			src0 := uint32(sp.SRC0[i]) & inst.Src0_Sel
 			src1 := uint32(sp.SRC1[i]) & inst.Src1_Sel
@@ -231,9 +233,9 @@ func (u *ALU) runVANDB32(state InstEmuState) {
 			sp.DST[i] = uint64(dst)
 		}
 	}
-	}
+}
 
-func (u *ALU) runVORB32(state InstEmuState) {
+func (u *ALUImpl) runVORB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	var i uint
@@ -260,8 +262,7 @@ func (u *ALU) runVORB32(state InstEmuState) {
 	}
 }
 
-
-func (u *ALU) runVXORB32(state InstEmuState) {
+func (u *ALUImpl) runVXORB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	var i uint
@@ -288,11 +289,7 @@ func (u *ALU) runVXORB32(state InstEmuState) {
 	}
 }
 
-
-
-
-
-func (u *ALU) runVMACF32(state InstEmuState) {
+func (u *ALUImpl) runVMACF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	var dst float32
@@ -314,11 +311,11 @@ func (u *ALU) runVMACF32(state InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-		}
+	}
 
 }
 
-func (u *ALU) runVADDI32(state InstEmuState) {
+func (u *ALUImpl) runVADDI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	inst := state.Inst()
 	sp.VCC = 0
@@ -357,8 +354,7 @@ func (u *ALU) runVADDI32(state InstEmuState) {
 	}
 }
 
-
-func (u *ALU) runVSUBI32(state InstEmuState) {
+func (u *ALUImpl) runVSUBI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	sp.VCC = 0
 	inst := state.Inst()
@@ -384,7 +380,7 @@ func (u *ALU) runVSUBI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVSUBREVI32(state InstEmuState) {
+func (u *ALUImpl) runVSUBREVI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	sp.VCC = 0
 	inst := state.Inst()
@@ -410,7 +406,7 @@ func (u *ALU) runVSUBREVI32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVADDCU32(state InstEmuState) {
+func (u *ALUImpl) runVADDCU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP2()
 	newVCC := uint64(0)
 	inst := state.Inst()

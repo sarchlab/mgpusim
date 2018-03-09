@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-func (u *ALU) runVOP1(state InstEmuState) {
+func (u *ALUImpl) runVOP1(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 1:
@@ -16,6 +16,8 @@ func (u *ALU) runVOP1(state InstEmuState) {
 		u.runVCVTF32U32(state)
 	case 7:
 		u.runVCVTU32F32(state)
+	case 8:
+		u.runVCVTI32F32(state)
 	case 35:
 		u.runVRCPIFLAGF32(state)
 	default:
@@ -23,7 +25,7 @@ func (u *ALU) runVOP1(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVMOVB32(state InstEmuState) {
+func (u *ALUImpl) runVMOVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -35,7 +37,7 @@ func (u *ALU) runVMOVB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVREADFIRSTLANEB32(state InstEmuState) {
+func (u *ALUImpl) runVREADFIRSTLANEB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	var laneid uint
@@ -52,7 +54,7 @@ func (u *ALU) runVREADFIRSTLANEB32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCVTF32U32(state InstEmuState) {
+func (u *ALUImpl) runVCVTF32U32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
 	var i uint
@@ -65,7 +67,7 @@ func (u *ALU) runVCVTF32U32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVCVTU32F32(state InstEmuState) {
+func (u *ALUImpl) runVCVTU32F32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
 	var i uint
@@ -90,7 +92,32 @@ func (u *ALU) runVCVTU32F32(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runVRCPIFLAGF32(state InstEmuState) {
+func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src := math.Float32frombits(uint32(sp.SRC0[i]))
+		var dst uint64
+		if math.IsNaN(float64(src)) || math.IsNaN(float64(0-src)) {
+			dst = 0
+		} else if int32(src) > math.MaxInt32 {
+			dst = math.MaxInt32
+		} else if int32(src) < (0 - math.MaxInt32) {
+			dst = uint64(int32ToBits(0 - math.MaxInt32))
+		} else {
+			dst = uint64(int32ToBits(int32(src)))
+		}
+
+		sp.DST[i] = dst
+	}
+
+}
+
+func (u *ALUImpl) runVRCPIFLAGF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
 	var i uint

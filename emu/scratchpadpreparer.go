@@ -2,6 +2,8 @@ package emu
 
 import (
 	"log"
+	"math"
+
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
@@ -56,7 +58,7 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	case insts.Sopp:
 		p.prepareSOPP(instEmuState, wf)
 	case insts.Sopk:
-		p.prepareSOPK(instEmuState,wf)
+		p.prepareSOPK(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -218,17 +220,16 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 	p.readOperand(inst.SImm16, wf, 0, scratchPad[16:24])
 }
 
-
 func (p *ScratchpadPreparerImpl) prepareSOPK(
 	instEmuState InstEmuState,
 	wf *Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
-    layout := scratchPad.AsSOPK()
+	layout := scratchPad.AsSOPK()
 	layout.SCC = wf.SCC
 	p.readOperand(inst.Dst, wf, 0, scratchPad[0:8])
-	p.readOperand(inst.SImm16,wf,0,scratchPad[8:16])
+	p.readOperand(inst.SImm16, wf, 0, scratchPad[8:16])
 
 }
 
@@ -288,7 +289,7 @@ func (p *ScratchpadPreparerImpl) commitSOP1(
 	wf.WriteReg(insts.Regs[insts.Exec], 1, 0, scratchpad[16:24])
 	wf.WriteReg(insts.Regs[insts.Scc], 1, 0, scratchpad[24:25])
 	wf.PC = scratchpad.AsSOP1().PC
-	}
+}
 
 func (p *ScratchpadPreparerImpl) commitSOP2(
 	instEmuState InstEmuState,
@@ -404,8 +405,7 @@ func (p *ScratchpadPreparerImpl) commitSOPK(
 	scratchpad := instEmuState.Scratchpad()
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[0:8])
 	wf.SCC = scratchpad.AsSOPK().SCC
-	}
-
+}
 
 func (p *ScratchpadPreparerImpl) readOperand(
 	operand *insts.Operand,
@@ -418,6 +418,8 @@ func (p *ScratchpadPreparerImpl) readOperand(
 		copy(buf, wf.ReadReg(operand.Register, operand.RegCount, laneID))
 	case insts.IntOperand:
 		copy(buf, insts.Uint64ToBytes(uint64(operand.IntValue)))
+	case insts.FloatOperand:
+		copy(buf, insts.Uint64ToBytes(uint64(math.Float32bits(float32(operand.FloatValue)))))
 	case insts.LiteralConstant:
 		copy(buf, insts.Uint32ToBytes(operand.LiteralConstant))
 	default:
