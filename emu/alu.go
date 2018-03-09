@@ -70,11 +70,11 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 	case 20:
 		u.runFlatLoadDWord(state)
 	case 23:
-		u.runFlatLoadDWordX3(state)
+		u.runFlatLoadDWordX4(state)
 	case 28:
 		u.runFlatStoreDWord(state)
 	case 31:
-		u.runFlatStoreDWordX3(state)
+		u.runFlatStoreDWordX4(state)
 	default:
 		log.Panicf("Opcode %d for FLAT format is not implemented", inst.Opcode)
 	}
@@ -122,17 +122,19 @@ func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runFlatLoadDWordX3(state InstEmuState) {
+func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	for i := 0; i < 64; i++ {
-		buf, err := u.Storage.Read(sp.ADDR[i], uint64(12))
+		buf, err := u.Storage.Read(sp.ADDR[i], uint64(16))
 		if err != nil {
 			log.Panic(err)
 		}
 
-		sp.DST[i*4] = insts.BytesToUint32(buf)
+		sp.DST[i*4] = insts.BytesToUint32(buf[0:4])
+		sp.DST[i*4+1] = insts.BytesToUint32(buf[4:8])
+		sp.DST[i*4+2] = insts.BytesToUint32(buf[8:12])
+		sp.DST[i*4+3] = insts.BytesToUint32(buf[12:16])
 	}
-
 }
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
@@ -145,13 +147,14 @@ func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) runFlatStoreDWordX3(state InstEmuState) {
+func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	for i := 0; i < 64; i++ {
-		buf := make([]byte, 12)
+		buf := make([]byte, 16)
 		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
 		copy(buf[4:8], insts.Uint32ToBytes(sp.DATA[(i*4)+1]))
 		copy(buf[8:12], insts.Uint32ToBytes(sp.DATA[(i*4)+2]))
+		copy(buf[12:16], insts.Uint32ToBytes(sp.DATA[(i*4)+3]))
 
 		err := u.Storage.Write(sp.ADDR[i], buf)
 
