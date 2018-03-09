@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sort"
 	"strings"
-	"log"
 )
 
 func extractBits(number uint32, lo uint8, hi uint8) uint32 {
@@ -140,110 +140,107 @@ func (d *Disassembler) decodeVop1(inst *Inst, buf []byte) {
 
 func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
-	operand_bits := uint16(extractBits(bytes,0,8))
+	operand_bits := uint16(extractBits(bytes, 0, 8))
 	if operand_bits == 249 {
 
-       inst.IsSdwa = true
-       sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
-       src0_bits := int(extractBits(sdwa_bytes,0,7))
-       inst.Src0 = NewVRegOperand(src0_bits,src0_bits,0)
+		inst.IsSdwa = true
+		sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
+		src0_bits := int(extractBits(sdwa_bytes, 0, 7))
+		inst.Src0 = NewVRegOperand(src0_bits, src0_bits, 0)
 
-       dst_sel         := int(extractBits(sdwa_bytes,8,10))
-       dst_unused      := int(extractBits(sdwa_bytes,11,12))
-       clamp           := int(extractBits(sdwa_bytes,13,13))
-       src0_sel        := int(extractBits(sdwa_bytes,16,18))
-       src0_sext       := int(extractBits(sdwa_bytes,19,19))
-       src0_neg        := int(extractBits(sdwa_bytes,20,20))
-       src0_abs        := int(extractBits(sdwa_bytes,21,21))
-       src1_sel        := int(extractBits(sdwa_bytes,24,26))
-       src1_sext       := int(extractBits(sdwa_bytes,27,27))
-       src1_neg        := int(extractBits(sdwa_bytes,28,28))
-       src1_abs        := int(extractBits(sdwa_bytes,29,29))
+		dst_sel := int(extractBits(sdwa_bytes, 8, 10))
+		dst_unused := int(extractBits(sdwa_bytes, 11, 12))
+		clamp := int(extractBits(sdwa_bytes, 13, 13))
+		src0_sel := int(extractBits(sdwa_bytes, 16, 18))
+		src0_sext := int(extractBits(sdwa_bytes, 19, 19))
+		src0_neg := int(extractBits(sdwa_bytes, 20, 20))
+		src0_abs := int(extractBits(sdwa_bytes, 21, 21))
+		src1_sel := int(extractBits(sdwa_bytes, 24, 26))
+		src1_sext := int(extractBits(sdwa_bytes, 27, 27))
+		src1_neg := int(extractBits(sdwa_bytes, 28, 28))
+		src1_abs := int(extractBits(sdwa_bytes, 29, 29))
 
+		inst.Dst_Unused = uint32(extractBits(sdwa_bytes, 11, 12))
 
-
-       inst.Dst_Unused  = uint32(extractBits(sdwa_bytes,11,12))
-
-
-       switch  dst_sel {
-	   case 0:
-		   inst.Dst_Sel = 0xff
-	   case 1:
-		   inst.Dst_Sel = 0xff00
-	   case 2:
-		   inst.Dst_Sel = 0xff0000
-	   case 3:
-		   inst.Dst_Sel = 0xff000000
-	   case 4:
-		   inst.Dst_Sel = 0xffff
-	   case 5:
-		   inst.Dst_Sel = 0xFFFF0000
-	   case 6:
-		   inst.Dst_Sel = 0xFFFFFFFF
-	   }
-
-	   switch dst_unused {
+		switch dst_sel {
 		case 0:
-	    case 1:
+			inst.Dst_Sel = 0xff
+		case 1:
+			inst.Dst_Sel = 0xff00
+		case 2:
+			inst.Dst_Sel = 0xff0000
+		case 3:
+			inst.Dst_Sel = 0xff000000
+		case 4:
+			inst.Dst_Sel = 0xffff
+		case 5:
+			inst.Dst_Sel = 0xFFFF0000
+		case 6:
+			inst.Dst_Sel = 0xFFFFFFFF
+		}
+
+		switch dst_unused {
+		case 0:
+		case 1:
 			log.Panicf("DST_UNUSED SEXT is not implemented")
-	    case 2:
+		case 2:
 			log.Panicf("DST_UNUSED PRESERVE is not implemented")
-	   }
+		}
 
-	   switch clamp {
-	   case 0:
-	   case 1:
-		   log.Panicf("CLAMP is not implemented")
-	   }
+		switch clamp {
+		case 0:
+		case 1:
+			log.Panicf("CLAMP is not implemented")
+		}
 
-	   switch  src0_sel {
-	   case 0:
-		   inst.Src0_Sel = 0xff
-	   case 1:
-		   inst.Src0_Sel  = 0xff00
-	   case 2:
-		   inst.Src0_Sel  =  0xff0000
-	   case 3:
-		   inst.Src0_Sel  =  0xff000000
-	   case 4:
-		   inst.Src0_Sel  = 0xffff
-	   case 5:
-		   inst.Src0_Sel  =  0xFFFF0000
-	   case 6:
-		   inst.Src0_Sel = 0xFFFFFFFF
-	   }
+		switch src0_sel {
+		case 0:
+			inst.Src0_Sel = 0xff
+		case 1:
+			inst.Src0_Sel = 0xff00
+		case 2:
+			inst.Src0_Sel = 0xff0000
+		case 3:
+			inst.Src0_Sel = 0xff000000
+		case 4:
+			inst.Src0_Sel = 0xffff
+		case 5:
+			inst.Src0_Sel = 0xFFFF0000
+		case 6:
+			inst.Src0_Sel = 0xFFFFFFFF
+		}
 
-	   switch src0_sext {
-	   case 0:
-	   case 1:
-		   log.Panicf("SRC0_SEXT is not implemented")
-	   }
+		switch src0_sext {
+		case 0:
+		case 1:
+			log.Panicf("SRC0_SEXT is not implemented")
+		}
 
-	   switch src0_neg {
-	   case 0:
-	   case 1:
-		   log.Panicf("SRC0_NEG when true is not implemented")
-	   }
+		switch src0_neg {
+		case 0:
+		case 1:
+			log.Panicf("SRC0_NEG when true is not implemented")
+		}
 
-	   switch src0_abs {
-	   case 0:
-	   case 1:
-		   log.Panicf("SRC0_ABS is not implemented")
-	   }
+		switch src0_abs {
+		case 0:
+		case 1:
+			log.Panicf("SRC0_ABS is not implemented")
+		}
 
-		switch  src1_sel {
+		switch src1_sel {
 		case 0:
 			inst.Src1_Sel = 0xff
 		case 1:
-			inst.Src1_Sel  = 0xff00
+			inst.Src1_Sel = 0xff00
 		case 2:
-			inst.Src1_Sel  =  0xff0000
+			inst.Src1_Sel = 0xff0000
 		case 3:
-			inst.Src1_Sel  =  0xff000000
+			inst.Src1_Sel = 0xff000000
 		case 4:
-			inst.Src1_Sel  = 0xffff
+			inst.Src1_Sel = 0xffff
 		case 5:
-			inst.Src1_Sel  =  0xFFFF0000
+			inst.Src1_Sel = 0xFFFF0000
 		case 6:
 			inst.Src1_Sel = 0xFFFFFFFF
 		}
@@ -273,8 +270,8 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	}
 
 	if inst.Src0.OperandType == LiteralConstant {
-	inst.ByteSize += 4
-	inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
+		inst.ByteSize += 4
+		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
@@ -282,8 +279,7 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
 
-
-	}
+}
 
 func (d *Disassembler) decodeFlat(inst *Inst, buf []byte) {
 	bytesLo := binary.LittleEndian.Uint32(buf)
@@ -459,6 +455,11 @@ func (d *Disassembler) decodeSop1(inst *Inst, buf []byte) {
 	if strings.Contains(inst.InstName, "64") {
 		inst.Src0.RegCount = 2
 		inst.Dst.RegCount = 2
+	}
+
+	if inst.Src0.OperandType == LiteralConstant {
+		inst.ByteSize += 4
+		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 }
 func (d *Disassembler) decodeSopk(inst *Inst, buf []byte) {
@@ -745,15 +746,15 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"flat_load_sshort", 19, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_load_dword", 20, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_load_dwordx2", 21, FormatTable[Flat], 0, ExeUnitVALU})
-	d.addInstType(&InstType{"flat_load_dwordx4", 22, FormatTable[Flat], 0, ExeUnitVALU})
-	d.addInstType(&InstType{"flat_load_dwordx3", 23, FormatTable[Flat], 0, ExeUnitVALU})
+	d.addInstType(&InstType{"flat_load_dwordx3", 22, FormatTable[Flat], 0, ExeUnitVALU})
+	d.addInstType(&InstType{"flat_load_dwordx4", 23, FormatTable[Flat], 0, ExeUnitVALU})
 	// Unitl here
 	d.addInstType(&InstType{"flat_store_byte", 24, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_store_short", 26, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_store_dword", 28, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_store_dwordx2", 29, FormatTable[Flat], 0, ExeUnitVALU})
-	d.addInstType(&InstType{"flat_store_dwordx4", 30, FormatTable[Flat], 0, ExeUnitVALU})
-	d.addInstType(&InstType{"flat_store_dwordx3", 31, FormatTable[Flat], 0, ExeUnitVALU})
+	d.addInstType(&InstType{"flat_store_dwordx3", 30, FormatTable[Flat], 0, ExeUnitVALU})
+	d.addInstType(&InstType{"flat_store_dwordx4", 31, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_atomic_swap", 48, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_atomic_cmpswap", 49, FormatTable[Flat], 0, ExeUnitVALU})
 	d.addInstType(&InstType{"flat_atomic_add", 50, FormatTable[Flat], 0, ExeUnitVALU})
