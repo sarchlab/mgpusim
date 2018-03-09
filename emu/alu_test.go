@@ -39,7 +39,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_UBYTE", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Flat
-		state.inst.Opcode = 16;
+		state.inst.Opcode = 16
 
 		layout := state.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
@@ -52,7 +52,6 @@ var _ = Describe("ALU", func() {
 		for i := 0; i < 64; i++ {
 			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
 		}
-
 
 	})
 	It("should run FLAT_LOAD_USHORT", func() {
@@ -73,7 +72,7 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
-	It("should run FLAT_LOAD_DWROD", func() {
+	It("should run FLAT_LOAD_DWORD", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Flat
 		state.inst.Opcode = 20
@@ -90,24 +89,30 @@ var _ = Describe("ALU", func() {
 			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
 		}
 	})
-	It("should run FLAT_LOAD_DWORDX3", func() {
+
+	It("should run FLAT_LOAD_DWORDX4", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Flat
 		state.inst.Opcode = 23
 
 		layout := state.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 12)
-			storage.Write(uint64(i*12), insts.Uint32ToBytes(uint32(i)))
+			layout.ADDR[i] = uint64(i * 16)
+			storage.Write(uint64(i*16), insts.Uint32ToBytes(uint32(i)))
+			storage.Write(uint64(i*16+4), insts.Uint32ToBytes(uint32(i)))
+			storage.Write(uint64(i*16+8), insts.Uint32ToBytes(uint32(i)))
+			storage.Write(uint64(i*16+12), insts.Uint32ToBytes(uint32(i)))
 		}
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
 			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+			Expect(layout.DST[i*4+1]).To(Equal(uint32(i)))
+			Expect(layout.DST[i*4+2]).To(Equal(uint32(i)))
+			Expect(layout.DST[i*4+3]).To(Equal(uint32(i)))
 		}
 	})
-
 
 	It("should run FLAT_STORE_DWORD", func() {
 		state.inst = insts.NewInst()
@@ -129,25 +134,26 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
-	It("should run FLAT_STORE_DWORDX3", func() {
+	It("should run FLAT_STORE_DWORDX4", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Flat
 		state.inst.Opcode = 31
 
 		layout := state.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
-			layout.ADDR[i] = uint64(i * 12)
+			layout.ADDR[i] = uint64(i * 16)
 			layout.DATA[i*4] = uint32(i)
 			layout.DATA[(i*4)+1] = uint32(i)
 			layout.DATA[(i*4)+2] = uint32(i)
+			layout.DATA[(i*4)+3] = uint32(i)
 		}
 
 		alu.Run(state)
 
 		for i := 0; i < 64; i++ {
-			buf, err := storage.Read(uint64(i*4), uint64(12))
+			buf, err := storage.Read(uint64(i*16), uint64(16))
 			Expect(err).To(BeNil())
-			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(i)))
+			Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(i)))
 		}
 	})
 
@@ -206,7 +212,6 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[3]).To(Equal(uint32(220)))
 
 	})
-
 
 	It("should run S_CBRANCH", func() {
 		state.inst = insts.NewInst()

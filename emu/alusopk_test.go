@@ -4,19 +4,17 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/gcn3/insts"
-
 )
-
 
 var _ = Describe("ALU", func() {
 
 	var (
-		alu   *ALU
+		alu   *ALUImpl
 		state *mockInstState
 	)
 
 	BeforeEach(func() {
-		alu = new(ALU)
+		alu = new(ALUImpl)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
@@ -49,9 +47,3 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(uint8(1)))
 	})
 })
-
-
-
-
-
-
