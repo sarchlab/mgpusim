@@ -227,9 +227,14 @@ func (u *ALUImpl) runVANDB32(state InstEmuState) {
 		}
 	} else {
 		for i = 0; i < 64; i++ {
-			src0 := uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel)
-			src1 := uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel)
-			dst := (src0 & src1) & uint32(inst.Dst_Sel)
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+			src0 := u.sdwaSrcSelect(uint32(sp.SRC0[i]), inst.Src0Sel)
+			src1 := u.sdwaSrcSelect(uint32(sp.SRC1[i]), inst.Src1Sel)
+			dst := src0 & src1
+			dst = u.sdwaDstSelect(uint32(sp.DST[i]), dst,
+				inst.DstSel, inst.DstUnused)
 			sp.DST[i] = uint64(dst)
 		}
 	}
@@ -254,9 +259,11 @@ func (u *ALUImpl) runVORB32(state InstEmuState) {
 			if !u.laneMasked(sp.EXEC, i) {
 				continue
 			}
-			src0 := uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel)
-			src1 := uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel)
-			dst := (src0 | src1) & uint32(inst.Dst_Sel)
+			src0 := u.sdwaSrcSelect(uint32(sp.SRC0[i]), inst.Src0Sel)
+			src1 := u.sdwaSrcSelect(uint32(sp.SRC1[i]), inst.Src1Sel)
+			dst := src0 | src1
+			dst = u.sdwaDstSelect(uint32(sp.DST[i]), dst,
+				inst.DstSel, inst.DstUnused)
 			sp.DST[i] = uint64(dst)
 		}
 	}
@@ -281,9 +288,11 @@ func (u *ALUImpl) runVXORB32(state InstEmuState) {
 			if !u.laneMasked(sp.EXEC, i) {
 				continue
 			}
-			src0 := uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel)
-			src1 := uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel)
-			dst := (src0 ^ src1) & uint32(inst.Dst_Sel)
+			src0 := u.sdwaSrcSelect(uint32(sp.SRC0[i]), inst.Src0Sel)
+			src1 := u.sdwaSrcSelect(uint32(sp.SRC1[i]), inst.Src1Sel)
+			dst := src0 ^ src1
+			dst = u.sdwaDstSelect(uint32(sp.DST[i]), dst,
+				inst.DstSel, inst.DstUnused)
 			sp.DST[i] = uint64(dst)
 		}
 	}
@@ -342,13 +351,13 @@ func (u *ALUImpl) runVADDI32(state InstEmuState) {
 			if !u.laneMasked(sp.EXEC, i) {
 				continue
 			}
-			src0 := asInt32(uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel))
-			src1 := asInt32(uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel))
+			src0 := asInt32(uint32(sp.SRC0[i]) & uint32(inst.Src0Sel))
+			src1 := asInt32(uint32(sp.SRC1[i]) & uint32(inst.Src1Sel))
 			if (src1 > 0 && src0 > math.MaxInt32-src1) ||
 				(src1 < 0 && src0 < math.MinInt32+src1) {
 				sp.VCC |= 1 << uint32(i)
 			}
-			result := int32ToBits((src0 + src1) & asInt32(uint32(inst.Dst_Sel)))
+			result := int32ToBits((src0 + src1) & asInt32(uint32(inst.DstSel)))
 			sp.DST[i] = uint64(result)
 		}
 	}

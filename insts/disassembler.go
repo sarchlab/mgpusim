@@ -140,9 +140,9 @@ func (d *Disassembler) decodeVop1(inst *Inst, buf []byte) {
 
 func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
+
 	operand_bits := uint16(extractBits(bytes, 0, 8))
 	if operand_bits == 249 {
-
 		inst.IsSdwa = true
 		sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
 		src0_bits := int(extractBits(sdwa_bytes, 0, 7))
@@ -162,19 +162,19 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 
 		switch dst_sel {
 		case 0:
-			inst.Dst_Sel = 0xff
+			inst.DstSel = 0xff
 		case 1:
-			inst.Dst_Sel = 0xff00
+			inst.DstSel = 0xff00
 		case 2:
-			inst.Dst_Sel = 0xff0000
+			inst.DstSel = 0xff0000
 		case 3:
-			inst.Dst_Sel = 0xff000000
+			inst.DstSel = 0xff000000
 		case 4:
-			inst.Dst_Sel = 0xffff
+			inst.DstSel = 0xffff
 		case 5:
-			inst.Dst_Sel = 0xFFFF0000
+			inst.DstSel = 0xFFFF0000
 		case 6:
-			inst.Dst_Sel = 0xFFFFFFFF
+			inst.DstSel = 0xFFFFFFFF
 		}
 
 		switch dst_unused {
@@ -193,19 +193,19 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 
 		switch src0_sel {
 		case 0:
-			inst.Src0_Sel = 0xff
+			inst.Src0Sel = 0xff
 		case 1:
-			inst.Src0_Sel = 0xff00
+			inst.Src0Sel = 0xff00
 		case 2:
-			inst.Src0_Sel = 0xff0000
+			inst.Src0Sel = 0xff0000
 		case 3:
-			inst.Src0_Sel = 0xff000000
+			inst.Src0Sel = 0xff000000
 		case 4:
-			inst.Src0_Sel = 0xffff
+			inst.Src0Sel = 0xffff
 		case 5:
-			inst.Src0_Sel = 0xFFFF0000
+			inst.Src0Sel = 0xFFFF0000
 		case 6:
-			inst.Src0_Sel = 0xFFFFFFFF
+			inst.Src0Sel = 0xFFFFFFFF
 		}
 
 		switch src0_sext {
@@ -228,19 +228,19 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 
 		switch src1_sel {
 		case 0:
-			inst.Src1_Sel = 0xff
+			inst.Src1Sel = 0xff
 		case 1:
-			inst.Src1_Sel = 0xff00
+			inst.Src1Sel = 0xff00
 		case 2:
-			inst.Src1_Sel = 0xff0000
+			inst.Src1Sel = 0xff0000
 		case 3:
-			inst.Src1_Sel = 0xff000000
+			inst.Src1Sel = 0xff000000
 		case 4:
-			inst.Src1_Sel = 0xffff
+			inst.Src1Sel = 0xffff
 		case 5:
-			inst.Src1_Sel = 0xFFFF0000
+			inst.Src1Sel = 0xFFFF0000
 		case 6:
-			inst.Src1_Sel = 0xFFFFFFFF
+			inst.Src1Sel = 0xFFFFFFFF
 		}
 
 		switch src1_sext {
@@ -276,7 +276,6 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 	inst.Src1 = NewVRegOperand(bits, bits, 0)
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
-
 }
 
 func (d *Disassembler) decodeFlat(inst *Inst, buf []byte) {

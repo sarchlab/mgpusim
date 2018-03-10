@@ -94,17 +94,17 @@ type Inst struct {
 	Clamp               bool
 
 	//Fields for SDWA extensions
-	IsSdwa     bool
-	Dst_Sel    SDWASelect
-	Dst_Unused uint32
-	Src0_Sel   SDWASelect
-	Src0_Sext  bool
-	Src0_Neg   bool
-	Src0_Abs   bool
-	Src1_Sel   SDWASelect
-	Src1_Sext  bool
-	Src1_Neg   bool
-	Src1_Abs   bool
+	IsSdwa    bool
+	DstSel    SDWASelect
+	DstUnused uint32
+	Src0Sel   SDWASelect
+	Src0Sext  bool
+	Src0Neg   bool
+	Src0Abs   bool
+	Src1Sel   SDWASelect
+	Src1Sext  bool
+	Src1Neg   bool
+	Src1Abs   bool
 }
 
 // NewInst creates a zero-filled instruction
@@ -191,11 +191,11 @@ func (i Inst) sdwaVOP2String() string {
 	s := ""
 
 	s += " dst_sel:"
-	s += sdwaSelectString(i.Dst_Sel)
+	s += sdwaSelectString(i.DstSel)
 	s += " src0_sel:"
-	s += sdwaSelectString(i.Src0_Sel)
+	s += sdwaSelectString(i.Src0Sel)
 	s += " src1_sel:"
-	s += sdwaSelectString(i.Src1_Sel)
+	s += sdwaSelectString(i.Src1Sel)
 
 	return s
 }
