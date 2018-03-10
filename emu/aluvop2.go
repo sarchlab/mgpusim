@@ -227,9 +227,9 @@ func (u *ALUImpl) runVANDB32(state InstEmuState) {
 		}
 	} else {
 		for i = 0; i < 64; i++ {
-			src0 := uint32(sp.SRC0[i]) & inst.Src0_Sel
-			src1 := uint32(sp.SRC1[i]) & inst.Src1_Sel
-			dst  := (src0 & src1) & inst.Dst_Sel
+			src0 := uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel)
+			src1 := uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel)
+			dst := (src0 & src1) & uint32(inst.Dst_Sel)
 			sp.DST[i] = uint64(dst)
 		}
 	}
@@ -254,9 +254,9 @@ func (u *ALUImpl) runVORB32(state InstEmuState) {
 			if !u.laneMasked(sp.EXEC, i) {
 				continue
 			}
-			src0 := uint32(sp.SRC0[i]) & inst.Src0_Sel
-			src1 := uint32(sp.SRC1[i]) & inst.Src1_Sel
-			dst := (src0 & src1) | inst.Dst_Sel
+			src0 := uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel)
+			src1 := uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel)
+			dst := (src0 | src1) & uint32(inst.Dst_Sel)
 			sp.DST[i] = uint64(dst)
 		}
 	}
@@ -281,9 +281,9 @@ func (u *ALUImpl) runVXORB32(state InstEmuState) {
 			if !u.laneMasked(sp.EXEC, i) {
 				continue
 			}
-			src0 := uint32(sp.SRC0[i]) & inst.Src0_Sel
-			src1 := uint32(sp.SRC1[i]) & inst.Src1_Sel
-			dst := (src0 ^ src1) & inst.Dst_Sel
+			src0 := uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel)
+			src1 := uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel)
+			dst := (src0 ^ src1) & uint32(inst.Dst_Sel)
 			sp.DST[i] = uint64(dst)
 		}
 	}
@@ -342,13 +342,13 @@ func (u *ALUImpl) runVADDI32(state InstEmuState) {
 			if !u.laneMasked(sp.EXEC, i) {
 				continue
 			}
-			src0 := asInt32(uint32(sp.SRC0[i]) & inst.Src0_Sel)
-			src1 := asInt32(uint32(sp.SRC1[i]) & inst.Src1_Sel)
+			src0 := asInt32(uint32(sp.SRC0[i]) & uint32(inst.Src0_Sel))
+			src1 := asInt32(uint32(sp.SRC1[i]) & uint32(inst.Src1_Sel))
 			if (src1 > 0 && src0 > math.MaxInt32-src1) ||
 				(src1 < 0 && src0 < math.MinInt32+src1) {
 				sp.VCC |= 1 << uint32(i)
 			}
-			result := int32ToBits((src0 + src1) & asInt32(inst.Dst_Sel))
+			result := int32ToBits((src0 + src1) & asInt32(uint32(inst.Dst_Sel)))
 			sp.DST[i] = uint64(result)
 		}
 	}

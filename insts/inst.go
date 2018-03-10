@@ -2,6 +2,7 @@ package insts
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -19,8 +20,45 @@ const (
 	ExeUnitSpecial
 )
 
+// SDWASelectType defines the sub-dword selection type
+type SDWASelect uint32
+
+// Defines all possible sub-dword selection type
+const (
+	SDWASelectByte0 SDWASelect = 0x000000ff
+	SDWASelectByte1 SDWASelect = 0x0000ff00
+	SDWASelectByte2 SDWASelect = 0x00ff0000
+	SDWASelectByte3 SDWASelect = 0xff000000
+	SDWASelectWord0 SDWASelect = 0x0000ffff
+	SDWASelectWord1 SDWASelect = 0xffff0000
+	SDWASelectDWord SDWASelect = 0xffffffff
+)
+
+// sdwaSelectString stringify SDWA select types
+func sdwaSelectString(sdwaSelect SDWASelect) string {
+	switch sdwaSelect {
+	case SDWASelectByte0:
+		return "BYTE_0"
+	case SDWASelectByte1:
+		return "BYTE_1"
+	case SDWASelectByte2:
+		return "BYTE_2"
+	case SDWASelectByte3:
+		return "BYTE_3"
+	case SDWASelectWord0:
+		return "WORD_0"
+	case SDWASelectWord1:
+		return "WORD_1"
+	case SDWASelectDWord:
+		return "DWORD"
+	default:
+		log.Panic("unknown SDWASelect type")
+		return ""
+	}
+}
+
 // A InstType represents an instruction type. For example s_barrier instruction
-// is a intruction type
+// is a instruction type
 type InstType struct {
 	InstName string
 	Opcode   Opcode
@@ -29,7 +67,7 @@ type InstType struct {
 	ExeUnit  ExeUnit
 }
 
-// An Inst is a GCN3 instructino
+// An Inst is a GCN3 instruction
 type Inst struct {
 	*Format
 	*InstType
@@ -46,7 +84,6 @@ type Inst struct {
 	Offset *Operand
 	SImm16 *Operand
 
-
 	Abs                 int
 	Omod                int
 	Neg                 int
@@ -57,18 +94,17 @@ type Inst struct {
 	Clamp               bool
 
 	//Fields for SDWA extensions
-	IsSdwa				bool
-	Dst_Sel             uint32
-	Dst_Unused			uint32
-	Src0_Sel            uint32
-	Src0_Sext           bool
-	Src0_Neg            bool
-	Src0_Abs            bool
-	Src1_Sel            uint32
-	Src1_Sext           bool
-	Src1_Neg            bool
-	Src1_Abs            bool
-
+	IsSdwa     bool
+	Dst_Sel    SDWASelect
+	Dst_Unused uint32
+	Src0_Sel   SDWASelect
+	Src0_Sext  bool
+	Src0_Neg   bool
+	Src0_Abs   bool
+	Src1_Sel   SDWASelect
+	Src1_Sext  bool
+	Src1_Neg   bool
+	Src1_Abs   bool
 }
 
 // NewInst creates a zero-filled instruction
@@ -91,8 +127,6 @@ func (i Inst) vop1String() string {
 		i.Dst.String() + ", " +
 		i.Src0.String()
 }
-
-
 
 func (i Inst) flatString() string {
 	var s string
@@ -146,6 +180,23 @@ func (i Inst) vop2String() string {
 		s += ", vcc"
 	}
 
+	if i.IsSdwa {
+		s += i.sdwaVOP2String()
+	}
+
+	return s
+}
+
+func (i Inst) sdwaVOP2String() string {
+	s := ""
+
+	s += " dst_sel:"
+	s += sdwaSelectString(i.Dst_Sel)
+	s += " src0_sel:"
+	s += sdwaSelectString(i.Src0_Sel)
+	s += " src1_sel:"
+	s += sdwaSelectString(i.Src1_Sel)
+
 	return s
 }
 
@@ -182,7 +233,7 @@ func (i Inst) sop1String() string {
 
 func (i Inst) sopkString() string {
 	s := fmt.Sprintf("%s,%s,%s",
-		i.InstName,i.Dst.String(),i.SImm16.String())
+		i.InstName, i.Dst.String(), i.SImm16.String())
 
 	return s
 }
