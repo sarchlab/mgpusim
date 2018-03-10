@@ -162,7 +162,7 @@ func (u *ALUImpl) runVLSHRREVB32(state InstEmuState) {
 			}
 			src0 := sp.SRC0[i]
 			src1 := sp.SRC1[i]
-			dst := src1 >> (src0 & 15)
+			dst := src1 >> (src0 & 0x1f)
 			sp.DST[i] = uint64(dst)
 		}
 	} else {
@@ -182,7 +182,7 @@ func (u *ALUImpl) runVASHRREVI32(state InstEmuState) {
 			}
 			src0 := uint32(sp.SRC0[i])
 			src1 := int32(sp.SRC1[i])
-			dst := src1 >> (src0 & 15)
+			dst := src1 >> (src0 & 0X1f)
 			sp.DST[i] = uint64(dst)
 		}
 	} else {
@@ -202,7 +202,7 @@ func (u *ALUImpl) runVLSHLREVB32(state InstEmuState) {
 			}
 			src0 := uint32(sp.SRC0[i])
 			src1 := uint32(sp.SRC1[i])
-			dst := src1 << (src0 & 15)
+			dst := src1 << (src0 & 0x1f)
 			sp.DST[i] = uint64(dst)
 		}
 	} else {
@@ -229,7 +229,7 @@ func (u *ALUImpl) runVANDB32(state InstEmuState) {
 		for i = 0; i < 64; i++ {
 			src0 := uint32(sp.SRC0[i]) & inst.Src0_Sel
 			src1 := uint32(sp.SRC1[i]) & inst.Src1_Sel
-			dst := (src0 & src1) & inst.Dst_Sel
+			dst  := (src0 & src1) & inst.Dst_Sel
 			sp.DST[i] = uint64(dst)
 		}
 	}

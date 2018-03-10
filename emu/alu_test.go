@@ -51,6 +51,9 @@ var _ = Describe("ALU", func() {
 
 		for i := 0; i < 64; i++ {
 			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+			Expect(layout.DST[i*4+1]).To(Equal(uint32(0)))
+			Expect(layout.DST[i*4+2]).To(Equal(uint32(0)))
+			Expect(layout.DST[i*4+3]).To(Equal(uint32(0)))
 		}
 
 	})
@@ -69,6 +72,7 @@ var _ = Describe("ALU", func() {
 
 		for i := 0; i < 64; i++ {
 			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+
 		}
 	})
 
