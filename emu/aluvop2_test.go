@@ -113,13 +113,13 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 16
 
 		sp := state.scratchpad.AsVOP2()
-		sp.SRC0[0] = 100
-		sp.SRC1[0] = 400
+		sp.SRC0[0] = 0x64
+		sp.SRC1[0] = 0x20
 		sp.EXEC    = 1
 
 		alu.Run(state)
 
-		Expect(uint32(sp.DST[0])).To(Equal(uint32(25)))
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x02)))
 	})
 
 	It("should run V_ASHRREV_I32", func(){
@@ -142,13 +142,13 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 18
 
 		sp := state.Scratchpad().AsVOP2()
-		sp.SRC0[0] = 100
-		sp.SRC1[0] = 400
+		sp.SRC0[0] = 0x64
+		sp.SRC1[0] = 0x02
 		sp.EXEC = 1
 
 		alu.Run(state)
 
-		Expect(uint32(sp.DST[0])).To(Equal(uint32(6400)))
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x20)))
 
 	})
 

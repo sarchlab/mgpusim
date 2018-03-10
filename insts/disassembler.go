@@ -160,7 +160,6 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 		src1_neg := int(extractBits(sdwa_bytes, 28, 28))
 		src1_abs := int(extractBits(sdwa_bytes, 29, 29))
 
-		inst.Dst_Unused = uint32(extractBits(sdwa_bytes, 11, 12))
 
 		switch dst_sel {
 		case 0:

@@ -171,7 +171,7 @@ func (u *ALUImpl) runSLSHLB64(state InstEmuState) {
 
 	src0 := sp.SRC0
 	src1 := uint8(sp.SRC1)
-	dst := src0 << src1
+	dst := src0 << (src1 & 0x3f)
 
 	sp.DST = dst
 

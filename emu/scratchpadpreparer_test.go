@@ -258,7 +258,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 	It("should prepare for SOPK", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Sopk
-		inst.Dst = insts.NewSRegOperand(193, 0, 1)
+		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		wf.inst = inst
 		wf.SCC = 1

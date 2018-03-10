@@ -135,6 +135,8 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 		sp.DST[i*4+2] = insts.BytesToUint32(buf[8:12])
 		sp.DST[i*4+3] = insts.BytesToUint32(buf[12:16])
 	}
+
+
 }
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
