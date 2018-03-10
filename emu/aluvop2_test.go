@@ -115,14 +115,14 @@ var _ = Describe("ALU", func() {
 		sp := state.scratchpad.AsVOP2()
 		sp.SRC0[0] = 0x64
 		sp.SRC1[0] = 0x20
-		sp.EXEC    = 1
+		sp.EXEC = 1
 
 		alu.Run(state)
 
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x02)))
 	})
 
-	It("should run V_ASHRREV_I32", func(){
+	It("should run V_ASHRREV_I32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
 		state.inst.Opcode = 17
@@ -136,7 +136,7 @@ var _ = Describe("ALU", func() {
 		Expect(asInt32(uint32(sp.DST[0]))).To(Equal(int32(-32)))
 
 	})
-	It("should run V_LSHLREV_B32", func(){
+	It("should run V_LSHLREV_B32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
 		state.inst.Opcode = 18
@@ -180,6 +180,25 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(3)))
+	})
+
+	It("should run V_OR_B32 SDWA", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 20
+		state.inst.IsSdwa = true
+		state.inst.Src0Sel = insts.SDWASelectByte0
+		state.inst.Src1Sel = insts.SDWASelectByte3
+		state.inst.DstSel = insts.SDWASelectWord1
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 0xfedcba98
+		sp.SRC1[0] = 0x12345678
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x009a0000)))
 	})
 
 	It("should run V_XOR_B32", func() {

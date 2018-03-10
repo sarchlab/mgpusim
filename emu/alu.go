@@ -136,7 +136,6 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 		sp.DST[i*4+3] = insts.BytesToUint32(buf[12:16])
 	}
 
-
 }
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
@@ -286,6 +285,51 @@ func (u *ALUImpl) runSCBRANCHEXECZ(state InstEmuState) {
 
 func (u *ALUImpl) laneMasked(Exec uint64, laneID uint) bool {
 	return Exec&(1<<laneID) > 0
+}
+
+func (u *ALUImpl) sdwaSrcSelect(src uint32, sel insts.SDWASelect) uint32 {
+	switch sel {
+	case insts.SDWASelectByte0:
+		return src & 0x000000ff
+	case insts.SDWASelectByte1:
+		return (src & 0x0000ff00) >> 8
+	case insts.SDWASelectByte2:
+		return (src & 0x00ff0000) >> 16
+	case insts.SDWASelectByte3:
+		return (src & 0xff000000) >> 24
+	case insts.SDWASelectWord0:
+		return src & 0x0000ffff
+	case insts.SDWASelectWord1:
+		return (src & 0xffff0000) >> 16
+	case insts.SDWASelectDWord:
+		return src
+	}
+	return src
+}
+
+func (u *ALUImpl) sdwaDstSelect(
+	dstOld uint32,
+	dstNew uint32,
+	sel insts.SDWASelect,
+	unused uint32,
+) uint32 {
+	value := dstNew
+	switch sel {
+	case insts.SDWASelectByte0:
+		value = value & 0x000000ff
+	case insts.SDWASelectByte1:
+		value = (value << 8) & 0x0000ff00
+	case insts.SDWASelectByte2:
+		value = (value << 16) & 0x00ff0000
+	case insts.SDWASelectByte3:
+		value = (value << 24) & 0xff000000
+	case insts.SDWASelectWord0:
+		value = value & 0x0000ffff
+	case insts.SDWASelectWord1:
+		value = (value << 16) & 0xffff0000
+	}
+
+	return value
 }
 
 func (u *ALUImpl) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string {
