@@ -160,7 +160,6 @@ func (d *Disassembler) decodeVop2(inst *Inst, buf []byte) {
 		src1_neg := int(extractBits(sdwa_bytes, 28, 28))
 		src1_abs := int(extractBits(sdwa_bytes, 29, 29))
 
-
 		switch dst_sel {
 		case 0:
 			inst.Dst_Sel = 0xff
@@ -308,11 +307,12 @@ func (d *Disassembler) decodeFlat(inst *Inst, buf []byte) {
 		inst.Data.RegCount = 2
 		inst.Dst.RegCount = 2
 	case 22, 30:
-		inst.Data.RegCount = 4
-		inst.Dst.RegCount = 4
-	case 23, 31:
 		inst.Data.RegCount = 3
 		inst.Dst.RegCount = 3
+	case 23, 31:
+		inst.Data.RegCount = 4
+		inst.Dst.RegCount = 4
+
 	}
 }
 

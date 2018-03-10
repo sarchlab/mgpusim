@@ -100,7 +100,7 @@ func initPlatform() {
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.EnableISADebug = false
+	gpuBuilder.EnableISADebug = true
 	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
 
 	core.PlugIn(gpuDriver, "ToGPUs", connection)
@@ -264,7 +264,7 @@ func run() {
 	}
 
 	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
-		[3]uint32{uint32(len(input)), 1, 1},
+		[3]uint32{uint32(len(input) / 16), 1, 1},
 		[3]uint16{256, 1, 1},
 		&kernArg,
 	)
@@ -275,8 +275,8 @@ func checkResult() {
 	output := make([]uint8, len(input))
 	gpuDriver.MemoryCopyDeviceToHost(output, gInputData, globalMem.Storage)
 
-	for i, o := range output {
-		fmt.Printf("%d: %d\n", i, o)
+	for _, o := range output {
+		fmt.Printf("0x%02x, ", o)
 	}
 
 }
