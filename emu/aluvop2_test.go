@@ -167,6 +167,25 @@ var _ = Describe("ALU", func() {
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(2)))
 	})
 
+	It("should run V_AND_B32 SDWA", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 19
+		state.inst.IsSdwa = true
+		state.inst.Src0Sel = insts.SDWASelectByte0
+		state.inst.Src1Sel = insts.SDWASelectByte3
+		state.inst.DstSel = insts.SDWASelectWord1
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 0xfedcba98
+		sp.SRC1[0] = 0x12345678
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x00100000)))
+	})
+
 	It("should run V_OR_B32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
@@ -215,6 +234,24 @@ var _ = Describe("ALU", func() {
 
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(1)))
 	})
+	It("should run V_OR_B32 SDWA", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 21
+		state.inst.IsSdwa = true
+		state.inst.Src0Sel = insts.SDWASelectByte0
+		state.inst.Src1Sel = insts.SDWASelectByte3
+		state.inst.DstSel = insts.SDWASelectWord1
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 0xfedcba98
+		sp.SRC1[0] = 0x12345678
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x008a0000)))
+	})
 
 	It("should run V_MAC_F32", func() {
 		state.inst = insts.NewInst()
@@ -251,6 +288,28 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run V_ADD_I32_SDWA", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Vop2
+		state.inst.Opcode = 25
+		state.inst.IsSdwa = true
+		state.inst.Src0Sel = insts.SDWASelectByte0
+		state.inst.Src1Sel = insts.SDWASelectByte0
+		state.inst.DstSel = insts.SDWASelectDWord
+
+		sp := state.Scratchpad().AsVOP2()
+		for i := 0; i < 64; i++ {
+			sp.SRC0[i] = uint64(int32ToBits(-100))
+			sp.SRC1[i] = uint64(int32ToBits(10))
+		}
+		sp.EXEC = 0xffffffffffffffff
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(asInt32(uint32(sp.DST[0]))).To(Equal(int32(166)))
+		}
+	})
 	It("should run V_ADD_I32, with positive overflow", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Vop2
