@@ -8,13 +8,17 @@ import (
 var _ = Describe("SIMD Unit", func() {
 
 	var (
-		cu *ComputeUnit
-		bu *SIMDUnit
+		cu  *ComputeUnit
+		bu  *SIMDUnit
+		sp  *mockScratchpadPreparer
+		alu *mockALU
 	)
 
 	BeforeEach(func() {
 		cu = NewComputeUnit("cu", nil)
-		bu = NewSIMDUnit(cu)
+		sp = new(mockScratchpadPreparer)
+		alu = new(mockALU)
+		bu = NewSIMDUnit(cu, sp, alu)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -52,6 +56,10 @@ var _ = Describe("SIMD Unit", func() {
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.execCycleLeft).To(Equal(4))
 		Expect(bu.toRead).To(BeNil())
+
+		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
+		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
+		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
 	})
 
 	It("should spend 4 cycles in execution", func() {

@@ -3,18 +3,50 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/yaotsu/gcn3/emu"
 )
+
+type mockScratchpadPreparer struct {
+	wfPrepared  *Wavefront
+	wfCommitted *Wavefront
+}
+
+func (sp *mockScratchpadPreparer) Prepare(
+	instEmuState emu.InstEmuState,
+	wf *Wavefront,
+) {
+	sp.wfPrepared = wf
+}
+
+func (sp *mockScratchpadPreparer) Commit(
+	instEmuState emu.InstEmuState,
+	wf *Wavefront,
+) {
+	sp.wfCommitted = wf
+}
+
+type mockALU struct {
+	wfExecuted emu.InstEmuState
+}
+
+func (alu *mockALU) Run(wf emu.InstEmuState) {
+	alu.wfExecuted = wf
+}
 
 var _ = Describe("Scalar Unit", func() {
 
 	var (
-		cu *ComputeUnit
-		bu *ScalarUnit
+		cu  *ComputeUnit
+		sp  *mockScratchpadPreparer
+		bu  *ScalarUnit
+		alu *mockALU
 	)
 
 	BeforeEach(func() {
 		cu = NewComputeUnit("cu", nil)
-		bu = NewScalarUnit(cu)
+		sp = new(mockScratchpadPreparer)
+		alu = new(mockALU)
+		bu = NewScalarUnit(cu, sp, alu)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -50,5 +82,9 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.toRead).To(BeNil())
+
+		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
+		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
+		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
 	})
 })

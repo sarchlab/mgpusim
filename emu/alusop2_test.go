@@ -10,15 +10,14 @@ import (
 var _ = Describe("ALU", func() {
 
 	var (
-		alu     *ALU
+		alu     *ALUImpl
 		state   *mockInstState
 		storage *mem.Storage
 	)
 
 	BeforeEach(func() {
 		storage = mem.NewStorage(1 * mem.GB)
-		alu = new(ALU)
-		alu.Storage = storage
+		alu = NewALUImpl(storage)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
@@ -171,6 +170,7 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 
+
 	It("should run S_XOR_B64", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Sop2
@@ -183,6 +183,22 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(sp.DST).To(Equal(uint64(0x0f)))
+		Expect(sp.SCC).To(Equal(byte(1)))
+	})
+
+
+	It("should run S_LSHR_B32", func() {
+	   	state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop2
+		state.inst.Opcode = 30
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 0x20
+		sp.SRC1 = 0x64
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(0x02)))
 		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 

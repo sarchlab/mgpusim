@@ -137,6 +137,7 @@ type Dispatcher struct {
 	// If the dispatcher has pending MapWGEvent or DispatchWfEvent, no other
 	// events should be scheduled.
 	hasPendingEvent bool
+	busyUntil       core.VTimeInSec
 }
 
 // NewDispatcher creates a new dispatcher
@@ -293,9 +294,11 @@ func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
 }
 
 func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
-	if !d.hasPendingEvent {
+	if !d.hasPendingEvent && d.busyUntil < time {
 		evt := NewMapWGEvent(time, d)
 		d.engine.Schedule(evt)
+		d.hasPendingEvent = true
+		d.busyUntil = time
 	}
 }
 
@@ -316,9 +319,11 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
-	if !d.hasPendingEvent {
+	if !d.hasPendingEvent && d.busyUntil < time {
 		evt := NewDispatchWfEvent(time, d)
 		d.engine.Schedule(evt)
+		d.hasPendingEvent = true
+		d.busyUntil = time
 	}
 }
 
@@ -340,19 +345,11 @@ func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
 	d.dispatchingWfs = d.dispatchingWfs[1:]
 
 	if len(d.dispatchingWfs) == 0 {
-		d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
+		d.scheduleMapWG(d.Freq.NextTick(req.Time()))
 		return nil
 	}
 
-	wf := d.dispatchingWfs[0]
-
-	nextReq := NewDispatchWfReq(d, d.cus[d.dispatchingCUID], req.Time(), wf)
-	err := d.GetConnection("ToCUs").Send(nextReq)
-	if err != nil && !err.Recoverable {
-		log.Panic(err)
-	} else if err != nil {
-		d.scheduleDispatchWfEvent(err.EarliestRetry)
-	}
+	d.scheduleDispatchWfEvent(d.Freq.NextTick(req.Time()))
 
 	return nil
 }

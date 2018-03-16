@@ -10,5 +10,5 @@
 debug
 *csv
 *~
-*.s
 .vscode
+*.debug
