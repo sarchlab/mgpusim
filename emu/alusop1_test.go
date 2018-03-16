@@ -9,12 +9,12 @@ import (
 var _ = Describe("ALU", func() {
 
 	var (
-		alu   *ALU
+		alu   *ALUImpl
 		state *mockInstState
 	)
 
 	BeforeEach(func() {
-		alu = new(ALU)
+		alu = NewALUImpl(nil)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
@@ -33,6 +33,20 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST).To(Equal(uint64(0x0000ffffffff0000)))
 	})
 
+	It("should run s_mov_b64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop1
+		state.inst.Opcode = 1
+
+		sp := state.Scratchpad().AsSOP1()
+		sp.SRC0 = 0x0000ffffffff0000
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(0x0000ffffffff0000)))
+	})
+
+
 	It("should run s_and_saveexec_b64", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.Sop1
@@ -47,6 +61,21 @@ var _ = Describe("ALU", func() {
 		Expect(sp.EXEC).To(Equal(uint64(0x0000ffff00000000)))
 		Expect(sp.DST).To(Equal(uint64(0xffffffff00000000)))
 		Expect(sp.SCC).To(Equal(byte(0x1)))
+	})
+
+	It("should run s_get_pc_b64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.Sop1
+		state.inst.Opcode = 28
+
+		sp := state.Scratchpad().AsSOP1()
+
+		sp.PC = 0xffffffff00000000
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(0xffffffff00000004)))
+
 	})
 
 })

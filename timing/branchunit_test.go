@@ -8,13 +8,17 @@ import (
 var _ = Describe("Branch Unit", func() {
 
 	var (
-		cu *ComputeUnit
-		bu *BranchUnit
+		cu  *ComputeUnit
+		bu  *BranchUnit
+		sp  *mockScratchpadPreparer
+		alu *mockALU
 	)
 
 	BeforeEach(func() {
 		cu = NewComputeUnit("cu", nil)
-		bu = NewBranchUnit(cu)
+		sp = new(mockScratchpadPreparer)
+		alu = new(mockALU)
+		bu = NewBranchUnit(cu, sp, alu)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -50,5 +54,9 @@ var _ = Describe("Branch Unit", func() {
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.toRead).To(BeNil())
+
+		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
+		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
+		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
 	})
 })

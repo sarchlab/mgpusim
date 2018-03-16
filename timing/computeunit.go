@@ -40,8 +40,12 @@ type ComputeUnit struct {
 	ScalarUnit       CUComponent
 	SIMDUnit         []CUComponent
 	LDSUnit          CUComponent
+	SRegFile         RegisterFile
+	VRegFile         []RegisterFile
 
-	InstMem core.Component
+	InstMem   core.Component
+	ScalarMem core.Component
+	VectorMem core.Component
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -59,7 +63,8 @@ func NewComputeUnit(
 
 	cu.AddPort("ToACE")
 	cu.AddPort("ToInstMem")
-	cu.AddPort("ToDataMem")
+	cu.AddPort("ToScalarMem")
+	cu.AddPort("ToVectorMem")
 
 	return cu
 }
@@ -258,6 +263,7 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 	wf.WG = wg
 	wf.CodeObject = wf.WG.Grid.CodeObject
 	wf.Packet = wf.WG.Grid.Packet
+	wf.PacketAddress = wf.WG.Grid.PacketAddress
 	return wf
 }
 
@@ -279,8 +285,9 @@ func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
 	if err != nil {
 		return err
 	}
-	wf.Inst.Inst = inst
-	wf.PC += uint64(wf.Inst.ByteSize)
+	managedInst := wf.ManagedInst()
+	managedInst.Inst = inst
+	wf.PC += uint64(managedInst.ByteSize)
 
 	// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
 	// wf.State = WfReady

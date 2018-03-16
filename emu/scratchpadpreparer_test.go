@@ -30,6 +30,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(517))
 		wf.SCC = 1
 		wf.Exec = 0xffffffff00000000
+		wf.PC = 10
 
 		sp.Prepare(wf, wf)
 
@@ -37,6 +38,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(sp.SRC0).To(Equal(uint64(517)))
 		Expect(sp.EXEC).To(Equal(uint64(0xffffffff00000000)))
 		Expect(sp.SCC).To(Equal(byte(1)))
+		Expect(sp.PC).To(Equal(uint64(10)))
 	})
 
 	It("should prepare for SOP2", func() {
@@ -253,6 +255,23 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(layout.SRC1).To(Equal(uint64(64)))
 	})
 
+	It("should prepare for SOPK", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sopk
+		inst.Dst = insts.NewSRegOperand(0, 0, 1)
+		inst.SImm16 = insts.NewIntOperand(1, 1)
+		wf.inst = inst
+		wf.SCC = 1
+		wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(100))
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsSOPK()
+		Expect(layout.DST).To(Equal(uint64(100)))
+		Expect(layout.IMM).To(Equal(uint64(1)))
+		Expect(layout.SCC).To(Equal(byte(1)))
+	})
+
 	It("should commit for SOP1", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.Sop1
@@ -263,12 +282,13 @@ var _ = Describe("ScratchpadPreparer", func() {
 		layout.DST = 517
 		layout.EXEC = 0xffffffff00000000
 		layout.SCC = 1
-
+		layout.PC = 20
 		sp.Commit(wf, wf)
 
 		Expect(wf.SCC).To(Equal(byte(1)))
 		Expect(wf.Exec).To(Equal(uint64(0xffffffff00000000)))
 		Expect(wf.SRegValue(0)).To(Equal(uint32(517)))
+		Expect(wf.PC).To(Equal(uint64(20)))
 	})
 
 	It("should commit for SOP2", func() {
@@ -456,6 +476,23 @@ var _ = Describe("ScratchpadPreparer", func() {
 		sp.Commit(wf, wf)
 
 		Expect(wf.PC).To(Equal(uint64(164)))
+	})
+
+	It("should commit for SOPK", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.Sopk
+		inst.Dst = insts.NewSRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsSOPK()
+		layout.SCC = 1
+		layout.DST = 517
+
+		sp.Commit(wf, wf)
+
+		Expect(wf.SCC).To(Equal(byte(1)))
+		Expect(wf.SRegValue(0)).To(Equal(uint32(517)))
+
 	})
 
 })

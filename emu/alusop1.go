@@ -2,11 +2,15 @@ package emu
 
 import "log"
 
-func (u *ALU) runSOP1(state InstEmuState) {
+func (u *ALUImpl) runSOP1(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
 	case 0:
 		u.runSMOVB32(state)
+	case 1:
+		u.runSMOVB64(state)
+	case 28:
+		u.runSGETPCB64(state)
 	case 32:
 		u.runSANDSAVEEXECB64(state)
 	default:
@@ -14,12 +18,21 @@ func (u *ALU) runSOP1(state InstEmuState) {
 	}
 }
 
-func (u *ALU) runSMOVB32(state InstEmuState) {
+func (u *ALUImpl) runSMOVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.SRC0
 }
 
-func (u *ALU) runSANDSAVEEXECB64(state InstEmuState) {
+func (u *ALUImpl) runSMOVB64(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP1()
+	sp.DST = sp.SRC0
+}
+
+func (u *ALUImpl) runSGETPCB64(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP1()
+	sp.DST = sp.PC + 4
+}
+func (u *ALUImpl) runSANDSAVEEXECB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.EXEC
 	sp.EXEC = sp.SRC0 & sp.EXEC
