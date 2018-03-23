@@ -42,40 +42,61 @@
 
 #include "dispatch.hpp"
 
+
 using namespace amd::dispatch;
 
-class EmptyKernelDispatch : public Dispatch {
+class SingleVectorAdd : public Dispatch {
 private:
+  Buffer* in1;
+  Buffer* in2;
   Buffer* out;
+  unsigned length;
 
 public:
-  EmptyKernelDispatch(int argc, const char **argv)
-    : Dispatch(argc, argv) { }
+  SingleVectorAdd(int argc, const char **argv)
+    : Dispatch(argc, argv), length(64) { }
 
   bool SetupCodeObject() override {
     return LoadCodeObjectFromFile("kernels.hsaco");
   }
 
   bool Setup() override {
-    if (!AllocateKernarg(1024)) { return false; }
-    out = AllocateBuffer(1024);
+    if (!AllocateKernarg(3 * sizeof(Buffer*))) { return false; }
+    in1 = AllocateBuffer(length * sizeof(float));
+    in2 = AllocateBuffer(length * sizeof(float));
+    for (unsigned i = 0; i < length; ++i) {
+      in1->Data<float>(i) = 3.14*i;
+      in2->Data<float>(i) = 2.14*i;
+    }
+    if (!CopyTo(in1)) { output << "Error: failed to copy to local" << std::endl; return false; }
+    if (!CopyTo(in2)) { output << "Error: failed to copy to local" << std::endl; return false; }
+    out = AllocateBuffer(length * sizeof(float));
+    Kernarg(in1);
+    Kernarg(in2);
     Kernarg(out);
-    SetGridSize(1);
-    SetWorkgroupSize(1);
+    SetGridSize(64);
+    SetWorkgroupSize(64);
     return true;
   }
 
   bool Verify() override {
-    if (!CopyFrom(out)) {
-      output << "Error: failed to copy from local" << std::endl;
-      return false;
+    if (!CopyFrom(out)) { output << "Error: failed to copy from local" << std::endl; return false; }
+    bool ok = true;
+    for (unsigned i = 0; i < length; ++i) {
+      float f1 =  in1->Data<float>(i);
+      float f2 =  in2->Data<float>(i);
+      float res = out->Data<float>(i);
+      float expected = f1 / f2;
+      if (expected != res){
+        output << "Error: validation failed at " << i << ": got " << res << " expected " << expected << std::endl;
+        ok = false;
+      }
     }
-    
-    return true;
+    return ok;
   }
 };
 
 int main(int argc, const char** argv)
 {
-  return EmptyKernelDispatch(argc, argv).RunMain();
+  return SingleVectorAdd(argc, argv).RunMain();
 }

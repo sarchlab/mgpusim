@@ -42,40 +42,49 @@
 
 #include "dispatch.hpp"
 
+
 using namespace amd::dispatch;
 
-class EmptyKernelDispatch : public Dispatch {
+class AtomicAdd : public Dispatch {
 private:
-  Buffer* out;
+  Buffer* sum;
+  unsigned length;
 
 public:
-  EmptyKernelDispatch(int argc, const char **argv)
-    : Dispatch(argc, argv) { }
+  AtomicAdd(int argc, const char **argv)
+    : Dispatch(argc, argv), length(1) { }
 
   bool SetupCodeObject() override {
     return LoadCodeObjectFromFile("kernels.hsaco");
   }
 
   bool Setup() override {
-    if (!AllocateKernarg(1024)) { return false; }
-    out = AllocateBuffer(1024);
-    Kernarg(out);
-    SetGridSize(1);
-    SetWorkgroupSize(1);
+    if (!AllocateKernarg(1 * sizeof(Buffer*))) { return false; }
+    sum = AllocateBuffer(length * sizeof(int));
+    for (unsigned i = 0; i < length; ++i) {
+      sum->Data<int>(i) = 0;
+    }
+    if (!CopyTo(sum)) { output << "Error: failed to copy to local" << std::endl; return false; }
+   
+    Kernarg(sum); 
+    SetGridSize(1024);
+    SetWorkgroupSize(1024);
     return true;
   }
 
   bool Verify() override {
-    if (!CopyFrom(out)) {
-      output << "Error: failed to copy from local" << std::endl;
-      return false;
+    if (!CopyFrom(sum)) { output << "Error: failed to copy from local" << std::endl; return false; }
+  
+    int res; 
+    for (unsigned i = 0; i < length; ++i) {  
+        res = sum->Data<int>(i);
     }
-    
-    return true;
+
+    printf("Result is %d \n", res);
   }
 };
 
 int main(int argc, const char** argv)
 {
-  return EmptyKernelDispatch(argc, argv).RunMain();
+  return AtomicAdd(argc, argv).RunMain();
 }

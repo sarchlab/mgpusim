@@ -1,0 +1,26 @@
+; ModuleID = 'kernels.cl'
+source_filename = "kernels.cl"
+target datalayout = "e-p:64:64-p1:64:64-p2:64:64-p3:32:32-p4:32:32-p5:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-v2048:2048-n32:64-A5"
+target triple = "amdgcn-amd-amdhsa-amdgizcl"
+
+; Function Attrs: convergent nounwind
+define amdgpu_kernel void @microbench() local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_name !3 {
+  tail call void @_Z7barrierj(i32 1) #2
+  ret void
+}
+
+; Function Attrs: convergent
+declare void @_Z7barrierj(i32) local_unnamed_addr #1
+
+attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="gfx803" "target-features"="+16-bit-insts,+dpp,+fp64-fp16-denormals,+s-memrealtime,-fp32-denormals" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="gfx803" "target-features"="+16-bit-insts,+dpp,+fp64-fp16-denormals,+s-memrealtime,-fp32-denormals" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { convergent nounwind }
+
+!llvm.module.flags = !{!0}
+!opencl.ocl.version = !{!1}
+!llvm.ident = !{!2}
+
+!0 = !{i32 1, !"wchar_size", i32 4}
+!1 = !{i32 1, i32 2}
+!2 = !{!"clang version 4.0 "}
+!3 = !{}

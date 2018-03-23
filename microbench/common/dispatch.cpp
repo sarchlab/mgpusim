@@ -306,7 +306,7 @@ bool Dispatch::SetupExecutable()
   if (status != HSA_STATUS_SUCCESS) { return HsaError("hsa_executable_freeze failed", status); }
 
   // Get symbol handle
-  status = hsa_executable_get_symbol(executable, NULL, "hello_world", agent,
+  status = hsa_executable_get_symbol(executable, NULL, "microbench", agent,
                                      0, &kernel_symbol);
   if (status != HSA_STATUS_SUCCESS) { return HsaError("hsa_executable_get_symbol failed", status); }
 

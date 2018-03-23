@@ -1,0 +1,149 @@
+; ModuleID = 'kernels.cl'
+source_filename = "kernels.cl"
+target datalayout = "e-p:64:64-p1:64:64-p2:64:64-p3:32:32-p4:32:32-p5:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-v2048:2048-n32:64-A5"
+target triple = "amdgcn-amd-amdhsa-amdgizcl"
+
+; Function Attrs: convergent nounwind
+define amdgpu_kernel void @microbench(double addrspace(1)* nocapture readonly, double addrspace(1)* nocapture readonly, double addrspace(1)* nocapture) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 {
+  %4 = tail call i64 @_Z13get_global_idj(i32 0) #2
+  %5 = and i64 %4, 4294967295
+  %6 = getelementptr inbounds double, double addrspace(1)* %2, i64 %5
+  %7 = getelementptr inbounds double, double addrspace(1)* %0, i64 %5
+  %8 = getelementptr inbounds double, double addrspace(1)* %1, i64 %5
+  %9 = load double, double addrspace(1)* %6, align 8, !tbaa !8
+  br label %11
+
+; <label>:10:                                     ; preds = %11
+  ret void
+
+; <label>:11:                                     ; preds = %11, %3
+  %12 = phi double [ %9, %3 ], [ %93, %11 ]
+  %13 = phi i32 [ 0, %3 ], [ %94, %11 ]
+  %14 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %15 = fadd double %12, %14
+  %16 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %17 = fadd double %15, %16
+  store double %17, double addrspace(1)* %6, align 8, !tbaa !8
+  %18 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %19 = fadd double %17, %18
+  %20 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %21 = fadd double %19, %20
+  store double %21, double addrspace(1)* %6, align 8, !tbaa !8
+  %22 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %23 = fadd double %21, %22
+  %24 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %25 = fadd double %23, %24
+  store double %25, double addrspace(1)* %6, align 8, !tbaa !8
+  %26 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %27 = fadd double %25, %26
+  %28 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %29 = fadd double %27, %28
+  store double %29, double addrspace(1)* %6, align 8, !tbaa !8
+  %30 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %31 = fadd double %29, %30
+  %32 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %33 = fadd double %31, %32
+  store double %33, double addrspace(1)* %6, align 8, !tbaa !8
+  %34 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %35 = fadd double %33, %34
+  %36 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %37 = fadd double %35, %36
+  store double %37, double addrspace(1)* %6, align 8, !tbaa !8
+  %38 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %39 = fadd double %37, %38
+  %40 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %41 = fadd double %39, %40
+  store double %41, double addrspace(1)* %6, align 8, !tbaa !8
+  %42 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %43 = fadd double %41, %42
+  %44 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %45 = fadd double %43, %44
+  store double %45, double addrspace(1)* %6, align 8, !tbaa !8
+  %46 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %47 = fadd double %45, %46
+  %48 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %49 = fadd double %47, %48
+  store double %49, double addrspace(1)* %6, align 8, !tbaa !8
+  %50 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %51 = fadd double %49, %50
+  %52 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %53 = fadd double %51, %52
+  store double %53, double addrspace(1)* %6, align 8, !tbaa !8
+  %54 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %55 = fadd double %53, %54
+  %56 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %57 = fadd double %55, %56
+  store double %57, double addrspace(1)* %6, align 8, !tbaa !8
+  %58 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %59 = fadd double %57, %58
+  %60 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %61 = fadd double %59, %60
+  store double %61, double addrspace(1)* %6, align 8, !tbaa !8
+  %62 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %63 = fadd double %61, %62
+  %64 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %65 = fadd double %63, %64
+  store double %65, double addrspace(1)* %6, align 8, !tbaa !8
+  %66 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %67 = fadd double %65, %66
+  %68 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %69 = fadd double %67, %68
+  store double %69, double addrspace(1)* %6, align 8, !tbaa !8
+  %70 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %71 = fadd double %69, %70
+  %72 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %73 = fadd double %71, %72
+  store double %73, double addrspace(1)* %6, align 8, !tbaa !8
+  %74 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %75 = fadd double %73, %74
+  %76 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %77 = fadd double %75, %76
+  store double %77, double addrspace(1)* %6, align 8, !tbaa !8
+  %78 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %79 = fadd double %77, %78
+  %80 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %81 = fadd double %79, %80
+  store double %81, double addrspace(1)* %6, align 8, !tbaa !8
+  %82 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %83 = fadd double %81, %82
+  %84 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %85 = fadd double %83, %84
+  store double %85, double addrspace(1)* %6, align 8, !tbaa !8
+  %86 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %87 = fadd double %85, %86
+  %88 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %89 = fadd double %87, %88
+  store double %89, double addrspace(1)* %6, align 8, !tbaa !8
+  %90 = load double, double addrspace(1)* %7, align 8, !tbaa !8
+  %91 = fadd double %89, %90
+  %92 = load double, double addrspace(1)* %8, align 8, !tbaa !8
+  %93 = fadd double %91, %92
+  store double %93, double addrspace(1)* %6, align 8, !tbaa !8
+  %94 = add nuw nsw i32 %13, 20
+  %95 = icmp eq i32 %94, 10000
+  br i1 %95, label %10, label %11
+}
+
+; Function Attrs: convergent nounwind readnone
+declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
+
+attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="gfx803" "target-features"="+16-bit-insts,+dpp,+fp64-fp16-denormals,+s-memrealtime,-fp32-denormals" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="gfx803" "target-features"="+16-bit-insts,+dpp,+fp64-fp16-denormals,+s-memrealtime,-fp32-denormals" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { convergent nounwind readnone }
+
+!llvm.module.flags = !{!0}
+!opencl.ocl.version = !{!1}
+!llvm.ident = !{!2}
+
+!0 = !{i32 1, !"wchar_size", i32 4}
+!1 = !{i32 1, i32 2}
+!2 = !{!"clang version 4.0 "}
+!3 = !{i32 1, i32 1, i32 1}
+!4 = !{!"none", !"none", !"none"}
+!5 = !{!"double*", !"double*", !"double*"}
+!6 = !{!"", !"", !""}
+!7 = !{!"v1", !"v2", !"output"}
+!8 = !{!9, !9, i64 0}
+!9 = !{!"double", !10, i64 0}
+!10 = !{!"omnipotent char", !11, i64 0}
+!11 = !{!"Simple C/C++ TBAA"}
