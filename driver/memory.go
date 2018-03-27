@@ -82,28 +82,28 @@ func (d *Driver) AllocateMemory(
 func (d *Driver) FreeMemory(storage *mem.Storage, ptr GPUPtr) error {
 	chunks := d.memoryMasks[storage].Chunks
 	for i := 0; i < len(chunks); i++ {
-			if chunks[i].Ptr == ptr {
-					chunks[i].Occupied = false
+		if chunks[i].Ptr == ptr {
+			chunks[i].Occupied = false
 
-					if i != 0 && i != len(chunks)-1 && chunks[i-1].Occupied == false && chunks[i+1].Occupied == false {
-							chunks[i-1].ByteSize += chunks[i].ByteSize + chunks[i+1].ByteSize
-							chunks = append(chunks[:i], chunks[i+2:]...)
-							return nil
-					}
-
-					if i != 0 && chunks[i-1].Occupied == false {
-							chunks[i-1].ByteSize += chunks[i].ByteSize
-							chunks = append(chunks[:i], chunks[i+1:]...)
-							return nil
-					}
-
-					if i != len(chunks)-1 && chunks[i+1].Occupied == false {
-							chunks[i].ByteSize += chunks[i+1].ByteSize
-							chunks = append(chunks[:i+1], chunks[i+2:]...)
-							return nil
-					}
-					return nil
+			if i != 0 && i != len(chunks)-1 && chunks[i-1].Occupied == false && chunks[i+1].Occupied == false {
+				chunks[i-1].ByteSize += chunks[i].ByteSize + chunks[i+1].ByteSize
+				d.memoryMasks[storage].Chunks = append(chunks[:i], chunks[i+2:]...)
+				return nil
 			}
+
+			if i != 0 && chunks[i-1].Occupied == false {
+				chunks[i-1].ByteSize += chunks[i].ByteSize
+				d.memoryMasks[storage].Chunks = append(chunks[:i], chunks[i+1:]...)
+				return nil
+			}
+
+			if i != len(chunks)-1 && chunks[i+1].Occupied == false {
+				chunks[i].ByteSize += chunks[i+1].ByteSize
+				d.memoryMasks[storage].Chunks = append(chunks[:i+1], chunks[i+2:]...)
+				return nil
+			}
+			return nil
+		}
 	}
 
 	log.Fatalf("Invalid pointer")
