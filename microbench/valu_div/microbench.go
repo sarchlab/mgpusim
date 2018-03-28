@@ -19,7 +19,11 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
-type EmptyKernelArgs struct {
+
+type ValuKernelArgs struct {
+	vector1             driver.GPUPtr
+	vector2             driver.GPUPtr
+	output              driver.GPUPtr
 	hiddenGlobalOffsetX int64
 	hiddenGlobalOffsetY int64
 	hiddenGlobalOffsetZ int64
@@ -35,14 +39,15 @@ var (
 	gpuDriver  *driver.Driver
 
 	dataSize    int
-	numTaps     int
-	gFilterData driver.GPUPtr
-	gInputData  driver.GPUPtr
-	gOutputData driver.GPUPtr
+	gVector1	driver.GPUPtr
+	gVector2    driver.GPUPtr
+	gOutput     driver.GPUPtr
 )
+
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
 var kernel = flag.String("kernel", "kernels.hsaco", "the kernel hsaco file")
+
 
 func main() {
 	//flag.Parse()
@@ -63,8 +68,11 @@ func main() {
 
 	initPlatform()
 	loadProgram()
+	initMem()
 	run()
+	checkResult()
 }
+
 
 func initPlatform() {
 	engine = engines.NewSerialEngine()
@@ -100,15 +108,45 @@ func loadProgram() {
 	fmt.Println(hsaco.Info())
 }
 
+func initMem() {
+	dataSize = 32000
+	gVector1 = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+	gVector2 = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+	gOutput =  gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+
+	v1 := make([]float32, dataSize)
+	v2 := make([]float32, dataSize)
+	for i := 0; i < dataSize; i++ {
+		v1[i] = float32(i)
+		v2[i] = float32(i)
+	}
+
+
+	gpuDriver.MemoryCopyHostToDevice(gVector1, v1, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gVector2, v2, globalMem.Storage)
+}
+
 
 func run() {
-	kernArg := EmptyKernelArgs{
+	kernArg := ValuKernelArgs{
+		gVector1,
+		gVector2,
+		gOutput,
 		0, 0, 0,
 	}
 
 	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
-		[3]uint32{1, 1, 1},
+		[3]uint32{uint32(dataSize), 1, 1},
 		[3]uint16{256, 1, 1},
 		&kernArg,
 	)
+}
+
+func checkResult() {
+	output := make([]float32, dataSize)
+	gpuDriver.MemoryCopyDeviceToHost(output, gOutput, globalMem.Storage)
+
+	for i, o := range output {
+		fmt.Printf("%d: %f\n", i, o)
+	}
 }

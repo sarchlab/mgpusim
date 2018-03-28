@@ -19,7 +19,9 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
-type EmptyKernelArgs struct {
+
+type ShiftKernelArgs struct {
+	sum                 driver.GPUPtr
 	hiddenGlobalOffsetX int64
 	hiddenGlobalOffsetY int64
 	hiddenGlobalOffsetZ int64
@@ -35,14 +37,13 @@ var (
 	gpuDriver  *driver.Driver
 
 	dataSize    int
-	numTaps     int
-	gFilterData driver.GPUPtr
-	gInputData  driver.GPUPtr
-	gOutputData driver.GPUPtr
+	gSum  	    driver.GPUPtr
 )
+
 
 var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
 var kernel = flag.String("kernel", "kernels.hsaco", "the kernel hsaco file")
+
 
 func main() {
 	//flag.Parse()
@@ -63,8 +64,11 @@ func main() {
 
 	initPlatform()
 	loadProgram()
+	initMem()
 	run()
+	checkResult()
 }
+
 
 func initPlatform() {
 	engine = engines.NewSerialEngine()
@@ -100,15 +104,40 @@ func loadProgram() {
 	fmt.Println(hsaco.Info())
 }
 
+func initMem() {
+	dataSize = 32000
+	gSum = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+
+
+	v1 := make([]int32, dataSize)
+	for i := 0; i < dataSize; i++ {
+		v1[i] = int32(i)
+	}
+
+
+	gpuDriver.MemoryCopyHostToDevice(gSum, v1, globalMem.Storage)
+
+}
+
 
 func run() {
-	kernArg := EmptyKernelArgs{
-		0, 0, 0,
+	kernArg := ShiftKernelArgs{
+		gSum,
+		0, 0,0,
 	}
 
 	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
-		[3]uint32{1, 1, 1},
+		[3]uint32{uint32(dataSize), 1, 1},
 		[3]uint16{256, 1, 1},
 		&kernArg,
 	)
+}
+
+func checkResult() {
+	output := make([]int32, dataSize)
+	gpuDriver.MemoryCopyDeviceToHost(output, gSum, globalMem.Storage)
+
+	for i, o := range output {
+		fmt.Printf("%d: %f\n", i, o)
+	}
 }
