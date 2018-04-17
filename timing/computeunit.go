@@ -102,6 +102,8 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 }
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
+	//log.Printf("%s map wg at %.12f\n", cu.Name(), req.Time())
+
 	ok := false
 
 	if len(cu.WfToDispatch) == 0 {

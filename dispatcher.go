@@ -107,6 +107,17 @@ func NewWGFinishMesg(
 	return m
 }
 
+// DispatcherState defines the current state of the dispatcher
+type DispatcherState int
+
+const (
+	DispatcherIdle DispatcherState = iota
+	DispatcherToMapWG
+	DispatcherWaitMapWGACK
+	DispatcherToDispatchWF
+	DispatcherWaitDispatchWFACK
+)
+
 // A Dispatcher is a component that can dispatch work-groups and wavefronts
 // to ComputeUnits.
 //
@@ -136,8 +147,9 @@ type Dispatcher struct {
 
 	// If the dispatcher has pending MapWGEvent or DispatchWfEvent, no other
 	// events should be scheduled.
-	hasPendingEvent bool
-	busyUntil       core.VTimeInSec
+	// hasPendingEvent bool
+	// busyUntil       core.VTimeInSec
+	state DispatcherState
 }
 
 // NewDispatcher creates a new dispatcher
@@ -160,6 +172,8 @@ func NewDispatcher(
 
 	d.AddPort("ToCUs")
 	d.AddPort("ToCommandProcessor")
+
+	d.state = DispatcherIdle
 
 	return d
 }
@@ -261,19 +275,24 @@ func (d *Dispatcher) replyLaunchKernelReq(
 
 // handleMapWGEvent initiates work-group mapping
 func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
-	d.hasPendingEvent = false
+	// d.hasPendingEvent = false
 
 	if len(d.dispatchingWGs) == 0 {
+		d.state = DispatcherIdle
 		return nil
 	}
 
 	cuID, hasAvailableCU := d.nextAvailableCU()
 	if !hasAvailableCU {
+		d.state = DispatcherIdle
 		return nil
 	}
 
 	CU := d.cus[cuID]
+	log.Printf("(%.12f) Mapping WG %d to CU %d\n", evt.Time(),
+		d.dispatchingWGs[0].IDX, cuID)
 	req := NewMapWGReq(d, CU, evt.Time(), d.dispatchingWGs[0])
+	d.state = DispatcherWaitMapWGACK
 	err := d.GetConnection("ToCUs").Send(req)
 	if err != nil {
 		d.scheduleMapWG(err.EarliestRetry)
@@ -294,45 +313,55 @@ func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
 }
 
 func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
-	if !d.hasPendingEvent && d.busyUntil < time {
-		evt := NewMapWGEvent(time, d)
-		d.engine.Schedule(evt)
-		d.hasPendingEvent = true
-		d.busyUntil = time
-	}
+	//if !d.hasPendingEvent && d.busyUntil < time {
+	evt := NewMapWGEvent(time, d)
+	d.engine.Schedule(evt)
+	log.Printf("Scheduled map wg event at %.12f", time)
+	//d.hasPendingEvent = true
+	//d.busyUntil = time
+	//}
 }
 
 // handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
 func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	if !req.Ok {
+		d.state = DispatcherToMapWG
 		d.cuBusy[d.cus[d.dispatchingCUID]] = true
 		d.scheduleMapWG(req.RecvTime())
 		return nil
 	}
 
 	wg := d.dispatchingWGs[0]
+	log.Printf("(%.12f) Mapping WG %d succeed\n", req.Time(), wg.IDX)
 	d.dispatchingWGs = d.dispatchingWGs[1:]
 	d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
+	d.state = DispatcherToDispatchWF
 	d.scheduleDispatchWfEvent(d.Freq.NextTick(req.RecvTime()))
 
 	return nil
 }
 
 func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
-	if !d.hasPendingEvent && d.busyUntil < time {
-		evt := NewDispatchWfEvent(time, d)
-		d.engine.Schedule(evt)
-		d.hasPendingEvent = true
-		d.busyUntil = time
-	}
+	//if !d.hasPendingEvent && d.busyUntil < time {
+	evt := NewDispatchWfEvent(time, d)
+	d.engine.Schedule(evt)
+	log.Printf("Scheduled dispatch wf event at %.12f", time)
+	//d.hasPendingEvent = true
+	//d.busyUntil = time
+	//}
 }
 
 func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
-	d.hasPendingEvent = false
+
+	//d.hasPendingEvent = false
 	wf := d.dispatchingWfs[0]
 	cu := d.cus[d.dispatchingCUID]
 
+	log.Printf("(%.12f) Mapping Wf to cu %d\n",
+		evt.Time(), d.dispatchingCUID)
+
 	req := NewDispatchWfReq(d, cu, evt.Time(), wf)
+	d.state = DispatcherWaitDispatchWFACK
 	err := d.GetConnection("ToCUs").Send(req)
 	if err != nil {
 		d.scheduleDispatchWfEvent(err.EarliestRetry)
@@ -345,10 +374,12 @@ func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
 	d.dispatchingWfs = d.dispatchingWfs[1:]
 
 	if len(d.dispatchingWfs) == 0 {
+		d.state = DispatcherToMapWG
 		d.scheduleMapWG(d.Freq.NextTick(req.Time()))
 		return nil
 	}
 
+	d.state = DispatcherToDispatchWF
 	d.scheduleDispatchWfEvent(d.Freq.NextTick(req.Time()))
 
 	return nil
@@ -362,7 +393,10 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 		return nil
 	}
 
-	d.scheduleMapWG(d.Freq.NextTick(mesg.Time()))
+	if d.state == DispatcherIdle {
+		d.state = DispatcherToMapWG
+		d.scheduleMapWG(d.Freq.NextTick(mesg.Time()))
+	}
 	return nil
 }
 
