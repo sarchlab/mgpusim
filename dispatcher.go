@@ -144,12 +144,7 @@ type Dispatcher struct {
 	completedWGs    []*kernels.WorkGroup
 	dispatchingWfs  []*kernels.Wavefront
 	dispatchingCUID int
-
-	// If the dispatcher has pending MapWGEvent or DispatchWfEvent, no other
-	// events should be scheduled.
-	// hasPendingEvent bool
-	// busyUntil       core.VTimeInSec
-	state DispatcherState
+	state           DispatcherState
 }
 
 // NewDispatcher creates a new dispatcher
@@ -275,7 +270,6 @@ func (d *Dispatcher) replyLaunchKernelReq(
 
 // handleMapWGEvent initiates work-group mapping
 func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
-	// d.hasPendingEvent = false
 
 	if len(d.dispatchingWGs) == 0 {
 		d.state = DispatcherIdle
@@ -289,8 +283,6 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	}
 
 	CU := d.cus[cuID]
-	log.Printf("(%.12f) Mapping WG %d to CU %d\n", evt.Time(),
-		d.dispatchingWGs[0].IDX, cuID)
 	req := NewMapWGReq(d, CU, evt.Time(), d.dispatchingWGs[0])
 	d.state = DispatcherWaitMapWGACK
 	err := d.GetConnection("ToCUs").Send(req)
@@ -313,19 +305,13 @@ func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
 }
 
 func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
-	//if !d.hasPendingEvent && d.busyUntil < time {
 	evt := NewMapWGEvent(time, d)
 	d.engine.Schedule(evt)
-	log.Printf("Scheduled map wg event at %.12f", time)
-	//d.hasPendingEvent = true
-	//d.busyUntil = time
-	//}
 }
 
 // handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
 func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	if !req.Ok {
-		log.Printf("(%.12f) Mapping workgroup failed", req.Time())
 		d.state = DispatcherToMapWG
 		d.cuBusy[d.cus[d.dispatchingCUID]] = true
 		d.scheduleMapWG(req.RecvTime())
@@ -333,7 +319,6 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	}
 
 	wg := d.dispatchingWGs[0]
-	log.Printf("(%.12f) Mapping WG %d succeed\n", req.Time(), wg.IDX)
 	d.dispatchingWGs = d.dispatchingWGs[1:]
 	d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
 	d.state = DispatcherToDispatchWF
@@ -343,23 +328,13 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
-	//if !d.hasPendingEvent && d.busyUntil < time {
 	evt := NewDispatchWfEvent(time, d)
 	d.engine.Schedule(evt)
-	log.Printf("Scheduled dispatch wf event at %.12f", time)
-	//d.hasPendingEvent = true
-	//d.busyUntil = time
-	//}
 }
 
 func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
-
-	//d.hasPendingEvent = false
 	wf := d.dispatchingWfs[0]
 	cu := d.cus[d.dispatchingCUID]
-
-	log.Printf("(%.12f) Mapping Wf to cu %d\n",
-		evt.Time(), d.dispatchingCUID)
 
 	req := NewDispatchWfReq(d, cu, evt.Time(), wf)
 	d.state = DispatcherWaitDispatchWFACK
@@ -402,6 +377,9 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 }
 
 func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
+
+	log.Printf("Kernel completed at %.12f\n", now)
+
 	req := d.dispatchingReq
 	req.SwapSrcAndDst()
 	req.SetSendTime(now)
@@ -412,7 +390,6 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 
 func (d *Dispatcher) RegisterCU(cu core.Component) {
 	d.cus = append(d.cus, cu)
-	//d.cuBusy = append(d.cuBusy, false)
 	d.cuBusy[cu] = false
 }
 

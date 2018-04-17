@@ -77,6 +77,9 @@ func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
 
 // Handle processes that events that are scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt core.Event) error {
+	cu.Lock()
+	defer cu.Unlock()
+
 	cu.InvokeHook(evt, cu, core.BeforeEvent, nil)
 	defer cu.InvokeHook(evt, cu, core.AfterEvent, nil)
 

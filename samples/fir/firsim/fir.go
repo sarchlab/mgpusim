@@ -2,20 +2,10 @@ package main
 
 import (
 	"debug/elf"
+	"flag"
 	"log"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"os/signal"
-	"runtime"
-	"runtime/pprof"
-	"syscall"
-
-	"flag"
-
-	"runtime/debug"
-
-	"fmt"
 
 	"math"
 
@@ -64,47 +54,47 @@ var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to fi
 var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
 
 func main() {
-	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
-
-	runtime.SetBlockProfileRate(1)
-	go func() {
-		log.Println(http.ListenAndServe("localhost:8080", nil))
-	}()
-
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		debug.PrintStack()
-		os.Exit(1)
-	}()
-
-	logger = log.New(os.Stdout, "", 0)
-	traceFile, err := os.Create("trace.out")
-	if err != nil {
-		log.Panic(err)
-	}
-	traceOutput = traceFile
+	//flag.Parse()
+	//if *cpuprofile != "" {
+	//	f, err := os.Create(*cpuprofile)
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
+	//	pprof.StartCPUProfile(f)
+	//	defer pprof.StopCPUProfile()
+	//}
+	//
+	//runtime.SetBlockProfileRate(1)
+	//go func() {
+	//	log.Println(http.ListenAndServe("localhost:8080", nil))
+	//}()
+	//
+	//c := make(chan os.Signal, 2)
+	//signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	//go func() {
+	//	<-c
+	//	debug.PrintStack()
+	//	os.Exit(1)
+	//}()
+	//
+	//logger = log.New(os.Stdout, "", 0)
+	//traceFile, err := os.Create("trace.out")
+	//if err != nil {
+	//	log.Panic(err)
+	//}
+	//traceOutput = traceFile
 
 	initPlatform()
 	loadProgram()
 	initMem()
 	run()
-	checkResult()
+	//checkResult()
 }
 
 func initPlatform() {
 	// Simulation engine
-	engine = engines.NewSerialEngine()
-	//engine = engines.NewParallelEngine()
+	//engine = engines.NewSerialEngine()
+	engine = engines.NewParallelEngine()
 
 	// Connection
 	connection = connections.NewDirectConnection(engine)
@@ -135,11 +125,10 @@ func loadProgram() {
 	}
 
 	hsaco = insts.NewHsaCoFromData(hsacoData)
-	fmt.Println(hsaco.Info())
 }
 
 func initMem() {
-	dataSize = 1048576
+	dataSize = 8192
 	numTaps = 16
 	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
 	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
