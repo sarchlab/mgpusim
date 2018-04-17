@@ -20,11 +20,25 @@ var _ = Describe("WfDispatcher", func() {
 		engine = core.NewMockEngine()
 		cu = NewComputeUnit("cu", engine)
 		cu.Freq = 1
+
+		sRegFile := NewSimpleRegisterFile(uint64(3200*4), 0)
+		cu.SRegFile = sRegFile
+
+		for i := 0; i < 4; i++ {
+			vRegFile := NewSimpleRegisterFile(uint64(16384*4), 1024)
+			cu.VRegFile = append(cu.VRegFile, vRegFile)
+		}
+
 		wfDispatcher = NewWfDispatcher(cu)
 	})
 
 	It("should dispatch wavefront", func() {
 		rawWf := kernels.NewWavefront()
+		rawWG := kernels.NewWorkGroup()
+		rawWf.WG = rawWG
+		rawWG.SizeX = 256
+		rawWG.SizeY = 1
+		rawWG.SizeZ = 1
 		wfDispatchInfo := &WfDispatchInfo{rawWf, 1, 16, 8, 512}
 		cu.WfToDispatch[rawWf] = wfDispatchInfo
 
@@ -34,6 +48,8 @@ var _ = Describe("WfDispatcher", func() {
 		packet.KernelObject = 65536
 
 		wf := NewWavefront(rawWf)
+		wg := NewWorkGroup(rawWG, nil)
+		wf.WG = wg
 		wf.CodeObject = co
 		wf.Packet = packet
 		req := gcn3.NewDispatchWfReq(nil, cu, 10, nil)
