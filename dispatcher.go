@@ -325,6 +325,7 @@ func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
 // handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
 func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	if !req.Ok {
+		log.Printf("(%.12f) Mapping workgroup failed", req.Time())
 		d.state = DispatcherToMapWG
 		d.cuBusy[d.cus[d.dispatchingCUID]] = true
 		d.scheduleMapWG(req.RecvTime())
