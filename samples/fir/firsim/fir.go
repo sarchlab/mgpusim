@@ -1,7 +1,6 @@
 package main
 
 import (
-	"debug/elf"
 	"flag"
 	"log"
 	_ "net/http/pprof"
@@ -10,12 +9,11 @@ import (
 	"math"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/connections"
-	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/driver"
-	"gitlab.com/yaotsu/gcn3/gpubuilder"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/platform"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -50,39 +48,10 @@ var (
 	gOutputData  driver.GPUPtr
 )
 
-var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
-var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
+var kernelFilePath = flag.String("kernel file path", "../disasm/kernels.hsaco", "the kernel hsaco file")
 
 func main() {
-	//flag.Parse()
-	//if *cpuprofile != "" {
-	//	f, err := os.Create(*cpuprofile)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//	pprof.StartCPUProfile(f)
-	//	defer pprof.StopCPUProfile()
-	//}
-	//
-	//runtime.SetBlockProfileRate(1)
-	//go func() {
-	//	log.Println(http.ListenAndServe("localhost:8080", nil))
-	//}()
-	//
-	//c := make(chan os.Signal, 2)
-	//signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	//go func() {
-	//	<-c
-	//	debug.PrintStack()
-	//	os.Exit(1)
-	//}()
-	//
-	//logger = log.New(os.Stdout, "", 0)
-	//traceFile, err := os.Create("trace.out")
-	//if err != nil {
-	//	log.Panic(err)
-	//}
-	//traceOutput = traceFile
+	flag.Parse()
 
 	initPlatform()
 	loadProgram()
@@ -92,39 +61,11 @@ func main() {
 }
 
 func initPlatform() {
-	// Simulation engine
-	//engine = engines.NewSerialEngine()
-	engine = engines.NewParallelEngine()
-
-	// Connection
-	connection = connections.NewDirectConnection(engine)
-
-	// GPU
-	gpuDriver = driver.NewDriver(engine)
-	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
-	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.EnableISADebug = false
-	gpu, globalMem = gpuBuilder.BuildR9Nano()
-
-	core.PlugIn(gpuDriver, "ToGPUs", connection)
-	core.PlugIn(gpu, "ToDriver", connection)
-	gpu.Driver = gpuDriver
-
+	engine, gpu, gpuDriver, globalMem = platform.BuildR9NanoPlatform()
 }
 
 func loadProgram() {
-	executable, err := elf.Open(*kernel)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	sec := executable.Section(".text")
-	hsacoData, err := sec.Data()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	hsaco = insts.NewHsaCoFromData(hsacoData)
+	hsaco = kernels.LoadProgram(*kernelFilePath, "FIR")
 }
 
 func initMem() {
