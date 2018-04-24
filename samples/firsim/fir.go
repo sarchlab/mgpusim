@@ -1,12 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	_ "net/http/pprof"
-
 	"flag"
-
+	"log"
 	"math"
 
 	"gitlab.com/yaotsu/core"
@@ -30,13 +26,11 @@ type FirKernelArgs struct {
 }
 
 var (
-	engine     core.Engine
-	globalMem  *mem.IdealMemController
-	gpu        *gcn3.GPU
-	connection core.Connection
-	hsaco      *insts.HsaCo
-	logger     *log.Logger
-	gpuDriver  *driver.Driver
+	engine    core.Engine
+	globalMem *mem.IdealMemController
+	gpu       *gcn3.GPU
+	gpuDriver *driver.Driver
+	hsaco     *insts.HsaCo
 
 	dataSize     int
 	numTaps      int
@@ -48,30 +42,47 @@ var (
 	gOutputData  driver.GPUPtr
 )
 
-//var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
-var kernelFilePath = flag.String("kernel file path", "../disasm/kernels.hsaco", "the kernel hsaco file")
+var kernelFilePath = flag.String(
+	"kernel file path",
+	"disasm/kernels.hsaco",
+	"The path to the kernel hsaco file.",
+)
+var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
+var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
+var numData = flag.Int("dataSize", 4096, "The number of samples to filter.")
 
 func main() {
-	flag.Parse()
-
+	configure()
 	initPlatform()
 	loadProgram()
 	initMem()
 	run()
-	checkResult()
+	//checkResult()
+}
+
+func configure() {
+	flag.Parse()
+
+	if *parallel {
+		platform.UseParallelEngine = true
+	}
+
+	dataSize = *numData
 }
 
 func initPlatform() {
-	engine, gpu, gpuDriver, globalMem = platform.BuildEmuPlatform()
+	if *timing {
+		engine, gpu, gpuDriver, globalMem = platform.BuildR9NanoPlatform()
+	} else {
+		engine, gpu, gpuDriver, globalMem = platform.BuildEmuPlatform()
+	}
 }
 
 func loadProgram() {
 	hsaco = kernels.LoadProgram(*kernelFilePath, "FIR")
-	fmt.Println(hsaco.Info())
 }
 
 func initMem() {
-	dataSize = 256
 	numTaps = 16
 	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
 	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
