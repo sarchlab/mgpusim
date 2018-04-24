@@ -44,11 +44,12 @@ var (
 
 var kernelFilePath = flag.String(
 	"kernel file path",
-	"disasm/kernels.hsaco",
+	"kernels.hsaco",
 	"The path to the kernel hsaco file.",
 )
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
+var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var numData = flag.Int("dataSize", 4096, "The number of samples to filter.")
 
 func main() {
@@ -57,7 +58,10 @@ func main() {
 	loadProgram()
 	initMem()
 	run()
-	//checkResult()
+
+	if *verify {
+		checkResult()
+	}
 }
 
 func configure() {
