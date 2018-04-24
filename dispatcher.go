@@ -110,6 +110,7 @@ func NewWGFinishMesg(
 // DispatcherState defines the current state of the dispatcher
 type DispatcherState int
 
+// A list of all possible dispatcher states
 const (
 	DispatcherIdle DispatcherState = iota
 	DispatcherToMapWG
@@ -388,6 +389,8 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 	d.dispatchingReq = nil
 }
 
+// RegisterCU adds a CU to the dispatcher so that the dispatcher can
+// dispatches wavefronts to the CU
 func (d *Dispatcher) RegisterCU(cu core.Component) {
 	d.cus = append(d.cus, cu)
 	d.cuBusy[cu] = false

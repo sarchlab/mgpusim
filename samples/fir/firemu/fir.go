@@ -1,23 +1,20 @@
 package main
 
 import (
-	"debug/elf"
 	"fmt"
 	"log"
 	_ "net/http/pprof"
-
-	"gitlab.com/yaotsu/core/connections"
 
 	"flag"
 
 	"math"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/driver"
-	"gitlab.com/yaotsu/gcn3/gpubuilder"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/platform"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -51,25 +48,11 @@ var (
 	gOutputData  driver.GPUPtr
 )
 
-var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
-var kernel = flag.String("kernel", "../disasm/kernels.hsaco", "the kernel hsaco file")
+//var cpuprofile = flag.String("cpuprofile", "prof.prof", "write cpu profile to file")
+var kernelFilePath = flag.String("kernel file path", "../disasm/kernels.hsaco", "the kernel hsaco file")
 
 func main() {
-	//flag.Parse()
-	//
-	//f, err := os.Create("trace.out")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer f.Close()
-	//
-	//err = trace.Start(f)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer trace.Stop()
-	//
-	//logger = log.New(os.Stdout, "", 0)
+	flag.Parse()
 
 	initPlatform()
 	loadProgram()
@@ -79,36 +62,11 @@ func main() {
 }
 
 func initPlatform() {
-	engine = engines.NewSerialEngine()
-	//engine = engines.NewParallelEngine()
-	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
-
-	gpuDriver = driver.NewDriver(engine)
-	connection = connections.NewDirectConnection(engine)
-
-	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
-	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.EnableISADebug = true
-	gpu, globalMem = gpuBuilder.BuildEmulationGPU()
-
-	core.PlugIn(gpuDriver, "ToGPUs", connection)
-	core.PlugIn(gpu, "ToDriver", connection)
-	gpu.Driver = gpuDriver
+	engine, gpu, gpuDriver, globalMem = platform.BuildEmuPlatform()
 }
 
 func loadProgram() {
-	executable, err := elf.Open(*kernel)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	sec := executable.Section(".text")
-	hsacoData, err := sec.Data()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	hsaco = insts.NewHsaCoFromData(hsacoData)
+	hsaco = kernels.LoadProgram(*kernelFilePath, "FIR")
 	fmt.Println(hsaco.Info())
 }
 
