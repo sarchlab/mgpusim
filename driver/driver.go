@@ -1,6 +1,8 @@
 package driver
 
 import (
+	"fmt"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/mem"
 )
@@ -21,7 +23,7 @@ func NewDriver(engine core.Engine) *Driver {
 
 	driver.engine = engine
 
-	driver.AddPort("ToGPUs")
+	driver.ComponentBase.AddPort("ToGPUs")
 
 	driver.memoryMasks = make(map[*mem.Storage]*MemoryMask)
 
@@ -30,7 +32,11 @@ func NewDriver(engine core.Engine) *Driver {
 
 // Handle process event that is scheduled on the driver
 func (d *Driver) Handle(e core.Event) error {
-	return nil
+	f, err := e
+	if err != LaunchKernelEvent {
+		fmt.Print("Event is not of type 'LaunchKernelEvent'")
+	}
+	LaunchKernel(e)
 }
 
 // Recv processes incoming requests
