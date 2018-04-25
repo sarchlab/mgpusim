@@ -379,7 +379,7 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 
 func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 
-	log.Printf("Kernel completed at %.12f\n", now)
+	//log.Printf("Kernel completed at %.12f\n", now)
 
 	req := d.dispatchingReq
 	req.SwapSrcAndDst()
