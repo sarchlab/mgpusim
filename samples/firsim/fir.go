@@ -49,6 +49,7 @@ var kernelFilePath = flag.String(
 )
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
+var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var numData = flag.Int("dataSize", 4096, "The number of samples to filter.")
 
@@ -69,6 +70,10 @@ func configure() {
 
 	if *parallel {
 		platform.UseParallelEngine = true
+	}
+
+	if *isaDebug {
+		platform.DebugISA = true
 	}
 
 	dataSize = *numData
