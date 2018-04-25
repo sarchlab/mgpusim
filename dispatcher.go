@@ -384,9 +384,11 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 	req := d.dispatchingReq
 	req.SwapSrcAndDst()
 	req.SetSendTime(now)
-	d.GetConnection("ToCommandProcessor").Send(req)
 
+	d.completedWGs = nil
 	d.dispatchingReq = nil
+
+	d.GetConnection("ToCommandProcessor").Send(req)
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can

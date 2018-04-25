@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"log"
-	"math"
+	"fmt"
+
+	"math/rand"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -28,9 +29,9 @@ type KMeansComputeArgs struct {
 	feature             driver.GPUPtr
 	clusters            driver.GPUPtr
 	membership          driver.GPUPtr
-	npoints             int32
-	nclusters           int32
-	nfeatures           int32
+	nPoints             int32
+	nClusters           int32
+	nFeatures           int32
 	offset              int32
 	size                int32
 	padding             int32
@@ -45,6 +46,18 @@ var (
 	gpu           *gcn3.GPU
 	gpuDriver     *driver.Driver
 	computeKernel *insts.HsaCo
+	swapKernel    *insts.HsaCo
+
+	numClusters   int
+	numPoints     int
+	numFeatures   int
+	hFeatures     []float32
+	dFeatures     driver.GPUPtr
+	dFeaturesSwap driver.GPUPtr
+	hMembership   []int32
+	dMembership   driver.GPUPtr
+	hClusters     []float32
+	dClusters     driver.GPUPtr
 )
 
 var kernelFilePath = flag.String(
@@ -55,7 +68,10 @@ var kernelFilePath = flag.String(
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
-var numData = flag.Int("dataSize", 4096, "The number of samples to filter.")
+var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
+var points = flag.Int("points", 4096, "The number of points.")
+var clusters = flag.Int("clusters", 5, "The number of clusters.")
+var features = flag.Int("features", 32, "The number of features for each point.")
 
 func main() {
 	configure()
@@ -76,7 +92,13 @@ func configure() {
 		platform.UseParallelEngine = true
 	}
 
-	dataSize = *numData
+	if *isaDebug {
+		platform.DebugISA = true
+	}
+
+	numPoints = *points
+	numFeatures = *features
+	numClusters = *clusters
 }
 
 func initPlatform() {
@@ -88,67 +110,151 @@ func initPlatform() {
 }
 
 func loadProgram() {
-	hsaco = kernels.LoadProgram(*kernelFilePath, "FIR")
+	computeKernel = kernels.LoadProgram(*kernelFilePath, "kmeans_kernel_compute")
+	swapKernel = kernels.LoadProgram(*kernelFilePath, "kmeans_kernel_swap")
 }
 
 func initMem() {
-	numTaps = 16
-	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
-	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
-	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
-	gOutputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+	dFeatures = gpuDriver.AllocateMemory(globalMem.Storage,
+		uint64(numPoints*numFeatures*4))
+	dFeaturesSwap = gpuDriver.AllocateMemory(globalMem.Storage,
+		uint64(numPoints*numFeatures*4))
+	dMembership = gpuDriver.AllocateMemory(globalMem.Storage,
+		uint64(numPoints*4))
+	dClusters = gpuDriver.AllocateMemory(globalMem.Storage,
+		uint64(numClusters*numFeatures*4))
 
-	filterData = make([]float32, numTaps)
-	for i := 0; i < numTaps; i++ {
-		filterData[i] = float32(i)
+	hFeatures = make([]float32, numPoints*numFeatures)
+	for i := 0; i < numPoints*numFeatures; i++ {
+		hFeatures[i] = rand.Float32()
+		//hFeatures[i] = float32(i)
 	}
 
-	inputData = make([]float32, dataSize)
-	for i := 0; i < dataSize; i++ {
-		inputData[i] = float32(i)
-	}
-
-	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, globalMem.Storage)
-	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(dFeatures, hFeatures, globalMem.Storage)
 }
 
 func run() {
-	kernArg := FirKernelArgs{
-		gOutputData,
-		gFilterData,
-		gInputData,
-		gHistoryData,
-		uint32(numTaps),
+	TransposeFeatures()
+	KMeansClustering()
+	CalculateRMSE()
+}
+
+func TransposeFeatures() {
+	kernArg := KMeansSwapArgs{
+		dFeatures,
+		dFeaturesSwap,
+		int32(numPoints),
+		int32(numFeatures),
 		0, 0, 0,
 	}
 
-	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
-		[3]uint32{uint32(dataSize), 1, 1},
-		[3]uint16{256, 1, 1},
+	gpuDriver.LaunchKernel(swapKernel, gpu, globalMem.Storage,
+		[3]uint32{uint32(numPoints), 1, 1},
+		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
 }
 
-func checkResult() {
-	gpuOutput := make([]float32, dataSize)
-	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, globalMem.Storage)
+func KMeansClustering() {
+	numIterations := 0
+	delta := float64(1.0)
 
-	for i := 0; i < dataSize; i++ {
-		var sum float32
-		sum = 0
+	InitializeClusters()
+	InitializeMembership()
 
-		for j := 0; j < numTaps; j++ {
-			if i < j {
-				continue
-			}
-			sum += inputData[i-j] * filterData[j]
-		}
+	for delta > 0 && numIterations < 500 {
+		fmt.Printf("Start\n")
+		delta = UpdateMembership()
+		numIterations++
+		UpdateCentroids()
+	}
 
-		if math.Abs(float64(sum-gpuOutput[i])) >= 1e-5 {
-			log.Fatalf("At position %d, expected %f, but get %f.\n",
-				i, sum, gpuOutput[i])
+}
+
+func InitializeClusters() {
+	hClusters = make([]float32, numClusters*numFeatures)
+	for i := 0; i < numClusters*numFeatures; i++ {
+		hClusters[i] = hFeatures[i]
+	}
+}
+
+func InitializeMembership() {
+	hMembership = make([]int32, numPoints)
+	for i := 0; i < numPoints; i++ {
+		hMembership[i] = -1
+	}
+}
+
+func UpdateMembership() float64 {
+	gpuDriver.MemoryCopyHostToDevice(dClusters, hClusters, globalMem.Storage)
+
+	kernArg := KMeansComputeArgs{
+		dFeaturesSwap,
+		dClusters,
+		dMembership,
+		int32(numPoints),
+		int32(numClusters),
+		int32(numFeatures),
+		0, 0, 0,
+		0, 0, 0,
+	}
+
+	gpuDriver.LaunchKernel(computeKernel, gpu, globalMem.Storage,
+		[3]uint32{uint32(numPoints), 1, 1},
+		[3]uint16{64, 1, 1},
+		&kernArg,
+	)
+
+	newMembership := make([]int32, numPoints)
+	gpuDriver.MemoryCopyDeviceToHost(newMembership, dMembership, globalMem.Storage)
+
+	delta := 0.0
+	for i := 0; i < numPoints; i++ {
+		//fmt.Printf("%d - %d\n", i, newMembership[i])
+		if newMembership[i] != hMembership[i] {
+			delta++
+			hMembership[i] = newMembership[i]
 		}
 	}
 
-	log.Printf("Passed!\n")
+	return delta
+}
+
+func UpdateCentroids() {
+	for i := 0; i < numClusters*numFeatures; i++ {
+		hClusters[i] = 0
+	}
+
+	memberCount := make([]int, numClusters)
+	for i := 0; i < numPoints; i++ {
+		for j := 0; j < numFeatures; j++ {
+			featureIndex := i*numFeatures + j
+			clusterIndex := int(hMembership[i])*numFeatures + j
+
+			hClusters[clusterIndex] += hFeatures[featureIndex]
+		}
+		memberCount[hMembership[i]]++
+	}
+
+	for i := 0; i < numClusters; i++ {
+		for j := 0; j < numFeatures; j++ {
+			index := i*numFeatures + j
+			if memberCount[i] > 0 {
+				hClusters[index] /= float32(memberCount[i])
+			}
+		}
+	}
+}
+
+func CalculateRMSE() float32 {
+	return 0
+}
+
+func checkResult() {
+	hFeaturesSwap := make([]float32, numPoints*numFeatures)
+	gpuDriver.MemoryCopyDeviceToHost(hFeaturesSwap, dFeaturesSwap, globalMem.Storage)
+
+	for i := 0; i < numPoints*numFeatures; i++ {
+		fmt.Printf("%f ", hFeaturesSwap[i])
+	}
 }
