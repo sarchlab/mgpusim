@@ -50,7 +50,6 @@ var _ = Describe("Dispatcher", func() {
 		gridBuilder.Grid = grid
 
 		dispatcher = NewDispatcher("dispatcher", engine, gridBuilder)
-		dispatcher.busyUntil = 1
 		dispatcher.Freq = 1
 
 		toCommandProcessorConn = core.NewMockConnection()
@@ -262,7 +261,7 @@ var _ = Describe("Dispatcher", func() {
 	It("should not continue dispatching when receiving WGFinishMesg and "+
 		"the dispatcher is dispatching", func() {
 		dispatcher.dispatchingGrid = grid
-		dispatcher.hasPendingEvent = true
+		dispatcher.state = DispatcherToMapWG
 
 		wg := grid.WorkGroups[0]
 		req := NewWGFinishMesg(cu0, dispatcher, 10, wg)

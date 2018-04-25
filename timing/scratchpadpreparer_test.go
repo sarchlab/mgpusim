@@ -181,10 +181,10 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i+1024)))
-			sp.writeReg(insts.VReg(2), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
-			sp.writeReg(insts.VReg(3), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
-			sp.writeReg(insts.VReg(4), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
-			sp.writeReg(insts.VReg(5), 2, wf, i, insts.Uint32ToBytes(uint32(i)))
+			sp.writeReg(insts.VReg(2), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
+			sp.writeReg(insts.VReg(3), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
+			sp.writeReg(insts.VReg(4), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
+			sp.writeReg(insts.VReg(5), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
 		}
 		wf.EXEC = 0xff
 
