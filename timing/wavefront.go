@@ -65,6 +65,9 @@ func NewWavefront(raw *kernels.Wavefront) *Wavefront {
 
 // Inst return the instruction that is being simulated
 func (wf *Wavefront) Inst() *insts.Inst {
+	if wf.inst == nil {
+		return nil
+	}
 	return wf.inst.Inst
 }
 

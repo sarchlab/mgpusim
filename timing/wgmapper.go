@@ -1,6 +1,9 @@
 package timing
 
-import "gitlab.com/yaotsu/gcn3"
+import (
+	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/kernels"
+)
 
 // WGMapper defines the behavior of how a workgroup is mapped in the compute
 // unit.
@@ -96,6 +99,7 @@ func (m *WGMapperImpl) SetWfPoolSizes(numWfs []int) {
 func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 	ok := true
 
+	m.cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	for _, wf := range req.WG.Wavefronts {
 		info := new(WfDispatchInfo)
 		info.Wavefront = wf

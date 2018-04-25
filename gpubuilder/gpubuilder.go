@@ -137,8 +137,8 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
-			cu.AcceptHook(wfHook)
+			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
+			cu.AcceptHook(isaDebugger)
 		}
 	}
 
