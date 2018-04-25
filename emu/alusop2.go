@@ -28,6 +28,8 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 		u.runSXOR64(state)
 	case 29:
 		u.runSLSHLB64(state)
+	case 30:
+		u.runSLSHRB32(state)
 	case 32:
 		u.runSASHRI32(state)
 	case 36:
@@ -152,12 +154,24 @@ func (u *ALUImpl) runSXOR64(state InstEmuState) {
 	}
 }
 
+func (u *ALUImpl) runSLSHRB32(state InstEmuState) {
+
+	sp := state.Scratchpad().AsSOP2()
+	sp.DST = sp.SRC0 >> (sp.SRC1 & 0x1f)
+
+	if sp.DST != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
 func (u *ALUImpl) runSLSHLB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	src0 := sp.SRC0
 	src1 := uint8(sp.SRC1)
-	dst := src0 << src1
+	dst := src0 << (src1 & 0x3f)
 
 	sp.DST = dst
 
