@@ -23,8 +23,7 @@ type LaunchKernelEvent struct {
 }
 
 func (d *Driver) ScheduleKernelLaunching(
-	t core.VTimeInSec, 
-	h core.Handler,
+	t core.VTimeInSec,
 
 	co *insts.HsaCo,
 	gpu core.Component,
@@ -34,7 +33,7 @@ func (d *Driver) ScheduleKernelLaunching(
 	kernelArgs interface{},
 ) {
 	k := new(LaunchKernelEvent)
-	k.EventBase = core.NewEventBase(t, h)
+	k.EventBase = core.NewEventBase(t, d)
 	d.engine.Schedule(k)
 
 	k.CO = co
@@ -45,7 +44,7 @@ func (d *Driver) ScheduleKernelLaunching(
 	k.KernelArgs = kernelArgs
 }
 
-func (d *Driver) LaunchKernel(k LaunchKernelEvent) {
+func (d *Driver) HandleKernelLaunchingEvent(k *LaunchKernelEvent) {
 	dCoData := d.AllocateMemory(k.Storage, uint64(len(k.CO.Data)))
 	d.MemoryCopyHostToDevice(dCoData, k.CO.Data, k.Storage)
 
@@ -75,8 +74,6 @@ func (d *Driver) LaunchKernel(k LaunchKernelEvent) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	d.engine.Run()
 }
 
 /*

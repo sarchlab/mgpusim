@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"fmt"
+	"log"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/mem"
@@ -32,11 +32,14 @@ func NewDriver(engine core.Engine) *Driver {
 
 // Handle process event that is scheduled on the driver
 func (d *Driver) Handle(e core.Event) error {
-	f, err := e
-	if err != LaunchKernelEvent {
-		fmt.Print("Event is not of type 'LaunchKernelEvent'")
+	switch e := e.(type) {
+	case *LaunchKernelEvent:
+		return HandleLaunchKernelEvent(e)
+
+	default:
+		log.Panicf("Unable to process event")
 	}
-	LaunchKernel(e)
+	return nil
 }
 
 // Recv processes incoming requests
