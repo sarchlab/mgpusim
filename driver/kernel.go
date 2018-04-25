@@ -40,6 +40,9 @@ func (d *Driver) LaunchKernel(
 	d.MemoryCopyHostToDevice(dPacket, req.Packet, storage)
 
 	startTime := d.engine.CurrentTime()
+	if startTime < 0 {
+		startTime = 0
+	}
 	req.PacketAddress = uint64(dPacket)
 	req.SetSrc(d)
 	req.SetDst(gpu)

@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-
+	"log"
+	"math"
 	"math/rand"
+	//_ "net/http/pprof"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -58,6 +60,8 @@ var (
 	dMembership   driver.GPUPtr
 	hClusters     []float32
 	dClusters     driver.GPUPtr
+
+	gpuRMSE float64
 )
 
 var kernelFilePath = flag.String(
@@ -72,9 +76,29 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var points = flag.Int("points", 4096, "The number of points.")
 var clusters = flag.Int("clusters", 5, "The number of clusters.")
 var features = flag.Int("features", 32, "The number of features for each point.")
+var maxIter = flag.Int("max-iter", 20, "The maximum number of iterations to run")
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 func main() {
+
+	//f, err := os.Create("trace.out")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer f.Close()
+	//
+	//err = trace.Start(f)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer trace.Stop()
+
 	configure()
+
+	//go func() {
+	//	log.Println(http.ListenAndServe("localhost:6060", nil))
+	//}()
+
 	initPlatform()
 	loadProgram()
 	initMem()
@@ -124,6 +148,7 @@ func initMem() {
 	dClusters = gpuDriver.AllocateMemory(globalMem.Storage,
 		uint64(numClusters*numFeatures*4))
 
+	rand.Seed(0)
 	hFeatures = make([]float32, numPoints*numFeatures)
 	for i := 0; i < numPoints*numFeatures; i++ {
 		hFeatures[i] = rand.Float32()
@@ -136,7 +161,7 @@ func initMem() {
 func run() {
 	TransposeFeatures()
 	KMeansClustering()
-	CalculateRMSE()
+	gpuRMSE = CalculateRMSE()
 }
 
 func TransposeFeatures() {
@@ -162,12 +187,13 @@ func KMeansClustering() {
 	InitializeClusters()
 	InitializeMembership()
 
-	for delta > 0 && numIterations < 500 {
-		fmt.Printf("Start\n")
+	for delta > 0 && numIterations < *maxIter {
 		delta = UpdateMembership()
 		numIterations++
 		UpdateCentroids()
 	}
+
+	fmt.Printf("GPU iterated %d times\n", numIterations)
 
 }
 
@@ -246,15 +272,80 @@ func UpdateCentroids() {
 	}
 }
 
-func CalculateRMSE() float32 {
-	return 0
+func CalculateRMSE() float64 {
+	mse := float64(0.0)
+
+	for i := 0; i < numPoints; i++ {
+		distanceSquare := float64(0.0)
+		for j := 0; j < numFeatures; j++ {
+			featureIndex := i*numFeatures + j
+			clusterIndex := int(hMembership[i])*numFeatures + j
+			distance := float64(hFeatures[featureIndex] - hClusters[clusterIndex])
+			distanceSquare += distance * distance
+		}
+		mse += distanceSquare
+	}
+
+	mse /= float64(numPoints)
+	return mse
 }
 
 func checkResult() {
-	hFeaturesSwap := make([]float32, numPoints*numFeatures)
-	gpuDriver.MemoryCopyDeviceToHost(hFeaturesSwap, dFeaturesSwap, globalMem.Storage)
+	numIterations := 0
+	delta := float64(1.0)
 
-	for i := 0; i < numPoints*numFeatures; i++ {
-		fmt.Printf("%f ", hFeaturesSwap[i])
+	InitializeClusters()
+	InitializeMembership()
+
+	for delta > 0 && numIterations < *maxIter {
+		delta = UpdateMembershipCPU()
+		numIterations++
+		UpdateCentroids()
 	}
+
+	fmt.Printf("CPU iterated %d times\n", numIterations)
+
+	cpuRMSE := CalculateRMSE()
+	if math.Abs(cpuRMSE-gpuRMSE) < 1e-12 {
+		fmt.Printf("Passsed, RMSE %f\n", cpuRMSE)
+	} else {
+		log.Fatal("error")
+	}
+
+}
+
+func UpdateMembershipCPU() float64 {
+	newMembership := make([]int32, numPoints)
+
+	for i := 0; i < numPoints; i++ {
+		minDistance := float64(math.MaxFloat64)
+		clusterIndex := 0
+
+		for j := 0; j < numClusters; j++ {
+			dist := float64(0)
+
+			for k := 0; k < numFeatures; k++ {
+				diff := float64(hFeatures[i*numFeatures+k] - hClusters[j*numFeatures+k])
+				dist += diff * diff
+			}
+
+			if dist < minDistance {
+				minDistance = dist
+				clusterIndex = j
+			}
+
+		}
+		newMembership[i] = int32(clusterIndex)
+	}
+
+	delta := 0.0
+	for i := 0; i < numPoints; i++ {
+		//fmt.Printf("%d - %d\n", i, newMembership[i])
+		if newMembership[i] != hMembership[i] {
+			delta++
+			hMembership[i] = newMembership[i]
+		}
+	}
+
+	return delta
 }
