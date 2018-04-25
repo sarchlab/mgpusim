@@ -165,7 +165,6 @@ func getOperand(num uint16) (*Operand, error) {
 		return NewFloatOperand(code, -4.0), nil
 	case num == 248:
 		return NewFloatOperand(code, 1.0/(2.0*math.Pi)), nil
-
 	case num == 251:
 		return NewRegOperand(code, Vccz, 0), nil
 	case num == 252:
