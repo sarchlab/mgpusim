@@ -108,15 +108,22 @@ func (d *Driver) LaunchKernel(
 	dPacket := d.AllocateMemory(storage, uint64(binary.Size(req.Packet)))
 	d.MemoryCopyHostToDevice(dPacket, req.Packet, storage)
 
+	startTime := d.engine.CurrentTime()
+	if startTime < 0 {
+		startTime = 0
+	}
 	req.PacketAddress = uint64(dPacket)
 	req.SetSrc(d)
 	req.SetDst(gpu)
-	req.SetSendTime(0) // FIXME: The time need to be retrieved from the engine
+	req.SetSendTime(startTime) // FIXME: The time need to be retrieved from the engine
 	err := d.GetConnection("ToGPUs").Send(req)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	d.engine.Run()
+	endTime := d.engine.CurrentTime()
+
+	log.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
 }
 */
