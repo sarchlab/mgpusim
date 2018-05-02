@@ -12,14 +12,14 @@ import (
 
 // A LaunchKernelEvent is a kernel even with an assigned time to run
 type LaunchKernelEvent struct {
-	EventBase core.EventBase,
+	*core.EventBase
 
-	CO *insts.HsaCo,
-	GPU core.Component,
-	Storage *mem.Storage,
-	GridSize [3]uint32,
-	WgSize [3]uint16,
-	KernelArgs interface{},
+	CO         *insts.HsaCo
+	GPU        core.Component
+	Storage    *mem.Storage
+	GridSize   [3]uint32
+	WgSize     [3]uint16
+	KernelArgs interface{}
 }
 
 func (d *Driver) ScheduleKernelLaunching(
@@ -44,7 +44,7 @@ func (d *Driver) ScheduleKernelLaunching(
 	k.KernelArgs = kernelArgs
 }
 
-func (d *Driver) HandleKernelLaunchingEvent(k *LaunchKernelEvent) {
+func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
 	dCoData := d.AllocateMemory(k.Storage, uint64(len(k.CO.Data)))
 	d.MemoryCopyHostToDevice(dCoData, k.CO.Data, k.Storage)
 
@@ -74,10 +74,9 @@ func (d *Driver) HandleKernelLaunchingEvent(k *LaunchKernelEvent) {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
 
-/*
-// Previous function
+	return nil
+}
 
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,
@@ -85,7 +84,7 @@ func (d *Driver) LaunchKernel(
 	storage *mem.Storage,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
-	kernelArgs interface{}
+	kernelArgs interface{},
 ) {
 	dCoData := d.AllocateMemory(storage, uint64(len(co.Data)))
 	d.MemoryCopyHostToDevice(dCoData, co.Data, storage)
@@ -126,4 +125,3 @@ func (d *Driver) LaunchKernel(
 
 	log.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
 }
-*/

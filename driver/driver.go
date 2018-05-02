@@ -34,7 +34,7 @@ func NewDriver(engine core.Engine) *Driver {
 func (d *Driver) Handle(e core.Event) error {
 	switch e := e.(type) {
 	case *LaunchKernelEvent:
-		return HandleLaunchKernelEvent(e)
+		return d.HandleLaunchKernelEvent(e)
 
 	default:
 		log.Panicf("Unable to process event")
