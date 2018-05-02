@@ -73,6 +73,7 @@ var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
+var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var points = flag.Int("points", 4096, "The number of points.")
 var clusters = flag.Int("clusters", 5, "The number of clusters.")
 var features = flag.Int("features", 32, "The number of features for each point.")
@@ -118,6 +119,10 @@ func configure() {
 
 	if *isaDebug {
 		platform.DebugISA = true
+	}
+
+	if *instTracing {
+		platform.TraceInst = true
 	}
 
 	numPoints = *points
