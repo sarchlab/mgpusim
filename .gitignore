@@ -12,3 +12,4 @@ debug
 *~
 .vscode
 *.debug
+*.trace

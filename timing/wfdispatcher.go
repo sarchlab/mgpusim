@@ -3,7 +3,6 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
@@ -34,9 +33,6 @@ func (d *WfDispatcherImpl) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
 
 	d.setWfInfo(wf)
 	d.initRegisters(wf)
-
-	// Invoke a hook just for debugging
-	d.cu.InvokeHook(wf, d.cu, core.Any, &InstHookInfo{0, "Completed"})
 
 	evt := NewWfDispatchCompletionEvent(
 		d.cu.Freq.NCyclesLater(d.Latency, req.RecvTime()),
