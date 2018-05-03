@@ -6,7 +6,8 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	//_ "net/http/pprof"
+	"net/http"
+	_ "net/http/pprof"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -79,6 +80,7 @@ var clusters = flag.Int("clusters", 5, "The number of clusters.")
 var features = flag.Int("features", 32, "The number of features for each point.")
 var maxIter = flag.Int("max-iter", 20, "The maximum number of iterations to run")
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 
 func main() {
 
@@ -96,9 +98,9 @@ func main() {
 
 	configure()
 
-	//go func() {
-	//	log.Println(http.ListenAndServe("localhost:6060", nil))
-	//}()
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	initPlatform()
 	loadProgram()

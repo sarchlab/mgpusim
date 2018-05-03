@@ -160,5 +160,7 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 		if err != nil {
 			log.Panic(err)
 		}
+
+		delete(t.tracingInsts, inst)
 	}
 }
