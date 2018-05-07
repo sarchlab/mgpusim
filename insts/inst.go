@@ -163,9 +163,8 @@ func (i Inst) soppString() string {
 		if extractBits(uint32(i.SImm16.IntValue), 0, 3) == 0 {
 			operandStr += " vmcnt(0)"
 		}
-		if extractBits(uint32(i.SImm16.IntValue), 8, 12) == 0 {
-			operandStr += " lgkmcnt(0)"
-		}
+		lgkmBits := extractBits(uint32(i.SImm16.IntValue), 8, 12)
+		operandStr += fmt.Sprintf(" lgkmcnt(%d)", lgkmBits)
 	} else if i.Opcode == 1 || i.Opcode == 10 {
 
 	} else {
