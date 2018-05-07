@@ -60,11 +60,16 @@ func sdwaSelectString(sdwaSelect SDWASelect) string {
 // A InstType represents an instruction type. For example s_barrier instruction
 // is a instruction type
 type InstType struct {
-	InstName string
-	Opcode   Opcode
-	Format   *Format
-	ID       int
-	ExeUnit  ExeUnit
+	InstName  string
+	Opcode    Opcode
+	Format    *Format
+	ID        int
+	ExeUnit   ExeUnit
+	DSTWidth  int
+	SRC0Width int
+	SRC1Width int
+	SRC2Width int
+	SDSTWidth int
 }
 
 // An Inst is a GCN3 instruction
@@ -177,7 +182,7 @@ func (i Inst) vop2String() string {
 	s += fmt.Sprintf(", %s, %s", i.Src0.String(), i.Src1.String())
 
 	switch i.Opcode {
-	case 28, 29:
+	case 0, 28, 29:
 		s += ", vcc"
 	}
 
