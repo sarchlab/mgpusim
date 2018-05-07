@@ -86,6 +86,7 @@ type Inst struct {
 
 	Addr   *Operand
 	Data   *Operand
+	Data1  *Operand
 	Base   *Operand
 	Offset *Operand
 	SImm16 *Operand
@@ -93,11 +94,14 @@ type Inst struct {
 	Abs                 int
 	Omod                int
 	Neg                 int
+	Offset0             uint8
+	Offset1             uint8
 	SystemLevelCoherent bool
 	GlobalLevelCoherent bool
 	TextureFailEnable   bool
 	Imm                 bool
 	Clamp               bool
+	GDS                 bool
 
 	//Fields for SDWA extensions
 	IsSdwa    bool
@@ -263,6 +267,27 @@ func (i Inst) sopkString() string {
 
 	return s
 }
+
+func (i Inst) dsString() string {
+	s := i.InstName + " "
+	switch i.Opcode {
+	case 55, 56, 57, 58, 59, 60, 118, 119, 120:
+		s += i.Dst.String() + ", "
+	}
+
+	s += i.Addr.String()
+
+	if i.SRC0Width > 0 {
+		s += ", " + i.Data.String()
+	}
+
+	if i.SRC1Width > 0 {
+		s += ", " + i.Data1.String()
+	}
+
+	return s
+}
+
 func (i Inst) String() string {
 	switch i.FormatType {
 	case SOP2:
@@ -289,6 +314,8 @@ func (i Inst) String() string {
 		return i.sop1String()
 	case SOPK:
 		return i.sopkString()
+	case DS:
+		return i.dsString()
 	default:
 		log.Panic("Unknown instruction format type.")
 		return i.InstName

@@ -519,10 +519,46 @@ func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) {
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 }
+
 func (d *Disassembler) decodeSopk(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.SImm16 = NewIntOperand(0, int64(extractBits(bytes, 0, 15)))
 	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
+}
+
+func (d *Disassembler) decodeDS(inst *Inst, buf []byte) {
+	bytesLo := binary.LittleEndian.Uint32(buf)
+	bytesHi := binary.LittleEndian.Uint32(buf[4:])
+
+	inst.Offset0 = uint8(extractBits(bytesLo, 0, 7))
+	inst.Offset1 = uint8(extractBits(bytesLo, 8, 16))
+
+	gdsBit := extractBit(bytesLo, 16)
+	if gdsBit != 0 {
+		inst.GDS = true
+	}
+
+	addrBits := int(extractBits(bytesHi, 0, 8))
+	inst.Addr = NewVRegOperand(addrBits, addrBits, 1)
+
+	if inst.SRC0Width > 0 {
+		data0Bits := int(extractBits(bytesHi, 8, 16))
+		inst.Data = NewVRegOperand(data0Bits, data0Bits, 1)
+		if inst.SRC0Width == 64 {
+			inst.Data.RegCount = 2
+		}
+	}
+
+	if inst.SRC1Width > 0 {
+		data1Bits := int(extractBits(bytesHi, 16, 24))
+		inst.Data1 = NewVRegOperand(data1Bits, data1Bits, 1)
+		if inst.SRC1Width == 64 {
+			inst.Data1.RegCount = 2
+		}
+	}
+
+	dstBits := int(extractBits(bytesHi, 24, 32))
+	inst.Dst = NewVRegOperand(dstBits, dstBits, 1)
 }
 
 // Decode parses the head of the buffer and returns the next instruction
@@ -568,7 +604,10 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 		d.decodeSOP1(inst, buf)
 	case SOPK:
 		d.decodeSopk(inst, buf)
+	case DS:
+		d.decodeDS(inst, buf)
 	default:
+		log.Panicf("unabkle to decode instruction type %s", inst.FormatName)
 		break
 	}
 
