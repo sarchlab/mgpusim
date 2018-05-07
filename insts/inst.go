@@ -285,6 +285,14 @@ func (i Inst) dsString() string {
 		s += ", " + i.Data1.String()
 	}
 
+	if i.Offset0 > 0 {
+		s += fmt.Sprintf(" offset0:%d", i.Offset0)
+	}
+
+	if i.Offset1 > 0 {
+		s += fmt.Sprintf(" offset1:%d", i.Offset1)
+	}
+
 	return s
 }
 
