@@ -34,25 +34,25 @@ func (p *ScratchpadPreparerImpl) Prepare(
 	p.clear(instEmuState.Scratchpad())
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
-	case insts.Sop1:
+	case insts.SOP1:
 		p.prepareSOP1(instEmuState, wf)
-	case insts.Sop2:
+	case insts.SOP2:
 		p.prepareSOP2(instEmuState, wf)
-	case insts.Sopc:
+	case insts.SOPC:
 		p.prepareSOPC(instEmuState, wf)
-	case insts.Vop1:
+	case insts.VOP1:
 		p.prepareVOP1(instEmuState, wf)
-	case insts.Vop2:
+	case insts.VOP2:
 		p.prepareVOP2(instEmuState, wf)
-	case insts.Vop3:
+	case insts.VOP3a:
 		p.prepareVOP3(instEmuState, wf)
-	case insts.Vopc:
+	case insts.VOPC:
 		p.prepareVOPC(instEmuState, wf)
-	case insts.Flat:
+	case insts.FLAT:
 		p.prepareFlat(instEmuState, wf)
-	case insts.Smem:
+	case insts.SMEM:
 		p.prepareSMEM(instEmuState, wf)
-	case insts.Sopp:
+	case insts.SOPP:
 		p.prepareSOPP(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
@@ -237,25 +237,25 @@ func (p *ScratchpadPreparerImpl) Commit(
 ) {
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
-	case insts.Sop1:
+	case insts.SOP1:
 		p.commitSOP1(instEmuState, wf)
-	case insts.Sop2:
+	case insts.SOP2:
 		p.commitSOP2(instEmuState, wf)
-	case insts.Vop1:
+	case insts.VOP1:
 		p.commitVOP1(instEmuState, wf)
-	case insts.Vop2:
+	case insts.VOP2:
 		p.commitVOP2(instEmuState, wf)
-	case insts.Vop3:
+	case insts.VOP3a:
 		p.commitVOP3A(instEmuState, wf)
-	case insts.Vopc:
+	case insts.VOPC:
 		p.commitVOPC(instEmuState, wf)
-	case insts.Flat:
+	case insts.FLAT:
 		p.commitFlat(instEmuState, wf)
-	case insts.Smem:
+	case insts.SMEM:
 		p.commitSMEM(instEmuState, wf)
-	case insts.Sopp:
+	case insts.SOPP:
 		p.commitSOPP(instEmuState, wf)
-	case insts.Sopc:
+	case insts.SOPC:
 		p.commitSOPC(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
@@ -444,19 +444,19 @@ func (p *ScratchpadPreparerImpl) readReg(
 		regFile.Read(regRead)
 
 		copy(buf, regRead.Data)
-	} else if reg.RegType == insts.Scc {
+	} else if reg.RegType == insts.SCC {
 		buf[0] = wf.SCC
-	} else if reg.RegType == insts.Vcc {
+	} else if reg.RegType == insts.VCC {
 		copy(buf, insts.Uint64ToBytes(wf.VCC))
-	} else if reg.RegType == insts.VccLo && regCount == 1 {
+	} else if reg.RegType == insts.VCCLO && regCount == 1 {
 		copy(buf, insts.Uint32ToBytes(uint32(wf.VCC)))
-	} else if reg.RegType == insts.VccHi && regCount == 1 {
+	} else if reg.RegType == insts.VCCHI && regCount == 1 {
 		copy(buf, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
-	} else if reg.RegType == insts.VccLo && regCount == 2 {
+	} else if reg.RegType == insts.VCCLO && regCount == 2 {
 		copy(buf, insts.Uint64ToBytes(wf.VCC))
-	} else if reg.RegType == insts.Exec {
+	} else if reg.RegType == insts.EXEC {
 		copy(buf, insts.Uint64ToBytes(wf.EXEC))
-	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		copy(buf, insts.Uint64ToBytes(wf.EXEC))
 	} else {
 		log.Panicf("Unsupported register read %s\n", reg.Name)
@@ -504,21 +504,21 @@ func (p *ScratchpadPreparerImpl) writeReg(
 		regWrite.Data = buf
 
 		regFile.Write(regWrite)
-	} else if reg.RegType == insts.Scc {
+	} else if reg.RegType == insts.SCC {
 		wf.SCC = buf[0]
-	} else if reg.RegType == insts.Vcc {
+	} else if reg.RegType == insts.VCC {
 		wf.VCC = insts.BytesToUint64(buf)
-	} else if reg.RegType == insts.VccLo && regCount == 2 {
+	} else if reg.RegType == insts.VCCLO && regCount == 2 {
 		wf.VCC = insts.BytesToUint64(buf)
-	} else if reg.RegType == insts.VccLo && regCount == 1 {
+	} else if reg.RegType == insts.VCCLO && regCount == 1 {
 		wf.VCC &= uint64(0x00000000ffffffff)
 		wf.VCC |= uint64(insts.BytesToUint32(buf))
-	} else if reg.RegType == insts.VccHi && regCount == 1 {
+	} else if reg.RegType == insts.VCCHI && regCount == 1 {
 		wf.VCC &= uint64(0xffffffff00000000)
 		wf.VCC |= uint64(insts.BytesToUint32(buf)) << 32
-	} else if reg.RegType == insts.Exec {
+	} else if reg.RegType == insts.EXEC {
 		wf.EXEC = insts.BytesToUint64(buf)
-	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		wf.EXEC = insts.BytesToUint64(buf)
 	} else {
 		log.Panicf("Unsupported register write %s\n", reg.Name)

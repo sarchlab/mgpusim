@@ -177,7 +177,7 @@ var _ = Describe("Scheduler", func() {
 	It("should evaluate internal executing insts", func() {
 		wf := new(Wavefront)
 		wf.inst = NewInst(insts.NewInst())
-		wf.inst.Format = insts.FormatTable[insts.Sopp]
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
 		wf.inst.Opcode = 1 // S_ENDPGM
 
 		scheduler.internalExecuting = wf

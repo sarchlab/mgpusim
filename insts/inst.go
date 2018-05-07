@@ -77,6 +77,7 @@ type Inst struct {
 	Src1 *Operand
 	Src2 *Operand
 	Dst  *Operand
+	SDst *Operand // For VOP3b
 
 	Addr   *Operand
 	Data   *Operand
@@ -215,7 +216,7 @@ func (i Inst) sopcString() string {
 		i.InstName, i.Src0.String(), i.Src1.String())
 }
 
-func (i Inst) vop3String() string {
+func (i Inst) vop3aString() string {
 	// TODO: Lots of things not considered here
 	s := fmt.Sprintf("%s %s, %s, %s",
 		i.InstName, i.Dst.String(),
@@ -224,6 +225,26 @@ func (i Inst) vop3String() string {
 	if i.Src2 != nil {
 		s += ", " + i.Src2.String()
 	}
+	return s
+}
+
+func (i Inst) vop3bString() string {
+	s := i.InstName + " "
+
+	if i.Dst != nil {
+		s += i.Dst.String() + ", "
+	}
+
+	s += fmt.Sprintf("%s, %s, %s",
+		i.SDst.String(),
+		i.Src0.String(),
+		i.Src1.String(),
+	)
+
+	if i.Src2 != nil {
+		s += ", " + i.Src2.String()
+	}
+
 	return s
 }
 
@@ -239,29 +260,32 @@ func (i Inst) sopkString() string {
 }
 func (i Inst) String() string {
 	switch i.FormatType {
-	case Sop2:
+	case SOP2:
 		return i.sop2String()
-	case Smem:
+	case SMEM:
 		return i.smemString()
-	case Vop1:
+	case VOP1:
 		return i.vop1String()
-	case Vop2:
+	case VOP2:
 		return i.vop2String()
-	case Flat:
+	case FLAT:
 		return i.flatString()
-	case Sopp:
+	case SOPP:
 		return i.soppString()
-	case Vopc:
+	case VOPC:
 		return i.vopcString()
-	case Sopc:
+	case SOPC:
 		return i.sopcString()
-	case Vop3:
-		return i.vop3String()
-	case Sop1:
+	case VOP3a:
+		return i.vop3aString()
+	case VOP3b:
+		return i.vop3bString()
+	case SOP1:
 		return i.sop1String()
-	case Sopk:
+	case SOPK:
 		return i.sopkString()
 	default:
+		log.Panic("Unknown instruction format type.")
 		return i.InstName
 	}
 }

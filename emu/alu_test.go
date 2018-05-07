@@ -38,7 +38,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_UBYTE", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Flat
+		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 16
 
 		layout := state.Scratchpad().AsFlat()
@@ -59,7 +59,7 @@ var _ = Describe("ALU", func() {
 	})
 	It("should run FLAT_LOAD_USHORT", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Flat
+		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 18
 
 		layout := state.Scratchpad().AsFlat()
@@ -78,7 +78,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_DWORD", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Flat
+		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 20
 
 		layout := state.Scratchpad().AsFlat()
@@ -96,7 +96,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_DWORDX4", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Flat
+		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 23
 
 		layout := state.Scratchpad().AsFlat()
@@ -120,7 +120,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_STORE_DWORD", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Flat
+		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 28
 
 		layout := state.Scratchpad().AsFlat()
@@ -140,7 +140,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_STORE_DWORDX4", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Flat
+		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 31
 
 		layout := state.Scratchpad().AsFlat()
@@ -163,7 +163,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORD", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Smem
+		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 0
 
 		layout := state.Scratchpad().AsSMEM()
@@ -179,7 +179,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORDX2", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Smem
+		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 1
 
 		layout := state.Scratchpad().AsSMEM()
@@ -196,7 +196,7 @@ var _ = Describe("ALU", func() {
 	})
 	It("should run S_LOAD_DWORDX4", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Smem
+		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 2
 
 		layout := state.Scratchpad().AsSMEM()
@@ -219,7 +219,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 2
 
 		layout := state.Scratchpad().AsSOPP()
@@ -233,7 +233,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH, when IMM is negative", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 2
 
 		layout := state.Scratchpad().AsSOPP()
@@ -247,7 +247,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH_SCC0", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 4
 
 		layout := state.Scratchpad().AsSOPP()
@@ -262,7 +262,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH_SCC0, when IMM is negative", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 4
 
 		layout := state.Scratchpad().AsSOPP()
@@ -277,7 +277,7 @@ var _ = Describe("ALU", func() {
 
 	It("should skip S_CBRANCH_SCC0, if SCC is 1", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 4
 
 		layout := state.Scratchpad().AsSOPP()
@@ -292,7 +292,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH_SCC1", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 5
 
 		layout := state.Scratchpad().AsSOPP()
@@ -307,7 +307,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH_SCC1, when IMM is negative", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 5
 
 		layout := state.Scratchpad().AsSOPP()
@@ -322,7 +322,7 @@ var _ = Describe("ALU", func() {
 
 	It("should skip S_CBRANCH_SCC1, if SCC is 0", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 5
 
 		layout := state.Scratchpad().AsSOPP()
@@ -337,7 +337,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH_VCCZ", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 6
 
 		layout := state.Scratchpad().AsSOPP()
@@ -352,7 +352,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH_VCCNZ", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 7
 
 		layout := state.Scratchpad().AsSOPP()
@@ -367,7 +367,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CBRANCH_EXECZ", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopp
+		state.inst.FormatType = insts.SOPP
 		state.inst.Opcode = 8
 
 		layout := state.Scratchpad().AsSOPP()

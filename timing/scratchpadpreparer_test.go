@@ -33,7 +33,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for SOP1", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sop1
+		inst.FormatType = insts.SOP1
 		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
 		wf.inst = NewInst(inst)
 
@@ -52,7 +52,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for SOP2", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sop2
+		inst.FormatType = insts.SOP2
 		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewIntOperand(1, 1)
 		wf.inst = NewInst(inst)
@@ -73,7 +73,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for VOP1", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vop1
+		inst.FormatType = insts.VOP1
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		wf.inst = NewInst(inst)
 
@@ -95,7 +95,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for VOP2", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vop2
+		inst.FormatType = insts.VOP2
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
 		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
 		inst.Dst = insts.NewVRegOperand(6, 6, 2)
@@ -123,7 +123,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for VOP3", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vop3
+		inst.FormatType = insts.VOP3a
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
 		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
 		inst.Src2 = insts.NewIntOperand(1, 1)
@@ -150,7 +150,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for VOPC", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vopc
+		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
 		wf.inst = NewInst(inst)
@@ -172,9 +172,9 @@ var _ = Describe("ScratchpadPreparer", func() {
 		}
 	})
 
-	It("should prepare for Flat", func() {
+	It("should prepare for FLAT", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Flat
+		inst.FormatType = insts.FLAT
 		inst.Addr = insts.NewVRegOperand(0, 0, 2)
 		inst.Data = insts.NewVRegOperand(2, 2, 4)
 		wf.inst = NewInst(inst)
@@ -204,7 +204,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for SMEM", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Smem
+		inst.FormatType = insts.SMEM
 		inst.Opcode = 18
 		inst.Data = insts.NewSRegOperand(0, 0, 4)
 		inst.Offset = insts.NewIntOperand(1, 1)
@@ -231,7 +231,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for SOPP", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sopp
+		inst.FormatType = insts.SOPP
 		inst.SImm16 = insts.NewIntOperand(1, 1)
 		wf.EXEC = 0x0f
 		wf.PC = 160
@@ -249,7 +249,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should prepare for SOPC", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sopc
+		inst.FormatType = insts.SOPC
 		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(100))
 		inst.Src1 = insts.NewIntOperand(192, 64)
@@ -264,7 +264,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for SOP1", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sop1
+		inst.FormatType = insts.SOP1
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		wf.inst = NewInst(inst)
 
@@ -282,7 +282,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for SOP2", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sop2
+		inst.FormatType = insts.SOP2
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		wf.inst = NewInst(inst)
 
@@ -298,7 +298,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for VOP1", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vop1
+		inst.FormatType = insts.VOP1
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.inst = NewInst(inst)
 
@@ -318,7 +318,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for VOP2", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vop2
+		inst.FormatType = insts.VOP2
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.inst = NewInst(inst)
 
@@ -338,7 +338,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for VOP3", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vop3
+		inst.FormatType = insts.VOP3a
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.inst = NewInst(inst)
 
@@ -358,7 +358,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit VOPC", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Vopc
+		inst.FormatType = insts.VOPC
 		wf.inst = NewInst(inst)
 
 		layout := wf.Scratchpad().AsVOPC()
@@ -373,7 +373,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for FLAT", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Flat
+		inst.FormatType = insts.FLAT
 		inst.Opcode = 20 // Load Dword
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
 		wf.inst = NewInst(inst)
@@ -398,7 +398,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should not commit for FLAT store operation", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Flat
+		inst.FormatType = insts.FLAT
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
 		inst.Opcode = 28 // Store dword
 		wf.inst = NewInst(inst)
@@ -423,7 +423,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for SMEM", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Smem
+		inst.FormatType = insts.SMEM
 		inst.Opcode = 4
 		inst.Data = insts.NewSRegOperand(0, 0, 16)
 		wf.inst = NewInst(inst)
@@ -442,7 +442,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for SOPC", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sopc
+		inst.FormatType = insts.SOPC
 		wf.inst = NewInst(inst)
 
 		layout := wf.Scratchpad().AsSOPC()
@@ -455,7 +455,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 	It("should commit for SOPP", func() {
 		inst := insts.NewInst()
-		inst.FormatType = insts.Sopp
+		inst.FormatType = insts.SOPP
 		wf.inst = NewInst(inst)
 		wf.PC = 0
 

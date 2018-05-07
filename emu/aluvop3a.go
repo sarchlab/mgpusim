@@ -30,8 +30,8 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVCmpGeU32VOP3a(state)
 	case 256:
 		u.runVCNDMASKB32VOP3a(state)
-	case 284:
-		u.run
+	//case 284:
+	//u.ru
 	case 645:
 		u.runVMULLOU32(state)
 	case 646:
@@ -50,32 +50,34 @@ func (u *ALUImpl) vop3aPreprocess(state InstEmuState) {
 	inst := state.Inst()
 	sp := state.Scratchpad().AsVOP3A()
 
-	if strings.Contains(inst.InstName, "F32") {
-		if inst.Abs&0x1 != 0 {
-			for i := 0; i < 64; i++ {
-				src0 := math.Float32frombits(uint32(sp.SRC0[i]))
-				src0 = float32(math.Abs(float64(src0)))
-				sp.SRC0[i] = uint64(math.Float32bits(src0))
+	if inst.Abs != 0 {
+		if strings.Contains(inst.InstName, "F32") {
+			if inst.Abs&0x1 != 0 {
+				for i := 0; i < 64; i++ {
+					src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+					src0 = float32(math.Abs(float64(src0)))
+					sp.SRC0[i] = uint64(math.Float32bits(src0))
+				}
 			}
-		}
 
-		if inst.Abs&0x2 != 0 {
-			for i := 0; i < 64; i++ {
-				src1 := math.Float32frombits(uint32(sp.SRC1[i]))
-				src1 = float32(math.Abs(float64(src1)))
-				sp.SRC1[i] = uint64(math.Float32bits(src1))
+			if inst.Abs&0x2 != 0 {
+				for i := 0; i < 64; i++ {
+					src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+					src1 = float32(math.Abs(float64(src1)))
+					sp.SRC1[i] = uint64(math.Float32bits(src1))
+				}
 			}
-		}
 
-		if inst.Abs&0x4 != 0 {
-			for i := 0; i < 64; i++ {
-				src2 := math.Float32frombits(uint32(sp.SRC2[i]))
-				src2 = float32(math.Abs(float64(src2)))
-				sp.SRC2[i] = uint64(math.Float32bits(src2))
+			if inst.Abs&0x4 != 0 {
+				for i := 0; i < 64; i++ {
+					src2 := math.Float32frombits(uint32(sp.SRC2[i]))
+					src2 = float32(math.Abs(float64(src2)))
+					sp.SRC2[i] = uint64(math.Float32bits(src2))
+				}
 			}
+		} else {
+			log.Printf("Absolute operation for %s is not implemented.", inst.InstName)
 		}
-	} else {
-		log.Fatalf("Absolute operation for %s is not implemented.", inst.InstName)
 	}
 
 	if inst.Neg != 0 {
