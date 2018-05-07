@@ -13,3 +13,4 @@ debug
 .vscode
 *.debug
 *.trace
+*.disasm

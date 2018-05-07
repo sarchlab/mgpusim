@@ -32,27 +32,27 @@ func (u *ALUImpl) Run(state InstEmuState) {
 	inst := state.Inst()
 
 	switch inst.FormatType {
-	case insts.Sop1:
+	case insts.SOP1:
 		u.runSOP1(state)
-	case insts.Sop2:
+	case insts.SOP2:
 		u.runSOP2(state)
-	case insts.Sopc:
+	case insts.SOPC:
 		u.runSOPC(state)
-	case insts.Smem:
+	case insts.SMEM:
 		u.runSMEM(state)
-	case insts.Vop1:
+	case insts.VOP1:
 		u.runVOP1(state)
-	case insts.Vop2:
+	case insts.VOP2:
 		u.runVOP2(state)
-	case insts.Vop3:
+	case insts.VOP3a:
 		u.runVOP3A(state)
-	case insts.Vopc:
+	case insts.VOPC:
 		u.runVOPC(state)
-	case insts.Flat:
+	case insts.FLAT:
 		u.runFlat(state)
-	case insts.Sopp:
+	case insts.SOPP:
 		u.runSOPP(state)
-	case insts.Sopk:
+	case insts.SOPK:
 		u.runSOPK(state)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)

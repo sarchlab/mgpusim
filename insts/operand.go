@@ -119,9 +119,9 @@ func getOperand(num uint16) (*Operand, error) {
 	case num == 105:
 		return NewRegOperand(code, XnackMaskHi, 0), nil
 	case num == 106:
-		return NewRegOperand(code, VccLo, 0), nil
+		return NewRegOperand(code, VCCLO, 0), nil
 	case num == 107:
-		return NewRegOperand(code, VccHi, 0), nil
+		return NewRegOperand(code, VCCHI, 0), nil
 	case num == 108:
 		return NewRegOperand(code, TbaLo, 0), nil
 	case num == 109:
@@ -137,9 +137,9 @@ func getOperand(num uint16) (*Operand, error) {
 	case num == 124:
 		return NewRegOperand(code, M0, 0), nil
 	case num == 126:
-		return NewRegOperand(code, ExecLo, 0), nil
+		return NewRegOperand(code, EXECLO, 0), nil
 	case num == 127:
-		return NewRegOperand(code, ExecHi, 0), nil
+		return NewRegOperand(code, EXECHI, 0), nil
 
 	case num >= 128 && num <= 192:
 		return NewIntOperand(code, int64(num)-128), nil
@@ -166,11 +166,11 @@ func getOperand(num uint16) (*Operand, error) {
 	case num == 248:
 		return NewFloatOperand(code, 1.0/(2.0*math.Pi)), nil
 	case num == 251:
-		return NewRegOperand(code, Vccz, 0), nil
+		return NewRegOperand(code, VCCZ, 0), nil
 	case num == 252:
-		return NewRegOperand(code, Execz, 0), nil
+		return NewRegOperand(code, EXECZ, 0), nil
 	case num == 253:
-		return NewRegOperand(code, Scc, 0), nil
+		return NewRegOperand(code, SCC, 0), nil
 
 	case num == 255:
 		return &Operand{code, LiteralConstant, nil, 0, 0, 0, 0}, nil

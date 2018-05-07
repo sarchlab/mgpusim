@@ -27,7 +27,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_MOV_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 1
 
 		sp := state.Scratchpad().AsVOP1()
@@ -49,7 +49,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_READFIRSTLANE_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 2
 
 		sp := state.Scratchpad().AsVOP1()
@@ -66,7 +66,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_F32_U32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 6
 
 		sp := state.Scratchpad().AsVOP1()
@@ -80,7 +80,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_U32_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 7
 
 		sp := state.Scratchpad().AsVOP1()
@@ -94,7 +94,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_U32_F32, when input is nan", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 7
 
 		sp := state.Scratchpad().AsVOP1()
@@ -108,7 +108,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_U32_F32, when the input is negative", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 7
 
 		sp := state.Scratchpad().AsVOP1()
@@ -122,7 +122,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_U32_F32, when the input is very large", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 7
 
 		sp := state.Scratchpad().AsVOP1()
@@ -136,7 +136,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_I32_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 8
 
 		sp := state.Scratchpad().AsVOP1()
@@ -150,7 +150,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_I32_F32, when input is nan", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 8
 
 		sp := state.Scratchpad().AsVOP1()
@@ -164,7 +164,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_I32_F32, when the input is negative", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 8
 
 		sp := state.Scratchpad().AsVOP1()
@@ -178,7 +178,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CVT_I32_F32, when the input is very large", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 8
 
 		sp := state.Scratchpad().AsVOP1()
@@ -192,7 +192,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_RCP_IFLAG_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop1
+		state.inst.FormatType = insts.VOP1
 		state.inst.Opcode = 35
 
 		sp := state.Scratchpad().AsVOP1()

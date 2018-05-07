@@ -5,23 +5,24 @@ type FormatType int
 
 // All the GCN3 instruction formats
 const (
-	Sop2 FormatType = iota
-	Sopk
-	Sop1
-	Sopc
-	Sopp
-	Smem
-	Vop2
-	Vop1
-	Vop3
-	Vopc
-	Vintrp
-	Ds
-	Mubuf
-	Mtbuf
-	Mimg
-	Exp
-	Flat
+	SOP2 FormatType = iota
+	SOPK
+	SOP1
+	SOPC
+	SOPP
+	SMEM
+	VOP2
+	VOP1
+	VOP3a
+	VOP3b
+	VOPC
+	VINTRP
+	DS
+	MUBUF
+	MTBUF
+	MIMG
+	EXP
+	FLAT
 	formatTypeCount
 )
 
@@ -29,8 +30,8 @@ const (
 type Format struct {
 	FormatType        FormatType
 	FormatName        string
-	Encoding          uint16
-	Mask              uint16
+	Encoding          uint32
+	Mask              uint32
 	ByteSizeExLiteral int
 	OpcodeLow         uint8
 	OpcodeHigh        uint8
@@ -46,21 +47,22 @@ func init() {
 
 func initFormatTable() {
 	FormatTable = make(map[FormatType]*Format)
-	FormatTable[Sop1] = &Format{Sop1, "sop1", 0xBE80, 0xFF80, 4, 8, 15}
-	FormatTable[Sopc] = &Format{Sopc, "sopc", 0xBF00, 0xFF80, 4, 16, 22}
-	FormatTable[Sopp] = &Format{Sopp, "sopp", 0xBF80, 0xFF80, 4, 16, 22}
-	FormatTable[Vop1] = &Format{Vop1, "vop1", 0x7E00, 0xFE00, 4, 9, 16}
-	FormatTable[Vopc] = &Format{Vopc, "vopc", 0x7C00, 0xFE00, 4, 17, 24}
-	FormatTable[Smem] = &Format{Smem, "smem", 0xC000, 0xFC00, 8, 18, 25}
-	FormatTable[Vop3] = &Format{Vop3, "vop3", 0xD000, 0xFC00, 8, 16, 25}
-	FormatTable[Vintrp] = &Format{Vintrp, "vintrp", 0xC800, 0xFC00, 4, 16, 17}
-	FormatTable[Ds] = &Format{Ds, "ds", 0xD800, 0xFC00, 8, 17, 24}
-	FormatTable[Mubuf] = &Format{Mubuf, "mubuf", 0xE000, 0xFC00, 8, 18, 24}
-	FormatTable[Mtbuf] = &Format{Mtbuf, "mtbuf", 0xE800, 0xFC00, 8, 15, 18}
-	FormatTable[Mimg] = &Format{Mimg, "mimg", 0xF000, 0xFC00, 8, 18, 24}
-	FormatTable[Exp] = &Format{Exp, "exp", 0xC400, 0xFC00, 8, 0, 0}
-	FormatTable[Flat] = &Format{Flat, "flat", 0xDC00, 0xFC00, 8, 18, 24}
-	FormatTable[Sopk] = &Format{Sopk, "sopk", 0xB000, 0xF000, 4, 23, 27}
-	FormatTable[Sop2] = &Format{Sop2, "sop2", 0x8000, 0xA000, 4, 23, 29}
-	FormatTable[Vop2] = &Format{Vop2, "vop2", 0x0000, 0x8000, 4, 25, 30}
+	FormatTable[SOP1] = &Format{SOP1, "sop1", 0xBE800000, 0xFF800000, 4, 8, 15}
+	FormatTable[SOPC] = &Format{SOPC, "sopc", 0xBF000000, 0xFF800000, 4, 16, 22}
+	FormatTable[SOPP] = &Format{SOPP, "sopp", 0xBF800000, 0xFF800000, 4, 16, 22}
+	FormatTable[VOP1] = &Format{VOP1, "vop1", 0x7E000000, 0xFE000000, 4, 9, 16}
+	FormatTable[VOPC] = &Format{VOPC, "vopc", 0x7C000000, 0xFE000000, 4, 17, 24}
+	FormatTable[SMEM] = &Format{SMEM, "smem", 0xC0000000, 0xFC000000, 8, 18, 25}
+	FormatTable[VOP3a] = &Format{VOP3a, "vop3a", 0xD0000000, 0xFC000000, 8, 16, 25}
+	FormatTable[VOP3b] = &Format{VOP3b, "vop3b", 0xD0000000, 0xFC000000, 8, 16, 25}
+	FormatTable[VINTRP] = &Format{VINTRP, "vintrp", 0xC8000000, 0xFC000000, 4, 16, 17}
+	FormatTable[DS] = &Format{DS, "ds", 0xD8000000, 0xFC000000, 8, 17, 24}
+	FormatTable[MUBUF] = &Format{MUBUF, "mubuf", 0xE0000000, 0xFC000000, 8, 18, 24}
+	FormatTable[MTBUF] = &Format{MTBUF, "mtbuf", 0xE8000000, 0xFC000000, 8, 15, 18}
+	FormatTable[MIMG] = &Format{MIMG, "mimg", 0xF0000000, 0xFC000000, 8, 18, 24}
+	FormatTable[EXP] = &Format{EXP, "exp", 0xC4000000, 0xFC000000, 8, 0, 0}
+	FormatTable[FLAT] = &Format{FLAT, "flat", 0xDC000000, 0xFC000000, 8, 18, 24}
+	FormatTable[SOPK] = &Format{SOPK, "sopk", 0xB0000000, 0xF0000000, 4, 23, 27}
+	FormatTable[SOP2] = &Format{SOP2, "sop2", 0x80000000, 0xA0000000, 4, 23, 29}
+	FormatTable[VOP2] = &Format{VOP2, "vop2", 0x00000000, 0x80000000, 4, 25, 30}
 }

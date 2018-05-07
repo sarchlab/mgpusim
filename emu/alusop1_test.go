@@ -22,7 +22,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run s_mov_b32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop1
+		state.inst.FormatType = insts.SOP1
 		state.inst.Opcode = 0
 
 		sp := state.Scratchpad().AsSOP1()
@@ -35,7 +35,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run s_mov_b64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop1
+		state.inst.FormatType = insts.SOP1
 		state.inst.Opcode = 1
 
 		sp := state.Scratchpad().AsSOP1()
@@ -47,7 +47,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run s_and_saveexec_b64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop1
+		state.inst.FormatType = insts.SOP1
 		state.inst.Opcode = 32
 
 		sp := state.Scratchpad().AsSOP1()
@@ -63,7 +63,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run s_get_pc_b64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop1
+		state.inst.FormatType = insts.SOP1
 		state.inst.Opcode = 28
 
 		sp := state.Scratchpad().AsSOP1()

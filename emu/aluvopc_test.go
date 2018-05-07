@@ -24,7 +24,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_lt_f32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vopc
+		state.inst.FormatType = insts.VOPC
 		state.inst.Opcode = 0x41
 
 		sp := state.Scratchpad().AsVOPC()
@@ -43,7 +43,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_eq_u32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vopc
+		state.inst.FormatType = insts.VOPC
 		state.inst.Opcode = 0xCA
 
 		sp := state.Scratchpad().AsVOPC()
@@ -62,7 +62,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_le_u32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vopc
+		state.inst.FormatType = insts.VOPC
 		state.inst.Opcode = 0xCB
 
 		sp := state.Scratchpad().AsVOPC()
@@ -81,7 +81,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_gt_u32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vopc
+		state.inst.FormatType = insts.VOPC
 		state.inst.Opcode = 0xCC
 
 		sp := state.Scratchpad().AsVOPC()
@@ -100,7 +100,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_ne_u32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vopc
+		state.inst.FormatType = insts.VOPC
 		state.inst.Opcode = 0xCD
 
 		sp := state.Scratchpad().AsVOPC()
@@ -117,7 +117,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_ge_u32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vopc
+		state.inst.FormatType = insts.VOPC
 		state.inst.Opcode = 0xCE
 
 		sp := state.Scratchpad().AsVOPC()
