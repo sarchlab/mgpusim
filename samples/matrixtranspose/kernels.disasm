@@ -1,5 +1,5 @@
 
-kernel.hsaco:	file format ELF64-amdgpu
+kernels.hsaco:	file format ELF64-amdgpu
 
 Disassembly of section .text:
 matrixTranspose:

@@ -589,29 +589,48 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 }
 
 // Disassemble take a binary file as an input and put the assembly code in a
-// write
+// writer
 func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
-	sections := file.Sections
 
-	for _, sec := range sections {
-		if sec.Name == ".text" {
-			data, _ := sec.Data()
-			co := NewHsaCoFromData(data)
+	sec := file.Section(".text")
+	data, _ := sec.Data()
+	co := NewHsaCoFromData(data)
 
-			buf := co.InstructionData()
-			pc := 0x100
-			for len(buf) > 0 {
-				inst, err := d.Decode(buf)
-				if err != nil {
-					buf = buf[4:]
-					pc += 4
-				} else {
-					// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
-					fmt.Fprintf(w, "0x%016x\t%s\n", pc, inst)
-					buf = buf[inst.ByteSize:]
-					pc += inst.ByteSize
-				}
+	buf := co.InstructionData()
+	pc := uint64(0x100)
+	d.tryPrintSymbol(file, sec.Offset, w)
+	for len(buf) > 0 {
+		d.tryPrintSymbol(file, sec.Offset+pc, w)
+		inst, err := d.Decode(buf)
+		if err != nil {
+			buf = buf[4:]
+			pc += 4
+		} else {
+			// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
+			//fmt.Fprintf(w, "0x%016x\t%s\n", pc, inst)
+			instStr := inst.String()
+			fmt.Fprintf(w, "\t%s", instStr)
+			for i := len(instStr); i < 59; i++ {
+				fmt.Fprint(w, " ")
 			}
+
+			fmt.Fprintf(w, "// %012X: ", sec.Offset+pc)
+			fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[0:4]))
+			if inst.ByteSize == 8 {
+				fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[4:8]))
+			}
+			fmt.Fprintf(w, "\n")
+			buf = buf[inst.ByteSize:]
+			pc += uint64(inst.ByteSize)
+		}
+	}
+}
+
+func (d *Disassembler) tryPrintSymbol(file *elf.File, offset uint64, w io.Writer) {
+	symbols, _ := file.Symbols()
+	for _, symbol := range symbols {
+		if symbol.Value == offset {
+			fmt.Fprintf(w, "%s:\n", symbol.Name)
 		}
 	}
 }
