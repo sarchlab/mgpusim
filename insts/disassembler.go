@@ -408,9 +408,9 @@ func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) {
 }
 
 func (d *Disassembler) isVOP3bOpcode(opcode Opcode) bool {
-	if opcode < 255 {
-		return true
-	}
+	//if opcode < 255 {
+	//	return true
+	//}
 
 	switch opcode {
 	case 281, 282, 283, 284, 285, 286, 480, 481:
@@ -467,7 +467,11 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) {
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
 	bits := int(extractBits(bytesLo, 0, 7))
-	inst.Dst = NewVRegOperand(bits, bits, 0)
+	if inst.Opcode <= 255 {
+		inst.Dst, _ = getOperand(uint16(bits))
+	} else {
+		inst.Dst = NewVRegOperand(bits, bits, 0)
+	}
 	if inst.DSTWidth == 64 {
 		inst.Dst.RegCount = 2
 	}
