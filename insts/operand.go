@@ -98,7 +98,7 @@ func (o Operand) String() string {
 	case FloatOperand:
 		return fmt.Sprintf("%f", o.FloatValue)
 	case LiteralConstant:
-		return fmt.Sprintf("0x%08x", o.LiteralConstant)
+		return fmt.Sprintf("0x%x", o.LiteralConstant)
 	default:
 		return ""
 	}
