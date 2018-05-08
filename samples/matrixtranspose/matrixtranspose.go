@@ -113,7 +113,7 @@ func initMem() {
 	hOutputData = make([]float32, numData)
 
 	for i := 0; i < numData; i++ {
-		hInputData[i] = float32(i)
+		hInputData[i] = float32(i / width)
 	}
 
 	dInputData = gpuDriver.AllocateMemory(storage, uint64(numData*4))
@@ -143,7 +143,7 @@ func checkResult() {
 
 	for i := 0; i < width; i++ {
 		for j := 0; j < height; j++ {
-			fmt.Printf("%f ", hOutputData[i*width+j])
+			fmt.Printf("%.0f ", hOutputData[i*width+j])
 		}
 		fmt.Printf("\n")
 	}

@@ -121,8 +121,10 @@ func (u *ALUImpl) runSMINU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	if sp.SRC0 < sp.SRC1 {
-		sp.DST = 1
+		sp.DST = sp.SRC0
 		sp.SCC = 1
+	} else {
+		sp.DST = sp.SRC1
 	}
 }
 

@@ -44,4 +44,24 @@ var _ = Describe("ALU", func() {
 		Expect(insts.BytesToUint32(alu.LDS[128:])).To(Equal(uint32(4)))
 	})
 
+	It("should run DS_READ2_B64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.DS
+		state.inst.Opcode = 119
+		state.inst.Offset0 = 1
+		state.inst.Offset1 = 3
+
+		sp := state.scratchpad.AsDS()
+		sp.EXEC = 0x1
+		sp.ADDR[0] = 100
+
+		copy(alu.LDS[108:], insts.Uint32ToBytes(12))
+		copy(alu.LDS[124:], insts.Uint32ToBytes(156))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint32(12)))
+		Expect(sp.DST[2]).To(Equal(uint32(156)))
+	})
+
 })
