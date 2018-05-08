@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 
 class colors:
     '''Colors class:
@@ -89,8 +90,7 @@ def main():
     error |= run_test("KMeans Parallel Sim", './kmeanssim -timing -parallel -verify -points=1024 -features=32 -clusters=5', 'samples/kmeanssim')
 
     if error:
-        return 1
-    return 0
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
