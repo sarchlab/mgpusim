@@ -18,6 +18,7 @@ type ALU interface {
 // ALU is where the instructions get executed.
 type ALUImpl struct {
 	Storage *mem.Storage
+	LDS     []byte
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
@@ -56,6 +57,8 @@ func (u *ALUImpl) Run(state InstEmuState) {
 		u.runSOPP(state)
 	case insts.SOPK:
 		u.runSOPK(state)
+	case insts.DS:
+		u.runDS(state)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
