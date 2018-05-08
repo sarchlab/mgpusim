@@ -142,9 +142,11 @@ func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now core.VTimeInSec) error {
 }
 
 func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error {
-	//lds := cu.initLDS(wg, req)
+	lds := cu.initLDS(wg, req)
+
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
+		managedWf.LDS = lds
 		cu.wfs[wg] = append(cu.wfs[wg], managedWf)
 	}
 
@@ -155,8 +157,11 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error 
 	return nil
 }
 
-//func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *gcn3.MapWGReq) []byte {
-//}
+func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *gcn3.MapWGReq) []byte {
+	ldsSize := req.WG.CodeObject().WGGroupSegmentByteSize
+	lds := make([]byte, ldsSize)
+	return lds
+}
 
 func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	co := wf.CodeObject
