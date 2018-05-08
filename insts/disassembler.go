@@ -633,6 +633,7 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 	for len(buf) > 0 {
 		d.tryPrintSymbol(file, sec.Offset+pc, w)
 		inst, err := d.Decode(buf)
+		inst.PC = pc
 		if err != nil {
 			fmt.Printf("Instuction not decodable\n")
 			buf = buf[4:]
@@ -640,7 +641,7 @@ func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
 		} else {
 			// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
 			//fmt.Fprintf(w, "0x%016x\t%s\n", pc, inst)
-			instStr := inst.String()
+			instStr := inst.String(file)
 			fmt.Fprintf(w, "\t%s", instStr)
 			for i := len(instStr); i < 59; i++ {
 				fmt.Fprint(w, " ")
@@ -662,7 +663,7 @@ func (d *Disassembler) tryPrintSymbol(file *elf.File, offset uint64, w io.Writer
 	symbols, _ := file.Symbols()
 	for _, symbol := range symbols {
 		if symbol.Value == offset {
-			fmt.Fprintf(w, "%s:\n", symbol.Name)
+			fmt.Fprintf(w, "\n%s:\n", symbol.Name)
 		}
 	}
 }

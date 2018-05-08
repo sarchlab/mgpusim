@@ -1,6 +1,7 @@
 package insts
 
 import (
+	"debug/elf"
 	"fmt"
 	"log"
 	"strings"
@@ -77,6 +78,7 @@ type Inst struct {
 	*Format
 	*InstType
 	ByteSize int
+	PC       uint64
 
 	Src0 *Operand
 	Src1 *Operand
@@ -157,7 +159,7 @@ func (i Inst) smemString() string {
 	return s
 }
 
-func (i Inst) soppString() string {
+func (i Inst) soppString(file *elf.File) string {
 	operandStr := ""
 	if i.Opcode == 12 { // S_WAITCNT
 		if extractBits(uint32(i.SImm16.IntValue), 0, 3) == 0 {
@@ -165,8 +167,26 @@ func (i Inst) soppString() string {
 		}
 		lgkmBits := extractBits(uint32(i.SImm16.IntValue), 8, 12)
 		operandStr += fmt.Sprintf(" lgkmcnt(%d)", lgkmBits)
-	} else if i.Opcode == 1 || i.Opcode == 10 {
+	} else if i.Opcode >= 4 && i.Opcode <= 9 { // Branch
+		symbolFound := false
+		if file != nil {
+			imm := int16(uint16(i.SImm16.IntValue))
+			target := i.PC + uint64(imm*4) +
+				file.Section(".text").Offset + 4
+			symbols, _ := file.Symbols()
+			for _, symbol := range symbols {
+				if symbol.Value == target {
+					operandStr = " " + symbol.Name
+					symbolFound = true
+				}
+			}
 
+		}
+		if !symbolFound {
+			operandStr = " " + i.SImm16.String()
+		}
+	} else if i.Opcode == 1 || i.Opcode == 10 {
+		// Does not print anything
 	} else {
 		operandStr = " " + i.SImm16.String()
 	}
@@ -295,7 +315,8 @@ func (i Inst) dsString() string {
 	return s
 }
 
-func (i Inst) String() string {
+// String returns the disassembly of an instruction
+func (i Inst) String(file *elf.File) string {
 	switch i.FormatType {
 	case SOP2:
 		return i.sop2String()
@@ -308,7 +329,7 @@ func (i Inst) String() string {
 	case FLAT:
 		return i.flatString()
 	case SOPP:
-		return i.soppString()
+		return i.soppString(file)
 	case VOPC:
 		return i.vopcString()
 	case SOPC:
