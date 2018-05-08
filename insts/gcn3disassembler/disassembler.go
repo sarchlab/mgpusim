@@ -19,7 +19,7 @@ func main() {
 
 	_, filename := filepath.Split(path)
 	fmt.Fprintf(os.Stdout, "\n%s:\tfile format ELF64-amdgpu\n", filename)
-	fmt.Fprintf(os.Stdout, "\nDisassembly of section .text:\n")
+	fmt.Fprintf(os.Stdout, "\nDisassembly of section .text:")
 
 	disasm := insts.NewDisassembler()
 
