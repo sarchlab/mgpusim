@@ -24,6 +24,7 @@ type Wavefront struct {
 	Exec     uint64
 	SCC      byte
 	VCC      uint64
+	M0       uint32
 	SRegFile []byte
 	VRegFile []byte
 }
@@ -96,6 +97,8 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 		copy(value, insts.Uint64ToBytes(wf.Exec))
 	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		copy(value, insts.Uint64ToBytes(wf.Exec))
+	} else if reg.RegType == insts.M0 {
+		copy(value, insts.Uint32ToBytes(wf.M0))
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}
@@ -133,6 +136,8 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 		wf.Exec = insts.BytesToUint64(data)
 	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		wf.Exec = insts.BytesToUint64(data)
+	} else if reg.RegType == insts.M0 {
+		wf.M0 = insts.BytesToUint32(data)
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}
