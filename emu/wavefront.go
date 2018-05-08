@@ -27,6 +27,7 @@ type Wavefront struct {
 	M0       uint32
 	SRegFile []byte
 	VRegFile []byte
+	LDS      []byte
 }
 
 // NewWavefront returns the Wavefront that wraps the nativeWf
