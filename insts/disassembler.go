@@ -670,7 +670,7 @@ func (d *Disassembler) Disassemble(file *elf.File, filename string, w io.Writer)
 }
 
 func (d *Disassembler) disassembleKernel(file *elf.File, symbol *elf.Symbol, w io.Writer) {
-	fmt.Printf("%s:\n", symbol.Name)
+	fmt.Fprintf(w, "%s:\n", symbol.Name)
 
 	sec := file.Section(".text")
 	secData, _ := sec.Data()
