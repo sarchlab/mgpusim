@@ -151,7 +151,7 @@ var _ = Describe("ALU", func() {
 
 		alu.Run(state)
 
-		Expect(sp.DST).To(Equal(uint64(0)))
+		Expect(sp.DST).To(Equal(uint64(1)))
 		Expect(sp.SCC).To(Equal(uint8(0)))
 	})
 

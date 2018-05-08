@@ -26,7 +26,7 @@ type ComputeUnit struct {
 	engine             core.Engine
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
-	alu                ALU
+	alu                *ALUImpl
 	Freq               util.Freq
 
 	nextTick    core.VTimeInSec
@@ -43,7 +43,7 @@ func NewComputeUnit(
 	engine core.Engine,
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
-	alu ALU,
+	alu *ALUImpl,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = core.NewComponentBase(name)
@@ -130,6 +130,7 @@ func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now core.VTimeInSec) error {
 
 	for !cu.isAllWfCompleted(wg) {
 		for _, wf := range cu.wfs[wg] {
+			cu.alu.LDS = wf.LDS
 			cu.runWfUntilBarrier(wf)
 		}
 		cu.resolveBarrier(wg)
