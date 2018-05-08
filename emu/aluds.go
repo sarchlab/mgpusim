@@ -26,12 +26,12 @@ func (u *ALUImpl) runDSWRITE2B64(state InstEmuState) {
 		}
 
 		addr0 := layout.ADDR[i] + uint32(inst.Offset0)*8
-		data0Offset := 8 + 64*4
-		copy(u.LDS[addr0:addr0+8], sp[data0Offset:data0Offset+8])
+		data0Offset := uint(8 + 64*4)
+		copy(u.LDS[addr0:addr0+8], sp[data0Offset+i*16:data0Offset+i*16+8])
 
 		addr1 := layout.ADDR[i] + uint32(inst.Offset1)*8
-		data1Offset := 8 + 64*4 + 256*4
-		copy(u.LDS[addr1:addr1+8], sp[data1Offset:data1Offset+8])
+		data1Offset := uint(8 + 64*4 + 256*4)
+		copy(u.LDS[addr1:addr1+8], sp[data1Offset+i*16:data1Offset+i*16+8])
 	}
 }
 
