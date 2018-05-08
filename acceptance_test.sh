@@ -1,6 +1,5 @@
 #!/bin/bash
-
-set -e
+# set -e
 
 cd samples/firsim
 go build

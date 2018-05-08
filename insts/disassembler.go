@@ -621,7 +621,9 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 
 // Disassemble take a binary file as an input and put the assembly code in a
 // writer
-func (d *Disassembler) Disassemble(file *elf.File, w io.Writer) {
+func (d *Disassembler) Disassemble(file *elf.File, filename string, w io.Writer) {
+	fmt.Fprintf(w, "\n%s:\tfile format ELF64-amdgpu\n", filename)
+	fmt.Fprintf(w, "\nDisassembly of section .text:")
 
 	sec := file.Section(".text")
 	data, _ := sec.Data()
