@@ -89,6 +89,11 @@ def main():
     error |= run_test("KMeans Parallel Emu", './kmeanssim -parallel -verify -points=1024 -features=32 -clusters=5', 'samples/kmeanssim')
     error |= run_test("KMeans Parallel Sim", './kmeanssim -timing -parallel -verify -points=1024 -features=32 -clusters=5', 'samples/kmeanssim')
 
+    error |= compile('samples/matrixtranspose/')
+    error |= run_test("MatrixTranspose Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/matrixtranspose')
+    error |= run_test("MatrixTranspose Emu", './matrixtranspose -verify', 'samples/matrixtranspose')
+    error |= run_test("MatrixTranspose Parallel Emu", './matrixtranspose --parallel -verify', 'samples/matrixtranspose')
+
     if error:
         sys.exit(1)
 
