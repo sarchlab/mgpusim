@@ -14,3 +14,5 @@ debug
 *.debug
 *.trace
 *.disasm
+.ropeproject
+
