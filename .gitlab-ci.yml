@@ -1,5 +1,8 @@
 image: golang:latest
 
+before_script:
+  - apt-get update -qq && apt-get install -y -qq python3
+
 stages:
   - test
 

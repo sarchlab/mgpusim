@@ -167,12 +167,11 @@ func (i Inst) soppString(file *elf.File) string {
 		}
 		lgkmBits := extractBits(uint32(i.SImm16.IntValue), 8, 12)
 		operandStr += fmt.Sprintf(" lgkmcnt(%d)", lgkmBits)
-	} else if i.Opcode >= 4 && i.Opcode <= 9 { // Branch
+	} else if i.Opcode >= 2 && i.Opcode <= 9 { // Branch
 		symbolFound := false
 		if file != nil {
 			imm := int16(uint16(i.SImm16.IntValue))
-			target := i.PC + uint64(imm*4) +
-				file.Section(".text").Offset + 4
+			target := i.PC + uint64(imm*4) + 4
 			symbols, _ := file.Symbols()
 			for _, symbol := range symbols {
 				if symbol.Value == target {

@@ -623,19 +623,66 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 // writer
 func (d *Disassembler) Disassemble(file *elf.File, filename string, w io.Writer) {
 	fmt.Fprintf(w, "\n%s:\tfile format ELF64-amdgpu\n", filename)
-	fmt.Fprintf(w, "\nDisassembly of section .text:")
+	fmt.Fprintf(w, "\nDisassembly of section .text:\n")
+
+	symbols, _ := file.Symbols()
+	for _, symbol := range symbols {
+		if symbol.Size > 0 {
+			d.disassembleKernel(file, &symbol, w)
+		}
+
+	}
+
+	//sec := file.Section(".text")
+	//data, _ := sec.Data()
+	//co := NewHsaCoFromData(data)
+	//
+	//buf := co.InstructionData()
+	//pc := uint64(0x100)
+	//d.tryPrintSymbol(file, sec.Offset, w)
+	//for len(buf) > 0 {
+	//	d.tryPrintSymbol(file, sec.Offset+pc, w)
+	//	inst, err := d.Decode(buf)
+	//	inst.PC = pc
+	//	if err != nil {
+	//		fmt.Printf("Instuction not decodable\n")
+	//		buf = buf[4:]
+	//		pc += 4
+	//	} else {
+	//		// fmt.Fprintf(w, "%s %08b\n", inst, buf[0:inst.ByteSize])
+	//		//fmt.Fprintf(w, "0x%016x\t%s\n", pc, inst)
+	//		instStr := inst.String(file)
+	//		fmt.Fprintf(w, "\t%s", instStr)
+	//		for i := len(instStr); i < 59; i++ {
+	//			fmt.Fprint(w, " ")
+	//		}
+	//
+	//		fmt.Fprintf(w, "// %012X: ", sec.Offset+pc)
+	//		fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[0:4]))
+	//		if inst.ByteSize == 8 {
+	//			fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[4:8]))
+	//		}
+	//		fmt.Fprintf(w, "\n")
+	//		buf = buf[inst.ByteSize:]
+	//		pc += uint64(inst.ByteSize)
+	//	}
+	//}
+}
+
+func (d *Disassembler) disassembleKernel(file *elf.File, symbol *elf.Symbol, w io.Writer) {
+	fmt.Printf("%s:\n", symbol.Name)
 
 	sec := file.Section(".text")
-	data, _ := sec.Data()
+	secData, _ := sec.Data()
+	data := secData[symbol.Value-sec.Offset : symbol.Value-sec.Offset+symbol.Size]
 	co := NewHsaCoFromData(data)
 
 	buf := co.InstructionData()
 	pc := uint64(0x100)
-	d.tryPrintSymbol(file, sec.Offset, w)
 	for len(buf) > 0 {
-		d.tryPrintSymbol(file, sec.Offset+pc, w)
+		d.tryPrintSymbol(file, symbol.Value+pc, w)
 		inst, err := d.Decode(buf)
-		inst.PC = pc
+		inst.PC = pc + symbol.Value
 		if err != nil {
 			fmt.Printf("Instuction not decodable\n")
 			buf = buf[4:]
@@ -649,7 +696,7 @@ func (d *Disassembler) Disassemble(file *elf.File, filename string, w io.Writer)
 				fmt.Fprint(w, " ")
 			}
 
-			fmt.Fprintf(w, "// %012X: ", sec.Offset+pc)
+			fmt.Fprintf(w, "// %012X: ", symbol.Value+pc)
 			fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[0:4]))
 			if inst.ByteSize == 8 {
 				fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[4:8]))
