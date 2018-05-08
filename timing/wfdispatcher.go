@@ -32,6 +32,7 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 func (d *WfDispatcherImpl) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
 
 	d.setWfInfo(wf)
+	d.initRegisters(wf)
 
 	evt := NewWfDispatchCompletionEvent(
 		d.cu.Freq.NCyclesLater(d.Latency, req.RecvTime()),

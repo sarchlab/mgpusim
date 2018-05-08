@@ -22,6 +22,7 @@ Flags
 
 var (
 	httpFlag  = flag.String("http", "localhost:0", "HTTP service address (e.g., ':6060')")
+	noBrowser = flag.Bool("no-browser", false, "Do not open browser")
 	traceFile string
 )
 
@@ -52,7 +53,9 @@ func startServer() {
 	ln, err := net.Listen("tcp", *httpFlag)
 	dieOnErr(err)
 
-	openbrowser("http://" + ln.Addr().String())
+	if !*noBrowser {
+		openbrowser("http://" + ln.Addr().String())
+	}
 
 	http.HandleFunc("/trace", httpTrace)
 	http.HandleFunc("/minimap", httpMinimap)
@@ -76,7 +79,9 @@ func openbrowser(url string) {
 		err = fmt.Errorf("unsupported platform")
 	}
 
-	dieOnErr(err)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func dieOnErr(err error) {

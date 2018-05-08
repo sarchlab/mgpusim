@@ -82,7 +82,7 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 	if s.internalExecuting == nil {
 		s.internalExecuting = wf
 		wf.State = WfRunning
-		wf.PC += uint64(wf.Inst().ByteSize)
+		//wf.PC += uint64(wf.Inst().ByteSize)
 	} else {
 		wf.State = WfFetched
 	}

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
+	"gitlab.com/yaotsu/gcn3/trace"
 )
 
 // GPUBuilder provide services to assemble usable GPUs
@@ -26,7 +27,8 @@ type GPUBuilder struct {
 	Driver  core.Component
 	GPUName string
 
-	EnableISADebug bool
+	EnableISADebug    bool
+	EnableInstTracing bool
 }
 
 // NewGPUBuilder returns a new GPUBuilder
@@ -37,6 +39,7 @@ func NewGPUBuilder(engine core.Engine) *GPUBuilder {
 	b.GPUName = "GPU"
 
 	b.EnableISADebug = false
+	b.EnableInstTracing = false
 	return b
 }
 
@@ -135,10 +138,19 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		if b.EnableISADebug {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
 			if err != nil {
-				log.Fatal(err.Error())
+				log.Fatal(err)
 			}
-			wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
-			cu.AcceptHook(wfHook)
+			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
+			cu.AcceptHook(isaDebugger)
+		}
+
+		if b.EnableInstTracing {
+			isaTraceFile, err := os.Create(fmt.Sprintf("inst_%s.trace", cu.Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			isaTracer := trace.NewInstTracer(isaTraceFile)
+			cu.AcceptHook(isaTracer)
 		}
 	}
 
