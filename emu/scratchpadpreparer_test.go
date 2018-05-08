@@ -112,7 +112,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(layout.EXEC).To(Equal(uint64(0xff)))
 	})
 
-	It("should prepare for VOP3", func() {
+	It("should prepare for VOP3a", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP3a
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
@@ -131,6 +131,34 @@ var _ = Describe("ScratchpadPreparer", func() {
 		sp.Prepare(wf, wf)
 
 		layout := wf.Scratchpad().AsVOP3A()
+		for i := 0; i < 64; i++ {
+			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
+			Expect(layout.SRC2[i]).To(Equal(uint64(1)))
+		}
+		Expect(layout.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+		Expect(layout.EXEC).To(Equal(uint64(0xff)))
+	})
+
+	It("should prepare for VOP3b", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.VOP3b
+		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
+		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
+		inst.Src2 = insts.NewIntOperand(1, 1)
+		wf.inst = inst
+
+		for i := 0; i < 64; i++ {
+			wf.WriteReg(insts.VReg(0), 2, i, insts.Uint64ToBytes(uint64(i)))
+			wf.WriteReg(insts.VReg(2), 2, i, insts.Uint64ToBytes(uint64(i)))
+		}
+		wf.WriteReg(insts.Regs[insts.VCC], 1, 0,
+			insts.Uint64ToBytes(uint64(0xffff0000ffff0000)))
+		wf.Exec = 0xff
+
+		sp.Prepare(wf, wf)
+
+		layout := wf.Scratchpad().AsVOP3B()
 		for i := 0; i < 64; i++ {
 			Expect(layout.SRC0[i]).To(Equal(uint64(i)))
 			Expect(layout.SRC1[i]).To(Equal(uint64(i)))
@@ -347,7 +375,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
-	It("should commit for VOP3", func() {
+	It("should commit for VOP3a", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP3a
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
@@ -364,6 +392,30 @@ var _ = Describe("ScratchpadPreparer", func() {
 		for i := 0; i < 64; i++ {
 			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
 		}
+		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+	})
+
+	It("should commit for VOP3b", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.VOP3b
+		inst.Dst = insts.NewVRegOperand(0, 0, 1)
+		inst.SDst = insts.NewSRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsVOP3B()
+		for i := 0; i < 64; i++ {
+			layout.DST[i] = uint64(i)
+		}
+		layout.SDST = uint64(2)
+		layout.VCC = uint64(0xffff0000ffff0000)
+
+		sp.Commit(wf, wf)
+
+		for i := 0; i < 64; i++ {
+			Expect(wf.VRegValue(i, 0)).To(Equal(uint32(i)))
+		}
+		Expect(wf.SRegValue(0)).To(Equal(uint32(2)))
+		Expect(wf.SRegValue(1)).To(Equal(uint32(0)))
 		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
