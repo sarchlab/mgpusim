@@ -17,3 +17,4 @@ test_job:
   - go install github.com/onsi/ginkgo/ginkgo
   - cd $PROJECT_DIR && go build ./...
   - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress
+  - cd $PROJECT_DIR && ./acceptance_test.sh

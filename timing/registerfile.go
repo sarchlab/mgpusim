@@ -23,6 +23,7 @@ type RegisterAccess struct {
 type RegisterFile interface {
 	Read(access *RegisterAccess)
 	Write(access *RegisterAccess)
+	Storage() *mem.Storage
 }
 
 // A SimpleRegisterFile is a Register file that can always read and write
@@ -47,10 +48,17 @@ func NewSimpleRegisterFile(
 	return r
 }
 
+func (r *SimpleRegisterFile) Storage() *mem.Storage {
+	return r.storage
+}
+
 func (r *SimpleRegisterFile) Write(access *RegisterAccess) {
 	offset := r.getRegOffset(access)
 
-	err := r.storage.Write(uint64(offset), access.Data)
+	if access.RegCount == 0 {
+		access.RegCount = 1
+	}
+	err := r.storage.Write(uint64(offset), access.Data[0:access.RegCount*4])
 	if err != nil {
 		log.Panic(err)
 	}
@@ -61,6 +69,9 @@ func (r *SimpleRegisterFile) Write(access *RegisterAccess) {
 func (r *SimpleRegisterFile) Read(access *RegisterAccess) {
 	offset := r.getRegOffset(access)
 
+	if access.RegCount == 0 {
+		access.RegCount = 1
+	}
 	data, err := r.storage.Read(uint64(offset), uint64(4*access.RegCount))
 	if err != nil {
 		log.Panic(err)

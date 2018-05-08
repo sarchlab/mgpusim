@@ -32,6 +32,7 @@ func (u *ALUImpl) runSGETPCB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.PC + 4
 }
+
 func (u *ALUImpl) runSANDSAVEEXECB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.EXEC
