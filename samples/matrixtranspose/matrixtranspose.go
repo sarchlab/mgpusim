@@ -16,12 +16,13 @@ import (
 )
 
 type MatrixTransposeKernelArgs struct {
-	output              driver.GPUPtr
-	input               driver.GPUPtr
-	block, padding      uint32
-	hiddenGlobalOffsetX int64
-	hiddenGlobalOffsetY int64
-	hiddenGlobalOffsetZ int64
+	Output              driver.GPUPtr
+	Input               driver.GPUPtr
+	Block               driver.LocalPtr
+	Padding             uint32
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
 }
 
 var (
@@ -32,13 +33,15 @@ var (
 	gpuDriver *driver.Driver
 	kernel    *insts.HsaCo
 
-	width       int
-	height      int
-	numTaps     int
-	hInputData  []float32
-	hOutputData []float32
-	dInputData  driver.GPUPtr
-	dOutputData driver.GPUPtr
+	width              int
+	height             int
+	numTaps            int
+	elemsPerThread1Dim int
+	blockSize          int
+	hInputData         []float32
+	hOutputData        []float32
+	dInputData         driver.GPUPtr
+	dOutputData        driver.GPUPtr
 )
 
 var kernelFilePath = flag.String(
@@ -83,6 +86,8 @@ func configure() {
 
 	width = *dataWidth
 	height = *dataHeight
+	elemsPerThread1Dim = 4
+	blockSize = 16
 }
 
 func initPlatform() {
@@ -121,14 +126,14 @@ func run() {
 	kernArg := MatrixTransposeKernelArgs{
 		dOutputData,
 		dInputData,
-		0,
+		driver.LocalPtr(blockSize * blockSize * elemsPerThread1Dim * elemsPerThread1Dim * 4),
 		0,
 		0, 0, 0,
 	}
 
 	gpuDriver.LaunchKernel(kernel, gpu, globalMem.Storage,
-		[3]uint32{uint32(width / 4), uint32(height / 4), 1},
-		[3]uint16{16, 16, 1},
+		[3]uint32{uint32(width / elemsPerThread1Dim), uint32(height / elemsPerThread1Dim), 1},
+		[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 		&kernArg,
 	)
 }

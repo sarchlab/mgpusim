@@ -7,8 +7,6 @@ import (
 
 	"encoding/binary"
 
-	"sync"
-
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
@@ -24,14 +22,12 @@ import (
 //
 type ComputeUnit struct {
 	*core.ComponentBase
-	sync.Mutex
 
 	engine             core.Engine
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
-
-	Freq util.Freq
+	Freq               util.Freq
 
 	nextTick    core.VTimeInSec
 	queueingWGs []*gcn3.MapWGReq
@@ -120,25 +116,17 @@ func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
 }
 
 func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
-
 	for len(cu.queueingWGs) > 0 {
 		wg := cu.queueingWGs[0]
 		cu.queueingWGs = cu.queueingWGs[1:]
 		cu.runWG(wg, evt.Time())
 	}
 	return nil
-	//wg := cu.running.WG
-	//
-	//if cu.running != nil {
-	//	return cu.runWG(wg, evt.Time())
-	//}
-	//
-	//return nil
 }
 
 func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now core.VTimeInSec) error {
 	wg := req.WG
-	cu.initWfs(wg)
+	cu.initWfs(wg, req)
 
 	for !cu.isAllWfCompleted(wg) {
 		for _, wf := range cu.wfs[wg] {
@@ -153,7 +141,8 @@ func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now core.VTimeInSec) error {
 	return nil
 }
 
-func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup) error {
+func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error {
+	//lds := cu.initLDS(wg, req)
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
 		cu.wfs[wg] = append(cu.wfs[wg], managedWf)
@@ -165,6 +154,9 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup) error {
 
 	return nil
 }
+
+//func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *gcn3.MapWGReq) []byte {
+//}
 
 func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	co := wf.CodeObject
