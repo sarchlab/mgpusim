@@ -4,6 +4,8 @@ import (
 	"debug/elf"
 	"log"
 
+	"fmt"
+
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
@@ -33,6 +35,9 @@ func LoadProgram(filePath, kernelName string) *insts.HsaCo {
 			offset := symbol.Value - textSection.Offset
 			hsacoData := textSectionData[offset : offset+symbol.Size]
 			hsaco := insts.NewHsaCoFromData(hsacoData)
+
+			fmt.Println(hsaco.Info())
+
 			return hsaco
 		}
 	}
