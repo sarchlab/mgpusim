@@ -4,8 +4,6 @@ import (
 	"flag"
 	"log"
 
-	"fmt"
-
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/driver"
@@ -141,11 +139,12 @@ func run() {
 func checkResult() {
 	gpuDriver.MemoryCopyDeviceToHost(hOutputData, dOutputData, storage)
 
-	for i := 0; i < width; i++ {
-		for j := 0; j < height; j++ {
-			fmt.Printf("%d ", hOutputData[i*width+j])
+	for i := 0; i < height; i++ {
+		for j := 0; j < width; j++ {
+			if hOutputData[j*width+i] != hInputData[i*width+j] {
+				log.Fatalf("error")
+			}
 		}
-		fmt.Printf("\n")
 	}
 
 	log.Printf("Passed!\n")
