@@ -38,8 +38,8 @@ var (
 	numTaps            int
 	elemsPerThread1Dim int
 	blockSize          int
-	hInputData         []float32
-	hOutputData        []float32
+	hInputData         []uint32
+	hOutputData        []uint32
 	dInputData         driver.GPUPtr
 	dOutputData        driver.GPUPtr
 )
@@ -109,11 +109,11 @@ func loadProgram() {
 func initMem() {
 	numData := width * height
 
-	hInputData = make([]float32, numData)
-	hOutputData = make([]float32, numData)
+	hInputData = make([]uint32, numData)
+	hOutputData = make([]uint32, numData)
 
 	for i := 0; i < numData; i++ {
-		hInputData[i] = float32(i / width)
+		hInputData[i] = uint32(i)
 	}
 
 	dInputData = gpuDriver.AllocateMemory(storage, uint64(numData*4))
@@ -143,7 +143,7 @@ func checkResult() {
 
 	for i := 0; i < width; i++ {
 		for j := 0; j < height; j++ {
-			fmt.Printf("%.0f ", hOutputData[i*width+j])
+			fmt.Printf("%d ", hOutputData[i*width+j])
 		}
 		fmt.Printf("\n")
 	}

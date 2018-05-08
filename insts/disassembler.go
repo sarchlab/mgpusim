@@ -557,12 +557,14 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) {
 		}
 	}
 
-	dstBits := int(extractBits(bytesHi, 24, 32))
-	inst.Dst = NewVRegOperand(dstBits, dstBits, 1)
-	if inst.DSTWidth == 64 {
-		inst.Dst.RegCount = 2
-	} else if inst.DSTWidth == 128 {
-		inst.Dst.RegCount = 4
+	if inst.DSTWidth > 0 {
+		dstBits := int(extractBits(bytesHi, 24, 32))
+		inst.Dst = NewVRegOperand(dstBits, dstBits, 1)
+		if inst.DSTWidth == 64 {
+			inst.Dst.RegCount = 2
+		} else if inst.DSTWidth == 128 {
+			inst.Dst.RegCount = 4
+		}
 	}
 }
 
