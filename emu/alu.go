@@ -46,6 +46,8 @@ func (u *ALUImpl) Run(state InstEmuState) {
 		u.runVOP2(state)
 	case insts.VOP3a:
 		u.runVOP3A(state)
+	case insts.VOP3b:
+		u.runVOP3B(state)
 	case insts.VOPC:
 		u.runVOPC(state)
 	case insts.FLAT:
