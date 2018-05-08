@@ -61,6 +61,8 @@ func (p *ScratchpadPreparerImpl) Prepare(
 		p.prepareSOPP(instEmuState, wf)
 	case insts.SOPK:
 		p.prepareSOPK(instEmuState, wf)
+	case insts.DS:
+		p.prepareDS(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -270,6 +272,36 @@ func (p *ScratchpadPreparerImpl) prepareSOPC(
 	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
 }
 
+func (p *ScratchpadPreparerImpl) prepareDS(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	sp := instEmuState.Scratchpad()
+	layout := sp.AsDS()
+
+	layout.EXEC = wf.Exec
+
+	offset := 8
+	for i := 0; i < 64; i++ {
+		p.readOperand(inst.Addr, wf, i, sp[offset+i*4:offset+i*4+4])
+	}
+
+	if inst.Data != nil {
+		offset = 8 + 64*4
+		for i := 0; i < 64; i++ {
+			p.readOperand(inst.Data, wf, i, sp[offset+i*16:offset+i*16+16])
+		}
+	}
+
+	if inst.Data1 != nil {
+		offset = 8 + 64*4 + 256*4
+		for i := 0; i < 64; i++ {
+			p.readOperand(inst.Data1, wf, i, sp[offset+i*16:offset+i*16+16])
+		}
+	}
+}
+
 // Commit write to the register file according to the scratchpad layout
 func (p *ScratchpadPreparerImpl) Commit(
 	instEmuState InstEmuState,
@@ -301,6 +333,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 		p.commitSOPC(instEmuState, wf)
 	case insts.SOPK:
 		p.commitSOPK(instEmuState, wf)
+	case insts.DS:
+		p.commitDS(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -450,6 +484,21 @@ func (p *ScratchpadPreparerImpl) commitSOPK(
 	scratchpad := instEmuState.Scratchpad()
 	p.writeOperand(inst.Dst, wf, 0, scratchpad[0:8])
 	wf.SCC = scratchpad.AsSOPK().SCC
+}
+
+func (p *ScratchpadPreparerImpl) commitDS(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	sp := instEmuState.Scratchpad()
+
+	if inst.Dst != nil {
+		offset := 8 + 64*4 + 256*4*2
+		for i := 0; i < 64; i++ {
+			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
+		}
+	}
 }
 
 func (p *ScratchpadPreparerImpl) readOperand(
