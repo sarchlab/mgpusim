@@ -7,6 +7,8 @@ import (
 
 	"encoding/binary"
 
+	"fmt"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
@@ -90,6 +92,7 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	if cu.nextTick <= req.Time() {
 		cu.nextTick = core.VTimeInSec(math.Ceil(float64(req.RecvTime())))
+		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
 		evt := core.NewTickEvent(
 			cu.nextTick,
 			cu,
@@ -174,85 +177,85 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	SGPRPtr := 0
 	if co.EnableSgprPrivateSegmentBuffer() {
 		// log.Printf("EnableSgprPrivateSegmentBuffer is not supported")
-		// fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
+		fmt.Printf("s%d SGPRPrivateSegmentBuffer\n", SGPRPtr/4)
 		SGPRPtr += 16
 	}
 
 	if co.EnableSgprDispatchPtr() {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], wf.PacketAddress)
-		// fmt.Printf("s%d SGPRDispatchPtr\n", SGPRPtr/4)
+		fmt.Printf("s%d SGPRDispatchPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
 	if co.EnableSgprQueuePtr() {
 		log.Printf("EnableSgprQueuePtr is not supported")
-		// fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
+		fmt.Printf("s%d SGPRQueuePtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
 	if co.EnableSgprKernelArgSegmentPtr() {
 		binary.LittleEndian.PutUint64(wf.SRegFile[SGPRPtr:SGPRPtr+8], pkt.KernargAddress)
-		// fmt.Printf("s%d SGPRKernelArgSegmentPtr\n", SGPRPtr/4)
+		fmt.Printf("s%d SGPRKernelArgSegmentPtr\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
 	if co.EnableSgprDispatchId() {
 		log.Printf("EnableSgprDispatchID is not supported")
-		// fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
+		fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
 	if co.EnableSgprFlatScratchInit() {
 		log.Printf("EnableSgprFlatScratchInit is not supported")
-		// fmt.Printf("s%d SGPRFlatScratchInit\n", SGPRPtr/4)
+		fmt.Printf("s%d SGPRFlatScratchInit\n", SGPRPtr/4)
 		SGPRPtr += 8
 	}
 
 	if co.EnableSgprPrivateSegementSize() {
 		log.Printf("EnableSgprPrivateSegmentSize is not supported")
-		// fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
+		fmt.Printf("s%d SGPRPrivateSegmentSize\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
 	if co.EnableSgprGridWorkGroupCountX() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeX+uint32(pkt.WorkgroupSizeX)-1)/uint32(pkt.WorkgroupSizeX))
-		// fmt.Printf("s%d WorkGroupCountX\n", SGPRPtr/4)
+		fmt.Printf("s%d WorkGroupCountX\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
 	if co.EnableSgprGridWorkGroupCountY() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeY+uint32(pkt.WorkgroupSizeY)-1)/uint32(pkt.WorkgroupSizeY))
-		// fmt.Printf("s%d WorkGroupCountY\n", SGPRPtr/4)
+		fmt.Printf("s%d WorkGroupCountY\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
 	if co.EnableSgprGridWorkGroupCountZ() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			(pkt.GridSizeZ+uint32(pkt.WorkgroupSizeZ)-1)/uint32(pkt.WorkgroupSizeZ))
-		// fmt.Printf("s%d WorkGroupCountZ\n", SGPRPtr/4)
+		fmt.Printf("s%d WorkGroupCountZ\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupIdX() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDX))
-		// fmt.Printf("s%d WorkGroupIdX\n", SGPRPtr/4)
+		fmt.Printf("s%d WorkGroupIdX\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupIdY() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDY))
-		// fmt.Printf("s%d WorkGroupIdY\n", SGPRPtr/4)
+		fmt.Printf("s%d WorkGroupIdY\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupIdZ() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDZ))
-		// fmt.Printf("s%d WorkGroupIdZ\n", SGPRPtr/4)
+		fmt.Printf("s%d WorkGroupIdZ\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 

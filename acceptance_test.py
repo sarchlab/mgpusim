@@ -91,8 +91,8 @@ def main():
 
     error |= compile('samples/matrixtranspose/')
     error |= run_test("MatrixTranspose Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/matrixtranspose')
-    error |= run_test("MatrixTranspose Emu", './matrixtranspose -verify', 'samples/matrixtranspose')
-    error |= run_test("MatrixTranspose Parallel Emu", './matrixtranspose --parallel -verify', 'samples/matrixtranspose')
+    error |= run_test("MatrixTranspose Emu", './matrixtranspose -verify -width=256', 'samples/matrixtranspose')
+    error |= run_test("MatrixTranspose Parallel Emu", './matrixtranspose --parallel -verify -width=256', 'samples/matrixtranspose')
 
     if error:
         sys.exit(1)
