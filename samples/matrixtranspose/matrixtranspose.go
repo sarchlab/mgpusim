@@ -32,7 +32,6 @@ var (
 	kernel    *insts.HsaCo
 
 	width              int
-	height             int
 	numTaps            int
 	elemsPerThread1Dim int
 	blockSize          int
@@ -52,8 +51,7 @@ var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
-var dataWidth = flag.Int("width", 256, "The number of columns in the input matrix.")
-var dataHeight = flag.Int("height", 256, "The number of rows in the input matrix.")
+var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")
 
 func main() {
 	configure()
@@ -83,7 +81,6 @@ func configure() {
 	}
 
 	width = *dataWidth
-	height = *dataHeight
 	elemsPerThread1Dim = 4
 	blockSize = 16
 }
@@ -105,7 +102,7 @@ func loadProgram() {
 }
 
 func initMem() {
-	numData := width * height
+	numData := width * width
 
 	hInputData = make([]uint32, numData)
 	hOutputData = make([]uint32, numData)
@@ -130,7 +127,7 @@ func run() {
 	}
 
 	gpuDriver.LaunchKernel(kernel, gpu, globalMem.Storage,
-		[3]uint32{uint32(width / elemsPerThread1Dim), uint32(height / elemsPerThread1Dim), 1},
+		[3]uint32{uint32(width / elemsPerThread1Dim), uint32(width / elemsPerThread1Dim), 1},
 		[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 		&kernArg,
 	)
@@ -139,7 +136,7 @@ func run() {
 func checkResult() {
 	gpuDriver.MemoryCopyDeviceToHost(hOutputData, dOutputData, storage)
 
-	for i := 0; i < height; i++ {
+	for i := 0; i < width; i++ {
 		for j := 0; j < width; j++ {
 			if hOutputData[j*width+i] != hInputData[i*width+j] {
 				log.Fatalf("error")
