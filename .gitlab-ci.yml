@@ -19,5 +19,6 @@ test_job:
   - cd $PROJECT_DIR && go get -t ./...
   - go install github.com/onsi/ginkgo/ginkgo
   - cd $PROJECT_DIR && go build ./...
-  - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress
+  - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --coverprofile=cover.out
+  - cd $PROJECT_DIR && go tool cover -func=cover.out
   - cd $PROJECT_DIR && python3 acceptance_test.py
