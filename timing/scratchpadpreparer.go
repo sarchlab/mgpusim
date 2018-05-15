@@ -56,6 +56,8 @@ func (p *ScratchpadPreparerImpl) Prepare(
 		p.prepareSMEM(instEmuState, wf)
 	case insts.SOPP:
 		p.prepareSOPP(instEmuState, wf)
+	case insts.DS:
+		p.prepareDS(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -258,6 +260,36 @@ func (p *ScratchpadPreparerImpl) prepareSOPC(
 	p.readOperand(inst.Src1, wf, 0, scratchPad[8:16])
 }
 
+func (p *ScratchpadPreparerImpl) prepareDS(
+	instEmuState emu.InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	sp := instEmuState.Scratchpad()
+	layout := sp.AsDS()
+
+	layout.EXEC = wf.EXEC
+
+	offset := 8
+	for i := 0; i < 64; i++ {
+		p.readOperand(inst.Addr, wf, i, sp[offset+i*4:offset+i*4+4])
+	}
+
+	if inst.Data != nil {
+		offset = 8 + 64*4
+		for i := 0; i < 64; i++ {
+			p.readOperand(inst.Data, wf, i, sp[offset+i*16:offset+i*16+16])
+		}
+	}
+
+	if inst.Data1 != nil {
+		offset = 8 + 64*4 + 256*4
+		for i := 0; i < 64; i++ {
+			p.readOperand(inst.Data1, wf, i, sp[offset+i*16:offset+i*16+16])
+		}
+	}
+}
+
 // Commit write to the register file according to the scratchpad layout
 func (p *ScratchpadPreparerImpl) Commit(
 	instEmuState emu.InstEmuState,
@@ -287,6 +319,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 		p.commitSOPP(instEmuState, wf)
 	case insts.SOPC:
 		p.commitSOPC(instEmuState, wf)
+	case insts.DS:
+		p.commitDS(instEmuState, wf)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
@@ -433,6 +467,21 @@ func (p *ScratchpadPreparerImpl) commitSOPP(
 	wf.PC = scratchpad.AsSOPP().PC
 }
 
+func (p *ScratchpadPreparerImpl) commitDS(
+	instEmuState emu.InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	sp := instEmuState.Scratchpad()
+
+	if inst.Dst != nil {
+		offset := 8 + 64*4 + 256*4*2
+		for i := 0; i < 64; i++ {
+			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
+		}
+	}
+}
+
 func (p *ScratchpadPreparerImpl) readOperand(
 	operand *insts.Operand,
 	wf *Wavefront,
@@ -506,6 +555,8 @@ func (p *ScratchpadPreparerImpl) readReg(
 		copy(buf, insts.Uint64ToBytes(wf.EXEC))
 	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		copy(buf, insts.Uint64ToBytes(wf.EXEC))
+	} else if reg.RegType == insts.M0 {
+		copy(buf, insts.Uint32ToBytes(wf.M0))
 	} else {
 		log.Panicf("Unsupported register read %s\n", reg.Name)
 	}
@@ -568,6 +619,8 @@ func (p *ScratchpadPreparerImpl) writeReg(
 		wf.EXEC = insts.BytesToUint64(buf)
 	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		wf.EXEC = insts.BytesToUint64(buf)
+	} else if reg.RegType == insts.M0 {
+		wf.M0 = insts.BytesToUint32(buf)
 	} else {
 		log.Panicf("Unsupported register write %s\n", reg.Name)
 	}

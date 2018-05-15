@@ -49,6 +49,7 @@ type Wavefront struct {
 	PC   uint64
 	EXEC uint64
 	VCC  uint64
+	M0   uint32
 	SCC  uint8
 }
 
