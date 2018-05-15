@@ -240,6 +240,9 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	}
 	cu.VectorDecoder.Run(now)
 
+	cu.LDSUnit.Run(now)
+	cu.LDSDecoder.Run(now)
+
 	cu.Scheduler.EvaluateInternalInst(now)
 	cu.Scheduler.DoIssue(now)
 	cu.Scheduler.DoFetch(now)
@@ -257,6 +260,9 @@ func (cu *ComputeUnit) wrapWG(
 	req *gcn3.MapWGReq,
 ) *WorkGroup {
 	wg := NewWorkGroup(raw, req)
+	lds := make([]byte, wg.CodeObject().WGGroupSegmentByteSize)
+	wg.LDS = lds
+
 	cu.wgToManagedWgMapping[raw] = wg
 	return wg
 }
