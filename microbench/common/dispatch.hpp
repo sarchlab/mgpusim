@@ -47,6 +47,7 @@
 #include <cassert>
 #include "hsa.h"
 #include <string>
+#include <time.h>
 
 namespace amd {
 namespace dispatch {
@@ -92,11 +93,21 @@ private:
   size_t kernarg_offset;
   hsa_code_object_t code_object;
   hsa_executable_t executable;
+  double kernel_start;
+  double kernel_end;
 
   bool Init();
   bool InitDispatch();
   bool RunDispatch();
   bool Wait();
+
+  double Now() {
+    struct timespec time;
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    double time_in_sec = static_cast<double>(time.tv_sec) + 
+                         static_cast<double>(time.tv_nsec) * 1e-9;
+    return time_in_sec;
+  }
 
 protected:
   std::ostringstream output;
@@ -105,6 +116,7 @@ protected:
 
 public:
   Dispatch(int argc, const char** argv);
+  virtual ~Dispatch() {}
 
   void SetAgent(hsa_agent_t agent) { assert(!this->agent.handle); this->agent = agent; }
   bool HasAgent() const { return agent.handle != 0; }
@@ -133,6 +145,7 @@ public:
   bool CopyFrom(Buffer* buffer);
   virtual bool Setup() { return true; }
   virtual bool Verify() { return true; }
+  bool Shutdown();
   void KernargRaw(const void* ptr, size_t size, size_t align);
 
   template <typename T>

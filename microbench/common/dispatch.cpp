@@ -204,6 +204,7 @@ bool Dispatch::RunDispatch()
     __atomic_store_n((uint32_t*)aql, header32, __ATOMIC_RELEASE);
   #endif
   // Ring door bell
+  kernel_start = Now();
   hsa_signal_store_relaxed(queue->doorbell_signal, packet_index);
 
   return true;
@@ -342,6 +343,10 @@ bool Dispatch::Wait()
       return false;
     }
   } while (result != 0);
+
+  kernel_end = Now();
+  printf("Kernel %0.12f - %0.12f: %0.12f\n", kernel_start, kernel_end, 
+         kernel_end - kernel_start);
   return true;
 }
 
@@ -449,6 +454,14 @@ void Dispatch::Kernarg(Buffer* buffer)
   Kernarg(&localPtr);
 }
 
+bool Dispatch::Shutdown() {
+  hsa_status_t status;
+  status = hsa_shut_down();
+  if (status != HSA_STATUS_SUCCESS) { return HsaError("hsa_shut_down failed", status); }
+  return true;
+ 
+}
+
 bool Dispatch::Run()
 {
   bool res =
@@ -458,7 +471,8 @@ bool Dispatch::Run()
     Setup() &&
     RunDispatch() &&
     Wait() &&
-    Verify();
+    Verify() &&
+    Shutdown();
   std::string out = output.str();
   if (!out.empty()) {
     std::cout << out << std::endl;
