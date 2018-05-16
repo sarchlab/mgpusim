@@ -91,7 +91,8 @@ func (r *SimpleRegisterFile) getRegOffset(access *RegisterAccess) int {
 	}
 
 	if reg.IsVReg() {
-		return reg.RegIndex()*4 + access.LaneID*r.ByteSizePerLane + offset
+		regOffset := reg.RegIndex()*4 + access.LaneID*r.ByteSizePerLane + offset
+		return regOffset
 	}
 
 	log.Panic("Register type not supported by register files")
