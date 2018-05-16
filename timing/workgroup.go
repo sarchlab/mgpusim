@@ -11,6 +11,7 @@ type WorkGroup struct {
 
 	Wfs    []*Wavefront
 	MapReq *gcn3.MapWGReq
+	LDS    []byte
 }
 
 // NewWorkGroup returns a newly constructed WorkGroup

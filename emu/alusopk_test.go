@@ -22,7 +22,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run s_movk_i32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopk
+		state.inst.FormatType = insts.SOPK
 		state.inst.Opcode = 0
 
 		sp := state.Scratchpad().AsSOPK()
@@ -35,7 +35,7 @@ var _ = Describe("ALU", func() {
 
 	It("shoulr run s_cmpk_lg_i32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopk
+		state.inst.FormatType = insts.SOPK
 		state.inst.Opcode = 3
 
 		sp := state.Scratchpad().AsSOPK()

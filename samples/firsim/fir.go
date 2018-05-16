@@ -15,14 +15,14 @@ import (
 )
 
 type FirKernelArgs struct {
-	output              driver.GPUPtr
-	filter              driver.GPUPtr
-	input               driver.GPUPtr
-	history             driver.GPUPtr
-	numTaps             uint32
-	hiddenGlobalOffsetX int64
-	hiddenGlobalOffsetY int64
-	hiddenGlobalOffsetZ int64
+	Output              driver.GPUPtr
+	Filter              driver.GPUPtr
+	Input               driver.GPUPtr
+	History             driver.GPUPtr
+	NumTaps             uint32
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
 }
 
 var (

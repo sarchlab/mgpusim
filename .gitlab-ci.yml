@@ -1,5 +1,8 @@
 image: golang:latest
 
+before_script:
+  - apt-get update -qq && apt-get install -y -qq python3
+
 stages:
   - test
 
@@ -17,4 +20,6 @@ test_job:
   - go install github.com/onsi/ginkgo/ginkgo
   - cd $PROJECT_DIR && go build ./...
   - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress
-  - cd $PROJECT_DIR && ./acceptance_test.sh
+  - go test -coverprofile=cover.out ./...
+  - cd $PROJECT_DIR && go tool cover -func=cover.out
+  - cd $PROJECT_DIR && python3 acceptance_test.py

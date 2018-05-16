@@ -1,6 +1,7 @@
 package insts
 
 import (
+	"debug/elf"
 	"fmt"
 	"log"
 	"strings"
@@ -60,11 +61,16 @@ func sdwaSelectString(sdwaSelect SDWASelect) string {
 // A InstType represents an instruction type. For example s_barrier instruction
 // is a instruction type
 type InstType struct {
-	InstName string
-	Opcode   Opcode
-	Format   *Format
-	ID       int
-	ExeUnit  ExeUnit
+	InstName  string
+	Opcode    Opcode
+	Format    *Format
+	ID        int
+	ExeUnit   ExeUnit
+	DSTWidth  int
+	SRC0Width int
+	SRC1Width int
+	SRC2Width int
+	SDSTWidth int
 }
 
 // An Inst is a GCN3 instruction
@@ -72,14 +78,17 @@ type Inst struct {
 	*Format
 	*InstType
 	ByteSize int
+	PC       uint64
 
 	Src0 *Operand
 	Src1 *Operand
 	Src2 *Operand
 	Dst  *Operand
+	SDst *Operand // For VOP3b
 
 	Addr   *Operand
 	Data   *Operand
+	Data1  *Operand
 	Base   *Operand
 	Offset *Operand
 	SImm16 *Operand
@@ -87,11 +96,14 @@ type Inst struct {
 	Abs                 int
 	Omod                int
 	Neg                 int
+	Offset0             uint8
+	Offset1             uint8
 	SystemLevelCoherent bool
 	GlobalLevelCoherent bool
 	TextureFailEnable   bool
 	Imm                 bool
 	Clamp               bool
+	GDS                 bool
 
 	//Fields for SDWA extensions
 	IsSdwa    bool
@@ -147,17 +159,33 @@ func (i Inst) smemString() string {
 	return s
 }
 
-func (i Inst) soppString() string {
+func (i Inst) soppString(file *elf.File) string {
 	operandStr := ""
 	if i.Opcode == 12 { // S_WAITCNT
 		if extractBits(uint32(i.SImm16.IntValue), 0, 3) == 0 {
 			operandStr += " vmcnt(0)"
 		}
-		if extractBits(uint32(i.SImm16.IntValue), 8, 12) == 0 {
-			operandStr += " lgkmcnt(0)"
+		lgkmBits := extractBits(uint32(i.SImm16.IntValue), 8, 12)
+		operandStr += fmt.Sprintf(" lgkmcnt(%d)", lgkmBits)
+	} else if i.Opcode >= 2 && i.Opcode <= 9 { // Branch
+		symbolFound := false
+		if file != nil {
+			imm := int16(uint16(i.SImm16.IntValue))
+			target := i.PC + uint64(imm*4) + 4
+			symbols, _ := file.Symbols()
+			for _, symbol := range symbols {
+				if symbol.Value == target {
+					operandStr = " " + symbol.Name
+					symbolFound = true
+				}
+			}
+
+		}
+		if !symbolFound {
+			operandStr = " " + i.SImm16.String()
 		}
 	} else if i.Opcode == 1 || i.Opcode == 10 {
-
+		// Does not print anything
 	} else {
 		operandStr = " " + i.SImm16.String()
 	}
@@ -176,7 +204,7 @@ func (i Inst) vop2String() string {
 	s += fmt.Sprintf(", %s, %s", i.Src0.String(), i.Src1.String())
 
 	switch i.Opcode {
-	case 28, 29:
+	case 0, 28, 29:
 		s += ", vcc"
 	}
 
@@ -215,7 +243,7 @@ func (i Inst) sopcString() string {
 		i.InstName, i.Src0.String(), i.Src1.String())
 }
 
-func (i Inst) vop3String() string {
+func (i Inst) vop3aString() string {
 	// TODO: Lots of things not considered here
 	s := fmt.Sprintf("%s %s, %s, %s",
 		i.InstName, i.Dst.String(),
@@ -224,6 +252,26 @@ func (i Inst) vop3String() string {
 	if i.Src2 != nil {
 		s += ", " + i.Src2.String()
 	}
+	return s
+}
+
+func (i Inst) vop3bString() string {
+	s := i.InstName + " "
+
+	if i.Dst != nil {
+		s += i.Dst.String() + ", "
+	}
+
+	s += fmt.Sprintf("%s, %s, %s",
+		i.SDst.String(),
+		i.Src0.String(),
+		i.Src1.String(),
+	)
+
+	if i.Src2 != nil {
+		s += ", " + i.Src2.String()
+	}
+
 	return s
 }
 
@@ -237,31 +285,66 @@ func (i Inst) sopkString() string {
 
 	return s
 }
-func (i Inst) String() string {
+
+func (i Inst) dsString() string {
+	s := i.InstName + " "
+	switch i.Opcode {
+	case 55, 56, 57, 58, 59, 60, 118, 119, 120:
+		s += i.Dst.String() + ", "
+	}
+
+	s += i.Addr.String()
+
+	if i.SRC0Width > 0 {
+		s += ", " + i.Data.String()
+	}
+
+	if i.SRC1Width > 0 {
+		s += ", " + i.Data1.String()
+	}
+
+	if i.Offset0 > 0 {
+		s += fmt.Sprintf(" offset0:%d", i.Offset0)
+	}
+
+	if i.Offset1 > 0 {
+		s += fmt.Sprintf(" offset1:%d", i.Offset1)
+	}
+
+	return s
+}
+
+// String returns the disassembly of an instruction
+func (i Inst) String(file *elf.File) string {
 	switch i.FormatType {
-	case Sop2:
+	case SOP2:
 		return i.sop2String()
-	case Smem:
+	case SMEM:
 		return i.smemString()
-	case Vop1:
+	case VOP1:
 		return i.vop1String()
-	case Vop2:
+	case VOP2:
 		return i.vop2String()
-	case Flat:
+	case FLAT:
 		return i.flatString()
-	case Sopp:
-		return i.soppString()
-	case Vopc:
+	case SOPP:
+		return i.soppString(file)
+	case VOPC:
 		return i.vopcString()
-	case Sopc:
+	case SOPC:
 		return i.sopcString()
-	case Vop3:
-		return i.vop3String()
-	case Sop1:
+	case VOP3a:
+		return i.vop3aString()
+	case VOP3b:
+		return i.vop3bString()
+	case SOP1:
 		return i.sop1String()
-	case Sopk:
+	case SOPK:
 		return i.sopkString()
+	case DS:
+		return i.dsString()
 	default:
+		log.Panic("Unknown instruction format type.")
 		return i.InstName
 	}
 }

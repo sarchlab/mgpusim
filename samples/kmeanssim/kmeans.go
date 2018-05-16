@@ -19,28 +19,28 @@ import (
 )
 
 type KMeansSwapArgs struct {
-	feature             driver.GPUPtr
-	featureSwap         driver.GPUPtr
-	nPoints             int32
-	nFeatures           int32
-	hiddenGlobalOffsetX int64
-	hiddenGlobalOffsetY int64
-	hiddenGlobalOffsetZ int64
+	Feature             driver.GPUPtr
+	FeatureSwap         driver.GPUPtr
+	NPoints             int32
+	NFeatures           int32
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
 }
 
 type KMeansComputeArgs struct {
-	feature             driver.GPUPtr
-	clusters            driver.GPUPtr
-	membership          driver.GPUPtr
-	nPoints             int32
-	nClusters           int32
-	nFeatures           int32
-	offset              int32
-	size                int32
-	padding             int32
-	hiddenGlobalOffsetX int64
-	hiddenGlobalOffsetY int64
-	hiddenGlobalOffsetZ int64
+	Feature             driver.GPUPtr
+	Clusters            driver.GPUPtr
+	Membership          driver.GPUPtr
+	NPoints             int32
+	NClusters           int32
+	NFeatures           int32
+	Offset              int32
+	Size                int32
+	Padding             int32
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
 }
 
 var (

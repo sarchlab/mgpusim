@@ -38,7 +38,7 @@ func (h *WfHook) Func(item interface{}, domain core.Hookable, info interface{}) 
 
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
-	output += fmt.Sprintf("\tInst: %s\n", wf.Inst())
+	output += fmt.Sprintf("\tInst: %s\n", wf.Inst().String(nil))
 	output += fmt.Sprintf("\tPC: 0x%016x\n", wf.PC)
 	output += fmt.Sprintf("\tEXEC: 0x%016x\n", wf.Exec)
 	output += fmt.Sprintf("\tSCC: 0x%02x\n", wf.SCC)

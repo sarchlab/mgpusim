@@ -45,7 +45,7 @@ type RegType int
 // All the registers
 const (
 	InvalidRegType = iota
-	Pc
+	PC
 	V0
 	V1
 	V2
@@ -404,15 +404,15 @@ const (
 	S99
 	S100
 	S101
-	Exec
-	ExecLo
-	ExecHi
-	Execz
-	Vcc
-	VccLo
-	VccHi
-	Vccz
-	Scc
+	EXEC
+	EXECLO
+	EXECHI
+	EXECZ
+	VCC
+	VCCLO
+	VCCHI
+	VCCZ
+	SCC
 	FlatSratch
 	FlatSratchLo
 	FlatSratchHi
@@ -441,15 +441,15 @@ const (
 	Timp9
 	Timp10
 	Timp11
-	Vmcnt
-	Expcnt
-	Lgkmcnt
+	VMCNT
+	EXPCNT
+	LGKMCNT
 )
 
 // Regs are a list of all registers
 var Regs = map[RegType]*Reg{
 	InvalidRegType: {InvalidRegType, "invalidregtype", 0, false},
-	Pc:             {Pc, "pc", 8, false},
+	PC:             {PC, "pc", 8, false},
 	V0:             {V0, "v0", 4, false},
 	V1:             {V1, "v1", 4, false},
 	V2:             {V2, "v2", 4, false},
@@ -808,15 +808,15 @@ var Regs = map[RegType]*Reg{
 	S99:            {S99, "s99", 4, false},
 	S100:           {S100, "s100", 4, false},
 	S101:           {S101, "s101", 4, false},
-	Exec:           {Exec, "exec", 8, false},
-	ExecLo:         {ExecLo, "execlo", 4, false},
-	ExecHi:         {ExecHi, "exechi", 4, false},
-	Execz:          {Execz, "execz", 1, true},
-	Vcc:            {Vcc, "vcc", 8, false},
-	VccLo:          {VccLo, "vcclo", 4, false},
-	VccHi:          {VccHi, "vcchi", 4, false},
-	Vccz:           {Vccz, "vccz", 1, true},
-	Scc:            {Scc, "scc", 1, true},
+	EXEC:           {EXEC, "exec", 8, false},
+	EXECLO:         {EXECLO, "execlo", 4, false},
+	EXECHI:         {EXECHI, "exechi", 4, false},
+	EXECZ:          {EXECZ, "execz", 1, true},
+	VCC:            {VCC, "vcc", 8, false},
+	VCCLO:          {VCCLO, "vcclo", 4, false},
+	VCCHI:          {VCCHI, "vcchi", 4, false},
+	VCCZ:           {VCCZ, "vccz", 1, true},
+	SCC:            {SCC, "scc", 1, true},
 	FlatSratch:     {FlatSratch, "flatsratch", 8, false},
 	FlatSratchLo:   {FlatSratchLo, "flatsratchlo", 4, false},
 	FlatSratchHi:   {FlatSratchHi, "flatsratchhi", 4, false},
@@ -845,7 +845,7 @@ var Regs = map[RegType]*Reg{
 	Timp9:          {Timp9, "timp9", 4, false},
 	Timp10:         {Timp10, "timp10", 4, false},
 	Timp11:         {Timp11, "timp11", 4, false},
-	Vmcnt:          {Vmcnt, "vmcnt", 1, false},
-	Expcnt:         {Expcnt, "expcnt", 1, false},
-	Lgkmcnt:        {Lgkmcnt, "lgkmcnt", 1, false},
+	VMCNT:          {VMCNT, "vmcnt", 1, false},
+	EXPCNT:         {EXPCNT, "expcnt", 1, false},
+	LGKMCNT:        {LGKMCNT, "lgkmcnt", 1, false},
 }

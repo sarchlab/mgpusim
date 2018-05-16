@@ -24,8 +24,10 @@ type Wavefront struct {
 	Exec     uint64
 	SCC      byte
 	VCC      uint64
+	M0       uint32
 	SRegFile []byte
 	VRegFile []byte
+	LDS      []byte
 }
 
 // NewWavefront returns the Wavefront that wraps the nativeWf
@@ -82,20 +84,22 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	} else if reg.IsVReg() {
 		offset := laneID*256*4 + reg.RegIndex()*4
 		copy(value, wf.VRegFile[offset:offset+numBytes])
-	} else if reg.RegType == insts.Scc {
+	} else if reg.RegType == insts.SCC {
 		value[0] = wf.SCC
-	} else if reg.RegType == insts.Vcc {
+	} else if reg.RegType == insts.VCC {
 		copy(value, insts.Uint64ToBytes(wf.VCC))
-	} else if reg.RegType == insts.VccLo && regCount == 1 {
+	} else if reg.RegType == insts.VCCLO && regCount == 1 {
 		copy(value, insts.Uint32ToBytes(uint32(wf.VCC)))
-	} else if reg.RegType == insts.VccHi && regCount == 1 {
+	} else if reg.RegType == insts.VCCHI && regCount == 1 {
 		copy(value, insts.Uint32ToBytes(uint32(wf.VCC>>32)))
-	} else if reg.RegType == insts.VccLo && regCount == 2 {
+	} else if reg.RegType == insts.VCCLO && regCount == 2 {
 		copy(value, insts.Uint64ToBytes(wf.VCC))
-	} else if reg.RegType == insts.Exec {
+	} else if reg.RegType == insts.EXEC {
 		copy(value, insts.Uint64ToBytes(wf.Exec))
-	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		copy(value, insts.Uint64ToBytes(wf.Exec))
+	} else if reg.RegType == insts.M0 {
+		copy(value, insts.Uint32ToBytes(wf.M0))
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}
@@ -117,22 +121,24 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 	} else if reg.IsVReg() {
 		offset := laneID*256*4 + reg.RegIndex()*4
 		copy(wf.VRegFile[offset:offset+numBytes], data)
-	} else if reg.RegType == insts.Scc {
+	} else if reg.RegType == insts.SCC {
 		wf.SCC = data[0]
-	} else if reg.RegType == insts.Vcc {
+	} else if reg.RegType == insts.VCC {
 		wf.VCC = insts.BytesToUint64(data)
-	} else if reg.RegType == insts.VccLo && regCount == 2 {
+	} else if reg.RegType == insts.VCCLO && regCount == 2 {
 		wf.VCC = insts.BytesToUint64(data)
-	} else if reg.RegType == insts.VccLo && regCount == 1 {
+	} else if reg.RegType == insts.VCCLO && regCount == 1 {
 		wf.VCC &= uint64(0x00000000ffffffff)
 		wf.VCC |= uint64(insts.BytesToUint32(data))
-	} else if reg.RegType == insts.VccHi && regCount == 1 {
+	} else if reg.RegType == insts.VCCHI && regCount == 1 {
 		wf.VCC &= uint64(0xffffffff00000000)
 		wf.VCC |= uint64(insts.BytesToUint32(data)) << 32
-	} else if reg.RegType == insts.Exec {
+	} else if reg.RegType == insts.EXEC {
 		wf.Exec = insts.BytesToUint64(data)
-	} else if reg.RegType == insts.ExecLo && regCount == 2 {
+	} else if reg.RegType == insts.EXECLO && regCount == 2 {
 		wf.Exec = insts.BytesToUint64(data)
+	} else if reg.RegType == insts.M0 {
+		wf.M0 = insts.BytesToUint32(data)
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}
