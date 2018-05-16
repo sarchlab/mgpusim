@@ -29,6 +29,13 @@ type mockALU struct {
 	wfExecuted emu.InstEmuState
 }
 
+func (alu *mockALU) SetLDS(lds []byte) {
+}
+
+func (alu *mockALU) LDS() []byte {
+	return nil
+}
+
 func (alu *mockALU) Run(wf emu.InstEmuState) {
 	alu.wfExecuted = wf
 }

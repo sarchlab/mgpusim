@@ -3,7 +3,6 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/gcn3/emu"
 )
 
 var _ = Describe("LDS Unit", func() {
@@ -19,7 +18,7 @@ var _ = Describe("LDS Unit", func() {
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
-		bu = NewLDSUnit(cu, sp, new(emu.ALUImpl))
+		bu = NewLDSUnit(cu, sp, alu)
 	})
 
 	It("should allow accepting wavefront", func() {

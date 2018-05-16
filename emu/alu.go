@@ -13,12 +13,15 @@ import (
 
 type ALU interface {
 	Run(state InstEmuState)
+
+	SetLDS(lds []byte)
+	LDS() []byte
 }
 
 // ALU is where the instructions get executed.
 type ALUImpl struct {
 	Storage *mem.Storage
-	LDS     []byte
+	lds     []byte
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
@@ -26,6 +29,15 @@ func NewALUImpl(storage *mem.Storage) *ALUImpl {
 	alu := new(ALUImpl)
 	alu.Storage = storage
 	return alu
+}
+
+// SetLDS assigns the LDS storage to be used in the following instructions.
+func (u *ALUImpl) SetLDS(lds []byte) {
+	u.lds = lds
+}
+
+func (u *ALUImpl) LDS() []byte {
+	return u.lds
 }
 
 // Run executes the instruction in the scatchpad of the InstEmuState

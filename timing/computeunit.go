@@ -260,6 +260,7 @@ func (cu *ComputeUnit) wrapWG(
 	req *gcn3.MapWGReq,
 ) *WorkGroup {
 	wg := NewWorkGroup(raw, req)
+
 	lds := make([]byte, wg.CodeObject().WGGroupSegmentByteSize)
 	wg.LDS = lds
 

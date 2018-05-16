@@ -10,7 +10,7 @@ type LDSUnit struct {
 	cu *ComputeUnit
 
 	scratchpadPreparer ScratchpadPreparer
-	alu                *emu.ALUImpl
+	alu                emu.ALU
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -22,7 +22,7 @@ type LDSUnit struct {
 func NewLDSUnit(
 	cu *ComputeUnit,
 	scratchpadPreparer ScratchpadPreparer,
-	alu *emu.ALUImpl,
+	alu emu.ALU,
 ) *LDSUnit {
 	u := new(LDSUnit)
 	u.cu = cu
@@ -70,7 +70,7 @@ func (u *LDSUnit) runExecStage(now core.VTimeInSec) {
 	}
 
 	if u.toWrite == nil {
-		u.alu.LDS = u.toExec.WG.LDS
+		u.alu.SetLDS(u.toExec.WG.LDS)
 		u.alu.Run(u.toExec)
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "ExecEnd"})
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "WriteStart"})
