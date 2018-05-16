@@ -402,7 +402,7 @@ func (p *ScratchpadPreparerImpl) commitVOP3a(
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
 
-	for i := 0; i < 64; i++ {
+	for i := 63; i >= 0; i-- {
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
@@ -418,7 +418,7 @@ func (p *ScratchpadPreparerImpl) commitVOP3b(
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
 
-	for i := 0; i < 64; i++ {
+	for i := 63; i >= 0; i-- {
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
