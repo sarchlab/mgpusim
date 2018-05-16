@@ -3,49 +3,14 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/gcn3/emu"
 )
 
-type mockScratchpadPreparer struct {
-	wfPrepared  *Wavefront
-	wfCommitted *Wavefront
-}
-
-func (sp *mockScratchpadPreparer) Prepare(
-	instEmuState emu.InstEmuState,
-	wf *Wavefront,
-) {
-	sp.wfPrepared = wf
-}
-
-func (sp *mockScratchpadPreparer) Commit(
-	instEmuState emu.InstEmuState,
-	wf *Wavefront,
-) {
-	sp.wfCommitted = wf
-}
-
-type mockALU struct {
-	wfExecuted emu.InstEmuState
-}
-
-func (alu *mockALU) SetLDS(lds []byte) {
-}
-
-func (alu *mockALU) LDS() []byte {
-	return nil
-}
-
-func (alu *mockALU) Run(wf emu.InstEmuState) {
-	alu.wfExecuted = wf
-}
-
-var _ = Describe("Scalar Unit", func() {
+var _ = Describe("LDS Unit", func() {
 
 	var (
 		cu  *ComputeUnit
 		sp  *mockScratchpadPreparer
-		bu  *ScalarUnit
+		bu  *LDSUnit
 		alu *mockALU
 	)
 
@@ -53,7 +18,7 @@ var _ = Describe("Scalar Unit", func() {
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
-		bu = NewScalarUnit(cu, sp, alu)
+		bu = NewLDSUnit(cu, sp, alu)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -76,6 +41,8 @@ var _ = Describe("Scalar Unit", func() {
 	It("should run", func() {
 		wave1 := new(Wavefront)
 		wave2 := new(Wavefront)
+		wave2.WG = NewWorkGroup(nil, nil)
+		wave2.WG.LDS = make([]byte, 0)
 		wave3 := new(Wavefront)
 		wave3.State = WfRunning
 

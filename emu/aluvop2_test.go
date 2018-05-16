@@ -28,7 +28,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CNDMASK_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 0
 
 		sp := state.Scratchpad().AsVOP2()
@@ -47,7 +47,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_ADD_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 1
 
 		sp := state.Scratchpad().AsVOP2()
@@ -62,7 +62,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_SUB_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 2
 
 		sp := state.Scratchpad().AsVOP2()
@@ -78,7 +78,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_SUBREV_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 3
 
 		sp := state.Scratchpad().AsVOP2()
@@ -94,7 +94,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_MUL_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 5
 
 		sp := state.Scratchpad().AsVOP2()
@@ -107,9 +107,24 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(math.Float32bits(float32(6.2)))))
 	})
 
+	It("should run V_MUL_U32_U24", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 8
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 2
+		sp.SRC1[0] = 0x1000001
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(2)))
+	})
+
 	It("should run V_LSHRREV_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 16
 
 		sp := state.scratchpad.AsVOP2()
@@ -124,7 +139,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_ASHRREV_I32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 17
 
 		sp := state.Scratchpad().AsVOP2()
@@ -138,7 +153,7 @@ var _ = Describe("ALU", func() {
 	})
 	It("should run V_LSHLREV_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 18
 
 		sp := state.Scratchpad().AsVOP2()
@@ -154,7 +169,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_AND_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 19
 
 		sp := state.Scratchpad().AsVOP2()
@@ -169,7 +184,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_AND_B32 SDWA", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 19
 		state.inst.IsSdwa = true
 		state.inst.Src0Sel = insts.SDWASelectByte0
@@ -188,7 +203,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_OR_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 20
 
 		sp := state.Scratchpad().AsVOP2()
@@ -203,7 +218,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_OR_B32 SDWA", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 20
 		state.inst.IsSdwa = true
 		state.inst.Src0Sel = insts.SDWASelectByte0
@@ -222,7 +237,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_XOR_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 21
 
 		sp := state.Scratchpad().AsVOP2()
@@ -236,7 +251,7 @@ var _ = Describe("ALU", func() {
 	})
 	It("should run V_OR_B32 SDWA", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 21
 		state.inst.IsSdwa = true
 		state.inst.Src0Sel = insts.SDWASelectByte0
@@ -255,7 +270,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_MAC_F32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 22
 
 		sp := state.Scratchpad().AsVOP2()
@@ -271,7 +286,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_ADD_I32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 25
 
 		sp := state.Scratchpad().AsVOP2()
@@ -290,7 +305,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_ADD_I32_SDWA", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 25
 		state.inst.IsSdwa = true
 		state.inst.Src0Sel = insts.SDWASelectByte0
@@ -312,7 +327,7 @@ var _ = Describe("ALU", func() {
 	})
 	It("should run V_ADD_I32, with positive overflow", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 25
 
 		sp := state.Scratchpad().AsVOP2()
@@ -333,7 +348,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_ADD_I32, with negative overflow", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 25
 
 		sp := state.Scratchpad().AsVOP2()
@@ -354,7 +369,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_SUB_I32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 26
 
 		sp := state.Scratchpad().AsVOP2()
@@ -370,7 +385,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_SUB_I32, when underflow", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 26
 
 		sp := state.Scratchpad().AsVOP2()
@@ -386,7 +401,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_SUBREV_I32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 27
 
 		sp := state.Scratchpad().AsVOP2()
@@ -402,7 +417,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_SUBREV_I32, when underflow", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 27
 
 		sp := state.Scratchpad().AsVOP2()
@@ -418,7 +433,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_ADDC_U32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop2
+		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 28
 
 		sp := state.Scratchpad().AsVOP2()

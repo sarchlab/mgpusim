@@ -39,6 +39,26 @@ func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 	return d.Inst, nil
 }
 
+func exampleGrid() *kernels.Grid {
+	grid := kernels.NewGrid()
+
+	grid.CodeObject = insts.NewHsaCo()
+	grid.CodeObject.HsaCoHeader = new(insts.HsaCoHeader)
+
+	packet := new(kernels.HsaKernelDispatchPacket)
+	grid.Packet = packet
+
+	wg := kernels.NewWorkGroup()
+	wg.Grid = grid
+	grid.WorkGroups = append(grid.WorkGroups, wg)
+
+	wf := kernels.NewWavefront()
+	wf.WG = wg
+	wg.Wavefronts = append(wg.Wavefronts, wf)
+
+	return grid
+}
+
 var _ = Describe("ComputeUnit", func() {
 	var (
 		cu           *ComputeUnit
@@ -49,6 +69,8 @@ var _ = Describe("ComputeUnit", func() {
 
 		connection *core.MockConnection
 		instMem    *core.MockComponent
+
+		grid *kernels.Grid
 	)
 
 	BeforeEach(func() {
@@ -72,13 +94,15 @@ var _ = Describe("ComputeUnit", func() {
 
 		instMem = core.NewMockComponent("InstMem")
 		cu.InstMem = instMem
+
+		grid = exampleGrid()
 	})
 
 	Context("when processing MapWGReq", func() {
 		It("should reply OK if mapping is successful", func() {
 			wgMapper.OK = true
 
-			wg := kernels.NewWorkGroup()
+			wg := grid.WorkGroups[0]
 			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
 			req.SetRecvTime(10)
 
@@ -93,10 +117,10 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should reply not OK if there are pending wavefronts", func() {
-			wf := kernels.NewWavefront()
+			wf := grid.WorkGroups[0].Wavefronts[0]
 			cu.WfToDispatch[wf] = new(WfDispatchInfo)
 
-			wg := kernels.NewWorkGroup()
+			wg := grid.WorkGroups[0]
 			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
 			req.SetRecvTime(10)
 
@@ -113,7 +137,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should reply not OK if mapping is failed", func() {
 			wgMapper.OK = false
 
-			wg := kernels.NewWorkGroup()
+			wg := grid.WorkGroups[0]
 			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
 			req.SetRecvTime(10)
 
@@ -130,17 +154,10 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when processing DispatchWfReq", func() {
 		It("should dispatch wf", func() {
-			packet := new(kernels.HsaKernelDispatchPacket)
-			co := new(insts.HsaCo)
-			grid := kernels.NewGrid()
-			grid.Packet = packet
-			grid.CodeObject = co
-			wg := kernels.NewWorkGroup()
-			wg.Grid = grid
+			wg := grid.WorkGroups[0]
 			cu.wrapWG(wg, nil)
 
-			wf := kernels.NewWavefront()
-			wf.WG = wg
+			wf := wg.Wavefronts[0]
 			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
 			req.SetRecvTime(11)
 
@@ -151,7 +168,7 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle WfDispatchCompletionEvent", func() {
 			cu.running = false
-			wf := kernels.NewWavefront()
+			wf := grid.WorkGroups[0].Wavefronts[0]
 			managedWf := new(Wavefront)
 			managedWf.Wavefront = wf
 			managedWf.State = WfDispatching

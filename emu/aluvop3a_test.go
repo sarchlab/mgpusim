@@ -24,7 +24,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_lt_f32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 65
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -43,7 +43,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run v_cmp_gt_i32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 196
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -62,7 +62,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CMP_LT_U32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 201
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -81,7 +81,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CMP_EQ_U32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 202
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -98,7 +98,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CMP_LE_U32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 203
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -117,7 +117,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CMP_GT_U32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 204
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -136,7 +136,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CMP_LG_U32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 205
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -155,7 +155,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CMP_GE_U32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 206
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -174,7 +174,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_CNDMASK_B32 VOP3a", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 256
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -191,9 +191,11 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[1]).To(Equal(uint64(1)))
 	})
 
+	//It("should run V_")
+
 	It("should run V_MUL_LO_U32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 645
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -212,7 +214,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_MUL_HI_U32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 646
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -228,7 +230,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_LSHLREV_B64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 655
 
 		sp := state.Scratchpad().AsVOP3A()
@@ -243,7 +245,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run V_ASHRREV_I64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Vop3
+		state.inst.FormatType = insts.VOP3a
 		state.inst.Opcode = 657
 
 		sp := state.Scratchpad().AsVOP3A()

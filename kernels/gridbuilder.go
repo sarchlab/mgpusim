@@ -49,17 +49,19 @@ func (b *GridBuilderImpl) spawnWorkGroups(g *Grid) {
 				wg.SizeZ = int(g.Packet.WorkgroupSizeZ)
 				wg.IDX = wgIDX
 				wg.IDY = wgIDY
-				wg.IDY = wgIDZ
+				wg.IDZ = wgIDZ
 				xLeft -= xToAllocate
 				b.spawnWorkItems(wg)
 				b.formWavefronts(wg)
 				g.WorkGroups = append(g.WorkGroups, wg)
 				wgIDX++
 			}
+			wgIDX = 0
 			yLeft -= yToAllocate
 			xLeft = g.Packet.GridSizeX
 			wgIDY++
 		}
+		wgIDY = 0
 		zLeft -= zToAllocate
 		yLeft = g.Packet.GridSizeY
 		wgIDZ++

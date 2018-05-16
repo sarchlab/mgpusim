@@ -60,8 +60,9 @@ func (b *Builder) Build() *ComputeUnit {
 	}
 
 	b.equipScheduler(cu)
-	b.equipExecutionUnits(cu)
+	b.equipScalarUnits(cu)
 	b.equipSIMDUnits(cu)
+	b.equipLDSUnit(cu)
 	b.equipRegisterFiles(cu)
 
 	b.connectToMem(cu)
@@ -76,7 +77,7 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	cu.Scheduler = scheduler
 }
 
-func (b *Builder) equipExecutionUnits(cu *ComputeUnit) {
+func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 	cu.BranchUnit = NewBranchUnit(cu, b.ScratchpadPreparer, b.ALU)
 
 	scalarDecoder := NewDecodeUnit(cu)
@@ -95,6 +96,18 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 		simdUnit := NewSIMDUnit(cu, b.ScratchpadPreparer, b.ALU)
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+	}
+}
+
+func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
+	ldsDecoder := NewDecodeUnit(cu)
+	cu.LDSDecoder = ldsDecoder
+
+	ldsUnit := NewLDSUnit(cu, b.ScratchpadPreparer, b.ALU.(*emu.ALUImpl))
+	cu.LDSUnit = ldsUnit
+
+	for i := 0; i < b.SIMDCount; i++ {
+		ldsDecoder.AddExecutionUnit(ldsUnit)
 	}
 }
 

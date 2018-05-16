@@ -25,7 +25,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_ADD_U32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 0
 
 		copy(state.scratchpad[0:8], insts.Uint32ToBytes(1<<31-1))   // SRC0
@@ -38,7 +38,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_ADD_I32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 2
 
 		sp := state.Scratchpad().AsSOP2()
@@ -54,7 +54,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_SUB_I32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 3
 
 		sp := state.Scratchpad().AsSOP2()
@@ -69,7 +69,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_SUB_I32, when input is negative", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 3
 
 		sp := state.Scratchpad().AsSOP2()
@@ -84,7 +84,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_SUB_I32, when overflow and src1 is positve", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 3
 
 		sp := state.Scratchpad().AsSOP2()
@@ -98,7 +98,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_SUB_I32, when overflow and src1 is negtive", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 3
 
 		sp := state.Scratchpad().AsSOP2()
@@ -112,7 +112,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_ADDC_U32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 4
 
 		copy(state.scratchpad[0:8], insts.Uint32ToBytes(1<<31-1)) // SRC0
@@ -125,9 +125,39 @@ var _ = Describe("ALU", func() {
 		Expect(state.scratchpad[24]).To(Equal(byte(1)))
 	})
 
+	It("should run S_MIN_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 7
+
+		sp := state.scratchpad.AsSOP2()
+		sp.SRC0 = 1
+		sp.SRC1 = 2
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(1)))
+		Expect(sp.SCC).To(Equal(uint8(1)))
+	})
+
+	It("should run S_MIN_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 7
+
+		sp := state.scratchpad.AsSOP2()
+		sp.SRC0 = 2
+		sp.SRC1 = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(1)))
+		Expect(sp.SCC).To(Equal(uint8(0)))
+	})
+
 	It("should run S_AND_B32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 12
 
 		sp := state.Scratchpad().AsSOP2()
@@ -142,7 +172,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_AND_B64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 13
 
 		sp := state.Scratchpad().AsSOP2()
@@ -157,7 +187,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_OR_B64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 15
 
 		sp := state.Scratchpad().AsSOP2()
@@ -170,10 +200,9 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 
-
 	It("should run S_XOR_B64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 17
 
 		sp := state.Scratchpad().AsSOP2()
@@ -186,25 +215,24 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 
-
-	It("should run S_LSHR_B32", func() {
-	   	state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
-		state.inst.Opcode = 30
+	It("should run S_LSHL_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 28
 
 		sp := state.Scratchpad().AsSOP2()
-		sp.SRC0 = 0x20
-		sp.SRC1 = 0x64
+		sp.SRC0 = 128
+		sp.SRC1 = 2
 
 		alu.Run(state)
 
-		Expect(sp.DST).To(Equal(uint64(0x02)))
-		Expect(sp.SCC).To(Equal(byte(1)))
+		Expect(sp.DST).To(Equal(uint64(512)))
+		Expect(sp.SCC).To(Equal(uint8(1)))
 	})
 
 	It("should run S_LSHL_B64", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 29
 
 		sp := state.Scratchpad().AsSOP2()
@@ -219,7 +247,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LSHL_B64 (To zero)", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 29
 
 		sp := state.Scratchpad().AsSOP2()
@@ -232,9 +260,39 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(uint8(0)))
 	})
 
+	It("should run S_LSHR_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 30
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 0x20
+		sp.SRC1 = 0x64
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(0x02)))
+		Expect(sp.SCC).To(Equal(byte(1)))
+	})
+
+	It("should run S_LSHR_B64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 31
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 0x20
+		sp.SRC1 = 0x44
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(0x02)))
+		Expect(sp.SCC).To(Equal(byte(1)))
+	})
+
 	It("should run S_ASHR_I32 (Negative)", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 32
 
 		sp := state.Scratchpad().AsSOP2()
@@ -249,7 +307,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_ASHR_I32 (Positive)", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 32
 
 		sp := state.Scratchpad().AsSOP2()
@@ -264,7 +322,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_MUL_I32", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sop2
+		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 36
 
 		sp := state.Scratchpad().AsSOP2()

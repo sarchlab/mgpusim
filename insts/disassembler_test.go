@@ -26,13 +26,13 @@ var _ = Describe("Disassembler", func() {
 		defer elfFile.Close()
 		Expect(err).To(BeNil())
 
-		targetFile, err := os.Open("../samples/firsim/kernels.isa")
+		targetFile, err := os.Open("../samples/firsim/kernels.disasm")
 		Expect(err).To(BeNil())
 		defer targetFile.Close()
 
 		disasm := insts.NewDisassembler()
 
-		disasm.Disassemble(elfFile, &buf)
+		disasm.Disassemble(elfFile, "kernels.hsaco", &buf)
 
 		resultScanner := bufio.NewScanner(&buf)
 		targetScanner := bufio.NewScanner(targetFile)

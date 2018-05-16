@@ -13,11 +13,15 @@ import (
 
 type ALU interface {
 	Run(state InstEmuState)
+
+	SetLDS(lds []byte)
+	LDS() []byte
 }
 
 // ALU is where the instructions get executed.
 type ALUImpl struct {
 	Storage *mem.Storage
+	lds     []byte
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
@@ -27,33 +31,46 @@ func NewALUImpl(storage *mem.Storage) *ALUImpl {
 	return alu
 }
 
+// SetLDS assigns the LDS storage to be used in the following instructions.
+func (u *ALUImpl) SetLDS(lds []byte) {
+	u.lds = lds
+}
+
+func (u *ALUImpl) LDS() []byte {
+	return u.lds
+}
+
 // Run executes the instruction in the scatchpad of the InstEmuState
 func (u *ALUImpl) Run(state InstEmuState) {
 	inst := state.Inst()
 
 	switch inst.FormatType {
-	case insts.Sop1:
+	case insts.SOP1:
 		u.runSOP1(state)
-	case insts.Sop2:
+	case insts.SOP2:
 		u.runSOP2(state)
-	case insts.Sopc:
+	case insts.SOPC:
 		u.runSOPC(state)
-	case insts.Smem:
+	case insts.SMEM:
 		u.runSMEM(state)
-	case insts.Vop1:
+	case insts.VOP1:
 		u.runVOP1(state)
-	case insts.Vop2:
+	case insts.VOP2:
 		u.runVOP2(state)
-	case insts.Vop3:
+	case insts.VOP3a:
 		u.runVOP3A(state)
-	case insts.Vopc:
+	case insts.VOP3b:
+		u.runVOP3B(state)
+	case insts.VOPC:
 		u.runVOPC(state)
-	case insts.Flat:
+	case insts.FLAT:
 		u.runFlat(state)
-	case insts.Sopp:
+	case insts.SOPP:
 		u.runSOPP(state)
-	case insts.Sopk:
+	case insts.SOPK:
 		u.runSOPK(state)
+	case insts.DS:
+		u.runDS(state)
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
