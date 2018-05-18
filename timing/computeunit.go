@@ -325,5 +325,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(req *mem.AccessReq) error {
 	access.Data = req.Buf
 	cu.SRegFile.Write(access)
 
+	wf.OutstandingScalarMemAccess -= 1
+
 	return nil
 }

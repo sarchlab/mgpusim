@@ -139,6 +139,7 @@ var _ = Describe("Scalar Unit", func() {
 
 		bu.Run(10)
 
+		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(conn.AllExpectedSent()).To(BeTrue())
 
 	})

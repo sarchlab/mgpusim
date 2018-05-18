@@ -101,6 +101,8 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 	inst := u.toExec.inst
 	sp := u.toExec.Scratchpad().AsSMEM()
 
+	u.toExec.OutstandingScalarMemAccess += 1
+
 	req := mem.NewAccessReq()
 	req.Type = mem.Read
 	req.Address = sp.Base + sp.Offset
