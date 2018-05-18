@@ -235,6 +235,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf := NewWavefront(rawWf)
 			wf.inst = inst
 			wf.SRegOffset = 0
+			wf.OutstandingScalarMemAccess = 1
 
 			info := new(MemAccessInfo)
 			info.Action = MemAccessScalarDataLoad
@@ -254,6 +255,7 @@ var _ = Describe("ComputeUnit", func() {
 			access.RegCount = 1
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
 		})
 	})
 

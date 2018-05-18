@@ -122,6 +122,8 @@ func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
 	switch s.internalExecuting.Inst().Opcode {
 	case 1: // S_ENDPGM
 		s.evalSEndPgm(s.internalExecuting, now)
+	case 12: // S_WAITCNT
+		s.evalSWaitCnt(s.internalExecuting, now)
 	default:
 		// The program has to make progress
 		s.internalExecuting.State = WfReady
@@ -138,4 +140,18 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
+}
+
+func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now core.VTimeInSec) {
+	done := true
+	inst := wf.Inst()
+
+	if wf.OutstandingScalarMemAccess > inst.LKGMCNT {
+		done = false
+	}
+
+	if done {
+		s.internalExecuting.State = WfReady
+		s.internalExecuting = nil
+	}
 }

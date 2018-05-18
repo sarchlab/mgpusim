@@ -105,7 +105,7 @@ func (d *Disassembler) lookUp(format *Format, opcode Opcode) (*InstType, error) 
 		format.FormatName, opcode)
 }
 
-func (d *Disassembler) decodeSop2(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSOP2(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	src0Value := extractBits(bytes, 0, 7)
@@ -377,6 +377,11 @@ func (d *Disassembler) decodeSOPP(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	inst.SImm16 = NewIntOperand(0, int64(extractBits(bytes, 0, 15)))
+
+	if inst.Opcode == 12 { // WAIT_CNT
+		inst.VMCNT = int(extractBits(uint32(inst.SImm16.IntValue), 0, 3))
+		inst.LKGMCNT = int(extractBits(uint32(inst.SImm16.IntValue), 8, 12))
+	}
 }
 
 func (d *Disassembler) decodeVOPC(inst *Inst, buf []byte) {
@@ -520,10 +525,11 @@ func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) {
 	}
 }
 
-func (d *Disassembler) decodeSopk(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSOPK(inst *Inst, buf []byte) {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.SImm16 = NewIntOperand(0, int64(extractBits(bytes, 0, 15)))
 	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
+
 }
 
 func (d *Disassembler) decodeDS(inst *Inst, buf []byte) {
@@ -588,7 +594,7 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 
 	switch format.FormatType {
 	case SOP2:
-		d.decodeSop2(inst, buf)
+		d.decodeSOP2(inst, buf)
 	case SMEM:
 		d.decodeSMEM(inst, buf)
 	case VOP2:
@@ -610,7 +616,7 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	case SOP1:
 		d.decodeSOP1(inst, buf)
 	case SOPK:
-		d.decodeSopk(inst, buf)
+		d.decodeSOPK(inst, buf)
 	case DS:
 		d.decodeDS(inst, buf)
 	default:
