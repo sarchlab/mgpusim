@@ -281,8 +281,13 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 
 func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
 	info := req.Info.(*MemAccessInfo)
-	if info.Action == MemAccessInstFetch {
+	switch info.Action {
+	case MemAccessInstFetch:
 		return cu.handleFetchReturn(req)
+	case MemAccessScalarDataLoad:
+		return cu.handleScalarDataLoadReturn(req)
+	default:
+		log.Panic("CU does not know how to handle returned memory access")
 	}
 	return nil
 }
@@ -305,6 +310,20 @@ func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
 	// wf.State = WfReady
 
 	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), "FetchDone"})
+
+	return nil
+}
+
+func (cu *ComputeUnit) handleScalarDataLoadReturn(req *mem.AccessReq) error {
+	info := req.Info.(*MemAccessInfo)
+	wf := info.Wf
+
+	access := new(RegisterAccess)
+	access.WaveOffset = wf.SRegOffset
+	access.Reg = info.Dst
+	access.RegCount = 1
+	access.Data = req.Buf
+	cu.SRegFile.Write(access)
 
 	return nil
 }

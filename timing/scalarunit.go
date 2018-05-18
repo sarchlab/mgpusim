@@ -1,8 +1,12 @@
 package timing
 
 import (
+	"log"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/mem"
 )
 
 // A ScalarUnit performs Scalar operations
@@ -70,13 +74,48 @@ func (u *ScalarUnit) runExecStage(now core.VTimeInSec) {
 	}
 
 	if u.toWrite == nil {
-		u.alu.Run(u.toExec)
+		if u.toExec.Inst().FormatType == insts.SMEM {
+			u.executeSMEMInst(now)
+		} else {
+			u.alu.Run(u.toExec)
+		}
+
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "ExecEnd"})
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, "WriteStart"})
-
 		u.toWrite = u.toExec
 		u.toExec = nil
 	}
+}
+
+func (u *ScalarUnit) executeSMEMInst(now core.VTimeInSec) {
+	inst := u.toExec.Inst()
+	switch inst.Opcode {
+	case 0:
+		u.executeSMEMLoad(4, now)
+	default:
+		log.Panicf("opcode %d is not supported.", inst.Opcode)
+	}
+}
+
+func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
+	inst := u.toExec.inst
+	sp := u.toExec.Scratchpad().AsSMEM()
+
+	req := mem.NewAccessReq()
+	req.Type = mem.Read
+	req.Address = sp.Base + sp.Offset
+	req.ByteSize = uint64(byteSize)
+	req.SetSrc(u.cu)
+	req.SetDst(u.cu.ScalarMem)
+	req.SetSendTime(now)
+	info := new(MemAccessInfo)
+	info.Wf = u.toExec
+	info.Action = MemAccessScalarDataLoad
+	info.Dst = inst.Data.Register
+	info.Inst = inst
+	req.Info = info
+
+	u.cu.GetConnection("ToScalarMem").Send(req)
 }
 
 func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {

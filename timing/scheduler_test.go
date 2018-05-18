@@ -97,7 +97,10 @@ var _ = Describe("Scheduler", func() {
 		reqToExpect.ByteSize = 8
 		reqToExpect.Type = mem.Read
 		reqToExpect.SetSendTime(10)
-		reqToExpect.Info = &MemAccessInfo{MemAccessInstFetch, wf}
+		info := new(MemAccessInfo)
+		info.Action = MemAccessInstFetch
+		info.Wf = wf
+		reqToExpect.Info = info
 		toInstMemConn.ExpectSend(reqToExpect, nil)
 
 		scheduler.DoFetch(10)
