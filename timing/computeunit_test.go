@@ -84,6 +84,7 @@ var _ = Describe("ComputeUnit", func() {
 		cu.WfDispatcher = wfDispatcher
 		cu.Decoder = decoder
 		cu.Freq = 1
+		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -209,8 +210,11 @@ var _ = Describe("ComputeUnit", func() {
 			req.SetDst(cu)
 			req.SetRecvTime(10)
 			req.Type = mem.Read
-			req.Info = &MemAccessInfo{MemAccessInstFetch, wf}
 			req.ByteSize = 4
+			info := new(MemAccessInfo)
+			info.Action = MemAccessInstFetch
+			info.Wf = wf
+			req.Info = info
 
 			rawInst := insts.NewInst()
 			decoder.Inst = rawInst
@@ -223,6 +227,33 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.PC).To(Equal(uint64(0x1004)))
 			Expect(wf.inst).To(BeIdenticalTo(inst))
 			Expect(wf.inst.Inst).To(BeIdenticalTo(rawInst))
+		})
+
+		It("should handle scalar data load return", func() {
+			rawWf := grid.WorkGroups[0].Wavefronts[0]
+			inst := NewInst(insts.NewInst())
+			wf := NewWavefront(rawWf)
+			wf.inst = inst
+			wf.SRegOffset = 0
+
+			info := new(MemAccessInfo)
+			info.Action = MemAccessScalarDataLoad
+			info.Wf = wf
+			info.Dst = insts.SReg(0)
+
+			req := mem.NewAccessReq()
+			req.Info = info
+			req.Buf = insts.Uint32ToBytes(32)
+			req.SetSendTime(10)
+
+			cu.Handle(req)
+
+			access := new(RegisterAccess)
+			access.Reg = insts.SReg(0)
+			access.WaveOffset = 0
+			access.RegCount = 1
+			cu.SRegFile.Read(access)
+			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
 		})
 	})
 
