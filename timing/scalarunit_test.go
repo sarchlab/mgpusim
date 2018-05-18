@@ -127,6 +127,8 @@ var _ = Describe("Scalar Unit", func() {
 		expectedReq.Type = mem.Read
 		expectedReq.ByteSize = 4
 		expectedReq.SetSendTime(10)
+		expectedReq.SetDst(scalarMem)
+		expectedReq.SetSrc(cu)
 		info := new(MemAccessInfo)
 		info.Wf = wave
 		info.Action = MemAccessScalarDataLoad
