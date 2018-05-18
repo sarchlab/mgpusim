@@ -41,7 +41,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		wf.inst = NewInst(nil)
 		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
-		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "FetchStart"})
+		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
 
 		req := mem.NewAccessReq()
 		req.Address = wf.PC
@@ -76,7 +76,7 @@ func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 			unit.AcceptWave(wf, now)
 			// log.Printf("%f: %s from wf %d issued.\n", now, wf.Inst.String(), wf.FirstWiFlatID)
 			wf.State = WfRunning
-			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "Issue"})
+			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "Issue"})
 		}
 	}
 }
@@ -132,7 +132,7 @@ func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
 
 	if s.internalExecuting == nil {
 		s.cu.InvokeHook(executing, s.cu, core.Any,
-			&InstHookInfo{now, "Completed"})
+			&InstHookInfo{now, executing.inst, "Completed"})
 	}
 }
 

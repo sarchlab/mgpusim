@@ -139,6 +139,43 @@ var _ = Describe("Scalar Unit", func() {
 
 		bu.Run(10)
 
+		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(conn.AllExpectedSent()).To(BeTrue())
+	})
+
+	It("should run s_load_dwordx2", func() {
+		wave := NewWavefront(nil)
+		bu.toExec = wave
+
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.SMEM
+		inst.Opcode = 1
+		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		wave.inst = inst
+
+		sp := wave.scratchpad.AsSMEM()
+		sp.Base = 0x1000
+		sp.Offset = 0x24
+
+		expectedReq := mem.NewAccessReq()
+		expectedReq.Address = 0x1024
+		expectedReq.Type = mem.Read
+		expectedReq.ByteSize = 8
+		expectedReq.SetSendTime(10)
+		expectedReq.SetDst(scalarMem)
+		expectedReq.SetSrc(cu)
+		info := new(MemAccessInfo)
+		info.Wf = wave
+		info.Action = MemAccessScalarDataLoad
+		info.Dst = insts.SReg(0)
+		info.Inst = inst
+		expectedReq.Info = info
+		conn.ExpectSend(expectedReq, nil)
+
+		bu.Run(10)
+
+		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(conn.AllExpectedSent()).To(BeTrue())
 
