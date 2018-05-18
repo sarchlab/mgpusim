@@ -309,7 +309,7 @@ func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
 	// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
 	// wf.State = WfReady
 
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), "FetchDone"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), managedInst, "FetchDone"})
 
 	return nil
 }
@@ -326,6 +326,9 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(req *mem.AccessReq) error {
 	cu.SRegFile.Write(access)
 
 	wf.OutstandingScalarMemAccess -= 1
+
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
 
 	return nil
 }
