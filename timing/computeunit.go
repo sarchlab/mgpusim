@@ -243,6 +243,9 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	cu.LDSUnit.Run(now)
 	cu.LDSDecoder.Run(now)
 
+	cu.VectorMemUnit.Run(now)
+	cu.VectorMemDecoder.Run(now)
+
 	cu.Scheduler.EvaluateInternalInst(now)
 	cu.Scheduler.DoIssue(now)
 	cu.Scheduler.DoFetch(now)

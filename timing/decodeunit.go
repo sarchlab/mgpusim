@@ -66,7 +66,6 @@ func (du *DecodeUnit) Run(now core.VTimeInSec) {
 			execUnit.AcceptWave(du.toDecode, now)
 			du.toDecode = nil
 		}
-
 	}
 
 }
