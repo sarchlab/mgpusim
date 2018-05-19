@@ -101,7 +101,7 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.ScratchpadPreparer, b.ALU.(*emu.ALUImpl))
+	ldsUnit := NewLDSUnit(cu, b.ScratchpadPreparer, b.ALU)
 	cu.LDSUnit = ldsUnit
 
 	for i := 0; i < b.SIMDCount; i++ {
@@ -110,7 +110,15 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 }
 
 func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
+	vectorMemDecoder := NewDecodeUnit(cu)
+	cu.VectorMemDecoder = vectorMemDecoder
 
+	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.ScratchpadPreparer, b.ALU)
+	cu.VectorMemUnit = vectorMemoryUnit
+
+	for i := 0; i < b.SIMDCount; i++ {
+		vectorMemDecoder.AddExecutionUnit(vectorMemoryUnit)
+	}
 }
 
 func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
