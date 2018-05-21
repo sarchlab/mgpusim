@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"log"
 
+	"reflect"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
@@ -78,6 +80,20 @@ func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
 	return nil
 }
 
+func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
+	ldsSize := uint32(0)
+	kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
+	for i := 0; i < kernArgStruct.NumField(); i++ {
+		arg := kernArgStruct.Field(i).Interface()
+		switch ldsPtr := arg.(type) {
+		case LocalPtr:
+			kernArgStruct.Field(i).SetUint(uint64(ldsSize))
+			ldsSize += uint32(ldsPtr)
+		}
+	}
+	co.WGGroupSegmentByteSize = ldsSize
+}
+
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,
 	gpu core.Component,
@@ -86,6 +102,8 @@ func (d *Driver) LaunchKernel(
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
+	d.updateLDSPointers(co, kernelArgs)
+
 	dCoData := d.AllocateMemory(storage, uint64(len(co.Data)))
 	d.MemoryCopyHostToDevice(dCoData, co.Data, storage)
 

@@ -22,7 +22,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_EQ_I32 when input is not equal", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 0
 
 		layout := state.Scratchpad().AsSOPC()
@@ -36,7 +36,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_EQ_I32 when input is equal", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 0
 
 		layout := state.Scratchpad().AsSOPC()
@@ -50,7 +50,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_LG_I32 when condition holds", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 1
 
 		layout := state.Scratchpad().AsSOPC()
@@ -64,7 +64,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_LG_I32 when condition does not hold", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 1
 
 		layout := state.Scratchpad().AsSOPC()
@@ -78,7 +78,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_GT_I32 when condition holds", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 2
 
 		layout := state.Scratchpad().AsSOPC()
@@ -92,7 +92,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_GT_I32 when condition does not hold", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 2
 
 		layout := state.Scratchpad().AsSOPC()
@@ -106,7 +106,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_LT_I32 when condition holds", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 4
 
 		layout := state.Scratchpad().AsSOPC()
@@ -120,7 +120,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_LT_I32 when condition does not hold", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 4
 
 		layout := state.Scratchpad().AsSOPC()
@@ -134,7 +134,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_EQ_U32 when input is not equal", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 6
 
 		layout := state.Scratchpad().AsSOPC()
@@ -148,7 +148,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_EQ_U32 when input is equal", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 6
 
 		layout := state.Scratchpad().AsSOPC()
@@ -162,7 +162,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_LG_U32 when condition holds", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 7
 
 		layout := state.Scratchpad().AsSOPC()
@@ -176,7 +176,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_CMP_LG_U32 when condition does not hold", func() {
 		state.inst = insts.NewInst()
-		state.inst.FormatType = insts.Sopc
+		state.inst.FormatType = insts.SOPC
 		state.inst.Opcode = 7
 
 		layout := state.Scratchpad().AsSOPC()
