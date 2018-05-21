@@ -1,3 +1,7 @@
 *.linked.bc
 *.orig.bc
 *.o
+*.csv
+*.png
+*.pdf
+.ropeproject
