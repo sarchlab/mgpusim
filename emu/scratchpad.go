@@ -27,6 +27,7 @@ func (sp Scratchpad) AsSOPP() *SOPPLayout {
 func (sp Scratchpad) AsSOPK() *SOPKLayout {
 	return (*SOPKLayout)(unsafe.Pointer(&sp[0]))
 }
+
 // AsSOPC returns the ScratchPad as a struct representing the SOPC scratchpad
 // layout
 func (sp Scratchpad) AsSOPC() *SOPCLayout {
@@ -51,6 +52,12 @@ func (sp Scratchpad) AsVOP3A() *VOP3ALayout {
 	return (*VOP3ALayout)(unsafe.Pointer(&sp[0]))
 }
 
+// AsVOP3B returns the ScratchPad as a struct representing the VOP3a scratchpad
+// layout
+func (sp Scratchpad) AsVOP3B() *VOP3BLayout {
+	return (*VOP3BLayout)(unsafe.Pointer(&sp[0]))
+}
+
 // AsVOPC returns the ScratchPad as a struct representing the VOPC scratchpad
 // layout
 func (sp Scratchpad) AsVOPC() *VOPCLayout {
@@ -67,6 +74,12 @@ func (sp Scratchpad) AsFlat() *FlatLayout {
 // layout
 func (sp Scratchpad) AsSMEM() *SMEMLayout {
 	return (*SMEMLayout)(unsafe.Pointer(&sp[0]))
+}
+
+// AsDS returns the ScratchPad as a struct representing the DS scratchpad
+// layout
+func (sp Scratchpad) AsDS() *DSLayout {
+	return (*DSLayout)(unsafe.Pointer(&sp[0]))
 }
 
 // SOP1Layout represents the scratchpad layout for SOP1 instructions
@@ -112,10 +125,10 @@ type SOPPLayout struct {
 
 //SOPKLayout represents the scratchpad layout for SOPK instructions
 type SOPKLayout struct {
-	DST  uint64
-	IMM  uint64
-	SCC  byte
-	}
+	DST uint64
+	IMM uint64
+	SCC byte
+}
 
 // VOP1Layout represents the scratchpad layout for VOP1 instructions
 type VOP1Layout struct {
@@ -144,6 +157,17 @@ type VOP3ALayout struct {
 	SRC2 [64]uint64
 }
 
+// VOP3BLayout represents the scratchpad layout for VOP3a instructions
+type VOP3BLayout struct {
+	EXEC uint64
+	DST  [64]uint64
+	VCC  uint64
+	SRC0 [64]uint64
+	SRC1 [64]uint64
+	SRC2 [64]uint64
+	SDST uint64
+}
+
 // VOPCLayout represents the scratchpad layout for the VOPC instructions
 type VOPCLayout struct {
 	EXEC uint64
@@ -158,4 +182,13 @@ type FlatLayout struct {
 	ADDR [64]uint64
 	DATA [256]uint32 // 256 to consider the X4 instructions
 	DST  [256]uint32
+}
+
+// DSLayout represents the scratchpad layout for DS instructions
+type DSLayout struct {
+	EXEC  uint64
+	ADDR  [64]uint32
+	DATA  [256]uint32
+	DATA1 [256]uint32
+	DST   [256]uint32
 }

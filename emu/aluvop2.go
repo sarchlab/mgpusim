@@ -20,6 +20,8 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVMULF32(state)
 	case 5:
 		u.runVMULF32(state)
+	case 8:
+		u.runVMULU32U24(state)
 	case 16:
 		u.runVLSHRREVB32(state)
 	case 17:
@@ -148,6 +150,21 @@ func (u *ALUImpl) runVMULF32(state InstEmuState) {
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
 
+	}
+}
+
+func (u *ALUImpl) runVMULU32U24(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	for i := 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, uint(i)) {
+			continue
+		}
+
+		src0 := (uint32(sp.SRC0[i]) << 8) >> 8
+		src1 := (uint32(sp.SRC1[i]) << 8) >> 8
+		dst := src0 * src1
+		sp.DST[i] = uint64(dst)
 	}
 }
 
