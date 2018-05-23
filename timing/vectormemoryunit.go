@@ -1,8 +1,11 @@
 package timing
 
 import (
+	"log"
+
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/mem"
 )
 
 // A VectorMemoryUnit performs Scalar operations
@@ -10,7 +13,6 @@ type VectorMemoryUnit struct {
 	cu *ComputeUnit
 
 	scratchpadPreparer ScratchpadPreparer
-	alu                emu.ALU
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -22,12 +24,10 @@ type VectorMemoryUnit struct {
 func NewVectorMemoryUnit(
 	cu *ComputeUnit,
 	scratchpadPreparer ScratchpadPreparer,
-	alu emu.ALU,
 ) *VectorMemoryUnit {
 	u := new(VectorMemoryUnit)
 	u.cu = cu
 	u.scratchpadPreparer = scratchpadPreparer
-	u.alu = alu
 	return u
 }
 
@@ -70,13 +70,84 @@ func (u *VectorMemoryUnit) runExecStage(now core.VTimeInSec) {
 	}
 
 	if u.toWrite == nil {
-		u.alu.Run(u.toExec)
+
+		inst := u.toExec.Inst()
+		switch inst.FormatType {
+		case insts.FLAT:
+			u.executeFlatInsts(now)
+		default:
+			log.Panicf("running inst %f in vector memory unit is not supported", inst.String(nil))
+		}
 
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
 
-		u.toWrite = u.toExec
+		//u.toWrite = u.toExec
+		u.toExec.State = WfReady
 		u.toExec = nil
+	}
+}
+
+func (u *VectorMemoryUnit) executeFlatInsts(now core.VTimeInSec) {
+	inst := u.toExec.Inst()
+	switch inst.Opcode {
+	case 20: // FLAT_LOAD_DWORD
+		u.executeFlatLoad(4, now)
+	default:
+		log.Panicf("Opcode %d for format FLAT is not supported.", inst.Opcode)
+	}
+}
+
+func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now core.VTimeInSec) {
+	sp := u.toExec.Scratchpad().AsFlat()
+	coalescedAddrs := u.coalesceAddress(sp.ADDR)
+	u.sendDataLoadRequest(coalescedAddrs, sp.ADDR, now)
+}
+
+func (u *VectorMemoryUnit) coalesceAddress(addresses [64]uint64) []uint64 {
+	coalescedAddr := make([]uint64, 0)
+	for i := 0; i < 64; i++ {
+		addr := addresses[i]
+		cacheLineId := addr / 64 * 64
+
+		found := false
+		for _, cAddr := range coalescedAddr {
+			if cacheLineId == cAddr {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			coalescedAddr = append(coalescedAddr, cacheLineId)
+		}
+	}
+	return coalescedAddr
+}
+
+func (u *VectorMemoryUnit) sendDataLoadRequest(
+	coalescedAddrs []uint64,
+	preCoalescedAddrs [64]uint64,
+	now core.VTimeInSec,
+) {
+	info := new(MemAccessInfo)
+	info.Action = MemAccessVectorDataLoad
+	info.PreCoalescedAddrs = preCoalescedAddrs
+	info.Wf = u.toExec
+	info.Inst = info.Wf.inst
+	info.Dst = info.Wf.inst.Dst.Register
+	info.TotalReqs = len(coalescedAddrs)
+	for _, addr := range coalescedAddrs {
+		req := mem.NewAccessReq()
+		req.SetSendTime(now)
+		req.SetDst(u.cu.VectorMem)
+		req.SetSrc(u.cu)
+		req.Type = mem.Read
+		req.ByteSize = 64 // Always read a cache line
+		req.Address = addr
+		req.Info = info
+
+		u.cu.GetConnection("ToVectorMem").Send(req)
 	}
 }
 

@@ -289,6 +289,8 @@ func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
 		return cu.handleFetchReturn(req)
 	case MemAccessScalarDataLoad:
 		return cu.handleScalarDataLoadReturn(req)
+	case MemAccessVectorDataLoad:
+		return cu.handleVectorDataLoadReturn(req)
 	default:
 		log.Panic("CU does not know how to handle returned memory access")
 	}
@@ -332,6 +334,35 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(req *mem.AccessReq) error {
 
 	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
 	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
+
+	return nil
+}
+
+func (cu *ComputeUnit) handleVectorDataLoadReturn(req *mem.AccessReq) error {
+	info := req.Info.(*MemAccessInfo)
+	wf := info.Wf
+
+	for i := 0; i < 64; i++ {
+		addr := info.PreCoalescedAddrs[i]
+		addrCacheLineID := addr & 0xffffffffffffffc0
+		addrCacheLineOffset := addr & 0x000000000000003f
+		if addrCacheLineID != req.Address {
+			continue
+		}
+
+		access := new(RegisterAccess)
+		access.WaveOffset = wf.VRegOffset
+		access.Reg = info.Dst
+		access.RegCount = 1
+		access.LaneID = i
+		access.Data = req.Buf[addrCacheLineOffset : addrCacheLineOffset+4]
+		cu.VRegFile[wf.SIMDID].Write(access)
+	}
+
+	info.ReturnedReqs += 1
+	if info.ReturnedReqs == info.TotalReqs {
+		wf.OutstandingVectorMemAccess--
+	}
 
 	return nil
 }
