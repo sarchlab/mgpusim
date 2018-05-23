@@ -85,6 +85,7 @@ var _ = Describe("ComputeUnit", func() {
 		cu.Decoder = decoder
 		cu.Freq = 1
 		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
+		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(4096, 64))
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -256,6 +257,93 @@ var _ = Describe("ComputeUnit", func() {
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+		})
+
+		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
+			rawWf := grid.WorkGroups[0].Wavefronts[0]
+			inst := NewInst(insts.NewInst())
+			wf := NewWavefront(rawWf)
+			wf.SIMDID = 0
+			wf.inst = inst
+			wf.VRegOffset = 0
+			wf.OutstandingVectorMemAccess = 1
+
+			info := new(MemAccessInfo)
+			info.Action = MemAccessVectorDataLoad
+			info.Wf = wf
+			info.TotalReqs = 4
+			info.ReturnedReqs = 1
+			info.Inst = inst
+			info.Dst = insts.VReg(0)
+			for i := 0; i < 64; i++ {
+				info.PreCoalescedAddrs[i] = uint64(4096 + i*4)
+			}
+			req := mem.NewAccessReq()
+			req.Info = info
+			req.Address = 4096
+			req.ByteSize = 64
+			req.Buf = make([]byte, 64)
+			for i := 0; i < 16; i++ {
+				copy(req.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
+			}
+
+			cu.Handle(req)
+
+			Expect(info.ReturnedReqs).To(Equal(2))
+			for i := 0; i < 16; i++ {
+				access := new(RegisterAccess)
+				access.RegCount = 1
+				access.WaveOffset = 0
+				access.LaneID = i
+				access.Reg = insts.VReg(0)
+				cu.VRegFile[0].Read(access)
+				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
+			}
+
+		})
+
+		It("should handle vector data load return, and the return is the last one for an instruction", func() {
+			rawWf := grid.WorkGroups[0].Wavefronts[0]
+			inst := NewInst(insts.NewInst())
+			wf := NewWavefront(rawWf)
+			wf.SIMDID = 0
+			wf.inst = inst
+			wf.VRegOffset = 0
+			wf.OutstandingVectorMemAccess = 1
+
+			info := new(MemAccessInfo)
+			info.Action = MemAccessVectorDataLoad
+			info.Wf = wf
+			info.TotalReqs = 4
+			info.ReturnedReqs = 3
+			info.Inst = inst
+			info.Dst = insts.VReg(0)
+			for i := 0; i < 64; i++ {
+				info.PreCoalescedAddrs[i] = uint64(4096 + i*4)
+			}
+			req := mem.NewAccessReq()
+			req.Info = info
+			req.Address = 4096 + 64*3
+			req.ByteSize = 64
+			req.Buf = make([]byte, 64)
+			for i := 0; i < 16; i++ {
+				copy(req.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i+48)))
+			}
+
+			cu.Handle(req)
+
+			Expect(info.ReturnedReqs).To(Equal(4))
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			for i := 48; i < 64; i++ {
+				access := new(RegisterAccess)
+				access.RegCount = 1
+				access.WaveOffset = 0
+				access.LaneID = i
+				access.Reg = insts.VReg(0)
+				cu.VRegFile[0].Read(access)
+				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
+			}
+
 		})
 	})
 

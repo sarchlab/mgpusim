@@ -205,14 +205,32 @@ var _ = Describe("Scheduler", func() {
 		Expect(wf.State).To(Equal(WfRunning))
 	})
 
+	It("should wait for memory access when running wait_cnt", func() {
+		wf := new(Wavefront)
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
+		wf.inst.Opcode = 12 // WAIT_CNT
+		wf.inst.VMCNT = 0
+		wf.State = WfRunning
+		wf.OutstandingVectorMemAccess = 1
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(scheduler.internalExecuting).NotTo(BeNil())
+		Expect(wf.State).To(Equal(WfRunning))
+	})
+
 	It("should pass if memory returns when running wait_cnt", func() {
 		wf := new(Wavefront)
 		wf.inst = NewInst(insts.NewInst())
 		wf.inst.Format = insts.FormatTable[insts.SOPP]
 		wf.inst.Opcode = 12 // WAIT_CNT
 		wf.inst.LKGMCNT = 0
+		wf.inst.VMCNT = 0
 		wf.State = WfRunning
 		wf.OutstandingScalarMemAccess = 0
+		wf.OutstandingVectorMemAccess = 0
 
 		scheduler.internalExecuting = wf
 		scheduler.EvaluateInternalInst(10)

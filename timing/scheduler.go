@@ -150,6 +150,10 @@ func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now core.VTimeInSec) {
 		done = false
 	}
 
+	if wf.OutstandingVectorMemAccess > inst.VMCNT {
+		done = false
+	}
+
 	if done {
 		s.internalExecuting.State = WfReady
 		s.internalExecuting = nil

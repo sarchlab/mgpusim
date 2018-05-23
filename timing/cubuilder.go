@@ -113,7 +113,7 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	vectorMemDecoder := NewDecodeUnit(cu)
 	cu.VectorMemDecoder = vectorMemDecoder
 
-	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.ScratchpadPreparer, b.ALU)
+	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.ScratchpadPreparer)
 	cu.VectorMemUnit = vectorMemoryUnit
 
 	for i := 0; i < b.SIMDCount; i++ {
