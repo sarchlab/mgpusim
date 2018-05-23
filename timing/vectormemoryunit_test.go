@@ -46,30 +46,6 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
-	//It("should run", func() {
-	//	wave1 := NewWavefront(nil)
-	//	wave2 := NewWavefront(nil)
-	//	inst := NewInst(insts.NewInst())
-	//	inst.FormatType = insts.FLAT
-	//	wave2.inst = inst
-	//	wave3 := NewWavefront(nil)
-	//	wave3.State = WfRunning
-	//
-	//	bu.toRead = wave1
-	//	bu.toExec = wave2
-	//	bu.toWrite = wave3
-	//
-	//	bu.Run(10)
-	//
-	//	Expect(wave3.State).To(Equal(WfReady))
-	//	Expect(bu.toWrite).To(BeIdenticalTo(wave2))
-	//	Expect(bu.toExec).To(BeIdenticalTo(wave1))
-	//	Expect(bu.toRead).To(BeNil())
-	//
-	//	Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
-	//	Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
-	//})
-
 	It("should run flat_load_dword", func() {
 		wave := NewWavefront(nil)
 		inst := NewInst(insts.NewInst())
@@ -138,7 +114,95 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(conn.AllExpectedSent()).To(BeTrue())
 		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
+	})
 
+	It("should run flat_store_dword", func() {
+		wave := NewWavefront(nil)
+		inst := NewInst(insts.NewInst())
+		inst.Format = insts.FormatTable[insts.FLAT]
+		inst.Opcode = 28
+		inst.Dst = insts.NewVRegOperand(0, 0, 1)
+		wave.inst = inst
+
+		sp := wave.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			sp.ADDR[i] = uint64(4096 + i*4)
+			sp.DATA[i*4] = uint32(i)
+		}
+
+		bu.toExec = wave
+
+		info := new(MemAccessInfo)
+		info.Action = MemAccessVectorDataLoad
+		info.Inst = inst
+		info.Dst = insts.VReg(0)
+		info.Wf = wave
+		info.TotalReqs = 4
+		for i := 0; i < 64; i++ {
+			info.PreCoalescedAddrs[i] = uint64(4096 + i*4)
+		}
+		expectedReq := mem.NewAccessReq()
+		expectedReq.Address = 4096
+		expectedReq.ByteSize = 64
+		expectedReq.Type = mem.Read
+		expectedReq.SetSrc(cu)
+		expectedReq.SetDst(vectorMem)
+		expectedReq.SetSendTime(10)
+		expectedReq.Info = info
+		expectedReq.Buf = make([]byte, 64)
+		for i := 0; i < 16; i++ {
+			copy(expectedReq.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
+		}
+		conn.ExpectSend(expectedReq, nil)
+
+		expectedReq = mem.NewAccessReq()
+		expectedReq.Address = 4096 + 64
+		expectedReq.ByteSize = 64
+		expectedReq.Type = mem.Read
+		expectedReq.SetSrc(cu)
+		expectedReq.SetDst(vectorMem)
+		expectedReq.SetSendTime(10)
+		expectedReq.Info = info
+		expectedReq.Buf = make([]byte, 64)
+		for i := 0; i < 16; i++ {
+			copy(expectedReq.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i+16)))
+		}
+		conn.ExpectSend(expectedReq, nil)
+
+		expectedReq = mem.NewAccessReq()
+		expectedReq.Address = 4096 + 64*2
+		expectedReq.ByteSize = 64
+		expectedReq.Type = mem.Read
+		expectedReq.SetSrc(cu)
+		expectedReq.SetDst(vectorMem)
+		expectedReq.SetSendTime(10)
+		expectedReq.Info = info
+		expectedReq.Buf = make([]byte, 64)
+		for i := 0; i < 16; i++ {
+			copy(expectedReq.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i+32)))
+		}
+		conn.ExpectSend(expectedReq, nil)
+
+		expectedReq = mem.NewAccessReq()
+		expectedReq.Address = 4096 + 64*3
+		expectedReq.ByteSize = 64
+		expectedReq.Type = mem.Read
+		expectedReq.SetSrc(cu)
+		expectedReq.SetDst(vectorMem)
+		expectedReq.SetSendTime(10)
+		expectedReq.Info = info
+		expectedReq.Buf = make([]byte, 64)
+		for i := 0; i < 16; i++ {
+			copy(expectedReq.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i+48)))
+		}
+		conn.ExpectSend(expectedReq, nil)
+
+		bu.Run(10)
+
+		Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 	})
 
 })

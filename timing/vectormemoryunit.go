@@ -80,19 +80,23 @@ func (u *VectorMemoryUnit) runExecStage(now core.VTimeInSec) {
 		}
 
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
+		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
 
 		//u.toWrite = u.toExec
 		u.toExec.State = WfReady
 		u.toExec = nil
+
 	}
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(now core.VTimeInSec) {
+	u.toExec.OutstandingVectorMemAccess++
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 20: // FLAT_LOAD_DWORD
 		u.executeFlatLoad(4, now)
+	case 28: // FLAT_STORE_DWORD
+		u.executeFlatStore(4, now)
 	default:
 		log.Panicf("Opcode %d for format FLAT is not supported.", inst.Opcode)
 	}
@@ -102,6 +106,12 @@ func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now core.VTimeIn
 	sp := u.toExec.Scratchpad().AsFlat()
 	coalescedAddrs := u.coalesceAddress(sp.ADDR)
 	u.sendDataLoadRequest(coalescedAddrs, sp.ADDR, now)
+}
+
+func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now core.VTimeInSec) {
+	sp := u.toExec.Scratchpad().AsFlat()
+	coalescedAddrs := u.coalesceAddress(sp.ADDR)
+	u.sendDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, now)
 }
 
 func (u *VectorMemoryUnit) coalesceAddress(addresses [64]uint64) []uint64 {
@@ -146,6 +156,45 @@ func (u *VectorMemoryUnit) sendDataLoadRequest(
 		req.ByteSize = 64 // Always read a cache line
 		req.Address = addr
 		req.Info = info
+
+		u.cu.GetConnection("ToVectorMem").Send(req)
+	}
+}
+
+func (u *VectorMemoryUnit) sendDataStoreRequest(
+	coalescedAddrs []uint64,
+	preCoalescedAddrs [64]uint64,
+	data [256]uint32,
+	now core.VTimeInSec,
+) {
+	info := new(MemAccessInfo)
+	info.Action = MemAccessVectorDataLoad
+	info.PreCoalescedAddrs = preCoalescedAddrs
+	info.Wf = u.toExec
+	info.Inst = info.Wf.inst
+	info.Dst = info.Wf.inst.Dst.Register
+	info.TotalReqs = len(coalescedAddrs)
+	for _, addr := range coalescedAddrs {
+		req := mem.NewAccessReq()
+		req.SetSendTime(now)
+		req.SetDst(u.cu.VectorMem)
+		req.SetSrc(u.cu)
+		req.Type = mem.Read
+		req.ByteSize = 64 // Always read a cache line
+		req.Address = addr
+		req.Info = info
+		req.Buf = make([]byte, 64)
+		for i := 0; i < 64; i++ {
+			currAddr := preCoalescedAddrs[i]
+			addrCacheLineID := currAddr & 0xffffffffffffffc0
+			addrCacheLineOffset := currAddr & 0x000000000000003f
+
+			if addrCacheLineID != addr {
+				continue
+			} else {
+				copy(req.Buf[addrCacheLineOffset:addrCacheLineOffset+4], insts.Uint32ToBytes(data[i*4]))
+			}
+		}
 
 		u.cu.GetConnection("ToVectorMem").Send(req)
 	}
