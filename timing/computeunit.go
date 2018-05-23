@@ -362,6 +362,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(req *mem.AccessReq) error {
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
 	}
 
 	return nil
