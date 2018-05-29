@@ -15,6 +15,9 @@ type Scheduler struct {
 	fetchArbiter      WfArbiter
 	issueArbiter      WfArbiter
 	internalExecuting *Wavefront
+
+	barrierBuffer     []*Wavefront
+	barrierBufferSize int
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -28,6 +31,10 @@ func NewScheduler(
 	s.cu = cu
 	s.fetchArbiter = fetchArbiter
 	s.issueArbiter = issueArbiter
+
+	s.barrierBufferSize = 16
+	s.barrierBuffer = make([]*Wavefront, 0, s.barrierBufferSize)
+
 	return s
 }
 
@@ -122,6 +129,8 @@ func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
 	switch s.internalExecuting.Inst().Opcode {
 	case 1: // S_ENDPGM
 		s.evalSEndPgm(s.internalExecuting, now)
+	case 10: // S_BARRIER
+		s.evalSBarrier(s.internalExecuting, now)
 	case 12: // S_WAITCNT
 		s.evalSWaitCnt(s.internalExecuting, now)
 	default:
@@ -143,6 +152,44 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
+}
+
+func (s *Scheduler) evalSBarrier(wf *Wavefront, now core.VTimeInSec) {
+	wg := wf.WG
+	allAtBarrier := true
+	for _, wavefront := range wg.Wfs {
+		if wavefront == wf {
+			continue
+		}
+
+		if wavefront.State != WfAtBarrier {
+			allAtBarrier = false
+			break
+		}
+	}
+
+	if allAtBarrier {
+		for _, wavefront := range wg.Wfs {
+			wavefront.State = WfReady
+		}
+		s.internalExecuting = nil
+	}
+
+	newBarrierBuffer := make([]*Wavefront, 0, s.barrierBufferSize)
+	for _, wavefront := range s.barrierBuffer {
+		if wavefront.State == WfAtBarrier {
+			newBarrierBuffer = append(newBarrierBuffer, wavefront)
+		}
+	}
+	s.barrierBuffer = newBarrierBuffer
+
+	if !allAtBarrier {
+		if len(s.barrierBuffer) < s.barrierBufferSize {
+			wf.State = WfAtBarrier
+			s.barrierBuffer = append(s.barrierBuffer, wf)
+			s.internalExecuting = nil
+		}
+	}
 }
 
 func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now core.VTimeInSec) {

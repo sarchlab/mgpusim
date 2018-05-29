@@ -20,6 +20,7 @@ const (
 	WfFetched                    // Instruction fetched, but not issued
 	WfRunning                    // Instruction in fight
 	WfCompleted                  // Wavefront completed
+	WfAtBarrier                  // Wavefront at barrier
 )
 
 // A Wavefront in the timing package contains the information of the progress
