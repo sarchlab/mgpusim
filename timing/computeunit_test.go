@@ -343,7 +343,61 @@ var _ = Describe("ComputeUnit", func() {
 				cu.VRegFile[0].Read(access)
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
+		})
 
+		It("should handle vector data store return and the return is not the last one from an instruction", func() {
+
+			rawWf := grid.WorkGroups[0].Wavefronts[0]
+			inst := NewInst(insts.NewInst())
+			wf := NewWavefront(rawWf)
+			wf.SIMDID = 0
+			wf.inst = inst
+			wf.VRegOffset = 0
+			wf.OutstandingVectorMemAccess = 1
+
+			info := new(MemAccessInfo)
+			info.Action = MemAccessVectorDataStore
+			info.Wf = wf
+			info.TotalReqs = 4
+			info.ReturnedReqs = 1
+			info.Inst = inst
+			info.Dst = insts.VReg(0)
+			req := mem.NewAccessReq()
+			req.Info = info
+			req.Address = 4096 + 64*3
+			req.ByteSize = 64
+
+			cu.Handle(req)
+
+			Expect(info.ReturnedReqs).To(Equal(2))
+		})
+
+		It("should handle vector data store return and the return is the last one from an instruction", func() {
+
+			rawWf := grid.WorkGroups[0].Wavefronts[0]
+			inst := NewInst(insts.NewInst())
+			wf := NewWavefront(rawWf)
+			wf.SIMDID = 0
+			wf.inst = inst
+			wf.VRegOffset = 0
+			wf.OutstandingVectorMemAccess = 1
+
+			info := new(MemAccessInfo)
+			info.Action = MemAccessVectorDataStore
+			info.Wf = wf
+			info.TotalReqs = 4
+			info.ReturnedReqs = 3
+			info.Inst = inst
+			info.Dst = insts.VReg(0)
+			req := mem.NewAccessReq()
+			req.Info = info
+			req.Address = 4096 + 64*3
+			req.ByteSize = 64
+
+			cu.Handle(req)
+
+			Expect(info.ReturnedReqs).To(Equal(4))
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 		})
 	})
 

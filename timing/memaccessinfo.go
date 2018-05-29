@@ -10,6 +10,7 @@ const (
 	MemAccessInstFetch MemAccessAction = iota
 	MemAccessScalarDataLoad
 	MemAccessVectorDataLoad
+	MemAccessVectorDataStore
 )
 
 // MemAccessInfo is the information that is attached to a memory access
@@ -19,6 +20,7 @@ type MemAccessInfo struct {
 	Action            MemAccessAction
 	Wf                *Wavefront
 	Dst               *insts.Reg
+	RegCount          int
 	Inst              *Inst
 	PreCoalescedAddrs [64]uint64
 	TotalReqs         int

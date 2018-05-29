@@ -14,6 +14,11 @@ type VectorMemoryUnit struct {
 
 	scratchpadPreparer ScratchpadPreparer
 
+	ReadBuf      []*mem.AccessReq
+	WriteBuf     []*mem.AccessReq
+	ReadBufSize  int
+	WriteBufSize int
+
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
@@ -28,6 +33,13 @@ func NewVectorMemoryUnit(
 	u := new(VectorMemoryUnit)
 	u.cu = cu
 	u.scratchpadPreparer = scratchpadPreparer
+
+	u.ReadBufSize = 256
+	u.ReadBuf = make([]*mem.AccessReq, 0, u.ReadBufSize)
+
+	u.WriteBufSize = 256
+	u.WriteBuf = make([]*mem.AccessReq, 0, u.WriteBufSize)
+
 	return u
 }
 
@@ -44,7 +56,7 @@ func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 
 // Run executes three pipeline stages that are controlled by the VectorMemoryUnit
 func (u *VectorMemoryUnit) Run(now core.VTimeInSec) {
-	u.runWriteStage(now)
+	u.sendRequest(now)
 	u.runExecStage(now)
 	u.runReadStage(now)
 }
@@ -76,7 +88,7 @@ func (u *VectorMemoryUnit) runExecStage(now core.VTimeInSec) {
 		case insts.FLAT:
 			u.executeFlatInsts(now)
 		default:
-			log.Panicf("running inst %f in vector memory unit is not supported", inst.String(nil))
+			log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
 		}
 
 		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
@@ -95,8 +107,12 @@ func (u *VectorMemoryUnit) executeFlatInsts(now core.VTimeInSec) {
 	switch inst.Opcode {
 	case 20: // FLAT_LOAD_DWORD
 		u.executeFlatLoad(4, now)
+	case 23: // FLAT_LOAD_DWORDx4
+		u.executeFlatLoad(16, now)
 	case 28: // FLAT_STORE_DWORD
 		u.executeFlatStore(4, now)
+	case 31: // FLAT_STORE_DWORDx4
+		u.executeFlatStore(16, now)
 	default:
 		log.Panicf("Opcode %d for format FLAT is not supported.", inst.Opcode)
 	}
@@ -105,13 +121,13 @@ func (u *VectorMemoryUnit) executeFlatInsts(now core.VTimeInSec) {
 func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now core.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
 	coalescedAddrs := u.coalesceAddress(sp.ADDR)
-	u.sendDataLoadRequest(coalescedAddrs, sp.ADDR, now)
+	u.bufferDataLoadRequest(coalescedAddrs, sp.ADDR, byteSizePerLane/4, now)
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now core.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
 	coalescedAddrs := u.coalesceAddress(sp.ADDR)
-	u.sendDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, now)
+	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, byteSizePerLane/4, now)
 }
 
 func (u *VectorMemoryUnit) coalesceAddress(addresses [64]uint64) []uint64 {
@@ -135,9 +151,10 @@ func (u *VectorMemoryUnit) coalesceAddress(addresses [64]uint64) []uint64 {
 	return coalescedAddr
 }
 
-func (u *VectorMemoryUnit) sendDataLoadRequest(
+func (u *VectorMemoryUnit) bufferDataLoadRequest(
 	coalescedAddrs []uint64,
 	preCoalescedAddrs [64]uint64,
+	registerCount int,
 	now core.VTimeInSec,
 ) {
 	info := new(MemAccessInfo)
@@ -146,6 +163,7 @@ func (u *VectorMemoryUnit) sendDataLoadRequest(
 	info.Wf = u.toExec
 	info.Inst = info.Wf.inst
 	info.Dst = info.Wf.inst.Dst.Register
+	info.RegCount = registerCount
 	info.TotalReqs = len(coalescedAddrs)
 	for _, addr := range coalescedAddrs {
 		req := mem.NewAccessReq()
@@ -157,18 +175,19 @@ func (u *VectorMemoryUnit) sendDataLoadRequest(
 		req.Address = addr
 		req.Info = info
 
-		u.cu.GetConnection("ToVectorMem").Send(req)
+		u.ReadBuf = append(u.ReadBuf, req)
 	}
 }
 
-func (u *VectorMemoryUnit) sendDataStoreRequest(
+func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	coalescedAddrs []uint64,
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
+	registerCount int,
 	now core.VTimeInSec,
 ) {
 	info := new(MemAccessInfo)
-	info.Action = MemAccessVectorDataLoad
+	info.Action = MemAccessVectorDataStore
 	info.PreCoalescedAddrs = preCoalescedAddrs
 	info.Wf = u.toExec
 	info.Inst = info.Wf.inst
@@ -179,7 +198,7 @@ func (u *VectorMemoryUnit) sendDataStoreRequest(
 		req.SetSendTime(now)
 		req.SetDst(u.cu.VectorMem)
 		req.SetSrc(u.cu)
-		req.Type = mem.Read
+		req.Type = mem.Write
 		req.ByteSize = 64 // Always read a cache line
 		req.Address = addr
 		req.Info = info
@@ -191,25 +210,41 @@ func (u *VectorMemoryUnit) sendDataStoreRequest(
 
 			if addrCacheLineID != addr {
 				continue
-			} else {
-				copy(req.Buf[addrCacheLineOffset:addrCacheLineOffset+4], insts.Uint32ToBytes(data[i*4]))
 			}
+
+			for j := 0; j < registerCount; j++ {
+				copy(req.Buf[addrCacheLineOffset+uint64(4*j):addrCacheLineOffset+uint64(4*j)+4],
+					insts.Uint32ToBytes(data[i*4+j]))
+			}
+
 		}
 
-		u.cu.GetConnection("ToVectorMem").Send(req)
+		u.WriteBuf = append(u.WriteBuf, req)
 	}
 }
 
-func (u *VectorMemoryUnit) runWriteStage(now core.VTimeInSec) {
-	if u.toWrite == nil {
-		return
+func (u *VectorMemoryUnit) sendRequest(now core.VTimeInSec) {
+	if len(u.ReadBuf) > 0 {
+		req := u.ReadBuf[0]
+		err := u.cu.GetConnection("ToVectorMem").Send(req)
+		if err != nil {
+			if !err.Recoverable {
+				log.Panic(err)
+			}
+		} else {
+			u.ReadBuf = u.ReadBuf[1:]
+		}
 	}
 
-	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
-
-	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, u.toWrite.inst, "WriteEnd"})
-	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, u.toWrite.inst, "Completed"})
-
-	u.toWrite.State = WfReady
-	u.toWrite = nil
+	if len(u.WriteBuf) > 0 {
+		req := u.WriteBuf[0]
+		err := u.cu.GetConnection("ToVectorMem").Send(req)
+		if err != nil {
+			if !err.Recoverable {
+				log.Panic(err)
+			}
+		} else {
+			u.WriteBuf = u.WriteBuf[1:]
+		}
+	}
 }
