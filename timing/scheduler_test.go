@@ -238,4 +238,20 @@ var _ = Describe("Scheduler", func() {
 		Expect(scheduler.internalExecuting).To(BeNil())
 		Expect(wf.State).To(Equal(WfReady))
 	})
+
+	It("should not terminate wavefront if there are pending memory requests", func() {
+		wf := new(Wavefront)
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
+		wf.inst.Opcode = 1 // WAIT_CNT
+		wf.State = WfRunning
+		wf.OutstandingScalarMemAccess = 1
+		wf.OutstandingVectorMemAccess = 1
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(scheduler.internalExecuting).NotTo(BeNil())
+		Expect(len(engine.ScheduledEvent)).To(Equal(0))
+	})
 })

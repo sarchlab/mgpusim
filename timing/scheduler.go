@@ -137,6 +137,9 @@ func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
 }
 
 func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
+	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
+		return
+	}
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
