@@ -56,7 +56,7 @@ func (d *ISADebugger) Func(
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
 	if wf.Inst() != nil {
-		output += fmt.Sprintf("\tInst: %s\n", wf.Inst().String(nil))
+		output += fmt.Sprintf("\tInst: %s\n", instInfo.Inst.String(nil))
 	}
 	output += fmt.Sprintf("\tPC: 0x%016x\n", wf.PC)
 	output += fmt.Sprintf("\tEXEC: 0x%016x\n", wf.EXEC)

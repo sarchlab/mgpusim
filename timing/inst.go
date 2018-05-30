@@ -1,9 +1,9 @@
 package timing
 
 import (
+	"github.com/rs/xid"
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
-	"github.com/rs/xid"
 )
 
 //var _NextInstIDMutex sync.Mutex
@@ -35,5 +35,6 @@ func NewInst(raw *insts.Inst) *Inst {
 // hooks to Inst
 type InstHookInfo struct {
 	Now   core.VTimeInSec
+	Inst  *Inst
 	Stage string
 }
