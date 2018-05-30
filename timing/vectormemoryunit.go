@@ -226,6 +226,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 func (u *VectorMemoryUnit) sendRequest(now core.VTimeInSec) {
 	if len(u.ReadBuf) > 0 {
 		req := u.ReadBuf[0]
+		req.SetSendTime(now)
 		err := u.cu.GetConnection("ToVectorMem").Send(req)
 		if err != nil {
 			if !err.Recoverable {
@@ -238,6 +239,7 @@ func (u *VectorMemoryUnit) sendRequest(now core.VTimeInSec) {
 
 	if len(u.WriteBuf) > 0 {
 		req := u.WriteBuf[0]
+		req.SetSendTime(now)
 		err := u.cu.GetConnection("ToVectorMem").Send(req)
 		if err != nil {
 			if !err.Recoverable {
