@@ -328,7 +328,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(req *mem.AccessReq) error {
 	access := new(RegisterAccess)
 	access.WaveOffset = wf.SRegOffset
 	access.Reg = info.Dst
-	access.RegCount = 1
+	access.RegCount = int(req.ByteSize / 4)
 	access.Data = req.Buf
 	cu.SRegFile.Write(access)
 
