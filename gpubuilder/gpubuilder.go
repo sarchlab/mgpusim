@@ -123,7 +123,6 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	cuBuilder.InstMem = gpuMem
 	cuBuilder.ScalarMem = gpuMem
 	cuBuilder.VectorMem = gpuMem
-	cuBuilder.GlobalStorage = gpuMem.Storage
 	cuBuilder.ConnToInstMem = connection
 	cuBuilder.ConnToScalarMem = connection
 	cuBuilder.ConnToVectorMem = connection

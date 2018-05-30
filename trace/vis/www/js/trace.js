@@ -19,11 +19,13 @@ class Trace {
                 'white', // exec done
                 '#92c5de', // write start
                 'white', // write done
-                '#4394c3', // complete
-                '#2166ac', '#053061']);
+                '#4394c3', // wait mem
+                '#2166ac',  // mem return
+                '#053061', // complete
+            ]);
         
         this.stageName = d3.scaleOrdinal()
-            .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+            .domain([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
             .range([
                 'unknown',
                 'fetch',
@@ -37,6 +39,8 @@ class Trace {
                 'wait',
                 'write',
                 'wait',
+                'wait mem',
+                'mem return',
                 'complete'
             ]);
     }

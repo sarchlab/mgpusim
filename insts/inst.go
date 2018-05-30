@@ -104,6 +104,8 @@ type Inst struct {
 	Imm                 bool
 	Clamp               bool
 	GDS                 bool
+	VMCNT               int
+	LKGMCNT             int
 
 	//Fields for SDWA extensions
 	IsSdwa    bool
@@ -162,11 +164,10 @@ func (i Inst) smemString() string {
 func (i Inst) soppString(file *elf.File) string {
 	operandStr := ""
 	if i.Opcode == 12 { // S_WAITCNT
-		if extractBits(uint32(i.SImm16.IntValue), 0, 3) == 0 {
+		if i.VMCNT == 0 {
 			operandStr += " vmcnt(0)"
 		}
-		lgkmBits := extractBits(uint32(i.SImm16.IntValue), 8, 12)
-		operandStr += fmt.Sprintf(" lgkmcnt(%d)", lgkmBits)
+		operandStr += fmt.Sprintf(" lgkmcnt(%d)", i.LKGMCNT)
 	} else if i.Opcode >= 2 && i.Opcode <= 9 { // Branch
 		symbolFound := false
 		if file != nil {

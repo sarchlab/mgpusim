@@ -14,7 +14,9 @@ enum Stage {
     ExecDone = 9;
     WriteStart = 10;
     WriteDone = 11;
-    Complete = 12;
+    WaitMem = 12;
+    MemReturn = 13;
+    Complete = 14;
 }
 
 message Event {

@@ -15,6 +15,9 @@ type Scheduler struct {
 	fetchArbiter      WfArbiter
 	issueArbiter      WfArbiter
 	internalExecuting *Wavefront
+
+	barrierBuffer     []*Wavefront
+	barrierBufferSize int
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -28,6 +31,10 @@ func NewScheduler(
 	s.cu = cu
 	s.fetchArbiter = fetchArbiter
 	s.issueArbiter = issueArbiter
+
+	s.barrierBufferSize = 16
+	s.barrierBuffer = make([]*Wavefront, 0, s.barrierBufferSize)
+
 	return s
 }
 
@@ -41,7 +48,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		wf.inst = NewInst(nil)
 		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
-		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "FetchStart"})
+		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
 
 		req := mem.NewAccessReq()
 		req.Address = wf.PC
@@ -50,7 +57,10 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		req.SetDst(s.cu.InstMem)
 		req.SetSrc(s.cu)
 		req.SetSendTime(now)
-		req.Info = &MemAccessInfo{MemAccessInstFetch, wf}
+		info := new(MemAccessInfo)
+		info.Action = MemAccessInstFetch
+		info.Wf = wf
+		req.Info = info
 
 		s.cu.GetConnection("ToInstMem").Send(req)
 		wf.State = WfFetching
@@ -73,7 +83,7 @@ func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 			unit.AcceptWave(wf, now)
 			// log.Printf("%f: %s from wf %d issued.\n", now, wf.Inst.String(), wf.FirstWiFlatID)
 			wf.State = WfRunning
-			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, "Issue"})
+			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "Issue"})
 		}
 	}
 }
@@ -119,6 +129,10 @@ func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
 	switch s.internalExecuting.Inst().Opcode {
 	case 1: // S_ENDPGM
 		s.evalSEndPgm(s.internalExecuting, now)
+	case 10: // S_BARRIER
+		s.evalSBarrier(s.internalExecuting, now)
+	case 12: // S_WAITCNT
+		s.evalSWaitCnt(s.internalExecuting, now)
 	default:
 		// The program has to make progress
 		s.internalExecuting.State = WfReady
@@ -127,12 +141,71 @@ func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
 
 	if s.internalExecuting == nil {
 		s.cu.InvokeHook(executing, s.cu, core.Any,
-			&InstHookInfo{now, "Completed"})
+			&InstHookInfo{now, executing.inst, "Completed"})
 	}
 }
 
 func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
+	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
+		return
+	}
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
+}
+
+func (s *Scheduler) evalSBarrier(wf *Wavefront, now core.VTimeInSec) {
+	wg := wf.WG
+	allAtBarrier := true
+	for _, wavefront := range wg.Wfs {
+		if wavefront == wf {
+			continue
+		}
+
+		if wavefront.State != WfAtBarrier {
+			allAtBarrier = false
+			break
+		}
+	}
+
+	if allAtBarrier {
+		for _, wavefront := range wg.Wfs {
+			wavefront.State = WfReady
+		}
+		s.internalExecuting = nil
+	}
+
+	newBarrierBuffer := make([]*Wavefront, 0, s.barrierBufferSize)
+	for _, wavefront := range s.barrierBuffer {
+		if wavefront.State == WfAtBarrier {
+			newBarrierBuffer = append(newBarrierBuffer, wavefront)
+		}
+	}
+	s.barrierBuffer = newBarrierBuffer
+
+	if !allAtBarrier {
+		if len(s.barrierBuffer) < s.barrierBufferSize {
+			wf.State = WfAtBarrier
+			s.barrierBuffer = append(s.barrierBuffer, wf)
+			s.internalExecuting = nil
+		}
+	}
+}
+
+func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now core.VTimeInSec) {
+	done := true
+	inst := wf.Inst()
+
+	if wf.OutstandingScalarMemAccess > inst.LKGMCNT {
+		done = false
+	}
+
+	if wf.OutstandingVectorMemAccess > inst.VMCNT {
+		done = false
+	}
+
+	if done {
+		s.internalExecuting.State = WfReady
+		s.internalExecuting = nil
+	}
 }

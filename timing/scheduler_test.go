@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -97,7 +98,10 @@ var _ = Describe("Scheduler", func() {
 		reqToExpect.ByteSize = 8
 		reqToExpect.Type = mem.Read
 		reqToExpect.SetSendTime(10)
-		reqToExpect.Info = &MemAccessInfo{MemAccessInstFetch, wf}
+		info := new(MemAccessInfo)
+		info.Action = MemAccessInstFetch
+		info.Wf = wf
+		reqToExpect.Info = info
 		toInstMemConn.ExpectSend(reqToExpect, nil)
 
 		scheduler.DoFetch(10)
@@ -186,4 +190,147 @@ var _ = Describe("Scheduler", func() {
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
+	It("should wait for memory access when running wait_cnt", func() {
+		wf := new(Wavefront)
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
+		wf.inst.Opcode = 12 // WAIT_CNT
+		wf.inst.LKGMCNT = 0
+		wf.State = WfRunning
+		wf.OutstandingScalarMemAccess = 1
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(scheduler.internalExecuting).NotTo(BeNil())
+		Expect(wf.State).To(Equal(WfRunning))
+	})
+
+	It("should wait for memory access when running wait_cnt", func() {
+		wf := new(Wavefront)
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
+		wf.inst.Opcode = 12 // WAIT_CNT
+		wf.inst.VMCNT = 0
+		wf.State = WfRunning
+		wf.OutstandingVectorMemAccess = 1
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(scheduler.internalExecuting).NotTo(BeNil())
+		Expect(wf.State).To(Equal(WfRunning))
+	})
+
+	It("should pass if memory returns when running wait_cnt", func() {
+		wf := new(Wavefront)
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
+		wf.inst.Opcode = 12 // WAIT_CNT
+		wf.inst.LKGMCNT = 0
+		wf.inst.VMCNT = 0
+		wf.State = WfRunning
+		wf.OutstandingScalarMemAccess = 0
+		wf.OutstandingVectorMemAccess = 0
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(scheduler.internalExecuting).To(BeNil())
+		Expect(wf.State).To(Equal(WfReady))
+	})
+
+	It("should not terminate wavefront if there are pending memory requests", func() {
+		wf := new(Wavefront)
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
+		wf.inst.Opcode = 1 // WAIT_CNT
+		wf.State = WfRunning
+		wf.OutstandingScalarMemAccess = 1
+		wf.OutstandingVectorMemAccess = 1
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(scheduler.internalExecuting).NotTo(BeNil())
+		Expect(len(engine.ScheduledEvent)).To(Equal(0))
+	})
+
+	It("should put wavefront in barrier buffer", func() {
+		wg := new(WorkGroup)
+		for i := 0; i < 4; i++ {
+			wf := NewWavefront(kernels.NewWavefront())
+			wf.State = WfRunning
+			wf.inst = NewInst(insts.NewInst())
+			wf.inst.Format = insts.FormatTable[insts.SOPP]
+			wf.inst.Opcode = 10
+			wf.WG = wg
+			wg.Wfs = append(wg.Wfs, wf)
+		}
+		wf := wg.Wfs[0]
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(wf.State).To(Equal(WfAtBarrier))
+		Expect(len(scheduler.barrierBuffer)).To(Equal(1))
+		Expect(scheduler.barrierBuffer[0]).To(BeIdenticalTo(wf))
+		Expect(scheduler.internalExecuting).To(BeNil())
+	})
+
+	It("should wait if barrier buffer is full", func() {
+		wg := new(WorkGroup)
+		for i := 0; i < 4; i++ {
+			wf := NewWavefront(kernels.NewWavefront())
+			wf.State = WfRunning
+			wf.inst = NewInst(insts.NewInst())
+			wf.inst.Format = insts.FormatTable[insts.SOPP]
+			wf.inst.Opcode = 10
+			wf.WG = wg
+			wg.Wfs = append(wg.Wfs, wf)
+		}
+		wf := wg.Wfs[0]
+
+		scheduler.barrierBuffer = make([]*Wavefront, 0, scheduler.barrierBufferSize)
+		for i := 0; i < 16; i++ {
+			wf := NewWavefront(kernels.NewWavefront())
+			wf.State = WfAtBarrier
+			scheduler.barrierBuffer = append(scheduler.barrierBuffer, wf)
+		}
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(wf.State).To(Equal(WfRunning))
+		Expect(len(scheduler.barrierBuffer)).To(Equal(scheduler.barrierBufferSize))
+		Expect(scheduler.internalExecuting).NotTo(BeNil())
+	})
+
+	It("should continue execution if all wavefronts from a workgroup hits barrier", func() {
+		wg := new(WorkGroup)
+		for i := 0; i < 3; i++ {
+			wf := NewWavefront(kernels.NewWavefront())
+			wf.State = WfAtBarrier
+			wf.WG = wg
+			wg.Wfs = append(wg.Wfs, wf)
+			scheduler.barrierBuffer = append(scheduler.barrierBuffer, wf)
+		}
+
+		wf := wg.Wfs[0]
+		wf.State = WfRunning
+		wf.inst = NewInst(insts.NewInst())
+		wf.inst.Format = insts.FormatTable[insts.SOPP]
+		wf.inst.Opcode = 10
+		wg.Wfs = append(wg.Wfs, wf)
+
+		scheduler.internalExecuting = wf
+		scheduler.EvaluateInternalInst(10)
+
+		Expect(scheduler.internalExecuting).To(BeNil())
+		Expect(len(scheduler.barrierBuffer)).To(Equal(0))
+		for i := 0; i < 4; i++ {
+			wf := wg.Wfs[i]
+			Expect(wf.State).To(Equal(WfReady))
+		}
+
+	})
 })

@@ -243,6 +243,9 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	cu.LDSUnit.Run(now)
 	cu.LDSDecoder.Run(now)
 
+	cu.VectorMemUnit.Run(now)
+	cu.VectorMemDecoder.Run(now)
+
 	cu.Scheduler.EvaluateInternalInst(now)
 	cu.Scheduler.DoIssue(now)
 	cu.Scheduler.DoFetch(now)
@@ -281,8 +284,17 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 
 func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
 	info := req.Info.(*MemAccessInfo)
-	if info.Action == MemAccessInstFetch {
+	switch info.Action {
+	case MemAccessInstFetch:
 		return cu.handleFetchReturn(req)
+	case MemAccessScalarDataLoad:
+		return cu.handleScalarDataLoadReturn(req)
+	case MemAccessVectorDataLoad:
+		return cu.handleVectorDataLoadReturn(req)
+	case MemAccessVectorDataStore:
+		return cu.handleVectorDataStoreReturn(req)
+	default:
+		log.Panic("CU does not know how to handle returned memory access")
 	}
 	return nil
 }
@@ -304,7 +316,70 @@ func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
 	// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
 	// wf.State = WfReady
 
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), "FetchDone"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), managedInst, "FetchDone"})
 
+	return nil
+}
+
+func (cu *ComputeUnit) handleScalarDataLoadReturn(req *mem.AccessReq) error {
+	info := req.Info.(*MemAccessInfo)
+	wf := info.Wf
+
+	access := new(RegisterAccess)
+	access.WaveOffset = wf.SRegOffset
+	access.Reg = info.Dst
+	access.RegCount = int(req.ByteSize / 4)
+	access.Data = req.Buf
+	cu.SRegFile.Write(access)
+
+	wf.OutstandingScalarMemAccess -= 1
+
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
+
+	return nil
+}
+
+func (cu *ComputeUnit) handleVectorDataLoadReturn(req *mem.AccessReq) error {
+	info := req.Info.(*MemAccessInfo)
+	wf := info.Wf
+
+	for i := 0; i < 64; i++ {
+		addr := info.PreCoalescedAddrs[i]
+		addrCacheLineID := addr & 0xffffffffffffffc0
+		addrCacheLineOffset := addr & 0x000000000000003f
+		if addrCacheLineID != req.Address {
+			continue
+		}
+
+		access := new(RegisterAccess)
+		access.WaveOffset = wf.VRegOffset
+		access.Reg = info.Dst
+		access.RegCount = info.RegCount
+		access.LaneID = i
+		access.Data = req.Buf[addrCacheLineOffset : addrCacheLineOffset+uint64(4*info.RegCount)]
+		cu.VRegFile[wf.SIMDID].Write(access)
+	}
+
+	info.ReturnedReqs += 1
+	if info.ReturnedReqs == info.TotalReqs {
+		wf.OutstandingVectorMemAccess--
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
+	}
+
+	return nil
+}
+
+func (cu *ComputeUnit) handleVectorDataStoreReturn(req *mem.AccessReq) error {
+	info := req.Info.(*MemAccessInfo)
+	wf := info.Wf
+
+	info.ReturnedReqs += 1
+	if info.ReturnedReqs == info.TotalReqs {
+		wf.OutstandingVectorMemAccess--
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
+	}
 	return nil
 }
