@@ -93,9 +93,11 @@ var _ = Describe("Vector Memory Unit", func() {
 
 	It("should send memory access requests", func() {
 		loadReq := mem.NewAccessReq()
+		loadReq.SetSendTime(10)
 		bu.ReadBuf = append(bu.ReadBuf, loadReq)
 
 		storeReq := mem.NewAccessReq()
+		storeReq.SetSendTime(10)
 		bu.WriteBuf = append(bu.WriteBuf, loadReq)
 
 		conn.ExpectSend(loadReq, nil)
