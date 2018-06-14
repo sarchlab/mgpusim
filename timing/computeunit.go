@@ -28,6 +28,7 @@ type ComputeUnit struct {
 	WfPools              []*WavefrontPool
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
 	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
+	inFlightMemAccess    map[string]*MemAccessInfo
 	running              bool
 
 	Scheduler        *Scheduler
@@ -60,6 +61,7 @@ func NewComputeUnit(
 
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
+	cu.inFlightMemAccess = make(map[string]*MemAccessInfo)
 
 	cu.AddPort("ToACE")
 	cu.AddPort("ToInstMem")
@@ -94,8 +96,12 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		return cu.handleTickEvent(evt)
 	case *WfCompletionEvent:
 		return cu.handleWfCompletionEvent(evt)
-	case *mem.AccessReq:
-		return cu.handleMemAccessReq(evt)
+	//case *mem.AccessReq:
+	//	return cu.handleMemAccessReq(evt)
+	case *mem.DataReadyRsp:
+		return cu.handleDataReadyRsp(evt)
+	case *mem.DoneRsp:
+		return cu.handleMemDoneRsp(evt)
 	default:
 		log.Panicf("Unable to process evevt of type %s",
 			reflect.TypeOf(evt))
@@ -282,73 +288,102 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 	return wf
 }
 
-func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
-	info := req.Info.(*MemAccessInfo)
+//func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
+//	info := req.Info.(*MemAccessInfo)
+//	switch info.Action {
+//	case MemAccessInstFetch:
+//		return cu.handleFetchReturn(req)
+//	case MemAccessScalarDataLoad:
+//		return cu.handleScalarDataLoadReturn(req)
+//	case MemAccessVectorDataLoad:
+//		return cu.handleVectorDataLoadReturn(req)
+//	case MemAccessVectorDataStore:
+//		return cu.handleVectorDataStoreReturn(req)
+//	default:
+//		log.Panic("CU does not know how to handle returned memory access")
+//	}
+//	return nil
+//}
+
+func (cu *ComputeUnit) handleDataReadyRsp(rsp *mem.DataReadyRsp) error {
+	info, found := cu.inFlightMemAccess[rsp.RespondTo]
+	if !found {
+		log.Panic("memory access request not sent from the unit")
+	}
+
 	switch info.Action {
 	case MemAccessInstFetch:
-		return cu.handleFetchReturn(req)
+		return cu.handleFetchReturn(rsp, info)
 	case MemAccessScalarDataLoad:
-		return cu.handleScalarDataLoadReturn(req)
+		return cu.handleScalarDataLoadReturn(rsp, info)
 	case MemAccessVectorDataLoad:
-		return cu.handleVectorDataLoadReturn(req)
-	case MemAccessVectorDataStore:
-		return cu.handleVectorDataStoreReturn(req)
-	default:
-		log.Panic("CU does not know how to handle returned memory access")
+		return cu.handleVectorDataLoadReturn(rsp, info)
 	}
+
 	return nil
 }
 
-func (cu *ComputeUnit) handleFetchReturn(req *mem.AccessReq) error {
-	info := req.Info.(*MemAccessInfo)
+func (cu *ComputeUnit) handleMemDoneRsp(rsp *mem.DoneRsp) error {
+	info, found := cu.inFlightMemAccess[rsp.RespondTo]
+	if !found {
+		log.Panic("memory access request not sent from the unit")
+	}
+
+	return cu.handleVectorDataStoreRsp(rsp, info)
+}
+
+func (cu *ComputeUnit) handleFetchReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
 	wf := info.Wf
 	wf.State = WfFetched
-	wf.LastFetchTime = req.Time()
+	wf.LastFetchTime = rsp.Time()
 
-	inst, err := cu.Decoder.Decode(req.Buf)
+	inst, err := cu.Decoder.Decode(rsp.Data)
 	if err != nil {
 		return err
 	}
 	managedInst := wf.ManagedInst()
 	managedInst.Inst = inst
 	wf.PC += uint64(managedInst.ByteSize)
+	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
 	// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
 	// wf.State = WfReady
 
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), managedInst, "FetchDone"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), managedInst, "FetchDone"})
 
 	return nil
 }
 
-func (cu *ComputeUnit) handleScalarDataLoadReturn(req *mem.AccessReq) error {
-	info := req.Info.(*MemAccessInfo)
+func (cu *ComputeUnit) handleScalarDataLoadReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
 	wf := info.Wf
 
 	access := new(RegisterAccess)
 	access.WaveOffset = wf.SRegOffset
 	access.Reg = info.Dst
-	access.RegCount = int(req.ByteSize / 4)
-	access.Data = req.Buf
+	access.RegCount = int(len(rsp.Data) / 4)
+	access.Data = rsp.Data
 	cu.SRegFile.Write(access)
 
 	wf.OutstandingScalarMemAccess -= 1
+	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 
 	return nil
 }
 
-func (cu *ComputeUnit) handleVectorDataLoadReturn(req *mem.AccessReq) error {
-	info := req.Info.(*MemAccessInfo)
+func (cu *ComputeUnit) handleVectorDataLoadReturn(
+	rsp *mem.DataReadyRsp,
+	info *MemAccessInfo,
+) error {
 	wf := info.Wf
 
 	for i := 0; i < 64; i++ {
 		addr := info.PreCoalescedAddrs[i]
 		addrCacheLineID := addr & 0xffffffffffffffc0
 		addrCacheLineOffset := addr & 0x000000000000003f
-		if addrCacheLineID != req.Address {
+		if addrCacheLineID != info.Address {
 			continue
 		}
 
@@ -357,29 +392,31 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(req *mem.AccessReq) error {
 		access.Reg = info.Dst
 		access.RegCount = info.RegCount
 		access.LaneID = i
-		access.Data = req.Buf[addrCacheLineOffset : addrCacheLineOffset+uint64(4*info.RegCount)]
+		access.Data = rsp.Data[addrCacheLineOffset : addrCacheLineOffset+uint64(4*info.RegCount)]
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
+
+	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
 	return nil
 }
 
-func (cu *ComputeUnit) handleVectorDataStoreReturn(req *mem.AccessReq) error {
-	info := req.Info.(*MemAccessInfo)
+func (cu *ComputeUnit) handleVectorDataStoreRsp(rsp *mem.DoneRsp, info *MemAccessInfo) error {
 	wf := info.Wf
 
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{req.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
+	delete(cu.inFlightMemAccess, rsp.RespondTo)
 	return nil
 }

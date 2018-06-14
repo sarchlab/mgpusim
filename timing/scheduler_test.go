@@ -91,22 +91,17 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewAccessReq()
-		reqToExpect.SetSrc(cu)
-		reqToExpect.SetDst(instMem)
-		reqToExpect.Address = 8064
-		reqToExpect.ByteSize = 8
-		reqToExpect.Type = mem.Read
-		reqToExpect.SetSendTime(10)
+		reqToExpect := mem.NewReadReq(10, cu, instMem, 8064, 8)
+		toInstMemConn.ExpectSend(reqToExpect, nil)
+
 		info := new(MemAccessInfo)
 		info.Action = MemAccessInstFetch
 		info.Wf = wf
-		reqToExpect.Info = info
-		toInstMemConn.ExpectSend(reqToExpect, nil)
 
 		scheduler.DoFetch(10)
 
 		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
+		Expect(cu.inFlightMemAccess).To(HaveLen(1))
 		Expect(wf.State).To(Equal(WfFetching))
 	})
 

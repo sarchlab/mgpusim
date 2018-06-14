@@ -14,8 +14,8 @@ type VectorMemoryUnit struct {
 
 	scratchpadPreparer ScratchpadPreparer
 
-	ReadBuf      []*mem.AccessReq
-	WriteBuf     []*mem.AccessReq
+	ReadBuf      []*mem.ReadReq
+	WriteBuf     []*mem.WriteReq
 	ReadBufSize  int
 	WriteBufSize int
 
@@ -35,10 +35,10 @@ func NewVectorMemoryUnit(
 	u.scratchpadPreparer = scratchpadPreparer
 
 	u.ReadBufSize = 256
-	u.ReadBuf = make([]*mem.AccessReq, 0, u.ReadBufSize)
+	u.ReadBuf = make([]*mem.ReadReq, 0, u.ReadBufSize)
 
 	u.WriteBufSize = 256
-	u.WriteBuf = make([]*mem.AccessReq, 0, u.WriteBufSize)
+	u.WriteBuf = make([]*mem.WriteReq, 0, u.WriteBufSize)
 
 	return u
 }
@@ -157,24 +157,23 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 	registerCount int,
 	now core.VTimeInSec,
 ) {
-	info := new(MemAccessInfo)
-	info.Action = MemAccessVectorDataLoad
-	info.PreCoalescedAddrs = preCoalescedAddrs
-	info.Wf = u.toExec
-	info.Inst = info.Wf.inst
-	info.Dst = info.Wf.inst.Dst.Register
-	info.RegCount = registerCount
-	info.TotalReqs = len(coalescedAddrs)
-	for _, addr := range coalescedAddrs {
-		req := mem.NewAccessReq()
-		req.SetSendTime(now)
-		req.SetDst(u.cu.VectorMem)
-		req.SetSrc(u.cu)
-		req.Type = mem.Read
-		req.ByteSize = 64 // Always read a cache line
-		req.Address = addr
-		req.Info = info
 
+	instLevelInfo := new(InstLevelInfo)
+	instLevelInfo.Inst = u.toExec.inst
+	instLevelInfo.TotalReqs = len(coalescedAddrs)
+	instLevelInfo.ReturnedReqs = 0
+
+	for _, addr := range coalescedAddrs {
+		info := newMemAccessInfo()
+		info.InstLevelInfo = instLevelInfo
+		info.Action = MemAccessVectorDataLoad
+		info.PreCoalescedAddrs = preCoalescedAddrs
+		info.Wf = u.toExec
+		info.Dst = info.Wf.inst.Dst.Register
+		info.RegCount = registerCount
+
+		req := mem.NewReadReq(now, u.cu, u.cu.VectorMem, addr, 64)
+		u.cu.inFlightMemAccess[req.ID] = info
 		u.ReadBuf = append(u.ReadBuf, req)
 	}
 }
@@ -186,23 +185,24 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	registerCount int,
 	now core.VTimeInSec,
 ) {
-	info := new(MemAccessInfo)
-	info.Action = MemAccessVectorDataStore
-	info.PreCoalescedAddrs = preCoalescedAddrs
-	info.Wf = u.toExec
-	info.Inst = info.Wf.inst
-	info.Dst = info.Wf.inst.Dst.Register
-	info.TotalReqs = len(coalescedAddrs)
+
+	instLevelInfo := new(InstLevelInfo)
+	instLevelInfo.Inst = u.toExec.inst
+	instLevelInfo.TotalReqs = len(coalescedAddrs)
+	instLevelInfo.ReturnedReqs = 0
+
 	for _, addr := range coalescedAddrs {
-		req := mem.NewAccessReq()
-		req.SetSendTime(now)
-		req.SetDst(u.cu.VectorMem)
-		req.SetSrc(u.cu)
-		req.Type = mem.Write
-		req.ByteSize = 64 // Always read a cache line
+		info := newMemAccessInfo()
+		info.InstLevelInfo = instLevelInfo
+		info.Action = MemAccessVectorDataStore
+		info.PreCoalescedAddrs = preCoalescedAddrs
+		info.Wf = u.toExec
+		info.Dst = info.Wf.inst.Dst.Register
+		info.Address = addr
+
+		req := mem.NewWriteReq(now, u.cu, u.cu.VectorMem, addr)
 		req.Address = addr
-		req.Info = info
-		req.Buf = make([]byte, 64)
+		req.Data = make([]byte, 64)
 		for i := 0; i < 64; i++ {
 			currAddr := preCoalescedAddrs[i]
 			addrCacheLineID := currAddr & 0xffffffffffffffc0
@@ -213,13 +213,14 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 			}
 
 			for j := 0; j < registerCount; j++ {
-				copy(req.Buf[addrCacheLineOffset+uint64(4*j):addrCacheLineOffset+uint64(4*j)+4],
+				copy(req.Data[addrCacheLineOffset+uint64(4*j):addrCacheLineOffset+uint64(4*j)+4],
 					insts.Uint32ToBytes(data[i*4+j]))
 			}
 
 		}
 
 		u.WriteBuf = append(u.WriteBuf, req)
+		u.cu.inFlightMemAccess[req.ID] = info
 	}
 }
 

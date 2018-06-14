@@ -50,17 +50,12 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 
 		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
 
-		req := mem.NewAccessReq()
-		req.Address = wf.PC
-		req.Type = mem.Read
-		req.ByteSize = 8
-		req.SetDst(s.cu.InstMem)
-		req.SetSrc(s.cu)
-		req.SetSendTime(now)
+		req := mem.NewReadReq(now, s.cu, s.cu.InstMem, wf.PC, 8)
+
 		info := new(MemAccessInfo)
 		info.Action = MemAccessInstFetch
 		info.Wf = wf
-		req.Info = info
+		s.cu.inFlightMemAccess[req.ID] = info
 
 		s.cu.GetConnection("ToInstMem").Send(req)
 		wf.State = WfFetching
