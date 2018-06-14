@@ -113,11 +113,11 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 	req := mem.NewReadReq(now, u.cu, u.cu.ScalarMem,
 		sp.Base+sp.Offset, uint64(byteSize))
 
-	info := new(MemAccessInfo)
+	info := newMemAccessInfo()
 	info.Wf = u.toExec
 	info.Action = MemAccessScalarDataLoad
 	info.Dst = inst.Data.Register
-	//info.Inst = inst
+	info.Inst = inst
 	u.cu.inFlightMemAccess[req.ID] = info
 
 	u.cu.GetConnection("ToScalarMem").Send(req)
