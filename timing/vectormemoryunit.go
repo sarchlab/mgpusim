@@ -171,6 +171,7 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		info.Wf = u.toExec
 		info.Dst = info.Wf.inst.Dst.Register
 		info.RegCount = registerCount
+		info.Address = addr
 
 		req := mem.NewReadReq(now, u.cu, u.cu.VectorMem, addr, 64)
 		u.cu.inFlightMemAccess[req.ID] = info
