@@ -18,6 +18,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/gcn3/trace"
+	"gitlab.com/yaotsu/mem/cache"
 )
 
 // GPUBuilder provide services to assemble usable GPUs
@@ -120,15 +121,46 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	cuBuilder.Engine = b.engine
 	cuBuilder.Freq = b.freq
 	cuBuilder.Decoder = insts.NewDisassembler()
-	cuBuilder.InstMem = gpuMem
-	cuBuilder.ScalarMem = gpuMem
-	cuBuilder.VectorMem = gpuMem
 	cuBuilder.ConnToInstMem = connection
 	cuBuilder.ConnToScalarMem = connection
 	cuBuilder.ConnToVectorMem = connection
 
+	cacheBuilder := new(cache.Builder)
+	cacheBuilder.Engine = b.engine
+	dCaches := make([]core.Component, 0, 64)
+	kCaches := make([]core.Component, 0, 16)
+	iCaches := make([]core.Component, 0, 16)
+
+	for i := 0; i < 64; i++ {
+		cache := cacheBuilder.BuildWriteAroundCache(
+			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB)
+		cache.LowModule = gpuMem
+		core.PlugIn(cache, "ToTop", connection)
+		core.PlugIn(cache, "ToBottom", connection)
+		dCaches = append(dCaches, cache)
+	}
+
+	for i := 0; i < 16; i++ {
+		kCache := cacheBuilder.BuildWriteAroundCache(
+			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB)
+		kCache.LowModule = gpuMem
+		core.PlugIn(kCache, "ToTop", connection)
+		core.PlugIn(kCache, "ToBottom", connection)
+		kCaches = append(kCaches, kCache)
+
+		iCache := cacheBuilder.BuildWriteAroundCache(
+			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
+		iCache.LowModule = gpuMem
+		core.PlugIn(iCache, "ToTop", connection)
+		core.PlugIn(iCache, "ToBottom", connection)
+		iCaches = append(iCaches, iCache)
+	}
+
 	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
+		cuBuilder.InstMem = iCaches[i/4]
+		cuBuilder.ScalarMem = kCaches[i/4]
+		cuBuilder.VectorMem = dCaches[i]
 		cu := cuBuilder.Build()
 		dispatcher.RegisterCU(cu)
 
