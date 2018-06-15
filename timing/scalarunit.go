@@ -53,6 +53,7 @@ func (u *ScalarUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
 func (u *ScalarUnit) Run(now core.VTimeInSec) {
+	u.sendRequest(now)
 	u.runWriteStage(now)
 	u.runExecStage(now)
 	u.runReadStage(now)
@@ -144,4 +145,8 @@ func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {
 
 	u.toWrite.State = WfReady
 	u.toWrite = nil
+}
+
+func (u *ScalarUnit) sendRequest(now core.VTimeInSec) {
+
 }
