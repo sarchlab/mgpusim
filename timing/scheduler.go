@@ -48,17 +48,18 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		wf.inst = NewInst(nil)
 		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
-		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
-
 		req := mem.NewReadReq(now, s.cu, s.cu.InstMem, wf.PC, 8)
 
-		info := new(MemAccessInfo)
-		info.Action = MemAccessInstFetch
-		info.Wf = wf
-		s.cu.inFlightMemAccess[req.ID] = info
+		err := s.cu.GetConnection("ToInstMem").Send(req)
+		if err == nil {
+			info := new(MemAccessInfo)
+			info.Action = MemAccessInstFetch
+			info.Wf = wf
+			s.cu.inFlightMemAccess[req.ID] = info
+			wf.State = WfFetching
 
-		s.cu.GetConnection("ToInstMem").Send(req)
-		wf.State = WfFetching
+			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
+		}
 	}
 }
 

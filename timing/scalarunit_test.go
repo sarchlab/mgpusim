@@ -6,7 +6,6 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem"
 )
 
 type mockScratchpadPreparer struct {
@@ -122,15 +121,16 @@ var _ = Describe("Scalar Unit", func() {
 		sp.Base = 0x1000
 		sp.Offset = 0x24
 
-		expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 4)
-		conn.ExpectSend(expectedReq, nil)
+		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 4)
+		//conn.ExpectSend(expectedReq, nil)
 
 		bu.Run(10)
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(len(cu.inFlightMemAccess)).To(Equal(1))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
+		//Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(bu.readBuf).To(HaveLen(1))
 	})
 
 	It("should run s_load_dwordx2", func() {
@@ -147,15 +147,15 @@ var _ = Describe("Scalar Unit", func() {
 		sp.Base = 0x1000
 		sp.Offset = 0x24
 
-		expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 8)
-		conn.ExpectSend(expectedReq, nil)
+		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 8)
+		//conn.ExpectSend(expectedReq, nil)
 
 		bu.Run(10)
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(len(cu.inFlightMemAccess)).To(Equal(1))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
-
+		//Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(bu.readBuf).To(HaveLen(1))
 	})
 })

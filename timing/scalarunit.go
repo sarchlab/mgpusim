@@ -19,6 +19,9 @@ type ScalarUnit struct {
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
+
+	readBufSize int
+	readBuf     []*mem.ReadReq
 }
 
 // NewScalarUnit creates a new Scalar unit, injecting the dependency of
@@ -32,6 +35,8 @@ func NewScalarUnit(
 	u.cu = cu
 	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
+	u.readBufSize = 16
+	u.readBuf = make([]*mem.ReadReq, 0, u.readBufSize)
 	return u
 }
 
@@ -108,21 +113,23 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 	inst := u.toExec.inst
 	sp := u.toExec.Scratchpad().AsSMEM()
 
-	u.toExec.OutstandingScalarMemAccess += 1
+	//u.cu.GetConnection("ToScalarMem").Send(req)
+	if len(u.readBuf) < u.readBufSize {
+		u.toExec.OutstandingScalarMemAccess += 1
 
-	req := mem.NewReadReq(now, u.cu, u.cu.ScalarMem,
-		sp.Base+sp.Offset, uint64(byteSize))
+		req := mem.NewReadReq(now, u.cu, u.cu.ScalarMem,
+			sp.Base+sp.Offset, uint64(byteSize))
+		u.readBuf = append(u.readBuf, req)
 
-	info := newMemAccessInfo()
-	info.Wf = u.toExec
-	info.Action = MemAccessScalarDataLoad
-	info.Dst = inst.Data.Register
-	info.Inst = inst
-	u.cu.inFlightMemAccess[req.ID] = info
+		info := newMemAccessInfo()
+		info.Wf = u.toExec
+		info.Action = MemAccessScalarDataLoad
+		info.Dst = inst.Data.Register
+		info.Inst = inst
+		u.cu.inFlightMemAccess[req.ID] = info
 
-	u.cu.GetConnection("ToScalarMem").Send(req)
-
-	u.toExec.State = WfReady
+		u.toExec.State = WfReady
+	}
 }
 
 func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {

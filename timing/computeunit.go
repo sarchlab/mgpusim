@@ -96,8 +96,6 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 		return cu.handleTickEvent(evt)
 	case *WfCompletionEvent:
 		return cu.handleWfCompletionEvent(evt)
-	//case *mem.AccessReq:
-	//	return cu.handleMemAccessReq(evt)
 	case *mem.DataReadyRsp:
 		return cu.handleDataReadyRsp(evt)
 	case *mem.DoneRsp:
