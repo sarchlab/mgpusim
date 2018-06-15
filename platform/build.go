@@ -1,13 +1,9 @@
 package platform
 
 import (
-	"log"
-	"os"
-
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/connections"
 	"gitlab.com/yaotsu/core/engines"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/driver"
 	"gitlab.com/yaotsu/gcn3/gpubuilder"
@@ -65,7 +61,7 @@ func BuildR9NanoPlatform() (
 	} else {
 		engine = engines.NewSerialEngine()
 	}
-	engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
 	connection := connections.NewDirectConnection(engine)

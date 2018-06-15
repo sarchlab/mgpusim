@@ -288,23 +288,6 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
 	return wf
 }
 
-//func (cu *ComputeUnit) handleMemAccessReq(req *mem.AccessReq) error {
-//	info := req.Info.(*MemAccessInfo)
-//	switch info.Action {
-//	case MemAccessInstFetch:
-//		return cu.handleFetchReturn(req)
-//	case MemAccessScalarDataLoad:
-//		return cu.handleScalarDataLoadReturn(req)
-//	case MemAccessVectorDataLoad:
-//		return cu.handleVectorDataLoadReturn(req)
-//	case MemAccessVectorDataStore:
-//		return cu.handleVectorDataStoreReturn(req)
-//	default:
-//		log.Panic("CU does not know how to handle returned memory access")
-//	}
-//	return nil
-//}
-
 func (cu *ComputeUnit) handleDataReadyRsp(rsp *mem.DataReadyRsp) error {
 	info, found := cu.inFlightMemAccess[rsp.RespondTo]
 	if !found {
