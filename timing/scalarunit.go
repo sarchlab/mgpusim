@@ -148,5 +148,12 @@ func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {
 }
 
 func (u *ScalarUnit) sendRequest(now core.VTimeInSec) {
-
+	if len(u.readBuf) > 0 {
+		req := u.readBuf[0]
+		req.SetSendTime(now)
+		err := u.cu.GetConnection("ToScalarMem").Send(req)
+		if err == nil {
+			u.readBuf = u.readBuf[1:]
+		}
+	}
 }

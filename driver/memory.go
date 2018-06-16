@@ -95,7 +95,7 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	for i, chunk := range mask.Chunks {
 		if !chunk.Occupied && chunk.ByteSize >= byteSize {
 
-			ptr := ((uint64(chunk.Ptr) - 1) / alignment) + 1*alignment
+			ptr := (((uint64(chunk.Ptr) - 1) / alignment) + 1) * alignment
 			if chunk.ByteSize-(ptr-uint64(chunk.Ptr)) < byteSize {
 				continue
 			}
