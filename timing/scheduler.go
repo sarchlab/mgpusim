@@ -49,6 +49,14 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
 		req := mem.NewReadReq(now, s.cu, s.cu.InstMem, wf.PC, 8)
+		if wf.PC%64 == 60 {
+			req.ByteSize = 4
+		}
+
+		if len(wf.FetchBuffer) == 4 {
+			req.ByteSize = 4
+			req.Address = wf.PC + 4
+		}
 
 		err := s.cu.GetConnection("ToInstMem").Send(req)
 		if err == nil {
