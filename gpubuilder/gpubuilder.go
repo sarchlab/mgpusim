@@ -161,6 +161,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		cuBuilder.InstMem = iCaches[i/4]
 		cuBuilder.ScalarMem = kCaches[i/4]
 		cuBuilder.VectorMem = dCaches[i]
+		//cuBuilder.InstMem = gpuMem
+		//cuBuilder.ScalarMem = gpuMem
+		//cuBuilder.VectorMem = gpuMem
 		cu := cuBuilder.Build()
 		dispatcher.RegisterCU(cu)
 

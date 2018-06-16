@@ -94,12 +94,43 @@ var _ = Describe("Scheduler", func() {
 		reqToExpect := mem.NewReadReq(10, cu, instMem, 8064, 8)
 		toInstMemConn.ExpectSend(reqToExpect, nil)
 
-		info := new(MemAccessInfo)
-		info.Action = MemAccessInstFetch
-		info.Wf = wf
+		//info := new(MemAccessInfo)
+		//info.Action = MemAccessInstFetch
+		//info.Wf = wf
 
 		scheduler.DoFetch(10)
 
+		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
+		Expect(cu.inFlightMemAccess).To(HaveLen(1))
+		Expect(wf.State).To(Equal(WfFetching))
+	})
+
+	It("should only fetch 4 bytes if the next 8-bytes goes across cache lines", func() {
+		wf := new(Wavefront)
+		wf.PC = 60
+		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
+			[]*Wavefront{wf})
+
+		reqToExpect := mem.NewReadReq(10, cu, instMem, 60, 4)
+		toInstMemConn.ExpectSend(reqToExpect, nil)
+
+		scheduler.DoFetch(10)
+		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
+		Expect(cu.inFlightMemAccess).To(HaveLen(1))
+		Expect(wf.State).To(Equal(WfFetching))
+	})
+
+	It("should only fetch 4 bytes if there are already 4 bytes in the fetch buffer", func() {
+		wf := new(Wavefront)
+		wf.PC = 60
+		wf.FetchBuffer = []byte{1, 2, 3, 4}
+		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
+			[]*Wavefront{wf})
+
+		reqToExpect := mem.NewReadReq(10, cu, instMem, 64, 4)
+		toInstMemConn.ExpectSend(reqToExpect, nil)
+
+		scheduler.DoFetch(10)
 		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
 		Expect(cu.inFlightMemAccess).To(HaveLen(1))
 		Expect(wf.State).To(Equal(WfFetching))
