@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/mem"
 )
 
 type mockScratchpadPreparer struct {
@@ -157,5 +158,32 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(len(cu.inFlightMemAccess)).To(Equal(1))
 		//Expect(conn.AllExpectedSent()).To(BeTrue())
 		Expect(bu.readBuf).To(HaveLen(1))
+	})
+
+	It("should send request out", func() {
+		req := mem.NewReadReq(10, cu, scalarMem, 1024, 4)
+		bu.readBuf = append(bu.readBuf, req)
+
+		expectedReq := mem.NewReadReq(11, cu, scalarMem, 1024, 4)
+		conn.ExpectSend(expectedReq, nil)
+
+		bu.Run(11)
+
+		Expect(bu.readBuf).To(HaveLen(0))
+		Expect(conn.AllExpectedSent()).To(BeTrue())
+	})
+
+	It("should retry if send request failed", func() {
+		req := mem.NewReadReq(10, cu, scalarMem, 1024, 4)
+		bu.readBuf = append(bu.readBuf, req)
+
+		expectedReq := mem.NewReadReq(11, cu, scalarMem, 1024, 4)
+		err := core.NewError("Busy", true, 12)
+		conn.ExpectSend(expectedReq, err)
+
+		bu.Run(11)
+
+		Expect(bu.readBuf).To(HaveLen(1))
+		Expect(conn.AllExpectedSent()).To(BeTrue())
 	})
 })
