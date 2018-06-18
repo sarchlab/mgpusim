@@ -3,6 +3,7 @@
 import re
 import subprocess
 
+import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('agg')
@@ -21,9 +22,12 @@ def run_benchmark(cmd, cwd):
 def main():
     """ main function """
     data_columns = ['benchmark','time']
-    df = pd.DataFrame(columns=data_columns)
+    data = pd.DataFrame(columns=data_columns)
 
-    benchmark_arr = ['empty_kernel','atomics','barrier','bitwise_ops','branching','dp_add','dp_div','dp_mul','valu_add','valu_div','valu_mul']
+    benchmark_arr = ['empty_kernel','atomics','barrier','bitwise_ops',
+                     'branching','dp_add','dp_div','dp_mul','valu_add',
+                     'valu_div','valu_mul',
+                    ]
     for bm in benchmark_arr:
         process = subprocess.Popen("make", shell=True, cwd=bm,
                                 stdout=subprocess.DEVNULL)
@@ -31,16 +35,17 @@ def main():
 
         for i in range(1, 21):
             time = run_benchmark('./kernel', bm)
-            df = df.append(
-                pd.DataFrame([[bm, time]], columns=data_columns))
+            data = data.append(
+                pd.DataFrame([[bm, time]], columns=data_columns),
+                ignore_index=True,
+            )
 
 
-    df = df.reset_index()
-    
-    plt.figure()
-    df.plot()
-    plt.savefig('empty_kernel.pdf')
-    df.to_csv('ground_truth.csv')
+    data.to_csv('ground_truth.csv')
+
+    summary = data.groupby("benchmark").aggregate([np.mean, np.std])
+    summary.columns = ['_'.join(col).strip() for col in summary.columns.values]
+    summary.to_csv('ground_truth_summary.csv')
 
 
 if __name__ == '__main__':
