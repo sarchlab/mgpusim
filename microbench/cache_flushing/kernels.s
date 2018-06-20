@@ -27,6 +27,18 @@ microbench:                             ; @microbench
 	s_waitcnt vmcnt(0) & lgkmcnt(0)
 
 	flat_load_dword v2, v[0:1]
+	v_add_u32 v0, vcc, v0, 64
+	v_addc_u32 v1, vcc, v1, 0, vcc
+	s_waitcnt vmcnt(0) & lgkmcnt(0)
+
+	flat_load_dword v2, v[0:1]
+	v_add_u32 v0, vcc, v0, 64
+	v_addc_u32 v1, vcc, v1, 0, vcc
+	s_waitcnt vmcnt(0) & lgkmcnt(0)
+
+	flat_load_dword v2, v[0:1]
+	v_add_u32 v0, vcc, v0, 64
+	v_addc_u32 v1, vcc, v1, 0, vcc
 	s_waitcnt vmcnt(0) & lgkmcnt(0)
 
 	s_endpgm

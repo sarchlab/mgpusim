@@ -44,7 +44,7 @@ class HSAHelper {
     err = hsa_init();
     check(Initializing the hsa runtime, err);
 
-    agent = find_gpu();
+    find_gpu();
 
     err = hsa_agent_get_info(agent, HSA_AGENT_INFO_QUEUE_MAX_SIZE, &queue_size);
     check(Get agent info queue max size, err);
@@ -194,41 +194,14 @@ class HSAHelper {
   }
 
  private:
-  hsa_agent_t find_gpu() {
+  void find_gpu() {
     hsa_status_t err;
     hsa_agent_t agent;
-    err = hsa_iterate_agents(get_gpu_agent, &agent);
+    err = hsa_iterate_agents(find_gpu_device, this);
     if (err == HSA_STATUS_INFO_BREAK) {
       err = HSA_STATUS_SUCCESS;
     }
     check(Getting a gpu agent, err);
-    return agent;
-  }
-
-  hsa_region_t find_global_memory(hsa_agent_t agent) {
-    hsa_status_t err;
-    hsa_region_t region;
-
-    region.handle = (uint64_t)-1;
-    hsa_agent_iterate_regions(agent, get_global_memory_region, &region);
-    err =
-        (region.handle == (uint64_t)-1) ? HSA_STATUS_ERROR : HSA_STATUS_SUCCESS;
-    check(Finding a global memory region, err);
-
-    return region;
-  }
-
-  hsa_region_t find_kernarg_memory(hsa_agent_t agent) {
-    hsa_status_t err;
-
-    hsa_region_t region;
-    region.handle = (uint64_t)-1;
-    hsa_agent_iterate_regions(agent, get_kernarg_memory_region, &region);
-    err =
-        (region.handle == (uint64_t)-1) ? HSA_STATUS_ERROR : HSA_STATUS_SUCCESS;
-    check(Finding a kernarg memory region, err);
-
-    return region;
   }
 };
 
@@ -272,7 +245,7 @@ hsa_status_t find_gpu_device(hsa_agent_t agent, void *data)
 
   if (hsa_device_type == HSA_DEVICE_TYPE_GPU) {
     helper->agent = agent;
-    return HSA_INFO_BREAK;
+    return HSA_STATUS_INFO_BREAK;
   }
 
   return HSA_STATUS_SUCCESS;
