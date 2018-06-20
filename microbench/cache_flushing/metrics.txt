@@ -1,0 +1,10 @@
+FlatVMemInsts
+VALUUtilization
+VALUBusy
+SALUBusy
+FetchSize
+CacheHit
+MemUnitBusy
+MemUnitStalled
+WriteUnitStalled
+LDSBankConflict

@@ -75,7 +75,7 @@ public:
 };
 
 class Dispatch {
-private:
+protected:
   hsa_agent_t agent;
   hsa_agent_t cpu_agent;
   uint32_t queue_size;
@@ -130,8 +130,8 @@ public:
   void SetGPULocalRegion(hsa_region_t region);
   void SetDynamicGroupSegmentSize(uint32_t size);
   bool AllocateKernarg(uint32_t size);
-  bool Run();
-  int RunMain();
+  virtual bool Run();
+  virtual int RunMain();
   virtual bool SetupExecutable();
   virtual bool SetupCodeObject();
   bool LoadCodeObjectFromFile(const std::string& filename);
