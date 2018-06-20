@@ -127,9 +127,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	cacheBuilder := new(cache.Builder)
 	cacheBuilder.Engine = b.engine
-	dCaches := make([]core.Component, 0, 64)
-	kCaches := make([]core.Component, 0, 16)
-	iCaches := make([]core.Component, 0, 16)
+	dCaches := make([]*cache.WriteAroundCache, 0, 64)
+	kCaches := make([]*cache.WriteAroundCache, 0, 16)
+	iCaches := make([]*cache.WriteAroundCache, 0, 16)
 
 	for i := 0; i < 64; i++ {
 		cache := cacheBuilder.BuildWriteAroundCache(
@@ -138,6 +138,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		core.PlugIn(cache, "ToTop", connection)
 		core.PlugIn(cache, "ToBottom", connection)
 		dCaches = append(dCaches, cache)
+		commandProcessor.ToResetAfterKernel = append(
+			commandProcessor.ToResetAfterKernel, cache,
+		)
 	}
 
 	for i := 0; i < 16; i++ {
@@ -147,6 +150,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		core.PlugIn(kCache, "ToTop", connection)
 		core.PlugIn(kCache, "ToBottom", connection)
 		kCaches = append(kCaches, kCache)
+		commandProcessor.ToResetAfterKernel = append(
+			commandProcessor.ToResetAfterKernel, kCache,
+		)
 
 		iCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
@@ -154,6 +160,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		core.PlugIn(iCache, "ToTop", connection)
 		core.PlugIn(iCache, "ToBottom", connection)
 		iCaches = append(iCaches, iCache)
+		commandProcessor.ToResetAfterKernel = append(
+			commandProcessor.ToResetAfterKernel, iCache,
+		)
 	}
 
 	for i := 0; i < 64; i++ {
