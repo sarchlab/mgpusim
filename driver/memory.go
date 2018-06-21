@@ -79,6 +79,53 @@ func (d *Driver) AllocateMemory(
 	return 0
 }
 
+func (d *Driver) AllocateMemoryWithAlignment(
+	storage *mem.Storage,
+	byteSize uint64,
+	alignment uint64,
+) GPUPtr {
+	mask, ok := d.memoryMasks[storage]
+	if !ok {
+		// TODO: Read capacity from storage
+		mask = NewMemoryMask(4 * mem.GB)
+		d.memoryMasks[storage] = mask
+	}
+
+	//var ptr GPUPtr
+	for i, chunk := range mask.Chunks {
+		if !chunk.Occupied && chunk.ByteSize >= byteSize {
+
+			ptr := (((uint64(chunk.Ptr) - 1) / alignment) + 1) * alignment
+			if chunk.ByteSize-(ptr-uint64(chunk.Ptr)) < byteSize {
+				continue
+			}
+
+			if ptr != uint64(chunk.Ptr) {
+				firstChunk := &MemoryChunk{chunk.Ptr, ptr - uint64(chunk.Ptr), false}
+				mask.InsertChunk(i, firstChunk)
+
+				allocatedChunk := &MemoryChunk{GPUPtr(ptr), byteSize, true}
+				mask.InsertChunk(i+1, allocatedChunk)
+
+				chunk.ByteSize -= byteSize + (ptr - uint64(chunk.Ptr))
+				chunk.Ptr = GPUPtr(ptr + byteSize)
+
+			} else {
+				allocatedChunk := &MemoryChunk{GPUPtr(ptr), byteSize, true}
+				mask.InsertChunk(i, allocatedChunk)
+
+				chunk.Ptr += GPUPtr(byteSize)
+				chunk.ByteSize -= byteSize
+			}
+
+			return GPUPtr(ptr)
+		}
+	}
+
+	log.Fatalf("Cannot allocate memory")
+	return 0
+}
+
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
 // with the function AllocateMemory earlier. Error will be returned if the ptr
 // provided is invalid.
