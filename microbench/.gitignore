@@ -6,3 +6,4 @@
 *.pdf
 .ropeproject
 kernel
+.ipynb_*
