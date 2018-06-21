@@ -68,7 +68,7 @@ func initPlatform() {
 }
 
 func loadProgram() {
-	hsaco = kernels.LoadProgram("microbench/kernels.hsaco", "micobench")
+	hsaco = kernels.LoadProgram("microbench/kernels.hsaco", "")
 }
 
 func initMem() {
