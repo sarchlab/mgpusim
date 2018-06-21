@@ -75,9 +75,11 @@ microbench:                             ; @microbench
 	s_load_dwordx2 s[6:7], s[4:5], 0x0
 	s_load_dword s8, s[4:5], 0x8
 	s_mov_b32 s1, 0
+	v_mov_b32 v1, s6
+	v_mov_b32 v2, s7
 
 BB0_2:                                  ;   in Loop: Header=BB0_1 Depth=1
-	flat_load_dword v0, v[6:7]
+	flat_load_dword v0, v[1:2]
 	s_add_u32 s1, s1, 1
 	s_cmp_eq_u32 s1, s8
 	s_waitcnt vmcnt(0)
