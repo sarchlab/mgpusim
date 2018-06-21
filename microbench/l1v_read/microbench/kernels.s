@@ -83,7 +83,7 @@ BB0_2:                                  ;   in Loop: Header=BB0_1 Depth=1
 	s_add_u32 s1, s1, 1
 	s_cmp_eq_u32 s1, s8
 	s_waitcnt vmcnt(0)
-	s_cbranch_scc1 BB0_2
+	s_cbranch_scc0 BB0_2
 
 BB0_5:
 	s_endpgm
