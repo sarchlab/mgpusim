@@ -46,7 +46,7 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	du.decoded = false
 
 	du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
-		&InstHookInfo{now, "DecodeStart"})
+		&InstHookInfo{now, du.toDecode.inst, "DecodeStart"})
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
@@ -54,7 +54,7 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 func (du *DecodeUnit) Run(now core.VTimeInSec) {
 	if du.toDecode != nil && !du.decoded {
 		du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
-			&InstHookInfo{now, "DecodeDone"})
+			&InstHookInfo{now, du.toDecode.inst, "DecodeDone"})
 		du.decoded = true
 	}
 
@@ -66,7 +66,6 @@ func (du *DecodeUnit) Run(now core.VTimeInSec) {
 			execUnit.AcceptWave(du.toDecode, now)
 			du.toDecode = nil
 		}
-
 	}
 
 }

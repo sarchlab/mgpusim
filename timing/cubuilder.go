@@ -4,7 +4,6 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/emu"
-	"gitlab.com/yaotsu/mem"
 )
 
 // A Builder can construct a fully functional ComputeUnit to the outside world.
@@ -17,8 +16,6 @@ type Builder struct {
 	VGPRCount []int
 	SGPRCount int
 
-	// TODO: Remove the requirement for global storage, this is just temporary
-	GlobalStorage      *mem.Storage
 	Decoder            emu.Decoder
 	ScratchpadPreparer ScratchpadPreparer
 	ALU                emu.ALU
@@ -52,7 +49,7 @@ func (b *Builder) Build() *ComputeUnit {
 	cu.WGMapper = NewWGMapper(cu, 4)
 	cu.WfDispatcher = NewWfDispatcher(cu)
 
-	b.ALU = emu.NewALUImpl(b.GlobalStorage)
+	b.ALU = emu.NewALUImpl(nil)
 	b.ScratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {
@@ -63,6 +60,7 @@ func (b *Builder) Build() *ComputeUnit {
 	b.equipScalarUnits(cu)
 	b.equipSIMDUnits(cu)
 	b.equipLDSUnit(cu)
+	b.equipVectorMemoryUnit(cu)
 	b.equipRegisterFiles(cu)
 
 	b.connectToMem(cu)
@@ -103,11 +101,23 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.ScratchpadPreparer, b.ALU.(*emu.ALUImpl))
+	ldsUnit := NewLDSUnit(cu, b.ScratchpadPreparer, b.ALU)
 	cu.LDSUnit = ldsUnit
 
 	for i := 0; i < b.SIMDCount; i++ {
 		ldsDecoder.AddExecutionUnit(ldsUnit)
+	}
+}
+
+func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
+	vectorMemDecoder := NewDecodeUnit(cu)
+	cu.VectorMemDecoder = vectorMemDecoder
+
+	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.ScratchpadPreparer)
+	cu.VectorMemUnit = vectorMemoryUnit
+
+	for i := 0; i < b.SIMDCount; i++ {
+		vectorMemDecoder.AddExecutionUnit(vectorMemoryUnit)
 	}
 }
 

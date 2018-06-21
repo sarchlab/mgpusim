@@ -47,10 +47,8 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 	defer t.mutex.Unlock()
 
 	wf := item.(*timing.Wavefront)
-	wf.RLock()
-	inst := wf.ManagedInst()
-	wf.RUnlock()
 	instInfo := info.(*timing.InstHookInfo)
+	inst := instInfo.Inst
 
 	instTraceItem, ok := t.tracingInsts[inst]
 	if !ok {
@@ -128,7 +126,18 @@ func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface
 				Time:  float64(instInfo.Now),
 				Stage: instpb.Stage_WriteDone,
 			})
-
+	case "WaitMem":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_WaitMem,
+			})
+	case "MemReturn":
+		instTraceItem.Events = append(instTraceItem.Events,
+			&instpb.Event{
+				Time:  float64(instInfo.Now),
+				Stage: instpb.Stage_MemReturn,
+			})
 	case "Completed":
 		instTraceItem.Id = inst.ID
 		instTraceItem.Asm = inst.String(nil)

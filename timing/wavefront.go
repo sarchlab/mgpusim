@@ -20,6 +20,7 @@ const (
 	WfFetched                    // Instruction fetched, but not issued
 	WfRunning                    // Instruction in fight
 	WfCompleted                  // Wavefront completed
+	WfAtBarrier                  // Wavefront at barrier
 )
 
 // A Wavefront in the timing package contains the information of the progress
@@ -51,6 +52,9 @@ type Wavefront struct {
 	VCC  uint64
 	M0   uint32
 	SCC  uint8
+
+	OutstandingScalarMemAccess int
+	OutstandingVectorMemAccess int
 }
 
 // NewWavefront creates a new Wavefront of the timing package, wrapping the
@@ -60,6 +64,7 @@ func NewWavefront(raw *kernels.Wavefront) *Wavefront {
 	wf.Wavefront = raw
 
 	wf.scratchpad = make([]byte, 4096)
+	wf.FetchBuffer = make([]byte, 0, 8)
 
 	return wf
 }
