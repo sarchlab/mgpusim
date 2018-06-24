@@ -122,7 +122,7 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(2)))
 	})
 
-	It("should run V_MIX_U32, with src0 > src1", func() {
+	It("should run V_MIN_U32, with src0 > src1", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 14
@@ -137,7 +137,7 @@ var _ = Describe("ALU", func() {
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x20)))
 	})
 
-	It("should run V_MIX_U32, with src0 = src1", func() {
+	It("should run V_MIN_U32, with src0 = src1", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 14
@@ -152,7 +152,7 @@ var _ = Describe("ALU", func() {
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x64)))
 	})
 
-	It("should run V_MIX_U32, with src0 < src1", func() {
+	It("should run V_MIN_U32, with src0 < src1", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP2
 		state.inst.Opcode = 14
@@ -165,6 +165,51 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x20)))
+	})
+
+	It("should run V_MAX_U32, with src0 > src1", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 15
+
+		sp := state.scratchpad.AsVOP2()
+		sp.SRC0[0] = 0x64
+		sp.SRC1[0] = 0x20
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x64)))
+	})
+
+	It("should run V_MAX_U32, with src0 = src1", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 15
+
+		sp := state.scratchpad.AsVOP2()
+		sp.SRC0[0] = 0x64
+		sp.SRC1[0] = 0x64
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x64)))
+	})
+
+	It("should run V_MAX_U32, with src0 < src1", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 15
+
+		sp := state.scratchpad.AsVOP2()
+		sp.SRC0[0] = 0x20
+		sp.SRC1[0] = 0x23
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0x23)))
 	})
 
 	It("should run V_LSHRREV_B32", func() {
