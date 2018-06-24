@@ -9,6 +9,10 @@ import (
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
+type Resettable interface {
+	Reset()
+}
+
 // CommandProcessor is a Yaotsu component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
 // GPU.
@@ -20,6 +24,8 @@ type CommandProcessor struct {
 
 	Dispatcher core.Component
 	Driver     core.Component
+
+	ToResetAfterKernel []Resettable
 }
 
 // NewCommandProcessor creates a new CommandProcessor
@@ -33,7 +39,7 @@ func NewCommandProcessor(name string) *CommandProcessor {
 	return c
 }
 
-// Recv processes the incomming requests
+// Recv processes the incoming requests
 func (p *CommandProcessor) Recv(req core.Req) *core.Error {
 	switch req := req.(type) {
 	case *kernels.LaunchKernelReq:
@@ -47,11 +53,15 @@ func (p *CommandProcessor) Recv(req core.Req) *core.Error {
 func (p *CommandProcessor) processLaunchKernelReq(
 	req *kernels.LaunchKernelReq,
 ) *core.Error {
-	req.SwapSrcAndDst()
-	if req.Dst() == p.Driver {
+	if req.Src() == p.Driver {
 		req.SetDst(p.Dispatcher)
-	} else if req.Dst() == p.Dispatcher {
+		req.SetSrc(p)
+	} else if req.Src() == p.Dispatcher {
 		req.SetDst(p.Driver)
+		req.SetSrc(p)
+		for _, r := range p.ToResetAfterKernel {
+			r.Reset()
+		}
 	} else {
 		log.Fatal("The request sent to the command processor has unknown src")
 	}
