@@ -17,12 +17,25 @@ const (
 // request. When the request returns from the memory system, the compute
 // unit need the information to perform corresponding action.
 type MemAccessInfo struct {
+	*InstLevelInfo
 	Action            MemAccessAction
 	Wf                *Wavefront
 	Dst               *insts.Reg
 	RegCount          int
-	Inst              *Inst
+	Address           uint64
 	PreCoalescedAddrs [64]uint64
-	TotalReqs         int
-	ReturnedReqs      int
+}
+
+// InstLevelInfo preserves the information that is shared by multiple requests
+// generated from the same instruction
+type InstLevelInfo struct {
+	Inst         *Inst
+	TotalReqs    int
+	ReturnedReqs int
+}
+
+func newMemAccessInfo() *MemAccessInfo {
+	info := new(MemAccessInfo)
+	info.InstLevelInfo = new(InstLevelInfo)
+	return info
 }

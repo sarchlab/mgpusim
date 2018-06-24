@@ -19,6 +19,9 @@ type ScalarUnit struct {
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
+
+	readBufSize int
+	readBuf     []*mem.ReadReq
 }
 
 // NewScalarUnit creates a new Scalar unit, injecting the dependency of
@@ -32,6 +35,8 @@ func NewScalarUnit(
 	u.cu = cu
 	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
+	u.readBufSize = 16
+	u.readBuf = make([]*mem.ReadReq, 0, u.readBufSize)
 	return u
 }
 
@@ -48,6 +53,7 @@ func (u *ScalarUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
 func (u *ScalarUnit) Run(now core.VTimeInSec) {
+	u.sendRequest(now)
 	u.runWriteStage(now)
 	u.runExecStage(now)
 	u.runReadStage(now)
@@ -108,25 +114,23 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 	inst := u.toExec.inst
 	sp := u.toExec.Scratchpad().AsSMEM()
 
-	u.toExec.OutstandingScalarMemAccess += 1
+	//u.cu.GetConnection("ToScalarMem").Send(req)
+	if len(u.readBuf) < u.readBufSize {
+		u.toExec.OutstandingScalarMemAccess += 1
 
-	req := mem.NewAccessReq()
-	req.Type = mem.Read
-	req.Address = sp.Base + sp.Offset
-	req.ByteSize = uint64(byteSize)
-	req.SetSrc(u.cu)
-	req.SetDst(u.cu.ScalarMem)
-	req.SetSendTime(now)
-	info := new(MemAccessInfo)
-	info.Wf = u.toExec
-	info.Action = MemAccessScalarDataLoad
-	info.Dst = inst.Data.Register
-	info.Inst = inst
-	req.Info = info
+		req := mem.NewReadReq(now, u.cu, u.cu.ScalarMem,
+			sp.Base+sp.Offset, uint64(byteSize))
+		u.readBuf = append(u.readBuf, req)
 
-	u.cu.GetConnection("ToScalarMem").Send(req)
+		info := newMemAccessInfo()
+		info.Wf = u.toExec
+		info.Action = MemAccessScalarDataLoad
+		info.Dst = inst.Data.Register
+		info.Inst = inst
+		u.cu.inFlightMemAccess[req.ID] = info
 
-	u.toExec.State = WfReady
+		u.toExec.State = WfReady
+	}
 }
 
 func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {
@@ -141,4 +145,15 @@ func (u *ScalarUnit) runWriteStage(now core.VTimeInSec) {
 
 	u.toWrite.State = WfReady
 	u.toWrite = nil
+}
+
+func (u *ScalarUnit) sendRequest(now core.VTimeInSec) {
+	if len(u.readBuf) > 0 {
+		req := u.readBuf[0]
+		req.SetSendTime(now)
+		err := u.cu.GetConnection("ToScalarMem").Send(req)
+		if err == nil {
+			u.readBuf = u.readBuf[1:]
+		}
+	}
 }

@@ -48,22 +48,26 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		wf.inst = NewInst(nil)
 		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
-		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
+		req := mem.NewReadReq(now, s.cu, s.cu.InstMem, wf.PC, 8)
+		if wf.PC%64 == 60 {
+			req.ByteSize = 4
+		}
 
-		req := mem.NewAccessReq()
-		req.Address = wf.PC
-		req.Type = mem.Read
-		req.ByteSize = 8
-		req.SetDst(s.cu.InstMem)
-		req.SetSrc(s.cu)
-		req.SetSendTime(now)
-		info := new(MemAccessInfo)
-		info.Action = MemAccessInstFetch
-		info.Wf = wf
-		req.Info = info
+		if len(wf.FetchBuffer) == 4 {
+			req.ByteSize = 4
+			req.Address = wf.PC + 4
+		}
 
-		s.cu.GetConnection("ToInstMem").Send(req)
-		wf.State = WfFetching
+		err := s.cu.GetConnection("ToInstMem").Send(req)
+		if err == nil {
+			info := new(MemAccessInfo)
+			info.Action = MemAccessInstFetch
+			info.Wf = wf
+			s.cu.inFlightMemAccess[req.ID] = info
+			wf.State = WfFetching
+
+			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
+		}
 	}
 }
 

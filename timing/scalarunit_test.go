@@ -122,26 +122,16 @@ var _ = Describe("Scalar Unit", func() {
 		sp.Base = 0x1000
 		sp.Offset = 0x24
 
-		expectedReq := mem.NewAccessReq()
-		expectedReq.Address = 0x1024
-		expectedReq.Type = mem.Read
-		expectedReq.ByteSize = 4
-		expectedReq.SetSendTime(10)
-		expectedReq.SetDst(scalarMem)
-		expectedReq.SetSrc(cu)
-		info := new(MemAccessInfo)
-		info.Wf = wave
-		info.Action = MemAccessScalarDataLoad
-		info.Dst = insts.SReg(0)
-		info.Inst = inst
-		expectedReq.Info = info
-		conn.ExpectSend(expectedReq, nil)
+		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 4)
+		//conn.ExpectSend(expectedReq, nil)
 
 		bu.Run(10)
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(len(cu.inFlightMemAccess)).To(Equal(1))
+		//Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(bu.readBuf).To(HaveLen(1))
 	})
 
 	It("should run s_load_dwordx2", func() {
@@ -158,26 +148,42 @@ var _ = Describe("Scalar Unit", func() {
 		sp.Base = 0x1000
 		sp.Offset = 0x24
 
-		expectedReq := mem.NewAccessReq()
-		expectedReq.Address = 0x1024
-		expectedReq.Type = mem.Read
-		expectedReq.ByteSize = 8
-		expectedReq.SetSendTime(10)
-		expectedReq.SetDst(scalarMem)
-		expectedReq.SetSrc(cu)
-		info := new(MemAccessInfo)
-		info.Wf = wave
-		info.Action = MemAccessScalarDataLoad
-		info.Dst = insts.SReg(0)
-		info.Inst = inst
-		expectedReq.Info = info
-		conn.ExpectSend(expectedReq, nil)
+		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 8)
+		//conn.ExpectSend(expectedReq, nil)
 
 		bu.Run(10)
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(len(cu.inFlightMemAccess)).To(Equal(1))
+		//Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(bu.readBuf).To(HaveLen(1))
+	})
 
+	It("should send request out", func() {
+		req := mem.NewReadReq(10, cu, scalarMem, 1024, 4)
+		bu.readBuf = append(bu.readBuf, req)
+
+		expectedReq := mem.NewReadReq(11, cu, scalarMem, 1024, 4)
+		conn.ExpectSend(expectedReq, nil)
+
+		bu.Run(11)
+
+		Expect(bu.readBuf).To(HaveLen(0))
+		Expect(conn.AllExpectedSent()).To(BeTrue())
+	})
+
+	It("should retry if send request failed", func() {
+		req := mem.NewReadReq(10, cu, scalarMem, 1024, 4)
+		bu.readBuf = append(bu.readBuf, req)
+
+		expectedReq := mem.NewReadReq(11, cu, scalarMem, 1024, 4)
+		err := core.NewError("Busy", true, 12)
+		conn.ExpectSend(expectedReq, err)
+
+		bu.Run(11)
+
+		Expect(bu.readBuf).To(HaveLen(1))
+		Expect(conn.AllExpectedSent()).To(BeTrue())
 	})
 })

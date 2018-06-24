@@ -206,16 +206,14 @@ var _ = Describe("ComputeUnit", func() {
 			wf.inst = inst
 			wf.PC = 0x1000
 
-			req := mem.NewAccessReq()
-			req.SetSrc(instMem)
-			req.SetDst(cu)
+			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
+			req.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8}
 			req.SetRecvTime(10)
-			req.Type = mem.Read
-			req.ByteSize = 4
+
 			info := new(MemAccessInfo)
 			info.Action = MemAccessInstFetch
 			info.Wf = wf
-			req.Info = info
+			cu.inFlightMemAccess["out_req"] = info
 
 			rawInst := insts.NewInst()
 			decoder.Inst = rawInst
@@ -228,6 +226,66 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.PC).To(Equal(uint64(0x1004)))
 			Expect(wf.inst).To(BeIdenticalTo(inst))
 			Expect(wf.inst.Inst).To(BeIdenticalTo(rawInst))
+			Expect(cu.inFlightMemAccess).To(HaveLen(0))
+		})
+
+		It("should handle fetch return with the first 4 bytes", func() {
+			wf := NewWavefront(nil)
+			inst := NewInst(nil)
+			wf.inst = inst
+			wf.PC = 60
+			wf.LastFetchTime = 8
+
+			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
+			req.Data = []byte{1, 2, 3, 4}
+			req.SetRecvTime(10)
+
+			info := new(MemAccessInfo)
+			info.Action = MemAccessInstFetch
+			info.Wf = wf
+			cu.inFlightMemAccess["out_req"] = info
+
+			//rawInst := insts.NewInst()
+			//decoder.Inst = rawInst
+			//decoder.Inst.ByteSize = 4
+
+			cu.Handle(req)
+
+			Expect(wf.State).To(Equal(WfReady))
+			Expect(wf.LastFetchTime).To(BeNumerically("~", 8))
+			Expect(wf.PC).To(Equal(uint64(60)))
+			Expect(wf.FetchBuffer).To(Equal(req.Data))
+			Expect(cu.inFlightMemAccess).To(HaveLen(0))
+		})
+
+		It("should handle fetch return with the second 4 bytes", func() {
+			wf := NewWavefront(nil)
+			inst := NewInst(nil)
+			wf.inst = inst
+			wf.PC = 60
+			wf.LastFetchTime = 8
+			wf.FetchBuffer = []byte{1, 2, 3, 4}
+
+			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
+			req.Data = []byte{1, 2, 3, 4}
+			req.SetRecvTime(10)
+
+			info := new(MemAccessInfo)
+			info.Action = MemAccessInstFetch
+			info.Wf = wf
+			cu.inFlightMemAccess["out_req"] = info
+
+			rawInst := insts.NewInst()
+			decoder.Inst = rawInst
+			decoder.Inst.ByteSize = 4
+
+			cu.Handle(req)
+
+			Expect(wf.State).To(Equal(WfFetched))
+			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
+			Expect(wf.PC).To(Equal(uint64(64)))
+			Expect(wf.FetchBuffer).To(HaveLen(0))
+			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
 
 		It("should handle scalar data load return", func() {
@@ -238,14 +296,14 @@ var _ = Describe("ComputeUnit", func() {
 			wf.SRegOffset = 0
 			wf.OutstandingScalarMemAccess = 1
 
-			info := new(MemAccessInfo)
+			info := newMemAccessInfo()
 			info.Action = MemAccessScalarDataLoad
 			info.Wf = wf
 			info.Dst = insts.SReg(0)
+			cu.inFlightMemAccess["out_req"] = info
 
-			req := mem.NewAccessReq()
-			req.Info = info
-			req.Buf = insts.Uint32ToBytes(32)
+			req := mem.NewDataReadyRsp(10, nil, nil, "out_req")
+			req.Data = insts.Uint32ToBytes(32)
 			req.SetSendTime(10)
 
 			cu.Handle(req)
@@ -257,6 +315,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
 
 		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
@@ -268,8 +327,9 @@ var _ = Describe("ComputeUnit", func() {
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 
-			info := new(MemAccessInfo)
+			info := newMemAccessInfo()
 			info.Action = MemAccessVectorDataLoad
+			info.Address = 4096
 			info.Wf = wf
 			info.TotalReqs = 4
 			info.ReturnedReqs = 1
@@ -278,13 +338,12 @@ var _ = Describe("ComputeUnit", func() {
 			for i := 0; i < 64; i++ {
 				info.PreCoalescedAddrs[i] = uint64(4096 + i*4)
 			}
-			req := mem.NewAccessReq()
-			req.Info = info
-			req.Address = 4096
-			req.ByteSize = 64
-			req.Buf = make([]byte, 64)
+			cu.inFlightMemAccess["out_req"] = info
+
+			req := mem.NewDataReadyRsp(10, nil, nil, "out_req")
+			req.Data = make([]byte, 64)
 			for i := 0; i < 16; i++ {
-				copy(req.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
+				copy(req.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
 
 			cu.Handle(req)
@@ -299,6 +358,7 @@ var _ = Describe("ComputeUnit", func() {
 				cu.VRegFile[0].Read(access)
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
+			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 
 		})
 
@@ -311,23 +371,23 @@ var _ = Describe("ComputeUnit", func() {
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 
-			info := new(MemAccessInfo)
+			info := newMemAccessInfo()
 			info.Action = MemAccessVectorDataLoad
 			info.Wf = wf
 			info.TotalReqs = 4
 			info.ReturnedReqs = 3
 			info.Inst = inst
 			info.Dst = insts.VReg(0)
+			info.Address = 4096 + 64*3
 			for i := 0; i < 64; i++ {
 				info.PreCoalescedAddrs[i] = uint64(4096 + i*4)
 			}
-			req := mem.NewAccessReq()
-			req.Info = info
-			req.Address = 4096 + 64*3
-			req.ByteSize = 64
-			req.Buf = make([]byte, 64)
+			cu.inFlightMemAccess["out_req"] = info
+
+			req := mem.NewDataReadyRsp(10, nil, nil, "out_req")
+			req.Data = make([]byte, 64)
 			for i := 0; i < 16; i++ {
-				copy(req.Buf[i*4:i*4+4], insts.Uint32ToBytes(uint32(i+48)))
+				copy(req.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i+48)))
 			}
 
 			cu.Handle(req)
@@ -355,21 +415,22 @@ var _ = Describe("ComputeUnit", func() {
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 
-			info := new(MemAccessInfo)
+			info := newMemAccessInfo()
 			info.Action = MemAccessVectorDataStore
 			info.Wf = wf
 			info.TotalReqs = 4
 			info.ReturnedReqs = 1
 			info.Inst = inst
 			info.Dst = insts.VReg(0)
-			req := mem.NewAccessReq()
-			req.Info = info
-			req.Address = 4096 + 64*3
-			req.ByteSize = 64
+			info.Address = 4096 + 64*3
+			cu.inFlightMemAccess["out_req"] = info
+
+			req := mem.NewDoneRsp(10, nil, nil, "out_req")
 
 			cu.Handle(req)
 
 			Expect(info.ReturnedReqs).To(Equal(2))
+			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
 
 		It("should handle vector data store return and the return is the last one from an instruction", func() {
@@ -382,22 +443,23 @@ var _ = Describe("ComputeUnit", func() {
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 
-			info := new(MemAccessInfo)
+			info := newMemAccessInfo()
 			info.Action = MemAccessVectorDataStore
 			info.Wf = wf
 			info.TotalReqs = 4
 			info.ReturnedReqs = 3
 			info.Inst = inst
 			info.Dst = insts.VReg(0)
-			req := mem.NewAccessReq()
-			req.Info = info
-			req.Address = 4096 + 64*3
-			req.ByteSize = 64
+			info.Address = 4096 + 64*3
+			cu.inFlightMemAccess["out_req"] = info
+
+			req := mem.NewDoneRsp(10, nil, nil, "out_req")
 
 			cu.Handle(req)
 
 			Expect(info.ReturnedReqs).To(Equal(4))
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
 	})
 

@@ -64,6 +64,7 @@ func NewWavefront(raw *kernels.Wavefront) *Wavefront {
 	wf.Wavefront = raw
 
 	wf.scratchpad = make([]byte, 4096)
+	wf.FetchBuffer = make([]byte, 0, 8)
 
 	return wf
 }

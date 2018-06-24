@@ -104,10 +104,10 @@ func (d *Driver) LaunchKernel(
 ) {
 	d.updateLDSPointers(co, kernelArgs)
 
-	dCoData := d.AllocateMemory(storage, uint64(len(co.Data)))
+	dCoData := d.AllocateMemoryWithAlignment(storage, uint64(len(co.Data)), 4096)
 	d.MemoryCopyHostToDevice(dCoData, co.Data, storage)
 
-	dKernArgData := d.AllocateMemory(storage, uint64(binary.Size(kernelArgs)))
+	dKernArgData := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(kernelArgs)), 4096)
 	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, storage)
 
 	req := kernels.NewLaunchKernelReq()
@@ -122,7 +122,7 @@ func (d *Driver) LaunchKernel(
 	req.Packet.KernelObject = uint64(dCoData)
 	req.Packet.KernargAddress = uint64(dKernArgData)
 
-	dPacket := d.AllocateMemory(storage, uint64(binary.Size(req.Packet)))
+	dPacket := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(req.Packet)), 4096)
 	d.MemoryCopyHostToDevice(dPacket, req.Packet, storage)
 
 	startTime := d.engine.CurrentTime()

@@ -26,6 +26,16 @@ var _ = Describe("Driver", func() {
 		Expect(ptr).To(Equal(GPUPtr(8)))
 	})
 
+	It("should allocate memory with alignment", func() {
+		driver.AllocateMemory(storage, 8)
+
+		ptr := driver.AllocateMemoryWithAlignment(storage, 8, 64)
+		Expect(ptr).To(Equal(GPUPtr(64)))
+
+		ptr = driver.AllocateMemory(storage, 8)
+		Expect(ptr).To(Equal(GPUPtr(8)))
+	})
+
 	It("should free memory", func() {
 		Expect(func() { driver.FreeMemory(storage, 0) }).To(Panic())
 
