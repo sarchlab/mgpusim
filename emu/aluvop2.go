@@ -22,6 +22,8 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVMULF32(state)
 	case 8:
 		u.runVMULU32U24(state)
+	case 14:
+		u.runVMINU32(state)
 	case 15:
 		u.runVMAXU32(state)
 	case 16:
@@ -168,6 +170,28 @@ func (u *ALUImpl) runVMULU32U24(state InstEmuState) {
 		dst := src0 * src1
 		sp.DST[i] = uint64(dst)
 	}
+}
+
+func (u *ALUImpl) runVMINU32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	for i := 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, uint(i)) {
+			continue
+		}
+
+		var dst uint32
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+		if src0 < src1 {
+			dst = src0
+		} else {
+			dst = src1
+		}
+
+		sp.DST[i] = uint64(dst)
+	}
+
 }
 
 func (u *ALUImpl) runVMAXU32(state InstEmuState) {
