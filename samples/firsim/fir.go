@@ -52,7 +52,7 @@ var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
-var numData = flag.Int("dataSize", 4096, "The number of samples to filter.")
+var numData = flag.Int("data-size", 4096, "The number of samples to filter.")
 
 func main() {
 	configure()
@@ -113,8 +113,8 @@ func initMem() {
 		inputData[i] = float32(i)
 	}
 
-	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, globalMem.Storage)
-	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, gpu)
+	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, gpu)
 }
 
 func run() {
@@ -136,7 +136,7 @@ func run() {
 
 func checkResult() {
 	gpuOutput := make([]float32, dataSize)
-	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, globalMem.Storage)
+	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, gpu)
 
 	for i := 0; i < dataSize; i++ {
 		var sum float32

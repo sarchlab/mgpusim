@@ -77,10 +77,10 @@ def main():
 
     error |= compile('samples/firsim/')
     error |= run_test("FIR Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/firsim')
-    error |= run_test("FIR Emu", './firsim -verify -dataSize=8192', 'samples/firsim')
-    error |= run_test("FIR Sim", './firsim -timing -verify -dataSize=8192', 'samples/firsim')
-    error |= run_test("FIR Parallel Emu", './firsim -parallel -verify -dataSize=8192', 'samples/firsim')
-    error |= run_test("FIR Parallel Sim", './firsim -timing -parallel -verify -dataSize=8192', 'samples/firsim')
+    error |= run_test("FIR Emu", './firsim -verify -data-size=8192', 'samples/firsim')
+    error |= run_test("FIR Sim", './firsim -timing -verify -data-size=8192', 'samples/firsim')
+    error |= run_test("FIR Parallel Emu", './firsim -parallel -verify -data-size=8192', 'samples/firsim')
+    error |= run_test("FIR Parallel Sim", './firsim -timing -parallel -verify -data-size=8192', 'samples/firsim')
 
     error |= compile('samples/kmeanssim/')
     error |= run_test("KMeans Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/kmeanssim')

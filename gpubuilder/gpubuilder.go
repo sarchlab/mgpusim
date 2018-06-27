@@ -86,6 +86,12 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	gpu.CommandProcessor = commandProcessor
 	commandProcessor.Driver = gpu
 
+	localDataSource := new(cache.SingleLowModuleFinder)
+	localDataSource.LowModule = gpuMem
+	dmaEngine := gcn3.NewDMAEngine(
+		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, localDataSource)
+	commandProcessor.DMAEngine = dmaEngine
+
 	core.PlugIn(gpu, "ToCommandProcessor", connection)
 	core.PlugIn(commandProcessor, "ToDriver", connection)
 	core.PlugIn(commandProcessor, "ToDispatcher", connection)
@@ -93,6 +99,8 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
 	core.PlugIn(dispatcher, "ToCUs", connection)
 	core.PlugIn(gpuMem, "Top", connection)
+	core.PlugIn(dmaEngine, "ToCommandProcessor", connection)
+	core.PlugIn(dmaEngine, "ToMem", connection)
 
 	return gpu, gpuMem
 }
