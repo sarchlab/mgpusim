@@ -7,6 +7,8 @@ import (
 
 	"encoding/binary"
 
+	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/mem"
 )
 
@@ -161,7 +163,7 @@ func (d *Driver) FreeMemory(storage *mem.Storage, ptr GPUPtr) error {
 }
 
 // MemoryCopyHostToDevice copies a memory from the host to a GPU device.
-func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, storage *mem.Storage) {
+func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu core.Component) {
 
 	rawData := make([]byte, 0)
 	buffer := bytes.NewBuffer(rawData)
@@ -171,19 +173,24 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, storage *m
 		log.Fatal(err)
 	}
 
-	err = storage.Write(uint64(ptr), buffer.Bytes())
-	if err != nil {
-		log.Fatal(err)
-	}
+	start := d.engine.CurrentTime()
+	req := gcn3.NewMemCopyH2DReq(start, d, gpu, buffer.Bytes(), uint64(ptr))
+	d.GetConnection("ToGPUs").Send(req)
+	d.engine.Run()
+	end := d.engine.CurrentTime()
+	log.Printf("Memcpy H2D: [%.012f - %.012f]\n", start, end)
 }
 
 // MemoryCopyDeviceToHost copies a memory from a GPU device to the host
-func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, storage *mem.Storage) {
+func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, gpu core.Component) {
+	rawData := make([]byte, binary.Size(data))
 
-	rawData, err := storage.Read(uint64(ptr), uint64(binary.Size(data)))
-	if err != nil {
-		log.Fatal(err)
-	}
+	start := d.engine.CurrentTime()
+	req := gcn3.NewMemCopyD2HReq(start, d, gpu, uint64(ptr), rawData)
+	d.GetConnection("ToGPUs").Send(req)
+	d.engine.Run()
+	end := d.engine.CurrentTime()
+	log.Printf("Memcpy D2H: [%.012f - %.012f]\n", start, end)
 
 	buf := bytes.NewReader(rawData)
 	binary.Read(buf, binary.LittleEndian, data)

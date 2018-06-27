@@ -102,7 +102,7 @@ func (dma *DMAEngine) processMemCopyH2DReq(req *MemCopyH2DReq) *core.Error {
 
 	dma.progressOffset = 0
 	dma.processingReq = req
-	dma.tickLater(now)
+	dma.tickLater(dma.Freq.NextTick(now))
 	return nil
 }
 
@@ -121,7 +121,7 @@ func (dma *DMAEngine) processMemCopyD2HReq(req *MemCopyD2HReq) *core.Error {
 
 	dma.progressOffset = 0
 	dma.processingReq = req
-	dma.tickLater(now)
+	dma.tickLater(dma.Freq.NextTick(now))
 	return nil
 }
 

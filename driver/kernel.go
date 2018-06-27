@@ -48,10 +48,10 @@ func (d *Driver) ScheduleKernelLaunching(
 
 func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
 	dCoData := d.AllocateMemory(k.Storage, uint64(len(k.CO.Data)))
-	d.MemoryCopyHostToDevice(dCoData, k.CO.Data, k.Storage)
+	d.MemoryCopyHostToDevice(dCoData, k.CO.Data, k.GPU)
 
 	dKernArgData := d.AllocateMemory(k.Storage, uint64(binary.Size(k.KernelArgs)))
-	d.MemoryCopyHostToDevice(dKernArgData, k.KernelArgs, k.Storage)
+	d.MemoryCopyHostToDevice(dKernArgData, k.KernelArgs, k.GPU)
 
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = k.CO
@@ -66,7 +66,7 @@ func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
 	req.Packet.KernargAddress = uint64(dKernArgData)
 
 	dPacket := d.AllocateMemory(k.Storage, uint64(binary.Size(req.Packet)))
-	d.MemoryCopyHostToDevice(dPacket, req.Packet, k.Storage)
+	d.MemoryCopyHostToDevice(dPacket, req.Packet, k.GPU)
 
 	req.PacketAddress = uint64(dPacket)
 	req.SetSrc(d)
@@ -105,10 +105,10 @@ func (d *Driver) LaunchKernel(
 	d.updateLDSPointers(co, kernelArgs)
 
 	dCoData := d.AllocateMemoryWithAlignment(storage, uint64(len(co.Data)), 4096)
-	d.MemoryCopyHostToDevice(dCoData, co.Data, storage)
+	d.MemoryCopyHostToDevice(dCoData, co.Data, gpu)
 
 	dKernArgData := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(kernelArgs)), 4096)
-	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, storage)
+	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, gpu)
 
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = co
@@ -123,7 +123,7 @@ func (d *Driver) LaunchKernel(
 	req.Packet.KernargAddress = uint64(dKernArgData)
 
 	dPacket := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(req.Packet)), 4096)
-	d.MemoryCopyHostToDevice(dPacket, req.Packet, storage)
+	d.MemoryCopyHostToDevice(dPacket, req.Packet, gpu)
 
 	startTime := d.engine.CurrentTime()
 	if startTime < 0 {
