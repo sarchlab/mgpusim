@@ -217,6 +217,10 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		}
 	}
 
+	dmaEngine := gcn3.NewDMAEngine(
+		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, lowModuleFinderForL1)
+	commandProcessor.DMAEngine = dmaEngine
+
 	core.PlugIn(gpu, "ToCommandProcessor", connection)
 	core.PlugIn(gpu, "ToDriver", connection)
 	core.PlugIn(commandProcessor, "ToDriver", connection)
@@ -224,6 +228,8 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
 	core.PlugIn(dispatcher, "ToCUs", connection)
 	core.PlugIn(gpuMem, "Top", connection)
+	core.PlugIn(dmaEngine, "ToCommandProcessor", connection)
+	core.PlugIn(dmaEngine, "ToMem", connection)
 
 	return gpu, gpuMem
 }
