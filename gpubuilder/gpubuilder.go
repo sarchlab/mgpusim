@@ -130,17 +130,35 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	dCaches := make([]*cache.WriteAroundCache, 0, 64)
 	kCaches := make([]*cache.WriteAroundCache, 0, 16)
 	iCaches := make([]*cache.WriteAroundCache, 0, 16)
+	l2Caches := make([]*cache.WriteBackCache, 0, 6)
 
+	lowModuleFinderForL2 := new(cache.SingleLowModuleFinder)
+	lowModuleFinderForL2.LowModule = gpuMem
+	cacheBuilder.LowModuleFinder = lowModuleFinderForL2
+	lowModuleFinderForL1 := cache.NewInterleavedLowModuleFinder(4096)
+
+	for i := 0; i < 4; i++ {
+		l2Cache := cacheBuilder.BuildWriteBackCache(
+			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 512*mem.MB)
+		l2Caches = append(l2Caches, l2Cache)
+		l2Cache.Latency = 20
+		l2Cache.Freq = 1 * util.GHz
+		lowModuleFinderForL1.LowModules = append(
+			lowModuleFinderForL1.LowModules, l2Cache)
+		core.PlugIn(l2Cache, "ToTop", connection)
+		core.PlugIn(l2Cache, "ToBottom", connection)
+	}
+
+	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
 	for i := 0; i < 64; i++ {
-		cache := cacheBuilder.BuildWriteAroundCache(
+		dCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB)
-		cache.Latency = 1
-		cache.LowModule = gpuMem
-		core.PlugIn(cache, "ToTop", connection)
-		core.PlugIn(cache, "ToBottom", connection)
-		dCaches = append(dCaches, cache)
+		dCache.Latency = 1
+		core.PlugIn(dCache, "ToTop", connection)
+		core.PlugIn(dCache, "ToBottom", connection)
+		dCaches = append(dCaches, dCache)
 		commandProcessor.ToResetAfterKernel = append(
-			commandProcessor.ToResetAfterKernel, cache,
+			commandProcessor.ToResetAfterKernel, dCache,
 		)
 	}
 
@@ -148,7 +166,6 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		kCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB)
 		kCache.Latency = 1
-		kCache.LowModule = gpuMem
 		core.PlugIn(kCache, "ToTop", connection)
 		core.PlugIn(kCache, "ToBottom", connection)
 		kCaches = append(kCaches, kCache)
@@ -160,7 +177,6 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
 		iCache.Latency = 0
 		iCache.NumPort = 4
-		iCache.LowModule = gpuMem
 		core.PlugIn(iCache, "ToTop", connection)
 		core.PlugIn(iCache, "ToBottom", connection)
 		iCaches = append(iCaches, iCache)
