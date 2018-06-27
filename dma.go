@@ -83,6 +83,10 @@ func (dma *DMAEngine) Recv(req core.Req) *core.Error {
 		return dma.processMemCopyH2DReq(req)
 	case *mem.DoneRsp:
 		return dma.processDoneRsp(req)
+	case *MemCopyD2HReq:
+		return dma.processMemCopyD2HReq(req)
+	case *mem.DataReadyRsp:
+		return dma.processDataReadyRsp(req)
 	default:
 		log.Panicf("cannot process request for type %s", reflect.TypeOf(req))
 	}
@@ -108,6 +112,31 @@ func (dma *DMAEngine) processDoneRsp(rsp *mem.DoneRsp) *core.Error {
 	return nil
 }
 
+func (dma *DMAEngine) processMemCopyD2HReq(req *MemCopyD2HReq) *core.Error {
+	now := req.RecvTime()
+
+	if dma.processingReq != nil {
+		return core.NewError("Busy", true, dma.Freq.NextTick(now))
+	}
+
+	dma.progressOffset = 0
+	dma.processingReq = req
+	dma.tickLater(now)
+	return nil
+}
+
+func (dma *DMAEngine) processDataReadyRsp(rsp *mem.DataReadyRsp) *core.Error {
+	now := rsp.RecvTime()
+	dma.tickLater(dma.Freq.NextTick(now))
+
+	offset := dma.progressOffset
+	length := uint64(len(rsp.Data))
+	req := dma.processingReq.(*MemCopyD2HReq)
+	copy(req.DstBuffer[offset-length:offset], rsp.Data)
+
+	return nil
+}
+
 func (dma *DMAEngine) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *core.TickEvent:
@@ -123,6 +152,11 @@ func (dma *DMAEngine) tick(evt *core.TickEvent) error {
 	switch req := dma.processingReq.(type) {
 	case *MemCopyH2DReq:
 		return dma.doCopyH2D(now, req)
+	case *MemCopyD2HReq:
+		return dma.doCopyD2H(now, req)
+	default:
+		log.Panicf("cannot handle event for type %s in tick event",
+			reflect.TypeOf(req))
 	}
 	return nil
 }
@@ -159,11 +193,59 @@ func (dma *DMAEngine) writeMemory(now core.VTimeInSec, req *MemCopyH2DReq) {
 func (dma *DMAEngine) replyMemCopyH2D(now core.VTimeInSec, req *MemCopyH2DReq) {
 	req.SwapSrcAndDst()
 	req.SetSendTime(now)
-	dma.GetConnection("ToCommandProcessor").Send(req)
+	err := dma.GetConnection("ToCommandProcessor").Send(req)
+	if err == nil {
+		dma.processingReq = nil
+	} else {
+		dma.tickLater(dma.Freq.NoEarlierThan(err.EarliestRetry))
+	}
 }
 
 func (dma *DMAEngine) memCopyH2DCompleted(req *MemCopyH2DReq) bool {
 	return dma.progressOffset >= uint64(len(req.SrcBuffer))
+}
+
+func (dma *DMAEngine) doCopyD2H(now core.VTimeInSec, req *MemCopyD2HReq) error {
+	if dma.memCopyD2HCompleted(req) {
+		dma.replyMemCopyD2H(now, req)
+		return nil
+	}
+	dma.readMemory(now, req)
+	return nil
+}
+
+func (dma *DMAEngine) memCopyD2HCompleted(req *MemCopyD2HReq) bool {
+	return dma.progressOffset >= uint64(len(req.DstBuffer))
+}
+
+func (dma *DMAEngine) replyMemCopyD2H(now core.VTimeInSec, req *MemCopyD2HReq) {
+	req.SwapSrcAndDst()
+	req.SetSendTime(now)
+	err := dma.GetConnection("ToCommandProcessor").Send(req)
+	if err == nil {
+		dma.processingReq = nil
+	} else {
+		dma.tickLater(dma.Freq.NoEarlierThan(err.EarliestRetry))
+	}
+}
+
+func (dma *DMAEngine) readMemory(now core.VTimeInSec, req *MemCopyD2HReq) {
+	address := req.SrcAddress + dma.progressOffset
+	nextCacheLineAddress := address&0xffffffffffffffc0 + 64
+	length := nextCacheLineAddress - address
+	lengthLeft := uint64(len(req.DstBuffer)) - dma.progressOffset
+	if length > lengthLeft {
+		length = lengthLeft
+	}
+	lowModule := dma.localDataSource.Find(address)
+
+	readReq := mem.NewReadReq(now, dma, lowModule, address, length)
+	err := dma.GetConnection("ToMem").Send(readReq)
+	if err == nil {
+		dma.progressOffset += length
+	} else {
+		dma.tickLater(err.EarliestRetry)
+	}
 }
 
 func (dma *DMAEngine) tickLater(time core.VTimeInSec) {
