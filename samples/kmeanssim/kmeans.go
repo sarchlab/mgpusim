@@ -147,7 +147,7 @@ func initMem() {
 		//hFeatures[i] = float32(i)
 	}
 
-	gpuDriver.MemoryCopyHostToDevice(dFeatures, hFeatures, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(dFeatures, hFeatures, gpu)
 }
 
 func run() {
@@ -204,7 +204,7 @@ func InitializeMembership() {
 }
 
 func UpdateMembership() float64 {
-	gpuDriver.MemoryCopyHostToDevice(dClusters, hClusters, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(dClusters, hClusters, gpu)
 
 	kernArg := KMeansComputeArgs{
 		dFeaturesSwap,
@@ -224,7 +224,7 @@ func UpdateMembership() float64 {
 	)
 
 	newMembership := make([]int32, numPoints)
-	gpuDriver.MemoryCopyDeviceToHost(newMembership, dMembership, globalMem.Storage)
+	gpuDriver.MemoryCopyDeviceToHost(newMembership, dMembership, gpu)
 
 	delta := 0.0
 	for i := 0; i < numPoints; i++ {
