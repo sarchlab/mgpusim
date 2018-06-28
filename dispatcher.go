@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"fmt"
+
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/kernels"
@@ -291,6 +293,7 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 		d.scheduleMapWG(err.EarliestRetry)
 		return nil
 	}
+	fmt.Printf("Map WG to %d\n", cuID)
 
 	d.dispatchingCUID = cuID
 

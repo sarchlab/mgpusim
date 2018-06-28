@@ -17,6 +17,7 @@ import (
 var UseParallelEngine bool
 var DebugISA bool
 var TraceInst bool
+var TraceMem bool
 
 // BuildEmuPlatform creates a simple platform for emulation purposes
 func BuildEmuPlatform() (
@@ -41,6 +42,9 @@ func BuildEmuPlatform() (
 	gpuBuilder.Driver = gpuDriver
 	if DebugISA {
 		gpuBuilder.EnableISADebug = true
+	}
+	if TraceMem {
+		gpuBuilder.EnableMemTracing = true
 	}
 	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
 
@@ -77,6 +81,9 @@ func BuildR9NanoPlatform() (
 	}
 	if TraceInst {
 		gpuBuilder.EnableInstTracing = true
+	}
+	if TraceMem {
+		gpuBuilder.EnableMemTracing = true
 	}
 
 	gpu, globalMem := gpuBuilder.BuildR9Nano()

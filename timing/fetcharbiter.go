@@ -19,7 +19,7 @@ func (a *FetchArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 			wf.RLock()
 			if wf.State != WfReady {
 				wf.RUnlock()
-				break
+				continue
 			}
 
 			if wf.LastFetchTime < oldestTime {
