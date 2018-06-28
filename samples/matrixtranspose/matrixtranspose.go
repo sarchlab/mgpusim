@@ -114,7 +114,7 @@ func initMem() {
 	dInputData = gpuDriver.AllocateMemory(storage, uint64(numData*4))
 	dOutputData = gpuDriver.AllocateMemory(storage, uint64(numData*4))
 
-	gpuDriver.MemoryCopyHostToDevice(dInputData, hInputData, storage)
+	gpuDriver.MemoryCopyHostToDevice(dInputData, hInputData, gpu)
 }
 
 func run() {
@@ -134,7 +134,7 @@ func run() {
 }
 
 func checkResult() {
-	gpuDriver.MemoryCopyDeviceToHost(hOutputData, dOutputData, storage)
+	gpuDriver.MemoryCopyDeviceToHost(hOutputData, dOutputData, gpu)
 
 	for i := 0; i < width; i++ {
 		for j := 0; j < width; j++ {
