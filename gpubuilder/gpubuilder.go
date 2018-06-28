@@ -19,6 +19,7 @@ import (
 	"gitlab.com/yaotsu/gcn3/timing"
 	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem/cache"
+	memtraces "gitlab.com/yaotsu/mem/trace"
 )
 
 // GPUBuilder provide services to assemble usable GPUs
@@ -30,6 +31,7 @@ type GPUBuilder struct {
 
 	EnableISADebug    bool
 	EnableInstTracing bool
+	EnableMemTracing  bool
 }
 
 // NewGPUBuilder returns a new GPUBuilder
@@ -55,9 +57,18 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	commandProcessor := gcn3.NewCommandProcessor(b.GPUName + ".CommandProcessor")
 	commandProcessor.Dispatcher = dispatcher
 
+	var memTracer *memtraces.Tracer
+	if b.EnableMemTracing {
+		file, _ := os.Create("mem.trace")
+		memTracer = memtraces.NewTracer(file)
+	}
+
 	gpuMem := mem.NewIdealMemController(b.GPUName+".GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = 1 * util.GHz
 	gpuMem.Latency = 1
+	if b.EnableMemTracing {
+		gpuMem.AcceptHook(memTracer)
+	}
 
 	disassembler := insts.NewDisassembler()
 
@@ -109,10 +120,19 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	b.freq = 1000 * util.MHz
 	connection := connections.NewDirectConnection(b.engine)
 
+	var memTracer *memtraces.Tracer
+	if b.EnableMemTracing {
+		file, _ := os.Create("mem.trace")
+		memTracer = memtraces.NewTracer(file)
+	}
+
 	// Memory
 	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = b.freq
 	gpuMem.Latency = 100
+	if b.EnableMemTracing {
+		gpuMem.AcceptHook(memTracer)
+	}
 
 	// GPU
 	gpu := gcn3.NewGPU(b.GPUName)
@@ -155,6 +175,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 			lowModuleFinderForL1.LowModules, l2Cache)
 		core.PlugIn(l2Cache, "ToTop", connection)
 		core.PlugIn(l2Cache, "ToBottom", connection)
+		if b.EnableMemTracing {
+			l2Cache.AcceptHook(memTracer)
+		}
 	}
 
 	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
@@ -168,6 +191,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		commandProcessor.ToResetAfterKernel = append(
 			commandProcessor.ToResetAfterKernel, dCache,
 		)
+		if b.EnableMemTracing {
+			dCache.AcceptHook(memTracer)
+		}
 	}
 
 	for i := 0; i < 16; i++ {
@@ -180,6 +206,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		commandProcessor.ToResetAfterKernel = append(
 			commandProcessor.ToResetAfterKernel, kCache,
 		)
+		if b.EnableMemTracing {
+			kCache.AcceptHook(memTracer)
+		}
 
 		iCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
@@ -191,9 +220,12 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		commandProcessor.ToResetAfterKernel = append(
 			commandProcessor.ToResetAfterKernel, iCache,
 		)
+		if b.EnableMemTracing {
+			iCache.AcceptHook(memTracer)
+		}
 	}
 
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 4; i++ {
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
 		cuBuilder.InstMem = iCaches[i/4]
 		cuBuilder.ScalarMem = kCaches[i/4]
