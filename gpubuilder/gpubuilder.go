@@ -170,6 +170,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 512*mem.MB)
 		l2Caches = append(l2Caches, l2Cache)
 		l2Cache.Latency = 20
+		l2Cache.NumPort = 4
 		l2Cache.Freq = 1 * util.GHz
 		lowModuleFinderForL1.LowModules = append(
 			lowModuleFinderForL1.LowModules, l2Cache)
@@ -225,7 +226,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		}
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
 		cuBuilder.InstMem = iCaches[i/4]
 		cuBuilder.ScalarMem = kCaches[i/4]

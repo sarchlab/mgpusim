@@ -82,19 +82,14 @@ func (u *ScalarUnit) runExecStage(now core.VTimeInSec) {
 	if u.toWrite == nil {
 		if u.toExec.Inst().FormatType == insts.SMEM {
 			u.executeSMEMInst(now)
+			return
 		} else {
 			u.alu.Run(u.toExec)
-		}
-
-		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-
-		if u.toExec.Inst().FormatType == insts.SMEM {
-			u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
-		} else {
+			u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
 			u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
 			u.toWrite = u.toExec
+			u.toExec = nil
 		}
-		u.toExec = nil
 	}
 }
 
@@ -130,6 +125,8 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 		u.cu.inFlightMemAccess[req.ID] = info
 
 		u.toExec.State = WfReady
+		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
+		u.toExec = nil
 	}
 }
 
