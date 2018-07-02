@@ -175,7 +175,7 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu core.C
 
 	start := d.engine.CurrentTime()
 	req := gcn3.NewMemCopyH2DReq(start, d, gpu, buffer.Bytes(), uint64(ptr))
-	d.GetConnection("ToGPUs").Send(req)
+	d.ToGPUs.Send(req)
 	d.engine.Run()
 	end := d.engine.CurrentTime()
 	log.Printf("Memcpy H2D: [%.012f - %.012f]\n", start, end)
@@ -187,7 +187,7 @@ func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, gpu core.C
 
 	start := d.engine.CurrentTime()
 	req := gcn3.NewMemCopyD2HReq(start, d, gpu, uint64(ptr), rawData)
-	d.GetConnection("ToGPUs").Send(req)
+	d.ToGPUs.Send(req)
 	d.engine.Run()
 	end := d.engine.CurrentTime()
 	log.Printf("Memcpy D2H: [%.012f - %.012f]\n", start, end)

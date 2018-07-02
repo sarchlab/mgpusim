@@ -69,10 +69,10 @@ func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
 	d.MemoryCopyHostToDevice(dPacket, req.Packet, k.GPU)
 
 	req.PacketAddress = uint64(dPacket)
-	req.SetSrc(d)
-	req.SetDst(k.GPU)
+	req.SetSrc(d.ToGPUs)
+	req.SetDst(k.GPU.ToDriver)
 	req.SetSendTime(0) // FIXME: The time need to be retrieved from the engine
-	err := d.GetConnection("ToGPUs").Send(req)
+	err := d.ToGPUs.Send(req)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,7 +1,6 @@
 package gcn3
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -22,27 +21,31 @@ type Resettable interface {
 type CommandProcessor struct {
 	*core.ComponentBase
 
-	Dispatcher core.Component
-	DMAEngine  core.Component
-	Driver     core.Component
+	engine core.Engine
+	Freq   core.Freq
+
+	Dispatcher *core.Port
+	DMAEngine  *core.Port
+	Driver     *core.Port
 
 	ToResetAfterKernel []Resettable
+
+	ToDriver     *core.Port
+	ToDispatcher *core.Port
 }
 
-// NewCommandProcessor creates a new CommandProcessor
-func NewCommandProcessor(name string) *CommandProcessor {
-	c := new(CommandProcessor)
-	c.ComponentBase = core.NewComponentBase(name)
-
-	c.AddPort("ToDriver")
-	c.AddPort("ToDispatcher")
-
-	return c
+func (p *CommandProcessor) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	req := port.Retrieve(now)
+	core.ProcessReqAsEvent(req, p.engine, p.Freq)
 }
 
-// Recv processes the incoming requests
-func (p *CommandProcessor) Recv(req core.Req) *core.Error {
-	switch req := req.(type) {
+func (p *CommandProcessor) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	panic("implement me")
+}
+
+// Handle processes the events that is scheduled for the CommandProcessor
+func (p *CommandProcessor) Handle(e core.Event) error {
+	switch req := e.(type) {
 	case *kernels.LaunchKernelReq:
 		return p.processLaunchKernelReq(req)
 	case *MemCopyD2HReq:
@@ -50,43 +53,56 @@ func (p *CommandProcessor) Recv(req core.Req) *core.Error {
 	case *MemCopyH2DReq:
 		return p.processMemCopyReq(req)
 	default:
-		return core.NewError(
-			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
+		log.Panicf("cannot process request %s", reflect.TypeOf(req))
 	}
+	return nil
 }
 
 func (p *CommandProcessor) processLaunchKernelReq(
 	req *kernels.LaunchKernelReq,
-) *core.Error {
+) error {
 	if req.Src() == p.Driver {
 		req.SetDst(p.Dispatcher)
-		req.SetSrc(p)
+		req.SetSrc(p.ToDispatcher)
+		p.ToDispatcher.Send(req)
 	} else if req.Src() == p.Dispatcher {
 		req.SetDst(p.Driver)
-		req.SetSrc(p)
+		req.SetSrc(p.ToDriver)
 		for _, r := range p.ToResetAfterKernel {
 			r.Reset()
 		}
+		p.ToDriver.Send(req)
 	} else {
-		log.Fatal("The request sent to the command processor has unknown src")
+		log.Panic("The request sent to the command processor has unknown src")
 	}
-	return p.GetConnection("ToDispatcher").Send(req)
+	return nil
 }
 
-func (p *CommandProcessor) processMemCopyReq(req core.Req) *core.Error {
+func (p *CommandProcessor) processMemCopyReq(req core.Req) error {
 	if req.Src() == p.Driver {
 		req.SetDst(p.DMAEngine)
-		req.SetSrc(p)
+		req.SetSrc(p.ToDispatcher)
+		p.ToDispatcher.Send(req)
 	} else if req.Src() == p.DMAEngine {
 		req.SetDst(p.Driver)
-		req.SetSrc(p)
+		req.SetSrc(p.ToDriver)
+		p.ToDriver.Send(req)
 	} else {
-		log.Fatal("The request sent to the command processor has unknown src")
+		log.Panic("The request sent to the command processor has unknown src")
 	}
-	return p.GetConnection("ToDispatcher").Send(req)
+	return nil
 }
 
-// Handle processes the events that is scheduled for the CommandProcessor
-func (p *CommandProcessor) Handle(e core.Event) error {
-	return nil
+// NewCommandProcessor creates a new CommandProcessor
+func NewCommandProcessor(name string, engine core.Engine) *CommandProcessor {
+	c := new(CommandProcessor)
+	c.ComponentBase = core.NewComponentBase(name)
+
+	c.engine = engine
+	c.Freq = 1 * core.GHz
+
+	c.ToDriver = core.NewPort(c)
+	c.ToDispatcher = core.NewPort(c)
+
+	return c
 }

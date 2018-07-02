@@ -20,7 +20,7 @@ import (
 	"runtime/debug"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/connections"
+	"gitlab.com/yaotsu/core/conns"
 	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
@@ -105,7 +105,7 @@ func initPlatform() {
 	engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	host = newHostComponent()
-	connection = connections.NewDirectConnection(engine)
+	connection = conns.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = host
