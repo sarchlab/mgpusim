@@ -18,6 +18,27 @@ type Driver struct {
 	ToGPUs *core.Port
 }
 
+func (d *Driver) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	// Do nothing
+}
+
+func (d *Driver) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	// Do nothing
+}
+
+// Handle process event that is scheduled on the driver
+func (d *Driver) Handle(e core.Event) error {
+	//switch e := e.(type) {
+	//case *LaunchKernelEvent:
+	//	return d.HandleLaunchKernelEvent(e)
+
+	//default:
+	//	log.Panicf("Unable to process event")
+	//}
+	log.Panicf("Unable to process event")
+	return nil
+}
+
 // NewDriver creates a new driver
 func NewDriver(engine core.Engine) *Driver {
 	driver := new(Driver)
@@ -29,20 +50,4 @@ func NewDriver(engine core.Engine) *Driver {
 	driver.ToGPUs = core.NewPort(driver)
 
 	return driver
-}
-
-func (d *Driver) NotifyRecv(now core.VTimeInSec, port *core.Port) {
-	// Do nothing
-}
-
-// Handle process event that is scheduled on the driver
-func (d *Driver) Handle(e core.Event) error {
-	switch e := e.(type) {
-	case *LaunchKernelEvent:
-		return d.HandleLaunchKernelEvent(e)
-
-	default:
-		log.Panicf("Unable to process event")
-	}
-	return nil
 }

@@ -39,16 +39,19 @@ func (g *GPU) NotifyRecv(now core.VTimeInSec, port *core.Port) {
 //
 // A GPU should not handle any event by itself.
 func (g *GPU) Handle(e core.Event) error {
+	now := e.Time()
 	req := e.(core.Req)
 
 	if req.Src() == g.CommandProcessor { // From the CommandProcessor
 		req.SetSrc(g.ToDriver)
 		req.SetDst(g.Driver)
+		req.SetSendTime(now)
 		g.ToDriver.Send(req)
 		return nil
 	} else if req.Src() == g.Driver { // From the Driver
 		req.SetSrc(g.ToCommandProcessor)
 		req.SetDst(g.CommandProcessor)
+		req.SetSendTime(now)
 		g.ToCommandProcessor.Send(req)
 		return nil
 	}
