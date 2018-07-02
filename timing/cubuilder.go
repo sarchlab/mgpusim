@@ -2,7 +2,6 @@ package timing
 
 import (
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/emu"
 )
 
@@ -10,7 +9,7 @@ import (
 // It simplify the compute unit building process.
 type Builder struct {
 	Engine    core.Engine
-	Freq      util.Freq
+	Freq      core.Freq
 	CUName    string
 	SIMDCount int
 	VGPRCount []int
@@ -32,7 +31,7 @@ type Builder struct {
 // NewBuilder returns a default builder object
 func NewBuilder() *Builder {
 	b := new(Builder)
-	b.Freq = 800 * util.MHz
+	b.Freq = 800 * core.MHz
 	b.SIMDCount = 4
 	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}
