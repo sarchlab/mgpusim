@@ -9,7 +9,6 @@ import (
 	"gitlab.com/yaotsu/mem"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 )
 
@@ -17,13 +16,14 @@ import (
 // simulation of a GCN3 ComputeUnit
 type ComputeUnit struct {
 	*core.ComponentBase
+	ticker *core.Ticker
 
 	WGMapper     WGMapper
 	WfDispatcher WfDispatcher
 	Decoder      emu.Decoder
 
 	engine core.Engine
-	Freq   util.Freq
+	Freq   core.Freq
 
 	WfPools              []*WavefrontPool
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
@@ -47,34 +47,20 @@ type ComputeUnit struct {
 	InstMem   core.Component
 	ScalarMem core.Component
 	VectorMem core.Component
+
+	ToACE       *core.Port
+	ToInstMem   *core.Port
+	ToScalarMem *core.Port
+	ToVectorMem *core.Port
 }
 
-// NewComputeUnit returns a newly constructed compute unit
-func NewComputeUnit(
-	name string,
-	engine core.Engine,
-) *ComputeUnit {
-	cu := new(ComputeUnit)
-	cu.ComponentBase = core.NewComponentBase(name)
-
-	cu.engine = engine
-
-	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
-	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
-	cu.inFlightMemAccess = make(map[string]*MemAccessInfo)
-
-	cu.AddPort("ToACE")
-	cu.AddPort("ToInstMem")
-	cu.AddPort("ToScalarMem")
-	cu.AddPort("ToVectorMem")
-
-	return cu
+func (cu *ComputeUnit) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	req := port.Retrieve(now)
+	core.ProcessReqAsEvent(req, cu.engine, cu.Freq)
 }
 
-// Recv processes incoming requests
-func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
-	util.ProcessReqAsEvent(req, cu.engine, cu.Freq)
-	return nil
+func (cu *ComputeUnit) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	panic("implement me")
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -124,7 +110,7 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	req.Ok = ok
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.Time())
-	err := cu.GetConnection("ToACE").Send(req)
+	err := cu.ToACE.Send(req)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -415,4 +401,28 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(rsp *mem.DoneRsp, info *MemAcces
 	}
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 	return nil
+}
+
+// NewComputeUnit returns a newly constructed compute unit
+func NewComputeUnit(
+	name string,
+	engine core.Engine,
+) *ComputeUnit {
+	cu := new(ComputeUnit)
+	cu.ComponentBase = core.NewComponentBase(name)
+
+	cu.engine = engine
+	cu.Freq = 1 * core.GHz
+	cu.ticker = core.NewTicker(cu, engine, cu.Freq)
+
+	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
+	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
+	cu.inFlightMemAccess = make(map[string]*MemAccessInfo)
+
+	cu.ToACE = core.NewPort(cu)
+	cu.ToInstMem = core.NewPort(cu)
+	cu.ToScalarMem = core.NewPort(cu)
+	cu.ToVectorMem = core.NewPort(cu)
+
+	return cu
 }
