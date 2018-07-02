@@ -91,7 +91,8 @@ func configure() {
 
 func initPlatform() {
 	if *timing {
-		engine, gpu, gpuDriver, globalMem = platform.BuildR9NanoPlatform()
+		//engine, gpu, gpuDriver, globalMem = platform.BuildR9NanoPlatform()
+		panic("need more work")
 	} else {
 		engine, gpu, gpuDriver, globalMem = platform.BuildEmuPlatform()
 	}
@@ -118,8 +119,8 @@ func initMem() {
 		inputData[i] = float32(i)
 	}
 
-	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, gpu)
-	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, gpu)
+	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, gpu.ToDriver)
+	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, gpu.ToDriver)
 }
 
 func run() {
@@ -132,7 +133,7 @@ func run() {
 		0, 0, 0,
 	}
 
-	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
+	gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
 		[3]uint32{uint32(dataSize), 1, 1},
 		[3]uint16{256, 1, 1},
 		&kernArg,
@@ -141,7 +142,7 @@ func run() {
 
 func checkResult() {
 	gpuOutput := make([]float32, dataSize)
-	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, gpu)
+	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, gpu.ToDriver)
 
 	for i := 0; i < dataSize; i++ {
 		var sum float32

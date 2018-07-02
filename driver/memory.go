@@ -163,7 +163,7 @@ func (d *Driver) FreeMemory(storage *mem.Storage, ptr GPUPtr) error {
 }
 
 // MemoryCopyHostToDevice copies a memory from the host to a GPU device.
-func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu core.Component) {
+func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu *core.Port) {
 
 	rawData := make([]byte, 0)
 	buffer := bytes.NewBuffer(rawData)
@@ -174,7 +174,7 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu core.C
 	}
 
 	start := d.engine.CurrentTime()
-	req := gcn3.NewMemCopyH2DReq(start, d, gpu, buffer.Bytes(), uint64(ptr))
+	req := gcn3.NewMemCopyH2DReq(start, d.ToGPUs, gpu, buffer.Bytes(), uint64(ptr))
 	d.ToGPUs.Send(req)
 	d.engine.Run()
 	end := d.engine.CurrentTime()
@@ -182,11 +182,11 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu core.C
 }
 
 // MemoryCopyDeviceToHost copies a memory from a GPU device to the host
-func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, gpu core.Component) {
+func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, gpu *core.Port) {
 	rawData := make([]byte, binary.Size(data))
 
 	start := d.engine.CurrentTime()
-	req := gcn3.NewMemCopyD2HReq(start, d, gpu, uint64(ptr), rawData)
+	req := gcn3.NewMemCopyD2HReq(start, d.ToGPUs, gpu, uint64(ptr), rawData)
 	d.ToGPUs.Send(req)
 	d.engine.Run()
 	end := d.engine.CurrentTime()

@@ -61,16 +61,19 @@ func (p *CommandProcessor) Handle(e core.Event) error {
 func (p *CommandProcessor) processLaunchKernelReq(
 	req *kernels.LaunchKernelReq,
 ) error {
+	now := req.Time()
 	if req.Src() == p.Driver {
 		req.SetDst(p.Dispatcher)
 		req.SetSrc(p.ToDispatcher)
+		req.SetSendTime(now)
 		p.ToDispatcher.Send(req)
 	} else if req.Src() == p.Dispatcher {
-		req.SetDst(p.Driver)
-		req.SetSrc(p.ToDriver)
 		for _, r := range p.ToResetAfterKernel {
 			r.Reset()
 		}
+		req.SetDst(p.Driver)
+		req.SetSrc(p.ToDriver)
+		req.SetSendTime(now)
 		p.ToDriver.Send(req)
 	} else {
 		log.Panic("The request sent to the command processor has unknown src")
@@ -79,13 +82,16 @@ func (p *CommandProcessor) processLaunchKernelReq(
 }
 
 func (p *CommandProcessor) processMemCopyReq(req core.Req) error {
+	now := req.Time()
 	if req.Src() == p.Driver {
 		req.SetDst(p.DMAEngine)
 		req.SetSrc(p.ToDispatcher)
+		req.SetSendTime(now)
 		p.ToDispatcher.Send(req)
 	} else if req.Src() == p.DMAEngine {
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
+		req.SetSendTime(now)
 		p.ToDriver.Send(req)
 	} else {
 		log.Panic("The request sent to the command processor has unknown src")
