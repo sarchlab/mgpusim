@@ -2,7 +2,7 @@ package platform
 
 import (
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/connections"
+	"gitlab.com/yaotsu/core/conns"
 	"gitlab.com/yaotsu/core/engines"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/driver"
@@ -32,7 +32,7 @@ func BuildEmuPlatform() (
 	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
-	connection := connections.NewDirectConnection(engine)
+	connection := conns.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
@@ -68,7 +68,7 @@ func BuildR9NanoPlatform() (
 	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
-	connection := connections.NewDirectConnection(engine)
+	connection := conns.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver

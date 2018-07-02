@@ -10,6 +10,7 @@ import (
 var _ = Describe("CommandProcessor", func() {
 
 	var (
+		engine           *core.MockEngine
 		driver           *core.MockComponent
 		dispatcher       *core.MockComponent
 		commandProcessor *CommandProcessor
@@ -17,46 +18,48 @@ var _ = Describe("CommandProcessor", func() {
 	)
 
 	BeforeEach(func() {
+		engine = core.NewMockEngine()
 		connection = core.NewMockConnection()
 
 		driver = core.NewMockComponent("dispatcher")
 		dispatcher = core.NewMockComponent("dispatcher")
-		commandProcessor = NewCommandProcessor("commandProcessor")
+		commandProcessor = NewCommandProcessor("commandProcessor", engine)
 
-		commandProcessor.Dispatcher = dispatcher
-		commandProcessor.Driver = driver
+		commandProcessor.Dispatcher = dispatcher.ToOutside
+		commandProcessor.Driver = driver.ToOutside
 
-		core.PlugIn(commandProcessor, "ToDispatcher", connection)
+		connection.PlugIn(commandProcessor.ToDispatcher)
+		connection.PlugIn(commandProcessor.ToDriver)
 	})
 
 	It("should forward kernel launching request to Dispatcher", func() {
 		req := kernels.NewLaunchKernelReq()
-		req.SetSrc(driver)
-		req.SetDst(commandProcessor)
+		req.SetSrc(driver.ToOutside)
+		req.SetDst(commandProcessor.ToDriver)
 
 		reqExpect := kernels.NewLaunchKernelReq()
-		reqExpect.SetSrc(commandProcessor)
-		reqExpect.SetDst(dispatcher)
+		reqExpect.SetSrc(commandProcessor.ToDispatcher)
+		reqExpect.SetDst(dispatcher.ToOutside)
 
 		connection.ExpectSend(reqExpect, nil)
 
-		commandProcessor.Recv(req)
+		commandProcessor.Handle(req)
 
 		Expect(connection.AllExpectedSent()).To(BeTrue())
 	})
 
 	It("should forward kernel launching request to the Driver", func() {
 		req := kernels.NewLaunchKernelReq()
-		req.SetSrc(dispatcher)
-		req.SetDst(commandProcessor)
+		req.SetSrc(dispatcher.ToOutside)
+		req.SetDst(commandProcessor.ToDispatcher)
 
 		reqExpect := kernels.NewLaunchKernelReq()
-		reqExpect.SetSrc(commandProcessor)
-		reqExpect.SetDst(driver)
+		reqExpect.SetSrc(commandProcessor.ToDriver)
+		reqExpect.SetDst(driver.ToOutside)
 
 		connection.ExpectSend(reqExpect, nil)
 
-		commandProcessor.Recv(req)
+		commandProcessor.Handle(req)
 
 		Expect(connection.AllExpectedSent()).To(BeTrue())
 

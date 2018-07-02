@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/connections"
+	"gitlab.com/yaotsu/core/conns"
 	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/emu"
@@ -48,7 +48,7 @@ func NewGPUBuilder(engine core.Engine) *GPUBuilder {
 
 // BuildEmulationGPU creates a very simple GPU for emulation purposes
 func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
-	connection := connections.NewDirectConnection(b.engine)
+	connection := conns.NewDirectConnection(b.engine)
 
 	dispatcher := gcn3.NewDispatcher(b.GPUName+".Dispatcher", b.engine,
 		new(kernels.GridBuilderImpl))
@@ -118,7 +118,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 
 func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	b.freq = 1000 * util.MHz
-	connection := connections.NewDirectConnection(b.engine)
+	connection := conns.NewDirectConnection(b.engine)
 
 	var memTracer *memtraces.Tracer
 	if b.EnableMemTracing {
