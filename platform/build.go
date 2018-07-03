@@ -80,7 +80,7 @@ func BuildR9NanoPlatform() (
 		gpuBuilder.EnableMemTracing = true
 	}
 
-	gpu, globalMem := gpuBuilder.BuildR9NanoWithoutL2Cache()
+	gpu, globalMem := gpuBuilder.BuildR9Nano()
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
