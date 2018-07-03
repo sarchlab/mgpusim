@@ -205,161 +205,163 @@ func (b *GPUBuilder) BuildR9NanoWithoutCache() (*gcn3.GPU, *mem.IdealMemControll
 	return gpu, gpuMem
 }
 
-//func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
-//	b.freq = 1000 * core.MHz
-//	connection := conns.NewDirectConnection(b.engine)
-//
-//	var memTracer *memtraces.Tracer
-//	if b.EnableMemTracing {
-//		file, _ := os.Create("mem.trace")
-//		memTracer = memtraces.NewTracer(file)
-//	}
-//
-//	// Memory
-//	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
-//	gpuMem.Freq = b.freq
-//	gpuMem.Latency = 100
-//	if b.EnableMemTracing {
-//		gpuMem.AcceptHook(memTracer)
-//	}
-//
-//	// GPU
-//	gpu := gcn3.NewGPU(b.GPUName)
-//	commandProcessor := gcn3.NewCommandProcessor(b.GPUName + ".CommandProcessor")
-//	dispatcher := gcn3.NewDispatcher(b.GPUName+"Dispatcher", b.engine,
-//		new(kernels.GridBuilderImpl))
-//	dispatcher.Freq = b.freq
-//
-//	gpu.CommandProcessor = commandProcessor
-//	commandProcessor.Dispatcher = dispatcher
-//	commandProcessor.Driver = gpu
-//
-//	cuBuilder := timing.NewBuilder()
-//	cuBuilder.Engine = b.engine
-//	cuBuilder.Freq = b.freq
-//	cuBuilder.Decoder = insts.NewDisassembler()
-//	cuBuilder.ConnToInstMem = connection
-//	cuBuilder.ConnToScalarMem = connection
-//	cuBuilder.ConnToVectorMem = connection
-//
-//	cacheBuilder := new(cache.Builder)
-//	cacheBuilder.Engine = b.engine
-//	dCaches := make([]*cache.WriteAroundCache, 0, 64)
-//	kCaches := make([]*cache.WriteAroundCache, 0, 16)
-//	iCaches := make([]*cache.WriteAroundCache, 0, 16)
-//	l2Caches := make([]*cache.WriteBackCache, 0, 6)
-//
-//	lowModuleFinderForL2 := new(cache.SingleLowModuleFinder)
-//	lowModuleFinderForL2.LowModule = gpuMem
-//	cacheBuilder.LowModuleFinder = lowModuleFinderForL2
-//	lowModuleFinderForL1 := cache.NewInterleavedLowModuleFinder(4096)
-//
-//	for i := 0; i < 4; i++ {
-//		l2Cache := cacheBuilder.BuildWriteBackCache(
-//			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 512*mem.MB)
-//		l2Caches = append(l2Caches, l2Cache)
-//		l2Cache.Latency = 20
-//		l2Cache.NumPort = 4
-//		l2Cache.Freq = 1 * core.GHz
-//		lowModuleFinderForL1.LowModules = append(
-//			lowModuleFinderForL1.LowModules, l2Cache)
-//		core.PlugIn(l2Cache, "ToTop", connection)
-//		core.PlugIn(l2Cache, "ToBottom", connection)
-//		if b.EnableMemTracing {
-//			l2Cache.AcceptHook(memTracer)
-//		}
-//	}
-//
-//	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
-//	for i := 0; i < 64; i++ {
-//		dCache := cacheBuilder.BuildWriteAroundCache(
-//			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB)
-//		dCache.Latency = 1
-//		core.PlugIn(dCache, "ToTop", connection)
-//		core.PlugIn(dCache, "ToBottom", connection)
-//		dCaches = append(dCaches, dCache)
-//		commandProcessor.ToResetAfterKernel = append(
-//			commandProcessor.ToResetAfterKernel, dCache,
-//		)
-//		if b.EnableMemTracing {
-//			dCache.AcceptHook(memTracer)
-//		}
-//	}
-//
-//	for i := 0; i < 16; i++ {
-//		kCache := cacheBuilder.BuildWriteAroundCache(
-//			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB)
-//		kCache.Latency = 1
-//		core.PlugIn(kCache, "ToTop", connection)
-//		core.PlugIn(kCache, "ToBottom", connection)
-//		kCaches = append(kCaches, kCache)
-//		commandProcessor.ToResetAfterKernel = append(
-//			commandProcessor.ToResetAfterKernel, kCache,
-//		)
-//		if b.EnableMemTracing {
-//			kCache.AcceptHook(memTracer)
-//		}
-//
-//		iCache := cacheBuilder.BuildWriteAroundCache(
-//			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
-//		iCache.Latency = 0
-//		iCache.NumPort = 4
-//		core.PlugIn(iCache, "ToTop", connection)
-//		core.PlugIn(iCache, "ToBottom", connection)
-//		iCaches = append(iCaches, iCache)
-//		commandProcessor.ToResetAfterKernel = append(
-//			commandProcessor.ToResetAfterKernel, iCache,
-//		)
-//		if b.EnableMemTracing {
-//			iCache.AcceptHook(memTracer)
-//		}
-//	}
-//
-//	for i := 0; i < 64; i++ {
-//		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
-//		cuBuilder.InstMem = iCaches[i/4]
-//		cuBuilder.ScalarMem = kCaches[i/4]
-//		cuBuilder.VectorMem = dCaches[i]
-//		//cuBuilder.InstMem = gpuMem
-//		//cuBuilder.ScalarMem = gpuMem
-//		//cuBuilder.VectorMem = gpuMem
-//		cu := cuBuilder.Build()
-//		dispatcher.RegisterCU(cu)
-//
-//		core.PlugIn(cu, "ToACE", connection)
-//
-//		if b.EnableISADebug {
-//			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
-//			if err != nil {
-//				log.Fatal(err)
-//			}
-//			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
-//			cu.AcceptHook(isaDebugger)
-//		}
-//
-//		if b.EnableInstTracing {
-//			isaTraceFile, err := os.Create(fmt.Sprintf("inst_%s.trace", cu.Name()))
-//			if err != nil {
-//				log.Fatal(err)
-//			}
-//			isaTracer := trace.NewInstTracer(isaTraceFile)
-//			cu.AcceptHook(isaTracer)
-//		}
-//	}
-//
-//	dmaEngine := gcn3.NewDMAEngine(
-//		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, lowModuleFinderForL1)
-//	commandProcessor.DMAEngine = dmaEngine
-//
-//	core.PlugIn(gpu, "ToCommandProcessor", connection)
-//	core.PlugIn(gpu, "ToDriver", connection)
-//	core.PlugIn(commandProcessor, "ToDriver", connection)
-//	core.PlugIn(commandProcessor, "ToDispatcher", connection)
-//	core.PlugIn(dispatcher, "ToCommandProcessor", connection)
-//	core.PlugIn(dispatcher, "ToCUs", connection)
-//	core.PlugIn(gpuMem, "Top", connection)
-//	core.PlugIn(dmaEngine, "ToCommandProcessor", connection)
-//	core.PlugIn(dmaEngine, "ToMem", connection)
-//
-//	return gpu, gpuMem
-//}
+func (b *GPUBuilder) BuildR9NanoWithoutL2Cache() (*gcn3.GPU, *mem.IdealMemController) {
+	b.freq = 1000 * core.MHz
+	connection := core.NewDirectConnection(b.engine)
+
+	var memTracer *memtraces.Tracer
+	if b.EnableMemTracing {
+		file, _ := os.Create("mem.trace")
+		memTracer = memtraces.NewTracer(file)
+	}
+
+	// Memory
+	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
+	gpuMem.Freq = b.freq
+	gpuMem.Latency = 100
+	if b.EnableMemTracing {
+		gpuMem.AcceptHook(memTracer)
+	}
+
+	// GPU
+	gpu := gcn3.NewGPU(b.GPUName, b.engine)
+	commandProcessor := gcn3.NewCommandProcessor(b.GPUName+".CommandProcessor", b.engine)
+	dispatcher := gcn3.NewDispatcher(b.GPUName+"Dispatcher", b.engine,
+		new(kernels.GridBuilderImpl))
+	dispatcher.Freq = b.freq
+
+	gpu.CommandProcessor = commandProcessor.ToDriver
+	commandProcessor.Dispatcher = dispatcher.ToCommandProcessor
+	commandProcessor.Driver = gpu.ToCommandProcessor
+
+	cuBuilder := timing.NewBuilder()
+	cuBuilder.Engine = b.engine
+	cuBuilder.Freq = b.freq
+	cuBuilder.Decoder = insts.NewDisassembler()
+	cuBuilder.ConnToInstMem = connection
+	cuBuilder.ConnToScalarMem = connection
+	cuBuilder.ConnToVectorMem = connection
+
+	cacheBuilder := new(cache.Builder)
+	cacheBuilder.Engine = b.engine
+	dCaches := make([]*cache.WriteAroundCache, 0, 64)
+	kCaches := make([]*cache.WriteAroundCache, 0, 16)
+	iCaches := make([]*cache.WriteAroundCache, 0, 16)
+	l2Caches := make([]*cache.WriteBackCache, 0, 6)
+
+	lowModuleFinderForL2 := new(cache.SingleLowModuleFinder)
+	lowModuleFinderForL2.LowModule = gpuMem.ToTop
+	cacheBuilder.LowModuleFinder = lowModuleFinderForL2
+	//lowModuleFinderForL1 := cache.NewInterleavedLowModuleFinder(4096)
+	lowModuleFinderForL1 := new(cache.SingleLowModuleFinder)
+	lowModuleFinderForL1.LowModule = gpuMem.ToTop
+
+	for i := 0; i < 4; i++ {
+		l2Cache := cacheBuilder.BuildWriteBackCache(
+			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 512*mem.MB)
+		l2Caches = append(l2Caches, l2Cache)
+		l2Cache.Latency = 20
+		l2Cache.NumBank = 16
+		l2Cache.Freq = 1 * core.GHz
+		//lowModuleFinderForL1.LowModules = append(
+		//	lowModuleFinderForL1.LowModules, l2Cache.ToTop)
+		connection.PlugIn(l2Cache.ToTop)
+		connection.PlugIn(l2Cache.ToBottom)
+		if b.EnableMemTracing {
+			l2Cache.AcceptHook(memTracer)
+		}
+	}
+
+	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
+	for i := 0; i < 64; i++ {
+		dCache := cacheBuilder.BuildWriteAroundCache(
+			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB)
+		dCache.Latency = 1
+		connection.PlugIn(dCache.ToTop)
+		connection.PlugIn(dCache.ToBottom)
+		dCaches = append(dCaches, dCache)
+		commandProcessor.ToResetAfterKernel = append(
+			commandProcessor.ToResetAfterKernel, dCache,
+		)
+		if b.EnableMemTracing {
+			dCache.AcceptHook(memTracer)
+		}
+	}
+
+	for i := 0; i < 16; i++ {
+		kCache := cacheBuilder.BuildWriteAroundCache(
+			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB)
+		kCache.Latency = 1
+		connection.PlugIn(kCache.ToTop)
+		connection.PlugIn(kCache.ToBottom)
+		kCaches = append(kCaches, kCache)
+		commandProcessor.ToResetAfterKernel = append(
+			commandProcessor.ToResetAfterKernel, kCache,
+		)
+		if b.EnableMemTracing {
+			kCache.AcceptHook(memTracer)
+		}
+
+		iCache := cacheBuilder.BuildWriteAroundCache(
+			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
+		iCache.Latency = 0
+		iCache.NumBank = 4
+		connection.PlugIn(iCache.ToTop)
+		connection.PlugIn(iCache.ToBottom)
+		iCaches = append(iCaches, iCache)
+		commandProcessor.ToResetAfterKernel = append(
+			commandProcessor.ToResetAfterKernel, iCache,
+		)
+		if b.EnableMemTracing {
+			iCache.AcceptHook(memTracer)
+		}
+	}
+
+	for i := 0; i < 64; i++ {
+		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
+		cuBuilder.InstMem = iCaches[i/4].ToTop
+		cuBuilder.ScalarMem = kCaches[i/4].ToTop
+		cuBuilder.VectorMem = dCaches[i].ToTop
+		//cuBuilder.InstMem = gpuMem
+		//cuBuilder.ScalarMem = gpuMem
+		//cuBuilder.VectorMem = gpuMem
+		cu := cuBuilder.Build()
+		dispatcher.RegisterCU(cu.ToACE)
+
+		connection.PlugIn(cu.ToACE)
+
+		if b.EnableISADebug {
+			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
+			cu.AcceptHook(isaDebugger)
+		}
+
+		if b.EnableInstTracing {
+			isaTraceFile, err := os.Create(fmt.Sprintf("inst_%s.trace", cu.Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			isaTracer := trace.NewInstTracer(isaTraceFile)
+			cu.AcceptHook(isaTracer)
+		}
+	}
+
+	dmaEngine := gcn3.NewDMAEngine(
+		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, lowModuleFinderForL1)
+	commandProcessor.DMAEngine = dmaEngine.ToCommandProcessor
+
+	connection.PlugIn(gpu.ToCommandProcessor)
+	connection.PlugIn(gpu.ToDriver)
+	connection.PlugIn(commandProcessor.ToDriver)
+	connection.PlugIn(commandProcessor.ToDispatcher)
+	connection.PlugIn(dispatcher.ToCommandProcessor)
+	connection.PlugIn(dispatcher.ToCUs)
+	connection.PlugIn(gpuMem.ToTop)
+	connection.PlugIn(dmaEngine.ToCommandProcessor)
+	connection.PlugIn(dmaEngine.ToMem)
+
+	return gpu, gpuMem
+}
