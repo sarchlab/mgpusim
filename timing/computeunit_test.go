@@ -92,10 +92,10 @@ var _ = Describe("ComputeUnit", func() {
 		}
 
 		connection = core.NewMockConnection()
-		core.PlugIn(cu, "ToACE", connection)
+		connection.PlugIn(cu.ToACE)
 
 		instMem = core.NewMockComponent("InstMem")
-		cu.InstMem = instMem
+		cu.InstMem = instMem.ToOutside
 
 		grid = exampleGrid()
 	})
@@ -105,11 +105,13 @@ var _ = Describe("ComputeUnit", func() {
 			wgMapper.OK = true
 
 			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
+			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
 			expectedResponse.Ok = true
+			expectedResponse.SetSendTime(10)
 			expectedResponse.SetRecvTime(10)
 			connection.ExpectSend(expectedResponse, nil)
 
@@ -123,11 +125,13 @@ var _ = Describe("ComputeUnit", func() {
 			cu.WfToDispatch[wf] = new(WfDispatchInfo)
 
 			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
+			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
 			expectedResponse.Ok = false
+			expectedResponse.SetSendTime(10)
 			expectedResponse.SetRecvTime(10)
 			connection.ExpectSend(expectedResponse, nil)
 
@@ -140,12 +144,14 @@ var _ = Describe("ComputeUnit", func() {
 			wgMapper.OK = false
 
 			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
+			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
 			expectedResponse.Ok = false
 			expectedResponse.SetRecvTime(10)
+			expectedResponse.SetSendTime(10)
 			connection.ExpectSend(expectedResponse, nil)
 
 			cu.Handle(req)
@@ -160,7 +166,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.wrapWG(wg, nil)
 
 			wf := wg.Wavefronts[0]
-			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
+			req := gcn3.NewDispatchWfReq(nil, cu.ToACE, 10, wf)
 			req.SetRecvTime(11)
 
 			cu.Handle(req)
@@ -180,11 +186,11 @@ var _ = Describe("ComputeUnit", func() {
 			info.SIMDID = 0
 			cu.WfToDispatch[wf] = info
 
-			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
+			req := gcn3.NewDispatchWfReq(nil, cu.ToACE, 10, wf)
 			evt := NewWfDispatchCompletionEvent(11, cu, managedWf)
 			evt.DispatchWfReq = req
 
-			expectedResponse := gcn3.NewDispatchWfReq(cu, nil, 11, wf)
+			expectedResponse := gcn3.NewDispatchWfReq(cu.ToACE, nil, 11, wf)
 			expectedResponse.SetSendTime(11)
 			connection.ExpectSend(expectedResponse, nil)
 
@@ -206,9 +212,10 @@ var _ = Describe("ComputeUnit", func() {
 			wf.inst = inst
 			wf.PC = 0x1000
 
-			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
+			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
 			req.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8}
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
 			info := new(MemAccessInfo)
 			info.Action = MemAccessInstFetch
@@ -236,7 +243,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf.PC = 60
 			wf.LastFetchTime = 8
 
-			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
+			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
 			req.Data = []byte{1, 2, 3, 4}
 			req.SetRecvTime(10)
 
@@ -266,9 +273,10 @@ var _ = Describe("ComputeUnit", func() {
 			wf.LastFetchTime = 8
 			wf.FetchBuffer = []byte{1, 2, 3, 4}
 
-			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
+			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
 			req.Data = []byte{1, 2, 3, 4}
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
 			info := new(MemAccessInfo)
 			info.Action = MemAccessInstFetch

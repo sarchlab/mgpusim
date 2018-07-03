@@ -77,8 +77,10 @@ var _ = Describe("Scheduler", func() {
 		ldsDecoder = new(mockCUComponent)
 		cu.LDSDecoder = ldsDecoder
 
-		cu.InstMem = instMem
-		core.PlugIn(cu, "ToInstMem", toInstMemConn)
+		instMem = core.NewMockComponent("InstMem")
+
+		cu.InstMem = instMem.ToOutside
+		toInstMemConn.PlugIn(cu.ToInstMem)
 
 		fetchArbitor = newMockWfArbitor()
 		issueArbitor = newMockWfArbitor()
@@ -91,7 +93,7 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu, instMem, 8064, 8)
+		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 8064, 8)
 		toInstMemConn.ExpectSend(reqToExpect, nil)
 
 		//info := new(MemAccessInfo)
@@ -111,7 +113,7 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu, instMem, 60, 4)
+		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 60, 4)
 		toInstMemConn.ExpectSend(reqToExpect, nil)
 
 		scheduler.DoFetch(10)
@@ -127,7 +129,7 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu, instMem, 64, 4)
+		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 64, 4)
 		toInstMemConn.ExpectSend(reqToExpect, nil)
 
 		scheduler.DoFetch(10)
@@ -143,8 +145,8 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu, instMem, 8064, 8)
-		toInstMemConn.ExpectSend(reqToExpect, core.NewError("Busy", true, 11))
+		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 8064, 8)
+		toInstMemConn.ExpectSend(reqToExpect, core.NewSendError())
 
 		scheduler.DoFetch(10)
 

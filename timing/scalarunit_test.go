@@ -62,8 +62,8 @@ var _ = Describe("Scalar Unit", func() {
 		scalarMem = core.NewMockComponent("ScalarMem")
 		conn = core.NewMockConnection()
 
-		cu.ScalarMem = scalarMem
-		core.PlugIn(cu, "ToScalarMem", conn)
+		cu.ScalarMem = scalarMem.ToOutside
+		conn.PlugIn(cu.ToScalarMem)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -161,10 +161,10 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should send request out", func() {
-		req := mem.NewReadReq(10, cu, scalarMem, 1024, 4)
+		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
 		bu.readBuf = append(bu.readBuf, req)
 
-		expectedReq := mem.NewReadReq(11, cu, scalarMem, 1024, 4)
+		expectedReq := mem.NewReadReq(11, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
 		conn.ExpectSend(expectedReq, nil)
 
 		bu.Run(11)
@@ -174,11 +174,11 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should retry if send request failed", func() {
-		req := mem.NewReadReq(10, cu, scalarMem, 1024, 4)
+		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
 		bu.readBuf = append(bu.readBuf, req)
 
-		expectedReq := mem.NewReadReq(11, cu, scalarMem, 1024, 4)
-		err := core.NewError("Busy", true, 12)
+		expectedReq := mem.NewReadReq(11, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
+		err := core.NewSendError()
 		conn.ExpectSend(expectedReq, err)
 
 		bu.Run(11)

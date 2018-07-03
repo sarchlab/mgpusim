@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/kernels"
 )
 
@@ -21,7 +20,7 @@ type MapWGReq struct {
 
 // NewMapWGReq returns a newly created MapWGReq
 func NewMapWGReq(
-	src, dst core.Component,
+	src, dst *core.Port,
 	time core.VTimeInSec,
 	wg *kernels.WorkGroup,
 ) *MapWGReq {
@@ -54,7 +53,7 @@ type DispatchWfReq struct {
 
 // NewDispatchWfReq creates a DispatchWfReq
 func NewDispatchWfReq(
-	src, dst core.Component,
+	src, dst *core.Port,
 	time core.VTimeInSec,
 	wf *kernels.Wavefront,
 ) *DispatchWfReq {
@@ -92,7 +91,7 @@ type WGFinishMesg struct {
 
 // NewWGFinishMesg creates and returns a newly created WGFinishMesg
 func NewWGFinishMesg(
-	src, dst core.Component,
+	src, dst *core.Port,
 	time core.VTimeInSec,
 	wg *kernels.WorkGroup,
 ) *WGFinishMesg {
@@ -128,54 +127,6 @@ const (
 //     <=> ToCommandProcessor The connection that is connecting the dispatcher
 //         with the command processor
 //
-type Dispatcher struct {
-	*core.ComponentBase
-
-	cus    []core.Component
-	cuBusy map[core.Component]bool
-
-	engine      core.Engine
-	gridBuilder kernels.GridBuilder
-	Freq        util.Freq
-
-	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
-	dispatchingReq  *kernels.LaunchKernelReq
-	dispatchingGrid *kernels.Grid
-	dispatchingWGs  []*kernels.WorkGroup
-	completedWGs    []*kernels.WorkGroup
-	dispatchingWfs  []*kernels.Wavefront
-	dispatchingCUID int
-	state           DispatcherState
-}
-
-// NewDispatcher creates a new dispatcher
-func NewDispatcher(
-	name string,
-	engine core.Engine,
-	gridBuilder kernels.GridBuilder,
-) *Dispatcher {
-	d := new(Dispatcher)
-	d.ComponentBase = core.NewComponentBase(name)
-
-	d.gridBuilder = gridBuilder
-	d.engine = engine
-
-	d.cus = make([]core.Component, 0)
-	d.cuBusy = make(map[core.Component]bool, 0)
-	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
-	d.completedWGs = make([]*kernels.WorkGroup, 0)
-	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
-
-	d.AddPort("ToCUs")
-	d.AddPort("ToCommandProcessor")
-
-	d.state = DispatcherIdle
-
-	return d
-}
-
-// Recv starts processing incoming requests
-//
 // The protocol that is defined by the dispatcher is as follows:
 //
 // When the dispatcher receives a LaunchKernelReq request from the command
@@ -202,10 +153,37 @@ func NewDispatcher(
 //     WGFinishMesg ---- The CU send this message to the dispatcher to notify
 //                       the completion of a workgroup
 //
-func (d *Dispatcher) Recv(req core.Req) *core.Error {
-	d.InvokeHook(req, d, core.OnRecvReq, nil)
-	util.ProcessReqAsEvent(req, d.engine, d.Freq)
-	return nil
+
+type Dispatcher struct {
+	*core.ComponentBase
+
+	cus    []*core.Port
+	cuBusy map[*core.Port]bool
+
+	engine      core.Engine
+	gridBuilder kernels.GridBuilder
+	Freq        core.Freq
+
+	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
+	dispatchingReq  *kernels.LaunchKernelReq
+	dispatchingGrid *kernels.Grid
+	dispatchingWGs  []*kernels.WorkGroup
+	completedWGs    []*kernels.WorkGroup
+	dispatchingWfs  []*kernels.Wavefront
+	dispatchingCUID int
+	state           DispatcherState
+
+	ToCUs              *core.Port
+	ToCommandProcessor *core.Port
+}
+
+func (d *Dispatcher) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	req := port.Retrieve(now)
+	core.ProcessReqAsEvent(req, d.engine, d.Freq)
+}
+
+func (d *Dispatcher) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	panic("implement me")
 }
 
 // Handle perform actions when an event is triggered
@@ -262,15 +240,16 @@ func (d *Dispatcher) replyLaunchKernelReq(
 	ok bool,
 	req *kernels.LaunchKernelReq,
 	now core.VTimeInSec,
-) *core.Error {
+) *core.SendError {
 	req.OK = ok
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.RecvTime())
-	return d.GetConnection("ToCommandProcessor").Send(req)
+	return d.ToCommandProcessor.Send(req)
 }
 
 // handleMapWGEvent initiates work-group mapping
 func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
+	now := evt.Time()
 
 	if len(d.dispatchingWGs) == 0 {
 		d.state = DispatcherIdle
@@ -284,13 +263,14 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	}
 
 	CU := d.cus[cuID]
-	req := NewMapWGReq(d, CU, evt.Time(), d.dispatchingWGs[0])
+	req := NewMapWGReq(d.ToCUs, CU, now, d.dispatchingWGs[0])
 	d.state = DispatcherWaitMapWGACK
-	err := d.GetConnection("ToCUs").Send(req)
+	err := d.ToCUs.Send(req)
 	if err != nil {
-		d.scheduleMapWG(err.EarliestRetry)
+		d.scheduleMapWG(d.Freq.NextTick(now))
 		return nil
 	}
+	//fmt.Printf("Map WG to %d\n", cuID)
 
 	d.dispatchingCUID = cuID
 
@@ -334,14 +314,15 @@ func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
 }
 
 func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
+	now := evt.Time()
 	wf := d.dispatchingWfs[0]
 	cu := d.cus[d.dispatchingCUID]
 
-	req := NewDispatchWfReq(d, cu, evt.Time(), wf)
+	req := NewDispatchWfReq(d.ToCUs, cu, now, wf)
 	d.state = DispatcherWaitDispatchWFACK
-	err := d.GetConnection("ToCUs").Send(req)
+	err := d.ToCUs.Send(req)
 	if err != nil {
-		d.scheduleDispatchWfEvent(err.EarliestRetry)
+		d.scheduleDispatchWfEvent(d.Freq.NextTick(now))
 	}
 
 	return nil
@@ -388,12 +369,12 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 	d.completedWGs = nil
 	d.dispatchingReq = nil
 
-	d.GetConnection("ToCommandProcessor").Send(req)
+	d.ToCommandProcessor.Send(req)
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
 // dispatches wavefronts to the CU
-func (d *Dispatcher) RegisterCU(cu core.Component) {
+func (d *Dispatcher) RegisterCU(cu *core.Port) {
 	d.cus = append(d.cus, cu)
 	d.cuBusy[cu] = false
 }
@@ -412,4 +393,30 @@ func (d *Dispatcher) nextAvailableCU() (int, bool) {
 		}
 	}
 	return -1, false
+}
+
+// NewDispatcher creates a new dispatcher
+func NewDispatcher(
+	name string,
+	engine core.Engine,
+	gridBuilder kernels.GridBuilder,
+) *Dispatcher {
+	d := new(Dispatcher)
+	d.ComponentBase = core.NewComponentBase(name)
+
+	d.gridBuilder = gridBuilder
+	d.engine = engine
+
+	d.cus = make([]*core.Port, 0)
+	d.cuBusy = make(map[*core.Port]bool, 0)
+	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
+	d.completedWGs = make([]*kernels.WorkGroup, 0)
+	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
+
+	d.ToCommandProcessor = core.NewPort(d)
+	d.ToCUs = core.NewPort(d)
+
+	d.state = DispatcherIdle
+
+	return d
 }
