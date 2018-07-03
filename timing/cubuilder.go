@@ -19,9 +19,9 @@ type Builder struct {
 	ScratchpadPreparer ScratchpadPreparer
 	ALU                emu.ALU
 
-	InstMem   core.Component
-	ScalarMem core.Component
-	VectorMem core.Component
+	InstMem   *core.Port
+	ScalarMem *core.Port
+	VectorMem *core.Port
 
 	ConnToInstMem   core.Connection
 	ConnToScalarMem core.Connection
@@ -134,7 +134,7 @@ func (b *Builder) connectToMem(cu *ComputeUnit) {
 	cu.InstMem = b.InstMem
 	cu.ScalarMem = b.ScalarMem
 	cu.VectorMem = b.VectorMem
-	core.PlugIn(cu, "ToInstMem", b.ConnToInstMem)
-	core.PlugIn(cu, "ToScalarMem", b.ConnToScalarMem)
-	core.PlugIn(cu, "ToVectorMem", b.ConnToVectorMem)
+	b.ConnToInstMem.PlugIn(cu.ToInstMem)
+	b.ConnToScalarMem.PlugIn(cu.ToScalarMem)
+	b.ConnToVectorMem.PlugIn(cu.ToVectorMem)
 }

@@ -15,6 +15,8 @@ import (
 	"gitlab.com/yaotsu/gcn3/emu"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/gcn3/timing"
+	"gitlab.com/yaotsu/gcn3/trace"
 	"gitlab.com/yaotsu/mem/cache"
 	memtraces "gitlab.com/yaotsu/mem/trace"
 )
@@ -105,6 +107,95 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	connection.PlugIn(commandProcessor.ToDriver)
 	connection.PlugIn(commandProcessor.ToDispatcher)
 	connection.PlugIn(b.Driver.ToGPUs)
+	connection.PlugIn(dispatcher.ToCommandProcessor)
+	connection.PlugIn(dispatcher.ToCUs)
+	connection.PlugIn(gpuMem.ToTop)
+	connection.PlugIn(dmaEngine.ToCommandProcessor)
+	connection.PlugIn(dmaEngine.ToMem)
+
+	return gpu, gpuMem
+}
+
+func (b *GPUBuilder) BuildR9NanoWithoutCache() (*gcn3.GPU, *mem.IdealMemController) {
+	b.freq = 1000 * core.MHz
+	connection := core.NewDirectConnection(b.engine)
+
+	var memTracer *memtraces.Tracer
+	if b.EnableMemTracing {
+		file, _ := os.Create("mem.trace")
+		memTracer = memtraces.NewTracer(file)
+	}
+
+	// Memory
+	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
+	gpuMem.Freq = b.freq
+	gpuMem.Latency = 100
+	if b.EnableMemTracing {
+		gpuMem.AcceptHook(memTracer)
+	}
+
+	// GPU
+	gpu := gcn3.NewGPU(b.GPUName, b.engine)
+	commandProcessor := gcn3.NewCommandProcessor(b.GPUName+".CommandProcessor", b.engine)
+	dispatcher := gcn3.NewDispatcher(b.GPUName+"Dispatcher", b.engine,
+		new(kernels.GridBuilderImpl))
+	dispatcher.Freq = b.freq
+
+	gpu.CommandProcessor = commandProcessor.ToDriver
+	commandProcessor.Dispatcher = dispatcher.ToCommandProcessor
+	commandProcessor.Driver = gpu.ToCommandProcessor
+
+	cuBuilder := timing.NewBuilder()
+	cuBuilder.Engine = b.engine
+	cuBuilder.Freq = b.freq
+	cuBuilder.Decoder = insts.NewDisassembler()
+	cuBuilder.ConnToInstMem = connection
+	cuBuilder.ConnToScalarMem = connection
+	cuBuilder.ConnToVectorMem = connection
+
+	cacheBuilder := new(cache.Builder)
+	cacheBuilder.Engine = b.engine
+
+	for i := 0; i < 64; i++ {
+		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
+		cuBuilder.InstMem = gpuMem.ToTop
+		cuBuilder.ScalarMem = gpuMem.ToTop
+		cuBuilder.VectorMem = gpuMem.ToTop
+		cu := cuBuilder.Build()
+		dispatcher.RegisterCU(cu.ToACE)
+
+		connection.PlugIn(cu.ToACE)
+
+		if b.EnableISADebug {
+			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
+			cu.AcceptHook(isaDebugger)
+		}
+
+		if b.EnableInstTracing {
+			isaTraceFile, err := os.Create(fmt.Sprintf("inst_%s.trace", cu.Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			isaTracer := trace.NewInstTracer(isaTraceFile)
+			cu.AcceptHook(isaTracer)
+		}
+	}
+
+	dmaEngineMemoryFinder := new(cache.SingleLowModuleFinder)
+	dmaEngineMemoryFinder.LowModule = gpuMem.ToTop
+	dmaEngine := gcn3.NewDMAEngine(
+		fmt.Sprintf("%s.DMA", b.GPUName),
+		b.engine, dmaEngineMemoryFinder)
+	commandProcessor.DMAEngine = dmaEngine.ToCommandProcessor
+
+	connection.PlugIn(gpu.ToCommandProcessor)
+	connection.PlugIn(gpu.ToDriver)
+	connection.PlugIn(commandProcessor.ToDriver)
+	connection.PlugIn(commandProcessor.ToDispatcher)
 	connection.PlugIn(dispatcher.ToCommandProcessor)
 	connection.PlugIn(dispatcher.ToCUs)
 	connection.PlugIn(gpuMem.ToTop)

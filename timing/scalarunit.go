@@ -113,7 +113,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 	if len(u.readBuf) < u.readBufSize {
 		u.toExec.OutstandingScalarMemAccess += 1
 
-		req := mem.NewReadReq(now, u.cu, u.cu.ScalarMem,
+		req := mem.NewReadReq(now, u.cu.ToScalarMem, u.cu.ScalarMem,
 			sp.Base+sp.Offset, uint64(byteSize))
 		u.readBuf = append(u.readBuf, req)
 
@@ -148,7 +148,7 @@ func (u *ScalarUnit) sendRequest(now core.VTimeInSec) {
 	if len(u.readBuf) > 0 {
 		req := u.readBuf[0]
 		req.SetSendTime(now)
-		err := u.cu.GetConnection("ToScalarMem").Send(req)
+		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]
 		}
