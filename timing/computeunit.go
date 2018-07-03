@@ -44,9 +44,9 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
-	InstMem   core.Component
-	ScalarMem core.Component
-	VectorMem core.Component
+	InstMem   *core.Port
+	ScalarMem *core.Port
+	VectorMem *core.Port
 
 	ToACE       *core.Port
 	ToInstMem   *core.Port
@@ -139,13 +139,13 @@ func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
 	req := evt.DispatchWfReq
 	req.SwapSrcAndDst()
 	req.SetSendTime(evt.Time())
-	cu.GetConnection("ToACE").Send(req)
-
-	if !cu.running {
-		tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
-		cu.engine.Schedule(tick)
-		cu.running = true
+	err := cu.ToACE.Send(req)
+	if err != nil {
+		log.Panic(err)
 	}
+
+	cu.running = true
+	cu.ticker.TickLater(evt.Time())
 
 	return nil
 }
@@ -193,17 +193,13 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
 	now := evt.Time()
-	mesg := gcn3.NewWGFinishMesg(cu, dispatcher, now, wg.WorkGroup)
+	mesg := gcn3.NewWGFinishMesg(cu.ToACE, dispatcher, now, wg.WorkGroup)
 
-	err := cu.GetConnection("ToACE").Send(mesg)
+	err := cu.ToACE.Send(mesg)
 	if err != nil {
-		if !err.Recoverable {
-			log.Fatal(err)
-		} else {
-			evt.SetTime(cu.Freq.NoEarlierThan(err.EarliestRetry))
-			cu.engine.Schedule(evt)
-			return false
-		}
+		newEvent := NewWfCompletionEvent(cu.Freq.NextTick(now), cu, evt.Wf)
+		cu.engine.Schedule(newEvent)
+		return false
 	}
 	return true
 }
@@ -241,8 +237,7 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	cu.Scheduler.DoFetch(now)
 
 	if cu.running {
-		evt.SetTime(cu.Freq.NextTick(evt.Time()))
-		cu.engine.Schedule(evt)
+		cu.ticker.TickLater(now)
 	}
 
 	return nil

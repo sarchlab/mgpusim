@@ -91,8 +91,7 @@ func configure() {
 
 func initPlatform() {
 	if *timing {
-		//engine, gpu, gpuDriver, globalMem = platform.BuildR9NanoPlatform()
-		panic("need more work")
+		engine, gpu, gpuDriver, globalMem = platform.BuildR9NanoPlatform()
 	} else {
 		engine, gpu, gpuDriver, globalMem = platform.BuildEmuPlatform()
 	}
