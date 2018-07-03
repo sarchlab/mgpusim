@@ -96,6 +96,13 @@ def main():
     error |= run_test("MatrixTranspose Parallel Emu", './matrixtranspose --parallel -verify -width=256', 'samples/matrixtranspose')
     error |= run_test("MatrixTranspose Parallel Sim", './matrixtranspose -timing --parallel -verify -width=256', 'samples/matrixtranspose')
 
+    error |= compile('samples/bitonicsort/')
+    # error |= run_test("BitonicSort Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Emu", './bitonicsort -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Sim", './bitonicsort -timing -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Parallel Emu", './bitonicsort --parallel -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Parallel Sim", './bitonicsort -timing --parallel -verify', 'samples/bitonicsort')
+
     if error:
         sys.exit(1)
 
