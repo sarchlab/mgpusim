@@ -13,72 +13,72 @@ import (
 )
 
 // A LaunchKernelEvent is a kernel even with an assigned time to run
-type LaunchKernelEvent struct {
-	*core.EventBase
-
-	CO         *insts.HsaCo
-	GPU        core.Component
-	Storage    *mem.Storage
-	GridSize   [3]uint32
-	WgSize     [3]uint16
-	KernelArgs interface{}
-}
-
-func (d *Driver) ScheduleKernelLaunching(
-	t core.VTimeInSec,
-
-	co *insts.HsaCo,
-	gpu core.Component,
-	storage *mem.Storage,
-	gridSize [3]uint32,
-	wgSize [3]uint16,
-	kernelArgs interface{},
-) {
-	k := new(LaunchKernelEvent)
-	k.EventBase = core.NewEventBase(t, d)
-	d.engine.Schedule(k)
-
-	k.CO = co
-	k.GPU = gpu
-	k.Storage = storage
-	k.GridSize = gridSize
-	k.WgSize = wgSize
-	k.KernelArgs = kernelArgs
-}
-
-func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
-	dCoData := d.AllocateMemory(k.Storage, uint64(len(k.CO.Data)))
-	d.MemoryCopyHostToDevice(dCoData, k.CO.Data, k.Storage)
-
-	dKernArgData := d.AllocateMemory(k.Storage, uint64(binary.Size(k.KernelArgs)))
-	d.MemoryCopyHostToDevice(dKernArgData, k.KernelArgs, k.Storage)
-
-	req := kernels.NewLaunchKernelReq()
-	req.HsaCo = k.CO
-	req.Packet = new(kernels.HsaKernelDispatchPacket)
-	req.Packet.GridSizeX = k.GridSize[0]
-	req.Packet.GridSizeY = k.GridSize[1]
-	req.Packet.GridSizeZ = k.GridSize[2]
-	req.Packet.WorkgroupSizeX = k.WgSize[0]
-	req.Packet.WorkgroupSizeY = k.WgSize[1]
-	req.Packet.WorkgroupSizeZ = k.WgSize[2]
-	req.Packet.KernelObject = uint64(dCoData)
-	req.Packet.KernargAddress = uint64(dKernArgData)
-
-	dPacket := d.AllocateMemory(k.Storage, uint64(binary.Size(req.Packet)))
-	d.MemoryCopyHostToDevice(dPacket, req.Packet, k.Storage)
-
-	req.PacketAddress = uint64(dPacket)
-	req.SetSrc(d)
-	req.SetDst(k.GPU)
-	req.SetSendTime(0) // FIXME: The time need to be retrieved from the engine
-	err := d.GetConnection("ToGPUs").Send(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return nil
-}
+//type LaunchKernelEvent struct {
+//	*core.EventBase
+//
+//	CO         *insts.HsaCo
+//	GPU        core.Component
+//	Storage    *mem.Storage
+//	GridSize   [3]uint32
+//	WgSize     [3]uint16
+//	KernelArgs interface{}
+//}
+//
+//func (d *Driver) ScheduleKernelLaunching(
+//	t core.VTimeInSec,
+//
+//	co *insts.HsaCo,
+//	gpu core.Component,
+//	storage *mem.Storage,
+//	gridSize [3]uint32,
+//	wgSize [3]uint16,
+//	kernelArgs interface{},
+//) {
+//	k := new(LaunchKernelEvent)
+//	k.EventBase = core.NewEventBase(t, d)
+//	d.engine.Schedule(k)
+//
+//	k.CO = co
+//	k.GPU = gpu
+//	k.Storage = storage
+//	k.GridSize = gridSize
+//	k.WgSize = wgSize
+//	k.KernelArgs = kernelArgs
+//}
+//
+//func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
+//	dCoData := d.AllocateMemory(k.Storage, uint64(len(k.CO.Data)))
+//	d.MemoryCopyHostToDevice(dCoData, k.CO.Data, k.GPU)
+//
+//	dKernArgData := d.AllocateMemory(k.Storage, uint64(binary.Size(k.KernelArgs)))
+//	d.MemoryCopyHostToDevice(dKernArgData, k.KernelArgs, k.GPU)
+//
+//	req := kernels.NewLaunchKernelReq()
+//	req.HsaCo = k.CO
+//	req.Packet = new(kernels.HsaKernelDispatchPacket)
+//	req.Packet.GridSizeX = k.GridSize[0]
+//	req.Packet.GridSizeY = k.GridSize[1]
+//	req.Packet.GridSizeZ = k.GridSize[2]
+//	req.Packet.WorkgroupSizeX = k.WgSize[0]
+//	req.Packet.WorkgroupSizeY = k.WgSize[1]
+//	req.Packet.WorkgroupSizeZ = k.WgSize[2]
+//	req.Packet.KernelObject = uint64(dCoData)
+//	req.Packet.KernargAddress = uint64(dKernArgData)
+//
+//	dPacket := d.AllocateMemory(k.Storage, uint64(binary.Size(req.Packet)))
+//	d.MemoryCopyHostToDevice(dPacket, req.Packet, k.GPU)
+//
+//	req.PacketAddress = uint64(dPacket)
+//	req.SetSrc(d.ToGPUs)
+//	req.SetDst(k.GPU.ToDrive)
+//	req.SetSendTime(0) // FIXME: The time need to be retrieved from the engine
+//	err := d.ToGPUs.Send(req)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	return nil
+//}
 
 func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 	ldsSize := uint32(0)
@@ -96,7 +96,7 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,
-	gpu core.Component,
+	gpu *core.Port,
 	storage *mem.Storage,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
@@ -105,10 +105,10 @@ func (d *Driver) LaunchKernel(
 	d.updateLDSPointers(co, kernelArgs)
 
 	dCoData := d.AllocateMemoryWithAlignment(storage, uint64(len(co.Data)), 4096)
-	d.MemoryCopyHostToDevice(dCoData, co.Data, storage)
+	d.MemoryCopyHostToDevice(dCoData, co.Data, gpu)
 
 	dKernArgData := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(kernelArgs)), 4096)
-	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, storage)
+	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, gpu)
 
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = co
@@ -123,19 +123,19 @@ func (d *Driver) LaunchKernel(
 	req.Packet.KernargAddress = uint64(dKernArgData)
 
 	dPacket := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(req.Packet)), 4096)
-	d.MemoryCopyHostToDevice(dPacket, req.Packet, storage)
+	d.MemoryCopyHostToDevice(dPacket, req.Packet, gpu)
 
 	startTime := d.engine.CurrentTime()
 	if startTime < 0 {
 		startTime = 0
 	}
 	req.PacketAddress = uint64(dPacket)
-	req.SetSrc(d)
+	req.SetSrc(d.ToGPUs)
 	req.SetDst(gpu)
 	req.SetSendTime(startTime) // FIXME: The time need to be retrieved from the engine
-	err := d.GetConnection("ToGPUs").Send(req)
+	err := d.ToGPUs.Send(req)
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	d.engine.Run()

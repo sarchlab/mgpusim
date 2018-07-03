@@ -173,7 +173,7 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		info.RegCount = registerCount
 		info.Address = addr
 
-		req := mem.NewReadReq(now, u.cu, u.cu.VectorMem, addr, 64)
+		req := mem.NewReadReq(now, u.cu.ToVectorMem, u.cu.VectorMem, addr, 64)
 		u.cu.inFlightMemAccess[req.ID] = info
 		u.ReadBuf = append(u.ReadBuf, req)
 	}
@@ -201,7 +201,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		info.Dst = info.Wf.inst.Dst.Register
 		info.Address = addr
 
-		req := mem.NewWriteReq(now, u.cu, u.cu.VectorMem, addr)
+		req := mem.NewWriteReq(now, u.cu.ToVectorMem, u.cu.VectorMem, addr)
 		req.Address = addr
 		req.Data = make([]byte, 64)
 		for i := 0; i < 64; i++ {
@@ -229,12 +229,8 @@ func (u *VectorMemoryUnit) sendRequest(now core.VTimeInSec) {
 	if len(u.ReadBuf) > 0 {
 		req := u.ReadBuf[0]
 		req.SetSendTime(now)
-		err := u.cu.GetConnection("ToVectorMem").Send(req)
-		if err != nil {
-			if !err.Recoverable {
-				log.Panic(err)
-			}
-		} else {
+		err := u.cu.ToVectorMem.Send(req)
+		if err == nil {
 			u.ReadBuf = u.ReadBuf[1:]
 		}
 	}
@@ -242,12 +238,8 @@ func (u *VectorMemoryUnit) sendRequest(now core.VTimeInSec) {
 	if len(u.WriteBuf) > 0 {
 		req := u.WriteBuf[0]
 		req.SetSendTime(now)
-		err := u.cu.GetConnection("ToVectorMem").Send(req)
-		if err != nil {
-			if !err.Recoverable {
-				log.Panic(err)
-			}
-		} else {
+		err := u.cu.ToVectorMem.Send(req)
+		if err == nil {
 			u.WriteBuf = u.WriteBuf[1:]
 		}
 	}
