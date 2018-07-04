@@ -5,7 +5,7 @@ import (
 	"log"
 	"math/rand"
 
-	"fmt"
+	"crypto/aes"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -32,13 +32,14 @@ var (
 	gpuDriver *driver.Driver
 	hsaco     *insts.HsaCo
 
-	length int
-	input  []byte
-	key    []uint32
-	s      []byte
-	gInput driver.GPUPtr
-	gKey   driver.GPUPtr
-	gS     driver.GPUPtr
+	length       int
+	input        []byte
+	key          []byte
+	expandedKey  []uint32
+	s            []byte
+	gInput       driver.GPUPtr
+	gExpandedKey driver.GPUPtr
+	gS           driver.GPUPtr
 )
 
 var kernelFilePath = flag.String(
@@ -52,6 +53,7 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var lenInput = flag.Int("length", 65536, "The length of array to sort.")
+var useStandardInputFlag = flag.Bool("standard-input", false, "Use the standard input for testing.")
 
 func main() {
 	configure()
@@ -99,7 +101,13 @@ func loadProgram() {
 }
 
 func initMem() {
-	key = []uint32{
+	key = []byte{
+		0, 1, 2, 3, 4, 5, 6, 7,
+		8, 9, 10, 11, 12, 13, 14, 15,
+		16, 17, 18, 19, 20, 21, 22, 23,
+		24, 25, 26, 27, 28, 29, 30, 31,
+	}
+	expandedKey = []uint32{
 		0x00010203, 0x04050607, 0x08090a0b, 0x0c0d0e0f, 0x10111213, 0x14151617,
 		0x18191a1b, 0x1c1d1e1f, 0xa573c29f, 0xa176c498, 0xa97fce93, 0xa572c09c,
 		0x1651a8cd, 0x0244beda, 0x1a5da4c1, 0x0640bade, 0xae87dff0, 0x0ff11b68,
@@ -132,23 +140,27 @@ func initMem() {
 	}
 
 	gInput = gpuDriver.AllocateMemory(globalMem.Storage, uint64(length))
-	gKey = gpuDriver.AllocateMemory(globalMem.Storage, uint64(len(key)*4))
+	gExpandedKey = gpuDriver.AllocateMemory(globalMem.Storage, uint64(len(expandedKey)*4))
 	gS = gpuDriver.AllocateMemory(globalMem.Storage, uint64(len(s)))
 
-	input = make([]byte, length)
-	for i := 0; i < length; i++ {
-		input[i] = byte(rand.Uint32())
+	if *useStandardInputFlag {
+		useStandardInput()
+	} else {
+		input = make([]byte, length)
+		for i := 0; i < length; i++ {
+			input[i] = byte(rand.Uint32())
+		}
 	}
 
 	gpuDriver.MemoryCopyHostToDevice(gInput, input, gpu.ToDriver)
-	gpuDriver.MemoryCopyHostToDevice(gKey, key, gpu.ToDriver)
+	gpuDriver.MemoryCopyHostToDevice(gExpandedKey, expandedKey, gpu.ToDriver)
 	gpuDriver.MemoryCopyHostToDevice(gS, s, gpu.ToDriver)
 }
 
 func run() {
 	kernArg := AESArgs{
 		gInput,
-		gKey,
+		gExpandedKey,
 		gS,
 		0, 0, 0}
 	gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
@@ -158,12 +170,33 @@ func run() {
 }
 
 func checkResult() {
+	cpuOutput := make([]byte, length)
 	gpuOutput := make([]byte, length)
 	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gInput, gpu.ToDriver)
 
+	cipherBlock, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < length/16; i++ {
+		cipherBlock.Encrypt(cpuOutput[i*16:], input[i*16:])
+	}
+
 	for i := 0; i < length; i++ {
-		fmt.Printf("%02x ", gpuOutput[i])
+		if cpuOutput[i] != gpuOutput[i] {
+			log.Printf("Mismatch at position %d: should be %02x but get %02x",
+				i, cpuOutput[i], gpuOutput[i])
+		}
 	}
 
 	log.Printf("\nPassed!\n")
+}
+
+func useStandardInput() {
+	input = []uint8{
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+		0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+	}
+	length = len(input)
 }
