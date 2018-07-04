@@ -99,7 +99,7 @@ func initMem() {
 		inputData[i] = rand.Uint32()
 	}
 
-	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, gpu.ToDriver)
 }
 
 func run() {
@@ -122,7 +122,7 @@ func run() {
 				uint32(passOfStage),
 				uint32(direction),
 				0, 0, 0}
-			gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
+			gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
 				[3]uint32{uint32(length / 2), 1, 1},
 				[3]uint16{256, 1, 1},
 				&kernArg)
@@ -133,7 +133,7 @@ func run() {
 
 func checkResult() {
 	gpuOutput := make([]uint32, length)
-	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gInputData, globalMem.Storage)
+	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gInputData, gpu.ToDriver)
 
 	for i := 0; i < length-1; i++ {
 		if *orderAscending {
