@@ -295,7 +295,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	if !req.Ok {
 		d.state = DispatcherToMapWG
 		d.cuBusy[d.cus[d.dispatchingCUID]] = true
-		d.scheduleMapWG(req.RecvTime())
+		d.scheduleMapWG(req.Time())
 		return nil
 	}
 
