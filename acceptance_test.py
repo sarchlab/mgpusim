@@ -98,10 +98,32 @@ def main():
 
     error |= compile('samples/bitonicsort/')
     # error |= run_test("BitonicSort Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Emu", './bitonicsort -verify', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Sim", './bitonicsort -timing -verify', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Parallel Emu", './bitonicsort --parallel -verify', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Parallel Sim", './bitonicsort -timing --parallel -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Emu", './bitonicsort -length=16384 -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Sim", './bitonicsort -length=16384 -timing -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Parallel Emu", './bitonicsort -length=16384 -parallel -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Parallel Sim", './bitonicsort -length=16384 -timing -parallel -verify', 'samples/bitonicsort')
+
+
+    error |= compile('samples/aes/')
+    # error |= run_test("AES Disasm",
+    # '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff
+    # kernels.disasm -', 'samples/aes')
+    error |= run_test("AES Emu", './aes -verify', 'samples/aes')
+    error |= run_test("AES Sim", './aes -timing -verify', 'samples/aes')
+    error |= run_test("AES Parallel Emu", './aes --parallel -verify', 'samples/aes')
+    error |= run_test("AES Parallel Sim", './aes -timing --parallel -verify', 'samples/aes')
+
+    error |= compile('samples/simpleconvolution/')
+    # error |= run_test("AES Disasm",
+    # '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff
+    # kernels.disasm -', 'samples/aes')
+    error |= run_test("Simple Convolution Emu", './simpleconvolution -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Sim", './simpleconvolution -timing -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Parallel Emu", './simpleconvolution --parallel -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Parallel Sim", './simpleconvolution -timing --parallel -verify', 'samples/simpleconvolution')
+
+
+
 
     if error:
         sys.exit(1)
