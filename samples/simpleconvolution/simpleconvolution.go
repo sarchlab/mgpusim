@@ -58,6 +58,7 @@ var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var widthFlag = flag.Uint("width", 254, "The width of the input matrix.")
 var heightFlag = flag.Uint("height", 254, "The height of the input matrix.")
 var maskSizeFlag = flag.Uint("mask-size", 3, "The size of the mask.")
+var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 func main() {
 	configure()
@@ -84,6 +85,10 @@ func configure() {
 
 	if *instTracing {
 		platform.TraceInst = true
+	}
+
+	if *memTracing {
+		platform.TraceMem = true
 	}
 
 	width = uint32(*widthFlag)

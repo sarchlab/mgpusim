@@ -51,6 +51,7 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")
+var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 func main() {
 	configure()
@@ -77,6 +78,10 @@ func configure() {
 
 	if *instTracing {
 		platform.TraceInst = true
+	}
+
+	if *memTracing {
+		platform.TraceMem = true
 	}
 
 	width = *dataWidth

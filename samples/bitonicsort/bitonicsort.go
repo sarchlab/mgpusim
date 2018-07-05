@@ -48,6 +48,7 @@ var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var lenInput = flag.Int("length", 65536, "The length of array to sort.")
 var orderAscending = flag.Bool("order-asc", true, "Sorting in ascending order.")
+var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 func main() {
 	configure()
@@ -74,6 +75,10 @@ func configure() {
 
 	if *instTracing {
 		platform.TraceInst = true
+	}
+
+	if *memTracing {
+		platform.TraceMem = true
 	}
 
 	length = *lenInput
