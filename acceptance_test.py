@@ -113,6 +113,16 @@ def main():
     error |= run_test("AES Parallel Emu", './aes --parallel -verify', 'samples/aes')
     error |= run_test("AES Parallel Sim", './aes -timing --parallel -verify', 'samples/aes')
 
+    error |= compile('samples/simpleconvolution/')
+    # error |= run_test("AES Disasm",
+    # '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff
+    # kernels.disasm -', 'samples/aes')
+    error |= run_test("Simple Convolution Emu", './simpleconvolution -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Sim", './simpleconvolution -timing -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Parallel Emu", './simpleconvolution --parallel -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Parallel Sim", './simpleconvolution -timing --parallel -verify', 'samples/simpleconvolution')
+
+
 
 
     if error:
