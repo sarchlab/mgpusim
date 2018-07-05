@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
@@ -355,6 +356,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	info *MemAccessInfo,
 ) error {
 	wf := info.Wf
+	inst := info.Inst
 
 	for i := 0; i < 64; i++ {
 		addr := info.PreCoalescedAddrs[i]
@@ -369,7 +371,13 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		access.Reg = info.Dst
 		access.RegCount = info.RegCount
 		access.LaneID = i
-		access.Data = rsp.Data[addrCacheLineOffset : addrCacheLineOffset+uint64(4*info.RegCount)]
+		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
+			access.Data = insts.Uint32ToBytes(uint32(
+				rsp.Data[addrCacheLineOffset]))
+		} else {
+			access.Data = rsp.Data[addrCacheLineOffset : addrCacheLineOffset+uint64(4*info.RegCount)]
+		}
+
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
