@@ -56,6 +56,8 @@ func (p *ScratchpadPreparerImpl) Prepare(
 		p.prepareSMEM(instEmuState, wf)
 	case insts.SOPP:
 		p.prepareSOPP(instEmuState, wf)
+	case insts.SOPK:
+		p.prepareSOPK(instEmuState, wf)
 	case insts.DS:
 		p.prepareDS(instEmuState, wf)
 	default:
@@ -249,6 +251,18 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 	p.readOperand(inst.SImm16, wf, 0, scratchPad[16:24])
 }
 
+func (p *ScratchpadPreparerImpl) prepareSOPK(
+	instEmuState emu.InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchPad := instEmuState.Scratchpad()
+	layout := scratchPad.AsSOPK()
+	layout.SCC = wf.SCC
+	p.readOperand(inst.Dst, wf, 0, scratchPad[0:8])
+	p.readOperand(inst.SImm16, wf, 0, scratchPad[8:16])
+}
+
 func (p *ScratchpadPreparerImpl) prepareSOPC(
 	instEmuState emu.InstEmuState,
 	wf *Wavefront,
@@ -317,6 +331,8 @@ func (p *ScratchpadPreparerImpl) Commit(
 		p.commitSMEM(instEmuState, wf)
 	case insts.SOPP:
 		p.commitSOPP(instEmuState, wf)
+	case insts.SOPK:
+		p.commitSOPK(instEmuState, wf)
 	case insts.SOPC:
 		p.commitSOPC(instEmuState, wf)
 	case insts.DS:
@@ -449,6 +465,16 @@ func (p *ScratchpadPreparerImpl) commitSMEM(
 	if inst.Opcode <= 12 { // Load instructions
 		p.writeOperand(inst.Data, wf, 0, scratchpad[32:96])
 	}
+}
+
+func (p *ScratchpadPreparerImpl) commitSOPK(
+	instEmuState emu.InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	scratchpad := instEmuState.Scratchpad()
+	p.writeOperand(inst.Dst, wf, 0, scratchpad[0:8])
+	wf.SCC = scratchpad.AsSOPK().SCC
 }
 
 func (p *ScratchpadPreparerImpl) commitSOPC(

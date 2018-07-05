@@ -164,24 +164,16 @@ func run() {
 		gS,
 		0, 0, 0}
 	gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
-		[3]uint32{uint32(length / 4), 1, 1},
+		[3]uint32{uint32(length / 16), 1, 1},
 		[3]uint16{256, 1, 1},
 		&kernArg)
 }
 
 func checkResult() {
-	cpuOutput := make([]byte, length)
 	gpuOutput := make([]byte, length)
 	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gInput, gpu.ToDriver)
 
-	cipherBlock, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-
-	for i := 0; i < length/16; i++ {
-		cipherBlock.Encrypt(cpuOutput[i*16:], input[i*16:])
-	}
+	cpuOutput := cpuEncrypt()
 
 	for i := 0; i < length; i++ {
 		if cpuOutput[i] != gpuOutput[i] {
@@ -191,6 +183,18 @@ func checkResult() {
 	}
 
 	log.Printf("\nPassed!\n")
+}
+
+func cpuEncrypt() []byte {
+	cpuOutput := make([]byte, length)
+	cipherBlock, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+	for i := 0; i < length/16; i++ {
+		cipherBlock.Encrypt(cpuOutput[i*16:], input[i*16:])
+	}
+	return cpuOutput
 }
 
 func useStandardInput() {

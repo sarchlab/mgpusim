@@ -100,6 +100,8 @@ func (u *ScalarUnit) executeSMEMInst(now core.VTimeInSec) {
 		u.executeSMEMLoad(4, now)
 	case 1:
 		u.executeSMEMLoad(8, now)
+	case 2:
+		u.executeSMEMLoad(16, now)
 	default:
 		log.Panicf("opcode %d is not supported.", inst.Opcode)
 	}
