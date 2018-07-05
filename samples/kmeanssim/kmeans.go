@@ -79,6 +79,7 @@ var points = flag.Int("points", 4096, "The number of points.")
 var clusters = flag.Int("clusters", 5, "The number of clusters.")
 var features = flag.Int("features", 32, "The number of features for each point.")
 var maxIter = flag.Int("max-iter", 20, "The maximum number of iterations to run")
+var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 func main() {
 	configure()
@@ -110,6 +111,10 @@ func configure() {
 
 	if *instTracing {
 		platform.TraceInst = true
+	}
+
+	if *memTracing {
+		platform.TraceMem = true
 	}
 
 	numPoints = *points
