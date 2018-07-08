@@ -2,6 +2,11 @@ import re
 import subprocess
 import numpy as np
 import pandas as pd
+import os
+import argparse
+import sys
+sys.path.append(os.getcwd() + '/../common/')
+from benchmarking import *
 
 data_columns = ['benchmark', 'env', 'inst', 'count', 'time']
 
@@ -46,23 +51,15 @@ def run_on_simulator():
     return data
 
 
-def run_benchmark_on_gpu():
-    process = subprocess.Popen('./kernel', shell=True,
-                               cwd='microbench/',
-                               stdout=subprocess.PIPE)
-    (stdout, _) = process.communicate()
-
-    m = re.search(r'Kernel [0-9\.]+ - [0-9\.]+: ([0-9\.]+)', str(stdout))
-    return float(m.group(1))
-
-def run_on_gpu(inst):
+def run_on_gpu(inst, repeat):
     data = pd.DataFrame(columns=data_columns)
 
-    for num_inst in range(0, 1025, 4):
+    for num_inst in range(0, 65, 1):
         print('On GPU: {0}, {1}'.format(inst, num_inst))
         generate_benchmark(inst, num_inst)
-        for i in range(0, 20):
-            duration = run_benchmark_on_gpu()
+        for i in range(0, 100):
+            duration = run_benchmark_on_gpu(
+                './kernel', os.getcwd() + '/microbench/')
             data = data.append(
                 pd.DataFrame([['alu', 'gpu', inst, num_inst, duration]],
                              columns=data_columns),
@@ -71,16 +68,26 @@ def run_on_gpu(inst):
 
     return data
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='ALU microbenchmark')
+    parser.add_argument('--gpu', dest='gpu', action='store_true')
+    parser.add_argument('--sim', dest='sim', action='store_true')
+    parser.add_argument('--repeat', type=int, default=20)
+    args = parser.parse_args()
+    return args
+
 
 def main():
-    data = pd.DataFrame(columns=data_columns)
+    args = parse_args()
+
     insts = ['v_add_f32 v1, v2, v3']
 
-    for inst in insts:
-        results = run_on_gpu(inst)
-        data = data.append(results, ignore_index=True)
-
-    data.to_csv('data.csv')
+    if args.gpu:
+        for inst in insts:
+            data = pd.DataFrame(columns=data_columns)
+            results = run_on_gpu(inst, args.repeat)
+            data = data.append(results, ignore_index=True)
+            data.to_csv('gpu.csv')
 
 
 if __name__ == '__main__':

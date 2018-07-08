@@ -31,17 +31,4 @@ v_add_f32 v1, v2, v3
 v_add_f32 v1, v2, v3
 v_add_f32 v1, v2, v3
 v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
-v_add_f32 v1, v2, v3
 s_endpgm
