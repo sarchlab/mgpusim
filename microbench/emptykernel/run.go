@@ -12,6 +12,10 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
+type KernelArgs struct {
+	Data driver.GPUPtr
+}
+
 var (
 	engine    core.Engine
 	globalMem *mem.IdealMemController
@@ -49,7 +53,8 @@ func configure() {
 		platform.TraceInst = true
 	}
 
-	numRepeat = *repeat
+	numWG = *numWGFlag
+	numWfPerWG = *numWfPerWGFlag
 }
 
 func initPlatform() {
@@ -68,10 +73,11 @@ func initMem() {
 }
 
 func run() {
+	kernArg := new(KernelArgs)
 	gpuDriver.LaunchKernel(
-		hsaco, gpu, globalMem.Storage,
+		hsaco, gpu.ToDriver, globalMem.Storage,
 		[3]uint32{64 * uint32(numWfPerWG) * uint32(numWG), 1, 1},
-		[3]uint16{64 * uint32(numWfPerWG), 1, 1},
-		nil,
+		[3]uint16{64 * uint16(numWfPerWG), 1, 1},
+		kernArg,
 	)
 }
