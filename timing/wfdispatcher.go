@@ -29,13 +29,15 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 }
 
 // DispatchWf starts or continues a wavefront dispatching process.
-func (d *WfDispatcherImpl) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
-
+func (d *WfDispatcherImpl) DispatchWf(
+	wf *Wavefront,
+	req *gcn3.DispatchWfReq,
+) {
 	d.setWfInfo(wf)
 	d.initRegisters(wf)
 
 	evt := NewWfDispatchCompletionEvent(
-		d.cu.Freq.NCyclesLater(d.Latency, req.RecvTime()),
+		d.cu.Freq.NCyclesLater(d.Latency, req.Time()),
 		d.cu, wf)
 	evt.DispatchWfReq = req
 	d.cu.engine.Schedule(evt)

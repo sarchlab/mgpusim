@@ -38,6 +38,8 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 		u.runSLSHRB64(state)
 	case 32:
 		u.runSASHRI32(state)
+	case 34:
+		u.runSBFMB32(state)
 	case 36:
 		u.runSMULI32(state)
 	default:
@@ -241,6 +243,12 @@ func (u *ALUImpl) runSASHRI32(state InstEmuState) {
 	} else {
 		sp.SCC = 0
 	}
+}
+
+func (u *ALUImpl) runSBFMB32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	sp.DST = ((1 << (sp.SRC0 & 0x1f)) - 1) << (sp.SRC1 & 0x1f)
 }
 
 func (u *ALUImpl) runSMULI32(state InstEmuState) {

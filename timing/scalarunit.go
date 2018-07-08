@@ -82,19 +82,14 @@ func (u *ScalarUnit) runExecStage(now core.VTimeInSec) {
 	if u.toWrite == nil {
 		if u.toExec.Inst().FormatType == insts.SMEM {
 			u.executeSMEMInst(now)
+			return
 		} else {
 			u.alu.Run(u.toExec)
-		}
-
-		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-
-		if u.toExec.Inst().FormatType == insts.SMEM {
-			u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
-		} else {
+			u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
 			u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
 			u.toWrite = u.toExec
+			u.toExec = nil
 		}
-		u.toExec = nil
 	}
 }
 
@@ -105,6 +100,8 @@ func (u *ScalarUnit) executeSMEMInst(now core.VTimeInSec) {
 		u.executeSMEMLoad(4, now)
 	case 1:
 		u.executeSMEMLoad(8, now)
+	case 2:
+		u.executeSMEMLoad(16, now)
 	default:
 		log.Panicf("opcode %d is not supported.", inst.Opcode)
 	}
@@ -118,7 +115,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 	if len(u.readBuf) < u.readBufSize {
 		u.toExec.OutstandingScalarMemAccess += 1
 
-		req := mem.NewReadReq(now, u.cu, u.cu.ScalarMem,
+		req := mem.NewReadReq(now, u.cu.ToScalarMem, u.cu.ScalarMem,
 			sp.Base+sp.Offset, uint64(byteSize))
 		u.readBuf = append(u.readBuf, req)
 
@@ -130,6 +127,8 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now core.VTimeInSec) {
 		u.cu.inFlightMemAccess[req.ID] = info
 
 		u.toExec.State = WfReady
+		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
+		u.toExec = nil
 	}
 }
 
@@ -151,7 +150,7 @@ func (u *ScalarUnit) sendRequest(now core.VTimeInSec) {
 	if len(u.readBuf) > 0 {
 		req := u.readBuf[0]
 		req.SetSendTime(now)
-		err := u.cu.GetConnection("ToScalarMem").Send(req)
+		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]
 		}
