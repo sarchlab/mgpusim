@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"log"
-	"math"
+	"math/rand"
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
@@ -14,12 +14,11 @@ import (
 	"gitlab.com/yaotsu/mem"
 )
 
-type FirKernelArgs struct {
-	Output              driver.GPUPtr
-	Filter              driver.GPUPtr
+type BitonicKernelArgs struct {
 	Input               driver.GPUPtr
-	History             driver.GPUPtr
-	NumTaps             uint32
+	Stage               uint32
+	PassOfStage         uint32
+	Direction           uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -32,14 +31,9 @@ var (
 	gpuDriver *driver.Driver
 	hsaco     *insts.HsaCo
 
-	dataSize     int
-	numTaps      int
-	inputData    []float32
-	filterData   []float32
-	gFilterData  driver.GPUPtr
-	gHistoryData driver.GPUPtr
-	gInputData   driver.GPUPtr
-	gOutputData  driver.GPUPtr
+	length     int
+	inputData  []uint32
+	gInputData driver.GPUPtr
 )
 
 var kernelFilePath = flag.String(
@@ -52,7 +46,8 @@ var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
-var numData = flag.Int("data-size", 4096, "The number of samples to filter.")
+var lenInput = flag.Int("length", 65536, "The length of array to sort.")
+var orderAscending = flag.Bool("order-asc", true, "Sorting in ascending order.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 func main() {
@@ -86,7 +81,7 @@ func configure() {
 		platform.TraceMem = true
 	}
 
-	dataSize = *numData
+	length = *lenInput
 }
 
 func initPlatform() {
@@ -98,65 +93,64 @@ func initPlatform() {
 }
 
 func loadProgram() {
-	hsaco = kernels.LoadProgram(*kernelFilePath, "FIR")
+	hsaco = kernels.LoadProgram(*kernelFilePath, "BitonicSort")
 }
 
 func initMem() {
-	numTaps = 16
-	gFilterData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
-	gHistoryData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(numTaps*4))
-	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
-	gOutputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(dataSize*4))
+	gInputData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(length*4))
 
-	filterData = make([]float32, numTaps)
-	for i := 0; i < numTaps; i++ {
-		filterData[i] = float32(i)
+	inputData = make([]uint32, length)
+	for i := 0; i < length; i++ {
+		inputData[i] = rand.Uint32()
 	}
 
-	inputData = make([]float32, dataSize)
-	for i := 0; i < dataSize; i++ {
-		inputData[i] = float32(i)
-	}
-
-	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, gpu.ToDriver)
 	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, gpu.ToDriver)
 }
 
 func run() {
-	kernArg := FirKernelArgs{
-		gOutputData,
-		gFilterData,
-		gInputData,
-		gHistoryData,
-		uint32(numTaps),
-		0, 0, 0,
+
+	numStages := 0
+	for temp := length; temp > 1; temp >>= 1 {
+		numStages++
 	}
 
-	gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
-		[3]uint32{uint32(dataSize), 1, 1},
-		[3]uint16{256, 1, 1},
-		&kernArg,
-	)
+	direction := 1
+	if *orderAscending == false {
+		direction = 0
+	}
+
+	for stage := 0; stage < numStages; stage += 1 {
+		for passOfStage := 0; passOfStage < stage+1; passOfStage++ {
+			kernArg := BitonicKernelArgs{
+				gInputData,
+				uint32(stage),
+				uint32(passOfStage),
+				uint32(direction),
+				0, 0, 0}
+			gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
+				[3]uint32{uint32(length / 2), 1, 1},
+				[3]uint16{256, 1, 1},
+				&kernArg)
+		}
+
+	}
 }
 
 func checkResult() {
-	gpuOutput := make([]float32, dataSize)
-	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, gpu.ToDriver)
+	gpuOutput := make([]uint32, length)
+	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gInputData, gpu.ToDriver)
 
-	for i := 0; i < dataSize; i++ {
-		var sum float32
-		sum = 0
-
-		for j := 0; j < numTaps; j++ {
-			if i < j {
-				continue
+	for i := 0; i < length-1; i++ {
+		if *orderAscending {
+			if gpuOutput[i] > gpuOutput[i+1] {
+				log.Fatalf("Error: array[%d] > array[%d]: %d %d\n", i, i+1,
+					gpuOutput[i], gpuOutput[i+1])
 			}
-			sum += inputData[i-j] * filterData[j]
-		}
-
-		if math.Abs(float64(sum-gpuOutput[i])) >= 1e-5 {
-			log.Fatalf("At position %d, expected %f, but get %f.\n",
-				i, sum, gpuOutput[i])
+		} else {
+			if gpuOutput[i] < gpuOutput[i+1] {
+				log.Fatalf("Error: array[%d] < array[%d]: %d %d\n", i, i+1,
+					gpuOutput[i], gpuOutput[i+1])
+			}
 		}
 	}
 

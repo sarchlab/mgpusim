@@ -105,16 +105,16 @@ __kernel void Encrypt(__global uchar* input,
 
   AddRoundKey(state, expanded_key, 0);
 
-  /*for (int i = 1; i < 14; i++) {*/
-    /*SubBytes(state, s);*/
-    /*ShiftRows(state);*/
-    /*MixColumns(state);*/
-    /*AddRoundKey(state, expanded_key, i * 4);*/
-  /*}*/
+  for (int i = 1; i < 14; i++) {
+    SubBytes(state, s);
+    ShiftRows(state);
+    MixColumns(state);
+    AddRoundKey(state, expanded_key, i * 4);
+  }
 
-  /*SubBytes(state, s);*/
-  /*ShiftRows(state);*/
-  /*AddRoundKey(state, expanded_key, 14 * 4);*/
+  SubBytes(state, s);
+  ShiftRows(state);
+  AddRoundKey(state, expanded_key, 14 * 4);
 
   for (int i = 0; i < 16; i++) {
     input[tid * 16 + i] = state[i];

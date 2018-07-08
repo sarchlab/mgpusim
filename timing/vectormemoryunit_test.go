@@ -25,8 +25,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		vectorMem = core.NewMockComponent("VectorMem")
 		conn = core.NewMockConnection()
 
-		cu.VectorMem = vectorMem
-		core.PlugIn(cu, "ToVectorMem", conn)
+		cu.VectorMem = vectorMem.ToOutside
+		conn.PlugIn(cu.ToVectorMem)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -93,11 +93,11 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should send memory access requests", func() {
-		loadReq := mem.NewReadReq(10, cu, vectorMem, 0, 4)
+		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
 		loadReq.SetSendTime(10)
 		bu.ReadBuf = append(bu.ReadBuf, loadReq)
 
-		storeReq := mem.NewWriteReq(10, cu, vectorMem, 0)
+		storeReq := mem.NewWriteReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0)
 		bu.WriteBuf = append(bu.WriteBuf, storeReq)
 
 		conn.ExpectSend(loadReq, nil)
@@ -111,10 +111,10 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should not remove request from read buffer, if send fails", func() {
-		loadReq := mem.NewReadReq(10, cu, vectorMem, 0, 4)
+		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
 		bu.ReadBuf = append(bu.ReadBuf, loadReq)
 
-		err := core.NewError("Err", true, 11)
+		err := core.NewSendError()
 		conn.ExpectSend(loadReq, err)
 
 		bu.Run(10)

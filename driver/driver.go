@@ -14,6 +14,29 @@ type Driver struct {
 	engine core.Engine
 
 	memoryMasks map[*mem.Storage]*MemoryMask
+
+	ToGPUs *core.Port
+}
+
+func (d *Driver) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	// Do nothing
+}
+
+func (d *Driver) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	// Do nothing
+}
+
+// Handle process event that is scheduled on the driver
+func (d *Driver) Handle(e core.Event) error {
+	//switch e := e.(type) {
+	//case *LaunchKernelEvent:
+	//	return d.HandleLaunchKernelEvent(e)
+
+	//default:
+	//	log.Panicf("Unable to process event")
+	//}
+	log.Panicf("Unable to process event")
+	return nil
 }
 
 // NewDriver creates a new driver
@@ -22,27 +45,9 @@ func NewDriver(engine core.Engine) *Driver {
 	driver.ComponentBase = core.NewComponentBase("driver")
 
 	driver.engine = engine
-
-	driver.ComponentBase.AddPort("ToGPUs")
-
 	driver.memoryMasks = make(map[*mem.Storage]*MemoryMask)
 
+	driver.ToGPUs = core.NewPort(driver)
+
 	return driver
-}
-
-// Handle process event that is scheduled on the driver
-func (d *Driver) Handle(e core.Event) error {
-	switch e := e.(type) {
-	case *LaunchKernelEvent:
-		return d.HandleLaunchKernelEvent(e)
-
-	default:
-		log.Panicf("Unable to process event")
-	}
-	return nil
-}
-
-// Recv processes incoming requests
-func (d *Driver) Recv(req core.Req) *core.Error {
-	return nil
 }
