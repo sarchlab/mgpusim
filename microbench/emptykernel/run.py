@@ -10,33 +10,7 @@ from benchmarking import *
 
 data_columns = ['benchmark', 'env', 'numWf', 'numWG', 'time']
 
-def run_benchmark_on_simulator():
-    pass
-
-
-def run_on_simulator():
-    """ run benchmark and retuns a data frame that represents its result """
-    data = pd.DataFrame(columns=data_columns)
-
-    process = subprocess.Popen("go build", shell=True, cwd='.',
-                            stdout=subprocess.DEVNULL)
-    process.wait()
-
-    for num_inst in range(0, 128, 4):
-        print('On GPU: {0}, {1}'.format(inst, num_inst))
-        generate_benchmark(inst, num_inst)
-        for i in range(0, 100):
-            duration = run_benchmark_on_simulator()
-            data = data.append(
-                pd.DataFrame([['alu', 'simulator', inst, num_inst, duration]],
-                             columns=data_columns),
-                ignore_index=True,
-            )
-
-    return data
-
-
-def run_on_gpu(inst, repeat):
+def run_on_gpu(repeat):
     data = pd.DataFrame(columns=data_columns)
 
     for numWfPerWG in range(1, 9):
@@ -52,8 +26,30 @@ def run_on_gpu(inst, repeat):
                                 columns=data_columns),
                     ignore_index=True,
                 )
-
     return data
+
+def run_on_simulator():
+    data = pd.DataFrame(columns=data_columns)
+
+    process = subprocess.Popen("go build", shell=True, cwd='.',
+                            stdout=subprocess.DEVNULL)
+    process.wait()
+
+    for numWfPerWG in range(1, 9):
+        print('numWfPerWG', numWfPerWG)
+        for numWG in range(128, 1025, 128):
+            print('numWG', numWG)
+            duration = run_benchmark_on_simulator(
+                './emptykernel -timing -numWfPerWG {0} -numWG {1}'.format(numWfPerWG, numWG),
+                os.getcwd())
+            data = data.append(
+                pd.DataFrame([['alu', 'sim', numWfPerWG, numWG, duration]],
+                            columns=data_columns),
+                ignore_index=True,
+            )
+    return data
+
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='ALU microbenchmark')
@@ -68,11 +64,17 @@ def main():
     args = parse_args()
 
     if args.gpu:
-        for inst in insts:
-            data = pd.DataFrame(columns=data_columns)
-            results = run_on_gpu(inst, args.repeat)
-            data = data.append(results, ignore_index=True)
-            data.to_csv('gpu.csv')
+        data = pd.DataFrame(columns=data_columns)
+        results = run_on_gpu(args.repeat)
+        data = data.append(results, ignore_index=True)
+        data.to_csv('gpu.csv')
+
+    if args.sim:
+        data = pd.DataFrame(columns=data_columns)
+        results = run_on_simulator()
+        data = data.append(results, ignore_index=True)
+        data.to_csv('sim.csv')
+
 
 
 if __name__ == '__main__':

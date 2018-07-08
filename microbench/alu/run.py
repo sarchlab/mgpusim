@@ -25,11 +25,7 @@ def generate_benchmark(inst, count):
     p.wait()
 
 
-def run_benchmark_on_simulator():
-    pass
-
-
-def run_on_simulator():
+def run_on_simulator(inst):
     """ run benchmark and retuns a data frame that represents its result """
     data = pd.DataFrame(columns=data_columns)
 
@@ -37,16 +33,15 @@ def run_on_simulator():
                             stdout=subprocess.DEVNULL)
     process.wait()
 
-    for num_inst in range(0, 128, 4):
+    for num_inst in range(0, 129, 1):
         print('On GPU: {0}, {1}'.format(inst, num_inst))
         generate_benchmark(inst, num_inst)
-        for i in range(0, 100):
-            duration = run_benchmark_on_simulator()
-            data = data.append(
-                pd.DataFrame([['alu', 'simulator', inst, num_inst, duration]],
-                             columns=data_columns),
-                ignore_index=True,
-            )
+        duration = run_benchmark_on_simulator('./alu -timing', os.getcwd())
+        data = data.append(
+            pd.DataFrame([['alu', 'sim', inst, num_inst, duration]],
+                            columns=data_columns),
+            ignore_index=True,
+        )
 
     return data
 
@@ -54,10 +49,10 @@ def run_on_simulator():
 def run_on_gpu(inst, repeat):
     data = pd.DataFrame(columns=data_columns)
 
-    for num_inst in range(0, 65, 1):
+    for num_inst in range(0, 129, 1):
         print('On GPU: {0}, {1}'.format(inst, num_inst))
         generate_benchmark(inst, num_inst)
-        for i in range(0, 100):
+        for i in range(0, repeat):
             duration = run_benchmark_on_gpu(
                 './kernel', os.getcwd() + '/microbench/')
             data = data.append(
@@ -88,6 +83,13 @@ def main():
             results = run_on_gpu(inst, args.repeat)
             data = data.append(results, ignore_index=True)
             data.to_csv('gpu.csv')
+
+    if args.sim:
+        for inst in insts:
+            data = pd.DataFrame(columns=data_columns)
+            results = run_on_simulator(inst)
+            data = data.append(results, ignore_index=True)
+            data.to_csv('sim.csv')
 
 
 if __name__ == '__main__':

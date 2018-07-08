@@ -28,3 +28,23 @@ def run_benchmark_on_gpu(cmd, cwd):
     res = parse_kernel_time(filename + '_trace.atp')
     return res
 
+
+def run_benchmark_on_simulator(cmd, cwd):
+    print(cmd)
+    filename = cwd + 'sim_exp.out'
+    fp = open(filename, 'w')
+    process = subprocess.Popen(cmd, shell=True, cwd=cwd,
+                               stdout=fp, stderr=fp)
+    process.wait()
+
+    fp = open(filename, 'r')
+    kernel_time = 0
+    for line in fp:
+        m = re.match(r'Kernel: \[([0-9.]+) - ([0-9.]+)]', str(line))
+        if m != None:
+            kernel_time +=  float(m.group(2)) - float(m.group(1))
+
+    return kernel_time
+
+
+

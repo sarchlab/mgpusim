@@ -22,9 +22,6 @@ var (
 	gpu       *gcn3.GPU
 	gpuDriver *driver.Driver
 	hsaco     *insts.HsaCo
-
-	numWfPerWG int
-	numWG      int
 )
 
 func main() {
@@ -39,8 +36,6 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var instTracing = flag.Bool("trace-inst", false,
 	"Generate instruction trace for visualization purposes.")
-var numWfPerWGFlag = flag.Int("numWfPerWG", 1, "The number of repeat read.")
-var numWGFlag = flag.Int("numWG", 128, "The number of repeat read.")
 
 func configure() {
 	flag.Parse()
@@ -53,8 +48,6 @@ func configure() {
 		platform.TraceInst = true
 	}
 
-	numWG = *numWGFlag
-	numWfPerWG = *numWfPerWGFlag
 }
 
 func initPlatform() {
@@ -76,8 +69,8 @@ func run() {
 	kernArg := new(KernelArgs)
 	gpuDriver.LaunchKernel(
 		hsaco, gpu.ToDriver, globalMem.Storage,
-		[3]uint32{64 * uint32(numWfPerWG) * uint32(numWG), 1, 1},
-		[3]uint16{64 * uint16(numWfPerWG), 1, 1},
+		[3]uint32{64, 1, 1},
+		[3]uint16{64, 1, 1},
 		kernArg,
 	)
 }
