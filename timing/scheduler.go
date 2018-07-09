@@ -53,7 +53,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 			req.ByteSize = 4
 		}
 
-		if len(wf.FetchBuffer) == 4 {
+		if len(wf.InstBuffer) == 4 {
 			req.ByteSize = 4
 			req.Address = wf.PC + 4
 		}

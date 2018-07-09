@@ -319,15 +319,15 @@ func (cu *ComputeUnit) handleFetchReturn(rsp *mem.DataReadyRsp, info *MemAccessI
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
 	if len(rsp.Data) == 8 {
-		wf.FetchBuffer = rsp.Data
+		wf.InstBuffer = rsp.Data
 		cu.fetchComplete(wf, rsp.Time())
 		// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
 		// wf.State = WfReady
 
 	} else if len(rsp.Data) == 4 {
-		wf.FetchBuffer = append(wf.FetchBuffer, rsp.Data...)
+		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
 		wf.State = WfReady
-		if len(wf.FetchBuffer) >= 8 {
+		if len(wf.InstBuffer) >= 8 {
 			cu.fetchComplete(wf, rsp.Time())
 		}
 
@@ -340,14 +340,14 @@ func (cu *ComputeUnit) fetchComplete(wf *Wavefront, now core.VTimeInSec) {
 	wf.State = WfFetched
 	wf.LastFetchTime = now
 
-	inst, err := cu.Decoder.Decode(wf.FetchBuffer)
+	inst, err := cu.Decoder.Decode(wf.InstBuffer)
 	if err != nil {
 		log.Panic(err)
 	}
 	managedInst := wf.ManagedInst()
 	managedInst.Inst = inst
 	wf.PC += uint64(managedInst.ByteSize)
-	wf.FetchBuffer = nil
+	wf.InstBuffer = nil
 	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{now, managedInst, "FetchDone"})
 }
 
