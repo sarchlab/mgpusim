@@ -28,10 +28,11 @@ type CommandProcessor struct {
 	DMAEngine  *core.Port
 	Driver     *core.Port
 
-	ToResetAfterKernel []Resettable
-
 	ToDriver     *core.Port
 	ToDispatcher *core.Port
+
+	ToResetAfterKernel          []Resettable
+	kernelFixedOverheadInCycles int
 }
 
 func (p *CommandProcessor) NotifyRecv(now core.VTimeInSec, port *core.Port) {
@@ -48,6 +49,8 @@ func (p *CommandProcessor) Handle(e core.Event) error {
 	switch req := e.(type) {
 	case *kernels.LaunchKernelReq:
 		return p.processLaunchKernelReq(req)
+	case *ReplyKernelCompletionEvent:
+		return p.handleReplyKernelCompletionEvent(req)
 	case *MemCopyD2HReq:
 		return p.processMemCopyReq(req)
 	case *MemCopyH2DReq:
@@ -73,11 +76,21 @@ func (p *CommandProcessor) processLaunchKernelReq(
 		}
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
-		req.SetSendTime(now)
-		p.ToDriver.Send(req)
+		evt := NewReplyKernelCompletionEvent(
+			p.Freq.NCyclesLater(p.kernelFixedOverheadInCycles, now),
+			p, req,
+		)
+		p.engine.Schedule(evt)
 	} else {
 		log.Panic("The request sent to the command processor has unknown src")
 	}
+	return nil
+}
+
+func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
+	now := evt.Time()
+	evt.Req.SetSendTime(now)
+	p.ToDriver.Send(evt.Req)
 	return nil
 }
 
@@ -107,8 +120,26 @@ func NewCommandProcessor(name string, engine core.Engine) *CommandProcessor {
 	c.engine = engine
 	c.Freq = 1 * core.GHz
 
+	c.kernelFixedOverheadInCycles = 2600
+
 	c.ToDriver = core.NewPort(c)
 	c.ToDispatcher = core.NewPort(c)
 
 	return c
+}
+
+type ReplyKernelCompletionEvent struct {
+	*core.EventBase
+	Req *kernels.LaunchKernelReq
+}
+
+func NewReplyKernelCompletionEvent(
+	time core.VTimeInSec,
+	handler core.Handler,
+	req *kernels.LaunchKernelReq,
+) *ReplyKernelCompletionEvent {
+	evt := new(ReplyKernelCompletionEvent)
+	evt.EventBase = core.NewEventBase(time, handler)
+	evt.Req = req
+	return evt
 }

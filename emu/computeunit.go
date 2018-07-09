@@ -55,8 +55,6 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
 		return cu.handleMapWGReq(evt)
-	case *gcn3.DispatchWfReq:
-		return cu.handleDispatchWfReq(evt)
 	case *core.TickEvent:
 		return cu.handleTickEvent(evt)
 	case *WGCompleteEvent:
@@ -86,13 +84,6 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	req.SetSendTime(req.Time())
 	cu.ToDispatcher.Send(req)
 
-	return nil
-}
-
-func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
-	req.SwapSrcAndDst()
-	req.SetSendTime(req.Time())
-	cu.ToDispatcher.Send(req)
 	return nil
 }
 

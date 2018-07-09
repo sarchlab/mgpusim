@@ -48,20 +48,13 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(connection.AllExpectedSent()).To(BeTrue())
 	})
 
-	It("should forward kernel launching request to the Driver", func() {
+	It("should delay forward kernel launching request to the Driver", func() {
 		req := kernels.NewLaunchKernelReq()
 		req.SetSrc(dispatcher.ToOutside)
 		req.SetDst(commandProcessor.ToDispatcher)
 
-		reqExpect := kernels.NewLaunchKernelReq()
-		reqExpect.SetSrc(commandProcessor.ToDriver)
-		reqExpect.SetDst(driver.ToOutside)
-
-		connection.ExpectSend(reqExpect, nil)
-
 		commandProcessor.Handle(req)
 
-		Expect(connection.AllExpectedSent()).To(BeTrue())
-
+		Expect(engine.ScheduledEvent).To(HaveLen(1))
 	})
 })
