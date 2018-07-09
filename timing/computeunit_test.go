@@ -24,11 +24,9 @@ func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
 }
 
 type mockWfDispatcher struct {
-	dispatchedWf *gcn3.DispatchWfReq
 }
 
-func (m *mockWfDispatcher) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
-	m.dispatchedWf = req
+func (m *mockWfDispatcher) DispatchWf(now core.VTimeInSec, wf *Wavefront) {
 }
 
 type mockDecoder struct {
@@ -101,7 +99,7 @@ var _ = Describe("ComputeUnit", func() {
 	})
 
 	Context("when processing MapWGReq", func() {
-		It("should reply OK if mapping is successful", func() {
+		It("should schedule wavefront dispatching if mapping is successful", func() {
 			wgMapper.OK = true
 
 			wg := grid.WorkGroups[0]
@@ -109,15 +107,28 @@ var _ = Describe("ComputeUnit", func() {
 			req.SetRecvTime(10)
 			req.SetEventTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
-			expectedResponse.Ok = true
-			expectedResponse.SetSendTime(10)
-			expectedResponse.SetRecvTime(10)
-			connection.ExpectSend(expectedResponse, nil)
+			cu.Handle(req)
+
+			Expect(engine.ScheduledEvent).To(HaveLen(4))
+		})
+
+		It("should schedule more events if number of wavefronts is greater than 4", func() {
+			wgMapper.OK = true
+
+			wg := grid.WorkGroups[0]
+			wg.Wavefronts = make([]*kernels.Wavefront, 0)
+			for i := 0; i < 6; i++ {
+				wf := kernels.NewWavefront()
+				wf.WG = wg
+				wg.Wavefronts = append(wg.Wavefronts, wf)
+			}
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
+			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
 			cu.Handle(req)
 
-			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(engine.ScheduledEvent).To(HaveLen(6))
 		})
 
 		It("should reply not OK if there are pending wavefronts", func() {
@@ -160,49 +171,8 @@ var _ = Describe("ComputeUnit", func() {
 		})
 	})
 
-	Context("when processing DispatchWfReq", func() {
-		It("should dispatch wf", func() {
-			wg := grid.WorkGroups[0]
-			cu.wrapWG(wg, nil)
+	Context("when handling WfDispatchEvent", func() {
 
-			wf := wg.Wavefronts[0]
-			req := gcn3.NewDispatchWfReq(nil, cu.ToACE, 10, wf)
-			req.SetRecvTime(11)
-
-			cu.Handle(req)
-
-			Expect(wfDispatcher.dispatchedWf).To(BeIdenticalTo(req))
-		})
-
-		It("should handle WfDispatchCompletionEvent", func() {
-			cu.running = false
-			wf := grid.WorkGroups[0].Wavefronts[0]
-			managedWf := new(Wavefront)
-			managedWf.Wavefront = wf
-			managedWf.State = WfDispatching
-
-			info := new(WfDispatchInfo)
-			info.Wavefront = wf
-			info.SIMDID = 0
-			cu.WfToDispatch[wf] = info
-
-			req := gcn3.NewDispatchWfReq(nil, cu.ToACE, 10, wf)
-			evt := NewWfDispatchCompletionEvent(11, cu, managedWf)
-			evt.DispatchWfReq = req
-
-			expectedResponse := gcn3.NewDispatchWfReq(cu.ToACE, nil, 11, wf)
-			expectedResponse.SetSendTime(11)
-			connection.ExpectSend(expectedResponse, nil)
-
-			cu.Handle(evt)
-
-			Expect(len(engine.ScheduledEvent)).To(Equal(1))
-			Expect(connection.AllExpectedSent()).To(BeTrue())
-			Expect(len(cu.WfPools[0].wfs)).To(Equal(1))
-			Expect(len(cu.WfToDispatch)).To(Equal(0))
-			Expect(managedWf.State).To(Equal(WfReady))
-			Expect(cu.running).To(BeTrue())
-		})
 	})
 
 	Context("when handling mem.AccessReq", func() {

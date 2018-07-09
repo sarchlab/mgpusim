@@ -75,10 +75,8 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
 		return cu.handleMapWGReq(evt)
-	case *gcn3.DispatchWfReq:
-		return cu.handleDispatchWfReq(evt)
-	case *WfDispatchCompletionEvent:
-		return cu.handleWfDispatchCompletionEvent(evt)
+	case *WfDispatchEvent:
+		return cu.handleWfDispatchEvent(evt)
 	case *core.TickEvent:
 		return cu.handleTickEvent(evt)
 	case *WfCompletionEvent:
@@ -97,6 +95,7 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	//log.Printf("%s map wg at %.12f\n", cu.Name(), req.Time())
+	now := req.Time()
 
 	ok := false
 
@@ -104,13 +103,45 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 		ok = cu.WGMapper.MapWG(req)
 	}
 
+	wfs := make([]*Wavefront, 0)
 	if ok {
 		cu.wrapWG(req.WG, req)
+		for _, wf := range req.WG.Wavefronts {
+			managedWf := cu.wrapWf(wf)
+			wfs = append(wfs, managedWf)
+		}
+
+		if len(wfs) <= 4 {
+			for i := 0; i < 4; i++ {
+				wf := (*Wavefront)(nil)
+				if i < len(wfs) {
+					wf = wfs[i]
+				}
+				evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(i, now), cu, wf)
+				evt.MapWGReq = req
+				if i == 3 {
+					evt.IsLastInWG = true
+				}
+				cu.engine.Schedule(evt)
+			}
+		} else {
+			for i := 0; i < len(wfs); i++ {
+				wf := wfs[i]
+				evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(i, now), cu, wf)
+				evt.MapWGReq = req
+				if i == len(wfs)-1 {
+					evt.IsLastInWG = true
+				}
+				cu.engine.Schedule(evt)
+			}
+		}
+
+		return nil
 	}
 
-	req.Ok = ok
+	req.Ok = false
 	req.SwapSrcAndDst()
-	req.SetSendTime(req.Time())
+	req.SetSendTime(now)
 	err := cu.ToACE.Send(req)
 	if err != nil {
 		log.Panic(err)
@@ -119,30 +150,29 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	return nil
 }
 
-func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
-	wf := cu.wrapWf(req.Wf)
-	cu.WfDispatcher.DispatchWf(wf, req)
-
-	return nil
-}
-
-func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
-	evt *WfDispatchCompletionEvent,
+func (cu *ComputeUnit) handleWfDispatchEvent(
+	evt *WfDispatchEvent,
 ) error {
+	now := evt.Time()
 	wf := evt.ManagedWf
-	info := cu.WfToDispatch[wf.Wavefront]
-
-	cu.WfPools[info.SIMDID].AddWf(wf)
-	delete(cu.WfToDispatch, wf.Wavefront)
-	wf.State = WfReady
+	if wf != nil {
+		info := cu.WfToDispatch[wf.Wavefront]
+		cu.WfPools[info.SIMDID].AddWf(wf)
+		cu.WfDispatcher.DispatchWf(now, wf)
+		delete(cu.WfToDispatch, wf.Wavefront)
+		wf.State = WfReady
+	}
 
 	// Respond ACK
-	req := evt.DispatchWfReq
-	req.SwapSrcAndDst()
-	req.SetSendTime(evt.Time())
-	err := cu.ToACE.Send(req)
-	if err != nil {
-		log.Panic(err)
+	if evt.IsLastInWG {
+		req := evt.MapWGReq
+		req.Ok = true
+		req.SwapSrcAndDst()
+		req.SetSendTime(evt.Time())
+		err := cu.ToACE.Send(req)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
 	cu.running = true
