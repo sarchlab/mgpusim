@@ -6,20 +6,21 @@ import (
 )
 
 // WfDispatchCompletionEvent marks the completion of a wavefront dispatching
-type WfDispatchCompletionEvent struct {
+type WfDispatchEvent struct {
 	*core.EventBase
 
-	ManagedWf     *Wavefront
-	DispatchWfReq *gcn3.DispatchWfReq
+	ManagedWf  *Wavefront
+	IsLastInWG bool
+	MapWGReq   *gcn3.MapWGReq
 }
 
-// NewWfDispatchCompletionEvent creates a new WfDispatchCompletionEvent
-func NewWfDispatchCompletionEvent(
+// NewWfDispatchEvent creates a new WfDispatchCompletionEvent
+func NewWfDispatchEvent(
 	t core.VTimeInSec,
 	handler core.Handler,
 	Wf *Wavefront,
-) *WfDispatchCompletionEvent {
-	evt := new(WfDispatchCompletionEvent)
+) *WfDispatchEvent {
+	evt := new(WfDispatchEvent)
 	evt.EventBase = core.NewEventBase(t, handler)
 	evt.ManagedWf = Wf
 	return evt

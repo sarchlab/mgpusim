@@ -3,13 +3,13 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
-	DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq)
+	DispatchWf(now core.VTimeInSec, wf *Wavefront)
 }
 
 // A WfDispatcherImpl will register the wavefront in wavefront pool and
@@ -30,16 +30,15 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 
 // DispatchWf starts or continues a wavefront dispatching process.
 func (d *WfDispatcherImpl) DispatchWf(
+	now core.VTimeInSec,
 	wf *Wavefront,
-	req *gcn3.DispatchWfReq,
 ) {
 	d.setWfInfo(wf)
 	d.initRegisters(wf)
 
-	evt := NewWfDispatchCompletionEvent(
-		d.cu.Freq.NCyclesLater(d.Latency, req.Time()),
+	evt := NewWfDispatchEvent(
+		d.cu.Freq.NCyclesLater(d.Latency, now),
 		d.cu, wf)
-	evt.DispatchWfReq = req
 	d.cu.engine.Schedule(evt)
 }
 
