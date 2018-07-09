@@ -164,8 +164,7 @@ var _ = Describe("Dispatcher", func() {
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
-	It("should start dispatching wavefronts after successfully mapping"+
-		" a work-group", func() {
+	It("should map another workgroup when finished mapping a work-group", func() {
 		dispatcher.dispatchingCUID = 0
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)
@@ -174,68 +173,6 @@ var _ = Describe("Dispatcher", func() {
 		req := NewMapWGReq(cu0.ToOutside, dispatcher.ToCUs, 10, wg)
 		req.SetRecvTime(11)
 		req.Ok = true
-
-		dispatcher.Handle(req)
-
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
-	})
-
-	It("should dispatch wavefront", func() {
-		dispatcher.dispatchingCUID = 0
-		dispatcher.dispatchingWfs = append(dispatcher.dispatchingWfs,
-			grid.WorkGroups[0].Wavefronts...)
-		wf := dispatcher.dispatchingWfs[0]
-
-		evt := NewDispatchWfEvent(10, dispatcher)
-
-		expectedReq := NewDispatchWfReq(dispatcher.ToCUs, cu0.ToOutside, 10, wf)
-		toCUsConn.ExpectSend(expectedReq, nil)
-
-		dispatcher.Handle(evt)
-
-		Expect(toCUsConn.AllExpectedSent()).To(BeTrue())
-	})
-
-	It("should reschedule wavefront dispatching upon error on network", func() {
-		dispatcher.dispatchingCUID = 0
-		dispatcher.dispatchingWfs = append(dispatcher.dispatchingWfs,
-			grid.WorkGroups[0].Wavefronts...)
-		wf := dispatcher.dispatchingWfs[0]
-
-		evt := NewDispatchWfEvent(10, dispatcher)
-
-		expectedReq := NewDispatchWfReq(dispatcher.ToCUs, cu0.ToOutside, 10, wf)
-		toCUsConn.ExpectSend(expectedReq, core.NewSendError())
-
-		dispatcher.Handle(evt)
-
-		Expect(toCUsConn.AllExpectedSent()).To(BeTrue())
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
-	})
-
-	It("should continue dispatching wavefronts after dispatching another one", func() {
-		dispatcher.dispatchingCUID = 0
-		dispatcher.dispatchingWfs = append(dispatcher.dispatchingWfs,
-			grid.WorkGroups[0].Wavefronts...)
-		wf := dispatcher.dispatchingWfs[0]
-
-		req := NewDispatchWfReq(cu0.ToOutside, dispatcher.ToCUs, 10, wf)
-		req.SetRecvTime(11)
-
-		dispatcher.Handle(req)
-
-		Expect(len(dispatcher.dispatchingWfs)).To(
-			Equal(len(grid.WorkGroups[0].Wavefronts) - 1))
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
-	})
-
-	It("should map next workgroup is all wavefronts are dispatched", func() {
-		dispatcher.dispatchingCUID = 0
-		wf := grid.WorkGroups[0].Wavefronts[0]
-		dispatcher.dispatchingWfs = []*kernels.Wavefront{wf}
-
-		req := NewDispatchWfReq(cu0.ToOutside, dispatcher.ToCUs, 10, wf)
-		req.SetRecvTime(10)
 
 		dispatcher.Handle(req)
 

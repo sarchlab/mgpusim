@@ -45,42 +45,6 @@ func NewMapWGEvent(t core.VTimeInSec, handler core.Handler) *MapWGEvent {
 	return e
 }
 
-// A DispatchWfReq is the request to dispatch a wavefront to the compute unit
-type DispatchWfReq struct {
-	*core.ReqBase
-	Wf *kernels.Wavefront
-}
-
-// NewDispatchWfReq creates a DispatchWfReq
-func NewDispatchWfReq(
-	src, dst *core.Port,
-	time core.VTimeInSec,
-	wf *kernels.Wavefront,
-) *DispatchWfReq {
-	r := new(DispatchWfReq)
-	r.ReqBase = core.NewReqBase()
-	r.SetSrc(src)
-	r.SetDst(dst)
-	r.SetSendTime(time)
-	r.Wf = wf
-	return r
-}
-
-// A DispatchWfEvent is an event used by the dispatcher to dispatch a wavefront
-type DispatchWfEvent struct {
-	*core.EventBase
-}
-
-// NewDispatchWfEvent creates a new DispatchWfEvent
-func NewDispatchWfEvent(
-	t core.VTimeInSec,
-	handler core.Handler,
-) *DispatchWfEvent {
-	e := new(DispatchWfEvent)
-	e.EventBase = core.NewEventBase(t, handler)
-	return e
-}
-
 // A WGFinishMesg is sent by a compute unit to notify about the completion of
 // a work-group
 type WGFinishMesg struct {
@@ -114,8 +78,6 @@ const (
 	DispatcherIdle DispatcherState = iota
 	DispatcherToMapWG
 	DispatcherWaitMapWGACK
-	DispatcherToDispatchWF
-	DispatcherWaitDispatchWFACK
 )
 
 // A Dispatcher is a component that can dispatch work-groups and wavefronts
@@ -201,10 +163,6 @@ func (d *Dispatcher) Handle(evt core.Event) error {
 		return d.handleMapWGEvent(evt)
 	case *MapWGReq:
 		return d.handleMapWGReq(evt)
-	case *DispatchWfEvent:
-		return d.handleDispatchWfEvent(evt)
-	case *DispatchWfReq:
-		return d.handleDispatchWfReq(evt)
 	case *WGFinishMesg:
 		return d.handleWGFinishMesg(evt)
 
@@ -292,53 +250,20 @@ func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
 
 // handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
 func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
+	now := req.Time()
+
 	if !req.Ok {
 		d.state = DispatcherToMapWG
 		d.cuBusy[d.cus[d.dispatchingCUID]] = true
-		d.scheduleMapWG(req.Time())
+		d.scheduleMapWG(now)
 		return nil
 	}
 
 	wg := d.dispatchingWGs[0]
 	d.dispatchingWGs = d.dispatchingWGs[1:]
 	d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
-	d.state = DispatcherToDispatchWF
-	d.scheduleDispatchWfEvent(d.Freq.NextTick(req.RecvTime()))
-
-	return nil
-}
-
-func (d *Dispatcher) scheduleDispatchWfEvent(time core.VTimeInSec) {
-	evt := NewDispatchWfEvent(time, d)
-	d.engine.Schedule(evt)
-}
-
-func (d *Dispatcher) handleDispatchWfEvent(evt *DispatchWfEvent) error {
-	now := evt.Time()
-	wf := d.dispatchingWfs[0]
-	cu := d.cus[d.dispatchingCUID]
-
-	req := NewDispatchWfReq(d.ToCUs, cu, now, wf)
-	d.state = DispatcherWaitDispatchWFACK
-	err := d.ToCUs.Send(req)
-	if err != nil {
-		d.scheduleDispatchWfEvent(d.Freq.NextTick(now))
-	}
-
-	return nil
-}
-
-func (d *Dispatcher) handleDispatchWfReq(req *DispatchWfReq) error {
-	d.dispatchingWfs = d.dispatchingWfs[1:]
-
-	if len(d.dispatchingWfs) == 0 {
-		d.state = DispatcherToMapWG
-		d.scheduleMapWG(d.Freq.NextTick(req.Time()))
-		return nil
-	}
-
-	d.state = DispatcherToDispatchWF
-	d.scheduleDispatchWfEvent(d.Freq.NextTick(req.Time()))
+	d.state = DispatcherToMapWG
+	d.scheduleMapWG(now)
 
 	return nil
 }
