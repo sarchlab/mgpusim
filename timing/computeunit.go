@@ -116,9 +116,9 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 			cu.engine.Schedule(evt)
 		}
 
-		lastEventCycle := 4 + 1
+		lastEventCycle := 4
 		if len(wfs) > 4 {
-			lastEventCycle = len(wfs) + 1
+			lastEventCycle = len(wfs)
 		}
 		evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(lastEventCycle, now), cu, nil)
 		evt.MapWGReq = req
