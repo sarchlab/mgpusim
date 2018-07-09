@@ -64,7 +64,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 			info.Action = MemAccessInstFetch
 			info.Wf = wf
 			s.cu.inFlightMemAccess[req.ID] = info
-			wf.State = WfFetching
+			//wf.State = WfFetching
 
 			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
 		}
@@ -98,7 +98,7 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 		wf.State = WfRunning
 		//wf.PC += uint64(wf.Inst().ByteSize)
 	} else {
-		wf.State = WfFetched
+		//wf.State = WfFetched
 	}
 
 }

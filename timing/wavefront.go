@@ -16,8 +16,6 @@ type WfState int
 const (
 	WfDispatching WfState = iota // Dispatching in progress, not ready to run
 	WfReady                      // Allow the scheduler to schedule instruction
-	WfFetching                   // Fetch request sent, but not returned
-	WfFetched                    // Instruction fetched, but not issued
 	WfRunning                    // Instruction in fight
 	WfCompleted                  // Wavefront completed
 	WfAtBarrier                  // Wavefront at barrier
@@ -43,6 +41,8 @@ type Wavefront struct {
 
 	InstBuffer        []byte
 	InstBufferStartPC uint64
+	IsFetching        bool
+	InstToIssue       *Inst
 
 	SIMDID     int
 	SRegOffset int

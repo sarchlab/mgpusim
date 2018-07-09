@@ -337,7 +337,7 @@ func (cu *ComputeUnit) handleFetchReturn(rsp *mem.DataReadyRsp, info *MemAccessI
 }
 
 func (cu *ComputeUnit) fetchComplete(wf *Wavefront, now core.VTimeInSec) {
-	wf.State = WfFetched
+	//wf.State = WfFetched
 	wf.LastFetchTime = now
 
 	inst, err := cu.Decoder.Decode(wf.InstBuffer)
