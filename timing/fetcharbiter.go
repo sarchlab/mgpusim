@@ -6,6 +6,7 @@ import "math"
 // A FetchArbiter can decide which wavefront in a scheduler can fetch
 // instructions
 type FetchArbiter struct {
+	InstBufByteSize int
 }
 
 // Arbitrate decide which wavefront can fetch the next instruction
@@ -18,6 +19,11 @@ func (a *FetchArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 		for _, wf := range wfPool.wfs {
 			wf.RLock()
 			if wf.State != WfReady {
+				wf.RUnlock()
+				continue
+			}
+
+			if len(wf.InstBuffer) >= a.InstBufByteSize {
 				wf.RUnlock()
 				continue
 			}

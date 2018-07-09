@@ -231,7 +231,7 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.State).To(Equal(WfReady))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 8))
 			Expect(wf.PC).To(Equal(uint64(60)))
-			Expect(wf.FetchBuffer).To(Equal(req.Data))
+			Expect(wf.InstBuffer).To(Equal(req.Data))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
 
@@ -241,7 +241,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf.inst = inst
 			wf.PC = 60
 			wf.LastFetchTime = 8
-			wf.FetchBuffer = []byte{1, 2, 3, 4}
+			wf.InstBuffer = []byte{1, 2, 3, 4}
 
 			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
 			req.Data = []byte{1, 2, 3, 4}
@@ -262,7 +262,7 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(64)))
-			Expect(wf.FetchBuffer).To(HaveLen(0))
+			Expect(wf.InstBuffer).To(HaveLen(0))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
 

@@ -125,7 +125,7 @@ var _ = Describe("Scheduler", func() {
 	It("should only fetch 4 bytes if there are already 4 bytes in the fetch buffer", func() {
 		wf := new(Wavefront)
 		wf.PC = 60
-		wf.FetchBuffer = []byte{1, 2, 3, 4}
+		wf.InstBuffer = []byte{1, 2, 3, 4}
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
