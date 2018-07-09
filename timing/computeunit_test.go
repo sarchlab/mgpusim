@@ -109,7 +109,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.Handle(req)
 
-			Expect(engine.ScheduledEvent).To(HaveLen(4))
+			Expect(engine.ScheduledEvent).To(HaveLen(2))
 		})
 
 		It("should schedule more events if number of wavefronts is greater than 4", func() {
@@ -128,7 +128,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.Handle(req)
 
-			Expect(engine.ScheduledEvent).To(HaveLen(6))
+			Expect(engine.ScheduledEvent).To(HaveLen(7))
 		})
 
 		It("should reply not OK if there are pending wavefronts", func() {
