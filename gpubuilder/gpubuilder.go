@@ -256,12 +256,12 @@ func (b *GPUBuilder) BuildR9NanoWithoutL2Cache() (*gcn3.GPU, *mem.IdealMemContro
 	lowModuleFinderForL1 := new(cache.SingleLowModuleFinder)
 	lowModuleFinderForL1.LowModule = gpuMem.ToTop
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		l2Cache := cacheBuilder.BuildWriteBackCache(
-			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 512*mem.MB)
+			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 512)
 		l2Caches = append(l2Caches, l2Cache)
 		l2Cache.Latency = 20
-		l2Cache.NumBank = 16
+		l2Cache.SetNumBanks(16)
 		l2Cache.Freq = 1 * core.GHz
 		//lowModuleFinderForL1.LowModules = append(
 		//	lowModuleFinderForL1.LowModules, l2Cache.ToTop)
@@ -275,7 +275,7 @@ func (b *GPUBuilder) BuildR9NanoWithoutL2Cache() (*gcn3.GPU, *mem.IdealMemContro
 	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
 	for i := 0; i < 64; i++ {
 		dCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB)
+			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB, 128)
 		dCache.Latency = 1
 		connection.PlugIn(dCache.ToTop)
 		connection.PlugIn(dCache.ToBottom)
@@ -290,7 +290,7 @@ func (b *GPUBuilder) BuildR9NanoWithoutL2Cache() (*gcn3.GPU, *mem.IdealMemContro
 
 	for i := 0; i < 16; i++ {
 		kCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB)
+			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB, 16)
 		kCache.Latency = 1
 		connection.PlugIn(kCache.ToTop)
 		connection.PlugIn(kCache.ToBottom)
@@ -303,7 +303,7 @@ func (b *GPUBuilder) BuildR9NanoWithoutL2Cache() (*gcn3.GPU, *mem.IdealMemContro
 		}
 
 		iCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
+			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB, 16)
 		iCache.Latency = 0
 		iCache.NumBank = 4
 		connection.PlugIn(iCache.ToTop)
@@ -408,7 +408,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	dCaches := make([]*cache.WriteAroundCache, 0, 64)
 	kCaches := make([]*cache.WriteAroundCache, 0, 16)
 	iCaches := make([]*cache.WriteAroundCache, 0, 16)
-	l2Caches := make([]*cache.WriteBackCache, 0, 6)
+	l2Caches := make([]*cache.WriteBackCache, 0, 8)
 
 	lowModuleFinderForL2 := new(cache.SingleLowModuleFinder)
 	lowModuleFinderForL2.LowModule = gpuMem.ToTop
@@ -417,12 +417,12 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	//lowModuleFinderForL1 := new(cache.SingleLowModuleFinder)
 	//lowModuleFinderForL1.LowModule = gpuMem.ToTop
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		l2Cache := cacheBuilder.BuildWriteBackCache(
-			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 512*mem.MB)
+			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 512)
 		l2Caches = append(l2Caches, l2Cache)
 		l2Cache.DirectoryLatency = 2
-		l2Cache.Latency = 20
+		l2Cache.Latency = 15
 		l2Cache.SetNumBanks(16)
 		l2Cache.Freq = 1 * core.GHz
 		lowModuleFinderForL1.LowModules = append(
@@ -437,7 +437,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
 	for i := 0; i < 64; i++ {
 		dCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB)
+			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB, 128)
 		dCache.DirectoryLatency = 0
 		dCache.Latency = 1
 		dCache.SetNumBanks(1)
@@ -454,7 +454,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	for i := 0; i < 16; i++ {
 		kCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB)
+			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB, 16)
 		kCache.DirectoryLatency = 0
 		kCache.Latency = 1
 		kCache.SetNumBanks(1)
@@ -469,7 +469,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		}
 
 		iCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB)
+			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB, 16)
 		iCache.DirectoryLatency = 0
 		iCache.Latency = 0
 		iCache.SetNumBanks(4)
