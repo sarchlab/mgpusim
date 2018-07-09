@@ -153,11 +153,12 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 func (cu *ComputeUnit) handleWfDispatchEvent(
 	evt *WfDispatchEvent,
 ) error {
+	now := evt.Time()
 	wf := evt.ManagedWf
 	if wf != nil {
 		info := cu.WfToDispatch[wf.Wavefront]
-
 		cu.WfPools[info.SIMDID].AddWf(wf)
+		cu.WfDispatcher.DispatchWf(now, wf)
 		delete(cu.WfToDispatch, wf.Wavefront)
 		wf.State = WfReady
 	}
@@ -165,6 +166,7 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 	// Respond ACK
 	if evt.IsLastInWG {
 		req := evt.MapWGReq
+		req.Ok = true
 		req.SwapSrcAndDst()
 		req.SetSendTime(evt.Time())
 		err := cu.ToACE.Send(req)

@@ -35,11 +35,6 @@ func (d *WfDispatcherImpl) DispatchWf(
 ) {
 	d.setWfInfo(wf)
 	d.initRegisters(wf)
-
-	evt := NewWfDispatchEvent(
-		d.cu.Freq.NCyclesLater(d.Latency, now),
-		d.cu, wf)
-	d.cu.engine.Schedule(evt)
 }
 
 func (d *WfDispatcherImpl) setWfInfo(wf *Wavefront) {
