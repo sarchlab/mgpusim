@@ -111,30 +111,19 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 			wfs = append(wfs, managedWf)
 		}
 
-		if len(wfs) <= 4 {
-			for i := 0; i < 4; i++ {
-				wf := (*Wavefront)(nil)
-				if i < len(wfs) {
-					wf = wfs[i]
-				}
-				evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(i, now), cu, wf)
-				evt.MapWGReq = req
-				if i == 3 {
-					evt.IsLastInWG = true
-				}
-				cu.engine.Schedule(evt)
-			}
-		} else {
-			for i := 0; i < len(wfs); i++ {
-				wf := wfs[i]
-				evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(i, now), cu, wf)
-				evt.MapWGReq = req
-				if i == len(wfs)-1 {
-					evt.IsLastInWG = true
-				}
-				cu.engine.Schedule(evt)
-			}
+		for i, wf := range wfs {
+			evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(i, now), cu, wf)
+			cu.engine.Schedule(evt)
 		}
+
+		lastEventCycle := 4 + 1
+		if len(wfs) > 4 {
+			lastEventCycle = len(wfs) + 1
+		}
+		evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(lastEventCycle, now), cu, nil)
+		evt.MapWGReq = req
+		evt.IsLastInWG = true
+		cu.engine.Schedule(evt)
 
 		return nil
 	}
