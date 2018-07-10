@@ -129,7 +129,7 @@ func (b *GPUBuilder) BuildR9NanoWithoutCache() (*gcn3.GPU, *mem.IdealMemControll
 	// Memory
 	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = b.freq
-	gpuMem.Latency = 100
+	gpuMem.Latency = 1000
 	if b.EnableMemTracing {
 		gpuMem.AcceptHook(memTracer)
 	}
@@ -379,7 +379,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	// Memory
 	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = b.freq
-	gpuMem.Latency = 100
+	gpuMem.Latency = 1000
 	if b.EnableMemTracing {
 		gpuMem.AcceptHook(memTracer)
 	}
@@ -421,8 +421,8 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		l2Cache := cacheBuilder.BuildWriteBackCache(
 			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 512)
 		l2Caches = append(l2Caches, l2Cache)
-		l2Cache.DirectoryLatency = 2
-		l2Cache.Latency = 15
+		l2Cache.DirectoryLatency = 3
+		l2Cache.Latency = 300
 		l2Cache.SetNumBanks(16)
 		l2Cache.Freq = 1 * core.GHz
 		lowModuleFinderForL1.LowModules = append(
