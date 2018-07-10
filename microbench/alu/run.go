@@ -51,6 +51,7 @@ func configure() {
 }
 
 func initPlatform() {
+	platform.TraceInst = true
 	if *timing {
 		engine, gpu, gpuDriver, globalMem = platform.BuildR9NanoPlatform()
 	} else {
