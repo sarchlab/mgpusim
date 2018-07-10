@@ -38,6 +38,34 @@ func NewScheduler(
 	return s
 }
 
+func (s *Scheduler) Run(now core.VTimeInSec) {
+	s.EvaluateInternalInst(now)
+	s.DecodeNextInst()
+	s.DoIssue(now)
+	s.DoFetch(now)
+}
+
+func (s *Scheduler) DecodeNextInst() {
+	for _, wfPool := range s.cu.WfPools {
+		for _, wf := range wfPool.wfs {
+			if wf.InstToIssue != nil {
+				continue
+			}
+
+			if !s.wfHasAtLeast8BytesInInstBuffer(wf) {
+				continue
+			}
+
+			inst, _ := s.cu.Decoder.Decode(wf.InstBuffer)
+			wf.InstToIssue = NewInst(inst)
+		}
+	}
+}
+
+func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *Wavefront) bool {
+	return wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) >= wf.PC+8
+}
+
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
 func (s *Scheduler) DoFetch(now core.VTimeInSec) {
@@ -48,15 +76,8 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 		wf.inst = NewInst(nil)
 		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
-		req := mem.NewReadReq(now, s.cu.ToInstMem, s.cu.InstMem, wf.PC, 8)
-		if wf.PC%64 == 60 {
-			req.ByteSize = 4
-		}
-
-		if len(wf.InstBuffer) == 4 {
-			req.ByteSize = 4
-			req.Address = wf.PC + 4
-		}
+		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
+		req := mem.NewReadReq(now, s.cu.ToInstMem, s.cu.InstMem, addr, 64)
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {
@@ -64,9 +85,9 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 			info.Action = MemAccessInstFetch
 			info.Wf = wf
 			s.cu.inFlightMemAccess[req.ID] = info
-			//wf.State = WfFetching
+			wf.IsFetching = true
 
-			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
+			//s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
 		}
 	}
 }
@@ -76,17 +97,18 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 	wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 	for _, wf := range wfs {
-
-		if wf.Inst().ExeUnit == insts.ExeUnitSpecial {
+		if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
 			s.issueToInternal(wf, now)
 			continue
 		}
 
-		unit := s.getUnitToIssueTo(wf.Inst().ExeUnit)
+		unit := s.getUnitToIssueTo(wf.InstToIssue.ExeUnit)
 		if unit.CanAcceptWave() {
+			wf.inst = wf.InstToIssue
+			wf.InstToIssue = nil
 			unit.AcceptWave(wf, now)
-			// log.Printf("%f: %s from wf %d issued.\n", now, wf.Inst.String(), wf.FirstWiFlatID)
 			wf.State = WfRunning
+			wf.PC += uint64(wf.inst.ByteSize)
 			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "Issue"})
 		}
 	}
@@ -94,13 +116,12 @@ func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 
 func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 	if s.internalExecuting == nil {
+		wf.inst = wf.InstToIssue
+		wf.InstToIssue = nil
 		s.internalExecuting = wf
 		wf.State = WfRunning
-		//wf.PC += uint64(wf.Inst().ByteSize)
-	} else {
-		//wf.State = WfFetched
+		wf.PC += uint64(wf.Inst().ByteSize)
 	}
-
 }
 
 func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) CUComponent {

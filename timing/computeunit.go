@@ -252,9 +252,7 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	cu.VectorMemUnit.Run(now)
 	cu.VectorMemDecoder.Run(now)
 
-	cu.Scheduler.EvaluateInternalInst(now)
-	cu.Scheduler.DoIssue(now)
-	cu.Scheduler.DoFetch(now)
+	cu.Scheduler.Run(now)
 
 	if cu.running {
 		cu.ticker.TickLater(now)

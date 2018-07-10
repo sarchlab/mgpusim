@@ -87,72 +87,38 @@ var _ = Describe("Scheduler", func() {
 		scheduler = NewScheduler(cu, fetchArbitor, issueArbitor)
 	})
 
-	It("should fetch", func() {
+	It("should always fetch 64 bytes", func() {
 		wf := new(Wavefront)
-		wf.PC = 8064
+		wf.InstBufferStartPC = 0x100
+		wf.InstBuffer = make([]byte, 0x80)
+
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 8064, 8)
-		toInstMemConn.ExpectSend(reqToExpect, nil)
-
-		//info := new(MemAccessInfo)
-		//info.Action = MemAccessInstFetch
-		//info.Wf = wf
-
-		scheduler.DoFetch(10)
-
-		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
-		Expect(cu.inFlightMemAccess).To(HaveLen(1))
-		//Expect(wf.State).To(Equal(WfFetching))
-	})
-
-	It("should only fetch 4 bytes if the next 8-bytes goes across cache lines", func() {
-		wf := new(Wavefront)
-		wf.PC = 60
-		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
-			[]*Wavefront{wf})
-
-		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 60, 4)
+		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 0x180, 64)
 		toInstMemConn.ExpectSend(reqToExpect, nil)
 
 		scheduler.DoFetch(10)
 		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
 		Expect(cu.inFlightMemAccess).To(HaveLen(1))
-		//Expect(wf.State).To(Equal(WfFetching))
-	})
-
-	It("should only fetch 4 bytes if there are already 4 bytes in the fetch buffer", func() {
-		wf := new(Wavefront)
-		wf.PC = 60
-		wf.InstBuffer = []byte{1, 2, 3, 4}
-		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
-			[]*Wavefront{wf})
-
-		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 64, 4)
-		toInstMemConn.ExpectSend(reqToExpect, nil)
-
-		scheduler.DoFetch(10)
-		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
-		Expect(cu.inFlightMemAccess).To(HaveLen(1))
-		//Expect(wf.State).To(Equal(WfFetching))
+		Expect(wf.IsFetching).To(BeTrue())
 	})
 
 	It("should wait if fetch failed", func() {
 		wf := new(Wavefront)
-		wf.PC = 8064
-		wf.State = WfReady
+		wf.InstBufferStartPC = 0x100
+		wf.InstBuffer = make([]byte, 0x80)
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 8064, 8)
+		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 0x180, 64)
 		toInstMemConn.ExpectSend(reqToExpect, core.NewSendError())
 
 		scheduler.DoFetch(10)
 
 		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
 		Expect(cu.inFlightMemAccess).To(HaveLen(0))
-		Expect(wf.State).To(Equal(WfReady))
+		Expect(wf.IsFetching).To(BeFalse())
 	})
 
 	It("should issue", func() {
@@ -173,10 +139,10 @@ var _ = Describe("Scheduler", func() {
 		for i := 0; i < 5; i++ {
 			wf := new(Wavefront)
 			wf.PC = 10
-			//wf.State = WfFetched
-			wf.inst = NewInst(insts.NewInst())
-			wf.inst.ExeUnit = issueDirs[i]
-			wf.inst.ByteSize = 4
+			wf.State = WfReady
+			wf.InstToIssue = NewInst(insts.NewInst())
+			wf.InstToIssue.ExeUnit = issueDirs[i]
+			wf.InstToIssue.ByteSize = 4
 			wfs = append(wfs, wf)
 		}
 
@@ -194,23 +160,29 @@ var _ = Describe("Scheduler", func() {
 		Expect(wfs[1].State).To(Equal(WfRunning))
 		Expect(wfs[2].State).To(Equal(WfRunning))
 		Expect(wfs[3].State).To(Equal(WfRunning))
-		//Expect(wfs[4].State).To(Equal(WfFetched))
+		Expect(wfs[4].State).To(Equal(WfReady))
 
-		//Expect(wfs[0].PC).To(Equal(uint64(14)))
-		//Expect(wfs[1].PC).To(Equal(uint64(14)))
-		//Expect(wfs[2].PC).To(Equal(uint64(14)))
-		//Expect(wfs[3].PC).To(Equal(uint64(14)))
-		//Expect(wfs[4].PC).To(Equal(uint64(10)))
+		Expect(wfs[0].PC).To(Equal(uint64(14)))
+		Expect(wfs[1].PC).To(Equal(uint64(14)))
+		Expect(wfs[2].PC).To(Equal(uint64(14)))
+		Expect(wfs[3].PC).To(Equal(uint64(14)))
+		Expect(wfs[4].PC).To(Equal(uint64(10)))
+
+		Expect(wfs[0].InstToIssue).To(BeNil())
+		Expect(wfs[1].InstToIssue).To(BeNil())
+		Expect(wfs[2].InstToIssue).To(BeNil())
+		Expect(wfs[3].InstToIssue).To(BeNil())
+		Expect(wfs[4].InstToIssue).NotTo(BeNil())
 	})
 
 	It("should issue internal instruction", func() {
 		wfs := make([]*Wavefront, 0)
 		wf := new(Wavefront)
-		wf.inst = NewInst(insts.NewInst())
-		wf.inst.ExeUnit = insts.ExeUnitSpecial
-		wf.inst.ByteSize = 4
+		wf.InstToIssue = NewInst(insts.NewInst())
+		wf.InstToIssue.ExeUnit = insts.ExeUnitSpecial
+		wf.InstToIssue.ByteSize = 4
 		wf.PC = 10
-		//wf.State = WfFetched
+		wf.State = WfReady
 		wfs = append(wfs, wf)
 
 		issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
@@ -220,7 +192,8 @@ var _ = Describe("Scheduler", func() {
 
 		Expect(scheduler.internalExecuting).To(BeIdenticalTo(wf))
 		Expect(wf.State).To(Equal(WfRunning))
-		//Expect(wf.PC).To(Equal(uint64(14)))
+		Expect(wf.PC).To(Equal(uint64(14)))
+		Expect(wf.InstToIssue).To(BeNil())
 	})
 
 	It("should evaluate internal executing insts", func() {
