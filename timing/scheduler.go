@@ -109,8 +109,16 @@ func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 			unit.AcceptWave(wf, now)
 			wf.State = WfRunning
 			wf.PC += uint64(wf.inst.ByteSize)
+			s.removeStaleInstBuffer(wf)
 			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "Issue"})
 		}
+	}
+}
+
+func (s *Scheduler) removeStaleInstBuffer(wf *Wavefront) {
+	for wf.PC >= wf.InstBufferStartPC+64 {
+		wf.InstBuffer = wf.InstBuffer[64:]
+		wf.InstBufferStartPC += 64
 	}
 }
 
@@ -121,6 +129,7 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 		s.internalExecuting = wf
 		wf.State = WfRunning
 		wf.PC += uint64(wf.Inst().ByteSize)
+		s.removeStaleInstBuffer(wf)
 	}
 }
 

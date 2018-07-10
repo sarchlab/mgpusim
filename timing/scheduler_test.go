@@ -138,14 +138,16 @@ var _ = Describe("Scheduler", func() {
 
 		for i := 0; i < 5; i++ {
 			wf := new(Wavefront)
-			wf.PC = 10
+			wf.PC = 0x120
+			wf.InstBuffer = make([]byte, 256)
+			wf.InstBufferStartPC = 0x100
 			wf.State = WfReady
 			wf.InstToIssue = NewInst(insts.NewInst())
 			wf.InstToIssue.ExeUnit = issueDirs[i]
 			wf.InstToIssue.ByteSize = 4
 			wfs = append(wfs, wf)
 		}
-
+		wfs[0].PC = 0x13C
 		issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
 
 		scheduler.DoIssue(10)
@@ -162,17 +164,20 @@ var _ = Describe("Scheduler", func() {
 		Expect(wfs[3].State).To(Equal(WfRunning))
 		Expect(wfs[4].State).To(Equal(WfReady))
 
-		Expect(wfs[0].PC).To(Equal(uint64(14)))
-		Expect(wfs[1].PC).To(Equal(uint64(14)))
-		Expect(wfs[2].PC).To(Equal(uint64(14)))
-		Expect(wfs[3].PC).To(Equal(uint64(14)))
-		Expect(wfs[4].PC).To(Equal(uint64(10)))
+		Expect(wfs[0].PC).To(Equal(uint64(0x140)))
+		Expect(wfs[1].PC).To(Equal(uint64(0x124)))
+		Expect(wfs[2].PC).To(Equal(uint64(0x124)))
+		Expect(wfs[3].PC).To(Equal(uint64(0x124)))
+		Expect(wfs[4].PC).To(Equal(uint64(0x120)))
 
 		Expect(wfs[0].InstToIssue).To(BeNil())
 		Expect(wfs[1].InstToIssue).To(BeNil())
 		Expect(wfs[2].InstToIssue).To(BeNil())
 		Expect(wfs[3].InstToIssue).To(BeNil())
 		Expect(wfs[4].InstToIssue).NotTo(BeNil())
+
+		Expect(wfs[0].InstBufferStartPC).To(Equal(uint64(0x140)))
+		Expect(wfs[0].InstBuffer).To(HaveLen(192))
 	})
 
 	It("should issue internal instruction", func() {

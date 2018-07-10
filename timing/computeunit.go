@@ -313,23 +313,16 @@ func (cu *ComputeUnit) handleMemDoneRsp(rsp *mem.DoneRsp) error {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
+	now := rsp.Time()
 	wf := info.Wf
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	if len(rsp.Data) == 8 {
-		wf.InstBuffer = rsp.Data
-		cu.fetchComplete(wf, rsp.Time())
-		// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
-		// wf.State = WfReady
-
-	} else if len(rsp.Data) == 4 {
-		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
-		wf.State = WfReady
-		if len(wf.InstBuffer) >= 8 {
-			cu.fetchComplete(wf, rsp.Time())
-		}
-
+	if len(wf.InstBuffer) == 0 {
+		wf.InstBufferStartPC = wf.PC
 	}
+	wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
+
+	wf.LastFetchTime = now
 
 	return nil
 }
