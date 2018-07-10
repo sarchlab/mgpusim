@@ -82,7 +82,7 @@ func run() {
 		0, 0, 0,
 	}
 
-	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
+	gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
 		[3]uint32{64, 1, 1},
 		[3]uint16{64, 1, 1},
 		&kernArg,
