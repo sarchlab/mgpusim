@@ -33,7 +33,7 @@ def run_on_simulator(inst):
                             stdout=subprocess.DEVNULL)
     process.wait()
 
-    for num_inst in range(0, 128, 1):
+    for num_inst in range(0, 129, 1):
         print('On GPU: {0}, {1}'.format(inst, num_inst))
         generate_benchmark(inst, num_inst)
         duration = run_benchmark_on_simulator('./alu -timing', os.getcwd())
