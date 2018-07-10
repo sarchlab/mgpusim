@@ -60,21 +60,23 @@ func (s *Scheduler) DecodeNextInst() {
 			if wf.InstToIssue != nil {
 				continue
 			}
+			//
+			//if !s.wfHasAtLeast8BytesInInstBuffer(wf) {
+			//	continue
+			//}
 
-			if !s.wfHasAtLeast8BytesInInstBuffer(wf) {
-				continue
-			}
-
-			inst, _ := s.cu.Decoder.Decode(
+			inst, err := s.cu.Decoder.Decode(
 				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
-			wf.InstToIssue = NewInst(inst)
+			if err == nil {
+				wf.InstToIssue = NewInst(inst)
+			}
 		}
 	}
 }
 
-func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *Wavefront) bool {
-	return wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) > wf.PC+8
-}
+//func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *Wavefront) bool {
+//	return wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) >= wf.PC+8
+//}
 
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
