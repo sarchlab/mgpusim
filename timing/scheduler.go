@@ -48,6 +48,15 @@ func (s *Scheduler) Run(now core.VTimeInSec) {
 func (s *Scheduler) DecodeNextInst() {
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
+			if len(wf.InstBuffer) == 0 {
+				wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+				continue
+			}
+
+			if wf.State != WfReady {
+				continue
+			}
+
 			if wf.InstToIssue != nil {
 				continue
 			}
@@ -56,14 +65,15 @@ func (s *Scheduler) DecodeNextInst() {
 				continue
 			}
 
-			inst, _ := s.cu.Decoder.Decode(wf.InstBuffer)
+			inst, _ := s.cu.Decoder.Decode(
+				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
 			wf.InstToIssue = NewInst(inst)
 		}
 	}
 }
 
 func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *Wavefront) bool {
-	return wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) >= wf.PC+8
+	return wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) > wf.PC+8
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
@@ -73,10 +83,14 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 
 	if len(wfs) > 0 {
 		wf := wfs[0]
-		wf.inst = NewInst(nil)
+		//wf.inst = NewInst(nil)
 		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
+		if len(wf.InstBuffer) == 0 {
+			wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
+		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
+		addr = addr & 0xffffffffffffffc0
 		req := mem.NewReadReq(now, s.cu.ToInstMem, s.cu.InstMem, addr, 64)
 
 		err := s.cu.ToInstMem.Send(req)
@@ -84,6 +98,7 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 			info := new(MemAccessInfo)
 			info.Action = MemAccessInstFetch
 			info.Wf = wf
+			info.Address = addr
 			s.cu.inFlightMemAccess[req.ID] = info
 			wf.IsFetching = true
 

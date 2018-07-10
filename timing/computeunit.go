@@ -315,31 +315,17 @@ func (cu *ComputeUnit) handleMemDoneRsp(rsp *mem.DoneRsp) error {
 func (cu *ComputeUnit) handleFetchReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
 	now := rsp.Time()
 	wf := info.Wf
+	addr := info.Address
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	if len(wf.InstBuffer) == 0 {
-		wf.InstBufferStartPC = wf.PC
+	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
+		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
 	}
-	wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
 
+	wf.IsFetching = false
 	wf.LastFetchTime = now
 
 	return nil
-}
-
-func (cu *ComputeUnit) fetchComplete(wf *Wavefront, now core.VTimeInSec) {
-	//wf.State = WfFetched
-	wf.LastFetchTime = now
-
-	inst, err := cu.Decoder.Decode(wf.InstBuffer)
-	if err != nil {
-		log.Panic(err)
-	}
-	managedInst := wf.ManagedInst()
-	managedInst.Inst = inst
-	wf.PC += uint64(managedInst.ByteSize)
-	wf.InstBuffer = nil
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{now, managedInst, "FetchDone"})
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
