@@ -19,6 +19,11 @@ func (a *FetchArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 		for _, wf := range wfPool.wfs {
 			wf.RLock()
 
+			if wf.IsFetching {
+				wf.RUnlock()
+				continue
+			}
+
 			if len(wf.InstBuffer) >= a.InstBufByteSize {
 				wf.RUnlock()
 				continue

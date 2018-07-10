@@ -43,6 +43,7 @@ var _ = Describe("Branch Unit", func() {
 		wave2 := new(Wavefront)
 		wave3 := new(Wavefront)
 		wave3.State = WfRunning
+		wave3.InstBuffer = make([]byte, 256)
 
 		bu.toRead = wave1
 		bu.toExec = wave2
@@ -58,5 +59,6 @@ var _ = Describe("Branch Unit", func() {
 		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
 		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
+		Expect(wave3.InstBuffer).To(HaveLen(0))
 	})
 })
