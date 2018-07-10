@@ -105,13 +105,16 @@ func (d *Disassembler) lookUp(format *Format, opcode Opcode) (*InstType, error) 
 		format.FormatName, opcode)
 }
 
-func (d *Disassembler) decodeSOP2(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSOP2(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	src0Value := extractBits(bytes, 0, 7)
 	inst.Src0, _ = getOperand(uint16(src0Value))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
@@ -119,6 +122,9 @@ func (d *Disassembler) decodeSOP2(inst *Inst, buf []byte) {
 	inst.Src1, _ = getOperand(uint16(src1Value))
 	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src1.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
@@ -130,9 +136,10 @@ func (d *Disassembler) decodeSOP2(inst *Inst, buf []byte) {
 		inst.Src1.RegCount = 2
 		inst.Dst.RegCount = 2
 	}
+	return nil
 }
 
-func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	src0Value := extractBits(bytes, 0, 8)
@@ -140,6 +147,9 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) {
 	inst.Src0, _ = getOperand(uint16(src0Value))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
@@ -150,9 +160,10 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) {
 	} else {
 		inst.Dst, _ = getOperand(uint16(dstValue + 256))
 	}
+	return nil
 }
 
-func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	operand_bits := uint16(extractBits(bytes, 0, 8))
@@ -283,6 +294,9 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) {
 
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
@@ -290,9 +304,10 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) {
 	inst.Src1 = NewVRegOperand(bits, bits, 0)
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
+	return nil
 }
 
-func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
@@ -325,11 +340,11 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) {
 	case 23, 31:
 		inst.Data.RegCount = 4
 		inst.Dst.RegCount = 4
-
 	}
+	return nil
 }
 
-func (d *Disassembler) decodeSMEM(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSMEM(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
@@ -349,6 +364,10 @@ func (d *Disassembler) decodeSMEM(inst *Inst, buf []byte) {
 	inst.Data, _ = getOperand(uint16(sdataValue))
 	if inst.Data.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
+		inst.Data.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	switch inst.Opcode {
@@ -371,9 +390,10 @@ func (d *Disassembler) decodeSMEM(inst *Inst, buf []byte) {
 		bits := int(extractBits(bytesHi, 0, 19))
 		inst.Offset = NewSRegOperand(bits, bits, 1)
 	}
+	return nil
 }
 
-func (d *Disassembler) decodeSOPP(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSOPP(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	inst.SImm16 = NewIntOperand(0, int64(extractBits(bytes, 0, 15)))
@@ -382,34 +402,46 @@ func (d *Disassembler) decodeSOPP(inst *Inst, buf []byte) {
 		inst.VMCNT = int(extractBits(uint32(inst.SImm16.IntValue), 0, 3))
 		inst.LKGMCNT = int(extractBits(uint32(inst.SImm16.IntValue), 8, 12))
 	}
+
+	return nil
 }
 
-func (d *Disassembler) decodeVOPC(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeVOPC(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 8)))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	bits := int(extractBits(bytes, 9, 16))
 	inst.Src1 = NewVRegOperand(bits, bits, 0)
+	return nil
 }
 
-func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSOPC(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
 	inst.Src1, _ = getOperand(uint16(extractBits(bytes, 8, 15)))
 	if inst.Src1.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src1.LiteralConstant = BytesToUint32(buf[4:8])
 	}
-
+	return nil
 }
 
 func (d *Disassembler) isVOP3bOpcode(opcode Opcode) bool {
@@ -425,7 +457,7 @@ func (d *Disassembler) isVOP3bOpcode(opcode Opcode) bool {
 	return false
 }
 
-func (d *Disassembler) decodeVOP3b(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeVOP3b(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
@@ -465,9 +497,10 @@ func (d *Disassembler) decodeVOP3b(inst *Inst, buf []byte) {
 
 	inst.Omod = int(extractBits(bytesHi, 27, 28))
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
+	return nil
 }
 
-func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
@@ -504,9 +537,10 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) {
 
 	inst.Omod = int(extractBits(bytesHi, 27, 28))
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
+	return nil
 }
 
-func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
 	inst.Src0, _ = getOperand(uint16(extractBits(bytes, 0, 7)))
@@ -521,18 +555,22 @@ func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) {
 
 	if inst.Src0.OperandType == LiteralConstant {
 		inst.ByteSize += 4
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
+	return nil
 }
 
-func (d *Disassembler) decodeSOPK(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeSOPK(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 	inst.SImm16 = NewIntOperand(0, int64(extractBits(bytes, 0, 15)))
 	inst.Dst, _ = getOperand(uint16(extractBits(bytes, 16, 22)))
-
+	return nil
 }
 
-func (d *Disassembler) decodeDS(inst *Inst, buf []byte) {
+func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
@@ -572,6 +610,8 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) {
 			inst.Dst.RegCount = 4
 		}
 	}
+
+	return nil
 }
 
 // Decode parses the head of the buffer and returns the next instruction
@@ -592,33 +632,37 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	inst.InstType = instType
 	inst.ByteSize = format.ByteSizeExLiteral
 
+	if inst.ByteSize > len(buf) {
+		return nil, errors.New("no enough buffer")
+	}
+
 	switch format.FormatType {
 	case SOP2:
-		d.decodeSOP2(inst, buf)
+		err = d.decodeSOP2(inst, buf)
 	case SMEM:
-		d.decodeSMEM(inst, buf)
+		err = d.decodeSMEM(inst, buf)
 	case VOP2:
-		d.decodeVOP2(inst, buf)
+		err = d.decodeVOP2(inst, buf)
 	case VOP1:
-		d.decodeVOP1(inst, buf)
+		err = d.decodeVOP1(inst, buf)
 	case FLAT:
-		d.decodeFLAT(inst, buf)
+		err = d.decodeFLAT(inst, buf)
 	case SOPP:
-		d.decodeSOPP(inst, buf)
+		err = d.decodeSOPP(inst, buf)
 	case VOPC:
-		d.decodeVOPC(inst, buf)
+		err = d.decodeVOPC(inst, buf)
 	case SOPC:
-		d.decodeSOPC(inst, buf)
+		err = d.decodeSOPC(inst, buf)
 	case VOP3a:
-		d.decodeVOP3a(inst, buf)
+		err = d.decodeVOP3a(inst, buf)
 	case VOP3b:
-		d.decodeVOP3b(inst, buf)
+		err = d.decodeVOP3b(inst, buf)
 	case SOP1:
-		d.decodeSOP1(inst, buf)
+		err = d.decodeSOP1(inst, buf)
 	case SOPK:
-		d.decodeSOPK(inst, buf)
+		err = d.decodeSOPK(inst, buf)
 	case DS:
-		d.decodeDS(inst, buf)
+		err = d.decodeDS(inst, buf)
 	default:
 		log.Panicf("unabkle to decode instruction type %s", inst.FormatName)
 		break
