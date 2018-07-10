@@ -10,7 +10,6 @@ import (
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
-	"fmt"
 )
 
 // A LaunchKernelEvent is a kernel even with an assigned time to run
@@ -139,8 +138,8 @@ func (d *Driver) LaunchKernel(
 		log.Panic(err)
 	}
 
+	d.kernelLaunchingStartTime[req.ID] = startTime
 	d.engine.Run()
-	endTime := d.engine.CurrentTime()
-
-	fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
+	//endTime := d.engine.CurrentTime()
+	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
 }
