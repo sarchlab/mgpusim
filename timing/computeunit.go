@@ -252,9 +252,7 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	cu.VectorMemUnit.Run(now)
 	cu.VectorMemDecoder.Run(now)
 
-	cu.Scheduler.EvaluateInternalInst(now)
-	cu.Scheduler.DoIssue(now)
-	cu.Scheduler.DoFetch(now)
+	cu.Scheduler.Run(now)
 
 	if cu.running {
 		cu.ticker.TickLater(now)
@@ -315,40 +313,19 @@ func (cu *ComputeUnit) handleMemDoneRsp(rsp *mem.DoneRsp) error {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
+	now := rsp.Time()
 	wf := info.Wf
+	addr := info.Address
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	if len(rsp.Data) == 8 {
-		wf.FetchBuffer = rsp.Data
-		cu.fetchComplete(wf, rsp.Time())
-		// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
-		// wf.State = WfReady
-
-	} else if len(rsp.Data) == 4 {
-		wf.FetchBuffer = append(wf.FetchBuffer, rsp.Data...)
-		wf.State = WfReady
-		if len(wf.FetchBuffer) >= 8 {
-			cu.fetchComplete(wf, rsp.Time())
-		}
-
+	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
+		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
 	}
 
-	return nil
-}
-
-func (cu *ComputeUnit) fetchComplete(wf *Wavefront, now core.VTimeInSec) {
-	wf.State = WfFetched
+	wf.IsFetching = false
 	wf.LastFetchTime = now
 
-	inst, err := cu.Decoder.Decode(wf.FetchBuffer)
-	if err != nil {
-		log.Panic(err)
-	}
-	managedInst := wf.ManagedInst()
-	managedInst.Inst = inst
-	wf.PC += uint64(managedInst.ByteSize)
-	wf.FetchBuffer = nil
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{now, managedInst, "FetchDone"})
+	return nil
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {

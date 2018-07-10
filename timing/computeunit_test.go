@@ -183,7 +183,16 @@ var _ = Describe("ComputeUnit", func() {
 			wf.PC = 0x1000
 
 			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
-			req.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8}
+			req.Data = []byte{
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+			}
 			req.SetRecvTime(10)
 			req.SetEventTime(10)
 
@@ -192,78 +201,14 @@ var _ = Describe("ComputeUnit", func() {
 			info.Wf = wf
 			cu.inFlightMemAccess["out_req"] = info
 
-			rawInst := insts.NewInst()
-			decoder.Inst = rawInst
-			decoder.Inst.ByteSize = 4
-
 			cu.Handle(req)
 
-			Expect(wf.State).To(Equal(WfFetched))
+			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
-			Expect(wf.PC).To(Equal(uint64(0x1004)))
-			Expect(wf.inst).To(BeIdenticalTo(inst))
-			Expect(wf.inst.Inst).To(BeIdenticalTo(rawInst))
+			Expect(wf.PC).To(Equal(uint64(0x1000)))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
-		})
-
-		It("should handle fetch return with the first 4 bytes", func() {
-			wf := NewWavefront(nil)
-			inst := NewInst(nil)
-			wf.inst = inst
-			wf.PC = 60
-			wf.LastFetchTime = 8
-
-			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
-			req.Data = []byte{1, 2, 3, 4}
-			req.SetRecvTime(10)
-
-			info := new(MemAccessInfo)
-			info.Action = MemAccessInstFetch
-			info.Wf = wf
-			cu.inFlightMemAccess["out_req"] = info
-
-			//rawInst := insts.NewInst()
-			//decoder.Inst = rawInst
-			//decoder.Inst.ByteSize = 4
-
-			cu.Handle(req)
-
-			Expect(wf.State).To(Equal(WfReady))
-			Expect(wf.LastFetchTime).To(BeNumerically("~", 8))
-			Expect(wf.PC).To(Equal(uint64(60)))
-			Expect(wf.FetchBuffer).To(Equal(req.Data))
-			Expect(cu.inFlightMemAccess).To(HaveLen(0))
-		})
-
-		It("should handle fetch return with the second 4 bytes", func() {
-			wf := NewWavefront(nil)
-			inst := NewInst(nil)
-			wf.inst = inst
-			wf.PC = 60
-			wf.LastFetchTime = 8
-			wf.FetchBuffer = []byte{1, 2, 3, 4}
-
-			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
-			req.Data = []byte{1, 2, 3, 4}
-			req.SetRecvTime(10)
-			req.SetEventTime(10)
-
-			info := new(MemAccessInfo)
-			info.Action = MemAccessInstFetch
-			info.Wf = wf
-			cu.inFlightMemAccess["out_req"] = info
-
-			rawInst := insts.NewInst()
-			decoder.Inst = rawInst
-			decoder.Inst.ByteSize = 4
-
-			cu.Handle(req)
-
-			Expect(wf.State).To(Equal(WfFetched))
-			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
-			Expect(wf.PC).To(Equal(uint64(64)))
-			Expect(wf.FetchBuffer).To(HaveLen(0))
-			Expect(cu.inFlightMemAccess).To(HaveLen(0))
+			Expect(wf.InstBufferStartPC).To(Equal(uint64(0x1000)))
+			Expect(wf.InstBuffer).To(HaveLen(64))
 		})
 
 		It("should handle scalar data load return", func() {
