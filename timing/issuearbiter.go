@@ -28,9 +28,13 @@ func (a *IssueArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 	wfPool := wfPools[a.lastSIMDID]
 	list := make([]*Wavefront, 0)
 	for _, wf := range wfPool.wfs {
-		if wf.State == WfFetched && typeMask[wf.Inst().ExeUnit] == false {
+		if wf.State != WfReady || wf.InstToIssue == nil {
+			continue
+		}
+
+		if typeMask[wf.InstToIssue.ExeUnit] == false {
 			list = append(list, wf)
-			typeMask[wf.Inst().ExeUnit] = true
+			typeMask[wf.InstToIssue.ExeUnit] = true
 		}
 	}
 	return list
