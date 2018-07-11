@@ -49,7 +49,7 @@ func (a *IssueArbiter) moveToNextSIMD(wfPools []*WavefrontPool) {
 
 func (a *IssueArbiter) isAllWfPoolsEmpty(wfPools []*WavefrontPool) bool {
 	for _, wfPool := range wfPools {
-		if len(wfPool.wfs) == 0 {
+		if len(wfPool.wfs) != 0 {
 			return false
 		}
 	}
