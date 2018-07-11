@@ -207,7 +207,6 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1000)))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
-			Expect(wf.InstBufferStartPC).To(Equal(uint64(0x1000)))
 			Expect(wf.InstBuffer).To(HaveLen(64))
 		})
 
