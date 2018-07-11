@@ -120,7 +120,7 @@ func NewCommandProcessor(name string, engine core.Engine) *CommandProcessor {
 	c.engine = engine
 	c.Freq = 1 * core.GHz
 
-	c.kernelFixedOverheadInCycles = 2600
+	c.kernelFixedOverheadInCycles = 1600
 
 	c.ToDriver = core.NewPort(c)
 	c.ToDispatcher = core.NewPort(c)

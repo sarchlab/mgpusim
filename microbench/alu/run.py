@@ -53,7 +53,7 @@ def run_on_gpu(inst, num_inst, num_wf, num_wg, repeat):
         duration = run_benchmark_on_gpu(
             './kernel {0} {1}'.format(num_wf, num_wg),
             os.getcwd() + '/microbench/')
-        entry = ['alu', 'sim', inst, num_wf, num_wg, num_inst, duration]
+        entry = ['alu', 'gpu', inst, num_wf, num_wg, num_inst, duration]
         print(entry)
         data = data.append(
             pd.DataFrame([entry], columns=data_columns),
@@ -75,7 +75,7 @@ def main():
     args = parse_args()
 
     insts = ['v_add_f32 v1, v2, v3']
-    numInst = range(0, 65, 2)
+    numInst = range(0, 129, 4)
     numWf = [1, 2, 3, 4]
     numWG = [1, 2, 3, 4, 5, 6, 7, 8]
 
