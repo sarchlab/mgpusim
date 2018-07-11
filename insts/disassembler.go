@@ -168,6 +168,9 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 
 	operand_bits := uint16(extractBits(bytes, 0, 8))
 	if operand_bits == 249 {
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
 		inst.IsSdwa = true
 		sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
 		src0_bits := int(extractBits(sdwa_bytes, 0, 7))
@@ -666,6 +669,10 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	default:
 		log.Panicf("unabkle to decode instruction type %s", inst.FormatName)
 		break
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return inst, nil
