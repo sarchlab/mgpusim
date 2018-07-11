@@ -36,6 +36,8 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var instTracing = flag.Bool("trace-inst", false,
 	"Generate instruction trace for visualization purposes.")
+var numWfFlag = flat.int("num-wf", 1, "Number of wavefronts per workgroup")
+var numWGFlag = flat.int("num-wg", 1, "Number of workgroups")
 
 func configure() {
 	flag.Parse()
@@ -70,8 +72,8 @@ func run() {
 	kernArg := new(KernelArgs)
 	gpuDriver.LaunchKernel(
 		hsaco, gpu.ToDriver, globalMem.Storage,
-		[3]uint32{64, 1, 1},
-		[3]uint16{64, 1, 1},
+		[3]uint32{uint32(64 * *numWfFlag * *numWG), 1, 1},
+		[3]uint16{uint16(64 * *numWfFlag), 1, 1},
 		kernArg,
 	)
 }
