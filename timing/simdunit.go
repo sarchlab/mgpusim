@@ -76,7 +76,7 @@ func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.toExec.State = WfReady
 	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
+	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "Completed"})
 
 	u.toExec = nil
 }
