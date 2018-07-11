@@ -12,10 +12,10 @@ type SIMDUnit struct {
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
 
-	toRead        *Wavefront
-	toExec        *Wavefront
-	execCycleLeft int
-	toWrite       *Wavefront
+	toExec    *Wavefront
+	cycleLeft int
+
+	NumSinglePrecisionUnit int
 }
 
 // NewSIMDUnit creates a new branch unit, injecting the dependency of
@@ -29,41 +29,36 @@ func NewSIMDUnit(
 	u.cu = cu
 	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
+
+	u.NumSinglePrecisionUnit = 32
+
 	return u
 }
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *SIMDUnit) CanAcceptWave() bool {
-	return u.toRead == nil
+	return u.toExec == nil
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *SIMDUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
-	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, u.toRead.inst, "ReadStart"})
+	u.toExec = wave
+
+	// The cycle left if calculated. The pipeline is like the following
+	//
+	// Lane 00-31 r e w
+	// Lane 32-64   r e w
+	//
+	// The total number of cycles is the execution time plus the first read
+	// and the last write.
+	u.cycleLeft = 64/u.NumSinglePrecisionUnit + 2
+
+	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecStart"})
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
 func (u *SIMDUnit) Run(now core.VTimeInSec) {
-	u.runWriteStage(now)
 	u.runExecStage(now)
-	u.runReadStage(now)
-}
-
-func (u *SIMDUnit) runReadStage(now core.VTimeInSec) {
-	if u.toRead == nil {
-		return
-	}
-
-	if u.toExec == nil {
-		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, u.toRead.inst, "ReadEnd"})
-		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, u.toRead.inst, "ExecStart"})
-
-		u.toExec = u.toRead
-		u.execCycleLeft = 4
-		u.toRead = nil
-	}
 }
 
 func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
@@ -71,31 +66,17 @@ func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
 		return
 	}
 
-	u.execCycleLeft--
-	if u.execCycleLeft > 0 {
+	u.cycleLeft--
+	if u.cycleLeft > 0 {
 		return
 	}
 
-	if u.toWrite == nil {
-		u.alu.Run(u.toExec)
-		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
+	u.scratchpadPreparer.Prepare(u.toExec, u.toExec)
+	u.alu.Run(u.toExec)
+	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
+	u.toExec.State = WfReady
+	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
+	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
 
-		u.toWrite = u.toExec
-		u.toExec = nil
-	}
-}
-
-func (u *SIMDUnit) runWriteStage(now core.VTimeInSec) {
-	if u.toWrite == nil {
-		return
-	}
-
-	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
-
-	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, u.toWrite.inst, "WriteEnd"})
-	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, u.toWrite.inst, "Completed"})
-
-	u.toWrite.State = WfReady
-	u.toWrite = nil
+	u.toExec = nil
 }
