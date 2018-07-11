@@ -15,13 +15,13 @@ func NewIssueArbiter() *IssueArbiter {
 // Arbitrate will take a round-robin fashion at SIMD level. For wavefronts
 // in each SIMD, oldest first.
 func (a *IssueArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
-	if len(wfPools) == 0 {
+	if a.isAllWfPoolsEmpty(wfPools) {
 		return []*Wavefront{}
 	}
 
-	a.lastSIMDID++
-	if a.lastSIMDID >= len(wfPools) {
-		a.lastSIMDID = 0
+	a.moveToNextSIMD(wfPools)
+	for len(wfPools[a.lastSIMDID].wfs) == 0 {
+		a.moveToNextSIMD(wfPools)
 	}
 
 	typeMask := make([]bool, 7)
@@ -38,4 +38,20 @@ func (a *IssueArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 		}
 	}
 	return list
+}
+
+func (a *IssueArbiter) moveToNextSIMD(wfPools []*WavefrontPool) {
+	a.lastSIMDID++
+	if a.lastSIMDID >= len(wfPools) {
+		a.lastSIMDID = 0
+	}
+}
+
+func (a *IssueArbiter) isAllWfPoolsEmpty(wfPools []*WavefrontPool) bool {
+	for _, wfPool := range wfPools {
+		if len(wfPool.wfs) == 0 {
+			return false
+		}
+	}
+	return true
 }
