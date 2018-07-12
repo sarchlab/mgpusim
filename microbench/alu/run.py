@@ -8,7 +8,7 @@ import sys
 sys.path.append(os.getcwd() + '/../common/')
 from benchmarking import *
 
-data_columns = ['benchmark', 'env', 'inst', 'count', 'time']
+data_columns = ['benchmark', 'env', 'inst', 'numwf', 'numwg', 'count', 'time']
 
 def generate_benchmark(inst, count):
     with open('microbench/kernels_template.asm', 'r') as template_file:
@@ -25,7 +25,7 @@ def generate_benchmark(inst, count):
     p.wait()
 
 
-def run_on_simulator(inst):
+def run_on_simulator(inst, num_inst, num_wf, num_wg):
     """ run benchmark and retuns a data frame that represents its result """
     data = pd.DataFrame(columns=data_columns)
 
@@ -33,33 +33,32 @@ def run_on_simulator(inst):
                             stdout=subprocess.DEVNULL)
     process.wait()
 
-    for num_inst in range(0, 129, 1):
-        print('On GPU: {0}, {1}'.format(inst, num_inst))
-        generate_benchmark(inst, num_inst)
-        duration = run_benchmark_on_simulator('./alu -timing', os.getcwd())
-        data = data.append(
-            pd.DataFrame([['alu', 'sim', inst, num_inst, duration]],
-                            columns=data_columns),
-            ignore_index=True,
-        )
+    duration = run_benchmark_on_simulator(
+        './alu -timing -num-wf {0} -num-wg {1}'.format(num_wf, num_wg),
+        os.getcwd())
+    entry = ['alu', 'sim', inst, num_wf, num_wg, num_inst, duration]
+    print(entry)
+    data = data.append(
+        pd.DataFrame([entry], columns=data_columns),
+        ignore_index=True,
+    )
 
     return data
 
 
-def run_on_gpu(inst, repeat):
+def run_on_gpu(inst, num_inst, num_wf, num_wg, repeat):
     data = pd.DataFrame(columns=data_columns)
 
-    for num_inst in range(0, 129, 1):
-        print('On GPU: {0}, {1}'.format(inst, num_inst))
-        generate_benchmark(inst, num_inst)
-        for i in range(0, repeat):
-            duration = run_benchmark_on_gpu(
-                './kernel', os.getcwd() + '/microbench/')
-            data = data.append(
-                pd.DataFrame([['alu', 'gpu', inst, num_inst, duration]],
-                             columns=data_columns),
-                ignore_index=True,
-            )
+    for i in range(0, repeat):
+        duration = run_benchmark_on_gpu(
+            './kernel {0} {1}'.format(num_wf, num_wg),
+            os.getcwd() + '/microbench/')
+        entry = ['alu', 'gpu', inst, num_wf, num_wg, num_inst, duration]
+        print(entry)
+        data = data.append(
+            pd.DataFrame([entry], columns=data_columns),
+            ignore_index=True,
+        )
 
     return data
 
@@ -76,20 +75,31 @@ def main():
     args = parse_args()
 
     insts = ['v_add_f32 v1, v2, v3']
+    numInst = range(0, 129, 4)
+    numWf = [1, 2, 3, 4]
+    numWG = [1, 2, 3, 4, 5, 6, 7, 8]
 
     if args.gpu:
+        data = pd.DataFrame(columns=data_columns)
         for inst in insts:
-            data = pd.DataFrame(columns=data_columns)
-            results = run_on_gpu(inst, args.repeat)
-            data = data.append(results, ignore_index=True)
-            data.to_csv('gpu.csv')
+            for num_insts in numInst:
+                generate_benchmark(inst, num_insts)
+                for wf in numWf:
+                    for wg in numWG:
+                        results = run_on_gpu(inst, num_insts, wf, wg, args.repeat)
+                        data = data.append(results, ignore_index=True)
+        data.to_csv('gpu.csv')
 
     if args.sim:
+        data = pd.DataFrame(columns=data_columns)
         for inst in insts:
-            data = pd.DataFrame(columns=data_columns)
-            results = run_on_simulator(inst)
-            data = data.append(results, ignore_index=True)
-            data.to_csv('sim.csv')
+            for num_insts in numInst:
+                generate_benchmark(inst, num_insts)
+                for wf in numWf:
+                    for wg in numWG:
+                        results = run_on_simulator(inst, num_insts, wf, wg)
+                        data = data.append(results, ignore_index=True)
+        data.to_csv('sim.csv')
 
 
 if __name__ == '__main__':
