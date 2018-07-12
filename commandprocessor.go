@@ -41,7 +41,7 @@ func (p *CommandProcessor) NotifyRecv(now core.VTimeInSec, port *core.Port) {
 }
 
 func (p *CommandProcessor) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
-	panic("implement me")
+	//panic("implement me")
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor

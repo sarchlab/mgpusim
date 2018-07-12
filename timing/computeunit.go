@@ -61,7 +61,7 @@ func (cu *ComputeUnit) NotifyRecv(now core.VTimeInSec, port *core.Port) {
 }
 
 func (cu *ComputeUnit) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
-	panic("implement me")
+	//panic("implement me")
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
