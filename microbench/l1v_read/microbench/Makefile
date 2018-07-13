@@ -13,9 +13,9 @@ dispatch.o: ../../common/dispatch.cpp
 	g++ ../../common/dispatch.cpp -g -c -o dispatch.o \
 		-I /opt/rocm/include/hsa
 
-kernels.hsaco: kernels.s
+kernels.hsaco: kernels.asm
 	$(CLANG) -x assembler -target amdgcn--amdhsa -mcpu=gfx803 \
-		-c -o kernels.o kernels.s
+		-c -o kernels.o kernels.asm
 	$(CLANG) -target amdgcn--amdhsa kernels.o -o kernels.hsaco
 
 
