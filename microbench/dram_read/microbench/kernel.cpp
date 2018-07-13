@@ -19,6 +19,7 @@ public:
   bool Setup() override {
     if (!AllocateKernarg(32)) { return false; }
     in  = AllocateBuffer(1 << 21); // 2MB
+    CopyTo(in)
     Kernarg(in);
     SetGridSize(64);
     SetWorkgroupSize(64);
