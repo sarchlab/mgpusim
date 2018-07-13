@@ -19,150 +19,519 @@ BB0_0:
 	s_mov_b32 s1, 0
 	v_mov_b32 v1, s6
 	v_mov_b32 v2, s7
+	v_mov_b32 v3, 64
 
 BB0_1:
 	flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 flat_load_dword v0, v[1:2]
-v_add_u32 v1, vcc, v1, 64
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
 v_addc_u32 v2, vcc, v2, 0, vcc
 s_waitcnt vmcnt(0)
 
