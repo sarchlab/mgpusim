@@ -18,7 +18,7 @@ def generate_benchmark(count):
     insts = ''
     for i in range(0, count):
         insts += 'flat_load_dword v0, v[1:2]\n'
-        insts += 'v_add_u32 v1, vcc, v1, 64\n'
+        insts += 'v_add_u32 v1, vcc, v1, v3\n'
         insts += 'v_addc_u32 v2, vcc, v2, 0, vcc\n'
         insts += 's_waitcnt vmcnt(0)\n'
     kernel = template.format(insts)

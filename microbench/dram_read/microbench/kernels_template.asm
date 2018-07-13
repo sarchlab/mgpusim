@@ -19,6 +19,7 @@ BB0_0:
 	s_mov_b32 s1, 0
 	v_mov_b32 v1, s6
 	v_mov_b32 v2, s7
+	v_mov_b32 v3, 64
 
 BB0_1:
 	{0}
