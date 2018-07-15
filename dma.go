@@ -15,9 +15,8 @@ type DMAEngine struct {
 	*core.ComponentBase
 	ticker *core.Ticker
 
-	engine           core.Engine
-	localDataSource  cache.LowModuleFinder
-	remoteDataSource cache.LowModuleFinder
+	engine          core.Engine
+	localDataSource cache.LowModuleFinder
 
 	Freq core.Freq
 
@@ -25,12 +24,8 @@ type DMAEngine struct {
 	progressOffset uint64
 	needTick       bool
 
-	processingRDMAReadReq   []*mem.ReadReq
-	pendingReadToAnotherGPU map[string]*mem.ReadReq
-
 	ToCommandProcessor *core.Port
 	ToMem              *core.Port
-	ToOtherGPUs        *core.Port
 }
 
 func (dma *DMAEngine) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
@@ -62,19 +57,9 @@ func (dma *DMAEngine) tick(evt *core.TickEvent) error {
 			dma.processDoneRspFromLocalMemory(now, req)
 		case *mem.DataReadyRsp:
 			dma.processDataReadyRspFromLocalMemory(now, req)
-		case *mem.ReadReq:
-			dma.processReadReqFromLocalMemory(now, req)
 		default:
 			log.Panicf("cannot handle request for type %s",
 				reflect.TypeOf(req))
-		}
-	}
-
-	req = dma.ToOtherGPUs.Peek()
-	if req != nil {
-		switch req := req.(type) {
-		case *mem.DataReadyRsp:
-			dma.processDataReadyRspFromAnotherGPU(now, req)
 		}
 	}
 
@@ -109,48 +94,6 @@ func (dma *DMAEngine) acceptNewReq(now core.VTimeInSec) {
 		dma.progressOffset = 0
 		dma.needTick = true
 	}
-}
-
-func (dma *DMAEngine) processReadReqFromLocalMemory(now core.VTimeInSec, req *mem.ReadReq) {
-	dst := dma.remoteDataSource.Find(req.Address)
-	newReq := mem.NewReadReq(now, dma.ToOtherGPUs, dst, req.Address, req.MemByteSize)
-	err := dma.ToOtherGPUs.Send(newReq)
-	if err == nil {
-		dma.pendingReadToAnotherGPU[newReq.ID] = newReq
-		dma.processingRDMAReadReq = append(dma.processingRDMAReadReq, req)
-		dma.ToMem.Retrieve(now)
-		dma.needTick = true
-	}
-}
-
-func (dma *DMAEngine) processDataReadyRspFromAnotherGPU(now core.VTimeInSec, dataReady *mem.DataReadyRsp) {
-	readReqToOtherGPU := dma.pendingReadToAnotherGPU[dataReady.RespondTo]
-
-	var originalRead, read *mem.ReadReq
-	var i int
-	for i, read = range dma.processingRDMAReadReq {
-		if read.Address == readReqToOtherGPU.Address {
-			originalRead = read
-			break
-		}
-	}
-
-	if originalRead == nil {
-		log.Panic("cannot find the original read from memory")
-	}
-
-	newDataReady := mem.NewDataReadyRsp(now, dma.ToMem, originalRead.Src(),
-		originalRead.ID)
-	err := dma.ToMem.Send(newDataReady)
-
-	if err == nil {
-		delete(dma.pendingReadToAnotherGPU, readReqToOtherGPU.ID)
-		dma.processingRDMAReadReq = append(dma.processingRDMAReadReq[:i],
-			dma.processingRDMAReadReq[i+1:]...)
-		dma.ToOtherGPUs.Retrieve(now)
-		dma.needTick = true
-	}
-
 }
 
 func (dma *DMAEngine) processDoneRspFromLocalMemory(now core.VTimeInSec, rsp *mem.DoneRsp) {
@@ -258,24 +201,18 @@ func NewDMAEngine(
 	name string,
 	engine core.Engine,
 	localDataSource cache.LowModuleFinder,
-	remoteDataSource cache.LowModuleFinder,
 ) *DMAEngine {
 	componentBase := core.NewComponentBase(name)
 	dma := new(DMAEngine)
 	dma.ComponentBase = componentBase
 	dma.engine = engine
 	dma.localDataSource = localDataSource
-	dma.remoteDataSource = remoteDataSource
 
 	dma.Freq = 1 * core.GHz
 	dma.ticker = core.NewTicker(dma, engine, dma.Freq)
 
 	dma.ToCommandProcessor = core.NewPort(dma)
 	dma.ToMem = core.NewPort(dma)
-	dma.ToOtherGPUs = core.NewPort(dma)
-
-	dma.processingRDMAReadReq = make([]*mem.ReadReq, 0)
-	dma.pendingReadToAnotherGPU = make(map[string]*mem.ReadReq, 0)
 
 	return dma
 }
