@@ -61,6 +61,10 @@ func (e *Engine) processReqFromInside(now core.VTimeInSec) {
 	case *mem.WriteReq:
 		dst := e.remoteModules.Find(req.Address)
 		e.sendReqToOutside(now, req, dst)
+	case *mem.DataReadyRsp:
+		e.sendRspToOutside(now, req)
+	case *mem.DoneRsp:
+		e.sendRspToOutside(now, req)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 	}
@@ -78,6 +82,21 @@ func (e *Engine) sendReqToOutside(now core.VTimeInSec, req core.Req, dst *core.P
 	}
 }
 
+func (e *Engine) sendRspToOutside(now core.VTimeInSec, req mem.MemRsp) {
+	src, found := e.originalSrc[req.GetRespondTo()]
+	if !found {
+		log.Panic("original src not found")
+	}
+	req.SetDst(src)
+	req.SetSrc(e.ToOutside)
+	req.SetSendTime(now)
+	err := e.ToOutside.Send(req)
+	if err == nil {
+		e.ToInside.Retrieve(now)
+		delete(e.originalSrc, req.GetRespondTo())
+	}
+}
+
 func (e *Engine) processReqFromOutside(now core.VTimeInSec) {
 	req := e.ToOutside.Peek()
 	if req == nil {
@@ -85,21 +104,45 @@ func (e *Engine) processReqFromOutside(now core.VTimeInSec) {
 	}
 
 	switch req := req.(type) {
+	case *mem.ReadReq:
+		dst := e.localModules.Find(req.Address)
+		e.sendReqToInside(now, req, dst)
+	case *mem.WriteReq:
+		dst := e.localModules.Find(req.Address)
+		e.sendReqToInside(now, req, dst)
 	case *mem.DataReadyRsp:
-		src, found := e.originalSrc[req.RespondTo]
-		if !found {
-			log.Panic("original src not found")
-		}
-		req.SetDst(src)
-		req.SetSrc(e.ToInside)
-		req.SetSendTime(now)
-		err := e.ToInside.Send(req)
-		if err == nil {
-			e.ToOutside.Retrieve(now)
-			delete(e.originalSrc, req.RespondTo)
-		}
+		e.sendRspToInside(now, req)
+	case *mem.DoneRsp:
+		e.sendRspToInside(now, req)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+	}
+}
+
+func (e *Engine) sendReqToInside(now core.VTimeInSec, req core.Req, dst *core.Port) {
+	originalSrc := req.Src()
+	req.SetSrc(e.ToInside)
+	req.SetDst(dst)
+	req.SetSendTime(now)
+	err := e.ToInside.Send(req)
+	if err == nil {
+		e.ToOutside.Retrieve(now)
+		e.originalSrc[req.GetID()] = originalSrc
+	}
+}
+
+func (e *Engine) sendRspToInside(now core.VTimeInSec, req mem.MemRsp) {
+	src, found := e.originalSrc[req.GetRespondTo()]
+	if !found {
+		log.Panic("original src not found")
+	}
+	req.SetDst(src)
+	req.SetSrc(e.ToInside)
+	req.SetSendTime(now)
+	err := e.ToInside.Send(req)
+	if err == nil {
+		e.ToOutside.Retrieve(now)
+		delete(e.originalSrc, req.GetRespondTo())
 	}
 }
 
