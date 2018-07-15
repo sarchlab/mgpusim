@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/mem/cache"
 )
 
 // A GPU is the unit that one kernel can run on.
@@ -22,6 +23,11 @@ type GPU struct {
 	CommandProcessor *core.Port // The CommandProcessor
 	Dispatchers      []core.Component
 	CUs              []core.Component
+	L1VCaches        []core.Component
+	L1ICaches        []core.Component
+	L1KCaches        []core.Component
+	L2Caches         []core.Component
+	L2CacheFinder    cache.LowModuleFinder
 
 	ToDriver           *core.Port
 	ToCommandProcessor *core.Port
