@@ -75,7 +75,7 @@ func loadProgram() {
 
 func initMem() {
 	gData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(2*mem.MB))
-	data := make([]byte, 0.2*mem.MB)
+	data := make([]byte, 512*mem.KB)
 	gpuDriver.MemoryCopyHostToDevice(gData, data, gpu.ToDriver)
 }
 
