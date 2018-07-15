@@ -16,23 +16,19 @@ var _ = Describe("DMAEngine", func() {
 		dmaEngine              *DMAEngine
 		toMemConn              *core.MockConnection
 		toCommandProcessorConn *core.MockConnection
-		toOtherGPUConn         *core.MockConnection
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
 		localModuleFinder = new(cache.SingleLowModuleFinder)
 		remoteModuleFinder = new(cache.SingleLowModuleFinder)
-		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder, remoteModuleFinder)
+		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
 
 		toMemConn = core.NewMockConnection()
 		toMemConn.PlugIn(dmaEngine.ToMem)
 
 		toCommandProcessorConn = core.NewMockConnection()
 		toCommandProcessorConn.PlugIn(dmaEngine.ToCommandProcessor)
-
-		toOtherGPUConn = core.NewMockConnection()
-		toOtherGPUConn.PlugIn(dmaEngine.ToOtherGPUs)
 	})
 
 	Context("when copy memory from host to device", func() {
@@ -316,92 +312,6 @@ var _ = Describe("DMAEngine", func() {
 			Expect(req.Src()).To(BeIdenticalTo(dmaEngine.ToCommandProcessor))
 			Expect(req.SendTime()).To(Equal(core.VTimeInSec(12)))
 			Expect(dmaEngine.processingReq).NotTo(BeNil())
-		})
-	})
-
-	Context("read other GPU's memory", func() {
-		var (
-			read *mem.ReadReq
-		)
-
-		BeforeEach(func() {
-			read = mem.NewReadReq(10, nil, dmaEngine.ToMem, 0x100, 64)
-			dmaEngine.ToMem.Recv(read)
-			dmaEngine.needTick = false
-		})
-
-		It("should send new read to another GPU", func() {
-			expectReadToOtherGPU := mem.NewReadReq(12, dmaEngine.ToOtherGPUs, nil, 0x100, 64)
-			toOtherGPUConn.ExpectSend(expectReadToOtherGPU, nil)
-
-			tickEvent := core.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
-
-			Expect(toOtherGPUConn.AllExpectedSent()).To(BeTrue())
-			Expect(dmaEngine.processingRDMAReadReq).To(ContainElement(read))
-			Expect(dmaEngine.ToMem.Buf).To(HaveLen(0))
-			Expect(dmaEngine.needTick).To(BeTrue())
-			Expect(dmaEngine.pendingReadToAnotherGPU).To(HaveLen(1))
-		})
-
-		It("should wait if sending failed", func() {
-			expectReadToOtherGPU := mem.NewReadReq(12, dmaEngine.ToOtherGPUs, nil, 0x100, 64)
-			toOtherGPUConn.ExpectSend(expectReadToOtherGPU, core.NewSendError())
-
-			tickEvent := core.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
-
-			Expect(toOtherGPUConn.AllExpectedSent()).To(BeTrue())
-			Expect(dmaEngine.processingRDMAReadReq).NotTo(ContainElement(read))
-			Expect(dmaEngine.ToMem.Buf).To(HaveLen(1))
-			Expect(dmaEngine.needTick).To(BeFalse())
-			Expect(dmaEngine.pendingReadToAnotherGPU).To(HaveLen(0))
-		})
-	})
-
-	Context("return data ready from another GPU", func() {
-		var (
-			read             *mem.ReadReq
-			readToAnotherGPU *mem.ReadReq
-			dataReady        *mem.DataReadyRsp
-		)
-
-		BeforeEach(func() {
-			read = mem.NewReadReq(5, nil, dmaEngine.ToMem, 0x100, 64)
-			readToAnotherGPU = mem.NewReadReq(6, dmaEngine.ToOtherGPUs, nil, 0x100, 64)
-			dataReady = mem.NewDataReadyRsp(8, nil, dmaEngine.ToOtherGPUs, readToAnotherGPU.ID)
-
-			dmaEngine.processingRDMAReadReq = append(dmaEngine.processingRDMAReadReq, read)
-			dmaEngine.pendingReadToAnotherGPU[readToAnotherGPU.ID] = readToAnotherGPU
-			dmaEngine.ToOtherGPUs.Recv(dataReady)
-		})
-
-		It("should send data ready back to read source", func() {
-			expectDataReady := mem.NewDataReadyRsp(12, dmaEngine.ToMem, nil, read.ID)
-			toMemConn.ExpectSend(expectDataReady, nil)
-
-			tickEvent := core.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
-
-			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
-			Expect(dmaEngine.needTick).To(BeTrue())
-			Expect(dmaEngine.pendingReadToAnotherGPU).NotTo(HaveKey(readToAnotherGPU.ID))
-			Expect(dmaEngine.processingRDMAReadReq).NotTo(ContainElement(read))
-			Expect(dmaEngine.ToOtherGPUs.Buf).To(HaveLen(0))
-		})
-
-		It("should wait if to memory connection busy", func() {
-			expectDataReady := mem.NewDataReadyRsp(12, dmaEngine.ToMem, nil, read.ID)
-			toMemConn.ExpectSend(expectDataReady, core.NewSendError())
-
-			tickEvent := core.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
-
-			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
-			Expect(dmaEngine.needTick).To(BeFalse())
-			Expect(dmaEngine.pendingReadToAnotherGPU).To(HaveKey(readToAnotherGPU.ID))
-			Expect(dmaEngine.processingRDMAReadReq).To(ContainElement(read))
-			Expect(dmaEngine.ToOtherGPUs.Buf).To(HaveLen(1))
 		})
 	})
 })
