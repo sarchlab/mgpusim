@@ -4,13 +4,12 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 )
 
 // WGCompleteLogger is the logger that writes the information of work-group
 // completion
 type WGCompleteLogger struct {
-	util.LogHookBase
+	core.LogHookBase
 }
 
 // Type returns type timing.MapWGReq

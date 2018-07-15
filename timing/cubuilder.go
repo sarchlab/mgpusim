@@ -2,7 +2,6 @@ package timing
 
 import (
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/emu"
 )
 
@@ -10,7 +9,7 @@ import (
 // It simplify the compute unit building process.
 type Builder struct {
 	Engine    core.Engine
-	Freq      util.Freq
+	Freq      core.Freq
 	CUName    string
 	SIMDCount int
 	VGPRCount []int
@@ -20,9 +19,9 @@ type Builder struct {
 	ScratchpadPreparer ScratchpadPreparer
 	ALU                emu.ALU
 
-	InstMem   core.Component
-	ScalarMem core.Component
-	VectorMem core.Component
+	InstMem   *core.Port
+	ScalarMem *core.Port
+	VectorMem *core.Port
 
 	ConnToInstMem   core.Connection
 	ConnToScalarMem core.Connection
@@ -32,7 +31,7 @@ type Builder struct {
 // NewBuilder returns a default builder object
 func NewBuilder() *Builder {
 	b := new(Builder)
-	b.Freq = 800 * util.MHz
+	b.Freq = 800 * core.MHz
 	b.SIMDCount = 4
 	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}
@@ -70,6 +69,7 @@ func (b *Builder) Build() *ComputeUnit {
 
 func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
+	fetchArbitor.InstBufByteSize = 256
 	issueArbitor := new(IssueArbiter)
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	cu.Scheduler = scheduler
@@ -135,7 +135,7 @@ func (b *Builder) connectToMem(cu *ComputeUnit) {
 	cu.InstMem = b.InstMem
 	cu.ScalarMem = b.ScalarMem
 	cu.VectorMem = b.VectorMem
-	core.PlugIn(cu, "ToInstMem", b.ConnToInstMem)
-	core.PlugIn(cu, "ToScalarMem", b.ConnToScalarMem)
-	core.PlugIn(cu, "ToVectorMem", b.ConnToVectorMem)
+	b.ConnToInstMem.PlugIn(cu.ToInstMem)
+	b.ConnToScalarMem.PlugIn(cu.ToScalarMem)
+	b.ConnToVectorMem.PlugIn(cu.ToVectorMem)
 }

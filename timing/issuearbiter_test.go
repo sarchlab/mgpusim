@@ -22,8 +22,8 @@ var _ = Describe("IssueArbiter", func() {
 
 	It("should decide which wf to issue", func() {
 		wfState := []WfState{
-			WfRunning, WfFetched, WfFetched, WfReady, WfFetched,
-			WfFetched, WfFetched, WfFetched, WfFetched, WfFetched,
+			WfRunning, WfReady, WfReady, WfReady, WfReady,
+			WfReady, WfReady, WfReady, WfReady, WfReady,
 		}
 		exeUnits := []insts.ExeUnit{
 			insts.ExeUnitVALU, insts.ExeUnitScalar, insts.ExeUnitVMem,
@@ -36,10 +36,14 @@ var _ = Describe("IssueArbiter", func() {
 		for i := 0; i < len(wfState); i++ {
 			wf := new(Wavefront)
 			wf.State = wfState[i]
-			wf.inst = NewInst(insts.NewInst())
-			wf.inst.ExeUnit = exeUnits[i]
+			wf.InstToIssue = NewInst(insts.NewInst())
+			wf.InstToIssue.ExeUnit = exeUnits[i]
 			wfs = append(wfs, wf)
 			wfPools[0].AddWf(wf)
+
+			if i == 3 || i == 6 {
+				wf.InstToIssue = nil
+			}
 		}
 
 		issueCandidate := arbiter.Arbitrate(wfPools)
@@ -51,9 +55,9 @@ var _ = Describe("IssueArbiter", func() {
 		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[3])))
 		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[4])))
 		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[5])))
-		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[6])))
+		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[6])))
 		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[7])))
-		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[8])))
+		Expect(issueCandidate).To(ContainElement(BeIdenticalTo(wfs[8])))
 		Expect(issueCandidate).NotTo(ContainElement(BeIdenticalTo(wfs[9])))
 	})
 })

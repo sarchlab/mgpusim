@@ -1,7 +1,6 @@
 package gcn3
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -22,53 +21,125 @@ type Resettable interface {
 type CommandProcessor struct {
 	*core.ComponentBase
 
-	Dispatcher core.Component
-	Driver     core.Component
+	engine core.Engine
+	Freq   core.Freq
 
-	ToResetAfterKernel []Resettable
+	Dispatcher *core.Port
+	DMAEngine  *core.Port
+	Driver     *core.Port
+
+	ToDriver     *core.Port
+	ToDispatcher *core.Port
+
+	ToResetAfterKernel          []Resettable
+	kernelFixedOverheadInCycles int
 }
 
-// NewCommandProcessor creates a new CommandProcessor
-func NewCommandProcessor(name string) *CommandProcessor {
-	c := new(CommandProcessor)
-	c.ComponentBase = core.NewComponentBase(name)
-
-	c.AddPort("ToDriver")
-	c.AddPort("ToDispatcher")
-
-	return c
+func (p *CommandProcessor) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	req := port.Retrieve(now)
+	core.ProcessReqAsEvent(req, p.engine, p.Freq)
 }
 
-// Recv processes the incoming requests
-func (p *CommandProcessor) Recv(req core.Req) *core.Error {
-	switch req := req.(type) {
-	case *kernels.LaunchKernelReq:
-		return p.processLaunchKernelReq(req)
-	default:
-		return core.NewError(
-			fmt.Sprintf("cannot process request %s", reflect.TypeOf(req)), false, 0)
-	}
-}
-
-func (p *CommandProcessor) processLaunchKernelReq(
-	req *kernels.LaunchKernelReq,
-) *core.Error {
-	if req.Src() == p.Driver {
-		req.SetDst(p.Dispatcher)
-		req.SetSrc(p)
-	} else if req.Src() == p.Dispatcher {
-		req.SetDst(p.Driver)
-		req.SetSrc(p)
-		for _, r := range p.ToResetAfterKernel {
-			r.Reset()
-		}
-	} else {
-		log.Fatal("The request sent to the command processor has unknown src")
-	}
-	return p.GetConnection("ToDispatcher").Send(req)
+func (p *CommandProcessor) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	//panic("implement me")
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
 func (p *CommandProcessor) Handle(e core.Event) error {
+	switch req := e.(type) {
+	case *kernels.LaunchKernelReq:
+		return p.processLaunchKernelReq(req)
+	case *ReplyKernelCompletionEvent:
+		return p.handleReplyKernelCompletionEvent(req)
+	case *MemCopyD2HReq:
+		return p.processMemCopyReq(req)
+	case *MemCopyH2DReq:
+		return p.processMemCopyReq(req)
+	default:
+		log.Panicf("cannot process request %s", reflect.TypeOf(req))
+	}
 	return nil
+}
+
+func (p *CommandProcessor) processLaunchKernelReq(
+	req *kernels.LaunchKernelReq,
+) error {
+	now := req.Time()
+	if req.Src() == p.Driver {
+		req.SetDst(p.Dispatcher)
+		req.SetSrc(p.ToDispatcher)
+		req.SetSendTime(now)
+		p.ToDispatcher.Send(req)
+	} else if req.Src() == p.Dispatcher {
+		for _, r := range p.ToResetAfterKernel {
+			r.Reset()
+		}
+		req.SetDst(p.Driver)
+		req.SetSrc(p.ToDriver)
+		evt := NewReplyKernelCompletionEvent(
+			p.Freq.NCyclesLater(p.kernelFixedOverheadInCycles, now),
+			p, req,
+		)
+		p.engine.Schedule(evt)
+	} else {
+		log.Panic("The request sent to the command processor has unknown src")
+	}
+	return nil
+}
+
+func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
+	now := evt.Time()
+	evt.Req.SetSendTime(now)
+	p.ToDriver.Send(evt.Req)
+	return nil
+}
+
+func (p *CommandProcessor) processMemCopyReq(req core.Req) error {
+	now := req.Time()
+	if req.Src() == p.Driver {
+		req.SetDst(p.DMAEngine)
+		req.SetSrc(p.ToDispatcher)
+		req.SetSendTime(now)
+		p.ToDispatcher.Send(req)
+	} else if req.Src() == p.DMAEngine {
+		req.SetDst(p.Driver)
+		req.SetSrc(p.ToDriver)
+		req.SetSendTime(now)
+		p.ToDriver.Send(req)
+	} else {
+		log.Panic("The request sent to the command processor has unknown src")
+	}
+	return nil
+}
+
+// NewCommandProcessor creates a new CommandProcessor
+func NewCommandProcessor(name string, engine core.Engine) *CommandProcessor {
+	c := new(CommandProcessor)
+	c.ComponentBase = core.NewComponentBase(name)
+
+	c.engine = engine
+	c.Freq = 1 * core.GHz
+
+	c.kernelFixedOverheadInCycles = 1600
+
+	c.ToDriver = core.NewPort(c)
+	c.ToDispatcher = core.NewPort(c)
+
+	return c
+}
+
+type ReplyKernelCompletionEvent struct {
+	*core.EventBase
+	Req *kernels.LaunchKernelReq
+}
+
+func NewReplyKernelCompletionEvent(
+	time core.VTimeInSec,
+	handler core.Handler,
+	req *kernels.LaunchKernelReq,
+) *ReplyKernelCompletionEvent {
+	evt := new(ReplyKernelCompletionEvent)
+	evt.EventBase = core.NewEventBase(time, handler)
+	evt.Req = req
+	return evt
 }

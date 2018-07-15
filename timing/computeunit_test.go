@@ -24,11 +24,9 @@ func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
 }
 
 type mockWfDispatcher struct {
-	dispatchedWf *gcn3.DispatchWfReq
 }
 
-func (m *mockWfDispatcher) DispatchWf(wf *Wavefront, req *gcn3.DispatchWfReq) {
-	m.dispatchedWf = req
+func (m *mockWfDispatcher) DispatchWf(now core.VTimeInSec, wf *Wavefront) {
 }
 
 type mockDecoder struct {
@@ -92,30 +90,45 @@ var _ = Describe("ComputeUnit", func() {
 		}
 
 		connection = core.NewMockConnection()
-		core.PlugIn(cu, "ToACE", connection)
+		connection.PlugIn(cu.ToACE)
 
 		instMem = core.NewMockComponent("InstMem")
-		cu.InstMem = instMem
+		cu.InstMem = instMem.ToOutside
 
 		grid = exampleGrid()
 	})
 
 	Context("when processing MapWGReq", func() {
-		It("should reply OK if mapping is successful", func() {
+		It("should schedule wavefront dispatching if mapping is successful", func() {
 			wgMapper.OK = true
 
 			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
 			req.SetRecvTime(10)
-
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
-			expectedResponse.Ok = true
-			expectedResponse.SetRecvTime(10)
-			connection.ExpectSend(expectedResponse, nil)
+			req.SetEventTime(10)
 
 			cu.Handle(req)
 
-			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(engine.ScheduledEvent).To(HaveLen(2))
+		})
+
+		It("should schedule more events if number of wavefronts is greater than 4", func() {
+			wgMapper.OK = true
+
+			wg := grid.WorkGroups[0]
+			wg.Wavefronts = make([]*kernels.Wavefront, 0)
+			for i := 0; i < 6; i++ {
+				wf := kernels.NewWavefront()
+				wf.WG = wg
+				wg.Wavefronts = append(wg.Wavefronts, wf)
+			}
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
+			req.SetRecvTime(10)
+			req.SetEventTime(10)
+
+			cu.Handle(req)
+
+			Expect(engine.ScheduledEvent).To(HaveLen(7))
 		})
 
 		It("should reply not OK if there are pending wavefronts", func() {
@@ -123,11 +136,13 @@ var _ = Describe("ComputeUnit", func() {
 			cu.WfToDispatch[wf] = new(WfDispatchInfo)
 
 			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
+			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
 			expectedResponse.Ok = false
+			expectedResponse.SetSendTime(10)
 			expectedResponse.SetRecvTime(10)
 			connection.ExpectSend(expectedResponse, nil)
 
@@ -140,12 +155,14 @@ var _ = Describe("ComputeUnit", func() {
 			wgMapper.OK = false
 
 			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu, 10, wg)
+			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
-			expectedResponse := gcn3.NewMapWGReq(cu, nil, 10, wg)
+			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
 			expectedResponse.Ok = false
 			expectedResponse.SetRecvTime(10)
+			expectedResponse.SetSendTime(10)
 			connection.ExpectSend(expectedResponse, nil)
 
 			cu.Handle(req)
@@ -154,49 +171,8 @@ var _ = Describe("ComputeUnit", func() {
 		})
 	})
 
-	Context("when processing DispatchWfReq", func() {
-		It("should dispatch wf", func() {
-			wg := grid.WorkGroups[0]
-			cu.wrapWG(wg, nil)
+	Context("when handling WfDispatchEvent", func() {
 
-			wf := wg.Wavefronts[0]
-			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
-			req.SetRecvTime(11)
-
-			cu.Handle(req)
-
-			Expect(wfDispatcher.dispatchedWf).To(BeIdenticalTo(req))
-		})
-
-		It("should handle WfDispatchCompletionEvent", func() {
-			cu.running = false
-			wf := grid.WorkGroups[0].Wavefronts[0]
-			managedWf := new(Wavefront)
-			managedWf.Wavefront = wf
-			managedWf.State = WfDispatching
-
-			info := new(WfDispatchInfo)
-			info.Wavefront = wf
-			info.SIMDID = 0
-			cu.WfToDispatch[wf] = info
-
-			req := gcn3.NewDispatchWfReq(nil, cu, 10, wf)
-			evt := NewWfDispatchCompletionEvent(11, cu, managedWf)
-			evt.DispatchWfReq = req
-
-			expectedResponse := gcn3.NewDispatchWfReq(cu, nil, 11, wf)
-			expectedResponse.SetSendTime(11)
-			connection.ExpectSend(expectedResponse, nil)
-
-			cu.Handle(evt)
-
-			Expect(len(engine.ScheduledEvent)).To(Equal(1))
-			Expect(connection.AllExpectedSent()).To(BeTrue())
-			Expect(len(cu.WfPools[0].wfs)).To(Equal(1))
-			Expect(len(cu.WfToDispatch)).To(Equal(0))
-			Expect(managedWf.State).To(Equal(WfReady))
-			Expect(cu.running).To(BeTrue())
-		})
 	})
 
 	Context("when handling mem.AccessReq", func() {
@@ -206,86 +182,32 @@ var _ = Describe("ComputeUnit", func() {
 			wf.inst = inst
 			wf.PC = 0x1000
 
-			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
-			req.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8}
+			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
+			req.Data = []byte{
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+			}
 			req.SetRecvTime(10)
+			req.SetEventTime(10)
 
 			info := new(MemAccessInfo)
 			info.Action = MemAccessInstFetch
 			info.Wf = wf
 			cu.inFlightMemAccess["out_req"] = info
 
-			rawInst := insts.NewInst()
-			decoder.Inst = rawInst
-			decoder.Inst.ByteSize = 4
-
 			cu.Handle(req)
 
-			Expect(wf.State).To(Equal(WfFetched))
+			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
-			Expect(wf.PC).To(Equal(uint64(0x1004)))
-			Expect(wf.inst).To(BeIdenticalTo(inst))
-			Expect(wf.inst.Inst).To(BeIdenticalTo(rawInst))
+			Expect(wf.PC).To(Equal(uint64(0x1000)))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
-		})
-
-		It("should handle fetch return with the first 4 bytes", func() {
-			wf := NewWavefront(nil)
-			inst := NewInst(nil)
-			wf.inst = inst
-			wf.PC = 60
-			wf.LastFetchTime = 8
-
-			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
-			req.Data = []byte{1, 2, 3, 4}
-			req.SetRecvTime(10)
-
-			info := new(MemAccessInfo)
-			info.Action = MemAccessInstFetch
-			info.Wf = wf
-			cu.inFlightMemAccess["out_req"] = info
-
-			//rawInst := insts.NewInst()
-			//decoder.Inst = rawInst
-			//decoder.Inst.ByteSize = 4
-
-			cu.Handle(req)
-
-			Expect(wf.State).To(Equal(WfReady))
-			Expect(wf.LastFetchTime).To(BeNumerically("~", 8))
-			Expect(wf.PC).To(Equal(uint64(60)))
-			Expect(wf.FetchBuffer).To(Equal(req.Data))
-			Expect(cu.inFlightMemAccess).To(HaveLen(0))
-		})
-
-		It("should handle fetch return with the second 4 bytes", func() {
-			wf := NewWavefront(nil)
-			inst := NewInst(nil)
-			wf.inst = inst
-			wf.PC = 60
-			wf.LastFetchTime = 8
-			wf.FetchBuffer = []byte{1, 2, 3, 4}
-
-			req := mem.NewDataReadyRsp(10, instMem, cu, "out_req")
-			req.Data = []byte{1, 2, 3, 4}
-			req.SetRecvTime(10)
-
-			info := new(MemAccessInfo)
-			info.Action = MemAccessInstFetch
-			info.Wf = wf
-			cu.inFlightMemAccess["out_req"] = info
-
-			rawInst := insts.NewInst()
-			decoder.Inst = rawInst
-			decoder.Inst.ByteSize = 4
-
-			cu.Handle(req)
-
-			Expect(wf.State).To(Equal(WfFetched))
-			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
-			Expect(wf.PC).To(Equal(uint64(64)))
-			Expect(wf.FetchBuffer).To(HaveLen(0))
-			Expect(cu.inFlightMemAccess).To(HaveLen(0))
+			Expect(wf.InstBuffer).To(HaveLen(64))
 		})
 
 		It("should handle scalar data load return", func() {

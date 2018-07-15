@@ -32,7 +32,6 @@ var (
 	kernel    *insts.HsaCo
 
 	width              int
-	numTaps            int
 	elemsPerThread1Dim int
 	blockSize          int
 	hInputData         []uint32
@@ -52,6 +51,7 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")
+var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 func main() {
 	configure()
@@ -78,6 +78,10 @@ func configure() {
 
 	if *instTracing {
 		platform.TraceInst = true
+	}
+
+	if *memTracing {
+		platform.TraceMem = true
 	}
 
 	width = *dataWidth
@@ -114,7 +118,7 @@ func initMem() {
 	dInputData = gpuDriver.AllocateMemory(storage, uint64(numData*4))
 	dOutputData = gpuDriver.AllocateMemory(storage, uint64(numData*4))
 
-	gpuDriver.MemoryCopyHostToDevice(dInputData, hInputData, storage)
+	gpuDriver.MemoryCopyHostToDevice(dInputData, hInputData, gpu.ToDriver)
 }
 
 func run() {
@@ -126,7 +130,7 @@ func run() {
 		0, 0, 0,
 	}
 
-	gpuDriver.LaunchKernel(kernel, gpu, globalMem.Storage,
+	gpuDriver.LaunchKernel(kernel, gpu.ToDriver, globalMem.Storage,
 		[3]uint32{uint32(width / elemsPerThread1Dim), uint32(width / elemsPerThread1Dim), 1},
 		[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 		&kernArg,
@@ -134,7 +138,7 @@ func run() {
 }
 
 func checkResult() {
-	gpuDriver.MemoryCopyDeviceToHost(hOutputData, dOutputData, storage)
+	gpuDriver.MemoryCopyDeviceToHost(hOutputData, dOutputData, gpu.ToDriver)
 
 	for i := 0; i < width; i++ {
 		for j := 0; j < width; j++ {

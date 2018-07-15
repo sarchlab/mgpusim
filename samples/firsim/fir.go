@@ -52,7 +52,8 @@ var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
-var numData = flag.Int("dataSize", 4096, "The number of samples to filter.")
+var numData = flag.Int("data-size", 4096, "The number of samples to filter.")
+var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 func main() {
 	configure()
@@ -79,6 +80,10 @@ func configure() {
 
 	if *instTracing {
 		platform.TraceInst = true
+	}
+
+	if *memTracing {
+		platform.TraceMem = true
 	}
 
 	dataSize = *numData
@@ -113,8 +118,8 @@ func initMem() {
 		inputData[i] = float32(i)
 	}
 
-	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, globalMem.Storage)
-	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, globalMem.Storage)
+	gpuDriver.MemoryCopyHostToDevice(gFilterData, filterData, gpu.ToDriver)
+	gpuDriver.MemoryCopyHostToDevice(gInputData, inputData, gpu.ToDriver)
 }
 
 func run() {
@@ -127,7 +132,7 @@ func run() {
 		0, 0, 0,
 	}
 
-	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
+	gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
 		[3]uint32{uint32(dataSize), 1, 1},
 		[3]uint16{256, 1, 1},
 		&kernArg,
@@ -136,7 +141,7 @@ func run() {
 
 func checkResult() {
 	gpuOutput := make([]float32, dataSize)
-	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, globalMem.Storage)
+	gpuDriver.MemoryCopyDeviceToHost(gpuOutput, gOutputData, gpu.ToDriver)
 
 	for i := 0; i < dataSize; i++ {
 		var sum float32

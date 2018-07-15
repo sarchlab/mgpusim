@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
@@ -27,7 +26,7 @@ type ComputeUnit struct {
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
-	Freq               util.Freq
+	Freq               core.Freq
 
 	nextTick    core.VTimeInSec
 	queueingWGs []*gcn3.MapWGReq
@@ -35,36 +34,17 @@ type ComputeUnit struct {
 	LDSStorage  []byte
 
 	GlobalMemStorage *mem.Storage
+
+	ToDispatcher *core.Port
 }
 
-// NewComputeUnit creates a new ComputeUnit with the given name
-func NewComputeUnit(
-	name string,
-	engine core.Engine,
-	decoder Decoder,
-	scratchpadPreparer ScratchpadPreparer,
-	alu ALU,
-) *ComputeUnit {
-	cu := new(ComputeUnit)
-	cu.ComponentBase = core.NewComponentBase(name)
-
-	cu.engine = engine
-	cu.decoder = decoder
-	cu.scratchpadPreparer = scratchpadPreparer
-	cu.alu = alu
-
-	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
-	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
-
-	cu.AddPort("ToDispatcher")
-
-	return cu
+func (cu *ComputeUnit) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	req := port.Retrieve(now)
+	core.ProcessReqAsEvent(req, cu.engine, cu.Freq)
 }
 
-// Recv accepts requests from other components
-func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
-	util.ProcessReqAsEvent(req, cu.engine, cu.Freq)
-	return nil
+func (cu *ComputeUnit) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	panic("implement me")
 }
 
 // Handle defines the behavior on event scheduled on the ComputeUnit
@@ -75,8 +55,6 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
 		return cu.handleMapWGReq(evt)
-	case *gcn3.DispatchWfReq:
-		return cu.handleDispatchWfReq(evt)
 	case *core.TickEvent:
 		return cu.handleTickEvent(evt)
 	case *WGCompleteEvent:
@@ -104,15 +82,8 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	req.Ok = true
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.Time())
-	cu.GetConnection("ToDispatcher").Send(req)
+	cu.ToDispatcher.Send(req)
 
-	return nil
-}
-
-func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
-	req.SwapSrcAndDst()
-	req.SetSendTime(req.Time())
-	cu.GetConnection("ToDispatcher").Send(req)
 	return nil
 }
 
@@ -345,7 +316,31 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	delete(cu.wfs, evt.Req.WG)
-	req := gcn3.NewWGFinishMesg(cu, evt.Req.Dst(), evt.Time(), evt.Req.WG)
-	cu.GetConnection("ToDispatcher").Send(req)
+	req := gcn3.NewWGFinishMesg(cu.ToDispatcher, evt.Req.Dst(), evt.Time(), evt.Req.WG)
+	cu.ToDispatcher.Send(req)
 	return nil
+}
+
+// NewComputeUnit creates a new ComputeUnit with the given name
+func NewComputeUnit(
+	name string,
+	engine core.Engine,
+	decoder Decoder,
+	scratchpadPreparer ScratchpadPreparer,
+	alu ALU,
+) *ComputeUnit {
+	cu := new(ComputeUnit)
+	cu.ComponentBase = core.NewComponentBase(name)
+
+	cu.engine = engine
+	cu.decoder = decoder
+	cu.scratchpadPreparer = scratchpadPreparer
+	cu.alu = alu
+
+	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
+	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
+
+	cu.ToDispatcher = core.NewPort(cu)
+
+	return cu
 }

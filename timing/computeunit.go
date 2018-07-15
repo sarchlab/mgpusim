@@ -9,21 +9,22 @@ import (
 	"gitlab.com/yaotsu/mem"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
 // simulation of a GCN3 ComputeUnit
 type ComputeUnit struct {
 	*core.ComponentBase
+	ticker *core.Ticker
 
 	WGMapper     WGMapper
 	WfDispatcher WfDispatcher
 	Decoder      emu.Decoder
 
 	engine core.Engine
-	Freq   util.Freq
+	Freq   core.Freq
 
 	WfPools              []*WavefrontPool
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
@@ -44,37 +45,23 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
-	InstMem   core.Component
-	ScalarMem core.Component
-	VectorMem core.Component
+	InstMem   *core.Port
+	ScalarMem *core.Port
+	VectorMem *core.Port
+
+	ToACE       *core.Port
+	ToInstMem   *core.Port
+	ToScalarMem *core.Port
+	ToVectorMem *core.Port
 }
 
-// NewComputeUnit returns a newly constructed compute unit
-func NewComputeUnit(
-	name string,
-	engine core.Engine,
-) *ComputeUnit {
-	cu := new(ComputeUnit)
-	cu.ComponentBase = core.NewComponentBase(name)
-
-	cu.engine = engine
-
-	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
-	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
-	cu.inFlightMemAccess = make(map[string]*MemAccessInfo)
-
-	cu.AddPort("ToACE")
-	cu.AddPort("ToInstMem")
-	cu.AddPort("ToScalarMem")
-	cu.AddPort("ToVectorMem")
-
-	return cu
+func (cu *ComputeUnit) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	req := port.Retrieve(now)
+	core.ProcessReqAsEvent(req, cu.engine, cu.Freq)
 }
 
-// Recv processes incoming requests
-func (cu *ComputeUnit) Recv(req core.Req) *core.Error {
-	util.ProcessReqAsEvent(req, cu.engine, cu.Freq)
-	return nil
+func (cu *ComputeUnit) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+	//panic("implement me")
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -88,10 +75,8 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
 		return cu.handleMapWGReq(evt)
-	case *gcn3.DispatchWfReq:
-		return cu.handleDispatchWfReq(evt)
-	case *WfDispatchCompletionEvent:
-		return cu.handleWfDispatchCompletionEvent(evt)
+	case *WfDispatchEvent:
+		return cu.handleWfDispatchEvent(evt)
 	case *core.TickEvent:
 		return cu.handleTickEvent(evt)
 	case *WfCompletionEvent:
@@ -110,6 +95,7 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	//log.Printf("%s map wg at %.12f\n", cu.Name(), req.Time())
+	now := req.Time()
 
 	ok := false
 
@@ -117,14 +103,35 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 		ok = cu.WGMapper.MapWG(req)
 	}
 
+	wfs := make([]*Wavefront, 0)
 	if ok {
 		cu.wrapWG(req.WG, req)
+		for _, wf := range req.WG.Wavefronts {
+			managedWf := cu.wrapWf(wf)
+			wfs = append(wfs, managedWf)
+		}
+
+		for i, wf := range wfs {
+			evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(i, now), cu, wf)
+			cu.engine.Schedule(evt)
+		}
+
+		lastEventCycle := 4
+		if len(wfs) > 4 {
+			lastEventCycle = len(wfs)
+		}
+		evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(lastEventCycle, now), cu, nil)
+		evt.MapWGReq = req
+		evt.IsLastInWG = true
+		cu.engine.Schedule(evt)
+
+		return nil
 	}
 
-	req.Ok = ok
+	req.Ok = false
 	req.SwapSrcAndDst()
-	req.SetSendTime(req.Time())
-	err := cu.GetConnection("ToACE").Send(req)
+	req.SetSendTime(now)
+	err := cu.ToACE.Send(req)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -132,34 +139,33 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	return nil
 }
 
-func (cu *ComputeUnit) handleDispatchWfReq(req *gcn3.DispatchWfReq) error {
-	wf := cu.wrapWf(req.Wf)
-	cu.WfDispatcher.DispatchWf(wf, req)
-
-	return nil
-}
-
-func (cu *ComputeUnit) handleWfDispatchCompletionEvent(
-	evt *WfDispatchCompletionEvent,
+func (cu *ComputeUnit) handleWfDispatchEvent(
+	evt *WfDispatchEvent,
 ) error {
+	now := evt.Time()
 	wf := evt.ManagedWf
-	info := cu.WfToDispatch[wf.Wavefront]
-
-	cu.WfPools[info.SIMDID].AddWf(wf)
-	delete(cu.WfToDispatch, wf.Wavefront)
-	wf.State = WfReady
+	if wf != nil {
+		info := cu.WfToDispatch[wf.Wavefront]
+		cu.WfPools[info.SIMDID].AddWf(wf)
+		cu.WfDispatcher.DispatchWf(now, wf)
+		delete(cu.WfToDispatch, wf.Wavefront)
+		wf.State = WfReady
+	}
 
 	// Respond ACK
-	req := evt.DispatchWfReq
-	req.SwapSrcAndDst()
-	req.SetSendTime(evt.Time())
-	cu.GetConnection("ToACE").Send(req)
-
-	if !cu.running {
-		tick := core.NewTickEvent(cu.Freq.NextTick(evt.Time()), cu)
-		cu.engine.Schedule(tick)
-		cu.running = true
+	if evt.IsLastInWG {
+		req := evt.MapWGReq
+		req.Ok = true
+		req.SwapSrcAndDst()
+		req.SetSendTime(evt.Time())
+		err := cu.ToACE.Send(req)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
+	cu.running = true
+	cu.ticker.TickLater(evt.Time())
 
 	return nil
 }
@@ -207,17 +213,13 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
 	now := evt.Time()
-	mesg := gcn3.NewWGFinishMesg(cu, dispatcher, now, wg.WorkGroup)
+	mesg := gcn3.NewWGFinishMesg(cu.ToACE, dispatcher, now, wg.WorkGroup)
 
-	err := cu.GetConnection("ToACE").Send(mesg)
+	err := cu.ToACE.Send(mesg)
 	if err != nil {
-		if !err.Recoverable {
-			log.Fatal(err)
-		} else {
-			evt.SetTime(cu.Freq.NoEarlierThan(err.EarliestRetry))
-			cu.engine.Schedule(evt)
-			return false
-		}
+		newEvent := NewWfCompletionEvent(cu.Freq.NextTick(now), cu, evt.Wf)
+		cu.engine.Schedule(newEvent)
+		return false
 	}
 	return true
 }
@@ -250,13 +252,10 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	cu.VectorMemUnit.Run(now)
 	cu.VectorMemDecoder.Run(now)
 
-	cu.Scheduler.EvaluateInternalInst(now)
-	cu.Scheduler.DoIssue(now)
-	cu.Scheduler.DoFetch(now)
+	cu.Scheduler.Run(now)
 
 	if cu.running {
-		evt.SetTime(cu.Freq.NextTick(evt.Time()))
-		cu.engine.Schedule(evt)
+		cu.ticker.TickLater(now)
 	}
 
 	return nil
@@ -314,40 +313,19 @@ func (cu *ComputeUnit) handleMemDoneRsp(rsp *mem.DoneRsp) error {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
+	now := rsp.Time()
 	wf := info.Wf
+	addr := info.Address
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	if len(rsp.Data) == 8 {
-		wf.FetchBuffer = rsp.Data
-		cu.fetchComplete(wf, rsp.Time())
-		// log.Printf("%f: %s\n", req.Time(), wf.Inst.String())
-		// wf.State = WfReady
-
-	} else if len(rsp.Data) == 4 {
-		wf.FetchBuffer = append(wf.FetchBuffer, rsp.Data...)
-		wf.State = WfReady
-		if len(wf.FetchBuffer) >= 8 {
-			cu.fetchComplete(wf, rsp.Time())
-		}
-
+	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
+		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
 	}
 
-	return nil
-}
-
-func (cu *ComputeUnit) fetchComplete(wf *Wavefront, now core.VTimeInSec) {
-	wf.State = WfFetched
+	wf.IsFetching = false
 	wf.LastFetchTime = now
 
-	inst, err := cu.Decoder.Decode(wf.FetchBuffer)
-	if err != nil {
-		log.Panic(err)
-	}
-	managedInst := wf.ManagedInst()
-	managedInst.Inst = inst
-	wf.PC += uint64(managedInst.ByteSize)
-	wf.FetchBuffer = nil
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{now, managedInst, "FetchDone"})
+	return nil
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(rsp *mem.DataReadyRsp, info *MemAccessInfo) error {
@@ -374,6 +352,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	info *MemAccessInfo,
 ) error {
 	wf := info.Wf
+	inst := info.Inst
 
 	for i := 0; i < 64; i++ {
 		addr := info.PreCoalescedAddrs[i]
@@ -388,7 +367,13 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		access.Reg = info.Dst
 		access.RegCount = info.RegCount
 		access.LaneID = i
-		access.Data = rsp.Data[addrCacheLineOffset : addrCacheLineOffset+uint64(4*info.RegCount)]
+		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
+			access.Data = insts.Uint32ToBytes(uint32(
+				rsp.Data[addrCacheLineOffset]))
+		} else {
+			access.Data = rsp.Data[addrCacheLineOffset : addrCacheLineOffset+uint64(4*info.RegCount)]
+		}
+
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
@@ -415,4 +400,28 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(rsp *mem.DoneRsp, info *MemAcces
 	}
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 	return nil
+}
+
+// NewComputeUnit returns a newly constructed compute unit
+func NewComputeUnit(
+	name string,
+	engine core.Engine,
+) *ComputeUnit {
+	cu := new(ComputeUnit)
+	cu.ComponentBase = core.NewComponentBase(name)
+
+	cu.engine = engine
+	cu.Freq = 1 * core.GHz
+	cu.ticker = core.NewTicker(cu, engine, cu.Freq)
+
+	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
+	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
+	cu.inFlightMemAccess = make(map[string]*MemAccessInfo)
+
+	cu.ToACE = core.NewPort(cu)
+	cu.ToInstMem = core.NewPort(cu)
+	cu.ToScalarMem = core.NewPort(cu)
+	cu.ToVectorMem = core.NewPort(cu)
+
+	return cu
 }

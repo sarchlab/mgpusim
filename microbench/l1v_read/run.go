@@ -14,7 +14,6 @@ import (
 
 type KernelArgs struct {
 	Data                driver.GPUPtr
-	NumRepeat           uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -43,7 +42,6 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var instTracing = flag.Bool("trace-inst", false,
 	"Generate instruction trace for visualization purposes.")
-var repeat = flag.Int("repeat", 10000, "The number of repeat read.")
 
 func configure() {
 	flag.Parse()
@@ -55,8 +53,6 @@ func configure() {
 	if *instTracing {
 		platform.TraceInst = true
 	}
-
-	numRepeat = *repeat
 }
 
 func initPlatform() {
@@ -78,11 +74,10 @@ func initMem() {
 func run() {
 	kernArg := KernelArgs{
 		gData,
-		uint32(numRepeat),
 		0, 0, 0,
 	}
 
-	gpuDriver.LaunchKernel(hsaco, gpu, globalMem.Storage,
+	gpuDriver.LaunchKernel(hsaco, gpu.ToDriver, globalMem.Storage,
 		[3]uint32{64, 1, 1},
 		[3]uint16{64, 1, 1},
 		&kernArg,
