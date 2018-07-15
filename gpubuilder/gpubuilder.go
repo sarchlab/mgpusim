@@ -422,7 +422,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 512)
 		l2Caches = append(l2Caches, l2Cache)
 		l2Cache.DirectoryLatency = 3
-		l2Cache.Latency = 200
+		l2Cache.Latency = 400
 		l2Cache.SetNumBanks(16)
 		l2Cache.Freq = 1 * core.GHz
 		lowModuleFinderForL1.LowModules = append(
@@ -439,7 +439,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		dCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB, 128)
 		dCache.DirectoryLatency = 0
-		dCache.Latency = 1
+		dCache.Latency = 140
 		dCache.SetNumBanks(1)
 		connection.PlugIn(dCache.ToTop)
 		connection.PlugIn(dCache.ToBottom)

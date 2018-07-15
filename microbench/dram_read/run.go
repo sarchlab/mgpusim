@@ -42,6 +42,8 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var instTracing = flag.Bool("trace-inst", false,
 	"Generate instruction trace for visualization purposes.")
+var memTracing = flag.Bool("trace-mem", false,
+	"Generate memory trace")
 
 func configure() {
 	flag.Parse()
@@ -52,6 +54,10 @@ func configure() {
 
 	if *instTracing {
 		platform.TraceInst = true
+	}
+
+	if *memTracing {
+		platform.TraceMem = true
 	}
 }
 
@@ -69,6 +75,8 @@ func loadProgram() {
 
 func initMem() {
 	gData = gpuDriver.AllocateMemory(globalMem.Storage, uint64(2*mem.MB))
+	data := make([]byte, 0.2*mem.MB)
+	gpuDriver.MemoryCopyHostToDevice(gData, data, gpu.ToDriver)
 }
 
 func run() {

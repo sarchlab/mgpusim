@@ -76,8 +76,8 @@ def main():
 
     insts = ['v_add_f32 v1, v2, v3']
     numInst = range(0, 129, 4)
-    numWf = [1, 2, 3, 4]
-    numWG = [1, 2, 3, 4, 5, 6, 7, 8]
+    numWf = [1]
+    numWG = [1]
 
     if args.gpu:
         data = pd.DataFrame(columns=data_columns)

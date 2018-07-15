@@ -15,9 +15,7 @@ workitem_vgpr_count = 5
 .end_amd_kernel_code_t
 
 BB0_0:
-	s_load_dwordx2 s[6:7], s[4:5], 0x0
-	s_load_dword s8, s[4:5], 0x8
-	s_mov_b32 s1, 0
+	s_load_dwordx2 s[6:7], s[0:1], 0x0
 	v_mov_b32 v1, s6
 	v_mov_b32 v2, s7
 
