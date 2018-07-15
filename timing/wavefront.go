@@ -16,8 +16,6 @@ type WfState int
 const (
 	WfDispatching WfState = iota // Dispatching in progress, not ready to run
 	WfReady                      // Allow the scheduler to schedule instruction
-	WfFetching                   // Fetch request sent, but not returned
-	WfFetched                    // Instruction fetched, but not issued
 	WfRunning                    // Instruction in fight
 	WfCompleted                  // Wavefront completed
 	WfAtBarrier                  // Wavefront at barrier
@@ -41,11 +39,15 @@ type Wavefront struct {
 	LastFetchTime  core.VTimeInSec // The time that the last instruction was fetched
 	CompletedLanes int             // The number of lanes that is completed in the SIMD unit
 
-	FetchBuffer []byte
-	SIMDID      int
-	SRegOffset  int
-	VRegOffset  int
-	LDSOffset   int
+	InstBuffer        []byte
+	InstBufferStartPC uint64
+	IsFetching        bool
+	InstToIssue       *Inst
+
+	SIMDID     int
+	SRegOffset int
+	VRegOffset int
+	LDSOffset  int
 
 	PC   uint64
 	EXEC uint64
@@ -64,7 +66,7 @@ func NewWavefront(raw *kernels.Wavefront) *Wavefront {
 	wf.Wavefront = raw
 
 	wf.scratchpad = make([]byte, 4096)
-	wf.FetchBuffer = make([]byte, 0, 8)
+	wf.InstBuffer = make([]byte, 0, 256)
 
 	return wf
 }

@@ -6,14 +6,13 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/core/util"
 	"gitlab.com/yaotsu/gcn3/insts"
 )
 
 // ISADebugger is a logger hook that can dump the wavefront status after each
 // instruction execution
 type ISADebugger struct {
-	util.LogHookBase
+	core.LogHookBase
 }
 
 // NewISADebugger creates a new ISADebugger.

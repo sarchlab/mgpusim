@@ -1,7 +1,7 @@
 package gcn3
 
 import (
-	"fmt"
+	"log"
 
 	"gitlab.com/yaotsu/core"
 )
@@ -15,45 +15,62 @@ import (
 type GPU struct {
 	*core.ComponentBase
 
-	Driver           core.Component // The DriverComponent
-	CommandProcessor core.Component // The CommandProcessor
+	engine core.Engine
+	Freq   core.Freq
+
+	Driver           *core.Port // The DriverComponent
+	CommandProcessor *core.Port // The CommandProcessor
 	Dispatchers      []core.Component
 	CUs              []core.Component
+
+	ToDriver           *core.Port
+	ToCommandProcessor *core.Port
 }
 
-// NewGPU returns a newly created GPU
-func NewGPU(name string) *GPU {
-	g := new(GPU)
-	g.ComponentBase = core.NewComponentBase(name)
-	g.AddPort("ToDriver")
-	g.AddPort("ToCommandProcessor")
-	return g
+func (g *GPU) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+}
+
+func (g *GPU) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+	req := port.Retrieve(now)
+	core.ProcessReqAsEvent(req, g.engine, g.Freq)
 }
 
 // Handle defines how a GPU handles core.
 //
 // A GPU should not handle any event by itself.
 func (g *GPU) Handle(e core.Event) error {
-	return nil
-}
+	now := e.Time()
+	req := e.(core.Req)
 
-// Recv processes incoming request to the GPU.
-//
-// The GPU itself does not respond to requests, but it always forward to the
-// CommandProcessor.
-func (g *GPU) Recv(req core.Req) *core.Error {
 	if req.Src() == g.CommandProcessor { // From the CommandProcessor
-		req.SetSrc(g)
+		req.SetSrc(g.ToDriver)
 		req.SetDst(g.Driver)
-		g.GetConnection("ToDriver").Send(req)
+		req.SetSendTime(now)
+		g.ToDriver.Send(req)
 		return nil
 	} else if req.Src() == g.Driver { // From the Driver
-		req.SetSrc(g)
+		req.SetSrc(g.ToCommandProcessor)
 		req.SetDst(g.CommandProcessor)
-		g.GetConnection("ToCommandProcessor").Send(req)
+		req.SetSendTime(now)
+		g.ToCommandProcessor.Send(req)
 		return nil
 	}
 
-	return core.NewError(
-		fmt.Sprintf("Unrecognized source %s", req.Src().Name()), false, 0)
+	log.Panic("Unknown source")
+
+	return nil
+}
+
+// NewGPU returns a newly created GPU
+func NewGPU(name string, engine core.Engine) *GPU {
+	g := new(GPU)
+	g.ComponentBase = core.NewComponentBase(name)
+
+	g.engine = engine
+	g.Freq = 1 * core.GHz
+
+	g.ToDriver = core.NewPort(g)
+	g.ToCommandProcessor = core.NewPort(g)
+
+	return g
 }

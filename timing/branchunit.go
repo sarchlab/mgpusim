@@ -90,5 +90,7 @@ func (u *BranchUnit) runWriteStage(now core.VTimeInSec) {
 	u.cu.InvokeHook(u.toWrite, u.cu, core.Any, &InstHookInfo{now, u.toWrite.inst, "Completed"})
 
 	u.toWrite.State = WfReady
+	u.toWrite.InstBuffer = nil
+	u.toWrite.InstBufferStartPC = u.toWrite.PC & 0xffffffffffffffc0
 	u.toWrite = nil
 }
