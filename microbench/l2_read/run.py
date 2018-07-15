@@ -15,11 +15,20 @@ def generate_benchmark(count):
     with open('microbench/kernels_template.asm', 'r') as template_file:
         template = template_file.read()
 
+    pre_scan_insts = ''
+    for i in range(0, 16384):
+        pre_scan_insts += 'flat_load_dword v0, v[4:5]\n'
+        pre_scan_insts += 'v_add_u32 v4, vcc, v4, v3\n'
+        pre_scan_insts += 'v_addc_u32 v5, vcc, v5, 0, vcc\n'
+        pre_scan_insts += 's_waitcnt vmcnt(0)\n'
+
     insts = ''
     for i in range(0, count):
         insts += 'flat_load_dword v0, v[1:2]\n'
+        insts += 'v_add_u32 v1, vcc, v1, v3\n'
+        insts += 'v_addc_u32 v2, vcc, v2, 0, vcc\n'
         insts += 's_waitcnt vmcnt(0)\n'
-    kernel = template.format(insts)
+    kernel = template.format(pre_scan_insts, insts)
 
     with open('microbench/kernels.asm', 'w') as kernel_file:
         kernel_file.write(kernel)
@@ -37,8 +46,8 @@ def run_on_simulator(num_access):
                             stdout=subprocess.DEVNULL)
     process.wait()
 
-    duration = run_benchmark_on_simulator('./l1v_read -timing', os.getcwd())
-    entry = ['l1v_read', 'sim', num_access , duration]
+    duration = run_benchmark_on_simulator('./l2_read -timing', os.getcwd())
+    entry = ['l2_read', 'sim', num_access , duration]
     print(entry)
     data = data.append(
         pd.DataFrame([entry], columns=data_columns),
@@ -54,7 +63,7 @@ def run_on_gpu(num_access, repeat):
     for i in range(0, repeat):
         duration = run_benchmark_on_gpu(
             './kernel', os.getcwd() + '/microbench/')
-        entry = ['l1v_read', 'gpu', num_access, duration]
+        entry = ['dram_read', 'gpu', num_access, duration]
         print(entry)
         data = data.append(
             pd.DataFrame([entry], columns=data_columns),
