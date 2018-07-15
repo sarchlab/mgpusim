@@ -38,7 +38,7 @@ def run_on_simulator(num_access):
     process.wait()
 
     duration = run_benchmark_on_simulator('./l1v_read -timing', os.getcwd())
-    entry = ['alu', 'sim', num_access , duration]
+    entry = ['l1v_read', 'sim', num_access , duration]
     print(entry)
     data = data.append(
         pd.DataFrame([entry], columns=data_columns),
@@ -54,7 +54,7 @@ def run_on_gpu(num_access, repeat):
     for i in range(0, repeat):
         duration = run_benchmark_on_gpu(
             './kernel', os.getcwd() + '/microbench/')
-        entry = ['alu', 'gpu', num_access, duration]
+        entry = ['l1v_read', 'gpu', num_access, duration]
         print(entry)
         data = data.append(
             pd.DataFrame([entry], columns=data_columns),

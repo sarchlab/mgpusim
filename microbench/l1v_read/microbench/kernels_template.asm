@@ -8,6 +8,7 @@
 microbench:                             ; @microbench
 
 .amd_kernel_code_t
+enable_sgpr_kernarg_segment_ptr = 1
 kernarg_segment_byte_size = 32
 wavefront_sgpr_count = 8
 workitem_vgpr_count = 5
