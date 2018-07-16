@@ -105,7 +105,8 @@ func (d *Driver) LaunchKernel(
 	d.updateLDSPointers(co, kernelArgs)
 
 	dCoData := d.AllocateMemoryWithAlignment(storage, uint64(len(co.Data)), 4096)
-	d.MemoryCopyHostToDevice(dCoData, co.Data, gpu)
+	storage.Write(uint64(dCoData), co.Data)
+	//d.MemoryCopyHostToDevice(dCoData, co.Data, gpu)
 
 	dKernArgData := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(kernelArgs)), 4096)
 	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, gpu)
