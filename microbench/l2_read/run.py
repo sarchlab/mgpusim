@@ -16,7 +16,7 @@ def generate_benchmark(count):
         template = template_file.read()
 
     pre_scan_insts = ''
-    for i in range(0, 16384):
+    for i in range(0, 4096):
         pre_scan_insts += 'flat_load_dword v0, v[4:5]\n'
         pre_scan_insts += 'v_add_u32 v4, vcc, v4, v3\n'
         pre_scan_insts += 'v_addc_u32 v5, vcc, v5, 0, vcc\n'
@@ -85,9 +85,9 @@ def parse_args():
 def main():
     args = parse_args()
 
-    num_access_list = range(0, 129, 1)
 
     if args.gpu:
+        num_access_list = range(0, 129, 1)
         data = pd.DataFrame(columns=data_columns)
         for num_access in num_access_list:
             generate_benchmark(num_access)
@@ -96,6 +96,7 @@ def main():
         data.to_csv('gpu.csv')
 
     if args.sim:
+        num_access_list = range(0, 129, 4)
         data = pd.DataFrame(columns=data_columns)
         for num_access in num_access_list:
             generate_benchmark(num_access)
