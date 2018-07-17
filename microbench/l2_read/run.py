@@ -85,7 +85,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    num_access_list = range(32, 49, 4)
+    num_access_list = range(0, 129, 1)
 
     if args.gpu:
         data = pd.DataFrame(columns=data_columns)
