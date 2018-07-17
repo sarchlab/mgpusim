@@ -18,3 +18,4 @@ debug
 __pycache__
 *.html
 *.atp
+*.swo

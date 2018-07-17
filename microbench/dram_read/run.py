@@ -20,6 +20,7 @@ def generate_benchmark(count):
         insts += 'flat_load_dword v0, v[1:2]\n'
         insts += 'v_add_u32 v1, vcc, v1, v3\n'
         insts += 'v_addc_u32 v2, vcc, v2, 0, vcc\n'
+        insts += 's_mov_b64 vcc, 0\n'
         insts += 's_waitcnt vmcnt(0)\n'
     kernel = template.format(insts)
 
@@ -78,7 +79,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    num_access_list = range(0, 129, 4)
+    num_access_list = range(0, 4097, 128)
 
     if args.gpu:
         data = pd.DataFrame(columns=data_columns)

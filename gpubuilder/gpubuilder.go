@@ -379,7 +379,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	// Memory
 	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = b.freq
-	gpuMem.Latency = 220
+	gpuMem.Latency = 330
 	if b.EnableMemTracing {
 		gpuMem.AcceptHook(memTracer)
 	}
