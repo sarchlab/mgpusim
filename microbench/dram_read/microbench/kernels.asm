@@ -21,7 +21,20487 @@ BB0_0:
 	v_mov_b32 v3, 64
 
 BB0_1:
-	
+	flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+flat_load_dword v0, v[1:2]
+v_add_u32 v1, vcc, v1, v3
+v_addc_u32 v2, vcc, v2, 0, vcc
+s_mov_b64 vcc, 0
+s_waitcnt vmcnt(0)
+
 
 BB0_5:
 	s_endpgm
