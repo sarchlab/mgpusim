@@ -6,6 +6,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/mem"
+	"gitlab.com/yaotsu/mem/cache"
 )
 
 var _ = Describe("Vector Memory Unit", func() {
@@ -25,7 +26,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		vectorMem = core.NewMockComponent("VectorMem")
 		conn = core.NewMockConnection()
 
-		cu.VectorMem = vectorMem.ToOutside
+		cu.VectorMemModules = new(cache.SingleLowModuleFinder)
 		conn.PlugIn(cu.ToVectorMem)
 	})
 

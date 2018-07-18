@@ -175,7 +175,8 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		info.RegCount = registerCount
 		info.Address = addr
 
-		req := mem.NewReadReq(now, u.cu.ToVectorMem, u.cu.VectorMem, addr, 64)
+		lowModule := u.cu.VectorMemModules.Find(addr)
+		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr, 64)
 		u.cu.inFlightMemAccess[req.ID] = info
 		u.ReadBuf = append(u.ReadBuf, req)
 	}
@@ -203,7 +204,8 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		info.Dst = info.Wf.inst.Dst.Register
 		info.Address = addr
 
-		req := mem.NewWriteReq(now, u.cu.ToVectorMem, u.cu.VectorMem, addr)
+		lowModule := u.cu.VectorMemModules.Find(addr)
+		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
 		req.Address = addr
 		req.Data = make([]byte, 64)
 		for i := 0; i < 64; i++ {
