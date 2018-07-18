@@ -3,6 +3,7 @@ package timing
 import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/yaotsu/mem/cache"
 )
 
 // A Builder can construct a fully functional ComputeUnit to the outside world.
@@ -19,9 +20,9 @@ type Builder struct {
 	ScratchpadPreparer ScratchpadPreparer
 	ALU                emu.ALU
 
-	InstMem   *core.Port
-	ScalarMem *core.Port
-	VectorMem *core.Port
+	InstMem          *core.Port
+	ScalarMem        *core.Port
+	VectorMemModules cache.LowModuleFinder
 
 	ConnToInstMem   core.Connection
 	ConnToScalarMem core.Connection
@@ -134,7 +135,7 @@ func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
 func (b *Builder) connectToMem(cu *ComputeUnit) {
 	cu.InstMem = b.InstMem
 	cu.ScalarMem = b.ScalarMem
-	cu.VectorMem = b.VectorMem
+	cu.VectorMemModules = b.VectorMemModules
 	b.ConnToInstMem.PlugIn(cu.ToInstMem)
 	b.ConnToScalarMem.PlugIn(cu.ToScalarMem)
 	b.ConnToVectorMem.PlugIn(cu.ToVectorMem)
