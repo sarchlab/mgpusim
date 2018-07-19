@@ -215,6 +215,21 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 
+	It("should run S_ANDN2_B64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 19
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 0xab
+		sp.SRC1 = 0x0f
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(0xa0)))
+		Expect(sp.SCC).To(Equal(byte(1)))
+	})
+
 	It("should run S_LSHL_B32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOP2
