@@ -6,6 +6,8 @@ import (
 
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/yaotsu/mem"
+	"gitlab.com/yaotsu/mem/cache"
 )
 
 type Resettable interface {
@@ -32,6 +34,8 @@ type CommandProcessor struct {
 	ToDispatcher *core.Port
 
 	ToResetAfterKernel          []Resettable
+	L2Caches                    []*cache.WriteBackCache
+	GPUStorage                  *mem.Storage
 	kernelFixedOverheadInCycles int
 }
 
@@ -71,9 +75,9 @@ func (p *CommandProcessor) processLaunchKernelReq(
 		req.SetSendTime(now)
 		p.ToDispatcher.Send(req)
 	} else if req.Src() == p.Dispatcher {
-		for _, r := range p.ToResetAfterKernel {
-			r.Reset()
-		}
+
+		p.finalFlush()
+
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
 		evt := NewReplyKernelCompletionEvent(
@@ -85,6 +89,34 @@ func (p *CommandProcessor) processLaunchKernelReq(
 		log.Panic("The request sent to the command processor has unknown src")
 	}
 	return nil
+}
+
+func (p *CommandProcessor) finalFlush() {
+	// FIXME: This is magic, remove
+	for _, r := range p.ToResetAfterKernel {
+		r.Reset()
+	}
+
+	for _, l2Cache := range p.L2Caches {
+		p.flushL2(l2Cache)
+	}
+}
+
+func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
+	dir := l2.Directory.(*cache.DirectoryImpl)
+	for _, set := range dir.Sets {
+		for _, block := range set.Blocks {
+			if block.IsLocked {
+				log.Panic("block locked.")
+			}
+
+			if block.IsDirty && block.IsValid {
+				cacheData, _ := l2.Storage.Read(block.CacheAddress, uint64(dir.BlockSize))
+				p.GPUStorage.Write(block.Tag, cacheData)
+			}
+		}
+
+	}
 }
 
 func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
@@ -121,6 +153,7 @@ func NewCommandProcessor(name string, engine core.Engine) *CommandProcessor {
 	c.Freq = 1 * core.GHz
 
 	c.kernelFixedOverheadInCycles = 1600
+	c.L2Caches = make([]*cache.WriteBackCache, 0)
 
 	c.ToDriver = core.NewPort(c)
 	c.ToDispatcher = core.NewPort(c)
