@@ -137,6 +137,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	// GPU
 	gpu := gcn3.NewGPU(b.GPUName, b.engine)
 	commandProcessor := gcn3.NewCommandProcessor(b.GPUName+".CommandProcessor", b.engine)
+	commandProcessor.GPUStorage = gpuMem.Storage
 	dispatcher := gcn3.NewDispatcher(b.GPUName+"Dispatcher", b.engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = b.freq
@@ -171,6 +172,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		l2Cache := cacheBuilder.BuildWriteBackCache(
 			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 4096)
 		l2Caches = append(l2Caches, l2Cache)
+		commandProcessor.L2Caches = append(commandProcessor.L2Caches, l2Cache)
 		l2Cache.DirectoryLatency = 3
 		l2Cache.Latency = 110
 		l2Cache.SetNumBanks(4096)
