@@ -122,6 +122,8 @@ func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
 				cacheData, _ := l2.Storage.Read(block.CacheAddress, uint64(dir.BlockSize))
 				p.GPUStorage.Write(block.Tag, cacheData)
 			}
+			block.IsValid = false
+			block.IsDirty = false
 		}
 
 	}
