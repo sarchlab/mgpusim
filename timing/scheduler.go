@@ -203,6 +203,24 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
+
+	s.resetRegisterValue(wf)
+}
+
+func (s *Scheduler) resetRegisterValue(wf *Wavefront) {
+	vRegFile := s.cu.VRegFile[wf.SIMDID].(*SimpleRegisterFile)
+	vRegStorage := vRegFile.storage
+	data := make([]byte, wf.CodeObject.WIVgprCount*4)
+	for i := 0; i < 64; i++ {
+		offset := uint64(wf.VRegOffset + vRegFile.ByteSizePerLane*i)
+		vRegStorage.Write(offset, data)
+	}
+
+	sRegFile := s.cu.SRegFile.(*SimpleRegisterFile)
+	sRegStorage := sRegFile.storage
+	data = make([]byte, wf.CodeObject.WFSgprCount*4)
+	offset := uint64(wf.SRegOffset)
+	sRegStorage.Write(offset, data)
 }
 
 func (s *Scheduler) evalSBarrier(wf *Wavefront, now core.VTimeInSec) {
