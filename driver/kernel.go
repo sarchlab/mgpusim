@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
@@ -141,6 +142,17 @@ func (d *Driver) LaunchKernel(
 
 	d.kernelLaunchingStartTime[req.ID] = startTime
 	d.engine.Run()
-	//endTime := d.engine.CurrentTime()
+	endTime := d.engine.CurrentTime()
 	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
+
+	d.finalFlush(endTime, gpu)
+}
+
+func (d *Driver) finalFlush(now core.VTimeInSec, gpu *core.Port) {
+	flushCommand := gcn3.NewFlushCommand(now, d.ToGPUs, gpu)
+	err := d.ToGPUs.Send(flushCommand)
+	if err != nil {
+		log.Panic(err)
+	}
+	d.engine.Run()
 }

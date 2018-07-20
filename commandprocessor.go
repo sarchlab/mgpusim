@@ -55,6 +55,8 @@ func (p *CommandProcessor) Handle(e core.Event) error {
 		return p.processLaunchKernelReq(req)
 	case *ReplyKernelCompletionEvent:
 		return p.handleReplyKernelCompletionEvent(req)
+	case *FlushCommand:
+		return p.handleFlushCommand(req)
 	case *MemCopyD2HReq:
 		return p.processMemCopyReq(req)
 	case *MemCopyH2DReq:
@@ -75,9 +77,6 @@ func (p *CommandProcessor) processLaunchKernelReq(
 		req.SetSendTime(now)
 		p.ToDispatcher.Send(req)
 	} else if req.Src() == p.Dispatcher {
-
-		p.finalFlush()
-
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
 		evt := NewReplyKernelCompletionEvent(
@@ -91,7 +90,14 @@ func (p *CommandProcessor) processLaunchKernelReq(
 	return nil
 }
 
-func (p *CommandProcessor) finalFlush() {
+func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
+	now := evt.Time()
+	evt.Req.SetSendTime(now)
+	p.ToDriver.Send(evt.Req)
+	return nil
+}
+
+func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 	// FIXME: This is magic, remove
 	for _, r := range p.ToResetAfterKernel {
 		r.Reset()
@@ -100,6 +106,8 @@ func (p *CommandProcessor) finalFlush() {
 	for _, l2Cache := range p.L2Caches {
 		p.flushL2(l2Cache)
 	}
+
+	return nil
 }
 
 func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
@@ -107,7 +115,7 @@ func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
 	for _, set := range dir.Sets {
 		for _, block := range set.Blocks {
 			if block.IsLocked {
-				log.Panic("block locked.")
+				log.Printf("block locked 0x%x.", block.Tag)
 			}
 
 			if block.IsDirty && block.IsValid {
@@ -117,13 +125,6 @@ func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
 		}
 
 	}
-}
-
-func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
-	now := evt.Time()
-	evt.Req.SetSendTime(now)
-	p.ToDriver.Send(evt.Req)
-	return nil
 }
 
 func (p *CommandProcessor) processMemCopyReq(req core.Req) error {
