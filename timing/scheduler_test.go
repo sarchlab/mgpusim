@@ -76,6 +76,11 @@ var _ = Describe("Scheduler", func() {
 		cu.VectorMemDecoder = vectorMemDecoder
 		ldsDecoder = new(mockCUComponent)
 		cu.LDSDecoder = ldsDecoder
+		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
+		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
+		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
+		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
+		cu.SRegFile = NewSimpleRegisterFile(16384, 0)
 
 		instMem = core.NewMockComponent("InstMem")
 
@@ -203,6 +208,8 @@ var _ = Describe("Scheduler", func() {
 
 	It("should evaluate internal executing insts", func() {
 		wf := new(Wavefront)
+		wf.CodeObject = insts.NewHsaCo()
+		wf.SIMDID = 0
 		wf.inst = NewInst(insts.NewInst())
 		wf.inst.Format = insts.FormatTable[insts.SOPP]
 		wf.inst.Opcode = 1 // S_ENDPGM
