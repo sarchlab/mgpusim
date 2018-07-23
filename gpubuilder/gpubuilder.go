@@ -173,7 +173,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 4096)
 		l2Caches = append(l2Caches, l2Cache)
 		commandProcessor.L2Caches = append(commandProcessor.L2Caches, l2Cache)
-		l2Cache.DirectoryLatency = 3
+		l2Cache.DirectoryLatency = 0
 		l2Cache.Latency = 110
 		l2Cache.SetNumBanks(4096)
 		l2Cache.Freq = 1 * core.GHz
