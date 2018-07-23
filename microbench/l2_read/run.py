@@ -99,7 +99,7 @@ def main():
         data.to_csv('gpu.csv')
 
     if args.sim:
-        num_access_list = range(0, 129, 4)
+        num_access_list = range(0, 129, 16)
         data = pd.DataFrame(columns=data_columns)
         for num_access in num_access_list:
             generate_benchmark(num_access)
