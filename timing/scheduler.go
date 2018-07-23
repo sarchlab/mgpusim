@@ -147,6 +147,7 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 		wf.State = WfRunning
 		wf.PC += uint64(wf.Inst().ByteSize)
 		s.removeStaleInstBuffer(wf)
+		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "Issue"})
 	}
 }
 
