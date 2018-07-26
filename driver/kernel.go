@@ -127,7 +127,7 @@ func (d *Driver) LaunchKernel(
 	dPacket := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(req.Packet)), 4096)
 	d.MemoryCopyHostToDevice(dPacket, req.Packet, gpu)
 
-	startTime := d.engine.CurrentTime()
+	startTime := d.engine.CurrentTime() + 1e-9
 	if startTime < 0 {
 		startTime = 0
 	}
@@ -145,7 +145,7 @@ func (d *Driver) LaunchKernel(
 	endTime := d.engine.CurrentTime()
 	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
 
-	d.finalFlush(endTime, gpu)
+	d.finalFlush(endTime+1e-9, gpu)
 }
 
 func (d *Driver) finalFlush(now core.VTimeInSec, gpu *core.Port) {
