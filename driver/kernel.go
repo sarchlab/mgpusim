@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"gitlab.com/yaotsu/core"
+	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
 	"gitlab.com/yaotsu/gcn3/kernels"
 	"gitlab.com/yaotsu/mem"
@@ -105,7 +106,8 @@ func (d *Driver) LaunchKernel(
 	d.updateLDSPointers(co, kernelArgs)
 
 	dCoData := d.AllocateMemoryWithAlignment(storage, uint64(len(co.Data)), 4096)
-	d.MemoryCopyHostToDevice(dCoData, co.Data, gpu)
+	storage.Write(uint64(dCoData), co.Data)
+	//d.MemoryCopyHostToDevice(dCoData, co.Data, gpu)
 
 	dKernArgData := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(kernelArgs)), 4096)
 	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, gpu)
@@ -125,7 +127,7 @@ func (d *Driver) LaunchKernel(
 	dPacket := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(req.Packet)), 4096)
 	d.MemoryCopyHostToDevice(dPacket, req.Packet, gpu)
 
-	startTime := d.engine.CurrentTime()
+	startTime := d.engine.CurrentTime() + 1e-8
 	if startTime < 0 {
 		startTime = 0
 	}
@@ -140,6 +142,17 @@ func (d *Driver) LaunchKernel(
 
 	d.kernelLaunchingStartTime[req.ID] = startTime
 	d.engine.Run()
-	//endTime := d.engine.CurrentTime()
+	endTime := d.engine.CurrentTime()
 	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
+
+	d.finalFlush(endTime+1e-8, gpu)
+}
+
+func (d *Driver) finalFlush(now core.VTimeInSec, gpu *core.Port) {
+	flushCommand := gcn3.NewFlushCommand(now, d.ToGPUs, gpu)
+	err := d.ToGPUs.Send(flushCommand)
+	if err != nil {
+		log.Panic(err)
+	}
+	d.engine.Run()
 }

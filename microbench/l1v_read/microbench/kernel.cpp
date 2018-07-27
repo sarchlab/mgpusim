@@ -20,8 +20,8 @@ public:
     if (!AllocateKernarg(32)) { return false; }
     in  = AllocateBuffer(64);
     Kernarg(in);
-    SetGridSize(64);
-    SetWorkgroupSize(64);
+    SetGridSize(1);
+    SetWorkgroupSize(1);
     return true;
   }
 
