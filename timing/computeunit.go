@@ -385,6 +385,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 
+	delete(cu.inFlightMemAccess, rsp.RespondTo)
+
 	return nil
 }
 

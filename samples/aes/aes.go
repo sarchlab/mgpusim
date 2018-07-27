@@ -202,7 +202,7 @@ func checkResult() {
 
 	for i := 0; i < length; i++ {
 		if cpuOutput[i] != gpuOutput[i] {
-			log.Printf("Mismatch at position %d: should be %02x but get %02x",
+			log.Panicf("Mismatch at position %d: should be %02x but get %02x",
 				i, cpuOutput[i], gpuOutput[i])
 		}
 	}
