@@ -1,0 +1,9 @@
+*.linked.bc
+*.orig.bc
+*.o
+*.csv
+*.png
+*.pdf
+.ropeproject
+kernel
+.ipynb_*

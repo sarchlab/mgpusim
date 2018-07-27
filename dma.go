@@ -89,9 +89,11 @@ func (dma *DMAEngine) acceptNewReq(now core.VTimeInSec) {
 		return
 	}
 	req := dma.ToCommandProcessor.Retrieve(now)
-	dma.processingReq = req
-	dma.progressOffset = 0
-	dma.needTick = true
+	if req != nil {
+		dma.processingReq = req
+		dma.progressOffset = 0
+		dma.needTick = true
+	}
 }
 
 func (dma *DMAEngine) processDoneRsp(rsp *mem.DoneRsp) {

@@ -145,7 +145,7 @@ func (d *Dispatcher) NotifyRecv(now core.VTimeInSec, port *core.Port) {
 }
 
 func (d *Dispatcher) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
-	panic("implement me")
+	//panic("implement me")
 }
 
 // Handle perform actions when an event is triggered

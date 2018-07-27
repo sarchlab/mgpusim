@@ -138,8 +138,8 @@ func (d *Driver) LaunchKernel(
 		log.Panic(err)
 	}
 
+	d.kernelLaunchingStartTime[req.ID] = startTime
 	d.engine.Run()
-	endTime := d.engine.CurrentTime()
-
-	log.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
+	//endTime := d.engine.CurrentTime()
+	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
 }

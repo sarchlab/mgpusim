@@ -15,4 +15,6 @@ debug
 *.trace
 *.disasm
 .ropeproject
-
+__pycache__
+*.html
+*.atp

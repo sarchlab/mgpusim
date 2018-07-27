@@ -69,6 +69,7 @@ func (b *Builder) Build() *ComputeUnit {
 
 func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
+	fetchArbitor.InstBufByteSize = 256
 	issueArbitor := new(IssueArbiter)
 	scheduler := NewScheduler(cu, fetchArbitor, issueArbitor)
 	cu.Scheduler = scheduler
