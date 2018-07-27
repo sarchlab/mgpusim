@@ -247,6 +247,8 @@ func (u *ALUImpl) runSOPP(state InstEmuState) {
 		u.runSCBRANCHVCCNZ(state)
 	case 8: // S_CBRANCH_EXECZ
 		u.runSCBRANCHEXECZ(state)
+	case 9: // S_CBRANCH_EXECNZ
+		u.runSCBRANCHEXECNZ(state)
 	case 12: // S_WAITCNT
 	// Do nothing
 	default:
@@ -296,6 +298,14 @@ func (u *ALUImpl) runSCBRANCHEXECZ(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPP()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	if sp.EXEC == 0 {
+		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
+	}
+}
+
+func (u *ALUImpl) runSCBRANCHEXECNZ(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPP()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	if sp.EXEC != 0 {
 		sp.PC = uint64(int64(sp.PC) + int64(imm)*4)
 	}
 }

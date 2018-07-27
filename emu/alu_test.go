@@ -380,4 +380,19 @@ var _ = Describe("ALU", func() {
 		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
 	})
 
+	It("should run S_CBRANCH_EXECNZ", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOPP
+		state.inst.Opcode = 9
+
+		layout := state.Scratchpad().AsSOPP()
+		layout.PC = 160
+		layout.IMM = 16
+		layout.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(layout.PC).To(Equal(uint64(160 + 16*4)))
+	})
+
 })

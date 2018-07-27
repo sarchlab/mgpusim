@@ -63,7 +63,7 @@ func BuildR9NanoPlatform() (
 	} else {
 		engine = core.NewSerialEngine()
 	}
-	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(core.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
 	connection := core.NewDirectConnection(engine)

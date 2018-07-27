@@ -28,6 +28,13 @@ func LoadProgram(filePath, kernelName string) *insts.HsaCo {
 		log.Fatal(err)
 	}
 
+	// An empty kernel name is for the case where the symbol is not generated.
+	// Use the whole text section in this case.
+	if kernelName == "" {
+		hsaco := insts.NewHsaCoFromData(textSectionData)
+		return hsaco
+	}
+
 	for _, symbol := range symbols {
 		if symbol.Name == kernelName {
 			offset := symbol.Value - textSection.Offset
