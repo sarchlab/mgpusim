@@ -539,4 +539,38 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(1)))
 	})
 
+	It("should run V_SUBBREV_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 30
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 10
+		sp.SRC1[0] = 11
+		sp.VCC = uint64(0)
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(1)))
+		Expect(sp.VCC).To(Equal(uint64(0)))
+	})
+
+	It("should run V_SUBBREV_U32, when underflow", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 30
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 10
+		sp.SRC1[0] = 4
+		sp.VCC = uint64(1)
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(0xfffffff9)))
+		Expect(sp.VCC).To(Equal(uint64(1)))
+	})
+
 })

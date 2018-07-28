@@ -11,6 +11,7 @@ import (
 	"gitlab.com/yaotsu/core"
 	"gitlab.com/yaotsu/gcn3"
 	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/yaotsu/mem/cache"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
@@ -45,9 +46,9 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
-	InstMem   *core.Port
-	ScalarMem *core.Port
-	VectorMem *core.Port
+	InstMem          *core.Port
+	ScalarMem        *core.Port
+	VectorMemModules cache.LowModuleFinder
 
 	ToACE       *core.Port
 	ToInstMem   *core.Port

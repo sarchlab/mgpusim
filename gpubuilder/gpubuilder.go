@@ -83,7 +83,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
 
-		if b.EnableISADebug {
+		if b.EnableISADebug && i == 0 {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", computeUnit.Name()))
 			if err != nil {
 				log.Fatal(err.Error())
@@ -129,7 +129,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	// Memory
 	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = b.freq
-	gpuMem.Latency = 300
+	gpuMem.Latency = 310
 	if b.EnableMemTracing {
 		gpuMem.AcceptHook(memTracer)
 	}
@@ -137,6 +137,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	// GPU
 	gpu := gcn3.NewGPU(b.GPUName, b.engine)
 	commandProcessor := gcn3.NewCommandProcessor(b.GPUName+".CommandProcessor", b.engine)
+	commandProcessor.GPUStorage = gpuMem.Storage
 	dispatcher := gcn3.NewDispatcher(b.GPUName+"Dispatcher", b.engine,
 		new(kernels.GridBuilderImpl))
 	dispatcher.Freq = b.freq
@@ -169,11 +170,12 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	for i := 0; i < 8; i++ {
 		l2Cache := cacheBuilder.BuildWriteBackCache(
-			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 512)
+			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 4096)
 		l2Caches = append(l2Caches, l2Cache)
-		l2Cache.DirectoryLatency = 3
-		l2Cache.Latency = 400
-		l2Cache.SetNumBanks(16)
+		commandProcessor.L2Caches = append(commandProcessor.L2Caches, l2Cache)
+		l2Cache.DirectoryLatency = 0
+		l2Cache.Latency = 110
+		l2Cache.SetNumBanks(4096)
 		l2Cache.Freq = 1 * core.GHz
 		lowModuleFinderForL1.LowModules = append(
 			lowModuleFinderForL1.LowModules, l2Cache.ToTop)
@@ -189,7 +191,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		dCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB, 128)
 		dCache.DirectoryLatency = 0
-		dCache.Latency = 140
+		dCache.Latency = 10
 		dCache.SetNumBanks(1)
 		connection.PlugIn(dCache.ToTop)
 		connection.PlugIn(dCache.ToBottom)
@@ -238,7 +240,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
 		cuBuilder.InstMem = iCaches[i/4].ToTop
 		cuBuilder.ScalarMem = kCaches[i/4].ToTop
-		cuBuilder.VectorMem = dCaches[i].ToTop
+		//lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
+		//lowModuleFinderForCU.LowModule = dCaches[i].ToTop
+		cuBuilder.VectorMemModules = lowModuleFinderForL1
 		//cuBuilder.InstMem = gpuMem
 		//cuBuilder.ScalarMem = gpuMem
 		//cuBuilder.VectorMem = gpuMem
@@ -247,7 +251,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 		connection.PlugIn(cu.ToACE)
 
-		if b.EnableISADebug {
+		if b.EnableISADebug && i == 0 {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
 			if err != nil {
 				log.Fatal(err)
@@ -267,7 +271,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	}
 
 	dmaEngine := gcn3.NewDMAEngine(
-		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, lowModuleFinderForL1)
+		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, lowModuleFinderForL2)
 	commandProcessor.DMAEngine = dmaEngine.ToCommandProcessor
 
 	connection.PlugIn(gpu.ToCommandProcessor)

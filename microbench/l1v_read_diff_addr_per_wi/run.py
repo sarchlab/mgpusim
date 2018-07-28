@@ -18,9 +18,6 @@ def generate_benchmark(count):
     insts = ''
     for i in range(0, count):
         insts += 'flat_load_dword v0, v[1:2]\n'
-        insts += 'v_add_u32 v1, vcc, v1, v3\n'
-        insts += 'v_addc_u32 v2, vcc, v2, 0, vcc\n'
-        insts += 's_mov_b64 vcc, 0\n'
         insts += 's_waitcnt vmcnt(0)\n'
     kernel = template.format(insts)
 
@@ -40,8 +37,8 @@ def run_on_simulator(num_access):
                             stdout=subprocess.DEVNULL)
     process.wait()
 
-    duration = run_benchmark_on_simulator('./dram_read -timing', os.getcwd())
-    entry = ['dram_read', 'sim', num_access , duration]
+    duration = run_benchmark_on_simulator('./l1v_read_diff_addr_per_wi -timing', os.getcwd())
+    entry = ['l1v_read', 'sim', num_access , duration]
     print(entry)
     data = data.append(
         pd.DataFrame([entry], columns=data_columns),
@@ -57,7 +54,7 @@ def run_on_gpu(num_access, repeat):
     for i in range(0, repeat):
         duration = run_benchmark_on_gpu(
             './kernel', os.getcwd() + '/microbench/')
-        entry = ['dram_read', 'gpu', num_access, duration]
+        entry = ['l1v_read', 'gpu', num_access, duration]
         print(entry)
         data = data.append(
             pd.DataFrame([entry], columns=data_columns),
@@ -79,7 +76,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    num_access_list = range(0, 4097, 512)
+    num_access_list = range(0, 1025, 128)
 
     if args.gpu:
         data = pd.DataFrame(columns=data_columns)
