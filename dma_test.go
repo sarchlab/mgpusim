@@ -12,6 +12,7 @@ var _ = Describe("DMAEngine", func() {
 	var (
 		engine                 *core.MockEngine
 		localModuleFinder      *cache.SingleLowModuleFinder
+		remoteModuleFinder     *cache.SingleLowModuleFinder
 		dmaEngine              *DMAEngine
 		toMemConn              *core.MockConnection
 		toCommandProcessorConn *core.MockConnection
@@ -20,6 +21,7 @@ var _ = Describe("DMAEngine", func() {
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
 		localModuleFinder = new(cache.SingleLowModuleFinder)
+		remoteModuleFinder = new(cache.SingleLowModuleFinder)
 		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
 
 		toMemConn = core.NewMockConnection()

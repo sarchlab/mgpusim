@@ -284,5 +284,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	connection.PlugIn(dmaEngine.ToCommandProcessor)
 	connection.PlugIn(dmaEngine.ToMem)
 
+	gpu.L2CacheFinder = lowModuleFinderForL1
+
 	return gpu, gpuMem
 }
