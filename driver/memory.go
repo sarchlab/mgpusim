@@ -48,6 +48,16 @@ type MemoryChunk struct {
 	Occupied bool
 }
 
+func (d *Driver) RegisterStorage(
+	storage *mem.Storage,
+	loAddr GPUPtr,
+	byteSize uint64,
+) {
+	mask := NewMemoryMask(byteSize)
+	mask.Chunks[0].Ptr = loAddr
+	d.memoryMasks[storage] = mask
+}
+
 // AllocateMemory allocates a chunk of memory of size byteSize in storage.
 // It returns the pointer pointing to the newly allocated memory in the GPU
 // memory space.

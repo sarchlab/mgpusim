@@ -50,15 +50,15 @@ func (dma *DMAEngine) tick(evt *core.TickEvent) error {
 	now := evt.Time()
 	dma.needTick = false
 
-	req := dma.ToMem.Retrieve(now)
+	req := dma.ToMem.Peek()
 	if req != nil {
 		switch req := req.(type) {
 		case *mem.DoneRsp:
-			dma.processDoneRsp(req)
+			dma.processDoneRspFromLocalMemory(now, req)
 		case *mem.DataReadyRsp:
-			dma.processDataReadyRsp(req)
+			dma.processDataReadyRspFromLocalMemory(now, req)
 		default:
-			log.Panicf("cannot handle event for type %s",
+			log.Panicf("cannot handle request for type %s",
 				reflect.TypeOf(req))
 		}
 	}
@@ -70,7 +70,7 @@ func (dma *DMAEngine) tick(evt *core.TickEvent) error {
 		case *MemCopyD2HReq:
 			return dma.doCopyD2H(now, req)
 		default:
-			log.Panicf("cannot handle event for type %s in tick event",
+			log.Panicf("cannot handle request for type %s in tick event",
 				reflect.TypeOf(req))
 		}
 	}
@@ -96,15 +96,17 @@ func (dma *DMAEngine) acceptNewReq(now core.VTimeInSec) {
 	}
 }
 
-func (dma *DMAEngine) processDoneRsp(rsp *mem.DoneRsp) {
+func (dma *DMAEngine) processDoneRspFromLocalMemory(now core.VTimeInSec, rsp *mem.DoneRsp) {
 	dma.needTick = true
+	dma.ToMem.Retrieve(now)
 }
 
-func (dma *DMAEngine) processDataReadyRsp(rsp *mem.DataReadyRsp) {
+func (dma *DMAEngine) processDataReadyRspFromLocalMemory(now core.VTimeInSec, rsp *mem.DataReadyRsp) {
 	offset := dma.progressOffset
 	length := uint64(len(rsp.Data))
 	req := dma.processingReq.(*MemCopyD2HReq)
 	copy(req.DstBuffer[offset-length:offset], rsp.Data)
+	dma.ToMem.Retrieve(now)
 
 	dma.needTick = true
 }
