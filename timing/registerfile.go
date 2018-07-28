@@ -82,7 +82,6 @@ func (r *SimpleRegisterFile) Read(access *RegisterAccess) {
 }
 
 func (r *SimpleRegisterFile) getRegOffset(access *RegisterAccess) int {
-
 	reg := access.Reg
 	offset := access.WaveOffset
 

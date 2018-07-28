@@ -280,11 +280,13 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_ENDPGM
 			wf.AtBarrier = true
+			cu.InvokeHook(wf, cu, core.Any, inst)
 			break
 		}
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_BARRIER
 			wf.Completed = true
+			cu.InvokeHook(wf, cu, core.Any, inst)
 			break
 		}
 
