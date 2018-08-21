@@ -36,6 +36,8 @@ type WGMapperImpl struct {
 	LDSByteSize    int
 	LDSGranularity int
 	LDSMask        *ResourceMask
+
+	nextSIMD int
 }
 
 // NewWGMapper returns a newly created WgMapper with default compute unit
@@ -51,6 +53,8 @@ func NewWGMapper(cu *ComputeUnit, numWfPool int) *WGMapperImpl {
 	m.initLDSInfo(64 * 1024) // 64K
 	m.initSGPRInfo(3200)
 	m.initVGPRInfo([]int{256, 256, 256, 256}) // 64KB per SIMD, 64 lanes, 4 bytes
+
+	m.nextSIMD = 0
 
 	return m
 }
@@ -161,33 +165,32 @@ func (m *WGMapperImpl) withinLDSLimitation(req *gcn3.MapWGReq) bool {
 // about which SIMD should a wf dispatch to. This function also returns
 // a boolean value for if the matching is successful.
 func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
-	nextSIMD := 0
 	vgprToUse := make([]int, m.NumWfPool)
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
 	co := req.WG.CodeObject()
 
 	for _, wf := range req.WG.Wavefronts {
 		info := m.cu.WfToDispatch[wf]
-		firstSIMDTested := nextSIMD
+		firstSIMDTested := m.nextSIMD
 		firstTry := true
 		found := false
 		required := m.unitsOccupy(int(co.WIVgprCount), m.VGprGranularity)
-		for firstTry || nextSIMD != firstSIMDTested {
+		for firstTry || m.nextSIMD != firstSIMDTested {
 			firstTry = false
-			offset, ok := m.VGprMask[nextSIMD].NextRegion(required, AllocStatusFree)
+			offset, ok := m.VGprMask[m.nextSIMD].NextRegion(required, AllocStatusFree)
 
-			if ok && m.WfPoolFreeCount[nextSIMD]-wfPoolEntryUsed[nextSIMD] > 0 {
+			if ok && m.WfPoolFreeCount[m.nextSIMD]-wfPoolEntryUsed[m.nextSIMD] > 0 {
 				found = true
-				vgprToUse[nextSIMD] += required
-				wfPoolEntryUsed[nextSIMD]++
-				info.SIMDID = nextSIMD
+				vgprToUse[m.nextSIMD] += required
+				wfPoolEntryUsed[m.nextSIMD]++
+				info.SIMDID = m.nextSIMD
 				info.VGPROffset = offset * 4 * 4 // 4 regs per group, 4 bytes
-				m.VGprMask[nextSIMD].SetStatus(offset, required,
+				m.VGprMask[m.nextSIMD].SetStatus(offset, required,
 					AllocStatusToReserve)
 			}
-			nextSIMD++
-			if nextSIMD >= m.NumWfPool {
-				nextSIMD = 0
+			m.nextSIMD++
+			if m.nextSIMD >= m.NumWfPool {
+				m.nextSIMD = 0
 			}
 			if found {
 				break
