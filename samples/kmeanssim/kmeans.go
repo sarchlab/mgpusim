@@ -6,7 +6,6 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"net/http"
 	_ "net/http/pprof"
 
 	"gitlab.com/yaotsu/core"
@@ -84,9 +83,9 @@ var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 func main() {
 	configure()
 
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	//go func() {
+	//log.Println(http.ListenAndServe("localhost:6060", nil))
+	//}()
 
 	initPlatform()
 	loadProgram()
