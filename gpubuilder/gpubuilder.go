@@ -129,7 +129,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	// Memory
 	gpuMem := mem.NewIdealMemController("GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = b.freq
-	gpuMem.Latency = 310
+	gpuMem.Latency = 225
 	if b.EnableMemTracing {
 		gpuMem.AcceptHook(memTracer)
 	}
@@ -174,7 +174,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		l2Caches = append(l2Caches, l2Cache)
 		commandProcessor.L2Caches = append(commandProcessor.L2Caches, l2Cache)
 		l2Cache.DirectoryLatency = 0
-		l2Cache.Latency = 110
+		l2Cache.Latency = 70
 		l2Cache.SetNumBanks(4096)
 		l2Cache.Freq = 1 * core.GHz
 		lowModuleFinderForL1.LowModules = append(
@@ -191,7 +191,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		dCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB, 128)
 		dCache.DirectoryLatency = 0
-		dCache.Latency = 10
+		dCache.Latency = 150
 		dCache.SetNumBanks(1)
 		connection.PlugIn(dCache.ToTop)
 		connection.PlugIn(dCache.ToBottom)
@@ -223,7 +223,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		iCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB, 16)
 		iCache.DirectoryLatency = 0
-		iCache.Latency = 0
+		iCache.Latency = 20
 		iCache.SetNumBanks(4)
 		connection.PlugIn(iCache.ToTop)
 		connection.PlugIn(iCache.ToBottom)
@@ -240,9 +240,9 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
 		cuBuilder.InstMem = iCaches[i/4].ToTop
 		cuBuilder.ScalarMem = kCaches[i/4].ToTop
-		//lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
-		//lowModuleFinderForCU.LowModule = dCaches[i].ToTop
-		cuBuilder.VectorMemModules = lowModuleFinderForL1
+		lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
+		lowModuleFinderForCU.LowModule = dCaches[i].ToTop
+		cuBuilder.VectorMemModules = lowModuleFinderForCU
 		//cuBuilder.InstMem = gpuMem
 		//cuBuilder.ScalarMem = gpuMem
 		//cuBuilder.VectorMem = gpuMem
