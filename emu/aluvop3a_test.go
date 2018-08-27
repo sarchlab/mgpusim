@@ -191,8 +191,6 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[1]).To(Equal(uint64(1)))
 	})
 
-	//It("should run V_")
-
 	It("should run V_MUL_LO_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP3a
