@@ -30,8 +30,6 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVCmpGeU32VOP3a(state)
 	case 256:
 		u.runVCNDMASKB32VOP3a(state)
-	//case 284:
-	//u.ru
 	case 645:
 		u.runVMULLOU32(state)
 	case 646:
@@ -252,7 +250,6 @@ func (u *ALUImpl) runVCNDMASKB32VOP3a(state InstEmuState) {
 		}
 
 	}
-
 }
 
 func (u *ALUImpl) runVMULLOU32(state InstEmuState) {

@@ -223,7 +223,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		iCache := cacheBuilder.BuildWriteAroundCache(
 			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB, 16)
 		iCache.DirectoryLatency = 0
-		iCache.Latency = 20
+		iCache.Latency = 130
 		iCache.SetNumBanks(4)
 		connection.PlugIn(iCache.ToTop)
 		connection.PlugIn(iCache.ToBottom)
