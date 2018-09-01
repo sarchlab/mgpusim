@@ -14,6 +14,12 @@ type directoryBusy struct {
 	cycleLeft int
 }
 
+type cacheRamBusy struct {
+	req       mem.AccessReq
+	cycleLeft int
+	block     *cache.Block
+}
+
 type L1VCache struct {
 	*core.TickingComponent
 
@@ -23,6 +29,7 @@ type L1VCache struct {
 	Directory cache.Directory
 
 	DirectoryBusy []directoryBusy
+	CacheRamBusy  []cacheRamBusy
 
 	NumBank                uint64
 	BankInterleaving       uint64
@@ -67,8 +74,52 @@ func (c *L1VCache) parseFromCU(now core.VTimeInSec) {
 	default:
 		log.Panicf("cannot process request of type %s",
 			reflect.TypeOf(req))
-
 	}
+}
+
+func (c *L1VCache) lookupDirectory(now core.VTimeInSec, bankID uint64) {
+	if c.DirectoryBusy[bankID].req == nil {
+		return
+	}
+
+	if c.DirectoryBusy[bankID].cycleLeft <= 0 {
+		req := c.DirectoryBusy[bankID].req
+		block := c.Directory.Lookup(req.GetAddress())
+
+		switch req := req.(type) {
+		case *mem.ReadReq:
+			if block != nil {
+				c.doReadHit(now, bankID, req, block)
+			} else {
+				c.doReadMiss(now, bankID, req)
+			}
+
+		case *mem.WriteReq:
+		default:
+			log.Panicf("cannot process request of type %s",
+				reflect.TypeOf(req))
+		}
+	}
+}
+
+func (c *L1VCache) doReadHit(
+	now core.VTimeInSec,
+	bankID uint64,
+	req *mem.ReadReq,
+	block *cache.Block,
+) {
+	c.DirectoryBusy[bankID].req = nil
+	c.CacheRamBusy[bankID].req = req
+	c.CacheRamBusy[bankID].cycleLeft = c.ReadLatency
+	c.NeedTick = true
+}
+
+func (c *L1VCache) doReadMiss(
+	now core.VTimeInSec,
+	bankID uint64,
+	req *mem.ReadReq,
+) {
+
 }
 
 func NewL1VCache(name string, engine core.Engine, freq core.Freq) *L1VCache {
