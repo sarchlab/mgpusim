@@ -9,34 +9,31 @@ import (
 	"gitlab.com/yaotsu/mem/cache"
 )
 
-type directoryBusy struct {
-	req       mem.AccessReq
-	cycleLeft int
-}
-
-type cacheRamBusy struct {
-	req       mem.AccessReq
-	cycleLeft int
-	block     *cache.Block
-}
-
 type L1VCache struct {
 	*core.TickingComponent
 
 	ToCU *core.Port
 	ToL2 *core.Port
 
+	L2 *core.Port
+
 	Directory cache.Directory
+	Storage   *mem.Storage
 
-	DirectoryBusy []directoryBusy
-	CacheRamBusy  []cacheRamBusy
+	BlockSizeAsPowerOf2 uint64
+	Latency             int
 
-	NumBank                uint64
-	BankInterleaving       uint64
-	BlockSizeAsPowerOf2    uint64
-	DirectoryLookupLatency int
-	ReadLatency            int
-	WriteLatency           int
+	cycleLeft int
+	isBusy    bool
+	reading   *mem.ReadReq
+	writing   *mem.WriteReq
+
+	isStorageBusy bool
+	busyBlock     *cache.Block
+
+	toCUBuffer           []core.Req
+	toL2Buffer           []core.Req
+	pendingDownGoingRead []*mem.ReadReq
 }
 
 func (c *L1VCache) Handle(e core.Event) error {
@@ -53,6 +50,7 @@ func (c *L1VCache) handleTickEvent(e *core.TickEvent) {
 	now := e.Time()
 	c.NeedTick = false
 
+	c.doReadWrite(now)
 	c.parseFromCU(now)
 
 	if c.NeedTick {
@@ -61,65 +59,73 @@ func (c *L1VCache) handleTickEvent(e *core.TickEvent) {
 }
 
 func (c *L1VCache) parseFromCU(now core.VTimeInSec) {
-	req := c.ToCU.Peek()
+	if c.isBusy {
+		return
+	}
+
+	req := c.ToCU.Retrieve(now)
+	c.NeedTick = true
 	switch req := req.(type) {
 	case *mem.ReadReq:
-		bankID := req.GetAddress() / c.BankInterleaving % c.NumBank
-		if c.DirectoryBusy[bankID].req == nil {
-			c.DirectoryBusy[bankID].cycleLeft = c.DirectoryLookupLatency
-			c.DirectoryBusy[bankID].req = req
-			c.ToCU.Retrieve(now)
-			c.NeedTick = true
-		}
+		c.handleReadReq(now, req)
 	default:
 		log.Panicf("cannot process request of type %s",
 			reflect.TypeOf(req))
 	}
 }
 
-func (c *L1VCache) lookupDirectory(now core.VTimeInSec, bankID uint64) {
-	if c.DirectoryBusy[bankID].req == nil {
+func (c *L1VCache) handleReadReq(now core.VTimeInSec, req *mem.ReadReq) {
+	c.isBusy = true
+	c.reading = req
+
+	block := c.Directory.Lookup(req.Address)
+	if block == nil {
+		c.handleReadMiss(now, req)
+	} else {
+		c.handleReadHit(now, req, block)
+	}
+
+}
+
+func (c *L1VCache) handleReadMiss(now core.VTimeInSec, req *mem.ReadReq) {
+	readBottom := mem.NewReadReq(now, c.ToL2, c.L2, req.Address, req.MemByteSize)
+	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
+	c.toL2Buffer = append(c.toL2Buffer, readBottom)
+}
+
+func (c *L1VCache) handleReadHit(now core.VTimeInSec, req *mem.ReadReq, block *cache.Block) {
+	c.cycleLeft = c.Latency
+	c.busyBlock = block
+	c.isStorageBusy = true
+}
+
+func (c *L1VCache) doReadWrite(now core.VTimeInSec) {
+	if !c.isStorageBusy {
 		return
 	}
 
-	if c.DirectoryBusy[bankID].cycleLeft <= 0 {
-		req := c.DirectoryBusy[bankID].req
-		block := c.Directory.Lookup(req.GetAddress())
+	c.cycleLeft--
+	c.NeedTick = true
 
-		switch req := req.(type) {
-		case *mem.ReadReq:
-			if block != nil {
-				c.doReadHit(now, bankID, req, block)
-			} else {
-				c.doReadMiss(now, bankID, req)
-			}
-
-		case *mem.WriteReq:
-		default:
-			log.Panicf("cannot process request of type %s",
-				reflect.TypeOf(req))
+	if c.cycleLeft <= 0 {
+		if c.reading != nil {
+			c.finishLocalRead(now)
 		}
 	}
 }
 
-func (c *L1VCache) doReadHit(
-	now core.VTimeInSec,
-	bankID uint64,
-	req *mem.ReadReq,
-	block *cache.Block,
-) {
-	c.DirectoryBusy[bankID].req = nil
-	c.CacheRamBusy[bankID].req = req
-	c.CacheRamBusy[bankID].cycleLeft = c.ReadLatency
-	c.NeedTick = true
-}
+func (c *L1VCache) finishLocalRead(now core.VTimeInSec) {
+	c.isStorageBusy = false
+	c.isBusy = false
 
-func (c *L1VCache) doReadMiss(
-	now core.VTimeInSec,
-	bankID uint64,
-	req *mem.ReadReq,
-) {
+	data, err := c.Storage.Read(c.busyBlock.CacheAddress, c.reading.MemByteSize)
+	if err != nil {
+		log.Panic(err)
+	}
 
+	dataReady := mem.NewDataReadyRsp(now, c.ToCU, c.reading.Src(), c.reading.ID)
+	dataReady.Data = data
+	c.toCUBuffer = append(c.toCUBuffer, dataReady)
 }
 
 func NewL1VCache(name string, engine core.Engine, freq core.Freq) *L1VCache {
