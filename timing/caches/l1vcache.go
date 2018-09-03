@@ -51,6 +51,7 @@ func (c *L1VCache) handleTickEvent(e *core.TickEvent) {
 	c.NeedTick = false
 
 	c.doReadWrite(now)
+	c.parseFromL2(now)
 	c.parseFromCU(now)
 
 	if c.NeedTick {
@@ -74,6 +75,37 @@ func (c *L1VCache) parseFromCU(now core.VTimeInSec) {
 	}
 }
 
+func (c *L1VCache) parseFromL2(now core.VTimeInSec) {
+	req := c.ToL2.Peek()
+
+	switch req := req.(type) {
+	case *mem.DataReadyRsp:
+		c.handleDataReadyRsp(now, req)
+	default:
+		log.Panicf("cannot process request of type %s",
+			reflect.TypeOf(req))
+	}
+}
+
+func (c *L1VCache) handleDataReadyRsp(now core.VTimeInSec, dataReady *mem.DataReadyRsp) {
+	readBottom := c.pendingDownGoingRead[0]
+
+	block := c.Directory.Evict(readBottom.Address)
+	block.IsValid = true
+	block.IsDirty = false
+	c.Storage.Write(block.CacheAddress, dataReady.Data)
+
+	dataReadyToTop := mem.NewDataReadyRsp(
+		now, c.ToCU, c.reading.Src(), c.reading.GetID())
+	dataReadyToTop.Data = dataReady.Data
+	c.toCUBuffer = append(c.toCUBuffer, dataReadyToTop)
+
+	c.ToL2.Retrieve(now)
+	c.pendingDownGoingRead = nil
+	c.isBusy = false
+	c.NeedTick = true
+}
+
 func (c *L1VCache) handleReadReq(now core.VTimeInSec, req *mem.ReadReq) {
 	c.isBusy = true
 	c.reading = req
@@ -84,7 +116,6 @@ func (c *L1VCache) handleReadReq(now core.VTimeInSec, req *mem.ReadReq) {
 	} else {
 		c.handleReadHit(now, req, block)
 	}
-
 }
 
 func (c *L1VCache) handleReadMiss(now core.VTimeInSec, req *mem.ReadReq) {
