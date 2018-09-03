@@ -10,20 +10,25 @@ import (
 
 var _ = Describe("L1V Cache", func() {
 	var (
-		engine    *core.MockEngine
-		storage   *mem.Storage
-		directory *cache.MockDirectory
-		l1v       *L1VCache
+		engine     *core.MockEngine
+		storage    *mem.Storage
+		directory  *cache.MockDirectory
+		l1v        *L1VCache
+		connection *core.MockConnection
 	)
 
 	BeforeEach(func() {
 		engine = core.NewMockEngine()
+		connection = core.NewMockConnection()
 		storage = mem.NewStorage(16 * mem.KB)
 		directory = new(cache.MockDirectory)
 		l1v = NewL1VCache("l1v", engine, 1)
 		l1v.Directory = directory
 		l1v.Storage = storage
 		l1v.Latency = 8
+
+		connection.PlugIn(l1v.ToCU)
+		connection.PlugIn(l1v.ToL2)
 	})
 
 	Context("parse read hit", func() {
@@ -188,6 +193,30 @@ var _ = Describe("L1V Cache", func() {
 			Expect(block.IsValid).To(BeTrue())
 		})
 	})
+
+	It("should send request to CU", func() {
+		dataReady := mem.NewDataReadyRsp(10, l1v.ToCU, nil, "")
+		l1v.toCUBuffer = append(l1v.toCUBuffer, dataReady)
+
+		connection.ExpectSend(dataReady, nil)
+
+		l1v.sendToCU(11)
+
+		Expect(connection.AllExpectedSent()).To(BeTrue())
+		Expect(l1v.NeedTick).To(BeTrue())
+	})
+
+	It("should send request to L2", func() {
+		read := mem.NewReadReq(10, l1v.ToL2, nil, 0x100, 64)
+		l1v.toL2Buffer = append(l1v.toL2Buffer, read)
+
+		connection.ExpectSend(read, nil)
+
+		l1v.sendToL2(11)
+
+		Expect(connection.AllExpectedSent()).To(BeTrue())
+		Expect(l1v.NeedTick).To(BeTrue())
+	})
 })
 
 var _ = Describe("L1VCache black box", func() {
@@ -211,6 +240,7 @@ var _ = Describe("L1VCache black box", func() {
 		l1v.Directory = directory
 		l1v.Storage = storage
 		l1v.Latency = 8
+		l1v.ToCU.BufCapacity = 2
 
 		lowModule = mem.NewIdealMemController("lowModule", engine, 4*mem.GB)
 		lowModule.Storage.Write(0x100, []byte{
@@ -241,5 +271,17 @@ var _ = Describe("L1VCache black box", func() {
 		engine.Run()
 
 		Expect(cu.ReceivedReqs).To(HaveLen(1))
+	})
+
+	It("should read hit", func() {
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+		read1 := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+
+		l1v.ToCU.Recv(read)
+		l1v.ToCU.Recv(read1)
+
+		engine.Run()
+
+		Expect(cu.ReceivedReqs).To(HaveLen(2))
 	})
 })
