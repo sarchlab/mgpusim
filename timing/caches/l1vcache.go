@@ -50,6 +50,8 @@ func (c *L1VCache) handleTickEvent(e *core.TickEvent) {
 	now := e.Time()
 	c.NeedTick = false
 
+	c.sendToCU(now)
+	c.sendToL2(now)
 	c.doReadWrite(now)
 	c.parseFromL2(now)
 	c.parseFromCU(now)
@@ -65,6 +67,10 @@ func (c *L1VCache) parseFromCU(now core.VTimeInSec) {
 	}
 
 	req := c.ToCU.Retrieve(now)
+	if req == nil {
+		return
+	}
+
 	c.NeedTick = true
 	switch req := req.(type) {
 	case *mem.ReadReq:
@@ -77,6 +83,10 @@ func (c *L1VCache) parseFromCU(now core.VTimeInSec) {
 
 func (c *L1VCache) parseFromL2(now core.VTimeInSec) {
 	req := c.ToL2.Peek()
+
+	if req == nil {
+		return
+	}
 
 	switch req := req.(type) {
 	case *mem.DataReadyRsp:
@@ -157,6 +167,30 @@ func (c *L1VCache) finishLocalRead(now core.VTimeInSec) {
 	dataReady := mem.NewDataReadyRsp(now, c.ToCU, c.reading.Src(), c.reading.ID)
 	dataReady.Data = data
 	c.toCUBuffer = append(c.toCUBuffer, dataReady)
+}
+
+func (c *L1VCache) sendToCU(now core.VTimeInSec) {
+	if len(c.toCUBuffer) > 0 {
+		req := c.toCUBuffer[0]
+		req.SetSendTime(now)
+		err := c.ToCU.Send(req)
+		if err == nil {
+			c.toCUBuffer = c.toCUBuffer[1:]
+			c.NeedTick = true
+		}
+	}
+}
+
+func (c *L1VCache) sendToL2(now core.VTimeInSec) {
+	if len(c.toL2Buffer) > 0 {
+		req := c.toL2Buffer[0]
+		req.SetSendTime(now)
+		err := c.ToL2.Send(req)
+		if err == nil {
+			c.toL2Buffer = c.toL2Buffer[1:]
+			c.NeedTick = true
+		}
+	}
 }
 
 func NewL1VCache(name string, engine core.Engine, freq core.Freq) *L1VCache {
