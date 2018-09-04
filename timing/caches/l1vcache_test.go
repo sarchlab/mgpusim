@@ -43,10 +43,11 @@ var _ = Describe("L1V Cache", func() {
 			directory.ExpectLookup(0x100, block)
 
 			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
-			l1v.ToCU.Recv(read)
 		})
 
 		It("should start local read", func() {
+			l1v.ToCU.Recv(read)
+
 			l1v.parseFromCU(11)
 
 			Expect(l1v.ToCU.Buf).To(HaveLen(0))
@@ -58,7 +59,25 @@ var _ = Describe("L1V Cache", func() {
 			Expect(l1v.NeedTick).To(BeTrue())
 		})
 
+		It("should also start local read if reading partial line", func() {
+			read.Address = 0x104
+			read.MemByteSize = 4
+			l1v.ToCU.Recv(read)
+
+			l1v.parseFromCU(11)
+
+			Expect(directory.AllExpectedCalled()).To(BeTrue())
+			Expect(l1v.ToCU.Buf).To(HaveLen(0))
+			Expect(l1v.cycleLeft).To(Equal(8))
+			Expect(l1v.isBusy).To(BeTrue())
+			Expect(l1v.reading).To(BeIdenticalTo(read))
+			Expect(l1v.isStorageBusy).To(BeTrue())
+			Expect(l1v.busyBlock).To(BeIdenticalTo(block))
+			Expect(l1v.NeedTick).To(BeTrue())
+		})
+
 		It("should stall if cache is busy", func() {
+			l1v.ToCU.Recv(read)
 			l1v.isBusy = true
 
 			l1v.parseFromCU(11)
@@ -279,6 +298,92 @@ var _ = Describe("L1V Cache", func() {
 		})
 	})
 
+	It("should handle write", func() {
+		write := mem.NewWriteReq(10, nil, l1v.ToCU, 0x100)
+		write.Data = []byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}
+
+		block := new(cache.Block)
+		block.CacheAddress = 0x200
+		block.IsValid = false
+		directory.ExpectEvict(0x100, block)
+
+		l1v.ToCU.Recv(write)
+
+		l1v.parseFromCU(11)
+
+		Expect(l1v.isBusy).To(BeTrue())
+		Expect(l1v.NeedTick).To(BeTrue())
+		Expect(l1v.writing).To(BeIdenticalTo(write))
+		Expect(l1v.toL2Buffer).To(HaveLen(1))
+		Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
+		Expect(l1v.ToCU.Buf).To(HaveLen(0))
+
+		data, _ := storage.Read(0x200, 64)
+		Expect(data).To(Equal([]byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}))
+		Expect(block.IsValid).To(BeTrue())
+		Expect(block.Tag).To(Equal(uint64(0x100)))
+	})
+
+	It("should handle write when writing partial line", func() {
+		write := mem.NewWriteReq(10, nil, l1v.ToCU, 0x104)
+		write.Data = []byte{5, 6, 7, 8}
+
+		block := new(cache.Block)
+		block.CacheAddress = 0x200
+		block.IsValid = false
+		directory.ExpectEvict(0x100, block)
+
+		l1v.ToCU.Recv(write)
+
+		l1v.parseFromCU(11)
+
+		Expect(l1v.isBusy).To(BeTrue())
+		Expect(l1v.NeedTick).To(BeTrue())
+		Expect(l1v.writing).To(BeIdenticalTo(write))
+		Expect(l1v.toL2Buffer).To(HaveLen(1))
+		Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
+		Expect(l1v.ToCU.Buf).To(HaveLen(0))
+		Expect(block.IsValid).To(BeFalse())
+	})
+
+	It("should handle done rsp", func() {
+		writeFromTop := mem.NewWriteReq(6, nil, l1v.ToCU, 0x104)
+		writeToBottom := mem.NewWriteReq(8, l1v.ToL2, nil, 0x104)
+		doneRsp := mem.NewDoneRsp(10, nil, l1v.ToL2, writeToBottom.ID)
+
+		l1v.writing = writeFromTop
+		l1v.pendingDownGoingWrite = append(l1v.pendingDownGoingWrite, writeToBottom)
+
+		l1v.ToL2.Recv(doneRsp)
+
+		l1v.parseFromL2(11)
+
+		Expect(l1v.isBusy).To(BeFalse())
+		Expect(l1v.ToL2.Buf).To(HaveLen(0))
+		Expect(l1v.pendingDownGoingWrite).To(HaveLen(0))
+		Expect(l1v.NeedTick).To(BeTrue())
+		Expect(l1v.writing).To(BeNil())
+		Expect(l1v.toCUBuffer).To(HaveLen(1))
+	})
+
 	It("should send request to CU", func() {
 		dataReady := mem.NewDataReadyRsp(10, l1v.ToCU, nil, "")
 		l1v.toCUBuffer = append(l1v.toCUBuffer, dataReady)
@@ -339,6 +444,8 @@ var _ = Describe("L1VCache black box", func() {
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 		})
+		lowModule.Latency = 300
+		lowModule.Freq = 1
 		l1v.L2 = lowModule.ToTop
 
 		cu = core.NewMockComponent("cu")
@@ -432,4 +539,76 @@ var _ = Describe("L1VCache black box", func() {
 		Expect(cu.ReceivedReqs[1].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{1, 2, 3, 4}))
 	})
+
+	It("should write", func() {
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
+		write.Data = []byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}
+		l1v.ToCU.Recv(write)
+
+		engine.Run()
+
+		Expect(cu.ReceivedReqs).To(HaveLen(1))
+		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
+		data, _ := lowModule.Storage.Read(0x100, 64)
+		Expect(data).To(Equal([]byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}))
+	})
+
+	It("should read hit after writing a full cache line", func() {
+		startTime := engine.CurrentTime()
+
+		read := mem.NewReadReq(0, cu.ToOutside, l1v.ToCU, 0x104, 4)
+		read.SetRecvTime(0)
+		l1v.ToCU.Recv(read)
+		engine.Run()
+		Expect(cu.ReceivedReqs).To(HaveLen(1))
+		time1 := engine.CurrentTime()
+		duration1 := time1 - startTime
+
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x140)
+		write.SetRecvTime(time1 + 1)
+		write.Data = []byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}
+		l1v.ToCU.Recv(write)
+		engine.Run()
+		Expect(cu.ReceivedReqs).To(HaveLen(2))
+		time2 := engine.CurrentTime()
+
+		read.Address = 0x144
+		read.SetRecvTime(time2 + 1)
+		l1v.ToCU.Recv(read)
+		engine.Run()
+		Expect(cu.ReceivedReqs).To(HaveLen(3))
+		time3 := engine.CurrentTime()
+		duration2 := time3 - time2
+
+		Expect(duration2).To(BeNumerically("<", duration1))
+
+	})
+
 })

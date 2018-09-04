@@ -31,9 +31,10 @@ type L1VCache struct {
 	isStorageBusy bool
 	busyBlock     *cache.Block
 
-	toCUBuffer           []core.Req
-	toL2Buffer           []core.Req
-	pendingDownGoingRead []*mem.ReadReq
+	toCUBuffer            []core.Req
+	toL2Buffer            []core.Req
+	pendingDownGoingRead  []*mem.ReadReq
+	pendingDownGoingWrite []*mem.WriteReq
 }
 
 func (c *L1VCache) Handle(e core.Event) error {
@@ -75,9 +76,55 @@ func (c *L1VCache) parseFromCU(now core.VTimeInSec) {
 	switch req := req.(type) {
 	case *mem.ReadReq:
 		c.handleReadReq(now, req)
+	case *mem.WriteReq:
+		c.handleWriteReq(now, req)
 	default:
 		log.Panicf("cannot process request of type %s",
 			reflect.TypeOf(req))
+	}
+}
+
+func (c *L1VCache) handleReadReq(now core.VTimeInSec, req *mem.ReadReq) {
+	c.isBusy = true
+	c.reading = req
+
+	cacheLineID, _ := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
+	block := c.Directory.Lookup(cacheLineID)
+	if block == nil {
+		c.handleReadMiss(now, req)
+	} else {
+		c.handleReadHit(now, req, block)
+	}
+}
+
+func (c *L1VCache) handleReadMiss(now core.VTimeInSec, req *mem.ReadReq) {
+	address := req.Address
+	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
+	readBottom := mem.NewReadReq(now, c.ToL2, c.L2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
+	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
+	c.toL2Buffer = append(c.toL2Buffer, readBottom)
+}
+
+func (c *L1VCache) handleReadHit(now core.VTimeInSec, req *mem.ReadReq, block *cache.Block) {
+	c.cycleLeft = c.Latency
+	c.busyBlock = block
+	c.isStorageBusy = true
+}
+
+func (c *L1VCache) handleWriteReq(now core.VTimeInSec, req *mem.WriteReq) {
+	c.isBusy = true
+	c.writing = req
+	writeBottom := mem.NewWriteReq(now, c.ToL2, c.L2, req.Address)
+	writeBottom.Data = req.Data
+
+	c.toL2Buffer = append(c.toL2Buffer, writeBottom)
+	c.pendingDownGoingWrite = append(c.pendingDownGoingWrite, writeBottom)
+
+	if len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
+		block := c.Directory.Evict(req.Address)
+		c.Storage.Write(block.CacheAddress, writeBottom.Data)
+		block.IsValid = true
+		block.Tag = req.Address
 	}
 }
 
@@ -91,6 +138,8 @@ func (c *L1VCache) parseFromL2(now core.VTimeInSec) {
 	switch req := req.(type) {
 	case *mem.DataReadyRsp:
 		c.handleDataReadyRsp(now, req)
+	case *mem.DoneRsp:
+		c.handleDoneRsp(now, req)
 	default:
 		log.Panicf("cannot process request of type %s",
 			reflect.TypeOf(req))
@@ -119,30 +168,15 @@ func (c *L1VCache) handleDataReadyRsp(now core.VTimeInSec, dataReady *mem.DataRe
 	c.NeedTick = true
 }
 
-func (c *L1VCache) handleReadReq(now core.VTimeInSec, req *mem.ReadReq) {
-	c.isBusy = true
-	c.reading = req
+func (c *L1VCache) handleDoneRsp(now core.VTimeInSec, rsp *mem.DoneRsp) {
+	done := mem.NewDoneRsp(now, c.ToCU, c.writing.Src(), c.writing.ID)
+	c.toCUBuffer = append(c.toCUBuffer, done)
 
-	block := c.Directory.Lookup(req.Address)
-	if block == nil {
-		c.handleReadMiss(now, req)
-	} else {
-		c.handleReadHit(now, req, block)
-	}
-}
-
-func (c *L1VCache) handleReadMiss(now core.VTimeInSec, req *mem.ReadReq) {
-	address := req.Address
-	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
-	readBottom := mem.NewReadReq(now, c.ToL2, c.L2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
-	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
-	c.toL2Buffer = append(c.toL2Buffer, readBottom)
-}
-
-func (c *L1VCache) handleReadHit(now core.VTimeInSec, req *mem.ReadReq, block *cache.Block) {
-	c.cycleLeft = c.Latency
-	c.busyBlock = block
-	c.isStorageBusy = true
+	c.ToL2.Retrieve(now)
+	c.pendingDownGoingWrite = nil
+	c.writing = nil
+	c.isBusy = false
+	c.NeedTick = true
 }
 
 func (c *L1VCache) doReadWrite(now core.VTimeInSec) {
