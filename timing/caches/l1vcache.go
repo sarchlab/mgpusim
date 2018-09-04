@@ -99,6 +99,9 @@ func (c *L1VCache) parseFromL2(now core.VTimeInSec) {
 
 func (c *L1VCache) handleDataReadyRsp(now core.VTimeInSec, dataReady *mem.DataReadyRsp) {
 	readBottom := c.pendingDownGoingRead[0]
+	readTop := c.reading
+	address := readTop.Address
+	_, offset := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
 
 	block := c.Directory.Evict(readBottom.Address)
 	block.IsValid = true
@@ -107,7 +110,7 @@ func (c *L1VCache) handleDataReadyRsp(now core.VTimeInSec, dataReady *mem.DataRe
 
 	dataReadyToTop := mem.NewDataReadyRsp(
 		now, c.ToCU, c.reading.Src(), c.reading.GetID())
-	dataReadyToTop.Data = dataReady.Data
+	dataReadyToTop.Data = dataReady.Data[offset : offset+readTop.MemByteSize]
 	c.toCUBuffer = append(c.toCUBuffer, dataReadyToTop)
 
 	c.ToL2.Retrieve(now)
@@ -129,7 +132,9 @@ func (c *L1VCache) handleReadReq(now core.VTimeInSec, req *mem.ReadReq) {
 }
 
 func (c *L1VCache) handleReadMiss(now core.VTimeInSec, req *mem.ReadReq) {
-	readBottom := mem.NewReadReq(now, c.ToL2, c.L2, req.Address, req.MemByteSize)
+	address := req.Address
+	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
+	readBottom := mem.NewReadReq(now, c.ToL2, c.L2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
 	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
 	c.toL2Buffer = append(c.toL2Buffer, readBottom)
 }
@@ -159,7 +164,9 @@ func (c *L1VCache) finishLocalRead(now core.VTimeInSec) {
 	c.isStorageBusy = false
 	c.isBusy = false
 
-	data, err := c.Storage.Read(c.busyBlock.CacheAddress, c.reading.MemByteSize)
+	_, offset := cache.GetCacheLineID(c.reading.Address, c.BlockSizeAsPowerOf2)
+	data, err := c.Storage.Read(
+		c.busyBlock.CacheAddress+offset, c.reading.MemByteSize)
 	if err != nil {
 		log.Panic(err)
 	}
