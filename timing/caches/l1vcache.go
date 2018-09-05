@@ -15,7 +15,7 @@ type L1VCache struct {
 	ToCU *core.Port
 	ToL2 *core.Port
 
-	L2 *core.Port
+	L2Finder cache.LowModuleFinder
 
 	Directory cache.Directory
 	Storage   *mem.Storage
@@ -100,7 +100,8 @@ func (c *L1VCache) handleReadReq(now core.VTimeInSec, req *mem.ReadReq) {
 func (c *L1VCache) handleReadMiss(now core.VTimeInSec, req *mem.ReadReq) {
 	address := req.Address
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
-	readBottom := mem.NewReadReq(now, c.ToL2, c.L2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
+	l2 := c.L2Finder.Find(cacheLineID)
+	readBottom := mem.NewReadReq(now, c.ToL2, l2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
 	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
 	c.toL2Buffer = append(c.toL2Buffer, readBottom)
 }
@@ -114,7 +115,8 @@ func (c *L1VCache) handleReadHit(now core.VTimeInSec, req *mem.ReadReq, block *c
 func (c *L1VCache) handleWriteReq(now core.VTimeInSec, req *mem.WriteReq) {
 	c.isBusy = true
 	c.writing = req
-	writeBottom := mem.NewWriteReq(now, c.ToL2, c.L2, req.Address)
+	l2 := c.L2Finder.Find(req.Address)
+	writeBottom := mem.NewWriteReq(now, c.ToL2, l2, req.Address)
 	writeBottom.Data = req.Data
 
 	c.toL2Buffer = append(c.toL2Buffer, writeBottom)

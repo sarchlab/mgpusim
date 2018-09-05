@@ -15,6 +15,7 @@ var _ = Describe("L1V Cache", func() {
 		directory  *cache.MockDirectory
 		l1v        *L1VCache
 		connection *core.MockConnection
+		l2Finder   cache.LowModuleFinder
 	)
 
 	BeforeEach(func() {
@@ -22,9 +23,11 @@ var _ = Describe("L1V Cache", func() {
 		connection = core.NewMockConnection()
 		storage = mem.NewStorage(16 * mem.KB)
 		directory = new(cache.MockDirectory)
+		l2Finder = new(cache.SingleLowModuleFinder)
 		l1v = NewL1VCache("l1v", engine, 1)
 		l1v.Directory = directory
 		l1v.Storage = storage
+		l1v.L2Finder = l2Finder
 		l1v.Latency = 8
 		l1v.BlockSizeAsPowerOf2 = 6
 
@@ -416,6 +419,7 @@ var _ = Describe("L1VCache black box", func() {
 		storage    *mem.Storage
 		directory  cache.Directory
 		l1v        *L1VCache
+		l2Finder   *cache.SingleLowModuleFinder
 		cu         *core.MockComponent
 		lowModule  *mem.IdealMemController
 		connection *core.DirectConnection
@@ -426,9 +430,11 @@ var _ = Describe("L1VCache black box", func() {
 		storage = mem.NewStorage(16 * mem.KB)
 		evictor = cache.NewLRUEvictor()
 		directory = cache.NewDirectory(64, 4, 64, evictor)
+		l2Finder = new(cache.SingleLowModuleFinder)
 		l1v = NewL1VCache("l1v", engine, 1)
 		l1v.Directory = directory
 		l1v.Storage = storage
+		l1v.L2Finder = l2Finder
 		l1v.Latency = 8
 		l1v.ToCU.BufCapacity = 2
 		l1v.BlockSizeAsPowerOf2 = 6
@@ -446,7 +452,7 @@ var _ = Describe("L1VCache black box", func() {
 		})
 		lowModule.Latency = 300
 		lowModule.Freq = 1
-		l1v.L2 = lowModule.ToTop
+		l2Finder.LowModule = lowModule.ToTop
 
 		cu = core.NewMockComponent("cu")
 

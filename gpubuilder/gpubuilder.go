@@ -3,6 +3,8 @@ package gpubuilder
 import (
 	"fmt"
 
+	"gitlab.com/yaotsu/gcn3/timing/caches"
+
 	"gitlab.com/yaotsu/mem"
 
 	"log"
@@ -156,7 +158,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	cacheBuilder := new(cache.Builder)
 	cacheBuilder.Engine = b.engine
-	dCaches := make([]*cache.WriteAroundCache, 0, 64)
+	dCaches := make([]*caches.L1VCache, 0, 64)
 	kCaches := make([]*cache.WriteAroundCache, 0, 16)
 	iCaches := make([]*cache.WriteAroundCache, 0, 16)
 	l2Caches := make([]*cache.WriteBackCache, 0, 8)
@@ -188,17 +190,23 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
 	for i := 0; i < 64; i++ {
-		dCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i), 4, 16*mem.KB, 128)
-		dCache.DirectoryLatency = 0
-		dCache.Latency = 150
-		dCache.SetNumBanks(1)
-		connection.PlugIn(dCache.ToTop)
-		connection.PlugIn(dCache.ToBottom)
+		dCache := caches.NewL1VCache(
+			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i),
+			b.engine, b.freq)
+		lruEvictor := cache.NewLRUEvictor()
+		directory := cache.NewDirectory(64, 4, 64, lruEvictor)
+		dCache.Directory = directory
+		storage := mem.NewStorage(16 * mem.KB)
+		dCache.Storage = storage
+		dCache.L2Finder = lowModuleFinderForL1
+		dCache.BlockSizeAsPowerOf2 = 6
+		dCache.Latency = 1
+		connection.PlugIn(dCache.ToCU)
+		connection.PlugIn(dCache.ToL2)
 		dCaches = append(dCaches, dCache)
-		commandProcessor.ToResetAfterKernel = append(
-			commandProcessor.ToResetAfterKernel, dCache,
-		)
+		//commandProcessor.ToResetAfterKernel = append(
+		//	commandProcessor.ToResetAfterKernel, dCache,
+		//)
 		if b.EnableMemTracing {
 			dCache.AcceptHook(memTracer)
 		}
@@ -241,7 +249,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		cuBuilder.InstMem = iCaches[i/4].ToTop
 		cuBuilder.ScalarMem = kCaches[i/4].ToTop
 		lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
-		lowModuleFinderForCU.LowModule = dCaches[i].ToTop
+		lowModuleFinderForCU.LowModule = dCaches[i].ToCU
 		cuBuilder.VectorMemModules = lowModuleFinderForCU
 		//cuBuilder.InstMem = gpuMem
 		//cuBuilder.ScalarMem = gpuMem
