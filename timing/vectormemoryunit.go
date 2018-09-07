@@ -19,6 +19,8 @@ type VectorMemoryUnit struct {
 	ReadBufSize  int
 	WriteBufSize int
 
+	CoalescingWidth int // The number of WIs can be coalesced
+
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
