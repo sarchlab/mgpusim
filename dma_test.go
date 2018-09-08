@@ -10,9 +10,9 @@ import (
 
 var _ = Describe("DMAEngine", func() {
 	var (
-		engine                 *akita.MockEngine
-		localModuleFinder      *cache.SingleLowModuleFinder
-		remoteModuleFinder     *cache.SingleLowModuleFinder
+		engine            *akita.MockEngine
+		localModuleFinder *cache.SingleLowModuleFinder
+		//remoteModuleFinder     *cache.SingleLowModuleFinder
 		dmaEngine              *DMAEngine
 		toMemConn              *akita.MockConnection
 		toCommandProcessorConn *akita.MockConnection
@@ -21,7 +21,7 @@ var _ = Describe("DMAEngine", func() {
 	BeforeEach(func() {
 		engine = akita.NewMockEngine()
 		localModuleFinder = new(cache.SingleLowModuleFinder)
-		remoteModuleFinder = new(cache.SingleLowModuleFinder)
+		//remoteModuleFinder = new(cache.SingleLowModuleFinder)
 		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
 
 		toMemConn = akita.NewMockConnection()
