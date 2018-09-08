@@ -16,6 +16,7 @@ func NewCoalescer() *DefaultCoalescer {
 	return c
 }
 
+// DefaultCoalescer provides the default coalescing algorithm.
 type DefaultCoalescer struct {
 	CoalescingWidth         int // Number of WIs that can be coalesced
 	CacheLineSizeAsPowerOf2 uint64
@@ -122,4 +123,13 @@ func (c *DefaultCoalescer) doNotCoalesce(
 	addresses []uint64,
 ) {
 	*coalescedAddresses = append(*coalescedAddresses, addresses...)
+}
+
+// MockCoalescer is a coalescer for testing purposes
+type MockCoalescer struct {
+	ToReturn []uint64
+}
+
+func (c *MockCoalescer) Coalesce(addresses []uint64, bytesPerWI int) []uint64 {
+	return c.ToReturn
 }

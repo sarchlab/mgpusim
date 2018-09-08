@@ -14,6 +14,7 @@ var _ = Describe("Vector Memory Unit", func() {
 	var (
 		cu        *ComputeUnit
 		sp        *mockScratchpadPreparer
+		coalescer *MockCoalescer
 		bu        *VectorMemoryUnit
 		vectorMem *core.MockComponent
 		conn      *core.MockConnection
@@ -22,7 +23,8 @@ var _ = Describe("Vector Memory Unit", func() {
 	BeforeEach(func() {
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
-		bu = NewVectorMemoryUnit(cu, sp)
+		coalescer = new(MockCoalescer)
+		bu = NewVectorMemoryUnit(cu, sp, coalescer)
 		vectorMem = core.NewMockComponent("VectorMem")
 		conn = core.NewMockConnection()
 
@@ -54,10 +56,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.inst = inst
 
-		sp := wave.Scratchpad().AsFlat()
-		for i := 0; i < 64; i++ {
-			sp.ADDR[i] = uint64(4096 + i*4)
-		}
+		coalescer.ToReturn = []uint64{0x0, 0x40, 0x80, 0xc0}
 
 		bu.toExec = wave
 
@@ -82,6 +81,7 @@ var _ = Describe("Vector Memory Unit", func() {
 			sp.ADDR[i] = uint64(4096 + i*4)
 			sp.DATA[i*4] = uint32(i)
 		}
+		coalescer.ToReturn = []uint64{0x1000, 0x1040, 0x1080, 0x10c0}
 
 		bu.toExec = wave
 
