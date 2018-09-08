@@ -13,13 +13,12 @@ type VectorMemoryUnit struct {
 	cu *ComputeUnit
 
 	scratchpadPreparer ScratchpadPreparer
+	coalescer          Coalescer
 
 	ReadBuf      []*mem.ReadReq
 	WriteBuf     []*mem.WriteReq
 	ReadBufSize  int
 	WriteBufSize int
-
-	CoalescingWidth int // The number of WIs can be coalesced
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -31,10 +30,13 @@ type VectorMemoryUnit struct {
 func NewVectorMemoryUnit(
 	cu *ComputeUnit,
 	scratchpadPreparer ScratchpadPreparer,
+	coalescer Coalescer,
 ) *VectorMemoryUnit {
 	u := new(VectorMemoryUnit)
 	u.cu = cu
+
 	u.scratchpadPreparer = scratchpadPreparer
+	u.coalescer = coalescer
 
 	u.ReadBufSize = 256
 	u.ReadBuf = make([]*mem.ReadReq, 0, u.ReadBufSize)
@@ -99,7 +101,6 @@ func (u *VectorMemoryUnit) runExecStage(now core.VTimeInSec) {
 		//u.toWrite = u.toExec
 		u.toExec.State = WfReady
 		u.toExec = nil
-
 	}
 }
 
@@ -124,35 +125,21 @@ func (u *VectorMemoryUnit) executeFlatInsts(now core.VTimeInSec) {
 
 func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now core.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
-	coalescedAddrs := u.coalesceAddress(sp.ADDR)
+	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
 	u.bufferDataLoadRequest(coalescedAddrs, sp.ADDR, byteSizePerLane/4, now)
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now core.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
-	coalescedAddrs := u.coalesceAddress(sp.ADDR)
+	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
 	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, byteSizePerLane/4, now)
 }
 
-func (u *VectorMemoryUnit) coalesceAddress(addresses [64]uint64) []uint64 {
-	coalescedAddr := make([]uint64, 0)
-	for i := 0; i < 64; i++ {
-		addr := addresses[i]
-		cacheLineId := addr / 64 * 64
-
-		found := false
-		for _, cAddr := range coalescedAddr {
-			if cacheLineId == cAddr {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			coalescedAddr = append(coalescedAddr, cacheLineId)
-		}
-	}
-	return coalescedAddr
+func (u *VectorMemoryUnit) coalesceAddress(
+	addresses []uint64,
+	byteSizePerLane int,
+) []uint64 {
+	return u.coalescer.Coalesce(addresses, byteSizePerLane)
 }
 
 func (u *VectorMemoryUnit) bufferDataLoadRequest(
