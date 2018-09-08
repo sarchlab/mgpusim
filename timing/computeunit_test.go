@@ -3,11 +3,11 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
 )
 
 type mockWGMapper struct {
@@ -26,7 +26,7 @@ func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
 type mockWfDispatcher struct {
 }
 
-func (m *mockWfDispatcher) DispatchWf(now core.VTimeInSec, wf *Wavefront) {
+func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *Wavefront) {
 }
 
 type mockDecoder struct {
@@ -60,19 +60,19 @@ func exampleGrid() *kernels.Grid {
 var _ = Describe("ComputeUnit", func() {
 	var (
 		cu           *ComputeUnit
-		engine       *core.MockEngine
+		engine       *akita.MockEngine
 		wgMapper     *mockWGMapper
 		wfDispatcher *mockWfDispatcher
 		decoder      *mockDecoder
 
-		connection *core.MockConnection
-		instMem    *core.MockComponent
+		connection *akita.MockConnection
+		instMem    *akita.MockComponent
 
 		grid *kernels.Grid
 	)
 
 	BeforeEach(func() {
-		engine = core.NewMockEngine()
+		engine = akita.NewMockEngine()
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
@@ -89,10 +89,10 @@ var _ = Describe("ComputeUnit", func() {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
 		}
 
-		connection = core.NewMockConnection()
+		connection = akita.NewMockConnection()
 		connection.PlugIn(cu.ToACE)
 
-		instMem = core.NewMockComponent("InstMem")
+		instMem = akita.NewMockComponent("InstMem")
 		cu.InstMem = instMem.ToOutside
 
 		grid = exampleGrid()

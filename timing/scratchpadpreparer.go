@@ -4,8 +4,8 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/yaotsu/gcn3/emu"
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 type ScratchpadPreparer interface {

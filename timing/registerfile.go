@@ -3,14 +3,14 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
 // A RegisterAccess is an incidence of reading or writing the register
 type RegisterAccess struct {
-	Time       core.VTimeInSec
+	Time       akita.VTimeInSec
 	Reg        *insts.Reg
 	RegCount   int
 	LaneID     int

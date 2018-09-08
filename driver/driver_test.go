@@ -6,7 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/mem"
 )
 
 func TestDriver(t *testing.T) {

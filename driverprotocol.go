@@ -1,15 +1,15 @@
 package gcn3
 
-import "gitlab.com/yaotsu/core"
+import "gitlab.com/akita/akita"
 
 // FlushCommand requests the GPU to flush all the cache to the main memory
 type FlushCommand struct {
-	*core.ReqBase
+	*akita.ReqBase
 }
 
-func NewFlushCommand(t core.VTimeInSec, src *core.Port, dst *core.Port) *FlushCommand {
+func NewFlushCommand(t akita.VTimeInSec, src *akita.Port, dst *akita.Port) *FlushCommand {
 	cmd := new(FlushCommand)
-	cmd.ReqBase = core.NewReqBase()
+	cmd.ReqBase = akita.NewReqBase()
 	cmd.SetSendTime(t)
 	cmd.SetSrc(src)
 	cmd.SetDst(dst)

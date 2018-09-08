@@ -1,13 +1,13 @@
 package timing
 
-import "gitlab.com/yaotsu/core"
+import "gitlab.com/akita/akita"
 
 // A WavefrontPool holds the wavefronts that will be scheduled in one SIMD
 // unit
 type WavefrontPool struct {
 	Capacity int
 	wfs      []*Wavefront
-	VRegFile core.Component
+	VRegFile akita.Component
 }
 
 // NewWavefrontPool creates and returns a new WavefrontPool

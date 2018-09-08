@@ -6,9 +6,9 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/mem"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 )
 
 func TestRDMA(t *testing.T) {
@@ -19,30 +19,30 @@ func TestRDMA(t *testing.T) {
 
 var _ = Describe("Engine", func() {
 	var (
-		engine        core.Engine
+		engine        akita.Engine
 		rdmaEngine    *Engine
-		outsideConn   *core.MockConnection
-		insideConn    *core.MockConnection
+		outsideConn   *akita.MockConnection
+		insideConn    *akita.MockConnection
 		localModules  *cache.SingleLowModuleFinder
 		remoteModules *cache.SingleLowModuleFinder
-		localCache    *core.MockComponent
-		remoteGPU     *core.MockComponent
+		localCache    *akita.MockComponent
+		remoteGPU     *akita.MockComponent
 	)
 
 	BeforeEach(func() {
-		engine = core.NewMockEngine()
-		localCache = core.NewMockComponent("LocalCache")
-		remoteGPU = core.NewMockComponent("RemoveGPU")
+		engine = akita.NewMockEngine()
+		localCache = akita.NewMockComponent("LocalCache")
+		remoteGPU = akita.NewMockComponent("RemoveGPU")
 		localModules = new(cache.SingleLowModuleFinder)
 		localModules.LowModule = localCache.ToOutside
 		remoteModules = new(cache.SingleLowModuleFinder)
 		remoteModules.LowModule = remoteGPU.ToOutside
 		rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
 
-		outsideConn = core.NewMockConnection()
+		outsideConn = akita.NewMockConnection()
 		outsideConn.PlugIn(rdmaEngine.ToOutside)
 
-		insideConn = core.NewMockConnection()
+		insideConn = akita.NewMockConnection()
 		insideConn.PlugIn(rdmaEngine.ToInside)
 	})
 
@@ -71,7 +71,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectRead := mem.NewReadReq(10,
 				rdmaEngine.ToOutside, remoteGPU.ToOutside, 0x100, 64)
-			outsideConn.ExpectSend(expectRead, core.NewSendError())
+			outsideConn.ExpectSend(expectRead, akita.NewSendError())
 
 			rdmaEngine.processReqFromInside(10)
 
@@ -104,7 +104,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectRead := mem.NewWriteReq(10,
 				rdmaEngine.ToOutside, remoteGPU.ToOutside, 0x100)
-			outsideConn.ExpectSend(expectRead, core.NewSendError())
+			outsideConn.ExpectSend(expectRead, akita.NewSendError())
 
 			rdmaEngine.processReqFromInside(10)
 
@@ -149,7 +149,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectDataReady := mem.NewDataReadyRsp(10,
 				rdmaEngine.ToOutside, remoteGPU.ToOutside, read.ID)
-			outsideConn.ExpectSend(expectDataReady, core.NewSendError())
+			outsideConn.ExpectSend(expectDataReady, akita.NewSendError())
 
 			rdmaEngine.processReqFromInside(10)
 
@@ -195,7 +195,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectDone := mem.NewDoneRsp(10,
 				rdmaEngine.ToOutside, remoteGPU.ToOutside, write.ID)
-			outsideConn.ExpectSend(expectDone, core.NewSendError())
+			outsideConn.ExpectSend(expectDone, akita.NewSendError())
 
 			rdmaEngine.processReqFromInside(10)
 
@@ -230,7 +230,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectRead := mem.NewReadReq(10,
 				rdmaEngine.ToInside, localCache.ToOutside, 0x100, 64)
-			insideConn.ExpectSend(expectRead, core.NewSendError())
+			insideConn.ExpectSend(expectRead, akita.NewSendError())
 
 			rdmaEngine.processReqFromOutside(10)
 
@@ -264,7 +264,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectRead := mem.NewWriteReq(10,
 				rdmaEngine.ToInside, localCache.ToOutside, 0x100)
-			insideConn.ExpectSend(expectRead, core.NewSendError())
+			insideConn.ExpectSend(expectRead, akita.NewSendError())
 
 			rdmaEngine.processReqFromOutside(10)
 
@@ -309,7 +309,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectDataReady := mem.NewDataReadyRsp(10,
 				rdmaEngine.ToInside, localCache.ToOutside, read.ID)
-			insideConn.ExpectSend(expectDataReady, core.NewSendError())
+			insideConn.ExpectSend(expectDataReady, akita.NewSendError())
 
 			rdmaEngine.processReqFromOutside(10)
 
@@ -355,7 +355,7 @@ var _ = Describe("Engine", func() {
 		It("should wait if outside connection is busy", func() {
 			expectDone := mem.NewDoneRsp(10,
 				rdmaEngine.ToInside, localCache.ToOutside, write.ID)
-			insideConn.ExpectSend(expectDone, core.NewSendError())
+			insideConn.ExpectSend(expectDone, akita.NewSendError())
 
 			rdmaEngine.processReqFromOutside(10)
 

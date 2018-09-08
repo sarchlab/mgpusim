@@ -3,8 +3,8 @@ package gcn3
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem/cache"
 )
 
 // A GPU is the unit that one kernel can run on.
@@ -14,39 +14,39 @@ import (
 // CPU-GPU communication happens on the connection connecting the "ToDriver"
 // port.
 type GPU struct {
-	*core.ComponentBase
+	*akita.ComponentBase
 
-	engine core.Engine
-	Freq   core.Freq
+	engine akita.Engine
+	Freq   akita.Freq
 
-	Driver           *core.Port // The DriverComponent
-	CommandProcessor *core.Port // The CommandProcessor
-	Dispatchers      []core.Component
-	CUs              []core.Component
-	L1VCaches        []core.Component
-	L1ICaches        []core.Component
-	L1KCaches        []core.Component
-	L2Caches         []core.Component
+	Driver           *akita.Port // The DriverComponent
+	CommandProcessor *akita.Port // The CommandProcessor
+	Dispatchers      []akita.Component
+	CUs              []akita.Component
+	L1VCaches        []akita.Component
+	L1ICaches        []akita.Component
+	L1KCaches        []akita.Component
+	L2Caches         []akita.Component
 	L2CacheFinder    cache.LowModuleFinder
 
-	ToDriver           *core.Port
-	ToCommandProcessor *core.Port
+	ToDriver           *akita.Port
+	ToCommandProcessor *akita.Port
 }
 
-func (g *GPU) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (g *GPU) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 }
 
-func (g *GPU) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (g *GPU) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
-	core.ProcessReqAsEvent(req, g.engine, g.Freq)
+	akita.ProcessReqAsEvent(req, g.engine, g.Freq)
 }
 
-// Handle defines how a GPU handles core.
+// Handle defines how a GPU handles akita.
 //
 // A GPU should not handle any event by itself.
-func (g *GPU) Handle(e core.Event) error {
+func (g *GPU) Handle(e akita.Event) error {
 	now := e.Time()
-	req := e.(core.Req)
+	req := e.(akita.Req)
 
 	if req.Src() == g.CommandProcessor { // From the CommandProcessor
 		req.SetSrc(g.ToDriver)
@@ -68,15 +68,15 @@ func (g *GPU) Handle(e core.Event) error {
 }
 
 // NewGPU returns a newly created GPU
-func NewGPU(name string, engine core.Engine) *GPU {
+func NewGPU(name string, engine akita.Engine) *GPU {
 	g := new(GPU)
-	g.ComponentBase = core.NewComponentBase(name)
+	g.ComponentBase = akita.NewComponentBase(name)
 
 	g.engine = engine
-	g.Freq = 1 * core.GHz
+	g.Freq = 1 * akita.GHz
 
-	g.ToDriver = core.NewPort(g)
-	g.ToCommandProcessor = core.NewPort(g)
+	g.ToDriver = akita.NewPort(g)
+	g.ToCommandProcessor = akita.NewPort(g)
 
 	return g
 }

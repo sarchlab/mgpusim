@@ -3,7 +3,7 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
+	"gitlab.com/akita/akita"
 )
 
 // A DecodeUnit is any type of decode unit that takes one cycle to decode
@@ -37,7 +37,7 @@ func (du *DecodeUnit) CanAcceptWave() bool {
 }
 
 // AcceptWave takes a wavefront and decode the instruction in the next cycle
-func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
+func (du *DecodeUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	if du.toDecode != nil {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
 	}
@@ -45,15 +45,15 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	du.toDecode = wave
 	du.decoded = false
 
-	du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
+	du.cu.InvokeHook(du.toDecode, du.cu, akita.Any,
 		&InstHookInfo{now, du.toDecode.inst, "DecodeStart"})
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
 // stage
-func (du *DecodeUnit) Run(now core.VTimeInSec) {
+func (du *DecodeUnit) Run(now akita.VTimeInSec) {
 	if du.toDecode != nil && !du.decoded {
-		du.cu.InvokeHook(du.toDecode, du.cu, core.Any,
+		du.cu.InvokeHook(du.toDecode, du.cu, akita.Any,
 			&InstHookInfo{now, du.toDecode.inst, "DecodeDone"})
 		du.decoded = true
 	}

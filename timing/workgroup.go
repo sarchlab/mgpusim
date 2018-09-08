@@ -1,8 +1,8 @@
 package timing
 
 import (
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 // A WorkGroup is a wrapper for the kernels.WorkGroup

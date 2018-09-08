@@ -1,8 +1,8 @@
 package timing
 
 import (
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 // WGMapper defines the behavior of how a workgroup is mapped in the compute

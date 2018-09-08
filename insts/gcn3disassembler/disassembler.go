@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 func main() {
