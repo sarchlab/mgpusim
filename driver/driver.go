@@ -3,35 +3,35 @@ package driver
 import (
 	"fmt"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
 )
 
 // Driver is an Yaotsu component that controls the simulated GPUs
 type Driver struct {
-	*core.ComponentBase
+	*akita.ComponentBase
 
-	engine core.Engine
-	freq   core.Freq
+	engine akita.Engine
+	freq   akita.Freq
 
 	memoryMasks              map[*mem.Storage]*MemoryMask
-	kernelLaunchingStartTime map[string]core.VTimeInSec
+	kernelLaunchingStartTime map[string]akita.VTimeInSec
 
-	ToGPUs *core.Port
+	ToGPUs *akita.Port
 }
 
-func (d *Driver) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (d *Driver) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 	// Do nothing
 }
 
-func (d *Driver) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (d *Driver) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
-	core.ProcessReqAsEvent(req, d.engine, d.freq)
+	akita.ProcessReqAsEvent(req, d.engine, d.freq)
 }
 
 // Handle process event that is scheduled on the driver
-func (d *Driver) Handle(e core.Event) error {
+func (d *Driver) Handle(e akita.Event) error {
 	switch e := e.(type) {
 	case *kernels.LaunchKernelReq:
 		return d.handleLaunchKernelReq(e)
@@ -49,16 +49,16 @@ func (d *Driver) handleLaunchKernelReq(req *kernels.LaunchKernelReq) error {
 }
 
 // NewDriver creates a new driver
-func NewDriver(engine core.Engine) *Driver {
+func NewDriver(engine akita.Engine) *Driver {
 	driver := new(Driver)
-	driver.ComponentBase = core.NewComponentBase("driver")
+	driver.ComponentBase = akita.NewComponentBase("driver")
 
 	driver.engine = engine
-	driver.freq = 1 * core.GHz
+	driver.freq = 1 * akita.GHz
 	driver.memoryMasks = make(map[*mem.Storage]*MemoryMask)
-	driver.kernelLaunchingStartTime = make(map[string]core.VTimeInSec)
+	driver.kernelLaunchingStartTime = make(map[string]akita.VTimeInSec)
 
-	driver.ToGPUs = core.NewPort(driver)
+	driver.ToGPUs = akita.NewPort(driver)
 
 	return driver
 }

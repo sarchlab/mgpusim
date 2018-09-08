@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 // ScratchpadPreparer is the unit that sets the instruction scratchpad

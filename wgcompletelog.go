@@ -3,13 +3,13 @@ package gcn3
 import (
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
+	"gitlab.com/akita/akita"
 )
 
 // WGCompleteLogger is the logger that writes the information of work-group
 // completion
 type WGCompleteLogger struct {
-	core.LogHookBase
+	akita.LogHookBase
 }
 
 // Type returns type timing.MapWGReq
@@ -18,12 +18,12 @@ func (l *WGCompleteLogger) Type() reflect.Type {
 }
 
 // Pos return AfterEvent
-func (l *WGCompleteLogger) Pos() core.HookPos {
-	return core.OnRecvReq
+func (l *WGCompleteLogger) Pos() akita.HookPos {
+	return akita.OnRecvReq
 }
 
 // Func defines the logging action
-func (l *WGCompleteLogger) Func(item interface{}, domain core.Hookable, info interface{}) {
+func (l *WGCompleteLogger) Func(item interface{}, domain akita.Hookable, info interface{}) {
 	req := item.(*WGFinishMesg)
 	wg := req.WG
 	l.Logger.Printf("%.10f, Work-group(%d, %d, %d) completed\n", req.RecvTime(),

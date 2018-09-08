@@ -5,13 +5,13 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
 )
 
 // MapWGLog is a LogHook that hooks to a the MapWGReq Event
 type MapWGLog struct {
-	core.LogHookBase
+	akita.LogHookBase
 }
 
 // NewMapWGLog returns a newly created MapWGHook
@@ -27,12 +27,12 @@ func (h *MapWGLog) Type() reflect.Type {
 }
 
 // Pos return AfterEvent
-func (h *MapWGLog) Pos() core.HookPos {
-	return core.AfterEvent
+func (h *MapWGLog) Pos() akita.HookPos {
+	return akita.AfterEvent
 }
 
 // Func defines the behavior when the hook is triggered
-func (h *MapWGLog) Func(item interface{}, domain core.Hookable, info interface{}) {
+func (h *MapWGLog) Func(item interface{}, domain akita.Hookable, info interface{}) {
 	req := item.(*gcn3.MapWGReq)
 	wg := req.WG
 	str := fmt.Sprintf("%.10f MapWG %d ok: %t\n",

@@ -4,28 +4,28 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/gcn3/emu"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem/cache"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
 // simulation of a GCN3 ComputeUnit
 type ComputeUnit struct {
-	*core.ComponentBase
-	ticker *core.Ticker
+	*akita.ComponentBase
+	ticker *akita.Ticker
 
 	WGMapper     WGMapper
 	WfDispatcher WfDispatcher
 	Decoder      emu.Decoder
 
-	engine core.Engine
-	Freq   core.Freq
+	engine akita.Engine
+	Freq   akita.Freq
 
 	WfPools              []*WavefrontPool
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
@@ -46,39 +46,39 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
-	InstMem          *core.Port
-	ScalarMem        *core.Port
+	InstMem          *akita.Port
+	ScalarMem        *akita.Port
 	VectorMemModules cache.LowModuleFinder
 
-	ToACE       *core.Port
-	ToInstMem   *core.Port
-	ToScalarMem *core.Port
-	ToVectorMem *core.Port
+	ToACE       *akita.Port
+	ToInstMem   *akita.Port
+	ToScalarMem *akita.Port
+	ToVectorMem *akita.Port
 }
 
-func (cu *ComputeUnit) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
-	core.ProcessReqAsEvent(req, cu.engine, cu.Freq)
+	akita.ProcessReqAsEvent(req, cu.engine, cu.Freq)
 }
 
-func (cu *ComputeUnit) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 	//panic("implement me")
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
-func (cu *ComputeUnit) Handle(evt core.Event) error {
+func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	cu.Lock()
 	defer cu.Unlock()
 
-	cu.InvokeHook(evt, cu, core.BeforeEvent, nil)
-	defer cu.InvokeHook(evt, cu, core.AfterEvent, nil)
+	cu.InvokeHook(evt, cu, akita.BeforeEvent, nil)
+	defer cu.InvokeHook(evt, cu, akita.AfterEvent, nil)
 
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
 		return cu.handleMapWGReq(evt)
 	case *WfDispatchEvent:
 		return cu.handleWfDispatchEvent(evt)
-	case *core.TickEvent:
+	case *akita.TickEvent:
 		return cu.handleTickEvent(evt)
 	case *WfCompletionEvent:
 		return cu.handleWfCompletionEvent(evt)
@@ -234,7 +234,7 @@ func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 	return false
 }
 
-func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
+func (cu *ComputeUnit) handleTickEvent(evt *akita.TickEvent) error {
 	now := evt.Time()
 
 	cu.BranchUnit.Run(now)
@@ -342,8 +342,8 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(rsp *mem.DataReadyRsp, info *M
 	wf.OutstandingScalarMemAccess -= 1
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-	cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+	cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 
 	return nil
 }
@@ -381,8 +381,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
@@ -396,8 +396,8 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(rsp *mem.DoneRsp, info *MemAcces
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, core.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 	return nil
@@ -406,23 +406,23 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(rsp *mem.DoneRsp, info *MemAcces
 // NewComputeUnit returns a newly constructed compute unit
 func NewComputeUnit(
 	name string,
-	engine core.Engine,
+	engine akita.Engine,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
-	cu.ComponentBase = core.NewComponentBase(name)
+	cu.ComponentBase = akita.NewComponentBase(name)
 
 	cu.engine = engine
-	cu.Freq = 1 * core.GHz
-	cu.ticker = core.NewTicker(cu, engine, cu.Freq)
+	cu.Freq = 1 * akita.GHz
+	cu.ticker = akita.NewTicker(cu, engine, cu.Freq)
 
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
 	cu.inFlightMemAccess = make(map[string]*MemAccessInfo)
 
-	cu.ToACE = core.NewPort(cu)
-	cu.ToInstMem = core.NewPort(cu)
-	cu.ToScalarMem = core.NewPort(cu)
-	cu.ToVectorMem = core.NewPort(cu)
+	cu.ToACE = akita.NewPort(cu)
+	cu.ToInstMem = akita.NewPort(cu)
+	cu.ToScalarMem = akita.NewPort(cu)
+	cu.ToVectorMem = akita.NewPort(cu)
 
 	return cu
 }

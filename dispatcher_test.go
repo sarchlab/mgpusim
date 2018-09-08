@@ -3,8 +3,8 @@ package gcn3
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 type mockGridBuilder struct {
@@ -32,18 +32,18 @@ func prepareGrid() *kernels.Grid {
 var _ = Describe("Dispatcher", func() {
 	var (
 		dispatcher             *Dispatcher
-		engine                 *core.MockEngine
+		engine                 *akita.MockEngine
 		grid                   *kernels.Grid
 		gridBuilder            *mockGridBuilder
-		toCommandProcessorConn *core.MockConnection
-		toCUsConn              *core.MockConnection
+		toCommandProcessorConn *akita.MockConnection
+		toCUsConn              *akita.MockConnection
 
-		cu0 *core.MockComponent
-		cu1 *core.MockComponent
+		cu0 *akita.MockComponent
+		cu1 *akita.MockComponent
 	)
 
 	BeforeEach(func() {
-		engine = core.NewMockEngine()
+		engine = akita.NewMockEngine()
 
 		grid = prepareGrid()
 		gridBuilder = new(mockGridBuilder)
@@ -52,13 +52,13 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher = NewDispatcher("dispatcher", engine, gridBuilder)
 		dispatcher.Freq = 1
 
-		toCommandProcessorConn = core.NewMockConnection()
+		toCommandProcessorConn = akita.NewMockConnection()
 		toCommandProcessorConn.PlugIn(dispatcher.ToCommandProcessor)
-		toCUsConn = core.NewMockConnection()
+		toCUsConn = akita.NewMockConnection()
 		toCUsConn.PlugIn(dispatcher.ToCUs)
 
-		cu0 = core.NewMockComponent("cu0")
-		cu1 = core.NewMockComponent("cu1")
+		cu0 = akita.NewMockComponent("cu0")
+		cu1 = akita.NewMockComponent("cu1")
 		dispatcher.RegisterCU(cu0.ToOutside)
 		dispatcher.RegisterCU(cu1.ToOutside)
 	})
@@ -121,7 +121,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatchingCUID = -1
 
 		expectedReq := NewMapWGReq(dispatcher.ToCUs, cu0.ToOutside, 10, wg)
-		toCUsConn.ExpectSend(expectedReq, core.NewSendError())
+		toCUsConn.ExpectSend(expectedReq, akita.NewSendError())
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)

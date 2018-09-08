@@ -5,13 +5,13 @@ import (
 	"log"
 	"math/rand"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/driver"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/platform"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/driver"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/platform"
+	"gitlab.com/akita/mem"
 )
 
 type BitonicKernelArgs struct {
@@ -25,7 +25,7 @@ type BitonicKernelArgs struct {
 }
 
 var (
-	engine    core.Engine
+	engine    akita.Engine
 	globalMem *mem.IdealMemController
 	gpu       *gcn3.GPU
 	gpuDriver *driver.Driver

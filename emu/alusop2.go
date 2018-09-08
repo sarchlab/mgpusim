@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 func (u *ALUImpl) runSOP2(state InstEmuState) {

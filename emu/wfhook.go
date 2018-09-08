@@ -5,13 +5,13 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 // WfHook is a hook that hooks to a emulator computeunit for each intruction
 type WfHook struct {
-	core.LogHookBase
+	akita.LogHookBase
 }
 
 // NewWfHook returns a new WfHook that keeps instruction log in logger
@@ -26,13 +26,13 @@ func (h *WfHook) Type() reflect.Type {
 	return reflect.TypeOf((*Wavefront)(nil))
 }
 
-// Pos of WfHook returns core.Any.
-func (h *WfHook) Pos() core.HookPos {
-	return core.Any
+// Pos of WfHook returns akita.Any.
+func (h *WfHook) Pos() akita.HookPos {
+	return akita.Any
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (h *WfHook) Func(item interface{}, domain core.Hookable, info interface{}) {
+func (h *WfHook) Func(item interface{}, domain akita.Hookable, info interface{}) {
 	wf := item.(*Wavefront)
 
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",

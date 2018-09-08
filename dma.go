@@ -4,41 +4,41 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/mem"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 )
 
 // A DMAEngine is responsible for accessing data that does not belongs to
 // the GPU that the DMAEngine works in.
 type DMAEngine struct {
-	*core.ComponentBase
-	ticker *core.Ticker
+	*akita.ComponentBase
+	ticker *akita.Ticker
 
-	engine          core.Engine
+	engine          akita.Engine
 	localDataSource cache.LowModuleFinder
 
-	Freq core.Freq
+	Freq akita.Freq
 
-	processingReq  core.Req
+	processingReq  akita.Req
 	progressOffset uint64
 	needTick       bool
 
-	ToCommandProcessor *core.Port
-	ToMem              *core.Port
+	ToCommandProcessor *akita.Port
+	ToMem              *akita.Port
 }
 
-func (dma *DMAEngine) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (dma *DMAEngine) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 	dma.ticker.TickLater(now)
 }
 
-func (dma *DMAEngine) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (dma *DMAEngine) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	dma.ticker.TickLater(now)
 }
 
-func (dma *DMAEngine) Handle(evt core.Event) error {
+func (dma *DMAEngine) Handle(evt akita.Event) error {
 	switch evt := evt.(type) {
-	case *core.TickEvent:
+	case *akita.TickEvent:
 		return dma.tick(evt)
 	default:
 		log.Panicf("cannot handle event for type %s", reflect.TypeOf(evt))
@@ -46,7 +46,7 @@ func (dma *DMAEngine) Handle(evt core.Event) error {
 	return nil
 }
 
-func (dma *DMAEngine) tick(evt *core.TickEvent) error {
+func (dma *DMAEngine) tick(evt *akita.TickEvent) error {
 	now := evt.Time()
 	dma.needTick = false
 
@@ -84,7 +84,7 @@ func (dma *DMAEngine) tick(evt *core.TickEvent) error {
 	return nil
 }
 
-func (dma *DMAEngine) acceptNewReq(now core.VTimeInSec) {
+func (dma *DMAEngine) acceptNewReq(now akita.VTimeInSec) {
 	if dma.processingReq != nil {
 		return
 	}
@@ -96,12 +96,12 @@ func (dma *DMAEngine) acceptNewReq(now core.VTimeInSec) {
 	}
 }
 
-func (dma *DMAEngine) processDoneRspFromLocalMemory(now core.VTimeInSec, rsp *mem.DoneRsp) {
+func (dma *DMAEngine) processDoneRspFromLocalMemory(now akita.VTimeInSec, rsp *mem.DoneRsp) {
 	dma.needTick = true
 	dma.ToMem.Retrieve(now)
 }
 
-func (dma *DMAEngine) processDataReadyRspFromLocalMemory(now core.VTimeInSec, rsp *mem.DataReadyRsp) {
+func (dma *DMAEngine) processDataReadyRspFromLocalMemory(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
 	offset := dma.progressOffset
 	length := uint64(len(rsp.Data))
 	req := dma.processingReq.(*MemCopyD2HReq)
@@ -111,7 +111,7 @@ func (dma *DMAEngine) processDataReadyRspFromLocalMemory(now core.VTimeInSec, rs
 	dma.needTick = true
 }
 
-func (dma *DMAEngine) doCopyH2D(now core.VTimeInSec, req *MemCopyH2DReq) error {
+func (dma *DMAEngine) doCopyH2D(now akita.VTimeInSec, req *MemCopyH2DReq) error {
 	if dma.memCopyH2DCompleted(req) {
 		dma.replyMemCopyH2D(now, req)
 		return nil
@@ -120,7 +120,7 @@ func (dma *DMAEngine) doCopyH2D(now core.VTimeInSec, req *MemCopyH2DReq) error {
 	return nil
 }
 
-func (dma *DMAEngine) writeMemory(now core.VTimeInSec, req *MemCopyH2DReq) {
+func (dma *DMAEngine) writeMemory(now akita.VTimeInSec, req *MemCopyH2DReq) {
 	address := req.DstAddress + dma.progressOffset
 	nextCacheLineAddress := address&0xffffffffffffffc0 + 64
 
@@ -140,7 +140,7 @@ func (dma *DMAEngine) writeMemory(now core.VTimeInSec, req *MemCopyH2DReq) {
 	}
 }
 
-func (dma *DMAEngine) replyMemCopyH2D(now core.VTimeInSec, req *MemCopyH2DReq) {
+func (dma *DMAEngine) replyMemCopyH2D(now akita.VTimeInSec, req *MemCopyH2DReq) {
 	req.SwapSrcAndDst()
 	req.SetSendTime(now)
 	err := dma.ToCommandProcessor.Send(req)
@@ -154,7 +154,7 @@ func (dma *DMAEngine) memCopyH2DCompleted(req *MemCopyH2DReq) bool {
 	return dma.progressOffset >= uint64(len(req.SrcBuffer))
 }
 
-func (dma *DMAEngine) doCopyD2H(now core.VTimeInSec, req *MemCopyD2HReq) error {
+func (dma *DMAEngine) doCopyD2H(now akita.VTimeInSec, req *MemCopyD2HReq) error {
 	if dma.memCopyD2HCompleted(req) {
 		dma.replyMemCopyD2H(now, req)
 		return nil
@@ -167,7 +167,7 @@ func (dma *DMAEngine) memCopyD2HCompleted(req *MemCopyD2HReq) bool {
 	return dma.progressOffset >= uint64(len(req.DstBuffer))
 }
 
-func (dma *DMAEngine) replyMemCopyD2H(now core.VTimeInSec, req *MemCopyD2HReq) {
+func (dma *DMAEngine) replyMemCopyD2H(now akita.VTimeInSec, req *MemCopyD2HReq) {
 	req.SwapSrcAndDst()
 	req.SetSendTime(now)
 	err := dma.ToCommandProcessor.Send(req)
@@ -177,7 +177,7 @@ func (dma *DMAEngine) replyMemCopyD2H(now core.VTimeInSec, req *MemCopyD2HReq) {
 	}
 }
 
-func (dma *DMAEngine) readMemory(now core.VTimeInSec, req *MemCopyD2HReq) {
+func (dma *DMAEngine) readMemory(now akita.VTimeInSec, req *MemCopyD2HReq) {
 	address := req.SrcAddress + dma.progressOffset
 	nextCacheLineAddress := address&0xffffffffffffffc0 + 64
 	length := nextCacheLineAddress - address
@@ -199,20 +199,20 @@ func (dma *DMAEngine) readMemory(now core.VTimeInSec, req *MemCopyD2HReq) {
 // that helps with locating the module that holds the data.
 func NewDMAEngine(
 	name string,
-	engine core.Engine,
+	engine akita.Engine,
 	localDataSource cache.LowModuleFinder,
 ) *DMAEngine {
-	componentBase := core.NewComponentBase(name)
+	componentBase := akita.NewComponentBase(name)
 	dma := new(DMAEngine)
 	dma.ComponentBase = componentBase
 	dma.engine = engine
 	dma.localDataSource = localDataSource
 
-	dma.Freq = 1 * core.GHz
-	dma.ticker = core.NewTicker(dma, engine, dma.Freq)
+	dma.Freq = 1 * akita.GHz
+	dma.ticker = akita.NewTicker(dma, engine, dma.Freq)
 
-	dma.ToCommandProcessor = core.NewPort(dma)
-	dma.ToMem = core.NewPort(dma)
+	dma.ToCommandProcessor = akita.NewPort(dma)
+	dma.ToMem = akita.NewPort(dma)
 
 	return dma
 }
@@ -220,19 +220,19 @@ func NewDMAEngine(
 // A MemCopyH2DReq is a request that asks the DMAEngine to copy memory
 // from the host to the device
 type MemCopyH2DReq struct {
-	*core.ReqBase
+	*akita.ReqBase
 	SrcBuffer  []byte
 	DstAddress uint64
 }
 
 // NewMemCopyH2DReq created a new MemCopyH2DReq
 func NewMemCopyH2DReq(
-	time core.VTimeInSec,
-	src, dst *core.Port,
+	time akita.VTimeInSec,
+	src, dst *akita.Port,
 	srcBuffer []byte,
 	dstAddress uint64,
 ) *MemCopyH2DReq {
-	reqBase := core.NewReqBase()
+	reqBase := akita.NewReqBase()
 	req := new(MemCopyH2DReq)
 	req.ReqBase = reqBase
 	req.SetSendTime(time)
@@ -246,19 +246,19 @@ func NewMemCopyH2DReq(
 // A MemCopyD2HReq is a request that asks the DMAEngine to copy memory
 // from the host to the device
 type MemCopyD2HReq struct {
-	*core.ReqBase
+	*akita.ReqBase
 	SrcAddress uint64
 	DstBuffer  []byte
 }
 
 // NewMemCopyD2HReq created a new MemCopyH2DReq
 func NewMemCopyD2HReq(
-	time core.VTimeInSec,
-	src, dst *core.Port,
+	time akita.VTimeInSec,
+	src, dst *akita.Port,
 	srcAddress uint64,
 	dstBuffer []byte,
 ) *MemCopyD2HReq {
-	reqBase := core.NewReqBase()
+	reqBase := akita.NewReqBase()
 	req := new(MemCopyD2HReq)
 	req.ReqBase = reqBase
 	req.SetSendTime(time)

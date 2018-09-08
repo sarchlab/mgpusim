@@ -1,21 +1,21 @@
 package timing
 
 import (
-	"gitlab.com/yaotsu/core"
+	"gitlab.com/akita/akita"
 )
 
 // A WfCompletionEvent marks the completion of a wavefront
 type WfCompletionEvent struct {
-	*core.EventBase
+	*akita.EventBase
 	Wf *Wavefront
 }
 
 // NewWfCompletionEvent returns a newly constructed WfCompleteEvent
-func NewWfCompletionEvent(time core.VTimeInSec, handler core.Handler,
+func NewWfCompletionEvent(time akita.VTimeInSec, handler akita.Handler,
 	wf *Wavefront,
 ) *WfCompletionEvent {
 	evt := new(WfCompletionEvent)
-	evt.EventBase = core.NewEventBase(time, handler)
+	evt.EventBase = akita.NewEventBase(time, handler)
 	evt.Wf = wf
 	return evt
 }

@@ -6,19 +6,19 @@ import (
 
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
 )
 
 // A LaunchKernelEvent is a kernel even with an assigned time to run
 //type LaunchKernelEvent struct {
-//	*core.EventBase
+//	*akita.EventBase
 //
 //	CO         *insts.HsaCo
-//	GPU        core.Component
+//	GPU        akita.Component
 //	Storage    *mem.Storage
 //	GridSize   [3]uint32
 //	WgSize     [3]uint16
@@ -26,17 +26,17 @@ import (
 //}
 //
 //func (d *Driver) ScheduleKernelLaunching(
-//	t core.VTimeInSec,
+//	t akita.VTimeInSec,
 //
 //	co *insts.HsaCo,
-//	gpu core.Component,
+//	gpu akita.Component,
 //	storage *mem.Storage,
 //	gridSize [3]uint32,
 //	wgSize [3]uint16,
 //	kernelArgs interface{},
 //) {
 //	k := new(LaunchKernelEvent)
-//	k.EventBase = core.NewEventBase(t, d)
+//	k.EventBase = akita.NewEventBase(t, d)
 //	d.engine.Schedule(k)
 //
 //	k.CO = co
@@ -97,7 +97,7 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,
-	gpu *core.Port,
+	gpu *akita.Port,
 	storage *mem.Storage,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
@@ -148,7 +148,7 @@ func (d *Driver) LaunchKernel(
 	d.finalFlush(endTime+1e-8, gpu)
 }
 
-func (d *Driver) finalFlush(now core.VTimeInSec, gpu *core.Port) {
+func (d *Driver) finalFlush(now akita.VTimeInSec, gpu *akita.Port) {
 	flushCommand := gcn3.NewFlushCommand(now, d.ToGPUs, gpu)
 	err := d.ToGPUs.Send(flushCommand)
 	if err != nil {

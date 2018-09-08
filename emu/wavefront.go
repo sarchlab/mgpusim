@@ -3,8 +3,8 @@ package emu
 import (
 	"log"
 
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 // A Wavefront in the emu package is a wrapper for the kernels.Wavefront

@@ -1,13 +1,13 @@
 package kernels
 
 import (
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 // A LaunchKernelReq is a request that asks a GPU to launch a kernel
 type LaunchKernelReq struct {
-	*core.ReqBase
+	*akita.ReqBase
 
 	Packet        *HsaKernelDispatchPacket
 	PacketAddress uint64
@@ -19,6 +19,6 @@ type LaunchKernelReq struct {
 // NewLaunchKernelReq returns a new LaunchKernelReq
 func NewLaunchKernelReq() *LaunchKernelReq {
 	r := new(LaunchKernelReq)
-	r.ReqBase = core.NewReqBase()
+	r.ReqBase = akita.NewReqBase()
 	return r
 }
