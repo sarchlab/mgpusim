@@ -3,24 +3,24 @@ package caches
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/mem"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 )
 
 var _ = Describe("L1V Cache", func() {
 	var (
-		engine     *core.MockEngine
+		engine     *akita.MockEngine
 		storage    *mem.Storage
 		directory  *cache.MockDirectory
 		l1v        *L1VCache
-		connection *core.MockConnection
+		connection *akita.MockConnection
 		l2Finder   cache.LowModuleFinder
 	)
 
 	BeforeEach(func() {
-		engine = core.NewMockEngine()
-		connection = core.NewMockConnection()
+		engine = akita.NewMockEngine()
+		connection = akita.NewMockConnection()
 		storage = mem.NewStorage(16 * mem.KB)
 		directory = new(cache.MockDirectory)
 		l2Finder = new(cache.SingleLowModuleFinder)
@@ -414,19 +414,19 @@ var _ = Describe("L1V Cache", func() {
 
 var _ = Describe("L1VCache black box", func() {
 	var (
-		engine     core.Engine
+		engine     akita.Engine
 		evictor    cache.Evictor
 		storage    *mem.Storage
 		directory  cache.Directory
 		l1v        *L1VCache
 		l2Finder   *cache.SingleLowModuleFinder
-		cu         *core.MockComponent
+		cu         *akita.MockComponent
 		lowModule  *mem.IdealMemController
-		connection *core.DirectConnection
+		connection *akita.DirectConnection
 	)
 
 	BeforeEach(func() {
-		engine = core.NewSerialEngine()
+		engine = akita.NewSerialEngine()
 		storage = mem.NewStorage(16 * mem.KB)
 		evictor = cache.NewLRUEvictor()
 		directory = cache.NewDirectory(64, 4, 64, evictor)
@@ -454,9 +454,9 @@ var _ = Describe("L1VCache black box", func() {
 		lowModule.Freq = 1
 		l2Finder.LowModule = lowModule.ToTop
 
-		cu = core.NewMockComponent("cu")
+		cu = akita.NewMockComponent("cu")
 
-		connection = core.NewDirectConnection(engine)
+		connection = akita.NewDirectConnection(engine)
 		connection.PlugIn(l1v.ToCU)
 		connection.PlugIn(l1v.ToL2)
 		connection.PlugIn(lowModule.ToTop)

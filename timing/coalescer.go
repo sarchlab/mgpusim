@@ -1,7 +1,7 @@
 package timing
 
 import (
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/mem/cache"
 )
 
 // A Coalescer defines the algorithm on how addresses can be coalesced
