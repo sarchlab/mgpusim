@@ -3,10 +3,10 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/emu"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
 type mockScratchpadPreparer struct {
@@ -50,8 +50,8 @@ var _ = Describe("Scalar Unit", func() {
 		sp        *mockScratchpadPreparer
 		bu        *ScalarUnit
 		alu       *mockALU
-		scalarMem *core.MockComponent
-		conn      *core.MockConnection
+		scalarMem *akita.MockComponent
+		conn      *akita.MockConnection
 	)
 
 	BeforeEach(func() {
@@ -59,8 +59,8 @@ var _ = Describe("Scalar Unit", func() {
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
 		bu = NewScalarUnit(cu, sp, alu)
-		scalarMem = core.NewMockComponent("ScalarMem")
-		conn = core.NewMockConnection()
+		scalarMem = akita.NewMockComponent("ScalarMem")
+		conn = akita.NewMockConnection()
 
 		cu.ScalarMem = scalarMem.ToOutside
 		conn.PlugIn(cu.ToScalarMem)
@@ -178,7 +178,7 @@ var _ = Describe("Scalar Unit", func() {
 		bu.readBuf = append(bu.readBuf, req)
 
 		expectedReq := mem.NewReadReq(11, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
-		err := core.NewSendError()
+		err := akita.NewSendError()
 		conn.ExpectSend(expectedReq, err)
 
 		bu.Run(11)

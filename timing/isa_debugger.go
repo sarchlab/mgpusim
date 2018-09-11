@@ -5,14 +5,14 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 // ISADebugger is a logger hook that can dump the wavefront status after each
 // instruction execution
 type ISADebugger struct {
-	core.LogHookBase
+	akita.LogHookBase
 }
 
 // NewISADebugger creates a new ISADebugger.
@@ -27,15 +27,15 @@ func (d *ISADebugger) Type() reflect.Type {
 	return reflect.TypeOf((*Wavefront)(nil))
 }
 
-// Pos of WfHook returns core.Any.
-func (d *ISADebugger) Pos() core.HookPos {
-	return core.Any
+// Pos of WfHook returns akita.Any.
+func (d *ISADebugger) Pos() akita.HookPos {
+	return akita.Any
 }
 
 // The action that the ISADebugger takes
 func (d *ISADebugger) Func(
 	item interface{},
-	domain core.Hookable,
+	domain akita.Hookable,
 	info interface{},
 ) {
 	instInfo := info.(*InstHookInfo)

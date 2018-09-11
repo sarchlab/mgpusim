@@ -1,11 +1,11 @@
 package platform
 
 import (
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/driver"
-	"gitlab.com/yaotsu/gcn3/gpubuilder"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/driver"
+	"gitlab.com/akita/gcn3/gpubuilder"
+	"gitlab.com/akita/mem"
 )
 
 var UseParallelEngine bool
@@ -15,22 +15,22 @@ var TraceMem bool
 
 // BuildEmuPlatform creates a simple platform for emulation purposes
 func BuildEmuPlatform() (
-	core.Engine,
+	akita.Engine,
 	*gcn3.GPU,
 	*driver.Driver,
 	*mem.IdealMemController,
 ) {
-	var engine core.Engine
+	var engine akita.Engine
 
 	if UseParallelEngine {
-		engine = core.NewParallelEngine()
+		engine = akita.NewParallelEngine()
 	} else {
-		engine = core.NewSerialEngine()
+		engine = akita.NewSerialEngine()
 	}
 	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
-	connection := core.NewDirectConnection(engine)
+	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
@@ -51,22 +51,22 @@ func BuildEmuPlatform() (
 
 //BuildR9NanoPlatform creates a platform that equips with a R9Nano GPU
 func BuildR9NanoPlatform() (
-	core.Engine,
+	akita.Engine,
 	*gcn3.GPU,
 	*driver.Driver,
 	*mem.IdealMemController,
 ) {
-	var engine core.Engine
+	var engine akita.Engine
 
 	if UseParallelEngine {
-		engine = core.NewParallelEngine()
+		engine = akita.NewParallelEngine()
 	} else {
-		engine = core.NewSerialEngine()
+		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(core.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
-	connection := core.NewDirectConnection(engine)
+	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver

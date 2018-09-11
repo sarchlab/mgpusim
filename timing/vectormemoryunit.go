@@ -3,9 +3,9 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
 // A VectorMemoryUnit performs Scalar operations
@@ -53,34 +53,34 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
+func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, u.toRead.inst, "ReadStart"})
+	u.cu.InvokeHook(u.toRead, u.cu, akita.Any, &InstHookInfo{now, u.toRead.inst, "ReadStart"})
 }
 
 // Run executes three pipeline stages that are controlled by the VectorMemoryUnit
-func (u *VectorMemoryUnit) Run(now core.VTimeInSec) {
+func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) {
 	u.sendRequest(now)
 	u.runExecStage(now)
 	u.runReadStage(now)
 }
 
-func (u *VectorMemoryUnit) runReadStage(now core.VTimeInSec) {
+func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) {
 	if u.toRead == nil {
 		return
 	}
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, u.toRead.inst, "ReadEnd"})
-		u.cu.InvokeHook(u.toRead, u.cu, core.Any, &InstHookInfo{now, u.toRead.inst, "ExecStart"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.Any, &InstHookInfo{now, u.toRead.inst, "ReadEnd"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.Any, &InstHookInfo{now, u.toRead.inst, "ExecStart"})
 
 		u.toExec = u.toRead
 		u.toRead = nil
 	}
 }
 
-func (u *VectorMemoryUnit) runExecStage(now core.VTimeInSec) {
+func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) {
 	if u.toExec == nil {
 		return
 	}
@@ -95,8 +95,8 @@ func (u *VectorMemoryUnit) runExecStage(now core.VTimeInSec) {
 			log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
 		}
 
-		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-		u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.Any, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
 
 		//u.toWrite = u.toExec
 		u.toExec.State = WfReady
@@ -104,7 +104,7 @@ func (u *VectorMemoryUnit) runExecStage(now core.VTimeInSec) {
 	}
 }
 
-func (u *VectorMemoryUnit) executeFlatInsts(now core.VTimeInSec) {
+func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 	u.toExec.OutstandingVectorMemAccess++
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
@@ -123,13 +123,13 @@ func (u *VectorMemoryUnit) executeFlatInsts(now core.VTimeInSec) {
 	}
 }
 
-func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now core.VTimeInSec) {
+func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
 	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
 	u.bufferDataLoadRequest(coalescedAddrs, sp.ADDR, byteSizePerLane/4, now)
 }
 
-func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now core.VTimeInSec) {
+func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
 	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
 	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, byteSizePerLane/4, now)
@@ -146,7 +146,7 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 	coalescedAddrs []uint64,
 	preCoalescedAddrs [64]uint64,
 	registerCount int,
-	now core.VTimeInSec,
+	now akita.VTimeInSec,
 ) {
 
 	instLevelInfo := new(InstLevelInfo)
@@ -176,7 +176,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
 	registerCount int,
-	now core.VTimeInSec,
+	now akita.VTimeInSec,
 ) {
 
 	instLevelInfo := new(InstLevelInfo)
@@ -218,7 +218,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	}
 }
 
-func (u *VectorMemoryUnit) sendRequest(now core.VTimeInSec) {
+func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) {
 	if len(u.ReadBuf) > 0 {
 		req := u.ReadBuf[0]
 		req.SetSendTime(now)

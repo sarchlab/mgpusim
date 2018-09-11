@@ -1,16 +1,16 @@
 package timing
 
 import (
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/emu"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/mem/cache"
 )
 
 // A Builder can construct a fully functional ComputeUnit to the outside world.
 // It simplify the compute unit building process.
 type Builder struct {
-	Engine    core.Engine
-	Freq      core.Freq
+	Engine    akita.Engine
+	Freq      akita.Freq
 	CUName    string
 	SIMDCount int
 	VGPRCount []int
@@ -20,19 +20,19 @@ type Builder struct {
 	ScratchpadPreparer ScratchpadPreparer
 	ALU                emu.ALU
 
-	InstMem          *core.Port
-	ScalarMem        *core.Port
+	InstMem          *akita.Port
+	ScalarMem        *akita.Port
 	VectorMemModules cache.LowModuleFinder
 
-	ConnToInstMem   core.Connection
-	ConnToScalarMem core.Connection
-	ConnToVectorMem core.Connection
+	ConnToInstMem   akita.Connection
+	ConnToScalarMem akita.Connection
+	ConnToVectorMem akita.Connection
 }
 
 // NewBuilder returns a default builder object
 func NewBuilder() *Builder {
 	b := new(Builder)
-	b.Freq = 800 * core.MHz
+	b.Freq = 800 * akita.MHz
 	b.SIMDCount = 4
 	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}

@@ -3,9 +3,9 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
 // A Scheduler is the controlling unit of a compute unit. It decides which
@@ -38,7 +38,7 @@ func NewScheduler(
 	return s
 }
 
-func (s *Scheduler) Run(now core.VTimeInSec) {
+func (s *Scheduler) Run(now akita.VTimeInSec) {
 	s.EvaluateInternalInst(now)
 	s.DecodeNextInst()
 	s.DoIssue(now)
@@ -80,7 +80,7 @@ func (s *Scheduler) DecodeNextInst() {
 
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
-func (s *Scheduler) DoFetch(now core.VTimeInSec) {
+func (s *Scheduler) DoFetch(now akita.VTimeInSec) {
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
 	if len(wfs) > 0 {
@@ -104,14 +104,14 @@ func (s *Scheduler) DoFetch(now core.VTimeInSec) {
 			s.cu.inFlightMemAccess[req.ID] = info
 			wf.IsFetching = true
 
-			//s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
+			//s.cu.InvokeHook(wf, s.cu, akita.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
 		}
 	}
 }
 
 // DoIssue function of the scheduler issues fetched instruction to the decoding
 // units
-func (s *Scheduler) DoIssue(now core.VTimeInSec) {
+func (s *Scheduler) DoIssue(now akita.VTimeInSec) {
 	wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 	for _, wf := range wfs {
 		if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
@@ -127,7 +127,7 @@ func (s *Scheduler) DoIssue(now core.VTimeInSec) {
 			wf.State = WfRunning
 			wf.PC += uint64(wf.inst.ByteSize)
 			s.removeStaleInstBuffer(wf)
-			s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "Issue"})
+			s.cu.InvokeHook(wf, s.cu, akita.Any, &InstHookInfo{now, wf.inst, "Issue"})
 		}
 	}
 }
@@ -139,7 +139,7 @@ func (s *Scheduler) removeStaleInstBuffer(wf *Wavefront) {
 	}
 }
 
-func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
+func (s *Scheduler) issueToInternal(wf *Wavefront, now akita.VTimeInSec) {
 	if s.internalExecuting == nil {
 		wf.inst = wf.InstToIssue
 		wf.InstToIssue = nil
@@ -147,7 +147,7 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now core.VTimeInSec) {
 		wf.State = WfRunning
 		wf.PC += uint64(wf.Inst().ByteSize)
 		s.removeStaleInstBuffer(wf)
-		s.cu.InvokeHook(wf, s.cu, core.Any, &InstHookInfo{now, wf.inst, "Issue"})
+		s.cu.InvokeHook(wf, s.cu, akita.Any, &InstHookInfo{now, wf.inst, "Issue"})
 	}
 }
 
@@ -171,7 +171,7 @@ func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
 
 // EvaluateInternalInst updates the status of the instruction being executed
 // in the scheduler.
-func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
+func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) {
 	if s.internalExecuting == nil {
 		return
 	}
@@ -192,12 +192,12 @@ func (s *Scheduler) EvaluateInternalInst(now core.VTimeInSec) {
 	}
 
 	if s.internalExecuting == nil {
-		s.cu.InvokeHook(executing, s.cu, core.Any,
+		s.cu.InvokeHook(executing, s.cu, akita.Any,
 			&InstHookInfo{now, executing.inst, "Completed"})
 	}
 }
 
-func (s *Scheduler) evalSEndPgm(wf *Wavefront, now core.VTimeInSec) {
+func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) {
 	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
 		return
 	}
@@ -224,7 +224,7 @@ func (s *Scheduler) resetRegisterValue(wf *Wavefront) {
 	sRegStorage.Write(offset, data)
 }
 
-func (s *Scheduler) evalSBarrier(wf *Wavefront, now core.VTimeInSec) {
+func (s *Scheduler) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) {
 	wg := wf.WG
 	allAtBarrier := true
 	for _, wavefront := range wg.Wfs {
@@ -262,7 +262,7 @@ func (s *Scheduler) evalSBarrier(wf *Wavefront, now core.VTimeInSec) {
 	}
 }
 
-func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now core.VTimeInSec) {
+func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) {
 	done := true
 	inst := wf.Inst()
 

@@ -1,13 +1,13 @@
 package timing
 
 import (
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
 )
 
 // WfDispatchCompletionEvent marks the completion of a wavefront dispatching
 type WfDispatchEvent struct {
-	*core.EventBase
+	*akita.EventBase
 
 	ManagedWf  *Wavefront
 	IsLastInWG bool
@@ -16,12 +16,12 @@ type WfDispatchEvent struct {
 
 // NewWfDispatchEvent creates a new WfDispatchCompletionEvent
 func NewWfDispatchEvent(
-	t core.VTimeInSec,
-	handler core.Handler,
+	t akita.VTimeInSec,
+	handler akita.Handler,
 	Wf *Wavefront,
 ) *WfDispatchEvent {
 	evt := new(WfDispatchEvent)
-	evt.EventBase = core.NewEventBase(t, handler)
+	evt.EventBase = akita.NewEventBase(t, handler)
 	evt.ManagedWf = Wf
 	return evt
 }

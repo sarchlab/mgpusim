@@ -13,9 +13,9 @@ stages:
   - test
 
 before_script:
-  - export PROJECT_DIR=/go/src/gitlab.com/yaotsu/gcn3
+  - export PROJECT_DIR=/go/src/gitlab.com/akita/gcn3
   - mkdir -p ${PROJECT_DIR}
-  - cp -r ${CI_PROJECT_DIR} /go/src/gitlab.com/yaotsu
+  - cp -r ${CI_PROJECT_DIR} /go/src/gitlab.com/akita
   - cd ${PROJECT_DIR} && go get -t ./...
 
 go_build:

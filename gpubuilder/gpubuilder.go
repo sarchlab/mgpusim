@@ -3,30 +3,28 @@ package gpubuilder
 import (
 	"fmt"
 
-	"gitlab.com/yaotsu/gcn3/timing/caches"
-
-	"gitlab.com/yaotsu/mem"
-
 	"log"
 
 	"os"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/driver"
-	"gitlab.com/yaotsu/gcn3/emu"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/trace"
-	"gitlab.com/yaotsu/mem/cache"
-	memtraces "gitlab.com/yaotsu/mem/trace"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/driver"
+	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing"
+	"gitlab.com/akita/gcn3/timing/caches"
+	"gitlab.com/akita/gcn3/trace"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
+	memtraces "gitlab.com/akita/mem/trace"
 )
 
 // GPUBuilder provide services to assemble usable GPUs
 type GPUBuilder struct {
-	engine  core.Engine
-	freq    core.Freq
+	engine  akita.Engine
+	freq    akita.Freq
 	Driver  *driver.Driver
 	GPUName string
 
@@ -36,10 +34,10 @@ type GPUBuilder struct {
 }
 
 // NewGPUBuilder returns a new GPUBuilder
-func NewGPUBuilder(engine core.Engine) *GPUBuilder {
+func NewGPUBuilder(engine akita.Engine) *GPUBuilder {
 	b := new(GPUBuilder)
 	b.engine = engine
-	b.freq = 1 * core.GHz
+	b.freq = 1 * akita.GHz
 	b.GPUName = "GPU"
 
 	b.EnableISADebug = false
@@ -49,7 +47,7 @@ func NewGPUBuilder(engine core.Engine) *GPUBuilder {
 
 // BuildEmulationGPU creates a very simple GPU for emulation purposes
 func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
-	connection := core.NewDirectConnection(b.engine)
+	connection := akita.NewDirectConnection(b.engine)
 
 	dispatcher := gcn3.NewDispatcher(b.GPUName+".Dispatcher", b.engine,
 		new(kernels.GridBuilderImpl))
@@ -66,7 +64,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	}
 
 	gpuMem := mem.NewIdealMemController(b.GPUName+".GlobalMem", b.engine, 4*mem.GB)
-	gpuMem.Freq = 1 * core.GHz
+	gpuMem.Freq = 1 * akita.GHz
 	gpuMem.Latency = 1
 	if b.EnableMemTracing {
 		gpuMem.AcceptHook(memTracer)
@@ -119,8 +117,8 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 }
 
 func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
-	b.freq = 1000 * core.MHz
-	connection := core.NewDirectConnection(b.engine)
+	b.freq = 1000 * akita.MHz
+	connection := akita.NewDirectConnection(b.engine)
 
 	var memTracer *memtraces.Tracer
 	if b.EnableMemTracing {
@@ -178,7 +176,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		l2Cache.DirectoryLatency = 0
 		l2Cache.Latency = 70
 		l2Cache.SetNumBanks(4096)
-		l2Cache.Freq = 1 * core.GHz
+		l2Cache.Freq = 1 * akita.GHz
 		lowModuleFinderForL1.LowModules = append(
 			lowModuleFinderForL1.LowModules, l2Cache.ToTop)
 		connection.PlugIn(l2Cache.ToTop)

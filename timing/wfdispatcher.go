@@ -3,13 +3,13 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 // A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
-	DispatchWf(now core.VTimeInSec, wf *Wavefront)
+	DispatchWf(now akita.VTimeInSec, wf *Wavefront)
 }
 
 // A WfDispatcherImpl will register the wavefront in wavefront pool and
@@ -30,7 +30,7 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 
 // DispatchWf starts or continues a wavefront dispatching process.
 func (d *WfDispatcherImpl) DispatchWf(
-	now core.VTimeInSec,
+	now akita.VTimeInSec,
 	wf *Wavefront,
 ) {
 	d.setWfInfo(wf)

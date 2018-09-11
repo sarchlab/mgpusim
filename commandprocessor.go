@@ -4,10 +4,10 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/mem"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 )
 
 type Resettable interface {
@@ -21,17 +21,17 @@ type Resettable interface {
 //     ToDriver <=> Receive request and send feedback to the driver
 //     ToDispatcher <=> Dispatcher of compute kernels
 type CommandProcessor struct {
-	*core.ComponentBase
+	*akita.ComponentBase
 
-	engine core.Engine
-	Freq   core.Freq
+	engine akita.Engine
+	Freq   akita.Freq
 
-	Dispatcher *core.Port
-	DMAEngine  *core.Port
-	Driver     *core.Port
+	Dispatcher *akita.Port
+	DMAEngine  *akita.Port
+	Driver     *akita.Port
 
-	ToDriver     *core.Port
-	ToDispatcher *core.Port
+	ToDriver     *akita.Port
+	ToDispatcher *akita.Port
 
 	ToResetAfterKernel          []Resettable
 	L2Caches                    []*cache.WriteBackCache
@@ -39,17 +39,17 @@ type CommandProcessor struct {
 	kernelFixedOverheadInCycles int
 }
 
-func (p *CommandProcessor) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
-	core.ProcessReqAsEvent(req, p.engine, p.Freq)
+	akita.ProcessReqAsEvent(req, p.engine, p.Freq)
 }
 
-func (p *CommandProcessor) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 	//panic("implement me")
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
-func (p *CommandProcessor) Handle(e core.Event) error {
+func (p *CommandProcessor) Handle(e akita.Event) error {
 	switch req := e.(type) {
 	case *kernels.LaunchKernelReq:
 		return p.processLaunchKernelReq(req)
@@ -129,7 +129,7 @@ func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
 	}
 }
 
-func (p *CommandProcessor) processMemCopyReq(req core.Req) error {
+func (p *CommandProcessor) processMemCopyReq(req akita.Req) error {
 	now := req.Time()
 	if req.Src() == p.Driver {
 		req.SetDst(p.DMAEngine)
@@ -148,34 +148,34 @@ func (p *CommandProcessor) processMemCopyReq(req core.Req) error {
 }
 
 // NewCommandProcessor creates a new CommandProcessor
-func NewCommandProcessor(name string, engine core.Engine) *CommandProcessor {
+func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c := new(CommandProcessor)
-	c.ComponentBase = core.NewComponentBase(name)
+	c.ComponentBase = akita.NewComponentBase(name)
 
 	c.engine = engine
-	c.Freq = 1 * core.GHz
+	c.Freq = 1 * akita.GHz
 
 	c.kernelFixedOverheadInCycles = 1600
 	c.L2Caches = make([]*cache.WriteBackCache, 0)
 
-	c.ToDriver = core.NewPort(c)
-	c.ToDispatcher = core.NewPort(c)
+	c.ToDriver = akita.NewPort(c)
+	c.ToDispatcher = akita.NewPort(c)
 
 	return c
 }
 
 type ReplyKernelCompletionEvent struct {
-	*core.EventBase
+	*akita.EventBase
 	Req *kernels.LaunchKernelReq
 }
 
 func NewReplyKernelCompletionEvent(
-	time core.VTimeInSec,
-	handler core.Handler,
+	time akita.VTimeInSec,
+	handler akita.Handler,
 	req *kernels.LaunchKernelReq,
 ) *ReplyKernelCompletionEvent {
 	evt := new(ReplyKernelCompletionEvent)
-	evt.EventBase = core.NewEventBase(time, handler)
+	evt.EventBase = akita.NewEventBase(time, handler)
 	evt.Req = req
 	return evt
 }

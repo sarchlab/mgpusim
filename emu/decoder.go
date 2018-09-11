@@ -1,6 +1,6 @@
 package emu
 
-import "gitlab.com/yaotsu/gcn3/insts"
+import "gitlab.com/akita/gcn3/insts"
 
 // Decoder defines the interface that can convert instruction bytes to
 // instructions

@@ -1,6 +1,6 @@
 package timing
 
-import "gitlab.com/yaotsu/core"
+import "gitlab.com/akita/akita"
 import "math"
 
 // A FetchArbiter can decide which wavefront in a scheduler can fetch
@@ -13,7 +13,7 @@ type FetchArbiter struct {
 func (a *FetchArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 	list := make([]*Wavefront, 0, 1)
 
-	oldestTime := core.VTimeInSec(math.MaxFloat64)
+	oldestTime := akita.VTimeInSec(math.MaxFloat64)
 	var toFetch *Wavefront
 	for _, wfPool := range wfPools {
 		for _, wf := range wfPool.wfs {

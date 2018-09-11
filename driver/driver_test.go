@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/mem"
 )
 
 func TestDriver(t *testing.T) {
@@ -16,14 +15,14 @@ func TestDriver(t *testing.T) {
 }
 
 var _ = Describe("Driver", func() {
-	var (
-		storage *mem.Storage
-		driver  *Driver
-	)
-
-	BeforeEach(func() {
-		storage = mem.NewStorage(4 * mem.GB)
-		driver = NewDriver(nil)
-	})
+	//var (
+	//	storage *mem.Storage
+	//	driver  *Driver
+	//)
+	//
+	//BeforeEach(func() {
+	//	storage = mem.NewStorage(4 * mem.GB)
+	//	driver = NewDriver(nil)
+	//})
 
 })

@@ -3,10 +3,10 @@ package timing
 import (
 	"sync"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/emu"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 // WfState marks what state that wavefront it in.
@@ -34,10 +34,10 @@ type Wavefront struct {
 	PacketAddress uint64
 
 	State          WfState
-	inst           *Inst           // The instruction that is being executed
-	scratchpad     emu.Scratchpad  // A temp data buf that is shared by different stages
-	LastFetchTime  core.VTimeInSec // The time that the last instruction was fetched
-	CompletedLanes int             // The number of lanes that is completed in the SIMD unit
+	inst           *Inst            // The instruction that is being executed
+	scratchpad     emu.Scratchpad   // A temp data buf that is shared by different stages
+	LastFetchTime  akita.VTimeInSec // The time that the last instruction was fetched
+	CompletedLanes int              // The number of lanes that is completed in the SIMD unit
 
 	InstBuffer        []byte
 	InstBufferStartPC uint64

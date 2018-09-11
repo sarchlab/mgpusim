@@ -4,14 +4,14 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
 // ask the ComputeUnit to reserve resources for the work-group
 type MapWGReq struct {
-	*core.ReqBase
+	*akita.ReqBase
 
 	WG               *kernels.WorkGroup
 	Ok               bool
@@ -20,12 +20,12 @@ type MapWGReq struct {
 
 // NewMapWGReq returns a newly created MapWGReq
 func NewMapWGReq(
-	src, dst *core.Port,
-	time core.VTimeInSec,
+	src, dst *akita.Port,
+	time akita.VTimeInSec,
 	wg *kernels.WorkGroup,
 ) *MapWGReq {
 	r := new(MapWGReq)
-	r.ReqBase = core.NewReqBase()
+	r.ReqBase = akita.NewReqBase()
 	r.SetSrc(src)
 	r.SetDst(dst)
 	r.SetSendTime(time)
@@ -35,32 +35,32 @@ func NewMapWGReq(
 
 // A MapWGEvent is an event used by the dispatcher to map a work-group
 type MapWGEvent struct {
-	*core.EventBase
+	*akita.EventBase
 }
 
 // NewMapWGEvent creates a new MapWGEvent
-func NewMapWGEvent(t core.VTimeInSec, handler core.Handler) *MapWGEvent {
+func NewMapWGEvent(t akita.VTimeInSec, handler akita.Handler) *MapWGEvent {
 	e := new(MapWGEvent)
-	e.EventBase = core.NewEventBase(t, handler)
+	e.EventBase = akita.NewEventBase(t, handler)
 	return e
 }
 
 // A WGFinishMesg is sent by a compute unit to notify about the completion of
 // a work-group
 type WGFinishMesg struct {
-	*core.ReqBase
+	*akita.ReqBase
 
 	WG *kernels.WorkGroup
 }
 
 // NewWGFinishMesg creates and returns a newly created WGFinishMesg
 func NewWGFinishMesg(
-	src, dst *core.Port,
-	time core.VTimeInSec,
+	src, dst *akita.Port,
+	time akita.VTimeInSec,
 	wg *kernels.WorkGroup,
 ) *WGFinishMesg {
 	m := new(WGFinishMesg)
-	m.ReqBase = core.NewReqBase()
+	m.ReqBase = akita.NewReqBase()
 
 	m.SetSrc(src)
 	m.SetDst(dst)
@@ -117,14 +117,14 @@ const (
 //
 
 type Dispatcher struct {
-	*core.ComponentBase
+	*akita.ComponentBase
 
-	cus    []*core.Port
-	cuBusy map[*core.Port]bool
+	cus    []*akita.Port
+	cuBusy map[*akita.Port]bool
 
-	engine      core.Engine
+	engine      akita.Engine
 	gridBuilder kernels.GridBuilder
-	Freq        core.Freq
+	Freq        akita.Freq
 
 	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
 	dispatchingReq  *kernels.LaunchKernelReq
@@ -135,26 +135,26 @@ type Dispatcher struct {
 	dispatchingCUID int
 	state           DispatcherState
 
-	ToCUs              *core.Port
-	ToCommandProcessor *core.Port
+	ToCUs              *akita.Port
+	ToCommandProcessor *akita.Port
 }
 
-func (d *Dispatcher) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
-	core.ProcessReqAsEvent(req, d.engine, d.Freq)
+	akita.ProcessReqAsEvent(req, d.engine, d.Freq)
 }
 
-func (d *Dispatcher) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (d *Dispatcher) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 	//panic("implement me")
 }
 
 // Handle perform actions when an event is triggered
-func (d *Dispatcher) Handle(evt core.Event) error {
+func (d *Dispatcher) Handle(evt akita.Event) error {
 	d.Lock()
 	defer d.Unlock()
 
-	d.InvokeHook(evt, d, core.BeforeEvent, nil)
-	defer d.InvokeHook(evt, d, core.AfterEvent, nil)
+	d.InvokeHook(evt, d, akita.BeforeEvent, nil)
+	defer d.InvokeHook(evt, d, akita.AfterEvent, nil)
 
 	switch evt := evt.(type) {
 	case *kernels.LaunchKernelReq:
@@ -197,8 +197,8 @@ func (d *Dispatcher) handleLaunchKernelReq(
 func (d *Dispatcher) replyLaunchKernelReq(
 	ok bool,
 	req *kernels.LaunchKernelReq,
-	now core.VTimeInSec,
-) *core.SendError {
+	now akita.VTimeInSec,
+) *akita.SendError {
 	req.OK = ok
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.RecvTime())
@@ -243,7 +243,7 @@ func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
 	d.dispatchingCUID = -1
 }
 
-func (d *Dispatcher) scheduleMapWG(time core.VTimeInSec) {
+func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {
 	evt := NewMapWGEvent(time, d)
 	d.engine.Schedule(evt)
 }
@@ -283,7 +283,7 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	return nil
 }
 
-func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
+func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 
 	//log.Printf("Kernel completed at %.12f\n", now)
 
@@ -299,7 +299,7 @@ func (d *Dispatcher) replyKernelFinish(now core.VTimeInSec) {
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
 // dispatches wavefronts to the CU
-func (d *Dispatcher) RegisterCU(cu *core.Port) {
+func (d *Dispatcher) RegisterCU(cu *akita.Port) {
 	d.cus = append(d.cus, cu)
 	d.cuBusy[cu] = false
 }
@@ -323,23 +323,23 @@ func (d *Dispatcher) nextAvailableCU() (int, bool) {
 // NewDispatcher creates a new dispatcher
 func NewDispatcher(
 	name string,
-	engine core.Engine,
+	engine akita.Engine,
 	gridBuilder kernels.GridBuilder,
 ) *Dispatcher {
 	d := new(Dispatcher)
-	d.ComponentBase = core.NewComponentBase(name)
+	d.ComponentBase = akita.NewComponentBase(name)
 
 	d.gridBuilder = gridBuilder
 	d.engine = engine
 
-	d.cus = make([]*core.Port, 0)
-	d.cuBusy = make(map[*core.Port]bool, 0)
+	d.cus = make([]*akita.Port, 0)
+	d.cuBusy = make(map[*akita.Port]bool, 0)
 	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
 	d.completedWGs = make([]*kernels.WorkGroup, 0)
 	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
 
-	d.ToCommandProcessor = core.NewPort(d)
-	d.ToCUs = core.NewPort(d)
+	d.ToCommandProcessor = akita.NewPort(d)
+	d.ToCUs = akita.NewPort(d)
 
 	d.state = DispatcherIdle
 

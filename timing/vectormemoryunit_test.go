@@ -3,10 +3,10 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 )
 
 var _ = Describe("Vector Memory Unit", func() {
@@ -16,8 +16,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		sp        *mockScratchpadPreparer
 		coalescer *MockCoalescer
 		bu        *VectorMemoryUnit
-		vectorMem *core.MockComponent
-		conn      *core.MockConnection
+		vectorMem *akita.MockComponent
+		conn      *akita.MockConnection
 	)
 
 	BeforeEach(func() {
@@ -25,8 +25,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		sp = new(mockScratchpadPreparer)
 		coalescer = new(MockCoalescer)
 		bu = NewVectorMemoryUnit(cu, sp, coalescer)
-		vectorMem = core.NewMockComponent("VectorMem")
-		conn = core.NewMockConnection()
+		vectorMem = akita.NewMockComponent("VectorMem")
+		conn = akita.NewMockConnection()
 
 		cu.VectorMemModules = new(cache.SingleLowModuleFinder)
 		conn.PlugIn(cu.ToVectorMem)
@@ -115,7 +115,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
 		bu.ReadBuf = append(bu.ReadBuf, loadReq)
 
-		err := core.NewSendError()
+		err := akita.NewSendError()
 		conn.ExpectSend(loadReq, err)
 
 		bu.Run(10)

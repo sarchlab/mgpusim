@@ -4,32 +4,32 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/mem"
-	"gitlab.com/yaotsu/mem/cache"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 )
 
 // An Engine is a component that helps one GPU to access the memory on
 // another GPU
 type Engine struct {
-	*core.ComponentBase
-	ticker *core.Ticker
+	*akita.ComponentBase
+	ticker *akita.Ticker
 
-	ToOutside *core.Port
-	ToInside  *core.Port
+	ToOutside *akita.Port
+	ToInside  *akita.Port
 
-	engine        core.Engine
+	engine        akita.Engine
 	localModules  cache.LowModuleFinder
 	remoteModules cache.LowModuleFinder
-	originalSrc   map[string]*core.Port
+	originalSrc   map[string]*akita.Port
 
-	freq     core.Freq
+	freq     akita.Freq
 	needTick bool
 }
 
-func (e *Engine) Handle(evt core.Event) error {
+func (e *Engine) Handle(evt akita.Event) error {
 	switch evt := evt.(type) {
-	case *core.TickEvent:
+	case *akita.TickEvent:
 		e.tick(evt.Time())
 	default:
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
@@ -37,7 +37,7 @@ func (e *Engine) Handle(evt core.Event) error {
 	return nil
 }
 
-func (e *Engine) tick(now core.VTimeInSec) {
+func (e *Engine) tick(now akita.VTimeInSec) {
 	e.needTick = false
 
 	e.processReqFromInside(now)
@@ -48,7 +48,7 @@ func (e *Engine) tick(now core.VTimeInSec) {
 	}
 }
 
-func (e *Engine) processReqFromInside(now core.VTimeInSec) {
+func (e *Engine) processReqFromInside(now akita.VTimeInSec) {
 	req := e.ToInside.Peek()
 	if req == nil {
 		return
@@ -70,7 +70,7 @@ func (e *Engine) processReqFromInside(now core.VTimeInSec) {
 	}
 }
 
-func (e *Engine) sendReqToOutside(now core.VTimeInSec, req core.Req, dst *core.Port) {
+func (e *Engine) sendReqToOutside(now akita.VTimeInSec, req akita.Req, dst *akita.Port) {
 	originalSrc := req.Src()
 	req.SetSrc(e.ToOutside)
 	req.SetDst(dst)
@@ -82,7 +82,7 @@ func (e *Engine) sendReqToOutside(now core.VTimeInSec, req core.Req, dst *core.P
 	}
 }
 
-func (e *Engine) sendRspToOutside(now core.VTimeInSec, req mem.MemRsp) {
+func (e *Engine) sendRspToOutside(now akita.VTimeInSec, req mem.MemRsp) {
 	src, found := e.originalSrc[req.GetRespondTo()]
 	if !found {
 		log.Panic("original src not found")
@@ -97,7 +97,7 @@ func (e *Engine) sendRspToOutside(now core.VTimeInSec, req mem.MemRsp) {
 	}
 }
 
-func (e *Engine) processReqFromOutside(now core.VTimeInSec) {
+func (e *Engine) processReqFromOutside(now akita.VTimeInSec) {
 	req := e.ToOutside.Peek()
 	if req == nil {
 		return
@@ -119,7 +119,7 @@ func (e *Engine) processReqFromOutside(now core.VTimeInSec) {
 	}
 }
 
-func (e *Engine) sendReqToInside(now core.VTimeInSec, req core.Req, dst *core.Port) {
+func (e *Engine) sendReqToInside(now akita.VTimeInSec, req akita.Req, dst *akita.Port) {
 	originalSrc := req.Src()
 	req.SetSrc(e.ToInside)
 	req.SetDst(dst)
@@ -131,7 +131,7 @@ func (e *Engine) sendReqToInside(now core.VTimeInSec, req core.Req, dst *core.Po
 	}
 }
 
-func (e *Engine) sendRspToInside(now core.VTimeInSec, req mem.MemRsp) {
+func (e *Engine) sendRspToInside(now akita.VTimeInSec, req mem.MemRsp) {
 	src, found := e.originalSrc[req.GetRespondTo()]
 	if !found {
 		log.Panic("original src not found")
@@ -146,37 +146,37 @@ func (e *Engine) sendRspToInside(now core.VTimeInSec, req mem.MemRsp) {
 	}
 }
 
-func (e *Engine) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (e *Engine) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	e.ticker.TickLater(now)
 }
 
-func (e *Engine) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (e *Engine) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 	e.ticker.TickLater(now)
 }
 
-func (e *Engine) SetFreq(freq core.Freq) {
+func (e *Engine) SetFreq(freq akita.Freq) {
 	e.freq = freq
 }
 
 func NewEngine(
 	name string,
-	engine core.Engine,
+	engine akita.Engine,
 	localModules cache.LowModuleFinder,
 	remoteModules cache.LowModuleFinder,
 ) *Engine {
 	e := new(Engine)
-	e.freq = 1 * core.GHz
-	e.ComponentBase = core.NewComponentBase(name)
-	e.ticker = core.NewTicker(e, engine, e.freq)
+	e.freq = 1 * akita.GHz
+	e.ComponentBase = akita.NewComponentBase(name)
+	e.ticker = akita.NewTicker(e, engine, e.freq)
 
 	e.engine = engine
 	e.localModules = localModules
 	e.remoteModules = remoteModules
 
-	e.originalSrc = make(map[string]*core.Port)
+	e.originalSrc = make(map[string]*akita.Port)
 
-	e.ToInside = core.NewPort(e)
-	e.ToOutside = core.NewPort(e)
+	e.ToInside = akita.NewPort(e)
+	e.ToOutside = akita.NewPort(e)
 
 	return e
 }
