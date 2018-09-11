@@ -3,8 +3,8 @@ package emu
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
 type mockInstState struct {

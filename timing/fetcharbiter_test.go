@@ -3,7 +3,7 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
+	"gitlab.com/akita/akita"
 )
 
 var _ = Describe("FetchArbiter", func() {
@@ -22,7 +22,7 @@ var _ = Describe("FetchArbiter", func() {
 	})
 
 	It("should find the oldest wf to dispatch", func() {
-		wfLastFetchTime := []core.VTimeInSec{
+		wfLastFetchTime := []akita.VTimeInSec{
 			10.2, 10.3, 9.8, 9.7, 9.4,
 			9.6, 9.6, 9.5, 9.8, 10.0,
 		}
@@ -45,6 +45,6 @@ var _ = Describe("FetchArbiter", func() {
 		wfs := arbiter.Arbitrate(wfPools)
 
 		Expect(len(wfs)).To(Equal(1))
-		Expect(wfs[0].LastFetchTime).To(Equal(core.VTimeInSec(9.5)))
+		Expect(wfs[0].LastFetchTime).To(Equal(akita.VTimeInSec(9.5)))
 	})
 })

@@ -7,11 +7,11 @@ import (
 
 	"encoding/binary"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
 )
 
 // A ComputeUnit in the emu package is a component that omit the pipeline design
@@ -20,42 +20,42 @@ import (
 //     ToDispatcher <=> The port that connect the CU with the dispatcher
 //
 type ComputeUnit struct {
-	*core.ComponentBase
+	*akita.ComponentBase
 
-	engine             core.Engine
+	engine             akita.Engine
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
-	Freq               core.Freq
+	Freq               akita.Freq
 
-	nextTick    core.VTimeInSec
+	nextTick    akita.VTimeInSec
 	queueingWGs []*gcn3.MapWGReq
 	wfs         map[*kernels.WorkGroup][]*Wavefront
 	LDSStorage  []byte
 
 	GlobalMemStorage *mem.Storage
 
-	ToDispatcher *core.Port
+	ToDispatcher *akita.Port
 }
 
-func (cu *ComputeUnit) NotifyRecv(now core.VTimeInSec, port *core.Port) {
+func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
-	core.ProcessReqAsEvent(req, cu.engine, cu.Freq)
+	akita.ProcessReqAsEvent(req, cu.engine, cu.Freq)
 }
 
-func (cu *ComputeUnit) NotifyPortFree(now core.VTimeInSec, port *core.Port) {
+func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
 	panic("implement me")
 }
 
 // Handle defines the behavior on event scheduled on the ComputeUnit
-func (cu *ComputeUnit) Handle(evt core.Event) error {
+func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	cu.Lock()
 	defer cu.Unlock()
 
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
 		return cu.handleMapWGReq(evt)
-	case *core.TickEvent:
+	case *akita.TickEvent:
 		return cu.handleTickEvent(evt)
 	case *WGCompleteEvent:
 		return cu.handleWGCompleteEvent(evt)
@@ -67,9 +67,9 @@ func (cu *ComputeUnit) Handle(evt core.Event) error {
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	if cu.nextTick <= req.Time() {
-		cu.nextTick = core.VTimeInSec(math.Ceil(float64(req.RecvTime())))
+		cu.nextTick = akita.VTimeInSec(math.Ceil(float64(req.RecvTime())))
 		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
-		evt := core.NewTickEvent(
+		evt := akita.NewTickEvent(
 			cu.nextTick,
 			cu,
 		)
@@ -87,7 +87,7 @@ func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	return nil
 }
 
-func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
+func (cu *ComputeUnit) handleTickEvent(evt *akita.TickEvent) error {
 	for len(cu.queueingWGs) > 0 {
 		wg := cu.queueingWGs[0]
 		cu.queueingWGs = cu.queueingWGs[1:]
@@ -96,7 +96,7 @@ func (cu *ComputeUnit) handleTickEvent(evt *core.TickEvent) error {
 	return nil
 }
 
-func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now core.VTimeInSec) error {
+func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now akita.VTimeInSec) error {
 	wg := req.WG
 	cu.initWfs(wg, req)
 
@@ -280,18 +280,18 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_ENDPGM
 			wf.AtBarrier = true
-			cu.InvokeHook(wf, cu, core.Any, inst)
+			cu.InvokeHook(wf, cu, akita.Any, inst)
 			break
 		}
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_BARRIER
 			wf.Completed = true
-			cu.InvokeHook(wf, cu, core.Any, inst)
+			cu.InvokeHook(wf, cu, akita.Any, inst)
 			break
 		}
 
 		cu.executeInst(wf)
-		cu.InvokeHook(wf, cu, core.Any, inst)
+		cu.InvokeHook(wf, cu, akita.Any, inst)
 	}
 
 	return nil
@@ -326,13 +326,13 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 // NewComputeUnit creates a new ComputeUnit with the given name
 func NewComputeUnit(
 	name string,
-	engine core.Engine,
+	engine akita.Engine,
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
-	cu.ComponentBase = core.NewComponentBase(name)
+	cu.ComponentBase = akita.NewComponentBase(name)
 
 	cu.engine = engine
 	cu.decoder = decoder
@@ -342,7 +342,7 @@ func NewComputeUnit(
 	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
-	cu.ToDispatcher = core.NewPort(cu)
+	cu.ToDispatcher = akita.NewPort(cu)
 
 	return cu
 }

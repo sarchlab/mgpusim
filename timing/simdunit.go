@@ -1,8 +1,8 @@
 package timing
 
 import (
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/emu"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/emu"
 )
 
 // A SIMDUnit performs branch operations
@@ -41,7 +41,7 @@ func (u *SIMDUnit) CanAcceptWave() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *SIMDUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
+func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toExec = wave
 
 	// The cycle left if calculated. The pipeline is like the following
@@ -53,15 +53,15 @@ func (u *SIMDUnit) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
 	// and the last write.
 	u.cycleLeft = 64/u.NumSinglePrecisionUnit + 2
 
-	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecStart"})
+	u.cu.InvokeHook(u.toExec, u.cu, akita.Any, &InstHookInfo{now, u.toExec.inst, "ExecStart"})
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
-func (u *SIMDUnit) Run(now core.VTimeInSec) {
+func (u *SIMDUnit) Run(now akita.VTimeInSec) {
 	u.runExecStage(now)
 }
 
-func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
+func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) {
 	if u.toExec == nil {
 		return
 	}
@@ -75,8 +75,8 @@ func (u *SIMDUnit) runExecStage(now core.VTimeInSec) {
 	u.alu.Run(u.toExec)
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.toExec.State = WfReady
-	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-	u.cu.InvokeHook(u.toExec, u.cu, core.Any, &InstHookInfo{now, u.toExec.inst, "Completed"})
+	u.cu.InvokeHook(u.toExec, u.cu, akita.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
+	u.cu.InvokeHook(u.toExec, u.cu, akita.Any, &InstHookInfo{now, u.toExec.inst, "Completed"})
 
 	u.toExec = nil
 }

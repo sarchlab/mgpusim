@@ -3,10 +3,10 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
 )
 
 type mockWfArbitor struct {
@@ -37,17 +37,17 @@ func (c *mockCUComponent) CanAcceptWave() bool {
 	return c.canAccept
 }
 
-func (c *mockCUComponent) AcceptWave(wave *Wavefront, now core.VTimeInSec) {
+func (c *mockCUComponent) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	c.acceptedWave = append(c.acceptedWave, wave)
 }
 
-func (c *mockCUComponent) Run(now core.VTimeInSec) {
+func (c *mockCUComponent) Run(now akita.VTimeInSec) {
 }
 
 var _ = Describe("Scheduler", func() {
 	var (
-		toInstMemConn    *core.MockConnection
-		engine           *core.MockEngine
+		toInstMemConn    *akita.MockConnection
+		engine           *akita.MockEngine
 		cu               *ComputeUnit
 		branchUnit       *mockCUComponent
 		ldsDecoder       *mockCUComponent
@@ -57,12 +57,12 @@ var _ = Describe("Scheduler", func() {
 		scheduler        *Scheduler
 		fetchArbitor     *mockWfArbitor
 		issueArbitor     *mockWfArbitor
-		instMem          *core.MockComponent
+		instMem          *akita.MockComponent
 	)
 
 	BeforeEach(func() {
-		toInstMemConn = core.NewMockConnection()
-		engine = core.NewMockEngine()
+		toInstMemConn = akita.NewMockConnection()
+		engine = akita.NewMockEngine()
 		cu = NewComputeUnit("cu", engine)
 		cu.Freq = 1
 
@@ -82,7 +82,7 @@ var _ = Describe("Scheduler", func() {
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
 		cu.SRegFile = NewSimpleRegisterFile(16384, 0)
 
-		instMem = core.NewMockComponent("InstMem")
+		instMem = akita.NewMockComponent("InstMem")
 
 		cu.InstMem = instMem.ToOutside
 		toInstMemConn.PlugIn(cu.ToInstMem)
@@ -117,7 +117,7 @@ var _ = Describe("Scheduler", func() {
 			[]*Wavefront{wf})
 
 		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 0x180, 64)
-		toInstMemConn.ExpectSend(reqToExpect, core.NewSendError())
+		toInstMemConn.ExpectSend(reqToExpect, akita.NewSendError())
 
 		scheduler.DoFetch(10)
 

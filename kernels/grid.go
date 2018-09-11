@@ -1,7 +1,7 @@
 package kernels
 
 import (
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 // A Grid is a running instance of a kernel

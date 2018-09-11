@@ -12,7 +12,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/yaotsu/gcn3/trace/instpb"
+	"gitlab.com/akita/gcn3/trace/instpb"
 )
 
 var trace = make([]*instpb.Inst, 0)

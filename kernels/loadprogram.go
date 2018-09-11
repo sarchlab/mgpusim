@@ -4,7 +4,7 @@ import (
 	"debug/elf"
 	"log"
 
-	"gitlab.com/yaotsu/gcn3/insts"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 func LoadProgram(filePath, kernelName string) *insts.HsaCo {

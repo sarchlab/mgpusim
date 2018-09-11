@@ -7,9 +7,9 @@ import (
 
 	"encoding/binary"
 
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/mem"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/mem"
 )
 
 // GPUPtr is the type that represent a pointer pointing into the GPU memory
@@ -173,7 +173,7 @@ func (d *Driver) FreeMemory(storage *mem.Storage, ptr GPUPtr) error {
 }
 
 // MemoryCopyHostToDevice copies a memory from the host to a GPU device.
-func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu *core.Port) {
+func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu *akita.Port) {
 
 	rawData := make([]byte, 0)
 	buffer := bytes.NewBuffer(rawData)
@@ -192,7 +192,7 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu *core.
 }
 
 // MemoryCopyDeviceToHost copies a memory from a GPU device to the host
-func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, gpu *core.Port) {
+func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, gpu *akita.Port) {
 	rawData := make([]byte, binary.Size(data))
 
 	start := d.engine.CurrentTime() + 1e-8

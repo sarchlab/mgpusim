@@ -3,9 +3,9 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/gcn3"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 func assertAllResourcesFree(wgMapper *WGMapperImpl) {

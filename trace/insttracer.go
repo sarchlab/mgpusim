@@ -10,9 +10,9 @@ import (
 	"encoding/binary"
 
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/timing"
-	"gitlab.com/yaotsu/gcn3/trace/instpb"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/timing"
+	"gitlab.com/akita/gcn3/trace/instpb"
 )
 
 // A InstTracer is a LogHook that keep record of instruction execution status
@@ -35,14 +35,14 @@ func (t *InstTracer) Type() reflect.Type {
 	return reflect.TypeOf((*timing.Wavefront)(nil))
 }
 
-// Pos of InstTracer returns core.Any. Since InstTracer is not standard hook
-// for event or request, it has to use core.Any position.
-func (t *InstTracer) Pos() core.HookPos {
-	return core.Any
+// Pos of InstTracer returns akita.Any. Since InstTracer is not standard hook
+// for event or request, it has to use akita.Any position.
+func (t *InstTracer) Pos() akita.HookPos {
+	return akita.Any
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (t *InstTracer) Func(item interface{}, domain core.Hookable, info interface{}) {
+func (t *InstTracer) Func(item interface{}, domain akita.Hookable, info interface{}) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 

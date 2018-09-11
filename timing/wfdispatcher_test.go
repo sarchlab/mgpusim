@@ -3,20 +3,20 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/insts"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 var _ = Describe("WfDispatcher", func() {
 	var (
-		engine       *core.MockEngine
+		engine       *akita.MockEngine
 		cu           *ComputeUnit
 		wfDispatcher *WfDispatcherImpl
 	)
 
 	BeforeEach(func() {
-		engine = core.NewMockEngine()
+		engine = akita.NewMockEngine()
 		cu = NewComputeUnit("cu", engine)
 		cu.Freq = 1
 

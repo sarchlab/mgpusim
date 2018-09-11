@@ -3,26 +3,26 @@ package gcn3
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/yaotsu/core"
-	"gitlab.com/yaotsu/gcn3/kernels"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 var _ = Describe("CommandProcessor", func() {
 
 	var (
-		engine           *core.MockEngine
-		driver           *core.MockComponent
-		dispatcher       *core.MockComponent
+		engine           *akita.MockEngine
+		driver           *akita.MockComponent
+		dispatcher       *akita.MockComponent
 		commandProcessor *CommandProcessor
-		connection       *core.MockConnection
+		connection       *akita.MockConnection
 	)
 
 	BeforeEach(func() {
-		engine = core.NewMockEngine()
-		connection = core.NewMockConnection()
+		engine = akita.NewMockEngine()
+		connection = akita.NewMockConnection()
 
-		driver = core.NewMockComponent("dispatcher")
-		dispatcher = core.NewMockComponent("dispatcher")
+		driver = akita.NewMockComponent("dispatcher")
+		dispatcher = akita.NewMockComponent("dispatcher")
 		commandProcessor = NewCommandProcessor("commandProcessor", engine)
 
 		commandProcessor.Dispatcher = dispatcher.ToOutside
