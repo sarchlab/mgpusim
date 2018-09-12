@@ -70,8 +70,8 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	cu.Lock()
 	defer cu.Unlock()
 
-	cu.InvokeHook(evt, cu, akita.BeforeEvent, nil)
-	defer cu.InvokeHook(evt, cu, akita.AfterEvent, nil)
+	cu.InvokeHook(evt, cu, akita.BeforeEventHookPos, nil)
+	defer cu.InvokeHook(evt, cu, akita.AfterEventHookPos, nil)
 
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
@@ -342,8 +342,8 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(rsp *mem.DataReadyRsp, info *M
 	wf.OutstandingScalarMemAccess -= 1
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-	cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 
 	return nil
 }
@@ -381,8 +381,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
@@ -396,8 +396,8 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(rsp *mem.DoneRsp, info *MemAcces
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, akita.Any, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 	return nil

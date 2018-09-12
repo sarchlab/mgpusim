@@ -153,8 +153,8 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 	d.Lock()
 	defer d.Unlock()
 
-	d.InvokeHook(evt, d, akita.BeforeEvent, nil)
-	defer d.InvokeHook(evt, d, akita.AfterEvent, nil)
+	d.InvokeHook(evt, d, akita.BeforeEventHookPos, nil)
+	defer d.InvokeHook(evt, d, akita.AfterEventHookPos, nil)
 
 	switch evt := evt.(type) {
 	case *kernels.LaunchKernelReq:

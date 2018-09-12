@@ -35,10 +35,10 @@ func (t *InstTracer) Type() reflect.Type {
 	return reflect.TypeOf((*timing.Wavefront)(nil))
 }
 
-// Pos of InstTracer returns akita.Any. Since InstTracer is not standard hook
-// for event or request, it has to use akita.Any position.
+// Pos of InstTracer returns akita.AnyHookPos. Since InstTracer is not standard hook
+// for event or request, it has to use akita.AnyHookPos position.
 func (t *InstTracer) Pos() akita.HookPos {
-	return akita.Any
+	return akita.AnyHookPos
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
