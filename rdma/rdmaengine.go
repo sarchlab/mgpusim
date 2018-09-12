@@ -79,10 +79,14 @@ func (e *Engine) sendReqToOutside(now akita.VTimeInSec, req akita.Req, dst *akit
 	if err == nil {
 		e.ToInside.Retrieve(now)
 		e.originalSrc[req.GetID()] = originalSrc
+	} else {
+		req.SetSrc(originalSrc)
+		req.SetDst(e.ToInside)
 	}
 }
 
 func (e *Engine) sendRspToOutside(now akita.VTimeInSec, req mem.MemRsp) {
+	recoverSrc := req.Src()
 	src, found := e.originalSrc[req.GetRespondTo()]
 	if !found {
 		log.Panic("original src not found")
@@ -94,6 +98,9 @@ func (e *Engine) sendRspToOutside(now akita.VTimeInSec, req mem.MemRsp) {
 	if err == nil {
 		e.ToInside.Retrieve(now)
 		delete(e.originalSrc, req.GetRespondTo())
+	} else {
+		req.SetSrc(recoverSrc)
+		req.SetDst(e.ToInside)
 	}
 }
 
@@ -128,10 +135,14 @@ func (e *Engine) sendReqToInside(now akita.VTimeInSec, req akita.Req, dst *akita
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 		e.originalSrc[req.GetID()] = originalSrc
+	} else {
+		req.SetSrc(originalSrc)
+		req.SetDst(e.ToOutside)
 	}
 }
 
 func (e *Engine) sendRspToInside(now akita.VTimeInSec, req mem.MemRsp) {
+	recoverSrc := req.Src()
 	src, found := e.originalSrc[req.GetRespondTo()]
 	if !found {
 		log.Panic("original src not found")
@@ -143,6 +154,9 @@ func (e *Engine) sendRspToInside(now akita.VTimeInSec, req mem.MemRsp) {
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 		delete(e.originalSrc, req.GetRespondTo())
+	} else {
+		req.SetSrc(recoverSrc)
+		req.SetDst(e.ToOutside)
 	}
 }
 
