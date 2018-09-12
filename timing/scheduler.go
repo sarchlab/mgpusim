@@ -104,7 +104,7 @@ func (s *Scheduler) DoFetch(now akita.VTimeInSec) {
 			s.cu.inFlightMemAccess[req.ID] = info
 			wf.IsFetching = true
 
-			//s.cu.InvokeHook(wf, s.cu, akita.Any, &InstHookInfo{now, wf.inst, "FetchStart"})
+			//s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "FetchStart"})
 		}
 	}
 }
@@ -127,7 +127,7 @@ func (s *Scheduler) DoIssue(now akita.VTimeInSec) {
 			wf.State = WfRunning
 			wf.PC += uint64(wf.inst.ByteSize)
 			s.removeStaleInstBuffer(wf)
-			s.cu.InvokeHook(wf, s.cu, akita.Any, &InstHookInfo{now, wf.inst, "Issue"})
+			s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "Issue"})
 		}
 	}
 }
@@ -147,7 +147,7 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now akita.VTimeInSec) {
 		wf.State = WfRunning
 		wf.PC += uint64(wf.Inst().ByteSize)
 		s.removeStaleInstBuffer(wf)
-		s.cu.InvokeHook(wf, s.cu, akita.Any, &InstHookInfo{now, wf.inst, "Issue"})
+		s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "Issue"})
 	}
 }
 
@@ -192,7 +192,7 @@ func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) {
 	}
 
 	if s.internalExecuting == nil {
-		s.cu.InvokeHook(executing, s.cu, akita.Any,
+		s.cu.InvokeHook(executing, s.cu, akita.AnyHookPos,
 			&InstHookInfo{now, executing.inst, "Completed"})
 	}
 }
