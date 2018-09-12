@@ -28,7 +28,7 @@ func (h *MapWGLog) Type() reflect.Type {
 
 // Pos return AfterEvent
 func (h *MapWGLog) Pos() akita.HookPos {
-	return akita.AfterEvent
+	return akita.AfterEventHookPos
 }
 
 // Func defines the behavior when the hook is triggered
