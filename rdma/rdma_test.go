@@ -77,6 +77,10 @@ var _ = Describe("Engine", func() {
 
 			Expect(outsideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToInside.Buf).To(HaveLen(1))
+			Expect(rdmaEngine.ToInside.Buf[0].Src()).To(
+				BeIdenticalTo(localCache.ToOutside))
+			Expect(rdmaEngine.ToInside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToInside))
 		})
 	})
 
@@ -110,6 +114,10 @@ var _ = Describe("Engine", func() {
 
 			Expect(outsideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToInside.Buf).To(HaveLen(1))
+			Expect(rdmaEngine.ToInside.Buf[0].Src()).To(
+				BeIdenticalTo(localCache.ToOutside))
+			Expect(rdmaEngine.ToInside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToInside))
 		})
 	})
 
@@ -156,6 +164,10 @@ var _ = Describe("Engine", func() {
 			Expect(insideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToInside.Buf).To(HaveLen(1))
 			Expect(rdmaEngine.originalSrc).To(HaveKey(read.ID))
+			Expect(rdmaEngine.ToInside.Buf[0].Src()).To(
+				BeIdenticalTo(localCache.ToOutside))
+			Expect(rdmaEngine.ToInside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToInside))
 		})
 	})
 
@@ -202,6 +214,10 @@ var _ = Describe("Engine", func() {
 			Expect(outsideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToInside.Buf).To(HaveLen(1))
 			Expect(rdmaEngine.originalSrc).To(HaveKey(write.ID))
+			Expect(rdmaEngine.ToInside.Buf[0].Src()).To(
+				BeIdenticalTo(localCache.ToOutside))
+			Expect(rdmaEngine.ToInside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToInside))
 		})
 	})
 
@@ -236,6 +252,10 @@ var _ = Describe("Engine", func() {
 
 			Expect(insideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToOutside.Buf).To(HaveLen(1))
+			Expect(rdmaEngine.ToOutside.Buf[0].Src()).To(
+				BeIdenticalTo(remoteGPU.ToOutside))
+			Expect(rdmaEngine.ToOutside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToOutside))
 		})
 	})
 
@@ -270,6 +290,10 @@ var _ = Describe("Engine", func() {
 
 			Expect(insideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToOutside.Buf).To(HaveLen(1))
+			Expect(rdmaEngine.ToOutside.Buf[0].Src()).To(
+				BeIdenticalTo(remoteGPU.ToOutside))
+			Expect(rdmaEngine.ToOutside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToOutside))
 		})
 	})
 
@@ -284,6 +308,7 @@ var _ = Describe("Engine", func() {
 			read = mem.NewReadReq(6,
 				localCache.ToOutside, rdmaEngine.ToInside, 0x100, 64)
 			rdmaEngine.ToInside.Recv(read)
+
 			expectRead := mem.NewReadReq(7,
 				rdmaEngine.ToOutside, remoteGPU.ToOutside, 0x100, 64)
 			outsideConn.ExpectSend(expectRead, nil)
@@ -316,6 +341,10 @@ var _ = Describe("Engine", func() {
 			Expect(insideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToOutside.Buf).To(HaveLen(1))
 			Expect(rdmaEngine.originalSrc).To(HaveKey(read.ID))
+			Expect(rdmaEngine.ToOutside.Buf[0].Src()).To(
+				BeIdenticalTo(remoteGPU.ToOutside))
+			Expect(rdmaEngine.ToOutside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToOutside))
 		})
 	})
 
@@ -362,6 +391,10 @@ var _ = Describe("Engine", func() {
 			Expect(insideConn.AllExpectedSent()).To(BeTrue())
 			Expect(rdmaEngine.ToOutside.Buf).To(HaveLen(1))
 			Expect(rdmaEngine.originalSrc).To(HaveKey(write.ID))
+			Expect(rdmaEngine.ToOutside.Buf[0].Src()).To(
+				BeIdenticalTo(remoteGPU.ToOutside))
+			Expect(rdmaEngine.ToOutside.Buf[0].Dst()).To(
+				BeIdenticalTo(rdmaEngine.ToOutside))
 		})
 	})
 })
