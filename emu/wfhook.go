@@ -28,7 +28,7 @@ func (h *WfHook) Type() reflect.Type {
 
 // Pos of WfHook returns akita.Any.
 func (h *WfHook) Pos() akita.HookPos {
-	return akita.Any
+	return akita.AnyHookPos
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.

@@ -27,9 +27,9 @@ func (d *ISADebugger) Type() reflect.Type {
 	return reflect.TypeOf((*Wavefront)(nil))
 }
 
-// Pos of WfHook returns akita.Any.
+// Pos of WfHook returns akita.AnyHookPos.
 func (d *ISADebugger) Pos() akita.HookPos {
-	return akita.Any
+	return akita.AnyHookPos
 }
 
 // The action that the ISADebugger takes

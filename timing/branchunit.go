@@ -39,7 +39,8 @@ func (u *BranchUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *BranchUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.Any, &InstHookInfo{now, wave.inst, "ReadStart"})
+	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos,
+		&InstHookInfo{now, wave.inst, "ReadStart"})
 }
 
 // Run executes three pipeline stages that are controlled by the BranchUnit
@@ -56,8 +57,8 @@ func (u *BranchUnit) runReadStage(now akita.VTimeInSec) {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.Any, &InstHookInfo{now, u.toRead.inst, "ReadEnd"})
-		u.cu.InvokeHook(u.toRead, u.cu, akita.Any, &InstHookInfo{now, u.toRead.inst, "ExecStart"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ReadEnd"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ExecStart"})
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -71,8 +72,8 @@ func (u *BranchUnit) runExecStage(now akita.VTimeInSec) {
 
 	if u.toWrite == nil {
 		u.alu.Run(u.toExec)
-		u.cu.InvokeHook(u.toExec, u.cu, akita.Any, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-		u.cu.InvokeHook(u.toExec, u.cu, akita.Any, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
 
 		u.toWrite = u.toExec
 		u.toExec = nil
@@ -86,8 +87,8 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.InvokeHook(u.toWrite, u.cu, akita.Any, &InstHookInfo{now, u.toWrite.inst, "WriteEnd"})
-	u.cu.InvokeHook(u.toWrite, u.cu, akita.Any, &InstHookInfo{now, u.toWrite.inst, "Completed"})
+	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "WriteEnd"})
+	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "Completed"})
 
 	u.toWrite.State = WfReady
 	u.toWrite.InstBuffer = nil
