@@ -138,12 +138,12 @@ func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now akita.VTime
 func (u *VectorMemoryUnit) coalesceAddress(
 	addresses []uint64,
 	byteSizePerLane int,
-) []uint64 {
+) []AddrSizePair {
 	return u.coalescer.Coalesce(addresses, byteSizePerLane)
 }
 
 func (u *VectorMemoryUnit) bufferDataLoadRequest(
-	coalescedAddrs []uint64,
+	coalescedAddrs []AddrSizePair,
 	preCoalescedAddrs [64]uint64,
 	registerCount int,
 	now akita.VTimeInSec,
@@ -162,17 +162,17 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		info.Wf = u.toExec
 		info.Dst = info.Wf.inst.Dst.Register
 		info.RegCount = registerCount
-		info.Address = addr
+		info.Address = addr.Addr
 
-		lowModule := u.cu.VectorMemModules.Find(addr)
-		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr, 64)
+		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
+		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
 		u.cu.inFlightMemAccess[req.ID] = info
 		u.ReadBuf = append(u.ReadBuf, req)
 	}
 }
 
 func (u *VectorMemoryUnit) bufferDataStoreRequest(
-	coalescedAddrs []uint64,
+	coalescedAddrs []AddrSizePair,
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
 	registerCount int,
@@ -191,18 +191,18 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		info.PreCoalescedAddrs = preCoalescedAddrs
 		info.Wf = u.toExec
 		info.Dst = info.Wf.inst.Dst.Register
-		info.Address = addr
+		info.Address = addr.Addr
 
-		lowModule := u.cu.VectorMemModules.Find(addr)
-		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
-		req.Address = addr
+		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
+		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr.Addr)
+		req.Address = addr.Addr
 		req.Data = make([]byte, 64)
 		for i := 0; i < 64; i++ {
 			currAddr := preCoalescedAddrs[i]
 			addrCacheLineID := currAddr & 0xffffffffffffffc0
 			addrCacheLineOffset := currAddr & 0x000000000000003f
 
-			if addrCacheLineID != addr {
+			if addrCacheLineID != addr.Addr {
 				continue
 			}
 
