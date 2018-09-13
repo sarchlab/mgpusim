@@ -56,7 +56,12 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.inst = inst
 
-		coalescer.ToReturn = []uint64{0x0, 0x40, 0x80, 0xc0}
+		coalescer.ToReturn = []AddrSizePair{
+			{0x0, 64},
+			{0x40, 64},
+			{0x80, 64},
+			{0xc0, 64},
+		}
 
 		bu.toExec = wave
 
@@ -81,7 +86,12 @@ var _ = Describe("Vector Memory Unit", func() {
 			sp.ADDR[i] = uint64(4096 + i*4)
 			sp.DATA[i*4] = uint32(i)
 		}
-		coalescer.ToReturn = []uint64{0x1000, 0x1040, 0x1080, 0x10c0}
+		coalescer.ToReturn = []AddrSizePair{
+			{0x1000, 64},
+			{0x1040, 64},
+			{0x1080, 64},
+			{0x10c0, 64},
+		}
 
 		bu.toExec = wave
 
