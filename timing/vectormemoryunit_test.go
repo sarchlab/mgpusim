@@ -86,12 +86,12 @@ var _ = Describe("Vector Memory Unit", func() {
 			sp.ADDR[i] = uint64(4096 + i*4)
 			sp.DATA[i*4] = uint32(i)
 		}
-		coalescer.ToReturn = []AddrSizePair{
-			{0x1000, 64},
-			{0x1040, 64},
-			{0x1080, 64},
-			{0x10c0, 64},
-		}
+		//coalescer.ToReturn = []AddrSizePair{
+		//	{0x1000, 64},
+		//	{0x1040, 64},
+		//	{0x1080, 64},
+		//	{0x10c0, 64},
+		//}
 
 		bu.toExec = wave
 
@@ -99,8 +99,8 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
-		Expect(cu.inFlightMemAccess).To(HaveLen(4))
-		Expect(bu.WriteBuf).To(HaveLen(4))
+		Expect(cu.inFlightMemAccess).To(HaveLen(64))
+		Expect(bu.WriteBuf).To(HaveLen(64))
 	})
 
 	It("should send memory access requests", func() {
