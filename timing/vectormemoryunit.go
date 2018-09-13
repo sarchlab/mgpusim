@@ -178,41 +178,27 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
-
 	instLevelInfo := new(InstLevelInfo)
 	instLevelInfo.Inst = u.toExec.inst
-	instLevelInfo.TotalReqs = len(coalescedAddrs)
+	instLevelInfo.TotalReqs = len(preCoalescedAddrs)
 	instLevelInfo.ReturnedReqs = 0
 
-	for _, addr := range coalescedAddrs {
+	for i, addr := range preCoalescedAddrs {
 		info := newMemAccessInfo()
 		info.InstLevelInfo = instLevelInfo
 		info.Action = MemAccessVectorDataStore
 		info.PreCoalescedAddrs = preCoalescedAddrs
 		info.Wf = u.toExec
 		info.Dst = info.Wf.inst.Dst.Register
-		info.Address = addr.Addr
+		info.Address = addr
 
-		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
-		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr.Addr)
-		req.Address = addr.Addr
-		req.Data = make([]byte, 64)
-		for i := 0; i < 64; i++ {
-			currAddr := preCoalescedAddrs[i]
-			addrCacheLineID := currAddr & 0xffffffffffffffc0
-			addrCacheLineOffset := currAddr & 0x000000000000003f
+		lowModule := u.cu.VectorMemModules.Find(addr)
+		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
+		req.Address = addr
 
-			if addrCacheLineID != addr.Addr {
-				continue
-			}
-
-			for j := 0; j < registerCount; j++ {
-				copy(req.Data[addrCacheLineOffset+uint64(4*j):addrCacheLineOffset+uint64(4*j)+4],
-					insts.Uint32ToBytes(data[i*4+j]))
-			}
-
+		for j := 0; j < registerCount; j++ {
+			req.Data = insts.Uint32ToBytes(data[i*4+j])
 		}
-
 		u.WriteBuf = append(u.WriteBuf, req)
 		u.cu.inFlightMemAccess[req.ID] = info
 	}
