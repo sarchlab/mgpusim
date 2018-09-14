@@ -202,7 +202,7 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) {
 		return
 	}
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
-	s.cu.engine.Schedule(wfCompletionEvt)
+	s.cu.Engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
 
 	s.resetRegisterValue(wf)
