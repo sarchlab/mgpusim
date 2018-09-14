@@ -6,5 +6,5 @@ import "gitlab.com/akita/akita"
 type CUComponent interface {
 	CanAcceptWave() bool
 	AcceptWave(wave *Wavefront, now akita.VTimeInSec)
-	Run(now akita.VTimeInSec)
+	Run(now akita.VTimeInSec) bool
 }

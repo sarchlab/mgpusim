@@ -374,6 +374,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(info.ReturnedReqs).To(Equal(2))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
+			Expect(cu.NeedTick).To(BeTrue())
 		})
 
 		It("should handle vector data store return and the return is the last one from an instruction", func() {
