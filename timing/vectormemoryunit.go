@@ -148,7 +148,6 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
-
 	instLevelInfo := new(InstLevelInfo)
 	instLevelInfo.Inst = u.toExec.inst
 	instLevelInfo.TotalReqs = len(coalescedAddrs)
