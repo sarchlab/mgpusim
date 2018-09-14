@@ -38,14 +38,17 @@ func NewScheduler(
 	return s
 }
 
-func (s *Scheduler) Run(now akita.VTimeInSec) {
-	s.EvaluateInternalInst(now)
-	s.DecodeNextInst()
-	s.DoIssue(now)
-	s.DoFetch(now)
+func (s *Scheduler) Run(now akita.VTimeInSec) bool {
+	madeProgress := false
+	madeProgress = s.EvaluateInternalInst(now) || madeProgress
+	madeProgress = s.DecodeNextInst() || madeProgress
+	madeProgress = s.DoIssue(now) || madeProgress
+	madeProgress = s.DoFetch(now) || madeProgress
+	return madeProgress
 }
 
-func (s *Scheduler) DecodeNextInst() {
+func (s *Scheduler) DecodeNextInst() bool {
+	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
 			if len(wf.InstBuffer) == 0 {
@@ -69,9 +72,11 @@ func (s *Scheduler) DecodeNextInst() {
 				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = NewInst(inst)
+				madeProgress = true
 			}
 		}
 	}
+	return madeProgress
 }
 
 //func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *Wavefront) bool {
@@ -80,7 +85,8 @@ func (s *Scheduler) DecodeNextInst() {
 
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
-func (s *Scheduler) DoFetch(now akita.VTimeInSec) {
+func (s *Scheduler) DoFetch(now akita.VTimeInSec) bool {
+	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
 	if len(wfs) > 0 {
@@ -105,17 +111,22 @@ func (s *Scheduler) DoFetch(now akita.VTimeInSec) {
 			wf.IsFetching = true
 
 			//s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "FetchStart"})
+			madeProgress = true
 		}
 	}
+
+	return madeProgress
 }
 
 // DoIssue function of the scheduler issues fetched instruction to the decoding
 // units
-func (s *Scheduler) DoIssue(now akita.VTimeInSec) {
+func (s *Scheduler) DoIssue(now akita.VTimeInSec) bool {
+	madeProgress := false
 	wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 	for _, wf := range wfs {
 		if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
-			s.issueToInternal(wf, now)
+			madeProgress = s.issueToInternal(wf, now) || madeProgress
+
 			continue
 		}
 
@@ -128,8 +139,10 @@ func (s *Scheduler) DoIssue(now akita.VTimeInSec) {
 			wf.PC += uint64(wf.inst.ByteSize)
 			s.removeStaleInstBuffer(wf)
 			s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "Issue"})
+			madeProgress = true
 		}
 	}
+	return madeProgress
 }
 
 func (s *Scheduler) removeStaleInstBuffer(wf *Wavefront) {
@@ -139,7 +152,7 @@ func (s *Scheduler) removeStaleInstBuffer(wf *Wavefront) {
 	}
 }
 
-func (s *Scheduler) issueToInternal(wf *Wavefront, now akita.VTimeInSec) {
+func (s *Scheduler) issueToInternal(wf *Wavefront, now akita.VTimeInSec) bool {
 	if s.internalExecuting == nil {
 		wf.inst = wf.InstToIssue
 		wf.InstToIssue = nil
@@ -148,7 +161,9 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now akita.VTimeInSec) {
 		wf.PC += uint64(wf.Inst().ByteSize)
 		s.removeStaleInstBuffer(wf)
 		s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "Issue"})
+		return true
 	}
+	return false
 }
 
 func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
@@ -171,9 +186,9 @@ func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
 
 // EvaluateInternalInst updates the status of the instruction being executed
 // in the scheduler.
-func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) {
+func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) bool {
 	if s.internalExecuting == nil {
-		return
+		return false
 	}
 
 	executing := s.internalExecuting
@@ -195,6 +210,7 @@ func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) {
 		s.cu.InvokeHook(executing, s.cu, akita.AnyHookPos,
 			&InstHookInfo{now, executing.inst, "Completed"})
 	}
+	return true
 }
 
 func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) {
@@ -202,7 +218,7 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) {
 		return
 	}
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
-	s.cu.engine.Schedule(wfCompletionEvt)
+	s.cu.Engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
 
 	s.resetRegisterValue(wf)
