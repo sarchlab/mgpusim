@@ -117,6 +117,7 @@ func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
 	cu.processInputFromACE(now)
 	cu.processInputFromInstMem(now)
 	cu.processInputFromScalarMem(now)
+	cu.processInputFromVectorMem(now)
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
@@ -127,13 +128,12 @@ func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
 
 	switch req := req.(type) {
 	case *gcn3.MapWGReq:
-		cu.handleMapWGReq(req)
+		cu.handleMapWGReq(now, req)
 	}
 }
 
-func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
+func (cu *ComputeUnit) handleMapWGReq(now akita.VTimeInSec, req *gcn3.MapWGReq) error {
 	//log.Printf("%s map wg at %.12f\n", cu.Name(), req.Time())
-	now := req.Time()
 
 	ok := false
 
