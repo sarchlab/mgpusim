@@ -114,28 +114,28 @@ func (u *ScalarUnit) executeSMEMInst(now akita.VTimeInSec) {
 }
 
 func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
-	inst := u.toExec.inst
-	sp := u.toExec.Scratchpad().AsSMEM()
-
-	//u.cu.GetConnection("ToScalarMem").Send(req)
-	if len(u.readBuf) < u.readBufSize {
-		u.toExec.OutstandingScalarMemAccess += 1
-
-		req := mem.NewReadReq(now, u.cu.ToScalarMem, u.cu.ScalarMem,
-			sp.Base+sp.Offset, uint64(byteSize))
-		u.readBuf = append(u.readBuf, req)
-
-		info := newMemAccessInfo()
-		info.Wf = u.toExec
-		info.Action = MemAccessScalarDataLoad
-		info.Dst = inst.Data.Register
-		info.Inst = inst
-		u.cu.inFlightMemAccess[req.ID] = info
-
-		u.toExec.State = WfReady
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
-		u.toExec = nil
-	}
+	//inst := u.toExec.inst
+	//sp := u.toExec.Scratchpad().AsSMEM()
+	//
+	////u.cu.GetConnection("ToScalarMem").Send(req)
+	//if len(u.readBuf) < u.readBufSize {
+	//	u.toExec.OutstandingScalarMemAccess += 1
+	//
+	//	req := mem.NewReadReq(now, u.cu.ToScalarMem, u.cu.ScalarMem,
+	//		sp.Base+sp.Offset, uint64(byteSize))
+	//	u.readBuf = append(u.readBuf, req)
+	//
+	//	info := newMemAccessInfo()
+	//	info.Wf = u.toExec
+	//	info.Action = MemAccessScalarDataLoad
+	//	info.Dst = inst.Data.Register
+	//	info.Inst = inst
+	//	u.cu.inFlightMemAccess[req.ID] = info
+	//
+	//	u.toExec.State = WfReady
+	//	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
+	//	u.toExec = nil
+	//}
 }
 
 func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
