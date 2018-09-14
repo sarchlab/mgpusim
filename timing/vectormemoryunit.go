@@ -59,15 +59,17 @@ func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 }
 
 // Run executes three pipeline stages that are controlled by the VectorMemoryUnit
-func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) {
-	u.sendRequest(now)
-	u.runExecStage(now)
-	u.runReadStage(now)
+func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) bool {
+	madeProgress := false
+	madeProgress = madeProgress || u.sendRequest(now)
+	madeProgress = madeProgress || u.runExecStage(now)
+	madeProgress = madeProgress || u.runReadStage(now)
+	return madeProgress
 }
 
-func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) {
+func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toRead == nil {
-		return
+		return false
 	}
 
 	if u.toExec == nil {
@@ -77,16 +79,17 @@ func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) {
 
 		u.toExec = u.toRead
 		u.toRead = nil
+		return true
 	}
+	return false
 }
 
-func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) {
+func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
-		return
+		return false
 	}
 
 	if u.toWrite == nil {
-
 		inst := u.toExec.Inst()
 		switch inst.FormatType {
 		case insts.FLAT:
@@ -101,7 +104,9 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) {
 		//u.toWrite = u.toExec
 		u.toExec.State = WfReady
 		u.toExec = nil
+		return true
 	}
+	return false
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
@@ -203,13 +208,16 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	}
 }
 
-func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) {
+func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
+	madeProgress := false
+
 	if len(u.ReadBuf) > 0 {
 		req := u.ReadBuf[0]
 		req.SetSendTime(now)
 		err := u.cu.ToVectorMem.Send(req)
 		if err == nil {
 			u.ReadBuf = u.ReadBuf[1:]
+			madeProgress = true
 		}
 	}
 
@@ -219,6 +227,9 @@ func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) {
 		err := u.cu.ToVectorMem.Send(req)
 		if err == nil {
 			u.WriteBuf = u.WriteBuf[1:]
+			madeProgress = true
 		}
 	}
+
+	return madeProgress
 }

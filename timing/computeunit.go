@@ -65,6 +65,8 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 		cu.handleTickEvent(evt)
 	case *WfDispatchEvent:
 		cu.handleWfDispatchEvent(evt)
+	case *WfCompletionEvent:
+		cu.handleWfCompletionEvent(evt)
 	default:
 		log.Panicf("Unable to process evevt of type %s",
 			reflect.TypeOf(evt))
@@ -86,23 +88,29 @@ func (cu *ComputeUnit) handleTickEvent(evt *akita.TickEvent) {
 }
 
 func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) {
-	cu.BranchUnit.Run(now)
+	madeProgress := false
 
-	cu.ScalarUnit.Run(now)
-	cu.ScalarDecoder.Run(now)
+	madeProgress = cu.BranchUnit.Run(now) || madeProgress
+
+	madeProgress = cu.ScalarUnit.Run(now) || madeProgress
+	madeProgress = cu.ScalarDecoder.Run(now) || madeProgress
 
 	for _, simdUnit := range cu.SIMDUnit {
-		simdUnit.Run(now)
+		madeProgress = simdUnit.Run(now) || madeProgress
 	}
-	cu.VectorDecoder.Run(now)
+	madeProgress = cu.VectorDecoder.Run(now) || madeProgress
 
-	cu.LDSUnit.Run(now)
-	cu.LDSDecoder.Run(now)
+	madeProgress = cu.LDSUnit.Run(now) || madeProgress
+	madeProgress = cu.LDSDecoder.Run(now) || madeProgress
 
-	cu.VectorMemUnit.Run(now)
-	cu.VectorMemDecoder.Run(now)
+	madeProgress = cu.VectorMemUnit.Run(now) || madeProgress
+	madeProgress = cu.VectorMemDecoder.Run(now) || madeProgress
 
-	cu.Scheduler.Run(now)
+	madeProgress = cu.Scheduler.Run(now) || madeProgress
+
+	if madeProgress {
+		cu.NeedTick = true
+	}
 }
 
 func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
@@ -292,6 +300,7 @@ func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) {
 	if rsp == nil {
 		return
 	}
+	cu.NeedTick = true
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
@@ -319,8 +328,6 @@ func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataRead
 	wf.IsFetching = false
 	wf.LastFetchTime = now
 
-	cu.NeedTick = true
-
 	return nil
 }
 
@@ -329,6 +336,7 @@ func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
 	if rsp == nil {
 		return
 	}
+	cu.NeedTick = true
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
@@ -367,6 +375,7 @@ func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
 	if rsp == nil {
 		return
 	}
+	cu.NeedTick = true
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:

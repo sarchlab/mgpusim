@@ -41,7 +41,8 @@ func (c *mockCUComponent) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	c.acceptedWave = append(c.acceptedWave, wave)
 }
 
-func (c *mockCUComponent) Run(now akita.VTimeInSec) {
+func (c *mockCUComponent) Run(now akita.VTimeInSec) bool {
+	return true
 }
 
 var _ = Describe("Scheduler", func() {
