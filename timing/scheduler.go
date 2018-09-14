@@ -39,7 +39,7 @@ func NewScheduler(
 }
 
 func (s *Scheduler) Run(now akita.VTimeInSec) bool {
-	madeProgress := true
+	madeProgress := false
 	madeProgress = s.EvaluateInternalInst(now) || madeProgress
 	madeProgress = s.DecodeNextInst() || madeProgress
 	madeProgress = s.DoIssue(now) || madeProgress
@@ -142,7 +142,7 @@ func (s *Scheduler) DoIssue(now akita.VTimeInSec) bool {
 			madeProgress = true
 		}
 	}
-	return true
+	return madeProgress
 }
 
 func (s *Scheduler) removeStaleInstBuffer(wf *Wavefront) {
