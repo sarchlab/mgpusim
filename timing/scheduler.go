@@ -3,9 +3,10 @@ package timing
 import (
 	"log"
 
+	"gitlab.com/akita/mem"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/mem"
 )
 
 // A Scheduler is the controlling unit of a compute unit. It decides which
@@ -103,11 +104,11 @@ func (s *Scheduler) DoFetch(now akita.VTimeInSec) bool {
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {
-			info := new(MemAccessInfo)
-			info.Action = MemAccessInstFetch
-			info.Wf = wf
+			info := new(InstFetchReqInfo)
+			info.Wavefront = wf
+			info.Req = req
 			info.Address = addr
-			s.cu.inFlightMemAccess[req.ID] = info
+			s.cu.inFlightInstFetch = append(s.cu.inFlightInstFetch, info)
 			wf.IsFetching = true
 
 			//s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "FetchStart"})

@@ -10,7 +10,6 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/mem/cache"
 )
 
@@ -26,8 +25,12 @@ type ComputeUnit struct {
 	WfPools              []*WavefrontPool
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
 	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
-	inFlightMemAccess    map[string]*MemAccessInfo
-	running              bool
+
+	inFlightInstFetch       []*InstFetchReqInfo
+	inFlightScalarMemAccess []*ScalarMemAccessInfo
+	inFlightVectorMemAccess []*ScalarMemAccessInfo
+
+	running bool
 
 	Scheduler        *Scheduler
 	BranchUnit       CUComponent
@@ -311,15 +314,19 @@ func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) {
 	}
 }
 
-func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) error {
-	info, found := cu.inFlightMemAccess[rsp.RespondTo]
-	if !found {
-		log.Panic("memory access request not sent from the unit")
+func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
+	if len(cu.inFlightInstFetch) == 0 {
+		log.Panic("CU is fetching no instruction")
 	}
 
-	wf := info.Wf
+	info := cu.inFlightInstFetch[0]
+	if info.Req.ID != rsp.RespondTo {
+		log.Panic("response does not match request")
+	}
+
+	wf := info.Wavefront
 	addr := info.Address
-	delete(cu.inFlightMemAccess, rsp.RespondTo)
+	cu.inFlightInstFetch = cu.inFlightInstFetch[1:]
 
 	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
 		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
@@ -327,8 +334,6 @@ func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataRead
 
 	wf.IsFetching = false
 	wf.LastFetchTime = now
-
-	return nil
 }
 
 func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
@@ -347,27 +352,27 @@ func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
 	}
 }
 
-func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) error {
-	info, found := cu.inFlightMemAccess[rsp.RespondTo]
-	if !found {
-		log.Panic("memory access request not sent from the unit")
-	}
-
-	wf := info.Wf
-	access := new(RegisterAccess)
-	access.WaveOffset = wf.SRegOffset
-	access.Reg = info.Dst
-	access.RegCount = int(len(rsp.Data) / 4)
-	access.Data = rsp.Data
-	cu.SRegFile.Write(access)
-
-	wf.OutstandingScalarMemAccess -= 1
-	delete(cu.inFlightMemAccess, rsp.RespondTo)
-
-	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
-
-	return nil
+func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
+	//info, found := cu.inFlightMemAccess[rsp.RespondTo]
+	//if !found {
+	//	log.Panic("memory access request not sent from the unit")
+	//}
+	//
+	//wf := info.Wf
+	//access := new(RegisterAccess)
+	//access.WaveOffset = wf.SRegOffset
+	//access.Reg = info.Dst
+	//access.RegCount = int(len(rsp.Data) / 4)
+	//access.Data = rsp.Data
+	//cu.SRegFile.Write(access)
+	//
+	//wf.OutstandingScalarMemAccess -= 1
+	//delete(cu.inFlightMemAccess, rsp.RespondTo)
+	//
+	//cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+	//cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	//
+	//return nil
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
@@ -391,62 +396,62 @@ func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	now akita.VTimeInSec,
 	rsp *mem.DataReadyRsp,
-) error {
-	info, found := cu.inFlightMemAccess[rsp.RespondTo]
-	if !found {
-		log.Panic("memory access request not sent from the unit")
-	}
-
-	wf := info.Wf
-	inst := info.Inst
-
-	for i := 0; i < 64; i++ {
-		addr := info.PreCoalescedAddrs[i]
-		if addr >= info.Address && addr < info.Address+uint64(len(rsp.Data)) {
-			offset := addr - info.Address
-			access := new(RegisterAccess)
-			access.WaveOffset = wf.VRegOffset
-			access.Reg = info.Dst
-			access.RegCount = info.RegCount
-			access.LaneID = i
-			if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
-				access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
-			} else {
-				access.Data = rsp.Data[offset : offset+uint64(4*info.RegCount)]
-			}
-
-			cu.VRegFile[wf.SIMDID].Write(access)
-		}
-
-	}
-
-	info.ReturnedReqs += 1
-	if info.ReturnedReqs == info.TotalReqs {
-		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
-	}
-
-	delete(cu.inFlightMemAccess, rsp.RespondTo)
-
-	return nil
+) {
+	//info, found := cu.inFlightMemAccess[rsp.RespondTo]
+	//if !found {
+	//	log.Panic("memory access request not sent from the unit")
+	//}
+	//
+	//wf := info.Wf
+	//inst := info.Inst
+	//
+	//for i := 0; i < 64; i++ {
+	//	addr := info.PreCoalescedAddrs[i]
+	//	if addr >= info.Address && addr < info.Address+uint64(len(rsp.Data)) {
+	//		offset := addr - info.Address
+	//		access := new(RegisterAccess)
+	//		access.WaveOffset = wf.VRegOffset
+	//		access.Reg = info.Dst
+	//		access.RegCount = info.RegCount
+	//		access.LaneID = i
+	//		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
+	//			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
+	//		} else {
+	//			access.Data = rsp.Data[offset : offset+uint64(4*info.RegCount)]
+	//		}
+	//
+	//		cu.VRegFile[wf.SIMDID].Write(access)
+	//	}
+	//
+	//}
+	//
+	//info.ReturnedReqs += 1
+	//if info.ReturnedReqs == info.TotalReqs {
+	//	wf.OutstandingVectorMemAccess--
+	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	//}
+	//
+	//delete(cu.inFlightMemAccess, rsp.RespondTo)
+	//
+	//return nil
 }
 
-func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) error {
-	info, found := cu.inFlightMemAccess[rsp.RespondTo]
-	if !found {
-		log.Panic("memory access request not sent from the unit")
-	}
-
-	wf := info.Wf
-	info.ReturnedReqs += 1
-	if info.ReturnedReqs == info.TotalReqs {
-		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
-	}
-	delete(cu.inFlightMemAccess, rsp.RespondTo)
-	return nil
+func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
+	//info, found := cu.inFlightMemAccess[rsp.RespondTo]
+	//if !found {
+	//	log.Panic("memory access request not sent from the unit")
+	//}
+	//
+	//wf := info.Wf
+	//info.ReturnedReqs += 1
+	//if info.ReturnedReqs == info.TotalReqs {
+	//	wf.OutstandingVectorMemAccess--
+	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	//}
+	//delete(cu.inFlightMemAccess, rsp.RespondTo)
+	//return nil
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -460,7 +465,6 @@ func NewComputeUnit(
 
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
-	cu.inFlightMemAccess = make(map[string]*MemAccessInfo)
 
 	cu.ToACE = akita.NewPort(cu)
 	cu.ToInstMem = akita.NewPort(cu)
