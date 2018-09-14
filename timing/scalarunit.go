@@ -52,16 +52,18 @@ func (u *ScalarUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
-func (u *ScalarUnit) Run(now akita.VTimeInSec) {
-	u.sendRequest(now)
-	u.runWriteStage(now)
-	u.runExecStage(now)
-	u.runReadStage(now)
+func (u *ScalarUnit) Run(now akita.VTimeInSec) bool {
+	madeProgress := false
+	madeProgress = u.sendRequest(now) || madeProgress
+	madeProgress = u.runWriteStage(now) || madeProgress
+	madeProgress = u.runExecStage(now) || madeProgress
+	madeProgress = u.runReadStage(now) || madeProgress
+	return madeProgress
 }
 
-func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) {
+func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toRead == nil {
-		return
+		return false
 	}
 
 	if u.toExec == nil {
@@ -71,18 +73,20 @@ func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) {
 
 		u.toExec = u.toRead
 		u.toRead = nil
+		return true
 	}
+	return false
 }
 
-func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) {
+func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
-		return
+		return false
 	}
 
 	if u.toWrite == nil {
 		if u.toExec.Inst().FormatType == insts.SMEM {
 			u.executeSMEMInst(now)
-			return
+			return true
 		} else {
 			u.alu.Run(u.toExec)
 			u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
@@ -90,7 +94,9 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) {
 			u.toWrite = u.toExec
 			u.toExec = nil
 		}
+		return true
 	}
+	return false
 }
 
 func (u *ScalarUnit) executeSMEMInst(now akita.VTimeInSec) {
@@ -132,9 +138,9 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 	}
 }
 
-func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) {
+func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
 	if u.toWrite == nil {
-		return
+		return false
 	}
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
@@ -144,15 +150,18 @@ func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) {
 
 	u.toWrite.State = WfReady
 	u.toWrite = nil
+	return true
 }
 
-func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) {
+func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) bool {
 	if len(u.readBuf) > 0 {
 		req := u.readBuf[0]
 		req.SetSendTime(now)
 		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]
+			return true
 		}
 	}
+	return false
 }

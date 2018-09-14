@@ -99,91 +99,107 @@ var _ = Describe("ComputeUnit", func() {
 	})
 
 	Context("when processing MapWGReq", func() {
+		var (
+			req *gcn3.MapWGReq
+		)
+
+		BeforeEach(func() {
+			wg := grid.WorkGroups[0]
+			req = gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
+			req.SetRecvTime(10)
+			req.SetEventTime(10)
+
+			cu.ToACE.Recv(req)
+		})
+
 		It("should schedule wavefront dispatching if mapping is successful", func() {
 			wgMapper.OK = true
 
-			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-			req.SetRecvTime(10)
-			req.SetEventTime(10)
+			cu.processInputFromACE(11)
 
-			cu.Handle(req)
-
-			Expect(engine.ScheduledEvent).To(HaveLen(2))
+			// 3 Events:
+			//   1. Tick event that is scheduled because the port receive
+			//   2. Wf Dispatch
+			//   3. Wf Dispatch end
+			Expect(engine.ScheduledEvent).To(HaveLen(3))
 		})
-
-		It("should schedule more events if number of wavefronts is greater than 4", func() {
-			wgMapper.OK = true
-
-			wg := grid.WorkGroups[0]
-			wg.Wavefronts = make([]*kernels.Wavefront, 0)
-			for i := 0; i < 6; i++ {
-				wf := kernels.NewWavefront()
-				wf.WG = wg
-				wg.Wavefronts = append(wg.Wavefronts, wf)
-			}
-			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-			req.SetRecvTime(10)
-			req.SetEventTime(10)
-
-			cu.Handle(req)
-
-			Expect(engine.ScheduledEvent).To(HaveLen(7))
-		})
-
-		It("should reply not OK if there are pending wavefronts", func() {
-			wf := grid.WorkGroups[0].Wavefronts[0]
-			cu.WfToDispatch[wf] = new(WfDispatchInfo)
-
-			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-			req.SetRecvTime(10)
-			req.SetEventTime(10)
-
-			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
-			expectedResponse.Ok = false
-			expectedResponse.SetSendTime(10)
-			expectedResponse.SetRecvTime(10)
-			connection.ExpectSend(expectedResponse, nil)
-
-			cu.Handle(req)
-
-			Expect(connection.AllExpectedSent()).To(BeTrue())
-		})
-
-		It("should reply not OK if mapping is failed", func() {
-			wgMapper.OK = false
-
-			wg := grid.WorkGroups[0]
-			req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-			req.SetRecvTime(10)
-			req.SetEventTime(10)
-
-			expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
-			expectedResponse.Ok = false
-			expectedResponse.SetRecvTime(10)
-			expectedResponse.SetSendTime(10)
-			connection.ExpectSend(expectedResponse, nil)
-
-			cu.Handle(req)
-
-			Expect(connection.AllExpectedSent()).To(BeTrue())
-		})
+		//
+		//It("should schedule more events if number of wavefronts is greater than 4", func() {
+		//	wgMapper.OK = true
+		//
+		//	wg := grid.WorkGroups[0]
+		//	wg.Wavefronts = make([]*kernels.Wavefront, 0)
+		//	for i := 0; i < 6; i++ {
+		//		wf := kernels.NewWavefront()
+		//		wf.WG = wg
+		//		wg.Wavefronts = append(wg.Wavefronts, wf)
+		//	}
+		//	req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
+		//	req.SetRecvTime(10)
+		//	req.SetEventTime(10)
+		//
+		//	cu.Handle(req)
+		//
+		//	Expect(engine.ScheduledEvent).To(HaveLen(7))
+		//})
+		//
+		//It("should reply not OK if there are pending wavefronts", func() {
+		//	wf := grid.WorkGroups[0].Wavefronts[0]
+		//	cu.WfToDispatch[wf] = new(WfDispatchInfo)
+		//
+		//	wg := grid.WorkGroups[0]
+		//	req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
+		//	req.SetRecvTime(10)
+		//	req.SetEventTime(10)
+		//
+		//	expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
+		//	expectedResponse.Ok = false
+		//	expectedResponse.SetSendTime(10)
+		//	expectedResponse.SetRecvTime(10)
+		//	connection.ExpectSend(expectedResponse, nil)
+		//
+		//	cu.Handle(req)
+		//
+		//	Expect(connection.AllExpectedSent()).To(BeTrue())
+		//})
+		//
+		//It("should reply not OK if mapping is failed", func() {
+		//	wgMapper.OK = false
+		//
+		//	wg := grid.WorkGroups[0]
+		//	req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
+		//	req.SetRecvTime(10)
+		//	req.SetEventTime(10)
+		//
+		//	expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
+		//	expectedResponse.Ok = false
+		//	expectedResponse.SetRecvTime(10)
+		//	expectedResponse.SetSendTime(10)
+		//	connection.ExpectSend(expectedResponse, nil)
+		//
+		//	cu.Handle(req)
+		//
+		//	Expect(connection.AllExpectedSent()).To(BeTrue())
+		//})
 	})
+	//
+	//Context("when handling WfDispatchEvent", func() {
+	//
+	//})
 
-	Context("when handling WfDispatchEvent", func() {
-
-	})
-
-	Context("when handling mem.AccessReq", func() {
-		It("should handle fetch return", func() {
-			wf := new(Wavefront)
+	Context("when handling DataReady from ToInstMem Port", func() {
+		var (
+			wf        *Wavefront
+			dataReady *mem.DataReadyRsp
+		)
+		BeforeEach(func() {
+			wf = new(Wavefront)
 			inst := NewInst(nil)
 			wf.inst = inst
 			wf.PC = 0x1000
 
-			req := mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
-			req.Data = []byte{
+			dataReady = mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, "out_req")
+			dataReady.Data = []byte{
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
@@ -193,23 +209,29 @@ var _ = Describe("ComputeUnit", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}
-			req.SetRecvTime(10)
-			req.SetEventTime(10)
+			dataReady.SetRecvTime(10)
+			dataReady.SetEventTime(10)
+			cu.ToInstMem.Recv(dataReady)
 
 			info := new(MemAccessInfo)
 			info.Action = MemAccessInstFetch
 			info.Wf = wf
 			cu.inFlightMemAccess["out_req"] = info
+		})
 
-			cu.Handle(req)
+		It("should handle fetch return", func() {
+			cu.processInputFromInstMem(10)
 
 			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1000)))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 			Expect(wf.InstBuffer).To(HaveLen(64))
+			Expect(cu.NeedTick).To(BeTrue())
 		})
+	})
 
+	Context("should handle DataReady from ToScalarMem port", func() {
 		It("should handle scalar data load return", func() {
 			rawWf := grid.WorkGroups[0].Wavefronts[0]
 			inst := NewInst(insts.NewInst())
@@ -227,8 +249,9 @@ var _ = Describe("ComputeUnit", func() {
 			req := mem.NewDataReadyRsp(10, nil, nil, "out_req")
 			req.Data = insts.Uint32ToBytes(32)
 			req.SetSendTime(10)
+			cu.ToScalarMem.Recv(req)
 
-			cu.Handle(req)
+			cu.processInputFromScalarMem(10)
 
 			access := new(RegisterAccess)
 			access.Reg = insts.SReg(0)
@@ -239,17 +262,26 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
+	})
 
-		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
-			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			inst := NewInst(insts.NewInst())
-			wf := NewWavefront(rawWf)
+	Context("should handle DataReady from ToVectorMem", func() {
+		var (
+			rawWf *kernels.Wavefront
+			wf    *Wavefront
+			inst  *Inst
+			info  *MemAccessInfo
+		)
+
+		BeforeEach(func() {
+			rawWf = grid.WorkGroups[0].Wavefronts[0]
+			inst = NewInst(insts.NewInst())
+			wf = NewWavefront(rawWf)
 			wf.SIMDID = 0
 			wf.inst = inst
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 
-			info := newMemAccessInfo()
+			info = newMemAccessInfo()
 			info.Action = MemAccessVectorDataLoad
 			info.Address = 4096
 			info.Wf = wf
@@ -267,8 +299,11 @@ var _ = Describe("ComputeUnit", func() {
 			for i := 0; i < 16; i++ {
 				copy(req.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
+			cu.ToVectorMem.Recv(req)
+		})
 
-			cu.Handle(req)
+		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
+			cu.processInputFromVectorMem(10)
 
 			Expect(info.ReturnedReqs).To(Equal(2))
 			for i := 0; i < 16; i++ {
@@ -281,42 +316,16 @@ var _ = Describe("ComputeUnit", func() {
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
-
 		})
 
 		It("should handle vector data load return, and the return is the last one for an instruction", func() {
-			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			inst := NewInst(insts.NewInst())
-			wf := NewWavefront(rawWf)
-			wf.SIMDID = 0
-			wf.inst = inst
-			wf.VRegOffset = 0
-			wf.OutstandingVectorMemAccess = 1
-
-			info := newMemAccessInfo()
-			info.Action = MemAccessVectorDataLoad
-			info.Wf = wf
-			info.TotalReqs = 4
 			info.ReturnedReqs = 3
-			info.Inst = inst
-			info.Dst = insts.VReg(0)
-			info.Address = 4096 + 64*3
-			for i := 0; i < 64; i++ {
-				info.PreCoalescedAddrs[i] = uint64(4096 + i*4)
-			}
-			cu.inFlightMemAccess["out_req"] = info
 
-			req := mem.NewDataReadyRsp(10, nil, nil, "out_req")
-			req.Data = make([]byte, 64)
-			for i := 0; i < 16; i++ {
-				copy(req.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i+48)))
-			}
-
-			cu.Handle(req)
+			cu.processInputFromVectorMem(10)
 
 			Expect(info.ReturnedReqs).To(Equal(4))
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
-			for i := 48; i < 64; i++ {
+			for i := 0; i < 16; i++ {
 				access := new(RegisterAccess)
 				access.RegCount = 1
 				access.WaveOffset = 0
@@ -326,18 +335,27 @@ var _ = Describe("ComputeUnit", func() {
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
 		})
+	})
 
-		It("should handle vector data store return and the return is not the last one from an instruction", func() {
+	Context("handle write done respond from ToVectorMem port", func() {
+		var (
+			rawWf *kernels.Wavefront
+			inst  *Inst
+			wf    *Wavefront
+			info  *MemAccessInfo
+			req   *mem.DoneRsp
+		)
 
-			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			inst := NewInst(insts.NewInst())
-			wf := NewWavefront(rawWf)
+		BeforeEach(func() {
+			rawWf = grid.WorkGroups[0].Wavefronts[0]
+			inst = NewInst(insts.NewInst())
+			wf = NewWavefront(rawWf)
 			wf.SIMDID = 0
 			wf.inst = inst
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 
-			info := newMemAccessInfo()
+			info = newMemAccessInfo()
 			info.Action = MemAccessVectorDataStore
 			info.Wf = wf
 			info.TotalReqs = 4
@@ -347,42 +365,26 @@ var _ = Describe("ComputeUnit", func() {
 			info.Address = 4096 + 64*3
 			cu.inFlightMemAccess["out_req"] = info
 
-			req := mem.NewDoneRsp(10, nil, nil, "out_req")
+			req = mem.NewDoneRsp(10, nil, nil, "out_req")
+			cu.ToVectorMem.Recv(req)
+		})
 
-			cu.Handle(req)
+		It("should handle vector data store return and the return is not the last one from an instruction", func() {
+			cu.processInputFromVectorMem(10)
 
 			Expect(info.ReturnedReqs).To(Equal(2))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
+			Expect(cu.NeedTick).To(BeTrue())
 		})
 
 		It("should handle vector data store return and the return is the last one from an instruction", func() {
-
-			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			inst := NewInst(insts.NewInst())
-			wf := NewWavefront(rawWf)
-			wf.SIMDID = 0
-			wf.inst = inst
-			wf.VRegOffset = 0
-			wf.OutstandingVectorMemAccess = 1
-
-			info := newMemAccessInfo()
-			info.Action = MemAccessVectorDataStore
-			info.Wf = wf
-			info.TotalReqs = 4
 			info.ReturnedReqs = 3
-			info.Inst = inst
-			info.Dst = insts.VReg(0)
-			info.Address = 4096 + 64*3
-			cu.inFlightMemAccess["out_req"] = info
 
-			req := mem.NewDoneRsp(10, nil, nil, "out_req")
-
-			cu.Handle(req)
+			cu.processInputFromVectorMem(10)
 
 			Expect(info.ReturnedReqs).To(Equal(4))
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		})
 	})
-
 })

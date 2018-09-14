@@ -43,15 +43,17 @@ func (u *LDSUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 }
 
 // Run executes three pipeline stages that are controlled by the LDSUnit
-func (u *LDSUnit) Run(now akita.VTimeInSec) {
-	u.runWriteStage(now)
-	u.runExecStage(now)
-	u.runReadStage(now)
+func (u *LDSUnit) Run(now akita.VTimeInSec) bool {
+	madeProgress := false
+	madeProgress = u.runWriteStage(now) || madeProgress
+	madeProgress = u.runExecStage(now) || madeProgress
+	madeProgress = u.runReadStage(now) || madeProgress
+	return madeProgress
 }
 
-func (u *LDSUnit) runReadStage(now akita.VTimeInSec) {
+func (u *LDSUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toRead == nil {
-		return
+		return false
 	}
 
 	if u.toExec == nil {
@@ -61,12 +63,14 @@ func (u *LDSUnit) runReadStage(now akita.VTimeInSec) {
 
 		u.toExec = u.toRead
 		u.toRead = nil
+		return true
 	}
+	return false
 }
 
-func (u *LDSUnit) runExecStage(now akita.VTimeInSec) {
+func (u *LDSUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
-		return
+		return false
 	}
 
 	if u.toWrite == nil {
@@ -77,12 +81,14 @@ func (u *LDSUnit) runExecStage(now akita.VTimeInSec) {
 
 		u.toWrite = u.toExec
 		u.toExec = nil
+		return true
 	}
+	return false
 }
 
-func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) {
+func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) bool {
 	if u.toWrite == nil {
-		return
+		return false
 	}
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
@@ -92,4 +98,5 @@ func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) {
 
 	u.toWrite.State = WfReady
 	u.toWrite = nil
+	return true
 }
