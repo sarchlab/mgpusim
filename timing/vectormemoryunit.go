@@ -155,8 +155,10 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 ) {
 	for i, addr := range coalescedAddrs {
 		info := new(VectorMemAccessInfo)
+		info.Inst = u.toExec.inst
 		info.Wavefront = u.toExec
 		info.DstVGPR = u.toExec.inst.Dst.Register
+		info.Lanes = addr.LaneIDs
 		info.LaneAddrOffsets = addr.LaneAddrOffset
 		info.RegisterCount = registerCount
 
@@ -181,6 +183,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	for i, addr := range preCoalescedAddrs {
 		info := new(VectorMemAccessInfo)
 		info.Wavefront = u.toExec
+		info.Inst = u.toExec.inst
 		info.DstVGPR = u.toExec.inst.Dst.Register
 
 		lowModule := u.cu.VectorMemModules.Find(addr)
