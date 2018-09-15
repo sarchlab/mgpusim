@@ -31,7 +31,8 @@ var _ = Describe("DefaultCoalescer", func() {
 		expectedCoalescedAccesses := make([]CoalescedAccess, 0)
 		for i := 0; i < 16; i++ {
 			access := CoalescedAccess{0, 4,
-				[]int{i * 4, i*4 + 1, i*4 + 2, i*4 + 3}}
+				[]int{i * 4, i*4 + 1, i*4 + 2, i*4 + 3},
+				[]uint64{0, 0, 0, 0}}
 			expectedCoalescedAccesses = append(
 				expectedCoalescedAccesses, access)
 		}
@@ -49,7 +50,8 @@ var _ = Describe("DefaultCoalescer", func() {
 		expectedCoalescedAccesses := make([]CoalescedAccess, 0)
 		for i := 0; i < 16; i++ {
 			access := CoalescedAccess{uint64(0x10 * i), 16,
-				[]int{i * 4, i*4 + 1, i*4 + 2, i*4 + 3}}
+				[]int{i * 4, i*4 + 1, i*4 + 2, i*4 + 3},
+				[]uint64{0, 4, 8, 12}}
 			expectedCoalescedAccesses = append(
 				expectedCoalescedAccesses, access)
 		}
@@ -69,6 +71,7 @@ var _ = Describe("DefaultCoalescer", func() {
 			expectOutput[i].Addr = rawAddresses[i]
 			expectOutput[i].Size = 4
 			expectOutput[i].LaneIDs = []int{i}
+			expectOutput[i].LaneAddrOffset = []uint64{0}
 		}
 
 		Expect(coalescedAddresses).To(Equal(expectOutput))

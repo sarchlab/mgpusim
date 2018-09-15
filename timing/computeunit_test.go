@@ -262,79 +262,79 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.inFlightScalarMemAccess).To(HaveLen(0))
 		})
 	})
-	//
-	//Context("should handle DataReady from ToVectorMem", func() {
-	//	var (
-	//		rawWf *kernels.Wavefront
-	//		wf    *Wavefront
-	//		inst  *Inst
-	//		info  *MemAccessInfo
-	//	)
-	//
-	//	BeforeEach(func() {
-	//		rawWf = grid.WorkGroups[0].Wavefronts[0]
-	//		inst = NewInst(insts.NewInst())
-	//		wf = NewWavefront(rawWf)
-	//		wf.SIMDID = 0
-	//		wf.inst = inst
-	//		wf.VRegOffset = 0
-	//		wf.OutstandingVectorMemAccess = 1
-	//
-	//		info = newMemAccessInfo()
-	//		info.Action = MemAccessVectorDataLoad
-	//		info.Address = 4096
-	//		info.Wf = wf
-	//		info.TotalReqs = 4
-	//		info.ReturnedReqs = 1
-	//		info.Inst = inst
-	//		info.Dst = insts.VReg(0)
-	//		for i := 0; i < 64; i++ {
-	//			info.PreCoalescedAddrs[i] = uint64(4096 + i*4)
-	//		}
-	//		cu.inFlightMemAccess["out_req"] = info
-	//
-	//		req := mem.NewDataReadyRsp(10, nil, nil, "out_req")
-	//		req.Data = make([]byte, 64)
-	//		for i := 0; i < 16; i++ {
-	//			copy(req.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
-	//		}
-	//		cu.ToVectorMem.Recv(req)
-	//	})
-	//
-	//	It("should handle vector data load return, and the return is not the last one for an instruction", func() {
-	//		cu.processInputFromVectorMem(10)
-	//
-	//		Expect(info.ReturnedReqs).To(Equal(2))
-	//		for i := 0; i < 16; i++ {
-	//			access := new(RegisterAccess)
-	//			access.RegCount = 1
-	//			access.WaveOffset = 0
-	//			access.LaneID = i
-	//			access.Reg = insts.VReg(0)
-	//			cu.VRegFile[0].Read(access)
-	//			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
-	//		}
-	//		Expect(cu.inFlightMemAccess).To(HaveLen(0))
-	//	})
-	//
-	//	It("should handle vector data load return, and the return is the last one for an instruction", func() {
-	//		info.ReturnedReqs = 3
-	//
-	//		cu.processInputFromVectorMem(10)
-	//
-	//		Expect(info.ReturnedReqs).To(Equal(4))
-	//		Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
-	//		for i := 0; i < 16; i++ {
-	//			access := new(RegisterAccess)
-	//			access.RegCount = 1
-	//			access.WaveOffset = 0
-	//			access.LaneID = i
-	//			access.Reg = insts.VReg(0)
-	//			cu.VRegFile[0].Read(access)
-	//			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
-	//		}
-	//	})
-	//})
+
+	Context("should handle DataReady from ToVectorMem", func() {
+		var (
+			rawWf *kernels.Wavefront
+			wf    *Wavefront
+			inst  *Inst
+			read  *mem.ReadReq
+			info  *VectorMemAccessInfo
+		)
+
+		BeforeEach(func() {
+			rawWf = grid.WorkGroups[0].Wavefronts[0]
+			inst = NewInst(insts.NewInst())
+			wf = NewWavefront(rawWf)
+			wf.SIMDID = 0
+			wf.inst = inst
+			wf.VRegOffset = 0
+			wf.OutstandingVectorMemAccess = 1
+
+			read = mem.NewReadReq(8, nil, nil, 0x100, 16)
+
+			info = new(VectorMemAccessInfo)
+			info.Read = read
+			info.Wavefront = wf
+			info.Inst = inst
+			info.DstVGPR = insts.VReg(0)
+			info.Lanes = []int{0, 1, 2, 3}
+			info.LaneAddrOffsets = []uint64{0, 4, 8, 12}
+			cu.inFlightVectorMemAccess = append(
+				cu.inFlightVectorMemAccess, info)
+
+			dataReady := mem.NewDataReadyRsp(10, nil, nil, read.ID)
+			dataReady.Data = make([]byte, 64)
+			for i := 0; i < 4; i++ {
+				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
+			}
+			cu.ToVectorMem.Recv(dataReady)
+		})
+
+		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
+			cu.processInputFromVectorMem(10)
+
+			for i := 0; i < 4; i++ {
+				access := new(RegisterAccess)
+				access.RegCount = 1
+				access.WaveOffset = 0
+				access.LaneID = i
+				access.Reg = insts.VReg(0)
+				cu.VRegFile[0].Read(access)
+				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
+			}
+
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
+			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+		})
+
+		It("should handle vector data load return, and the return is the last one for an instruction", func() {
+			read.IsLastInWave = true
+
+			cu.processInputFromVectorMem(10)
+
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			for i := 0; i < 4; i++ {
+				access := new(RegisterAccess)
+				access.RegCount = 1
+				access.WaveOffset = 0
+				access.LaneID = i
+				access.Reg = insts.VReg(0)
+				cu.VRegFile[0].Read(access)
+				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
+			}
+		})
+	})
 	//
 	//Context("handle write done respond from ToVectorMem port", func() {
 	//	var (

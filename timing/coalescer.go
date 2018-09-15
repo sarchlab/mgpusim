@@ -5,9 +5,10 @@ import (
 )
 
 type CoalescedAccess struct {
-	Addr    uint64
-	Size    uint64
-	LaneIDs []int
+	Addr           uint64
+	Size           uint64
+	LaneIDs        []int
+	LaneAddrOffset []uint64
 }
 
 // A Coalescer defines the algorithm on how addresses can be coalesced
@@ -76,8 +77,11 @@ func (c *DefaultCoalescer) trySameAddressCoalesce(
 	if c.isSameAddress(addresses) {
 		address := addresses[0]
 		address, _ = cache.GetCacheLineID(address, c.CacheLineSizeAsPowerOf2)
-		access := CoalescedAccess{address, uint64(bytesPerWI),
-			[]int{firstLaneID, firstLaneID + 1, firstLaneID + 2, firstLaneID + 3}}
+		access := CoalescedAccess{
+			address, uint64(bytesPerWI),
+			[]int{firstLaneID, firstLaneID + 1, firstLaneID + 2, firstLaneID + 3},
+			[]uint64{0, 0, 0, 0},
+		}
 		*coalescedAddresses = append(*coalescedAddresses, access)
 		return true
 	}
@@ -101,9 +105,14 @@ func (c *DefaultCoalescer) tryAdjacentAddressCoalesce(
 ) bool {
 	if c.addressesAdjacent(addresses, bytesPerWI) &&
 		c.addressesOnSameCacheLine(addresses) {
-		pair := CoalescedAccess{addresses[0], uint64(4 * bytesPerWI),
-			[]int{firstLaneID, firstLaneID + 1, firstLaneID + 2, firstLaneID + 3}}
-		*coalescedAddresses = append(*coalescedAddresses, pair)
+		var access CoalescedAccess
+		access.Addr = addresses[0]
+		access.Size = uint64(c.CoalescingWidth * bytesPerWI)
+		for i := 0; i < c.CoalescingWidth; i++ {
+			access.LaneIDs = append(access.LaneIDs, firstLaneID+i)
+			access.LaneAddrOffset = append(access.LaneAddrOffset, uint64(i*4))
+		}
+		*coalescedAddresses = append(*coalescedAddresses, access)
 		return true
 	}
 	return false
@@ -142,7 +151,7 @@ func (c *DefaultCoalescer) doNotCoalesce(
 ) {
 	for laneID, addr := range addresses {
 		pair := CoalescedAccess{addr, uint64(bytesPerWI),
-			[]int{firstLaneID + laneID}}
+			[]int{firstLaneID + laneID}, []uint64{0}}
 		*coalescedAddresses = append(*coalescedAddresses, pair)
 	}
 }
