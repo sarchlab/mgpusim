@@ -228,39 +228,40 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.NeedTick).To(BeTrue())
 		})
 	})
-	//
-	//Context("should handle DataReady from ToScalarMem port", func() {
-	//	It("should handle scalar data load return", func() {
-	//		rawWf := grid.WorkGroups[0].Wavefronts[0]
-	//		inst := NewInst(insts.NewInst())
-	//		wf := NewWavefront(rawWf)
-	//		wf.inst = inst
-	//		wf.SRegOffset = 0
-	//		wf.OutstandingScalarMemAccess = 1
-	//
-	//		info := newMemAccessInfo()
-	//		info.Action = MemAccessScalarDataLoad
-	//		info.Wf = wf
-	//		info.Dst = insts.SReg(0)
-	//		cu.inFlightMemAccess["out_req"] = info
-	//
-	//		req := mem.NewDataReadyRsp(10, nil, nil, "out_req")
-	//		req.Data = insts.Uint32ToBytes(32)
-	//		req.SetSendTime(10)
-	//		cu.ToScalarMem.Recv(req)
-	//
-	//		cu.processInputFromScalarMem(10)
-	//
-	//		access := new(RegisterAccess)
-	//		access.Reg = insts.SReg(0)
-	//		access.WaveOffset = 0
-	//		access.RegCount = 1
-	//		cu.SRegFile.Read(access)
-	//		Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
-	//		Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
-	//		Expect(cu.inFlightMemAccess).To(HaveLen(0))
-	//	})
-	//})
+
+	Context("should handle DataReady from ToScalarMem port", func() {
+		It("should handle scalar data load return", func() {
+			rawWf := grid.WorkGroups[0].Wavefronts[0]
+			wf := NewWavefront(rawWf)
+			wf.SRegOffset = 0
+			wf.OutstandingScalarMemAccess = 1
+
+			read := mem.NewReadReq(8, cu.ToScalarMem, nil, 0x100, 4)
+
+			info := new(ScalarMemAccessInfo)
+			info.Wavefront = wf
+			info.DstSGPR = insts.SReg(0)
+			info.Req = read
+			cu.inFlightScalarMemAccess = append(
+				cu.inFlightScalarMemAccess, info)
+
+			req := mem.NewDataReadyRsp(10, nil, nil, read.ID)
+			req.Data = insts.Uint32ToBytes(32)
+			req.SetSendTime(10)
+			cu.ToScalarMem.Recv(req)
+
+			cu.processInputFromScalarMem(10)
+
+			access := new(RegisterAccess)
+			access.Reg = insts.SReg(0)
+			access.WaveOffset = 0
+			access.RegCount = 1
+			cu.SRegFile.Read(access)
+			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
+			Expect(cu.inFlightScalarMemAccess).To(HaveLen(0))
+		})
+	})
 	//
 	//Context("should handle DataReady from ToVectorMem", func() {
 	//	var (

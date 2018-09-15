@@ -56,11 +56,14 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.inst = inst
 
-		coalescer.ToReturn = []AddrSizePair{
-			{0x0, 64},
-			{0x40, 64},
-			{0x80, 64},
-			{0xc0, 64},
+		coalescer.ToReturn = make([]CoalescedAccess, 4)
+		for i := 0; i < 4; i++ {
+			coalescer.ToReturn[i].Addr = uint64(0x40 * i)
+			coalescer.ToReturn[i].Size = 64
+			for j := 0; j < 16; j++ {
+				coalescer.ToReturn[i].LaneIDs =
+					append(coalescer.ToReturn[i].LaneIDs, i*16+j)
+			}
 		}
 
 		bu.toExec = wave
@@ -69,7 +72,8 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
-		//Expect(cu.inFlightMemAccess).To(HaveLen(4))
+		Expect(cu.inFlightVectorMemAccess).To(HaveLen(4))
+		Expect(cu.inFlightVectorMemAccess[3].Read.IsLastInWave).To(BeTrue())
 		Expect(bu.ReadBuf).To(HaveLen(4))
 	})
 
@@ -86,12 +90,6 @@ var _ = Describe("Vector Memory Unit", func() {
 			sp.ADDR[i] = uint64(4096 + i*4)
 			sp.DATA[i*4] = uint32(i)
 		}
-		//coalescer.ToReturn = []AddrSizePair{
-		//	{0x1000, 64},
-		//	{0x1040, 64},
-		//	{0x1080, 64},
-		//	{0x10c0, 64},
-		//}
 
 		bu.toExec = wave
 
@@ -99,7 +97,8 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
-		//Expect(cu.inFlightMemAccess).To(HaveLen(64))
+		Expect(cu.inFlightVectorMemAccess).To(HaveLen(64))
+		Expect(cu.inFlightVectorMemAccess[63].Write.IsLastInWave).To(BeTrue())
 		Expect(bu.WriteBuf).To(HaveLen(64))
 	})
 

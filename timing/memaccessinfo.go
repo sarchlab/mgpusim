@@ -1,12 +1,17 @@
 package timing
 
-import "gitlab.com/akita/mem"
+import (
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
+)
 
 type VectorMemAccessInfo struct {
 	Read      *mem.ReadReq
 	Write     *mem.WriteReq
 	Wavefront *Wavefront
+	DstVGPR   *insts.Reg
 	Lanes     []int
+	Inst      *Inst
 }
 
 type InstFetchReqInfo struct {
@@ -18,4 +23,6 @@ type InstFetchReqInfo struct {
 type ScalarMemAccessInfo struct {
 	Req       *mem.ReadReq
 	Wavefront *Wavefront
+	DstSGPR   *insts.Reg
+	Inst      *Inst
 }

@@ -28,7 +28,7 @@ type ComputeUnit struct {
 
 	inFlightInstFetch       []*InstFetchReqInfo
 	inFlightScalarMemAccess []*ScalarMemAccessInfo
-	inFlightVectorMemAccess []*ScalarMemAccessInfo
+	inFlightVectorMemAccess []*VectorMemAccessInfo
 
 	running bool
 
@@ -353,26 +353,28 @@ func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
-	//info, found := cu.inFlightMemAccess[rsp.RespondTo]
-	//if !found {
-	//	log.Panic("memory access request not sent from the unit")
-	//}
-	//
-	//wf := info.Wf
-	//access := new(RegisterAccess)
-	//access.WaveOffset = wf.SRegOffset
-	//access.Reg = info.Dst
-	//access.RegCount = int(len(rsp.Data) / 4)
-	//access.Data = rsp.Data
-	//cu.SRegFile.Write(access)
-	//
-	//wf.OutstandingScalarMemAccess -= 1
-	//delete(cu.inFlightMemAccess, rsp.RespondTo)
-	//
-	//cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-	//cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
-	//
-	//return nil
+	if len(cu.inFlightScalarMemAccess) == 0 {
+		log.Panic("CU is not loading scalar data")
+	}
+
+	info := cu.inFlightScalarMemAccess[0]
+	if info.Req.ID != rsp.RespondTo {
+		log.Panic("response does not match request")
+	}
+
+	wf := info.Wavefront
+	access := new(RegisterAccess)
+	access.WaveOffset = wf.SRegOffset
+	access.Reg = info.DstSGPR
+	access.RegCount = int(len(rsp.Data) / 4)
+	access.Data = rsp.Data
+	cu.SRegFile.Write(access)
+
+	wf.OutstandingScalarMemAccess -= 1
+	cu.inFlightScalarMemAccess = cu.inFlightScalarMemAccess[1:]
+
+	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
