@@ -436,20 +436,18 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 }
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
-	//info, found := cu.inFlightMemAccess[rsp.RespondTo]
-	//if !found {
-	//	log.Panic("memory access request not sent from the unit")
-	//}
-	//
-	//wf := info.Wf
-	//info.ReturnedReqs += 1
-	//if info.ReturnedReqs == info.TotalReqs {
-	//	wf.OutstandingVectorMemAccess--
-	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
-	//}
-	//delete(cu.inFlightMemAccess, rsp.RespondTo)
-	//return nil
+	info := cu.inFlightVectorMemAccess[0]
+	if info.Write.ID != rsp.RespondTo {
+		log.Panic("CU cannot receive out of order memory return")
+	}
+	cu.inFlightVectorMemAccess = cu.inFlightVectorMemAccess[1:]
+
+	wf := info.Wavefront
+	if info.Write.IsLastInWave {
+		wf.OutstandingVectorMemAccess--
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	}
 }
 
 // NewComputeUnit returns a newly constructed compute unit

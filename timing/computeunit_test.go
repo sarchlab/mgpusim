@@ -335,55 +335,52 @@ var _ = Describe("ComputeUnit", func() {
 			}
 		})
 	})
-	//
-	//Context("handle write done respond from ToVectorMem port", func() {
-	//	var (
-	//		rawWf *kernels.Wavefront
-	//		inst  *Inst
-	//		wf    *Wavefront
-	//		info  *MemAccessInfo
-	//		req   *mem.DoneRsp
-	//	)
-	//
-	//	BeforeEach(func() {
-	//		rawWf = grid.WorkGroups[0].Wavefronts[0]
-	//		inst = NewInst(insts.NewInst())
-	//		wf = NewWavefront(rawWf)
-	//		wf.SIMDID = 0
-	//		wf.inst = inst
-	//		wf.VRegOffset = 0
-	//		wf.OutstandingVectorMemAccess = 1
-	//
-	//		info = newMemAccessInfo()
-	//		info.Action = MemAccessVectorDataStore
-	//		info.Wf = wf
-	//		info.TotalReqs = 4
-	//		info.ReturnedReqs = 1
-	//		info.Inst = inst
-	//		info.Dst = insts.VReg(0)
-	//		info.Address = 4096 + 64*3
-	//		cu.inFlightMemAccess["out_req"] = info
-	//
-	//		req = mem.NewDoneRsp(10, nil, nil, "out_req")
-	//		cu.ToVectorMem.Recv(req)
-	//	})
-	//
-	//	It("should handle vector data store return and the return is not the last one from an instruction", func() {
-	//		cu.processInputFromVectorMem(10)
-	//
-	//		Expect(info.ReturnedReqs).To(Equal(2))
-	//		Expect(cu.inFlightMemAccess).To(HaveLen(0))
-	//		Expect(cu.NeedTick).To(BeTrue())
-	//	})
-	//
-	//	It("should handle vector data store return and the return is the last one from an instruction", func() {
-	//		info.ReturnedReqs = 3
-	//
-	//		cu.processInputFromVectorMem(10)
-	//
-	//		Expect(info.ReturnedReqs).To(Equal(4))
-	//		Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
-	//		Expect(cu.inFlightMemAccess).To(HaveLen(0))
-	//	})
-	//})
+
+	Context("handle write done respond from ToVectorMem port", func() {
+		var (
+			rawWf    *kernels.Wavefront
+			inst     *Inst
+			wf       *Wavefront
+			info     *VectorMemAccessInfo
+			writeReq *mem.WriteReq
+			doneRsp  *mem.DoneRsp
+		)
+
+		BeforeEach(func() {
+			rawWf = grid.WorkGroups[0].Wavefronts[0]
+			inst = NewInst(insts.NewInst())
+			wf = NewWavefront(rawWf)
+			wf.SIMDID = 0
+			wf.inst = inst
+			wf.VRegOffset = 0
+			wf.OutstandingVectorMemAccess = 1
+
+			writeReq = mem.NewWriteReq(8, nil, nil, 0x100)
+
+			info = new(VectorMemAccessInfo)
+			info.Wavefront = wf
+			info.Inst = inst
+			info.Write = writeReq
+			cu.inFlightVectorMemAccess = append(cu.inFlightVectorMemAccess, info)
+
+			doneRsp = mem.NewDoneRsp(10, nil, nil, writeReq.ID)
+			cu.ToVectorMem.Recv(doneRsp)
+		})
+
+		It("should handle vector data store return and the return is not the last one from an instruction", func() {
+			cu.processInputFromVectorMem(10)
+
+			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.NeedTick).To(BeTrue())
+		})
+
+		It("should handle vector data store return and the return is the last one from an instruction", func() {
+			writeReq.IsLastInWave = true
+
+			cu.processInputFromVectorMem(10)
+
+			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+		})
+	})
 })
