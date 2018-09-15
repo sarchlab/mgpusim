@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
 
@@ -399,44 +400,39 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	now akita.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
-	//info, found := cu.inFlightMemAccess[rsp.RespondTo]
-	//if !found {
-	//	log.Panic("memory access request not sent from the unit")
-	//}
-	//
-	//wf := info.Wf
-	//inst := info.Inst
-	//
-	//for i := 0; i < 64; i++ {
-	//	addr := info.PreCoalescedAddrs[i]
-	//	if addr >= info.Address && addr < info.Address+uint64(len(rsp.Data)) {
-	//		offset := addr - info.Address
-	//		access := new(RegisterAccess)
-	//		access.WaveOffset = wf.VRegOffset
-	//		access.Reg = info.Dst
-	//		access.RegCount = info.RegCount
-	//		access.LaneID = i
-	//		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
-	//			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
-	//		} else {
-	//			access.Data = rsp.Data[offset : offset+uint64(4*info.RegCount)]
-	//		}
-	//
-	//		cu.VRegFile[wf.SIMDID].Write(access)
-	//	}
-	//
-	//}
-	//
-	//info.ReturnedReqs += 1
-	//if info.ReturnedReqs == info.TotalReqs {
-	//	wf.OutstandingVectorMemAccess--
-	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
-	//	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
-	//}
-	//
-	//delete(cu.inFlightMemAccess, rsp.RespondTo)
-	//
-	//return nil
+	if len(cu.inFlightVectorMemAccess) == 0 {
+		log.Panic("CU is not accessing vector memory")
+	}
+
+	info := cu.inFlightVectorMemAccess[0]
+	if info.Read.ID != rsp.RespondTo {
+		log.Panic("CU cannot receive out of order memory return")
+	}
+	cu.inFlightVectorMemAccess = cu.inFlightVectorMemAccess[1:]
+
+	wf := info.Wavefront
+	inst := info.Inst
+
+	for i, laneID := range info.Lanes {
+		offset := info.LaneAddrOffsets[i]
+		access := new(RegisterAccess)
+		access.WaveOffset = wf.VRegOffset
+		access.Reg = info.DstVGPR
+		access.RegCount = info.RegisterCount
+		access.LaneID = laneID
+		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
+			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
+		} else {
+			access.Data = rsp.Data[offset : offset+uint64(4*info.RegisterCount)]
+		}
+		cu.VRegFile[wf.SIMDID].Write(access)
+	}
+
+	if info.Read.IsLastInWave {
+		wf.OutstandingVectorMemAccess--
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	}
 }
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {

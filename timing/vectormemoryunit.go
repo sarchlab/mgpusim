@@ -157,6 +157,8 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		info := new(VectorMemAccessInfo)
 		info.Wavefront = u.toExec
 		info.DstVGPR = u.toExec.inst.Dst.Register
+		info.LaneAddrOffsets = addr.LaneAddrOffset
+		info.RegisterCount = registerCount
 
 		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
 		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)

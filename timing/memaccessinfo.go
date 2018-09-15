@@ -6,12 +6,14 @@ import (
 )
 
 type VectorMemAccessInfo struct {
-	Read      *mem.ReadReq
-	Write     *mem.WriteReq
-	Wavefront *Wavefront
-	DstVGPR   *insts.Reg
-	Lanes     []int
-	Inst      *Inst
+	Read            *mem.ReadReq
+	Write           *mem.WriteReq
+	Wavefront       *Wavefront
+	DstVGPR         *insts.Reg
+	RegisterCount   int
+	Lanes           []int
+	LaneAddrOffsets []uint64
+	Inst            *Inst
 }
 
 type InstFetchReqInfo struct {
