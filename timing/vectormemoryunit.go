@@ -143,69 +143,59 @@ func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now akita.VTime
 func (u *VectorMemoryUnit) coalesceAddress(
 	addresses []uint64,
 	byteSizePerLane int,
-) []AddrSizePair {
+) []CoalescedAccess {
 	return u.coalescer.Coalesce(addresses, byteSizePerLane)
 }
 
 func (u *VectorMemoryUnit) bufferDataLoadRequest(
-	coalescedAddrs []AddrSizePair,
+	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
-	//instLevelInfo := new(InstLevelInfo)
-	//instLevelInfo.Inst = u.toExec.inst
-	//instLevelInfo.TotalReqs = len(coalescedAddrs)
-	//instLevelInfo.ReturnedReqs = 0
-	//
-	//for _, addr := range coalescedAddrs {
-	//	info := newMemAccessInfo()
-	//	info.InstLevelInfo = instLevelInfo
-	//	info.Action = MemAccessVectorDataLoad
-	//	info.PreCoalescedAddrs = preCoalescedAddrs
-	//	info.Wf = u.toExec
-	//	info.Dst = info.Wf.inst.Dst.Register
-	//	info.RegCount = registerCount
-	//	info.Address = addr.Addr
-	//
-	//	lowModule := u.cu.VectorMemModules.Find(addr.Addr)
-	//	req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
-	//	u.cu.inFlightMemAccess[req.ID] = info
-	//	u.ReadBuf = append(u.ReadBuf, req)
-	//}
+	for i, addr := range coalescedAddrs {
+		info := new(VectorMemAccessInfo)
+		info.Wavefront = u.toExec
+		info.DstVGPR = u.toExec.inst.Dst.Register
+
+		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
+		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
+		info.Read = req
+		if i == len(coalescedAddrs)-1 {
+			req.IsLastInWave = true
+		}
+		u.cu.inFlightVectorMemAccess = append(u.cu.inFlightVectorMemAccess, info)
+		u.ReadBuf = append(u.ReadBuf, req)
+	}
 }
 
 func (u *VectorMemoryUnit) bufferDataStoreRequest(
-	coalescedAddrs []AddrSizePair,
+	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
-	//instLevelInfo := new(InstLevelInfo)
-	//instLevelInfo.Inst = u.toExec.inst
-	//instLevelInfo.TotalReqs = len(preCoalescedAddrs)
-	//instLevelInfo.ReturnedReqs = 0
-	//
-	//for i, addr := range preCoalescedAddrs {
-	//	info := newMemAccessInfo()
-	//	info.InstLevelInfo = instLevelInfo
-	//	info.Action = MemAccessVectorDataStore
-	//	info.PreCoalescedAddrs = preCoalescedAddrs
-	//	info.Wf = u.toExec
-	//	info.Dst = info.Wf.inst.Dst.Register
-	//	info.Address = addr
-	//
-	//	lowModule := u.cu.VectorMemModules.Find(addr)
-	//	req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
-	//	req.Address = addr
-	//
-	//	for j := 0; j < registerCount; j++ {
-	//		req.Data = insts.Uint32ToBytes(data[i*4+j])
-	//	}
-	//	u.WriteBuf = append(u.WriteBuf, req)
-	//	u.cu.inFlightMemAccess[req.ID] = info
-	//}
+	for i, addr := range preCoalescedAddrs {
+		info := new(VectorMemAccessInfo)
+		info.Wavefront = u.toExec
+		info.DstVGPR = u.toExec.inst.Dst.Register
+
+		lowModule := u.cu.VectorMemModules.Find(addr)
+		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
+		info.Write = req
+		req.Address = addr
+		if i == len(preCoalescedAddrs)-1 {
+			req.IsLastInWave = true
+		}
+
+		for j := 0; j < registerCount; j++ {
+			req.Data = insts.Uint32ToBytes(data[i*4+j])
+		}
+		u.WriteBuf = append(u.WriteBuf, req)
+		u.cu.inFlightVectorMemAccess = append(
+			u.cu.inFlightVectorMemAccess, info)
+	}
 }
 
 func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {

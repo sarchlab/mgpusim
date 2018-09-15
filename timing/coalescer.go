@@ -4,14 +4,15 @@ import (
 	"gitlab.com/akita/mem/cache"
 )
 
-type AddrSizePair struct {
-	Addr uint64
-	Size uint64
+type CoalescedAccess struct {
+	Addr    uint64
+	Size    uint64
+	LaneIDs []int
 }
 
 // A Coalescer defines the algorithm on how addresses can be coalesced
 type Coalescer interface {
-	Coalesce(addresses []uint64, bytesPerWI int) []AddrSizePair
+	Coalesce(addresses []uint64, bytesPerWI int) []CoalescedAccess
 }
 
 func NewCoalescer() *DefaultCoalescer {
@@ -30,8 +31,8 @@ type DefaultCoalescer struct {
 func (c *DefaultCoalescer) Coalesce(
 	addresses []uint64,
 	bytesPerWI int,
-) []AddrSizePair {
-	coalescedAddresses := make([]AddrSizePair, 0, 64)
+) []CoalescedAccess {
+	coalescedAddresses := make([]CoalescedAccess, 0, 64)
 
 	numGroups := 64 / c.CoalescingWidth
 	for i := 0; i < numGroups; i++ {
@@ -42,6 +43,7 @@ func (c *DefaultCoalescer) Coalesce(
 			&coalescedAddresses,
 			addresses[startIndex:endIndex],
 			bytesPerWI,
+			i*c.CoalescingWidth,
 		)
 	}
 
@@ -49,31 +51,34 @@ func (c *DefaultCoalescer) Coalesce(
 }
 
 func (c *DefaultCoalescer) coaleseLaneGroups(
-	coalescedAddresses *[]AddrSizePair,
+	coalescedAddresses *[]CoalescedAccess,
 	addresses []uint64,
 	bytesPerWI int,
+	firstLaneID int,
 ) {
-	if c.trySameAddressCoalesce(coalescedAddresses, addresses, bytesPerWI) {
+	if c.trySameAddressCoalesce(coalescedAddresses, addresses, bytesPerWI, firstLaneID) {
 		return
 	}
 
-	if c.tryAdjacentAddressCoalesce(coalescedAddresses, addresses, bytesPerWI) {
+	if c.tryAdjacentAddressCoalesce(coalescedAddresses, addresses, bytesPerWI, firstLaneID) {
 		return
 	}
 
-	c.doNotCoalesce(coalescedAddresses, addresses, bytesPerWI)
+	c.doNotCoalesce(coalescedAddresses, addresses, bytesPerWI, firstLaneID)
 }
 
 func (c *DefaultCoalescer) trySameAddressCoalesce(
-	coalescedAddresses *[]AddrSizePair,
+	coalescedAddresses *[]CoalescedAccess,
 	addresses []uint64,
 	bytesPerWI int,
+	firstLaneID int,
 ) bool {
 	if c.isSameAddress(addresses) {
 		address := addresses[0]
 		address, _ = cache.GetCacheLineID(address, c.CacheLineSizeAsPowerOf2)
-		pair := AddrSizePair{address, uint64(bytesPerWI)}
-		*coalescedAddresses = append(*coalescedAddresses, pair)
+		access := CoalescedAccess{address, uint64(bytesPerWI),
+			[]int{firstLaneID, firstLaneID + 1, firstLaneID + 2, firstLaneID + 3}}
+		*coalescedAddresses = append(*coalescedAddresses, access)
 		return true
 	}
 	return false
@@ -89,13 +94,15 @@ func (c *DefaultCoalescer) isSameAddress(addresses []uint64) bool {
 }
 
 func (c *DefaultCoalescer) tryAdjacentAddressCoalesce(
-	coalescedAddresses *[]AddrSizePair,
+	coalescedAddresses *[]CoalescedAccess,
 	addresses []uint64,
 	bytesPerWI int,
+	firstLaneID int,
 ) bool {
 	if c.addressesAdjacent(addresses, bytesPerWI) &&
 		c.addressesOnSameCacheLine(addresses) {
-		pair := AddrSizePair{addresses[0], uint64(4 * bytesPerWI)}
+		pair := CoalescedAccess{addresses[0], uint64(4 * bytesPerWI),
+			[]int{firstLaneID, firstLaneID + 1, firstLaneID + 2, firstLaneID + 3}}
 		*coalescedAddresses = append(*coalescedAddresses, pair)
 		return true
 	}
@@ -128,21 +135,23 @@ func (c *DefaultCoalescer) addressesOnSameCacheLine(addresses []uint64) bool {
 }
 
 func (c *DefaultCoalescer) doNotCoalesce(
-	coalescedAddresses *[]AddrSizePair,
+	coalescedAddresses *[]CoalescedAccess,
 	addresses []uint64,
 	bytesPerWI int,
+	firstLaneID int,
 ) {
-	for _, addr := range addresses {
-		pair := AddrSizePair{addr, uint64(bytesPerWI)}
+	for laneID, addr := range addresses {
+		pair := CoalescedAccess{addr, uint64(bytesPerWI),
+			[]int{firstLaneID + laneID}}
 		*coalescedAddresses = append(*coalescedAddresses, pair)
 	}
 }
 
 // MockCoalescer is a coalescer for testing purposes
 type MockCoalescer struct {
-	ToReturn []AddrSizePair
+	ToReturn []CoalescedAccess
 }
 
-func (c *MockCoalescer) Coalesce(addresses []uint64, bytesPerWI int) []AddrSizePair {
+func (c *MockCoalescer) Coalesce(addresses []uint64, bytesPerWI int) []CoalescedAccess {
 	return c.ToReturn
 }
