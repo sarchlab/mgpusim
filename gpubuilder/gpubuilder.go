@@ -157,8 +157,8 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	cacheBuilder := new(cache.Builder)
 	cacheBuilder.Engine = b.engine
 	dCaches := make([]*caches.L1VCache, 0, 64)
-	kCaches := make([]*cache.WriteAroundCache, 0, 16)
-	iCaches := make([]*cache.WriteAroundCache, 0, 16)
+	kCaches := make([]*caches.L1VCache, 0, 16)
+	iCaches := make([]*caches.L1VCache, 0, 16)
 	l2Caches := make([]*cache.WriteBackCache, 0, 8)
 
 	lowModuleFinderForL2 := new(cache.SingleLowModuleFinder)
@@ -188,55 +188,55 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	cacheBuilder.LowModuleFinder = lowModuleFinderForL1
 	for i := 0; i < 64; i++ {
-		dCache := caches.NewL1VCache(
+		dCache := caches.BuildL1VCache(
 			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i),
-			b.engine, b.freq)
-		lruEvictor := cache.NewLRUEvictor()
-		directory := cache.NewDirectory(64, 4, 64, lruEvictor)
-		dCache.Directory = directory
-		storage := mem.NewStorage(16 * mem.KB)
-		dCache.Storage = storage
-		dCache.L2Finder = lowModuleFinderForL1
-		dCache.BlockSizeAsPowerOf2 = 6
-		dCache.Latency = 1
+			b.engine, b.freq,
+			1,
+			6, 4, 14,
+			lowModuleFinderForL1)
+
 		connection.PlugIn(dCache.ToCU)
 		connection.PlugIn(dCache.ToL2)
 		dCaches = append(dCaches, dCache)
+
 		//commandProcessor.ToResetAfterKernel = append(
 		//	commandProcessor.ToResetAfterKernel, dCache,
 		//)
+
 		if b.EnableMemTracing {
 			dCache.AcceptHook(memTracer)
 		}
 	}
 
 	for i := 0; i < 16; i++ {
-		kCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i), 4, 16*mem.KB, 16)
-		kCache.DirectoryLatency = 0
-		kCache.Latency = 1
-		kCache.SetNumBanks(1)
-		connection.PlugIn(kCache.ToTop)
-		connection.PlugIn(kCache.ToBottom)
+		kCache := caches.BuildL1VCache(
+			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i),
+			b.engine, b.freq,
+			1,
+			6, 4, 14,
+			lowModuleFinderForL1)
+		connection.PlugIn(kCache.ToCU)
+		connection.PlugIn(kCache.ToL2)
 		kCaches = append(kCaches, kCache)
-		commandProcessor.ToResetAfterKernel = append(
-			commandProcessor.ToResetAfterKernel, kCache,
-		)
+		//commandProcessor.ToResetAfterKernel = append(
+		//	commandProcessor.ToResetAfterKernel, kCache,
+		//)
 		if b.EnableMemTracing {
 			kCache.AcceptHook(memTracer)
 		}
 
-		iCache := cacheBuilder.BuildWriteAroundCache(
-			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i), 4, 32*mem.KB, 16)
-		iCache.DirectoryLatency = 0
-		iCache.Latency = 130
-		iCache.SetNumBanks(4)
-		connection.PlugIn(iCache.ToTop)
-		connection.PlugIn(iCache.ToBottom)
+		iCache := caches.BuildL1VCache(
+			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i),
+			b.engine, b.freq,
+			1,
+			6, 4, 15,
+			lowModuleFinderForL1)
+		connection.PlugIn(iCache.ToCU)
+		connection.PlugIn(iCache.ToL2)
 		iCaches = append(iCaches, iCache)
-		commandProcessor.ToResetAfterKernel = append(
-			commandProcessor.ToResetAfterKernel, iCache,
-		)
+		//commandProcessor.ToResetAfterKernel = append(
+		//	commandProcessor.ToResetAfterKernel, iCache,
+		//)
 		if b.EnableMemTracing {
 			iCache.AcceptHook(memTracer)
 		}
@@ -244,8 +244,8 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
-		cuBuilder.InstMem = iCaches[i/4].ToTop
-		cuBuilder.ScalarMem = kCaches[i/4].ToTop
+		cuBuilder.InstMem = iCaches[i/4].ToCU
+		cuBuilder.ScalarMem = kCaches[i/4].ToCU
 		lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
 		lowModuleFinderForCU.LowModule = dCaches[i].ToCU
 		cuBuilder.VectorMemModules = lowModuleFinderForCU

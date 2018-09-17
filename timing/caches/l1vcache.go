@@ -244,3 +244,31 @@ func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {
 	c.ToL2 = akita.NewPort(c)
 	return c
 }
+
+func BuildL1VCache(
+	name string,
+	engine akita.Engine, freq akita.Freq,
+	latency int,
+	blockSizeAsPowerOf2, way, sizeAsPowerOf2 uint64,
+	l2Finder cache.LowModuleFinder,
+) *L1VCache {
+	c := NewL1VCache(name, engine, freq)
+
+	blockSize := uint64(1 << blockSizeAsPowerOf2)
+	totalSize := uint64(1 << sizeAsPowerOf2)
+
+	lruEvictor := cache.NewLRUEvictor()
+	directory := cache.NewDirectory(
+		int(totalSize/way/blockSize),
+		int(way), int(blockSize), lruEvictor)
+	storage := mem.NewStorage(totalSize)
+
+	c.Directory = directory
+	c.Storage = storage
+	c.L2Finder = l2Finder
+
+	c.BlockSizeAsPowerOf2 = blockSizeAsPowerOf2
+	c.Latency = latency
+
+	return c
+}
