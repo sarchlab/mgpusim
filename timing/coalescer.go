@@ -103,19 +103,25 @@ func (c *DefaultCoalescer) tryAdjacentAddressCoalesce(
 	bytesPerWI int,
 	firstLaneID int,
 ) bool {
-	if c.addressesAdjacent(addresses, bytesPerWI) &&
-		c.addressesOnSameCacheLine(addresses) {
+	if c.canDoAdjacentCoalescing(addresses, bytesPerWI) {
 		var access CoalescedAccess
 		access.Addr = addresses[0]
 		access.Size = uint64(c.CoalescingWidth * bytesPerWI)
 		for i := 0; i < c.CoalescingWidth; i++ {
 			access.LaneIDs = append(access.LaneIDs, firstLaneID+i)
-			access.LaneAddrOffset = append(access.LaneAddrOffset, uint64(i*4))
+			access.LaneAddrOffset = append(access.LaneAddrOffset, uint64(i*bytesPerWI))
 		}
 		*coalescedAddresses = append(*coalescedAddresses, access)
 		return true
 	}
 	return false
+}
+
+func (c *DefaultCoalescer) canDoAdjacentCoalescing(
+	addresses []uint64, unitBytes int,
+) bool {
+	return c.addressesAdjacent(addresses, unitBytes) &&
+		c.addressesOnSameCacheLine(addresses)
 }
 
 func (c *DefaultCoalescer) addressesAdjacent(
