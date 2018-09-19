@@ -104,30 +104,90 @@ func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
 	readBottom := mem.NewReadReq(now, c.ToL2, l2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
 	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
 	c.toL2Buffer = append(c.toL2Buffer, readBottom)
+
+	c.traceMem(now, "read-miss", address, req.MemByteSize, nil)
 }
 
 func (c *L1VCache) handleReadHit(now akita.VTimeInSec, req *mem.ReadReq, block *cache.Block) {
 	c.cycleLeft = c.Latency
 	c.busyBlock = block
 	c.isStorageBusy = true
+
+	c.traceMem(now, "read-hit", req.Address, req.MemByteSize, nil)
 }
 
 func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, req *mem.WriteReq) {
 	c.isBusy = true
 	c.writing = req
+
+	c.writeToLowModule(now, req)
+	c.writeToLocalStorage(now, req)
+
+	c.traceMem(now, "write", req.Address, uint64(len(req.Data)),
+		req.Data)
+}
+
+func (c *L1VCache) writeToLowModule(now akita.VTimeInSec, req *mem.WriteReq) {
 	l2 := c.L2Finder.Find(req.Address)
 	writeBottom := mem.NewWriteReq(now, c.ToL2, l2, req.Address)
 	writeBottom.Data = req.Data
 
 	c.toL2Buffer = append(c.toL2Buffer, writeBottom)
 	c.pendingDownGoingWrite = append(c.pendingDownGoingWrite, writeBottom)
+}
 
-	if len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
-		block := c.Directory.Evict(req.Address)
-		c.Storage.Write(block.CacheAddress, writeBottom.Data)
-		block.IsValid = true
-		block.Tag = req.Address
+func (c *L1VCache) writeToLocalStorage(now akita.VTimeInSec, req *mem.WriteReq) {
+	cacheLineID, _ := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
+	block := c.Directory.Lookup(cacheLineID)
+	if block == nil {
+		c.doWriteMiss(now, req)
+	} else {
+		c.doWriteHit(now, req, block)
 	}
+}
+
+func (c *L1VCache) doWriteMiss(
+	now akita.VTimeInSec,
+	req *mem.WriteReq,
+) {
+	if len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
+		evict := c.Directory.Evict(req.Address)
+		c.doWriteLine(now, req, evict)
+		return
+	}
+	// Do no do partial write when write miss
+}
+
+func (c *L1VCache) doWriteHit(
+	now akita.VTimeInSec,
+	req *mem.WriteReq,
+	block *cache.Block,
+) {
+	if len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
+		c.doWriteLine(now, req, block)
+		return
+	}
+	c.doWritePartialLine(now, req, block)
+}
+
+func (c *L1VCache) doWriteLine(
+	now akita.VTimeInSec,
+	req *mem.WriteReq,
+	block *cache.Block,
+) {
+	block.IsValid = true
+	block.Tag = req.Address
+
+	c.Storage.Write(block.CacheAddress, req.Data)
+}
+
+func (c *L1VCache) doWritePartialLine(
+	now akita.VTimeInSec,
+	req *mem.WriteReq,
+	block *cache.Block,
+) {
+	_, offset := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
+	c.Storage.Write(block.CacheAddress+offset, req.Data)
 }
 
 func (c *L1VCache) parseFromL2(now akita.VTimeInSec) {
@@ -157,6 +217,7 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 	block := c.Directory.Evict(readBottom.Address)
 	block.IsValid = true
 	block.IsDirty = false
+	block.Tag = address
 	c.Storage.Write(block.CacheAddress, dataReady.Data)
 
 	dataReadyToTop := mem.NewDataReadyRsp(
@@ -168,17 +229,23 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 	c.pendingDownGoingRead = nil
 	c.isBusy = false
 	c.NeedTick = true
+
+	c.traceMem(now, "data-ready", address, uint64(len(dataReady.Data)),
+		dataReady.Data)
 }
 
 func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
 	done := mem.NewDoneRsp(now, c.ToCU, c.writing.Src(), c.writing.ID)
 	c.toCUBuffer = append(c.toCUBuffer, done)
+	write := c.pendingDownGoingWrite[0]
 
 	c.ToL2.Retrieve(now)
 	c.pendingDownGoingWrite = nil
 	c.writing = nil
 	c.isBusy = false
 	c.NeedTick = true
+
+	c.traceMem(now, "write-done", write.Address, uint64(len(write.Data)), write.Data)
 }
 
 func (c *L1VCache) doReadWrite(now akita.VTimeInSec) {
@@ -210,6 +277,9 @@ func (c *L1VCache) finishLocalRead(now akita.VTimeInSec) {
 	dataReady := mem.NewDataReadyRsp(now, c.ToCU, c.reading.Src(), c.reading.ID)
 	dataReady.Data = data
 	c.toCUBuffer = append(c.toCUBuffer, dataReady)
+
+	c.traceMem(now, "local_read_done", c.reading.Address,
+		uint64(len(dataReady.Data)), data)
 }
 
 func (c *L1VCache) sendToCU(now akita.VTimeInSec) {
@@ -234,6 +304,22 @@ func (c *L1VCache) sendToL2(now akita.VTimeInSec) {
 			c.NeedTick = true
 		}
 	}
+}
+
+func (c *L1VCache) traceMem(
+	time akita.VTimeInSec,
+	what string,
+	address, byteSize uint64,
+	data []byte,
+) {
+	traceInfo := new(mem.TraceInfo)
+	traceInfo.Where = c.Name()
+	traceInfo.When = time
+	traceInfo.What = what
+	traceInfo.Address = address
+	traceInfo.ByteSize = byteSize
+	traceInfo.Data = data
+	c.InvokeHook(nil, c, akita.AnyHookPos, traceInfo)
 }
 
 func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {

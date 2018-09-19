@@ -301,70 +301,140 @@ var _ = Describe("L1V Cache", func() {
 		})
 	})
 
-	It("should handle write", func() {
-		write := mem.NewWriteReq(10, nil, l1v.ToCU, 0x100)
-		write.Data = []byte{
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-		}
+	Context("when handle write", func() {
+		var (
+			writeLine    *mem.WriteReq
+			writePartial *mem.WriteReq
+		)
 
-		block := new(cache.Block)
-		block.CacheAddress = 0x200
-		block.IsValid = false
-		directory.ExpectEvict(0x100, block)
+		BeforeEach(func() {
+			writeLine = mem.NewWriteReq(10, nil, l1v.ToCU, 0x100)
+			writeLine.Data = []byte{
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+			}
 
-		l1v.ToCU.Recv(write)
+			writePartial = mem.NewWriteReq(10, nil, l1v.ToCU, 0x104)
+			writePartial.Data = []byte{5, 6, 7, 8}
+		})
 
-		l1v.parseFromCU(11)
+		Context("write hit", func() {
+			var (
+				block *cache.Block
+			)
 
-		Expect(l1v.isBusy).To(BeTrue())
-		Expect(l1v.NeedTick).To(BeTrue())
-		Expect(l1v.writing).To(BeIdenticalTo(write))
-		Expect(l1v.toL2Buffer).To(HaveLen(1))
-		Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
-		Expect(l1v.ToCU.Buf).To(HaveLen(0))
+			BeforeEach(func() {
+				block = new(cache.Block)
+				block.Tag = 0x100
+				block.CacheAddress = 0x200
+				block.IsValid = true
+				directory.ExpectLookup(0x100, block)
+			})
 
-		data, _ := storage.Read(0x200, 64)
-		Expect(data).To(Equal([]byte{
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-		}))
-		Expect(block.IsValid).To(BeTrue())
-		Expect(block.Tag).To(Equal(uint64(0x100)))
-	})
+			It("should do full line write", func() {
+				l1v.ToCU.Recv(writeLine)
 
-	It("should handle write when writing partial line", func() {
-		write := mem.NewWriteReq(10, nil, l1v.ToCU, 0x104)
-		write.Data = []byte{5, 6, 7, 8}
+				l1v.parseFromCU(11)
 
-		block := new(cache.Block)
-		block.CacheAddress = 0x200
-		block.IsValid = false
-		directory.ExpectEvict(0x100, block)
+				Expect(l1v.isBusy).To(BeTrue())
+				Expect(l1v.NeedTick).To(BeTrue())
+				Expect(l1v.writing).To(BeIdenticalTo(writeLine))
+				Expect(l1v.toL2Buffer).To(HaveLen(1))
+				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
+				Expect(l1v.ToCU.Buf).To(HaveLen(0))
 
-		l1v.ToCU.Recv(write)
+				data, _ := storage.Read(0x200, 64)
+				Expect(data).To(Equal([]byte{
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+				}))
+			})
 
-		l1v.parseFromCU(11)
+			It("should handle partial line write", func() {
+				l1v.ToCU.Recv(writePartial)
 
-		Expect(l1v.isBusy).To(BeTrue())
-		Expect(l1v.NeedTick).To(BeTrue())
-		Expect(l1v.writing).To(BeIdenticalTo(write))
-		Expect(l1v.toL2Buffer).To(HaveLen(1))
-		Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
-		Expect(l1v.ToCU.Buf).To(HaveLen(0))
-		Expect(block.IsValid).To(BeFalse())
+				l1v.parseFromCU(11)
+
+				Expect(l1v.isBusy).To(BeTrue())
+				Expect(l1v.NeedTick).To(BeTrue())
+				Expect(l1v.writing).To(BeIdenticalTo(writePartial))
+				Expect(l1v.toL2Buffer).To(HaveLen(1))
+				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
+				Expect(l1v.ToCU.Buf).To(HaveLen(0))
+
+				data, _ := storage.Read(0x204, 4)
+				Expect(data).To(Equal([]byte{5, 6, 7, 8}))
+			})
+		})
+
+		Context("write miss", func() {
+			var (
+				block *cache.Block
+			)
+
+			BeforeEach(func() {
+				block = new(cache.Block)
+				block.CacheAddress = 0x200
+				block.IsValid = false
+				directory.ExpectLookup(0x100, nil)
+				directory.ExpectEvict(0x100, block)
+			})
+
+			It("should do full line write", func() {
+				l1v.ToCU.Recv(writeLine)
+
+				l1v.parseFromCU(11)
+
+				Expect(l1v.isBusy).To(BeTrue())
+				Expect(l1v.NeedTick).To(BeTrue())
+				Expect(l1v.writing).To(BeIdenticalTo(writeLine))
+				Expect(l1v.toL2Buffer).To(HaveLen(1))
+				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
+				Expect(l1v.ToCU.Buf).To(HaveLen(0))
+
+				data, _ := storage.Read(0x200, 64)
+				Expect(data).To(Equal([]byte{
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+				}))
+				Expect(block.IsValid).To(BeTrue())
+				Expect(block.Tag).To(Equal(uint64(0x100)))
+			})
+
+			It("should handle partial line write", func() {
+				l1v.ToCU.Recv(writePartial)
+
+				l1v.parseFromCU(11)
+
+				Expect(l1v.isBusy).To(BeTrue())
+				Expect(l1v.NeedTick).To(BeTrue())
+				Expect(l1v.writing).To(BeIdenticalTo(writePartial))
+				Expect(l1v.toL2Buffer).To(HaveLen(1))
+				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
+				Expect(l1v.ToCU.Buf).To(HaveLen(0))
+
+				Expect(block.IsValid).To(BeFalse())
+			})
+		})
+
 	})
 
 	It("should handle done rsp", func() {
@@ -616,5 +686,4 @@ var _ = Describe("L1VCache black box", func() {
 		Expect(duration2).To(BeNumerically("<", duration1))
 
 	})
-
 })
