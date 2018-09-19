@@ -44,7 +44,7 @@ func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 }
 
 func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
-	panic("implement me")
+	// Do nothing
 }
 
 // Handle defines the behavior on event scheduled on the ComputeUnit
