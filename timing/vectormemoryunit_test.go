@@ -74,7 +74,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(cu.inFlightVectorMemAccess).To(HaveLen(4))
 		Expect(cu.inFlightVectorMemAccess[3].Read.IsLastInWave).To(BeTrue())
-		Expect(bu.ReadBuf).To(HaveLen(4))
+		Expect(bu.SendBuf).To(HaveLen(4))
 	})
 
 	It("should run flat_store_dword", func() {
@@ -99,30 +99,25 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(cu.inFlightVectorMemAccess).To(HaveLen(64))
 		Expect(cu.inFlightVectorMemAccess[63].Write.IsLastInWave).To(BeTrue())
-		Expect(bu.WriteBuf).To(HaveLen(64))
+		Expect(bu.SendBuf).To(HaveLen(64))
 	})
 
 	It("should send memory access requests", func() {
 		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
 		loadReq.SetSendTime(10)
-		bu.ReadBuf = append(bu.ReadBuf, loadReq)
-
-		storeReq := mem.NewWriteReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0)
-		bu.WriteBuf = append(bu.WriteBuf, storeReq)
+		bu.SendBuf = append(bu.SendBuf, loadReq)
 
 		conn.ExpectSend(loadReq, nil)
-		conn.ExpectSend(storeReq, nil)
 
 		bu.Run(10)
 
 		Expect(conn.AllExpectedSent()).To(BeTrue())
-		Expect(len(bu.ReadBuf)).To(Equal(0))
-		Expect(len(bu.WriteBuf)).To(Equal(0))
+		Expect(len(bu.SendBuf)).To(Equal(0))
 	})
 
 	It("should not remove request from read buffer, if send fails", func() {
 		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
-		bu.ReadBuf = append(bu.ReadBuf, loadReq)
+		bu.SendBuf = append(bu.SendBuf, loadReq)
 
 		err := akita.NewSendError()
 		conn.ExpectSend(loadReq, err)
@@ -130,7 +125,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		bu.Run(10)
 
 		Expect(conn.AllExpectedSent()).To(BeTrue())
-		Expect(len(bu.ReadBuf)).To(Equal(1))
+		Expect(len(bu.SendBuf)).To(Equal(1))
 	})
 
 })

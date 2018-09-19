@@ -15,10 +15,8 @@ type VectorMemoryUnit struct {
 	scratchpadPreparer ScratchpadPreparer
 	coalescer          Coalescer
 
-	ReadBuf      []*mem.ReadReq
-	WriteBuf     []*mem.WriteReq
-	ReadBufSize  int
-	WriteBufSize int
+	SendBuf     []mem.AccessReq
+	SendBufSize int
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -38,11 +36,8 @@ func NewVectorMemoryUnit(
 	u.scratchpadPreparer = scratchpadPreparer
 	u.coalescer = coalescer
 
-	u.ReadBufSize = 256
-	u.ReadBuf = make([]*mem.ReadReq, 0, u.ReadBufSize)
-
-	u.WriteBufSize = 256
-	u.WriteBuf = make([]*mem.WriteReq, 0, u.WriteBufSize)
+	u.SendBufSize = 256
+	u.SendBuf = make([]mem.AccessReq, 0, u.SendBufSize)
 
 	return u
 }
@@ -169,7 +164,7 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 			req.IsLastInWave = true
 		}
 		u.cu.inFlightVectorMemAccess = append(u.cu.inFlightVectorMemAccess, info)
-		u.ReadBuf = append(u.ReadBuf, req)
+		u.SendBuf = append(u.SendBuf, req)
 	}
 }
 
@@ -197,7 +192,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		for j := 0; j < registerCount; j++ {
 			req.Data = insts.Uint32ToBytes(data[i*4+j])
 		}
-		u.WriteBuf = append(u.WriteBuf, req)
+		u.SendBuf = append(u.SendBuf, req)
 		u.cu.inFlightVectorMemAccess = append(
 			u.cu.inFlightVectorMemAccess, info)
 	}
@@ -206,22 +201,12 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	if len(u.ReadBuf) > 0 {
-		req := u.ReadBuf[0]
+	if len(u.SendBuf) > 0 {
+		req := u.SendBuf[0]
 		req.SetSendTime(now)
 		err := u.cu.ToVectorMem.Send(req)
 		if err == nil {
-			u.ReadBuf = u.ReadBuf[1:]
-			madeProgress = true
-		}
-	}
-
-	if len(u.WriteBuf) > 0 {
-		req := u.WriteBuf[0]
-		req.SetSendTime(now)
-		err := u.cu.ToVectorMem.Send(req)
-		if err == nil {
-			u.WriteBuf = u.WriteBuf[1:]
+			u.SendBuf = u.SendBuf[1:]
 			madeProgress = true
 		}
 	}
