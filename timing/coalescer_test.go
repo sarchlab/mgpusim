@@ -58,6 +58,25 @@ var _ = Describe("DefaultCoalescer", func() {
 		Expect(coalescedAddresses).To(Equal(expectedCoalescedAccesses))
 	})
 
+	It("should coalesce when each access is more than 4 bytes", func() {
+		rawAddresses := make([]uint64, 64)
+		for i := 0; i < 64; i++ {
+			rawAddresses[i] = uint64(16 * i)
+		}
+
+		coalescedAddresses := coalescer.Coalesce(rawAddresses, 16)
+
+		expectedCoalescedAccesses := make([]CoalescedAccess, 0)
+		for i := 0; i < 16; i++ {
+			access := CoalescedAccess{uint64(0x40 * i), 64,
+				[]int{i * 4, i*4 + 1, i*4 + 2, i*4 + 3},
+				[]uint64{0, 16, 32, 48}}
+			expectedCoalescedAccesses = append(
+				expectedCoalescedAccesses, access)
+		}
+		Expect(coalescedAddresses).To(Equal(expectedCoalescedAccesses))
+	})
+
 	It("should not coalesce in any other cases", func() {
 		rawAddresses := make([]uint64, 64)
 		for i := 0; i < 64; i++ {
