@@ -190,7 +190,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		}
 
 		for j := 0; j < registerCount; j++ {
-			req.Data = insts.Uint32ToBytes(data[i*4+j])
+			req.Data = append(req.Data, insts.Uint32ToBytes(data[i*4+j])...)
 		}
 		u.SendBuf = append(u.SendBuf, req)
 		u.cu.inFlightVectorMemAccess = append(

@@ -227,6 +227,7 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 			cu.running = false
 		}
 	}
+	cu.TickLater(evt.Time())
 
 	return nil
 }

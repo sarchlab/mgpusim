@@ -72,7 +72,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 
 	disassembler := insts.NewDisassembler()
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 64; i++ {
 		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
 		alu := emu.NewALUImpl(gpuMem.Storage)
 		computeUnit := emu.NewComputeUnit(
@@ -253,6 +253,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		//cuBuilder.ScalarMem = gpuMem
 		//cuBuilder.VectorMem = gpuMem
 		cu := cuBuilder.Build()
+		gpu.CUs = append(gpu.CUs, cu)
 		dispatcher.RegisterCU(cu.ToACE)
 
 		connection.PlugIn(cu.ToACE)
