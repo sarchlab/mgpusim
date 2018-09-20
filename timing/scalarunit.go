@@ -125,12 +125,13 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 			sp.Base+sp.Offset, uint64(byteSize))
 		u.readBuf = append(u.readBuf, req)
 
-		info := newMemAccessInfo()
-		info.Wf = u.toExec
-		info.Action = MemAccessScalarDataLoad
-		info.Dst = inst.Data.Register
+		info := new(ScalarMemAccessInfo)
+		info.Req = req
+		info.Wavefront = u.toExec
+		info.DstSGPR = inst.Data.Register
 		info.Inst = inst
-		u.cu.inFlightMemAccess[req.ID] = info
+		u.cu.inFlightScalarMemAccess = append(u.cu.inFlightScalarMemAccess,
+			info)
 
 		u.toExec.State = WfReady
 		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
