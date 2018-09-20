@@ -1,6 +1,9 @@
 package platform
 
 import (
+	"log"
+	"os"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
@@ -27,7 +30,7 @@ func BuildEmuPlatform() (
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
+	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
 	connection := akita.NewDirectConnection(engine)
@@ -63,7 +66,7 @@ func BuildR9NanoPlatform() (
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
 	connection := akita.NewDirectConnection(engine)

@@ -15,10 +15,8 @@ type VectorMemoryUnit struct {
 	scratchpadPreparer ScratchpadPreparer
 	coalescer          Coalescer
 
-	ReadBuf      []*mem.ReadReq
-	WriteBuf     []*mem.WriteReq
-	ReadBufSize  int
-	WriteBufSize int
+	SendBuf     []mem.AccessReq
+	SendBufSize int
 
 	toRead  *Wavefront
 	toExec  *Wavefront
@@ -38,11 +36,8 @@ func NewVectorMemoryUnit(
 	u.scratchpadPreparer = scratchpadPreparer
 	u.coalescer = coalescer
 
-	u.ReadBufSize = 256
-	u.ReadBuf = make([]*mem.ReadReq, 0, u.ReadBufSize)
-
-	u.WriteBufSize = 256
-	u.WriteBuf = make([]*mem.WriteReq, 0, u.WriteBufSize)
+	u.SendBufSize = 256
+	u.SendBuf = make([]mem.AccessReq, 0, u.SendBufSize)
 
 	return u
 }
@@ -143,90 +138,75 @@ func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now akita.VTime
 func (u *VectorMemoryUnit) coalesceAddress(
 	addresses []uint64,
 	byteSizePerLane int,
-) []AddrSizePair {
+) []CoalescedAccess {
 	return u.coalescer.Coalesce(addresses, byteSizePerLane)
 }
 
 func (u *VectorMemoryUnit) bufferDataLoadRequest(
-	coalescedAddrs []AddrSizePair,
+	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
-	instLevelInfo := new(InstLevelInfo)
-	instLevelInfo.Inst = u.toExec.inst
-	instLevelInfo.TotalReqs = len(coalescedAddrs)
-	instLevelInfo.ReturnedReqs = 0
-
-	for _, addr := range coalescedAddrs {
-		info := newMemAccessInfo()
-		info.InstLevelInfo = instLevelInfo
-		info.Action = MemAccessVectorDataLoad
-		info.PreCoalescedAddrs = preCoalescedAddrs
-		info.Wf = u.toExec
-		info.Dst = info.Wf.inst.Dst.Register
-		info.RegCount = registerCount
-		info.Address = addr.Addr
+	for i, addr := range coalescedAddrs {
+		info := new(VectorMemAccessInfo)
+		info.Inst = u.toExec.inst
+		info.Wavefront = u.toExec
+		info.DstVGPR = u.toExec.inst.Dst.Register
+		info.Lanes = addr.LaneIDs
+		info.LaneAddrOffsets = addr.LaneAddrOffset
+		info.RegisterCount = registerCount
 
 		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
 		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
-		u.cu.inFlightMemAccess[req.ID] = info
-		u.ReadBuf = append(u.ReadBuf, req)
+		info.Read = req
+		if i == len(coalescedAddrs)-1 {
+			req.IsLastInWave = true
+		}
+		u.cu.inFlightVectorMemAccess = append(u.cu.inFlightVectorMemAccess, info)
+		u.SendBuf = append(u.SendBuf, req)
 	}
 }
 
 func (u *VectorMemoryUnit) bufferDataStoreRequest(
-	coalescedAddrs []AddrSizePair,
+	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
-	instLevelInfo := new(InstLevelInfo)
-	instLevelInfo.Inst = u.toExec.inst
-	instLevelInfo.TotalReqs = len(preCoalescedAddrs)
-	instLevelInfo.ReturnedReqs = 0
-
 	for i, addr := range preCoalescedAddrs {
-		info := newMemAccessInfo()
-		info.InstLevelInfo = instLevelInfo
-		info.Action = MemAccessVectorDataStore
-		info.PreCoalescedAddrs = preCoalescedAddrs
-		info.Wf = u.toExec
-		info.Dst = info.Wf.inst.Dst.Register
-		info.Address = addr
+		info := new(VectorMemAccessInfo)
+		info.Wavefront = u.toExec
+		info.Inst = u.toExec.inst
+		info.DstVGPR = u.toExec.inst.Dst.Register
 
 		lowModule := u.cu.VectorMemModules.Find(addr)
 		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
+		info.Write = req
 		req.Address = addr
+		if i == len(preCoalescedAddrs)-1 {
+			req.IsLastInWave = true
+		}
 
 		for j := 0; j < registerCount; j++ {
-			req.Data = insts.Uint32ToBytes(data[i*4+j])
+			req.Data = append(req.Data, insts.Uint32ToBytes(data[i*4+j])...)
 		}
-		u.WriteBuf = append(u.WriteBuf, req)
-		u.cu.inFlightMemAccess[req.ID] = info
+		u.SendBuf = append(u.SendBuf, req)
+		u.cu.inFlightVectorMemAccess = append(
+			u.cu.inFlightVectorMemAccess, info)
 	}
 }
 
 func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	if len(u.ReadBuf) > 0 {
-		req := u.ReadBuf[0]
+	if len(u.SendBuf) > 0 {
+		req := u.SendBuf[0]
 		req.SetSendTime(now)
 		err := u.cu.ToVectorMem.Send(req)
 		if err == nil {
-			u.ReadBuf = u.ReadBuf[1:]
-			madeProgress = true
-		}
-	}
-
-	if len(u.WriteBuf) > 0 {
-		req := u.WriteBuf[0]
-		req.SetSendTime(now)
-		err := u.cu.ToVectorMem.Send(req)
-		if err == nil {
-			u.WriteBuf = u.WriteBuf[1:]
+			u.SendBuf = u.SendBuf[1:]
 			madeProgress = true
 		}
 	}

@@ -3,9 +3,10 @@ package timing
 import (
 	"log"
 
+	"gitlab.com/akita/mem"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/mem"
 )
 
 // A Scheduler is the controlling unit of a compute unit. It decides which
@@ -18,6 +19,9 @@ type Scheduler struct {
 
 	barrierBuffer     []*Wavefront
 	barrierBufferSize int
+
+	cyclesNoProgress                  int
+	stopTickingAfterNCyclesNoProgress int
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -35,6 +39,8 @@ func NewScheduler(
 	s.barrierBufferSize = 16
 	s.barrierBuffer = make([]*Wavefront, 0, s.barrierBufferSize)
 
+	s.stopTickingAfterNCyclesNoProgress = 4
+
 	return s
 }
 
@@ -44,7 +50,17 @@ func (s *Scheduler) Run(now akita.VTimeInSec) bool {
 	madeProgress = s.DecodeNextInst() || madeProgress
 	madeProgress = s.DoIssue(now) || madeProgress
 	madeProgress = s.DoFetch(now) || madeProgress
-	return madeProgress
+
+	if !madeProgress {
+		s.cyclesNoProgress++
+	} else {
+		s.cyclesNoProgress = 0
+	}
+
+	if s.cyclesNoProgress > s.stopTickingAfterNCyclesNoProgress {
+		return false
+	}
+	return true
 }
 
 func (s *Scheduler) DecodeNextInst() bool {
@@ -103,11 +119,11 @@ func (s *Scheduler) DoFetch(now akita.VTimeInSec) bool {
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {
-			info := new(MemAccessInfo)
-			info.Action = MemAccessInstFetch
-			info.Wf = wf
+			info := new(InstFetchReqInfo)
+			info.Wavefront = wf
+			info.Req = req
 			info.Address = addr
-			s.cu.inFlightMemAccess[req.ID] = info
+			s.cu.inFlightInstFetch = append(s.cu.inFlightInstFetch, info)
 			wf.IsFetching = true
 
 			//s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "FetchStart"})
@@ -191,37 +207,40 @@ func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) bool {
 		return false
 	}
 
+	madeProgress := false
 	executing := s.internalExecuting
 
 	switch s.internalExecuting.Inst().Opcode {
 	case 1: // S_ENDPGM
-		s.evalSEndPgm(s.internalExecuting, now)
+		madeProgress = s.evalSEndPgm(s.internalExecuting, now) || madeProgress
 	case 10: // S_BARRIER
-		s.evalSBarrier(s.internalExecuting, now)
+		madeProgress = s.evalSBarrier(s.internalExecuting, now) || madeProgress
 	case 12: // S_WAITCNT
-		s.evalSWaitCnt(s.internalExecuting, now)
+		madeProgress = s.evalSWaitCnt(s.internalExecuting, now) || madeProgress
 	default:
 		// The program has to make progress
 		s.internalExecuting.State = WfReady
 		s.internalExecuting = nil
+		madeProgress = true
 	}
 
 	if s.internalExecuting == nil {
 		s.cu.InvokeHook(executing, s.cu, akita.AnyHookPos,
 			&InstHookInfo{now, executing.inst, "Completed"})
 	}
-	return true
+	return madeProgress
 }
 
-func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) {
+func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) bool {
 	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
-		return
+		return false
 	}
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.Engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
 
 	s.resetRegisterValue(wf)
+	return true
 }
 
 func (s *Scheduler) resetRegisterValue(wf *Wavefront) {
@@ -240,45 +259,59 @@ func (s *Scheduler) resetRegisterValue(wf *Wavefront) {
 	sRegStorage.Write(offset, data)
 }
 
-func (s *Scheduler) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) {
-	wg := wf.WG
-	allAtBarrier := true
-	for _, wavefront := range wg.Wfs {
-		if wavefront == wf {
-			continue
-		}
+func (s *Scheduler) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) bool {
+	wf.State = WfAtBarrier
 
-		if wavefront.State != WfAtBarrier {
-			allAtBarrier = false
-			break
-		}
-	}
+	wg := wf.WG
+	allAtBarrier := s.areAllWfInWGAtBarrier(wg)
 
 	if allAtBarrier {
-		for _, wavefront := range wg.Wfs {
-			wavefront.State = WfReady
-		}
+		s.passBarrier(wg)
 		s.internalExecuting = nil
+		return true
+	} else {
+		if len(s.barrierBuffer) < s.barrierBufferSize {
+			s.barrierBuffer = append(s.barrierBuffer, wf)
+			s.internalExecuting = nil
+			return true
+		}
+		return false
 	}
 
+	return true
+}
+
+func (s *Scheduler) areAllWfInWGAtBarrier(wg *WorkGroup) bool {
+	for _, wf := range wg.Wfs {
+		if wf.State != WfAtBarrier {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Scheduler) passBarrier(wg *WorkGroup) {
+	s.removeAllWfFromBarrierBuffer(wg)
+	s.setAllWfStateToReady(wg)
+}
+
+func (s *Scheduler) setAllWfStateToReady(wg *WorkGroup) {
+	for _, wf := range wg.Wfs {
+		wf.State = WfReady
+	}
+}
+
+func (s *Scheduler) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
 	newBarrierBuffer := make([]*Wavefront, 0, s.barrierBufferSize)
 	for _, wavefront := range s.barrierBuffer {
-		if wavefront.State == WfAtBarrier {
+		if wavefront.WG != wg {
 			newBarrierBuffer = append(newBarrierBuffer, wavefront)
 		}
 	}
 	s.barrierBuffer = newBarrierBuffer
-
-	if !allAtBarrier {
-		if len(s.barrierBuffer) < s.barrierBufferSize {
-			wf.State = WfAtBarrier
-			s.barrierBuffer = append(s.barrierBuffer, wf)
-			s.internalExecuting = nil
-		}
-	}
 }
 
-func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) {
+func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) bool {
 	done := true
 	inst := wf.Inst()
 
@@ -293,5 +326,7 @@ func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) {
 	if done {
 		s.internalExecuting.State = WfReady
 		s.internalExecuting = nil
+		return true
 	}
+	return false
 }

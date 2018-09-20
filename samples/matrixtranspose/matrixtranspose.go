@@ -143,7 +143,7 @@ func checkResult() {
 	for i := 0; i < width; i++ {
 		for j := 0; j < width; j++ {
 			if hOutputData[j*width+i] != hInputData[i*width+j] {
-				log.Fatalf("error")
+				log.Printf("error at output coordinate (%d, %d), expected %d, but get %d", i, j, hInputData[i*width+j], hOutputData[j*width+i])
 			}
 		}
 	}

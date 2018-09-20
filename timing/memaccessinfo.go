@@ -1,41 +1,30 @@
 package timing
 
-import "gitlab.com/akita/gcn3/insts"
-
-// MemAccessAction enumerates all the memory interaction from a compute unit
-type MemAccessAction int
-
-// The possible memory access actions
-const (
-	MemAccessInstFetch MemAccessAction = iota
-	MemAccessScalarDataLoad
-	MemAccessVectorDataLoad
-	MemAccessVectorDataStore
+import (
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
-// MemAccessInfo is the information that is attached to a memory access
-// request. When the request returns from the memory system, the compute
-// unit need the information to perform corresponding action.
-type MemAccessInfo struct {
-	*InstLevelInfo
-	Action            MemAccessAction
-	Wf                *Wavefront
-	Dst               *insts.Reg
-	RegCount          int
-	Address           uint64
-	PreCoalescedAddrs [64]uint64
+type VectorMemAccessInfo struct {
+	Read            *mem.ReadReq
+	Write           *mem.WriteReq
+	Wavefront       *Wavefront
+	DstVGPR         *insts.Reg
+	RegisterCount   int
+	Lanes           []int
+	LaneAddrOffsets []uint64
+	Inst            *Inst
 }
 
-// InstLevelInfo preserves the information that is shared by multiple requests
-// generated from the same instruction
-type InstLevelInfo struct {
-	Inst         *Inst
-	TotalReqs    int
-	ReturnedReqs int
+type InstFetchReqInfo struct {
+	Req       *mem.ReadReq
+	Wavefront *Wavefront
+	Address   uint64
 }
 
-func newMemAccessInfo() *MemAccessInfo {
-	info := new(MemAccessInfo)
-	info.InstLevelInfo = new(InstLevelInfo)
-	return info
+type ScalarMemAccessInfo struct {
+	Req       *mem.ReadReq
+	Wavefront *Wavefront
+	DstSGPR   *insts.Reg
+	Inst      *Inst
 }

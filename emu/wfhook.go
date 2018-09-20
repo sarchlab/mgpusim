@@ -35,6 +35,11 @@ func (h *WfHook) Pos() akita.HookPos {
 func (h *WfHook) Func(item interface{}, domain akita.Hookable, info interface{}) {
 	wf := item.(*Wavefront)
 
+	// For debugging
+	if wf.FirstWiFlatID != 192 {
+		return
+	}
+
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
 	output += fmt.Sprintf("\tInst: %s\n", wf.Inst().String(nil))
