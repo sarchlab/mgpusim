@@ -1,13 +1,10 @@
-package caches_test
+package caches
 
 import (
-	"log"
 	"math/rand"
 	"os"
-	"testing"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/timing/caches"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/acceptancetests"
 	"gitlab.com/akita/mem/cache"
@@ -17,18 +14,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCaches(t *testing.T) {
-	log.SetOutput(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Caches Suite")
-}
-
-var _ = PDescribe("L1v Stress Test", func() {
+var _ = Describe("L1v Stress Test", func() {
 	var (
 		engine          akita.Engine
 		conn            *akita.DirectConnection
 		agent           *acceptancetests.MemAccessAgent
-		l1v             *caches.L1VCache
+		l1v             *L1VCache
 		lowModuleFinder *cache.SingleLowModuleFinder
 		dram            *mem.IdealMemController
 	)
@@ -43,7 +34,7 @@ var _ = PDescribe("L1v Stress Test", func() {
 		lowModuleFinder = new(cache.SingleLowModuleFinder)
 		lowModuleFinder.LowModule = dram.ToTop
 
-		l1v = caches.BuildL1VCache("cache", engine, 1*akita.GHz, 1,
+		l1v = BuildL1VCache("cache", engine, 1*akita.GHz, 1,
 			6, 4, 14, lowModuleFinder)
 
 		agent = acceptancetests.NewMemAccessAgent(engine)
