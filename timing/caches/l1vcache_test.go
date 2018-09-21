@@ -16,6 +16,7 @@ var _ = Describe("L1V Cache", func() {
 		l1v        *L1VCache
 		connection *akita.MockConnection
 		l2Finder   cache.LowModuleFinder
+		cp         *akita.Port
 	)
 
 	BeforeEach(func() {
@@ -29,10 +30,15 @@ var _ = Describe("L1V Cache", func() {
 		l1v.Storage = storage
 		l1v.L2Finder = l2Finder
 		l1v.Latency = 8
+		l1v.InvalidationLatency = 64
 		l1v.BlockSizeAsPowerOf2 = 6
+
+		cp = akita.NewPort(nil)
 
 		connection.PlugIn(l1v.ToCU)
 		connection.PlugIn(l1v.ToL2)
+		connection.PlugIn(l1v.ToCP)
+		connection.PlugIn(cp)
 	})
 
 	Context("parse read hit", func() {
@@ -138,12 +144,45 @@ var _ = Describe("L1V Cache", func() {
 
 			l1v.parseFromCP(11)
 
-			// Expect(engine.ScheduledEvent).To(HaveLen(2))
-			// invalidCompEvent := engine.ScheduledEvent[1].(*InvalidationCompleteEvent)
 			Expect(l1v.ToCP.Buf).To(HaveLen(0))
+			Expect(engine.ScheduledEvent).To(HaveLen(2))
+			invalidCompEvent := engine.ScheduledEvent[1].(*invalidationCompleteEvent)
+			Expect(invalidCompEvent.Time()).To(BeNumerically("~", 75))
+		})
+	})
 
+	Context("complete invalidation", func() {
+		It("should clear cache and respond", func() {
+			invalidReq := mem.NewInvalidReq(10, cp, l1v.ToCP)
+			invalidComplEvent := newInvalidationCompleteEvent(70,
+				l1v, invalidReq, l1v.ToCP)
+
+			expectRsp := mem.NewInvalidDoneRsp(70, l1v.ToCP, cp,
+				invalidReq.GetID())
+			connection.ExpectSend(expectRsp, nil)
+
+			l1v.Handle(invalidComplEvent)
+
+			Expect(directory.Resetted).To(BeTrue())
+			Expect(connection.AllExpectedSent()).To(BeTrue())
+			Expect(engine.ScheduledEvent).To(HaveLen(1))
 		})
 
+		It("should retry if send failed", func() {
+			invalidReq := mem.NewInvalidReq(10, cp, l1v.ToCP)
+			invalidComplEvent := newInvalidationCompleteEvent(70,
+				l1v, invalidReq, l1v.ToCP)
+
+			expectRsp := mem.NewInvalidDoneRsp(70, l1v.ToCP, cp,
+				invalidReq.GetID())
+			connection.ExpectSend(expectRsp, akita.NewSendError())
+
+			l1v.Handle(invalidComplEvent)
+
+			Expect(engine.ScheduledEvent).To(HaveLen(1))
+			evt := engine.ScheduledEvent[0].(*invalidationCompleteEvent)
+			Expect(evt.Time()).To(BeNumerically("~", 71))
+		})
 	})
 
 	Context("during local read or local write", func() {
@@ -449,7 +488,6 @@ var _ = Describe("L1V Cache", func() {
 				Expect(block.IsValid).To(BeFalse())
 			})
 		})
-
 	})
 
 	It("should handle done rsp", func() {
