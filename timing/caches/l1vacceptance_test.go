@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("L1v Stress Test", func() {
+var _ = PDescribe("L1v Stress Test", func() {
 	var (
 		engine          akita.Engine
 		conn            *akita.DirectConnection

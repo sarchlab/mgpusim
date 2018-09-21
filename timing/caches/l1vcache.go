@@ -9,10 +9,18 @@ import (
 	"gitlab.com/akita/mem/cache"
 )
 
+type InvalidationCompleteEvent struct {
+	*akita.EventBase
+
+	req      *mem.InvalidReq
+	fromPort *akita.Port
+}
+
 type L1VCache struct {
 	*akita.TickingComponent
 
 	ToCU *akita.Port
+	ToCP *akita.Port
 	ToL2 *akita.Port
 
 	L2Finder cache.LowModuleFinder
@@ -54,12 +62,32 @@ func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
 	c.sendToCU(now)
 	c.sendToL2(now)
 	c.doReadWrite(now)
+	c.parseFromCP(now)
 	c.parseFromL2(now)
 	c.parseFromCU(now)
 
 	if c.NeedTick {
 		c.TickLater(now)
 	}
+}
+
+func (c *L1VCache) parseFromCP(now akita.VTimeInSec) {
+	if c.isBusy {
+		return
+	}
+
+	req := c.ToCP.Retrieve(now)
+
+	switch req := req.(type) {
+	case *mem.InvalidReq:
+		c.doInvalidation(now)
+	default:
+		log.Panicf("cannot handle request of type %s from CP", reflect.TypeOf(req))
+	}
+}
+
+func (c *L1VCache) doInvalidation(now akita.VTimeInSec) {
+
 }
 
 func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
@@ -327,6 +355,7 @@ func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {
 	c.TickingComponent = akita.NewTickingComponent(name, engine, freq, c)
 
 	c.ToCU = akita.NewPort(c)
+	c.ToCP = akita.NewPort(c)
 	c.ToL2 = akita.NewPort(c)
 	return c
 }
