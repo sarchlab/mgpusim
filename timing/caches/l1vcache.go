@@ -9,11 +9,24 @@ import (
 	"gitlab.com/akita/mem/cache"
 )
 
-type InvalidationCompleteEvent struct {
+type invalidationCompleteEvent struct {
 	*akita.EventBase
 
 	req      *mem.InvalidReq
 	fromPort *akita.Port
+}
+
+func newInvalidationCompleteEvent(
+	time akita.VTimeInSec,
+	handler akita.Handler,
+	req *mem.InvalidReq,
+	fromPort *akita.Port,
+) *invalidationCompleteEvent {
+	e := new(invalidationCompleteEvent)
+	e.EventBase = akita.NewEventBase(time, handler)
+	e.req = req
+	e.fromPort = fromPort
+	return e
 }
 
 type L1VCache struct {
@@ -30,6 +43,7 @@ type L1VCache struct {
 
 	BlockSizeAsPowerOf2 uint64
 	Latency             int
+	InvalidationLatency int
 
 	cycleLeft int
 	isBusy    bool
@@ -49,6 +63,8 @@ func (c *L1VCache) Handle(e akita.Event) error {
 	switch e := e.(type) {
 	case *akita.TickEvent:
 		c.handleTickEvent(e)
+	case *invalidationCompleteEvent:
+		c.handleInvalidationCompleteEvent(e)
 	default:
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(e))
 	}
@@ -77,17 +93,41 @@ func (c *L1VCache) parseFromCP(now akita.VTimeInSec) {
 	}
 
 	req := c.ToCP.Retrieve(now)
+	if req == nil {
+		return
+	}
 
 	switch req := req.(type) {
 	case *mem.InvalidReq:
-		c.doInvalidation(now)
+		c.doInvalidation(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s from CP", reflect.TypeOf(req))
 	}
 }
 
-func (c *L1VCache) doInvalidation(now akita.VTimeInSec) {
+func (c *L1VCache) doInvalidation(now akita.VTimeInSec, req *mem.InvalidReq) {
+	completeTime := c.Freq.NCyclesLater(c.InvalidationLatency, now)
+	invalidComplete := newInvalidationCompleteEvent(
+		completeTime, c, req, c.ToCP)
+	c.Engine.Schedule(invalidComplete)
+}
 
+func (c *L1VCache) handleInvalidationCompleteEvent(
+	evt *invalidationCompleteEvent,
+) {
+	now := evt.Time()
+	req := evt.req
+
+	rsp := mem.NewInvalidDoneRsp(now, evt.fromPort, req.Src(), req.GetID())
+	err := c.ToCP.Send(rsp)
+	if err == nil {
+		c.Directory.Reset()
+		c.TickLater(now)
+	} else {
+		time := c.Freq.NextTick(now)
+		evt := newInvalidationCompleteEvent(time, c, req, evt.fromPort)
+		c.Engine.Schedule(evt)
+	}
 }
 
 func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
