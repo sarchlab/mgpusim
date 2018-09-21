@@ -131,6 +131,21 @@ var _ = Describe("L1V Cache", func() {
 		})
 	})
 
+	Context("parse invalidate", func() {
+		It("should schedule InvalidateCompleteEvent", func() {
+			invalidReq := mem.NewInvalidReq(10, nil, l1v.ToCP)
+			l1v.ToCP.Recv(invalidReq)
+
+			l1v.parseFromCP(11)
+
+			// Expect(engine.ScheduledEvent).To(HaveLen(2))
+			// invalidCompEvent := engine.ScheduledEvent[1].(*InvalidationCompleteEvent)
+			Expect(l1v.ToCP.Buf).To(HaveLen(0))
+
+		})
+
+	})
+
 	Context("during local read or local write", func() {
 		It("should decrease cycleLeft", func() {
 			l1v.isStorageBusy = true
