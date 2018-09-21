@@ -48,7 +48,7 @@ func (d *ISADebugger) Func(
 	wf := item.(*Wavefront)
 
 	// For debugging
-	if wf.FirstWiFlatID != 192 {
+	if wf.FirstWiFlatID != 0 {
 		return
 	}
 

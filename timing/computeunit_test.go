@@ -275,11 +275,13 @@ var _ = Describe("ComputeUnit", func() {
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
 			inst = NewInst(insts.NewInst())
+			inst.FormatType = insts.FLAT
 			wf = NewWavefront(rawWf)
 			wf.SIMDID = 0
 			wf.inst = inst
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
+			wf.OutstandingScalarMemAccess = 1
 
 			read = mem.NewReadReq(8, nil, nil, 0x100, 16)
 
@@ -315,6 +317,7 @@ var _ = Describe("ComputeUnit", func() {
 			}
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
 			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
 		})
 
@@ -324,6 +327,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.processInputFromVectorMem(10)
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
 			for i := 0; i < 4; i++ {
 				access := new(RegisterAccess)
 				access.RegCount = 1
@@ -349,11 +353,13 @@ var _ = Describe("ComputeUnit", func() {
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
 			inst = NewInst(insts.NewInst())
+			inst.FormatType = insts.FLAT
 			wf = NewWavefront(rawWf)
 			wf.SIMDID = 0
 			wf.inst = inst
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
+			wf.OutstandingScalarMemAccess = 1
 
 			writeReq = mem.NewWriteReq(8, nil, nil, 0x100)
 
@@ -380,6 +386,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.processInputFromVectorMem(10)
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
+			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
 			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})

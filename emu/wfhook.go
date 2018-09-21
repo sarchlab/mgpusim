@@ -36,7 +36,7 @@ func (h *WfHook) Func(item interface{}, domain akita.Hookable, info interface{})
 	wf := item.(*Wavefront)
 
 	// For debugging
-	if wf.FirstWiFlatID != 192 {
+	if wf.FirstWiFlatID != 0 {
 		return
 	}
 
