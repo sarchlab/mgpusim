@@ -106,6 +106,7 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 
 func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 	u.toExec.OutstandingVectorMemAccess++
+	u.toExec.OutstandingScalarMemAccess++
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 16: // FLAT_LOAD_BYTE

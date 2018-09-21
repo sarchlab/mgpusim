@@ -98,10 +98,10 @@ def main():
 
     error |= compile('samples/bitonicsort/')
     # error |= run_test("BitonicSort Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Emu", './bitonicsort -length=16384 -verify', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Sim", './bitonicsort -length=16384 -timing -verify', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Parallel Emu", './bitonicsort -length=16384 -parallel -verify', 'samples/bitonicsort')
-    error |= run_test("BitonicSort Parallel Sim", './bitonicsort -length=16384 -timing -parallel -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Emu", './bitonicsort -length=4096 -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Sim", './bitonicsort -length=4096 -timing -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Parallel Emu", './bitonicsort -length=4096 -parallel -verify', 'samples/bitonicsort')
+    error |= run_test("BitonicSort Parallel Sim", './bitonicsort -length=4096 -timing -parallel -verify', 'samples/bitonicsort')
 
 
     error |= compile('samples/aes/')

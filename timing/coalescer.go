@@ -76,7 +76,7 @@ func (c *DefaultCoalescer) trySameAddressCoalesce(
 ) bool {
 	if c.isSameAddress(addresses) {
 		address := addresses[0]
-		address, _ = cache.GetCacheLineID(address, c.CacheLineSizeAsPowerOf2)
+		//address, _ = cache.GetCacheLineID(address, c.CacheLineSizeAsPowerOf2)
 		access := CoalescedAccess{
 			address, uint64(bytesPerWI),
 			[]int{firstLaneID, firstLaneID + 1, firstLaneID + 2, firstLaneID + 3},
