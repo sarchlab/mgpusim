@@ -424,6 +424,7 @@ func BuildL1VCache(
 
 	c.BlockSizeAsPowerOf2 = blockSizeAsPowerOf2
 	c.Latency = latency
+	c.InvalidationLatency = int(totalSize / way / blockSize)
 
 	return c
 }
