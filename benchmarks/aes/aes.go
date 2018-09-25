@@ -32,7 +32,7 @@ type Benchmark struct {
 	gS           driver.GPUPtr
 }
 
-func NewBenchmakr(driver *driver.Driver) *Benchmark {
+func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.loadProgram()
