@@ -41,6 +41,7 @@ func BuildEmuPlatform() (
 		gpuBuilder.EnableMemTracing = true
 	}
 	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
+	gpuDriver.RegisterGPU(gpu)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
