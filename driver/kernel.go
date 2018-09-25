@@ -10,7 +10,6 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/mem"
 )
 
 // A LaunchKernelEvent is a kernel even with an assigned time to run
@@ -97,20 +96,20 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,
-	gpu *akita.Port,
-	storage *mem.Storage,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
-	d.updateLDSPointers(co, kernelArgs)
+	gpu := d.gpus[d.usingGPU]
+	storage := gpu.DRAMStorage
 
-	dCoData := d.AllocateMemoryWithAlignment(storage, uint64(len(co.Data)), 4096)
+	d.updateLDSPointers(co, kernelArgs)
+	dCoData := d.AllocateMemoryWithAlignment(uint64(len(co.Data)), 4096)
 	storage.Write(uint64(dCoData), co.Data)
 	//d.MemoryCopyHostToDevice(dCoData, co.Data, gpu)
 
-	dKernArgData := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(kernelArgs)), 4096)
-	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs, gpu)
+	dKernArgData := d.AllocateMemoryWithAlignment(uint64(binary.Size(kernelArgs)), 4096)
+	d.MemoryCopyHostToDevice(dKernArgData, kernelArgs)
 
 	req := kernels.NewLaunchKernelReq()
 	req.HsaCo = co
@@ -124,8 +123,8 @@ func (d *Driver) LaunchKernel(
 	req.Packet.KernelObject = uint64(dCoData)
 	req.Packet.KernargAddress = uint64(dKernArgData)
 
-	dPacket := d.AllocateMemoryWithAlignment(storage, uint64(binary.Size(req.Packet)), 4096)
-	d.MemoryCopyHostToDevice(dPacket, req.Packet, gpu)
+	dPacket := d.AllocateMemoryWithAlignment(uint64(binary.Size(req.Packet)), 4096)
+	d.MemoryCopyHostToDevice(dPacket, req.Packet)
 
 	startTime := d.engine.CurrentTime() + 1e-8
 	if startTime < 0 {
@@ -133,7 +132,7 @@ func (d *Driver) LaunchKernel(
 	}
 	req.PacketAddress = uint64(dPacket)
 	req.SetSrc(d.ToGPUs)
-	req.SetDst(gpu)
+	req.SetDst(gpu.ToDriver)
 	req.SetSendTime(startTime) // FIXME: The time need to be retrieved from the engine
 	err := d.ToGPUs.Send(req)
 	if err != nil {
@@ -145,7 +144,7 @@ func (d *Driver) LaunchKernel(
 	endTime := d.engine.CurrentTime()
 	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
 
-	d.finalFlush(endTime+1e-8, gpu)
+	d.finalFlush(endTime+1e-8, gpu.ToDriver)
 }
 
 func (d *Driver) finalFlush(now akita.VTimeInSec, gpu *akita.Port) {

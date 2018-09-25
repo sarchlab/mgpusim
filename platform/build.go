@@ -81,6 +81,7 @@ func BuildR9NanoPlatform() (
 	}
 
 	gpu, globalMem := gpuBuilder.BuildR9Nano()
+	gpuDriver.RegisterGPU(gpu)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
