@@ -104,11 +104,11 @@ def main():
     # error |= run_test("BitonicSort Parallel Sim", './bitonicsort -length=16384 -timing -parallel -verify', 'samples/bitonicsort')
 
 
-    # error |= compile('samples/aes/')
+    error |= compile('samples/aes/')
     # # error |= run_test("AES Disasm",
     # # '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff
     # # kernels.disasm -', 'samples/aes')
-    # error |= run_test("AES Emu", './aes -verify', 'samples/aes')
+    error |= run_test("AES Emu", './aes -verify', 'samples/aes')
     # # error |= run_test("AES Sim", './aes -timing -verify', 'samples/aes')
     # error |= run_test("AES Parallel Emu", './aes --parallel -verify', 'samples/aes')
     # # error |= run_test("AES Parallel Sim", './aes -timing --parallel -verify', 'samples/aes')
