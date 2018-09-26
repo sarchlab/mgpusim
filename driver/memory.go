@@ -7,7 +7,6 @@ import (
 
 	"encoding/binary"
 
-	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem"
 )
@@ -31,11 +30,15 @@ func (m *MemoryMask) InsertChunk(index int, chunk *MemoryChunk) {
 
 // NewMemoryMask creates a MemoryMask. Argument capacity is the capacity of
 // the underlying storage.
-func NewMemoryMask(capacity uint64) *MemoryMask {
+func NewMemoryMask(startAddr GPUPtr, capacity uint64) *MemoryMask {
 	m := new(MemoryMask)
 	m.Chunks = make([]*MemoryChunk, 0)
 
-	chunk := &MemoryChunk{0, capacity, false}
+	chunk := &MemoryChunk{
+		startAddr,
+		capacity,
+		false,
+	}
 	m.Chunks = append(m.Chunks, chunk)
 
 	return m
@@ -48,29 +51,22 @@ type MemoryChunk struct {
 	Occupied bool
 }
 
-func (d *Driver) RegisterStorage(
+func (d *Driver) registerStorage(
 	storage *mem.Storage,
 	loAddr GPUPtr,
 	byteSize uint64,
 ) {
-	mask := NewMemoryMask(byteSize)
-	mask.Chunks[0].Ptr = loAddr
-	d.memoryMasks[storage] = mask
+	mask := NewMemoryMask(loAddr, byteSize)
+	d.memoryMasks = append(d.memoryMasks, mask)
 }
 
 // AllocateMemory allocates a chunk of memory of size byteSize in storage.
 // It returns the pointer pointing to the newly allocated memory in the GPU
 // memory space.
 func (d *Driver) AllocateMemory(
-	storage *mem.Storage,
 	byteSize uint64,
 ) GPUPtr {
-	mask, ok := d.memoryMasks[storage]
-	if !ok {
-		// TODO: Read capacity from storage
-		mask = NewMemoryMask(4 * mem.GB)
-		d.memoryMasks[storage] = mask
-	}
+	mask := d.memoryMasks[d.usingGPU]
 
 	var ptr GPUPtr
 	for i, chunk := range mask.Chunks {
@@ -92,16 +88,10 @@ func (d *Driver) AllocateMemory(
 }
 
 func (d *Driver) AllocateMemoryWithAlignment(
-	storage *mem.Storage,
 	byteSize uint64,
 	alignment uint64,
 ) GPUPtr {
-	mask, ok := d.memoryMasks[storage]
-	if !ok {
-		// TODO: Read capacity from storage
-		mask = NewMemoryMask(4 * mem.GB)
-		d.memoryMasks[storage] = mask
-	}
+	mask := d.memoryMasks[d.usingGPU]
 
 	//var ptr GPUPtr
 	for i, chunk := range mask.Chunks {
@@ -141,27 +131,28 @@ func (d *Driver) AllocateMemoryWithAlignment(
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
 // with the function AllocateMemory earlier. Error will be returned if the ptr
 // provided is invalid.
-func (d *Driver) FreeMemory(storage *mem.Storage, ptr GPUPtr) error {
-	chunks := d.memoryMasks[storage].Chunks
+func (d *Driver) FreeMemory(ptr GPUPtr) error {
+	mask := d.memoryMasks[d.usingGPU]
+	chunks := mask.Chunks
 	for i := 0; i < len(chunks); i++ {
 		if chunks[i].Ptr == ptr {
 			chunks[i].Occupied = false
 
 			if i != 0 && i != len(chunks)-1 && chunks[i-1].Occupied == false && chunks[i+1].Occupied == false {
 				chunks[i-1].ByteSize += chunks[i].ByteSize + chunks[i+1].ByteSize
-				d.memoryMasks[storage].Chunks = append(chunks[:i], chunks[i+2:]...)
+				mask.Chunks = append(chunks[:i], chunks[i+2:]...)
 				return nil
 			}
 
 			if i != 0 && chunks[i-1].Occupied == false {
 				chunks[i-1].ByteSize += chunks[i].ByteSize
-				d.memoryMasks[storage].Chunks = append(chunks[:i], chunks[i+1:]...)
+				mask.Chunks = append(chunks[:i], chunks[i+1:]...)
 				return nil
 			}
 
 			if i != len(chunks)-1 && chunks[i+1].Occupied == false {
 				chunks[i].ByteSize += chunks[i+1].ByteSize
-				d.memoryMasks[storage].Chunks = append(chunks[:i+1], chunks[i+2:]...)
+				mask.Chunks = append(chunks[:i+1], chunks[i+2:]...)
 				return nil
 			}
 			return nil
@@ -173,8 +164,7 @@ func (d *Driver) FreeMemory(storage *mem.Storage, ptr GPUPtr) error {
 }
 
 // MemoryCopyHostToDevice copies a memory from the host to a GPU device.
-func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu *akita.Port) {
-
+func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}) {
 	rawData := make([]byte, 0)
 	buffer := bytes.NewBuffer(rawData)
 
@@ -183,6 +173,7 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu *akita
 		log.Fatal(err)
 	}
 
+	gpu := d.gpus[d.usingGPU].ToDriver
 	start := d.engine.CurrentTime() + 1e-8
 	req := gcn3.NewMemCopyH2DReq(start, d.ToGPUs, gpu, buffer.Bytes(), uint64(ptr))
 	d.ToGPUs.Send(req)
@@ -192,9 +183,10 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}, gpu *akita
 }
 
 // MemoryCopyDeviceToHost copies a memory from a GPU device to the host
-func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr, gpu *akita.Port) {
+func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr) {
 	rawData := make([]byte, binary.Size(data))
 
+	gpu := d.gpus[d.usingGPU].ToDriver
 	start := d.engine.CurrentTime() + 1e-8
 	req := gcn3.NewMemCopyD2HReq(start, d.ToGPUs, gpu, uint64(ptr), rawData)
 	d.ToGPUs.Send(req)

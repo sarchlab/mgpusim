@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/matrixtranspose"
+	"gitlab.com/akita/gcn3/benchmarks/kmeans"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"
@@ -11,7 +11,7 @@ import (
 
 var (
 	gpuDriver *driver.Driver
-	benchmark *matrixtranpose.Benchmark
+	benchmark *kmeans.Benchmark
 )
 
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -20,7 +20,10 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
-var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")
+var points = flag.Int("points", 4096, "The number of points.")
+var clusters = flag.Int("clusters", 5, "The number of clusters.")
+var features = flag.Int("features", 32, "The number of features for each point.")
+var maxIter = flag.Int("max-iter", 20, "The maximum number of iterations to run")
 
 func main() {
 	configure()
@@ -50,7 +53,6 @@ func configure() {
 	if *memTracing {
 		platform.TraceMem = true
 	}
-
 }
 
 func initPlatform() {
@@ -62,6 +64,9 @@ func initPlatform() {
 }
 
 func initBenchmark() {
-	benchmark = matrixtranpose.NewBenchmark(gpuDriver)
-	benchmark.Width = *dataWidth
+	benchmark = kmeans.NewBenchmark(gpuDriver)
+	benchmark.NumPoints = *points
+	benchmark.NumFeatures = *features
+	benchmark.NumClusters = *clusters
+	benchmark.MaxIter = *maxIter
 }

@@ -3,15 +3,14 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/matrixtranspose"
-
+	"gitlab.com/akita/gcn3/benchmarks/fir"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"
 )
 
 var (
 	gpuDriver *driver.Driver
-	benchmark *matrixtranpose.Benchmark
+	benchmark *fir.Benchmark
 )
 
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -20,7 +19,7 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
-var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")
+var numData = flag.Int("length", 4096, "The number of samples to filter.")
 
 func main() {
 	configure()
@@ -50,7 +49,6 @@ func configure() {
 	if *memTracing {
 		platform.TraceMem = true
 	}
-
 }
 
 func initPlatform() {
@@ -62,6 +60,6 @@ func initPlatform() {
 }
 
 func initBenchmark() {
-	benchmark = matrixtranpose.NewBenchmark(gpuDriver)
-	benchmark.Width = *dataWidth
+	benchmark = fir.NewBenchmark(gpuDriver)
+	benchmark.Length = *numData
 }
