@@ -61,6 +61,6 @@ func initPlatform() {
 }
 
 func initBenchmark() {
-	benchmark = aes.NewBenchmakr(gpuDriver)
+	benchmark = aes.NewBenchmark(gpuDriver)
 	benchmark.Length = *lenInput
 }
