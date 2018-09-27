@@ -2,10 +2,11 @@ package driver
 
 import (
 	"fmt"
+	"log"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/mem"
 )
 
 // Driver is an Yaotsu component that controls the simulated GPUs
@@ -15,8 +16,11 @@ type Driver struct {
 	engine akita.Engine
 	freq   akita.Freq
 
-	memoryMasks              map[*mem.Storage]*MemoryMask
+	gpus                     []*gcn3.GPU
+	memoryMasks              []*MemoryMask
+	totalSize                uint64
 	kernelLaunchingStartTime map[string]akita.VTimeInSec
+	usingGPU                 int
 
 	ToGPUs *akita.Port
 }
@@ -48,6 +52,20 @@ func (d *Driver) handleLaunchKernelReq(req *kernels.LaunchKernelReq) error {
 	return nil
 }
 
+func (d *Driver) RegisterGPU(gpu *gcn3.GPU) {
+	d.gpus = append(d.gpus, gpu)
+
+	d.registerStorage(gpu.DRAMStorage, GPUPtr(d.totalSize), gpu.DRAMStorage.Capacity)
+	d.totalSize += gpu.DRAMStorage.Capacity
+}
+
+func (d *Driver) SelectGPU(gpuID int) {
+	if gpuID >= len(d.gpus) {
+		log.Fatalf("no GPU %d in the system", gpuID)
+	}
+	d.usingGPU = gpuID
+}
+
 // NewDriver creates a new driver
 func NewDriver(engine akita.Engine) *Driver {
 	driver := new(Driver)
@@ -55,7 +73,7 @@ func NewDriver(engine akita.Engine) *Driver {
 
 	driver.engine = engine
 	driver.freq = 1 * akita.GHz
-	driver.memoryMasks = make(map[*mem.Storage]*MemoryMask)
+	driver.memoryMasks = make([]*MemoryMask, 0)
 	driver.kernelLaunchingStartTime = make(map[string]akita.VTimeInSec)
 
 	driver.ToGPUs = akita.NewPort(driver)
