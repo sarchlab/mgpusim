@@ -79,22 +79,22 @@ def main():
     # error |= run_test("FIR Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/fir')
     error |= run_test("FIR Emu", './fir -verify -length=8192', 'samples/fir')
     error |= run_test("FIR Sim", './fir -timing -verify -length=8192', 'samples/fir')
-    # error |= run_test("FIR Parallel Emu", './fir -parallel -verify -length=8192', 'samples/fir')
-    # error |= run_test("FIR Parallel Sim", './fir -timing -parallel -verify -length=8192', 'samples/fir')
+    error |= run_test("FIR Parallel Emu", './fir -parallel -verify -length=8192', 'samples/fir')
+    error |= run_test("FIR Parallel Sim", './fir -timing -parallel -verify -length=8192', 'samples/fir')
 
     error |= compile('samples/kmeans/')
     # error |= run_test("KMeans Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/kmeans')
     error |= run_test("KMeans Emu", './kmeans -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
     error |= run_test("KMeans Sim", './kmeans -timing -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    # error |= run_test("KMeans Parallel Emu", './kmeans -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    # error |= run_test("KMeans Parallel Sim", './kmeans -timing -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
+    error |= run_test("KMeans Parallel Emu", './kmeans -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
+    error |= run_test("KMeans Parallel Sim", './kmeans -timing -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
 
     error |= compile('samples/matrixtranspose/')
     # error |= run_test("MatrixTranspose Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/matrixtranspose')
     error |= run_test("MatrixTranspose Emu", './matrixtranspose -verify -width=256', 'samples/matrixtranspose')
     error |= run_test("MatrixTranspose Sim", './matrixtranspose -timing -verify -width=256', 'samples/matrixtranspose')
-    # error |= run_test("MatrixTranspose Parallel Emu", './matrixtranspose --parallel -verify -width=256', 'samples/matrixtranspose')
-    # error |= run_test("MatrixTranspose Parallel Sim", './matrixtranspose -timing --parallel -verify -width=256', 'samples/matrixtranspose')
+    error |= run_test("MatrixTranspose Parallel Emu", './matrixtranspose --parallel -verify -width=256', 'samples/matrixtranspose')
+    error |= run_test("MatrixTranspose Parallel Sim", './matrixtranspose -timing --parallel -verify -width=256', 'samples/matrixtranspose')
 
     error |= compile('samples/bitonicsort/')
     # error |= run_test("BitonicSort Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/bitonicsort')
@@ -119,8 +119,8 @@ def main():
     # # kernels.disasm -', 'samples/aes')
     error |= run_test("Simple Convolution Emu", './simpleconvolution -verify', 'samples/simpleconvolution')
     error |= run_test("Simple Convolution Sim", './simpleconvolution -timing -verify', 'samples/simpleconvolution')
-    # error |= run_test("Simple Convolution Parallel Emu", './simpleconvolution --parallel -verify', 'samples/simpleconvolution')
-    # error |= run_test("Simple Convolution Parallel Sim", './simpleconvolution -timing --parallel -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Parallel Emu", './simpleconvolution --parallel -verify', 'samples/simpleconvolution')
+    error |= run_test("Simple Convolution Parallel Sim", './simpleconvolution -timing --parallel -verify', 'samples/simpleconvolution')
 
 
 
