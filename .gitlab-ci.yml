@@ -31,9 +31,17 @@ unit_test:
   stage: test
   script:
     - go install github.com/onsi/ginkgo/ginkgo
-    - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress
+    - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
     - go test -coverprofile=cover.out ./...
     - cd $PROJECT_DIR && go tool cover -func=cover.out
+  dependencies:
+    - go_build
+
+stress_test:
+  stage: test
+  script:
+    - go install github.com/onsi/ginkgo/ginkgo
+    - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --focus="Stress"
   dependencies:
     - go_build
 

@@ -116,7 +116,6 @@ const (
 //     WGFinishMesg ---- The CU send this message to the dispatcher to notify
 //                       the completion of a workgroup
 //
-
 type Dispatcher struct {
 	*akita.ComponentBase
 
@@ -253,7 +252,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
-	fmt.Printf("handle req id: %s\n", mesg.GetID())
+	// fmt.Printf("handle req id: %s\n", mesg.GetID())
 	d.completedWGs = append(d.completedWGs, mesg.WG)
 	d.cuBusy[mesg.Src()] = false
 	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
