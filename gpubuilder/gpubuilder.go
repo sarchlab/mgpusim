@@ -94,6 +94,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	}
 
 	gpu := gcn3.NewGPU(b.GPUName, b.engine)
+	gpu.DRAMStorage = gpuMem.Storage
 	gpu.CommandProcessor = commandProcessor.ToDriver
 	commandProcessor.Driver = gpu.ToCommandProcessor
 
@@ -136,6 +137,8 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 
 	// GPU
 	gpu := gcn3.NewGPU(b.GPUName, b.engine)
+	gpu.DRAMStorage = gpuMem.Storage
+
 	cp := gcn3.NewCommandProcessor(b.GPUName+".CommandProcessor", b.engine)
 	cp.GPUStorage = gpuMem.Storage
 	dispatcher := gcn3.NewDispatcher(b.GPUName+"Dispatcher", b.engine,

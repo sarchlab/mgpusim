@@ -44,6 +44,7 @@ func BuildEmuPlatform() (
 		gpuBuilder.EnableMemTracing = true
 	}
 	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
+	gpuDriver.RegisterGPU(gpu)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
@@ -84,6 +85,7 @@ func BuildR9NanoPlatform() (
 	}
 
 	gpu, globalMem := gpuBuilder.BuildR9Nano()
+	gpuDriver.RegisterGPU(gpu)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)

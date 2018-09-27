@@ -3,6 +3,8 @@ package gcn3
 import (
 	"log"
 
+	"gitlab.com/akita/mem"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem/cache"
 )
@@ -28,6 +30,7 @@ type GPU struct {
 	L1KCaches        []akita.Component
 	L2Caches         []akita.Component
 	L2CacheFinder    cache.LowModuleFinder
+	DRAMStorage      *mem.Storage
 
 	ToDriver           *akita.Port
 	ToCommandProcessor *akita.Port

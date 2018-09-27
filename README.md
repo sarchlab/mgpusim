@@ -1,2 +1,1 @@
-Yaotsu GCN3
-===============
+# GCN3 Model
