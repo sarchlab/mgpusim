@@ -37,11 +37,12 @@ unit_test:
   dependencies:
     - go_build
 
-stress_test:
+cache_acceptance_test:
   stage: test
   script:
     - go install github.com/onsi/ginkgo/ginkgo
-    - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --focus="Stress"
+    - cd $PROJECT_DIR/timing/caches/acceptance_test && go build
+    - cd $PROJECT_DIR/timing/caches/acceptance_test && ./acceptance_test
   dependencies:
     - go_build
 
