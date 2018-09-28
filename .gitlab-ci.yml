@@ -39,6 +39,8 @@ unit_test:
 
 acceptance_test:
   stage: test
+  tags:
+    - multi_core
   script:
     - apt-get update -qq && apt-get install -y -qq python3
     - cd $PROJECT_DIR && python3 acceptance_test.py

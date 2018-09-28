@@ -4,7 +4,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/kernels"
 )
 
 var _ = Describe("CommandProcessor", func() {
@@ -33,14 +32,12 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should forward kernel launching request to Dispatcher", func() {
-		req := kernels.NewLaunchKernelReq()
-		req.SetSrc(driver.ToOutside)
-		req.SetDst(commandProcessor.ToDriver)
+		req := NewLaunchKernelReq(10,
+			driver.ToOutside, commandProcessor.ToDriver)
+		req.SetEventTime(10)
 
-		reqExpect := kernels.NewLaunchKernelReq()
-		reqExpect.SetSrc(commandProcessor.ToDispatcher)
-		reqExpect.SetDst(dispatcher.ToOutside)
-
+		reqExpect := NewLaunchKernelReq(10,
+			commandProcessor.ToDispatcher, dispatcher.ToOutside)
 		connection.ExpectSend(reqExpect, nil)
 
 		commandProcessor.Handle(req)
@@ -49,9 +46,8 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should delay forward kernel launching request to the Driver", func() {
-		req := kernels.NewLaunchKernelReq()
-		req.SetSrc(dispatcher.ToOutside)
-		req.SetDst(commandProcessor.ToDispatcher)
+		req := NewLaunchKernelReq(10,
+			dispatcher.ToOutside, commandProcessor.ToDispatcher)
 
 		commandProcessor.Handle(req)
 

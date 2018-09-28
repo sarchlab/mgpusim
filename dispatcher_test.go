@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
 
@@ -11,7 +12,7 @@ type mockGridBuilder struct {
 	Grid *kernels.Grid
 }
 
-func (b *mockGridBuilder) Build(req *kernels.LaunchKernelReq) *kernels.Grid {
+func (b *mockGridBuilder) Build(hsaco *insts.HsaCo, packet *kernels.HsaKernelDispatchPacket) *kernels.Grid {
 	return b.Grid
 }
 
@@ -66,9 +67,7 @@ var _ = Describe("Dispatcher", func() {
 	It("start kernel launching", func() {
 		dispatcher.dispatchingReq = nil
 
-		req := kernels.NewLaunchKernelReq()
-		req.SetSrc(nil)
-		req.SetDst(dispatcher.ToCommandProcessor)
+		req := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
 		req.SetRecvTime(10)
 
 		dispatcher.Handle(req)
@@ -77,18 +76,14 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should reject dispatching if it is dispatching another kernel", func() {
-		req := kernels.NewLaunchKernelReq()
+		req := NewLaunchKernelReq(5, nil, dispatcher.ToCommandProcessor)
 		dispatcher.dispatchingReq = req
 
-		anotherReq := kernels.NewLaunchKernelReq()
-		anotherReq.SetSrc(nil)
-		anotherReq.SetDst(dispatcher.ToCommandProcessor)
+		anotherReq := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
 		anotherReq.SetRecvTime(10)
 
-		expectedReq := kernels.NewLaunchKernelReq()
+		expectedReq := NewLaunchKernelReq(10, dispatcher.ToCommandProcessor, nil)
 		expectedReq.OK = false
-		expectedReq.SetSrc(dispatcher.ToCommandProcessor)
-		expectedReq.SetDst(nil)
 		expectedReq.SetSendTime(10)
 		expectedReq.SetRecvTime(10)
 		toCommandProcessorConn.ExpectSend(expectedReq, nil)
@@ -208,7 +203,8 @@ var _ = Describe("Dispatcher", func() {
 
 	It("should send the KernelLaunchingReq back to the command processor, "+
 		"when receiving WGFinishMesg and there is no more work-groups", func() {
-		kernelLaunchingReq := kernels.NewLaunchKernelReq()
+		kernelLaunchingReq := NewLaunchKernelReq(10,
+			nil, dispatcher.ToCommandProcessor)
 		dispatcher.dispatchingReq = kernelLaunchingReq
 		dispatcher.dispatchingGrid = grid
 
