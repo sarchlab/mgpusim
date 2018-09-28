@@ -29,6 +29,7 @@ func main() {
 	if *verify {
 		benchmark.Verify()
 	}
+
 }
 
 func configure() {

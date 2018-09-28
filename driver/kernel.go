@@ -153,13 +153,14 @@ func (d *Driver) runKernel(
 	req := gcn3.NewLaunchKernelReq(now, d.ToGPUs, gpu.ToDriver)
 	req.HsaCo = co
 	req.Packet = packet
-	startTime := now
 	req.PacketAddress = uint64(dPacket)
+
 	err := d.ToGPUs.Send(req)
 	if err != nil {
 		log.Panic(err)
 	}
-	d.kernelLaunchingStartTime[req.ID] = startTime
+
+	d.InvokeHook(req, d, HookPosReqStart, nil)
 	d.engine.Run()
 	//endTime := d.engine.CurrentTime()
 	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)

@@ -1,12 +1,14 @@
 package driver
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 )
+
+var HookPosReqStart = &struct{ name string }{"Any"}
+var HookPosReqReturn = &struct{ name string }{"Any"}
 
 // Driver is an Akita component that controls the simulated GPUs
 type Driver struct {
@@ -15,11 +17,10 @@ type Driver struct {
 	engine akita.Engine
 	freq   akita.Freq
 
-	gpus                     []*gcn3.GPU
-	memoryMasks              []*MemoryMask
-	totalSize                uint64
-	kernelLaunchingStartTime map[string]akita.VTimeInSec
-	usingGPU                 int
+	gpus        []*gcn3.GPU
+	memoryMasks []*MemoryMask
+	totalSize   uint64
+	usingGPU    int
 
 	ToGPUs *akita.Port
 }
@@ -45,9 +46,8 @@ func (d *Driver) Handle(e akita.Event) error {
 }
 
 func (d *Driver) handleLaunchKernelReq(req *gcn3.LaunchKernelReq) error {
-	startTime := d.kernelLaunchingStartTime[req.ID]
-	endTime := req.Time()
-	fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
+	req.EndTime = req.Time()
+	d.InvokeHook(req, d, HookPosReqReturn, nil)
 	return nil
 }
 
@@ -73,7 +73,6 @@ func NewDriver(engine akita.Engine) *Driver {
 	driver.engine = engine
 	driver.freq = 1 * akita.GHz
 	driver.memoryMasks = make([]*MemoryMask, 0)
-	driver.kernelLaunchingStartTime = make(map[string]akita.VTimeInSec)
 
 	driver.ToGPUs = akita.NewPort(driver)
 
