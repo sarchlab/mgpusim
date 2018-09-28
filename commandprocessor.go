@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
@@ -51,7 +50,7 @@ func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port *akita.Port
 // Handle processes the events that is scheduled for the CommandProcessor
 func (p *CommandProcessor) Handle(e akita.Event) error {
 	switch req := e.(type) {
-	case *kernels.LaunchKernelReq:
+	case *LaunchKernelReq:
 		return p.processLaunchKernelReq(req)
 	case *ReplyKernelCompletionEvent:
 		return p.handleReplyKernelCompletionEvent(req)
@@ -68,7 +67,7 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 }
 
 func (p *CommandProcessor) processLaunchKernelReq(
-	req *kernels.LaunchKernelReq,
+	req *LaunchKernelReq,
 ) error {
 	now := req.Time()
 	if req.Src() == p.Driver {
@@ -166,13 +165,13 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 
 type ReplyKernelCompletionEvent struct {
 	*akita.EventBase
-	Req *kernels.LaunchKernelReq
+	Req *LaunchKernelReq
 }
 
 func NewReplyKernelCompletionEvent(
 	time akita.VTimeInSec,
 	handler akita.Handler,
-	req *kernels.LaunchKernelReq,
+	req *LaunchKernelReq,
 ) *ReplyKernelCompletionEvent {
 	evt := new(ReplyKernelCompletionEvent)
 	evt.EventBase = akita.NewEventBase(time, handler)

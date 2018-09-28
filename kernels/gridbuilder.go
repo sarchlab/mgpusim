@@ -1,9 +1,13 @@
 package kernels
 
+import (
+	"gitlab.com/akita/gcn3/insts"
+)
+
 // A GridBuilder is the unit that can build a grid and its internal structure
 // from a kernel and its launch parameters.
 type GridBuilder interface {
-	Build(req *LaunchKernelReq) *Grid
+	Build(hsaco *insts.HsaCo, packet *HsaKernelDispatchPacket) *Grid
 }
 
 // GridBuilderImpl provides a default implementation of the GridBuilder
@@ -13,12 +17,15 @@ type GridBuilderImpl struct {
 
 // Build function creates a grid according a kernel launch. It also builds
 // all the work-groups.
-func (b *GridBuilderImpl) Build(req *LaunchKernelReq) *Grid {
+func (b *GridBuilderImpl) Build(
+	hsaco *insts.HsaCo,
+	packet *HsaKernelDispatchPacket,
+) *Grid {
 	grid := NewGrid()
 
-	grid.Packet = req.Packet
-	grid.CodeObject = req.HsaCo
-	grid.PacketAddress = req.PacketAddress
+	grid.Packet = packet
+	grid.CodeObject = hsaco
+	//grid.PacketAddress = req.PacketAddress
 
 	b.spawnWorkGroups(grid)
 
