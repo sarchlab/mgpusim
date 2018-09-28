@@ -6,10 +6,9 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/kernels"
 )
 
-// Driver is an Yaotsu component that controls the simulated GPUs
+// Driver is an Akita component that controls the simulated GPUs
 type Driver struct {
 	*akita.ComponentBase
 
@@ -37,7 +36,7 @@ func (d *Driver) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 // Handle process event that is scheduled on the driver
 func (d *Driver) Handle(e akita.Event) error {
 	switch e := e.(type) {
-	case *kernels.LaunchKernelReq:
+	case *gcn3.LaunchKernelReq:
 		return d.handleLaunchKernelReq(e)
 	default:
 		// Do nothing
@@ -45,7 +44,7 @@ func (d *Driver) Handle(e akita.Event) error {
 	return nil
 }
 
-func (d *Driver) handleLaunchKernelReq(req *kernels.LaunchKernelReq) error {
+func (d *Driver) handleLaunchKernelReq(req *gcn3.LaunchKernelReq) error {
 	startTime := d.kernelLaunchingStartTime[req.ID]
 	endTime := req.Time()
 	fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)

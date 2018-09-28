@@ -11,7 +11,7 @@ type mockGridBuilder struct {
 	Grid *kernels.Grid
 }
 
-func (b *mockGridBuilder) Build(req *kernels.LaunchKernelReq) *kernels.Grid {
+func (b *mockGridBuilder) Build(req *LaunchKernelReq) *kernels.Grid {
 	return b.Grid
 }
 
@@ -66,7 +66,7 @@ var _ = Describe("Dispatcher", func() {
 	It("start kernel launching", func() {
 		dispatcher.dispatchingReq = nil
 
-		req := kernels.NewLaunchKernelReq()
+		req := NewLaunchKernelReq()
 		req.SetSrc(nil)
 		req.SetDst(dispatcher.ToCommandProcessor)
 		req.SetRecvTime(10)
@@ -77,15 +77,15 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should reject dispatching if it is dispatching another kernel", func() {
-		req := kernels.NewLaunchKernelReq()
+		req := NewLaunchKernelReq()
 		dispatcher.dispatchingReq = req
 
-		anotherReq := kernels.NewLaunchKernelReq()
+		anotherReq := NewLaunchKernelReq()
 		anotherReq.SetSrc(nil)
 		anotherReq.SetDst(dispatcher.ToCommandProcessor)
 		anotherReq.SetRecvTime(10)
 
-		expectedReq := kernels.NewLaunchKernelReq()
+		expectedReq := NewLaunchKernelReq()
 		expectedReq.OK = false
 		expectedReq.SetSrc(dispatcher.ToCommandProcessor)
 		expectedReq.SetDst(nil)
@@ -208,7 +208,7 @@ var _ = Describe("Dispatcher", func() {
 
 	It("should send the KernelLaunchingReq back to the command processor, "+
 		"when receiving WGFinishMesg and there is no more work-groups", func() {
-		kernelLaunchingReq := kernels.NewLaunchKernelReq()
+		kernelLaunchingReq := NewLaunchKernelReq()
 		dispatcher.dispatchingReq = kernelLaunchingReq
 		dispatcher.dispatchingGrid = grid
 
