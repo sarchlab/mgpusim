@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
 )
 
 // GPUPtr is the type that represent a pointer pointing into the GPU memory
@@ -63,7 +64,7 @@ func (d *Driver) RegisterStorage(
 // memory space.
 func (d *Driver) AllocateMemory(
 	storage *mem.Storage,
-	byteSize uint64,
+	byteSize uint64,mmu *vm.MMUImpl,pageSize uint64,
 ) GPUPtr {
 	mask, ok := d.memoryMasks[storage]
 	if !ok {
@@ -80,10 +81,19 @@ func (d *Driver) AllocateMemory(
 			allocatedChunk := &MemoryChunk{ptr, byteSize, true}
 			mask.InsertChunk(i, allocatedChunk)
 
+			virtualAddress := uint64(ptr + 0x100000000)
+			pfn,valid := mmu.Translate(virtualAddress,1,4096)
+
+			if !valid && pfn == 0 {
+				physicalFrameNumber := uint64(ptr) / pageSize
+				mmu.CreatePage(1,physicalFrameNumber,virtualAddress,pageSize)
+			}
+
+
 			chunk.Ptr += GPUPtr(byteSize)
 			chunk.ByteSize -= byteSize
 
-			return ptr
+			return GPUPtr(virtualAddress)
 		}
 	}
 
