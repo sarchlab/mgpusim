@@ -5,45 +5,51 @@ import (
 	. "github.com/onsi/gomega"
 
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/akita"
 )
 
 var _ = Describe("Driver", func() {
 	var (
 		storage *mem.Storage
 		driver  *Driver
+		mmu     *vm.MMUImpl
+		engine *akita.MockEngine
 	)
 
 	BeforeEach(func() {
 		storage = mem.NewStorage(4 * mem.GB)
 		driver = NewDriver(nil)
+		engine = akita.NewMockEngine()
+		mmu = vm.NewMMU("mmu", engine)
 	})
 
 	It("should allocate memory", func() {
-		ptr := driver.AllocateMemory(storage, 8)
-		Expect(ptr).To(Equal(GPUPtr(0)))
+		ptr := driver.AllocateMemory(storage, 8,mmu,4096)
+		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 
-		ptr = driver.AllocateMemory(storage, 24)
-		Expect(ptr).To(Equal(GPUPtr(8)))
+		ptr = driver.AllocateMemory(storage, 24,mmu,4096)
+		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
 	})
 
 	It("should allocate memory with alignment", func() {
-		driver.AllocateMemory(storage, 8)
+		driver.AllocateMemory(storage, 8,mmu,4096)
 
 		ptr := driver.AllocateMemoryWithAlignment(storage, 8, 64)
 		Expect(ptr).To(Equal(GPUPtr(64)))
 
-		ptr = driver.AllocateMemory(storage, 8)
-		Expect(ptr).To(Equal(GPUPtr(8)))
+		ptr = driver.AllocateMemory(storage, 8,mmu,4096)
+		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
 	})
 
 	It("should free memory", func() {
 		Expect(func() { driver.FreeMemory(storage, 0) }).To(Panic())
 
-		ptr := driver.AllocateMemory(storage, 4)
-		ptr2 := driver.AllocateMemory(storage, 16)
-		ptr3 := driver.AllocateMemory(storage, 8)
-		ptr4 := driver.AllocateMemory(storage, 12)
-		ptr5 := driver.AllocateMemory(storage, 24)
+		ptr := driver.AllocateMemory(storage, 4,mmu,4096)
+		ptr2 := driver.AllocateMemory(storage, 16,mmu,4096)
+		ptr3 := driver.AllocateMemory(storage, 8,mmu,4096)
+		ptr4 := driver.AllocateMemory(storage, 12,mmu,4096)
+		ptr5 := driver.AllocateMemory(storage, 24,mmu,4096)
 
 		driver.memoryMasks[storage].Chunks[5].ByteSize = 36
 
