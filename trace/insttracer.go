@@ -42,6 +42,6 @@ func (t *InstTracer) Func(item interface{}, domain akita.Hookable, info interfac
 	instInfo := info.(*timing.InstHookInfo)
 	inst := instInfo.Inst
 
-	fmt.Fprintf(t.writer, "%.15f,%s,%s,%s\n",
-		instInfo.Now, "", instInfo.Stage, inst.String(nil))
+	fmt.Fprintf(t.writer, "%s,%.15f,%s,%s,\"%s\"\n",
+		inst.ID, instInfo.Now, "", instInfo.Stage, inst.String(nil))
 }
