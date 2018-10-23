@@ -1,26 +1,26 @@
 package driver
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/kernels"
 )
 
-// Driver is an Yaotsu component that controls the simulated GPUs
+var HookPosReqStart = &struct{ name string }{"Any"}
+var HookPosReqReturn = &struct{ name string }{"Any"}
+
+// Driver is an Akita component that controls the simulated GPUs
 type Driver struct {
 	*akita.ComponentBase
 
 	engine akita.Engine
 	freq   akita.Freq
 
-	gpus                     []*gcn3.GPU
-	memoryMasks              []*MemoryMask
-	totalSize                uint64
-	kernelLaunchingStartTime map[string]akita.VTimeInSec
-	usingGPU                 int
+	gpus        []*gcn3.GPU
+	memoryMasks []*MemoryMask
+	totalSize   uint64
+	usingGPU    int
 
 	ToGPUs *akita.Port
 }
@@ -37,7 +37,7 @@ func (d *Driver) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 // Handle process event that is scheduled on the driver
 func (d *Driver) Handle(e akita.Event) error {
 	switch e := e.(type) {
-	case *kernels.LaunchKernelReq:
+	case *gcn3.LaunchKernelReq:
 		return d.handleLaunchKernelReq(e)
 	default:
 		// Do nothing
@@ -45,10 +45,9 @@ func (d *Driver) Handle(e akita.Event) error {
 	return nil
 }
 
-func (d *Driver) handleLaunchKernelReq(req *kernels.LaunchKernelReq) error {
-	startTime := d.kernelLaunchingStartTime[req.ID]
-	endTime := req.Time()
-	fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
+func (d *Driver) handleLaunchKernelReq(req *gcn3.LaunchKernelReq) error {
+	req.EndTime = req.Time()
+	d.InvokeHook(req, d, HookPosReqReturn, nil)
 	return nil
 }
 
@@ -74,7 +73,6 @@ func NewDriver(engine akita.Engine) *Driver {
 	driver.engine = engine
 	driver.freq = 1 * akita.GHz
 	driver.memoryMasks = make([]*MemoryMask, 0)
-	driver.kernelLaunchingStartTime = make(map[string]akita.VTimeInSec)
 
 	driver.ToGPUs = akita.NewPort(driver)
 

@@ -127,7 +127,7 @@ type Dispatcher struct {
 	Freq        akita.Freq
 
 	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
-	dispatchingReq  *kernels.LaunchKernelReq
+	dispatchingReq  *LaunchKernelReq
 	dispatchingGrid *kernels.Grid
 	dispatchingWGs  []*kernels.WorkGroup
 	completedWGs    []*kernels.WorkGroup
@@ -158,7 +158,7 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 	defer d.InvokeHook(evt, d, akita.AfterEventHookPos, nil)
 
 	switch evt := evt.(type) {
-	case *kernels.LaunchKernelReq:
+	case *LaunchKernelReq:
 		return d.handleLaunchKernelReq(evt)
 	case *MapWGEvent:
 		return d.handleMapWGEvent(evt)
@@ -175,7 +175,7 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 }
 
 func (d *Dispatcher) handleLaunchKernelReq(
-	req *kernels.LaunchKernelReq,
+	req *LaunchKernelReq,
 ) error {
 
 	if d.dispatchingReq != nil {
@@ -186,6 +186,17 @@ func (d *Dispatcher) handleLaunchKernelReq(
 	d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
 
 	return nil
+}
+
+func (d *Dispatcher) replyLaunchKernelReq(
+	ok bool,
+	req *LaunchKernelReq,
+	now akita.VTimeInSec,
+) *akita.SendError {
+	req.OK = ok
+	req.SwapSrcAndDst()
+	req.SetSendTime(req.RecvTime())
+	return d.ToCommandProcessor.Send(req)
 }
 
 // handleMapWGEvent initiates work-group mapping
@@ -218,9 +229,10 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	return nil
 }
 
-func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
+func (d *Dispatcher) initKernelDispatching(req *LaunchKernelReq) {
 	d.dispatchingReq = req
-	d.dispatchingGrid = d.gridBuilder.Build(req)
+	d.dispatchingGrid = d.gridBuilder.Build(req.HsaCo, req.Packet)
+	d.dispatchingGrid.PacketAddress = req.PacketAddress
 	d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
 
 	d.dispatchingCUID = -1
