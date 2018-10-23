@@ -46,15 +46,13 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	du.decoded = false
 
 	du.cu.InvokeHook(du.toDecode, du.cu, akita.AnyHookPos,
-		&InstHookInfo{now, du.toDecode.inst, "DecodeStart"})
+		&InstHookInfo{now, du.toDecode.inst, "Decode"})
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
 // stage
 func (du *DecodeUnit) Run(now akita.VTimeInSec) {
 	if du.toDecode != nil && !du.decoded {
-		du.cu.InvokeHook(du.toDecode, du.cu, akita.AnyHookPos,
-			&InstHookInfo{now, du.toDecode.inst, "DecodeDone"})
 		du.decoded = true
 	}
 

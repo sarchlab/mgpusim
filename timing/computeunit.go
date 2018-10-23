@@ -342,7 +342,6 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(rsp *mem.DataReadyRsp, info *M
 	wf.OutstandingScalarMemAccess -= 1
 	delete(cu.inFlightMemAccess, rsp.RespondTo)
 
-	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
 	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 
 	return nil
@@ -381,7 +380,6 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
 		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 
@@ -396,7 +394,6 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(rsp *mem.DoneRsp, info *MemAcces
 	info.ReturnedReqs += 1
 	if info.ReturnedReqs == info.TotalReqs {
 		wf.OutstandingVectorMemAccess--
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
 		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 	delete(cu.inFlightMemAccess, rsp.RespondTo)

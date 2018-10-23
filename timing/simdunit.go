@@ -53,7 +53,7 @@ func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	// and the last write.
 	u.cycleLeft = 64/u.NumSinglePrecisionUnit + 2
 
-	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "ExecStart"})
+	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Exec"})
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
@@ -75,7 +75,6 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) {
 	u.alu.Run(u.toExec)
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.toExec.State = WfReady
-	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
 	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Completed"})
 
 	u.toExec = nil
