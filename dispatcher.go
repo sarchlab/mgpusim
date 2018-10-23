@@ -1,7 +1,6 @@
 package gcn3
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -141,7 +140,7 @@ type Dispatcher struct {
 
 func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
-	fmt.Printf("recv req id: %s\n", req.GetID())
+	// fmt.Printf("recv req id: %s\n", req.GetID())
 	akita.ProcessReqAsEvent(req, d.engine, d.Freq)
 }
 
