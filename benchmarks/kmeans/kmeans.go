@@ -236,6 +236,23 @@ func (b *Benchmark) calculateRMSE() float64 {
 }
 
 func (b *Benchmark) Verify() {
+	gpuCentroids := make([]float32, b.NumClusters*b.NumFeatures)
+	copy(gpuCentroids, b.hClusters)
+
+	b.cpuKMeans()
+
+	b.compareCentroids(b.hClusters, gpuCentroids)
+
+	cpuRMSE := b.calculateRMSE()
+	if math.Abs(cpuRMSE-b.gpuRMSE) < 1e-12 {
+		fmt.Printf("Passsed, RMSE %f\n", cpuRMSE)
+	} else {
+		log.Fatal("error")
+	}
+
+}
+
+func (b *Benchmark) cpuKMeans() {
 	numIterations := 0
 	delta := float64(1.0)
 
@@ -249,14 +266,6 @@ func (b *Benchmark) Verify() {
 	}
 
 	fmt.Printf("CPU iterated %d times\n", numIterations)
-
-	cpuRMSE := b.calculateRMSE()
-	if math.Abs(cpuRMSE-b.gpuRMSE) < 1e-12 {
-		fmt.Printf("Passsed, RMSE %f\n", cpuRMSE)
-	} else {
-		log.Fatal("error")
-	}
-
 }
 
 func (b *Benchmark) updateMembershipCPU() float64 {
@@ -293,4 +302,16 @@ func (b *Benchmark) updateMembershipCPU() float64 {
 	}
 
 	return delta
+}
+
+func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) {
+	for i := 0; i < b.NumClusters; i++ {
+		for j := 0; j < b.NumFeatures; j++ {
+			index := i*b.NumFeatures + j
+			if cpuCentroids[index] != gpuCentroids[index] {
+				log.Printf("centroid %d feature %d mismatch, CPU %f, GPU %f",
+					i, j, cpuCentroids[index], gpuCentroids[index])
+			}
+		}
+	}
 }
