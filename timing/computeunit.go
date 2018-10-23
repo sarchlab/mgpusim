@@ -375,7 +375,6 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem
 	wf.OutstandingScalarMemAccess -= 1
 	cu.inFlightScalarMemAccess = cu.inFlightScalarMemAccess[1:]
 
-	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
 	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 }
 
@@ -431,10 +430,6 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 
 	if info.Read.IsLastInWave {
 		wf.OutstandingVectorMemAccess--
-		if info.Inst.FormatType == insts.FLAT {
-			wf.OutstandingScalarMemAccess--
-		}
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "MemReturn"})
 		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
 	}
 }

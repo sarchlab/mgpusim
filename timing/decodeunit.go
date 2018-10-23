@@ -46,7 +46,7 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	du.decoded = false
 
 	du.cu.InvokeHook(du.toDecode, du.cu, akita.AnyHookPos,
-		&InstHookInfo{now, du.toDecode.inst, "DecodeStart"})
+		&InstHookInfo{now, du.toDecode.inst, "Decode"})
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
