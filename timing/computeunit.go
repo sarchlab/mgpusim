@@ -375,7 +375,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem
 	wf.OutstandingScalarMemAccess -= 1
 	cu.inFlightScalarMemAccess = cu.inFlightScalarMemAccess[1:]
 
-	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{now, info.Inst, "Completed"})
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
@@ -433,7 +433,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos,
+			&InstHookInfo{now, info.Inst, "Completed"})
 	}
 }
 
@@ -450,7 +451,8 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.D
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{rsp.Time(), info.Inst, "Completed"})
+		cu.InvokeHook(wf, cu, akita.AnyHookPos,
+			&InstHookInfo{now, info.Inst, "Completed"})
 	}
 }
 
