@@ -12,7 +12,6 @@ var UseParallelEngine bool
 var DebugISA bool
 var TraceInst bool
 var TraceMem bool
-var ReportKernelTime bool
 
 // BuildEmuPlatform creates a simple platform for emulation purposes
 func BuildEmuPlatform() (
@@ -43,11 +42,6 @@ func BuildEmuPlatform() (
 	}
 	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
 	gpuDriver.RegisterGPU(gpu)
-
-	if ReportKernelTime {
-		kernelTimeCountner := new(driver.KernelTimeCounter)
-		gpuDriver.AcceptHook(kernelTimeCoutner)
-	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
@@ -89,11 +83,6 @@ func BuildR9NanoPlatform() (
 
 	gpu, globalMem := gpuBuilder.BuildR9Nano()
 	gpuDriver.RegisterGPU(gpu)
-
-	if ReportKernelTime {
-		kernelTimeCountner := new(driver.KernelTimeCounter)
-		gpuDriver.AcceptHook(kernelTimeCoutner)
-	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
