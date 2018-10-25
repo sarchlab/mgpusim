@@ -48,6 +48,30 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
+	It("should read", func() {
+		wave := new(Wavefront)
+		bu.toRead = wave
+
+		madeProgress := bu.runReadStage(10)
+
+		Expect(madeProgress).To(BeTrue())
+		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.AddrCoalescingCycleLeft).To(Equal(bu.AddrCoalescingLatency))
+	})
+
+	It("should reduce cycle left when executing", func() {
+		wave := new(Wavefront)
+		bu.toExec = wave
+		bu.AddrCoalescingCycleLeft = 40
+
+		madeProgress := bu.runExecStage(10)
+
+		Expect(madeProgress).To(BeTrue())
+		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.AddrCoalescingCycleLeft).To(Equal(39))
+	})
+
 	It("should run flat_load_dword", func() {
 		wave := NewWavefront(nil)
 		inst := NewInst(insts.NewInst())

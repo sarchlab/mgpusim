@@ -21,6 +21,9 @@ type VectorMemoryUnit struct {
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
+
+	AddrCoalescingLatency   int
+	AddrCoalescingCycleLeft int
 }
 
 // NewVectorMemoryUnit creates a new Scalar unit, injecting the dependency of
@@ -38,6 +41,8 @@ func NewVectorMemoryUnit(
 
 	u.SendBufSize = 256
 	u.SendBuf = make([]mem.AccessReq, 0, u.SendBufSize)
+
+	u.AddrCoalescingLatency = 40
 
 	return u
 }
@@ -73,6 +78,7 @@ func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) bool {
 
 		u.toExec = u.toRead
 		u.toRead = nil
+		u.AddrCoalescingCycleLeft = u.AddrCoalescingLatency
 		return true
 	}
 	return false
@@ -81,6 +87,11 @@ func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) bool {
 func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
 		return false
+	}
+
+	if u.AddrCoalescingCycleLeft > 0 {
+		u.AddrCoalescingCycleLeft--
+		return true
 	}
 
 	if u.toWrite == nil {
