@@ -215,7 +215,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 		kCache := caches.BuildL1VCache(
 			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i),
 			b.engine, b.freq,
-			1,
+			85,
 			6, 4, 14,
 			lowModuleFinderForL1)
 		connection.PlugIn(kCache.ToCU)
