@@ -372,7 +372,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem
 	access.Data = rsp.Data
 	cu.SRegFile.Write(access)
 
-	wf.OutstandingScalarMemAccess -= 1
+	wf.OutstandingScalarMemAccess--
 	cu.inFlightScalarMemAccess = cu.inFlightScalarMemAccess[1:]
 
 	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{now, info.Inst, "Completed"})
