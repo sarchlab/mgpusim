@@ -32,9 +32,11 @@ func newInvalidationCompleteEvent(
 }
 
 type cacheTransaction struct {
-	Req   akita.Req
-	Block *cache.Block
-	Rsp   akita.Req
+	Req           akita.Req
+	Rsp           akita.Req
+	Block         *cache.Block
+	ReqToBottom   akita.Req
+	RspFromBottom akita.Req
 }
 
 type inPipelineReqStatus struct {
@@ -58,10 +60,6 @@ type L1VCache struct {
 	BlockSizeAsPowerOf2 uint64
 	Latency             int
 	InvalidationLatency int
-
-	cycleLeft int
-	isBusy    bool
-	writing   *mem.WriteReq
 
 	isStorageBusy bool
 	pipeline      pipelines.Pipeline
@@ -93,7 +91,7 @@ func (c *L1VCache) Handle(e akita.Event) error {
 
 func (c *L1VCache) createTransaction(req akita.Req) *cacheTransaction {
 	if _, found := c.reqIDToTransactionMap[req.GetID()]; found {
-		log.Panic("request already recorde as transaction.")
+		log.Panic("request already recorded as transaction.")
 	}
 
 	transaction := new(cacheTransaction)
@@ -133,7 +131,7 @@ func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
 }
 
 func (c *L1VCache) parseFromCP(now akita.VTimeInSec) {
-	if c.isBusy {
+	if len(c.reqBuf) > 0 {
 		return
 	}
 
@@ -243,9 +241,6 @@ func (c *L1VCache) handleReadHit(now akita.VTimeInSec, req *mem.ReadReq, block *
 }
 
 func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, req *mem.WriteReq) {
-	c.isBusy = true
-	c.writing = req
-
 	c.writeToLowModule(now, req)
 	c.writeToLocalStorage(now, req)
 
@@ -260,11 +255,18 @@ func (c *L1VCache) writeToLowModule(now akita.VTimeInSec, req *mem.WriteReq) {
 
 	c.toL2Buffer = append(c.toL2Buffer, writeBottom)
 	c.pendingDownGoingWrite = append(c.pendingDownGoingWrite, writeBottom)
+
+	transaction := c.reqIDToTransactionMap[req.GetID()]
+	transaction.ReqToBottom = writeBottom
 }
 
 func (c *L1VCache) writeToLocalStorage(now akita.VTimeInSec, req *mem.WriteReq) {
 	cacheLineID, _ := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
 	block := c.Directory.Lookup(cacheLineID)
+
+	transaction := c.reqIDToTransactionMap[req.GetID()]
+	transaction.Block = block
+
 	if block == nil {
 		c.doWriteMiss(now, req)
 	} else {
@@ -303,6 +305,9 @@ func (c *L1VCache) doWriteLine(
 ) {
 	block.IsValid = true
 	block.Tag = req.Address
+
+	transaction := c.reqIDToTransactionMap[req.GetID()]
+	transaction.Block = block
 
 	c.Storage.Write(block.CacheAddress, req.Data)
 }
@@ -365,7 +370,6 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 
 	c.ToL2.Retrieve(now)
 	c.pendingDownGoingRead = c.pendingDownGoingRead[1:]
-	c.isBusy = false
 	c.NeedTick = true
 
 	c.traceMem(now, "data-ready", address, uint64(len(dataReady.Data)),
@@ -373,17 +377,23 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 }
 
 func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
-	done := mem.NewDoneRsp(now, c.ToCU, c.writing.Src(), c.writing.ID)
-	c.toCUBuffer = append(c.toCUBuffer, done)
-	write := c.pendingDownGoingWrite[0]
+	for _, trans := range c.reqBuf {
+		if trans.ReqToBottom.GetID() != rsp.RespondTo {
+			continue
+		}
+
+		write := trans.Req.(*mem.WriteReq)
+		done := mem.NewDoneRsp(now, c.ToCU, write.Src(), write.GetID())
+		trans.Rsp = done
+
+		c.traceMem(now, "write-done", write.Address, uint64(len(write.Data)), write.Data)
+	}
 
 	c.ToL2.Retrieve(now)
-	c.pendingDownGoingWrite = nil
-	c.writing = nil
-	c.isBusy = false
+	c.pendingDownGoingWrite = c.pendingDownGoingWrite[1:]
+
 	c.NeedTick = true
 
-	c.traceMem(now, "write-done", write.Address, uint64(len(write.Data)), write.Data)
 }
 
 func (c *L1VCache) doReadWrite(now akita.VTimeInSec) {
