@@ -122,6 +122,17 @@ var _ = Describe("L1V Cache", func() {
 			Expect(l1v.toL2Buffer).To(HaveLen(1))
 		})
 
+		It("should not read form bottom if the address is already being read", func() {
+			readFromBottom := mem.NewReadReq(9, l1v.ToL2, nil, 0x100, 64)
+			l1v.pendingDownGoingRead = append(l1v.pendingDownGoingRead,
+				readFromBottom)
+
+			l1v.parseFromReqBuf(11)
+
+			Expect(l1v.pendingDownGoingRead).To(HaveLen(1))
+			Expect(l1v.toL2Buffer).To(HaveLen(0))
+		})
+
 		It("always read a whole cache line from bottom", func() {
 			read.Address = 0x104
 			read.MemByteSize = 4
