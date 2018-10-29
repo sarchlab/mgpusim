@@ -1,6 +1,7 @@
 package caches
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -100,6 +101,8 @@ func (c *L1VCache) createTransaction(req akita.Req) *cacheTransaction {
 	c.reqBuf = append(c.reqBuf, transaction)
 	c.reqIDToTransactionMap[req.GetID()] = transaction
 
+	fmt.Printf("Enqueue transaction %s\n", req.GetID())
+
 	return transaction
 }
 
@@ -111,6 +114,8 @@ func (c *L1VCache) removeTransaction(transaction *cacheTransaction) {
 	c.reqBuf = c.reqBuf[1:]
 	c.reqBufReadPtr--
 	delete(c.reqIDToTransactionMap, transaction.Req.GetID())
+
+	fmt.Printf("Dequeue transaction %s\n", transaction.Req.GetID())
 }
 
 func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
@@ -221,10 +226,20 @@ func (c *L1VCache) handleReadReq(now akita.VTimeInSec, req *mem.ReadReq) {
 func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
 	address := req.Address
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
-	l2 := c.L2Finder.Find(cacheLineID)
-	readBottom := mem.NewReadReq(now, c.ToL2, l2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
-	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
-	c.toL2Buffer = append(c.toL2Buffer, readBottom)
+
+	inMSHR := false
+	for _, readToBottom := range c.pendingDownGoingRead {
+		if readToBottom.Address == cacheLineID {
+			inMSHR = true
+		}
+	}
+
+	if !inMSHR {
+		l2 := c.L2Finder.Find(cacheLineID)
+		readBottom := mem.NewReadReq(now, c.ToL2, l2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
+		c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
+		c.toL2Buffer = append(c.toL2Buffer, readBottom)
+	}
 
 	c.traceMem(now, "read-miss", address, req.MemByteSize, nil)
 }
@@ -378,6 +393,10 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 
 func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
 	for _, trans := range c.reqBuf {
+		if trans.ReqToBottom == nil {
+			continue
+		}
+
 		if trans.ReqToBottom.GetID() != rsp.RespondTo {
 			continue
 		}
