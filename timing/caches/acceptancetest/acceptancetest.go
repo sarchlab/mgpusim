@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"sync"
 
 	"gitlab.com/akita/akita"
@@ -8,6 +9,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/acceptancetests"
 	"gitlab.com/akita/mem/cache"
+	memTrace "gitlab.com/akita/mem/trace"
 )
 
 type test struct {
@@ -30,7 +32,7 @@ func (t *test) setMaxAddr(addr uint64) {
 	t.agent.MaxAddress = addr
 }
 
-func newTest() *test {
+func newTest(name string) *test {
 	t := new(test)
 
 	t.engine = akita.NewSerialEngine()
@@ -42,6 +44,13 @@ func newTest() *test {
 
 	t.l1v = caches.BuildL1VCache("cache", t.engine, 1*akita.GHz, 1,
 		6, 4, 14, t.lowModuleFinder)
+
+	traceFile, err := os.Create(name + ".trace")
+	if err != nil {
+		panic(err)
+	}
+	tracer := memTrace.NewTracer(traceFile)
+	t.l1v.AcceptHook(tracer)
 
 	t.agent = acceptancetests.NewMemAccessAgent(t.engine)
 	t.agent.WriteLeft = 1000
@@ -57,19 +66,22 @@ func newTest() *test {
 }
 
 func main() {
-	t1 := newTest()
-	t1.setMaxAddr(64)
-
-	t2 := newTest()
-	t2.setMaxAddr(1024)
-
-	t3 := newTest()
-	t3.setMaxAddr(1048576)
-
 	var wg sync.WaitGroup
-	wg.Add(3)
-	go t1.run(&wg)
+
+	// t1 := newTest("Max_64")
+	// t1.setMaxAddr(64)
+	// wg.Add(1)
+
+	t2 := newTest("Max_1024")
+	t2.setMaxAddr(1024)
+	wg.Add(1)
+
+	// t3 := newTest("Max_1M")
+	// t3.setMaxAddr(1048576)
+	// wg.Add(1)
+
+	// go t1.run(&wg)
 	go t2.run(&wg)
-	go t3.run(&wg)
+	// go t3.run(&wg)
 	wg.Wait()
 }

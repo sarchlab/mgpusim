@@ -77,6 +77,7 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.reqBufReadPtr).To(Equal(1))
 			Expect(transaction.Block).To(BeIdenticalTo(block))
+			Expect(block.IsLocked).To(BeTrue())
 
 			Expect(l1v.inPipeline).To(HaveLen(1))
 			Expect(l1v.inPipeline[0].CycleLeft).To(Equal(100))
