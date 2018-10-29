@@ -95,25 +95,39 @@ var _ = Describe("L1V Cache", func() {
 			Expect(directory.AllExpectedCalled()).To(BeTrue())
 			Expect(l1v.reqBufReadPtr).To(Equal(1))
 			Expect(l1v.NeedTick).To(BeTrue())
+			Expect(block.IsLocked).To(BeTrue())
 
 			Expect(l1v.inPipeline).To(HaveLen(1))
 			Expect(l1v.inPipeline[0].CycleLeft).To(Equal(100))
 			Expect(l1v.inPipeline[0].Req).To(BeIdenticalTo(read))
 		})
+
+		It("should stall if block is locked", func() {
+			block.IsLocked = true
+
+			l1v.parseFromReqBuf(11)
+
+			Expect(directory.AllExpectedCalled()).To(BeTrue())
+			Expect(l1v.reqBufReadPtr).To(Equal(0))
+			Expect(l1v.NeedTick).To(BeFalse())
+			Expect(l1v.inPipeline).To(HaveLen(0))
+		})
 	})
 
 	Context("parse read miss", func() {
 		var (
-			block *cache.Block
-			read  *mem.ReadReq
+			block       *cache.Block
+			read        *mem.ReadReq
+			transaction *cacheTransaction
 		)
 
 		BeforeEach(func() {
-			block = nil
-			directory.ExpectLookup(0x100, block)
+			block = new(cache.Block)
+			directory.ExpectLookup(0x100, nil)
+			directory.ExpectEvict(0x100, block)
 
 			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
-			l1v.createTransaction(read)
+			transaction = l1v.createTransaction(read)
 		})
 
 		It("should send read request to bottom", func() {
@@ -121,6 +135,11 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.pendingDownGoingRead).To(HaveLen(1))
 			Expect(l1v.toL2Buffer).To(HaveLen(1))
+			Expect(transaction.Block).To(BeIdenticalTo(block))
+			Expect(block.Tag).To(Equal(uint64(0x100)))
+			Expect(block.IsValid).To(BeTrue())
+			Expect(block.IsLocked).To(BeTrue())
+			Expect(transaction.ReqToBottom).NotTo(BeNil())
 		})
 
 		It("should not read form bottom if the address is already being read", func() {
@@ -146,6 +165,11 @@ var _ = Describe("L1V Cache", func() {
 				Equal(uint64(0x100)))
 			Expect(l1v.toL2Buffer[0].(*mem.ReadReq).MemByteSize).To(
 				Equal(uint64(64)))
+			Expect(transaction.Block).To(BeIdenticalTo(block))
+			Expect(block.Tag).To(Equal(uint64(0x100)))
+			Expect(block.IsValid).To(BeTrue())
+			Expect(block.IsLocked).To(BeTrue())
+			Expect(transaction.ReqToBottom).NotTo(BeNil())
 		})
 	})
 
@@ -220,6 +244,7 @@ var _ = Describe("L1V Cache", func() {
 		BeforeEach(func() {
 			block = new(cache.Block)
 			block.IsValid = true
+			block.IsLocked = true
 			block.CacheAddress = 0x200
 			storage.Write(0x200, []byte{
 				1, 2, 3, 4, 5, 6, 7, 8,
@@ -256,6 +281,7 @@ var _ = Describe("L1V Cache", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}))
+			Expect(block.IsLocked).To(BeFalse())
 
 		})
 
@@ -272,6 +298,7 @@ var _ = Describe("L1V Cache", func() {
 			Expect(rsp).NotTo(BeNil())
 			Expect(rsp.(*mem.DataReadyRsp).Data).To(
 				Equal([]byte{5, 6, 7, 8}))
+			Expect(block.IsLocked).To(BeFalse())
 		})
 	})
 
@@ -281,6 +308,7 @@ var _ = Describe("L1V Cache", func() {
 			readToBottom        *mem.ReadReq
 			dataReadyFromBottom *mem.DataReadyRsp
 			block               *cache.Block
+			transaction         *cacheTransaction
 		)
 
 		BeforeEach(func() {
@@ -303,12 +331,14 @@ var _ = Describe("L1V Cache", func() {
 
 			block = new(cache.Block)
 			block.IsValid = false
+			block.IsLocked = true
 			block.CacheAddress = 0x200
-			directory.ExpectEvict(0x100, block)
 
 			l1v.pendingDownGoingRead =
 				append(l1v.pendingDownGoingRead, readToBottom)
-			l1v.createTransaction(readFromTop)
+			transaction = l1v.createTransaction(readFromTop)
+			transaction.Block = block
+			transaction.ReqToBottom = readToBottom
 
 			l1v.ToL2.Recv(dataReadyFromBottom)
 		})
@@ -336,6 +366,7 @@ var _ = Describe("L1V Cache", func() {
 			data, _ := storage.Read(0x200, 64)
 			Expect(data).To(Equal(dataReadyFromBottom.Data))
 			Expect(block.IsValid).To(BeTrue())
+			Expect(block.IsLocked).To(BeFalse())
 		})
 
 		It("should return partial data if read from top is not reading full line", func() {
@@ -355,6 +386,7 @@ var _ = Describe("L1V Cache", func() {
 			data, _ := storage.Read(0x200, 64)
 			Expect(data).To(Equal(dataReadyFromBottom.Data))
 			Expect(block.IsValid).To(BeTrue())
+			Expect(block.IsLocked).To(BeFalse())
 		})
 	})
 
@@ -395,6 +427,18 @@ var _ = Describe("L1V Cache", func() {
 				directory.ExpectLookup(0x100, block)
 			})
 
+			It("should stall if block is locked", func() {
+				block.IsLocked = true
+				transaction = l1v.createTransaction(writeLine)
+
+				l1v.parseFromReqBuf(11)
+
+				Expect(l1v.NeedTick).To(BeFalse())
+				Expect(l1v.toL2Buffer).To(HaveLen(0))
+				Expect(l1v.pendingDownGoingWrite).To(HaveLen(0))
+				Expect(l1v.reqBufReadPtr).To(Equal(0))
+			})
+
 			It("should do full line write", func() {
 				transaction = l1v.createTransaction(writeLine)
 
@@ -403,9 +447,10 @@ var _ = Describe("L1V Cache", func() {
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
 				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
-				Expect(l1v.ToCU.Buf).To(HaveLen(0))
+				Expect(l1v.reqBufReadPtr).To(Equal(1))
 				Expect(transaction.Block).To(BeIdenticalTo(block))
 				Expect(transaction.ReqToBottom).NotTo(BeNil())
+				Expect(block.IsLocked).To(BeTrue())
 
 				data, _ := storage.Read(0x200, 64)
 				Expect(data).To(Equal([]byte{
@@ -427,9 +472,10 @@ var _ = Describe("L1V Cache", func() {
 
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
+				Expect(l1v.reqBufReadPtr).To(Equal(1))
 				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
-				Expect(l1v.ToCU.Buf).To(HaveLen(0))
 				Expect(transaction.Block).To(BeIdenticalTo(block))
+				Expect(block.IsLocked).To(BeTrue())
 
 				data, _ := storage.Read(0x204, 4)
 				Expect(data).To(Equal([]byte{5, 6, 7, 8}))
@@ -450,6 +496,18 @@ var _ = Describe("L1V Cache", func() {
 				directory.ExpectEvict(0x100, block)
 			})
 
+			It("should stall if block is locked", func() {
+				block.IsLocked = true
+				transaction = l1v.createTransaction(writeLine)
+
+				l1v.parseFromReqBuf(11)
+
+				Expect(l1v.NeedTick).To(BeFalse())
+				Expect(l1v.toL2Buffer).To(HaveLen(0))
+				Expect(l1v.pendingDownGoingWrite).To(HaveLen(0))
+				Expect(l1v.reqBufReadPtr).To(Equal(0))
+			})
+
 			It("should do full line write", func() {
 				transaction = l1v.createTransaction(writeLine)
 
@@ -460,6 +518,7 @@ var _ = Describe("L1V Cache", func() {
 				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
 				Expect(l1v.ToCU.Buf).To(HaveLen(0))
 				Expect(transaction.Block).To(BeIdenticalTo(block))
+				Expect(block.IsLocked).To(BeTrue())
 
 				data, _ := storage.Read(0x200, 64)
 				Expect(data).To(Equal([]byte{
@@ -500,6 +559,10 @@ var _ = Describe("L1V Cache", func() {
 		transaction.ReqToBottom = writeToBottom
 		l1v.pendingDownGoingWrite = append(l1v.pendingDownGoingWrite, writeToBottom)
 
+		block := new(cache.Block)
+		block.IsLocked = true
+		transaction.Block = block
+
 		doneRsp := mem.NewDoneRsp(10, nil, l1v.ToL2, writeToBottom.ID)
 
 		l1v.ToL2.Recv(doneRsp)
@@ -510,6 +573,7 @@ var _ = Describe("L1V Cache", func() {
 		Expect(l1v.pendingDownGoingWrite).To(HaveLen(0))
 		Expect(l1v.NeedTick).To(BeTrue())
 		Expect(transaction.Rsp).NotTo(BeNil())
+		Expect(block.IsLocked).To(BeFalse())
 	})
 
 	It("should send request to CU", func() {
@@ -664,15 +728,19 @@ var _ = Describe("L1VCache black box", func() {
 
 	It("should read hit on partial line read", func() {
 		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x104, 4)
-		read1 := mem.NewReadReq(11, cu.ToOutside, l1v.ToCU, 0x108, 4)
 		l1v.ToCU.Recv(read)
-		l1v.ToCU.Recv(read1)
 
 		engine.Run()
 
-		Expect(cu.ReceivedReqs).To(HaveLen(2))
+		Expect(cu.ReceivedReqs).To(HaveLen(1))
 		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{5, 6, 7, 8}))
+
+		read1 := mem.NewReadReq(11, cu.ToOutside, l1v.ToCU, 0x108, 4)
+		read1.SetRecvTime(engine.CurrentTime() + 1)
+		l1v.ToCU.Recv(read1)
+		engine.Run()
+		Expect(cu.ReceivedReqs).To(HaveLen(2))
 		Expect(cu.ReceivedReqs[1].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{1, 2, 3, 4}))
 	})
