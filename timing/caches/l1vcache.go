@@ -190,6 +190,15 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 
 	c.createTransaction(req)
 	c.NeedTick = true
+
+	switch req := req.(type) {
+	case *mem.ReadReq:
+		c.traceMem(req, now, "parse", req.Address,
+			uint64(req.MemByteSize), nil)
+	case *mem.WriteReq:
+		c.traceMem(req, now, "parse", req.Address,
+			uint64(len(req.Data)), req.Data)
+	}
 }
 
 func (c *L1VCache) parseFromReqBuf(now akita.VTimeInSec) {
@@ -197,8 +206,8 @@ func (c *L1VCache) parseFromReqBuf(now akita.VTimeInSec) {
 		return
 	}
 
-	reqRsp := c.reqBuf[c.reqBufReadPtr]
-	req := reqRsp.Req
+	transaction := c.reqBuf[c.reqBufReadPtr]
+	req := transaction.Req
 	c.reqBufReadPtr++
 	c.NeedTick = true
 
@@ -241,7 +250,7 @@ func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
 		c.toL2Buffer = append(c.toL2Buffer, readBottom)
 	}
 
-	c.traceMem(now, "read-miss", address, req.MemByteSize, nil)
+	c.traceMem(req, now, "read-miss", address, req.MemByteSize, nil)
 }
 
 func (c *L1VCache) handleReadHit(now akita.VTimeInSec, req *mem.ReadReq, block *cache.Block) {
@@ -252,14 +261,14 @@ func (c *L1VCache) handleReadHit(now akita.VTimeInSec, req *mem.ReadReq, block *
 	transaction := c.reqIDToTransactionMap[req.GetID()]
 	transaction.Block = block
 
-	c.traceMem(now, "read-hit", req.Address, req.MemByteSize, nil)
+	c.traceMem(req, now, "read-hit", req.Address, req.MemByteSize, nil)
 }
 
 func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, req *mem.WriteReq) {
 	c.writeToLowModule(now, req)
 	c.writeToLocalStorage(now, req)
 
-	c.traceMem(now, "write", req.Address, uint64(len(req.Data)),
+	c.traceMem(req, now, "write", req.Address, uint64(len(req.Data)),
 		req.Data)
 }
 
@@ -381,14 +390,15 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 		dataReadyToTop.Data =
 			dataReady.Data[offset : offset+readFromTop.MemByteSize]
 		c.reqBuf[i].Rsp = dataReadyToTop
+
+		c.traceMem(readFromTop, now, "data-ready",
+			address, uint64(len(dataReady.Data)), dataReady.Data)
 	}
 
 	c.ToL2.Retrieve(now)
 	c.pendingDownGoingRead = c.pendingDownGoingRead[1:]
 	c.NeedTick = true
 
-	c.traceMem(now, "data-ready", address, uint64(len(dataReady.Data)),
-		dataReady.Data)
 }
 
 func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
@@ -405,7 +415,8 @@ func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
 		done := mem.NewDoneRsp(now, c.ToCU, write.Src(), write.GetID())
 		trans.Rsp = done
 
-		c.traceMem(now, "write-done", write.Address, uint64(len(write.Data)), write.Data)
+		c.traceMem(trans.Req, now, "write-done",
+			write.Address, uint64(len(write.Data)), write.Data)
 	}
 
 	c.ToL2.Retrieve(now)
@@ -453,7 +464,7 @@ func (c *L1VCache) finishLocalRead(now akita.VTimeInSec, read *mem.ReadReq) {
 
 	transaction.Rsp = dataReady
 
-	c.traceMem(now, "local_read_done", read.Address,
+	c.traceMem(transaction.Req, now, "local_read_done", read.Address,
 		uint64(len(dataReady.Data)), data)
 }
 
@@ -473,6 +484,16 @@ func (c *L1VCache) sendToCU(now akita.VTimeInSec) {
 	if err == nil {
 		c.removeTransaction(transaction)
 		c.NeedTick = true
+
+		switch req := transaction.Req.(type) {
+		case *mem.ReadReq:
+			c.traceMem(req, now, "fulfill", req.Address,
+				uint64(req.MemByteSize), rsp.(*mem.DataReadyRsp).Data)
+		case *mem.WriteReq:
+			c.traceMem(req, now, "fulfill", req.Address,
+				uint64(len(req.Data)), req.Data)
+		}
+
 	}
 }
 
@@ -489,12 +510,14 @@ func (c *L1VCache) sendToL2(now akita.VTimeInSec) {
 }
 
 func (c *L1VCache) traceMem(
+	req akita.Req,
 	time akita.VTimeInSec,
 	what string,
 	address, byteSize uint64,
 	data []byte,
 ) {
 	traceInfo := new(mem.TraceInfo)
+	traceInfo.Req = req
 	traceInfo.Where = c.Name()
 	traceInfo.When = time
 	traceInfo.What = what
