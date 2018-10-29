@@ -1,7 +1,6 @@
 package caches
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -101,8 +100,6 @@ func (c *L1VCache) createTransaction(req akita.Req) *cacheTransaction {
 	c.reqBuf = append(c.reqBuf, transaction)
 	c.reqIDToTransactionMap[req.GetID()] = transaction
 
-	fmt.Printf("Enqueue transaction %s\n", req.GetID())
-
 	return transaction
 }
 
@@ -114,8 +111,6 @@ func (c *L1VCache) removeTransaction(transaction *cacheTransaction) {
 	c.reqBuf = c.reqBuf[1:]
 	c.reqBufReadPtr--
 	delete(c.reqIDToTransactionMap, transaction.Req.GetID())
-
-	fmt.Printf("Dequeue transaction %s\n", transaction.Req.GetID())
 }
 
 func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
@@ -208,8 +203,6 @@ func (c *L1VCache) parseFromReqBuf(now akita.VTimeInSec) {
 
 	transaction := c.reqBuf[c.reqBufReadPtr]
 	req := transaction.Req
-	c.reqBufReadPtr++
-	c.NeedTick = true
 
 	switch req := req.(type) {
 	case *mem.ReadReq:
@@ -225,6 +218,7 @@ func (c *L1VCache) parseFromReqBuf(now akita.VTimeInSec) {
 func (c *L1VCache) handleReadReq(now akita.VTimeInSec, req *mem.ReadReq) {
 	cacheLineID, _ := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
 	block := c.Directory.Lookup(cacheLineID)
+
 	if block == nil {
 		c.handleReadMiss(now, req)
 	} else {
@@ -242,31 +236,84 @@ func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
 			inMSHR = true
 		}
 	}
-
-	if !inMSHR {
-		l2 := c.L2Finder.Find(cacheLineID)
-		readBottom := mem.NewReadReq(now, c.ToL2, l2, cacheLineID, 1<<c.BlockSizeAsPowerOf2)
-		c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
-		c.toL2Buffer = append(c.toL2Buffer, readBottom)
+	if inMSHR {
+		c.traceMem(req, now, "read-miss", address, req.MemByteSize, nil)
+		return
 	}
+
+	block := c.Directory.Evict(cacheLineID)
+	if block.IsLocked {
+		return
+	}
+
+	l2 := c.L2Finder.Find(cacheLineID)
+	readBottom := mem.NewReadReq(now, c.ToL2, l2,
+		cacheLineID, 1<<c.BlockSizeAsPowerOf2)
+	c.pendingDownGoingRead = append(c.pendingDownGoingRead, readBottom)
+	c.toL2Buffer = append(c.toL2Buffer, readBottom)
+
+	transaction := c.reqIDToTransactionMap[req.GetID()]
+	transaction.ReqToBottom = readBottom
+	transaction.Block = block
+	block.IsValid = true
+	block.IsLocked = true
+	block.Tag = cacheLineID
+
+	c.reqBufReadPtr++
+	c.NeedTick = true
 
 	c.traceMem(req, now, "read-miss", address, req.MemByteSize, nil)
 }
 
-func (c *L1VCache) handleReadHit(now akita.VTimeInSec, req *mem.ReadReq, block *cache.Block) {
+func (c *L1VCache) handleReadHit(
+	now akita.VTimeInSec,
+	req *mem.ReadReq,
+	block *cache.Block,
+) {
+	if block.IsLocked {
+		return
+	}
+
+	c.reqBufReadPtr++
+	c.NeedTick = true
+
 	cycleLeft := c.pipeline.Accept(now, req)
 	c.inPipeline = append(c.inPipeline,
 		&inPipelineReqStatus{req, cycleLeft})
 
 	transaction := c.reqIDToTransactionMap[req.GetID()]
 	transaction.Block = block
+	block.IsLocked = true
 
 	c.traceMem(req, now, "read-hit", req.Address, req.MemByteSize, nil)
 }
 
 func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, req *mem.WriteReq) {
+	cacheLineID, offset := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
+	block := c.Directory.Lookup(cacheLineID)
+	if block == nil && len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
+		// Write allocate
+		block = c.Directory.Evict(cacheLineID)
+	}
+
+	if block != nil && block.IsLocked {
+		return
+	}
+
+	if block != nil {
+		block.IsLocked = true
+	}
+
+	transaction := c.reqIDToTransactionMap[req.GetID()]
+	transaction.Block = block
+
 	c.writeToLowModule(now, req)
-	c.writeToLocalStorage(now, req)
+	if block != nil {
+		c.doWriteLine(now, req, block, offset)
+	}
+
+	c.reqBufReadPtr++
+	c.NeedTick = true
 
 	c.traceMem(req, now, "write", req.Address, uint64(len(req.Data)),
 		req.Data)
@@ -284,65 +331,19 @@ func (c *L1VCache) writeToLowModule(now akita.VTimeInSec, req *mem.WriteReq) {
 	transaction.ReqToBottom = writeBottom
 }
 
-func (c *L1VCache) writeToLocalStorage(now akita.VTimeInSec, req *mem.WriteReq) {
-	cacheLineID, _ := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
-	block := c.Directory.Lookup(cacheLineID)
-
-	transaction := c.reqIDToTransactionMap[req.GetID()]
-	transaction.Block = block
-
-	if block == nil {
-		c.doWriteMiss(now, req)
-	} else {
-		c.doWriteHit(now, req, block)
-	}
-}
-
-func (c *L1VCache) doWriteMiss(
-	now akita.VTimeInSec,
-	req *mem.WriteReq,
-) {
-	if len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
-		evict := c.Directory.Evict(req.Address)
-		c.doWriteLine(now, req, evict)
-		return
-	}
-	// No partial write when write miss
-}
-
-func (c *L1VCache) doWriteHit(
-	now akita.VTimeInSec,
-	req *mem.WriteReq,
-	block *cache.Block,
-) {
-	if len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
-		c.doWriteLine(now, req, block)
-		return
-	}
-	c.doWritePartialLine(now, req, block)
-}
-
 func (c *L1VCache) doWriteLine(
 	now akita.VTimeInSec,
 	req *mem.WriteReq,
 	block *cache.Block,
+	offset uint64,
 ) {
 	block.IsValid = true
 	block.Tag = req.Address
 
-	transaction := c.reqIDToTransactionMap[req.GetID()]
-	transaction.Block = block
-
-	c.Storage.Write(block.CacheAddress, req.Data)
-}
-
-func (c *L1VCache) doWritePartialLine(
-	now akita.VTimeInSec,
-	req *mem.WriteReq,
-	block *cache.Block,
-) {
-	_, offset := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
-	c.Storage.Write(block.CacheAddress+offset, req.Data)
+	err := c.Storage.Write(block.CacheAddress+offset, req.Data)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 func (c *L1VCache) parseFromL2(now akita.VTimeInSec) {
@@ -367,14 +368,29 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 	readBottom := c.pendingDownGoingRead[0]
 	address := readBottom.Address
 
-	block := c.Directory.Evict(readBottom.Address)
+	var transaction *cacheTransaction
+	for _, trans := range c.reqBuf {
+		if trans.ReqToBottom != nil &&
+			trans.ReqToBottom.GetID() == dataReady.RespondTo {
+			transaction = trans
+		}
+	}
+	if transaction == nil {
+		log.Panic("transaction not found")
+	}
+
+	block := transaction.Block
 	block.IsValid = true
 	block.IsDirty = false
+	block.IsLocked = false
 	block.Tag = address
-	c.Storage.Write(block.CacheAddress, dataReady.Data)
+	err := c.Storage.Write(block.CacheAddress, dataReady.Data)
+	if err != nil {
+		log.Panic(err)
+	}
 
-	for i, reqFromTop := range c.reqBuf {
-		readFromTop, ok := reqFromTop.Req.(*mem.ReadReq)
+	for i, transaction := range c.reqBuf {
+		readFromTop, ok := transaction.Req.(*mem.ReadReq)
 		if !ok {
 			continue
 		}
@@ -415,6 +431,10 @@ func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
 		done := mem.NewDoneRsp(now, c.ToCU, write.Src(), write.GetID())
 		trans.Rsp = done
 
+		if trans.Block != nil {
+			trans.Block.IsLocked = false
+		}
+
 		c.traceMem(trans.Req, now, "write-done",
 			write.Address, uint64(len(write.Data)), write.Data)
 	}
@@ -427,7 +447,6 @@ func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
 }
 
 func (c *L1VCache) doReadWrite(now akita.VTimeInSec) {
-
 	for _, s := range c.inPipeline {
 		s.CycleLeft--
 		c.NeedTick = true
@@ -463,6 +482,7 @@ func (c *L1VCache) finishLocalRead(now akita.VTimeInSec, read *mem.ReadReq) {
 	dataReady.Data = data
 
 	transaction.Rsp = dataReady
+	block.IsLocked = false
 
 	c.traceMem(transaction.Req, now, "local_read_done", read.Address,
 		uint64(len(dataReady.Data)), data)
@@ -524,6 +544,7 @@ func (c *L1VCache) traceMem(
 	traceInfo.Address = address
 	traceInfo.ByteSize = byteSize
 	traceInfo.Data = data
+	//fmt.Printf("%.15f,%s,%s,%x,%d\n", time, c.Name(), what, address, byteSize)
 	c.InvokeHook(nil, c, akita.AnyHookPos, traceInfo)
 }
 
