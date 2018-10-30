@@ -361,14 +361,15 @@ func (c *L1VCache) parseFromL2(now akita.VTimeInSec) {
 }
 
 func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataReadyRsp) {
-	readBottom := c.pendingDownGoingRead[0]
-	address := readBottom.Address
+	//readBottom := c.pendingDownGoingRead[0]
+	//address := readBottom.Address
 
 	transaction := c.getTransactionByReqToBottomID(dataReady.RespondTo)
 	if transaction == nil {
 		log.Panic("transaction not found")
 	}
 
+	address := transaction.ReqToBottom.(*mem.ReadReq).Address
 	block := transaction.Block
 	block.IsValid = true
 	block.IsDirty = false
