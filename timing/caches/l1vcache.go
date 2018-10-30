@@ -41,8 +41,8 @@ type cacheTransaction struct {
 }
 
 type inPipelineReqStatus struct {
-	Req       akita.Req
-	CycleLeft int
+	Transaction *cacheTransaction
+	CycleLeft   int
 }
 
 // L1VCache is a tailored write-through cache specific for GCN3 architecture.
@@ -53,18 +53,17 @@ type L1VCache struct {
 	ToCP *akita.Port
 	ToL2 *akita.Port
 
-	L2Finder cache.LowModuleFinder
-
+	L2Finder  cache.LowModuleFinder
+	Latency   int
 	Directory cache.Directory
 	Storage   *mem.Storage
 
 	BlockSizeAsPowerOf2 uint64
-	Latency             int
 	InvalidationLatency int
 
-	isStorageBusy bool
-	pipeline      pipelines.Pipeline
-	inPipeline    []*inPipelineReqStatus
+	pipeline        pipelines.Pipeline
+	inPipeline      []*inPipelineReqStatus
+	postPipelineBuf []*cacheTransaction
 
 	reqBuf                []*cacheTransaction
 	reqIDToTransactionMap map[string]*cacheTransaction
@@ -76,6 +75,9 @@ type L1VCache struct {
 	pendingDownGoingRead  []*mem.ReadReq
 	pendingDownGoingWrite []*mem.WriteReq
 	mshr                  []*cacheTransaction
+
+	storageTransaction *cacheTransaction
+	storageCycleLeft   int
 }
 
 // Handle processes the events scheduled on L1VCache
@@ -98,7 +100,8 @@ func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
 	c.sendToCU(now)
 	c.sendToL2(now)
 	c.doReadWrite(now)
-	c.parseFromReqBuf(now)
+	c.parseFromPostPipelineBuf(now)
+	c.countDownPipeline(now)
 	c.parseFromCP(now)
 	c.parseFromL2(now)
 	c.parseFromCU(now)
@@ -161,7 +164,10 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 		return
 	}
 
-	c.createTransaction(req)
+	transaction := c.createTransaction(req)
+	cycleLeft := c.pipeline.Accept(now, transaction)
+	inPipelineTrans := &inPipelineReqStatus{transaction, cycleLeft}
+	c.inPipeline = append(c.inPipeline, inPipelineTrans)
 	c.NeedTick = true
 
 	switch req := req.(type) {
@@ -176,19 +182,39 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 	}
 }
 
-func (c *L1VCache) parseFromReqBuf(now akita.VTimeInSec) {
-	if c.reqBufReadPtr >= len(c.reqBuf) {
+func (c *L1VCache) countDownPipeline(now akita.VTimeInSec) {
+	newInPipeline := make([]*inPipelineReqStatus, 0)
+	for _, inPipeline := range c.inPipeline {
+		inPipeline.CycleLeft--
+		c.NeedTick = true
+
+		if inPipeline.CycleLeft > 0 {
+			newInPipeline = append(newInPipeline, inPipeline)
+		} else {
+			c.postPipelineBuf = append(c.postPipelineBuf, inPipeline.Transaction)
+			req := inPipeline.Transaction.Req.(mem.AccessReq)
+			c.traceMem(req, now, "exit-pipeline",
+				req.GetAddress(), req.GetByteSize(), nil)
+
+		}
+	}
+
+	c.inPipeline = newInPipeline
+}
+
+func (c *L1VCache) parseFromPostPipelineBuf(now akita.VTimeInSec) {
+	if len(c.postPipelineBuf) == 0 {
 		return
 	}
 
-	transaction := c.reqBuf[c.reqBufReadPtr]
+	transaction := c.postPipelineBuf[0]
 	req := transaction.Req
 
 	switch req := req.(type) {
 	case *mem.ReadReq:
 		c.handleReadReq(now, transaction)
 	case *mem.WriteReq:
-		c.handleWriteReq(now, req)
+		c.handleWriteReq(now, transaction)
 	default:
 		log.Panicf("cannot process request of type %s",
 			reflect.TypeOf(req))
@@ -205,7 +231,7 @@ func (c *L1VCache) handleReadReq(
 
 	if c.isInMSHR(cacheLineID) {
 		c.insertIntoMSHR(transaction)
-		c.reqBufReadPtr++
+		c.postPipelineBuf = c.postPipelineBuf[1:]
 		c.NeedTick = true
 		return
 	}
@@ -256,7 +282,7 @@ func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
 	block.Tag = cacheLineID
 	c.insertIntoMSHR(transaction)
 
-	c.reqBufReadPtr++
+	c.postPipelineBuf = c.postPipelineBuf[1:]
 	c.NeedTick = true
 
 	c.traceMem(req, now, "read-miss", address, req.MemByteSize, nil)
@@ -271,21 +297,25 @@ func (c *L1VCache) handleReadHit(
 		return
 	}
 
-	c.reqBufReadPtr++
+	c.postPipelineBuf = c.postPipelineBuf[1:]
 	c.NeedTick = true
 
-	cycleLeft := c.pipeline.Accept(now, req)
-	c.inPipeline = append(c.inPipeline,
-		&inPipelineReqStatus{req, cycleLeft})
+	//cycleLeft := c.pipeline.Accept(now, req)
+	//c.inPipeline = append(c.inPipeline,
+	//	&inPipelineReqStatus{req, cycleLeft})
 
 	transaction := c.reqIDToTransactionMap[req.GetID()]
 	transaction.Block = block
 	block.IsLocked = true
 
+	c.storageCycleLeft = c.Latency
+	c.storageTransaction = transaction
+
 	c.traceMem(req, now, "read-hit", req.Address, req.MemByteSize, nil)
 }
 
-func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, req *mem.WriteReq) {
+func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, transaction *cacheTransaction) {
+	req := transaction.Req.(*mem.WriteReq)
 	cacheLineID, offset := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
 	block := c.Directory.Lookup(cacheLineID)
 	if block == nil && len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
@@ -303,22 +333,25 @@ func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, req *mem.WriteReq) {
 		block.IsLocked = true
 	}
 
-	transaction := c.reqIDToTransactionMap[req.GetID()]
 	transaction.Block = block
 
-	c.writeToLowModule(now, req)
+	c.writeToLowModule(now, transaction)
 	if block != nil {
 		c.doWriteLine(now, req, block, offset)
 	}
 
-	c.reqBufReadPtr++
+	c.postPipelineBuf = c.postPipelineBuf[1:]
 	c.NeedTick = true
 
 	c.traceMem(req, now, "write", req.Address, uint64(len(req.Data)),
 		req.Data)
 }
 
-func (c *L1VCache) writeToLowModule(now akita.VTimeInSec, req *mem.WriteReq) {
+func (c *L1VCache) writeToLowModule(
+	now akita.VTimeInSec,
+	transaction *cacheTransaction,
+) {
+	req := transaction.Req.(*mem.WriteReq)
 	l2 := c.L2Finder.Find(req.Address)
 	writeBottom := mem.NewWriteReq(now, c.ToL2, l2, req.Address)
 	writeBottom.Data = req.Data
@@ -326,7 +359,6 @@ func (c *L1VCache) writeToLowModule(now akita.VTimeInSec, req *mem.WriteReq) {
 	c.toL2Buffer = append(c.toL2Buffer, writeBottom)
 	c.pendingDownGoingWrite = append(c.pendingDownGoingWrite, writeBottom)
 
-	transaction := c.reqIDToTransactionMap[req.GetID()]
 	transaction.ReqToBottom = writeBottom
 }
 
@@ -444,23 +476,22 @@ func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
 }
 
 func (c *L1VCache) doReadWrite(now akita.VTimeInSec) {
-	for _, s := range c.inPipeline {
-		s.CycleLeft--
-		c.NeedTick = true
+	if c.storageTransaction == nil {
+		return
+	}
 
-		if s.CycleLeft <= 0 {
-			c.inPipeline = c.inPipeline[1:]
+	c.storageCycleLeft--
+	c.NeedTick = true
 
-			switch req := s.Req.(type) {
-			case *mem.ReadReq:
-				c.finishLocalRead(now, req)
-			default:
-				log.Panicf("cannot handle request of type %s",
-					reflect.TypeOf(req))
-			}
-
-			break
+	if c.storageCycleLeft <= 0 {
+		switch req := c.storageTransaction.Req.(type) {
+		case *mem.ReadReq:
+			c.finishLocalRead(now, req)
+		default:
+			log.Panicf("cannot handle request of type %s",
+				reflect.TypeOf(req))
 		}
+		c.storageTransaction = nil
 	}
 }
 
@@ -541,7 +572,7 @@ func (c *L1VCache) traceMem(
 	traceInfo.Address = address
 	traceInfo.ByteSize = byteSize
 	traceInfo.Data = data
-	//fmt.Printf("%.15f,%s,%s,%x,%d\n", time, c.Name(), what, address, byteSize)
+	fmt.Printf("%.15f,%s,%s,%x,%d\n", time, c.Name(), what, address, byteSize)
 	c.InvokeHook(nil, c, akita.AnyHookPos, traceInfo)
 }
 
@@ -556,7 +587,7 @@ func (c *L1VCache) createTransaction(req akita.Req) *cacheTransaction {
 	c.reqBuf = append(c.reqBuf, transaction)
 	c.reqIDToTransactionMap[req.GetID()] = transaction
 
-	fmt.Printf("create transaction %s\n", req.GetID())
+	//fmt.Printf("create transaction %s\n", req.GetID())
 
 	return transaction
 }
@@ -570,7 +601,7 @@ func (c *L1VCache) removeTransaction(transaction *cacheTransaction) {
 	c.reqBufReadPtr--
 	delete(c.reqIDToTransactionMap, transaction.Req.GetID())
 
-	fmt.Printf("remove transaction %s\n", transaction.Req.GetID())
+	//fmt.Printf("remove transaction %s\n", transaction.Req.GetID())
 }
 
 func (c *L1VCache) getTransactionByReqToBottomID(id string) *cacheTransaction {
@@ -587,6 +618,8 @@ func (c *L1VCache) getTransactionByReqToBottomID(id string) *cacheTransaction {
 func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {
 	c := new(L1VCache)
 	c.TickingComponent = akita.NewTickingComponent(name, engine, freq, c)
+
+	c.Latency = 1
 
 	c.reqBufCapacity = 256
 	c.reqIDToTransactionMap = make(map[string]*cacheTransaction)
@@ -630,7 +663,6 @@ func BuildL1VCache(
 	c.L2Finder = l2Finder
 
 	c.BlockSizeAsPowerOf2 = blockSizeAsPowerOf2
-	c.Latency = latency
 	c.InvalidationLatency = int(totalSize / way / blockSize)
 
 	return c
