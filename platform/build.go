@@ -77,6 +77,7 @@ func BuildR9NanoPlatform() (
 	if TraceInst {
 		gpuBuilder.EnableInstTracing = true
 	}
+	TraceMem = true
 	if TraceMem {
 		gpuBuilder.EnableMemTracing = true
 	}

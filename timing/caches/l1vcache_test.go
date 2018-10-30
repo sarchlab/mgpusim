@@ -29,7 +29,6 @@ var _ = Describe("L1V Cache", func() {
 		l1v.Directory = directory
 		l1v.Storage = storage
 		l1v.L2Finder = l2Finder
-		l1v.Latency = 8
 		l1v.InvalidationLatency = 64
 		l1v.BlockSizeAsPowerOf2 = 6
 
@@ -50,8 +49,33 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.reqBuf).To(HaveLen(1))
 			Expect(l1v.reqIDToTransactionMap).To(HaveLen(1))
+			Expect(l1v.inPipeline).To(HaveLen(1))
 
 			Expect(l1v.NeedTick).To(BeTrue())
+		})
+	})
+
+	Context("count down pipeline", func() {
+		It("should count down", func() {
+			inPipeline := &inPipelineReqStatus{nil, 10}
+			l1v.inPipeline = append(l1v.inPipeline, inPipeline)
+
+			l1v.countDownPipeline(10)
+
+			Expect(inPipeline.CycleLeft).To(Equal(9))
+			Expect(l1v.NeedTick).To(BeTrue())
+		})
+
+		It("should insert into post pipeline buf", func() {
+			req := mem.NewReadReq(10, nil, nil, 0x100, 64)
+			transaction := l1v.createTransaction(req)
+			inPipeline := &inPipelineReqStatus{transaction, 1}
+			l1v.inPipeline = append(l1v.inPipeline, inPipeline)
+
+			l1v.countDownPipeline(10)
+
+			Expect(l1v.inPipeline).To(HaveLen(0))
+			Expect(l1v.postPipelineBuf).To(HaveLen(1))
 		})
 	})
 
@@ -68,49 +92,47 @@ var _ = Describe("L1V Cache", func() {
 
 			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
 			transaction = l1v.createTransaction(read)
+			l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 		})
 
 		It("should start local read", func() {
-			l1v.parseFromReqBuf(11)
+			l1v.parseFromPostPipelineBuf(11)
 
 			Expect(directory.AllExpectedCalled()).To(BeTrue())
 
-			Expect(l1v.reqBufReadPtr).To(Equal(1))
 			Expect(transaction.Block).To(BeIdenticalTo(block))
 			Expect(block.IsLocked).To(BeTrue())
 
-			Expect(l1v.inPipeline).To(HaveLen(1))
-			Expect(l1v.inPipeline[0].CycleLeft).To(Equal(100))
-			Expect(l1v.inPipeline[0].Req).To(BeIdenticalTo(read))
-
 			Expect(l1v.NeedTick).To(BeTrue())
+
+			Expect(l1v.storageTransaction).To(BeIdenticalTo(transaction))
+			Expect(l1v.storageCycleLeft).To(Equal(1))
+			Expect(l1v.postPipelineBuf).To(HaveLen(0))
 		})
 
 		It("should also start local read if reading partial line", func() {
 			read.Address = 0x104
 			read.MemByteSize = 4
 
-			l1v.parseFromReqBuf(11)
+			l1v.parseFromPostPipelineBuf(11)
 
 			Expect(directory.AllExpectedCalled()).To(BeTrue())
-			Expect(l1v.reqBufReadPtr).To(Equal(1))
 			Expect(l1v.NeedTick).To(BeTrue())
 			Expect(block.IsLocked).To(BeTrue())
 
-			Expect(l1v.inPipeline).To(HaveLen(1))
-			Expect(l1v.inPipeline[0].CycleLeft).To(Equal(100))
-			Expect(l1v.inPipeline[0].Req).To(BeIdenticalTo(read))
+			Expect(l1v.storageTransaction).To(BeIdenticalTo(transaction))
+			Expect(l1v.storageCycleLeft).To(Equal(1))
+			Expect(l1v.postPipelineBuf).To(HaveLen(0))
 		})
 
 		It("should stall if block is locked", func() {
 			block.IsLocked = true
 
-			l1v.parseFromReqBuf(11)
+			l1v.parseFromPostPipelineBuf(11)
 
 			Expect(directory.AllExpectedCalled()).To(BeTrue())
-			Expect(l1v.reqBufReadPtr).To(Equal(0))
 			Expect(l1v.NeedTick).To(BeFalse())
-			Expect(l1v.inPipeline).To(HaveLen(0))
+			Expect(l1v.storageTransaction).To(BeNil())
 		})
 	})
 
@@ -128,10 +150,11 @@ var _ = Describe("L1V Cache", func() {
 
 			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
 			transaction = l1v.createTransaction(read)
+			l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 		})
 
 		It("should send read request to bottom", func() {
-			l1v.parseFromReqBuf(11)
+			l1v.parseFromPostPipelineBuf(11)
 
 			Expect(l1v.pendingDownGoingRead).To(HaveLen(1))
 			Expect(l1v.toL2Buffer).To(HaveLen(1))
@@ -148,9 +171,8 @@ var _ = Describe("L1V Cache", func() {
 			transaction.ReqToBottom = readBottom
 			l1v.mshr = append(l1v.mshr, transaction)
 
-			l1v.parseFromReqBuf(11)
+			l1v.parseFromPostPipelineBuf(11)
 
-			Expect(l1v.reqBufReadPtr).To(Equal(1))
 			Expect(l1v.NeedTick).To(BeTrue())
 			Expect(l1v.mshr).To(HaveLen(2))
 		})
@@ -159,7 +181,7 @@ var _ = Describe("L1V Cache", func() {
 			read.Address = 0x104
 			read.MemByteSize = 4
 
-			l1v.parseFromReqBuf(11)
+			l1v.parseFromPostPipelineBuf(11)
 
 			Expect(l1v.pendingDownGoingRead).To(HaveLen(1))
 			Expect(l1v.toL2Buffer).To(HaveLen(1))
@@ -224,14 +246,13 @@ var _ = Describe("L1V Cache", func() {
 	})
 
 	Context("during local read or local write", func() {
-		It("should reduce cycleLeft for all the requests in pipeline", func() {
-			l1v.inPipeline = append(l1v.inPipeline, &inPipelineReqStatus{nil, 10})
-			l1v.inPipeline = append(l1v.inPipeline, &inPipelineReqStatus{nil, 8})
+		It("should reduce cycleLeft for all the request that is being processed by the storage", func() {
+			l1v.storageTransaction = new(cacheTransaction)
+			l1v.storageCycleLeft = 2
 
 			l1v.doReadWrite(10)
 
-			Expect(l1v.inPipeline[0].CycleLeft).To(Equal(9))
-			Expect(l1v.inPipeline[1].CycleLeft).To(Equal(7))
+			Expect(l1v.storageCycleLeft).To(Equal(1))
 		})
 
 	})
@@ -262,15 +283,15 @@ var _ = Describe("L1V Cache", func() {
 			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
 			transaction = l1v.createTransaction(read)
 			transaction.Block = block
-
-			l1v.inPipeline = append(l1v.inPipeline, &inPipelineReqStatus{read, 1})
+			l1v.storageTransaction = transaction
+			l1v.storageCycleLeft = 1
 		})
 
 		It("should finish read", func() {
 			l1v.doReadWrite(10)
 
 			Expect(l1v.NeedTick).To(BeTrue())
-			Expect(l1v.inPipeline).To(BeEmpty())
+			Expect(l1v.storageTransaction).To(BeNil())
 
 			Expect(transaction.Rsp).NotTo(BeNil())
 			Expect(transaction.Rsp.(*mem.DataReadyRsp).Data).To(Equal([]byte{
@@ -435,8 +456,9 @@ var _ = Describe("L1V Cache", func() {
 			It("should stall if block is locked", func() {
 				block.IsLocked = true
 				transaction = l1v.createTransaction(writeLine)
+				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 
-				l1v.parseFromReqBuf(11)
+				l1v.parseFromPostPipelineBuf(11)
 
 				Expect(l1v.NeedTick).To(BeFalse())
 				Expect(l1v.toL2Buffer).To(HaveLen(0))
@@ -446,13 +468,13 @@ var _ = Describe("L1V Cache", func() {
 
 			It("should do full line write", func() {
 				transaction = l1v.createTransaction(writeLine)
+				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 
-				l1v.parseFromReqBuf(11)
+				l1v.parseFromPostPipelineBuf(11)
 
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
 				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
-				Expect(l1v.reqBufReadPtr).To(Equal(1))
 				Expect(transaction.Block).To(BeIdenticalTo(block))
 				Expect(transaction.ReqToBottom).NotTo(BeNil())
 				Expect(block.IsLocked).To(BeTrue())
@@ -472,12 +494,12 @@ var _ = Describe("L1V Cache", func() {
 
 			It("should handle partial line write", func() {
 				transaction = l1v.createTransaction(writePartial)
+				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 
-				l1v.parseFromReqBuf(11)
+				l1v.parseFromPostPipelineBuf(11)
 
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
-				Expect(l1v.reqBufReadPtr).To(Equal(1))
 				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
 				Expect(transaction.Block).To(BeIdenticalTo(block))
 				Expect(block.IsLocked).To(BeTrue())
@@ -504,8 +526,9 @@ var _ = Describe("L1V Cache", func() {
 			It("should stall if block is locked", func() {
 				block.IsLocked = true
 				transaction = l1v.createTransaction(writeLine)
+				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 
-				l1v.parseFromReqBuf(11)
+				l1v.parseFromPostPipelineBuf(11)
 
 				Expect(l1v.NeedTick).To(BeFalse())
 				Expect(l1v.toL2Buffer).To(HaveLen(0))
@@ -515,8 +538,9 @@ var _ = Describe("L1V Cache", func() {
 
 			It("should do full line write", func() {
 				transaction = l1v.createTransaction(writeLine)
+				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 
-				l1v.parseFromReqBuf(11)
+				l1v.parseFromPostPipelineBuf(11)
 
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
@@ -542,8 +566,9 @@ var _ = Describe("L1V Cache", func() {
 
 			It("should handle partial line write", func() {
 				transaction = l1v.createTransaction(writePartial)
+				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 
-				l1v.parseFromReqBuf(11)
+				l1v.parseFromPostPipelineBuf(11)
 
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
@@ -635,7 +660,6 @@ var _ = Describe("L1VCache black box", func() {
 		l1v.Directory = directory
 		l1v.Storage = storage
 		l1v.L2Finder = l2Finder
-		l1v.Latency = 8
 		l1v.ToCU.BufCapacity = 2
 		l1v.BlockSizeAsPowerOf2 = 6
 
