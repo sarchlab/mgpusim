@@ -1,7 +1,6 @@
 package caches
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -572,7 +571,7 @@ func (c *L1VCache) traceMem(
 	traceInfo.Address = address
 	traceInfo.ByteSize = byteSize
 	traceInfo.Data = data
-	fmt.Printf("%.15f,%s,%s,%x,%d\n", time, c.Name(), what, address, byteSize)
+	//fmt.Printf("%.15f,%s,%s,%x,%d\n", time, c.Name(), what, address, byteSize)
 	c.InvokeHook(nil, c, akita.AnyHookPos, traceInfo)
 }
 
