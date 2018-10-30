@@ -140,17 +140,19 @@ var _ = Describe("L1V Cache", func() {
 			Expect(block.IsValid).To(BeTrue())
 			Expect(block.IsLocked).To(BeTrue())
 			Expect(transaction.ReqToBottom).NotTo(BeNil())
+			Expect(l1v.mshr).To(HaveLen(1))
 		})
 
 		It("should not read form bottom if the address is already being read", func() {
-			readFromBottom := mem.NewReadReq(9, l1v.ToL2, nil, 0x100, 64)
-			l1v.pendingDownGoingRead = append(l1v.pendingDownGoingRead,
-				readFromBottom)
+			readBottom := mem.NewReadReq(11, nil, nil, 0x100, 64)
+			transaction.ReqToBottom = readBottom
+			l1v.mshr = append(l1v.mshr, transaction)
 
 			l1v.parseFromReqBuf(11)
 
-			Expect(l1v.pendingDownGoingRead).To(HaveLen(1))
-			Expect(l1v.toL2Buffer).To(HaveLen(0))
+			Expect(l1v.reqBufReadPtr).To(Equal(1))
+			Expect(l1v.NeedTick).To(BeTrue())
+			Expect(l1v.mshr).To(HaveLen(2))
 		})
 
 		It("always read a whole cache line from bottom", func() {
@@ -339,6 +341,7 @@ var _ = Describe("L1V Cache", func() {
 			transaction = l1v.createTransaction(readFromTop)
 			transaction.Block = block
 			transaction.ReqToBottom = readToBottom
+			l1v.mshr = append(l1v.mshr, transaction)
 
 			l1v.ToL2.Recv(dataReadyFromBottom)
 		})
@@ -361,6 +364,7 @@ var _ = Describe("L1V Cache", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}))
 			Expect(l1v.pendingDownGoingRead).To(HaveLen(0))
+			Expect(l1v.mshr).To(BeEmpty())
 			Expect(l1v.NeedTick).To(BeTrue())
 
 			data, _ := storage.Read(0x200, 64)
@@ -381,6 +385,7 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.ToL2.Buf).To(HaveLen(0))
 			Expect(l1v.pendingDownGoingRead).To(HaveLen(0))
+			Expect(l1v.mshr).To(BeEmpty())
 			Expect(l1v.NeedTick).To(BeTrue())
 
 			data, _ := storage.Read(0x200, 64)
