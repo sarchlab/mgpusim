@@ -1,6 +1,7 @@
 package caches
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -74,6 +75,7 @@ type L1VCache struct {
 	toL2Buffer            []akita.Req
 	pendingDownGoingRead  []*mem.ReadReq
 	pendingDownGoingWrite []*mem.WriteReq
+	mshr                  []*cacheTransaction
 }
 
 // Handle processes the events scheduled on L1VCache
@@ -87,30 +89,6 @@ func (c *L1VCache) Handle(e akita.Event) error {
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(e))
 	}
 	return nil
-}
-
-func (c *L1VCache) createTransaction(req akita.Req) *cacheTransaction {
-	if _, found := c.reqIDToTransactionMap[req.GetID()]; found {
-		log.Panic("request already recorded as transaction.")
-	}
-
-	transaction := new(cacheTransaction)
-	transaction.Req = req
-
-	c.reqBuf = append(c.reqBuf, transaction)
-	c.reqIDToTransactionMap[req.GetID()] = transaction
-
-	return transaction
-}
-
-func (c *L1VCache) removeTransaction(transaction *cacheTransaction) {
-	if transaction != c.reqBuf[0] {
-		log.Panic("can only remove from the head of the buf")
-	}
-
-	c.reqBuf = c.reqBuf[1:]
-	c.reqBufReadPtr--
-	delete(c.reqIDToTransactionMap, transaction.Req.GetID())
 }
 
 func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
@@ -193,6 +171,8 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 	case *mem.WriteReq:
 		c.traceMem(req, now, "parse", req.Address,
 			uint64(len(req.Data)), req.Data)
+	default:
+		panic("unknown type")
 	}
 }
 
@@ -206,7 +186,7 @@ func (c *L1VCache) parseFromReqBuf(now akita.VTimeInSec) {
 
 	switch req := req.(type) {
 	case *mem.ReadReq:
-		c.handleReadReq(now, req)
+		c.handleReadReq(now, transaction)
 	case *mem.WriteReq:
 		c.handleWriteReq(now, req)
 	default:
@@ -215,8 +195,21 @@ func (c *L1VCache) parseFromReqBuf(now akita.VTimeInSec) {
 	}
 }
 
-func (c *L1VCache) handleReadReq(now akita.VTimeInSec, req *mem.ReadReq) {
-	cacheLineID, _ := cache.GetCacheLineID(req.Address, c.BlockSizeAsPowerOf2)
+func (c *L1VCache) handleReadReq(
+	now akita.VTimeInSec,
+	transaction *cacheTransaction,
+) {
+	req := transaction.Req.(*mem.ReadReq)
+	address := req.Address
+	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
+
+	if c.isInMSHR(cacheLineID) {
+		c.insertIntoMSHR(transaction)
+		c.reqBufReadPtr++
+		c.NeedTick = true
+		return
+	}
+
 	block := c.Directory.Lookup(cacheLineID)
 
 	if block == nil {
@@ -226,20 +219,23 @@ func (c *L1VCache) handleReadReq(now akita.VTimeInSec, req *mem.ReadReq) {
 	}
 }
 
+func (c *L1VCache) isInMSHR(cacheLineID uint64) bool {
+	for _, entry := range c.mshr {
+		if entry.ReqToBottom != nil &&
+			entry.ReqToBottom.(*mem.ReadReq).Address == cacheLineID {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *L1VCache) insertIntoMSHR(transaction *cacheTransaction) {
+	c.mshr = append(c.mshr, transaction)
+}
+
 func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
 	address := req.Address
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
-
-	inMSHR := false
-	for _, readToBottom := range c.pendingDownGoingRead {
-		if readToBottom.Address == cacheLineID {
-			inMSHR = true
-		}
-	}
-	if inMSHR {
-		c.traceMem(req, now, "read-miss", address, req.MemByteSize, nil)
-		return
-	}
 
 	block := c.Directory.Evict(cacheLineID)
 	if block.IsLocked {
@@ -258,6 +254,7 @@ func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
 	block.IsValid = true
 	block.IsLocked = true
 	block.Tag = cacheLineID
+	c.insertIntoMSHR(transaction)
 
 	c.reqBufReadPtr++
 	c.NeedTick = true
@@ -294,6 +291,8 @@ func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, req *mem.WriteReq) {
 	if block == nil && len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
 		// Write allocate
 		block = c.Directory.Evict(cacheLineID)
+		block.IsValid = true
+		block.Tag = req.Address
 	}
 
 	if block != nil && block.IsLocked {
@@ -337,9 +336,6 @@ func (c *L1VCache) doWriteLine(
 	block *cache.Block,
 	offset uint64,
 ) {
-	block.IsValid = true
-	block.Tag = req.Address
-
 	err := c.Storage.Write(block.CacheAddress+offset, req.Data)
 	if err != nil {
 		log.Panic(err)
@@ -368,13 +364,7 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 	readBottom := c.pendingDownGoingRead[0]
 	address := readBottom.Address
 
-	var transaction *cacheTransaction
-	for _, trans := range c.reqBuf {
-		if trans.ReqToBottom != nil &&
-			trans.ReqToBottom.GetID() == dataReady.RespondTo {
-			transaction = trans
-		}
-	}
+	transaction := c.getTransactionByReqToBottomID(dataReady.RespondTo)
 	if transaction == nil {
 		log.Panic("transaction not found")
 	}
@@ -389,8 +379,8 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 		log.Panic(err)
 	}
 
-	for i, transaction := range c.reqBuf {
-		readFromTop, ok := transaction.Req.(*mem.ReadReq)
+	for _, mshrEntry := range c.mshr {
+		readFromTop, ok := mshrEntry.Req.(*mem.ReadReq)
 		if !ok {
 			continue
 		}
@@ -405,11 +395,26 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 			now, c.ToCU, readFromTop.Src(), readFromTop.GetID())
 		dataReadyToTop.Data =
 			dataReady.Data[offset : offset+readFromTop.MemByteSize]
-		c.reqBuf[i].Rsp = dataReadyToTop
+		mshrEntry.Rsp = dataReadyToTop
 
 		c.traceMem(readFromTop, now, "data-ready",
 			address, uint64(len(dataReady.Data)), dataReady.Data)
 	}
+
+	newMSHR := make([]*cacheTransaction, 0)
+	for _, mshrEntry := range c.mshr {
+		readFromTop, ok := mshrEntry.Req.(*mem.ReadReq)
+		if !ok {
+			continue
+		}
+
+		cacheLineID, _ := cache.GetCacheLineID(
+			readFromTop.Address, c.BlockSizeAsPowerOf2)
+		if cacheLineID != address {
+			newMSHR = append(newMSHR, mshrEntry)
+		}
+	}
+	c.mshr = newMSHR
 
 	c.ToL2.Retrieve(now)
 	c.pendingDownGoingRead = c.pendingDownGoingRead[1:]
@@ -418,32 +423,23 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 }
 
 func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
-	for _, trans := range c.reqBuf {
-		if trans.ReqToBottom == nil {
-			continue
-		}
+	transaction := c.getTransactionByReqToBottomID(rsp.RespondTo)
 
-		if trans.ReqToBottom.GetID() != rsp.RespondTo {
-			continue
-		}
+	write := transaction.Req.(*mem.WriteReq)
+	done := mem.NewDoneRsp(now, c.ToCU, write.Src(), write.GetID())
+	transaction.Rsp = done
 
-		write := trans.Req.(*mem.WriteReq)
-		done := mem.NewDoneRsp(now, c.ToCU, write.Src(), write.GetID())
-		trans.Rsp = done
-
-		if trans.Block != nil {
-			trans.Block.IsLocked = false
-		}
-
-		c.traceMem(trans.Req, now, "write-done",
-			write.Address, uint64(len(write.Data)), write.Data)
+	if transaction.Block != nil {
+		transaction.Block.IsLocked = false
 	}
+
+	c.traceMem(transaction.Req, now, "write-done",
+		write.Address, uint64(len(write.Data)), write.Data)
 
 	c.ToL2.Retrieve(now)
 	c.pendingDownGoingWrite = c.pendingDownGoingWrite[1:]
 
 	c.NeedTick = true
-
 }
 
 func (c *L1VCache) doReadWrite(now akita.VTimeInSec) {
@@ -546,6 +542,44 @@ func (c *L1VCache) traceMem(
 	traceInfo.Data = data
 	//fmt.Printf("%.15f,%s,%s,%x,%d\n", time, c.Name(), what, address, byteSize)
 	c.InvokeHook(nil, c, akita.AnyHookPos, traceInfo)
+}
+
+func (c *L1VCache) createTransaction(req akita.Req) *cacheTransaction {
+	if _, found := c.reqIDToTransactionMap[req.GetID()]; found {
+		log.Panic("request already recorded as transaction.")
+	}
+
+	transaction := new(cacheTransaction)
+	transaction.Req = req
+
+	c.reqBuf = append(c.reqBuf, transaction)
+	c.reqIDToTransactionMap[req.GetID()] = transaction
+
+	fmt.Printf("create transaction %s\n", req.GetID())
+
+	return transaction
+}
+
+func (c *L1VCache) removeTransaction(transaction *cacheTransaction) {
+	if transaction != c.reqBuf[0] {
+		log.Panic("can only remove from the head of the buf")
+	}
+
+	c.reqBuf = c.reqBuf[1:]
+	c.reqBufReadPtr--
+	delete(c.reqIDToTransactionMap, transaction.Req.GetID())
+
+	fmt.Printf("remove transaction %s\n", transaction.Req.GetID())
+}
+
+func (c *L1VCache) getTransactionByReqToBottomID(id string) *cacheTransaction {
+	for _, transaction := range c.reqBuf {
+		if transaction.ReqToBottom != nil &&
+			transaction.ReqToBottom.GetID() == id {
+			return transaction
+		}
+	}
+	return nil
 }
 
 // NewL1VCache creates a new L1VCache
