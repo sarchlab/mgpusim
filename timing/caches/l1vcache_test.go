@@ -87,9 +87,23 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.preCoalesceWriteBuf).To(HaveLen(0))
 			Expect(l1v.postCoalesceWriteBuf).To(HaveLen(1))
+			Expect(l1v.postCoalesceWriteBuf[0].OriginalReqs).To(HaveLen(2))
 
 			Expect(l1v.NeedTick).To(BeTrue())
 		})
+	})
+
+	It("should process post coalescing write", func() {
+		write := mem.NewWriteReq(10, nil, nil, 0x100)
+		transaction := new(cacheTransaction)
+		transaction.Req = write
+		l1v.postCoalesceWriteBuf = append(l1v.postCoalesceWriteBuf, transaction)
+
+		l1v.processPostCoalescingWrites(11)
+
+		Expect(l1v.postCoalesceWriteBuf).To(HaveLen(0))
+		Expect(l1v.inPipeline).To(HaveLen(1))
+		Expect(l1v.NeedTick).To(BeTrue())
 	})
 
 	Context("count down pipeline", func() {
@@ -618,17 +632,25 @@ var _ = Describe("L1V Cache", func() {
 	})
 
 	It("should handle done rsp", func() {
-		writeFromTop := mem.NewWriteReq(6, nil, l1v.ToCU, 0x104)
-		transaction := l1v.createTransaction(writeFromTop)
-		transaction.Req = writeFromTop
+		writeFromTop1 := mem.NewWriteReq(6, nil, l1v.ToCU, 0x104)
+		transaction1 := l1v.createTransaction(writeFromTop1)
+
+		writeFromTop2 := mem.NewWriteReq(6, nil, l1v.ToCU, 0x108)
+		transaction2 := l1v.createTransaction(writeFromTop2)
 
 		writeToBottom := mem.NewWriteReq(8, l1v.ToL2, nil, 0x104)
-		transaction.ReqToBottom = writeToBottom
-		l1v.pendingDownGoingWrite = append(l1v.pendingDownGoingWrite, writeToBottom)
+		coalescedTransaction := new(cacheTransaction)
+		coalescedTransaction.ReqToBottom = writeToBottom
+		coalescedTransaction.OriginalReqs = append(
+			coalescedTransaction.OriginalReqs, writeFromTop1)
+		coalescedTransaction.OriginalReqs = append(
+			coalescedTransaction.OriginalReqs, writeFromTop2)
+		l1v.pendingDownGoingWrite = append(l1v.pendingDownGoingWrite,
+			coalescedTransaction)
 
 		block := new(cache.Block)
 		block.IsLocked = true
-		transaction.Block = block
+		coalescedTransaction.Block = block
 
 		doneRsp := mem.NewDoneRsp(10, nil, l1v.ToL2, writeToBottom.ID)
 
@@ -639,7 +661,8 @@ var _ = Describe("L1V Cache", func() {
 		Expect(l1v.ToL2.Buf).To(HaveLen(0))
 		Expect(l1v.pendingDownGoingWrite).To(HaveLen(0))
 		Expect(l1v.NeedTick).To(BeTrue())
-		Expect(transaction.Rsp).NotTo(BeNil())
+		Expect(transaction1.Rsp).NotTo(BeNil())
+		Expect(transaction2.Rsp).NotTo(BeNil())
 		Expect(block.IsLocked).To(BeFalse())
 	})
 
