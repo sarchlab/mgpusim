@@ -37,6 +37,7 @@ type cacheTransaction struct {
 	Block         *cache.Block
 	ReqToBottom   akita.Req
 	RspFromBottom akita.Req
+	OriginalReqs  []akita.Req
 }
 
 type inPipelineReqStatus struct {
@@ -70,12 +71,12 @@ type L1VCache struct {
 	reqBufReadPtr         int
 
 	preCoalesceWriteBuf  []*mem.WriteReq
-	postCoalesceWriteBuf []*mem.WriteReq
+	postCoalesceWriteBuf []*cacheTransaction
 
 	toCUBuffer            []akita.Req
 	toL2Buffer            []akita.Req
 	pendingDownGoingRead  []*mem.ReadReq
-	pendingDownGoingWrite []*mem.WriteReq
+	pendingDownGoingWrite []*cacheTransaction
 	mshr                  []*cacheTransaction
 
 	storageTransaction *cacheTransaction
@@ -104,6 +105,7 @@ func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
 	c.doReadWrite(now)
 	c.parseFromPostPipelineBuf(now)
 	c.countDownPipeline(now)
+	c.processPostCoalescingWrites(now)
 	c.parseFromCP(now)
 	c.parseFromL2(now)
 	c.parseFromCU(now)
@@ -193,31 +195,60 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 
 func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 	var cWrite *mem.WriteReq
+	var cWriteTrans *cacheTransaction
+
 	for i, write := range c.preCoalesceWriteBuf {
 		if i == 0 {
 			cWrite = mem.NewWriteReq(now, c.ToL2,
 				c.L2Finder.Find(write.Address),
 				write.Address)
 			cWrite.Data = write.Data
+			cWriteTrans = new(cacheTransaction)
+			cWriteTrans.Req = cWrite
+			cWriteTrans.OriginalReqs = append(cWriteTrans.OriginalReqs, write)
 			continue
 		}
 
-		if write.Address == cWrite.Address+uint64(len(cWrite.Data)) {
+		writeCacheLineID, _ := cache.GetCacheLineID(write.Address,
+			c.BlockSizeAsPowerOf2)
+		cWriteCacheLineID, _ := cache.GetCacheLineID(cWrite.Address,
+			c.BlockSizeAsPowerOf2)
+		if write.Address == cWrite.Address+uint64(len(cWrite.Data)) &&
+			writeCacheLineID == cWriteCacheLineID {
 			cWrite.Data = append(cWrite.Data, write.Data...)
+			cWriteTrans.OriginalReqs = append(cWriteTrans.OriginalReqs, write)
 			continue
 		}
 
-		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWrite)
+		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWriteTrans)
 		cWrite = mem.NewWriteReq(now, c.ToL2,
 			c.L2Finder.Find(write.Address),
 			write.Address)
 		cWrite.Data = write.Data
+		cWriteTrans = new(cacheTransaction)
+		cWriteTrans.Req = cWrite
+		cWriteTrans.OriginalReqs = append(cWriteTrans.OriginalReqs, write)
 	}
 
 	if cWrite != nil {
-		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWrite)
+		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWriteTrans)
 	}
 	c.preCoalesceWriteBuf = nil
+}
+
+func (c *L1VCache) processPostCoalescingWrites(now akita.VTimeInSec) {
+	if len(c.postCoalesceWriteBuf) == 0 {
+		return
+	}
+
+	trans := c.postCoalesceWriteBuf[0]
+	pipeStatus := new(inPipelineReqStatus)
+	pipeStatus.CycleLeft = c.pipeline.Accept(now, trans)
+	pipeStatus.Transaction = trans
+	c.inPipeline = append(c.inPipeline, pipeStatus)
+
+	c.postCoalesceWriteBuf = c.postCoalesceWriteBuf[1:]
+	c.NeedTick = true
 }
 
 func (c *L1VCache) countDownPipeline(now akita.VTimeInSec) {
@@ -395,7 +426,7 @@ func (c *L1VCache) writeToLowModule(
 	writeBottom.Data = req.Data
 
 	c.toL2Buffer = append(c.toL2Buffer, writeBottom)
-	c.pendingDownGoingWrite = append(c.pendingDownGoingWrite, writeBottom)
+	c.pendingDownGoingWrite = append(c.pendingDownGoingWrite, transaction)
 
 	transaction.ReqToBottom = writeBottom
 }
@@ -494,21 +525,34 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 }
 
 func (c *L1VCache) handleDoneRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
-	transaction := c.getTransactionByReqToBottomID(rsp.RespondTo)
+	var transaction *cacheTransaction
+	for i, trans := range c.pendingDownGoingWrite {
+		if trans.ReqToBottom.GetID() == rsp.RespondTo {
+			transaction = trans
+			c.pendingDownGoingWrite = append(
+				c.pendingDownGoingWrite[:i], c.pendingDownGoingWrite[i+1:]...)
+		}
+	}
 
-	write := transaction.Req.(*mem.WriteReq)
-	done := mem.NewDoneRsp(now, c.ToCU, write.Src(), write.GetID())
-	transaction.Rsp = done
+	if transaction == nil {
+		log.Panic("transaction not found")
+	}
+
+	for _, originalReq := range transaction.OriginalReqs {
+		originalTrans := c.reqIDToTransactionMap[originalReq.GetID()]
+		write := originalTrans.Req.(*mem.WriteReq)
+		done := mem.NewDoneRsp(now, c.ToCU, write.Src(), write.GetID())
+		originalTrans.Rsp = done
+
+		c.traceMem(transaction.Req, now, "write-done",
+			write.Address, uint64(len(write.Data)), write.Data)
+	}
 
 	if transaction.Block != nil {
 		transaction.Block.IsLocked = false
 	}
 
-	c.traceMem(transaction.Req, now, "write-done",
-		write.Address, uint64(len(write.Data)), write.Data)
-
 	c.ToL2.Retrieve(now)
-	c.pendingDownGoingWrite = c.pendingDownGoingWrite[1:]
 
 	c.NeedTick = true
 }
