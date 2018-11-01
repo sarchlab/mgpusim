@@ -69,6 +69,9 @@ type L1VCache struct {
 	reqBufCapacity        int
 	reqBufReadPtr         int
 
+	preCoalesceWriteBuf  []*mem.WriteReq
+	postCoalesceWriteBuf []*mem.WriteReq
+
 	toCUBuffer            []akita.Req
 	toL2Buffer            []akita.Req
 	pendingDownGoingRead  []*mem.ReadReq
@@ -164,21 +167,57 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 	}
 
 	transaction := c.createTransaction(req)
-	cycleLeft := c.pipeline.Accept(now, transaction)
-	inPipelineTrans := &inPipelineReqStatus{transaction, cycleLeft}
-	c.inPipeline = append(c.inPipeline, inPipelineTrans)
 	c.NeedTick = true
 
 	switch req := req.(type) {
 	case *mem.ReadReq:
+		cycleLeft := c.pipeline.Accept(now, transaction)
+		inPipelineTrans := &inPipelineReqStatus{transaction, cycleLeft}
+		c.inPipeline = append(c.inPipeline, inPipelineTrans)
+
 		c.traceMem(req, now, "parse", req.Address,
 			uint64(req.MemByteSize), nil)
 	case *mem.WriteReq:
+		c.preCoalesceWriteBuf = append(c.preCoalesceWriteBuf, req)
+
+		if req.IsLastInWave {
+			c.coalesceWrites(now)
+		}
+
 		c.traceMem(req, now, "parse", req.Address,
 			uint64(len(req.Data)), req.Data)
 	default:
 		panic("unknown type")
 	}
+}
+
+func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
+	var cWrite *mem.WriteReq
+	for i, write := range c.preCoalesceWriteBuf {
+		if i == 0 {
+			cWrite = mem.NewWriteReq(now, c.ToL2,
+				c.L2Finder.Find(write.Address),
+				write.Address)
+			cWrite.Data = write.Data
+			continue
+		}
+
+		if write.Address == cWrite.Address+uint64(len(cWrite.Data)) {
+			cWrite.Data = append(cWrite.Data, write.Data...)
+			continue
+		}
+
+		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWrite)
+		cWrite = mem.NewWriteReq(now, c.ToL2,
+			c.L2Finder.Find(write.Address),
+			write.Address)
+		cWrite.Data = write.Data
+	}
+
+	if cWrite != nil {
+		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWrite)
+	}
+	c.preCoalesceWriteBuf = nil
 }
 
 func (c *L1VCache) countDownPipeline(now akita.VTimeInSec) {
