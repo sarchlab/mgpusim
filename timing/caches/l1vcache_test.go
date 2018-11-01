@@ -834,36 +834,62 @@ var _ = Describe("L1VCache black box", func() {
 			Equal([]byte{1, 2, 3, 4}))
 	})
 
-	// It("should write", func() {
-	// 	write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
-	// 	write.Data = []byte{
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 	}
-	// 	l1v.ToCU.Recv(write)
+	It("should write", func() {
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
+		write.IsLastInWave = true
+		write.Data = []byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}
+		l1v.ToCU.Recv(write)
 
-	// 	engine.Run()
+		engine.Run()
 
-	// 	Expect(cu.ReceivedReqs).To(HaveLen(1))
-	// 	Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
-	// 	data, _ := lowModule.Storage.Read(0x100, 64)
-	// 	Expect(data).To(Equal([]byte{
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 		1, 2, 3, 4, 5, 6, 7, 8,
-	// 	}))
-	// })
+		Expect(cu.ReceivedReqs).To(HaveLen(1))
+		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
+		data, _ := lowModule.Storage.Read(0x100, 64)
+		Expect(data).To(Equal([]byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}))
+	})
+
+	It("should coalesce write", func() {
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
+		write.Data = []byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}
+		l1v.ToCU.Recv(write)
+
+		write2 := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x108)
+		write2.IsLastInWave = true
+		write2.Data = []byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}
+		l1v.ToCU.Recv(write2)
+
+		engine.Run()
+
+		Expect(cu.ReceivedReqs).To(HaveLen(2))
+		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
+		data, _ := lowModule.Storage.Read(0x100, 16)
+		Expect(data).To(Equal([]byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}))
+	})
 
 	//	It("should read hit after writing a full cache line", func() {
 	//		startTime := engine.CurrentTime()
