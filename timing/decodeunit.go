@@ -51,11 +51,7 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 
 // Run decodes the instruction and sends the instruction to the next pipeline
 // stage
-func (du *DecodeUnit) Run(now akita.VTimeInSec) {
-	if du.toDecode != nil && !du.decoded {
-		du.decoded = true
-	}
-
+func (du *DecodeUnit) Run(now akita.VTimeInSec) bool {
 	if du.toDecode != nil {
 		simdID := du.toDecode.SIMDID
 		execUnit := du.ExecUnits[simdID]
@@ -63,7 +59,16 @@ func (du *DecodeUnit) Run(now akita.VTimeInSec) {
 		if execUnit.CanAcceptWave() {
 			execUnit.AcceptWave(du.toDecode, now)
 			du.toDecode = nil
+			return true
 		}
 	}
 
+	if du.toDecode != nil && !du.decoded {
+		du.cu.InvokeHook(du.toDecode, du.cu, akita.AnyHookPos,
+			&InstHookInfo{now, du.toDecode.inst, "DecodeDone"})
+		du.decoded = true
+		return true
+	}
+
+	return false
 }
