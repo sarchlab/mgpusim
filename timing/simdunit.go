@@ -57,18 +57,18 @@ func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
-func (u *SIMDUnit) Run(now akita.VTimeInSec) {
-	u.runExecStage(now)
+func (u *SIMDUnit) Run(now akita.VTimeInSec) bool {
+	return u.runExecStage(now)
 }
 
-func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) {
+func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
-		return
+		return false
 	}
 
 	u.cycleLeft--
 	if u.cycleLeft > 0 {
-		return
+		return true
 	}
 
 	u.scratchpadPreparer.Prepare(u.toExec, u.toExec)
@@ -78,4 +78,5 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) {
 	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Completed"})
 
 	u.toExec = nil
+	return true
 }

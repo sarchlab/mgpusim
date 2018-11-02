@@ -75,24 +75,24 @@ var _ = Describe("Dispatcher", func() {
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
-	It("should reject dispatching if it is dispatching another kernel", func() {
-		req := NewLaunchKernelReq(5, nil, dispatcher.ToCommandProcessor)
-		dispatcher.dispatchingReq = req
-
-		anotherReq := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
-		anotherReq.SetRecvTime(10)
-
-		expectedReq := NewLaunchKernelReq(10, dispatcher.ToCommandProcessor, nil)
-		expectedReq.OK = false
-		expectedReq.SetSendTime(10)
-		expectedReq.SetRecvTime(10)
-		toCommandProcessorConn.ExpectSend(expectedReq, nil)
-
-		dispatcher.Handle(anotherReq)
-
-		Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
-	})
+	//It("should reject dispatching if it is dispatching another kernel", func() {
+	//	req := NewLaunchKernelReq(5, nil, dispatcher.ToCommandProcessor)
+	//	dispatcher.dispatchingReq = req
+	//
+	//	anotherReq := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
+	//	anotherReq.SetRecvTime(10)
+	//
+	//	expectedReq := NewLaunchKernelReq(10, dispatcher.ToCommandProcessor, nil)
+	//	expectedReq.OK = false
+	//	expectedReq.SetSendTime(10)
+	//	expectedReq.SetRecvTime(10)
+	//	toCommandProcessorConn.ExpectSend(expectedReq, nil)
+	//
+	//	dispatcher.Handle(anotherReq)
+	//
+	//	Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
+	//	Expect(len(engine.ScheduledEvent)).To(Equal(0))
+	//})
 
 	It("should map work-group", func() {
 		wg := grid.WorkGroups[0]
@@ -159,7 +159,7 @@ var _ = Describe("Dispatcher", func() {
 		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
-	It("should map another workgroup when finished mapping a work-group", func() {
+	It("should map another work-group when finished mapping a work-group", func() {
 		dispatcher.dispatchingCUID = 0
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)

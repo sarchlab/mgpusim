@@ -115,7 +115,6 @@ const (
 //     WGFinishMesg ---- The CU send this message to the dispatcher to notify
 //                       the completion of a workgroup
 //
-
 type Dispatcher struct {
 	*akita.ComponentBase
 
@@ -141,6 +140,7 @@ type Dispatcher struct {
 
 func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
+	// fmt.Printf("recv req id: %s\n", req.GetID())
 	akita.ProcessReqAsEvent(req, d.engine, d.Freq)
 }
 
@@ -177,19 +177,12 @@ func (d *Dispatcher) handleLaunchKernelReq(
 	req *LaunchKernelReq,
 ) error {
 
-	var ok bool
 	if d.dispatchingReq != nil {
-		ok = false
-	} else {
-		ok = true
+		log.Panic("dispatcher not done dispatching the previous kernel")
 	}
 
-	if ok {
-		d.initKernelDispatching(req)
-		d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
-	} else {
-		d.replyLaunchKernelReq(false, req, req.Time())
-	}
+	d.initKernelDispatching(req)
+	d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
 
 	return nil
 }
@@ -260,9 +253,9 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 		return nil
 	}
 
-	wg := d.dispatchingWGs[0]
+	//wg := d.dispatchingWGs[0]
 	d.dispatchingWGs = d.dispatchingWGs[1:]
-	d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
+	//d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
 	d.state = DispatcherToMapWG
 	d.scheduleMapWG(now)
 
@@ -270,6 +263,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
+	// fmt.Printf("handle req id: %s\n", mesg.GetID())
 	d.completedWGs = append(d.completedWGs, mesg.WG)
 	d.cuBusy[mesg.Src()] = false
 	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
@@ -295,7 +289,10 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 	d.completedWGs = nil
 	d.dispatchingReq = nil
 
-	d.ToCommandProcessor.Send(req)
+	err := d.ToCommandProcessor.Send(req)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
