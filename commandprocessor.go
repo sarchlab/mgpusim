@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
@@ -33,7 +32,7 @@ type CommandProcessor struct {
 	ToDriver     *akita.Port
 	ToDispatcher *akita.Port
 
-	ToResetAfterKernel          []Resettable
+	CachesToReset               []*akita.Port
 	L2Caches                    []*cache.WriteBackCache
 	GPUStorage                  *mem.Storage
 	kernelFixedOverheadInCycles int
@@ -51,7 +50,7 @@ func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port *akita.Port
 // Handle processes the events that is scheduled for the CommandProcessor
 func (p *CommandProcessor) Handle(e akita.Event) error {
 	switch req := e.(type) {
-	case *kernels.LaunchKernelReq:
+	case *LaunchKernelReq:
 		return p.processLaunchKernelReq(req)
 	case *ReplyKernelCompletionEvent:
 		return p.handleReplyKernelCompletionEvent(req)
@@ -61,6 +60,8 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 		return p.processMemCopyReq(req)
 	case *MemCopyH2DReq:
 		return p.processMemCopyReq(req)
+	case *mem.InvalidDoneRsp:
+		// Do nothing
 	default:
 		log.Panicf("cannot process request %s", reflect.TypeOf(req))
 	}
@@ -68,7 +69,7 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 }
 
 func (p *CommandProcessor) processLaunchKernelReq(
-	req *kernels.LaunchKernelReq,
+	req *LaunchKernelReq,
 ) error {
 	now := req.Time()
 	if req.Src() == p.Driver {
@@ -98,9 +99,13 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelComp
 }
 
 func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
-	// FIXME: This is magic, remove
-	for _, r := range p.ToResetAfterKernel {
-		r.Reset()
+	now := cmd.Time()
+	for _, c := range p.CachesToReset {
+		req := mem.NewInvalidReq(now, p.ToDispatcher, c)
+		err := p.ToDispatcher.Send(req)
+		if err != nil {
+			log.Panic("failed to send invalidation request")
+		}
 	}
 
 	for _, l2Cache := range p.L2Caches {
@@ -111,6 +116,7 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 }
 
 func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
+	// FIXME: This is magic, remove
 	dir := l2.Directory.(*cache.DirectoryImpl)
 	for _, set := range dir.Sets {
 		for _, block := range set.Blocks {
@@ -166,13 +172,13 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 
 type ReplyKernelCompletionEvent struct {
 	*akita.EventBase
-	Req *kernels.LaunchKernelReq
+	Req *LaunchKernelReq
 }
 
 func NewReplyKernelCompletionEvent(
 	time akita.VTimeInSec,
 	handler akita.Handler,
-	req *kernels.LaunchKernelReq,
+	req *LaunchKernelReq,
 ) *ReplyKernelCompletionEvent {
 	evt := new(ReplyKernelCompletionEvent)
 	evt.EventBase = akita.NewEventBase(time, handler)

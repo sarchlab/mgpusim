@@ -39,57 +39,61 @@ func (u *LDSUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *LDSUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ReadStart"})
+	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Read"})
 }
 
 // Run executes three pipeline stages that are controlled by the LDSUnit
-func (u *LDSUnit) Run(now akita.VTimeInSec) {
-	u.runWriteStage(now)
-	u.runExecStage(now)
-	u.runReadStage(now)
+func (u *LDSUnit) Run(now akita.VTimeInSec) bool {
+	madeProgress := false
+	madeProgress = u.runWriteStage(now) || madeProgress
+	madeProgress = u.runExecStage(now) || madeProgress
+	madeProgress = u.runReadStage(now) || madeProgress
+	return madeProgress
 }
 
-func (u *LDSUnit) runReadStage(now akita.VTimeInSec) {
+func (u *LDSUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toRead == nil {
-		return
+		return false
 	}
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ReadEnd"})
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ExecStart"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Exec"})
 
 		u.toExec = u.toRead
 		u.toRead = nil
+		return true
 	}
+	return false
 }
 
-func (u *LDSUnit) runExecStage(now akita.VTimeInSec) {
+func (u *LDSUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
-		return
+		return false
 	}
 
 	if u.toWrite == nil {
 		u.alu.SetLDS(u.toExec.WG.LDS)
 		u.alu.Run(u.toExec)
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WriteStart"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Write"})
 
 		u.toWrite = u.toExec
 		u.toExec = nil
+		return true
 	}
+	return false
 }
 
-func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) {
+func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) bool {
 	if u.toWrite == nil {
-		return
+		return false
 	}
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "WriteEnd"})
 	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "Completed"})
 
 	u.toWrite.State = WfReady
 	u.toWrite = nil
+	return true
 }

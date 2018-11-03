@@ -27,7 +27,7 @@ func BuildEmuPlatform() (
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(util.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
 	connection := akita.NewDirectConnection(engine)
@@ -41,6 +41,7 @@ func BuildEmuPlatform() (
 		gpuBuilder.EnableMemTracing = true
 	}
 	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
+	gpuDriver.RegisterGPU(gpu)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
@@ -81,6 +82,7 @@ func BuildR9NanoPlatform() (
 	}
 
 	gpu, globalMem := gpuBuilder.BuildR9Nano()
+	gpuDriver.RegisterGPU(gpu)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)

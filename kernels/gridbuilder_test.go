@@ -29,11 +29,7 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeY = 1
 		packet.GridSizeZ = 1
 
-		req := kernels.NewLaunchKernelReq()
-		req.HsaCo = codeObject
-		req.Packet = packet
-
-		grid := builder.Build(req)
+		grid := builder.Build(codeObject, packet)
 
 		Expect(len(grid.WorkGroups)).To(Equal(5))
 		Expect(grid.WorkGroups[0].CurrSizeX).To(Equal(256))
@@ -59,11 +55,7 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeY = 1025
 		packet.GridSizeZ = 1
 
-		req := kernels.NewLaunchKernelReq()
-		req.HsaCo = codeObject
-		req.Packet = packet
-
-		grid := builder.Build(req)
+		grid := builder.Build(codeObject, packet)
 
 		Expect(len(grid.WorkGroups)).To(Equal(4096 + 64))
 	})
@@ -79,11 +71,7 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeY = 32
 		packet.GridSizeZ = 17
 
-		req := kernels.NewLaunchKernelReq()
-		req.HsaCo = codeObject
-		req.Packet = packet
-
-		grid := builder.Build(req)
+		grid := builder.Build(codeObject, packet)
 
 		Expect(len(grid.WorkGroups)).To(Equal(20))
 		for i := 0; i < 16; i++ {
@@ -109,11 +97,7 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeY = 31
 		packet.GridSizeZ = 17
 
-		req := kernels.NewLaunchKernelReq()
-		req.HsaCo = codeObject
-		req.Packet = packet
-
-		grid := builder.Build(req)
+		grid := builder.Build(codeObject, packet)
 
 		expectedXSize := []int{16, 16, 1, 16, 16, 1, 16, 16, 1, 16, 16, 1, 16, 16, 1, 16, 16, 1, 16, 16, 1, 16, 16, 1, 16, 16, 1, 16, 16, 1}
 		expectedYSize := []int{16, 16, 16, 15, 15, 15, 16, 16, 16, 15, 15, 15, 16, 16, 16, 15, 15, 15, 16, 16, 16, 15, 15, 15, 16, 16, 16, 15, 15, 15}
