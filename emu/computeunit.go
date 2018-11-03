@@ -44,7 +44,7 @@ func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 }
 
 func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
-	panic("implement me")
+	// Do nothing
 }
 
 // Handle defines the behavior on event scheduled on the ComputeUnit
@@ -66,23 +66,29 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 }
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
-	if cu.nextTick <= req.Time() {
-		cu.nextTick = akita.VTimeInSec(math.Ceil(float64(req.RecvTime())))
-		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
-		evt := akita.NewTickEvent(
-			cu.nextTick,
-			cu,
-		)
-		cu.engine.Schedule(evt)
-	}
-
-	cu.queueingWGs = append(cu.queueingWGs, req)
-	cu.wfs[req.WG] = make([]*Wavefront, 0, 64)
 
 	req.Ok = true
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.Time())
-	cu.ToDispatcher.Send(req)
+	err := cu.ToDispatcher.Send(req)
+	if err != nil {
+		req.SwapSrcAndDst()
+		req.SetEventTime(cu.Freq.NextTick(req.Time()))
+		cu.engine.Schedule(req)
+	} else {
+		if cu.nextTick <= req.Time() {
+			cu.nextTick = akita.VTimeInSec(math.Ceil(float64(req.Time())))
+			//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
+			evt := akita.NewTickEvent(
+				cu.nextTick,
+				cu,
+			)
+			cu.engine.Schedule(evt)
+		}
+
+		cu.queueingWGs = append(cu.queueingWGs, req)
+		cu.wfs[req.WG] = make([]*Wavefront, 0, 64)
+	}
 
 	return nil
 }
@@ -319,7 +325,12 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	delete(cu.wfs, evt.Req.WG)
 	req := gcn3.NewWGFinishMesg(cu.ToDispatcher, evt.Req.Dst(), evt.Time(), evt.Req.WG)
-	cu.ToDispatcher.Send(req)
+	err := cu.ToDispatcher.Send(req)
+	if err != nil {
+		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
+			cu, evt.Req)
+		cu.engine.Schedule(newEvent)
+	}
 	return nil
 }
 

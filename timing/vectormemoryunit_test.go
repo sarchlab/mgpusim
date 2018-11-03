@@ -14,6 +14,7 @@ var _ = Describe("Vector Memory Unit", func() {
 	var (
 		cu        *ComputeUnit
 		sp        *mockScratchpadPreparer
+		coalescer *MockCoalescer
 		bu        *VectorMemoryUnit
 		vectorMem *akita.MockComponent
 		conn      *akita.MockConnection
@@ -22,7 +23,8 @@ var _ = Describe("Vector Memory Unit", func() {
 	BeforeEach(func() {
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
-		bu = NewVectorMemoryUnit(cu, sp)
+		coalescer = new(MockCoalescer)
+		bu = NewVectorMemoryUnit(cu, sp, coalescer)
 		vectorMem = akita.NewMockComponent("VectorMem")
 		conn = akita.NewMockConnection()
 
@@ -46,6 +48,30 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
+	It("should read", func() {
+		wave := new(Wavefront)
+		bu.toRead = wave
+
+		madeProgress := bu.runReadStage(10)
+
+		Expect(madeProgress).To(BeTrue())
+		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.AddrCoalescingCycleLeft).To(Equal(bu.AddrCoalescingLatency))
+	})
+
+	It("should reduce cycle left when executing", func() {
+		wave := new(Wavefront)
+		bu.toExec = wave
+		bu.AddrCoalescingCycleLeft = 40
+
+		madeProgress := bu.runExecStage(10)
+
+		Expect(madeProgress).To(BeTrue())
+		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.AddrCoalescingCycleLeft).To(Equal(39))
+	})
+
 	It("should run flat_load_dword", func() {
 		wave := NewWavefront(nil)
 		inst := NewInst(insts.NewInst())
@@ -54,9 +80,14 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.inst = inst
 
-		sp := wave.Scratchpad().AsFlat()
-		for i := 0; i < 64; i++ {
-			sp.ADDR[i] = uint64(4096 + i*4)
+		coalescer.ToReturn = make([]CoalescedAccess, 4)
+		for i := 0; i < 4; i++ {
+			coalescer.ToReturn[i].Addr = uint64(0x40 * i)
+			coalescer.ToReturn[i].Size = 64
+			for j := 0; j < 16; j++ {
+				coalescer.ToReturn[i].LaneIDs =
+					append(coalescer.ToReturn[i].LaneIDs, i*16+j)
+			}
 		}
 
 		bu.toExec = wave
@@ -65,8 +96,10 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
-		Expect(cu.inFlightMemAccess).To(HaveLen(4))
-		Expect(bu.ReadBuf).To(HaveLen(4))
+		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(cu.inFlightVectorMemAccess).To(HaveLen(4))
+		Expect(cu.inFlightVectorMemAccess[3].Read.IsLastInWave).To(BeTrue())
+		Expect(bu.SendBuf).To(HaveLen(4))
 	})
 
 	It("should run flat_store_dword", func() {
@@ -89,31 +122,28 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
-		Expect(cu.inFlightMemAccess).To(HaveLen(4))
-		Expect(bu.WriteBuf).To(HaveLen(4))
+		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(cu.inFlightVectorMemAccess).To(HaveLen(64))
+		Expect(cu.inFlightVectorMemAccess[63].Write.IsLastInWave).To(BeTrue())
+		Expect(bu.SendBuf).To(HaveLen(64))
 	})
 
 	It("should send memory access requests", func() {
 		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
 		loadReq.SetSendTime(10)
-		bu.ReadBuf = append(bu.ReadBuf, loadReq)
-
-		storeReq := mem.NewWriteReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0)
-		bu.WriteBuf = append(bu.WriteBuf, storeReq)
+		bu.SendBuf = append(bu.SendBuf, loadReq)
 
 		conn.ExpectSend(loadReq, nil)
-		conn.ExpectSend(storeReq, nil)
 
 		bu.Run(10)
 
 		Expect(conn.AllExpectedSent()).To(BeTrue())
-		Expect(len(bu.ReadBuf)).To(Equal(0))
-		Expect(len(bu.WriteBuf)).To(Equal(0))
+		Expect(len(bu.SendBuf)).To(Equal(0))
 	})
 
 	It("should not remove request from read buffer, if send fails", func() {
 		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
-		bu.ReadBuf = append(bu.ReadBuf, loadReq)
+		bu.SendBuf = append(bu.SendBuf, loadReq)
 
 		err := akita.NewSendError()
 		conn.ExpectSend(loadReq, err)
@@ -121,7 +151,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		bu.Run(10)
 
 		Expect(conn.AllExpectedSent()).To(BeTrue())
-		Expect(len(bu.ReadBuf)).To(Equal(1))
+		Expect(len(bu.SendBuf)).To(Equal(1))
 	})
 
 })

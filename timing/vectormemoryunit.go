@@ -13,15 +13,17 @@ type VectorMemoryUnit struct {
 	cu *ComputeUnit
 
 	scratchpadPreparer ScratchpadPreparer
+	coalescer          Coalescer
 
-	ReadBuf      []*mem.ReadReq
-	WriteBuf     []*mem.WriteReq
-	ReadBufSize  int
-	WriteBufSize int
+	SendBuf     []mem.AccessReq
+	SendBufSize int
 
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
+
+	AddrCoalescingLatency   int
+	AddrCoalescingCycleLeft int
 }
 
 // NewVectorMemoryUnit creates a new Scalar unit, injecting the dependency of
@@ -29,16 +31,18 @@ type VectorMemoryUnit struct {
 func NewVectorMemoryUnit(
 	cu *ComputeUnit,
 	scratchpadPreparer ScratchpadPreparer,
+	coalescer Coalescer,
 ) *VectorMemoryUnit {
 	u := new(VectorMemoryUnit)
 	u.cu = cu
+
 	u.scratchpadPreparer = scratchpadPreparer
+	u.coalescer = coalescer
 
-	u.ReadBufSize = 256
-	u.ReadBuf = make([]*mem.ReadReq, 0, u.ReadBufSize)
+	u.SendBufSize = 256
+	u.SendBuf = make([]mem.AccessReq, 0, u.SendBufSize)
 
-	u.WriteBufSize = 256
-	u.WriteBuf = make([]*mem.WriteReq, 0, u.WriteBufSize)
+	u.AddrCoalescingLatency = 40
 
 	return u
 }
@@ -51,38 +55,46 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ReadStart"})
+	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Read"})
 }
 
 // Run executes three pipeline stages that are controlled by the VectorMemoryUnit
-func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) {
-	u.sendRequest(now)
-	u.runExecStage(now)
-	u.runReadStage(now)
+func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) bool {
+	madeProgress := false
+	madeProgress = madeProgress || u.sendRequest(now)
+	madeProgress = madeProgress || u.runExecStage(now)
+	madeProgress = madeProgress || u.runReadStage(now)
+	return madeProgress
 }
 
-func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) {
+func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toRead == nil {
-		return
+		return false
 	}
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ReadEnd"})
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "ExecStart"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Exec"})
 
 		u.toExec = u.toRead
 		u.toRead = nil
+		u.AddrCoalescingCycleLeft = u.AddrCoalescingLatency
+		return true
 	}
+	return false
 }
 
-func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) {
+func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
-		return
+		return false
+	}
+
+	if u.AddrCoalescingCycleLeft > 0 {
+		u.AddrCoalescingCycleLeft--
+		return true
 	}
 
 	if u.toWrite == nil {
-
 		inst := u.toExec.Inst()
 		switch inst.FormatType {
 		case insts.FLAT:
@@ -91,18 +103,19 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) {
 			log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
 		}
 
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "ExecEnd"})
 		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
 
 		//u.toWrite = u.toExec
 		u.toExec.State = WfReady
 		u.toExec = nil
-
+		return true
 	}
+	return false
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 	u.toExec.OutstandingVectorMemAccess++
+	u.toExec.OutstandingScalarMemAccess++
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 16: // FLAT_LOAD_BYTE
@@ -122,129 +135,91 @@ func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 
 func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
-	coalescedAddrs := u.coalesceAddress(sp.ADDR)
+	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
 	u.bufferDataLoadRequest(coalescedAddrs, sp.ADDR, byteSizePerLane/4, now)
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
-	coalescedAddrs := u.coalesceAddress(sp.ADDR)
+	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
 	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, byteSizePerLane/4, now)
 }
 
-func (u *VectorMemoryUnit) coalesceAddress(addresses [64]uint64) []uint64 {
-	coalescedAddr := make([]uint64, 0)
-	for i := 0; i < 64; i++ {
-		addr := addresses[i]
-		cacheLineId := addr / 64 * 64
-
-		found := false
-		for _, cAddr := range coalescedAddr {
-			if cacheLineId == cAddr {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			coalescedAddr = append(coalescedAddr, cacheLineId)
-		}
-	}
-	return coalescedAddr
+func (u *VectorMemoryUnit) coalesceAddress(
+	addresses []uint64,
+	byteSizePerLane int,
+) []CoalescedAccess {
+	return u.coalescer.Coalesce(addresses, byteSizePerLane)
 }
 
 func (u *VectorMemoryUnit) bufferDataLoadRequest(
-	coalescedAddrs []uint64,
+	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
+	for i, addr := range coalescedAddrs {
+		info := new(VectorMemAccessInfo)
+		info.Inst = u.toExec.inst
+		info.Wavefront = u.toExec
+		info.DstVGPR = u.toExec.inst.Dst.Register
+		info.Lanes = addr.LaneIDs
+		info.LaneAddrOffsets = addr.LaneAddrOffset
+		info.RegisterCount = registerCount
 
-	instLevelInfo := new(InstLevelInfo)
-	instLevelInfo.Inst = u.toExec.inst
-	instLevelInfo.TotalReqs = len(coalescedAddrs)
-	instLevelInfo.ReturnedReqs = 0
-
-	for _, addr := range coalescedAddrs {
-		info := newMemAccessInfo()
-		info.InstLevelInfo = instLevelInfo
-		info.Action = MemAccessVectorDataLoad
-		info.PreCoalescedAddrs = preCoalescedAddrs
-		info.Wf = u.toExec
-		info.Dst = info.Wf.inst.Dst.Register
-		info.RegCount = registerCount
-		info.Address = addr
-
-		lowModule := u.cu.VectorMemModules.Find(addr)
-		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr, 64)
-		u.cu.inFlightMemAccess[req.ID] = info
-		u.ReadBuf = append(u.ReadBuf, req)
+		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
+		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
+		info.Read = req
+		if i == len(coalescedAddrs)-1 {
+			req.IsLastInWave = true
+		}
+		u.cu.inFlightVectorMemAccess = append(u.cu.inFlightVectorMemAccess, info)
+		u.SendBuf = append(u.SendBuf, req)
 	}
 }
 
 func (u *VectorMemoryUnit) bufferDataStoreRequest(
-	coalescedAddrs []uint64,
+	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
-
-	instLevelInfo := new(InstLevelInfo)
-	instLevelInfo.Inst = u.toExec.inst
-	instLevelInfo.TotalReqs = len(coalescedAddrs)
-	instLevelInfo.ReturnedReqs = 0
-
-	for _, addr := range coalescedAddrs {
-		info := newMemAccessInfo()
-		info.InstLevelInfo = instLevelInfo
-		info.Action = MemAccessVectorDataStore
-		info.PreCoalescedAddrs = preCoalescedAddrs
-		info.Wf = u.toExec
-		info.Dst = info.Wf.inst.Dst.Register
-		info.Address = addr
+	for i, addr := range preCoalescedAddrs {
+		info := new(VectorMemAccessInfo)
+		info.Wavefront = u.toExec
+		info.Inst = u.toExec.inst
+		info.DstVGPR = u.toExec.inst.Dst.Register
 
 		lowModule := u.cu.VectorMemModules.Find(addr)
 		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
+		info.Write = req
 		req.Address = addr
-		req.Data = make([]byte, 64)
-		for i := 0; i < 64; i++ {
-			currAddr := preCoalescedAddrs[i]
-			addrCacheLineID := currAddr & 0xffffffffffffffc0
-			addrCacheLineOffset := currAddr & 0x000000000000003f
-
-			if addrCacheLineID != addr {
-				continue
-			}
-
-			for j := 0; j < registerCount; j++ {
-				copy(req.Data[addrCacheLineOffset+uint64(4*j):addrCacheLineOffset+uint64(4*j)+4],
-					insts.Uint32ToBytes(data[i*4+j]))
-			}
-
+		if i == len(preCoalescedAddrs)-1 {
+			req.IsLastInWave = true
 		}
 
-		u.WriteBuf = append(u.WriteBuf, req)
-		u.cu.inFlightMemAccess[req.ID] = info
+		for j := 0; j < registerCount; j++ {
+			req.Data = append(req.Data, insts.Uint32ToBytes(data[i*4+j])...)
+		}
+		u.SendBuf = append(u.SendBuf, req)
+		u.cu.inFlightVectorMemAccess = append(
+			u.cu.inFlightVectorMemAccess, info)
 	}
 }
 
-func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) {
-	if len(u.ReadBuf) > 0 {
-		req := u.ReadBuf[0]
+func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
+	madeProgress := false
+
+	if len(u.SendBuf) > 0 {
+		req := u.SendBuf[0]
 		req.SetSendTime(now)
 		err := u.cu.ToVectorMem.Send(req)
 		if err == nil {
-			u.ReadBuf = u.ReadBuf[1:]
+			u.SendBuf = u.SendBuf[1:]
+			madeProgress = true
 		}
 	}
 
-	if len(u.WriteBuf) > 0 {
-		req := u.WriteBuf[0]
-		req.SetSendTime(now)
-		err := u.cu.ToVectorMem.Send(req)
-		if err == nil {
-			u.WriteBuf = u.WriteBuf[1:]
-		}
-	}
+	return madeProgress
 }

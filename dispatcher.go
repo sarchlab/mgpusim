@@ -115,7 +115,6 @@ const (
 //     WGFinishMesg ---- The CU send this message to the dispatcher to notify
 //                       the completion of a workgroup
 //
-
 type Dispatcher struct {
 	*akita.ComponentBase
 
@@ -127,7 +126,7 @@ type Dispatcher struct {
 	Freq        akita.Freq
 
 	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
-	dispatchingReq  *kernels.LaunchKernelReq
+	dispatchingReq  *LaunchKernelReq
 	dispatchingGrid *kernels.Grid
 	dispatchingWGs  []*kernels.WorkGroup
 	completedWGs    []*kernels.WorkGroup
@@ -141,6 +140,7 @@ type Dispatcher struct {
 
 func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 	req := port.Retrieve(now)
+	// fmt.Printf("recv req id: %s\n", req.GetID())
 	akita.ProcessReqAsEvent(req, d.engine, d.Freq)
 }
 
@@ -157,7 +157,7 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 	defer d.InvokeHook(evt, d, akita.AfterEventHookPos, nil)
 
 	switch evt := evt.(type) {
-	case *kernels.LaunchKernelReq:
+	case *LaunchKernelReq:
 		return d.handleLaunchKernelReq(evt)
 	case *MapWGEvent:
 		return d.handleMapWGEvent(evt)
@@ -174,29 +174,22 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 }
 
 func (d *Dispatcher) handleLaunchKernelReq(
-	req *kernels.LaunchKernelReq,
+	req *LaunchKernelReq,
 ) error {
 
-	var ok bool
 	if d.dispatchingReq != nil {
-		ok = false
-	} else {
-		ok = true
+		log.Panic("dispatcher not done dispatching the previous kernel")
 	}
 
-	if ok {
-		d.initKernelDispatching(req)
-		d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
-	} else {
-		d.replyLaunchKernelReq(false, req, req.Time())
-	}
+	d.initKernelDispatching(req)
+	d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
 
 	return nil
 }
 
 func (d *Dispatcher) replyLaunchKernelReq(
 	ok bool,
-	req *kernels.LaunchKernelReq,
+	req *LaunchKernelReq,
 	now akita.VTimeInSec,
 ) *akita.SendError {
 	req.OK = ok
@@ -235,9 +228,10 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	return nil
 }
 
-func (d *Dispatcher) initKernelDispatching(req *kernels.LaunchKernelReq) {
+func (d *Dispatcher) initKernelDispatching(req *LaunchKernelReq) {
 	d.dispatchingReq = req
-	d.dispatchingGrid = d.gridBuilder.Build(req)
+	d.dispatchingGrid = d.gridBuilder.Build(req.HsaCo, req.Packet)
+	d.dispatchingGrid.PacketAddress = req.PacketAddress
 	d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
 
 	d.dispatchingCUID = -1
@@ -259,9 +253,9 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 		return nil
 	}
 
-	wg := d.dispatchingWGs[0]
+	//wg := d.dispatchingWGs[0]
 	d.dispatchingWGs = d.dispatchingWGs[1:]
-	d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
+	//d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
 	d.state = DispatcherToMapWG
 	d.scheduleMapWG(now)
 
@@ -269,6 +263,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
+	// fmt.Printf("handle req id: %s\n", mesg.GetID())
 	d.completedWGs = append(d.completedWGs, mesg.WG)
 	d.cuBusy[mesg.Src()] = false
 	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
@@ -294,7 +289,10 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 	d.completedWGs = nil
 	d.dispatchingReq = nil
 
-	d.ToCommandProcessor.Send(req)
+	err := d.ToCommandProcessor.Send(req)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
