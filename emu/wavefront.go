@@ -3,6 +3,8 @@ package emu
 import (
 	"log"
 
+	"gitlab.com/akita/mem/vm"
+
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
@@ -11,6 +13,7 @@ import (
 type Wavefront struct {
 	*kernels.Wavefront
 
+	pid           vm.PID
 	CodeObject    *insts.HsaCo
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
@@ -56,6 +59,10 @@ func (wf *Wavefront) Inst() *insts.Inst {
 // Scratchpad returns the scratchpad that is associated with the wavefront
 func (wf *Wavefront) Scratchpad() Scratchpad {
 	return wf.scratchpad
+}
+
+func (wf *Wavefront) PID() vm.PID {
+	return wf.pid
 }
 
 // SRegValue returns s(i)'s value
