@@ -76,12 +76,13 @@ func (d *Driver) AllocateMemory(
 			allocatedChunk := &MemoryChunk{ptr, byteSize, true}
 			mask.InsertChunk(i, allocatedChunk)
 
+			pageSize := uint64(1 << d.PageSizeAsPowerOf2)
 			virtualAddress := uint64(ptr + 0x100000000)
-			pfn, valid := mmu.Translate(virtualAddress, 1, 4096)
+			pfn, valid := d.mmu.Translate(virtualAddress, d.currentPID, pageSize)
 
 			if !valid && pfn == 0 {
 				physicalFrameNumber := uint64(ptr) / pageSize
-				mmu.CreatePage(1, physicalFrameNumber, virtualAddress, pageSize)
+				d.mmu.CreatePage(1, physicalFrameNumber, virtualAddress, pageSize)
 			}
 
 			chunk.Ptr += GPUPtr(byteSize)
