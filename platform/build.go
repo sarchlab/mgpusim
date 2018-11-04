@@ -39,6 +39,7 @@ func BuildEmuPlatform() (
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
+	gpuBuilder.MMU = mmu
 	if DebugISA {
 		gpuBuilder.EnableISADebug = true
 	}

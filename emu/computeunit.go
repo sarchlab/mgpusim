@@ -5,6 +5,8 @@ import (
 	"math"
 	"reflect"
 
+	"gitlab.com/akita/mem/vm"
+
 	"encoding/binary"
 
 	"gitlab.com/akita/akita"
@@ -26,6 +28,7 @@ type ComputeUnit struct {
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
+	mmu                vm.MMU
 	Freq               akita.Freq
 
 	nextTick    akita.VTimeInSec
@@ -126,6 +129,7 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error 
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
 		managedWf.LDS = lds
+		managedWf.pid = req.PID
 		cu.wfs[wg] = append(cu.wfs[wg], managedWf)
 	}
 
@@ -274,12 +278,13 @@ func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
 
 func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 	for {
-		instBuf, err := cu.GlobalMemStorage.Read(wf.PC, 8)
-		if err != nil {
-			log.Panic(err)
-		}
+		instBuf := cu.Read(wf.pid, wf.PC, 8)
+		//instBuf, err := cu.GlobalMemStorage.Read(wf.PC, 8)
+		//if err != nil {
+		//	log.Panic(err)
+		//}
 
-		inst, err := cu.decoder.Decode(instBuf)
+		inst, _ := cu.decoder.Decode(instBuf)
 		wf.inst = inst
 
 		wf.PC += uint64(inst.ByteSize)
@@ -334,6 +339,34 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	return nil
 }
 
+func (cu *ComputeUnit) Read(pid vm.PID, addr, byteSize uint64) []byte {
+	pageSize := uint64(4096)
+	phyAddr, found := cu.mmu.Translate(addr, pid, pageSize)
+	if !found {
+		log.Panic("page not found in page table")
+	}
+
+	data, err := cu.GlobalMemStorage.Read(phyAddr, byteSize)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return data
+}
+
+func (cu *ComputeUnit) Write(pid vm.PID, addr uint64, data []byte) {
+	pageSize := uint64(4096)
+	phyAddr, found := cu.mmu.Translate(addr, pid, pageSize)
+	if !found {
+		log.Panic("page not found in page table")
+	}
+
+	err := cu.GlobalMemStorage.Write(phyAddr, data)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
 // NewComputeUnit creates a new ComputeUnit with the given name
 func NewComputeUnit(
 	name string,
@@ -341,6 +374,7 @@ func NewComputeUnit(
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
+	mmu vm.MMU,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = akita.NewComponentBase(name)
@@ -349,6 +383,7 @@ func NewComputeUnit(
 	cu.decoder = decoder
 	cu.scratchpadPreparer = scratchpadPreparer
 	cu.alu = alu
+	cu.mmu = mmu
 
 	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)

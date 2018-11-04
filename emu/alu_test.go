@@ -5,11 +5,16 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
 )
 
 type mockInstState struct {
 	inst       *insts.Inst
 	scratchpad Scratchpad
+}
+
+func (s *mockInstState) PID() vm.PID {
+	return 0
 }
 
 func (s *mockInstState) Inst() *insts.Inst {
@@ -25,12 +30,15 @@ var _ = Describe("ALU", func() {
 	var (
 		alu     *ALUImpl
 		state   *mockInstState
+		cu      *ComputeUnit
 		storage *mem.Storage
 	)
 
 	BeforeEach(func() {
 		storage = mem.NewStorage(1 * mem.GB)
-		alu = NewALUImpl(storage)
+		cu = NewComputeUnit("cu", nil, nil,
+			nil, nil, nil)
+		alu = NewALUImpl(cu)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)

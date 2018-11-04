@@ -151,6 +151,7 @@ func (d *Driver) runKernel(
 	now := d.engine.CurrentTime() + 1e-8
 
 	req := gcn3.NewLaunchKernelReq(now, d.ToGPUs, gpu.ToDriver)
+	req.PID = d.currentPID
 	req.HsaCo = co
 	req.Packet = packet
 	req.PacketAddress = uint64(dPacket)

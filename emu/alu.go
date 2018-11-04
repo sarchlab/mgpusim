@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log"
 
+	"gitlab.com/akita/mem/vm"
+
 	"encoding/binary"
 
 	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/mem"
 )
 
 type ALU interface {
@@ -18,16 +19,21 @@ type ALU interface {
 	LDS() []byte
 }
 
+type StorageAccessor interface {
+	Read(pid vm.PID, vAddr, byteSize uint64) []byte
+	Write(pid vm.PID, vAddr uint64, data []byte)
+}
+
 // ALU is where the instructions get executed.
 type ALUImpl struct {
-	Storage *mem.Storage
-	lds     []byte
+	storageAccessor StorageAccessor
+	lds             []byte
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
-func NewALUImpl(storage *mem.Storage) *ALUImpl {
+func NewALUImpl(storageAccessor StorageAccessor) *ALUImpl {
 	alu := new(ALUImpl)
-	alu.Storage = storage
+	alu.storageAccessor = storageAccessor
 	return alu
 }
 
@@ -99,11 +105,9 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 
 func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
 	for i := 0; i < 64; i++ {
-		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
-		if err != nil {
-			log.Panic(err)
-		}
+		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
 		buf[1] = 0
 		buf[2] = 0
 		buf[3] = 0
@@ -114,11 +118,9 @@ func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
 
 func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
 	for i := 0; i < 64; i++ {
-		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
-		if err != nil {
-			log.Panic(err)
-		}
+		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
 
 		buf[2] = 0
 		buf[3] = 0
@@ -129,23 +131,18 @@ func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
 
 func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
 	for i := 0; i < 64; i++ {
-		buf, err := u.Storage.Read(sp.ADDR[i], uint64(4))
-		if err != nil {
-			log.Panic(err)
-		}
-
+		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
 		sp.DST[i*4] = insts.BytesToUint32(buf)
 	}
 }
 
 func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
 	for i := 0; i < 64; i++ {
-		buf, err := u.Storage.Read(sp.ADDR[i], uint64(16))
-		if err != nil {
-			log.Panic(err)
-		}
+		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(16))
 
 		sp.DST[i*4] = insts.BytesToUint32(buf[0:4])
 		sp.DST[i*4+1] = insts.BytesToUint32(buf[4:8])
@@ -157,16 +154,15 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
 	for i := 0; i < 64; i++ {
-		err := u.Storage.Write(sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
-		if err != nil {
-			log.Panic(err)
-		}
+		u.storageAccessor.Write(pid, sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
 	}
 }
 
 func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
 	for i := 0; i < 64; i++ {
 		buf := make([]byte, 16)
 		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
@@ -174,11 +170,7 @@ func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 		copy(buf[8:12], insts.Uint32ToBytes(sp.DATA[(i*4)+2]))
 		copy(buf[12:16], insts.Uint32ToBytes(sp.DATA[(i*4)+3]))
 
-		err := u.Storage.Write(sp.ADDR[i], buf)
-
-		if err != nil {
-			log.Panic(err)
-		}
+		u.storageAccessor.Write(pid, sp.ADDR[i], buf)
 	}
 }
 
@@ -198,11 +190,9 @@ func (u *ALUImpl) runSMEM(state InstEmuState) {
 
 func (u *ALUImpl) runSLOADDWORD(state InstEmuState) {
 	sp := state.Scratchpad().AsSMEM()
+	pid := state.PID()
 
-	buf, err := u.Storage.Read(sp.Base+sp.Offset, 4)
-	if err != nil {
-		log.Panic(err)
-	}
+	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 4)
 
 	sp.DST[0] = insts.BytesToUint32(buf)
 }
@@ -210,24 +200,18 @@ func (u *ALUImpl) runSLOADDWORD(state InstEmuState) {
 func (u *ALUImpl) runSLOADDWORDX2(state InstEmuState) {
 	sp := state.Scratchpad().AsSMEM()
 	spRaw := state.Scratchpad()
+	pid := state.PID()
 
-	buf, err := u.Storage.Read(sp.Base+sp.Offset, 8)
-	if err != nil {
-		log.Panic(err)
-	}
-
+	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 8)
 	copy(spRaw[32:40], buf)
 }
 
 func (u *ALUImpl) runSLOADDWORDX4(state InstEmuState) {
 	sp := state.Scratchpad().AsSMEM()
 	spRaw := state.Scratchpad()
+	pid := state.PID()
 
-	buf, err := u.Storage.Read(sp.Base+sp.Offset, 16)
-	if err != nil {
-		log.Panic(err)
-	}
-
+	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 16)
 	copy(spRaw[32:48], buf)
 }
 func (u *ALUImpl) runSOPP(state InstEmuState) {

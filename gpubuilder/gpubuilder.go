@@ -19,6 +19,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	memtraces "gitlab.com/akita/mem/trace"
+	"gitlab.com/akita/mem/vm"
 )
 
 // GPUBuilder provide services to assemble usable GPUs
@@ -27,6 +28,7 @@ type GPUBuilder struct {
 	freq    akita.Freq
 	Driver  *driver.Driver
 	GPUName string
+	MMU     vm.MMU
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -77,7 +79,8 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 		alu := emu.NewALUImpl(gpuMem.Storage)
 		computeUnit := emu.NewComputeUnit(
 			fmt.Sprintf("%s.CU%d", b.GPUName, i),
-			b.engine, disassembler, scratchpadPreparer, alu)
+			b.engine, disassembler, scratchpadPreparer, alu,
+			b.MMU)
 		computeUnit.Freq = b.freq
 		computeUnit.GlobalMemStorage = gpuMem.Storage
 		connection.PlugIn(computeUnit.ToDispatcher)

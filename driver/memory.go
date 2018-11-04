@@ -54,6 +54,10 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	byteSize uint64,
 	alignment uint64,
 ) GPUPtr {
+	if byteSize >= 4096 {
+		panic("allocation greater than a page needs implementation")
+	}
+
 	ptr, ok := d.tryAllocateWithExistingChunks(byteSize, alignment)
 	if ok {
 		return ptr
@@ -75,7 +79,7 @@ func (d *Driver) allocatePage() {
 	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
 		pageIDAllocated := false
 		for _, p := range d.allocatedPages[d.usingGPU] {
-			if p.PhysicalFrameNumber == pageID {
+			if p.PhysicalFrameNumber<<d.PageSizeAsPowerOf2 == pageID {
 				pageIDAllocated = true
 				pageID += 1 << d.PageSizeAsPowerOf2
 				break
@@ -89,9 +93,9 @@ func (d *Driver) allocatePage() {
 
 	virtualAddr := pageID + 0x100000000
 	d.mmu.CreatePage(d.currentPID,
-		pageID, virtualAddr, 1<<d.PageSizeAsPowerOf2)
+		pageID>>d.PageSizeAsPowerOf2, virtualAddr, 1<<d.PageSizeAsPowerOf2)
 	page := vm.NewPage()
-	page.PhysicalFrameNumber = pageID
+	page.PhysicalFrameNumber = pageID >> d.PageSizeAsPowerOf2
 	d.allocatedPages[d.usingGPU] = append(d.allocatedPages[d.usingGPU], page)
 
 	chunk := new(MemoryChunk)

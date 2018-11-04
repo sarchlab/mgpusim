@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/mem/vm"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/kernels"
 )
@@ -14,6 +16,7 @@ type MapWGReq struct {
 	*akita.ReqBase
 
 	WG               *kernels.WorkGroup
+	PID              vm.PID
 	Ok               bool
 	CUOutOfResources bool
 }
@@ -215,6 +218,7 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 
 	CU := d.cus[cuID]
 	req := NewMapWGReq(d.ToCUs, CU, now, d.dispatchingWGs[0])
+	req.PID = d.dispatchingReq.PID
 	d.state = DispatcherWaitMapWGACK
 	err := d.ToCUs.Send(req)
 	if err != nil {
