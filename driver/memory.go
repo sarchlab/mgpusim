@@ -3,6 +3,8 @@ package driver
 import (
 	"log"
 
+	"gitlab.com/akita/mem/vm"
+
 	"bytes"
 
 	"encoding/binary"
@@ -17,33 +19,6 @@ type GPUPtr uint64
 // LocalPtr is a type that represent a pointer to a region in the LDS memory
 type LocalPtr uint32
 
-type MemoryMask struct {
-	Chunks []*MemoryChunk
-}
-
-// InsertChunk
-func (m *MemoryMask) InsertChunk(index int, chunk *MemoryChunk) {
-	m.Chunks = append(m.Chunks, &MemoryChunk{0, 0, false})
-	copy(m.Chunks[index+1:], m.Chunks[index:])
-	m.Chunks[index] = chunk
-}
-
-// NewMemoryMask creates a MemoryMask. Argument capacity is the capacity of
-// the underlying storage.
-func NewMemoryMask(startAddr GPUPtr, capacity uint64) *MemoryMask {
-	m := new(MemoryMask)
-	m.Chunks = make([]*MemoryChunk, 0)
-
-	chunk := &MemoryChunk{
-		startAddr,
-		capacity,
-		false,
-	}
-	m.Chunks = append(m.Chunks, chunk)
-
-	return m
-}
-
 // A MemoryChunk is a piece of allocated or free memory.
 type MemoryChunk struct {
 	Ptr      GPUPtr
@@ -53,11 +28,14 @@ type MemoryChunk struct {
 
 func (d *Driver) registerStorage(
 	storage *mem.Storage,
-	loAddr GPUPtr,
-	byteSize uint64,
 ) {
-	mask := NewMemoryMask(loAddr, byteSize)
-	d.memoryMasks = append(d.memoryMasks, mask)
+	d.memoryMasks = append(d.memoryMasks, make([]*MemoryChunk, 0))
+	d.allocatedPages = append(d.allocatedPages, make([]*vm.Page, 0))
+
+	d.initialAddresses = append(d.initialAddresses,
+		d.totalStorageByteSize)
+	d.storageSizes = append(d.storageSizes, storage.Capacity)
+	d.totalStorageByteSize += storage.Capacity
 }
 
 // AllocateMemory allocates a chunk of memory of size byteSize in storage.
@@ -66,109 +44,151 @@ func (d *Driver) registerStorage(
 func (d *Driver) AllocateMemory(
 	byteSize uint64,
 ) GPUPtr {
-	mask := d.memoryMasks[d.usingGPU]
-
-	var ptr GPUPtr
-	for i, chunk := range mask.Chunks {
-		if !chunk.Occupied && chunk.ByteSize >= byteSize {
-			ptr = chunk.Ptr
-
-			allocatedChunk := &MemoryChunk{ptr, byteSize, true}
-			mask.InsertChunk(i, allocatedChunk)
-
-			pageSize := uint64(1 << d.PageSizeAsPowerOf2)
-			virtualAddress := uint64(ptr + 0x100000000)
-			pfn, valid := d.mmu.Translate(virtualAddress, d.currentPID, pageSize)
-
-			if !valid && pfn == 0 {
-				physicalFrameNumber := uint64(ptr) / pageSize
-				d.mmu.CreatePage(1, physicalFrameNumber, virtualAddress, pageSize)
-			}
-
-			chunk.Ptr += GPUPtr(byteSize)
-			chunk.ByteSize -= byteSize
-
-			return GPUPtr(virtualAddress)
-		}
+	if byteSize >= 8 {
+		return d.AllocateMemoryWithAlignment(byteSize, 8)
 	}
-
-	log.Fatalf("Cannot allocate memory")
-	return 0
+	return d.AllocateMemoryWithAlignment(byteSize, byteSize)
 }
 
 func (d *Driver) AllocateMemoryWithAlignment(
 	byteSize uint64,
 	alignment uint64,
 ) GPUPtr {
-	mask := d.memoryMasks[d.usingGPU]
+	ptr, ok := d.tryAllocateWithExistingChunks(byteSize, alignment)
+	if ok {
+		return ptr
+	}
 
-	//var ptr GPUPtr
-	for i, chunk := range mask.Chunks {
-		if !chunk.Occupied && chunk.ByteSize >= byteSize {
+	d.allocatePage()
 
-			ptr := (((uint64(chunk.Ptr) - 1) / alignment) + 1) * alignment
-			if chunk.ByteSize-(ptr-uint64(chunk.Ptr)) < byteSize {
-				continue
+	ptr, ok = d.tryAllocateWithExistingChunks(byteSize, alignment)
+	if ok {
+		return ptr
+	}
+
+	log.Panic("Something wrong happened!")
+	return 0
+}
+
+func (d *Driver) allocatePage() {
+	pageID := d.initialAddresses[d.usingGPU]
+	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
+		pageIDAllocated := false
+		for _, p := range d.allocatedPages[d.usingGPU] {
+			if p.PhysicalFrameNumber == pageID {
+				pageIDAllocated = true
+				break
 			}
+		}
 
-			if ptr != uint64(chunk.Ptr) {
-				firstChunk := &MemoryChunk{chunk.Ptr, ptr - uint64(chunk.Ptr), false}
-				mask.InsertChunk(i, firstChunk)
-
-				allocatedChunk := &MemoryChunk{GPUPtr(ptr), byteSize, true}
-				mask.InsertChunk(i+1, allocatedChunk)
-
-				chunk.ByteSize -= byteSize + (ptr - uint64(chunk.Ptr))
-				chunk.Ptr = GPUPtr(ptr + byteSize)
-
-			} else {
-				allocatedChunk := &MemoryChunk{GPUPtr(ptr), byteSize, true}
-				mask.InsertChunk(i, allocatedChunk)
-
-				chunk.Ptr += GPUPtr(byteSize)
-				chunk.ByteSize -= byteSize
-			}
-
-			return GPUPtr(ptr)
+		if !pageIDAllocated {
+			break
 		}
 	}
 
-	log.Fatalf("Cannot allocate memory")
-	return 0
+	virtualAddr := pageID + 0x100000000
+	d.mmu.CreatePage(d.currentPID,
+		pageID, virtualAddr, 1<<d.PageSizeAsPowerOf2)
+	page := vm.NewPage()
+	page.PhysicalFrameNumber = pageID
+	d.allocatedPages[d.usingGPU] = append(d.allocatedPages[d.usingGPU], page)
+
+	chunk := new(MemoryChunk)
+	chunk.Ptr = GPUPtr(virtualAddr)
+	chunk.ByteSize = 1 << d.PageSizeAsPowerOf2
+	chunk.Occupied = false
+	d.memoryMasks[d.usingGPU] = append(d.memoryMasks[d.usingGPU], chunk)
+}
+
+func (d *Driver) tryAllocateWithExistingChunks(
+	byteSize, alignment uint64,
+) (ptr GPUPtr, ok bool) {
+	chunks := d.memoryMasks[d.usingGPU]
+	for i, chunk := range chunks {
+		if chunk.Occupied {
+			continue
+		}
+
+		nextAlignment := ((uint64(chunk.Ptr)-1)/alignment + 1) * alignment
+		if nextAlignment <= uint64(chunk.Ptr)+chunk.ByteSize &&
+			nextAlignment+byteSize <= uint64(chunk.Ptr)+chunk.ByteSize {
+
+			ptr = GPUPtr(nextAlignment)
+			ok = true
+
+			d.splitChunk(i, ptr, byteSize)
+
+			return
+		}
+	}
+
+	return 0, false
+}
+
+func (d *Driver) splitChunk(chunkIndex int, ptr GPUPtr, byteSize uint64) {
+	chunks := d.memoryMasks[d.usingGPU]
+	chunk := chunks[chunkIndex]
+	newChunks := chunks[:chunkIndex]
+
+	if ptr != chunk.Ptr {
+		newChunk1 := new(MemoryChunk)
+		newChunk1.ByteSize = uint64(ptr - chunk.Ptr)
+		newChunk1.Ptr = ptr
+		newChunk1.Occupied = false
+		newChunks = append(newChunks, newChunk1)
+	}
+
+	newChunk2 := new(MemoryChunk)
+	newChunk2.ByteSize = byteSize
+	newChunk2.Ptr = ptr
+	newChunk2.Occupied = true
+	newChunks = append(newChunks, newChunk2)
+
+	if uint64(ptr)+byteSize < uint64(chunk.Ptr)+chunk.ByteSize {
+		newChunk3 := new(MemoryChunk)
+		newChunk3.Ptr = GPUPtr(uint64(ptr) + byteSize)
+		newChunk3.ByteSize = uint64(chunk.Ptr) + chunk.ByteSize -
+			(uint64(ptr) + byteSize)
+		newChunk3.Occupied = false
+		newChunks = append(newChunks, newChunk3)
+	}
+
+	newChunks = append(newChunks, chunks[chunkIndex+1:]...)
+	d.memoryMasks[d.usingGPU] = newChunks
 }
 
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
 // with the function AllocateMemory earlier. Error will be returned if the ptr
 // provided is invalid.
 func (d *Driver) FreeMemory(ptr GPUPtr) error {
-	mask := d.memoryMasks[d.usingGPU]
-	chunks := mask.Chunks
-	for i := 0; i < len(chunks); i++ {
-		if chunks[i].Ptr == ptr {
-			chunks[i].Occupied = false
-
-			if i != 0 && i != len(chunks)-1 && chunks[i-1].Occupied == false && chunks[i+1].Occupied == false {
-				chunks[i-1].ByteSize += chunks[i].ByteSize + chunks[i+1].ByteSize
-				mask.Chunks = append(chunks[:i], chunks[i+2:]...)
-				return nil
-			}
-
-			if i != 0 && chunks[i-1].Occupied == false {
-				chunks[i-1].ByteSize += chunks[i].ByteSize
-				mask.Chunks = append(chunks[:i], chunks[i+1:]...)
-				return nil
-			}
-
-			if i != len(chunks)-1 && chunks[i+1].Occupied == false {
-				chunks[i].ByteSize += chunks[i+1].ByteSize
-				mask.Chunks = append(chunks[:i+1], chunks[i+2:]...)
-				return nil
-			}
-			return nil
-		}
-	}
-
-	log.Fatalf("Invalid pointer")
+	//mask := d.memoryMasks[d.usingGPU]
+	//chunks := mask.Chunks
+	//for i := 0; i < len(chunks); i++ {
+	//	if chunks[i].Ptr == ptr {
+	//		chunks[i].Occupied = false
+	//
+	//		if i != 0 && i != len(chunks)-1 && chunks[i-1].Occupied == false && chunks[i+1].Occupied == false {
+	//			chunks[i-1].ByteSize += chunks[i].ByteSize + chunks[i+1].ByteSize
+	//			mask.Chunks = append(chunks[:i], chunks[i+2:]...)
+	//			return nil
+	//		}
+	//
+	//		if i != 0 && chunks[i-1].Occupied == false {
+	//			chunks[i-1].ByteSize += chunks[i].ByteSize
+	//			mask.Chunks = append(chunks[:i], chunks[i+1:]...)
+	//			return nil
+	//		}
+	//
+	//		if i != len(chunks)-1 && chunks[i+1].Occupied == false {
+	//			chunks[i].ByteSize += chunks[i+1].ByteSize
+	//			mask.Chunks = append(chunks[:i+1], chunks[i+2:]...)
+	//			return nil
+	//		}
+	//		return nil
+	//	}
+	//}
+	//
+	//log.Fatalf("Invalid pointer")
 	return nil
 }
 
@@ -182,9 +202,16 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}) {
 		log.Fatal(err)
 	}
 
+	physicalAddr, found :=
+		d.mmu.Translate(uint64(ptr), d.currentPID, 1<<d.PageSizeAsPowerOf2)
+	if !found {
+		log.Panic("failed to translate physical address")
+	}
+
 	gpu := d.gpus[d.usingGPU].ToDriver
 	start := d.engine.CurrentTime() + 1e-8
-	req := gcn3.NewMemCopyH2DReq(start, d.ToGPUs, gpu, buffer.Bytes(), uint64(ptr))
+	req := gcn3.NewMemCopyH2DReq(start, d.ToGPUs, gpu,
+		buffer.Bytes(), uint64(physicalAddr))
 	d.ToGPUs.Send(req)
 	d.engine.Run()
 	end := d.engine.CurrentTime()
@@ -195,9 +222,16 @@ func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}) {
 func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr) {
 	rawData := make([]byte, binary.Size(data))
 
+	physicalAddr, found :=
+		d.mmu.Translate(uint64(ptr), d.currentPID, 1<<d.PageSizeAsPowerOf2)
+	if !found {
+		log.Panic("failed to translate physical address")
+	}
+
 	gpu := d.gpus[d.usingGPU].ToDriver
 	start := d.engine.CurrentTime() + 1e-8
-	req := gcn3.NewMemCopyD2HReq(start, d.ToGPUs, gpu, uint64(ptr), rawData)
+	req := gcn3.NewMemCopyD2HReq(start, d.ToGPUs, gpu,
+		uint64(physicalAddr), rawData)
 	d.ToGPUs.Send(req)
 	d.engine.Run()
 	end := d.engine.CurrentTime()
