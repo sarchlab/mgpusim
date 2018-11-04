@@ -77,6 +77,7 @@ func (d *Driver) allocatePage() {
 		for _, p := range d.allocatedPages[d.usingGPU] {
 			if p.PhysicalFrameNumber == pageID {
 				pageIDAllocated = true
+				pageID += 1 << d.PageSizeAsPowerOf2
 				break
 			}
 		}
