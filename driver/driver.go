@@ -19,10 +19,13 @@ type Driver struct {
 	engine akita.Engine
 	freq   akita.Freq
 
-	gpus        []*gcn3.GPU
-	memoryMasks []*MemoryMask
-	mmu         vm.MMU
-	totalSize   uint64
+	gpus                 []*gcn3.GPU
+	allocatedPages       [][]*vm.Page
+	initialAddresses     []uint64
+	storageSizes         []uint64
+	memoryMasks          [][]*MemoryChunk
+	totalStorageByteSize uint64
+	mmu                  vm.MMU
 
 	usingGPU           int
 	currentPID         vm.PID
@@ -57,11 +60,11 @@ func (d *Driver) handleLaunchKernelReq(req *gcn3.LaunchKernelReq) error {
 	return nil
 }
 
+// RegisterGPU tells the driver about the existence of a GPU
 func (d *Driver) RegisterGPU(gpu *gcn3.GPU) {
 	d.gpus = append(d.gpus, gpu)
 
-	d.registerStorage(gpu.DRAMStorage, GPUPtr(d.totalSize), gpu.DRAMStorage.Capacity)
-	d.totalSize += gpu.DRAMStorage.Capacity
+	d.registerStorage(gpu.DRAMStorage)
 }
 
 func (d *Driver) SelectGPU(gpuID int) {
@@ -85,7 +88,6 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver.engine = engine
 	driver.mmu = mmu
 	driver.freq = 1 * akita.GHz
-	driver.memoryMasks = make([]*MemoryMask, 0)
 	driver.PageSizeAsPowerOf2 = 12
 
 	driver.currentPID = 1
