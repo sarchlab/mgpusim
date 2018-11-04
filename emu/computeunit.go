@@ -276,7 +276,7 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 	for {
 		instBuf, err := cu.GlobalMemStorage.Read(wf.PC, 8)
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 
 		inst, err := cu.decoder.Decode(instBuf)

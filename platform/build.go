@@ -1,11 +1,15 @@
 package platform
 
 import (
+	"log"
+	"os"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
 )
 
 var UseParallelEngine bool
@@ -27,9 +31,10 @@ func BuildEmuPlatform() (
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	gpuDriver := driver.NewDriver(engine)
+	mmu := vm.NewMMU("MMU", engine)
+	gpuDriver := driver.NewDriver(engine, mmu)
 	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
@@ -66,7 +71,8 @@ func BuildR9NanoPlatform() (
 	}
 	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	gpuDriver := driver.NewDriver(engine)
+	mmu := vm.NewMMU("MMU", engine)
+	gpuDriver := driver.NewDriver(engine, mmu)
 	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
