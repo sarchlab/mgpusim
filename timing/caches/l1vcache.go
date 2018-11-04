@@ -647,7 +647,6 @@ func (c *L1VCache) traceMem(
 	data []byte,
 ) {
 	traceInfo := new(mem.TraceInfo)
-	traceInfo.Req = req
 	traceInfo.Where = c.Name()
 	traceInfo.When = time
 	traceInfo.What = what

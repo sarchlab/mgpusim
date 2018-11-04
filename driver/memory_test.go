@@ -19,26 +19,27 @@ var _ = Describe("Driver", func() {
 
 	BeforeEach(func() {
 		storage = mem.NewStorage(4 * mem.GB)
-		driver = NewDriver(nil)
+		mmu = vm.NewMMU("mmu", engine)
+		driver = NewDriver(engine, mmu)
 		driver.registerStorage(storage, 0, 4*mem.GB)
 	})
 
 	It("should allocate memory", func() {
 		ptr := driver.AllocateMemory(8)
-		Expect(ptr).To(Equal(GPUPtr(0)))
+		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 
 		ptr = driver.AllocateMemory(24)
-		Expect(ptr).To(Equal(GPUPtr(8)))
+		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
 	})
 
 	It("should allocate memory with alignment", func() {
 		driver.AllocateMemory(8)
 
 		ptr := driver.AllocateMemoryWithAlignment(8, 64)
-		Expect(ptr).To(Equal(GPUPtr(64)))
+		Expect(ptr).To(Equal(GPUPtr(0x100000040)))
 
 		ptr = driver.AllocateMemory(8)
-		Expect(ptr).To(Equal(GPUPtr(8)))
+		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
 	})
 
 	It("should free memory", func() {

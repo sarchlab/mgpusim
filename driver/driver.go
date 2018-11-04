@@ -3,6 +3,8 @@ package driver
 import (
 	"log"
 
+	"gitlab.com/akita/mem/vm"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 )
@@ -19,8 +21,12 @@ type Driver struct {
 
 	gpus        []*gcn3.GPU
 	memoryMasks []*MemoryMask
+	mmu         vm.MMU
 	totalSize   uint64
-	usingGPU    int
+
+	usingGPU           int
+	currentPID         vm.PID
+	PageSizeAsPowerOf2 uint64
 
 	ToGPUs *akita.Port
 }
@@ -65,14 +71,24 @@ func (d *Driver) SelectGPU(gpuID int) {
 	d.usingGPU = gpuID
 }
 
+// ChangePID allows the driver to work on another PID in the following API
+// calls.
+func (d *Driver) ChangePID(pid vm.PID) {
+	d.currentPID = pid
+}
+
 // NewDriver creates a new driver
-func NewDriver(engine akita.Engine) *Driver {
+func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver := new(Driver)
 	driver.ComponentBase = akita.NewComponentBase("driver")
 
 	driver.engine = engine
+	driver.mmu = mmu
 	driver.freq = 1 * akita.GHz
 	driver.memoryMasks = make([]*MemoryMask, 0)
+	driver.PageSizeAsPowerOf2 = 12
+
+	driver.currentPID = 1
 
 	driver.ToGPUs = akita.NewPort(driver)
 
