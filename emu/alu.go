@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"gitlab.com/akita/mem/vm"
-
 	"encoding/binary"
 
 	"gitlab.com/akita/gcn3/insts"
@@ -19,19 +17,14 @@ type ALU interface {
 	LDS() []byte
 }
 
-type StorageAccessor interface {
-	Read(pid vm.PID, vAddr, byteSize uint64) []byte
-	Write(pid vm.PID, vAddr uint64, data []byte)
-}
-
-// ALU is where the instructions get executed.
+// ALUImpl is where the instructions get executed.
 type ALUImpl struct {
-	storageAccessor StorageAccessor
+	storageAccessor *storageAccessor
 	lds             []byte
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
-func NewALUImpl(storageAccessor StorageAccessor) *ALUImpl {
+func NewALU(storageAccessor *storageAccessor) *ALUImpl {
 	alu := new(ALUImpl)
 	alu.storageAccessor = storageAccessor
 	return alu
@@ -351,9 +344,9 @@ func (u *ALUImpl) dumpScratchpadAsSop2(state InstEmuState, byteCount int) string
 
 	output := fmt.Sprintf(
 		`
-			SRC0: 0x%[1]x(%[1]d), 
-			SRC1: 0x%[2]x(%[2]d), 
-			SCC: 0x%[3]x(%[3]d), 
+			SRC0: 0x%[1]x(%[1]d),
+			SRC1: 0x%[2]x(%[2]d),
+			SCC: 0x%[3]x(%[3]d),
 			DST: 0x%[4]x(%[4]d)\n",
 		`,
 		layout.SRC0, layout.SRC1, layout.SCC, layout.DST)

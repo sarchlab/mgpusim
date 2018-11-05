@@ -3,6 +3,8 @@ package timing
 import (
 	"sync"
 
+	"gitlab.com/akita/mem/vm"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
@@ -32,6 +34,7 @@ type Wavefront struct {
 	CodeObject    *insts.HsaCo
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
+	pid           vm.PID
 
 	State          WfState
 	inst           *Inst            // The instruction that is being executed
@@ -87,4 +90,8 @@ func (wf *Wavefront) ManagedInst() *Inst {
 // Scratchpad returns the scratchpad of the wavefront
 func (wf *Wavefront) Scratchpad() emu.Scratchpad {
 	return wf.scratchpad
+}
+
+func (wf *Wavefront) PID() vm.PID {
+	return wf.pid
 }
