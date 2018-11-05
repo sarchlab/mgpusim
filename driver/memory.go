@@ -82,15 +82,18 @@ func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
 
 	pageID := d.initialAddresses[d.usingGPU]
 	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
-		free := false
+		free := true
 		for i := uint64(0); i < numPages; i++ {
 			if d.isPageAllocated(pageID + i*pageSize) {
 				free = false
+				break
 			}
 		}
 
 		if !free {
 			pageID += pageSize
+		} else {
+			break
 		}
 	}
 
@@ -98,9 +101,16 @@ func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
 		page := vm.NewPage()
 		page.PhysicalFrameNumber = pageID>>d.PageSizeAsPowerOf2 + i
 		d.allocatedPages[d.usingGPU] = append(d.allocatedPages[d.usingGPU], page)
+
+		virtualAddr := pageID + 0x100000000
+
+		d.mmu.CreatePage(d.currentPID,
+			pageID>>d.PageSizeAsPowerOf2+i,
+			virtualAddr+i*pageSize,
+			1<<d.PageSizeAsPowerOf2)
 	}
 
-	return GPUPtr(pageID)
+	return GPUPtr(pageID + 0x100000000)
 }
 
 func (d *Driver) allocatePage() {
