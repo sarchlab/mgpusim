@@ -99,7 +99,11 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
-	for i := 0; i < 64; i++ {
+	for i := uint(0); i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
 		buf[1] = 0
 		buf[2] = 0
@@ -112,7 +116,11 @@ func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
 func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
-	for i := 0; i < 64; i++ {
+	for i := uint(0); i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
 
 		buf[2] = 0
@@ -125,7 +133,11 @@ func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
 func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
-	for i := 0; i < 64; i++ {
+	for i := uint(0); i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
 		sp.DST[i*4] = insts.BytesToUint32(buf)
 	}
@@ -134,7 +146,11 @@ func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
-	for i := 0; i < 64; i++ {
+	for i := uint(0); i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(16))
 
 		sp.DST[i*4] = insts.BytesToUint32(buf[0:4])
@@ -148,7 +164,11 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
-	for i := 0; i < 64; i++ {
+	for i := uint(0); i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		u.storageAccessor.Write(pid, sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
 	}
 }
@@ -156,7 +176,11 @@ func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
-	for i := 0; i < 64; i++ {
+	for i := uint(0); i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
 		buf := make([]byte, 16)
 		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
 		copy(buf[4:8], insts.Uint32ToBytes(sp.DATA[(i*4)+1]))
