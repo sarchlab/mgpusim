@@ -50,12 +50,14 @@ func (d *Driver) AllocateMemory(
 	return d.AllocateMemoryWithAlignment(byteSize, byteSize)
 }
 
+// AllocateMemoryWithAlignment allocates a chunk of memory of size byteSize.
+// The return address must be a multiple of alignment.
 func (d *Driver) AllocateMemoryWithAlignment(
 	byteSize uint64,
 	alignment uint64,
 ) GPUPtr {
 	if byteSize >= 4096 {
-		panic("allocation greater than a page needs implementation")
+		return d.allocateLarge(byteSize)
 	}
 
 	ptr, ok := d.tryAllocateWithExistingChunks(byteSize, alignment)
@@ -74,19 +76,39 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	return 0
 }
 
-func (d *Driver) allocatePage() {
+func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
+	pageSize := uint64(1 << d.PageSizeAsPowerOf2)
+	numPages := (byteSize-1)/pageSize + 1
+
 	pageID := d.initialAddresses[d.usingGPU]
 	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
-		pageIDAllocated := false
-		for _, p := range d.allocatedPages[d.usingGPU] {
-			if p.PhysicalFrameNumber<<d.PageSizeAsPowerOf2 == pageID {
-				pageIDAllocated = true
-				pageID += 1 << d.PageSizeAsPowerOf2
-				break
+		free := false
+		for i := uint64(0); i < numPages; i++ {
+			if d.isPageAllocated(pageID + i*pageSize) {
+				free = false
 			}
 		}
 
-		if !pageIDAllocated {
+		if !free {
+			pageID += pageSize
+		}
+	}
+
+	for i := uint64(0); i < numPages; i++ {
+		page := vm.NewPage()
+		page.PhysicalFrameNumber = pageID>>d.PageSizeAsPowerOf2 + i
+		d.allocatedPages[d.usingGPU] = append(d.allocatedPages[d.usingGPU], page)
+	}
+
+	return GPUPtr(pageID)
+}
+
+func (d *Driver) allocatePage() {
+	pageID := d.initialAddresses[d.usingGPU]
+	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
+		if d.isPageAllocated(pageID) {
+			pageID += 1 << d.PageSizeAsPowerOf2
+		} else {
 			break
 		}
 	}
@@ -103,6 +125,15 @@ func (d *Driver) allocatePage() {
 	chunk.ByteSize = 1 << d.PageSizeAsPowerOf2
 	chunk.Occupied = false
 	d.memoryMasks[d.usingGPU] = append(d.memoryMasks[d.usingGPU], chunk)
+}
+
+func (d *Driver) isPageAllocated(pAddr uint64) bool {
+	for _, p := range d.allocatedPages[d.usingGPU] {
+		if p.PhysicalFrameNumber<<d.PageSizeAsPowerOf2 == pAddr {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Driver) tryAllocateWithExistingChunks(
