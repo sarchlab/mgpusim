@@ -47,6 +47,12 @@ var _ = Describe("Driver", func() {
 		Expect(driver.memoryMasks[0]).To(HaveLen(4))
 	})
 
+	It("should allocate memory larger than a page", func() {
+		ptr := driver.AllocateMemory(8196)
+		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
+		Expect(driver.allocatedPages[0]).To(HaveLen(3))
+	})
+
 	It("should free memory", func() {
 		//ptr := driver.AllocateMemory(4)
 		//ptr2 := driver.AllocateMemory(16)

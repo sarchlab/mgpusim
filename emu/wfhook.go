@@ -36,9 +36,9 @@ func (h *WfHook) Func(item interface{}, domain akita.Hookable, info interface{})
 	wf := item.(*Wavefront)
 
 	// For debugging
-	if wf.FirstWiFlatID != 0 {
-		return
-	}
+	//if wf.FirstWiFlatID != 0 {
+	//	return
+	//}
 
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
