@@ -14,7 +14,7 @@ type mockInstState struct {
 }
 
 func (s *mockInstState) PID() vm.PID {
-	return 0
+	return 1
 }
 
 func (s *mockInstState) Inst() *insts.Inst {
@@ -28,17 +28,19 @@ func (s *mockInstState) Scratchpad() Scratchpad {
 var _ = Describe("ALU", func() {
 
 	var (
-		alu     *ALUImpl
-		state   *mockInstState
-		cu      *ComputeUnit
-		storage *mem.Storage
+		alu       *ALUImpl
+		state     *mockInstState
+		mmu       *vm.MMUImpl
+		storage   *mem.Storage
+		sAccessor *storageAccessor
 	)
 
 	BeforeEach(func() {
+		mmu = vm.NewMMU("mmu", nil)
+		mmu.CreatePage(1, 0, 0, 4096)
 		storage = mem.NewStorage(1 * mem.GB)
-		cu = NewComputeUnit("cu", nil, nil,
-			nil, nil, nil)
-		alu = NewALUImpl(cu)
+		sAccessor = newStorageAccessor(storage, mmu)
+		alu = NewALUImpl(sAccessor)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
@@ -63,8 +65,8 @@ var _ = Describe("ALU", func() {
 			Expect(layout.DST[i*4+2]).To(Equal(uint32(0)))
 			Expect(layout.DST[i*4+3]).To(Equal(uint32(0)))
 		}
-
 	})
+
 	It("should run FLAT_LOAD_USHORT", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -202,6 +204,7 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[0]).To(Equal(uint32(217)))
 		Expect(layout.DST[1]).To(Equal(uint32(218)))
 	})
+
 	It("should run S_LOAD_DWORDX4", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM

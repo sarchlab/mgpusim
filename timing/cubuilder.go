@@ -49,7 +49,7 @@ func (b *Builder) Build() *ComputeUnit {
 	cu.WGMapper = NewWGMapper(cu, 4)
 	cu.WfDispatcher = NewWfDispatcher(cu)
 
-	b.ALU = emu.NewALUImpl(nil)
+	b.ALU = emu.NewALU(nil)
 	b.ScratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {

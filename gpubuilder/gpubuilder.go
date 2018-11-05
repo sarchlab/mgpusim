@@ -75,14 +75,10 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	disassembler := insts.NewDisassembler()
 
 	for i := 0; i < 4; i++ {
-		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
-		alu := emu.NewALUImpl(gpuMem.Storage)
-		computeUnit := emu.NewComputeUnit(
+		computeUnit := emu.BuildComputeUnit(
 			fmt.Sprintf("%s.CU%d", b.GPUName, i),
-			b.engine, disassembler, scratchpadPreparer, alu,
-			b.MMU)
-		computeUnit.Freq = b.freq
-		computeUnit.GlobalMemStorage = gpuMem.Storage
+			b.engine, disassembler, b.MMU, gpuMem.Storage)
+
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
 

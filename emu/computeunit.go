@@ -5,8 +5,6 @@ import (
 	"math"
 	"reflect"
 
-	"gitlab.com/akita/mem/vm"
-
 	"encoding/binary"
 
 	"gitlab.com/akita/akita"
@@ -14,6 +12,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
 )
 
 // A ComputeUnit in the emu package is a component that omit the pipeline design
@@ -28,7 +27,7 @@ type ComputeUnit struct {
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
-	mmu                vm.MMU
+	storageAccessor    *storageAccessor
 	Freq               akita.Freq
 
 	nextTick    akita.VTimeInSec
@@ -69,7 +68,6 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 }
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
-
 	req.Ok = true
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.Time())
@@ -278,11 +276,7 @@ func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
 
 func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 	for {
-		instBuf := cu.Read(wf.pid, wf.PC, 8)
-		//instBuf, err := cu.GlobalMemStorage.Read(wf.PC, 8)
-		//if err != nil {
-		//	log.Panic(err)
-		//}
+		instBuf := cu.storageAccessor.Read(wf.pid, wf.PC, 8)
 
 		inst, _ := cu.decoder.Decode(instBuf)
 		wf.inst = inst
@@ -339,34 +333,6 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	return nil
 }
 
-func (cu *ComputeUnit) Read(pid vm.PID, addr, byteSize uint64) []byte {
-	pageSize := uint64(4096)
-	phyAddr, found := cu.mmu.Translate(addr, pid, pageSize)
-	if !found {
-		log.Panic("page not found in page table")
-	}
-
-	data, err := cu.GlobalMemStorage.Read(phyAddr, byteSize)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	return data
-}
-
-func (cu *ComputeUnit) Write(pid vm.PID, addr uint64, data []byte) {
-	pageSize := uint64(4096)
-	phyAddr, found := cu.mmu.Translate(addr, pid, pageSize)
-	if !found {
-		log.Panic("page not found in page table")
-	}
-
-	err := cu.GlobalMemStorage.Write(phyAddr, data)
-	if err != nil {
-		log.Panic(err)
-	}
-}
-
 // NewComputeUnit creates a new ComputeUnit with the given name
 func NewComputeUnit(
 	name string,
@@ -374,21 +340,38 @@ func NewComputeUnit(
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
-	mmu vm.MMU,
+	sAccessor *storageAccessor,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = akita.NewComponentBase(name)
 
 	cu.engine = engine
+	cu.Freq = 1 * akita.GHz
 	cu.decoder = decoder
 	cu.scratchpadPreparer = scratchpadPreparer
 	cu.alu = alu
-	cu.mmu = mmu
+	cu.storageAccessor = sAccessor
 
 	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
 	cu.ToDispatcher = akita.NewPort(cu)
 
+	return cu
+}
+
+// BuildComputeUnit build a compute unit
+func BuildComputeUnit(
+	name string,
+	engine akita.Engine,
+	decoder Decoder,
+	mmu vm.MMU,
+	storage *mem.Storage,
+) *ComputeUnit {
+	scratchpadPreparer := NewScratchpadPreparerImpl()
+	sAccessor := newStorageAccessor(storage, mmu)
+	alu := NewALU(sAccessor)
+	cu := NewComputeUnit(name, engine, decoder,
+		scratchpadPreparer, alu, sAccessor)
 	return cu
 }
