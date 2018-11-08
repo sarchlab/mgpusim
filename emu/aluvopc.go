@@ -28,6 +28,22 @@ func (u *ALUImpl) runVOPC(state InstEmuState) {
 		u.runVCmpNeU32(state)
 	case 0xCE: // v_cmp_ge_u32
 		u.runVCmpGeU32(state)
+	case 0xE8:
+		u.runVCmpFU64(state)
+	case 0xE9:
+		u.runVCmpLtU64(state)
+	case 0xEA:
+		u.runVCmpEqU64(state)
+	case 0xEB:
+		u.runVCmpLeU64(state)
+	case 0xEC:
+		u.runVCmpGtU64(state)
+	case 0xED:
+		u.runVCmpLgU64(state)
+	case 0xEE:
+		u.runVCmpGeU64(state)
+	case 0xEF:
+		u.runVCmpTruU64(state)
 	default:
 		log.Panicf("Opcode 0x%02X for VOPC format is not implemented", inst.Opcode)
 	}
@@ -180,6 +196,106 @@ func (u *ALUImpl) runVCmpGeU32(state InstEmuState) {
 			if sp.SRC0[i] >= sp.SRC1[i] {
 				sp.VCC = sp.VCC | (1 << i)
 			}
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpFU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			sp.VCC = sp.VCC & ^(uint64(1) << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLtU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			if sp.SRC0[i] < sp.SRC1[i] {
+				sp.VCC = sp.VCC | (uint64(1) << i)
+			}
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpEqU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			if sp.SRC0[i] == sp.SRC1[i] {
+				sp.VCC = sp.VCC | (uint64(1) << i)
+			}
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLeU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			if sp.SRC0[i] <= sp.SRC1[i] {
+				sp.VCC = sp.VCC | (uint64(1) << i)
+			}
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpGtU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			if sp.SRC0[i] > sp.SRC1[i] {
+				sp.VCC = sp.VCC | (uint64(1) << i)
+			}
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLgU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			if sp.SRC0[i] != sp.SRC1[i] {
+				sp.VCC = sp.VCC | (uint64(1) << i)
+			}
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpGeU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			if sp.SRC0[i] >= sp.SRC1[i] {
+				sp.VCC = sp.VCC | (uint64(1) << i)
+			}
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpTruU64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if u.laneMasked(sp.EXEC, i) {
+			sp.VCC = sp.VCC | (uint64(1) << i)
 		}
 	}
 }
