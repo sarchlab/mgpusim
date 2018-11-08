@@ -22,6 +22,10 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVMULF32(state)
 	case 8:
 		u.runVMULU32U24(state)
+	case 10:
+		u.runVMINF32(state)
+	case 11:
+		u.runVMAXF32(state)
 	case 14:
 		u.runVMINU32(state)
 	case 15:
@@ -155,7 +159,6 @@ func (u *ALUImpl) runVMULF32(state InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -171,6 +174,54 @@ func (u *ALUImpl) runVMULU32U24(state InstEmuState) {
 		src1 := (uint32(sp.SRC1[i]) << 8) >> 8
 		dst := src0 * src1
 		sp.DST[i] = uint64(dst)
+	}
+}
+
+func (u *ALUImpl) runVMINF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	inst := state.Inst()
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+
+			src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+			src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+			dst := src0
+			if src1 < src0 {
+				dst = src1
+			}
+
+			sp.DST[i] = uint64(math.Float32bits(dst))
+		}
+	} else {
+		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
+	}
+}
+
+func (u *ALUImpl) runVMAXF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	inst := state.Inst()
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+
+			src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+			src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+			dst := src0
+			if src1 > src0 {
+				dst = src1
+			}
+
+			sp.DST[i] = uint64(math.Float32bits(dst))
+		}
+	} else {
+		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
 	}
 }
 
