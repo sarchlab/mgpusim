@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/matrixtranspose"
+	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/matrixtranspose"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"
