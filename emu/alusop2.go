@@ -142,9 +142,10 @@ func (u *ALUImpl) runSSUBBU32(state InstEmuState) {
 
 	sp.DST = sp.SRC0 - sp.SRC1 - uint64(sp.SCC)
 
-	sp.SCC = 0
 	if sp.SRC0 < sp.SRC1+uint64(sp.SCC) {
 		sp.SCC = 1
+	} else {
+		sp.SCC = 0
 	}
 }
 
