@@ -32,7 +32,7 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 		u.runSANDB64(state)
 	case 15:
 		u.runSORB64(state)
-	case 17:
+	case 16, 17:
 		u.runSXORB64(state)
 	case 19:
 		u.runSANDN2B64(state)

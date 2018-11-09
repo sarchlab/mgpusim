@@ -32,7 +32,7 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVCmpLtU64VOP3a(state)
 	case 256:
 		u.runVCNDMASKB32VOP3a(state)
-	case 488:
+	case 451, 488:
 		u.runVMADU64U32(state)
 	case 645:
 		u.runVMULLOU32(state)

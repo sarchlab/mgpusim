@@ -215,4 +215,18 @@ var _ = Describe("ALU", func() {
 
 		Expect(layout.SCC).To(Equal(byte(1)))
 	})
+
+	It("should run S_CMP_LT_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOPC
+		state.inst.Opcode = 10
+
+		layout := state.Scratchpad().AsSOPC()
+		layout.SRC0 = 1
+		layout.SRC1 = 2
+
+		alu.Run(state)
+
+		Expect(layout.SCC).To(Equal(byte(1)))
+	})
 })
