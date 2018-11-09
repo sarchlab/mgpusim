@@ -569,6 +569,26 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(1)))
 	})
 
+	It("should run V_SUBB_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 29
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 10
+		sp.SRC1[0] = 5
+		sp.SRC0[1] = 5
+		sp.SRC1[1] = 10
+		sp.VCC = uint64(3)
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(uint32(sp.DST[0])).To(Equal(uint32(4)))
+		Expect(uint32(sp.DST[1])).To(Equal(uint32(^uint32(0) - 5)))
+		Expect(sp.VCC).To(Equal(uint64(2)))
+	})
+
 	It("should run V_SUBBREV_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP2

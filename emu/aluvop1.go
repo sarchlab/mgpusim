@@ -18,6 +18,8 @@ func (u *ALUImpl) runVOP1(state InstEmuState) {
 		u.runVCVTU32F32(state)
 	case 8:
 		u.runVCVTI32F32(state)
+	case 28:
+		u.runTRUNKF32(state)
 	case 34, 35:
 		u.runVRCPIFLAGF32(state)
 	default:
@@ -113,6 +115,19 @@ func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
 		}
 
 		sp.DST[i] = dst
+	}
+}
+
+func (u *ALUImpl) runTRUNKF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+	for i := uint(0); i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src := math.Float32frombits(uint32(sp.SRC0[i]))
+		dst := float32(math.Trunc(float64(src)))
+		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }
 

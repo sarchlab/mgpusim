@@ -52,6 +52,8 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVSUBREVI32(state)
 	case 28:
 		u.runVADDCU32(state)
+	case 29:
+		u.runVSUBBU32(state)
 	case 30:
 		u.runVSUBBREVU32(state)
 	default:
@@ -551,6 +553,32 @@ func (u *ALUImpl) runVADDCU32(state InstEmuState) {
 			}
 
 			sp.DST[i] = sp.SRC0[i] + sp.SRC1[i] + carry
+		}
+		sp.VCC = newVCC
+	} else {
+		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
+
+	}
+}
+
+func (u *ALUImpl) runVSUBBU32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	newVCC := uint64(0)
+	inst := state.Inst()
+	var i uint
+
+	if inst.IsSdwa == false {
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+
+			borrow := (sp.VCC & (1 << i)) >> i
+			sp.DST[i] = sp.SRC0[i] - sp.SRC1[i] - borrow
+
+			if sp.SRC0[i] < sp.SRC1[i]+borrow {
+				newVCC = newVCC | (1 << i)
+			}
 		}
 		sp.VCC = newVCC
 	} else {
