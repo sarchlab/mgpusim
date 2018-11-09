@@ -28,6 +28,8 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVCmpLgU32VOP3a(state)
 	case 206: // 0xCE
 		u.runVCmpGeU32VOP3a(state)
+	case 233: // 0xE9
+		u.runVCmpLtU64VOP3a(state)
 	case 256:
 		u.runVCNDMASKB32VOP3a(state)
 	case 645:
@@ -229,6 +231,24 @@ func (u *ALUImpl) runVCmpGeU32VOP3a(state InstEmuState) {
 		src1 := sp.SRC1[i]
 
 		if src0 >= src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLtU64VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := sp.SRC0[i]
+		src1 := sp.SRC1[i]
+
+		if src0 < src1 {
 			sp.DST[0] |= (1 << i)
 		}
 	}

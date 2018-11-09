@@ -83,7 +83,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
 
-		if b.EnableISADebug && i == 0 {
+		if b.EnableISADebug {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", computeUnit.Name()))
 			if err != nil {
 				log.Fatal(err.Error())

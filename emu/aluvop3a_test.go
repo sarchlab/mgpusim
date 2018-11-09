@@ -172,6 +172,25 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(5)))
 	})
 
+	It("should run V_CMP_LT_U64 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 233
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = 1
+		sp.SRC1[0] = 1
+		sp.SRC0[1] = 1
+		sp.SRC1[1] = 2
+		sp.SRC0[2] = 1
+		sp.SRC1[2] = 0
+		sp.EXEC = 0x7
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(2)))
+	})
+
 	It("should run V_CNDMASK_B32 VOP3a", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP3a
