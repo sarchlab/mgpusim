@@ -1008,7 +1008,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"ds_cmpst_rtn_f64", 113, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_min_rtn_f64", 114, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_max_rtn_f64", 115, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
-	d.addInstType(&InstType{"ds_read_b64", 118, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
+	d.addInstType(&InstType{"ds_read_b64", 118, FormatTable[DS], 0, ExeUnitLDS, 64, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_read2_b64", 119, FormatTable[DS], 0, ExeUnitLDS, 128, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_read2st64_b64", 120, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_condxchg32_rtn_b64", 126, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
