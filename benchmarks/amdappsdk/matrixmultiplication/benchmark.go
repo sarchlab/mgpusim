@@ -31,14 +31,14 @@ func (b *Benchmark) initMem() {
 	b.MatrixA = NewMatrix(b.X, b.Y)
 	for i := uint32(0); i < b.X; i++ {
 		for j := uint32(0); j < b.Y; j++ {
-			b.MatrixA.Data[j*b.X+i] = rand.Float32()
+			b.MatrixA.Data[j*b.X+i] = 1.0
 		}
 	}
 
 	b.MatrixB = NewMatrix(b.Z, b.X)
 	for i := uint32(0); i < b.Z; i++ {
-		for j := uint32(0); j < b.Y; j++ {
-			b.MatrixB.Data[j*b.Z+i] = rand.Float32()
+		for j := uint32(0); j < b.X; j++ {
+			b.MatrixB.Data[j*b.Z+i] = 1.0
 		}
 	}
 }

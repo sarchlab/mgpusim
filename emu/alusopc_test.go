@@ -104,6 +104,20 @@ var _ = Describe("ALU", func() {
 		Expect(layout.SCC).To(Equal(byte(0)))
 	})
 
+	It("should run S_CMP_GE_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOPC
+		state.inst.Opcode = 3
+
+		layout := state.Scratchpad().AsSOPC()
+		layout.SRC0 = 1
+		layout.SRC1 = 1
+
+		alu.Run(state)
+
+		Expect(layout.SCC).To(Equal(byte(1)))
+	})
+
 	It("should run S_CMP_LT_I32 when condition holds", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOPC
@@ -186,5 +200,19 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(layout.SCC).To(Equal(byte(0)))
+	})
+
+	It("should run S_CMP_GT_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOPC
+		state.inst.Opcode = 8
+
+		layout := state.Scratchpad().AsSOPC()
+		layout.SRC0 = 2
+		layout.SRC1 = 1
+
+		alu.Run(state)
+
+		Expect(layout.SCC).To(Equal(byte(1)))
 	})
 })

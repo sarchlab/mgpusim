@@ -54,12 +54,12 @@ func launchKernel(gA driver.GPUPtr, gB driver.GPUPtr, gC driver.GPUPtr, mA *Matr
 	kernArgs := &KernelArgs{
 		gA, gB, gC,
 		mA.Width,
-		64 * 64 * 4,
+		32 * 32 * 4,
 		0, 0, 0,
 	}
 	gpuDriver.LaunchKernel(kernel,
 		[3]uint32{mC.Width / 4, mC.Height / 4, 1},
-		[3]uint16{16, 16, 1},
+		[3]uint16{8, 8, 1},
 		kernArgs,
 	)
 }
