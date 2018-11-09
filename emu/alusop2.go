@@ -24,6 +24,8 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 		u.runSSUBBU32(state)
 	case 7:
 		u.runSMINU32(state)
+	case 9:
+		u.runSMAXU32(state)
 	case 12:
 		u.runSANDB32(state)
 	case 13:
@@ -150,6 +152,17 @@ func (u *ALUImpl) runSMINU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	if sp.SRC0 < sp.SRC1 {
+		sp.DST = sp.SRC0
+		sp.SCC = 1
+	} else {
+		sp.DST = sp.SRC1
+	}
+}
+
+func (u *ALUImpl) runSMAXU32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	if sp.SRC0 > sp.SRC1 {
 		sp.DST = sp.SRC0
 		sp.SCC = 1
 	} else {
@@ -297,4 +310,8 @@ func (u *ALUImpl) runSMULI32(state InstEmuState) {
 	dst := src0 * src1
 
 	sp.DST = uint64(int32ToBits(dst))
+
+	if src0 != 0 && dst/src0 != src1 {
+		sp.SCC = 1
+	}
 }
