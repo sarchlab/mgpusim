@@ -18,7 +18,7 @@ func (u *ALUImpl) runVOP1(state InstEmuState) {
 		u.runVCVTU32F32(state)
 	case 8:
 		u.runVCVTI32F32(state)
-	case 35:
+	case 34, 35:
 		u.runVRCPIFLAGF32(state)
 	default:
 		log.Panicf("Opcode %d for VOP1 format is not implemented", inst.Opcode)
@@ -114,7 +114,6 @@ func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
 
 		sp.DST[i] = dst
 	}
-
 }
 
 func (u *ALUImpl) runVRCPIFLAGF32(state InstEmuState) {
