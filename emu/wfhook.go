@@ -42,11 +42,12 @@ func (h *WfHook) Func(item interface{}, domain akita.Hookable, info interface{})
 	// 	return
 	// }
 
-	if h.prevWf == nil || h.prevWf.FirstWiFlatID != wf.FirstWiFlatID {
-		h.logWholeWf(wf)
-	} else {
-		h.logDiffWf(wf)
-	}
+	h.logWholeWf(wf)
+	// if h.prevWf == nil || h.prevWf.FirstWiFlatID != wf.FirstWiFlatID {
+	// 	h.logWholeWf(wf)
+	// } else {
+	// 	h.logDiffWf(wf)
+	// }
 
 	h.stubWf(wf)
 }
@@ -68,7 +69,7 @@ func (h *WfHook) logWholeWf(wf *Wavefront) {
 
 	output += "\tVGPRs: \n"
 	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
-		output += fmt.Sprintf("\t\t%d: ", i)
+		output += fmt.Sprintf("\t\tv%d: ", i)
 		for laneID := 0; laneID < 64; laneID++ {
 			regValue := insts.BytesToUint32(wf.ReadReg(insts.VReg(i), 1, laneID))
 			output += fmt.Sprintf("0x%08x ", regValue)
@@ -118,7 +119,7 @@ func (h *WfHook) logDiffWf(wf *Wavefront) {
 		}
 
 		if updated {
-			output += fmt.Sprintf("\t\t%d: ", i)
+			output += fmt.Sprintf("\t\tv%d: ", i)
 			for laneID := 0; laneID < 64; laneID++ {
 				regValue := insts.BytesToUint32(wf.ReadReg(insts.VReg(i), 1, laneID))
 				output += fmt.Sprintf("0x%08x ", regValue)

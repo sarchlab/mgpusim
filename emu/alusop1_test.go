@@ -51,11 +51,11 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 4
 
 		sp := state.Scratchpad().AsSOP1()
-		sp.SRC0 = 0
+		sp.SRC0 = 0xff
 
 		alu.Run(state)
 
-		Expect(sp.DST).To(Equal(uint64(0x1)))
+		Expect(sp.DST).To(Equal(uint64(0xffffffffffffff00)))
 		Expect(sp.SCC).To(Equal(uint8(0x1)))
 	})
 
