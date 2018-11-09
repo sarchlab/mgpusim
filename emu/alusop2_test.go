@@ -152,6 +152,38 @@ var _ = Describe("ALU", func() {
 		Expect(state.scratchpad[24]).To(Equal(byte(1)))
 	})
 
+	It("should run S_SUBB_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 5
+		sp := state.Scratchpad().AsSOP2()
+
+		sp.SRC0 = 10
+		sp.SRC1 = 5
+		sp.SCC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(4)))
+		Expect(sp.SCC).To(Equal(uint8(0)))
+	})
+
+	It("should run S_SUBB_U32 with carry out", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 5
+		sp := state.Scratchpad().AsSOP2()
+
+		sp.SRC0 = 5
+		sp.SRC1 = 10
+		sp.SCC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(^uint64(0) - 5))
+		Expect(sp.SCC).To(Equal(uint8(1)))
+	})
+
 	It("should run S_MIN_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOP2
