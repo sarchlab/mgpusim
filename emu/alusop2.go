@@ -12,6 +12,8 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 	switch inst.Opcode {
 	case 0:
 		u.runSADDU32(state)
+	case 1:
+		u.runSSUBU32(state)
 	case 2:
 		u.runSADDI32(state)
 	case 3:
@@ -65,6 +67,16 @@ func (u *ALUImpl) runSADDU32(state InstEmuState) {
 
 	copy(sp[16:24], insts.Uint32ToBytes(dst))
 	sp[24] = scc
+}
+
+func (u *ALUImpl) runSSUBU32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	if sp.SRC0 < sp.SRC1 {
+		sp.SCC = 1
+	}
+
+	sp.DST = sp.SRC0 - sp.SRC1
 }
 
 func (u *ALUImpl) runSADDI32(state InstEmuState) {
