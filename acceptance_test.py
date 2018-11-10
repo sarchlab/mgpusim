@@ -129,10 +129,10 @@ def main():
     error |= run_test("Relu Parallel Sim", './relu -timing -parallel-verify', 'samples/relu')
 
     error |= compile('samples/matrixmultiplication/')
-    error |= run_test("Matrix Multiplication Emu", './matrixmultiplication -verify', 'samples/matrixmultiplication')
-    error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -timnig -verify', 'samples/matrixmultiplication')
-    error |= run_test("Matrix Multiplication Parallel Emu", './matrixmultiplication -parallel -verify', 'samples/matrixmultiplication')
-    error |= run_test("Matrix Multiplication Parallel Sim", './matrixmultiplication -timing -parallel -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Emu", './matrixmultiplication -length=256 -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -length=256 -timnig -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Parallel Emu", './matrixmultiplication -length=256 -parallel -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Parallel Sim", './matrixmultiplication -length=256 -timing -parallel -verify', 'samples/matrixmultiplication')
 
     if error:
         sys.exit(1)
