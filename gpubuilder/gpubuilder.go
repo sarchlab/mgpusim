@@ -113,6 +113,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	connection.PlugIn(gpuMem.ToTop)
 	connection.PlugIn(dmaEngine.ToCommandProcessor)
 	connection.PlugIn(dmaEngine.ToMem)
+	gpu.InternalConnection = connection
 
 	return gpu, gpuMem
 }
@@ -293,6 +294,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	connection.PlugIn(dmaEngine.ToMem)
 
 	gpu.L2CacheFinder = lowModuleFinderForL1
+	gpu.InternalConnection = connection
 
 	return gpu, gpuMem
 }

@@ -11,8 +11,8 @@ import (
 
 // A GPU is the unit that one kernel can run on.
 //
-// A GPU is a Yaotsu component and it defines the port "ToDriver". Driver is
-// a piece of software that conceptually runs in the Cpu. Therefore, all the
+// A GPU is a Akita component and it defines the port "ToDriver". Driver is
+// a piece of software that conceptually runs in the CPU. Therefore, all the
 // CPU-GPU communication happens on the connection connecting the "ToDriver"
 // port.
 type GPU struct {
@@ -21,16 +21,17 @@ type GPU struct {
 	engine akita.Engine
 	Freq   akita.Freq
 
-	Driver           *akita.Port // The DriverComponent
-	CommandProcessor *akita.Port // The CommandProcessor
-	Dispatchers      []akita.Component
-	CUs              []akita.Component
-	L1VCaches        []akita.Component
-	L1ICaches        []akita.Component
-	L1KCaches        []akita.Component
-	L2Caches         []akita.Component
-	L2CacheFinder    cache.LowModuleFinder
-	DRAMStorage      *mem.Storage
+	Driver             *akita.Port
+	CommandProcessor   *akita.Port
+	Dispatchers        []akita.Component
+	CUs                []akita.Component
+	L1VCaches          []akita.Component
+	L1ICaches          []akita.Component
+	L1KCaches          []akita.Component
+	L2Caches           []akita.Component
+	L2CacheFinder      cache.LowModuleFinder
+	DRAMStorage        *mem.Storage
+	InternalConnection akita.Connection
 
 	ToDriver           *akita.Port
 	ToCommandProcessor *akita.Port
