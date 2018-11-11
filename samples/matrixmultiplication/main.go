@@ -2,9 +2,12 @@ package main
 
 import (
 	"flag"
+	"log"
+	"net/http"
+
+	_ "net/http/pprof"
 
 	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/matrixmultiplication"
-
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"
 )
@@ -23,6 +26,10 @@ var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 var lengthFlag = flag.Uint("length", 64, "The number of samples to filter.")
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	configure()
 	initPlatform()
 	initBenchmark()
