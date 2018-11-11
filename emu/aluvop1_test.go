@@ -190,6 +190,38 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(int32ToBits(0 - math.MaxInt32))))
 	})
 
+	It("should run V_TRUNC_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 28
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(1.1))
+		sp.SRC0[1] = uint64(math.Float32bits(-2.2))
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(1.0)))
+		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(-2.0)))
+	})
+
+	It("should run V_RCP_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 34
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(1.0))
+		sp.SRC0[1] = uint64(math.Float32bits(2.0))
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(1.0)))
+		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(0.5)))
+	})
+
 	It("should run V_RCP_IFLAG_F32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP1

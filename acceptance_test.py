@@ -84,10 +84,10 @@ def main():
 
     error |= compile('samples/kmeans/')
     # error |= run_test("KMeans Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/kmeans')
-    error |= run_test("KMeans Emu", './kmeans -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    error |= run_test("KMeans Sim", './kmeans -timing -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    error |= run_test("KMeans Parallel Emu", './kmeans -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    error |= run_test("KMeans Parallel Sim", './kmeans -timing -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
+    error |= run_test("KMeans Emu", './kmeans -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
+    error |= run_test("KMeans Sim", './kmeans -timing -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
+    error |= run_test("KMeans Parallel Emu", './kmeans -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
+    error |= run_test("KMeans Parallel Sim", './kmeans -timing -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
 
     error |= compile('samples/matrixtranspose/')
     # error |= run_test("MatrixTranspose Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/matrixtranspose')
@@ -122,8 +122,17 @@ def main():
     error |= run_test("Simple Convolution Parallel Emu", './simpleconvolution --parallel -verify', 'samples/simpleconvolution')
     error |= run_test("Simple Convolution Parallel Sim", './simpleconvolution -timing --parallel -verify', 'samples/simpleconvolution')
 
+    error |= compile('samples/relu/')
+    error |= run_test("Relu Emu", './relu -verify', 'samples/relu')
+    error |= run_test("Relu Sim", './relu -timing -verify', 'samples/relu')
+    error |= run_test("Relu Parallel Emu", './relu -parallel -verify', 'samples/relu')
+    error |= run_test("Relu Parallel Sim", './relu -timing -parallel -verify', 'samples/relu')
 
-
+    error |= compile('samples/matrixmultiplication/')
+    error |= run_test("Matrix Multiplication Emu", './matrixmultiplication -length=256 -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -length=256 -timing -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Parallel Emu", './matrixmultiplication -length=256 -parallel -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Parallel Sim", './matrixmultiplication -length=256 -timing -parallel -verify', 'samples/matrixmultiplication')
 
     if error:
         sys.exit(1)
