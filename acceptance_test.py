@@ -84,10 +84,10 @@ def main():
 
     error |= compile('samples/kmeans/')
     # error |= run_test("KMeans Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/kmeans')
-    error |= run_test("KMeans Emu", './kmeans -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    error |= run_test("KMeans Sim", './kmeans -timing -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    error |= run_test("KMeans Parallel Emu", './kmeans -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
-    error |= run_test("KMeans Parallel Sim", './kmeans -timing -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=5', 'samples/kmeans')
+    error |= run_test("KMeans Emu", './kmeans -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
+    error |= run_test("KMeans Sim", './kmeans -timing -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
+    error |= run_test("KMeans Parallel Emu", './kmeans -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
+    error |= run_test("KMeans Parallel Sim", './kmeans -timing -parallel -verify -points=1024 -features=32 -clusters=5 -max-iter=1', 'samples/kmeans')
 
     error |= compile('samples/matrixtranspose/')
     # error |= run_test("MatrixTranspose Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/matrixtranspose')
