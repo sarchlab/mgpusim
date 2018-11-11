@@ -130,7 +130,7 @@ def main():
 
     error |= compile('samples/matrixmultiplication/')
     error |= run_test("Matrix Multiplication Emu", './matrixmultiplication -length=256 -verify', 'samples/matrixmultiplication')
-    error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -length=256 -timnig -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -length=256 -timing -verify', 'samples/matrixmultiplication')
     error |= run_test("Matrix Multiplication Parallel Emu", './matrixmultiplication -length=256 -parallel -verify', 'samples/matrixmultiplication')
     error |= run_test("Matrix Multiplication Parallel Sim", './matrixmultiplication -length=256 -timing -parallel -verify', 'samples/matrixmultiplication')
 
