@@ -122,8 +122,17 @@ def main():
     error |= run_test("Simple Convolution Parallel Emu", './simpleconvolution --parallel -verify', 'samples/simpleconvolution')
     error |= run_test("Simple Convolution Parallel Sim", './simpleconvolution -timing --parallel -verify', 'samples/simpleconvolution')
 
+    error |= compile('samples/relu/')
+    error |= run_test("Relu Emu", './relu -verify', 'samples/relu')
+    error |= run_test("Relu Sim", './relu -timing -verify', 'samples/relu')
+    error |= run_test("Relu Parallel Emu", './relu -parallel -verify', 'samples/relu')
+    error |= run_test("Relu Parallel Sim", './relu -timing -parallel-verify', 'samples/relu')
 
-
+    error |= compile('samples/matrixmultiplication/')
+    error |= run_test("Matrix Multiplication Emu", './matrixmultiplication -length=256 -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -length=256 -timnig -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Parallel Emu", './matrixmultiplication -length=256 -parallel -verify', 'samples/matrixmultiplication')
+    error |= run_test("Matrix Multiplication Parallel Sim", './matrixmultiplication -length=256 -timing -parallel -verify', 'samples/matrixmultiplication')
 
     if error:
         sys.exit(1)
