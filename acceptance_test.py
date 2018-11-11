@@ -126,7 +126,7 @@ def main():
     error |= run_test("Relu Emu", './relu -verify', 'samples/relu')
     error |= run_test("Relu Sim", './relu -timing -verify', 'samples/relu')
     error |= run_test("Relu Parallel Emu", './relu -parallel -verify', 'samples/relu')
-    error |= run_test("Relu Parallel Sim", './relu -timing -parallel-verify', 'samples/relu')
+    error |= run_test("Relu Parallel Sim", './relu -timing -parallel -verify', 'samples/relu')
 
     error |= compile('samples/matrixmultiplication/')
     error |= run_test("Matrix Multiplication Emu", './matrixmultiplication -length=256 -verify', 'samples/matrixmultiplication')
