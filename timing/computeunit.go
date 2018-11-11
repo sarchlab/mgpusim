@@ -422,6 +422,8 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		access.LaneID = laneID
 		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
+		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
+			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else {
 			access.Data = rsp.Data[offset : offset+uint64(4*info.RegisterCount)]
 		}

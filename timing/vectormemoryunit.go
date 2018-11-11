@@ -120,6 +120,8 @@ func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 	switch inst.Opcode {
 	case 16: // FLAT_LOAD_BYTE
 		u.executeFlatLoad(1, now)
+	case 18: // FLAT_LOAD_USHORT
+		u.executeFlatLoad(2, now)
 	case 20: // FLAT_LOAD_DWORD
 		u.executeFlatLoad(4, now)
 	case 23: // FLAT_LOAD_DWORDx4
