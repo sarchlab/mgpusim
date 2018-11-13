@@ -38,6 +38,7 @@ var _ = Describe("ALU", func() {
 	BeforeEach(func() {
 		mmu = vm.NewMMU("mmu", nil)
 		mmu.CreatePage(1, 0, 0, 4096)
+
 		storage = mem.NewStorage(1 * mem.GB)
 		sAccessor = newStorageAccessor(storage, mmu)
 		alu = NewALU(sAccessor)
@@ -46,7 +47,7 @@ var _ = Describe("ALU", func() {
 		state.scratchpad = make([]byte, 4096)
 	})
 
-	It("should run FLAT_LOAD_UBYTE", func() {
+	FIt("should run FLAT_LOAD_UBYTE", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 16
@@ -56,6 +57,7 @@ var _ = Describe("ALU", func() {
 			layout.ADDR[i] = uint64(i * 4)
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
 		}
+		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
