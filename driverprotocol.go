@@ -42,7 +42,11 @@ type LaunchKernelReq struct {
 }
 
 // NewLaunchKernelReq returns a new LaunchKernelReq
-func NewLaunchKernelReq(time akita.VTimeInSec, src *akita.Port, dst *akita.Port) *LaunchKernelReq {
+func NewLaunchKernelReq(
+	time akita.VTimeInSec,
+	src *akita.Port,
+	dst *akita.Port,
+) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
 	r.ReqBase = akita.NewReqBase()
 	r.StartTime = time
