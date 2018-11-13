@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/kmeans"
+	"gitlab.com/akita/gcn3/benchmarks/heteromark/kmeans"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"

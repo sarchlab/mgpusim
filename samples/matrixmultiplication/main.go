@@ -2,16 +2,19 @@ package main
 
 import (
 	"flag"
+	"log"
+	"net/http"
 
-	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/matrixtranspose"
+	_ "net/http/pprof"
 
+	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/matrixmultiplication"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"
 )
 
 var (
 	gpuDriver *driver.Driver
-	benchmark *matrixtranpose.Benchmark
+	benchmark *matrixmultiplication.Benchmark
 )
 
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -20,9 +23,13 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
-var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")
+var lengthFlag = flag.Uint("length", 64, "The number of samples to filter.")
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	configure()
 	initPlatform()
 	initBenchmark()
@@ -30,6 +37,7 @@ func main() {
 	if *verify {
 		benchmark.Verify()
 	}
+
 }
 
 func configure() {
@@ -50,7 +58,6 @@ func configure() {
 	if *memTracing {
 		platform.TraceMem = true
 	}
-
 }
 
 func initPlatform() {
@@ -62,6 +69,8 @@ func initPlatform() {
 }
 
 func initBenchmark() {
-	benchmark = matrixtranpose.NewBenchmark(gpuDriver)
-	benchmark.Width = *dataWidth
+	benchmark = matrixmultiplication.NewBenchmark(gpuDriver)
+	benchmark.X = uint32(*lengthFlag)
+	benchmark.Y = uint32(*lengthFlag)
+	benchmark.Z = uint32(*lengthFlag)
 }

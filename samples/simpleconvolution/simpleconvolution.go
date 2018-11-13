@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/simpleconvolution"
+	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/simpleconvolution"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"

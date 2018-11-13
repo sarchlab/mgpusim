@@ -7,6 +7,8 @@ func (u *ALUImpl) runDS(state InstEmuState) {
 	switch inst.Opcode {
 	case 78:
 		u.runDSWRITE2B64(state)
+	case 118:
+		u.runDSREADB64(state)
 	case 119:
 		u.runDSREAD2B64(state)
 	default:
@@ -33,6 +35,23 @@ func (u *ALUImpl) runDSWRITE2B64(state InstEmuState) {
 		addr1 := layout.ADDR[i] + uint32(inst.Offset1)*8
 		data1Offset := uint(8 + 64*4 + 256*4)
 		copy(lds[addr1:addr1+8], sp[data1Offset+i*16:data1Offset+i*16+8])
+	}
+}
+
+func (u *ALUImpl) runDSREADB64(state InstEmuState) {
+	sp := state.Scratchpad()
+	layout := sp.AsDS()
+	lds := u.LDS()
+
+	i := uint(0)
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(layout.EXEC, i) {
+			continue
+		}
+
+		addr := layout.ADDR[i]
+		dstOffset := uint(8 + 64*4 + 256*4*2)
+		copy(sp[dstOffset+i*16:dstOffset+i*16+8], lds[addr:addr+8])
 	}
 }
 
