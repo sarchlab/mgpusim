@@ -95,6 +95,9 @@ var _ = Describe("Dispatcher", func() {
 	//})
 
 	It("should map work-group", func() {
+		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
+		dispatcher.dispatchingReq = dispatchingReq
+
 		wg := grid.WorkGroups[0]
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)
@@ -110,6 +113,9 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should reschedule work-group mapping if sending failed", func() {
+		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
+		dispatcher.dispatchingReq = dispatchingReq
+
 		wg := grid.WorkGroups[0]
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)

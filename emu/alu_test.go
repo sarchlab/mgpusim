@@ -40,7 +40,7 @@ var _ = Describe("ALU", func() {
 		mmu.CreatePage(1, 0, 0, 4096)
 		storage = mem.NewStorage(1 * mem.GB)
 		sAccessor = newStorageAccessor(storage, mmu)
-		alu = NewALUImpl(sAccessor)
+		alu = NewALU(sAccessor)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
