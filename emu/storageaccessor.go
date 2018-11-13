@@ -1,6 +1,7 @@
 package emu
 
 import (
+	"fmt"
 	"log"
 
 	"gitlab.com/akita/mem"
@@ -18,6 +19,8 @@ func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 	if !found {
 		log.Panic("page not found in page table")
 	}
+
+	fmt.Printf("pid: %d, va: 0x%x, pa: 0x%x\n", pid, vAddr, phyAddr)
 
 	data, err := a.storage.Read(phyAddr, byteSize)
 	if err != nil {
