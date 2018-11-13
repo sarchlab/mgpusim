@@ -82,7 +82,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
 
-		if b.EnableISADebug && i == 0 {
+		if b.EnableISADebug {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", computeUnit.Name()))
 			if err != nil {
 				log.Fatal(err.Error())
@@ -112,6 +112,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	connection.PlugIn(gpuMem.ToTop)
 	connection.PlugIn(dmaEngine.ToCommandProcessor)
 	connection.PlugIn(dmaEngine.ToMem)
+	gpu.InternalConnection = connection
 
 	return gpu, gpuMem
 }
@@ -292,6 +293,7 @@ func (b *GPUBuilder) BuildR9Nano() (*gcn3.GPU, *mem.IdealMemController) {
 	connection.PlugIn(dmaEngine.ToMem)
 
 	gpu.L2CacheFinder = lowModuleFinderForL1
+	gpu.InternalConnection = connection
 
 	return gpu, gpuMem
 }

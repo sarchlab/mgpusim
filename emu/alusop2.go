@@ -12,21 +12,27 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 	switch inst.Opcode {
 	case 0:
 		u.runSADDU32(state)
+	case 1:
+		u.runSSUBU32(state)
 	case 2:
 		u.runSADDI32(state)
 	case 3:
 		u.runSSUBI32(state)
 	case 4:
 		u.runSADDCU32(state)
+	case 5:
+		u.runSSUBBU32(state)
 	case 7:
 		u.runSMINU32(state)
+	case 9:
+		u.runSMAXU32(state)
 	case 12:
 		u.runSANDB32(state)
 	case 13:
 		u.runSANDB64(state)
 	case 15:
 		u.runSORB64(state)
-	case 17:
+	case 16, 17:
 		u.runSXORB64(state)
 	case 19:
 		u.runSANDN2B64(state)
@@ -65,6 +71,16 @@ func (u *ALUImpl) runSADDU32(state InstEmuState) {
 
 	copy(sp[16:24], insts.Uint32ToBytes(dst))
 	sp[24] = scc
+}
+
+func (u *ALUImpl) runSSUBU32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	if sp.SRC0 < sp.SRC1 {
+		sp.SCC = 1
+	}
+
+	sp.DST = sp.SRC0 - sp.SRC1
 }
 
 func (u *ALUImpl) runSADDI32(state InstEmuState) {
@@ -121,10 +137,33 @@ func (u *ALUImpl) runSADDCU32(state InstEmuState) {
 	sp[24] = scc
 }
 
+func (u *ALUImpl) runSSUBBU32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	sp.DST = sp.SRC0 - sp.SRC1 - uint64(sp.SCC)
+
+	if sp.SRC0 < sp.SRC1+uint64(sp.SCC) {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
 func (u *ALUImpl) runSMINU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
 	if sp.SRC0 < sp.SRC1 {
+		sp.DST = sp.SRC0
+		sp.SCC = 1
+	} else {
+		sp.DST = sp.SRC1
+	}
+}
+
+func (u *ALUImpl) runSMAXU32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	if sp.SRC0 > sp.SRC1 {
 		sp.DST = sp.SRC0
 		sp.SCC = 1
 	} else {
@@ -272,4 +311,8 @@ func (u *ALUImpl) runSMULI32(state InstEmuState) {
 	dst := src0 * src1
 
 	sp.DST = uint64(int32ToBits(dst))
+
+	if src0 != 0 && dst/src0 != src1 {
+		sp.SCC = 1
+	}
 }

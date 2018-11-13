@@ -45,20 +45,18 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST).To(Equal(uint64(0x0000ffffffff0000)))
 	})
 
-	It("should run s_and_saveexec_b64", func() {
+	It("should run s_not_u32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOP1
-		state.inst.Opcode = 32
+		state.inst.Opcode = 4
 
 		sp := state.Scratchpad().AsSOP1()
-		sp.EXEC = 0xffffffff00000000
-		sp.SRC0 = 0x0000ffffffff0000
+		sp.SRC0 = 0xff
 
 		alu.Run(state)
 
-		Expect(sp.EXEC).To(Equal(uint64(0x0000ffff00000000)))
-		Expect(sp.DST).To(Equal(uint64(0xffffffff00000000)))
-		Expect(sp.SCC).To(Equal(byte(0x1)))
+		Expect(sp.DST).To(Equal(uint64(0xffffffffffffff00)))
+		Expect(sp.SCC).To(Equal(uint8(0x1)))
 	})
 
 	It("should run s_get_pc_b64", func() {
@@ -73,7 +71,22 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(sp.DST).To(Equal(uint64(0xffffffff00000004)))
+	})
 
+	It("should run s_and_saveexec_b64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP1
+		state.inst.Opcode = 32
+
+		sp := state.Scratchpad().AsSOP1()
+		sp.EXEC = 0xffffffff00000000
+		sp.SRC0 = 0x0000ffffffff0000
+
+		alu.Run(state)
+
+		Expect(sp.EXEC).To(Equal(uint64(0x0000ffff00000000)))
+		Expect(sp.DST).To(Equal(uint64(0xffffffff00000000)))
+		Expect(sp.SCC).To(Equal(byte(0x1)))
 	})
 
 })
