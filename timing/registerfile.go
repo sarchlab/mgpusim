@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/mem"
 )
 
 // A RegisterAccess is an incidence of reading or writing the register
@@ -23,13 +22,12 @@ type RegisterAccess struct {
 type RegisterFile interface {
 	Read(access *RegisterAccess)
 	Write(access *RegisterAccess)
-	Storage() *mem.Storage
 }
 
 // A SimpleRegisterFile is a Register file that can always read and write
 // registers immediately
 type SimpleRegisterFile struct {
-	storage *mem.Storage
+	storage []byte
 
 	// In vector register, each lane can have up-to 256 VGPRs. Then the offset
 	// difference from v0 lane 0 to v0 lane 1 is 256*4 = 1024B. Field
@@ -43,13 +41,9 @@ func NewSimpleRegisterFile(
 	byteSizePerLane int,
 ) *SimpleRegisterFile {
 	r := new(SimpleRegisterFile)
-	r.storage = mem.NewStorage(byteSize)
+	r.storage = make([]byte, byteSize)
 	r.ByteSizePerLane = byteSizePerLane
 	return r
-}
-
-func (r *SimpleRegisterFile) Storage() *mem.Storage {
-	return r.storage
 }
 
 func (r *SimpleRegisterFile) Write(access *RegisterAccess) {
@@ -58,11 +52,9 @@ func (r *SimpleRegisterFile) Write(access *RegisterAccess) {
 	if access.RegCount == 0 {
 		access.RegCount = 1
 	}
-	err := r.storage.Write(uint64(offset), access.Data[0:access.RegCount*4])
-	if err != nil {
-		log.Panic(err)
-	}
 
+	size := access.RegCount * 4
+	copy(r.storage[offset:offset+size], access.Data[0:access.RegCount*4])
 	access.OK = true
 }
 
@@ -72,12 +64,9 @@ func (r *SimpleRegisterFile) Read(access *RegisterAccess) {
 	if access.RegCount == 0 {
 		access.RegCount = 1
 	}
-	data, err := r.storage.Read(uint64(offset), uint64(4*access.RegCount))
-	if err != nil {
-		log.Panic(err)
-	}
 
-	access.Data = data
+	size := access.RegCount * 4
+	copy(access.Data, r.storage[offset:offset+size])
 	access.OK = true
 }
 
