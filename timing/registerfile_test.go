@@ -25,19 +25,20 @@ var _ = Describe("Simple Register File", func() {
 
 		registerFile.Write(regWrite)
 
-		data, _ := registerFile.storage.Read(0, 4)
+		data := registerFile.storage[0:4]
 		Expect(regWrite.OK).To(BeTrue())
 		Expect(insts.BytesToUint32(data)).To(Equal(uint32(15)))
 	})
 
 	It("should read scalar registers", func() {
-		registerFile.storage.Write(104, insts.Uint32ToBytes(16))
+		copy(registerFile.storage[104:108], insts.Uint32ToBytes(16))
 
 		regRead := new(RegisterAccess)
 		regRead.Reg = insts.SReg(1)
 		regRead.LaneID = 1
 		regRead.WaveOffset = 100
 		regRead.RegCount = 1
+		regRead.Data = make([]byte, regRead.RegCount*4)
 
 		registerFile.Read(regRead)
 
@@ -56,7 +57,8 @@ var _ = Describe("Simple Register File", func() {
 
 		registerFile.Write(regWrite)
 
-		data, _ := registerFile.storage.Read(100+10*4+1024*5, 4)
+		offset := 100 + 10*4 + 1024*5
+		data := registerFile.storage[offset : offset+4]
 		Expect(regWrite.OK).To(BeTrue())
 		Expect(insts.BytesToUint32(data)).To(Equal(uint32(15)))
 	})
