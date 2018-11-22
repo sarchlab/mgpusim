@@ -10,9 +10,8 @@ import (
 
 var _ = Describe("DMAEngine", func() {
 	var (
-		engine            *akita.MockEngine
-		localModuleFinder *cache.SingleLowModuleFinder
-		//remoteModuleFinder     *cache.SingleLowModuleFinder
+		engine                 *akita.MockEngine
+		localModuleFinder      *cache.SingleLowModuleFinder
 		dmaEngine              *DMAEngine
 		toMemConn              *akita.MockConnection
 		toCommandProcessorConn *akita.MockConnection
@@ -21,7 +20,6 @@ var _ = Describe("DMAEngine", func() {
 	BeforeEach(func() {
 		engine = akita.NewMockEngine()
 		localModuleFinder = new(cache.SingleLowModuleFinder)
-		//remoteModuleFinder = new(cache.SingleLowModuleFinder)
 		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
 
 		toMemConn = akita.NewMockConnection()
@@ -80,7 +78,7 @@ var _ = Describe("DMAEngine", func() {
 			toMemConn.ExpectSend(expectWriteReq, nil)
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(64)))
@@ -106,7 +104,7 @@ var _ = Describe("DMAEngine", func() {
 			toMemConn.ExpectSend(expectWriteReq, nil)
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(60)))
@@ -133,7 +131,7 @@ var _ = Describe("DMAEngine", func() {
 				akita.NewSendError())
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(0)))
@@ -151,7 +149,7 @@ var _ = Describe("DMAEngine", func() {
 			toMemConn.ExpectSend(expectWriteReq, nil)
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(132)))
@@ -167,7 +165,7 @@ var _ = Describe("DMAEngine", func() {
 			toCommandProcessorConn.ExpectSend(req, nil)
 
 			tickEvent := akita.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
 			Expect(req.Src()).To(BeIdenticalTo(dmaEngine.ToCommandProcessor))
@@ -186,7 +184,7 @@ var _ = Describe("DMAEngine", func() {
 				akita.NewSendError())
 
 			tickEvent := akita.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
 			Expect(req.Src()).To(BeIdenticalTo(dmaEngine.ToCommandProcessor))
@@ -206,7 +204,7 @@ var _ = Describe("DMAEngine", func() {
 			dmaEngine.ToCommandProcessor.Recv(req)
 
 			tick := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tick)
+			dmaEngine.Handle(*tick)
 
 			Expect(engine.ScheduledEvent).To(HaveLen(1))
 			Expect(dmaEngine.processingReq).To(BeIdenticalTo(req))
@@ -223,7 +221,7 @@ var _ = Describe("DMAEngine", func() {
 			toMemConn.ExpectSend(expectReadReq, nil)
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(64)))
@@ -239,7 +237,7 @@ var _ = Describe("DMAEngine", func() {
 			toMemConn.ExpectSend(expectReadReq, nil)
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(60)))
@@ -255,7 +253,7 @@ var _ = Describe("DMAEngine", func() {
 			toMemConn.ExpectSend(expectReadReq, akita.NewSendError())
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(0)))
@@ -272,7 +270,7 @@ var _ = Describe("DMAEngine", func() {
 			toMemConn.ExpectSend(expectReadReq, nil)
 
 			tickEvent := akita.NewTickEvent(10, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toMemConn.AllExpectedSent()).To(BeTrue())
 			Expect(dmaEngine.progressOffset).To(Equal(uint64(132)))
@@ -288,7 +286,7 @@ var _ = Describe("DMAEngine", func() {
 			toCommandProcessorConn.ExpectSend(req, nil)
 
 			tickEvent := akita.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
 			Expect(req.Src()).To(BeIdenticalTo(dmaEngine.ToCommandProcessor))
@@ -306,7 +304,7 @@ var _ = Describe("DMAEngine", func() {
 			toCommandProcessorConn.ExpectSend(req, akita.NewSendError())
 
 			tickEvent := akita.NewTickEvent(12, dmaEngine)
-			dmaEngine.Handle(tickEvent)
+			dmaEngine.Handle(*tickEvent)
 
 			Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
 			Expect(req.Src()).To(BeIdenticalTo(dmaEngine.ToCommandProcessor))

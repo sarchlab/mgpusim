@@ -86,7 +86,7 @@ type L1VCache struct {
 // Handle processes the events scheduled on L1VCache
 func (c *L1VCache) Handle(e akita.Event) error {
 	switch e := e.(type) {
-	case *akita.TickEvent:
+	case akita.TickEvent:
 		c.handleTickEvent(e)
 	case *invalidationCompleteEvent:
 		c.handleInvalidationCompleteEvent(e)
@@ -96,7 +96,7 @@ func (c *L1VCache) Handle(e akita.Event) error {
 	return nil
 }
 
-func (c *L1VCache) handleTickEvent(e *akita.TickEvent) {
+func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 	now := e.Time()
 	c.NeedTick = false
 
