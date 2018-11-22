@@ -251,7 +251,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.processInputFromScalarMem(10)
 
-			access := new(RegisterAccess)
+			access := RegisterAccess{}
 			access.Reg = insts.SReg(0)
 			access.WaveOffset = 0
 			access.RegCount = 1
@@ -307,7 +307,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.processInputFromVectorMem(10)
 
 			for i := 0; i < 4; i++ {
-				access := new(RegisterAccess)
+				access := RegisterAccess{}
 				access.RegCount = 1
 				access.WaveOffset = 0
 				access.LaneID = i
@@ -330,7 +330,7 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
 			for i := 0; i < 4; i++ {
-				access := new(RegisterAccess)
+				access := RegisterAccess{}
 				access.RegCount = 1
 				access.WaveOffset = 0
 				access.LaneID = i

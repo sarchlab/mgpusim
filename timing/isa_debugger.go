@@ -62,7 +62,7 @@ func (d *ISADebugger) Func(
 
 	//sRegFileStorage := cu.SRegFile.Storage()
 	data := make([]byte, 4)
-	access := new(RegisterAccess)
+	access := RegisterAccess{}
 	access.Data = data
 	access.RegCount = 1
 	access.WaveOffset = wf.SRegOffset

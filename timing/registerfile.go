@@ -20,8 +20,8 @@ type RegisterAccess struct {
 
 // A RegisterFile provides the communication interface for a set of registers.
 type RegisterFile interface {
-	Read(access *RegisterAccess)
-	Write(access *RegisterAccess)
+	Read(access RegisterAccess)
+	Write(access RegisterAccess)
 }
 
 // A SimpleRegisterFile is a Register file that can always read and write
@@ -46,8 +46,8 @@ func NewSimpleRegisterFile(
 	return r
 }
 
-func (r *SimpleRegisterFile) Write(access *RegisterAccess) {
-	offset := r.getRegOffset(access)
+func (r *SimpleRegisterFile) Write(access RegisterAccess) {
+	offset := r.getRegOffset(access.Reg, access.WaveOffset, access.LaneID)
 
 	if access.RegCount == 0 {
 		access.RegCount = 1
@@ -58,8 +58,8 @@ func (r *SimpleRegisterFile) Write(access *RegisterAccess) {
 	access.OK = true
 }
 
-func (r *SimpleRegisterFile) Read(access *RegisterAccess) {
-	offset := r.getRegOffset(access)
+func (r *SimpleRegisterFile) Read(access RegisterAccess) {
+	offset := r.getRegOffset(access.Reg, access.WaveOffset, access.LaneID)
 
 	if access.RegCount == 0 {
 		access.RegCount = 1
@@ -70,16 +70,13 @@ func (r *SimpleRegisterFile) Read(access *RegisterAccess) {
 	access.OK = true
 }
 
-func (r *SimpleRegisterFile) getRegOffset(access *RegisterAccess) int {
-	reg := access.Reg
-	offset := access.WaveOffset
-
+func (r *SimpleRegisterFile) getRegOffset(reg *insts.Reg, offset int, laneID int) int {
 	if reg.IsSReg() {
 		return reg.RegIndex()*4 + offset
 	}
 
 	if reg.IsVReg() {
-		regOffset := reg.RegIndex()*4 + access.LaneID*r.ByteSizePerLane + offset
+		regOffset := reg.RegIndex()*4 + laneID*r.ByteSizePerLane + offset
 		return regOffset
 	}
 

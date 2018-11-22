@@ -38,7 +38,7 @@ func (dma *DMAEngine) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
 
 func (dma *DMAEngine) Handle(evt akita.Event) error {
 	switch evt := evt.(type) {
-	case *akita.TickEvent:
+	case akita.TickEvent:
 		return dma.tick(evt)
 	default:
 		log.Panicf("cannot handle event for type %s", reflect.TypeOf(evt))
@@ -46,7 +46,7 @@ func (dma *DMAEngine) Handle(evt akita.Event) error {
 	return nil
 }
 
-func (dma *DMAEngine) tick(evt *akita.TickEvent) error {
+func (dma *DMAEngine) tick(evt akita.TickEvent) error {
 	now := evt.Time()
 	dma.needTick = false
 
