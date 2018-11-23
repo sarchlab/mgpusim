@@ -7,7 +7,11 @@ import (
 	"gitlab.com/akita/gcn3"
 )
 
+// HookPosReqStart is a hook position that triggers hook when a request starts
 var HookPosReqStart = &struct{ name string }{"Any"}
+
+// HookPosReqReturn is a hook position that triggers hook when a request returns
+// to the driver.
 var HookPosReqReturn = &struct{ name string }{"Any"}
 
 // Driver is an Akita component that controls the simulated GPUs
@@ -22,13 +26,18 @@ type Driver struct {
 	totalSize   uint64
 	usingGPU    int
 
+	CommandQueues []*CommandQueue
+
 	ToGPUs akita.Port
 }
 
+// NotifyPortFree of the Driver component does nothing.
 func (d *Driver) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	// Do nothing
 }
 
+// NotifyRecv of the Driver component converts requests as event and schedules
+// them.
 func (d *Driver) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, d.engine, d.freq)
@@ -51,6 +60,7 @@ func (d *Driver) handleLaunchKernelReq(req *gcn3.LaunchKernelReq) error {
 	return nil
 }
 
+// RegisterGPU tells the driver about the existance of a GPU
 func (d *Driver) RegisterGPU(gpu *gcn3.GPU) {
 	d.gpus = append(d.gpus, gpu)
 
@@ -58,9 +68,11 @@ func (d *Driver) RegisterGPU(gpu *gcn3.GPU) {
 	d.totalSize += gpu.DRAMStorage.Capacity
 }
 
+// SelectGPU requires the driver to perform the following APIs on a selected
+// GPU
 func (d *Driver) SelectGPU(gpuID int) {
 	if gpuID >= len(d.gpus) {
-		log.Fatalf("no GPU %d in the system", gpuID)
+		log.Panicf("no GPU %d in the system", gpuID)
 	}
 	d.usingGPU = gpuID
 }

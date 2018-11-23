@@ -11,74 +11,6 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
-// A LaunchKernelEvent is a kernel even with an assigned time to run
-//type LaunchKernelEvent struct {
-//	*akita.EventBase
-//
-//	CO         *insts.HsaCo
-//	GPU        akita.Component
-//	Storage    *mem.Storage
-//	GridSize   [3]uint32
-//	WgSize     [3]uint16
-//	KernelArgs interface{}
-//}
-//
-//func (d *Driver) ScheduleKernelLaunching(
-//	t akita.VTimeInSec,
-//
-//	co *insts.HsaCo,
-//	gpu akita.Component,
-//	storage *mem.Storage,
-//	gridSize [3]uint32,
-//	wgSize [3]uint16,
-//	kernelArgs interface{},
-//) {
-//	k := new(LaunchKernelEvent)
-//	k.EventBase = akita.NewEventBase(t, d)
-//	d.engine.Schedule(k)
-//
-//	k.CO = co
-//	k.GPU = gpu
-//	k.Storage = storage
-//	k.GridSize = gridSize
-//	k.WgSize = wgSize
-//	k.KernelArgs = kernelArgs
-//}
-//
-//func (d *Driver) HandleLaunchKernelEvent(k *LaunchKernelEvent) error {
-//	dCoData := d.AllocateMemory(k.Storage, uint64(len(k.CO.Data)))
-//	d.MemoryCopyHostToDevice(dCoData, k.CO.Data, k.GPU)
-//
-//	dKernArgData := d.AllocateMemory(k.Storage, uint64(binary.Size(k.KernelArgs)))
-//	d.MemoryCopyHostToDevice(dKernArgData, k.KernelArgs, k.GPU)
-//
-//	req := kernels.NewLaunchKernelReq()
-//	req.HsaCo = k.CO
-//	req.Packet = new(kernels.HsaKernelDispatchPacket)
-//	req.Packet.GridSizeX = k.GridSize[0]
-//	req.Packet.GridSizeY = k.GridSize[1]
-//	req.Packet.GridSizeZ = k.GridSize[2]
-//	req.Packet.WorkgroupSizeX = k.WgSize[0]
-//	req.Packet.WorkgroupSizeY = k.WgSize[1]
-//	req.Packet.WorkgroupSizeZ = k.WgSize[2]
-//	req.Packet.KernelObject = uint64(dCoData)
-//	req.Packet.KernargAddress = uint64(dKernArgData)
-//
-//	dPacket := d.AllocateMemory(k.Storage, uint64(binary.Size(req.Packet)))
-//	d.MemoryCopyHostToDevice(dPacket, req.Packet, k.GPU)
-//
-//	req.PacketAddress = uint64(dPacket)
-//	req.SetSrc(d.ToGPUs)
-//	req.SetDst(k.GPU.ToDrive)
-//	req.SetSendTime(0) // FIXME: The time need to be retrieved from the engine
-//	err := d.ToGPUs.Send(req)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//
-//	return nil
-//}
-
 func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 	ldsSize := uint32(0)
 	kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
@@ -93,6 +25,8 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 	co.WGGroupSegmentByteSize = ldsSize
 }
 
+// LaunchKernel is an eaiser way to run a kernel on the GCN3 simulator. It
+// launches the kernel immediately.
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,
 	gridSize [3]uint32,
@@ -155,13 +89,16 @@ func (d *Driver) runKernel(
 	req.Packet = packet
 	req.PacketAddress = uint64(dPacket)
 
-	err := d.ToGPUs.Send(req)
-	if err != nil {
-		log.Panic(err)
+	sendErr := d.ToGPUs.Send(req)
+	if sendErr != nil {
+		log.Panic(sendErr)
 	}
 
 	d.InvokeHook(req, d, HookPosReqStart, nil)
-	d.engine.Run()
+	err := d.engine.Run()
+	if err != nil {
+		log.Panic()
+	}
 	//endTime := d.engine.CurrentTime()
 	//fmt.Printf("Kernel: [%.012f - %.012f]\n", startTime, endTime)
 	//return endTime
@@ -171,9 +108,14 @@ func (d *Driver) finalFlush() {
 	gpu := d.gpus[d.usingGPU]
 	now := d.engine.CurrentTime() + 1e-8
 	flushCommand := gcn3.NewFlushCommand(now, d.ToGPUs, gpu.ToDriver)
-	err := d.ToGPUs.Send(flushCommand)
+	sendErr := d.ToGPUs.Send(flushCommand)
+	if sendErr != nil {
+		log.Panic(sendErr)
+	}
+
+	err := d.engine.Run()
 	if err != nil {
 		log.Panic(err)
 	}
-	d.engine.Run()
+
 }

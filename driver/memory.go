@@ -87,6 +87,8 @@ func (d *Driver) AllocateMemory(
 	return 0
 }
 
+// AllocateMemoryWithAlignment allocates memory on the GPU, with the granrantee
+// that the returned address is an multiple of the alignment specified.
 func (d *Driver) AllocateMemoryWithAlignment(
 	byteSize uint64,
 	alignment uint64,
