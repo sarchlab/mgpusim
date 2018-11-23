@@ -15,14 +15,14 @@ type invalidationCompleteEvent struct {
 	*akita.EventBase
 
 	req      *mem.InvalidReq
-	fromPort *akita.Port
+	fromPort akita.Port
 }
 
 func newInvalidationCompleteEvent(
 	time akita.VTimeInSec,
 	handler akita.Handler,
 	req *mem.InvalidReq,
-	fromPort *akita.Port,
+	fromPort akita.Port,
 ) *invalidationCompleteEvent {
 	e := new(invalidationCompleteEvent)
 	e.EventBase = akita.NewEventBase(time, handler)
@@ -49,9 +49,9 @@ type inPipelineReqStatus struct {
 type L1VCache struct {
 	*akita.TickingComponent
 
-	ToCU *akita.Port
-	ToCP *akita.Port
-	ToL2 *akita.Port
+	ToCU akita.Port
+	ToCP akita.Port
+	ToL2 akita.Port
 
 	L2Finder  cache.LowModuleFinder
 	Latency   int
@@ -712,12 +712,9 @@ func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {
 	c.pipeline.SetFrequency(freq)
 	c.pipeline.SetNumLines(4)
 
-	c.ToCU = akita.NewPort(c)
-	c.ToCU.BufCapacity = 4
-	c.ToCP = akita.NewPort(c)
-	c.ToCP.BufCapacity = 4
-	c.ToL2 = akita.NewPort(c)
-	c.ToL2.BufCapacity = 4
+	c.ToCU = akita.NewLimitNumReqPort(c, 4)
+	c.ToCP = akita.NewLimitNumReqPort(c, 4)
+	c.ToL2 = akita.NewLimitNumReqPort(c, 4)
 	return c
 }
 
