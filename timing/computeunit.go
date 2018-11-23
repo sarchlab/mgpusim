@@ -46,14 +46,14 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
-	InstMem          *akita.Port
-	ScalarMem        *akita.Port
+	InstMem          akita.Port
+	ScalarMem        akita.Port
 	VectorMemModules cache.LowModuleFinder
 
-	ToACE       *akita.Port
-	ToInstMem   *akita.Port
-	ToScalarMem *akita.Port
-	ToVectorMem *akita.Port
+	ToACE       akita.Port
+	ToInstMem   akita.Port
+	ToScalarMem akita.Port
+	ToVectorMem akita.Port
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -471,10 +471,10 @@ func NewComputeUnit(
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
 
-	cu.ToACE = akita.NewPort(cu)
-	cu.ToInstMem = akita.NewPort(cu)
-	cu.ToScalarMem = akita.NewPort(cu)
-	cu.ToVectorMem = akita.NewPort(cu)
+	cu.ToACE = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToScalarMem = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToVectorMem = akita.NewLimitNumReqPort(cu, 1)
 
 	return cu
 }

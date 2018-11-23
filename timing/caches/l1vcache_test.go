@@ -1,27 +1,33 @@
 package caches
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
 
 var _ = Describe("L1V Cache", func() {
 	var (
-		engine     *akita.MockEngine
-		storage    *mem.Storage
-		directory  *cache.MockDirectory
-		l1v        *L1VCache
-		connection *akita.MockConnection
-		l2Finder   cache.LowModuleFinder
-		cp         *akita.Port
+		mockCtrl  *gomock.Controller
+		engine    *akita.MockEngine
+		storage   *mem.Storage
+		directory *cache.MockDirectory
+		l1v       *L1VCache
+		l2Finder  cache.LowModuleFinder
+
+		toCU *mock_akita.MockPort
+		toCP *mock_akita.MockPort
+		toL2 *mock_akita.MockPort
 	)
 
 	BeforeEach(func() {
+		mockCtrl = gomock.NewController(GinkgoT())
+
 		engine = akita.NewMockEngine()
-		connection = akita.NewMockConnection()
 		storage = mem.NewStorage(16 * mem.KB)
 		directory = new(cache.MockDirectory)
 		l2Finder = new(cache.SingleLowModuleFinder)
@@ -32,18 +38,22 @@ var _ = Describe("L1V Cache", func() {
 		l1v.InvalidationLatency = 64
 		l1v.BlockSizeAsPowerOf2 = 6
 
-		cp = akita.NewPort(nil)
+		toCU = mock_akita.NewMockPort(mockCtrl)
+		toCP = mock_akita.NewMockPort(mockCtrl)
+		toL2 = mock_akita.NewMockPort(mockCtrl)
+		l1v.ToCU = toCU
+		l1v.ToCP = toCP
+		l1v.ToL2 = toL2
+	})
 
-		connection.PlugIn(l1v.ToCU)
-		connection.PlugIn(l1v.ToL2)
-		connection.PlugIn(l1v.ToCP)
-		connection.PlugIn(cp)
+	AfterEach(func() {
+		mockCtrl.Finish()
 	})
 
 	Context("read requests from CU", func() {
 		It("should put requests to reqBuf", func() {
 			req := mem.NewReadReq(10, nil, nil, 0x100, 64)
-			l1v.ToCU.Recv(req)
+			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
 			l1v.parseFromCU(10)
 
@@ -56,7 +66,7 @@ var _ = Describe("L1V Cache", func() {
 
 		It("should put write to write staging buf", func() {
 			req := mem.NewWriteReq(10, nil, nil, 0x100)
-			l1v.ToCU.Recv(req)
+			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
 			l1v.parseFromCU(10)
 
@@ -72,13 +82,13 @@ var _ = Describe("L1V Cache", func() {
 		It("should coaleasce after receiving last in inst write", func() {
 			req0 := mem.NewWriteReq(10, nil, nil, 0x100)
 			req0.Data = []byte{0, 1, 2, 3}
-			l1v.ToCU.Recv(req0)
+			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req0)
 			l1v.parseFromCU(10)
 
 			req := mem.NewWriteReq(10, nil, nil, 0x104)
 			req.Data = []byte{4, 5, 6, 7}
 			req.IsLastInWave = true
-			l1v.ToCU.Recv(req)
+			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 			l1v.parseFromCU(10)
 
 			Expect(l1v.reqBuf).To(HaveLen(2))
@@ -251,42 +261,42 @@ var _ = Describe("L1V Cache", func() {
 	Context("parse invalidate", func() {
 		It("should schedule InvalidateCompleteEvent", func() {
 			invalidReq := mem.NewInvalidReq(10, nil, l1v.ToCP)
-			l1v.ToCP.Recv(invalidReq)
+
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(invalidReq)
 
 			l1v.parseFromCP(11)
 
-			Expect(l1v.ToCP.Buf).To(HaveLen(0))
-			Expect(engine.ScheduledEvent).To(HaveLen(2))
-			invalidCompEvent := engine.ScheduledEvent[1].(*invalidationCompleteEvent)
+			Expect(engine.ScheduledEvent).To(HaveLen(1))
+			invalidCompEvent := engine.ScheduledEvent[0].(*invalidationCompleteEvent)
 			Expect(invalidCompEvent.Time()).To(BeNumerically("~", 75))
 		})
 	})
 
 	Context("complete invalidation", func() {
 		It("should clear cache and respond", func() {
-			invalidReq := mem.NewInvalidReq(10, cp, l1v.ToCP)
+			invalidReq := mem.NewInvalidReq(10, nil, l1v.ToCP)
 			invalidComplEvent := newInvalidationCompleteEvent(70,
 				l1v, invalidReq, l1v.ToCP)
 
-			expectRsp := mem.NewInvalidDoneRsp(70, l1v.ToCP, cp,
+			expectRsp := mem.NewInvalidDoneRsp(70, l1v.ToCP, nil,
 				invalidReq.GetID())
-			connection.ExpectSend(expectRsp, nil)
+			toCP.EXPECT().Send(gomock.AssignableToTypeOf(expectRsp)).Return(nil)
 
 			l1v.Handle(invalidComplEvent)
 
 			Expect(directory.Resetted).To(BeTrue())
-			Expect(connection.AllExpectedSent()).To(BeTrue())
 			Expect(engine.ScheduledEvent).To(HaveLen(1))
 		})
 
 		It("should retry if send failed", func() {
-			invalidReq := mem.NewInvalidReq(10, cp, l1v.ToCP)
+			invalidReq := mem.NewInvalidReq(10, nil, l1v.ToCP)
 			invalidComplEvent := newInvalidationCompleteEvent(70,
 				l1v, invalidReq, l1v.ToCP)
 
-			expectRsp := mem.NewInvalidDoneRsp(70, l1v.ToCP, cp,
+			expectRsp := mem.NewInvalidDoneRsp(70, l1v.ToCP, nil,
 				invalidReq.GetID())
-			connection.ExpectSend(expectRsp, akita.NewSendError())
+			toCP.EXPECT().Send(gomock.AssignableToTypeOf(expectRsp)).
+				Return(akita.NewSendError())
 
 			l1v.Handle(invalidComplEvent)
 
@@ -414,14 +424,15 @@ var _ = Describe("L1V Cache", func() {
 			transaction.Block = block
 			transaction.ReqToBottom = readToBottom
 			l1v.mshr = append(l1v.mshr, transaction)
-
-			l1v.ToL2.Recv(dataReadyFromBottom)
 		})
 
 		It("should respond data ready to cu and write to local", func() {
-			l1v.parseFromL2(11)
+			toL2.EXPECT().Peek().Return(dataReadyFromBottom)
+			toL2.EXPECT().
+				Retrieve(akita.VTimeInSec(11)).
+				Return(dataReadyFromBottom)
 
-			Expect(l1v.ToL2.Buf).To(HaveLen(0))
+			l1v.parseFromL2(11)
 
 			rsp := l1v.reqBuf[0].Rsp
 			Expect(rsp).NotTo(BeNil())
@@ -449,13 +460,17 @@ var _ = Describe("L1V Cache", func() {
 			readFromTop.Address = 0x104
 			readFromTop.MemByteSize = 4
 
+			toL2.EXPECT().Peek().Return(dataReadyFromBottom)
+			toL2.EXPECT().
+				Retrieve(akita.VTimeInSec(11)).
+				Return(dataReadyFromBottom)
+
 			l1v.parseFromL2(11)
 
 			rsp := l1v.reqBuf[0].Rsp
 			Expect(rsp).NotTo(BeNil())
 			Expect(rsp.(*mem.DataReadyRsp).Data).To(Equal([]byte{5, 6, 7, 8}))
 
-			Expect(l1v.ToL2.Buf).To(HaveLen(0))
 			Expect(l1v.pendingDownGoingRead).To(HaveLen(0))
 			Expect(l1v.mshr).To(BeEmpty())
 			Expect(l1v.NeedTick).To(BeTrue())
@@ -596,7 +611,7 @@ var _ = Describe("L1V Cache", func() {
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
 				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
-				Expect(l1v.ToCU.Buf).To(HaveLen(0))
+				// Expect(l1v.ToCU.Buf).To(HaveLen(0))
 				Expect(transaction.Block).To(BeIdenticalTo(block))
 				Expect(block.IsLocked).To(BeTrue())
 
@@ -624,7 +639,7 @@ var _ = Describe("L1V Cache", func() {
 				Expect(l1v.NeedTick).To(BeTrue())
 				Expect(l1v.toL2Buffer).To(HaveLen(1))
 				Expect(l1v.pendingDownGoingWrite).To(HaveLen(1))
-				Expect(l1v.ToCU.Buf).To(HaveLen(0))
+				// Expect(l1v.ToCU.Buf).To(HaveLen(0))
 
 				Expect(block.IsValid).To(BeFalse())
 			})
@@ -654,11 +669,12 @@ var _ = Describe("L1V Cache", func() {
 
 		doneRsp := mem.NewDoneRsp(10, nil, l1v.ToL2, writeToBottom.ID)
 
-		l1v.ToL2.Recv(doneRsp)
+		toL2.EXPECT().Peek().Return(doneRsp)
+		toL2.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(doneRsp)
 
 		l1v.parseFromL2(11)
 
-		Expect(l1v.ToL2.Buf).To(HaveLen(0))
+		// Expect(l1v.ToL2.Buf).To(HaveLen(0))
 		Expect(l1v.pendingDownGoingWrite).To(HaveLen(0))
 		Expect(l1v.NeedTick).To(BeTrue())
 		Expect(transaction1.Rsp).NotTo(BeNil())
@@ -672,11 +688,9 @@ var _ = Describe("L1V Cache", func() {
 		dataReady := mem.NewDataReadyRsp(10, l1v.ToCU, nil, read.GetID())
 		transaction.Rsp = dataReady
 
-		connection.ExpectSend(dataReady, nil)
+		toCU.EXPECT().Send(gomock.AssignableToTypeOf(dataReady)).Return(nil)
 
 		l1v.sendToCU(11)
-
-		Expect(connection.AllExpectedSent()).To(BeTrue())
 
 		Expect(l1v.reqBuf).To(HaveLen(0))
 		Expect(l1v.reqIDToTransactionMap[read.GetID()]).To(BeNil())
@@ -688,11 +702,10 @@ var _ = Describe("L1V Cache", func() {
 		read := mem.NewReadReq(10, l1v.ToL2, nil, 0x100, 64)
 		l1v.toL2Buffer = append(l1v.toL2Buffer, read)
 
-		connection.ExpectSend(read, nil)
+		toL2.EXPECT().Send(gomock.AssignableToTypeOf(read)).Return(nil)
 
 		l1v.sendToL2(11)
 
-		Expect(connection.AllExpectedSent()).To(BeTrue())
 		Expect(l1v.NeedTick).To(BeTrue())
 	})
 })
@@ -720,7 +733,6 @@ var _ = Describe("L1VCache black box", func() {
 		l1v.Directory = directory
 		l1v.Storage = storage
 		l1v.L2Finder = l2Finder
-		l1v.ToCU.BufCapacity = 2
 		l1v.BlockSizeAsPowerOf2 = 6
 
 		lowModule = mem.NewIdealMemController("lowModule", engine, 4*mem.GB)

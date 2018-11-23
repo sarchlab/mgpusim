@@ -21,8 +21,8 @@ type GPU struct {
 	engine akita.Engine
 	Freq   akita.Freq
 
-	Driver             *akita.Port
-	CommandProcessor   *akita.Port
+	Driver             akita.Port
+	CommandProcessor   akita.Port
 	Dispatchers        []akita.Component
 	CUs                []akita.Component
 	L1VCaches          []akita.Component
@@ -33,14 +33,14 @@ type GPU struct {
 	DRAMStorage        *mem.Storage
 	InternalConnection akita.Connection
 
-	ToDriver           *akita.Port
-	ToCommandProcessor *akita.Port
+	ToDriver           akita.Port
+	ToCommandProcessor akita.Port
 }
 
-func (g *GPU) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (g *GPU) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 }
 
-func (g *GPU) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (g *GPU) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, g.engine, g.Freq)
 }
@@ -79,8 +79,8 @@ func NewGPU(name string, engine akita.Engine) *GPU {
 	g.engine = engine
 	g.Freq = 1 * akita.GHz
 
-	g.ToDriver = akita.NewPort(g)
-	g.ToCommandProcessor = akita.NewPort(g)
+	g.ToDriver = akita.NewLimitNumReqPort(g, 1)
+	g.ToCommandProcessor = akita.NewLimitNumReqPort(g, 1)
 
 	return g
 }
