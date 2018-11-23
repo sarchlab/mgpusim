@@ -25,25 +25,25 @@ type CommandProcessor struct {
 	engine akita.Engine
 	Freq   akita.Freq
 
-	Dispatcher *akita.Port
-	DMAEngine  *akita.Port
-	Driver     *akita.Port
+	Dispatcher akita.Port
+	DMAEngine  akita.Port
+	Driver     akita.Port
 
-	ToDriver     *akita.Port
-	ToDispatcher *akita.Port
+	ToDriver     akita.Port
+	ToDispatcher akita.Port
 
-	CachesToReset               []*akita.Port
+	CachesToReset               []akita.Port
 	L2Caches                    []*cache.WriteBackCache
 	GPUStorage                  *mem.Storage
 	kernelFixedOverheadInCycles int
 }
 
-func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, p.engine, p.Freq)
 }
 
-func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	//panic("implement me")
 }
 
@@ -164,8 +164,8 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.kernelFixedOverheadInCycles = 1600
 	c.L2Caches = make([]*cache.WriteBackCache, 0)
 
-	c.ToDriver = akita.NewPort(c)
-	c.ToDispatcher = akita.NewPort(c)
+	c.ToDriver = akita.NewLimitNumReqPort(c, 1)
+	c.ToDispatcher = akita.NewLimitNumReqPort(c, 1)
 
 	return c
 }

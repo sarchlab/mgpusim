@@ -24,15 +24,15 @@ type DMAEngine struct {
 	progressOffset uint64
 	needTick       bool
 
-	ToCommandProcessor *akita.Port
-	ToMem              *akita.Port
+	ToCommandProcessor akita.Port
+	ToMem              akita.Port
 }
 
-func (dma *DMAEngine) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (dma *DMAEngine) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	dma.ticker.TickLater(now)
 }
 
-func (dma *DMAEngine) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (dma *DMAEngine) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	dma.ticker.TickLater(now)
 }
 
@@ -211,8 +211,8 @@ func NewDMAEngine(
 	dma.Freq = 1 * akita.GHz
 	dma.ticker = akita.NewTicker(dma, engine, dma.Freq)
 
-	dma.ToCommandProcessor = akita.NewPort(dma)
-	dma.ToMem = akita.NewPort(dma)
+	dma.ToCommandProcessor = akita.NewLimitNumReqPort(dma, 1)
+	dma.ToMem = akita.NewLimitNumReqPort(dma, 1)
 
 	return dma
 }

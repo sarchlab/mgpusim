@@ -20,8 +20,8 @@ type Builder struct {
 	ScratchpadPreparer ScratchpadPreparer
 	ALU                emu.ALU
 
-	InstMem          *akita.Port
-	ScalarMem        *akita.Port
+	InstMem          akita.Port
+	ScalarMem        akita.Port
 	VectorMemModules cache.LowModuleFinder
 
 	ConnToInstMem   akita.Connection
