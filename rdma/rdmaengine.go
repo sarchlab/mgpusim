@@ -15,13 +15,13 @@ type Engine struct {
 	*akita.ComponentBase
 	ticker *akita.Ticker
 
-	ToOutside *akita.Port
-	ToInside  *akita.Port
+	ToOutside akita.Port
+	ToInside  akita.Port
 
 	engine        akita.Engine
 	localModules  cache.LowModuleFinder
 	remoteModules cache.LowModuleFinder
-	originalSrc   map[string]*akita.Port
+	originalSrc   map[string]akita.Port
 
 	freq     akita.Freq
 	needTick bool
@@ -70,7 +70,7 @@ func (e *Engine) processReqFromInside(now akita.VTimeInSec) {
 	}
 }
 
-func (e *Engine) sendReqToOutside(now akita.VTimeInSec, req akita.Req, dst *akita.Port) {
+func (e *Engine) sendReqToOutside(now akita.VTimeInSec, req akita.Req, dst akita.Port) {
 	originalSrc := req.Src()
 	req.SetSrc(e.ToOutside)
 	req.SetDst(dst)
@@ -126,7 +126,7 @@ func (e *Engine) processReqFromOutside(now akita.VTimeInSec) {
 	}
 }
 
-func (e *Engine) sendReqToInside(now akita.VTimeInSec, req akita.Req, dst *akita.Port) {
+func (e *Engine) sendReqToInside(now akita.VTimeInSec, req akita.Req, dst akita.Port) {
 	originalSrc := req.Src()
 	req.SetSrc(e.ToInside)
 	req.SetDst(dst)
@@ -160,11 +160,11 @@ func (e *Engine) sendRspToInside(now akita.VTimeInSec, req mem.MemRsp) {
 	}
 }
 
-func (e *Engine) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (e *Engine) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	e.ticker.TickLater(now)
 }
 
-func (e *Engine) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (e *Engine) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	e.ticker.TickLater(now)
 }
 
@@ -187,10 +187,10 @@ func NewEngine(
 	e.localModules = localModules
 	e.remoteModules = remoteModules
 
-	e.originalSrc = make(map[string]*akita.Port)
+	e.originalSrc = make(map[string]akita.Port)
 
-	e.ToInside = akita.NewPort(e)
-	e.ToOutside = akita.NewPort(e)
+	e.ToInside = akita.NewLimitNumReqPort(e, 1)
+	e.ToOutside = akita.NewLimitNumReqPort(e, 1)
 
 	return e
 }

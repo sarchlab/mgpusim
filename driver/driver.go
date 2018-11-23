@@ -22,14 +22,14 @@ type Driver struct {
 	totalSize   uint64
 	usingGPU    int
 
-	ToGPUs *akita.Port
+	ToGPUs akita.Port
 }
 
-func (d *Driver) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (d *Driver) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	// Do nothing
 }
 
-func (d *Driver) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (d *Driver) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, d.engine, d.freq)
 }
@@ -74,7 +74,7 @@ func NewDriver(engine akita.Engine) *Driver {
 	driver.freq = 1 * akita.GHz
 	driver.memoryMasks = make([]*MemoryMask, 0)
 
-	driver.ToGPUs = akita.NewPort(driver)
+	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 1)
 
 	return driver
 }
