@@ -3,11 +3,6 @@ package driver
 import (
 	"log"
 
-	"bytes"
-
-	"encoding/binary"
-
-	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem"
 )
 
@@ -87,6 +82,8 @@ func (d *Driver) AllocateMemory(
 	return 0
 }
 
+// AllocateMemoryWithAlignment allocates memory on the GPU, with the granrantee
+// that the returned address is an multiple of the alignment specified.
 func (d *Driver) AllocateMemoryWithAlignment(
 	byteSize uint64,
 	alignment uint64,
@@ -163,37 +160,42 @@ func (d *Driver) FreeMemory(ptr GPUPtr) error {
 	return nil
 }
 
-// MemoryCopyHostToDevice copies a memory from the host to a GPU device.
-func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}) {
-	rawData := make([]byte, 0)
-	buffer := bytes.NewBuffer(rawData)
-
-	err := binary.Write(buffer, binary.LittleEndian, data)
-	if err != nil {
-		log.Fatal(err)
+// EnqueueMemCopyH2D registers a MemCopyH2DCommand in the queue.
+func (d *Driver) EnqueueMemCopyH2D(
+	queue *CommandQueue,
+	dst GPUPtr,
+	src interface{},
+) {
+	cmd := &MemCopyH2DCommand{
+		Dst: dst,
+		Src: src,
 	}
-
-	gpu := d.gpus[d.usingGPU].ToDriver
-	start := d.engine.CurrentTime() + 1e-8
-	req := gcn3.NewMemCopyH2DReq(start, d.ToGPUs, gpu, buffer.Bytes(), uint64(ptr))
-	d.ToGPUs.Send(req)
-	d.engine.Run()
-	end := d.engine.CurrentTime()
-	log.Printf("Memcpy H2D: [%.012f - %.012f]\n", start, end)
+	queue.Commands = append(queue.Commands, cmd)
 }
 
-// MemoryCopyDeviceToHost copies a memory from a GPU device to the host
-func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr) {
-	rawData := make([]byte, binary.Size(data))
+// EnqueueMemCopyD2H registers a MemCopyD2HCommand in the queue.
+func (d *Driver) EnqueueMemCopyD2H(
+	queue *CommandQueue,
+	dst interface{},
+	src GPUPtr,
+) {
+	cmd := &MemCopyD2HCommand{
+		Dst: dst,
+		Src: src,
+	}
+	queue.Commands = append(queue.Commands, cmd)
+}
 
-	gpu := d.gpus[d.usingGPU].ToDriver
-	start := d.engine.CurrentTime() + 1e-8
-	req := gcn3.NewMemCopyD2HReq(start, d.ToGPUs, gpu, uint64(ptr), rawData)
-	d.ToGPUs.Send(req)
-	d.engine.Run()
-	end := d.engine.CurrentTime()
-	log.Printf("Memcpy D2H: [%.012f - %.012f]\n", start, end)
+// MemCopyH2D copies a memory from the host to a GPU device.
+func (d *Driver) MemCopyH2D(dst GPUPtr, src interface{}) {
+	queue := d.CreateCommandQueue()
+	d.EnqueueMemCopyH2D(queue, dst, src)
+	d.ExecuteAllCommands()
+}
 
-	buf := bytes.NewReader(rawData)
-	binary.Read(buf, binary.LittleEndian, data)
+// MemCopyD2H copies a memory from a GPU device to the host
+func (d *Driver) MemCopyD2H(dst interface{}, src GPUPtr) {
+	queue := d.CreateCommandQueue()
+	d.EnqueueMemCopyD2H(queue, dst, src)
+	d.ExecuteAllCommands()
 }

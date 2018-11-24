@@ -98,7 +98,7 @@ func (b *Benchmark) initMem() {
 		//hFeatures[i] = float32(i)
 	}
 
-	b.driver.MemoryCopyHostToDevice(b.dFeatures, b.hFeatures)
+	b.driver.MemCopyH2D(b.dFeatures, b.hFeatures)
 }
 
 func (b *Benchmark) exec() {
@@ -156,7 +156,7 @@ func (b *Benchmark) initializeMembership() {
 }
 
 func (b *Benchmark) updateMembership() float64 {
-	b.driver.MemoryCopyHostToDevice(b.dClusters, b.hClusters)
+	b.driver.MemCopyH2D(b.dClusters, b.hClusters)
 
 	kernArg := KMeansComputeArgs{
 		b.dFeaturesSwap,
@@ -177,7 +177,7 @@ func (b *Benchmark) updateMembership() float64 {
 	)
 
 	newMembership := make([]int32, b.NumPoints)
-	b.driver.MemoryCopyDeviceToHost(newMembership, b.dMembership)
+	b.driver.MemCopyD2H(newMembership, b.dMembership)
 
 	delta := 0.0
 	for i := 0; i < b.NumPoints; i++ {
