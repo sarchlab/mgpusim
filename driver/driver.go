@@ -2,6 +2,7 @@ package driver
 
 import (
 	"log"
+	"reflect"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
@@ -16,10 +17,7 @@ var HookPosReqReturn = &struct{ name string }{"Any"}
 
 // Driver is an Akita component that controls the simulated GPUs
 type Driver struct {
-	*akita.ComponentBase
-
-	engine akita.Engine
-	freq   akita.Freq
+	*akita.TickingComponent
 
 	gpus        []*gcn3.GPU
 	memoryMasks []*MemoryMask
@@ -31,27 +29,87 @@ type Driver struct {
 	ToGPUs akita.Port
 }
 
-// NotifyPortFree of the Driver component does nothing.
-func (d *Driver) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
-	// Do nothing
-}
-
-// NotifyRecv of the Driver component converts requests as event and schedules
-// them.
-func (d *Driver) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
-	req := port.Retrieve(now)
-	akita.ProcessReqAsEvent(req, d.engine, d.freq)
-}
-
 // Handle process event that is scheduled on the driver
 func (d *Driver) Handle(e akita.Event) error {
 	switch e := e.(type) {
-	case *gcn3.LaunchKernelReq:
-		return d.handleLaunchKernelReq(e)
+	case akita.TickEvent:
+		d.handleTickEvent(e)
 	default:
-		// Do nothing
+		log.Panicf("cannot handle event of type %s", reflect.TypeOf(e))
 	}
 	return nil
+}
+
+func (d *Driver) handleTickEvent(evt akita.TickEvent) {
+	now := evt.Time()
+	d.NeedTick = false
+
+	d.processReturnReq(now)
+	d.processNewCommand(now)
+
+	if d.NeedTick {
+		d.TickLater(now)
+	}
+}
+
+func (d *Driver) processReturnReq(now akita.VTimeInSec) {
+	req := d.ToGPUs.Retrieve(now)
+	if req == nil {
+		return
+	}
+
+	switch req := req.(type) {
+	case *gcn3.MemCopyH2DReq:
+		d.processMemCopyH2DReturn(now, req)
+
+	case *gcn3.MemCopyD2HReq:
+		d.processMemCopyD2HReturn(now, req)
+
+	default:
+		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
+	}
+}
+
+func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
+	for _, cmdQueue := range d.CommandQueues {
+		if len(cmdQueue.Commands) == 0 {
+			continue
+		}
+
+		if cmdQueue.Commands[0].GetReq() == req {
+			return cmdQueue.Commands[0], cmdQueue
+		}
+	}
+
+	panic("cannot find command")
+}
+
+func (d *Driver) processNewCommand(now akita.VTimeInSec) {
+	for _, cmdQueue := range d.CommandQueues {
+		if len(cmdQueue.Commands) == 0 {
+			continue
+		}
+
+		if cmdQueue.IsRunning {
+			continue
+		}
+
+		d.processOneCommand(now, cmdQueue)
+	}
+}
+
+func (d *Driver) processOneCommand(
+	now akita.VTimeInSec,
+	cmdQueue *CommandQueue,
+) {
+	cmd := cmdQueue.Commands[0]
+
+	switch cmd := cmd.(type) {
+	case *MemCopyH2DCommand:
+		d.processMemCopyH2DCommand(now, cmd, cmdQueue)
+	default:
+		log.Panicf("cannot process command of type %s", reflect.TypeOf(cmd))
+	}
 }
 
 func (d *Driver) handleLaunchKernelReq(req *gcn3.LaunchKernelReq) error {
@@ -80,10 +138,9 @@ func (d *Driver) SelectGPU(gpuID int) {
 // NewDriver creates a new driver
 func NewDriver(engine akita.Engine) *Driver {
 	driver := new(Driver)
-	driver.ComponentBase = akita.NewComponentBase("driver")
+	driver.TickingComponent = akita.NewTickingComponent(
+		"driver", engine, 1*akita.GHz, driver)
 
-	driver.engine = engine
-	driver.freq = 1 * akita.GHz
 	driver.memoryMasks = make([]*MemoryMask, 0)
 
 	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 1)
