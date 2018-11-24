@@ -2,9 +2,7 @@ package gpubuilder
 
 import (
 	"fmt"
-
 	"log"
-
 	"os"
 
 	"gitlab.com/akita/akita"
