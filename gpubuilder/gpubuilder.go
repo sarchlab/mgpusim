@@ -70,7 +70,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 
 	disassembler := insts.NewDisassembler()
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 4; i++ {
 		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
 		alu := emu.NewALUImpl(gpuMem.Storage)
 		computeUnit := emu.NewComputeUnit(

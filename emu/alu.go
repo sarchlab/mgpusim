@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"math"
 
 	"encoding/binary"
 
@@ -158,7 +157,6 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
-	// fmt.Printf("Write: ")
 	for i := 0; i < 64; i++ {
 		if !u.laneMasked(sp.EXEC, uint(i)) {
 			continue
@@ -168,9 +166,7 @@ func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 		if err != nil {
 			log.Panic(err)
 		}
-		// fmt.Printf("%f ", math.Float32frombits(sp.DATA[i*4]))
 	}
-	// fmt.Printf("\n")
 }
 
 func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
@@ -186,13 +182,7 @@ func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 		copy(buf[8:12], insts.Uint32ToBytes(sp.DATA[(i*4)+2]))
 		copy(buf[12:16], insts.Uint32ToBytes(sp.DATA[(i*4)+3]))
 
-		fmt.Printf("Write %f\n", math.Float32frombits(sp.DATA[i*4]))
-		fmt.Printf("Write %f\n", math.Float32frombits(sp.DATA[i*4+1]))
-		fmt.Printf("Write %f\n", math.Float32frombits(sp.DATA[i*4+2]))
-		fmt.Printf("Write %f\n", math.Float32frombits(sp.DATA[i*4+3]))
-
 		err := u.Storage.Write(sp.ADDR[i], buf)
-
 		if err != nil {
 			log.Panic(err)
 		}
