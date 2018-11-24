@@ -1,6 +1,8 @@
 package driver
 
 import (
+	"bytes"
+	"encoding/binary"
 	"log"
 	"reflect"
 
@@ -27,6 +29,34 @@ type Driver struct {
 	CommandQueues []*CommandQueue
 
 	ToGPUs akita.Port
+}
+
+// ExecuteAllCommands run the simulation until all the commands are completed.
+func (d *Driver) ExecuteAllCommands() {
+	now := d.Engine.CurrentTime()
+	d.TickLater(now)
+
+	err := d.Engine.Run()
+	if err != nil {
+		panic(err)
+	}
+}
+
+// RegisterGPU tells the driver about the existance of a GPU
+func (d *Driver) RegisterGPU(gpu *gcn3.GPU) {
+	d.gpus = append(d.gpus, gpu)
+
+	d.registerStorage(gpu.DRAMStorage, GPUPtr(d.totalSize), gpu.DRAMStorage.Capacity)
+	d.totalSize += gpu.DRAMStorage.Capacity
+}
+
+// SelectGPU requires the driver to perform the following APIs on a selected
+// GPU
+func (d *Driver) SelectGPU(gpuID int) {
+	if gpuID >= len(d.gpus) {
+		log.Panicf("no GPU %d in the system", gpuID)
+	}
+	d.usingGPU = gpuID
 }
 
 // Handle process event that is scheduled on the driver
@@ -61,9 +91,10 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 	switch req := req.(type) {
 	case *gcn3.MemCopyH2DReq:
 		d.processMemCopyH2DReturn(now, req)
-
 	case *gcn3.MemCopyD2HReq:
 		d.processMemCopyD2HReturn(now, req)
+	case *gcn3.LaunchKernelReq:
+		d.processLaunchKernelReturn(now, req)
 
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
@@ -109,32 +140,118 @@ func (d *Driver) processOneCommand(
 		d.processMemCopyH2DCommand(now, cmd, cmdQueue)
 	case *MemCopyD2HCommand:
 		d.processMemCopyD2HCommand(now, cmd, cmdQueue)
+	case *LaunchKernelCommand:
+		d.processLaunchKernelCommand(now, cmd, cmdQueue)
 	default:
 		log.Panicf("cannot process command of type %s", reflect.TypeOf(cmd))
 	}
 }
 
-func (d *Driver) handleLaunchKernelReq(req *gcn3.LaunchKernelReq) error {
-	req.EndTime = req.Time()
-	d.InvokeHook(req, d, HookPosReqReturn, nil)
-	return nil
-}
+func (d *Driver) processMemCopyH2DCommand(
+	now akita.VTimeInSec,
+	cmd *MemCopyH2DCommand,
+	queue *CommandQueue,
+) {
+	rawData := make([]byte, 0)
+	buffer := bytes.NewBuffer(rawData)
 
-// RegisterGPU tells the driver about the existance of a GPU
-func (d *Driver) RegisterGPU(gpu *gcn3.GPU) {
-	d.gpus = append(d.gpus, gpu)
-
-	d.registerStorage(gpu.DRAMStorage, GPUPtr(d.totalSize), gpu.DRAMStorage.Capacity)
-	d.totalSize += gpu.DRAMStorage.Capacity
-}
-
-// SelectGPU requires the driver to perform the following APIs on a selected
-// GPU
-func (d *Driver) SelectGPU(gpuID int) {
-	if gpuID >= len(d.gpus) {
-		log.Panicf("no GPU %d in the system", gpuID)
+	err := binary.Write(buffer, binary.LittleEndian, cmd.Src)
+	if err != nil {
+		panic(err)
 	}
-	d.usingGPU = gpuID
+
+	req := gcn3.NewMemCopyH2DReq(now,
+		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
+		rawData, uint64(cmd.Dst))
+	sendError := d.ToGPUs.Send(req)
+	if sendError == nil {
+		queue.IsRunning = true
+		cmd.Req = req
+		d.NeedTick = true
+	}
+}
+
+func (d *Driver) processMemCopyH2DReturn(
+	now akita.VTimeInSec,
+	req *gcn3.MemCopyH2DReq,
+) {
+	_, cmdQueue := d.findCommandByReq(req)
+	cmdQueue.IsRunning = false
+	cmdQueue.Commands = cmdQueue.Commands[1:]
+
+	d.NeedTick = true
+}
+
+func (d *Driver) processMemCopyD2HCommand(
+	now akita.VTimeInSec,
+	cmd *MemCopyD2HCommand,
+	queue *CommandQueue,
+) {
+	rawData := make([]byte, binary.Size(cmd.Dst))
+
+	req := gcn3.NewMemCopyD2HReq(now,
+		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
+		uint64(cmd.Src), rawData)
+	sendError := d.ToGPUs.Send(req)
+	if sendError == nil {
+		queue.IsRunning = true
+		cmd.Req = req
+		d.NeedTick = true
+	}
+}
+
+func (d *Driver) processMemCopyD2HReturn(
+	now akita.VTimeInSec,
+	req *gcn3.MemCopyD2HReq,
+) {
+	cmd, cmdQueue := d.findCommandByReq(req)
+
+	memCopyCommand := cmd.(*MemCopyD2HCommand)
+
+	buf := bytes.NewReader(req.DstBuffer)
+	err := binary.Read(buf, binary.LittleEndian, memCopyCommand.Dst)
+	if err != nil {
+		panic(err)
+	}
+
+	cmdQueue.IsRunning = false
+	cmdQueue.Commands = cmdQueue.Commands[1:]
+	d.NeedTick = true
+}
+
+func (d *Driver) processLaunchKernelCommand(
+	now akita.VTimeInSec,
+	cmd *LaunchKernelCommand,
+	queue *CommandQueue,
+) {
+	req := gcn3.NewLaunchKernelReq(now,
+		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
+	req.HsaCo = cmd.CodeObject
+	req.Packet = cmd.Packet
+	req.PacketAddress = uint64(cmd.DPacket)
+
+	sendError := d.ToGPUs.Send(req)
+	if sendError == nil {
+		req.StartTime = now
+		d.InvokeHook(req, d, HookPosReqStart, nil)
+
+		queue.IsRunning = true
+		cmd.Req = req
+		d.NeedTick = true
+	}
+}
+
+func (d *Driver) processLaunchKernelReturn(
+	now akita.VTimeInSec,
+	req *gcn3.LaunchKernelReq,
+) {
+	_, cmdQueue := d.findCommandByReq(req)
+	cmdQueue.IsRunning = false
+	cmdQueue.Commands = cmdQueue.Commands[1:]
+	d.NeedTick = true
+
+	req.EndTime = now
+	d.InvokeHook(req, d, HookPosReqReturn, nil)
 }
 
 // NewDriver creates a new driver

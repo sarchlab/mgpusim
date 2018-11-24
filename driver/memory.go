@@ -1,12 +1,8 @@
 package driver
 
 import (
-	"bytes"
-	"encoding/binary"
 	"log"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem"
 )
 
@@ -164,109 +160,42 @@ func (d *Driver) FreeMemory(ptr GPUPtr) error {
 	return nil
 }
 
-func (d *Driver) processMemCopyH2DCommand(
-	now akita.VTimeInSec,
-	cmd *MemCopyH2DCommand,
+// EnqueueMemCopyH2D registers a MemCopyH2DCommand in the queue.
+func (d *Driver) EnqueueMemCopyH2D(
 	queue *CommandQueue,
+	dst GPUPtr,
+	src interface{},
 ) {
-	rawData := make([]byte, 0)
-	buffer := bytes.NewBuffer(rawData)
-
-	err := binary.Write(buffer, binary.LittleEndian, cmd.Src)
-	if err != nil {
-		panic(err)
+	cmd := &MemCopyH2DCommand{
+		Dst: dst,
+		Src: src,
 	}
-
-	req := gcn3.NewMemCopyH2DReq(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
-		rawData, uint64(cmd.Dst))
-	sendError := d.ToGPUs.Send(req)
-	if sendError == nil {
-		queue.IsRunning = true
-		cmd.Req = req
-		d.NeedTick = true
-	}
+	queue.Commands = append(queue.Commands, cmd)
 }
 
-func (d *Driver) processMemCopyH2DReturn(
-	now akita.VTimeInSec,
-	req *gcn3.MemCopyH2DReq,
-) {
-	_, cmdQueue := d.findCommandByReq(req)
-	cmdQueue.IsRunning = false
-	cmdQueue.Commands = cmdQueue.Commands[1:]
-
-	d.NeedTick = true
-}
-
-func (d *Driver) processMemCopyD2HCommand(
-	now akita.VTimeInSec,
-	cmd *MemCopyD2HCommand,
+// EnqueueMemCopyD2H registers a MemCopyD2HCommand in the queue.
+func (d *Driver) EnqueueMemCopyD2H(
 	queue *CommandQueue,
+	dst interface{},
+	src GPUPtr,
 ) {
-	rawData := make([]byte, binary.Size(cmd.Dst))
-
-	req := gcn3.NewMemCopyD2HReq(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
-		uint64(cmd.Src), rawData)
-	sendError := d.ToGPUs.Send(req)
-	if sendError == nil {
-		queue.IsRunning = true
-		cmd.Req = req
-		d.NeedTick = true
+	cmd := &MemCopyD2HCommand{
+		Dst: dst,
+		Src: src,
 	}
+	queue.Commands = append(queue.Commands, cmd)
 }
 
-func (d *Driver) processMemCopyD2HReturn(
-	now akita.VTimeInSec,
-	req *gcn3.MemCopyD2HReq,
-) {
-	cmd, cmdQueue := d.findCommandByReq(req)
-
-	memCopyCommand := cmd.(*MemCopyD2HCommand)
-
-	buf := bytes.NewReader(req.DstBuffer)
-	err := binary.Read(buf, binary.LittleEndian, memCopyCommand.Dst)
-	if err != nil {
-		panic(err)
-	}
-
-	cmdQueue.IsRunning = false
-	cmdQueue.Commands = cmdQueue.Commands[1:]
-	d.NeedTick = true
+// MemCopyH2D copies a memory from the host to a GPU device.
+func (d *Driver) MemCopyH2D(dst GPUPtr, src interface{}) {
+	queue := d.CreateCommandQueue()
+	d.EnqueueMemCopyH2D(queue, dst, src)
+	d.ExecuteAllCommands()
 }
 
-// // MemoryCopyHostToDevice copies a memory from the host to a GPU device.
-// func (d *Driver) MemoryCopyHostToDevice(ptr GPUPtr, data interface{}) {
-// 	rawData := make([]byte, 0)
-// 	buffer := bytes.NewBuffer(rawData)
-
-// 	err := binary.Write(buffer, binary.LittleEndian, data)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	gpu := d.gpus[d.usingGPU].ToDriver
-// 	start := d.engine.CurrentTime() + 1e-8
-// 	req := gcn3.NewMemCopyH2DReq(start, d.ToGPUs, gpu, buffer.Bytes(), uint64(ptr))
-// 	d.ToGPUs.Send(req)
-// 	d.engine.Run()
-// 	end := d.engine.CurrentTime()
-// 	log.Printf("Memcpy H2D: [%.012f - %.012f]\n", start, end)
-// }
-
-// // MemoryCopyDeviceToHost copies a memory from a GPU device to the host
-// func (d *Driver) MemoryCopyDeviceToHost(data interface{}, ptr GPUPtr) {
-// 	rawData := make([]byte, binary.Size(data))
-
-// 	gpu := d.gpus[d.usingGPU].ToDriver
-// 	start := d.engine.CurrentTime() + 1e-8
-// 	req := gcn3.NewMemCopyD2HReq(start, d.ToGPUs, gpu, uint64(ptr), rawData)
-// 	d.ToGPUs.Send(req)
-// 	d.engine.Run()
-// 	end := d.engine.CurrentTime()
-// 	log.Printf("Memcpy D2H: [%.012f - %.012f]\n", start, end)
-
-// 	buf := bytes.NewReader(rawData)
-// 	binary.Read(buf, binary.LittleEndian, data)
-// }
+// MemCopyD2H copies a memory from a GPU device to the host
+func (d *Driver) MemCopyD2H(dst interface{}, src GPUPtr) {
+	queue := d.CreateCommandQueue()
+	d.EnqueueMemCopyD2H(queue, dst, src)
+	d.ExecuteAllCommands()
+}

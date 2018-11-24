@@ -137,4 +137,52 @@ var _ = Describe("Driver", func() {
 		Expect(data).To(Equal(uint32(1)))
 	})
 
+	Context("process LaunchKernelCommand", func() {
+		It("should send request to GPU", func() {
+			cmd := &LaunchKernelCommand{
+				CodeObject: nil,
+				GridSize:   [3]uint32{256, 1, 1},
+				WGSize:     [3]uint16{64, 1, 1},
+				KernelArgs: nil,
+			}
+			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.IsRunning = false
+
+			toGPUs.EXPECT().
+				Retrieve(akita.VTimeInSec(11)).
+				Return(nil)
+
+			toGPUs.EXPECT().
+				Send(gomock.AssignableToTypeOf(&gcn3.LaunchKernelReq{})).
+				Return(nil)
+
+			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+
+			driver.Handle(*akita.NewTickEvent(11, nil))
+
+			Expect(cmdQueue.IsRunning).To(BeTrue())
+			Expect(cmd.Req).NotTo(BeNil())
+		})
+	})
+
+	It("should process LaunchKernel return", func() {
+		req := gcn3.NewLaunchKernelReq(9, toGPUs, nil)
+		cmd := &LaunchKernelCommand{
+			Req: req,
+		}
+		cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+		cmdQueue.IsRunning = true
+
+		toGPUs.EXPECT().
+			Retrieve(akita.VTimeInSec(11)).
+			Return(req)
+
+		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+
+		driver.Handle(*akita.NewTickEvent(11, nil))
+
+		Expect(cmdQueue.IsRunning).To(BeFalse())
+		Expect(cmdQueue.Commands).To(HaveLen(0))
+	})
+
 })
