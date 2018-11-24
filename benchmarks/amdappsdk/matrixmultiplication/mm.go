@@ -45,7 +45,7 @@ func MatrixMultiplicationOnGPU(mA, mB *Matrix, gpuDriver *driver.Driver) *Matrix
 
 	launchKernel(gA, gB, gC, mA, gpuDriver, kernel, mC)
 
-	gpuDriver.MemoryCopyDeviceToHost(mC.Data, gC)
+	gpuDriver.MemCopyD2H(mC.Data, gC)
 
 	return mC
 }
@@ -68,8 +68,8 @@ func intiMemory(gpuDriver *driver.Driver, mA *Matrix, mB *Matrix, mC *Matrix) (d
 	gA := gpuDriver.AllocateMemory(uint64(mA.Width * mA.Height * 4))
 	gB := gpuDriver.AllocateMemory(uint64(mB.Width * mB.Height * 4))
 	gC := gpuDriver.AllocateMemory(uint64(mC.Width * mC.Height * 4))
-	gpuDriver.MemoryCopyHostToDevice(gA, mA.Data)
-	gpuDriver.MemoryCopyHostToDevice(gB, mB.Data)
+	gpuDriver.MemCopyH2D(gA, mA.Data)
+	gpuDriver.MemCopyH2D(gB, mB.Data)
 	return gA, gB, gC
 }
 

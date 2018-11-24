@@ -121,9 +121,9 @@ func (b *Benchmark) initMem() {
 		b.input[i] = 0
 	}
 
-	b.driver.MemoryCopyHostToDevice(b.gInput, b.input)
-	b.driver.MemoryCopyHostToDevice(b.gExpandedKey, b.expandedKey)
-	b.driver.MemoryCopyHostToDevice(b.gS, b.s)
+	b.driver.MemCopyH2D(b.gInput, b.input)
+	b.driver.MemCopyH2D(b.gExpandedKey, b.expandedKey)
+	b.driver.MemCopyH2D(b.gS, b.s)
 }
 
 func (b *Benchmark) Run() {
@@ -142,7 +142,7 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]byte, b.Length)
-	b.driver.MemoryCopyDeviceToHost(gpuOutput, b.gInput)
+	b.driver.MemCopyD2H(gpuOutput, b.gInput)
 
 	cpuOutput := b.cpuEncrypt()
 
