@@ -107,6 +107,8 @@ func (d *Driver) processOneCommand(
 	switch cmd := cmd.(type) {
 	case *MemCopyH2DCommand:
 		d.processMemCopyH2DCommand(now, cmd, cmdQueue)
+	case *MemCopyD2HCommand:
+		d.processMemCopyD2HCommand(now, cmd, cmdQueue)
 	default:
 		log.Panicf("cannot process command of type %s", reflect.TypeOf(cmd))
 	}
