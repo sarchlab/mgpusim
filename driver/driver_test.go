@@ -58,8 +58,10 @@ var _ = Describe("Driver", func() {
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
 
 			driver.Handle(*akita.NewTickEvent(11, nil))
-		})
 
+			Expect(cmdQueue.IsRunning).To(BeTrue())
+			Expect(cmd.Req).NotTo(BeNil())
+		})
 	})
 
 	It("should process MemCopyH2D return", func() {
@@ -82,6 +84,33 @@ var _ = Describe("Driver", func() {
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.Commands).To(HaveLen(0))
+	})
+
+	Context("process MemCopyD2HCommand", func() {
+		It("should send request", func() {
+			data := uint32(1)
+			cmd := &MemCopyD2HCommand{
+				Dst: &data,
+				Src: GPUPtr(0x100),
+			}
+			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.IsRunning = false
+
+			toGPUs.EXPECT().
+				Retrieve(akita.VTimeInSec(11)).
+				Return(nil)
+
+			toGPUs.EXPECT().
+				Send(gomock.AssignableToTypeOf(&gcn3.MemCopyD2HReq{})).
+				Return(nil)
+
+			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+
+			driver.Handle(*akita.NewTickEvent(11, nil))
+
+			Expect(cmdQueue.IsRunning).To(BeTrue())
+			Expect(cmd.Req).NotTo(BeNil())
+		})
 	})
 
 	It("should process MemCopyD2H return", func() {

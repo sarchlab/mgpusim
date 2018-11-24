@@ -182,6 +182,8 @@ func (d *Driver) processMemCopyH2DCommand(
 		rawData, uint64(cmd.Dst))
 	sendError := d.ToGPUs.Send(req)
 	if sendError == nil {
+		queue.IsRunning = true
+		cmd.Req = req
 		d.NeedTick = true
 	}
 }
@@ -195,6 +197,24 @@ func (d *Driver) processMemCopyH2DReturn(
 	cmdQueue.Commands = cmdQueue.Commands[1:]
 
 	d.NeedTick = true
+}
+
+func (d *Driver) processMemCopyD2HCommand(
+	now akita.VTimeInSec,
+	cmd *MemCopyD2HCommand,
+	queue *CommandQueue,
+) {
+	rawData := make([]byte, binary.Size(cmd.Dst))
+
+	req := gcn3.NewMemCopyD2HReq(now,
+		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
+		uint64(cmd.Src), rawData)
+	sendError := d.ToGPUs.Send(req)
+	if sendError == nil {
+		queue.IsRunning = true
+		cmd.Req = req
+		d.NeedTick = true
+	}
 }
 
 func (d *Driver) processMemCopyD2HReturn(
