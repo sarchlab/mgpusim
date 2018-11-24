@@ -128,6 +128,7 @@ var _ = Describe("ALU", func() {
 			layout.ADDR[i] = uint64(i * 4)
 			layout.DATA[i*4] = uint32(i)
 		}
+		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -151,6 +152,7 @@ var _ = Describe("ALU", func() {
 			layout.DATA[(i*4)+2] = uint32(i)
 			layout.DATA[(i*4)+3] = uint32(i)
 		}
+		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
