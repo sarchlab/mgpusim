@@ -11,20 +11,34 @@ import (
 )
 
 // A Command is a task to execute later
-type Command interface{}
-
-// A MemoryCopyH2DCommand is a command that copies memory from the host to a
-// GPU when the command is processed
-type MemoryCopyH2DCommand struct {
-	Dst GPUPtr
-	Src interface{}
+type Command interface {
+	GetReq() akita.Req
 }
 
-// A MemoryCopyD2HCommand is a command that copies memory from the host to a
+// A MemCopyH2DCommand is a command that copies memory from the host to a
 // GPU when the command is processed
-type MemoryCopyD2HCommand struct {
+type MemCopyH2DCommand struct {
+	Dst GPUPtr
+	Src interface{}
+	Req *gcn3.MemCopyH2DReq
+}
+
+// GetReq returns the request assocated with the command
+func (c *MemCopyH2DCommand) GetReq() akita.Req {
+	return c.Req
+}
+
+// A MemCopyD2HCommand is a command that copies memory from the host to a
+// GPU when the command is processed
+type MemCopyD2HCommand struct {
 	Dst interface{}
 	Src GPUPtr
+	Req *gcn3.MemCopyD2HReq
+}
+
+// GetReq returns the request assocated with the command
+func (c *MemCopyD2HCommand) GetReq() akita.Req {
+	return c.Req
 }
 
 // A KernelLaunchingCommand is a command will execute a kernel when it is
@@ -83,17 +97,17 @@ func (d *defaultCommandQueueDrainer) scan() {
 
 		cmd := q.Commands[0]
 		switch cmd := cmd.(type) {
-		case *MemoryCopyD2HCommand:
-			d.execMemoryD2HCommand(q, cmd)
+		case *MemCopyD2HCommand:
+			d.execMemD2HCommand(q, cmd)
 		default:
 			log.Panicf("cannot handle command of type %s", reflect.TypeOf(cmd))
 		}
 	}
 }
 
-func (d *defaultCommandQueueDrainer) execMemoryD2HCommand(
+func (d *defaultCommandQueueDrainer) execMemD2HCommand(
 	queue *CommandQueue,
-	cmd *MemoryCopyD2HCommand,
+	cmd *MemCopyD2HCommand,
 ) {
 	rawData := make([]byte, binary.Size(cmd.Dst))
 

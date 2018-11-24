@@ -4,6 +4,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3"
 )
@@ -28,19 +29,21 @@ var _ = Describe("Default Command Queue Drainer", func() {
 		cq      *CommandQueue
 		drainer *defaultCommandQueueDrainer
 		toGPU   *mock_akita.MockPort
+		engine  *mock_akita.MockEngine
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
+		engine = mock_akita.NewMockEngine(mockCtrl)
 
-		driver = NewDriver(nil)
+		driver = NewDriver(engine)
 		toGPU = mock_akita.NewMockPort(mockCtrl)
 		driver.ToGPUs = toGPU
-		gpu := gcn3.NewGPU("gpu", nil)
+		gpu := gcn3.NewGPU("gpu", engine)
 		driver.gpus = append(driver.gpus, gpu)
 
 		cq = driver.CreateCommandQueue()
-		drainer = &defaultCommandQueueDrainer{driver, nil}
+		drainer = &defaultCommandQueueDrainer{driver, engine}
 	})
 
 	AfterEach(func() {
@@ -48,9 +51,10 @@ var _ = Describe("Default Command Queue Drainer", func() {
 	})
 
 	It("should run memory copy host to device command", func() {
-		c := &MemoryCopyD2HCommand{int64(4), GPUPtr(0)}
+		c := &MemCopyD2HCommand{int64(4), GPUPtr(0), nil}
 		cq.Commands = append(cq.Commands, c)
 
+		engine.EXPECT().CurrentTime().Return(akita.VTimeInSec(11))
 		toGPU.EXPECT().Send(gomock.Any()).Return(nil)
 
 		drainer.scan()
