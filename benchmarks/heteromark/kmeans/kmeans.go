@@ -95,7 +95,7 @@ func (b *Benchmark) initMem() {
 	b.hFeatures = make([]float32, b.NumPoints*b.NumFeatures)
 	for i := 0; i < b.NumPoints*b.NumFeatures; i++ {
 		b.hFeatures[i] = rand.Float32()
-		//hFeatures[i] = float32(i)
+		// b.hFeatures[i] = float32(i)
 	}
 
 	b.driver.MemCopyH2D(b.dFeatures, b.hFeatures)
@@ -122,6 +122,26 @@ func (b *Benchmark) transposeFeatures() {
 		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
+
+	// b.verifySwap()
+}
+
+func (b *Benchmark) verifySwap() {
+	gpuSwap := make([]float32, b.NumPoints*b.NumFeatures)
+	b.driver.MemCopyD2H(gpuSwap, b.dFeaturesSwap)
+
+	for i := 0; i < b.NumPoints; i++ {
+		for j := 0; j < b.NumFeatures; j++ {
+			if gpuSwap[j*b.NumPoints+i] != b.hFeatures[i*b.NumFeatures+j] {
+				log.Printf("Swap error (%d, %d) expected %f, but get %f",
+					i, j,
+					b.hFeatures[i*b.NumFeatures+j],
+					gpuSwap[j*b.NumPoints+i],
+				)
+			}
+		}
+	}
+
 }
 
 func (b *Benchmark) kmeansClustering() {
@@ -138,7 +158,6 @@ func (b *Benchmark) kmeansClustering() {
 	}
 
 	fmt.Printf("GPU iterated %d times\n", numIterations)
-
 }
 
 func (b *Benchmark) initializeClusters() {
