@@ -165,7 +165,7 @@ func (d *Driver) processMemCopyH2DCommand(
 
 	req := gcn3.NewMemCopyH2DReq(now,
 		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
-		rawData, uint64(cmd.Dst))
+		buffer.Bytes(), uint64(cmd.Dst))
 	sendError := d.ToGPUs.Send(req)
 	if sendError == nil {
 		queue.IsRunning = true
