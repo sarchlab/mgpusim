@@ -40,18 +40,16 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 
 // LaunchKernel is an eaiser way to run a kernel on the GCN3 simulator. It
 // launches the kernel immediately.
-// func (d *Driver) LaunchKernel(
-// 	co *insts.HsaCo,
-// 	gridSize [3]uint32,
-// 	wgSize [3]uint16,
-// 	kernelArgs interface{},
-// ) {
-// 	dCoData := d.copyInstructionsToGPU(co)
-// 	dKernArgData := d.copyKernArgsToGPU(co, kernelArgs)
-// 	packet, dPacket := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
-// 	d.runKernel(co, packet, dPacket)
-// 	d.finalFlush()
-// }
+func (d *Driver) LaunchKernel(
+	co *insts.HsaCo,
+	gridSize [3]uint32,
+	wgSize [3]uint16,
+	kernelArgs interface{},
+) {
+	queue := d.CreateCommandQueue()
+	d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, kernelArgs)
+	d.ExecuteAllCommands()
+}
 
 func (d *Driver) enqueueCopyKernArgsToGPU(
 	queue *CommandQueue,
