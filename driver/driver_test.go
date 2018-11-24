@@ -185,4 +185,46 @@ var _ = Describe("Driver", func() {
 		Expect(cmdQueue.Commands).To(HaveLen(0))
 	})
 
+	Context("process FlushCommand", func() {
+		It("should send request to GPU", func() {
+			cmd := &FlushCommand{}
+			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.IsRunning = false
+
+			toGPUs.EXPECT().
+				Retrieve(akita.VTimeInSec(11)).
+				Return(nil)
+
+			toGPUs.EXPECT().
+				Send(gomock.AssignableToTypeOf(&gcn3.FlushCommand{})).
+				Return(nil)
+
+			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+
+			driver.Handle(*akita.NewTickEvent(11, nil))
+
+			Expect(cmdQueue.IsRunning).To(BeTrue())
+			Expect(cmd.Req).NotTo(BeNil())
+		})
+	})
+
+	It("should process Flush return", func() {
+		req := gcn3.NewFlushCommand(9, toGPUs, nil)
+		cmd := &FlushCommand{
+			Req: req,
+		}
+		cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+		cmdQueue.IsRunning = true
+
+		toGPUs.EXPECT().
+			Retrieve(akita.VTimeInSec(11)).
+			Return(req)
+
+		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+
+		driver.Handle(*akita.NewTickEvent(11, nil))
+
+		Expect(cmdQueue.IsRunning).To(BeFalse())
+		Expect(cmdQueue.Commands).To(HaveLen(0))
+	})
 })

@@ -95,7 +95,8 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 		d.processMemCopyD2HReturn(now, req)
 	case *gcn3.LaunchKernelReq:
 		d.processLaunchKernelReturn(now, req)
-
+	case *gcn3.FlushCommand:
+		d.processFlushReturn(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
@@ -142,6 +143,8 @@ func (d *Driver) processOneCommand(
 		d.processMemCopyD2HCommand(now, cmd, cmdQueue)
 	case *LaunchKernelCommand:
 		d.processLaunchKernelCommand(now, cmd, cmdQueue)
+	case *FlushCommand:
+		d.processFlushCommand(now, cmd, cmdQueue)
 	default:
 		log.Panicf("cannot process command of type %s", reflect.TypeOf(cmd))
 	}
@@ -244,6 +247,38 @@ func (d *Driver) processLaunchKernelCommand(
 func (d *Driver) processLaunchKernelReturn(
 	now akita.VTimeInSec,
 	req *gcn3.LaunchKernelReq,
+) {
+	_, cmdQueue := d.findCommandByReq(req)
+	cmdQueue.IsRunning = false
+	cmdQueue.Commands = cmdQueue.Commands[1:]
+	d.NeedTick = true
+
+	req.EndTime = now
+	d.InvokeHook(req, d, HookPosReqReturn, nil)
+}
+
+func (d *Driver) processFlushCommand(
+	now akita.VTimeInSec,
+	cmd *FlushCommand,
+	queue *CommandQueue,
+) {
+	req := gcn3.NewFlushCommand(now,
+		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
+
+	sendError := d.ToGPUs.Send(req)
+	if sendError == nil {
+		req.StartTime = now
+		d.InvokeHook(req, d, HookPosReqStart, nil)
+
+		queue.IsRunning = true
+		cmd.Req = req
+		d.NeedTick = true
+	}
+}
+
+func (d *Driver) processFlushReturn(
+	now akita.VTimeInSec,
+	req *gcn3.FlushCommand,
 ) {
 	_, cmdQueue := d.findCommandByReq(req)
 	cmdQueue.IsRunning = false
