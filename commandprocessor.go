@@ -112,6 +112,12 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 		p.flushL2(l2Cache, p.DRAMControllers[i])
 	}
 
+	cmd.SwapSrcAndDst()
+	err := p.ToDriver.Send(cmd)
+	if err != nil {
+		panic(err)
+	}
+
 	return nil
 }
 
