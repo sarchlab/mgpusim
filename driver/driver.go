@@ -302,7 +302,7 @@ func NewDriver(engine akita.Engine) *Driver {
 
 	driver.memoryMasks = make([]*MemoryMask, 0)
 
-	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 1)
+	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 40960000)
 
 	return driver
 }
