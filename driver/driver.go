@@ -50,6 +50,11 @@ func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 	d.totalSize += dramSize
 }
 
+// GetNumGPUs return the number of GPUs in the platform
+func (d *Driver) GetNumGPUs() int {
+	return len(d.gpus)
+}
+
 // SelectGPU requires the driver to perform the following APIs on a selected
 // GPU
 func (d *Driver) SelectGPU(gpuID int) {
