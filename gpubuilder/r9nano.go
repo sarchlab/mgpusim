@@ -19,10 +19,11 @@ import (
 )
 
 type R9NanoGPUBuilder struct {
-	Engine  akita.Engine
-	Freq    akita.Freq
-	Driver  *driver.Driver
-	GPUName string
+	Engine           akita.Engine
+	Freq             akita.Freq
+	Driver           *driver.Driver
+	GPUName          string
+	GPUMemAddrOffset uint64
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -211,6 +212,7 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 			InterleavingSize:    4096,
 			TotalNumOfElements:  numDramController,
 			CurrentElementIndex: i,
+			Offset:              b.GPUMemAddrOffset,
 		}
 		memCtrl.AddressConverter = addrConverter
 

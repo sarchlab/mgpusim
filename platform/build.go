@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -66,7 +67,7 @@ func BuildR9NanoPlatform() (
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	gpuDriver := driver.NewDriver(engine)
 	connection := akita.NewDirectConnection(engine)
@@ -88,4 +89,46 @@ func BuildR9NanoPlatform() (
 	gpu.Driver = gpuDriver.ToGPUs
 
 	return engine, gpu, gpuDriver
+}
+
+//BuildNR9NanoPlatform creates a platform that equips with several R9Nano GPUs
+func BuildNR9NanoPlatform(
+	numGPUs int,
+) (
+	akita.Engine,
+	*driver.Driver,
+) {
+	var engine akita.Engine
+
+	if UseParallelEngine {
+		engine = akita.NewParallelEngine()
+	} else {
+		engine = akita.NewSerialEngine()
+	}
+	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+
+	gpuDriver := driver.NewDriver(engine)
+	connection := akita.NewDirectConnection(engine)
+
+	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
+		GPUName:           "GPU",
+		Engine:            engine,
+		Driver:            gpuDriver,
+		EnableISADebug:    DebugISA,
+		EnableMemTracing:  TraceMem,
+		EnableInstTracing: TraceInst,
+	}
+
+	for i := 0; i < numGPUs; i++ {
+		gpuBuilder.GPUName = fmt.Sprintf("GPU_%d", i)
+		gpuBuilder.GPUMemAddrOffset = uint64(i) * 4 * mem.GB
+		gpu := gpuBuilder.Build()
+		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
+		connection.PlugIn(gpu.ToDriver)
+		gpu.Driver = gpuDriver.ToGPUs
+	}
+
+	connection.PlugIn(gpuDriver.ToGPUs)
+
+	return engine, gpuDriver
 }

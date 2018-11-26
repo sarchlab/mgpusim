@@ -16,12 +16,17 @@ func (d *Driver) EnqueueLaunchKernel(
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
+	prevUsingGPU := d.usingGPU
+	d.SelectGPU(queue.GPUID)
+
 	dCoData := d.enqueueCopyInstructionsToGPU(queue, co)
 	dKernArgData := d.enqueueCopyKernArgsToGPU(queue, co, kernelArgs)
 	packet, dPacket := d.createAQLPacket(
 		queue, gridSize, wgSize, dCoData, dKernArgData)
 	d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
 	d.enqueueFinalFlush(queue)
+
+	d.SelectGPU(prevUsingGPU)
 }
 
 func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
@@ -38,7 +43,7 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 	co.WGGroupSegmentByteSize = ldsSize
 }
 
-// LaunchKernel is an eaiser way to run a kernel on the GCN3 simulator. It
+// LaunchKernel is an easier way to run a kernel on the GCN3 simulator. It
 // launches the kernel immediately.
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,

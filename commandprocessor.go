@@ -153,12 +153,19 @@ func (p *CommandProcessor) processMemCopyReq(req akita.Req) error {
 		req.SetDst(p.DMAEngine)
 		req.SetSrc(p.ToDispatcher)
 		req.SetSendTime(now)
-		p.ToDispatcher.Send(req)
+		err := p.ToDispatcher.Send(req)
+		if err != nil {
+			panic(err)
+		}
+
 	} else if req.Src() == p.DMAEngine {
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
 		req.SetSendTime(now)
-		p.ToDriver.Send(req)
+		err := p.ToDriver.Send(req)
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		log.Panic("The request sent to the command processor has unknown src")
 	}
