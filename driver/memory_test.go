@@ -9,14 +9,12 @@ import (
 
 var _ = Describe("Driver", func() {
 	var (
-		storage *mem.Storage
-		driver  *Driver
+		driver *Driver
 	)
 
 	BeforeEach(func() {
-		storage = mem.NewStorage(4 * mem.GB)
 		driver = NewDriver(nil)
-		driver.registerStorage(storage, 0, 4*mem.GB)
+		driver.registerStorage(0, 4*mem.GB)
 	})
 
 	It("should allocate memory", func() {
