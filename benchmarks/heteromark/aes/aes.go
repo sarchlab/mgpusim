@@ -3,6 +3,7 @@ package aes
 import (
 	"crypto/aes"
 	"log"
+	"math/rand"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
@@ -22,20 +23,32 @@ type Benchmark struct {
 	driver *driver.Driver
 	hsaco  *insts.HsaCo
 
-	Length       int
-	input        []byte
-	key          []byte
-	expandedKey  []uint32
-	s            []byte
-	gInput       driver.GPUPtr
-	gExpandedKey driver.GPUPtr
-	gS           driver.GPUPtr
+	numGPU    int
+	gpuQueues []*driver.CommandQueue
+
+	Length      int
+	input       []byte
+	output      []byte
+	key         []byte
+	expandedKey []uint32
+	s           []byte
+
+	gInput       []driver.GPUPtr
+	gExpandedKey []driver.GPUPtr
+	gS           []driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
 	b.loadProgram()
+
+	b.numGPU = driver.GetNumGPUs()
+	for i := 0; i < b.numGPU; i++ {
+		b.driver.SelectGPU(i)
+		b.gpuQueues = append(b.gpuQueues, b.driver.CreateCommandQueue())
+	}
+
 	return b
 }
 
@@ -52,12 +65,30 @@ func (b *Benchmark) loadProgram() {
 }
 
 func (b *Benchmark) initMem() {
+	if b.Length%b.numGPU/16/64 != 0 {
+		log.Panic("length must be a multiple of 256 X num of GPUs")
+	}
+
+	for i := 0; i < b.numGPU; i++ {
+		b.driver.SelectGPU(i)
+
+		b.gInput = append(b.gInput,
+			b.driver.AllocateMemory(uint64(b.Length/b.numGPU)))
+
+		b.gExpandedKey = append(b.gExpandedKey,
+			b.driver.AllocateMemory(uint64(len(b.expandedKey)*4)))
+
+		b.gS = append(b.gS, b.
+			driver.AllocateMemory(uint64(len(b.s))))
+	}
+
 	b.key = []byte{
 		0, 1, 2, 3, 4, 5, 6, 7,
 		8, 9, 10, 11, 12, 13, 14, 15,
 		16, 17, 18, 19, 20, 21, 22, 23,
 		24, 25, 26, 27, 28, 29, 30, 31,
 	}
+
 	b.expandedKey = []uint32{
 		0x00010203, 0x04050607,
 		0x08090a0b, 0x0c0d0e0f,
@@ -110,46 +141,59 @@ func (b *Benchmark) initMem() {
 		0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 	}
 
-	b.gInput = b.driver.AllocateMemory(uint64(b.Length))
-	b.gExpandedKey = b.driver.AllocateMemory(uint64(len(b.expandedKey) * 4))
-	b.gS = b.driver.AllocateMemory(uint64(len(b.s)))
-
 	b.input = make([]byte, b.Length)
+	b.output = make([]byte, b.Length)
 	for i := 0; i < b.Length; i++ {
-		//input[i] = byte(rand.Uint32())
+		b.input[i] = byte(rand.Uint32())
 		//input[i] = byte(i)
-		b.input[i] = 0
+		//b.input[i] = 0
 	}
 
-	b.driver.MemCopyH2D(b.gInput, b.input)
-	b.driver.MemCopyH2D(b.gExpandedKey, b.expandedKey)
-	b.driver.MemCopyH2D(b.gS, b.s)
+	for i := 0; i < b.numGPU; i++ {
+		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
+			b.gInput[i],
+			b.input[b.Length/b.numGPU*i:b.Length/b.numGPU*(i+1)])
+		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
+			b.gExpandedKey[i], b.expandedKey)
+		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
+			b.gS[i], b.s)
+	}
 }
 
 func (b *Benchmark) Run() {
 	b.initMem()
-	kernArg := AESArgs{
-		b.gInput,
-		b.gExpandedKey,
-		b.gS,
-		0, 0, 0}
-	b.driver.LaunchKernel(
-		b.hsaco,
-		[3]uint32{uint32(b.Length / 16), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg)
+
+	for i := 0; i < b.numGPU; i++ {
+		kernArg := AESArgs{
+			b.gInput[i],
+			b.gExpandedKey[i],
+			b.gS[i],
+			0, 0, 0,
+		}
+		b.driver.EnqueueLaunchKernel(
+			b.gpuQueues[i],
+			b.hsaco,
+			[3]uint32{uint32(b.Length / b.numGPU / 16), 1, 1},
+			[3]uint16{64, 1, 1},
+			&kernArg)
+
+		b.driver.EnqueueMemCopyD2H(
+			b.gpuQueues[i],
+			b.output[b.Length/b.numGPU*i:b.Length/b.numGPU*(i+1)],
+			b.gInput[i])
+	}
+
+	b.driver.ExecuteAllCommands()
 }
 
 func (b *Benchmark) Verify() {
-	gpuOutput := make([]byte, b.Length)
-	b.driver.MemCopyD2H(gpuOutput, b.gInput)
-
 	cpuOutput := b.cpuEncrypt()
 
 	for i := 0; i < b.Length; i++ {
-		if cpuOutput[i] != gpuOutput[i] {
-			log.Panicf("Mismatch at position %d: should be %02x but get %02x",
-				i, cpuOutput[i], gpuOutput[i])
+		if cpuOutput[i] != b.output[i] {
+			log.Printf(
+				"Mismatch at position %d: should be %02x but get %02x",
+				i, cpuOutput[i], b.output[i])
 		}
 	}
 
