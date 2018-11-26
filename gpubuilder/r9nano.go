@@ -99,8 +99,6 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 		b.MemTracer = memtraces.NewTracer(file)
 	}
 
-	b.L1ICaches = make([]*caches.L1VCache, 0, 16)
-
 	b.buildMemControllers()
 	b.buildL2Caches()
 	b.buildL1VCaches()
@@ -207,7 +205,7 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 	for i := 0; i < numDramController; i++ {
 		memCtrl := mem.NewIdealMemController(
 			fmt.Sprintf("%s.DRAM_%d", b.GPUName, i),
-			b.Engine, 512*mem.GB)
+			b.Engine, 512*mem.MB)
 
 		addrConverter := mem.InterleavingConverter{
 			InterleavingSize:    4096,
