@@ -69,6 +69,7 @@ func BuildR9NanoPlatform() (
 	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
+		GPUName:           "GPU",
 		Engine:            engine,
 		Driver:            gpuDriver,
 		EnableISADebug:    DebugISA,

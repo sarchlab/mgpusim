@@ -78,7 +78,7 @@ func (d *ISADebugger) Func(
 	access.WaveOffset = wf.VRegOffset
 	output += "\tVGPRs: \n"
 	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
-		output += fmt.Sprintf("\t\t%d: ", i)
+		output += fmt.Sprintf("\t\tv%d: ", i)
 		access.Reg = insts.VReg(i)
 		for laneID := 0; laneID < 64; laneID++ {
 			access.LaneID = laneID
