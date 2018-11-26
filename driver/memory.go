@@ -2,8 +2,6 @@ package driver
 
 import (
 	"log"
-
-	"gitlab.com/akita/mem"
 )
 
 // GPUPtr is the type that represent a pointer pointing into the GPU memory
@@ -47,7 +45,6 @@ type MemoryChunk struct {
 }
 
 func (d *Driver) registerStorage(
-	storage *mem.Storage,
 	loAddr GPUPtr,
 	byteSize uint64,
 ) {
@@ -78,8 +75,7 @@ func (d *Driver) AllocateMemory(
 		}
 	}
 
-	log.Fatalf("Cannot allocate memory")
-	return 0
+	panic("cannot allocate memory")
 }
 
 // AllocateMemoryWithAlignment allocates memory on the GPU, with the granrantee

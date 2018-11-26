@@ -3,8 +3,6 @@ package gcn3
 import (
 	"log"
 
-	"gitlab.com/akita/mem"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem/cache"
 )
@@ -30,16 +28,19 @@ type GPU struct {
 	L1KCaches          []akita.Component
 	L2Caches           []akita.Component
 	L2CacheFinder      cache.LowModuleFinder
-	DRAMStorage        *mem.Storage
+	MemoryControllers  []akita.Component
 	InternalConnection akita.Connection
 
 	ToDriver           akita.Port
 	ToCommandProcessor akita.Port
 }
 
+// NotifyPortFree of a GPU does not do anything.
 func (g *GPU) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 }
 
+// NotifyRecv of a GPU retrieves the request from the port and process requests
+// as Events.
 func (g *GPU) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, g.engine, g.Freq)

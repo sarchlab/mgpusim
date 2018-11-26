@@ -42,12 +42,12 @@ func (d *Driver) ExecuteAllCommands() {
 	}
 }
 
-// RegisterGPU tells the driver about the existance of a GPU
-func (d *Driver) RegisterGPU(gpu *gcn3.GPU) {
+// RegisterGPU tells the driver about the existence of a GPU
+func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 	d.gpus = append(d.gpus, gpu)
 
-	d.registerStorage(gpu.DRAMStorage, GPUPtr(d.totalSize), gpu.DRAMStorage.Capacity)
-	d.totalSize += gpu.DRAMStorage.Capacity
+	d.registerStorage(GPUPtr(d.totalSize), dramSize)
+	d.totalSize += dramSize
 }
 
 // SelectGPU requires the driver to perform the following APIs on a selected
