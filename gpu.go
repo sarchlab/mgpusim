@@ -57,13 +57,19 @@ func (g *GPU) Handle(e akita.Event) error {
 		req.SetSrc(g.ToDriver)
 		req.SetDst(g.Driver)
 		req.SetSendTime(now)
-		g.ToDriver.Send(req)
+		err := g.ToDriver.Send(req)
+		if err != nil {
+			panic(err)
+		}
 		return nil
 	} else if req.Src() == g.Driver { // From the Driver
 		req.SetSrc(g.ToCommandProcessor)
 		req.SetDst(g.CommandProcessor)
 		req.SetSendTime(now)
-		g.ToCommandProcessor.Send(req)
+		err := g.ToCommandProcessor.Send(req)
+		if err != nil {
+			panic(err)
+		}
 		return nil
 	}
 

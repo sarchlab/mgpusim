@@ -69,19 +69,6 @@ func (b *Benchmark) initMem() {
 		log.Panic("length must be a multiple of 256 X num of GPUs")
 	}
 
-	for i := 0; i < b.numGPU; i++ {
-		b.driver.SelectGPU(i)
-
-		b.gInput = append(b.gInput,
-			b.driver.AllocateMemory(uint64(b.Length/b.numGPU)))
-
-		b.gExpandedKey = append(b.gExpandedKey,
-			b.driver.AllocateMemory(uint64(len(b.expandedKey)*4)))
-
-		b.gS = append(b.gS, b.
-			driver.AllocateMemory(uint64(len(b.s))))
-	}
-
 	b.key = []byte{
 		0, 1, 2, 3, 4, 5, 6, 7,
 		8, 9, 10, 11, 12, 13, 14, 15,
@@ -150,6 +137,19 @@ func (b *Benchmark) initMem() {
 	}
 
 	for i := 0; i < b.numGPU; i++ {
+		b.driver.SelectGPU(i)
+
+		b.gInput = append(b.gInput,
+			b.driver.AllocateMemory(uint64(b.Length/b.numGPU)))
+
+		b.gExpandedKey = append(b.gExpandedKey,
+			b.driver.AllocateMemory(uint64(len(b.expandedKey)*4)))
+
+		b.gS = append(b.gS,
+			b.driver.AllocateMemory(uint64(len(b.s))))
+	}
+
+	for i := 0; i < b.numGPU; i++ {
 		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
 			b.gInput[i],
 			b.input[b.Length/b.numGPU*i:b.Length/b.numGPU*(i+1)])
@@ -191,7 +191,7 @@ func (b *Benchmark) Verify() {
 
 	for i := 0; i < b.Length; i++ {
 		if cpuOutput[i] != b.output[i] {
-			log.Printf(
+			log.Panicf(
 				"Mismatch at position %d: should be %02x but get %02x",
 				i, cpuOutput[i], b.output[i])
 		}
