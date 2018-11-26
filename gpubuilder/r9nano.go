@@ -140,7 +140,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		b.InternalConn.PlugIn(iCache.ToCU)
 		b.InternalConn.PlugIn(iCache.ToCP)
 		b.InternalConn.PlugIn(iCache.ToL2)
-		b.L1SCaches = append(b.L1SCaches, iCache)
+		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.CachesToReset = append(b.CP.CachesToReset, iCache.ToCP)
 		if b.EnableMemTracing {
 			iCache.AcceptHook(b.MemTracer)
@@ -203,10 +203,18 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 
 func (b *R9NanoGPUBuilder) buildMemControllers() {
 	b.LowModuleFinderForL2 = cache.NewInterleavedLowModuleFinder(4096)
-	for i := 0; i < 8; i++ {
+	numDramController := 8
+	for i := 0; i < numDramController; i++ {
 		memCtrl := mem.NewIdealMemController(
 			fmt.Sprintf("%s.DRAM_%d", b.GPUName, i),
 			b.Engine, 512*mem.GB)
+
+		addrConverter := mem.InterleavingConverter{
+			InterleavingSize:    4096,
+			TotalNumOfElements:  numDramController,
+			CurrentElementIndex: i,
+		}
+		memCtrl.AddressConverter = addrConverter
 
 		b.InternalConn.PlugIn(memCtrl.ToTop)
 
@@ -214,6 +222,8 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 			b.LowModuleFinderForL2.LowModules, memCtrl.ToTop)
 		b.GPU.MemoryControllers = append(
 			b.GPU.MemoryControllers, memCtrl)
+		b.CP.DRAMControllers = append(
+			b.CP.DRAMControllers, memCtrl)
 
 		if b.EnableMemTracing {
 			memCtrl.AcceptHook(b.MemTracer)
