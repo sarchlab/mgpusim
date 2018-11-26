@@ -32,7 +32,7 @@ func BuildEmuPlatform() (
 	gpuDriver := driver.NewDriver(engine)
 	connection := akita.NewDirectConnection(engine)
 
-	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
+	gpuBuilder := gpubuilder.NewEmuGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
 	if DebugISA {
 		gpuBuilder.EnableISADebug = true
@@ -41,7 +41,7 @@ func BuildEmuPlatform() (
 		gpuBuilder.EnableMemTracing = true
 	}
 	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
-	gpuDriver.RegisterGPU(gpu)
+	gpuDriver.RegisterGPU(gpu, 4*mem.GB)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
@@ -55,7 +55,6 @@ func BuildR9NanoPlatform() (
 	akita.Engine,
 	*gcn3.GPU,
 	*driver.Driver,
-	*mem.IdealMemController,
 ) {
 	var engine akita.Engine
 
@@ -69,24 +68,20 @@ func BuildR9NanoPlatform() (
 	gpuDriver := driver.NewDriver(engine)
 	connection := akita.NewDirectConnection(engine)
 
-	gpuBuilder := gpubuilder.NewGPUBuilder(engine)
-	gpuBuilder.Driver = gpuDriver
-	if DebugISA {
-		gpuBuilder.EnableISADebug = true
-	}
-	if TraceInst {
-		gpuBuilder.EnableInstTracing = true
-	}
-	if TraceMem {
-		gpuBuilder.EnableMemTracing = true
+	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
+		Engine:            engine,
+		Driver:            gpuDriver,
+		EnableISADebug:    DebugISA,
+		EnableMemTracing:  TraceMem,
+		EnableInstTracing: TraceInst,
 	}
 
-	gpu, globalMem := gpuBuilder.BuildR9Nano()
-	gpuDriver.RegisterGPU(gpu)
+	gpu := gpuBuilder.Build()
+	gpuDriver.RegisterGPU(gpu, 4*mem.GB)
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
 	gpu.Driver = gpuDriver.ToGPUs
 
-	return engine, gpu, gpuDriver, globalMem
+	return engine, gpu, gpuDriver
 }
