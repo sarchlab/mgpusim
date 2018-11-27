@@ -28,8 +28,7 @@ func (d *Driver) registerStorage(
 
 	d.initialAddresses = append(d.initialAddresses,
 		d.totalStorageByteSize)
-	d.storageSizes = append(d.storageSizes, storage.Capacity)
-	d.totalStorageByteSize += storage.Capacity
+	d.storageSizes = append(d.storageSizes, byteSize)
 }
 
 // AllocateMemory allocates a chunk of memory of size byteSize in storage.

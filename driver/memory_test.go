@@ -1,23 +1,38 @@
 package driver
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mock_vm"
 
 	"gitlab.com/akita/mem"
 )
 
 var _ = Describe("Driver", func() {
 	var (
-		driver *Driver
+		mockCtrl *gomock.Controller
+		driver   *Driver
+		mmu      *mock_vm.MockMMU
 	)
 
 	BeforeEach(func() {
-		driver = NewDriver(nil)
+		mockCtrl = gomock.NewController(GinkgoT())
+		mmu = mock_vm.NewMockMMU(mockCtrl)
+
+		driver = NewDriver(nil, mmu)
 		driver.registerStorage(0, 4*mem.GB)
 	})
 
+	AfterEach(func() {
+		mockCtrl.Finish()
+	})
+
 	It("should allocate memory", func() {
+		mmu.EXPECT().CreatePage(vm.PID(1),
+			uint64(0), uint64(0x100000000), uint64(4096))
+
 		ptr := driver.AllocateMemory(8)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 
@@ -26,6 +41,9 @@ var _ = Describe("Driver", func() {
 	})
 
 	It("should allocate memory with alignment", func() {
+		mmu.EXPECT().CreatePage(vm.PID(1),
+			uint64(0), uint64(0x100000000), uint64(4096))
+
 		ptr := driver.AllocateMemoryWithAlignment(8, 64)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 		Expect(driver.allocatedPages[0]).To(HaveLen(1))
@@ -38,6 +56,13 @@ var _ = Describe("Driver", func() {
 	})
 
 	It("should allocate memory larger than a page", func() {
+		mmu.EXPECT().CreatePage(vm.PID(1),
+			uint64(0), uint64(0x100000000), uint64(4096))
+		mmu.EXPECT().CreatePage(vm.PID(1),
+			uint64(1), uint64(0x100001000), uint64(4096))
+		mmu.EXPECT().CreatePage(vm.PID(1),
+			uint64(2), uint64(0x100002000), uint64(4096))
+
 		ptr := driver.AllocateMemory(8196)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 		Expect(driver.allocatedPages[0]).To(HaveLen(3))

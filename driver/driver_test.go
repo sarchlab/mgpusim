@@ -28,7 +28,7 @@ var _ = Describe("Driver", func() {
 
 		gpu = gcn3.NewGPU("GPU", engine)
 
-		driver = NewDriver(engine)
+		driver = NewDriver(engine, nil)
 		driver.ToGPUs = toGPUs
 		cmdQueue = driver.CreateCommandQueue()
 		driver.gpus = append(driver.gpus, gpu)

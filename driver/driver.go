@@ -55,8 +55,8 @@ func (d *Driver) ExecuteAllCommands() {
 func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 	d.gpus = append(d.gpus, gpu)
 
-	d.registerStorage(GPUPtr(d.totalSize), dramSize)
-	d.totalSize += dramSize
+	d.registerStorage(GPUPtr(d.totalStorageByteSize), dramSize)
+	d.totalStorageByteSize += dramSize
 }
 
 // SelectGPU requires the driver to perform the following APIs on a selected
@@ -310,16 +310,10 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
-<<<<<<< HEAD
-	driver.engine = engine
 	driver.mmu = mmu
-	driver.freq = 1 * akita.GHz
 	driver.PageSizeAsPowerOf2 = 12
 
 	driver.currentPID = 1
-=======
-	driver.memoryMasks = make([]*MemoryMask, 0)
->>>>>>> 1481d462e9809f3c8512144065b6f0dc1102398f
 
 	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 1)
 
