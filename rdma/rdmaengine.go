@@ -25,9 +25,9 @@ type Engine struct {
 	ToOutside akita.Port
 	ToInside  akita.Port
 
-	engine        akita.Engine
-	localModules  cache.LowModuleFinder
-	remoteModules cache.LowModuleFinder
+	engine                 akita.Engine
+	localModules           cache.LowModuleFinder
+	RemoteRDMAAddressTable cache.LowModuleFinder
 	//originalSrc   map[string]akita.Port
 
 	transactionsFromOutside []transaction
@@ -91,7 +91,7 @@ func (e *Engine) processFromOutside(now akita.VTimeInSec) {
 }
 
 func (e *Engine) processReqFromInside(now akita.VTimeInSec, req mem.AccessReq) {
-	dst := e.remoteModules.Find(req.GetAddress())
+	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
 
 	cloned := e.cloneReq(req)
 	cloned.SetSrc(e.ToOutside)
@@ -306,7 +306,7 @@ func NewEngine(
 
 	e.engine = engine
 	e.localModules = localModules
-	e.remoteModules = remoteModules
+	e.RemoteRDMAAddressTable = remoteModules
 
 	e.ToInside = akita.NewLimitNumReqPort(e, 1)
 	e.ToOutside = akita.NewLimitNumReqPort(e, 1)

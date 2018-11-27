@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	"gitlab.com/akita/gcn3/rdma"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
@@ -41,6 +43,7 @@ type R9NanoGPUBuilder struct {
 	LowModuleFinderForL1 *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
 	DMAEngine            *gcn3.DMAEngine
+	RDMAEngine           *rdma.Engine
 
 	MemTracer *memtraces.Tracer
 }
@@ -56,6 +59,7 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.buildMemSystem()
 	b.buildCUs()
 	b.buildDMAEngine()
+	b.buildRDMAEngine()
 
 	b.InternalConn.PlugIn(b.GPU.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.DMAEngine.ToCommandProcessor)
@@ -64,6 +68,17 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.GPU.InternalConnection = b.InternalConn
 
 	return b.GPU
+}
+
+func (b *R9NanoGPUBuilder) buildRDMAEngine() {
+	b.RDMAEngine = rdma.NewEngine(
+		fmt.Sprintf("%s.RDMA", b.GPUName),
+		b.Engine,
+		b.LowModuleFinderForL2,
+		nil,
+	)
+	b.GPU.RDMAEngine = b.RDMAEngine
+
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {

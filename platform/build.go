@@ -3,6 +3,8 @@ package platform
 import (
 	"fmt"
 
+	"gitlab.com/akita/mem/cache"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
@@ -117,6 +119,8 @@ func BuildNR9NanoPlatform(
 		EnableInstTracing: TraceInst,
 	}
 
+	rdmaAddressTable := new(cache.BankedLowModuleFinder)
+	rdmaAddressTable.BankSize = 4 * mem.GB
 	for i := 0; i < numGPUs; i++ {
 		gpuBuilder.GPUName = fmt.Sprintf("GPU_%d", i)
 		gpuBuilder.GPUMemAddrOffset = uint64(i) * 4 * mem.GB
@@ -124,6 +128,11 @@ func BuildNR9NanoPlatform(
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
 		connection.PlugIn(gpu.ToDriver)
 		gpu.Driver = gpuDriver.ToGPUs
+
+		gpu.RDMAEngine.RemoteRDMAAddressTable = rdmaAddressTable
+		rdmaAddressTable.LowModules = append(
+			rdmaAddressTable.LowModules,
+			gpu.RDMAEngine.ToOutside)
 	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
