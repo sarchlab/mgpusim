@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/mem/cache"
 )
 
@@ -21,6 +22,7 @@ type GPU struct {
 
 	Driver             akita.Port
 	CommandProcessor   akita.Port
+	RDMAEngine         *rdma.Engine
 	Dispatchers        []akita.Component
 	CUs                []akita.Component
 	L1VCaches          []akita.Component

@@ -25,20 +25,28 @@ type Benchmark struct {
 	driver *driver.Driver
 	hsaco  *insts.HsaCo
 
+	numGPUs   int
+	gpuQueues []*driver.CommandQueue
+
 	Length       int
 	numTaps      int
 	inputData    []float32
 	filterData   []float32
-	gFilterData  driver.GPUPtr
-	gHistoryData driver.GPUPtr
-	gInputData   driver.GPUPtr
-	gOutputData  driver.GPUPtr
+	gFilterData  []driver.GPUPtr
+	gHistoryData []driver.GPUPtr
+	gInputData   []driver.GPUPtr
+	gOutputData  []driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.numGPUs = driver.GetNumGPUs()
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.gpuQueues = append(b.gpuQueues, b.driver.CreateCommandQueue())
+	}
 
 	hsacoBytes, err := Asset("kernels.hsaco")
 	if err != nil {
@@ -56,10 +64,18 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	b.numTaps = 16
-	b.gFilterData = b.driver.AllocateMemory(uint64(b.numTaps * 4))
-	b.gHistoryData = b.driver.AllocateMemory(uint64(b.numTaps * 4))
-	b.gInputData = b.driver.AllocateMemory(uint64(b.Length * 4))
-	b.gOutputData = b.driver.AllocateMemory(uint64(b.Length * 4))
+
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.gFilterData = append(b.gFilterData,
+			b.driver.AllocateMemory(uint64(b.numTaps*4)))
+		b.gHistoryData = append(b.gFilterData,
+			b.driver.AllocateMemory(uint64(b.numTaps*4)))
+		b.gInputData = append(b.gInputData,
+			b.driver.AllocateMemory(uint64(b.Length/b.numGPUs*4)))
+		b.gOutputData = append(b.gOutputData,
+			b.driver.AllocateMemory(uint64(b.Length/b.numGPUs*4)))
+	}
 
 	b.filterData = make([]float32, b.numTaps)
 	for i := 0; i < b.numTaps; i++ {
@@ -71,8 +87,13 @@ func (b *Benchmark) initMem() {
 		b.inputData[i] = float32(i)
 	}
 
-	b.driver.MemCopyH2D(b.gFilterData, b.filterData)
-	b.driver.MemCopyH2D(b.gInputData, b.inputData)
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.EnqueueMemCopyH2D(
+			b.gpuQueues[i], b.gFilterData[i], b.filterData)
+		b.driver.EnqueueMemCopyH2D(
+			b.gpuQueues[i], b.gInputData[i],
+			b.inputData[b.Length/b.numGPUs*i:b.Length/b.numGPUs*(i+1)])
+	}
 }
 
 func (b *Benchmark) exec() {

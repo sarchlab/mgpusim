@@ -16,8 +16,8 @@ import (
 	memtraces "gitlab.com/akita/mem/trace"
 )
 
-// GPUBuilder provide services to assemble usable GPUs
-type GPUBuilder struct {
+// EmuGPUBuilder provide services to assemble usable GPUs
+type EmuGPUBuilder struct {
 	engine  akita.Engine
 	freq    akita.Freq
 	Driver  *driver.Driver
@@ -28,9 +28,9 @@ type GPUBuilder struct {
 	EnableMemTracing  bool
 }
 
-// NewEmuGPUBuilder returns a new GPUBuilder
-func NewEmuGPUBuilder(engine akita.Engine) *GPUBuilder {
-	b := new(GPUBuilder)
+// NewEmuGPUBuilder returns a new EmuGPUBuilder
+func NewEmuGPUBuilder(engine akita.Engine) *EmuGPUBuilder {
+	b := new(EmuGPUBuilder)
 	b.engine = engine
 	b.freq = 1 * akita.GHz
 	b.GPUName = "GPU"
@@ -41,7 +41,7 @@ func NewEmuGPUBuilder(engine akita.Engine) *GPUBuilder {
 }
 
 // BuildEmulationGPU creates a very simple GPU for emulation purposes
-func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
+func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	connection := akita.NewDirectConnection(b.engine)
 
 	dispatcher := gcn3.NewDispatcher(b.GPUName+".Dispatcher", b.engine,
