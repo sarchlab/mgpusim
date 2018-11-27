@@ -72,7 +72,7 @@ func (b *Benchmark) initMem() {
 	b.dInputData = b.driver.AllocateMemory(uint64(numData * 4))
 	b.dOutputData = b.driver.AllocateMemory(uint64(numData * 4))
 
-	b.driver.MemoryCopyHostToDevice(b.dInputData, b.hInputData)
+	b.driver.MemCopyH2D(b.dInputData, b.hInputData)
 }
 
 func (b *Benchmark) exec() {
@@ -93,7 +93,7 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) Verify() {
-	b.driver.MemoryCopyDeviceToHost(b.hOutputData, b.dOutputData)
+	b.driver.MemCopyD2H(b.hOutputData, b.dOutputData)
 
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {

@@ -60,25 +60,30 @@ func (d *ISADebugger) Func(
 	output += fmt.Sprintf("\tSCC: 0x%02x\n", wf.SCC)
 	output += fmt.Sprintf("\tVCC: 0x%016x\n", wf.VCC)
 
-	sRegFileStorage := cu.SRegFile.Storage()
-	sRegOffset := wf.SRegOffset
+	//sRegFileStorage := cu.SRegFile.Storage()
+	data := make([]byte, 4)
+	access := RegisterAccess{}
+	access.Data = data
+	access.RegCount = 1
+	access.WaveOffset = wf.SRegOffset
 	output += "\tSGPRs:\n"
 	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {
-		regBytes, _ := sRegFileStorage.Read(uint64(sRegOffset+4*i), 4)
-		regValue := insts.BytesToUint32(regBytes)
+		access.Reg = insts.SReg(i)
+		cu.SRegFile.Read(access)
+		regValue := insts.BytesToUint32(data)
 		output += fmt.Sprintf("\t\ts%d: 0x%08x\n", i, regValue)
 	}
 
 	simdID := wf.SIMDID
-	vRegFileStorage := cu.VRegFile[simdID].Storage()
-	vRegOffset := wf.VRegOffset
+	access.WaveOffset = wf.VRegOffset
 	output += "\tVGPRs: \n"
 	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
-		output += fmt.Sprintf("\t\t%d: ", i)
+		output += fmt.Sprintf("\t\tv%d: ", i)
+		access.Reg = insts.VReg(i)
 		for laneID := 0; laneID < 64; laneID++ {
-			regBytes, _ := vRegFileStorage.Read(
-				uint64(vRegOffset+laneID*1024+4*i), 4)
-			regValue := insts.BytesToUint32(regBytes)
+			access.LaneID = laneID
+			cu.VRegFile[simdID].Read(access)
+			regValue := insts.BytesToUint32(data)
 			output += fmt.Sprintf("0x%08x ", regValue)
 		}
 		output += fmt.Sprintf("\n")

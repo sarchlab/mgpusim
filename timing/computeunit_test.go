@@ -242,8 +242,7 @@ var _ = Describe("ComputeUnit", func() {
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
-			cu.inFlightScalarMemAccess = append(
-				cu.inFlightScalarMemAccess, info)
+			cu.inFlightScalarMemAccess = append(cu.inFlightScalarMemAccess, info)
 
 			req := mem.NewDataReadyRsp(10, nil, nil, read.ID)
 			req.Data = insts.Uint32ToBytes(32)
@@ -252,10 +251,11 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.processInputFromScalarMem(10)
 
-			access := new(RegisterAccess)
+			access := RegisterAccess{}
 			access.Reg = insts.SReg(0)
 			access.WaveOffset = 0
 			access.RegCount = 1
+			access.Data = make([]byte, 4)
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
@@ -307,11 +307,12 @@ var _ = Describe("ComputeUnit", func() {
 			cu.processInputFromVectorMem(10)
 
 			for i := 0; i < 4; i++ {
-				access := new(RegisterAccess)
+				access := RegisterAccess{}
 				access.RegCount = 1
 				access.WaveOffset = 0
 				access.LaneID = i
 				access.Reg = insts.VReg(0)
+				access.Data = make([]byte, access.RegCount*4)
 				cu.VRegFile[0].Read(access)
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}
@@ -329,11 +330,12 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
 			for i := 0; i < 4; i++ {
-				access := new(RegisterAccess)
+				access := RegisterAccess{}
 				access.RegCount = 1
 				access.WaveOffset = 0
 				access.LaneID = i
 				access.Reg = insts.VReg(0)
+				access.Data = make([]byte, access.RegCount*4)
 				cu.VRegFile[0].Read(access)
 				Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(i)))
 			}

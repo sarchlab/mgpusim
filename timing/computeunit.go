@@ -46,40 +46,41 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
-	InstMem          *akita.Port
-	ScalarMem        *akita.Port
+	InstMem          akita.Port
+	ScalarMem        akita.Port
 	VectorMemModules cache.LowModuleFinder
 
-	ToACE       *akita.Port
-	ToInstMem   *akita.Port
-	ToScalarMem *akita.Port
-	ToVectorMem *akita.Port
+	ToACE       akita.Port
+	ToInstMem   akita.Port
+	ToScalarMem akita.Port
+	ToVectorMem akita.Port
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	cu.Lock()
-	defer cu.Unlock()
 
 	cu.InvokeHook(evt, cu, akita.BeforeEventHookPos, nil)
-	defer cu.InvokeHook(evt, cu, akita.AfterEventHookPos, nil)
 
 	switch evt := evt.(type) {
-	case *akita.TickEvent:
+	case akita.TickEvent:
 		cu.handleTickEvent(evt)
 	case *WfDispatchEvent:
 		cu.handleWfDispatchEvent(evt)
 	case *WfCompletionEvent:
 		cu.handleWfCompletionEvent(evt)
 	default:
+		cu.Unlock()
 		log.Panicf("Unable to process evevt of type %s",
 			reflect.TypeOf(evt))
 	}
 
+	cu.Unlock()
+	cu.InvokeHook(evt, cu, akita.AfterEventHookPos, nil)
 	return nil
 }
 
-func (cu *ComputeUnit) handleTickEvent(evt *akita.TickEvent) {
+func (cu *ComputeUnit) handleTickEvent(evt akita.TickEvent) {
 	now := evt.Time()
 	cu.NeedTick = false
 
@@ -365,7 +366,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem
 	}
 
 	wf := info.Wavefront
-	access := new(RegisterAccess)
+	access := RegisterAccess{}
 	access.WaveOffset = wf.SRegOffset
 	access.Reg = info.DstSGPR
 	access.RegCount = int(len(rsp.Data) / 4)
@@ -415,7 +416,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 
 	for i, laneID := range info.Lanes {
 		offset := info.LaneAddrOffsets[i]
-		access := new(RegisterAccess)
+		access := RegisterAccess{}
 		access.WaveOffset = wf.VRegOffset
 		access.Reg = info.DstVGPR
 		access.RegCount = info.RegisterCount
@@ -470,10 +471,10 @@ func NewComputeUnit(
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
 
-	cu.ToACE = akita.NewPort(cu)
-	cu.ToInstMem = akita.NewPort(cu)
-	cu.ToScalarMem = akita.NewPort(cu)
-	cu.ToVectorMem = akita.NewPort(cu)
+	cu.ToACE = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToScalarMem = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToVectorMem = akita.NewLimitNumReqPort(cu, 1)
 
 	return cu
 }

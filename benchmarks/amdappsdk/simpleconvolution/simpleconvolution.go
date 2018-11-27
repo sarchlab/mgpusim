@@ -86,9 +86,9 @@ func (b *Benchmark) initMem() {
 	b.dOutputData = b.driver.AllocateMemory(uint64(numInputData * 4))
 	b.dMask = b.driver.AllocateMemory(uint64(b.maskSize * b.maskSize * 4))
 
-	b.driver.MemoryCopyHostToDevice(b.dInputData, b.hInputData)
-	b.driver.MemoryCopyHostToDevice(b.dOutputData, b.hOutputData)
-	b.driver.MemoryCopyHostToDevice(b.dMask, b.hMask)
+	b.driver.MemCopyH2D(b.dInputData, b.hInputData)
+	b.driver.MemCopyH2D(b.dOutputData, b.hOutputData)
+	b.driver.MemCopyH2D(b.dMask, b.hMask)
 }
 
 func (b *Benchmark) exec() {
@@ -114,7 +114,7 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) Verify() {
 	cpuOutputImage := b.cpuSimpleConvolution()
 
-	b.driver.MemoryCopyDeviceToHost(b.hOutputData, b.dOutputData)
+	b.driver.MemCopyD2H(b.hOutputData, b.dOutputData)
 	for i := uint32(0); i < b.Height; i++ {
 		for j := uint32(0); j < b.Width; j++ {
 			index := i*b.Width + j

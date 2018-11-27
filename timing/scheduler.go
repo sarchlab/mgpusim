@@ -244,19 +244,23 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) bool {
 }
 
 func (s *Scheduler) resetRegisterValue(wf *Wavefront) {
-	vRegFile := s.cu.VRegFile[wf.SIMDID].(*SimpleRegisterFile)
-	vRegStorage := vRegFile.storage
-	data := make([]byte, wf.CodeObject.WIVgprCount*4)
-	for i := 0; i < 64; i++ {
-		offset := uint64(wf.VRegOffset + vRegFile.ByteSizePerLane*i)
-		vRegStorage.Write(offset, data)
+	if wf.CodeObject.WIVgprCount > 0 {
+		vRegFile := s.cu.VRegFile[wf.SIMDID].(*SimpleRegisterFile)
+		vRegStorage := vRegFile.storage
+		data := make([]byte, wf.CodeObject.WIVgprCount*4)
+		for i := 0; i < 64; i++ {
+			offset := uint64(wf.VRegOffset + vRegFile.ByteSizePerLane*i)
+			copy(vRegStorage[offset:], data)
+		}
 	}
 
-	sRegFile := s.cu.SRegFile.(*SimpleRegisterFile)
-	sRegStorage := sRegFile.storage
-	data = make([]byte, wf.CodeObject.WFSgprCount*4)
-	offset := uint64(wf.SRegOffset)
-	sRegStorage.Write(offset, data)
+	if wf.CodeObject.WFSgprCount > 0 {
+		sRegFile := s.cu.SRegFile.(*SimpleRegisterFile)
+		sRegStorage := sRegFile.storage
+		data := make([]byte, wf.CodeObject.WFSgprCount*4)
+		offset := uint64(wf.SRegOffset)
+		copy(sRegStorage[offset:], data)
+	}
 }
 
 func (s *Scheduler) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) bool {

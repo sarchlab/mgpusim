@@ -25,25 +25,25 @@ type CommandProcessor struct {
 	engine akita.Engine
 	Freq   akita.Freq
 
-	Dispatcher *akita.Port
-	DMAEngine  *akita.Port
-	Driver     *akita.Port
+	Dispatcher akita.Port
+	DMAEngine  akita.Port
+	Driver     akita.Port
 
-	ToDriver     *akita.Port
-	ToDispatcher *akita.Port
+	ToDriver     akita.Port
+	ToDispatcher akita.Port
 
-	CachesToReset               []*akita.Port
+	CachesToReset               []akita.Port
 	L2Caches                    []*cache.WriteBackCache
-	GPUStorage                  *mem.Storage
+	DRAMControllers             []*mem.IdealMemController
 	kernelFixedOverheadInCycles int
 }
 
-func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, p.engine, p.Freq)
 }
 
-func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	//panic("implement me")
 }
 
@@ -108,14 +108,14 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 		}
 	}
 
-	for _, l2Cache := range p.L2Caches {
-		p.flushL2(l2Cache)
+	for i, l2Cache := range p.L2Caches {
+		p.flushL2(l2Cache, p.DRAMControllers[i])
 	}
 
 	return nil
 }
 
-func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
+func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache, dram *mem.IdealMemController) {
 	// FIXME: This is magic, remove
 	dir := l2.Directory.(*cache.DirectoryImpl)
 	for _, set := range dir.Sets {
@@ -126,12 +126,18 @@ func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache) {
 
 			if block.IsDirty && block.IsValid {
 				cacheData, _ := l2.Storage.Read(block.CacheAddress, uint64(dir.BlockSize))
-				p.GPUStorage.Write(block.Tag, cacheData)
+				addr := block.Tag
+				if dram.AddressConverter != nil {
+					addr = dram.AddressConverter.ConvertExternalToInternal(addr)
+				}
+				err := dram.Storage.Write(addr, cacheData)
+				if err != nil {
+					panic(err)
+				}
 			}
 			block.IsValid = false
 			block.IsDirty = false
 		}
-
 	}
 }
 
@@ -164,8 +170,8 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.kernelFixedOverheadInCycles = 1600
 	c.L2Caches = make([]*cache.WriteBackCache, 0)
 
-	c.ToDriver = akita.NewPort(c)
-	c.ToDispatcher = akita.NewPort(c)
+	c.ToDriver = akita.NewLimitNumReqPort(c, 1)
+	c.ToDispatcher = akita.NewLimitNumReqPort(c, 1)
 
 	return c
 }

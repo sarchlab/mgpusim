@@ -23,7 +23,7 @@ type MapWGReq struct {
 
 // NewMapWGReq returns a newly created MapWGReq
 func NewMapWGReq(
-	src, dst *akita.Port,
+	src, dst akita.Port,
 	time akita.VTimeInSec,
 	wg *kernels.WorkGroup,
 ) *MapWGReq {
@@ -58,7 +58,7 @@ type WGFinishMesg struct {
 
 // NewWGFinishMesg creates and returns a newly created WGFinishMesg
 func NewWGFinishMesg(
-	src, dst *akita.Port,
+	src, dst akita.Port,
 	time akita.VTimeInSec,
 	wg *kernels.WorkGroup,
 ) *WGFinishMesg {
@@ -121,8 +121,8 @@ const (
 type Dispatcher struct {
 	*akita.ComponentBase
 
-	cus    []*akita.Port
-	cuBusy map[*akita.Port]bool
+	cus    []akita.Port
+	cuBusy map[akita.Port]bool
 
 	engine      akita.Engine
 	gridBuilder kernels.GridBuilder
@@ -137,17 +137,17 @@ type Dispatcher struct {
 	dispatchingCUID int
 	state           DispatcherState
 
-	ToCUs              *akita.Port
-	ToCommandProcessor *akita.Port
+	ToCUs              akita.Port
+	ToCommandProcessor akita.Port
 }
 
-func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	// fmt.Printf("recv req id: %s\n", req.GetID())
 	akita.ProcessReqAsEvent(req, d.engine, d.Freq)
 }
 
-func (d *Dispatcher) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (d *Dispatcher) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	//panic("implement me")
 }
 
@@ -301,7 +301,7 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
 // dispatches wavefronts to the CU
-func (d *Dispatcher) RegisterCU(cu *akita.Port) {
+func (d *Dispatcher) RegisterCU(cu akita.Port) {
 	d.cus = append(d.cus, cu)
 	d.cuBusy[cu] = false
 }
@@ -334,14 +334,14 @@ func NewDispatcher(
 	d.gridBuilder = gridBuilder
 	d.engine = engine
 
-	d.cus = make([]*akita.Port, 0)
-	d.cuBusy = make(map[*akita.Port]bool, 0)
+	d.cus = make([]akita.Port, 0)
+	d.cuBusy = make(map[akita.Port]bool, 0)
 	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
 	d.completedWGs = make([]*kernels.WorkGroup, 0)
 	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
 
-	d.ToCommandProcessor = akita.NewPort(d)
-	d.ToCUs = akita.NewPort(d)
+	d.ToCommandProcessor = akita.NewLimitNumReqPort(d, 1)
+	d.ToCUs = akita.NewLimitNumReqPort(d, 1)
 
 	d.state = DispatcherIdle
 
