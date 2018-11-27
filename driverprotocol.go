@@ -15,7 +15,9 @@ type FlushCommand struct {
 	EndTime   akita.VTimeInSec
 }
 
-func NewFlushCommand(time akita.VTimeInSec, src *akita.Port, dst *akita.Port) *FlushCommand {
+// NewFlushCommand Creates a new flush command, setting the request send time
+// with time and the source and destination.
+func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
 	cmd := new(FlushCommand)
 	cmd.ReqBase = akita.NewReqBase()
 	cmd.SetSendTime(time)
@@ -44,9 +46,7 @@ type LaunchKernelReq struct {
 // NewLaunchKernelReq returns a new LaunchKernelReq
 func NewLaunchKernelReq(
 	time akita.VTimeInSec,
-	src *akita.Port,
-	dst *akita.Port,
-) *LaunchKernelReq {
+	src, dst akita.Port) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
 	r.ReqBase = akita.NewReqBase()
 	r.StartTime = time
@@ -70,7 +70,7 @@ type MemCopyH2DReq struct {
 // NewMemCopyH2DReq created a new MemCopyH2DReq
 func NewMemCopyH2DReq(
 	time akita.VTimeInSec,
-	src, dst *akita.Port,
+	src, dst akita.Port,
 	srcBuffer []byte,
 	dstAddress uint64,
 ) *MemCopyH2DReq {
@@ -100,7 +100,7 @@ type MemCopyD2HReq struct {
 // NewMemCopyD2HReq created a new MemCopyH2DReq
 func NewMemCopyD2HReq(
 	time akita.VTimeInSec,
-	src, dst *akita.Port,
+	src, dst akita.Port,
 	srcAddress uint64,
 	dstBuffer []byte,
 ) *MemCopyD2HReq {

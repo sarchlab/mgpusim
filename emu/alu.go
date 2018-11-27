@@ -163,10 +163,21 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+<<<<<<< HEAD
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
 		if !u.laneMasked(sp.EXEC, i) {
 			continue
+=======
+	for i := 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, uint(i)) {
+			continue
+		}
+
+		err := u.Storage.Write(sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
+		if err != nil {
+			log.Panic(err)
+>>>>>>> 1481d462e9809f3c8512144065b6f0dc1102398f
 		}
 
 		u.storageAccessor.Write(pid, sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
@@ -175,9 +186,14 @@ func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 
 func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
+<<<<<<< HEAD
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
 		if !u.laneMasked(sp.EXEC, i) {
+=======
+	for i := 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, uint(i)) {
+>>>>>>> 1481d462e9809f3c8512144065b6f0dc1102398f
 			continue
 		}
 
@@ -187,7 +203,14 @@ func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 		copy(buf[8:12], insts.Uint32ToBytes(sp.DATA[(i*4)+2]))
 		copy(buf[12:16], insts.Uint32ToBytes(sp.DATA[(i*4)+3]))
 
+<<<<<<< HEAD
 		u.storageAccessor.Write(pid, sp.ADDR[i], buf)
+=======
+		err := u.Storage.Write(sp.ADDR[i], buf)
+		if err != nil {
+			log.Panic(err)
+		}
+>>>>>>> 1481d462e9809f3c8512144065b6f0dc1102398f
 	}
 }
 

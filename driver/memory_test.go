@@ -3,28 +3,18 @@ package driver
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/gcn3"
 
-	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/vm"
 )
 
 var _ = Describe("Driver", func() {
 	var (
-		storage *mem.Storage
-		driver  *Driver
-		mmu     *vm.MMUImpl
-		engine  *akita.MockEngine
+		driver *Driver
 	)
 
 	BeforeEach(func() {
-		storage = mem.NewStorage(4 * mem.GB)
-		gpu := gcn3.NewGPU("gpu", nil)
-		gpu.DRAMStorage = storage
-		mmu = vm.NewMMU("mmu", engine)
-		driver = NewDriver(engine, mmu)
-		driver.RegisterGPU(gpu)
+		driver = NewDriver(nil)
+		driver.registerStorage(0, 4*mem.GB)
 	})
 
 	It("should allocate memory", func() {

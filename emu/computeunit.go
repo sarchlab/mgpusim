@@ -37,15 +37,15 @@ type ComputeUnit struct {
 
 	GlobalMemStorage *mem.Storage
 
-	ToDispatcher *akita.Port
+	ToDispatcher akita.Port
 }
 
-func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port *akita.Port) {
+func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, cu.engine, cu.Freq)
 }
 
-func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port *akita.Port) {
+func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 	// Do nothing
 }
 
@@ -355,7 +355,7 @@ func NewComputeUnit(
 	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
-	cu.ToDispatcher = akita.NewPort(cu)
+	cu.ToDispatcher = akita.NewLimitNumReqPort(cu, 1)
 
 	return cu
 }
