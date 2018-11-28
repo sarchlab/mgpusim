@@ -4,6 +4,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem/vm"
 )
 
 // A Command is a task to execute later
@@ -70,6 +71,7 @@ func (c *FlushCommand) GetReqs() []akita.Req {
 type CommandQueue struct {
 	IsRunning bool
 	GPUID     int
+	PID       vm.PID
 	Commands  []Command
 }
 
@@ -77,6 +79,7 @@ type CommandQueue struct {
 func (d *Driver) CreateCommandQueue() *CommandQueue {
 	q := new(CommandQueue)
 	q.GPUID = d.usingGPU
+	q.PID = d.currentPID
 	d.CommandQueues = append(d.CommandQueues, q)
 	return q
 }
