@@ -65,7 +65,7 @@ func (d *Driver) AllocateMemoryWithAlignment(
 		return ptr
 	}
 
-	log.Panic("Something wrong happened!")
+	log.Panic("never")
 	return 0
 }
 

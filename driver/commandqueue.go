@@ -2,40 +2,39 @@ package driver
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
 
 // A Command is a task to execute later
 type Command interface {
-	GetReq() akita.Req
+	GetReqs() []akita.Req
 }
 
 // A MemCopyH2DCommand is a command that copies memory from the host to a
 // GPU when the command is processed
 type MemCopyH2DCommand struct {
-	Dst GPUPtr
-	Src interface{}
-	Req *gcn3.MemCopyH2DReq
+	Dst  GPUPtr
+	Src  interface{}
+	Reqs []akita.Req
 }
 
-// GetReq returns the request assocated with the command
-func (c *MemCopyH2DCommand) GetReq() akita.Req {
-	return c.Req
+// GetReq returns the request associated with the command
+func (c *MemCopyH2DCommand) GetReqs() []akita.Req {
+	return c.Reqs
 }
 
 // A MemCopyD2HCommand is a command that copies memory from the host to a
 // GPU when the command is processed
 type MemCopyD2HCommand struct {
-	Dst interface{}
-	Src GPUPtr
-	Req *gcn3.MemCopyD2HReq
+	Dst  interface{}
+	Src  GPUPtr
+	Reqs []akita.Req
 }
 
-// GetReq returns the request assocated with the command
-func (c *MemCopyD2HCommand) GetReq() akita.Req {
-	return c.Req
+// GetReq returns the request associated with the command
+func (c *MemCopyD2HCommand) GetReqs() []akita.Req {
+	return c.Reqs
 }
 
 // A LaunchKernelCommand is a command will execute a kernel when it is
@@ -47,22 +46,22 @@ type LaunchKernelCommand struct {
 	KernelArgs interface{}
 	Packet     *kernels.HsaKernelDispatchPacket
 	DPacket    GPUPtr
-	Req        *gcn3.LaunchKernelReq
+	Reqs       []akita.Req
 }
 
-// GetReq returns the request assocated with the command
-func (c *LaunchKernelCommand) GetReq() akita.Req {
-	return c.Req
+// GetReq returns the request associated with the command
+func (c *LaunchKernelCommand) GetReqs() []akita.Req {
+	return c.Reqs
 }
 
 // A FlushCommand is a command triggers the GPU cache to flush
 type FlushCommand struct {
-	Req *gcn3.FlushCommand
+	Reqs []akita.Req
 }
 
-// GetReq returns the request assocated with the command
-func (c *FlushCommand) GetReq() akita.Req {
-	return c.Req
+// GetReq returns the request associated with the command
+func (c *FlushCommand) GetReqs() []akita.Req {
+	return c.Reqs
 }
 
 // A CommandQueue maintains a queue of command where the commands from the
