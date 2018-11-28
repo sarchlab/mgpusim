@@ -171,6 +171,9 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 
 		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
 		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
+		req.IsPhysical = false
+		req.PID = u.toExec.PID()
+
 		info.Read = req
 		if i == len(coalescedAddrs)-1 {
 			req.IsLastInWave = true
@@ -196,7 +199,8 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		lowModule := u.cu.VectorMemModules.Find(addr)
 		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
 		info.Write = req
-		req.Address = addr
+		req.IsPhysical = false
+		req.PID = u.toExec.PID()
 		if i == len(preCoalescedAddrs)-1 {
 			req.IsLastInWave = true
 		}
