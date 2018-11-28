@@ -27,9 +27,10 @@ func (c *MemCopyH2DCommand) GetReqs() []akita.Req {
 // A MemCopyD2HCommand is a command that copies memory from the host to a
 // GPU when the command is processed
 type MemCopyD2HCommand struct {
-	Dst  interface{}
-	Src  GPUPtr
-	Reqs []akita.Req
+	Dst     interface{}
+	Src     GPUPtr
+	RawData []byte
+	Reqs    []akita.Req
 }
 
 // GetReq returns the request associated with the command

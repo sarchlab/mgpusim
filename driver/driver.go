@@ -90,11 +90,26 @@ func (d *Driver) handleTickEvent(evt akita.TickEvent) {
 	now := evt.Time()
 	d.NeedTick = false
 
+	d.sendToGPUs(now)
 	d.processReturnReq(now)
 	d.processNewCommand(now)
 
 	if d.NeedTick {
 		d.TickLater(now)
+	}
+}
+
+func (d *Driver) sendToGPUs(now akita.VTimeInSec) {
+	if len(d.requestsToSend) == 0 {
+		return
+	}
+
+	req := d.requestsToSend[0]
+	req.SetSendTime(0)
+	err := d.ToGPUs.Send(req)
+	if err == nil {
+		d.requestsToSend = d.requestsToSend[1:]
+		d.NeedTick = true
 	}
 }
 
@@ -180,6 +195,7 @@ func (d *Driver) processMemCopyH2DCommand(
 			d.ToGPUs, d.gpus[gpuID].ToDriver,
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
+		cmd.Reqs = append(cmd.Reqs, req)
 		d.requestsToSend = append(d.requestsToSend, req)
 
 		sizeLeft -= sizeToCopy
@@ -219,17 +235,33 @@ func (d *Driver) processMemCopyD2HCommand(
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
 ) {
-	rawData := make([]byte, binary.Size(cmd.Dst))
+	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
 
-	req := gcn3.NewMemCopyD2HReq(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
-		uint64(cmd.Src), rawData)
-	sendError := d.ToGPUs.Send(req)
-	if sendError == nil {
-		queue.IsRunning = true
+	offset := uint64(0)
+	addr := uint64(cmd.Src)
+	sizeLeft := uint64(len(cmd.RawData))
+	for sizeLeft > 0 {
+		pAddr, page := d.mmu.Translate(d.currentPID, addr)
+		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
+		sizeToCopy := sizeLeftInPage
+		if sizeLeft < sizeLeftInPage {
+			sizeToCopy = sizeLeft
+		}
+
+		gpuID := d.findGPUIDByPAddr(pAddr)
+		req := gcn3.NewMemCopyD2HReq(now,
+			d.ToGPUs, d.gpus[gpuID].ToDriver,
+			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
-		d.NeedTick = true
+		d.requestsToSend = append(d.requestsToSend, req)
+
+		sizeLeft -= sizeToCopy
+		addr += sizeToCopy
+		offset += sizeToCopy
 	}
+
+	queue.IsRunning = true
+	d.NeedTick = true
 }
 
 func (d *Driver) processMemCopyD2HReturn(
@@ -238,16 +270,25 @@ func (d *Driver) processMemCopyD2HReturn(
 ) {
 	cmd, cmdQueue := d.findCommandByReq(req)
 
-	memCopyCommand := cmd.(*MemCopyD2HCommand)
+	copyCmd := cmd.(*MemCopyD2HCommand)
+	newReqs := make([]akita.Req, 0, len(copyCmd.Reqs)-1)
+	for _, r := range copyCmd.GetReqs() {
+		if r != req {
+			newReqs = append(newReqs, r)
+		}
+	}
+	copyCmd.Reqs = newReqs
 
-	buf := bytes.NewReader(req.DstBuffer)
-	err := binary.Read(buf, binary.LittleEndian, memCopyCommand.Dst)
-	if err != nil {
-		panic(err)
+	if len(copyCmd.Reqs) == 0 {
+		cmdQueue.IsRunning = false
+		cmdQueue.Commands = cmdQueue.Commands[1:]
+		buf := bytes.NewReader(req.DstBuffer)
+		err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	cmdQueue.IsRunning = false
-	cmdQueue.Commands = cmdQueue.Commands[1:]
 	d.NeedTick = true
 }
 
