@@ -95,7 +95,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	localDataSource.LowModule = gpuMem.ToTop
 	dmaEngine := gcn3.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, localDataSource)
-	commandProcessor.DMAEngine = dmaEngine.ToCommandProcessor
+	commandProcessor.DMAEngine = dmaEngine.ToCP
 
 	connection.PlugIn(gpu.ToCommandProcessor)
 	connection.PlugIn(commandProcessor.ToDriver)
@@ -104,7 +104,7 @@ func (b *GPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	connection.PlugIn(dispatcher.ToCommandProcessor)
 	connection.PlugIn(dispatcher.ToCUs)
 	connection.PlugIn(gpuMem.ToTop)
-	connection.PlugIn(dmaEngine.ToCommandProcessor)
+	connection.PlugIn(dmaEngine.ToCP)
 	connection.PlugIn(dmaEngine.ToMem)
 	gpu.InternalConnection = connection
 

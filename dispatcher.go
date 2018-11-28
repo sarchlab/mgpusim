@@ -89,7 +89,7 @@ const (
 //     <=> ToCUs The connection that is connecting the dispatcher and the
 //         compute units
 //
-//     <=> ToCommandProcessor The connection that is connecting the dispatcher
+//     <=> ToCP The connection that is connecting the dispatcher
 //         with the command processor
 //
 // The protocol that is defined by the dispatcher is as follows:

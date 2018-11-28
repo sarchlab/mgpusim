@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"fmt"
 	"log"
 
 	"gitlab.com/akita/mem/vm"
@@ -132,6 +133,8 @@ func (d *Driver) allocatePage() {
 	chunk.ByteSize = 1 << d.PageSizeAsPowerOf2
 	chunk.Occupied = false
 	d.memoryMasks[d.usingGPU] = append(d.memoryMasks[d.usingGPU], chunk)
+
+	fmt.Printf("Page allocated %v\n", page)
 }
 
 func (d *Driver) isPageAllocated(pAddr uint64) bool {

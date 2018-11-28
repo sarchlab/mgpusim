@@ -282,7 +282,7 @@ func (d *Driver) processMemCopyD2HReturn(
 	if len(copyCmd.Reqs) == 0 {
 		cmdQueue.IsRunning = false
 		cmdQueue.Commands = cmdQueue.Commands[1:]
-		buf := bytes.NewReader(req.DstBuffer)
+		buf := bytes.NewReader(copyCmd.RawData)
 		err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst)
 		if err != nil {
 			panic(err)

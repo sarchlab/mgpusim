@@ -16,7 +16,7 @@ var (
 func main() {
 	_, _, gpuDriver = platform.BuildR9NanoPlatform()
 
-	size = 1048576
+	size = 8192
 
 	data := make([]byte, size)
 	retData := make([]byte, size)
