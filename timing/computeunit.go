@@ -151,6 +151,7 @@ func (cu *ComputeUnit) handleMapWGReq(now akita.VTimeInSec, req *gcn3.MapWGReq) 
 		cu.wrapWG(req.WG, req)
 		for _, wf := range req.WG.Wavefronts {
 			managedWf := cu.wrapWf(wf)
+			managedWf.pid = req.PID
 			wfs = append(wfs, managedWf)
 		}
 
