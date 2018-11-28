@@ -1,7 +1,6 @@
 package emu
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/mem"
@@ -14,13 +13,12 @@ type storageAccessor struct {
 }
 
 func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
-	pageSize := uint64(4096)
-	phyAddr, found := a.mmu.Translate(vAddr, pid, pageSize)
+	phyAddr, found := a.mmu.Translate(pid, vAddr)
 	if !found {
 		log.Panic("page not found in page table")
 	}
 
-	fmt.Printf("pid: %d, va: 0x%x, pa: 0x%x\n", pid, vAddr, phyAddr)
+	//fmt.Printf("pid: %d, va: 0x%x, pa: 0x%x\n", pid, vAddr, phyAddr)
 
 	data, err := a.storage.Read(phyAddr, byteSize)
 	if err != nil {
@@ -31,8 +29,7 @@ func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 }
 
 func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
-	pageSize := uint64(4096)
-	phyAddr, found := a.mmu.Translate(vAddr, pid, pageSize)
+	phyAddr, found := a.mmu.Translate(pid, vAddr)
 	if !found {
 		log.Panic("page not found in page table")
 	}
