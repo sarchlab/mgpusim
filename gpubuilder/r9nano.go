@@ -57,7 +57,7 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.buildDMAEngine()
 
 	b.InternalConn.PlugIn(b.GPU.ToCommandProcessor)
-	b.InternalConn.PlugIn(b.DMAEngine.ToCommandProcessor)
+	b.InternalConn.PlugIn(b.DMAEngine.ToCP)
 	b.InternalConn.PlugIn(b.DMAEngine.ToMem)
 
 	b.GPU.InternalConnection = b.InternalConn
@@ -70,7 +70,7 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 		fmt.Sprintf("%s.DMA", b.GPUName),
 		b.Engine,
 		b.LowModuleFinderForL2)
-	b.CP.DMAEngine = b.DMAEngine.ToCommandProcessor
+	b.CP.DMAEngine = b.DMAEngine.ToCP
 
 }
 

@@ -218,11 +218,14 @@ var _ = Describe("Driver", func() {
 
 		It("should continue queue", func() {
 			data := uint32(0)
-			req := gcn3.NewMemCopyD2HReq(9, nil, toGPUs, 0x100, []byte{1, 0, 0, 0})
+			req := gcn3.NewMemCopyD2HReq(9, nil, toGPUs,
+				0x100,
+				[]byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
-				Dst:  &data,
-				Src:  GPUPtr(0x100),
-				Reqs: []akita.Req{req},
+				Dst:     &data,
+				RawData: []byte{1, 0, 0, 0},
+				Src:     GPUPtr(0x100),
+				Reqs:    []akita.Req{req},
 			}
 			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
 			cmdQueue.IsRunning = true
