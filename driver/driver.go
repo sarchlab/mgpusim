@@ -105,7 +105,7 @@ func (d *Driver) sendToGPUs(now akita.VTimeInSec) {
 	}
 
 	req := d.requestsToSend[0]
-	req.SetSendTime(0)
+	req.SetSendTime(now)
 	err := d.ToGPUs.Send(req)
 	if err == nil {
 		d.requestsToSend = d.requestsToSend[1:]
