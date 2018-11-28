@@ -30,8 +30,14 @@ var _ = Describe("Driver", func() {
 	})
 
 	It("should allocate memory", func() {
-		mmu.EXPECT().CreatePage(vm.PID(1),
-			uint64(0), uint64(0x100000000), uint64(4096))
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0,
+				VAddr:    0x100000000,
+				PageSize: 4096,
+				Valid:    true,
+			})
 
 		ptr := driver.AllocateMemory(8)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
@@ -41,8 +47,14 @@ var _ = Describe("Driver", func() {
 	})
 
 	It("should allocate memory with alignment", func() {
-		mmu.EXPECT().CreatePage(vm.PID(1),
-			uint64(0), uint64(0x100000000), uint64(4096))
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0,
+				VAddr:    0x100000000,
+				PageSize: 4096,
+				Valid:    true,
+			})
 
 		ptr := driver.AllocateMemoryWithAlignment(8, 64)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
@@ -56,12 +68,30 @@ var _ = Describe("Driver", func() {
 	})
 
 	It("should allocate memory larger than a page", func() {
-		mmu.EXPECT().CreatePage(vm.PID(1),
-			uint64(0), uint64(0x100000000), uint64(4096))
-		mmu.EXPECT().CreatePage(vm.PID(1),
-			uint64(1), uint64(0x100001000), uint64(4096))
-		mmu.EXPECT().CreatePage(vm.PID(1),
-			uint64(2), uint64(0x100002000), uint64(4096))
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0,
+				VAddr:    0x100000000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x1000,
+				VAddr:    0x100001000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x2000,
+				VAddr:    0x100002000,
+				PageSize: 4096,
+				Valid:    true,
+			})
 
 		ptr := driver.AllocateMemory(8196)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
