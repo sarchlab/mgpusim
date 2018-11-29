@@ -16,6 +16,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	memtraces "gitlab.com/akita/mem/trace"
+	"gitlab.com/akita/mem/vm"
 )
 
 type R9NanoGPUBuilder struct {
@@ -23,6 +24,7 @@ type R9NanoGPUBuilder struct {
 	Freq    akita.Freq
 	Driver  *driver.Driver
 	GPUName string
+	MMU     *vm.MMUImpl
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -36,6 +38,7 @@ type R9NanoGPUBuilder struct {
 	L1SCaches            []*caches.L1VCache
 	L1ICaches            []*caches.L1VCache
 	L2Caches             []*cache.WriteBackCache
+	TLBs                 []*vm.TLB
 	DRAMs                []*mem.IdealMemController
 	LowModuleFinderForL1 *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
@@ -104,6 +107,27 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 	b.buildL1VCaches()
 	b.buildL1SCaches()
 	b.buildL1ICaches()
+	b.buildTLBs()
+}
+
+func (b *R9NanoGPUBuilder) buildTLBs() {
+	l2TLB := vm.NewTLB(
+		fmt.Sprintf("%s.TLB_L2_%d", b.GPUName, 1),
+		b.Engine)
+	b.TLBs = append(b.TLBs, l2TLB)
+	b.GPU.L2TLB = l2TLB
+	b.InternalConn.PlugIn(l2TLB.ToTop)
+
+	l1TLBCount := 64 + 16 + 16
+	for i := 0; i < l1TLBCount; i++ {
+		l1TLB := vm.NewTLB(
+			fmt.Sprintf("%s.TLB_L1_%d", b.GPUName, 1),
+			b.Engine)
+		b.TLBs = append(b.TLBs, l1TLB)
+		b.GPU.L1TLBs = append(b.GPU.L1TLBs, l1TLB)
+		b.InternalConn.PlugIn(l1TLB.ToTop)
+		b.InternalConn.PlugIn(l1TLB.ToBottom)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildL1SCaches() {
