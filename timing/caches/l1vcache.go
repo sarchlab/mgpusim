@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/vm"
 )
 
 type invalidationCompleteEvent struct {
@@ -38,6 +39,7 @@ type cacheTransaction struct {
 	ReqToBottom   akita.Req
 	RspFromBottom akita.Req
 	OriginalReqs  []akita.Req
+	Page          *vm.Page
 }
 
 type inPipelineReqStatus struct {
@@ -60,6 +62,8 @@ type L1VCache struct {
 	Storage   *mem.Storage
 	TLB       akita.Port
 
+	addrTranslator subComponent
+
 	BlockSizeAsPowerOf2 uint64
 	InvalidationLatency int
 
@@ -72,8 +76,11 @@ type L1VCache struct {
 	reqBufCapacity        int
 	reqBufReadPtr         int
 
-	preCoalesceWriteBuf  []*mem.WriteReq
+	preCoalesceWriteBuf  []*cacheTransaction
 	postCoalesceWriteBuf []*cacheTransaction
+
+	preAddrTranslationBuf  []*cacheTransaction
+	postAddrTranslationBuf []*cacheTransaction
 
 	toCUBuffer            []akita.Req
 	toL2Buffer            []akita.Req
@@ -108,6 +115,7 @@ func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 	c.parseFromPostPipelineBuf(now)
 	c.countDownPipeline(now)
 	c.processPostCoalescingWrites(now)
+	c.addrTranslator.tick(now)
 	c.parseFromCP(now)
 	c.parseFromL2(now)
 	c.parseFromCU(now)
@@ -173,33 +181,15 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 	transaction := c.createTransaction(req)
 	c.NeedTick = true
 
-	switch req := req.(type) {
-	case *mem.ReadReq:
-		cycleLeft := c.pipeline.Accept(now, transaction)
-		inPipelineTrans := &inPipelineReqStatus{transaction, cycleLeft}
-		c.inPipeline = append(c.inPipeline, inPipelineTrans)
-
-		c.traceMem(req, now, "parse", req.Address,
-			uint64(req.MemByteSize), nil)
-	case *mem.WriteReq:
-		c.preCoalesceWriteBuf = append(c.preCoalesceWriteBuf, req)
-
-		if req.IsLastInWave {
-			c.coalesceWrites(now)
-		}
-
-		c.traceMem(req, now, "parse", req.Address,
-			uint64(len(req.Data)), req.Data)
-	default:
-		panic("unknown type")
-	}
+	c.preAddrTranslationBuf = append(c.preAddrTranslationBuf, transaction)
 }
 
 func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 	var cWrite *mem.WriteReq
 	var cWriteTrans *cacheTransaction
 
-	for i, write := range c.preCoalesceWriteBuf {
+	for i, trans := range c.preCoalesceWriteBuf {
+		write := trans.Req.(*mem.WriteReq)
 		if i == 0 {
 			cWrite = mem.NewWriteReq(now, c.ToL2,
 				c.L2Finder.Find(write.Address),
