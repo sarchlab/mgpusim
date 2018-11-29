@@ -49,14 +49,16 @@ type inPipelineReqStatus struct {
 type L1VCache struct {
 	*akita.TickingComponent
 
-	ToCU akita.Port
-	ToCP akita.Port
-	ToL2 akita.Port
+	ToCU  akita.Port
+	ToCP  akita.Port
+	ToL2  akita.Port
+	ToTLB akita.Port
 
 	L2Finder  cache.LowModuleFinder
 	Latency   int
 	Directory cache.Directory
 	Storage   *mem.Storage
+	TLB       akita.Port
 
 	BlockSizeAsPowerOf2 uint64
 	InvalidationLatency int
@@ -714,6 +716,7 @@ func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {
 	c.ToCU = akita.NewLimitNumReqPort(c, 4)
 	c.ToCP = akita.NewLimitNumReqPort(c, 4)
 	c.ToL2 = akita.NewLimitNumReqPort(c, 4)
+	c.ToTLB = akita.NewLimitNumReqPort(c, 4)
 	return c
 }
 
@@ -724,6 +727,7 @@ func BuildL1VCache(
 	latency int,
 	blockSizeAsPowerOf2, way, sizeAsPowerOf2 uint64,
 	l2Finder cache.LowModuleFinder,
+	TLB akita.Port,
 ) *L1VCache {
 	c := NewL1VCache(name, engine, freq)
 
@@ -739,6 +743,9 @@ func BuildL1VCache(
 	c.Directory = directory
 	c.Storage = storage
 	c.L2Finder = l2Finder
+	c.TLB = TLB
+
+	c.Latency = latency
 
 	c.BlockSizeAsPowerOf2 = blockSizeAsPowerOf2
 	c.InvalidationLatency = int(totalSize / way / blockSize)

@@ -64,7 +64,7 @@ var _ = Describe("L1V Cache", func() {
 			Expect(l1v.NeedTick).To(BeTrue())
 		})
 
-		It("should put write to write staging buf", func() {
+		It("should put write to pre-write-coalesce buf", func() {
 			req := mem.NewWriteReq(10, nil, nil, 0x100)
 			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
@@ -79,7 +79,7 @@ var _ = Describe("L1V Cache", func() {
 			Expect(l1v.NeedTick).To(BeTrue())
 		})
 
-		It("should coaleasce after receiving last in inst write", func() {
+		It("should coalesce after receiving last in inst write", func() {
 			req0 := mem.NewWriteReq(10, nil, nil, 0x100)
 			req0.Data = []byte{0, 1, 2, 3}
 			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req0)
