@@ -45,6 +45,11 @@ type cacheTransaction struct {
 func (t *cacheTransaction) getPAddr() uint64 {
 	vAddr := t.Req.(mem.AccessReq).GetAddress()
 	pageVAddr := t.Page.VAddr
+
+	if vAddr < pageVAddr || vAddr >= pageVAddr+t.Page.PageSize {
+		panic("vaddr not in page")
+	}
+
 	offset := vAddr - pageVAddr
 	pagePAddr := t.Page.PAddr
 	pAddr := pagePAddr + offset
@@ -210,11 +215,11 @@ func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 			continue
 		}
 
-		writeCacheLineID, _ := cache.GetCacheLineID(write.Address,
+		writeCacheLineID, _ := cache.GetCacheLineID(trans.getPAddr(),
 			c.BlockSizeAsPowerOf2)
 		cWriteCacheLineID, _ := cache.GetCacheLineID(cWrite.Address,
 			c.BlockSizeAsPowerOf2)
-		if write.Address == cWrite.Address+uint64(len(cWrite.Data)) &&
+		if trans.getPAddr() == cWrite.Address+uint64(len(cWrite.Data)) &&
 			writeCacheLineID == cWriteCacheLineID {
 			cWrite.Data = append(cWrite.Data, write.Data...)
 			cWriteTrans.OriginalReqs = append(cWriteTrans.OriginalReqs, write)
@@ -328,7 +333,7 @@ func (c *L1VCache) handleReadReq(
 	transaction *cacheTransaction,
 ) {
 	req := transaction.Req.(*mem.ReadReq)
-	address := req.Address
+	address := transaction.getPAddr()
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
 
 	if c.isInMSHR(cacheLineID) {
@@ -341,7 +346,7 @@ func (c *L1VCache) handleReadReq(
 	block := c.Directory.Lookup(cacheLineID)
 
 	if block == nil {
-		c.handleReadMiss(now, req)
+		c.handleReadMiss(now, transaction)
 	} else {
 		c.handleReadHit(now, req, block)
 	}
@@ -361,8 +366,9 @@ func (c *L1VCache) insertIntoMSHR(transaction *cacheTransaction) {
 	c.mshr = append(c.mshr, transaction)
 }
 
-func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
-	address := req.Address
+func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, trans *cacheTransaction) {
+	req := trans.Req.(*mem.ReadReq)
+	address := trans.getPAddr()
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
 
 	block := c.Directory.Evict(cacheLineID)
