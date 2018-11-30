@@ -26,7 +26,8 @@ var _ = Describe("DefaultCoalescer", func() {
 			0, 0, 0, 0, 0, 0, 0, 0,
 		}
 
-		coalescedAddresses := coalescer.Coalesce(rawAddresses, 4)
+		coalescedAddresses := coalescer.Coalesce(
+			rawAddresses, 0xffffffffffffffff, 4)
 
 		expectedCoalescedAccesses := make([]CoalescedAccess, 0)
 		for i := 0; i < 16; i++ {
@@ -45,7 +46,8 @@ var _ = Describe("DefaultCoalescer", func() {
 			rawAddresses[i] = uint64(4 * i)
 		}
 
-		coalescedAddresses := coalescer.Coalesce(rawAddresses, 4)
+		coalescedAddresses := coalescer.Coalesce(
+			rawAddresses, 0xffffffffffffffff, 4)
 
 		expectedCoalescedAccesses := make([]CoalescedAccess, 0)
 		for i := 0; i < 16; i++ {
@@ -64,10 +66,31 @@ var _ = Describe("DefaultCoalescer", func() {
 			rawAddresses[i] = uint64(16 * i)
 		}
 
-		coalescedAddresses := coalescer.Coalesce(rawAddresses, 16)
+		coalescedAddresses := coalescer.Coalesce(
+			rawAddresses, 0xffffffffffffffff, 16)
 
 		expectedCoalescedAccesses := make([]CoalescedAccess, 0)
 		for i := 0; i < 16; i++ {
+			access := CoalescedAccess{uint64(0x40 * i), 64,
+				[]int{i * 4, i*4 + 1, i*4 + 2, i*4 + 3},
+				[]uint64{0, 16, 32, 48}}
+			expectedCoalescedAccesses = append(
+				expectedCoalescedAccesses, access)
+		}
+		Expect(coalescedAddresses).To(Equal(expectedCoalescedAccesses))
+	})
+
+	It("should coalesce lanes masked by exec mask", func() {
+		rawAddresses := make([]uint64, 64)
+		for i := 0; i < 64; i++ {
+			rawAddresses[i] = uint64(16 * i)
+		}
+
+		coalescedAddresses := coalescer.Coalesce(
+			rawAddresses, 0xf, 16)
+
+		expectedCoalescedAccesses := make([]CoalescedAccess, 0)
+		for i := 0; i < 1; i++ {
 			access := CoalescedAccess{uint64(0x40 * i), 64,
 				[]int{i * 4, i*4 + 1, i*4 + 2, i*4 + 3},
 				[]uint64{0, 16, 32, 48}}
@@ -83,7 +106,8 @@ var _ = Describe("DefaultCoalescer", func() {
 			rawAddresses[i] = uint64(8 * i)
 		}
 
-		coalescedAddresses := coalescer.Coalesce(rawAddresses, 4)
+		coalescedAddresses := coalescer.Coalesce(
+			rawAddresses, 0xffffffffffffffff, 4)
 
 		expectOutput := make([]CoalescedAccess, 64)
 		for i := 0; i < 64; i++ {

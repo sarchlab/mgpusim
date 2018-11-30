@@ -116,6 +116,8 @@ func (s *Scheduler) DoFetch(now akita.VTimeInSec) bool {
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
 		req := mem.NewReadReq(now, s.cu.ToInstMem, s.cu.InstMem, addr, 64)
+		req.IsPhysical = false
+		req.PID = wf.PID()
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {

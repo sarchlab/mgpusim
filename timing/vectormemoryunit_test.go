@@ -115,6 +115,7 @@ var _ = Describe("Vector Memory Unit", func() {
 			sp.ADDR[i] = uint64(4096 + i*4)
 			sp.DATA[i*4] = uint32(i)
 		}
+		sp.EXEC = 0xffffffffffffffff
 
 		bu.toExec = wave
 

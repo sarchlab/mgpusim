@@ -4,6 +4,8 @@ import (
 	"os"
 	"sync"
 
+	"gitlab.com/akita/mem/vm"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/timing/caches"
 	"gitlab.com/akita/mem"
@@ -19,6 +21,7 @@ type test struct {
 	l1v             *caches.L1VCache
 	lowModuleFinder *cache.SingleLowModuleFinder
 	dram            *mem.IdealMemController
+	mmu             *vm.MMUImpl
 }
 
 func (t *test) run(wg *sync.WaitGroup) {
@@ -42,8 +45,19 @@ func newTest(name string) *test {
 	t.lowModuleFinder = new(cache.SingleLowModuleFinder)
 	t.lowModuleFinder.LowModule = t.dram.ToTop
 
+	t.mmu = vm.NewMMU("mmu", t.engine)
+	for addr := uint64(0); addr < mem.MB; addr += 4096 {
+		t.mmu.CreatePage(&vm.Page{
+			PID:      1,
+			VAddr:    addr,
+			PAddr:    addr,
+			PageSize: 4096,
+			Valid:    true,
+		})
+	}
+
 	t.l1v = caches.BuildL1VCache("cache", t.engine, 1*akita.GHz, 1,
-		6, 4, 14, t.lowModuleFinder)
+		6, 4, 14, t.lowModuleFinder, t.mmu.ToTop)
 
 	traceFile, err := os.Create(name + ".trace")
 	if err != nil {
@@ -60,7 +74,9 @@ func newTest(name string) *test {
 	t.conn.PlugIn(t.agent.ToMem)
 	t.conn.PlugIn(t.l1v.ToCU)
 	t.conn.PlugIn(t.l1v.ToL2)
+	t.conn.PlugIn(t.l1v.ToTLB)
 	t.conn.PlugIn(t.dram.ToTop)
+	t.conn.PlugIn(t.mmu.ToTop)
 
 	return t
 }

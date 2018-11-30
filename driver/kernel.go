@@ -38,7 +38,7 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 	co.WGGroupSegmentByteSize = ldsSize
 }
 
-// LaunchKernel is an eaiser way to run a kernel on the GCN3 simulator. It
+// LaunchKernel is an easy way to run a kernel on the GCN3 simulator. It
 // launches the kernel immediately.
 func (d *Driver) LaunchKernel(
 	co *insts.HsaCo,

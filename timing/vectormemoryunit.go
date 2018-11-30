@@ -137,21 +137,20 @@ func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 
 func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
-	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
+	//preCoalescedAddress := make([]uint64, 0, 64)
+	//for i := uint64(0); i < 64; i++ {
+	//	if sp.EXEC&(1<<i) > 0 {
+	//		preCoalescedAddress = append(preCoalescedAddress, sp.ADDR[i])
+	//	}
+	//}
+	coalescedAddrs := u.coalescer.Coalesce(sp.ADDR[:], sp.EXEC, byteSizePerLane)
 	u.bufferDataLoadRequest(coalescedAddrs, sp.ADDR, byteSizePerLane/4, now)
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
-	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
-	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, byteSizePerLane/4, now)
-}
-
-func (u *VectorMemoryUnit) coalesceAddress(
-	addresses []uint64,
-	byteSizePerLane int,
-) []CoalescedAccess {
-	return u.coalescer.Coalesce(addresses, byteSizePerLane)
+	coalescedAddrs := u.coalescer.Coalesce(sp.ADDR[:], sp.EXEC, byteSizePerLane)
+	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, sp.EXEC, byteSizePerLane/4, now)
 }
 
 func (u *VectorMemoryUnit) bufferDataLoadRequest(
@@ -171,6 +170,9 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 
 		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
 		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
+		req.IsPhysical = false
+		req.PID = u.toExec.PID()
+
 		info.Read = req
 		if i == len(coalescedAddrs)-1 {
 			req.IsLastInWave = true
@@ -184,10 +186,22 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
+	execMask uint64,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
+	lastLaneIndex := 0
+	for i := 0; i < 64; i++ {
+		if execMask&(1<<uint64(i)) > 0 {
+			lastLaneIndex = i
+		}
+	}
+
 	for i, addr := range preCoalescedAddrs {
+		if execMask&(1<<uint64(i)) == 0 {
+			continue
+		}
+
 		info := new(VectorMemAccessInfo)
 		info.Wavefront = u.toExec
 		info.Inst = u.toExec.inst
@@ -196,8 +210,9 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		lowModule := u.cu.VectorMemModules.Find(addr)
 		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
 		info.Write = req
-		req.Address = addr
-		if i == len(preCoalescedAddrs)-1 {
+		req.IsPhysical = false
+		req.PID = u.toExec.PID()
+		if i == lastLaneIndex {
 			req.IsLastInWave = true
 		}
 
