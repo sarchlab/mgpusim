@@ -476,6 +476,13 @@ var _ = Describe("L1V Cache", func() {
 			transaction = l1v.createTransaction(readFromTop)
 			transaction.Block = block
 			transaction.ReqToBottom = readToBottom
+			transaction.Page = &vm.Page{
+				PID:      1,
+				VAddr:    0x0,
+				PAddr:    0x0,
+				PageSize: 0x1000,
+				Valid:    true,
+			}
 			l1v.mshr = append(l1v.mshr, transaction)
 		})
 
@@ -763,17 +770,19 @@ var _ = Describe("L1V Cache", func() {
 	})
 })
 
-var _ = XDescribe("L1VCache black box", func() {
+var _ = Describe("L1VCache black box", func() {
 	var (
-		engine     akita.Engine
-		evictor    cache.Evictor
-		storage    *mem.Storage
-		directory  cache.Directory
-		l1v        *L1VCache
-		l2Finder   *cache.SingleLowModuleFinder
-		cu         *akita.MockComponent
-		lowModule  *mem.IdealMemController
-		connection *akita.DirectConnection
+		engine         akita.Engine
+		evictor        cache.Evictor
+		storage        *mem.Storage
+		directory      cache.Directory
+		l1v            *L1VCache
+		l2Finder       *cache.SingleLowModuleFinder
+		cu             *akita.MockComponent
+		addrTranslator *addressTranslator
+		lowModule      *mem.IdealMemController
+		mmu            *vm.MMUImpl
+		connection     *akita.DirectConnection
 	)
 
 	BeforeEach(func() {
@@ -788,8 +797,23 @@ var _ = XDescribe("L1VCache black box", func() {
 		l1v.L2Finder = l2Finder
 		l1v.BlockSizeAsPowerOf2 = 6
 
+		addrTranslator = new(addressTranslator)
+		addrTranslator.l1vCache = l1v
+		l1v.addrTranslator = addrTranslator
+
+		mmu = vm.NewMMU("mmu", engine)
+		mmu.Latency = 10
+		mmu.CreatePage(&vm.Page{
+			PID:      1,
+			PAddr:    0x1000,
+			VAddr:    0x1000000,
+			PageSize: 0x1000,
+			Valid:    true,
+		})
+		l1v.TLB = mmu.ToTop
+
 		lowModule = mem.NewIdealMemController("lowModule", engine, 4*mem.GB)
-		lowModule.Storage.Write(0x100, []byte{
+		lowModule.Storage.Write(0x1000, []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -808,12 +832,15 @@ var _ = XDescribe("L1VCache black box", func() {
 		connection = akita.NewDirectConnection(engine)
 		connection.PlugIn(l1v.ToCU)
 		connection.PlugIn(l1v.ToL2)
+		connection.PlugIn(l1v.ToTLB)
 		connection.PlugIn(lowModule.ToTop)
 		connection.PlugIn(cu.ToOutside)
+		connection.PlugIn(mmu.ToTop)
 	})
 
 	It("should read miss", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
@@ -832,7 +859,8 @@ var _ = XDescribe("L1VCache black box", func() {
 	})
 
 	It("should read miss on partial line read", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x104, 4)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000004, 4)
+		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
@@ -843,7 +871,8 @@ var _ = XDescribe("L1VCache black box", func() {
 	})
 
 	It("should read hit", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read.PID = 1
 
 		l1v.ToCU.Recv(read)
 		engine.Run()
@@ -861,7 +890,8 @@ var _ = XDescribe("L1VCache black box", func() {
 		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).RespondTo).To(
 			Equal(read.ID))
 
-		read1 := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+		read1 := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read1.PID = 1
 		read1.SetRecvTime(engine.CurrentTime() + akita.VTimeInSec(1))
 		l1v.ToCU.Recv(read1)
 		engine.Run()
@@ -881,7 +911,8 @@ var _ = XDescribe("L1VCache black box", func() {
 	})
 
 	It("should read hit on partial line read", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x104, 4)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000004, 4)
+		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
@@ -890,8 +921,9 @@ var _ = XDescribe("L1VCache black box", func() {
 		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{5, 6, 7, 8}))
 
-		read1 := mem.NewReadReq(11, cu.ToOutside, l1v.ToCU, 0x108, 4)
+		read1 := mem.NewReadReq(11, cu.ToOutside, l1v.ToCU, 0x1000008, 4)
 		read1.SetRecvTime(engine.CurrentTime() + 1)
+		read1.PID = 1
 		l1v.ToCU.Recv(read1)
 		engine.Run()
 		Expect(cu.ReceivedReqs).To(HaveLen(2))
@@ -900,7 +932,8 @@ var _ = XDescribe("L1VCache black box", func() {
 	})
 
 	It("should write", func() {
-		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000100)
+		write.PID = 1
 		write.IsLastInWave = true
 		write.Data = []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -918,7 +951,7 @@ var _ = XDescribe("L1VCache black box", func() {
 
 		Expect(cu.ReceivedReqs).To(HaveLen(1))
 		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
-		data, _ := lowModule.Storage.Read(0x100, 64)
+		data, _ := lowModule.Storage.Read(0x1100, 64)
 		Expect(data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -932,13 +965,15 @@ var _ = XDescribe("L1VCache black box", func() {
 	})
 
 	It("should coalesce write", func() {
-		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000100)
+		write.PID = 1
 		write.Data = []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 		}
 		l1v.ToCU.Recv(write)
 
-		write2 := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x108)
+		write2 := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000108)
+		write2.PID = 1
 		write2.IsLastInWave = true
 		write2.Data = []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -949,7 +984,7 @@ var _ = XDescribe("L1VCache black box", func() {
 
 		Expect(cu.ReceivedReqs).To(HaveLen(2))
 		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
-		data, _ := lowModule.Storage.Read(0x100, 16)
+		data, _ := lowModule.Storage.Read(0x1100, 16)
 		Expect(data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
