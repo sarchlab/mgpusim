@@ -190,6 +190,13 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
+	lastLaneIndex := 0
+	for i := 0; i < 64; i++ {
+		if execMask&(1<<uint64(i)) > 0 {
+			lastLaneIndex = i
+		}
+	}
+
 	for i, addr := range preCoalescedAddrs {
 		if execMask&(1<<uint64(i)) == 0 {
 			continue
@@ -205,7 +212,7 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		info.Write = req
 		req.IsPhysical = false
 		req.PID = u.toExec.PID()
-		if i == len(preCoalescedAddrs)-1 {
+		if i == lastLaneIndex {
 			req.IsLastInWave = true
 		}
 
