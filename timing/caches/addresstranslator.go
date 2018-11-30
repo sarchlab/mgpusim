@@ -1,6 +1,8 @@
 package caches
 
 import (
+	"log"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
@@ -83,6 +85,11 @@ func (t *addressTranslator) parseFromTLB(
 	}
 
 	translationRsp := req.(*vm.TranslateReadyRsp)
+
+	if translationRsp.Page == nil {
+		log.Panic("page not found")
+	}
+
 	t.pendingTranslation.Page = translationRsp.Page
 	t.l1vCache.postAddrTranslationBuf =
 		append(t.l1vCache.postAddrTranslationBuf, t.pendingTranslation)

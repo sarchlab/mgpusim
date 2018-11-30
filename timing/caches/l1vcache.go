@@ -129,7 +129,8 @@ func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 	c.parseFromPostPipelineBuf(now)
 	c.countDownPipeline(now)
 	c.processPostCoalescingWrites(now)
-	c.addrTranslator.tick(now)
+	c.parseFromPostAddrTranslationBuf(now)
+	c.NeedTick = c.addrTranslator.tick(now) || c.NeedTick
 	c.parseFromCP(now)
 	c.parseFromL2(now)
 	c.parseFromCU(now)
@@ -195,6 +196,11 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 	transaction := c.createTransaction(req)
 	c.NeedTick = true
 
+	c.traceMem(req, now, "translation",
+		req.(mem.AccessReq).GetAddress(),
+		req.(mem.AccessReq).GetByteSize(),
+		nil)
+
 	c.preAddrTranslationBuf = append(c.preAddrTranslationBuf, transaction)
 }
 
@@ -259,12 +265,16 @@ func (c *L1VCache) parseFromPostAddrTranslationBuf(now akita.VTimeInSec) {
 			Transaction: trans,
 		}
 		c.inPipeline = append(c.inPipeline, pipelineStatus)
+		c.traceMem(req, now, "done-translation",
+			req.GetAddress(), req.GetByteSize(), nil)
 
 	case *mem.WriteReq:
 		c.preCoalesceWriteBuf = append(c.preCoalesceWriteBuf, trans)
 		if req.IsLastInWave {
 			c.coalesceWrites(now)
 		}
+		c.traceMem(req, now, "done-translation",
+			req.GetAddress(), req.GetByteSize(), req.Data)
 
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
@@ -527,7 +537,7 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 		}
 
 		cacheLineID, offset := cache.GetCacheLineID(
-			readFromTop.Address, c.BlockSizeAsPowerOf2)
+			mshrEntry.getPAddr(), c.BlockSizeAsPowerOf2)
 		if cacheLineID != address {
 			continue
 		}
@@ -544,13 +554,13 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 
 	newMSHR := make([]*cacheTransaction, 0)
 	for _, mshrEntry := range c.mshr {
-		readFromTop, ok := mshrEntry.Req.(*mem.ReadReq)
+		_, ok := mshrEntry.Req.(*mem.ReadReq)
 		if !ok {
 			continue
 		}
 
 		cacheLineID, _ := cache.GetCacheLineID(
-			readFromTop.Address, c.BlockSizeAsPowerOf2)
+			mshrEntry.getPAddr(), c.BlockSizeAsPowerOf2)
 		if cacheLineID != address {
 			newMSHR = append(newMSHR, mshrEntry)
 		}
