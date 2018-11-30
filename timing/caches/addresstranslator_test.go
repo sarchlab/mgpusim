@@ -88,7 +88,7 @@ var _ = Describe("Addresstranslator", func() {
 			Req: req,
 		}
 		t.pendingTranslation = transaction
-		rsp := vm.NewTranslateReadyRsp(9, nil, nil, req.ID, nil)
+		rsp := vm.NewTranslateReadyRsp(9, nil, nil, req.ID)
 		rsp.Page = &vm.Page{
 			PID:      1,
 			VAddr:    0x1000,
