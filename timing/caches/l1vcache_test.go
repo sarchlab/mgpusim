@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/vm"
 )
 
 var _ = Describe("L1V Cache", func() {
@@ -51,7 +52,8 @@ var _ = Describe("L1V Cache", func() {
 	})
 
 	Context("read requests from CU", func() {
-		It("should put requests to reqBuf", func() {
+
+		It("should put transaction in reqBuf and preAddressTranslationBuf", func() {
 			req := mem.NewReadReq(10, nil, nil, 0x100, 64)
 			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
@@ -59,48 +61,85 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.reqBuf).To(HaveLen(1))
 			Expect(l1v.reqIDToTransactionMap).To(HaveLen(1))
-			Expect(l1v.inPipeline).To(HaveLen(1))
+			Expect(l1v.preAddrTranslationBuf).To(HaveLen(1))
 
 			Expect(l1v.NeedTick).To(BeTrue())
 		})
 
-		It("should put write to write staging buf", func() {
-			req := mem.NewWriteReq(10, nil, nil, 0x100)
+		It("should block preAddrTranslationBuf when receiving last req in insruction", func() {
+			req := mem.NewReadReq(10, nil, nil, 0x100, 64)
+			req.IsLastInWave = true
 			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
 			l1v.parseFromCU(10)
 
 			Expect(l1v.reqBuf).To(HaveLen(1))
 			Expect(l1v.reqIDToTransactionMap).To(HaveLen(1))
-			Expect(l1v.inPipeline).To(HaveLen(0))
-
-			Expect(l1v.preCoalesceWriteBuf).To(HaveLen(1))
+			Expect(l1v.preAddrTranslationBuf).To(HaveLen(1))
 
 			Expect(l1v.NeedTick).To(BeTrue())
 		})
+	})
 
-		It("should coaleasce after receiving last in inst write", func() {
-			req0 := mem.NewWriteReq(10, nil, nil, 0x100)
-			req0.Data = []byte{0, 1, 2, 3}
-			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req0)
-			l1v.parseFromCU(10)
+	It("should send read to pipeline after", func() {
+		req := mem.NewReadReq(10, nil, nil, 0x100, 64)
+		trans := l1v.createTransaction(req)
+		l1v.postAddrTranslationBuf = append(l1v.postAddrTranslationBuf, trans)
 
-			req := mem.NewWriteReq(10, nil, nil, 0x104)
-			req.Data = []byte{4, 5, 6, 7}
-			req.IsLastInWave = true
-			toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
-			l1v.parseFromCU(10)
+		l1v.parseFromPostAddrTranslationBuf(11)
 
-			Expect(l1v.reqBuf).To(HaveLen(2))
-			Expect(l1v.reqIDToTransactionMap).To(HaveLen(2))
-			Expect(l1v.inPipeline).To(HaveLen(0))
+		Expect(l1v.inPipeline).To(HaveLen(1))
+		Expect(l1v.NeedTick).To(BeTrue())
+		Expect(l1v.postAddrTranslationBuf).To(HaveLen(0))
+	})
 
-			Expect(l1v.preCoalesceWriteBuf).To(HaveLen(0))
-			Expect(l1v.postCoalesceWriteBuf).To(HaveLen(1))
-			Expect(l1v.postCoalesceWriteBuf[0].OriginalReqs).To(HaveLen(2))
+	It("should send write to pre write coalesce buffer", func() {
+		write := mem.NewWriteReq(10, nil, nil, 0x100)
+		trans := l1v.createTransaction(write)
+		trans.Page = &vm.Page{
+			PID:      1,
+			PAddr:    0x1000,
+			VAddr:    0x0,
+			PageSize: 0x1000,
+			Valid:    true,
+		}
+		l1v.postAddrTranslationBuf = append(l1v.postAddrTranslationBuf, trans)
 
-			Expect(l1v.NeedTick).To(BeTrue())
-		})
+		l1v.parseFromPostAddrTranslationBuf(11)
+
+		Expect(l1v.preCoalesceWriteBuf).To(HaveLen(1))
+		Expect(l1v.NeedTick).To(BeTrue())
+		Expect(l1v.postAddrTranslationBuf).To(HaveLen(0))
+	})
+
+	It("should do write coalescing", func() {
+		req0 := mem.NewWriteReq(10, nil, nil, 0x100)
+		req0.Data = []byte{0, 1, 2, 3}
+		trans0 := l1v.createTransaction(req0)
+		trans0.Page = &vm.Page{
+			PID:      1,
+			PAddr:    0x1000,
+			VAddr:    0x0,
+			PageSize: 0x1000,
+			Valid:    true,
+		}
+
+		l1v.preCoalesceWriteBuf = append(l1v.preCoalesceWriteBuf, trans0)
+
+		req1 := mem.NewWriteReq(10, nil, nil, 0x104)
+		req1.Data = []byte{0, 1, 2, 3}
+		req1.IsLastInWave = true
+		trans1 := l1v.createTransaction(req1)
+		trans1.Page = trans0.Page
+
+		l1v.postAddrTranslationBuf = append(l1v.postAddrTranslationBuf, trans1)
+
+		l1v.parseFromPostAddrTranslationBuf(11)
+
+		Expect(l1v.preCoalesceWriteBuf).To(HaveLen(0))
+		Expect(l1v.postAddrTranslationBuf).To(HaveLen(0))
+		Expect(l1v.postCoalesceWriteBuf).To(HaveLen(1))
+		Expect(l1v.NeedTick).To(BeTrue())
 	})
 
 	It("should process post coalescing write", func() {
@@ -151,8 +190,15 @@ var _ = Describe("L1V Cache", func() {
 			block = new(cache.Block)
 			directory.ExpectLookup(0x100, block)
 
-			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
+			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x1000000100, 64)
 			transaction = l1v.createTransaction(read)
+			transaction.Page = &vm.Page{
+				PID:      1,
+				VAddr:    0x1000000000,
+				PAddr:    0x0,
+				PageSize: 4096,
+				Valid:    true,
+			}
 			l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 		})
 
@@ -172,7 +218,7 @@ var _ = Describe("L1V Cache", func() {
 		})
 
 		It("should also start local read if reading partial line", func() {
-			read.Address = 0x104
+			read.Address = 0x1000000104
 			read.MemByteSize = 4
 
 			l1v.parseFromPostPipelineBuf(11)
@@ -209,8 +255,15 @@ var _ = Describe("L1V Cache", func() {
 			directory.ExpectLookup(0x100, nil)
 			directory.ExpectEvict(0x100, block)
 
-			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
+			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x1000000100, 64)
 			transaction = l1v.createTransaction(read)
+			transaction.Page = &vm.Page{
+				PID:      1,
+				VAddr:    0x1000000000,
+				PAddr:    0x0,
+				PageSize: 4096,
+				Valid:    true,
+			}
 			l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 		})
 
@@ -239,7 +292,7 @@ var _ = Describe("L1V Cache", func() {
 		})
 
 		It("always read a whole cache line from bottom", func() {
-			read.Address = 0x104
+			read.Address = 0x1000000104
 			read.MemByteSize = 4
 
 			l1v.parseFromPostPipelineBuf(11)
@@ -423,6 +476,13 @@ var _ = Describe("L1V Cache", func() {
 			transaction = l1v.createTransaction(readFromTop)
 			transaction.Block = block
 			transaction.ReqToBottom = readToBottom
+			transaction.Page = &vm.Page{
+				PID:      1,
+				VAddr:    0x0,
+				PAddr:    0x0,
+				PageSize: 0x1000,
+				Valid:    true,
+			}
 			l1v.mshr = append(l1v.mshr, transaction)
 		})
 
@@ -712,15 +772,17 @@ var _ = Describe("L1V Cache", func() {
 
 var _ = Describe("L1VCache black box", func() {
 	var (
-		engine     akita.Engine
-		evictor    cache.Evictor
-		storage    *mem.Storage
-		directory  cache.Directory
-		l1v        *L1VCache
-		l2Finder   *cache.SingleLowModuleFinder
-		cu         *akita.MockComponent
-		lowModule  *mem.IdealMemController
-		connection *akita.DirectConnection
+		engine         akita.Engine
+		evictor        cache.Evictor
+		storage        *mem.Storage
+		directory      cache.Directory
+		l1v            *L1VCache
+		l2Finder       *cache.SingleLowModuleFinder
+		cu             *akita.MockComponent
+		addrTranslator *addressTranslator
+		lowModule      *mem.IdealMemController
+		mmu            *vm.MMUImpl
+		connection     *akita.DirectConnection
 	)
 
 	BeforeEach(func() {
@@ -735,8 +797,23 @@ var _ = Describe("L1VCache black box", func() {
 		l1v.L2Finder = l2Finder
 		l1v.BlockSizeAsPowerOf2 = 6
 
+		addrTranslator = new(addressTranslator)
+		addrTranslator.l1vCache = l1v
+		l1v.addrTranslator = addrTranslator
+
+		mmu = vm.NewMMU("mmu", engine)
+		mmu.Latency = 10
+		mmu.CreatePage(&vm.Page{
+			PID:      1,
+			PAddr:    0x1000,
+			VAddr:    0x1000000,
+			PageSize: 0x1000,
+			Valid:    true,
+		})
+		l1v.TLB = mmu.ToTop
+
 		lowModule = mem.NewIdealMemController("lowModule", engine, 4*mem.GB)
-		lowModule.Storage.Write(0x100, []byte{
+		lowModule.Storage.Write(0x1000, []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -755,12 +832,15 @@ var _ = Describe("L1VCache black box", func() {
 		connection = akita.NewDirectConnection(engine)
 		connection.PlugIn(l1v.ToCU)
 		connection.PlugIn(l1v.ToL2)
+		connection.PlugIn(l1v.ToTLB)
 		connection.PlugIn(lowModule.ToTop)
 		connection.PlugIn(cu.ToOutside)
+		connection.PlugIn(mmu.ToTop)
 	})
 
 	It("should read miss", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
@@ -779,7 +859,8 @@ var _ = Describe("L1VCache black box", func() {
 	})
 
 	It("should read miss on partial line read", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x104, 4)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000004, 4)
+		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
@@ -790,7 +871,8 @@ var _ = Describe("L1VCache black box", func() {
 	})
 
 	It("should read hit", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read.PID = 1
 
 		l1v.ToCU.Recv(read)
 		engine.Run()
@@ -808,7 +890,8 @@ var _ = Describe("L1VCache black box", func() {
 		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).RespondTo).To(
 			Equal(read.ID))
 
-		read1 := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x100, 64)
+		read1 := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read1.PID = 1
 		read1.SetRecvTime(engine.CurrentTime() + akita.VTimeInSec(1))
 		l1v.ToCU.Recv(read1)
 		engine.Run()
@@ -828,7 +911,8 @@ var _ = Describe("L1VCache black box", func() {
 	})
 
 	It("should read hit on partial line read", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x104, 4)
+		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000004, 4)
+		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
@@ -837,8 +921,9 @@ var _ = Describe("L1VCache black box", func() {
 		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{5, 6, 7, 8}))
 
-		read1 := mem.NewReadReq(11, cu.ToOutside, l1v.ToCU, 0x108, 4)
+		read1 := mem.NewReadReq(11, cu.ToOutside, l1v.ToCU, 0x1000008, 4)
 		read1.SetRecvTime(engine.CurrentTime() + 1)
+		read1.PID = 1
 		l1v.ToCU.Recv(read1)
 		engine.Run()
 		Expect(cu.ReceivedReqs).To(HaveLen(2))
@@ -847,7 +932,8 @@ var _ = Describe("L1VCache black box", func() {
 	})
 
 	It("should write", func() {
-		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000100)
+		write.PID = 1
 		write.IsLastInWave = true
 		write.Data = []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -865,7 +951,7 @@ var _ = Describe("L1VCache black box", func() {
 
 		Expect(cu.ReceivedReqs).To(HaveLen(1))
 		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
-		data, _ := lowModule.Storage.Read(0x100, 64)
+		data, _ := lowModule.Storage.Read(0x1100, 64)
 		Expect(data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -879,13 +965,15 @@ var _ = Describe("L1VCache black box", func() {
 	})
 
 	It("should coalesce write", func() {
-		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x100)
+		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000100)
+		write.PID = 1
 		write.Data = []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 		}
 		l1v.ToCU.Recv(write)
 
-		write2 := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x108)
+		write2 := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000108)
+		write2.PID = 1
 		write2.IsLastInWave = true
 		write2.Data = []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -896,7 +984,7 @@ var _ = Describe("L1VCache black box", func() {
 
 		Expect(cu.ReceivedReqs).To(HaveLen(2))
 		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
-		data, _ := lowModule.Storage.Read(0x100, 16)
+		data, _ := lowModule.Storage.Read(0x1100, 16)
 		Expect(data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,

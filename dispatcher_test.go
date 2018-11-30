@@ -76,13 +76,13 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	//It("should reject dispatching if it is dispatching another kernel", func() {
-	//	req := NewLaunchKernelReq(5, nil, dispatcher.ToCommandProcessor)
+	//	req := NewLaunchKernelReq(5, nil, dispatcher.ToCP)
 	//	dispatcher.dispatchingReq = req
 	//
-	//	anotherReq := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
+	//	anotherReq := NewLaunchKernelReq(10, nil, dispatcher.ToCP)
 	//	anotherReq.SetRecvTime(10)
 	//
-	//	expectedReq := NewLaunchKernelReq(10, dispatcher.ToCommandProcessor, nil)
+	//	expectedReq := NewLaunchKernelReq(10, dispatcher.ToCP, nil)
 	//	expectedReq.OK = false
 	//	expectedReq.SetSendTime(10)
 	//	expectedReq.SetRecvTime(10)
@@ -95,6 +95,9 @@ var _ = Describe("Dispatcher", func() {
 	//})
 
 	It("should map work-group", func() {
+		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
+		dispatcher.dispatchingReq = dispatchingReq
+
 		wg := grid.WorkGroups[0]
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)
@@ -110,6 +113,9 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should reschedule work-group mapping if sending failed", func() {
+		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
+		dispatcher.dispatchingReq = dispatchingReq
+
 		wg := grid.WorkGroups[0]
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)

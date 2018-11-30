@@ -4,6 +4,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem/vm"
 )
 
 // FlushCommand requests the GPU to flush all the cache to the main memory
@@ -30,6 +31,8 @@ func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
 type LaunchKernelReq struct {
 	*akita.ReqBase
 
+	PID vm.PID
+
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
 	HsaCo         *insts.HsaCo
@@ -41,7 +44,9 @@ type LaunchKernelReq struct {
 }
 
 // NewLaunchKernelReq returns a new LaunchKernelReq
-func NewLaunchKernelReq(time akita.VTimeInSec, src, dst akita.Port) *LaunchKernelReq {
+func NewLaunchKernelReq(
+	time akita.VTimeInSec,
+	src, dst akita.Port) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
 	r.ReqBase = akita.NewReqBase()
 	r.StartTime = time

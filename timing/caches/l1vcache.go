@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/vm"
 )
 
 type invalidationCompleteEvent struct {
@@ -38,6 +39,21 @@ type cacheTransaction struct {
 	ReqToBottom   akita.Req
 	RspFromBottom akita.Req
 	OriginalReqs  []akita.Req
+	Page          *vm.Page
+}
+
+func (t *cacheTransaction) getPAddr() uint64 {
+	vAddr := t.Req.(mem.AccessReq).GetAddress()
+	pageVAddr := t.Page.VAddr
+
+	if vAddr < pageVAddr || vAddr >= pageVAddr+t.Page.PageSize {
+		panic("vaddr not in page")
+	}
+
+	offset := vAddr - pageVAddr
+	pagePAddr := t.Page.PAddr
+	pAddr := pagePAddr + offset
+	return pAddr
 }
 
 type inPipelineReqStatus struct {
@@ -49,14 +65,18 @@ type inPipelineReqStatus struct {
 type L1VCache struct {
 	*akita.TickingComponent
 
-	ToCU akita.Port
-	ToCP akita.Port
-	ToL2 akita.Port
+	ToCU  akita.Port
+	ToCP  akita.Port
+	ToL2  akita.Port
+	ToTLB akita.Port
 
 	L2Finder  cache.LowModuleFinder
 	Latency   int
 	Directory cache.Directory
 	Storage   *mem.Storage
+	TLB       akita.Port
+
+	addrTranslator subComponent
 
 	BlockSizeAsPowerOf2 uint64
 	InvalidationLatency int
@@ -70,8 +90,11 @@ type L1VCache struct {
 	reqBufCapacity        int
 	reqBufReadPtr         int
 
-	preCoalesceWriteBuf  []*mem.WriteReq
+	preCoalesceWriteBuf  []*cacheTransaction
 	postCoalesceWriteBuf []*cacheTransaction
+
+	preAddrTranslationBuf  []*cacheTransaction
+	postAddrTranslationBuf []*cacheTransaction
 
 	toCUBuffer            []akita.Req
 	toL2Buffer            []akita.Req
@@ -106,6 +129,8 @@ func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 	c.parseFromPostPipelineBuf(now)
 	c.countDownPipeline(now)
 	c.processPostCoalescingWrites(now)
+	c.parseFromPostAddrTranslationBuf(now)
+	c.NeedTick = c.addrTranslator.tick(now) || c.NeedTick
 	c.parseFromCP(now)
 	c.parseFromL2(now)
 	c.parseFromCU(now)
@@ -171,37 +196,24 @@ func (c *L1VCache) parseFromCU(now akita.VTimeInSec) {
 	transaction := c.createTransaction(req)
 	c.NeedTick = true
 
-	switch req := req.(type) {
-	case *mem.ReadReq:
-		cycleLeft := c.pipeline.Accept(now, transaction)
-		inPipelineTrans := &inPipelineReqStatus{transaction, cycleLeft}
-		c.inPipeline = append(c.inPipeline, inPipelineTrans)
+	c.traceMem(req, now, "translation",
+		req.(mem.AccessReq).GetAddress(),
+		req.(mem.AccessReq).GetByteSize(),
+		nil)
 
-		c.traceMem(req, now, "parse", req.Address,
-			uint64(req.MemByteSize), nil)
-	case *mem.WriteReq:
-		c.preCoalesceWriteBuf = append(c.preCoalesceWriteBuf, req)
-
-		if req.IsLastInWave {
-			c.coalesceWrites(now)
-		}
-
-		c.traceMem(req, now, "parse", req.Address,
-			uint64(len(req.Data)), req.Data)
-	default:
-		panic("unknown type")
-	}
+	c.preAddrTranslationBuf = append(c.preAddrTranslationBuf, transaction)
 }
 
 func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 	var cWrite *mem.WriteReq
 	var cWriteTrans *cacheTransaction
 
-	for i, write := range c.preCoalesceWriteBuf {
+	for i, trans := range c.preCoalesceWriteBuf {
+		write := trans.Req.(*mem.WriteReq)
 		if i == 0 {
 			cWrite = mem.NewWriteReq(now, c.ToL2,
-				c.L2Finder.Find(write.Address),
-				write.Address)
+				c.L2Finder.Find(trans.getPAddr()),
+				trans.getPAddr())
 			cWrite.Data = write.Data
 			cWriteTrans = new(cacheTransaction)
 			cWriteTrans.Req = cWrite
@@ -209,21 +221,23 @@ func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 			continue
 		}
 
-		writeCacheLineID, _ := cache.GetCacheLineID(write.Address,
+		writeCacheLineID, _ := cache.GetCacheLineID(trans.getPAddr(),
 			c.BlockSizeAsPowerOf2)
 		cWriteCacheLineID, _ := cache.GetCacheLineID(cWrite.Address,
 			c.BlockSizeAsPowerOf2)
-		if write.Address == cWrite.Address+uint64(len(cWrite.Data)) &&
+		if trans.getPAddr() == cWrite.Address+uint64(len(cWrite.Data)) &&
 			writeCacheLineID == cWriteCacheLineID {
 			cWrite.Data = append(cWrite.Data, write.Data...)
 			cWriteTrans.OriginalReqs = append(cWriteTrans.OriginalReqs, write)
 			continue
 		}
 
+		// When a write is not coalescable
 		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWriteTrans)
+
 		cWrite = mem.NewWriteReq(now, c.ToL2,
-			c.L2Finder.Find(write.Address),
-			write.Address)
+			c.L2Finder.Find(trans.getPAddr()),
+			trans.getPAddr())
 		cWrite.Data = write.Data
 		cWriteTrans = new(cacheTransaction)
 		cWriteTrans.Req = cWrite
@@ -234,6 +248,40 @@ func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWriteTrans)
 	}
 	c.preCoalesceWriteBuf = nil
+}
+
+func (c *L1VCache) parseFromPostAddrTranslationBuf(now akita.VTimeInSec) {
+	if len(c.postAddrTranslationBuf) == 0 {
+		return
+	}
+
+	trans := c.postAddrTranslationBuf[0]
+	req := trans.Req
+
+	switch req := req.(type) {
+	case *mem.ReadReq:
+		pipelineStatus := &inPipelineReqStatus{
+			CycleLeft:   c.pipeline.Accept(now, trans),
+			Transaction: trans,
+		}
+		c.inPipeline = append(c.inPipeline, pipelineStatus)
+		c.traceMem(req, now, "done-translation",
+			req.GetAddress(), req.GetByteSize(), nil)
+
+	case *mem.WriteReq:
+		c.preCoalesceWriteBuf = append(c.preCoalesceWriteBuf, trans)
+		if req.IsLastInWave {
+			c.coalesceWrites(now)
+		}
+		c.traceMem(req, now, "done-translation",
+			req.GetAddress(), req.GetByteSize(), req.Data)
+
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+	}
+
+	c.postAddrTranslationBuf = c.postAddrTranslationBuf[1:]
+	c.NeedTick = true
 }
 
 func (c *L1VCache) processPostCoalescingWrites(now akita.VTimeInSec) {
@@ -295,7 +343,7 @@ func (c *L1VCache) handleReadReq(
 	transaction *cacheTransaction,
 ) {
 	req := transaction.Req.(*mem.ReadReq)
-	address := req.Address
+	address := transaction.getPAddr()
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
 
 	if c.isInMSHR(cacheLineID) {
@@ -308,7 +356,7 @@ func (c *L1VCache) handleReadReq(
 	block := c.Directory.Lookup(cacheLineID)
 
 	if block == nil {
-		c.handleReadMiss(now, req)
+		c.handleReadMiss(now, transaction)
 	} else {
 		c.handleReadHit(now, req, block)
 	}
@@ -328,8 +376,9 @@ func (c *L1VCache) insertIntoMSHR(transaction *cacheTransaction) {
 	c.mshr = append(c.mshr, transaction)
 }
 
-func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, req *mem.ReadReq) {
-	address := req.Address
+func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, trans *cacheTransaction) {
+	req := trans.Req.(*mem.ReadReq)
+	address := trans.getPAddr()
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
 
 	block := c.Directory.Evict(cacheLineID)
@@ -488,7 +537,7 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 		}
 
 		cacheLineID, offset := cache.GetCacheLineID(
-			readFromTop.Address, c.BlockSizeAsPowerOf2)
+			mshrEntry.getPAddr(), c.BlockSizeAsPowerOf2)
 		if cacheLineID != address {
 			continue
 		}
@@ -505,13 +554,13 @@ func (c *L1VCache) handleDataReadyRsp(now akita.VTimeInSec, dataReady *mem.DataR
 
 	newMSHR := make([]*cacheTransaction, 0)
 	for _, mshrEntry := range c.mshr {
-		readFromTop, ok := mshrEntry.Req.(*mem.ReadReq)
+		_, ok := mshrEntry.Req.(*mem.ReadReq)
 		if !ok {
 			continue
 		}
 
 		cacheLineID, _ := cache.GetCacheLineID(
-			readFromTop.Address, c.BlockSizeAsPowerOf2)
+			mshrEntry.getPAddr(), c.BlockSizeAsPowerOf2)
 		if cacheLineID != address {
 			newMSHR = append(newMSHR, mshrEntry)
 		}
@@ -647,7 +696,6 @@ func (c *L1VCache) traceMem(
 	data []byte,
 ) {
 	traceInfo := new(mem.TraceInfo)
-	traceInfo.Req = req
 	traceInfo.Where = c.Name()
 	traceInfo.When = time
 	traceInfo.What = what
@@ -715,6 +763,7 @@ func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {
 	c.ToCU = akita.NewLimitNumReqPort(c, 4)
 	c.ToCP = akita.NewLimitNumReqPort(c, 4)
 	c.ToL2 = akita.NewLimitNumReqPort(c, 4)
+	c.ToTLB = akita.NewLimitNumReqPort(c, 4)
 	return c
 }
 
@@ -725,6 +774,7 @@ func BuildL1VCache(
 	latency int,
 	blockSizeAsPowerOf2, way, sizeAsPowerOf2 uint64,
 	l2Finder cache.LowModuleFinder,
+	TLB akita.Port,
 ) *L1VCache {
 	c := NewL1VCache(name, engine, freq)
 
@@ -737,9 +787,16 @@ func BuildL1VCache(
 		int(way), int(blockSize), lruEvictor)
 	storage := mem.NewStorage(totalSize)
 
+	addrTranslator := &addressTranslator{}
+	addrTranslator.l1vCache = c
+	c.addrTranslator = addrTranslator
+
 	c.Directory = directory
 	c.Storage = storage
 	c.L2Finder = l2Finder
+	c.TLB = TLB
+
+	c.Latency = latency
 
 	c.BlockSizeAsPowerOf2 = blockSizeAsPowerOf2
 	c.InvalidationLatency = int(totalSize / way / blockSize)

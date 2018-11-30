@@ -6,6 +6,7 @@ import (
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
 )
 
 var UseParallelEngine bool
@@ -29,11 +30,13 @@ func BuildEmuPlatform() (
 	}
 	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	gpuDriver := driver.NewDriver(engine)
+	mmu := vm.NewMMU("MMU", engine)
+	gpuDriver := driver.NewDriver(engine, mmu)
 	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewEmuGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
+	gpuBuilder.MMU = mmu
 	if DebugISA {
 		gpuBuilder.EnableISADebug = true
 	}
@@ -65,7 +68,8 @@ func BuildR9NanoPlatform() (
 	}
 	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	gpuDriver := driver.NewDriver(engine)
+	mmu := vm.NewMMU("MMU", engine)
+	gpuDriver := driver.NewDriver(engine, mmu)
 	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
@@ -75,6 +79,8 @@ func BuildR9NanoPlatform() (
 		EnableISADebug:    DebugISA,
 		EnableMemTracing:  TraceMem,
 		EnableInstTracing: TraceInst,
+		MMU:               mmu,
+		ExternalConn:      connection,
 	}
 
 	gpu := gpuBuilder.Build()
@@ -82,6 +88,7 @@ func BuildR9NanoPlatform() (
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
+	connection.PlugIn(mmu.ToTop)
 	gpu.Driver = gpuDriver.ToGPUs
 
 	return engine, gpu, gpuDriver

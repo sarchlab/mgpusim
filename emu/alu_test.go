@@ -1,15 +1,22 @@
 package emu
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mock_vm"
 )
 
 type mockInstState struct {
 	inst       *insts.Inst
 	scratchpad Scratchpad
+}
+
+func (s *mockInstState) PID() vm.PID {
+	return 1
 }
 
 func (s *mockInstState) Inst() *insts.Inst {
@@ -23,20 +30,37 @@ func (s *mockInstState) Scratchpad() Scratchpad {
 var _ = Describe("ALU", func() {
 
 	var (
-		alu     *ALUImpl
-		state   *mockInstState
-		storage *mem.Storage
+		mockCtrl *gomock.Controller
+		mmu      *mock_vm.MockMMU
+
+		alu       *ALUImpl
+		state     *mockInstState
+		storage   *mem.Storage
+		sAccessor *storageAccessor
 	)
 
 	BeforeEach(func() {
+		mockCtrl = gomock.NewController(GinkgoT())
+		mmu = mock_vm.NewMockMMU(mockCtrl)
+
 		storage = mem.NewStorage(1 * mem.GB)
-		alu = NewALUImpl(storage)
+		sAccessor = newStorageAccessor(storage, mmu)
+		alu = NewALU(sAccessor)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
 	})
 
+	AfterEach(func() {
+		mockCtrl.Finish()
+	})
+
 	It("should run FLAT_LOAD_UBYTE", func() {
+		for i := 0; i < 64; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(i*4)).
+				Return(uint64(i*4), &vm.Page{})
+		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 16
@@ -46,6 +70,7 @@ var _ = Describe("ALU", func() {
 			layout.ADDR[i] = uint64(i * 4)
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
 		}
+		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -55,9 +80,14 @@ var _ = Describe("ALU", func() {
 			Expect(layout.DST[i*4+2]).To(Equal(uint32(0)))
 			Expect(layout.DST[i*4+3]).To(Equal(uint32(0)))
 		}
-
 	})
+
 	It("should run FLAT_LOAD_USHORT", func() {
+		for i := 0; i < 64; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(i*4)).
+				Return(uint64(i*4), &vm.Page{})
+		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 18
@@ -67,6 +97,7 @@ var _ = Describe("ALU", func() {
 			layout.ADDR[i] = uint64(i * 4)
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
 		}
+		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -77,6 +108,11 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_LOAD_DWORD", func() {
+		for i := 0; i < 64; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(i*4)).
+				Return(uint64(i*4), &vm.Page{})
+		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 20
@@ -86,6 +122,7 @@ var _ = Describe("ALU", func() {
 			layout.ADDR[i] = uint64(i * 4)
 			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
 		}
+		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -95,6 +132,11 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_LOAD_DWORDX4", func() {
+		for i := 0; i < 64; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(i*16)).
+				Return(uint64(i*16), &vm.Page{})
+		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 23
@@ -107,6 +149,7 @@ var _ = Describe("ALU", func() {
 			storage.Write(uint64(i*16+8), insts.Uint32ToBytes(uint32(i)))
 			storage.Write(uint64(i*16+12), insts.Uint32ToBytes(uint32(i)))
 		}
+		layout.EXEC = 0xffffffffffffffff
 
 		alu.Run(state)
 
@@ -119,6 +162,11 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_STORE_DWORD", func() {
+		for i := 0; i < 64; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(i*4)).
+				Return(uint64(i*4), &vm.Page{})
+		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 28
@@ -140,6 +188,11 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run FLAT_STORE_DWORDX4", func() {
+		for i := 0; i < 64; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(i*16)).
+				Return(uint64(i*16), &vm.Page{})
+		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
 		state.inst.Opcode = 31
@@ -164,6 +217,9 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORD", func() {
+		mmu.EXPECT().
+			Translate(vm.PID(1), uint64(1040)).
+			Return(uint64(1040), &vm.Page{})
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 0
@@ -180,6 +236,9 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORDX2", func() {
+		mmu.EXPECT().
+			Translate(vm.PID(1), uint64(1040)).
+			Return(uint64(1040), &vm.Page{})
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 1
@@ -196,7 +255,11 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[0]).To(Equal(uint32(217)))
 		Expect(layout.DST[1]).To(Equal(uint32(218)))
 	})
+
 	It("should run S_LOAD_DWORDX4", func() {
+		mmu.EXPECT().
+			Translate(vm.PID(1), uint64(1040)).
+			Return(uint64(1040), &vm.Page{})
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 2

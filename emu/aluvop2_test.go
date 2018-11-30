@@ -7,20 +7,17 @@ import (
 	. "github.com/onsi/gomega"
 
 	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/mem"
 )
 
 var _ = Describe("ALU", func() {
 
 	var (
-		alu     *ALUImpl
-		state   *mockInstState
-		storage *mem.Storage
+		alu   *ALUImpl
+		state *mockInstState
 	)
 
 	BeforeEach(func() {
-		storage = mem.NewStorage(1 * mem.GB)
-		alu = NewALUImpl(storage)
+		alu = NewALU(nil)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
