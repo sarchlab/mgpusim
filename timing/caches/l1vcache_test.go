@@ -79,29 +79,6 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.NeedTick).To(BeTrue())
 		})
-
-		//It("should coalesce after receiving last in inst write", func() {
-		//req0 := mem.NewWriteReq(10, nil, nil, 0x100)
-		//req0.Data = []byte{0, 1, 2, 3}
-		//toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req0)
-		//l1v.parseFromCU(10)
-
-		//req := mem.NewWriteReq(10, nil, nil, 0x104)
-		//req.Data = []byte{4, 5, 6, 7}
-		//req.IsLastInWave = true
-		//toCU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
-		//l1v.parseFromCU(10)
-
-		//Expect(l1v.reqBuf).To(HaveLen(2))
-		//Expect(l1v.reqIDToTransactionMap).To(HaveLen(2))
-		//Expect(l1v.inPipeline).To(HaveLen(0))
-
-		//Expect(l1v.preCoalesceWriteBuf).To(HaveLen(0))
-		//Expect(l1v.postCoalesceWriteBuf).To(HaveLen(1))
-		//Expect(l1v.postCoalesceWriteBuf[0].OriginalReqs).To(HaveLen(2))
-
-		//Expect(l1v.NeedTick).To(BeTrue())
-		//})
 	})
 
 	It("should send read to pipeline after", func() {
@@ -135,7 +112,7 @@ var _ = Describe("L1V Cache", func() {
 		Expect(l1v.postAddrTranslationBuf).To(HaveLen(0))
 	})
 
-	FIt("should do write coalescing", func() {
+	It("should do write coalescing", func() {
 		req0 := mem.NewWriteReq(10, nil, nil, 0x100)
 		req0.Data = []byte{0, 1, 2, 3}
 		trans0 := l1v.createTransaction(req0)
@@ -213,8 +190,15 @@ var _ = Describe("L1V Cache", func() {
 			block = new(cache.Block)
 			directory.ExpectLookup(0x100, block)
 
-			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
+			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x1000000100, 64)
 			transaction = l1v.createTransaction(read)
+			transaction.Page = &vm.Page{
+				PID:      1,
+				VAddr:    0x1000000000,
+				PAddr:    0x0,
+				PageSize: 4096,
+				Valid:    true,
+			}
 			l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 		})
 
@@ -234,7 +218,7 @@ var _ = Describe("L1V Cache", func() {
 		})
 
 		It("should also start local read if reading partial line", func() {
-			read.Address = 0x104
+			read.Address = 0x1000000104
 			read.MemByteSize = 4
 
 			l1v.parseFromPostPipelineBuf(11)
@@ -271,8 +255,15 @@ var _ = Describe("L1V Cache", func() {
 			directory.ExpectLookup(0x100, nil)
 			directory.ExpectEvict(0x100, block)
 
-			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x100, 64)
+			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x1000000100, 64)
 			transaction = l1v.createTransaction(read)
+			transaction.Page = &vm.Page{
+				PID:      1,
+				VAddr:    0x1000000000,
+				PAddr:    0x0,
+				PageSize: 4096,
+				Valid:    true,
+			}
 			l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
 		})
 
@@ -301,7 +292,7 @@ var _ = Describe("L1V Cache", func() {
 		})
 
 		It("always read a whole cache line from bottom", func() {
-			read.Address = 0x104
+			read.Address = 0x1000000104
 			read.MemByteSize = 4
 
 			l1v.parseFromPostPipelineBuf(11)
