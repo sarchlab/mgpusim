@@ -20,11 +20,12 @@ import (
 )
 
 type R9NanoGPUBuilder struct {
-	Engine  akita.Engine
-	Freq    akita.Freq
-	Driver  *driver.Driver
-	GPUName string
-	MMU     *vm.MMUImpl
+	Engine       akita.Engine
+	Freq         akita.Freq
+	Driver       *driver.Driver
+	GPUName      string
+	MMU          *vm.MMUImpl
+	ExternalConn akita.Connection
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -62,6 +63,7 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.InternalConn.PlugIn(b.GPU.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.DMAEngine.ToCP)
 	b.InternalConn.PlugIn(b.DMAEngine.ToMem)
+	b.ExternalConn.PlugIn(b.GPU.ToDriver)
 
 	b.GPU.InternalConnection = b.InternalConn
 
@@ -111,18 +113,26 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 }
 
 func (b *R9NanoGPUBuilder) buildTLBs() {
+
 	l2TLB := vm.NewTLB(
 		fmt.Sprintf("%s.TLB_L2_%d", b.GPUName, 1),
 		b.Engine)
+	l2TLB.LowModule = b.MMU.ToTop
+	//traceFile, _ := os.Create("l2_tlb.trace")
+	//tlbTracer := vm.NewTLBTracer(traceFile)
+	//l2TLB.AcceptHook(tlbTracer)
 	//b.TLBs = append(b.TLBs, l2TLB)
 	b.GPU.L2TLB = l2TLB
 	b.InternalConn.PlugIn(l2TLB.ToTop)
+	b.ExternalConn.PlugIn(l2TLB.ToBottom)
 
 	l1TLBCount := 64 + 16 + 16
 	for i := 0; i < l1TLBCount; i++ {
 		l1TLB := vm.NewTLB(
 			fmt.Sprintf("%s.TLB_L1_%d", b.GPUName, 1),
 			b.Engine)
+		l1TLB.LowModule = b.GPU.L2TLB.ToTop
+
 		b.TLBs = append(b.TLBs, l1TLB)
 		b.GPU.L1TLBs = append(b.GPU.L1TLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.ToTop)
