@@ -150,7 +150,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now akita.VTimeI
 func (u *VectorMemoryUnit) executeFlatStore(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
 	coalescedAddrs := u.coalescer.Coalesce(sp.ADDR[:], sp.EXEC, byteSizePerLane)
-	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, byteSizePerLane/4, now)
+	u.bufferDataStoreRequest(coalescedAddrs, sp.ADDR, sp.DATA, sp.EXEC, byteSizePerLane/4, now)
 }
 
 func (u *VectorMemoryUnit) bufferDataLoadRequest(
@@ -186,10 +186,15 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 	coalescedAddrs []CoalescedAccess,
 	preCoalescedAddrs [64]uint64,
 	data [256]uint32,
+	execMask uint64,
 	registerCount int,
 	now akita.VTimeInSec,
 ) {
 	for i, addr := range preCoalescedAddrs {
+		if execMask&(1<<uint64(i)) == 0 {
+			continue
+		}
+
 		info := new(VectorMemAccessInfo)
 		info.Wavefront = u.toExec
 		info.Inst = u.toExec.inst
