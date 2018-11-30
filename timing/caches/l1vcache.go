@@ -787,6 +787,10 @@ func BuildL1VCache(
 		int(way), int(blockSize), lruEvictor)
 	storage := mem.NewStorage(totalSize)
 
+	addrTranslator := &addressTranslator{}
+	addrTranslator.l1vCache = c
+	c.addrTranslator = addrTranslator
+
 	c.Directory = directory
 	c.Storage = storage
 	c.L2Finder = l2Finder

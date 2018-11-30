@@ -103,18 +103,18 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 	}
 
 	b.buildMemControllers()
+	b.buildTLBs()
 	b.buildL2Caches()
 	b.buildL1VCaches()
 	b.buildL1SCaches()
 	b.buildL1ICaches()
-	b.buildTLBs()
 }
 
 func (b *R9NanoGPUBuilder) buildTLBs() {
 	l2TLB := vm.NewTLB(
 		fmt.Sprintf("%s.TLB_L2_%d", b.GPUName, 1),
 		b.Engine)
-	b.TLBs = append(b.TLBs, l2TLB)
+	//b.TLBs = append(b.TLBs, l2TLB)
 	b.GPU.L2TLB = l2TLB
 	b.InternalConn.PlugIn(l2TLB.ToTop)
 
@@ -138,10 +138,12 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 			b.Engine, b.Freq,
 			1,
 			6, 4, 14,
-			b.LowModuleFinderForL1)
+			b.LowModuleFinderForL1,
+			b.TLBs[i].ToTop)
 		b.InternalConn.PlugIn(sCache.ToCU)
 		b.InternalConn.PlugIn(sCache.ToCP)
 		b.InternalConn.PlugIn(sCache.ToL2)
+		b.InternalConn.PlugIn(sCache.ToTLB)
 		b.L1SCaches = append(b.L1SCaches, sCache)
 		b.CP.CachesToReset = append(b.CP.CachesToReset, sCache.ToCP)
 		if b.EnableMemTracing {
@@ -158,10 +160,13 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 			b.Engine, b.Freq,
 			1,
 			6, 4, 15,
-			b.LowModuleFinderForL1)
+			b.LowModuleFinderForL1,
+			b.TLBs[16+i].ToTop)
 		b.InternalConn.PlugIn(iCache.ToCU)
 		b.InternalConn.PlugIn(iCache.ToCP)
 		b.InternalConn.PlugIn(iCache.ToL2)
+		b.InternalConn.PlugIn(iCache.ToTLB)
+
 		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.CachesToReset = append(b.CP.CachesToReset, iCache.ToCP)
 		if b.EnableMemTracing {
@@ -181,11 +186,13 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 			b.Engine, b.Freq,
 			1,
 			6, 4, 14,
-			b.LowModuleFinderForL1)
+			b.LowModuleFinderForL1,
+			b.TLBs[32+i].ToTop)
 
 		b.InternalConn.PlugIn(dCache.ToCU)
 		b.InternalConn.PlugIn(dCache.ToCP)
 		b.InternalConn.PlugIn(dCache.ToL2)
+		b.InternalConn.PlugIn(dCache.ToTLB)
 		b.L1VCaches = append(b.L1VCaches, dCache)
 
 		b.CP.CachesToReset = append(b.CP.CachesToReset, dCache.ToCP)
