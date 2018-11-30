@@ -79,6 +79,8 @@ func BuildR9NanoPlatform() (
 		EnableISADebug:    DebugISA,
 		EnableMemTracing:  TraceMem,
 		EnableInstTracing: TraceInst,
+		MMU:               mmu,
+		ExternalConn:      connection,
 	}
 
 	gpu := gpuBuilder.Build()
@@ -86,6 +88,7 @@ func BuildR9NanoPlatform() (
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(gpu.ToDriver)
+	connection.PlugIn(mmu.ToTop)
 	gpu.Driver = gpuDriver.ToGPUs
 
 	return engine, gpu, gpuDriver
