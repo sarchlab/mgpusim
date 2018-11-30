@@ -42,6 +42,15 @@ type cacheTransaction struct {
 	Page          *vm.Page
 }
 
+func (t *cacheTransaction) getPAddr() uint64 {
+	vAddr := t.Req.(mem.AccessReq).GetAddress()
+	pageVAddr := t.Page.VAddr
+	offset := vAddr - pageVAddr
+	pagePAddr := t.Page.PAddr
+	pAddr := pagePAddr + offset
+	return pAddr
+}
+
 type inPipelineReqStatus struct {
 	Transaction *cacheTransaction
 	CycleLeft   int
@@ -192,8 +201,8 @@ func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 		write := trans.Req.(*mem.WriteReq)
 		if i == 0 {
 			cWrite = mem.NewWriteReq(now, c.ToL2,
-				c.L2Finder.Find(write.Address),
-				write.Address)
+				c.L2Finder.Find(trans.getPAddr()),
+				trans.getPAddr())
 			cWrite.Data = write.Data
 			cWriteTrans = new(cacheTransaction)
 			cWriteTrans.Req = cWrite
@@ -212,10 +221,12 @@ func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 			continue
 		}
 
+		// When a write is not coalescable
 		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWriteTrans)
+
 		cWrite = mem.NewWriteReq(now, c.ToL2,
-			c.L2Finder.Find(write.Address),
-			write.Address)
+			c.L2Finder.Find(trans.getPAddr()),
+			trans.getPAddr())
 		cWrite.Data = write.Data
 		cWriteTrans = new(cacheTransaction)
 		cWriteTrans.Req = cWrite
@@ -226,6 +237,36 @@ func (c *L1VCache) coalesceWrites(now akita.VTimeInSec) {
 		c.postCoalesceWriteBuf = append(c.postCoalesceWriteBuf, cWriteTrans)
 	}
 	c.preCoalesceWriteBuf = nil
+}
+
+func (c *L1VCache) parseFromPostAddrTranslationBuf(now akita.VTimeInSec) {
+	if len(c.postAddrTranslationBuf) == 0 {
+		return
+	}
+
+	trans := c.postAddrTranslationBuf[0]
+	req := trans.Req
+
+	switch req := req.(type) {
+	case *mem.ReadReq:
+		pipelineStatus := &inPipelineReqStatus{
+			CycleLeft:   c.pipeline.Accept(now, trans),
+			Transaction: trans,
+		}
+		c.inPipeline = append(c.inPipeline, pipelineStatus)
+
+	case *mem.WriteReq:
+		c.preCoalesceWriteBuf = append(c.preCoalesceWriteBuf, trans)
+		if req.IsLastInWave {
+			c.coalesceWrites(now)
+		}
+
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+	}
+
+	c.postAddrTranslationBuf = c.postAddrTranslationBuf[1:]
+	c.NeedTick = true
 }
 
 func (c *L1VCache) processPostCoalescingWrites(now akita.VTimeInSec) {

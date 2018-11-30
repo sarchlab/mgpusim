@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/vm"
 )
 
 var _ = Describe("L1V Cache", func() {
@@ -101,6 +102,67 @@ var _ = Describe("L1V Cache", func() {
 
 		//Expect(l1v.NeedTick).To(BeTrue())
 		//})
+	})
+
+	It("should send read to pipeline after", func() {
+		req := mem.NewReadReq(10, nil, nil, 0x100, 64)
+		trans := l1v.createTransaction(req)
+		l1v.postAddrTranslationBuf = append(l1v.postAddrTranslationBuf, trans)
+
+		l1v.parseFromPostAddrTranslationBuf(11)
+
+		Expect(l1v.inPipeline).To(HaveLen(1))
+		Expect(l1v.NeedTick).To(BeTrue())
+		Expect(l1v.postAddrTranslationBuf).To(HaveLen(0))
+	})
+
+	It("should send write to pre write coalesce buffer", func() {
+		write := mem.NewWriteReq(10, nil, nil, 0x100)
+		trans := l1v.createTransaction(write)
+		trans.Page = &vm.Page{
+			PID:      1,
+			PAddr:    0x1000,
+			VAddr:    0x0,
+			PageSize: 0x1000,
+			Valid:    true,
+		}
+		l1v.postAddrTranslationBuf = append(l1v.postAddrTranslationBuf, trans)
+
+		l1v.parseFromPostAddrTranslationBuf(11)
+
+		Expect(l1v.preCoalesceWriteBuf).To(HaveLen(1))
+		Expect(l1v.NeedTick).To(BeTrue())
+		Expect(l1v.postAddrTranslationBuf).To(HaveLen(0))
+	})
+
+	FIt("should do write coalescing", func() {
+		req0 := mem.NewWriteReq(10, nil, nil, 0x100)
+		req0.Data = []byte{0, 1, 2, 3}
+		trans0 := l1v.createTransaction(req0)
+		trans0.Page = &vm.Page{
+			PID:      1,
+			PAddr:    0x1000,
+			VAddr:    0x0,
+			PageSize: 0x1000,
+			Valid:    true,
+		}
+
+		l1v.preCoalesceWriteBuf = append(l1v.preCoalesceWriteBuf, trans0)
+
+		req1 := mem.NewWriteReq(10, nil, nil, 0x104)
+		req1.Data = []byte{0, 1, 2, 3}
+		req1.IsLastInWave = true
+		trans1 := l1v.createTransaction(req1)
+		trans1.Page = trans0.Page
+
+		l1v.postAddrTranslationBuf = append(l1v.postAddrTranslationBuf, trans1)
+
+		l1v.parseFromPostAddrTranslationBuf(11)
+
+		Expect(l1v.preCoalesceWriteBuf).To(HaveLen(0))
+		Expect(l1v.postAddrTranslationBuf).To(HaveLen(0))
+		Expect(l1v.postCoalesceWriteBuf).To(HaveLen(1))
+		Expect(l1v.NeedTick).To(BeTrue())
 	})
 
 	It("should process post coalescing write", func() {
