@@ -137,7 +137,13 @@ func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 
 func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
-	coalescedAddrs := u.coalesceAddress(sp.ADDR[:], byteSizePerLane)
+	preCoalescedAddress := make([]uint64, 0, 64)
+	for i := uint64(0); i < 64; i++ {
+		if sp.EXEC&(1<<i) > 0 {
+			preCoalescedAddress = append(preCoalescedAddress, sp.ADDR[i])
+		}
+	}
+	coalescedAddrs := u.coalesceAddress(preCoalescedAddress, byteSizePerLane)
 	u.bufferDataLoadRequest(coalescedAddrs, sp.ADDR, byteSizePerLane/4, now)
 }
 
