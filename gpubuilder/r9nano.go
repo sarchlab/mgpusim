@@ -22,20 +22,13 @@ import (
 )
 
 type R9NanoGPUBuilder struct {
-<<<<<<< HEAD
 	Engine           akita.Engine
 	Freq             akita.Freq
 	Driver           *driver.Driver
 	GPUName          string
 	GPUMemAddrOffset uint64
-=======
-	Engine       akita.Engine
-	Freq         akita.Freq
-	Driver       *driver.Driver
-	GPUName      string
-	MMU          *vm.MMUImpl
-	ExternalConn akita.Connection
->>>>>>> 47924c0b934b36dd996c9af76638f95bc7e17219
+	MMU              *vm.MMUImpl
+	ExternalConn     akita.Connection
 
 	EnableISADebug    bool
 	EnableInstTracing bool
