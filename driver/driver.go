@@ -6,6 +6,8 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/mem/vm"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 )
@@ -21,10 +23,18 @@ var HookPosReqReturn = &struct{ name string }{"Any"}
 type Driver struct {
 	*akita.TickingComponent
 
-	gpus        []*gcn3.GPU
-	memoryMasks []*MemoryMask
-	totalSize   uint64
-	usingGPU    int
+	gpus                 []*gcn3.GPU
+	allocatedPages       [][]*vm.Page
+	initialAddresses     []uint64
+	storageSizes         []uint64
+	memoryMasks          [][]*MemoryChunk
+	totalStorageByteSize uint64
+	mmu                  vm.MMU
+
+	usingGPU           int
+	currentPID         vm.PID
+	PageSizeAsPowerOf2 uint64
+	requestsToSend     []akita.Req
 
 	CommandQueues []*CommandQueue
 
@@ -46,8 +56,14 @@ func (d *Driver) ExecuteAllCommands() {
 func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 	d.gpus = append(d.gpus, gpu)
 
-	d.registerStorage(GPUPtr(d.totalSize), dramSize)
-	d.totalSize += dramSize
+	d.registerStorage(GPUPtr(d.totalStorageByteSize), dramSize)
+	d.totalStorageByteSize += dramSize
+}
+
+// ChangePID allows the driver to work on another PID in the following API
+// calls.
+func (d *Driver) ChangePID(pid vm.PID) {
+	d.currentPID = pid
 }
 
 // GetNumGPUs return the number of GPUs in the platform
@@ -79,11 +95,26 @@ func (d *Driver) handleTickEvent(evt akita.TickEvent) {
 	now := evt.Time()
 	d.NeedTick = false
 
+	d.sendToGPUs(now)
 	d.processReturnReq(now)
 	d.processNewCommand(now)
 
 	if d.NeedTick {
 		d.TickLater(now)
+	}
+}
+
+func (d *Driver) sendToGPUs(now akita.VTimeInSec) {
+	if len(d.requestsToSend) == 0 {
+		return
+	}
+
+	req := d.requestsToSend[0]
+	req.SetSendTime(now)
+	err := d.ToGPUs.Send(req)
+	if err == nil {
+		d.requestsToSend = d.requestsToSend[1:]
+		d.NeedTick = true
 	}
 }
 
@@ -105,20 +136,6 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
-}
-
-func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
-	for _, cmdQueue := range d.CommandQueues {
-		if len(cmdQueue.Commands) == 0 {
-			continue
-		}
-
-		if cmdQueue.Commands[0].GetReq() == req {
-			return cmdQueue.Commands[0], cmdQueue
-		}
-	}
-
-	panic("cannot find command")
 }
 
 func (d *Driver) processNewCommand(now akita.VTimeInSec) {
@@ -160,32 +177,60 @@ func (d *Driver) processMemCopyH2DCommand(
 	cmd *MemCopyH2DCommand,
 	queue *CommandQueue,
 ) {
-	rawData := make([]byte, 0)
-	buffer := bytes.NewBuffer(rawData)
-
+	buffer := bytes.NewBuffer(nil)
 	err := binary.Write(buffer, binary.LittleEndian, cmd.Src)
 	if err != nil {
 		panic(err)
 	}
+	rawBytes := buffer.Bytes()
 
-	req := gcn3.NewMemCopyH2DReq(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
-		buffer.Bytes(), uint64(cmd.Dst))
-	sendError := d.ToGPUs.Send(req)
-	if sendError == nil {
-		queue.IsRunning = true
-		cmd.Req = req
-		d.NeedTick = true
+	offset := uint64(0)
+	addr := uint64(cmd.Dst)
+	sizeLeft := uint64(len(rawBytes))
+	for sizeLeft > 0 {
+		pAddr, page := d.mmu.Translate(d.currentPID, addr)
+		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
+		sizeToCopy := sizeLeftInPage
+		if sizeLeft < sizeLeftInPage {
+			sizeToCopy = sizeLeft
+		}
+
+		gpuID := d.findGPUIDByPAddr(pAddr)
+		req := gcn3.NewMemCopyH2DReq(now,
+			d.ToGPUs, d.gpus[gpuID].ToDriver,
+			rawBytes[offset:offset+sizeToCopy],
+			pAddr)
+		cmd.Reqs = append(cmd.Reqs, req)
+		d.requestsToSend = append(d.requestsToSend, req)
+
+		sizeLeft -= sizeToCopy
+		addr += sizeToCopy
+		offset += sizeToCopy
 	}
+
+	queue.IsRunning = true
+	d.NeedTick = true
 }
 
 func (d *Driver) processMemCopyH2DReturn(
 	now akita.VTimeInSec,
 	req *gcn3.MemCopyH2DReq,
 ) {
-	_, cmdQueue := d.findCommandByReq(req)
-	cmdQueue.IsRunning = false
-	cmdQueue.Commands = cmdQueue.Commands[1:]
+	cmd, cmdQueue := d.findCommandByReq(req)
+
+	copyCmd := cmd.(*MemCopyH2DCommand)
+	newReqs := make([]akita.Req, 0, len(copyCmd.Reqs)-1)
+	for _, r := range copyCmd.GetReqs() {
+		if r != req {
+			newReqs = append(newReqs, r)
+		}
+	}
+	copyCmd.Reqs = newReqs
+
+	if len(copyCmd.Reqs) == 0 {
+		cmdQueue.IsRunning = false
+		cmdQueue.Commands = cmdQueue.Commands[1:]
+	}
 
 	d.NeedTick = true
 }
@@ -195,17 +240,33 @@ func (d *Driver) processMemCopyD2HCommand(
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
 ) {
-	rawData := make([]byte, binary.Size(cmd.Dst))
+	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
 
-	req := gcn3.NewMemCopyD2HReq(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver,
-		uint64(cmd.Src), rawData)
-	sendError := d.ToGPUs.Send(req)
-	if sendError == nil {
-		queue.IsRunning = true
-		cmd.Req = req
-		d.NeedTick = true
+	offset := uint64(0)
+	addr := uint64(cmd.Src)
+	sizeLeft := uint64(len(cmd.RawData))
+	for sizeLeft > 0 {
+		pAddr, page := d.mmu.Translate(d.currentPID, addr)
+		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
+		sizeToCopy := sizeLeftInPage
+		if sizeLeft < sizeLeftInPage {
+			sizeToCopy = sizeLeft
+		}
+
+		gpuID := d.findGPUIDByPAddr(pAddr)
+		req := gcn3.NewMemCopyD2HReq(now,
+			d.ToGPUs, d.gpus[gpuID].ToDriver,
+			pAddr, cmd.RawData[offset:offset+sizeToCopy])
+		cmd.Reqs = append(cmd.Reqs, req)
+		d.requestsToSend = append(d.requestsToSend, req)
+
+		sizeLeft -= sizeToCopy
+		addr += sizeToCopy
+		offset += sizeToCopy
 	}
+
+	queue.IsRunning = true
+	d.NeedTick = true
 }
 
 func (d *Driver) processMemCopyD2HReturn(
@@ -214,16 +275,25 @@ func (d *Driver) processMemCopyD2HReturn(
 ) {
 	cmd, cmdQueue := d.findCommandByReq(req)
 
-	memCopyCommand := cmd.(*MemCopyD2HCommand)
+	copyCmd := cmd.(*MemCopyD2HCommand)
+	newReqs := make([]akita.Req, 0, len(copyCmd.Reqs)-1)
+	for _, r := range copyCmd.GetReqs() {
+		if r != req {
+			newReqs = append(newReqs, r)
+		}
+	}
+	copyCmd.Reqs = newReqs
 
-	buf := bytes.NewReader(req.DstBuffer)
-	err := binary.Read(buf, binary.LittleEndian, memCopyCommand.Dst)
-	if err != nil {
-		panic(err)
+	if len(copyCmd.Reqs) == 0 {
+		cmdQueue.IsRunning = false
+		cmdQueue.Commands = cmdQueue.Commands[1:]
+		buf := bytes.NewReader(copyCmd.RawData)
+		err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	cmdQueue.IsRunning = false
-	cmdQueue.Commands = cmdQueue.Commands[1:]
 	d.NeedTick = true
 }
 
@@ -234,6 +304,7 @@ func (d *Driver) processLaunchKernelCommand(
 ) {
 	req := gcn3.NewLaunchKernelReq(now,
 		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
+	req.PID = queue.PID
 	req.HsaCo = cmd.CodeObject
 	req.Packet = cmd.Packet
 	req.PacketAddress = uint64(cmd.DPacket)
@@ -244,7 +315,7 @@ func (d *Driver) processLaunchKernelCommand(
 		d.InvokeHook(req, d, HookPosReqStart, nil)
 
 		queue.IsRunning = true
-		cmd.Req = req
+		cmd.Reqs = append(cmd.Reqs, req)
 		d.NeedTick = true
 	}
 }
@@ -276,7 +347,7 @@ func (d *Driver) processFlushCommand(
 		d.InvokeHook(req, d, HookPosReqStart, nil)
 
 		queue.IsRunning = true
-		cmd.Req = req
+		cmd.Reqs = append(cmd.Reqs, req)
 		d.NeedTick = true
 	}
 }
@@ -294,13 +365,43 @@ func (d *Driver) processFlushReturn(
 	d.InvokeHook(req, d, HookPosReqReturn, nil)
 }
 
+func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
+	for _, cmdQueue := range d.CommandQueues {
+		if len(cmdQueue.Commands) == 0 {
+			continue
+		}
+
+		reqs := cmdQueue.Commands[0].GetReqs()
+		for _, r := range reqs {
+			if r == req {
+				return cmdQueue.Commands[0], cmdQueue
+			}
+		}
+	}
+
+	panic("cannot find command")
+}
+
+func (d *Driver) findGPUIDByPAddr(pAddr uint64) int {
+	for i := range d.gpus {
+		if pAddr >= d.initialAddresses[i] &&
+			pAddr < d.initialAddresses[i]+d.storageSizes[i] {
+			return i
+		}
+	}
+	panic("never")
+}
+
 // NewDriver creates a new driver
-func NewDriver(engine akita.Engine) *Driver {
+func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver := new(Driver)
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
-	driver.memoryMasks = make([]*MemoryMask, 0)
+	driver.mmu = mmu
+	driver.PageSizeAsPowerOf2 = 12
+
+	driver.currentPID = 1
 
 	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 40960000)
 

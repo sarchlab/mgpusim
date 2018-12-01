@@ -121,6 +121,9 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 
 		req := mem.NewReadReq(now, u.cu.ToScalarMem, u.cu.ScalarMem,
 			sp.Base+sp.Offset, uint64(byteSize))
+		req.IsPhysical = false
+		req.PID = u.toExec.PID()
+
 		u.readBuf = append(u.readBuf, req)
 
 		info := new(ScalarMemAccessInfo)

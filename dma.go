@@ -12,28 +12,20 @@ import (
 // A DMAEngine is responsible for accessing data that does not belongs to
 // the GPU that the DMAEngine works in.
 type DMAEngine struct {
-	*akita.ComponentBase
-	ticker *akita.Ticker
+	*akita.TickingComponent
 
-	engine          akita.Engine
+	Log2AccessSize uint64
+
 	localDataSource cache.LowModuleFinder
 
-	Freq akita.Freq
+	processingReq akita.Req
 
-	processingReq  akita.Req
-	progressOffset uint64
-	needTick       bool
+	toSendToMem []akita.Req
+	toSendToCP  []akita.Req
+	pendingReqs []akita.Req
 
-	ToCommandProcessor akita.Port
-	ToMem              akita.Port
-}
-
-func (dma *DMAEngine) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
-	dma.ticker.TickLater(now)
-}
-
-func (dma *DMAEngine) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
-	dma.ticker.TickLater(now)
+	ToCP  akita.Port
+	ToMem akita.Port
 }
 
 func (dma *DMAEngine) Handle(evt akita.Event) error {
@@ -48,150 +40,184 @@ func (dma *DMAEngine) Handle(evt akita.Event) error {
 
 func (dma *DMAEngine) tick(evt akita.TickEvent) error {
 	now := evt.Time()
-	dma.needTick = false
+	dma.NeedTick = false
 
-	req := dma.ToMem.Peek()
-	if req != nil {
-		switch req := req.(type) {
-		case *mem.DoneRsp:
-			dma.processDoneRspFromLocalMemory(now, req)
-		case *mem.DataReadyRsp:
-			dma.processDataReadyRspFromLocalMemory(now, req)
-		default:
-			log.Panicf("cannot handle request for type %s",
-				reflect.TypeOf(req))
-		}
-	}
+	dma.send(now, dma.ToCP, &dma.toSendToCP)
+	dma.send(now, dma.ToMem, &dma.toSendToMem)
+	dma.parseFromMem(now)
+	dma.parseFromCP(now)
 
-	if dma.processingReq != nil {
-		switch req := dma.processingReq.(type) {
-		case *MemCopyH2DReq:
-			return dma.doCopyH2D(now, req)
-		case *MemCopyD2HReq:
-			return dma.doCopyD2H(now, req)
-		default:
-			log.Panicf("cannot handle request for type %s in tick event",
-				reflect.TypeOf(req))
-		}
-	}
-
-	dma.acceptNewReq(now)
-
-	if dma.needTick == true {
-		dma.ticker.TickLater(now)
+	if dma.NeedTick == true {
+		dma.TickLater(now)
 	}
 
 	return nil
 }
 
-func (dma *DMAEngine) acceptNewReq(now akita.VTimeInSec) {
+func (dma *DMAEngine) send(
+	now akita.VTimeInSec,
+	port akita.Port,
+	reqs *[]akita.Req,
+) {
+	if len(*reqs) == 0 {
+		return
+	}
+
+	req := (*reqs)[0]
+	req.SetSendTime(now)
+	err := port.Send(req)
+	if err == nil {
+		dma.NeedTick = true
+		*reqs = (*reqs)[1:]
+	}
+}
+
+func (dma *DMAEngine) parseFromMem(now akita.VTimeInSec) {
+	req := dma.ToMem.Retrieve(now)
+	if req == nil {
+		return
+	}
+
+	dma.NeedTick = true
+
+	switch req := req.(type) {
+	case *mem.DataReadyRsp:
+		dma.processDataReadyRsp(now, req)
+	case *mem.DoneRsp:
+		dma.processDoneRsp(now, req)
+	default:
+		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
+	}
+}
+
+func (dma *DMAEngine) processDataReadyRsp(
+	now akita.VTimeInSec,
+	rsp *mem.DataReadyRsp,
+) {
+	req := dma.removeReqFromPendingReqList(rsp.RespondTo).(*mem.ReadReq)
+	processing := dma.processingReq.(*MemCopyD2HReq)
+
+	offset := req.Address - processing.SrcAddress
+	copy(processing.DstBuffer[offset:], rsp.Data)
+
+	if len(dma.pendingReqs) == 0 {
+		dma.processingReq = nil
+		processing.SwapSrcAndDst()
+		dma.toSendToCP = append(dma.toSendToCP, processing)
+	}
+}
+
+func (dma *DMAEngine) processDoneRsp(
+	now akita.VTimeInSec,
+	rsp *mem.DoneRsp,
+) {
+	dma.removeReqFromPendingReqList(rsp.RespondTo)
+	processing := dma.processingReq.(*MemCopyH2DReq)
+	if len(dma.pendingReqs) == 0 {
+		dma.processingReq = nil
+		processing.SwapSrcAndDst()
+		dma.toSendToCP = append(dma.toSendToCP, processing)
+	}
+}
+
+func (dma *DMAEngine) removeReqFromPendingReqList(id string) akita.Req {
+	var reqToRet akita.Req
+	newList := make([]akita.Req, 0, len(dma.pendingReqs)-1)
+	for _, r := range dma.pendingReqs {
+		if r.GetID() == id {
+			reqToRet = r
+		} else {
+			newList = append(newList, r)
+		}
+	}
+	dma.pendingReqs = newList
+
+	if reqToRet == nil {
+		panic("not found")
+	}
+
+	return reqToRet
+}
+
+func (dma *DMAEngine) parseFromCP(now akita.VTimeInSec) {
 	if dma.processingReq != nil {
 		return
 	}
-	req := dma.ToCommandProcessor.Retrieve(now)
-	if req != nil {
-		dma.processingReq = req
-		dma.progressOffset = 0
-		dma.needTick = true
+
+	req := dma.ToCP.Retrieve(now)
+	if req == nil {
+		return
+	}
+
+	dma.processingReq = req
+	dma.NeedTick = true
+
+	switch req := req.(type) {
+	case *MemCopyH2DReq:
+		dma.parseMemCopyH2D(now, req)
+	case *MemCopyD2HReq:
+		dma.parseMemCopyD2H(now, req)
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 	}
 }
 
-func (dma *DMAEngine) processDoneRspFromLocalMemory(now akita.VTimeInSec, rsp *mem.DoneRsp) {
-	dma.needTick = true
-	dma.ToMem.Retrieve(now)
-}
+func (dma *DMAEngine) parseMemCopyH2D(
+	now akita.VTimeInSec,
+	req *MemCopyH2DReq,
+) {
+	offset := uint64(0)
+	lengthLeft := uint64(len(req.SrcBuffer))
+	addr := req.DstAddress
 
-func (dma *DMAEngine) processDataReadyRspFromLocalMemory(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
-	offset := dma.progressOffset
-	length := uint64(len(rsp.Data))
-	req := dma.processingReq.(*MemCopyD2HReq)
-	copy(req.DstBuffer[offset-length:offset], rsp.Data)
-	dma.ToMem.Retrieve(now)
+	for lengthLeft > 0 {
+		addrUnitFirstByte := addr & (^uint64(0) << dma.Log2AccessSize)
+		unitOffset := addr - addrUnitFirstByte
+		lengthInUnit := (1 << dma.Log2AccessSize) - unitOffset
 
-	dma.needTick = true
-}
+		length := lengthLeft
+		if lengthInUnit < length {
+			length = lengthInUnit
+		}
 
-func (dma *DMAEngine) doCopyH2D(now akita.VTimeInSec, req *MemCopyH2DReq) error {
-	if dma.memCopyH2DCompleted(req) {
-		dma.replyMemCopyH2D(now, req)
-		return nil
-	}
-	dma.writeMemory(now, req)
-	return nil
-}
+		module := dma.localDataSource.Find(addr)
+		reqToBottom := mem.NewWriteReq(now, dma.ToMem, module, addr)
+		reqToBottom.Data = req.SrcBuffer[offset : offset+length]
+		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
+		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
-func (dma *DMAEngine) writeMemory(now akita.VTimeInSec, req *MemCopyH2DReq) {
-	address := req.DstAddress + dma.progressOffset
-	nextCacheLineAddress := address&0xffffffffffffffc0 + 64
-
-	length := nextCacheLineAddress - address
-	lengthLeft := uint64(len(req.SrcBuffer)) - dma.progressOffset
-	if length > lengthLeft {
-		length = lengthLeft
-	}
-	lowModule := dma.localDataSource.Find(address)
-
-	writeReq := mem.NewWriteReq(now, dma.ToMem, lowModule, address)
-	writeReq.Data = req.SrcBuffer[dma.progressOffset : dma.progressOffset+length]
-	err := dma.ToMem.Send(writeReq)
-	if err == nil {
-		dma.progressOffset += length
-		dma.needTick = true
+		addr += length
+		lengthLeft -= length
+		offset += length
 	}
 }
 
-func (dma *DMAEngine) replyMemCopyH2D(now akita.VTimeInSec, req *MemCopyH2DReq) {
-	req.SwapSrcAndDst()
-	req.SetSendTime(now)
-	err := dma.ToCommandProcessor.Send(req)
-	if err == nil {
-		dma.processingReq = nil
-		dma.needTick = true
-	}
-}
+func (dma *DMAEngine) parseMemCopyD2H(
+	now akita.VTimeInSec,
+	req *MemCopyD2HReq,
+) {
+	offset := uint64(0)
+	lengthLeft := uint64(len(req.DstBuffer))
+	addr := req.SrcAddress
 
-func (dma *DMAEngine) memCopyH2DCompleted(req *MemCopyH2DReq) bool {
-	return dma.progressOffset >= uint64(len(req.SrcBuffer))
-}
+	for lengthLeft > 0 {
+		addrUnitFirstByte := addr & (^uint64(0) << dma.Log2AccessSize)
+		unitOffset := addr - addrUnitFirstByte
+		lengthInUnit := (1 << dma.Log2AccessSize) - unitOffset
 
-func (dma *DMAEngine) doCopyD2H(now akita.VTimeInSec, req *MemCopyD2HReq) error {
-	if dma.memCopyD2HCompleted(req) {
-		dma.replyMemCopyD2H(now, req)
-		return nil
-	}
-	dma.readMemory(now, req)
-	return nil
-}
+		length := lengthLeft
+		if lengthInUnit < length {
+			length = lengthInUnit
+		}
 
-func (dma *DMAEngine) memCopyD2HCompleted(req *MemCopyD2HReq) bool {
-	return dma.progressOffset >= uint64(len(req.DstBuffer))
-}
+		module := dma.localDataSource.Find(addr)
+		reqToBottom := mem.NewReadReq(now, dma.ToMem, module, addr, length)
+		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
+		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
-func (dma *DMAEngine) replyMemCopyD2H(now akita.VTimeInSec, req *MemCopyD2HReq) {
-	req.SwapSrcAndDst()
-	req.SetSendTime(now)
-	err := dma.ToCommandProcessor.Send(req)
-	if err == nil {
-		dma.processingReq = nil
-		dma.needTick = true
-	}
-}
-
-func (dma *DMAEngine) readMemory(now akita.VTimeInSec, req *MemCopyD2HReq) {
-	address := req.SrcAddress + dma.progressOffset
-	nextCacheLineAddress := address&0xffffffffffffffc0 + 64
-	length := nextCacheLineAddress - address
-	lengthLeft := uint64(len(req.DstBuffer)) - dma.progressOffset
-	if length > lengthLeft {
-		length = lengthLeft
-	}
-	lowModule := dma.localDataSource.Find(address)
-
-	readReq := mem.NewReadReq(now, dma.ToMem, lowModule, address, length)
-	err := dma.ToMem.Send(readReq)
-	if err == nil {
-		dma.progressOffset += length
-		dma.needTick = true
+		addr += length
+		lengthLeft -= length
+		offset += length
 	}
 }
 
@@ -202,17 +228,16 @@ func NewDMAEngine(
 	engine akita.Engine,
 	localDataSource cache.LowModuleFinder,
 ) *DMAEngine {
-	componentBase := akita.NewComponentBase(name)
 	dma := new(DMAEngine)
-	dma.ComponentBase = componentBase
-	dma.engine = engine
+	dma.TickingComponent = akita.NewTickingComponent(name, engine,
+		1*akita.GHz, dma)
+
+	dma.Log2AccessSize = 6
+
 	dma.localDataSource = localDataSource
 
-	dma.Freq = 1 * akita.GHz
-	dma.ticker = akita.NewTicker(dma, engine, dma.Freq)
-
-	dma.ToCommandProcessor = akita.NewLimitNumReqPort(dma, 1)
-	dma.ToMem = akita.NewLimitNumReqPort(dma, 1)
+	dma.ToCP = akita.NewLimitNumReqPort(dma, 64)
+	dma.ToMem = akita.NewLimitNumReqPort(dma, 64)
 
 	return dma
 }
