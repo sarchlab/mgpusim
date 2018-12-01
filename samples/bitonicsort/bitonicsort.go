@@ -25,7 +25,7 @@ var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
-var length = flag.Int("length", 65536, "The length of array to sort.")
+var length = flag.Int("length", 1024, "The length of array to sort.")
 var orderAscending = flag.Bool("order-asc", true, "Sorting in ascending order.")
 
 func main() {
@@ -60,7 +60,7 @@ func configure() {
 
 func initPlatform() {
 	if *timing {
-		_, _, gpuDriver = platform.BuildR9NanoPlatform()
+		_, gpuDriver = platform.BuildNR9NanoPlatform(4)
 	} else {
 		_, _, gpuDriver, _ = platform.BuildEmuPlatform()
 	}

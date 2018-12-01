@@ -21,19 +21,29 @@ type BitonicKernelArgs struct {
 
 type Benchmark struct {
 	driver *driver.Driver
+	hsaco  *insts.HsaCo
 
-	hsaco *insts.HsaCo
+	numGPUs   int
+	gpuQueues []*driver.CommandQueue
 
 	Length         int
 	OrderAscending bool
 
 	inputData  []uint32
+	outputData []uint32
 	gInputData driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+
+	b.numGPUs = driver.GetNumGPUs()
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.gpuQueues = append(b.gpuQueues, b.driver.CreateCommandQueue())
+	}
+
 	b.loadProgram()
 	return b
 }
@@ -56,14 +66,25 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.gInputData = b.driver.AllocateMemory(uint64(b.Length * 4))
 
 	b.inputData = make([]uint32, b.Length)
+	b.outputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
 		b.inputData[i] = rand.Uint32()
 	}
 
-	b.driver.MemCopyH2D(b.gInputData, b.inputData)
+	bytePerGPU := uint64(b.Length / b.numGPUs * 4)
+	b.gInputData = b.driver.AllocateMemory(uint64(b.Length * 4))
+	for i := 0; i < b.numGPUs; i++ {
+		addr := uint64(b.gInputData) + uint64(i)*bytePerGPU
+		b.driver.Remap(addr, bytePerGPU, i)
+
+		b.driver.EnqueueMemCopyH2D(
+			b.gpuQueues[i], driver.GPUPtr(addr),
+			b.inputData[b.Length/b.numGPUs*i:b.Length/b.numGPUs*(i+1)])
+	}
+	b.driver.ExecuteAllCommands()
+
 }
 
 func (b *Benchmark) exec() {
@@ -80,35 +101,45 @@ func (b *Benchmark) exec() {
 
 	for stage := 0; stage < numStages; stage += 1 {
 		for passOfStage := 0; passOfStage < stage+1; passOfStage++ {
-			kernArg := BitonicKernelArgs{
-				b.gInputData,
-				uint32(stage),
-				uint32(passOfStage),
-				uint32(direction),
-				0, 0, 0}
-			b.driver.LaunchKernel(b.hsaco,
-				[3]uint32{uint32(b.Length / 2), 1, 1},
-				[3]uint16{256, 1, 1},
-				&kernArg)
+			for i := 0; i < b.numGPUs; i++ {
+				kernArg := BitonicKernelArgs{
+					b.gInputData,
+					uint32(stage),
+					uint32(passOfStage),
+					uint32(direction),
+					int64(b.Length / b.numGPUs / 2), 0, 0}
+				b.driver.EnqueueLaunchKernel(
+					b.gpuQueues[i],
+					b.hsaco,
+					[3]uint32{uint32(b.Length / 2), 1, 1},
+					[3]uint16{256, 1, 1},
+					&kernArg)
+			}
+			b.driver.ExecuteAllCommands()
 		}
+	}
 
+	bytePerGPU := uint64(b.Length / b.numGPUs * 4)
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.EnqueueMemCopyD2H(
+			b.gpuQueues[i],
+			b.outputData[b.Length/b.numGPUs*i:b.Length/b.numGPUs*(i+1)],
+			driver.GPUPtr(uint64(b.gInputData)+uint64(i)*bytePerGPU))
 	}
 }
 
 func (b *Benchmark) Verify() {
-	gpuOutput := make([]uint32, b.Length)
-	b.driver.MemCopyD2H(gpuOutput, b.gInputData)
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {
-			if gpuOutput[i] > gpuOutput[i+1] {
-				log.Fatalf("Error: array[%d] > array[%d]: %d %d\n", i, i+1,
-					gpuOutput[i], gpuOutput[i+1])
+			if b.outputData[i] > b.outputData[i+1] {
+				log.Panicf("Error: array[%d] > array[%d]: %d %d\n", i, i+1,
+					b.outputData[i], b.outputData[i+1])
 			}
 		} else {
-			if gpuOutput[i] < gpuOutput[i+1] {
-				log.Fatalf("Error: array[%d] < array[%d]: %d %d\n", i, i+1,
-					gpuOutput[i], gpuOutput[i+1])
+			if b.outputData[i] < b.outputData[i+1] {
+				log.Panicf("Error: array[%d] < array[%d]: %d %d\n", i, i+1,
+					b.outputData[i], b.outputData[i+1])
 			}
 		}
 	}
