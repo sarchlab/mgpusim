@@ -30,12 +30,13 @@ type Benchmark struct {
 
 	Length       int
 	numTaps      int
+	outputData   []float32
 	inputData    []float32
 	filterData   []float32
 	gFilterData  []driver.GPUPtr
 	gHistoryData []driver.GPUPtr
-	gInputData   []driver.GPUPtr
-	gOutputData  []driver.GPUPtr
+	gInputData   driver.GPUPtr
+	gOutputData  driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -65,16 +66,19 @@ func (b *Benchmark) Run() {
 func (b *Benchmark) initMem() {
 	b.numTaps = 16
 
+	b.gInputData = b.driver.AllocateMemory(uint64(b.Length * 4))
+	b.gOutputData = b.driver.AllocateMemory(uint64(b.Length * 4))
+	bytePerGPU := uint64(b.Length / b.numGPUs * 4)
+
 	for i := 0; i < b.numGPUs; i++ {
 		b.driver.SelectGPU(i)
 		b.gFilterData = append(b.gFilterData,
 			b.driver.AllocateMemory(uint64(b.numTaps*4)))
-		b.gHistoryData = append(b.gFilterData,
+		b.gHistoryData = append(b.gHistoryData,
 			b.driver.AllocateMemory(uint64(b.numTaps*4)))
-		b.gInputData = append(b.gInputData,
-			b.driver.AllocateMemory(uint64(b.Length/b.numGPUs*4)))
-		b.gOutputData = append(b.gOutputData,
-			b.driver.AllocateMemory(uint64(b.Length/b.numGPUs*4)))
+
+		b.driver.Remap(uint64(b.gInputData)+uint64(i)*bytePerGPU, bytePerGPU, i)
+		b.driver.Remap(uint64(b.gOutputData)+uint64(i)*bytePerGPU, bytePerGPU, i)
 	}
 
 	b.filterData = make([]float32, b.numTaps)
@@ -83,6 +87,7 @@ func (b *Benchmark) initMem() {
 	}
 
 	b.inputData = make([]float32, b.Length)
+	b.outputData = make([]float32, b.Length)
 	for i := 0; i < b.Length; i++ {
 		b.inputData[i] = float32(i)
 	}
@@ -91,33 +96,41 @@ func (b *Benchmark) initMem() {
 		b.driver.EnqueueMemCopyH2D(
 			b.gpuQueues[i], b.gFilterData[i], b.filterData)
 		b.driver.EnqueueMemCopyH2D(
-			b.gpuQueues[i], b.gInputData[i],
+			b.gpuQueues[i],
+			driver.GPUPtr(uint64(b.gInputData)+uint64(i)*bytePerGPU),
 			b.inputData[b.Length/b.numGPUs*i:b.Length/b.numGPUs*(i+1)])
 	}
 }
 
 func (b *Benchmark) exec() {
-	kernArg := KernelArgs{
-		b.gOutputData,
-		b.gFilterData,
-		b.gInputData,
-		b.gHistoryData,
-		uint32(b.numTaps),
-		0, 0, 0,
+	bytePerGPU := uint64(b.Length / b.numGPUs * 4)
+	for i := 0; i < b.numGPUs; i++ {
+		kernArg := KernelArgs{
+			driver.GPUPtr(uint64(b.gOutputData) + uint64(i)*bytePerGPU),
+			b.gFilterData[i],
+			driver.GPUPtr(uint64(b.gInputData) + uint64(i)*bytePerGPU),
+			b.gHistoryData[i],
+			uint32(b.numTaps),
+			0, 0, 0,
+		}
+
+		b.driver.LaunchKernel(
+			b.hsaco,
+			[3]uint32{uint32(b.Length / b.numGPUs), 1, 1},
+			[3]uint16{256, 1, 1},
+			&kernArg,
+		)
+
+		b.driver.EnqueueMemCopyD2H(
+			b.gpuQueues[i],
+			b.outputData[b.Length/b.numGPUs*i:b.Length/b.numGPUs*(i+1)],
+			driver.GPUPtr(uint64(b.gOutputData)+uint64(i)*bytePerGPU))
 	}
 
-	b.driver.LaunchKernel(
-		b.hsaco,
-		[3]uint32{uint32(b.Length), 1, 1},
-		[3]uint16{256, 1, 1},
-		&kernArg,
-	)
+	b.driver.ExecuteAllCommands()
 }
 
 func (b *Benchmark) Verify() {
-	gpuOutput := make([]float32, b.Length)
-	b.driver.MemCopyD2H(gpuOutput, b.gOutputData)
-
 	for i := 0; i < b.Length; i++ {
 		var sum float32
 		sum = 0
@@ -129,9 +142,9 @@ func (b *Benchmark) Verify() {
 			sum += b.inputData[i-j] * b.filterData[j]
 		}
 
-		if math.Abs(float64(sum-gpuOutput[i])) >= 1e-5 {
+		if math.Abs(float64(sum-b.outputData[i])) >= 1e-5 {
 			log.Fatalf("At position %d, expected %f, but get %f.\n",
-				i, sum, gpuOutput[i])
+				i, sum, b.outputData[i])
 		}
 	}
 
