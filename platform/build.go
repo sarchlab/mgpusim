@@ -2,6 +2,8 @@ package platform
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"gitlab.com/akita/mem/cache"
 
@@ -112,7 +114,7 @@ func BuildNR9NanoPlatform(
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmu := vm.NewMMU("MMU", engine)
 	mmu.Latency = 100
