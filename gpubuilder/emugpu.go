@@ -14,6 +14,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	memtraces "gitlab.com/akita/mem/trace"
+	"gitlab.com/akita/mem/vm"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
@@ -22,6 +23,7 @@ type EmuGPUBuilder struct {
 	freq    akita.Freq
 	Driver  *driver.Driver
 	GPUName string
+	MMU     vm.MMU
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -68,13 +70,10 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 	disassembler := insts.NewDisassembler()
 
 	for i := 0; i < 4; i++ {
-		scratchpadPreparer := emu.NewScratchpadPreparerImpl()
-		alu := emu.NewALUImpl(gpuMem.Storage)
-		computeUnit := emu.NewComputeUnit(
+		computeUnit := emu.BuildComputeUnit(
 			fmt.Sprintf("%s.CU%d", b.GPUName, i),
-			b.engine, disassembler, scratchpadPreparer, alu)
-		computeUnit.Freq = b.freq
-		computeUnit.GlobalMemStorage = gpuMem.Storage
+			b.engine, disassembler, b.MMU, gpuMem.Storage)
+
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
 
@@ -96,7 +95,7 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 	localDataSource.LowModule = gpuMem.ToTop
 	dmaEngine := gcn3.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, localDataSource)
-	commandProcessor.DMAEngine = dmaEngine.ToCommandProcessor
+	commandProcessor.DMAEngine = dmaEngine.ToCP
 
 	connection.PlugIn(gpu.ToCommandProcessor)
 	connection.PlugIn(commandProcessor.ToDriver)
@@ -105,7 +104,7 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 	connection.PlugIn(dispatcher.ToCommandProcessor)
 	connection.PlugIn(dispatcher.ToCUs)
 	connection.PlugIn(gpuMem.ToTop)
-	connection.PlugIn(dmaEngine.ToCommandProcessor)
+	connection.PlugIn(dmaEngine.ToCP)
 	connection.PlugIn(dmaEngine.ToMem)
 	gpu.InternalConnection = connection
 

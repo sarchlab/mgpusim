@@ -14,7 +14,7 @@ var _ = Describe("ALU", func() {
 	)
 
 	BeforeEach(func() {
-		alu = NewALUImpl(nil)
+		alu = NewALU(nil)
 
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)

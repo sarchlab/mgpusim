@@ -18,14 +18,24 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	memtraces "gitlab.com/akita/mem/trace"
+	"gitlab.com/akita/mem/vm"
 )
 
 type R9NanoGPUBuilder struct {
+<<<<<<< HEAD
 	Engine           akita.Engine
 	Freq             akita.Freq
 	Driver           *driver.Driver
 	GPUName          string
 	GPUMemAddrOffset uint64
+=======
+	Engine       akita.Engine
+	Freq         akita.Freq
+	Driver       *driver.Driver
+	GPUName      string
+	MMU          *vm.MMUImpl
+	ExternalConn akita.Connection
+>>>>>>> 47924c0b934b36dd996c9af76638f95bc7e17219
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -39,6 +49,7 @@ type R9NanoGPUBuilder struct {
 	L1SCaches            []*caches.L1VCache
 	L1ICaches            []*caches.L1VCache
 	L2Caches             []*cache.WriteBackCache
+	TLBs                 []*vm.TLB
 	DRAMs                []*mem.IdealMemController
 	LowModuleFinderForL1 *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
@@ -62,8 +73,9 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.buildRDMAEngine()
 
 	b.InternalConn.PlugIn(b.GPU.ToCommandProcessor)
-	b.InternalConn.PlugIn(b.DMAEngine.ToCommandProcessor)
+	b.InternalConn.PlugIn(b.DMAEngine.ToCP)
 	b.InternalConn.PlugIn(b.DMAEngine.ToMem)
+	b.ExternalConn.PlugIn(b.GPU.ToDriver)
 
 	b.GPU.InternalConnection = b.InternalConn
 
@@ -86,7 +98,7 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 		fmt.Sprintf("%s.DMA", b.GPUName),
 		b.Engine,
 		b.LowModuleFinderForL2)
-	b.CP.DMAEngine = b.DMAEngine.ToCommandProcessor
+	b.CP.DMAEngine = b.DMAEngine.ToCP
 
 }
 
@@ -116,10 +128,39 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 	}
 
 	b.buildMemControllers()
+	b.buildTLBs()
 	b.buildL2Caches()
 	b.buildL1VCaches()
 	b.buildL1SCaches()
 	b.buildL1ICaches()
+}
+
+func (b *R9NanoGPUBuilder) buildTLBs() {
+
+	l2TLB := vm.NewTLB(
+		fmt.Sprintf("%s.TLB_L2_%d", b.GPUName, 1),
+		b.Engine)
+	l2TLB.LowModule = b.MMU.ToTop
+	//traceFile, _ := os.Create("l2_tlb.trace")
+	//tlbTracer := vm.NewTLBTracer(traceFile)
+	//l2TLB.AcceptHook(tlbTracer)
+	//b.TLBs = append(b.TLBs, l2TLB)
+	b.GPU.L2TLB = l2TLB
+	b.InternalConn.PlugIn(l2TLB.ToTop)
+	b.ExternalConn.PlugIn(l2TLB.ToBottom)
+
+	l1TLBCount := 64 + 16 + 16
+	for i := 0; i < l1TLBCount; i++ {
+		l1TLB := vm.NewTLB(
+			fmt.Sprintf("%s.TLB_L1_%d", b.GPUName, 1),
+			b.Engine)
+		l1TLB.LowModule = b.GPU.L2TLB.ToTop
+
+		b.TLBs = append(b.TLBs, l1TLB)
+		b.GPU.L1TLBs = append(b.GPU.L1TLBs, l1TLB)
+		b.InternalConn.PlugIn(l1TLB.ToTop)
+		b.InternalConn.PlugIn(l1TLB.ToBottom)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildL1SCaches() {
@@ -130,10 +171,12 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 			b.Engine, b.Freq,
 			1,
 			6, 4, 14,
-			b.LowModuleFinderForL1)
+			b.LowModuleFinderForL1,
+			b.TLBs[i].ToTop)
 		b.InternalConn.PlugIn(sCache.ToCU)
 		b.InternalConn.PlugIn(sCache.ToCP)
 		b.InternalConn.PlugIn(sCache.ToL2)
+		b.InternalConn.PlugIn(sCache.ToTLB)
 		b.L1SCaches = append(b.L1SCaches, sCache)
 		b.CP.CachesToReset = append(b.CP.CachesToReset, sCache.ToCP)
 		if b.EnableMemTracing {
@@ -150,10 +193,13 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 			b.Engine, b.Freq,
 			1,
 			6, 4, 15,
-			b.LowModuleFinderForL1)
+			b.LowModuleFinderForL1,
+			b.TLBs[16+i].ToTop)
 		b.InternalConn.PlugIn(iCache.ToCU)
 		b.InternalConn.PlugIn(iCache.ToCP)
 		b.InternalConn.PlugIn(iCache.ToL2)
+		b.InternalConn.PlugIn(iCache.ToTLB)
+
 		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.CachesToReset = append(b.CP.CachesToReset, iCache.ToCP)
 		if b.EnableMemTracing {
@@ -173,11 +219,13 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 			b.Engine, b.Freq,
 			1,
 			6, 4, 14,
-			b.LowModuleFinderForL1)
+			b.LowModuleFinderForL1,
+			b.TLBs[32+i].ToTop)
 
 		b.InternalConn.PlugIn(dCache.ToCU)
 		b.InternalConn.PlugIn(dCache.ToCP)
 		b.InternalConn.PlugIn(dCache.ToL2)
+		b.InternalConn.PlugIn(dCache.ToTLB)
 		b.L1VCaches = append(b.L1VCaches, dCache)
 
 		b.CP.CachesToReset = append(b.CP.CachesToReset, dCache.ToCP)

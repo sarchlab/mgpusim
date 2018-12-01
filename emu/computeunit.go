@@ -12,6 +12,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm"
 )
 
 // A ComputeUnit in the emu package is a component that omit the pipeline design
@@ -26,6 +27,7 @@ type ComputeUnit struct {
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
+	storageAccessor    *storageAccessor
 	Freq               akita.Freq
 
 	nextTick    akita.VTimeInSec
@@ -66,7 +68,6 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 }
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
-
 	req.Ok = true
 	req.SwapSrcAndDst()
 	req.SetSendTime(req.Time())
@@ -126,6 +127,7 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error 
 	for _, wf := range wg.Wavefronts {
 		managedWf := NewWavefront(wf)
 		managedWf.LDS = lds
+		managedWf.pid = req.PID
 		cu.wfs[wg] = append(cu.wfs[wg], managedWf)
 	}
 
@@ -274,12 +276,9 @@ func (cu *ComputeUnit) isAllWfCompleted(wg *kernels.WorkGroup) bool {
 
 func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 	for {
-		instBuf, err := cu.GlobalMemStorage.Read(wf.PC, 8)
-		if err != nil {
-			log.Fatal(err)
-		}
+		instBuf := cu.storageAccessor.Read(wf.pid, wf.PC, 8)
 
-		inst, err := cu.decoder.Decode(instBuf)
+		inst, _ := cu.decoder.Decode(instBuf)
 		wf.inst = inst
 
 		wf.PC += uint64(inst.ByteSize)
@@ -341,19 +340,38 @@ func NewComputeUnit(
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
+	sAccessor *storageAccessor,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.ComponentBase = akita.NewComponentBase(name)
 
 	cu.engine = engine
+	cu.Freq = 1 * akita.GHz
 	cu.decoder = decoder
 	cu.scratchpadPreparer = scratchpadPreparer
 	cu.alu = alu
+	cu.storageAccessor = sAccessor
 
 	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
 	cu.ToDispatcher = akita.NewLimitNumReqPort(cu, 1)
 
+	return cu
+}
+
+// BuildComputeUnit build a compute unit
+func BuildComputeUnit(
+	name string,
+	engine akita.Engine,
+	decoder Decoder,
+	mmu vm.MMU,
+	storage *mem.Storage,
+) *ComputeUnit {
+	scratchpadPreparer := NewScratchpadPreparerImpl()
+	sAccessor := newStorageAccessor(storage, mmu)
+	alu := NewALU(sAccessor)
+	cu := NewComputeUnit(name, engine, decoder,
+		scratchpadPreparer, alu, sAccessor)
 	return cu
 }
