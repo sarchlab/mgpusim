@@ -114,7 +114,9 @@ func BuildNR9NanoPlatform(
 	}
 	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	gpuDriver := driver.NewDriver(engine)
+	mmu := vm.NewMMU("MMU", engine)
+	mmu.Latency = 100
+	gpuDriver := driver.NewDriver(engine, mmu)
 	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
@@ -124,6 +126,8 @@ func BuildNR9NanoPlatform(
 		EnableISADebug:    DebugISA,
 		EnableMemTracing:  TraceMem,
 		EnableInstTracing: TraceInst,
+		MMU:               mmu,
+		ExternalConn:      connection,
 	}
 
 	rdmaAddressTable := new(cache.BankedLowModuleFinder)
@@ -143,6 +147,7 @@ func BuildNR9NanoPlatform(
 	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
+	connection.PlugIn(mmu.ToTop)
 
 	return engine, gpuDriver
 }

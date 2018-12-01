@@ -33,7 +33,7 @@ type Benchmark struct {
 	expandedKey []uint32
 	s           []byte
 
-	gInput       []driver.GPUPtr
+	gInput       driver.GPUPtr
 	gExpandedKey []driver.GPUPtr
 	gS           []driver.GPUPtr
 }
@@ -136,11 +136,15 @@ func (b *Benchmark) initMem() {
 		//b.input[i] = 0
 	}
 
+	b.gInput = b.driver.AllocateMemory(uint64(b.Length))
+	bytesPerGPU := uint64(b.Length / b.numGPU)
+
 	for i := 0; i < b.numGPU; i++ {
 		b.driver.SelectGPU(i)
 
-		b.gInput = append(b.gInput,
-			b.driver.AllocateMemory(uint64(b.Length/b.numGPU)))
+		//b.gInput = append(b.gInput,
+		//	b.driver.AllocateMemory(uint64(b.Length/b.numGPU)))
+		b.driver.Remap(uint64(b.gInput)+uint64(i)*bytesPerGPU, bytesPerGPU, i)
 
 		b.gExpandedKey = append(b.gExpandedKey,
 			b.driver.AllocateMemory(uint64(len(b.expandedKey)*4)))
@@ -151,7 +155,7 @@ func (b *Benchmark) initMem() {
 
 	for i := 0; i < b.numGPU; i++ {
 		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
-			b.gInput[i],
+			driver.GPUPtr(uint64(b.gInput)+uint64(i)*bytesPerGPU),
 			b.input[b.Length/b.numGPU*i:b.Length/b.numGPU*(i+1)])
 		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
 			b.gExpandedKey[i], b.expandedKey)
@@ -162,10 +166,11 @@ func (b *Benchmark) initMem() {
 
 func (b *Benchmark) Run() {
 	b.initMem()
+	bytesPerGPU := uint64(b.Length / b.numGPU)
 
 	for i := 0; i < b.numGPU; i++ {
 		kernArg := AESArgs{
-			b.gInput[i],
+			driver.GPUPtr(uint64(b.gInput) + uint64(i)*bytesPerGPU),
 			b.gExpandedKey[i],
 			b.gS[i],
 			0, 0, 0,
@@ -180,7 +185,7 @@ func (b *Benchmark) Run() {
 		b.driver.EnqueueMemCopyD2H(
 			b.gpuQueues[i],
 			b.output[b.Length/b.numGPU*i:b.Length/b.numGPU*(i+1)],
-			b.gInput[i])
+			driver.GPUPtr(uint64(b.gInput)+uint64(i)*bytesPerGPU))
 	}
 
 	b.driver.ExecuteAllCommands()
