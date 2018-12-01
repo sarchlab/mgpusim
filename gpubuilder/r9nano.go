@@ -21,6 +21,7 @@ import (
 	"gitlab.com/akita/mem/vm"
 )
 
+// R9NanoGPUBuilder can build R9 Nano GPUs.
 type R9NanoGPUBuilder struct {
 	Engine           akita.Engine
 	Freq             akita.Freq
@@ -52,7 +53,7 @@ type R9NanoGPUBuilder struct {
 	MemTracer *memtraces.Tracer
 }
 
-// BuildR9 creates a pre-configure GPU similar to the AMD R9 Nano GPU.
+// Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.Freq = 1000 * akita.MHz
 	b.InternalConn = akita.NewDirectConnection(b.Engine)
