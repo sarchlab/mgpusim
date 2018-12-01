@@ -62,9 +62,9 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 
 	b.buildCP()
 	b.buildMemSystem()
-	b.buildCUs()
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
+	b.buildCUs()
 
 	b.InternalConn.PlugIn(b.GPU.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.DMAEngine.ToCP)
@@ -84,6 +84,8 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 		nil,
 	)
 	b.GPU.RDMAEngine = b.RDMAEngine
+	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToInside
+	b.InternalConn.PlugIn(b.RDMAEngine.ToInside)
 
 }
 
@@ -132,7 +134,7 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 func (b *R9NanoGPUBuilder) buildTLBs() {
 
 	l2TLB := vm.NewTLB(
-		fmt.Sprintf("%s.TLB_L2_%d", b.GPUName, 1),
+		fmt.Sprintf("%s.TLB_L2", b.GPUName),
 		b.Engine)
 	l2TLB.LowModule = b.MMU.ToTop
 	//traceFile, _ := os.Create("l2_tlb.trace")
@@ -146,7 +148,7 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 	l1TLBCount := 64 + 16 + 16
 	for i := 0; i < l1TLBCount; i++ {
 		l1TLB := vm.NewTLB(
-			fmt.Sprintf("%s.TLB_L1_%d", b.GPUName, 1),
+			fmt.Sprintf("%s.TLB_L1_%d", b.GPUName, i),
 			b.Engine)
 		l1TLB.LowModule = b.GPU.L2TLB.ToTop
 
@@ -235,6 +237,9 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 	cacheBuilder := new(cache.Builder)
 	cacheBuilder.Engine = b.Engine
 	b.LowModuleFinderForL1 = cache.NewInterleavedLowModuleFinder(4096)
+	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
+	b.LowModuleFinderForL1.LowAddress = b.GPUMemAddrOffset
+	b.LowModuleFinderForL1.HighAddress = b.GPUMemAddrOffset + 4*mem.GB
 	for i := 0; i < 8; i++ {
 		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
 		l2Cache := cacheBuilder.BuildWriteBackCache(
@@ -259,6 +264,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 
 func (b *R9NanoGPUBuilder) buildMemControllers() {
 	b.LowModuleFinderForL2 = cache.NewInterleavedLowModuleFinder(4096)
+
 	numDramController := 8
 	for i := 0; i < numDramController; i++ {
 		memCtrl := mem.NewIdealMemController(

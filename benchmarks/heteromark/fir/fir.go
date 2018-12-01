@@ -16,6 +16,7 @@ type KernelArgs struct {
 	Input               driver.GPUPtr
 	History             driver.GPUPtr
 	NumTaps             uint32
+	Padding             uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -105,22 +106,32 @@ func (b *Benchmark) initMem() {
 func (b *Benchmark) exec() {
 	bytePerGPU := uint64(b.Length / b.numGPUs * 4)
 	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
 		kernArg := KernelArgs{
-			driver.GPUPtr(uint64(b.gOutputData) + uint64(i)*bytePerGPU),
+			//driver.GPUPtr(uint64(b.gOutputData) + uint64(i)*bytePerGPU),
+			b.gOutputData,
 			b.gFilterData[i],
-			driver.GPUPtr(uint64(b.gInputData) + uint64(i)*bytePerGPU),
+			//driver.GPUPtr(uint64(b.gInputData) + uint64(i)*bytePerGPU),
+			b.gInputData,
 			b.gHistoryData[i],
 			uint32(b.numTaps),
-			0, 0, 0,
+			0,
+			int64(i * b.Length / b.numGPUs), 0, 0,
 		}
 
-		b.driver.LaunchKernel(
+		b.driver.EnqueueLaunchKernel(
+			b.gpuQueues[i],
 			b.hsaco,
 			[3]uint32{uint32(b.Length / b.numGPUs), 1, 1},
 			[3]uint16{256, 1, 1},
 			&kernArg,
 		)
 
+	}
+
+	b.driver.ExecuteAllCommands()
+
+	for i := 0; i < b.numGPUs; i++ {
 		b.driver.EnqueueMemCopyD2H(
 			b.gpuQueues[i],
 			b.outputData[b.Length/b.numGPUs*i:b.Length/b.numGPUs*(i+1)],

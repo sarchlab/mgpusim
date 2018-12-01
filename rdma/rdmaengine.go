@@ -1,6 +1,7 @@
 package rdma
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -28,7 +29,6 @@ type Engine struct {
 	engine                 akita.Engine
 	localModules           cache.LowModuleFinder
 	RemoteRDMAAddressTable cache.LowModuleFinder
-	//originalSrc   map[string]akita.Port
 
 	transactionsFromOutside []transaction
 	transactionsFromInside  []transaction
@@ -39,7 +39,7 @@ type Engine struct {
 
 func (e *Engine) Handle(evt akita.Event) error {
 	switch evt := evt.(type) {
-	case *akita.TickEvent:
+	case akita.TickEvent:
 		e.tick(evt.Time())
 	default:
 		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
@@ -102,11 +102,15 @@ func (e *Engine) processReqFromInside(now akita.VTimeInSec, req mem.AccessReq) {
 	if err == nil {
 		e.ToInside.Retrieve(now)
 
+		fmt.Printf("%s req inside %s -> outside %s\n",
+			e.Name(), req.GetID(), cloned.GetID())
+
 		transaction := transaction{
 			fromInside: req,
 			toOutside:  cloned,
 		}
 		e.transactionsFromInside = append(e.transactionsFromInside, transaction)
+		e.needTick = true
 	}
 }
 
@@ -122,12 +126,16 @@ func (e *Engine) processReqFromOutside(now akita.VTimeInSec, req mem.AccessReq) 
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 
+		fmt.Printf("%s req outside %s -> inside %s\n",
+			e.Name(), req.GetID(), cloned.GetID())
+
 		transaction := transaction{
 			fromOutside: req,
 			toInside:    cloned,
 		}
 		e.transactionsFromOutside =
 			append(e.transactionsFromOutside, transaction)
+		e.needTick = true
 	}
 }
 
@@ -136,14 +144,17 @@ func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.MemRsp) {
 		rsp.GetRespondTo(), e.transactionsFromOutside)
 	transaction := e.transactionsFromOutside[transactionIndex]
 
-	rspToOutside := e.cloneRsp(rsp)
-	rsp.SetSendTime(now)
-	rsp.SetSrc(e.ToInside)
-	rsp.SetDst(transaction.fromOutside.Src())
+	rspToOutside := e.cloneRsp(rsp, transaction.fromOutside.GetID())
+	rspToOutside.SetSendTime(now)
+	rspToOutside.SetSrc(e.ToInside)
+	rspToOutside.SetDst(transaction.fromOutside.Src())
 
 	err := e.ToOutside.Send(rspToOutside)
 	if err == nil {
 		e.ToInside.Retrieve(now)
+
+		fmt.Printf("%s rsp inside %s -> outside %s\n",
+			e.Name(), rsp.GetID(), rspToOutside.GetID())
 
 		e.transactionsFromOutside =
 			append(e.transactionsFromOutside[:transactionIndex],
@@ -157,14 +168,17 @@ func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.MemRsp) {
 		rsp.GetRespondTo(), e.transactionsFromInside)
 	transaction := e.transactionsFromInside[transactionIndex]
 
-	rspToInside := e.cloneRsp(rsp)
-	rsp.SetSendTime(now)
-	rsp.SetSrc(e.ToInside)
-	rsp.SetDst(transaction.fromInside.Src())
+	rspToInside := e.cloneRsp(rsp, transaction.fromInside.GetID())
+	rspToInside.SetSendTime(now)
+	rspToInside.SetSrc(e.ToInside)
+	rspToInside.SetDst(transaction.fromInside.Src())
 
 	err := e.ToInside.Send(rspToInside)
 	if err == nil {
 		e.ToOutside.Retrieve(now)
+
+		fmt.Printf("%s rsp outside %s -> inside %s\n",
+			e.Name(), rsp.GetID(), rspToInside.GetID())
 
 		e.transactionsFromInside =
 			append(e.transactionsFromInside[:transactionIndex],
@@ -187,7 +201,8 @@ func (e *Engine) findTransactionByRspToID(
 		}
 	}
 
-	panic("transaction not found")
+	log.Panicf("transaction %s not found", rspTo)
+	return 0
 }
 
 func (e *Engine) cloneReq(origin mem.AccessReq) mem.AccessReq {
@@ -210,75 +225,22 @@ func (e *Engine) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	return nil
 }
 
-func (e *Engine) cloneRsp(origin mem.MemRsp) mem.MemRsp {
+func (e *Engine) cloneRsp(origin mem.MemRsp, rspTo string) mem.MemRsp {
 	switch origin := origin.(type) {
 	case *mem.DataReadyRsp:
 		rsp := mem.NewDataReadyRsp(origin.SendTime(),
-			origin.Src(), origin.Dst(), "")
+			origin.Src(), origin.Dst(), rspTo)
 		rsp.Data = origin.Data
 		return rsp
 	case *mem.DoneRsp:
 		rsp := mem.NewDoneRsp(origin.SendTime(),
-			origin.Src(), origin.Dst(), "")
+			origin.Src(), origin.Dst(), rspTo)
 		return rsp
 	default:
 		log.Panicf("cannot clone request of type %s",
 			reflect.TypeOf(origin))
 	}
 	return nil
-}
-
-func (e *Engine) sendRspToOutside(now akita.VTimeInSec, req mem.MemRsp) {
-	//recoverSrc := req.Src()
-	////src, found := e.originalSrc[req.GetRespondTo()]
-	//if !found {
-	//	log.Panic("original src not found")
-	//}
-	//req.SetDst(src)
-	//req.SetSrc(e.ToOutside)
-	//req.SetSendTime(now)
-	//err := e.ToOutside.Send(req)
-	//if err == nil {
-	//	e.ToInside.Retrieve(now)
-	//	delete(e.originalSrc, req.GetRespondTo())
-	//} else {
-	//	req.SetSrc(recoverSrc)
-	//	req.SetDst(e.ToInside)
-	//}
-}
-
-func (e *Engine) sendReqToInside(now akita.VTimeInSec, req akita.Req, dst akita.Port) {
-	//originalSrc := req.Src()
-	//req.SetSrc(e.ToInside)
-	//req.SetDst(dst)
-	//req.SetSendTime(now)
-	//err := e.ToInside.Send(req)
-	//if err == nil {
-	//	e.ToOutside.Retrieve(now)
-	//	e.originalSrc[req.GetID()] = originalSrc
-	//} else {
-	//	req.SetSrc(originalSrc)
-	//	req.SetDst(e.ToOutside)
-	//}
-}
-
-func (e *Engine) sendRspToInside(now akita.VTimeInSec, req mem.MemRsp) {
-	//recoverSrc := req.Src()
-	//src, found := e.originalSrc[req.GetRespondTo()]
-	//if !found {
-	//	log.Panic("original src not found")
-	//}
-	//req.SetDst(src)
-	//req.SetSrc(e.ToInside)
-	//req.SetSendTime(now)
-	//err := e.ToInside.Send(req)
-	//if err == nil {
-	//	e.ToOutside.Retrieve(now)
-	//	delete(e.originalSrc, req.GetRespondTo())
-	//} else {
-	//	req.SetSrc(recoverSrc)
-	//	req.SetDst(e.ToOutside)
-	//}
 }
 
 func (e *Engine) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
