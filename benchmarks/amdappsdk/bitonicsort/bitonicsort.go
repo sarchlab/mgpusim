@@ -111,7 +111,7 @@ func (b *Benchmark) exec() {
 				b.driver.EnqueueLaunchKernel(
 					b.gpuQueues[i],
 					b.hsaco,
-					[3]uint32{uint32(b.Length / 2), 1, 1},
+					[3]uint32{uint32(b.Length / 2 / b.numGPUs), 1, 1},
 					[3]uint16{256, 1, 1},
 					&kernArg)
 			}
