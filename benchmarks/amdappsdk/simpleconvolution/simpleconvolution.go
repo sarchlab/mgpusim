@@ -22,6 +22,9 @@ type Benchmark struct {
 	driver *driver.Driver
 	kernel *insts.HsaCo
 
+	numGPUs   int
+	gpuQueues []*driver.CommandQueue
+
 	Width     uint32
 	Height    uint32
 	maskSize  uint32
@@ -33,12 +36,17 @@ type Benchmark struct {
 	hMask       []float32
 	dInputData  driver.GPUPtr
 	dOutputData driver.GPUPtr
-	dMask       driver.GPUPtr
+	dMask       []driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+	b.numGPUs = driver.GetNumGPUs()
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.gpuQueues = append(b.gpuQueues, b.driver.CreateCommandQueue())
+	}
 	b.loadProgram()
 	return b
 }
@@ -84,37 +92,95 @@ func (b *Benchmark) initMem() {
 
 	b.dInputData = b.driver.AllocateMemory(uint64(numInputData * 4))
 	b.dOutputData = b.driver.AllocateMemory(uint64(numInputData * 4))
-	b.dMask = b.driver.AllocateMemory(uint64(b.maskSize * b.maskSize * 4))
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.dMask = append(b.dMask,
+			b.driver.AllocateMemory(uint64(b.maskSize*b.maskSize*4)))
+		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
+			b.dMask[i], b.hMask)
 
-	b.driver.MemCopyH2D(b.dInputData, b.hInputData)
-	b.driver.MemCopyH2D(b.dOutputData, b.hOutputData)
-	b.driver.MemCopyH2D(b.dMask, b.hMask)
+		inputBytePerGPU := uint64(numInputData*4) / uint64(b.numGPUs)
+		inputPtr := uint64(b.dInputData) + uint64(i)*inputBytePerGPU
+		b.driver.Remap(inputPtr, inputBytePerGPU, i)
+		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i], driver.GPUPtr(inputPtr),
+			b.hInputData[int(numInputData)/b.numGPUs*i:int(numInputData)/b.numGPUs*(i+1)])
+	}
+
+	b.distributeOutputToGPUs()
+
+	b.driver.ExecuteAllCommands()
+}
+
+func (b *Benchmark) distributeOutputToGPUs() {
+	minPageSize := uint64(64)
+	numOutputData := b.Width * b.Height
+	//sizeLeft := numOutputData * 4
+	outputBytePerGPU := uint64(numOutputData*4) / uint64(b.numGPUs)
+	outputBytePerGPU = ((outputBytePerGPU-1)/minPageSize + 1) * minPageSize
+	for i := 0; i < b.numGPUs; i++ {
+		outputPtr := uint64(b.dOutputData) + uint64(i)*outputBytePerGPU
+		b.driver.Remap(outputPtr, outputBytePerGPU, i)
+	}
+}
+
+func (b *Benchmark) collectOutputFromGPUs() {
+	minPageSize := uint64(64)
+	numOutputData := b.Width * b.Height
+	//sizeLeft := numOutputData * 4
+	outputBytePerGPU := uint64(numOutputData*4) / uint64(b.numGPUs)
+	outputBytePerGPU = ((outputBytePerGPU-1)/minPageSize + 1) * minPageSize
+	numPixelPerGPU := outputBytePerGPU / 4
+	pixelOffset := uint64(0)
+	pixelLeft := uint64(numOutputData)
+	for i := uint64(0); i < uint64(b.numGPUs); i++ {
+		outputPtr := uint64(b.dOutputData) + i*outputBytePerGPU
+		numPixel := numPixelPerGPU
+		if numPixel > pixelLeft {
+			numPixel = pixelLeft
+		}
+		b.driver.EnqueueMemCopyD2H(
+			b.gpuQueues[i],
+			b.hOutputData[pixelOffset:pixelOffset+numPixel],
+			driver.GPUPtr(outputPtr),
+		)
+		pixelOffset += numPixel
+		pixelLeft -= numPixel
+	}
+	b.driver.ExecuteAllCommands()
 }
 
 func (b *Benchmark) exec() {
-	kernArg := KernelArgs{
-		b.dInputData,
-		b.dMask,
-		b.dOutputData,
-		[2]uint32{b.Width, b.Height},
-		[2]uint32{b.maskSize, b.maskSize},
-		b.Width + b.padWidth,
-		0, 0, 0, 0,
+	for i := 0; i < b.numGPUs; i++ {
+		gridSize := (b.Width + b.padWidth) * (b.Height + b.padHeight)
+		kernArg := KernelArgs{
+			b.dInputData,
+			b.dMask[i],
+			b.dOutputData,
+			[2]uint32{b.Width, b.Height},
+			[2]uint32{b.maskSize, b.maskSize},
+			b.Width + b.padWidth,
+			0,
+			uint64(i * int(gridSize) / b.numGPUs), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			b.gpuQueues[i],
+			b.kernel,
+			[3]uint32{uint32(gridSize) / uint32(b.numGPUs), 1, 1},
+			[3]uint16{uint16(64), 1, 1},
+			&kernArg,
+		)
 	}
 
-	gridSize := (b.Width + b.padWidth) * (b.Height + b.padHeight)
-	b.driver.LaunchKernel(
-		b.kernel,
-		[3]uint32{uint32(gridSize), 1, 1},
-		[3]uint16{uint16(64), 1, 1},
-		&kernArg,
-	)
+	b.driver.ExecuteAllCommands()
+
+	b.collectOutputFromGPUs()
+
 }
 
 func (b *Benchmark) Verify() {
 	cpuOutputImage := b.cpuSimpleConvolution()
 
-	b.driver.MemCopyD2H(b.hOutputData, b.dOutputData)
 	for i := uint32(0); i < b.Height; i++ {
 		for j := uint32(0); j < b.Width; j++ {
 			index := i*b.Width + j
