@@ -22,6 +22,9 @@ type Benchmark struct {
 	driver *driver.Driver
 	hsaco  *insts.HsaCo
 
+	numGPUs   int
+	gpuQueues []*driver.CommandQueue
+
 	Length      int
 	inputData   []float32
 	gInputData  driver.GPUPtr
@@ -32,6 +35,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.numGPUs = driver.GetNumGPUs()
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.gpuQueues = append(b.gpuQueues, b.driver.CreateCommandQueue())
+	}
 
 	hsacoBytes, err := Asset("relu.hsaco")
 	if err != nil {
@@ -56,22 +64,38 @@ func (b *Benchmark) initMem() {
 		b.inputData[i] = float32(i) - 0.5
 	}
 
-	b.driver.MemCopyH2D(b.gInputData, b.inputData)
+	for i := uint64(0); i < uint64(b.numGPUs); i++ {
+		inputBytePerGPU := uint64(b.Length * 4 / b.numGPUs)
+		inputPtr := uint64(b.gInputData) + i*inputBytePerGPU
+		b.driver.Remap(inputPtr, inputBytePerGPU, int(i))
+
+		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
+			driver.GPUPtr(inputPtr),
+			b.inputData[b.Length/b.numGPUs*int(i):b.Length/b.numGPUs*(int(i)+1)])
+
+		outputPtr := uint64(b.gOutputData) + i*inputBytePerGPU
+		b.driver.Remap(outputPtr, inputBytePerGPU, int(i))
+	}
 }
 
 func (b *Benchmark) exec() {
-	kernArg := KernelArgs{
-		uint32(b.Length), 0,
-		b.gInputData, b.gOutputData,
-		0, 0, 0,
+	for i := 0; i < b.numGPUs; i++ {
+		kernArg := KernelArgs{
+			uint32(b.Length), 0,
+			b.gInputData, b.gOutputData,
+			int64(b.Length / b.numGPUs * i), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			b.gpuQueues[i],
+			b.hsaco,
+			[3]uint32{uint32(b.Length / b.numGPUs), 1, 1},
+			[3]uint16{256, 1, 1},
+			&kernArg,
+		)
 	}
 
-	b.driver.LaunchKernel(
-		b.hsaco,
-		[3]uint32{uint32(b.Length), 1, 1},
-		[3]uint16{256, 1, 1},
-		&kernArg,
-	)
+	b.driver.ExecuteAllCommands()
 }
 
 func (b *Benchmark) Verify() {
