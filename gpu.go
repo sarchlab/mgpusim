@@ -29,11 +29,13 @@ type GPU struct {
 	CUs                []akita.Component
 	L1VCaches          []akita.Component
 	L1ICaches          []akita.Component
-	L1KCaches          []akita.Component
+	L1SCaches          []akita.Component
 	L2Caches           []akita.Component
 	L2CacheFinder      cache.LowModuleFinder
-	L2TLB              *vm.TLB
-	L1TLBs             []*vm.TLB
+	L2TLBs             *vm.TLB
+	L1VTLBs            []*vm.TLB
+	L1ITLBs            []*vm.TLB
+	L1STLBs            []*vm.TLB
 	MemoryControllers  []akita.Component
 	InternalConnection akita.Connection
 

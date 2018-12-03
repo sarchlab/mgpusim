@@ -81,7 +81,7 @@ type L1VCache struct {
 	BlockSizeAsPowerOf2 uint64
 	InvalidationLatency int
 
-	pipeline        pipelines.Pipeline
+	Pipeline        pipelines.Pipeline
 	inPipeline      []*inPipelineReqStatus
 	postPipelineBuf []*cacheTransaction
 
@@ -261,7 +261,7 @@ func (c *L1VCache) parseFromPostAddrTranslationBuf(now akita.VTimeInSec) {
 	switch req := req.(type) {
 	case *mem.ReadReq:
 		pipelineStatus := &inPipelineReqStatus{
-			CycleLeft:   c.pipeline.Accept(now, trans),
+			CycleLeft:   c.Pipeline.Accept(now, trans),
 			Transaction: trans,
 		}
 		c.inPipeline = append(c.inPipeline, pipelineStatus)
@@ -291,7 +291,7 @@ func (c *L1VCache) processPostCoalescingWrites(now akita.VTimeInSec) {
 
 	trans := c.postCoalesceWriteBuf[0]
 	pipeStatus := new(inPipelineReqStatus)
-	pipeStatus.CycleLeft = c.pipeline.Accept(now, trans)
+	pipeStatus.CycleLeft = c.Pipeline.Accept(now, trans)
 	pipeStatus.Transaction = trans
 	c.inPipeline = append(c.inPipeline, pipeStatus)
 
@@ -418,7 +418,7 @@ func (c *L1VCache) handleReadHit(
 	c.postPipelineBuf = c.postPipelineBuf[1:]
 	c.NeedTick = true
 
-	//cycleLeft := c.pipeline.Accept(now, req)
+	//cycleLeft := c.Pipeline.Accept(now, req)
 	//c.inPipeline = append(c.inPipeline,
 	//	&inPipelineReqStatus{req, cycleLeft})
 
@@ -754,11 +754,11 @@ func NewL1VCache(name string, engine akita.Engine, freq akita.Freq) *L1VCache {
 	c.reqBufCapacity = 256
 	c.reqIDToTransactionMap = make(map[string]*cacheTransaction)
 
-	c.pipeline = pipelines.NewPipeline()
-	c.pipeline.SetStageLatency(2)
-	c.pipeline.SetNumStages(50)
-	c.pipeline.SetFrequency(freq)
-	c.pipeline.SetNumLines(4)
+	c.Pipeline = pipelines.NewPipeline()
+	c.Pipeline.SetStageLatency(2)
+	c.Pipeline.SetNumStages(50)
+	c.Pipeline.SetFrequency(freq)
+	c.Pipeline.SetNumLines(4)
 
 	c.ToCU = akita.NewLimitNumReqPort(c, 4)
 	c.ToCP = akita.NewLimitNumReqPort(c, 4)
