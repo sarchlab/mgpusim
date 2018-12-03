@@ -146,7 +146,7 @@ func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.MemRsp) {
 
 	rspToOutside := e.cloneRsp(rsp, transaction.fromOutside.GetID())
 	rspToOutside.SetSendTime(now)
-	rspToOutside.SetSrc(e.ToInside)
+	rspToOutside.SetSrc(e.ToOutside)
 	rspToOutside.SetDst(transaction.fromOutside.Src())
 
 	err := e.ToOutside.Send(rspToOutside)

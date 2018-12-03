@@ -3,6 +3,8 @@ package platform
 import (
 	"fmt"
 
+	"gitlab.com/akita/noc"
+
 	"gitlab.com/akita/mem/cache"
 
 	"gitlab.com/akita/akita"
@@ -117,7 +119,8 @@ func BuildNR9NanoPlatform(
 	mmu := vm.NewMMU("MMU", engine)
 	mmu.Latency = 100
 	gpuDriver := driver.NewDriver(engine, mmu)
-	connection := akita.NewDirectConnection(engine)
+	//connection := akita.NewDirectConnection(engine)
+	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
 
 	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
 		GPUName:           "GPU",
@@ -137,7 +140,6 @@ func BuildNR9NanoPlatform(
 		gpuBuilder.GPUMemAddrOffset = uint64(i) * 4 * mem.GB
 		gpu := gpuBuilder.Build()
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-		connection.PlugIn(gpu.ToDriver)
 		gpu.Driver = gpuDriver.ToGPUs
 
 		gpu.RDMAEngine.RemoteRDMAAddressTable = rdmaAddressTable
