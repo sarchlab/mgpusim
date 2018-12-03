@@ -19,9 +19,11 @@ type MatrixTransposeKernelArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
-
 	kernel *insts.HsaCo
+
+	driver    *driver.Driver
+	numGPUs   int
+	gpuQueues []*driver.CommandQueue
 
 	Width              int
 	elemsPerThread1Dim int
@@ -36,6 +38,11 @@ type Benchmark struct {
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+	b.numGPUs = driver.GetNumGPUs()
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.gpuQueues = append(b.gpuQueues, b.driver.CreateCommandQueue())
+	}
 	b.loadProgram()
 	b.elemsPerThread1Dim = 4
 	b.blockSize = 16
@@ -71,25 +78,41 @@ func (b *Benchmark) initMem() {
 
 	b.dInputData = b.driver.AllocateMemory(uint64(numData * 4))
 	b.dOutputData = b.driver.AllocateMemory(uint64(numData * 4))
+	//for i := 0; i < b.numGPUs; i++ {
+	//	b.driver.Remap(uint64(b.dInputData)+uint64(i*numData*4/b.numGPUs),
+	//		uint64(numData*4/b.numGPUs), i)
+	//	b.driver.Remap(uint64(b.dOutputData)+uint64(i*numData*4/b.numGPUs),
+	//		uint64(numData*4/b.numGPUs), i)
+	//}
 
 	b.driver.MemCopyH2D(b.dInputData, b.hInputData)
 }
 
 func (b *Benchmark) exec() {
-	kernArg := MatrixTransposeKernelArgs{
-		b.dOutputData,
-		b.dInputData,
-		driver.LocalPtr(b.blockSize * b.blockSize * b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
-		0,
-		0, 0, 0,
-	}
+	for i := 0; i < b.numGPUs; i++ {
+		kernArg := MatrixTransposeKernelArgs{
+			b.dOutputData,
+			b.dInputData,
+			driver.LocalPtr(b.blockSize * b.blockSize * b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
+			0,
+			int64(i * b.Width / b.elemsPerThread1Dim / b.numGPUs),
+			0,
+			0,
+		}
 
-	b.driver.LaunchKernel(
-		b.kernel,
-		[3]uint32{uint32(b.Width / b.elemsPerThread1Dim), uint32(b.Width / b.elemsPerThread1Dim), 1},
-		[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
-		&kernArg,
-	)
+		b.driver.EnqueueLaunchKernel(
+			b.gpuQueues[i],
+			b.kernel,
+			[3]uint32{
+				uint32(b.Width / b.elemsPerThread1Dim / b.numGPUs),
+				uint32(b.Width / b.elemsPerThread1Dim),
+				1,
+			},
+			[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
+			&kernArg,
+		)
+	}
+	b.driver.ExecuteAllCommands()
 }
 
 func (b *Benchmark) Verify() {
@@ -98,7 +121,10 @@ func (b *Benchmark) Verify() {
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {
 			if b.hOutputData[j*b.Width+i] != b.hInputData[i*b.Width+j] {
-				log.Fatalf("error")
+				log.Panicf("mismatch at (%d, %d), expected %d, but get %d",
+					i, j,
+					b.hInputData[i*b.Width+j],
+					b.hOutputData[j*b.Width+i])
 			}
 		}
 	}
