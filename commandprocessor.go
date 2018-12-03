@@ -13,7 +13,7 @@ type Resettable interface {
 	Reset()
 }
 
-// CommandProcessor is a Yaotsu component that is responsible for receiving
+// CommandProcessor is a Akita component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
 // GPU.
 //

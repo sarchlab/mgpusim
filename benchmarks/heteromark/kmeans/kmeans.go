@@ -38,7 +38,9 @@ type KMeansComputeArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
+	driver    *driver.Driver
+	numGPUs   int
+	gpuQueues []*driver.CommandQueue
 
 	computeKernel *insts.HsaCo
 	swapKernel    *insts.HsaCo
@@ -53,7 +55,7 @@ type Benchmark struct {
 	hMembership   []int32
 	dMembership   driver.GPUPtr
 	hClusters     []float32
-	dClusters     driver.GPUPtr
+	dClusters     []driver.GPUPtr
 
 	gpuRMSE float64
 }
@@ -62,6 +64,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.numGPUs = driver.GetNumGPUs()
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.gpuQueues = append(b.gpuQueues, b.driver.CreateCommandQueue())
+	}
 
 	b.loadKernels()
 
@@ -89,7 +96,12 @@ func (b *Benchmark) initMem() {
 	b.dFeatures = b.driver.AllocateMemory(uint64(b.NumPoints * b.NumFeatures * 4))
 	b.dFeaturesSwap = b.driver.AllocateMemory(uint64(b.NumPoints * b.NumFeatures * 4))
 	b.dMembership = b.driver.AllocateMemory(uint64(b.NumPoints * 4))
-	b.dClusters = b.driver.AllocateMemory(uint64(b.NumClusters * b.NumFeatures * 4))
+
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.SelectGPU(i)
+		b.dClusters = append(b.dClusters,
+			b.driver.AllocateMemory(uint64(b.NumClusters*b.NumFeatures*4)))
+	}
 
 	rand.Seed(0)
 	b.hFeatures = make([]float32, b.NumPoints*b.NumFeatures)
@@ -98,7 +110,26 @@ func (b *Benchmark) initMem() {
 		// b.hFeatures[i] = float32(i)
 	}
 
-	b.driver.MemCopyH2D(b.dFeatures, b.hFeatures)
+	numPointsPerGPU := b.NumPoints / b.numGPUs
+	bytesPerGPU := uint64(numPointsPerGPU * b.NumFeatures * 4)
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.Remap(uint64(b.dFeatures)+uint64(i)*bytesPerGPU, bytesPerGPU, i)
+		b.driver.EnqueueMemCopyH2D(b.gpuQueues[i],
+			driver.GPUPtr(uint64(b.dFeatures)+uint64(i)*bytesPerGPU),
+			b.hFeatures[b.NumPoints*b.NumFeatures/b.numGPUs*i:b.NumPoints*b.NumFeatures/b.numGPUs*(i+1)])
+
+		b.driver.Remap(uint64(b.dMembership)+uint64(i*numPointsPerGPU*4),
+			uint64(numPointsPerGPU*4), i)
+	}
+
+	bytesSwapPerGPU := uint64(numPointsPerGPU * 4)
+	ptr := uint64(b.dFeaturesSwap)
+	for i := 0; i < b.NumFeatures; i++ {
+		for j := 0; j < b.numGPUs; j++ {
+			b.driver.Remap(ptr, bytesSwapPerGPU, j)
+			ptr += bytesSwapPerGPU
+		}
+	}
 }
 
 func (b *Benchmark) exec() {
@@ -108,22 +139,25 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) transposeFeatures() {
-	kernArg := KMeansSwapArgs{
-		b.dFeatures,
-		b.dFeaturesSwap,
-		int32(b.NumPoints),
-		int32(b.NumFeatures),
-		0, 0, 0,
+	for i := 0; i < b.numGPUs; i++ {
+		kernArg := KMeansSwapArgs{
+			b.dFeatures,
+			b.dFeaturesSwap,
+			int32(b.NumPoints),
+			int32(b.NumFeatures),
+			int64(i * b.NumPoints / b.numGPUs), 0, 0,
+		}
+
+		b.driver.LaunchKernel(
+			b.swapKernel,
+			[3]uint32{uint32(b.NumPoints / b.numGPUs), 1, 1},
+			[3]uint16{64, 1, 1},
+			&kernArg,
+		)
 	}
+	b.driver.ExecuteAllCommands()
 
-	b.driver.LaunchKernel(
-		b.swapKernel,
-		[3]uint32{uint32(b.NumPoints), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg,
-	)
-
-	// b.verifySwap()
+	b.verifySwap()
 }
 
 func (b *Benchmark) verifySwap() {
@@ -175,25 +209,29 @@ func (b *Benchmark) initializeMembership() {
 }
 
 func (b *Benchmark) updateMembership() float64 {
-	b.driver.MemCopyH2D(b.dClusters, b.hClusters)
+	for i := 0; i < b.numGPUs; i++ {
+		b.driver.EnqueueMemCopyH2D(
+			b.gpuQueues[i], b.dClusters[i], b.hClusters)
 
-	kernArg := KMeansComputeArgs{
-		b.dFeaturesSwap,
-		b.dClusters,
-		b.dMembership,
-		int32(b.NumPoints),
-		int32(b.NumClusters),
-		int32(b.NumFeatures),
-		0, 0, 0,
-		0, 0, 0,
+		kernArg := KMeansComputeArgs{
+			b.dFeaturesSwap,
+			b.dClusters[i],
+			b.dMembership,
+			int32(b.NumPoints),
+			int32(b.NumClusters),
+			int32(b.NumFeatures),
+			0, 0, 0,
+			int64(i * b.NumPoints / b.numGPUs), 0, 0,
+		}
+
+		b.driver.LaunchKernel(
+			b.computeKernel,
+			[3]uint32{uint32(b.NumPoints / b.numGPUs), 1, 1},
+			[3]uint16{64, 1, 1},
+			&kernArg,
+		)
 	}
-
-	b.driver.LaunchKernel(
-		b.computeKernel,
-		[3]uint32{uint32(b.NumPoints), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg,
-	)
+	b.driver.ExecuteAllCommands()
 
 	newMembership := make([]int32, b.NumPoints)
 	b.driver.MemCopyD2H(newMembership, b.dMembership)
