@@ -1,7 +1,6 @@
 package rdma
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -102,8 +101,8 @@ func (e *Engine) processReqFromInside(now akita.VTimeInSec, req mem.AccessReq) {
 	if err == nil {
 		e.ToInside.Retrieve(now)
 
-		fmt.Printf("%s req inside %s -> outside %s\n",
-			e.Name(), req.GetID(), cloned.GetID())
+		//fmt.Printf("%s req inside %s -> outside %s\n",
+		//e.Name(), req.GetID(), cloned.GetID())
 
 		transaction := transaction{
 			fromInside: req,
@@ -126,8 +125,8 @@ func (e *Engine) processReqFromOutside(now akita.VTimeInSec, req mem.AccessReq) 
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 
-		fmt.Printf("%s req outside %s -> inside %s\n",
-			e.Name(), req.GetID(), cloned.GetID())
+		//fmt.Printf("%s req outside %s -> inside %s\n",
+		//e.Name(), req.GetID(), cloned.GetID())
 
 		transaction := transaction{
 			fromOutside: req,
@@ -153,8 +152,8 @@ func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.MemRsp) {
 	if err == nil {
 		e.ToInside.Retrieve(now)
 
-		fmt.Printf("%s rsp inside %s -> outside %s\n",
-			e.Name(), rsp.GetID(), rspToOutside.GetID())
+		//fmt.Printf("%s rsp inside %s -> outside %s\n",
+		//e.Name(), rsp.GetID(), rspToOutside.GetID())
 
 		e.transactionsFromOutside =
 			append(e.transactionsFromOutside[:transactionIndex],
@@ -177,8 +176,8 @@ func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.MemRsp) {
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 
-		fmt.Printf("%s rsp outside %s -> inside %s\n",
-			e.Name(), rsp.GetID(), rspToInside.GetID())
+		//fmt.Printf("%s rsp outside %s -> inside %s\n",
+		//e.Name(), rsp.GetID(), rspToInside.GetID())
 
 		e.transactionsFromInside =
 			append(e.transactionsFromInside[:transactionIndex],
