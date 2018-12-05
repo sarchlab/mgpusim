@@ -121,7 +121,7 @@ const (
 type Dispatcher struct {
 	*akita.ComponentBase
 
-	cus    []akita.Port
+	CUs    []akita.Port
 	cuBusy map[akita.Port]bool
 
 	engine      akita.Engine
@@ -216,7 +216,7 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 		return nil
 	}
 
-	CU := d.cus[cuID]
+	CU := d.CUs[cuID]
 	req := NewMapWGReq(d.ToCUs, CU, now, d.dispatchingWGs[0])
 	req.PID = d.dispatchingReq.PID
 	d.state = DispatcherWaitMapWGACK
@@ -252,7 +252,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 
 	if !req.Ok {
 		d.state = DispatcherToMapWG
-		d.cuBusy[d.cus[d.dispatchingCUID]] = true
+		d.cuBusy[d.CUs[d.dispatchingCUID]] = true
 		d.scheduleMapWG(now)
 		return nil
 	}
@@ -302,7 +302,7 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
 // dispatches wavefronts to the CU
 func (d *Dispatcher) RegisterCU(cu akita.Port) {
-	d.cus = append(d.cus, cu)
+	d.CUs = append(d.CUs, cu)
 	d.cuBusy[cu] = false
 }
 
@@ -315,7 +315,7 @@ func (d *Dispatcher) nextAvailableCU() (int, bool) {
 			cuID = 0
 		}
 
-		if !d.cuBusy[d.cus[cuID]] {
+		if !d.cuBusy[d.CUs[cuID]] {
 			return cuID, true
 		}
 	}
@@ -334,7 +334,7 @@ func NewDispatcher(
 	d.gridBuilder = gridBuilder
 	d.engine = engine
 
-	d.cus = make([]akita.Port, 0)
+	d.CUs = make([]akita.Port, 0)
 	d.cuBusy = make(map[akita.Port]bool, 0)
 	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
 	d.completedWGs = make([]*kernels.WorkGroup, 0)
