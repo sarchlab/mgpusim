@@ -97,7 +97,7 @@ func (b *Benchmark) initMem() {
 		b.inputData[i] = float32(i) - 0.5
 	}
 
-	b.driver.MemoryCopyHostToDevice(b.Bottom, b.inputData)
+	b.driver.MemCopyH2D(b.Bottom, b.inputData)
 }
 
 func (b *Benchmark) exec() {
@@ -119,7 +119,7 @@ func (b *Benchmark) exec() {
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]float32, b.LengthOutput)
-	b.driver.MemoryCopyDeviceToHost(gpuOutput, b.Top)
+	b.driver.MemCopyD2H(gpuOutput, b.Top)
 
 	for i := 0; i < b.LengthOutput; i++ {
 		if b.inputData[i] > 0 && gpuOutput[i] != b.inputData[i] {
