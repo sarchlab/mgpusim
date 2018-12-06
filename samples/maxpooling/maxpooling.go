@@ -16,14 +16,14 @@ var (
 
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
 var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
-var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
+var isaDebug = flag.Bool("debug-isa", true, "Generate the ISA debugging file.")
 var instTracing = flag.Bool("trace-inst", false, "Generate instruction trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 var n = flag.Int("n", 1, "Batch size.")
 var c = flag.Int("c", 1, "Channel size.")
-var h = flag.Int("h", 64, "Height.")
-var w = flag.Int("w", 64, "Weight.")
+var h = flag.Int("h", 32, "Height.")
+var w = flag.Int("w", 32, "Weight.")
 
 func main() {
 	configure()

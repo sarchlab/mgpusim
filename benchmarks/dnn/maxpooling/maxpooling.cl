@@ -1,4 +1,4 @@
-__kernel void MaxPoolForward(const int nthreads, __global float* bottom_data, const int num, const int channels, const int height, const int width, const int pooled_height, const int pooled_width, const int kernel_h, const int kernel_w, const int stride_h, const int stride_w, const int pad_h, const int pad_w, __global float* top_data, __global int* mask) {
+__kernel void MaxPoolForward(const int nthreads, __global float* bottom_data, const int num, const int channels, const int height, const int width, const int pooled_height, const int pooled_width, const int kernel_h, const int kernel_w, const int stride_h, const int stride_w, const int pad_h, const int pad_w, __global float* top_data) {
   int gid = get_global_id(0);
   int tmp = get_global_size(0);
   for(int index = gid; index < nthreads; index += tmp) {
@@ -25,6 +25,5 @@ __kernel void MaxPoolForward(const int nthreads, __global float* bottom_data, co
       }
     }
     top_data[index] = maxval;
-    mask[index] = maxidx;
   }
 }

@@ -159,6 +159,6 @@ func (u *ALUImpl) runVNOTB32(state InstEmuState) {
 
 		src := uint32(sp.SRC0[i])
 		dst := ^src
-		sp.DST[i] = uint64(dst)
+		sp.DST[i] = uint64(uint32(dst))
 	}
 }
