@@ -10,7 +10,7 @@ import (
 )
 
 type KernelArgs struct {
-	NumThreads uint32
+	NumThreads uint64
 	Bottom     driver.GPUPtr
 	N          uint32
 	C          uint32
@@ -26,7 +26,6 @@ type KernelArgs struct {
 	PadW       uint32
 
 	Top                 driver.GPUPtr
-	Mask                driver.GPUPtr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -53,7 +52,6 @@ type Benchmark struct {
 	inputData    []float32
 	Bottom       driver.GPUPtr
 	Top          driver.GPUPtr
-	Mask         driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver, n *int, c *int, h *int, w *int) *Benchmark {
@@ -77,8 +75,8 @@ func NewBenchmark(driver *driver.Driver, n *int, c *int, h *int, w *int) *Benchm
 	b.StrideW = 2
 	b.PadH = 0
 	b.PadW = 0
-	b.PooledH = int(math.Ceil(float64(b.H+2*b.StrideH-b.KernelH)/float64(b.StrideH))) + 1
-	b.PooledW = int(math.Ceil(float64(b.W+2*b.StrideW-b.KernelW)/float64(b.StrideW))) + 1
+	b.PooledH = int(math.Ceil(float64(b.H+2*b.PadH-b.KernelH)/float64(b.StrideH))) + 1
+	b.PooledW = int(math.Ceil(float64(b.W+2*b.PadW-b.KernelW)/float64(b.StrideW))) + 1
 	b.LengthOutput = b.N * b.C * b.PooledH * b.PooledW
 	return b
 }
@@ -102,10 +100,10 @@ func (b *Benchmark) initMem() {
 
 func (b *Benchmark) exec() {
 	kernArg := KernelArgs{
-		uint32(b.LengthInput), b.Top, uint32(b.N), uint32(b.C), uint32(b.H), uint32(b.W),
+		uint64(b.LengthInput), b.Top, uint32(b.N), uint32(b.C), uint32(b.H), uint32(b.W),
 		uint32(b.PooledH), uint32(b.PooledW), uint32(b.KernelH), uint32(b.KernelW),
 		uint32(b.StrideH), uint32(b.StrideW), uint32(b.StrideH), uint32(b.StrideW),
-		b.Top, b.Mask,
+		b.Top,
 		0, 0, 0,
 	}
 
