@@ -83,7 +83,7 @@ func maxpoolingHsaco() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "maxpooling.hsaco", size: 13672, mode: os.FileMode(493), modTime: time.Unix(1544059272, 0)}
+	info := bindataFileInfo{name: "maxpooling.hsaco", size: 13672, mode: os.FileMode(493), modTime: time.Unix(1544223773, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
