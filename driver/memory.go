@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/mem/vm"
@@ -59,7 +58,7 @@ func (d *Driver) AllocateMemoryWithAlignment(
 		return ptr
 	}
 
-	d.allocatePage()
+	d.allocatePage(d.usingGPU, 1<<d.PageSizeAsPowerOf2)
 
 	ptr, ok = d.tryAllocateWithExistingChunks(byteSize, alignment)
 	if ok {
@@ -70,6 +69,55 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	return 0
 }
 
+// Remap keeps the virtual address unchanged and moves the physical address to
+// another GPU
+func (d *Driver) Remap(addr, size uint64, gpuID int) {
+	ptr := addr
+	sizeLeft := size
+	for ptr < addr+size {
+		_, page := d.mmu.Translate(d.currentPID, ptr)
+		d.remapPage(page, ptr, sizeLeft, gpuID)
+		sizeLeft -= page.VAddr + page.PageSize - ptr
+		ptr = page.VAddr + page.PageSize
+	}
+}
+
+func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
+	ptr := addr
+	d.mmu.RemovePage(d.currentPID, page.VAddr)
+	if ptr > page.VAddr {
+		page1 := &vm.Page{
+			PID:      d.currentPID,
+			VAddr:    page.VAddr,
+			PAddr:    page.PAddr,
+			PageSize: addr - page.VAddr,
+			Valid:    true,
+		}
+		d.mmu.CreatePage(page1)
+	}
+
+	sizeLeft := page.PageSize - (addr - page.VAddr)
+	sizeForNewPage := sizeLeft
+	if sizeForNewPage > size {
+		sizeForNewPage = size
+	}
+	d.allocatePageWithGivenVAddr(gpuID, addr, sizeForNewPage)
+	//d.mmu.CreatePage(page2)
+
+	ptr += sizeForNewPage
+	sizeLeft -= sizeForNewPage
+	if sizeLeft > 0 {
+		page3 := &vm.Page{
+			PID:      d.currentPID,
+			VAddr:    ptr,
+			PAddr:    page.PAddr + (ptr - page.VAddr),
+			PageSize: sizeLeft,
+			Valid:    true,
+		}
+		d.mmu.CreatePage(page3)
+	}
+}
+
 func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
 	pageSize := uint64(1 << d.PageSizeAsPowerOf2)
 	numPages := (byteSize-1)/pageSize + 1
@@ -78,7 +126,7 @@ func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
 	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
 		free := true
 		for i := uint64(0); i < numPages; i++ {
-			if d.isPageAllocated(pageID + i*pageSize) {
+			if d.isPageAllocated(d.usingGPU, pageID+i*pageSize) {
 				free = false
 				break
 			}
@@ -106,10 +154,10 @@ func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
 	return GPUPtr(pageID + 0x100000000)
 }
 
-func (d *Driver) allocatePage() {
-	pageID := d.initialAddresses[d.usingGPU]
-	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
-		if d.isPageAllocated(pageID) {
+func (d *Driver) allocatePage(gpuID int, size uint64) *vm.Page {
+	pageID := d.initialAddresses[gpuID]
+	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
+		if d.isPageAllocated(gpuID, pageID) {
 			pageID += 1 << d.PageSizeAsPowerOf2
 		} else {
 			break
@@ -120,25 +168,56 @@ func (d *Driver) allocatePage() {
 		PID:      d.currentPID,
 		VAddr:    pageID + 0x100000000,
 		PAddr:    pageID,
-		PageSize: 1 << d.PageSizeAsPowerOf2,
+		PageSize: size,
 		Valid:    true,
 	}
 	virtualAddr := pageID + 0x100000000
 
 	d.mmu.CreatePage(page)
-	d.allocatedPages[d.usingGPU] = append(d.allocatedPages[d.usingGPU], page)
+	d.allocatedPages[gpuID] = append(d.allocatedPages[gpuID], page)
 
 	chunk := new(MemoryChunk)
 	chunk.Ptr = GPUPtr(virtualAddr)
 	chunk.ByteSize = 1 << d.PageSizeAsPowerOf2
 	chunk.Occupied = false
-	d.memoryMasks[d.usingGPU] = append(d.memoryMasks[d.usingGPU], chunk)
+	d.memoryMasks[gpuID] = append(d.memoryMasks[gpuID], chunk)
 
-	fmt.Printf("Page allocated %v\n", page)
+	return page
 }
 
-func (d *Driver) isPageAllocated(pAddr uint64) bool {
-	for _, p := range d.allocatedPages[d.usingGPU] {
+func (d *Driver) allocatePageWithGivenVAddr(gpuID int, vAddr, size uint64) *vm.Page {
+	pageID := d.initialAddresses[gpuID]
+	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
+		if d.isPageAllocated(gpuID, pageID) {
+			pageID += 1 << d.PageSizeAsPowerOf2
+		} else {
+			break
+		}
+	}
+
+	page := &vm.Page{
+		PID:      d.currentPID,
+		VAddr:    vAddr,
+		PAddr:    pageID,
+		PageSize: size,
+		Valid:    true,
+	}
+	//virtualAddr := pageID + 0x100000000
+
+	d.mmu.CreatePage(page)
+	d.allocatedPages[gpuID] = append(d.allocatedPages[gpuID], page)
+
+	//chunk := new(MemoryChunk)
+	//chunk.Ptr = GPUPtr(virtualAddr)
+	//chunk.ByteSize = 1 << d.PageSizeAsPowerOf2
+	//chunk.Occupied = false
+	//d.memoryMasks[gpuID] = append(d.memoryMasks[gpuID], chunk)
+
+	return page
+}
+
+func (d *Driver) isPageAllocated(gpuID int, pAddr uint64) bool {
+	for _, p := range d.allocatedPages[gpuID] {
 		if p.PAddr == pAddr {
 			return true
 		}
