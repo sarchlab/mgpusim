@@ -13,7 +13,7 @@ type Resettable interface {
 	Reset()
 }
 
-// CommandProcessor is a Yaotsu component that is responsible for receiving
+// CommandProcessor is a Akita component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
 // GPU.
 //
@@ -112,6 +112,12 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 		p.flushL2(l2Cache, p.DRAMControllers[i])
 	}
 
+	cmd.SwapSrcAndDst()
+	err := p.ToDriver.Send(cmd)
+	if err != nil {
+		panic(err)
+	}
+
 	return nil
 }
 
@@ -147,12 +153,19 @@ func (p *CommandProcessor) processMemCopyReq(req akita.Req) error {
 		req.SetDst(p.DMAEngine)
 		req.SetSrc(p.ToDispatcher)
 		req.SetSendTime(now)
-		p.ToDispatcher.Send(req)
+		err := p.ToDispatcher.Send(req)
+		if err != nil {
+			panic(err)
+		}
+
 	} else if req.Src() == p.DMAEngine {
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
 		req.SetSendTime(now)
-		p.ToDriver.Send(req)
+		err := p.ToDriver.Send(req)
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		log.Panic("The request sent to the command processor has unknown src")
 	}

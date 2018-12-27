@@ -3,6 +3,7 @@ package driver
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"reflect"
 
@@ -64,6 +65,11 @@ func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 // calls.
 func (d *Driver) ChangePID(pid vm.PID) {
 	d.currentPID = pid
+}
+
+// GetNumGPUs return the number of GPUs in the platform
+func (d *Driver) GetNumGPUs() int {
+	return len(d.gpus)
 }
 
 // SelectGPU requires the driver to perform the following APIs on a selected
@@ -319,6 +325,7 @@ func (d *Driver) processLaunchKernelReturn(
 	now akita.VTimeInSec,
 	req *gcn3.LaunchKernelReq,
 ) {
+	fmt.Printf("%.12f kernel return, start at %.12f\n", now, req.StartTime)
 	_, cmdQueue := d.findCommandByReq(req)
 	cmdQueue.IsRunning = false
 	cmdQueue.Commands = cmdQueue.Commands[1:]
@@ -398,7 +405,7 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 
 	driver.currentPID = 1
 
-	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 1)
+	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 40960000)
 
 	return driver
 }

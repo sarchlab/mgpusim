@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	"gitlab.com/akita/gcn3/rdma"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
@@ -19,13 +21,15 @@ import (
 	"gitlab.com/akita/mem/vm"
 )
 
+// R9NanoGPUBuilder can build R9 Nano GPUs.
 type R9NanoGPUBuilder struct {
-	Engine       akita.Engine
-	Freq         akita.Freq
-	Driver       *driver.Driver
-	GPUName      string
-	MMU          *vm.MMUImpl
-	ExternalConn akita.Connection
+	Engine           akita.Engine
+	Freq             akita.Freq
+	Driver           *driver.Driver
+	GPUName          string
+	GPUMemAddrOffset uint64
+	MMU              *vm.MMUImpl
+	ExternalConn     akita.Connection
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -39,16 +43,20 @@ type R9NanoGPUBuilder struct {
 	L1SCaches            []*caches.L1VCache
 	L1ICaches            []*caches.L1VCache
 	L2Caches             []*cache.WriteBackCache
-	TLBs                 []*vm.TLB
+	L1VTLBs              []*vm.TLB
+	L1STLBs              []*vm.TLB
+	L1ITLBs              []*vm.TLB
+	L2TLBs               []*vm.TLB
 	DRAMs                []*mem.IdealMemController
 	LowModuleFinderForL1 *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
 	DMAEngine            *gcn3.DMAEngine
+	RDMAEngine           *rdma.Engine
 
 	MemTracer *memtraces.Tracer
 }
 
-// BuildR9 creates a pre-configure GPU similar to the AMD R9 Nano GPU.
+// Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.Freq = 1000 * akita.MHz
 	b.InternalConn = akita.NewDirectConnection(b.Engine)
@@ -57,8 +65,9 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 
 	b.buildCP()
 	b.buildMemSystem()
-	b.buildCUs()
 	b.buildDMAEngine()
+	b.buildRDMAEngine()
+	b.buildCUs()
 
 	b.InternalConn.PlugIn(b.GPU.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.DMAEngine.ToCP)
@@ -68,6 +77,19 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.GPU.InternalConnection = b.InternalConn
 
 	return b.GPU
+}
+
+func (b *R9NanoGPUBuilder) buildRDMAEngine() {
+	b.RDMAEngine = rdma.NewEngine(
+		fmt.Sprintf("%s.RDMA", b.GPUName),
+		b.Engine,
+		b.LowModuleFinderForL2,
+		nil,
+	)
+	b.GPU.RDMAEngine = b.RDMAEngine
+	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToInside
+	b.InternalConn.PlugIn(b.RDMAEngine.ToInside)
+
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
@@ -113,28 +135,70 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 }
 
 func (b *R9NanoGPUBuilder) buildTLBs() {
-
 	l2TLB := vm.NewTLB(
-		fmt.Sprintf("%s.TLB_L2_%d", b.GPUName, 1),
+		fmt.Sprintf("%s.L2TLB", b.GPUName),
 		b.Engine)
 	l2TLB.LowModule = b.MMU.ToTop
 	//traceFile, _ := os.Create("l2_tlb.trace")
 	//tlbTracer := vm.NewTLBTracer(traceFile)
 	//l2TLB.AcceptHook(tlbTracer)
-	//b.TLBs = append(b.TLBs, l2TLB)
-	b.GPU.L2TLB = l2TLB
+	l2TLB.NumSets = 64
+	l2TLB.NumWays = 64
+	l2TLB.Latency = 3
+	l2TLB.Reset()
+	b.L2TLBs = append(b.L2TLBs, l2TLB)
+	b.GPU.L2TLBs = append(b.GPU.L2TLBs, l2TLB)
 	b.InternalConn.PlugIn(l2TLB.ToTop)
 	b.ExternalConn.PlugIn(l2TLB.ToBottom)
 
-	l1TLBCount := 64 + 16 + 16
-	for i := 0; i < l1TLBCount; i++ {
+	l1VTLBCount := 64
+	for i := 0; i < l1VTLBCount; i++ {
 		l1TLB := vm.NewTLB(
-			fmt.Sprintf("%s.TLB_L1_%d", b.GPUName, 1),
+			fmt.Sprintf("%s.L1VTLB%d", b.GPUName, i),
 			b.Engine)
-		l1TLB.LowModule = b.GPU.L2TLB.ToTop
+		l1TLB.LowModule = b.GPU.L2TLBs[0].ToTop
+		l1TLB.NumWays = 64
+		l1TLB.NumSets = 1
+		l1TLB.Latency = 1
+		l1TLB.Reset()
 
-		b.TLBs = append(b.TLBs, l1TLB)
-		b.GPU.L1TLBs = append(b.GPU.L1TLBs, l1TLB)
+		b.L1VTLBs = append(b.L1VTLBs, l1TLB)
+		b.GPU.L1VTLBs = append(b.GPU.L1VTLBs, l1TLB)
+		b.InternalConn.PlugIn(l1TLB.ToTop)
+		b.InternalConn.PlugIn(l1TLB.ToBottom)
+
+	}
+
+	l1STLBCount := 16
+	for i := 0; i < l1STLBCount; i++ {
+		l1TLB := vm.NewTLB(
+			fmt.Sprintf("%s.L1STLB%d", b.GPUName, i),
+			b.Engine)
+		l1TLB.LowModule = b.GPU.L2TLBs[0].ToTop
+		l1TLB.NumWays = 64
+		l1TLB.NumSets = 1
+		l1TLB.Latency = 1
+		l1TLB.Reset()
+
+		b.L1STLBs = append(b.L1STLBs, l1TLB)
+		b.GPU.L1STLBs = append(b.GPU.L1STLBs, l1TLB)
+		b.InternalConn.PlugIn(l1TLB.ToTop)
+		b.InternalConn.PlugIn(l1TLB.ToBottom)
+	}
+
+	l1ITLBCount := 64
+	for i := 0; i < l1ITLBCount; i++ {
+		l1TLB := vm.NewTLB(
+			fmt.Sprintf("%s.L1ITLB%d", b.GPUName, i),
+			b.Engine)
+		l1TLB.LowModule = b.GPU.L2TLBs[0].ToTop
+		l1TLB.NumWays = 64
+		l1TLB.NumSets = 1
+		l1TLB.Latency = 1
+		l1TLB.Reset()
+
+		b.L1ITLBs = append(b.L1ITLBs, l1TLB)
+		b.GPU.L1ITLBs = append(b.GPU.L1ITLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.ToTop)
 		b.InternalConn.PlugIn(l1TLB.ToBottom)
 	}
@@ -149,7 +213,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 			1,
 			6, 4, 14,
 			b.LowModuleFinderForL1,
-			b.TLBs[i].ToTop)
+			b.L1STLBs[i].ToTop)
 		b.InternalConn.PlugIn(sCache.ToCU)
 		b.InternalConn.PlugIn(sCache.ToCP)
 		b.InternalConn.PlugIn(sCache.ToL2)
@@ -171,7 +235,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 			1,
 			6, 4, 15,
 			b.LowModuleFinderForL1,
-			b.TLBs[16+i].ToTop)
+			b.L1ITLBs[i].ToTop)
 		b.InternalConn.PlugIn(iCache.ToCU)
 		b.InternalConn.PlugIn(iCache.ToCP)
 		b.InternalConn.PlugIn(iCache.ToL2)
@@ -197,7 +261,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 			1,
 			6, 4, 14,
 			b.LowModuleFinderForL1,
-			b.TLBs[32+i].ToTop)
+			b.L1VTLBs[i].ToTop)
 
 		b.InternalConn.PlugIn(dCache.ToCU)
 		b.InternalConn.PlugIn(dCache.ToCP)
@@ -218,6 +282,9 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 	cacheBuilder := new(cache.Builder)
 	cacheBuilder.Engine = b.Engine
 	b.LowModuleFinderForL1 = cache.NewInterleavedLowModuleFinder(4096)
+	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
+	b.LowModuleFinderForL1.LowAddress = b.GPUMemAddrOffset
+	b.LowModuleFinderForL1.HighAddress = b.GPUMemAddrOffset + 4*mem.GB
 	for i := 0; i < 8; i++ {
 		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
 		l2Cache := cacheBuilder.BuildWriteBackCache(
@@ -242,6 +309,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 
 func (b *R9NanoGPUBuilder) buildMemControllers() {
 	b.LowModuleFinderForL2 = cache.NewInterleavedLowModuleFinder(4096)
+
 	numDramController := 8
 	for i := 0; i < numDramController; i++ {
 		memCtrl := mem.NewIdealMemController(
@@ -252,6 +320,7 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 			InterleavingSize:    4096,
 			TotalNumOfElements:  numDramController,
 			CurrentElementIndex: i,
+			Offset:              b.GPUMemAddrOffset,
 		}
 		memCtrl.AddressConverter = addrConverter
 

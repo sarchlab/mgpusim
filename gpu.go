@@ -6,6 +6,7 @@ import (
 	"gitlab.com/akita/mem/vm"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/mem/cache"
 )
 
@@ -23,15 +24,18 @@ type GPU struct {
 
 	Driver             akita.Port
 	CommandProcessor   akita.Port
+	RDMAEngine         *rdma.Engine
 	Dispatchers        []akita.Component
 	CUs                []akita.Component
 	L1VCaches          []akita.Component
 	L1ICaches          []akita.Component
-	L1KCaches          []akita.Component
+	L1SCaches          []akita.Component
 	L2Caches           []akita.Component
 	L2CacheFinder      cache.LowModuleFinder
-	L2TLB              *vm.TLB
-	L1TLBs             []*vm.TLB
+	L2TLBs             []*vm.TLB
+	L1VTLBs            []*vm.TLB
+	L1ITLBs            []*vm.TLB
+	L1STLBs            []*vm.TLB
 	MemoryControllers  []akita.Component
 	InternalConnection akita.Connection
 
@@ -61,13 +65,19 @@ func (g *GPU) Handle(e akita.Event) error {
 		req.SetSrc(g.ToDriver)
 		req.SetDst(g.Driver)
 		req.SetSendTime(now)
-		g.ToDriver.Send(req)
+		err := g.ToDriver.Send(req)
+		if err != nil {
+			panic(err)
+		}
 		return nil
 	} else if req.Src() == g.Driver { // From the Driver
 		req.SetSrc(g.ToCommandProcessor)
 		req.SetDst(g.CommandProcessor)
 		req.SetSendTime(now)
-		g.ToCommandProcessor.Send(req)
+		err := g.ToCommandProcessor.Send(req)
+		if err != nil {
+			panic(err)
+		}
 		return nil
 	}
 
