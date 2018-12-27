@@ -53,6 +53,8 @@ type R9NanoGPUBuilder struct {
 	DMAEngine            *gcn3.DMAEngine
 	RDMAEngine           *rdma.Engine
 
+	Tracer *trace.Tracer
+
 	MemTracer *memtraces.Tracer
 }
 
@@ -62,6 +64,11 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.InternalConn = akita.NewDirectConnection(b.Engine)
 
 	b.GPU = gcn3.NewGPU(b.GPUName, b.Engine)
+
+	if b.EnableInstTracing {
+		b.Tracer = new(trace.Tracer)
+		b.Tracer.Init()
+	}
 
 	b.buildCP()
 	b.buildMemSystem()
@@ -373,11 +380,7 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		}
 
 		if b.EnableInstTracing {
-			isaTraceFile, err := os.Create(fmt.Sprintf("inst_%s.trace", cu.Name()))
-			if err != nil {
-				log.Fatal(err)
-			}
-			isaTracer := trace.NewInstTracer(isaTraceFile)
+			isaTracer := trace.NewInstTracer(b.Tracer)
 			cu.AcceptHook(isaTracer)
 		}
 	}
