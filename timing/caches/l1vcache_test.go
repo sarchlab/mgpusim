@@ -801,7 +801,7 @@ var _ = Describe("L1VCache black box", func() {
 		addrTranslator.l1vCache = l1v
 		l1v.addrTranslator = addrTranslator
 
-		mmu = vm.NewMMU("mmu", engine)
+		mmu = vm.NewMMU("mmu", engine, &vm.DefaultPageTableFactory{})
 		mmu.Latency = 10
 		mmu.CreatePage(&vm.Page{
 			PID:      1,

@@ -236,7 +236,7 @@ func NewDMAEngine(
 
 	dma.localDataSource = localDataSource
 
-	dma.ToCP = akita.NewLimitNumReqPort(dma, 64)
+	dma.ToCP = akita.NewLimitNumReqPort(dma, 40960000)
 	dma.ToMem = akita.NewLimitNumReqPort(dma, 64)
 
 	return dma

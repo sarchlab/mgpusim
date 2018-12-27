@@ -41,36 +41,71 @@ func MatrixMultiplicationOnGPU(mA, mB *Matrix, gpuDriver *driver.Driver) *Matrix
 
 	kernel := loadKernel()
 
-	gA, gB, gC := intiMemory(gpuDriver, mA, mB, mC)
+	gA, gB, gC := initMemory(gpuDriver, mA, mB, mC)
 
 	launchKernel(gA, gB, gC, mA, gpuDriver, kernel, mC)
 
-	gpuDriver.MemCopyD2H(mC.Data, gC)
+	copyDataBackFromGPU(gpuDriver, mC, gC)
 
 	return mC
 }
 
 func launchKernel(gA driver.GPUPtr, gB driver.GPUPtr, gC driver.GPUPtr, mA *Matrix, gpuDriver *driver.Driver, kernel *insts.HsaCo, mC *Matrix) {
-	kernArgs := &KernelArgs{
-		gA, gB, gC,
-		mA.Width,
-		32 * 32 * 4,
-		0, 0, 0,
+	numGPU := gpuDriver.GetNumGPUs()
+	for i := 0; i < numGPU; i++ {
+		kernArgs := &KernelArgs{
+			gA, gB, gC,
+			mA.Width,
+			32 * 32 * 4,
+			0, int64(int(mC.Height) / 4 / numGPU * i), 0,
+		}
+		gpuDriver.SelectGPU(i)
+		gpuDriver.EnqueueLaunchKernel(
+			gpuDriver.CreateCommandQueue(),
+			kernel,
+			[3]uint32{mC.Width / 4 / uint32(numGPU), mC.Height / 4 / uint32(numGPU), 1},
+			[3]uint16{8, 8, 1},
+			kernArgs,
+		)
 	}
-	gpuDriver.LaunchKernel(kernel,
-		[3]uint32{mC.Width / 4, mC.Height / 4, 1},
-		[3]uint16{8, 8, 1},
-		kernArgs,
-	)
+
+	gpuDriver.ExecuteAllCommands()
 }
 
-func intiMemory(gpuDriver *driver.Driver, mA *Matrix, mB *Matrix, mC *Matrix) (driver.GPUPtr, driver.GPUPtr, driver.GPUPtr) {
+func initMemory(gpuDriver *driver.Driver, mA *Matrix, mB *Matrix, mC *Matrix) (driver.GPUPtr, driver.GPUPtr, driver.GPUPtr) {
 	gA := gpuDriver.AllocateMemory(uint64(mA.Width * mA.Height * 4))
 	gB := gpuDriver.AllocateMemory(uint64(mB.Width * mB.Height * 4))
 	gC := gpuDriver.AllocateMemory(uint64(mC.Width * mC.Height * 4))
-	gpuDriver.MemCopyH2D(gA, mA.Data)
-	gpuDriver.MemCopyH2D(gB, mB.Data)
+
+	distributeMatrixMemToGPUs(gpuDriver, mA, gA)
+	distributeMatrixMemToGPUs(gpuDriver, mB, gB)
+	distributeMatrixMemToGPUs(gpuDriver, mC, gC)
+
 	return gA, gB, gC
+}
+
+func distributeMatrixMemToGPUs(gpuDriver *driver.Driver, m *Matrix, gm driver.GPUPtr) {
+	numGPU := gpuDriver.GetNumGPUs()
+	for i := 0; i < numGPU; i++ {
+		bytePerGPU := uint64(m.Width * m.Height * 4 / uint32(numGPU))
+		addr := uint64(gm) + uint64(i)*bytePerGPU
+		gpuDriver.Remap(addr, bytePerGPU, i)
+
+		gpuDriver.MemCopyH2D(driver.GPUPtr(addr),
+			m.Data[i*int(bytePerGPU)/4:(i+1)*int(bytePerGPU)/4])
+	}
+}
+
+func copyDataBackFromGPU(gpuDriver *driver.Driver, m *Matrix, gm driver.GPUPtr) {
+	numGPU := gpuDriver.GetNumGPUs()
+	for i := 0; i < numGPU; i++ {
+		bytePerGPU := uint64(m.Width * m.Height * 4 / uint32(numGPU))
+		addr := uint64(gm) + uint64(i)*bytePerGPU
+
+		gpuDriver.MemCopyD2H(
+			m.Data[i*int(bytePerGPU)/4:(i+1)*int(bytePerGPU)/4],
+			driver.GPUPtr(addr))
+	}
 }
 
 func loadKernel() *insts.HsaCo {

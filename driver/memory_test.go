@@ -46,6 +46,85 @@ var _ = Describe("Driver", func() {
 		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
 	})
 
+	It("should remap pages", func() {
+		page1 := &vm.Page{
+			PID:      1,
+			VAddr:    0x10000000,
+			PAddr:    0x0,
+			PageSize: 0x1000,
+			Valid:    true,
+		}
+		page2 := &vm.Page{
+			PID:      1,
+			VAddr:    0x10001000,
+			PAddr:    0x1000,
+			PageSize: 0x1000,
+			Valid:    true,
+		}
+		page3 := &vm.Page{
+			PID:      1,
+			VAddr:    0x10002000,
+			PAddr:    0x2000,
+			PageSize: 0x1000,
+			Valid:    true,
+		}
+		driver.allocatedPages = make([][]*vm.Page, 2)
+		driver.allocatedPages[0] = []*vm.Page{page1, page2, page3}
+		driver.storageSizes = []uint64{0x10000000000, 0x10000000000}
+		driver.initialAddresses = []uint64{0x0, 0x10000000000}
+
+		mmu.EXPECT().
+			Translate(vm.PID(1), uint64(0x10000400)).
+			Return(uint64(0x400), page1)
+		mmu.EXPECT().
+			Translate(vm.PID(1), uint64(0x10001000)).
+			Return(uint64(0x1000), page2)
+		mmu.EXPECT().
+			Translate(vm.PID(1), uint64(0x10002000)).
+			Return(uint64(0x2000), page3)
+		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x10000000))
+		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x10001000))
+		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x10002000))
+		mmu.EXPECT().CreatePage(&vm.Page{
+			PID:      1,
+			VAddr:    0x10000000,
+			PAddr:    0x0,
+			PageSize: 0x400,
+			Valid:    true,
+		})
+		mmu.EXPECT().CreatePage(&vm.Page{
+			PID:      1,
+			VAddr:    0x10000400,
+			PAddr:    0x10000000000,
+			PageSize: 0xC00,
+			Valid:    true,
+		})
+		mmu.EXPECT().CreatePage(&vm.Page{
+			PID:      1,
+			VAddr:    0x10001000,
+			PAddr:    0x10000001000,
+			PageSize: 0x1000,
+			Valid:    true,
+		})
+		mmu.EXPECT().CreatePage(&vm.Page{
+			PID:      1,
+			VAddr:    0x10002000,
+			PAddr:    0x10000002000,
+			PageSize: 0x400,
+			Valid:    true,
+		})
+		mmu.EXPECT().CreatePage(&vm.Page{
+			PID:      1,
+			VAddr:    0x10002400,
+			PAddr:    0x2400,
+			PageSize: 0xC00,
+			Valid:    true,
+		})
+
+		driver.Remap(0x10000400, 0x2000, 1)
+
+	})
+
 	It("should allocate memory with alignment", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{

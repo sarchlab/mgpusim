@@ -15,13 +15,14 @@ import (
 )
 
 type test struct {
-	engine          akita.Engine
-	conn            *akita.DirectConnection
-	agent           *acceptancetests.MemAccessAgent
-	l1v             *caches.L1VCache
-	lowModuleFinder *cache.SingleLowModuleFinder
-	dram            *mem.IdealMemController
-	mmu             *vm.MMUImpl
+	engine           akita.Engine
+	conn             *akita.DirectConnection
+	agent            *acceptancetests.MemAccessAgent
+	l1v              *caches.L1VCache
+	lowModuleFinder  *cache.SingleLowModuleFinder
+	dram             *mem.IdealMemController
+	pageTableFactory vm.PageTableFactory
+	mmu              *vm.MMUImpl
 }
 
 func (t *test) run(wg *sync.WaitGroup) {
@@ -45,7 +46,8 @@ func newTest(name string) *test {
 	t.lowModuleFinder = new(cache.SingleLowModuleFinder)
 	t.lowModuleFinder.LowModule = t.dram.ToTop
 
-	t.mmu = vm.NewMMU("mmu", t.engine)
+	t.pageTableFactory = new(vm.DefaultPageTableFactory)
+	t.mmu = vm.NewMMU("mmu", t.engine, t.pageTableFactory)
 	for addr := uint64(0); addr < mem.MB; addr += 4096 {
 		t.mmu.CreatePage(&vm.Page{
 			PID:      1,
