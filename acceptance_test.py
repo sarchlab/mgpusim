@@ -128,6 +128,12 @@ def main():
     error |= run_test("Relu Parallel Emu", './relu -parallel -verify', 'samples/relu')
     error |= run_test("Relu Parallel Sim", './relu -timing -parallel -verify', 'samples/relu')
 
+    error |= compile('samples/maxpooling/')
+    error |= run_test("MaxPooling Emu", './maxpooling -verify', 'samples/maxpooling')
+    error |= run_test("MaxPooling Sim", './maxpooling -timing -verify', 'samples/maxpooling')
+    error |= run_test("MaxPooling Parallel Emu", './maxpooling -parallel -verify', 'samples/maxpooling')
+    error |= run_test("MaxPooling Parallel Sim", './maxpooling -timing -parallel -verify', 'samples/maxpooling')
+
     error |= compile('samples/matrixmultiplication/')
     error |= run_test("Matrix Multiplication Emu", './matrixmultiplication -length=256 -verify', 'samples/matrixmultiplication')
     error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -length=256 -timing -verify', 'samples/matrixmultiplication')
