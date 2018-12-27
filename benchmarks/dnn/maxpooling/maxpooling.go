@@ -1,7 +1,6 @@
 package maxpooling
 
 import (
-	"fmt"
 	"log"
 	"math"
 
@@ -103,8 +102,10 @@ func (b *Benchmark) exec() {
 	kernArg := KernelArgs{
 		uint64(b.LengthOutput), b.Bottom,
 		uint32(b.N), uint32(b.C), uint32(b.H), uint32(b.W),
-		uint32(b.PooledH), uint32(b.PooledW), uint32(b.KernelH), uint32(b.KernelW),
-		uint32(b.StrideH), uint32(b.StrideW), uint32(b.PadH), uint32(b.PadW),
+		uint32(b.PooledH), uint32(b.PooledW),
+		uint32(b.KernelH), uint32(b.KernelW),
+		uint32(b.StrideH), uint32(b.StrideW),
+		uint32(b.PadH), uint32(b.PadW),
 		b.Top,
 		0, 0, 0,
 	}
@@ -121,13 +122,65 @@ func (b *Benchmark) Verify() {
 	gpuOutput := make([]float32, b.LengthOutput)
 	b.driver.MemCopyD2H(gpuOutput, b.Top)
 
-	for i := 0; i < b.LengthInput; i++ {
-		fmt.Printf("Input: %f\n", b.inputData[i])
-	}
+	cpuOutput := b.CPUMaxPooling()
 
 	for i := 0; i < b.LengthOutput; i++ {
-		fmt.Printf("Output: %f\n", gpuOutput[i])
+		if gpuOutput[i] != cpuOutput[i] {
+			log.Panicf("mismatch at %d, expected %f, but get %f",
+				i, cpuOutput[i], gpuOutput[i])
+		}
 	}
 
+	// for i := 0; i < b.LengthInput; i++ {
+	// 	fmt.Printf("Input: %f\n", b.inputData[i])
+	// }
+
+	// for i := 0; i < b.LengthOutput; i++ {
+	// 	fmt.Printf("Output: %f\n", gpuOutput[i])
+	// }
+
 	log.Printf("Passed!\n")
+}
+
+func (b *Benchmark) CPUMaxPooling() []float32 {
+	cpuOutput := make([]float32, b.LengthOutput)
+
+	for i := 0; i < b.LengthOutput; i++ {
+		pw := i % b.PooledW
+		ph := (i / b.PooledW) % b.PooledH
+		c := (i / b.PooledW / b.PooledH) % b.C
+		n := i / b.PooledW / b.PooledH / b.C
+
+		hStart := ph*b.StrideH - b.PadH
+		wStart := pw*b.StrideW - b.PadW
+		hEnd := hStart + b.KernelH
+		if hEnd > b.H {
+			hEnd = b.H
+		}
+		wEnd := wStart + b.KernelW
+		if wEnd > b.W {
+			wEnd = b.W
+		}
+		if hStart < 0 {
+			hStart = 0
+		}
+		if wStart < 0 {
+			wStart = 0
+		}
+
+		maxVal := float32(-math.MaxFloat32)
+		maxIdx := -1
+
+		offset := (n*b.C + c) * b.H * b.W
+		for h := hStart; h < hEnd; h++ {
+			for w := wStart; w < wEnd; w++ {
+				maxIdx = h*b.W + w
+				maxVal = b.inputData[maxIdx+offset]
+			}
+		}
+
+		cpuOutput[i] = maxVal
+	}
+
+	return cpuOutput
 }

@@ -3,7 +3,6 @@ package driver
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"reflect"
 
@@ -325,7 +324,7 @@ func (d *Driver) processLaunchKernelReturn(
 	now akita.VTimeInSec,
 	req *gcn3.LaunchKernelReq,
 ) {
-	fmt.Printf("%.12f kernel return, start at %.12f\n", now, req.StartTime)
+	// fmt.Printf("%.12f kernel return, start at %.12f\n", now, req.StartTime)
 	_, cmdQueue := d.findCommandByReq(req)
 	cmdQueue.IsRunning = false
 	cmdQueue.Commands = cmdQueue.Commands[1:]
