@@ -16,12 +16,17 @@ func (d *Driver) EnqueueLaunchKernel(
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
+	prevUsingGPU := d.usingGPU
+	d.SelectGPU(queue.GPUID)
+
 	dCoData := d.enqueueCopyInstructionsToGPU(queue, co)
 	dKernArgData := d.enqueueCopyKernArgsToGPU(queue, co, kernelArgs)
 	packet, dPacket := d.createAQLPacket(
 		queue, gridSize, wgSize, dCoData, dKernArgData)
 	d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
 	d.enqueueFinalFlush(queue)
+
+	d.SelectGPU(prevUsingGPU)
 }
 
 func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {

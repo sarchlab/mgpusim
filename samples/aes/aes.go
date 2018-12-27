@@ -54,7 +54,7 @@ func configure() {
 
 func initPlatform() {
 	if *timing {
-		_, _, gpuDriver = platform.BuildR9NanoPlatform()
+		_, gpuDriver = platform.BuildNR9NanoPlatform(4)
 	} else {
 		_, _, gpuDriver, _ = platform.BuildEmuPlatform()
 	}

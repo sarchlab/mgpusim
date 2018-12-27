@@ -15,6 +15,8 @@ type addressTranslator struct {
 	toSendToTLB        []*vm.TranslationReq
 
 	madeProgress bool
+
+	sendTime akita.VTimeInSec
 }
 
 func (t *addressTranslator) tick(now akita.VTimeInSec) bool {
@@ -36,6 +38,7 @@ func (t *addressTranslator) sendToTLB(now akita.VTimeInSec) {
 	req.SetSendTime(now)
 	err := t.l1vCache.ToTLB.Send(req)
 	if err == nil {
+		t.sendTime = now
 		t.madeProgress = true
 		t.toSendToTLB = t.toSendToTLB[1:]
 	}
@@ -89,6 +92,8 @@ func (t *addressTranslator) parseFromTLB(
 	if translationRsp.Page == nil {
 		log.Panic("page not found")
 	}
+
+	//fmt.Printf("%s address translation %.15f\n", t.l1vCache.Name(), now-t.sendTime)
 
 	t.pendingTranslation.Page = translationRsp.Page
 	t.l1vCache.postAddrTranslationBuf =

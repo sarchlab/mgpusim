@@ -1,6 +1,12 @@
 package platform
 
 import (
+	"fmt"
+
+	"gitlab.com/akita/noc"
+
+	"gitlab.com/akita/mem/cache"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
@@ -30,7 +36,7 @@ func BuildEmuPlatform() (
 	}
 	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	mmu := vm.NewMMU("MMU", engine)
+	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	gpuDriver := driver.NewDriver(engine, mmu)
 	connection := akita.NewDirectConnection(engine)
 
@@ -68,7 +74,7 @@ func BuildR9NanoPlatform() (
 	}
 	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	mmu := vm.NewMMU("MMU", engine)
+	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	gpuDriver := driver.NewDriver(engine, mmu)
 	connection := akita.NewDirectConnection(engine)
 
@@ -92,4 +98,59 @@ func BuildR9NanoPlatform() (
 	gpu.Driver = gpuDriver.ToGPUs
 
 	return engine, gpu, gpuDriver
+}
+
+//BuildNR9NanoPlatform creates a platform that equips with several R9Nano GPUs
+func BuildNR9NanoPlatform(
+	numGPUs int,
+) (
+	akita.Engine,
+	*driver.Driver,
+) {
+	var engine akita.Engine
+
+	if UseParallelEngine {
+		engine = akita.NewParallelEngine()
+	} else {
+		engine = akita.NewSerialEngine()
+	}
+	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+
+	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
+	mmu.Latency = 100
+	gpuDriver := driver.NewDriver(engine, mmu)
+	//connection := akita.NewDirectConnection(engine)
+	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
+
+	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
+		GPUName:           "GPU",
+		Engine:            engine,
+		Driver:            gpuDriver,
+		EnableISADebug:    DebugISA,
+		EnableMemTracing:  TraceMem,
+		EnableInstTracing: TraceInst,
+		MMU:               mmu,
+		ExternalConn:      connection,
+	}
+
+	rdmaAddressTable := new(cache.BankedLowModuleFinder)
+	rdmaAddressTable.BankSize = 4 * mem.GB
+	for i := 0; i < numGPUs; i++ {
+		gpuBuilder.GPUName = fmt.Sprintf("GPU_%d", i)
+		gpuBuilder.GPUMemAddrOffset = uint64(i) * 4 * mem.GB
+		gpu := gpuBuilder.Build()
+		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
+		gpu.Driver = gpuDriver.ToGPUs
+
+		gpu.RDMAEngine.RemoteRDMAAddressTable = rdmaAddressTable
+		rdmaAddressTable.LowModules = append(
+			rdmaAddressTable.LowModules,
+			gpu.RDMAEngine.ToOutside)
+		connection.PlugIn(gpu.RDMAEngine.ToOutside)
+	}
+
+	connection.PlugIn(gpuDriver.ToGPUs)
+	connection.PlugIn(mmu.ToTop)
+
+	return engine, gpuDriver
 }
