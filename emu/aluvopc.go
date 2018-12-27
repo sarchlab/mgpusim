@@ -14,6 +14,8 @@ func (u *ALUImpl) runVOPC(state InstEmuState) {
 		u.runVCmpGtF32(state)
 	case 0xC1: // v_cmp_lt_i32
 		u.runVCmpLtI32(state)
+	case 0xC3: // v_cmp_le_i32
+		u.runVCmpLeI32(state)
 	case 0xC4: // v_cmp_gt_i32
 		u.runVCmpGtI32(state)
 	case 0xC9: // v_cmp_lt_u32
@@ -95,6 +97,23 @@ func (u *ALUImpl) runVCmpLtI32(state InstEmuState) {
 		src0 := asInt32(uint32(sp.SRC0[i]))
 		src1 := asInt32(uint32(sp.SRC1[i]))
 		if src0 < src1 {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLeI32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := asInt32(uint32(sp.SRC0[i]))
+		src1 := asInt32(uint32(sp.SRC1[i]))
+		if src0 <= src1 {
 			sp.VCC = sp.VCC | (1 << i)
 		}
 	}
