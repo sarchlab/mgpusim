@@ -65,11 +65,6 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 
 	b.GPU = gcn3.NewGPU(b.GPUName, b.Engine)
 
-	if b.EnableInstTracing {
-		b.Tracer = new(trace.Tracer)
-		b.Tracer.Init()
-	}
-
 	b.buildCP()
 	b.buildMemSystem()
 	b.buildDMAEngine()
