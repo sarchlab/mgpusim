@@ -29,14 +29,14 @@ func (t *Tracer) Init() {
 	dbName := xid.New().String()
 	fmt.Printf("Trace collected in db %s\n", dbName)
 
-	t.collection = t.client.Database(dbName).Collection("events")
+	t.collection = t.client.Database(dbName).Collection("trace")
 }
 
-func (t *Tracer) Trace(step Step) {
+func (t *Tracer) Trace(task *Task) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := t.collection.InsertOne(ctx, step)
+	_, err := t.collection.InsertOne(ctx, task)
 	if err != nil {
 		log.Panic(err)
 	}

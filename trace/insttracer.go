@@ -12,12 +12,14 @@ import (
 type InstTracer struct {
 	mutex  sync.Mutex
 	tracer *Tracer
+	insts  map[string]*Task
 }
 
 // NewInstTracer creates a new InstTracer
 func NewInstTracer(tracer *Tracer) *InstTracer {
 	t := new(InstTracer)
 	t.tracer = tracer
+	t.insts = make(map[string]*Task)
 	return t
 }
 
@@ -38,22 +40,33 @@ func (t *InstTracer) Func(
 	domain akita.Hookable,
 	info interface{},
 ) {
-	// t.mutex.Lock()
-	// defer t.mutex.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	instInfo := info.(*timing.InstHookInfo)
 	inst := instInfo.Inst
 
+	task := t.insts[inst.ID]
+	if task == nil {
+		task = &Task{
+			Detail: InstDetail{Inst: inst.String(nil)},
+		}
+		t.insts[inst.ID] = task
+	}
+
 	// fmt.Fprintf(t.writer, "%s,%.15f,%s,%s,\"%s\"\n",
 	// 	inst.ID, instInfo.Now, "", instInfo.Stage, inst.String(nil))
-	step := Step{
-		TaskID: inst.ID,
-		When:   float64(instInfo.Now),
-		Where:  "",
-		What:   instInfo.Stage,
-		Detail: InstDetail{Inst: inst.String(nil)},
+	step := &Step{
+		When:  float64(instInfo.Now),
+		Where: domain.(akita.Component).Name(),
+		What:  instInfo.Stage,
 	}
-	t.tracer.Trace(step)
+	task.AddStep(step)
+
+	if instInfo.Stage == "Completed" {
+		t.tracer.Trace(task)
+		delete(t.insts, inst.ID)
+	}
 }
 
 type InstDetail struct {
