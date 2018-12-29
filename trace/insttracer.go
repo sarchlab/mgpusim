@@ -49,6 +49,7 @@ func (t *InstTracer) Func(
 	task := t.insts[inst.ID]
 	if task == nil {
 		task = &Task{
+			ID:     inst.ID,
 			Detail: InstDetail{Inst: inst.String(nil)},
 		}
 		t.insts[inst.ID] = task

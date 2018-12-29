@@ -1,6 +1,7 @@
 package trace
 
 type Task struct {
+	ID         string
 	Start, End float64
 	Steps      []*Step
 	Detail     interface{}
