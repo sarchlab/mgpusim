@@ -8,20 +8,20 @@ type Task struct {
 }
 
 func (t *Task) AddStep(step *Step) {
-	if len(t.Steps) == 0 || t.Start > step.When {
-		t.Start = step.When
+	if len(t.Steps) == 0 || t.Start > step.Start {
+		t.Start = step.Start
 	}
 
-	if len(t.Steps) == 0 || t.End < step.When {
-		t.End = step.When
+	if len(t.Steps) == 0 || t.End < step.End {
+		t.End = step.End
 	}
 
 	t.Steps = append(t.Steps, step)
 }
 
 type Step struct {
-	When   float64
-	Where  string
-	What   string
-	Detail interface{}
+	Start, End float64
+	Where      string
+	What       string
+	Detail     interface{}
 }

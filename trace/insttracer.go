@@ -58,7 +58,7 @@ func (t *InstTracer) Func(
 	// fmt.Fprintf(t.writer, "%s,%.15f,%s,%s,\"%s\"\n",
 	// 	inst.ID, instInfo.Now, "", instInfo.Stage, inst.String(nil))
 	step := &Step{
-		When:  float64(instInfo.Now),
+		Start: float64(instInfo.Now),
 		Where: domain.(akita.Component).Name(),
 		What:  instInfo.Stage,
 	}

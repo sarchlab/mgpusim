@@ -12,12 +12,13 @@ import (
 	"gitlab.com/akita/gcn3"
 )
 
-// HookPosReqStart is a hook position that triggers hook when a request starts
-var HookPosReqStart = &struct{ name string }{"Any"}
+// HookPosCommandStart is a hook position that triggers hook when a request
+// starts
+var HookPosCommandStart = &struct{ name string }{"CommandStart"}
 
-// HookPosReqReturn is a hook position that triggers hook when a request returns
-// to the driver.
-var HookPosReqReturn = &struct{ name string }{"Any"}
+// HookPosCommandComplete is a hook position that triggers hook when a request
+// returns to the driver.
+var HookPosCommandComplete = &struct{ name string }{"CommandComplete"}
 
 // Driver is an Akita component that controls the simulated GPUs
 type Driver struct {
@@ -207,9 +208,16 @@ func (d *Driver) processMemCopyH2DCommand(
 		addr += sizeToCopy
 		offset += sizeToCopy
 	}
-
 	queue.IsRunning = true
 	d.NeedTick = true
+
+	d.InvokeHook(cmd, d, HookPosCommandStart,
+		&CommandHookInfo{
+			Now:     now,
+			IsStart: true,
+			Queue:   queue,
+		},
+	)
 }
 
 func (d *Driver) processMemCopyH2DReturn(
@@ -230,6 +238,13 @@ func (d *Driver) processMemCopyH2DReturn(
 	if len(copyCmd.Reqs) == 0 {
 		cmdQueue.IsRunning = false
 		cmdQueue.Commands = cmdQueue.Commands[1:]
+
+		d.InvokeHook(copyCmd, d, HookPosCommandComplete,
+			&CommandHookInfo{
+				Now:     now,
+				IsStart: false,
+				Queue:   cmdQueue,
+			})
 	}
 
 	d.NeedTick = true
@@ -267,6 +282,13 @@ func (d *Driver) processMemCopyD2HCommand(
 
 	queue.IsRunning = true
 	d.NeedTick = true
+
+	d.InvokeHook(cmd, d, HookPosCommandStart,
+		&CommandHookInfo{
+			Now:     now,
+			IsStart: true,
+			Queue:   queue,
+		})
 }
 
 func (d *Driver) processMemCopyD2HReturn(
@@ -285,6 +307,7 @@ func (d *Driver) processMemCopyD2HReturn(
 	copyCmd.Reqs = newReqs
 
 	if len(copyCmd.Reqs) == 0 {
+
 		cmdQueue.IsRunning = false
 		cmdQueue.Commands = cmdQueue.Commands[1:]
 		buf := bytes.NewReader(copyCmd.RawData)
@@ -292,6 +315,13 @@ func (d *Driver) processMemCopyD2HReturn(
 		if err != nil {
 			panic(err)
 		}
+
+		d.InvokeHook(copyCmd, d, HookPosCommandComplete,
+			&CommandHookInfo{
+				Now:     now,
+				IsStart: false,
+				Queue:   cmdQueue,
+			})
 	}
 
 	d.NeedTick = true
@@ -309,15 +339,18 @@ func (d *Driver) processLaunchKernelCommand(
 	req.Packet = cmd.Packet
 	req.PacketAddress = uint64(cmd.DPacket)
 
-	sendError := d.ToGPUs.Send(req)
-	if sendError == nil {
-		req.StartTime = now
-		d.InvokeHook(req, d, HookPosReqStart, nil)
+	queue.IsRunning = true
+	cmd.Reqs = append(cmd.Reqs, req)
 
-		queue.IsRunning = true
-		cmd.Reqs = append(cmd.Reqs, req)
-		d.NeedTick = true
-	}
+	d.requestsToSend = append(d.requestsToSend, req)
+	d.NeedTick = true
+
+	d.InvokeHook(cmd, d, HookPosCommandStart,
+		&CommandHookInfo{
+			Now:     now,
+			IsStart: true,
+			Queue:   queue,
+		})
 }
 
 func (d *Driver) processLaunchKernelReturn(
@@ -325,13 +358,19 @@ func (d *Driver) processLaunchKernelReturn(
 	req *gcn3.LaunchKernelReq,
 ) {
 	// fmt.Printf("%.12f kernel return, start at %.12f\n", now, req.StartTime)
+
 	_, cmdQueue := d.findCommandByReq(req)
+	cmd := cmdQueue.Commands[0]
 	cmdQueue.IsRunning = false
 	cmdQueue.Commands = cmdQueue.Commands[1:]
 	d.NeedTick = true
 
-	req.EndTime = now
-	d.InvokeHook(req, d, HookPosReqReturn, nil)
+	d.InvokeHook(cmd, d, HookPosCommandComplete,
+		&CommandHookInfo{
+			Now:     now,
+			IsStart: false,
+			Queue:   cmdQueue,
+		})
 }
 
 func (d *Driver) processFlushCommand(
@@ -342,15 +381,18 @@ func (d *Driver) processFlushCommand(
 	req := gcn3.NewFlushCommand(now,
 		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
 
-	sendError := d.ToGPUs.Send(req)
-	if sendError == nil {
-		req.StartTime = now
-		d.InvokeHook(req, d, HookPosReqStart, nil)
+	d.requestsToSend = append(d.requestsToSend, req)
 
-		queue.IsRunning = true
-		cmd.Reqs = append(cmd.Reqs, req)
-		d.NeedTick = true
-	}
+	queue.IsRunning = true
+	cmd.Reqs = append(cmd.Reqs, req)
+	d.NeedTick = true
+
+	d.InvokeHook(cmd, d, HookPosCommandStart,
+		&CommandHookInfo{
+			Now:     now,
+			IsStart: true,
+			Queue:   queue,
+		})
 }
 
 func (d *Driver) processFlushReturn(
@@ -358,12 +400,17 @@ func (d *Driver) processFlushReturn(
 	req *gcn3.FlushCommand,
 ) {
 	_, cmdQueue := d.findCommandByReq(req)
+	cmd := cmdQueue.Commands[0]
 	cmdQueue.IsRunning = false
 	cmdQueue.Commands = cmdQueue.Commands[1:]
 	d.NeedTick = true
 
-	req.EndTime = now
-	d.InvokeHook(req, d, HookPosReqReturn, nil)
+	d.InvokeHook(cmd, d, HookPosCommandComplete,
+		&CommandHookInfo{
+			Now:     now,
+			IsStart: false,
+			Queue:   cmdQueue,
+		})
 }
 
 func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
