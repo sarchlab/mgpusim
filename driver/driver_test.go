@@ -265,10 +265,6 @@ var _ = Describe("Driver", func() {
 				Retrieve(akita.VTimeInSec(11)).
 				Return(nil)
 
-			// toGPUs.EXPECT().
-			// 	Send(gomock.AssignableToTypeOf(&gcn3.LaunchKernelReq{})).
-			// 	Return(nil)
-
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
@@ -309,10 +305,6 @@ var _ = Describe("Driver", func() {
 			toGPUs.EXPECT().
 				Retrieve(akita.VTimeInSec(11)).
 				Return(nil)
-
-			// toGPUs.EXPECT().
-			// 	Send(gomock.AssignableToTypeOf(&gcn3.FlushCommand{})).
-			// 	Return(nil)
 
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}))
