@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
 	"gitlab.com/akita/gcn3/driver"
@@ -9,8 +10,9 @@ import (
 )
 
 var (
-	gpuDriver *driver.Driver
-	benchmark *fir.Benchmark
+	gpuDriver         *driver.Driver
+	benchmark         *fir.Benchmark
+	kernelTimeCounter *driver.KernelTimeCounter
 )
 
 var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -30,7 +32,7 @@ func main() {
 	if *verify {
 		benchmark.Verify()
 	}
-
+	fmt.Printf("Kernel time: %.12f\n", kernelTimeCounter.TotalTime)
 }
 
 func configure() {
@@ -54,11 +56,13 @@ func configure() {
 }
 
 func initPlatform() {
+	kernelTimeCounter = driver.NewKernelTimeCounter()
 	if *timing {
 		_, gpuDriver = platform.BuildNR9NanoPlatform(4)
 	} else {
 		_, _, gpuDriver, _ = platform.BuildEmuPlatform()
 	}
+	gpuDriver.AcceptHook(kernelTimeCounter)
 }
 
 func initBenchmark() {
