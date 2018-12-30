@@ -21,12 +21,12 @@ func (c *KernelTimeCounter) Type() reflect.Type {
 
 // Pos specifies the position it hooks to.
 func (c *KernelTimeCounter) Pos() akita.HookPos {
-	return HookPosReqReturn
+	return HookPosCommandComplete
 }
 
 // Func calculates the time spent on kernel execution.
 func (c *KernelTimeCounter) Func(item interface{}, domain akita.Hookable, info interface{}) {
-	req := item.(*gcn3.LaunchKernelReq)
+	// req := item.(*gcn3.LaunchKernelReq)
 
-	c.TotalTime += req.EndTime - req.StartTime
+	// c.TotalTime += req.EndTime - req.StartTime
 }
