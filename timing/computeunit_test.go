@@ -1,9 +1,11 @@
 package timing
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
@@ -59,20 +61,25 @@ func exampleGrid() *kernels.Grid {
 
 var _ = Describe("ComputeUnit", func() {
 	var (
+		mockCtrl     *gomock.Controller
 		cu           *ComputeUnit
-		engine       *akita.MockEngine
+		engine       *mock_akita.MockEngine
 		wgMapper     *mockWGMapper
 		wfDispatcher *mockWfDispatcher
 		decoder      *mockDecoder
+		toInstMem    *mock_akita.MockPort
+		toScalarMem  *mock_akita.MockPort
+		toVectorMem  *mock_akita.MockPort
+		toACE        *mock_akita.MockPort
 
-		connection *akita.MockConnection
-		instMem    *akita.MockComponent
+		instMem *mock_akita.MockPort
 
 		grid *kernels.Grid
 	)
 
 	BeforeEach(func() {
-		engine = akita.NewMockEngine()
+		mockCtrl = gomock.NewController(GinkgoT())
+		engine = mock_akita.NewMockEngine(mockCtrl)
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
@@ -89,13 +96,23 @@ var _ = Describe("ComputeUnit", func() {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
 		}
 
-		connection = akita.NewMockConnection()
-		connection.PlugIn(cu.ToACE)
+		toInstMem = mock_akita.NewMockPort(mockCtrl)
+		toACE = mock_akita.NewMockPort(mockCtrl)
+		toScalarMem = mock_akita.NewMockPort(mockCtrl)
+		toVectorMem = mock_akita.NewMockPort(mockCtrl)
+		cu.ToInstMem = toInstMem
+		cu.ToACE = toACE
+		cu.ToScalarMem = toScalarMem
+		cu.ToVectorMem = toVectorMem
 
-		instMem = akita.NewMockComponent("InstMem")
-		cu.InstMem = instMem.ToOutside
+		instMem = mock_akita.NewMockPort(mockCtrl)
+		cu.InstMem = instMem
 
 		grid = exampleGrid()
+	})
+
+	AfterEach(func() {
+		mockCtrl.Finish()
 	})
 
 	Context("when processing MapWGReq", func() {
@@ -109,78 +126,21 @@ var _ = Describe("ComputeUnit", func() {
 			req.SetRecvTime(10)
 			req.SetEventTime(10)
 
-			cu.ToACE.Recv(req)
+			toACE.EXPECT().Retrieve(gomock.Any()).Return(req)
 		})
 
-		It("should schedule wavefront dispatching if mapping is successful", func() {
-			wgMapper.OK = true
+		It("should schedule wavefront dispatching if mapping is successful",
+			func() {
+				wgMapper.OK = true
 
-			cu.processInputFromACE(11)
+				engine.EXPECT().
+					Schedule(gomock.AssignableToTypeOf(&WfDispatchEvent{}))
+				engine.EXPECT().
+					Schedule(gomock.AssignableToTypeOf(&WfDispatchEvent{}))
 
-			// 3 Events:
-			//   1. Tick event that is scheduled because the port receive
-			//   2. Wf Dispatch
-			//   3. Wf Dispatch end
-			Expect(engine.ScheduledEvent).To(HaveLen(3))
-		})
-		//
-		//It("should schedule more events if number of wavefronts is greater than 4", func() {
-		//	wgMapper.OK = true
-		//
-		//	wg := grid.WorkGroups[0]
-		//	wg.Wavefronts = make([]*kernels.Wavefront, 0)
-		//	for i := 0; i < 6; i++ {
-		//		wf := kernels.NewWavefront()
-		//		wf.WG = wg
-		//		wg.Wavefronts = append(wg.Wavefronts, wf)
-		//	}
-		//	req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-		//	req.SetRecvTime(10)
-		//	req.SetEventTime(10)
-		//
-		//	cu.Handle(req)
-		//
-		//	Expect(engine.ScheduledEvent).To(HaveLen(7))
-		//})
-		//
-		//It("should reply not OK if there are pending wavefronts", func() {
-		//	wf := grid.WorkGroups[0].Wavefronts[0]
-		//	cu.WfToDispatch[wf] = new(WfDispatchInfo)
-		//
-		//	wg := grid.WorkGroups[0]
-		//	req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-		//	req.SetRecvTime(10)
-		//	req.SetEventTime(10)
-		//
-		//	expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
-		//	expectedResponse.Ok = false
-		//	expectedResponse.SetSendTime(10)
-		//	expectedResponse.SetRecvTime(10)
-		//	connection.ExpectSend(expectedResponse, nil)
-		//
-		//	cu.Handle(req)
-		//
-		//	Expect(connection.AllExpectedSent()).To(BeTrue())
-		//})
-		//
-		//It("should reply not OK if mapping is failed", func() {
-		//	wgMapper.OK = false
-		//
-		//	wg := grid.WorkGroups[0]
-		//	req := gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-		//	req.SetRecvTime(10)
-		//	req.SetEventTime(10)
-		//
-		//	expectedResponse := gcn3.NewMapWGReq(cu.ToACE, nil, 10, wg)
-		//	expectedResponse.Ok = false
-		//	expectedResponse.SetRecvTime(10)
-		//	expectedResponse.SetSendTime(10)
-		//	connection.ExpectSend(expectedResponse, nil)
-		//
-		//	cu.Handle(req)
-		//
-		//	Expect(connection.AllExpectedSent()).To(BeTrue())
-		//})
+				cu.processInputFromACE(11)
+			})
+
 	})
 
 	Context("when handling DataReady from ToInstMem Port", func() {
@@ -194,9 +154,10 @@ var _ = Describe("ComputeUnit", func() {
 			wf.inst = inst
 			wf.PC = 0x1000
 
-			req := mem.NewReadReq(8, cu.ToInstMem, instMem.ToOutside, 0x100, 64)
+			req := mem.NewReadReq(8, cu.ToInstMem, instMem, 0x100, 64)
 
-			dataReady = mem.NewDataReadyRsp(10, instMem.ToOutside, cu.ToInstMem, req.ID)
+			dataReady = mem.NewDataReadyRsp(10,
+				instMem, cu.ToInstMem, req.ID)
 			dataReady.Data = []byte{
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
@@ -209,7 +170,7 @@ var _ = Describe("ComputeUnit", func() {
 			}
 			dataReady.SetRecvTime(10)
 			dataReady.SetEventTime(10)
-			cu.ToInstMem.Recv(dataReady)
+			toInstMem.EXPECT().Retrieve(gomock.Any()).Return(dataReady)
 
 			info := new(InstFetchReqInfo)
 			info.Wavefront = wf
@@ -247,7 +208,7 @@ var _ = Describe("ComputeUnit", func() {
 			req := mem.NewDataReadyRsp(10, nil, nil, read.ID)
 			req.Data = insts.Uint32ToBytes(32)
 			req.SetSendTime(10)
-			cu.ToScalarMem.Recv(req)
+			toScalarMem.EXPECT().Retrieve(gomock.Any()).Return(req)
 
 			cu.processInputFromScalarMem(10)
 
@@ -300,7 +261,7 @@ var _ = Describe("ComputeUnit", func() {
 			for i := 0; i < 4; i++ {
 				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
-			cu.ToVectorMem.Recv(dataReady)
+			toVectorMem.EXPECT().Retrieve(gomock.Any()).Return(dataReady)
 		})
 
 		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
@@ -372,7 +333,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.inFlightVectorMemAccess = append(cu.inFlightVectorMemAccess, info)
 
 			doneRsp = mem.NewDoneRsp(10, nil, nil, writeReq.ID)
-			cu.ToVectorMem.Recv(doneRsp)
+			toVectorMem.EXPECT().Retrieve(gomock.Any()).Return(doneRsp)
 		})
 
 		It("should handle vector data store return and the return is not the last one from an instruction", func() {

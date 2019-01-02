@@ -137,7 +137,10 @@ func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
 	}
 }
 
-func (cu *ComputeUnit) handleMapWGReq(now akita.VTimeInSec, req *gcn3.MapWGReq) error {
+func (cu *ComputeUnit) handleMapWGReq(
+	now akita.VTimeInSec,
+	req *gcn3.MapWGReq,
+) error {
 	//log.Printf("%s map wg at %.12f\n", cu.Name(), req.Time())
 
 	ok := false
