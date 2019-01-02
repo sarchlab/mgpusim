@@ -40,34 +40,34 @@ func (t *InstTracer) Func(
 	domain akita.Hookable,
 	info interface{},
 ) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	// t.mutex.Lock()
+	// defer t.mutex.Unlock()
 
-	instInfo := info.(*timing.InstHookInfo)
-	inst := instInfo.Inst
+	// instInfo := info.(*timing.InstHookInfo)
+	// inst := instInfo.Inst
 
-	task := t.insts[inst.ID]
-	if task == nil {
-		task = &Task{
-			ID:     inst.ID,
-			Detail: InstDetail{Inst: inst.String(nil)},
-		}
-		t.insts[inst.ID] = task
-	}
+	// task := t.insts[inst.ID]
+	// if task == nil {
+	// 	task = &Task{
+	// 		ID:     inst.ID,
+	// 		Detail: InstDetail{Inst: inst.String(nil)},
+	// 	}
+	// 	t.insts[inst.ID] = task
+	// }
 
-	// fmt.Fprintf(t.writer, "%s,%.15f,%s,%s,\"%s\"\n",
-	// 	inst.ID, instInfo.Now, "", instInfo.Stage, inst.String(nil))
-	step := &Step{
-		Start: float64(instInfo.Now),
-		Where: domain.(akita.Component).Name(),
-		What:  instInfo.Stage,
-	}
-	task.AddStep(step)
+	// // fmt.Fprintf(t.writer, "%s,%.15f,%s,%s,\"%s\"\n",
+	// // 	inst.ID, instInfo.Now, "", instInfo.Stage, inst.String(nil))
+	// step := &Step{
+	// 	Start: float64(instInfo.Now),
+	// 	Where: domain.(akita.Component).Name(),
+	// 	What:  instInfo.Stage,
+	// }
+	// task.AddStep(step)
 
-	if instInfo.Stage == "Completed" {
-		t.tracer.Trace(task)
-		delete(t.insts, inst.ID)
-	}
+	// if instInfo.Stage == "Completed" {
+	// 	t.tracer.Trace(task)
+	// 	delete(t.insts, inst.ID)
+	// }
 }
 
 type InstDetail struct {
