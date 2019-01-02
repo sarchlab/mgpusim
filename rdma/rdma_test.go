@@ -25,26 +25,26 @@ var _ = Describe("Engine", func() {
 	var (
 		mockCtrl *gomock.Controller
 
-		engine        akita.Engine
+		engine        *mock_akita.MockEngine
 		rdmaEngine    *Engine
 		toInside      *mock_akita.MockPort
 		toOutside     *mock_akita.MockPort
 		localModules  *cache.SingleLowModuleFinder
 		remoteModules *cache.SingleLowModuleFinder
-		localCache    *akita.MockComponent
-		remoteGPU     *akita.MockComponent
+		localCache    *mock_akita.MockPort
+		remoteGPU     *mock_akita.MockPort
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
-		engine = akita.NewMockEngine()
-		localCache = akita.NewMockComponent("LocalCache")
-		remoteGPU = akita.NewMockComponent("RemoveGPU")
+		engine = mock_akita.NewMockEngine(mockCtrl)
+		localCache = mock_akita.NewMockPort(mockCtrl)
+		remoteGPU = mock_akita.NewMockPort(mockCtrl)
 		localModules = new(cache.SingleLowModuleFinder)
-		localModules.LowModule = localCache.ToOutside
+		localModules.LowModule = localCache
 		remoteModules = new(cache.SingleLowModuleFinder)
-		remoteModules.LowModule = remoteGPU.ToOutside
+		remoteModules.LowModule = remoteGPU
 
 		rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
 
@@ -63,8 +63,7 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			read = mem.NewReadReq(6,
-				localCache.ToOutside, rdmaEngine.ToInside, 0x100, 64)
-			// rdmaEngine.ToInside.Recv(read)
+				localCache, rdmaEngine.ToOutside, 0x100, 64)
 		})
 
 		It("should send read to outside", func() {
@@ -96,7 +95,7 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			read = mem.NewReadReq(6,
-				remoteGPU.ToOutside, rdmaEngine.ToOutside, 0x100, 64)
+				remoteGPU, rdmaEngine.ToOutside, 0x100, 64)
 		})
 
 		It("should send read to outside", func() {
@@ -132,13 +131,13 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			readFromInside = mem.NewReadReq(4,
-				localCache.ToOutside, rdmaEngine.ToInside,
+				localCache, rdmaEngine.ToInside,
 				0x100, 64)
 			read = mem.NewReadReq(6,
-				rdmaEngine.ToOutside, remoteGPU.ToOutside,
+				rdmaEngine.ToOutside, remoteGPU,
 				0x100, 64)
 			rsp = mem.NewDataReadyRsp(9,
-				remoteGPU.ToOutside,
+				remoteGPU,
 				rdmaEngine.ToOutside,
 				read.GetID())
 			rdmaEngine.transactionsFromInside = append(
@@ -182,13 +181,13 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			readFromOutside = mem.NewReadReq(4,
-				localCache.ToOutside, rdmaEngine.ToInside,
+				localCache, rdmaEngine.ToInside,
 				0x100, 64)
 			read = mem.NewReadReq(6,
-				rdmaEngine.ToOutside, remoteGPU.ToOutside,
+				rdmaEngine.ToOutside, remoteGPU,
 				0x100, 64)
 			rsp = mem.NewDataReadyRsp(9,
-				remoteGPU.ToOutside,
+				remoteGPU,
 				rdmaEngine.ToOutside,
 				read.GetID())
 			rdmaEngine.transactionsFromOutside = append(
