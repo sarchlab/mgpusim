@@ -83,6 +83,7 @@ func (t *DriverCommandTracer) Func(
 	}
 }
 
-func (t *DriverCommandTracer) Finalize() {
+// Handle writes the simulation task to the db by the end of the simulation
+func (t *DriverCommandTracer) Handle(now akita.VTimeInSec) {
 	t.tracer.Trace(t.simulationTask)
 }
