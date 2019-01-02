@@ -1,9 +1,14 @@
 package timing
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	// . "github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
 type mockScratchpadPreparer struct {
@@ -42,145 +47,159 @@ func (alu *mockALU) Run(wf emu.InstEmuState) {
 
 var _ = Describe("Scalar Unit", func() {
 
-	// var (
-	// 	cu        *ComputeUnit
-	// 	sp        *mockScratchpadPreparer
-	// 	bu        *ScalarUnit
-	// 	alu       *mockALU
-	// 	scalarMem *akita.MockComponent
-	// 	conn      *akita.MockConnection
-	// )
+	var (
+		mockCtrl    *gomock.Controller
+		cu          *ComputeUnit
+		sp          *mockScratchpadPreparer
+		bu          *ScalarUnit
+		alu         *mockALU
+		scalarMem   *mock_akita.MockPort
+		toScalarMem *mock_akita.MockPort
+	)
 
-	// BeforeEach(func() {
-	// 	cu = NewComputeUnit("cu", nil)
-	// 	sp = new(mockScratchpadPreparer)
-	// 	alu = new(mockALU)
-	// 	bu = NewScalarUnit(cu, sp, alu)
-	// 	scalarMem = akita.NewMockComponent("ScalarMem")
-	// 	conn = akita.NewMockConnection()
+	BeforeEach(func() {
+		mockCtrl = gomock.NewController(GinkgoT())
+		cu = NewComputeUnit("cu", nil)
+		sp = new(mockScratchpadPreparer)
+		alu = new(mockALU)
+		bu = NewScalarUnit(cu, sp, alu)
 
-	// 	cu.ScalarMem = scalarMem.ToOutside
-	// 	conn.PlugIn(cu.ToScalarMem)
-	// })
+		scalarMem = mock_akita.NewMockPort(mockCtrl)
+		cu.ScalarMem = scalarMem
 
-	// It("should allow accepting wavefront", func() {
-	// 	// wave := new(Wavefront)
-	// 	bu.toRead = nil
-	// 	Expect(bu.CanAcceptWave()).To(BeTrue())
-	// })
+		toScalarMem = mock_akita.NewMockPort(mockCtrl)
+		cu.ToScalarMem = toScalarMem
+	})
 
-	// It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
-	// 	bu.toRead = new(Wavefront)
-	// 	Expect(bu.CanAcceptWave()).To(BeFalse())
-	// })
+	AfterEach(func() {
+		mockCtrl.Finish()
+	})
 
-	// It("should accept wave", func() {
-	// 	wave := new(Wavefront)
-	// 	bu.AcceptWave(wave, 10)
-	// 	Expect(bu.toRead).To(BeIdenticalTo(wave))
-	// })
+	It("should allow accepting wavefront", func() {
+		// wave := new(Wavefront)
+		bu.toRead = nil
+		Expect(bu.CanAcceptWave()).To(BeTrue())
+	})
 
-	// It("should run", func() {
-	// 	wave1 := new(Wavefront)
-	// 	wave2 := new(Wavefront)
-	// 	inst := NewInst(insts.NewInst())
-	// 	inst.FormatType = insts.SOP2
-	// 	wave2.inst = inst
-	// 	wave3 := new(Wavefront)
-	// 	wave3.State = WfRunning
+	It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
+		bu.toRead = new(Wavefront)
+		Expect(bu.CanAcceptWave()).To(BeFalse())
+	})
 
-	// 	bu.toRead = wave1
-	// 	bu.toExec = wave2
-	// 	bu.toWrite = wave3
+	It("should accept wave", func() {
+		wave := new(Wavefront)
+		bu.AcceptWave(wave, 10)
+		Expect(bu.toRead).To(BeIdenticalTo(wave))
+	})
 
-	// 	bu.Run(10)
+	It("should run", func() {
+		wave1 := new(Wavefront)
+		wave2 := new(Wavefront)
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.SOP2
+		wave2.inst = inst
+		wave3 := new(Wavefront)
+		wave3.State = WfRunning
 
-	// 	Expect(wave3.State).To(Equal(WfReady))
-	// 	Expect(bu.toWrite).To(BeIdenticalTo(wave2))
-	// 	Expect(bu.toExec).To(BeIdenticalTo(wave1))
-	// 	Expect(bu.toRead).To(BeNil())
+		bu.toRead = wave1
+		bu.toExec = wave2
+		bu.toWrite = wave3
 
-	// 	Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
-	// 	Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
-	// 	Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
-	// })
+		bu.Run(10)
 
-	// It("should run s_load_dword", func() {
-	// 	wave := NewWavefront(nil)
-	// 	bu.toExec = wave
+		Expect(wave3.State).To(Equal(WfReady))
+		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
+		Expect(bu.toExec).To(BeIdenticalTo(wave1))
+		Expect(bu.toRead).To(BeNil())
 
-	// 	inst := NewInst(insts.NewInst())
-	// 	inst.FormatType = insts.SMEM
-	// 	inst.Opcode = 0
-	// 	inst.Data = insts.NewSRegOperand(0, 0, 1)
-	// 	wave.inst = inst
+		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
+		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
+		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
+	})
 
-	// 	sp := wave.scratchpad.AsSMEM()
-	// 	sp.Base = 0x1000
-	// 	sp.Offset = 0x24
+	It("should run s_load_dword", func() {
+		wave := NewWavefront(nil)
+		bu.toExec = wave
 
-	// 	//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 4)
-	// 	//conn.ExpectSend(expectedReq, nil)
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.SMEM
+		inst.Opcode = 0
+		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		wave.inst = inst
 
-	// 	bu.Run(10)
+		sp := wave.scratchpad.AsSMEM()
+		sp.Base = 0x1000
+		sp.Offset = 0x24
 
-	// 	Expect(wave.State).To(Equal(WfReady))
-	// 	Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-	// 	Expect(len(cu.inFlightScalarMemAccess)).To(Equal(1))
-	// 	//Expect(conn.AllExpectedSent()).To(BeTrue())
-	// 	Expect(bu.readBuf).To(HaveLen(1))
-	// })
+		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 4)
+		//conn.ExpectSend(expectedReq, nil)
 
-	// It("should run s_load_dwordx2", func() {
-	// 	wave := NewWavefront(nil)
-	// 	bu.toExec = wave
+		bu.Run(10)
 
-	// 	inst := NewInst(insts.NewInst())
-	// 	inst.FormatType = insts.SMEM
-	// 	inst.Opcode = 1
-	// 	inst.Data = insts.NewSRegOperand(0, 0, 1)
-	// 	wave.inst = inst
+		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(len(cu.inFlightScalarMemAccess)).To(Equal(1))
+		//Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(bu.readBuf).To(HaveLen(1))
+	})
 
-	// 	sp := wave.scratchpad.AsSMEM()
-	// 	sp.Base = 0x1000
-	// 	sp.Offset = 0x24
+	It("should run s_load_dwordx2", func() {
+		wave := NewWavefront(nil)
+		bu.toExec = wave
 
-	// 	//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 8)
-	// 	//conn.ExpectSend(expectedReq, nil)
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.SMEM
+		inst.Opcode = 1
+		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		wave.inst = inst
 
-	// 	bu.Run(10)
+		sp := wave.scratchpad.AsSMEM()
+		sp.Base = 0x1000
+		sp.Offset = 0x24
 
-	// 	Expect(wave.State).To(Equal(WfReady))
-	// 	Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-	// 	//Expect(len(cu.inFlightMemAccess)).To(Equal(1))
-	// 	//Expect(conn.AllExpectedSent()).To(BeTrue())
-	// 	Expect(bu.readBuf).To(HaveLen(1))
-	// })
+		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 8)
+		//conn.ExpectSend(expectedReq, nil)
 
-	// It("should send request out", func() {
-	// 	req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
-	// 	bu.readBuf = append(bu.readBuf, req)
+		bu.Run(10)
 
-	// 	expectedReq := mem.NewReadReq(11, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
-	// 	conn.ExpectSend(expectedReq, nil)
+		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		//Expect(len(cu.inFlightMemAccess)).To(Equal(1))
+		//Expect(conn.AllExpectedSent()).To(BeTrue())
+		Expect(bu.readBuf).To(HaveLen(1))
+	})
 
-	// 	bu.Run(11)
+	It("should send request out", func() {
+		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem, 1024, 4)
+		bu.readBuf = append(bu.readBuf, req)
 
-	// 	Expect(bu.readBuf).To(HaveLen(0))
-	// 	Expect(conn.AllExpectedSent()).To(BeTrue())
-	// })
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+			req := r.(*mem.ReadReq)
+			Expect(req.Src()).To(BeIdenticalTo(cu.ToScalarMem))
+			Expect(req.Dst()).To(BeIdenticalTo(scalarMem))
+			Expect(req.Address).To(Equal(uint64(1024)))
+			Expect(req.MemByteSize).To(Equal(uint64(4)))
+		})
 
-	// It("should retry if send request failed", func() {
-	// 	req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
-	// 	bu.readBuf = append(bu.readBuf, req)
+		bu.Run(11)
 
-	// 	expectedReq := mem.NewReadReq(11, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
-	// 	err := akita.NewSendError()
-	// 	conn.ExpectSend(expectedReq, err)
+		Expect(bu.readBuf).To(HaveLen(0))
+	})
 
-	// 	bu.Run(11)
+	It("should retry if send request failed", func() {
+		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem, 1024, 4)
+		bu.readBuf = append(bu.readBuf, req)
 
-	// 	Expect(bu.readBuf).To(HaveLen(1))
-	// 	Expect(conn.AllExpectedSent()).To(BeTrue())
-	// })
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+			req := r.(*mem.ReadReq)
+			Expect(req.Src()).To(BeIdenticalTo(cu.ToScalarMem))
+			Expect(req.Dst()).To(BeIdenticalTo(scalarMem))
+			Expect(req.Address).To(Equal(uint64(1024)))
+			Expect(req.MemByteSize).To(Equal(uint64(4)))
+		}).Return(&akita.SendError{})
+
+		bu.Run(11)
+
+		Expect(bu.readBuf).To(HaveLen(1))
+	})
 })
