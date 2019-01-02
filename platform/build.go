@@ -144,6 +144,9 @@ func BuildNR9NanoPlatform(
 		tracer := &trace.Tracer{}
 		tracer.Init()
 		gpuBuilder.Tracer = tracer
+
+		driverTracer := trace.NewDriverCommandTracer(tracer)
+		gpuDriver.AcceptHook(driverTracer)
 	}
 
 	rdmaAddressTable := new(cache.BankedLowModuleFinder)
