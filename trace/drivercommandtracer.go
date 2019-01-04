@@ -32,7 +32,7 @@ func NewDriverCommandTracer(
 	return t
 }
 
-// Type of DriverCommandTracer claims the inst tracer is hooking to the timing.Wavefront type
+// Type of DriverCommandTracer claims that it hooks to the driver.Command type
 func (t *DriverCommandTracer) Type() reflect.Type {
 	return reflect.TypeOf((*driver.Command)(nil))
 }
@@ -57,7 +57,7 @@ func (t *DriverCommandTracer) Func(
 	driver := domain.(akita.Component)
 	if cmdInfo.IsStart {
 		task := &Task{
-			ID:           xid.New().String(),
+			ID:           cmd.GetID(),
 			ParentTaskID: t.simulationTask.ID,
 			Type:         "Command",
 			What:         reflect.TypeOf(cmd).String(),
@@ -79,11 +79,11 @@ func (t *DriverCommandTracer) Func(
 			t.simulationTask.End = task.End
 		}
 
-		t.tracer.Trace(task)
+		t.tracer.CreateTask(task)
 	}
 }
 
 // Handle writes the simulation task to the db by the end of the simulation
 func (t *DriverCommandTracer) Handle(now akita.VTimeInSec) {
-	t.tracer.Trace(t.simulationTask)
+	t.tracer.CreateTask(t.simulationTask)
 }

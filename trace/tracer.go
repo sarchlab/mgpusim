@@ -6,15 +6,18 @@ import (
 	"log"
 	"time"
 
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/rs/xid"
 )
 
+// A Tracer provides the service to write simulation traces to a database
 type Tracer struct {
 	client     *mongo.Client
 	collection *mongo.Collection
 }
 
+// Init initialize the connection to the database
 func (t *Tracer) Init() {
 	var err error
 
@@ -32,11 +35,29 @@ func (t *Tracer) Init() {
 	t.collection = t.client.Database(dbName).Collection("trace")
 }
 
-func (t *Tracer) Trace(task *Task) {
+// CreateTask adds a task into the database
+func (t *Tracer) CreateTask(task *Task) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	_, err := t.collection.InsertOne(ctx, task)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+// EndTask marks the end time of a task
+func (t *Tracer) EndTask(taskID string, endTime float64) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := t.collection.UpdateOne(ctx,
+		bson.D{{Key: "id", Value: taskID}},
+		bson.D{{
+			Key:   "$set",
+			Value: bson.D{{Key: "end", Value: endTime}},
+		}},
+	)
 	if err != nil {
 		log.Panic(err)
 	}

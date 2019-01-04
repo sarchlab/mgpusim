@@ -3,6 +3,7 @@ package driver
 import (
 	"log"
 
+	"github.com/rs/xid"
 	"gitlab.com/akita/mem/vm"
 )
 
@@ -324,6 +325,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 	src interface{},
 ) {
 	cmd := &MemCopyH2DCommand{
+		ID:  xid.New().String(),
 		Dst: dst,
 		Src: src,
 	}
@@ -338,6 +340,7 @@ func (d *Driver) EnqueueMemCopyD2H(
 	src GPUPtr,
 ) {
 	cmd := &MemCopyD2HCommand{
+		ID:  xid.New().String(),
 		Dst: dst,
 		Src: src,
 	}

@@ -207,6 +207,13 @@ func (d *Driver) processMemCopyH2DCommand(
 		sizeLeft -= sizeToCopy
 		addr += sizeToCopy
 		offset += sizeToCopy
+
+		d.InvokeHook(req, d, akita.AnyHookPos,
+			&ReqHookInfo{
+				Now:       now,
+				CommandID: cmd.ID,
+				EventType: "CREATE",
+			})
 	}
 	queue.IsRunning = true
 	d.NeedTick = true
@@ -234,6 +241,13 @@ func (d *Driver) processMemCopyH2DReturn(
 		}
 	}
 	copyCmd.Reqs = newReqs
+
+	d.InvokeHook(req, d, akita.AnyHookPos,
+		&ReqHookInfo{
+			Now:       now,
+			CommandID: copyCmd.ID,
+			EventType: "RETRIEVE",
+		})
 
 	if len(copyCmd.Reqs) == 0 {
 		cmdQueue.IsRunning = false
@@ -278,6 +292,13 @@ func (d *Driver) processMemCopyD2HCommand(
 		sizeLeft -= sizeToCopy
 		addr += sizeToCopy
 		offset += sizeToCopy
+
+		d.InvokeHook(req, d, akita.AnyHookPos,
+			&ReqHookInfo{
+				Now:       now,
+				CommandID: cmd.ID,
+				EventType: "CREATE",
+			})
 	}
 
 	queue.IsRunning = true
@@ -305,6 +326,13 @@ func (d *Driver) processMemCopyD2HReturn(
 		}
 	}
 	copyCmd.Reqs = newReqs
+
+	d.InvokeHook(req, d, akita.AnyHookPos,
+		&ReqHookInfo{
+			Now:       now,
+			CommandID: copyCmd.ID,
+			EventType: "RETRIEVE",
+		})
 
 	if len(copyCmd.Reqs) == 0 {
 
@@ -351,6 +379,13 @@ func (d *Driver) processLaunchKernelCommand(
 			IsStart: true,
 			Queue:   queue,
 		})
+
+	d.InvokeHook(req, d, akita.AnyHookPos,
+		&ReqHookInfo{
+			Now:       now,
+			CommandID: cmd.ID,
+			EventType: "CREATE",
+		})
 }
 
 func (d *Driver) processLaunchKernelReturn(
@@ -370,6 +405,13 @@ func (d *Driver) processLaunchKernelReturn(
 			Now:     now,
 			IsStart: false,
 			Queue:   cmdQueue,
+		})
+
+	d.InvokeHook(req, d, akita.AnyHookPos,
+		&ReqHookInfo{
+			Now:       now,
+			CommandID: cmd.GetID(),
+			EventType: "RETRIEVE",
 		})
 }
 
@@ -393,6 +435,13 @@ func (d *Driver) processFlushCommand(
 			IsStart: true,
 			Queue:   queue,
 		})
+
+	d.InvokeHook(req, d, akita.AnyHookPos,
+		&ReqHookInfo{
+			Now:       now,
+			CommandID: cmd.GetID(),
+			EventType: "CREATE",
+		})
 }
 
 func (d *Driver) processFlushReturn(
@@ -410,6 +459,13 @@ func (d *Driver) processFlushReturn(
 			Now:     now,
 			IsStart: false,
 			Queue:   cmdQueue,
+		})
+
+	d.InvokeHook(req, d, akita.AnyHookPos,
+		&ReqHookInfo{
+			Now:       now,
+			CommandID: cmd.GetID(),
+			EventType: "RETRIEVE",
 		})
 }
 
