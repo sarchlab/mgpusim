@@ -53,7 +53,7 @@ func (t *GPUTracer) Func(
 
 	if req.Src() == d.Driver {
 		t.tracer.CreateTask(&Task{
-			ID:           req.GetID() + "." + d.Name(),
+			ID:           req.GetID() + ".GPU",
 			ParentTaskID: req.GetID(),
 			Type:         "Req",
 			What:         reflect.TypeOf(req).String(),
@@ -61,7 +61,7 @@ func (t *GPUTracer) Func(
 			Start:        float64(req.RecvTime()),
 		})
 	} else {
-		t.tracer.EndTask(req.GetID()+"."+d.Name(), float64(req.RecvTime()))
+		t.tracer.EndTask(req.GetID()+".GPU", float64(req.RecvTime()))
 	}
 
 }
