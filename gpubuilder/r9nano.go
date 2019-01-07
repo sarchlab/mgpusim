@@ -34,6 +34,7 @@ type R9NanoGPUBuilder struct {
 	EnableISADebug    bool
 	EnableInstTracing bool
 	EnableMemTracing  bool
+	EnableVisTracing  bool
 
 	GPU                  *gcn3.GPU
 	InternalConn         *akita.DirectConnection
@@ -77,6 +78,11 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.ExternalConn.PlugIn(b.GPU.ToDriver)
 
 	b.GPU.InternalConnection = b.InternalConn
+
+	if b.EnableVisTracing {
+		gpuTracer := trace.NewGPUTracer(b.Tracer)
+		b.GPU.AcceptHook(gpuTracer)
+	}
 
 	return b.GPU
 }
