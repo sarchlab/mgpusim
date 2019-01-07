@@ -123,6 +123,11 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.CP.ToDispatcher)
 	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.ACE.ToCUs)
+
+	if b.EnableVisTracing {
+		dispatcherTracer := trace.NewDispatcherTracer(b.Tracer)
+		b.ACE.AcceptHook(dispatcherTracer)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildMemSystem() {

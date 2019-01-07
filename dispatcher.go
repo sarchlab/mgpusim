@@ -10,6 +10,21 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
+// HookPosKernelStart is a hook position where the dispatcher start to
+// dispatch a kernel
+var HookPosKernelStart = &struct{ name string }{"KernelStart"}
+
+// HookPosKernelEnd is a hook position where the dispatcher knows that
+// all the work-groups have been completed.
+var HookPosKernelEnd = &struct{ name string }{"KernelEnd"}
+
+// DispatcherHookInfo is the information provided for the hooks by the
+// Dispatcher
+type DispatcherHookInfo struct {
+	Now akita.VTimeInSec
+	Pos akita.HookPos
+}
+
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
 // ask the ComputeUnit to reserve resources for the work-group
 type MapWGReq struct {
@@ -239,6 +254,12 @@ func (d *Dispatcher) initKernelDispatching(req *LaunchKernelReq) {
 	d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
 
 	d.dispatchingCUID = -1
+
+	d.InvokeHook(req, d, HookPosKernelStart,
+		&DispatcherHookInfo{
+			Now: req.RecvTime(),
+			Pos: HookPosKernelStart,
+		})
 }
 
 func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {
@@ -297,6 +318,12 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	d.InvokeHook(req, d, HookPosKernelEnd,
+		&DispatcherHookInfo{
+			Now: req.RecvTime(),
+			Pos: HookPosKernelEnd,
+		})
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
