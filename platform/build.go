@@ -136,6 +136,7 @@ func BuildNR9NanoPlatform(
 		EnableISADebug:    DebugISA,
 		EnableMemTracing:  TraceMem,
 		EnableInstTracing: TraceVis,
+		EnableVisTracing:  TraceVis,
 		MMU:               mmu,
 		ExternalConn:      connection,
 	}
