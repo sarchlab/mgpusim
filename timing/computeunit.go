@@ -58,9 +58,8 @@ type ComputeUnit struct {
 
 // Handle processes that events that are scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt akita.Event) error {
-	cu.Lock()
-
 	cu.InvokeHook(evt, cu, akita.BeforeEventHookPos, nil)
+	cu.Lock()
 
 	switch evt := evt.(type) {
 	case akita.TickEvent:
@@ -359,7 +358,10 @@ func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
 	}
 }
 
-func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
+func (cu *ComputeUnit) handleScalarDataLoadReturn(
+	now akita.VTimeInSec,
+	rsp *mem.DataReadyRsp,
+) {
 	if len(cu.inFlightScalarMemAccess) == 0 {
 		log.Panic("CU is not loading scalar data")
 	}
