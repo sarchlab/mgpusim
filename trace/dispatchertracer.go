@@ -61,9 +61,23 @@ func (t *DispatcherTracer) Func(
 			Type:         "Req",
 			What:         reflect.TypeOf(req).String(),
 			Where:        domain.(akita.Component).Name(),
-			Start:        float64(req.RecvTime()),
+			Start:        float64(hInfo.Now),
 		})
 	case gcn3.HookPosKernelEnd:
-		t.tracer.EndTask(req.GetID()+".Kernel", float64(req.RecvTime()))
+		t.tracer.EndTask(req.GetID()+".Kernel", float64(hInfo.Now))
+	case gcn3.HookPosWGMapped:
+		req := req.(*gcn3.MapWGReq)
+		t.tracer.CreateTask(&Task{
+			ID:           req.GetID(),
+			ParentTaskID: hInfo.KernelDispatchingReq.ID + ".Kernel",
+			Type:         "Req",
+			What:         "WG_Dispatch",
+			Where:        domain.(akita.Component).Name(),
+			Start:        float64(hInfo.Now),
+		})
+	case gcn3.HookPosWGFailed:
+		t.tracer.EndTask(req.GetID(), float64(hInfo.Now))
+	case gcn3.HookPosWGCompleted:
+		t.tracer.EndTask(req.GetID(), float64(hInfo.Now))
 	}
 }
