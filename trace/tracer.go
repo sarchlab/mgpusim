@@ -33,9 +33,92 @@ func (t *Tracer) Init() {
 	fmt.Printf("Trace collected in db %s\n", dbName)
 
 	t.collection = t.client.Database(dbName).Collection("trace")
-	_, err = t.collection.Indexes().CreateOne(ctx,
+
+	t.createIndexForID()
+	t.createIndexForParentTaskID()
+	t.createIndexForType()
+	t.createIndexForWhere()
+	t.createIndexForStart()
+	t.createIndexForEnd()
+}
+
+func (t *Tracer) createIndexForID() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := t.collection.Indexes().CreateOne(ctx,
 		mongo.IndexModel{
-			Keys:bson.D{{Key:"id", Value:"hashed"}},
+			Keys: bson.D{{Key: "id", Value: "hashed"}},
+		},
+	)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (t *Tracer) createIndexForParentTaskID() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := t.collection.Indexes().CreateOne(ctx,
+		mongo.IndexModel{
+			Keys: bson.D{{Key: "parenttaskid", Value: "hashed"}},
+		},
+	)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (t *Tracer) createIndexForType() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := t.collection.Indexes().CreateOne(ctx,
+		mongo.IndexModel{
+			Keys: bson.D{{Key: "type", Value: "hashed"}},
+		},
+	)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (t *Tracer) createIndexForWhere() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := t.collection.Indexes().CreateOne(ctx,
+		mongo.IndexModel{
+			Keys: bson.D{{Key: "where", Value: "hashed"}},
+		},
+	)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (t *Tracer) createIndexForStart() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := t.collection.Indexes().CreateOne(ctx,
+		mongo.IndexModel{
+			Keys: bson.D{{Key: "start", Value: 1}},
+		},
+	)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (t *Tracer) createIndexForEnd() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := t.collection.Indexes().CreateOne(ctx,
+		mongo.IndexModel{
+			Keys: bson.D{{Key: "end", Value: 1}},
 		},
 	)
 	if err != nil {
