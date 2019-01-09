@@ -14,6 +14,14 @@ import (
 	"gitlab.com/akita/mem/cache"
 )
 
+// Define possible hook positions
+const (
+	HookPosWGStart = "WG Start"
+	HookPosWGEnd   = "WG End"
+	HookPosWfStart = "Wf Start"
+	HookPosWfEnd   = "Wf End"
+)
+
 // A ComputeUnit in the timing package provides a detailed and accurate
 // simulation of a GCN3 ComputeUnit
 type ComputeUnit struct {
