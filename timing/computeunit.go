@@ -214,6 +214,11 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 		cu.WfDispatcher.DispatchWf(now, wf)
 		delete(cu.WfToDispatch, wf.Wavefront)
 		wf.State = WfReady
+
+		cu.InvokeHook(wf, cu, HookPosWfStart, &CUHookInfo{
+			Now: evt.Time(),
+			Pos: HookPosWfStart,
+		})
 	}
 
 	// Respond ACK
@@ -238,6 +243,11 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	wf := evt.Wf
 	wg := wf.WG
 	wf.State = WfCompleted
+
+	cu.InvokeHook(wf, cu, HookPosWfEnd, &CUHookInfo{
+		Now: evt.Time(),
+		Pos: HookPosWfEnd,
+	})
 
 	if cu.isAllWfInWGCompleted(wg) {
 		ok := cu.sendWGCompletionMessage(evt, wg)
