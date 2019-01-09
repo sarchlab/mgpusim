@@ -22,6 +22,11 @@ const (
 	HookPosWfEnd   = "Wf End"
 )
 
+type CUHookInfo struct {
+	Now akita.VTimeInSec
+	Pos interface{}
+}
+
 // A ComputeUnit in the timing package provides a detailed and accurate
 // simulation of a GCN3 ComputeUnit
 type ComputeUnit struct {
@@ -179,6 +184,11 @@ func (cu *ComputeUnit) handleMapWGReq(
 		evt.IsLastInWG = true
 		cu.Engine.Schedule(evt)
 
+		cu.InvokeHook(req, cu, HookPosWGStart, &CUHookInfo{
+			Now: now,
+			Pos: HookPosWGStart,
+		})
+
 		return nil
 	}
 
@@ -233,6 +243,11 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
 			cu.clearWGResource(wg)
+
+			cu.InvokeHook(wg, cu, HookPosWGEnd, &CUHookInfo{
+				Now: evt.Time(),
+				Pos: HookPosWGEnd,
+			})
 		}
 
 		if !cu.hasMoreWfsToRun() {
