@@ -33,6 +33,14 @@ func (t *Tracer) Init() {
 	fmt.Printf("Trace collected in db %s\n", dbName)
 
 	t.collection = t.client.Database(dbName).Collection("trace")
+	_, err = t.collection.Indexes().CreateOne(ctx,
+		mongo.IndexModel{
+			Keys:bson.D{{Key:"id", Value:"hashed"}},
+		},
+	)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 // CreateTask adds a task into the database
