@@ -133,8 +133,10 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should mark CU busy if MapWGReq failed", func() {
-		dispatcher.dispatchingCUID = 0
 		wg := grid.WorkGroups[0]
+		dispatcher.dispatchingCUID = 0
+		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs, wg)
+
 		req := NewMapWGReq(cu0, dispatcher.ToCUs, 10, wg)
 		req.SetRecvTime(11)
 		req.Ok = false
