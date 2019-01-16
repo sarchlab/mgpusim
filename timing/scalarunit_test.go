@@ -1,9 +1,11 @@
 package timing
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/mem"
@@ -46,24 +48,31 @@ func (alu *mockALU) Run(wf emu.InstEmuState) {
 var _ = Describe("Scalar Unit", func() {
 
 	var (
-		cu        *ComputeUnit
-		sp        *mockScratchpadPreparer
-		bu        *ScalarUnit
-		alu       *mockALU
-		scalarMem *akita.MockComponent
-		conn      *akita.MockConnection
+		mockCtrl    *gomock.Controller
+		cu          *ComputeUnit
+		sp          *mockScratchpadPreparer
+		bu          *ScalarUnit
+		alu         *mockALU
+		scalarMem   *mock_akita.MockPort
+		toScalarMem *mock_akita.MockPort
 	)
 
 	BeforeEach(func() {
+		mockCtrl = gomock.NewController(GinkgoT())
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
 		bu = NewScalarUnit(cu, sp, alu)
-		scalarMem = akita.NewMockComponent("ScalarMem")
-		conn = akita.NewMockConnection()
 
-		cu.ScalarMem = scalarMem.ToOutside
-		conn.PlugIn(cu.ToScalarMem)
+		scalarMem = mock_akita.NewMockPort(mockCtrl)
+		cu.ScalarMem = scalarMem
+
+		toScalarMem = mock_akita.NewMockPort(mockCtrl)
+		cu.ToScalarMem = toScalarMem
+	})
+
+	AfterEach(func() {
+		mockCtrl.Finish()
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -161,29 +170,36 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should send request out", func() {
-		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
+		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem, 1024, 4)
 		bu.readBuf = append(bu.readBuf, req)
 
-		expectedReq := mem.NewReadReq(11, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
-		conn.ExpectSend(expectedReq, nil)
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+			req := r.(*mem.ReadReq)
+			Expect(req.Src()).To(BeIdenticalTo(cu.ToScalarMem))
+			Expect(req.Dst()).To(BeIdenticalTo(scalarMem))
+			Expect(req.Address).To(Equal(uint64(1024)))
+			Expect(req.MemByteSize).To(Equal(uint64(4)))
+		})
 
 		bu.Run(11)
 
 		Expect(bu.readBuf).To(HaveLen(0))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
 	})
 
 	It("should retry if send request failed", func() {
-		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
+		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem, 1024, 4)
 		bu.readBuf = append(bu.readBuf, req)
 
-		expectedReq := mem.NewReadReq(11, cu.ToScalarMem, scalarMem.ToOutside, 1024, 4)
-		err := akita.NewSendError()
-		conn.ExpectSend(expectedReq, err)
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+			req := r.(*mem.ReadReq)
+			Expect(req.Src()).To(BeIdenticalTo(cu.ToScalarMem))
+			Expect(req.Dst()).To(BeIdenticalTo(scalarMem))
+			Expect(req.Address).To(Equal(uint64(1024)))
+			Expect(req.MemByteSize).To(Equal(uint64(4)))
+		}).Return(&akita.SendError{})
 
 		bu.Run(11)
 
 		Expect(bu.readBuf).To(HaveLen(1))
-		Expect(conn.AllExpectedSent()).To(BeTrue())
 	})
 })

@@ -1,6 +1,7 @@
 package kernels
 
 import (
+	"github.com/rs/xid"
 	"gitlab.com/akita/gcn3/insts"
 )
 
@@ -24,6 +25,7 @@ func NewGrid() *Grid {
 
 // A WorkGroup is part of the kernel that runs on one ComputeUnit
 type WorkGroup struct {
+	UID                             string
 	Grid                            *Grid
 	SizeX, SizeY, SizeZ             int
 	IDX, IDY, IDZ                   int
@@ -36,6 +38,7 @@ type WorkGroup struct {
 // NewWorkGroup creates a workgroup object
 func NewWorkGroup() *WorkGroup {
 	wg := new(WorkGroup)
+	wg.UID = xid.New().String()
 	wg.Wavefronts = make([]*Wavefront, 0)
 	wg.WorkItems = make([]*WorkItem, 0)
 	return wg
@@ -47,6 +50,7 @@ func (wg *WorkGroup) CodeObject() *insts.HsaCo {
 
 // A Wavefront is a collection of
 type Wavefront struct {
+	UID           string
 	WG            *WorkGroup
 	FirstWiFlatID int
 	WorkItems     []*WorkItem
@@ -55,6 +59,7 @@ type Wavefront struct {
 // NewWavefront returns a new Wavefront
 func NewWavefront() *Wavefront {
 	wf := new(Wavefront)
+	wf.UID = xid.New().String()
 	wf.WorkItems = make([]*WorkItem, 0, 64)
 	return wf
 }

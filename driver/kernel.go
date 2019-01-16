@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"reflect"
 
+	"github.com/rs/xid"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
@@ -105,6 +106,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 	dPacket GPUPtr,
 ) {
 	cmd := &LaunchKernelCommand{
+		ID:         xid.New().String(),
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,
@@ -113,6 +115,8 @@ func (d *Driver) enqueueLaunchKernelCommand(
 }
 
 func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
-	cmd := &FlushCommand{}
+	cmd := &FlushCommand{
+		ID: xid.New().String(),
+	}
 	queue.Commands = append(queue.Commands, cmd)
 }

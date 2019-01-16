@@ -10,6 +10,34 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
+// HookPosKernelStart is a hook position where the dispatcher start to
+// dispatch a kernel
+var HookPosKernelStart = &struct{ name string }{"KernelStart"}
+
+// HookPosKernelEnd is a hook position where the dispatcher knows that
+// all the work-groups have been completed.
+var HookPosKernelEnd = &struct{ name string }{"KernelEnd"}
+
+// HookPosWGMapped is a hook position where the dispatcher sends a map
+// WG request to a CU.
+var HookPosWGMapped = &struct{ name string }{"WG Mapped"}
+
+// HookPosWGFailed is a hook position where the dispatcher receives the
+// notification that a WG is failed to dispatch.
+var HookPosWGFailed = &struct{ name string }{"WG Completed"}
+
+// HookPosWGCompleted is a hook position where the dispatcher receives the
+// notification that a WG is completed.
+var HookPosWGCompleted = &struct{ name string }{"WG Completed"}
+
+// DispatcherHookInfo is the information provided for the hooks by the
+// Dispatcher
+type DispatcherHookInfo struct {
+	Now                  akita.VTimeInSec
+	Pos                  akita.HookPos
+	KernelDispatchingReq *LaunchKernelReq
+}
+
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
 // ask the ComputeUnit to reserve resources for the work-group
 type MapWGReq struct {
@@ -132,6 +160,7 @@ type Dispatcher struct {
 	dispatchingReq  *LaunchKernelReq
 	dispatchingGrid *kernels.Grid
 	dispatchingWGs  []*kernels.WorkGroup
+	dispatchedWGs   map[string]*MapWGReq
 	completedWGs    []*kernels.WorkGroup
 	dispatchingWfs  []*kernels.Wavefront
 	dispatchingCUID int
@@ -227,7 +256,14 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	}
 	//fmt.Printf("Map WG to %d\n", cuID)
 
+	d.dispatchedWGs[d.dispatchingWGs[0].UID] = req
 	d.dispatchingCUID = cuID
+
+	d.InvokeHook(req, d, HookPosWGMapped, &DispatcherHookInfo{
+		Now:                  now,
+		Pos:                  HookPosWGMapped,
+		KernelDispatchingReq: d.dispatchingReq,
+	})
 
 	return nil
 }
@@ -239,6 +275,12 @@ func (d *Dispatcher) initKernelDispatching(req *LaunchKernelReq) {
 	d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
 
 	d.dispatchingCUID = -1
+
+	d.InvokeHook(req, d, HookPosKernelStart,
+		&DispatcherHookInfo{
+			Now: req.RecvTime(),
+			Pos: HookPosKernelStart,
+		})
 }
 
 func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {
@@ -254,6 +296,13 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 		d.state = DispatcherToMapWG
 		d.cuBusy[d.CUs[d.dispatchingCUID]] = true
 		d.scheduleMapWG(now)
+
+		delete(d.dispatchedWGs, d.dispatchingWGs[0].UID)
+
+		d.InvokeHook(req, d, HookPosWGMapped, &DispatcherHookInfo{
+			Now: now,
+			Pos: HookPosWGFailed,
+		})
 		return nil
 	}
 
@@ -270,6 +319,14 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	// fmt.Printf("handle req id: %s\n", mesg.GetID())
 	d.completedWGs = append(d.completedWGs, mesg.WG)
 	d.cuBusy[mesg.Src()] = false
+
+	mapWGReq := d.dispatchedWGs[mesg.WG.UID]
+	delete(d.dispatchedWGs, mesg.WG.UID)
+	d.InvokeHook(mapWGReq, d, HookPosWGCompleted, &DispatcherHookInfo{
+		Now: mesg.Time(),
+		Pos: HookPosWGCompleted,
+	})
+
 	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
 		d.replyKernelFinish(mesg.Time())
 		return nil
@@ -297,6 +354,12 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	d.InvokeHook(req, d, HookPosKernelEnd,
+		&DispatcherHookInfo{
+			Now: req.RecvTime(),
+			Pos: HookPosKernelEnd,
+		})
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
@@ -336,9 +399,7 @@ func NewDispatcher(
 
 	d.CUs = make([]akita.Port, 0)
 	d.cuBusy = make(map[akita.Port]bool, 0)
-	d.dispatchingWGs = make([]*kernels.WorkGroup, 0)
-	d.completedWGs = make([]*kernels.WorkGroup, 0)
-	d.dispatchingWfs = make([]*kernels.Wavefront, 0)
+	d.dispatchedWGs = make(map[string]*MapWGReq)
 
 	d.ToCommandProcessor = akita.NewLimitNumReqPort(d, 1)
 	d.ToCUs = akita.NewLimitNumReqPort(d, 1)

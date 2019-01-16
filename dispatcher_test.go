@@ -1,9 +1,11 @@
 package gcn3
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
@@ -32,36 +34,42 @@ func prepareGrid() *kernels.Grid {
 
 var _ = Describe("Dispatcher", func() {
 	var (
-		dispatcher             *Dispatcher
-		engine                 *akita.MockEngine
-		grid                   *kernels.Grid
-		gridBuilder            *mockGridBuilder
-		toCommandProcessorConn *akita.MockConnection
-		toCUsConn              *akita.MockConnection
+		mockCtrl    *gomock.Controller
+		dispatcher  *Dispatcher
+		engine      *mock_akita.MockEngine
+		grid        *kernels.Grid
+		gridBuilder *mockGridBuilder
 
-		cu0 *akita.MockComponent
-		cu1 *akita.MockComponent
+		toCommandProcessor *mock_akita.MockPort
+		toCUs              *mock_akita.MockPort
+		cu0                *mock_akita.MockPort
+		cu1                *mock_akita.MockPort
 	)
 
 	BeforeEach(func() {
-		engine = akita.NewMockEngine()
+		mockCtrl = gomock.NewController(GinkgoT())
+		engine = mock_akita.NewMockEngine(mockCtrl)
 
 		grid = prepareGrid()
 		gridBuilder = new(mockGridBuilder)
 		gridBuilder.Grid = grid
 
+		toCommandProcessor = mock_akita.NewMockPort(mockCtrl)
+		toCUs = mock_akita.NewMockPort(mockCtrl)
+
 		dispatcher = NewDispatcher("dispatcher", engine, gridBuilder)
 		dispatcher.Freq = 1
+		dispatcher.ToCUs = toCUs
+		dispatcher.ToCommandProcessor = toCommandProcessor
 
-		toCommandProcessorConn = akita.NewMockConnection()
-		toCommandProcessorConn.PlugIn(dispatcher.ToCommandProcessor)
-		toCUsConn = akita.NewMockConnection()
-		toCUsConn.PlugIn(dispatcher.ToCUs)
+		cu0 = mock_akita.NewMockPort(mockCtrl)
+		cu1 = mock_akita.NewMockPort(mockCtrl)
+		dispatcher.RegisterCU(cu0)
+		dispatcher.RegisterCU(cu1)
+	})
 
-		cu0 = akita.NewMockComponent("cu0")
-		cu1 = akita.NewMockComponent("cu1")
-		dispatcher.RegisterCU(cu0.ToOutside)
-		dispatcher.RegisterCU(cu1.ToOutside)
+	AfterEach(func() {
+		mockCtrl.Finish()
 	})
 
 	It("start kernel launching", func() {
@@ -70,65 +78,41 @@ var _ = Describe("Dispatcher", func() {
 		req := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
 		req.SetRecvTime(10)
 
+		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
+
 		dispatcher.Handle(req)
-
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
-
-	//It("should reject dispatching if it is dispatching another kernel", func() {
-	//	req := NewLaunchKernelReq(5, nil, dispatcher.ToCP)
-	//	dispatcher.dispatchingReq = req
-	//
-	//	anotherReq := NewLaunchKernelReq(10, nil, dispatcher.ToCP)
-	//	anotherReq.SetRecvTime(10)
-	//
-	//	expectedReq := NewLaunchKernelReq(10, dispatcher.ToCP, nil)
-	//	expectedReq.OK = false
-	//	expectedReq.SetSendTime(10)
-	//	expectedReq.SetRecvTime(10)
-	//	toCommandProcessorConn.ExpectSend(expectedReq, nil)
-	//
-	//	dispatcher.Handle(anotherReq)
-	//
-	//	Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
-	//	Expect(len(engine.ScheduledEvent)).To(Equal(0))
-	//})
 
 	It("should map work-group", func() {
 		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
 		dispatcher.dispatchingReq = dispatchingReq
 
-		wg := grid.WorkGroups[0]
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)
 		dispatcher.dispatchingCUID = -1
 
-		expectedReq := NewMapWGReq(dispatcher.ToCUs, cu0.ToOutside, 10, wg)
-		toCUsConn.ExpectSend(expectedReq, nil)
+		toCUs.EXPECT().Send(gomock.AssignableToTypeOf(&MapWGReq{}))
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
-
-		Expect(toCUsConn.AllExpectedSent()).To(BeTrue())
 	})
 
 	It("should reschedule work-group mapping if sending failed", func() {
 		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
 		dispatcher.dispatchingReq = dispatchingReq
 
-		wg := grid.WorkGroups[0]
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups...)
 		dispatcher.dispatchingCUID = -1
 
-		expectedReq := NewMapWGReq(dispatcher.ToCUs, cu0.ToOutside, 10, wg)
-		toCUsConn.ExpectSend(expectedReq, akita.NewSendError())
+		toCUs.EXPECT().
+			Send(gomock.AssignableToTypeOf(&MapWGReq{})).
+			Return(&akita.SendError{})
+
+		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
-
-		Expect(toCUsConn.AllExpectedSent()).To(BeTrue())
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
 	It("should do nothing if all work-groups are mapped", func() {
@@ -136,62 +120,63 @@ var _ = Describe("Dispatcher", func() {
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
-
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
 	})
 
 	It("should do nothing if all cus are busy", func() {
-		dispatcher.cuBusy[cu0.ToOutside] = true
-		dispatcher.cuBusy[cu1.ToOutside] = true
+		dispatcher.cuBusy[cu0] = true
+		dispatcher.cuBusy[cu1] = true
 		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
 			grid.WorkGroups[0])
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
-
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
 	})
 
 	It("should mark CU busy if MapWGReq failed", func() {
-		dispatcher.dispatchingCUID = 0
 		wg := grid.WorkGroups[0]
-		req := NewMapWGReq(cu0.ToOutside, dispatcher.ToCUs, 10, wg)
+		dispatcher.dispatchingCUID = 0
+		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs, wg)
+
+		req := NewMapWGReq(cu0, dispatcher.ToCUs, 10, wg)
 		req.SetRecvTime(11)
 		req.Ok = false
 
-		dispatcher.Handle(req)
-
-		Expect(dispatcher.cuBusy[cu0.ToOutside]).To(BeTrue())
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
-	})
-
-	It("should map another work-group when finished mapping a work-group", func() {
-		dispatcher.dispatchingCUID = 0
-		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
-			grid.WorkGroups...)
-
-		wg := grid.WorkGroups[0]
-		req := NewMapWGReq(cu0.ToOutside, dispatcher.ToCUs, 10, wg)
-		req.SetRecvTime(11)
-		req.Ok = true
+		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
 
 		dispatcher.Handle(req)
 
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
+		Expect(dispatcher.cuBusy[cu0]).To(BeTrue())
 	})
+
+	It("should map another work-group when finished mapping a work-group",
+		func() {
+			dispatcher.dispatchingCUID = 0
+			dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
+				grid.WorkGroups...)
+
+			wg := grid.WorkGroups[0]
+			req := NewMapWGReq(cu0, dispatcher.ToCUs, 10, wg)
+			req.SetRecvTime(11)
+			req.Ok = true
+
+			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
+
+			dispatcher.Handle(req)
+		})
 
 	It("should continue dispatching when receiving WGFinishMesg", func() {
 		dispatcher.dispatchingGrid = grid
-		dispatcher.cuBusy[cu0.ToOutside] = true
+		dispatcher.cuBusy[cu0] = true
 
 		wg := grid.WorkGroups[0]
-		req := NewWGFinishMesg(cu0.ToOutside, dispatcher.ToCUs, 10, wg)
+		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
 		req.SetRecvTime(11)
+
+		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
 
 		dispatcher.Handle(req)
 
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
-		Expect(dispatcher.cuBusy[cu0.ToOutside]).To(BeFalse())
+		Expect(dispatcher.cuBusy[cu0]).To(BeFalse())
 	})
 
 	It("should not continue dispatching when receiving WGFinishMesg and "+
@@ -200,11 +185,9 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.state = DispatcherToMapWG
 
 		wg := grid.WorkGroups[0]
-		req := NewWGFinishMesg(cu0.ToOutside, dispatcher.ToCUs, 10, wg)
+		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
 
 		dispatcher.Handle(req)
-
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
 	})
 
 	It("should send the KernelLaunchingReq back to the command processor, "+
@@ -215,16 +198,16 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatchingGrid = grid
 
 		wg := grid.WorkGroups[0]
-		req := NewWGFinishMesg(cu0.ToOutside, dispatcher.ToCUs, 10, wg)
+		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
 
 		dispatcher.completedWGs = append(dispatcher.completedWGs,
 			grid.WorkGroups[1:]...)
 
-		toCommandProcessorConn.ExpectSend(kernelLaunchingReq, nil)
+		toCommandProcessor.EXPECT().
+			Send(gomock.AssignableToTypeOf(&LaunchKernelReq{}))
+
 		dispatcher.Handle(req)
 
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
-		Expect(toCommandProcessorConn.AllExpectedSent()).To(BeTrue())
 		Expect(dispatcher.dispatchingReq).To(BeNil())
 	})
 })

@@ -3,21 +3,18 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
 
 var _ = Describe("WfDispatcher", func() {
 	var (
-		engine       *akita.MockEngine
 		cu           *ComputeUnit
 		wfDispatcher *WfDispatcherImpl
 	)
 
 	BeforeEach(func() {
-		engine = akita.NewMockEngine()
-		cu = NewComputeUnit("cu", engine)
+		cu = NewComputeUnit("cu", nil)
 		cu.Freq = 1
 
 		sRegFile := NewSimpleRegisterFile(uint64(3200*4), 0)
