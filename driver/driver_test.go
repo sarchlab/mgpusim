@@ -146,7 +146,8 @@ var _ = Describe("Driver", func() {
 				Retrieve(akita.VTimeInSec(11)).
 				Return(req)
 
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+			engine.EXPECT().Schedule(
+				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
@@ -179,7 +180,8 @@ var _ = Describe("Driver", func() {
 				Retrieve(akita.VTimeInSec(11)).
 				Return(nil)
 
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+			engine.EXPECT().Schedule(
+				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
@@ -192,8 +194,10 @@ var _ = Describe("Driver", func() {
 	Context("process MemCopyD2H return", func() {
 		It("should remove request", func() {
 			data := uint64(0)
-			req := gcn3.NewMemCopyD2HReq(9, nil, toGPUs, 0x100, []byte{1, 0, 0, 0})
-			req2 := gcn3.NewMemCopyD2HReq(9, nil, toGPUs, 0x104, []byte{1, 0, 0, 0})
+			req := gcn3.NewMemCopyD2HReq(
+				9, nil, toGPUs, 0x100, []byte{1, 0, 0, 0})
+			req2 := gcn3.NewMemCopyD2HReq(
+				9, nil, toGPUs, 0x104, []byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
 				Dst:  &data,
 				Src:  GPUPtr(0x100),
@@ -206,7 +210,8 @@ var _ = Describe("Driver", func() {
 				Retrieve(akita.VTimeInSec(11)).
 				Return(req)
 
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+			engine.EXPECT().Schedule(
+				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
@@ -260,16 +265,14 @@ var _ = Describe("Driver", func() {
 				Retrieve(akita.VTimeInSec(11)).
 				Return(nil)
 
-			toGPUs.EXPECT().
-				Send(gomock.AssignableToTypeOf(&gcn3.LaunchKernelReq{})).
-				Return(nil)
-
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+			engine.EXPECT().Schedule(
+				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
+			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
 	})
 
@@ -303,16 +306,14 @@ var _ = Describe("Driver", func() {
 				Retrieve(akita.VTimeInSec(11)).
 				Return(nil)
 
-			toGPUs.EXPECT().
-				Send(gomock.AssignableToTypeOf(&gcn3.FlushCommand{})).
-				Return(nil)
-
-			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
+			engine.EXPECT().Schedule(
+				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
+			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
 	})
 

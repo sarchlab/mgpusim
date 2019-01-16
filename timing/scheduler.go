@@ -47,7 +47,7 @@ func NewScheduler(
 func (s *Scheduler) Run(now akita.VTimeInSec) bool {
 	madeProgress := false
 	madeProgress = s.EvaluateInternalInst(now) || madeProgress
-	madeProgress = s.DecodeNextInst() || madeProgress
+	madeProgress = s.DecodeNextInst(now) || madeProgress
 	madeProgress = s.DoIssue(now) || madeProgress
 	madeProgress = s.DoFetch(now) || madeProgress
 
@@ -63,7 +63,7 @@ func (s *Scheduler) Run(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (s *Scheduler) DecodeNextInst() bool {
+func (s *Scheduler) DecodeNextInst(now akita.VTimeInSec) bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
@@ -88,6 +88,8 @@ func (s *Scheduler) DecodeNextInst() bool {
 				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = NewInst(inst)
+				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{
+					now, wf.InstToIssue, "Create"})
 				madeProgress = true
 			}
 		}
@@ -156,7 +158,8 @@ func (s *Scheduler) DoIssue(now akita.VTimeInSec) bool {
 			wf.State = WfRunning
 			wf.PC += uint64(wf.inst.ByteSize)
 			s.removeStaleInstBuffer(wf)
-			s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "Issue"})
+			s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
+				&InstHookInfo{now, wf.inst, "Issue"})
 			madeProgress = true
 		}
 	}
@@ -197,7 +200,7 @@ func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
 	case insts.ExeUnitScalar:
 		return s.cu.ScalarDecoder
 	default:
-		log.Panic("not sure where to dispatch instrcution")
+		log.Panic("not sure where to dispatch the instruction")
 	}
 	return nil
 }

@@ -10,9 +10,6 @@ import (
 // FlushCommand requests the GPU to flush all the cache to the main memory
 type FlushCommand struct {
 	*akita.ReqBase
-
-	StartTime akita.VTimeInSec
-	EndTime   akita.VTimeInSec
 }
 
 // NewFlushCommand Creates a new flush command, setting the request send time
@@ -23,7 +20,6 @@ func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
 	cmd.SetSendTime(time)
 	cmd.SetSrc(src)
 	cmd.SetDst(dst)
-	cmd.StartTime = time
 	return cmd
 }
 
@@ -38,9 +34,6 @@ type LaunchKernelReq struct {
 	HsaCo         *insts.HsaCo
 
 	OK bool
-
-	StartTime akita.VTimeInSec
-	EndTime   akita.VTimeInSec
 }
 
 // NewLaunchKernelReq returns a new LaunchKernelReq
@@ -49,7 +42,6 @@ func NewLaunchKernelReq(
 	src, dst akita.Port) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
 	r.ReqBase = akita.NewReqBase()
-	r.StartTime = time
 	r.SetSrc(src)
 	r.SetDst(dst)
 	r.SetSendTime(time)
@@ -62,9 +54,6 @@ type MemCopyH2DReq struct {
 	*akita.ReqBase
 	SrcBuffer  []byte
 	DstAddress uint64
-
-	StartTime akita.VTimeInSec
-	EndTime   akita.VTimeInSec
 }
 
 // NewMemCopyH2DReq created a new MemCopyH2DReq
@@ -82,7 +71,6 @@ func NewMemCopyH2DReq(
 	req.SetDst(dst)
 	req.SrcBuffer = srcBuffer
 	req.DstAddress = dstAddress
-	req.StartTime = time
 	return req
 }
 
@@ -92,9 +80,6 @@ type MemCopyD2HReq struct {
 	*akita.ReqBase
 	SrcAddress uint64
 	DstBuffer  []byte
-
-	StartTime akita.VTimeInSec
-	EndTime   akita.VTimeInSec
 }
 
 // NewMemCopyD2HReq created a new MemCopyH2DReq

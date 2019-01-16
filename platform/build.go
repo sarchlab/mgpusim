@@ -11,13 +11,14 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/gpubuilder"
+	"gitlab.com/akita/gcn3/trace"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
 )
 
 var UseParallelEngine bool
 var DebugISA bool
-var TraceInst bool
+var TraceVis bool
 var TraceMem bool
 
 // BuildEmuPlatform creates a simple platform for emulation purposes
@@ -84,9 +85,15 @@ func BuildR9NanoPlatform() (
 		Driver:            gpuDriver,
 		EnableISADebug:    DebugISA,
 		EnableMemTracing:  TraceMem,
-		EnableInstTracing: TraceInst,
+		EnableInstTracing: TraceVis,
 		MMU:               mmu,
 		ExternalConn:      connection,
+	}
+
+	if TraceVis {
+		tracer := &trace.Tracer{}
+		tracer.Init()
+		gpuBuilder.Tracer = tracer
 	}
 
 	gpu := gpuBuilder.Build()
@@ -128,9 +135,23 @@ func BuildNR9NanoPlatform(
 		Driver:            gpuDriver,
 		EnableISADebug:    DebugISA,
 		EnableMemTracing:  TraceMem,
-		EnableInstTracing: TraceInst,
+		EnableInstTracing: TraceVis,
+		EnableVisTracing:  TraceVis,
 		MMU:               mmu,
 		ExternalConn:      connection,
+	}
+
+	if TraceVis {
+		tracer := &trace.Tracer{}
+		tracer.Init()
+		gpuBuilder.Tracer = tracer
+
+		driverCommandTracer := trace.NewDriverCommandTracer(tracer)
+		gpuDriver.AcceptHook(driverCommandTracer)
+		engine.RegisterSimulationEndHandler(driverCommandTracer)
+
+		driverReqTracer := trace.NewDriverRequestTracer(tracer)
+		gpuDriver.AcceptHook(driverReqTracer)
 	}
 
 	rdmaAddressTable := new(cache.BankedLowModuleFinder)

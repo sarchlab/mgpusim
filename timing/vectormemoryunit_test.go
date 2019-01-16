@@ -1,9 +1,11 @@
 package timing
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -12,24 +14,26 @@ import (
 var _ = Describe("Vector Memory Unit", func() {
 
 	var (
-		cu        *ComputeUnit
-		sp        *mockScratchpadPreparer
-		coalescer *MockCoalescer
-		bu        *VectorMemoryUnit
-		vectorMem *akita.MockComponent
-		conn      *akita.MockConnection
+		mockCtrl    *gomock.Controller
+		cu          *ComputeUnit
+		sp          *mockScratchpadPreparer
+		coalescer   *MockCoalescer
+		bu          *VectorMemoryUnit
+		vectorMem   *mock_akita.MockPort
+		toVectorMem *mock_akita.MockPort
 	)
 
 	BeforeEach(func() {
+		mockCtrl = gomock.NewController(GinkgoT())
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
 		coalescer = new(MockCoalescer)
 		bu = NewVectorMemoryUnit(cu, sp, coalescer)
-		vectorMem = akita.NewMockComponent("VectorMem")
-		conn = akita.NewMockConnection()
+		vectorMem = mock_akita.NewMockPort(mockCtrl)
+		toVectorMem = mock_akita.NewMockPort(mockCtrl)
+		cu.ToVectorMem = toVectorMem
 
 		cu.VectorMemModules = new(cache.SingleLowModuleFinder)
-		conn.PlugIn(cu.ToVectorMem)
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -130,28 +134,24 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should send memory access requests", func() {
-		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
+		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem, 0, 4)
 		loadReq.SetSendTime(10)
 		bu.SendBuf = append(bu.SendBuf, loadReq)
 
-		conn.ExpectSend(loadReq, nil)
+		toVectorMem.EXPECT().Send(loadReq)
 
 		bu.Run(10)
-
-		Expect(conn.AllExpectedSent()).To(BeTrue())
 		Expect(len(bu.SendBuf)).To(Equal(0))
 	})
 
 	It("should not remove request from read buffer, if send fails", func() {
-		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem.ToOutside, 0, 4)
+		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem, 0, 4)
 		bu.SendBuf = append(bu.SendBuf, loadReq)
 
-		err := akita.NewSendError()
-		conn.ExpectSend(loadReq, err)
+		toVectorMem.EXPECT().Send(loadReq).Return(&akita.SendError{})
 
 		bu.Run(10)
 
-		Expect(conn.AllExpectedSent()).To(BeTrue())
 		Expect(len(bu.SendBuf)).To(Equal(1))
 	})
 

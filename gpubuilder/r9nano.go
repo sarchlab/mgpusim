@@ -34,6 +34,7 @@ type R9NanoGPUBuilder struct {
 	EnableISADebug    bool
 	EnableInstTracing bool
 	EnableMemTracing  bool
+	EnableVisTracing  bool
 
 	GPU                  *gcn3.GPU
 	InternalConn         *akita.DirectConnection
@@ -52,6 +53,8 @@ type R9NanoGPUBuilder struct {
 	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
 	DMAEngine            *gcn3.DMAEngine
 	RDMAEngine           *rdma.Engine
+
+	Tracer *trace.Tracer
 
 	MemTracer *memtraces.Tracer
 }
@@ -75,6 +78,11 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.ExternalConn.PlugIn(b.GPU.ToDriver)
 
 	b.GPU.InternalConnection = b.InternalConn
+
+	if b.EnableVisTracing {
+		gpuTracer := trace.NewGPUTracer(b.Tracer)
+		b.GPU.AcceptHook(gpuTracer)
+	}
 
 	return b.GPU
 }
@@ -115,6 +123,11 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.CP.ToDispatcher)
 	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.ACE.ToCUs)
+
+	if b.EnableVisTracing {
+		dispatcherTracer := trace.NewDispatcherTracer(b.Tracer)
+		b.ACE.AcceptHook(dispatcherTracer)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildMemSystem() {
@@ -372,13 +385,17 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 			cu.AcceptHook(isaDebugger)
 		}
 
-		if b.EnableInstTracing {
-			isaTraceFile, err := os.Create(fmt.Sprintf("inst_%s.trace", cu.Name()))
-			if err != nil {
-				log.Fatal(err)
-			}
-			isaTracer := trace.NewInstTracer(isaTraceFile)
+		if b.EnableVisTracing {
+			wgTracer := trace.NewWGTracer(b.Tracer)
+			cu.AcceptHook(wgTracer)
+
+			isaTracer := trace.NewInstTracer(b.Tracer)
 			cu.AcceptHook(isaTracer)
 		}
+
+		//if b.EnableInstTracing {
+		//	isaTracer := trace.NewInstTracer(b.Tracer)
+		//	cu.AcceptHook(isaTracer)
+		//}
 	}
 }

@@ -14,6 +14,19 @@ import (
 	"gitlab.com/akita/mem/cache"
 )
 
+// Define possible hook positions
+const (
+	HookPosWGStart = "WG Start"
+	HookPosWGEnd   = "WG End"
+	HookPosWfStart = "Wf Start"
+	HookPosWfEnd   = "Wf End"
+)
+
+type CUHookInfo struct {
+	Now akita.VTimeInSec
+	Pos interface{}
+}
+
 // A ComputeUnit in the timing package provides a detailed and accurate
 // simulation of a GCN3 ComputeUnit
 type ComputeUnit struct {
@@ -58,9 +71,8 @@ type ComputeUnit struct {
 
 // Handle processes that events that are scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt akita.Event) error {
-	cu.Lock()
-
 	cu.InvokeHook(evt, cu, akita.BeforeEventHookPos, nil)
+	cu.Lock()
 
 	switch evt := evt.(type) {
 	case akita.TickEvent:
@@ -137,7 +149,10 @@ func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
 	}
 }
 
-func (cu *ComputeUnit) handleMapWGReq(now akita.VTimeInSec, req *gcn3.MapWGReq) error {
+func (cu *ComputeUnit) handleMapWGReq(
+	now akita.VTimeInSec,
+	req *gcn3.MapWGReq,
+) error {
 	//log.Printf("%s map wg at %.12f\n", cu.Name(), req.Time())
 
 	ok := false
@@ -169,6 +184,11 @@ func (cu *ComputeUnit) handleMapWGReq(now akita.VTimeInSec, req *gcn3.MapWGReq) 
 		evt.IsLastInWG = true
 		cu.Engine.Schedule(evt)
 
+		cu.InvokeHook(req, cu, HookPosWGStart, &CUHookInfo{
+			Now: now,
+			Pos: HookPosWGStart,
+		})
+
 		return nil
 	}
 
@@ -194,6 +214,11 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 		cu.WfDispatcher.DispatchWf(now, wf)
 		delete(cu.WfToDispatch, wf.Wavefront)
 		wf.State = WfReady
+
+		cu.InvokeHook(wf, cu, HookPosWfStart, &CUHookInfo{
+			Now: evt.Time(),
+			Pos: HookPosWfStart,
+		})
 	}
 
 	// Respond ACK
@@ -219,10 +244,20 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	wg := wf.WG
 	wf.State = WfCompleted
 
+	cu.InvokeHook(wf, cu, HookPosWfEnd, &CUHookInfo{
+		Now: evt.Time(),
+		Pos: HookPosWfEnd,
+	})
+
 	if cu.isAllWfInWGCompleted(wg) {
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
 			cu.clearWGResource(wg)
+
+			cu.InvokeHook(wg, cu, HookPosWGEnd, &CUHookInfo{
+				Now: evt.Time(),
+				Pos: HookPosWGEnd,
+			})
 		}
 
 		if !cu.hasMoreWfsToRun() {
@@ -356,7 +391,10 @@ func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
 	}
 }
 
-func (cu *ComputeUnit) handleScalarDataLoadReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
+func (cu *ComputeUnit) handleScalarDataLoadReturn(
+	now akita.VTimeInSec,
+	rsp *mem.DataReadyRsp,
+) {
 	if len(cu.inFlightScalarMemAccess) == 0 {
 		log.Panic("CU is not loading scalar data")
 	}

@@ -59,6 +59,10 @@ func (g *GPU) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 // A GPU should not handle any event by itself.
 func (g *GPU) Handle(e akita.Event) error {
 	now := e.Time()
+
+	g.InvokeHook(e, g, akita.BeforeEventHookPos, nil)
+	g.Lock()
+
 	req := e.(akita.Req)
 
 	if req.Src() == g.CommandProcessor { // From the CommandProcessor
@@ -69,7 +73,6 @@ func (g *GPU) Handle(e akita.Event) error {
 		if err != nil {
 			panic(err)
 		}
-		return nil
 	} else if req.Src() == g.Driver { // From the Driver
 		req.SetSrc(g.ToCommandProcessor)
 		req.SetDst(g.CommandProcessor)
@@ -78,11 +81,12 @@ func (g *GPU) Handle(e akita.Event) error {
 		if err != nil {
 			panic(err)
 		}
-		return nil
+	} else {
+		log.Panic("Unknown source")
 	}
 
-	log.Panic("Unknown source")
-
+	g.Unlock()
+	g.InvokeHook(e, g, akita.AfterEventHookPos, nil)
 	return nil
 }
 

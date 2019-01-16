@@ -1,8 +1,6 @@
 package trace
 
 import (
-	"fmt"
-	"io"
 	"reflect"
 	"sync"
 
@@ -13,13 +11,17 @@ import (
 // A InstTracer is a LogHook that keep record of instruction execution status
 type InstTracer struct {
 	mutex  sync.Mutex
-	writer io.Writer
+	tracer *Tracer
+	instTasks  map[string]*Task
+	instStageTasks map[string]*Task
 }
 
 // NewInstTracer creates a new InstTracer
-func NewInstTracer(writer io.Writer) *InstTracer {
+func NewInstTracer(tracer *Tracer) *InstTracer {
 	t := new(InstTracer)
-	t.writer = writer
+	t.tracer = tracer
+	t.instTasks = make(map[string]*Task)
+	t.instStageTasks = make(map[string]*Task)
 	return t
 }
 
@@ -35,13 +37,71 @@ func (t *InstTracer) Pos() akita.HookPos {
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (t *InstTracer) Func(item interface{}, domain akita.Hookable, info interface{}) {
+func (t *InstTracer) Func(
+	item interface{},
+	domain akita.Hookable,
+	info interface{},
+) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	instInfo := info.(*timing.InstHookInfo)
+	wf := item.(*timing.Wavefront)
+	instInfo, ok := info.(*timing.InstHookInfo)
+	if !ok {
+		return
+	}
 	inst := instInfo.Inst
 
-	fmt.Fprintf(t.writer, "%s,%.15f,%s,%s,\"%s\"\n",
-		inst.ID, instInfo.Now, "", instInfo.Stage, inst.String(nil))
+	instTask, found := t.instTasks[inst.ID]
+	if !found {
+		instTask = &Task{
+			ID: inst.ID,
+			ParentTaskID: wf.UID,
+			Type: "Inst",
+			What: inst.String(nil),
+			Where: domain.(akita.Component).Name(),
+			Start: float64(instInfo.Now),
+		}
+		t.instTasks[inst.ID] = instTask
+		t.tracer.CreateTask(instTask)
+	}
+
+	stageTask, found := t.instStageTasks[inst.ID]
+	if !found{
+		stageTask = &Task{
+			ID: inst.ID + "." + instInfo.Stage,
+			ParentTaskID: inst.ID,
+			Type: "Inst Stage",
+			What: instInfo.Stage,
+			Where: domain.(akita.Component).Name(),
+			Start: float64(instInfo.Now),
+		}
+		t.instStageTasks[inst.ID] = stageTask
+		t.tracer.CreateTask(stageTask)
+	} else {
+		if instInfo.Stage != "Completed" {
+			t.tracer.EndTask(stageTask.ID, float64(instInfo.Now))
+			stageTask = &Task{
+				ID: inst.ID + "." + instInfo.Stage,
+				ParentTaskID: inst.ID,
+				Type: "Inst Stage",
+				What: instInfo.Stage,
+				Where: domain.(akita.Component).Name(),
+				Start: float64(instInfo.Now),
+			}
+			t.instStageTasks[inst.ID] = instTask
+			t.tracer.CreateTask(stageTask)
+		}
+	}
+
+	if instInfo.Stage == "Completed" {
+		t.tracer.EndTask(stageTask.ID, float64(instInfo.Now))
+		t.tracer.EndTask(instTask.ID, float64(instInfo.Now))
+		delete(t.instStageTasks, inst.ID)
+		delete(t.instStageTasks, inst.ID)
+	}
+}
+
+type InstDetail struct {
+	Inst string
 }

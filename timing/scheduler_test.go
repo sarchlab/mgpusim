@@ -1,9 +1,11 @@
 package timing
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
@@ -47,8 +49,8 @@ func (c *mockCUComponent) Run(now akita.VTimeInSec) bool {
 
 var _ = Describe("Scheduler", func() {
 	var (
-		toInstMemConn    *akita.MockConnection
-		engine           *akita.MockEngine
+		mockCtrl         *gomock.Controller
+		engine           *mock_akita.MockEngine
 		cu               *ComputeUnit
 		branchUnit       *mockCUComponent
 		ldsDecoder       *mockCUComponent
@@ -58,12 +60,14 @@ var _ = Describe("Scheduler", func() {
 		scheduler        *Scheduler
 		fetchArbitor     *mockWfArbitor
 		issueArbitor     *mockWfArbitor
-		instMem          *akita.MockComponent
+		instMem          *mock_akita.MockPort
+		toInstMem        *mock_akita.MockPort
 	)
 
 	BeforeEach(func() {
-		toInstMemConn = akita.NewMockConnection()
-		engine = akita.NewMockEngine()
+		mockCtrl = gomock.NewController(GinkgoT())
+
+		engine = mock_akita.NewMockEngine(mockCtrl)
 		cu = NewComputeUnit("cu", engine)
 		cu.Freq = 1
 
@@ -83,10 +87,11 @@ var _ = Describe("Scheduler", func() {
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
 		cu.SRegFile = NewSimpleRegisterFile(16384, 0)
 
-		instMem = akita.NewMockComponent("InstMem")
+		instMem = mock_akita.NewMockPort(mockCtrl)
+		cu.InstMem = instMem
 
-		cu.InstMem = instMem.ToOutside
-		toInstMemConn.PlugIn(cu.ToInstMem)
+		toInstMem = mock_akita.NewMockPort(mockCtrl)
+		cu.ToInstMem = toInstMem
 
 		fetchArbitor = newMockWfArbitor()
 		issueArbitor = newMockWfArbitor()
@@ -101,11 +106,16 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 0x180, 64)
-		toInstMemConn.ExpectSend(reqToExpect, nil)
+		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+			req := r.(*mem.ReadReq)
+			Expect(req.Src()).To(BeIdenticalTo(cu.ToInstMem))
+			Expect(req.Dst()).To(BeIdenticalTo(instMem))
+			Expect(req.Address).To(Equal(uint64(0x180)))
+			Expect(req.MemByteSize).To(Equal(uint64(64)))
+		})
 
 		scheduler.DoFetch(10)
-		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
+
 		Expect(cu.inFlightInstFetch).To(HaveLen(1))
 		Expect(wf.IsFetching).To(BeTrue())
 	})
@@ -117,12 +127,16 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*Wavefront{wf})
 
-		reqToExpect := mem.NewReadReq(10, cu.ToInstMem, instMem.ToOutside, 0x180, 64)
-		toInstMemConn.ExpectSend(reqToExpect, akita.NewSendError())
+		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+			req := r.(*mem.ReadReq)
+			Expect(req.Src()).To(BeIdenticalTo(cu.ToInstMem))
+			Expect(req.Dst()).To(BeIdenticalTo(instMem))
+			Expect(req.Address).To(Equal(uint64(0x180)))
+			Expect(req.MemByteSize).To(Equal(uint64(64)))
+		}).Return(&akita.SendError{})
 
 		scheduler.DoFetch(10)
 
-		Expect(toInstMemConn.AllExpectedSent()).To(BeTrue())
 		//Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		Expect(wf.IsFetching).To(BeFalse())
 	})
@@ -215,10 +229,13 @@ var _ = Describe("Scheduler", func() {
 		wf.inst.Format = insts.FormatTable[insts.SOPP]
 		wf.inst.Opcode = 1 // S_ENDPGM
 
+		engine.EXPECT().
+			Schedule(gomock.AssignableToTypeOf(&WfCompletionEvent{}))
+
 		scheduler.internalExecuting = wf
 		scheduler.EvaluateInternalInst(10)
 
-		Expect(len(engine.ScheduledEvent)).To(Equal(1))
+		// 	Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
 	It("should wait for memory access when running wait_cnt", func() {
@@ -284,7 +301,6 @@ var _ = Describe("Scheduler", func() {
 		scheduler.EvaluateInternalInst(10)
 
 		Expect(scheduler.internalExecuting).NotTo(BeNil())
-		Expect(len(engine.ScheduledEvent)).To(Equal(0))
 	})
 
 	It("should put wavefront in barrier buffer", func() {
@@ -332,7 +348,8 @@ var _ = Describe("Scheduler", func() {
 		scheduler.EvaluateInternalInst(10)
 
 		//Expect(wf.State).To(Equal(WfRunning))
-		Expect(len(scheduler.barrierBuffer)).To(Equal(scheduler.barrierBufferSize))
+		Expect(len(scheduler.barrierBuffer)).
+			To(Equal(scheduler.barrierBufferSize))
 		Expect(scheduler.internalExecuting).NotTo(BeNil())
 	})
 

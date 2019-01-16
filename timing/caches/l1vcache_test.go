@@ -14,7 +14,7 @@ import (
 var _ = Describe("L1V Cache", func() {
 	var (
 		mockCtrl  *gomock.Controller
-		engine    *akita.MockEngine
+		engine    *mock_akita.MockEngine
 		storage   *mem.Storage
 		directory *cache.MockDirectory
 		l1v       *L1VCache
@@ -28,7 +28,7 @@ var _ = Describe("L1V Cache", func() {
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
-		engine = akita.NewMockEngine()
+		engine = mock_akita.NewMockEngine(mockCtrl)
 		storage = mem.NewStorage(16 * mem.KB)
 		directory = new(cache.MockDirectory)
 		l2Finder = new(cache.SingleLowModuleFinder)
@@ -317,11 +317,15 @@ var _ = Describe("L1V Cache", func() {
 
 			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(invalidReq)
 
-			l1v.parseFromCP(11)
+			engine.EXPECT().
+				Schedule(
+					gomock.AssignableToTypeOf(&invalidationCompleteEvent{}),
+				).
+				DoAndReturn(func(e *invalidationCompleteEvent) {
+					Expect(e.Time()).To(BeNumerically("~", 75))
+				})
 
-			Expect(engine.ScheduledEvent).To(HaveLen(1))
-			invalidCompEvent := engine.ScheduledEvent[0].(*invalidationCompleteEvent)
-			Expect(invalidCompEvent.Time()).To(BeNumerically("~", 75))
+			l1v.parseFromCP(11)
 		})
 	})
 
@@ -333,12 +337,17 @@ var _ = Describe("L1V Cache", func() {
 
 			expectRsp := mem.NewInvalidDoneRsp(70, l1v.ToCP, nil,
 				invalidReq.GetID())
-			toCP.EXPECT().Send(gomock.AssignableToTypeOf(expectRsp)).Return(nil)
+			toCP.EXPECT().
+				Send(gomock.AssignableToTypeOf(expectRsp)).
+				Return(nil)
+
+			engine.EXPECT().Schedule(
+				gomock.AssignableToTypeOf(akita.TickEvent{}),
+			)
 
 			l1v.Handle(invalidComplEvent)
 
 			Expect(directory.Resetted).To(BeTrue())
-			Expect(engine.ScheduledEvent).To(HaveLen(1))
 		})
 
 		It("should retry if send failed", func() {
@@ -351,11 +360,15 @@ var _ = Describe("L1V Cache", func() {
 			toCP.EXPECT().Send(gomock.AssignableToTypeOf(expectRsp)).
 				Return(akita.NewSendError())
 
-			l1v.Handle(invalidComplEvent)
+			engine.EXPECT().
+				Schedule(
+					gomock.AssignableToTypeOf(&invalidationCompleteEvent{}),
+				).
+				DoAndReturn(func(e *invalidationCompleteEvent) {
+					Expect(e.Time()).To(BeNumerically("~", 71))
+				})
 
-			Expect(engine.ScheduledEvent).To(HaveLen(1))
-			evt := engine.ScheduledEvent[0].(*invalidationCompleteEvent)
-			Expect(evt.Time()).To(BeNumerically("~", 71))
+			l1v.Handle(invalidComplEvent)
 		})
 	})
 
@@ -770,6 +783,27 @@ var _ = Describe("L1V Cache", func() {
 	})
 })
 
+type mockComponent struct {
+	*akita.ComponentBase
+
+	ToMem akita.Port
+
+	receivedReqs []akita.Req
+}
+
+func (c *mockComponent) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
+	panic("implement me")
+}
+
+func (c *mockComponent) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
+	req := port.Retrieve(now)
+	c.receivedReqs = append(c.receivedReqs, req)
+}
+
+func (mockComponent) Handle(e akita.Event) error {
+	panic("implement me")
+}
+
 var _ = Describe("L1VCache black box", func() {
 	var (
 		engine         akita.Engine
@@ -778,7 +812,7 @@ var _ = Describe("L1VCache black box", func() {
 		directory      cache.Directory
 		l1v            *L1VCache
 		l2Finder       *cache.SingleLowModuleFinder
-		cu             *akita.MockComponent
+		cu             *mockComponent
 		addrTranslator *addressTranslator
 		lowModule      *mem.IdealMemController
 		mmu            *vm.MMUImpl
@@ -827,26 +861,29 @@ var _ = Describe("L1VCache black box", func() {
 		lowModule.Freq = 1
 		l2Finder.LowModule = lowModule.ToTop
 
-		cu = akita.NewMockComponent("cu")
+		cu = &mockComponent{
+			ComponentBase: akita.NewComponentBase("cu"),
+		}
+		cu.ToMem = akita.NewLimitNumReqPort(cu, 4096)
 
 		connection = akita.NewDirectConnection(engine)
 		connection.PlugIn(l1v.ToCU)
 		connection.PlugIn(l1v.ToL2)
 		connection.PlugIn(l1v.ToTLB)
 		connection.PlugIn(lowModule.ToTop)
-		connection.PlugIn(cu.ToOutside)
+		connection.PlugIn(cu.ToMem)
 		connection.PlugIn(mmu.ToTop)
 	})
 
 	It("should read miss", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read := mem.NewReadReq(10, cu.ToMem, l1v.ToCU, 0x1000000, 64)
 		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
 
-		Expect(cu.ReceivedReqs).To(HaveLen(1))
-		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).Data).To(Equal([]byte{
+		Expect(cu.receivedReqs).To(HaveLen(1))
+		Expect(cu.receivedReqs[0].(*mem.DataReadyRsp).Data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -859,25 +896,25 @@ var _ = Describe("L1VCache black box", func() {
 	})
 
 	It("should read miss on partial line read", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000004, 4)
+		read := mem.NewReadReq(10, cu.ToMem, l1v.ToCU, 0x1000004, 4)
 		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
 
-		Expect(cu.ReceivedReqs).To(HaveLen(1))
-		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).Data).To(
+		Expect(cu.receivedReqs).To(HaveLen(1))
+		Expect(cu.receivedReqs[0].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{5, 6, 7, 8}))
 	})
 
 	It("should read hit", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read := mem.NewReadReq(10, cu.ToMem, l1v.ToCU, 0x1000000, 64)
 		read.PID = 1
 
 		l1v.ToCU.Recv(read)
 		engine.Run()
-		Expect(cu.ReceivedReqs).To(HaveLen(1))
-		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).Data).To(Equal([]byte{
+		Expect(cu.receivedReqs).To(HaveLen(1))
+		Expect(cu.receivedReqs[0].(*mem.DataReadyRsp).Data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -887,16 +924,16 @@ var _ = Describe("L1VCache black box", func() {
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 		}))
-		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).RespondTo).To(
+		Expect(cu.receivedReqs[0].(*mem.DataReadyRsp).RespondTo).To(
 			Equal(read.ID))
 
-		read1 := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000000, 64)
+		read1 := mem.NewReadReq(10, cu.ToMem, l1v.ToCU, 0x1000000, 64)
 		read1.PID = 1
 		read1.SetRecvTime(engine.CurrentTime() + akita.VTimeInSec(1))
 		l1v.ToCU.Recv(read1)
 		engine.Run()
-		Expect(cu.ReceivedReqs).To(HaveLen(2))
-		Expect(cu.ReceivedReqs[1].(*mem.DataReadyRsp).Data).To(Equal([]byte{
+		Expect(cu.receivedReqs).To(HaveLen(2))
+		Expect(cu.receivedReqs[1].(*mem.DataReadyRsp).Data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -906,33 +943,33 @@ var _ = Describe("L1VCache black box", func() {
 			1, 2, 3, 4, 5, 6, 7, 8,
 			1, 2, 3, 4, 5, 6, 7, 8,
 		}))
-		Expect(cu.ReceivedReqs[1].(*mem.DataReadyRsp).RespondTo).To(
+		Expect(cu.receivedReqs[1].(*mem.DataReadyRsp).RespondTo).To(
 			Equal(read1.ID))
 	})
 
 	It("should read hit on partial line read", func() {
-		read := mem.NewReadReq(10, cu.ToOutside, l1v.ToCU, 0x1000004, 4)
+		read := mem.NewReadReq(10, cu.ToMem, l1v.ToCU, 0x1000004, 4)
 		read.PID = 1
 		l1v.ToCU.Recv(read)
 
 		engine.Run()
 
-		Expect(cu.ReceivedReqs).To(HaveLen(1))
-		Expect(cu.ReceivedReqs[0].(*mem.DataReadyRsp).Data).To(
+		Expect(cu.receivedReqs).To(HaveLen(1))
+		Expect(cu.receivedReqs[0].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{5, 6, 7, 8}))
 
-		read1 := mem.NewReadReq(11, cu.ToOutside, l1v.ToCU, 0x1000008, 4)
+		read1 := mem.NewReadReq(11, cu.ToMem, l1v.ToCU, 0x1000008, 4)
 		read1.SetRecvTime(engine.CurrentTime() + 1)
 		read1.PID = 1
 		l1v.ToCU.Recv(read1)
 		engine.Run()
-		Expect(cu.ReceivedReqs).To(HaveLen(2))
-		Expect(cu.ReceivedReqs[1].(*mem.DataReadyRsp).Data).To(
+		Expect(cu.receivedReqs).To(HaveLen(2))
+		Expect(cu.receivedReqs[1].(*mem.DataReadyRsp).Data).To(
 			Equal([]byte{1, 2, 3, 4}))
 	})
 
 	It("should write", func() {
-		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000100)
+		write := mem.NewWriteReq(10, cu.ToMem, l1v.ToCU, 0x1000100)
 		write.PID = 1
 		write.IsLastInWave = true
 		write.Data = []byte{
@@ -949,8 +986,8 @@ var _ = Describe("L1VCache black box", func() {
 
 		engine.Run()
 
-		Expect(cu.ReceivedReqs).To(HaveLen(1))
-		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
+		Expect(cu.receivedReqs).To(HaveLen(1))
+		Expect(cu.receivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
 		data, _ := lowModule.Storage.Read(0x1100, 64)
 		Expect(data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
@@ -965,14 +1002,14 @@ var _ = Describe("L1VCache black box", func() {
 	})
 
 	It("should coalesce write", func() {
-		write := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000100)
+		write := mem.NewWriteReq(10, cu.ToMem, l1v.ToCU, 0x1000100)
 		write.PID = 1
 		write.Data = []byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
 		}
 		l1v.ToCU.Recv(write)
 
-		write2 := mem.NewWriteReq(10, cu.ToOutside, l1v.ToCU, 0x1000108)
+		write2 := mem.NewWriteReq(10, cu.ToMem, l1v.ToCU, 0x1000108)
 		write2.PID = 1
 		write2.IsLastInWave = true
 		write2.Data = []byte{
@@ -982,8 +1019,8 @@ var _ = Describe("L1VCache black box", func() {
 
 		engine.Run()
 
-		Expect(cu.ReceivedReqs).To(HaveLen(2))
-		Expect(cu.ReceivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
+		Expect(cu.receivedReqs).To(HaveLen(2))
+		Expect(cu.receivedReqs[0].(*mem.DoneRsp).RespondTo).To(Equal(write.ID))
 		data, _ := lowModule.Storage.Read(0x1100, 16)
 		Expect(data).To(Equal([]byte{
 			1, 2, 3, 4, 5, 6, 7, 8,
