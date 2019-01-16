@@ -54,14 +54,17 @@ type Benchmark struct {
 	Top          driver.GPUPtr
 }
 
-func NewBenchmark(driver *driver.Driver, n *int, c *int, h *int, w *int) *Benchmark {
+func NewBenchmark(
+	driver *driver.Driver,
+	n int, c int, h int, w int,
+) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
-	b.N = *n
-	b.C = *c
-	b.H = *h
-	b.W = *w
+	b.N = n
+	b.C = c
+	b.H = h
+	b.W = w
 
 	hsacoBytes, err := Asset("maxpooling.hsaco")
 	if err != nil {
