@@ -12,6 +12,30 @@ type FlushCommand struct {
 	*akita.ReqBase
 }
 
+//Shootdown command requests the GPU to perform a TLB shootdown and invalidate the corresponding PTE's
+type ShootdownCommand struct {
+	*akita.ReqBase
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+
+	vAddr []uint64
+	pID   vm.PID
+}
+
+// NewFlushCommand Creates a new flush command, setting the request send time
+// with time and the source and destination.
+func NewShootdownCommand(time akita.VTimeInSec, src, dst akita.Port, vAddr []uint64, pID vm.PID) *ShootdownCommand {
+	cmd := new(ShootdownCommand)
+	cmd.ReqBase = akita.NewReqBase()
+	cmd.SetSendTime(time)
+	cmd.SetSrc(src)
+	cmd.SetDst(dst)
+	cmd.vAddr = vAddr
+	cmd.pID = pID
+	return cmd
+}
+
 // NewFlushCommand Creates a new flush command, setting the request send time
 // with time and the source and destination.
 func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
