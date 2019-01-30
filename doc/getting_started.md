@@ -2,11 +2,11 @@
 
 ## Introduction
 
-In this document, we introduce how to setup the environment to run Akita GCN3 simulator. The purpose is to give developers who are not very familiar with the GO development environment a quick start.
+In this document, we introduce how to setup the environment to run Akita GCN3 simulator. The purpose is to give developers who are not very familiar with the Go development environment a quick start.
 
 ## Install Go
 
-Use this [link](https://golang.org/dl/) to download the Go development environment. In this document, we demonstrate how to configure the Linux environment. But the GCN3Sim should be able to run on any platforms, such as Windows and Mac OS X.
+Use this [link](https://golang.org/dl/) to download the Go environment. In this document, we demonstrate how to configure the Linux environment. But the GCN3Sim should be able to run on any platforms, such as Windows and Mac OS X.
 
 By the time we write this document, the most up-to-date version of Go is 1.11.5. Therefore, download the `go1.11.5.linux_amd64.tar.gz` file. You can either follow the installation guide on the Go website or the instructions below.
 
