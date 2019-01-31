@@ -60,7 +60,7 @@ The first argument is the driver of the benchmark. Driver serves as the API betw
 
 ## Load HSACO
 
-We usually load the HSACO while the benchmark is initiated. Continue with the FIR example, we see that the "constructor" function of the Benchmark struct is like this:
+We usually load the HSACO while the benchmark is initiated. Continuing with the FIR example, we see that the "constructor" function of the benchmark struct is like this:
 
 ```go
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -78,7 +78,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 }
 ```
 
-The `NewBenchmark` function takes 1 argument, injecting the dependecy of the GPU driver. After setting the driver, the benchmark load the hsaco file with `Asset` function. The `Asset` function requires the file name the same as the HSACO file when you wrap it with `go-bindata`. The `Asset` function is equivalent to use Go native file manipulation functions to load all bytes into a buffer. Finally, we extract the kernel binary with `kernels.LoadProgramFromMemory` function. The first argument is the HSACO buffer and the second argument is the name of the kernel. Note that an HSACO file may have multiple kernels compiled. Using `LoadProgramFromMemory` function allows you to extract each individual function. However, for the kernels compiled from assembly, the kernel name information is not packed into the HSACO file. You can set the kernel name argument to be an empty string.
+The `NewBenchmark` function takes 1 argument, injecting the dependecy of the GPU driver. After setting the driver, the benchmark load the hsaco file with `Asset` function. The `Asset` function requires the file name the same as the HSACO file. The `Asset` function is equivalent to loading all bytes of the file into a buffer. Finally, we extract the kernel binary with `kernels.LoadProgramFromMemory` function. The first argument is the raw HSACO buffer and the second argument is the name of the kernel. Note that an HSACO file may include multiple kernels compiled. Using `LoadProgramFromMemory` function allows you to extract each individual function. However, for the kernels compiled from assembly, the kernel name information is not packed into the HSACO file. You can set the kernel name argument to be an empty string.
 
 All the `Benchmark` struct must provide a `Run` function, so that the runner can start the simulation. Usually, `Run` is composed of two steps, initializing the GPU memory and run the kernel.
 
@@ -91,7 +91,7 @@ func (b *Benchmark) Run() {
 
 ## Initialize GPU Memory
 
-Before we run the GPU kernel, we need to send data to the GPU side. Now, you will need to interact with the GPU driver in the `initMem` function.
+Before we run the GPU kernel, we need to send data to the GPU. Now, you will need to interact with the GPU driver in the `initMem` function. Connecting the code snippets in this section is the whole `initMem` function implementation.
 
 ```go
 func (b *Benchmark) initMem() {
@@ -138,7 +138,7 @@ Note that when you run the `MemCopyH2D` function, the simulator already started 
 
 ## Run a Kernel
 
-Finally we can run kernels on the GPU simulator. But before we launch the kernel, we need to formally define the kernel argument as a struct. For example, the OpenCL kernel signature of the FIR kernel is as follows:
+Finally we can run kernels on the GPU simulator. But before we launch the kernel, we need to formally define the kernel arguments as a struct. For example, the OpenCL kernel signature of the FIR kernel is as follows:
 
 ```opencl
 __kernel void FIR(
@@ -150,7 +150,7 @@ __kernel void FIR(
 )
 ```
 
-Then we convert the arguments as a Go struct:
+Then, we can convert the arguments as a Go struct:
 
 ```go
 type KernelArgs struct {
@@ -166,7 +166,7 @@ type KernelArgs struct {
 }
 ```
 
-For global pointers, we convert the type to driver.GPUPtr. Each pointer is 8B long. For scalar arguments, we can simply set the corresponding type in Go. Note that in the Go struct, you need to avoid types like `int`. Such types may have various sizes on different platform and they make the serializer not working properly. Finally, we also append the added 3 hidden offsets fields with type int64. We need to add a 4-byte padding field before `HiddenGlobalOffsetX`. The rule is that if the field is 8 bytes in size, the offset of the field relative to the beginning of the kernel argument struct must be a multiple of 8.
+For global pointers, we convert the type to driver.GPUPtr. Each pointer is 8B long. For scalar arguments, we can simply set the corresponding type in Go. Note that in the Go struct, you need to avoid types like `int`. Such types may have various sizes on different platform and they make the serializer not working properly. Finally, we also append the added 3 hidden offsets fields with type int64. We need to add a 4-byte padding field before `HiddenGlobalOffsetX`. The rule is that if the field is 8 bytes in size, the offset of the field relative to the beginning of the kernel argument struct must be a multiple of 8. The names of the arguments do have to match the OpenCL kernel signature, but all of them have to be public struct fields (capitalized first letter).
 
 Running the benchmark is as easy as follows:
 
@@ -191,7 +191,7 @@ func (b *Benchmark) exec() {
 }
 ```
 
-In the code above, we first set the fields of the kernel arguments. Then we launch the kernel with `LaunchKernel` API. The `LaunchKernel` API takes the kernel HSACO as the first argument. The global grid size (in the unit of number of work-items) and the work-group size as the second argument. The last argument is the pointer to the kernel arguments. The `LaunchKernel` function runs the kernel on the simulator and it will return when the kernel simulation is completed. Therefore, this function may take a very long time to return.
+In the code above, we first set the fields of the kernel arguments. Then we launch the kernel with `LaunchKernel` API. The `LaunchKernel` API takes the kernel HSACO as the first argument. The global grid size (in the unit of number of work-items) and the work-group size as the second argument. The last argument is the pointer to the kernel arguments. The `LaunchKernel` function runs the kernel on the simulator and it will return when the kernel simulation is completed. Therefore, this function may run for a very long time.
 
 ## Verification
 
