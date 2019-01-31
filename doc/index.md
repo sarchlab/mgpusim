@@ -5,12 +5,11 @@ This repository contains the code for GCN3 Model for Akita.
 ## Index
 
 1. [Getting Started](./getting_started.md)
-1. Create new experiments
+1. Create New Experiments
 
-    1. [Prepare New Experiment](prepare_experiments.md)
-    1. Prepare benchmark
+    1. [Prepare Experiments](prepare_experiments.md)
+    1. [Prepare Benchmarks](prepare_benchmarks.md)
     1. Configure Platform
-    1. Multi-GPU Platform
 
 1. GCN3 Model
 

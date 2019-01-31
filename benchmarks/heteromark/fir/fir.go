@@ -16,6 +16,7 @@ type KernelArgs struct {
 	Input               driver.GPUPtr
 	History             driver.GPUPtr
 	NumTaps             uint32
+	Padding             uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -82,6 +83,7 @@ func (b *Benchmark) exec() {
 		b.gInputData,
 		b.gHistoryData,
 		uint32(b.numTaps),
+		0,
 		0, 0, 0,
 	}
 
