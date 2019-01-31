@@ -1,10 +1,10 @@
 # Prepare Benchmarks
 
-In the previous tutorial, we discussed how to create an experiment running an existing benchmark on an pre-configured platform. In this tutorial, we introduce how to prepare a new benchmark and in the next tutorial, we introduce how to configure the platform as desired.
+In the previous tutorial, we discussed how to create an experiment running an existing benchmark on a pre-configured platform. In this tutorial, we introduce how to prepare a new benchmark and in the next tutorial, we introduce how to configure the platform as desired.
 
 ## Prepare HSACO From OpenCL
 
-HSACO stands for Heterogeneous System Architecture (HSA) Code Object. It is the binary format that is supported by the Radeon Open Compute Plaform (ROCm). Akita GCN3 support unmodified HSACO file for simulation.
+HSACO stands for Heterogeneous System Architecture (HSA) Code Object. It is the binary format that is supported by the Radeon Open Compute Platform (ROCm). Akita GCN3 support unmodified HSACO file for simulation.
 
 To generate an HSACO file from an OpenCL source code file, `clang-ocl` is required. `clang-ocl` is shipped with ROCm installation and you should be able to find it at `/opt/rocm/bin`. You do not need to install the full version of ROCm, but you can install the `rocm-dev` instead, which simply install the compilation tools and will not install the GPU drivers.
 
@@ -14,23 +14,23 @@ Suppose the OpenCL file you want to compile is `kernels.cl`, you can run the fol
 clang-ocl -mcpu=gfx803 kernels.cl -O kernels.hsaco
 ```
 
-Here, `gfx803` is the instruction set architecture~(ISA) that Akita GCN3 supports. In case you want to dump the human readable assembly, you can slightly change the command above to:
+Here, `gfx803` is the instruction set architecture~(ISA) that Akita GCN3 supports. In case you want to dump the human-readable assembly, you can slightly change the command above to:
 
 ```bash
 clang-ocl -mcpu=gfx803 kernels.cl -S kernels.asm
 ```
 
-As you may notice, `clang-ocl` add 3 extra arguments to the compiled kernel, including `HiddenGlobalOffsetX`, `HiddenGlobalOffsetY`, and `HiddenGlobalOffsetZ`. These fields may be helpful when we prepare benchmark for multi-GPU execution. However, the use of these arguments should be very careful and for most of the time, only 0 should be passed to these fields.
+As you may notice, `clang-ocl` add 3 extra arguments to the compiled kernel, including `HiddenGlobalOffsetX`, `HiddenGlobalOffsetY`, and `HiddenGlobalOffsetZ`. These fields may be helpful when we prepare benchmarks for multi-GPU execution. However, the use of these arguments should be very careful and for most of the time, only 0 should be passed to these fields.
 
-## Prepare HSACO from assembly
+## Prepare HSACO from Assembly
 
 TODO
 
 ## Wrap the HSACO with `go-bindata`
 
-As you have the HSACO binary, you can read the file and load the contend into the memory. However, loading the file requires the user to make sure that the HSACO to be located in a certain path. To avoid this inconvenience, we use `go-bindata` to wrap the HSACO binary directly in the source code.
+As you have the HSACO binary, you can read the file and load the content into the memory. However, loading the file requires the user to make sure that the HSACO to be located at a certain path. To avoid this inconvenience, we use `go-bindata` to wrap the HSACO binary directly in the source code.
 
-`go-bindata` provides a command line tool to wrap static files into go code. You need to install `go-bindata` with command `go get -u github.com/jteeuwen/go-bindata/...`. Then, assuming your HSACO file is `kernels.hsaco`, running command `go-bindata kernels.hsaco` generates a `bindata.go` file.
+`go-bindata` provides a command line tool to wrap static files into go code. You need to install `go-bindata` with the command `go get -u github.com/jteeuwen/go-bindata/...`. Then, assuming your HSACO file is `kernels.hsaco`, running command `go-bindata kernels.hsaco` generates a `bindata.go` file.
 
 The generated file has a package declaration of `main`. Since the benchmark you are preparing will eventually become a Go library, you would need to replace the package declaration the same as the name of the benchmark.
 
@@ -38,7 +38,7 @@ Users may notice that `go-bindata` has been deprecated by the original author. R
 
 ## A Benchmark Struct
 
-For each benchmark, we need a Go program that servers as the host program that controls the GPU execution. A Benchmark is prepared as a struct. Here is an example of the struct definition of the FIR benchmark:
+For each benchmark, we need a Go program that serves as the host program that controls the GPU execution. A Benchmark is prepared as a struct. Here is an example of the struct definition of the FIR benchmark:
 
 ```go
 type Benchmark struct {
@@ -56,7 +56,7 @@ type Benchmark struct {
 }
 ```
 
-The first argument is the driver of the benchmark. Driver serves as the API between the benchmark and the GPU simulator. The benchmark interact with the driver to control the GPUs. The field `hsaco` is the HSACO binary and we will see how we can load it from the `go-bindata` wrapped code. The third field `Length` is for the benchmark runner to configure this benchmark. The rest of the fields are benchmark specific data. We will see how the fields are used later.
+The first argument is the driver of the benchmark. Driver serves as the API between the benchmark and the GPU simulator. The benchmark interacts with the driver to control the GPUs. The field `hsaco` is the HSACO binary and we will see how we can load it from the `go-bindata` wrapped code. The third field `Length` is for the benchmark runner to configure this benchmark. The rest of the fields are benchmark specific data. We will see how the fields are used later.
 
 ## Load HSACO
 
@@ -78,9 +78,9 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 }
 ```
 
-The `NewBenchmark` function takes 1 argument, injecting the dependecy of the GPU driver. After setting the driver, the benchmark load the hsaco file with `Asset` function. The `Asset` function requires the file name the same as the HSACO file. The `Asset` function is equivalent to loading all bytes of the file into a buffer. Finally, we extract the kernel binary with `kernels.LoadProgramFromMemory` function. The first argument is the raw HSACO buffer and the second argument is the name of the kernel. Note that an HSACO file may include multiple kernels compiled. Using `LoadProgramFromMemory` function allows you to extract each individual function. However, for the kernels compiled from assembly, the kernel name information is not packed into the HSACO file. You can set the kernel name argument to be an empty string.
+The `NewBenchmark` function takes 1 argument, injecting the dependency of the GPU driver. After setting the driver, the benchmark loads the hsaco file with `Asset` function. The `Asset` function requires the file name the same as the HSACO file. The `Asset` function is equivalent to loading all bytes of the file into a buffer. Finally, we extract the kernel binary with `kernels.LoadProgramFromMemory` function. The first argument is the raw HSACO buffer and the second argument is the name of the kernel. Note that an HSACO file may include multiple kernels compiled. Using `LoadProgramFromMemory` function allows you to extract each individual function. However, for the kernels compiled from assembly, the kernel name information is not packed into the HSACO file. You can set the kernel name argument to be an empty string.
 
-All the `Benchmark` struct must provide a `Run` function, so that the runner can start the simulation. Usually, `Run` is composed of two steps, initializing the GPU memory and run the kernel.
+All the `Benchmark` struct must provide a `Run` function so that the runner can start the simulation. Usually, `Run` is composed of two steps, initializing the GPU memory and run the kernel.
 
 ```go
 func (b *Benchmark) Run() {
@@ -138,7 +138,7 @@ Note that when you run the `MemCopyH2D` function, the simulator already started 
 
 ## Run a Kernel
 
-Finally we can run kernels on the GPU simulator. But before we launch the kernel, we need to formally define the kernel arguments as a struct. For example, the OpenCL kernel signature of the FIR kernel is as follows:
+Finally, we can run kernels on the GPU simulator. But before we launch the kernel, we need to formally define the kernel arguments as a struct. For example, the OpenCL kernel signature of the FIR kernel is as follows:
 
 ```opencl
 __kernel void FIR(
@@ -191,8 +191,8 @@ func (b *Benchmark) exec() {
 }
 ```
 
-In the code above, we first set the fields of the kernel arguments. Then we launch the kernel with `LaunchKernel` API. The `LaunchKernel` API takes the kernel HSACO as the first argument. The global grid size (in the unit of number of work-items) and the work-group size as the second argument. The last argument is the pointer to the kernel arguments. The `LaunchKernel` function runs the kernel on the simulator and it will return when the kernel simulation is completed. Therefore, this function may run for a very long time.
+In the code above, we first set the fields of the kernel arguments. Then we launch the kernel with `LaunchKernel` API. The `LaunchKernel` API takes the kernel HSACO as the first argument. The global grid size (in the unit of the number of work-items) and the work-group size as the second argument. The last argument is the pointer to the kernel arguments. The `LaunchKernel` function runs the kernel on the simulator and it will return when the kernel simulation is completed. Therefore, this function may run for a very long time.
 
 ## Verification
 
-Verification is optional but strongly recommened. With a CPU verification that compares the output witht he GPU output, a user would know that the simulator is at least functionally correct.
+Verification is optional but strongly recommended. With a CPU verification that compares the output with the GPU output, a user would know that the simulator is at least functionally correct.
