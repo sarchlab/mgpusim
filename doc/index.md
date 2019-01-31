@@ -9,7 +9,7 @@ This repository contains the code for GCN3 Model for Akita.
 
     1. [Prepare Experiments](prepare_experiments.md)
     1. [Prepare Benchmarks](prepare_benchmarks.md)
-    1. Configure Platform
+    1. [Configure Platform](configure_platform.md)
 
 1. GCN3 Model
 
