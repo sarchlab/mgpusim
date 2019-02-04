@@ -1,6 +1,7 @@
 package gcn3
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -154,19 +155,13 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 	p.curShootdownRequest = cmd
 	p.shootDownInProcess = true
 
-	/*for i := 0; i < len(p.ToCU); i++ {
+	for i := 0; i < len(p.ToCU); i++ {
 		req := NewCUPipelineDrainReq(now, p.ToCU[i], p.CU[i])
 		err := p.ToCU[i].Send(req)
 		if err != nil {
 			log.Panicf("failed to send pipeline drain request to CU")
 		}
 
-	}*/
-
-	req := NewCUPipelineDrainReq(now, p.ToCU[0], p.CU[0])
-	err := p.ToCU[0].Send(req)
-	if err != nil {
-		log.Panicf("failed to send pipeline drain request to CU")
 	}
 
 	return nil
@@ -203,7 +198,10 @@ func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteR
 		p.numVMRecvdAck = p.numVMRecvdAck + 1
 	}
 
+	fmt.Printf("%d \n", p.numVMRecvdAck)
+
 	if p.numVMRecvdAck == p.numVMUnits {
+		fmt.Printf("Reached here")
 		req := NewShootdownCompleteCommand(now, p.ToDriver, p.Driver)
 		req.shootDownComplete = true
 		err := p.ToDriver.Send(req)
@@ -211,11 +209,12 @@ func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteR
 			log.Panicf("Failed to send shootdown complete ack to driver")
 		}
 
+		p.shootDownInProcess = false
+		p.numVMRecvdAck = 0
+		p.numCURecvdAck = 0
+
 	}
 
-	p.shootDownInProcess = false
-	p.numVMRecvdAck = 0
-	p.numCURecvdAck = 0
 	return nil
 }
 
@@ -283,11 +282,6 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 
 	c.ToDriver = akita.NewLimitNumReqPort(c, 1)
 	c.ToDispatcher = akita.NewLimitNumReqPort(c, 1)
-
-	/*for i := 0; i < int(c.numCUs); i++ {
-		c.ToCU = append(c.ToCU, akita.NewLimitNumReqPort(c, 1))
-		c.CU   = append(c.CU, akita.NewLimitNumReqPort(c, 1))
-	}*/
 
 	return c
 }
