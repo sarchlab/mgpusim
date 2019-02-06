@@ -1,12 +1,14 @@
 package gcn3
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/vm"
 )
 
 type Resettable interface {
@@ -28,14 +30,29 @@ type CommandProcessor struct {
 	Dispatcher akita.Port
 	DMAEngine  akita.Port
 	Driver     akita.Port
+	VMModules  []akita.Port
+	CU         []akita.Port
 
 	ToDriver     akita.Port
 	ToDispatcher akita.Port
 
-	CachesToReset               []akita.Port
-	L2Caches                    []*cache.WriteBackCache
-	DRAMControllers             []*mem.IdealMemController
+	CachesToReset   []akita.Port
+	L2Caches        []*cache.WriteBackCache
+	DRAMControllers []*mem.IdealMemController
+	ToCU            []akita.Port
+	ToVMModules     []akita.Port
+
 	kernelFixedOverheadInCycles int
+
+	curShootdownRequest *ShootDownCommand
+
+	numCUs     uint64
+	numVMUnits uint64
+
+	numCURecvdAck uint64
+	numVMRecvdAck uint64
+
+	shootDownInProcess bool
 }
 
 func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
@@ -62,6 +79,13 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 		return p.processMemCopyReq(req)
 	case *mem.InvalidDoneRsp:
 		// Do nothing
+	case *ShootDownCommand:
+		return p.handleShootdownCommand(req)
+	case *CUPipelineDrainRsp:
+		return p.handleCUPipelineDrainRsp(req)
+	case *vm.InvalidationCompleteRsp:
+		return p.handleVMInvalidationRsp(req)
+
 	default:
 		log.Panicf("cannot process request %s", reflect.TypeOf(req))
 	}
@@ -116,6 +140,79 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 	err := p.ToDriver.Send(cmd)
 	if err != nil {
 		panic(err)
+	}
+
+	return nil
+}
+
+func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
+	now := cmd.Time()
+
+	if p.shootDownInProcess == true {
+		return nil
+	}
+
+	p.curShootdownRequest = cmd
+	p.shootDownInProcess = true
+
+	for i := 0; i < len(p.ToCU); i++ {
+		req := NewCUPipelineDrainReq(now, p.ToCU[i], p.CU[i])
+		err := p.ToCU[i].Send(req)
+		if err != nil {
+			log.Panicf("failed to send pipeline drain request to CU")
+		}
+
+	}
+
+	return nil
+
+}
+
+func (p *CommandProcessor) handleCUPipelineDrainRsp(cmd *CUPipelineDrainRsp) error {
+	now := cmd.Time()
+
+	if cmd.drainPipelineComplete == true {
+		p.numCURecvdAck = p.numCURecvdAck + 1
+
+	}
+
+	if p.numCURecvdAck == p.numCUs {
+		shootDownCmd := p.curShootdownRequest
+		for i := 0; i < len(p.VMModules); i++ {
+			req := vm.NewPTEInvalidationReq(now, p.ToVMModules[i], p.VMModules[i], shootDownCmd.pID, shootDownCmd.vAddr)
+			err := p.ToVMModules[i].Send(req)
+			if err != nil {
+				log.Panicf("failed to send shootdown request to VM Modules")
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteRsp) error {
+	now := cmd.Time()
+
+	if cmd.InvalidationDone == true {
+		p.numVMRecvdAck = p.numVMRecvdAck + 1
+	}
+
+	fmt.Printf("%d \n", p.numVMRecvdAck)
+
+	if p.numVMRecvdAck == p.numVMUnits {
+		fmt.Printf("Reached here")
+		req := NewShootdownCompleteCommand(now, p.ToDriver, p.Driver)
+		req.shootDownComplete = true
+		err := p.ToDriver.Send(req)
+		if err != nil {
+			log.Panicf("Failed to send shootdown complete ack to driver")
+		}
+
+		p.shootDownInProcess = false
+		p.numVMRecvdAck = 0
+		p.numCURecvdAck = 0
+
 	}
 
 	return nil
