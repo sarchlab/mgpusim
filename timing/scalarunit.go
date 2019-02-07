@@ -22,6 +22,8 @@ type ScalarUnit struct {
 
 	readBufSize int
 	readBuf     []*mem.ReadReq
+
+	isIdle bool
 }
 
 // NewScalarUnit creates a new Scalar unit, injecting the dependency of
@@ -45,6 +47,11 @@ func (u *ScalarUnit) CanAcceptWave() bool {
 	return u.toRead == nil
 }
 
+// CanAcceptWave checks if the buffer of the read stage is occupied or not
+func (u *ScalarUnit) IsIdle() bool {
+	return u.isIdle
+}
+
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *ScalarUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
@@ -58,6 +65,7 @@ func (u *ScalarUnit) Run(now akita.VTimeInSec) bool {
 	madeProgress = u.runWriteStage(now) || madeProgress
 	madeProgress = u.runExecStage(now) || madeProgress
 	madeProgress = u.runReadStage(now) || madeProgress
+	u.isIdle = !madeProgress
 	return madeProgress
 }
 

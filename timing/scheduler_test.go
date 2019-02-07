@@ -32,6 +32,7 @@ func (m *mockWfArbitor) Arbitrate([]*WavefrontPool) []*Wavefront {
 
 type mockCUComponent struct {
 	canAccept    bool
+	isIdle       bool
 	acceptedWave []*Wavefront
 }
 
@@ -45,6 +46,10 @@ func (c *mockCUComponent) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 
 func (c *mockCUComponent) Run(now akita.VTimeInSec) bool {
 	return true
+}
+
+func (c *mockCUComponent) IsIdle() bool {
+	return c.isIdle
 }
 
 var _ = Describe("Scheduler", func() {

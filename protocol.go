@@ -12,6 +12,11 @@ type CUPipelineDrainRsp struct {
 	drainPipelineComplete bool
 }
 
+type CUPipelineRestart struct {
+	*akita.ReqBase
+	restartPipeline bool
+}
+
 func NewCUPipelineDrainReq(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -42,6 +47,23 @@ func NewCUPipelineDrainRsp(
 	req.SetDst(dst)
 
 	req.drainPipelineComplete = true
+
+	return req
+}
+
+func NewCUPipelineRestartReq(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *CUPipelineRestart {
+	reqBase := akita.NewReqBase()
+	req := new(CUPipelineRestart)
+	req.ReqBase = reqBase
+
+	req.SetSendTime(time)
+	req.SetSrc(src)
+	req.SetDst(dst)
+
+	req.restartPipeline = true
 
 	return req
 }
