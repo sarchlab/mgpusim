@@ -24,6 +24,8 @@ type VectorMemoryUnit struct {
 
 	AddrCoalescingLatency   int
 	AddrCoalescingCycleLeft int
+
+	isIdle bool
 }
 
 // NewVectorMemoryUnit creates a new Scalar unit, injecting the dependency of
@@ -58,12 +60,18 @@ func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Read"})
 }
 
+// AcceptWave moves one wavefront into the read buffer of the Scalar unit
+func (u *VectorMemoryUnit) IsIdle() bool {
+	return u.isIdle
+}
+
 // Run executes three pipeline stages that are controlled by the VectorMemoryUnit
 func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) bool {
 	madeProgress := false
 	madeProgress = madeProgress || u.sendRequest(now)
 	madeProgress = madeProgress || u.runExecStage(now)
 	madeProgress = madeProgress || u.runReadStage(now)
+	u.isIdle = !madeProgress
 	return madeProgress
 }
 

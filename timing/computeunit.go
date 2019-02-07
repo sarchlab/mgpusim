@@ -4,13 +4,12 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
-
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem/cache"
 )
 
@@ -67,6 +66,16 @@ type ComputeUnit struct {
 	ToInstMem   akita.Port
 	ToScalarMem akita.Port
 	ToVectorMem akita.Port
+
+	ToCP akita.Port
+	CP   akita.Port
+
+	inCPRequestProcessingStage akita.Req
+	cpRequestHandlingComplete  bool
+
+	isDraining bool
+
+	toSendToCP *gcn3.CUPipelineDrainRsp
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -98,6 +107,10 @@ func (cu *ComputeUnit) handleTickEvent(evt akita.TickEvent) {
 
 	cu.runPipeline(now)
 	cu.processInput(now)
+	if cu.isDraining {
+		cu.drainPipeline(now)
+	}
+	cu.sendToCP(now)
 
 	if cu.NeedTick {
 		cu.TickLater(now)
@@ -135,6 +148,100 @@ func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
 	cu.processInputFromInstMem(now)
 	cu.processInputFromScalarMem(now)
 	cu.processInputFromVectorMem(now)
+	cu.processInputFromCP(now)
+}
+
+func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
+
+	req := cu.ToCP.Retrieve(now)
+
+	if req == nil {
+		return
+	}
+	cu.NeedTick = true
+
+	//TODO: Should there be a fixed draining latency?
+	cu.inCPRequestProcessingStage = req
+
+	switch req := req.(type) {
+	case *gcn3.CUPipelineDrainReq:
+		cu.handlePipelineDrainReq(now, req)
+	case *gcn3.CUPipelineRestart:
+		cu.handlePipelineResume(now, req)
+
+	}
+}
+
+func (cu *ComputeUnit) handlePipelineDrainReq(
+	now akita.VTimeInSec,
+	req *gcn3.CUPipelineDrainReq) error {
+	//1. Issue drain command to scheduler
+	//2. Check all units one by one until all idle
+	//3. If all complete issue CU Pipeline Drain Completion respond
+	cu.isDraining = true
+
+	cu.Scheduler.isDraining = true
+
+	return nil
+
+}
+
+func (cu *ComputeUnit) handlePipelineResume(
+	now akita.VTimeInSec,
+	req *gcn3.CUPipelineRestart) error {
+	//1. Issue drain command to scheduler
+	//2. Check all units one by one until all idle
+	//3. If all complete issue CU Pipeline Drain Completion respond
+	cu.isDraining = false
+	cu.Scheduler.isDraining = false
+	return nil
+
+}
+
+func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec,
+) {
+	if cu.toSendToCP == nil {
+		return
+	}
+	cu.toSendToCP.SetSendTime(now)
+	sendErr := cu.ToCP.Send(cu.toSendToCP)
+	if sendErr == nil {
+		cu.toSendToCP = nil
+		cu.NeedTick = true
+	}
+
+}
+
+func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
+	drainComplete := true
+
+	drainComplete = drainComplete && cu.BranchUnit.IsIdle()
+
+	drainComplete = drainComplete && cu.ScalarUnit.IsIdle()
+	drainComplete = drainComplete && cu.ScalarDecoder.IsIdle()
+
+	for _, simdUnit := range cu.SIMDUnit {
+		drainComplete = drainComplete && simdUnit.IsIdle()
+	}
+
+	drainComplete = drainComplete && cu.VectorDecoder.IsIdle()
+
+	drainComplete = drainComplete && cu.LDSUnit.IsIdle()
+	drainComplete = drainComplete && cu.LDSDecoder.IsIdle()
+
+	drainComplete = drainComplete && cu.VectorMemUnit.IsIdle()
+	drainComplete = drainComplete && cu.VectorMemDecoder.IsIdle()
+
+	drainComplete = drainComplete && cu.Scheduler.isIdle
+
+	if drainComplete == true {
+		respondToCP := gcn3.NewCUPipelineDrainRsp(now, cu.ToCP, cu.CP)
+		cu.toSendToCP = respondToCP
+
+	}
+
+	cu.NeedTick = true
+
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {

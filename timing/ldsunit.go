@@ -15,6 +15,8 @@ type LDSUnit struct {
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
+
+	isIdle bool
 }
 
 // NewLDSUnit creates a new Scalar unit, injecting the dependency of
@@ -36,6 +38,11 @@ func (u *LDSUnit) CanAcceptWave() bool {
 	return u.toRead == nil
 }
 
+// CanAcceptWave checks if the buffer of the read stage is occupied or not
+func (u *LDSUnit) IsIdle() bool {
+	return u.isIdle
+}
+
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *LDSUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
@@ -48,6 +55,7 @@ func (u *LDSUnit) Run(now akita.VTimeInSec) bool {
 	madeProgress = u.runWriteStage(now) || madeProgress
 	madeProgress = u.runExecStage(now) || madeProgress
 	madeProgress = u.runReadStage(now) || madeProgress
+	u.isIdle = !madeProgress
 	return madeProgress
 }
 

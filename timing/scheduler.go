@@ -3,10 +3,9 @@ package timing
 import (
 	"log"
 
-	"gitlab.com/akita/mem"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mem"
 )
 
 // A Scheduler is the controlling unit of a compute unit. It decides which
@@ -22,6 +21,9 @@ type Scheduler struct {
 
 	cyclesNoProgress                  int
 	stopTickingAfterNCyclesNoProgress int
+
+	isDraining bool
+	isIdle     bool
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -46,16 +48,19 @@ func NewScheduler(
 
 func (s *Scheduler) Run(now akita.VTimeInSec) bool {
 	madeProgress := false
-	madeProgress = s.EvaluateInternalInst(now) || madeProgress
-	madeProgress = s.DecodeNextInst(now) || madeProgress
-	madeProgress = s.DoIssue(now) || madeProgress
-	madeProgress = s.DoFetch(now) || madeProgress
-
+	if s.isDraining == false {
+		madeProgress = s.EvaluateInternalInst(now) || madeProgress
+		madeProgress = s.DecodeNextInst(now) || madeProgress
+		madeProgress = s.DoIssue(now) || madeProgress
+		madeProgress = s.DoFetch(now) || madeProgress
+	}
 	if !madeProgress {
 		s.cyclesNoProgress++
 	} else {
 		s.cyclesNoProgress = 0
 	}
+
+	s.isIdle = !madeProgress
 
 	if s.cyclesNoProgress > s.stopTickingAfterNCyclesNoProgress {
 		return false
@@ -142,25 +147,28 @@ func (s *Scheduler) DoFetch(now akita.VTimeInSec) bool {
 // units
 func (s *Scheduler) DoIssue(now akita.VTimeInSec) bool {
 	madeProgress := false
-	wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
-	for _, wf := range wfs {
-		if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
-			madeProgress = s.issueToInternal(wf, now) || madeProgress
 
-			continue
-		}
+	if s.isDraining == false {
+		wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
+		for _, wf := range wfs {
+			if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
+				madeProgress = s.issueToInternal(wf, now) || madeProgress
 
-		unit := s.getUnitToIssueTo(wf.InstToIssue.ExeUnit)
-		if unit.CanAcceptWave() {
-			wf.inst = wf.InstToIssue
-			wf.InstToIssue = nil
-			unit.AcceptWave(wf, now)
-			wf.State = WfRunning
-			wf.PC += uint64(wf.inst.ByteSize)
-			s.removeStaleInstBuffer(wf)
-			s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
-				&InstHookInfo{now, wf.inst, "Issue"})
-			madeProgress = true
+				continue
+			}
+
+			unit := s.getUnitToIssueTo(wf.InstToIssue.ExeUnit)
+			if unit.CanAcceptWave() {
+				wf.inst = wf.InstToIssue
+				wf.InstToIssue = nil
+				unit.AcceptWave(wf, now)
+				wf.State = WfRunning
+				wf.PC += uint64(wf.inst.ByteSize)
+				s.removeStaleInstBuffer(wf)
+				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
+					&InstHookInfo{now, wf.inst, "Issue"})
+				madeProgress = true
+			}
 		}
 	}
 	return madeProgress

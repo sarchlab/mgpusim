@@ -13,6 +13,8 @@ type DecodeUnit struct {
 
 	toDecode *Wavefront
 	decoded  bool
+
+	isIdle bool
 }
 
 // NewDecodeUnit creates a new decode unit
@@ -33,6 +35,10 @@ func (du *DecodeUnit) AddExecutionUnit(cuComponent CUComponent) {
 // CanAcceptWave checks if the DecodeUnit is ready to decode another
 // instruction
 func (du *DecodeUnit) CanAcceptWave() bool {
+	return du.toDecode == nil
+}
+
+func (du *DecodeUnit) IsIdle() bool {
 	return du.toDecode == nil
 }
 

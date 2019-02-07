@@ -28,6 +28,9 @@ func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
 type mockWfDispatcher struct {
 }
 
+type mockScheduler struct {
+}
+
 func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *Wavefront) {
 }
 
@@ -71,10 +74,14 @@ var _ = Describe("ComputeUnit", func() {
 		toScalarMem  *mock_akita.MockPort
 		toVectorMem  *mock_akita.MockPort
 		toACE        *mock_akita.MockPort
+		toCP         *mock_akita.MockPort
+		cp           *mock_akita.MockPort
 
 		instMem *mock_akita.MockPort
 
 		grid *kernels.Grid
+
+		//scheduler *mockScheduler
 	)
 
 	BeforeEach(func() {
@@ -83,6 +90,7 @@ var _ = Describe("ComputeUnit", func() {
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
+		//scheduler = new(mockScheduler)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
@@ -91,6 +99,7 @@ var _ = Describe("ComputeUnit", func() {
 		cu.Freq = 1
 		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(4096, 64))
+		//cu.Scheduler = scheduler
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -107,6 +116,12 @@ var _ = Describe("ComputeUnit", func() {
 
 		instMem = mock_akita.NewMockPort(mockCtrl)
 		cu.InstMem = instMem
+
+		toCP = mock_akita.NewMockPort(mockCtrl)
+		cp = mock_akita.NewMockPort(mockCtrl)
+
+		cu.ToCP = toCP
+		cu.CP = cp
 
 		grid = exampleGrid()
 	})
@@ -351,6 +366,21 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
 			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+		})
+	})
+	Context("should process an input from CP", func() {
+		It("handle a Pipeline drain request from CP", func() {
+			req := gcn3.NewCUPipelineDrainReq(10, nil, cu.ToCP)
+			req.SetEventTime(10)
+
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
+
+			cu.processInputFromCP(11)
+
+			//Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
+			//Expect(cu.isDraining).To(BeTrue())
+			//Expect(cu.Scheduler.isDraining).To(BeTrue())
+
 		})
 	})
 })

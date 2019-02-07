@@ -131,7 +131,7 @@ var _ = Describe("CommandProcessor", func() {
 
 	})
 
-	FIt("should handle a VM invalidation done from the VM units and send a ack to driver", func() {
+	It("should handle a VM invalidation done from the VM units and send a ack to driver", func() {
 
 		shootDownRsp := vm.NewInvalidationCompleteRsp(10, nil, commandProcessor.ToVMModules[0], "vm")
 		shootDownRsp.InvalidationDone = true
