@@ -1,7 +1,6 @@
 package gcn3
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -31,7 +30,7 @@ type CommandProcessor struct {
 	DMAEngine  akita.Port
 	Driver     akita.Port
 	VMModules  []akita.Port
-	CU         []akita.Port
+	CUs        []akita.Port
 
 	ToDriver     akita.Port
 	ToDispatcher akita.Port
@@ -39,8 +38,8 @@ type CommandProcessor struct {
 	CachesToReset   []akita.Port
 	L2Caches        []*cache.WriteBackCache
 	DRAMControllers []*mem.IdealMemController
-	ToCU            []akita.Port
-	ToVMModules     []akita.Port
+	ToCU            akita.Port
+	ToVMModules     akita.Port
 
 	kernelFixedOverheadInCycles int
 
@@ -155,14 +154,16 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 	p.curShootdownRequest = cmd
 	p.shootDownInProcess = true
 
-	for i := 0; i < len(p.ToCU); i++ {
-		req := NewCUPipelineDrainReq(now, p.ToCU[i], p.CU[i])
-		err := p.ToCU[i].Send(req)
+	for i := 0; i < len(p.CUs); i++ {
+		req := NewCUPipelineDrainReq(now, p.ToCU, p.CUs[i])
+		err := p.ToCU.Send(req)
 		if err != nil {
 			log.Panicf("failed to send pipeline drain request to CU")
 		}
 
 	}
+
+	//TODO: NotifyRecvl already does a retrieve from port. Why do it again
 
 	return nil
 
@@ -179,8 +180,8 @@ func (p *CommandProcessor) handleCUPipelineDrainRsp(cmd *CUPipelineDrainRsp) err
 	if p.numCURecvdAck == p.numCUs {
 		shootDownCmd := p.curShootdownRequest
 		for i := 0; i < len(p.VMModules); i++ {
-			req := vm.NewPTEInvalidationReq(now, p.ToVMModules[i], p.VMModules[i], shootDownCmd.pID, shootDownCmd.vAddr)
-			err := p.ToVMModules[i].Send(req)
+			req := vm.NewPTEInvalidationReq(now, p.ToVMModules, p.VMModules[i], shootDownCmd.pID, shootDownCmd.vAddr)
+			err := p.ToVMModules.Send(req)
 			if err != nil {
 				log.Panicf("failed to send shootdown request to VM Modules")
 			}
@@ -198,11 +199,8 @@ func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteR
 		p.numVMRecvdAck = p.numVMRecvdAck + 1
 	}
 
-	fmt.Printf("%d \n", p.numVMRecvdAck)
-
 	if p.numVMRecvdAck == p.numVMUnits {
-		fmt.Printf("Reached here")
-		req := NewShootdownCompleteCommand(now, p.ToDriver, p.Driver)
+		req := NewShootdownCompleteRsp(now, p.ToDriver, p.Driver)
 		req.shootDownComplete = true
 		err := p.ToDriver.Send(req)
 		if err != nil {
