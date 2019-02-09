@@ -23,7 +23,7 @@ type ShootDownCommand struct {
 	pID   vm.PID
 }
 
-type ShootDownCompleteCommand struct {
+type ShootDownCompleteRsp struct {
 	*akita.ReqBase
 
 	StartTime akita.VTimeInSec
@@ -44,8 +44,8 @@ func NewShootdownCommand(time akita.VTimeInSec, src, dst akita.Port, vAddr []uin
 	return cmd
 }
 
-func NewShootdownCompleteCommand(time akita.VTimeInSec, src, dst akita.Port) *ShootDownCompleteCommand {
-	cmd := new(ShootDownCompleteCommand)
+func NewShootdownCompleteRsp(time akita.VTimeInSec, src, dst akita.Port) *ShootDownCompleteRsp {
+	cmd := new(ShootDownCompleteRsp)
 	cmd.ReqBase = akita.NewReqBase()
 	cmd.SetSendTime(time)
 	cmd.SetSrc(src)
