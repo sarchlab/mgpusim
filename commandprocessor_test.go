@@ -19,10 +19,10 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor *CommandProcessor
 		toDriver         *mock_akita.MockPort
 		toDispatcher     *mock_akita.MockPort
-		cu               []*mock_akita.MockPort
-		toCU             []*mock_akita.MockPort
+		cus              []*mock_akita.MockPort
+		toCU             *mock_akita.MockPort
 		vmModules        []*mock_akita.MockPort
-		toVMModules      []*mock_akita.MockPort
+		toVMModules      *mock_akita.MockPort
 	)
 
 	BeforeEach(func() {
@@ -43,27 +43,23 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.Dispatcher = dispatcher
 		commandProcessor.Driver = driver
 
+		toCU = mock_akita.NewMockPort(mockCtrl)
+		toVMModules = mock_akita.NewMockPort(mockCtrl)
+
+		commandProcessor.ToCU = toCU
+		commandProcessor.ToVMModules = toVMModules
+
 		for i := 0; i < int(commandProcessor.numCUs); i++ {
 
-			toCU = append(toCU, mock_akita.NewMockPort(mockCtrl))
-			cu = append(cu, mock_akita.NewMockPort(mockCtrl))
-
-			commandProcessor.ToCU = append(commandProcessor.ToCU, akita.NewLimitNumReqPort(commandProcessor, 1))
-			commandProcessor.CU = append(commandProcessor.CU, akita.NewLimitNumReqPort(commandProcessor, 1))
-
-			commandProcessor.ToCU[i] = toCU[i]
-			commandProcessor.CU[i] = cu[i]
+			cus = append(cus, mock_akita.NewMockPort(mockCtrl))
+			commandProcessor.CUs = append(commandProcessor.CUs, akita.NewLimitNumReqPort(commandProcessor, 1))
+			commandProcessor.CUs[i] = cus[i]
 		}
 
 		for i := 0; i < int(commandProcessor.numVMUnits); i++ {
 
-			toVMModules = append(toVMModules, mock_akita.NewMockPort(mockCtrl))
 			vmModules = append(vmModules, mock_akita.NewMockPort(mockCtrl))
-
-			commandProcessor.ToVMModules = append(commandProcessor.ToVMModules, akita.NewLimitNumReqPort(commandProcessor, 1))
 			commandProcessor.VMModules = append(commandProcessor.VMModules, akita.NewLimitNumReqPort(commandProcessor, 1))
-
-			commandProcessor.ToVMModules[i] = toVMModules[i]
 			commandProcessor.VMModules[i] = vmModules[i]
 		}
 
@@ -101,8 +97,8 @@ var _ = Describe("CommandProcessor", func() {
 		req.SetEventTime(10)
 
 		for i := 0; i < int(commandProcessor.numCUs); i++ {
-			reqDrain := NewCUPipelineDrainReq(10, commandProcessor.ToCU[i], commandProcessor.CU[i])
-			toCU[i].EXPECT().Send(gomock.AssignableToTypeOf(reqDrain))
+			reqDrain := NewCUPipelineDrainReq(10, commandProcessor.ToCU, commandProcessor.CUs[i])
+			toCU.EXPECT().Send(gomock.AssignableToTypeOf(reqDrain))
 		}
 
 		commandProcessor.Handle(req)
@@ -115,7 +111,7 @@ var _ = Describe("CommandProcessor", func() {
 		shootDownreq := NewShootdownCommand(8, nil, commandProcessor.ToDriver, vAddr, 1)
 		commandProcessor.curShootdownRequest = shootDownreq
 
-		req := NewCUPipelineDrainRsp(10, nil, commandProcessor.ToCU[0])
+		req := NewCUPipelineDrainRsp(10, nil, commandProcessor.ToCU)
 		req.drainPipelineComplete = true
 		req.SetEventTime(10)
 
@@ -123,8 +119,8 @@ var _ = Describe("CommandProcessor", func() {
 
 		for i := 0; i < int(commandProcessor.numVMUnits); i++ {
 
-			reqShootdown := vm.NewPTEInvalidationReq(10, commandProcessor.ToVMModules[i], commandProcessor.VMModules[i], shootDownreq.pID, shootDownreq.vAddr)
-			toVMModules[i].EXPECT().Send(gomock.AssignableToTypeOf(reqShootdown))
+			reqShootdown := vm.NewPTEInvalidationReq(10, commandProcessor.ToVMModules, commandProcessor.VMModules[i], shootDownreq.pID, shootDownreq.vAddr)
+			toVMModules.EXPECT().Send(gomock.AssignableToTypeOf(reqShootdown))
 		}
 
 		commandProcessor.Handle(req)
@@ -133,11 +129,11 @@ var _ = Describe("CommandProcessor", func() {
 
 	It("should handle a VM invalidation done from the VM units and send a ack to driver", func() {
 
-		shootDownRsp := vm.NewInvalidationCompleteRsp(10, nil, commandProcessor.ToVMModules[0], "vm")
+		shootDownRsp := vm.NewInvalidationCompleteRsp(10, nil, commandProcessor.ToVMModules, "vm")
 		shootDownRsp.InvalidationDone = true
 		commandProcessor.numVMRecvdAck = commandProcessor.numVMUnits - 1
 
-		shootDownComplete := NewShootdownCompleteCommand(10, commandProcessor.ToDriver, commandProcessor.Driver)
+		shootDownComplete := NewShootdownCompleteRsp(10, commandProcessor.ToDriver, commandProcessor.Driver)
 		toDriver.EXPECT().Send(gomock.AssignableToTypeOf(shootDownComplete))
 
 		commandProcessor.Handle(shootDownRsp)
