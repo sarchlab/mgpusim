@@ -39,6 +39,7 @@ func (u *BranchUnit) CanAcceptWave() bool {
 }
 
 func (u *BranchUnit) IsIdle() bool {
+	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
 	return u.isIdle
 }
 
@@ -55,7 +56,6 @@ func (u *BranchUnit) Run(now akita.VTimeInSec) bool {
 	madeProgress = u.runWriteStage(now) || madeProgress
 	madeProgress = u.runExecStage(now) || madeProgress
 	madeProgress = u.runReadStage(now) || madeProgress
-	u.isIdle = !madeProgress
 	return madeProgress
 }
 
@@ -105,5 +105,6 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 	u.toWrite.InstBuffer = nil
 	u.toWrite.InstBufferStartPC = u.toWrite.PC & 0xffffffffffffffc0
 	u.toWrite = nil
+	u.isIdle = false
 	return true
 }

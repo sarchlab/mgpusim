@@ -8,9 +8,15 @@ import (
 	"gitlab.com/akita/mem"
 )
 
+type Scheduler interface {
+	Run(now akita.VTimeInSec) bool
+	StartDraining()
+	StopDraining()
+}
+
 // A Scheduler is the controlling unit of a compute unit. It decides which
 // wavefront to fetch and to issue.
-type Scheduler struct {
+type SchedulerImpl struct {
 	cu                *ComputeUnit
 	fetchArbiter      WfArbiter
 	issueArbiter      WfArbiter
@@ -23,7 +29,6 @@ type Scheduler struct {
 	stopTickingAfterNCyclesNoProgress int
 
 	isDraining bool
-	isIdle     bool
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -32,8 +37,8 @@ func NewScheduler(
 	cu *ComputeUnit,
 	fetchArbiter WfArbiter,
 	issueArbiter WfArbiter,
-) *Scheduler {
-	s := new(Scheduler)
+) *SchedulerImpl {
+	s := new(SchedulerImpl)
 	s.cu = cu
 	s.fetchArbiter = fetchArbiter
 	s.issueArbiter = issueArbiter
@@ -46,7 +51,7 @@ func NewScheduler(
 	return s
 }
 
-func (s *Scheduler) Run(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) Run(now akita.VTimeInSec) bool {
 	madeProgress := false
 	if s.isDraining == false {
 		madeProgress = s.EvaluateInternalInst(now) || madeProgress
@@ -60,15 +65,13 @@ func (s *Scheduler) Run(now akita.VTimeInSec) bool {
 		s.cyclesNoProgress = 0
 	}
 
-	s.isIdle = !madeProgress
-
 	if s.cyclesNoProgress > s.stopTickingAfterNCyclesNoProgress {
 		return false
 	}
 	return true
 }
 
-func (s *Scheduler) DecodeNextInst(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
@@ -108,7 +111,7 @@ func (s *Scheduler) DecodeNextInst(now akita.VTimeInSec) bool {
 
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
-func (s *Scheduler) DoFetch(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
@@ -145,7 +148,7 @@ func (s *Scheduler) DoFetch(now akita.VTimeInSec) bool {
 
 // DoIssue function of the scheduler issues fetched instruction to the decoding
 // units
-func (s *Scheduler) DoIssue(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 	madeProgress := false
 
 	if s.isDraining == false {
@@ -174,14 +177,14 @@ func (s *Scheduler) DoIssue(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *Scheduler) removeStaleInstBuffer(wf *Wavefront) {
+func (s *SchedulerImpl) removeStaleInstBuffer(wf *Wavefront) {
 	for wf.PC >= wf.InstBufferStartPC+64 {
 		wf.InstBuffer = wf.InstBuffer[64:]
 		wf.InstBufferStartPC += 64
 	}
 }
 
-func (s *Scheduler) issueToInternal(wf *Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) issueToInternal(wf *Wavefront, now akita.VTimeInSec) bool {
 	if s.internalExecuting == nil {
 		wf.inst = wf.InstToIssue
 		wf.InstToIssue = nil
@@ -195,7 +198,7 @@ func (s *Scheduler) issueToInternal(wf *Wavefront, now akita.VTimeInSec) bool {
 	return false
 }
 
-func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
+func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
 	switch u {
 	case insts.ExeUnitBranch:
 		return s.cu.BranchUnit
@@ -215,7 +218,7 @@ func (s *Scheduler) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
 
 // EvaluateInternalInst updates the status of the instruction being executed
 // in the scheduler.
-func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) EvaluateInternalInst(now akita.VTimeInSec) bool {
 	if s.internalExecuting == nil {
 		return false
 	}
@@ -244,7 +247,7 @@ func (s *Scheduler) EvaluateInternalInst(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) bool {
 	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
 		return false
 	}
@@ -256,7 +259,7 @@ func (s *Scheduler) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) bool {
 	return true
 }
 
-func (s *Scheduler) resetRegisterValue(wf *Wavefront) {
+func (s *SchedulerImpl) resetRegisterValue(wf *Wavefront) {
 	if wf.CodeObject.WIVgprCount > 0 {
 		vRegFile := s.cu.VRegFile[wf.SIMDID].(*SimpleRegisterFile)
 		vRegStorage := vRegFile.storage
@@ -276,7 +279,7 @@ func (s *Scheduler) resetRegisterValue(wf *Wavefront) {
 	}
 }
 
-func (s *Scheduler) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) bool {
 	wf.State = WfAtBarrier
 
 	wg := wf.WG
@@ -298,7 +301,7 @@ func (s *Scheduler) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) bool {
 	return true
 }
 
-func (s *Scheduler) areAllWfInWGAtBarrier(wg *WorkGroup) bool {
+func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *WorkGroup) bool {
 	for _, wf := range wg.Wfs {
 		if wf.State != WfAtBarrier {
 			return false
@@ -307,18 +310,18 @@ func (s *Scheduler) areAllWfInWGAtBarrier(wg *WorkGroup) bool {
 	return true
 }
 
-func (s *Scheduler) passBarrier(wg *WorkGroup) {
+func (s *SchedulerImpl) passBarrier(wg *WorkGroup) {
 	s.removeAllWfFromBarrierBuffer(wg)
 	s.setAllWfStateToReady(wg)
 }
 
-func (s *Scheduler) setAllWfStateToReady(wg *WorkGroup) {
+func (s *SchedulerImpl) setAllWfStateToReady(wg *WorkGroup) {
 	for _, wf := range wg.Wfs {
 		wf.State = WfReady
 	}
 }
 
-func (s *Scheduler) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
+func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
 	newBarrierBuffer := make([]*Wavefront, 0, s.barrierBufferSize)
 	for _, wavefront := range s.barrierBuffer {
 		if wavefront.WG != wg {
@@ -328,7 +331,7 @@ func (s *Scheduler) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
 	s.barrierBuffer = newBarrierBuffer
 }
 
-func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) bool {
 	done := true
 	inst := wf.Inst()
 
@@ -346,4 +349,12 @@ func (s *Scheduler) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) bool {
 		return true
 	}
 	return false
+}
+
+func (s *SchedulerImpl) StartDraining() {
+	s.isDraining = true
+}
+
+func (s *SchedulerImpl) StopDraining() {
+	s.isDraining = false
 }

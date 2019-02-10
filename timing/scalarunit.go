@@ -49,6 +49,7 @@ func (u *ScalarUnit) CanAcceptWave() bool {
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *ScalarUnit) IsIdle() bool {
+	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil) && (len(u.readBuf) == 0)
 	return u.isIdle
 }
 
@@ -65,7 +66,6 @@ func (u *ScalarUnit) Run(now akita.VTimeInSec) bool {
 	madeProgress = u.runWriteStage(now) || madeProgress
 	madeProgress = u.runExecStage(now) || madeProgress
 	madeProgress = u.runReadStage(now) || madeProgress
-	u.isIdle = !madeProgress
 	return madeProgress
 }
 
