@@ -44,6 +44,7 @@ func (u *SIMDUnit) CanAcceptWave() bool {
 
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *SIMDUnit) IsIdle() bool {
+	u.isIdle = (u.toExec == nil)
 	return u.isIdle
 }
 
@@ -66,7 +67,6 @@ func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 // Run executes three pipeline stages that are controlled by the SIMDUnit
 func (u *SIMDUnit) Run(now akita.VTimeInSec) bool {
 	madeProgress := u.runExecStage(now)
-	u.isIdle = !madeProgress
 	return madeProgress
 }
 

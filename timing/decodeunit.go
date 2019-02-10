@@ -39,7 +39,8 @@ func (du *DecodeUnit) CanAcceptWave() bool {
 }
 
 func (du *DecodeUnit) IsIdle() bool {
-	return du.toDecode == nil
+	du.isIdle = (du.toDecode == nil) && (du.decoded == false)
+	return du.isIdle
 }
 
 // AcceptWave takes a wavefront and decode the instruction in the next cycle

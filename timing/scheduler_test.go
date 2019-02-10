@@ -62,7 +62,7 @@ var _ = Describe("Scheduler", func() {
 		vectorMemDecoder *mockCUComponent
 		vectorDecoder    *mockCUComponent
 		scalarDecoder    *mockCUComponent
-		scheduler        *Scheduler
+		scheduler        *SchedulerImpl
 		fetchArbitor     *mockWfArbitor
 		issueArbitor     *mockWfArbitor
 		instMem          *mock_akita.MockPort

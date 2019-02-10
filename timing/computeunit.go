@@ -45,7 +45,7 @@ type ComputeUnit struct {
 
 	running bool
 
-	Scheduler        *Scheduler
+	Scheduler        Scheduler
 	BranchUnit       CUComponent
 	VectorMemDecoder CUComponent
 	VectorMemUnit    CUComponent
@@ -180,7 +180,7 @@ func (cu *ComputeUnit) handlePipelineDrainReq(
 	//3. If all complete issue CU Pipeline Drain Completion respond
 	cu.isDraining = true
 
-	cu.Scheduler.isDraining = true
+	cu.Scheduler.StartDraining()
 
 	return nil
 
@@ -193,7 +193,7 @@ func (cu *ComputeUnit) handlePipelineResume(
 	//2. Check all units one by one until all idle
 	//3. If all complete issue CU Pipeline Drain Completion respond
 	cu.isDraining = false
-	cu.Scheduler.isDraining = false
+	cu.Scheduler.StopDraining()
 	return nil
 
 }
@@ -232,15 +232,13 @@ func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
 	drainComplete = drainComplete && cu.VectorMemUnit.IsIdle()
 	drainComplete = drainComplete && cu.VectorMemDecoder.IsIdle()
 
-	drainComplete = drainComplete && cu.Scheduler.isIdle
-
 	if drainComplete == true {
 		respondToCP := gcn3.NewCUPipelineDrainRsp(now, cu.ToCP, cu.CP)
 		cu.toSendToCP = respondToCP
 
 	}
 
-	cu.NeedTick = true
+	//cu.NeedTick = true
 
 }
 

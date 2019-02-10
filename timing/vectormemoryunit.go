@@ -62,6 +62,7 @@ func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) IsIdle() bool {
+	u.isIdle = (u.toRead == nil) && (u.toExec == nil) && (u.toWrite == nil) && (len(u.SendBuf) == 0)
 	return u.isIdle
 }
 
@@ -71,7 +72,6 @@ func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) bool {
 	madeProgress = madeProgress || u.sendRequest(now)
 	madeProgress = madeProgress || u.runExecStage(now)
 	madeProgress = madeProgress || u.runReadStage(now)
-	u.isIdle = !madeProgress
 	return madeProgress
 }
 

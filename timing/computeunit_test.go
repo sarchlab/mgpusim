@@ -34,6 +34,16 @@ type mockScheduler struct {
 func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *Wavefront) {
 }
 
+func (m *mockScheduler) Run(now akita.VTimeInSec) bool {
+	return true
+}
+
+func (m *mockScheduler) StartDraining() {
+}
+
+func (m *mockScheduler) StopDraining() {
+}
+
 type mockDecoder struct {
 	Inst *insts.Inst
 }
@@ -81,7 +91,7 @@ var _ = Describe("ComputeUnit", func() {
 
 		grid *kernels.Grid
 
-		//scheduler *mockScheduler
+		scheduler *mockScheduler
 	)
 
 	BeforeEach(func() {
@@ -90,7 +100,7 @@ var _ = Describe("ComputeUnit", func() {
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
-		//scheduler = new(mockScheduler)
+		scheduler = new(mockScheduler)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
@@ -99,7 +109,7 @@ var _ = Describe("ComputeUnit", func() {
 		cu.Freq = 1
 		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(4096, 64))
-		//cu.Scheduler = scheduler
+		cu.Scheduler = scheduler
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -377,9 +387,8 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.processInputFromCP(11)
 
-			//Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
-			//Expect(cu.isDraining).To(BeTrue())
-			//Expect(cu.Scheduler.isDraining).To(BeTrue())
+			Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
+			Expect(cu.isDraining).To(BeTrue())
 
 		})
 	})
