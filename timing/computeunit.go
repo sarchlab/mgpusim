@@ -232,6 +232,8 @@ func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
 	drainComplete = drainComplete && cu.VectorMemUnit.IsIdle()
 	drainComplete = drainComplete && cu.VectorMemDecoder.IsIdle()
 
+	drainComplete = drainComplete && (len(cu.inFlightInstFetch) == 0) && (len(cu.inFlightScalarMemAccess) == 0) && (len(cu.inFlightVectorMemAccess) == 0)
+
 	if drainComplete == true {
 		respondToCP := gcn3.NewCUPipelineDrainRsp(now, cu.ToCP, cu.CP)
 		cu.toSendToCP = respondToCP
