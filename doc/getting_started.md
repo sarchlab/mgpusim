@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In this document, we introduce how to run a setup the simulation environment and run a sample experiment. This tutorial targets Linux OS. But you should be able to run the simulator on Windows and Mac OS with similar commands. 
+In this document, we introduce how to setup the simulation environment and run a sample experiment. This tutorial targets Linux OS. But you should be able to run the simulator on Windows and Mac OS with similar commands. 
 
 ## Prerequisites
 
