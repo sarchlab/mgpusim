@@ -428,6 +428,7 @@ func NewControlComponent(
 	ctrlComponent := new(ControlComponent)
 	ctrlComponent.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, ctrlComponent)
 	ctrlComponent.toCU = akita.NewLimitNumReqPort(ctrlComponent, 1)
+	ctrlComponent.cu = akita.NewLimitNumReqPort(ctrlComponent, 1)
 	return ctrlComponent
 
 }
@@ -524,8 +525,7 @@ var _ = Describe("Compute unit black box", func() {
 		lowModuleFinderForCU.LowModule = memory.ToTop
 		cu.VectorMemModules = lowModuleFinderForCU
 
-		ctrlComponent = new(ControlComponent)
-		ctrlComponent.Engine = engine //Verify if same engine
+		ctrlComponent = NewControlComponent("ctrl", engine)
 		ctrlComponent.toCU = cu.CP
 		ctrlComponent.cu = cu.ToCP
 
