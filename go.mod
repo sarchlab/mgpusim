@@ -1,4 +1,4 @@
-module gitlab.com/akita.gcn3
+module gitlab.com/akita/gcn3
 
 require (
 	github.com/go-stack/stack v1.8.0 // indirect
@@ -11,7 +11,6 @@ require (
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	gitlab.com/akita/akita v1.0.1
-	gitlab.com/akita/gcn3 v0.0.0-20190131195857-bce571f2d05d
 	gitlab.com/akita/mem v1.0.0
 	gitlab.com/akita/noc v1.0.0
 	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 // indirect
