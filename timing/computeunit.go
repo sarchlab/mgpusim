@@ -213,28 +213,28 @@ func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec,
 }
 
 func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
-	drainComplete := true
+	drainCompleted := true
 
-	drainComplete = drainComplete && cu.BranchUnit.IsIdle()
+	drainCompleted = drainCompleted && cu.BranchUnit.IsIdle()
 
-	drainComplete = drainComplete && cu.ScalarUnit.IsIdle()
-	drainComplete = drainComplete && cu.ScalarDecoder.IsIdle()
+	drainCompleted = drainCompleted && cu.ScalarUnit.IsIdle()
+	drainCompleted = drainCompleted && cu.ScalarDecoder.IsIdle()
 
 	for _, simdUnit := range cu.SIMDUnit {
-		drainComplete = drainComplete && simdUnit.IsIdle()
+		drainCompleted = drainCompleted && simdUnit.IsIdle()
 	}
 
-	drainComplete = drainComplete && cu.VectorDecoder.IsIdle()
+	drainCompleted = drainCompleted && cu.VectorDecoder.IsIdle()
 
-	drainComplete = drainComplete && cu.LDSUnit.IsIdle()
-	drainComplete = drainComplete && cu.LDSDecoder.IsIdle()
+	drainCompleted = drainCompleted && cu.LDSUnit.IsIdle()
+	drainCompleted = drainCompleted && cu.LDSDecoder.IsIdle()
 
-	drainComplete = drainComplete && cu.VectorMemUnit.IsIdle()
-	drainComplete = drainComplete && cu.VectorMemDecoder.IsIdle()
+	drainCompleted = drainCompleted && cu.VectorMemUnit.IsIdle()
+	drainCompleted = drainCompleted && cu.VectorMemDecoder.IsIdle()
 
-	drainComplete = drainComplete && (len(cu.inFlightInstFetch) == 0) && (len(cu.inFlightScalarMemAccess) == 0) && (len(cu.inFlightVectorMemAccess) == 0)
+	drainCompleted = drainCompleted && (len(cu.inFlightInstFetch) == 0) && (len(cu.inFlightScalarMemAccess) == 0) && (len(cu.inFlightVectorMemAccess) == 0)
 
-	if drainComplete == true {
+	if drainCompleted == true {
 		respondToCP := gcn3.NewCUPipelineDrainRsp(now, cu.ToCP, cu.CP)
 		cu.toSendToCP = respondToCP
 
