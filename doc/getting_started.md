@@ -17,7 +17,7 @@ A set of sample experiments are located in `~/path/to/cloned/repo/samples` folde
 go build
 ```
 
-This command would download all the dependencies and compile the simulator and the experiment. The output binary file should named as `fir`. You can run `./fir -h` for help information, and run the two commands as follow for functional emulation and detailed timing simulation.
+This command would download all the dependencies and compile the simulator and the experiment. The output binary file should be named as `fir`. You can run `./fir -h` for help information, and run the two commands as follow for functional emulation and detailed timing simulation.
 
 ```bash
 ./fir            # For functional emulation
