@@ -1,15 +1,22 @@
 package timing
 
 import (
+	"log"
+	"reflect"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
+	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 )
 
 type mockWGMapper struct {
@@ -392,4 +399,182 @@ var _ = Describe("ComputeUnit", func() {
 
 		})
 	})
+
+})
+
+type ControlComponent struct {
+	*akita.TickingComponent
+	cu   akita.Port
+	toCU akita.Port
+}
+
+type cuPipelineDrainReqEvent struct {
+	*akita.EventBase
+	req *gcn3.CUPipelineDrainReq
+}
+
+func newCUPipelineDrainReqEvent(
+	time akita.VTimeInSec,
+	handler akita.Handler,
+	req *gcn3.CUPipelineDrainReq,
+) *cuPipelineDrainReqEvent {
+	return &cuPipelineDrainReqEvent{akita.NewEventBase(time, handler), req}
+}
+
+func NewControlComponent(
+	name string,
+	engine akita.Engine,
+) *ControlComponent {
+	ctrlComponent := new(ControlComponent)
+	ctrlComponent.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, ctrlComponent)
+	ctrlComponent.toCU = akita.NewLimitNumReqPort(ctrlComponent, 1)
+	return ctrlComponent
+
+}
+
+func (ctrl *ControlComponent) Handle(e akita.Event) error {
+	switch evt := e.(type) {
+	case akita.TickEvent:
+		ctrl.handleTickEvent(evt)
+	case cuPipelineDrainReqEvent:
+		ctrl.handleCUPipelineDrain(evt)
+	default:
+		log.Panicf("cannot handle handle event of type %s", reflect.TypeOf(e))
+	}
+	return nil
+}
+
+func (ctrlComp *ControlComponent) handleTickEvent(tick akita.TickEvent) {
+	now := tick.Time()
+	ctrlComp.NeedTick = false
+
+	ctrlComp.parseFromCU(now)
+
+	if ctrlComp.NeedTick {
+		ctrlComp.TickLater(now)
+	}
+
+}
+
+func (ctrlComp *ControlComponent) parseFromCU(now akita.VTimeInSec) {
+	cuReq := ctrlComp.toCU.Retrieve(now)
+
+	if cuReq == nil {
+		return
+	}
+
+	switch req := cuReq.(type) {
+	case gcn3.CUPipelineDrainRsp:
+		ctrlComp.checkCU(now, req)
+		return
+	default:
+		log.Panicf("Received an unsupported request type %s from CU \n", reflect.TypeOf(cuReq))
+	}
+
+}
+
+func (ctrlComp *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
+	//How do we access the internal states without magic?
+}
+
+func (ctrlComp *ControlComponent) handleCUPipelineDrain(evt cuPipelineDrainReqEvent) {
+	req := evt.req
+	sendErr := ctrlComp.toCU.Send(req)
+	if sendErr != nil {
+		log.Panicf("Unable to send drain request to CU")
+	}
+
+}
+
+//Design a new component that sends MAPWGReq to CU.
+//It can handle a event so that it can send drain req
+//It can receive CU drain complete
+//After Receiving check if the CU is idle and check times
+var _ = Describe("Compute unit black box", func() {
+	var (
+		cu            *ComputeUnit
+		connection    *akita.DirectConnection
+		engine        akita.Engine
+		memory        *mem.IdealMemController //Set to instmem
+		ctrlComponent *ControlComponent
+	)
+
+	BeforeEach(func() {
+		engine = akita.NewSerialEngine()
+		cuBuilder := timing.NewBuilder()
+		cuBuilder.CUName = "cu"
+		cuBuilder.Engine = engine
+
+		//CU inst mem and scalar mem
+		memory = mem.NewIdealMemController("memory", engine, 4*mem.GB)
+		memory.Latency = 300
+		memory.Freq = 1
+
+		cuBuilder.Decoder = insts.NewDisassembler()
+
+		connection = akita.NewDirectConnection(engine)
+		connection.PlugIn(cu.ToInstMem)
+		connection.PlugIn(cu.ToScalarMem)
+		connection.PlugIn(cu.ToVectorMem)
+
+		cu.InstMem = memory.ToTop
+		cu.ScalarMem = memory.ToTop
+
+		lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
+		lowModuleFinderForCU.LowModule = memory.ToTop
+		cu.VectorMemModules = lowModuleFinderForCU
+
+		ctrlComponent = new(ControlComponent)
+		ctrlComponent.Engine = engine //Verify if same engine
+		ctrlComponent.toCU = cu.CP
+		ctrlComponent.cu = cu.ToCP
+
+	})
+
+	It("should start a benchmark. After some time when the drain request is received it should do a pipeline drain", func() {
+		type KernelArgs struct {
+			Output              driver.GPUPtr
+			Filter              driver.GPUPtr
+			Input               driver.GPUPtr
+			History             driver.GPUPtr
+			NumTaps             uint32
+			Padding             uint32
+			HiddenGlobalOffsetX int64
+			HiddenGlobalOffsetY int64
+			HiddenGlobalOffsetZ int64
+		}
+
+		type Benchmark struct {
+			driver *driver.Driver
+			hsaco  *insts.HsaCo
+
+			Length       int
+			numTaps      int
+			inputData    []float32
+			filterData   []float32
+			gFilterData  driver.GPUPtr
+			gHistoryData driver.GPUPtr
+			gInputData   driver.GPUPtr
+			gOutputData  driver.GPUPtr
+		}
+
+		b := new(Benchmark)
+		hsacoBytes, err := fir.Asset("kernels.hsaco")
+		if err != nil {
+			log.Panic(err)
+		}
+		b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "FIR")
+
+		kernArg := KernelArgs{
+			b.gOutputData,
+			b.gFilterData,
+			b.gInputData,
+			b.gHistoryData,
+			uint32(b.numTaps),
+			0,
+			0, 0, 0,
+		}
+
+	})
+
 })
