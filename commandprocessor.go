@@ -1,6 +1,7 @@
 package gcn3
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -95,6 +96,7 @@ func (p *CommandProcessor) processLaunchKernelReq(
 	req *LaunchKernelReq,
 ) error {
 	now := req.Time()
+	fmt.Printf("Start time is %d \n", now)
 	if req.Src() == p.Driver {
 		req.SetDst(p.Dispatcher)
 		req.SetSrc(p.ToDispatcher)
@@ -116,6 +118,7 @@ func (p *CommandProcessor) processLaunchKernelReq(
 
 func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
 	now := evt.Time()
+	fmt.Printf("End time is %d \n", now)
 	evt.Req.SetSendTime(now)
 	p.ToDriver.Send(evt.Req)
 	return nil

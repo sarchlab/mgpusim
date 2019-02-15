@@ -6,10 +6,9 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/mem/vm"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/mem/vm"
 )
 
 // HookPosCommandStart is a hook position that triggers hook when a request
@@ -24,7 +23,7 @@ var HookPosCommandComplete = &struct{ name string }{"CommandComplete"}
 type Driver struct {
 	*akita.TickingComponent
 
-	gpus                 []*gcn3.GPU
+	GPUs                 []*gcn3.GPU
 	allocatedPages       [][]*vm.Page
 	initialAddresses     []uint64
 	storageSizes         []uint64
@@ -55,7 +54,7 @@ func (d *Driver) ExecuteAllCommands() {
 
 // RegisterGPU tells the driver about the existence of a GPU
 func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
-	d.gpus = append(d.gpus, gpu)
+	d.GPUs = append(d.GPUs, gpu)
 
 	d.registerStorage(GPUPtr(d.totalStorageByteSize), dramSize)
 	d.totalStorageByteSize += dramSize
@@ -69,13 +68,13 @@ func (d *Driver) ChangePID(pid vm.PID) {
 
 // GetNumGPUs return the number of GPUs in the platform
 func (d *Driver) GetNumGPUs() int {
-	return len(d.gpus)
+	return len(d.GPUs)
 }
 
 // SelectGPU requires the driver to perform the following APIs on a selected
 // GPU
 func (d *Driver) SelectGPU(gpuID int) {
-	if gpuID >= len(d.gpus) {
+	if gpuID >= len(d.GPUs) {
 		log.Panicf("no GPU %d in the system", gpuID)
 	}
 	d.usingGPU = gpuID
@@ -198,7 +197,7 @@ func (d *Driver) processMemCopyH2DCommand(
 
 		gpuID := d.findGPUIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyH2DReq(now,
-			d.ToGPUs, d.gpus[gpuID].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID].ToDriver,
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -284,7 +283,7 @@ func (d *Driver) processMemCopyD2HCommand(
 
 		gpuID := d.findGPUIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyD2HReq(now,
-			d.ToGPUs, d.gpus[gpuID].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID].ToDriver,
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
 		d.requestsToSend = append(d.requestsToSend, req)
@@ -361,7 +360,7 @@ func (d *Driver) processLaunchKernelCommand(
 	queue *CommandQueue,
 ) {
 	req := gcn3.NewLaunchKernelReq(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
+		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
 	req.PID = queue.PID
 	req.HsaCo = cmd.CodeObject
 	req.Packet = cmd.Packet
@@ -421,7 +420,7 @@ func (d *Driver) processFlushCommand(
 	queue *CommandQueue,
 ) {
 	req := gcn3.NewFlushCommand(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
+		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
 
 	d.requestsToSend = append(d.requestsToSend, req)
 
@@ -487,7 +486,7 @@ func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
 }
 
 func (d *Driver) findGPUIDByPAddr(pAddr uint64) int {
-	for i := range d.gpus {
+	for i := range d.GPUs {
 		if pAddr >= d.initialAddresses[i] &&
 			pAddr < d.initialAddresses[i]+d.storageSizes[i] {
 			return i
