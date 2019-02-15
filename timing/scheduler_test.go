@@ -121,7 +121,7 @@ var _ = Describe("Scheduler", func() {
 
 		scheduler.DoFetch(10)
 
-		Expect(cu.inFlightInstFetch).To(HaveLen(1))
+		Expect(cu.InFlightInstFetch).To(HaveLen(1))
 		Expect(wf.IsFetching).To(BeTrue())
 	})
 

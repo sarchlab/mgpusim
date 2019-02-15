@@ -185,7 +185,7 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		if i == len(coalescedAddrs)-1 {
 			req.IsLastInWave = true
 		}
-		u.cu.inFlightVectorMemAccess = append(u.cu.inFlightVectorMemAccess, info)
+		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, info)
 		u.SendBuf = append(u.SendBuf, req)
 	}
 }
@@ -228,8 +228,8 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 			req.Data = append(req.Data, insts.Uint32ToBytes(data[i*4+j])...)
 		}
 		u.SendBuf = append(u.SendBuf, req)
-		u.cu.inFlightVectorMemAccess = append(
-			u.cu.inFlightVectorMemAccess, info)
+		u.cu.InFlightVectorMemAccess = append(
+			u.cu.InFlightVectorMemAccess, info)
 	}
 }
 

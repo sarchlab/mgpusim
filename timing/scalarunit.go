@@ -139,7 +139,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 		info.Wavefront = u.toExec
 		info.DstSGPR = inst.Data.Register
 		info.Inst = inst
-		u.cu.inFlightScalarMemAccess = append(u.cu.inFlightScalarMemAccess,
+		u.cu.InFlightScalarMemAccess = append(u.cu.InFlightScalarMemAccess,
 			info)
 
 		u.toExec.State = WfReady

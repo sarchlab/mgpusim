@@ -10,13 +10,9 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
-	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
 )
 
 type mockWGMapper struct {
@@ -207,7 +203,7 @@ var _ = Describe("ComputeUnit", func() {
 			info := new(InstFetchReqInfo)
 			info.Wavefront = wf
 			info.Req = req
-			cu.inFlightInstFetch = append(cu.inFlightInstFetch, info)
+			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 		})
 
 		It("should handle fetch return", func() {
@@ -216,7 +212,7 @@ var _ = Describe("ComputeUnit", func() {
 			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1000)))
-			Expect(cu.inFlightInstFetch).To(HaveLen(0))
+			Expect(cu.InFlightInstFetch).To(HaveLen(0))
 			Expect(wf.InstBuffer).To(HaveLen(64))
 			Expect(cu.NeedTick).To(BeTrue())
 		})
@@ -235,7 +231,7 @@ var _ = Describe("ComputeUnit", func() {
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
-			cu.inFlightScalarMemAccess = append(cu.inFlightScalarMemAccess, info)
+			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
 
 			req := mem.NewDataReadyRsp(10, nil, nil, read.ID)
 			req.Data = insts.Uint32ToBytes(32)
@@ -252,7 +248,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
-			Expect(cu.inFlightScalarMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightScalarMemAccess).To(HaveLen(0))
 		})
 	})
 
@@ -285,8 +281,8 @@ var _ = Describe("ComputeUnit", func() {
 			info.DstVGPR = insts.VReg(0)
 			info.Lanes = []int{0, 1, 2, 3}
 			info.LaneAddrOffsets = []uint64{0, 4, 8, 12}
-			cu.inFlightVectorMemAccess = append(
-				cu.inFlightVectorMemAccess, info)
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, info)
 
 			dataReady := mem.NewDataReadyRsp(10, nil, nil, read.ID)
 			dataReady.Data = make([]byte, 64)
@@ -312,7 +308,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
-			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 
 		It("should handle vector data load return, and the return is the last one for an instruction", func() {
@@ -362,7 +358,7 @@ var _ = Describe("ComputeUnit", func() {
 			info.Wavefront = wf
 			info.Inst = inst
 			info.Write = writeReq
-			cu.inFlightVectorMemAccess = append(cu.inFlightVectorMemAccess, info)
+			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
 
 			doneRsp = mem.NewDoneRsp(10, nil, nil, writeReq.ID)
 			toVectorMem.EXPECT().Retrieve(gomock.Any()).Return(doneRsp)
@@ -371,7 +367,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should handle vector data store return and the return is not the last one from an instruction", func() {
 			cu.processInputFromVectorMem(10)
 
-			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 			Expect(cu.NeedTick).To(BeTrue())
 		})
 
@@ -382,7 +378,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
-			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})
 	Context("should process an input from CP", func() {
@@ -487,11 +483,18 @@ func (ctrlComp *ControlComponent) handleCUPipelineDrain(evt cuPipelineDrainReqEv
 
 }
 
+func min(a, b uint32) uint32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 //Design a new component that sends MAPWGReq to CU.
 //It can handle a event so that it can send drain req
 //It can receive CU drain complete
 //After Receiving check if the CU is idle and check times
-var _ = Describe("Compute unit black box", func() {
+/*var _ = Describe("Compute unit black box", func() {
 	var (
 		cu            *ComputeUnit
 		connection    *akita.DirectConnection
@@ -575,6 +578,58 @@ var _ = Describe("Compute unit black box", func() {
 			0, 0, 0,
 		}
 
+		gridSize := [3]uint32{uint32(b.Length), 0, 0}
+		wgSize := [3]uint32{256, 1, 1}
+
+		co := b.hsaco
+		//packet :=
+
+		xLeft := gridSize[0]
+		yLeft := gridSize[1]
+		zLeft := gridSize[2]
+
+		wgIDX := 0
+		wgIDY := 0
+		wgIDZ := 0
+		for zLeft > 0 {
+			zToAllocate := min(zLeft, uint32(wgSize[2]))
+			for yLeft > 0 {
+				yToAllocate := min(yLeft, uint32(wgSize[1]))
+				for xLeft > 0 {
+					xToAllocate := min(xLeft, uint32(wgSize[0]))
+					wg := kernels.NewWorkGroup()
+					wg.Grid = g
+					wg.CurrSizeX = int(xToAllocate)
+					wg.CurrSizeY = int(yToAllocate)
+					wg.CurrSizeZ = int(zToAllocate)
+					wg.SizeX = int(g.Packet.WorkgroupSizeX)
+					wg.SizeY = int(g.Packet.WorkgroupSizeY)
+					wg.SizeZ = int(g.Packet.WorkgroupSizeZ)
+					wg.IDX = wgIDX
+					wg.IDY = wgIDY
+					wg.IDZ = wgIDZ
+					xLeft -= xToAllocate
+					b.spawnWorkItems(wg)
+					b.formWavefronts(wg)
+					g.WorkGroups = append(g.WorkGroups, wg)
+					wgIDX++
+				}
+				wgIDX = 0
+				yLeft -= yToAllocate
+				xLeft = g.Packet.GridSizeX
+				wgIDY++
+			}
+			wgIDY = 0
+			zLeft -= zToAllocate
+			yLeft = g.Packet.GridSizeY
+			wgIDZ++
+		}
+
+		//Grid builder builds a grid and spawns wgs
+		//It needs a hsaco insts.Hsaco and a packet *HsaKernelDispatchPacket
+
+		//How to retrieve wgs from the kernel
+
 	})
 
-})
+})*/

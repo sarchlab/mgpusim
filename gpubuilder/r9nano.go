@@ -5,13 +5,12 @@ import (
 	"log"
 	"os"
 
-	"gitlab.com/akita/gcn3/rdma"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/gcn3/timing/caches"
 	"gitlab.com/akita/gcn3/trace"
@@ -375,6 +374,9 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		b.ACE.RegisterCU(cu.ToACE)
 
 		b.InternalConn.PlugIn(cu.ToACE)
+
+		b.InternalConn.PlugIn(cu.ToCP)
+		b.InternalConn.PlugIn(cu.CP)
 
 		if b.EnableISADebug && i == 0 {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))

@@ -39,9 +39,9 @@ type ComputeUnit struct {
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
 	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
 
-	inFlightInstFetch       []*InstFetchReqInfo
-	inFlightScalarMemAccess []*ScalarMemAccessInfo
-	inFlightVectorMemAccess []*VectorMemAccessInfo
+	InFlightInstFetch       []*InstFetchReqInfo
+	InFlightScalarMemAccess []*ScalarMemAccessInfo
+	InFlightVectorMemAccess []*VectorMemAccessInfo
 
 	running bool
 
@@ -158,6 +158,7 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
 	if req == nil {
 		return
 	}
+
 	cu.NeedTick = true
 
 	//TODO: Should there be a fixed draining latency?
@@ -232,7 +233,7 @@ func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
 	drainCompleted = drainCompleted && cu.VectorMemUnit.IsIdle()
 	drainCompleted = drainCompleted && cu.VectorMemDecoder.IsIdle()
 
-	drainCompleted = drainCompleted && (len(cu.inFlightInstFetch) == 0) && (len(cu.inFlightScalarMemAccess) == 0) && (len(cu.inFlightVectorMemAccess) == 0)
+	drainCompleted = drainCompleted && (len(cu.InFlightInstFetch) == 0) && (len(cu.InFlightScalarMemAccess) == 0) && (len(cu.InFlightVectorMemAccess) == 0)
 
 	if drainCompleted == true {
 		respondToCP := gcn3.NewCUPipelineDrainRsp(now, cu.ToCP, cu.CP)
@@ -461,18 +462,18 @@ func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
-	if len(cu.inFlightInstFetch) == 0 {
+	if len(cu.InFlightInstFetch) == 0 {
 		log.Panic("CU is fetching no instruction")
 	}
 
-	info := cu.inFlightInstFetch[0]
+	info := cu.InFlightInstFetch[0]
 	if info.Req.ID != rsp.RespondTo {
 		log.Panic("response does not match request")
 	}
 
 	wf := info.Wavefront
 	addr := info.Address
-	cu.inFlightInstFetch = cu.inFlightInstFetch[1:]
+	cu.InFlightInstFetch = cu.InFlightInstFetch[1:]
 
 	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
 		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
@@ -502,11 +503,11 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	now akita.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.inFlightScalarMemAccess) == 0 {
+	if len(cu.InFlightScalarMemAccess) == 0 {
 		log.Panic("CU is not loading scalar data")
 	}
 
-	info := cu.inFlightScalarMemAccess[0]
+	info := cu.InFlightScalarMemAccess[0]
 	if info.Req.ID != rsp.RespondTo {
 		log.Panic("response does not match request")
 	}
@@ -520,7 +521,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	cu.SRegFile.Write(access)
 
 	wf.OutstandingScalarMemAccess--
-	cu.inFlightScalarMemAccess = cu.inFlightScalarMemAccess[1:]
+	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{now, info.Inst, "Completed"})
 }
@@ -547,15 +548,15 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	now akita.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.inFlightVectorMemAccess) == 0 {
+	if len(cu.InFlightVectorMemAccess) == 0 {
 		log.Panic("CU is not accessing vector memory")
 	}
 
-	info := cu.inFlightVectorMemAccess[0]
+	info := cu.InFlightVectorMemAccess[0]
 	if info.Read.ID != rsp.RespondTo {
 		log.Panic("CU cannot receive out of order memory return")
 	}
-	cu.inFlightVectorMemAccess = cu.inFlightVectorMemAccess[1:]
+	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 
 	wf := info.Wavefront
 	inst := info.Inst
@@ -588,11 +589,11 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 }
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
-	info := cu.inFlightVectorMemAccess[0]
+	info := cu.InFlightVectorMemAccess[0]
 	if info.Write.ID != rsp.RespondTo {
 		log.Panic("CU cannot receive out of order memory return")
 	}
-	cu.inFlightVectorMemAccess = cu.inFlightVectorMemAccess[1:]
+	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 
 	wf := info.Wavefront
 	if info.Write.IsLastInWave {
@@ -621,6 +622,9 @@ func NewComputeUnit(
 	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 1)
 	cu.ToScalarMem = akita.NewLimitNumReqPort(cu, 1)
 	cu.ToVectorMem = akita.NewLimitNumReqPort(cu, 1)
+
+	cu.ToCP = akita.NewLimitNumReqPort(cu, 1)
+	cu.CP = akita.NewLimitNumReqPort(cu, 1)
 
 	return cu
 }

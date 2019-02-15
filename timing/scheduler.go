@@ -135,7 +135,7 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 			info.Wavefront = wf
 			info.Req = req
 			info.Address = addr
-			s.cu.inFlightInstFetch = append(s.cu.inFlightInstFetch, info)
+			s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
 			wf.IsFetching = true
 
 			//s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "FetchStart"})
