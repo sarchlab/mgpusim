@@ -31,9 +31,8 @@ type Driver struct {
 	memoryMasks          [][]*MemoryChunk
 	totalStorageByteSize uint64
 	mmu                  vm.MMU
+	enqueueSignal        chan bool
 
-	usingGPU           int
-	currentPID         vm.PID
 	PageSizeAsPowerOf2 uint64
 	requestsToSend     []akita.Req
 
@@ -41,6 +40,8 @@ type Driver struct {
 
 	ToGPUs akita.Port
 }
+
+func (d *Driver) watch() {}
 
 // ExecuteAllCommands run the simulation until all the commands are completed.
 func (d *Driver) ExecuteAllCommands() {
@@ -59,26 +60,6 @@ func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 
 	d.registerStorage(GPUPtr(d.totalStorageByteSize), dramSize)
 	d.totalStorageByteSize += dramSize
-}
-
-// ChangePID allows the driver to work on another PID in the following API
-// calls.
-func (d *Driver) ChangePID(pid vm.PID) {
-	d.currentPID = pid
-}
-
-// GetNumGPUs return the number of GPUs in the platform
-func (d *Driver) GetNumGPUs() int {
-	return len(d.gpus)
-}
-
-// SelectGPU requires the driver to perform the following APIs on a selected
-// GPU
-func (d *Driver) SelectGPU(gpuID int) {
-	if gpuID >= len(d.gpus) {
-		log.Panicf("no GPU %d in the system", gpuID)
-	}
-	d.usingGPU = gpuID
 }
 
 // Handle process event that is scheduled on the driver
@@ -504,8 +485,6 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 
 	driver.mmu = mmu
 	driver.PageSizeAsPowerOf2 = 12
-
-	driver.currentPID = 1
 
 	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 40960000)
 
