@@ -27,6 +27,8 @@ gitlab.com/akita/gcn3 v0.0.0-20190131195857-bce571f2d05d h1:INgcPyygasxaZ4o4P4+L
 gitlab.com/akita/gcn3 v0.0.0-20190131195857-bce571f2d05d/go.mod h1:1SFThuk4AW7aXQfNfhsAESiKxTB+D3OYh0hSAbp+U0Q=
 gitlab.com/akita/mem v0.0.0-20190212163951-e0d151d7891c h1:B8bL14fNFNkuXYovVqXZcayA+X998zJ08GELLZaANnY=
 gitlab.com/akita/mem v0.0.0-20190212163951-e0d151d7891c/go.mod h1:xSrhGpSmaNQvE2kUY9fhuPm82Uz+hfpQ1DrYq0wQJsI=
+gitlab.com/akita/mem v0.0.0-20190216021412-cd9f57d7bc36 h1:N1uG5o3klfje/VZ6WQKrR7u/iqrdOaKsV/01pOQSul0=
+gitlab.com/akita/mem v0.0.0-20190216021412-cd9f57d7bc36/go.mod h1:nnObZImQ+G4KelI6oupwilVcDCe6AP5ccGDoWlmlKXw=
 gitlab.com/akita/mem v1.0.0 h1:qIBLktiHgD0IBgpBksAu7mlrXkXHtZJyG5F6ury4Cio=
 gitlab.com/akita/mem v1.0.0/go.mod h1:xSrhGpSmaNQvE2kUY9fhuPm82Uz+hfpQ1DrYq0wQJsI=
 gitlab.com/akita/noc v0.0.0-20190212183900-e4746c1ab0e2 h1:EQcUQ7QvwYzgrqhQAicPWgj/bqaBBdn7cHLoTwSsxVg=
