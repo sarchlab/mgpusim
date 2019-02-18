@@ -36,6 +36,11 @@ type LaunchKernelReq struct {
 	OK bool
 }
 
+// ByteSize of LaunchKernelReq is set to always be 64 bytes.
+func (r *LaunchKernelReq) ByteSize() int {
+	return 64
+}
+
 // NewLaunchKernelReq returns a new LaunchKernelReq
 func NewLaunchKernelReq(
 	time akita.VTimeInSec,
@@ -54,6 +59,11 @@ type MemCopyH2DReq struct {
 	*akita.ReqBase
 	SrcBuffer  []byte
 	DstAddress uint64
+}
+
+// ByteSize of MemCopyH2DReq is the number of bytes in the src buffer
+func (r *MemCopyH2DReq) ByteSize() int {
+	return len(r.SrcBuffer)
 }
 
 // NewMemCopyH2DReq created a new MemCopyH2DReq
@@ -80,6 +90,11 @@ type MemCopyD2HReq struct {
 	*akita.ReqBase
 	SrcAddress uint64
 	DstBuffer  []byte
+}
+
+// ByteSize of MemCopyD2HReq is the number of bytes in the dst buffer
+func (r *MemCopyD2HReq) ByteSize() int {
+	return len(r.DstBuffer)
 }
 
 // NewMemCopyD2HReq created a new MemCopyH2DReq
