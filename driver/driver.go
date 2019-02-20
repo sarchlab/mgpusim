@@ -29,7 +29,7 @@ type Driver struct {
 	storageSizes         []uint64
 	memoryMasks          [][]*MemoryChunk
 	totalStorageByteSize uint64
-	mmu                  vm.MMU
+	MMU                  vm.MMU
 
 	usingGPU           int
 	currentPID         vm.PID
@@ -188,7 +188,7 @@ func (d *Driver) processMemCopyH2DCommand(
 	addr := uint64(cmd.Dst)
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
-		pAddr, page := d.mmu.Translate(d.currentPID, addr)
+		pAddr, page := d.MMU.Translate(d.currentPID, addr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -274,7 +274,7 @@ func (d *Driver) processMemCopyD2HCommand(
 	addr := uint64(cmd.Src)
 	sizeLeft := uint64(len(cmd.RawData))
 	for sizeLeft > 0 {
-		pAddr, page := d.mmu.Translate(d.currentPID, addr)
+		pAddr, page := d.MMU.Translate(d.currentPID, addr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -501,7 +501,7 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
-	driver.mmu = mmu
+	driver.MMU = mmu
 	driver.PageSizeAsPowerOf2 = 12
 
 	driver.currentPID = 1

@@ -46,7 +46,7 @@ var _ = Describe("CommandProcessor", func() {
 		toCU = mock_akita.NewMockPort(mockCtrl)
 		toVMModules = mock_akita.NewMockPort(mockCtrl)
 
-		commandProcessor.ToCU = toCU
+		commandProcessor.ToCUs = toCU
 		commandProcessor.ToVMModules = toVMModules
 
 		for i := 0; i < int(commandProcessor.numCUs); i++ {
@@ -97,7 +97,7 @@ var _ = Describe("CommandProcessor", func() {
 		req.SetEventTime(10)
 
 		for i := 0; i < int(commandProcessor.numCUs); i++ {
-			reqDrain := NewCUPipelineDrainReq(10, commandProcessor.ToCU, commandProcessor.CUs[i])
+			reqDrain := NewCUPipelineDrainReq(10, commandProcessor.ToCUs, commandProcessor.CUs[i])
 			toCU.EXPECT().Send(gomock.AssignableToTypeOf(reqDrain))
 		}
 
@@ -111,7 +111,7 @@ var _ = Describe("CommandProcessor", func() {
 		shootDownreq := NewShootdownCommand(8, nil, commandProcessor.ToDriver, vAddr, 1)
 		commandProcessor.curShootdownRequest = shootDownreq
 
-		req := NewCUPipelineDrainRsp(10, nil, commandProcessor.ToCU)
+		req := NewCUPipelineDrainRsp(10, nil, commandProcessor.ToCUs)
 		req.drainPipelineComplete = true
 		req.SetEventTime(10)
 
@@ -119,7 +119,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		for i := 0; i < int(commandProcessor.numVMUnits); i++ {
 
-			reqShootdown := vm.NewPTEInvalidationReq(10, commandProcessor.ToVMModules, commandProcessor.VMModules[i], shootDownreq.pID, shootDownreq.vAddr)
+			reqShootdown := vm.NewPTEInvalidationReq(10, commandProcessor.ToVMModules, commandProcessor.VMModules[i], shootDownreq.PID, shootDownreq.VAddr)
 			toVMModules.EXPECT().Send(gomock.AssignableToTypeOf(reqShootdown))
 		}
 
