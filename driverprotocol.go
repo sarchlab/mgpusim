@@ -19,8 +19,8 @@ type ShootDownCommand struct {
 	StartTime akita.VTimeInSec
 	EndTime   akita.VTimeInSec
 
-	vAddr []uint64
-	pID   vm.PID
+	VAddr []uint64
+	PID   vm.PID
 }
 
 type ShootDownCompleteRsp struct {
@@ -39,8 +39,8 @@ func NewShootdownCommand(time akita.VTimeInSec, src, dst akita.Port, vAddr []uin
 	cmd.SetSendTime(time)
 	cmd.SetSrc(src)
 	cmd.SetDst(dst)
-	cmd.vAddr = vAddr
-	cmd.pID = pID
+	cmd.VAddr = vAddr
+	cmd.PID = pID
 	return cmd
 }
 

@@ -74,9 +74,13 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	b.InternalConn.PlugIn(b.GPU.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.DMAEngine.ToCP)
 	b.InternalConn.PlugIn(b.DMAEngine.ToMem)
+	b.InternalConn.PlugIn(b.MMU.ToCP)
 	b.ExternalConn.PlugIn(b.GPU.ToDriver)
 
 	b.GPU.InternalConnection = b.InternalConn
+
+	b.connectCUToCP()
+	b.connectVMToCP()
 
 	if b.EnableVisTracing {
 		gpuTracer := trace.NewGPUTracer(b.Tracer)
@@ -84,6 +88,7 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	}
 
 	return b.GPU
+
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
@@ -122,10 +127,64 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.CP.ToDispatcher)
 	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.ACE.ToCUs)
+	b.InternalConn.PlugIn(b.CP.ToCUs)
+	b.InternalConn.PlugIn(b.CP.ToVMModules)
 
 	if b.EnableVisTracing {
 		dispatcherTracer := trace.NewDispatcherTracer(b.Tracer)
 		b.ACE.AcceptHook(dispatcherTracer)
+	}
+}
+
+func (b *R9NanoGPUBuilder) connectCUToCP() {
+	for i := 0; i < 64; i++ {
+		b.CP.CUs = append(b.CP.CUs, akita.NewLimitNumReqPort(b.CP, 1))
+		b.InternalConn.PlugIn(b.CP.CUs[i])
+		b.CP.CUs[i] = b.GPU.CUs[i].(*timing.ComputeUnit).ToCP
+		b.CP.ToCUs = b.GPU.CUs[i].(*timing.ComputeUnit).CP
+	}
+
+}
+
+func (b *R9NanoGPUBuilder) connectVMToCP() {
+	l1VTLBCount := 64
+	l1STLBCount := 16
+	l1ITLBCount := 64
+	l2TLBCount := 1
+	mmuCount := 1
+
+	totalVMUnits := l1VTLBCount + l1STLBCount + l1ITLBCount + mmuCount + l2TLBCount
+
+	for i := 0; i < totalVMUnits; i++ {
+		b.CP.VMModules = append(b.CP.VMModules, akita.NewLimitNumReqPort(b.CP, 1))
+		b.InternalConn.PlugIn(b.CP.VMModules[i])
+	}
+
+	currentVMCount := 0
+
+	for i := 0; i < l1VTLBCount; i++ {
+		b.CP.VMModules[currentVMCount] = b.L1VTLBs[i].ToCP
+		currentVMCount++
+	}
+
+	for i := 0; i < l1STLBCount; i++ {
+		b.CP.VMModules[currentVMCount] = b.L1STLBs[i].ToCP
+		currentVMCount++
+	}
+
+	for i := 0; i < l1ITLBCount; i++ {
+		b.CP.VMModules[currentVMCount] = b.L1ITLBs[i].ToCP
+		currentVMCount++
+	}
+
+	b.CP.VMModules[currentVMCount] = b.L2TLBs[0].ToCP
+	currentVMCount++
+
+	b.CP.VMModules[currentVMCount] = b.MMU.ToCP
+	currentVMCount++
+
+	if currentVMCount != totalVMUnits {
+		log.Panicf(" You missed some VM units in initialization")
 	}
 }
 
@@ -161,6 +220,7 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 	b.L2TLBs = append(b.L2TLBs, l2TLB)
 	b.GPU.L2TLBs = append(b.GPU.L2TLBs, l2TLB)
 	b.InternalConn.PlugIn(l2TLB.ToTop)
+	b.InternalConn.PlugIn(l2TLB.ToCP)
 	b.ExternalConn.PlugIn(l2TLB.ToBottom)
 
 	l1VTLBCount := 64
@@ -178,6 +238,7 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 		b.GPU.L1VTLBs = append(b.GPU.L1VTLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.ToTop)
 		b.InternalConn.PlugIn(l1TLB.ToBottom)
+		b.InternalConn.PlugIn(l1TLB.ToCP)
 
 	}
 
@@ -196,6 +257,8 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 		b.GPU.L1STLBs = append(b.GPU.L1STLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.ToTop)
 		b.InternalConn.PlugIn(l1TLB.ToBottom)
+		b.InternalConn.PlugIn(l1TLB.ToCP)
+
 	}
 
 	l1ITLBCount := 64
@@ -213,6 +276,8 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 		b.GPU.L1ITLBs = append(b.GPU.L1ITLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.ToTop)
 		b.InternalConn.PlugIn(l1TLB.ToBottom)
+		b.InternalConn.PlugIn(l1TLB.ToCP)
+
 	}
 }
 

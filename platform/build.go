@@ -3,17 +3,15 @@ package platform
 import (
 	"fmt"
 
-	"gitlab.com/akita/noc"
-
-	"gitlab.com/akita/mem/cache"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/gcn3/trace"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/noc"
 )
 
 var UseParallelEngine bool
