@@ -36,9 +36,9 @@ cache_acceptance_test:
   stage: test
   script:
     - go install github.com/onsi/ginkgo/ginkgo
-    - cd timing/caches/acceptancetest && go build
-    - cd timing/caches/acceptancetest && ls
-    - cd timing/caches/acceptancetest && ./acceptancetest
+    - cd timing/caches/acceptancetest
+    - go build
+    - ./acceptancetest
   dependencies:
     - go_build
 
