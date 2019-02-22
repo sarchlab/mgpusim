@@ -13,27 +13,22 @@ stages:
   - test
 
 before_script:
-  - export PROJECT_DIR=/go/src/gitlab.com/akita/gcn3
-  - mkdir -p ${PROJECT_DIR}
-  - cp -r ${CI_PROJECT_DIR} /go/src/gitlab.com/akita
-  - cd ${PROJECT_DIR} && go get -t ./...
 
 go_build:
   stage: build
   script:
-    - cd $PROJECT_DIR && go get -t ./...
-    - cd $PROJECT_DIR && go build ./...
+    - go build ./...
   artifacts:
     paths:
-      - $GOPATH
+      - .
 
 unit_test:
   stage: test
   script:
     - go install github.com/onsi/ginkgo/ginkgo
-    - cd $PROJECT_DIR && ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
+    - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
     - go test -coverprofile=cover.out ./...
-    - cd $PROJECT_DIR && go tool cover -func=cover.out
+    - go tool cover -func=cover.out
   dependencies:
     - go_build
 
@@ -41,8 +36,8 @@ cache_acceptance_test:
   stage: test
   script:
     - go install github.com/onsi/ginkgo/ginkgo
-    - cd $PROJECT_DIR/timing/caches/acceptancetest && go build
-    - cd $PROJECT_DIR/timing/caches/acceptancetest && ./acceptancetest
+    - cd timing/caches/acceptancetest && go build
+    - cd timing/caches/acceptancetest && ./acceptancetest
   dependencies:
     - go_build
 
@@ -52,6 +47,6 @@ acceptance_test:
     - multi_core
   script:
     - apt-get update -qq && apt-get install -y -qq python3
-    - cd $PROJECT_DIR && python3 acceptance_test.py
+    - python3 acceptance_test.py
   dependencies:
     - go_build
