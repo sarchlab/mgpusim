@@ -123,6 +123,7 @@ func BuildNR9NanoPlatform(
 
 	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	mmu.Latency = 100
+	mmu.ShootdownLatency = 50
 	gpuDriver := driver.NewDriver(engine, mmu)
 	//connection := akita.NewDirectConnection(engine)
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)

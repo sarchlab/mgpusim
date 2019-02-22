@@ -141,6 +141,8 @@ func (ctrlComp *ShootdownControlComponent) handleVMUnitRsp(now akita.VTimeInSec,
 
 	ctrlComp.vmsInvalidated = ctrlComp.checkVMUnits(vAddr, PID)
 
+	//log.Printf("VM's invalidated")
+
 	if ctrlComp.vmsInvalidated == false {
 		log.Panicf("VM units did not invalidate. Something went wrong")
 	}
