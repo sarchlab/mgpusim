@@ -1,6 +1,9 @@
 package timing
 
 import (
+	"log"
+	"reflect"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -28,7 +31,20 @@ func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
 type mockWfDispatcher struct {
 }
 
+type mockScheduler struct {
+}
+
 func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *Wavefront) {
+}
+
+func (m *mockScheduler) Run(now akita.VTimeInSec) bool {
+	return true
+}
+
+func (m *mockScheduler) StartDraining() {
+}
+
+func (m *mockScheduler) StopDraining() {
 }
 
 type mockDecoder struct {
@@ -71,10 +87,14 @@ var _ = Describe("ComputeUnit", func() {
 		toScalarMem  *mock_akita.MockPort
 		toVectorMem  *mock_akita.MockPort
 		toACE        *mock_akita.MockPort
+		toCP         *mock_akita.MockPort
+		cp           *mock_akita.MockPort
 
 		instMem *mock_akita.MockPort
 
 		grid *kernels.Grid
+
+		scheduler *mockScheduler
 	)
 
 	BeforeEach(func() {
@@ -83,6 +103,7 @@ var _ = Describe("ComputeUnit", func() {
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
+		scheduler = new(mockScheduler)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
@@ -91,6 +112,7 @@ var _ = Describe("ComputeUnit", func() {
 		cu.Freq = 1
 		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(4096, 64))
+		cu.Scheduler = scheduler
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -107,6 +129,12 @@ var _ = Describe("ComputeUnit", func() {
 
 		instMem = mock_akita.NewMockPort(mockCtrl)
 		cu.InstMem = instMem
+
+		toCP = mock_akita.NewMockPort(mockCtrl)
+		cp = mock_akita.NewMockPort(mockCtrl)
+
+		cu.ToCP = toCP
+		cu.CP = cp
 
 		grid = exampleGrid()
 	})
@@ -175,7 +203,7 @@ var _ = Describe("ComputeUnit", func() {
 			info := new(InstFetchReqInfo)
 			info.Wavefront = wf
 			info.Req = req
-			cu.inFlightInstFetch = append(cu.inFlightInstFetch, info)
+			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 		})
 
 		It("should handle fetch return", func() {
@@ -184,7 +212,7 @@ var _ = Describe("ComputeUnit", func() {
 			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1000)))
-			Expect(cu.inFlightInstFetch).To(HaveLen(0))
+			Expect(cu.InFlightInstFetch).To(HaveLen(0))
 			Expect(wf.InstBuffer).To(HaveLen(64))
 			Expect(cu.NeedTick).To(BeTrue())
 		})
@@ -203,7 +231,7 @@ var _ = Describe("ComputeUnit", func() {
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
-			cu.inFlightScalarMemAccess = append(cu.inFlightScalarMemAccess, info)
+			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
 
 			req := mem.NewDataReadyRsp(10, nil, nil, read.ID)
 			req.Data = insts.Uint32ToBytes(32)
@@ -220,7 +248,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
-			Expect(cu.inFlightScalarMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightScalarMemAccess).To(HaveLen(0))
 		})
 	})
 
@@ -253,8 +281,8 @@ var _ = Describe("ComputeUnit", func() {
 			info.DstVGPR = insts.VReg(0)
 			info.Lanes = []int{0, 1, 2, 3}
 			info.LaneAddrOffsets = []uint64{0, 4, 8, 12}
-			cu.inFlightVectorMemAccess = append(
-				cu.inFlightVectorMemAccess, info)
+			cu.InFlightVectorMemAccess = append(
+				cu.InFlightVectorMemAccess, info)
 
 			dataReady := mem.NewDataReadyRsp(10, nil, nil, read.ID)
 			dataReady.Data = make([]byte, 64)
@@ -280,7 +308,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(1))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(1))
-			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 
 		It("should handle vector data load return, and the return is the last one for an instruction", func() {
@@ -330,7 +358,7 @@ var _ = Describe("ComputeUnit", func() {
 			info.Wavefront = wf
 			info.Inst = inst
 			info.Write = writeReq
-			cu.inFlightVectorMemAccess = append(cu.inFlightVectorMemAccess, info)
+			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
 
 			doneRsp = mem.NewDoneRsp(10, nil, nil, writeReq.ID)
 			toVectorMem.EXPECT().Retrieve(gomock.Any()).Return(doneRsp)
@@ -339,7 +367,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should handle vector data store return and the return is not the last one from an instruction", func() {
 			cu.processInputFromVectorMem(10)
 
-			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 			Expect(cu.NeedTick).To(BeTrue())
 		})
 
@@ -350,7 +378,260 @@ var _ = Describe("ComputeUnit", func() {
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
-			Expect(cu.inFlightVectorMemAccess).To(HaveLen(0))
+			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})
+	Context("should process an input from CP", func() {
+		It("handle a Pipeline drain request from CP", func() {
+			req := gcn3.NewCUPipelineDrainReq(10, nil, cu.ToCP)
+			req.SetEventTime(10)
+
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
+
+			cu.processInputFromCP(11)
+
+			Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
+			Expect(cu.isDraining).To(BeTrue())
+
+		})
+	})
+
 })
+
+type ControlComponent struct {
+	*akita.TickingComponent
+	cu   akita.Port
+	toCU akita.Port
+}
+
+type cuPipelineDrainReqEvent struct {
+	*akita.EventBase
+	req *gcn3.CUPipelineDrainReq
+}
+
+func newCUPipelineDrainReqEvent(
+	time akita.VTimeInSec,
+	handler akita.Handler,
+	req *gcn3.CUPipelineDrainReq,
+) *cuPipelineDrainReqEvent {
+	return &cuPipelineDrainReqEvent{akita.NewEventBase(time, handler), req}
+}
+
+func NewControlComponent(
+	name string,
+	engine akita.Engine,
+) *ControlComponent {
+	ctrlComponent := new(ControlComponent)
+	ctrlComponent.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, ctrlComponent)
+	ctrlComponent.toCU = akita.NewLimitNumReqPort(ctrlComponent, 1)
+	ctrlComponent.cu = akita.NewLimitNumReqPort(ctrlComponent, 1)
+	return ctrlComponent
+
+}
+
+func (ctrl *ControlComponent) Handle(e akita.Event) error {
+	switch evt := e.(type) {
+	case akita.TickEvent:
+		ctrl.handleTickEvent(evt)
+	case cuPipelineDrainReqEvent:
+		ctrl.handleCUPipelineDrain(evt)
+	default:
+		log.Panicf("cannot handle handle event of type %s", reflect.TypeOf(e))
+	}
+	return nil
+}
+
+func (ctrl *ControlComponent) handleTickEvent(tick akita.TickEvent) {
+	now := tick.Time()
+	ctrl.NeedTick = false
+
+	ctrl.parseFromCU(now)
+
+	if ctrl.NeedTick {
+		ctrl.TickLater(now)
+	}
+
+}
+
+func (ctrl *ControlComponent) parseFromCU(now akita.VTimeInSec) {
+	cuReq := ctrl.toCU.Retrieve(now)
+
+	if cuReq == nil {
+		return
+	}
+
+	switch req := cuReq.(type) {
+	case gcn3.CUPipelineDrainRsp:
+		ctrl.checkCU(now, req)
+		return
+	default:
+		log.Panicf("Received an unsupported request type %s from CU \n", reflect.TypeOf(cuReq))
+	}
+
+}
+
+func (ctrl *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
+	//How do we access the internal states without magic?
+}
+
+func (ctrl *ControlComponent) handleCUPipelineDrain(
+	evt cuPipelineDrainReqEvent,
+) {
+	req := evt.req
+	sendErr := ctrl.toCU.Send(req)
+	if sendErr != nil {
+		log.Panicf("Unable to send drain request to CU")
+	}
+
+}
+
+func min(a, b uint32) uint32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+//Design a new component that sends MAPWGReq to CU.
+//It can handle a event so that it can send drain req
+//It can receive CU drain complete
+//After Receiving check if the CU is idle and check times
+/*var _ = Describe("Compute unit black box", func() {
+	var (
+		cu            *ComputeUnit
+		connection    *akita.DirectConnection
+		engine        akita.Engine
+		memory        *mem.IdealMemController //Set to instmem
+		ctrlComponent *ControlComponent
+	)
+
+	BeforeEach(func() {
+		engine = akita.NewSerialEngine()
+		cuBuilder := timing.NewBuilder()
+		cuBuilder.CUName = "cu"
+		cuBuilder.Engine = engine
+
+		//CU inst mem and scalar mem
+		memory = mem.NewIdealMemController("memory", engine, 4*mem.GB)
+		memory.Latency = 300
+		memory.Freq = 1
+
+		cuBuilder.Decoder = insts.NewDisassembler()
+
+		connection = akita.NewDirectConnection(engine)
+		connection.PlugIn(cu.ToInstMem)
+		connection.PlugIn(cu.ToScalarMem)
+		connection.PlugIn(cu.ToVectorMem)
+
+		cu.InstMem = memory.ToTop
+		cu.ScalarMem = memory.ToTop
+
+		lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
+		lowModuleFinderForCU.LowModule = memory.ToTop
+		cu.VectorMemModules = lowModuleFinderForCU
+
+		ctrlComponent = NewControlComponent("ctrl", engine)
+		ctrlComponent.toCU = cu.CP
+		ctrlComponent.cu = cu.ToCP
+
+	})
+
+	It("should start a benchmark. After some time when the drain request is received it should do a pipeline drain", func() {
+		type KernelArgs struct {
+			Output              driver.GPUPtr
+			Filter              driver.GPUPtr
+			Input               driver.GPUPtr
+			History             driver.GPUPtr
+			NumTaps             uint32
+			Padding             uint32
+			HiddenGlobalOffsetX int64
+			HiddenGlobalOffsetY int64
+			HiddenGlobalOffsetZ int64
+		}
+
+		type Benchmark struct {
+			driver *driver.Driver
+			hsaco  *insts.HsaCo
+
+			Length       int
+			numTaps      int
+			inputData    []float32
+			filterData   []float32
+			gFilterData  driver.GPUPtr
+			gHistoryData driver.GPUPtr
+			gInputData   driver.GPUPtr
+			gOutputData  driver.GPUPtr
+		}
+
+		b := new(Benchmark)
+		hsacoBytes, err := fir.Asset("kernels.hsaco")
+		if err != nil {
+			log.Panic(err)
+		}
+		b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "FIR")
+
+		kernArg := KernelArgs{
+			b.gOutputData,
+			b.gFilterData,
+			b.gInputData,
+			b.gHistoryData,
+			uint32(b.numTaps),
+			0,
+			0, 0, 0,
+		}
+
+		gridSize := [3]uint32{uint32(b.Length), 0, 0}
+		wgSize := [3]uint32{256, 1, 1}
+
+		co := b.hsaco
+		//packet :=
+
+		xLeft := gridSize[0]
+		yLeft := gridSize[1]
+		zLeft := gridSize[2]
+
+		wgIDX := 0
+		wgIDY := 0
+		wgIDZ := 0
+		for zLeft > 0 {
+			zToAllocate := min(zLeft, uint32(wgSize[2]))
+			for yLeft > 0 {
+				yToAllocate := min(yLeft, uint32(wgSize[1]))
+				for xLeft > 0 {
+					xToAllocate := min(xLeft, uint32(wgSize[0]))
+					wg := kernels.NewWorkGroup()
+					wg.Grid = g
+					wg.CurrSizeX = int(xToAllocate)
+					wg.CurrSizeY = int(yToAllocate)
+					wg.CurrSizeZ = int(zToAllocate)
+					wg.SizeX = int(g.Packet.WorkgroupSizeX)
+					wg.SizeY = int(g.Packet.WorkgroupSizeY)
+					wg.SizeZ = int(g.Packet.WorkgroupSizeZ)
+					wg.IDX = wgIDX
+					wg.IDY = wgIDY
+					wg.IDZ = wgIDZ
+					xLeft -= xToAllocate
+					b.spawnWorkItems(wg)
+					b.formWavefronts(wg)
+					g.WorkGroups = append(g.WorkGroups, wg)
+					wgIDX++
+				}
+				wgIDX = 0
+				yLeft -= yToAllocate
+				xLeft = g.Packet.GridSizeX
+				wgIDY++
+			}
+			wgIDY = 0
+			zLeft -= zToAllocate
+			yLeft = g.Packet.GridSizeY
+			wgIDZ++
+		}
+
+		//Grid builder builds a grid and spawns wgs
+		//It needs a hsaco insts.Hsaco and a packet *HsaKernelDispatchPacket
+
+		//How to retrieve wgs from the kernel
+
+	})
+
+})*/

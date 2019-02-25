@@ -24,6 +24,8 @@ type VectorMemoryUnit struct {
 
 	AddrCoalescingLatency   int
 	AddrCoalescingCycleLeft int
+
+	isIdle bool
 }
 
 // NewVectorMemoryUnit creates a new Scalar unit, injecting the dependency of
@@ -56,6 +58,12 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
 	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Read"})
+}
+
+// AcceptWave moves one wavefront into the read buffer of the Scalar unit
+func (u *VectorMemoryUnit) IsIdle() bool {
+	u.isIdle = (u.toRead == nil) && (u.toExec == nil) && (u.toWrite == nil) && (len(u.SendBuf) == 0)
+	return u.isIdle
 }
 
 // Run executes three pipeline stages that are controlled by the VectorMemoryUnit
@@ -177,7 +185,7 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		if i == len(coalescedAddrs)-1 {
 			req.IsLastInWave = true
 		}
-		u.cu.inFlightVectorMemAccess = append(u.cu.inFlightVectorMemAccess, info)
+		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, info)
 		u.SendBuf = append(u.SendBuf, req)
 	}
 }
@@ -220,8 +228,8 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 			req.Data = append(req.Data, insts.Uint32ToBytes(data[i*4+j])...)
 		}
 		u.SendBuf = append(u.SendBuf, req)
-		u.cu.inFlightVectorMemAccess = append(
-			u.cu.inFlightVectorMemAccess, info)
+		u.cu.InFlightVectorMemAccess = append(
+			u.cu.InFlightVectorMemAccess, info)
 	}
 }
 

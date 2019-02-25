@@ -16,6 +16,8 @@ type SIMDUnit struct {
 	cycleLeft int
 
 	NumSinglePrecisionUnit int
+
+	isIdle bool
 }
 
 // NewSIMDUnit creates a new branch unit, injecting the dependency of
@@ -40,6 +42,12 @@ func (u *SIMDUnit) CanAcceptWave() bool {
 	return u.toExec == nil
 }
 
+// CanAcceptWave checks if the buffer of the read stage is occupied or not
+func (u *SIMDUnit) IsIdle() bool {
+	u.isIdle = (u.toExec == nil)
+	return u.isIdle
+}
+
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	u.toExec = wave
@@ -58,7 +66,8 @@ func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
 func (u *SIMDUnit) Run(now akita.VTimeInSec) bool {
-	return u.runExecStage(now)
+	madeProgress := u.runExecStage(now)
+	return madeProgress
 }
 
 func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {

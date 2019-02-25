@@ -15,6 +15,8 @@ type BranchUnit struct {
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
+
+	isIdle bool
 }
 
 // NewBranchUnit creates a new branch unit, injecting the dependency of
@@ -34,6 +36,11 @@ func NewBranchUnit(
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *BranchUnit) CanAcceptWave() bool {
 	return u.toRead == nil
+}
+
+func (u *BranchUnit) IsIdle() bool {
+	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
+	return u.isIdle
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
@@ -98,5 +105,6 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 	u.toWrite.InstBuffer = nil
 	u.toWrite.InstBufferStartPC = u.toWrite.PC & 0xffffffffffffffc0
 	u.toWrite = nil
+	u.isIdle = false
 	return true
 }
