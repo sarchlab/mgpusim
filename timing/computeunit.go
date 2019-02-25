@@ -175,7 +175,8 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
 
 func (cu *ComputeUnit) handlePipelineDrainReq(
 	now akita.VTimeInSec,
-	req *gcn3.CUPipelineDrainReq) error {
+	req *gcn3.CUPipelineDrainReq,
+) error {
 	//1. Issue drain command to scheduler
 	//2. Check all units one by one until all idle
 	//3. If all complete issue CU Pipeline Drain Completion respond
@@ -184,7 +185,6 @@ func (cu *ComputeUnit) handlePipelineDrainReq(
 	cu.Scheduler.StartDraining()
 
 	return nil
-
 }
 
 func (cu *ComputeUnit) handlePipelineResume(
