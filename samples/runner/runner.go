@@ -61,6 +61,6 @@ func (r *Runner) Run() {
 	}
 
 	r.Engine.Finished()
-	fmt.Printf("Kernel time: %.12f\n", r.kernelTimeCounter.TotalTime)
-	fmt.Printf("Total time: %.12f\n", r.engine.CurrentTime())
+	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.TotalTime)
+	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
 }
