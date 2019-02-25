@@ -39,7 +39,7 @@ type CommandProcessor struct {
 	CachesToReset   []akita.Port
 	L2Caches        []*cache.WriteBackCache
 	DRAMControllers []*mem.IdealMemController
-	ToCU            akita.Port
+	ToCUs           akita.Port
 	ToVMModules     akita.Port
 
 	kernelFixedOverheadInCycles int
@@ -158,8 +158,8 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 	p.shootDownInProcess = true
 
 	for i := 0; i < len(p.CUs); i++ {
-		req := NewCUPipelineDrainReq(now, p.ToCU, p.CUs[i])
-		err := p.ToCU.Send(req)
+		req := NewCUPipelineDrainReq(now, p.ToCUs, p.CUs[i])
+		err := p.ToCUs.Send(req)
 		if err != nil {
 			log.Panicf("failed to send pipeline drain request to CU")
 		}
@@ -183,7 +183,7 @@ func (p *CommandProcessor) handleCUPipelineDrainRsp(cmd *CUPipelineDrainRsp) err
 	if p.numCURecvdAck == p.numCUs {
 		shootDownCmd := p.curShootdownRequest
 		for i := 0; i < len(p.VMModules); i++ {
-			req := vm.NewPTEInvalidationReq(now, p.ToVMModules, p.VMModules[i], shootDownCmd.pID, shootDownCmd.vAddr)
+			req := vm.NewPTEInvalidationReq(now, p.ToVMModules, p.VMModules[i], shootDownCmd.PID, shootDownCmd.VAddr)
 			err := p.ToVMModules.Send(req)
 			if err != nil {
 				log.Panicf("failed to send shootdown request to VM Modules")
@@ -283,6 +283,9 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 
 	c.ToDriver = akita.NewLimitNumReqPort(c, 1)
 	c.ToDispatcher = akita.NewLimitNumReqPort(c, 1)
+
+	c.ToCUs = akita.NewLimitNumReqPort(c, 1)
+	c.ToVMModules = akita.NewLimitNumReqPort(c, 1)
 
 	return c
 }

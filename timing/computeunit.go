@@ -193,7 +193,6 @@ func (cu *ComputeUnit) handlePipelineResume(
 	//1. Issue drain command to scheduler
 	//2. Check all units one by one until all idle
 	//3. If all complete issue CU Pipeline Drain Completion respond
-	cu.isDraining = false
 	cu.Scheduler.StopDraining()
 	return nil
 
@@ -238,10 +237,8 @@ func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
 	if drainCompleted == true {
 		respondToCP := gcn3.NewCUPipelineDrainRsp(now, cu.ToCP, cu.CP)
 		cu.toSendToCP = respondToCP
-
+		cu.isDraining = false
 	}
-
-	//cu.NeedTick = true
 
 }
 
