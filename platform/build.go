@@ -3,17 +3,15 @@ package platform
 import (
 	"fmt"
 
-	"gitlab.com/akita/noc"
-
-	"gitlab.com/akita/mem/cache"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/gcn3/trace"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/noc"
 )
 
 var UseParallelEngine bool
@@ -125,6 +123,7 @@ func BuildNR9NanoPlatform(
 
 	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	mmu.Latency = 100
+	mmu.ShootdownLatency = 50
 	gpuDriver := driver.NewDriver(engine, mmu)
 	//connection := akita.NewDirectConnection(engine)
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)

@@ -91,6 +91,7 @@ func (ctrlComp *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
 		drainCompleted = drainCompleted && cu.BranchUnit.IsIdle()
 
 		drainCompleted = drainCompleted && cu.ScalarUnit.IsIdle()
+
 		drainCompleted = drainCompleted && cu.ScalarDecoder.IsIdle()
 
 		for _, simdUnit := range cu.SIMDUnit {
@@ -100,15 +101,18 @@ func (ctrlComp *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
 		drainCompleted = drainCompleted && cu.VectorDecoder.IsIdle()
 
 		drainCompleted = drainCompleted && cu.LDSUnit.IsIdle()
+
 		drainCompleted = drainCompleted && cu.LDSDecoder.IsIdle()
 
 		drainCompleted = drainCompleted && cu.VectorMemUnit.IsIdle()
+
 		drainCompleted = drainCompleted && cu.VectorMemDecoder.IsIdle()
 
 		drainCompleted = drainCompleted && (len(cu.InFlightInstFetch) == 0) && (len(cu.InFlightScalarMemAccess) == 0) && (len(cu.InFlightVectorMemAccess) == 0)
 
 		if drainCompleted == false {
 			log.Panicf("CU not drained successfully")
+
 		}
 
 		cuRestartReq := gcn3.NewCUPipelineRestartReq(now, ctrlComp.toCU, ctrlComp.cus[i])
@@ -178,7 +182,7 @@ func main() {
 	r.KernelTimeCounter = driver.NewKernelTimeCounter()
 	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
 
-	drainTime := 4.001e-05
+	drainTime := 0.000001637000000
 
 	for i := 0; i < len(r.GPUDriver.GPUs[0].CUs); i++ {
 		drainReq := gcn3.NewCUPipelineDrainReq(akita.VTimeInSec(drainTime), ctrlComponent.toCU, ctrlComponent.cus[i])
@@ -188,14 +192,5 @@ func main() {
 	}
 
 	r.Run()
-
-	/*runner := runner.Runner{}
-	runner.Init()
-
-	benchmark := fir.NewBenchmark(runner.GPUDriver)
-	benchmark.Length = *numData
-	runner.Benchmark = benchmark
-
-	runner.Run()*/
 
 }
