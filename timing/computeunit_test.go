@@ -441,20 +441,20 @@ func (ctrl *ControlComponent) Handle(e akita.Event) error {
 	return nil
 }
 
-func (ctrlComp *ControlComponent) handleTickEvent(tick akita.TickEvent) {
+func (ctrl *ControlComponent) handleTickEvent(tick akita.TickEvent) {
 	now := tick.Time()
-	ctrlComp.NeedTick = false
+	ctrl.NeedTick = false
 
-	ctrlComp.parseFromCU(now)
+	ctrl.parseFromCU(now)
 
-	if ctrlComp.NeedTick {
-		ctrlComp.TickLater(now)
+	if ctrl.NeedTick {
+		ctrl.TickLater(now)
 	}
 
 }
 
-func (ctrlComp *ControlComponent) parseFromCU(now akita.VTimeInSec) {
-	cuReq := ctrlComp.toCU.Retrieve(now)
+func (ctrl *ControlComponent) parseFromCU(now akita.VTimeInSec) {
+	cuReq := ctrl.toCU.Retrieve(now)
 
 	if cuReq == nil {
 		return
@@ -462,7 +462,7 @@ func (ctrlComp *ControlComponent) parseFromCU(now akita.VTimeInSec) {
 
 	switch req := cuReq.(type) {
 	case gcn3.CUPipelineDrainRsp:
-		ctrlComp.checkCU(now, req)
+		ctrl.checkCU(now, req)
 		return
 	default:
 		log.Panicf("Received an unsupported request type %s from CU \n", reflect.TypeOf(cuReq))
@@ -470,13 +470,15 @@ func (ctrlComp *ControlComponent) parseFromCU(now akita.VTimeInSec) {
 
 }
 
-func (ctrlComp *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
+func (ctrl *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
 	//How do we access the internal states without magic?
 }
 
-func (ctrlComp *ControlComponent) handleCUPipelineDrain(evt cuPipelineDrainReqEvent) {
+func (ctrl *ControlComponent) handleCUPipelineDrain(
+	evt cuPipelineDrainReqEvent,
+) {
 	req := evt.req
-	sendErr := ctrlComp.toCU.Send(req)
+	sendErr := ctrl.toCU.Send(req)
 	if sendErr != nil {
 		log.Panicf("Unable to send drain request to CU")
 	}
