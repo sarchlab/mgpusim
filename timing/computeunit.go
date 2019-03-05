@@ -4,13 +4,12 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
-
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem/cache"
 )
 
@@ -40,13 +39,13 @@ type ComputeUnit struct {
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
 	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
 
-	inFlightInstFetch       []*InstFetchReqInfo
-	inFlightScalarMemAccess []*ScalarMemAccessInfo
-	inFlightVectorMemAccess []*VectorMemAccessInfo
+	InFlightInstFetch       []*InstFetchReqInfo
+	InFlightScalarMemAccess []*ScalarMemAccessInfo
+	InFlightVectorMemAccess []*VectorMemAccessInfo
 
 	running bool
 
-	Scheduler        *Scheduler
+	Scheduler        Scheduler
 	BranchUnit       CUComponent
 	VectorMemDecoder CUComponent
 	VectorMemUnit    CUComponent
@@ -67,6 +66,16 @@ type ComputeUnit struct {
 	ToInstMem   akita.Port
 	ToScalarMem akita.Port
 	ToVectorMem akita.Port
+
+	ToCP akita.Port
+	CP   akita.Port
+
+	inCPRequestProcessingStage akita.Req
+	cpRequestHandlingComplete  bool
+
+	isDraining bool
+
+	toSendToCP *gcn3.CUPipelineDrainRsp
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -98,6 +107,10 @@ func (cu *ComputeUnit) handleTickEvent(evt akita.TickEvent) {
 
 	cu.runPipeline(now)
 	cu.processInput(now)
+	if cu.isDraining {
+		cu.drainPipeline(now)
+	}
+	cu.sendToCP(now)
 
 	if cu.NeedTick {
 		cu.TickLater(now)
@@ -135,6 +148,98 @@ func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
 	cu.processInputFromInstMem(now)
 	cu.processInputFromScalarMem(now)
 	cu.processInputFromVectorMem(now)
+	cu.processInputFromCP(now)
+}
+
+func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
+
+	req := cu.ToCP.Retrieve(now)
+
+	if req == nil {
+		return
+	}
+
+	cu.NeedTick = true
+
+	//TODO: Should there be a fixed draining latency?
+	cu.inCPRequestProcessingStage = req
+
+	switch req := req.(type) {
+	case *gcn3.CUPipelineDrainReq:
+		cu.handlePipelineDrainReq(now, req)
+	case *gcn3.CUPipelineRestart:
+		cu.handlePipelineResume(now, req)
+
+	}
+}
+
+func (cu *ComputeUnit) handlePipelineDrainReq(
+	now akita.VTimeInSec,
+	req *gcn3.CUPipelineDrainReq,
+) error {
+	//1. Issue drain command to scheduler
+	//2. Check all units one by one until all idle
+	//3. If all complete issue CU Pipeline Drain Completion respond
+	cu.isDraining = true
+
+	cu.Scheduler.StartDraining()
+
+	return nil
+}
+
+func (cu *ComputeUnit) handlePipelineResume(
+	now akita.VTimeInSec,
+	req *gcn3.CUPipelineRestart,
+) error {
+	//1. Issue drain command to scheduler
+	//2. Check all units one by one until all idle
+	//3. If all complete issue CU Pipeline Drain Completion respond
+	cu.Scheduler.StopDraining()
+	return nil
+
+}
+
+func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) {
+	if cu.toSendToCP == nil {
+		return
+	}
+	cu.toSendToCP.SetSendTime(now)
+	sendErr := cu.ToCP.Send(cu.toSendToCP)
+	if sendErr == nil {
+		cu.toSendToCP = nil
+		cu.NeedTick = true
+	}
+
+}
+
+func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
+	drainCompleted := true
+
+	drainCompleted = drainCompleted && cu.BranchUnit.IsIdle()
+
+	drainCompleted = drainCompleted && cu.ScalarUnit.IsIdle()
+	drainCompleted = drainCompleted && cu.ScalarDecoder.IsIdle()
+
+	for _, simdUnit := range cu.SIMDUnit {
+		drainCompleted = drainCompleted && simdUnit.IsIdle()
+	}
+
+	drainCompleted = drainCompleted && cu.VectorDecoder.IsIdle()
+
+	drainCompleted = drainCompleted && cu.LDSUnit.IsIdle()
+	drainCompleted = drainCompleted && cu.LDSDecoder.IsIdle()
+
+	drainCompleted = drainCompleted && cu.VectorMemUnit.IsIdle()
+	drainCompleted = drainCompleted && cu.VectorMemDecoder.IsIdle()
+
+	drainCompleted = drainCompleted && (len(cu.InFlightInstFetch) == 0) && (len(cu.InFlightScalarMemAccess) == 0) && (len(cu.InFlightVectorMemAccess) == 0)
+
+	if drainCompleted == true {
+		respondToCP := gcn3.NewCUPipelineDrainRsp(now, cu.ToCP, cu.CP)
+		cu.toSendToCP = respondToCP
+		cu.isDraining = false
+	}
+
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
@@ -354,18 +459,18 @@ func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
-	if len(cu.inFlightInstFetch) == 0 {
+	if len(cu.InFlightInstFetch) == 0 {
 		log.Panic("CU is fetching no instruction")
 	}
 
-	info := cu.inFlightInstFetch[0]
+	info := cu.InFlightInstFetch[0]
 	if info.Req.ID != rsp.RespondTo {
 		log.Panic("response does not match request")
 	}
 
 	wf := info.Wavefront
 	addr := info.Address
-	cu.inFlightInstFetch = cu.inFlightInstFetch[1:]
+	cu.InFlightInstFetch = cu.InFlightInstFetch[1:]
 
 	if addr == wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
 		wf.InstBuffer = append(wf.InstBuffer, rsp.Data...)
@@ -395,11 +500,11 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	now akita.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.inFlightScalarMemAccess) == 0 {
+	if len(cu.InFlightScalarMemAccess) == 0 {
 		log.Panic("CU is not loading scalar data")
 	}
 
-	info := cu.inFlightScalarMemAccess[0]
+	info := cu.InFlightScalarMemAccess[0]
 	if info.Req.ID != rsp.RespondTo {
 		log.Panic("response does not match request")
 	}
@@ -413,7 +518,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	cu.SRegFile.Write(access)
 
 	wf.OutstandingScalarMemAccess--
-	cu.inFlightScalarMemAccess = cu.inFlightScalarMemAccess[1:]
+	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{now, info.Inst, "Completed"})
 }
@@ -440,15 +545,15 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	now akita.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
-	if len(cu.inFlightVectorMemAccess) == 0 {
+	if len(cu.InFlightVectorMemAccess) == 0 {
 		log.Panic("CU is not accessing vector memory")
 	}
 
-	info := cu.inFlightVectorMemAccess[0]
+	info := cu.InFlightVectorMemAccess[0]
 	if info.Read.ID != rsp.RespondTo {
 		log.Panic("CU cannot receive out of order memory return")
 	}
-	cu.inFlightVectorMemAccess = cu.inFlightVectorMemAccess[1:]
+	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 
 	wf := info.Wavefront
 	inst := info.Inst
@@ -481,11 +586,11 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 }
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
-	info := cu.inFlightVectorMemAccess[0]
+	info := cu.InFlightVectorMemAccess[0]
 	if info.Write.ID != rsp.RespondTo {
 		log.Panic("CU cannot receive out of order memory return")
 	}
-	cu.inFlightVectorMemAccess = cu.inFlightVectorMemAccess[1:]
+	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 
 	wf := info.Wavefront
 	if info.Write.IsLastInWave {
@@ -514,6 +619,9 @@ func NewComputeUnit(
 	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 1)
 	cu.ToScalarMem = akita.NewLimitNumReqPort(cu, 1)
 	cu.ToVectorMem = akita.NewLimitNumReqPort(cu, 1)
+
+	cu.ToCP = akita.NewLimitNumReqPort(cu, 1)
+	cu.CP = akita.NewLimitNumReqPort(cu, 1)
 
 	return cu
 }

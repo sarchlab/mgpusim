@@ -76,7 +76,7 @@ func (d *Driver) Remap(addr, size uint64, gpuID int) {
 	ptr := addr
 	sizeLeft := size
 	for ptr < addr+size {
-		_, page := d.mmu.Translate(d.currentPID, ptr)
+		_, page := d.MMU.Translate(d.currentPID, ptr)
 		d.remapPage(page, ptr, sizeLeft, gpuID)
 		sizeLeft -= page.VAddr + page.PageSize - ptr
 		ptr = page.VAddr + page.PageSize
@@ -85,7 +85,7 @@ func (d *Driver) Remap(addr, size uint64, gpuID int) {
 
 func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
 	ptr := addr
-	d.mmu.RemovePage(d.currentPID, page.VAddr)
+	d.MMU.RemovePage(d.currentPID, page.VAddr)
 	if ptr > page.VAddr {
 		page1 := &vm.Page{
 			PID:      d.currentPID,
@@ -94,7 +94,7 @@ func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
 			PageSize: addr - page.VAddr,
 			Valid:    true,
 		}
-		d.mmu.CreatePage(page1)
+		d.MMU.CreatePage(page1)
 	}
 
 	sizeLeft := page.PageSize - (addr - page.VAddr)
@@ -115,7 +115,7 @@ func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
 			PageSize: sizeLeft,
 			Valid:    true,
 		}
-		d.mmu.CreatePage(page3)
+		d.MMU.CreatePage(page3)
 	}
 }
 
@@ -149,7 +149,7 @@ func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
 			Valid:    true,
 		}
 		d.allocatedPages[d.usingGPU] = append(d.allocatedPages[d.usingGPU], page)
-		d.mmu.CreatePage(page)
+		d.MMU.CreatePage(page)
 	}
 
 	return GPUPtr(pageID + 0x100000000)
@@ -172,9 +172,10 @@ func (d *Driver) allocatePage(gpuID int, size uint64) *vm.Page {
 		PageSize: size,
 		Valid:    true,
 	}
+
 	virtualAddr := pageID + 0x100000000
 
-	d.mmu.CreatePage(page)
+	d.MMU.CreatePage(page)
 	d.allocatedPages[gpuID] = append(d.allocatedPages[gpuID], page)
 
 	chunk := new(MemoryChunk)
@@ -205,7 +206,7 @@ func (d *Driver) allocatePageWithGivenVAddr(gpuID int, vAddr, size uint64) *vm.P
 	}
 	//virtualAddr := pageID + 0x100000000
 
-	d.mmu.CreatePage(page)
+	d.MMU.CreatePage(page)
 	d.allocatedPages[gpuID] = append(d.allocatedPages[gpuID], page)
 
 	//chunk := new(MemoryChunk)

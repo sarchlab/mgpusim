@@ -32,6 +32,7 @@ func (m *mockWfArbitor) Arbitrate([]*WavefrontPool) []*Wavefront {
 
 type mockCUComponent struct {
 	canAccept    bool
+	isIdle       bool
 	acceptedWave []*Wavefront
 }
 
@@ -47,6 +48,10 @@ func (c *mockCUComponent) Run(now akita.VTimeInSec) bool {
 	return true
 }
 
+func (c *mockCUComponent) IsIdle() bool {
+	return c.isIdle
+}
+
 var _ = Describe("Scheduler", func() {
 	var (
 		mockCtrl         *gomock.Controller
@@ -57,7 +62,7 @@ var _ = Describe("Scheduler", func() {
 		vectorMemDecoder *mockCUComponent
 		vectorDecoder    *mockCUComponent
 		scalarDecoder    *mockCUComponent
-		scheduler        *Scheduler
+		scheduler        *SchedulerImpl
 		fetchArbitor     *mockWfArbitor
 		issueArbitor     *mockWfArbitor
 		instMem          *mock_akita.MockPort
@@ -116,7 +121,7 @@ var _ = Describe("Scheduler", func() {
 
 		scheduler.DoFetch(10)
 
-		Expect(cu.inFlightInstFetch).To(HaveLen(1))
+		Expect(cu.InFlightInstFetch).To(HaveLen(1))
 		Expect(wf.IsFetching).To(BeTrue())
 	})
 

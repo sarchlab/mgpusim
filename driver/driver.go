@@ -6,10 +6,9 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/mem/vm"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/mem/vm"
 )
 
 // HookPosCommandStart is a hook position that triggers hook when a request
@@ -24,14 +23,15 @@ var HookPosCommandComplete = &struct{ name string }{"CommandComplete"}
 type Driver struct {
 	*akita.TickingComponent
 
-	gpus                 []*gcn3.GPU
+	GPUs                 []*gcn3.GPU
 	allocatedPages       [][]*vm.Page
 	initialAddresses     []uint64
 	storageSizes         []uint64
 	memoryMasks          [][]*MemoryChunk
 	totalStorageByteSize uint64
-	mmu                  vm.MMU
-	enqueueSignal        chan bool
+
+	enqueueSignal chan bool
+	MMU           vm.MMU
 
 	PageSizeAsPowerOf2 uint64
 	requestsToSend     []akita.Req
@@ -56,7 +56,7 @@ func (d *Driver) ExecuteAllCommands() {
 
 // RegisterGPU tells the driver about the existence of a GPU
 func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
-	d.gpus = append(d.gpus, gpu)
+	d.GPUs = append(d.GPUs, gpu)
 
 	d.registerStorage(GPUPtr(d.totalStorageByteSize), dramSize)
 	d.totalStorageByteSize += dramSize
@@ -170,7 +170,7 @@ func (d *Driver) processMemCopyH2DCommand(
 	addr := uint64(cmd.Dst)
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
-		pAddr, page := d.mmu.Translate(d.currentPID, addr)
+		pAddr, page := d.MMU.Translate(d.currentPID, addr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -179,7 +179,7 @@ func (d *Driver) processMemCopyH2DCommand(
 
 		gpuID := d.findGPUIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyH2DReq(now,
-			d.ToGPUs, d.gpus[gpuID].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID].ToDriver,
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -256,7 +256,7 @@ func (d *Driver) processMemCopyD2HCommand(
 	addr := uint64(cmd.Src)
 	sizeLeft := uint64(len(cmd.RawData))
 	for sizeLeft > 0 {
-		pAddr, page := d.mmu.Translate(d.currentPID, addr)
+		pAddr, page := d.MMU.Translate(d.currentPID, addr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -265,7 +265,7 @@ func (d *Driver) processMemCopyD2HCommand(
 
 		gpuID := d.findGPUIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyD2HReq(now,
-			d.ToGPUs, d.gpus[gpuID].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID].ToDriver,
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
 		d.requestsToSend = append(d.requestsToSend, req)
@@ -342,7 +342,7 @@ func (d *Driver) processLaunchKernelCommand(
 	queue *CommandQueue,
 ) {
 	req := gcn3.NewLaunchKernelReq(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
+		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
 	req.PID = queue.PID
 	req.HsaCo = cmd.CodeObject
 	req.Packet = cmd.Packet
@@ -402,7 +402,7 @@ func (d *Driver) processFlushCommand(
 	queue *CommandQueue,
 ) {
 	req := gcn3.NewFlushCommand(now,
-		d.ToGPUs, d.gpus[queue.GPUID].ToDriver)
+		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
 
 	d.requestsToSend = append(d.requestsToSend, req)
 
@@ -468,7 +468,7 @@ func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
 }
 
 func (d *Driver) findGPUIDByPAddr(pAddr uint64) int {
-	for i := range d.gpus {
+	for i := range d.GPUs {
 		if pAddr >= d.initialAddresses[i] &&
 			pAddr < d.initialAddresses[i]+d.storageSizes[i] {
 			return i
@@ -483,7 +483,7 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
-	driver.mmu = mmu
+	driver.MMU = mmu
 	driver.PageSizeAsPowerOf2 = 12
 
 	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 40960000)

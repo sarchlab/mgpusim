@@ -15,6 +15,8 @@ type LDSUnit struct {
 	toRead  *Wavefront
 	toExec  *Wavefront
 	toWrite *Wavefront
+
+	isIdle bool
 }
 
 // NewLDSUnit creates a new Scalar unit, injecting the dependency of
@@ -34,6 +36,12 @@ func NewLDSUnit(
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *LDSUnit) CanAcceptWave() bool {
 	return u.toRead == nil
+}
+
+// CanAcceptWave checks if the buffer of the read stage is occupied or not
+func (u *LDSUnit) IsIdle() bool {
+	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
+	return u.isIdle
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit

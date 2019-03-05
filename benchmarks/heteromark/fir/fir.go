@@ -25,6 +25,7 @@ type KernelArgs struct {
 type Benchmark struct {
 	driver *driver.Driver
 	hsaco  *insts.HsaCo
+	queue  *driver.CommandQueue
 
 	Length       int
 	numTaps      int
@@ -40,6 +41,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.queue = driver.CreateCommandQueue()
 
 	hsacoBytes, err := Asset("kernels.hsaco")
 	if err != nil {
@@ -72,8 +74,8 @@ func (b *Benchmark) initMem() {
 		b.inputData[i] = float32(i)
 	}
 
-	b.driver.MemCopyH2D(b.gFilterData, b.filterData)
-	b.driver.MemCopyH2D(b.gInputData, b.inputData)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gFilterData, b.filterData)
+	b.driver.EnqueueMemCopyH2D(b.queue, b.gInputData, b.inputData)
 }
 
 func (b *Benchmark) exec() {
@@ -87,12 +89,14 @@ func (b *Benchmark) exec() {
 		0, 0, 0,
 	}
 
-	b.driver.LaunchKernel(
+	b.driver.EnqueueLaunchKernel(
+		b.queue,
 		b.hsaco,
 		[3]uint32{uint32(b.Length), 1, 1},
-		[3]uint16{256, 1, 1},
-		&kernArg,
+		[3]uint16{256, 1, 1}, &kernArg,
 	)
+
+	b.driver.ExecuteAllCommands()
 }
 
 func (b *Benchmark) Verify() {

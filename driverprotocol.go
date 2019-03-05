@@ -12,6 +12,47 @@ type FlushCommand struct {
 	*akita.ReqBase
 }
 
+//Shootdown command requests the GPU to perform a TLB shootdown and invalidate the corresponding PTE's
+type ShootDownCommand struct {
+	*akita.ReqBase
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+
+	VAddr []uint64
+	PID   vm.PID
+}
+
+type ShootDownCompleteRsp struct {
+	*akita.ReqBase
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+
+	shootDownComplete bool
+}
+
+//NewShootdownCommand tells the CP to drain all CU and invalidate PTE's in TLB and Page Tables
+func NewShootdownCommand(time akita.VTimeInSec, src, dst akita.Port, vAddr []uint64, pID vm.PID) *ShootDownCommand {
+	cmd := new(ShootDownCommand)
+	cmd.ReqBase = akita.NewReqBase()
+	cmd.SetSendTime(time)
+	cmd.SetSrc(src)
+	cmd.SetDst(dst)
+	cmd.VAddr = vAddr
+	cmd.PID = pID
+	return cmd
+}
+
+func NewShootdownCompleteRsp(time akita.VTimeInSec, src, dst akita.Port) *ShootDownCompleteRsp {
+	cmd := new(ShootDownCompleteRsp)
+	cmd.ReqBase = akita.NewReqBase()
+	cmd.SetSendTime(time)
+	cmd.SetSrc(src)
+	cmd.SetDst(dst)
+	return cmd
+}
+
 // NewFlushCommand Creates a new flush command, setting the request send time
 // with time and the source and destination.
 func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
@@ -36,6 +77,11 @@ type LaunchKernelReq struct {
 	OK bool
 }
 
+// ByteSize of LaunchKernelReq is set to always be 64 bytes.
+func (r *LaunchKernelReq) ByteSize() int {
+	return 64
+}
+
 // NewLaunchKernelReq returns a new LaunchKernelReq
 func NewLaunchKernelReq(
 	time akita.VTimeInSec,
@@ -54,6 +100,11 @@ type MemCopyH2DReq struct {
 	*akita.ReqBase
 	SrcBuffer  []byte
 	DstAddress uint64
+}
+
+// ByteSize of MemCopyH2DReq is the number of bytes in the src buffer
+func (r *MemCopyH2DReq) ByteSize() int {
+	return len(r.SrcBuffer)
 }
 
 // NewMemCopyH2DReq created a new MemCopyH2DReq
@@ -80,6 +131,11 @@ type MemCopyD2HReq struct {
 	*akita.ReqBase
 	SrcAddress uint64
 	DstBuffer  []byte
+}
+
+// ByteSize of MemCopyD2HReq is the number of bytes in the dst buffer
+func (r *MemCopyD2HReq) ByteSize() int {
+	return len(r.DstBuffer)
 }
 
 // NewMemCopyD2HReq created a new MemCopyH2DReq

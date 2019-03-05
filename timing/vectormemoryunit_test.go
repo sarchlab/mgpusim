@@ -101,8 +101,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		Expect(cu.inFlightVectorMemAccess).To(HaveLen(4))
-		Expect(cu.inFlightVectorMemAccess[3].Read.IsLastInWave).To(BeTrue())
+		Expect(cu.InFlightVectorMemAccess).To(HaveLen(4))
+		Expect(cu.InFlightVectorMemAccess[3].Read.IsLastInWave).To(BeTrue())
 		Expect(bu.SendBuf).To(HaveLen(4))
 	})
 
@@ -128,8 +128,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.State).To(Equal(WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-		Expect(cu.inFlightVectorMemAccess).To(HaveLen(64))
-		Expect(cu.inFlightVectorMemAccess[63].Write.IsLastInWave).To(BeTrue())
+		Expect(cu.InFlightVectorMemAccess).To(HaveLen(64))
+		Expect(cu.InFlightVectorMemAccess[63].Write.IsLastInWave).To(BeTrue())
 		Expect(bu.SendBuf).To(HaveLen(64))
 	})
 
