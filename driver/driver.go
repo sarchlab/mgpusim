@@ -78,6 +78,7 @@ func (d *Driver) runEngine() {
 		fmt.Printf("Engine return\n")
 		d.idleEngine <- d.Engine
 	default:
+		fmt.Printf("Engine already running\n")
 		return
 	}
 }
@@ -193,6 +194,7 @@ func (d *Driver) processNoopCommand(
 ) {
 	queue.Commands = queue.Commands[1:]
 	queue.NotifyAllSubscribers()
+	d.TickLater(now)
 }
 
 func (d *Driver) processMemCopyH2DCommand(

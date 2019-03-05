@@ -14,7 +14,7 @@ func enqueueNoopCommand(d *Driver, q *CommandQueue) {
 	d.Enqueue(q, c)
 }
 
-var _ = ginkgo.Describe("Driver async API execution", func() {
+var _ = ginkgo.FDescribe("Driver async API execution", func() {
 
 	var (
 		engine akita.Engine
@@ -27,9 +27,21 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		driver.Run()
 	})
 
+	ginkgo.It("should drain queues", func() {
+		context := driver.Init()
+		q := driver.CreateCommandQueue(context)
+		enqueueNoopCommand(driver, q)
+
+		driver.DrainCommandQueue(q)
+
+		Expect(q.Commands).To(HaveLen(0))
+	})
+
 	ginkgo.FIt("should drain queues", func() {
 		context := driver.Init()
 		q := driver.CreateCommandQueue(context)
+		enqueueNoopCommand(driver, q)
+		enqueueNoopCommand(driver, q)
 		enqueueNoopCommand(driver, q)
 
 		driver.DrainCommandQueue(q)

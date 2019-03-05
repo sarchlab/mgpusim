@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"fmt"
 	"log"
 	"sync/atomic"
 
@@ -50,9 +51,10 @@ func (d *Driver) DrainCommandQueue(q *CommandQueue) {
 	listener := q.Subscribe()
 	defer q.Unsubscribe(listener)
 	for {
-		listener.Wait()
 		if len(q.Commands) == 0 {
 			return
 		}
+		fmt.Printf("wait for drain signal, commands left %d\n", len(q.Commands))
+		listener.Wait()
 	}
 }
