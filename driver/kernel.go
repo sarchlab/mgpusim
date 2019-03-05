@@ -17,17 +17,17 @@ func (d *Driver) EnqueueLaunchKernel(
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
-	prevUsingGPU := d.usingGPU
-	d.SelectGPU(queue.GPUID)
+	// prevUsingGPU := d.usingGPU
+	// d.SelectGPU(queue.GPUID)
 
-	dCoData := d.enqueueCopyInstructionsToGPU(queue, co)
-	dKernArgData := d.enqueueCopyKernArgsToGPU(queue, co, kernelArgs)
-	packet, dPacket := d.createAQLPacket(
-		queue, gridSize, wgSize, dCoData, dKernArgData)
-	d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
-	d.enqueueFinalFlush(queue)
+	// dCoData := d.enqueueCopyInstructionsToGPU(queue, co)
+	// dKernArgData := d.enqueueCopyKernArgsToGPU(queue, co, kernelArgs)
+	// packet, dPacket := d.createAQLPacket(
+	// 	queue, gridSize, wgSize, dCoData, dKernArgData)
+	// d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
+	// d.enqueueFinalFlush(queue)
 
-	d.SelectGPU(prevUsingGPU)
+	// d.SelectGPU(prevUsingGPU)
 }
 
 func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
@@ -52,9 +52,9 @@ func (d *Driver) LaunchKernel(
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
-	queue := d.CreateCommandQueue()
-	d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, kernelArgs)
-	d.ExecuteAllCommands()
+	// queue := d.CreateCommandQueue()
+	// d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, kernelArgs)
+	// d.ExecuteAllCommands()
 }
 
 func (d *Driver) enqueueCopyKernArgsToGPU(
