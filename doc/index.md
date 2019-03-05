@@ -23,6 +23,10 @@ This repository contains the code for GCN3 Model for Akita.
     1. L2 Cache
     1. Virtual Address Support
 
+1. Pre-configured GPU
+
+    1. [AMD R9-Nano GPU](r9nano.md)
+
 1. Advanced Topics
 
     1. Multi-GPU Configuration

@@ -7,4 +7,5 @@ type CUComponent interface {
 	CanAcceptWave() bool
 	AcceptWave(wave *Wavefront, now akita.VTimeInSec)
 	Run(now akita.VTimeInSec) bool
+	IsIdle() bool
 }

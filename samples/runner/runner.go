@@ -20,9 +20,9 @@ var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
-	engine            akita.Engine
+	Engine            akita.Engine
 	GPUDriver         *driver.Driver
-	kernelTimeCounter *driver.KernelTimeCounter
+	KernelTimeCounter *driver.KernelTimeCounter
 	Benchmark         benchmarks.Benchmark
 }
 
@@ -44,13 +44,13 @@ func (r *Runner) Init() {
 		platform.TraceMem = true
 	}
 
-	r.kernelTimeCounter = driver.NewKernelTimeCounter()
+	r.KernelTimeCounter = driver.NewKernelTimeCounter()
 	if *timing {
-		r.engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
+		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
 	} else {
-		r.engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
+		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
-	r.GPUDriver.AcceptHook(r.kernelTimeCounter)
+	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
 }
 
 // Run runs the benchmark on the simulator
@@ -59,6 +59,8 @@ func (r *Runner) Run() {
 	if *verify {
 		r.Benchmark.Verify()
 	}
-	r.engine.Finished()
-	fmt.Printf("Kernel time: %.12f\n", r.kernelTimeCounter.TotalTime)
+
+	r.Engine.Finished()
+	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.TotalTime)
+	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
 }
