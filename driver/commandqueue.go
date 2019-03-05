@@ -145,6 +145,7 @@ func (q *CommandQueue) Unsubscribe(listener *CommandQueueStatusListener) {
 
 // NotifyAllSubscribers will wake up all the subscribers of the command queue
 func (q *CommandQueue) NotifyAllSubscribers() {
+	fmt.Printf("notifing %d subscribers\n", len(q.Listeners))
 	for _, subscriber := range q.Listeners {
 		subscriber.Notify()
 	}
@@ -165,6 +166,7 @@ type CommandQueueStatusListener struct {
 // Notify triggers the listener who waits for the command queue status update
 // continue executing
 func (l *CommandQueueStatusListener) Notify() {
+	fmt.Printf("listener notified\n")
 	l.signal <- true
 }
 
