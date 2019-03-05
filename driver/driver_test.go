@@ -2,7 +2,7 @@ package driver
 
 import (
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/akita/mock_akita"
@@ -12,7 +12,7 @@ import (
 	"gitlab.com/akita/mem/vm/mock_vm"
 )
 
-var _ = Describe("Driver", func() {
+var _ = ginkgo.Describe("Driver", func() {
 
 	var (
 		mockCtrl *gomock.Controller
@@ -25,8 +25,8 @@ var _ = Describe("Driver", func() {
 		cmdQueue *CommandQueue
 	)
 
-	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
+	ginkgo.BeforeEach(func() {
+		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
 		engine = mock_akita.NewMockEngine(mockCtrl)
 		toGPUs = mock_akita.NewMockPort(mockCtrl)
 		mmu = mock_vm.NewMockMMU(mockCtrl)
@@ -35,16 +35,16 @@ var _ = Describe("Driver", func() {
 
 		driver = NewDriver(engine, mmu)
 		driver.ToGPUs = toGPUs
-		cmdQueue = driver.CreateCommandQueue()
+		//cmdQueue = driver.CreateCommandQueue()
 		driver.RegisterGPU(gpu, 4*mem.GB)
 	})
 
-	AfterEach(func() {
+	ginkgo.AfterEach(func() {
 		mockCtrl.Finish()
 	})
 
-	Context("process MemCopyH2D command", func() {
-		It("should send request", func() {
+	ginkgo.Context("process MemCopyH2D command", func() {
+		ginkgo.It("should send request", func() {
 			srcData := make([]byte, 0x2200)
 			cmd := &MemCopyH2DCommand{
 				Dst: GPUPtr(0x100000100),
@@ -104,8 +104,8 @@ var _ = Describe("Driver", func() {
 		})
 	})
 
-	Context("process MemCopyH2D return", func() {
-		It("should remove one request", func() {
+	ginkgo.Context("process MemCopyH2D return", func() {
+		ginkgo.It("should remove one request", func() {
 			req := gcn3.NewMemCopyH2DReq(9, toGPUs, nil, make([]byte, 4), 0x100)
 			req2 := gcn3.NewMemCopyH2DReq(9, toGPUs, nil, make([]byte, 4), 0x100)
 			cmd := &MemCopyH2DCommand{
@@ -130,7 +130,7 @@ var _ = Describe("Driver", func() {
 			Expect(cmd.Reqs).To(ContainElement(req2))
 		})
 
-		It("should remove command from queue if no more pending request", func() {
+		ginkgo.It("should remove command from queue if no more pending request", func() {
 			req := gcn3.NewMemCopyH2DReq(9,
 				toGPUs, nil,
 				make([]byte, 4), 0x100)
@@ -157,8 +157,8 @@ var _ = Describe("Driver", func() {
 
 	})
 
-	Context("process MemCopyD2HCommand", func() {
-		It("should send request", func() {
+	ginkgo.Context("process MemCopyD2HCommand", func() {
+		ginkgo.It("should send request", func() {
 			data := uint32(1)
 			cmd := &MemCopyD2HCommand{
 				Dst: &data,
@@ -191,8 +191,8 @@ var _ = Describe("Driver", func() {
 		})
 	})
 
-	Context("process MemCopyD2H return", func() {
-		It("should remove request", func() {
+	ginkgo.Context("process MemCopyD2H return", func() {
+		ginkgo.It("should remove request", func() {
 			data := uint64(0)
 			req := gcn3.NewMemCopyD2HReq(
 				9, nil, toGPUs, 0x100, []byte{1, 0, 0, 0})
@@ -221,7 +221,7 @@ var _ = Describe("Driver", func() {
 			Expect(cmd.Reqs).NotTo(ContainElement(req))
 		})
 
-		It("should continue queue", func() {
+		ginkgo.It("should continue queue", func() {
 			data := uint32(0)
 			req := gcn3.NewMemCopyD2HReq(9, nil, toGPUs,
 				0x100,
@@ -250,8 +250,8 @@ var _ = Describe("Driver", func() {
 
 	})
 
-	Context("process LaunchKernelCommand", func() {
-		It("should send request to GPU", func() {
+	ginkgo.Context("process LaunchKernelCommand", func() {
+		ginkgo.It("should send request to GPU", func() {
 			cmd := &LaunchKernelCommand{
 				CodeObject: nil,
 				GridSize:   [3]uint32{256, 1, 1},
@@ -276,7 +276,7 @@ var _ = Describe("Driver", func() {
 		})
 	})
 
-	It("should process LaunchKernel return", func() {
+	ginkgo.It("should process LaunchKernel return", func() {
 		req := gcn3.NewLaunchKernelReq(9, toGPUs, nil)
 		cmd := &LaunchKernelCommand{
 			Reqs: []akita.Req{req},
@@ -296,8 +296,8 @@ var _ = Describe("Driver", func() {
 		Expect(cmdQueue.Commands).To(HaveLen(0))
 	})
 
-	Context("process FlushCommand", func() {
-		It("should send request to GPU", func() {
+	ginkgo.Context("process FlushCommand", func() {
+		ginkgo.It("should send request to GPU", func() {
 			cmd := &FlushCommand{}
 			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
 			cmdQueue.IsRunning = false
@@ -317,7 +317,7 @@ var _ = Describe("Driver", func() {
 		})
 	})
 
-	It("should process Flush return", func() {
+	ginkgo.It("should process Flush return", func() {
 		req := gcn3.NewFlushCommand(9, toGPUs, nil)
 		cmd := &FlushCommand{
 			Reqs: []akita.Req{req},
