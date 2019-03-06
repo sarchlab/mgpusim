@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"encoding/binary"
 	"reflect"
 
 	"github.com/rs/xid"
@@ -62,20 +61,22 @@ func (d *Driver) enqueueCopyKernArgsToGPU(
 	co *insts.HsaCo,
 	kernelArgs interface{},
 ) GPUPtr {
-	d.updateLDSPointers(co, kernelArgs)
-	dKernArgData := d.AllocateMemoryWithAlignment(
-		uint64(binary.Size(kernelArgs)), 4096)
-	d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
-	return dKernArgData
+	//d.updateLDSPointers(co, kernelArgs)
+	//dKernArgData := d.AllocateMemoryWithAlignment(
+	//	uint64(binary.Size(kernelArgs)), 4096)
+	//d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
+	//return dKernArgData
+	return GPUPtr(0)
 }
 
 func (d *Driver) enqueueCopyInstructionsToGPU(
 	queue *CommandQueue,
 	co *insts.HsaCo,
 ) GPUPtr {
-	dCoData := d.AllocateMemoryWithAlignment(uint64(len(co.Data)), 4096)
-	d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
-	return dCoData
+	//dCoData := d.AllocateMemoryWithAlignment(uint64(len(co.Data)), 4096)
+	//d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
+	//return dCoData
+	return GPUPtr(0)
 }
 
 func (d *Driver) createAQLPacket(
@@ -94,9 +95,10 @@ func (d *Driver) createAQLPacket(
 	packet.WorkgroupSizeZ = wgSize[2]
 	packet.KernelObject = uint64(dCoData)
 	packet.KernargAddress = uint64(dKernArgData)
-	dPacket := d.AllocateMemoryWithAlignment(uint64(binary.Size(packet)), 4096)
-	d.EnqueueMemCopyH2D(queue, dPacket, packet)
-	return packet, dPacket
+	//dPacket := d.AllocateMemoryWithAlignment(uint64(binary.Size(packet)), 4096)
+	//d.EnqueueMemCopyH2D(queue, dPacket, packet)
+	//return packet, dPacket
+	return packet, GPUPtr(0)
 }
 
 func (d *Driver) enqueueLaunchKernelCommand(
