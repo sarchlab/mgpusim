@@ -339,6 +339,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 	}
 
 	queue.Commands = append(queue.Commands, cmd)
+	d.enqueueSignal <- true
 }
 
 // EnqueueMemCopyD2H registers a MemCopyD2HCommand in the queue.
@@ -353,18 +354,19 @@ func (d *Driver) EnqueueMemCopyD2H(
 		Src: src,
 	}
 	queue.Commands = append(queue.Commands, cmd)
+	d.enqueueSignal <- true
 }
 
 // MemCopyH2D copies a memory from the host to a GPU device.
-func (d *Driver) MemCopyH2D(dst GPUPtr, src interface{}) {
-	//queue := d.CreateCommandQueue()
-	//d.EnqueueMemCopyH2D(queue, dst, src)
-	//d.ExecuteAllCommands()
+func (d *Driver) MemCopyH2D(ctx *Context, dst GPUPtr, src interface{}) {
+	queue := d.CreateCommandQueue(ctx)
+	d.EnqueueMemCopyH2D(queue, dst, src)
+	d.DrainCommandQueue(queue)
 }
 
 // MemCopyD2H copies a memory from a GPU device to the host
-func (d *Driver) MemCopyD2H(dst interface{}, src GPUPtr) {
-	//queue := d.CreateCommandQueue()
-	//d.EnqueueMemCopyD2H(queue, dst, src)
-	//d.ExecuteAllCommands()
+func (d *Driver) MemCopyD2H(ctx *Context, dst interface{}, src GPUPtr) {
+	queue := d.CreateCommandQueue(ctx)
+	d.EnqueueMemCopyD2H(queue, dst, src)
+	d.DrainCommandQueue(queue)
 }

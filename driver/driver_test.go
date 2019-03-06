@@ -22,6 +22,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver   *Driver
 		engine   *mock_akita.MockEngine
 		toGPUs   *mock_akita.MockPort
+		context  *Context
 		cmdQueue *CommandQueue
 	)
 
@@ -35,15 +36,18 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		driver = NewDriver(engine, mmu)
 		driver.ToGPUs = toGPUs
-		//cmdQueue = driver.CreateCommandQueue()
 		driver.RegisterGPU(gpu, 4*mem.GB)
+
+		context = driver.Init()
+		context.PID = 1
+		cmdQueue = driver.CreateCommandQueue(context)
 	})
 
 	ginkgo.AfterEach(func() {
 		mockCtrl.Finish()
 	})
 
-	ginkgo.XContext("process MemCopyH2D command", func() {
+	ginkgo.Context("process MemCopyH2D command", func() {
 		ginkgo.It("should send request", func() {
 			srcData := make([]byte, 0x2200)
 			cmd := &MemCopyH2DCommand{
@@ -104,7 +108,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 	})
 
-	ginkgo.XContext("process MemCopyH2D return", func() {
+	ginkgo.Context("process MemCopyH2D return", func() {
 		ginkgo.It("should remove one request", func() {
 			req := gcn3.NewMemCopyH2DReq(9, toGPUs, nil, make([]byte, 4), 0x100)
 			req2 := gcn3.NewMemCopyH2DReq(9, toGPUs, nil, make([]byte, 4), 0x100)
@@ -157,7 +161,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	})
 
-	ginkgo.XContext("process MemCopyD2HCommand", func() {
+	ginkgo.Context("process MemCopyD2HCommand", func() {
 		ginkgo.It("should send request", func() {
 			data := uint32(1)
 			cmd := &MemCopyD2HCommand{
@@ -191,7 +195,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 	})
 
-	ginkgo.XContext("process MemCopyD2H return", func() {
+	ginkgo.Context("process MemCopyD2H return", func() {
 		ginkgo.It("should remove request", func() {
 			data := uint64(0)
 			req := gcn3.NewMemCopyD2HReq(
@@ -250,7 +254,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	})
 
-	ginkgo.XContext("process LaunchKernelCommand", func() {
+	ginkgo.Context("process LaunchKernelCommand", func() {
 		ginkgo.It("should send request to GPU", func() {
 			cmd := &LaunchKernelCommand{
 				CodeObject: nil,

@@ -40,6 +40,7 @@ func (d *Driver) SelectGPU(c *Context, gpuID int) {
 func (d *Driver) CreateCommandQueue(c *Context) *CommandQueue {
 	q := new(CommandQueue)
 	q.GPUID = c.CurrentGPUID
+	q.Context = c
 
 	c.Queues = append(c.Queues, q)
 

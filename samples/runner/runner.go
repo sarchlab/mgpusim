@@ -51,6 +51,7 @@ func (r *Runner) Init() {
 		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
 	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
+	r.GPUDriver.Run()
 }
 
 // Run runs the benchmark on the simulator
