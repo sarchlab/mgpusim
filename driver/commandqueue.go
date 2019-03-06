@@ -115,6 +115,7 @@ type CommandQueue struct {
 	IsRunning bool
 	GPUID     int
 	PID       vm.PID
+	Context   *Context
 	Commands  []Command
 	Listeners []*CommandQueueStatusListener
 }
