@@ -276,6 +276,8 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
+			req := cmd.Reqs[0].(*gcn3.LaunchKernelReq)
+			Expect(req.PID).To(Equal(vm.PID(1)))
 			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
 	})
