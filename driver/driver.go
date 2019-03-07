@@ -43,6 +43,8 @@ type Driver struct {
 	driverStopped chan bool
 	enqueueSignal chan bool
 	engineMutex   sync.Mutex
+
+	memoryAllocatorLock sync.Mutex
 }
 
 func (d *Driver) Run() {

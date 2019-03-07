@@ -3,6 +3,7 @@ package runner
 import (
 	"flag"
 	"fmt"
+	"sync"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/benchmarks"
@@ -23,7 +24,7 @@ type Runner struct {
 	Engine            akita.Engine
 	GPUDriver         *driver.Driver
 	KernelTimeCounter *driver.KernelTimeCounter
-	Benchmark         benchmarks.Benchmark
+	Benchmarks        []benchmarks.Benchmark
 }
 
 // Init initializes the platform simulate
@@ -54,12 +55,25 @@ func (r *Runner) Init() {
 	r.GPUDriver.Run()
 }
 
+// AddBenchmark adds an benchmark that the driver runs
+func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
+	r.Benchmarks = append(r.Benchmarks, b)
+}
+
 // Run runs the benchmark on the simulator
 func (r *Runner) Run() {
-	r.Benchmark.Run()
-	if *verify {
-		r.Benchmark.Verify()
+	var wg sync.WaitGroup
+	for _, b := range r.Benchmarks {
+		wg.Add(1)
+		go func(b benchmarks.Benchmark, wg *sync.WaitGroup) {
+			b.Run()
+			if *verify {
+				b.Verify()
+			}
+			wg.Done()
+		}(b, &wg)
 	}
+	wg.Wait()
 
 	r.Engine.Finished()
 	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.TotalTime)
