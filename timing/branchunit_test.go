@@ -3,6 +3,7 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 var _ = Describe("Branch Unit", func() {
@@ -44,6 +45,13 @@ var _ = Describe("Branch Unit", func() {
 		wave3 := new(Wavefront)
 		wave3.State = WfRunning
 		wave3.InstBuffer = make([]byte, 256)
+		wave3.InstBufferStartPC = 0x100
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.SOPP
+		inst.SImm16 = insts.NewIntOperand(1, 1)
+		inst.ByteSize = 4
+		wave3.inst = inst
+		wave3.PC = 0x13C
 
 		bu.toRead = wave1
 		bu.toExec = wave2
@@ -52,6 +60,8 @@ var _ = Describe("Branch Unit", func() {
 		bu.Run(10)
 
 		Expect(wave3.State).To(Equal(WfReady))
+		Expect(wave3.PC).To(Equal(uint64(0x140)))
+
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.toRead).To(BeNil())
