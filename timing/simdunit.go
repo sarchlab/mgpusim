@@ -83,7 +83,7 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 	u.scratchpadPreparer.Prepare(u.toExec, u.toExec)
 	u.alu.Run(u.toExec)
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
-	u.toExec.State = WfReady
+	u.cu.UpdatePCAndSetReady(u.toExec)
 	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Completed"})
 
 	u.toExec = nil
