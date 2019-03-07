@@ -20,7 +20,8 @@ type BitonicKernelArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
+	driver  *driver.Driver
+	context *driver.Context
 
 	hsaco *insts.HsaCo
 
@@ -34,6 +35,7 @@ type Benchmark struct {
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+	b.context = driver.Init()
 	b.loadProgram()
 	return b
 }
@@ -56,14 +58,14 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.gInputData = b.driver.AllocateMemory(uint64(b.Length * 4))
+	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 
 	b.inputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
 		b.inputData[i] = rand.Uint32()
 	}
 
-	b.driver.MemCopyH2D(b.gInputData, b.inputData)
+	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
 }
 
 func (b *Benchmark) exec() {
@@ -86,7 +88,9 @@ func (b *Benchmark) exec() {
 				uint32(passOfStage),
 				uint32(direction),
 				0, 0, 0}
-			b.driver.LaunchKernel(b.hsaco,
+			b.driver.LaunchKernel(
+				b.context,
+				b.hsaco,
 				[3]uint32{uint32(b.Length / 2), 1, 1},
 				[3]uint16{256, 1, 1},
 				&kernArg)
@@ -97,7 +101,7 @@ func (b *Benchmark) exec() {
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]uint32, b.Length)
-	b.driver.MemCopyD2H(gpuOutput, b.gInputData)
+	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInputData)
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {
