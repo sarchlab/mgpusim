@@ -280,7 +280,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 	})
 
-	ginkgo.XIt("should process LaunchKernel return", func() {
+	ginkgo.It("should process LaunchKernel return", func() {
 		req := gcn3.NewLaunchKernelReq(9, toGPUs, nil)
 		cmd := &LaunchKernelCommand{
 			Reqs: []akita.Req{req},
@@ -300,7 +300,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		Expect(cmdQueue.Commands).To(HaveLen(0))
 	})
 
-	ginkgo.XContext("process FlushCommand", func() {
+	ginkgo.Context("process FlushCommand", func() {
 		ginkgo.It("should send request to GPU", func() {
 			cmd := &FlushCommand{}
 			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
@@ -321,7 +321,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 	})
 
-	ginkgo.XIt("should process Flush return", func() {
+	ginkgo.It("should process Flush return", func() {
 		req := gcn3.NewFlushCommand(9, toGPUs, nil)
 		cmd := &FlushCommand{
 			Reqs: []akita.Req{req},
