@@ -386,8 +386,9 @@ func (d *Driver) processLaunchKernelCommand(
 ) {
 	req := gcn3.NewLaunchKernelReq(now,
 		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
-	req.PID = queue.PID
+	req.PID = queue.Context.PID
 	req.HsaCo = cmd.CodeObject
+
 	req.Packet = cmd.Packet
 	req.PacketAddress = uint64(cmd.DPacket)
 

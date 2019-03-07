@@ -22,3 +22,4 @@ __pycache__
 
 *.orig.bc
 .idea
+vendor
