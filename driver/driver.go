@@ -64,7 +64,9 @@ func (d *Driver) runAsync() {
 			return
 		case <-d.enqueueSignal:
 			fmt.Printf("enqueue signal received\n")
+			d.Engine.Pause()
 			d.TickLater(d.Engine.CurrentTime())
+			d.Engine.Continue()
 			go d.runEngine()
 		}
 	}
