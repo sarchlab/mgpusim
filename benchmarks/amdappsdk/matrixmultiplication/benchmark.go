@@ -8,7 +8,8 @@ import (
 )
 
 type Benchmark struct {
-	driver *driver.Driver
+	driver  *driver.Driver
+	context *driver.Context
 
 	X, Y, Z                   uint32
 	MatrixA, MatrixB, MatrixC *Matrix
@@ -17,6 +18,7 @@ type Benchmark struct {
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+	b.context = driver.Init()
 	return b
 }
 
@@ -44,11 +46,13 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	b.MatrixC = MatrixMultiplicationOnGPU(b.MatrixA, b.MatrixB, b.driver)
+	m := NewGPUMatrixMultiplier(b.driver, b.context)
+	b.MatrixC = m.Multiply(b.MatrixA, b.MatrixB)
 }
 
 func (b *Benchmark) Verify() {
-	mCPU := MatrixMultiplicationOnCPU(b.MatrixA, b.MatrixB)
+	m := CPUMatrixMultiplier{}
+	mCPU := m.Multiply(b.MatrixA, b.MatrixB)
 	for i := uint32(0); i < mCPU.Width; i++ {
 		for j := uint32(0); i < mCPU.Width; i++ {
 			index := i + j*mCPU.Width
