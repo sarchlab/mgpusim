@@ -101,7 +101,8 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "Completed"})
 
-	u.toWrite.State = WfReady
+	u.cu.UpdatePCAndSetReady(u.toWrite)
+
 	u.toWrite.InstBuffer = nil
 	u.toWrite.InstBufferStartPC = u.toWrite.PC & 0xffffffffffffffc0
 	u.toWrite = nil
