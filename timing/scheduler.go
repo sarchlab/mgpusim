@@ -166,8 +166,7 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 				wf.InstToIssue = nil
 				unit.AcceptWave(wf, now)
 				wf.State = WfRunning
-				wf.PC += uint64(wf.inst.ByteSize)
-				s.removeStaleInstBuffer(wf)
+				//s.removeStaleInstBuffer(wf)
 				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
 					&InstHookInfo{now, wf.inst, "Issue"})
 				madeProgress = true
@@ -177,21 +176,13 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *SchedulerImpl) removeStaleInstBuffer(wf *Wavefront) {
-	for wf.PC >= wf.InstBufferStartPC+64 {
-		wf.InstBuffer = wf.InstBuffer[64:]
-		wf.InstBufferStartPC += 64
-	}
-}
-
 func (s *SchedulerImpl) issueToInternal(wf *Wavefront, now akita.VTimeInSec) bool {
 	if s.internalExecuting == nil {
 		wf.inst = wf.InstToIssue
 		wf.InstToIssue = nil
 		s.internalExecuting = wf
 		wf.State = WfRunning
-		wf.PC += uint64(wf.Inst().ByteSize)
-		s.removeStaleInstBuffer(wf)
+		//s.removeStaleInstBuffer(wf)
 		s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "Issue"})
 		return true
 	}
@@ -317,7 +308,7 @@ func (s *SchedulerImpl) passBarrier(wg *WorkGroup) {
 
 func (s *SchedulerImpl) setAllWfStateToReady(wg *WorkGroup) {
 	for _, wf := range wg.Wfs {
-		wf.State = WfReady
+		s.cu.UpdatePCAndSetReady(wf)
 	}
 }
 
@@ -344,7 +335,7 @@ func (s *SchedulerImpl) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) bool {
 	}
 
 	if done {
-		s.internalExecuting.State = WfReady
+		s.cu.UpdatePCAndSetReady(s.internalExecuting)
 		s.internalExecuting = nil
 		return true
 	}
