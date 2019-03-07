@@ -142,7 +142,8 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 		u.cu.InFlightScalarMemAccess = append(u.cu.InFlightScalarMemAccess,
 			info)
 
-		u.toExec.State = WfReady
+		u.cu.UpdatePCAndSetReady(u.toExec)
+
 		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
 		u.toExec = nil
 	}
@@ -157,7 +158,8 @@ func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "Completed"})
 
-	u.toWrite.State = WfReady
+	u.cu.UpdatePCAndSetReady(u.toWrite)
+
 	u.toWrite = nil
 	return true
 }

@@ -99,6 +99,7 @@ var _ = Describe("Scalar Unit", func() {
 		inst.FormatType = insts.SOP2
 		wave2.inst = inst
 		wave3 := new(Wavefront)
+		wave3.inst = inst
 		wave3.State = WfRunning
 
 		bu.toRead = wave1
