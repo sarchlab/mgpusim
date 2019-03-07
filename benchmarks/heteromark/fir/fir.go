@@ -54,6 +54,10 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+func (b *Benchmark) SelectGPU(gpuID int) {
+	b.driver.SelectGPU(b.context, gpuID)
+}
+
 func (b *Benchmark) Run() {
 	b.initMem()
 	b.exec()

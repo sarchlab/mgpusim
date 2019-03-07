@@ -52,6 +52,9 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	c *Context,
 	byteSize, alignment uint64,
 ) GPUPtr {
+	d.memoryAllocatorLock.Lock()
+	defer d.memoryAllocatorLock.Unlock()
+
 	if byteSize >= 4096 {
 		return d.allocateLarge(c, byteSize)
 	}
