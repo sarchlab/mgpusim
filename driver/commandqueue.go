@@ -26,7 +26,8 @@ type CommandQueue struct {
 // of the command queue
 func (q *CommandQueue) Subscribe() *CommandQueueStatusListener {
 	l := &CommandQueueStatusListener{
-		signal: make(chan bool, 0),
+		closeSignal: make(chan bool, 0),
+		signal:      make(chan bool, 0),
 	}
 
 	q.listeners = append(q.listeners, l)
@@ -36,9 +37,10 @@ func (q *CommandQueue) Subscribe() *CommandQueueStatusListener {
 
 // Unsubscribe will unbind a listener to a command queue.
 func (q *CommandQueue) Unsubscribe(listener *CommandQueueStatusListener) {
+	listener.Close()
+
 	q.listenerMutex.Lock()
 	defer q.listenerMutex.Unlock()
-
 	for i, l := range q.listeners {
 		if l == listener {
 			q.listeners = append(q.listeners[:i], q.listeners[i+1:]...)
@@ -108,17 +110,26 @@ func (d *Driver) Enqueue(q *CommandQueue, c Command) {
 
 // A CommandQueueStatusListener can be notified when a queue updates its state
 type CommandQueueStatusListener struct {
-	signal chan bool
+	closeSignal chan bool
+	signal      chan bool
 }
 
 // Notify triggers the listener who waits for the command queue status update
 // continue executing
 func (l *CommandQueueStatusListener) Notify() {
 	fmt.Printf("listener notified\n")
-	l.signal <- true
+	select {
+	case <-l.closeSignal:
+	case l.signal <- true:
+	}
 }
 
 // Wait will block the execution until the command queue updates its status
 func (l *CommandQueueStatusListener) Wait() {
 	<-l.signal
+}
+
+// Close stops the listener from listening
+func (l *CommandQueueStatusListener) Close() {
+	close(l.closeSignal)
 }

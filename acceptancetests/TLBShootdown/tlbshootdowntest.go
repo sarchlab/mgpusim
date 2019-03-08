@@ -9,7 +9,6 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
 	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/platform"
 	"gitlab.com/akita/gcn3/samples/runner"
 	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/mem/vm"
@@ -300,7 +299,7 @@ func (ctrlComp *ShootdownControlComponent) parseFromVMUnit(now akita.VTimeInSec)
 func main() {
 	flag.Parse()
 	r := runner.Runner{}
-	r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(1)
+	r.Init()
 
 	benchmark := fir.NewBenchmark(r.GPUDriver)
 	benchmark.Length = *numData
