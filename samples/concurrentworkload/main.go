@@ -2,6 +2,10 @@ package main
 
 import (
 	"flag"
+	"log"
+
+	"net/http"
+	_ "net/http/pprof"
 
 	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/bitonicsort"
 	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
@@ -10,6 +14,10 @@ import (
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	runner := runner.Runner{}
 	runner.Init()

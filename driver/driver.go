@@ -36,7 +36,8 @@ type Driver struct {
 	PageSizeAsPowerOf2 uint64
 	requestsToSend     []akita.Req
 
-	Contexts []*Context
+	contextMutex sync.Mutex
+	contexts     []*Context
 
 	ToGPUs akita.Port
 
@@ -150,9 +151,11 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 }
 
 func (d *Driver) processNewCommand(now akita.VTimeInSec) {
-	for _, context := range d.Contexts {
-		for _, q := range context.Queues {
-			if len(q.Commands) == 0 {
+	d.contextMutex.Lock()
+	for _, context := range d.contexts {
+		context.queueMutex.Lock()
+		for _, q := range context.queues {
+			if q.NumCommand() == 0 {
 				continue
 			}
 
@@ -162,14 +165,16 @@ func (d *Driver) processNewCommand(now akita.VTimeInSec) {
 
 			d.processOneCommand(now, q)
 		}
+		context.queueMutex.Unlock()
 	}
+	d.contextMutex.Unlock()
 }
 
 func (d *Driver) processOneCommand(
 	now akita.VTimeInSec,
 	cmdQueue *CommandQueue,
 ) {
-	cmd := cmdQueue.Commands[0]
+	cmd := cmdQueue.Peek()
 
 	switch cmd := cmd.(type) {
 	case *MemCopyH2DCommand:
@@ -192,8 +197,7 @@ func (d *Driver) processNoopCommand(
 	cmd *NoopCommand,
 	queue *CommandQueue,
 ) {
-	queue.Commands = queue.Commands[1:]
-	queue.NotifyAllSubscribers()
+	queue.Dequeue()
 	d.TickLater(now)
 }
 
@@ -213,7 +217,7 @@ func (d *Driver) processMemCopyH2DCommand(
 	addr := uint64(cmd.Dst)
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
-		pAddr, page := d.MMU.Translate(queue.Context.PID, addr)
+		pAddr, page := d.MMU.Translate(queue.Context.pid, addr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -275,7 +279,7 @@ func (d *Driver) processMemCopyH2DReturn(
 
 	if len(copyCmd.Reqs) == 0 {
 		cmdQueue.IsRunning = false
-		cmdQueue.Commands = cmdQueue.Commands[1:]
+		cmdQueue.Dequeue()
 
 		d.InvokeHook(copyCmd, d, HookPosCommandComplete,
 			&CommandHookInfo{
@@ -283,8 +287,6 @@ func (d *Driver) processMemCopyH2DReturn(
 				IsStart: false,
 				Queue:   cmdQueue,
 			})
-
-		cmdQueue.NotifyAllSubscribers()
 	}
 
 	d.NeedTick = true
@@ -301,7 +303,7 @@ func (d *Driver) processMemCopyD2HCommand(
 	addr := uint64(cmd.Src)
 	sizeLeft := uint64(len(cmd.RawData))
 	for sizeLeft > 0 {
-		pAddr, page := d.MMU.Translate(queue.Context.PID, addr)
+		pAddr, page := d.MMU.Translate(queue.Context.pid, addr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -361,14 +363,14 @@ func (d *Driver) processMemCopyD2HReturn(
 		})
 
 	if len(copyCmd.Reqs) == 0 {
-
 		cmdQueue.IsRunning = false
-		cmdQueue.Commands = cmdQueue.Commands[1:]
 		buf := bytes.NewReader(copyCmd.RawData)
 		err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst)
 		if err != nil {
 			panic(err)
 		}
+
+		cmdQueue.Dequeue()
 
 		d.InvokeHook(copyCmd, d, HookPosCommandComplete,
 			&CommandHookInfo{
@@ -376,8 +378,6 @@ func (d *Driver) processMemCopyD2HReturn(
 				IsStart: false,
 				Queue:   cmdQueue,
 			})
-
-		cmdQueue.NotifyAllSubscribers()
 	}
 
 	d.NeedTick = true
@@ -390,7 +390,7 @@ func (d *Driver) processLaunchKernelCommand(
 ) {
 	req := gcn3.NewLaunchKernelReq(now,
 		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
-	req.PID = queue.Context.PID
+	req.PID = queue.Context.pid
 	req.HsaCo = cmd.CodeObject
 
 	req.Packet = cmd.Packet
@@ -423,10 +423,9 @@ func (d *Driver) processLaunchKernelReturn(
 ) {
 	// fmt.Printf("%.12f kernel return, start at %.12f\n", now, req.StartTime)
 
-	_, cmdQueue := d.findCommandByReq(req)
-	cmd := cmdQueue.Commands[0]
+	cmd, cmdQueue := d.findCommandByReq(req)
 	cmdQueue.IsRunning = false
-	cmdQueue.Commands = cmdQueue.Commands[1:]
+	cmdQueue.Dequeue()
 	d.NeedTick = true
 
 	d.InvokeHook(cmd, d, HookPosCommandComplete,
@@ -477,11 +476,9 @@ func (d *Driver) processFlushReturn(
 	now akita.VTimeInSec,
 	req *gcn3.FlushCommand,
 ) {
-	_, cmdQueue := d.findCommandByReq(req)
-	cmd := cmdQueue.Commands[0]
+	cmd, cmdQueue := d.findCommandByReq(req)
 	cmdQueue.IsRunning = false
-	cmdQueue.Commands = cmdQueue.Commands[1:]
-	cmdQueue.NotifyAllSubscribers()
+	cmdQueue.Dequeue()
 	d.NeedTick = true
 
 	d.InvokeHook(cmd, d, HookPosCommandComplete,
@@ -500,20 +497,26 @@ func (d *Driver) processFlushReturn(
 }
 
 func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
-	for _, ctx := range d.Contexts {
-		for _, q := range ctx.Queues {
-			if len(q.Commands) == 0 {
+	d.contextMutex.Lock()
+	defer d.contextMutex.Unlock()
+
+	for _, ctx := range d.contexts {
+		ctx.queueMutex.Lock()
+		for _, q := range ctx.queues {
+			cmd := q.Peek()
+			if cmd == nil {
 				continue
 			}
 
-			reqs := q.Commands[0].GetReqs()
+			reqs := cmd.GetReqs()
 			for _, r := range reqs {
 				if r == req {
-					return q.Commands[0], q
+					ctx.queueMutex.Unlock()
+					return cmd, q
 				}
 			}
-
 		}
+		ctx.queueMutex.Unlock()
 	}
 	panic("cannot find command")
 }

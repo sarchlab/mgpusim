@@ -34,7 +34,7 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 
 		driver.DrainCommandQueue(q)
 
-		Expect(q.Commands).To(HaveLen(0))
+		Expect(q.commands).To(HaveLen(0))
 	})
 
 	ginkgo.It("should drain queues", func() {
@@ -46,7 +46,7 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 
 		driver.DrainCommandQueue(q)
 
-		Expect(q.Commands).To(HaveLen(0))
+		Expect(q.commands).To(HaveLen(0))
 	})
 
 })

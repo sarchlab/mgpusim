@@ -26,7 +26,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.registerStorage(0, 4*mem.GB)
 
 		context = driver.Init()
-		context.PID = 1
+		context.pid = 1
 	})
 
 	ginkgo.AfterEach(func() {

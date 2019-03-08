@@ -39,7 +39,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.RegisterGPU(gpu, 4*mem.GB)
 
 		context = driver.Init()
-		context.PID = 1
+		context.pid = 1
 		cmdQueue = driver.CreateCommandQueue(context)
 	})
 
@@ -54,7 +54,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				Dst: GPUPtr(0x100000100),
 				Src: srcData,
 			}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
 			mmu.EXPECT().
@@ -117,7 +117,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				Src:  uint32(1),
 				Reqs: []akita.Req{req, req2},
 			}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
 			toGPUs.EXPECT().
@@ -129,7 +129,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmdQueue.Commands).To(HaveLen(1))
+			Expect(cmdQueue.commands).To(HaveLen(1))
 			Expect(cmd.Reqs).NotTo(ContainElement(req))
 			Expect(cmd.Reqs).To(ContainElement(req2))
 		})
@@ -143,7 +143,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				Src:  uint32(1),
 				Reqs: []akita.Req{req},
 			}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
 			toGPUs.EXPECT().
@@ -156,7 +156,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
-			Expect(cmdQueue.Commands).To(HaveLen(0))
+			Expect(cmdQueue.NumCommand()).To(Equal(0))
 		})
 
 	})
@@ -168,7 +168,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				Dst: &data,
 				Src: GPUPtr(0x100),
 			}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
 			mmu.EXPECT().Translate(vm.PID(1), uint64(0x100)).
@@ -207,7 +207,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				Src:  GPUPtr(0x100),
 				Reqs: []akita.Req{req, req2},
 			}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
 			toGPUs.EXPECT().
@@ -220,7 +220,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmdQueue.Commands).To(HaveLen(1))
+			Expect(cmdQueue.commands).To(HaveLen(1))
 			Expect(cmd.Reqs).To(ContainElement(req2))
 			Expect(cmd.Reqs).NotTo(ContainElement(req))
 		})
@@ -236,7 +236,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				Src:     GPUPtr(0x100),
 				Reqs:    []akita.Req{req},
 			}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
 			toGPUs.EXPECT().
@@ -248,7 +248,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			driver.Handle(*akita.NewTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
-			Expect(cmdQueue.Commands).To(HaveLen(0))
+			Expect(cmdQueue.commands).To(HaveLen(0))
 			Expect(data).To(Equal(uint32(1)))
 		})
 
@@ -262,7 +262,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				WGSize:     [3]uint16{64, 1, 1},
 				KernelArgs: nil,
 			}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
 			toGPUs.EXPECT().
@@ -287,7 +287,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		cmd := &LaunchKernelCommand{
 			Reqs: []akita.Req{req},
 		}
-		cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+		cmdQueue.Enqueue(cmd)
 		cmdQueue.IsRunning = true
 
 		toGPUs.EXPECT().
@@ -299,13 +299,13 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.Handle(*akita.NewTickEvent(11, nil))
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
-		Expect(cmdQueue.Commands).To(HaveLen(0))
+		Expect(cmdQueue.commands).To(HaveLen(0))
 	})
 
 	ginkgo.Context("process FlushCommand", func() {
 		ginkgo.It("should send request to GPU", func() {
 			cmd := &FlushCommand{}
-			cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
 			toGPUs.EXPECT().
@@ -328,7 +328,8 @@ var _ = ginkgo.Describe("Driver", func() {
 		cmd := &FlushCommand{
 			Reqs: []akita.Req{req},
 		}
-		cmdQueue.Commands = append(cmdQueue.Commands, cmd)
+		cmdQueue.Enqueue(cmd)
+
 		cmdQueue.IsRunning = true
 
 		toGPUs.EXPECT().
@@ -340,6 +341,6 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.Handle(*akita.NewTickEvent(11, nil))
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
-		Expect(cmdQueue.Commands).To(HaveLen(0))
+		Expect(cmdQueue.commands).To(HaveLen(0))
 	})
 })

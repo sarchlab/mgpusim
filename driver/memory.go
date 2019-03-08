@@ -60,7 +60,7 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	}
 
 	ptr, ok := d.tryAllocateWithExistingChunks(
-		c.CurrentGPUID, byteSize, alignment)
+		c.currentGPUID, byteSize, alignment)
 	if ok {
 		return ptr
 	}
@@ -68,7 +68,7 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	d.allocatePage(c, 1<<d.PageSizeAsPowerOf2)
 
 	ptr, ok = d.tryAllocateWithExistingChunks(
-		c.CurrentGPUID, byteSize, alignment)
+		c.currentGPUID, byteSize, alignment)
 	if ok {
 		return ptr
 	}
@@ -127,7 +127,7 @@ func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
 }
 
 func (d *Driver) allocateLarge(c *Context, byteSize uint64) GPUPtr {
-	gpuID := c.CurrentGPUID
+	gpuID := c.currentGPUID
 	pageSize := uint64(1 << d.PageSizeAsPowerOf2)
 	numPages := (byteSize-1)/pageSize + 1
 
@@ -150,7 +150,7 @@ func (d *Driver) allocateLarge(c *Context, byteSize uint64) GPUPtr {
 
 	for i := uint64(0); i < numPages; i++ {
 		page := &vm.Page{
-			PID:      c.PID,
+			PID:      c.pid,
 			VAddr:    pageID + i*pageSize + 0x100000000,
 			PAddr:    pageID + i*pageSize,
 			PageSize: pageSize,
@@ -164,7 +164,7 @@ func (d *Driver) allocateLarge(c *Context, byteSize uint64) GPUPtr {
 }
 
 func (d *Driver) allocatePage(c *Context, size uint64) *vm.Page {
-	gpuID := c.CurrentGPUID
+	gpuID := c.currentGPUID
 	pageID := d.initialAddresses[gpuID]
 	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
 		if d.isPageAllocated(gpuID, pageID) {
@@ -175,7 +175,7 @@ func (d *Driver) allocatePage(c *Context, size uint64) *vm.Page {
 	}
 
 	page := &vm.Page{
-		PID:      c.PID,
+		PID:      c.pid,
 		VAddr:    pageID + 0x100000000,
 		PAddr:    pageID,
 		PageSize: size,
@@ -199,7 +199,7 @@ func (d *Driver) allocatePage(c *Context, size uint64) *vm.Page {
 }
 
 func (d *Driver) allocatePageWithGivenVAddr(c *Context, vAddr, size uint64) *vm.Page {
-	gpuID := c.CurrentGPUID
+	gpuID := c.currentGPUID
 	pageID := d.initialAddresses[gpuID]
 	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
 		if d.isPageAllocated(gpuID, pageID) {
@@ -210,7 +210,7 @@ func (d *Driver) allocatePageWithGivenVAddr(c *Context, vAddr, size uint64) *vm.
 	}
 
 	page := &vm.Page{
-		PID:      c.PID,
+		PID:      c.pid,
 		VAddr:    vAddr,
 		PAddr:    pageID,
 		PageSize: size,
@@ -344,8 +344,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 		Src: src,
 	}
 
-	queue.Commands = append(queue.Commands, cmd)
-	d.enqueueSignal <- true
+	d.Enqueue(queue, cmd)
 }
 
 // EnqueueMemCopyD2H registers a MemCopyD2HCommand in the queue.
@@ -359,8 +358,7 @@ func (d *Driver) EnqueueMemCopyD2H(
 		Dst: dst,
 		Src: src,
 	}
-	queue.Commands = append(queue.Commands, cmd)
-	d.enqueueSignal <- true
+	d.Enqueue(queue, cmd)
 }
 
 // MemCopyH2D copies a memory from the host to a GPU device.

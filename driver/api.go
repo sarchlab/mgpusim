@@ -10,14 +10,18 @@ import (
 
 var nextPID uint64
 
+// Init creates a context to be used in the following API calls.
 func (d *Driver) Init() *Context {
 	atomic.AddUint64(&nextPID, 1)
 
 	c := &Context{
-		PID:          vm.PID(nextPID),
-		CurrentGPUID: 0,
+		pid:          vm.PID(nextPID),
+		currentGPUID: 0,
 	}
-	d.Contexts = append(d.Contexts, c)
+
+	d.contextMutex.Lock()
+	d.contexts = append(d.contexts, c)
+	d.contextMutex.Unlock()
 
 	return c
 }
@@ -33,16 +37,18 @@ func (d *Driver) SelectGPU(c *Context, gpuID int) {
 	if gpuID >= len(d.GPUs) {
 		log.Panicf("GPU %d is not available", gpuID)
 	}
-	c.CurrentGPUID = gpuID
+	c.currentGPUID = gpuID
 }
 
 // CreateCommandQueue creates a command queue in the driver
 func (d *Driver) CreateCommandQueue(c *Context) *CommandQueue {
 	q := new(CommandQueue)
-	q.GPUID = c.CurrentGPUID
+	q.GPUID = c.currentGPUID
 	q.Context = c
 
-	c.Queues = append(c.Queues, q)
+	c.queueMutex.Lock()
+	c.queues = append(c.queues, q)
+	c.queueMutex.Unlock()
 
 	return q
 }
@@ -51,11 +57,14 @@ func (d *Driver) CreateCommandQueue(c *Context) *CommandQueue {
 func (d *Driver) DrainCommandQueue(q *CommandQueue) {
 	listener := q.Subscribe()
 	defer q.Unsubscribe(listener)
+
 	for {
-		if len(q.Commands) == 0 {
+		if q.NumCommand() == 0 {
+			fmt.Printf("drain completed\n")
 			return
 		}
-		fmt.Printf("wait for drain signal, commands left %d\n", len(q.Commands))
+		fmt.Printf("wait for drain signal, commands left %d\n",
+			q.NumCommand())
 		listener.Wait()
 	}
 }
