@@ -84,7 +84,7 @@ func (ctrlComp *ShootdownControlComponent) handleShootdownReqEvent(evt *Shootdow
 	req := evt.req
 
 	ctrlComp.curShootdownRequest = req
-	now := req.Time()
+	now := evt.Time()
 
 	for i := 0; i < len(ctrlComp.gpuDriver.GPUs[0].CUs); i++ {
 		drainReq := gcn3.NewCUPipelineDrainReq(akita.VTimeInSec(now), ctrlComp.toCU, ctrlComp.cus[i])
