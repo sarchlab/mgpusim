@@ -19,8 +19,9 @@ type AESArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
-	hsaco  *insts.HsaCo
+	driver  *driver.Driver
+	context *driver.Context
+	hsaco   *insts.HsaCo
 
 	Length       int
 	input        []byte
@@ -35,6 +36,7 @@ type Benchmark struct {
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+	b.context = b.driver.Init()
 	b.loadProgram()
 	return b
 }
@@ -110,9 +112,10 @@ func (b *Benchmark) initMem() {
 		0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 	}
 
-	b.gInput = b.driver.AllocateMemory(uint64(b.Length))
-	b.gExpandedKey = b.driver.AllocateMemory(uint64(len(b.expandedKey) * 4))
-	b.gS = b.driver.AllocateMemory(uint64(len(b.s)))
+	b.gInput = b.driver.AllocateMemory(b.context, uint64(b.Length))
+	b.gExpandedKey = b.driver.AllocateMemory(
+		b.context, uint64(len(b.expandedKey)*4))
+	b.gS = b.driver.AllocateMemory(b.context, uint64(len(b.s)))
 
 	b.input = make([]byte, b.Length)
 	for i := 0; i < b.Length; i++ {
@@ -121,9 +124,9 @@ func (b *Benchmark) initMem() {
 		b.input[i] = 0
 	}
 
-	b.driver.MemCopyH2D(b.gInput, b.input)
-	b.driver.MemCopyH2D(b.gExpandedKey, b.expandedKey)
-	b.driver.MemCopyH2D(b.gS, b.s)
+	b.driver.MemCopyH2D(b.context, b.gInput, b.input)
+	b.driver.MemCopyH2D(b.context, b.gExpandedKey, b.expandedKey)
+	b.driver.MemCopyH2D(b.context, b.gS, b.s)
 }
 
 func (b *Benchmark) Run() {
@@ -134,6 +137,7 @@ func (b *Benchmark) Run() {
 		b.gS,
 		0, 0, 0}
 	b.driver.LaunchKernel(
+		b.context,
 		b.hsaco,
 		[3]uint32{uint32(b.Length / 16), 1, 1},
 		[3]uint16{64, 1, 1},
@@ -142,7 +146,7 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]byte, b.Length)
-	b.driver.MemCopyD2H(gpuOutput, b.gInput)
+	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInput)
 
 	cpuOutput := b.cpuEncrypt()
 

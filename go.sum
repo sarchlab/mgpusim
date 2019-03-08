@@ -42,6 +42,8 @@ github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0
 gitlab.com/akita/akita v1.0.1/go.mod h1:6138iKY6BTrrpnc5nb/rTjK+0HcRmb79IeIGxzlrjJI=
 gitlab.com/akita/akita v1.1.0 h1:PrTWCvkNBF/k0SySptfEDOsrhB5sPJT+Woz+z3kgcmc=
 gitlab.com/akita/akita v1.1.0/go.mod h1:OeR3a7/KiyGD77zeCbJowIdZpsOL+5qTA32/cs+saEE=
+gitlab.com/akita/akita v1.2.0 h1:DZ357cNS6DoTnqsYg8oY2FNY6xDk3zvAJjt/3t8LnUo=
+gitlab.com/akita/akita v1.2.0/go.mod h1:eNUGyDnGKgimk6ndOBkRfaPrv5eeWlk0P2ETsUfmsBg=
 gitlab.com/akita/mem v1.1.0 h1:pjIwM2meAvjNr3I0PTWUsKd/1vzCYffUrh/mL9QOWEQ=
 gitlab.com/akita/mem v1.1.0/go.mod h1:xSrhGpSmaNQvE2kUY9fhuPm82Uz+hfpQ1DrYq0wQJsI=
 gitlab.com/akita/mem v1.1.1 h1:Qyes4d86VFO+OAf7VWG7/XpOCEsDmFGVleMcPPSr+AE=
