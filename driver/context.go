@@ -1,9 +1,15 @@
 package driver
 
-import "gitlab.com/akita/mem/vm"
+import (
+	"sync"
+
+	"gitlab.com/akita/mem/vm"
+)
 
 type Context struct {
-	PID          vm.PID
-	CurrentGPUID int
-	Queues       []*CommandQueue
+	pid          vm.PID
+	currentGPUID int
+
+	queueMutex sync.Mutex
+	queues     []*CommandQueue
 }

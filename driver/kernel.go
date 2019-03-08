@@ -111,12 +111,12 @@ func (d *Driver) enqueueLaunchKernelCommand(
 		DPacket:    dPacket,
 		Packet:     packet,
 	}
-	queue.Commands = append(queue.Commands, cmd)
+	d.Enqueue(queue, cmd)
 }
 
 func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
 	cmd := &FlushCommand{
 		ID: xid.New().String(),
 	}
-	queue.Commands = append(queue.Commands, cmd)
+	d.Enqueue(queue, cmd)
 }
