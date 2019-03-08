@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/rs/xid"
@@ -191,8 +190,6 @@ func (d *Driver) allocatePage(c *Context, size uint64) *vm.Page {
 
 	d.MMU.CreatePage(page)
 	d.allocatedPages[gpuID] = append(d.allocatedPages[gpuID], page)
-
-	fmt.Printf("Allocated page %v\n", page)
 
 	chunk := new(MemoryChunk)
 	chunk.Ptr = GPUPtr(virtualAddr)

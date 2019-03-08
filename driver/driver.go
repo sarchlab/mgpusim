@@ -3,7 +3,6 @@ package driver
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"reflect"
 	"sync"
@@ -57,14 +56,11 @@ func (d *Driver) Terminate() {
 }
 
 func (d *Driver) runAsync() {
-	fmt.Printf("Running\n")
-	defer fmt.Printf("Driver thread exited\n")
 	for {
 		select {
 		case <-d.driverStopped:
 			return
 		case <-d.enqueueSignal:
-			fmt.Printf("enqueue signal received\n")
 			d.Engine.Pause()
 			d.TickLater(d.Engine.CurrentTime())
 			d.Engine.Continue()
@@ -76,12 +72,10 @@ func (d *Driver) runAsync() {
 func (d *Driver) runEngine() {
 	d.engineMutex.Lock()
 	defer d.engineMutex.Unlock()
-	fmt.Printf("Engine start\n")
 	err := d.Engine.Run()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Engine return\n")
 }
 
 // RegisterGPU tells the driver about the existence of a GPU
@@ -424,8 +418,6 @@ func (d *Driver) processLaunchKernelReturn(
 	now akita.VTimeInSec,
 	req *gcn3.LaunchKernelReq,
 ) {
-	// fmt.Printf("%.12f kernel return, start at %.12f\n", now, req.StartTime)
-
 	cmd, cmdQueue := d.findCommandByReq(req)
 	cmdQueue.IsRunning = false
 	cmdQueue.Dequeue()
