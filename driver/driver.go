@@ -218,6 +218,9 @@ func (d *Driver) processMemCopyH2DCommand(
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
 		pAddr, page := d.MMU.Translate(queue.Context.pid, addr)
+		if page == nil {
+			panic("page not found")
+		}
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
