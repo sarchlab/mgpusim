@@ -75,8 +75,8 @@ def main():
 
     error |= compile('insts/gcn3disassembler')
 
-    error |= compile('acceptancetests/cupipelinedtainning')
-    error |= run_test('CU Pipeline Draining', './cupipelinedraining'
+    error |= compile('acceptancetests/cupipelinedraining')
+    error |= run_test('CU Pipeline Draining', './cupipelinedraining -timing', 'acceptancetestes/cupipelinedraining')
 
     error |= compile('samples/fir/')
     # error |= run_test("FIR Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/fir')
