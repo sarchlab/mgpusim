@@ -319,7 +319,7 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 		cu.WfDispatcher.DispatchWf(now, wf)
 		delete(cu.WfToDispatch, wf.Wavefront)
 
-		cu.UpdatePCAndSetReady(wf)
+		wf.State = WfReady
 
 		cu.InvokeHook(wf, cu, HookPosWfStart, &CUHookInfo{
 			Now: evt.Time(),
