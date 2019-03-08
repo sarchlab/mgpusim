@@ -127,6 +127,7 @@ func BuildNR9NanoPlatform(
 	gpuDriver := driver.NewDriver(engine, mmu)
 	//connection := akita.NewDirectConnection(engine)
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
+	connection.SrcBufferCapacity = 40960000
 
 	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
 		GPUName:           "GPU",

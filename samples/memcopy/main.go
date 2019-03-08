@@ -1,40 +1,64 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"math/rand"
 
+	"gitlab.com/akita/gcn3/samples/runner"
+
 	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/platform"
 )
 
-var (
-	gpuDriver *driver.Driver
-	size      uint64
-)
+type Benchmark struct {
+	driver  *driver.Driver
+	context *driver.Context
 
-func main() {
-	_, _, gpuDriver = platform.BuildR9NanoPlatform()
+	ByteSize uint64
+	data     []byte
+	retData  []byte
+}
 
-	size = 8192
+func NewBenchmark(driver *driver.Driver) *Benchmark {
+	b := new(Benchmark)
+	b.driver = driver
+	b.context = driver.Init()
+	return b
+}
 
-	data := make([]byte, size)
-	retData := make([]byte, size)
-	for i := uint64(0); i < size; i++ {
-		data[i] = byte(rand.Int())
+func (b *Benchmark) Run() {
+	b.data = make([]byte, b.ByteSize)
+	b.retData = make([]byte, b.ByteSize)
+	for i := uint64(0); i < b.ByteSize; i++ {
+		b.data[i] = byte(rand.Int())
 	}
 
-	gpuData := gpuDriver.AllocateMemory(size)
+	gpuData := b.driver.AllocateMemory(b.context, b.ByteSize)
 
-	gpuDriver.MemCopyH2D(gpuData, data)
-	gpuDriver.MemCopyD2H(retData, gpuData)
+	b.driver.MemCopyH2D(b.context, gpuData, b.data)
+	b.driver.MemCopyD2H(b.context, b.retData, gpuData)
+}
 
-	for i := uint64(0); i < size; i++ {
-		if data[i] != retData[i] {
+func (b *Benchmark) Verify() {
+	for i := uint64(0); i < b.ByteSize; i++ {
+		if b.data[i] != b.retData[i] {
 			log.Panicf("error at %d, expected %02x, but get %02x",
-				i, data[i], retData[i])
+				i, b.data[i], b.retData[i])
 		}
 	}
 	log.Printf("Passed!")
+}
 
+func main() {
+	flag.Parse()
+
+	runner := runner.Runner{}
+	runner.Init()
+
+	benchmark := NewBenchmark(runner.GPUDriver)
+	benchmark.ByteSize = 1048576
+
+	runner.AddBenchmark(benchmark)
+
+	runner.Run()
 }

@@ -19,7 +19,8 @@ func main() {
 	benchmark := bitonicsort.NewBenchmark(runner.GPUDriver)
 	benchmark.Length = *length
 	benchmark.OrderAscending = *orderAscending
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 }

@@ -17,7 +17,8 @@ func main() {
 
 	benchmark := matrixtranpose.NewBenchmark(runner.GPUDriver)
 	benchmark.Width = *dataWidth
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 }

@@ -5,11 +5,13 @@ import (
 	"log"
 	"reflect"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
 	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/platform"
 	"gitlab.com/akita/gcn3/samples/runner"
 	"gitlab.com/akita/gcn3/timing"
 )
@@ -153,12 +155,18 @@ func newCUPipelineDrainReqEvent(
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	r := runner.Runner{}
-	r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(1)
+	r.Init()
+	// r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(1)
 
 	benchmark := fir.NewBenchmark(r.GPUDriver)
 	benchmark.Length = *numData
-	r.Benchmark = benchmark
+	r.AddBenchmark(benchmark)
 
 	ctrlComponent := NewControlComponent("ctrl", r.Engine)
 
@@ -188,9 +196,7 @@ func main() {
 		drainReq := gcn3.NewCUPipelineDrainReq(akita.VTimeInSec(drainTime), ctrlComponent.toCU, ctrlComponent.cus[i])
 		drainEvent := newCUPipelineDrainReqEvent(akita.VTimeInSec(drainTime), ctrlComponent, drainReq)
 		r.Engine.Schedule(drainEvent)
-
 	}
 
 	r.Run()
-
 }

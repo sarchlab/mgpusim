@@ -36,32 +36,38 @@ func (d *Driver) registerStorage(
 // It returns the pointer pointing to the newly allocated memory in the GPU
 // memory space.
 func (d *Driver) AllocateMemory(
+	c *Context,
 	byteSize uint64,
 ) GPUPtr {
 	if byteSize >= 8 {
-		return d.AllocateMemoryWithAlignment(byteSize, 8)
+		return d.AllocateMemoryWithAlignment(c, byteSize, 8)
 	}
-	return d.AllocateMemoryWithAlignment(byteSize, byteSize)
+	return d.AllocateMemoryWithAlignment(c, byteSize, byteSize)
 }
 
 // AllocateMemoryWithAlignment allocates a chunk of memory of size byteSize.
 // The return address must be a multiple of alignment.
 func (d *Driver) AllocateMemoryWithAlignment(
-	byteSize uint64,
-	alignment uint64,
+	c *Context,
+	byteSize, alignment uint64,
 ) GPUPtr {
+	d.memoryAllocatorLock.Lock()
+	defer d.memoryAllocatorLock.Unlock()
+
 	if byteSize >= 4096 {
-		return d.allocateLarge(byteSize)
+		return d.allocateLarge(c, byteSize)
 	}
 
-	ptr, ok := d.tryAllocateWithExistingChunks(byteSize, alignment)
+	ptr, ok := d.tryAllocateWithExistingChunks(
+		c.currentGPUID, byteSize, alignment)
 	if ok {
 		return ptr
 	}
 
-	d.allocatePage(d.usingGPU, 1<<d.PageSizeAsPowerOf2)
+	d.allocatePage(c, 1<<d.PageSizeAsPowerOf2)
 
-	ptr, ok = d.tryAllocateWithExistingChunks(byteSize, alignment)
+	ptr, ok = d.tryAllocateWithExistingChunks(
+		c.currentGPUID, byteSize, alignment)
 	if ok {
 		return ptr
 	}
@@ -72,23 +78,28 @@ func (d *Driver) AllocateMemoryWithAlignment(
 
 // Remap keeps the virtual address unchanged and moves the physical address to
 // another GPU
-func (d *Driver) Remap(addr, size uint64, gpuID int) {
+func (d *Driver) Remap(ctx *Context, addr, size uint64, gpuID int) {
 	ptr := addr
 	sizeLeft := size
 	for ptr < addr+size {
-		_, page := d.MMU.Translate(d.currentPID, ptr)
-		d.remapPage(page, ptr, sizeLeft, gpuID)
+		_, page := d.MMU.Translate(ctx.pid, ptr)
+		d.remapPage(ctx, page, ptr, sizeLeft, gpuID)
 		sizeLeft -= page.VAddr + page.PageSize - ptr
 		ptr = page.VAddr + page.PageSize
 	}
 }
 
-func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
+func (d *Driver) remapPage(
+	ctx *Context,
+	page *vm.Page,
+	addr, size uint64,
+	gpuID int,
+) {
 	ptr := addr
-	d.MMU.RemovePage(d.currentPID, page.VAddr)
+	d.MMU.RemovePage(ctx.pid, page.VAddr)
 	if ptr > page.VAddr {
 		page1 := &vm.Page{
-			PID:      d.currentPID,
+			PID:      ctx.pid,
 			VAddr:    page.VAddr,
 			PAddr:    page.PAddr,
 			PageSize: addr - page.VAddr,
@@ -102,14 +113,14 @@ func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
 	if sizeForNewPage > size {
 		sizeForNewPage = size
 	}
-	d.allocatePageWithGivenVAddr(gpuID, addr, sizeForNewPage)
+	d.allocatePageWithGivenVAddr(ctx, gpuID, addr, sizeForNewPage)
 	//d.mmu.CreatePage(page2)
 
 	ptr += sizeForNewPage
 	sizeLeft -= sizeForNewPage
 	if sizeLeft > 0 {
 		page3 := &vm.Page{
-			PID:      d.currentPID,
+			PID:      ctx.pid,
 			VAddr:    ptr,
 			PAddr:    page.PAddr + (ptr - page.VAddr),
 			PageSize: sizeLeft,
@@ -119,15 +130,16 @@ func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
 	}
 }
 
-func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
+func (d *Driver) allocateLarge(c *Context, byteSize uint64) GPUPtr {
+	gpuID := c.currentGPUID
 	pageSize := uint64(1 << d.PageSizeAsPowerOf2)
 	numPages := (byteSize-1)/pageSize + 1
 
-	pageID := d.initialAddresses[d.usingGPU]
-	for pageID < d.initialAddresses[d.usingGPU]+d.storageSizes[d.usingGPU] {
+	pageID := d.initialAddresses[gpuID]
+	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
 		free := true
 		for i := uint64(0); i < numPages; i++ {
-			if d.isPageAllocated(d.usingGPU, pageID+i*pageSize) {
+			if d.isPageAllocated(gpuID, pageID+i*pageSize) {
 				free = false
 				break
 			}
@@ -142,20 +154,21 @@ func (d *Driver) allocateLarge(byteSize uint64) GPUPtr {
 
 	for i := uint64(0); i < numPages; i++ {
 		page := &vm.Page{
-			PID:      d.currentPID,
+			PID:      c.pid,
 			VAddr:    pageID + i*pageSize + 0x100000000,
 			PAddr:    pageID + i*pageSize,
 			PageSize: pageSize,
 			Valid:    true,
 		}
-		d.allocatedPages[d.usingGPU] = append(d.allocatedPages[d.usingGPU], page)
+		d.allocatedPages[gpuID] = append(d.allocatedPages[gpuID], page)
 		d.MMU.CreatePage(page)
 	}
 
 	return GPUPtr(pageID + 0x100000000)
 }
 
-func (d *Driver) allocatePage(gpuID int, size uint64) *vm.Page {
+func (d *Driver) allocatePage(c *Context, size uint64) *vm.Page {
+	gpuID := c.currentGPUID
 	pageID := d.initialAddresses[gpuID]
 	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
 		if d.isPageAllocated(gpuID, pageID) {
@@ -166,7 +179,7 @@ func (d *Driver) allocatePage(gpuID int, size uint64) *vm.Page {
 	}
 
 	page := &vm.Page{
-		PID:      d.currentPID,
+		PID:      c.pid,
 		VAddr:    pageID + 0x100000000,
 		PAddr:    pageID,
 		PageSize: size,
@@ -187,7 +200,11 @@ func (d *Driver) allocatePage(gpuID int, size uint64) *vm.Page {
 	return page
 }
 
-func (d *Driver) allocatePageWithGivenVAddr(gpuID int, vAddr, size uint64) *vm.Page {
+func (d *Driver) allocatePageWithGivenVAddr(
+	ctx *Context,
+	gpuID int,
+	vAddr, size uint64,
+) *vm.Page {
 	pageID := d.initialAddresses[gpuID]
 	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
 		if d.isPageAllocated(gpuID, pageID) {
@@ -198,7 +215,7 @@ func (d *Driver) allocatePageWithGivenVAddr(gpuID int, vAddr, size uint64) *vm.P
 	}
 
 	page := &vm.Page{
-		PID:      d.currentPID,
+		PID:      ctx.pid,
 		VAddr:    vAddr,
 		PAddr:    pageID,
 		PageSize: size,
@@ -228,9 +245,10 @@ func (d *Driver) isPageAllocated(gpuID int, pAddr uint64) bool {
 }
 
 func (d *Driver) tryAllocateWithExistingChunks(
+	gpuID int,
 	byteSize, alignment uint64,
 ) (ptr GPUPtr, ok bool) {
-	chunks := d.memoryMasks[d.usingGPU]
+	chunks := d.memoryMasks[gpuID]
 	for i, chunk := range chunks {
 		if chunk.Occupied {
 			continue
@@ -243,7 +261,7 @@ func (d *Driver) tryAllocateWithExistingChunks(
 			ptr = GPUPtr(nextAlignment)
 			ok = true
 
-			d.splitChunk(i, ptr, byteSize)
+			d.splitChunk(gpuID, i, ptr, byteSize)
 
 			return
 		}
@@ -252,8 +270,8 @@ func (d *Driver) tryAllocateWithExistingChunks(
 	return 0, false
 }
 
-func (d *Driver) splitChunk(chunkIndex int, ptr GPUPtr, byteSize uint64) {
-	chunks := d.memoryMasks[d.usingGPU]
+func (d *Driver) splitChunk(gpuID, chunkIndex int, ptr GPUPtr, byteSize uint64) {
+	chunks := d.memoryMasks[gpuID]
 	chunk := chunks[chunkIndex]
 	newChunks := chunks[:chunkIndex]
 
@@ -281,7 +299,7 @@ func (d *Driver) splitChunk(chunkIndex int, ptr GPUPtr, byteSize uint64) {
 	}
 
 	newChunks = append(newChunks, chunks[chunkIndex+1:]...)
-	d.memoryMasks[d.usingGPU] = newChunks
+	d.memoryMasks[gpuID] = newChunks
 }
 
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
@@ -331,7 +349,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 		Src: src,
 	}
 
-	queue.Commands = append(queue.Commands, cmd)
+	d.Enqueue(queue, cmd)
 }
 
 // EnqueueMemCopyD2H registers a MemCopyD2HCommand in the queue.
@@ -345,19 +363,19 @@ func (d *Driver) EnqueueMemCopyD2H(
 		Dst: dst,
 		Src: src,
 	}
-	queue.Commands = append(queue.Commands, cmd)
+	d.Enqueue(queue, cmd)
 }
 
 // MemCopyH2D copies a memory from the host to a GPU device.
-func (d *Driver) MemCopyH2D(dst GPUPtr, src interface{}) {
-	queue := d.CreateCommandQueue()
+func (d *Driver) MemCopyH2D(ctx *Context, dst GPUPtr, src interface{}) {
+	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueMemCopyH2D(queue, dst, src)
-	d.ExecuteAllCommands()
+	d.DrainCommandQueue(queue)
 }
 
 // MemCopyD2H copies a memory from a GPU device to the host
-func (d *Driver) MemCopyD2H(dst interface{}, src GPUPtr) {
-	queue := d.CreateCommandQueue()
+func (d *Driver) MemCopyD2H(ctx *Context, dst interface{}, src GPUPtr) {
+	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueMemCopyD2H(queue, dst, src)
-	d.ExecuteAllCommands()
+	d.DrainCommandQueue(queue)
 }

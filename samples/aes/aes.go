@@ -17,7 +17,8 @@ func main() {
 
 	benchmark := aes.NewBenchmark(runner.GPUDriver)
 	benchmark.Length = *lenInput
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 }

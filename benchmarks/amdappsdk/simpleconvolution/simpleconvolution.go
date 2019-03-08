@@ -19,8 +19,9 @@ type KernelArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
-	kernel *insts.HsaCo
+	driver  *driver.Driver
+	context *driver.Context
+	kernel  *insts.HsaCo
 
 	Width     uint32
 	Height    uint32
@@ -39,6 +40,7 @@ type Benchmark struct {
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+	b.context = driver.Init()
 	b.loadProgram()
 	return b
 }
@@ -82,13 +84,14 @@ func (b *Benchmark) initMem() {
 		b.hMask[i] = float32(i)
 	}
 
-	b.dInputData = b.driver.AllocateMemory(uint64(numInputData * 4))
-	b.dOutputData = b.driver.AllocateMemory(uint64(numInputData * 4))
-	b.dMask = b.driver.AllocateMemory(uint64(b.maskSize * b.maskSize * 4))
+	b.dInputData = b.driver.AllocateMemory(b.context, uint64(numInputData*4))
+	b.dOutputData = b.driver.AllocateMemory(b.context, uint64(numInputData*4))
+	b.dMask = b.driver.AllocateMemory(b.context,
+		uint64(b.maskSize*b.maskSize*4))
 
-	b.driver.MemCopyH2D(b.dInputData, b.hInputData)
-	b.driver.MemCopyH2D(b.dOutputData, b.hOutputData)
-	b.driver.MemCopyH2D(b.dMask, b.hMask)
+	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
+	b.driver.MemCopyH2D(b.context, b.dOutputData, b.hOutputData)
+	b.driver.MemCopyH2D(b.context, b.dMask, b.hMask)
 }
 
 func (b *Benchmark) exec() {
@@ -104,6 +107,7 @@ func (b *Benchmark) exec() {
 
 	gridSize := (b.Width + b.padWidth) * (b.Height + b.padHeight)
 	b.driver.LaunchKernel(
+		b.context,
 		b.kernel,
 		[3]uint32{uint32(gridSize), 1, 1},
 		[3]uint16{uint16(64), 1, 1},
@@ -114,7 +118,7 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) Verify() {
 	cpuOutputImage := b.cpuSimpleConvolution()
 
-	b.driver.MemCopyD2H(b.hOutputData, b.dOutputData)
+	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
 	for i := uint32(0); i < b.Height; i++ {
 		for j := uint32(0); j < b.Width; j++ {
 			index := i*b.Width + j

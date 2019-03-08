@@ -23,9 +23,10 @@ type KernelArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
-	hsaco  *insts.HsaCo
-	queue  *driver.CommandQueue
+	driver  *driver.Driver
+	context *driver.Context
+	queue   *driver.CommandQueue
+	hsaco   *insts.HsaCo
 
 	Length       int
 	numTaps      int
@@ -41,7 +42,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
-	b.queue = driver.CreateCommandQueue()
+	b.context = b.driver.Init()
+	b.queue = driver.CreateCommandQueue(b.context)
 
 	hsacoBytes, err := Asset("kernels.hsaco")
 	if err != nil {
@@ -52,6 +54,10 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+func (b *Benchmark) SelectGPU(gpuID int) {
+	b.driver.SelectGPU(b.context, gpuID)
+}
+
 func (b *Benchmark) Run() {
 	b.initMem()
 	b.exec()
@@ -59,10 +65,10 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	b.numTaps = 16
-	b.gFilterData = b.driver.AllocateMemory(uint64(b.numTaps * 4))
-	b.gHistoryData = b.driver.AllocateMemory(uint64(b.numTaps * 4))
-	b.gInputData = b.driver.AllocateMemory(uint64(b.Length * 4))
-	b.gOutputData = b.driver.AllocateMemory(uint64(b.Length * 4))
+	b.gFilterData = b.driver.AllocateMemory(b.context, uint64(b.numTaps*4))
+	b.gHistoryData = b.driver.AllocateMemory(b.context, uint64(b.numTaps*4))
+	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	b.gOutputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 
 	b.filterData = make([]float32, b.numTaps)
 	for i := 0; i < b.numTaps; i++ {
@@ -96,12 +102,12 @@ func (b *Benchmark) exec() {
 		[3]uint16{256, 1, 1}, &kernArg,
 	)
 
-	b.driver.ExecuteAllCommands()
+	b.driver.DrainCommandQueue(b.queue)
 }
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]float32, b.Length)
-	b.driver.MemCopyD2H(gpuOutput, b.gOutputData)
+	b.driver.MemCopyD2H(b.context, gpuOutput, b.gOutputData)
 
 	for i := 0; i < b.Length; i++ {
 		var sum float32

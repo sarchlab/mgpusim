@@ -2,7 +2,7 @@ package driver
 
 import (
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/mem/vm/mock_vm"
@@ -10,26 +10,30 @@ import (
 	"gitlab.com/akita/mem"
 )
 
-var _ = Describe("Driver", func() {
+var _ = ginkgo.Describe("Driver", func() {
 	var (
 		mockCtrl *gomock.Controller
 		driver   *Driver
+		context  *Context
 		mmu      *mock_vm.MockMMU
 	)
 
-	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
+	ginkgo.BeforeEach(func() {
+		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
 		mmu = mock_vm.NewMockMMU(mockCtrl)
 
 		driver = NewDriver(nil, mmu)
 		driver.registerStorage(0, 4*mem.GB)
+
+		context = driver.Init()
+		context.pid = 1
 	})
 
-	AfterEach(func() {
+	ginkgo.AfterEach(func() {
 		mockCtrl.Finish()
 	})
 
-	It("should allocate memory", func() {
+	ginkgo.It("should allocate memory", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
@@ -39,14 +43,14 @@ var _ = Describe("Driver", func() {
 				Valid:    true,
 			})
 
-		ptr := driver.AllocateMemory(8)
+		ptr := driver.AllocateMemory(context, 8)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 
-		ptr = driver.AllocateMemory(24)
+		ptr = driver.AllocateMemory(context, 24)
 		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
 	})
 
-	It("should remap pages", func() {
+	ginkgo.It("should remap pages", func() {
 		page1 := &vm.Page{
 			PID:      1,
 			VAddr:    0x10000000,
@@ -121,11 +125,10 @@ var _ = Describe("Driver", func() {
 			Valid:    true,
 		})
 
-		driver.Remap(0x10000400, 0x2000, 1)
-
+		driver.Remap(context, 0x10000400, 0x2000, 1)
 	})
 
-	It("should allocate memory with alignment", func() {
+	ginkgo.It("should allocate memory with alignment", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
@@ -135,18 +138,18 @@ var _ = Describe("Driver", func() {
 				Valid:    true,
 			})
 
-		ptr := driver.AllocateMemoryWithAlignment(8, 64)
+		ptr := driver.AllocateMemoryWithAlignment(context, 8, 64)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 		Expect(driver.allocatedPages[0]).To(HaveLen(1))
 		Expect(driver.memoryMasks[0]).To(HaveLen(2))
 
-		ptr = driver.AllocateMemoryWithAlignment(8, 64)
+		ptr = driver.AllocateMemoryWithAlignment(context, 8, 64)
 		Expect(ptr).To(Equal(GPUPtr(0x100000040)))
 		Expect(driver.allocatedPages[0]).To(HaveLen(1))
 		Expect(driver.memoryMasks[0]).To(HaveLen(4))
 	})
 
-	It("should allocate memory larger than a page", func() {
+	ginkgo.It("should allocate memory larger than a page", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
@@ -172,12 +175,12 @@ var _ = Describe("Driver", func() {
 				Valid:    true,
 			})
 
-		ptr := driver.AllocateMemory(8196)
+		ptr := driver.AllocateMemory(context, 8196)
 		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
 		Expect(driver.allocatedPages[0]).To(HaveLen(3))
 	})
 
-	It("should free memory", func() {
+	ginkgo.It("should free memory", func() {
 		//ptr := driver.AllocateMemory(4)
 		//ptr2 := driver.AllocateMemory(16)
 		//ptr3 := driver.AllocateMemory(8)

@@ -1,95 +1,10 @@
 package driver
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/kernels"
+	"sync"
+
 	"gitlab.com/akita/mem/vm"
 )
-
-// A Command is a task to execute later
-type Command interface {
-	GetID() string
-	GetReqs() []akita.Req
-}
-
-// A MemCopyH2DCommand is a command that copies memory from the host to a
-// GPU when the command is processed
-type MemCopyH2DCommand struct {
-	ID   string
-	Dst  GPUPtr
-	Src  interface{}
-	Reqs []akita.Req
-}
-
-// GetID returns the ID of the command
-func (c *MemCopyH2DCommand) GetID() string {
-	return c.ID
-}
-
-// GetReq returns the request associated with the command
-func (c *MemCopyH2DCommand) GetReqs() []akita.Req {
-	return c.Reqs
-}
-
-// A MemCopyD2HCommand is a command that copies memory from the host to a
-// GPU when the command is processed
-type MemCopyD2HCommand struct {
-	ID      string
-	Dst     interface{}
-	Src     GPUPtr
-	RawData []byte
-	Reqs    []akita.Req
-}
-
-// GetID returns the ID of the command
-func (c *MemCopyD2HCommand) GetID() string {
-	return c.ID
-}
-
-// GetReq returns the request associated with the command
-func (c *MemCopyD2HCommand) GetReqs() []akita.Req {
-	return c.Reqs
-}
-
-// A LaunchKernelCommand is a command will execute a kernel when it is
-// processed.
-type LaunchKernelCommand struct {
-	ID         string
-	CodeObject *insts.HsaCo
-	GridSize   [3]uint32
-	WGSize     [3]uint16
-	KernelArgs interface{}
-	Packet     *kernels.HsaKernelDispatchPacket
-	DPacket    GPUPtr
-	Reqs       []akita.Req
-}
-
-// GetID returns the ID of the command
-func (c *LaunchKernelCommand) GetID() string {
-	return c.ID
-}
-
-// GetReq returns the request associated with the command
-func (c *LaunchKernelCommand) GetReqs() []akita.Req {
-	return c.Reqs
-}
-
-// A FlushCommand is a command triggers the GPU cache to flush
-type FlushCommand struct {
-	ID   string
-	Reqs []akita.Req
-}
-
-// GetID returns the ID of the command
-func (c *FlushCommand) GetID() string {
-	return c.ID
-}
-
-// GetReq returns the request associated with the command
-func (c *FlushCommand) GetReqs() []akita.Req {
-	return c.Reqs
-}
 
 // A CommandQueue maintains a queue of command where the commands from the
 // queue will executes in order.
@@ -97,14 +12,122 @@ type CommandQueue struct {
 	IsRunning bool
 	GPUID     int
 	PID       vm.PID
-	Commands  []Command
+	Context   *Context
+
+	commandsMutex sync.Mutex
+	commands      []Command
+
+	listenerMutex sync.Mutex
+	listeners     []*CommandQueueStatusListener
 }
 
-// CreateCommandQueue creates a command queue in the driver
-func (d *Driver) CreateCommandQueue() *CommandQueue {
-	q := new(CommandQueue)
-	q.GPUID = d.usingGPU
-	q.PID = d.currentPID
-	d.CommandQueues = append(d.CommandQueues, q)
-	return q
+// Subscribe returns a CommandQueueStatusListener that listens to the update
+// of the command queue
+func (q *CommandQueue) Subscribe() *CommandQueueStatusListener {
+	l := &CommandQueueStatusListener{
+		closeSignal: make(chan bool, 0),
+		signal:      make(chan bool, 0),
+	}
+
+	q.listenerMutex.Lock()
+	q.listeners = append(q.listeners, l)
+	q.listenerMutex.Unlock()
+
+	return l
+}
+
+// Unsubscribe will unbind a listener to a command queue.
+func (q *CommandQueue) Unsubscribe(listener *CommandQueueStatusListener) {
+	listener.Close()
+
+	q.listenerMutex.Lock()
+	defer q.listenerMutex.Unlock()
+	for i, l := range q.listeners {
+		if l == listener {
+			q.listeners = append(q.listeners[:i], q.listeners[i+1:]...)
+			return
+		}
+	}
+
+	panic("not subscribed")
+}
+
+// NotifyAllSubscribers will wake up all the subscribers of the command queue
+func (q *CommandQueue) NotifyAllSubscribers() {
+	q.listenerMutex.Lock()
+	defer q.listenerMutex.Unlock()
+
+	for _, subscriber := range q.listeners {
+		subscriber.Notify()
+	}
+}
+
+// Enqueue adds a command to the command queue
+func (q *CommandQueue) Enqueue(c Command) {
+	q.commandsMutex.Lock()
+	q.commands = append(q.commands, c)
+	q.commandsMutex.Unlock()
+	q.NotifyAllSubscribers()
+}
+
+// Dequeue removes a command from the command queue
+func (q *CommandQueue) Dequeue() Command {
+	q.commandsMutex.Lock()
+	cmd := q.commands[0]
+	q.commands = q.commands[1:]
+	q.commandsMutex.Unlock()
+	q.NotifyAllSubscribers()
+	return cmd
+}
+
+// Peek returns the first command in the command quee
+func (q *CommandQueue) Peek() Command {
+	q.commandsMutex.Lock()
+	defer q.commandsMutex.Unlock()
+
+	if len(q.commands) == 0 {
+		return nil
+	}
+
+	return q.commands[0]
+}
+
+// NumCommand returns the number of commands currently in the command queue
+func (q *CommandQueue) NumCommand() int {
+	q.commandsMutex.Lock()
+	l := len(q.commands)
+	q.commandsMutex.Unlock()
+	return l
+}
+
+// Enqueue adds a command to a command queue and triggers GPUs to start to
+// consume the command.
+func (d *Driver) Enqueue(q *CommandQueue, c Command) {
+	q.Enqueue(c)
+	d.enqueueSignal <- true
+}
+
+// A CommandQueueStatusListener can be notified when a queue updates its state
+type CommandQueueStatusListener struct {
+	closeSignal chan bool
+	signal      chan bool
+}
+
+// Notify triggers the listener who waits for the command queue status update
+// continue executing
+func (l *CommandQueueStatusListener) Notify() {
+	select {
+	case <-l.closeSignal:
+	case l.signal <- true:
+	}
+}
+
+// Wait will block the execution until the command queue updates its status
+func (l *CommandQueueStatusListener) Wait() {
+	<-l.signal
+}
+
+// Close stops the listener from listening
+func (l *CommandQueueStatusListener) Close() {
+	close(l.closeSignal)
 }

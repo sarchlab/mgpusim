@@ -18,9 +18,11 @@ func main() {
 	runner := runner.Runner{}
 	runner.Init()
 
-	benchmark := maxpooling.NewBenchmark(runner.GPUDriver,
+	benchmark := maxpooling.NewBenchmark(
+		runner.GPUDriver,
 		*n, *c, *h, *w)
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 }

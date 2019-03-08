@@ -17,17 +17,12 @@ func (d *Driver) EnqueueLaunchKernel(
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
-	prevUsingGPU := d.usingGPU
-	d.SelectGPU(queue.GPUID)
-
 	dCoData := d.enqueueCopyInstructionsToGPU(queue, co)
 	dKernArgData := d.enqueueCopyKernArgsToGPU(queue, co, kernelArgs)
 	packet, dPacket := d.createAQLPacket(
 		queue, gridSize, wgSize, dCoData, dKernArgData)
 	d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
 	d.enqueueFinalFlush(queue)
-
-	d.SelectGPU(prevUsingGPU)
 }
 
 func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
@@ -47,14 +42,15 @@ func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
 // LaunchKernel is an easy way to run a kernel on the GCN3 simulator. It
 // launches the kernel immediately.
 func (d *Driver) LaunchKernel(
+	ctx *Context,
 	co *insts.HsaCo,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
-	queue := d.CreateCommandQueue()
+	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, kernelArgs)
-	d.ExecuteAllCommands()
+	d.DrainCommandQueue(queue)
 }
 
 func (d *Driver) enqueueCopyKernArgsToGPU(
@@ -64,7 +60,7 @@ func (d *Driver) enqueueCopyKernArgsToGPU(
 ) GPUPtr {
 	d.updateLDSPointers(co, kernelArgs)
 	dKernArgData := d.AllocateMemoryWithAlignment(
-		uint64(binary.Size(kernelArgs)), 4096)
+		queue.Context, uint64(binary.Size(kernelArgs)), 4096)
 	d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
 	return dKernArgData
 }
@@ -73,9 +69,12 @@ func (d *Driver) enqueueCopyInstructionsToGPU(
 	queue *CommandQueue,
 	co *insts.HsaCo,
 ) GPUPtr {
-	dCoData := d.AllocateMemoryWithAlignment(uint64(len(co.Data)), 4096)
+	dCoData := d.AllocateMemoryWithAlignment(
+		queue.Context,
+		uint64(len(co.Data)), 4096)
 	d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
 	return dCoData
+	return GPUPtr(0)
 }
 
 func (d *Driver) createAQLPacket(
@@ -94,7 +93,8 @@ func (d *Driver) createAQLPacket(
 	packet.WorkgroupSizeZ = wgSize[2]
 	packet.KernelObject = uint64(dCoData)
 	packet.KernargAddress = uint64(dKernArgData)
-	dPacket := d.AllocateMemoryWithAlignment(uint64(binary.Size(packet)), 4096)
+	dPacket := d.AllocateMemoryWithAlignment(
+		queue.Context, uint64(binary.Size(packet)), 4096)
 	d.EnqueueMemCopyH2D(queue, dPacket, packet)
 	return packet, dPacket
 }
@@ -111,12 +111,12 @@ func (d *Driver) enqueueLaunchKernelCommand(
 		DPacket:    dPacket,
 		Packet:     packet,
 	}
-	queue.Commands = append(queue.Commands, cmd)
+	d.Enqueue(queue, cmd)
 }
 
 func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
 	cmd := &FlushCommand{
 		ID: xid.New().String(),
 	}
-	queue.Commands = append(queue.Commands, cmd)
+	d.Enqueue(queue, cmd)
 }
