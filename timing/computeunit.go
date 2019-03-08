@@ -613,9 +613,11 @@ func (cu *ComputeUnit) UpdatePCAndSetReady(wf *Wavefront) {
 }
 
 func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
-	for wf.PC >= wf.InstBufferStartPC+64 {
-		wf.InstBuffer = wf.InstBuffer[64:]
-		wf.InstBufferStartPC += 64
+	if len(wf.InstBuffer) != 0 {
+		for wf.PC >= wf.InstBufferStartPC+64 {
+			wf.InstBuffer = wf.InstBuffer[64:]
+			wf.InstBufferStartPC += 64
+		}
 	}
 }
 
