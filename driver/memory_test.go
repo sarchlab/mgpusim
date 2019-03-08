@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
 	})
 
-	ginkgo.XIt("should remap pages", func() {
+	ginkgo.It("should remap pages", func() {
 		page1 := &vm.Page{
 			PID:      1,
 			VAddr:    0x10000000,
@@ -125,8 +125,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			Valid:    true,
 		})
 
-		driver.Remap(0x10000400, 0x2000, 1)
-
+		driver.Remap(context, 0x10000400, 0x2000, 1)
 	})
 
 	ginkgo.It("should allocate memory with alignment", func() {
