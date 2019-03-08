@@ -79,51 +79,56 @@ func (d *Driver) AllocateMemoryWithAlignment(
 
 // Remap keeps the virtual address unchanged and moves the physical address to
 // another GPU
-func (d *Driver) Remap(addr, size uint64, gpuID int) {
-	// ptr := addr
-	// sizeLeft := size
-	// for ptr < addr+size {
-	// 	_, page := d.MMU.Translate(d.currentPID, ptr)
-	// 	d.remapPage(page, ptr, sizeLeft, gpuID)
-	// 	sizeLeft -= page.VAddr + page.PageSize - ptr
-	// 	ptr = page.VAddr + page.PageSize
-	// }
+func (d *Driver) Remap(ctx *Context, addr, size uint64, gpuID int) {
+	ptr := addr
+	sizeLeft := size
+	for ptr < addr+size {
+		_, page := d.MMU.Translate(ctx.pid, ptr)
+		d.remapPage(ctx, page, ptr, sizeLeft, gpuID)
+		sizeLeft -= page.VAddr + page.PageSize - ptr
+		ptr = page.VAddr + page.PageSize
+	}
 }
 
-func (d *Driver) remapPage(page *vm.Page, addr, size uint64, gpuID int) {
-	//ptr := addr
-	//d.MMU.RemovePage(d.currentPID, page.VAddr)
-	//if ptr > page.VAddr {
-	//	page1 := &vm.Page{
-	//		PID:      d.currentPID,
-	//		VAddr:    page.VAddr,
-	//		PAddr:    page.PAddr,
-	//		PageSize: addr - page.VAddr,
-	//		Valid:    true,
-	//	}
-	//	d.MMU.CreatePage(page1)
-	//}
-	//
-	//sizeLeft := page.PageSize - (addr - page.VAddr)
-	//sizeForNewPage := sizeLeft
-	//if sizeForNewPage > size {
-	//	sizeForNewPage = size
-	//}
-	//d.allocatePageWithGivenVAddr(gpuID, addr, sizeForNewPage)
-	////d.mmu.CreatePage(page2)
-	//
-	//ptr += sizeForNewPage
-	//sizeLeft -= sizeForNewPage
-	//if sizeLeft > 0 {
-	//	page3 := &vm.Page{
-	//		PID:      d.currentPID,
-	//		VAddr:    ptr,
-	//		PAddr:    page.PAddr + (ptr - page.VAddr),
-	//		PageSize: sizeLeft,
-	//		Valid:    true,
-	//	}
-	//	d.MMU.CreatePage(page3)
-	//}
+func (d *Driver) remapPage(
+	ctx *Context,
+	page *vm.Page,
+	addr, size uint64,
+	gpuID int,
+) {
+	ptr := addr
+	d.MMU.RemovePage(ctx.pid, page.VAddr)
+	if ptr > page.VAddr {
+		page1 := &vm.Page{
+			PID:      ctx.pid,
+			VAddr:    page.VAddr,
+			PAddr:    page.PAddr,
+			PageSize: addr - page.VAddr,
+			Valid:    true,
+		}
+		d.MMU.CreatePage(page1)
+	}
+
+	sizeLeft := page.PageSize - (addr - page.VAddr)
+	sizeForNewPage := sizeLeft
+	if sizeForNewPage > size {
+		sizeForNewPage = size
+	}
+	d.allocatePageWithGivenVAddr(ctx, gpuID, addr, sizeForNewPage)
+	//d.mmu.CreatePage(page2)
+
+	ptr += sizeForNewPage
+	sizeLeft -= sizeForNewPage
+	if sizeLeft > 0 {
+		page3 := &vm.Page{
+			PID:      ctx.pid,
+			VAddr:    ptr,
+			PAddr:    page.PAddr + (ptr - page.VAddr),
+			PageSize: sizeLeft,
+			Valid:    true,
+		}
+		d.MMU.CreatePage(page3)
+	}
 }
 
 func (d *Driver) allocateLarge(c *Context, byteSize uint64) GPUPtr {
@@ -198,8 +203,11 @@ func (d *Driver) allocatePage(c *Context, size uint64) *vm.Page {
 	return page
 }
 
-func (d *Driver) allocatePageWithGivenVAddr(c *Context, vAddr, size uint64) *vm.Page {
-	gpuID := c.currentGPUID
+func (d *Driver) allocatePageWithGivenVAddr(
+	ctx *Context,
+	gpuID int,
+	vAddr, size uint64,
+) *vm.Page {
 	pageID := d.initialAddresses[gpuID]
 	for pageID < d.initialAddresses[gpuID]+d.storageSizes[gpuID] {
 		if d.isPageAllocated(gpuID, pageID) {
@@ -210,7 +218,7 @@ func (d *Driver) allocatePageWithGivenVAddr(c *Context, vAddr, size uint64) *vm.
 	}
 
 	page := &vm.Page{
-		PID:      c.pid,
+		PID:      ctx.pid,
 		VAddr:    vAddr,
 		PAddr:    pageID,
 		PageSize: size,
