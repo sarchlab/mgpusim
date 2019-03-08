@@ -189,20 +189,12 @@ var _ = Describe("Scheduler", func() {
 		Expect(wfs[3].State).To(Equal(WfRunning))
 		Expect(wfs[4].State).To(Equal(WfReady))
 
-		Expect(wfs[0].PC).To(Equal(uint64(0x140)))
-		Expect(wfs[1].PC).To(Equal(uint64(0x124)))
-		Expect(wfs[2].PC).To(Equal(uint64(0x124)))
-		Expect(wfs[3].PC).To(Equal(uint64(0x124)))
-		Expect(wfs[4].PC).To(Equal(uint64(0x120)))
-
 		Expect(wfs[0].InstToIssue).To(BeNil())
 		Expect(wfs[1].InstToIssue).To(BeNil())
 		Expect(wfs[2].InstToIssue).To(BeNil())
 		Expect(wfs[3].InstToIssue).To(BeNil())
 		Expect(wfs[4].InstToIssue).NotTo(BeNil())
 
-		Expect(wfs[0].InstBufferStartPC).To(Equal(uint64(0x140)))
-		Expect(wfs[0].InstBuffer).To(HaveLen(192))
 	})
 
 	It("should issue internal instruction", func() {
@@ -222,7 +214,7 @@ var _ = Describe("Scheduler", func() {
 
 		Expect(scheduler.internalExecuting).To(BeIdenticalTo(wf))
 		Expect(wf.State).To(Equal(WfRunning))
-		Expect(wf.PC).To(Equal(uint64(14)))
+		Expect(wf.PC).To(Equal(uint64(10)))
 		Expect(wf.InstToIssue).To(BeNil())
 	})
 
@@ -362,6 +354,9 @@ var _ = Describe("Scheduler", func() {
 		wg := new(WorkGroup)
 		for i := 0; i < 3; i++ {
 			wf := NewWavefront(kernels.NewWavefront())
+			wf.inst = NewInst(insts.NewInst())
+			wf.inst.Format = insts.FormatTable[insts.SOPP]
+			wf.inst.Opcode = 10
 			wf.State = WfAtBarrier
 			wf.WG = wg
 			wg.Wfs = append(wg.Wfs, wf)

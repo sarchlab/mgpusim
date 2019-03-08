@@ -3,6 +3,7 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 var _ = Describe("LDS Unit", func() {
@@ -44,6 +45,18 @@ var _ = Describe("LDS Unit", func() {
 		wave2.WG = NewWorkGroup(nil, nil)
 		wave2.WG.LDS = make([]byte, 0)
 		wave3 := new(Wavefront)
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.DS
+		inst.Opcode = 0
+		inst.Addr = insts.NewVRegOperand(0, 0, 1)
+		inst.Data = insts.NewVRegOperand(2, 2, 2)
+		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
+		inst.ByteSize = 4
+		wave3.inst = inst
+		wave3.PC = 0x13C
+		wave3.InstBuffer = make([]byte, 256)
+		wave3.InstBufferStartPC = 0x100
+
 		wave3.State = WfRunning
 
 		bu.toRead = wave1
@@ -53,6 +66,8 @@ var _ = Describe("LDS Unit", func() {
 		bu.Run(10)
 
 		Expect(wave3.State).To(Equal(WfReady))
+		Expect(wave3.PC).To(Equal(uint64(0x140)))
+
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.toRead).To(BeNil())
@@ -60,5 +75,8 @@ var _ = Describe("LDS Unit", func() {
 		Expect(sp.wfPrepared).To(BeIdenticalTo(wave1))
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave2))
 		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
+
+		Expect(wave3.InstBuffer).To(HaveLen(192))
+
 	})
 })

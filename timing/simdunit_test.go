@@ -3,6 +3,7 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/gcn3/insts"
 )
 
 var _ = Describe("SIMD Unit", func() {
@@ -41,6 +42,16 @@ var _ = Describe("SIMD Unit", func() {
 
 	It("should run", func() {
 		wave := new(Wavefront)
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.VOPC
+		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
+		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
+		inst.ByteSize = 4
+		wave.InstBuffer = make([]byte, 256)
+		wave.InstBufferStartPC = 0x100
+		wave.inst = inst
+		wave.PC = 0x13C
+
 		wave.State = WfRunning
 
 		bu.toExec = wave
@@ -49,12 +60,17 @@ var _ = Describe("SIMD Unit", func() {
 		bu.Run(10)
 
 		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.PC).To(Equal(uint64(0x140)))
+
 		Expect(bu.toExec).To(BeNil())
 		Expect(bu.cycleLeft).To(Equal(0))
 
 		Expect(sp.wfPrepared).To(BeIdenticalTo(wave))
 		Expect(alu.wfExecuted).To(BeIdenticalTo(wave))
 		Expect(sp.wfCommitted).To(BeIdenticalTo(wave))
+
+		Expect(wave.InstBuffer).To(HaveLen(192))
+
 	})
 
 	//It("should spend 4 cycles in execution", func() {

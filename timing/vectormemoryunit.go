@@ -114,7 +114,7 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
 
 		//u.toWrite = u.toExec
-		u.toExec.State = WfReady
+		u.cu.UpdatePCAndSetReady(u.toExec)
 		u.toExec = nil
 		return true
 	}
