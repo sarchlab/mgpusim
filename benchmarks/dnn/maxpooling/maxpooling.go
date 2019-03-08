@@ -32,8 +32,9 @@ type KernelArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
-	hsaco  *insts.HsaCo
+	driver  *driver.Driver
+	context *driver.Context
+	hsaco   *insts.HsaCo
 
 	N            int
 	C            int
@@ -61,6 +62,8 @@ func NewBenchmark(
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.context = driver.Init()
+
 	b.N = n
 	b.C = c
 	b.H = h
@@ -90,15 +93,15 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.Bottom = b.driver.AllocateMemory(uint64(b.LengthInput * 4))
-	b.Top = b.driver.AllocateMemory(uint64(b.LengthOutput * 4))
+	b.Bottom = b.driver.AllocateMemory(b.context, uint64(b.LengthInput*4))
+	b.Top = b.driver.AllocateMemory(b.context, uint64(b.LengthOutput*4))
 
 	b.inputData = make([]float32, b.LengthInput)
 	for i := 0; i < b.LengthInput; i++ {
 		b.inputData[i] = float32(i) - 0.5
 	}
 
-	b.driver.MemCopyH2D(b.Bottom, b.inputData)
+	b.driver.MemCopyH2D(b.context, b.Bottom, b.inputData)
 }
 
 func (b *Benchmark) exec() {
@@ -114,6 +117,7 @@ func (b *Benchmark) exec() {
 	}
 
 	b.driver.LaunchKernel(
+		b.context,
 		b.hsaco,
 		[3]uint32{uint32(b.LengthOutput), 1, 1},
 		[3]uint16{uint16(b.C), uint16(b.N), 1},
@@ -123,7 +127,7 @@ func (b *Benchmark) exec() {
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]float32, b.LengthOutput)
-	b.driver.MemCopyD2H(gpuOutput, b.Top)
+	b.driver.MemCopyD2H(b.context, gpuOutput, b.Top)
 
 	cpuOutput := b.CPUMaxPooling()
 
