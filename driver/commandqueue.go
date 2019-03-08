@@ -30,7 +30,9 @@ func (q *CommandQueue) Subscribe() *CommandQueueStatusListener {
 		signal:      make(chan bool, 0),
 	}
 
+	q.listenerMutex.Lock()
 	q.listeners = append(q.listeners, l)
+	q.listenerMutex.Unlock()
 
 	return l
 }
