@@ -57,7 +57,8 @@ func main() {
 
 	benchmark := NewBenchmark(runner.GPUDriver)
 	benchmark.ByteSize = 1048576
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 }

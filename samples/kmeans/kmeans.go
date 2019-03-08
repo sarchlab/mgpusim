@@ -25,7 +25,8 @@ func main() {
 	benchmark.NumClusters = *clusters
 	benchmark.NumFeatures = *features
 	benchmark.MaxIter = *maxIter
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 }
