@@ -19,7 +19,8 @@ type MatrixTransposeKernelArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
+	driver  *driver.Driver
+	context *driver.Context
 
 	kernel *insts.HsaCo
 
@@ -36,6 +37,7 @@ type Benchmark struct {
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
+	b.context = driver.Init()
 	b.loadProgram()
 	b.elemsPerThread1Dim = 4
 	b.blockSize = 16
@@ -69,10 +71,10 @@ func (b *Benchmark) initMem() {
 		b.hInputData[i] = uint32(i)
 	}
 
-	b.dInputData = b.driver.AllocateMemory(uint64(numData * 4))
-	b.dOutputData = b.driver.AllocateMemory(uint64(numData * 4))
+	b.dInputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
+	b.dOutputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
 
-	b.driver.MemCopyH2D(b.dInputData, b.hInputData)
+	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
 }
 
 func (b *Benchmark) exec() {
@@ -85,6 +87,7 @@ func (b *Benchmark) exec() {
 	}
 
 	b.driver.LaunchKernel(
+		b.context,
 		b.kernel,
 		[3]uint32{uint32(b.Width / b.elemsPerThread1Dim), uint32(b.Width / b.elemsPerThread1Dim), 1},
 		[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
@@ -93,7 +96,7 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) Verify() {
-	b.driver.MemCopyD2H(b.hOutputData, b.dOutputData)
+	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
 
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {
