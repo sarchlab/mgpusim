@@ -304,7 +304,7 @@ func main() {
 
 	benchmark := fir.NewBenchmark(r.GPUDriver)
 	benchmark.Length = *numData
-	r.Benchmark = benchmark
+	r.AddBenchmark(benchmark)
 
 	ctrlComponent := NewShootdownControlComponent("ctrl", r.Engine)
 

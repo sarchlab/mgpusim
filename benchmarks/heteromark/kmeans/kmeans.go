@@ -38,7 +38,8 @@ type KMeansComputeArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
+	driver  *driver.Driver
+	context *driver.Context
 
 	computeKernel *insts.HsaCo
 	swapKernel    *insts.HsaCo
@@ -62,6 +63,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.context = driver.Init()
 
 	b.loadKernels()
 
@@ -86,10 +88,15 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.dFeatures = b.driver.AllocateMemory(uint64(b.NumPoints * b.NumFeatures * 4))
-	b.dFeaturesSwap = b.driver.AllocateMemory(uint64(b.NumPoints * b.NumFeatures * 4))
-	b.dMembership = b.driver.AllocateMemory(uint64(b.NumPoints * 4))
-	b.dClusters = b.driver.AllocateMemory(uint64(b.NumClusters * b.NumFeatures * 4))
+	b.dFeatures = b.driver.AllocateMemory(
+		b.context,
+		uint64(b.NumPoints*b.NumFeatures*4))
+	b.dFeaturesSwap = b.driver.AllocateMemory(
+		b.context, uint64(b.NumPoints*b.NumFeatures*4))
+	b.dMembership = b.driver.AllocateMemory(
+		b.context, uint64(b.NumPoints*4))
+	b.dClusters = b.driver.AllocateMemory(
+		b.context, uint64(b.NumClusters*b.NumFeatures*4))
 
 	rand.Seed(0)
 	b.hFeatures = make([]float32, b.NumPoints*b.NumFeatures)
@@ -98,7 +105,7 @@ func (b *Benchmark) initMem() {
 		// b.hFeatures[i] = float32(i)
 	}
 
-	b.driver.MemCopyH2D(b.dFeatures, b.hFeatures)
+	b.driver.MemCopyH2D(b.context, b.dFeatures, b.hFeatures)
 }
 
 func (b *Benchmark) exec() {
@@ -117,6 +124,7 @@ func (b *Benchmark) transposeFeatures() {
 	}
 
 	b.driver.LaunchKernel(
+		b.context,
 		b.swapKernel,
 		[3]uint32{uint32(b.NumPoints), 1, 1},
 		[3]uint16{64, 1, 1},
@@ -128,7 +136,7 @@ func (b *Benchmark) transposeFeatures() {
 
 func (b *Benchmark) verifySwap() {
 	gpuSwap := make([]float32, b.NumPoints*b.NumFeatures)
-	b.driver.MemCopyD2H(gpuSwap, b.dFeaturesSwap)
+	b.driver.MemCopyD2H(b.context, gpuSwap, b.dFeaturesSwap)
 
 	for i := 0; i < b.NumPoints; i++ {
 		for j := 0; j < b.NumFeatures; j++ {
@@ -175,7 +183,7 @@ func (b *Benchmark) initializeMembership() {
 }
 
 func (b *Benchmark) updateMembership() float64 {
-	b.driver.MemCopyH2D(b.dClusters, b.hClusters)
+	b.driver.MemCopyH2D(b.context, b.dClusters, b.hClusters)
 
 	kernArg := KMeansComputeArgs{
 		b.dFeaturesSwap,
@@ -189,6 +197,7 @@ func (b *Benchmark) updateMembership() float64 {
 	}
 
 	b.driver.LaunchKernel(
+		b.context,
 		b.computeKernel,
 		[3]uint32{uint32(b.NumPoints), 1, 1},
 		[3]uint16{64, 1, 1},
@@ -196,7 +205,7 @@ func (b *Benchmark) updateMembership() float64 {
 	)
 
 	newMembership := make([]int32, b.NumPoints)
-	b.driver.MemCopyD2H(newMembership, b.dMembership)
+	b.driver.MemCopyD2H(b.context, newMembership, b.dMembership)
 
 	delta := 0.0
 	for i := 0; i < b.NumPoints; i++ {
