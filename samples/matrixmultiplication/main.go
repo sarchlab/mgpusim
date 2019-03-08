@@ -27,7 +27,8 @@ func main() {
 	benchmark.X = uint32(*lengthFlag)
 	benchmark.Y = uint32(*lengthFlag)
 	benchmark.Z = uint32(*lengthFlag)
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 

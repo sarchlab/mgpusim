@@ -17,7 +17,8 @@ func main() {
 
 	benchmark := relu.NewBenchmark(runner.GPUDriver)
 	benchmark.Length = *numData
-	runner.Benchmark = benchmark
+
+	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 }
