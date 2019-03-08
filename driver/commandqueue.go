@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"fmt"
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
@@ -58,7 +57,6 @@ func (q *CommandQueue) NotifyAllSubscribers() {
 	q.listenerMutex.Lock()
 	defer q.listenerMutex.Unlock()
 
-	// fmt.Printf("notifing %d subscribers\n", len(q.Listeners))
 	for _, subscriber := range q.listeners {
 		subscriber.Notify()
 	}
@@ -105,7 +103,6 @@ func (q *CommandQueue) NumCommand() int {
 // Enqueue adds a command to a command queue and triggers GPUs to start to
 // consume the command.
 func (d *Driver) Enqueue(q *CommandQueue, c Command) {
-	fmt.Printf("enqueueing\n")
 	q.Enqueue(c)
 	d.enqueueSignal <- true
 }
@@ -119,7 +116,6 @@ type CommandQueueStatusListener struct {
 // Notify triggers the listener who waits for the command queue status update
 // continue executing
 func (l *CommandQueueStatusListener) Notify() {
-	fmt.Printf("listener notified\n")
 	select {
 	case <-l.closeSignal:
 	case l.signal <- true:
