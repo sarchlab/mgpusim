@@ -318,6 +318,7 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 		cu.WfPools[info.SIMDID].AddWf(wf)
 		cu.WfDispatcher.DispatchWf(now, wf)
 		delete(cu.WfToDispatch, wf.Wavefront)
+
 		wf.State = WfReady
 
 		cu.InvokeHook(wf, cu, HookPosWfStart, &CUHookInfo{
@@ -600,6 +601,23 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.D
 		}
 		cu.InvokeHook(wf, cu, akita.AnyHookPos,
 			&InstHookInfo{now, info.Inst, "Completed"})
+	}
+}
+
+func (cu *ComputeUnit) UpdatePCAndSetReady(wf *Wavefront) {
+
+	wf.State = WfReady
+	wf.PC += uint64(wf.inst.ByteSize)
+	cu.removeStaleInstBuffer(wf)
+
+}
+
+func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
+	if len(wf.InstBuffer) != 0 {
+		for wf.PC >= wf.InstBufferStartPC+64 {
+			wf.InstBuffer = wf.InstBuffer[64:]
+			wf.InstBufferStartPC += 64
+		}
 	}
 }
 
