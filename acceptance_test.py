@@ -75,6 +75,9 @@ def main():
 
     error |= compile('insts/gcn3disassembler')
 
+    error |= compile('acceptancetests/cupipelinedtainning')
+    error |= run_test('CU Pipeline Draining', './cupipelinedraining'
+
     error |= compile('samples/fir/')
     # error |= run_test("FIR Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/fir')
     error |= run_test("FIR Emu", './fir -verify -length=8192', 'samples/fir')
@@ -139,6 +142,10 @@ def main():
     error |= run_test("Matrix Multiplication Sim", './matrixmultiplication -length=256 -timing -verify', 'samples/matrixmultiplication')
     error |= run_test("Matrix Multiplication Parallel Emu", './matrixmultiplication -length=256 -parallel -verify', 'samples/matrixmultiplication')
     error |= run_test("Matrix Multiplication Parallel Sim", './matrixmultiplication -length=256 -timing -parallel -verify', 'samples/matrixmultiplication')
+
+    error |= compile('samples/concurrentworkload/')
+    error |= run_test("Concurrent Workload Sim", './concurrentworkload -timing -verify', 'samples/concurrentworkload')
+    error |= run_test("Concurrent Workload Sim", './concurrentworkload -timing -parallel -verify', 'samples/concurrentworkload')
 
     if error:
         sys.exit(1)
