@@ -19,8 +19,9 @@ type KernelArgs struct {
 }
 
 type Benchmark struct {
-	driver *driver.Driver
-	hsaco  *insts.HsaCo
+	driver  *driver.Driver
+	context *driver.Context
+	hsaco   *insts.HsaCo
 
 	Length      int
 	inputData   []float32
@@ -32,6 +33,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.context = driver.Init()
 
 	hsacoBytes, err := Asset("relu.hsaco")
 	if err != nil {
@@ -48,15 +50,15 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.gInputData = b.driver.AllocateMemory(uint64(b.Length * 4))
-	b.gOutputData = b.driver.AllocateMemory(uint64(b.Length * 4))
+	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	b.gOutputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 
 	b.inputData = make([]float32, b.Length)
 	for i := 0; i < b.Length; i++ {
 		b.inputData[i] = float32(i) - 0.5
 	}
 
-	b.driver.MemCopyH2D(b.gInputData, b.inputData)
+	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
 }
 
 func (b *Benchmark) exec() {
@@ -67,6 +69,7 @@ func (b *Benchmark) exec() {
 	}
 
 	b.driver.LaunchKernel(
+		b.context,
 		b.hsaco,
 		[3]uint32{uint32(b.Length), 1, 1},
 		[3]uint16{256, 1, 1},
@@ -76,7 +79,7 @@ func (b *Benchmark) exec() {
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]float32, b.Length)
-	b.driver.MemCopyD2H(gpuOutput, b.gOutputData)
+	b.driver.MemCopyD2H(b.context, gpuOutput, b.gOutputData)
 
 	for i := 0; i < b.Length; i++ {
 		if b.inputData[i] > 0 && gpuOutput[i] != b.inputData[i] {
