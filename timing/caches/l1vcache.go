@@ -4,9 +4,8 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/gcn3/timing/pipelines"
-
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/timing/pipelines"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm"
@@ -30,6 +29,53 @@ func newInvalidationCompleteEvent(
 	e.req = req
 	e.fromPort = fromPort
 	return e
+}
+
+type FlushL1CacheReq struct {
+	*akita.ReqBase
+	flushContents bool
+}
+
+// NewWriteReq creates a new WriteReq
+func NewFlushL1CacheReq(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+	flushContents bool,
+) *FlushL1CacheReq {
+	reqBase := akita.NewReqBase()
+	req := new(FlushL1CacheReq)
+	req.ReqBase = reqBase
+
+	req.SetSendTime(time)
+	req.SetSrc(src)
+	req.SetDst(dst)
+
+	req.flushContents = flushContents
+
+	return req
+}
+
+type L1FlushCompleteRsp struct {
+	*akita.ReqBase
+	flushComplete bool
+}
+
+func NewFlushCompleteRsp(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+	flushComplete bool,
+) *L1FlushCompleteRsp {
+	reqBase := akita.NewReqBase()
+	req := new(L1FlushCompleteRsp)
+	req.ReqBase = reqBase
+
+	req.SetSendTime(time)
+	req.SetSrc(src)
+	req.SetDst(dst)
+
+	req.flushComplete = flushComplete
+
+	return req
 }
 
 type cacheTransaction struct {
@@ -104,6 +150,12 @@ type L1VCache struct {
 
 	storageTransaction *cacheTransaction
 	storageCycleLeft   int
+
+	currentFlushReq *FlushL1CacheReq
+	flushLatency    uint64
+	flushCycleLeft  uint64
+
+	tosendToCP akita.Req
 }
 
 // Handle processes the events scheduled on L1VCache
@@ -125,6 +177,7 @@ func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 
 	c.sendToCU(now)
 	c.sendToL2(now)
+	c.sendToCP(now)
 	c.doReadWrite(now)
 	c.parseFromPostPipelineBuf(now)
 	c.countDownPipeline(now)
@@ -153,9 +206,13 @@ func (c *L1VCache) parseFromCP(now akita.VTimeInSec) {
 	switch req := req.(type) {
 	case *mem.InvalidReq:
 		c.doInvalidation(now, req)
+	case *FlushL1CacheReq:
+		c.addFlushToPipeline(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s from CP", reflect.TypeOf(req))
 	}
+
+	c.NeedTick = true
 }
 
 func (c *L1VCache) doInvalidation(now akita.VTimeInSec, req *mem.InvalidReq) {
@@ -163,6 +220,64 @@ func (c *L1VCache) doInvalidation(now akita.VTimeInSec, req *mem.InvalidReq) {
 	invalidComplete := newInvalidationCompleteEvent(
 		completeTime, c, req, c.ToCP)
 	c.Engine.Schedule(invalidComplete)
+}
+
+func (c *L1VCache) addFlushToPipeline(now akita.VTimeInSec, req *FlushL1CacheReq) {
+	c.currentFlushReq = req
+	c.flushCycleLeft = c.flushLatency
+}
+
+func (c *L1VCache) processFlushReq(now akita.VTimeInSec) {
+	if c.currentFlushReq == nil {
+		return
+	}
+
+	if c.flushCycleLeft <= 0 {
+		c.doFlush(now, c.currentFlushReq)
+	}
+
+	c.flushCycleLeft--
+	c.NeedTick = true
+
+}
+
+func (c *L1VCache) doFlush(now akita.VTimeInSec, req *FlushL1CacheReq) {
+
+	c.inPipeline = nil
+	c.postPipelineBuf = nil
+	c.reqBuf = nil
+	c.reqIDToTransactionMap = nil
+	c.preCoalesceWriteBuf = nil
+	c.postCoalesceWriteBuf = nil
+	c.preAddrTranslationBuf = nil
+	c.postAddrTranslationBuf = nil
+	c.toCUBuffer = nil
+	c.toL2Buffer = nil
+	c.pendingDownGoingRead = nil
+	c.pendingDownGoingWrite = nil
+	c.mshr = nil
+	c.storageTransaction = nil
+
+	rsp := NewFlushCompleteRsp(now, c.ToCP, req.Src(), true)
+	c.tosendToCP = rsp
+
+	c.NeedTick = true
+
+}
+
+func (c *L1VCache) sendToCP(now akita.VTimeInSec) {
+	if c.tosendToCP == nil {
+		return
+	}
+
+	rsp := c.tosendToCP
+	err := c.ToCP.Send(rsp)
+
+	if err == nil {
+		c.tosendToCP = nil
+		c.NeedTick = true
+	}
+
 }
 
 func (c *L1VCache) handleInvalidationCompleteEvent(
