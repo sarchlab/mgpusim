@@ -9,7 +9,6 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
 	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/platform"
 	"gitlab.com/akita/gcn3/samples/runner"
 	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/mem/vm"
@@ -85,7 +84,7 @@ func (ctrlComp *ShootdownControlComponent) handleShootdownReqEvent(evt *Shootdow
 	req := evt.req
 
 	ctrlComp.curShootdownRequest = req
-	now := req.Time()
+	now := evt.Time()
 
 	for i := 0; i < len(ctrlComp.gpuDriver.GPUs[0].CUs); i++ {
 		drainReq := gcn3.NewCUPipelineDrainReq(akita.VTimeInSec(now), ctrlComp.toCU, ctrlComp.cus[i])
@@ -300,11 +299,11 @@ func (ctrlComp *ShootdownControlComponent) parseFromVMUnit(now akita.VTimeInSec)
 func main() {
 	flag.Parse()
 	r := runner.Runner{}
-	r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(1)
+	r.Init()
 
 	benchmark := fir.NewBenchmark(r.GPUDriver)
 	benchmark.Length = *numData
-	r.Benchmark = benchmark
+	r.AddBenchmark(benchmark)
 
 	ctrlComponent := NewShootdownControlComponent("ctrl", r.Engine)
 
