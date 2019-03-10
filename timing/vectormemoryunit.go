@@ -248,3 +248,7 @@ func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
 
 	return madeProgress
 }
+
+func (u *VectorMemoryUnit) Flush() {
+
+}

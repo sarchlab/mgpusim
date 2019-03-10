@@ -108,3 +108,9 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 	u.isIdle = false
 	return true
 }
+
+func (u *BranchUnit) Flush() {
+	u.toRead = nil
+	u.toWrite = nil
+	u.toExec = nil
+}

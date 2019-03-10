@@ -106,3 +106,7 @@ func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) bool {
 	u.toWrite = nil
 	return true
 }
+
+func (u *LDSUnit) Flush() {
+
+}

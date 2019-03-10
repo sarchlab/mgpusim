@@ -176,3 +176,7 @@ func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) bool {
 	}
 	return false
 }
+
+func (u *ScalarUnit) Flush() {
+
+}
