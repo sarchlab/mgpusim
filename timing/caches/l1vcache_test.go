@@ -416,7 +416,7 @@ var _ = Describe("L1V Cache", func() {
 			Expect(l1v.postPipelineBuf).To(BeNil())
 
 			Expect(l1v.NeedTick).To(BeTrue())
-			Expect(l1v.tosendToCP).NotTo(BeNil())
+			Expect(l1v.toSendToCP).NotTo(BeNil())
 
 		})
 
