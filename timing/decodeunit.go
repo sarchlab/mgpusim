@@ -79,3 +79,7 @@ func (du *DecodeUnit) Run(now akita.VTimeInSec) bool {
 
 	return false
 }
+
+func (du *DecodeUnit) Flush() {
+
+}

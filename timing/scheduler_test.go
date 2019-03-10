@@ -52,6 +52,10 @@ func (c *mockCUComponent) IsIdle() bool {
 	return c.isIdle
 }
 
+func (c *mockCUComponent) Flush() {
+
+}
+
 var _ = Describe("Scheduler", func() {
 	var (
 		mockCtrl         *gomock.Controller
