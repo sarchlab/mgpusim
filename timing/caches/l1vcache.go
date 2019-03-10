@@ -182,6 +182,7 @@ func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 	c.parseFromPostPipelineBuf(now)
 	c.countDownPipeline(now)
 	c.processPostCoalescingWrites(now)
+	c.processFlushReq(now)
 	c.parseFromPostAddrTranslationBuf(now)
 	c.NeedTick = c.addrTranslator.tick(now) || c.NeedTick
 	c.parseFromCP(now)
