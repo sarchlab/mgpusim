@@ -74,6 +74,9 @@ type ComputeUnit struct {
 	cpRequestHandlingComplete  bool
 
 	isDraining bool
+	isFlushing bool
+
+	flushLatency uint64
 
 	toSendToCP *gcn3.CUPipelineDrainRsp
 }
@@ -169,7 +172,8 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
 		cu.handlePipelineDrainReq(now, req)
 	case *gcn3.CUPipelineRestart:
 		cu.handlePipelineResume(now, req)
-
+	case *gcn3.CUPipelineFlushReq:
+		cu.handlePipelineFlushReq(now, req)
 	}
 }
 
@@ -183,6 +187,16 @@ func (cu *ComputeUnit) handlePipelineDrainReq(
 	cu.isDraining = true
 
 	cu.Scheduler.StartDraining()
+
+	return nil
+}
+
+func (cu *ComputeUnit) handlePipelineFlushReq(
+	now akita.VTimeInSec,
+	req *gcn3.CUPipelineFlushReq,
+) error {
+
+	cu.isFlushing = true
 
 	return nil
 }
