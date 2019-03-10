@@ -17,7 +17,7 @@ type CUPipelineRestart struct {
 	restartPipeline bool
 }
 
-type CUPipelineFlush struct {
+type CUPipelineFlushReq struct {
 	*akita.ReqBase
 	flushPipeline bool
 }
