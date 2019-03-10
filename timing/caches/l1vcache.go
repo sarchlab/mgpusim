@@ -155,7 +155,7 @@ type L1VCache struct {
 	flushLatency    uint64
 	flushCycleLeft  uint64
 
-	tosendToCP akita.Req
+	toSendToCP akita.Req
 }
 
 // Handle processes the events scheduled on L1VCache
@@ -260,22 +260,22 @@ func (c *L1VCache) doFlush(now akita.VTimeInSec, req *FlushL1CacheReq) {
 	c.storageTransaction = nil
 
 	rsp := NewFlushCompleteRsp(now, c.ToCP, req.Src(), true)
-	c.tosendToCP = rsp
+	c.toSendToCP = rsp
 
 	c.NeedTick = true
 
 }
 
 func (c *L1VCache) sendToCP(now akita.VTimeInSec) {
-	if c.tosendToCP == nil {
+	if c.toSendToCP == nil {
 		return
 	}
 
-	rsp := c.tosendToCP
+	rsp := c.toSendToCP
 	err := c.ToCP.Send(rsp)
 
 	if err == nil {
-		c.tosendToCP = nil
+		c.toSendToCP = nil
 		c.NeedTick = true
 	}
 
