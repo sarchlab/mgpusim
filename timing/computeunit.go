@@ -76,9 +76,12 @@ type ComputeUnit struct {
 	isDraining bool
 	isFlushing bool
 
-	flushLatency uint64
+	flushLatency   uint64
+	flushCycleLeft uint64
 
 	toSendToCP *gcn3.CUPipelineDrainRsp
+
+	currentFlushReq *gcn3.CUPipelineFlushReq
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -112,6 +115,9 @@ func (cu *ComputeUnit) handleTickEvent(evt akita.TickEvent) {
 	cu.processInput(now)
 	if cu.isDraining {
 		cu.drainPipeline(now)
+	}
+	if cu.isFlushing {
+		cu.flushPipeline(now)
 	}
 	cu.sendToCP(now)
 
@@ -197,6 +203,8 @@ func (cu *ComputeUnit) handlePipelineFlushReq(
 ) error {
 
 	cu.isFlushing = true
+	cu.currentFlushReq = req
+	cu.flushCycleLeft = cu.flushLatency
 
 	return nil
 }
@@ -254,6 +262,19 @@ func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
 		cu.isDraining = false
 	}
 
+}
+
+func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
+
+	if cu.currentFlushReq == nil {
+		return
+	}
+
+	if cu.flushCycleLeft <= 0 {
+
+	}
+
+	cu.flushCycleLeft--
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
@@ -654,6 +675,8 @@ func NewComputeUnit(
 
 	cu.ToCP = akita.NewLimitNumReqPort(cu, 1)
 	cu.CP = akita.NewLimitNumReqPort(cu, 1)
+
+	cu.flushLatency = 1000
 
 	return cu
 }
