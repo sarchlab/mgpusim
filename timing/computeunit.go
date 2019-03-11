@@ -276,6 +276,7 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 		cu.BranchUnit.Flush()
 		cu.ScalarUnit.Flush()
 		cu.ScalarDecoder.Flush()
+		cu.Scheduler.Flush()
 
 		for _, simdUnit := range cu.SIMDUnit {
 			simdUnit.Flush()
