@@ -78,12 +78,12 @@ func NewCUPipelineRestartReq(
 	return req
 }
 
-func NewCUPipelineFlush(
+func NewCUPipelineFlushReq(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
-) *CUPipelineFlush {
+) *CUPipelineFlushReq {
 	reqBase := akita.NewReqBase()
-	req := new(CUPipelineFlush)
+	req := new(CUPipelineFlushReq)
 	req.ReqBase = reqBase
 
 	req.SetSendTime(time)
