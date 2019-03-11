@@ -203,4 +203,23 @@ var _ = Describe("Scalar Unit", func() {
 
 		Expect(bu.readBuf).To(HaveLen(1))
 	})
+	It("should flush the scalar unit", func() {
+		wave := NewWavefront(nil)
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.SMEM
+		inst.Opcode = 1
+		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		wave.inst = inst
+
+		bu.toExec = wave
+		bu.toWrite = wave
+		bu.toRead = wave
+
+		bu.Flush()
+
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.toWrite).To(BeNil())
+		Expect(bu.toExec).To(BeNil())
+
+	})
 })

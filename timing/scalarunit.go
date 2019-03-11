@@ -178,5 +178,9 @@ func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) bool {
 }
 
 func (u *ScalarUnit) Flush() {
+	u.toRead = nil
+	u.toExec = nil
+	u.toWrite = nil
 
+	u.readBuf = nil
 }
