@@ -91,5 +91,5 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 }
 
 func (u *SIMDUnit) Flush() {
-
+	u.toExec = nil
 }
