@@ -20,6 +20,27 @@ var _ = Describe("ALU", func() {
 		state = new(mockInstState)
 		state.scratchpad = make([]byte, 4096)
 	})
+	
+	It("should run DS_READ2_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.DS
+		state.inst.Opcode = 55
+		state.inst.Offset0 = 0
+		state.inst.Offset1 = 4
+
+		sp := state.scratchpad.AsDS()
+		sp.EXEC = 0x1
+		sp.ADDR[0] = 100
+
+		lds := alu.LDS()
+		copy(lds[100:], insts.Uint32ToBytes(1))
+		copy(lds[116:], insts.Uint32ToBytes(2))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint32(1)))
+		Expect(sp.DST[1]).To(Equal(uint32(2)))
+	})
 
 	It("should run DS_WRITE2_B64", func() {
 		state.inst = insts.NewInst()
