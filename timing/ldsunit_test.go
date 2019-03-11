@@ -79,4 +79,36 @@ var _ = Describe("LDS Unit", func() {
 		Expect(wave3.InstBuffer).To(HaveLen(192))
 
 	})
+	It("should flush the LDS", func() {
+
+		wave1 := new(Wavefront)
+		wave2 := new(Wavefront)
+		wave2.WG = NewWorkGroup(nil, nil)
+		wave2.WG.LDS = make([]byte, 0)
+		wave3 := new(Wavefront)
+		inst := NewInst(insts.NewInst())
+		inst.FormatType = insts.DS
+		inst.Opcode = 0
+		inst.Addr = insts.NewVRegOperand(0, 0, 1)
+		inst.Data = insts.NewVRegOperand(2, 2, 2)
+		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
+		inst.ByteSize = 4
+		wave3.inst = inst
+		wave3.PC = 0x13C
+		wave3.InstBuffer = make([]byte, 256)
+		wave3.InstBufferStartPC = 0x100
+
+		wave3.State = WfRunning
+
+		bu.toRead = wave1
+		bu.toExec = wave2
+		bu.toWrite = wave3
+
+		bu.Flush()
+
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.toWrite).To(BeNil())
+		Expect(bu.toExec).To(BeNil())
+
+	})
 })
