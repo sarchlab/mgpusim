@@ -76,5 +76,14 @@ var _ = Describe("DecodeUnit", func() {
 		Expect(len(execUnits[2].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[3].acceptedWave)).To(Equal(0))
 	})
+	It("should flush the decode unit", func() {
+		wave := new(Wavefront)
+		wave.SIMDID = 1
+		du.toDecode = wave
+
+		du.Flush()
+
+		Expect(du.toDecode).To(BeNil())
+	})
 
 })
