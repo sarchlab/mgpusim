@@ -12,6 +12,7 @@ type Scheduler interface {
 	Run(now akita.VTimeInSec) bool
 	StartDraining()
 	StopDraining()
+	Flush()
 }
 
 // A Scheduler is the controlling unit of a compute unit. It decides which
@@ -348,4 +349,9 @@ func (s *SchedulerImpl) StartDraining() {
 
 func (s *SchedulerImpl) StopDraining() {
 	s.isDraining = false
+}
+
+func (s *SchedulerImpl) Flush() {
+	s.barrierBuffer = nil
+	s.internalExecuting = nil
 }

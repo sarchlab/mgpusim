@@ -79,7 +79,7 @@ type ComputeUnit struct {
 	flushLatency   uint64
 	flushCycleLeft uint64
 
-	toSendToCP *gcn3.CUPipelineDrainRsp
+	toSendToCP akita.Req
 
 	currentFlushReq *gcn3.CUPipelineFlushReq
 }
@@ -153,6 +153,7 @@ func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
+
 	cu.processInputFromACE(now)
 	cu.processInputFromInstMem(now)
 	cu.processInputFromScalarMem(now)
@@ -170,7 +171,6 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
 
 	cu.NeedTick = true
 
-	//TODO: Should there be a fixed draining latency?
 	cu.inCPRequestProcessingStage = req
 
 	switch req := req.(type) {
@@ -272,9 +272,32 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 
 	if cu.flushCycleLeft <= 0 {
 
+		cu.flushCUBuffers()
+		cu.BranchUnit.Flush()
+		cu.ScalarUnit.Flush()
+		cu.ScalarDecoder.Flush()
+
+		for _, simdUnit := range cu.SIMDUnit {
+			simdUnit.Flush()
+		}
+
+		cu.VectorDecoder.Flush()
+		cu.LDSUnit.Flush()
+		cu.LDSDecoder.Flush()
+		cu.VectorMemDecoder.Flush()
+		cu.VectorMemUnit.Flush()
+
+		cu.currentFlushReq = nil
+
+		respondToCP := gcn3.NewCUPipelineFlushRsp(now, cu.ToCP, cu.CP)
+		cu.toSendToCP = respondToCP
+
+		cu.isFlushing = false
+
 	}
 
 	cu.flushCycleLeft--
+	cu.NeedTick = true
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
@@ -654,6 +677,13 @@ func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
 			wf.InstBufferStartPC += 64
 		}
 	}
+}
+
+func (cu *ComputeUnit) flushCUBuffers() {
+	cu.InFlightInstFetch = nil
+	cu.InFlightScalarMemAccess = nil
+	cu.InFlightVectorMemAccess = nil
+
 }
 
 // NewComputeUnit returns a newly constructed compute unit

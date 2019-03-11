@@ -385,4 +385,27 @@ var _ = Describe("Scheduler", func() {
 		}
 
 	})
+
+	It("should flush", func() {
+		wg := new(WorkGroup)
+		for i := 0; i < 4; i++ {
+			wf := NewWavefront(kernels.NewWavefront())
+			wf.State = WfRunning
+			wf.inst = NewInst(insts.NewInst())
+			wf.inst.Format = insts.FormatTable[insts.SOPP]
+			wf.inst.Opcode = 10
+			wf.WG = wg
+			wg.Wfs = append(wg.Wfs, wf)
+		}
+		wf := wg.Wfs[0]
+
+		scheduler.internalExecuting = wf
+		scheduler.barrierBuffer = append(scheduler.barrierBuffer, wf)
+
+		scheduler.Flush()
+
+		Expect(scheduler.internalExecuting).To(BeNil())
+		Expect(scheduler.barrierBuffer).To(BeNil())
+
+	})
 })
