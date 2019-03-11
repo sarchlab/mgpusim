@@ -1,9 +1,6 @@
 package timing
 
 import (
-	"log"
-	"reflect"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -45,6 +42,9 @@ func (m *mockScheduler) StartDraining() {
 }
 
 func (m *mockScheduler) StopDraining() {
+}
+
+func (m *mockScheduler) Flush() {
 }
 
 type mockDecoder struct {
@@ -394,96 +394,24 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.isDraining).To(BeTrue())
 
 		})
+		It("should handle a pipeline flush request from CU", func() {
+			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
+			req.SetEventTime(10)
+
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
+
+			cu.processInputFromCP(11)
+
+			Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
+			Expect(cu.isFlushing).To(BeTrue())
+			Expect(cu.currentFlushReq).To(BeIdenticalTo(req))
+		})
+		It("should flush", func() {
+
+		})
 	})
 
 })
-
-type ControlComponent struct {
-	*akita.TickingComponent
-	cu   akita.Port
-	toCU akita.Port
-}
-
-type cuPipelineDrainReqEvent struct {
-	*akita.EventBase
-	req *gcn3.CUPipelineDrainReq
-}
-
-func newCUPipelineDrainReqEvent(
-	time akita.VTimeInSec,
-	handler akita.Handler,
-	req *gcn3.CUPipelineDrainReq,
-) *cuPipelineDrainReqEvent {
-	return &cuPipelineDrainReqEvent{akita.NewEventBase(time, handler), req}
-}
-
-func NewControlComponent(
-	name string,
-	engine akita.Engine,
-) *ControlComponent {
-	ctrlComponent := new(ControlComponent)
-	ctrlComponent.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, ctrlComponent)
-	ctrlComponent.toCU = akita.NewLimitNumReqPort(ctrlComponent, 1)
-	ctrlComponent.cu = akita.NewLimitNumReqPort(ctrlComponent, 1)
-	return ctrlComponent
-
-}
-
-func (ctrl *ControlComponent) Handle(e akita.Event) error {
-	switch evt := e.(type) {
-	case akita.TickEvent:
-		ctrl.handleTickEvent(evt)
-	case cuPipelineDrainReqEvent:
-		ctrl.handleCUPipelineDrain(evt)
-	default:
-		log.Panicf("cannot handle handle event of type %s", reflect.TypeOf(e))
-	}
-	return nil
-}
-
-func (ctrl *ControlComponent) handleTickEvent(tick akita.TickEvent) {
-	now := tick.Time()
-	ctrl.NeedTick = false
-
-	ctrl.parseFromCU(now)
-
-	if ctrl.NeedTick {
-		ctrl.TickLater(now)
-	}
-
-}
-
-func (ctrl *ControlComponent) parseFromCU(now akita.VTimeInSec) {
-	cuReq := ctrl.toCU.Retrieve(now)
-
-	if cuReq == nil {
-		return
-	}
-
-	switch req := cuReq.(type) {
-	case gcn3.CUPipelineDrainRsp:
-		ctrl.checkCU(now, req)
-		return
-	default:
-		log.Panicf("Received an unsupported request type %s from CU \n", reflect.TypeOf(cuReq))
-	}
-
-}
-
-func (ctrl *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
-	//How do we access the internal states without magic?
-}
-
-func (ctrl *ControlComponent) handleCUPipelineDrain(
-	evt cuPipelineDrainReqEvent,
-) {
-	req := evt.req
-	sendErr := ctrl.toCU.Send(req)
-	if sendErr != nil {
-		log.Panicf("Unable to send drain request to CU")
-	}
-
-}
 
 func min(a, b uint32) uint32 {
 	if a < b {
