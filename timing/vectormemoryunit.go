@@ -250,5 +250,9 @@ func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
 }
 
 func (u *VectorMemoryUnit) Flush() {
+	u.SendBuf = nil
+	u.toRead = nil
+	u.toExec = nil
+	u.toWrite = nil
 
 }

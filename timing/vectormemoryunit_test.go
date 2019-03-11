@@ -154,5 +154,35 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(len(bu.SendBuf)).To(Equal(1))
 	})
+	It("should flush the vector memory unit", func() {
+		wave := NewWavefront(nil)
+		inst := NewInst(insts.NewInst())
+		inst.Format = insts.FormatTable[insts.FLAT]
+		inst.Opcode = 28
+		inst.Dst = insts.NewVRegOperand(0, 0, 1)
+		wave.inst = inst
+
+		sp := wave.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			sp.ADDR[i] = uint64(4096 + i*4)
+			sp.DATA[i*4] = uint32(i)
+		}
+		sp.EXEC = 0xffffffffffffffff
+
+		bu.toExec = wave
+		bu.toRead = wave
+		bu.toWrite = wave
+
+		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem, 0, 4)
+		bu.SendBuf = append(bu.SendBuf, loadReq)
+
+		bu.Flush()
+
+		Expect(bu.SendBuf).To(BeNil())
+		Expect(bu.toWrite).To(BeNil())
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.toExec).To(BeNil())
+
+	})
 
 })
