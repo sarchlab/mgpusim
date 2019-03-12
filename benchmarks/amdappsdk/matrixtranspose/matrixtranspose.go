@@ -1,4 +1,4 @@
-package matrixtranpose
+package matrixtranspose
 
 import (
 	"log"
