@@ -2,17 +2,18 @@ package timing
 
 import (
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 // A WfCompletionEvent marks the completion of a wavefront
 type WfCompletionEvent struct {
 	*akita.EventBase
-	Wf *Wavefront
+	Wf *wavefront.Wavefront
 }
 
 // NewWfCompletionEvent returns a newly constructed WfCompleteEvent
 func NewWfCompletionEvent(time akita.VTimeInSec, handler akita.Handler,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) *WfCompletionEvent {
 	evt := new(WfCompletionEvent)
 	evt.EventBase = akita.NewEventBase(time, handler)

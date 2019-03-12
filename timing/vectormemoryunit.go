@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 
@@ -18,9 +19,9 @@ type VectorMemoryUnit struct {
 	SendBuf     []mem.AccessReq
 	SendBufSize int
 
-	toRead  *Wavefront
-	toExec  *Wavefront
-	toWrite *Wavefront
+	toRead  *wavefront.Wavefront
+	toExec  *wavefront.Wavefront
+	toWrite *wavefront.Wavefront
 
 	AddrCoalescingLatency   int
 	AddrCoalescingCycleLeft int
@@ -55,9 +56,9 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *VectorMemoryUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
+func (u *VectorMemoryUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Read"})
+	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Read"})
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
@@ -82,7 +83,7 @@ func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) bool {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Exec"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Exec"})
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -111,7 +112,7 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 			log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
 		}
 
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "WaitMem"})
 
 		//u.toWrite = u.toExec
 		u.cu.UpdatePCAndSetReady(u.toExec)
@@ -169,9 +170,9 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 ) {
 	for i, addr := range coalescedAddrs {
 		info := new(VectorMemAccessInfo)
-		info.Inst = u.toExec.inst
+		info.Inst = u.toExec.DynamicInst()
 		info.Wavefront = u.toExec
-		info.DstVGPR = u.toExec.inst.Dst.Register
+		info.DstVGPR = u.toExec.Inst().Dst.Register
 		info.Lanes = addr.LaneIDs
 		info.LaneAddrOffsets = addr.LaneAddrOffset
 		info.RegisterCount = registerCount
@@ -212,8 +213,8 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 
 		info := new(VectorMemAccessInfo)
 		info.Wavefront = u.toExec
-		info.Inst = u.toExec.inst
-		info.DstVGPR = u.toExec.inst.Dst.Register
+		info.Inst = u.toExec.DynamicInst()
+		info.DstVGPR = u.toExec.Inst().Dst.Register
 
 		lowModule := u.cu.VectorMemModules.Find(addr)
 		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)

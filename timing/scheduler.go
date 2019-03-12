@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 
@@ -21,9 +22,9 @@ type SchedulerImpl struct {
 	cu                *ComputeUnit
 	fetchArbiter      WfArbiter
 	issueArbiter      WfArbiter
-	internalExecuting *Wavefront
+	internalExecuting *wavefront.Wavefront
 
-	barrierBuffer     []*Wavefront
+	barrierBuffer     []*wavefront.Wavefront
 	barrierBufferSize int
 
 	cyclesNoProgress                  int
@@ -45,7 +46,7 @@ func NewScheduler(
 	s.issueArbiter = issueArbiter
 
 	s.barrierBufferSize = 16
-	s.barrierBuffer = make([]*Wavefront, 0, s.barrierBufferSize)
+	s.barrierBuffer = make([]*wavefront.Wavefront, 0, s.barrierBufferSize)
 
 	s.stopTickingAfterNCyclesNoProgress = 4
 
@@ -81,7 +82,7 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 				continue
 			}
 
-			if wf.State != WfReady {
+			if wf.State != wavefront.WfReady {
 				continue
 			}
 
@@ -96,9 +97,10 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 			inst, err := s.cu.Decoder.Decode(
 				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
 			if err == nil {
-				wf.InstToIssue = NewInst(inst)
-				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{
-					now, wf.InstToIssue, "Create"})
+				wf.InstToIssue = wavefront.NewInst(inst)
+				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
+					&wavefront.InstHookInfo{
+						now, wf.InstToIssue, "Create"})
 				madeProgress = true
 			}
 		}
@@ -106,7 +108,7 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-//func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *Wavefront) bool {
+//func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *wavefront.Wavefront) bool {
 //	return wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) >= wf.PC+8
 //}
 
@@ -163,13 +165,13 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 
 			unit := s.getUnitToIssueTo(wf.InstToIssue.ExeUnit)
 			if unit.CanAcceptWave() {
-				wf.inst = wf.InstToIssue
+				wf.SetDynamicInst(wf.InstToIssue)
 				wf.InstToIssue = nil
 				unit.AcceptWave(wf, now)
-				wf.State = WfRunning
+				wf.State = wavefront.WfRunning
 				//s.removeStaleInstBuffer(wf)
 				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
-					&InstHookInfo{now, wf.inst, "Issue"})
+					&wavefront.InstHookInfo{now, wf.InstToIssue, "Issue"})
 				madeProgress = true
 			}
 		}
@@ -177,14 +179,14 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *SchedulerImpl) issueToInternal(wf *Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
 	if s.internalExecuting == nil {
-		wf.inst = wf.InstToIssue
+		wf.SetDynamicInst(wf.InstToIssue)
 		wf.InstToIssue = nil
 		s.internalExecuting = wf
-		wf.State = WfRunning
+		wf.State = wavefront.WfRunning
 		//s.removeStaleInstBuffer(wf)
-		s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "Issue"})
+		s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, wf.InstToIssue, "Issue"})
 		return true
 	}
 	return false
@@ -227,19 +229,19 @@ func (s *SchedulerImpl) EvaluateInternalInst(now akita.VTimeInSec) bool {
 		madeProgress = s.evalSWaitCnt(s.internalExecuting, now) || madeProgress
 	default:
 		// The program has to make progress
-		s.internalExecuting.State = WfReady
+		s.internalExecuting.State = wavefront.WfReady
 		s.internalExecuting = nil
 		madeProgress = true
 	}
 
 	if s.internalExecuting == nil {
 		s.cu.InvokeHook(executing, s.cu, akita.AnyHookPos,
-			&InstHookInfo{now, executing.inst, "Completed"})
+			&wavefront.InstHookInfo{now, executing.DynamicInst(), "Completed"})
 	}
 	return madeProgress
 }
 
-func (s *SchedulerImpl) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSEndPgm(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
 	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
 		return false
 	}
@@ -251,7 +253,7 @@ func (s *SchedulerImpl) evalSEndPgm(wf *Wavefront, now akita.VTimeInSec) bool {
 	return true
 }
 
-func (s *SchedulerImpl) resetRegisterValue(wf *Wavefront) {
+func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
 	if wf.CodeObject.WIVgprCount > 0 {
 		vRegFile := s.cu.VRegFile[wf.SIMDID].(*SimpleRegisterFile)
 		vRegStorage := vRegFile.storage
@@ -271,8 +273,8 @@ func (s *SchedulerImpl) resetRegisterValue(wf *Wavefront) {
 	}
 }
 
-func (s *SchedulerImpl) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) bool {
-	wf.State = WfAtBarrier
+func (s *SchedulerImpl) evalSBarrier(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
+	wf.State = wavefront.WfAtBarrier
 
 	wg := wf.WG
 	allAtBarrier := s.areAllWfInWGAtBarrier(wg)
@@ -293,28 +295,28 @@ func (s *SchedulerImpl) evalSBarrier(wf *Wavefront, now akita.VTimeInSec) bool {
 	return true
 }
 
-func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *WorkGroup) bool {
+func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *wavefront.WorkGroup) bool {
 	for _, wf := range wg.Wfs {
-		if wf.State != WfAtBarrier {
+		if wf.State != wavefront.WfAtBarrier {
 			return false
 		}
 	}
 	return true
 }
 
-func (s *SchedulerImpl) passBarrier(wg *WorkGroup) {
+func (s *SchedulerImpl) passBarrier(wg *wavefront.WorkGroup) {
 	s.removeAllWfFromBarrierBuffer(wg)
 	s.setAllWfStateToReady(wg)
 }
 
-func (s *SchedulerImpl) setAllWfStateToReady(wg *WorkGroup) {
+func (s *SchedulerImpl) setAllWfStateToReady(wg *wavefront.WorkGroup) {
 	for _, wf := range wg.Wfs {
 		s.cu.UpdatePCAndSetReady(wf)
 	}
 }
 
-func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
-	newBarrierBuffer := make([]*Wavefront, 0, s.barrierBufferSize)
+func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *wavefront.WorkGroup) {
+	newBarrierBuffer := make([]*wavefront.Wavefront, 0, s.barrierBufferSize)
 	for _, wavefront := range s.barrierBuffer {
 		if wavefront.WG != wg {
 			newBarrierBuffer = append(newBarrierBuffer, wavefront)
@@ -323,7 +325,7 @@ func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *WorkGroup) {
 	s.barrierBuffer = newBarrierBuffer
 }
 
-func (s *SchedulerImpl) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSWaitCnt(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
 	done := true
 	inst := wf.Inst()
 
