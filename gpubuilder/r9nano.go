@@ -122,6 +122,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		new(kernels.GridBuilderImpl))
 	b.ACE.Freq = b.Freq
 	b.CP.Dispatcher = b.ACE.ToCommandProcessor
+	b.GPU.Dispatchers = append(b.GPU.Dispatchers, b.ACE)
 
 	b.InternalConn.PlugIn(b.CP.ToDriver)
 	b.InternalConn.PlugIn(b.CP.ToDispatcher)
