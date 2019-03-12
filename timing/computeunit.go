@@ -75,6 +75,7 @@ type ComputeUnit struct {
 
 	isDraining bool
 	isFlushing bool
+	isPaused   bool
 
 	flushLatency   uint64
 	flushCycleLeft uint64
@@ -154,10 +155,14 @@ func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) {
 
 func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
 
-	cu.processInputFromACE(now)
-	cu.processInputFromInstMem(now)
-	cu.processInputFromScalarMem(now)
-	cu.processInputFromVectorMem(now)
+	if !cu.isPaused {
+		cu.processInputFromACE(now)
+		cu.processInputFromInstMem(now)
+		cu.processInputFromScalarMem(now)
+		cu.processInputFromVectorMem(now)
+	}
+	//When pausing we still allow requests from CP so that we can receive the resume command correctly
+
 	cu.processInputFromCP(now)
 }
 
@@ -192,7 +197,7 @@ func (cu *ComputeUnit) handlePipelineDrainReq(
 	//3. If all complete issue CU Pipeline Drain Completion respond
 	cu.isDraining = true
 
-	cu.Scheduler.StartDraining()
+	cu.Scheduler.Pause()
 
 	return nil
 }
@@ -216,7 +221,8 @@ func (cu *ComputeUnit) handlePipelineResume(
 	//1. Issue drain command to scheduler
 	//2. Check all units one by one until all idle
 	//3. If all complete issue CU Pipeline Drain Completion respond
-	cu.Scheduler.StopDraining()
+	cu.Scheduler.Resume()
+	cu.isPaused = false
 	return nil
 
 }
@@ -273,20 +279,8 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 	if cu.flushCycleLeft <= 0 {
 
 		cu.flushCUBuffers()
-		cu.BranchUnit.Flush()
-		cu.ScalarUnit.Flush()
-		cu.ScalarDecoder.Flush()
 		cu.Scheduler.Flush()
-
-		for _, simdUnit := range cu.SIMDUnit {
-			simdUnit.Flush()
-		}
-
-		cu.VectorDecoder.Flush()
-		cu.LDSUnit.Flush()
-		cu.LDSDecoder.Flush()
-		cu.VectorMemDecoder.Flush()
-		cu.VectorMemUnit.Flush()
+		cu.flushInternalComponents()
 
 		cu.currentFlushReq = nil
 
@@ -294,11 +288,27 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 		cu.toSendToCP = respondToCP
 
 		cu.isFlushing = false
+		cu.isPaused = true
 
 	}
 
 	cu.flushCycleLeft--
 	cu.NeedTick = true
+}
+
+func (cu *ComputeUnit) flushInternalComponents() {
+	cu.BranchUnit.Flush()
+	cu.ScalarUnit.Flush()
+	cu.ScalarDecoder.Flush()
+
+	for _, simdUnit := range cu.SIMDUnit {
+		simdUnit.Flush()
+	}
+	cu.VectorDecoder.Flush()
+	cu.LDSUnit.Flush()
+	cu.LDSDecoder.Flush()
+	cu.VectorMemDecoder.Flush()
+	cu.VectorMemUnit.Flush()
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {

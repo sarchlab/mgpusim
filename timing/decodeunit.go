@@ -81,6 +81,5 @@ func (du *DecodeUnit) Run(now akita.VTimeInSec) bool {
 }
 
 func (du *DecodeUnit) Flush() {
-	//TODO: Should exec unit contents be nilled
 	du.toDecode = nil
 }
