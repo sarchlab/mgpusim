@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing/mock_timing"
 	"gitlab.com/akita/mem"
 )
 
@@ -47,8 +48,6 @@ func (m *mockScheduler) Resume() {
 func (m *mockScheduler) Flush() {
 }
 
-
-
 type mockDecoder struct {
 	Inst *insts.Inst
 }
@@ -57,9 +56,7 @@ func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 	return d.Inst, nil
 }
 
-
 type mockComponent struct {
-
 }
 
 func (comp *mockComponent) CanAcceptWave() bool {
@@ -69,7 +66,6 @@ func (comp *mockComponent) CanAcceptWave() bool {
 func (comp *mockComponent) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 
 }
-
 
 func (comp *mockComponent) Run(now akita.VTimeInSec) {
 
@@ -82,8 +78,6 @@ func (comp *mockComponent) IsIdle() bool {
 func (comp *mockComponent) Flush() {
 
 }
-
-
 
 func exampleGrid() *kernels.Grid {
 	grid := kernels.NewGrid()
@@ -119,6 +113,7 @@ var _ = Describe("ComputeUnit", func() {
 		toACE        *mock_akita.MockPort
 		toCP         *mock_akita.MockPort
 		cp           *mock_akita.MockPort
+		branchUnit   *mock_timing.MockCUComponent
 
 		instMem *mock_akita.MockPort
 
@@ -134,7 +129,7 @@ var _ = Describe("ComputeUnit", func() {
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
 		scheduler = new(mockScheduler)
-
+		branchUnit = mock_timing.NewMockCUComponent(mockCtrl)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
@@ -144,6 +139,8 @@ var _ = Describe("ComputeUnit", func() {
 		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(4096, 64))
 		cu.Scheduler = scheduler
+
+		cu.BranchUnit = branchUnit
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -448,39 +445,27 @@ var _ = Describe("ComputeUnit", func() {
 			vectorMemInfo := new(VectorMemAccessInfo)
 			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
 
-
-
 			cu.flushCUBuffers()
 
 			Expect(cu.InFlightInstFetch).To(BeNil())
 			Expect(cu.InFlightVectorMemAccess).To(BeNil())
 			Expect(cu.InFlightScalarMemAccess).To(BeNil())
 
-
 		})
 
 		It("should restart a paused CU", func() {
 			cu.isPaused = true
 
-
 			rsp := gcn3.NewCUPipelineRestartReq(10, nil, cu.ToCP)
 			rsp.SetRecvTime(10)
 			rsp.SetEventTime(10)
 
-
 			toCP.EXPECT().Retrieve(gomock.Any()).Return(rsp)
-
-
 
 			cu.processInputFromCP(11)
 			Expect(cu.isPaused).To(BeFalse())
 
 		})
-
-
-
-
-
 
 	})
 

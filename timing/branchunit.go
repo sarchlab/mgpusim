@@ -3,6 +3,7 @@ package timing
 import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 // A BranchUnit performs branch operations
@@ -12,9 +13,9 @@ type BranchUnit struct {
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
 
-	toRead  *Wavefront
-	toExec  *Wavefront
-	toWrite *Wavefront
+	toRead  *wavefront.Wavefront
+	toExec  *wavefront.Wavefront
+	toWrite *wavefront.Wavefront
 
 	isIdle bool
 }
@@ -44,10 +45,13 @@ func (u *BranchUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *BranchUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
+func (u *BranchUnit) AcceptWave(
+	wave *wavefront.Wavefront,
+	now akita.VTimeInSec,
+) {
 	u.toRead = wave
 	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos,
-		&InstHookInfo{now, wave.inst, "Read"})
+		&wavefront.InstHookInfo{now, wave.DynamicInst(), "Read"})
 }
 
 // Run executes three pipeline stages that are controlled by the BranchUnit
@@ -66,7 +70,7 @@ func (u *BranchUnit) runReadStage(now akita.VTimeInSec) bool {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Exec"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Exec"})
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -83,7 +87,7 @@ func (u *BranchUnit) runExecStage(now akita.VTimeInSec) bool {
 
 	if u.toWrite == nil {
 		u.alu.Run(u.toExec)
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Write"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Write"})
 
 		u.toWrite = u.toExec
 		u.toExec = nil
@@ -99,7 +103,7 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "Completed"})
+	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toWrite.DynamicInst(), "Completed"})
 
 	u.toWrite.InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.toWrite)

@@ -3,6 +3,7 @@ package timing
 import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 // A SIMDUnit performs branch operations
@@ -12,7 +13,7 @@ type SIMDUnit struct {
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
 
-	toExec    *Wavefront
+	toExec    *wavefront.Wavefront
 	cycleLeft int
 
 	NumSinglePrecisionUnit int
@@ -49,7 +50,7 @@ func (u *SIMDUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
+func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toExec = wave
 
 	// The cycle left if calculated. The pipeline is like the following
@@ -61,7 +62,7 @@ func (u *SIMDUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	// and the last write.
 	u.cycleLeft = 64/u.NumSinglePrecisionUnit + 2
 
-	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Exec"})
+	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Exec"})
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
@@ -84,7 +85,7 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 	u.alu.Run(u.toExec)
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.cu.UpdatePCAndSetReady(u.toExec)
-	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Completed"})
+	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Completed"})
 
 	u.toExec = nil
 	return true
