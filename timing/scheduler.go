@@ -10,8 +10,8 @@ import (
 
 type Scheduler interface {
 	Run(now akita.VTimeInSec) bool
-	StartDraining()
-	StopDraining()
+	Pause()
+	Resume()
 	Flush()
 }
 
@@ -29,7 +29,7 @@ type SchedulerImpl struct {
 	cyclesNoProgress                  int
 	stopTickingAfterNCyclesNoProgress int
 
-	isDraining bool
+	isPaused bool
 }
 
 // NewScheduler returns a newly created scheduler, injecting dependency
@@ -54,7 +54,7 @@ func NewScheduler(
 
 func (s *SchedulerImpl) Run(now akita.VTimeInSec) bool {
 	madeProgress := false
-	if s.isDraining == false {
+	if s.isPaused == false {
 		madeProgress = s.EvaluateInternalInst(now) || madeProgress
 		madeProgress = s.DecodeNextInst(now) || madeProgress
 		madeProgress = s.DoIssue(now) || madeProgress
@@ -152,7 +152,7 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	if s.isDraining == false {
+	if s.isPaused == false {
 		wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 		for _, wf := range wfs {
 			if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
@@ -343,12 +343,12 @@ func (s *SchedulerImpl) evalSWaitCnt(wf *Wavefront, now akita.VTimeInSec) bool {
 	return false
 }
 
-func (s *SchedulerImpl) StartDraining() {
-	s.isDraining = true
+func (s *SchedulerImpl) Pause() {
+	s.isPaused = true
 }
 
-func (s *SchedulerImpl) StopDraining() {
-	s.isDraining = false
+func (s *SchedulerImpl) Resume() {
+	s.isPaused = false
 }
 
 func (s *SchedulerImpl) Flush() {

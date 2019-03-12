@@ -38,14 +38,16 @@ func (m *mockScheduler) Run(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (m *mockScheduler) StartDraining() {
+func (m *mockScheduler) Pause() {
 }
 
-func (m *mockScheduler) StopDraining() {
+func (m *mockScheduler) Resume() {
 }
 
 func (m *mockScheduler) Flush() {
 }
+
+
 
 type mockDecoder struct {
 	Inst *insts.Inst
@@ -54,6 +56,34 @@ type mockDecoder struct {
 func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 	return d.Inst, nil
 }
+
+
+type mockComponent struct {
+
+}
+
+func (comp *mockComponent) CanAcceptWave() bool {
+	return true
+}
+
+func (comp *mockComponent) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
+
+}
+
+
+func (comp *mockComponent) Run(now akita.VTimeInSec) {
+
+}
+
+func (comp *mockComponent) IsIdle() bool {
+	return true
+}
+
+func (comp *mockComponent) Flush() {
+
+}
+
+
 
 func exampleGrid() *kernels.Grid {
 	grid := kernels.NewGrid()
@@ -104,6 +134,7 @@ var _ = Describe("ComputeUnit", func() {
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
 		scheduler = new(mockScheduler)
+
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
@@ -406,9 +437,51 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.isFlushing).To(BeTrue())
 			Expect(cu.currentFlushReq).To(BeIdenticalTo(req))
 		})
-		It("should flush", func() {
+		It("should flush internal CU buffers", func() {
+
+			info := new(InstFetchReqInfo)
+			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
+
+			scalarMemInfo := new(ScalarMemAccessInfo)
+			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+
+			vectorMemInfo := new(VectorMemAccessInfo)
+			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
+
+
+
+			cu.flushCUBuffers()
+
+			Expect(cu.InFlightInstFetch).To(BeNil())
+			Expect(cu.InFlightVectorMemAccess).To(BeNil())
+			Expect(cu.InFlightScalarMemAccess).To(BeNil())
+
 
 		})
+
+		It("should restart a paused CU", func() {
+			cu.isPaused = true
+
+
+			rsp := gcn3.NewCUPipelineRestartReq(10, nil, cu.ToCP)
+			rsp.SetRecvTime(10)
+			rsp.SetEventTime(10)
+
+
+			toCP.EXPECT().Retrieve(gomock.Any()).Return(rsp)
+
+
+
+			cu.processInputFromCP(11)
+			Expect(cu.isPaused).To(BeFalse())
+
+		})
+
+
+
+
+
+
 	})
 
 })
