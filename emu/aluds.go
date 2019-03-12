@@ -5,6 +5,8 @@ import "log"
 func (u *ALUImpl) runDS(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
+	case 14:
+		u.runDSWRITE2B32(state)
 	case 55:
 		u.runDSREAD2B32(state)
 	case 78:
@@ -15,6 +17,28 @@ func (u *ALUImpl) runDS(state InstEmuState) {
 		u.runDSREAD2B64(state)
 	default:
 		log.Panicf("Opcode %d for DS format is not implemented", inst.Opcode)
+	}
+}
+
+func (u *ALUImpl) runDSWRITE2B32(state InstEmuState) {
+	inst := state.Inst()
+	sp := state.Scratchpad()
+	layout := sp.AsDS()
+	lds := u.LDS()
+
+	i := uint(0)
+	for i = 0; i < 64; i++ {
+		if !u.laneMasked(layout.EXEC, i) {
+			continue
+		}
+
+		addr0 := layout.ADDR[i] + uint32(inst.Offset0)*4
+		data0offset := uint(8 + 64*4)
+		addr1 := layout.ADDR[i] + uint32(inst.Offset1)*4
+		data1offset := uint(8 + 64*4 + 256*4)
+
+		copy(lds[addr0:addr0+4], sp[data0offset+i*16:data0offset+i*16+4])
+		copy(lds[addr1:addr1+4], sp[data1offset+i*16:data1offset+i*16+4])
 	}
 }
 
