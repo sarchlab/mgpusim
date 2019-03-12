@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	matrixtranpose "gitlab.com/akita/gcn3/benchmarks/amdappsdk/matrixtranspose"
+	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/matrixtranspose"
 	"gitlab.com/akita/gcn3/samples/runner"
 )
 
@@ -15,7 +15,7 @@ func main() {
 	runner := runner.Runner{}
 	runner.Init()
 
-	benchmark := matrixtranpose.NewBenchmark(runner.GPUDriver)
+	benchmark := matrixtranspose.NewBenchmark(runner.GPUDriver)
 	benchmark.Width = *dataWidth
 
 	runner.AddBenchmark(benchmark)
