@@ -10,20 +10,21 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/gcn3/timing/mock_timing"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 
 type mockWGMapper struct {
 	OK         bool
-	UnmappedWg *WorkGroup
+	UnmappedWg wavefront.WorkGroup
 }
 
 func (m *mockWGMapper) MapWG(req *gcn3.MapWGReq) bool {
 	return m.OK
 }
 
-func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
-	m.UnmappedWg = wg
+func (m *mockWGMapper) UnmapWG(wg *wavefront.WorkGroup) {
+	m.UnmappedWg = *wg
 }
 
 type mockWfDispatcher struct {
@@ -32,7 +33,7 @@ type mockWfDispatcher struct {
 type mockScheduler struct {
 }
 
-func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *Wavefront) {
+func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *wavefront.Wavefront) {
 }
 
 func (m *mockScheduler) Run(now akita.VTimeInSec) bool {
@@ -63,7 +64,7 @@ func (comp *mockComponent) CanAcceptWave() bool {
 	return true
 }
 
-func (comp *mockComponent) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
+func (comp *mockComponent) AcceptWave(wave wavefront.Wavefront, now akita.VTimeInSec) {
 
 }
 
@@ -201,13 +202,13 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when handling DataReady from ToInstMem Port", func() {
 		var (
-			wf        *Wavefront
+			wf        *wavefront.Wavefront
 			dataReady *mem.DataReadyRsp
 		)
 		BeforeEach(func() {
-			wf = new(Wavefront)
-			inst := NewInst(nil)
-			wf.inst = inst
+			wf = new(wavefront.Wavefront)
+			inst := wavefront.NewInst(nil)
+			wf.SetDynamicInst(inst)
 			wf.PC = 0x1000
 
 			req := mem.NewReadReq(8, cu.ToInstMem, instMem, 0x100, 64)
@@ -249,7 +250,7 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle DataReady from ToScalarMem port", func() {
 		It("should handle scalar data load return", func() {
 			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			wf := NewWavefront(rawWf)
+			wf := wavefront.NewWavefront(rawWf)
 			wf.SRegOffset = 0
 			wf.OutstandingScalarMemAccess = 1
 
@@ -283,19 +284,19 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle DataReady from ToVectorMem", func() {
 		var (
 			rawWf *kernels.Wavefront
-			wf    *Wavefront
-			inst  *Inst
+			wf    *wavefront.Wavefront
+			inst  *wavefront.Inst
 			read  *mem.ReadReq
 			info  *VectorMemAccessInfo
 		)
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = NewInst(insts.NewInst())
+			inst = wavefront.NewInst(insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = NewWavefront(rawWf)
+			wf = wavefront.NewWavefront(rawWf)
 			wf.SIMDID = 0
-			wf.inst = inst
+			wf.SetDynamicInst(inst)
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
@@ -362,8 +363,8 @@ var _ = Describe("ComputeUnit", func() {
 	Context("handle write done respond from ToVectorMem port", func() {
 		var (
 			rawWf    *kernels.Wavefront
-			inst     *Inst
-			wf       *Wavefront
+			inst     *wavefront.Inst
+			wf       *wavefront.Wavefront
 			info     *VectorMemAccessInfo
 			writeReq *mem.WriteReq
 			doneRsp  *mem.DoneRsp
@@ -371,11 +372,11 @@ var _ = Describe("ComputeUnit", func() {
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = NewInst(insts.NewInst())
+			inst = wavefront.NewInst(insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = NewWavefront(rawWf)
+			wf = wavefront.NewWavefront(rawWf)
 			wf.SIMDID = 0
-			wf.inst = inst
+			wf.SetDynamicInst(inst)
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1

@@ -3,6 +3,7 @@ package timing
 import (
 	"bytes"
 	"encoding/binary"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"log"
 
 	. "github.com/onsi/ginkgo"
@@ -16,7 +17,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		vRegFile0 *SimpleRegisterFile
 		cu        *ComputeUnit
 		sp        *ScratchpadPreparerImpl
-		wf        *Wavefront
+		wf        *wavefront.Wavefront
 	)
 
 	BeforeEach(func() {
@@ -28,14 +29,14 @@ var _ = Describe("ScratchpadPreparer", func() {
 		cu.VRegFile = append(cu.VRegFile, vRegFile0)
 
 		sp = NewScratchpadPreparerImpl(cu)
-		wf = NewWavefront(nil)
+		wf = wavefront.NewWavefront(nil)
 	})
 
 	It("should prepare for SOP1", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOP1
 		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		sp.writeReg(insts.SReg(0), 1, wf, 0,
 			insts.Uint32ToBytes(517))
@@ -55,7 +56,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.SOP2
 		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewIntOperand(1, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
+
 
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(517))
 		//wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(517))
@@ -64,7 +66,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		sp.Prepare(wf, wf)
 
 		layout := wf.Scratchpad().AsSOP2()
-		binary.Read(bytes.NewBuffer(wf.scratchpad), binary.LittleEndian, layout)
+		binary.Read(bytes.NewBuffer(wf.Scratchpad()), binary.LittleEndian, layout)
 		Expect(layout.SRC0).To(Equal(uint64(517)))
 		Expect(layout.SRC1).To(Equal(uint64(1)))
 		Expect(layout.SCC).To(Equal(byte(1)))
@@ -75,7 +77,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP1
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
+
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint32ToBytes(uint32(i)))
@@ -99,7 +102,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
 		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
 		inst.Dst = insts.NewVRegOperand(6, 6, 2)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
@@ -127,7 +130,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
 		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
 		inst.Src2 = insts.NewIntOperand(1, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
@@ -154,7 +157,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src0 = insts.NewVRegOperand(0, 0, 2)
 		inst.Src1 = insts.NewVRegOperand(2, 2, 2)
 		inst.Src2 = insts.NewIntOperand(1, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i)))
@@ -180,7 +183,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
-		wf.inst = NewInst(inst)
+
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint64ToBytes(uint64(i)))
@@ -204,7 +208,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.FLAT
 		inst.Addr = insts.NewVRegOperand(0, 0, 2)
 		inst.Data = insts.NewVRegOperand(2, 2, 4)
-		wf.inst = NewInst(inst)
+
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 2, wf, i, insts.Uint64ToBytes(uint64(i+1024)))
@@ -236,7 +241,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Data = insts.NewSRegOperand(0, 0, 4)
 		inst.Offset = insts.NewIntOperand(1, 1)
 		inst.Base = insts.NewSRegOperand(4, 4, 2)
-		wf.inst = NewInst(inst)
+
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(100))
 		sp.writeReg(insts.SReg(1), 1, wf, 0, insts.Uint32ToBytes(101))
@@ -263,7 +269,8 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.EXEC = 0x0f
 		wf.PC = 160
 		wf.SCC = 1
-		wf.inst = NewInst(inst)
+
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		sp.Prepare(wf, wf)
 
@@ -279,7 +286,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.SOPK
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
 		inst.SImm16 = insts.NewIntOperand(1, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 		wf.SCC = 1
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(100))
 
@@ -297,7 +304,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src0 = insts.NewSRegOperand(0, 0, 1)
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(100))
 		inst.Src1 = insts.NewIntOperand(192, 64)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		sp.Prepare(wf, wf)
 
@@ -313,7 +320,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Data = insts.NewVRegOperand(2, 2, 2)
 		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
 
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 		wf.EXEC = uint64(0xff)
 
 		for i := 0; i < 64; i++ {
@@ -342,7 +349,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOP1
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsSOP1()
 		layout.DST = 517
@@ -360,7 +367,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOP2
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsSOP2()
 		layout.DST = 517
@@ -376,7 +383,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP1
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP1()
 		for i := 0; i < 64; i++ {
@@ -396,7 +403,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP2
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP2()
 		for i := 0; i < 64; i++ {
@@ -416,7 +423,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP3a
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP3A()
 		for i := 0; i < 64; i++ {
@@ -437,7 +444,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.VOP3b
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		inst.SDst = insts.NewSRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP3B()
 		for i := 0; i < 64; i++ {
@@ -459,7 +466,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 	It("should commit VOPC", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOPC
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOPC()
 		layout.VCC = uint64(0xff)
@@ -476,7 +483,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.FLAT
 		inst.Opcode = 20 // Load Dword
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
@@ -501,7 +508,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.FLAT
 		inst.Dst = insts.NewVRegOperand(3, 3, 4)
 		inst.Opcode = 28 // Store dword
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
@@ -526,7 +533,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 4
 		inst.Data = insts.NewSRegOperand(0, 0, 16)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsSMEM()
 		for i := 0; i < 16; i++ {
@@ -543,7 +550,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 	It("should commit for SOPC", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOPC
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsSOPC()
 		layout.SCC = 1
@@ -557,7 +564,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOPK
 		inst.Dst = insts.NewSRegOperand(0, 0, 1)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsSOPK()
 		layout.SCC = 1
@@ -572,7 +579,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 	It("should commit for SOPP", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.SOPP
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 		wf.PC = 0
 
 		layout := wf.Scratchpad().AsSOPP()
@@ -587,7 +594,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.DS
 		inst.Dst = insts.NewVRegOperand(0, 0, 2)
-		wf.inst = NewInst(inst)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsDS()
 		for i := 0; i < 64; i++ {

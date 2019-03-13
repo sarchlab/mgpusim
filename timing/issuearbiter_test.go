@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 var _ = Describe("IssueArbiter", func() {
@@ -21,9 +22,9 @@ var _ = Describe("IssueArbiter", func() {
 	})
 
 	It("should decide which wf to issue", func() {
-		wfState := []WfState{
-			WfRunning, WfReady, WfReady, WfReady, WfReady,
-			WfReady, WfReady, WfReady, WfReady, WfReady,
+		wfState := []wavefront.WfState{
+			wavefront.WfRunning, wavefront.WfReady, wavefront.WfReady, wavefront.WfReady, wavefront.WfReady,
+			wavefront.WfReady, wavefront.WfReady, wavefront.WfReady, wavefront.WfReady, wavefront.WfReady,
 		}
 		exeUnits := []insts.ExeUnit{
 			insts.ExeUnitVALU, insts.ExeUnitScalar, insts.ExeUnitVMem,
@@ -31,12 +32,12 @@ var _ = Describe("IssueArbiter", func() {
 			insts.ExeUnitVALU, insts.ExeUnitBranch, insts.ExeUnitVALU,
 			insts.ExeUnitVMem,
 		}
-		wfs := make([]*Wavefront, 0)
+		wfs := make([]*wavefront.Wavefront, 0)
 
 		for i := 0; i < len(wfState); i++ {
-			wf := new(Wavefront)
+			wf := new(wavefront.Wavefront)
 			wf.State = wfState[i]
-			wf.InstToIssue = NewInst(insts.NewInst())
+			wf.InstToIssue = wavefront.NewInst(insts.NewInst())
 			wf.InstToIssue.ExeUnit = exeUnits[i]
 			wfs = append(wfs, wf)
 			wfPools[0].AddWf(wf)
