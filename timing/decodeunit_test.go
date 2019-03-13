@@ -3,6 +3,7 @@ package timing
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 var _ = Describe("DecodeUnit", func() {
@@ -24,7 +25,7 @@ var _ = Describe("DecodeUnit", func() {
 	})
 
 	It("should tell if it cannot accept wave", func() {
-		du.toDecode = new(Wavefront)
+		du.toDecode = new(wavefront.Wavefront)
 		Expect(du.CanAcceptWave()).To(BeFalse())
 	})
 
@@ -34,15 +35,15 @@ var _ = Describe("DecodeUnit", func() {
 	})
 
 	It("should accept wave", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		du.toDecode = nil
 		du.AcceptWave(wave, 10)
 		Expect(du.toDecode).To(BeIdenticalTo(wave))
 	})
 
 	It("should return error if the decoder is busy", func() {
-		wave := new(Wavefront)
-		wave2 := new(Wavefront)
+		wave := new(wavefront.Wavefront)
+		wave2 := new(wavefront.Wavefront)
 		du.toDecode = wave
 
 		Expect(func() { du.AcceptWave(wave2, 10) }).Should(Panic())
@@ -50,7 +51,7 @@ var _ = Describe("DecodeUnit", func() {
 	})
 
 	It("should deliver the wave to the execution unit", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		wave.SIMDID = 1
 		du.toDecode = wave
 
@@ -64,7 +65,7 @@ var _ = Describe("DecodeUnit", func() {
 	})
 
 	It("should not deliver to the execution unit, if busy", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		wave.SIMDID = 1
 		du.toDecode = wave
 		execUnits[1].canAccept = false
@@ -77,7 +78,7 @@ var _ = Describe("DecodeUnit", func() {
 		Expect(len(execUnits[3].acceptedWave)).To(Equal(0))
 	})
 	It("should flush the decode unit", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		wave.SIMDID = 1
 		du.toDecode = wave
 
