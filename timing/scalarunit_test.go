@@ -129,7 +129,6 @@ var _ = Describe("Scalar Unit", func() {
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
 		wave.SetDynamicInst(inst)
 
-
 		sp := wave.Scratchpad().AsSMEM()
 		sp.Base = 0x1000
 		sp.Offset = 0x24

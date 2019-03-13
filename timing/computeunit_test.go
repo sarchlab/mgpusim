@@ -102,19 +102,27 @@ func exampleGrid() *kernels.Grid {
 
 var _ = Describe("ComputeUnit", func() {
 	var (
-		mockCtrl     *gomock.Controller
-		cu           *ComputeUnit
-		engine       *mock_akita.MockEngine
-		wgMapper     *mockWGMapper
-		wfDispatcher *mockWfDispatcher
-		decoder      *mockDecoder
-		toInstMem    *mock_akita.MockPort
-		toScalarMem  *mock_akita.MockPort
-		toVectorMem  *mock_akita.MockPort
-		toACE        *mock_akita.MockPort
-		toCP         *mock_akita.MockPort
-		cp           *mock_akita.MockPort
-		branchUnit   *mock_timing.MockCUComponent
+		mockCtrl         *gomock.Controller
+		cu               *ComputeUnit
+		engine           *mock_akita.MockEngine
+		wgMapper         *mockWGMapper
+		wfDispatcher     *mockWfDispatcher
+		decoder          *mockDecoder
+		toInstMem        *mock_akita.MockPort
+		toScalarMem      *mock_akita.MockPort
+		toVectorMem      *mock_akita.MockPort
+		toACE            *mock_akita.MockPort
+		toCP             *mock_akita.MockPort
+		cp               *mock_akita.MockPort
+		branchUnit       *mock_timing.MockCUComponent
+		vectorMemDecoder *mock_timing.MockCUComponent
+		vectorMemUnit    *mock_timing.MockCUComponent
+		scalarDecoder    *mock_timing.MockCUComponent
+		vectorDecoder    *mock_timing.MockCUComponent
+		ldsDecoder       *mock_timing.MockCUComponent
+		scalarUnit       *mock_timing.MockCUComponent
+		simdUnit         *mock_timing.MockCUComponent
+		ldsUnit          *mock_timing.MockCUComponent
 
 		instMem *mock_akita.MockPort
 
@@ -131,6 +139,14 @@ var _ = Describe("ComputeUnit", func() {
 		decoder = new(mockDecoder)
 		scheduler = new(mockScheduler)
 		branchUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		vectorMemDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		vectorMemUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		scalarDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		vectorDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		ldsDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		scalarUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		simdUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		ldsUnit = mock_timing.NewMockCUComponent(mockCtrl)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
@@ -142,6 +158,15 @@ var _ = Describe("ComputeUnit", func() {
 		cu.Scheduler = scheduler
 
 		cu.BranchUnit = branchUnit
+		cu.VectorMemDecoder = vectorMemDecoder
+		cu.VectorMemUnit = vectorMemUnit
+		cu.ScalarDecoder = scalarDecoder
+		cu.VectorDecoder = vectorDecoder
+		cu.LDSDecoder = ldsDecoder
+		cu.ScalarUnit = scalarUnit
+		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+
+		cu.LDSUnit = ldsUnit
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -410,7 +435,7 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})
-	Context("should process an input from CP", func() {
+	Context("should handle flush and drain requests", func() {
 		It("handle a Pipeline drain request from CP", func() {
 			req := gcn3.NewCUPipelineDrainReq(10, nil, cu.ToCP)
 			req.SetEventTime(10)
@@ -465,6 +490,44 @@ var _ = Describe("ComputeUnit", func() {
 
 			cu.processInputFromCP(11)
 			Expect(cu.isPaused).To(BeFalse())
+
+		})
+
+		It("should flush the full CU", func() {
+			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
+			req.SetEventTime(10)
+
+			cu.currentFlushReq = req
+
+			info := new(InstFetchReqInfo)
+			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
+
+			scalarMemInfo := new(ScalarMemAccessInfo)
+			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+
+			vectorMemInfo := new(VectorMemAccessInfo)
+			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
+
+			branchUnit.EXPECT().Flush()
+			scalarUnit.EXPECT().Flush()
+			scalarDecoder.EXPECT().Flush()
+			simdUnit.EXPECT().Flush()
+			vectorDecoder.EXPECT().Flush()
+			ldsUnit.EXPECT().Flush()
+			ldsDecoder.EXPECT().Flush()
+			vectorMemDecoder.EXPECT().Flush()
+			vectorMemUnit.EXPECT().Flush()
+
+			cu.flushCycleLeft = 0
+			cu.flushPipeline(10)
+
+			Expect(cu.InFlightInstFetch).To(BeNil())
+			Expect(cu.InFlightVectorMemAccess).To(BeNil())
+			Expect(cu.InFlightScalarMemAccess).To(BeNil())
+
+			Expect(cu.toSendToCP).NotTo(BeNil())
+			Expect(cu.isFlushing).To(BeFalse())
+			Expect(cu.isPaused).To(BeTrue())
 
 		})
 

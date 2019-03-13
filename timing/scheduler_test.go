@@ -311,7 +311,7 @@ var _ = Describe("Scheduler", func() {
 			wf := wavefront.NewWavefront(kernels.NewWavefront())
 			wf.State = wavefront.WfRunning
 			wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
- 			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
 			wf.DynamicInst().Opcode = 10
 			wf.WG = wg
 			wg.Wfs = append(wg.Wfs, wf)
