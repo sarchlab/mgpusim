@@ -115,7 +115,6 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.SetDynamicInst(inst)
 
-
 		sp := wave.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
 			sp.ADDR[i] = uint64(4096 + i*4)
@@ -163,7 +162,6 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Opcode = 28
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.SetDynamicInst(inst)
-
 
 		sp := wave.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {

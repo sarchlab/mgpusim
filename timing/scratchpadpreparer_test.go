@@ -58,7 +58,6 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.Src1 = insts.NewIntOperand(1, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
-
 		sp.writeReg(insts.SReg(0), 1, wf, 0, insts.Uint32ToBytes(517))
 		//wf.WriteReg(insts.SReg(0), 1, 0, insts.Uint32ToBytes(517))
 		wf.SCC = 1
@@ -78,7 +77,6 @@ var _ = Describe("ScratchpadPreparer", func() {
 		inst.FormatType = insts.VOP1
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
-
 
 		for i := 0; i < 64; i++ {
 			sp.writeReg(insts.VReg(0), 1, wf, i, insts.Uint32ToBytes(uint32(i)))

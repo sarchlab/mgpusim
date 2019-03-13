@@ -73,7 +73,6 @@ var _ = Describe("Branch Unit", func() {
 		Expect(wave3.InstBuffer).To(HaveLen(0))
 	})
 
-
 	It("should flush", func() {
 		wave1 := new(wavefront.Wavefront)
 		wave2 := new(wavefront.Wavefront)

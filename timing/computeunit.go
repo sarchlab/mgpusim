@@ -281,6 +281,7 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 
 		cu.flushCUBuffers()
 		cu.Scheduler.Flush()
+
 		cu.flushInternalComponents()
 
 		cu.currentFlushReq = nil
@@ -298,18 +299,22 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) flushInternalComponents() {
+
 	cu.BranchUnit.Flush()
+
 	cu.ScalarUnit.Flush()
 	cu.ScalarDecoder.Flush()
 
 	for _, simdUnit := range cu.SIMDUnit {
 		simdUnit.Flush()
 	}
+
 	cu.VectorDecoder.Flush()
 	cu.LDSUnit.Flush()
 	cu.LDSDecoder.Flush()
 	cu.VectorMemDecoder.Flush()
 	cu.VectorMemUnit.Flush()
+
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
