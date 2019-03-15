@@ -372,7 +372,7 @@ var _ = Describe("L1V Cache", func() {
 		})
 	})
 
-	Context("should handle a flush request", func() {
+	Context("should handle all flush based request", func() {
 
 		It("should receive a flush request from CP", func() {
 			flushReq := NewFlushL1CacheReq(10, nil, l1v.ToCP, true)
@@ -417,6 +417,18 @@ var _ = Describe("L1V Cache", func() {
 
 			Expect(l1v.NeedTick).To(BeTrue())
 			Expect(l1v.toSendToCP).NotTo(BeNil())
+
+		})
+		It("should receive restart request and set flushing to false", func() {
+			restartReq := NewRestartL1CacheReq(10, nil, l1v.ToCP, true)
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(restartReq)
+
+			l1v.isFlushing = true
+
+			l1v.parseFromCP(10)
+
+			Expect(l1v.isFlushing).To(BeFalse())
+			Expect(l1v.NeedTick).To(BeTrue())
 
 		})
 

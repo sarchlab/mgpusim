@@ -36,6 +36,7 @@ type FlushL1CacheReq struct {
 	flushContents bool
 }
 
+
 // NewWriteReq creates a new WriteReq
 func NewFlushL1CacheReq(
 	time akita.VTimeInSec,
@@ -77,6 +78,30 @@ func NewFlushCompleteRsp(
 
 	return req
 }
+
+type RestartL1CacheReq struct {
+	*akita.ReqBase
+	restart bool
+}
+
+func NewRestartL1CacheReq(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+	restart bool,
+) *RestartL1CacheReq {
+	reqBase := akita.NewReqBase()
+	req := new(RestartL1CacheReq)
+	req.ReqBase = reqBase
+
+	req.SetSendTime(time)
+	req.SetSrc(src)
+	req.SetDst(dst)
+
+	req.restart = restart
+
+	return req
+}
+
 
 type cacheTransaction struct {
 	Req           akita.Req
@@ -156,6 +181,8 @@ type L1VCache struct {
 	flushCycleLeft  uint64
 
 	toSendToCP akita.Req
+
+	isFlushing bool
 }
 
 // Handle processes the events scheduled on L1VCache
@@ -175,19 +202,24 @@ func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 	now := e.Time()
 	c.NeedTick = false
 
-	c.sendToCU(now)
-	c.sendToL2(now)
-	c.sendToCP(now)
-	c.doReadWrite(now)
-	c.parseFromPostPipelineBuf(now)
-	c.countDownPipeline(now)
-	c.processPostCoalescingWrites(now)
-	c.processFlushReq(now)
-	c.parseFromPostAddrTranslationBuf(now)
-	c.NeedTick = c.addrTranslator.tick(now) || c.NeedTick
+
 	c.parseFromCP(now)
-	c.parseFromL2(now)
-	c.parseFromCU(now)
+
+	if !c.isFlushing {
+
+		c.parseFromL2(now)
+		c.parseFromCU(now)
+		c.sendToCU(now)
+		c.sendToL2(now)
+		c.sendToCP(now)
+		c.doReadWrite(now)
+		c.parseFromPostPipelineBuf(now)
+		c.countDownPipeline(now)
+		c.processPostCoalescingWrites(now)
+		c.processFlushReq(now)
+		c.parseFromPostAddrTranslationBuf(now)
+		c.NeedTick = c.addrTranslator.tick(now) || c.NeedTick
+	}
 
 	if c.NeedTick {
 		c.TickLater(now)
@@ -209,6 +241,8 @@ func (c *L1VCache) parseFromCP(now akita.VTimeInSec) {
 		c.doInvalidation(now, req)
 	case *FlushL1CacheReq:
 		c.addFlushToPipeline(now, req)
+	case *RestartL1CacheReq:
+		c.restartL1Cache(now)
 	default:
 		log.Panicf("cannot handle request of type %s from CP", reflect.TypeOf(req))
 	}
@@ -235,6 +269,7 @@ func (c *L1VCache) processFlushReq(now akita.VTimeInSec) {
 
 	if c.flushCycleLeft <= 0 {
 		c.doFlush(now, c.currentFlushReq)
+		c.currentFlushReq = nil
 	}
 
 	c.flushCycleLeft--
@@ -262,8 +297,15 @@ func (c *L1VCache) doFlush(now akita.VTimeInSec, req *FlushL1CacheReq) {
 	rsp := NewFlushCompleteRsp(now, c.ToCP, req.Src(), true)
 	c.toSendToCP = rsp
 
+	c.isFlushing = true
+
 	c.NeedTick = true
 
+}
+
+func (c *L1VCache) restartL1Cache(now akita.VTimeInSec) {
+	c.isFlushing = false
+	c.NeedTick = true
 }
 
 func (c *L1VCache) sendToCP(now akita.VTimeInSec) {
