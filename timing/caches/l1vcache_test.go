@@ -372,6 +372,68 @@ var _ = Describe("L1V Cache", func() {
 		})
 	})
 
+	Context("should handle all flush based request", func() {
+
+		It("should receive a flush request from CP", func() {
+			flushReq := NewFlushL1CacheReq(10, nil, l1v.ToCP, true)
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(flushReq)
+
+			l1v.parseFromCP(10)
+
+			Expect(l1v.currentFlushReq).To(Equal(flushReq))
+			Expect(l1v.NeedTick).To(BeTrue())
+
+		})
+		It("should flush all contents and prepare response packet to CP", func() {
+			flushReq := NewFlushL1CacheReq(10, nil, l1v.ToCP, true)
+
+			inPipeline := &inPipelineReqStatus{nil, 10}
+			l1v.inPipeline = append(l1v.inPipeline, inPipeline)
+
+			writeLine := mem.NewWriteReq(10, nil, l1v.ToCU, 0x100)
+			writeLine.Data = []byte{
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+			}
+			transaction := l1v.createTransaction(writeLine)
+			l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
+
+			l1v.reqBuf = append(l1v.reqBuf, transaction)
+
+			l1v.currentFlushReq = flushReq
+			l1v.flushCycleLeft = 0
+
+			l1v.processFlushReq(10)
+
+			Expect(l1v.inPipeline).To(BeNil())
+			Expect(l1v.reqBuf).To(BeNil())
+			Expect(l1v.postPipelineBuf).To(BeNil())
+
+			Expect(l1v.NeedTick).To(BeTrue())
+			Expect(l1v.toSendToCP).NotTo(BeNil())
+
+		})
+		It("should receive restart request and set flushing to false", func() {
+			restartReq := NewRestartL1CacheReq(10, nil, l1v.ToCP, true)
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(restartReq)
+
+			l1v.isFlushing = true
+
+			l1v.parseFromCP(10)
+
+			Expect(l1v.isFlushing).To(BeFalse())
+			Expect(l1v.NeedTick).To(BeTrue())
+
+		})
+
+	})
+
 	Context("during local read or local write", func() {
 		It("should reduce cycleLeft for all the request that is being processed by the storage", func() {
 			l1v.storageTransaction = new(cacheTransaction)
