@@ -1,4 +1,4 @@
-package timing
+package wavefront
 
 import (
 	"github.com/rs/xid"

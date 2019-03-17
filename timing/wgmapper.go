@@ -3,6 +3,7 @@ package timing
 import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 // WGMapper defines the behavior of how a workgroup is mapped in the compute
@@ -14,7 +15,7 @@ import (
 // within a cycle
 type WGMapper interface {
 	MapWG(req *gcn3.MapWGReq) bool
-	UnmapWG(wg *WorkGroup)
+	UnmapWG(wg *wavefront.WorkGroup)
 }
 
 // WGMapperImpl is a sub-component of scheduler. It is responsible for allocate
@@ -227,7 +228,7 @@ func (m *WGMapperImpl) clearTempReservation(req *gcn3.MapWGReq) {
 }
 
 // UnmapWG will remove all the resource reservation of a work-group
-func (m *WGMapperImpl) UnmapWG(wg *WorkGroup) {
+func (m *WGMapperImpl) UnmapWG(wg *wavefront.WorkGroup) {
 	co := wg.CodeObject()
 	for _, wf := range wg.Wfs {
 		m.WfPoolFreeCount[wf.SIMDID]++

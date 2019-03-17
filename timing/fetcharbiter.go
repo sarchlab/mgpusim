@@ -1,7 +1,11 @@
 package timing
 
-import "gitlab.com/akita/akita"
-import "math"
+import (
+	"math"
+
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/timing/wavefront"
+)
 
 // A FetchArbiter can decide which wavefront in a scheduler can fetch
 // instructions
@@ -10,11 +14,13 @@ type FetchArbiter struct {
 }
 
 // Arbitrate decide which wavefront can fetch the next instruction
-func (a *FetchArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
-	list := make([]*Wavefront, 0, 1)
+func (a *FetchArbiter) Arbitrate(
+	wfPools []*WavefrontPool,
+) []*wavefront.Wavefront {
+	list := make([]*wavefront.Wavefront, 0, 1)
 
 	oldestTime := akita.VTimeInSec(math.MaxFloat64)
-	var toFetch *Wavefront
+	var toFetch *wavefront.Wavefront
 	for _, wfPool := range wfPools {
 		for _, wf := range wfPool.wfs {
 			wf.RLock()

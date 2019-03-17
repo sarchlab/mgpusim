@@ -1,4 +1,4 @@
-package timing
+package wavefront
 
 import (
 	"gitlab.com/akita/gcn3"
