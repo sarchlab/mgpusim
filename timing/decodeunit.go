@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 // A DecodeUnit is any type of decode unit that takes one cycle to decode
@@ -11,7 +12,7 @@ type DecodeUnit struct {
 	cu        *ComputeUnit
 	ExecUnits []CUComponent // Execution units, index by SIMD number
 
-	toDecode *Wavefront
+	toDecode *wavefront.Wavefront
 	decoded  bool
 
 	isIdle bool
@@ -44,7 +45,10 @@ func (du *DecodeUnit) IsIdle() bool {
 }
 
 // AcceptWave takes a wavefront and decode the instruction in the next cycle
-func (du *DecodeUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
+func (du *DecodeUnit) AcceptWave(
+	wave *wavefront.Wavefront,
+	now akita.VTimeInSec,
+) {
 	if du.toDecode != nil {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
 	}
@@ -53,7 +57,7 @@ func (du *DecodeUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
 	du.decoded = false
 
 	du.cu.InvokeHook(du.toDecode, du.cu, akita.AnyHookPos,
-		&InstHookInfo{now, du.toDecode.inst, "Decode"})
+		&wavefront.InstHookInfo{now, du.toDecode.DynamicInst(), "Decode"})
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
@@ -72,10 +76,18 @@ func (du *DecodeUnit) Run(now akita.VTimeInSec) bool {
 
 	if du.toDecode != nil && !du.decoded {
 		du.cu.InvokeHook(du.toDecode, du.cu, akita.AnyHookPos,
-			&InstHookInfo{now, du.toDecode.inst, "DecodeDone"})
+			&wavefront.InstHookInfo{
+				now,
+				du.toDecode.DynamicInst(),
+				"DecodeDone",
+			})
 		du.decoded = true
 		return true
 	}
 
 	return false
+}
+
+func (du *DecodeUnit) Flush() {
+	du.toDecode = nil
 }

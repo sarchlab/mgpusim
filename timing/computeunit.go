@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
@@ -37,7 +38,7 @@ type ComputeUnit struct {
 
 	WfPools              []*WavefrontPool
 	WfToDispatch         map[*kernels.Wavefront]*WfDispatchInfo
-	wgToManagedWgMapping map[*kernels.WorkGroup]*WorkGroup
+	wgToManagedWgMapping map[*kernels.WorkGroup]*wavefront.WorkGroup
 
 	InFlightInstFetch       []*InstFetchReqInfo
 	InFlightScalarMemAccess []*ScalarMemAccessInfo
@@ -74,8 +75,15 @@ type ComputeUnit struct {
 	cpRequestHandlingComplete  bool
 
 	isDraining bool
+	isFlushing bool
+	isPaused   bool
 
-	toSendToCP *gcn3.CUPipelineDrainRsp
+	flushLatency   uint64
+	flushCycleLeft uint64
+
+	toSendToCP akita.Req
+
+	currentFlushReq *gcn3.CUPipelineFlushReq
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -109,6 +117,9 @@ func (cu *ComputeUnit) handleTickEvent(evt akita.TickEvent) {
 	cu.processInput(now)
 	if cu.isDraining {
 		cu.drainPipeline(now)
+	}
+	if cu.isFlushing {
+		cu.flushPipeline(now)
 	}
 	cu.sendToCP(now)
 
@@ -144,10 +155,15 @@ func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
-	cu.processInputFromACE(now)
-	cu.processInputFromInstMem(now)
-	cu.processInputFromScalarMem(now)
-	cu.processInputFromVectorMem(now)
+
+	if !cu.isPaused {
+		cu.processInputFromACE(now)
+		cu.processInputFromInstMem(now)
+		cu.processInputFromScalarMem(now)
+		cu.processInputFromVectorMem(now)
+	}
+	//When pausing we still allow requests from CP so that we can receive the resume command correctly
+
 	cu.processInputFromCP(now)
 }
 
@@ -161,7 +177,6 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
 
 	cu.NeedTick = true
 
-	//TODO: Should there be a fixed draining latency?
 	cu.inCPRequestProcessingStage = req
 
 	switch req := req.(type) {
@@ -169,7 +184,8 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
 		cu.handlePipelineDrainReq(now, req)
 	case *gcn3.CUPipelineRestart:
 		cu.handlePipelineResume(now, req)
-
+	case *gcn3.CUPipelineFlushReq:
+		cu.handlePipelineFlushReq(now, req)
 	}
 }
 
@@ -182,7 +198,19 @@ func (cu *ComputeUnit) handlePipelineDrainReq(
 	//3. If all complete issue CU Pipeline Drain Completion respond
 	cu.isDraining = true
 
-	cu.Scheduler.StartDraining()
+	cu.Scheduler.Pause()
+
+	return nil
+}
+
+func (cu *ComputeUnit) handlePipelineFlushReq(
+	now akita.VTimeInSec,
+	req *gcn3.CUPipelineFlushReq,
+) error {
+
+	cu.isFlushing = true
+	cu.currentFlushReq = req
+	cu.flushCycleLeft = cu.flushLatency
 
 	return nil
 }
@@ -194,7 +222,8 @@ func (cu *ComputeUnit) handlePipelineResume(
 	//1. Issue drain command to scheduler
 	//2. Check all units one by one until all idle
 	//3. If all complete issue CU Pipeline Drain Completion respond
-	cu.Scheduler.StopDraining()
+	cu.Scheduler.Resume()
+	cu.isPaused = false
 	return nil
 
 }
@@ -242,6 +271,52 @@ func (cu *ComputeUnit) drainPipeline(now akita.VTimeInSec) {
 
 }
 
+func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
+
+	if cu.currentFlushReq == nil {
+		return
+	}
+
+	if cu.flushCycleLeft <= 0 {
+
+		cu.flushCUBuffers()
+		cu.Scheduler.Flush()
+
+		cu.flushInternalComponents()
+
+		cu.currentFlushReq = nil
+
+		respondToCP := gcn3.NewCUPipelineFlushRsp(now, cu.ToCP, cu.CP)
+		cu.toSendToCP = respondToCP
+
+		cu.isFlushing = false
+		cu.isPaused = true
+
+	}
+
+	cu.flushCycleLeft--
+	cu.NeedTick = true
+}
+
+func (cu *ComputeUnit) flushInternalComponents() {
+
+	cu.BranchUnit.Flush()
+
+	cu.ScalarUnit.Flush()
+	cu.ScalarDecoder.Flush()
+
+	for _, simdUnit := range cu.SIMDUnit {
+		simdUnit.Flush()
+	}
+
+	cu.VectorDecoder.Flush()
+	cu.LDSUnit.Flush()
+	cu.LDSDecoder.Flush()
+	cu.VectorMemDecoder.Flush()
+	cu.VectorMemUnit.Flush()
+
+}
+
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
 	req := cu.ToACE.Retrieve(now)
 	if req == nil {
@@ -266,12 +341,12 @@ func (cu *ComputeUnit) handleMapWGReq(
 		ok = cu.WGMapper.MapWG(req)
 	}
 
-	wfs := make([]*Wavefront, 0)
+	wfs := make([]*wavefront.Wavefront, 0)
 	if ok {
 		cu.wrapWG(req.WG, req)
 		for _, wf := range req.WG.Wavefronts {
 			managedWf := cu.wrapWf(wf)
-			managedWf.pid = req.PID
+			managedWf.SetPID(req.PID)
 			wfs = append(wfs, managedWf)
 		}
 
@@ -319,7 +394,7 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 		cu.WfDispatcher.DispatchWf(now, wf)
 		delete(cu.WfToDispatch, wf.Wavefront)
 
-		wf.State = WfReady
+		wf.State = wavefront.WfReady
 
 		cu.InvokeHook(wf, cu, HookPosWfStart, &CUHookInfo{
 			Now: evt.Time(),
@@ -348,7 +423,7 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	wf := evt.Wf
 	wg := wf.WG
-	wf.State = WfCompleted
+	wf.State = wavefront.WfCompleted
 
 	cu.InvokeHook(wf, cu, HookPosWfEnd, &CUHookInfo{
 		Now: evt.Time(),
@@ -375,7 +450,7 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	return nil
 }
 
-func (cu *ComputeUnit) clearWGResource(wg *WorkGroup) {
+func (cu *ComputeUnit) clearWGResource(wg *wavefront.WorkGroup) {
 	cu.WGMapper.UnmapWG(wg)
 	for _, wf := range wg.Wfs {
 		wfPool := cu.WfPools[wf.SIMDID]
@@ -383,9 +458,9 @@ func (cu *ComputeUnit) clearWGResource(wg *WorkGroup) {
 	}
 }
 
-func (cu *ComputeUnit) isAllWfInWGCompleted(wg *WorkGroup) bool {
+func (cu *ComputeUnit) isAllWfInWGCompleted(wg *wavefront.WorkGroup) bool {
 	for _, wf := range wg.Wfs {
-		if wf.State != WfCompleted {
+		if wf.State != wavefront.WfCompleted {
 			return false
 		}
 	}
@@ -394,7 +469,7 @@ func (cu *ComputeUnit) isAllWfInWGCompleted(wg *WorkGroup) bool {
 
 func (cu *ComputeUnit) sendWGCompletionMessage(
 	evt *WfCompletionEvent,
-	wg *WorkGroup,
+	wg *wavefront.WorkGroup,
 ) bool {
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
@@ -422,8 +497,8 @@ func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 func (cu *ComputeUnit) wrapWG(
 	raw *kernels.WorkGroup,
 	req *gcn3.MapWGReq,
-) *WorkGroup {
-	wg := NewWorkGroup(raw, req)
+) *wavefront.WorkGroup {
+	wg := wavefront.NewWorkGroup(raw, req)
 
 	lds := make([]byte, wg.CodeObject().WGGroupSegmentByteSize)
 	wg.LDS = lds
@@ -432,8 +507,8 @@ func (cu *ComputeUnit) wrapWG(
 	return wg
 }
 
-func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *Wavefront {
-	wf := NewWavefront(raw)
+func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *wavefront.Wavefront {
+	wf := wavefront.NewWavefront(raw)
 	wg := cu.wgToManagedWgMapping[raw.WG]
 	wg.Wfs = append(wg.Wfs, wf)
 	wf.WG = wg
@@ -521,7 +596,8 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	wf.OutstandingScalarMemAccess--
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
-	cu.InvokeHook(wf, cu, akita.AnyHookPos, &InstHookInfo{now, info.Inst, "Completed"})
+	cu.InvokeHook(wf, cu, akita.AnyHookPos,
+		&wavefront.InstHookInfo{now, info.Inst, "Completed"})
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
@@ -582,7 +658,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 			wf.OutstandingScalarMemAccess--
 		}
 		cu.InvokeHook(wf, cu, akita.AnyHookPos,
-			&InstHookInfo{now, info.Inst, "Completed"})
+			&wavefront.InstHookInfo{now, info.Inst, "Completed"})
 	}
 }
 
@@ -600,25 +676,32 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.D
 			wf.OutstandingScalarMemAccess--
 		}
 		cu.InvokeHook(wf, cu, akita.AnyHookPos,
-			&InstHookInfo{now, info.Inst, "Completed"})
+			&wavefront.InstHookInfo{now, info.Inst, "Completed"})
 	}
 }
 
-func (cu *ComputeUnit) UpdatePCAndSetReady(wf *Wavefront) {
+func (cu *ComputeUnit) UpdatePCAndSetReady(wf *wavefront.Wavefront) {
 
-	wf.State = WfReady
-	wf.PC += uint64(wf.inst.ByteSize)
+	wf.State = wavefront.WfReady
+	wf.PC += uint64(wf.Inst().ByteSize)
 	cu.removeStaleInstBuffer(wf)
 
 }
 
-func (cu *ComputeUnit) removeStaleInstBuffer(wf *Wavefront) {
+func (cu *ComputeUnit) removeStaleInstBuffer(wf *wavefront.Wavefront) {
 	if len(wf.InstBuffer) != 0 {
 		for wf.PC >= wf.InstBufferStartPC+64 {
 			wf.InstBuffer = wf.InstBuffer[64:]
 			wf.InstBufferStartPC += 64
 		}
 	}
+}
+
+func (cu *ComputeUnit) flushCUBuffers() {
+	cu.InFlightInstFetch = nil
+	cu.InFlightScalarMemAccess = nil
+	cu.InFlightVectorMemAccess = nil
+
 }
 
 // NewComputeUnit returns a newly constructed compute unit
@@ -631,7 +714,7 @@ func NewComputeUnit(
 		name, engine, 1*akita.GHz, cu)
 
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
-	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*WorkGroup)
+	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*wavefront.WorkGroup)
 
 	cu.ToACE = akita.NewLimitNumReqPort(cu, 1)
 	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 1)
@@ -640,6 +723,8 @@ func NewComputeUnit(
 
 	cu.ToCP = akita.NewLimitNumReqPort(cu, 1)
 	cu.CP = akita.NewLimitNumReqPort(cu, 1)
+
+	cu.flushLatency = 1000
 
 	return cu
 }
