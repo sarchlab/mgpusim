@@ -14,6 +14,9 @@ This repository contains the code for GCN3 Model for Akita.
 1. GCN3 Model
 
     1. Driver
+
+        1. [Distribute Memory to Mutliple GPUs](driver/distribute_memory_to_multiple_gpus.md)
+
     1. Command Processor
     1. ACE
     1. DMA
