@@ -1,5 +1,7 @@
 package timing
 
+import "gitlab.com/akita/gcn3/timing/wavefront"
+
 // An IssueArbiter decides which wavefront can issue instruction
 type IssueArbiter struct {
 	lastSIMDID int
@@ -14,9 +16,11 @@ func NewIssueArbiter() *IssueArbiter {
 
 // Arbitrate will take a round-robin fashion at SIMD level. For wavefronts
 // in each SIMD, oldest first.
-func (a *IssueArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
+func (a *IssueArbiter) Arbitrate(
+	wfPools []*WavefrontPool,
+) []*wavefront.Wavefront {
 	if a.isAllWfPoolsEmpty(wfPools) {
-		return []*Wavefront{}
+		return []*wavefront.Wavefront{}
 	}
 
 	a.moveToNextSIMD(wfPools)
@@ -26,9 +30,9 @@ func (a *IssueArbiter) Arbitrate(wfPools []*WavefrontPool) []*Wavefront {
 
 	typeMask := make([]bool, 7)
 	wfPool := wfPools[a.lastSIMDID]
-	list := make([]*Wavefront, 0)
+	list := make([]*wavefront.Wavefront, 0)
 	for _, wf := range wfPool.wfs {
-		if wf.State != WfReady || wf.InstToIssue == nil {
+		if wf.State != wavefront.WfReady || wf.InstToIssue == nil {
 			continue
 		}
 
