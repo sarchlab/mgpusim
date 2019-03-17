@@ -338,7 +338,9 @@ var _ = ginkgo.Describe("Driver", func() {
 		allocatedBytes := driver.Distribute(context,
 			uint64(ptr), byteSize, []int{1, 2, 3})
 		Expect(allocatedBytes).To(Equal([]uint64{8192, 8192, 12288}))
+	})
 
+	ginkgo.It("should distribute 2.5 pages to 3 GPUs", func() {
 	})
 
 	ginkgo.It("should allocate memory with alignment", func() {
