@@ -20,8 +20,9 @@ type BitonicKernelArgs struct {
 }
 
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
+	gpusToUse []int
+	driver    *driver.Driver
+	context   *driver.Context
 
 	hsaco *insts.HsaCo
 
@@ -34,6 +35,7 @@ type Benchmark struct {
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
+	b.gpusToUse = []int{1}
 	b.driver = driver
 	b.context = driver.Init()
 	b.loadProgram()
@@ -52,8 +54,8 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-func (b *Benchmark) SelectGPU(gpuID int) {
-	b.driver.SelectGPU(b.context, gpuID)
+func (b *Benchmark) SelectGPUs(gpuIDs []int) {
+	b.gpusToUse = gpuIDs
 }
 
 func (b *Benchmark) Run() {
@@ -62,11 +64,13 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
-
 	b.inputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
 		b.inputData[i] = rand.Uint32()
+	}
+
+	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	for _, gpuID := range b.gpusToUse {
 	}
 
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)

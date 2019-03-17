@@ -130,6 +130,37 @@ func (d *Driver) remapPage(
 	}
 }
 
+// Distribute remaps the pages represented by ptr and byteSize to multiple
+// GPUs in the most approporiate way. The data must be currently in the
+// GPU indexed by the first id in the gpuIDs array.
+func (d *Driver) Distribute(
+	c *Context,
+	ptr, byteSize uint64,
+	gpuIDs []int,
+) (
+	byteAllocatedOnEachGPU []uint64,
+) {
+	byteAllocatedOnEachGPU = make([]uint64, len(gpuIDs))
+
+	pageSize := uint64(1 << d.PageSizeAsPowerOf2)
+	numPages := byteSize / pageSize
+
+	if byteSize < pageSize {
+		byteAllocatedOnEachGPU[0] = byteSize
+		return
+	}
+
+	if numPages%uint64(len(gpuIDs)) == 0 {
+		pagePerGPU := numPages / uint64(len(gpuIDs))
+		for i, gpuID := range gpuIDs {
+			d.Remap(c, ptr+uint64(i)*pagePerGPU*pageSize, pagePerGPU*pageSize, gpuID)
+			byteAllocatedOnEachGPU[i] = pagePerGPU * pageSize
+		}
+	}
+
+	return
+}
+
 func (d *Driver) allocateLarge(c *Context, byteSize uint64) GPUPtr {
 	gpuID := c.currentGPUID
 	pageSize := uint64(1 << d.PageSizeAsPowerOf2)
