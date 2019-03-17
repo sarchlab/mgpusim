@@ -145,7 +145,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		Expect(allocatedBytes).To(Equal([]uint64{1024, 0, 0}))
 	})
 
-	ginkgo.It("should distribute memoryo when the request size aligns with pages", func() {
+	ginkgo.It("should distribute memory when the request size aligns with pages", func() {
 		driver.storageSizes = []uint64{
 			0x10000000000,
 			0x10000000000,
@@ -180,14 +180,10 @@ var _ = ginkgo.Describe("Driver", func() {
 			mmu.EXPECT().
 				Translate(vm.PID(1), uint64(0x100000000+4096*i)).
 				Return(pages[i].PAddr, pages[i])
+
+			mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100000000+4096*i))
 		}
 
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100000000))
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100001000))
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100002000))
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100003000))
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100004000))
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100005000))
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
@@ -240,6 +236,108 @@ var _ = ginkgo.Describe("Driver", func() {
 		allocatedBytes := driver.Distribute(context,
 			uint64(ptr), byteSize, []int{1, 2, 3})
 		Expect(allocatedBytes).To(Equal([]uint64{8192, 8192, 8192}))
+
+	})
+
+	ginkgo.It("should distribute the remaining pages to the last GPU", func() {
+		driver.storageSizes = []uint64{
+			0x10000000000,
+			0x10000000000,
+			0x10000000000,
+			0x10000000000,
+		}
+		driver.initialAddresses = []uint64{
+			0x0,
+			0x10000000000,
+			0x20000000000,
+			0x30000000000,
+		}
+		driver.allocatedPages = make([][]*vm.Page, 4)
+
+		byteSize := uint64(4096 * 7)
+		pages := []*vm.Page{}
+
+		for i := 0; i < 7; i++ {
+			page := &vm.Page{
+				PID:      1,
+				PAddr:    uint64(4096 * i),
+				VAddr:    0x100000000 + uint64(4096*i),
+				PageSize: 4096,
+				Valid:    true,
+			}
+			pages = append(pages, page)
+			mmu.EXPECT().CreatePage(page)
+		}
+		ptr := driver.AllocateMemory(context, byteSize)
+
+		for i := 0; i < 7; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(0x100000000+4096*i)).
+				Return(pages[i].PAddr, pages[i])
+
+			mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100000000+4096*i))
+		}
+
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x10000000000,
+				VAddr:    0x100000000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x10000001000,
+				VAddr:    0x100001000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x20000000000,
+				VAddr:    0x100002000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x20000001000,
+				VAddr:    0x100003000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x30000000000,
+				VAddr:    0x100004000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x30000001000,
+				VAddr:    0x100005000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x30000002000,
+				VAddr:    0x100006000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+
+		allocatedBytes := driver.Distribute(context,
+			uint64(ptr), byteSize, []int{1, 2, 3})
+		Expect(allocatedBytes).To(Equal([]uint64{8192, 8192, 12288}))
 
 	})
 

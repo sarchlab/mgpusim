@@ -150,11 +150,26 @@ func (d *Driver) Distribute(
 		return
 	}
 
-	if numPages%uint64(len(gpuIDs)) == 0 {
-		pagePerGPU := numPages / uint64(len(gpuIDs))
-		for i, gpuID := range gpuIDs {
-			d.Remap(c, ptr+uint64(i)*pagePerGPU*pageSize, pagePerGPU*pageSize, gpuID)
+	pagePerGPU := numPages / uint64(len(gpuIDs))
+	numRemappedPages := uint64(0)
+	for i, gpuID := range gpuIDs {
+		if i == len(gpuIDs)-1 {
+			remainderPageNum := numPages % uint64(len(gpuIDs))
+			d.Remap(c,
+				ptr+numRemappedPages*pageSize,
+				(pagePerGPU+remainderPageNum)*pageSize,
+				gpuID,
+			)
+			byteAllocatedOnEachGPU[i] = (pagePerGPU + remainderPageNum) * pageSize
+			numRemappedPages += pagePerGPU + remainderPageNum
+		} else {
+			d.Remap(c,
+				ptr+numRemappedPages*pageSize,
+				pagePerGPU*pageSize,
+				gpuID,
+			)
 			byteAllocatedOnEachGPU[i] = pagePerGPU * pageSize
+			numRemappedPages += pagePerGPU
 		}
 	}
 
