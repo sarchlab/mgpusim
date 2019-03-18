@@ -1,6 +1,7 @@
 package bitonicsort
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 
@@ -134,6 +135,10 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]uint32, b.Length)
 	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInputData)
+
+	for i := 0; i < b.Length; i++ {
+		fmt.Printf("[%d]: %d\n", i, gpuOutput[i])
+	}
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {
