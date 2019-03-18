@@ -15,7 +15,7 @@ func (d *Driver) Init() *Context {
 
 	c := &Context{
 		pid:          vm.PID(nextPID),
-		currentGPUID: 0,
+		currentGPUID: 1,
 	}
 
 	d.contextMutex.Lock()
@@ -33,7 +33,7 @@ func (d *Driver) GetNumGPUs() int {
 // SelectGPU requires the driver to perform the following APIs on a selected
 // GPU
 func (d *Driver) SelectGPU(c *Context, gpuID int) {
-	if gpuID >= len(d.GPUs) {
+	if gpuID >= len(d.GPUs)+1 {
 		log.Panicf("GPU %d is not available", gpuID)
 	}
 	c.currentGPUID = gpuID
