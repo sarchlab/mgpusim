@@ -147,44 +147,37 @@ func (d *Driver) Distribute(
 
 	remainingBytes := byteSize % pageSize
 	if remainingBytes != 0 {
-		numPages += 1
+		numPages++
 	}
 
 	numGPUs := uint64(len(gpuIDs))
 	numPagesPerGPU := numPages / numGPUs
-	numGPUsToUse := numPages / numPagesPerGPU
+	numGPUsToUse := uint64(0)
+	if numPagesPerGPU > 0 {
+		numGPUsToUse = numPages / numPagesPerGPU
+	}
 	remainingPages := numPages % numGPUs
 
-	// pageSize := uint64(1 << d.PageSizeAsPowerOf2)
-	// numPages := byteSize / pageSize
+	var i uint64
+	var lastAllocatedGPU uint64
+	for i = 0; i < numGPUsToUse; i++ {
+		d.Remap(c,
+			ptr+i*numPagesPerGPU*pageSize,
+			numPagesPerGPU*pageSize,
+			gpuIDs[i],
+		)
+		byteAllocatedOnEachGPU[i] += numPagesPerGPU * pageSize
+		lastAllocatedGPU = i
+	}
 
-	// if byteSize < pageSize {
-	// 	byteAllocatedOnEachGPU[0] = byteSize
-	// 	return
-	// }
-
-	// pagePerGPU := numPages / uint64(len(gpuIDs))
-	// numRemappedPages := uint64(0)
-	// for i, gpuID := range gpuIDs {
-	// 	if i == len(gpuIDs)-1 {
-	// 		remainderPageNum := numPages % uint64(len(gpuIDs))
-	// 		d.Remap(c,
-	// 			ptr+numRemappedPages*pageSize,
-	// 			(pagePerGPU+remainderPageNum)*pageSize,
-	// 			gpuID,
-	// 		)
-	// 		byteAllocatedOnEachGPU[i] = (pagePerGPU + remainderPageNum) * pageSize
-	// 		numRemappedPages += pagePerGPU + remainderPageNum
-	// 	} else {
-	// 		d.Remap(c,
-	// 			ptr+numRemappedPages*pageSize,
-	// 			pagePerGPU*pageSize,
-	// 			gpuID,
-	// 		)
-	// 		byteAllocatedOnEachGPU[i] = pagePerGPU * pageSize
-	// 		numRemappedPages += pagePerGPU
-	// 	}
-	// }
+	if remainingPages > 0 {
+		d.Remap(c,
+			ptr+numPagesPerGPU*numGPUsToUse*pageSize,
+			remainingPages*pageSize,
+			gpuIDs[lastAllocatedGPU],
+		)
+		byteAllocatedOnEachGPU[lastAllocatedGPU] += remainingPages * pageSize
+	}
 
 	return
 }

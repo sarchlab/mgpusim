@@ -129,20 +129,48 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should distribute memory when page size is less than a page", func() {
+		driver.storageSizes = []uint64{
+			0x10000000000,
+			0x10000000000,
+			0x10000000000,
+			0x10000000000,
+		}
+		driver.initialAddresses = []uint64{
+			0x0,
+			0x10000000000,
+			0x20000000000,
+			0x30000000000,
+		}
+		driver.allocatedPages = make([][]*vm.Page, 4)
+
 		byteSize := uint64(1024)
 
+		page := &vm.Page{
+			PID:      1,
+			PAddr:    0x0,
+			VAddr:    0x100000000,
+			PageSize: 4096,
+			Valid:    true,
+		}
+		mmu.EXPECT().CreatePage(page)
+		ptr := driver.AllocateMemory(context, byteSize)
+
+		mmu.EXPECT().
+			Translate(vm.PID(1), uint64(0x100000000)).
+			Return(uint64(0), page)
+		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100000000))
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0,
+				PAddr:    0x10000000000,
 				VAddr:    0x100000000,
 				PageSize: 4096,
 				Valid:    true,
 			})
-		ptr := driver.AllocateMemory(context, byteSize)
 
-		allocatedBytes := driver.Distribute(context, uint64(ptr), byteSize, []int{1, 2, 3})
-		Expect(allocatedBytes).To(Equal([]uint64{1024, 0, 0}))
+		allocatedBytes := driver.Distribute(
+			context, uint64(ptr), byteSize, []int{1, 2, 3})
+		Expect(allocatedBytes).To(Equal([]uint64{4096, 0, 0}))
 	})
 
 	ginkgo.It("should distribute memory when the request size aligns with pages", func() {
@@ -398,7 +426,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0x20000001000,
+				PAddr:    0x30000000000,
 				VAddr:    0x100002000,
 				PageSize: 4096,
 				Valid:    true,
@@ -406,7 +434,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		allocatedBytes := driver.Distribute(context,
 			uint64(ptr), byteSize, []int{1, 2, 3})
-		Expect(allocatedBytes).To(Equal([]uint64{4096, 4096 + 2048, 0}))
+		Expect(allocatedBytes).To(Equal([]uint64{4096, 4096, 4096}))
 	})
 
 	ginkgo.It("should allocate memory with alignment", func() {
