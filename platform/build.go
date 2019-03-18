@@ -58,53 +58,6 @@ func BuildEmuPlatform() (
 	return engine, gpu, gpuDriver, globalMem
 }
 
-//BuildR9NanoPlatform creates a platform that equips with a R9Nano GPU
-func BuildR9NanoPlatform() (
-	akita.Engine,
-	*gcn3.GPU,
-	*driver.Driver,
-) {
-	var engine akita.Engine
-
-	if UseParallelEngine {
-		engine = akita.NewParallelEngine()
-	} else {
-		engine = akita.NewSerialEngine()
-	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
-
-	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
-	gpuDriver := driver.NewDriver(engine, mmu)
-	connection := akita.NewDirectConnection(engine)
-
-	gpuBuilder := gpubuilder.R9NanoGPUBuilder{
-		GPUName:           "GPU",
-		Engine:            engine,
-		Driver:            gpuDriver,
-		EnableISADebug:    DebugISA,
-		EnableMemTracing:  TraceMem,
-		EnableInstTracing: TraceVis,
-		MMU:               mmu,
-		ExternalConn:      connection,
-	}
-
-	if TraceVis {
-		tracer := &trace.Tracer{}
-		tracer.Init()
-		gpuBuilder.Tracer = tracer
-	}
-
-	gpu := gpuBuilder.Build()
-	gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-
-	connection.PlugIn(gpuDriver.ToGPUs)
-	connection.PlugIn(gpu.ToDriver)
-	connection.PlugIn(mmu.ToTop)
-	gpu.Driver = gpuDriver.ToGPUs
-
-	return engine, gpu, gpuDriver
-}
-
 //BuildNR9NanoPlatform creates a platform that equips with several R9Nano GPUs
 func BuildNR9NanoPlatform(
 	numGPUs int,
@@ -119,7 +72,7 @@ func BuildNR9NanoPlatform(
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	mmu.Latency = 100
@@ -156,7 +109,8 @@ func BuildNR9NanoPlatform(
 
 	rdmaAddressTable := new(cache.BankedLowModuleFinder)
 	rdmaAddressTable.BankSize = 4 * mem.GB
-	for i := 0; i < numGPUs; i++ {
+	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
+	for i := 1; i < numGPUs+1; i++ {
 		gpuBuilder.GPUName = fmt.Sprintf("GPU_%d", i)
 		gpuBuilder.GPUMemAddrOffset = uint64(i) * 4 * mem.GB
 		gpu := gpuBuilder.Build()
