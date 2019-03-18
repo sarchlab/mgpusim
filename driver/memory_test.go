@@ -341,6 +341,72 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should distribute 2.5 pages to 3 GPUs", func() {
+		driver.storageSizes = []uint64{
+			0x10000000000,
+			0x10000000000,
+			0x10000000000,
+			0x10000000000,
+		}
+		driver.initialAddresses = []uint64{
+			0x0,
+			0x10000000000,
+			0x20000000000,
+			0x30000000000,
+		}
+		driver.allocatedPages = make([][]*vm.Page, 4)
+
+		byteSize := uint64(4096*2 + 2048)
+		pages := []*vm.Page{}
+
+		for i := 0; i < 3; i++ {
+			page := &vm.Page{
+				PID:      1,
+				PAddr:    uint64(4096 * i),
+				VAddr:    0x100000000 + uint64(4096*i),
+				PageSize: 4096,
+				Valid:    true,
+			}
+			pages = append(pages, page)
+			mmu.EXPECT().CreatePage(page)
+		}
+		ptr := driver.AllocateMemory(context, byteSize)
+
+		for i := 0; i < 3; i++ {
+			mmu.EXPECT().
+				Translate(vm.PID(1), uint64(0x100000000+4096*i)).
+				Return(pages[i].PAddr, pages[i])
+
+			mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100000000+4096*i))
+		}
+
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x10000000000,
+				VAddr:    0x100000000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x20000000000,
+				VAddr:    0x100001000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x20000001000,
+				VAddr:    0x100002000,
+				PageSize: 4096,
+				Valid:    true,
+			})
+
+		allocatedBytes := driver.Distribute(context,
+			uint64(ptr), byteSize, []int{1, 2, 3})
+		Expect(allocatedBytes).To(Equal([]uint64{4096, 4096 + 2048, 0}))
 	})
 
 	ginkgo.It("should allocate memory with alignment", func() {
