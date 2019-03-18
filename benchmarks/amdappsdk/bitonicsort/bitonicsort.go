@@ -54,7 +54,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-func (b *Benchmark) SelectGPUs(gpuIDs []int) {
+func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpusToUse = gpuIDs
 }
 
@@ -70,8 +70,10 @@ func (b *Benchmark) initMem() {
 	}
 
 	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
-	for _, gpuID := range b.gpusToUse {
-	}
+	b.driver.Distribute(
+		b.context,
+		uint64(b.gInputData), uint64(b.Length*4),
+		b.gpusToUse)
 
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
 }
@@ -88,7 +90,7 @@ func (b *Benchmark) exec() {
 		direction = 0
 	}
 
-	for stage := 0; stage < numStages; stage += 1 {
+	for stage := 0; stage < numStages; stage++ {
 		for passOfStage := 0; passOfStage < stage+1; passOfStage++ {
 			kernArg := BitonicKernelArgs{
 				b.gInputData,
@@ -103,7 +105,6 @@ func (b *Benchmark) exec() {
 				[3]uint16{256, 1, 1},
 				&kernArg)
 		}
-
 	}
 }
 

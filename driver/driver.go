@@ -83,7 +83,6 @@ func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 	d.GPUs = append(d.GPUs, gpu)
 
 	d.registerStorage(GPUPtr(d.totalStorageByteSize), dramSize)
-	d.totalStorageByteSize += dramSize
 }
 
 // Handle process event that is scheduled on the driver
@@ -223,7 +222,7 @@ func (d *Driver) processMemCopyH2DCommand(
 
 		gpuID := d.findGPUIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyH2DReq(now,
-			d.ToGPUs, d.GPUs[gpuID].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID-1].ToDriver,
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -309,7 +308,7 @@ func (d *Driver) processMemCopyD2HCommand(
 
 		gpuID := d.findGPUIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyD2HReq(now,
-			d.ToGPUs, d.GPUs[gpuID].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID-1].ToDriver,
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
 		d.requestsToSend = append(d.requestsToSend, req)
@@ -386,7 +385,7 @@ func (d *Driver) processLaunchKernelCommand(
 	queue *CommandQueue,
 ) {
 	req := gcn3.NewLaunchKernelReq(now,
-		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
+		d.ToGPUs, d.GPUs[queue.GPUID-1].ToDriver)
 	req.PID = queue.Context.pid
 	req.HsaCo = cmd.CodeObject
 
@@ -444,7 +443,7 @@ func (d *Driver) processFlushCommand(
 	queue *CommandQueue,
 ) {
 	req := gcn3.NewFlushCommand(now,
-		d.ToGPUs, d.GPUs[queue.GPUID].ToDriver)
+		d.ToGPUs, d.GPUs[queue.GPUID-1].ToDriver)
 
 	d.requestsToSend = append(d.requestsToSend, req)
 
@@ -526,6 +525,10 @@ func (d *Driver) findGPUIDByPAddr(pAddr uint64) int {
 	panic("never")
 }
 
+func (d *Driver) reserveMemoryForCPU() {
+	d.registerStorage(0, 1<<32)
+}
+
 // NewDriver creates a new driver
 func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver := new(Driver)
@@ -539,6 +542,8 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)
+
+	driver.reserveMemoryForCPU()
 
 	return driver
 }
