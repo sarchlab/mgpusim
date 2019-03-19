@@ -19,11 +19,12 @@ import (
 
 // EmuGPUBuilder provide services to assemble usable GPUs
 type EmuGPUBuilder struct {
-	engine  akita.Engine
-	freq    akita.Freq
-	Driver  *driver.Driver
-	GPUName string
-	MMU     vm.MMU
+	engine           akita.Engine
+	freq             akita.Freq
+	Driver           *driver.Driver
+	GPUName          string
+	MMU              vm.MMU
+	GPUMemAddrOffset uint64
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -60,9 +61,17 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 		memTracer = memtraces.NewTracer(file)
 	}
 
-	gpuMem := mem.NewIdealMemController(b.GPUName+".GlobalMem", b.engine, 4*mem.GB)
+	gpuMem := mem.NewIdealMemController(
+		b.GPUName+".GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = 1 * akita.GHz
 	gpuMem.Latency = 1
+	addrConverter := mem.InterleavingConverter{
+		InterleavingSize:    4 * mem.GB,
+		TotalNumOfElements:  1,
+		CurrentElementIndex: 0,
+		Offset:              b.GPUMemAddrOffset,
+	}
+	gpuMem.AddressConverter = addrConverter
 	if b.EnableMemTracing {
 		gpuMem.AcceptHook(memTracer)
 	}
@@ -72,7 +81,7 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 	for i := 0; i < 4; i++ {
 		computeUnit := emu.BuildComputeUnit(
 			fmt.Sprintf("%s.CU%d", b.GPUName, i),
-			b.engine, disassembler, b.MMU, gpuMem.Storage)
+			b.engine, disassembler, b.MMU, gpuMem.Storage, &addrConverter)
 
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)

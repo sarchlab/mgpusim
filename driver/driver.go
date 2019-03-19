@@ -516,7 +516,7 @@ func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
 }
 
 func (d *Driver) findGPUIDByPAddr(pAddr uint64) int {
-	for i := range d.GPUs {
+	for i := range d.initialAddresses {
 		if pAddr >= d.initialAddresses[i] &&
 			pAddr < d.initialAddresses[i]+d.storageSizes[i] {
 			return i
