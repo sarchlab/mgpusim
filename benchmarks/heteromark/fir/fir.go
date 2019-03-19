@@ -27,12 +27,13 @@ type Benchmark struct {
 	context *driver.Context
 	queue   *driver.CommandQueue
 	hsaco   *insts.HsaCo
+	gpus    []int
 
 	Length       int
 	numTaps      int
 	inputData    []float32
 	filterData   []float32
-	gFilterData  driver.GPUPtr
+	gFilterData  []driver.GPUPtr
 	gHistoryData driver.GPUPtr
 	gInputData   driver.GPUPtr
 	gOutputData  driver.GPUPtr
@@ -54,8 +55,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
-func (b *Benchmark) SelectGPU(gpuID int) {
-	b.driver.SelectGPU(b.context, gpuID)
+func (b *Benchmark) SelectGPU(gpus []int) {
+	b.gpus = gpus
 }
 
 func (b *Benchmark) Run() {
@@ -65,10 +66,6 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	b.numTaps = 16
-	b.gFilterData = b.driver.AllocateMemory(b.context, uint64(b.numTaps*4))
-	b.gHistoryData = b.driver.AllocateMemory(b.context, uint64(b.numTaps*4))
-	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
-	b.gOutputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 
 	b.filterData = make([]float32, b.numTaps)
 	for i := 0; i < b.numTaps; i++ {
@@ -80,29 +77,54 @@ func (b *Benchmark) initMem() {
 		b.inputData[i] = float32(i)
 	}
 
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gFilterData, b.filterData)
-	b.driver.EnqueueMemCopyH2D(b.queue, b.gInputData, b.inputData)
+	b.gFilterData = make([]driver.GPUPtr, len(b.gpus))
+	b.gHistoryData = b.driver.AllocateMemory(b.context, uint64(b.numTaps*4))
+	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	b.driver.Distribute(b.context,
+		uint64(b.gInputData), uint64(b.Length*4), b.gpus)
+	b.gOutputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	b.driver.Distribute(b.context,
+		uint64(b.gOutputData), uint64(b.Length*4), b.gpus)
+	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
+
+	for i, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		b.gFilterData[i] = b.driver.AllocateMemory(
+			b.context, uint64(b.numTaps*4))
+		b.driver.MemCopyH2D(b.context, b.gFilterData[i], b.filterData)
+	}
+
 }
 
 func (b *Benchmark) exec() {
-	kernArg := KernelArgs{
-		b.gOutputData,
-		b.gFilterData,
-		b.gInputData,
-		b.gHistoryData,
-		uint32(b.numTaps),
-		0,
-		0, 0, 0,
+	queues := make([]*driver.CommandQueue, len(b.gpus))
+	numWi := b.Length
+
+	for i, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		queues[i] = b.driver.CreateCommandQueue(b.context)
+
+		kernArg := KernelArgs{
+			b.gOutputData,
+			b.gFilterData[i],
+			b.gInputData,
+			b.gHistoryData,
+			uint32(b.numTaps),
+			0,
+			int64(i * numWi / len(b.gpus)), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			queues[i],
+			b.hsaco,
+			[3]uint32{uint32(numWi / len(b.gpus)), 1, 1},
+			[3]uint16{256, 1, 1}, &kernArg,
+		)
 	}
 
-	b.driver.EnqueueLaunchKernel(
-		b.queue,
-		b.hsaco,
-		[3]uint32{uint32(b.Length), 1, 1},
-		[3]uint16{256, 1, 1}, &kernArg,
-	)
-
-	b.driver.DrainCommandQueue(b.queue)
+	for i := range b.gpus {
+		b.driver.DrainCommandQueue(queues[i])
+	}
 }
 
 func (b *Benchmark) Verify() {
