@@ -60,9 +60,11 @@ type R9NanoGPUBuilder struct {
 
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
-	b.Freq = 1000 * akita.MHz
-	b.InternalConn = akita.NewDirectConnection(b.Engine)
+	b.reset()
 
+	b.Freq = 1000 * akita.MHz
+
+	b.InternalConn = akita.NewDirectConnection(b.Engine)
 	b.GPU = gcn3.NewGPU(b.GPUName, b.Engine)
 
 	b.buildCP()
@@ -88,7 +90,18 @@ func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
 	}
 
 	return b.GPU
+}
 
+func (b *R9NanoGPUBuilder) reset() {
+	b.L1VCaches = nil
+	b.L1SCaches = nil
+	b.L1ICaches = nil
+	b.L2Caches = nil
+	b.L1VTLBs = nil
+	b.L1STLBs = nil
+	b.L1ITLBs = nil
+	b.L2TLBs = nil
+	b.DRAMs = nil
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
@@ -101,7 +114,6 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	b.GPU.RDMAEngine = b.RDMAEngine
 	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToInside
 	b.InternalConn.PlugIn(b.RDMAEngine.ToInside)
-
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
