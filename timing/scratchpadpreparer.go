@@ -6,11 +6,12 @@ import (
 
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 type ScratchpadPreparer interface {
-	Prepare(instEmuState emu.InstEmuState, wf *Wavefront)
-	Commit(instEmuState emu.InstEmuState, wf *Wavefront)
+	Prepare(instEmuState emu.InstEmuState, wf *wavefront.Wavefront)
+	Commit(instEmuState emu.InstEmuState, wf *wavefront.Wavefront)
 }
 
 // ScratchpadPreparerImpl reads and write registers for the emulator
@@ -29,7 +30,7 @@ func NewScratchpadPreparerImpl(cu *ComputeUnit) *ScratchpadPreparerImpl {
 // Prepare read from the register file and sets the scratchpad layout
 func (p *ScratchpadPreparerImpl) Prepare(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	p.clear(instEmuState.Scratchpad())
 	inst := instEmuState.Inst()
@@ -67,7 +68,7 @@ func (p *ScratchpadPreparerImpl) Prepare(
 
 func (p *ScratchpadPreparerImpl) prepareSOP1(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
@@ -80,7 +81,7 @@ func (p *ScratchpadPreparerImpl) prepareSOP1(
 
 func (p *ScratchpadPreparerImpl) prepareSOP2(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
@@ -94,7 +95,7 @@ func (p *ScratchpadPreparerImpl) prepareSOP2(
 
 func (p *ScratchpadPreparerImpl) prepareVOP1(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -112,7 +113,7 @@ func (p *ScratchpadPreparerImpl) prepareVOP1(
 
 func (p *ScratchpadPreparerImpl) prepareVOP2(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -136,7 +137,7 @@ func (p *ScratchpadPreparerImpl) prepareVOP2(
 
 func (p *ScratchpadPreparerImpl) prepareVOP3a(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -162,7 +163,7 @@ func (p *ScratchpadPreparerImpl) prepareVOP3a(
 
 func (p *ScratchpadPreparerImpl) prepareVOP3b(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -188,7 +189,7 @@ func (p *ScratchpadPreparerImpl) prepareVOP3b(
 
 func (p *ScratchpadPreparerImpl) prepareVOPC(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -207,7 +208,7 @@ func (p *ScratchpadPreparerImpl) prepareVOPC(
 }
 
 func (p *ScratchpadPreparerImpl) prepareFlat(
-	instEmuState emu.InstEmuState, wf *Wavefront,
+	instEmuState emu.InstEmuState, wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -223,7 +224,7 @@ func (p *ScratchpadPreparerImpl) prepareFlat(
 
 func (p *ScratchpadPreparerImpl) prepareSMEM(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -238,7 +239,7 @@ func (p *ScratchpadPreparerImpl) prepareSMEM(
 
 func (p *ScratchpadPreparerImpl) prepareSOPP(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
@@ -253,7 +254,7 @@ func (p *ScratchpadPreparerImpl) prepareSOPP(
 
 func (p *ScratchpadPreparerImpl) prepareSOPK(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
@@ -265,7 +266,7 @@ func (p *ScratchpadPreparerImpl) prepareSOPK(
 
 func (p *ScratchpadPreparerImpl) prepareSOPC(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchPad := instEmuState.Scratchpad()
@@ -276,7 +277,7 @@ func (p *ScratchpadPreparerImpl) prepareSOPC(
 
 func (p *ScratchpadPreparerImpl) prepareDS(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -307,7 +308,7 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 // Commit write to the register file according to the scratchpad layout
 func (p *ScratchpadPreparerImpl) Commit(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	switch inst.FormatType {
@@ -344,7 +345,7 @@ func (p *ScratchpadPreparerImpl) Commit(
 
 func (p *ScratchpadPreparerImpl) commitSOP1(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -357,7 +358,7 @@ func (p *ScratchpadPreparerImpl) commitSOP1(
 
 func (p *ScratchpadPreparerImpl) commitSOP2(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -368,7 +369,7 @@ func (p *ScratchpadPreparerImpl) commitSOP2(
 
 func (p *ScratchpadPreparerImpl) commitVOP1(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -384,7 +385,7 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 
 func (p *ScratchpadPreparerImpl) commitVOP2(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -400,7 +401,7 @@ func (p *ScratchpadPreparerImpl) commitVOP2(
 
 func (p *ScratchpadPreparerImpl) commitVOP3a(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -416,7 +417,7 @@ func (p *ScratchpadPreparerImpl) commitVOP3a(
 
 func (p *ScratchpadPreparerImpl) commitVOP3b(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -434,7 +435,7 @@ func (p *ScratchpadPreparerImpl) commitVOP3b(
 
 func (p *ScratchpadPreparerImpl) commitVOPC(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	sp := instEmuState.Scratchpad().AsVOPC()
 	wf.VCC = sp.VCC
@@ -443,7 +444,7 @@ func (p *ScratchpadPreparerImpl) commitVOPC(
 
 func (p *ScratchpadPreparerImpl) commitFlat(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -457,7 +458,7 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 
 func (p *ScratchpadPreparerImpl) commitSMEM(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -469,7 +470,7 @@ func (p *ScratchpadPreparerImpl) commitSMEM(
 
 func (p *ScratchpadPreparerImpl) commitSOPK(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
@@ -479,7 +480,7 @@ func (p *ScratchpadPreparerImpl) commitSOPK(
 
 func (p *ScratchpadPreparerImpl) commitSOPC(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	scratchpad := instEmuState.Scratchpad()
 	wf.SCC = scratchpad.AsSOPC().SCC
@@ -487,7 +488,7 @@ func (p *ScratchpadPreparerImpl) commitSOPC(
 
 func (p *ScratchpadPreparerImpl) commitSOPP(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	scratchpad := instEmuState.Scratchpad()
 	wf.PC = scratchpad.AsSOPP().PC
@@ -495,7 +496,7 @@ func (p *ScratchpadPreparerImpl) commitSOPP(
 
 func (p *ScratchpadPreparerImpl) commitDS(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
@@ -510,7 +511,7 @@ func (p *ScratchpadPreparerImpl) commitDS(
 
 func (p *ScratchpadPreparerImpl) readOperand(
 	operand *insts.Operand,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 	laneID int,
 	buf []byte,
 ) {
@@ -530,7 +531,7 @@ func (p *ScratchpadPreparerImpl) readOperand(
 
 func (p *ScratchpadPreparerImpl) readRegAsUint32(
 	reg *insts.Reg,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 	laneID int,
 ) uint32 {
 	buf := make([]byte, 4)
@@ -541,7 +542,7 @@ func (p *ScratchpadPreparerImpl) readRegAsUint32(
 func (p *ScratchpadPreparerImpl) readReg(
 	reg *insts.Reg,
 	regCount int,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 	laneID int,
 	buf []byte,
 ) {
@@ -586,7 +587,7 @@ func (p *ScratchpadPreparerImpl) readReg(
 
 func (p *ScratchpadPreparerImpl) writeOperand(
 	operand *insts.Operand,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 	laneID int,
 	buf []byte,
 ) {
@@ -600,7 +601,7 @@ func (p *ScratchpadPreparerImpl) writeOperand(
 func (p *ScratchpadPreparerImpl) writeReg(
 	reg *insts.Reg,
 	regCount int,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 	laneID int,
 	buf []byte,
 ) {

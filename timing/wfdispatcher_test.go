@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 var _ = Describe("WfDispatcher", func() {
@@ -43,8 +44,8 @@ var _ = Describe("WfDispatcher", func() {
 		packet := new(kernels.HsaKernelDispatchPacket)
 		packet.KernelObject = 65536
 
-		wf := NewWavefront(rawWf)
-		wg := NewWorkGroup(rawWG, nil)
+		wf := wavefront.NewWavefront(rawWf)
+		wg := wavefront.NewWorkGroup(rawWG, nil)
 		wf.WG = wg
 		wf.CodeObject = co
 		wf.Packet = packet

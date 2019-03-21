@@ -5,11 +5,12 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 // A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
-	DispatchWf(now akita.VTimeInSec, wf *Wavefront)
+	DispatchWf(now akita.VTimeInSec, wf *wavefront.Wavefront)
 }
 
 // A WfDispatcherImpl will register the wavefront in wavefront pool and
@@ -31,13 +32,13 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 // DispatchWf starts or continues a wavefront dispatching process.
 func (d *WfDispatcherImpl) DispatchWf(
 	now akita.VTimeInSec,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	d.setWfInfo(wf)
 	d.initRegisters(wf)
 }
 
-func (d *WfDispatcherImpl) setWfInfo(wf *Wavefront) {
+func (d *WfDispatcherImpl) setWfInfo(wf *wavefront.Wavefront) {
 	wfInfo, ok := d.cu.WfToDispatch[wf.Wavefront]
 	if !ok {
 		log.Panic("Wf dispatching information is not found. This indicates " +
@@ -53,7 +54,7 @@ func (d *WfDispatcherImpl) setWfInfo(wf *Wavefront) {
 	wf.EXEC = 0xffffffffffffffff
 }
 
-func (d *WfDispatcherImpl) initRegisters(wf *Wavefront) {
+func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 	co := wf.CodeObject
 	pkt := wf.Packet
 
