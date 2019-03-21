@@ -4,6 +4,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/timing"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"reflect"
 	"sync"
 )
@@ -60,10 +61,10 @@ func (t *WGWfTracer) Func(
 			Start:        float64(hInfo.Now),
 		})
 	case timing.HookPosWGEnd:
-		wg := item.(*timing.WorkGroup)
+		wg := item.(*wavefront.WorkGroup)
 		t.tracer.EndTask(wg.UID, float64(hInfo.Now))
 	case timing.HookPosWfStart:
-		wf := item.(*timing.Wavefront)
+		wf := item.(*wavefront.Wavefront)
 		t.tracer.CreateTask(&Task{
 			ID:           wf.UID,
 			ParentTaskID: wf.WG.UID,
@@ -73,8 +74,7 @@ func (t *WGWfTracer) Func(
 			Start:        float64(hInfo.Now),
 		})
 	case timing.HookPosWfEnd:
-		wf := item.(*timing.Wavefront)
+		wf := item.(*wavefront.Wavefront)
 		t.tracer.EndTask(wf.UID, float64(hInfo.Now))
 	}
 }
-

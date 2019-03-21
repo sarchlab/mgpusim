@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 // ISADebugger is a logger hook that can dump the wavefront status after each
@@ -24,7 +25,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 
 // Type of WfHook claims the inst tracer is hooking to the emu.Wavefront type
 func (d *ISADebugger) Type() reflect.Type {
-	return reflect.TypeOf((*Wavefront)(nil))
+	return reflect.TypeOf((*wavefront.Wavefront)(nil))
 }
 
 // Pos of WfHook returns akita.AnyHookPos.
@@ -38,14 +39,14 @@ func (d *ISADebugger) Func(
 	domain akita.Hookable,
 	info interface{},
 ) {
-	instInfo := info.(*InstHookInfo)
+	instInfo := info.(*wavefront.InstHookInfo)
 
 	if instInfo.Stage != "Completed" {
 		return
 	}
 
 	cu := domain.(*ComputeUnit)
-	wf := item.(*Wavefront)
+	wf := item.(*wavefront.Wavefront)
 
 	// For debugging
 	if wf.FirstWiFlatID != 0 {

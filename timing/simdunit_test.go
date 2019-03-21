@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 var _ = Describe("SIMD Unit", func() {
@@ -29,37 +30,38 @@ var _ = Describe("SIMD Unit", func() {
 	})
 
 	It("should not allow accepting wavefront if the SIMD is executing an instruction", func() {
-		bu.toExec = new(Wavefront)
+		bu.toExec = new(wavefront.Wavefront)
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		bu.AcceptWave(wave, 10)
 		Expect(bu.toExec).To(BeIdenticalTo(wave))
 		Expect(bu.cycleLeft).To(Equal(4))
 	})
 
 	It("should run", func() {
-		wave := new(Wavefront)
-		inst := NewInst(insts.NewInst())
+		wave := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.VOPC
 		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
 		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
 		inst.ByteSize = 4
 		wave.InstBuffer = make([]byte, 256)
 		wave.InstBufferStartPC = 0x100
-		wave.inst = inst
+		wave.SetDynamicInst(inst)
+
 		wave.PC = 0x13C
 
-		wave.State = WfRunning
+		wave.State = wavefront.WfRunning
 
 		bu.toExec = wave
 		bu.cycleLeft = 1
 
 		bu.Run(10)
 
-		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.PC).To(Equal(uint64(0x140)))
 
 		Expect(bu.toExec).To(BeNil())
@@ -71,6 +73,27 @@ var _ = Describe("SIMD Unit", func() {
 
 		Expect(wave.InstBuffer).To(HaveLen(192))
 
+	})
+
+	It("should flush SIMD", func() {
+		wave := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.FormatType = insts.VOPC
+		inst.Src0 = insts.NewVRegOperand(0, 0, 1)
+		inst.Src1 = insts.NewVRegOperand(1, 1, 1)
+		inst.ByteSize = 4
+		wave.InstBuffer = make([]byte, 256)
+		wave.InstBufferStartPC = 0x100
+		wave.SetDynamicInst(inst)
+		wave.PC = 0x13C
+
+		wave.State = wavefront.WfRunning
+
+		bu.toExec = wave
+
+		bu.Flush()
+
+		Expect(bu.toExec).To(BeNil())
 	})
 
 	//It("should spend 4 cycles in execution", func() {

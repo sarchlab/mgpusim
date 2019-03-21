@@ -1,18 +1,18 @@
 package trace
 
 import (
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"reflect"
 	"sync"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/timing"
 )
 
 // A InstTracer is a LogHook that keep record of instruction execution status
 type InstTracer struct {
-	mutex  sync.Mutex
-	tracer *Tracer
-	instTasks  map[string]*Task
+	mutex          sync.Mutex
+	tracer         *Tracer
+	instTasks      map[string]*Task
 	instStageTasks map[string]*Task
 }
 
@@ -27,7 +27,7 @@ func NewInstTracer(tracer *Tracer) *InstTracer {
 
 // Type of InstTracer claims the inst tracer is hooking to the timing.Wavefront type
 func (t *InstTracer) Type() reflect.Type {
-	return reflect.TypeOf((*timing.Wavefront)(nil))
+	return reflect.TypeOf((*wavefront.Wavefront)(nil))
 }
 
 // Pos of InstTracer returns akita.AnyHookPos. Since InstTracer is not standard hook
@@ -45,8 +45,8 @@ func (t *InstTracer) Func(
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	wf := item.(*timing.Wavefront)
-	instInfo, ok := info.(*timing.InstHookInfo)
+	wf := item.(*wavefront.Wavefront)
+	instInfo, ok := info.(*wavefront.InstHookInfo)
 	if !ok {
 		return
 	}
@@ -55,26 +55,26 @@ func (t *InstTracer) Func(
 	instTask, found := t.instTasks[inst.ID]
 	if !found {
 		instTask = &Task{
-			ID: inst.ID,
+			ID:           inst.ID,
 			ParentTaskID: wf.UID,
-			Type: "Inst",
-			What: inst.String(nil),
-			Where: domain.(akita.Component).Name(),
-			Start: float64(instInfo.Now),
+			Type:         "Inst",
+			What:         inst.String(nil),
+			Where:        domain.(akita.Component).Name(),
+			Start:        float64(instInfo.Now),
 		}
 		t.instTasks[inst.ID] = instTask
 		t.tracer.CreateTask(instTask)
 	}
 
 	stageTask, found := t.instStageTasks[inst.ID]
-	if !found{
+	if !found {
 		stageTask = &Task{
-			ID: inst.ID + "." + instInfo.Stage,
+			ID:           inst.ID + "." + instInfo.Stage,
 			ParentTaskID: inst.ID,
-			Type: "Inst Stage",
-			What: instInfo.Stage,
-			Where: domain.(akita.Component).Name(),
-			Start: float64(instInfo.Now),
+			Type:         "Inst Stage",
+			What:         instInfo.Stage,
+			Where:        domain.(akita.Component).Name(),
+			Start:        float64(instInfo.Now),
 		}
 		t.instStageTasks[inst.ID] = stageTask
 		t.tracer.CreateTask(stageTask)
@@ -82,12 +82,12 @@ func (t *InstTracer) Func(
 		if instInfo.Stage != "Completed" {
 			t.tracer.EndTask(stageTask.ID, float64(instInfo.Now))
 			stageTask = &Task{
-				ID: inst.ID + "." + instInfo.Stage,
+				ID:           inst.ID + "." + instInfo.Stage,
 				ParentTaskID: inst.ID,
-				Type: "Inst Stage",
-				What: instInfo.Stage,
-				Where: domain.(akita.Component).Name(),
-				Start: float64(instInfo.Now),
+				Type:         "Inst Stage",
+				What:         instInfo.Stage,
+				Where:        domain.(akita.Component).Name(),
+				Start:        float64(instInfo.Now),
 			}
 			t.instStageTasks[inst.ID] = instTask
 			t.tracer.CreateTask(stageTask)
