@@ -1,12 +1,15 @@
 package timing
 
-import "gitlab.com/akita/akita"
+import (
+	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/timing/wavefront"
+)
 
 // A WavefrontPool holds the wavefronts that will be scheduled in one SIMD
 // unit
 type WavefrontPool struct {
 	Capacity int
-	wfs      []*Wavefront
+	wfs      []*wavefront.Wavefront
 	VRegFile akita.Component
 }
 
@@ -15,13 +18,13 @@ func NewWavefrontPool(capacity int) *WavefrontPool {
 	p := new(WavefrontPool)
 
 	p.Capacity = capacity
-	p.wfs = make([]*Wavefront, 0)
+	p.wfs = make([]*wavefront.Wavefront, 0)
 
 	return p
 }
 
 // AddWf will add an wavefront to the wavefront pool
-func (wfp *WavefrontPool) AddWf(wf *Wavefront) {
+func (wfp *WavefrontPool) AddWf(wf *wavefront.Wavefront) {
 	wfp.wfs = append(wfp.wfs, wf)
 }
 
@@ -32,7 +35,7 @@ func (wfp *WavefrontPool) Availability() int {
 }
 
 // RemoveWf removes a wavefront from a wavefront pool
-func (wfp *WavefrontPool) RemoveWf(wf *Wavefront) {
+func (wfp *WavefrontPool) RemoveWf(wf *wavefront.Wavefront) {
 	for i, wfToRemove := range wfp.wfs {
 		if wfToRemove == wf {
 			wfp.wfs = append(wfp.wfs[:i], wfp.wfs[i+1:]...)

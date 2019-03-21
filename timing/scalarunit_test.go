@@ -8,24 +8,25 @@ import (
 	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 
 type mockScratchpadPreparer struct {
-	wfPrepared  *Wavefront
-	wfCommitted *Wavefront
+	wfPrepared  *wavefront.Wavefront
+	wfCommitted *wavefront.Wavefront
 }
 
 func (sp *mockScratchpadPreparer) Prepare(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	sp.wfPrepared = wf
 }
 
 func (sp *mockScratchpadPreparer) Commit(
 	instEmuState emu.InstEmuState,
-	wf *Wavefront,
+	wf *wavefront.Wavefront,
 ) {
 	sp.wfCommitted = wf
 }
@@ -82,25 +83,25 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
-		bu.toRead = new(Wavefront)
+		bu.toRead = new(wavefront.Wavefront)
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		bu.AcceptWave(wave, 10)
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
 	It("should run", func() {
-		wave1 := new(Wavefront)
-		wave2 := new(Wavefront)
-		inst := NewInst(insts.NewInst())
+		wave1 := new(wavefront.Wavefront)
+		wave2 := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.SOP2
-		wave2.inst = inst
-		wave3 := new(Wavefront)
-		wave3.inst = inst
-		wave3.State = WfRunning
+		wave2.SetDynamicInst(inst)
+		wave3 := new(wavefront.Wavefront)
+		wave3.SetDynamicInst(inst)
+		wave3.State = wavefront.WfRunning
 
 		bu.toRead = wave1
 		bu.toExec = wave2
@@ -108,7 +109,7 @@ var _ = Describe("Scalar Unit", func() {
 
 		bu.Run(10)
 
-		Expect(wave3.State).To(Equal(WfReady))
+		Expect(wave3.State).To(Equal(wavefront.WfReady))
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
 		Expect(bu.toExec).To(BeIdenticalTo(wave1))
 		Expect(bu.toRead).To(BeNil())
@@ -119,16 +120,16 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should run s_load_dword", func() {
-		wave := NewWavefront(nil)
+		wave := wavefront.NewWavefront(nil)
 		bu.toExec = wave
 
-		inst := NewInst(insts.NewInst())
+		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 0
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
-		wave.inst = inst
+		wave.SetDynamicInst(inst)
 
-		sp := wave.scratchpad.AsSMEM()
+		sp := wave.Scratchpad().AsSMEM()
 		sp.Base = 0x1000
 		sp.Offset = 0x24
 
@@ -137,7 +138,7 @@ var _ = Describe("Scalar Unit", func() {
 
 		bu.Run(10)
 
-		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(len(cu.InFlightScalarMemAccess)).To(Equal(1))
 		//Expect(conn.AllExpectedSent()).To(BeTrue())
@@ -145,16 +146,16 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should run s_load_dwordx2", func() {
-		wave := NewWavefront(nil)
+		wave := wavefront.NewWavefront(nil)
 		bu.toExec = wave
 
-		inst := NewInst(insts.NewInst())
+		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.SMEM
 		inst.Opcode = 1
 		inst.Data = insts.NewSRegOperand(0, 0, 1)
-		wave.inst = inst
+		wave.SetDynamicInst(inst)
 
-		sp := wave.scratchpad.AsSMEM()
+		sp := wave.Scratchpad().AsSMEM()
 		sp.Base = 0x1000
 		sp.Offset = 0x24
 
@@ -163,7 +164,7 @@ var _ = Describe("Scalar Unit", func() {
 
 		bu.Run(10)
 
-		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		//Expect(len(cu.inFlightMemAccess)).To(Equal(1))
 		//Expect(conn.AllExpectedSent()).To(BeTrue())
@@ -202,5 +203,24 @@ var _ = Describe("Scalar Unit", func() {
 		bu.Run(11)
 
 		Expect(bu.readBuf).To(HaveLen(1))
+	})
+	It("should flush the scalar unit", func() {
+		wave := wavefront.NewWavefront(nil)
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.FormatType = insts.SMEM
+		inst.Opcode = 1
+		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		wave.SetDynamicInst(inst)
+
+		bu.toExec = wave
+		bu.toWrite = wave
+		bu.toRead = wave
+
+		bu.Flush()
+
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.toWrite).To(BeNil())
+		Expect(bu.toExec).To(BeNil())
+
 	})
 })

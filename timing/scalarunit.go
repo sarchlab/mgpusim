@@ -6,6 +6,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 
@@ -16,9 +17,9 @@ type ScalarUnit struct {
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
 
-	toRead  *Wavefront
-	toExec  *Wavefront
-	toWrite *Wavefront
+	toRead  *wavefront.Wavefront
+	toExec  *wavefront.Wavefront
+	toWrite *wavefront.Wavefront
 
 	readBufSize int
 	readBuf     []*mem.ReadReq
@@ -54,9 +55,9 @@ func (u *ScalarUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *ScalarUnit) AcceptWave(wave *Wavefront, now akita.VTimeInSec) {
+func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Read"})
+	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Read"})
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
@@ -76,7 +77,7 @@ func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) bool {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toRead.inst, "Exec"})
+		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Exec"})
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -96,7 +97,7 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 			return true
 		} else {
 			u.alu.Run(u.toExec)
-			u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "Write"})
+			u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Write"})
 			u.toWrite = u.toExec
 			u.toExec = nil
 		}
@@ -120,7 +121,7 @@ func (u *ScalarUnit) executeSMEMInst(now akita.VTimeInSec) {
 }
 
 func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
-	inst := u.toExec.inst
+	inst := u.toExec.DynamicInst()
 	sp := u.toExec.Scratchpad().AsSMEM()
 
 	//u.cu.GetConnection("ToScalarMem").Send(req)
@@ -144,7 +145,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 
 		u.cu.UpdatePCAndSetReady(u.toExec)
 
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toExec.inst, "WaitMem"})
+		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "WaitMem"})
 		u.toExec = nil
 	}
 }
@@ -156,7 +157,7 @@ func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &InstHookInfo{now, u.toWrite.inst, "Completed"})
+	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toWrite.DynamicInst(), "Completed"})
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)
 
@@ -175,4 +176,12 @@ func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) bool {
 		}
 	}
 	return false
+}
+
+func (u *ScalarUnit) Flush() {
+	u.toRead = nil
+	u.toExec = nil
+	u.toWrite = nil
+
+	u.readBuf = nil
 }

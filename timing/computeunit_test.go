@@ -1,9 +1,6 @@
 package timing
 
 import (
-	"log"
-	"reflect"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -12,20 +9,22 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing/mock_timing"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 
 type mockWGMapper struct {
 	OK         bool
-	UnmappedWg *WorkGroup
+	UnmappedWg wavefront.WorkGroup
 }
 
 func (m *mockWGMapper) MapWG(req *gcn3.MapWGReq) bool {
 	return m.OK
 }
 
-func (m *mockWGMapper) UnmapWG(wg *WorkGroup) {
-	m.UnmappedWg = wg
+func (m *mockWGMapper) UnmapWG(wg *wavefront.WorkGroup) {
+	m.UnmappedWg = *wg
 }
 
 type mockWfDispatcher struct {
@@ -34,17 +33,20 @@ type mockWfDispatcher struct {
 type mockScheduler struct {
 }
 
-func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *Wavefront) {
+func (m *mockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *wavefront.Wavefront) {
 }
 
 func (m *mockScheduler) Run(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (m *mockScheduler) StartDraining() {
+func (m *mockScheduler) Pause() {
 }
 
-func (m *mockScheduler) StopDraining() {
+func (m *mockScheduler) Resume() {
+}
+
+func (m *mockScheduler) Flush() {
 }
 
 type mockDecoder struct {
@@ -53,6 +55,29 @@ type mockDecoder struct {
 
 func (d *mockDecoder) Decode(buf []byte) (*insts.Inst, error) {
 	return d.Inst, nil
+}
+
+type mockComponent struct {
+}
+
+func (comp *mockComponent) CanAcceptWave() bool {
+	return true
+}
+
+func (comp *mockComponent) AcceptWave(wave wavefront.Wavefront, now akita.VTimeInSec) {
+
+}
+
+func (comp *mockComponent) Run(now akita.VTimeInSec) {
+
+}
+
+func (comp *mockComponent) IsIdle() bool {
+	return true
+}
+
+func (comp *mockComponent) Flush() {
+
 }
 
 func exampleGrid() *kernels.Grid {
@@ -77,18 +102,27 @@ func exampleGrid() *kernels.Grid {
 
 var _ = Describe("ComputeUnit", func() {
 	var (
-		mockCtrl     *gomock.Controller
-		cu           *ComputeUnit
-		engine       *mock_akita.MockEngine
-		wgMapper     *mockWGMapper
-		wfDispatcher *mockWfDispatcher
-		decoder      *mockDecoder
-		toInstMem    *mock_akita.MockPort
-		toScalarMem  *mock_akita.MockPort
-		toVectorMem  *mock_akita.MockPort
-		toACE        *mock_akita.MockPort
-		toCP         *mock_akita.MockPort
-		cp           *mock_akita.MockPort
+		mockCtrl         *gomock.Controller
+		cu               *ComputeUnit
+		engine           *mock_akita.MockEngine
+		wgMapper         *mockWGMapper
+		wfDispatcher     *mockWfDispatcher
+		decoder          *mockDecoder
+		toInstMem        *mock_akita.MockPort
+		toScalarMem      *mock_akita.MockPort
+		toVectorMem      *mock_akita.MockPort
+		toACE            *mock_akita.MockPort
+		toCP             *mock_akita.MockPort
+		cp               *mock_akita.MockPort
+		branchUnit       *mock_timing.MockCUComponent
+		vectorMemDecoder *mock_timing.MockCUComponent
+		vectorMemUnit    *mock_timing.MockCUComponent
+		scalarDecoder    *mock_timing.MockCUComponent
+		vectorDecoder    *mock_timing.MockCUComponent
+		ldsDecoder       *mock_timing.MockCUComponent
+		scalarUnit       *mock_timing.MockCUComponent
+		simdUnit         *mock_timing.MockCUComponent
+		ldsUnit          *mock_timing.MockCUComponent
 
 		instMem *mock_akita.MockPort
 
@@ -104,6 +138,15 @@ var _ = Describe("ComputeUnit", func() {
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
 		scheduler = new(mockScheduler)
+		branchUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		vectorMemDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		vectorMemUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		scalarDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		vectorDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		ldsDecoder = mock_timing.NewMockCUComponent(mockCtrl)
+		scalarUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		simdUnit = mock_timing.NewMockCUComponent(mockCtrl)
+		ldsUnit = mock_timing.NewMockCUComponent(mockCtrl)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WGMapper = wgMapper
@@ -113,6 +156,17 @@ var _ = Describe("ComputeUnit", func() {
 		cu.SRegFile = NewSimpleRegisterFile(1024, 0)
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(4096, 64))
 		cu.Scheduler = scheduler
+
+		cu.BranchUnit = branchUnit
+		cu.VectorMemDecoder = vectorMemDecoder
+		cu.VectorMemUnit = vectorMemUnit
+		cu.ScalarDecoder = scalarDecoder
+		cu.VectorDecoder = vectorDecoder
+		cu.LDSDecoder = ldsDecoder
+		cu.ScalarUnit = scalarUnit
+		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+
+		cu.LDSUnit = ldsUnit
 
 		for i := 0; i < 4; i++ {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -173,13 +227,13 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when handling DataReady from ToInstMem Port", func() {
 		var (
-			wf        *Wavefront
+			wf        *wavefront.Wavefront
 			dataReady *mem.DataReadyRsp
 		)
 		BeforeEach(func() {
-			wf = new(Wavefront)
-			inst := NewInst(nil)
-			wf.inst = inst
+			wf = new(wavefront.Wavefront)
+			inst := wavefront.NewInst(nil)
+			wf.SetDynamicInst(inst)
 			wf.PC = 0x1000
 
 			req := mem.NewReadReq(8, cu.ToInstMem, instMem, 0x100, 64)
@@ -221,7 +275,7 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle DataReady from ToScalarMem port", func() {
 		It("should handle scalar data load return", func() {
 			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			wf := NewWavefront(rawWf)
+			wf := wavefront.NewWavefront(rawWf)
 			wf.SRegOffset = 0
 			wf.OutstandingScalarMemAccess = 1
 
@@ -255,19 +309,19 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle DataReady from ToVectorMem", func() {
 		var (
 			rawWf *kernels.Wavefront
-			wf    *Wavefront
-			inst  *Inst
+			wf    *wavefront.Wavefront
+			inst  *wavefront.Inst
 			read  *mem.ReadReq
 			info  *VectorMemAccessInfo
 		)
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = NewInst(insts.NewInst())
+			inst = wavefront.NewInst(insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = NewWavefront(rawWf)
+			wf = wavefront.NewWavefront(rawWf)
 			wf.SIMDID = 0
-			wf.inst = inst
+			wf.SetDynamicInst(inst)
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
@@ -334,8 +388,8 @@ var _ = Describe("ComputeUnit", func() {
 	Context("handle write done respond from ToVectorMem port", func() {
 		var (
 			rawWf    *kernels.Wavefront
-			inst     *Inst
-			wf       *Wavefront
+			inst     *wavefront.Inst
+			wf       *wavefront.Wavefront
 			info     *VectorMemAccessInfo
 			writeReq *mem.WriteReq
 			doneRsp  *mem.DoneRsp
@@ -343,11 +397,11 @@ var _ = Describe("ComputeUnit", func() {
 
 		BeforeEach(func() {
 			rawWf = grid.WorkGroups[0].Wavefronts[0]
-			inst = NewInst(insts.NewInst())
+			inst = wavefront.NewInst(insts.NewInst())
 			inst.FormatType = insts.FLAT
-			wf = NewWavefront(rawWf)
+			wf = wavefront.NewWavefront(rawWf)
 			wf.SIMDID = 0
-			wf.inst = inst
+			wf.SetDynamicInst(inst)
 			wf.VRegOffset = 0
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
@@ -381,7 +435,7 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})
-	Context("should process an input from CP", func() {
+	Context("should handle flush and drain requests", func() {
 		It("handle a Pipeline drain request from CP", func() {
 			req := gcn3.NewCUPipelineDrainReq(10, nil, cu.ToCP)
 			req.SetEventTime(10)
@@ -394,96 +448,92 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.isDraining).To(BeTrue())
 
 		})
+		It("should handle a pipeline flush request from CU", func() {
+			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
+			req.SetEventTime(10)
+
+			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
+
+			cu.processInputFromCP(11)
+
+			Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
+			Expect(cu.isFlushing).To(BeTrue())
+			Expect(cu.currentFlushReq).To(BeIdenticalTo(req))
+		})
+		It("should flush internal CU buffers", func() {
+
+			info := new(InstFetchReqInfo)
+			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
+
+			scalarMemInfo := new(ScalarMemAccessInfo)
+			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+
+			vectorMemInfo := new(VectorMemAccessInfo)
+			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
+
+			cu.flushCUBuffers()
+
+			Expect(cu.InFlightInstFetch).To(BeNil())
+			Expect(cu.InFlightVectorMemAccess).To(BeNil())
+			Expect(cu.InFlightScalarMemAccess).To(BeNil())
+
+		})
+
+		It("should restart a paused CU", func() {
+			cu.isPaused = true
+
+			rsp := gcn3.NewCUPipelineRestartReq(10, nil, cu.ToCP)
+			rsp.SetRecvTime(10)
+			rsp.SetEventTime(10)
+
+			toCP.EXPECT().Retrieve(gomock.Any()).Return(rsp)
+
+			cu.processInputFromCP(11)
+			Expect(cu.isPaused).To(BeFalse())
+
+		})
+
+		It("should flush the full CU", func() {
+			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
+			req.SetEventTime(10)
+
+			cu.currentFlushReq = req
+
+			info := new(InstFetchReqInfo)
+			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
+
+			scalarMemInfo := new(ScalarMemAccessInfo)
+			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+
+			vectorMemInfo := new(VectorMemAccessInfo)
+			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
+
+			branchUnit.EXPECT().Flush()
+			scalarUnit.EXPECT().Flush()
+			scalarDecoder.EXPECT().Flush()
+			simdUnit.EXPECT().Flush()
+			vectorDecoder.EXPECT().Flush()
+			ldsUnit.EXPECT().Flush()
+			ldsDecoder.EXPECT().Flush()
+			vectorMemDecoder.EXPECT().Flush()
+			vectorMemUnit.EXPECT().Flush()
+
+			cu.flushCycleLeft = 0
+			cu.flushPipeline(10)
+
+			Expect(cu.InFlightInstFetch).To(BeNil())
+			Expect(cu.InFlightVectorMemAccess).To(BeNil())
+			Expect(cu.InFlightScalarMemAccess).To(BeNil())
+
+			Expect(cu.toSendToCP).NotTo(BeNil())
+			Expect(cu.isFlushing).To(BeFalse())
+			Expect(cu.isPaused).To(BeTrue())
+
+		})
+
 	})
 
 })
-
-type ControlComponent struct {
-	*akita.TickingComponent
-	cu   akita.Port
-	toCU akita.Port
-}
-
-type cuPipelineDrainReqEvent struct {
-	*akita.EventBase
-	req *gcn3.CUPipelineDrainReq
-}
-
-func newCUPipelineDrainReqEvent(
-	time akita.VTimeInSec,
-	handler akita.Handler,
-	req *gcn3.CUPipelineDrainReq,
-) *cuPipelineDrainReqEvent {
-	return &cuPipelineDrainReqEvent{akita.NewEventBase(time, handler), req}
-}
-
-func NewControlComponent(
-	name string,
-	engine akita.Engine,
-) *ControlComponent {
-	ctrlComponent := new(ControlComponent)
-	ctrlComponent.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, ctrlComponent)
-	ctrlComponent.toCU = akita.NewLimitNumReqPort(ctrlComponent, 1)
-	ctrlComponent.cu = akita.NewLimitNumReqPort(ctrlComponent, 1)
-	return ctrlComponent
-
-}
-
-func (ctrl *ControlComponent) Handle(e akita.Event) error {
-	switch evt := e.(type) {
-	case akita.TickEvent:
-		ctrl.handleTickEvent(evt)
-	case cuPipelineDrainReqEvent:
-		ctrl.handleCUPipelineDrain(evt)
-	default:
-		log.Panicf("cannot handle handle event of type %s", reflect.TypeOf(e))
-	}
-	return nil
-}
-
-func (ctrl *ControlComponent) handleTickEvent(tick akita.TickEvent) {
-	now := tick.Time()
-	ctrl.NeedTick = false
-
-	ctrl.parseFromCU(now)
-
-	if ctrl.NeedTick {
-		ctrl.TickLater(now)
-	}
-
-}
-
-func (ctrl *ControlComponent) parseFromCU(now akita.VTimeInSec) {
-	cuReq := ctrl.toCU.Retrieve(now)
-
-	if cuReq == nil {
-		return
-	}
-
-	switch req := cuReq.(type) {
-	case gcn3.CUPipelineDrainRsp:
-		ctrl.checkCU(now, req)
-		return
-	default:
-		log.Panicf("Received an unsupported request type %s from CU \n", reflect.TypeOf(cuReq))
-	}
-
-}
-
-func (ctrl *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
-	//How do we access the internal states without magic?
-}
-
-func (ctrl *ControlComponent) handleCUPipelineDrain(
-	evt cuPipelineDrainReqEvent,
-) {
-	req := evt.req
-	sendErr := ctrl.toCU.Send(req)
-	if sendErr != nil {
-		log.Panicf("Unable to send drain request to CU")
-	}
-
-}
 
 func min(a, b uint32) uint32 {
 	if a < b {

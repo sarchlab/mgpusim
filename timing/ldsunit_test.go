@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 var _ = Describe("LDS Unit", func() {
@@ -29,35 +30,35 @@ var _ = Describe("LDS Unit", func() {
 	})
 
 	It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
-		bu.toRead = new(Wavefront)
+		bu.toRead = new(wavefront.Wavefront)
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		bu.AcceptWave(wave, 10)
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
 	It("should run", func() {
-		wave1 := new(Wavefront)
-		wave2 := new(Wavefront)
-		wave2.WG = NewWorkGroup(nil, nil)
+		wave1 := new(wavefront.Wavefront)
+		wave2 := new(wavefront.Wavefront)
+		wave2.WG = wavefront.NewWorkGroup(nil, nil)
 		wave2.WG.LDS = make([]byte, 0)
-		wave3 := new(Wavefront)
-		inst := NewInst(insts.NewInst())
+		wave3 := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
 		inst.FormatType = insts.DS
 		inst.Opcode = 0
 		inst.Addr = insts.NewVRegOperand(0, 0, 1)
 		inst.Data = insts.NewVRegOperand(2, 2, 2)
 		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
 		inst.ByteSize = 4
-		wave3.inst = inst
+		wave3.SetDynamicInst(inst)
 		wave3.PC = 0x13C
 		wave3.InstBuffer = make([]byte, 256)
 		wave3.InstBufferStartPC = 0x100
 
-		wave3.State = WfRunning
+		wave3.State = wavefront.WfRunning
 
 		bu.toRead = wave1
 		bu.toExec = wave2
@@ -65,7 +66,7 @@ var _ = Describe("LDS Unit", func() {
 
 		bu.Run(10)
 
-		Expect(wave3.State).To(Equal(WfReady))
+		Expect(wave3.State).To(Equal(wavefront.WfReady))
 		Expect(wave3.PC).To(Equal(uint64(0x140)))
 
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
@@ -77,6 +78,38 @@ var _ = Describe("LDS Unit", func() {
 		Expect(sp.wfCommitted).To(BeIdenticalTo(wave3))
 
 		Expect(wave3.InstBuffer).To(HaveLen(192))
+
+	})
+	It("should flush the LDS", func() {
+
+		wave1 := new(wavefront.Wavefront)
+		wave2 := new(wavefront.Wavefront)
+		wave2.WG = wavefront.NewWorkGroup(nil, nil)
+		wave2.WG.LDS = make([]byte, 0)
+		wave3 := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.FormatType = insts.DS
+		inst.Opcode = 0
+		inst.Addr = insts.NewVRegOperand(0, 0, 1)
+		inst.Data = insts.NewVRegOperand(2, 2, 2)
+		inst.Data1 = insts.NewVRegOperand(4, 4, 2)
+		inst.ByteSize = 4
+		wave3.SetDynamicInst(inst)
+		wave3.PC = 0x13C
+		wave3.InstBuffer = make([]byte, 256)
+		wave3.InstBufferStartPC = 0x100
+
+		wave3.State = wavefront.WfRunning
+
+		bu.toRead = wave1
+		bu.toExec = wave2
+		bu.toWrite = wave3
+
+		bu.Flush()
+
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.toWrite).To(BeNil())
+		Expect(bu.toExec).To(BeNil())
 
 	})
 })

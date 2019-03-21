@@ -1,4 +1,4 @@
-package timing
+package wavefront
 
 import (
 	"sync"
@@ -82,6 +82,16 @@ func (wf *Wavefront) Inst() *insts.Inst {
 	return wf.inst.Inst
 }
 
+// DyanmicInst returns the insts with an ID
+func (wf *Wavefront) DynamicInst() *Inst {
+	return wf.inst
+}
+
+// Set the dynamic inst to execute
+func (wf *Wavefront) SetDynamicInst(i *Inst) {
+	wf.inst = i
+}
+
 // ManagedInst returns the wrapped Inst
 func (wf *Wavefront) ManagedInst() *Inst {
 	return wf.inst
@@ -94,4 +104,8 @@ func (wf *Wavefront) Scratchpad() emu.Scratchpad {
 
 func (wf *Wavefront) PID() vm.PID {
 	return wf.pid
+}
+
+func (wf *Wavefront) SetPID(pid vm.PID) {
+	wf.pid = pid
 }

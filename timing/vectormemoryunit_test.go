@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
@@ -42,18 +43,18 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
-		bu.toRead = new(Wavefront)
+		bu.toRead = new(wavefront.Wavefront)
 		Expect(bu.CanAcceptWave()).To(BeFalse())
 	})
 
 	It("should accept wave", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		bu.AcceptWave(wave, 10)
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
 	It("should read", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		bu.toRead = wave
 
 		madeProgress := bu.runReadStage(10)
@@ -65,7 +66,7 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should reduce cycle left when executing", func() {
-		wave := new(Wavefront)
+		wave := new(wavefront.Wavefront)
 		bu.toExec = wave
 		bu.AddrCoalescingCycleLeft = 40
 
@@ -77,12 +78,12 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should run flat_load_dword", func() {
-		wave := NewWavefront(nil)
-		inst := NewInst(insts.NewInst())
+		wave := wavefront.NewWavefront(nil)
+		inst := wavefront.NewInst(insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 20
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wave.inst = inst
+		wave.SetDynamicInst(inst)
 
 		coalescer.ToReturn = make([]CoalescedAccess, 4)
 		for i := 0; i < 4; i++ {
@@ -98,7 +99,7 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		bu.Run(10)
 
-		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.InFlightVectorMemAccess).To(HaveLen(4))
@@ -107,12 +108,12 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should run flat_store_dword", func() {
-		wave := NewWavefront(nil)
-		inst := NewInst(insts.NewInst())
+		wave := wavefront.NewWavefront(nil)
+		inst := wavefront.NewInst(insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 28
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
-		wave.inst = inst
+		wave.SetDynamicInst(inst)
 
 		sp := wave.Scratchpad().AsFlat()
 		for i := 0; i < 64; i++ {
@@ -125,7 +126,7 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		bu.Run(10)
 
-		Expect(wave.State).To(Equal(WfReady))
+		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.InFlightVectorMemAccess).To(HaveLen(64))
@@ -153,6 +154,36 @@ var _ = Describe("Vector Memory Unit", func() {
 		bu.Run(10)
 
 		Expect(len(bu.SendBuf)).To(Equal(1))
+	})
+	It("should flush the vector memory unit", func() {
+		wave := wavefront.NewWavefront(nil)
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.Format = insts.FormatTable[insts.FLAT]
+		inst.Opcode = 28
+		inst.Dst = insts.NewVRegOperand(0, 0, 1)
+		wave.SetDynamicInst(inst)
+
+		sp := wave.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			sp.ADDR[i] = uint64(4096 + i*4)
+			sp.DATA[i*4] = uint32(i)
+		}
+		sp.EXEC = 0xffffffffffffffff
+
+		bu.toExec = wave
+		bu.toRead = wave
+		bu.toWrite = wave
+
+		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem, 0, 4)
+		bu.SendBuf = append(bu.SendBuf, loadReq)
+
+		bu.Flush()
+
+		Expect(bu.SendBuf).To(BeNil())
+		Expect(bu.toWrite).To(BeNil())
+		Expect(bu.toRead).To(BeNil())
+		Expect(bu.toExec).To(BeNil())
+
 	})
 
 })

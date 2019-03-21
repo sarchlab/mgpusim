@@ -6,6 +6,7 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
 func assertAllResourcesFree(wgMapper *WGMapperImpl) {
@@ -267,12 +268,12 @@ var _ = Describe("WGMapper", func() {
 		co.WFSgprCount = 64
 		req := gcn3.NewMapWGReq(nil, nil, 0, wg)
 
-		managedWG := NewWorkGroup(wg, req)
+		managedWG := wavefront.NewWorkGroup(wg, req)
 
 		wgMapper.MapWG(req)
 		for _, info := range cu.WfToDispatch {
 			wf := info.Wavefront
-			managedWf := new(Wavefront)
+			managedWf := new(wavefront.Wavefront)
 			managedWf.Wavefront = wf
 			managedWf.LDSOffset = info.LDSOffset
 			managedWf.SIMDID = info.SIMDID
