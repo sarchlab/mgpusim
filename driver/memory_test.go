@@ -37,17 +37,17 @@ var _ = ginkgo.Describe("Driver", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0,
-				VAddr:    0x100000000,
+				PAddr:    0x100000000,
+				VAddr:    0x200000000,
 				PageSize: 4096,
 				Valid:    true,
 			})
 
 		ptr := driver.AllocateMemory(context, 8)
-		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
+		Expect(ptr).To(Equal(GPUPtr(0x200000000)))
 
 		ptr = driver.AllocateMemory(context, 24)
-		Expect(ptr).To(Equal(GPUPtr(0x100000008)))
+		Expect(ptr).To(Equal(GPUPtr(0x200000008)))
 	})
 
 	ginkgo.It("should remap pages", func() {
@@ -130,25 +130,27 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.It("should distribute memory when page size is less than a page", func() {
 		driver.storageSizes = []uint64{
-			0x10000000000,
-			0x10000000000,
-			0x10000000000,
-			0x10000000000,
+			0x100000000,
+			0x100000000,
+			0x100000000,
+			0x100000000,
+			0x100000000,
 		}
 		driver.initialAddresses = []uint64{
 			0x0,
-			0x10000000000,
-			0x20000000000,
-			0x30000000000,
+			0x100000000,
+			0x200000000,
+			0x300000000,
+			0x400000000,
 		}
-		driver.allocatedPages = make([][]*vm.Page, 4)
+		driver.allocatedPages = make([][]*vm.Page, 5)
 
 		byteSize := uint64(1024)
 
 		page := &vm.Page{
 			PID:      1,
-			PAddr:    0x0,
-			VAddr:    0x100000000,
+			PAddr:    0x100000000,
+			VAddr:    0x200000000,
 			PageSize: 4096,
 			Valid:    true,
 		}
@@ -156,14 +158,14 @@ var _ = ginkgo.Describe("Driver", func() {
 		ptr := driver.AllocateMemory(context, byteSize)
 
 		mmu.EXPECT().
-			Translate(vm.PID(1), uint64(0x100000000)).
+			Translate(vm.PID(1), uint64(0x200000000)).
 			Return(uint64(0), page)
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x100000000))
+		mmu.EXPECT().RemovePage(vm.PID(1), uint64(0x200000000))
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0x10000000000,
-				VAddr:    0x100000000,
+				PAddr:    0x100000000,
+				VAddr:    0x200000000,
 				PageSize: 4096,
 				Valid:    true,
 			})
@@ -441,52 +443,52 @@ var _ = ginkgo.Describe("Driver", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0,
-				VAddr:    0x100000000,
+				PAddr:    0x100000000,
+				VAddr:    0x200000000,
 				PageSize: 4096,
 				Valid:    true,
 			})
 
 		ptr := driver.AllocateMemoryWithAlignment(context, 8, 64)
-		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
-		Expect(driver.allocatedPages[0]).To(HaveLen(1))
-		Expect(driver.memoryMasks[0]).To(HaveLen(2))
+		Expect(ptr).To(Equal(GPUPtr(0x200000000)))
+		Expect(driver.allocatedPages[1]).To(HaveLen(1))
+		Expect(driver.memoryMasks[1]).To(HaveLen(2))
 
 		ptr = driver.AllocateMemoryWithAlignment(context, 8, 64)
-		Expect(ptr).To(Equal(GPUPtr(0x100000040)))
-		Expect(driver.allocatedPages[0]).To(HaveLen(1))
-		Expect(driver.memoryMasks[0]).To(HaveLen(4))
+		Expect(ptr).To(Equal(GPUPtr(0x200000040)))
+		Expect(driver.allocatedPages[1]).To(HaveLen(1))
+		Expect(driver.memoryMasks[1]).To(HaveLen(4))
 	})
 
 	ginkgo.It("should allocate memory larger than a page", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0,
-				VAddr:    0x100000000,
+				PAddr:    0x100000000,
+				VAddr:    0x200000000,
 				PageSize: 4096,
 				Valid:    true,
 			})
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0x1000,
-				VAddr:    0x100001000,
+				PAddr:    0x100001000,
+				VAddr:    0x200001000,
 				PageSize: 4096,
 				Valid:    true,
 			})
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0x2000,
-				VAddr:    0x100002000,
+				PAddr:    0x100002000,
+				VAddr:    0x200002000,
 				PageSize: 4096,
 				Valid:    true,
 			})
 
 		ptr := driver.AllocateMemory(context, 8196)
-		Expect(ptr).To(Equal(GPUPtr(0x100000000)))
-		Expect(driver.allocatedPages[0]).To(HaveLen(3))
+		Expect(ptr).To(Equal(GPUPtr(0x200000000)))
+		Expect(driver.allocatedPages[1]).To(HaveLen(3))
 	})
 
 	ginkgo.It("should free memory", func() {
