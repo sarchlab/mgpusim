@@ -33,23 +33,6 @@ var _ = ginkgo.Describe("Driver", func() {
 		mockCtrl.Finish()
 	})
 
-	ginkgo.It("should allocate memory", func() {
-		mmu.EXPECT().CreatePage(
-			&vm.Page{
-				PID:      1,
-				PAddr:    0x100000000,
-				VAddr:    0x200000000,
-				PageSize: 4096,
-				Valid:    true,
-			})
-
-		ptr := driver.AllocateMemory(context, 8)
-		Expect(ptr).To(Equal(GPUPtr(0x200000000)))
-
-		ptr = driver.AllocateMemory(context, 24)
-		Expect(ptr).To(Equal(GPUPtr(0x200000008)))
-	})
-
 	ginkgo.It("should remap pages", func() {
 		page1 := &vm.Page{
 			PID:      1,
