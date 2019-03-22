@@ -11,11 +11,19 @@ import (
 
 // A memoryAllocator can allocate memory on the CPU and GPUs
 type memoryAllocator interface {
-	RegisterStorage(initAddr, byteSize uint64)
+	RegisterStorage(byteSize uint64)
+	GetDeviceIDByPAddr(pAddr uint64) int
 	Allocate(ctx *Context, byteSize uint64) GPUPtr
 	AllocateWithAlignment(ctx *Context, byteSize, alignment uint64) GPUPtr
 	Free(ctx *Context, ptr GPUPtr)
 	Remap(ctx *Context, pageVAddr, byteSize uint64, deviceID int)
+}
+
+// A memoryChunk is a piece of allocated or free memory.
+type memoryChunk struct {
+	ptr      uint64
+	byteSize uint64
+	occupied bool
 }
 
 // A memoryAllocatorImpl provides the default implementation for
@@ -30,7 +38,7 @@ type memoryAllocatorImpl struct {
 	allocatedPages       [][]vm.Page
 	initialAddresses     []uint64
 	storageSizes         []uint64
-	memoryMasks          [][]*MemoryChunk
+	memoryMasks          [][]*memoryChunk
 	totalStorageByteSize uint64
 }
 
@@ -42,9 +50,9 @@ func newMemoryAllocatorImpl(mmu vm.MMU) *memoryAllocatorImpl {
 }
 
 func (a *memoryAllocatorImpl) RegisterStorage(
-	initAddr uint64, byteSize uint64,
+	byteSize uint64,
 ) {
-	a.memoryMasks = append(a.memoryMasks, make([]*MemoryChunk, 0))
+	a.memoryMasks = append(a.memoryMasks, make([]*memoryChunk, 0))
 	a.allocatedPages = append(a.allocatedPages, make([]vm.Page, 0))
 
 	a.initialAddresses = append(a.initialAddresses,
@@ -52,6 +60,17 @@ func (a *memoryAllocatorImpl) RegisterStorage(
 	a.storageSizes = append(a.storageSizes, byteSize)
 
 	a.totalStorageByteSize += byteSize
+}
+
+func (a *memoryAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
+	for i := 0; i < len(a.initialAddresses); i++ {
+		if pAddr >= a.initialAddresses[i] &&
+			pAddr < a.initialAddresses[i]+a.storageSizes[i] {
+			return i
+		}
+	}
+	log.Panic("device not found")
+	return 0
 }
 
 func (a *memoryAllocatorImpl) Allocate(
@@ -78,7 +97,7 @@ func (a *memoryAllocatorImpl) AllocateWithAlignment(
 	ptr, ok := a.tryAllocateWithExistingChunks(
 		ctx.currentGPUID, byteSize, alignment)
 	if ok {
-		return ptr
+		return GPUPtr(ptr)
 	}
 
 	a.allocatePage(ctx)
@@ -86,7 +105,7 @@ func (a *memoryAllocatorImpl) AllocateWithAlignment(
 	ptr, ok = a.tryAllocateWithExistingChunks(
 		ctx.currentGPUID, byteSize, alignment)
 	if ok {
-		return ptr
+		return GPUPtr(ptr)
 	}
 
 	log.Panic("never")
@@ -136,18 +155,18 @@ func (a *memoryAllocatorImpl) allocateLarge(
 func (a *memoryAllocatorImpl) tryAllocateWithExistingChunks(
 	deviceID int,
 	byteSize, alignment uint64,
-) (ptr GPUPtr, ok bool) {
+) (ptr uint64, ok bool) {
 	chunks := a.memoryMasks[deviceID]
 	for i, chunk := range chunks {
-		if chunk.Occupied {
+		if chunk.occupied {
 			continue
 		}
 
-		nextAlignment := ((uint64(chunk.Ptr)-1)/alignment + 1) * alignment
-		if nextAlignment <= uint64(chunk.Ptr)+chunk.ByteSize &&
-			nextAlignment+byteSize <= uint64(chunk.Ptr)+chunk.ByteSize {
+		nextAlignment := ((chunk.ptr-1)/alignment + 1) * alignment
+		if nextAlignment <= chunk.ptr+chunk.byteSize &&
+			nextAlignment+byteSize <= chunk.ptr+chunk.byteSize {
 
-			ptr = GPUPtr(nextAlignment)
+			ptr = nextAlignment
 			ok = true
 
 			a.splitChunk(deviceID, i, ptr, byteSize)
@@ -162,33 +181,32 @@ func (a *memoryAllocatorImpl) tryAllocateWithExistingChunks(
 func (a *memoryAllocatorImpl) splitChunk(
 	deviceID int,
 	chunkIndex int,
-	ptr GPUPtr,
+	ptr uint64,
 	byteSize uint64,
 ) {
 	chunks := a.memoryMasks[deviceID]
 	chunk := chunks[chunkIndex]
 	newChunks := chunks[:chunkIndex]
 
-	if ptr != chunk.Ptr {
-		newChunk1 := new(MemoryChunk)
-		newChunk1.ByteSize = uint64(ptr - chunk.Ptr)
-		newChunk1.Ptr = ptr
-		newChunk1.Occupied = false
+	if ptr != chunk.ptr {
+		newChunk1 := new(memoryChunk)
+		newChunk1.byteSize = ptr - chunk.ptr
+		newChunk1.ptr = ptr
+		newChunk1.occupied = false
 		newChunks = append(newChunks, newChunk1)
 	}
 
-	newChunk2 := new(MemoryChunk)
-	newChunk2.ByteSize = byteSize
-	newChunk2.Ptr = ptr
-	newChunk2.Occupied = true
+	newChunk2 := new(memoryChunk)
+	newChunk2.byteSize = byteSize
+	newChunk2.ptr = ptr
+	newChunk2.occupied = true
 	newChunks = append(newChunks, newChunk2)
 
-	if uint64(ptr)+byteSize < uint64(chunk.Ptr)+chunk.ByteSize {
-		newChunk3 := new(MemoryChunk)
-		newChunk3.Ptr = GPUPtr(uint64(ptr) + byteSize)
-		newChunk3.ByteSize = uint64(chunk.Ptr) + chunk.ByteSize -
-			(uint64(ptr) + byteSize)
-		newChunk3.Occupied = false
+	if ptr+byteSize < chunk.ptr+chunk.byteSize {
+		newChunk3 := new(memoryChunk)
+		newChunk3.ptr = ptr + byteSize
+		newChunk3.byteSize = chunk.ptr + chunk.byteSize - (ptr + byteSize)
+		newChunk3.occupied = false
 		newChunks = append(newChunks, newChunk3)
 	}
 
@@ -217,15 +235,15 @@ func (a *memoryAllocatorImpl) allocatePage(ctx *Context) vm.Page {
 		Valid:    true,
 	}
 
-	virtualAddr := pAddr + 0x100000000
+	vAddr := pAddr + 0x100000000
 
 	a.mmu.CreatePage(&page)
 	a.allocatedPages[deviceID] = append(a.allocatedPages[deviceID], page)
 
-	chunk := new(MemoryChunk)
-	chunk.Ptr = GPUPtr(virtualAddr)
-	chunk.ByteSize = pageSize
-	chunk.Occupied = false
+	chunk := new(memoryChunk)
+	chunk.ptr = vAddr
+	chunk.byteSize = pageSize
+	chunk.occupied = false
 	a.memoryMasks[deviceID] = append(a.memoryMasks[deviceID], chunk)
 
 	return page
@@ -262,9 +280,9 @@ func (a *memoryAllocatorImpl) migrateChunks(pageVAddr uint64, deviceID int) {
 			continue
 		}
 
-		newMemoryMask := []*MemoryChunk{}
+		newMemoryMask := []*memoryChunk{}
 		for _, chunk := range memoryMask {
-			addr := uint64(chunk.Ptr)
+			addr := chunk.ptr
 
 			if addr >= pageVAddr && addr < pageVAddr+pageSize {
 				a.memoryMasks[deviceID] =
@@ -296,13 +314,13 @@ func (a *memoryAllocatorImpl) removePage(pid vm.PID, addr uint64) {
 func (a *memoryAllocatorImpl) removePageChunks(vAddr uint64) {
 	pageSize := uint64(1 << a.pageSizeAsPowerOf2)
 	for i, chunks := range a.memoryMasks {
-		newChunks := []*MemoryChunk{}
+		newChunks := []*memoryChunk{}
 		for _, chunk := range chunks {
-			addr := uint64(chunk.Ptr)
+			addr := chunk.ptr
 			if addr < vAddr || addr >= vAddr+pageSize {
 				newChunks = append(newChunks, chunk)
 			} else {
-				if chunk.Occupied {
+				if chunk.occupied {
 					log.Panic("Memory still in use")
 				}
 			}

@@ -34,15 +34,15 @@ func (m *MockmemoryAllocator) EXPECT() *MockmemoryAllocatorMockRecorder {
 }
 
 // RegisterStorage mocks base method
-func (m *MockmemoryAllocator) RegisterStorage(initAddr, byteSize uint64) {
+func (m *MockmemoryAllocator) RegisterStorage(byteSize uint64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterStorage", initAddr, byteSize)
+	m.ctrl.Call(m, "RegisterStorage", byteSize)
 }
 
 // RegisterStorage indicates an expected call of RegisterStorage
-func (mr *MockmemoryAllocatorMockRecorder) RegisterStorage(initAddr, byteSize interface{}) *gomock.Call {
+func (mr *MockmemoryAllocatorMockRecorder) RegisterStorage(byteSize interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterStorage", reflect.TypeOf((*MockmemoryAllocator)(nil).RegisterStorage), initAddr, byteSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterStorage", reflect.TypeOf((*MockmemoryAllocator)(nil).RegisterStorage), byteSize)
 }
 
 // Allocate mocks base method
