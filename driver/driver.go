@@ -24,16 +24,12 @@ var HookPosCommandComplete = &struct{ name string }{"CommandComplete"}
 type Driver struct {
 	*akita.TickingComponent
 
-	GPUs                 []*gcn3.GPU
-	MMU                  vm.MMU
-	allocatedPages       [][]*vm.Page
-	initialAddresses     []uint64
-	storageSizes         []uint64
-	memoryMasks          [][]*MemoryChunk
-	totalStorageByteSize uint64
+	memAllocator memoryAllocator
 
-	PageSizeAsPowerOf2 uint64
-	requestsToSend     []akita.Req
+	GPUs []*gcn3.GPU
+	MMU  vm.MMU
+
+	requestsToSend []akita.Req
 
 	contextMutex sync.Mutex
 	contexts     []*Context
@@ -47,10 +43,12 @@ type Driver struct {
 	memoryAllocatorLock sync.Mutex
 }
 
+// Run starts a new threads that handles all commands in the command queues
 func (d *Driver) Run() {
 	go d.runAsync()
 }
 
+// Terminate stops the driver thread execution.
 func (d *Driver) Terminate() {
 	d.driverStopped <- true
 }
@@ -81,8 +79,7 @@ func (d *Driver) runEngine() {
 // RegisterGPU tells the driver about the existence of a GPU
 func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 	d.GPUs = append(d.GPUs, gpu)
-
-	d.registerStorage(GPUPtr(d.totalStorageByteSize), dramSize)
+	d.memAllocator.RegisterStorage(dramSize)
 }
 
 // Handle process event that is scheduled on the driver
@@ -220,7 +217,7 @@ func (d *Driver) processMemCopyH2DCommand(
 			sizeToCopy = sizeLeft
 		}
 
-		gpuID := d.findGPUIDByPAddr(pAddr)
+		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyH2DReq(now,
 			d.ToGPUs, d.GPUs[gpuID-1].ToDriver,
 			rawBytes[offset:offset+sizeToCopy],
@@ -306,7 +303,7 @@ func (d *Driver) processMemCopyD2HCommand(
 			sizeToCopy = sizeLeft
 		}
 
-		gpuID := d.findGPUIDByPAddr(pAddr)
+		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyD2HReq(now,
 			d.ToGPUs, d.GPUs[gpuID-1].ToDriver,
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
@@ -515,18 +512,8 @@ func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
 	panic("cannot find command")
 }
 
-func (d *Driver) findGPUIDByPAddr(pAddr uint64) int {
-	for i := range d.initialAddresses {
-		if pAddr >= d.initialAddresses[i] &&
-			pAddr < d.initialAddresses[i]+d.storageSizes[i] {
-			return i
-		}
-	}
-	panic("never")
-}
-
 func (d *Driver) reserveMemoryForCPU() {
-	d.registerStorage(0, 1<<32)
+	d.memAllocator.RegisterStorage(1 << 32)
 }
 
 // NewDriver creates a new driver
@@ -535,8 +522,11 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
+	memAllocatorImpl := newMemoryAllocatorImpl(mmu)
+	memAllocatorImpl.pageSizeAsPowerOf2 = 12
+	driver.memAllocator = memAllocatorImpl
+
 	driver.MMU = mmu
-	driver.PageSizeAsPowerOf2 = 12
 
 	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 40960000)
 
