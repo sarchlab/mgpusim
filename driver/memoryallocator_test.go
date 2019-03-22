@@ -9,7 +9,7 @@ import (
 	"gitlab.com/akita/mem/vm/mock_vm"
 )
 
-var _ = ginkgo.FDescribe("MemoryallocatorImpl", func() {
+var _ = ginkgo.Describe("MemoryallocatorImpl", func() {
 
 	var (
 		mockCtrl  *gomock.Controller
@@ -128,10 +128,7 @@ var _ = ginkgo.FDescribe("MemoryallocatorImpl", func() {
 
 func configAFourGPUSystem(allocator *memoryAllocatorImpl) {
 	for i := 0; i < 5; i++ { // 5 devices = 1 CPU + 4 GPUs
-		allocator.RegisterStorage(
-			0x100000000*uint64(i),
-			0x100000000,
-		)
+		allocator.RegisterStorage(0x100000000)
 	}
 
 }
