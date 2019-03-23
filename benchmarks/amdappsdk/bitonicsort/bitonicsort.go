@@ -73,7 +73,7 @@ func (b *Benchmark) initMem() {
 	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 	b.driver.Distribute(
 		b.context,
-		uint64(b.gInputData), uint64(b.Length*4),
+		b.gInputData, uint64(b.Length*4),
 		b.gpusToUse)
 
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
