@@ -96,10 +96,11 @@ func (d *Driver) Remap(ctx *Context, addr, size uint64, deviceID int) {
 // allocated to each GPU.
 func (d *Driver) Distribute(
 	ctx *Context,
-	addr, byteSize uint64,
+	addr GPUPtr,
+	byteSize uint64,
 	gpuIDs []int,
 ) []uint64 {
-	return d.distributor.Distribute(ctx, addr, byteSize, gpuIDs)
+	return d.distributor.Distribute(ctx, uint64(addr), byteSize, gpuIDs)
 }
 
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated

@@ -81,10 +81,10 @@ func (b *Benchmark) initMem() {
 	b.gHistoryData = b.driver.AllocateMemory(b.context, uint64(b.numTaps*4))
 	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 	b.driver.Distribute(b.context,
-		uint64(b.gInputData), uint64(b.Length*4), b.gpus)
+		b.gInputData, uint64(b.Length*4), b.gpus)
 	b.gOutputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 	b.driver.Distribute(b.context,
-		uint64(b.gOutputData), uint64(b.Length*4), b.gpus)
+		b.gOutputData, uint64(b.Length*4), b.gpus)
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
 
 	for i, gpu := range b.gpus {
