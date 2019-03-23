@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/mem/vm"
 )
 
-//go:generate mockgen -destination mock_driver/mock_memoryallocator.go -source $GOFILE
+//go:generate mockgen -source=$GOFILE -destination=mock_memoryallocator_test.go -self_package=gitlab.com/akita/gcn3/driver -package=driver -mock_names=memoryAllocator=MockMemoryAllocator -write_package_comment=false
 
 // A memoryAllocator can allocate memory on the CPU and GPUs
 type memoryAllocator interface {
