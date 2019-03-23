@@ -128,7 +128,7 @@ func (b *Benchmark) initMem() {
 	}
 
 	b.gInput = b.driver.AllocateMemory(b.context, uint64(b.Length))
-	b.driver.Distribute(b.context, uint64(b.gInput), uint64(b.Length), b.gpus)
+	b.driver.Distribute(b.context, b.gInput, uint64(b.Length), b.gpus)
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.gExpandedKey[i] = b.driver.AllocateMemory(
