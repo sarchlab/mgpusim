@@ -22,6 +22,7 @@ type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
 	kernel  *insts.HsaCo
+	gpus    []int
 
 	Width     uint32
 	Height    uint32
@@ -34,7 +35,7 @@ type Benchmark struct {
 	hMask       []float32
 	dInputData  driver.GPUPtr
 	dOutputData driver.GPUPtr
-	dMask       driver.GPUPtr
+	dMasks      []driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -43,6 +44,10 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.context = driver.Init()
 	b.loadProgram()
 	return b
+}
+
+func (b *Benchmark) SelectGPU(gpus []int) {
+	b.gpus = gpus
 }
 
 func (b *Benchmark) loadProgram() {
@@ -85,40 +90,66 @@ func (b *Benchmark) initMem() {
 	}
 
 	b.dInputData = b.driver.AllocateMemory(b.context, uint64(numInputData*4))
+	b.driver.Distribute(b.context, b.dInputData, uint64(numInputData*4), b.gpus)
+
 	b.dOutputData = b.driver.AllocateMemory(b.context, uint64(numInputData*4))
-	b.dMask = b.driver.AllocateMemory(b.context,
-		uint64(b.maskSize*b.maskSize*4))
+	b.driver.Distribute(b.context, b.dInputData, uint64(numInputData*4), b.gpus)
+
+	b.dMasks = make([]driver.GPUPtr, len(b.gpus))
+
+	for i, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		b.dMasks[i] = b.driver.AllocateMemoryWithAlignment(
+			b.context,
+			uint64(b.maskSize*b.maskSize*4),
+			4096)
+		b.driver.MemCopyH2D(b.context, b.dMasks[i], b.hMask)
+	}
 
 	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
 	b.driver.MemCopyH2D(b.context, b.dOutputData, b.hOutputData)
-	b.driver.MemCopyH2D(b.context, b.dMask, b.hMask)
+
 }
 
 func (b *Benchmark) exec() {
-	kernArg := KernelArgs{
-		b.dInputData,
-		b.dMask,
-		b.dOutputData,
-		[2]uint32{b.Width, b.Height},
-		[2]uint32{b.maskSize, b.maskSize},
-		b.Width + b.padWidth,
-		0, 0, 0, 0,
+	queues := make([]*driver.CommandQueue, len(b.gpus))
+	for i, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		queues[i] = b.driver.CreateCommandQueue(b.context)
+
+		gridSize := ((b.Width + b.padWidth) * (b.Height + b.padHeight)) /
+			uint32(len(b.gpus))
+
+		kernArg := KernelArgs{
+			b.dInputData,
+			b.dMasks[i],
+			b.dOutputData,
+			[2]uint32{b.Width, b.Height},
+			[2]uint32{b.maskSize, b.maskSize},
+			b.Width + b.padWidth,
+			0,
+			uint64(gridSize * uint32(i)), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			queues[i],
+			b.kernel,
+			[3]uint32{uint32(gridSize), 1, 1},
+			[3]uint16{uint16(64), 1, 1},
+			&kernArg,
+		)
 	}
 
-	gridSize := (b.Width + b.padWidth) * (b.Height + b.padHeight)
-	b.driver.LaunchKernel(
-		b.context,
-		b.kernel,
-		[3]uint32{uint32(gridSize), 1, 1},
-		[3]uint16{uint16(64), 1, 1},
-		&kernArg,
-	)
+	for _, q := range queues {
+		b.driver.DrainCommandQueue(q)
+	}
+
+	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
 }
 
 func (b *Benchmark) Verify() {
 	cpuOutputImage := b.cpuSimpleConvolution()
 
-	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
 	for i := uint32(0); i < b.Height; i++ {
 		for j := uint32(0); j < b.Width; j++ {
 			index := i*b.Width + j
