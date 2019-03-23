@@ -9,7 +9,7 @@ import (
 	"gitlab.com/akita/mem/vm/mock_vm"
 )
 
-var _ = ginkgo.Describe("MemoryallocatorImpl", func() {
+var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
 
 	var (
 		mockCtrl  *gomock.Controller
@@ -40,16 +40,18 @@ var _ = ginkgo.Describe("MemoryallocatorImpl", func() {
 			&vm.Page{
 				PID:      1,
 				PAddr:    0x100000000,
-				VAddr:    0x200000000,
+				VAddr:    4096,
 				PageSize: 4096,
 				Valid:    true,
 			})
 
 		ptr := allocator.Allocate(context, 8)
-		Expect(ptr).To(Equal(GPUPtr(0x200000000)))
+		Expect(ptr).To(Equal(GPUPtr(4096)))
+		Expect(context.prevPageVAddr).To(Equal(uint64(4096)))
 
 		ptr = allocator.Allocate(context, 24)
-		Expect(ptr).To(Equal(GPUPtr(0x200000008)))
+		Expect(ptr).To(Equal(GPUPtr(4104)))
+		Expect(context.prevPageVAddr).To(Equal(uint64(4096)))
 	})
 
 	ginkgo.It("should allocate memory with alignment", func() {
@@ -57,18 +59,18 @@ var _ = ginkgo.Describe("MemoryallocatorImpl", func() {
 			&vm.Page{
 				PID:      1,
 				PAddr:    0x100000000,
-				VAddr:    0x200000000,
+				VAddr:    4096,
 				PageSize: 4096,
 				Valid:    true,
 			})
 
 		ptr := allocator.AllocateWithAlignment(context, 8, 64)
-		Expect(ptr).To(Equal(GPUPtr(0x200000000)))
+		Expect(ptr).To(Equal(GPUPtr(4096)))
 		Expect(allocator.allocatedPages[1]).To(HaveLen(1))
 		Expect(allocator.memoryMasks[1]).To(HaveLen(2))
 
 		ptr = allocator.AllocateWithAlignment(context, 8, 64)
-		Expect(ptr).To(Equal(GPUPtr(0x200000040)))
+		Expect(ptr).To(Equal(GPUPtr(4160)))
 		Expect(allocator.allocatedPages[1]).To(HaveLen(1))
 		Expect(allocator.memoryMasks[1]).To(HaveLen(4))
 	})
@@ -79,14 +81,14 @@ var _ = ginkgo.Describe("MemoryallocatorImpl", func() {
 				&vm.Page{
 					PID:      1,
 					PAddr:    0x100000000 + 0x1000*i,
-					VAddr:    0x200000000 + 0x1000*i,
+					VAddr:    4096 + 0x1000*i,
 					PageSize: 4096,
 					Valid:    true,
 				})
 		}
 
 		ptr := allocator.Allocate(context, 8196)
-		Expect(ptr).To(Equal(GPUPtr(0x200000000)))
+		Expect(ptr).To(Equal(GPUPtr(4096)))
 		Expect(allocator.allocatedPages[1]).To(HaveLen(3))
 	})
 
@@ -94,7 +96,7 @@ var _ = ginkgo.Describe("MemoryallocatorImpl", func() {
 		page := &vm.Page{
 			PID:      1,
 			PAddr:    0x100000000,
-			VAddr:    0x200000000,
+			VAddr:    4096,
 			PageSize: 4096,
 			Valid:    true,
 		}
@@ -109,7 +111,7 @@ var _ = ginkgo.Describe("MemoryallocatorImpl", func() {
 		mmu.EXPECT().CreatePage(&vm.Page{
 			PID:      1,
 			PAddr:    0x200000000,
-			VAddr:    0x200000000,
+			VAddr:    4096,
 			PageSize: 4096,
 			Valid:    true,
 		})
