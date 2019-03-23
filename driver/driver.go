@@ -25,6 +25,7 @@ type Driver struct {
 	*akita.TickingComponent
 
 	memAllocator memoryAllocator
+	distributor  distributor
 
 	GPUs []*gcn3.GPU
 	MMU  vm.MMU
@@ -39,8 +40,6 @@ type Driver struct {
 	driverStopped chan bool
 	enqueueSignal chan bool
 	engineMutex   sync.Mutex
-
-	memoryAllocatorLock sync.Mutex
 }
 
 // Run starts a new threads that handles all commands in the command queues
@@ -525,6 +524,10 @@ func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
 	memAllocatorImpl := newMemoryAllocatorImpl(mmu)
 	memAllocatorImpl.pageSizeAsPowerOf2 = 12
 	driver.memAllocator = memAllocatorImpl
+
+	distributorImpl := newDistributorImpl(memAllocatorImpl)
+	distributorImpl.pageSizeAsPowerOf2 = 12
+	driver.distributor = distributorImpl
 
 	driver.MMU = mmu
 

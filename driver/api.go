@@ -91,6 +91,17 @@ func (d *Driver) Remap(ctx *Context, addr, size uint64, deviceID int) {
 	d.memAllocator.Remap(ctx, addr, size, deviceID)
 }
 
+// Distribute rearranges a consecutive virtual memory space and re-allocate the
+// memory on designated GPUs. This function returns the number of bytes
+// allocated to each GPU.
+func (d *Driver) Distribute(
+	ctx *Context,
+	addr, byteSize uint64,
+	gpuIDs []int,
+) []uint64 {
+	return d.distributor.Distribute(ctx, addr, byteSize, gpuIDs)
+}
+
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
 // with the function AllocateMemory earlier. Error will be returned if the ptr
 // provided is invalid.
