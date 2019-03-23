@@ -137,10 +137,12 @@ func (a *memoryAllocatorImpl) allocateLarge(
 		}
 	}
 
+	ptr := ctx.prevPageVAddr + pageSize
 	for i := uint64(0); i < numPages; i++ {
+		ctx.prevPageVAddr += pageSize
 		page := vm.Page{
 			PID:      ctx.pid,
-			VAddr:    pageID + i*pageSize + 0x100000000,
+			VAddr:    ctx.prevPageVAddr,
 			PAddr:    pageID + i*pageSize,
 			PageSize: pageSize,
 			Valid:    true,
@@ -149,7 +151,7 @@ func (a *memoryAllocatorImpl) allocateLarge(
 		a.mmu.CreatePage(&page)
 	}
 
-	return GPUPtr(pageID + 0x100000000)
+	return GPUPtr(ptr)
 }
 
 func (a *memoryAllocatorImpl) tryAllocateWithExistingChunks(
@@ -227,15 +229,15 @@ func (a *memoryAllocatorImpl) allocatePage(ctx *Context) vm.Page {
 		}
 	}
 
+	vAddr := ctx.prevPageVAddr + pageSize
+	ctx.prevPageVAddr = vAddr
 	page := vm.Page{
 		PID:      ctx.pid,
-		VAddr:    pAddr + 0x100000000,
+		VAddr:    vAddr,
 		PAddr:    pAddr,
 		PageSize: pageSize,
 		Valid:    true,
 	}
-
-	vAddr := pAddr + 0x100000000
 
 	a.mmu.CreatePage(&page)
 	a.allocatedPages[deviceID] = append(a.allocatedPages[deviceID], page)
