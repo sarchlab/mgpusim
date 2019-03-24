@@ -48,7 +48,7 @@ var _ = Describe("ALU", func() {
 		addrConverter = &mem.InterleavingConverter{
 			InterleavingSize:    1 * mem.GB,
 			TotalNumOfElements:  1,
-			CurrentElementIndex: 1,
+			CurrentElementIndex: 0,
 			Offset:              0,
 		}
 		sAccessor = newStorageAccessor(storage, mmu, addrConverter)
