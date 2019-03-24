@@ -30,8 +30,8 @@ func main() {
 	bsBenchmark.Length = 1024
 	bsBenchmark.SelectGPU([]int{3})
 
-	runner.AddBenchmark(firBenchmark)
-	runner.AddBenchmark(bsBenchmark)
+	runner.AddBenchmarkWithoutSettingGPUsToUse(firBenchmark)
+	runner.AddBenchmarkWithoutSettingGPUsToUse(bsBenchmark)
 
 	runner.Run()
 }

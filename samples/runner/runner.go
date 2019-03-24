@@ -81,6 +81,10 @@ func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
 	r.Benchmarks = append(r.Benchmarks, b)
 }
 
+func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
+	r.Benchmarks = append(r.Benchmarks, b)
+}
+
 // Run runs the benchmark on the simulator
 func (r *Runner) Run() {
 	var wg sync.WaitGroup
