@@ -13,6 +13,7 @@ import (
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
+	gpu     int
 
 	ByteSize uint64
 	data     []byte
@@ -26,7 +27,16 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+func (b *Benchmark) SelectGPU(gpus []int) {
+	if len(gpus) > 1 {
+		panic("memory copy benchmark only support a single GPU")
+	}
+	b.gpu = gpus[0]
+}
+
 func (b *Benchmark) Run() {
+	b.driver.SelectGPU(b.context, b.gpu)
+
 	b.data = make([]byte, b.ByteSize)
 	b.retData = make([]byte, b.ByteSize)
 	for i := uint64(0); i < b.ByteSize; i++ {
