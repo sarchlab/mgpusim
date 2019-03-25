@@ -33,10 +33,11 @@ var _ = Describe("ALU", func() {
 		mockCtrl *gomock.Controller
 		mmu      *mock_vm.MockMMU
 
-		alu       *ALUImpl
-		state     *mockInstState
-		storage   *mem.Storage
-		sAccessor *storageAccessor
+		alu           *ALUImpl
+		state         *mockInstState
+		storage       *mem.Storage
+		addrConverter *mem.InterleavingConverter
+		sAccessor     *storageAccessor
 	)
 
 	BeforeEach(func() {
@@ -44,7 +45,13 @@ var _ = Describe("ALU", func() {
 		mmu = mock_vm.NewMockMMU(mockCtrl)
 
 		storage = mem.NewStorage(1 * mem.GB)
-		sAccessor = newStorageAccessor(storage, mmu)
+		addrConverter = &mem.InterleavingConverter{
+			InterleavingSize:    1 * mem.GB,
+			TotalNumOfElements:  1,
+			CurrentElementIndex: 0,
+			Offset:              0,
+		}
+		sAccessor = newStorageAccessor(storage, mmu, addrConverter)
 		alu = NewALU(sAccessor)
 
 		state = new(mockInstState)

@@ -20,8 +20,9 @@ type BitonicKernelArgs struct {
 }
 
 type Benchmark struct {
-	driver  *driver.Driver
-	context *driver.Context
+	gpusToUse []int
+	driver    *driver.Driver
+	context   *driver.Context
 
 	hsaco *insts.HsaCo
 
@@ -34,6 +35,7 @@ type Benchmark struct {
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
+	b.gpusToUse = []int{1}
 	b.driver = driver
 	b.context = driver.Init()
 	b.loadProgram()
@@ -52,8 +54,8 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-func (b *Benchmark) SelectGPU(gpuID int) {
-	b.driver.SelectGPU(b.context, gpuID)
+func (b *Benchmark) SelectGPU(gpuIDs []int) {
+	b.gpusToUse = gpuIDs
 }
 
 func (b *Benchmark) Run() {
@@ -62,12 +64,16 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
-
 	b.inputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
 		b.inputData[i] = rand.Uint32()
 	}
+
+	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	b.driver.Distribute(
+		b.context,
+		b.gInputData, uint64(b.Length*4),
+		b.gpusToUse)
 
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
 }
@@ -84,28 +90,54 @@ func (b *Benchmark) exec() {
 		direction = 0
 	}
 
-	for stage := 0; stage < numStages; stage += 1 {
-		for passOfStage := 0; passOfStage < stage+1; passOfStage++ {
-			kernArg := BitonicKernelArgs{
-				b.gInputData,
-				uint32(stage),
-				uint32(passOfStage),
-				uint32(direction),
-				0, 0, 0}
-			b.driver.LaunchKernel(
-				b.context,
-				b.hsaco,
-				[3]uint32{uint32(b.Length / 2), 1, 1},
-				[3]uint16{256, 1, 1},
-				&kernArg)
-		}
+	queues := []*driver.CommandQueue{}
+	for _, gpuID := range b.gpusToUse {
+		b.driver.SelectGPU(b.context, gpuID)
+		queues = append(queues, b.driver.CreateCommandQueue(b.context))
+	}
 
+	for stage := 0; stage < numStages; stage++ {
+		for passOfStage := 0; passOfStage < stage+1; passOfStage++ {
+			totalWIs := b.Length / 2
+			wiPerQueue := totalWIs / len(queues)
+			remainder := totalWIs % len(queues)
+
+			for i, q := range queues {
+				kernArg := BitonicKernelArgs{
+					b.gInputData,
+					uint32(stage),
+					uint32(passOfStage),
+					uint32(direction),
+					int64(wiPerQueue * i), 0, 0}
+
+				numWi := wiPerQueue
+				if i == len(queues)-1 {
+					numWi += remainder
+				}
+
+				b.driver.EnqueueLaunchKernel(
+					q,
+					b.hsaco,
+					[3]uint32{uint32(numWi), 1, 1},
+					[3]uint16{256, 1, 1},
+					&kernArg,
+				)
+			}
+
+			for _, q := range queues {
+				b.driver.DrainCommandQueue(q)
+			}
+		}
 	}
 }
 
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]uint32, b.Length)
 	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInputData)
+
+	//for i := 0; i < b.Length; i++ {
+	//	fmt.Printf("[%d]: %d\n", i, gpuOutput[i])
+	//}
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {

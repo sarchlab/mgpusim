@@ -34,6 +34,7 @@ type KernelArgs struct {
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
+	gpus    []int
 	hsaco   *insts.HsaCo
 
 	N            int
@@ -53,6 +54,7 @@ type Benchmark struct {
 	inputData    []float32
 	Bottom       driver.GPUPtr
 	Top          driver.GPUPtr
+	outputData   []float32
 }
 
 func NewBenchmark(
@@ -87,6 +89,10 @@ func NewBenchmark(
 	return b
 }
 
+func (b *Benchmark) SelectGPU(gpus []int) {
+	b.gpus = gpus
+}
+
 func (b *Benchmark) Run() {
 	b.initMem()
 	b.exec()
@@ -94,9 +100,13 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	b.Bottom = b.driver.AllocateMemory(b.context, uint64(b.LengthInput*4))
+	b.driver.Distribute(b.context, b.Bottom, uint64(b.LengthInput*4), b.gpus)
+
 	b.Top = b.driver.AllocateMemory(b.context, uint64(b.LengthOutput*4))
+	b.driver.Distribute(b.context, b.Top, uint64(b.LengthOutput*4), b.gpus)
 
 	b.inputData = make([]float32, b.LengthInput)
+	b.outputData = make([]float32, b.LengthOutput)
 	for i := 0; i < b.LengthInput; i++ {
 		b.inputData[i] = float32(i) - 0.5
 	}
@@ -105,36 +115,49 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	kernArg := KernelArgs{
-		uint64(b.LengthOutput), b.Bottom,
-		uint32(b.N), uint32(b.C), uint32(b.H), uint32(b.W),
-		uint32(b.PooledH), uint32(b.PooledW),
-		uint32(b.KernelH), uint32(b.KernelW),
-		uint32(b.StrideH), uint32(b.StrideW),
-		uint32(b.PadH), uint32(b.PadW),
-		b.Top,
-		0, 0, 0,
+	queues := make([]*driver.CommandQueue, len(b.gpus))
+
+	for i, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		q := b.driver.CreateCommandQueue(b.context)
+		queues[i] = q
+
+		numWI := b.LengthOutput / len(b.gpus)
+
+		kernArg := KernelArgs{
+			uint64(b.LengthOutput), b.Bottom,
+			uint32(b.N), uint32(b.C), uint32(b.H), uint32(b.W),
+			uint32(b.PooledH), uint32(b.PooledW),
+			uint32(b.KernelH), uint32(b.KernelW),
+			uint32(b.StrideH), uint32(b.StrideW),
+			uint32(b.PadH), uint32(b.PadW),
+			b.Top,
+			int64(numWI * i), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			q,
+			b.hsaco,
+			[3]uint32{uint32(numWI), 1, 1},
+			[3]uint16{uint16(b.C), uint16(b.N), 1},
+			&kernArg,
+		)
 	}
 
-	b.driver.LaunchKernel(
-		b.context,
-		b.hsaco,
-		[3]uint32{uint32(b.LengthOutput), 1, 1},
-		[3]uint16{uint16(b.C), uint16(b.N), 1},
-		&kernArg,
-	)
+	for _, q := range queues {
+		b.driver.DrainCommandQueue(q)
+	}
+
+	b.driver.MemCopyD2H(b.context, b.outputData, b.Top)
 }
 
 func (b *Benchmark) Verify() {
-	gpuOutput := make([]float32, b.LengthOutput)
-	b.driver.MemCopyD2H(b.context, gpuOutput, b.Top)
-
 	cpuOutput := b.CPUMaxPooling()
 
 	for i := 0; i < b.LengthOutput; i++ {
-		if gpuOutput[i] != cpuOutput[i] {
+		if b.outputData[i] != cpuOutput[i] {
 			log.Panicf("mismatch at %d, expected %f, but get %f",
-				i, cpuOutput[i], gpuOutput[i])
+				i, cpuOutput[i], b.outputData[i])
 		}
 	}
 
