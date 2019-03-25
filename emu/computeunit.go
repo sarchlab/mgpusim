@@ -367,9 +367,10 @@ func BuildComputeUnit(
 	decoder Decoder,
 	mmu vm.MMU,
 	storage *mem.Storage,
+	addrConverter mem.AddressConverter,
 ) *ComputeUnit {
 	scratchpadPreparer := NewScratchpadPreparerImpl()
-	sAccessor := newStorageAccessor(storage, mmu)
+	sAccessor := newStorageAccessor(storage, mmu, addrConverter)
 	alu := NewALU(sAccessor)
 	cu := NewComputeUnit(name, engine, decoder,
 		scratchpadPreparer, alu, sAccessor)

@@ -20,6 +20,7 @@ type MatrixMultiplier interface {
 type GPUMatrixMultiplier struct {
 	driver  *driver.Driver
 	context *driver.Context
+	gpus    []int
 	kernel  *insts.HsaCo
 }
 
@@ -34,6 +35,10 @@ func NewGPUMatrixMultiplier(
 		context: context,
 	}
 	return m
+}
+
+func (m *GPUMatrixMultiplier) SelectGPU(gpus []int) {
+	m.gpus = gpus
 }
 
 type KernelArgs struct {
@@ -66,27 +71,49 @@ func (m *GPUMatrixMultiplier) launchKernel(
 	mA *Matrix,
 	mC *Matrix,
 ) {
-	kernArgs := &KernelArgs{
-		gA, gB, gC,
-		mA.Width,
-		32 * 32 * 4,
-		0, 0, 0,
+	queues := make([]*driver.CommandQueue, len(m.gpus))
+
+	for i, gpu := range m.gpus {
+		m.driver.SelectGPU(m.context, gpu)
+		q := m.driver.CreateCommandQueue(m.context)
+
+		queues[i] = q
+
+		width := int(mC.Width) / 4
+		height := int(mC.Height) / 4 / len(m.gpus)
+
+		kernArgs := &KernelArgs{
+			gA, gB, gC,
+			mA.Width,
+			32 * 32 * 4,
+			0, int64(width * i), 0,
+		}
+		m.driver.EnqueueLaunchKernel(
+			q,
+			m.kernel,
+			[3]uint32{uint32(width), uint32(height), 1},
+			[3]uint16{8, 8, 1},
+			kernArgs,
+		)
 	}
-	m.driver.LaunchKernel(
-		m.context,
-		m.kernel,
-		[3]uint32{mC.Width / 4, mC.Height / 4, 1},
-		[3]uint16{8, 8, 1},
-		kernArgs,
-	)
+
+	for _, q := range queues {
+		m.driver.DrainCommandQueue(q)
+	}
+
 }
 
 func (m *GPUMatrixMultiplier) initMemory(
 	mA, mB, mC *Matrix,
 ) (driver.GPUPtr, driver.GPUPtr, driver.GPUPtr) {
 	gA := m.driver.AllocateMemory(m.context, uint64(mA.Width*mA.Height*4))
+	//m.driver.Distribute(m.context, gA, uint64(mA.Width*mA.Height*4), m.gpus)
+
 	gB := m.driver.AllocateMemory(m.context, uint64(mB.Width*mB.Height*4))
+	//m.driver.Distribute(m.context, gB, uint64(mB.Width*mB.Height*4), m.gpus)
+
 	gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
+	//m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
 
 	m.driver.MemCopyH2D(m.context, gA, mA.Data)
 	m.driver.MemCopyH2D(m.context, gB, mB.Data)
