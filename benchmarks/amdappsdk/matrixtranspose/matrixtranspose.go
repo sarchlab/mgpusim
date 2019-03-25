@@ -21,6 +21,7 @@ type MatrixTransposeKernelArgs struct {
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
+	gpu     int
 
 	kernel *insts.HsaCo
 
@@ -44,6 +45,13 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+func (b *Benchmark) SelectGPU(gpus []int) {
+	if len(gpus) > 1 {
+		panic("Matrix Transpose benchmark does not support multi-GPU yet")
+	}
+	b.gpu = gpus[0]
+}
+
 func (b *Benchmark) loadProgram() {
 	hsacoBytes, err := Asset("kernels.hsaco")
 	if err != nil {
@@ -57,6 +65,7 @@ func (b *Benchmark) loadProgram() {
 }
 
 func (b *Benchmark) Run() {
+	b.driver.SelectGPU(b.context, b.gpu)
 	b.initMem()
 	b.exec()
 }
@@ -93,11 +102,11 @@ func (b *Benchmark) exec() {
 		[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
 		&kernArg,
 	)
+
+	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
 }
 
 func (b *Benchmark) Verify() {
-	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
-
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {
 			if b.hOutputData[j*b.Width+i] != b.hInputData[i*b.Width+j] {

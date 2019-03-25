@@ -3,6 +3,9 @@ package runner
 import (
 	"flag"
 	"fmt"
+	"log"
+	"strconv"
+	"strings"
 	"sync"
 
 	"gitlab.com/akita/akita"
@@ -18,6 +21,8 @@ var visTracing = flag.Bool("trace-vis", false,
 	"Generate trace for visualization purposes.")
 var verify = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
+var gpuFlag = flag.String("gpus", "1",
+	"The GPUs to use, use a format like 1,2,3,4")
 
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
@@ -25,6 +30,7 @@ type Runner struct {
 	GPUDriver         *driver.Driver
 	KernelTimeCounter *driver.KernelTimeCounter
 	Benchmarks        []benchmarks.Benchmark
+	gpuIDs            []int
 }
 
 // Init initializes the platform simulate
@@ -45,6 +51,8 @@ func (r *Runner) Init() {
 		platform.TraceMem = true
 	}
 
+	r.parseGPUFlag()
+
 	r.KernelTimeCounter = driver.NewKernelTimeCounter()
 	if *timing {
 		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
@@ -55,8 +63,25 @@ func (r *Runner) Init() {
 	r.GPUDriver.Run()
 }
 
+func (r *Runner) parseGPUFlag() {
+	r.gpuIDs = make([]int, 0)
+	gpuIDTokens := strings.Split(*gpuFlag, ",")
+	for _, t := range gpuIDTokens {
+		gpuID, err := strconv.Atoi(t)
+		if err != nil {
+			log.Fatal(err)
+		}
+		r.gpuIDs = append(r.gpuIDs, gpuID)
+	}
+}
+
 // AddBenchmark adds an benchmark that the driver runs
 func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
+	b.SelectGPU(r.gpuIDs)
+	r.Benchmarks = append(r.Benchmarks, b)
+}
+
+func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
 	r.Benchmarks = append(r.Benchmarks, b)
 }
 

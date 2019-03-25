@@ -40,6 +40,8 @@ type KMeansComputeArgs struct {
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
+	gpus    []int
+	queues  []*driver.CommandQueue
 
 	computeKernel *insts.HsaCo
 	swapKernel    *insts.HsaCo
@@ -54,7 +56,7 @@ type Benchmark struct {
 	hMembership   []int32
 	dMembership   driver.GPUPtr
 	hClusters     []float32
-	dClusters     driver.GPUPtr
+	dClusters     []driver.GPUPtr
 
 	gpuRMSE float64
 }
@@ -79,7 +81,15 @@ func (b *Benchmark) loadKernels() {
 		hsacoBytes, "kmeans_kernel_compute")
 	b.swapKernel = kernels.LoadProgramFromMemory(
 		hsacoBytes, "kmeans_kernel_swap")
+}
 
+func (b *Benchmark) SelectGPU(gpuIDs []int) {
+	b.gpus = gpuIDs
+	b.queues = make([]*driver.CommandQueue, len(b.gpus))
+	for i, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		b.queues[i] = b.driver.CreateCommandQueue(b.context)
+	}
 }
 
 func (b *Benchmark) Run() {
@@ -91,12 +101,25 @@ func (b *Benchmark) initMem() {
 	b.dFeatures = b.driver.AllocateMemory(
 		b.context,
 		uint64(b.NumPoints*b.NumFeatures*4))
+	b.driver.Distribute(b.context, b.dFeatures,
+		uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
+
 	b.dFeaturesSwap = b.driver.AllocateMemory(
 		b.context, uint64(b.NumPoints*b.NumFeatures*4))
+	b.driver.Distribute(b.context, b.dFeaturesSwap,
+		uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
+
 	b.dMembership = b.driver.AllocateMemory(
 		b.context, uint64(b.NumPoints*4))
-	b.dClusters = b.driver.AllocateMemory(
-		b.context, uint64(b.NumClusters*b.NumFeatures*4))
+	b.driver.Distribute(b.context, b.dMembership,
+		uint64(b.NumPoints*4), b.gpus)
+
+	b.dClusters = make([]driver.GPUPtr, len(b.gpus))
+	for i, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		b.dClusters[i] = b.driver.AllocateMemory(
+			b.context, uint64(b.NumClusters*b.NumFeatures*4))
+	}
 
 	rand.Seed(0)
 	b.hFeatures = make([]float32, b.NumPoints*b.NumFeatures)
@@ -115,23 +138,31 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) transposeFeatures() {
-	kernArg := KMeansSwapArgs{
-		b.dFeatures,
-		b.dFeaturesSwap,
-		int32(b.NumPoints),
-		int32(b.NumFeatures),
-		0, 0, 0,
+	for i, q := range b.queues {
+		numWI := b.NumPoints / len(b.gpus)
+
+		kernArg := KMeansSwapArgs{
+			b.dFeatures,
+			b.dFeaturesSwap,
+			int32(b.NumPoints),
+			int32(b.NumFeatures),
+			int64(numWI * i), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			q,
+			b.swapKernel,
+			[3]uint32{uint32(numWI), 1, 1},
+			[3]uint16{64, 1, 1},
+			&kernArg,
+		)
 	}
 
-	b.driver.LaunchKernel(
-		b.context,
-		b.swapKernel,
-		[3]uint32{uint32(b.NumPoints), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg,
-	)
+	for _, q := range b.queues {
+		b.driver.DrainCommandQueue(q)
+	}
 
-	// b.verifySwap()
+	b.verifySwap()
 }
 
 func (b *Benchmark) verifySwap() {
@@ -183,26 +214,34 @@ func (b *Benchmark) initializeMembership() {
 }
 
 func (b *Benchmark) updateMembership() float64 {
-	b.driver.MemCopyH2D(b.context, b.dClusters, b.hClusters)
+	for i, q := range b.queues {
+		b.driver.EnqueueMemCopyH2D(q, b.dClusters[i], b.hClusters)
 
-	kernArg := KMeansComputeArgs{
-		b.dFeaturesSwap,
-		b.dClusters,
-		b.dMembership,
-		int32(b.NumPoints),
-		int32(b.NumClusters),
-		int32(b.NumFeatures),
-		0, 0, 0,
-		0, 0, 0,
+		numWI := b.NumPoints / len(b.gpus)
+
+		kernArg := KMeansComputeArgs{
+			b.dFeaturesSwap,
+			b.dClusters[i],
+			b.dMembership,
+			int32(b.NumPoints),
+			int32(b.NumClusters),
+			int32(b.NumFeatures),
+			0, 0, 0,
+			int64(numWI * i), 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			q,
+			b.computeKernel,
+			[3]uint32{uint32(numWI), 1, 1},
+			[3]uint16{64, 1, 1},
+			&kernArg,
+		)
 	}
 
-	b.driver.LaunchKernel(
-		b.context,
-		b.computeKernel,
-		[3]uint32{uint32(b.NumPoints), 1, 1},
-		[3]uint16{64, 1, 1},
-		&kernArg,
-	)
+	for _, q := range b.queues {
+		b.driver.DrainCommandQueue(q)
+	}
 
 	newMembership := make([]int32, b.NumPoints)
 	b.driver.MemCopyD2H(b.context, newMembership, b.dMembership)

@@ -51,45 +51,45 @@ var _ = ginkgo.Describe("Driver", func() {
 		ginkgo.It("should send request", func() {
 			srcData := make([]byte, 0x2200)
 			cmd := &MemCopyH2DCommand{
-				Dst: GPUPtr(0x100000100),
+				Dst: GPUPtr(0x200000100),
 				Src: srcData,
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x100000100)).
-				Return(uint64(0x100), &vm.Page{
+				Translate(vm.PID(1), uint64(0x200000100)).
+				Return(uint64(0x100000100), &vm.Page{
 					PID:      1,
-					VAddr:    0x100000000,
-					PAddr:    0x0,
+					VAddr:    0x200000000,
+					PAddr:    0x100000000,
 					PageSize: 0x800,
 					Valid:    true,
 				})
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x100000800)).
-				Return(uint64(0x800), &vm.Page{
+				Translate(vm.PID(1), uint64(0x200000800)).
+				Return(uint64(0x100000800), &vm.Page{
 					PID:      1,
-					VAddr:    0x100000800,
-					PAddr:    0x0,
+					VAddr:    0x200000800,
+					PAddr:    0x100000800,
 					PageSize: 0x800,
 					Valid:    true,
 				})
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x100001000)).
-				Return(uint64(0x1000), &vm.Page{
+				Translate(vm.PID(1), uint64(0x200001000)).
+				Return(uint64(0x100001000), &vm.Page{
 					PID:      1,
-					VAddr:    0x100001000,
-					PAddr:    0x0,
+					VAddr:    0x200001000,
+					PAddr:    0x100001000,
 					PageSize: 0x1000,
 					Valid:    true,
 				})
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x100002000)).
-				Return(uint64(0x2000), &vm.Page{
+				Translate(vm.PID(1), uint64(0x200002000)).
+				Return(uint64(0x100002000), &vm.Page{
 					PID:      1,
-					VAddr:    0x100002000,
-					PAddr:    0x0,
+					VAddr:    0x200002000,
+					PAddr:    0x100002000,
 					PageSize: 0x1000,
 					Valid:    true,
 				})
@@ -166,16 +166,16 @@ var _ = ginkgo.Describe("Driver", func() {
 			data := uint32(1)
 			cmd := &MemCopyD2HCommand{
 				Dst: &data,
-				Src: GPUPtr(0x100),
+				Src: GPUPtr(0x200000100),
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			mmu.EXPECT().Translate(vm.PID(1), uint64(0x100)).
-				Return(uint64(0x1100), &vm.Page{
+			mmu.EXPECT().Translate(vm.PID(1), uint64(0x200000100)).
+				Return(uint64(0x100000100), &vm.Page{
 					PID:      1,
-					VAddr:    0x0,
-					PAddr:    0x1000,
+					VAddr:    0x200000000,
+					PAddr:    0x100000000,
 					PageSize: 0x1000,
 					Valid:    true,
 				})
