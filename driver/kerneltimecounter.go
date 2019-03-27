@@ -60,6 +60,7 @@ func (c *KernelTimeCounter) Func(
 }
 
 func (c *KernelTimeCounter) updateTotalTime() {
+	c.TotalTime = 0
 	coveredMask := make(map[int]bool)
 
 	for i, t := range c.kernelTimes {
@@ -75,15 +76,14 @@ func (c *KernelTimeCounter) updateTotalTime() {
 		}
 
 		for j, t2 := range c.kernelTimes {
-			if _, covered := coveredMask[i]; covered {
+			if _, covered := coveredMask[j]; covered {
 				continue
 			}
 
 			if kernelTimeOverlap(t, t2) {
 				coveredMask[j] = true
+				extendKernelTime(extTime, t2)
 			}
-
-			extendKernelTime(extTime, t2)
 		}
 
 		c.TotalTime += extTime.end - extTime.start
