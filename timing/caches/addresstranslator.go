@@ -64,13 +64,13 @@ func (t *addressTranslator) generateTranslationReq(now akita.VTimeInSec) {
 	case *mem.ReadReq:
 		translationReq := vm.NewTranslateReq(10,
 			t.l1vCache.ToTLB, t.l1vCache.TLB,
-			req.PID, req.Address)
+			req.PID, req.Address, t.l1vCache.gpuID)
 		t.toSendToTLB = append(t.toSendToTLB, translationReq)
 
 	case *mem.WriteReq:
 		translationReq := vm.NewTranslateReq(10,
 			t.l1vCache.ToTLB, t.l1vCache.TLB,
-			req.PID, req.Address)
+			req.PID, req.Address, t.l1vCache.gpuID)
 		t.toSendToTLB = append(t.toSendToTLB, translationReq)
 
 	default:
