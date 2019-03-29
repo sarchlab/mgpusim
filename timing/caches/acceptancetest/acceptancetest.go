@@ -59,7 +59,7 @@ func newTest(name string) *test {
 	}
 
 	t.l1v = caches.BuildL1VCache("cache", t.engine, 1*akita.GHz, 1,
-		6, 4, 14, t.lowModuleFinder, t.mmu.ToTop)
+		6, 4, 14, t.lowModuleFinder, t.mmu.ToTop, 0)
 
 	traceFile, err := os.Create(name + ".trace")
 	if err != nil {
