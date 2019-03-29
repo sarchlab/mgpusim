@@ -68,7 +68,7 @@ var _ = Describe("Addresstranslator", func() {
 	})
 
 	It("should send translation req to TLB", func() {
-		translationReq := vm.NewTranslateReq(6, nil, nil, 1, 0x1000)
+		translationReq := vm.NewTranslateReq(6, nil, nil, 1, 0x1000, 0)
 		t.toSendToTLB = append(t.toSendToTLB, translationReq)
 
 		toTLB.EXPECT().

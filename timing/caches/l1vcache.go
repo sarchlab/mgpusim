@@ -183,6 +183,8 @@ type L1VCache struct {
 	toSendToCP akita.Req
 
 	isFlushing bool
+
+	gpuID uint64
 }
 
 // Handle processes the events scheduled on L1VCache
@@ -933,6 +935,7 @@ func BuildL1VCache(
 	blockSizeAsPowerOf2, way, sizeAsPowerOf2 uint64,
 	l2Finder cache.LowModuleFinder,
 	TLB akita.Port,
+	gpuID uint64,
 ) *L1VCache {
 	c := NewL1VCache(name, engine, freq)
 
@@ -958,6 +961,7 @@ func BuildL1VCache(
 
 	c.BlockSizeAsPowerOf2 = blockSizeAsPowerOf2
 	c.InvalidationLatency = int(totalSize / way / blockSize)
+	c.gpuID = gpuID
 
 	return c
 }
