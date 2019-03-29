@@ -17,7 +17,7 @@ require (
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	gitlab.com/akita/akita v1.2.1
-	gitlab.com/akita/mem v1.1.2
+	gitlab.com/akita/mem v1.1.3
 	gitlab.com/akita/noc v1.1.2
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a // indirect
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
