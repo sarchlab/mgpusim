@@ -59,13 +59,15 @@ type R9NanoGPUBuilder struct {
 }
 
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
-func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
+func (b *R9NanoGPUBuilder) Build(ID uint64) *gcn3.GPU {
 	b.reset()
 
 	b.Freq = 1000 * akita.MHz
 
 	b.InternalConn = akita.NewDirectConnection(b.Engine)
 	b.GPU = gcn3.NewGPU(b.GPUName, b.Engine)
+
+	b.GPU.GPUID = ID
 
 	b.buildCP()
 	b.buildMemSystem()
@@ -303,7 +305,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 			1,
 			6, 4, 14,
 			b.LowModuleFinderForL1,
-			b.L1STLBs[i].ToTop)
+			b.L1STLBs[i].ToTop, b.GPU.GPUID)
 		b.InternalConn.PlugIn(sCache.ToCU)
 		b.InternalConn.PlugIn(sCache.ToCP)
 		b.InternalConn.PlugIn(sCache.ToL2)
@@ -325,7 +327,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 			1,
 			6, 4, 15,
 			b.LowModuleFinderForL1,
-			b.L1ITLBs[i].ToTop)
+			b.L1ITLBs[i].ToTop, b.GPU.GPUID)
 		b.InternalConn.PlugIn(iCache.ToCU)
 		b.InternalConn.PlugIn(iCache.ToCP)
 		b.InternalConn.PlugIn(iCache.ToL2)
@@ -351,7 +353,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 			1,
 			6, 4, 14,
 			b.LowModuleFinderForL1,
-			b.L1VTLBs[i].ToTop)
+			b.L1VTLBs[i].ToTop, b.GPU.GPUID)
 
 		b.InternalConn.PlugIn(dCache.ToCU)
 		b.InternalConn.PlugIn(dCache.ToCP)

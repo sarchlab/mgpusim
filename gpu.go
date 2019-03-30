@@ -41,6 +41,8 @@ type GPU struct {
 
 	ToDriver           akita.Port
 	ToCommandProcessor akita.Port
+
+	GPUID uint64
 }
 
 // NotifyPortFree of a GPU does not do anything.
