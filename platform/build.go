@@ -114,7 +114,7 @@ func BuildNR9NanoPlatform(
 	for i := 1; i < numGPUs+1; i++ {
 		gpuBuilder.GPUName = fmt.Sprintf("GPU_%d", i)
 		gpuBuilder.GPUMemAddrOffset = uint64(i) * 4 * mem.GB
-		gpu := gpuBuilder.Build()
+		gpu := gpuBuilder.Build(uint64(i))
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
 		gpu.Driver = gpuDriver.ToGPUs
 
