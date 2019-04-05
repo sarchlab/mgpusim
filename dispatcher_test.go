@@ -169,6 +169,8 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.cuBusy[cu0] = true
 
 		wg := grid.WorkGroups[0]
+		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
+		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
 		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
 		req.SetRecvTime(11)
 
@@ -185,6 +187,8 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.state = DispatcherToMapWG
 
 		wg := grid.WorkGroups[0]
+		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
+		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
 		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
 
 		dispatcher.Handle(req)
@@ -198,6 +202,8 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatchingGrid = grid
 
 		wg := grid.WorkGroups[0]
+		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
+		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
 		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
 
 		dispatcher.completedWGs = append(dispatcher.completedWGs,
