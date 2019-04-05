@@ -1,9 +1,8 @@
 package driver
 
 import (
-	"reflect"
-
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/vis/trace"
 )
 
 type kernelStartEnd struct {
@@ -15,48 +14,41 @@ type kernelStartEnd struct {
 type KernelTimeCounter struct {
 	TotalTime akita.VTimeInSec
 
-	startTimes  map[*LaunchKernelCommand]akita.VTimeInSec
+	startTimes  map[string]akita.VTimeInSec
 	kernelTimes []*kernelStartEnd
 }
 
+// NewKernelTimeCounter returns a newly created KernelTimeCounter
 func NewKernelTimeCounter() *KernelTimeCounter {
 	c := new(KernelTimeCounter)
-	c.startTimes = make(map[*LaunchKernelCommand]akita.VTimeInSec)
+	c.startTimes = make(map[string]akita.VTimeInSec)
 	return c
 }
 
-// Type specifies the type it hooks to.
-func (c *KernelTimeCounter) Type() reflect.Type {
-	return reflect.TypeOf((*LaunchKernelCommand)(nil))
-}
-
-// Pos specifies the position it hooks to.
-func (c *KernelTimeCounter) Pos() akita.HookPos {
-	return akita.AnyHookPos
-}
-
 // Func calculates the time spent on kernel execution.
-func (c *KernelTimeCounter) Func(
-	item interface{},
-	domain akita.Hookable,
-	info interface{},
-) {
-	cmd := item.(*LaunchKernelCommand)
-	hookInfo := info.(*CommandHookInfo)
+func (c *KernelTimeCounter) Func(ctx *akita.HookCtx) {
+	switch ctx.Pos {
+	case trace.HookPosTaskInitiate:
+		task := ctx.Item.(trace.Task)
+		_, ok := task.Detail.(*LaunchKernelCommand)
+		if !ok {
+			return
+		}
+		c.startTimes[task.ID] = ctx.Now
+	case trace.HookPosTaskClear:
+		task := ctx.Item.(trace.Task)
+		startTime, ok := c.startTimes[task.ID]
+		if !ok {
+			return
+		}
+		kernelTime := &kernelStartEnd{
+			start: startTime,
+			end:   ctx.Now,
+		}
+		c.kernelTimes = append(c.kernelTimes, kernelTime)
 
-	if hookInfo.IsStart {
-		c.startTimes[cmd] = hookInfo.Now
-		return
+		c.updateTotalTime()
 	}
-
-	startTime := c.startTimes[cmd]
-	kernelTime := &kernelStartEnd{
-		start: startTime,
-		end:   hookInfo.Now,
-	}
-	c.kernelTimes = append(c.kernelTimes, kernelTime)
-
-	c.updateTotalTime()
 }
 
 func (c *KernelTimeCounter) updateTotalTime() {
