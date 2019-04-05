@@ -10,15 +10,8 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/vis/trace"
 )
-
-// HookPosCommandStart is a hook position that triggers hook when a request
-// starts
-var HookPosCommandStart = &struct{ name string }{"CommandStart"}
-
-// HookPosCommandComplete is a hook position that triggers hook when a request
-// returns to the driver.
-var HookPosCommandComplete = &struct{ name string }{"CommandComplete"}
 
 // Driver is an Akita component that controls the simulated GPUs
 type Driver struct {
@@ -179,6 +172,26 @@ func (d *Driver) processOneCommand(
 	default:
 		log.Panicf("cannot process command of type %s", reflect.TypeOf(cmd))
 	}
+
+	d.logCmdStart(cmd, now)
+}
+
+func(d *Driver) logCmdStart(cmd Command, now akita.VTimeInSec) {
+	task := trace.Task{
+		ID: cmd.GetID(),
+		Type: "Driver Command",
+		InitiateTime: now,
+		What: reflect.TypeOf(cmd).
+		Where: d.Name(),
+		Detail: cmd
+	}
+	ctx := HookCtx{
+		Domain: d
+		Now: now,
+		Pos: trace.HookPosCommandInitiate,
+		Item: task
+	}
+	d.InvokeHook(&ctx)
 }
 
 func (d *Driver) processNoopCommand(
