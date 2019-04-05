@@ -8,27 +8,8 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/vis/trace"
 )
-
-// HookPosKernelStart is a hook position where the dispatcher start to
-// dispatch a kernel
-var HookPosKernelStart = &struct{ name string }{"KernelStart"}
-
-// HookPosKernelEnd is a hook position where the dispatcher knows that
-// all the work-groups have been completed.
-var HookPosKernelEnd = &struct{ name string }{"KernelEnd"}
-
-// HookPosWGMapped is a hook position where the dispatcher sends a map
-// WG request to a CU.
-var HookPosWGMapped = &struct{ name string }{"WG Mapped"}
-
-// HookPosWGFailed is a hook position where the dispatcher receives the
-// notification that a WG is failed to dispatch.
-var HookPosWGFailed = &struct{ name string }{"WG Completed"}
-
-// HookPosWGCompleted is a hook position where the dispatcher receives the
-// notification that a WG is completed.
-var HookPosWGCompleted = &struct{ name string }{"WG Completed"}
 
 // DispatcherHookInfo is the information provided for the hooks by the
 // Dispatcher
@@ -182,12 +163,15 @@ func (d *Dispatcher) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 
 // Handle perform actions when an event is triggered
 func (d *Dispatcher) Handle(evt akita.Event) error {
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    evt.Time(),
+		Pos:    akita.HookPosBeforeEvent,
+		Item:   evt,
+	}
+	d.InvokeHook(&ctx)
+
 	d.Lock()
-	defer d.Unlock()
-
-	d.InvokeHook(evt, d, akita.BeforeEventHookPos, nil)
-	defer d.InvokeHook(evt, d, akita.AfterEventHookPos, nil)
-
 	switch evt := evt.(type) {
 	case *LaunchKernelReq:
 		return d.handleLaunchKernelReq(evt)
@@ -201,6 +185,10 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 	default:
 		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
 	}
+	d.Unlock()
+
+	ctx.Pos = akita.HookPosAfterEvent
+	d.InvokeHook(&ctx)
 
 	return nil
 }
@@ -213,8 +201,8 @@ func (d *Dispatcher) handleLaunchKernelReq(
 		log.Panic("dispatcher not done dispatching the previous kernel")
 	}
 
-	d.initKernelDispatching(req)
-	d.scheduleMapWG(d.Freq.NextTick(req.RecvTime()))
+	d.initKernelDispatching(req.Time(), req)
+	d.scheduleMapWG(d.Freq.NextTick(req.Time()))
 
 	return nil
 }
@@ -259,28 +247,45 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	d.dispatchedWGs[d.dispatchingWGs[0].UID] = req
 	d.dispatchingCUID = cuID
 
-	d.InvokeHook(req, d, HookPosWGMapped, &DispatcherHookInfo{
-		Now:                  now,
-		Pos:                  HookPosWGMapped,
-		KernelDispatchingReq: d.dispatchingReq,
-	})
+	task := trace.Task{
+		ID:           req.ID,
+		ParentID:     d.dispatchingReq.ID,
+		Where:        d.Name(),
+		Type:         "Work Group",
+		What:         "Work Group",
+		InitiateTime: float64(now),
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    now,
+		Pos:    trace.HookPosTaskInitiate,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
 
 	return nil
 }
 
-func (d *Dispatcher) initKernelDispatching(req *LaunchKernelReq) {
+func (d *Dispatcher) initKernelDispatching(
+	now akita.VTimeInSec,
+	req *LaunchKernelReq,
+) {
 	d.dispatchingReq = req
 	d.dispatchingGrid = d.gridBuilder.Build(req.HsaCo, req.Packet)
 	d.dispatchingGrid.PacketAddress = req.PacketAddress
 	d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
-
 	d.dispatchingCUID = -1
 
-	d.InvokeHook(req, d, HookPosKernelStart,
-		&DispatcherHookInfo{
-			Now: req.RecvTime(),
-			Pos: HookPosKernelStart,
-		})
+	task := trace.Task{
+		ID: req.ID,
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    now,
+		Pos:    trace.HookPosTaskStart,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
 }
 
 func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {
@@ -299,10 +304,17 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 
 		delete(d.dispatchedWGs, d.dispatchingWGs[0].UID)
 
-		d.InvokeHook(req, d, HookPosWGMapped, &DispatcherHookInfo{
-			Now: now,
-			Pos: HookPosWGFailed,
-		})
+		task := trace.Task{
+			ID: req.ID,
+		}
+		ctx := akita.HookCtx{
+			Domain: d,
+			Now:    now,
+			Pos:    trace.HookPosTaskClear,
+			Item:   task,
+		}
+		d.InvokeHook(&ctx)
+
 		return nil
 	}
 
@@ -322,10 +334,17 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 
 	mapWGReq := d.dispatchedWGs[mesg.WG.UID]
 	delete(d.dispatchedWGs, mesg.WG.UID)
-	d.InvokeHook(mapWGReq, d, HookPosWGCompleted, &DispatcherHookInfo{
-		Now: mesg.Time(),
-		Pos: HookPosWGCompleted,
-	})
+
+	task := trace.Task{
+		ID: mapWGReq.ID,
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    mesg.Time(),
+		Pos:    trace.HookPosTaskClear,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
 
 	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
 		d.replyKernelFinish(mesg.Time())
@@ -355,11 +374,16 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 		log.Panic(err)
 	}
 
-	d.InvokeHook(req, d, HookPosKernelEnd,
-		&DispatcherHookInfo{
-			Now: req.RecvTime(),
-			Pos: HookPosKernelEnd,
-		})
+	task := trace.Task{
+		ID: req.ID,
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    now,
+		Pos:    trace.HookPosTaskComplete,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can

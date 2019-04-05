@@ -4,39 +4,80 @@ import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/vis/trace"
 )
 
-var _ = ginkgo.Describe("KernelTimeCounter", func(){
+var _ = ginkgo.Describe("KernelTimeCounter", func() {
 	ginkgo.It("should count kernel time", func() {
 		c := NewKernelTimeCounter()
 
 		cmd1 := &LaunchKernelCommand{}
-		info1 := &CommandHookInfo{Now: akita.VTimeInSec(0.5), IsStart:true}
-		c.Func(cmd1, nil, info1)
+		task1 := trace.Task{ID: "1", Detail: cmd1}
+		ctx1 := &akita.HookCtx{
+			Now:  akita.VTimeInSec(0.5),
+			Pos:  trace.HookPosTaskInitiate,
+			Item: task1,
+		}
+		c.Func(ctx1)
 
 		cmd2 := &LaunchKernelCommand{}
-		info2 := &CommandHookInfo{Now: akita.VTimeInSec(1.0), IsStart:true}
-		c.Func(cmd2, nil, info2)
+		task2 := trace.Task{ID: "2", Detail: cmd2}
+		ctx2 := &akita.HookCtx{
+			Now:  akita.VTimeInSec(1.0),
+			Pos:  trace.HookPosTaskInitiate,
+			Item: task2,
+		}
+		c.Func(ctx2)
 
 		cmd3 := &LaunchKernelCommand{}
-		info3 := &CommandHookInfo{Now: akita.VTimeInSec(1.3), IsStart:true}
-		c.Func(cmd3, nil, info3)
+		task3 := trace.Task{ID: "3", Detail: cmd3}
+		ctx3 := &akita.HookCtx{
+			Now:  akita.VTimeInSec(1.3),
+			Pos:  trace.HookPosTaskInitiate,
+			Item: task3,
+		}
+		c.Func(ctx3)
 
-		info1e := &CommandHookInfo{Now: akita.VTimeInSec(1.5), IsStart:false}
-		c.Func(cmd1, nil, info1e)
+		task1e := trace.Task{ID: "1"}
+		ctx1e := &akita.HookCtx{
+			Now:  akita.VTimeInSec(1.5),
+			Pos:  trace.HookPosTaskClear,
+			Item: task1e,
+		}
+		c.Func(ctx1e)
 
-		info3e := &CommandHookInfo{Now: akita.VTimeInSec(1.7), IsStart:false}
-		c.Func(cmd3, nil, info3e)
+		task3e := trace.Task{ID: "3"}
+		ctx3e := &akita.HookCtx{
+			Now:  akita.VTimeInSec(1.7),
+			Pos:  trace.HookPosTaskClear,
+			Item: task3e,
+		}
+		c.Func(ctx3e)
 
-		info2e := &CommandHookInfo{Now: akita.VTimeInSec(2.0), IsStart:false}
-		c.Func(cmd2, nil, info2e)
+		task2e := trace.Task{ID: "2"}
+		ctx2e := &akita.HookCtx{
+			Now:  akita.VTimeInSec(2.0),
+			Pos:  trace.HookPosTaskClear,
+			Item: task2e,
+		}
+		c.Func(ctx2e)
 
 		cmd4 := &LaunchKernelCommand{}
-		info4 := &CommandHookInfo{Now: akita.VTimeInSec(3.0), IsStart:true}
-		c.Func(cmd4, nil, info4)
+		task4 := trace.Task{ID: "4", Detail: cmd4}
+		ctx4 := &akita.HookCtx{
+			Now:  akita.VTimeInSec(3.0),
+			Pos:  trace.HookPosTaskInitiate,
+			Item: task4,
+		}
+		c.Func(ctx4)
 
-		info4e := &CommandHookInfo{Now: akita.VTimeInSec(3.5), IsStart:false}
-		c.Func(cmd4, nil, info4e)
+		task4e := trace.Task{ID: "4"}
+		ctx4e := &akita.HookCtx{
+			Now:  akita.VTimeInSec(3.5),
+			Pos:  trace.HookPosTaskClear,
+			Item: task4e,
+		}
+		c.Func(ctx4e)
 
 		Expect(c.TotalTime).To(Equal(akita.VTimeInSec(2.0)))
 
