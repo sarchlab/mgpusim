@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/vis/trace"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/emu"
@@ -13,19 +15,6 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
-
-// Define possible hook positions
-const (
-	HookPosWGStart = "WG Start"
-	HookPosWGEnd   = "WG End"
-	HookPosWfStart = "Wf Start"
-	HookPosWfEnd   = "Wf End"
-)
-
-type CUHookInfo struct {
-	Now akita.VTimeInSec
-	Pos interface{}
-}
 
 // A ComputeUnit in the timing package provides a detailed and accurate
 // simulation of a GCN3 ComputeUnit
@@ -88,7 +77,14 @@ type ComputeUnit struct {
 
 // Handle processes that events that are scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt akita.Event) error {
-	cu.InvokeHook(evt, cu, akita.BeforeEventHookPos, nil)
+	ctx := akita.HookCtx{
+		Domain: cu,
+		Now:    evt.Time(),
+		Pos:    akita.HookPosBeforeEvent,
+		Item:   evt,
+	}
+	cu.InvokeHook(&ctx)
+
 	cu.Lock()
 
 	switch evt := evt.(type) {
@@ -105,7 +101,10 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	}
 
 	cu.Unlock()
-	cu.InvokeHook(evt, cu, akita.AfterEventHookPos, nil)
+
+	ctx.Pos = akita.HookPosAfterEvent
+	cu.InvokeHook(&ctx)
+
 	return nil
 }
 
@@ -364,10 +363,16 @@ func (cu *ComputeUnit) handleMapWGReq(
 		evt.IsLastInWG = true
 		cu.Engine.Schedule(evt)
 
-		cu.InvokeHook(req, cu, HookPosWGStart, &CUHookInfo{
-			Now: now,
-			Pos: HookPosWGStart,
-		})
+		task := trace.Task{
+			ID: req.GetID(),
+		}
+		ctx := akita.HookCtx{
+			Domain: cu,
+			Now:    now,
+			Pos:    trace.HookPosTaskStart,
+			Item:   task,
+		}
+		cu.InvokeHook(&ctx)
 
 		return nil
 	}
@@ -396,10 +401,22 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 
 		wf.State = wavefront.WfReady
 
-		cu.InvokeHook(wf, cu, HookPosWfStart, &CUHookInfo{
-			Now: evt.Time(),
-			Pos: HookPosWfStart,
-		})
+		task := trace.Task{
+			ID:           wf.UID,
+			ParentID:     evt.MapWGReq.GetID(),
+			Type:         "Wavefront",
+			What:         "Wavefront",
+			Where:        cu.Name(),
+			InitiateTime: float64(now),
+			Detail:       wf,
+		}
+		ctx := akita.HookCtx{
+			Domain: cu,
+			Now:    now,
+			Pos:    trace.HookPosTaskInitiate,
+			Item:   task,
+		}
+		cu.InvokeHook(&ctx)
 	}
 
 	// Respond ACK
@@ -421,24 +438,37 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 }
 
 func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
+	now := evt.Time()
 	wf := evt.Wf
 	wg := wf.WG
 	wf.State = wavefront.WfCompleted
 
-	cu.InvokeHook(wf, cu, HookPosWfEnd, &CUHookInfo{
-		Now: evt.Time(),
-		Pos: HookPosWfEnd,
-	})
+	task := trace.Task{
+		ID: wf.UID,
+	}
+	ctx := akita.HookCtx{
+		Domain: cu,
+		Now:    now,
+		Pos:    trace.HookPosTaskClear,
+		Item:   task,
+	}
+	cu.InvokeHook(&ctx)
 
 	if cu.isAllWfInWGCompleted(wg) {
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
 			cu.clearWGResource(wg)
 
-			cu.InvokeHook(wg, cu, HookPosWGEnd, &CUHookInfo{
-				Now: evt.Time(),
-				Pos: HookPosWGEnd,
-			})
+			task := trace.Task{
+				ID: wg.MapReq.GetID(),
+			}
+			ctx := akita.HookCtx{
+				Domain: cu,
+				Now:    now,
+				Pos:    trace.HookPosTaskComplete,
+				Item:   task,
+			}
+			cu.InvokeHook(&ctx)
 		}
 
 		if !cu.hasMoreWfsToRun() {
@@ -478,7 +508,8 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 
 	err := cu.ToACE.Send(mesg)
 	if err != nil {
-		newEvent := NewWfCompletionEvent(cu.Freq.NextTick(now), cu, evt.Wf)
+		newEvent := NewWfCompletionEvent(
+			cu.Freq.NextTick(now), cu, evt.Wf)
 		cu.Engine.Schedule(newEvent)
 		return false
 	}
@@ -596,8 +627,8 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	wf.OutstandingScalarMemAccess--
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
-	cu.InvokeHook(wf, cu, akita.AnyHookPos,
-		&wavefront.InstHookInfo{now, info.Inst, "Completed"})
+	cu.logInstStageTask(now, info.Inst, "mem", true)
+	cu.logInstTask(now, wf, info.Inst, false)
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
@@ -657,12 +688,16 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-		cu.InvokeHook(wf, cu, akita.AnyHookPos,
-			&wavefront.InstHookInfo{now, info.Inst, "Completed"})
+
+		cu.logInstStageTask(now, info.Inst, "mem", true)
+		cu.logInstTask(now, wf, info.Inst, false)
 	}
 }
 
-func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.DoneRsp) {
+func (cu *ComputeUnit) handleVectorDataStoreRsp(
+	now akita.VTimeInSec,
+	rsp *mem.DoneRsp,
+) {
 	info := cu.InFlightVectorMemAccess[0]
 	if info.Write.ID != rsp.RespondTo {
 		log.Panic("CU cannot receive out of order memory return")
@@ -675,13 +710,12 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(now akita.VTimeInSec, rsp *mem.D
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-		cu.InvokeHook(wf, cu, akita.AnyHookPos,
-			&wavefront.InstHookInfo{now, info.Inst, "Completed"})
+		cu.logInstStageTask(now, info.Inst, "mem", true)
+		cu.logInstTask(now, wf, info.Inst, false)
 	}
 }
 
 func (cu *ComputeUnit) UpdatePCAndSetReady(wf *wavefront.Wavefront) {
-
 	wf.State = wavefront.WfReady
 	wf.PC += uint64(wf.Inst().ByteSize)
 	cu.removeStaleInstBuffer(wf)
@@ -701,7 +735,64 @@ func (cu *ComputeUnit) flushCUBuffers() {
 	cu.InFlightInstFetch = nil
 	cu.InFlightScalarMemAccess = nil
 	cu.InFlightVectorMemAccess = nil
+}
 
+func (cu *ComputeUnit) logInstTask(
+	now akita.VTimeInSec,
+	wf *wavefront.Wavefront,
+	inst *wavefront.Inst,
+	completed bool,
+) {
+	task := trace.Task{
+		ID:       inst.ID,
+		ParentID: wf.UID,
+		Type:     "Inst",
+		What:     inst.String(nil),
+		Where:    cu.Name(),
+	}
+
+	ctx := akita.HookCtx{
+		Domain: cu,
+		Now:    now,
+		Item:   task,
+	}
+	if completed {
+		ctx.Pos = trace.HookPosTaskClear
+	} else {
+		task.InitiateTime = float64(now)
+		ctx.Pos = trace.HookPosTaskInitiate
+	}
+
+	cu.InvokeHook(&ctx)
+}
+
+func (cu *ComputeUnit) logInstStageTask(
+	now akita.VTimeInSec,
+	inst *wavefront.Inst,
+	stage string,
+	completed bool,
+) {
+	task := trace.Task{
+		ID:       inst.ID + "_" + stage,
+		ParentID: inst.ID,
+		Type:     "Inst Stage",
+		What:     inst.String(nil),
+		Where:    cu.Name(),
+	}
+
+	ctx := akita.HookCtx{
+		Domain: cu,
+		Now:    now,
+		Item:   task,
+	}
+	if completed {
+		ctx.Pos = trace.HookPosTaskClear
+	} else {
+		task.InitiateTime = float64(now)
+		ctx.Pos = trace.HookPosTaskInitiate
+	}
+
+	cu.InvokeHook(&ctx)
 }
 
 // NewComputeUnit returns a newly constructed compute unit
