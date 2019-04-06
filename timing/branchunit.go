@@ -50,8 +50,7 @@ func (u *BranchUnit) AcceptWave(
 	now akita.VTimeInSec,
 ) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos,
-		&wavefront.InstHookInfo{now, wave.DynamicInst(), "Read"})
+	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
 // Run executes three pipeline stages that are controlled by the BranchUnit
@@ -70,7 +69,9 @@ func (u *BranchUnit) runReadStage(now akita.VTimeInSec) bool {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Exec"})
+
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", true)
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", false)
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -87,7 +88,9 @@ func (u *BranchUnit) runExecStage(now akita.VTimeInSec) bool {
 
 	if u.toWrite == nil {
 		u.alu.Run(u.toExec)
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Write"})
+
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", true)
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "write", false)
 
 		u.toWrite = u.toExec
 		u.toExec = nil
@@ -103,7 +106,8 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toWrite.DynamicInst(), "Completed"})
+	u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "write", true)
+	u.cu.logInstTask(now, u.toRead, u.toRead.DynamicInst(), true)
 
 	u.toWrite.InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.toWrite)

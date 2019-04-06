@@ -57,7 +57,7 @@ func (u *ScalarUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Read"})
+	u.cu.logInstStage(now, u.toRead.DynamicInst(), "read", false)
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
@@ -77,7 +77,9 @@ func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) bool {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Exec"})
+
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", true)
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", false)
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -97,7 +99,10 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 			return true
 		} else {
 			u.alu.Run(u.toExec)
-			u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Write"})
+
+			u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
+			u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "write", false)
+
 			u.toWrite = u.toExec
 			u.toExec = nil
 		}
@@ -145,7 +150,9 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 
 		u.cu.UpdatePCAndSetReady(u.toExec)
 
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "WaitMem"})
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", false)
+
 		u.toExec = nil
 	}
 }
@@ -157,7 +164,8 @@ func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.InvokeHook(u.toWrite, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toWrite.DynamicInst(), "Completed"})
+	u.cu.logInstStageTask(now, u.toWrite.DynamicInst(), "write", true)
+	u.cu.logInstTask(now, u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)
 

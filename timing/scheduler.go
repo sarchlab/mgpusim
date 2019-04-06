@@ -98,9 +98,7 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = wavefront.NewInst(inst)
-				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
-					&wavefront.InstHookInfo{
-						now, wf.InstToIssue, "Create"})
+				s.cu.logInstTask(now, wf, wf.InstToIssue, false)
 				madeProgress = true
 			}
 		}
