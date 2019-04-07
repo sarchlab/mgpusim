@@ -168,8 +168,10 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 				unit.AcceptWave(wf, now)
 				wf.State = wavefront.WfRunning
 				//s.removeStaleInstBuffer(wf)
-				s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos,
-					&wavefront.InstHookInfo{now, wf.InstToIssue, "Issue"})
+
+				s.cu.logInstTask(now, wf, wf.InstToIssue, false)
+				s.cu.logInstStageTask(now, wf.InstToIssue, "issue", false)
+
 				madeProgress = true
 			}
 		}
@@ -184,7 +186,10 @@ func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now akita.VTime
 		s.internalExecuting = wf
 		wf.State = wavefront.WfRunning
 		//s.removeStaleInstBuffer(wf)
-		s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, wf.InstToIssue, "Issue"})
+
+		s.cu.logInstTask(now, wf, wf.InstToIssue, false)
+		s.cu.logInstStageTask(now, wf.InstToIssue, "exec", false)
+
 		return true
 	}
 	return false
@@ -233,8 +238,8 @@ func (s *SchedulerImpl) EvaluateInternalInst(now akita.VTimeInSec) bool {
 	}
 
 	if s.internalExecuting == nil {
-		s.cu.InvokeHook(executing, s.cu, akita.AnyHookPos,
-			&wavefront.InstHookInfo{now, executing.DynamicInst(), "Completed"})
+		s.cu.logInstStageTask(now, executing.DynamicInst(), "exec", true)
+		s.cu.logInstTask(now, executing, executing.DynamicInst(), true)
 	}
 	return madeProgress
 }
