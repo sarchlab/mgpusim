@@ -58,7 +58,7 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Read"})
+	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
@@ -83,7 +83,9 @@ func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) bool {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-		u.cu.InvokeHook(u.toRead, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toRead.DynamicInst(), "Exec"})
+
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", true)
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", false)
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -112,11 +114,11 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 			log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
 		}
 
-		u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "WaitMem"})
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", false)
 
 		//u.toWrite = u.toExec
-		u.cu.UpdatePCAndSetReady(u.toExec)
-		u.toExec = nil
+
 		return true
 	}
 	return false

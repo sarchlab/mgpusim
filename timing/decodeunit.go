@@ -56,6 +56,7 @@ func (du *DecodeUnit) AcceptWave(
 	du.toDecode = wave
 	du.decoded = false
 
+	du.cu.logInstStageTask(now, wave.DynamicInst(), "issue", true)
 	du.cu.logInstStageTask(now, wave.DynamicInst(), "decode", false)
 }
 

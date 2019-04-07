@@ -50,6 +50,7 @@ func (u *BranchUnit) AcceptWave(
 	now akita.VTimeInSec,
 ) {
 	u.toRead = wave
+	u.cu.logInstStageTask(now, wave.DynamicInst(), "issue", true)
 	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
