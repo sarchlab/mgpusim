@@ -33,7 +33,7 @@ func NewSIMDUnit(
 	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
 
-	u.NumSinglePrecisionUnit = 32
+	u.NumSinglePrecisionUnit = 16
 
 	return u
 }
