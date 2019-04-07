@@ -91,8 +91,8 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			wfHook := emu.NewWfHook(log.New(isaDebug, "", 0))
-			computeUnit.AcceptHook(wfHook)
+			isaDebugger := emu.NewISADebugger(log.New(isaDebug, "", 0))
+			computeUnit.AcceptHook(isaDebugger)
 		}
 	}
 
