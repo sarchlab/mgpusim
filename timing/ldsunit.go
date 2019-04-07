@@ -48,7 +48,7 @@ func (u *LDSUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", false)
+	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
 // Run executes three pipeline stages that are controlled by the LDSUnit

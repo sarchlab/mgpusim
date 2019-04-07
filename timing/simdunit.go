@@ -62,7 +62,7 @@ func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	// and the last write.
 	u.cycleLeft = 64/u.NumSinglePrecisionUnit + 2
 
-	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Exec"})
+	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
@@ -85,7 +85,9 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 	u.alu.Run(u.toExec)
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.cu.UpdatePCAndSetReady(u.toExec)
-	u.cu.InvokeHook(u.toExec, u.cu, akita.AnyHookPos, &wavefront.InstHookInfo{now, u.toExec.DynamicInst(), "Completed"})
+
+	u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
+	u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
 
 	u.toExec = nil
 	return true
