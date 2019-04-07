@@ -119,6 +119,9 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 
 		//u.toWrite = u.toExec
 
+		u.cu.UpdatePCAndSetReady(u.toExec)
+		u.toExec = nil
+
 		return true
 	}
 	return false

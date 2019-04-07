@@ -45,6 +45,11 @@ github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c h1:u40Z8hqBAAQyv+vATcGgV
 github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c/go.mod h1:lB8K/P019DLNhemzwFU4jHLhdvlE6uDZjXFejJXr49I=
 github.com/xdg/stringprep v1.0.0 h1:d9X0esnoa3dFsV0FG35rAT0RIhYFlPq7MiP+DW89La0=
 github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0HrGL1Y=
+gitlab.com/akita/akita v1.1.0/go.mod h1:OeR3a7/KiyGD77zeCbJowIdZpsOL+5qTA32/cs+saEE=
+gitlab.com/akita/akita v1.2.1/go.mod h1:eNUGyDnGKgimk6ndOBkRfaPrv5eeWlk0P2ETsUfmsBg=
+gitlab.com/akita/akita v1.3.0/go.mod h1:eNUGyDnGKgimk6ndOBkRfaPrv5eeWlk0P2ETsUfmsBg=
+gitlab.com/akita/akita v1.3.1 h1:k2SWi92O8Khbb71xoUEg7kVoN+w9QVvrwZRytfU789I=
+gitlab.com/akita/akita v1.3.1/go.mod h1:eNUGyDnGKgimk6ndOBkRfaPrv5eeWlk0P2ETsUfmsBg=
 gitlab.com/akita/mem v1.1.4 h1:y+5TTnnofueWx/xQSjZt1ghBPuYVyYuAiL5iXGJwWUk=
 gitlab.com/akita/mem v1.1.4/go.mod h1:a4VzmCrSe5gkrxCUibGjCfeCejAPCnOWbVhrGuShs9E=
 gitlab.com/akita/noc v1.1.2 h1:Njml3+j3+H3+bvlykS+zqDzgHlNROBl39r0NfazrVU8=
