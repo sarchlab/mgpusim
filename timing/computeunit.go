@@ -351,6 +351,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 
 		for i, wf := range wfs {
 			evt := NewWfDispatchEvent(cu.Freq.NCyclesLater(i, now), cu, wf)
+			evt.MapWGReq = req
 			cu.Engine.Schedule(evt)
 		}
 

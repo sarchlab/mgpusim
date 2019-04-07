@@ -183,7 +183,6 @@ func (d *Driver) logCmdStart(cmd Command, now akita.VTimeInSec) {
 		InitiateTime: float64(now),
 		What:         reflect.TypeOf(cmd).String(),
 		Where:        d.Name(),
-		Detail:       cmd,
 	}
 	ctx := akita.HookCtx{
 		Domain: d,
