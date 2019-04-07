@@ -174,13 +174,13 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 	d.Lock()
 	switch evt := evt.(type) {
 	case *LaunchKernelReq:
-		return d.handleLaunchKernelReq(evt)
+		d.handleLaunchKernelReq(evt)
 	case *MapWGEvent:
-		return d.handleMapWGEvent(evt)
+		d.handleMapWGEvent(evt)
 	case *MapWGReq:
-		return d.handleMapWGReq(evt)
+		d.handleMapWGReq(evt)
 	case *WGFinishMesg:
-		return d.handleWGFinishMesg(evt)
+		d.handleWGFinishMesg(evt)
 
 	default:
 		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
