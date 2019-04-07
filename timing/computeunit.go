@@ -743,27 +743,29 @@ func (cu *ComputeUnit) logInstTask(
 	inst *wavefront.Inst,
 	completed bool,
 ) {
-	task := trace.Task{
-		ID:       inst.ID,
-		ParentID: wf.UID,
-		Type:     "Inst",
-		What:     inst.String(nil),
-		Where:    cu.Name(),
-	}
+	if len(cu.Hooks) > 0 {
+		task := trace.Task{
+			ID:       inst.ID,
+			ParentID: wf.UID,
+			Type:     "Inst",
+			What:     inst.String(nil),
+			Where:    cu.Name(),
+		}
 
-	ctx := akita.HookCtx{
-		Domain: cu,
-		Now:    now,
-		Item:   task,
-	}
-	if completed {
-		ctx.Pos = trace.HookPosTaskClear
-	} else {
-		task.InitiateTime = float64(now)
-		ctx.Pos = trace.HookPosTaskInitiate
-	}
+		ctx := akita.HookCtx{
+			Domain: cu,
+			Now:    now,
+			Item:   task,
+		}
+		if completed {
+			ctx.Pos = trace.HookPosTaskClear
+		} else {
+			task.InitiateTime = float64(now)
+			ctx.Pos = trace.HookPosTaskInitiate
+		}
 
-	cu.InvokeHook(&ctx)
+		cu.InvokeHook(&ctx)
+	}
 }
 
 func (cu *ComputeUnit) logInstStageTask(
@@ -772,27 +774,29 @@ func (cu *ComputeUnit) logInstStageTask(
 	stage string,
 	completed bool,
 ) {
-	task := trace.Task{
-		ID:       inst.ID + "_" + stage,
-		ParentID: inst.ID,
-		Type:     "Inst Stage",
-		What:     inst.String(nil),
-		Where:    cu.Name(),
-	}
+	if len(cu.Hooks) > 0 {
+		task := trace.Task{
+			ID:       inst.ID + "_" + stage,
+			ParentID: inst.ID,
+			Type:     "Inst Stage",
+			What:     inst.String(nil),
+			Where:    cu.Name(),
+		}
 
-	ctx := akita.HookCtx{
-		Domain: cu,
-		Now:    now,
-		Item:   task,
-	}
-	if completed {
-		ctx.Pos = trace.HookPosTaskClear
-	} else {
-		task.InitiateTime = float64(now)
-		ctx.Pos = trace.HookPosTaskInitiate
-	}
+		ctx := akita.HookCtx{
+			Domain: cu,
+			Now:    now,
+			Item:   task,
+		}
+		if completed {
+			ctx.Pos = trace.HookPosTaskClear
+		} else {
+			task.InitiateTime = float64(now)
+			ctx.Pos = trace.HookPosTaskInitiate
+		}
 
-	cu.InvokeHook(&ctx)
+		cu.InvokeHook(&ctx)
+	}
 }
 
 // NewComputeUnit returns a newly constructed compute unit
