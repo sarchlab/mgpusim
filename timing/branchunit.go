@@ -90,8 +90,8 @@ func (u *BranchUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toWrite == nil {
 		u.alu.Run(u.toExec)
 
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", true)
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "write", false)
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "write", false)
 
 		u.toWrite = u.toExec
 		u.toExec = nil
@@ -107,8 +107,8 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "write", true)
-	u.cu.logInstTask(now, u.toRead, u.toRead.DynamicInst(), true)
+	u.cu.logInstStageTask(now, u.toWrite.DynamicInst(), "write", true)
+	u.cu.logInstTask(now, u.toRead, u.toWrite.DynamicInst(), true)
 
 	u.toWrite.InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.toWrite)

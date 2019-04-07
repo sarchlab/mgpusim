@@ -260,5 +260,4 @@ func (u *VectorMemoryUnit) Flush() {
 	u.toRead = nil
 	u.toExec = nil
 	u.toWrite = nil
-
 }
