@@ -57,7 +57,7 @@ func (d *Driver) logSimulationStart() {
 			Domain: d,
 			Now:    0,
 			Pos:    trace.HookPosTaskInitiate,
-			Item:   &task,
+			Item:   task,
 		}
 		d.InvokeHook(&ctx)
 	}
@@ -78,7 +78,7 @@ func (d *Driver) logSimulationTerminate() {
 			Domain: d,
 			Now:    d.Engine.CurrentTime(),
 			Pos:    trace.HookPosTaskClear,
-			Item:   &task,
+			Item:   task,
 		}
 		d.InvokeHook(&ctx)
 	}
