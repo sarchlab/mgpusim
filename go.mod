@@ -12,9 +12,7 @@ require (
 	gitlab.com/akita/akita v1.3.2
 	gitlab.com/akita/mem v1.1.4
 	gitlab.com/akita/noc v1.1.3
-	gitlab.com/akita/vis v0.1.0
+	gitlab.com/akita/vis v0.2
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a // indirect
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
 )
-
-replace gitlab.com/akita/vis => /Users/yifan/dev/src/gitlab.com/akita/vis
