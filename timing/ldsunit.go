@@ -68,8 +68,8 @@ func (u *LDSUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
 
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "read", true)
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", false)
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", true)
+		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", false)
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -87,8 +87,8 @@ func (u *LDSUnit) runExecStage(now akita.VTimeInSec) bool {
 		u.alu.SetLDS(u.toExec.WG.LDS)
 		u.alu.Run(u.toExec)
 
-		u.cu.logInstStageTask(now, u.toWrite.DynamicInst(), "exec", true)
-		u.cu.logInstStageTask(now, u.toWrite.DynamicInst(), "write", false)
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "write", false)
 
 		u.toWrite = u.toExec
 		u.toExec = nil
