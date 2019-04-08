@@ -745,11 +745,12 @@ func (cu *ComputeUnit) logInstTask(
 ) {
 	if len(cu.Hooks) > 0 {
 		task := trace.Task{
-			ID:       inst.ID,
-			ParentID: wf.UID,
-			Type:     "Inst",
-			What:     inst.String(nil),
-			Where:    cu.Name(),
+			ID:           inst.ID,
+			ParentID:     wf.UID,
+			Type:         "Inst",
+			What:         inst.String(nil),
+			Where:        cu.Name(),
+			InitiateTime: float64(now),
 		}
 
 		ctx := akita.HookCtx{
@@ -776,11 +777,12 @@ func (cu *ComputeUnit) logInstStageTask(
 ) {
 	if len(cu.Hooks) > 0 {
 		task := trace.Task{
-			ID:       inst.ID + "_" + stage,
-			ParentID: inst.ID,
-			Type:     "Inst Stage",
-			What:     stage,
-			Where:    cu.Name(),
+			ID:           inst.ID + "_" + stage,
+			ParentID:     inst.ID,
+			Type:         "Inst Stage",
+			What:         stage,
+			Where:        cu.Name(),
+			InitiateTime: float64(now),
 		}
 
 		ctx := akita.HookCtx{
