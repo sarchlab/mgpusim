@@ -471,12 +471,8 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		// 	cu.AcceptHook(isaDebugger)
 		// }
 
-		// if b.EnableVisTracing {
-		// 	wgTracer := trace.NewWGTracer(b.Tracer)
-		// 	cu.AcceptHook(wgTracer)
-
-		// 	isaTracer := trace.NewInstTracer(b.Tracer)
-		// 	cu.AcceptHook(isaTracer)
-		// }
+		if b.EnableVisTracing {
+			cu.AcceptHook(b.traceHook)
+		}
 	}
 }
