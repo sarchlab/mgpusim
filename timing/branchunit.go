@@ -108,7 +108,7 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
 	u.cu.logInstStageTask(now, u.toWrite.DynamicInst(), "write", true)
-	u.cu.logInstTask(now, u.toRead, u.toWrite.DynamicInst(), true)
+	u.cu.logInstTask(now, u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.toWrite.InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.toWrite)

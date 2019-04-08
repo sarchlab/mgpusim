@@ -409,7 +409,6 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 			What:         "Wavefront",
 			Where:        cu.Name(),
 			InitiateTime: float64(now),
-			Detail:       wf,
 		}
 		ctx := akita.HookCtx{
 			Domain: cu,
@@ -780,7 +779,7 @@ func (cu *ComputeUnit) logInstStageTask(
 			ID:       inst.ID + "_" + stage,
 			ParentID: inst.ID,
 			Type:     "Inst Stage",
-			What:     inst.String(nil),
+			What:     stage,
 			Where:    cu.Name(),
 		}
 
