@@ -62,7 +62,7 @@ func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	// and the last write.
 	u.cycleLeft = 64/u.NumSinglePrecisionUnit + 2
 
-	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
+	u.cu.logInstStageTask(now, wave.DynamicInst(), "exec", false)
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit

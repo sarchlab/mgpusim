@@ -98,7 +98,7 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
 			if err == nil {
 				wf.InstToIssue = wavefront.NewInst(inst)
-				s.cu.logInstTask(now, wf, wf.InstToIssue, false)
+				// s.cu.logInstTask(now, wf, wf.InstToIssue, false)
 				madeProgress = true
 			}
 		}
@@ -165,12 +165,13 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 			if unit.CanAcceptWave() {
 				wf.SetDynamicInst(wf.InstToIssue)
 				wf.InstToIssue = nil
+
+				s.cu.logInstTask(now, wf, wf.DynamicInst(), false)
+				s.cu.logInstStageTask(now, wf.DynamicInst(), "issue", false)
+
 				unit.AcceptWave(wf, now)
 				wf.State = wavefront.WfRunning
 				//s.removeStaleInstBuffer(wf)
-
-				s.cu.logInstTask(now, wf, wf.InstToIssue, false)
-				s.cu.logInstStageTask(now, wf.InstToIssue, "issue", false)
 
 				madeProgress = true
 			}
@@ -187,8 +188,8 @@ func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now akita.VTime
 		wf.State = wavefront.WfRunning
 		//s.removeStaleInstBuffer(wf)
 
-		s.cu.logInstTask(now, wf, wf.InstToIssue, false)
-		s.cu.logInstStageTask(now, wf.InstToIssue, "exec", false)
+		s.cu.logInstTask(now, wf, wf.DynamicInst(), false)
+		s.cu.logInstStageTask(now, wf.DynamicInst(), "exec", false)
 
 		return true
 	}
