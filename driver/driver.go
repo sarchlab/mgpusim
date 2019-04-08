@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem/vm"
@@ -33,16 +34,54 @@ type Driver struct {
 	driverStopped chan bool
 	enqueueSignal chan bool
 	engineMutex   sync.Mutex
+	simulationID  string
 }
 
 // Run starts a new threads that handles all commands in the command queues
 func (d *Driver) Run() {
+	d.logSimulationStart()
 	go d.runAsync()
+}
+
+func (d *Driver) logSimulationStart() {
+	d.simulationID = xid.New().String()
+	if len(d.Hooks) > 0 {
+		task := trace.Task{
+			ID:           d.simulationID,
+			Where:        d.Name(),
+			Type:         "Simulation",
+			What:         "Simulation",
+			InitiateTime: 0,
+		}
+		ctx := akita.HookCtx{
+			Domain: d,
+			Now:    0,
+			Pos:    trace.HookPosTaskInitiate,
+			Item:   &task,
+		}
+		d.InvokeHook(&ctx)
+	}
 }
 
 // Terminate stops the driver thread execution.
 func (d *Driver) Terminate() {
 	d.driverStopped <- true
+	d.logSimulationTerminate()
+}
+
+func (d *Driver) logSimulationTerminate() {
+	if len(d.Hooks) > 0 {
+		task := trace.Task{
+			ID: d.simulationID,
+		}
+		ctx := akita.HookCtx{
+			Domain: d,
+			Now:    d.Engine.CurrentTime(),
+			Pos:    trace.HookPosTaskClear,
+			Item:   &task,
+		}
+		d.InvokeHook(&ctx)
+	}
 }
 
 func (d *Driver) runAsync() {
@@ -179,6 +218,7 @@ func (d *Driver) processOneCommand(
 func (d *Driver) logCmdStart(cmd Command, now akita.VTimeInSec) {
 	task := trace.Task{
 		ID:           cmd.GetID(),
+		ParentID:     d.simulationID,
 		Type:         "Driver Command",
 		InitiateTime: float64(now),
 		What:         reflect.TypeOf(cmd).String(),
