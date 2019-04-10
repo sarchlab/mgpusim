@@ -748,7 +748,7 @@ func (cu *ComputeUnit) logInstTask(
 			ID:           inst.ID,
 			ParentID:     wf.UID,
 			Type:         "Inst",
-			What:         inst.String(nil),
+			What:         "Inst",
 			Where:        cu.Name(),
 			InitiateTime: float64(now),
 		}
