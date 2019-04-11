@@ -7,18 +7,12 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/vis/trace"
 )
-
-// HookPosCommandStart is a hook position that triggers hook when a request
-// starts
-var HookPosCommandStart = &struct{ name string }{"CommandStart"}
-
-// HookPosCommandComplete is a hook position that triggers hook when a request
-// returns to the driver.
-var HookPosCommandComplete = &struct{ name string }{"CommandComplete"}
 
 // Driver is an Akita component that controls the simulated GPUs
 type Driver struct {
@@ -40,16 +34,54 @@ type Driver struct {
 	driverStopped chan bool
 	enqueueSignal chan bool
 	engineMutex   sync.Mutex
+	simulationID  string
 }
 
 // Run starts a new threads that handles all commands in the command queues
 func (d *Driver) Run() {
+	d.logSimulationStart()
 	go d.runAsync()
+}
+
+func (d *Driver) logSimulationStart() {
+	d.simulationID = xid.New().String()
+	if len(d.Hooks) > 0 {
+		task := trace.Task{
+			ID:           d.simulationID,
+			Where:        d.Name(),
+			Type:         "Simulation",
+			What:         "Simulation",
+			InitiateTime: 0,
+		}
+		ctx := akita.HookCtx{
+			Domain: d,
+			Now:    0,
+			Pos:    trace.HookPosTaskInitiate,
+			Item:   task,
+		}
+		d.InvokeHook(&ctx)
+	}
 }
 
 // Terminate stops the driver thread execution.
 func (d *Driver) Terminate() {
 	d.driverStopped <- true
+	d.logSimulationTerminate()
+}
+
+func (d *Driver) logSimulationTerminate() {
+	if len(d.Hooks) > 0 {
+		task := trace.Task{
+			ID: d.simulationID,
+		}
+		ctx := akita.HookCtx{
+			Domain: d,
+			Now:    d.Engine.CurrentTime(),
+			Pos:    trace.HookPosTaskClear,
+			Item:   task,
+		}
+		d.InvokeHook(&ctx)
+	}
 }
 
 func (d *Driver) runAsync() {
@@ -179,6 +211,39 @@ func (d *Driver) processOneCommand(
 	default:
 		log.Panicf("cannot process command of type %s", reflect.TypeOf(cmd))
 	}
+
+	d.logCmdStart(cmd, now)
+}
+
+func (d *Driver) logCmdStart(cmd Command, now akita.VTimeInSec) {
+	task := trace.Task{
+		ID:           cmd.GetID(),
+		ParentID:     d.simulationID,
+		Type:         "Driver Command",
+		InitiateTime: float64(now),
+		What:         reflect.TypeOf(cmd).String(),
+		Where:        d.Name(),
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    now,
+		Pos:    trace.HookPosTaskInitiate,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
+}
+
+func (d *Driver) logCmdComplete(cmd Command, now akita.VTimeInSec) {
+	task := trace.Task{
+		ID: cmd.GetID(),
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    now,
+		Pos:    trace.HookPosTaskClear,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
 }
 
 func (d *Driver) processNoopCommand(
@@ -228,29 +293,56 @@ func (d *Driver) processMemCopyH2DCommand(
 		addr += sizeToCopy
 		offset += sizeToCopy
 
-		d.InvokeHook(req, d, akita.AnyHookPos,
-			&ReqHookInfo{
-				Now:       now,
-				CommandID: cmd.ID,
-				EventType: "CREATE",
-			})
+		d.logTaskToGPUInitiate(now, cmd, req)
 	}
 	queue.IsRunning = true
 	d.NeedTick = true
+}
 
-	d.InvokeHook(cmd, d, HookPosCommandStart,
-		&CommandHookInfo{
-			Now:     now,
-			IsStart: true,
-			Queue:   queue,
-		},
-	)
+func (d *Driver) logTaskToGPUInitiate(
+	now akita.VTimeInSec,
+	cmd Command,
+	req akita.Req,
+) {
+	task := trace.Task{
+		ID:           req.GetID(),
+		ParentID:     cmd.GetID(),
+		Where:        d.Name(),
+		Type:         "req",
+		What:         reflect.TypeOf(req).String(),
+		InitiateTime: float64(now),
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    now,
+		Pos:    trace.HookPosTaskInitiate,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
+}
+
+func (d *Driver) logTaskToGPUClear(
+	now akita.VTimeInSec,
+	req akita.Req,
+) {
+	task := trace.Task{
+		ID: req.GetID(),
+	}
+	ctx := akita.HookCtx{
+		Domain: d,
+		Now:    now,
+		Pos:    trace.HookPosTaskClear,
+		Item:   task,
+	}
+	d.InvokeHook(&ctx)
 }
 
 func (d *Driver) processMemCopyH2DReturn(
 	now akita.VTimeInSec,
 	req *gcn3.MemCopyH2DReq,
 ) {
+	d.logTaskToGPUClear(now, req)
+
 	cmd, cmdQueue := d.findCommandByReq(req)
 
 	copyCmd := cmd.(*MemCopyH2DCommand)
@@ -262,23 +354,11 @@ func (d *Driver) processMemCopyH2DReturn(
 	}
 	copyCmd.Reqs = newReqs
 
-	d.InvokeHook(req, d, akita.AnyHookPos,
-		&ReqHookInfo{
-			Now:       now,
-			CommandID: copyCmd.ID,
-			EventType: "RETRIEVE",
-		})
-
 	if len(copyCmd.Reqs) == 0 {
 		cmdQueue.IsRunning = false
 		cmdQueue.Dequeue()
 
-		d.InvokeHook(copyCmd, d, HookPosCommandComplete,
-			&CommandHookInfo{
-				Now:     now,
-				IsStart: false,
-				Queue:   cmdQueue,
-			})
+		d.logCmdComplete(cmd, now)
 	}
 
 	d.NeedTick = true
@@ -313,29 +393,19 @@ func (d *Driver) processMemCopyD2HCommand(
 		addr += sizeToCopy
 		offset += sizeToCopy
 
-		d.InvokeHook(req, d, akita.AnyHookPos,
-			&ReqHookInfo{
-				Now:       now,
-				CommandID: cmd.ID,
-				EventType: "CREATE",
-			})
+		d.logTaskToGPUInitiate(now, cmd, req)
 	}
 
 	queue.IsRunning = true
 	d.NeedTick = true
-
-	d.InvokeHook(cmd, d, HookPosCommandStart,
-		&CommandHookInfo{
-			Now:     now,
-			IsStart: true,
-			Queue:   queue,
-		})
 }
 
 func (d *Driver) processMemCopyD2HReturn(
 	now akita.VTimeInSec,
 	req *gcn3.MemCopyD2HReq,
 ) {
+	d.logTaskToGPUClear(now, req)
+
 	cmd, cmdQueue := d.findCommandByReq(req)
 
 	copyCmd := cmd.(*MemCopyD2HCommand)
@@ -347,13 +417,6 @@ func (d *Driver) processMemCopyD2HReturn(
 	}
 	copyCmd.Reqs = newReqs
 
-	d.InvokeHook(req, d, akita.AnyHookPos,
-		&ReqHookInfo{
-			Now:       now,
-			CommandID: copyCmd.ID,
-			EventType: "RETRIEVE",
-		})
-
 	if len(copyCmd.Reqs) == 0 {
 		cmdQueue.IsRunning = false
 		buf := bytes.NewReader(copyCmd.RawData)
@@ -364,12 +427,7 @@ func (d *Driver) processMemCopyD2HReturn(
 
 		cmdQueue.Dequeue()
 
-		d.InvokeHook(copyCmd, d, HookPosCommandComplete,
-			&CommandHookInfo{
-				Now:     now,
-				IsStart: false,
-				Queue:   cmdQueue,
-			})
+		d.logCmdComplete(copyCmd, now)
 	}
 
 	d.NeedTick = true
@@ -394,19 +452,8 @@ func (d *Driver) processLaunchKernelCommand(
 	d.requestsToSend = append(d.requestsToSend, req)
 	d.NeedTick = true
 
-	d.InvokeHook(cmd, d, HookPosCommandStart,
-		&CommandHookInfo{
-			Now:     now,
-			IsStart: true,
-			Queue:   queue,
-		})
-
-	d.InvokeHook(req, d, akita.AnyHookPos,
-		&ReqHookInfo{
-			Now:       now,
-			CommandID: cmd.ID,
-			EventType: "CREATE",
-		})
+	d.logCmdStart(cmd, now)
+	d.logTaskToGPUInitiate(now, cmd, req)
 }
 
 func (d *Driver) processLaunchKernelReturn(
@@ -418,19 +465,8 @@ func (d *Driver) processLaunchKernelReturn(
 	cmdQueue.Dequeue()
 	d.NeedTick = true
 
-	d.InvokeHook(cmd, d, HookPosCommandComplete,
-		&CommandHookInfo{
-			Now:     now,
-			IsStart: false,
-			Queue:   cmdQueue,
-		})
-
-	d.InvokeHook(req, d, akita.AnyHookPos,
-		&ReqHookInfo{
-			Now:       now,
-			CommandID: cmd.GetID(),
-			EventType: "RETRIEVE",
-		})
+	d.logTaskToGPUClear(now, req)
+	d.logCmdComplete(cmd, now)
 }
 
 func (d *Driver) processFlushCommand(
@@ -447,19 +483,8 @@ func (d *Driver) processFlushCommand(
 	cmd.Reqs = append(cmd.Reqs, req)
 	d.NeedTick = true
 
-	d.InvokeHook(cmd, d, HookPosCommandStart,
-		&CommandHookInfo{
-			Now:     now,
-			IsStart: true,
-			Queue:   queue,
-		})
-
-	d.InvokeHook(req, d, akita.AnyHookPos,
-		&ReqHookInfo{
-			Now:       now,
-			CommandID: cmd.GetID(),
-			EventType: "CREATE",
-		})
+	d.logCmdStart(cmd, now)
+	d.logTaskToGPUInitiate(now, cmd, req)
 }
 
 func (d *Driver) processFlushReturn(
@@ -471,19 +496,8 @@ func (d *Driver) processFlushReturn(
 	cmdQueue.Dequeue()
 	d.NeedTick = true
 
-	d.InvokeHook(cmd, d, HookPosCommandComplete,
-		&CommandHookInfo{
-			Now:     now,
-			IsStart: false,
-			Queue:   cmdQueue,
-		})
-
-	d.InvokeHook(req, d, akita.AnyHookPos,
-		&ReqHookInfo{
-			Now:       now,
-			CommandID: cmd.GetID(),
-			EventType: "RETRIEVE",
-		})
+	d.logTaskToGPUClear(now, req)
+	d.logCmdComplete(cmd, now)
 }
 
 func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {

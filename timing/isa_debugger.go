@@ -3,7 +3,6 @@ package timing
 import (
 	"fmt"
 	"log"
-	"reflect"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
@@ -23,17 +22,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 	return d
 }
 
-// Type of WfHook claims the inst tracer is hooking to the emu.Wavefront type
-func (d *ISADebugger) Type() reflect.Type {
-	return reflect.TypeOf((*wavefront.Wavefront)(nil))
-}
-
-// Pos of WfHook returns akita.AnyHookPos.
-func (d *ISADebugger) Pos() akita.HookPos {
-	return akita.AnyHookPos
-}
-
-// The action that the ISADebugger takes
+// Func defines the action that the ISADebugger takes
 func (d *ISADebugger) Func(
 	item interface{},
 	domain akita.Hookable,

@@ -12,7 +12,9 @@ type WfCompletionEvent struct {
 }
 
 // NewWfCompletionEvent returns a newly constructed WfCompleteEvent
-func NewWfCompletionEvent(time akita.VTimeInSec, handler akita.Handler,
+func NewWfCompletionEvent(
+	time akita.VTimeInSec,
+	handler akita.Handler,
 	wf *wavefront.Wavefront,
 ) *WfCompletionEvent {
 	evt := new(WfCompletionEvent)

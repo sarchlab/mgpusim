@@ -52,18 +52,20 @@ func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 // Handle defines the behavior on event scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	cu.Lock()
-	defer cu.Unlock()
 
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
-		return cu.handleMapWGReq(evt)
+		cu.handleMapWGReq(evt)
 	case *akita.TickEvent:
-		return cu.handleTickEvent(evt)
+		cu.handleTickEvent(evt)
 	case *WGCompleteEvent:
-		return cu.handleWGCompleteEvent(evt)
+		cu.handleWGCompleteEvent(evt)
 	default:
 		log.Panicf("cannot handle event %s", reflect.TypeOf(evt))
 	}
+
+	cu.Unlock()
+
 	return nil
 }
 
@@ -285,21 +287,31 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 10 { // S_ENDPGM
 			wf.AtBarrier = true
-			cu.InvokeHook(wf, cu, akita.AnyHookPos, inst)
+			cu.logInst(wf, inst)
 			break
 		}
 
 		if inst.FormatType == insts.SOPP && inst.Opcode == 1 { // S_BARRIER
 			wf.Completed = true
-			cu.InvokeHook(wf, cu, akita.AnyHookPos, inst)
+			cu.logInst(wf, inst)
 			break
 		}
 
 		cu.executeInst(wf)
-		cu.InvokeHook(wf, cu, akita.AnyHookPos, inst)
+		cu.logInst(wf, inst)
 	}
 
 	return nil
+}
+
+func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
+	ctx := akita.HookCtx{
+		Domain: cu,
+		Now:    0,
+		Item:   wf,
+		Detail: inst,
+	}
+	cu.InvokeHook(&ctx)
 }
 
 func (cu *ComputeUnit) executeInst(wf *Wavefront) {
