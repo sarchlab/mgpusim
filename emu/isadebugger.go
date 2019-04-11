@@ -3,39 +3,31 @@ package emu
 import (
 	"fmt"
 	"log"
-	"reflect"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 )
 
-// WfHook is a hook that hooks to a emulator computeunit for each intruction
-type WfHook struct {
+// ISADebugger is a hook that hooks to a emulator computeunit for each intruction
+type ISADebugger struct {
 	akita.LogHookBase
 
 	prevWf *Wavefront
 }
 
-// NewWfHook returns a new WfHook that keeps instruction log in logger
-func NewWfHook(logger *log.Logger) *WfHook {
-	h := new(WfHook)
+// NewISADebugger returns a new ISADebugger that keeps instruction log in logger
+func NewISADebugger(logger *log.Logger) *ISADebugger {
+	h := new(ISADebugger)
 	h.Logger = logger
 	return h
 }
 
-// Type of WfHook claims the inst tracer is hooking to the emu.Wavefront type
-func (h *WfHook) Type() reflect.Type {
-	return reflect.TypeOf((*Wavefront)(nil))
-}
-
-// Pos of WfHook returns akita.Any.
-func (h *WfHook) Pos() akita.HookPos {
-	return akita.AnyHookPos
-}
-
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (h *WfHook) Func(item interface{}, domain akita.Hookable, info interface{}) {
-	wf := item.(*Wavefront)
+func (h *ISADebugger) Func(ctx *akita.HookCtx) {
+	wf, ok := ctx.Item.(*Wavefront)
+	if !ok {
+		return
+	}
 
 	// For debugging
 	// if wf.FirstWiFlatID != 0 {
@@ -52,7 +44,7 @@ func (h *WfHook) Func(item interface{}, domain akita.Hookable, info interface{})
 	h.stubWf(wf)
 }
 
-func (h *WfHook) logWholeWf(wf *Wavefront) {
+func (h *ISADebugger) logWholeWf(wf *Wavefront) {
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
 	output += fmt.Sprintf("\tInst: %s\n", wf.Inst().String(nil))
@@ -80,7 +72,7 @@ func (h *WfHook) logWholeWf(wf *Wavefront) {
 	h.Logger.Print(output)
 }
 
-func (h *WfHook) logDiffWf(wf *Wavefront) {
+func (h *ISADebugger) logDiffWf(wf *Wavefront) {
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
 	output += fmt.Sprintf("\tInst: %s\n", wf.Inst().String(nil))
@@ -132,7 +124,7 @@ func (h *WfHook) logDiffWf(wf *Wavefront) {
 	h.Logger.Print(output)
 }
 
-func (h *WfHook) stubWf(wf *Wavefront) {
+func (h *ISADebugger) stubWf(wf *Wavefront) {
 	h.prevWf = NewWavefront(wf.Wavefront)
 
 	h.prevWf.SRegFile = make([]byte, len(wf.SRegFile))

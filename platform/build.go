@@ -7,11 +7,11 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/gpubuilder"
-	"gitlab.com/akita/gcn3/trace"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/noc"
+	"gitlab.com/akita/vis/trace"
 )
 
 var UseParallelEngine bool
@@ -73,7 +73,7 @@ func BuildNR9NanoPlatform(
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	mmu.Latency = 100
@@ -96,16 +96,12 @@ func BuildNR9NanoPlatform(
 	}
 
 	if TraceVis {
-		tracer := &trace.Tracer{}
+		tracer := trace.NewMongoDBTracer()
 		tracer.Init()
-		gpuBuilder.Tracer = tracer
+		hook := trace.NewHook(tracer)
+		gpuBuilder.SetTraceHook(hook)
 
-		driverCommandTracer := trace.NewDriverCommandTracer(tracer)
-		gpuDriver.AcceptHook(driverCommandTracer)
-		engine.RegisterSimulationEndHandler(driverCommandTracer)
-
-		driverReqTracer := trace.NewDriverRequestTracer(tracer)
-		gpuDriver.AcceptHook(driverReqTracer)
+		gpuDriver.AcceptHook(hook)
 	}
 
 	rdmaAddressTable := new(cache.BankedLowModuleFinder)

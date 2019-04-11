@@ -62,7 +62,14 @@ func (g *GPU) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 func (g *GPU) Handle(e akita.Event) error {
 	now := e.Time()
 
-	g.InvokeHook(e, g, akita.BeforeEventHookPos, nil)
+	ctx := akita.HookCtx{
+		Domain: g,
+		Now:    now,
+		Pos:    akita.HookPosBeforeEvent,
+		Item:   e,
+	}
+	g.InvokeHook(&ctx)
+
 	g.Lock()
 
 	req := e.(akita.Req)
@@ -88,7 +95,10 @@ func (g *GPU) Handle(e akita.Event) error {
 	}
 
 	g.Unlock()
-	g.InvokeHook(e, g, akita.AfterEventHookPos, nil)
+
+	ctx.Pos = akita.HookPosAfterEvent
+	g.InvokeHook(&ctx)
+
 	return nil
 }
 
