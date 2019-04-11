@@ -55,11 +55,11 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 
 	switch evt := evt.(type) {
 	case *gcn3.MapWGReq:
-		return cu.handleMapWGReq(evt)
+		cu.handleMapWGReq(evt)
 	case *akita.TickEvent:
-		return cu.handleTickEvent(evt)
+		cu.handleTickEvent(evt)
 	case *WGCompleteEvent:
-		return cu.handleWGCompleteEvent(evt)
+		cu.handleWGCompleteEvent(evt)
 	default:
 		log.Panicf("cannot handle event %s", reflect.TypeOf(evt))
 	}
