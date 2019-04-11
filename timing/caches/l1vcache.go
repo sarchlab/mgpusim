@@ -36,7 +36,6 @@ type FlushL1CacheReq struct {
 	flushContents bool
 }
 
-
 // NewWriteReq creates a new WriteReq
 func NewFlushL1CacheReq(
 	time akita.VTimeInSec,
@@ -101,7 +100,6 @@ func NewRestartL1CacheReq(
 
 	return req
 }
-
 
 type cacheTransaction struct {
 	Req           akita.Req
@@ -204,11 +202,9 @@ func (c *L1VCache) handleTickEvent(e akita.TickEvent) {
 	now := e.Time()
 	c.NeedTick = false
 
-
 	c.parseFromCP(now)
 
 	if !c.isFlushing {
-
 		c.parseFromL2(now)
 		c.parseFromCU(now)
 		c.sendToCU(now)
@@ -863,7 +859,14 @@ func (c *L1VCache) traceMem(
 	traceInfo.ByteSize = byteSize
 	traceInfo.Data = data
 	//fmt.Printf("%.15f,%s,%s,%x,%d\n", time, c.Name(), what, address, byteSize)
-	c.InvokeHook(nil, c, akita.AnyHookPos, traceInfo)
+
+	ctx := akita.HookCtx{
+		Domain: c,
+		Now:    time,
+		Item:   traceInfo,
+	}
+
+	c.InvokeHook(&ctx)
 }
 
 func (c *L1VCache) createTransaction(req akita.Req) *cacheTransaction {

@@ -13,11 +13,11 @@ import (
 	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/gcn3/timing/caches"
-	"gitlab.com/akita/gcn3/trace"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	memtraces "gitlab.com/akita/mem/trace"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/vis/trace"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -53,7 +53,7 @@ type R9NanoGPUBuilder struct {
 	DMAEngine            *gcn3.DMAEngine
 	RDMAEngine           *rdma.Engine
 
-	Tracer *trace.Tracer
+	traceHook *trace.Hook
 
 	MemTracer *memtraces.Tracer
 }
@@ -86,12 +86,17 @@ func (b *R9NanoGPUBuilder) Build(ID uint64) *gcn3.GPU {
 	b.connectCUToCP()
 	b.connectVMToCP()
 
-	if b.EnableVisTracing {
-		gpuTracer := trace.NewGPUTracer(b.Tracer)
-		b.GPU.AcceptHook(gpuTracer)
-	}
-
 	return b.GPU
+}
+
+// SetTraceHook sets to a hook that captures all the traces from GPU components.
+func (b *R9NanoGPUBuilder) SetTraceHook(h *trace.Hook) {
+	if h != nil {
+		b.EnableVisTracing = true
+	} else {
+		b.EnableVisTracing = false
+	}
+	b.traceHook = h
 }
 
 func (b *R9NanoGPUBuilder) reset() {
@@ -146,8 +151,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.CP.ToVMModules)
 
 	if b.EnableVisTracing {
-		dispatcherTracer := trace.NewDispatcherTracer(b.Tracer)
-		b.ACE.AcceptHook(dispatcherTracer)
+		b.ACE.AcceptHook(b.traceHook)
 	}
 }
 
@@ -458,26 +462,17 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		b.InternalConn.PlugIn(cu.ToCP)
 		b.InternalConn.PlugIn(cu.CP)
 
-		if b.EnableISADebug && i == 0 {
-			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
-			if err != nil {
-				log.Fatal(err)
-			}
-			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
-			cu.AcceptHook(isaDebugger)
-		}
+		// if b.EnableISADebug && i == 0 {
+		// 	isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
+		// 	if err != nil {
+		// 		log.Fatal(err)
+		// 	}
+		// 	isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
+		// 	cu.AcceptHook(isaDebugger)
+		// }
 
 		if b.EnableVisTracing {
-			wgTracer := trace.NewWGTracer(b.Tracer)
-			cu.AcceptHook(wgTracer)
-
-			isaTracer := trace.NewInstTracer(b.Tracer)
-			cu.AcceptHook(isaTracer)
+			cu.AcceptHook(b.traceHook)
 		}
-
-		//if b.EnableInstTracing {
-		//	isaTracer := trace.NewInstTracer(b.Tracer)
-		//	cu.AcceptHook(isaTracer)
-		//}
 	}
 }

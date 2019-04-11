@@ -60,7 +60,7 @@ func (r *Runner) Init() {
 		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
 	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
-	r.GPUDriver.Run()
+
 }
 
 func (r *Runner) parseGPUFlag() {
@@ -81,12 +81,16 @@ func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
 	r.Benchmarks = append(r.Benchmarks, b)
 }
 
+// AddBenchmarkWithoutSettingGPUsToUse allows for user specified GPUs for
+// the benchmark to run.
 func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
 	r.Benchmarks = append(r.Benchmarks, b)
 }
 
 // Run runs the benchmark on the simulator
 func (r *Runner) Run() {
+	r.GPUDriver.Run()
+
 	var wg sync.WaitGroup
 	for _, b := range r.Benchmarks {
 		wg.Add(1)
@@ -100,7 +104,9 @@ func (r *Runner) Run() {
 	}
 	wg.Wait()
 
+	r.GPUDriver.Terminate()
 	r.Engine.Finished()
+
 	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.TotalTime)
 	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
 }

@@ -6,7 +6,7 @@ import (
 	"gitlab.com/akita/gcn3/timing/wavefront"
 )
 
-// WfDispatchCompletionEvent marks the completion of a wavefront dispatching
+// WfDispatchEvent is the event that the dispatcher dispatches a wavefront
 type WfDispatchEvent struct {
 	*akita.EventBase
 
