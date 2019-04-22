@@ -15,6 +15,7 @@ import (
 	"gitlab.com/akita/gcn3/timing/caches"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/cache/writeback"
 	memtraces "gitlab.com/akita/mem/trace"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/vis/trace"
@@ -42,7 +43,7 @@ type R9NanoGPUBuilder struct {
 	L1VCaches            []*caches.L1VCache
 	L1SCaches            []*caches.L1VCache
 	L1ICaches            []*caches.L1VCache
-	L2Caches             []*cache.WriteBackCache
+	L2Caches             []*writeback.Cache
 	L1VTLBs              []*vm.TLB
 	L1STLBs              []*vm.TLB
 	L1ITLBs              []*vm.TLB
@@ -347,9 +348,6 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 
 func (b *R9NanoGPUBuilder) buildL1VCaches() {
 	b.L1VCaches = make([]*caches.L1VCache, 0, 64)
-	cacheBuilder := new(cache.Builder)
-	cacheBuilder.Engine = b.Engine
-	cacheBuilder.LowModuleFinder = b.LowModuleFinderForL1
 	for i := 0; i < 64; i++ {
 		dCache := caches.BuildL1VCache(
 			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i),
@@ -374,8 +372,8 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 }
 
 func (b *R9NanoGPUBuilder) buildL2Caches() {
-	b.L2Caches = make([]*cache.WriteBackCache, 0, 8)
-	cacheBuilder := new(cache.Builder)
+	b.L2Caches = make([]*writeback.Cache, 0, 8)
+	cacheBuilder := new(writeback.Builder)
 	cacheBuilder.Engine = b.Engine
 	b.LowModuleFinderForL1 = cache.NewInterleavedLowModuleFinder(4096)
 	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
@@ -383,19 +381,19 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 	b.LowModuleFinderForL1.HighAddress = b.GPUMemAddrOffset + 4*mem.GB
 	for i := 0; i < 8; i++ {
 		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
-		l2Cache := cacheBuilder.BuildWriteBackCache(
-			fmt.Sprintf("%s.L2_%d", b.GPUName, i), 16, 256*mem.KB, 4096)
+		cacheBuilder.CacheName = fmt.Sprintf("%s.L2_%d", b.GPUName, i)
+		cacheBuilder.WayAssociativity = 16
+		cacheBuilder.BlockSize = 64
+		cacheBuilder.ByteSize = 256 * mem.KB
+		cacheBuilder.NumMSHREntry = 4096
+		l2Cache := cacheBuilder.Build()
 		b.L2Caches = append(b.L2Caches, l2Cache)
 		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache)
-		l2Cache.DirectoryLatency = 0
-		l2Cache.Latency = 70
-		l2Cache.SetNumBanks(4096)
-		l2Cache.Freq = 1 * akita.GHz
 
 		b.LowModuleFinderForL1.LowModules = append(
-			b.LowModuleFinderForL1.LowModules, l2Cache.ToTop)
-		b.InternalConn.PlugIn(l2Cache.ToTop)
-		b.InternalConn.PlugIn(l2Cache.ToBottom)
+			b.LowModuleFinderForL1.LowModules, l2Cache.TopPort)
+		b.InternalConn.PlugIn(l2Cache.TopPort)
+		b.InternalConn.PlugIn(l2Cache.BottomPort)
 
 		if b.EnableMemTracing {
 			l2Cache.AcceptHook(b.MemTracer)
