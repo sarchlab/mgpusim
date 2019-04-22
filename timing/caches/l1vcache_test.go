@@ -11,12 +11,13 @@ import (
 	"gitlab.com/akita/mem/vm"
 )
 
+//go:generate mockgen -destination "mock_cache_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/mem/cache Directory
 var _ = Describe("L1V Cache", func() {
 	var (
 		mockCtrl  *gomock.Controller
 		engine    *mock_akita.MockEngine
 		storage   *mem.Storage
-		directory *cache.MockDirectory
+		directory *MockDirectory
 		l1v       *L1VCache
 		l2Finder  cache.LowModuleFinder
 
@@ -30,7 +31,7 @@ var _ = Describe("L1V Cache", func() {
 
 		engine = mock_akita.NewMockEngine(mockCtrl)
 		storage = mem.NewStorage(16 * mem.KB)
-		directory = new(cache.MockDirectory)
+		directory = NewMockDirectory(mockCtrl)
 		l2Finder = new(cache.SingleLowModuleFinder)
 		l1v = NewL1VCache("l1v", engine, 1)
 		l1v.Directory = directory
@@ -188,7 +189,7 @@ var _ = Describe("L1V Cache", func() {
 
 		BeforeEach(func() {
 			block = new(cache.Block)
-			directory.ExpectLookup(0x100, block)
+			directory.EXPECT().Lookup(uint64(0x100)).Return(block)
 
 			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x1000000100, 64)
 			transaction = l1v.createTransaction(read)
@@ -204,8 +205,6 @@ var _ = Describe("L1V Cache", func() {
 
 		It("should start local read", func() {
 			l1v.parseFromPostPipelineBuf(11)
-
-			Expect(directory.AllExpectedCalled()).To(BeTrue())
 
 			Expect(transaction.Block).To(BeIdenticalTo(block))
 			Expect(block.IsLocked).To(BeTrue())
@@ -223,7 +222,6 @@ var _ = Describe("L1V Cache", func() {
 
 			l1v.parseFromPostPipelineBuf(11)
 
-			Expect(directory.AllExpectedCalled()).To(BeTrue())
 			Expect(l1v.NeedTick).To(BeTrue())
 			Expect(block.IsLocked).To(BeTrue())
 
@@ -237,7 +235,6 @@ var _ = Describe("L1V Cache", func() {
 
 			l1v.parseFromPostPipelineBuf(11)
 
-			Expect(directory.AllExpectedCalled()).To(BeTrue())
 			Expect(l1v.NeedTick).To(BeFalse())
 			Expect(l1v.storageTransaction).To(BeNil())
 		})
@@ -252,8 +249,6 @@ var _ = Describe("L1V Cache", func() {
 
 		BeforeEach(func() {
 			block = new(cache.Block)
-			directory.ExpectLookup(0x100, nil)
-			directory.ExpectEvict(0x100, block)
 
 			read = mem.NewReadReq(10, nil, l1v.ToCU, 0x1000000100, 64)
 			transaction = l1v.createTransaction(read)
@@ -268,6 +263,9 @@ var _ = Describe("L1V Cache", func() {
 		})
 
 		It("should send read request to bottom", func() {
+			directory.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			directory.EXPECT().FindVictim(uint64(0x100)).Return(block)
+
 			l1v.parseFromPostPipelineBuf(11)
 
 			Expect(l1v.pendingDownGoingRead).To(HaveLen(1))
@@ -294,6 +292,8 @@ var _ = Describe("L1V Cache", func() {
 		It("always read a whole cache line from bottom", func() {
 			read.Address = 0x1000000104
 			read.MemByteSize = 4
+			directory.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			directory.EXPECT().FindVictim(uint64(0x100)).Return(block)
 
 			l1v.parseFromPostPipelineBuf(11)
 
@@ -340,14 +340,13 @@ var _ = Describe("L1V Cache", func() {
 			toCP.EXPECT().
 				Send(gomock.AssignableToTypeOf(expectRsp)).
 				Return(nil)
+			directory.EXPECT().Reset()
 
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}),
 			)
 
 			l1v.Handle(invalidComplEvent)
-
-			Expect(directory.Resetted).To(BeTrue())
 		})
 
 		It("should retry if send failed", func() {
@@ -651,7 +650,7 @@ var _ = Describe("L1V Cache", func() {
 				block.Tag = 0x100
 				block.CacheAddress = 0x200
 				block.IsValid = true
-				directory.ExpectLookup(0x100, block)
+				directory.EXPECT().Lookup(uint64(0x100)).Return(block)
 			})
 
 			It("should stall if block is locked", func() {
@@ -720,14 +719,14 @@ var _ = Describe("L1V Cache", func() {
 				block = new(cache.Block)
 				block.CacheAddress = 0x200
 				block.IsValid = false
-				directory.ExpectLookup(0x100, nil)
-				directory.ExpectEvict(0x100, block)
 			})
 
 			It("should stall if block is locked", func() {
 				block.IsLocked = true
 				transaction = l1v.createTransaction(writeLine)
 				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
+				directory.EXPECT().Lookup(uint64(0x100)).Return(nil)
+				directory.EXPECT().FindVictim(uint64(0x100)).Return(block)
 
 				l1v.parseFromPostPipelineBuf(11)
 
@@ -740,6 +739,8 @@ var _ = Describe("L1V Cache", func() {
 			It("should do full line write", func() {
 				transaction = l1v.createTransaction(writeLine)
 				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
+				directory.EXPECT().Lookup(uint64(0x100)).Return(nil)
+				directory.EXPECT().FindVictim(uint64(0x100)).Return(block)
 
 				l1v.parseFromPostPipelineBuf(11)
 
@@ -768,6 +769,7 @@ var _ = Describe("L1V Cache", func() {
 			It("should handle partial line write", func() {
 				transaction = l1v.createTransaction(writePartial)
 				l1v.postPipelineBuf = append(l1v.postPipelineBuf, transaction)
+				directory.EXPECT().Lookup(uint64(0x100)).Return(nil)
 
 				l1v.parseFromPostPipelineBuf(11)
 
@@ -869,7 +871,7 @@ func (mockComponent) Handle(e akita.Event) error {
 var _ = Describe("L1VCache black box", func() {
 	var (
 		engine         akita.Engine
-		evictor        cache.Evictor
+		victimFinder   cache.VictimFinder
 		storage        *mem.Storage
 		directory      cache.Directory
 		l1v            *L1VCache
@@ -884,8 +886,8 @@ var _ = Describe("L1VCache black box", func() {
 	BeforeEach(func() {
 		engine = akita.NewSerialEngine()
 		storage = mem.NewStorage(16 * mem.KB)
-		evictor = cache.NewLRUEvictor()
-		directory = cache.NewDirectory(64, 4, 64, evictor)
+		victimFinder = cache.NewLRUVictimFinder()
+		directory = cache.NewDirectory(64, 4, 64, victimFinder)
 		l2Finder = new(cache.SingleLowModuleFinder)
 		l1v = NewL1VCache("l1v", engine, 1)
 		l1v.Directory = directory
