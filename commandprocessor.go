@@ -7,7 +7,7 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/vm"
 )
 
@@ -37,7 +37,7 @@ type CommandProcessor struct {
 	ToDispatcher akita.Port
 
 	CachesToReset   []akita.Port
-	L2Caches        []*cache.WriteBackCache
+	L2Caches        []*writeback.Cache
 	DRAMControllers []*mem.IdealMemController
 	ToCUs           akita.Port
 	ToVMModules     akita.Port
@@ -219,30 +219,30 @@ func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteR
 	return nil
 }
 
-func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache, dram *mem.IdealMemController) {
+func (p *CommandProcessor) flushL2(l2 *writeback.Cache, dram *mem.IdealMemController) {
 	// FIXME: This is magic, remove
-	dir := l2.Directory.(*cache.DirectoryImpl)
-	for _, set := range dir.Sets {
-		for _, block := range set.Blocks {
-			if block.IsLocked {
-				log.Printf("block locked 0x%x.", block.Tag)
-			}
-
-			if block.IsDirty && block.IsValid {
-				cacheData, _ := l2.Storage.Read(block.CacheAddress, uint64(dir.BlockSize))
-				addr := block.Tag
-				if dram.AddressConverter != nil {
-					addr = dram.AddressConverter.ConvertExternalToInternal(addr)
-				}
-				err := dram.Storage.Write(addr, cacheData)
-				if err != nil {
-					panic(err)
-				}
-			}
-			block.IsValid = false
-			block.IsDirty = false
-		}
-	}
+	//dir := l2.Directory.(*cache.DirectoryImpl)
+	//for _, set := range dir.Sets {
+	//	for _, block := range set.Blocks {
+	//		if block.IsLocked {
+	//			log.Printf("block locked 0x%x.", block.Tag)
+	//		}
+	//
+	//		if block.IsDirty && block.IsValid {
+	//			cacheData, _ := l2.Storage.Read(block.CacheAddress, uint64(dir.BlockSize))
+	//			addr := block.Tag
+	//			if dram.AddressConverter != nil {
+	//				addr = dram.AddressConverter.ConvertExternalToInternal(addr)
+	//			}
+	//			err := dram.Storage.Write(addr, cacheData)
+	//			if err != nil {
+	//				panic(err)
+	//			}
+	//		}
+	//		block.IsValid = false
+	//		block.IsDirty = false
+	//	}
+	//}
 }
 
 func (p *CommandProcessor) processMemCopyReq(req akita.Req) error {
@@ -279,7 +279,7 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.Freq = 1 * akita.GHz
 
 	c.kernelFixedOverheadInCycles = 1600
-	c.L2Caches = make([]*cache.WriteBackCache, 0)
+	c.L2Caches = make([]*writeback.Cache, 0)
 
 	c.ToDriver = akita.NewLimitNumReqPort(c, 1)
 	c.ToDispatcher = akita.NewLimitNumReqPort(c, 1)

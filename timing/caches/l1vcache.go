@@ -537,7 +537,7 @@ func (c *L1VCache) handleReadMiss(now akita.VTimeInSec, trans *cacheTransaction)
 	address := trans.getPAddr()
 	cacheLineID, _ := cache.GetCacheLineID(address, c.BlockSizeAsPowerOf2)
 
-	block := c.Directory.Evict(cacheLineID)
+	block := c.Directory.FindVictim(cacheLineID)
 	if block.IsLocked {
 		return
 	}
@@ -594,7 +594,7 @@ func (c *L1VCache) handleWriteReq(now akita.VTimeInSec, transaction *cacheTransa
 	block := c.Directory.Lookup(cacheLineID)
 	if block == nil && len(req.Data) == 1<<c.BlockSizeAsPowerOf2 {
 		// Write allocate
-		block = c.Directory.Evict(cacheLineID)
+		block = c.Directory.FindVictim(cacheLineID)
 		block.IsValid = true
 		block.Tag = req.Address
 	}
@@ -945,10 +945,10 @@ func BuildL1VCache(
 	blockSize := uint64(1 << blockSizeAsPowerOf2)
 	totalSize := uint64(1 << sizeAsPowerOf2)
 
-	lruEvictor := cache.NewLRUEvictor()
+	lruVictimFinder := cache.NewLRUVictimFinder()
 	directory := cache.NewDirectory(
 		int(totalSize/way/blockSize),
-		int(way), int(blockSize), lruEvictor)
+		int(way), int(blockSize), lruVictimFinder)
 	storage := mem.NewStorage(totalSize)
 
 	addrTranslator := &addressTranslator{}
