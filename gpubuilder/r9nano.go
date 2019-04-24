@@ -394,6 +394,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 			b.LowModuleFinderForL1.LowModules, l2Cache.TopPort)
 		b.InternalConn.PlugIn(l2Cache.TopPort)
 		b.InternalConn.PlugIn(l2Cache.BottomPort)
+		b.InternalConn.PlugIn(l2Cache.ControlPort)
 
 		if b.EnableMemTracing {
 			l2Cache.AcceptHook(b.MemTracer)
