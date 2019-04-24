@@ -25,9 +25,12 @@ func (d *distributorImpl) Distribute(
 	addr, byteSize uint64,
 	gpuIDs []int,
 ) (byteAllocatedOnEachGPU []uint64) {
-	byteAllocatedOnEachGPU = make([]uint64, len(gpuIDs))
-
 	pageSize := uint64(1 << d.pageSizeAsPowerOf2)
+	if addr%pageSize != 0 {
+		panic("Address much align with pages")
+	}
+
+	byteAllocatedOnEachGPU = make([]uint64, len(gpuIDs))
 	numPages := ((byteSize-1)/pageSize + 1)
 	numGPUs := uint64(len(gpuIDs))
 	numPagesPerGPU := numPages / numGPUs
