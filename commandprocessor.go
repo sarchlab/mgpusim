@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/vm"
 )
@@ -45,22 +46,30 @@ type CommandProcessor struct {
 	kernelFixedOverheadInCycles int
 
 	curShootdownRequest *ShootDownCommand
+	currFlushRequest    *FlushCommand
 
 	numCUs     uint64
 	numVMUnits uint64
 
 	numCURecvdAck uint64
 	numVMRecvdAck uint64
+	numL2FlushAck uint64
 
 	shootDownInProcess bool
 }
 
-func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) NotifyRecv(
+	now akita.VTimeInSec,
+	port akita.Port,
+) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, p.engine, p.Freq)
 }
 
-func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) NotifyPortFree(
+	now akita.VTimeInSec,
+	port akita.Port,
+) {
 	//panic("implement me")
 }
 
@@ -73,6 +82,8 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 		return p.handleReplyKernelCompletionEvent(req)
 	case *FlushCommand:
 		return p.handleFlushCommand(req)
+	case *cache.FlushRsp:
+		return p.handleCacheFlushRsp(req)
 	case *MemCopyD2HReq:
 		return p.processMemCopyReq(req)
 	case *MemCopyH2DReq:
@@ -134,15 +145,17 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 		}
 	}
 
-	for i, l2Cache := range p.L2Caches {
-		p.flushL2(l2Cache, p.DRAMControllers[i])
+	for _, l2Cache := range p.L2Caches {
+		p.flushL2(now, l2Cache)
 	}
 
-	cmd.SwapSrcAndDst()
-	err := p.ToDriver.Send(cmd)
-	if err != nil {
-		panic(err)
-	}
+	p.currFlushRequest = cmd
+
+	//cmd.SwapSrcAndDst()
+	//err := p.ToDriver.Send(cmd)
+	//if err != nil {
+	//panic(err)
+	//}
 
 	return nil
 }
@@ -172,7 +185,9 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 
 }
 
-func (p *CommandProcessor) handleCUPipelineDrainRsp(cmd *CUPipelineDrainRsp) error {
+func (p *CommandProcessor) handleCUPipelineDrainRsp(
+	cmd *CUPipelineDrainRsp,
+) error {
 	now := cmd.Time()
 
 	if cmd.drainPipelineComplete == true {
@@ -189,13 +204,14 @@ func (p *CommandProcessor) handleCUPipelineDrainRsp(cmd *CUPipelineDrainRsp) err
 				log.Panicf("failed to send shootdown request to VM Modules")
 			}
 		}
-
 	}
 
 	return nil
 }
 
-func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteRsp) error {
+func (p *CommandProcessor) handleVMInvalidationRsp(
+	cmd *vm.InvalidationCompleteRsp,
+) error {
 	now := cmd.Time()
 
 	if cmd.InvalidationDone == true {
@@ -213,36 +229,35 @@ func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteR
 		p.shootDownInProcess = false
 		p.numVMRecvdAck = 0
 		p.numCURecvdAck = 0
-
 	}
 
 	return nil
 }
 
-func (p *CommandProcessor) flushL2(l2 *writeback.Cache, dram *mem.IdealMemController) {
-	// FIXME: This is magic, remove
-	//dir := l2.Directory.(*cache.DirectoryImpl)
-	//for _, set := range dir.Sets {
-	//	for _, block := range set.Blocks {
-	//		if block.IsLocked {
-	//			log.Printf("block locked 0x%x.", block.Tag)
-	//		}
-	//
-	//		if block.IsDirty && block.IsValid {
-	//			cacheData, _ := l2.Storage.Read(block.CacheAddress, uint64(dir.BlockSize))
-	//			addr := block.Tag
-	//			if dram.AddressConverter != nil {
-	//				addr = dram.AddressConverter.ConvertExternalToInternal(addr)
-	//			}
-	//			err := dram.Storage.Write(addr, cacheData)
-	//			if err != nil {
-	//				panic(err)
-	//			}
-	//		}
-	//		block.IsValid = false
-	//		block.IsDirty = false
-	//	}
-	//}
+func (p *CommandProcessor) flushL2(now akita.VTimeInSec, l2 *writeback.Cache) {
+	flushReq := cache.NewFlushReq(now,
+		p.ToDispatcher, l2.ControlPort)
+	err := p.ToDispatcher.Send(flushReq)
+	if err != nil {
+		log.Panic("Fail to send flush requst")
+	}
+	p.numL2FlushAck++
+}
+
+func (p *CommandProcessor) handleCacheFlushRsp(
+	req *cache.FlushRsp,
+) error {
+	p.numL2FlushAck--
+	if p.numL2FlushAck == 0 {
+		p.currFlushRequest.SwapSrcAndDst()
+		p.currFlushRequest.SetSendTime(req.Time())
+		err := p.ToDriver.Send(p.currFlushRequest)
+		if err != nil {
+			panic("send failed")
+		}
+	}
+
+	return nil
 }
 
 func (p *CommandProcessor) processMemCopyReq(req akita.Req) error {
