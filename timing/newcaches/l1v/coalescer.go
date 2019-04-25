@@ -24,36 +24,116 @@ func (c *coalescer) Tick(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	switch req := req.(type) {
-	case *mem.ReadReq:
-		return c.processReadReq(now, req)
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-	}
+	return c.processReq(now, req.(mem.AccessReq))
 
-	panic("not implemented")
 }
 
-func (c *coalescer) processReadReq(
+func (c *coalescer) processReq(
 	now akita.VTimeInSec,
-	read *mem.ReadReq,
+	req mem.AccessReq,
 ) bool {
-	trans := &transaction{
-		read: read,
+	if c.isReqLastInWave(req) {
+		if len(c.toCoalesce) == 0 || c.canReqCoalesce(req) {
+			return c.processReqLastInWaveCoalescable(now, req)
+		}
+		return c.processReqLastInWaveNoncoalescable(now, req)
 	}
 
-	if len(c.toCoalesce) == 0 || c.canReqCoalesce(read) {
-		c.waitForCoaleasing(now, trans)
+	if len(c.toCoalesce) == 0 || c.canReqCoalesce(req) {
+		return c.processReqCoalescable(now, req)
+	}
+	return c.processReqNoncoalescable(now, req)
+}
+
+func (c *coalescer) processReqCoalescable(
+	now akita.VTimeInSec,
+	req mem.AccessReq,
+) bool {
+	trans := c.createTransaction(req)
+	c.toCoalesce = append(c.toCoalesce, trans)
+	*c.transactions = append(*c.transactions, trans)
+	c.topPort.Retrieve(now)
+	return true
+}
+
+func (c *coalescer) processReqNoncoalescable(
+	now akita.VTimeInSec,
+	req mem.AccessReq,
+) bool {
+	if !c.dirBuf.CanPush() {
+		return false
+	}
+
+	c.coalesceAndSend()
+
+	trans := c.createTransaction(req)
+	c.toCoalesce = append(c.toCoalesce, trans)
+	*c.transactions = append(*c.transactions, trans)
+	c.topPort.Retrieve(now)
+
+	return true
+}
+
+func (c *coalescer) processReqLastInWaveCoalescable(
+	now akita.VTimeInSec,
+	req mem.AccessReq,
+) bool {
+	if !c.dirBuf.CanPush() {
+		return false
+	}
+
+	trans := c.createTransaction(req)
+	c.toCoalesce = append(c.toCoalesce, trans)
+	*c.transactions = append(*c.transactions, trans)
+	c.coalesceAndSend()
+	c.topPort.Retrieve(now)
+
+	return true
+}
+
+func (c *coalescer) processReqLastInWaveNoncoalescable(
+	now akita.VTimeInSec,
+	req mem.AccessReq,
+) bool {
+	if !c.dirBuf.CanPush() {
+		return false
+	}
+	c.coalesceAndSend()
+
+	if !c.dirBuf.CanPush() {
 		return true
 	}
 
-	succeed := c.coaleasePirorTransactionsAndSendToDir()
-	if succeed {
-		c.waitForCoaleasing(now, trans)
-		return true
-	}
+	trans := c.createTransaction(req)
+	c.toCoalesce = append(c.toCoalesce, trans)
+	*c.transactions = append(*c.transactions, trans)
+	c.coalesceAndSend()
+	c.topPort.Retrieve(now)
 
-	return false
+	return true
+}
+
+func (c *coalescer) createTransaction(req mem.AccessReq) *transaction {
+	switch req := req.(type) {
+	case *mem.ReadReq:
+		return &transaction{read: req}
+	case *mem.WriteReq:
+		return &transaction{write: req}
+	default:
+		log.Panicf("cannot process request of type %s\n", reflect.TypeOf(req))
+		return nil
+	}
+}
+
+func (c *coalescer) isReqLastInWave(req mem.AccessReq) bool {
+	switch req := req.(type) {
+	case *mem.ReadReq:
+		return req.IsLastInWave
+	case *mem.WriteReq:
+		return req.IsLastInWave
+	default:
+		panic("unknown type")
+	}
 }
 
 func (c *coalescer) canReqCoalesce(req mem.AccessReq) bool {
@@ -65,18 +145,13 @@ func (c *coalescer) canReqCoalesce(req mem.AccessReq) bool {
 }
 
 func (c *coalescer) waitForCoaleasing(
-	now akita.VTimeInSec,
 	trans *transaction,
 ) {
 	*c.transactions = append(*c.transactions, trans)
 	c.toCoalesce = append(c.toCoalesce, trans)
-	c.topPort.Retrieve(now)
 }
 
-func (c *coalescer) coaleasePirorTransactionsAndSendToDir() bool {
-	if !c.dirBuf.CanPush() {
-		return false
-	}
+func (c *coalescer) coalesceAndSend() bool {
 
 	postCoaleascingTrans := &transaction{
 		read: mem.NewReadReq(0, nil, nil,
