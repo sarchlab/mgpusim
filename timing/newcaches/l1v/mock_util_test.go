@@ -45,6 +45,20 @@ func (mr *MockBufferMockRecorder) CanPush() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanPush", reflect.TypeOf((*MockBuffer)(nil).CanPush))
 }
 
+// Capacity mocks base method
+func (m *MockBuffer) Capacity() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Capacity")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Capacity indicates an expected call of Capacity
+func (mr *MockBufferMockRecorder) Capacity() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Capacity", reflect.TypeOf((*MockBuffer)(nil).Capacity))
+}
+
 // Peek mocks base method
 func (m *MockBuffer) Peek() interface{} {
 	m.ctrl.T.Helper()
@@ -83,4 +97,18 @@ func (m *MockBuffer) Push(arg0 interface{}) {
 func (mr *MockBufferMockRecorder) Push(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockBuffer)(nil).Push), arg0)
+}
+
+// Size mocks base method
+func (m *MockBuffer) Size() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Size")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Size indicates an expected call of Size
+func (mr *MockBufferMockRecorder) Size() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Size", reflect.TypeOf((*MockBuffer)(nil).Size))
 }
