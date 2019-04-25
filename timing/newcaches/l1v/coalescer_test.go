@@ -33,6 +33,12 @@ var _ = Describe("Coalescer", func() {
 		mockCtrl.Finish()
 	})
 
+	It("should do nothing if no req", func() {
+		topPort.EXPECT().Peek().Return(nil)
+		madeProgress := c.Tick(10)
+		Expect(madeProgress).To(BeFalse())
+	})
+
 	Context("read", func() {
 		var (
 			read1 *mem.ReadReq
@@ -186,132 +192,60 @@ var _ = Describe("Coalescer", func() {
 		})
 	})
 
-	// It("should do nothing if no request", func() {
-	// 	topPort.EXPECT().Peek().Return(nil)
-	// 	madeProgress := c.Tick(10)
-	// 	Expect(madeProgress).To(BeFalse())
-	// })
+	Context("write", func() {
+		It("should coalesce write", func() {
+			write1 := mem.NewWriteReq(10, nil, nil, 0x104)
+			write1.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 9}
+			write1.DirtyMask = []bool{
+				true, true, true, true,
+				false, false, false, false,
+				true, true, true, true,
+			}
 
-	// It("should wait in coalesce list if coalescing is possible", func() {
-	// 	read1 := mem.NewReadReq(10, nil, nil, 0x100, 4)
-	// 	read2 := mem.NewReadReq(10, nil, nil, 0x104, 4)
+			write2 := mem.NewWriteReq(10, nil, nil, 0x108)
+			write2.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 9}
+			write2.DirtyMask = []bool{
+				true, true, true, true,
+				true, true, true, true,
+				false, false, false, false,
+			}
+			write2.IsLastInWave = true
 
-	// 	topPort.EXPECT().Peek().Return(read1)
-	// 	topPort.EXPECT().Retrieve(gomock.Any())
-	// 	c.Tick(10)
+			topPort.EXPECT().Peek().Return(write1)
+			topPort.EXPECT().Peek().Return(write2)
+			topPort.EXPECT().Retrieve(gomock.Any()).Times(2)
+			dirBuf.EXPECT().CanPush().Return(true)
+			dirBuf.EXPECT().Push(gomock.Any()).Do(func(trans *transaction) {
+				Expect(trans.write.Address).To(Equal(uint64(0x100)))
+				Expect(trans.write.Data).To(Equal([]byte{
+					0, 0, 0, 0,
+					1, 2, 3, 4,
+					1, 2, 3, 4,
+					5, 6, 7, 8,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+				}))
+				Expect(trans.write.DirtyMask).To(Equal([]bool{
+					false, false, false, false, true, true, true, true,
+					true, true, true, true, true, true, true, true,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+				}))
+			})
 
-	// 	topPort.EXPECT().Peek().Return(read2)
-	// 	topPort.EXPECT().Retrieve(gomock.Any())
-	// 	madeProgress := c.Tick(11)
+			madeProgress := c.Tick(10)
+			Expect(madeProgress).To(BeTrue())
 
-	// 	Expect(madeProgress).To(BeTrue())
-	// 	Expect(transactions).To(HaveLen(2))
-	// 	Expect(c.toCoalesce).To(HaveLen(2))
-	// })
-
-	// It("should trigger coalescing if a request is not coalescable", func() {
-	// 	read1 := mem.NewReadReq(10, nil, nil, 0x100, 4)
-	// 	read2 := mem.NewReadReq(10, nil, nil, 0x104, 4)
-	// 	read3 := mem.NewReadReq(10, nil, nil, 0x144, 4)
-
-	// 	topPort.EXPECT().Peek().Return(read1)
-	// 	topPort.EXPECT().Peek().Return(read2)
-	// 	topPort.EXPECT().Retrieve(gomock.Any()).Times(2)
-	// 	c.Tick(10)
-	// 	c.Tick(12)
-
-	// 	dirBuf.EXPECT().CanPush().Return(true)
-	// 	dirBuf.EXPECT().Push(gomock.Any()).
-	// 		Do(func(trans *transaction) {
-	// 			Expect(trans.preCoalesceTransactions).To(HaveLen(2))
-	// 		})
-
-	// 	topPort.EXPECT().Peek().Return(read3)
-	// 	topPort.EXPECT().Retrieve(gomock.Any())
-	// 	madeProgress := c.Tick(13)
-
-	// 	Expect(madeProgress).To(BeTrue())
-	// 	Expect(transactions).To(HaveLen(3))
-	// 	Expect(c.toCoalesce).To(HaveLen(1))
-	// })
-
-	// It("should trigger coalescing if last-in-wave request", func() {
-	// 	read1 := mem.NewReadReq(10, nil, nil, 0x100, 4)
-	// 	read2 := mem.NewReadReq(10, nil, nil, 0x104, 4)
-	// 	read3 := mem.NewReadReq(10, nil, nil, 0x108, 4)
-	// 	read3.IsLastInWave = true
-
-	// 	topPort.EXPECT().Peek().Return(read1)
-	// 	topPort.EXPECT().Peek().Return(read2)
-	// 	topPort.EXPECT().Retrieve(gomock.Any()).Times(2)
-	// 	c.Tick(10)
-	// 	c.Tick(12)
-
-	// 	dirBuf.EXPECT().CanPush().Return(true)
-	// 	dirBuf.EXPECT().Push(gomock.Any()).
-	// 		Do(func(trans *transaction) {
-	// 			Expect(trans.preCoalesceTransactions).To(HaveLen(3))
-	// 		})
-
-	// 	topPort.EXPECT().Peek().Return(read3)
-	// 	topPort.EXPECT().Retrieve(gomock.Any())
-	// 	madeProgress := c.Tick(13)
-
-	// 	Expect(madeProgress).To(BeTrue())
-	// 	Expect(transactions).To(HaveLen(3))
-	// 	Expect(c.toCoalesce).To(HaveLen(0))
-	// })
-
-	// It("should trigger coalescing if last-in-wave request", func() {
-	// 	read1 := mem.NewReadReq(10, nil, nil, 0x100, 4)
-	// 	read2 := mem.NewReadReq(10, nil, nil, 0x104, 4)
-	// 	read3 := mem.NewReadReq(10, nil, nil, 0x144, 4)
-	// 	read3.IsLastInWave = true
-
-	// 	topPort.EXPECT().Peek().Return(read1)
-	// 	topPort.EXPECT().Peek().Return(read2)
-	// 	topPort.EXPECT().Retrieve(gomock.Any()).Times(2)
-	// 	c.Tick(10)
-	// 	c.Tick(12)
-
-	// 	dirBuf.EXPECT().CanPush().Return(true).Times(2)
-	// 	dirBuf.EXPECT().Push(gomock.Any()).
-	// 		Do(func(trans *transaction) {
-	// 			Expect(trans.preCoalesceTransactions).To(HaveLen(2))
-	// 		})
-	// 	dirBuf.EXPECT().Push(gomock.Any()).
-	// 		Do(func(trans *transaction) {
-	// 			Expect(trans.preCoalesceTransactions).To(HaveLen(1))
-	// 		})
-
-	// 	topPort.EXPECT().Peek().Return(read3)
-	// 	topPort.EXPECT().Retrieve(gomock.Any())
-	// 	madeProgress := c.Tick(13)
-
-	// 	Expect(madeProgress).To(BeTrue())
-	// 	Expect(transactions).To(HaveLen(3))
-	// 	Expect(c.toCoalesce).To(HaveLen(0))
-	// })
-
-	// It("should stall if cannot send request to directory stage", func() {
-	// 	read1 := mem.NewReadReq(10, nil, nil, 0x100, 4)
-	// 	read2 := mem.NewReadReq(10, nil, nil, 0x104, 4)
-	// 	read3 := mem.NewReadReq(10, nil, nil, 0x144, 4)
-
-	// 	topPort.EXPECT().Peek().Return(read1)
-	// 	topPort.EXPECT().Peek().Return(read2)
-	// 	topPort.EXPECT().Retrieve(gomock.Any()).Times(2)
-	// 	c.Tick(10)
-	// 	c.Tick(12)
-
-	// 	dirBuf.EXPECT().CanPush().Return(false)
-
-	// 	topPort.EXPECT().Peek().Return(read3)
-	// 	madeProgress := c.Tick(13)
-
-	// 	Expect(madeProgress).To(BeFalse())
-	// 	Expect(transactions).To(HaveLen(2))
-	// 	Expect(c.toCoalesce).To(HaveLen(2))
-	// })
-
+			madeProgress = c.Tick(11)
+			Expect(madeProgress).To(BeTrue())
+		})
+	})
 })
