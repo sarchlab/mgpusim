@@ -144,21 +144,48 @@ func (c *coalescer) canReqCoalesce(req mem.AccessReq) bool {
 	return false
 }
 
-func (c *coalescer) waitForCoaleasing(
-	trans *transaction,
-) {
-	*c.transactions = append(*c.transactions, trans)
-	c.toCoalesce = append(c.toCoalesce, trans)
-}
-
 func (c *coalescer) coalesceAndSend() bool {
-
-	postCoaleascingTrans := &transaction{
-		read: mem.NewReadReq(0, nil, nil,
-			c.toCoalesce[0].Address(), 1<<c.log2BlockSize),
-		preCoalesceTransactions: c.toCoalesce,
+	var trans *transaction
+	if c.toCoalesce[0].read != nil {
+		trans = c.coalesceRead()
+	} else {
+		trans = c.coalesceWrite()
 	}
-	c.dirBuf.Push(postCoaleascingTrans)
+	c.dirBuf.Push(trans)
 	c.toCoalesce = nil
 	return true
+}
+
+func (c *coalescer) coalesceRead() *transaction {
+	blockSize := uint64(1 << c.log2BlockSize)
+	cachelineID := c.toCoalesce[0].Address() / blockSize
+	return &transaction{
+		read: mem.NewReadReq(0, nil, nil,
+			cachelineID,
+			1<<c.log2BlockSize),
+		preCoalesceTransactions: c.toCoalesce,
+	}
+}
+
+func (c *coalescer) coalesceWrite() *transaction {
+	blockSize := uint64(1 << c.log2BlockSize)
+	cachelineID := c.toCoalesce[0].Address() / blockSize * blockSize
+	write := mem.NewWriteReq(0, nil, nil, cachelineID)
+	write.Data = make([]byte, blockSize)
+	write.DirtyMask = make([]bool, blockSize)
+
+	for _, t := range c.toCoalesce {
+		w := t.write
+		offset := int(w.Address - cachelineID)
+		for i := 0; i < len(w.Data); i++ {
+			if w.DirtyMask == nil || w.DirtyMask[i] == true {
+				write.Data[i+offset] = w.Data[i]
+				write.DirtyMask[i+offset] = true
+			}
+		}
+	}
+	return &transaction{
+		write:                   write,
+		preCoalesceTransactions: c.toCoalesce,
+	}
 }
