@@ -68,8 +68,7 @@ func (d *directory) processReadHit(
 		return false
 	}
 
-	bankNum := getBankNum(block, d.dir.WayAssociativity(), len(d.bankBufs))
-	bankBuf := d.bankBufs[bankNum]
+	bankBuf := d.getBankBuf(block)
 	if !bankBuf.CanPush() {
 		return false
 	}
@@ -103,6 +102,30 @@ func (d *directory) processReadMiss(
 		return false
 	}
 
+	if !d.fetchFromBottom(now, trans, victim) {
+		return false
+	}
+
+	victim.Tag = cacheLineID
+	victim.IsValid = true
+	victim.IsLocked = true
+	d.dir.Visit(victim)
+
+	d.inBuf.Pop()
+
+	return true
+}
+
+func (d *directory) fetchFromBottom(
+	now akita.VTimeInSec,
+	trans *transaction,
+	victim *cache.Block,
+) bool {
+	read := trans.read
+	addr := read.Address
+	blockSize := uint64(1 << d.log2BlockSize)
+	cacheLineID := addr / blockSize * blockSize
+
 	bottomModule := d.lowModuleFinder.Find(cacheLineID)
 	readToBottom := mem.NewReadReq(now, d.bottomPort, bottomModule,
 		cacheLineID, 1<<d.log2BlockSize)
@@ -116,14 +139,6 @@ func (d *directory) processReadMiss(
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	mshrEntry.ReadReq = readToBottom
 	mshrEntry.Block = victim
-
-	victim.Tag = cacheLineID
-	victim.IsValid = true
-	victim.IsLocked = true
-	d.dir.Visit(victim)
-
-	d.inBuf.Pop()
-
 	return true
 }
 
@@ -183,9 +198,7 @@ func (d *directory) processWriteHit(
 		return false
 	}
 
-	bankNum := getBankNum(block, d.dir.WayAssociativity(), len(d.bankBufs))
-	bankBuf := d.bankBufs[bankNum]
-
+	bankBuf := d.getBankBuf(block)
 	if !bankBuf.CanPush() {
 		return false
 	}
@@ -200,10 +213,14 @@ func (d *directory) processWriteHit(
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 	block.IsLocked = true
-	block.Tag = cacheLineID
-	if len(write.Data) == 1<<d.log2BlockSize {
-		block.IsValid = true
+	if block.Tag != cacheLineID {
+		if len(write.Data) == 1<<d.log2BlockSize {
+			block.IsValid = true
+		} else {
+			block.IsValid = false
+		}
 	}
+	block.Tag = cacheLineID
 	d.dir.Visit(block)
 
 	trans.bankAction = bankActionWrite
@@ -214,6 +231,9 @@ func (d *directory) processWriteHit(
 	return true
 }
 
-func getBankNum(block *cache.Block, wayAssociativity, numBanks int) int {
-	return (block.SetID*wayAssociativity + block.WayID) % numBanks
+func (d *directory) getBankBuf(block *cache.Block) util.Buffer {
+	numWaysPerSet := d.dir.WayAssociativity()
+	blockID := block.SetID*numWaysPerSet + block.WayID
+	bankID := blockID % len(d.bankBufs)
+	return d.bankBufs[bankID]
 }
