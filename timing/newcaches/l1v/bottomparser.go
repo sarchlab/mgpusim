@@ -6,8 +6,9 @@ import (
 )
 
 type bottomParser struct {
-	bottomPort akita.Port
-	bankBufs   []util.Buffer
+	bottomPort   akita.Port
+	bankBufs     []util.Buffer
+	transactions *[]*transaction
 }
 
 func (p *bottomParser) Tick(now akita.VTimeInSec) bool {
