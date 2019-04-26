@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/mock_vm"
+	"gitlab.com/akita/util/ca"
 )
 
 var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
@@ -15,12 +15,12 @@ var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
 		mockCtrl  *gomock.Controller
 		allocator *memoryAllocatorImpl
 		context   *Context
-		mmu       *mock_vm.MockMMU
+		mmu       *MockMMU
 	)
 
 	ginkgo.BeforeEach(func() {
 		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
-		mmu = mock_vm.NewMockMMU(mockCtrl)
+		mmu = NewMockMMU(mockCtrl)
 
 		allocator = newMemoryAllocatorImpl(mmu)
 		allocator.pageSizeAsPowerOf2 = 12

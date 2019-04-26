@@ -3,7 +3,7 @@ package driver
 import (
 	"sync"
 
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
 
 // Context is an opaque struct that carries the inforomation used by the driver.

@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/mock_vm"
+	"gitlab.com/akita/util/ca"
 )
 
 type mockInstState struct {
@@ -31,7 +31,7 @@ var _ = Describe("ALU", func() {
 
 	var (
 		mockCtrl *gomock.Controller
-		mmu      *mock_vm.MockMMU
+		mmu      *MockMMU
 
 		alu           *ALUImpl
 		state         *mockInstState
@@ -42,7 +42,7 @@ var _ = Describe("ALU", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mmu = mock_vm.NewMockMMU(mockCtrl)
+		mmu = NewMockMMU(mockCtrl)
 
 		storage = mem.NewStorage(1 * mem.GB)
 		addrConverter = &mem.InterleavingConverter{

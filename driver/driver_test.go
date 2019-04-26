@@ -9,7 +9,7 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/mock_vm"
+	"gitlab.com/akita/util/ca"
 )
 
 var _ = ginkgo.Describe("Driver", func() {
@@ -17,7 +17,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	var (
 		mockCtrl *gomock.Controller
 		gpu      *gcn3.GPU
-		mmu      *mock_vm.MockMMU
+		mmu      *MockMMU
 
 		driver   *Driver
 		engine   *mock_akita.MockEngine
@@ -30,7 +30,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
 		engine = mock_akita.NewMockEngine(mockCtrl)
 		toGPUs = mock_akita.NewMockPort(mockCtrl)
-		mmu = mock_vm.NewMockMMU(mockCtrl)
+		mmu = NewMockMMU(mockCtrl)
 
 		gpu = gcn3.NewGPU("GPU", engine)
 

@@ -61,7 +61,7 @@ func (u *VectorMemoryUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTime
 	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
-// AcceptWave moves one wavefront into the read buffer of the Scalar unit
+// IsIdle moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) IsIdle() bool {
 	u.isIdle = (u.toRead == nil) && (u.toExec == nil) && (u.toWrite == nil) && (len(u.SendBuf) == 0)
 	return u.isIdle
@@ -183,8 +183,9 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 		info.RegisterCount = registerCount
 
 		lowModule := u.cu.VectorMemModules.Find(addr.Addr)
-		req := mem.NewReadReq(now, u.cu.ToVectorMem, lowModule, addr.Addr, addr.Size)
-		req.IsPhysical = false
+		req := mem.NewReadReq(now,
+			u.cu.ToVectorMem, lowModule,
+			addr.Addr, addr.Size)
 		req.PID = u.toExec.PID()
 
 		info.Read = req
@@ -224,7 +225,6 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		lowModule := u.cu.VectorMemModules.Find(addr)
 		req := mem.NewWriteReq(now, u.cu.ToVectorMem, lowModule, addr)
 		info.Write = req
-		req.IsPhysical = false
 		req.PID = u.toExec.PID()
 		if i == lastLaneIndex {
 			req.IsLastInWave = true
