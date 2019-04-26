@@ -28,7 +28,7 @@ func (d *directory) Tick(now akita.VTimeInSec) bool {
 		return d.processRead(now, trans)
 	}
 
-	panic("not implemented")
+	return d.processWrite(now, trans)
 }
 
 func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
@@ -39,7 +39,7 @@ func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 
 	mshrEntry := d.mshr.Query(cacheLineID)
 	if mshrEntry != nil {
-		return d.processReadMSHRHit(trans, mshrEntry)
+		return d.processMSHRHit(trans, mshrEntry)
 	}
 
 	block := d.dir.Lookup(cacheLineID)
@@ -51,7 +51,7 @@ func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 
 }
 
-func (d *directory) processReadMSHRHit(
+func (d *directory) processMSHRHit(
 	trans *transaction,
 	mshrEntry *cache.MSHREntry,
 ) bool {
@@ -124,6 +124,56 @@ func (d *directory) processReadMiss(
 
 	d.inBuf.Pop()
 
+	return true
+}
+
+func (d *directory) processWrite(
+	now akita.VTimeInSec,
+	trans *transaction,
+) bool {
+	write := trans.write
+	addr := write.Address
+	blockSize := uint64(1 << d.log2BlockSize)
+	cacheLineID := addr / blockSize * blockSize
+
+	mshrEntry := d.mshr.Query(cacheLineID)
+	if mshrEntry != nil {
+		return d.processMSHRHit(trans, mshrEntry)
+	}
+
+	block := d.dir.Lookup(cacheLineID)
+	if block != nil && block.IsValid {
+		return d.processWriteHit(trans, block)
+	}
+
+	block = d.dir.FindVictim(cacheLineID)
+	return d.processWriteHit(trans, block)
+}
+
+func (d *directory) processWriteHit(
+	trans *transaction,
+	block *cache.Block,
+) bool {
+	if block.IsLocked || block.ReadCount > 0 {
+		return false
+	}
+
+	bankNum := getBankNum(block, d.dir.WayAssociativity(), len(d.bankBufs))
+	bankBuf := d.bankBufs[bankNum]
+
+	if !bankBuf.CanPush() {
+		return false
+	}
+
+	block.IsLocked = true
+
+	d.dir.Visit(block)
+
+	trans.bankAction = bankActionWrite
+	trans.block = block
+	bankBuf.Push(trans)
+
+	d.inBuf.Pop()
 	return true
 }
 
