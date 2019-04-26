@@ -187,7 +187,7 @@ var _ = Describe("Bottom Parser", func() {
 			bankBuf.EXPECT().Push(gomock.Any()).
 				Do(func(trans *transaction) {
 					Expect(trans.bankAction).To(Equal(bankActionWriteFetched))
-					Expect(trans.writeFetchedData).To(Equal([]byte{
+					Expect(trans.data).To(Equal([]byte{
 						1, 2, 3, 4, 5, 6, 7, 8,
 						9, 9, 9, 9, 9, 9, 9, 9,
 						1, 2, 3, 4, 5, 6, 7, 8,
