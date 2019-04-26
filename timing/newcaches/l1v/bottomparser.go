@@ -62,18 +62,39 @@ func (p *bottomParser) processDataReady(
 		return false
 	}
 
-	for _, preCTrans := range trans.preCoalesceTransactions {
-		preCTrans.dataReadyFromBottom = dr
-	}
-
 	addr := trans.Address()
 	cachelineID := (addr >> p.log2BlockSize) << p.log2BlockSize
+	mshrEntry := p.mshr.Query(cachelineID)
+	data := dr.Data
+	dirtyMask := make([]bool, 1<<p.log2BlockSize)
+	for _, t := range mshrEntry.Requests {
+		trans = t.(*transaction)
+		if trans.read != nil {
+			for _, preCTrans := range trans.preCoalesceTransactions {
+				preCTrans.dataReadyFromBottom = dr
+			}
+		} else {
+			for _, preCTrans := range trans.preCoalesceTransactions {
+				preCTrans.doneFromBottom = mem.NewDoneRsp(0, nil, nil, "")
+			}
+			write := trans.write
+			offset := write.Address - cachelineID
+			for i := 0; i < len(write.Data); i++ {
+				if write.DirtyMask[i] == true {
+					data[offset+uint64(i)] = write.Data[i]
+					dirtyMask[offset+uint64(i)] = true
+				}
+			}
+		}
+		p.removeTransaction(trans)
+	}
 	p.mshr.Remove(cachelineID)
 
 	trans.bankAction = bankActionWriteFetched
+	trans.writeFetchedData = data
+	trans.writeFetchedDirtyMask = dirtyMask
 	bankBuf.Push(trans)
 
-	p.removeTransaction(trans)
 	p.bottomPort.Retrieve(now)
 	return true
 }
