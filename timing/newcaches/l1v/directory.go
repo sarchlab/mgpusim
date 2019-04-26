@@ -138,19 +138,44 @@ func (d *directory) processWrite(
 
 	mshrEntry := d.mshr.Query(cacheLineID)
 	if mshrEntry != nil {
-		return d.processMSHRHit(trans, mshrEntry)
+		ok := d.writeBottom(now, trans)
+		if ok {
+			return d.processMSHRHit(trans, mshrEntry)
+		}
+		return false
 	}
 
 	block := d.dir.Lookup(cacheLineID)
 	if block != nil && block.IsValid {
-		return d.processWriteHit(trans, block)
+		return d.processWriteHit(now, trans, block)
 	}
 
 	block = d.dir.FindVictim(cacheLineID)
-	return d.processWriteHit(trans, block)
+	return d.processWriteHit(now, trans, block)
+}
+
+func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
+	write := trans.write
+	addr := write.Address
+
+	writeToBottom := mem.NewWriteReq(
+		now,
+		d.bottomPort,
+		d.lowModuleFinder.Find(addr),
+		addr,
+	)
+	writeToBottom.Data = write.Data
+	writeToBottom.PID = write.PID
+
+	err := d.bottomPort.Send(writeToBottom)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func (d *directory) processWriteHit(
+	now akita.VTimeInSec,
 	trans *transaction,
 	block *cache.Block,
 ) bool {
@@ -165,8 +190,20 @@ func (d *directory) processWriteHit(
 		return false
 	}
 
-	block.IsLocked = true
+	ok := d.writeBottom(now, trans)
+	if !ok {
+		return false
+	}
 
+	write := trans.write
+	addr := write.Address
+	blockSize := uint64(1 << d.log2BlockSize)
+	cacheLineID := addr / blockSize * blockSize
+	block.IsLocked = true
+	block.Tag = cacheLineID
+	if len(write.Data) == 1<<d.log2BlockSize {
+		block.IsValid = true
+	}
 	d.dir.Visit(block)
 
 	trans.bankAction = bankActionWrite
