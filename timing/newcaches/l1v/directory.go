@@ -135,6 +135,8 @@ func (d *directory) fetchFromBottom(
 		return false
 	}
 
+	trans.readToBottom = readToBottom
+
 	mshrEntry := d.mshr.Add(cacheLineID)
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	mshrEntry.ReadReq = readToBottom
@@ -186,6 +188,8 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 	if err != nil {
 		return false
 	}
+
+	trans.writeToBottom = writeToBottom
 	return true
 }
 
