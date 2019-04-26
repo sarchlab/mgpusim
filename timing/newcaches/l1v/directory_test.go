@@ -179,6 +179,7 @@ var _ = Describe("Directory", func() {
 			Expect(block.Tag).To(Equal(uint64(0x100)))
 			Expect(block.IsLocked).To(BeTrue())
 			Expect(block.IsValid).To(BeTrue())
+			Expect(trans.readToBottom).To(BeIdenticalTo(readToBottom))
 		})
 
 		It("should stall is victim block is locked", func() {
@@ -242,12 +243,14 @@ var _ = Describe("Directory", func() {
 		})
 
 		It("should add to mshr entry", func() {
+			var writeToBottom *mem.WriteReq
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
 			mshr.EXPECT().Query(uint64(0x100)).Return(mshrEntry)
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(write *mem.WriteReq) {
+					writeToBottom = write
 					Expect(write.Address).To(Equal(uint64(0x104)))
 					Expect(write.Data).To(Equal([]byte{1, 2, 3, 4}))
 					Expect(write.PID).To(Equal(ca.PID(1)))
@@ -257,6 +260,7 @@ var _ = Describe("Directory", func() {
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(mshrEntry.Requests).To(ContainElement(trans))
+			Expect(trans.writeToBottom).To(BeIdenticalTo(writeToBottom))
 		})
 	})
 
@@ -301,6 +305,7 @@ var _ = Describe("Directory", func() {
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(block.IsLocked).To(BeTrue())
+			Expect(trans.writeToBottom).NotTo(BeNil())
 		})
 
 		It("should stall is the block is locked", func() {
@@ -398,9 +403,10 @@ var _ = Describe("Directory", func() {
 			Expect(block.IsLocked).To(BeTrue())
 			Expect(block.Tag).To(Equal(uint64(0x100)))
 			Expect(block.IsValid).To(BeFalse())
+			Expect(trans.writeToBottom).NotTo(BeNil())
 		})
 
-		It("should send to bank in case of write miss", func() {
+		It("should write full block", func() {
 			block.Tag = 0x200
 			block.IsValid = false
 			write.Address = 0x100
@@ -432,6 +438,7 @@ var _ = Describe("Directory", func() {
 			Expect(block.IsLocked).To(BeTrue())
 			Expect(block.Tag).To(Equal(uint64(0x100)))
 			Expect(block.IsValid).To(BeTrue())
+			Expect(trans.writeToBottom).NotTo(BeNil())
 		})
 	})
 
