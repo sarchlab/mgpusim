@@ -11,7 +11,7 @@ import (
 type CommandQueue struct {
 	IsRunning bool
 	GPUID     int
-	PID       vm.PID
+	PID       ca.PID
 	Context   *Context
 
 	commandsMutex sync.Mutex

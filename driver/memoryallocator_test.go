@@ -105,9 +105,9 @@ var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
 		ptr := allocator.Allocate(context, 4000)
 
 		// mmu.EXPECT().
-		// 	Translate(vm.PID(1), uint64(page.VAddr)).
+		// 	Translate(ca.PID(1), uint64(page.VAddr)).
 		// 	Return(page)
-		mmu.EXPECT().RemovePage(vm.PID(1), uint64(page.VAddr))
+		mmu.EXPECT().RemovePage(ca.PID(1), uint64(page.VAddr))
 		mmu.EXPECT().CreatePage(&vm.Page{
 			PID:      1,
 			PAddr:    0x200000000,

@@ -8,7 +8,7 @@ import (
 // InstEmuState is the interface used by the emulator to track the instuction
 // execution status.
 type InstEmuState interface {
-	PID() vm.PID
+	PID() ca.PID
 	Inst() *insts.Inst
 	Scratchpad() Scratchpad
 }

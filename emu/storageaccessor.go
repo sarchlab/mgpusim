@@ -13,7 +13,7 @@ type storageAccessor struct {
 	mmu           vm.MMU
 }
 
-func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
+func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
 	phyAddr, page := a.mmu.Translate(pid, vAddr)
 	if page == nil {
 		log.Panic("page not found in page table")
@@ -30,7 +30,7 @@ func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 	return data
 }
 
-func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
+func (a *storageAccessor) Write(pid ca.PID, vAddr uint64, data []byte) {
 	phyAddr, page := a.mmu.Translate(pid, vAddr)
 	if page == nil {
 		log.Panic("page not found in page table")
