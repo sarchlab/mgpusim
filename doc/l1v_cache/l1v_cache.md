@@ -14,3 +14,20 @@ bundle to the directory stage. The Coalesce Stage also clears the buffer and
 put the new request in the buffer. In the case that the request is the last
 request from a wave instruction, the Coalesce Stage immediately performs
 coalescing.
+
+The "Directory Stage" considers 6 cases:
+
+1. Read MSHR hit:
+
+    In this case, the read transaction is attached to the MSHR entry. Nothing
+    else should happen.
+
+1. Read hit:
+
+1. Read miss:
+
+1. Write MSHR hit:
+
+1. Write hit:
+
+1. Write miss:
