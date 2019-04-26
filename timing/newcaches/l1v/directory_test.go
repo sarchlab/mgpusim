@@ -222,22 +222,125 @@ var _ = Describe("Directory", func() {
 
 			Expect(madeProgress).To(BeFalse())
 		})
+	})
 
-		// It("should stall if cannot send to bank", func() {
-		// 	dir.EXPECT().Lookup(uint64(0x100)).Return(block)
-		// 	bankBuf.EXPECT().CanPush().Return(false)
+	Context("write mshr hit", func() {
+		var (
+			write     *mem.WriteReq
+			trans     *transaction
+			mshrEntry *cache.MSHREntry
+		)
 
-		// 	madeProgress := d.Tick(10)
+		BeforeEach(func() {
+			write = mem.NewWriteReq(10, nil, nil, 0x104)
+			write.Data = []byte{1, 2, 3, 4}
+			trans = &transaction{
+				write: write,
+			}
+			mshrEntry = &cache.MSHREntry{}
+		})
 
-		// 	Expect(madeProgress).To(BeFalse())
-		// })
+		It("should add to mshr entry", func() {
+			inBuf.EXPECT().Peek().Return(trans)
+			inBuf.EXPECT().Pop()
+			mshr.EXPECT().Query(uint64(0x100)).Return(mshrEntry)
 
-		// It("should stall if block is locked", func() {
-		// 	block.IsLocked = true
-		// 	dir.EXPECT().Lookup(uint64(0x100)).Return(block)
-		// 	madeProgress := d.Tick(10)
-		// 	Expect(madeProgress).To(BeFalse())
-		// })
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(mshrEntry.Requests).To(ContainElement(trans))
+		})
+	})
+
+	Context("write hit/miss", func() {
+		var (
+			write *mem.WriteReq
+			trans *transaction
+			block *cache.Block
+		)
+
+		BeforeEach(func() {
+			write = mem.NewWriteReq(10, nil, nil, 0x104)
+			write.Data = []byte{1, 2, 3, 4}
+			trans = &transaction{
+				write: write,
+			}
+			block = &cache.Block{IsValid: true}
+		})
+
+		It("should send to bank", func() {
+			inBuf.EXPECT().Peek().Return(trans)
+			inBuf.EXPECT().Pop()
+			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			dir.EXPECT().Visit(block)
+			bankBuf.EXPECT().CanPush().Return(true)
+			bankBuf.EXPECT().Push(gomock.Any()).
+				Do(func(trans *transaction) {
+					Expect(trans.bankAction).To(Equal(bankActionWrite))
+					Expect(trans.block).To(BeIdenticalTo(block))
+				})
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(block.IsLocked).To(BeTrue())
+		})
+
+		It("should send to bank in case of write miss", func() {
+			inBuf.EXPECT().Peek().Return(trans)
+			inBuf.EXPECT().Pop()
+			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
+			dir.EXPECT().Visit(block)
+			bankBuf.EXPECT().CanPush().Return(true)
+			bankBuf.EXPECT().Push(gomock.Any()).
+				Do(func(trans *transaction) {
+					Expect(trans.bankAction).To(Equal(bankActionWrite))
+					Expect(trans.block).To(BeIdenticalTo(block))
+				})
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(block.IsLocked).To(BeTrue())
+		})
+
+		It("should stall is the block is locked", func() {
+			block.IsLocked = true
+
+			inBuf.EXPECT().Peek().Return(trans)
+			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeFalse())
+		})
+
+		It("should stall is the block is being read", func() {
+			block.ReadCount = 1
+
+			inBuf.EXPECT().Peek().Return(trans)
+			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeFalse())
+		})
+
+		It("should stall if bank buf is full", func() {
+			inBuf.EXPECT().Peek().Return(trans)
+			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			bankBuf.EXPECT().CanPush().Return(false)
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeFalse())
+		})
 	})
 
 })
