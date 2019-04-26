@@ -29,7 +29,7 @@ type transaction struct {
 
 	bankAction            bankActionType
 	block                 *cache.Block
-	writeFetchedData      []byte
+	data                  []byte
 	writeFetchedDirtyMask []bool
 
 	done bool

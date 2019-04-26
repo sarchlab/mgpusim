@@ -91,7 +91,7 @@ func (p *bottomParser) processDataReady(
 	p.mshr.Remove(cachelineID)
 
 	trans.bankAction = bankActionWriteFetched
-	trans.writeFetchedData = data
+	trans.data = data
 	trans.writeFetchedDirtyMask = dirtyMask
 	bankBuf.Push(trans)
 
