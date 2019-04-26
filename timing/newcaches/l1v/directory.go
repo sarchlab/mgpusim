@@ -80,6 +80,8 @@ func (d *directory) processReadHit(
 	d.dir.Visit(block)
 	bankBuf.Push(trans)
 
+	d.inBuf.Pop()
+
 	return true
 }
 
@@ -93,16 +95,34 @@ func (d *directory) processReadMiss(
 	cacheLineID := addr / blockSize * blockSize
 
 	victim := d.dir.FindVictim(cacheLineID)
+	if victim.IsLocked || victim.ReadCount > 0 {
+		return false
+	}
+
+	if d.mshr.IsFull() {
+		return false
+	}
 
 	bottomModule := d.lowModuleFinder.Find(cacheLineID)
 	readToBottom := mem.NewReadReq(now, d.bottomPort, bottomModule,
 		cacheLineID, 1<<d.log2BlockSize)
 	readToBottom.PID = read.PID
-	d.bottomPort.Send(readToBottom)
+	err := d.bottomPort.Send(readToBottom)
+	if err != nil {
+		return false
+	}
 
 	mshrEntry := d.mshr.Add(cacheLineID)
+	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	mshrEntry.ReadReq = readToBottom
 	mshrEntry.Block = victim
+
+	victim.Tag = cacheLineID
+	victim.IsValid = true
+	victim.IsLocked = true
+	d.dir.Visit(victim)
+
+	d.inBuf.Pop()
 
 	return true
 }

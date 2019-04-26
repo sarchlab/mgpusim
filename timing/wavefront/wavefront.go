@@ -3,12 +3,11 @@ package wavefront
 import (
 	"sync"
 
-	"gitlab.com/akita/mem/vm"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/util/ca"
 )
 
 // WfState marks what state that wavefront it in.
