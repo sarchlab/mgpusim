@@ -27,8 +27,10 @@ type transaction struct {
 
 	preCoalesceTransactions []*transaction
 
-	bankAction bankActionType
-	block      *cache.Block
+	bankAction            bankActionType
+	block                 *cache.Block
+	writeFetchedData      []byte
+	writeFetchedDirtyMask []bool
 
 	done bool
 }
