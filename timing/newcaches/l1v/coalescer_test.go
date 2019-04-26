@@ -9,11 +9,12 @@ import (
 
 var _ = Describe("Coalescer", func() {
 	var (
-		mockCtrl     *gomock.Controller
-		topPort      *MockPort
-		transactions []*transaction
-		dirBuf       *MockBuffer
-		c            coalescer
+		mockCtrl                 *gomock.Controller
+		topPort                  *MockPort
+		transactions             []*transaction
+		postCoalesceTransactions []*transaction
+		dirBuf                   *MockBuffer
+		c                        coalescer
 	)
 
 	BeforeEach(func() {
@@ -21,11 +22,13 @@ var _ = Describe("Coalescer", func() {
 		topPort = NewMockPort(mockCtrl)
 		dirBuf = NewMockBuffer(mockCtrl)
 		transactions = nil
+		postCoalesceTransactions = nil
 		c = coalescer{
-			log2BlockSize: 6,
-			topPort:       topPort,
-			transactions:  &transactions,
-			dirBuf:        dirBuf,
+			log2BlockSize:            6,
+			topPort:                  topPort,
+			dirBuf:                   dirBuf,
+			transactions:             &transactions,
+			postCoalesceTransactions: &postCoalesceTransactions,
 		}
 	})
 
@@ -75,6 +78,7 @@ var _ = Describe("Coalescer", func() {
 				Expect(madeProgress).To(BeTrue())
 				Expect(transactions).To(HaveLen(3))
 				Expect(c.toCoalesce).To(HaveLen(1))
+				Expect(postCoalesceTransactions).To(HaveLen(1))
 			})
 
 			It("should stall if cannot send to dir", func() {
@@ -111,6 +115,7 @@ var _ = Describe("Coalescer", func() {
 				Expect(madeProgress).To(BeTrue())
 				Expect(transactions).To(HaveLen(3))
 				Expect(c.toCoalesce).To(HaveLen(0))
+				Expect(postCoalesceTransactions).To(HaveLen(1))
 			})
 
 			It("should stall if cannot send", func() {
@@ -152,6 +157,7 @@ var _ = Describe("Coalescer", func() {
 				Expect(madeProgress).To(BeTrue())
 				Expect(transactions).To(HaveLen(3))
 				Expect(c.toCoalesce).To(HaveLen(0))
+				Expect(postCoalesceTransactions).To(HaveLen(2))
 			})
 
 			It("should stall is cannot send to dir stage", func() {
@@ -188,6 +194,7 @@ var _ = Describe("Coalescer", func() {
 					Expect(madeProgress).To(BeTrue())
 					Expect(transactions).To(HaveLen(2))
 					Expect(c.toCoalesce).To(HaveLen(0))
+					Expect(postCoalesceTransactions).To(HaveLen(1))
 				})
 		})
 	})
@@ -246,6 +253,8 @@ var _ = Describe("Coalescer", func() {
 
 			madeProgress = c.Tick(11)
 			Expect(madeProgress).To(BeTrue())
+
+			Expect(postCoalesceTransactions).To(HaveLen(1))
 		})
 	})
 })
