@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/rs/xid"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
 
 var nextPID uint64
@@ -15,7 +15,7 @@ func (d *Driver) Init() *Context {
 	atomic.AddUint64(&nextPID, 1)
 
 	c := &Context{
-		pid:          vm.PID(nextPID),
+		pid:          ca.PID(nextPID),
 		currentGPUID: 1,
 	}
 

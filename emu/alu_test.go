@@ -15,7 +15,7 @@ type mockInstState struct {
 	scratchpad Scratchpad
 }
 
-func (s *mockInstState) PID() vm.PID {
+func (s *mockInstState) PID() ca.PID {
 	return 1
 }
 
@@ -65,7 +65,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_UBYTE", func() {
 		for i := 0; i < 64; i++ {
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(i*4)).
+				Translate(ca.PID(1), uint64(i*4)).
 				Return(uint64(i*4), &vm.Page{})
 		}
 		state.inst = insts.NewInst()
@@ -92,7 +92,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_USHORT", func() {
 		for i := 0; i < 64; i++ {
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(i*4)).
+				Translate(ca.PID(1), uint64(i*4)).
 				Return(uint64(i*4), &vm.Page{})
 		}
 		state.inst = insts.NewInst()
@@ -117,7 +117,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_DWORD", func() {
 		for i := 0; i < 64; i++ {
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(i*4)).
+				Translate(ca.PID(1), uint64(i*4)).
 				Return(uint64(i*4), &vm.Page{})
 		}
 		state.inst = insts.NewInst()
@@ -141,7 +141,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_DWORDX4", func() {
 		for i := 0; i < 64; i++ {
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(i*16)).
+				Translate(ca.PID(1), uint64(i*16)).
 				Return(uint64(i*16), &vm.Page{})
 		}
 		state.inst = insts.NewInst()
@@ -171,7 +171,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_STORE_DWORD", func() {
 		for i := 0; i < 64; i++ {
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(i*4)).
+				Translate(ca.PID(1), uint64(i*4)).
 				Return(uint64(i*4), &vm.Page{})
 		}
 		state.inst = insts.NewInst()
@@ -197,7 +197,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_STORE_DWORDX4", func() {
 		for i := 0; i < 64; i++ {
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(i*16)).
+				Translate(ca.PID(1), uint64(i*16)).
 				Return(uint64(i*16), &vm.Page{})
 		}
 		state.inst = insts.NewInst()
@@ -225,7 +225,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORD", func() {
 		mmu.EXPECT().
-			Translate(vm.PID(1), uint64(1040)).
+			Translate(ca.PID(1), uint64(1040)).
 			Return(uint64(1040), &vm.Page{})
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
@@ -244,7 +244,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORDX2", func() {
 		mmu.EXPECT().
-			Translate(vm.PID(1), uint64(1040)).
+			Translate(ca.PID(1), uint64(1040)).
 			Return(uint64(1040), &vm.Page{})
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
@@ -265,7 +265,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORDX4", func() {
 		mmu.EXPECT().
-			Translate(vm.PID(1), uint64(1040)).
+			Translate(ca.PID(1), uint64(1040)).
 			Return(uint64(1040), &vm.Page{})
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
