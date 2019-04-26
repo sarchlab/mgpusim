@@ -299,7 +299,7 @@ func (a *memoryAllocatorImpl) migrateChunks(pageVAddr uint64, deviceID int) {
 	}
 }
 
-func (a *memoryAllocatorImpl) removePage(pid vm.PID, addr uint64) {
+func (a *memoryAllocatorImpl) removePage(pid ca.PID, addr uint64) {
 	for i, pages := range a.allocatedPages {
 		newPages := []vm.Page{}
 		for _, page := range pages {

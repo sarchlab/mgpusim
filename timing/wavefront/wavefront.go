@@ -34,7 +34,7 @@ type Wavefront struct {
 	CodeObject    *insts.HsaCo
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
-	pid           vm.PID
+	pid           ca.PID
 
 	State          WfState
 	inst           *Inst            // The instruction that is being executed
@@ -102,10 +102,10 @@ func (wf *Wavefront) Scratchpad() emu.Scratchpad {
 	return wf.scratchpad
 }
 
-func (wf *Wavefront) PID() vm.PID {
+func (wf *Wavefront) PID() ca.PID {
 	return wf.pid
 }
 
-func (wf *Wavefront) SetPID(pid vm.PID) {
+func (wf *Wavefront) SetPID(pid ca.PID) {
 	wf.pid = pid
 }

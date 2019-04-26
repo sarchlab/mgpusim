@@ -4,10 +4,9 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/mem/vm"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/util/ca"
 	"gitlab.com/akita/vis/trace"
 )
 
@@ -25,7 +24,7 @@ type MapWGReq struct {
 	*akita.ReqBase
 
 	WG               *kernels.WorkGroup
-	PID              vm.PID
+	PID              ca.PID
 	Ok               bool
 	CUOutOfResources bool
 }
