@@ -53,4 +53,22 @@ The "Directory Stage" considers 6 cases:
 
 ### Parse Bottom Stage
 
-The Parse Bottom Stage extracts responds from the `BottomPort`. For write done response, the Parse Bottom Stage attach the done respond to the pre-coalesed transaction so that those transactions can be resonded to the top unit.
+The Parse Bottom Stage extracts responds from the `BottomPort`.
+
+For write done response, the Parse Bottom Stage attach the done respond to the
+pre-coalesed transaction so that those transactions can be resonded to the top
+unit.
+
+For data ready response, the Parse Bottom stage attach the data ready respond
+to all the pre-coalescing transaction related. At the same time, the Parse
+Bottom Stage also sent the transaction to the bank to store the fetched data.
+In case the MSHR entry contains write transaction, the Parse Bottom Stage
+merges the write with the fetch the data and send to the bank.
+
+### Respond Stage
+
+The respond stage does not have any input buffer. It watchs the first
+transaction in the pre-coalescing transaction queue. When the transaction is
+completed, the respond stage sends back the response to the top. The global
+transaction queue guarantees that the return order to be the same as receive
+order.
