@@ -10,6 +10,7 @@ type bankActionType int
 const (
 	bankActionInvalid bankActionType = iota
 	bankActionReadHit
+	bankActionWrite
 )
 
 type transaction struct {
