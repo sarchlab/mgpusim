@@ -2,31 +2,9 @@ package l1v
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util"
 	"gitlab.com/akita/util/akitaext"
 )
-
-type transaction struct {
-	read                *mem.ReadReq
-	readToBottom        *mem.ReadReq
-	dataReadyFromBottom *mem.DataReadyRsp
-	dataReadyToTop      *mem.DataReadyRsp
-
-	write          *mem.WriteReq
-	writeToBottom  *mem.WriteReq
-	doneFromBottom *mem.DoneRsp
-	doneToTop      *mem.DoneRsp
-
-	preCoalesceTransactions []*transaction
-}
-
-func (t *transaction) Address() uint64 {
-	if t.read != nil {
-		return t.read.Address
-	}
-	return t.write.Address
-}
 
 // A Cache is a customized L1 cache the for R9nano GPUs.
 type Cache struct {
