@@ -10,10 +10,11 @@ import (
 )
 
 type coalescer struct {
-	log2BlockSize uint64
-	topPort       akita.Port
-	transactions  *[]*transaction
-	dirBuf        util.Buffer
+	log2BlockSize            uint64
+	topPort                  akita.Port
+	dirBuf                   util.Buffer
+	transactions             *[]*transaction
+	postCoalesceTransactions *[]*transaction
 
 	toCoalesce []*transaction
 }
@@ -152,6 +153,8 @@ func (c *coalescer) coalesceAndSend() bool {
 		trans = c.coalesceWrite()
 	}
 	c.dirBuf.Push(trans)
+	*c.postCoalesceTransactions =
+		append(*c.postCoalesceTransactions, trans)
 	c.toCoalesce = nil
 	return true
 }

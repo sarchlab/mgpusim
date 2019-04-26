@@ -11,7 +11,7 @@ The L1V cache provides 3 ports, including `TopPort`, `BottomPort`,
 
 ## Timing
 
-## Coalesce Stage
+### Coalesce Stage
 
 The "Coalesce Stage" extracts requests from the `TopPort`. If this is the first
 request or this request is accessing the same block as the previous requests,
@@ -22,7 +22,7 @@ put the new request in the buffer. In the case that the request is the last
 request from a wave instruction, the Coalesce Stage immediately performs
 coalescing.
 
-## Directory Stage
+### Directory Stage
 
 The "Directory Stage" considers 6 cases:
 
@@ -50,3 +50,7 @@ The "Directory Stage" considers 6 cases:
 1. Write miss:
 
    A victim block will be found. The write transaction will be sent to the bank to overwrite the victim block. If this write writes a full line, the block is marked as valid. A write request is also sent throught the BottomPort.
+
+### Parse Bottom Stage
+
+The Parse Bottom Stage extracts responds from the `BottomPort`. For write done response, the Parse Bottom Stage attach the done respond to the pre-coalesed transaction so that those transactions can be resonded to the top unit.

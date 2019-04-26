@@ -29,6 +29,8 @@ type transaction struct {
 
 	bankAction bankActionType
 	block      *cache.Block
+
+	done bool
 }
 
 func (t *transaction) Address() uint64 {
