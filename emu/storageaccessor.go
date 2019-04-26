@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
 
 type storageAccessor struct {

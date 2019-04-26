@@ -4,6 +4,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
@@ -106,6 +107,7 @@ var _ = Describe("Directory", func() {
 					Expect(t.block).To(BeIdenticalTo(block))
 					Expect(t.bankAction).To(Equal(bankActionReadHit))
 				})
+			inBuf.EXPECT().Pop()
 
 			madeProgress := d.Tick(10)
 
@@ -132,15 +134,17 @@ var _ = Describe("Directory", func() {
 
 	Context("read miss", func() {
 		var (
-			block *cache.Block
-			read  *mem.ReadReq
-			trans *transaction
+			block     *cache.Block
+			read      *mem.ReadReq
+			trans     *transaction
+			mshrEntry *cache.MSHREntry
 		)
 
 		BeforeEach(func() {
 			block = &cache.Block{
 				IsValid: true,
 			}
+			mshrEntry = &cache.MSHREntry{}
 			read = mem.NewReadReq(6, nil, nil, 0x104, 4)
 			read.PID = 1
 			trans = &transaction{
@@ -151,22 +155,72 @@ var _ = Describe("Directory", func() {
 		})
 
 		It("should send request to bottom", func() {
+			var readToBottom *mem.ReadReq
 			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 			dir.EXPECT().Visit(block)
 			lowModuleFinder.EXPECT().Find(uint64(0x100)).Return(nil)
 			bottomPort.EXPECT().Send(gomock.Any()).Do(func(read *mem.ReadReq) {
+				readToBottom = read
 				Expect(read.Address).To(Equal(uint64(0x100)))
 				Expect(read.MemByteSize).To(Equal(uint64(64)))
 				Expect(read.PID).To(Equal(ca.PID(1)))
 			})
 			mshr.EXPECT().IsFull().Return(false)
-			mshr.EXPECT().Add(0x100)
+			mshr.EXPECT().Add(uint64(0x100)).Return(mshrEntry)
+			inBuf.EXPECT().Pop()
 
 			madeProgress := d.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
+			Expect(mshrEntry.Requests).To(ContainElement(trans))
+			Expect(mshrEntry.Block).To(BeIdenticalTo(block))
+			Expect(mshrEntry.ReadReq).To(BeIdenticalTo(readToBottom))
+			Expect(block.Tag).To(Equal(uint64(0x100)))
 			Expect(block.IsLocked).To(BeTrue())
+			Expect(block.IsValid).To(BeTrue())
+		})
+
+		It("should stall is victim block is locked", func() {
+			block.IsLocked = true
+			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeFalse())
+		})
+
+		It("should stall is victim block is being read", func() {
+			block.ReadCount = 1
+			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeFalse())
+		})
+
+		It("should stall is mshr is full", func() {
+			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
+			mshr.EXPECT().IsFull().Return(true)
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeFalse())
+		})
+
+		It("should stall if send to bottom failed", func() {
+			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
+			lowModuleFinder.EXPECT().Find(uint64(0x100)).Return(nil)
+			mshr.EXPECT().IsFull().Return(false)
+			bottomPort.EXPECT().Send(gomock.Any()).Return(&akita.SendError{})
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeFalse())
 		})
 
 		// It("should stall if cannot send to bank", func() {

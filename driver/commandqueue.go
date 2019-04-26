@@ -3,7 +3,7 @@ package driver
 import (
 	"sync"
 
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
 
 // A CommandQueue maintains a queue of command where the commands from the
