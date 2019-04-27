@@ -32,7 +32,9 @@ type transaction struct {
 	data                  []byte
 	writeFetchedDirtyMask []bool
 
-	done bool
+	bankDone   bool
+	bottomDone bool
+	done       bool
 }
 
 func (t *transaction) Address() uint64 {

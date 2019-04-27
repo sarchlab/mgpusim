@@ -44,7 +44,7 @@ func (p *bottomParser) processDoneRsp(
 	trans := p.findTransactionByWriteToBottomID(done.GetRespondTo())
 
 	for _, t := range trans.preCoalesceTransactions {
-		t.doneFromBottom = done
+		t.done = true
 	}
 
 	p.removeTransaction(trans)
@@ -64,30 +64,11 @@ func (p *bottomParser) processDataReady(
 
 	addr := trans.Address()
 	cachelineID := (addr >> p.log2BlockSize) << p.log2BlockSize
-	mshrEntry := p.mshr.Query(cachelineID)
 	data := dr.Data
 	dirtyMask := make([]bool, 1<<p.log2BlockSize)
-	for _, t := range mshrEntry.Requests {
-		trans = t.(*transaction)
-		if trans.read != nil {
-			for _, preCTrans := range trans.preCoalesceTransactions {
-				preCTrans.dataReadyFromBottom = dr
-			}
-		} else {
-			for _, preCTrans := range trans.preCoalesceTransactions {
-				preCTrans.doneFromBottom = mem.NewDoneRsp(0, nil, nil, "")
-			}
-			write := trans.write
-			offset := write.Address - cachelineID
-			for i := 0; i < len(write.Data); i++ {
-				if write.DirtyMask[i] == true {
-					data[offset+uint64(i)] = write.Data[i]
-					dirtyMask[offset+uint64(i)] = true
-				}
-			}
-		}
-		p.removeTransaction(trans)
-	}
+	mshrEntry := p.mshr.Query(cachelineID)
+	p.mergeMSHRData(mshrEntry, data, dirtyMask)
+	p.finalizeMSHRTrans(mshrEntry, data)
 	p.mshr.Remove(cachelineID)
 
 	trans.bankAction = bankActionWriteFetched
@@ -97,6 +78,52 @@ func (p *bottomParser) processDataReady(
 
 	p.bottomPort.Retrieve(now)
 	return true
+}
+
+func (p *bottomParser) mergeMSHRData(
+	mshrEntry *cache.MSHREntry,
+	data []byte,
+	dirtyMask []bool,
+) {
+	for _, t := range mshrEntry.Requests {
+		trans := t.(*transaction)
+
+		if trans.write == nil {
+			continue
+		}
+
+		write := trans.write
+		offset := write.Address - mshrEntry.Block.Tag
+		for i := 0; i < len(write.Data); i++ {
+			if write.DirtyMask[i] == true {
+				data[offset+uint64(i)] = write.Data[i]
+				dirtyMask[offset+uint64(i)] = true
+			}
+		}
+	}
+}
+
+func (p *bottomParser) finalizeMSHRTrans(
+	mshrEntry *cache.MSHREntry,
+	data []byte,
+) {
+	for _, t := range mshrEntry.Requests {
+		trans := t.(*transaction)
+		if trans.read != nil {
+			for _, preCTrans := range trans.preCoalesceTransactions {
+				read := preCTrans.read
+				offset := read.Address - mshrEntry.Block.Tag
+				preCTrans.data = data[offset : offset+read.MemByteSize]
+				preCTrans.done = true
+			}
+		} else {
+			for _, preCTrans := range trans.preCoalesceTransactions {
+				preCTrans.done = true
+			}
+		}
+
+		p.removeTransaction(trans)
+	}
 }
 
 func (p *bottomParser) findTransactionByWriteToBottomID(

@@ -69,8 +69,8 @@ var _ = Describe("Bottom Parser", func() {
 			madeProgress := p.Tick(12)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(preCTrans1.doneFromBottom).To(BeIdenticalTo(done))
-			Expect(preCTrans2.doneFromBottom).To(BeIdenticalTo(done))
+			Expect(preCTrans1.done).To(BeTrue())
+			Expect(preCTrans2.done).To(BeTrue())
 			Expect(postCTransactions).NotTo(ContainElement(postCTrans))
 		})
 	})
@@ -115,7 +115,9 @@ var _ = Describe("Bottom Parser", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}
-			block = &cache.Block{}
+			block = &cache.Block{
+				Tag: 0x100,
+			}
 			postCTrans1 = &transaction{
 				block:        block,
 				read:         postCRead,
@@ -143,7 +145,9 @@ var _ = Describe("Bottom Parser", func() {
 				},
 			}
 
-			mshrEntry = &cache.MSHREntry{}
+			mshrEntry = &cache.MSHREntry{
+				Block: block,
+			}
 			mshrEntry.Requests = append(mshrEntry.Requests, postCTrans1)
 		})
 
@@ -170,8 +174,10 @@ var _ = Describe("Bottom Parser", func() {
 			madeProgress := p.Tick(12)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(preCTrans1.dataReadyFromBottom).To(BeIdenticalTo(dataReady))
-			Expect(preCTrans2.dataReadyFromBottom).To(BeIdenticalTo(dataReady))
+			Expect(preCTrans1.done).To(BeTrue())
+			Expect(preCTrans1.data).To(Equal([]byte{1, 2, 3, 4}))
+			Expect(preCTrans2.done).To(BeTrue())
+			Expect(preCTrans2.data).To(Equal([]byte{5, 6, 7, 8}))
 			Expect(postCTransactions).NotTo(ContainElement(postCTrans1))
 		})
 
@@ -212,10 +218,12 @@ var _ = Describe("Bottom Parser", func() {
 			madeProgress := p.Tick(12)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(preCTrans1.dataReadyFromBottom).To(BeIdenticalTo(dataReady))
-			Expect(preCTrans2.dataReadyFromBottom).To(BeIdenticalTo(dataReady))
-			Expect(preCTrans3.doneFromBottom).NotTo(BeNil())
-			Expect(preCTrans4.doneFromBottom).NotTo(BeNil())
+			Expect(preCTrans1.done).To(BeTrue())
+			Expect(preCTrans1.data).To(Equal([]byte{1, 2, 3, 4}))
+			Expect(preCTrans2.done).To(BeTrue())
+			Expect(preCTrans2.data).To(Equal([]byte{5, 6, 7, 8}))
+			Expect(preCTrans3.done).To(BeTrue())
+			Expect(preCTrans4.done).To(BeTrue())
 			Expect(postCTransactions).NotTo(ContainElement(postCTrans1))
 			Expect(postCTransactions).NotTo(ContainElement(postCTrans2))
 		})
