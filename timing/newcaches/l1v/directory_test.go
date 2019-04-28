@@ -154,7 +154,7 @@ var _ = Describe("Directory", func() {
 			mshr.EXPECT().Query(gomock.Any()).Return(nil)
 		})
 
-		It("should send request to bottom", func() {
+		FIt("should send request to bottom", func() {
 			var readToBottom *mem.ReadReq
 			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
@@ -180,6 +180,7 @@ var _ = Describe("Directory", func() {
 			Expect(block.IsLocked).To(BeTrue())
 			Expect(block.IsValid).To(BeTrue())
 			Expect(trans.readToBottom).To(BeIdenticalTo(readToBottom))
+			Expect(trans.block).To(BeIdenticalTo(block))
 		})
 
 		It("should stall is victim block is locked", func() {

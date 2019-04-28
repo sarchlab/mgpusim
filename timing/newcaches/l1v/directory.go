@@ -136,6 +136,7 @@ func (d *directory) fetchFromBottom(
 	}
 
 	trans.readToBottom = readToBottom
+	trans.block = victim
 
 	mshrEntry := d.mshr.Add(cacheLineID)
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
