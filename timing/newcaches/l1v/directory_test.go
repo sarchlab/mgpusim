@@ -154,7 +154,7 @@ var _ = Describe("Directory", func() {
 			mshr.EXPECT().Query(gomock.Any()).Return(nil)
 		})
 
-		FIt("should send request to bottom", func() {
+		It("should send request to bottom", func() {
 			var readToBottom *mem.ReadReq
 			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
