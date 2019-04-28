@@ -48,7 +48,7 @@ var _ = Describe("Cache", func() {
 		mockCtrl.Finish()
 	})
 
-	FIt("should read", func() {
+	It("should read", func() {
 		dram.Storage.Write(0x100, []byte{1, 2, 3, 4})
 		read := mem.NewReadReq(1, cuPort, c.TopPort, 0x100, 4)
 		read.IsLastInWave = true
