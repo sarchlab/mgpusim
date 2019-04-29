@@ -7,9 +7,10 @@ import (
 )
 
 type bankStage struct {
-	inBuf   util.Buffer
-	storage *mem.Storage
-	latency int
+	inBuf         util.Buffer
+	storage       *mem.Storage
+	latency       int
+	log2BlockSize uint64
 
 	cycleLeft int
 	currTrans *transaction
@@ -75,13 +76,24 @@ func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
 
 func (s *bankStage) finalizeWriteTrans(now akita.VTimeInSec) bool {
 	trans := s.currTrans
+	write := trans.write
 	block := trans.block
+	blockSize := 1 << s.log2BlockSize
 
-	err := s.storage.Write(block.CacheAddress, trans.write.Data)
+	data, err := s.storage.Read(block.CacheAddress, uint64(blockSize))
+
+	offset := write.Address - block.Tag
+	for i := 0; i < len(write.Data); i++ {
+		if write.DirtyMask[i] {
+			data[offset+uint64(i)] = write.Data[i]
+		}
+	}
+
+	err = s.storage.Write(block.CacheAddress, data)
 	if err != nil {
 		panic(err)
 	}
-	block.DirtyMask = trans.write.DirtyMask
+	block.DirtyMask = write.DirtyMask
 	block.IsLocked = false
 
 	s.currTrans = nil
