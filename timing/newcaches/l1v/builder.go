@@ -138,9 +138,10 @@ func (b *Builder) Build(name string) *Cache {
 
 	for i := 0; i < b.numBank; i++ {
 		bs := &bankStage{
-			inBuf:   c.bankBufs[i],
-			storage: storage,
-			latency: b.bankLatency,
+			inBuf:         c.bankBufs[i],
+			storage:       storage,
+			latency:       b.bankLatency,
+			log2BlockSize: b.log2BlockSize,
 		}
 		c.bankStages = append(c.bankStages, bs)
 	}
