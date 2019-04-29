@@ -1,9 +1,6 @@
 package l1v
 
 import (
-	"log"
-	"reflect"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -31,10 +28,8 @@ func (p *bottomParser) Tick(now akita.VTimeInSec) bool {
 	case *mem.DataReadyRsp:
 		return p.processDataReady(now, rsp)
 	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(rsp))
+		panic("cannot process response")
 	}
-
-	panic("not implemented")
 }
 
 func (p *bottomParser) processDoneRsp(
