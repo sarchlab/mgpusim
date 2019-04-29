@@ -113,5 +113,7 @@ func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
 	block.IsLocked = false
 
 	s.currTrans = nil
+
+	trace(now, "write fetched", block.Tag, trans.data)
 	return true
 }
