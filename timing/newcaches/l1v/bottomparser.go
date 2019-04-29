@@ -37,6 +37,10 @@ func (p *bottomParser) processDoneRsp(
 	done *mem.DoneRsp,
 ) bool {
 	trans := p.findTransactionByWriteToBottomID(done.GetRespondTo())
+	if trans == nil || trans.fetchAndWrite {
+		p.bottomPort.Retrieve(now)
+		return true
+	}
 
 	for _, t := range trans.preCoalesceTransactions {
 		t.done = true
@@ -133,7 +137,7 @@ func (p *bottomParser) findTransactionByWriteToBottomID(
 			return trans
 		}
 	}
-	panic("trans not found")
+	return nil
 }
 
 func (p *bottomParser) findTransactionByReadToBottomID(
@@ -144,7 +148,7 @@ func (p *bottomParser) findTransactionByReadToBottomID(
 			return trans
 		}
 	}
-	panic("trans not found")
+	return nil
 }
 
 func (p *bottomParser) removeTransaction(trans *transaction) {
@@ -156,7 +160,6 @@ func (p *bottomParser) removeTransaction(trans *transaction) {
 			return
 		}
 	}
-	panic("trans not found")
 }
 
 func (p *bottomParser) getBankBuf(block *cache.Block) util.Buffer {

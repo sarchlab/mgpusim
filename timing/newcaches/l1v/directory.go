@@ -118,45 +118,10 @@ func (d *directory) processReadMiss(
 		return false
 	}
 
-	victim.Tag = cacheLineID
-	victim.IsValid = true
-	victim.IsLocked = true
-	d.dir.Visit(victim)
-
 	d.inBuf.Pop()
 
 	trace(now, "r-miss", addr, nil)
 
-	return true
-}
-
-func (d *directory) fetchFromBottom(
-	now akita.VTimeInSec,
-	trans *transaction,
-	victim *cache.Block,
-) bool {
-	read := trans.read
-	addr := read.Address
-	pid := read.PID
-	blockSize := uint64(1 << d.log2BlockSize)
-	cacheLineID := addr / blockSize * blockSize
-
-	bottomModule := d.lowModuleFinder.Find(cacheLineID)
-	readToBottom := mem.NewReadReq(now, d.bottomPort, bottomModule,
-		cacheLineID, 1<<d.log2BlockSize)
-	readToBottom.PID = read.PID
-	err := d.bottomPort.Send(readToBottom)
-	if err != nil {
-		return false
-	}
-
-	trans.readToBottom = readToBottom
-	trans.block = victim
-
-	mshrEntry := d.mshr.Add(pid, cacheLineID)
-	mshrEntry.Requests = append(mshrEntry.Requests, trans)
-	mshrEntry.ReadReq = readToBottom
-	mshrEntry.Block = victim
 	return true
 }
 
@@ -185,18 +150,9 @@ func (d *directory) processWrite(
 	}
 
 	if d.isPartialWrite(write) {
-		ok := d.writeBottom(now, trans)
-		if !ok {
-			return false
-		}
-
-		d.inBuf.Pop()
-		trace(now, "w-miss-partial", addr, write.Data)
-		return true
+		return d.partialWriteMiss(now, trans)
 	}
-
-	block = d.dir.FindVictim(cacheLineID)
-	return d.processWriteHit(now, trans, block)
+	return d.fullLineWriteMiss(now, trans)
 }
 
 func (d *directory) isPartialWrite(write *mem.WriteReq) bool {
@@ -213,6 +169,44 @@ func (d *directory) isPartialWrite(write *mem.WriteReq) bool {
 	}
 
 	return false
+}
+
+func (d *directory) partialWriteMiss(
+	now akita.VTimeInSec,
+	trans *transaction,
+) bool {
+	write := trans.write
+	addr := write.Address
+	blockSize := uint64(1 << d.log2BlockSize)
+	cacheLineID := addr / blockSize * blockSize
+
+	ok := d.writeBottom(now, trans)
+	if !ok {
+		return false
+	}
+
+	victim := d.dir.FindVictim(cacheLineID)
+	ok = d.fetchFromBottom(now, trans, victim)
+	if !ok {
+		return false
+	}
+	trans.fetchAndWrite = true
+
+	d.inBuf.Pop()
+	trace(now, "w-miss-partial", addr, write.Data)
+	return true
+}
+
+func (d *directory) fullLineWriteMiss(
+	now akita.VTimeInSec,
+	trans *transaction,
+) bool {
+	write := trans.write
+	addr := write.Address
+	blockSize := uint64(1 << d.log2BlockSize)
+	cacheLineID := addr / blockSize * blockSize
+	block := d.dir.FindVictim(cacheLineID)
+	return d.processWriteHit(now, trans, block)
 }
 
 func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
@@ -251,9 +245,11 @@ func (d *directory) processWriteHit(
 		return false
 	}
 
-	ok := d.writeBottom(now, trans)
-	if !ok {
-		return false
+	if trans.writeToBottom == nil {
+		ok := d.writeBottom(now, trans)
+		if !ok {
+			return false
+		}
 	}
 
 	write := trans.write
@@ -272,6 +268,42 @@ func (d *directory) processWriteHit(
 	d.inBuf.Pop()
 
 	trace(now, "w", addr, write.Data)
+
+	return true
+}
+
+func (d *directory) fetchFromBottom(
+	now akita.VTimeInSec,
+	trans *transaction,
+	victim *cache.Block,
+) bool {
+	addr := trans.Address()
+	pid := trans.PID()
+	blockSize := uint64(1 << d.log2BlockSize)
+	cacheLineID := addr / blockSize * blockSize
+
+	bottomModule := d.lowModuleFinder.Find(cacheLineID)
+	readToBottom := mem.NewReadReq(now, d.bottomPort, bottomModule,
+		cacheLineID, 1<<d.log2BlockSize)
+	readToBottom.PID = pid
+	err := d.bottomPort.Send(readToBottom)
+	if err != nil {
+		return false
+	}
+
+	trans.readToBottom = readToBottom
+	trans.block = victim
+
+	mshrEntry := d.mshr.Add(pid, cacheLineID)
+	mshrEntry.Requests = append(mshrEntry.Requests, trans)
+	mshrEntry.ReadReq = readToBottom
+	mshrEntry.Block = victim
+
+	victim.Tag = cacheLineID
+	victim.PID = pid
+	victim.IsValid = true
+	victim.IsLocked = true
+	d.dir.Visit(victim)
 
 	return true
 }
