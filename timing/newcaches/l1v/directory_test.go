@@ -376,20 +376,10 @@ var _ = Describe("Directory", func() {
 		})
 
 		It("should write partial block", func() {
-			block.Tag = 0x200
-
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
 			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
 			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
-			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
-			dir.EXPECT().Visit(block)
-			bankBuf.EXPECT().CanPush().Return(true)
-			bankBuf.EXPECT().Push(gomock.Any()).
-				Do(func(trans *transaction) {
-					Expect(trans.bankAction).To(Equal(bankActionWrite))
-					Expect(trans.block).To(BeIdenticalTo(block))
-				})
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(write *mem.WriteReq) {
@@ -401,9 +391,6 @@ var _ = Describe("Directory", func() {
 			madeProgress := d.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(block.IsLocked).To(BeTrue())
-			Expect(block.Tag).To(Equal(uint64(0x100)))
-			Expect(block.IsValid).To(BeFalse())
 			Expect(trans.writeToBottom).NotTo(BeNil())
 		})
 
