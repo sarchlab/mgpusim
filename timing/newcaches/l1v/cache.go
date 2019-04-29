@@ -19,6 +19,7 @@ type Cache struct {
 
 	coalesceStage    *coalescer
 	directoryStage   *directory
+	bankStages       []*bankStage
 	parseBottomStage *bottomParser
 	respondStage     *respondStage
 
@@ -32,38 +33,11 @@ func (c *Cache) Tick(now akita.VTimeInSec) bool {
 
 	madeProgress = c.respondStage.Tick(now) || madeProgress
 	madeProgress = c.parseBottomStage.Tick(now) || madeProgress
+	for _, bs := range c.bankStages {
+		madeProgress = bs.Tick(now) || madeProgress
+	}
 	madeProgress = c.directoryStage.Tick(now) || madeProgress
 	madeProgress = c.coalesceStage.Tick(now) || madeProgress
 
 	return madeProgress
-}
-
-// NewCache returns a newly created cache
-func NewCache(
-	name string,
-	engine akita.Engine,
-	freq akita.Freq,
-	log2BlockSize uint64,
-	wayAssocitivity int,
-) *Cache {
-	c := &Cache{}
-	c.TickingComponent = akitaext.NewTickingComponent(name, engine, freq, c)
-
-	c.TopPort = akita.NewLimitNumReqPort(c, 4)
-	c.BottomPort = akita.NewLimitNumReqPort(c, 4)
-	c.ControlPort = akita.NewLimitNumReqPort(c, 4)
-
-	c.dirBuf = util.NewBuffer(4)
-
-	c.coalesceStage = &coalescer{
-		topPort:                  c.TopPort,
-		dirBuf:                   c.dirBuf,
-		transactions:             &c.transactions,
-		postCoalesceTransactions: &c.postCoalesceTransactions,
-	}
-	c.directoryStage = &directory{
-		inBuf: c.dirBuf,
-	}
-
-	return c
 }
