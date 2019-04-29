@@ -52,6 +52,7 @@ func (p *bottomParser) processDataReady(
 	dr *mem.DataReadyRsp,
 ) bool {
 	trans := p.findTransactionByReadToBottomID(dr.GetRespondTo())
+	pid := trans.readToBottom.PID
 	bankBuf := p.getBankBuf(trans.block)
 	if !bankBuf.CanPush() {
 		return false
@@ -61,10 +62,10 @@ func (p *bottomParser) processDataReady(
 	cachelineID := (addr >> p.log2BlockSize) << p.log2BlockSize
 	data := dr.Data
 	dirtyMask := make([]bool, 1<<p.log2BlockSize)
-	mshrEntry := p.mshr.Query(cachelineID)
+	mshrEntry := p.mshr.Query(pid, cachelineID)
 	p.mergeMSHRData(mshrEntry, data, dirtyMask)
 	p.finalizeMSHRTrans(mshrEntry, data)
-	p.mshr.Remove(cachelineID)
+	p.mshr.Remove(pid, cachelineID)
 
 	trans.bankAction = bankActionWriteFetched
 	trans.data = data

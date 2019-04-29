@@ -61,6 +61,7 @@ var _ = Describe("Directory", func() {
 
 		BeforeEach(func() {
 			read = mem.NewReadReq(6, nil, nil, 0x104, 4)
+			read.PID = 1
 			trans = &transaction{
 				read: read,
 			}
@@ -69,7 +70,7 @@ var _ = Describe("Directory", func() {
 
 		It("Should add to mshr entry", func() {
 			mshrEntry := &cache.MSHREntry{}
-			mshr.EXPECT().Query(uint64(0x100)).Return(mshrEntry)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(mshrEntry)
 			inBuf.EXPECT().Pop()
 
 			madeProgress := d.Tick(10)
@@ -91,15 +92,16 @@ var _ = Describe("Directory", func() {
 				IsValid: true,
 			}
 			read = mem.NewReadReq(6, nil, nil, 0x104, 4)
+			read.PID = 1
 			trans = &transaction{
 				read: read,
 			}
 			inBuf.EXPECT().Peek().Return(trans)
-			mshr.EXPECT().Query(gomock.Any()).Return(nil)
+			mshr.EXPECT().Query(ca.PID(1), gomock.Any()).Return(nil)
 		})
 
 		It("should send transaction to bank", func() {
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 			dir.EXPECT().Visit(block)
 			bankBuf.EXPECT().CanPush().Return(true)
 			bankBuf.EXPECT().Push(gomock.Any()).
@@ -116,7 +118,7 @@ var _ = Describe("Directory", func() {
 		})
 
 		It("should stall if cannot send to bank", func() {
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 			bankBuf.EXPECT().CanPush().Return(false)
 
 			madeProgress := d.Tick(10)
@@ -126,7 +128,7 @@ var _ = Describe("Directory", func() {
 
 		It("should stall if block is locked", func() {
 			block.IsLocked = true
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 			madeProgress := d.Tick(10)
 			Expect(madeProgress).To(BeFalse())
 		})
@@ -151,12 +153,12 @@ var _ = Describe("Directory", func() {
 				read: read,
 			}
 			inBuf.EXPECT().Peek().Return(trans)
-			mshr.EXPECT().Query(gomock.Any()).Return(nil)
+			mshr.EXPECT().Query(ca.PID(1), gomock.Any()).Return(nil)
 		})
 
 		It("should send request to bottom", func() {
 			var readToBottom *mem.ReadReq
-			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 			dir.EXPECT().Visit(block)
 			lowModuleFinder.EXPECT().Find(uint64(0x100)).Return(nil)
@@ -167,7 +169,7 @@ var _ = Describe("Directory", func() {
 				Expect(read.PID).To(Equal(ca.PID(1)))
 			})
 			mshr.EXPECT().IsFull().Return(false)
-			mshr.EXPECT().Add(uint64(0x100)).Return(mshrEntry)
+			mshr.EXPECT().Add(ca.PID(1), uint64(0x100)).Return(mshrEntry)
 			inBuf.EXPECT().Pop()
 
 			madeProgress := d.Tick(10)
@@ -185,7 +187,7 @@ var _ = Describe("Directory", func() {
 
 		It("should stall is victim block is locked", func() {
 			block.IsLocked = true
-			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 
 			madeProgress := d.Tick(10)
@@ -195,7 +197,7 @@ var _ = Describe("Directory", func() {
 
 		It("should stall is victim block is being read", func() {
 			block.ReadCount = 1
-			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 
 			madeProgress := d.Tick(10)
@@ -204,7 +206,7 @@ var _ = Describe("Directory", func() {
 		})
 
 		It("should stall is mshr is full", func() {
-			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 			mshr.EXPECT().IsFull().Return(true)
 
@@ -214,7 +216,7 @@ var _ = Describe("Directory", func() {
 		})
 
 		It("should stall if send to bottom failed", func() {
-			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 			lowModuleFinder.EXPECT().Find(uint64(0x100)).Return(nil)
 			mshr.EXPECT().IsFull().Return(false)
@@ -247,7 +249,7 @@ var _ = Describe("Directory", func() {
 			var writeToBottom *mem.WriteReq
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
-			mshr.EXPECT().Query(uint64(0x100)).Return(mshrEntry)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(mshrEntry)
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(write *mem.WriteReq) {
@@ -285,8 +287,8 @@ var _ = Describe("Directory", func() {
 		It("should send to bank", func() {
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
-			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 			dir.EXPECT().Visit(block)
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
 			bankBuf.EXPECT().CanPush().Return(true)
@@ -313,8 +315,8 @@ var _ = Describe("Directory", func() {
 			block.IsLocked = true
 
 			inBuf.EXPECT().Peek().Return(trans)
-			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 
 			madeProgress := d.Tick(10)
 
@@ -325,8 +327,8 @@ var _ = Describe("Directory", func() {
 			block.ReadCount = 1
 
 			inBuf.EXPECT().Peek().Return(trans)
-			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 
 			madeProgress := d.Tick(10)
 
@@ -335,8 +337,8 @@ var _ = Describe("Directory", func() {
 
 		It("should stall if bank buf is full", func() {
 			inBuf.EXPECT().Peek().Return(trans)
-			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 			bankBuf.EXPECT().CanPush().Return(false)
 
 			madeProgress := d.Tick(10)
@@ -346,8 +348,8 @@ var _ = Describe("Directory", func() {
 
 		It("should stall is send to bottom failed", func() {
 			inBuf.EXPECT().Peek().Return(trans)
-			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
-			dir.EXPECT().Lookup(uint64(0x100)).Return(block)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 			bankBuf.EXPECT().CanPush().Return(true)
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
 			bottomPort.EXPECT().Send(gomock.Any()).Return(&akita.SendError{})
@@ -378,8 +380,8 @@ var _ = Describe("Directory", func() {
 		It("should write partial block", func() {
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
-			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
-			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(write *mem.WriteReq) {
@@ -402,8 +404,8 @@ var _ = Describe("Directory", func() {
 
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
-			mshr.EXPECT().Query(uint64(0x100)).Return(nil)
-			dir.EXPECT().Lookup(uint64(0x100)).Return(nil)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 			dir.EXPECT().Visit(block)
 			bankBuf.EXPECT().CanPush().Return(true)
