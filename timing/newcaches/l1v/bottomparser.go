@@ -72,6 +72,9 @@ func (p *bottomParser) processDataReady(
 	bankBuf.Push(trans)
 
 	p.bottomPort.Retrieve(now)
+
+	trace(now, "data-ready", addr, dr.Data)
+
 	return true
 }
 

@@ -181,8 +181,35 @@ func (d *directory) processWrite(
 		return d.processWriteHit(now, trans, block)
 	}
 
+	if d.isPartialWrite(write) {
+		ok := d.writeBottom(now, trans)
+		if !ok {
+			return false
+		}
+
+		d.inBuf.Pop()
+		trace(now, "w-miss-partial", addr, write.Data)
+		return true
+	}
+
 	block = d.dir.FindVictim(cacheLineID)
 	return d.processWriteHit(now, trans, block)
+}
+
+func (d *directory) isPartialWrite(write *mem.WriteReq) bool {
+	if len(write.Data) < (1 << d.log2BlockSize) {
+		return true
+	}
+
+	if write.DirtyMask != nil {
+		for _, byteDirty := range write.DirtyMask {
+			if !byteDirty {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
@@ -231,13 +258,7 @@ func (d *directory) processWriteHit(
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 	block.IsLocked = true
-	if block.Tag != cacheLineID {
-		if len(write.Data) == 1<<d.log2BlockSize {
-			block.IsValid = true
-		} else {
-			block.IsValid = false
-		}
-	}
+	block.IsValid = true
 	block.Tag = cacheLineID
 	d.dir.Visit(block)
 
