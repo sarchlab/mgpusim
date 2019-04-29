@@ -39,12 +39,12 @@ func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 
 	mshrEntry := d.mshr.Query(cacheLineID)
 	if mshrEntry != nil {
-		return d.processMSHRHit(trans, mshrEntry)
+		return d.processMSHRHit(now, trans, mshrEntry)
 	}
 
 	block := d.dir.Lookup(cacheLineID)
 	if block != nil && block.IsValid {
-		return d.processReadHit(trans, block)
+		return d.processReadHit(now, trans, block)
 	}
 
 	return d.processReadMiss(now, trans)
@@ -52,15 +52,24 @@ func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 }
 
 func (d *directory) processMSHRHit(
+	now akita.VTimeInSec,
 	trans *transaction,
 	mshrEntry *cache.MSHREntry,
 ) bool {
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	d.inBuf.Pop()
+
+	if trans.read != nil {
+		trace(now, "r-mshr-hit", trans.Address(), nil)
+	} else {
+		trace(now, "w-mshr-hit", trans.Address(), trans.write.Data)
+	}
+
 	return true
 }
 
 func (d *directory) processReadHit(
+	now akita.VTimeInSec,
 	trans *transaction,
 	block *cache.Block,
 ) bool {
@@ -80,6 +89,8 @@ func (d *directory) processReadHit(
 	bankBuf.Push(trans)
 
 	d.inBuf.Pop()
+
+	trace(now, "r-hit", block.Tag, nil)
 
 	return true
 }
@@ -112,6 +123,8 @@ func (d *directory) processReadMiss(
 	d.dir.Visit(victim)
 
 	d.inBuf.Pop()
+
+	trace(now, "r-miss", addr, nil)
 
 	return true
 }
@@ -158,7 +171,7 @@ func (d *directory) processWrite(
 	if mshrEntry != nil {
 		ok := d.writeBottom(now, trans)
 		if ok {
-			return d.processMSHRHit(trans, mshrEntry)
+			return d.processMSHRHit(now, trans, mshrEntry)
 		}
 		return false
 	}
@@ -233,6 +246,9 @@ func (d *directory) processWriteHit(
 	bankBuf.Push(trans)
 
 	d.inBuf.Pop()
+
+	trace(now, "w", addr, write.Data)
+
 	return true
 }
 
