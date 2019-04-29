@@ -39,6 +39,13 @@ cache_acceptance_test:
     - go build
     - ./acceptancetest
 
+new_cache_aceptance_test:
+  stage: acceptance_test
+  script:
+    - cd timing/newcaches/l1v/acceptancetest
+    - go build
+    - ./acceptancetest
+
 acceptance_test:
   stage: acceptance_test
   tags:
