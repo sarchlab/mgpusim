@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math/rand"
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
@@ -80,7 +79,7 @@ func newTest(name string) *test {
 func main() {
 	var wg sync.WaitGroup
 
-	rand.Seed(1)
+	//rand.Seed(1)
 
 	t1 := newTest("Max_64")
 	t1.setMaxAddr(64)

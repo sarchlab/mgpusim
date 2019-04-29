@@ -180,6 +180,16 @@ func (d *directory) partialWriteMiss(
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
+	if d.mshr.IsFull() {
+		return false
+	}
+
+	victim := d.dir.FindVictim(cacheLineID)
+	victimCopy := *victim
+	if victim.ReadCount > 0 || victim.IsLocked {
+		return false
+	}
+
 	sentThisCycle := false
 	if trans.writeToBottom == nil {
 		ok := d.writeBottom(now, trans)
@@ -189,14 +199,6 @@ func (d *directory) partialWriteMiss(
 		sentThisCycle = true
 	}
 
-	if d.mshr.IsFull() {
-		if sentThisCycle {
-			return true
-		}
-		return false
-	}
-
-	victim := d.dir.FindVictim(cacheLineID)
 	ok := d.fetchFromBottom(now, trans, victim)
 	if !ok {
 		if sentThisCycle {
@@ -207,6 +209,7 @@ func (d *directory) partialWriteMiss(
 	trans.fetchAndWrite = true
 
 	d.inBuf.Pop()
+	trace(now, "evict", victimCopy.Tag, nil)
 	trace(now, "w-miss-partial", addr, write.Data)
 	return true
 }
@@ -234,6 +237,7 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 		addr,
 	)
 	writeToBottom.Data = write.Data
+	writeToBottom.DirtyMask = write.DirtyMask
 	writeToBottom.PID = write.PID
 
 	err := d.bottomPort.Send(writeToBottom)
@@ -242,6 +246,9 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 	}
 
 	trans.writeToBottom = writeToBottom
+
+	trace(now, "write-bottom", addr, writeToBottom.Data)
+
 	return true
 }
 
@@ -309,6 +316,7 @@ func (d *directory) fetchFromBottom(
 	trans.block = victim
 
 	mshrEntry := d.mshr.Add(pid, cacheLineID)
+	trace(now, "mshr add", addr, nil)
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	mshrEntry.ReadReq = readToBottom
 	mshrEntry.Block = victim

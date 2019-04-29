@@ -371,6 +371,7 @@ var _ = Describe("Directory", func() {
 		BeforeEach(func() {
 			write = mem.NewWriteReq(10, nil, nil, 0x104)
 			write.Data = []byte{1, 2, 3, 4}
+			write.DirtyMask = []bool{true, true, false, false}
 			write.PID = 1
 			trans = &transaction{
 				write: write,
@@ -384,18 +385,10 @@ var _ = Describe("Directory", func() {
 			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
 			mshr.EXPECT().IsFull().Return(true)
 			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
-			lowModuleFinder.EXPECT().Find(uint64(0x104))
-			bottomPort.EXPECT().Send(gomock.Any()).
-				Do(func(write *mem.WriteReq) {
-					Expect(write.Address).To(Equal(uint64(0x104)))
-					Expect(write.Data).To(HaveLen(4))
-					Expect(write.PID).To(Equal(ca.PID(1)))
-				})
 
 			madeProgress := d.Tick(10)
 
-			Expect(madeProgress).To(BeTrue())
-			Expect(trans.writeToBottom).NotTo(BeNil())
+			Expect(madeProgress).To(BeFalse())
 		})
 
 		It("should not write again if write already happened", func() {
@@ -445,6 +438,8 @@ var _ = Describe("Directory", func() {
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(write *mem.WriteReq) {
 					Expect(write.Address).To(Equal(uint64(0x104)))
+					Expect(write.DirtyMask).
+						To(Equal([]bool{true, true, false, false}))
 					Expect(write.Data).To(HaveLen(4))
 					Expect(write.PID).To(Equal(ca.PID(1)))
 				})
