@@ -16,6 +16,8 @@ type Builder struct {
 	totalByteSize   uint64
 	wayAssocitivity int
 	numMSHREntry    int
+	numBank         int
+	bankLatency     int
 	lowModuleFinder cache.LowModuleFinder
 }
 
@@ -27,6 +29,8 @@ func NewBuilder() *Builder {
 		totalByteSize:   4 * mem.KB,
 		wayAssocitivity: 2,
 		numMSHREntry:    4,
+		numBank:         1,
+		bankLatency:     0,
 	}
 }
 
@@ -66,6 +70,19 @@ func (b *Builder) WithTotalByteSize(byteSize uint64) *Builder {
 	return b
 }
 
+// WithNumBanks sets the number of banks in each cache
+func (b *Builder) WithNumBanks(n int) *Builder {
+	b.numBank = n
+	return b
+}
+
+// WithBankLatency sets the number of cycles needed to read to write a
+// cacheline.
+func (b *Builder) WithBankLatency(n int) *Builder {
+	b.bankLatency = n
+	return b
+}
+
 // WithLowModuleFinder specifies how the cache units to create should find low
 // level modules.
 func (b *Builder) WithLowModuleFinder(
@@ -88,7 +105,10 @@ func (b *Builder) Build(name string) *Cache {
 	c.ControlPort = akita.NewLimitNumReqPort(c, 4)
 
 	c.dirBuf = util.NewBuffer(4)
-	c.bankBufs = []util.Buffer{util.NewBuffer(4)}
+	c.bankBufs = make([]util.Buffer, b.numBank)
+	for i := 0; i < b.numBank; i++ {
+		c.bankBufs[i] = util.NewBuffer(4)
+	}
 
 	mshr := cache.NewMSHR(b.numMSHREntry)
 	blockSize := 1 << b.log2BlockSize
@@ -96,6 +116,7 @@ func (b *Builder) Build(name string) *Cache {
 	dir := cache.NewDirectory(
 		numSets, b.wayAssocitivity, 1<<b.log2BlockSize,
 		cache.NewLRUVictimFinder())
+	storage := mem.NewStorage(b.totalByteSize)
 
 	c.coalesceStage = &coalescer{
 		topPort:                  c.TopPort,
@@ -112,6 +133,15 @@ func (b *Builder) Build(name string) *Cache {
 		bankBufs:        c.bankBufs,
 		lowModuleFinder: b.lowModuleFinder,
 		log2BlockSize:   b.log2BlockSize,
+	}
+
+	for i := 0; i < b.numBank; i++ {
+		bs := &bankStage{
+			inBuf:   c.bankBufs[i],
+			storage: storage,
+			latency: b.bankLatency,
+		}
+		c.bankStages = append(c.bankStages, bs)
 	}
 
 	c.parseBottomStage = &bottomParser{
