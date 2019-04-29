@@ -162,7 +162,7 @@ func (c *coalescer) coalesceAndSend() bool {
 
 func (c *coalescer) coalesceRead() *transaction {
 	blockSize := uint64(1 << c.log2BlockSize)
-	cachelineID := c.toCoalesce[0].Address() / blockSize
+	cachelineID := c.toCoalesce[0].Address() / blockSize * blockSize
 	return &transaction{
 		read: mem.NewReadReq(0, nil, nil,
 			cachelineID,
