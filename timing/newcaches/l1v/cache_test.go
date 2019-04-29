@@ -48,7 +48,7 @@ var _ = Describe("Cache", func() {
 		mockCtrl.Finish()
 	})
 
-	It("should read", func() {
+	It("should do read miss", func() {
 		dram.Storage.Write(0x100, []byte{1, 2, 3, 4})
 		read := mem.NewReadReq(1, cuPort, c.TopPort, 0x100, 4)
 		read.IsLastInWave = true
@@ -60,6 +60,96 @@ var _ = Describe("Cache", func() {
 			})
 
 		engine.Run()
+	})
+
+	It("should do read miss coalesce", func() {
+		dram.Storage.Write(0x100, []byte{1, 2, 3, 4, 5, 6, 7, 8})
+		read1 := mem.NewReadReq(1, cuPort, c.TopPort, 0x100, 4)
+		c.TopPort.Recv(read1)
+
+		read2 := mem.NewReadReq(1, cuPort, c.TopPort, 0x104, 4)
+		read2.IsLastInWave = true
+		c.TopPort.Recv(read2)
+
+		cuPort.EXPECT().Recv(gomock.Any()).
+			Do(func(dr *mem.DataReadyRsp) {
+				Expect(dr.Data).To(Equal([]byte{1, 2, 3, 4}))
+			})
+		cuPort.EXPECT().Recv(gomock.Any()).
+			Do(func(dr *mem.DataReadyRsp) {
+				Expect(dr.Data).To(Equal([]byte{5, 6, 7, 8}))
+			})
+
+		engine.Run()
+	})
+
+	It("should do read hit", func() {
+		dram.Storage.Write(0x100, []byte{1, 2, 3, 4, 5, 6, 7, 8})
+		read1 := mem.NewReadReq(0, cuPort, c.TopPort, 0x100, 4)
+		read1.SetRecvTime(0)
+		read1.IsLastInWave = true
+		c.TopPort.Recv(read1)
+		cuPort.EXPECT().Recv(gomock.Any()).
+			Do(func(dr *mem.DataReadyRsp) {
+				Expect(dr.Data).To(Equal([]byte{1, 2, 3, 4}))
+			})
+		engine.Run()
+		t1 := engine.CurrentTime()
+
+		read2 := mem.NewReadReq(t1, cuPort, c.TopPort, 0x104, 4)
+		read2.SetRecvTime(t1)
+		read2.IsLastInWave = true
+		c.TopPort.Recv(read2)
+		cuPort.EXPECT().Recv(gomock.Any()).
+			Do(func(dr *mem.DataReadyRsp) {
+				Expect(dr.Data).To(Equal([]byte{5, 6, 7, 8}))
+			})
+		engine.Run()
+		t2 := engine.CurrentTime()
+
+		Expect(t2 - t1).To(BeNumerically("<", t1))
+	})
+
+	It("should write partial line", func() {
+		write := mem.NewWriteReq(0, cuPort, c.TopPort, 0x100)
+		write.Data = []byte{1, 2, 3, 4}
+		write.IsLastInWave = true
+		write.SetRecvTime(0)
+		c.TopPort.Recv(write)
+		cuPort.EXPECT().Recv(gomock.Any()).
+			Do(func(done *mem.DoneRsp) {
+				Expect(done.RespondTo).To(Equal(write.ID))
+			})
+
+		engine.Run()
+
+		data, _ := dram.Storage.Read(0x100, 4)
+		Expect(data).To(Equal([]byte{1, 2, 3, 4}))
+	})
+
+	It("should write full line", func() {
+		write := mem.NewWriteReq(0, cuPort, c.TopPort, 0x100)
+		write.Data = []byte{
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+			1, 2, 3, 4, 5, 6, 7, 8,
+		}
+		write.IsLastInWave = true
+		write.SetRecvTime(0)
+		c.TopPort.Recv(write)
+		cuPort.EXPECT().Recv(gomock.Any()).
+			Do(func(done *mem.DoneRsp) {
+				Expect(done.RespondTo).To(Equal(write.ID))
+			})
+		engine.Run()
+
+		data, _ := dram.Storage.Read(0x100, 4)
+		Expect(data).To(Equal([]byte{1, 2, 3, 4}))
 	})
 
 })
