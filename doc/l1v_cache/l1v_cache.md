@@ -51,6 +51,8 @@ The "Directory Stage" considers 6 cases:
 
    A victim block will be found. The write transaction will be sent to the bank to overwrite the victim block. If this write writes a full line, the block is marked as valid. A write request is also sent throught the BottomPort.
 
+### Bank Stage
+
 ### Parse Bottom Stage
 
 The Parse Bottom Stage extracts responds from the `BottomPort`.
