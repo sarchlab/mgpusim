@@ -3,6 +3,7 @@ package l1v
 import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/util/ca"
 )
 
 type bankActionType int
@@ -32,9 +33,10 @@ type transaction struct {
 	data                  []byte
 	writeFetchedDirtyMask []bool
 
-	bankDone   bool
-	bottomDone bool
-	done       bool
+	fetchAndWrite bool
+	bankDone      bool
+	bottomDone    bool
+	done          bool
 }
 
 func (t *transaction) Address() uint64 {
@@ -42,4 +44,11 @@ func (t *transaction) Address() uint64 {
 		return t.read.Address
 	}
 	return t.write.Address
+}
+
+func (t *transaction) PID() ca.PID {
+	if t.read != nil {
+		return t.read.PID
+	}
+	return t.write.PID
 }

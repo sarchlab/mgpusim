@@ -360,11 +360,12 @@ var _ = Describe("Directory", func() {
 		})
 	})
 
-	Context("write miss", func() {
+	Context("write partial miss", func() {
 		var (
-			write *mem.WriteReq
-			trans *transaction
-			block *cache.Block
+			write     *mem.WriteReq
+			trans     *transaction
+			block     *cache.Block
+			mshrEntry *cache.MSHREntry
 		)
 
 		BeforeEach(func() {
@@ -375,33 +376,69 @@ var _ = Describe("Directory", func() {
 				write: write,
 			}
 			block = &cache.Block{IsValid: true}
+			mshrEntry = &cache.MSHREntry{}
 		})
 
 		It("should write partial block", func() {
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
 			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			mshr.EXPECT().Add(ca.PID(1), uint64(0x100)).Return(mshrEntry)
 			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
+			dir.EXPECT().Visit(block)
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
+			lowModuleFinder.EXPECT().Find(uint64(0x100))
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(write *mem.WriteReq) {
 					Expect(write.Address).To(Equal(uint64(0x104)))
 					Expect(write.Data).To(HaveLen(4))
 					Expect(write.PID).To(Equal(ca.PID(1)))
 				})
+			bottomPort.EXPECT().Send(gomock.Any()).
+				Do(func(read *mem.ReadReq) {
+					Expect(read.Address).To(Equal(uint64(0x100)))
+					Expect(read.MemByteSize).To(Equal(uint64(64)))
+					Expect(read.PID).To(Equal(ca.PID(1)))
+				})
 
 			madeProgress := d.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(trans.writeToBottom).NotTo(BeNil())
+			Expect(trans.readToBottom).NotTo(BeNil())
+			Expect(trans.fetchAndWrite).To(BeTrue())
+			Expect(mshrEntry.Requests).To(ContainElement(trans))
+			Expect(mshrEntry.Block).To(BeIdenticalTo(block))
+			Expect(block.Tag).To(Equal(uint64(0x100)))
+			Expect(block.PID).To(Equal(ca.PID(1)))
+			Expect(block.IsLocked).To(BeTrue())
+			Expect(block.IsValid).To(BeTrue())
+		})
+	})
+
+	Context("write full line miss", func() {
+		var (
+			write *mem.WriteReq
+			trans *transaction
+			block *cache.Block
+		)
+
+		BeforeEach(func() {
+			write = mem.NewWriteReq(10, nil, nil, 0x100)
+			write.Data = make([]byte, 64)
+			write.PID = 1
+			trans = &transaction{
+				write: write,
+			}
+			block = &cache.Block{
+				Tag:     0x200,
+				PID:     2,
+				IsValid: false,
+			}
 		})
 
-		It("should write full block", func() {
-			block.Tag = 0x200
-			block.IsValid = false
-			write.Address = 0x100
-			write.Data = make([]byte, 64)
-
+		It("should send to bank and bottom", func() {
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
 			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
