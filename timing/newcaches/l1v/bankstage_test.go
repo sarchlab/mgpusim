@@ -21,9 +21,10 @@ var _ = Describe("Bankstage", func() {
 		inBuf = NewMockBuffer(mockCtrl)
 		storage = mem.NewStorage(4 * mem.KB)
 		s = &bankStage{
-			inBuf:   inBuf,
-			storage: storage,
-			latency: 10,
+			inBuf:         inBuf,
+			storage:       storage,
+			latency:       10,
+			log2BlockSize: 6,
 		}
 	})
 
@@ -140,6 +141,16 @@ var _ = Describe("Bankstage", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}
+			write.DirtyMask = []bool{
+				false, false, false, false, false, false, false, false,
+				true, true, true, true, true, true, true, true,
+				false, false, false, false, false, false, false, false,
+				false, false, false, false, false, false, false, false,
+				false, false, false, false, false, false, false, false,
+				false, false, false, false, false, false, false, false,
+				false, false, false, false, false, false, false, false,
+				false, false, false, false, false, false, false, false,
+			}
 			trans = &transaction{
 				write:      write,
 				block:      block,
@@ -157,7 +168,16 @@ var _ = Describe("Bankstage", func() {
 			Expect(s.currTrans).To(BeNil())
 			Expect(block.IsLocked).To(BeFalse())
 			data, _ := storage.Read(0x400, 64)
-			Expect(data).To(Equal(write.Data))
+			Expect(data).To(Equal([]byte{
+				0, 0, 0, 0, 0, 0, 0, 0,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+			}))
 		})
 	})
 

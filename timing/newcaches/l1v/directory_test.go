@@ -379,10 +379,63 @@ var _ = Describe("Directory", func() {
 			mshrEntry = &cache.MSHREntry{}
 		})
 
+		It("should stall if mshr is full", func() {
+			inBuf.EXPECT().Peek().Return(trans)
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			mshr.EXPECT().IsFull().Return(true)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
+			lowModuleFinder.EXPECT().Find(uint64(0x104))
+			bottomPort.EXPECT().Send(gomock.Any()).
+				Do(func(write *mem.WriteReq) {
+					Expect(write.Address).To(Equal(uint64(0x104)))
+					Expect(write.Data).To(HaveLen(4))
+					Expect(write.PID).To(Equal(ca.PID(1)))
+				})
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(trans.writeToBottom).NotTo(BeNil())
+		})
+
+		It("should not write again if write already happened", func() {
+			trans.writeToBottom = mem.NewWriteReq(0, nil, nil, 0)
+
+			inBuf.EXPECT().Peek().Return(trans)
+			inBuf.EXPECT().Pop()
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			mshr.EXPECT().IsFull().Return(false)
+			mshr.EXPECT().Add(ca.PID(1), uint64(0x100)).Return(mshrEntry)
+			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
+			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
+			dir.EXPECT().Visit(block)
+			lowModuleFinder.EXPECT().Find(uint64(0x100))
+			bottomPort.EXPECT().Send(gomock.Any()).
+				Do(func(read *mem.ReadReq) {
+					Expect(read.Address).To(Equal(uint64(0x100)))
+					Expect(read.MemByteSize).To(Equal(uint64(64)))
+					Expect(read.PID).To(Equal(ca.PID(1)))
+				})
+
+			madeProgress := d.Tick(10)
+
+			Expect(madeProgress).To(BeTrue())
+			Expect(trans.writeToBottom).NotTo(BeNil())
+			Expect(trans.readToBottom).NotTo(BeNil())
+			Expect(trans.fetchAndWrite).To(BeTrue())
+			Expect(mshrEntry.Requests).To(ContainElement(trans))
+			Expect(mshrEntry.Block).To(BeIdenticalTo(block))
+			Expect(block.Tag).To(Equal(uint64(0x100)))
+			Expect(block.PID).To(Equal(ca.PID(1)))
+			Expect(block.IsLocked).To(BeTrue())
+			Expect(block.IsValid).To(BeTrue())
+		})
+
 		It("should write partial block", func() {
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
 			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(nil)
+			mshr.EXPECT().IsFull().Return(false)
 			mshr.EXPECT().Add(ca.PID(1), uint64(0x100)).Return(mshrEntry)
 			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(nil)
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)

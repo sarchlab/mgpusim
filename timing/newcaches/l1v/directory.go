@@ -180,14 +180,28 @@ func (d *directory) partialWriteMiss(
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
-	ok := d.writeBottom(now, trans)
-	if !ok {
+	sentThisCycle := false
+	if trans.writeToBottom == nil {
+		ok := d.writeBottom(now, trans)
+		if !ok {
+			return false
+		}
+		sentThisCycle = true
+	}
+
+	if d.mshr.IsFull() {
+		if sentThisCycle {
+			return true
+		}
 		return false
 	}
 
 	victim := d.dir.FindVictim(cacheLineID)
-	ok = d.fetchFromBottom(now, trans, victim)
+	ok := d.fetchFromBottom(now, trans, victim)
 	if !ok {
+		if sentThisCycle {
+			return true
+		}
 		return false
 	}
 	trans.fetchAndWrite = true

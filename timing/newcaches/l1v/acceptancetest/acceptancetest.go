@@ -86,16 +86,16 @@ func main() {
 	t1.setMaxAddr(64)
 	wg.Add(1)
 
-	// t2 := newTest("Max_1024")
-	// t2.setMaxAddr(1024)
-	// wg.Add(1)
+	t2 := newTest("Max_1024")
+	t2.setMaxAddr(1024)
+	wg.Add(1)
 
-	// t3 := newTest("Max_1M")
-	// t3.setMaxAddr(1048576)
-	// wg.Add(1)
+	t3 := newTest("Max_1M")
+	t3.setMaxAddr(1048576)
+	wg.Add(1)
 
 	go t1.run(&wg)
-	// go t2.run(&wg)
-	// go t3.run(&wg)
+	go t2.run(&wg)
+	go t3.run(&wg)
 	wg.Wait()
 }

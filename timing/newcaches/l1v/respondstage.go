@@ -39,6 +39,9 @@ func (s *respondStage) respondReadTrans(
 	}
 
 	*s.transactions = (*s.transactions)[1:]
+
+	trace(now, "r-done", read.Address, dr.Data)
+
 	return true
 }
 
@@ -58,5 +61,7 @@ func (s *respondStage) respondWriteTrans(
 	}
 
 	*s.transactions = (*s.transactions)[1:]
+
+	trace(now, "w-done", write.Address, write.Data)
 	return true
 }
