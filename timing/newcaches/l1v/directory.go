@@ -34,15 +34,16 @@ func (d *directory) Tick(now akita.VTimeInSec) bool {
 func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 	read := trans.read
 	addr := read.Address
+	pid := read.PID
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
-	mshrEntry := d.mshr.Query(cacheLineID)
+	mshrEntry := d.mshr.Query(pid, cacheLineID)
 	if mshrEntry != nil {
 		return d.processMSHRHit(now, trans, mshrEntry)
 	}
 
-	block := d.dir.Lookup(cacheLineID)
+	block := d.dir.Lookup(pid, cacheLineID)
 	if block != nil && block.IsValid {
 		return d.processReadHit(now, trans, block)
 	}
@@ -136,6 +137,7 @@ func (d *directory) fetchFromBottom(
 ) bool {
 	read := trans.read
 	addr := read.Address
+	pid := read.PID
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
@@ -151,7 +153,7 @@ func (d *directory) fetchFromBottom(
 	trans.readToBottom = readToBottom
 	trans.block = victim
 
-	mshrEntry := d.mshr.Add(cacheLineID)
+	mshrEntry := d.mshr.Add(pid, cacheLineID)
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	mshrEntry.ReadReq = readToBottom
 	mshrEntry.Block = victim
@@ -164,10 +166,11 @@ func (d *directory) processWrite(
 ) bool {
 	write := trans.write
 	addr := write.Address
+	pid := write.PID
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
-	mshrEntry := d.mshr.Query(cacheLineID)
+	mshrEntry := d.mshr.Query(pid, cacheLineID)
 	if mshrEntry != nil {
 		ok := d.writeBottom(now, trans)
 		if ok {
@@ -176,7 +179,7 @@ func (d *directory) processWrite(
 		return false
 	}
 
-	block := d.dir.Lookup(cacheLineID)
+	block := d.dir.Lookup(pid, cacheLineID)
 	if block != nil && block.IsValid {
 		return d.processWriteHit(now, trans, block)
 	}

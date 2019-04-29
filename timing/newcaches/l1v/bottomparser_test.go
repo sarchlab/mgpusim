@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/ca"
 )
 
 var _ = Describe("Bottom Parser", func() {
@@ -48,14 +49,17 @@ var _ = Describe("Bottom Parser", func() {
 	Context("write done", func() {
 		It("should handle write done", func() {
 			write1 := mem.NewWriteReq(4, nil, nil, 0x100)
+			write1.PID = 1
 			preCTrans1 := &transaction{
 				write: write1,
 			}
 			write2 := mem.NewWriteReq(4, nil, nil, 0x104)
+			write2.PID = 1
 			preCTrans2 := &transaction{
 				write: write2,
 			}
 			writeToBottom := mem.NewWriteReq(6, nil, nil, 0x100)
+			writeToBottom.PID = 1
 			postCTrans := &transaction{
 				writeToBottom:           writeToBottom,
 				preCoalesceTransactions: []*transaction{preCTrans1, preCTrans2},
@@ -92,18 +96,24 @@ var _ = Describe("Bottom Parser", func() {
 
 		BeforeEach(func() {
 			read1 = mem.NewReadReq(1, nil, nil, 0x100, 4)
+			read1.PID = 1
 			read2 = mem.NewReadReq(1, nil, nil, 0x104, 4)
+			read2.PID = 1
 			write1 = mem.NewWriteReq(1, nil, nil, 0x108)
 			write1.Data = []byte{9, 9, 9, 9}
+			write1.PID = 1
 			write2 = mem.NewWriteReq(1, nil, nil, 0x10C)
 			write2.Data = []byte{9, 9, 9, 9}
+			write2.PID = 1
 			preCTrans1 = &transaction{read: read1}
 			preCTrans2 = &transaction{read: read2}
 			preCTrans3 = &transaction{write: write1}
 			preCTrans4 = &transaction{write: write2}
 
 			postCRead = mem.NewReadReq(0, nil, nil, 0x100, 64)
+			postCRead.PID = 1
 			readToBottom = mem.NewReadReq(2, nil, nil, 0x100, 64)
+			readToBottom.PID = 1
 			dataReady = mem.NewDataReadyRsp(4, nil, nil, readToBottom.GetID())
 			dataReady.Data = []byte{
 				1, 2, 3, 4, 5, 6, 7, 8,
@@ -116,6 +126,7 @@ var _ = Describe("Bottom Parser", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}
 			block = &cache.Block{
+				PID: 1,
 				Tag: 0x100,
 			}
 			postCTrans1 = &transaction{
@@ -163,8 +174,8 @@ var _ = Describe("Bottom Parser", func() {
 		It("should send transaction to bank", func() {
 			bottomPort.EXPECT().Peek().Return(dataReady)
 			bottomPort.EXPECT().Retrieve(gomock.Any())
-			mshr.EXPECT().Query(uint64(0x100)).Return(mshrEntry)
-			mshr.EXPECT().Remove(uint64(0x100))
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(mshrEntry)
+			mshr.EXPECT().Remove(ca.PID(1), uint64(0x100))
 			bankBuf.EXPECT().CanPush().Return(true)
 			bankBuf.EXPECT().Push(gomock.Any()).
 				Do(func(trans *transaction) {
@@ -187,8 +198,8 @@ var _ = Describe("Bottom Parser", func() {
 
 			bottomPort.EXPECT().Peek().Return(dataReady)
 			bottomPort.EXPECT().Retrieve(gomock.Any())
-			mshr.EXPECT().Query(uint64(0x100)).Return(mshrEntry)
-			mshr.EXPECT().Remove(uint64(0x100))
+			mshr.EXPECT().Query(ca.PID(1), uint64(0x100)).Return(mshrEntry)
+			mshr.EXPECT().Remove(ca.PID(1), uint64(0x100))
 			bankBuf.EXPECT().CanPush().Return(true)
 			bankBuf.EXPECT().Push(gomock.Any()).
 				Do(func(trans *transaction) {

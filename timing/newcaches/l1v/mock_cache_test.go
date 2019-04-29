@@ -7,6 +7,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	akita "gitlab.com/akita/akita"
 	cache "gitlab.com/akita/mem/cache"
+	ca "gitlab.com/akita/util/ca"
 	reflect "reflect"
 )
 
@@ -62,17 +63,17 @@ func (mr *MockDirectoryMockRecorder) GetSets() *gomock.Call {
 }
 
 // Lookup mocks base method
-func (m *MockDirectory) Lookup(arg0 uint64) *cache.Block {
+func (m *MockDirectory) Lookup(arg0 ca.PID, arg1 uint64) *cache.Block {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Lookup", arg0)
+	ret := m.ctrl.Call(m, "Lookup", arg0, arg1)
 	ret0, _ := ret[0].(*cache.Block)
 	return ret0
 }
 
 // Lookup indicates an expected call of Lookup
-func (mr *MockDirectoryMockRecorder) Lookup(arg0 interface{}) *gomock.Call {
+func (mr *MockDirectoryMockRecorder) Lookup(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lookup", reflect.TypeOf((*MockDirectory)(nil).Lookup), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lookup", reflect.TypeOf((*MockDirectory)(nil).Lookup), arg0, arg1)
 }
 
 // Reset mocks base method
@@ -151,17 +152,17 @@ func (m *MockMSHR) EXPECT() *MockMSHRMockRecorder {
 }
 
 // Add mocks base method
-func (m *MockMSHR) Add(arg0 uint64) *cache.MSHREntry {
+func (m *MockMSHR) Add(arg0 ca.PID, arg1 uint64) *cache.MSHREntry {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Add", arg0)
+	ret := m.ctrl.Call(m, "Add", arg0, arg1)
 	ret0, _ := ret[0].(*cache.MSHREntry)
 	return ret0
 }
 
 // Add indicates an expected call of Add
-func (mr *MockMSHRMockRecorder) Add(arg0 interface{}) *gomock.Call {
+func (mr *MockMSHRMockRecorder) Add(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockMSHR)(nil).Add), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockMSHR)(nil).Add), arg0, arg1)
 }
 
 // AllEntries mocks base method
@@ -193,31 +194,31 @@ func (mr *MockMSHRMockRecorder) IsFull() *gomock.Call {
 }
 
 // Query mocks base method
-func (m *MockMSHR) Query(arg0 uint64) *cache.MSHREntry {
+func (m *MockMSHR) Query(arg0 ca.PID, arg1 uint64) *cache.MSHREntry {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Query", arg0)
+	ret := m.ctrl.Call(m, "Query", arg0, arg1)
 	ret0, _ := ret[0].(*cache.MSHREntry)
 	return ret0
 }
 
 // Query indicates an expected call of Query
-func (mr *MockMSHRMockRecorder) Query(arg0 interface{}) *gomock.Call {
+func (mr *MockMSHRMockRecorder) Query(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockMSHR)(nil).Query), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockMSHR)(nil).Query), arg0, arg1)
 }
 
 // Remove mocks base method
-func (m *MockMSHR) Remove(arg0 uint64) *cache.MSHREntry {
+func (m *MockMSHR) Remove(arg0 ca.PID, arg1 uint64) *cache.MSHREntry {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", arg0)
+	ret := m.ctrl.Call(m, "Remove", arg0, arg1)
 	ret0, _ := ret[0].(*cache.MSHREntry)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove
-func (mr *MockMSHRMockRecorder) Remove(arg0 interface{}) *gomock.Call {
+func (mr *MockMSHRMockRecorder) Remove(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockMSHR)(nil).Remove), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockMSHR)(nil).Remove), arg0, arg1)
 }
 
 // MockLowModuleFinder is a mock of LowModuleFinder interface
