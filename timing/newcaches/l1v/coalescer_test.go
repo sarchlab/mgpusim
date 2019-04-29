@@ -106,6 +106,8 @@ var _ = Describe("Coalescer", func() {
 				dirBuf.EXPECT().Push(gomock.Any()).
 					Do(func(trans *transaction) {
 						Expect(trans.preCoalesceTransactions).To(HaveLen(3))
+						Expect(trans.read.Address).To(Equal(uint64(0x100)))
+						Expect(trans.read.MemByteSize).To(Equal(uint64(64)))
 					})
 				topPort.EXPECT().Peek().Return(read3)
 				topPort.EXPECT().Retrieve(gomock.Any())

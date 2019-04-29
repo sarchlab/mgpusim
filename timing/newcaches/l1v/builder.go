@@ -123,6 +123,7 @@ func (b *Builder) Build(name string) *Cache {
 		dirBuf:                   c.dirBuf,
 		transactions:             &c.transactions,
 		postCoalesceTransactions: &c.postCoalesceTransactions,
+		log2BlockSize:            b.log2BlockSize,
 	}
 
 	c.directoryStage = &directory{
