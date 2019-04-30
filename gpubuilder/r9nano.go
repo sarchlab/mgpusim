@@ -12,7 +12,7 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/gcn3/timing"
-	"gitlab.com/akita/gcn3/timing/caches"
+	"gitlab.com/akita/gcn3/timing/caches/l1v"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
@@ -40,9 +40,9 @@ type R9NanoGPUBuilder struct {
 	InternalConn         *akita.DirectConnection
 	CP                   *gcn3.CommandProcessor
 	ACE                  *gcn3.Dispatcher
-	L1VCaches            []*caches.L1VCache
-	L1SCaches            []*caches.L1VCache
-	L1ICaches            []*caches.L1VCache
+	L1VCaches            []*l1v.Cache
+	L1SCaches            []*l1v.Cache
+	L1ICaches            []*l1v.Cache
 	L2Caches             []*writeback.Cache
 	L1VTLBs              []*vm.TLB
 	L1STLBs              []*vm.TLB
@@ -302,21 +302,24 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 }
 
 func (b *R9NanoGPUBuilder) buildL1SCaches() {
-	b.L1SCaches = make([]*caches.L1VCache, 0, 16)
+	b.L1SCaches = make([]*l1v.Cache, 0, 16)
+	builder := l1v.NewBuilder().
+		WithEngine(b.Engine).
+		WithFreq(b.Freq).
+		WithBankLatency(0).
+		WithNumBanks(4).
+		WithLog2BlockSize(6).
+		WithWayAssocitivity(4).
+		WithNumMSHREntry(16).
+		WithTotalByteSize(16 * mem.KB)
 	for i := 0; i < 16; i++ {
-		sCache := caches.BuildL1VCache(
-			fmt.Sprintf("%s.L1K_%02d", b.GPUName, i),
-			b.Engine, b.Freq,
-			1,
-			6, 4, 14,
-			b.LowModuleFinderForL1,
-			b.L1STLBs[i].ToTop, b.GPU.GPUID)
-		b.InternalConn.PlugIn(sCache.ToCU)
-		b.InternalConn.PlugIn(sCache.ToCP)
-		b.InternalConn.PlugIn(sCache.ToL2)
-		b.InternalConn.PlugIn(sCache.ToTLB)
+		name := fmt.Sprintf("%s.L1K_%02d", b.GPUName, i)
+		sCache := builder.Build(name)
+		b.InternalConn.PlugIn(sCache.TopPort)
+		b.InternalConn.PlugIn(sCache.ControlPort)
+		b.InternalConn.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
-		b.CP.CachesToReset = append(b.CP.CachesToReset, sCache.ToCP)
+		b.CP.CachesToReset = append(b.CP.CachesToReset, sCache.ControlPort)
 		if b.EnableMemTracing {
 			sCache.AcceptHook(b.MemTracer)
 		}
@@ -324,22 +327,25 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 }
 
 func (b *R9NanoGPUBuilder) buildL1ICaches() {
-	b.L1ICaches = make([]*caches.L1VCache, 0, 16)
+	b.L1ICaches = make([]*l1v.Cache, 0, 16)
+	builder := l1v.NewBuilder().
+		WithEngine(b.Engine).
+		WithFreq(b.Freq).
+		WithBankLatency(0).
+		WithNumBanks(4).
+		WithLog2BlockSize(6).
+		WithWayAssocitivity(4).
+		WithNumMSHREntry(16).
+		WithTotalByteSize(32 * mem.KB)
 	for i := 0; i < 16; i++ {
-		iCache := caches.BuildL1VCache(
-			fmt.Sprintf("%s.L1I_%02d", b.GPUName, i),
-			b.Engine, b.Freq,
-			1,
-			6, 4, 15,
-			b.LowModuleFinderForL1,
-			b.L1ITLBs[i].ToTop, b.GPU.GPUID)
-		b.InternalConn.PlugIn(iCache.ToCU)
-		b.InternalConn.PlugIn(iCache.ToCP)
-		b.InternalConn.PlugIn(iCache.ToL2)
-		b.InternalConn.PlugIn(iCache.ToTLB)
+		name := fmt.Sprintf("%s.L1I_%02d", b.GPUName, i)
+		iCache := builder.Build(name)
+		b.InternalConn.PlugIn(iCache.TopPort)
+		b.InternalConn.PlugIn(iCache.ControlPort)
+		b.InternalConn.PlugIn(iCache.BottomPort)
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
-		b.CP.CachesToReset = append(b.CP.CachesToReset, iCache.ToCP)
+		b.CP.CachesToReset = append(b.CP.CachesToReset, iCache.ControlPort)
 		if b.EnableMemTracing {
 			iCache.AcceptHook(b.MemTracer)
 		}
@@ -347,23 +353,25 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 }
 
 func (b *R9NanoGPUBuilder) buildL1VCaches() {
-	b.L1VCaches = make([]*caches.L1VCache, 0, 64)
+	b.L1VCaches = make([]*l1v.Cache, 0, 64)
+	builder := l1v.NewBuilder().
+		WithEngine(b.Engine).
+		WithFreq(b.Freq).
+		WithBankLatency(0).
+		WithNumBanks(4).
+		WithLog2BlockSize(6).
+		WithWayAssocitivity(4).
+		WithNumMSHREntry(16).
+		WithTotalByteSize(16 * mem.KB)
 	for i := 0; i < 64; i++ {
-		dCache := caches.BuildL1VCache(
-			fmt.Sprintf("%s.L1D_%02d", b.GPUName, i),
-			b.Engine, b.Freq,
-			1,
-			6, 4, 14,
-			b.LowModuleFinderForL1,
-			b.L1VTLBs[i].ToTop, b.GPU.GPUID)
+		name := fmt.Sprintf("%s.L1D_%02d", b.GPUName, i)
+		dCache := builder.Build(name)
 
-		b.InternalConn.PlugIn(dCache.ToCU)
-		b.InternalConn.PlugIn(dCache.ToCP)
-		b.InternalConn.PlugIn(dCache.ToL2)
-		b.InternalConn.PlugIn(dCache.ToTLB)
+		b.InternalConn.PlugIn(dCache.TopPort)
+		b.InternalConn.PlugIn(dCache.ControlPort)
+		b.InternalConn.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
-
-		b.CP.CachesToReset = append(b.CP.CachesToReset, dCache.ToCP)
+		b.CP.CachesToReset = append(b.CP.CachesToReset, dCache.ControlPort)
 
 		if b.EnableMemTracing {
 			dCache.AcceptHook(b.MemTracer)
@@ -445,11 +453,11 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 
 	for i := 0; i < 64; i++ {
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.GPUName, i)
-		cuBuilder.InstMem = b.L1ICaches[i/4].ToCU
-		cuBuilder.ScalarMem = b.L1SCaches[i/4].ToCU
+		cuBuilder.InstMem = b.L1ICaches[i/4].TopPort
+		cuBuilder.ScalarMem = b.L1SCaches[i/4].TopPort
 
 		lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
-		lowModuleFinderForCU.LowModule = b.L1VCaches[i].ToCU
+		lowModuleFinderForCU.LowModule = b.L1VCaches[i].TopPort
 		cuBuilder.VectorMemModules = lowModuleFinderForCU
 
 		cu := cuBuilder.Build()
