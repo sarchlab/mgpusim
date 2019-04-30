@@ -12,8 +12,7 @@ var numData = flag.Int("length", 4096, "The number of samples to filter.")
 func main() {
 	flag.Parse()
 
-	runner := runner.Runner{}
-	runner.Init()
+	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := relu.NewBenchmark(runner.GPUDriver)
 	benchmark.Length = *numData

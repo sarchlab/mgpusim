@@ -19,8 +19,7 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	runner := runner.Runner{}
-	runner.Init()
+	runner := new(runner.Runner).ParseFlag().Init()
 
 	firBenchmark := fir.NewBenchmark(runner.GPUDriver)
 	firBenchmark.Length = 16384
