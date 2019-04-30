@@ -167,6 +167,12 @@ func (b *Builder) Build(name string) *Cache {
 		transactions: &c.transactions,
 	}
 
+	c.controlStage = &controlStage{
+		ctrlPort:     c.ControlPort,
+		transactions: &c.transactions,
+		directory:    dir,
+	}
+
 	return c
 }
 

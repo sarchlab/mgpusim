@@ -22,6 +22,7 @@ type Cache struct {
 	bankStages       []*bankStage
 	parseBottomStage *bottomParser
 	respondStage     *respondStage
+	controlStage     *controlStage
 
 	transactions             []*transaction
 	postCoalesceTransactions []*transaction
@@ -38,6 +39,7 @@ func (c *Cache) Tick(now akita.VTimeInSec) bool {
 	}
 	madeProgress = c.directoryStage.Tick(now) || madeProgress
 	madeProgress = c.coalesceStage.Tick(now) || madeProgress
+	madeProgress = c.controlStage.Tick(now) || madeProgress
 
 	return madeProgress
 }
