@@ -437,7 +437,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.InternalConn.PlugIn(sCache.ControlPort)
 		b.InternalConn.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
-		b.CP.L1ICaches = append(b.CP.L1SCaches, sCache)
+		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache)
 		if b.EnableMemTracing {
 			sCache.AcceptHook(b.MemTracer)
 		}
