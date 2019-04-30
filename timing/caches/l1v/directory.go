@@ -8,6 +8,7 @@ import (
 )
 
 type directory struct {
+	name            string
 	inBuf           util.Buffer
 	dir             cache.Directory
 	mshr            cache.MSHR
@@ -61,9 +62,9 @@ func (d *directory) processMSHRHit(
 	d.inBuf.Pop()
 
 	if trans.read != nil {
-		trace(now, "r-mshr-hit", trans.Address(), nil)
+		trace(now, d.name, "r-mshr-hit", trans.Address(), nil)
 	} else {
-		trace(now, "w-mshr-hit", trans.Address(), trans.write.Data)
+		trace(now, d.name, "w-mshr-hit", trans.Address(), trans.write.Data)
 	}
 
 	return true
@@ -91,7 +92,7 @@ func (d *directory) processReadHit(
 
 	d.inBuf.Pop()
 
-	trace(now, "r-hit", block.Tag, nil)
+	trace(now, d.name, "r-hit", block.Tag, nil)
 
 	return true
 }
@@ -120,7 +121,7 @@ func (d *directory) processReadMiss(
 
 	d.inBuf.Pop()
 
-	trace(now, "r-miss", addr, nil)
+	trace(now, d.name, "r-miss", addr, nil)
 
 	return true
 }
@@ -179,6 +180,7 @@ func (d *directory) partialWriteMiss(
 	addr := write.Address
 	blockSize := uint64(1 << d.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
+	trans.fetchAndWrite = true
 
 	if d.mshr.IsFull() {
 		return false
@@ -206,11 +208,10 @@ func (d *directory) partialWriteMiss(
 		}
 		return false
 	}
-	trans.fetchAndWrite = true
 
 	d.inBuf.Pop()
-	trace(now, "evict", victimCopy.Tag, nil)
-	trace(now, "w-miss-partial", addr, write.Data)
+	trace(now, d.name, "evict", victimCopy.Tag, nil)
+	trace(now, d.name, "w-miss-partial", addr, write.Data)
 	return true
 }
 
@@ -247,7 +248,7 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 
 	trans.writeToBottom = writeToBottom
 
-	trace(now, "write-bottom", addr, writeToBottom.Data)
+	trace(now, d.name, "write-bottom", addr, writeToBottom.Data)
 
 	return true
 }
@@ -288,7 +289,7 @@ func (d *directory) processWriteHit(
 
 	d.inBuf.Pop()
 
-	trace(now, "w", addr, write.Data)
+	trace(now, d.name, "w", addr, write.Data)
 
 	return true
 }
@@ -312,11 +313,12 @@ func (d *directory) fetchFromBottom(
 		return false
 	}
 
+	trace(now, d.name, "read bottom "+readToBottom.ID, addr, nil)
 	trans.readToBottom = readToBottom
 	trans.block = victim
 
 	mshrEntry := d.mshr.Add(pid, cacheLineID)
-	trace(now, "mshr add", addr, nil)
+	trace(now, d.name, "mshr add", addr, nil)
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	mshrEntry.ReadReq = readToBottom
 	mshrEntry.Block = victim

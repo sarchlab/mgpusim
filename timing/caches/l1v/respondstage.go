@@ -6,6 +6,7 @@ import (
 )
 
 type respondStage struct {
+	name         string
 	topPort      akita.Port
 	transactions *[]*transaction
 }
@@ -40,7 +41,7 @@ func (s *respondStage) respondReadTrans(
 
 	*s.transactions = (*s.transactions)[1:]
 
-	trace(now, "r-done", read.Address, dr.Data)
+	trace(now, s.name, "r-done", read.Address, dr.Data)
 
 	return true
 }
@@ -62,6 +63,6 @@ func (s *respondStage) respondWriteTrans(
 
 	*s.transactions = (*s.transactions)[1:]
 
-	trace(now, "w-done", write.Address, write.Data)
+	trace(now, s.name, "w-done", write.Address, write.Data)
 	return true
 }

@@ -7,6 +7,7 @@ import (
 )
 
 type bankStage struct {
+	name          string
 	inBuf         util.Buffer
 	storage       *mem.Storage
 	latency       int
@@ -114,6 +115,6 @@ func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
 
 	s.currTrans = nil
 
-	trace(now, "write fetched", block.Tag, trans.data)
+	trace(now, s.name, "write fetched", block.Tag, trans.data)
 	return true
 }
