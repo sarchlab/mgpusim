@@ -339,7 +339,8 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 
 		b.l1iAddrTrans = append(b.l1iAddrTrans, at)
 	}
-	b.gpu.L1IAddrTranslator = append([]*vm.AddressTranslator{},
+	b.gpu.L1IAddrTranslator = append(
+		[]*vm.AddressTranslator{},
 		b.l1iAddrTrans...)
 }
 
@@ -436,7 +437,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.InternalConn.PlugIn(sCache.ControlPort)
 		b.InternalConn.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
-		b.CP.CachesToReset = append(b.CP.CachesToReset, sCache.ControlPort)
+		b.CP.L1ICaches = append(b.CP.L1SCaches, sCache)
 		if b.EnableMemTracing {
 			sCache.AcceptHook(b.MemTracer)
 		}
@@ -466,7 +467,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		b.InternalConn.PlugIn(iCache.BottomPort)
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
-		b.CP.CachesToReset = append(b.CP.CachesToReset, iCache.ControlPort)
+		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache)
 		if b.EnableMemTracing {
 			iCache.AcceptHook(b.MemTracer)
 		}
@@ -493,7 +494,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		b.InternalConn.PlugIn(dCache.ControlPort)
 		b.InternalConn.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
-		b.CP.CachesToReset = append(b.CP.CachesToReset, dCache.ControlPort)
+		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache)
 
 		if b.EnableMemTracing {
 			dCache.AcceptHook(b.MemTracer)
