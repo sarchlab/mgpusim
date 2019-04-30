@@ -16,3 +16,5 @@ require (
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a // indirect
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
 )
+
+replace gitlab.com/akita/mem => /Users/yifan/dev/src/gitlab.com/akita/mem
