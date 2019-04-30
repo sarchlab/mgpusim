@@ -37,7 +37,7 @@ type Runner struct {
 }
 
 // ParseFlag applies the runner flag to runner object
-func (r *Runner) ParseFlag() {
+func (r *Runner) ParseFlag() *Runner {
 	if *parallelFlag {
 		platform.UseParallelEngine = true
 	}
@@ -54,11 +54,20 @@ func (r *Runner) ParseFlag() {
 		platform.TraceMem = true
 	}
 
+	if *verifyFlag {
+		r.Verify = true
+	}
+
+	if *timingFlag {
+		r.Timing = true
+	}
+
 	r.parseGPUFlag()
+	return r
 }
 
 // Init initializes the platform simulate
-func (r *Runner) Init() {
+func (r *Runner) Init() *Runner {
 	r.KernelTimeCounter = driver.NewKernelTimeCounter()
 	if r.Timing {
 		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
@@ -66,7 +75,7 @@ func (r *Runner) Init() {
 		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
 	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
-
+	return r
 }
 
 func (r *Runner) parseGPUFlag() {
