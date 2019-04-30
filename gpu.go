@@ -33,6 +33,9 @@ type GPU struct {
 	L2Caches           []akita.Component
 	L2CacheFinder      cache.LowModuleFinder
 	L2TLBs             []*vm.TLB
+	L1VAddrTranslator  []*vm.AddressTranslator
+	L1IAddrTranslator  []*vm.AddressTranslator
+	L1SAddrTranslator  []*vm.AddressTranslator
 	L1VTLBs            []*vm.TLB
 	L1ITLBs            []*vm.TLB
 	L1STLBs            []*vm.TLB

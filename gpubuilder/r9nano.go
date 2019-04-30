@@ -296,6 +296,9 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 
 		b.l1vAddrTrans = append(b.l1vAddrTrans, at)
 	}
+
+	b.gpu.L1VAddrTranslator = append([]*vm.AddressTranslator{},
+		b.l1vAddrTrans...)
 }
 
 func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
@@ -315,6 +318,8 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 
 		b.l1sAddrTrans = append(b.l1sAddrTrans, at)
 	}
+	b.gpu.L1SAddrTranslator = append([]*vm.AddressTranslator{},
+		b.l1sAddrTrans...)
 }
 
 func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
@@ -334,6 +339,8 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 
 		b.l1iAddrTrans = append(b.l1iAddrTrans, at)
 	}
+	b.gpu.L1IAddrTranslator = append([]*vm.AddressTranslator{},
+		b.l1iAddrTrans...)
 }
 
 func (b *R9NanoGPUBuilder) buildTLBs() {
