@@ -5,6 +5,8 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/gcn3/timing/caches/l1v"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -37,7 +39,9 @@ type CommandProcessor struct {
 	ToDriver     akita.Port
 	ToDispatcher akita.Port
 
-	CachesToReset   []akita.Port
+	L1VCaches       []*l1v.Cache
+	L1SCaches       []*l1v.Cache
+	L1ICaches       []*l1v.Cache
 	L2Caches        []*writeback.Cache
 	DRAMControllers []*mem.IdealMemController
 	ToCUs           akita.Port
@@ -53,7 +57,7 @@ type CommandProcessor struct {
 
 	numCURecvdAck uint64
 	numVMRecvdAck uint64
-	numL2FlushAck uint64
+	numFlushACK   uint64
 
 	shootDownInProcess bool
 }
@@ -135,39 +139,6 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelComp
 	return nil
 }
 
-func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
-	now := cmd.Time()
-	for _, c := range p.CachesToReset {
-		req := mem.NewInvalidReq(now, p.ToDispatcher, c)
-		err := p.ToDispatcher.Send(req)
-		if err != nil {
-			log.Panic("failed to send invalidation request")
-		}
-	}
-
-	for _, l2Cache := range p.L2Caches {
-		p.flushL2(now, l2Cache)
-	}
-
-	p.currFlushRequest = cmd
-	if p.numL2FlushAck == 0 {
-		p.currFlushRequest.SwapSrcAndDst()
-		p.currFlushRequest.SetSendTime(now)
-		err := p.ToDriver.Send(p.currFlushRequest)
-		if err != nil {
-			panic("send failed")
-		}
-	}
-
-	//cmd.SwapSrcAndDst()
-	//err := p.ToDriver.Send(cmd)
-	//if err != nil {
-	//panic(err)
-	//}
-
-	return nil
-}
-
 func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 	now := cmd.Time()
 
@@ -242,21 +213,52 @@ func (p *CommandProcessor) handleVMInvalidationRsp(
 	return nil
 }
 
-func (p *CommandProcessor) flushL2(now akita.VTimeInSec, l2 *writeback.Cache) {
-	flushReq := cache.NewFlushReq(now,
-		p.ToDispatcher, l2.ControlPort)
+func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
+	now := cmd.Time()
+
+	for _, c := range p.L1ICaches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	for _, c := range p.L1SCaches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	for _, c := range p.L1VCaches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	for _, c := range p.L2Caches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	p.currFlushRequest = cmd
+	if p.numFlushACK == 0 {
+		p.currFlushRequest.SwapSrcAndDst()
+		p.currFlushRequest.SetSendTime(now)
+		err := p.ToDriver.Send(p.currFlushRequest)
+		if err != nil {
+			panic("send failed")
+		}
+	}
+
+	return nil
+}
+
+func (p *CommandProcessor) flushCache(now akita.VTimeInSec, port akita.Port) {
+	flushReq := cache.NewFlushReq(now, p.ToDispatcher, port)
 	err := p.ToDispatcher.Send(flushReq)
 	if err != nil {
-		log.Panic("Fail to send flush requst")
+		log.Panic("Fail to send flush request")
 	}
-	p.numL2FlushAck++
+	p.numFlushACK++
 }
 
 func (p *CommandProcessor) handleCacheFlushRsp(
 	req *cache.FlushRsp,
 ) error {
-	p.numL2FlushAck--
-	if p.numL2FlushAck == 0 {
+	p.numFlushACK--
+	if p.numFlushACK == 0 {
 		p.currFlushRequest.SwapSrcAndDst()
 		p.currFlushRequest.SetSendTime(req.Time())
 		err := p.ToDriver.Send(p.currFlushRequest)
