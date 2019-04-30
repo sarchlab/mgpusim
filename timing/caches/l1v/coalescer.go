@@ -170,10 +170,10 @@ func (c *coalescer) coalesceAndSend() bool {
 func (c *coalescer) coalesceRead() *transaction {
 	blockSize := uint64(1 << c.log2BlockSize)
 	cachelineID := c.toCoalesce[0].Address() / blockSize * blockSize
+	coalescedRead := mem.NewReadReq(0, nil, nil, cachelineID, blockSize)
+	coalescedRead.PID = c.toCoalesce[0].PID()
 	return &transaction{
-		read: mem.NewReadReq(0, nil, nil,
-			cachelineID,
-			1<<c.log2BlockSize),
+		read:                    coalescedRead,
 		preCoalesceTransactions: c.toCoalesce,
 	}
 }
@@ -184,6 +184,7 @@ func (c *coalescer) coalesceWrite() *transaction {
 	write := mem.NewWriteReq(0, nil, nil, cachelineID)
 	write.Data = make([]byte, blockSize)
 	write.DirtyMask = make([]bool, blockSize)
+	write.PID = c.toCoalesce[0].PID()
 
 	for _, t := range c.toCoalesce {
 		w := t.write
