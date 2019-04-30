@@ -1,6 +1,9 @@
 package l1v
 
 import (
+	"fmt"
+	"log"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -8,6 +11,7 @@ import (
 )
 
 type bottomParser struct {
+	name             string
 	bottomPort       akita.Port
 	mshr             cache.MSHR
 	bankBufs         []util.Buffer
@@ -46,6 +50,7 @@ func (p *bottomParser) processDoneRsp(
 		t.done = true
 	}
 
+	trace(0, p.name, fmt.Sprintf("to remove trans in done %p", trans), 0, nil)
 	p.removeTransaction(trans)
 	p.bottomPort.Retrieve(now)
 	return true
@@ -55,7 +60,12 @@ func (p *bottomParser) processDataReady(
 	now akita.VTimeInSec,
 	dr *mem.DataReadyRsp,
 ) bool {
+	trace(now, p.name, "dr rsp_to:"+dr.RespondTo, 0, nil)
+
 	trans := p.findTransactionByReadToBottomID(dr.GetRespondTo())
+	if trans == nil {
+		log.Panicf("cannot find trans at %s", p.name)
+	}
 	pid := trans.readToBottom.PID
 	bankBuf := p.getBankBuf(trans.block)
 	if !bankBuf.CanPush() {
@@ -78,7 +88,7 @@ func (p *bottomParser) processDataReady(
 
 	p.bottomPort.Retrieve(now)
 
-	trace(now, "data-ready", addr, dr.Data)
+	trace(now, p.name, "data-ready", addr, dr.Data)
 
 	return true
 }
@@ -124,7 +134,7 @@ func (p *bottomParser) finalizeMSHRTrans(
 				preCTrans.done = true
 			}
 		}
-
+		trace(0, p.name, fmt.Sprintf("to remove trans finalizing mshr %p", trans), 0, nil)
 		p.removeTransaction(trans)
 	}
 }
@@ -154,6 +164,7 @@ func (p *bottomParser) findTransactionByReadToBottomID(
 func (p *bottomParser) removeTransaction(trans *transaction) {
 	for i, t := range *p.transactions {
 		if t == trans {
+			trace(0, p.name, fmt.Sprintf("remove trans %p", trans), 0, nil)
 			*p.transactions = append(
 				(*p.transactions)[:i],
 				(*p.transactions)[i+1:]...)

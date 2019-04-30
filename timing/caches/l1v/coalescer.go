@@ -1,6 +1,7 @@
 package l1v
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -10,6 +11,7 @@ import (
 )
 
 type coalescer struct {
+	name                     string
 	topPort                  akita.Port
 	dirBuf                   util.Buffer
 	transactions             *[]*transaction
@@ -36,9 +38,9 @@ func (c *coalescer) processReq(
 ) bool {
 	switch req := req.(type) {
 	case *mem.ReadReq:
-		trace(now, "r", req.Address, nil)
+		trace(now, c.name, "r", req.Address, nil)
 	case *mem.WriteReq:
-		trace(now, "w", req.Address, req.Data)
+		trace(now, c.name, "w", req.Address, req.Data)
 	}
 
 	if c.isReqLastInWave(req) {
@@ -73,7 +75,7 @@ func (c *coalescer) processReqNoncoalescable(
 		return false
 	}
 
-	c.coalesceAndSend()
+	c.coalesceAndSend(now)
 
 	trans := c.createTransaction(req)
 	c.toCoalesce = append(c.toCoalesce, trans)
@@ -94,7 +96,7 @@ func (c *coalescer) processReqLastInWaveCoalescable(
 	trans := c.createTransaction(req)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	*c.transactions = append(*c.transactions, trans)
-	c.coalesceAndSend()
+	c.coalesceAndSend(now)
 	c.topPort.Retrieve(now)
 
 	return true
@@ -107,7 +109,7 @@ func (c *coalescer) processReqLastInWaveNoncoalescable(
 	if !c.dirBuf.CanPush() {
 		return false
 	}
-	c.coalesceAndSend()
+	c.coalesceAndSend(now)
 
 	if !c.dirBuf.CanPush() {
 		return true
@@ -116,7 +118,7 @@ func (c *coalescer) processReqLastInWaveNoncoalescable(
 	trans := c.createTransaction(req)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	*c.transactions = append(*c.transactions, trans)
-	c.coalesceAndSend()
+	c.coalesceAndSend(now)
 	c.topPort.Retrieve(now)
 
 	return true
@@ -153,7 +155,7 @@ func (c *coalescer) canReqCoalesce(req mem.AccessReq) bool {
 	return false
 }
 
-func (c *coalescer) coalesceAndSend() bool {
+func (c *coalescer) coalesceAndSend(now akita.VTimeInSec) bool {
 	var trans *transaction
 	if c.toCoalesce[0].read != nil {
 		trans = c.coalesceRead()
@@ -163,6 +165,8 @@ func (c *coalescer) coalesceAndSend() bool {
 	c.dirBuf.Push(trans)
 	*c.postCoalesceTransactions =
 		append(*c.postCoalesceTransactions, trans)
+	trace(now, c.name,
+		fmt.Sprintf("push_postC_buf %p", trans), 0, nil)
 	c.toCoalesce = nil
 	return true
 }
