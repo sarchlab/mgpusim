@@ -150,6 +150,14 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 	}
 
 	p.currFlushRequest = cmd
+	if p.numL2FlushAck == 0 {
+		p.currFlushRequest.SwapSrcAndDst()
+		p.currFlushRequest.SetSendTime(now)
+		err := p.ToDriver.Send(p.currFlushRequest)
+		if err != nil {
+			panic("send failed")
+		}
+	}
 
 	//cmd.SwapSrcAndDst()
 	//err := p.ToDriver.Send(cmd)
