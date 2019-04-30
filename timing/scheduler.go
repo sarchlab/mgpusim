@@ -128,6 +128,7 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 		addr = addr & 0xffffffffffffffc0
 		req := mem.NewReadReq(now, s.cu.ToInstMem, s.cu.InstMem, addr, 64)
 		req.PID = wf.PID()
+		req.IsLastInWave = true
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {
