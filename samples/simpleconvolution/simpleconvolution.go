@@ -14,8 +14,7 @@ var maskSizeFlag = flag.Uint("mask-size", 3, "The size of the mask.")
 func main() {
 	flag.Parse()
 
-	runner := runner.Runner{}
-	runner.Init()
+	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := simpleconvolution.NewBenchmark(runner.GPUDriver)
 	benchmark.Height = uint32(*heightFlag)
