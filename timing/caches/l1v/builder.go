@@ -1,6 +1,8 @@
 package l1v
 
 import (
+	"fmt"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -119,6 +121,7 @@ func (b *Builder) Build(name string) *Cache {
 	storage := mem.NewStorage(b.totalByteSize)
 
 	c.coalesceStage = &coalescer{
+		name:                     name + ".coalesce_stage",
 		topPort:                  c.TopPort,
 		dirBuf:                   c.dirBuf,
 		transactions:             &c.transactions,
@@ -127,6 +130,7 @@ func (b *Builder) Build(name string) *Cache {
 	}
 
 	c.directoryStage = &directory{
+		name:            name + ".directory_stage",
 		inBuf:           c.dirBuf,
 		dir:             dir,
 		mshr:            mshr,
@@ -138,6 +142,7 @@ func (b *Builder) Build(name string) *Cache {
 
 	for i := 0; i < b.numBank; i++ {
 		bs := &bankStage{
+			name:          fmt.Sprintf("%s.bank_stage%d", name, i),
 			inBuf:         c.bankBufs[i],
 			storage:       storage,
 			latency:       b.bankLatency,
@@ -147,6 +152,7 @@ func (b *Builder) Build(name string) *Cache {
 	}
 
 	c.parseBottomStage = &bottomParser{
+		name:             name + ".parse_bottom_stage",
 		bottomPort:       c.BottomPort,
 		mshr:             mshr,
 		bankBufs:         c.bankBufs,
@@ -156,6 +162,7 @@ func (b *Builder) Build(name string) *Cache {
 	}
 
 	c.respondStage = &respondStage{
+		name:         name + ".respond_stage",
 		topPort:      c.TopPort,
 		transactions: &c.transactions,
 	}
