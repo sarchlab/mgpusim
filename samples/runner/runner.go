@@ -32,6 +32,7 @@ type Runner struct {
 	Benchmarks        []benchmarks.Benchmark
 	Timing            bool
 	Verify            bool
+	Parallel          bool
 
 	GPUIDs []int
 }
@@ -39,7 +40,7 @@ type Runner struct {
 // ParseFlag applies the runner flag to runner object
 func (r *Runner) ParseFlag() *Runner {
 	if *parallelFlag {
-		platform.UseParallelEngine = true
+		r.Parallel = true
 	}
 
 	if *isaDebug {
@@ -69,6 +70,9 @@ func (r *Runner) ParseFlag() *Runner {
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
 	r.KernelTimeCounter = driver.NewKernelTimeCounter()
+	if r.Parallel {
+		platform.UseParallelEngine = true
+	}
 	if r.Timing {
 		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
 	} else {

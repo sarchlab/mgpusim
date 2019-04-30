@@ -79,6 +79,9 @@ func (p *CommandProcessor) NotifyPortFree(
 
 // Handle processes the events that is scheduled for the CommandProcessor
 func (p *CommandProcessor) Handle(e akita.Event) error {
+	p.Lock()
+	defer p.Unlock()
+
 	switch req := e.(type) {
 	case *LaunchKernelReq:
 		return p.processLaunchKernelReq(req)
