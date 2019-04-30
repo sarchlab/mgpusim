@@ -2,8 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"log"
-	"os"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
@@ -35,7 +33,7 @@ func BuildEmuPlatform() (
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	gpuDriver := driver.NewDriver(engine, mmu)
@@ -75,7 +73,7 @@ func BuildNR9NanoPlatform(
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
 	mmu.Latency = 100
