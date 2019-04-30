@@ -31,15 +31,7 @@ unit_test:
     - go test -coverprofile=cover.out ./...
     - go tool cover -func=cover.out
 
-cache_acceptance_test:
-  stage: acceptance_test
-  script:
-    - go install github.com/onsi/ginkgo/ginkgo
-    - cd timing/caches/acceptancetest
-    - go build
-    - ./acceptancetest
-
-new_cache_aceptance_test:
+cache_aceptance_test:
   stage: acceptance_test
   script:
     - cd timing/newcaches/l1v/acceptancetest
