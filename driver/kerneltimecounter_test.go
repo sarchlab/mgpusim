@@ -11,8 +11,7 @@ var _ = ginkgo.Describe("KernelTimeCounter", func() {
 	ginkgo.It("should count kernel time", func() {
 		c := NewKernelTimeCounter()
 
-		cmd1 := &LaunchKernelCommand{}
-		task1 := trace.Task{ID: "1", Detail: cmd1}
+		task1 := trace.Task{ID: "1", What: "*driver.LaunchKernelCommand"}
 		ctx1 := &akita.HookCtx{
 			Now:  akita.VTimeInSec(0.5),
 			Pos:  trace.HookPosTaskInitiate,
@@ -20,8 +19,7 @@ var _ = ginkgo.Describe("KernelTimeCounter", func() {
 		}
 		c.Func(ctx1)
 
-		cmd2 := &LaunchKernelCommand{}
-		task2 := trace.Task{ID: "2", Detail: cmd2}
+		task2 := trace.Task{ID: "2", What: "*driver.LaunchKernelCommand"}
 		ctx2 := &akita.HookCtx{
 			Now:  akita.VTimeInSec(1.0),
 			Pos:  trace.HookPosTaskInitiate,
@@ -29,8 +27,7 @@ var _ = ginkgo.Describe("KernelTimeCounter", func() {
 		}
 		c.Func(ctx2)
 
-		cmd3 := &LaunchKernelCommand{}
-		task3 := trace.Task{ID: "3", Detail: cmd3}
+		task3 := trace.Task{ID: "3", What: "*driver.LaunchKernelCommand"}
 		ctx3 := &akita.HookCtx{
 			Now:  akita.VTimeInSec(1.3),
 			Pos:  trace.HookPosTaskInitiate,
@@ -62,8 +59,7 @@ var _ = ginkgo.Describe("KernelTimeCounter", func() {
 		}
 		c.Func(ctx2e)
 
-		cmd4 := &LaunchKernelCommand{}
-		task4 := trace.Task{ID: "4", Detail: cmd4}
+		task4 := trace.Task{ID: "4", What: "*driver.LaunchKernelCommand"}
 		ctx4 := &akita.HookCtx{
 			Now:  akita.VTimeInSec(3.0),
 			Pos:  trace.HookPosTaskInitiate,
