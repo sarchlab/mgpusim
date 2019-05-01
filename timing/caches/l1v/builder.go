@@ -20,6 +20,7 @@ type Builder struct {
 	numMSHREntry    int
 	numBank         int
 	bankLatency     int
+	numReqsPerCycle int
 	lowModuleFinder cache.LowModuleFinder
 }
 
@@ -32,6 +33,7 @@ func NewBuilder() *Builder {
 		wayAssocitivity: 2,
 		numMSHREntry:    4,
 		numBank:         1,
+		numReqsPerCycle: 4,
 		bankLatency:     0,
 	}
 }
@@ -85,6 +87,13 @@ func (b *Builder) WithBankLatency(n int) *Builder {
 	return b
 }
 
+// WithNumReqsPerCycle sets the number of requests that the cache can process
+// per cycle
+func (b *Builder) WithNumReqsPerCycle(n int) *Builder {
+	b.numReqsPerCycle = n
+	return b
+}
+
 // WithLowModuleFinder specifies how the cache units to create should find low
 // level modules.
 func (b *Builder) WithLowModuleFinder(
@@ -102,14 +111,16 @@ func (b *Builder) Build(name string) *Cache {
 	c.TickingComponent = akitaext.NewTickingComponent(
 		name, b.engine, b.freq, c)
 
-	c.TopPort = akita.NewLimitNumReqPort(c, 4)
-	c.BottomPort = akita.NewLimitNumReqPort(c, 4)
-	c.ControlPort = akita.NewLimitNumReqPort(c, 4)
+	c.TopPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
+	c.BottomPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
+	c.ControlPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
 
-	c.dirBuf = util.NewBuffer(4)
+	c.numReqPerCycle = b.numReqsPerCycle
+
+	c.dirBuf = util.NewBuffer(b.numReqsPerCycle)
 	c.bankBufs = make([]util.Buffer, b.numBank)
 	for i := 0; i < b.numBank; i++ {
-		c.bankBufs[i] = util.NewBuffer(4)
+		c.bankBufs[i] = util.NewBuffer(b.numReqsPerCycle)
 	}
 
 	mshr := cache.NewMSHR(b.numMSHREntry)

@@ -813,13 +813,13 @@ func NewComputeUnit(
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*wavefront.WorkGroup)
 
-	cu.ToACE = akita.NewLimitNumReqPort(cu, 1)
-	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 1)
-	cu.ToScalarMem = akita.NewLimitNumReqPort(cu, 1)
-	cu.ToVectorMem = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToACE = akita.NewLimitNumReqPort(cu, 4)
+	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 4)
+	cu.ToScalarMem = akita.NewLimitNumReqPort(cu, 4)
+	cu.ToVectorMem = akita.NewLimitNumReqPort(cu, 4)
 
-	cu.ToCP = akita.NewLimitNumReqPort(cu, 1)
-	cu.CP = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToCP = akita.NewLimitNumReqPort(cu, 4)
+	cu.CP = akita.NewLimitNumReqPort(cu, 4)
 
 	cu.flushLatency = 1000
 
