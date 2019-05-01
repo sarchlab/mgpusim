@@ -34,7 +34,7 @@ unit_test:
 cache_aceptance_test:
   stage: acceptance_test
   script:
-    - cd timing/newcaches/l1v/acceptancetest
+    - cd timing/caches/l1v/acceptancetest
     - go build
     - ./acceptancetest
 
