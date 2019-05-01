@@ -1,28 +1,26 @@
 package main
 
 import (
-	"os"
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/timing/caches"
+	"gitlab.com/akita/gcn3/timing/caches/l1v"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/acceptancetests"
 	"gitlab.com/akita/mem/cache"
-	memTrace "gitlab.com/akita/mem/trace"
 )
 
 type test struct {
 	engine           akita.Engine
 	conn             *akita.DirectConnection
 	agent            *acceptancetests.MemAccessAgent
-	l1v              *caches.L1VCache
 	lowModuleFinder  *cache.SingleLowModuleFinder
 	dram             *mem.IdealMemController
 	pageTableFactory vm.PageTableFactory
 	mmu              *vm.MMUImpl
+	c                *l1v.Cache
 }
 
 func (t *test) run(wg *sync.WaitGroup) {
@@ -58,25 +56,20 @@ func newTest(name string) *test {
 		})
 	}
 
-	t.l1v = caches.BuildL1VCache("cache", t.engine, 1*akita.GHz, 1,
-		6, 4, 14, t.lowModuleFinder, t.mmu.ToTop, 0)
-
-	traceFile, err := os.Create(name + ".trace")
-	if err != nil {
-		panic(err)
-	}
-	tracer := memTrace.NewTracer(traceFile)
-	t.l1v.AcceptHook(tracer)
+	t.c = l1v.NewBuilder().
+		WithEngine(t.engine).
+		WithLowModuleFinder(t.lowModuleFinder).
+		Build("cache")
 
 	t.agent = acceptancetests.NewMemAccessAgent(t.engine)
 	t.agent.WriteLeft = 1000
 	t.agent.ReadLeft = 1000
-	t.agent.LowModule = t.l1v.ToCU
+	t.agent.LowModule = t.c.TopPort
 
 	t.conn.PlugIn(t.agent.ToMem)
-	t.conn.PlugIn(t.l1v.ToCU)
-	t.conn.PlugIn(t.l1v.ToL2)
-	t.conn.PlugIn(t.l1v.ToTLB)
+	t.conn.PlugIn(t.c.TopPort)
+	t.conn.PlugIn(t.c.BottomPort)
+	t.conn.PlugIn(t.c.ControlPort)
 	t.conn.PlugIn(t.dram.ToTop)
 	t.conn.PlugIn(t.mmu.ToTop)
 
@@ -85,6 +78,8 @@ func newTest(name string) *test {
 
 func main() {
 	var wg sync.WaitGroup
+
+	//rand.Seed(1)
 
 	t1 := newTest("Max_64")
 	t1.setMaxAddr(64)

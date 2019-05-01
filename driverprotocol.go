@@ -4,7 +4,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
 
 // FlushCommand requests the GPU to flush all the cache to the main memory
@@ -12,7 +12,7 @@ type FlushCommand struct {
 	*akita.ReqBase
 }
 
-//Shootdown command requests the GPU to perform a TLB shootdown and invalidate the corresponding PTE's
+// ShootdownCommand requests the GPU to perform a TLB shootdown and invalidate the corresponding PTE's
 type ShootDownCommand struct {
 	*akita.ReqBase
 
@@ -20,7 +20,7 @@ type ShootDownCommand struct {
 	EndTime   akita.VTimeInSec
 
 	VAddr []uint64
-	PID   vm.PID
+	PID   ca.PID
 }
 
 type ShootDownCompleteRsp struct {
@@ -33,7 +33,12 @@ type ShootDownCompleteRsp struct {
 }
 
 //NewShootdownCommand tells the CP to drain all CU and invalidate PTE's in TLB and Page Tables
-func NewShootdownCommand(time akita.VTimeInSec, src, dst akita.Port, vAddr []uint64, pID vm.PID) *ShootDownCommand {
+func NewShootdownCommand(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+	vAddr []uint64,
+	pID ca.PID,
+) *ShootDownCommand {
 	cmd := new(ShootDownCommand)
 	cmd.ReqBase = akita.NewReqBase()
 	cmd.SetSendTime(time)
@@ -44,7 +49,10 @@ func NewShootdownCommand(time akita.VTimeInSec, src, dst akita.Port, vAddr []uin
 	return cmd
 }
 
-func NewShootdownCompleteRsp(time akita.VTimeInSec, src, dst akita.Port) *ShootDownCompleteRsp {
+func NewShootdownCompleteRsp(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *ShootDownCompleteRsp {
 	cmd := new(ShootDownCompleteRsp)
 	cmd.ReqBase = akita.NewReqBase()
 	cmd.SetSendTime(time)
@@ -68,7 +76,7 @@ func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
 type LaunchKernelReq struct {
 	*akita.ReqBase
 
-	PID vm.PID
+	PID ca.PID
 
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64

@@ -9,7 +9,7 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/mock_vm"
+	"gitlab.com/akita/util/ca"
 )
 
 var _ = ginkgo.Describe("Driver", func() {
@@ -17,7 +17,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	var (
 		mockCtrl *gomock.Controller
 		gpu      *gcn3.GPU
-		mmu      *mock_vm.MockMMU
+		mmu      *MockMMU
 
 		driver   *Driver
 		engine   *mock_akita.MockEngine
@@ -30,7 +30,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
 		engine = mock_akita.NewMockEngine(mockCtrl)
 		toGPUs = mock_akita.NewMockPort(mockCtrl)
-		mmu = mock_vm.NewMockMMU(mockCtrl)
+		mmu = NewMockMMU(mockCtrl)
 
 		gpu = gcn3.NewGPU("GPU", engine)
 
@@ -58,7 +58,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.IsRunning = false
 
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x200000100)).
+				Translate(ca.PID(1), uint64(0x200000100)).
 				Return(uint64(0x100000100), &vm.Page{
 					PID:      1,
 					VAddr:    0x200000000,
@@ -67,7 +67,7 @@ var _ = ginkgo.Describe("Driver", func() {
 					Valid:    true,
 				})
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x200000800)).
+				Translate(ca.PID(1), uint64(0x200000800)).
 				Return(uint64(0x100000800), &vm.Page{
 					PID:      1,
 					VAddr:    0x200000800,
@@ -76,7 +76,7 @@ var _ = ginkgo.Describe("Driver", func() {
 					Valid:    true,
 				})
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x200001000)).
+				Translate(ca.PID(1), uint64(0x200001000)).
 				Return(uint64(0x100001000), &vm.Page{
 					PID:      1,
 					VAddr:    0x200001000,
@@ -85,7 +85,7 @@ var _ = ginkgo.Describe("Driver", func() {
 					Valid:    true,
 				})
 			mmu.EXPECT().
-				Translate(vm.PID(1), uint64(0x200002000)).
+				Translate(ca.PID(1), uint64(0x200002000)).
 				Return(uint64(0x100002000), &vm.Page{
 					PID:      1,
 					VAddr:    0x200002000,
@@ -171,7 +171,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			mmu.EXPECT().Translate(vm.PID(1), uint64(0x200000100)).
+			mmu.EXPECT().Translate(ca.PID(1), uint64(0x200000100)).
 				Return(uint64(0x100000100), &vm.Page{
 					PID:      1,
 					VAddr:    0x200000000,
@@ -277,7 +277,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
 			req := cmd.Reqs[0].(*gcn3.LaunchKernelReq)
-			Expect(req.PID).To(Equal(vm.PID(1)))
+			Expect(req.PID).To(Equal(ca.PID(1)))
 			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
 	})

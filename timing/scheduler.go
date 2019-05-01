@@ -127,8 +127,8 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
 		req := mem.NewReadReq(now, s.cu.ToInstMem, s.cu.InstMem, addr, 64)
-		req.IsPhysical = false
 		req.PID = wf.PID()
+		req.IsLastInWave = true
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {
@@ -287,16 +287,14 @@ func (s *SchedulerImpl) evalSBarrier(wf *wavefront.Wavefront, now akita.VTimeInS
 		s.passBarrier(wg)
 		s.internalExecuting = nil
 		return true
-	} else {
-		if len(s.barrierBuffer) < s.barrierBufferSize {
-			s.barrierBuffer = append(s.barrierBuffer, wf)
-			s.internalExecuting = nil
-			return true
-		}
-		return false
 	}
 
-	return true
+	if len(s.barrierBuffer) < s.barrierBufferSize {
+		s.barrierBuffer = append(s.barrierBuffer, wf)
+		s.internalExecuting = nil
+		return true
+	}
+	return false
 }
 
 func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *wavefront.WorkGroup) bool {

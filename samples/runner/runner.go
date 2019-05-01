@@ -14,12 +14,12 @@ import (
 	"gitlab.com/akita/gcn3/platform"
 )
 
-var timing = flag.Bool("timing", false, "Run detailed timing simulation.")
-var parallel = flag.Bool("parallel", false, "Run the simulation in parallel.")
+var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
+var parallelFlag = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var visTracing = flag.Bool("trace-vis", false,
 	"Generate trace for visualization purposes.")
-var verify = flag.Bool("verify", false, "Verify the emulation result.")
+var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 var gpuFlag = flag.String("gpus", "1",
 	"The GPUs to use, use a format like 1,2,3,4")
@@ -30,13 +30,17 @@ type Runner struct {
 	GPUDriver         *driver.Driver
 	KernelTimeCounter *driver.KernelTimeCounter
 	Benchmarks        []benchmarks.Benchmark
-	gpuIDs            []int
+	Timing            bool
+	Verify            bool
+	Parallel          bool
+
+	GPUIDs []int
 }
 
-// Init initializes the platform simulate
-func (r *Runner) Init() {
-	if *parallel {
-		platform.UseParallelEngine = true
+// ParseFlag applies the runner flag to runner object
+func (r *Runner) ParseFlag() *Runner {
+	if *parallelFlag {
+		r.Parallel = true
 	}
 
 	if *isaDebug {
@@ -51,33 +55,48 @@ func (r *Runner) Init() {
 		platform.TraceMem = true
 	}
 
-	r.parseGPUFlag()
+	if *verifyFlag {
+		r.Verify = true
+	}
 
+	if *timingFlag {
+		r.Timing = true
+	}
+
+	r.parseGPUFlag()
+	return r
+}
+
+// Init initializes the platform simulate
+func (r *Runner) Init() *Runner {
 	r.KernelTimeCounter = driver.NewKernelTimeCounter()
-	if *timing {
+	if r.Parallel {
+		platform.UseParallelEngine = true
+	}
+	if r.Timing {
 		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
 	} else {
 		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
 	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
-
+	return r
 }
 
 func (r *Runner) parseGPUFlag() {
-	r.gpuIDs = make([]int, 0)
+	r.GPUIDs = make([]int, 0)
 	gpuIDTokens := strings.Split(*gpuFlag, ",")
 	for _, t := range gpuIDTokens {
 		gpuID, err := strconv.Atoi(t)
 		if err != nil {
 			log.Fatal(err)
 		}
-		r.gpuIDs = append(r.gpuIDs, gpuID)
+		r.GPUIDs = append(r.GPUIDs, gpuID)
 	}
 }
 
 // AddBenchmark adds an benchmark that the driver runs
 func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
-	b.SelectGPU(r.gpuIDs)
+	b.SelectGPU(r.GPUIDs)
 	r.Benchmarks = append(r.Benchmarks, b)
 }
 
@@ -96,7 +115,7 @@ func (r *Runner) Run() {
 		wg.Add(1)
 		go func(b benchmarks.Benchmark, wg *sync.WaitGroup) {
 			b.Run()
-			if *verify {
+			if r.Verify {
 				b.Verify()
 			}
 			wg.Done()
