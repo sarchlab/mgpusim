@@ -30,11 +30,9 @@ func (c *KernelTimeCounter) Func(ctx *akita.HookCtx) {
 	switch ctx.Pos {
 	case trace.HookPosTaskInitiate:
 		task := ctx.Item.(trace.Task)
-		_, ok := task.Detail.(*LaunchKernelCommand)
-		if !ok {
-			return
+		if task.What == "*driver.LaunchKernelCommand" {
+			c.startTimes[task.ID] = ctx.Now
 		}
-		c.startTimes[task.ID] = ctx.Now
 	case trace.HookPosTaskClear:
 		task := ctx.Item.(trace.Task)
 		startTime, ok := c.startTimes[task.ID]
