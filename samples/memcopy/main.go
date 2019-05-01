@@ -62,8 +62,7 @@ func (b *Benchmark) Verify() {
 func main() {
 	flag.Parse()
 
-	runner := runner.Runner{}
-	runner.Init()
+	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := NewBenchmark(runner.GPUDriver)
 	benchmark.ByteSize = 1048576

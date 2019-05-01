@@ -2,13 +2,13 @@ package emu
 
 import (
 	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
 
 // InstEmuState is the interface used by the emulator to track the instuction
 // execution status.
 type InstEmuState interface {
-	PID() vm.PID
+	PID() ca.PID
 	Inst() *insts.Inst
 	Scratchpad() Scratchpad
 }

@@ -3,17 +3,16 @@ package emu
 import (
 	"log"
 
-	"gitlab.com/akita/mem/vm"
-
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/util/ca"
 )
 
 // A Wavefront in the emu package is a wrapper for the kernels.Wavefront
 type Wavefront struct {
 	*kernels.Wavefront
 
-	pid           vm.PID
+	pid           ca.PID
 	CodeObject    *insts.HsaCo
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
@@ -61,7 +60,7 @@ func (wf *Wavefront) Scratchpad() Scratchpad {
 	return wf.scratchpad
 }
 
-func (wf *Wavefront) PID() vm.PID {
+func (wf *Wavefront) PID() ca.PID {
 	return wf.pid
 }
 

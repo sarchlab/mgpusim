@@ -20,8 +20,7 @@ func main() {
 
 	flag.Parse()
 
-	runner := runner.Runner{}
-	runner.Init()
+	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := fir.NewBenchmark(runner.GPUDriver)
 	benchmark.Length = *numData

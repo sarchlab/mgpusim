@@ -12,6 +12,7 @@ import (
 	"gitlab.com/akita/gcn3/samples/runner"
 	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
@@ -204,7 +205,11 @@ func (ctrlComp *ShootdownControlComponent) checkCU() bool {
 	return true
 }
 
-func (ctrlComp *ShootdownControlComponent) checkPageValidity(tlb *vm.TLB, vAddr []uint64, pID vm.PID) bool {
+func (ctrlComp *ShootdownControlComponent) checkPageValidity(
+	tlb *vm.TLB,
+	vAddr []uint64,
+	pID ca.PID,
+) bool {
 	invalidPage := true
 
 	for i := 0; i < len(vAddr); i++ {
@@ -222,7 +227,10 @@ func (ctrlComp *ShootdownControlComponent) checkPageValidity(tlb *vm.TLB, vAddr 
 	return invalidPage
 }
 
-func (ctrlComp *ShootdownControlComponent) checkVMUnits(vAddr []uint64, pID vm.PID) bool {
+func (ctrlComp *ShootdownControlComponent) checkVMUnits(
+	vAddr []uint64,
+	pID ca.PID,
+) bool {
 
 	vmInvalidated := true
 
