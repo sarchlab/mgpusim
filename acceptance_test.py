@@ -209,13 +209,13 @@ def main():
         'samples/concurrentworkload')
 
 
-    error |= compile('acceptancetests/cupipelinedraining')
-    error |= run_test('CU Pipeline Draining',
-                      './cupipelinedraining -timing',
-                      'acceptancetests/cupipelinedraining')
-    error |= run_test('CU Pipeline Draining Parallel',
-                      './cupipelinedraining -timing -parallel',
-                      'acceptancetests/cupipelinedraining')
+    # error |= compile('acceptancetests/cupipelinedraining')
+    # error |= run_test('CU Pipeline Draining',
+    #                   './cupipelinedraining -timing',
+    #                   'acceptancetests/cupipelinedraining')
+    # error |= run_test('CU Pipeline Draining Parallel',
+    #                   './cupipelinedraining -timing -parallel',
+    #                   'acceptancetests/cupipelinedraining')
 
     # error |= compile('acceptancetests/tlbshootown')
     # error |= run_test('TLB Shootdown',
