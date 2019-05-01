@@ -15,8 +15,7 @@ var w = flag.Int("w", 32, "Weight.")
 func main() {
 	flag.Parse()
 
-	runner := runner.Runner{}
-	runner.Init()
+	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := maxpooling.NewBenchmark(
 		runner.GPUDriver,

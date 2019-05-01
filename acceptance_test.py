@@ -34,18 +34,7 @@ def main():
 
     error |= compile('insts/gcn3disassembler')
 
-    error |= compile('acceptancetests/cupipelinedraining')
-    error |= run_test('CU Pipeline Draining',
-                      './cupipelinedraining -timing',
-                      'acceptancetests/cupipelinedraining')
-    error |= run_test('CU Pipeline Draining Parallel',
-                      './cupipelinedraining -timing -parallel',
-                      'acceptancetests/cupipelinedraining')
 
-    # error |= compile('acceptancetests/tlbshootown')
-    # error |= run_test('TLB Shootdown',
-    #                   './tlbshootdown -timing',
-    #                   'acceptancetestes/tlbshootdown')
 
     error |= compile('samples/fir/')
     # error |= run_test("FIR Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/fir')
@@ -219,6 +208,19 @@ def main():
         './concurrentworkload -timing -parallel -verify',
         'samples/concurrentworkload')
 
+
+    # error |= compile('acceptancetests/cupipelinedraining')
+    # error |= run_test('CU Pipeline Draining',
+    #                   './cupipelinedraining -timing',
+    #                   'acceptancetests/cupipelinedraining')
+    # error |= run_test('CU Pipeline Draining Parallel',
+    #                   './cupipelinedraining -timing -parallel',
+    #                   'acceptancetests/cupipelinedraining')
+
+    # error |= compile('acceptancetests/tlbshootown')
+    # error |= run_test('TLB Shootdown',
+    #                   './tlbshootdown -timing',
+    #                   'acceptancetestes/tlbshootdown')
     if error:
         sys.exit(1)
 

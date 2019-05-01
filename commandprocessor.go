@@ -5,9 +5,12 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/gcn3/timing/caches/l1v"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/vm"
 )
 
@@ -36,8 +39,10 @@ type CommandProcessor struct {
 	ToDriver     akita.Port
 	ToDispatcher akita.Port
 
-	CachesToReset   []akita.Port
-	L2Caches        []*cache.WriteBackCache
+	L1VCaches       []*l1v.Cache
+	L1SCaches       []*l1v.Cache
+	L1ICaches       []*l1v.Cache
+	L2Caches        []*writeback.Cache
 	DRAMControllers []*mem.IdealMemController
 	ToCUs           akita.Port
 	ToVMModules     akita.Port
@@ -45,27 +50,38 @@ type CommandProcessor struct {
 	kernelFixedOverheadInCycles int
 
 	curShootdownRequest *ShootDownCommand
+	currFlushRequest    *FlushCommand
 
 	numCUs     uint64
 	numVMUnits uint64
 
 	numCURecvdAck uint64
 	numVMRecvdAck uint64
+	numFlushACK   uint64
 
 	shootDownInProcess bool
 }
 
-func (p *CommandProcessor) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) NotifyRecv(
+	now akita.VTimeInSec,
+	port akita.Port,
+) {
 	req := port.Retrieve(now)
 	akita.ProcessReqAsEvent(req, p.engine, p.Freq)
 }
 
-func (p *CommandProcessor) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) NotifyPortFree(
+	now akita.VTimeInSec,
+	port akita.Port,
+) {
 	//panic("implement me")
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
 func (p *CommandProcessor) Handle(e akita.Event) error {
+	p.Lock()
+	defer p.Unlock()
+
 	switch req := e.(type) {
 	case *LaunchKernelReq:
 		return p.processLaunchKernelReq(req)
@@ -73,6 +89,8 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 		return p.handleReplyKernelCompletionEvent(req)
 	case *FlushCommand:
 		return p.handleFlushCommand(req)
+	case *cache.FlushRsp:
+		return p.handleCacheFlushRsp(req)
 	case *MemCopyD2HReq:
 		return p.processMemCopyReq(req)
 	case *MemCopyH2DReq:
@@ -124,29 +142,6 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelComp
 	return nil
 }
 
-func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
-	now := cmd.Time()
-	for _, c := range p.CachesToReset {
-		req := mem.NewInvalidReq(now, p.ToDispatcher, c)
-		err := p.ToDispatcher.Send(req)
-		if err != nil {
-			log.Panic("failed to send invalidation request")
-		}
-	}
-
-	for i, l2Cache := range p.L2Caches {
-		p.flushL2(l2Cache, p.DRAMControllers[i])
-	}
-
-	cmd.SwapSrcAndDst()
-	err := p.ToDriver.Send(cmd)
-	if err != nil {
-		panic(err)
-	}
-
-	return nil
-}
-
 func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 	now := cmd.Time()
 
@@ -172,7 +167,9 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 
 }
 
-func (p *CommandProcessor) handleCUPipelineDrainRsp(cmd *CUPipelineDrainRsp) error {
+func (p *CommandProcessor) handleCUPipelineDrainRsp(
+	cmd *CUPipelineDrainRsp,
+) error {
 	now := cmd.Time()
 
 	if cmd.drainPipelineComplete == true {
@@ -189,13 +186,14 @@ func (p *CommandProcessor) handleCUPipelineDrainRsp(cmd *CUPipelineDrainRsp) err
 				log.Panicf("failed to send shootdown request to VM Modules")
 			}
 		}
-
 	}
 
 	return nil
 }
 
-func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteRsp) error {
+func (p *CommandProcessor) handleVMInvalidationRsp(
+	cmd *vm.InvalidationCompleteRsp,
+) error {
 	now := cmd.Time()
 
 	if cmd.InvalidationDone == true {
@@ -213,36 +211,66 @@ func (p *CommandProcessor) handleVMInvalidationRsp(cmd *vm.InvalidationCompleteR
 		p.shootDownInProcess = false
 		p.numVMRecvdAck = 0
 		p.numCURecvdAck = 0
-
 	}
 
 	return nil
 }
 
-func (p *CommandProcessor) flushL2(l2 *cache.WriteBackCache, dram *mem.IdealMemController) {
-	// FIXME: This is magic, remove
-	dir := l2.Directory.(*cache.DirectoryImpl)
-	for _, set := range dir.Sets {
-		for _, block := range set.Blocks {
-			if block.IsLocked {
-				log.Printf("block locked 0x%x.", block.Tag)
-			}
+func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
+	now := cmd.Time()
 
-			if block.IsDirty && block.IsValid {
-				cacheData, _ := l2.Storage.Read(block.CacheAddress, uint64(dir.BlockSize))
-				addr := block.Tag
-				if dram.AddressConverter != nil {
-					addr = dram.AddressConverter.ConvertExternalToInternal(addr)
-				}
-				err := dram.Storage.Write(addr, cacheData)
-				if err != nil {
-					panic(err)
-				}
-			}
-			block.IsValid = false
-			block.IsDirty = false
+	for _, c := range p.L1ICaches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	for _, c := range p.L1SCaches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	for _, c := range p.L1VCaches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	for _, c := range p.L2Caches {
+		p.flushCache(now, c.ControlPort)
+	}
+
+	p.currFlushRequest = cmd
+	if p.numFlushACK == 0 {
+		p.currFlushRequest.SwapSrcAndDst()
+		p.currFlushRequest.SetSendTime(now)
+		err := p.ToDriver.Send(p.currFlushRequest)
+		if err != nil {
+			panic("send failed")
 		}
 	}
+
+	return nil
+}
+
+func (p *CommandProcessor) flushCache(now akita.VTimeInSec, port akita.Port) {
+	flushReq := cache.NewFlushReq(now, p.ToDispatcher, port)
+	err := p.ToDispatcher.Send(flushReq)
+	if err != nil {
+		log.Panic("Fail to send flush request")
+	}
+	p.numFlushACK++
+}
+
+func (p *CommandProcessor) handleCacheFlushRsp(
+	req *cache.FlushRsp,
+) error {
+	p.numFlushACK--
+	if p.numFlushACK == 0 {
+		p.currFlushRequest.SwapSrcAndDst()
+		p.currFlushRequest.SetSendTime(req.Time())
+		err := p.ToDriver.Send(p.currFlushRequest)
+		if err != nil {
+			panic("send failed")
+		}
+	}
+
+	return nil
 }
 
 func (p *CommandProcessor) processMemCopyReq(req akita.Req) error {
@@ -279,7 +307,7 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.Freq = 1 * akita.GHz
 
 	c.kernelFixedOverheadInCycles = 1600
-	c.L2Caches = make([]*cache.WriteBackCache, 0)
+	c.L2Caches = make([]*writeback.Cache, 0)
 
 	c.ToDriver = akita.NewLimitNumReqPort(c, 1)
 	c.ToDispatcher = akita.NewLimitNumReqPort(c, 1)

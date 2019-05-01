@@ -99,10 +99,12 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.Bottom = b.driver.AllocateMemory(b.context, uint64(b.LengthInput*4))
+	b.Bottom = b.driver.AllocateMemoryWithAlignment(
+		b.context, uint64(b.LengthInput*4), 4096)
 	b.driver.Distribute(b.context, b.Bottom, uint64(b.LengthInput*4), b.gpus)
 
-	b.Top = b.driver.AllocateMemory(b.context, uint64(b.LengthOutput*4))
+	b.Top = b.driver.AllocateMemoryWithAlignment(
+		b.context, uint64(b.LengthOutput*4), 4096)
 	b.driver.Distribute(b.context, b.Top, uint64(b.LengthOutput*4), b.gpus)
 
 	b.inputData = make([]float32, b.LengthInput)

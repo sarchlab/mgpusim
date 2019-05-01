@@ -5,9 +5,8 @@ import (
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/ca"
 )
-
-//go:generate mockgen -source=$GOFILE -destination=mock_memoryallocator_test.go -self_package=gitlab.com/akita/gcn3/driver -package=driver -mock_names=memoryAllocator=MockMemoryAllocator -write_package_comment=false
 
 // A memoryAllocator can allocate memory on the CPU and GPUs
 type memoryAllocator interface {
@@ -299,7 +298,7 @@ func (a *memoryAllocatorImpl) migrateChunks(pageVAddr uint64, deviceID int) {
 	}
 }
 
-func (a *memoryAllocatorImpl) removePage(pid vm.PID, addr uint64) {
+func (a *memoryAllocatorImpl) removePage(pid ca.PID, addr uint64) {
 	for i, pages := range a.allocatedPages {
 		newPages := []vm.Page{}
 		for _, page := range pages {
