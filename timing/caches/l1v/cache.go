@@ -14,6 +14,8 @@ type Cache struct {
 	BottomPort  akita.Port
 	ControlPort akita.Port
 
+	numReqPerCycle int
+
 	dirBuf   util.Buffer
 	bankBufs []util.Buffer
 
@@ -32,14 +34,16 @@ type Cache struct {
 func (c *Cache) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	madeProgress = c.respondStage.Tick(now) || madeProgress
-	madeProgress = c.parseBottomStage.Tick(now) || madeProgress
-	for _, bs := range c.bankStages {
-		madeProgress = bs.Tick(now) || madeProgress
+	for i := 0; i < c.numReqPerCycle; i++ {
+		madeProgress = c.respondStage.Tick(now) || madeProgress
+		madeProgress = c.parseBottomStage.Tick(now) || madeProgress
+		for _, bs := range c.bankStages {
+			madeProgress = bs.Tick(now) || madeProgress
+		}
+		madeProgress = c.directoryStage.Tick(now) || madeProgress
+		madeProgress = c.coalesceStage.Tick(now) || madeProgress
+		madeProgress = c.controlStage.Tick(now) || madeProgress
 	}
-	madeProgress = c.directoryStage.Tick(now) || madeProgress
-	madeProgress = c.coalesceStage.Tick(now) || madeProgress
-	madeProgress = c.controlStage.Tick(now) || madeProgress
 
 	return madeProgress
 }
