@@ -54,6 +54,7 @@ func (b *gridBuilderImpl) NextWG() *WorkGroup {
 	zToAllocate := min(zLeft, int(b.packet.WorkgroupSizeZ))
 
 	wg := NewWorkGroup()
+	wg.SetCodeObject(b.hsaco)
 	wg.SizeX = int(b.packet.WorkgroupSizeX)
 	wg.SizeY = int(b.packet.WorkgroupSizeY)
 	wg.SizeZ = int(b.packet.WorkgroupSizeZ)
