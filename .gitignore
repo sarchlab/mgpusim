@@ -10,7 +10,6 @@
 debug
 *csv
 *~
-.vscode
 *.debug
 *.trace
 *.disasm
