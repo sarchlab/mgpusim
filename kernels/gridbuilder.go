@@ -38,6 +38,9 @@ func (b *gridBuilderImpl) SetKernel(
 	b.hsaco = info.CodeObject
 	b.packet = info.Packet
 	b.packetAddr = info.PacketAddr
+	b.xid = 0
+	b.yid = 0
+	b.zid = 0
 }
 
 func (b *gridBuilderImpl) NumWG() int {
