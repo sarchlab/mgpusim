@@ -141,7 +141,7 @@ var _ = Describe("Dispatcher", func() {
 
 	It("should continue dispatching when receiving WGFinishMesg", func() {
 		dispatcher.cuBusy[cu0] = true
-
+		dispatcher.totalWGs = 10
 		wg := &kernels.WorkGroup{}
 		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
 		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
@@ -158,7 +158,7 @@ var _ = Describe("Dispatcher", func() {
 	It("should not continue dispatching when receiving WGFinishMesg and "+
 		"the dispatcher is dispatching", func() {
 		dispatcher.state = DispatcherToMapWG
-
+		dispatcher.totalWGs = 10
 		wg := &kernels.WorkGroup{}
 		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
 		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
