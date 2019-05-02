@@ -10,14 +10,6 @@ import (
 	"gitlab.com/akita/vis/trace"
 )
 
-// DispatcherHookInfo is the information provided for the hooks by the
-// Dispatcher
-type DispatcherHookInfo struct {
-	Now                  akita.VTimeInSec
-	Pos                  akita.HookPos
-	KernelDispatchingReq *LaunchKernelReq
-}
-
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
 // ask the ComputeUnit to reserve resources for the work-group
 type MapWGReq struct {
@@ -138,8 +130,8 @@ type Dispatcher struct {
 
 	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
 	dispatchingReq  *LaunchKernelReq
-	dispatchingGrid *kernels.Grid
-	dispatchingWGs  []*kernels.WorkGroup
+	totalWGs        int
+	currentWG       *kernels.WorkGroup
 	dispatchedWGs   map[string]*MapWGReq
 	completedWGs    []*kernels.WorkGroup
 	dispatchingWfs  []*kernels.Wavefront
@@ -152,7 +144,6 @@ type Dispatcher struct {
 
 func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
-	// fmt.Printf("recv req id: %s\n", req.GetID())
 	akita.ProcessReqAsEvent(req, d.engine, d.Freq)
 }
 
@@ -221,9 +212,14 @@ func (d *Dispatcher) replyLaunchKernelReq(
 func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	now := evt.Time()
 
-	if len(d.dispatchingWGs) == 0 {
-		d.state = DispatcherIdle
-		return nil
+	wg := d.currentWG
+	if wg == nil {
+		wg = d.gridBuilder.NextWG()
+		if wg == nil {
+			d.state = DispatcherIdle
+			return nil
+		}
+		d.currentWG = wg
 	}
 
 	cuID, hasAvailableCU := d.nextAvailableCU()
@@ -233,7 +229,7 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	}
 
 	CU := d.CUs[cuID]
-	req := NewMapWGReq(d.ToCUs, CU, now, d.dispatchingWGs[0])
+	req := NewMapWGReq(d.ToCUs, CU, now, wg)
 	req.PID = d.dispatchingReq.PID
 	d.state = DispatcherWaitMapWGACK
 	err := d.ToCUs.Send(req)
@@ -241,9 +237,8 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 		d.scheduleMapWG(d.Freq.NextTick(now))
 		return nil
 	}
-	//fmt.Printf("Map WG to %d\n", cuID)
 
-	d.dispatchedWGs[d.dispatchingWGs[0].UID] = req
+	d.dispatchedWGs[wg.UID] = req
 	d.dispatchingCUID = cuID
 
 	task := trace.Task{
@@ -270,9 +265,9 @@ func (d *Dispatcher) initKernelDispatching(
 	req *LaunchKernelReq,
 ) {
 	d.dispatchingReq = req
-	d.dispatchingGrid = d.gridBuilder.Build(req.HsaCo, req.Packet)
-	d.dispatchingGrid.PacketAddress = req.PacketAddress
-	d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
+	d.gridBuilder.SetKernel(req.HsaCo, req.Packet)
+	// d.dispatchingGrid.PacketAddress = req.PacketAddress
+	// d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
 	d.dispatchingCUID = -1
 
 	task := trace.Task{
@@ -301,7 +296,8 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 		d.cuBusy[d.CUs[d.dispatchingCUID]] = true
 		d.scheduleMapWG(now)
 
-		delete(d.dispatchedWGs, d.dispatchingWGs[0].UID)
+		delete(d.dispatchedWGs, d.currentWG.UID)
+		d.currentWG = nil
 
 		task := trace.Task{
 			ID: req.ID,
@@ -318,7 +314,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	}
 
 	//wg := d.dispatchingWGs[0]
-	d.dispatchingWGs = d.dispatchingWGs[1:]
+	d.currentWG = nil
 	//d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
 	d.state = DispatcherToMapWG
 	d.scheduleMapWG(now)
@@ -327,7 +323,6 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 }
 
 func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
-	// fmt.Printf("handle req id: %s\n", mesg.GetID())
 	d.completedWGs = append(d.completedWGs, mesg.WG)
 	d.cuBusy[mesg.Src()] = false
 
@@ -345,7 +340,7 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	}
 	d.InvokeHook(&ctx)
 
-	if len(d.dispatchingGrid.WorkGroups) == len(d.completedWGs) {
+	if d.totalWGs == len(d.completedWGs) {
 		d.replyKernelFinish(mesg.Time())
 		return nil
 	}
@@ -358,9 +353,6 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 }
 
 func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
-
-	//log.Printf("Kernel completed at %.12f\n", now)
-
 	req := d.dispatchingReq
 	req.SwapSrcAndDst()
 	req.SetSendTime(now)
