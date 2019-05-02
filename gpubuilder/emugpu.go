@@ -47,8 +47,10 @@ func NewEmuGPUBuilder(engine akita.Engine) *EmuGPUBuilder {
 func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
 	connection := akita.NewDirectConnection(b.engine)
 
-	dispatcher := gcn3.NewDispatcher(b.GPUName+".Dispatcher", b.engine,
-		new(kernels.GridBuilderImpl))
+	dispatcher := gcn3.NewDispatcher(
+		b.GPUName+".Dispatcher",
+		b.engine,
+		kernels.NewGridBuilder())
 	dispatcher.Freq = b.freq
 
 	commandProcessor := gcn3.NewCommandProcessor(
