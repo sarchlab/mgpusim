@@ -26,7 +26,9 @@ func NewGrid() *Grid {
 // A WorkGroup is part of the kernel that runs on one ComputeUnit
 type WorkGroup struct {
 	UID                             string
-	codeObject                      *insts.HsaCo
+	CodeObject                      *insts.HsaCo
+	Packet                          *HsaKernelDispatchPacket
+	PacketAddress                   uint64
 	SizeX, SizeY, SizeZ             int
 	IDX, IDY, IDZ                   int
 	CurrSizeX, CurrSizeY, CurrSizeZ int
@@ -45,20 +47,16 @@ func NewWorkGroup() *WorkGroup {
 	return wg
 }
 
-func (wg *WorkGroup) SetCodeObject(co *insts.HsaCo) {
-	wg.codeObject = co
-}
-
-func (wg *WorkGroup) CodeObject() *insts.HsaCo {
-	return wg.codeObject
-}
-
 // A Wavefront is a collection of
 type Wavefront struct {
 	UID           string
-	WG            *WorkGroup
+	CodeObject    *insts.HsaCo
+	Packet        *HsaKernelDispatchPacket
+	PacketAddress uint64
 	FirstWiFlatID int
-	WorkItems     []*WorkItem
+	WG            *WorkGroup
+
+	WorkItems []*WorkItem
 }
 
 // NewWavefront returns a new Wavefront

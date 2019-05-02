@@ -12,10 +12,7 @@ import (
 type Wavefront struct {
 	*kernels.Wavefront
 
-	pid           ca.PID
-	CodeObject    *insts.HsaCo
-	Packet        *kernels.HsaKernelDispatchPacket
-	PacketAddress uint64
+	pid ca.PID
 
 	Completed  bool
 	AtBarrier  bool
@@ -36,12 +33,6 @@ type Wavefront struct {
 func NewWavefront(nativeWf *kernels.Wavefront) *Wavefront {
 	wf := new(Wavefront)
 	wf.Wavefront = nativeWf
-
-	if nativeWf != nil {
-		wf.CodeObject = nativeWf.WG.Grid.CodeObject
-		wf.Packet = nativeWf.WG.Grid.Packet
-		wf.PacketAddress = nativeWf.WG.Grid.PacketAddress
-	}
 
 	wf.SRegFile = make([]byte, 4*102)
 	wf.VRegFile = make([]byte, 4*64*256)
