@@ -1,4 +1,4 @@
-package kernels_test
+package kernels
 
 import (
 	"log"
