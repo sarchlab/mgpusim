@@ -185,5 +185,6 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.Handle(req)
 
 		Expect(dispatcher.dispatchingReq).To(BeNil())
+		Expect(dispatcher.dispatchedWGs).To(HaveLen(0))
 	})
 })
