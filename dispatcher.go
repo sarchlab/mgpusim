@@ -265,9 +265,12 @@ func (d *Dispatcher) initKernelDispatching(
 	req *LaunchKernelReq,
 ) {
 	d.dispatchingReq = req
-	d.gridBuilder.SetKernel(req.HsaCo, req.Packet)
-	// d.dispatchingGrid.PacketAddress = req.PacketAddress
-	// d.dispatchingWGs = append(d.dispatchingWGs, d.dispatchingGrid.WorkGroups...)
+	d.gridBuilder.SetKernel(kernels.KernelLaunchInfo{
+		CodeObject: req.HsaCo,
+		Packet:     req.Packet,
+		PacketAddr: req.PacketAddress,
+	})
+	d.totalWGs = d.gridBuilder.NumWG()
 	d.dispatchingCUID = -1
 
 	task := trace.Task{
@@ -340,7 +343,7 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	}
 	d.InvokeHook(&ctx)
 
-	if d.totalWGs == len(d.completedWGs) {
+	if d.totalWGs <= len(d.completedWGs) {
 		d.replyKernelFinish(mesg.Time())
 		return nil
 	}
