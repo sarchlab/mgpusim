@@ -86,6 +86,7 @@ func (p *bottomParser) processDataReady(
 	trans.writeFetchedDirtyMask = dirtyMask
 	bankBuf.Push(trans)
 
+	p.removeTransaction(trans)
 	p.bottomPort.Retrieve(now)
 
 	trace(now, p.name, "data-ready", addr, dr.Data)
