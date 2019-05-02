@@ -141,7 +141,7 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error 
 }
 
 func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *gcn3.MapWGReq) []byte {
-	ldsSize := req.WG.CodeObject().WGGroupSegmentByteSize
+	ldsSize := req.WG.CodeObject.WGGroupSegmentByteSize
 	lds := make([]byte, ldsSize)
 	return lds
 }

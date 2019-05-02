@@ -5,7 +5,6 @@ package gcn3
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	insts "gitlab.com/akita/gcn3/insts"
 	kernels "gitlab.com/akita/gcn3/kernels"
 	reflect "reflect"
 )
@@ -62,13 +61,13 @@ func (mr *MockGridBuilderMockRecorder) NumWG() *gomock.Call {
 }
 
 // SetKernel mocks base method
-func (m *MockGridBuilder) SetKernel(arg0 *insts.HsaCo, arg1 *kernels.HsaKernelDispatchPacket) {
+func (m *MockGridBuilder) SetKernel(arg0 kernels.KernelLaunchInfo) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetKernel", arg0, arg1)
+	m.ctrl.Call(m, "SetKernel", arg0)
 }
 
 // SetKernel indicates an expected call of SetKernel
-func (mr *MockGridBuilderMockRecorder) SetKernel(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockGridBuilderMockRecorder) SetKernel(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKernel", reflect.TypeOf((*MockGridBuilder)(nil).SetKernel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKernel", reflect.TypeOf((*MockGridBuilder)(nil).SetKernel), arg0)
 }

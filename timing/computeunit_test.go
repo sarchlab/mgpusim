@@ -90,7 +90,7 @@ func exampleGrid() *kernels.Grid {
 	grid.Packet = packet
 
 	wg := kernels.NewWorkGroup()
-	wg.Grid = grid
+	wg.CodeObject = grid.CodeObject
 	grid.WorkGroups = append(grid.WorkGroups, wg)
 
 	wf := kernels.NewWavefront()

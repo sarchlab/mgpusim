@@ -26,7 +26,11 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeX = 1025
 		packet.GridSizeY = 1
 		packet.GridSizeZ = 1
-		builder.SetKernel(codeObject, packet)
+		builder.SetKernel(KernelLaunchInfo{
+			CodeObject: codeObject,
+			Packet:     packet,
+			PacketAddr: 0,
+		})
 
 		wg1 := builder.NextWG()
 		wg2 := builder.NextWG()
@@ -66,7 +70,11 @@ var _ = Describe("GridBuilder", func() {
 		packet.GridSizeX = 33
 		packet.GridSizeY = 17
 		packet.GridSizeZ = 1
-		builder.SetKernel(codeObject, packet)
+		builder.SetKernel(KernelLaunchInfo{
+			CodeObject: codeObject,
+			Packet:     packet,
+			PacketAddr: 0,
+		})
 
 		wg1 := builder.NextWG()
 		wg2 := builder.NextWG()

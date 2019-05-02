@@ -39,8 +39,7 @@ var _ = Describe("WGMapper", func() {
 		wgMapper.initVGPRInfo([]int{256, 256, 256, 256})
 
 		co = insts.NewHsaCo()
-		grid = prepareGrid()
-		grid.CodeObject = co
+		grid = prepareGrid(co)
 	})
 
 	It("should send NACK if too many Wavefronts", func() {
@@ -244,6 +243,8 @@ var _ = Describe("WGMapper", func() {
 
 		co.WIVgprCount = 20
 
+		wg := grid.WorkGroups[0]
+		wg.CodeObject = co
 		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
@@ -258,7 +259,6 @@ var _ = Describe("WGMapper", func() {
 
 	It("should clear reservation when unmap wg", func() {
 		wg := kernels.NewWorkGroup()
-		wg.Grid = grid
 		for i := 0; i < 10; i++ {
 			wf := kernels.NewWavefront()
 			wg.Wavefronts = append(wg.Wavefronts, wf)
@@ -266,6 +266,7 @@ var _ = Describe("WGMapper", func() {
 		co.WIVgprCount = 16
 		co.WGGroupSegmentByteSize = 1024
 		co.WFSgprCount = 64
+		wg.CodeObject = co
 		req := gcn3.NewMapWGReq(nil, nil, 0, wg)
 
 		managedWG := wavefront.NewWorkGroup(wg, req)

@@ -4,11 +4,17 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 )
 
+// KernelLaunchInfo includes the necessary information to launch a kernel.
+type KernelLaunchInfo struct {
+	CodeObject *insts.HsaCo
+	Packet     *HsaKernelDispatchPacket
+	PacketAddr uint64
+}
+
 // A GridBuilder is the unit that can build a grid and its internal structure
 // from a kernel and its launch parameters.
 type GridBuilder interface {
-	//Build(hsaco *insts.HsaCo, packet *HsaKernelDispatchPacket) *Grid
-	SetKernel(hsaco *insts.HsaCo, packet *HsaKernelDispatchPacket)
+	SetKernel(info KernelLaunchInfo)
 	NumWG() int
 	NextWG() *WorkGroup
 }
@@ -19,18 +25,19 @@ func NewGridBuilder() GridBuilder {
 }
 
 type gridBuilderImpl struct {
-	hsaco  *insts.HsaCo
-	packet *HsaKernelDispatchPacket
+	hsaco      *insts.HsaCo
+	packet     *HsaKernelDispatchPacket
+	packetAddr uint64
 
 	xid, yid, zid int
 }
 
 func (b *gridBuilderImpl) SetKernel(
-	hsaco *insts.HsaCo,
-	packet *HsaKernelDispatchPacket,
+	info KernelLaunchInfo,
 ) {
-	b.hsaco = hsaco
-	b.packet = packet
+	b.hsaco = info.CodeObject
+	b.packet = info.Packet
+	b.packetAddr = info.PacketAddr
 }
 
 func (b *gridBuilderImpl) NumWG() int {
@@ -54,7 +61,7 @@ func (b *gridBuilderImpl) NextWG() *WorkGroup {
 	zToAllocate := min(zLeft, int(b.packet.WorkgroupSizeZ))
 
 	wg := NewWorkGroup()
-	wg.SetCodeObject(b.hsaco)
+	wg.CodeObject = b.hsaco
 	wg.SizeX = int(b.packet.WorkgroupSizeX)
 	wg.SizeY = int(b.packet.WorkgroupSizeY)
 	wg.SizeZ = int(b.packet.WorkgroupSizeZ)
@@ -105,6 +112,9 @@ func (b *gridBuilderImpl) formWavefronts(wg *WorkGroup) {
 		if i%wavefrontSize == 0 {
 			wf = NewWavefront()
 			wf.FirstWiFlatID = wg.WorkItems[i].FlattenedID()
+			wf.CodeObject = b.hsaco
+			wf.Packet = b.packet
+			wf.PacketAddress = b.packetAddr
 			wf.WG = wg
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}

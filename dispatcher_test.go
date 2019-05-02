@@ -52,8 +52,12 @@ var _ = Describe("Dispatcher", func() {
 		req.HsaCo = &insts.HsaCo{}
 		req.Packet = &kernels.HsaKernelDispatchPacket{}
 		req.SetRecvTime(10)
-		gridBuilder.EXPECT().NextWG().Return(5)
-		gridBuilder.EXPECT().SetKernel(req.HsaCo, req.Packet)
+		gridBuilder.EXPECT().NumWG().Return(5)
+		gridBuilder.EXPECT().SetKernel(kernels.KernelLaunchInfo{
+			CodeObject: req.HsaCo,
+			Packet:     req.Packet,
+			PacketAddr: req.PacketAddress,
+		})
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
 
 		dispatcher.Handle(req)
