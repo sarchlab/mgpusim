@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
 
@@ -15,12 +16,13 @@ func TestSimulator(t *testing.T) {
 	RunSpecs(t, "GCN3 Timing Simulator")
 }
 
-func prepareGrid() *kernels.Grid {
+func prepareGrid(co *insts.HsaCo) *kernels.Grid {
 	// Prepare a mock grid that is expanded
 	grid := kernels.NewGrid()
+	grid.CodeObject = co
 	for i := 0; i < 5; i++ {
 		wg := kernels.NewWorkGroup()
-		wg.Grid = grid
+		wg.CodeObject = co
 		grid.WorkGroups = append(grid.WorkGroups, wg)
 		for j := 0; j < 10; j++ {
 			wf := kernels.NewWavefront()

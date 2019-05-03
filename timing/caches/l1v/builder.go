@@ -153,11 +153,12 @@ func (b *Builder) Build(name string) *Cache {
 
 	for i := 0; i < b.numBank; i++ {
 		bs := &bankStage{
-			name:          fmt.Sprintf("%s.bank_stage%d", name, i),
-			inBuf:         c.bankBufs[i],
-			storage:       storage,
-			latency:       b.bankLatency,
-			log2BlockSize: b.log2BlockSize,
+			name:              fmt.Sprintf("%s.bank_stage%d", name, i),
+			inBuf:             c.bankBufs[i],
+			storage:           storage,
+			postCTransactions: &c.postCoalesceTransactions,
+			latency:           b.bankLatency,
+			log2BlockSize:     b.log2BlockSize,
 		}
 		c.bankStages = append(c.bankStages, bs)
 	}

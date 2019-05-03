@@ -5,65 +5,39 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
-
-type mockGridBuilder struct {
-	Grid *kernels.Grid
-}
-
-func (b *mockGridBuilder) Build(hsaco *insts.HsaCo, packet *kernels.HsaKernelDispatchPacket) *kernels.Grid {
-	return b.Grid
-}
-
-func prepareGrid() *kernels.Grid {
-	// Prepare a mock grid that is expanded
-	grid := kernels.NewGrid()
-	for i := 0; i < 5; i++ {
-		wg := kernels.NewWorkGroup()
-		grid.WorkGroups = append(grid.WorkGroups, wg)
-		for j := 0; j < 10; j++ {
-			wf := kernels.NewWavefront()
-			wg.Wavefronts = append(wg.Wavefronts, wf)
-		}
-	}
-	return grid
-}
 
 var _ = Describe("Dispatcher", func() {
 	var (
 		mockCtrl    *gomock.Controller
 		dispatcher  *Dispatcher
-		engine      *mock_akita.MockEngine
-		grid        *kernels.Grid
-		gridBuilder *mockGridBuilder
+		engine      *MockEngine
+		gridBuilder *MockGridBuilder
 
-		toCommandProcessor *mock_akita.MockPort
-		toCUs              *mock_akita.MockPort
-		cu0                *mock_akita.MockPort
-		cu1                *mock_akita.MockPort
+		toCommandProcessor *MockPort
+		toCUs              *MockPort
+		cu0                *MockPort
+		cu1                *MockPort
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		engine = mock_akita.NewMockEngine(mockCtrl)
+		engine = NewMockEngine(mockCtrl)
 
-		grid = prepareGrid()
-		gridBuilder = new(mockGridBuilder)
-		gridBuilder.Grid = grid
+		gridBuilder = NewMockGridBuilder(mockCtrl)
 
-		toCommandProcessor = mock_akita.NewMockPort(mockCtrl)
-		toCUs = mock_akita.NewMockPort(mockCtrl)
+		toCommandProcessor = NewMockPort(mockCtrl)
+		toCUs = NewMockPort(mockCtrl)
 
 		dispatcher = NewDispatcher("dispatcher", engine, gridBuilder)
 		dispatcher.Freq = 1
 		dispatcher.ToCUs = toCUs
 		dispatcher.ToCommandProcessor = toCommandProcessor
 
-		cu0 = mock_akita.NewMockPort(mockCtrl)
-		cu1 = mock_akita.NewMockPort(mockCtrl)
+		cu0 = NewMockPort(mockCtrl)
+		cu1 = NewMockPort(mockCtrl)
 		dispatcher.RegisterCU(cu0)
 		dispatcher.RegisterCU(cu1)
 	})
@@ -74,23 +48,29 @@ var _ = Describe("Dispatcher", func() {
 
 	It("start kernel launching", func() {
 		dispatcher.dispatchingReq = nil
-
 		req := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
+		req.HsaCo = &insts.HsaCo{}
+		req.Packet = &kernels.HsaKernelDispatchPacket{}
 		req.SetRecvTime(10)
-
+		gridBuilder.EXPECT().NumWG().Return(5)
+		gridBuilder.EXPECT().SetKernel(kernels.KernelLaunchInfo{
+			CodeObject: req.HsaCo,
+			Packet:     req.Packet,
+			PacketAddr: req.PacketAddress,
+		})
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
 
 		dispatcher.Handle(req)
+
+		Expect(dispatcher.totalWGs).To(Equal(5))
 	})
 
 	It("should map work-group", func() {
 		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
 		dispatcher.dispatchingReq = dispatchingReq
-
-		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
-			grid.WorkGroups...)
 		dispatcher.dispatchingCUID = -1
 
+		gridBuilder.EXPECT().NextWG().Return(&kernels.WorkGroup{})
 		toCUs.EXPECT().Send(gomock.AssignableToTypeOf(&MapWGReq{}))
 
 		evt := NewMapWGEvent(10, dispatcher)
@@ -101,14 +81,10 @@ var _ = Describe("Dispatcher", func() {
 		dispatchingReq := NewLaunchKernelReq(10, nil, nil)
 		dispatcher.dispatchingReq = dispatchingReq
 
-		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
-			grid.WorkGroups...)
-		dispatcher.dispatchingCUID = -1
-
+		gridBuilder.EXPECT().NextWG().Return(&kernels.WorkGroup{})
 		toCUs.EXPECT().
 			Send(gomock.AssignableToTypeOf(&MapWGReq{})).
 			Return(&akita.SendError{})
-
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
 
 		evt := NewMapWGEvent(10, dispatcher)
@@ -118,6 +94,8 @@ var _ = Describe("Dispatcher", func() {
 	It("should do nothing if all work-groups are mapped", func() {
 		dispatcher.dispatchingCUID = -1
 
+		gridBuilder.EXPECT().NextWG().Return(nil)
+
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
 	})
@@ -125,18 +103,17 @@ var _ = Describe("Dispatcher", func() {
 	It("should do nothing if all cus are busy", func() {
 		dispatcher.cuBusy[cu0] = true
 		dispatcher.cuBusy[cu1] = true
-		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
-			grid.WorkGroups[0])
+
+		gridBuilder.EXPECT().NextWG().Return(&kernels.WorkGroup{})
 
 		evt := NewMapWGEvent(10, dispatcher)
 		dispatcher.Handle(evt)
 	})
 
 	It("should mark CU busy if MapWGReq failed", func() {
-		wg := grid.WorkGroups[0]
+		wg := &kernels.WorkGroup{}
 		dispatcher.dispatchingCUID = 0
-		dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs, wg)
-
+		dispatcher.currentWG = wg
 		req := NewMapWGReq(cu0, dispatcher.ToCUs, 10, wg)
 		req.SetRecvTime(11)
 		req.Ok = false
@@ -151,10 +128,8 @@ var _ = Describe("Dispatcher", func() {
 	It("should map another work-group when finished mapping a work-group",
 		func() {
 			dispatcher.dispatchingCUID = 0
-			dispatcher.dispatchingWGs = append(dispatcher.dispatchingWGs,
-				grid.WorkGroups...)
 
-			wg := grid.WorkGroups[0]
+			wg := &kernels.WorkGroup{}
 			req := NewMapWGReq(cu0, dispatcher.ToCUs, 10, wg)
 			req.SetRecvTime(11)
 			req.Ok = true
@@ -165,10 +140,9 @@ var _ = Describe("Dispatcher", func() {
 		})
 
 	It("should continue dispatching when receiving WGFinishMesg", func() {
-		dispatcher.dispatchingGrid = grid
 		dispatcher.cuBusy[cu0] = true
-
-		wg := grid.WorkGroups[0]
+		dispatcher.totalWGs = 10
+		wg := &kernels.WorkGroup{}
 		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
 		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
 		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
@@ -183,10 +157,9 @@ var _ = Describe("Dispatcher", func() {
 
 	It("should not continue dispatching when receiving WGFinishMesg and "+
 		"the dispatcher is dispatching", func() {
-		dispatcher.dispatchingGrid = grid
 		dispatcher.state = DispatcherToMapWG
-
-		wg := grid.WorkGroups[0]
+		dispatcher.totalWGs = 10
+		wg := &kernels.WorkGroup{}
 		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
 		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
 		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
@@ -199,15 +172,12 @@ var _ = Describe("Dispatcher", func() {
 		kernelLaunchingReq := NewLaunchKernelReq(10,
 			nil, dispatcher.ToCommandProcessor)
 		dispatcher.dispatchingReq = kernelLaunchingReq
-		dispatcher.dispatchingGrid = grid
+		dispatcher.totalWGs = 1
 
-		wg := grid.WorkGroups[0]
+		wg := &kernels.WorkGroup{}
 		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
 		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
 		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
-
-		dispatcher.completedWGs = append(dispatcher.completedWGs,
-			grid.WorkGroups[1:]...)
 
 		toCommandProcessor.EXPECT().
 			Send(gomock.AssignableToTypeOf(&LaunchKernelReq{}))
@@ -215,5 +185,6 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.Handle(req)
 
 		Expect(dispatcher.dispatchingReq).To(BeNil())
+		Expect(dispatcher.dispatchedWGs).To(HaveLen(0))
 	})
 })

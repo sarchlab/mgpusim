@@ -1,0 +1,50 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [{
+            "name": "Test gitlab.com/akita/gcn3/driver",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/driver"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/kernels",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/kernels"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/timing",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/timing/newcache/l1v",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing/newcaches/l1v"
+        },
+        {
+            "name": "L1V acceptance test",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/timing/newcaches/l1v/acceptancetest"
+        },
+        {
+            "name": "FIR",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/fir",
+            "args": ["-verify", "-length=64"]
+        },
+    ]
+}
