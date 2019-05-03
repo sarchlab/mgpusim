@@ -531,7 +531,7 @@ func (cu *ComputeUnit) wrapWG(
 ) *wavefront.WorkGroup {
 	wg := wavefront.NewWorkGroup(raw, req)
 
-	lds := make([]byte, wg.CodeObject().WGGroupSegmentByteSize)
+	lds := make([]byte, wg.CodeObject.WGGroupSegmentByteSize)
 	wg.LDS = lds
 
 	cu.wgToManagedWgMapping[raw] = wg
@@ -543,9 +543,6 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *wavefront.Wavefront {
 	wg := cu.wgToManagedWgMapping[raw.WG]
 	wg.Wfs = append(wg.Wfs, wf)
 	wf.WG = wg
-	wf.CodeObject = wf.WG.Grid.CodeObject
-	wf.Packet = wf.WG.Grid.Packet
-	wf.PacketAddress = wf.WG.Grid.PacketAddress
 	return wf
 }
 

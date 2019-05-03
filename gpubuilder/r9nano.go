@@ -190,8 +190,10 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.CP.Driver = b.gpu.ToCommandProcessor
 	b.gpu.CommandProcessor = b.CP.ToDriver
 
-	b.ACE = gcn3.NewDispatcher(b.gpuName+".Dispatcher", b.engine,
-		new(kernels.GridBuilderImpl))
+	b.ACE = gcn3.NewDispatcher(
+		b.gpuName+".Dispatcher",
+		b.engine,
+		kernels.NewGridBuilder())
 	b.ACE.Freq = b.freq
 	b.CP.Dispatcher = b.ACE.ToCommandProcessor
 	b.gpu.Dispatchers = append(b.gpu.Dispatchers, b.ACE)

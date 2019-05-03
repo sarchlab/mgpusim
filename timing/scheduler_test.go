@@ -225,6 +225,7 @@ var _ = Describe("Scheduler", func() {
 
 	It("should evaluate internal executing insts", func() {
 		wf := new(wavefront.Wavefront)
+		wf.Wavefront = new(kernels.Wavefront)
 		wf.CodeObject = insts.NewHsaCo()
 		wf.SIMDID = 0
 		wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
@@ -236,8 +237,6 @@ var _ = Describe("Scheduler", func() {
 
 		scheduler.internalExecuting = wf
 		scheduler.EvaluateInternalInst(10)
-
-		// 	Expect(len(engine.ScheduledEvent)).To(Equal(1))
 	})
 
 	It("should wait for memory access when running wait_cnt", func() {

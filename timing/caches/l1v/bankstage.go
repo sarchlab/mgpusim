@@ -1,17 +1,20 @@
 package l1v
 
 import (
+	"fmt"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util"
 )
 
 type bankStage struct {
-	name          string
-	inBuf         util.Buffer
-	storage       *mem.Storage
-	latency       int
-	log2BlockSize uint64
+	name              string
+	inBuf             util.Buffer
+	storage           *mem.Storage
+	postCTransactions *[]*transaction
+	latency           int
+	log2BlockSize     uint64
 
 	cycleLeft int
 	currTrans *transaction
@@ -71,6 +74,7 @@ func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
 		t.done = true
 	}
 
+	s.removeTransaction(s.currTrans)
 	s.currTrans = nil
 	return true
 }
@@ -117,4 +121,16 @@ func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
 
 	trace(now, s.name, "write fetched", block.Tag, trans.data)
 	return true
+}
+
+func (s *bankStage) removeTransaction(trans *transaction) {
+	for i, t := range *s.postCTransactions {
+		if t == trans {
+			trace(0, s.name, fmt.Sprintf("remove trans %p", trans), 0, nil)
+			*s.postCTransactions = append(
+				(*s.postCTransactions)[:i],
+				(*s.postCTransactions)[i+1:]...)
+			return
+		}
+	}
 }
