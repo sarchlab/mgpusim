@@ -1,7 +1,6 @@
 package gcn3
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -13,10 +12,6 @@ import (
 	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/vm"
 )
-
-type Resettable interface {
-	Reset()
-}
 
 // CommandProcessor is a Akita component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
@@ -115,7 +110,6 @@ func (p *CommandProcessor) processLaunchKernelReq(
 ) error {
 	now := req.Time()
 	if req.Src() == p.Driver {
-		fmt.Printf("Start time is %.15f \n", now)
 		req.SetDst(p.Dispatcher)
 		req.SetSrc(p.ToDispatcher)
 		req.SetSendTime(now)
@@ -136,7 +130,6 @@ func (p *CommandProcessor) processLaunchKernelReq(
 
 func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
 	now := evt.Time()
-	fmt.Printf("End time is %.15f \n", now)
 	evt.Req.SetSendTime(now)
 	p.ToDriver.Send(evt.Req)
 	return nil

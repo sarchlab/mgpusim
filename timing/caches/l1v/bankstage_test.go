@@ -10,21 +10,24 @@ import (
 
 var _ = Describe("Bankstage", func() {
 	var (
-		mockCtrl *gomock.Controller
-		inBuf    *MockBuffer
-		storage  *mem.Storage
-		s        *bankStage
+		mockCtrl          *gomock.Controller
+		inBuf             *MockBuffer
+		storage           *mem.Storage
+		postCTransactions []*transaction
+		s                 *bankStage
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		inBuf = NewMockBuffer(mockCtrl)
 		storage = mem.NewStorage(4 * mem.KB)
+		postCTransactions = nil
 		s = &bankStage{
-			inBuf:         inBuf,
-			storage:       storage,
-			latency:       10,
-			log2BlockSize: 6,
+			inBuf:             inBuf,
+			storage:           storage,
+			postCTransactions: &postCTransactions,
+			latency:           10,
+			log2BlockSize:     6,
 		}
 	})
 
@@ -98,6 +101,7 @@ var _ = Describe("Bankstage", func() {
 					preCTrans1, preCTrans2,
 				},
 			}
+			postCTransactions = append(postCTransactions, postCTrans)
 
 			s.currTrans = postCTrans
 			s.cycleLeft = 0
@@ -113,6 +117,7 @@ var _ = Describe("Bankstage", func() {
 			Expect(preCTrans2.data).To(Equal([]byte{1, 2, 3, 4, 5, 6, 7, 8}))
 			Expect(preCTrans2.done).To(BeTrue())
 			Expect(block.ReadCount).To(Equal(0))
+			Expect(postCTransactions).NotTo(ContainElement(postCTrans))
 		})
 	})
 
