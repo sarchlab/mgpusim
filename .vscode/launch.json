@@ -44,7 +44,11 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fir",
-            "args": ["-verify", "-length=64"]
+            "args": [
+                "-verify",
+                "-length=262144",
+                "-timing",
+            ]
         },
     ]
 }

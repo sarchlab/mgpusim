@@ -300,7 +300,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 		d.scheduleMapWG(now)
 
 		delete(d.dispatchedWGs, d.currentWG.UID)
-		d.currentWG = nil
+		// d.currentWG = nil
 
 		task := trace.Task{
 			ID: req.ID,
