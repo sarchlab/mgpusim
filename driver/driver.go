@@ -10,7 +10,7 @@ import (
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/vis/trace"
 )
 
@@ -22,7 +22,7 @@ type Driver struct {
 	distributor  distributor
 
 	GPUs []*gcn3.GPU
-	MMU  vm.MMU
+	MMU  mmu.MMU
 
 	requestsToSend []akita.Req
 
@@ -530,7 +530,7 @@ func (d *Driver) reserveMemoryForCPU() {
 }
 
 // NewDriver creates a new driver
-func NewDriver(engine akita.Engine, mmu vm.MMU) *Driver {
+func NewDriver(engine akita.Engine, mmu mmu.MMU) *Driver {
 	driver := new(Driver)
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
