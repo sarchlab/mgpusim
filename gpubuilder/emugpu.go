@@ -14,7 +14,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	memtraces "gitlab.com/akita/mem/trace"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mmu"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
@@ -23,7 +23,7 @@ type EmuGPUBuilder struct {
 	freq             akita.Freq
 	Driver           *driver.Driver
 	GPUName          string
-	MMU              vm.MMU
+	MMU              mmu.MMU
 	GPUMemAddrOffset uint64
 
 	EnableISADebug    bool

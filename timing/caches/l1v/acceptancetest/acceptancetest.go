@@ -19,7 +19,6 @@ type test struct {
 	lowModuleFinder  *cache.SingleLowModuleFinder
 	dram             *mem.IdealMemController
 	pageTableFactory vm.PageTableFactory
-	mmu              *vm.MMUImpl
 	c                *l1v.Cache
 }
 
@@ -45,16 +44,6 @@ func newTest(name string) *test {
 	t.lowModuleFinder.LowModule = t.dram.ToTop
 
 	t.pageTableFactory = new(vm.DefaultPageTableFactory)
-	t.mmu = vm.NewMMU("mmu", t.engine, t.pageTableFactory)
-	for addr := uint64(0); addr < mem.MB; addr += 4096 {
-		t.mmu.CreatePage(&vm.Page{
-			PID:      1,
-			VAddr:    addr,
-			PAddr:    addr,
-			PageSize: 4096,
-			Valid:    true,
-		})
-	}
 
 	t.c = l1v.NewBuilder().
 		WithEngine(t.engine).
@@ -71,7 +60,6 @@ func newTest(name string) *test {
 	t.conn.PlugIn(t.c.BottomPort)
 	t.conn.PlugIn(t.c.ControlPort)
 	t.conn.PlugIn(t.dram.ToTop)
-	t.conn.PlugIn(t.mmu.ToTop)
 
 	return t
 }
