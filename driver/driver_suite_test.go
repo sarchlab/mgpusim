@@ -8,7 +8,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-//go:generate mockgen -destination "mock_vm_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/mem/vm MMU
+//go:generate mockgen -destination "mock_mmu_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/mem/vm/mmu MMU
 
 func TestDriver(t *testing.T) {
 	log.SetOutput(ginkgo.GinkgoWriter)
