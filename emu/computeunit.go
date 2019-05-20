@@ -12,7 +12,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mmu"
 )
 
 // A ComputeUnit in the emu package is a component that omit the pipeline design
@@ -377,7 +377,7 @@ func BuildComputeUnit(
 	name string,
 	engine akita.Engine,
 	decoder Decoder,
-	mmu vm.MMU,
+	mmu mmu.MMU,
 	storage *mem.Storage,
 	addrConverter mem.AddressConverter,
 ) *ComputeUnit {

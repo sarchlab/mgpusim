@@ -4,14 +4,14 @@ import (
 	"log"
 
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/util/ca"
 )
 
 type storageAccessor struct {
 	storage       *mem.Storage
 	addrConverter mem.AddressConverter
-	mmu           vm.MMU
+	mmu           mmu.MMU
 }
 
 func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
@@ -48,7 +48,7 @@ func (a *storageAccessor) Write(pid ca.PID, vAddr uint64, data []byte) {
 // of the storage and mmu.
 func newStorageAccessor(
 	storage *mem.Storage,
-	mmu vm.MMU,
+	mmu mmu.MMU,
 	addrConverter mem.AddressConverter,
 ) *storageAccessor {
 	a := new(storageAccessor)

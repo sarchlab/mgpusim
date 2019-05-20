@@ -16,7 +16,6 @@ import (
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
 	memtraces "gitlab.com/akita/mem/trace"
-	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
@@ -385,58 +384,20 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 	b.buildL1VTLBs()
 	b.buildL1STLBs()
 	b.buildL1ITLBs()
-
-	l1STLBCount := b.numShaderArray
-	for i := 0; i < l1STLBCount; i++ {
-		l1TLB := vm.NewTLB(
-			fmt.Sprintf("%s.L1STLB%d", b.gpuName, i),
-			b.engine)
-		l1TLB.LowModule = b.gpu.L2TLBs[0].ToTop
-		l1TLB.NumWays = 64
-		l1TLB.NumSets = 1
-		l1TLB.Latency = 1
-		l1TLB.Reset()
-
-		b.L1STLBs = append(b.L1STLBs, l1TLB)
-		b.gpu.L1STLBs = append(b.gpu.L1STLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.ToTop)
-		b.InternalConn.PlugIn(l1TLB.ToBottom)
-		b.InternalConn.PlugIn(l1TLB.ToCP)
-
-	}
-
-	l1ITLBCount := b.numShaderArray
-	for i := 0; i < l1ITLBCount; i++ {
-		l1TLB := vm.NewTLB(
-			fmt.Sprintf("%s.L1ITLB%d", b.gpuName, i),
-			b.engine)
-		l1TLB.LowModule = b.gpu.L2TLBs[0].ToTop
-		l1TLB.NumWays = 64
-		l1TLB.NumSets = 1
-		l1TLB.Latency = 1
-		l1TLB.Reset()
-
-		b.L1ITLBs = append(b.L1ITLBs, l1TLB)
-		b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.ToTop)
-		b.InternalConn.PlugIn(l1TLB.ToBottom)
-		b.InternalConn.PlugIn(l1TLB.ToCP)
-	}
 }
 
 func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
+		WithLowModule(b.gpu.L2TLBs[0].TopPort).
 		WithNumWays(64).
 		WithNumSets(1)
 
 	l1VTLBCount := b.numCU()
 	for i := 0; i < l1VTLBCount; i++ {
-		l1TLB := builder.
-			WithLowModule(b.gpu.L2TLBs[0]).
-			Build(fmt.Sprintf("%s.L1VTLB_%d", b.gpuName, i))
-		l1TLB.LowModule = b.gpu.L2TLBs[0].ToTop
+		name := fmt.Sprintf("%s.L1VTLB_%d", b.gpuName, i)
+		l1TLB := builder.Build(name)
 
 		b.L1VTLBs = append(b.L1VTLBs, l1TLB)
 		b.gpu.L1VTLBs = append(b.gpu.L1VTLBs, l1TLB)
@@ -450,18 +411,38 @@ func (b *R9NanoGPUBuilder) buildL1STLBs() {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
+		WithLowModule(b.gpu.L2TLBs[0].TopPort).
 		WithNumWays(64).
 		WithNumSets(1)
 
 	l1STLBCount := b.numShaderArray
 	for i := 0; i < l1STLBCount; i++ {
 		l1TLB := builder.
-			WithLowModule(b.gpu.L2TLBs[0]).
 			Build(fmt.Sprintf("%s.L1STLB_%d", b.gpuName, i))
-		l1TLB.LowModule = b.gpu.L2TLBs[0].ToTop
 
 		b.L1STLBs = append(b.L1STLBs, l1TLB)
-		b.gpu.L1VTLBs = append(b.gpu.L1VTLBs, l1TLB)
+		b.gpu.L1STLBs = append(b.gpu.L1STLBs, l1TLB)
+		b.InternalConn.PlugIn(l1TLB.TopPort)
+		b.InternalConn.PlugIn(l1TLB.BottomPort)
+		b.InternalConn.PlugIn(l1TLB.ControlPort)
+	}
+}
+
+func (b *R9NanoGPUBuilder) buildL1ITLBs() {
+	builder := tlb.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithLowModule(b.gpu.L2TLBs[0].TopPort).
+		WithNumWays(64).
+		WithNumSets(1)
+
+	l1ITLBCount := b.numShaderArray
+	for i := 0; i < l1ITLBCount; i++ {
+		l1TLB := builder.
+			Build(fmt.Sprintf("%s.L1ITLB_%d", b.gpuName, i))
+
+		b.L1ITLBs = append(b.L1ITLBs, l1TLB)
+		b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.TopPort)
 		b.InternalConn.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
