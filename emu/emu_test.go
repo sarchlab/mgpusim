@@ -8,7 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//go:generate mockgen -destination "mock_vm_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/mem/vm MMU
+//go:generate mockgen -destination "mock_mmu_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/mem/vm/mmu MMU
+
 func TestEmulator(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
