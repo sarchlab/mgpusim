@@ -3,11 +3,11 @@ package gcn3
 import (
 	"log"
 
-	"gitlab.com/akita/mem/vm"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/vm/addresstranslator"
+	"gitlab.com/akita/mem/vm/tlb"
 )
 
 // A GPU is the unit that one kernel can run on.
@@ -32,13 +32,13 @@ type GPU struct {
 	L1SCaches          []akita.Component
 	L2Caches           []akita.Component
 	L2CacheFinder      cache.LowModuleFinder
-	L2TLBs             []*vm.TLB
-	L1VAddrTranslator  []*vm.AddressTranslator
-	L1IAddrTranslator  []*vm.AddressTranslator
-	L1SAddrTranslator  []*vm.AddressTranslator
-	L1VTLBs            []*vm.TLB
-	L1ITLBs            []*vm.TLB
-	L1STLBs            []*vm.TLB
+	L2TLBs             []*tlb.TLB
+	L1VTLBs            []*tlb.TLB
+	L1STLBs            []*tlb.TLB
+	L1ITLBs            []*tlb.TLB
+	L1VAddrTranslator  []*addresstranslator.AddressTranslator
+	L1IAddrTranslator  []*addresstranslator.AddressTranslator
+	L1SAddrTranslator  []*addresstranslator.AddressTranslator
 	MemoryControllers  []akita.Component
 	InternalConnection akita.Connection
 

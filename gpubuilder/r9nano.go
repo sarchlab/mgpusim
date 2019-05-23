@@ -16,7 +16,9 @@ import (
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
 	memtraces "gitlab.com/akita/mem/trace"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/addresstranslator"
+	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/vis/trace"
 )
 
@@ -25,10 +27,11 @@ type R9NanoGPUBuilder struct {
 	engine              akita.Engine
 	freq                akita.Freq
 	memAddrOffset       uint64
-	mmu                 *vm.MMUImpl
+	mmu                 *mmu.MMUImpl
 	externalConn        akita.Connection
 	numShaderArray      int
 	numCUPerShaderArray int
+	numMemoryBank       int
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -45,13 +48,13 @@ type R9NanoGPUBuilder struct {
 	L1SCaches            []*l1v.Cache
 	L1ICaches            []*l1v.Cache
 	L2Caches             []*writeback.Cache
-	l1vAddrTrans         []*vm.AddressTranslator
-	l1sAddrTrans         []*vm.AddressTranslator
-	l1iAddrTrans         []*vm.AddressTranslator
-	L1VTLBs              []*vm.TLB
-	L1STLBs              []*vm.TLB
-	L1ITLBs              []*vm.TLB
-	L2TLBs               []*vm.TLB
+	l1vAddrTrans         []*addresstranslator.AddressTranslator
+	l1sAddrTrans         []*addresstranslator.AddressTranslator
+	l1iAddrTrans         []*addresstranslator.AddressTranslator
+	L1VTLBs              []*tlb.TLB
+	L1STLBs              []*tlb.TLB
+	L1ITLBs              []*tlb.TLB
+	L2TLBs               []*tlb.TLB
 	DRAMs                []*mem.IdealMemController
 	LowModuleFinderForL1 *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
@@ -69,6 +72,7 @@ func NewR9NanoGPUBuilder() *R9NanoGPUBuilder {
 		freq:                1 * akita.GHz,
 		numShaderArray:      16,
 		numCUPerShaderArray: 4,
+		numMemoryBank:       8,
 	}
 	return b
 }
@@ -102,16 +106,38 @@ func (b *R9NanoGPUBuilder) WithMemAddrOffset(
 	return b
 }
 
-// WithMMU sets the MMU component that provides the address translation servive
+// WithMMU sets the MMU component that provides the address translation service
 // for the GPU.
-func (b *R9NanoGPUBuilder) WithMMU(mmu *vm.MMUImpl) *R9NanoGPUBuilder {
+func (b *R9NanoGPUBuilder) WithMMU(mmu *mmu.MMUImpl) *R9NanoGPUBuilder {
 	b.mmu = mmu
 	return b
 }
 
+// WithNumMemoryBank sets the number of L2 cache modules and number of memory
+// controllers in each GPU.
+func (b *R9NanoGPUBuilder) WithNumMemoryBank(n int) *R9NanoGPUBuilder {
+	b.numMemoryBank = n
+	return b
+}
+
+// WithNumShaderArray sets the number of shader arrays in each GPU. Each shader
+// array contains a certain number of CUs, a certain number of L1V caches, 1
+// L1S cache, and 1 L1V cache.
+func (b *R9NanoGPUBuilder) WithNumShaderArray(n int) *R9NanoGPUBuilder {
+	b.numShaderArray = n
+	return b
+}
+
+// WithNumCUPerShaderArray sets the number of CU and number of L1V caches in
+// each Shader Array.
+func (b *R9NanoGPUBuilder) WithNumCUPerShaderArray(n int) *R9NanoGPUBuilder {
+	b.numCUPerShaderArray = n
+	return b
+}
+
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
-func (b *R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
-	b.reset()
+func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
+	//b.reset()
 
 	b.gpuName = name
 
@@ -211,7 +237,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 }
 
 func (b *R9NanoGPUBuilder) connectCUToCP() {
-	for i := 0; i < 64; i++ {
+	for i := 0; i < b.numCU(); i++ {
 		b.CP.CUs = append(b.CP.CUs, akita.NewLimitNumReqPort(b.CP, 1))
 		b.InternalConn.PlugIn(b.CP.CUs[i])
 		b.CP.CUs[i] = b.gpu.CUs[i].(*timing.ComputeUnit).ToCP
@@ -236,24 +262,24 @@ func (b *R9NanoGPUBuilder) connectVMToCP() {
 	currentVMCount := 0
 
 	for i := 0; i < l1VTLBCount; i++ {
-		b.CP.VMModules[currentVMCount] = b.L1VTLBs[i].ToCP
+		b.CP.VMModules[currentVMCount] = b.L1VTLBs[i].TopPort
 		currentVMCount++
 	}
 
 	for i := 0; i < l1STLBCount; i++ {
-		b.CP.VMModules[currentVMCount] = b.L1STLBs[i].ToCP
+		b.CP.VMModules[currentVMCount] = b.L1STLBs[i].TopPort
 		currentVMCount++
 	}
 
 	for i := 0; i < l1ITLBCount; i++ {
-		b.CP.VMModules[currentVMCount] = b.L1ITLBs[i].ToCP
+		b.CP.VMModules[currentVMCount] = b.L1ITLBs[i].TopPort
 		currentVMCount++
 	}
 
-	b.CP.VMModules[currentVMCount] = b.L2TLBs[0].ToCP
+	b.CP.VMModules[currentVMCount] = b.L2TLBs[0].TopPort
 	currentVMCount++
 
-	b.CP.VMModules[currentVMCount] = b.mmu.ToCP
+	b.CP.VMModules[currentVMCount] = b.mmu.ToTop
 	currentVMCount++
 
 	if currentVMCount != totalVMUnits {
@@ -282,15 +308,20 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 }
 
 func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
+	builder := addresstranslator.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithNumReqPerCycle(4).
+		WithLog2PageSize(12).
+		WithGPUID(b.gpu.GPUID)
 	for i := 0; i < b.numCU(); i++ {
-		at := vm.NewAddressTranslator(
-			fmt.Sprintf("%s.L1VAddrTrans_%d", b.gpuName, i),
-			b.engine, b.freq,
-			&cache.SingleLowModuleFinder{LowModule: b.L1VCaches[i].TopPort},
-		)
-		at.TranslationProvider = b.L1VTLBs[i].ToTop
-		at.Log2PageSize = 12
-		at.GPUID = b.gpu.GPUID
+		lowModuleFinder :=
+			&cache.SingleLowModuleFinder{LowModule: b.L1VCaches[i].TopPort}
+		name := fmt.Sprintf("%s.L1VAddrTrans_%d", b.gpuName, i)
+		at := builder.
+			WithLowModuleFinder(lowModuleFinder).
+			WithTranslationProvider(b.L1VTLBs[i].TopPort).
+			Build(name)
 
 		b.InternalConn.PlugIn(at.TopPort)
 		b.InternalConn.PlugIn(at.BottomPort)
@@ -298,21 +329,27 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 
 		b.l1vAddrTrans = append(b.l1vAddrTrans, at)
 	}
-
-	b.gpu.L1VAddrTranslator = append([]*vm.AddressTranslator{},
+	b.gpu.L1VAddrTranslator = append(
+		[]*addresstranslator.AddressTranslator{},
 		b.l1vAddrTrans...)
 }
 
 func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
+	builder := addresstranslator.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithNumReqPerCycle(4).
+		WithLog2PageSize(12).
+		WithGPUID(b.gpu.GPUID)
 	for i := 0; i < b.numShaderArray; i++ {
-		at := vm.NewAddressTranslator(
-			fmt.Sprintf("%s.L1SAddrTrans_%d", b.gpuName, i),
-			b.engine, b.freq,
-			&cache.SingleLowModuleFinder{LowModule: b.L1SCaches[i].TopPort},
-		)
-		at.TranslationProvider = b.L1STLBs[i].ToTop
-		at.Log2PageSize = 12
-		at.GPUID = b.gpu.GPUID
+		lowModuleFinder :=
+			&cache.SingleLowModuleFinder{LowModule: b.L1SCaches[i].TopPort}
+		name :=
+			fmt.Sprintf("%s.L1SAddrTrans_%d", b.gpuName, i)
+		at := builder.
+			WithLowModuleFinder(lowModuleFinder).
+			WithTranslationProvider(b.L1STLBs[i].TopPort).
+			Build(name)
 
 		b.InternalConn.PlugIn(at.TopPort)
 		b.InternalConn.PlugIn(at.BottomPort)
@@ -320,20 +357,25 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 
 		b.l1sAddrTrans = append(b.l1sAddrTrans, at)
 	}
-	b.gpu.L1SAddrTranslator = append([]*vm.AddressTranslator{},
+	b.gpu.L1SAddrTranslator = append(
+		[]*addresstranslator.AddressTranslator{},
 		b.l1sAddrTrans...)
 }
 
 func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
+	builder := addresstranslator.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithNumReqPerCycle(4).
+		WithLog2PageSize(12).
+		WithGPUID(b.gpu.GPUID).
+		WithLowModuleFinder(b.LowModuleFinderForL1)
 	for i := 0; i < b.numShaderArray; i++ {
-		at := vm.NewAddressTranslator(
-			fmt.Sprintf("%s.L1IAddrTrans_%d", b.gpuName, i),
-			b.engine, b.freq,
-			b.LowModuleFinderForL1,
-		)
-		at.TranslationProvider = b.L1ITLBs[i].ToTop
-		at.Log2PageSize = 12
-		at.GPUID = b.gpu.GPUID
+		name :=
+			fmt.Sprintf("%s.L1IAddrTrans_%d", b.gpuName, i)
+		at := builder.
+			WithTranslationProvider(b.L1ITLBs[i].TopPort).
+			Build(name)
 
 		b.InternalConn.PlugIn(at.TopPort)
 		b.InternalConn.PlugIn(at.BottomPort)
@@ -342,81 +384,89 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 		b.l1iAddrTrans = append(b.l1iAddrTrans, at)
 	}
 	b.gpu.L1IAddrTranslator = append(
-		[]*vm.AddressTranslator{},
+		[]*addresstranslator.AddressTranslator{},
 		b.l1iAddrTrans...)
 }
 
 func (b *R9NanoGPUBuilder) buildTLBs() {
-	l2TLB := vm.NewTLB(
-		fmt.Sprintf("%s.L2TLB", b.gpuName),
-		b.engine)
-	l2TLB.LowModule = b.mmu.ToTop
-	//traceFile, _ := os.Create("l2_tlb.trace")
-	//tlbTracer := vm.NewTLBTracer(traceFile)
-	//l2TLB.AcceptHook(tlbTracer)
-	l2TLB.NumSets = 64
-	l2TLB.NumWays = 64
-	l2TLB.Latency = 3
-	l2TLB.Reset()
+	builder := tlb.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithNumWays(64).
+		WithNumSets(64).
+		WithLowModule(b.mmu.ToTop)
+	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.L2TLBs = append(b.L2TLBs, l2TLB)
 	b.gpu.L2TLBs = append(b.gpu.L2TLBs, l2TLB)
-	b.InternalConn.PlugIn(l2TLB.ToTop)
-	b.InternalConn.PlugIn(l2TLB.ToCP)
-	b.externalConn.PlugIn(l2TLB.ToBottom)
+	b.InternalConn.PlugIn(l2TLB.TopPort)
+	b.InternalConn.PlugIn(l2TLB.ControlPort)
+	b.externalConn.PlugIn(l2TLB.BottomPort)
+
+	b.buildL1VTLBs()
+	b.buildL1STLBs()
+	b.buildL1ITLBs()
+}
+
+func (b *R9NanoGPUBuilder) buildL1VTLBs() {
+	builder := tlb.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithLowModule(b.gpu.L2TLBs[0].TopPort).
+		WithNumWays(64).
+		WithNumSets(1)
 
 	l1VTLBCount := b.numCU()
 	for i := 0; i < l1VTLBCount; i++ {
-		l1TLB := vm.NewTLB(
-			fmt.Sprintf("%s.L1VTLB_%d", b.gpuName, i),
-			b.engine)
-		l1TLB.LowModule = b.gpu.L2TLBs[0].ToTop
-		l1TLB.NumWays = 64
-		l1TLB.NumSets = 1
-		l1TLB.Latency = 1
-		l1TLB.Reset()
+		name := fmt.Sprintf("%s.L1VTLB_%d", b.gpuName, i)
+		l1TLB := builder.Build(name)
 
 		b.L1VTLBs = append(b.L1VTLBs, l1TLB)
 		b.gpu.L1VTLBs = append(b.gpu.L1VTLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.ToTop)
-		b.InternalConn.PlugIn(l1TLB.ToBottom)
-		b.InternalConn.PlugIn(l1TLB.ToCP)
+		b.InternalConn.PlugIn(l1TLB.TopPort)
+		b.InternalConn.PlugIn(l1TLB.BottomPort)
+		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
+}
+
+func (b *R9NanoGPUBuilder) buildL1STLBs() {
+	builder := tlb.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithLowModule(b.gpu.L2TLBs[0].TopPort).
+		WithNumWays(64).
+		WithNumSets(1)
 
 	l1STLBCount := b.numShaderArray
 	for i := 0; i < l1STLBCount; i++ {
-		l1TLB := vm.NewTLB(
-			fmt.Sprintf("%s.L1STLB%d", b.gpuName, i),
-			b.engine)
-		l1TLB.LowModule = b.gpu.L2TLBs[0].ToTop
-		l1TLB.NumWays = 64
-		l1TLB.NumSets = 1
-		l1TLB.Latency = 1
-		l1TLB.Reset()
+		l1TLB := builder.
+			Build(fmt.Sprintf("%s.L1STLB_%d", b.gpuName, i))
 
 		b.L1STLBs = append(b.L1STLBs, l1TLB)
 		b.gpu.L1STLBs = append(b.gpu.L1STLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.ToTop)
-		b.InternalConn.PlugIn(l1TLB.ToBottom)
-		b.InternalConn.PlugIn(l1TLB.ToCP)
-
+		b.InternalConn.PlugIn(l1TLB.TopPort)
+		b.InternalConn.PlugIn(l1TLB.BottomPort)
+		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
+}
+
+func (b *R9NanoGPUBuilder) buildL1ITLBs() {
+	builder := tlb.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithLowModule(b.gpu.L2TLBs[0].TopPort).
+		WithNumWays(64).
+		WithNumSets(1)
 
 	l1ITLBCount := b.numShaderArray
 	for i := 0; i < l1ITLBCount; i++ {
-		l1TLB := vm.NewTLB(
-			fmt.Sprintf("%s.L1ITLB%d", b.gpuName, i),
-			b.engine)
-		l1TLB.LowModule = b.gpu.L2TLBs[0].ToTop
-		l1TLB.NumWays = 64
-		l1TLB.NumSets = 1
-		l1TLB.Latency = 1
-		l1TLB.Reset()
+		l1TLB := builder.
+			Build(fmt.Sprintf("%s.L1ITLB_%d", b.gpuName, i))
 
 		b.L1ITLBs = append(b.L1ITLBs, l1TLB)
 		b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.ToTop)
-		b.InternalConn.PlugIn(l1TLB.ToBottom)
-		b.InternalConn.PlugIn(l1TLB.ToCP)
+		b.InternalConn.PlugIn(l1TLB.TopPort)
+		b.InternalConn.PlugIn(l1TLB.BottomPort)
+		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
 }
 
@@ -440,6 +490,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.InternalConn.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
 		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache)
+		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
 		if b.EnableMemTracing {
 			sCache.AcceptHook(b.MemTracer)
 		}
@@ -470,6 +521,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache)
+		b.gpu.L1ICaches = append(b.gpu.L1ICaches, iCache)
 		if b.EnableMemTracing {
 			iCache.AcceptHook(b.MemTracer)
 		}
@@ -497,6 +549,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		b.InternalConn.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
 		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache)
+		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
 
 		if b.EnableMemTracing {
 			dCache.AcceptHook(b.MemTracer)
@@ -505,14 +558,14 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 }
 
 func (b *R9NanoGPUBuilder) buildL2Caches() {
-	b.L2Caches = make([]*writeback.Cache, 0, 8)
+	b.L2Caches = make([]*writeback.Cache, 0, b.numMemoryBank)
 	cacheBuilder := new(writeback.Builder)
 	cacheBuilder.Engine = b.engine
 	b.LowModuleFinderForL1 = cache.NewInterleavedLowModuleFinder(4096)
 	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
 	b.LowModuleFinderForL1.LowAddress = b.memAddrOffset
 	b.LowModuleFinderForL1.HighAddress = b.memAddrOffset + 4*mem.GB
-	for i := 0; i < 8; i++ {
+	for i := 0; i < b.numMemoryBank; i++ {
 		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
 		cacheBuilder.CacheName = fmt.Sprintf("%s.L2_%d", b.gpuName, i)
 		cacheBuilder.WayAssociativity = 16
@@ -522,6 +575,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		l2Cache := cacheBuilder.Build()
 		b.L2Caches = append(b.L2Caches, l2Cache)
 		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache)
+		b.gpu.L2Caches = append(b.gpu.L2Caches, l2Cache)
 
 		b.LowModuleFinderForL1.LowModules = append(
 			b.LowModuleFinderForL1.LowModules, l2Cache.TopPort)
@@ -538,7 +592,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 func (b *R9NanoGPUBuilder) buildMemControllers() {
 	b.LowModuleFinderForL2 = cache.NewInterleavedLowModuleFinder(4096)
 
-	numDramController := 8
+	numDramController := b.numMemoryBank
 	for i := 0; i < numDramController; i++ {
 		memCtrl := mem.NewIdealMemController(
 			fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
