@@ -394,6 +394,7 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 		WithFreq(b.freq).
 		WithNumWays(64).
 		WithNumSets(64).
+		WithNumReqPerCycle(1024).
 		WithLowModule(b.mmu.ToTop)
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.L2TLBs = append(b.L2TLBs, l2TLB)
@@ -413,7 +414,8 @@ func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 		WithFreq(b.freq).
 		WithLowModule(b.gpu.L2TLBs[0].TopPort).
 		WithNumWays(64).
-		WithNumSets(1)
+		WithNumSets(1).
+		WithNumReqPerCycle(4)
 
 	l1VTLBCount := b.numCU()
 	for i := 0; i < l1VTLBCount; i++ {
