@@ -9,7 +9,7 @@ import (
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
 	"gitlab.com/akita/vis/trace"
 )
@@ -35,13 +35,14 @@ func BuildEmuPlatform() (
 	}
 	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
-	gpuDriver := driver.NewDriver(engine, mmu)
+	mmuBuilder := mmu.MakeBuilder()
+	mmuComponent := mmuBuilder.Build("MMU")
+	gpuDriver := driver.NewDriver(engine, mmuComponent)
 	connection := akita.NewDirectConnection(engine)
 
 	gpuBuilder := gpubuilder.NewEmuGPUBuilder(engine)
 	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.MMU = mmu
+	gpuBuilder.MMU = mmuComponent
 	gpuBuilder.GPUMemAddrOffset = 4 * mem.GB
 	if DebugISA {
 		gpuBuilder.EnableISADebug = true
@@ -75,10 +76,12 @@ func BuildNR9NanoPlatform(
 	}
 	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
-	mmu.Latency = 100
-	mmu.ShootdownLatency = 50
-	gpuDriver := driver.NewDriver(engine, mmu)
+	mmuBuilder := mmu.MakeBuilder().
+		WithEngine(engine).
+		WithFreq(1 * akita.GHz)
+	mmuComponent := mmuBuilder.Build("MMU")
+	gpuDriver := driver.NewDriver(engine, mmuComponent)
+
 	//connection := akita.NewDirectConnection(engine)
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
 	connection.SrcBufferCapacity = 40960000
@@ -86,7 +89,10 @@ func BuildNR9NanoPlatform(
 	gpuBuilder := gpubuilder.NewR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithExternalConn(connection).
-		WithMMU(mmu)
+		WithMMU(mmuComponent).
+		WithNumCUPerShaderArray(4).
+		WithNumShaderArray(16).
+		WithNumMemoryBank(8)
 
 	if TraceVis {
 		tracer := trace.NewMongoDBTracer()
@@ -117,7 +123,7 @@ func BuildNR9NanoPlatform(
 	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
-	connection.PlugIn(mmu.ToTop)
+	connection.PlugIn(mmuComponent.ToTop)
 
 	return engine, gpuDriver
 }

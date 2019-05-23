@@ -12,6 +12,8 @@ import (
 	"gitlab.com/akita/gcn3/samples/runner"
 	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -206,15 +208,16 @@ func (ctrlComp *ShootdownControlComponent) checkCU() bool {
 }
 
 func (ctrlComp *ShootdownControlComponent) checkPageValidity(
-	tlb *vm.TLB,
+	tlb *tlb.TLB,
 	vAddr []uint64,
 	pID ca.PID,
 ) bool {
 	invalidPage := true
 
 	for i := 0; i < len(vAddr); i++ {
-		setID := tlb.GetSetID(vAddr[i])
-		set := tlb.Sets[setID]
+		sets := tlb.Sets
+		setID := vAddr[i] / uint64(4096) % uint64(len(sets))
+		set := sets[setID]
 		for _, page := range set.Blocks {
 			if page.PID == pID &&
 				vAddr[i] >= page.VAddr &&
@@ -350,26 +353,31 @@ func main() {
 	currentVMCount := 0
 
 	for i := 0; i < l1VTLBCount; i++ {
-		ctrlComponent.vmModules[currentVMCount] = r.GPUDriver.GPUs[0].L1VTLBs[i].ToCP
+		ctrlComponent.vmModules[currentVMCount] =
+			r.GPUDriver.GPUs[0].L1VTLBs[i].ControlPort
 		currentVMCount++
 	}
 
 	for i := 0; i < l1STLBCount; i++ {
-		ctrlComponent.vmModules[currentVMCount] = r.GPUDriver.GPUs[0].L1STLBs[i].ToCP
+		ctrlComponent.vmModules[currentVMCount] =
+			r.GPUDriver.GPUs[0].L1STLBs[i].ControlPort
 		currentVMCount++
 	}
 
 	for i := 0; i < l1ITLBCount; i++ {
-		ctrlComponent.vmModules[currentVMCount] = r.GPUDriver.GPUs[0].L1ITLBs[i].ToCP
+		ctrlComponent.vmModules[currentVMCount] =
+			r.GPUDriver.GPUs[0].L1ITLBs[i].ControlPort
 		currentVMCount++
 	}
 
 	for i := 0; i < l2TLBCount; i++ {
-		ctrlComponent.vmModules[currentVMCount] = r.GPUDriver.GPUs[0].L2TLBs[i].ToCP
+		ctrlComponent.vmModules[currentVMCount] =
+			r.GPUDriver.GPUs[0].L2TLBs[i].ControlPort
 		currentVMCount++
 	}
 
-	ctrlComponent.vmModules[currentVMCount] = r.GPUDriver.MMU.(*vm.MMUImpl).ToCP
+	ctrlComponent.vmModules[currentVMCount] =
+		r.GPUDriver.MMU.(*mmu.MMUImpl).MigrationPort
 
 	r.KernelTimeCounter = driver.NewKernelTimeCounter()
 	r.GPUDriver.AcceptHook(r.KernelTimeCounter)

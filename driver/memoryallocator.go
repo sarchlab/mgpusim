@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -30,7 +31,7 @@ type memoryChunk struct {
 type memoryAllocatorImpl struct {
 	sync.Mutex
 
-	mmu vm.MMU
+	mmu mmu.MMU
 
 	pageSizeAsPowerOf2 uint64
 
@@ -41,7 +42,7 @@ type memoryAllocatorImpl struct {
 	totalStorageByteSize uint64
 }
 
-func newMemoryAllocatorImpl(mmu vm.MMU) *memoryAllocatorImpl {
+func newMemoryAllocatorImpl(mmu mmu.MMU) *memoryAllocatorImpl {
 	a := &memoryAllocatorImpl{
 		mmu: mmu,
 	}
