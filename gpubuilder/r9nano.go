@@ -31,6 +31,7 @@ type R9NanoGPUBuilder struct {
 	externalConn        akita.Connection
 	numShaderArray      int
 	numCUPerShaderArray int
+	numMemoryBank       int
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -71,6 +72,7 @@ func NewR9NanoGPUBuilder() *R9NanoGPUBuilder {
 		freq:                1 * akita.GHz,
 		numShaderArray:      16,
 		numCUPerShaderArray: 4,
+		numMemoryBank:       8,
 	}
 	return b
 }
@@ -104,16 +106,38 @@ func (b *R9NanoGPUBuilder) WithMemAddrOffset(
 	return b
 }
 
-// WithMMU sets the MMU component that provides the address translation servive
+// WithMMU sets the MMU component that provides the address translation service
 // for the GPU.
 func (b *R9NanoGPUBuilder) WithMMU(mmu *mmu.MMUImpl) *R9NanoGPUBuilder {
 	b.mmu = mmu
 	return b
 }
 
+// WithNumMemoryBank sets the number of L2 cache modules and number of memory
+// controllers in each GPU.
+func (b *R9NanoGPUBuilder) WithNumMemoryBank(n int) *R9NanoGPUBuilder {
+	b.numMemoryBank = n
+	return b
+}
+
+// WithNumShaderArray sets the number of shader arrays in each GPU. Each shader
+// array contains a certain number of CUs, a certain number of L1V caches, 1
+// L1S cache, and 1 L1V cache.
+func (b *R9NanoGPUBuilder) WithNumShaderArray(n int) *R9NanoGPUBuilder {
+	b.numShaderArray = n
+	return b
+}
+
+// WithNumCUPerShaderArray sets the number of CU and number of L1V caches in
+// each Shader Array.
+func (b *R9NanoGPUBuilder) WithNumCUPerShaderArray(n int) *R9NanoGPUBuilder {
+	b.numCUPerShaderArray = n
+	return b
+}
+
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
-func (b *R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
-	b.reset()
+func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
+	//b.reset()
 
 	b.gpuName = name
 
@@ -469,6 +493,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.InternalConn.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
 		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache)
+		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
 		if b.EnableMemTracing {
 			sCache.AcceptHook(b.MemTracer)
 		}
@@ -499,6 +524,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache)
+		b.gpu.L1ICaches = append(b.gpu.L1ICaches, iCache)
 		if b.EnableMemTracing {
 			iCache.AcceptHook(b.MemTracer)
 		}
@@ -526,6 +552,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		b.InternalConn.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
 		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache)
+		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
 
 		if b.EnableMemTracing {
 			dCache.AcceptHook(b.MemTracer)
@@ -534,14 +561,14 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 }
 
 func (b *R9NanoGPUBuilder) buildL2Caches() {
-	b.L2Caches = make([]*writeback.Cache, 0, 8)
+	b.L2Caches = make([]*writeback.Cache, 0, b.numMemoryBank)
 	cacheBuilder := new(writeback.Builder)
 	cacheBuilder.Engine = b.engine
 	b.LowModuleFinderForL1 = cache.NewInterleavedLowModuleFinder(4096)
 	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
 	b.LowModuleFinderForL1.LowAddress = b.memAddrOffset
 	b.LowModuleFinderForL1.HighAddress = b.memAddrOffset + 4*mem.GB
-	for i := 0; i < 8; i++ {
+	for i := 0; i < b.numMemoryBank; i++ {
 		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
 		cacheBuilder.CacheName = fmt.Sprintf("%s.L2_%d", b.gpuName, i)
 		cacheBuilder.WayAssociativity = 16
@@ -551,6 +578,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		l2Cache := cacheBuilder.Build()
 		b.L2Caches = append(b.L2Caches, l2Cache)
 		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache)
+		b.gpu.L2Caches = append(b.gpu.L2Caches, l2Cache)
 
 		b.LowModuleFinderForL1.LowModules = append(
 			b.LowModuleFinderForL1.LowModules, l2Cache.TopPort)
@@ -567,7 +595,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 func (b *R9NanoGPUBuilder) buildMemControllers() {
 	b.LowModuleFinderForL2 = cache.NewInterleavedLowModuleFinder(4096)
 
-	numDramController := 8
+	numDramController := b.numMemoryBank
 	for i := 0; i < numDramController; i++ {
 		memCtrl := mem.NewIdealMemController(
 			fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
