@@ -237,7 +237,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 }
 
 func (b *R9NanoGPUBuilder) connectCUToCP() {
-	for i := 0; i < 64; i++ {
+	for i := 0; i < b.numCU(); i++ {
 		b.CP.CUs = append(b.CP.CUs, akita.NewLimitNumReqPort(b.CP, 1))
 		b.InternalConn.PlugIn(b.CP.CUs[i])
 		b.CP.CUs[i] = b.gpu.CUs[i].(*timing.ComputeUnit).ToCP
@@ -371,12 +371,9 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 		WithGPUID(b.gpu.GPUID).
 		WithLowModuleFinder(b.LowModuleFinderForL1)
 	for i := 0; i < b.numShaderArray; i++ {
-		lowModuleFinder :=
-			&cache.SingleLowModuleFinder{LowModule: b.L1SCaches[i].TopPort}
 		name :=
 			fmt.Sprintf("%s.L1IAddrTrans_%d", b.gpuName, i)
 		at := builder.
-			WithLowModuleFinder(lowModuleFinder).
 			WithTranslationProvider(b.L1ITLBs[i].TopPort).
 			Build(name)
 
