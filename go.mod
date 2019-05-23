@@ -17,4 +17,4 @@ require (
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
 )
 
-replace gitlab.com/akita/mem => ../mem
+// replace gitlab.com/akita/mem => ../mem
