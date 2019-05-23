@@ -91,7 +91,10 @@ func BuildNR9NanoPlatform(
 	gpuBuilder := gpubuilder.NewR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithExternalConn(connection).
-		WithMMU(mmuComponent)
+		WithMMU(mmuComponent).
+		WithNumCUPerShaderArray(1).
+		WithNumShaderArray(1).
+		WithNumMemoryBank(1)
 
 	if TraceVis {
 		tracer := trace.NewMongoDBTracer()
