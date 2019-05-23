@@ -2,8 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"log"
-	"os"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
@@ -76,7 +74,7 @@ func BuildNR9NanoPlatform(
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
@@ -92,9 +90,9 @@ func BuildNR9NanoPlatform(
 		WithEngine(engine).
 		WithExternalConn(connection).
 		WithMMU(mmuComponent).
-		WithNumCUPerShaderArray(1).
-		WithNumShaderArray(1).
-		WithNumMemoryBank(1)
+		WithNumCUPerShaderArray(4).
+		WithNumShaderArray(16).
+		WithNumMemoryBank(8)
 
 	if TraceVis {
 		tracer := trace.NewMongoDBTracer()
