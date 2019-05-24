@@ -66,9 +66,9 @@ type R9NanoGPUBuilder struct {
 	MemTracer *memtraces.Tracer
 }
 
-// NewR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.
-func NewR9NanoGPUBuilder() *R9NanoGPUBuilder {
-	b := &R9NanoGPUBuilder{
+// MakeR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.
+func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
+	b := R9NanoGPUBuilder{
 		freq:                1 * akita.GHz,
 		numShaderArray:      16,
 		numCUPerShaderArray: 4,
@@ -78,44 +78,44 @@ func NewR9NanoGPUBuilder() *R9NanoGPUBuilder {
 }
 
 // WithEngine sets the engine that the GPU use.
-func (b *R9NanoGPUBuilder) WithEngine(engine akita.Engine) *R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithEngine(engine akita.Engine) R9NanoGPUBuilder {
 	b.engine = engine
 	return b
 }
 
 // WithFreq sets the frequency that the GPU works at.
-func (b *R9NanoGPUBuilder) WithFreq(freq akita.Freq) *R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithFreq(freq akita.Freq) R9NanoGPUBuilder {
 	b.freq = freq
 	return b
 }
 
 // WithExternalConn sets the external connection for CPU-GPU and inter-GPU
 // communication.
-func (b *R9NanoGPUBuilder) WithExternalConn(
+func (b R9NanoGPUBuilder) WithExternalConn(
 	conn akita.Connection,
-) *R9NanoGPUBuilder {
+) R9NanoGPUBuilder {
 	b.externalConn = conn
 	return b
 }
 
 // WithMemAddrOffset sets the address of the first byte of the GPU to build.
-func (b *R9NanoGPUBuilder) WithMemAddrOffset(
+func (b R9NanoGPUBuilder) WithMemAddrOffset(
 	offset uint64,
-) *R9NanoGPUBuilder {
+) R9NanoGPUBuilder {
 	b.memAddrOffset = offset
 	return b
 }
 
 // WithMMU sets the MMU component that provides the address translation service
 // for the GPU.
-func (b *R9NanoGPUBuilder) WithMMU(mmu *mmu.MMUImpl) *R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.MMUImpl) R9NanoGPUBuilder {
 	b.mmu = mmu
 	return b
 }
 
 // WithNumMemoryBank sets the number of L2 cache modules and number of memory
 // controllers in each GPU.
-func (b *R9NanoGPUBuilder) WithNumMemoryBank(n int) *R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithNumMemoryBank(n int) R9NanoGPUBuilder {
 	b.numMemoryBank = n
 	return b
 }
@@ -123,22 +123,20 @@ func (b *R9NanoGPUBuilder) WithNumMemoryBank(n int) *R9NanoGPUBuilder {
 // WithNumShaderArray sets the number of shader arrays in each GPU. Each shader
 // array contains a certain number of CUs, a certain number of L1V caches, 1
 // L1S cache, and 1 L1V cache.
-func (b *R9NanoGPUBuilder) WithNumShaderArray(n int) *R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithNumShaderArray(n int) R9NanoGPUBuilder {
 	b.numShaderArray = n
 	return b
 }
 
 // WithNumCUPerShaderArray sets the number of CU and number of L1V caches in
 // each Shader Array.
-func (b *R9NanoGPUBuilder) WithNumCUPerShaderArray(n int) *R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithNumCUPerShaderArray(n int) R9NanoGPUBuilder {
 	b.numCUPerShaderArray = n
 	return b
 }
 
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
-	//b.reset()
-
 	b.gpuName = name
 
 	b.InternalConn = akita.NewDirectConnection(b.engine)

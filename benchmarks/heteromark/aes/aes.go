@@ -142,6 +142,7 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) Run() {
+	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
 	b.LaunchKernel()
 }
