@@ -119,7 +119,7 @@ func BuildNR9NanoPlatform(
 		rdmaAddressTable.LowModules = append(
 			rdmaAddressTable.LowModules,
 			gpu.RDMAEngine.ToOutside)
-		//connection.PlugIn(gpu.RDMAEngine.ToOutside)
+		connection.PlugIn(gpu.RDMAEngine.ToOutside)
 	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
