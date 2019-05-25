@@ -1,0 +1,11 @@
+Protocol 2
+Port 22
+PubkeyAuthentication yes
+PasswordAuthentication no
+AllowTcpForwarding no
+X11Forwarding no
+AllowUsers akita
+PrintMotd no
+IgnoreUserKnownHosts yes
+PermitRootLogin no
+PermitEmptyPasswords no
