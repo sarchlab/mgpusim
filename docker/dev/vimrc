@@ -1,0 +1,108 @@
+set nocompatible
+
+filetype indent plugin on
+
+syntax on
+set background=dark
+set hidden
+set wildmenu
+set showcmd
+set hlsearch
+set ignorecase
+set smartcase
+set autoindent
+set nostartofline
+set ruler
+set laststatus=2
+set confirm
+
+"set visualbell
+set t_vb=
+set guioptions-=m  "remove menu bar
+set guioptions-=T  "remove toolbar
+set guioptions-=r  "remove right-hand scroll bar
+set guioptions-=L  "remove left-hand scroll bar
+set guifont=Roboto\ Mono\ Light\ for\ Powerline\ 12
+
+set t_Co=256
+
+" set mouse=a
+
+set cmdheight=2
+set number
+set notimeout ttimeout ttimeoutlen=200
+set pastetoggle=<F11>
+set shiftwidth=2
+set softtabstop=2
+set tabstop=2
+set expandtab
+
+autocmd FileType go setlocal ts=4 sts=4 sw=4
+
+set colorcolumn=80
+set encoding=utf-8
+
+nnoremap <C-h> :tabp<CR>
+nnoremap <C-l> :tabn<CR>
+nnoremap <C-u> <C-w>w
+
+" Rewrapping
+map <F8> gq}
+map <F9> vipJ
+
+call plug#begin('~/.vim/plugged')
+Plug 'bling/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+Plug 'scrooloose/nerdtree'
+Plug 'tpope/vim-fugitive'
+Plug 'scrooloose/nerdcommenter'
+Plug 'scrooloose/syntastic'
+Plug 'fatih/vim-go'
+Plug 'plasticboy/vim-markdown'
+Plug 'reedes/vim-pencil'
+Plug 'tomasr/molokai'
+if has('nvim')
+  Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+else
+  Plug 'Shougo/deoplete.nvim'
+  Plug 'roxma/nvim-yarp'
+  Plug 'roxma/vim-hug-neovim-rpc'
+endif
+Plug 'deoplete-plugins/deoplete-go', { 'do': 'make'}
+call plug#end()
+
+let g:deoplete#enable_at_startup = 1
+
+let g:airline_powerline_fonts = 1
+let g:airline#extensions#tabline#show_buffers = 1
+let g:airline_theme = 'molokai'
+
+" NerdTree
+map <C-n> :NERDTreeToggle<CR>
+let g:NERDTreeNodeDelimiter = "\u00a0"
+
+" Colorscheme
+" colorscheme molokai
+let g:rehash256 = 1
+highlight ColorColumn ctermbg=160 guibg=#D80000
+
+" Syntastic
+set statusline+=%#warningmsg#
+set statusline+=%{SyntasticStatuslineFlag()}
+set statusline+=%*
+let g:syntastic_always_populate_loc_list = 1
+let g:syntastic_auto_loc_list = 1
+let g:syntastic_check_on_open = 1
+let g:syntastic_check_on_wq = 0
+
+" Markdown
+let g:vim_markdown_folding_disabled = 1
+
+" Go
+au FileType go nmap <leader>b <Plug>(go-build)
+au FileType go nmap <leader>t <Plug>(go-test)
+au FileType go nmap <leader>c <Plug>(go-coverage-toggle)
+let g:go_fmt_command = "goimports"
+let g:godef_split = 0
+let g:go_list_type = 'quickfix'
+
