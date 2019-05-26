@@ -4,8 +4,8 @@ PubkeyAuthentication yes
 PasswordAuthentication no
 AllowTcpForwarding no
 X11Forwarding no
-AllowUsers akita
+AllowUsers root
 PrintMotd no
 IgnoreUserKnownHosts yes
-PermitRootLogin no
+PermitRootLogin yes
 PermitEmptyPasswords no
