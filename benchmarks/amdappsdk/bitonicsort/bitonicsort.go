@@ -59,6 +59,7 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 }
 
 func (b *Benchmark) Run() {
+	b.driver.SelectGPU(b.context, b.gpusToUse[0])
 	b.initMem()
 	b.exec()
 }

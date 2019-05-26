@@ -86,7 +86,7 @@ func BuildNR9NanoPlatform(
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
 	connection.SrcBufferCapacity = 40960000
 
-	gpuBuilder := gpubuilder.NewR9NanoGPUBuilder().
+	gpuBuilder := gpubuilder.MakeR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithExternalConn(connection).
 		WithMMU(mmuComponent).
