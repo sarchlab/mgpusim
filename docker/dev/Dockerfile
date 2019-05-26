@@ -8,25 +8,34 @@ RUN add-apt-repository -y ppa:neovim-ppa/stable
 RUN apt-get update
 RUN apt-get install -y neovim
 
+# RUN adduser --disabled-password --shell /bin/zsh akita
+# RUN echo "akita:$(date +%s)" | chpasswd
+# RUN mkdir /home/akita/.ssh && touch /home/akita/.ssh/authorized_keys
+# RUN chown -R akita:akita /home/akita
+# RUN echo "GOPATH=/home/akita/go" >> /home/akita/.profile
+# RUN echo "PATH=$PATH:/usr/local/go/bin:$GOPATH/bin" >> /home/akita/.profile
+
 RUN wget https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
 RUN tar -C /usr/local -xzf go1.12.5.linux-amd64.tar.gz
 ENV GOPATH=/root/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+RUN echo "export GOPATH=/root/go" >> .profile
+RUN echo "export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin" >> .profile
 
-COPY vimrc /home/akita/.vimrc
-COPY vimrc /home/akita/.config/nvim/init.vim
-COPY tmux.conf /home/akita/.tmux.conf
+COPY vimrc /root/.vimrc
+COPY vimrc /root/.config/nvim/init.vim
+COPY tmux.conf /root/.tmux.conf
 
 RUN ssh-keygen -A
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/robkbyrussell/oh-my-zsh/master/tools/install.sh)"
-RUN pip3 install --user pynvim
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 
+RUN pip3 install --user pynvim
 RUN curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 RUN curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-RUN vim -u /home/akita/.vimrc +PlugInstall +qall
-RUN nvim -u /home/akita/.vimrc +PlugInstall +UpdateRemotePlugins +qall
+RUN vim +PlugInstall +qall
+RUN nvim +PlugInstall +UpdateRemotePlugins +qall
 # RUN nvim +GoInstallBinaries +qall
 # RUN echo "colorscheme molokai" >> /root/.vimrc
 
@@ -55,7 +64,7 @@ RUN go get github.com/koron/iferr
 RUN go get github.com/onsi/ginkgo/ginkgo
 RUN go get github.com/golang/mock/mockgen
 
-WORKDIR /home/akita/dev/src/gitlab.com/akita
+WORKDIR /root/dev/src/gitlab.com/akita
 RUN git clone https://gitlab.com/akita/akita.git
 RUN git clone https://gitlab.com/akita/util.git
 RUN git clone https://gitlab.com/akita/mem.git
@@ -68,12 +77,7 @@ COPY entry_point.sh /bin/entry_point.sh
 RUN chmod +x /bin/entry_point.sh
 
 
-RUN adduser --disabled-password --shell /bin/zsh akita
-# RUN echo "akita:$(date +%s)" | chpasswd
-RUN mkdir /home/akita/.ssh && touch /home/akita/.ssh/authorized_keys
-RUN chown -R akita:akita /home/akita
-RUN echo "GOPATH=/home/akita/go" >> /home/akita/.profile
-RUN echo "PATH=$PATH:/usr/local/go/bin:$GOPATH/bin" >> /home/akita/.profile
+
 
 EXPOSE 22
-# ENTRYPOINT ["/bin/entry_point.sh"]
+ENTRYPOINT ["/bin/entry_point.sh"]
