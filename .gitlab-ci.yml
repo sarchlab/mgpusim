@@ -12,6 +12,7 @@ stages:
   - build
   - test
   - acceptance_test
+  - deploy
 
 before_script:
 
@@ -45,3 +46,22 @@ acceptance_test:
   script:
     - apt-get update -qq && apt-get install -y -qq python3
     - python3 acceptance_test.py
+
+build_docker_image_master:
+  stage: deploy
+  only: master
+  script:
+    - docker pull $CI_REGISTRY_IMAGE:latest || true
+    - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:latest
+
+build_docker_image_release:
+  stage: deploy
+  only:
+    - tags
+  script:
+    - docker pull $CI_REGISTRY_IMAGE:latest || true
+    - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
