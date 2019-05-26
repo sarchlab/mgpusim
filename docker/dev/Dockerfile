@@ -19,8 +19,7 @@ RUN wget https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
 RUN tar -C /usr/local -xzf go1.12.5.linux-amd64.tar.gz
 ENV GOPATH=/root/go
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
-RUN echo "export GOPATH=/root/go" >> .profile
-RUN echo "export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin" >> .profile
+
 
 COPY vimrc /root/.vimrc
 COPY vimrc /root/.config/nvim/init.vim
@@ -75,6 +74,10 @@ RUN git clone https://gitlab.com/akita/gcn3.git
 COPY sshd_config /etc/ssh/sshd_config
 COPY entry_point.sh /bin/entry_point.sh
 RUN chmod +x /bin/entry_point.sh
+
+RUN echo "export GOPATH=/root/go" >> /root/.zshrc
+RUN echo "export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin" >> /root/.zshrc
+RUN cat /root/.zshrc
 
 
 
