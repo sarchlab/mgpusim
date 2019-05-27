@@ -16,36 +16,36 @@ stages:
 
 before_script:
 
-go_build:
-  stage: build
-  script:
-    - go build ./...
-  artifacts:
-    paths:
-      - .
+# go_build:
+#   stage: build
+#   script:
+#     - go build ./...
+#   artifacts:
+#     paths:
+#       - .
 
-unit_test:
-  stage: test
-  script:
-    - go install github.com/onsi/ginkgo/ginkgo
-    - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
-    - go test -coverprofile=cover.out ./...
-    - go tool cover -func=cover.out
+# unit_test:
+#   stage: test
+#   script:
+#     - go install github.com/onsi/ginkgo/ginkgo
+#     - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
+#     - go test -coverprofile=cover.out ./...
+#     - go tool cover -func=cover.out
 
-cache_aceptance_test:
-  stage: acceptance_test
-  script:
-    - cd timing/caches/l1v/acceptancetest
-    - go build
-    - ./acceptancetest
+# cache_aceptance_test:
+#   stage: acceptance_test
+#   script:
+#     - cd timing/caches/l1v/acceptancetest
+#     - go build
+#     - ./acceptancetest
 
-acceptance_test:
-  stage: acceptance_test
-  tags:
-    - multi_core
-  script:
-    - apt-get update -qq && apt-get install -y -qq python3
-    - python3 acceptance_test.py
+# acceptance_test:
+#   stage: acceptance_test
+#   tags:
+#     - multi_core
+#   script:
+#     - apt-get update -qq && apt-get install -y -qq python3
+#     - python3 acceptance_test.py
 
 build_docker_image_master:
   stage: deploy
