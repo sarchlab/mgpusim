@@ -7,10 +7,12 @@ then
    exit 1
 fi
 
-docker run -d -P registry.gitlab.com/akita/gcn3 $@
+docker pull registry.gitlab.com/akita/gcn3/dev:latest
+docker run -d -P registry.gitlab.com/akita/gcn3/dev:latest$@
 name=$(docker ps -l --format "{{.ID}}")
 ip=$(docker port $name 22/tcp)
 port=$(echo $ip | awk '{split($0, a, ":"); print a[2]}')
 sleep 2
-ssh -oStrictHostKeyChecking=accept-new -p $port root@0.0.0.0
+echo "Use the following command to connect to the dev server: "
+echo "  ssh -p $port root@0.0.0.0"
 
