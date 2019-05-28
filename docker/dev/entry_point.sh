@@ -14,7 +14,7 @@ do
   # fetch pubkeys by Gitlab user login
   curl https://gitlab.com/$user.keys >> $user.pubkey
   cmd="cd /root/dev/src/gitlab.com/akita"
-  sed -i "s|^|command=\"$cmd\" |g" $user.pubkey
+  #sed -i "s|^|command=\"$cmd\" |g" $user.pubkey
   cat $user.pubkey >> /root/.ssh/authorized_keys
 done
 
