@@ -55,11 +55,12 @@ build_docker_image_master:
   only:
     - master
   script:
-    - docker pull $CI_REGISTRY_IMAGE:latest || true
-    - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest_master ./docker/dev
+    - export IMAGE_NAME=$CI_REGISTRY_IMAGE/dev
+    - docker pull $IMAGE_NAME:latest || true
+    - docker build --cache-from $IMAGE_NAME:latest --tag $IMAGE_NAME:$CI_COMMIT_SHA --tag $IMAGE_NAME:latest ./docker/dev
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-    - docker push $CI_REGISTRY_IMAGE:latest_master
+    - docker push $IMAGE_NAME:$CI_COMMIT_SHA
+    - docker push $IMAGE_NAME:latest
 
 build_docker_image_release:
   stage: deploy
