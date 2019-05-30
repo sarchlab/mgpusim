@@ -7,7 +7,7 @@ then
    exit 1
 fi
 
-mkdir /root/.ssh && touch /root/.ssh/authroized_keys
+mkdir /root/.ssh && touch /root/.ssh/authorized_keys
 for user in $@
 do
   echo "Fetching key for $user..."
@@ -16,6 +16,7 @@ do
   cmd="cd /root/dev/src/gitlab.com/akita"
   #sed -i "s|^|command=\"$cmd\" |g" $user.pubkey
   cat $user.pubkey >> /root/.ssh/authorized_keys
+  car "\n" >> /root/.ssh/authorized_keys
 done
 
 mkdir /run/sshd
