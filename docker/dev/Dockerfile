@@ -36,7 +36,7 @@ RUN curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
 RUN vim +PlugInstall +qall
 RUN nvim +PlugInstall +UpdateRemotePlugins +qall
 # RUN nvim +GoInstallBinaries +qall
-# RUN echo "colorscheme molokai" >> /root/.vimrc
+RUN echo "colorscheme molokai" >> /root/.vimrc
 
 RUN go get github.com/klauspost/asmfmt/cmd/asmfmt
 RUN go get github.com/go-delve/delve/cmd/dlv
