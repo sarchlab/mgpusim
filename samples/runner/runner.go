@@ -26,13 +26,14 @@ var gpuFlag = flag.String("gpus", "1",
 
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
-	Engine            akita.Engine
-	GPUDriver         *driver.Driver
-	KernelTimeCounter *driver.KernelTimeCounter
-	Benchmarks        []benchmarks.Benchmark
-	Timing            bool
-	Verify            bool
-	Parallel          bool
+	Engine                  akita.Engine
+	GPUDriver               *driver.Driver
+	KernelTimeCounter       *driver.KernelTimeCounter
+	PerGPUKernelTimeCounter []*driver.KernelTimeCounter
+	Benchmarks              []benchmarks.Benchmark
+	Timing                  bool
+	Verify                  bool
+	Parallel                bool
 
 	GPUIDs []int
 }
@@ -79,6 +80,13 @@ func (r *Runner) Init() *Runner {
 		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
 	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
+
+	for _, gpu := range r.GPUDriver.GPUs {
+		c := driver.NewKernelTimeCounter()
+		gpu.AcceptHook(c)
+		r.PerGPUKernelTimeCounter = append(r.PerGPUKernelTimeCounter, c)
+	}
+
 	return r
 }
 
@@ -128,4 +136,7 @@ func (r *Runner) Run() {
 
 	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.TotalTime)
 	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
+	for i, c := range r.PerGPUKernelTimeCounter {
+		fmt.Printf("GPU %d kernel time %f\n", i+1, c.TotalTime)
+	}
 }
