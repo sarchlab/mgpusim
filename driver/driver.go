@@ -11,7 +11,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/mem/vm/mmu"
-	"gitlab.com/akita/vis/trace"
+	"gitlab.com/akita/util/tracing"
 )
 
 // Driver is an Akita component that controls the simulated GPUs
@@ -43,45 +43,26 @@ func (d *Driver) Run() {
 	go d.runAsync()
 }
 
-func (d *Driver) logSimulationStart() {
-	d.simulationID = xid.New().String()
-	if len(d.Hooks) > 0 {
-		task := trace.Task{
-			ID:           d.simulationID,
-			Where:        d.Name(),
-			Type:         "Simulation",
-			What:         "Simulation",
-			InitiateTime: 0,
-		}
-		ctx := akita.HookCtx{
-			Domain: d,
-			Now:    0,
-			Pos:    trace.HookPosTaskInitiate,
-			Item:   task,
-		}
-		d.InvokeHook(&ctx)
-	}
-}
-
 // Terminate stops the driver thread execution.
 func (d *Driver) Terminate() {
 	d.driverStopped <- true
 	d.logSimulationTerminate()
 }
 
+func (d *Driver) logSimulationStart() {
+	d.simulationID = xid.New().String()
+	tracing.StartTask(
+		d.simulationID,
+		"",
+		0,
+		d,
+		"Simulation", "Simulation",
+		nil,
+	)
+}
+
 func (d *Driver) logSimulationTerminate() {
-	if len(d.Hooks) > 0 {
-		task := trace.Task{
-			ID: d.simulationID,
-		}
-		ctx := akita.HookCtx{
-			Domain: d,
-			Now:    d.Engine.CurrentTime(),
-			Pos:    trace.HookPosTaskClear,
-			Item:   task,
-		}
-		d.InvokeHook(&ctx)
-	}
+	tracing.EndTask(d.simulationID, d.Engine.CurrentTime(), d)
 }
 
 func (d *Driver) runAsync() {
@@ -216,34 +197,19 @@ func (d *Driver) processOneCommand(
 }
 
 func (d *Driver) logCmdStart(cmd Command, now akita.VTimeInSec) {
-	task := trace.Task{
-		ID:           cmd.GetID(),
-		ParentID:     d.simulationID,
-		Type:         "Driver Command",
-		InitiateTime: float64(now),
-		What:         reflect.TypeOf(cmd).String(),
-		Where:        d.Name(),
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskInitiate,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.StartTask(
+		cmd.GetID(),
+		d.simulationID,
+		now,
+		d,
+		"Driver Command",
+		reflect.TypeOf(cmd).String(),
+		nil,
+	)
 }
 
 func (d *Driver) logCmdComplete(cmd Command, now akita.VTimeInSec) {
-	task := trace.Task{
-		ID: cmd.GetID(),
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskClear,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.EndTask(cmd.GetID(), now, d)
 }
 
 func (d *Driver) processNoopCommand(
@@ -304,37 +270,22 @@ func (d *Driver) logTaskToGPUInitiate(
 	cmd Command,
 	req akita.Req,
 ) {
-	task := trace.Task{
-		ID:           req.GetID(),
-		ParentID:     cmd.GetID(),
-		Where:        d.Name(),
-		Type:         "req",
-		What:         reflect.TypeOf(req).String(),
-		InitiateTime: float64(now),
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskInitiate,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.StartTask(
+		req.GetID(),
+		cmd.GetID(),
+		now,
+		d,
+		"Req",
+		reflect.TypeOf(req).String(),
+		nil,
+	)
 }
 
 func (d *Driver) logTaskToGPUClear(
 	now akita.VTimeInSec,
 	req akita.Req,
 ) {
-	task := trace.Task{
-		ID: req.GetID(),
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskClear,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.EndTask(req.GetID(), now, d)
 }
 
 func (d *Driver) processMemCopyH2DReturn(
