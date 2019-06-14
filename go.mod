@@ -16,4 +16,4 @@ require (
 )
 
 // replace gitlab.com/akita/mem => ../mem
-replace gitlab.com/akita/util => ../util
+// replace gitlab.com/akita/util => ../util
