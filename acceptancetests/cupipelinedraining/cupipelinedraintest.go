@@ -14,6 +14,7 @@ import (
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/samples/runner"
 	"gitlab.com/akita/gcn3/timing"
+	"gitlab.com/akita/util/tracing"
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
@@ -187,8 +188,11 @@ func main() {
 		ctrlComponent.cus[i] = r.GPUDriver.GPUs[0].CUs[i].(*timing.ComputeUnit).ToCP
 	}
 
-	r.KernelTimeCounter = driver.NewKernelTimeCounter()
-	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
+	r.KernelTimeCounter = tracing.NewBusyTimeTracer(
+		func(task tracing.Task) bool {
+			return task.What == "*driver.LaunchKernelCommand"
+		})
+	tracing.CollectTrace(r.GPUDriver, r.KernelTimeCounter)
 
 	drainTime := 0.000001637000000
 
