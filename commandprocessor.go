@@ -1,10 +1,12 @@
 package gcn3
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
 	"gitlab.com/akita/gcn3/timing/caches/l1v"
+	"gitlab.com/akita/util/tracing"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
@@ -114,6 +116,14 @@ func (p *CommandProcessor) processLaunchKernelReq(
 		req.SetSrc(p.ToDispatcher)
 		req.SetSendTime(now)
 		p.ToDispatcher.Send(req)
+		tracing.StartTask(
+			fmt.Sprintf("%s@%s", req.GetID(), p.Name()),
+			req.GetID(),
+			req.Time(),
+			p,
+			"Req", "Launch Kernel",
+			nil,
+		)
 	} else if req.Src() == p.Dispatcher {
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
@@ -132,6 +142,9 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelComp
 	now := evt.Time()
 	evt.Req.SetSendTime(now)
 	p.ToDriver.Send(evt.Req)
+	tracing.EndTask(
+		fmt.Sprintf("%s@%s", evt.Req.GetID(), p.Name()),
+		now, p)
 	return nil
 }
 
