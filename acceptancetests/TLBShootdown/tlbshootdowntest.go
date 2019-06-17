@@ -15,6 +15,7 @@ import (
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/util/tracing"
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
@@ -379,8 +380,11 @@ func main() {
 	ctrlComponent.vmModules[currentVMCount] =
 		r.GPUDriver.MMU.(*mmu.MMUImpl).MigrationPort
 
-	r.KernelTimeCounter = driver.NewKernelTimeCounter()
-	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
+	r.KernelTimeCounter = tracing.NewBusyTimeTracer(
+		func(task tracing.Task) bool {
+			return task.What == "*driver.LaunchKernelCommand"
+		})
+	tracing.CollectTrace(r.GPUDriver, r.KernelTimeCounter)
 
 	vAddr := []uint64{4294967296, 4295004160}
 	shootDownTime := 0.000001637000000

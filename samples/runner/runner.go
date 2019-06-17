@@ -9,9 +9,11 @@ import (
 	"sync"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/benchmarks"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"
+	"gitlab.com/akita/util/tracing"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -26,13 +28,14 @@ var gpuFlag = flag.String("gpus", "1",
 
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
-	Engine            akita.Engine
-	GPUDriver         *driver.Driver
-	KernelTimeCounter *driver.KernelTimeCounter
-	Benchmarks        []benchmarks.Benchmark
-	Timing            bool
-	Verify            bool
-	Parallel          bool
+	Engine                  akita.Engine
+	GPUDriver               *driver.Driver
+	KernelTimeCounter       *tracing.BusyTimeTracer
+	PerGPUKernelTimeCounter []*tracing.BusyTimeTracer
+	Benchmarks              []benchmarks.Benchmark
+	Timing                  bool
+	Verify                  bool
+	Parallel                bool
 
 	GPUIDs []int
 }
@@ -69,7 +72,7 @@ func (r *Runner) ParseFlag() *Runner {
 
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
-	r.KernelTimeCounter = driver.NewKernelTimeCounter()
+
 	if r.Parallel {
 		platform.UseParallelEngine = true
 	}
@@ -78,7 +81,25 @@ func (r *Runner) Init() *Runner {
 	} else {
 		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
-	r.GPUDriver.AcceptHook(r.KernelTimeCounter)
+
+	r.KernelTimeCounter = tracing.NewBusyTimeTracer(
+		func(task tracing.Task) bool {
+			return task.What == "*driver.LaunchKernelCommand"
+		})
+	tracing.CollectTrace(r.GPUDriver, r.KernelTimeCounter)
+
+	for _, gpu := range r.GPUDriver.GPUs {
+		gpuKernelTimeCountner := tracing.NewBusyTimeTracer(
+			func(task tracing.Task) bool {
+				return task.What == "Launch Kernel"
+			})
+		r.PerGPUKernelTimeCounter = append(
+			r.PerGPUKernelTimeCounter, gpuKernelTimeCountner)
+		tracing.CollectTrace(
+			gpu.CommandProcessor.Component().(*gcn3.CommandProcessor),
+			gpuKernelTimeCountner)
+	}
+
 	return r
 }
 
@@ -126,6 +147,9 @@ func (r *Runner) Run() {
 	r.GPUDriver.Terminate()
 	r.Engine.Finished()
 
-	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.TotalTime)
+	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.BusyTime())
 	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
+	for i, c := range r.PerGPUKernelTimeCounter {
+		fmt.Printf("GPU %d kernel time: %.12f\n", i+i, c.BusyTime())
+	}
 }
