@@ -7,6 +7,7 @@ import (
 
 	. "gitlab.com/akita/gcn3/timing/caches/l1v"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/idealmemcontroller"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
@@ -18,7 +19,7 @@ var _ = Describe("Cache", func() {
 		engine          akita.Engine
 		connection      akita.Connection
 		lowModuleFinder cache.LowModuleFinder
-		dram            *mem.IdealMemController
+		dram            *idealmemcontroller.Comp
 		cuPort          *MockPort
 		c               *Cache
 	)
@@ -28,7 +29,7 @@ var _ = Describe("Cache", func() {
 		cuPort = NewMockPort(mockCtrl)
 		engine = akita.NewSerialEngine()
 		connection = akita.NewDirectConnection(engine)
-		dram = mem.NewIdealMemController("dram", engine, 4*mem.GB)
+		dram = idealmemcontroller.New("dram", engine, 4*mem.GB)
 		lowModuleFinder = &cache.SingleLowModuleFinder{
 			LowModule: dram.ToTop,
 		}

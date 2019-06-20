@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/util/ca"
 )
@@ -36,7 +37,7 @@ var _ = Describe("ALU", func() {
 		alu           *ALUImpl
 		state         *mockInstState
 		storage       *mem.Storage
-		addrConverter *mem.InterleavingConverter
+		addrConverter *idealmemcontroller.InterleavingConverter
 		sAccessor     *storageAccessor
 	)
 
@@ -45,7 +46,7 @@ var _ = Describe("ALU", func() {
 		mmu = NewMockMMU(mockCtrl)
 
 		storage = mem.NewStorage(1 * mem.GB)
-		addrConverter = &mem.InterleavingConverter{
+		addrConverter = &idealmemcontroller.InterleavingConverter{
 			InterleavingSize:    1 * mem.GB,
 			TotalNumOfElements:  1,
 			CurrentElementIndex: 0,
