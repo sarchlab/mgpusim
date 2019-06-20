@@ -3,6 +3,7 @@ package main
 import (
 	"sync"
 
+	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
 
 	"gitlab.com/akita/akita"
@@ -17,7 +18,7 @@ type test struct {
 	conn             *akita.DirectConnection
 	agent            *acceptancetests.MemAccessAgent
 	lowModuleFinder  *cache.SingleLowModuleFinder
-	dram             *mem.IdealMemController
+	dram             *idealmemcontroller.Comp
 	pageTableFactory vm.PageTableFactory
 	c                *l1v.Cache
 }
@@ -39,7 +40,7 @@ func newTest(name string) *test {
 	t.engine = akita.NewSerialEngine()
 	t.conn = akita.NewDirectConnection(t.engine)
 
-	t.dram = mem.NewIdealMemController("dram", t.engine, 1*mem.GB)
+	t.dram = idealmemcontroller.New("dram", t.engine, 1*mem.GB)
 	t.lowModuleFinder = new(cache.SingleLowModuleFinder)
 	t.lowModuleFinder.LowModule = t.dram.ToTop
 
