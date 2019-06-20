@@ -59,6 +59,18 @@ func (mr *MockBufferMockRecorder) Capacity() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Capacity", reflect.TypeOf((*MockBuffer)(nil).Capacity))
 }
 
+// Clear mocks base method
+func (m *MockBuffer) Clear() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Clear")
+}
+
+// Clear indicates an expected call of Clear
+func (mr *MockBufferMockRecorder) Clear() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*MockBuffer)(nil).Clear))
+}
+
 // Peek mocks base method
 func (m *MockBuffer) Peek() interface{} {
 	m.ctrl.T.Helper()
