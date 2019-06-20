@@ -221,6 +221,18 @@ func (mr *MockMSHRMockRecorder) Remove(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockMSHR)(nil).Remove), arg0, arg1)
 }
 
+// Reset mocks base method
+func (m *MockMSHR) Reset() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Reset")
+}
+
+// Reset indicates an expected call of Reset
+func (mr *MockMSHRMockRecorder) Reset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockMSHR)(nil).Reset))
+}
+
 // MockLowModuleFinder is a mock of LowModuleFinder interface
 type MockLowModuleFinder struct {
 	ctrl     *gomock.Controller
