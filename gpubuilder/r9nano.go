@@ -42,26 +42,27 @@ type R9NanoGPUBuilder struct {
 
 	gpuName string
 
-	gpu                  *gcn3.GPU
-	InternalConn         *akita.DirectConnection
-	CP                   *gcn3.CommandProcessor
-	ACE                  *gcn3.Dispatcher
-	L1VCaches            []*l1v.Cache
-	L1SCaches            []*l1v.Cache
-	L1ICaches            []*l1v.Cache
-	L2Caches             []*writeback.Cache
-	l1vAddrTrans         []*addresstranslator.AddressTranslator
-	l1sAddrTrans         []*addresstranslator.AddressTranslator
-	l1iAddrTrans         []*addresstranslator.AddressTranslator
-	L1VTLBs              []*tlb.TLB
-	L1STLBs              []*tlb.TLB
-	L1ITLBs              []*tlb.TLB
-	L2TLBs               []*tlb.TLB
-	DRAMs                []*idealmemcontroller.Comp
-	LowModuleFinderForL1 *cache.InterleavedLowModuleFinder
-	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
-	DMAEngine            *gcn3.DMAEngine
-	RDMAEngine           *rdma.Engine
+	gpu                              *gcn3.GPU
+	InternalConn                     *akita.DirectConnection
+	CP                               *gcn3.CommandProcessor
+	ACE                              *gcn3.Dispatcher
+	L1VCaches                        []*l1v.Cache
+	L1SCaches                        []*l1v.Cache
+	L1ICaches                        []*l1v.Cache
+	L2Caches                         []*writeback.Cache
+	l1vAddrTrans                     []*addresstranslator.AddressTranslator
+	cuToL1VAddrTranslatorConnections []*akita.DirectConnection
+	l1sAddrTrans                     []*addresstranslator.AddressTranslator
+	l1iAddrTrans                     []*addresstranslator.AddressTranslator
+	L1VTLBs                          []*tlb.TLB
+	L1STLBs                          []*tlb.TLB
+	L1ITLBs                          []*tlb.TLB
+	L2TLBs                           []*tlb.TLB
+	DRAMs                            []*idealmemcontroller.Comp
+	LowModuleFinderForL1             *cache.InterleavedLowModuleFinder
+	LowModuleFinderForL2             *cache.InterleavedLowModuleFinder
+	DMAEngine                        *gcn3.DMAEngine
+	RDMAEngine                       *rdma.Engine
 
 	traceHook *trace.Hook
 
@@ -324,7 +325,11 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 			WithTranslationProvider(b.L1VTLBs[i].TopPort).
 			Build(name)
 
-		b.InternalConn.PlugIn(at.TopPort)
+		conn := akita.NewDirectConnection(b.engine)
+		b.cuToL1VAddrTranslatorConnections = append(
+			b.cuToL1VAddrTranslatorConnections, conn)
+
+		conn.PlugIn(at.TopPort)
 		b.InternalConn.PlugIn(at.BottomPort)
 		b.InternalConn.PlugIn(at.TranslationPort)
 
@@ -631,9 +636,9 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 	cuBuilder.Decoder = insts.NewDisassembler()
 	cuBuilder.ConnToInstMem = b.InternalConn
 	cuBuilder.ConnToScalarMem = b.InternalConn
-	cuBuilder.ConnToVectorMem = b.InternalConn
 
 	for i := 0; i < b.numCU(); i++ {
+		cuBuilder.ConnToVectorMem = b.cuToL1VAddrTranslatorConnections[i]
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.gpuName, i)
 		cuBuilder.InstMem = b.L1ICaches[i/b.numCUPerShaderArray].TopPort
 		cuBuilder.ScalarMem = b.l1sAddrTrans[i/b.numCUPerShaderArray].TopPort
@@ -648,7 +653,6 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		b.ACE.RegisterCU(cu.ToACE)
 
 		b.InternalConn.PlugIn(cu.ToACE)
-
 		b.InternalConn.PlugIn(cu.ToCP)
 		b.InternalConn.PlugIn(cu.CP)
 
