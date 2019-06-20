@@ -13,8 +13,10 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/idealmemcontroller"
 	memtraces "gitlab.com/akita/mem/trace"
 	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/util/tracing"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
@@ -44,7 +46,10 @@ func NewEmuGPUBuilder(engine akita.Engine) *EmuGPUBuilder {
 }
 
 // BuildEmulationGPU creates a very simple GPU for emulation purposes
-func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController) {
+func (b *EmuGPUBuilder) BuildEmulationGPU() (
+	*gcn3.GPU,
+	*idealmemcontroller.Comp,
+) {
 	connection := akita.NewDirectConnection(b.engine)
 
 	dispatcher := gcn3.NewDispatcher(
@@ -57,17 +62,11 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 		b.GPUName+".CommandProcessor", b.engine)
 	commandProcessor.Dispatcher = dispatcher.ToCommandProcessor
 
-	var memTracer *memtraces.Tracer
-	if b.EnableMemTracing {
-		file, _ := os.Create("mem.trace")
-		memTracer = memtraces.NewTracer(file)
-	}
-
-	gpuMem := mem.NewIdealMemController(
+	gpuMem := idealmemcontroller.New(
 		b.GPUName+".GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = 1 * akita.GHz
 	gpuMem.Latency = 1
-	addrConverter := mem.InterleavingConverter{
+	addrConverter := idealmemcontroller.InterleavingConverter{
 		InterleavingSize:    4 * mem.GB,
 		TotalNumOfElements:  1,
 		CurrentElementIndex: 0,
@@ -75,7 +74,10 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (*gcn3.GPU, *mem.IdealMemController)
 	}
 	gpuMem.AddressConverter = addrConverter
 	if b.EnableMemTracing {
-		gpuMem.AcceptHook(memTracer)
+		file, _ := os.Create("mem.trace")
+		logger := log.New(file, "", 0)
+		memTracer := memtraces.NewTracer(logger)
+		tracing.CollectTrace(gpuMem, memTracer)
 	}
 
 	disassembler := insts.NewDisassembler()

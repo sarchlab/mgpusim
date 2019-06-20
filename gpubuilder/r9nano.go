@@ -15,10 +15,12 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
+	"gitlab.com/akita/mem/idealmemcontroller"
 	memtraces "gitlab.com/akita/mem/trace"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
+	"gitlab.com/akita/util/tracing"
 	"gitlab.com/akita/vis/trace"
 )
 
@@ -55,7 +57,7 @@ type R9NanoGPUBuilder struct {
 	L1STLBs              []*tlb.TLB
 	L1ITLBs              []*tlb.TLB
 	L2TLBs               []*tlb.TLB
-	DRAMs                []*mem.IdealMemController
+	DRAMs                []*idealmemcontroller.Comp
 	LowModuleFinderForL1 *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2 *cache.InterleavedLowModuleFinder
 	DMAEngine            *gcn3.DMAEngine
@@ -63,7 +65,7 @@ type R9NanoGPUBuilder struct {
 
 	traceHook *trace.Hook
 
-	MemTracer *memtraces.Tracer
+	MemTracer tracing.Tracer
 }
 
 // MakeR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.
@@ -291,7 +293,8 @@ func (b *R9NanoGPUBuilder) buildMemSystem() {
 		if err != nil {
 			panic(err)
 		}
-		b.MemTracer = memtraces.NewTracer(file)
+		logger := log.New(file, "", 0)
+		b.MemTracer = memtraces.NewTracer(logger)
 	}
 
 	b.buildMemControllers()
@@ -492,7 +495,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache)
 		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
 		if b.EnableMemTracing {
-			sCache.AcceptHook(b.MemTracer)
+			tracing.CollectTrace(sCache, b.MemTracer)
 		}
 	}
 }
@@ -523,7 +526,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache)
 		b.gpu.L1ICaches = append(b.gpu.L1ICaches, iCache)
 		if b.EnableMemTracing {
-			iCache.AcceptHook(b.MemTracer)
+			tracing.CollectTrace(iCache, b.MemTracer)
 		}
 	}
 }
@@ -552,7 +555,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
 
 		if b.EnableMemTracing {
-			dCache.AcceptHook(b.MemTracer)
+			tracing.CollectTrace(dCache, b.MemTracer)
 		}
 	}
 }
@@ -584,7 +587,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		b.InternalConn.PlugIn(l2Cache.ControlPort)
 
 		if b.EnableMemTracing {
-			l2Cache.AcceptHook(b.MemTracer)
+			tracing.CollectTrace(l2Cache, b.MemTracer)
 		}
 	}
 }
@@ -594,11 +597,11 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 
 	numDramController := b.numMemoryBank
 	for i := 0; i < numDramController; i++ {
-		memCtrl := mem.NewIdealMemController(
+		memCtrl := idealmemcontroller.New(
 			fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
 			b.engine, 512*mem.MB)
 
-		addrConverter := mem.InterleavingConverter{
+		addrConverter := idealmemcontroller.InterleavingConverter{
 			InterleavingSize:    4096,
 			TotalNumOfElements:  numDramController,
 			CurrentElementIndex: i,
@@ -616,7 +619,7 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 			b.CP.DRAMControllers, memCtrl)
 
 		if b.EnableMemTracing {
-			memCtrl.AcceptHook(b.MemTracer)
+			tracing.CollectTrace(memCtrl, b.MemTracer)
 		}
 	}
 }
