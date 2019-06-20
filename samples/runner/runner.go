@@ -4,6 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -82,8 +85,21 @@ func (r *Runner) ParseFlag() *Runner {
 	return r
 }
 
+func (r *Runner) startProfilingServer() {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Profiling server running on:", listener.Addr().(*net.TCPAddr).Port)
+
+	panic(http.Serve(listener, nil))
+}
+
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
+	go r.startProfilingServer()
+
 	if r.Parallel {
 		platform.UseParallelEngine = true
 	}
