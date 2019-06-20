@@ -104,6 +104,10 @@ func BuildNR9NanoPlatform(
 		gpuDriver.AcceptHook(hook)
 	}
 
+	if TraceMem {
+		gpuBuilder.EnableMemTracing = true
+	}
+
 	rdmaAddressTable := new(cache.BankedLowModuleFinder)
 	rdmaAddressTable.BankSize = 4 * mem.GB
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
