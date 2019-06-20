@@ -23,8 +23,14 @@ var visTracing = flag.Bool("trace-vis", false,
 	"Generate trace for visualization purposes.")
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
+var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false, "Report the average cache latency.")
 var gpuFlag = flag.String("gpus", "1",
 	"The GPUs to use, use a format like 1,2,3,4")
+
+type cacheLatencyTracer struct {
+	tracer *tracing.AverageTimeTracer
+	cache  akita.Component
+}
 
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
@@ -32,10 +38,12 @@ type Runner struct {
 	GPUDriver               *driver.Driver
 	KernelTimeCounter       *tracing.BusyTimeTracer
 	PerGPUKernelTimeCounter []*tracing.BusyTimeTracer
+	CacheLatencyTracers     []cacheLatencyTracer
 	Benchmarks              []benchmarks.Benchmark
 	Timing                  bool
 	Verify                  bool
 	Parallel                bool
+	ReportCacheLatency      bool
 
 	GPUIDs []int
 }
@@ -66,13 +74,16 @@ func (r *Runner) ParseFlag() *Runner {
 		r.Timing = true
 	}
 
+	if *cacheLatencyReportFlag {
+		r.ReportCacheLatency = true
+	}
+
 	r.parseGPUFlag()
 	return r
 }
 
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
-
 	if r.Parallel {
 		platform.UseParallelEngine = true
 	}
@@ -82,6 +93,13 @@ func (r *Runner) Init() *Runner {
 		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
 	}
 
+	r.addKernelTimeTracer()
+	r.addCacheLatencyTracer()
+
+	return r
+}
+
+func (r *Runner) addKernelTimeTracer() {
 	r.KernelTimeCounter = tracing.NewBusyTimeTracer(
 		func(task tracing.Task) bool {
 			return task.What == "*driver.LaunchKernelCommand"
@@ -99,8 +117,24 @@ func (r *Runner) Init() *Runner {
 			gpu.CommandProcessor.Component().(*gcn3.CommandProcessor),
 			gpuKernelTimeCountner)
 	}
+}
 
-	return r
+func (r *Runner) addCacheLatencyTracer() {
+	if !r.ReportCacheLatency {
+		return
+	}
+
+	for _, gpu := range r.GPUDriver.GPUs {
+		for _, cache := range gpu.L2Caches {
+			tracer := tracing.NewAverageTimeTracer(
+				func(task tracing.Task) bool {
+					return task.Kind == "req_in"
+				})
+			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+				cacheLatencyTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+	}
 }
 
 func (r *Runner) parseGPUFlag() {
@@ -151,5 +185,12 @@ func (r *Runner) Run() {
 	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
 	for i, c := range r.PerGPUKernelTimeCounter {
 		fmt.Printf("GPU %d kernel time: %.12f\n", i+1, c.BusyTime())
+	}
+
+	for _, tracer := range r.CacheLatencyTracers {
+		fmt.Printf("Cache %s average latency %.12f\n",
+			tracer.cache.Name(),
+			tracer.tracer.AverageTime(),
+		)
 	}
 }
