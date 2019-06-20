@@ -52,6 +52,7 @@ type R9NanoGPUBuilder struct {
 	L2Caches                         []*writeback.Cache
 	l1vAddrTrans                     []*addresstranslator.AddressTranslator
 	cuToL1VAddrTranslatorConnections []*akita.DirectConnection
+	addrTranslatortoL1VConnections   []*akita.DirectConnection
 	l1sAddrTrans                     []*addresstranslator.AddressTranslator
 	l1iAddrTrans                     []*addresstranslator.AddressTranslator
 	L1VTLBs                          []*tlb.TLB
@@ -325,12 +326,14 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 			WithTranslationProvider(b.L1VTLBs[i].TopPort).
 			Build(name)
 
-		conn := akita.NewDirectConnection(b.engine)
+		topConn := akita.NewDirectConnection(b.engine)
 		b.cuToL1VAddrTranslatorConnections = append(
-			b.cuToL1VAddrTranslatorConnections, conn)
+			b.cuToL1VAddrTranslatorConnections, topConn)
+		topConn.PlugIn(at.TopPort)
 
-		conn.PlugIn(at.TopPort)
-		b.InternalConn.PlugIn(at.BottomPort)
+		bottomConn := b.addrTranslatortoL1VConnections[i]
+		bottomConn.PlugIn(at.BottomPort)
+
 		b.InternalConn.PlugIn(at.TranslationPort)
 
 		b.l1vAddrTrans = append(b.l1vAddrTrans, at)
@@ -552,7 +555,12 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		name := fmt.Sprintf("%s.L1D_%02d", b.gpuName, i)
 		dCache := builder.Build(name)
 
-		b.InternalConn.PlugIn(dCache.TopPort)
+		conn := akita.NewDirectConnection(b.engine)
+		b.addrTranslatortoL1VConnections = append(
+			b.addrTranslatortoL1VConnections,
+			conn)
+
+		conn.PlugIn(dCache.TopPort)
 		b.InternalConn.PlugIn(dCache.ControlPort)
 		b.InternalConn.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
