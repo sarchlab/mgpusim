@@ -63,8 +63,12 @@ type R9NanoGPUBuilder struct {
 	DMAEngine                        *gcn3.DMAEngine
 	RDMAEngine                       *rdma.Engine
 	cuToL1VAddrTranslatorConnections []*akita.DirectConnection
+	cuToL1SAddrTranslatorConnections []*akita.DirectConnection
+	cuToL1IConnections               []*akita.DirectConnection
 	addrTranslatorToL1VConnections   []*akita.DirectConnection
+	addrTranslatorToL1SConnections   []*akita.DirectConnection
 	addrTranslatorToTLBL1Connections []*akita.DirectConnection
+	l1TLBToL2TLBConnection           *akita.DirectConnection
 
 	traceHook *trace.Hook
 
@@ -362,8 +366,14 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 			WithTranslationProvider(b.L1STLBs[i].TopPort).
 			Build(name)
 
-		b.InternalConn.PlugIn(at.TopPort)
-		b.InternalConn.PlugIn(at.BottomPort)
+		topConn := akita.NewDirectConnection(b.engine)
+		b.cuToL1SAddrTranslatorConnections = append(
+			b.cuToL1SAddrTranslatorConnections, topConn)
+		topConn.PlugIn(at.TopPort)
+
+		bottomConn := b.addrTranslatorToL1SConnections[i]
+		bottomConn.PlugIn(at.BottomPort)
+
 		b.InternalConn.PlugIn(at.TranslationPort)
 
 		b.l1sAddrTrans = append(b.l1sAddrTrans, at)
@@ -410,7 +420,8 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.L2TLBs = append(b.L2TLBs, l2TLB)
 	b.gpu.L2TLBs = append(b.gpu.L2TLBs, l2TLB)
-	b.InternalConn.PlugIn(l2TLB.TopPort)
+	b.l1TLBToL2TLBConnection = akita.NewDirectConnection(b.engine)
+	b.l1TLBToL2TLBConnection.PlugIn(l2TLB.TopPort)
 	b.InternalConn.PlugIn(l2TLB.ControlPort)
 	b.externalConn.PlugIn(l2TLB.BottomPort)
 
@@ -441,7 +452,7 @@ func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 			b.addrTranslatorToTLBL1Connections, conn)
 
 		conn.PlugIn(l1TLB.TopPort)
-		b.InternalConn.PlugIn(l1TLB.BottomPort)
+		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
 }
@@ -462,7 +473,7 @@ func (b *R9NanoGPUBuilder) buildL1STLBs() {
 		b.L1STLBs = append(b.L1STLBs, l1TLB)
 		b.gpu.L1STLBs = append(b.gpu.L1STLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.TopPort)
-		b.InternalConn.PlugIn(l1TLB.BottomPort)
+		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
 }
@@ -483,7 +494,7 @@ func (b *R9NanoGPUBuilder) buildL1ITLBs() {
 		b.L1ITLBs = append(b.L1ITLBs, l1TLB)
 		b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, l1TLB)
 		b.InternalConn.PlugIn(l1TLB.TopPort)
-		b.InternalConn.PlugIn(l1TLB.BottomPort)
+		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
 }
@@ -503,7 +514,12 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 	for i := 0; i < b.numShaderArray; i++ {
 		name := fmt.Sprintf("%s.L1K_%02d", b.gpuName, i)
 		sCache := builder.Build(name)
-		b.InternalConn.PlugIn(sCache.TopPort)
+
+		topConn := akita.NewDirectConnection(b.engine)
+		b.addrTranslatorToL1SConnections = append(
+			b.addrTranslatorToL1SConnections, topConn)
+		topConn.PlugIn(sCache.TopPort)
+
 		b.InternalConn.PlugIn(sCache.ControlPort)
 		b.InternalConn.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
@@ -533,7 +549,11 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 				LowModule: b.l1iAddrTrans[i].TopPort,
 			}).
 			Build(name)
-		b.InternalConn.PlugIn(iCache.TopPort)
+
+		topConn := akita.NewDirectConnection(b.engine)
+		b.cuToL1IConnections = append(b.cuToL1IConnections, topConn)
+		topConn.PlugIn(iCache.TopPort)
+
 		b.InternalConn.PlugIn(iCache.ControlPort)
 		b.InternalConn.PlugIn(iCache.BottomPort)
 
@@ -649,11 +669,12 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 	cuBuilder.Engine = b.engine
 	cuBuilder.Freq = b.freq
 	cuBuilder.Decoder = insts.NewDisassembler()
-	cuBuilder.ConnToInstMem = b.InternalConn
-	cuBuilder.ConnToScalarMem = b.InternalConn
 
 	for i := 0; i < b.numCU(); i++ {
 		cuBuilder.ConnToVectorMem = b.cuToL1VAddrTranslatorConnections[i]
+		cuBuilder.ConnToInstMem = b.cuToL1IConnections[i/b.numCUPerShaderArray]
+		cuBuilder.ConnToScalarMem =
+			b.cuToL1SAddrTranslatorConnections[i/b.numCUPerShaderArray]
 		cuBuilder.CUName = fmt.Sprintf("%s.CU%02d", b.gpuName, i)
 		cuBuilder.InstMem = b.L1ICaches[i/b.numCUPerShaderArray].TopPort
 		cuBuilder.ScalarMem = b.l1sAddrTrans[i/b.numCUPerShaderArray].TopPort
