@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
+	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
 )
 
@@ -38,7 +39,7 @@ type CommandProcessor struct {
 	L1SCaches       []*l1v.Cache
 	L1ICaches       []*l1v.Cache
 	L2Caches        []*writeback.Cache
-	DRAMControllers []*mem.IdealMemController
+	DRAMControllers []*idealmemcontroller.Comp
 	ToCUs           akita.Port
 	ToVMModules     akita.Port
 

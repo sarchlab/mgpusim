@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
 	"gitlab.com/akita/vis/trace"
@@ -24,7 +25,7 @@ func BuildEmuPlatform() (
 	akita.Engine,
 	*gcn3.GPU,
 	*driver.Driver,
-	*mem.IdealMemController,
+	*idealmemcontroller.Comp,
 ) {
 	var engine akita.Engine
 

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/mmu"
 )
 
@@ -379,7 +380,7 @@ func BuildComputeUnit(
 	decoder Decoder,
 	mmu mmu.MMU,
 	storage *mem.Storage,
-	addrConverter mem.AddressConverter,
+	addrConverter idealmemcontroller.AddressConverter,
 ) *ComputeUnit {
 	scratchpadPreparer := NewScratchpadPreparerImpl()
 	sAccessor := newStorageAccessor(storage, mmu, addrConverter)
