@@ -150,6 +150,6 @@ func (r *Runner) Run() {
 	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.BusyTime())
 	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
 	for i, c := range r.PerGPUKernelTimeCounter {
-		fmt.Printf("GPU %d kernel time: %.12f\n", i+i, c.BusyTime())
+		fmt.Printf("GPU %d kernel time: %.12f\n", i+1, c.BusyTime())
 	}
 }
