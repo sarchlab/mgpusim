@@ -51,8 +51,6 @@ type R9NanoGPUBuilder struct {
 	L1ICaches                        []*l1v.Cache
 	L2Caches                         []*writeback.Cache
 	l1vAddrTrans                     []*addresstranslator.AddressTranslator
-	cuToL1VAddrTranslatorConnections []*akita.DirectConnection
-	addrTranslatortoL1VConnections   []*akita.DirectConnection
 	l1sAddrTrans                     []*addresstranslator.AddressTranslator
 	l1iAddrTrans                     []*addresstranslator.AddressTranslator
 	L1VTLBs                          []*tlb.TLB
@@ -64,6 +62,9 @@ type R9NanoGPUBuilder struct {
 	LowModuleFinderForL2             *cache.InterleavedLowModuleFinder
 	DMAEngine                        *gcn3.DMAEngine
 	RDMAEngine                       *rdma.Engine
+	cuToL1VAddrTranslatorConnections []*akita.DirectConnection
+	addrTranslatorToL1VConnections   []*akita.DirectConnection
+	addrTranslatorToTLBL1Connections []*akita.DirectConnection
 
 	traceHook *trace.Hook
 
@@ -331,10 +332,11 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 			b.cuToL1VAddrTranslatorConnections, topConn)
 		topConn.PlugIn(at.TopPort)
 
-		bottomConn := b.addrTranslatortoL1VConnections[i]
+		bottomConn := b.addrTranslatorToL1VConnections[i]
 		bottomConn.PlugIn(at.BottomPort)
 
-		b.InternalConn.PlugIn(at.TranslationPort)
+		translationConn := b.addrTranslatorToTLBL1Connections[i]
+		translationConn.PlugIn(at.TranslationPort)
 
 		b.l1vAddrTrans = append(b.l1vAddrTrans, at)
 	}
@@ -433,7 +435,12 @@ func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 
 		b.L1VTLBs = append(b.L1VTLBs, l1TLB)
 		b.gpu.L1VTLBs = append(b.gpu.L1VTLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.TopPort)
+
+		conn := akita.NewDirectConnection(b.engine)
+		b.addrTranslatorToTLBL1Connections = append(
+			b.addrTranslatorToTLBL1Connections, conn)
+
+		conn.PlugIn(l1TLB.TopPort)
 		b.InternalConn.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
@@ -556,8 +563,8 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		dCache := builder.Build(name)
 
 		conn := akita.NewDirectConnection(b.engine)
-		b.addrTranslatortoL1VConnections = append(
-			b.addrTranslatortoL1VConnections,
+		b.addrTranslatorToL1VConnections = append(
+			b.addrTranslatorToL1VConnections,
 			conn)
 
 		conn.PlugIn(dCache.TopPort)
