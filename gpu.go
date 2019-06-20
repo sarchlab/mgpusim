@@ -6,6 +6,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/tlb"
 )
@@ -30,7 +31,7 @@ type GPU struct {
 	L1VCaches          []akita.Component
 	L1ICaches          []akita.Component
 	L1SCaches          []akita.Component
-	L2Caches           []akita.Component
+	L2Caches           []*writeback.Cache
 	L2CacheFinder      cache.LowModuleFinder
 	L2TLBs             []*tlb.TLB
 	L1VTLBs            []*tlb.TLB
