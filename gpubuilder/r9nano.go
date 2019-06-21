@@ -72,6 +72,7 @@ type R9NanoGPUBuilder struct {
 	l1TLBToL2TLBConnection            *akita.DirectConnection
 	l1ToL2Connection                  *akita.DirectConnection
 	l2ToDramConnections               []*akita.DirectConnection
+	l1ITol1AddrTranslatorConnections  []*akita.DirectConnection
 
 	traceHook *trace.Hook
 
@@ -402,7 +403,10 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 			WithTranslationProvider(b.L1ITLBs[i].TopPort).
 			Build(name)
 
-		b.InternalConn.PlugIn(at.TopPort)
+		conn := akita.NewDirectConnection(b.engine)
+		b.l1ITol1AddrTranslatorConnections = append(
+			b.l1ITol1AddrTranslatorConnections, conn)
+		conn.PlugIn(at.TopPort)
 		b.l1ToL2Connection.PlugIn(at.BottomPort)
 		b.InternalConn.PlugIn(at.TranslationPort)
 
@@ -563,7 +567,9 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		topConn.PlugIn(iCache.TopPort)
 
 		b.InternalConn.PlugIn(iCache.ControlPort)
-		b.InternalConn.PlugIn(iCache.BottomPort)
+
+		bottomConn := b.l1ITol1AddrTranslatorConnections[i]
+		bottomConn.PlugIn(iCache.BottomPort)
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache)
