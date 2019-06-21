@@ -69,6 +69,7 @@ type R9NanoGPUBuilder struct {
 	addrTranslatorToL1SConnections   []*akita.DirectConnection
 	addrTranslatorToTLBL1Connections []*akita.DirectConnection
 	l1TLBToL2TLBConnection           *akita.DirectConnection
+	l1ToL2Connection                 *akita.DirectConnection
 
 	traceHook *trace.Hook
 
@@ -399,7 +400,7 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 			Build(name)
 
 		b.InternalConn.PlugIn(at.TopPort)
-		b.InternalConn.PlugIn(at.BottomPort)
+		b.l1ToL2Connection.PlugIn(at.BottomPort)
 		b.InternalConn.PlugIn(at.TranslationPort)
 
 		b.l1iAddrTrans = append(b.l1iAddrTrans, at)
@@ -521,7 +522,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		topConn.PlugIn(sCache.TopPort)
 
 		b.InternalConn.PlugIn(sCache.ControlPort)
-		b.InternalConn.PlugIn(sCache.BottomPort)
+		b.l1ToL2Connection.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
 		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache)
 		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
@@ -589,7 +590,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 
 		conn.PlugIn(dCache.TopPort)
 		b.InternalConn.PlugIn(dCache.ControlPort)
-		b.InternalConn.PlugIn(dCache.BottomPort)
+		b.l1ToL2Connection.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
 		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache)
 		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
@@ -608,6 +609,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
 	b.LowModuleFinderForL1.LowAddress = b.memAddrOffset
 	b.LowModuleFinderForL1.HighAddress = b.memAddrOffset + 4*mem.GB
+	b.l1ToL2Connection = akita.NewDirectConnection(b.engine)
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
 		cacheBuilder.CacheName = fmt.Sprintf("%s.L2_%d", b.gpuName, i)
@@ -622,7 +624,8 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 
 		b.LowModuleFinderForL1.LowModules = append(
 			b.LowModuleFinderForL1.LowModules, l2Cache.TopPort)
-		b.InternalConn.PlugIn(l2Cache.TopPort)
+
+		b.l1ToL2Connection.PlugIn(l2Cache.TopPort)
 		b.InternalConn.PlugIn(l2Cache.BottomPort)
 		b.InternalConn.PlugIn(l2Cache.ControlPort)
 
