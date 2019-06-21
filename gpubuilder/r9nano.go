@@ -42,35 +42,36 @@ type R9NanoGPUBuilder struct {
 
 	gpuName string
 
-	gpu                              *gcn3.GPU
-	InternalConn                     *akita.DirectConnection
-	CP                               *gcn3.CommandProcessor
-	ACE                              *gcn3.Dispatcher
-	L1VCaches                        []*l1v.Cache
-	L1SCaches                        []*l1v.Cache
-	L1ICaches                        []*l1v.Cache
-	L2Caches                         []*writeback.Cache
-	l1vAddrTrans                     []*addresstranslator.AddressTranslator
-	l1sAddrTrans                     []*addresstranslator.AddressTranslator
-	l1iAddrTrans                     []*addresstranslator.AddressTranslator
-	L1VTLBs                          []*tlb.TLB
-	L1STLBs                          []*tlb.TLB
-	L1ITLBs                          []*tlb.TLB
-	L2TLBs                           []*tlb.TLB
-	DRAMs                            []*idealmemcontroller.Comp
-	LowModuleFinderForL1             *cache.InterleavedLowModuleFinder
-	LowModuleFinderForL2             *cache.InterleavedLowModuleFinder
-	DMAEngine                        *gcn3.DMAEngine
-	RDMAEngine                       *rdma.Engine
-	cuToL1VAddrTranslatorConnections []*akita.DirectConnection
-	cuToL1SAddrTranslatorConnections []*akita.DirectConnection
-	cuToL1IConnections               []*akita.DirectConnection
-	addrTranslatorToL1VConnections   []*akita.DirectConnection
-	addrTranslatorToL1SConnections   []*akita.DirectConnection
-	addrTranslatorToTLBL1Connections []*akita.DirectConnection
-	l1TLBToL2TLBConnection           *akita.DirectConnection
-	l1ToL2Connection                 *akita.DirectConnection
-	l2ToDramConnections              []*akita.DirectConnection
+	gpu                               *gcn3.GPU
+	InternalConn                      *akita.DirectConnection
+	CP                                *gcn3.CommandProcessor
+	ACE                               *gcn3.Dispatcher
+	L1VCaches                         []*l1v.Cache
+	L1SCaches                         []*l1v.Cache
+	L1ICaches                         []*l1v.Cache
+	L2Caches                          []*writeback.Cache
+	l1vAddrTrans                      []*addresstranslator.AddressTranslator
+	l1sAddrTrans                      []*addresstranslator.AddressTranslator
+	l1iAddrTrans                      []*addresstranslator.AddressTranslator
+	L1VTLBs                           []*tlb.TLB
+	L1STLBs                           []*tlb.TLB
+	L1ITLBs                           []*tlb.TLB
+	L2TLBs                            []*tlb.TLB
+	DRAMs                             []*idealmemcontroller.Comp
+	LowModuleFinderForL1              *cache.InterleavedLowModuleFinder
+	LowModuleFinderForL2              *cache.InterleavedLowModuleFinder
+	DMAEngine                         *gcn3.DMAEngine
+	RDMAEngine                        *rdma.Engine
+	cuToL1VAddrTranslatorConnections  []*akita.DirectConnection
+	cuToL1SAddrTranslatorConnections  []*akita.DirectConnection
+	cuToL1IConnections                []*akita.DirectConnection
+	addrTranslatorToL1VConnections    []*akita.DirectConnection
+	addrTranslatorToL1SConnections    []*akita.DirectConnection
+	addrTranslatorToTLBL1Connections  []*akita.DirectConnection
+	addrTranslatorToSTLBL1Connections []*akita.DirectConnection
+	l1TLBToL2TLBConnection            *akita.DirectConnection
+	l1ToL2Connection                  *akita.DirectConnection
+	l2ToDramConnections               []*akita.DirectConnection
 
 	traceHook *trace.Hook
 
@@ -376,7 +377,8 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 		bottomConn := b.addrTranslatorToL1SConnections[i]
 		bottomConn.PlugIn(at.BottomPort)
 
-		b.InternalConn.PlugIn(at.TranslationPort)
+		translationConn := b.addrTranslatorToSTLBL1Connections[i]
+		translationConn.PlugIn(at.TranslationPort)
 
 		b.l1sAddrTrans = append(b.l1sAddrTrans, at)
 	}
@@ -474,7 +476,11 @@ func (b *R9NanoGPUBuilder) buildL1STLBs() {
 
 		b.L1STLBs = append(b.L1STLBs, l1TLB)
 		b.gpu.L1STLBs = append(b.gpu.L1STLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.TopPort)
+
+		conn := akita.NewDirectConnection(b.engine)
+		b.addrTranslatorToSTLBL1Connections = append(
+			b.addrTranslatorToSTLBL1Connections, conn)
+		conn.PlugIn(l1TLB.TopPort)
 		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
 	}
