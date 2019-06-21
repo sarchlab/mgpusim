@@ -70,6 +70,7 @@ type R9NanoGPUBuilder struct {
 	addrTranslatorToTLBL1Connections []*akita.DirectConnection
 	l1TLBToL2TLBConnection           *akita.DirectConnection
 	l1ToL2Connection                 *akita.DirectConnection
+	l2ToDramConnections              []*akita.DirectConnection
 
 	traceHook *trace.Hook
 
@@ -626,7 +627,9 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 			b.LowModuleFinderForL1.LowModules, l2Cache.TopPort)
 
 		b.l1ToL2Connection.PlugIn(l2Cache.TopPort)
-		b.InternalConn.PlugIn(l2Cache.BottomPort)
+
+		bottomConn := b.l2ToDramConnections[i]
+		bottomConn.PlugIn(l2Cache.BottomPort)
 		b.InternalConn.PlugIn(l2Cache.ControlPort)
 
 		if b.EnableMemTracing {
@@ -652,7 +655,9 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 		}
 		memCtrl.AddressConverter = addrConverter
 
-		b.InternalConn.PlugIn(memCtrl.ToTop)
+		conn := akita.NewDirectConnection(b.engine)
+		b.l2ToDramConnections = append(b.l2ToDramConnections, conn)
+		conn.PlugIn(memCtrl.ToTop)
 
 		b.LowModuleFinderForL2.LowModules = append(
 			b.LowModuleFinderForL2.LowModules, memCtrl.ToTop)
