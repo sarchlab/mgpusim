@@ -1,6 +1,7 @@
 package gcn3
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 
@@ -341,6 +342,9 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 		Item:   task,
 	}
 	d.InvokeHook(&ctx)
+
+	fmt.Printf("Kernel progress: %d out of %d WG finished.\n",
+		len(d.completedWGs), d.totalWGs)
 
 	if d.totalWGs <= len(d.completedWGs) {
 		d.replyKernelFinish(mesg.Time())
