@@ -347,10 +347,14 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	}
 	d.InvokeHook(&ctx)
 
-	d.progressBar.Increment()
+	if d.progressBar != nil {
+		d.progressBar.Increment()
+	}
 
 	if d.totalWGs <= len(d.completedWGs) {
-		d.progressBar.Finish()
+		if d.progressBar != nil {
+			d.progressBar.Finish()
+		}
 		d.replyKernelFinish(mesg.Time())
 		return nil
 	}
