@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/util/ca"
 	"gitlab.com/akita/vis/trace"
+	"gopkg.in/cheggaaa/pb.v1"
 )
 
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
@@ -137,6 +138,7 @@ type Dispatcher struct {
 	dispatchingWfs  []*kernels.Wavefront
 	dispatchingCUID int
 	state           DispatcherState
+	progressBar     *pb.ProgressBar
 
 	ToCUs              akita.Port
 	ToCommandProcessor akita.Port
@@ -272,6 +274,9 @@ func (d *Dispatcher) initKernelDispatching(
 	})
 	d.totalWGs = d.gridBuilder.NumWG()
 	d.dispatchingCUID = -1
+	d.progressBar = pb.New(d.totalWGs)
+	d.progressBar.ShowTimeLeft = true
+	d.progressBar.Start()
 
 	task := trace.Task{
 		ID: req.ID,
@@ -342,7 +347,14 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	}
 	d.InvokeHook(&ctx)
 
+	if d.progressBar != nil {
+		d.progressBar.Increment()
+	}
+
 	if d.totalWGs <= len(d.completedWGs) {
+		if d.progressBar != nil {
+			d.progressBar.Finish()
+		}
 		d.replyKernelFinish(mesg.Time())
 		return nil
 	}

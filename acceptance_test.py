@@ -34,8 +34,6 @@ def main():
 
     error |= compile('insts/gcn3disassembler')
 
-
-
     error |= compile('samples/fir/')
     # error |= run_test("FIR Disasm", '../../insts/gcn3disassembler/gcn3disassembler kernels.hsaco | diff kernels.disasm -', 'samples/fir')
     error |= run_test(
@@ -183,19 +181,19 @@ def main():
     error |= compile('samples/matrixmultiplication/')
     error |= run_test(
         "Matrix Multiplication Emu",
-        './matrixmultiplication -length=256 -verify',
+        './matrixmultiplication -verify',
         'samples/matrixmultiplication')
     error |= run_test(
         "Matrix Multiplication Sim",
-        './matrixmultiplication -length=256 -timing -verify',
+        './matrixmultiplication -timing -verify',
         'samples/matrixmultiplication')
     error |= run_test(
         "Matrix Multiplication Parallel Emu",
-        './matrixmultiplication -length=256 -parallel -verify',
+        './matrixmultiplication -parallel -verify',
         'samples/matrixmultiplication')
     error |= run_test(
         "Matrix Multiplication Parallel Sim",
-        './matrixmultiplication -length=256 -timing -parallel -verify',
+        './matrixmultiplication -timing -parallel -verify',
         'samples/matrixmultiplication')
 
     error |= compile('samples/concurrentworkload/')
@@ -207,7 +205,6 @@ def main():
         "Concurrent Workload Sim",
         './concurrentworkload -timing -parallel -verify',
         'samples/concurrentworkload')
-
 
     # error |= compile('acceptancetests/cupipelinedraining')
     # error |= run_test('CU Pipeline Draining',
