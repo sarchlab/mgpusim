@@ -1,7 +1,6 @@
 package gcn3
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -117,14 +116,7 @@ func (p *CommandProcessor) processLaunchKernelReq(
 		req.SetSrc(p.ToDispatcher)
 		req.SetSendTime(now)
 		p.ToDispatcher.Send(req)
-		tracing.StartTask(
-			fmt.Sprintf("%s@%s", req.GetID(), p.Name()),
-			req.GetID(),
-			req.Time(),
-			p,
-			"Req", "Launch Kernel",
-			nil,
-		)
+		tracing.TraceReqReceive(req, now, p)
 	} else if req.Src() == p.Dispatcher {
 		req.SetDst(p.Driver)
 		req.SetSrc(p.ToDriver)
@@ -143,9 +135,7 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelComp
 	now := evt.Time()
 	evt.Req.SetSendTime(now)
 	p.ToDriver.Send(evt.Req)
-	tracing.EndTask(
-		fmt.Sprintf("%s@%s", evt.Req.GetID(), p.Name()),
-		now, p)
+	tracing.TraceReqComplete(evt.Req, now, p)
 	return nil
 }
 

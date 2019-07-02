@@ -8,6 +8,7 @@ require (
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/rs/xid v1.2.1
+	github.com/tebeka/atexit v0.1.0
 	gitlab.com/akita/akita v1.3.2
 	gitlab.com/akita/mem v1.2.4
 	gitlab.com/akita/noc v1.1.3

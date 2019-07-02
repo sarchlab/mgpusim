@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/util/tracing"
 	"gitlab.com/akita/vis/trace"
 	"gopkg.in/cheggaaa/pb.v1"
 )
@@ -196,6 +197,8 @@ func (d *Dispatcher) handleLaunchKernelReq(
 	d.initKernelDispatching(req.Time(), req)
 	d.scheduleMapWG(d.Freq.NextTick(req.Time()))
 
+	tracing.TraceReqReceive(req, req.Time(), d)
+
 	return nil
 }
 
@@ -379,16 +382,7 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 		log.Panic(err)
 	}
 
-	task := trace.Task{
-		ID: req.ID,
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskComplete,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.TraceReqComplete(req, now, d)
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can

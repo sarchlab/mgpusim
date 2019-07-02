@@ -270,22 +270,14 @@ func (d *Driver) logTaskToGPUInitiate(
 	cmd Command,
 	req akita.Req,
 ) {
-	tracing.StartTask(
-		req.GetID(),
-		cmd.GetID(),
-		now,
-		d,
-		"Req",
-		reflect.TypeOf(req).String(),
-		nil,
-	)
+	tracing.TraceReqInitiate(req, now, d, cmd.GetID())
 }
 
 func (d *Driver) logTaskToGPUClear(
 	now akita.VTimeInSec,
 	req akita.Req,
 ) {
-	tracing.EndTask(req.GetID(), now, d)
+	tracing.TraceReqFinalize(req, now, d)
 }
 
 func (d *Driver) processMemCopyH2DReturn(

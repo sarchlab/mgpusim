@@ -239,6 +239,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.CP.ToVMModules)
 
 	if b.enableVisTracing {
+		tracing.CollectTrace(b.CP, b.visTracer)
 		tracing.CollectTrace(b.ACE, b.visTracer)
 	}
 }
