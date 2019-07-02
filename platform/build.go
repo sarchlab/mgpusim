@@ -12,7 +12,7 @@ import (
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
-	"gitlab.com/akita/vis/trace"
+	"gitlab.com/akita/util/tracing"
 )
 
 var UseParallelEngine bool
@@ -51,6 +51,7 @@ func BuildEmuPlatform() (
 	if TraceMem {
 		gpuBuilder.EnableMemTracing = true
 	}
+
 	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
 	gpuDriver.RegisterGPU(gpu, 4*mem.GB)
 
@@ -96,12 +97,10 @@ func BuildNR9NanoPlatform(
 		WithNumMemoryBank(8)
 
 	if TraceVis {
-		tracer := trace.NewMongoDBTracer()
-		tracer.Init()
-		hook := trace.NewHook(tracer)
-		gpuBuilder.SetTraceHook(hook)
+		tracer := tracing.NewJsonTracer()
+		tracing.CollectTrace(gpuDriver, tracer)
 
-		gpuDriver.AcceptHook(hook)
+		gpuBuilder = gpuBuilder.WithVisTracer(tracer)
 	}
 
 	if TraceMem {

@@ -21,7 +21,6 @@ import (
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/util/tracing"
-	"gitlab.com/akita/vis/trace"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -38,7 +37,6 @@ type R9NanoGPUBuilder struct {
 	EnableISADebug    bool
 	EnableInstTracing bool
 	EnableMemTracing  bool
-	EnableVisTracing  bool
 
 	gpuName string
 
@@ -74,9 +72,9 @@ type R9NanoGPUBuilder struct {
 	l2ToDramConnections               []*akita.DirectConnection
 	l1ITol1AddrTranslatorConnections  []*akita.DirectConnection
 
-	traceHook *trace.Hook
-
-	MemTracer tracing.Tracer
+	MemTracer        tracing.Tracer
+	visTracer        tracing.Tracer
+	enableVisTracing bool
 }
 
 // MakeR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.
@@ -148,6 +146,14 @@ func (b R9NanoGPUBuilder) WithNumCUPerShaderArray(n int) R9NanoGPUBuilder {
 	return b
 }
 
+// WithVisTracer applies a tracer to trace all the tasks of all the GPU
+// components
+func (b R9NanoGPUBuilder) WithVisTracer(t tracing.Tracer) R9NanoGPUBuilder {
+	b.enableVisTracing = true
+	b.visTracer = t
+	return b
+}
+
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.gpuName = name
@@ -174,16 +180,6 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.connectVMToCP()
 
 	return b.gpu
-}
-
-// SetTraceHook sets to a hook that captures all the traces from GPU components.
-func (b *R9NanoGPUBuilder) SetTraceHook(h *trace.Hook) {
-	if h != nil {
-		b.EnableVisTracing = true
-	} else {
-		b.EnableVisTracing = false
-	}
-	b.traceHook = h
 }
 
 func (b *R9NanoGPUBuilder) reset() {
@@ -242,8 +238,8 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.CP.ToCUs)
 	b.InternalConn.PlugIn(b.CP.ToVMModules)
 
-	if b.EnableVisTracing {
-		b.ACE.AcceptHook(b.traceHook)
+	if b.enableVisTracing {
+		tracing.CollectTrace(b.ACE, b.visTracer)
 	}
 }
 
@@ -721,8 +717,8 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		// 	cu.AcceptHook(isaDebugger)
 		// }
 
-		if b.EnableVisTracing {
-			cu.AcceptHook(b.traceHook)
+		if b.enableVisTracing {
+			tracing.CollectTrace(cu, b.visTracer)
 		}
 	}
 }
