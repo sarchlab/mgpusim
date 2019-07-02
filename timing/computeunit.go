@@ -4,6 +4,7 @@ import (
 	"log"
 	"reflect"
 
+	"gitlab.com/akita/util/tracing"
 	"gitlab.com/akita/vis/trace"
 
 	"gitlab.com/akita/akita"
@@ -364,16 +365,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 		evt.IsLastInWG = true
 		cu.Engine.Schedule(evt)
 
-		task := trace.Task{
-			ID: req.GetID(),
-		}
-		ctx := akita.HookCtx{
-			Domain: cu,
-			Now:    now,
-			Pos:    trace.HookPosTaskStart,
-			Item:   task,
-		}
-		cu.InvokeHook(&ctx)
+		tracing.TraceReqReceive(req, now, cu)
 
 		return nil
 	}
@@ -402,21 +394,14 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 
 		wf.State = wavefront.WfReady
 
-		task := trace.Task{
-			ID:           wf.UID,
-			ParentID:     evt.MapWGReq.GetID(),
-			Type:         "Wavefront",
-			What:         "Wavefront",
-			Where:        cu.Name(),
-			InitiateTime: float64(now),
-		}
-		ctx := akita.HookCtx{
-			Domain: cu,
-			Now:    now,
-			Pos:    trace.HookPosTaskInitiate,
-			Item:   task,
-		}
-		cu.InvokeHook(&ctx)
+		tracing.StartTask(wf.UID,
+			tracing.ReqIDAtReceiver(evt.MapWGReq, cu),
+			now,
+			cu,
+			"wavefront",
+			"wavefront",
+			nil,
+		)
 	}
 
 	// Respond ACK
@@ -443,32 +428,13 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	wg := wf.WG
 	wf.State = wavefront.WfCompleted
 
-	task := trace.Task{
-		ID: wf.UID,
-	}
-	ctx := akita.HookCtx{
-		Domain: cu,
-		Now:    now,
-		Pos:    trace.HookPosTaskClear,
-		Item:   task,
-	}
-	cu.InvokeHook(&ctx)
+	tracing.EndTask(wf.UID, now, cu)
 
 	if cu.isAllWfInWGCompleted(wg) {
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
 			cu.clearWGResource(wg)
-
-			task := trace.Task{
-				ID: wg.MapReq.GetID(),
-			}
-			ctx := akita.HookCtx{
-				Domain: cu,
-				Now:    now,
-				Pos:    trace.HookPosTaskComplete,
-				Item:   task,
-			}
-			cu.InvokeHook(&ctx)
+			tracing.TraceReqComplete(wg.MapReq, now, cu)
 		}
 
 		if !cu.hasMoreWfsToRun() {
