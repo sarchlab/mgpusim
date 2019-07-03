@@ -50,5 +50,19 @@
                 "-timing",
             ]
         },
+        {
+            "name": "Matrix Multiplication",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/matrixmultiplication",
+            "args": [
+                "-timing",
+                "-gpus=1,2",
+                "-x=64",
+                "-y=64",
+                "-z=128"
+            ]
+        },
     ]
 }
