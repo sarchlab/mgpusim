@@ -12,7 +12,7 @@ import (
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
-	"https://gitlab.com/akita/util/tree/v0.1/tracing"
+	"gitlab.com/akita/util/tree/v0.1/tracing"
 )
 
 var UseParallelEngine bool
