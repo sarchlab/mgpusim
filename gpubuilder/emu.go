@@ -3,6 +3,7 @@ package gpubuilder
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 
 	"gitlab.com/akita/akita"
@@ -21,56 +22,76 @@ import (
 
 // EmuGPUBuilder provide services to assemble usable GPUs
 type EmuGPUBuilder struct {
-	engine           akita.Engine
-	freq             akita.Freq
-	Driver           *driver.Driver
-	GPUName          string
-	MMU              mmu.MMU
-	GPUMemAddrOffset uint64
+	engine    akita.Engine
+	freq      akita.Freq
+	driver    *driver.Driver
+	gpuName   string
+	iommu     mmu.MMU
+	memOffset uint64
 
 	EnableISADebug    bool
 	EnableInstTracing bool
 	EnableMemTracing  bool
 }
 
-// NewEmuGPUBuilder returns a new EmuGPUBuilder
-func NewEmuGPUBuilder(engine akita.Engine) *EmuGPUBuilder {
-	b := new(EmuGPUBuilder)
-	b.engine = engine
+// MakeEmuGPUBuilder creates a new EmuGPUBuilder
+func MakeEmuGPUBuilder() EmuGPUBuilder {
+	b := EmuGPUBuilder{}
 	b.freq = 1 * akita.GHz
-	b.GPUName = "GPU"
 
 	b.EnableISADebug = false
 	b.EnableInstTracing = false
 	return b
 }
 
-// BuildEmulationGPU creates a very simple GPU for emulation purposes
-func (b *EmuGPUBuilder) BuildEmulationGPU() (
-	*gcn3.GPU,
-	*idealmemcontroller.Comp,
-) {
+// WithEngine sets the engine that the emulator GPUs to use
+func (b EmuGPUBuilder) WithEngine(e akita.Engine) EmuGPUBuilder {
+	b.engine = e
+	return b
+}
+
+// WithDriver sets the GPU driver that the GPUs connect to.
+func (b EmuGPUBuilder) WithDriver(d *driver.Driver) EmuGPUBuilder {
+	b.driver = d
+	return b
+}
+
+// WithIOMMU sets the IOMMU unit that provides the address translation
+func (b EmuGPUBuilder) WithIOMMU(mmu mmu.MMU) EmuGPUBuilder {
+	b.iommu = mmu
+	return b
+}
+
+// WithMemOffset sets the first byte address of the GPU memory
+func (b EmuGPUBuilder) WithMemOffset(offset uint64) EmuGPUBuilder {
+	b.memOffset = offset
+	return b
+}
+
+// Build creates a very simple GPU for emulation purposes
+func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
+	b.gpuName = name
 	connection := akita.NewDirectConnection(b.engine)
 
 	dispatcher := gcn3.NewDispatcher(
-		b.GPUName+".Dispatcher",
+		b.gpuName+".Dispatcher",
 		b.engine,
 		kernels.NewGridBuilder())
 	dispatcher.Freq = b.freq
 
 	commandProcessor := gcn3.NewCommandProcessor(
-		b.GPUName+".CommandProcessor", b.engine)
+		b.gpuName+".CommandProcessor", b.engine)
 	commandProcessor.Dispatcher = dispatcher.ToCommandProcessor
 
 	gpuMem := idealmemcontroller.New(
-		b.GPUName+".GlobalMem", b.engine, 4*mem.GB)
+		b.gpuName+".GlobalMem", b.engine, 4*mem.GB)
 	gpuMem.Freq = 1 * akita.GHz
 	gpuMem.Latency = 1
 	addrConverter := idealmemcontroller.InterleavingConverter{
-		InterleavingSize:    4 * mem.GB,
+		InterleavingSize:    math.MaxUint64,
 		TotalNumOfElements:  1,
 		CurrentElementIndex: 0,
-		Offset:              b.GPUMemAddrOffset,
+		Offset:              b.memOffset,
 	}
 	gpuMem.AddressConverter = addrConverter
 	if b.EnableMemTracing {
@@ -84,8 +105,8 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (
 
 	for i := 0; i < 4; i++ {
 		computeUnit := emu.BuildComputeUnit(
-			fmt.Sprintf("%s.CU%d", b.GPUName, i),
-			b.engine, disassembler, b.MMU, gpuMem.Storage, &addrConverter)
+			fmt.Sprintf("%s.CU%d", b.gpuName, i),
+			b.engine, disassembler, b.iommu, gpuMem.Storage, &addrConverter)
 
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
@@ -100,20 +121,20 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (
 		}
 	}
 
-	gpu := gcn3.NewGPU(b.GPUName, b.engine)
+	gpu := gcn3.NewGPU(b.gpuName, b.engine)
 	gpu.CommandProcessor = commandProcessor.ToDriver
 	commandProcessor.Driver = gpu.ToCommandProcessor
 
 	localDataSource := new(cache.SingleLowModuleFinder)
 	localDataSource.LowModule = gpuMem.ToTop
 	dmaEngine := gcn3.NewDMAEngine(
-		fmt.Sprintf("%s.DMA", b.GPUName), b.engine, localDataSource)
+		fmt.Sprintf("%s.DMA", b.gpuName), b.engine, localDataSource)
 	commandProcessor.DMAEngine = dmaEngine.ToCP
 
 	connection.PlugIn(gpu.ToCommandProcessor)
 	connection.PlugIn(commandProcessor.ToDriver)
 	connection.PlugIn(commandProcessor.ToDispatcher)
-	connection.PlugIn(b.Driver.ToGPUs)
+	connection.PlugIn(b.driver.ToGPUs)
 	connection.PlugIn(dispatcher.ToCommandProcessor)
 	connection.PlugIn(dispatcher.ToCUs)
 	connection.PlugIn(gpuMem.ToTop)
@@ -121,5 +142,5 @@ func (b *EmuGPUBuilder) BuildEmulationGPU() (
 	connection.PlugIn(dmaEngine.ToMem)
 	gpu.InternalConnection = connection
 
-	return gpu, gpuMem
+	return gpu
 }
