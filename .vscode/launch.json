@@ -47,7 +47,8 @@
             "args": [
                 "-verify",
                 "-length=1024",
-                "-timing",
+                "-gpus=1,2",
+                "-debug-isa"
             ]
         },
         {
