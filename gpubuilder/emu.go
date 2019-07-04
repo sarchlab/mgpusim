@@ -11,6 +11,7 @@ import (
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	memtraces "gitlab.com/akita/mem/trace"
@@ -27,6 +28,7 @@ type EmuGPUBuilder struct {
 	iommu       mmu.MMU
 	memOffset   uint64
 	memCapacity uint64
+	storage     *mem.Storage
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -73,6 +75,12 @@ func (b EmuGPUBuilder) WithMemOffset(offset uint64) EmuGPUBuilder {
 	return b
 }
 
+// Storage sets the global memory storage that is shared by multiple GPUs
+func (b EmuGPUBuilder) WithStorage(s *mem.Storage) EmuGPUBuilder {
+	b.storage = s
+	return b
+}
+
 // Build creates a very simple GPU for emulation purposes
 func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 	b.gpuName = name
@@ -92,13 +100,14 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		b.gpuName+".GlobalMem", b.engine, b.memCapacity)
 	gpuMem.Freq = 1 * akita.GHz
 	gpuMem.Latency = 1
-	addrConverter := idealmemcontroller.InterleavingConverter{
-		InterleavingSize:    b.memCapacity,
-		TotalNumOfElements:  1,
-		CurrentElementIndex: 0,
-		Offset:              b.memOffset,
-	}
-	gpuMem.AddressConverter = addrConverter
+	// addrConverter := idealmemcontroller.InterleavingConverter{
+	// 	InterleavingSize:    b.memCapacity,
+	// 	TotalNumOfElements:  1,
+	// 	CurrentElementIndex: 0,
+	// 	Offset:              b.memOffset,
+	// }
+	// gpuMem.AddressConverter = addrConverter
+	gpuMem.Storage = b.storage
 	if b.EnableMemTracing {
 		file, _ := os.Create("mem.trace")
 		logger := log.New(file, "", 0)
@@ -111,7 +120,7 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 	for i := 0; i < 4; i++ {
 		computeUnit := emu.BuildComputeUnit(
 			fmt.Sprintf("%s.CU%d", b.gpuName, i),
-			b.engine, disassembler, b.iommu, gpuMem.Storage, &addrConverter)
+			b.engine, disassembler, b.iommu, gpuMem.Storage, nil)
 
 		connection.PlugIn(computeUnit.ToDispatcher)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)

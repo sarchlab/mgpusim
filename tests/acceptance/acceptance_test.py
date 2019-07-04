@@ -28,7 +28,11 @@ class Test(object):
         err = False
         err |= self.compile()
         err |= self.run_test(False, False, '1')
+        err |= self.run_test(False, False, '1,2')
+        err |= self.run_test(False, False, '1,2,3,4')
         err |= self.run_test(False, True, '1')
+        err |= self.run_test(False, True, '1,2')
+        err |= self.run_test(False, True, '1,2,3,4')
         err |= self.run_test(True, False, '1')
         err |= self.run_test(True, False, '1,2')
         err |= self.run_test(True, False, '1,2,3,4')

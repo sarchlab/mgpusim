@@ -38,12 +38,14 @@ func BuildNEmuGPUPlatform(n int) (
 	mmuComponent := mmuBuilder.Build("MMU")
 	gpuDriver := driver.NewDriver(engine, mmuComponent)
 	connection := akita.NewDirectConnection(engine)
+	storage := mem.NewStorage(uint64(n+1) * 4 * mem.GB)
 
 	gpuBuilder := gpubuilder.MakeEmuGPUBuilder().
 		WithEngine(engine).
 		WithDriver(gpuDriver).
 		WithIOMMU(mmuComponent).
-		WithMemCapacity(4 * mem.GB)
+		WithMemCapacity(4 * mem.GB).
+		WithStorage(storage)
 
 	if DebugISA {
 		gpuBuilder.EnableISADebug = true
