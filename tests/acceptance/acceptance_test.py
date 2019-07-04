@@ -111,7 +111,7 @@ def main():
     sc.test()
     re.test()
     mp.test()
-    cw.compiles()
+    cw.compile()
     cw.run_test(False, False, '1')
     cw.run_test(False, True, '1')
     cw.run_test(True, False, '1')
