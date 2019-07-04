@@ -86,7 +86,7 @@ func (m *GPUMatrixMultiplier) launchKernel(
 			gA, gB, gC,
 			mA.Width,
 			32 * 32 * 4,
-			0, int64(width * i), 0,
+			0, int64(height * i), 0,
 		}
 		m.driver.EnqueueLaunchKernel(
 			q,
