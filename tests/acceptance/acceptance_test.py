@@ -25,15 +25,17 @@ class Test(object):
         self.size_args = size_args
 
     def test(self):
-        self.compile()
-        self.run_test(False, False, '1')
-        self.run_test(False, True, '1')
-        self.run_test(True, False, '1')
-        self.run_test(True, False, '1,2')
-        self.run_test(True, False, '1,2,3,4')
-        self.run_test(True, True, '1')
-        self.run_test(True, True, '1,2')
-        self.run_test(True, True, '1,2,3,4')
+        err = False
+        err |= self.compile()
+        err |= self.run_test(False, False, '1')
+        err |= self.run_test(False, True, '1')
+        err |= self.run_test(True, False, '1')
+        err |= self.run_test(True, False, '1,2')
+        err |= self.run_test(True, False, '1,2,3,4')
+        err |= self.run_test(True, True, '1')
+        err |= self.run_test(True, True, '1,2')
+        err |= self.run_test(True, True, '1,2,3,4')
+        return err
 
     def compile(self):
         fp = open(os.devnull, 'w')
@@ -76,9 +78,6 @@ class Test(object):
 
 
 def main():
-    error = False
-
-    error |= compile('../../insts/gcn3disassembler')
 
     fir = Test('../../samples/fir', 'fir', ['-length=8192'])
     mm = Test('../../samples/matrixmultiplication',
@@ -98,24 +97,26 @@ def main():
     mp = Test('../../samples/maxpooling', 'maxpooling', [])
     cw = Test('../../samples/concurrentworkload', 'concurrentworkload', [])
 
-    fir.test()
-    mm.test()
-    km.test()
-    mt.compile()
-    mt.run_test(False, False, '1')
-    mt.run_test(False, True, '1')
-    mt.run_test(True, False, '1')
-    mt.run_test(True, True, '1')
-    aes.test()
-    bs.test()
-    sc.test()
-    re.test()
-    mp.test()
-    cw.compile()
-    cw.run_test(False, False, '1')
-    cw.run_test(False, True, '1')
-    cw.run_test(True, False, '1')
-    cw.run_test(True, True, '1')
+    err = False
+    err |= compile('../../insts/gcn3disassembler')
+    err |= fir.test()
+    err |= mm.test()
+    err |= km.test()
+    err |= mt.compile()
+    err |= mt.run_test(False, False, '1')
+    err |= mt.run_test(False, True, '1')
+    err |= mt.run_test(True, False, '1')
+    err |= mt.run_test(True, True, '1')
+    err |= aes.test()
+    err |= bs.test()
+    err |= sc.test()
+    err |= re.test()
+    err |= mp.test()
+    err |= cw.compile()
+    err |= cw.run_test(False, False, '1')
+    err |= cw.run_test(False, True, '1')
+    err |= cw.run_test(True, False, '1')
+    err |= cw.run_test(True, True, '1')
 
     # error |= compile('acceptancetests/cupipelinedraining')
     # error |= run_test('CU Pipeline Draining',
@@ -130,7 +131,7 @@ def main():
     #                   './tlbshootdown -timing',
     #                   'acceptancetestes/tlbshootdown')
 
-    if error:
+    if err:
         sys.exit(1)
 
 
