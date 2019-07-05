@@ -19,7 +19,6 @@ import (
 	"gitlab.com/akita/util/tracing"
 )
 
-var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
 var parallelFlag = flag.Bool("parallel", false, "Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var visTracing = flag.Bool("trace-vis", false,
@@ -73,9 +72,7 @@ func (r *Runner) ParseFlag() *Runner {
 		r.Verify = true
 	}
 
-	if *timingFlag {
-		r.Timing = true
-	}
+	r.Timing = true
 
 	if *cacheLatencyReportFlag {
 		r.ReportCacheLatency = true
@@ -103,11 +100,8 @@ func (r *Runner) Init() *Runner {
 	if r.Parallel {
 		platform.UseParallelEngine = true
 	}
-	if r.Timing {
-		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
-	} else {
-		r.Engine, r.GPUDriver = platform.BuildNEmuGPUPlatform(4)
-	}
+
+	r.Engine, r.GPUDriver = buildNR9NanoPlatformWithPerfectMemorySystem(4)
 
 	r.addKernelTimeTracer()
 	r.addCacheLatencyTracer()
