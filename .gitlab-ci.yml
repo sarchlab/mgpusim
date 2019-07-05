@@ -50,6 +50,10 @@ deterministic_test:
     - cd timing/caches/l1v/acceptancetest/deterministictest
     - go build
     - ./deterministictest
+    - cd ../../../../../
+    - cd test/deterministic/memcopy
+    - go build
+    - ./memcopy
 
 build_docker_image_master:
   stage: deploy
