@@ -74,7 +74,7 @@ func (d *Driver) runAsync() {
 			d.Engine.Pause()
 			d.TickLater(d.Engine.CurrentTime())
 			d.Engine.Continue()
-			go d.runEngine()
+			d.runEngine()
 		}
 	}
 }
