@@ -104,7 +104,7 @@ func (q *CommandQueue) NumCommand() int {
 // consume the command.
 func (d *Driver) Enqueue(q *CommandQueue, c Command) {
 	q.Enqueue(c)
-	d.enqueueSignal <- true
+	// d.enqueueSignal <- true
 }
 
 // A CommandQueueStatusListener can be notified when a queue updates its state
@@ -119,6 +119,7 @@ func (l *CommandQueueStatusListener) Notify() {
 	select {
 	case <-l.closeSignal:
 	case l.signal <- true:
+	default:
 	}
 }
 
