@@ -58,7 +58,10 @@ func (d *Driver) DrainCommandQueue(q *CommandQueue) {
 	listener := q.Subscribe()
 	defer q.Unsubscribe(listener)
 
-	d.enqueueSignal <- true
+	select {
+	case d.enqueueSignal <- true:
+	default:
+	}
 
 	for {
 		if q.NumCommand() == 0 {
