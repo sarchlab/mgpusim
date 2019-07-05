@@ -188,8 +188,6 @@ func (u *VectorMemoryUnit) bufferDataLoadRequest(
 			addr.Addr, addr.Size)
 		req.PID = u.toExec.PID()
 
-		log.Printf("CU %s vector load %d\n", u.cu.Name(), addr.Addr)
-
 		info.Read = req
 		if i == len(coalescedAddrs)-1 {
 			req.IsLastInWave = true
@@ -231,7 +229,6 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		if i == lastLaneIndex {
 			req.IsLastInWave = true
 		}
-		log.Printf("CU %s vector store %d\n", u.cu.Name(), addr)
 
 		for j := 0; j < registerCount; j++ {
 			req.Data = append(req.Data, insts.Uint32ToBytes(data[i*4+j])...)

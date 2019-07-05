@@ -126,8 +126,6 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 		req.PID = wf.PID()
 		req.IsLastInWave = true
 
-		log.Printf("CU %s fetching %d\n", s.cu.Name(), addr)
-
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {
 			info := new(InstFetchReqInfo)
