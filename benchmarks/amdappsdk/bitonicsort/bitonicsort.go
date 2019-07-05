@@ -2,18 +2,20 @@ package bitonicsort
 
 import (
 	"log"
-	"math/rand"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
 
+var doPerPassVerify = true
+
 type BitonicKernelArgs struct {
 	Input               driver.GPUPtr
 	Stage               uint32
 	PassOfStage         uint32
 	Direction           uint32
+	Padding             uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -29,10 +31,13 @@ type Benchmark struct {
 	Length         int
 	OrderAscending bool
 
-	inputData  []uint32
-	gInputData driver.GPUPtr
+	inputData             []uint32
+	outputData            []uint32
+	gInputData            driver.GPUPtr
+	perPassIn, perPassOut []uint32
 }
 
+// NewBenchmark creates a new bitonic sort benchmark.
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.gpusToUse = []int{1}
@@ -54,10 +59,12 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// SelectGPU selects the GPUs to use.
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpusToUse = gpuIDs
 }
 
+// Run runs the benchmark on simulated GPU platform
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpusToUse[0])
 	b.initMem()
@@ -66,8 +73,15 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	b.inputData = make([]uint32, b.Length)
+	b.outputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
-		b.inputData[i] = rand.Uint32()
+		// b.inputData[i] = rand.Uint32()
+		b.inputData[i] = uint32(i)
+	}
+
+	if doPerPassVerify {
+		b.perPassIn = make([]uint32, b.Length)
+		b.perPassOut = make([]uint32, b.Length)
 	}
 
 	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
@@ -80,7 +94,6 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-
 	numStages := 0
 	for temp := b.Length; temp > 1; temp >>= 1 {
 		numStages++
@@ -103,13 +116,21 @@ func (b *Benchmark) exec() {
 			wiPerQueue := totalWIs / len(queues)
 			remainder := totalWIs % len(queues)
 
+			log.Printf("Stage %d, pass %d\n", stage, passOfStage)
+
+			if doPerPassVerify {
+				b.driver.MemCopyD2H(b.context, b.perPassIn, b.gInputData)
+			}
+
 			for i, q := range queues {
 				kernArg := BitonicKernelArgs{
 					b.gInputData,
 					uint32(stage),
 					uint32(passOfStage),
 					uint32(direction),
-					int64(wiPerQueue * i), 0, 0}
+					0,
+					int64(wiPerQueue * i), 0, 0,
+				}
 
 				numWi := wiPerQueue
 				if i == len(queues)-1 {
@@ -120,7 +141,7 @@ func (b *Benchmark) exec() {
 					q,
 					b.hsaco,
 					[3]uint32{uint32(numWi), 1, 1},
-					[3]uint16{256, 1, 1},
+					[3]uint16{64, 1, 1},
 					&kernArg,
 				)
 			}
@@ -128,28 +149,84 @@ func (b *Benchmark) exec() {
 			for _, q := range queues {
 				b.driver.DrainCommandQueue(q)
 			}
+
+			if doPerPassVerify {
+				b.driver.MemCopyD2H(b.context, b.perPassOut, b.gInputData)
+				b.verifyPass(b.perPassIn, b.perPassOut, stage, passOfStage)
+			}
 		}
 	}
+
+	b.driver.MemCopyD2H(b.context, b.outputData, b.gInputData)
 }
 
-func (b *Benchmark) Verify() {
-	gpuOutput := make([]uint32, b.Length)
-	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInputData)
+func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) {
+	cpuOut := make([]uint32, b.Length)
 
+	pairDistance := 1 << uint32(stage-pass)
+	blockWidth := 2 * pairDistance
+
+	for i := 0; i < b.Length/2; i++ {
+		leftID := (i % pairDistance) + (i/pairDistance)*blockWidth
+		rightID := leftID + pairDistance
+
+		sortIncreasing := uint32(0)
+		if b.OrderAscending {
+			sortIncreasing = 1
+		}
+
+		leftElement := in[leftID]
+		rightElement := in[rightID]
+
+		sameDirectionBlockWidth := 1 << uint32(stage)
+		if ((i / sameDirectionBlockWidth) % 2) == 1 {
+			sortIncreasing = 1 - sortIncreasing
+		}
+
+		greater := leftElement
+		lesser := rightElement
+		if leftElement < rightElement {
+			greater, lesser = lesser, greater
+		}
+
+		if sortIncreasing == 1 {
+			cpuOut[leftID] = lesser
+			cpuOut[rightID] = greater
+		} else {
+			cpuOut[leftID] = greater
+			cpuOut[rightID] = lesser
+		}
+	}
+
+	// failed := false
+	for i := 0; i < b.Length; i++ {
+		if cpuOut[i] != out[i] {
+			log.Printf("Mismatch after stage %d pass %d at pos %d, expected %d, but get %d", stage, pass, i, cpuOut[i], out[i])
+			// failed = true
+		}
+	}
+	// if failed {
+	// 	panic("failed")
+	// }
+
+}
+
+// Verify checks if the array is sorted
+func (b *Benchmark) Verify() {
 	//for i := 0; i < b.Length; i++ {
-	//	fmt.Printf("[%d]: %d\n", i, gpuOutput[i])
+	//	fmt.Printf("[%d]: %d\n", i, b.outputData[i])
 	//}
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {
-			if gpuOutput[i] > gpuOutput[i+1] {
+			if b.outputData[i] > b.outputData[i+1] {
 				log.Fatalf("Error: array[%d] > array[%d]: %d %d\n", i, i+1,
-					gpuOutput[i], gpuOutput[i+1])
+					b.outputData[i], b.outputData[i+1])
 			}
 		} else {
-			if gpuOutput[i] < gpuOutput[i+1] {
+			if b.outputData[i] < b.outputData[i+1] {
 				log.Fatalf("Error: array[%d] < array[%d]: %d %d\n", i, i+1,
-					gpuOutput[i], gpuOutput[i+1])
+					b.outputData[i], b.outputData[i+1])
 			}
 		}
 	}
