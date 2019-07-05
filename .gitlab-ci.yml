@@ -45,7 +45,7 @@ acceptance_test:
     - multi_core
   script:
     - apt-get update -qq && apt-get install -y -qq python3
-    - cd tests/acceptance && python3 -u acceptance_test.py
+    - cd tests/acceptance && GOMAXPROCS=8 python3 -u acceptance_test.py
 
 build_docker_image_master:
   stage: deploy
