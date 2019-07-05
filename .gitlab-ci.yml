@@ -54,6 +54,10 @@ deterministic_test:
     - cd tests/deterministic/memcopy
     - go build
     - ./memcopy
+    - cd ../../../
+    - cd tests/deterministic/emptry_kernel
+    - go build
+    - ./empty_kernel
 
 build_docker_image_master:
   stage: deploy
