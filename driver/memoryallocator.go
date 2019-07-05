@@ -91,7 +91,8 @@ func (a *memoryAllocatorImpl) AllocateWithAlignment(
 	defer a.Unlock()
 
 	if byteSize >= 4096 {
-		return a.allocateLarge(ctx, byteSize)
+		ptr := a.allocateLarge(ctx, byteSize)
+		return ptr
 	}
 
 	ptr, ok := a.tryAllocateWithExistingChunks(

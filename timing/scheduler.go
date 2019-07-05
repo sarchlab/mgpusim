@@ -106,10 +106,6 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-//func (s *Scheduler) wfHasAtLeast8BytesInInstBuffer(wf *wavefront.Wavefront) bool {
-//	return wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) >= wf.PC+8
-//}
-
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
 func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
