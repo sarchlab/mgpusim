@@ -51,7 +51,7 @@ deterministic_test:
     - go build
     - ./deterministictest
     - cd ../../../../../
-    - cd test/deterministic/memcopy
+    - cd tests/deterministic/memcopy
     - go build
     - ./memcopy
 
