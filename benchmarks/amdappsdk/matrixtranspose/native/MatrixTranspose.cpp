@@ -287,7 +287,7 @@ MatrixTranspose::runCLKernels(void)
                    &status);
     CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer failed. (inputBuffer)");
 
-	status = waitForEventAndRelease(&inMapEvt);
+	  status = waitForEventAndRelease(&inMapEvt);
     CHECK_ERROR(status, SDK_SUCCESS, "WaitForEventAndRelease(inMapEvt) Failed");
 
     memcpy(inMapPtr, input, sizeof(cl_float) * width * height);
@@ -332,6 +332,26 @@ MatrixTranspose::runCLKernels(void)
                  (size_t)neededLocalMemory,
                  NULL);
     CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (block)");
+    
+    // 4th kernel argument - number of workitems in the x-axis
+    status = clSetKernelArg(
+                 kernel,
+                 3,
+                 sizeof(uint32_t),
+                 (void *)&globalThreads[0]);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (width_x)");
+
+    // 5th kernel argument - number of work groups in the x-axis
+    uint32_t num_of_blocks_x = globalThreads[0] / localThreads[0];
+    status = clSetKernelArg(
+                 kernel,
+                 4,
+                 sizeof(uint32_t),
+                 (void *)&num_of_blocks_x);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (num_of_blocks_x)");
+
+
+
 
     // Enqueue a kernel run call.
     cl_event ndrEvt;
