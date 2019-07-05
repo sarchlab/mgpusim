@@ -8,11 +8,14 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
+//go:generate esc -o=bindata.go -pkg=$GOPACKAGE -private kernels.hsaco
+
 type MatrixTransposeKernelArgs struct {
 	Output              driver.GPUPtr
 	Input               driver.GPUPtr
 	Block               driver.LocalPtr
-	Padding             uint32
+	WIWidth             uint32
+	NumWGWidth          uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -53,10 +56,7 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "matrixTranspose")
 	if b.kernel == nil {
@@ -87,18 +87,25 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
+	wiWidth := uint32(b.Width / b.elemsPerThread1Dim)
+	numWGWidth := wiWidth / uint32(b.blockSize)
 	kernArg := MatrixTransposeKernelArgs{
 		b.dOutputData,
 		b.dInputData,
-		driver.LocalPtr(b.blockSize * b.blockSize * b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
-		0,
+		driver.LocalPtr(b.blockSize * b.blockSize *
+			b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
+		wiWidth, numWGWidth,
 		0, 0, 0,
 	}
 
 	b.driver.LaunchKernel(
 		b.context,
 		b.kernel,
-		[3]uint32{uint32(b.Width / b.elemsPerThread1Dim), uint32(b.Width / b.elemsPerThread1Dim), 1},
+		[3]uint32{
+			uint32(b.Width / b.elemsPerThread1Dim),
+			uint32(b.Width / b.elemsPerThread1Dim),
+			1,
+		},
 		[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
 		&kernArg,
 	)
