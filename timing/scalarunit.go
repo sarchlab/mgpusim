@@ -138,7 +138,6 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 		req.PID = u.toExec.PID()
 		req.IsLastInWave = true
 		u.readBuf = append(u.readBuf, req)
-		log.Printf("CU %s scalar load accessing %d\n", u.cu.Name(), req.Address)
 
 		info := new(ScalarMemAccessInfo)
 		info.Req = req
