@@ -1,4 +1,4 @@
-package platform
+package runner
 
 import (
 	"fmt"
@@ -18,56 +18,7 @@ var DebugISA bool
 var TraceVis bool
 var TraceMem bool
 
-// BuildNEmuGPUPlatform creates a simple platform for emulation purposes
-func BuildNEmuGPUPlatform(n int) (
-	akita.Engine,
-	*driver.Driver,
-) {
-	var engine akita.Engine
-
-	if UseParallelEngine {
-		engine = akita.NewParallelEngine()
-	} else {
-		engine = akita.NewSerialEngine()
-	}
-	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
-
-	mmuBuilder := mmu.MakeBuilder()
-	mmuComponent := mmuBuilder.Build("MMU")
-	gpuDriver := driver.NewDriver(engine, mmuComponent)
-	connection := akita.NewDirectConnection(engine)
-	storage := mem.NewStorage(uint64(n+1) * 4 * mem.GB)
-
-	gpuBuilder := gpubuilder.MakeEmuGPUBuilder().
-		WithEngine(engine).
-		WithDriver(gpuDriver).
-		WithIOMMU(mmuComponent).
-		WithMemCapacity(4 * mem.GB).
-		WithStorage(storage)
-
-	if DebugISA {
-		gpuBuilder.EnableISADebug = true
-	}
-	if TraceMem {
-		gpuBuilder.EnableMemTracing = true
-	}
-
-	for i := 0; i < n; i++ {
-		gpu := gpuBuilder.
-			WithMemOffset(uint64(i+1) * 4 * mem.GB).
-			Build(fmt.Sprintf("GPU%d", i))
-
-		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-		connection.PlugIn(gpu.ToDriver)
-	}
-
-	connection.PlugIn(gpuDriver.ToGPUs)
-
-	return engine, gpuDriver
-}
-
-//BuildNR9NanoPlatform creates a platform that equips with several R9Nano GPUs
-func BuildNR9NanoPlatform(
+func buildNR9NanoPlatformWithPerfectMemorySystem(
 	numGPUs int,
 ) (
 	akita.Engine,

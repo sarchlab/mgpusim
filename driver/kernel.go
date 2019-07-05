@@ -74,7 +74,6 @@ func (d *Driver) enqueueCopyInstructionsToGPU(
 		uint64(len(co.Data)), 4096)
 	d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
 	return dCoData
-	return GPUPtr(0)
 }
 
 func (d *Driver) createAQLPacket(
