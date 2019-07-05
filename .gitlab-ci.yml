@@ -20,9 +20,6 @@ go_build:
   stage: build
   script:
     - go build ./...
-  artifacts:
-    paths:
-      - .
 
 unit_test:
   stage: test
@@ -35,9 +32,9 @@ unit_test:
 cache_aceptance_test:
   stage: acceptance_test
   script:
-    - cd timing/caches/l1v/acceptancetest
+    - cd timing/caches/l1v/acceptancetest/valuetest
     - go build
-    - ./acceptancetest
+    - ./valuetest
 
 acceptance_test:
   stage: acceptance_test
@@ -46,6 +43,13 @@ acceptance_test:
   script:
     - apt-get update -qq && apt-get install -y -qq python3
     - cd tests/acceptance && GOMAXPROCS=8 python3 -u acceptance_test.py
+
+deterministic_test:
+  stage: acceptance_test
+  script:
+    - cd timing/caches/l1v/acceptancetest/deterministictest
+    - go build
+    - ./deterministictest
 
 build_docker_image_master:
   stage: deploy
