@@ -92,14 +92,12 @@ func (a *memoryAllocatorImpl) AllocateWithAlignment(
 
 	if byteSize >= 4096 {
 		ptr := a.allocateLarge(ctx, byteSize)
-		log.Printf("Allocate %d-%d\n", ptr, uint64(ptr)+byteSize)
 		return ptr
 	}
 
 	ptr, ok := a.tryAllocateWithExistingChunks(
 		ctx.currentGPUID, byteSize, alignment)
 	if ok {
-		log.Printf("Allocate %d-%d\n", ptr, uint64(ptr)+byteSize)
 		return GPUPtr(ptr)
 	}
 
@@ -108,7 +106,6 @@ func (a *memoryAllocatorImpl) AllocateWithAlignment(
 	ptr, ok = a.tryAllocateWithExistingChunks(
 		ctx.currentGPUID, byteSize, alignment)
 	if ok {
-		log.Printf("Allocate %d-%d\n", ptr, uint64(ptr)+byteSize)
 		return GPUPtr(ptr)
 	}
 
