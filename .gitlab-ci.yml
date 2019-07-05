@@ -55,7 +55,7 @@ deterministic_test:
     - go build
     - ./memcopy
     - cd ../../../
-    - cd tests/deterministic/emptry_kernel
+    - cd tests/deterministic/empty_kernel
     - go build
     - ./empty_kernel
 
