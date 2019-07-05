@@ -119,6 +119,7 @@ func (l *CommandQueueStatusListener) Notify() {
 	select {
 	case <-l.closeSignal:
 	case l.signal <- true:
+	default:
 	}
 }
 
