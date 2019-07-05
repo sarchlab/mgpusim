@@ -27,14 +27,12 @@ __kernel
 void matrixTranspose(__global float4 * output,
 					 __global float4 * input,
 					 __local  float4 * block,
-                     int width)
+                     uint wiWidth, 
+                     uint num_of_blocks_x
+                     )
 {
-	uint wiWidth  = get_global_size(0);
-
 	uint gix_t = get_group_id(0);
 	uint giy_t = get_group_id(1);	
-
-	uint num_of_blocks_x = get_num_groups(0);
 
 	// break memory banks dependency by "reshuffling" global indeces
 	uint giy = gix_t;
