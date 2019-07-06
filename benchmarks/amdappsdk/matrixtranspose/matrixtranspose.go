@@ -16,8 +16,10 @@ type MatrixTransposeKernelArgs struct {
 	Input               driver.GPUPtr
 	Block               driver.LocalPtr
 	WIWidth             uint32
+	WIHeight            uint32
 	NumWGWidth          uint32
-	Padding             uint32
+	GroupXOffset        uint32
+	GroupYOffset        uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -96,25 +98,26 @@ func (b *Benchmark) exec() {
 	wiWidth := uint32(b.Width / b.elemsPerThread1Dim)
 	wiHeight := uint32(b.Width / b.elemsPerThread1Dim)
 	numWGWidth := wiWidth / uint32(b.blockSize)
+	wgXPerGPU := numWGWidth / uint32(len(b.queues))
 
-	for i, queue := range b.queues {
+	for _, queue := range b.queues {
 		wiWidthPerGPU := int(wiWidth) / len(b.queues)
-		fmt.Println(wiWidthPerGPU, wiHeight, b.blockSize)
+		fmt.Println(wiWidth, wiWidthPerGPU, wgXPerGPU, wiHeight, b.blockSize)
 
 		kernArg := MatrixTransposeKernelArgs{
 			b.dOutputData,
 			b.dInputData,
 			driver.LocalPtr(b.blockSize * b.blockSize *
 				b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
-			wiWidth, numWGWidth,
-			0,
-			int64(wiWidthPerGPU * i), 0, 0,
+			wiWidth, wiHeight, numWGWidth,
+			0, 0,
+			0, 0, 0,
 		}
 
 		b.driver.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
-			[3]uint32{uint32(wiWidthPerGPU), wiHeight, 1},
+			[3]uint32{uint32(wiWidth), wiHeight, 1},
 			[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
 			&kernArg,
 		)
