@@ -341,14 +341,45 @@ MatrixTranspose::runCLKernels(void)
                  (void *)&globalThreads[0]);
     CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (width_x)");
 
-    // 5th kernel argument - number of work groups in the x-axis
-    uint32_t num_of_blocks_x = globalThreads[0] / localThreads[0];
+    // 5th kernel argument - number of workitems in the y-axis
     status = clSetKernelArg(
                  kernel,
                  4,
                  sizeof(uint32_t),
+                 (void *)&globalThreads[1]);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (width_y)");
+
+
+
+    // 6th kernel argument - number of work groups in the x-axis
+    uint32_t num_of_blocks_x = globalThreads[0] / localThreads[0];
+    status = clSetKernelArg(
+                 kernel,
+                 5,
+                 sizeof(uint32_t),
                  (void *)&num_of_blocks_x);
     CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (num_of_blocks_x)");
+
+    // 7th kernel argument - number of work groups in the x-axis
+    uint32_t group_x_offset = 0;
+    status = clSetKernelArg(
+                 kernel,
+                 6,
+                 sizeof(uint32_t),
+                 (void *)&group_x_offset);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (group_x_offset)");
+    
+
+    // 8th kernel argument - number of work groups in the x-axis
+    uint32_t group_y_offset = 0;
+    status = clSetKernelArg(
+                 kernel,
+                 7,
+                 sizeof(uint32_t),
+                 (void *)&group_y_offset);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg failed. (group_y_offset)");
+
+
 
 
 

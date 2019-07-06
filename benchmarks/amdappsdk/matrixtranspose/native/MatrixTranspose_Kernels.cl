@@ -28,15 +28,25 @@ void matrixTranspose(__global float4 * output,
 					 __global float4 * input,
 					 __local  float4 * block,
                      uint wiWidth, 
-                     uint num_of_blocks_x
+                     uint wiHeight,
+                     uint num_of_blocks_x,
+                     uint group_x_offset,
+                     uint group_y_offset
                      )
 {
+
 	uint gix_t = get_group_id(0);
 	uint giy_t = get_group_id(1);	
+
+    gix_t += group_x_offset;
+    giy_t += group_y_offset;
+
 
 	// break memory banks dependency by "reshuffling" global indeces
 	uint giy = gix_t;
 	uint gix = (gix_t+giy_t)%num_of_blocks_x;
+
+    /*__asm__ volatile ("v_log_legacy_f32 v20, %0":"=s" (num_of_blocks_x));*/
 
 	uint lix = get_local_id(0);
 	uint liy = get_local_id(1);
@@ -49,10 +59,10 @@ void matrixTranspose(__global float4 * output,
 
 	// coalesced copy from input global memory into LDS
 	int ind = liy*blockSize*4+lix;
-	block[ind]		= input[index_in];
+	block[ind]              = input[index_in];
 	block[ind+blockSize]	= input[index_in+wiWidth];
-	block[ind+blockSize*2] = input[index_in+wiWidth*2];
-	block[ind+blockSize*3] = input[index_in+wiWidth*3];
+	block[ind+blockSize*2]  = input[index_in+wiWidth*2];
+	block[ind+blockSize*3]  = input[index_in+wiWidth*3];
 		
 	// wait until the whole block is filled
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -61,7 +71,7 @@ void matrixTranspose(__global float4 * output,
 	// as location inside block of transposed location
 	ix = giy*blockSize + lix;
 	iy = gix*blockSize + liy;
-	int index_out = ix + (iy)*wiWidth*4;
+	int index_out = ix + (iy)*wiHeight*4;
 
 	ind = lix*blockSize*4+liy;
 	float4 v0 = block[ind];
@@ -71,7 +81,7 @@ void matrixTranspose(__global float4 * output,
 	
 	// coalesced copy of transposed data in LDS into output global memory
 	output[index_out]			= (float4)(v0.x, v1.x, v2.x, v3.x);
-	output[index_out+wiWidth]	= (float4)(v0.y, v1.y, v2.y, v3.y);
-	output[index_out+wiWidth*2]	= (float4)(v0.z, v1.z, v2.z, v3.z);
-	output[index_out+wiWidth*3]	= (float4)(v0.w, v1.w, v2.w, v3.w);
+	output[index_out+wiHeight]	= (float4)(v0.y, v1.y, v2.y, v3.y);
+	output[index_out+wiHeight*2]	= (float4)(v0.z, v1.z, v2.z, v3.z);
+	output[index_out+wiHeight*3]	= (float4)(v0.w, v1.w, v2.w, v3.w);
 }
