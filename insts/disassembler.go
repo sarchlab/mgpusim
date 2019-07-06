@@ -19,8 +19,8 @@ func extractBits(number uint32, lo uint8, hi uint8) uint32 {
 	return extracted
 }
 
-func extractBit(number uint32, bit_position uint8) uint32 {
-	return number & uint32(bit_position)
+func extractBit(number uint32, bitPosition uint8) uint32 {
+	return number & uint32(bitPosition)
 }
 
 func (f *Format) retrieveOpcode(firstFourBytes uint32) Opcode {
@@ -585,11 +585,11 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 		inst.GDS = true
 	}
 
-	addrBits := int(extractBits(bytesHi, 0, 8))
+	addrBits := int(extractBits(bytesHi, 0, 7))
 	inst.Addr = NewVRegOperand(addrBits, addrBits, 1)
 
 	if inst.SRC0Width > 0 {
-		data0Bits := int(extractBits(bytesHi, 8, 16))
+		data0Bits := int(extractBits(bytesHi, 8, 15))
 		inst.Data = NewVRegOperand(data0Bits, data0Bits, 1)
 		if inst.SRC0Width == 64 {
 			inst.Data.RegCount = 2
@@ -597,7 +597,7 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	}
 
 	if inst.SRC1Width > 0 {
-		data1Bits := int(extractBits(bytesHi, 16, 24))
+		data1Bits := int(extractBits(bytesHi, 16, 23))
 		inst.Data1 = NewVRegOperand(data1Bits, data1Bits, 1)
 		if inst.SRC1Width == 64 {
 			inst.Data1.RegCount = 2
@@ -605,7 +605,7 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	}
 
 	if inst.DSTWidth > 0 {
-		dstBits := int(extractBits(bytesHi, 24, 32))
+		dstBits := int(extractBits(bytesHi, 24, 31))
 		inst.Dst = NewVRegOperand(dstBits, dstBits, 1)
 		if inst.DSTWidth == 64 {
 			inst.Dst.RegCount = 2

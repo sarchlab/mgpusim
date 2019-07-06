@@ -1,6 +1,8 @@
 package emu
 
-import "log"
+import (
+	"log"
+)
 
 func (u *ALUImpl) runDS(state InstEmuState) {
 	inst := state.Inst()

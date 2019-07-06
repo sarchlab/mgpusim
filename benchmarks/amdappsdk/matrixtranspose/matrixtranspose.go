@@ -1,6 +1,7 @@
 package matrixtranspose
 
 import (
+	"fmt"
 	"log"
 
 	"gitlab.com/akita/gcn3/driver"
@@ -8,11 +9,17 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
+//go:generate esc -o=bindata.go -pkg=$GOPACKAGE -private kernels.hsaco
+
 type MatrixTransposeKernelArgs struct {
 	Output              driver.GPUPtr
 	Input               driver.GPUPtr
 	Block               driver.LocalPtr
-	Padding             uint32
+	WIWidth             uint32
+	WIHeight            uint32
+	NumWGWidth          uint32
+	GroupXOffset        uint32
+	GroupYOffset        uint32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -21,7 +28,8 @@ type MatrixTransposeKernelArgs struct {
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
-	gpu     int
+	gpus    []int
+	queues  []*driver.CommandQueue
 
 	kernel *insts.HsaCo
 
@@ -46,17 +54,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 }
 
 func (b *Benchmark) SelectGPU(gpus []int) {
-	if len(gpus) > 1 {
-		panic("Matrix Transpose benchmark does not support multi-GPU yet")
-	}
-	b.gpu = gpus[0]
+	b.gpus = gpus
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "matrixTranspose")
 	if b.kernel == nil {
@@ -65,7 +67,11 @@ func (b *Benchmark) loadProgram() {
 }
 
 func (b *Benchmark) Run() {
-	b.driver.SelectGPU(b.context, b.gpu)
+	for _, gpu := range b.gpus {
+		b.driver.SelectGPU(b.context, gpu)
+		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+	}
+
 	b.initMem()
 	b.exec()
 }
@@ -82,26 +88,44 @@ func (b *Benchmark) initMem() {
 
 	b.dInputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
 	b.dOutputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
+	b.driver.Distribute(b.context, b.dInputData, uint64(numData*4), b.gpus)
+	b.driver.Distribute(b.context, b.dOutputData, uint64(numData*4), b.gpus)
 
 	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
 }
 
 func (b *Benchmark) exec() {
-	kernArg := MatrixTransposeKernelArgs{
-		b.dOutputData,
-		b.dInputData,
-		driver.LocalPtr(b.blockSize * b.blockSize * b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
-		0,
-		0, 0, 0,
+	wiWidth := uint32(b.Width / b.elemsPerThread1Dim)
+	wiHeight := uint32(b.Width / b.elemsPerThread1Dim)
+	numWGWidth := wiWidth / uint32(b.blockSize)
+	wgXPerGPU := numWGWidth / uint32(len(b.queues))
+
+	for _, queue := range b.queues {
+		wiWidthPerGPU := int(wiWidth) / len(b.queues)
+		fmt.Println(wiWidth, wiWidthPerGPU, wgXPerGPU, wiHeight, b.blockSize)
+
+		kernArg := MatrixTransposeKernelArgs{
+			b.dOutputData,
+			b.dInputData,
+			driver.LocalPtr(b.blockSize * b.blockSize *
+				b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
+			wiWidth, wiHeight, numWGWidth,
+			0, 0,
+			0, 0, 0,
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			queue,
+			b.kernel,
+			[3]uint32{uint32(wiWidth), wiHeight, 1},
+			[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
+			&kernArg,
+		)
 	}
 
-	b.driver.LaunchKernel(
-		b.context,
-		b.kernel,
-		[3]uint32{uint32(b.Width / b.elemsPerThread1Dim), uint32(b.Width / b.elemsPerThread1Dim), 1},
-		[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
-		&kernArg,
-	)
+	for _, q := range b.queues {
+		b.driver.DrainCommandQueue(q)
+	}
 
 	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
 }
@@ -109,8 +133,11 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) Verify() {
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {
-			if b.hOutputData[j*b.Width+i] != b.hInputData[i*b.Width+j] {
-				log.Fatalf("error")
+			actual := b.hOutputData[j*b.Width+i]
+			expected := b.hInputData[i*b.Width+j]
+			if expected != actual {
+				log.Printf("mismatch at (%d, %d), expected %d, but get %d\n",
+					i, j, expected, actual)
 			}
 		}
 	}
