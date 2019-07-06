@@ -170,8 +170,9 @@ func (u *ALUImpl) runVLOGLEGACYF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 
 	var i uint
+	fmt.Printf("\n")
 	for i = 0; i < 64; i++ {
-		fmt.Printf("wi %d, value 0x%x\n", i, sp.SRC0[i])
+		fmt.Printf("0x%x, ", sp.SRC0[i])
 
 		if !u.laneMasked(sp.EXEC, i) {
 			continue
@@ -181,4 +182,5 @@ func (u *ALUImpl) runVLOGLEGACYF32(state InstEmuState) {
 		dst := math.Log2(float64(src))
 		sp.DST[i] = uint64(math.Float32bits(float32(dst)))
 	}
+	fmt.Printf("\n")
 }
