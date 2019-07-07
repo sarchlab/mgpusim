@@ -15,6 +15,9 @@ func main() {
 	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := stencil2d.NewBenchmark(runner.GPUDriver)
+	benchmark.NumIteration = 1
+	benchmark.NumRows = 64
+	benchmark.NumCols = 64
 
 	runner.AddBenchmark(benchmark)
 
