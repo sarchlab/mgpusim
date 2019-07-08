@@ -167,7 +167,10 @@ func (i Inst) soppString(file *elf.File) string {
 		if i.VMCNT == 0 {
 			operandStr += " vmcnt(0)"
 		}
-		operandStr += fmt.Sprintf(" lgkmcnt(%d)", i.LKGMCNT)
+
+		if i.LKGMCNT != 15 {
+			operandStr += fmt.Sprintf(" lgkmcnt(%d)", i.LKGMCNT)
+		}
 	} else if i.Opcode >= 2 && i.Opcode <= 9 { // Branch
 		symbolFound := false
 		if file != nil {
@@ -269,7 +272,7 @@ func (i Inst) vop3bString() string {
 		i.Src1.String(),
 	)
 
-	if i.Src2 != nil {
+	if i.Opcode != 281 && i.Src2 != nil {
 		s += ", " + i.Src2.String()
 	}
 
@@ -304,12 +307,18 @@ func (i Inst) dsString() string {
 		s += ", " + i.Data1.String()
 	}
 
-	if i.Offset0 > 0 {
-		s += fmt.Sprintf(" offset0:%d", i.Offset0)
-	}
+	if i.Opcode == 13 {
+		if i.Offset0 > 0 {
+			s += fmt.Sprintf(" offset:%d", i.Offset0)
+		}
+	} else {
+		if i.Offset0 > 0 {
+			s += fmt.Sprintf(" offset0:%d", i.Offset0)
+		}
 
-	if i.Offset1 > 0 {
-		s += fmt.Sprintf(" offset1:%d", i.Offset1)
+		if i.Offset1 > 0 {
+			s += fmt.Sprintf(" offset1:%d", i.Offset1)
+		}
 	}
 
 	return s

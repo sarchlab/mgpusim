@@ -12,11 +12,11 @@ import (
 )
 
 func extractBits(number uint32, lo uint8, hi uint8) uint32 {
-	var mask uint32
-	var extracted uint32
+	var mask uint64
+	var extracted uint64
 	mask = ((1 << (hi - lo + 1)) - 1) << lo
-	extracted = (number & mask) >> lo
-	return extracted
+	extracted = (uint64(number) & mask) >> lo
+	return uint32(extracted)
 }
 
 func extractBit(number uint32, bitPosition uint8) uint32 {
@@ -578,7 +578,7 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
 	inst.Offset0 = uint8(extractBits(bytesLo, 0, 7))
-	inst.Offset1 = uint8(extractBits(bytesLo, 8, 16))
+	inst.Offset1 = uint8(extractBits(bytesLo, 8, 15))
 
 	gdsBit := extractBit(bytesLo, 16)
 	if gdsBit != 0 {
