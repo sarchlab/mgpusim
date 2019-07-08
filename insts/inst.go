@@ -293,7 +293,7 @@ func (i Inst) sopkString() string {
 func (i Inst) dsString() string {
 	s := i.InstName + " "
 	switch i.Opcode {
-	case 55, 56, 57, 58, 59, 60, 118, 119, 120:
+	case 54, 55, 56, 57, 58, 59, 60, 118, 119, 120:
 		s += i.Dst.String() + ", "
 	}
 
@@ -307,11 +307,12 @@ func (i Inst) dsString() string {
 		s += ", " + i.Data1.String()
 	}
 
-	if i.Opcode == 13 {
+	switch i.Opcode {
+	case 13, 54:
 		if i.Offset0 > 0 {
 			s += fmt.Sprintf(" offset:%d", i.Offset0)
 		}
-	} else {
+	default:
 		if i.Offset0 > 0 {
 			s += fmt.Sprintf(" offset0:%d", i.Offset0)
 		}
