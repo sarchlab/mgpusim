@@ -51,7 +51,7 @@ func (d *Disassembler) initializeDecodeTable() {
 
 	// VOP2 instructions
 	d.addInstType(&InstType{"v_cndmask_b32_e32", 0, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
-	d.addInstType(&InstType{"v_add_f32", 1, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_add_f32_e32", 1, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_sub_f32", 2, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_subrev_f32_e32", 3, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_mul_legacy_f32", 4, FormatTable[VOP2], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
