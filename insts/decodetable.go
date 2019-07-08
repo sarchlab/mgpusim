@@ -926,7 +926,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"ds_or_b32", 10, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_xor_b32", 11, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_mskor_b32", 12, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
-	d.addInstType(&InstType{"ds_write_b32", 13, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
+	d.addInstType(&InstType{"ds_write_b32", 13, FormatTable[DS], 0, ExeUnitLDS, 0, 32, 0, 0, 0})
 	d.addInstType(&InstType{"ds_write2_b32", 14, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_write2st64_b32", 15, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_cmpst_b32", 16, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
