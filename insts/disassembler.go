@@ -724,13 +724,25 @@ func (d *Disassembler) Disassemble(file *elf.File, filename string, w io.Writer)
 	}
 }
 
-func (d *Disassembler) tryPrintSymbol(file *elf.File, offset uint64, w io.Writer) {
+func (d *Disassembler) tryPrintSymbol(
+	file *elf.File,
+	offset uint64,
+	w io.Writer,
+) {
 	symbols, _ := file.Symbols()
 	for _, symbol := range symbols {
 		if symbol.Value == offset {
-			fmt.Fprintf(w, "\n%s:\n", symbol.Name)
+			if d.isKernelSymbol(symbol) {
+				fmt.Fprintf(w, "\n%016x %s:\n", offset+0x100, symbol.Name)
+			} else {
+				fmt.Fprintf(w, "\n%016x %s:\n", offset, symbol.Name)
+			}
 		}
 	}
+}
+
+func (d *Disassembler) isKernelSymbol(symbol elf.Symbol) bool {
+	return symbol.Size > 0
 }
 
 func (d *Disassembler) isNewKenrelStart(file *elf.File, offset uint64) bool {
