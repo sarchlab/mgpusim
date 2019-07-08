@@ -132,7 +132,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, *b.newData, b.hInput)
 
 	for i := 0; i < b.NumIteration; i++ {
-		ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
+		ldsSize := (b.localRows + 4) * (b.localCols + 4) * 4
 
 		args := StencilKernelArgs{
 			Data:                *b.currData,
@@ -148,14 +148,15 @@ func (b *Benchmark) exec() {
 			HiddenGlobalOffsetZ: 0,
 		}
 
+		globalSize := [3]uint32{
+			uint32((b.NumRows - 2) / b.localRows),
+			uint32(b.NumCols - 2),
+			1,
+		}
+		localSize := [3]uint16{1, uint16(b.localCols), 1}
 		b.driver.LaunchKernel(b.context,
 			b.stencilKernel,
-			[3]uint32{
-				uint32((b.NumRows - 2) / b.localRows),
-				uint32(b.NumCols - 2),
-				1,
-			},
-			[3]uint16{1, uint16(b.localCols), 1},
+			globalSize, localSize,
 			&args,
 		)
 
