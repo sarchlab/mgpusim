@@ -69,8 +69,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.localRows = 16
 	b.localCols = 64
 	b.wCenter = 0.5
-	b.wCardinal = 0.1
-	b.wDiagonal = 0.01
+	b.wCardinal = 0.0
+	b.wDiagonal = 0.0
 	b.loadProgram()
 	return b
 }
@@ -113,8 +113,8 @@ func (b *Benchmark) initMem() {
 	b.hInput = make([]float32, b.paddedDataSize)
 	b.hOutput = make([]float32, b.paddedDataSize)
 	for i := 0; i < b.paddedDataSize; i++ {
-		b.hInput[i] = float32(i)
-		// b.hInput[i] = 1
+		// b.hInput[i] = float32(i)
+		b.hInput[i] = 1
 	}
 
 	b.dData1 = b.driver.AllocateMemoryWithAlignment(b.context,
@@ -167,25 +167,30 @@ func (b *Benchmark) exec() {
 
 func (b *Benchmark) Verify() {
 	cpuOutput := make([]float32, b.paddedDataSize)
+	for x := 0; x < b.NumRows; x++ {
+		for y := 0; y < b.NumCols; y++ {
+			cpuOutput[x*b.numPaddedCols+y] =
+				b.hInput[x*b.numPaddedCols+y]
+		}
+	}
+
 	for i := 0; i < b.NumIteration; i++ {
 		for x := 0; x < b.NumRows; x++ {
 			for y := 0; y < b.NumCols; y++ {
 				if x == 0 || y == 0 ||
 					x == b.NumRows-1 || y == b.NumCols-1 {
-					cpuOutput[x*b.numPaddedCols+y] =
-						b.hInput[x*b.numPaddedCols+y]
 					continue
 				}
 
-				center := b.hInput[x*b.numPaddedCols+y]
-				cardinal := b.hInput[(x-1)*b.numPaddedCols+y] +
-					b.hInput[(x+1)*b.numPaddedCols+y] +
-					b.hInput[x*b.numPaddedCols+(y+1)] +
-					b.hInput[x*b.numPaddedCols+(y-1)]
-				diagonal := b.hInput[(x-1)*b.numPaddedCols+(y+1)] +
-					b.hInput[(x+1)*b.numPaddedCols+(y-1)] +
-					b.hInput[(x+1)*b.numPaddedCols+(y+1)] +
-					b.hInput[(x-1)*b.numPaddedCols+(y-1)]
+				center := cpuOutput[x*b.numPaddedCols+y]
+				cardinal := cpuOutput[(x-1)*b.numPaddedCols+y] +
+					cpuOutput[(x+1)*b.numPaddedCols+y] +
+					cpuOutput[x*b.numPaddedCols+(y+1)] +
+					cpuOutput[x*b.numPaddedCols+(y-1)]
+				diagonal := cpuOutput[(x-1)*b.numPaddedCols+(y+1)] +
+					cpuOutput[(x+1)*b.numPaddedCols+(y-1)] +
+					cpuOutput[(x+1)*b.numPaddedCols+(y+1)] +
+					cpuOutput[(x-1)*b.numPaddedCols+(y-1)]
 
 				out := b.wCenter*center +
 					b.wCardinal*cardinal +

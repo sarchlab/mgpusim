@@ -11,7 +11,10 @@
             "program": "${workspaceFolder}/samples/stencil2d",
             "args": [
                 "-verify",
-                "-debug-isa"
+                "-iter=2",
+                "-row=16",
+                "-col=64",
+                // "-debug-isa"
             ]
         },
         {

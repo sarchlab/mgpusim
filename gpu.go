@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/rdma"
+	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/vm/addresstranslator"
@@ -41,6 +42,7 @@ type GPU struct {
 	L1IAddrTranslator  []*addresstranslator.AddressTranslator
 	L1SAddrTranslator  []*addresstranslator.AddressTranslator
 	MemoryControllers  []akita.Component
+	Storage            *mem.Storage
 	InternalConnection akita.Connection
 
 	ToDriver           akita.Port
