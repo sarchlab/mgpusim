@@ -1,7 +1,6 @@
 package stencil2d
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 
@@ -70,8 +69,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.localRows = 16
 	b.localCols = 64
 	b.wCenter = 0.5
-	b.wCardinal = 0.02
-	b.wDiagonal = 0.002
+	b.wCardinal = 0.1
+	b.wDiagonal = 0.01
 	b.loadProgram()
 	return b
 }
@@ -108,15 +107,15 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	rand.Seed(1)
-	b.dataSize = b.NumRows * b.NumCols
-	b.hInput = make([]float32, b.dataSize)
-	b.hOutput = make([]float32, b.dataSize)
-	for i := 0; i < b.dataSize; i++ {
-		b.hInput[i] = float32(i)
-	}
-
 	b.numPaddedCols = ((b.NumCols-1)/b.pad + 1) * b.pad
 	b.paddedDataSize = b.NumRows * b.numPaddedCols
+
+	b.hInput = make([]float32, b.paddedDataSize)
+	b.hOutput = make([]float32, b.paddedDataSize)
+	for i := 0; i < b.paddedDataSize; i++ {
+		// b.hInput[i] = float32(i)
+		b.hInput[i] = 1
+	}
 
 	b.dData1 = b.driver.AllocateMemoryWithAlignment(b.context,
 		uint64(b.paddedDataSize*4), 4096)
@@ -132,7 +131,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, *b.newData, b.hInput)
 
 	for i := 0; i < b.NumIteration; i++ {
-		ldsSize := (b.localRows + 4) * (b.localCols + 4) * 4
+		ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
 
 		args := StencilKernelArgs{
 			Data:                *b.currData,
@@ -167,11 +166,45 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) Verify() {
-	for i := 0; i < b.NumRows; i++ {
-		for j := 0; j < b.NumCols; j++ {
-			fmt.Printf("%.02f ", b.hOutput[i*b.NumCols+j])
+	cpuOutput := make([]float32, b.paddedDataSize)
+	for i := 0; i < b.NumIteration; i++ {
+		for x := 0; x < b.NumRows; x++ {
+			for y := 0; y < b.NumCols; y++ {
+				if x == 0 || y == 0 ||
+					x == b.NumRows-1 || y == b.NumCols-1 {
+					cpuOutput[x*b.numPaddedCols+y] =
+						b.hInput[x*b.numPaddedCols+y]
+					continue
+				}
+
+				center := b.hInput[x*b.numPaddedCols+y]
+				cardinal := b.hInput[(x-1)*b.numPaddedCols+y] +
+					b.hInput[(x+1)*b.numPaddedCols+y] +
+					b.hInput[x*b.numPaddedCols+(y+1)] +
+					b.hInput[x*b.numPaddedCols+(y-1)]
+				diagonal := b.hInput[(x-1)*b.numPaddedCols+(y+1)] +
+					b.hInput[(x+1)*b.numPaddedCols+(y-1)] +
+					b.hInput[(x+1)*b.numPaddedCols+(y+1)] +
+					b.hInput[(x-1)*b.numPaddedCols+(y-1)]
+
+				out := b.wCenter*center +
+					b.wCardinal*cardinal +
+					b.wDiagonal*diagonal
+
+				cpuOutput[x*b.numPaddedCols+y] = out
+			}
 		}
-		fmt.Printf("\n")
 	}
+	for x := 0; x < b.NumRows; x++ {
+		for y := 0; y < b.NumCols; y++ {
+			index := x*b.numPaddedCols + y
+			if b.hOutput[index] != cpuOutput[index] {
+				log.Printf("not match at (%d,%d), expected %f to equal %f\n",
+					x, y,
+					b.hOutput[index], cpuOutput[index])
+			}
+		}
+	}
+
 	log.Printf("Passed!\n")
 }

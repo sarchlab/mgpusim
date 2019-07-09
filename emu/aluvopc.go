@@ -57,7 +57,7 @@ func (u *ALUImpl) runVCmpLtF32(state InstEmuState) {
 	var i uint
 	var src0, src1 float32
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
@@ -74,7 +74,7 @@ func (u *ALUImpl) runVCmpGtF32(state InstEmuState) {
 	var i uint
 	var src0, src1 float32
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
@@ -90,7 +90,7 @@ func (u *ALUImpl) runVCmpLtI32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -107,7 +107,7 @@ func (u *ALUImpl) runVCmpLeI32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -124,7 +124,7 @@ func (u *ALUImpl) runVCmpGtI32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -141,7 +141,7 @@ func (u *ALUImpl) runVCmpLtU32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -156,7 +156,7 @@ func (u *ALUImpl) runVCmpEqU32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -172,7 +172,7 @@ func (u *ALUImpl) runVCmpLeU32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] <= sp.SRC1[i] {
 				sp.VCC = sp.VCC | (1 << i)
 			}
@@ -185,7 +185,7 @@ func (u *ALUImpl) runVCmpGtU32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] > sp.SRC1[i] {
 				sp.VCC = sp.VCC | (1 << i)
 			}
@@ -198,7 +198,7 @@ func (u *ALUImpl) runVCmpNeU32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] != sp.SRC1[i] {
 				sp.VCC = sp.VCC | (1 << i)
 			}
@@ -211,7 +211,7 @@ func (u *ALUImpl) runVCmpGeU32(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] >= sp.SRC1[i] {
 				sp.VCC = sp.VCC | (1 << i)
 			}
@@ -224,7 +224,7 @@ func (u *ALUImpl) runVCmpFU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			sp.VCC = sp.VCC & ^(uint64(1) << i)
 		}
 	}
@@ -235,7 +235,7 @@ func (u *ALUImpl) runVCmpLtU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] < sp.SRC1[i] {
 				sp.VCC = sp.VCC | (uint64(1) << i)
 			}
@@ -248,7 +248,7 @@ func (u *ALUImpl) runVCmpEqU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] == sp.SRC1[i] {
 				sp.VCC = sp.VCC | (uint64(1) << i)
 			}
@@ -261,7 +261,7 @@ func (u *ALUImpl) runVCmpLeU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] <= sp.SRC1[i] {
 				sp.VCC = sp.VCC | (uint64(1) << i)
 			}
@@ -274,7 +274,7 @@ func (u *ALUImpl) runVCmpGtU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] > sp.SRC1[i] {
 				sp.VCC = sp.VCC | (uint64(1) << i)
 			}
@@ -287,7 +287,7 @@ func (u *ALUImpl) runVCmpLgU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] != sp.SRC1[i] {
 				sp.VCC = sp.VCC | (uint64(1) << i)
 			}
@@ -300,7 +300,7 @@ func (u *ALUImpl) runVCmpGeU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			if sp.SRC0[i] >= sp.SRC1[i] {
 				sp.VCC = sp.VCC | (uint64(1) << i)
 			}
@@ -313,7 +313,7 @@ func (u *ALUImpl) runVCmpTruU64(state InstEmuState) {
 	sp.VCC = 0
 	var i uint
 	for i = 0; i < 64; i++ {
-		if u.laneMasked(sp.EXEC, i) {
+		if laneMasked(sp.EXEC, i) {
 			sp.VCC = sp.VCC | (uint64(1) << i)
 		}
 	}
