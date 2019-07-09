@@ -23,6 +23,12 @@ func (u *ALUImpl) runSOP1(state InstEmuState) {
 		u.runSANDN2SAVEEXECB64(state)
 	case 36:
 		u.runSORN2SAVEEXECB64(state)
+	case 37:
+		u.runSNANDSAVEEXECB64(state)
+	case 38:
+		u.runSNORSAVEEXECB64(state)
+	case 39:
+		u.runSNXORSAVEEXECB64(state)
 	default:
 		log.Panicf("Opcode %d for SOP1 format is not implemented", inst.Opcode)
 	}
@@ -99,6 +105,39 @@ func (u *ALUImpl) runSORN2SAVEEXECB64(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
 	sp.DST = sp.EXEC
 	sp.EXEC = sp.SRC0 | (^sp.EXEC)
+	if sp.EXEC != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALUImpl) runSNANDSAVEEXECB64(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP1()
+	sp.DST = sp.EXEC
+	sp.EXEC = ^(sp.SRC0 & sp.EXEC)
+	if sp.EXEC != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALUImpl) runSNORSAVEEXECB64(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP1()
+	sp.DST = sp.EXEC
+	sp.EXEC = ^(sp.SRC0 | sp.EXEC)
+	if sp.EXEC != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALUImpl) runSNXORSAVEEXECB64(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP1()
+	sp.DST = sp.EXEC
+	sp.EXEC = ^(sp.SRC0 ^ sp.EXEC)
 	if sp.EXEC != 0 {
 		sp.SCC = 1
 	} else {
