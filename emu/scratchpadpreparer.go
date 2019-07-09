@@ -459,9 +459,14 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+	exec := scratchpad.AsFlat().EXEC
 
 	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
 		for i := 0; i < 64; i++ {
+			if !laneMasked(exec, uint(i)) {
+				continue
+			}
+
 			p.writeOperand(inst.Dst, wf, i, scratchpad[1544+i*16:1544+i*16+16])
 		}
 	}
@@ -511,10 +516,14 @@ func (p *ScratchpadPreparerImpl) commitDS(
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
+	exec := sp.AsDS().EXEC
 
 	if inst.Dst != nil {
 		offset := 8 + 64*4 + 256*4*2
 		for i := 0; i < 64; i++ {
+			if !laneMasked(exec, uint(i)) {
+				continue
+			}
 			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
 		}
 	}
