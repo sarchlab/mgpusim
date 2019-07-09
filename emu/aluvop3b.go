@@ -26,7 +26,7 @@ func (u *ALUImpl) runVADDU32VOP3b(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -42,7 +42,7 @@ func (u *ALUImpl) runVADDCU32VOP3b(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 

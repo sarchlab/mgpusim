@@ -10,7 +10,8 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/stencil2d",
             "args": [
-                "-verify"
+                "-verify",
+                "-debug-isa"
             ]
         },
         {

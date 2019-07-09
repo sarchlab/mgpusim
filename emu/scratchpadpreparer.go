@@ -369,10 +369,14 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+	exec := scratchpad.AsVOP1().EXEC
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, scratchpad[520:528])
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 	}
@@ -384,10 +388,15 @@ func (p *ScratchpadPreparerImpl) commitVOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+	exec := scratchpad.AsVOP2().EXEC
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, scratchpad[520:528])
 
 	for i := 0; i < 64; i++ {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
+
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 	}
@@ -402,7 +411,13 @@ func (p *ScratchpadPreparerImpl) commitVOP3a(
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
 
+	exec := sp.AsVOP3A().EXEC
+
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
+
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
@@ -417,8 +432,12 @@ func (p *ScratchpadPreparerImpl) commitVOP3b(
 	layout := sp.AsVOP3B()
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
+	exec := layout.EXEC
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}

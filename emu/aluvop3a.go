@@ -103,7 +103,7 @@ func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
 	var i uint
 	var src0, src1 float32
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
@@ -119,7 +119,7 @@ func (u *ALUImpl) runVCmpLtI32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -137,7 +137,7 @@ func (u *ALUImpl) runVCmpGtI32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -155,7 +155,7 @@ func (u *ALUImpl) runVCmpLtU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -173,7 +173,7 @@ func (u *ALUImpl) runVCmpEqU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -191,7 +191,7 @@ func (u *ALUImpl) runVCmpLeU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -209,7 +209,7 @@ func (u *ALUImpl) runVCmpGtU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -227,7 +227,7 @@ func (u *ALUImpl) runVCmpLgU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -245,7 +245,7 @@ func (u *ALUImpl) runVCmpGeU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -263,7 +263,7 @@ func (u *ALUImpl) runVCmpLtU64VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -281,7 +281,7 @@ func (u *ALUImpl) runVCNDMASKB32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -299,7 +299,7 @@ func (u *ALUImpl) runVMADU64U32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -312,7 +312,7 @@ func (u *ALUImpl) runVMULLOU32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -325,7 +325,7 @@ func (u *ALUImpl) runVMULHIU32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -339,7 +339,7 @@ func (u *ALUImpl) runVLSHLREVB64(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -352,7 +352,7 @@ func (u *ALUImpl) runVASHRREVI64(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 

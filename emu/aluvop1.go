@@ -36,7 +36,7 @@ func (u *ALUImpl) runVMOVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -49,7 +49,7 @@ func (u *ALUImpl) runVREADFIRSTLANEB32(state InstEmuState) {
 	var i uint
 	var laneid uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 		laneid = i
@@ -66,7 +66,7 @@ func (u *ALUImpl) runVCVTF32U32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -79,7 +79,7 @@ func (u *ALUImpl) runVCVTU32F32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -103,7 +103,7 @@ func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -126,7 +126,7 @@ func (u *ALUImpl) runVCVTI32F32(state InstEmuState) {
 func (u *ALUImpl) runTRUNKF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP1()
 	for i := uint(0); i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -141,7 +141,7 @@ func (u *ALUImpl) runVRCPIFLAGF32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -156,7 +156,7 @@ func (u *ALUImpl) runVNOTB32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -174,7 +174,7 @@ func (u *ALUImpl) runVLOGLEGACYF32(state InstEmuState) {
 	for i = 0; i < 64; i++ {
 		fmt.Printf("0x%x, ", sp.SRC0[i])
 
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
