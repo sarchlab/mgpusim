@@ -113,8 +113,8 @@ func (b *Benchmark) initMem() {
 	b.hInput = make([]float32, b.paddedDataSize)
 	b.hOutput = make([]float32, b.paddedDataSize)
 	for i := 0; i < b.paddedDataSize; i++ {
-		// b.hInput[i] = float32(i)
-		b.hInput[i] = 1
+		b.hInput[i] = float32(i)
+		// b.hInput[i] = 1
 	}
 
 	b.dData1 = b.driver.AllocateMemoryWithAlignment(b.context,

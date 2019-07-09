@@ -7,35 +7,52 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/util/tracing"
 )
 
 // ISADebugger is a logger hook that can dump the wavefront status after each
 // instruction execution
 type ISADebugger struct {
 	akita.LogHookBase
+	inflightInst map[string]tracing.Task
 }
 
 // NewISADebugger creates a new ISADebugger.
 func NewISADebugger(logger *log.Logger) *ISADebugger {
 	d := new(ISADebugger)
 	d.Logger = logger
+	d.inflightInst = make(map[string]tracing.Task)
 	return d
 }
 
 // Func defines the action that the ISADebugger takes
 func (d *ISADebugger) Func(
-	item interface{},
-	domain akita.Hookable,
-	info interface{},
+	ctx *akita.HookCtx,
 ) {
-	instInfo := info.(*wavefront.InstHookInfo)
-
-	if instInfo.Stage != "Completed" {
+	task, ok := ctx.Item.(tracing.Task)
+	if !ok {
 		return
 	}
 
-	cu := domain.(*ComputeUnit)
-	wf := item.(*wavefront.Wavefront)
+	if ctx.Pos == tracing.HookPosTaskStart {
+		d.inflightInst[task.ID] = task
+		return
+	}
+
+	if ctx.Pos == tracing.HookPosTaskStep {
+		return
+	}
+
+	oringinalTask, ok := d.inflightInst[task.ID]
+	if !ok {
+		panic("inst is not inflight")
+	}
+	delete(d.inflightInst, task.ID)
+
+	detail := oringinalTask.Detail.(map[string]interface{})
+	cu := ctx.Domain.(*ComputeUnit)
+	wf := detail["wf"].(*wavefront.Wavefront)
+	inst := detail["inst"].(*wavefront.Inst)
 
 	// For debugging
 	if wf.FirstWiFlatID != 0 {
@@ -44,7 +61,7 @@ func (d *ISADebugger) Func(
 
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
-	output += fmt.Sprintf("\tInst: %s\n", instInfo.Inst.String(nil))
+	output += fmt.Sprintf("\tInst: %s\n", inst.String(nil))
 	output += fmt.Sprintf("\tPC: 0x%016x\n", wf.PC)
 	output += fmt.Sprintf("\tEXEC: 0x%016x\n", wf.EXEC)
 	output += fmt.Sprintf("\tSCC: 0x%02x\n", wf.SCC)
