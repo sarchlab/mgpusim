@@ -122,6 +122,7 @@ func (b *gridBuilderImpl) formWavefronts(wg *WorkGroup) {
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
 		wf.WorkItems = append(wf.WorkItems, wg.WorkItems[i])
+		wf.InitExecMask |= 1 << uint32(i%wavefrontSize)
 	}
 }
 
