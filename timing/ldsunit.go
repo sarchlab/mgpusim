@@ -117,5 +117,4 @@ func (u *LDSUnit) Flush() {
 	u.toRead = nil
 	u.toExec = nil
 	u.toWrite = nil
-
 }
