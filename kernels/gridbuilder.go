@@ -111,8 +111,10 @@ func (b *gridBuilderImpl) spawnWorkItems(wg *WorkGroup) {
 func (b *gridBuilderImpl) formWavefronts(wg *WorkGroup) {
 	var wf *Wavefront
 	wavefrontSize := 64
-	for i := 0; i < len(wg.WorkItems); i++ {
-		if i%wavefrontSize == 0 {
+	for i, wi := range wg.WorkItems {
+		wg := wi.WG
+		inWGID := wi.IDZ*wg.SizeX*wg.SizeY + wi.IDY*wg.SizeX + wi.IDX
+		if inWGID%wavefrontSize == 0 {
 			wf = NewWavefront()
 			wf.FirstWiFlatID = wg.WorkItems[i].FlattenedID()
 			wf.CodeObject = b.hsaco
@@ -121,7 +123,8 @@ func (b *gridBuilderImpl) formWavefronts(wg *WorkGroup) {
 			wf.WG = wg
 			wg.Wavefronts = append(wg.Wavefronts, wf)
 		}
-		wf.WorkItems = append(wf.WorkItems, wg.WorkItems[i])
+		wf.WorkItems = append(wf.WorkItems, wi)
+		wf.InitExecMask |= 1 << uint32(inWGID%wavefrontSize)
 	}
 }
 
