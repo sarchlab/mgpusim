@@ -1,7 +1,6 @@
 package matrixtranspose
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/gcn3/driver"
@@ -100,9 +99,8 @@ func (b *Benchmark) exec() {
 	numWGWidth := wiWidth / uint32(b.blockSize)
 	wgXPerGPU := numWGWidth / uint32(len(b.queues))
 
-	for _, queue := range b.queues {
+	for i, queue := range b.queues {
 		wiWidthPerGPU := int(wiWidth) / len(b.queues)
-		fmt.Println(wiWidth, wiWidthPerGPU, wgXPerGPU, wiHeight, b.blockSize)
 
 		kernArg := MatrixTransposeKernelArgs{
 			b.dOutputData,
@@ -110,17 +108,18 @@ func (b *Benchmark) exec() {
 			driver.LocalPtr(b.blockSize * b.blockSize *
 				b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
 			wiWidth, wiHeight, numWGWidth,
-			0, 0,
+			wgXPerGPU * uint32(i), 0,
 			0, 0, 0,
 		}
 
 		b.driver.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
-			[3]uint32{uint32(wiWidth), wiHeight, 1},
+			[3]uint32{uint32(wiWidthPerGPU), wiHeight, 1},
 			[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
 			&kernArg,
 		)
+
 	}
 
 	for _, q := range b.queues {
