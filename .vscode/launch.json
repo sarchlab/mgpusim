@@ -70,7 +70,8 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/matrixtranspose",
             "args": [
-                "-width=68"
+                "-width=68",
+                "-verify"
             ]
         },
         {
