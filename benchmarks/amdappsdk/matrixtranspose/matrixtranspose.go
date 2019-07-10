@@ -131,6 +131,7 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) Verify() {
+	failed := false
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {
 			actual := b.hOutputData[j*b.Width+i]
@@ -138,9 +139,13 @@ func (b *Benchmark) Verify() {
 			if expected != actual {
 				log.Printf("mismatch at (%d, %d), expected %d, but get %d\n",
 					i, j, expected, actual)
+				failed = true
 			}
 		}
 	}
 
+	if failed {
+		panic("failed to verify matrix transpose result")
+	}
 	log.Printf("Passed!\n")
 }
