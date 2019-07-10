@@ -36,6 +36,16 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVCNDMASKB32VOP3a(state)
 	case 451, 488:
 		u.runVMADU64U32(state)
+	case 460:
+		u.runVFMAF64(state)
+	case 479:
+		u.runVDIVFIXUPF64(state)
+	case 483:
+		u.runVDIVFMASF64(state)
+	case 640:
+		u.runVADDF64(state)
+	case 641:
+		u.runVMULF64(state)
 	case 645:
 		u.runVMULLOU32(state)
 	case 646:
@@ -85,7 +95,36 @@ func (u *ALUImpl) vop3aPreprocess(state InstEmuState) {
 	}
 
 	if inst.Neg != 0 {
-		log.Panic("Oprand negative operation is not supported.")
+		if strings.Contains(inst.InstName, "F64") || strings.Contains(inst.InstName, "f64") {
+			if inst.Neg&0x1 != 0 {
+				for i := 0; i < 64; i++ {
+
+					//src0 := math.Float64frombits(uint64(sp.SRC0[i]) & 0x8000000000000000)
+					src0 := math.Float64frombits(uint64(sp.SRC0[i]))
+					src0 = src0 * (-1.0)
+					sp.SRC0[i] = uint64(math.Float64bits(src0))
+				}
+			}
+
+			if inst.Neg&0x2 != 0 {
+				for i := 0; i < 64; i++ {
+					src1 := math.Float64frombits(uint64(sp.SRC1[i]))
+					src1 = src1 * (-1.0)
+					sp.SRC1[i] = uint64(math.Float64bits(src1))
+				}
+			}
+
+			if inst.Neg&0x4 != 0 {
+				for i := 0; i < 64; i++ {
+					src2 := math.Float64frombits(uint64(sp.SRC2[i]))
+					src2 = src2 * (-1.0)
+					sp.SRC2[i] = uint64(math.Float64bits(src2))
+				}
+			}
+		} else {
+			log.Printf("Negative operation for %s is not implemented.", inst.InstName)
+		}
+
 	}
 }
 
@@ -357,5 +396,179 @@ func (u *ALUImpl) runVASHRREVI64(state InstEmuState) {
 		}
 
 		sp.DST[i] = int64ToBits(asInt64(sp.SRC1[i]) >> sp.SRC0[i])
+	}
+}
+
+func (u *ALUImpl) runVADDF64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+
+			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
+			src1 := math.Float64frombits(uint64(sp.SRC1[i]))
+			dst := src0 + src1
+			sp.DST[i] = uint64(math.Float64bits(dst))
+		}
+	} else {
+		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
+
+	}
+}
+
+func (u *ALUImpl) runVFMAF64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
+			src1 := math.Float64frombits(uint64(sp.SRC1[i]))
+			src2 := math.Float64frombits(uint64(sp.SRC2[i]))
+
+			dst := src0*src1 + src2
+			sp.DST[i] = uint64(math.Float64bits(dst))
+		}
+	} else {
+		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
+
+	}
+}
+
+func (u *ALUImpl) runVMULF64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
+			src1 := math.Float64frombits(uint64(sp.SRC1[i]))
+
+			dst := src0 * src1
+			sp.DST[i] = uint64(math.Float64bits(dst))
+		}
+	} else {
+		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
+
+	}
+}
+
+func (u *ALUImpl) runVDIVFMASF64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+
+			vcc_val := (sp.VCC) & (1 << i)
+
+			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
+			src1 := math.Float64frombits(uint64(sp.SRC1[i]))
+			src2 := math.Float64frombits(uint64(sp.SRC2[i]))
+
+			var dst float64
+			if vcc_val == 1 {
+				dst = (float64)(math.Pow(2.0, 64)) * (src0*src1 + src2)
+			} else {
+				dst = src0*src1 + src2
+			}
+			sp.DST[i] = uint64(math.Float64bits(dst))
+		}
+	} else {
+		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
+	}
+}
+
+func (u *ALUImpl) runVDIVFIXUPF64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	inst := state.Inst()
+
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !u.laneMasked(sp.EXEC, i) {
+				continue
+			}
+
+			sign_s1 := uint64(sp.SRC1[i]) >> 63
+			sign_s2 := uint64(sp.SRC2[i]) >> 63
+			sign_out := (sign_s1) ^ (sign_s2)
+
+			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
+			src1 := math.Float64frombits(uint64(sp.SRC1[i]))
+			src2 := math.Float64frombits(uint64(sp.SRC2[i]))
+
+			exponent_src1 := uint64((uint64(sp.SRC1[i]) << 1) >> 53)
+			exponent_src2 := uint64((uint64(sp.SRC2[i]) << 1) >> 53)
+
+			var dst float64
+
+			// Double Precision => Nan = 0x7FFFFFFFFFFFFFFF
+
+			if src2 == 0x7FFFFFFFFFFFFFFF {
+				dst = 0x7FF8000000000001 // assign a NaN value with quieting
+			} else if src1 == 0x7FFFFFFFFFFFFFFF {
+				dst = 0x7FF8000000000001
+			} else if (src1 == 0) && (src2 == 0) {
+				// 0 / 0
+				dst = 0xFFF8000000000000 // undetermined value
+			} else if (math.Abs(src1) == 0x7FF0000000000000 || math.Abs(src1) == 0xFFF0000000000000) &&
+				(math.Abs(src2) == 0x7FF0000000000000 || math.Abs(src2) == 0xFFF0000000000000) {
+				// inf / inf
+				dst = 0xFFF8000000000000
+			} else if src1 == 0 || (math.Abs(src2) == 0x7FF0000000000000 || math.Abs(src2) == 0xFFF0000000000000) {
+				// x/0 , or inf / y
+				if sign_out == 1 {
+					dst = 0xFFF0000000000000 // -INF
+				} else {
+					dst = 0x7FF0000000000000 // +INF
+				}
+			} else if (math.Abs(src1) == 0x7FF0000000000000 || math.Abs(src1) == 0xFFF0000000000000) || (src2 == 0) {
+				// x/inf, 0/y
+				if sign_out == 1 {
+					dst = 0x8000000000000000 // -0
+				} else {
+					dst = 0x0000000000000000 // +0
+				}
+			} else if int64(exponent_src2-exponent_src1) < -1075 {
+				log.Panicf("Underflow for VOP3A instruction opcode %d not implemented \n", inst.Opcode)
+				if sign_out == 1 {
+					//-underflow
+				} else {
+					//+underflow
+				}
+			} else if exponent_src1 == 2047 {
+				log.Panicf("Overflow for VOP3A instruction opcode %d not implemented \n", inst.Opcode)
+				if sign_out == 1 {
+					//-overflow
+				} else {
+					//+overflow
+				}
+			} else {
+				if sign_out == 1 {
+					dst = math.Abs(src0) * (-1.0)
+				} else {
+					dst = math.Abs(src0)
+				}
+			}
+
+			sp.DST[i] = math.Float64bits(dst)
+		}
+	} else {
+		log.Panicf("SDWA for VOP3A instruction opcode  %d not implemented \n", inst.Opcode)
 	}
 }
