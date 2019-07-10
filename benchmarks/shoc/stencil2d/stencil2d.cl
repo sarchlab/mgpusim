@@ -40,6 +40,7 @@ __kernel void CopyRect(__global VALTYPE* dest, int doffset, int dpitch,
 }
 
 __kernel void StencilKernel(__global VALTYPE* data, __global VALTYPE* newData,
+                            const int gRow, const int gCol,
                             const int alignment, VALTYPE wCenter,
                             VALTYPE wCardinal, VALTYPE wDiagonal,
                             __local VALTYPE* sh) {
@@ -57,16 +58,15 @@ __kernel void StencilKernel(__global VALTYPE* data, __global VALTYPE* newData,
   int lszRow = LROWS;
   int lszCol = get_local_size(1);
 
-  // determine our logical global data coordinates (without halo)
-  int gRow = ToGlobalRow(gidRow, lszRow, lidRow);
-  int gCol = ToGlobalCol(gidCol, lszCol, lidCol);
-
   // determine pitch of rows (without halo)
-  int nCols = gszCol * lszCol + 2;  // num columns including halo
+  int nCols = gCol + 2;  // num columns including halo
   int nPaddedCols =
       nCols +
       (((nCols % alignment) == 0) ? 0 : (alignment - (nCols % alignment)));
   int gRowWidth = nPaddedCols - 2;  // remove the halo
+
+  barrier(CLK_LOCAL_MEM_FENCE);
+  __asm__ volatile ("v_log_legacy_f32 v0, %0": "=s" (nCols));
 
   // Copy my global data item to a shared local buffer.
   // That local buffer is passed to us as a parameter.

@@ -9,23 +9,10 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
-type CopyRectKernelArgs struct {
-	Dst                 driver.GPUPtr
-	DOffset             int32
-	DPitch              int32
-	Src                 driver.GPUPtr
-	SOffset             int32
-	SPitch              int32
-	Width               int32
-	Height              int32
-	HiddenGlobalOffsetX int64
-	HiddenGlobalOffsetY int64
-	HiddenGlobalOffsetZ int64
-}
-
 type StencilKernelArgs struct {
 	Data                driver.GPUPtr
 	NewData             driver.GPUPtr
+	GRow, GCol          int32
 	Alignment           int32
 	WCenter             float32
 	WCardinal           float32
@@ -131,33 +118,43 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, *b.newData, b.hInput)
 
 	for i := 0; i < b.NumIteration; i++ {
-		ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
+		for _, q := range b.queues {
+			ldsSize := (b.localRows + 2) * (b.localCols + 2) * 4
+			globalSize := [3]uint32{
+				uint32((b.NumRows - 2) / b.localRows / len(b.queues)),
+				uint32(b.NumCols - 2),
+				1,
+			}
+			localSize := [3]uint16{1, uint16(b.localCols), 1}
 
-		args := StencilKernelArgs{
-			Data:                *b.currData,
-			NewData:             *b.newData,
-			Alignment:           16,
-			WCenter:             b.wCenter,
-			WCardinal:           b.wCardinal,
-			WDiagonal:           b.wDiagonal,
-			Sh:                  driver.LocalPtr(ldsSize),
-			Padding:             0,
-			HiddenGlobalOffsetX: 0,
-			HiddenGlobalOffsetY: 0,
-			HiddenGlobalOffsetZ: 0,
+			args := StencilKernelArgs{
+				Data:                *b.currData,
+				NewData:             *b.newData,
+				GRow:                int32(b.NumRows - 2),
+				GCol:                int32(b.NumCols - 2),
+				Alignment:           16,
+				WCenter:             b.wCenter,
+				WCardinal:           b.wCardinal,
+				WDiagonal:           b.wDiagonal,
+				Sh:                  driver.LocalPtr(ldsSize),
+				Padding:             0,
+				HiddenGlobalOffsetX: int64(globalSize[0] * uint32(i)),
+				HiddenGlobalOffsetY: 0,
+				HiddenGlobalOffsetZ: 0,
+			}
+
+			b.driver.EnqueueLaunchKernel(
+				q,
+				b.stencilKernel,
+				globalSize, localSize,
+				&args,
+			)
+
 		}
 
-		globalSize := [3]uint32{
-			uint32((b.NumRows - 2) / b.localRows),
-			uint32(b.NumCols - 2),
-			1,
+		for _, q := range b.queues {
+			b.driver.DrainCommandQueue(q)
 		}
-		localSize := [3]uint16{1, uint16(b.localCols), 1}
-		b.driver.LaunchKernel(b.context,
-			b.stencilKernel,
-			globalSize, localSize,
-			&args,
-		)
 
 		b.currData, b.newData = b.newData, b.currData
 	}
@@ -200,16 +197,22 @@ func (b *Benchmark) Verify() {
 			}
 		}
 	}
+
+	failed := false
 	for x := 0; x < b.NumRows; x++ {
 		for y := 0; y < b.NumCols; y++ {
 			index := x*b.numPaddedCols + y
 			if b.hOutput[index] != cpuOutput[index] {
 				log.Printf("not match at (%d,%d), expected %f to equal %f\n",
-					x, y,
+					y, x,
 					b.hOutput[index], cpuOutput[index])
+				failed = true
 			}
 		}
 	}
 
+	if failed {
+		panic("stencil 2d failed test")
+	}
 	log.Printf("Passed!\n")
 }

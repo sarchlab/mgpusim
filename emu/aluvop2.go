@@ -61,7 +61,8 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 	case 30:
 		u.runVSUBBREVU32(state)
 	default:
-		log.Panicf("Opcode %d for VOP2 format is not implemented", inst.Opcode)
+		log.Panicf("Opcode %d for VOP2 format (%s) is not implemented",
+			inst.Opcode, inst.String(nil))
 	}
 }
 

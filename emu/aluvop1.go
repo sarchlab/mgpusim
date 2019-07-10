@@ -178,9 +178,9 @@ func (u *ALUImpl) runVLOGLEGACYF32(state InstEmuState) {
 			continue
 		}
 
-		src := math.Float32frombits(uint32(sp.SRC0[i]))
-		dst := math.Log2(float64(src))
-		sp.DST[i] = uint64(math.Float32bits(float32(dst)))
+		//src := math.Float32frombits(uint32(sp.SRC0[i]))
+		//dst := math.Log2(float64(src))
+		//sp.DST[i] = uint64(math.Float32bits(float32(dst)))
 	}
 	fmt.Printf("\n")
 }
