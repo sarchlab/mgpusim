@@ -97,7 +97,8 @@ func BuildNR9NanoPlatform(
 		WithNumMemoryBank(8)
 
 	if TraceVis {
-		tracer := tracing.NewJsonTracer()
+		tracer := tracing.NewMongoDBTracer()
+		tracer.Init()
 		tracing.CollectTrace(gpuDriver, tracer)
 
 		gpuBuilder = gpuBuilder.WithVisTracer(tracer)
