@@ -85,8 +85,10 @@ func (b *Benchmark) initMem() {
 		b.hInputData[i] = uint32(i)
 	}
 
-	b.dInputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
-	b.dOutputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
+	b.dInputData = b.driver.AllocateMemoryWithAlignment(
+		b.context, uint64(numData*4), 4096)
+	b.dOutputData = b.driver.AllocateMemoryWithAlignment(
+		b.context, uint64(numData*4), 4096)
 	b.driver.Distribute(b.context, b.dInputData, uint64(numData*4), b.gpus)
 	b.driver.Distribute(b.context, b.dOutputData, uint64(numData*4), b.gpus)
 
@@ -133,8 +135,8 @@ func (b *Benchmark) Verify() {
 	failed := false
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {
-			actual := b.hOutputData[j*b.Width+i]
-			expected := b.hInputData[i*b.Width+j]
+			actual := b.hOutputData[i*b.Width+j]
+			expected := b.hInputData[j*b.Width+i]
 			if expected != actual {
 				log.Printf("mismatch at (%d, %d), expected %d, but get %d\n",
 					i, j, expected, actual)
