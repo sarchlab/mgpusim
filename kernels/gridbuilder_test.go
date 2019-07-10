@@ -171,21 +171,25 @@ var _ = Describe("GridBuilder", func() {
 		Expect(wg3.IDY).To(Equal(0))
 		Expect(wg3.CurrSizeX).To(Equal(1))
 		Expect(wg3.CurrSizeY).To(Equal(16))
+		Expect(wg3.Wavefronts).To(HaveLen(4))
 
 		Expect(wg4.IDX).To(Equal(0))
 		Expect(wg4.IDY).To(Equal(1))
 		Expect(wg4.CurrSizeX).To(Equal(16))
 		Expect(wg4.CurrSizeY).To(Equal(1))
+		Expect(wg4.Wavefronts).To(HaveLen(1))
 
 		Expect(wg5.IDX).To(Equal(1))
 		Expect(wg5.IDY).To(Equal(1))
 		Expect(wg5.CurrSizeX).To(Equal(16))
 		Expect(wg5.CurrSizeY).To(Equal(1))
+		Expect(wg5.Wavefronts).To(HaveLen(1))
 
 		Expect(wg6.IDX).To(Equal(2))
 		Expect(wg6.IDY).To(Equal(1))
 		Expect(wg6.CurrSizeX).To(Equal(1))
 		Expect(wg6.CurrSizeY).To(Equal(1))
+		Expect(wg6.Wavefronts).To(HaveLen(1))
 
 		Expect(wg7).To(BeNil())
 	})
