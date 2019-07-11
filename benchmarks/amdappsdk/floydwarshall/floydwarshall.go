@@ -7,14 +7,17 @@ import (
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+
+	"math/rand"
+	//"time"
 )
 
 type FloydWarshallKernelArgs struct {
-	OutputPathMatrix				driver.GPUPtr
-	OutputPathDistanceMatrix        driver.GPUPtr
+	OutputPathMatrix         driver.GPUPtr
+	OutputPathDistanceMatrix driver.GPUPtr
 
-	numNodes  	uint32
-	pass 		uint32
+	NumNodes uint32
+	Pass     uint32
 }
 
 type Benchmark struct {
@@ -22,22 +25,18 @@ type Benchmark struct {
 	context *driver.Context
 	gpus    []int
 	queues  []*driver.CommandQueue
+	kernel  *insts.HsaCo
 
-	kernel *insts.HsaCo
+	NumNodes                  uint32
+	hNumNodes                 uint32
+	hOutputPathMatrix         []uint32
+	hOutputPathDistanceMatrix []uint32
+	dNumNodes                 driver.GPUPtr
+	dOutputPathMatrix         driver.GPUPtr
+	dOutputPathDistanceMatrix driver.GPUPtr
 
-	Width              int
-	elemsPerThread1Dim int
-	blockSize          int
-
-	hNumNodes						uint32
-	hOutputPathMatrix				[]uint32
-	hOutputPathDistanceMatrix		[]uint32
-	dNumNodes					driver.GPUPtr
-	dOutputPathMatrix			driver.GPUPtr
-	dOutputPathDistanceMatrix	driver.GPUPtr
-
-	hVerificationPathMatrix				[]uint32
-	hVerificationPathDistanceMatrix		[]uint32
+	hVerificationPathMatrix         []uint32
+	hVerificationPathDistanceMatrix []uint32
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -45,8 +44,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.driver = driver
 	b.context = driver.Init()
 	b.loadProgram()
-	b.elemsPerThread1Dim = 4
-	b.blockSize = 16
 	return b
 }
 
@@ -55,9 +52,9 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+	hsacoBytes := FSMustByte(false, "/kernels.hsaco")
 
-	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "floydwarshall")
+	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "floydWarshallPass")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -71,82 +68,107 @@ func (b *Benchmark) Run() {
 
 	b.initMem()
 	b.exec()
+	b.Verify()
 }
 
 func (b *Benchmark) initMem() {
+
+	//s1 := rand.NewSource(time.Now().UnixNano())
+	//r1 := rand.New(s1)
 	
-	numNodes := b.hNumNodes
-	b.hOutputPathMatrix = make([]uint32, numNodes * numNodes)
-	b.hOutputPathDistanceMatrix = make([]uint32, numNodes * numNodes)
+	numNodes := b.NumNodes
+	b.hOutputPathMatrix = make([]uint32, numNodes*numNodes)
+	b.hOutputPathDistanceMatrix = make([]uint32, numNodes*numNodes)
 
-	for i := 0; i < numNodes; i++ {
-		iXWidth := i * numNodes
-		b.hOutputPathDistanceMatrix[iXWidth + i] = 0;
-	}
-
-	for i := 0; i < numNodes; ++i)
-    {
-        for j := 0; j < i; ++j)
-        {
-            b.hOutputPathMatrix[i * numNodes + j] = i;
-            b.hOutputPathMatrix[j * numNodes + i] = j;
-        }
-        b.hOutputPathMatrix[i * numNodes + i] = i;
-	}
-
-	fmt.Println("Distance matrix on CPU:")
-	for i := 0; i < b.numNodes; i++ {
-		for j := 0; j < b.numNodes; j++ {
-			actual := b.hOutputPathDistanceMatrix[j*b.numNodes+i]
-			fmt.Printf("%d ", actual)
+	for i := uint32(0); i < numNodes; i++ {
+		for j := uint32(0); j < i; j++ {
+			temp := uint32(rand.Int31n(10))
+			b.hOutputPathDistanceMatrix[i*numNodes+j] = temp
+			b.hOutputPathDistanceMatrix[j*numNodes+i] = temp
 		}
-		fmt.Printf("\n")
 	}
-	
-	if(sampleArgs->verify)
-    {
 
-		b.hVerificationPathMatrix = make([]uint32, numNodes * numNodes)
-		b.hVerificationPathDistanceMatrix = make([]uint32, numNodes * numNodes)
-
-		/*
-        memcpy(verificationPathDistanceMatrix, pathDistanceMatrix,
-               numNodes * numNodes * sizeof(cl_int));
-		memcpy(verificationPathMatrix, pathMatrix, numNodes*numNodes*sizeof(cl_int));
-		*/
+	for i := uint32(0); i < numNodes; i++ {
+		iXWidth := i * numNodes
+		b.hOutputPathDistanceMatrix[iXWidth+i] = 0
 	}
-	
-	b.driver.dOutputPathMatrix = b.driver.AllocateMemory(b.context, uint32(numNodes * numNodes))
-	b.driver.dOutputPathDistanceMatrix = b.driver.AllocateMemory(b.context, uint32(numNodes * numNodes))
-	
-	b.driver.Distribute(b.context, b.dOutputPathMatrix, uint32(numNodes * numNodes), b.gpus)
-	b.driver.Distribute(b.context, b.dOutputPathDistanceMatrix, uint32(numNodes * numNodes), b.gpus)
+
+	for i := uint32(0); i < numNodes; i++ {
+		for j := uint32(0); j < i; j++ {
+			b.hOutputPathMatrix[i*numNodes+j] = uint32(i)
+			b.hOutputPathMatrix[j*numNodes+i] = uint32(j)
+		}
+		b.hOutputPathMatrix[i*numNodes+i] = uint32(i)
+	}
+
+	fmt.Println("Input Path Matrix:")
+	PrintMatrix(b.hOutputPathMatrix, numNodes)
+	fmt.Println("Input Path Distance Matrix:")
+	PrintMatrix(b.hOutputPathDistanceMatrix, numNodes)
+
+	b.hVerificationPathMatrix = make([]uint32, numNodes*numNodes)
+	b.hVerificationPathDistanceMatrix = make([]uint32, numNodes*numNodes)
+
+	copy(b.hVerificationPathDistanceMatrix, b.hOutputPathDistanceMatrix)
+	copy(b.hVerificationPathMatrix, b.hOutputPathMatrix)
+
+	b.dOutputPathMatrix = b.driver.AllocateMemoryWithAlignment(b.context, uint64(numNodes*numNodes*4), 4096)
+	b.dOutputPathDistanceMatrix = b.driver.AllocateMemoryWithAlignment(b.context, uint64(numNodes*numNodes*4), 4096)
+
+	//b.driver.Distribute(b.context, b.dOutputPathMatrix, uint64(numNodes*numNodes), b.gpus)
+	//b.driver.Distribute(b.context, b.dOutputPathDistanceMatrix, uint64(numNodes*numNodes), b.gpus)
 
 	b.driver.MemCopyH2D(b.context, b.dOutputPathMatrix, b.hOutputPathMatrix)
 	b.driver.MemCopyH2D(b.context, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)
 }
 
+func PrintMatrix(matrix []uint32, n uint32) {
+	for i := uint32(0); i < n; i++ {
+		for j := uint32(0); j < n; j++ {
+			fmt.Printf("%d ", matrix[i*n+j])
+		}
+		fmt.Printf("\n")
+	}
+}
+
 func (b *Benchmark) exec() {
 
+	numNodes := uint32(b.NumNodes)
+	//numNodes := 256
+	blockSize := uint32(8)
+
+	if numNodes%blockSize != 0 {
+		numNodes = (numNodes/blockSize + 1) * blockSize
+	}
+
 	for _, queue := range b.queues {
-		
-		for k:=0; k<numNodes; k++{
-			b.pass = k
-			
+
+		for k := uint32(0); k < numNodes; k++ {
+			pass := k
+
 			kernArg := FloydWarshallKernelArgs{
 				b.dOutputPathMatrix,
 				b.dOutputPathDistanceMatrix,
-				b.numNodes,
-				b.pass,
+				uint32(numNodes),
+				uint32(pass),
 			}
-			
+
 			b.driver.EnqueueLaunchKernel(
 				queue,
 				b.kernel,
-				//[3]uint32{uint32(wiWidth), wiHeight, 1},
-				//[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
+				[3]uint32{uint32(numNodes), uint32(numNodes), 1},
+				[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 				&kernArg,
 			)
+
+			b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
+			b.driver.MemCopyD2H(b.context, b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
+
+			fmt.Println("\nIteration ", k)
+			fmt.Println("GPU Path Matrix:")
+			PrintMatrix(b.hOutputPathMatrix, numNodes)
+			fmt.Println("GPU Path Distance Matrix:")
+			PrintMatrix(b.hOutputPathDistanceMatrix, numNodes)
 		}
 	}
 
@@ -157,14 +179,10 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
 	b.driver.MemCopyD2H(b.context, b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
 
-	fmt.Println("Resulting path distance matrix:")
-	for i := 0; i < b.numNodes; i++ {
-		for j := 0; j < b.numNodes; j++ {
-			actual := b.hOutputPathDistanceMatrix[j*b.numNodes+i]
-			fmt.Printf("%d ", actual)
-		}
-		fmt.Printf("\n")
-	}
+	fmt.Println("\nResult Path Matrix:")
+	PrintMatrix(b.hOutputPathMatrix, numNodes)
+	fmt.Println("Result Path Distance Matrix:")
+	PrintMatrix(b.hOutputPathDistanceMatrix, numNodes)
 
 }
 
@@ -174,47 +192,33 @@ func (b *Benchmark) Verify() {
 	 * Floyd-Warshall with CPU
 	 */
 
+	numNodes := b.NumNodes
 	var distanceYtoX, distanceYtoK, distanceKtoX, indirectDistance uint32
-    width := numNodes
-    var yXwidth uint32
+	width := numNodes
+	var yXwidth uint32
 
-    for k := 0; k < numNodes; ++k
-    {
-        for y := 0; y < numNodes; ++y
-        {
-            yXwidth =  y*numNodes;
-            for x := 0; x < numNodes; ++x
-            {
-                distanceYtoX = b.hVerificationPathDistanceMatrix[yXwidth + x];
-                distanceYtoK = b.hVerificationPathDistanceMatrix[yXwidth + k];
-                distanceKtoX = b.hVerificationPathDistanceMatrix[k * width + x];
+	for k := uint32(0); k < numNodes; k++ {
+		for y := uint32(0); y < numNodes; y++ {
+			yXwidth = uint32(y * numNodes)
+			for x := uint32(0); x < numNodes; x++ {
+				distanceYtoX = b.hVerificationPathDistanceMatrix[yXwidth+uint32(x)]
+				distanceYtoK = b.hVerificationPathDistanceMatrix[yXwidth+uint32(k)]
+				distanceKtoX = b.hVerificationPathDistanceMatrix[k*width+x]
 
-                indirectDistance = distanceYtoK + distanceKtoX;
+				indirectDistance = distanceYtoK + distanceKtoX
 
-                if indirectDistance < distanceYtoX
-                {
-                    b.hVerificationPathDistanceMatrix[yXwidth + x] = indirectDistance;
-                    b.hVerificationPathMatrix[yXwidth + x]         = k;
-                }
-            }
-        }
-    }
-
-
-	/*
-	 * Verifying the result
-	 */
-	
-	fmt.Println("Verification path distance matrix:")
-	for i := 0; i < b.numNodes; i++ {
-		for j := 0; j < b.numNodes; j++ {
-			actual := b.hVerificationPathDistanceMatrix[j*b.numNodes+i]
-			fmt.Printf("%d ", actual)
+				if indirectDistance < distanceYtoX {
+					b.hVerificationPathDistanceMatrix[yXwidth+uint32(x)] = indirectDistance
+					b.hVerificationPathMatrix[yXwidth+uint32(x)] = uint32(k)
+				}
+			}
 		}
-		fmt.Printf("\n")
 	}
+
+	fmt.Println("\nVerification Path Matrix:")
+	PrintMatrix(b.hVerificationPathMatrix, numNodes)
+	fmt.Println("Verification Path Distance Matrix:")
+	PrintMatrix(b.hVerificationPathDistanceMatrix, numNodes)
 
 	log.Printf("Passed!\n")
 }
-
-
