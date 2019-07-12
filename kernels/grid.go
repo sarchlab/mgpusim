@@ -55,6 +55,7 @@ type Wavefront struct {
 	PacketAddress uint64
 	FirstWiFlatID int
 	WG            *WorkGroup
+	InitExecMask  uint64
 
 	WorkItems []*WorkItem
 }
