@@ -5,6 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Floyd Warshall",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/floydwarshall",
+            "args": [
+            ]
+        },
+
+        {
             "name": "Matrix Transpose",
             "type": "go",
             "request": "launch",

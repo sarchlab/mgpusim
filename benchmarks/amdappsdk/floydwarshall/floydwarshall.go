@@ -9,12 +9,12 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 
 	"math/rand"
-	//"time"
+	"time"
 )
 
 type FloydWarshallKernelArgs struct {
-	OutputPathMatrix         driver.GPUPtr
 	OutputPathDistanceMatrix driver.GPUPtr
+	OutputPathMatrix         driver.GPUPtr
 
 	NumNodes uint32
 	Pass     uint32
@@ -28,10 +28,8 @@ type Benchmark struct {
 	kernel  *insts.HsaCo
 
 	NumNodes                  uint32
-	hNumNodes                 uint32
 	hOutputPathMatrix         []uint32
 	hOutputPathDistanceMatrix []uint32
-	dNumNodes                 driver.GPUPtr
 	dOutputPathMatrix         driver.GPUPtr
 	dOutputPathDistanceMatrix driver.GPUPtr
 
@@ -73,9 +71,8 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 
-	//s1 := rand.NewSource(time.Now().UnixNano())
-	//r1 := rand.New(s1)
-	
+	rand.Seed(time.Now().UnixNano())
+
 	numNodes := b.NumNodes
 	b.hOutputPathMatrix = make([]uint32, numNodes*numNodes)
 	b.hOutputPathDistanceMatrix = make([]uint32, numNodes*numNodes)
@@ -101,11 +98,6 @@ func (b *Benchmark) initMem() {
 		b.hOutputPathMatrix[i*numNodes+i] = uint32(i)
 	}
 
-	fmt.Println("Input Path Matrix:")
-	PrintMatrix(b.hOutputPathMatrix, numNodes)
-	fmt.Println("Input Path Distance Matrix:")
-	PrintMatrix(b.hOutputPathDistanceMatrix, numNodes)
-
 	b.hVerificationPathMatrix = make([]uint32, numNodes*numNodes)
 	b.hVerificationPathDistanceMatrix = make([]uint32, numNodes*numNodes)
 
@@ -114,9 +106,6 @@ func (b *Benchmark) initMem() {
 
 	b.dOutputPathMatrix = b.driver.AllocateMemoryWithAlignment(b.context, uint64(numNodes*numNodes*4), 4096)
 	b.dOutputPathDistanceMatrix = b.driver.AllocateMemoryWithAlignment(b.context, uint64(numNodes*numNodes*4), 4096)
-
-	//b.driver.Distribute(b.context, b.dOutputPathMatrix, uint64(numNodes*numNodes), b.gpus)
-	//b.driver.Distribute(b.context, b.dOutputPathDistanceMatrix, uint64(numNodes*numNodes), b.gpus)
 
 	b.driver.MemCopyH2D(b.context, b.dOutputPathMatrix, b.hOutputPathMatrix)
 	b.driver.MemCopyH2D(b.context, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)
@@ -134,8 +123,7 @@ func PrintMatrix(matrix []uint32, n uint32) {
 func (b *Benchmark) exec() {
 
 	numNodes := uint32(b.NumNodes)
-	//numNodes := 256
-	blockSize := uint32(8)
+	blockSize := uint32(16)
 
 	if numNodes%blockSize != 0 {
 		numNodes = (numNodes/blockSize + 1) * blockSize
@@ -147,8 +135,8 @@ func (b *Benchmark) exec() {
 			pass := k
 
 			kernArg := FloydWarshallKernelArgs{
-				b.dOutputPathMatrix,
 				b.dOutputPathDistanceMatrix,
+				b.dOutputPathMatrix,
 				uint32(numNodes),
 				uint32(pass),
 			}
@@ -160,15 +148,6 @@ func (b *Benchmark) exec() {
 				[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 				&kernArg,
 			)
-
-			b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
-			b.driver.MemCopyD2H(b.context, b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
-
-			fmt.Println("\nIteration ", k)
-			fmt.Println("GPU Path Matrix:")
-			PrintMatrix(b.hOutputPathMatrix, numNodes)
-			fmt.Println("GPU Path Distance Matrix:")
-			PrintMatrix(b.hOutputPathDistanceMatrix, numNodes)
 		}
 	}
 
@@ -179,18 +158,9 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
 	b.driver.MemCopyD2H(b.context, b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
 
-	fmt.Println("\nResult Path Matrix:")
-	PrintMatrix(b.hOutputPathMatrix, numNodes)
-	fmt.Println("Result Path Distance Matrix:")
-	PrintMatrix(b.hOutputPathDistanceMatrix, numNodes)
-
 }
 
 func (b *Benchmark) Verify() {
-
-	/*
-	 * Floyd-Warshall with CPU
-	 */
 
 	numNodes := b.NumNodes
 	var distanceYtoX, distanceYtoK, distanceKtoX, indirectDistance uint32
@@ -215,10 +185,21 @@ func (b *Benchmark) Verify() {
 		}
 	}
 
-	fmt.Println("\nVerification Path Matrix:")
-	PrintMatrix(b.hVerificationPathMatrix, numNodes)
-	fmt.Println("Verification Path Distance Matrix:")
-	PrintMatrix(b.hVerificationPathDistanceMatrix, numNodes)
+	n := numNodes
+	for i := uint32(0); i < n; i++ {
+		for j := uint32(0); j < n; j++ {
+			if b.hOutputPathMatrix[i*n+j] != b.hVerificationPathMatrix[i*n+j] {
+				panic(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
+					b.hVerificationPathMatrix[i*n+j],
+					b.hOutputPathMatrix[i*n+j]))
+			}
+			if b.hOutputPathDistanceMatrix[i*n+j] != b.hVerificationPathDistanceMatrix[i*n+j] {
+				panic(fmt.Sprintf("Mismatch at row %d col %d, expected %d got %d", i, j,
+					b.hVerificationPathDistanceMatrix[i*n+j],
+					b.hOutputPathDistanceMatrix[i*n+j]))
+			}
+		}
+	}
 
 	log.Printf("Passed!\n")
 }
