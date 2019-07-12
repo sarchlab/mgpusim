@@ -85,5 +85,13 @@
                 "-gpus=1,2"
             ]
         },
+        {
+            "name": "Floyd Warshall",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/floydwarshall",
+            "args": []
+        },
     ]
 }
