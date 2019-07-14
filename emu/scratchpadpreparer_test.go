@@ -339,6 +339,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsSOP1()
+		layout.EXEC = 0xffffffffffffffff
 		layout.DST = 517
 		layout.EXEC = 0xffffffff00000000
 		layout.SCC = 1
@@ -374,6 +375,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsVOP1()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -394,6 +396,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsVOP2()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -414,6 +417,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsVOP3A()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -435,6 +439,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsVOP3B()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -457,6 +462,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsVOPC()
+		layout.EXEC = 0xffffffffffffffff
 		layout.VCC = uint64(0xff)
 		layout.EXEC = uint64(0x01)
 
@@ -474,6 +480,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsFlat()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i*4+0] = uint32(i)
 			layout.DST[i*4+1] = uint32(i)
@@ -499,6 +506,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsFlat()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i*4+0] = uint32(i)
 			layout.DST[i*4+1] = uint32(i)
@@ -556,6 +564,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		layout := wf.Scratchpad().AsSOPP()
 		layout.PC = 164
+		layout.EXEC = 0xffffffffffffffff
 
 		sp.Commit(wf, wf)
 
@@ -585,6 +594,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.inst = inst
 
 		layout := wf.Scratchpad().AsDS()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i*4] = uint32(i)
 			layout.DST[i*4+1] = uint32(i + 1)
