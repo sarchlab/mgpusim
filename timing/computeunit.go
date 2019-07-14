@@ -756,7 +756,7 @@ func (cu *ComputeUnit) logInstTask(
 		now,
 		cu,
 		"inst",
-		inst.String(nil),
+		"inst",
 		map[string]interface{}{
 			"inst": inst,
 			"wf":   wf,
