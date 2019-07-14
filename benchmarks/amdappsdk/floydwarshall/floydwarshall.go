@@ -9,7 +9,6 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 
 	"math/rand"
-	"time"
 )
 
 type FloydWarshallKernelArgs struct {
@@ -66,12 +65,10 @@ func (b *Benchmark) Run() {
 
 	b.initMem()
 	b.exec()
-	b.Verify()
 }
 
 func (b *Benchmark) initMem() {
-
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(1)
 
 	numNodes := b.NumNodes
 	b.hOutputPathMatrix = make([]uint32, numNodes*numNodes)
@@ -111,7 +108,7 @@ func (b *Benchmark) initMem() {
 	b.driver.MemCopyH2D(b.context, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)
 }
 
-func PrintMatrix(matrix []uint32, n uint32) {
+func printMatrix(matrix []uint32, n uint32) {
 	for i := uint32(0); i < n; i++ {
 		for j := uint32(0); j < n; j++ {
 			fmt.Printf("%d ", matrix[i*n+j])
@@ -121,7 +118,6 @@ func PrintMatrix(matrix []uint32, n uint32) {
 }
 
 func (b *Benchmark) exec() {
-
 	numNodes := uint32(b.NumNodes)
 	blockSize := uint32(16)
 
