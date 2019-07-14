@@ -128,10 +128,10 @@ def main():
                'fir',
                ['-length=8192'],
                '../../benchmarks/heteromark/fir')
-    mm = Test('../../samples/matrixmultiplication',
-              'matrixmultiplication',
-              ['-x=128', '-y=128', '-z=128'],
-              '../../benchmarks/amdappsdk/matrixmultiplication')
+    aes = Test('../../samples/aes',
+               'aes',
+               ['-length=16384'],
+               '../../benchmarks/heteromark/aes')
     km = Test('../../samples/kmeans', 'kmeans',
               [
                   '-points=1024',
@@ -140,6 +140,10 @@ def main():
                   '-max-iter=5'
               ],
               '../../benchmarks/heteromark/kmeans')
+    mm = Test('../../samples/matrixmultiplication',
+              'matrixmultiplication',
+              ['-x=128', '-y=128', '-z=128'],
+              '../../benchmarks/amdappsdk/matrixmultiplication')
     mt = Test('../../samples/matrixtranspose',
               'matrixtranspose',
               ['-width=256'],
@@ -148,14 +152,14 @@ def main():
               'bitonicsort',
               ['-length=4096'],
               '../../benchmarks/amdappsdk/bitonicsort')
-    aes = Test('../../samples/aes',
-               'aes',
-               ['-length=16384'],
-               '../../benchmarks/heteromark/aes')
     sc = Test('../../samples/simpleconvolution',
               'simpleconvolution',
               [],
               '../../benchmarks/amdappsdk/simpleconvolution')
+    fw = Test('../../samples/flowydwarshall',
+              'floydwarshall',
+              [],
+              '../../benchmarks/amdappsdk/floydwarshall')
     re = Test('../../samples/relu',
               'relu',
               [],
@@ -171,13 +175,14 @@ def main():
 
     err = False
     err |= compile('../../insts/gcn3disassembler')
+    err |= aes.test()
     err |= fir.test()
-    err |= mm.test()
     err |= km.test()
+    err |= mm.test()
     err |= mt.test()
     err |= bs.test()
-    err |= aes.test()
     err |= sc.test()
+    err |= fw.test(test_multi_gpu=False)
     err |= re.test()
     err |= mp.test()
     err |= cw.test(test_disassemble=False, test_multi_gpu=False)
