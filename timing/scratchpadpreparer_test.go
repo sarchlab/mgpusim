@@ -490,6 +490,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsFlat()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i*4+0] = uint32(i)
 			layout.DST[i*4+1] = uint32(i)
