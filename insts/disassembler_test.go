@@ -32,7 +32,7 @@ var _ = Describe("Disassembler", func() {
 		Expect(inst.String(nil)).To(Equal("s_waitcnt vmcnt(0)"))
 	})
 
-	FIt("should decode BF8C0171", func() {
+	It("should decode BF8C0171", func() {
 		buf := []byte{0x71, 0x01, 0x8c, 0xbf}
 
 		inst, err := disassembler.Decode(buf)
