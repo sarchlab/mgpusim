@@ -96,7 +96,10 @@ func (o Operand) String() string {
 	case IntOperand:
 		return fmt.Sprintf("%d", o.IntValue)
 	case FloatOperand:
-		return fmt.Sprintf("%f", o.FloatValue)
+		if o.FloatValue == 1.0 {
+			return "1.0"
+		}
+		return fmt.Sprintf("%.06f", o.FloatValue)
 	case LiteralConstant:
 		return fmt.Sprintf("0x%x", o.LiteralConstant)
 	default:
