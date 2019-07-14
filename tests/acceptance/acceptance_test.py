@@ -168,6 +168,10 @@ def main():
               'maxpooling',
               [],
               '../../benchmarks/dnn/maxpooling')
+    st = Test('../../samples/stencil2d',
+              'stencil2d',
+              [],
+              '../../benchmarks/shoc/stencil2d')
     cw = Test('../../samples/concurrentworkload',
               'concurrentworkload',
               [],
@@ -185,6 +189,8 @@ def main():
     err |= fw.test(test_multi_gpu=False)
     err |= re.test()
     err |= mp.test()
+    err |= st.test(test_multi_gpu=False)
+
     err |= cw.test(test_disassemble=False, test_multi_gpu=False)
 
     # error |= compile('acceptancetests/cupipelinedraining')
