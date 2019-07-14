@@ -2,6 +2,7 @@ package emu
 
 import (
 	"log"
+	"math"
 )
 
 func (u *ALUImpl) runVOP3B(state InstEmuState) {
@@ -14,6 +15,8 @@ func (u *ALUImpl) runVOP3B(state InstEmuState) {
 		u.runVADDU32VOP3b(state)
 	case 284:
 		u.runVADDCU32VOP3b(state)
+	case 481:
+		u.runVDIVSCALEF64(state)
 	default:
 		log.Panicf("Opcode %d for VOP3b format is not implemented", inst.Opcode)
 	}
@@ -54,5 +57,72 @@ func (u *ALUImpl) runVADDCU32VOP3b(state InstEmuState) {
 		sp.SDST |= carry << i
 		sp.DST[i] &= 0xffffffff
 	}
+}
 
+func (u *ALUImpl) runVDIVSCALEF64(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3B()
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		// set to 0
+		//sp.VCC = sp.VCC & ((1 << i) - 1)
+		sp.VCC = 0
+
+		src0 := math.Float64frombits(sp.SRC0[i])
+		src1 := math.Float64frombits(sp.SRC1[i])
+		src2 := math.Float64frombits(sp.SRC2[i])
+
+		exponentSrc1 := uint64((uint64(sp.SRC1[i]) << 1) >> 53)
+		exponentSrc2 := uint64((uint64(sp.SRC2[i]) << 1) >> 53)
+
+		diffExpSrc2Src1 := int64(exponent_src2) - int64(exponent_src1)
+
+		fractionSrc1 := uint64((uint64(sp.SRC1[i]) << 12) >> 12)
+
+		reversedSrc1 := float64(1) / src1
+		src2DivSrc1 := src2 / src1
+
+		exponentRevSrc1 := uint64((uint64(reversed_src1) << 1) >> 53)
+		fractionRevSrc1 := uint64((uint64(reversed_src1) << 12) >> 12)
+
+		exponentSrc2DivSrc1 := uint64((uint64(src2_div_src1) << 1) >> 53)
+		fractionSrc2DivSrc1 := uint64((uint64(src2_div_src1) << 12) >> 12)
+
+		if src2 == 0 || src1 == 0 {
+			sp.DST[i] = 0x7FFFFFFFFFFFFFFF // NaN
+		} else if diffExpSrc2Src1 >= 768 {
+			// N/D near MAX_FLOAT
+			//sp.VCC = sp.VCC | (1 << i)
+			sp.VCC = 1
+			if src0 == src1 {
+				// Only scale the denominator
+				sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
+			}
+		} else if exponentSrc1 == 0 && fractionSrc1 != 0 {
+			// subnormal .. => DENORM
+			sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
+		} else if (exponentRevSrc1 == 0 && fractionRevSrc1 != 0) && (exponentSrc2DivSrc1 == 0 && fractionSrc2DivSrc1 != 0) {
+			//sp.VCC = sp.VCC | (1 << i)
+			sp.VCC = 1
+			if src0 == src1 {
+				// Only scale the denominator
+				sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
+			}
+		} else if exponentRevSrc1 == 0 && fractionRevSrc1 != 0 {
+			sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
+		} else if exponentSrc2DivSrc1 == 0 && fractionSrc2DivSrc1 != 0 {
+			//sp.VCC = sp.VCC | (1 << i)
+			sp.VCC = 1
+			if src0 == src2 {
+				// Only scale the denominator
+				sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
+			}
+		} else if exponentSrc2 <= 53 {
+			// Numerator is tiny
+			sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
+		}
+	}
 }
