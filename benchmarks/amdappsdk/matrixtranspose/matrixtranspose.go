@@ -1,7 +1,6 @@
 package matrixtranspose
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/gcn3/driver"
@@ -86,8 +85,10 @@ func (b *Benchmark) initMem() {
 		b.hInputData[i] = uint32(i)
 	}
 
-	b.dInputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
-	b.dOutputData = b.driver.AllocateMemory(b.context, uint64(numData*4))
+	b.dInputData = b.driver.AllocateMemoryWithAlignment(
+		b.context, uint64(numData*4), 4096)
+	b.dOutputData = b.driver.AllocateMemoryWithAlignment(
+		b.context, uint64(numData*4), 4096)
 	b.driver.Distribute(b.context, b.dInputData, uint64(numData*4), b.gpus)
 	b.driver.Distribute(b.context, b.dOutputData, uint64(numData*4), b.gpus)
 
@@ -100,9 +101,8 @@ func (b *Benchmark) exec() {
 	numWGWidth := wiWidth / uint32(b.blockSize)
 	wgXPerGPU := numWGWidth / uint32(len(b.queues))
 
-	for _, queue := range b.queues {
+	for i, queue := range b.queues {
 		wiWidthPerGPU := int(wiWidth) / len(b.queues)
-		fmt.Println(wiWidth, wiWidthPerGPU, wgXPerGPU, wiHeight, b.blockSize)
 
 		kernArg := MatrixTransposeKernelArgs{
 			b.dOutputData,
@@ -110,17 +110,18 @@ func (b *Benchmark) exec() {
 			driver.LocalPtr(b.blockSize * b.blockSize *
 				b.elemsPerThread1Dim * b.elemsPerThread1Dim * 4),
 			wiWidth, wiHeight, numWGWidth,
-			0, 0,
+			wgXPerGPU * uint32(i), 0,
 			0, 0, 0,
 		}
 
 		b.driver.EnqueueLaunchKernel(
 			queue,
 			b.kernel,
-			[3]uint32{uint32(wiWidth), wiHeight, 1},
+			[3]uint32{uint32(wiWidthPerGPU), wiHeight, 1},
 			[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
 			&kernArg,
 		)
+
 	}
 
 	for _, q := range b.queues {
@@ -131,16 +132,21 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) Verify() {
+	failed := false
 	for i := 0; i < b.Width; i++ {
 		for j := 0; j < b.Width; j++ {
-			actual := b.hOutputData[j*b.Width+i]
-			expected := b.hInputData[i*b.Width+j]
+			actual := b.hOutputData[i*b.Width+j]
+			expected := b.hInputData[j*b.Width+i]
 			if expected != actual {
 				log.Printf("mismatch at (%d, %d), expected %d, but get %d\n",
 					i, j, expected, actual)
+				failed = true
 			}
 		}
 	}
 
+	if failed {
+		panic("failed to verify matrix transpose result")
+	}
 	log.Printf("Passed!\n")
 }
