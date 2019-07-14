@@ -156,7 +156,7 @@ def main():
               'simpleconvolution',
               [],
               '../../benchmarks/amdappsdk/simpleconvolution')
-    fw = Test('../../samples/flowydwarshall',
+    fw = Test('../../samples/floydwarshall',
               'floydwarshall',
               [],
               '../../benchmarks/amdappsdk/floydwarshall')
