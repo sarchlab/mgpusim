@@ -339,7 +339,7 @@ func (u *ALUImpl) sdwaDstSelect(
 	dstOld uint32,
 	dstNew uint32,
 	sel insts.SDWASelect,
-	unused uint32,
+	unused insts.SDWAUnused,
 ) uint32 {
 	value := dstNew
 	switch sel {
