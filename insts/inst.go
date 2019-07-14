@@ -164,13 +164,7 @@ func (i Inst) smemString() string {
 func (i Inst) soppString(file *elf.File) string {
 	operandStr := ""
 	if i.Opcode == 12 { // S_WAITCNT
-		if i.VMCNT == 0 {
-			operandStr += " vmcnt(0)"
-		}
-
-		if i.LKGMCNT != 15 {
-			operandStr += fmt.Sprintf(" lgkmcnt(%d)", i.LKGMCNT)
-		}
+		operandStr = i.waitcntOperandString()
 	} else if i.Opcode >= 2 && i.Opcode <= 9 { // Branch
 		symbolFound := false
 		if file != nil {
@@ -195,6 +189,18 @@ func (i Inst) soppString(file *elf.File) string {
 	}
 	s := i.InstName + operandStr
 	return s
+}
+
+func (i Inst) waitcntOperandString() string {
+	operandStr := ""
+	if i.VMCNT != 15 {
+		operandStr += fmt.Sprintf(" vmcnt(%d)", i.VMCNT)
+	}
+
+	if i.LKGMCNT != 15 {
+		operandStr += fmt.Sprintf(" lgkmcnt(%d)", i.LKGMCNT)
+	}
+	return operandStr
 }
 
 func (i Inst) vop2String() string {
@@ -284,8 +290,8 @@ func (i Inst) sop1String() string {
 }
 
 func (i Inst) sopkString() string {
-	s := fmt.Sprintf("%s,%s,%s",
-		i.InstName, i.Dst.String(), i.SImm16.String())
+	s := fmt.Sprintf("%s %s, 0x%x",
+		i.InstName, i.Dst.String(), i.SImm16.IntValue)
 
 	return s
 }
