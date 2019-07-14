@@ -21,43 +21,6 @@ const (
 	ExeUnitSpecial
 )
 
-// SDWASelectType defines the sub-dword selection type
-type SDWASelect uint32
-
-// Defines all possible sub-dword selection type
-const (
-	SDWASelectByte0 SDWASelect = 0x000000ff
-	SDWASelectByte1 SDWASelect = 0x0000ff00
-	SDWASelectByte2 SDWASelect = 0x00ff0000
-	SDWASelectByte3 SDWASelect = 0xff000000
-	SDWASelectWord0 SDWASelect = 0x0000ffff
-	SDWASelectWord1 SDWASelect = 0xffff0000
-	SDWASelectDWord SDWASelect = 0xffffffff
-)
-
-// sdwaSelectString stringify SDWA select types
-func sdwaSelectString(sdwaSelect SDWASelect) string {
-	switch sdwaSelect {
-	case SDWASelectByte0:
-		return "BYTE_0"
-	case SDWASelectByte1:
-		return "BYTE_1"
-	case SDWASelectByte2:
-		return "BYTE_2"
-	case SDWASelectByte3:
-		return "BYTE_3"
-	case SDWASelectWord0:
-		return "WORD_0"
-	case SDWASelectWord1:
-		return "WORD_1"
-	case SDWASelectDWord:
-		return "DWORD"
-	default:
-		log.Panic("unknown SDWASelect type")
-		return ""
-	}
-}
-
 // A InstType represents an instruction type. For example s_barrier instruction
 // is a instruction type
 type InstType struct {
@@ -110,7 +73,7 @@ type Inst struct {
 	//Fields for SDWA extensions
 	IsSdwa    bool
 	DstSel    SDWASelect
-	DstUnused uint32
+	DstUnused SDWAUnused
 	Src0Sel   SDWASelect
 	Src0Sext  bool
 	Src0Neg   bool
@@ -219,6 +182,7 @@ func (i Inst) vop2String() string {
 	}
 
 	if i.IsSdwa {
+		s = strings.ReplaceAll(s, "_e32", "_sdwa")
 		s += i.sdwaVOP2String()
 	}
 
@@ -230,6 +194,8 @@ func (i Inst) sdwaVOP2String() string {
 
 	s += " dst_sel:"
 	s += sdwaSelectString(i.DstSel)
+	s += " dst_unused:"
+	s += sdwaUnusedString(i.DstUnused)
 	s += " src0_sel:"
 	s += sdwaSelectString(i.Src0Sel)
 	s += " src1_sel:"
