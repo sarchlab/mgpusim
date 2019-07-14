@@ -19,26 +19,35 @@ def compile(path):
 class Test(object):
     """ define a benchmark to test　"""
 
-    def __init__(self, path, executable, size_args):
+    def __init__(self, path, executable, size_args, benchmark_path):
         self.path = path
         self.executable = executable
         self.size_args = size_args
+        self.benchmark_path = benchmark_path
 
-    def test(self):
+    def test(self, test_disassemble="true", test_multi_gpu="true"):
         err = False
-        err |= self.compile()
-        err |= self.run_test(False, False, '1')
-        err |= self.run_test(False, False, '1,2')
-        err |= self.run_test(False, False, '1,2,3,4')
-        err |= self.run_test(False, True, '1')
-        err |= self.run_test(False, True, '1,2')
-        err |= self.run_test(False, True, '1,2,3,4')
-        err |= self.run_test(True, False, '1')
-        err |= self.run_test(True, False, '1,2')
-        err |= self.run_test(True, False, '1,2,3,4')
-        err |= self.run_test(True, True, '1')
-        err |= self.run_test(True, True, '1,2')
-        err |= self.run_test(True, True, '1,2,3,4')
+
+        if test_disassemble:
+            err |= self.test_disassemble()
+
+        # err |= self.compile()
+
+        # err |= self.run_test(False, False, '1')
+        # err |= self.run_test(False, True, '1')
+        # err |= self.run_test(True, False, '1')
+        # err |= self.run_test(True, True, '1')
+
+        # if test_multi_gpu:
+        #     err |= self.run_test(False, False, '1,2')
+        #     err |= self.run_test(False, False, '1,2,3,4')
+        #     err |= self.run_test(False, True, '1,2')
+        #     err |= self.run_test(False, True, '1,2,3,4')
+        #     err |= self.run_test(True, False, '1,2')
+        #     err |= self.run_test(True, False, '1,2,3,4')
+        #     err |= self.run_test(True, True, '1,2')
+        #     err |= self.run_test(True, True, '1,2,3,4')
+
         return err
 
     def compile(self):
@@ -80,26 +89,85 @@ class Test(object):
             print(colors.fg.red + ' Failed.' + colors.reset)
             return True
 
+    def test_disassemble(self):
+        output_filename = self.benchmark_path + '/disasm.disasm'
+        fp = open(output_filename, 'w')
+        cmd = ['../../insts/gcn3disassembler/gcn3disassembler',
+               self.benchmark_path + '/kernels.hsaco']
+
+        cmd_string = ' '.join(cmd)
+        print('Running ' + cmd_string + ' > ' +
+              output_filename + ' 2>&1 ' + ' ...')
+
+        p = subprocess.Popen(cmd, shell=False,
+                             stdout=fp, stderr=fp
+                             )
+        p.wait()
+        if p.returncode != 0:
+            print(colors.fg.red + ' Failed.' + colors.reset)
+            return True
+
+        fp = open(self.benchmark_path + '/diff.debug', 'w')
+        cmd = ['diff', 'kernels.disasm', 'disasm.disasm']
+        p = subprocess.Popen(cmd, shell=False,
+                             cwd=self.benchmark_path,
+                             stdout=fp, stderr=fp)
+        p.wait()
+
+        if p.returncode == 0:
+            print(colors.fg.green + 'Passed.' + colors.reset)
+            return False
+        else:
+            print(colors.fg.red + ' Failed.' + colors.reset)
+            return True
+
 
 def main():
 
-    fir = Test('../../samples/fir', 'fir', ['-length=8192'])
+    fir = Test('../../samples/fir',
+               'fir',
+               ['-length=8192'],
+               '../../benchmarks/heteromark/fir')
     mm = Test('../../samples/matrixmultiplication',
-              'matrixmultiplication', ['-x=128', '-y=128', '-z=128'])
-    km = Test('../../samples/kmeans', 'kmeans', [
-        '-points=1024',
-        '-features=32',
-        '-clusters=5',
-        '-max-iter=5'])
+              'matrixmultiplication',
+              ['-x=128', '-y=128', '-z=128'],
+              '../../benchmarks/amdappsdk/matrixmultiplication')
+    km = Test('../../samples/kmeans', 'kmeans',
+              [
+                  '-points=1024',
+                  '-features=32',
+                  '-clusters=5',
+                  '-max-iter=5'
+              ],
+              '../../benchmarks/heteromark/kmeans')
     mt = Test('../../samples/matrixtranspose',
-              'matrixtranspose', ['-width=256'])
+              'matrixtranspose',
+              ['-width=256'],
+              '../../benchmarks/amdappsdk/matrixtranspose')
     bs = Test('../../samples/bitonicsort',
-              'bitonicsort', ['-length=4096'])
-    aes = Test('../../samples/aes', 'aes', ['-length=16384'])
-    sc = Test('../../samples/simpleconvolution', 'simpleconvolution', [])
-    re = Test('../../samples/relu', 'relu', [])
-    mp = Test('../../samples/maxpooling', 'maxpooling', [])
-    cw = Test('../../samples/concurrentworkload', 'concurrentworkload', [])
+              'bitonicsort',
+              ['-length=4096'],
+              '../../benchmarks/amdappsdk/bitonicsort')
+    aes = Test('../../samples/aes',
+               'aes',
+               ['-length=16384'],
+               '../../benchmarks/heteromark/aes')
+    sc = Test('../../samples/simpleconvolution',
+              'simpleconvolution',
+              [],
+              '../../benchmarks/amdappsdk/simpleconvolution')
+    re = Test('../../samples/relu',
+              'relu',
+              [],
+              '../../benchmarks/dnn/relu')
+    mp = Test('../../samples/maxpooling',
+              'maxpooling',
+              [],
+              '../../benchmarks/dnn/maxpooling')
+    cw = Test('../../samples/concurrentworkload',
+              'concurrentworkload',
+              [],
+              '')
 
     err = False
     err |= compile('../../insts/gcn3disassembler')
@@ -107,16 +175,12 @@ def main():
     err |= mm.test()
     err |= km.test()
     err |= mt.test()
-    err |= aes.test()
     err |= bs.test()
+    err |= aes.test()
     err |= sc.test()
     err |= re.test()
     err |= mp.test()
-    err |= cw.compile()
-    err |= cw.run_test(False, False, '1')
-    err |= cw.run_test(False, True, '1')
-    err |= cw.run_test(True, False, '1')
-    err |= cw.run_test(True, True, '1')
+    err |= cw.test(test_disassemble=False, test_multi_gpu=False)
 
     # error |= compile('acceptancetests/cupipelinedraining')
     # error |= run_test('CU Pipeline Draining',
