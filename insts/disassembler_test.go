@@ -24,12 +24,21 @@ var _ = Describe("Disassembler", func() {
 	})
 
 	It("should decode BF8C0F70", func() {
-		buf := []byte{0x80, 0x0f, 0x8c, 0xbf}
+		buf := []byte{0x70, 0x0f, 0x8c, 0xbf}
 
 		inst, err := disassembler.Decode(buf)
 
 		Expect(err).To(BeNil())
 		Expect(inst.String(nil)).To(Equal("s_waitcnt vmcnt(0)"))
+	})
+
+	FIt("should decode BF8C0171", func() {
+		buf := []byte{0x71, 0x01, 0x8c, 0xbf}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("s_waitcnt vmcnt(1) lgkmcnt(1)"))
 	})
 
 	It("should decode D81A0004 00000210", func() {
@@ -50,28 +59,4 @@ var _ = Describe("Disassembler", func() {
 		Expect(inst.String(nil)).To(Equal("ds_read_b32 v1, v16 offset:8"))
 
 	})
-
-	//It("should disassemble kernel 1", func() {
-	//var buf bytes.Buffer
-
-	//elfFile, err := elf.Open("../benchmarks/heteromark/fir/kernels.hsaco")
-	//defer elfFile.Close()
-	//Expect(err).To(BeNil())
-
-	//targetFile, err := os.Open("../benchmarks/heteromark/fir/kernels.disasm")
-	//Expect(err).To(BeNil())
-	//defer targetFile.Close()
-
-	//disasm := insts.NewDisassembler()
-
-	//disasm.Disassemble(elfFile, "kernels.hsaco", &buf)
-
-	//resultScanner := bufio.NewScanner(&buf)
-	//targetScanner := bufio.NewScanner(targetFile)
-	//for targetScanner.Scan() {
-	//Expect(resultScanner.Scan()).To(Equal(true))
-	//Expect(resultScanner.Text()).To(Equal(targetScanner.Text()))
-	//}
-
-	//})
 })
