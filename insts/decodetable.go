@@ -112,7 +112,7 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"v_cvt_f32_i32", 5, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_f32_u32_e32", 6, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_u32_f32_e32", 7, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
-	d.addInstType(&InstType{"v_cvt_i32_f32", 8, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
+	d.addInstType(&InstType{"v_cvt_i32_f32_e32", 8, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_f16_f32", 10, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_f32_f16", 11, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
 	d.addInstType(&InstType{"v_cvt_rpi_i32_f32", 12, FormatTable[VOP1], 0, ExeUnitVALU, 32, 32, 32, 0, 0})
