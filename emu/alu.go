@@ -100,7 +100,7 @@ func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -117,7 +117,7 @@ func (u *ALUImpl) runFlatLoadUShort(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -134,7 +134,7 @@ func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -147,7 +147,7 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -165,7 +165,7 @@ func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -177,7 +177,7 @@ func (u *ALUImpl) runFlatStoreDWordX4(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
 	for i := uint(0); i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -311,7 +311,7 @@ func (u *ALUImpl) runSCBRANCHEXECNZ(state InstEmuState) {
 	}
 }
 
-func (u *ALUImpl) laneMasked(Exec uint64, laneID uint) bool {
+func laneMasked(Exec uint64, laneID uint) bool {
 	return Exec&(1<<laneID) > 0
 }
 
@@ -339,7 +339,7 @@ func (u *ALUImpl) sdwaDstSelect(
 	dstOld uint32,
 	dstNew uint32,
 	sel insts.SDWASelect,
-	unused uint32,
+	unused insts.SDWAUnused,
 ) uint32 {
 	value := dstNew
 	switch sel {

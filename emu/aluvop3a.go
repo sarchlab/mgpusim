@@ -142,7 +142,7 @@ func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
 	var i uint
 	var src0, src1 float32
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
@@ -158,7 +158,7 @@ func (u *ALUImpl) runVCmpLtI32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -176,7 +176,7 @@ func (u *ALUImpl) runVCmpGtI32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -194,7 +194,7 @@ func (u *ALUImpl) runVCmpLtU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -212,7 +212,7 @@ func (u *ALUImpl) runVCmpEqU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -230,7 +230,7 @@ func (u *ALUImpl) runVCmpLeU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -248,7 +248,7 @@ func (u *ALUImpl) runVCmpGtU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -266,7 +266,7 @@ func (u *ALUImpl) runVCmpLgU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -284,7 +284,7 @@ func (u *ALUImpl) runVCmpGeU32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -302,7 +302,7 @@ func (u *ALUImpl) runVCmpLtU64VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -320,7 +320,7 @@ func (u *ALUImpl) runVCNDMASKB32VOP3a(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -338,7 +338,7 @@ func (u *ALUImpl) runVMADU64U32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -351,7 +351,7 @@ func (u *ALUImpl) runVMULLOU32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -364,7 +364,7 @@ func (u *ALUImpl) runVMULHIU32(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -378,7 +378,7 @@ func (u *ALUImpl) runVLSHLREVB64(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -391,7 +391,7 @@ func (u *ALUImpl) runVASHRREVI64(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -405,7 +405,7 @@ func (u *ALUImpl) runVADDF64(state InstEmuState) {
 	if inst.IsSdwa == false {
 		var i uint
 		for i = 0; i < 64; i++ {
-			if !u.laneMasked(sp.EXEC, i) {
+			if !laneMasked(sp.EXEC, i) {
 				continue
 			}
 
@@ -426,7 +426,7 @@ func (u *ALUImpl) runVFMAF64(state InstEmuState) {
 	if inst.IsSdwa == false {
 		var i uint
 		for i = 0; i < 64; i++ {
-			if !u.laneMasked(sp.EXEC, i) {
+			if !laneMasked(sp.EXEC, i) {
 				continue
 			}
 			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
@@ -448,7 +448,7 @@ func (u *ALUImpl) runVMULF64(state InstEmuState) {
 	if inst.IsSdwa == false {
 		var i uint
 		for i = 0; i < 64; i++ {
-			if !u.laneMasked(sp.EXEC, i) {
+			if !laneMasked(sp.EXEC, i) {
 				continue
 			}
 			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
@@ -470,18 +470,18 @@ func (u *ALUImpl) runVDIVFMASF64(state InstEmuState) {
 	if inst.IsSdwa == false {
 		var i uint
 		for i = 0; i < 64; i++ {
-			if !u.laneMasked(sp.EXEC, i) {
+			if !laneMasked(sp.EXEC, i) {
 				continue
 			}
 
-			vcc_val := (sp.VCC) & (1 << i)
+			vccVal := (sp.VCC) & (1 << i)
 
 			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
 			src1 := math.Float64frombits(uint64(sp.SRC1[i]))
 			src2 := math.Float64frombits(uint64(sp.SRC2[i]))
 
 			var dst float64
-			if vcc_val == 1 {
+			if vccVal == 1 {
 				dst = (float64)(math.Pow(2.0, 64)) * (src0*src1 + src2)
 			} else {
 				dst = src0*src1 + src2
@@ -500,20 +500,20 @@ func (u *ALUImpl) runVDIVFIXUPF64(state InstEmuState) {
 	if inst.IsSdwa == false {
 		var i uint
 		for i = 0; i < 64; i++ {
-			if !u.laneMasked(sp.EXEC, i) {
+			if !laneMasked(sp.EXEC, i) {
 				continue
 			}
 
-			sign_s1 := uint64(sp.SRC1[i]) >> 63
-			sign_s2 := uint64(sp.SRC2[i]) >> 63
-			sign_out := (sign_s1) ^ (sign_s2)
+			signS1 := uint64(sp.SRC1[i]) >> 63
+			signS2 := uint64(sp.SRC2[i]) >> 63
+			signOut := (signS1) ^ (signS2)
 
 			src0 := math.Float64frombits(uint64(sp.SRC0[i]))
 			src1 := math.Float64frombits(uint64(sp.SRC1[i]))
 			src2 := math.Float64frombits(uint64(sp.SRC2[i]))
 
-			exponent_src1 := uint64((uint64(sp.SRC1[i]) << 1) >> 53)
-			exponent_src2 := uint64((uint64(sp.SRC2[i]) << 1) >> 53)
+			exponentSrc1 := uint64((uint64(sp.SRC1[i]) << 1) >> 53)
+			exponentSrc2 := uint64((uint64(sp.SRC2[i]) << 1) >> 53)
 
 			var dst float64
 
@@ -532,34 +532,34 @@ func (u *ALUImpl) runVDIVFIXUPF64(state InstEmuState) {
 				dst = 0xFFF8000000000000
 			} else if src1 == 0 || (math.Abs(src2) == 0x7FF0000000000000 || math.Abs(src2) == 0xFFF0000000000000) {
 				// x/0 , or inf / y
-				if sign_out == 1 {
+				if signOut == 1 {
 					dst = 0xFFF0000000000000 // -INF
 				} else {
 					dst = 0x7FF0000000000000 // +INF
 				}
 			} else if (math.Abs(src1) == 0x7FF0000000000000 || math.Abs(src1) == 0xFFF0000000000000) || (src2 == 0) {
 				// x/inf, 0/y
-				if sign_out == 1 {
+				if signOut == 1 {
 					dst = 0x8000000000000000 // -0
 				} else {
 					dst = 0x0000000000000000 // +0
 				}
-			} else if int64(exponent_src2-exponent_src1) < -1075 {
+			} else if int64(exponentSrc2-exponentSrc1) < -1075 {
 				log.Panicf("Underflow for VOP3A instruction opcode %d not implemented \n", inst.Opcode)
-				if sign_out == 1 {
+				if signOut == 1 {
 					//-underflow
 				} else {
 					//+underflow
 				}
-			} else if exponent_src1 == 2047 {
+			} else if exponentSrc1 == 2047 {
 				log.Panicf("Overflow for VOP3A instruction opcode %d not implemented \n", inst.Opcode)
-				if sign_out == 1 {
+				if signOut == 1 {
 					//-overflow
 				} else {
 					//+overflow
 				}
 			} else {
-				if sign_out == 1 {
+				if signOut == 1 {
 					dst = math.Abs(src0) * (-1.0)
 				} else {
 					dst = math.Abs(src0)
