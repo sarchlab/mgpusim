@@ -78,18 +78,18 @@ func (u *ALUImpl) runVDIVSCALEF64(state InstEmuState) {
 		exponentSrc1 := uint64((uint64(sp.SRC1[i]) << 1) >> 53)
 		exponentSrc2 := uint64((uint64(sp.SRC2[i]) << 1) >> 53)
 
-		diffExpSrc2Src1 := int64(exponent_src2) - int64(exponent_src1)
+		diffExpSrc2Src1 := int64(exponentSrc2) - int64(exponentSrc1)
 
 		fractionSrc1 := uint64((uint64(sp.SRC1[i]) << 12) >> 12)
 
 		reversedSrc1 := float64(1) / src1
 		src2DivSrc1 := src2 / src1
 
-		exponentRevSrc1 := uint64((uint64(reversed_src1) << 1) >> 53)
-		fractionRevSrc1 := uint64((uint64(reversed_src1) << 12) >> 12)
+		exponentRevSrc1 := uint64((uint64(reversedSrc1) << 1) >> 53)
+		fractionRevSrc1 := uint64((uint64(reversedSrc1) << 12) >> 12)
 
-		exponentSrc2DivSrc1 := uint64((uint64(src2_div_src1) << 1) >> 53)
-		fractionSrc2DivSrc1 := uint64((uint64(src2_div_src1) << 12) >> 12)
+		exponentSrc2DivSrc1 := uint64((uint64(src2DivSrc1) << 1) >> 53)
+		fractionSrc2DivSrc1 := uint64((uint64(src2DivSrc1) << 12) >> 12)
 
 		if src2 == 0 || src1 == 0 {
 			sp.DST[i] = 0x7FFFFFFFFFFFFFFF // NaN
