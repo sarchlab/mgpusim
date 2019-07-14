@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/gcn3/samples/runner"
 )
 
-var numNodes = flag.Int("nodes", 8, "The number of nodes in the graph")
+var numNodes = flag.Int("nodes", 16, "The number of nodes in the graph")
 
 func main() {
 	flag.Parse()
