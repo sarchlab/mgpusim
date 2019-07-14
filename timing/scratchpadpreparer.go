@@ -374,10 +374,13 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 	layout := scratchpad.AsVOP1()
-
+	exec := layout.EXEC
 	wf.VCC = layout.VCC
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 	}
@@ -390,10 +393,13 @@ func (p *ScratchpadPreparerImpl) commitVOP2(
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
 	layout := scratchpad.AsVOP2()
-
+	exec := layout.EXEC
 	wf.VCC = layout.VCC
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 	}
@@ -406,10 +412,13 @@ func (p *ScratchpadPreparerImpl) commitVOP3a(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 	layout := sp.AsVOP3A()
-
+	exec := layout.EXEC
 	wf.VCC = layout.VCC
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
@@ -422,11 +431,15 @@ func (p *ScratchpadPreparerImpl) commitVOP3b(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 	layout := sp.AsVOP3B()
-
+	exec := layout.EXEC
 	wf.VCC = layout.VCC
 	// wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
+
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
@@ -448,9 +461,13 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+	exec := scratchpad.AsFlat().EXEC
 
 	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
 		for i := 0; i < 64; i++ {
+			if !laneMasked(exec, uint(i)) {
+				continue
+			}
 			p.writeOperand(inst.Dst, wf, i, scratchpad[1544+i*16:1544+i*16+16])
 		}
 	}
@@ -500,10 +517,14 @@ func (p *ScratchpadPreparerImpl) commitDS(
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
+	exec := sp.AsDS().EXEC
 
 	if inst.Dst != nil {
 		offset := 8 + 64*4 + 256*4*2
 		for i := 0; i < 64; i++ {
+			if !laneMasked(exec, uint(i)) {
+				continue
+			}
 			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
 		}
 	}
@@ -650,4 +671,8 @@ func (p *ScratchpadPreparerImpl) clear(buf []byte) {
 	for i := 0; i < len(buf); i++ {
 		buf[i] = 0
 	}
+}
+
+func laneMasked(Exec uint64, laneID uint) bool {
+	return Exec&(1<<laneID) > 0
 }

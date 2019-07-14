@@ -139,6 +139,7 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 	gpu.Driver = b.driver.ToGPUs
 	gpu.CommandProcessor = commandProcessor.ToDriver
 	commandProcessor.Driver = gpu.ToCommandProcessor
+	gpu.Storage = b.storage
 
 	localDataSource := new(cache.SingleLowModuleFinder)
 	localDataSource.LowModule = gpuMem.ToTop

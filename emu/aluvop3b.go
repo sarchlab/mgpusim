@@ -29,7 +29,7 @@ func (u *ALUImpl) runVADDU32VOP3b(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -45,7 +45,7 @@ func (u *ALUImpl) runVADDCU32VOP3b(state InstEmuState) {
 
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -63,7 +63,7 @@ func (u *ALUImpl) runVDIVSCALEF64(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3B()
 	var i uint
 	for i = 0; i < 64; i++ {
-		if !u.laneMasked(sp.EXEC, i) {
+		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
@@ -75,25 +75,25 @@ func (u *ALUImpl) runVDIVSCALEF64(state InstEmuState) {
 		src1 := math.Float64frombits(sp.SRC1[i])
 		src2 := math.Float64frombits(sp.SRC2[i])
 
-		exponent_src1 := uint64((uint64(sp.SRC1[i]) << 1) >> 53)
-		exponent_src2 := uint64((uint64(sp.SRC2[i]) << 1) >> 53)
+		exponentSrc1 := uint64((uint64(sp.SRC1[i]) << 1) >> 53)
+		exponentSrc2 := uint64((uint64(sp.SRC2[i]) << 1) >> 53)
 
-		diff_exp_src2_src1 := int64(exponent_src2) - int64(exponent_src1)
+		diffExpSrc2Src1 := int64(exponentSrc2) - int64(exponentSrc1)
 
-		fraction_src1 := uint64((uint64(sp.SRC1[i]) << 12) >> 12)
+		fractionSrc1 := uint64((uint64(sp.SRC1[i]) << 12) >> 12)
 
-		reversed_src1 := float64(1) / src1
-		src2_div_src1 := src2 / src1
+		reversedSrc1 := float64(1) / src1
+		src2DivSrc1 := src2 / src1
 
-		exponent_rev_src1 := uint64((uint64(reversed_src1) << 1) >> 53)
-		fraction_rev_src1 := uint64((uint64(reversed_src1) << 12) >> 12)
+		exponentRevSrc1 := uint64((uint64(reversedSrc1) << 1) >> 53)
+		fractionRevSrc1 := uint64((uint64(reversedSrc1) << 12) >> 12)
 
-		exponent_src2_div_src1 := uint64((uint64(src2_div_src1) << 1) >> 53)
-		fraction_src2_div_src1 := uint64((uint64(src2_div_src1) << 12) >> 12)
+		exponentSrc2DivSrc1 := uint64((uint64(src2DivSrc1) << 1) >> 53)
+		fractionSrc2DivSrc1 := uint64((uint64(src2DivSrc1) << 12) >> 12)
 
 		if src2 == 0 || src1 == 0 {
 			sp.DST[i] = 0x7FFFFFFFFFFFFFFF // NaN
-		} else if diff_exp_src2_src1 >= 768 {
+		} else if diffExpSrc2Src1 >= 768 {
 			// N/D near MAX_FLOAT
 			//sp.VCC = sp.VCC | (1 << i)
 			sp.VCC = 1
@@ -101,26 +101,26 @@ func (u *ALUImpl) runVDIVSCALEF64(state InstEmuState) {
 				// Only scale the denominator
 				sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
 			}
-		} else if exponent_src1 == 0 && fraction_src1 != 0 {
+		} else if exponentSrc1 == 0 && fractionSrc1 != 0 {
 			// subnormal .. => DENORM
 			sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
-		} else if (exponent_rev_src1 == 0 && fraction_rev_src1 != 0) && (exponent_src2_div_src1 == 0 && fraction_src2_div_src1 != 0) {
+		} else if (exponentRevSrc1 == 0 && fractionRevSrc1 != 0) && (exponentSrc2DivSrc1 == 0 && fractionSrc2DivSrc1 != 0) {
 			//sp.VCC = sp.VCC | (1 << i)
 			sp.VCC = 1
 			if src0 == src1 {
 				// Only scale the denominator
 				sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
 			}
-		} else if exponent_rev_src1 == 0 && fraction_rev_src1 != 0 {
+		} else if exponentRevSrc1 == 0 && fractionRevSrc1 != 0 {
 			sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
-		} else if exponent_src2_div_src1 == 0 && fraction_src2_div_src1 != 0 {
+		} else if exponentSrc2DivSrc1 == 0 && fractionSrc2DivSrc1 != 0 {
 			//sp.VCC = sp.VCC | (1 << i)
 			sp.VCC = 1
 			if src0 == src2 {
 				// Only scale the denominator
 				sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
 			}
-		} else if exponent_src2 <= 53 {
+		} else if exponentSrc2 <= 53 {
 			// Numerator is tiny
 			sp.DST[i] = math.Float64bits(src0 * math.Pow(2.0, 128))
 		}

@@ -21,43 +21,6 @@ const (
 	ExeUnitSpecial
 )
 
-// SDWASelectType defines the sub-dword selection type
-type SDWASelect uint32
-
-// Defines all possible sub-dword selection type
-const (
-	SDWASelectByte0 SDWASelect = 0x000000ff
-	SDWASelectByte1 SDWASelect = 0x0000ff00
-	SDWASelectByte2 SDWASelect = 0x00ff0000
-	SDWASelectByte3 SDWASelect = 0xff000000
-	SDWASelectWord0 SDWASelect = 0x0000ffff
-	SDWASelectWord1 SDWASelect = 0xffff0000
-	SDWASelectDWord SDWASelect = 0xffffffff
-)
-
-// sdwaSelectString stringify SDWA select types
-func sdwaSelectString(sdwaSelect SDWASelect) string {
-	switch sdwaSelect {
-	case SDWASelectByte0:
-		return "BYTE_0"
-	case SDWASelectByte1:
-		return "BYTE_1"
-	case SDWASelectByte2:
-		return "BYTE_2"
-	case SDWASelectByte3:
-		return "BYTE_3"
-	case SDWASelectWord0:
-		return "WORD_0"
-	case SDWASelectWord1:
-		return "WORD_1"
-	case SDWASelectDWord:
-		return "DWORD"
-	default:
-		log.Panic("unknown SDWASelect type")
-		return ""
-	}
-}
-
 // A InstType represents an instruction type. For example s_barrier instruction
 // is a instruction type
 type InstType struct {
@@ -110,7 +73,7 @@ type Inst struct {
 	//Fields for SDWA extensions
 	IsSdwa    bool
 	DstSel    SDWASelect
-	DstUnused uint32
+	DstUnused SDWAUnused
 	Src0Sel   SDWASelect
 	Src0Sext  bool
 	Src0Neg   bool
@@ -164,10 +127,7 @@ func (i Inst) smemString() string {
 func (i Inst) soppString(file *elf.File) string {
 	operandStr := ""
 	if i.Opcode == 12 { // S_WAITCNT
-		if i.VMCNT == 0 {
-			operandStr += " vmcnt(0)"
-		}
-		operandStr += fmt.Sprintf(" lgkmcnt(%d)", i.LKGMCNT)
+		operandStr = i.waitcntOperandString()
 	} else if i.Opcode >= 2 && i.Opcode <= 9 { // Branch
 		symbolFound := false
 		if file != nil {
@@ -194,6 +154,18 @@ func (i Inst) soppString(file *elf.File) string {
 	return s
 }
 
+func (i Inst) waitcntOperandString() string {
+	operandStr := ""
+	if i.VMCNT != 15 {
+		operandStr += fmt.Sprintf(" vmcnt(%d)", i.VMCNT)
+	}
+
+	if i.LKGMCNT != 15 {
+		operandStr += fmt.Sprintf(" lgkmcnt(%d)", i.LKGMCNT)
+	}
+	return operandStr
+}
+
 func (i Inst) vop2String() string {
 	s := fmt.Sprintf("%s %s", i.InstName, i.Dst.String())
 
@@ -210,6 +182,7 @@ func (i Inst) vop2String() string {
 	}
 
 	if i.IsSdwa {
+		s = strings.ReplaceAll(s, "_e32", "_sdwa")
 		s += i.sdwaVOP2String()
 	}
 
@@ -221,6 +194,8 @@ func (i Inst) sdwaVOP2String() string {
 
 	s += " dst_sel:"
 	s += sdwaSelectString(i.DstSel)
+	s += " dst_unused:"
+	s += sdwaUnusedString(i.DstUnused)
 	s += " src0_sel:"
 	s += sdwaSelectString(i.Src0Sel)
 	s += " src1_sel:"
@@ -269,7 +244,7 @@ func (i Inst) vop3bString() string {
 		i.Src1.String(),
 	)
 
-	if i.Src2 != nil {
+	if i.Opcode != 281 && i.Src2 != nil {
 		s += ", " + i.Src2.String()
 	}
 
@@ -281,8 +256,8 @@ func (i Inst) sop1String() string {
 }
 
 func (i Inst) sopkString() string {
-	s := fmt.Sprintf("%s,%s,%s",
-		i.InstName, i.Dst.String(), i.SImm16.String())
+	s := fmt.Sprintf("%s %s, 0x%x",
+		i.InstName, i.Dst.String(), i.SImm16.IntValue)
 
 	return s
 }
@@ -290,7 +265,7 @@ func (i Inst) sopkString() string {
 func (i Inst) dsString() string {
 	s := i.InstName + " "
 	switch i.Opcode {
-	case 55, 56, 57, 58, 59, 60, 118, 119, 120:
+	case 54, 55, 56, 57, 58, 59, 60, 118, 119, 120:
 		s += i.Dst.String() + ", "
 	}
 
@@ -304,12 +279,19 @@ func (i Inst) dsString() string {
 		s += ", " + i.Data1.String()
 	}
 
-	if i.Offset0 > 0 {
-		s += fmt.Sprintf(" offset0:%d", i.Offset0)
-	}
+	switch i.Opcode {
+	case 13, 54:
+		if i.Offset0 > 0 {
+			s += fmt.Sprintf(" offset:%d", i.Offset0)
+		}
+	default:
+		if i.Offset0 > 0 {
+			s += fmt.Sprintf(" offset0:%d", i.Offset0)
+		}
 
-	if i.Offset1 > 0 {
-		s += fmt.Sprintf(" offset1:%d", i.Offset1)
+		if i.Offset1 > 0 {
+			s += fmt.Sprintf(" offset1:%d", i.Offset1)
+		}
 	}
 
 	return s
