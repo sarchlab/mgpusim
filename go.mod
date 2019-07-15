@@ -2,8 +2,10 @@ module gitlab.com/akita/gcn3
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/fatih/color v1.7.0 // indirect
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.0 // indirect
+	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
