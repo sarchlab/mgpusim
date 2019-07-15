@@ -15,6 +15,7 @@ import (
 	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/util/tracing"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
@@ -706,30 +707,27 @@ func (cu *ComputeUnit) logInstTask(
 	inst *wavefront.Inst,
 	completed bool,
 ) {
-	if len(cu.Hooks) > 0 {
-		task := trace.Task{
-			ID:           inst.ID,
-			ParentID:     wf.UID,
-			Type:         "Inst",
-			What:         "Inst",
-			Where:        cu.Name(),
-			InitiateTime: float64(now),
-		}
-
-		ctx := akita.HookCtx{
-			Domain: cu,
-			Now:    now,
-			Item:   task,
-		}
-		if completed {
-			ctx.Pos = trace.HookPosTaskClear
-		} else {
-			task.InitiateTime = float64(now)
-			ctx.Pos = trace.HookPosTaskInitiate
-		}
-
-		cu.InvokeHook(&ctx)
+	if completed {
+		tracing.EndTask(
+			inst.ID,
+			now,
+			cu,
+		)
+		return
 	}
+
+	tracing.StartTask(
+		inst.ID,
+		wf.UID,
+		now,
+		cu,
+		"inst",
+		"inst",
+		map[string]interface{}{
+			"inst": inst,
+			"wf":   wf,
+		},
+	)
 }
 
 func (cu *ComputeUnit) logInstStageTask(

@@ -369,10 +369,14 @@ func (p *ScratchpadPreparerImpl) commitVOP1(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+	exec := scratchpad.AsVOP1().EXEC
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, scratchpad[520:528])
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 	}
@@ -384,10 +388,15 @@ func (p *ScratchpadPreparerImpl) commitVOP2(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+	exec := scratchpad.AsVOP2().EXEC
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, scratchpad[520:528])
 
 	for i := 0; i < 64; i++ {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
+
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, scratchpad[offset:offset+8])
 	}
@@ -402,7 +411,13 @@ func (p *ScratchpadPreparerImpl) commitVOP3a(
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
 
+	exec := sp.AsVOP3A().EXEC
+
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
+
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
@@ -417,8 +432,12 @@ func (p *ScratchpadPreparerImpl) commitVOP3b(
 	layout := sp.AsVOP3B()
 
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
+	exec := layout.EXEC
 
 	for i := 63; i >= 0; i-- {
+		if !laneMasked(exec, uint(i)) {
+			continue
+		}
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
@@ -440,9 +459,14 @@ func (p *ScratchpadPreparerImpl) commitFlat(
 ) {
 	inst := instEmuState.Inst()
 	scratchpad := instEmuState.Scratchpad()
+	exec := scratchpad.AsFlat().EXEC
 
 	if inst.Opcode < 24 || inst.Opcode > 31 { // Skip store instructions
 		for i := 0; i < 64; i++ {
+			if !laneMasked(exec, uint(i)) {
+				continue
+			}
+
 			p.writeOperand(inst.Dst, wf, i, scratchpad[1544+i*16:1544+i*16+16])
 		}
 	}
@@ -492,10 +516,14 @@ func (p *ScratchpadPreparerImpl) commitDS(
 ) {
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
+	exec := sp.AsDS().EXEC
 
 	if inst.Dst != nil {
 		offset := 8 + 64*4 + 256*4*2
 		for i := 0; i < 64; i++ {
+			if !laneMasked(exec, uint(i)) {
+				continue
+			}
 			p.writeOperand(inst.Dst, wf, i, sp[offset+i*16:offset+i*16+16])
 		}
 	}

@@ -107,7 +107,7 @@ func (r *Runner) Init() *Runner {
 	if r.Timing {
 		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
 	} else {
-		r.Engine, _, r.GPUDriver, _ = platform.BuildEmuPlatform()
+		r.Engine, r.GPUDriver = platform.BuildNEmuGPUPlatform(4)
 	}
 
 	r.addKernelTimeTracer()

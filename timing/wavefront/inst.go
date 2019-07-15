@@ -2,7 +2,6 @@ package wavefront
 
 import (
 	"github.com/rs/xid"
-	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 )
 
@@ -29,12 +28,4 @@ func NewInst(raw *insts.Inst) *Inst {
 	i.ID = xid.New().String()
 
 	return i
-}
-
-// InstHookInfo is the information that is to be provided to the hooks that
-// hooks to Inst
-type InstHookInfo struct {
-	Now   akita.VTimeInSec
-	Inst  *Inst
-	Stage string
 }

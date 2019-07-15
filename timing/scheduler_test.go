@@ -168,6 +168,7 @@ var _ = Describe("Scheduler", func() {
 
 		for i := 0; i < 5; i++ {
 			wf := new(wavefront.Wavefront)
+			wf.Wavefront = kernels.NewWavefront()
 			wf.PC = 0x120
 			wf.InstBuffer = make([]byte, 256)
 			wf.InstBufferStartPC = 0x100
@@ -205,6 +206,7 @@ var _ = Describe("Scheduler", func() {
 	It("should issue internal instruction", func() {
 		wfs := make([]*wavefront.Wavefront, 0)
 		wf := new(wavefront.Wavefront)
+		wf.Wavefront = kernels.NewWavefront()
 		wf.InstToIssue = wavefront.NewInst(insts.NewInst())
 		wf.InstToIssue.ExeUnit = insts.ExeUnitSpecial
 		wf.InstToIssue.ByteSize = 4

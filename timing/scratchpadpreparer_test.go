@@ -3,8 +3,9 @@ package timing
 import (
 	"bytes"
 	"encoding/binary"
-	"gitlab.com/akita/gcn3/timing/wavefront"
 	"log"
+
+	"gitlab.com/akita/gcn3/timing/wavefront"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -30,6 +31,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 
 		sp = NewScratchpadPreparerImpl(cu)
 		wf = wavefront.NewWavefront(nil)
+		wf.EXEC = 0xffffffffffffffff
 	})
 
 	It("should prepare for SOP1", func() {
@@ -384,6 +386,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP1()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -404,6 +407,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP2()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -424,6 +428,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP3A()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -445,6 +450,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsVOP3B()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i] = uint64(i)
 		}
@@ -484,6 +490,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsFlat()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i*4+0] = uint32(i)
 			layout.DST[i*4+1] = uint32(i)
@@ -509,6 +516,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsFlat()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i*4+0] = uint32(i)
 			layout.DST[i*4+1] = uint32(i)
@@ -595,6 +603,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
 		layout := wf.Scratchpad().AsDS()
+		layout.EXEC = 0xffffffffffffffff
 		for i := 0; i < 64; i++ {
 			layout.DST[i*4] = uint32(i)
 			layout.DST[i*4+1] = uint32(i + 1)

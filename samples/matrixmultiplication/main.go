@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
-	"net/http"
 
 	_ "net/http/pprof"
 
@@ -16,10 +14,6 @@ var yFlag = flag.Uint("y", 64, "The width of the first matrix and the height of 
 var zFlag = flag.Uint("z", 64, "The width of the second matrix.")
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
 	flag.Parse()
 
 	runner := new(runner.Runner).ParseFlag().Init()

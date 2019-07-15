@@ -709,14 +709,15 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		b.InternalConn.PlugIn(cu.ToCP)
 		b.InternalConn.PlugIn(cu.CP)
 
-		// if b.EnableISADebug && i == 0 {
-		// 	isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", cu.Name()))
-		// 	if err != nil {
-		// 		log.Fatal(err)
-		// 	}
-		// 	isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
-		// 	cu.AcceptHook(isaDebugger)
-		// }
+		if b.EnableISADebug && i == 0 {
+			isaDebug, err := os.Create(fmt.Sprintf(
+				"isa_timing_%s.debug", cu.Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
+			cu.AcceptHook(isaDebugger)
+		}
 
 		if b.enableVisTracing {
 			tracing.CollectTrace(cu, b.visTracer)

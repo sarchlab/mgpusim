@@ -4,12 +4,10 @@ import (
 	"fmt"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
 	"gitlab.com/akita/tracing"
@@ -20,12 +18,10 @@ var DebugISA bool
 var TraceVis bool
 var TraceMem bool
 
-// BuildEmuPlatform creates a simple platform for emulation purposes
-func BuildEmuPlatform() (
+// BuildNEmuGPUPlatform creates a simple platform for emulation purposes
+func BuildNEmuGPUPlatform(n int) (
 	akita.Engine,
-	*gcn3.GPU,
 	*driver.Driver,
-	*idealmemcontroller.Comp,
 ) {
 	var engine akita.Engine
 
@@ -34,17 +30,21 @@ func BuildEmuPlatform() (
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmuBuilder := mmu.MakeBuilder()
 	mmuComponent := mmuBuilder.Build("MMU")
 	gpuDriver := driver.NewDriver(engine, mmuComponent)
 	connection := akita.NewDirectConnection(engine)
+	storage := mem.NewStorage(uint64(n+1) * 4 * mem.GB)
 
-	gpuBuilder := gpubuilder.NewEmuGPUBuilder(engine)
-	gpuBuilder.Driver = gpuDriver
-	gpuBuilder.MMU = mmuComponent
-	gpuBuilder.GPUMemAddrOffset = 4 * mem.GB
+	gpuBuilder := gpubuilder.MakeEmuGPUBuilder().
+		WithEngine(engine).
+		WithDriver(gpuDriver).
+		WithIOMMU(mmuComponent).
+		WithMemCapacity(4 * mem.GB).
+		WithStorage(storage)
+
 	if DebugISA {
 		gpuBuilder.EnableISADebug = true
 	}
@@ -52,14 +52,18 @@ func BuildEmuPlatform() (
 		gpuBuilder.EnableMemTracing = true
 	}
 
-	gpu, globalMem := gpuBuilder.BuildEmulationGPU()
-	gpuDriver.RegisterGPU(gpu, 4*mem.GB)
+	for i := 0; i < n; i++ {
+		gpu := gpuBuilder.
+			WithMemOffset(uint64(i+1) * 4 * mem.GB).
+			Build(fmt.Sprintf("GPU%d", i))
+
+		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
+		connection.PlugIn(gpu.ToDriver)
+	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
-	connection.PlugIn(gpu.ToDriver)
-	gpu.Driver = gpuDriver.ToGPUs
 
-	return engine, gpu, gpuDriver, globalMem
+	return engine, gpuDriver
 }
 
 //BuildNR9NanoPlatform creates a platform that equips with several R9Nano GPUs
@@ -106,6 +110,10 @@ func BuildNR9NanoPlatform(
 
 	if TraceMem {
 		gpuBuilder.EnableMemTracing = true
+	}
+
+	if DebugISA {
+		gpuBuilder.EnableISADebug = true
 	}
 
 	rdmaAddressTable := new(cache.BankedLowModuleFinder)

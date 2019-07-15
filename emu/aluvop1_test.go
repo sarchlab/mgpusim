@@ -235,4 +235,73 @@ var _ = Describe("ALU", func() {
 		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(0.5)))
 	})
 
+	It("should run V_CVT_F32_UBYTE0", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 17
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(256.0))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(0)))
+	})
+
+	It("should run V_CVT_F64_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 16
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(-1.0))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+		Expect(uint64(sp.DST[0])).To(Equal(math.Float64bits(float64(-1.0))))
+	})
+
+	It("should run V_RCP_F64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 37
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float64bits(25.0))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(math.Float64frombits(uint64(sp.DST[0]))).To(Equal(float64(0.04)))
+	})
+
+	It("should run V_CVT_F32_F64", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 15
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float64bits(25.0))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(25.0)))
+	})
+
+	It("should run V_CVT_F16_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 10
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(8.0))
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+		// value 8.0 => half - precision : 0x4800
+		Expect(uint16(sp.DST[0])).To(Equal(uint16(0x4800)))
+	})
+
 })

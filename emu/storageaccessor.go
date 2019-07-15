@@ -23,7 +23,10 @@ func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
 
 	//fmt.Printf("pid: %d, va: 0x%x, pa: 0x%x\n", pid, vAddr, phyAddr)
 
-	storageAddr := a.addrConverter.ConvertExternalToInternal(phyAddr)
+	storageAddr := phyAddr
+	if a.addrConverter != nil {
+		storageAddr = a.addrConverter.ConvertExternalToInternal(phyAddr)
+	}
 	data, err := a.storage.Read(storageAddr, byteSize)
 	if err != nil {
 		log.Panic(err)
@@ -38,7 +41,10 @@ func (a *storageAccessor) Write(pid ca.PID, vAddr uint64, data []byte) {
 		log.Panic("page not found in page table")
 	}
 
-	storageAddr := a.addrConverter.ConvertExternalToInternal(phyAddr)
+	storageAddr := phyAddr
+	if a.addrConverter != nil {
+		storageAddr = a.addrConverter.ConvertExternalToInternal(phyAddr)
+	}
 	err := a.storage.Write(storageAddr, data)
 	if err != nil {
 		log.Panic(err)

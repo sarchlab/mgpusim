@@ -282,6 +282,7 @@ var _ = Describe("ComputeUnit", func() {
 			read := mem.NewReadReq(8, cu.ToScalarMem, nil, 0x100, 4)
 
 			info := new(ScalarMemAccessInfo)
+			info.Inst = wavefront.NewInst(insts.NewInst())
 			info.Wavefront = wf
 			info.DstSGPR = insts.SReg(0)
 			info.Req = read
