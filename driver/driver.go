@@ -148,7 +148,7 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 	case *gcn3.FlushCommand:
 		d.processFlushReturn(now, req)
 	default:
-		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
+		log.Panicf("Cannot handle request of type %s", reflect.TypeOf(req))
 	}
 }
 

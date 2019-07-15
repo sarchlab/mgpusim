@@ -15,7 +15,7 @@ import (
 	"gitlab.com/akita/mem/vm"
 )
 
-// CommandProcessor is a Akita component that is responsible for receiving
+// CommandProcessor is an Akita component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
 // GPU.
 //
