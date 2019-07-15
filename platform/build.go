@@ -10,7 +10,7 @@ import (
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
-	"gitlab.com/akita/tracing"
+	"gitlab.com/akita/util/tracing"
 )
 
 var UseParallelEngine bool

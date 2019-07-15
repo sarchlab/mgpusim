@@ -4,7 +4,6 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/util/tracing"
 	"gitlab.com/akita/vis/trace"
 
 	"gitlab.com/akita/akita"

@@ -196,7 +196,7 @@ func (d *Dispatcher) handleLaunchKernelReq(
 	d.initKernelDispatching(req.Time(), req)
 	d.scheduleMapWG(d.Freq.NextTick(req.Time()))
 
-	// tracing.TraceReqReceive(req, req.Time(), d)
+	tracing.TraceReqReceive(req, req.Time(), d)
 
 	return nil
 }
@@ -268,7 +268,8 @@ func (d *Dispatcher) initKernelDispatching(
 	d.progressBar.ShowTimeLeft = true
 	d.progressBar.Start()
 
-	tracing.TraceReqReceive(req, now, d)
+	tracing.TraceReqReceive(
+		req, now, d)
 
 }
 
@@ -345,7 +346,8 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 		log.Panic(err)
 	}
 
-	tracing.TraceReqComplete(req, now, d)
+	tracing.TraceReqComplete(
+		req, now, d)
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
