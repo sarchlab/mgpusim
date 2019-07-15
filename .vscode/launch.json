@@ -53,7 +53,9 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-verify",
-                "-length=1024",
+                "-length=4096",
+                "-timing",
+                "-trace-vis"
             ]
         },
         {
