@@ -103,7 +103,7 @@ func (b *Benchmark) initMem() {
 
 func (b *Benchmark) exec() {
 
-	//b.dLocalValues = driver.LocalPtr(driver.AllocateMemoryWithAlignment(
+	b.dLocalValues = driver.LocalPtr(256)
 	//	b.context, uint64(64) * 4, 4096) )
 
 	//temp = make([]float32, 64)
