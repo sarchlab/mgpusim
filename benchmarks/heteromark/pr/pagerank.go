@@ -11,10 +11,12 @@ import (
 
 type PageRankKernelArgs struct {
 	NumRows   uint32
+	Padding uint32
 	RowOffset driver.GPUPtr
 	Col       driver.GPUPtr
 	Val       driver.GPUPtr
 	Vals      driver.LocalPtr
+	Padding2 	uint32
 	X         driver.GPUPtr
 	Y         driver.GPUPtr
 }
@@ -116,35 +118,27 @@ func (b *Benchmark) exec() {
 
 		for i = 0; i < b.MaxIterations; i++ {
 
-			kernArg := PageRankKernelArgs{
-				b.NumNodes,
-				b.dRowOffsets,
-				b.dColumnNumbers,
-				b.dValues,
-				b.dLocalValues,
-				b.dPageRank,
-				b.dPageRankTemp,
-			}
+			var kernArg PageRankKernelArgs 
 
 			if i%2 == 0 {
 				kernArg = PageRankKernelArgs{
-					b.NumNodes,
-					b.dRowOffsets,
-					b.dColumnNumbers,
-					b.dValues,
-					b.dLocalValues,
-					b.dPageRank,
-					b.dPageRankTemp,
+					NumRows: b.NumNodes,
+					RowOffset: b.dRowOffsets,
+					Col: b.dColumnNumbers,
+					Val: b.dValues,
+					Vals: b.dLocalValues,
+					X: b.dPageRank,
+					Y: b.dPageRankTemp,
 				}
 			} else {
 				kernArg = PageRankKernelArgs{
-					b.NumNodes,
-					b.dRowOffsets,
-					b.dColumnNumbers,
-					b.dValues,
-					b.dLocalValues,
-					b.dPageRankTemp,
-					b.dPageRank,
+					NumRows: b.NumNodes,
+					RowOffset: b.dRowOffsets,
+					Col: b.dColumnNumbers,
+					Val: b.dValues,
+					Vals: b.dLocalValues,
+					X: b.dPageRankTemp,
+					Y: b.dPageRank,
 				}
 			}
 
