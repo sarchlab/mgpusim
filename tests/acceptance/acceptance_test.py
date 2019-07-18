@@ -124,6 +124,11 @@ class Test(object):
 
 def main():
 
+    atax = Test('../../samples/atax',
+                'atax',
+                ['-x=256', '-y=256'],
+                '../../benchmarks/polybench/atax'
+                )
     fir = Test('../../samples/fir',
                'fir',
                ['-length=8192'],
@@ -179,6 +184,7 @@ def main():
 
     err = False
     err |= compile('../../insts/gcn3disassembler')
+    err |= atax.test()
     err |= aes.test()
     err |= fir.test()
     err |= km.test()
