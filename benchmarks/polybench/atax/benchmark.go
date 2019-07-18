@@ -10,6 +10,21 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
+type Kernel1Args struct {
+	A   driver.GPUPtr
+	X   driver.GPUPtr
+	Tmp driver.GPUPtr
+	NX  int32
+	NY  int32
+}
+
+type Kernel2Args struct {
+	A      driver.GPUPtr
+	Y      driver.GPUPtr
+	Tmp    driver.GPUPtr
+	NX, NY int32
+}
+
 type Benchmark struct {
 	driver           *driver.Driver
 	context          *driver.Context
@@ -20,6 +35,7 @@ type Benchmark struct {
 	NX, NY                int
 	a, x, y, yOutput, tmp []float32
 	dA, dX, dY, dTmp      driver.GPUPtr
+	cpuY                  []float32
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -88,8 +104,67 @@ func (b *Benchmark) initMem() {
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dA, b.a)
 	b.driver.MemCopyH2D(b.context, b.dX, b.x)
+
+	localSize := [3]uint16{256, 1, 1}
+	globalSizeX := uint32(((b.NX-1)/256 + 1) * 256)
+	globalSize := [3]uint32{globalSizeX, 1, 1}
+
+	kernel1Arg := Kernel1Args{
+		A:   b.dA,
+		X:   b.dX,
+		Tmp: b.dTmp,
+		NX:  int32(b.NX),
+		NY:  int32(b.NY),
+	}
+	b.driver.LaunchKernel(b.context, b.kernel1,
+		globalSize, localSize, &kernel1Arg)
+
+	globalSizeX = uint32(((b.NY-1)/256 + 1) * 256)
+	globalSize = [3]uint32{globalSizeX, 1, 1}
+
+	kernel2Arg := Kernel2Args{
+		A:   b.dA,
+		Y:   b.dY,
+		Tmp: b.dTmp,
+		NX:  int32(b.NX),
+		NY:  int32(b.NY),
+	}
+	b.driver.LaunchKernel(b.context, b.kernel2,
+		globalSize, localSize, &kernel2Arg)
+
+	b.driver.MemCopyD2H(b.context, b.yOutput, b.dY)
 }
 
 func (b *Benchmark) Verify() {
+	b.cpuAtax()
+
+	for i := 0; i < b.NY; i++ {
+		if b.cpuY[i] != b.yOutput[i] {
+			log.Panicf("Mismatch at %d, expected %f, but get %f",
+				i, b.cpuY[i], b.yOutput[i])
+		}
+	}
+
 	log.Printf("Passed!\n")
+}
+
+func (b *Benchmark) cpuAtax() {
+	b.cpuY = make([]float32, b.NY)
+	tmp := make([]float32, b.NX)
+
+	for i := 0; i < b.NY; i++ {
+		b.cpuY[i] = 0
+	}
+
+	for i := 0; i < b.NX; i++ {
+		tmp[i] = 0
+
+		for j := 0; j < b.NY; j++ {
+			tmp[i] += b.a[i*b.NY+j] * b.x[j]
+		}
+
+		for j := 0; j < b.NY; j++ {
+			b.cpuY[j] += b.a[i*b.NY+j] * tmp[i]
+		}
+	}
 }
