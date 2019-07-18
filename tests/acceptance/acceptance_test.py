@@ -129,6 +129,11 @@ def main():
                 ['-x=256', '-y=256'],
                 '../../benchmarks/polybench/atax'
                 )
+    bicg = Test('../../samples/bicg',
+                'bicg',
+                ['-x=256', '-y=256'],
+                '../../benchmarks/polybench/bicg'
+                )
     fir = Test('../../samples/fir',
                'fir',
                ['-length=8192'],
@@ -184,7 +189,8 @@ def main():
 
     err = False
     err |= compile('../../insts/gcn3disassembler')
-    err |= atax.test()
+    err |= atax.test(test_multi_gpu=False)
+    err |= bicg.test(test_multi_gpu=False)
     err |= aes.test()
     err |= fir.test()
     err |= km.test()

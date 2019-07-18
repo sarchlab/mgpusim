@@ -1,4 +1,4 @@
-package atax
+package bicg
 
 import (
 	"log"
@@ -11,17 +11,16 @@ import (
 )
 
 type Kernel1Args struct {
-	A   driver.GPUPtr
-	X   driver.GPUPtr
-	Tmp driver.GPUPtr
-	NX  int32
-	NY  int32
+	A      driver.GPUPtr
+	P      driver.GPUPtr
+	Q      driver.GPUPtr
+	NX, NY int32
 }
 
 type Kernel2Args struct {
 	A      driver.GPUPtr
-	Y      driver.GPUPtr
-	Tmp    driver.GPUPtr
+	R      driver.GPUPtr
+	S      driver.GPUPtr
 	NX, NY int32
 }
 
@@ -32,10 +31,11 @@ type Benchmark struct {
 	queues           []*driver.CommandQueue
 	kernel1, kernel2 *insts.HsaCo
 
-	NX, NY                int
-	a, x, y, yOutput, tmp []float32
-	dA, dX, dY, dTmp      driver.GPUPtr
-	cpuY                  []float32
+	NX, NY             int
+	a, r, s, p, q      []float32
+	sOutput, qOutput   []float32
+	cpuS, cpuQ         []float32
+	dA, dR, dS, dP, dQ driver.GPUPtr
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -54,13 +54,13 @@ func (b *Benchmark) loadProgram() {
 	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.kernel1 = kernels.LoadProgramFromMemory(
-		hsacoBytes, "atax_kernel1")
+		hsacoBytes, "bicgKernel1")
 	if b.kernel1 == nil {
 		log.Panic("Failed to load kernel binary")
 	}
 
 	b.kernel2 = kernels.LoadProgramFromMemory(
-		hsacoBytes, "atax_kernel2")
+		hsacoBytes, "bicgKernel2")
 	if b.kernel2 == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -79,42 +79,52 @@ func (b *Benchmark) Run() {
 func (b *Benchmark) initMem() {
 	rand.Seed(1)
 	b.a = make([]float32, b.NX*b.NY)
-	b.x = make([]float32, b.NY)
-	b.y = make([]float32, b.NY)
-	b.yOutput = make([]float32, b.NY)
-	b.tmp = make([]float32, b.NX)
+	b.r = make([]float32, b.NX)
+	b.s = make([]float32, b.NY)
+	b.p = make([]float32, b.NY)
+	b.q = make([]float32, b.NX)
+	b.sOutput = make([]float32, b.NY)
+	b.qOutput = make([]float32, b.NX)
 
 	for i := 0; i < b.NX; i++ {
-		b.x[i] = float32(i) * math.Pi
+		b.r[i] = float32(i) * math.Pi
 		for j := 0; j < b.NY; j++ {
 			b.a[i*b.NY+j] = float32(i) * float32(j) / float32(b.NX)
 		}
 	}
 
+	for i := 0; i < b.NY; i++ {
+		b.p[i] = float32(i) * math.Pi
+	}
+
 	b.dA = b.driver.AllocateMemoryWithAlignment(b.context,
 		uint64(b.NY*b.NX*4), 4096)
-	b.dX = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*4), 4096)
-	b.dY = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*4), 4096)
-	b.dTmp = b.driver.AllocateMemoryWithAlignment(b.context,
+	b.dR = b.driver.AllocateMemoryWithAlignment(b.context,
 		uint64(b.NX*4), 4096)
+	b.dS = b.driver.AllocateMemoryWithAlignment(b.context,
+		uint64(b.NY*4), 4096)
+	b.dP = b.driver.AllocateMemoryWithAlignment(b.context,
+		uint64(b.NY*4), 4096)
+	b.dQ = b.driver.AllocateMemoryWithAlignment(b.context,
+		uint64(b.NX*4), 4096)
+
 }
 
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dA, b.a)
-	b.driver.MemCopyH2D(b.context, b.dX, b.x)
+	b.driver.MemCopyH2D(b.context, b.dR, b.r)
+	b.driver.MemCopyH2D(b.context, b.dP, b.p)
 
 	localSize := [3]uint16{256, 1, 1}
 	globalSizeX := uint32(((b.NX-1)/256 + 1) * 256)
 	globalSize := [3]uint32{globalSizeX, 1, 1}
 
 	kernel1Arg := Kernel1Args{
-		A:   b.dA,
-		X:   b.dX,
-		Tmp: b.dTmp,
-		NX:  int32(b.NX),
-		NY:  int32(b.NY),
+		A:  b.dA,
+		P:  b.dP,
+		Q:  b.dQ,
+		NX: int32(b.NX),
+		NY: int32(b.NY),
 	}
 	b.driver.LaunchKernel(b.context, b.kernel1,
 		globalSize, localSize, &kernel1Arg)
@@ -123,48 +133,47 @@ func (b *Benchmark) exec() {
 	globalSize = [3]uint32{globalSizeX, 1, 1}
 
 	kernel2Arg := Kernel2Args{
-		A:   b.dA,
-		Y:   b.dY,
-		Tmp: b.dTmp,
-		NX:  int32(b.NX),
-		NY:  int32(b.NY),
+		A:  b.dA,
+		R:  b.dR,
+		S:  b.dS,
+		NX: int32(b.NX),
+		NY: int32(b.NY),
 	}
 	b.driver.LaunchKernel(b.context, b.kernel2,
 		globalSize, localSize, &kernel2Arg)
 
-	b.driver.MemCopyD2H(b.context, b.yOutput, b.dY)
+	b.driver.MemCopyD2H(b.context, b.sOutput, b.dS)
+	b.driver.MemCopyD2H(b.context, b.qOutput, b.dQ)
 }
 
 func (b *Benchmark) Verify() {
-	b.cpuAtax()
+	b.cpuBicg()
 
 	for i := 0; i < b.NY; i++ {
-		if b.cpuY[i] != b.yOutput[i] {
-			log.Panicf("Mismatch at %d, expected %f, but get %f",
-				i, b.cpuY[i], b.yOutput[i])
+		if b.cpuS[i] != b.sOutput[i] {
+			log.Panicf("Mismatch in s at %d, expected %f, but get %f",
+				i, b.cpuS[i], b.sOutput[i])
+		}
+	}
+
+	for i := 0; i < b.NX; i++ {
+		if b.cpuQ[i] != b.qOutput[i] {
+			log.Panicf("Mismatch in q at %d, expected %f, but get %f",
+				i, b.cpuQ[i], b.qOutput[i])
 		}
 	}
 
 	log.Printf("Passed!\n")
 }
 
-func (b *Benchmark) cpuAtax() {
-	b.cpuY = make([]float32, b.NY)
-	tmp := make([]float32, b.NX)
-
-	for i := 0; i < b.NY; i++ {
-		b.cpuY[i] = 0
-	}
+func (b *Benchmark) cpuBicg() {
+	b.cpuS = make([]float32, b.NY)
+	b.cpuQ = make([]float32, b.NX)
 
 	for i := 0; i < b.NX; i++ {
-		tmp[i] = 0
-
 		for j := 0; j < b.NY; j++ {
-			tmp[i] += b.a[i*b.NY+j] * b.x[j]
-		}
-
-		for j := 0; j < b.NY; j++ {
-			b.cpuY[j] += b.a[i*b.NY+j] * tmp[i]
+			b.cpuS[j] += b.r[i] * b.a[i*b.NY+j]
+			b.cpuQ[i] += b.p[j] * b.a[i*b.NY+j]
 		}
 	}
 }
