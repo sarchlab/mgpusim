@@ -73,9 +73,6 @@ func (b *Benchmark) initMem() {
 		b.hVerInputArray[i] = temp
 	}
 
-	// random initialisation of input
-	//fillRandom<cl_float>(input, length, 1, 0, 255);
-
 	b.dInputArray = b.driver.AllocateMemoryWithAlignment(b.context, uint64(b.Length*4), 4096)
 	b.driver.MemCopyH2D(b.context, b.dInputArray, b.hInputArray)
 }
@@ -115,33 +112,24 @@ func (b *Benchmark) exec() {
 	}
 
 	b.driver.MemCopyD2H(b.context, b.hInputArray, b.dInputArray)
-	printArray(b.hInputArray, uint32(len(b.hInputArray)))
 }
 
 func (b *Benchmark) Verify() {
 
-	// for each pass of the algorithm
 	for step := uint32(1); step < b.Length; step <<= 1 {
-		// length of each block
 		jump := uint32(step << 1)
-		// for each blocks
 		for group := uint32(0); group < step; group++ {
-			// for each pair of elements with in the block
 			for pair := uint32(group); pair < b.Length; pair += jump {
-				// find its partner
 				match := uint32(pair + step)
 
 				T1 := float32(b.hVerInputArray[pair])
 				T2 := float32(b.hVerInputArray[match])
 
-				// store the sum and difference of the numbers in the same locations
 				b.hVerInputArray[pair] = T1 + T2
 				b.hVerInputArray[match] = T1 - T2
 			}
 		}
 	}
-
-	printArray(b.hVerInputArray, uint32(len(b.hVerInputArray)))
 
 	for i := uint32(0); i < b.Length; i++ {
 		if b.hInputArray[i] != b.hVerInputArray[i] {
