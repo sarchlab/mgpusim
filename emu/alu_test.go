@@ -139,6 +139,32 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run FLAT_LOAD_DWORDX2", func() {
+		for i := 0; i < 64; i++ {
+			mmu.EXPECT().
+				Translate(ca.PID(1), uint64(i*8)).
+				Return(uint64(i*8), &vm.Page{})
+		}
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.FLAT
+		state.inst.Opcode = 21
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 8)
+			storage.Write(uint64(i*8), insts.Uint32ToBytes(uint32(i)))
+			storage.Write(uint64(i*8+4), insts.Uint32ToBytes(uint32(i)))
+		}
+		layout.EXEC = 0xffffffffffffffff
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+			Expect(layout.DST[i*4+1]).To(Equal(uint32(i)))
+		}
+	})
+
 	It("should run FLAT_LOAD_DWORDX4", func() {
 		for i := 0; i < 64; i++ {
 			mmu.EXPECT().
