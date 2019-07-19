@@ -37,7 +37,7 @@ type Benchmark struct {
 	hPageRank       []float32
 	hRowOffsets     []uint32
 	hColumnNumbers  []uint32
-	hValues         []uint32
+	hValues         []float32
 	verPageRank     []float32
 	verPageRankTemp []float32
 
@@ -83,7 +83,7 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 
-	b.InitializeMatrix()
+	b.initializeMatrix()
 
 	initData := float32(1.0) / float32(b.NumNodes)
 	b.hPageRank = make([]float32, b.NumNodes)
@@ -110,13 +110,12 @@ func (b *Benchmark) initMem() {
 	b.driver.MemCopyH2D(b.context, b.dPageRankTemp, b.hPageRank)
 }
 
-func (b *Benchmark) InitializeMatrix() {
-
+func (b *Benchmark) initializeMatrix() {
 	rand.Seed(123)
 
-	m1 := make([][]uint32, b.NumNodes)
+	m1 := make([][]float32, b.NumNodes)
 	for i := range m1 {
-		m1[i] = make([]uint32, b.NumNodes)
+		m1[i] = make([]float32, b.NumNodes)
 	}
 
 	for i := uint32(0); i < b.NumConnections; i++ {
@@ -126,14 +125,25 @@ func (b *Benchmark) InitializeMatrix() {
 			i--
 			continue
 		}
-		m1[row][col] = rand.Uint32()%b.NumNodes + 1
+		v := rand.Float32()
+		m1[row][col] = v
 	}
 
-	PrintMatrix(m1, b.NumNodes)
+	for i := uint32(0); i < b.NumNodes; i++ {
+		sum := float32(0)
+		for j := uint32(0); j < b.NumNodes; j++ {
+			sum += m1[j][i]
+		}
+		for j := uint32(0); j < b.NumNodes; j++ {
+			m1[j][i] /= sum
+		}
+	}
+
+	printMatrix(m1, b.NumNodes)
 
 	b.hRowOffsets = make([]uint32, 0)
 	b.hColumnNumbers = make([]uint32, 0)
-	b.hValues = make([]uint32, 0)
+	b.hValues = make([]float32, 0)
 
 	var offsetCount uint32
 	offsetCount = 0
@@ -149,14 +159,14 @@ func (b *Benchmark) InitializeMatrix() {
 		}
 		b.hRowOffsets = append(b.hRowOffsets, offsetCount)
 	}
-	//b.hRowOffsets = append(b.hRowOffsets, b.hRowOffsets[len(b.hRowOffsets)-1]+1)
 
+	//b.hRowOffsets = append(b.hRowOffsets, b.hRowOffsets[len(b.hRowOffsets)-1]+1)
 }
 
-func PrintMatrix(matrix [][]uint32, n uint32) {
+func printMatrix(matrix [][]float32, n uint32) {
 	for i := uint32(0); i < n; i++ {
 		for j := uint32(0); j < n; j++ {
-			fmt.Printf("%d ", matrix[i][j])
+			fmt.Printf("%f ", matrix[i][j])
 		}
 		fmt.Printf("\n")
 	}
@@ -169,46 +179,37 @@ func (b *Benchmark) exec() {
 	localWorkSize := 64
 	i := uint32(0)
 
-	for _, queue := range b.queues {
-
-		for i = 0; i < b.MaxIterations; i++ {
-
-			var kernArg PageRankKernelArgs
-
-			if i%2 == 0 {
-				kernArg = PageRankKernelArgs{
-					NumRows:   b.NumNodes,
-					RowOffset: b.dRowOffsets,
-					Col:       b.dColumnNumbers,
-					Val:       b.dValues,
-					Vals:      b.dLocalValues,
-					X:         b.dPageRank,
-					Y:         b.dPageRankTemp,
-				}
-			} else {
-				kernArg = PageRankKernelArgs{
-					NumRows:   b.NumNodes,
-					RowOffset: b.dRowOffsets,
-					Col:       b.dColumnNumbers,
-					Val:       b.dValues,
-					Vals:      b.dLocalValues,
-					X:         b.dPageRankTemp,
-					Y:         b.dPageRank,
-				}
+	for i = 0; i < b.MaxIterations; i++ {
+		var kernArg PageRankKernelArgs
+		if i%2 == 0 {
+			kernArg = PageRankKernelArgs{
+				NumRows:   b.NumNodes,
+				RowOffset: b.dRowOffsets,
+				Col:       b.dColumnNumbers,
+				Val:       b.dValues,
+				Vals:      b.dLocalValues,
+				X:         b.dPageRank,
+				Y:         b.dPageRankTemp,
 			}
-
-			b.driver.EnqueueLaunchKernel(
-				queue,
-				b.kernel,
-				[3]uint32{uint32(b.NumNodes), uint32(64), 1},
-				[3]uint16{uint16(localWorkSize), 1, 1},
-				&kernArg,
-			)
+		} else {
+			kernArg = PageRankKernelArgs{
+				NumRows:   b.NumNodes,
+				RowOffset: b.dRowOffsets,
+				Col:       b.dColumnNumbers,
+				Val:       b.dValues,
+				Vals:      b.dLocalValues,
+				X:         b.dPageRankTemp,
+				Y:         b.dPageRank,
+			}
 		}
-	}
 
-	for _, q := range b.queues {
-		b.driver.DrainCommandQueue(q)
+		b.driver.LaunchKernel(
+			b.context,
+			b.kernel,
+			[3]uint32{uint32(b.NumNodes) * 64, 1, 1},
+			[3]uint16{uint16(localWorkSize), 1, 1},
+			&kernArg,
+		)
 	}
 
 	if i%2 != 0 {
@@ -217,11 +218,9 @@ func (b *Benchmark) exec() {
 		b.driver.MemCopyD2H(b.context, b.hPageRank, b.dPageRankTemp)
 	}
 
-	/*
-		for i := 0; i < len(b.hPageRank); i++ {
-			fmt.Printf("%d: %f\n", i, b.hPageRank[i])
-		}
-	*/
+	for i := 0; i < len(b.hPageRank); i++ {
+		fmt.Printf("%d: %f\n", i, b.hPageRank[i])
+	}
 }
 
 func (b *Benchmark) Verify() {
@@ -236,43 +235,26 @@ func (b *Benchmark) Verify() {
 	}
 	fmt.Printf("\nValues:\n")
 	for i := 0; i < len(b.hValues); i++ {
-		fmt.Printf("%d ", b.hValues[i])
+		fmt.Printf("%f ", b.hValues[i])
 	}
 	fmt.Printf("\n\n")
 
 	var i uint32
 	for i = 0; i < b.MaxIterations; i++ {
-		fmt.Printf("Iteration %d:\n", i)
-		if i%2 == 0 {
-			for i := uint32(0); i < b.NumNodes; i++ {
-				newValue := float32(0)
-				for j := uint32(b.hRowOffsets[i]); j < b.hRowOffsets[i+1]; j++ {
-					newValue += float32(b.hValues[j]) * b.verPageRank[b.hColumnNumbers[j]]
-				}
-				b.verPageRankTemp[i] = newValue
+		fmt.Printf("CPU Iteration %d:\n", i)
+		for i := uint32(0); i < b.NumNodes; i++ {
+			newValue := float32(0)
+			for j := uint32(b.hRowOffsets[i]); j < b.hRowOffsets[i+1]; j++ {
+				newValue += float32(b.hValues[j]) * b.verPageRank[b.hColumnNumbers[j]]
 			}
-			for i := 0; i < len(b.verPageRank); i++ {
-				fmt.Printf("%d: %f\n", i, b.verPageRankTemp[i])
-			}
-			fmt.Printf("\n")
-		} else {
-			for i := uint32(0); i < b.NumNodes; i++ {
-				newValue := float32(0)
-				for j := uint32(b.hRowOffsets[i]); j < b.hRowOffsets[i+1]; j++ {
-					newValue += float32(b.hValues[j]) * b.verPageRankTemp[b.hColumnNumbers[j]]
-				}
-				b.verPageRank[i] = newValue
-			}
-			for i := 0; i < len(b.verPageRank); i++ {
-				fmt.Printf("%d: %f\n", i, b.verPageRank[i])
-			}
-			fmt.Printf("\n")
+			b.verPageRankTemp[i] = newValue
 		}
+		for i := 0; i < len(b.verPageRank); i++ {
+			fmt.Printf("%d: %f\n", i, b.verPageRankTemp[i])
+		}
+		fmt.Printf("\n")
 	}
-
-	if i%2 == 0 {
-		copy(b.verPageRank, b.verPageRankTemp)
-	}
+	copy(b.verPageRank, b.verPageRankTemp)
 
 	/*
 		for i := 0; i < len(b.verPageRank); i++ {
@@ -283,4 +265,12 @@ func (b *Benchmark) Verify() {
 		}
 	*/
 
+	for i := uint32(0); i < b.NumNodes; i++ {
+		if b.verPageRank[i] != b.hPageRank[i] {
+			log.Panicf("Mismatch at %d, expected %f, but get %f\n",
+				i, b.verPageRank[i], b.hPageRank[i])
+		}
+	}
+
+	log.Printf("Passed!\n")
 }
