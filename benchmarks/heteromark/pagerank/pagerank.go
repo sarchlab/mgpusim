@@ -3,6 +3,7 @@ package pagerank
 import (
 	"fmt"
 	"log"
+	"math"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
@@ -78,7 +79,6 @@ func (b *Benchmark) Run() {
 
 	b.initMem()
 	b.exec()
-	b.Verify()
 }
 
 func (b *Benchmark) initMem() {
@@ -133,7 +133,9 @@ func (b *Benchmark) initializeMatrix() {
 			sum += m1[j][i]
 		}
 		for j := uint32(0); j < b.NumNodes; j++ {
-			m1[j][i] /= sum
+			if sum != 0 {
+				m1[j][i] /= sum
+			}
 		}
 	}
 
@@ -251,24 +253,15 @@ func (b *Benchmark) Verify() {
 			}
 			b.verPageRankTemp[i] = newValue
 		}
-		for i := 0; i < len(b.verPageRank); i++ {
-			fmt.Printf("%d: %f\n", i, b.verPageRankTemp[i])
-		}
-		fmt.Printf("\n")
-	}
-	copy(b.verPageRank, b.verPageRankTemp)
-
-	/*
+		copy(b.verPageRank, b.verPageRankTemp)
 		for i := 0; i < len(b.verPageRank); i++ {
 			fmt.Printf("%d: %f\n", i, b.verPageRank[i])
 		}
-		for i := 0; i < len(b.verPageRankTemp); i++ {
-			fmt.Printf("%d: %f\n", i, b.verPageRankTemp[i])
-		}
-	*/
+		fmt.Printf("\n")
+	}
 
 	for i := uint32(0); i < b.NumNodes; i++ {
-		if b.verPageRank[i] != b.hPageRank[i] {
+		if math.Abs(float64(b.verPageRank[i]-b.hPageRank[i])) > 1e-5 {
 			log.Panicf("Mismatch at %d, expected %f, but get %f\n",
 				i, b.verPageRank[i], b.hPageRank[i])
 		}
