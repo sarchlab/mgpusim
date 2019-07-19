@@ -85,6 +85,8 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 		u.runFlatLoadUShort(state)
 	case 20:
 		u.runFlatLoadDWord(state)
+	case 21:
+		u.runFlatLoadDWordX2(state)
 	case 23:
 		u.runFlatLoadDWordX4(state)
 	case 28:
@@ -140,6 +142,21 @@ func (u *ALUImpl) runFlatLoadDWord(state InstEmuState) {
 
 		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
 		sp.DST[i*4] = insts.BytesToUint32(buf)
+	}
+}
+
+func (u *ALUImpl) runFlatLoadDWordX2(state InstEmuState) {
+	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
+	for i := uint(0); i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(8))
+
+		sp.DST[i*4] = insts.BytesToUint32(buf[0:4])
+		sp.DST[i*4+1] = insts.BytesToUint32(buf[4:8])
 	}
 }
 
