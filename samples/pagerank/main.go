@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/heteromark/pr"
+	"gitlab.com/akita/gcn3/benchmarks/heteromark/pagerank"
 	"gitlab.com/akita/gcn3/samples/runner"
 )
 
