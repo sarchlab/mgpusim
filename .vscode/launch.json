@@ -114,5 +114,19 @@
                 // "-debug-isa"
             ]
         },
+        {
+            "name": "Page Rank",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/pagerank",
+            "args": [
+                "-verify",
+                "-nodes=2",
+                "-connections=4",
+                "-iterations=1",
+                "-debug-isa"
+            ]
+        },
     ]
 }

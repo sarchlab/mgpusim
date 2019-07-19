@@ -62,7 +62,7 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes := FSMustByte(false, "/kernels.hsaco")
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "PageRankUpdateGpu")
 	if b.kernel == nil {
@@ -106,8 +106,6 @@ func (b *Benchmark) initMem() {
 	b.dValues = b.driver.AllocateMemoryWithAlignment(
 		b.context, uint64(b.NumNodes*4), 4096)
 
-	b.driver.MemCopyH2D(b.context, b.dPageRank, b.hPageRank)
-	b.driver.MemCopyH2D(b.context, b.dPageRankTemp, b.hPageRank)
 }
 
 func (b *Benchmark) initializeMatrix() {
@@ -173,6 +171,10 @@ func printMatrix(matrix [][]float32, n uint32) {
 }
 
 func (b *Benchmark) exec() {
+	b.driver.MemCopyH2D(b.context, b.dPageRank, b.hPageRank)
+	b.driver.MemCopyH2D(b.context, b.dRowOffsets, b.hRowOffsets)
+	b.driver.MemCopyH2D(b.context, b.dColumnNumbers, b.hColumnNumbers)
+	b.driver.MemCopyH2D(b.context, b.dValues, b.hValues)
 
 	b.dLocalValues = driver.LocalPtr(256)
 
@@ -213,9 +215,9 @@ func (b *Benchmark) exec() {
 	}
 
 	if i%2 != 0 {
-		b.driver.MemCopyD2H(b.context, b.hPageRank, b.dPageRank)
-	} else {
 		b.driver.MemCopyD2H(b.context, b.hPageRank, b.dPageRankTemp)
+	} else {
+		b.driver.MemCopyD2H(b.context, b.hPageRank, b.dPageRank)
 	}
 
 	for i := 0; i < len(b.hPageRank); i++ {
