@@ -66,13 +66,13 @@ var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
 
 		ptr := allocator.AllocateWithAlignment(context, 8, 64)
 		Expect(ptr).To(Equal(GPUPtr(4096)))
-		Expect(allocator.allocatedPages[1]).To(HaveLen(1))
-		Expect(allocator.memoryMasks[1]).To(HaveLen(2))
+		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(1))
+		Expect(allocator.deviceMemoryStates[1].memoryChunks).To(HaveLen(2))
 
 		ptr = allocator.AllocateWithAlignment(context, 8, 64)
 		Expect(ptr).To(Equal(GPUPtr(4160)))
-		Expect(allocator.allocatedPages[1]).To(HaveLen(1))
-		Expect(allocator.memoryMasks[1]).To(HaveLen(4))
+		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(1))
+		Expect(allocator.deviceMemoryStates[1].memoryChunks).To(HaveLen(4))
 	})
 
 	ginkgo.It("should allocate memory larger than a page", func() {
@@ -89,7 +89,7 @@ var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
 
 		ptr := allocator.Allocate(context, 8196)
 		Expect(ptr).To(Equal(GPUPtr(4096)))
-		Expect(allocator.allocatedPages[1]).To(HaveLen(3))
+		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(3))
 	})
 
 	ginkgo.It("should remap page to another device", func() {
@@ -117,14 +117,14 @@ var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
 		})
 		allocator.Remap(context, uint64(ptr), 4096, 2)
 
-		Expect(allocator.allocatedPages[1]).To(HaveLen(0))
-		Expect(allocator.allocatedPages[2]).To(HaveLen(1))
-		Expect(allocator.allocatedPages[2][0].VAddr).
+		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(0))
+		Expect(allocator.deviceMemoryStates[2].allocatedPages).To(HaveLen(1))
+		Expect(allocator.deviceMemoryStates[2].allocatedPages[0].VAddr).
 			To(Equal(uint64(ptr)))
-		Expect(allocator.allocatedPages[2][0].PAddr).
+		Expect(allocator.deviceMemoryStates[2].allocatedPages[0].PAddr).
 			To(Equal(uint64(0x200000000)))
-		Expect(allocator.memoryMasks[1]).To(HaveLen(0))
-		Expect(allocator.memoryMasks[2]).To(HaveLen(2))
+		Expect(allocator.deviceMemoryStates[1].memoryChunks).To(HaveLen(0))
+		Expect(allocator.deviceMemoryStates[2].memoryChunks).To(HaveLen(2))
 	})
 })
 
