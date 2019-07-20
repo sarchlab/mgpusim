@@ -34,6 +34,13 @@ type deviceMemoryState struct {
 	memoryChunks   []*memoryChunk
 }
 
+func (s *deviceMemoryState) updateNextPAddr(pageSize uint64) {
+	s.nextPAddr += pageSize
+	if s.nextPAddr > s.initialAddress+s.storageSize {
+		panic("memory is full")
+	}
+}
+
 // A memoryAllocatorImpl provides the default implementation for
 // memoryAllocator
 type memoryAllocatorImpl struct {
@@ -139,7 +146,7 @@ func (a *memoryAllocatorImpl) allocateLarge(
 			Valid:    true,
 		}
 		ctx.prevPageVAddr = vAddr
-		a.deviceMemoryStates[gpuID].nextPAddr += pageSize
+		a.deviceMemoryStates[gpuID].updateNextPAddr(pageSize)
 		a.deviceMemoryStates[gpuID].allocatedPages = append(
 			a.deviceMemoryStates[gpuID].allocatedPages, page)
 		a.mmu.CreatePage(&page)
@@ -217,7 +224,7 @@ func (a *memoryAllocatorImpl) allocatePage(ctx *Context) vm.Page {
 	pAddr := a.deviceMemoryStates[deviceID].nextPAddr
 	vAddr := ctx.prevPageVAddr + pageSize
 	ctx.prevPageVAddr = vAddr
-	a.deviceMemoryStates[deviceID].nextPAddr += pageSize
+	a.deviceMemoryStates[deviceID].updateNextPAddr(pageSize)
 	page := vm.Page{
 		PID:      ctx.pid,
 		VAddr:    vAddr,
@@ -324,7 +331,7 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 ) vm.Page {
 	pageSize := uint64(1 << a.pageSizeAsPowerOf2)
 	pAddr := a.deviceMemoryStates[deviceID].nextPAddr
-	a.deviceMemoryStates[deviceID].nextPAddr += pageSize
+	a.deviceMemoryStates[deviceID].updateNextPAddr(pageSize)
 
 	page := vm.Page{
 		PID:      ctx.pid,
