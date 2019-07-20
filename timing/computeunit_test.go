@@ -333,9 +333,12 @@ var _ = Describe("ComputeUnit", func() {
 			info.Read = read
 			info.Wavefront = wf
 			info.Inst = inst
-			info.DstVGPR = insts.VReg(0)
-			info.Lanes = []int{0, 1, 2, 3}
-			info.LaneAddrOffsets = []uint64{0, 4, 8, 12}
+			info.laneInfo = []vectorMemAccessLaneInfo{
+				{0, insts.VReg(0), 1, 0},
+				{1, insts.VReg(0), 1, 4},
+				{2, insts.VReg(0), 1, 8},
+				{3, insts.VReg(0), 1, 12},
+			}
 			cu.InFlightVectorMemAccess = append(
 				cu.InFlightVectorMemAccess, info)
 
