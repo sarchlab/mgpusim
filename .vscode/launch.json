@@ -98,7 +98,12 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/samples/floydwarshall",
-            "args": []
+            "args": [
+                "-iter=1",
+                "-timing",
+                "-verify",
+                "-debug-isa"
+            ]
         },
         {
             "name": "Stencil 2d",
