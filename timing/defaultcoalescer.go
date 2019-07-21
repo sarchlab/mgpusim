@@ -87,11 +87,11 @@ func (c defaultCoalescer) generateWriteReqs(
 
 		addr := addrs[i]
 		regCount := uint(c.instRegCount(wf.Inst()))
-		dataInReq := make([]byte, 0, regCount*4)
 		for j := uint(0); j < regCount; j++ {
-			dataInReq = append(dataInReq, insts.Uint32ToBytes(data[i*4+j])...)
+			reqData := data[i*4+j]
+			c.findOrCreateWriteReq(&reqs, addr+uint64(j*4),
+				insts.Uint32ToBytes(reqData))
 		}
-		c.findOrCreateWriteReq(&reqs, addr, dataInReq)
 	}
 
 	return reqs
