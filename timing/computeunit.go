@@ -32,7 +32,7 @@ type ComputeUnit struct {
 
 	InFlightInstFetch       []*InstFetchReqInfo
 	InFlightScalarMemAccess []*ScalarMemAccessInfo
-	InFlightVectorMemAccess []*VectorMemAccessInfo
+	InFlightVectorMemAccess []VectorMemAccessInfo
 
 	running bool
 
