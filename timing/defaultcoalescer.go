@@ -55,6 +55,7 @@ func (c defaultCoalescer) generateReadReqs(
 	exec := sp.EXEC
 	addrs := sp.ADDR
 	reqs := []*mem.ReadReq{}
+	regCount := c.instRegCount(wf.Inst())
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
@@ -62,7 +63,9 @@ func (c defaultCoalescer) generateReadReqs(
 		}
 
 		addr := addrs[i]
-		c.findOrCreateReadReq(&reqs, addr)
+		for j := 0; j < regCount; j++ {
+			c.findOrCreateReadReq(&reqs, addr+uint64(4*j))
+		}
 	}
 
 	return reqs
@@ -204,21 +207,25 @@ func (c defaultCoalescer) addLaneInfo(
 	exec := sp.EXEC
 	addrs := sp.ADDR
 	req := transaction.Read
+	regCount := c.instRegCount(wf.Inst())
 
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(exec, i) {
 			continue
 		}
 
-		addr := addrs[i]
-		if c.isInSameCacheLine(addr, req.Address) {
-			laneInfo := vectorMemAccessLaneInfo{
-				laneID:                int(i),
-				reg:                   wf.Inst().Dst.Register,
-				regCount:              wf.Inst().Dst.RegCount,
-				addrOffsetInCacheLine: c.addrOffsetInCacheLine(addr),
+		for j := 0; j < regCount; j++ {
+			addr := addrs[i] + uint64(j*4)
+			reg := insts.VReg(wf.Inst().Dst.Register.RegIndex() + j)
+			if c.isInSameCacheLine(addr, req.Address) {
+				laneInfo := vectorMemAccessLaneInfo{
+					laneID:                int(i),
+					reg:                   reg,
+					regCount:              1,
+					addrOffsetInCacheLine: c.addrOffsetInCacheLine(addr),
+				}
+				transaction.laneInfo = append(transaction.laneInfo, laneInfo)
 			}
-			transaction.laneInfo = append(transaction.laneInfo, laneInfo)
 		}
 	}
 }
