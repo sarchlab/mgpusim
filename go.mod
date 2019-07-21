@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/rs/xid v1.2.1
 	gitlab.com/akita/akita v1.3.2
-	gitlab.com/akita/mem v1.2.4
+	gitlab.com/akita/mem v1.2.5
 	gitlab.com/akita/noc v1.1.3
 	gitlab.com/akita/util v0.1.6
 	gitlab.com/akita/vis v0.2.0
@@ -19,5 +19,5 @@ require (
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 )
 
-// replace gitlab.com/akita/mem => ../mem
+//replace gitlab.com/akita/mem => ../mem
 // replace gitlab.com/akita/util => ../util

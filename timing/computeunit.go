@@ -626,7 +626,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	cu.logInstStageTask(now, info.Inst, "mem", true)
-	cu.logInstTask(now, wf, info.Inst, false)
+	cu.logInstTask(now, wf, info.Inst, true)
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
@@ -688,7 +688,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		}
 
 		cu.logInstStageTask(now, info.Inst, "mem", true)
-		cu.logInstTask(now, wf, info.Inst, false)
+		cu.logInstTask(now, wf, info.Inst, true)
 	}
 }
 
@@ -709,7 +709,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 			wf.OutstandingScalarMemAccess--
 		}
 		cu.logInstStageTask(now, info.Inst, "mem", true)
-		cu.logInstTask(now, wf, info.Inst, false)
+		cu.logInstTask(now, wf, info.Inst, true)
 	}
 }
 
