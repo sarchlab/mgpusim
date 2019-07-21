@@ -313,7 +313,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf    *wavefront.Wavefront
 			inst  *wavefront.Inst
 			read  *mem.ReadReq
-			info  *VectorMemAccessInfo
+			info  VectorMemAccessInfo
 		)
 
 		BeforeEach(func() {
@@ -329,7 +329,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			read = mem.NewReadReq(8, nil, nil, 0x100, 16)
 
-			info = new(VectorMemAccessInfo)
+			info = VectorMemAccessInfo{}
 			info.Read = read
 			info.Wavefront = wf
 			info.Inst = inst
@@ -394,7 +394,7 @@ var _ = Describe("ComputeUnit", func() {
 			rawWf    *kernels.Wavefront
 			inst     *wavefront.Inst
 			wf       *wavefront.Wavefront
-			info     *VectorMemAccessInfo
+			info     VectorMemAccessInfo
 			writeReq *mem.WriteReq
 			doneRsp  *mem.DoneRsp
 		)
@@ -412,7 +412,7 @@ var _ = Describe("ComputeUnit", func() {
 
 			writeReq = mem.NewWriteReq(8, nil, nil, 0x100)
 
-			info = new(VectorMemAccessInfo)
+			info = VectorMemAccessInfo{}
 			info.Wavefront = wf
 			info.Inst = inst
 			info.Write = writeReq
@@ -472,7 +472,7 @@ var _ = Describe("ComputeUnit", func() {
 			scalarMemInfo := new(ScalarMemAccessInfo)
 			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
 
-			vectorMemInfo := new(VectorMemAccessInfo)
+			vectorMemInfo := VectorMemAccessInfo{}
 			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
 
 			cu.flushCUBuffers()
@@ -509,7 +509,7 @@ var _ = Describe("ComputeUnit", func() {
 			scalarMemInfo := new(ScalarMemAccessInfo)
 			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
 
-			vectorMemInfo := new(VectorMemAccessInfo)
+			vectorMemInfo := VectorMemAccessInfo{}
 			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
 
 			branchUnit.EXPECT().Flush()
