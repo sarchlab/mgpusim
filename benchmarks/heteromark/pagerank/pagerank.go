@@ -139,8 +139,6 @@ func (b *Benchmark) initializeMatrix() {
 		}
 	}
 
-	printMatrix(m1, b.NumNodes)
-
 	b.hRowOffsets = make([]uint32, 0)
 	b.hColumnNumbers = make([]uint32, 0)
 	b.hValues = make([]float32, 0)
@@ -159,8 +157,6 @@ func (b *Benchmark) initializeMatrix() {
 		}
 		b.hRowOffsets = append(b.hRowOffsets, offsetCount)
 	}
-
-	//b.hRowOffsets = append(b.hRowOffsets, b.hRowOffsets[len(b.hRowOffsets)-1]+1)
 }
 
 func printMatrix(matrix [][]float32, n uint32) {
@@ -221,31 +217,11 @@ func (b *Benchmark) exec() {
 	} else {
 		b.driver.MemCopyD2H(b.context, b.hPageRank, b.dPageRank)
 	}
-
-	for i := 0; i < len(b.hPageRank); i++ {
-		fmt.Printf("%d: %f\n", i, b.hPageRank[i])
-	}
 }
 
 func (b *Benchmark) Verify() {
-
-	fmt.Printf("\nRow Offsets:\n")
-	for i := 0; i < len(b.hRowOffsets); i++ {
-		fmt.Printf("%d ", b.hRowOffsets[i])
-	}
-	fmt.Printf("\nColumn Numbers:\n")
-	for i := 0; i < len(b.hColumnNumbers); i++ {
-		fmt.Printf("%d ", b.hColumnNumbers[i])
-	}
-	fmt.Printf("\nValues:\n")
-	for i := 0; i < len(b.hValues); i++ {
-		fmt.Printf("%f ", b.hValues[i])
-	}
-	fmt.Printf("\n\n")
-
 	var i uint32
 	for i = 0; i < b.MaxIterations; i++ {
-		fmt.Printf("CPU Iteration %d:\n", i)
 		for i := uint32(0); i < b.NumNodes; i++ {
 			newValue := float32(0)
 			for j := uint32(b.hRowOffsets[i]); j < b.hRowOffsets[i+1]; j++ {
@@ -254,10 +230,6 @@ func (b *Benchmark) Verify() {
 			b.verPageRankTemp[i] = newValue
 		}
 		copy(b.verPageRank, b.verPageRankTemp)
-		for i := 0; i < len(b.verPageRank); i++ {
-			fmt.Printf("%d: %f\n", i, b.verPageRank[i])
-		}
-		fmt.Printf("\n")
 	}
 
 	for i := uint32(0); i < b.NumNodes; i++ {
