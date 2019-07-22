@@ -150,6 +150,13 @@ def main():
                   '-max-iter=5'
               ],
               '../../benchmarks/heteromark/kmeans')
+    pagerank = Test('../../samples/pagerank', 'pagerank',
+                    [
+                        '-nodes=16',
+                        '-connections=150',
+                        '-iterations=2',
+                    ],
+                    '../../benchmarks/heteromark/pagerank')
     mm = Test('../../samples/matrixmultiplication',
               'matrixmultiplication',
               ['-x=128', '-y=128', '-z=128'],
@@ -194,6 +201,7 @@ def main():
     err |= aes.test()
     err |= fir.test()
     err |= km.test()
+    err |= pagerank.test()
     err |= mm.test()
     err |= mt.test()
     err |= bs.test()
