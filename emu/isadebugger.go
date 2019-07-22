@@ -30,9 +30,9 @@ func (h *ISADebugger) Func(ctx *akita.HookCtx) {
 	}
 
 	// For debugging
-	// if wf.FirstWiFlatID != 0 {
-	// 	return
-	// }
+	if wf.FirstWiFlatID != 0 {
+		return
+	}
 
 	h.logWholeWf(wf)
 	// if h.prevWf == nil || h.prevWf.FirstWiFlatID != wf.FirstWiFlatID {

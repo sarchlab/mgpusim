@@ -32,7 +32,7 @@ type ComputeUnit struct {
 
 	InFlightInstFetch       []*InstFetchReqInfo
 	InFlightScalarMemAccess []*ScalarMemAccessInfo
-	InFlightVectorMemAccess []*VectorMemAccessInfo
+	InFlightVectorMemAccess []VectorMemAccessInfo
 
 	running bool
 
@@ -626,7 +626,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	cu.logInstStageTask(now, info.Inst, "mem", true)
-	cu.logInstTask(now, wf, info.Inst, false)
+	cu.logInstTask(now, wf, info.Inst, true)
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
@@ -664,19 +664,19 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	wf := info.Wavefront
 	inst := info.Inst
 
-	for i, laneID := range info.Lanes {
-		offset := info.LaneAddrOffsets[i]
+	for _, laneInfo := range info.laneInfo {
+		offset := laneInfo.addrOffsetInCacheLine
 		access := RegisterAccess{}
 		access.WaveOffset = wf.VRegOffset
-		access.Reg = info.DstVGPR
-		access.RegCount = info.RegisterCount
-		access.LaneID = laneID
+		access.Reg = laneInfo.reg
+		access.RegCount = laneInfo.regCount
+		access.LaneID = laneInfo.laneID
 		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else {
-			access.Data = rsp.Data[offset : offset+uint64(4*info.RegisterCount)]
+			access.Data = rsp.Data[offset : offset+uint64(4*laneInfo.regCount)]
 		}
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
@@ -688,7 +688,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		}
 
 		cu.logInstStageTask(now, info.Inst, "mem", true)
-		cu.logInstTask(now, wf, info.Inst, false)
+		cu.logInstTask(now, wf, info.Inst, true)
 	}
 }
 
@@ -709,7 +709,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 			wf.OutstandingScalarMemAccess--
 		}
 		cu.logInstStageTask(now, info.Inst, "mem", true)
-		cu.logInstTask(now, wf, info.Inst, false)
+		cu.logInstTask(now, wf, info.Inst, true)
 	}
 }
 

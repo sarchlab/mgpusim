@@ -27,6 +27,7 @@ type Benchmark struct {
 	kernel  *insts.HsaCo
 
 	NumNodes                  uint32
+	NumIterations             uint32
 	hOutputPathMatrix         []uint32
 	hOutputPathDistanceMatrix []uint32
 	dOutputPathMatrix         driver.GPUPtr
@@ -61,6 +62,10 @@ func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		b.queues = append(b.queues, b.driver.CreateCommandQueue(b.context))
+	}
+
+	if b.NumIterations == 0 || b.NumIterations > b.NumNodes {
+		b.NumIterations = b.NumNodes
 	}
 
 	b.initMem()
@@ -119,36 +124,29 @@ func printMatrix(matrix []uint32, n uint32) {
 
 func (b *Benchmark) exec() {
 	numNodes := uint32(b.NumNodes)
-	blockSize := uint32(16)
+	blockSize := uint32(8)
 
 	if numNodes%blockSize != 0 {
 		numNodes = (numNodes/blockSize + 1) * blockSize
 	}
 
-	for _, queue := range b.queues {
+	for k := uint32(0); k < b.NumIterations; k++ {
+		pass := k
 
-		for k := uint32(0); k < numNodes; k++ {
-			pass := k
-
-			kernArg := FloydWarshallKernelArgs{
-				b.dOutputPathDistanceMatrix,
-				b.dOutputPathMatrix,
-				uint32(numNodes),
-				uint32(pass),
-			}
-
-			b.driver.EnqueueLaunchKernel(
-				queue,
-				b.kernel,
-				[3]uint32{uint32(numNodes), uint32(numNodes), 1},
-				[3]uint16{uint16(blockSize), uint16(blockSize), 1},
-				&kernArg,
-			)
+		kernArg := FloydWarshallKernelArgs{
+			b.dOutputPathDistanceMatrix,
+			b.dOutputPathMatrix,
+			uint32(numNodes),
+			uint32(pass),
 		}
-	}
 
-	for _, q := range b.queues {
-		b.driver.DrainCommandQueue(q)
+		b.driver.LaunchKernel(
+			b.context,
+			b.kernel,
+			[3]uint32{uint32(numNodes), uint32(numNodes), 1},
+			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
+			&kernArg,
+		)
 	}
 
 	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
@@ -163,7 +161,7 @@ func (b *Benchmark) Verify() {
 	width := numNodes
 	var yXwidth uint32
 
-	for k := uint32(0); k < numNodes; k++ {
+	for k := uint32(0); k < b.NumIterations; k++ {
 		for y := uint32(0); y < numNodes; y++ {
 			yXwidth = uint32(y * numNodes)
 			for x := uint32(0); x < numNodes; x++ {
