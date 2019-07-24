@@ -152,8 +152,8 @@ def main():
               '../../benchmarks/heteromark/kmeans')
     pagerank = Test('../../samples/pagerank', 'pagerank',
                     [
-                        '-nodes=16',
-                        '-connections=150',
+                        '-node=64',
+                        '-sparsity=0.5',
                         '-iterations=2',
                     ],
                     '../../benchmarks/heteromark/pagerank')
