@@ -26,6 +26,21 @@ type memoryChunk struct {
 	occupied bool
 }
 
+type deviceMemoryState struct {
+	allocatedPages []vm.Page
+	initialAddress uint64
+	storageSize    uint64
+	nextPAddr      uint64
+	memoryChunks   []*memoryChunk
+}
+
+func (s *deviceMemoryState) updateNextPAddr(pageSize uint64) {
+	s.nextPAddr += pageSize
+	if s.nextPAddr > s.initialAddress+s.storageSize {
+		panic("memory is full")
+	}
+}
+
 // A memoryAllocatorImpl provides the default implementation for
 // memoryAllocator
 type memoryAllocatorImpl struct {
@@ -35,10 +50,7 @@ type memoryAllocatorImpl struct {
 
 	pageSizeAsPowerOf2 uint64
 
-	allocatedPages       [][]vm.Page
-	initialAddresses     []uint64
-	storageSizes         []uint64
-	memoryMasks          [][]*memoryChunk
+	deviceMemoryStates   []deviceMemoryState
 	totalStorageByteSize uint64
 }
 
@@ -52,20 +64,20 @@ func newMemoryAllocatorImpl(mmu mmu.MMU) *memoryAllocatorImpl {
 func (a *memoryAllocatorImpl) RegisterStorage(
 	byteSize uint64,
 ) {
-	a.memoryMasks = append(a.memoryMasks, make([]*memoryChunk, 0))
-	a.allocatedPages = append(a.allocatedPages, make([]vm.Page, 0))
-
-	a.initialAddresses = append(a.initialAddresses,
-		a.totalStorageByteSize)
-	a.storageSizes = append(a.storageSizes, byteSize)
+	state := deviceMemoryState{}
+	state.storageSize = byteSize
+	state.initialAddress = a.totalStorageByteSize
+	state.nextPAddr = a.totalStorageByteSize
+	a.deviceMemoryStates = append(a.deviceMemoryStates, state)
 
 	a.totalStorageByteSize += byteSize
 }
 
 func (a *memoryAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
-	for i := 0; i < len(a.initialAddresses); i++ {
-		if pAddr >= a.initialAddresses[i] &&
-			pAddr < a.initialAddresses[i]+a.storageSizes[i] {
+	for i := 0; i < len(a.deviceMemoryStates); i++ {
+		if pAddr >= a.deviceMemoryStates[i].initialAddress &&
+			pAddr < a.deviceMemoryStates[i].initialAddress+
+				a.deviceMemoryStates[i].storageSize {
 			return i
 		}
 	}
@@ -121,45 +133,33 @@ func (a *memoryAllocatorImpl) allocateLarge(
 	pageSize := uint64(1 << a.pageSizeAsPowerOf2)
 	numPages := (byteSize-1)/pageSize + 1
 
-	pageID := a.initialAddresses[gpuID]
-	for pageID < a.initialAddresses[gpuID]+a.storageSizes[gpuID] {
-		free := true
-		for i := uint64(0); i < numPages; i++ {
-			if a.isPageAllocated(gpuID, pageID+i*pageSize) {
-				free = false
-				break
-			}
-		}
-
-		if !free {
-			pageID += pageSize
-		} else {
-			break
-		}
-	}
-
-	ptr := ctx.prevPageVAddr + pageSize
+	initVAddr := ctx.prevPageVAddr + pageSize
 	for i := uint64(0); i < numPages; i++ {
-		ctx.prevPageVAddr += pageSize
+		pAddr := a.deviceMemoryStates[gpuID].nextPAddr
+		vAddr := ctx.prevPageVAddr + pageSize
+
 		page := vm.Page{
 			PID:      ctx.pid,
-			VAddr:    ctx.prevPageVAddr,
-			PAddr:    pageID + i*pageSize,
+			VAddr:    vAddr,
+			PAddr:    pAddr,
 			PageSize: pageSize,
 			Valid:    true,
 		}
-		a.allocatedPages[gpuID] = append(a.allocatedPages[gpuID], page)
+		ctx.prevPageVAddr = vAddr
+		a.deviceMemoryStates[gpuID].updateNextPAddr(pageSize)
+		a.deviceMemoryStates[gpuID].allocatedPages = append(
+			a.deviceMemoryStates[gpuID].allocatedPages, page)
 		a.mmu.CreatePage(&page)
 	}
 
-	return GPUPtr(ptr)
+	return GPUPtr(initVAddr)
 }
 
 func (a *memoryAllocatorImpl) tryAllocateWithExistingChunks(
 	deviceID int,
 	byteSize, alignment uint64,
 ) (ptr uint64, ok bool) {
-	chunks := a.memoryMasks[deviceID]
+	chunks := a.deviceMemoryStates[deviceID].memoryChunks
 	for i, chunk := range chunks {
 		if chunk.occupied {
 			continue
@@ -187,7 +187,7 @@ func (a *memoryAllocatorImpl) splitChunk(
 	ptr uint64,
 	byteSize uint64,
 ) {
-	chunks := a.memoryMasks[deviceID]
+	chunks := a.deviceMemoryStates[deviceID].memoryChunks
 	chunk := chunks[chunkIndex]
 	newChunks := chunks[:chunkIndex]
 
@@ -214,24 +214,17 @@ func (a *memoryAllocatorImpl) splitChunk(
 	}
 
 	newChunks = append(newChunks, chunks[chunkIndex+1:]...)
-	a.memoryMasks[deviceID] = newChunks
+	a.deviceMemoryStates[deviceID].memoryChunks = newChunks
 }
 
 func (a *memoryAllocatorImpl) allocatePage(ctx *Context) vm.Page {
 	deviceID := ctx.currentGPUID
 	pageSize := uint64(1 << a.pageSizeAsPowerOf2)
 
-	pAddr := a.initialAddresses[deviceID]
-	for pAddr < a.initialAddresses[deviceID]+a.storageSizes[deviceID] {
-		if a.isPageAllocated(deviceID, pAddr) {
-			pAddr += pageSize
-		} else {
-			break
-		}
-	}
-
+	pAddr := a.deviceMemoryStates[deviceID].nextPAddr
 	vAddr := ctx.prevPageVAddr + pageSize
 	ctx.prevPageVAddr = vAddr
+	a.deviceMemoryStates[deviceID].updateNextPAddr(pageSize)
 	page := vm.Page{
 		PID:      ctx.pid,
 		VAddr:    vAddr,
@@ -241,24 +234,17 @@ func (a *memoryAllocatorImpl) allocatePage(ctx *Context) vm.Page {
 	}
 
 	a.mmu.CreatePage(&page)
-	a.allocatedPages[deviceID] = append(a.allocatedPages[deviceID], page)
+	a.deviceMemoryStates[deviceID].allocatedPages = append(
+		a.deviceMemoryStates[deviceID].allocatedPages, page)
 
 	chunk := new(memoryChunk)
 	chunk.ptr = vAddr
 	chunk.byteSize = pageSize
 	chunk.occupied = false
-	a.memoryMasks[deviceID] = append(a.memoryMasks[deviceID], chunk)
+	a.deviceMemoryStates[deviceID].memoryChunks = append(
+		a.deviceMemoryStates[deviceID].memoryChunks, chunk)
 
 	return page
-}
-
-func (a *memoryAllocatorImpl) isPageAllocated(deviceID int, pAddr uint64) bool {
-	for _, p := range a.allocatedPages[deviceID] {
-		if p.PAddr == pAddr {
-			return true
-		}
-	}
-	return false
 }
 
 func (a *memoryAllocatorImpl) Remap(
@@ -278,30 +264,34 @@ func (a *memoryAllocatorImpl) Remap(
 
 func (a *memoryAllocatorImpl) migrateChunks(pageVAddr uint64, deviceID int) {
 	pageSize := uint64(1 << a.pageSizeAsPowerOf2)
-	for i, memoryMask := range a.memoryMasks {
+	for i := 0; i < len(a.deviceMemoryStates); i++ {
 		if i == deviceID {
 			continue
 		}
 
+		state := &a.deviceMemoryStates[i]
+
 		newMemoryMask := []*memoryChunk{}
-		for _, chunk := range memoryMask {
+		for _, chunk := range state.memoryChunks {
 			addr := chunk.ptr
 
 			if addr >= pageVAddr && addr < pageVAddr+pageSize {
-				a.memoryMasks[deviceID] =
-					append(a.memoryMasks[deviceID], chunk)
+				a.deviceMemoryStates[deviceID].memoryChunks =
+					append(a.deviceMemoryStates[deviceID].memoryChunks, chunk)
 				continue
 			}
 
 			newMemoryMask = append(newMemoryMask, chunk)
 		}
 
-		a.memoryMasks[i] = newMemoryMask
+		state.memoryChunks = newMemoryMask
 	}
 }
 
 func (a *memoryAllocatorImpl) removePage(pid ca.PID, addr uint64) {
-	for i, pages := range a.allocatedPages {
+	for i := 0; i < len(a.deviceMemoryStates); i++ {
+		state := &a.deviceMemoryStates[i]
+		pages := state.allocatedPages
 		newPages := []vm.Page{}
 		for _, page := range pages {
 			if page.PID != pid || page.VAddr != addr {
@@ -309,14 +299,16 @@ func (a *memoryAllocatorImpl) removePage(pid ca.PID, addr uint64) {
 				continue
 			}
 		}
-		a.allocatedPages[i] = newPages
+		state.allocatedPages = newPages
 	}
 	a.mmu.RemovePage(pid, addr)
 }
 
 func (a *memoryAllocatorImpl) removePageChunks(vAddr uint64) {
 	pageSize := uint64(1 << a.pageSizeAsPowerOf2)
-	for i, chunks := range a.memoryMasks {
+	for i := 0; i < len(a.deviceMemoryStates); i++ {
+		state := &a.deviceMemoryStates[i]
+		chunks := state.memoryChunks
 		newChunks := []*memoryChunk{}
 		for _, chunk := range chunks {
 			addr := chunk.ptr
@@ -328,7 +320,7 @@ func (a *memoryAllocatorImpl) removePageChunks(vAddr uint64) {
 				}
 			}
 		}
-		a.memoryMasks[i] = chunks
+		state.memoryChunks = chunks
 	}
 }
 
@@ -338,14 +330,8 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 	vAddr uint64,
 ) vm.Page {
 	pageSize := uint64(1 << a.pageSizeAsPowerOf2)
-	pAddr := a.initialAddresses[deviceID]
-	for pAddr < a.initialAddresses[deviceID]+a.storageSizes[deviceID] {
-		if a.isPageAllocated(deviceID, pAddr) {
-			pAddr += pageSize
-		} else {
-			break
-		}
-	}
+	pAddr := a.deviceMemoryStates[deviceID].nextPAddr
+	a.deviceMemoryStates[deviceID].updateNextPAddr(pageSize)
 
 	page := vm.Page{
 		PID:      ctx.pid,
@@ -355,8 +341,9 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 		Valid:    true,
 	}
 
+	a.deviceMemoryStates[deviceID].allocatedPages = append(
+		a.deviceMemoryStates[deviceID].allocatedPages, page)
 	a.mmu.CreatePage(&page)
-	a.allocatedPages[deviceID] = append(a.allocatedPages[deviceID], page)
 
 	return page
 }
