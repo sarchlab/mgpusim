@@ -127,8 +127,8 @@
             "program": "${workspaceFolder}/samples/pagerank",
             "args": [
                 "-verify",
-                "-nodes=2",
-                "-connections=4",
+                "-node=409600",
+                "-sparsity=0.00001",
                 "-iterations=1",
                 "-debug-isa"
             ]
