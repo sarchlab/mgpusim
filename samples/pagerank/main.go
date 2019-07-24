@@ -2,13 +2,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"gitlab.com/akita/gcn3/benchmarks/heteromark/pagerank"
 	"gitlab.com/akita/gcn3/samples/runner"
 )
 
-var numNodes = flag.Int("nodes", 16, "The number of nodes")
-var numConnections = flag.Int("connections", 8, "The number of connections")
+var numNode = flag.Int("node", 16, "The number of nodes")
+var sparsity = flag.Float64("sparsity", 0.001, "The sparsity of the graph")
 var maxIterations = flag.Int("iterations", 16, "The number of iterations")
 
 func main() {
@@ -17,8 +18,18 @@ func main() {
 	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := pagerank.NewBenchmark(runner.GPUDriver)
-	benchmark.NumNodes = uint32(*numNodes)
-	benchmark.NumConnections = uint32(*numConnections)
+	benchmark.NumNodes = uint32(*numNode)
+
+	if *sparsity > 1 {
+		*sparsity = 1
+	}
+	numConn := int(float64(*numNode**numNode) * *sparsity)
+	if numConn < *numNode {
+		numConn = *numNode
+	}
+	fmt.Printf("Number node %d, number connection %d\n", *numNode, numConn)
+
+	benchmark.NumConnections = uint32(numConn)
 	benchmark.MaxIterations = uint32(*maxIterations)
 
 	runner.AddBenchmark(benchmark)
