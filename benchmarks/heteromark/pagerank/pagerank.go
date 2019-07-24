@@ -8,8 +8,6 @@ import (
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
-
-	"math/rand"
 )
 
 type PageRankKernelArgs struct {
@@ -35,10 +33,8 @@ type Benchmark struct {
 	NumConnections uint32
 	MaxIterations  uint32
 
+	hMatrix         csrMatrix
 	hPageRank       []float32
-	hRowOffsets     []uint32
-	hColumnNumbers  []uint32
-	hValues         []float32
 	verPageRank     []float32
 	verPageRankTemp []float32
 
@@ -83,12 +79,12 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 
-	b.initializeMatrix()
-
 	initData := float32(1.0) / float32(b.NumNodes)
 	b.hPageRank = make([]float32, b.NumNodes)
 	b.verPageRank = make([]float32, b.NumNodes)
 	b.verPageRankTemp = make([]float32, b.NumNodes)
+	b.hMatrix = makeMatrixGenerator(b.NumNodes, b.NumConnections).
+		generateMatrix()
 
 	for i := uint32(0); i < b.NumNodes; i++ {
 		b.hPageRank[i] = initData
@@ -100,63 +96,12 @@ func (b *Benchmark) initMem() {
 	b.dPageRankTemp = b.driver.AllocateMemoryWithAlignment(
 		b.context, uint64(b.NumNodes*4), 4096)
 	b.dRowOffsets = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.NumNodes*4), 4096)
+		b.context, uint64((b.NumNodes+1)*4), 4096)
 	b.dColumnNumbers = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.NumNodes*4), 4096)
+		b.context, uint64(b.NumConnections*4), 4096)
 	b.dValues = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.NumNodes*4), 4096)
+		b.context, uint64(b.NumConnections*4), 4096)
 
-}
-
-func (b *Benchmark) initializeMatrix() {
-	rand.Seed(123)
-
-	m1 := make([][]float32, b.NumNodes)
-	for i := range m1 {
-		m1[i] = make([]float32, b.NumNodes)
-	}
-
-	for i := uint32(0); i < b.NumConnections; i++ {
-		row := rand.Uint32() % b.NumNodes
-		col := rand.Uint32() % b.NumNodes
-		if m1[row][col] != 0 {
-			i--
-			continue
-		}
-		v := rand.Float32()
-		m1[row][col] = v
-	}
-
-	for i := uint32(0); i < b.NumNodes; i++ {
-		sum := float32(0)
-		for j := uint32(0); j < b.NumNodes; j++ {
-			sum += m1[j][i]
-		}
-		for j := uint32(0); j < b.NumNodes; j++ {
-			if sum != 0 {
-				m1[j][i] /= sum
-			}
-		}
-	}
-
-	b.hRowOffsets = make([]uint32, 0)
-	b.hColumnNumbers = make([]uint32, 0)
-	b.hValues = make([]float32, 0)
-
-	var offsetCount uint32
-	offsetCount = 0
-	b.hRowOffsets = append(b.hRowOffsets, offsetCount)
-
-	for i := uint32(0); i < b.NumNodes; i++ {
-		for j := uint32(0); j < b.NumNodes; j++ {
-			if m1[i][j] != 0 {
-				offsetCount++
-				b.hColumnNumbers = append(b.hColumnNumbers, j)
-				b.hValues = append(b.hValues, m1[i][j])
-			}
-		}
-		b.hRowOffsets = append(b.hRowOffsets, offsetCount)
-	}
 }
 
 func printMatrix(matrix [][]float32, n uint32) {
@@ -170,9 +115,12 @@ func printMatrix(matrix [][]float32, n uint32) {
 
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dPageRank, b.hPageRank)
-	b.driver.MemCopyH2D(b.context, b.dRowOffsets, b.hRowOffsets)
-	b.driver.MemCopyH2D(b.context, b.dColumnNumbers, b.hColumnNumbers)
-	b.driver.MemCopyH2D(b.context, b.dValues, b.hValues)
+	b.driver.MemCopyH2D(b.context, b.dRowOffsets,
+		b.hMatrix.rowOffsets)
+	b.driver.MemCopyH2D(b.context, b.dColumnNumbers,
+		b.hMatrix.columnNumbers)
+	b.driver.MemCopyH2D(b.context, b.dValues,
+		b.hMatrix.values)
 
 	b.dLocalValues = driver.LocalPtr(256)
 
@@ -221,11 +169,13 @@ func (b *Benchmark) exec() {
 
 func (b *Benchmark) Verify() {
 	var i uint32
+	m := b.hMatrix
 	for i = 0; i < b.MaxIterations; i++ {
 		for i := uint32(0); i < b.NumNodes; i++ {
 			newValue := float32(0)
-			for j := uint32(b.hRowOffsets[i]); j < b.hRowOffsets[i+1]; j++ {
-				newValue += float32(b.hValues[j]) * b.verPageRank[b.hColumnNumbers[j]]
+			for j := uint32(m.rowOffsets[i]); j < m.rowOffsets[i+1]; j++ {
+				newValue += float32(m.values[j]) *
+					b.verPageRank[m.columnNumbers[j]]
 			}
 			b.verPageRankTemp[i] = newValue
 		}
