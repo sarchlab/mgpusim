@@ -1,7 +1,6 @@
 package bfs
 
 import (
-	"fmt"
 	"log"
 	"math"
 
@@ -35,8 +34,9 @@ type Benchmark struct {
 	MaxDepth      int
 	graph         graph
 	sourceNode    int
-	hFrontier     []int32
-	hCost         []int32
+	hFrontier     []uint32
+	hCost         []uint32
+	cpuCost       []uint32
 	dFrontier     driver.GPUPtr
 	dEdgeArray    driver.GPUPtr
 	dEdgeArrayAux driver.GPUPtr
@@ -83,14 +83,13 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	b.graph.generate(b.NumNode, b.Degree)
-	b.graph.Dump()
 
-	b.hFrontier = make([]int32, b.NumNode)
-	b.hCost = make([]int32, b.NumNode)
+	b.hFrontier = make([]uint32, b.NumNode)
+	b.hCost = make([]uint32, b.NumNode)
 
 	for i := 0; i < b.NumNode; i++ {
-		b.hFrontier[i] = math.MaxInt32
-		b.hCost[i] = math.MaxInt32
+		b.hFrontier[i] = math.MaxUint32
+		b.hCost[i] = math.MaxUint32
 	}
 
 	b.hFrontier[b.sourceNode] = 0
@@ -124,8 +123,8 @@ func (b *Benchmark) exec() {
 		Flag:         b.dFlag,
 	}
 
-	flag := int32(0)
 	for i := 0; i < b.MaxDepth; i++ {
+		flag := int32(0)
 		b.driver.MemCopyH2D(b.context, b.dFlag, flag)
 		args.Curr = int32(i)
 
@@ -135,7 +134,7 @@ func (b *Benchmark) exec() {
 			[3]uint16{localSize, 1, 1},
 			&args)
 
-		b.driver.MemCopyD2H(b.context, flag, b.dFlag)
+		b.driver.MemCopyD2H(b.context, &flag, b.dFlag)
 		if flag == 0 {
 			break
 		}
@@ -146,9 +145,37 @@ func (b *Benchmark) exec() {
 
 // Verify runs the benchmark on the CPU and compares if the result matches
 func (b *Benchmark) Verify() {
+	b.cpuBFS()
 
-	for _, i := range b.hCost {
-		fmt.Printf("%d, ", i)
+	for i := 0; i < b.NumNode; i++ {
+		if b.cpuCost[i] != b.hCost[i] {
+			log.Panicf(
+				"mismatch at node %d, expected cost %d, but get %d\n",
+				i, b.cpuCost[i], b.hCost[i])
+		}
 	}
 	log.Printf("Passed!\n")
+}
+
+func (b *Benchmark) cpuBFS() {
+	b.cpuCost = make([]uint32, b.NumNode)
+	for i := 0; i < b.NumNode; i++ {
+		b.cpuCost[i] = math.MaxUint32
+	}
+
+	queue := make([]int, 0)
+	queue = append(queue, b.sourceNode)
+	b.cpuCost[b.sourceNode] = 0
+
+	for len(queue) > 0 {
+		n := queue[0]
+		queue = queue[1:]
+		for i := b.graph.edgeOffsets[n]; i < b.graph.edgeOffsets[n+1]; i++ {
+			next := b.graph.edgeList[i]
+			if b.cpuCost[next] == math.MaxUint32 {
+				b.cpuCost[next] = b.cpuCost[n] + 1
+				queue = append(queue, int(next))
+			}
+		}
+	}
 }
