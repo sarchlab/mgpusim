@@ -6,27 +6,27 @@ import (
 )
 
 type graph struct {
-	edgeOffsets []int
-	edgeList    []int
+	edgeOffsets []int32
+	edgeList    []int32
 }
 
 func (g *graph) generate(numNode, degree int) {
-	g.edgeOffsets = make([]int, numNode+1)
-	g.edgeList = make([]int, numNode*(degree+1))
+	g.edgeOffsets = make([]int32, numNode+1)
+	g.edgeList = make([]int32, numNode*(degree+1))
 
-	offset := 0
+	offset := int32(0)
 
 	for i := 0; i < numNode; i++ {
 		g.edgeOffsets[i] = offset
 		for j := 0; j < degree; j++ {
-			temp := i*degree + (j + 1)
-			if temp < numNode {
+			temp := int32(i*degree + (j + 1))
+			if temp < int32(numNode) {
 				g.edgeList[offset] = temp
 				offset++
 			}
 		}
 		if i != 0 {
-			g.edgeList[offset] = int(math.Floor(float64(i-1) / float64(degree)))
+			g.edgeList[offset] = int32(math.Floor(float64(i-1) / float64(degree)))
 			offset++
 		}
 	}
