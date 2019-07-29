@@ -139,7 +139,11 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${workspaceFolder}/samples/bfs"
+            "program": "${workspaceFolder}/samples/bfs",
+            "args": [
+                "-verify",
+                "-debug-isa"
+            ]
         },
     ]
 }
