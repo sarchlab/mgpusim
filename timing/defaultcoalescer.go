@@ -14,7 +14,6 @@ func (c defaultCoalescer) generateMemTransactions(
 	wf *wavefront.Wavefront,
 ) []VectorMemAccessInfo {
 	c.mustBeAFlatLoadOrStore(wf)
-	c.executionMaskMustNotBeAllZero(wf)
 	var transactions []VectorMemAccessInfo
 	if c.isLoadInst(wf.Inst()) {
 		reqs := c.generateReadReqs(wf)
@@ -38,15 +37,15 @@ func (c defaultCoalescer) mustBeAFlatLoadOrStore(
 	}
 }
 
-func (c defaultCoalescer) executionMaskMustNotBeAllZero(
-	wf *wavefront.Wavefront,
-) {
-	sp := wf.Scratchpad().AsFlat()
-	exec := sp.EXEC
-	if exec == 0 {
-		panic("execution mask is all 0")
-	}
-}
+// func (c defaultCoalescer) executionMaskMustNotBeAllZero(
+// 	wf *wavefront.Wavefront,
+// ) {
+// 	sp := wf.Scratchpad().AsFlat()
+// 	exec := sp.EXEC
+// 	if exec == 0 {
+// 		panic("execution mask is all 0")
+// 	}
+// }
 
 func (c defaultCoalescer) generateReadReqs(
 	wf *wavefront.Wavefront,
