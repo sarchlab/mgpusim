@@ -185,6 +185,10 @@ def main():
               'maxpooling',
               [],
               '../../benchmarks/dnn/maxpooling')
+    bfs = Test('../../samples/bfs',
+               'bfs',
+               ['-node=1024'],
+               '../../benchmarks/shoc/bfs')
     st = Test('../../samples/stencil2d',
               'stencil2d',
               [],
@@ -209,6 +213,7 @@ def main():
     err |= fw.test(test_multi_gpu=False)
     err |= re.test()
     err |= mp.test()
+    err |= bfs.test(test_multi_gpu=False)
     err |= st.test(test_multi_gpu=False)
 
     err |= cw.test(test_disassemble=False, test_multi_gpu=False)

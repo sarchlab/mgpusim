@@ -198,7 +198,7 @@ func (u *ALUImpl) runVCmpEqU32(state InstEmuState) {
 			continue
 		}
 
-		if sp.SRC0[i] == sp.SRC1[i] {
+		if uint32(sp.SRC0[i]) == uint32(sp.SRC1[i]) {
 			sp.VCC = sp.VCC | (1 << i)
 		}
 	}

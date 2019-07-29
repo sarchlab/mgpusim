@@ -129,8 +129,7 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
-	u.toExec.OutstandingVectorMemAccess++
-	u.toExec.OutstandingScalarMemAccess++
+
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 16, 17, 18, 19, 20, 21, 22, 23: // FLAT_LOAD_BYTE
@@ -146,6 +145,16 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	now akita.VTimeInSec,
 ) {
 	transactions := u.coalescer.generateMemTransactions(u.toExec)
+
+	if len(transactions) == 0 {
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
+		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
+		return
+	}
+
+	u.toExec.OutstandingVectorMemAccess++
+	u.toExec.OutstandingScalarMemAccess++
+
 	for i, t := range transactions {
 		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
 		if i == len(transactions)-1 {
@@ -164,6 +173,16 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	now akita.VTimeInSec,
 ) {
 	transactions := u.coalescer.generateMemTransactions(u.toExec)
+
+	if len(transactions) == 0 {
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
+		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
+		return
+	}
+
+	u.toExec.OutstandingVectorMemAccess++
+	u.toExec.OutstandingScalarMemAccess++
+
 	for i, t := range transactions {
 		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
 		if i == len(transactions)-1 {
