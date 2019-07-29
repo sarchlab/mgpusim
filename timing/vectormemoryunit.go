@@ -146,6 +146,12 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 ) {
 	transactions := u.coalescer.generateMemTransactions(u.toExec)
 
+	if len(transactions) == 0 {
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
+		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
+		return
+	}
+
 	u.toExec.OutstandingVectorMemAccess++
 	u.toExec.OutstandingScalarMemAccess++
 
@@ -167,6 +173,12 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	now akita.VTimeInSec,
 ) {
 	transactions := u.coalescer.generateMemTransactions(u.toExec)
+
+	if len(transactions) == 0 {
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
+		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
+		return
+	}
 
 	u.toExec.OutstandingVectorMemAccess++
 	u.toExec.OutstandingScalarMemAccess++
