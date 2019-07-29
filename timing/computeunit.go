@@ -660,6 +660,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		log.Panic("CU cannot receive out of order memory return")
 	}
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
+	tracing.TraceReqFinalize(info.Read, now, cu)
 
 	wf := info.Wavefront
 	inst := info.Inst
@@ -701,6 +702,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		log.Panic("CU cannot receive out of order memory return")
 	}
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
+	tracing.TraceReqFinalize(info.Write, now, cu)
 
 	wf := info.Wavefront
 	if info.Write.IsLastInWave {
