@@ -27,7 +27,8 @@ unit_test:
     - go install github.com/onsi/ginkgo/ginkgo
     - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
     - go test -coverprofile=cover.out ./...
-    - go tool cover -func=cover.out
+    - go tool cover -func=cover.out > coverage.out
+    - tail coverage.out
 
 cache_aceptance_test:
   stage: acceptance_test
