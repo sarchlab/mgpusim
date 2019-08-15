@@ -5,10 +5,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-<<<<<<< HEAD
-	"gitlab.com/akita/akita/mock_akita"
-=======
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
@@ -21,46 +17,29 @@ var _ = Describe("Vector Memory Unit", func() {
 		mockCtrl    *gomock.Controller
 		cu          *ComputeUnit
 		sp          *mockScratchpadPreparer
-<<<<<<< HEAD
-		coalescer   *MockCoalescer
-		bu          *VectorMemoryUnit
-		vectorMem   *mock_akita.MockPort
-		toVectorMem *mock_akita.MockPort
-=======
 		coalescer   *Mockcoalescer
 		bu          *VectorMemoryUnit
 		vectorMem   *MockPort
 		toVectorMem *MockPort
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
-<<<<<<< HEAD
-		coalescer = new(MockCoalescer)
-		bu = NewVectorMemoryUnit(cu, sp, coalescer)
-		vectorMem = mock_akita.NewMockPort(mockCtrl)
-		toVectorMem = mock_akita.NewMockPort(mockCtrl)
-=======
 		coalescer = NewMockcoalescer(mockCtrl)
 		bu = NewVectorMemoryUnit(cu, sp, coalescer)
 		//vectorMem = NewMockPort(mockCtrl)
 		toVectorMem = NewMockPort(mockCtrl)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 		cu.ToVectorMem = toVectorMem
 
 		cu.VectorMemModules = new(cache.SingleLowModuleFinder)
 	})
 
-<<<<<<< HEAD
-=======
 	AfterEach(func() {
 		mockCtrl.Finish()
 	})
 
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	It("should allow accepting wavefront", func() {
 		bu.toRead = nil
 		Expect(bu.CanAcceptWave()).To(BeTrue())
@@ -109,23 +88,11 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.SetDynamicInst(inst)
 
-<<<<<<< HEAD
-		coalescer.ToReturn = make([]CoalescedAccess, 4)
-		for i := 0; i < 4; i++ {
-			coalescer.ToReturn[i].Addr = uint64(0x40 * i)
-			coalescer.ToReturn[i].Size = 64
-			for j := 0; j < 16; j++ {
-				coalescer.ToReturn[i].LaneIDs =
-					append(coalescer.ToReturn[i].LaneIDs, i*16+j)
-			}
-		}
-=======
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
 			transactions[i].Read = mem.NewReadReq(0, nil, nil, 0x100, 4)
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 		bu.toExec = wave
 
@@ -146,17 +113,6 @@ var _ = Describe("Vector Memory Unit", func() {
 		inst.Opcode = 28
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.SetDynamicInst(inst)
-<<<<<<< HEAD
-
-		sp := wave.Scratchpad().AsFlat()
-		for i := 0; i < 64; i++ {
-			sp.ADDR[i] = uint64(4096 + i*4)
-			sp.DATA[i*4] = uint32(i)
-		}
-		sp.EXEC = 0xffffffffffffffff
-
-		bu.toExec = wave
-=======
 		bu.toExec = wave
 
 		transactions := make([]VectorMemAccessInfo, 4)
@@ -164,22 +120,15 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactions[i].Write = mem.NewWriteReq(0, nil, nil, 0x100)
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 		bu.Run(10)
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
-<<<<<<< HEAD
-		Expect(cu.InFlightVectorMemAccess).To(HaveLen(64))
-		Expect(cu.InFlightVectorMemAccess[63].Write.IsLastInWave).To(BeTrue())
-		Expect(bu.SendBuf).To(HaveLen(64))
-=======
 		Expect(cu.InFlightVectorMemAccess).To(HaveLen(4))
 		Expect(cu.InFlightVectorMemAccess[3].Write.IsLastInWave).To(BeTrue())
 		Expect(bu.SendBuf).To(HaveLen(4))
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	})
 
 	It("should send memory access requests", func() {
@@ -203,10 +152,7 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		Expect(len(bu.SendBuf)).To(Equal(1))
 	})
-<<<<<<< HEAD
-=======
 
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	It("should flush the vector memory unit", func() {
 		wave := wavefront.NewWavefront(nil)
 		inst := wavefront.NewInst(insts.NewInst())
@@ -235,11 +181,5 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(bu.toWrite).To(BeNil())
 		Expect(bu.toRead).To(BeNil())
 		Expect(bu.toExec).To(BeNil())
-<<<<<<< HEAD
-
 	})
-
-=======
-	})
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 })

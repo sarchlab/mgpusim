@@ -32,11 +32,7 @@ type ComputeUnit struct {
 
 	InFlightInstFetch       []*InstFetchReqInfo
 	InFlightScalarMemAccess []*ScalarMemAccessInfo
-<<<<<<< HEAD
-	InFlightVectorMemAccess []*VectorMemAccessInfo
-=======
 	InFlightVectorMemAccess []VectorMemAccessInfo
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 	running bool
 
@@ -369,20 +365,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 		evt.IsLastInWG = true
 		cu.Engine.Schedule(evt)
 
-<<<<<<< HEAD
 		tracing.TraceReqReceive(req, now, cu)
-=======
-		task := trace.Task{
-			ID: req.GetID(),
-		}
-		ctx := akita.HookCtx{
-			Domain: cu,
-			Now:    now,
-			Pos:    trace.HookPosTaskStart,
-			Item:   task,
-		}
-		cu.InvokeHook(&ctx)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 		return nil
 	}
@@ -411,7 +394,6 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 
 		wf.State = wavefront.WfReady
 
-<<<<<<< HEAD
 		tracing.StartTask(wf.UID,
 			tracing.ReqIDAtReceiver(evt.MapWGReq, cu),
 			now,
@@ -420,23 +402,6 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 			"wavefront",
 			nil,
 		)
-=======
-		task := trace.Task{
-			ID:           wf.UID,
-			ParentID:     evt.MapWGReq.GetID(),
-			Type:         "Wavefront",
-			What:         "Wavefront",
-			Where:        cu.Name(),
-			InitiateTime: float64(now),
-		}
-		ctx := akita.HookCtx{
-			Domain: cu,
-			Now:    now,
-			Pos:    trace.HookPosTaskInitiate,
-			Item:   task,
-		}
-		cu.InvokeHook(&ctx)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	}
 
 	// Respond ACK
@@ -463,40 +428,13 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	wg := wf.WG
 	wf.State = wavefront.WfCompleted
 
-<<<<<<< HEAD
 	tracing.EndTask(wf.UID, now, cu)
-=======
-	task := trace.Task{
-		ID: wf.UID,
-	}
-	ctx := akita.HookCtx{
-		Domain: cu,
-		Now:    now,
-		Pos:    trace.HookPosTaskClear,
-		Item:   task,
-	}
-	cu.InvokeHook(&ctx)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 	if cu.isAllWfInWGCompleted(wg) {
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
 			cu.clearWGResource(wg)
-<<<<<<< HEAD
 			tracing.TraceReqComplete(wg.MapReq, now, cu)
-=======
-
-			task := trace.Task{
-				ID: wg.MapReq.GetID(),
-			}
-			ctx := akita.HookCtx{
-				Domain: cu,
-				Now:    now,
-				Pos:    trace.HookPosTaskComplete,
-				Item:   task,
-			}
-			cu.InvokeHook(&ctx)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 		}
 
 		if !cu.hasMoreWfsToRun() {
@@ -653,11 +591,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	cu.logInstStageTask(now, info.Inst, "mem", true)
-<<<<<<< HEAD
 	cu.logInstTask(now, wf, info.Inst, false)
-=======
-	cu.logInstTask(now, wf, info.Inst, true)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
@@ -691,23 +625,11 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		log.Panic("CU cannot receive out of order memory return")
 	}
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
-<<<<<<< HEAD
-=======
 	tracing.TraceReqFinalize(info.Read, now, cu)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 	wf := info.Wavefront
 	inst := info.Inst
 
-<<<<<<< HEAD
-	for i, laneID := range info.Lanes {
-		offset := info.LaneAddrOffsets[i]
-		access := RegisterAccess{}
-		access.WaveOffset = wf.VRegOffset
-		access.Reg = info.DstVGPR
-		access.RegCount = info.RegisterCount
-		access.LaneID = laneID
-=======
 	for _, laneInfo := range info.laneInfo {
 		offset := laneInfo.addrOffsetInCacheLine
 		access := RegisterAccess{}
@@ -715,17 +637,12 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		access.Reg = laneInfo.reg
 		access.RegCount = laneInfo.regCount
 		access.LaneID = laneInfo.laneID
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else {
-<<<<<<< HEAD
-			access.Data = rsp.Data[offset : offset+uint64(4*info.RegisterCount)]
-=======
 			access.Data = rsp.Data[offset : offset+uint64(4*laneInfo.regCount)]
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 		}
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
@@ -737,11 +654,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		}
 
 		cu.logInstStageTask(now, info.Inst, "mem", true)
-<<<<<<< HEAD
 		cu.logInstTask(now, wf, info.Inst, false)
-=======
-		cu.logInstTask(now, wf, info.Inst, true)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	}
 }
 
@@ -754,10 +667,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		log.Panic("CU cannot receive out of order memory return")
 	}
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
-<<<<<<< HEAD
-=======
 	tracing.TraceReqFinalize(info.Write, now, cu)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 	wf := info.Wavefront
 	if info.Write.IsLastInWave {
@@ -766,11 +676,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 			wf.OutstandingScalarMemAccess--
 		}
 		cu.logInstStageTask(now, info.Inst, "mem", true)
-<<<<<<< HEAD
-		cu.logInstTask(now, wf, info.Inst, false)
-=======
 		cu.logInstTask(now, wf, info.Inst, true)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	}
 }
 

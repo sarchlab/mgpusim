@@ -114,13 +114,9 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	vectorMemDecoder := NewDecodeUnit(cu)
 	cu.VectorMemDecoder = vectorMemDecoder
 
-<<<<<<< HEAD
-	coalescer := NewCoalescer()
-=======
 	coalescer := &defaultCoalescer{
 		log2CacheLineSize: 6,
 	}
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.ScratchpadPreparer, coalescer)
 	cu.VectorMemUnit = vectorMemoryUnit
 

@@ -18,13 +18,10 @@ func (u *ALUImpl) runVOPC(state InstEmuState) {
 		u.runVCmpLeI32(state)
 	case 0xC4: // v_cmp_gt_i32
 		u.runVCmpGtI32(state)
-<<<<<<< HEAD
-=======
 	case 0xC5: // v_cmp_lg_i32
 		u.runVCmpLgI32(state)
 	case 0xC6: // v_cmp_ge_i32
 		u.runVCmpGeI32(state)
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	case 0xC9: // v_cmp_lt_u32
 		u.runVCmpLtU32(state)
 	case 0xCA: // v_cmp_eq_u32
@@ -143,8 +140,6 @@ func (u *ALUImpl) runVCmpGtI32(state InstEmuState) {
 	}
 }
 
-<<<<<<< HEAD
-=======
 func (u *ALUImpl) runVCmpLgI32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
@@ -179,7 +174,6 @@ func (u *ALUImpl) runVCmpGeI32(state InstEmuState) {
 	}
 }
 
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 func (u *ALUImpl) runVCmpLtU32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
@@ -204,11 +198,7 @@ func (u *ALUImpl) runVCmpEqU32(state InstEmuState) {
 			continue
 		}
 
-<<<<<<< HEAD
-		if sp.SRC0[i] == sp.SRC1[i] {
-=======
 		if uint32(sp.SRC0[i]) == uint32(sp.SRC1[i]) {
->>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 			sp.VCC = sp.VCC | (1 << i)
 		}
 	}
