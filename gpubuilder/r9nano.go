@@ -21,6 +21,7 @@ import (
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/vis/trace"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -37,6 +38,7 @@ type R9NanoGPUBuilder struct {
 	EnableISADebug    bool
 	EnableInstTracing bool
 	EnableMemTracing  bool
+	EnableVisTracing  bool
 
 	gpuName string
 
@@ -72,9 +74,9 @@ type R9NanoGPUBuilder struct {
 	l2ToDramConnections               []*akita.DirectConnection
 	l1ITol1AddrTranslatorConnections  []*akita.DirectConnection
 
-	MemTracer        tracing.Tracer
-	visTracer        tracing.Tracer
-	enableVisTracing bool
+	traceHook *trace.Hook
+
+	MemTracer tracing.Tracer
 }
 
 // MakeR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.

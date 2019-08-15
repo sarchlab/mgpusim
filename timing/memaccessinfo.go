@@ -6,6 +6,7 @@ import (
 	"gitlab.com/akita/mem"
 )
 
+<<<<<<< HEAD
 type VectorMemAccessInfo struct {
 	Read            *mem.ReadReq
 	Write           *mem.WriteReq
@@ -15,6 +16,21 @@ type VectorMemAccessInfo struct {
 	Lanes           []int
 	LaneAddrOffsets []uint64
 	Inst            *wavefront.Inst
+=======
+type vectorMemAccessLaneInfo struct {
+	laneID                int
+	reg                   *insts.Reg
+	regCount              int
+	addrOffsetInCacheLine uint64
+}
+
+type VectorMemAccessInfo struct {
+	Read      *mem.ReadReq
+	Write     *mem.WriteReq
+	Wavefront *wavefront.Wavefront
+	Inst      *wavefront.Inst
+	laneInfo  []vectorMemAccessLaneInfo
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 }
 
 type InstFetchReqInfo struct {

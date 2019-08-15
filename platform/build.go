@@ -55,7 +55,7 @@ func BuildNEmuGPUPlatform(n int) (
 	for i := 0; i < n; i++ {
 		gpu := gpuBuilder.
 			WithMemOffset(uint64(i+1) * 4 * mem.GB).
-			Build(fmt.Sprintf("GPU%d", i))
+			Build(fmt.Sprintf("GPU_%d", i+1))
 
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
 		connection.PlugIn(gpu.ToDriver)

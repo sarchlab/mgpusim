@@ -219,7 +219,7 @@ func (u *ALUImpl) runVCmpEqU32VOP3a(state InstEmuState) {
 		src0 := sp.SRC0[i]
 		src1 := sp.SRC1[i]
 
-		if src0 == src1 {
+		if uint32(src0) == uint32(src1) {
 			sp.DST[0] |= (1 << i)
 		}
 	}

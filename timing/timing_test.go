@@ -10,6 +10,11 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
+<<<<<<< HEAD
+=======
+//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_akita_test.go gitlab.com/akita/akita Port
+
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 func TestSimulator(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)

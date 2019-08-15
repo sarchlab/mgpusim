@@ -50,15 +50,6 @@ func buildNR9NanoPlatformWithPerfectMemorySystem(
 		WithNumShaderArray(16).
 		WithNumMemoryBank(8)
 
-	// if TraceVis {
-	// 	tracer := trace.NewMongoDBTracer()
-	// 	tracer.Init()
-	// 	hook := trace.NewHook(tracer)
-	// 	gpuBuilder.SetTraceHook(hook)
-
-	// 	gpuDriver.AcceptHook(hook)
-	// }
-
 	if TraceMem {
 		gpuBuilder.EnableMemTracing = true
 	}

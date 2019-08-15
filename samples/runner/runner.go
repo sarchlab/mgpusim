@@ -210,6 +210,5 @@ func (r *Runner) Run() {
 			tracer.tracer.AverageTime(),
 		)
 	}
-
 	atexit.Exit(0)
 }

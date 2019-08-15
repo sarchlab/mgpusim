@@ -124,6 +124,16 @@ class Test(object):
 
 def main():
 
+    atax = Test('../../samples/atax',
+                'atax',
+                ['-x=256', '-y=256'],
+                '../../benchmarks/polybench/atax'
+                )
+    bicg = Test('../../samples/bicg',
+                'bicg',
+                ['-x=256', '-y=256'],
+                '../../benchmarks/polybench/bicg'
+                )
     fir = Test('../../samples/fir',
                'fir',
                ['-length=8192'],
@@ -140,6 +150,13 @@ def main():
                   '-max-iter=5'
               ],
               '../../benchmarks/heteromark/kmeans')
+    pagerank = Test('../../samples/pagerank', 'pagerank',
+                    [
+                        '-node=64',
+                        '-sparsity=0.5',
+                        '-iterations=2',
+                    ],
+                    '../../benchmarks/heteromark/pagerank')
     mm = Test('../../samples/matrixmultiplication',
               'matrixmultiplication',
               ['-x=128', '-y=128', '-z=128'],
@@ -168,6 +185,10 @@ def main():
               'maxpooling',
               [],
               '../../benchmarks/dnn/maxpooling')
+    bfs = Test('../../samples/bfs',
+               'bfs',
+               ['-node=1024'],
+               '../../benchmarks/shoc/bfs')
     st = Test('../../samples/stencil2d',
               'stencil2d',
               [],
@@ -179,9 +200,12 @@ def main():
 
     err = False
     err |= compile('../../insts/gcn3disassembler')
+    err |= atax.test(test_multi_gpu=False)
+    err |= bicg.test(test_multi_gpu=False)
     err |= aes.test()
     err |= fir.test()
     err |= km.test()
+    err |= pagerank.test()
     err |= mm.test()
     err |= mt.test()
     err |= bs.test()
@@ -189,6 +213,7 @@ def main():
     err |= fw.test(test_multi_gpu=False)
     err |= re.test()
     err |= mp.test()
+    err |= bfs.test(test_multi_gpu=False)
     err |= st.test(test_multi_gpu=False)
 
     err |= cw.test(test_disassemble=False, test_multi_gpu=False)

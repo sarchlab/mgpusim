@@ -1,5 +1,6 @@
 package timing
 
+<<<<<<< HEAD
 import (
 	"gitlab.com/akita/mem/cache"
 )
@@ -205,4 +206,12 @@ type MockCoalescer struct {
 
 func (c *MockCoalescer) Coalesce(addresses []uint64, execMask uint64, bytesPerWI int) []CoalescedAccess {
 	return c.ToReturn
+=======
+import "gitlab.com/akita/gcn3/timing/wavefront"
+
+// Coalescer can generate memory access instructions from instruction, register
+// values.
+type coalescer interface {
+	generateMemTransactions(wf *wavefront.Wavefront) []VectorMemAccessInfo
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 }

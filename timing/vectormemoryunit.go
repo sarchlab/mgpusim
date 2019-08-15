@@ -7,6 +7,10 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
+<<<<<<< HEAD
+=======
+	"gitlab.com/akita/util/tracing"
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 )
 
 // A VectorMemoryUnit performs Scalar operations
@@ -14,7 +18,11 @@ type VectorMemoryUnit struct {
 	cu *ComputeUnit
 
 	scratchpadPreparer ScratchpadPreparer
+<<<<<<< HEAD
 	coalescer          Coalescer
+=======
+	coalescer          coalescer
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 
 	SendBuf     []mem.AccessReq
 	SendBufSize int
@@ -34,7 +42,11 @@ type VectorMemoryUnit struct {
 func NewVectorMemoryUnit(
 	cu *ComputeUnit,
 	scratchpadPreparer ScratchpadPreparer,
+<<<<<<< HEAD
 	coalescer Coalescer,
+=======
+	coalescer coalescer,
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 ) *VectorMemoryUnit {
 	u := new(VectorMemoryUnit)
 	u.cu = cu
@@ -128,6 +140,7 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
+<<<<<<< HEAD
 	u.toExec.OutstandingVectorMemAccess++
 	u.toExec.OutstandingScalarMemAccess++
 	inst := u.toExec.Inst()
@@ -144,11 +157,21 @@ func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
 		u.executeFlatStore(4, now)
 	case 31: // FLAT_STORE_DWORDx4
 		u.executeFlatStore(16, now)
+=======
+
+	inst := u.toExec.Inst()
+	switch inst.Opcode {
+	case 16, 17, 18, 19, 20, 21, 22, 23: // FLAT_LOAD_BYTE
+		u.executeFlatLoad(now)
+	case 24, 25, 26, 27, 28, 29, 30, 31:
+		u.executeFlatStore(now)
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	default:
 		log.Panicf("Opcode %d for format FLAT is not supported.", inst.Opcode)
 	}
 }
 
+<<<<<<< HEAD
 func (u *VectorMemoryUnit) executeFlatLoad(byteSizePerLane int, now akita.VTimeInSec) {
 	sp := u.toExec.Scratchpad().AsFlat()
 	//preCoalescedAddress := make([]uint64, 0, 64)
@@ -236,6 +259,61 @@ func (u *VectorMemoryUnit) bufferDataStoreRequest(
 		u.SendBuf = append(u.SendBuf, req)
 		u.cu.InFlightVectorMemAccess = append(
 			u.cu.InFlightVectorMemAccess, info)
+=======
+func (u *VectorMemoryUnit) executeFlatLoad(
+	now akita.VTimeInSec,
+) {
+	transactions := u.coalescer.generateMemTransactions(u.toExec)
+
+	if len(transactions) == 0 {
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
+		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
+		return
+	}
+
+	u.toExec.OutstandingVectorMemAccess++
+	u.toExec.OutstandingScalarMemAccess++
+
+	for i, t := range transactions {
+		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
+		if i == len(transactions)-1 {
+			t.Read.IsLastInWave = true
+		}
+		lowModule := u.cu.VectorMemModules.Find(t.Read.Address)
+		t.Read.SetDst(lowModule)
+		t.Read.SetSrc(u.cu.ToVectorMem)
+		t.Read.PID = u.toExec.PID()
+		u.SendBuf = append(u.SendBuf, t.Read)
+		tracing.TraceReqInitiate(t.Read, now, u.cu, u.toExec.DynamicInst().ID)
+	}
+}
+
+func (u *VectorMemoryUnit) executeFlatStore(
+	now akita.VTimeInSec,
+) {
+	transactions := u.coalescer.generateMemTransactions(u.toExec)
+
+	if len(transactions) == 0 {
+		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
+		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
+		return
+	}
+
+	u.toExec.OutstandingVectorMemAccess++
+	u.toExec.OutstandingScalarMemAccess++
+
+	for i, t := range transactions {
+		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
+		if i == len(transactions)-1 {
+			t.Write.IsLastInWave = true
+		}
+		lowModule := u.cu.VectorMemModules.Find(t.Write.Address)
+		t.Write.SetDst(lowModule)
+		t.Write.SetSrc(u.cu.ToVectorMem)
+		t.Write.PID = u.toExec.PID()
+		u.SendBuf = append(u.SendBuf, t.Write)
+		tracing.TraceReqInitiate(t.Write, now, u.cu, u.toExec.DynamicInst().ID)
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 	}
 }
 
@@ -260,4 +338,8 @@ func (u *VectorMemoryUnit) Flush() {
 	u.toRead = nil
 	u.toExec = nil
 	u.toWrite = nil
+<<<<<<< HEAD
+=======
+	u.SendBuf = nil
+>>>>>>> 12541da0d25788542564ac324fb8ad31b05e7d5c
 }

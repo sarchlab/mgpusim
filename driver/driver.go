@@ -148,7 +148,7 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 	case *gcn3.FlushCommand:
 		d.processFlushReturn(now, req)
 	default:
-		log.Panicf("Cannot handle request of type %s", reflect.TypeOf(req))
+		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
 }
 
@@ -411,44 +411,6 @@ func (d *Driver) processLaunchKernelReturn(
 	d.logTaskToGPUClear(now, req)
 	d.logCmdComplete(cmd, now)
 }
-
-/*
-func (d *Driver) processInst(
-	now akita.VTimeInSec,
-	cmd *LaunchKernelCommand,
-	queue *CommandQueue,
-) {
-	req := gcn3.NewLaunchKernelReq(now,
-		d.ToGPUs, d.GPUs[queue.GPUID-1].ToDriver)
-	req.PID = queue.Context.pid
-	req.HsaCo = cmd.CodeObject
-
-	req.Packet = cmd.Packet
-	req.PacketAddress = uint64(cmd.DPacket)
-
-	queue.IsRunning = true
-	cmd.Reqs = append(cmd.Reqs, req)
-
-	d.requestsToSend = append(d.requestsToSend, req)
-	d.NeedTick = true
-
-	d.logCmdStart(cmd, now)
-	d.logTaskToGPUInitiate(now, cmd, req)
-}
-
-func (d *Driver) processLaunchKernelReturn(
-	now akita.VTimeInSec,
-	req *gcn3.LaunchKernelReq,
-) {
-	cmd, cmdQueue := d.findCommandByReq(req)
-	cmdQueue.IsRunning = false
-	cmdQueue.Dequeue()
-	d.NeedTick = true
-
-	d.logTaskToGPUClear(now, req)
-	d.logCmdComplete(cmd, now)
-}
-*/
 
 func (d *Driver) processFlushCommand(
 	now akita.VTimeInSec,
