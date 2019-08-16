@@ -119,19 +119,13 @@ func (c *coalescer) createTransaction(req mem.AccessReq, now akita.VTimeInSec) *
 	switch req := req.(type) {
 	case *mem.ReadReq:
 		t := &transaction{
-			id:   xid.New().String(),
 			read: req,
 		}
-		tracing.StartTask(t.id, tracing.ReqIDAtReceiver(req, c.cache),
-			now, c.cache, "l1_transaction", "read", nil)
 		return t
 	case *mem.WriteReq:
 		t := &transaction{
-			id:    xid.New().String(),
 			write: req,
 		}
-		tracing.StartTask(t.id, tracing.ReqIDAtReceiver(req, c.cache),
-			now, c.cache, "l1_transaction", "write", nil)
 		return t
 	default:
 		log.Panicf("cannot process request of type %s\n", reflect.TypeOf(req))
@@ -162,13 +156,22 @@ func (c *coalescer) coalesceAndSend(now akita.VTimeInSec) bool {
 	var trans *transaction
 	if c.toCoalesce[0].read != nil {
 		trans = c.coalesceRead()
+		tracing.StartTask(trans.id,
+			tracing.ReqIDAtReceiver(c.toCoalesce[0].read, c.cache),
+			now,
+			c.cache, "l1_transaction", "read", nil)
 	} else {
 		trans = c.coalesceWrite()
+		tracing.StartTask(trans.id,
+			tracing.ReqIDAtReceiver(c.toCoalesce[0].write, c.cache),
+			now,
+			c.cache, "l1_transaction", "write", nil)
 	}
 	c.cache.dirBuf.Push(trans)
 	c.cache.postCoalesceTransactions =
 		append(c.cache.postCoalesceTransactions, trans)
 	c.toCoalesce = nil
+
 	return true
 }
 
@@ -178,6 +181,7 @@ func (c *coalescer) coalesceRead() *transaction {
 	coalescedRead := mem.NewReadReq(0, nil, nil, cachelineID, blockSize)
 	coalescedRead.PID = c.toCoalesce[0].PID()
 	return &transaction{
+		id:                      xid.New().String(),
 		read:                    coalescedRead,
 		preCoalesceTransactions: c.toCoalesce,
 	}
@@ -202,6 +206,7 @@ func (c *coalescer) coalesceWrite() *transaction {
 		}
 	}
 	return &transaction{
+		id:                      xid.New().String(),
 		write:                   write,
 		preCoalesceTransactions: c.toCoalesce,
 	}

@@ -3,6 +3,7 @@ package l1v
 import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
 	"gitlab.com/akita/util/akitaext"
 )
@@ -15,10 +16,14 @@ type Cache struct {
 	BottomPort  akita.Port
 	ControlPort akita.Port
 
-	numReqPerCycle int
-	log2BlockSize  uint64
-	storage        *mem.Storage
-	bankLatency    int
+	numReqPerCycle   int
+	log2BlockSize    uint64
+	storage          *mem.Storage
+	directory        cache.Directory
+	mshr             cache.MSHR
+	bankLatency      int
+	wayAssociativity int
+	lowModuleFinder  cache.LowModuleFinder
 
 	dirBuf   util.Buffer
 	bankBufs []util.Buffer

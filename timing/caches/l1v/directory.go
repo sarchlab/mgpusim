@@ -1,25 +1,21 @@
 package l1v
 
 import (
+	"fmt"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/tracing"
 )
 
 type directory struct {
-	name            string
-	inBuf           util.Buffer
-	dir             cache.Directory
-	mshr            cache.MSHR
-	bankBufs        []util.Buffer
-	bottomPort      akita.Port
-	lowModuleFinder cache.LowModuleFinder
-	log2BlockSize   uint64
+	cache *Cache
 }
 
 func (d *directory) Tick(now akita.VTimeInSec) bool {
-	item := d.inBuf.Peek()
+	item := d.cache.dirBuf.Peek()
 	if item == nil {
 		return false
 	}
@@ -36,15 +32,15 @@ func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 	read := trans.read
 	addr := read.Address
 	pid := read.PID
-	blockSize := uint64(1 << d.log2BlockSize)
+	blockSize := uint64(1 << d.cache.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
-	mshrEntry := d.mshr.Query(pid, cacheLineID)
+	mshrEntry := d.cache.mshr.Query(pid, cacheLineID)
 	if mshrEntry != nil {
 		return d.processMSHRHit(now, trans, mshrEntry)
 	}
 
-	block := d.dir.Lookup(pid, cacheLineID)
+	block := d.cache.directory.Lookup(pid, cacheLineID)
 	if block != nil && block.IsValid {
 		return d.processReadHit(now, trans, block)
 	}
@@ -59,7 +55,7 @@ func (d *directory) processMSHRHit(
 	mshrEntry *cache.MSHREntry,
 ) bool {
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
-	d.inBuf.Pop()
+	d.cache.dirBuf.Pop()
 	return true
 }
 
@@ -80,10 +76,10 @@ func (d *directory) processReadHit(
 	trans.block = block
 	trans.bankAction = bankActionReadHit
 	block.ReadCount++
-	d.dir.Visit(block)
+	d.cache.directory.Visit(block)
 	bankBuf.Push(trans)
 
-	d.inBuf.Pop()
+	d.cache.dirBuf.Pop()
 
 	return true
 }
@@ -94,15 +90,15 @@ func (d *directory) processReadMiss(
 ) bool {
 	read := trans.read
 	addr := read.Address
-	blockSize := uint64(1 << d.log2BlockSize)
+	blockSize := uint64(1 << d.cache.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
-	victim := d.dir.FindVictim(cacheLineID)
+	victim := d.cache.directory.FindVictim(cacheLineID)
 	if victim.IsLocked || victim.ReadCount > 0 {
 		return false
 	}
 
-	if d.mshr.IsFull() {
+	if d.cache.mshr.IsFull() {
 		return false
 	}
 
@@ -110,7 +106,7 @@ func (d *directory) processReadMiss(
 		return false
 	}
 
-	d.inBuf.Pop()
+	d.cache.dirBuf.Pop()
 
 	return true
 }
@@ -122,10 +118,10 @@ func (d *directory) processWrite(
 	write := trans.write
 	addr := write.Address
 	pid := write.PID
-	blockSize := uint64(1 << d.log2BlockSize)
+	blockSize := uint64(1 << d.cache.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
-	mshrEntry := d.mshr.Query(pid, cacheLineID)
+	mshrEntry := d.cache.mshr.Query(pid, cacheLineID)
 	if mshrEntry != nil {
 		ok := d.writeBottom(now, trans)
 		if ok {
@@ -134,7 +130,7 @@ func (d *directory) processWrite(
 		return false
 	}
 
-	block := d.dir.Lookup(pid, cacheLineID)
+	block := d.cache.directory.Lookup(pid, cacheLineID)
 	if block != nil && block.IsValid {
 		return d.processWriteHit(now, trans, block)
 	}
@@ -146,7 +142,7 @@ func (d *directory) processWrite(
 }
 
 func (d *directory) isPartialWrite(write *mem.WriteReq) bool {
-	if len(write.Data) < (1 << d.log2BlockSize) {
+	if len(write.Data) < (1 << d.cache.log2BlockSize) {
 		return true
 	}
 
@@ -167,15 +163,15 @@ func (d *directory) partialWriteMiss(
 ) bool {
 	write := trans.write
 	addr := write.Address
-	blockSize := uint64(1 << d.log2BlockSize)
+	blockSize := uint64(1 << d.cache.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 	trans.fetchAndWrite = true
 
-	if d.mshr.IsFull() {
+	if d.cache.mshr.IsFull() {
 		return false
 	}
 
-	victim := d.dir.FindVictim(cacheLineID)
+	victim := d.cache.directory.FindVictim(cacheLineID)
 	if victim.ReadCount > 0 || victim.IsLocked {
 		return false
 	}
@@ -197,7 +193,7 @@ func (d *directory) partialWriteMiss(
 		return false
 	}
 
-	d.inBuf.Pop()
+	d.cache.dirBuf.Pop()
 	return true
 }
 
@@ -207,9 +203,9 @@ func (d *directory) fullLineWriteMiss(
 ) bool {
 	write := trans.write
 	addr := write.Address
-	blockSize := uint64(1 << d.log2BlockSize)
+	blockSize := uint64(1 << d.cache.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
-	block := d.dir.FindVictim(cacheLineID)
+	block := d.cache.directory.FindVictim(cacheLineID)
 	return d.processWriteHit(now, trans, block)
 }
 
@@ -219,20 +215,22 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 
 	writeToBottom := mem.NewWriteReq(
 		now,
-		d.bottomPort,
-		d.lowModuleFinder.Find(addr),
+		d.cache.BottomPort,
+		d.cache.lowModuleFinder.Find(addr),
 		addr,
 	)
 	writeToBottom.Data = write.Data
 	writeToBottom.DirtyMask = write.DirtyMask
 	writeToBottom.PID = write.PID
 
-	err := d.bottomPort.Send(writeToBottom)
+	err := d.cache.BottomPort.Send(writeToBottom)
 	if err != nil {
 		return false
 	}
 
 	trans.writeToBottom = writeToBottom
+
+	tracing.TraceReqInitiate(writeToBottom, now, d.cache, trans.id)
 
 	return true
 }
@@ -260,18 +258,18 @@ func (d *directory) processWriteHit(
 
 	write := trans.write
 	addr := write.Address
-	blockSize := uint64(1 << d.log2BlockSize)
+	blockSize := uint64(1 << d.cache.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 	block.IsLocked = true
 	block.IsValid = true
 	block.Tag = cacheLineID
-	d.dir.Visit(block)
+	d.cache.directory.Visit(block)
 
 	trans.bankAction = bankActionWrite
 	trans.block = block
 	bankBuf.Push(trans)
 
-	d.inBuf.Pop()
+	d.cache.dirBuf.Pop()
 
 	return true
 }
@@ -283,22 +281,27 @@ func (d *directory) fetchFromBottom(
 ) bool {
 	addr := trans.Address()
 	pid := trans.PID()
-	blockSize := uint64(1 << d.log2BlockSize)
+	blockSize := uint64(1 << d.cache.log2BlockSize)
 	cacheLineID := addr / blockSize * blockSize
 
-	bottomModule := d.lowModuleFinder.Find(cacheLineID)
-	readToBottom := mem.NewReadReq(now, d.bottomPort, bottomModule,
-		cacheLineID, 1<<d.log2BlockSize)
+	bottomModule := d.cache.lowModuleFinder.Find(cacheLineID)
+	readToBottom := mem.NewReadReq(now, d.cache.BottomPort, bottomModule,
+		cacheLineID, 1<<d.cache.log2BlockSize)
 	readToBottom.PID = pid
-	err := d.bottomPort.Send(readToBottom)
+	err := d.cache.BottomPort.Send(readToBottom)
 	if err != nil {
 		return false
+	}
+
+	tracing.TraceReqInitiate(readToBottom, now, d.cache, trans.id)
+	if d.cache.Name() == "GPU_1.L1I_00" {
+		fmt.Printf("Initiate fetch task %s, %s\n", readToBottom.ID, trans.id)
 	}
 
 	trans.readToBottom = readToBottom
 	trans.block = victim
 
-	mshrEntry := d.mshr.Add(pid, cacheLineID)
+	mshrEntry := d.cache.mshr.Add(pid, cacheLineID)
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
 	mshrEntry.ReadReq = readToBottom
 	mshrEntry.Block = victim
@@ -307,14 +310,14 @@ func (d *directory) fetchFromBottom(
 	victim.PID = pid
 	victim.IsValid = true
 	victim.IsLocked = true
-	d.dir.Visit(victim)
+	d.cache.directory.Visit(victim)
 
 	return true
 }
 
 func (d *directory) getBankBuf(block *cache.Block) util.Buffer {
-	numWaysPerSet := d.dir.WayAssociativity()
+	numWaysPerSet := d.cache.directory.WayAssociativity()
 	blockID := block.SetID*numWaysPerSet + block.WayID
-	bankID := blockID % len(d.bankBufs)
-	return d.bankBufs[bankID]
+	bankID := blockID % len(d.cache.bankBufs)
+	return d.cache.bankBufs[bankID]
 }

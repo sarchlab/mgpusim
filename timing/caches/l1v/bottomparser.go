@@ -1,26 +1,22 @@
 package l1v
 
 import (
+	"fmt"
 	"log"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/tracing"
 )
 
 type bottomParser struct {
-	name             string
-	bottomPort       akita.Port
-	mshr             cache.MSHR
-	bankBufs         []util.Buffer
-	transactions     *[]*transaction
-	log2BlockSize    uint64
-	wayAssociativity int
+	cache *Cache
 }
 
 func (p *bottomParser) Tick(now akita.VTimeInSec) bool {
-	item := p.bottomPort.Peek()
+	item := p.cache.BottomPort.Peek()
 	if item == nil {
 		return false
 	}
@@ -41,7 +37,7 @@ func (p *bottomParser) processDoneRsp(
 ) bool {
 	trans := p.findTransactionByWriteToBottomID(done.GetRespondTo())
 	if trans == nil || trans.fetchAndWrite {
-		p.bottomPort.Retrieve(now)
+		p.cache.BottomPort.Retrieve(now)
 		return true
 	}
 
@@ -50,7 +46,10 @@ func (p *bottomParser) processDoneRsp(
 	}
 
 	p.removeTransaction(trans)
-	p.bottomPort.Retrieve(now)
+	p.cache.BottomPort.Retrieve(now)
+
+	tracing.TraceReqFinalize(trans.writeToBottom, now, p.cache)
+	tracing.EndTask(trans.id, now, p.cache)
 	return true
 }
 
@@ -58,10 +57,9 @@ func (p *bottomParser) processDataReady(
 	now akita.VTimeInSec,
 	dr *mem.DataReadyRsp,
 ) bool {
-
 	trans := p.findTransactionByReadToBottomID(dr.GetRespondTo())
 	if trans == nil {
-		log.Panicf("cannot find trans at %s", p.name)
+		log.Panicf("cannot find trans")
 	}
 	pid := trans.readToBottom.PID
 	bankBuf := p.getBankBuf(trans.block)
@@ -70,13 +68,13 @@ func (p *bottomParser) processDataReady(
 	}
 
 	addr := trans.Address()
-	cachelineID := (addr >> p.log2BlockSize) << p.log2BlockSize
+	cachelineID := (addr >> p.cache.log2BlockSize) << p.cache.log2BlockSize
 	data := dr.Data
-	dirtyMask := make([]bool, 1<<p.log2BlockSize)
-	mshrEntry := p.mshr.Query(pid, cachelineID)
+	dirtyMask := make([]bool, 1<<p.cache.log2BlockSize)
+	mshrEntry := p.cache.mshr.Query(pid, cachelineID)
 	p.mergeMSHRData(mshrEntry, data, dirtyMask)
-	p.finalizeMSHRTrans(mshrEntry, data)
-	p.mshr.Remove(pid, cachelineID)
+	p.finalizeMSHRTrans(mshrEntry, data, now)
+	p.cache.mshr.Remove(pid, cachelineID)
 
 	trans.bankAction = bankActionWriteFetched
 	trans.data = data
@@ -84,7 +82,12 @@ func (p *bottomParser) processDataReady(
 	bankBuf.Push(trans)
 
 	p.removeTransaction(trans)
-	p.bottomPort.Retrieve(now)
+	p.cache.BottomPort.Retrieve(now)
+
+	tracing.TraceReqFinalize(trans.readToBottom, now, p.cache)
+	if p.cache.Name() == "GPU_1.L1I_00" {
+		fmt.Printf("Finalize fetch task %s\n", trans.readToBottom.ID)
+	}
 
 	return true
 }
@@ -115,6 +118,7 @@ func (p *bottomParser) mergeMSHRData(
 func (p *bottomParser) finalizeMSHRTrans(
 	mshrEntry *cache.MSHREntry,
 	data []byte,
+	now akita.VTimeInSec,
 ) {
 	for _, t := range mshrEntry.Requests {
 		trans := t.(*transaction)
@@ -131,13 +135,15 @@ func (p *bottomParser) finalizeMSHRTrans(
 			}
 		}
 		p.removeTransaction(trans)
+
+		tracing.EndTask(trans.id, now, p.cache)
 	}
 }
 
 func (p *bottomParser) findTransactionByWriteToBottomID(
 	id string,
 ) *transaction {
-	for _, trans := range *p.transactions {
+	for _, trans := range p.cache.postCoalesceTransactions {
 		if trans.writeToBottom != nil && trans.writeToBottom.ID == id {
 			return trans
 		}
@@ -148,7 +154,7 @@ func (p *bottomParser) findTransactionByWriteToBottomID(
 func (p *bottomParser) findTransactionByReadToBottomID(
 	id string,
 ) *transaction {
-	for _, trans := range *p.transactions {
+	for _, trans := range p.cache.postCoalesceTransactions {
 		if trans.readToBottom != nil && trans.readToBottom.ID == id {
 			return trans
 		}
@@ -157,19 +163,19 @@ func (p *bottomParser) findTransactionByReadToBottomID(
 }
 
 func (p *bottomParser) removeTransaction(trans *transaction) {
-	for i, t := range *p.transactions {
+	for i, t := range p.cache.postCoalesceTransactions {
 		if t == trans {
-			*p.transactions = append(
-				(*p.transactions)[:i],
-				(*p.transactions)[i+1:]...)
+			p.cache.postCoalesceTransactions = append(
+				(p.cache.postCoalesceTransactions)[:i],
+				(p.cache.postCoalesceTransactions)[i+1:]...)
 			return
 		}
 	}
 }
 
 func (p *bottomParser) getBankBuf(block *cache.Block) util.Buffer {
-	numWaysPerSet := p.wayAssociativity
+	numWaysPerSet := p.cache.wayAssociativity
 	blockID := block.SetID*numWaysPerSet + block.WayID
-	bankID := blockID % len(p.bankBufs)
-	return p.bankBufs[bankID]
+	bankID := blockID % len(p.cache.bankBufs)
+	return p.cache.bankBufs[bankID]
 }

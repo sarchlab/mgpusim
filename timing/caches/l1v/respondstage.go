@@ -1,8 +1,6 @@
 package l1v
 
 import (
-	"fmt"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util/tracing"
@@ -43,9 +41,6 @@ func (s *respondStage) respondReadTrans(
 	s.cache.transactions = s.cache.transactions[1:]
 
 	tracing.TraceReqComplete(read, now, s.cache)
-	if s.cache.Name() == "GPU_1.L1I_01" {
-		fmt.Printf("returning\n")
-	}
 
 	return true
 }

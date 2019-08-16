@@ -122,28 +122,19 @@ func (b *Builder) Build(name string) *Cache {
 		c.bankBufs[i] = util.NewBuffer(b.numReqsPerCycle)
 	}
 
-	mshr := cache.NewMSHR(b.numMSHREntry)
+	c.mshr = cache.NewMSHR(b.numMSHREntry)
 	blockSize := 1 << b.log2BlockSize
 	numSets := int(b.totalByteSize / uint64(b.wayAssocitivity*blockSize))
-	dir := cache.NewDirectory(
+	c.directory = cache.NewDirectory(
 		numSets, b.wayAssocitivity, 1<<b.log2BlockSize,
 		cache.NewLRUVictimFinder())
 	c.storage = mem.NewStorage(b.totalByteSize)
 	c.bankLatency = b.bankLatency
+	c.wayAssociativity = b.wayAssocitivity
+	c.lowModuleFinder = b.lowModuleFinder
 
 	c.coalesceStage = &coalescer{cache: c}
-
-	c.directoryStage = &directory{
-		name:            name + ".directory_stage",
-		inBuf:           c.dirBuf,
-		dir:             dir,
-		mshr:            mshr,
-		bottomPort:      c.BottomPort,
-		bankBufs:        c.bankBufs,
-		lowModuleFinder: b.lowModuleFinder,
-		log2BlockSize:   b.log2BlockSize,
-	}
-
+	c.directoryStage = &directory{cache: c}
 	for i := 0; i < b.numBank; i++ {
 		bs := &bankStage{
 			cache:  c,
@@ -151,23 +142,13 @@ func (b *Builder) Build(name string) *Cache {
 		}
 		c.bankStages = append(c.bankStages, bs)
 	}
-
-	c.parseBottomStage = &bottomParser{
-		name:             name + ".parse_bottom_stage",
-		bottomPort:       c.BottomPort,
-		mshr:             mshr,
-		bankBufs:         c.bankBufs,
-		transactions:     &c.postCoalesceTransactions,
-		log2BlockSize:    b.log2BlockSize,
-		wayAssociativity: b.wayAssocitivity,
-	}
-
+	c.parseBottomStage = &bottomParser{cache: c}
 	c.respondStage = &respondStage{cache: c}
 
 	c.controlStage = &controlStage{
 		ctrlPort:     c.ControlPort,
 		transactions: &c.transactions,
-		directory:    dir,
+		directory:    c.directory,
 	}
 
 	return c
