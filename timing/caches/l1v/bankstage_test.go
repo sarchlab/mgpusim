@@ -6,28 +6,34 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/akitaext"
 )
 
 var _ = Describe("Bankstage", func() {
 	var (
-		mockCtrl          *gomock.Controller
-		inBuf             *MockBuffer
-		storage           *mem.Storage
-		postCTransactions []*transaction
-		s                 *bankStage
+		mockCtrl *gomock.Controller
+		inBuf    *MockBuffer
+		storage  *mem.Storage
+		s        *bankStage
+		c        *Cache
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		inBuf = NewMockBuffer(mockCtrl)
 		storage = mem.NewStorage(4 * mem.KB)
-		postCTransactions = nil
+		c = &Cache{
+			bankLatency:   10,
+			bankBufs:      []util.Buffer{inBuf},
+			storage:       storage,
+			log2BlockSize: 6,
+		}
+		c.TickingComponent = akitaext.NewTickingComponent(
+			"cache", nil, 1, c)
 		s = &bankStage{
-			inBuf:             inBuf,
-			storage:           storage,
-			postCTransactions: &postCTransactions,
-			latency:           10,
-			log2BlockSize:     6,
+			cache:  c,
+			bankID: 0,
 		}
 	})
 
@@ -101,7 +107,8 @@ var _ = Describe("Bankstage", func() {
 					preCTrans1, preCTrans2,
 				},
 			}
-			postCTransactions = append(postCTransactions, postCTrans)
+			c.postCoalesceTransactions = append(
+				c.postCoalesceTransactions, postCTrans)
 
 			s.currTrans = postCTrans
 			s.cycleLeft = 0
@@ -117,7 +124,7 @@ var _ = Describe("Bankstage", func() {
 			Expect(preCTrans2.data).To(Equal([]byte{1, 2, 3, 4, 5, 6, 7, 8}))
 			Expect(preCTrans2.done).To(BeTrue())
 			Expect(block.ReadCount).To(Equal(0))
-			Expect(postCTransactions).NotTo(ContainElement(postCTrans))
+			Expect(c.postCoalesceTransactions).NotTo(ContainElement(postCTrans))
 		})
 	})
 

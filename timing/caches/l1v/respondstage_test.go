@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/util/akitaext"
 )
 
 var _ = Describe("Respond Stage", func() {
@@ -22,6 +23,8 @@ var _ = Describe("Respond Stage", func() {
 		cache = &Cache{
 			TopPort: topPort,
 		}
+		cache.TickingComponent = akitaext.NewTickingComponent(
+			"cache", nil, 1, cache)
 		s = &respondStage{cache: cache}
 
 	})

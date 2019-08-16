@@ -1,8 +1,6 @@
 package l1v
 
 import (
-	"fmt"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -130,7 +128,8 @@ func (b *Builder) Build(name string) *Cache {
 	dir := cache.NewDirectory(
 		numSets, b.wayAssocitivity, 1<<b.log2BlockSize,
 		cache.NewLRUVictimFinder())
-	storage := mem.NewStorage(b.totalByteSize)
+	c.storage = mem.NewStorage(b.totalByteSize)
+	c.bankLatency = b.bankLatency
 
 	c.coalesceStage = &coalescer{cache: c}
 
@@ -147,12 +146,8 @@ func (b *Builder) Build(name string) *Cache {
 
 	for i := 0; i < b.numBank; i++ {
 		bs := &bankStage{
-			name:              fmt.Sprintf("%s.bank_stage%d", name, i),
-			inBuf:             c.bankBufs[i],
-			storage:           storage,
-			postCTransactions: &c.postCoalesceTransactions,
-			latency:           b.bankLatency,
-			log2BlockSize:     b.log2BlockSize,
+			cache:  c,
+			bankID: i,
 		}
 		c.bankStages = append(c.bankStages, bs)
 	}

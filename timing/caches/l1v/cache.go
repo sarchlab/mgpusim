@@ -2,6 +2,7 @@ package l1v
 
 import (
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util"
 	"gitlab.com/akita/util/akitaext"
 )
@@ -16,6 +17,8 @@ type Cache struct {
 
 	numReqPerCycle int
 	log2BlockSize  uint64
+	storage        *mem.Storage
+	bankLatency    int
 
 	dirBuf   util.Buffer
 	bankBufs []util.Buffer

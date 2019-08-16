@@ -4,6 +4,7 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util/tracing"
@@ -45,7 +46,7 @@ func (c *coalescer) processReqCoalescable(
 	now akita.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
-	trans := c.createTransaction(req)
+	trans := c.createTransaction(req, now)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
 	c.cache.TopPort.Retrieve(now)
@@ -64,7 +65,7 @@ func (c *coalescer) processReqNoncoalescable(
 
 	c.coalesceAndSend(now)
 
-	trans := c.createTransaction(req)
+	trans := c.createTransaction(req, now)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
 	c.cache.TopPort.Retrieve(now)
@@ -81,7 +82,7 @@ func (c *coalescer) processReqLastInWaveCoalescable(
 		return false
 	}
 
-	trans := c.createTransaction(req)
+	trans := c.createTransaction(req, now)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
 	c.coalesceAndSend(now)
@@ -104,7 +105,7 @@ func (c *coalescer) processReqLastInWaveNoncoalescable(
 		return true
 	}
 
-	trans := c.createTransaction(req)
+	trans := c.createTransaction(req, now)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
 	c.coalesceAndSend(now)
@@ -114,12 +115,24 @@ func (c *coalescer) processReqLastInWaveNoncoalescable(
 	return true
 }
 
-func (c *coalescer) createTransaction(req mem.AccessReq) *transaction {
+func (c *coalescer) createTransaction(req mem.AccessReq, now akita.VTimeInSec) *transaction {
 	switch req := req.(type) {
 	case *mem.ReadReq:
-		return &transaction{read: req}
+		t := &transaction{
+			id:   xid.New().String(),
+			read: req,
+		}
+		tracing.StartTask(t.id, tracing.ReqIDAtReceiver(req, c.cache),
+			now, c.cache, "l1_transaction", "read", nil)
+		return t
 	case *mem.WriteReq:
-		return &transaction{write: req}
+		t := &transaction{
+			id:    xid.New().String(),
+			write: req,
+		}
+		tracing.StartTask(t.id, tracing.ReqIDAtReceiver(req, c.cache),
+			now, c.cache, "l1_transaction", "write", nil)
+		return t
 	default:
 		log.Panicf("cannot process request of type %s\n", reflect.TypeOf(req))
 		return nil
