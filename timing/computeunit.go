@@ -548,6 +548,8 @@ func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataRead
 
 	wf.IsFetching = false
 	wf.LastFetchTime = now
+
+	tracing.TraceReqFinalize(info.Req, now, cu)
 }
 
 func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
@@ -592,6 +594,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 
 	cu.logInstStageTask(now, info.Inst, "mem", true)
 	cu.logInstTask(now, wf, info.Inst, true)
+	tracing.TraceReqFinalize(info.Req, now, cu)
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {

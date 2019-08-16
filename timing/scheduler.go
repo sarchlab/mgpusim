@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/util/tracing"
 )
 
 type Scheduler interface {
@@ -135,8 +136,9 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 			s.cu.InFlightInstFetch = append(s.cu.InFlightInstFetch, info)
 			wf.IsFetching = true
 
-			//s.cu.InvokeHook(wf, s.cu, akita.AnyHookPos, &InstHookInfo{now, wf.inst, "FetchStart"})
 			madeProgress = true
+
+			tracing.TraceReqInitiate(req, now, s.cu, wf.UID)
 		}
 	}
 

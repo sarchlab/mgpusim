@@ -69,6 +69,7 @@ func (c *coalescer) processReqNoncoalescable(
 	c.cache.transactions = append(c.cache.transactions, trans)
 	c.cache.TopPort.Retrieve(now)
 
+	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 
@@ -86,6 +87,7 @@ func (c *coalescer) processReqLastInWaveCoalescable(
 	c.coalesceAndSend(now)
 	c.cache.TopPort.Retrieve(now)
 
+	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 
@@ -108,6 +110,7 @@ func (c *coalescer) processReqLastInWaveNoncoalescable(
 	c.coalesceAndSend(now)
 	c.cache.TopPort.Retrieve(now)
 
+	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 

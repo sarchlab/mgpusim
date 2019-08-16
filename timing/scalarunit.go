@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/util/tracing"
 )
 
 // A ScalarUnit performs Scalar operations
@@ -129,7 +130,6 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 	inst := u.toExec.DynamicInst()
 	sp := u.toExec.Scratchpad().AsSMEM()
 
-	//u.cu.GetConnection("ToScalarMem").Send(req)
 	if len(u.readBuf) < u.readBufSize {
 		u.toExec.OutstandingScalarMemAccess++
 
@@ -151,6 +151,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 
 		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
 		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", false)
+		tracing.TraceReqInitiate(req, now, u.cu, u.toExec.DynamicInst().ID)
 
 		u.toExec = nil
 	}
