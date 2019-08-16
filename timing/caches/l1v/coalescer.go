@@ -10,14 +10,7 @@ import (
 )
 
 type coalescer struct {
-	cache *Cache
-	// topPort                  akita.Port
-	// dirBuf                   util.Buffer
-	// transactions             *[]*transaction
-	// postCoalesceTransactions *[]*transaction
-
-	// log2BlockSize uint64
-
+	cache      *Cache
 	toCoalesce []*transaction
 }
 

@@ -3,20 +3,19 @@ package l1v
 import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/util/tracing"
 )
 
 type respondStage struct {
-	name         string
-	topPort      akita.Port
-	transactions *[]*transaction
+	cache *Cache
 }
 
 func (s *respondStage) Tick(now akita.VTimeInSec) bool {
-	if len(*s.transactions) == 0 {
+	if len(s.cache.transactions) == 0 {
 		return false
 	}
 
-	trans := (*s.transactions)[0]
+	trans := s.cache.transactions[0]
 	if trans.read != nil {
 		return s.respondReadTrans(now, trans)
 	}
@@ -32,14 +31,16 @@ func (s *respondStage) respondReadTrans(
 	}
 
 	read := trans.read
-	dr := mem.NewDataReadyRsp(now, s.topPort, read.Src(), read.GetID())
+	dr := mem.NewDataReadyRsp(now, s.cache.TopPort, read.Src(), read.GetID())
 	dr.Data = trans.data
-	err := s.topPort.Send(dr)
+	err := s.cache.TopPort.Send(dr)
 	if err != nil {
 		return false
 	}
 
-	*s.transactions = (*s.transactions)[1:]
+	s.cache.transactions = s.cache.transactions[1:]
+
+	tracing.TraceReqComplete(read, now, s.cache)
 
 	return true
 }
@@ -53,13 +54,15 @@ func (s *respondStage) respondWriteTrans(
 	}
 
 	write := trans.write
-	done := mem.NewDoneRsp(now, s.topPort, write.Src(), write.GetID())
-	err := s.topPort.Send(done)
+	done := mem.NewDoneRsp(now, s.cache.TopPort, write.Src(), write.GetID())
+	err := s.cache.TopPort.Send(done)
 	if err != nil {
 		return false
 	}
 
-	*s.transactions = (*s.transactions)[1:]
+	s.cache.transactions = s.cache.transactions[1:]
+
+	tracing.TraceReqComplete(write, now, s.cache)
 
 	return true
 }

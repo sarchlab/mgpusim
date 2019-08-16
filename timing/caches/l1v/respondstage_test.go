@@ -10,20 +10,20 @@ import (
 
 var _ = Describe("Respond Stage", func() {
 	var (
-		mockCtrl     *gomock.Controller
-		topPort      *MockPort
-		transactions []*transaction
-		s            *respondStage
+		mockCtrl *gomock.Controller
+		cache    *Cache
+		topPort  *MockPort
+		s        *respondStage
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		topPort = NewMockPort(mockCtrl)
-		transactions = nil
-		s = &respondStage{
-			topPort:      topPort,
-			transactions: &transactions,
+		cache = &Cache{
+			TopPort: topPort,
 		}
+		s = &respondStage{cache: cache}
+
 	})
 
 	AfterEach(func() {
@@ -44,7 +44,7 @@ var _ = Describe("Respond Stage", func() {
 		BeforeEach(func() {
 			read = mem.NewReadReq(5, nil, nil, 0x100, 4)
 			trans = &transaction{read: read}
-			transactions = append(transactions, trans)
+			cache.transactions = append(cache.transactions, trans)
 		})
 
 		It("should do nothing if the transaction is not ready", func() {
@@ -74,7 +74,7 @@ var _ = Describe("Respond Stage", func() {
 			madeProgress := s.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(transactions).NotTo(ContainElement((trans)))
+			Expect(cache.transactions).NotTo(ContainElement((trans)))
 		})
 	})
 
@@ -87,7 +87,7 @@ var _ = Describe("Respond Stage", func() {
 		BeforeEach(func() {
 			write = mem.NewWriteReq(5, nil, nil, 0x100)
 			trans = &transaction{write: write}
-			transactions = append(transactions, trans)
+			cache.transactions = append(cache.transactions, trans)
 		})
 
 		It("should do nothing if the transaction is not ready", func() {
@@ -115,7 +115,7 @@ var _ = Describe("Respond Stage", func() {
 			madeProgress := s.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(transactions).NotTo(ContainElement((trans)))
+			Expect(cache.transactions).NotTo(ContainElement((trans)))
 		})
 	})
 

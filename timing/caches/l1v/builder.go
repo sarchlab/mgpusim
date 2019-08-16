@@ -132,9 +132,7 @@ func (b *Builder) Build(name string) *Cache {
 		cache.NewLRUVictimFinder())
 	storage := mem.NewStorage(b.totalByteSize)
 
-	c.coalesceStage = &coalescer{
-		cache: c,
-	}
+	c.coalesceStage = &coalescer{cache: c}
 
 	c.directoryStage = &directory{
 		name:            name + ".directory_stage",
@@ -169,11 +167,7 @@ func (b *Builder) Build(name string) *Cache {
 		wayAssociativity: b.wayAssocitivity,
 	}
 
-	c.respondStage = &respondStage{
-		name:         name + ".respond_stage",
-		topPort:      c.TopPort,
-		transactions: &c.transactions,
-	}
+	c.respondStage = &respondStage{cache: c}
 
 	c.controlStage = &controlStage{
 		ctrlPort:     c.ControlPort,
