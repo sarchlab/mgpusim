@@ -5,32 +5,31 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/mem"
+	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/ca"
 )
 
 var _ = Describe("Coalescer", func() {
 	var (
-		mockCtrl                 *gomock.Controller
-		topPort                  *MockPort
-		transactions             []*transaction
-		postCoalesceTransactions []*transaction
-		dirBuf                   *MockBuffer
-		c                        coalescer
+		mockCtrl *gomock.Controller
+		cache    *Cache
+		topPort  *MockPort
+		dirBuf   *MockBuffer
+		c        coalescer
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		topPort = NewMockPort(mockCtrl)
 		dirBuf = NewMockBuffer(mockCtrl)
-		transactions = nil
-		postCoalesceTransactions = nil
-		c = coalescer{
-			log2BlockSize:            6,
-			topPort:                  topPort,
-			dirBuf:                   dirBuf,
-			transactions:             &transactions,
-			postCoalesceTransactions: &postCoalesceTransactions,
+		cache = &Cache{
+			log2BlockSize: 6,
+			TopPort:       topPort,
+			dirBuf:        dirBuf,
 		}
+		cache.TickingComponent = akitaext.NewTickingComponent(
+			"cache", nil, 1, cache)
+		c = coalescer{cache: cache}
 	})
 
 	AfterEach(func() {
@@ -79,9 +78,9 @@ var _ = Describe("Coalescer", func() {
 				madeProgress := c.Tick(13)
 
 				Expect(madeProgress).To(BeTrue())
-				Expect(transactions).To(HaveLen(3))
+				Expect(cache.transactions).To(HaveLen(3))
 				Expect(c.toCoalesce).To(HaveLen(1))
-				Expect(postCoalesceTransactions).To(HaveLen(1))
+				Expect(cache.postCoalesceTransactions).To(HaveLen(1))
 			})
 
 			It("should stall if cannot send to dir", func() {
@@ -94,7 +93,7 @@ var _ = Describe("Coalescer", func() {
 				madeProgress := c.Tick(13)
 
 				Expect(madeProgress).To(BeFalse())
-				Expect(transactions).To(HaveLen(2))
+				Expect(cache.transactions).To(HaveLen(2))
 				Expect(c.toCoalesce).To(HaveLen(2))
 			})
 		})
@@ -120,9 +119,9 @@ var _ = Describe("Coalescer", func() {
 				madeProgress := c.Tick(13)
 
 				Expect(madeProgress).To(BeTrue())
-				Expect(transactions).To(HaveLen(3))
+				Expect(cache.transactions).To(HaveLen(3))
 				Expect(c.toCoalesce).To(HaveLen(0))
-				Expect(postCoalesceTransactions).To(HaveLen(1))
+				Expect(cache.postCoalesceTransactions).To(HaveLen(1))
 			})
 
 			It("should stall if cannot send", func() {
@@ -136,7 +135,7 @@ var _ = Describe("Coalescer", func() {
 				madeProgress := c.Tick(13)
 
 				Expect(madeProgress).To(BeFalse())
-				Expect(transactions).To(HaveLen(2))
+				Expect(cache.transactions).To(HaveLen(2))
 				Expect(c.toCoalesce).To(HaveLen(2))
 			})
 		})
@@ -162,9 +161,9 @@ var _ = Describe("Coalescer", func() {
 				madeProgress := c.Tick(13)
 
 				Expect(madeProgress).To(BeTrue())
-				Expect(transactions).To(HaveLen(3))
+				Expect(cache.transactions).To(HaveLen(3))
 				Expect(c.toCoalesce).To(HaveLen(0))
-				Expect(postCoalesceTransactions).To(HaveLen(2))
+				Expect(cache.postCoalesceTransactions).To(HaveLen(2))
 			})
 
 			It("should stall is cannot send to dir stage", func() {
@@ -178,7 +177,7 @@ var _ = Describe("Coalescer", func() {
 				madeProgress := c.Tick(13)
 
 				Expect(madeProgress).To(BeFalse())
-				Expect(transactions).To(HaveLen(2))
+				Expect(cache.transactions).To(HaveLen(2))
 				Expect(c.toCoalesce).To(HaveLen(2))
 			})
 
@@ -199,9 +198,9 @@ var _ = Describe("Coalescer", func() {
 					madeProgress := c.Tick(13)
 
 					Expect(madeProgress).To(BeTrue())
-					Expect(transactions).To(HaveLen(2))
+					Expect(cache.transactions).To(HaveLen(2))
 					Expect(c.toCoalesce).To(HaveLen(0))
-					Expect(postCoalesceTransactions).To(HaveLen(1))
+					Expect(cache.postCoalesceTransactions).To(HaveLen(1))
 				})
 		})
 	})
@@ -264,7 +263,7 @@ var _ = Describe("Coalescer", func() {
 			madeProgress = c.Tick(11)
 			Expect(madeProgress).To(BeTrue())
 
-			Expect(postCoalesceTransactions).To(HaveLen(1))
+			Expect(cache.postCoalesceTransactions).To(HaveLen(1))
 		})
 	})
 })

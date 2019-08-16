@@ -1,7 +1,6 @@
 package l1v
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/akita"
@@ -50,7 +49,6 @@ func (p *bottomParser) processDoneRsp(
 		t.done = true
 	}
 
-	trace(0, p.name, fmt.Sprintf("to remove trans in done %p", trans), 0, nil)
 	p.removeTransaction(trans)
 	p.bottomPort.Retrieve(now)
 	return true
@@ -60,7 +58,6 @@ func (p *bottomParser) processDataReady(
 	now akita.VTimeInSec,
 	dr *mem.DataReadyRsp,
 ) bool {
-	trace(now, p.name, "dr rsp_to:"+dr.RespondTo, 0, nil)
 
 	trans := p.findTransactionByReadToBottomID(dr.GetRespondTo())
 	if trans == nil {
@@ -88,8 +85,6 @@ func (p *bottomParser) processDataReady(
 
 	p.removeTransaction(trans)
 	p.bottomPort.Retrieve(now)
-
-	trace(now, p.name, "data-ready", addr, dr.Data)
 
 	return true
 }
@@ -135,7 +130,6 @@ func (p *bottomParser) finalizeMSHRTrans(
 				preCTrans.done = true
 			}
 		}
-		trace(0, p.name, fmt.Sprintf("to remove trans finalizing mshr %p", trans), 0, nil)
 		p.removeTransaction(trans)
 	}
 }
@@ -165,7 +159,6 @@ func (p *bottomParser) findTransactionByReadToBottomID(
 func (p *bottomParser) removeTransaction(trans *transaction) {
 	for i, t := range *p.transactions {
 		if t == trans {
-			trace(0, p.name, fmt.Sprintf("remove trans %p", trans), 0, nil)
 			*p.transactions = append(
 				(*p.transactions)[:i],
 				(*p.transactions)[i+1:]...)

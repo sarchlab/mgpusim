@@ -107,15 +107,16 @@ func (b *Builder) WithLowModuleFinder(
 func (b *Builder) Build(name string) *Cache {
 	b.assertAllRequiredInformationIsAvailable()
 
-	c := &Cache{}
+	c := &Cache{
+		log2BlockSize:  b.log2BlockSize,
+		numReqPerCycle: b.numReqsPerCycle,
+	}
 	c.TickingComponent = akitaext.NewTickingComponent(
 		name, b.engine, b.freq, c)
 
 	c.TopPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
 	c.BottomPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
 	c.ControlPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
-
-	c.numReqPerCycle = b.numReqsPerCycle
 
 	c.dirBuf = util.NewBuffer(b.numReqsPerCycle)
 	c.bankBufs = make([]util.Buffer, b.numBank)
@@ -132,12 +133,7 @@ func (b *Builder) Build(name string) *Cache {
 	storage := mem.NewStorage(b.totalByteSize)
 
 	c.coalesceStage = &coalescer{
-		name:                     name + ".coalesce_stage",
-		topPort:                  c.TopPort,
-		dirBuf:                   c.dirBuf,
-		transactions:             &c.transactions,
-		postCoalesceTransactions: &c.postCoalesceTransactions,
-		log2BlockSize:            b.log2BlockSize,
+		cache: c,
 	}
 
 	c.directoryStage = &directory{

@@ -1,8 +1,6 @@
 package l1v
 
 import (
-	"fmt"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util"
@@ -119,14 +117,12 @@ func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
 
 	s.currTrans = nil
 
-	trace(now, s.name, "write fetched", block.Tag, trans.data)
 	return true
 }
 
 func (s *bankStage) removeTransaction(trans *transaction) {
 	for i, t := range *s.postCTransactions {
 		if t == trans {
-			trace(0, s.name, fmt.Sprintf("remove trans %p", trans), 0, nil)
 			*s.postCTransactions = append(
 				(*s.postCTransactions)[:i],
 				(*s.postCTransactions)[i+1:]...)

@@ -1,29 +1,28 @@
 package l1v
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/tracing"
 )
 
 type coalescer struct {
-	name                     string
-	topPort                  akita.Port
-	dirBuf                   util.Buffer
-	transactions             *[]*transaction
-	postCoalesceTransactions *[]*transaction
+	cache *Cache
+	// topPort                  akita.Port
+	// dirBuf                   util.Buffer
+	// transactions             *[]*transaction
+	// postCoalesceTransactions *[]*transaction
 
-	log2BlockSize uint64
+	// log2BlockSize uint64
 
 	toCoalesce []*transaction
 }
 
 func (c *coalescer) Tick(now akita.VTimeInSec) bool {
-	req := c.topPort.Peek()
+	req := c.cache.TopPort.Peek()
 	if req == nil {
 		return false
 	}
@@ -36,13 +35,6 @@ func (c *coalescer) processReq(
 	now akita.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
-	switch req := req.(type) {
-	case *mem.ReadReq:
-		trace(now, c.name, "r", req.Address, nil)
-	case *mem.WriteReq:
-		trace(now, c.name, "w", req.Address, req.Data)
-	}
-
 	if c.isReqLastInWave(req) {
 		if len(c.toCoalesce) == 0 || c.canReqCoalesce(req) {
 			return c.processReqLastInWaveCoalescable(now, req)
@@ -62,8 +54,10 @@ func (c *coalescer) processReqCoalescable(
 ) bool {
 	trans := c.createTransaction(req)
 	c.toCoalesce = append(c.toCoalesce, trans)
-	*c.transactions = append(*c.transactions, trans)
-	c.topPort.Retrieve(now)
+	c.cache.transactions = append(c.cache.transactions, trans)
+	c.cache.TopPort.Retrieve(now)
+
+	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 
@@ -71,7 +65,7 @@ func (c *coalescer) processReqNoncoalescable(
 	now akita.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
-	if !c.dirBuf.CanPush() {
+	if !c.cache.dirBuf.CanPush() {
 		return false
 	}
 
@@ -79,8 +73,8 @@ func (c *coalescer) processReqNoncoalescable(
 
 	trans := c.createTransaction(req)
 	c.toCoalesce = append(c.toCoalesce, trans)
-	*c.transactions = append(*c.transactions, trans)
-	c.topPort.Retrieve(now)
+	c.cache.transactions = append(c.cache.transactions, trans)
+	c.cache.TopPort.Retrieve(now)
 
 	return true
 }
@@ -89,15 +83,15 @@ func (c *coalescer) processReqLastInWaveCoalescable(
 	now akita.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
-	if !c.dirBuf.CanPush() {
+	if !c.cache.dirBuf.CanPush() {
 		return false
 	}
 
 	trans := c.createTransaction(req)
 	c.toCoalesce = append(c.toCoalesce, trans)
-	*c.transactions = append(*c.transactions, trans)
+	c.cache.transactions = append(c.cache.transactions, trans)
 	c.coalesceAndSend(now)
-	c.topPort.Retrieve(now)
+	c.cache.TopPort.Retrieve(now)
 
 	return true
 }
@@ -106,20 +100,20 @@ func (c *coalescer) processReqLastInWaveNoncoalescable(
 	now akita.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
-	if !c.dirBuf.CanPush() {
+	if !c.cache.dirBuf.CanPush() {
 		return false
 	}
 	c.coalesceAndSend(now)
 
-	if !c.dirBuf.CanPush() {
+	if !c.cache.dirBuf.CanPush() {
 		return true
 	}
 
 	trans := c.createTransaction(req)
 	c.toCoalesce = append(c.toCoalesce, trans)
-	*c.transactions = append(*c.transactions, trans)
+	c.cache.transactions = append(c.cache.transactions, trans)
 	c.coalesceAndSend(now)
-	c.topPort.Retrieve(now)
+	c.cache.TopPort.Retrieve(now)
 
 	return true
 }
@@ -148,7 +142,7 @@ func (c *coalescer) isReqLastInWave(req mem.AccessReq) bool {
 }
 
 func (c *coalescer) canReqCoalesce(req mem.AccessReq) bool {
-	blockSize := uint64(1 << c.log2BlockSize)
+	blockSize := uint64(1 << c.cache.log2BlockSize)
 	if req.GetAddress()/blockSize == c.toCoalesce[0].Address()/blockSize {
 		return true
 	}
@@ -162,17 +156,15 @@ func (c *coalescer) coalesceAndSend(now akita.VTimeInSec) bool {
 	} else {
 		trans = c.coalesceWrite()
 	}
-	c.dirBuf.Push(trans)
-	*c.postCoalesceTransactions =
-		append(*c.postCoalesceTransactions, trans)
-	trace(now, c.name,
-		fmt.Sprintf("push_postC_buf %p", trans), 0, nil)
+	c.cache.dirBuf.Push(trans)
+	c.cache.postCoalesceTransactions =
+		append(c.cache.postCoalesceTransactions, trans)
 	c.toCoalesce = nil
 	return true
 }
 
 func (c *coalescer) coalesceRead() *transaction {
-	blockSize := uint64(1 << c.log2BlockSize)
+	blockSize := uint64(1 << c.cache.log2BlockSize)
 	cachelineID := c.toCoalesce[0].Address() / blockSize * blockSize
 	coalescedRead := mem.NewReadReq(0, nil, nil, cachelineID, blockSize)
 	coalescedRead.PID = c.toCoalesce[0].PID()
@@ -183,7 +175,7 @@ func (c *coalescer) coalesceRead() *transaction {
 }
 
 func (c *coalescer) coalesceWrite() *transaction {
-	blockSize := uint64(1 << c.log2BlockSize)
+	blockSize := uint64(1 << c.cache.log2BlockSize)
 	cachelineID := c.toCoalesce[0].Address() / blockSize * blockSize
 	write := mem.NewWriteReq(0, nil, nil, cachelineID)
 	write.Data = make([]byte, blockSize)

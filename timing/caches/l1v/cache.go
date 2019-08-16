@@ -15,6 +15,7 @@ type Cache struct {
 	ControlPort akita.Port
 
 	numReqPerCycle int
+	log2BlockSize  uint64
 
 	dirBuf   util.Buffer
 	bankBufs []util.Buffer

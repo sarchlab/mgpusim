@@ -22,7 +22,9 @@ var _ = Describe("Control Stage", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		ctrlPort = NewMockPort(mockCtrl)
 		directory = NewMockDirectory(mockCtrl)
+
 		transactions = nil
+
 		s = &controlStage{
 			ctrlPort:     ctrlPort,
 			transactions: &transactions,
