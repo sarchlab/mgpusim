@@ -1,20 +1,13 @@
 package l1v
 
 import (
-	"fmt"
-
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/tracing"
 )
 
 type bankStage struct {
-	name              string
-	inBuf             util.Buffer
-	storage           *mem.Storage
-	postCTransactions *[]*transaction
-	latency           int
-	log2BlockSize     uint64
+	cache  *Cache
+	bankID int
 
 	cycleLeft int
 	currTrans *transaction
@@ -34,14 +27,14 @@ func (s *bankStage) Tick(now akita.VTimeInSec) bool {
 }
 
 func (s *bankStage) extractFromBuf() bool {
-	item := s.inBuf.Peek()
+	item := s.cache.bankBufs[s.bankID].Peek()
 	if item == nil {
 		return false
 	}
 
 	s.currTrans = item.(*transaction)
-	s.cycleLeft = s.latency
-	s.inBuf.Pop()
+	s.cycleLeft = s.cache.bankLatency
+	s.cache.bankBufs[s.bankID].Pop()
 	return true
 }
 
@@ -62,7 +55,7 @@ func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
 	trans := s.currTrans
 	block := trans.block
 
-	data, err := s.storage.Read(block.CacheAddress, trans.read.MemByteSize)
+	data, err := s.cache.storage.Read(block.CacheAddress, trans.read.MemByteSize)
 	if err != nil {
 		panic(err)
 	}
@@ -76,6 +69,8 @@ func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
 
 	s.removeTransaction(s.currTrans)
 	s.currTrans = nil
+
+	tracing.EndTask(trans.id, now, s.cache)
 	return true
 }
 
@@ -83,9 +78,9 @@ func (s *bankStage) finalizeWriteTrans(now akita.VTimeInSec) bool {
 	trans := s.currTrans
 	write := trans.write
 	block := trans.block
-	blockSize := 1 << s.log2BlockSize
+	blockSize := 1 << s.cache.log2BlockSize
 
-	data, err := s.storage.Read(block.CacheAddress, uint64(blockSize))
+	data, err := s.cache.storage.Read(block.CacheAddress, uint64(blockSize))
 
 	offset := write.Address - block.Tag
 	for i := 0; i < len(write.Data); i++ {
@@ -94,7 +89,7 @@ func (s *bankStage) finalizeWriteTrans(now akita.VTimeInSec) bool {
 		}
 	}
 
-	err = s.storage.Write(block.CacheAddress, data)
+	err = s.cache.storage.Write(block.CacheAddress, data)
 	if err != nil {
 		panic(err)
 	}
@@ -102,6 +97,8 @@ func (s *bankStage) finalizeWriteTrans(now akita.VTimeInSec) bool {
 	block.IsLocked = false
 
 	s.currTrans = nil
+
+	tracing.EndTask(trans.id, now, s.cache)
 	return true
 }
 
@@ -109,7 +106,7 @@ func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
 	trans := s.currTrans
 	block := trans.block
 
-	err := s.storage.Write(block.CacheAddress, trans.data)
+	err := s.cache.storage.Write(block.CacheAddress, trans.data)
 	if err != nil {
 		panic(err)
 	}
@@ -119,17 +116,15 @@ func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
 
 	s.currTrans = nil
 
-	trace(now, s.name, "write fetched", block.Tag, trans.data)
 	return true
 }
 
 func (s *bankStage) removeTransaction(trans *transaction) {
-	for i, t := range *s.postCTransactions {
+	for i, t := range s.cache.postCoalesceTransactions {
 		if t == trans {
-			trace(0, s.name, fmt.Sprintf("remove trans %p", trans), 0, nil)
-			*s.postCTransactions = append(
-				(*s.postCTransactions)[:i],
-				(*s.postCTransactions)[i+1:]...)
+			s.cache.postCoalesceTransactions = append(
+				s.cache.postCoalesceTransactions[:i],
+				s.cache.postCoalesceTransactions[i+1:]...)
 			return
 		}
 	}

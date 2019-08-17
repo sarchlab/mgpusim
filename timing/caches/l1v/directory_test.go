@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -21,6 +22,7 @@ var _ = Describe("Directory", func() {
 		bottomPort      *MockPort
 		lowModuleFinder *MockLowModuleFinder
 		d               *directory
+		c               *Cache
 	)
 
 	BeforeEach(func() {
@@ -32,15 +34,19 @@ var _ = Describe("Directory", func() {
 		bankBuf = NewMockBuffer(mockCtrl)
 		bottomPort = NewMockPort(mockCtrl)
 		lowModuleFinder = NewMockLowModuleFinder(mockCtrl)
-		d = &directory{
-			inBuf:           inBuf,
-			dir:             dir,
-			mshr:            mshr,
-			bankBufs:        []util.Buffer{bankBuf},
-			bottomPort:      bottomPort,
-			lowModuleFinder: lowModuleFinder,
-			log2BlockSize:   6,
+		c = &Cache{
+			log2BlockSize:    6,
+			BottomPort:       bottomPort,
+			directory:        dir,
+			dirBuf:           inBuf,
+			lowModuleFinder:  lowModuleFinder,
+			mshr:             mshr,
+			wayAssociativity: 4,
+			bankBufs:         []util.Buffer{bankBuf},
 		}
+		c.TickingComponent = akitaext.NewTickingComponent(
+			"cache", nil, 1, c)
+		d = &directory{cache: c}
 	})
 
 	AfterEach(func() {

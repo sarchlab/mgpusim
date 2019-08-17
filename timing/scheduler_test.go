@@ -110,6 +110,7 @@ var _ = Describe("Scheduler", func() {
 
 	It("should always fetch 64 bytes", func() {
 		wf := new(wavefront.Wavefront)
+		wf.Wavefront = new(kernels.Wavefront)
 		wf.InstBufferStartPC = 0x100
 		wf.InstBuffer = make([]byte, 0x80)
 

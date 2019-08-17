@@ -1,7 +1,6 @@
 package gcn3
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 
@@ -16,7 +15,7 @@ import (
 	"gitlab.com/akita/mem/vm"
 )
 
-// CommandProcessor is a Akita component that is responsible for receiving
+// CommandProcessor is an Akita component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
 // GPU.
 //
@@ -58,6 +57,8 @@ type CommandProcessor struct {
 	numFlushACK   uint64
 
 	shootDownInProcess bool
+
+	bottomReqIDToTopReqMap map[string]*LaunchKernelReq
 }
 
 func (p *CommandProcessor) NotifyRecv(
@@ -113,21 +114,17 @@ func (p *CommandProcessor) processLaunchKernelReq(
 ) error {
 	now := req.Time()
 	if req.Src() == p.Driver {
-		req.SetDst(p.Dispatcher)
-		req.SetSrc(p.ToDispatcher)
-		req.SetSendTime(now)
-		p.ToDispatcher.Send(req)
-		tracing.StartTask(
-			fmt.Sprintf("%s@%s", req.GetID(), p.Name()),
-			req.GetID(),
-			req.Time(),
-			p,
-			"Req", "Launch Kernel",
-			nil,
-		)
+		reqToBottom := NewLaunchKernelReq(now, p.ToDispatcher, p.Dispatcher)
+		reqToBottom.PID = req.PID
+		reqToBottom.Packet = req.Packet
+		reqToBottom.PacketAddress = req.PacketAddress
+		reqToBottom.HsaCo = req.HsaCo
+		reqToBottom.SetSendTime(now)
+		p.ToDispatcher.Send(reqToBottom)
+		p.bottomReqIDToTopReqMap[reqToBottom.ID] = req
+		tracing.TraceReqReceive(req, now, p)
+		tracing.TraceReqInitiate(reqToBottom, now, p, tracing.ReqIDAtReceiver(req, p))
 	} else if req.Src() == p.Dispatcher {
-		req.SetDst(p.Driver)
-		req.SetSrc(p.ToDriver)
 		evt := NewReplyKernelCompletionEvent(
 			p.Freq.NCyclesLater(p.kernelFixedOverheadInCycles, now),
 			p, req,
@@ -141,11 +138,14 @@ func (p *CommandProcessor) processLaunchKernelReq(
 
 func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelCompletionEvent) error {
 	now := evt.Time()
-	evt.Req.SetSendTime(now)
-	p.ToDriver.Send(evt.Req)
-	tracing.EndTask(
-		fmt.Sprintf("%s@%s", evt.Req.GetID(), p.Name()),
-		now, p)
+
+	req := evt.Req
+	originalReq := p.bottomReqIDToTopReqMap[req.ID]
+	originalReq.SetSendTime(now)
+	originalReq.SwapSrcAndDst()
+	p.ToDriver.Send(originalReq)
+	tracing.TraceReqFinalize(req, now, p)
+	tracing.TraceReqComplete(originalReq, now, p)
 	return nil
 }
 
@@ -321,6 +321,8 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 
 	c.ToCUs = akita.NewLimitNumReqPort(c, 1)
 	c.ToVMModules = akita.NewLimitNumReqPort(c, 1)
+
+	c.bottomReqIDToTopReqMap = make(map[string]*LaunchKernelReq)
 
 	return c
 }

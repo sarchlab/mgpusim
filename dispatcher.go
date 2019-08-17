@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/util/ca"
-	"gitlab.com/akita/vis/trace"
+	"gitlab.com/akita/util/tracing"
 	"gopkg.in/cheggaaa/pb.v1"
 )
 
@@ -111,13 +111,13 @@ const (
 // Dispatcher receives
 //
 //     KernelDispatchReq ---- Request the dispatcher to dispatch the a kernel
-//                            to the compute units
+//                            to the compute units (Initialize)
 //
 //     MapWGReq ---- The request return from the compute unit tells if the
-//                   compute unit is able to run the work-group
+//                   compute unit is able to run the work-group (Receive(?))
 //
 //     WGFinishMesg ---- The CU send this message to the dispatcher to notify
-//                       the completion of a workgroup
+//                       the completion of a workgroup (Finalization(?))
 //
 type Dispatcher struct {
 	*akita.ComponentBase
@@ -196,6 +196,8 @@ func (d *Dispatcher) handleLaunchKernelReq(
 	d.initKernelDispatching(req.Time(), req)
 	d.scheduleMapWG(d.Freq.NextTick(req.Time()))
 
+	tracing.TraceReqReceive(req, req.Time(), d)
+
 	return nil
 }
 
@@ -243,21 +245,9 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 	d.dispatchedWGs[wg.UID] = req
 	d.dispatchingCUID = cuID
 
-	task := trace.Task{
-		ID:           req.ID,
-		ParentID:     d.dispatchingReq.ID,
-		Where:        d.Name(),
-		Type:         "Work Group",
-		What:         "Work Group",
-		InitiateTime: float64(now),
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskInitiate,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.TraceReqInitiate(
+		req, now, d,
+		tracing.ReqIDAtReceiver(d.dispatchingReq, d))
 
 	return nil
 }
@@ -278,16 +268,9 @@ func (d *Dispatcher) initKernelDispatching(
 	d.progressBar.ShowTimeLeft = true
 	d.progressBar.Start()
 
-	task := trace.Task{
-		ID: req.ID,
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskStart,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.TraceReqReceive(
+		req, now, d)
+
 }
 
 func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {
@@ -295,7 +278,7 @@ func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {
 	d.engine.Schedule(evt)
 }
 
-// handleMapWGReq deals with the respond of the MapWGReq from a compute unit.
+// handleMapWGReq deals with the response of the MapWGReq from a compute unit.
 func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 	now := req.Time()
 
@@ -306,16 +289,8 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 
 		delete(d.dispatchedWGs, d.currentWG.UID)
 
-		task := trace.Task{
-			ID: req.ID,
-		}
-		ctx := akita.HookCtx{
-			Domain: d,
-			Now:    now,
-			Pos:    trace.HookPosTaskClear,
-			Item:   task,
-		}
-		d.InvokeHook(&ctx)
+		tracing.TraceReqReceive(
+			req, now, d)
 
 		return nil
 	}
@@ -336,16 +311,8 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	mapWGReq := d.dispatchedWGs[mesg.WG.UID]
 	delete(d.dispatchedWGs, mesg.WG.UID)
 
-	task := trace.Task{
-		ID: mapWGReq.ID,
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    mesg.Time(),
-		Pos:    trace.HookPosTaskClear,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.TraceReqFinalize(
+		mapWGReq, mesg.Time(), d)
 
 	if d.progressBar != nil {
 		d.progressBar.Increment()
@@ -379,16 +346,8 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 		log.Panic(err)
 	}
 
-	task := trace.Task{
-		ID: req.ID,
-	}
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    now,
-		Pos:    trace.HookPosTaskComplete,
-		Item:   task,
-	}
-	d.InvokeHook(&ctx)
+	tracing.TraceReqComplete(
+		req, now, d)
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/benchmarks"
@@ -209,4 +210,5 @@ func (r *Runner) Run() {
 			tracer.tracer.AverageTime(),
 		)
 	}
+	atexit.Exit(0)
 }

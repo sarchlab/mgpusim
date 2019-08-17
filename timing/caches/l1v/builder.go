@@ -1,8 +1,6 @@
 package l1v
 
 import (
-	"fmt"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -107,7 +105,10 @@ func (b *Builder) WithLowModuleFinder(
 func (b *Builder) Build(name string) *Cache {
 	b.assertAllRequiredInformationIsAvailable()
 
-	c := &Cache{}
+	c := &Cache{
+		log2BlockSize:  b.log2BlockSize,
+		numReqPerCycle: b.numReqsPerCycle,
+	}
 	c.TickingComponent = akitaext.NewTickingComponent(
 		name, b.engine, b.freq, c)
 
@@ -115,74 +116,39 @@ func (b *Builder) Build(name string) *Cache {
 	c.BottomPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
 	c.ControlPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
 
-	c.numReqPerCycle = b.numReqsPerCycle
-
 	c.dirBuf = util.NewBuffer(b.numReqsPerCycle)
 	c.bankBufs = make([]util.Buffer, b.numBank)
 	for i := 0; i < b.numBank; i++ {
 		c.bankBufs[i] = util.NewBuffer(b.numReqsPerCycle)
 	}
 
-	mshr := cache.NewMSHR(b.numMSHREntry)
+	c.mshr = cache.NewMSHR(b.numMSHREntry)
 	blockSize := 1 << b.log2BlockSize
 	numSets := int(b.totalByteSize / uint64(b.wayAssocitivity*blockSize))
-	dir := cache.NewDirectory(
+	c.directory = cache.NewDirectory(
 		numSets, b.wayAssocitivity, 1<<b.log2BlockSize,
 		cache.NewLRUVictimFinder())
-	storage := mem.NewStorage(b.totalByteSize)
+	c.storage = mem.NewStorage(b.totalByteSize)
+	c.bankLatency = b.bankLatency
+	c.wayAssociativity = b.wayAssocitivity
+	c.lowModuleFinder = b.lowModuleFinder
 
-	c.coalesceStage = &coalescer{
-		name:                     name + ".coalesce_stage",
-		topPort:                  c.TopPort,
-		dirBuf:                   c.dirBuf,
-		transactions:             &c.transactions,
-		postCoalesceTransactions: &c.postCoalesceTransactions,
-		log2BlockSize:            b.log2BlockSize,
-	}
-
-	c.directoryStage = &directory{
-		name:            name + ".directory_stage",
-		inBuf:           c.dirBuf,
-		dir:             dir,
-		mshr:            mshr,
-		bottomPort:      c.BottomPort,
-		bankBufs:        c.bankBufs,
-		lowModuleFinder: b.lowModuleFinder,
-		log2BlockSize:   b.log2BlockSize,
-	}
-
+	c.coalesceStage = &coalescer{cache: c}
+	c.directoryStage = &directory{cache: c}
 	for i := 0; i < b.numBank; i++ {
 		bs := &bankStage{
-			name:              fmt.Sprintf("%s.bank_stage%d", name, i),
-			inBuf:             c.bankBufs[i],
-			storage:           storage,
-			postCTransactions: &c.postCoalesceTransactions,
-			latency:           b.bankLatency,
-			log2BlockSize:     b.log2BlockSize,
+			cache:  c,
+			bankID: i,
 		}
 		c.bankStages = append(c.bankStages, bs)
 	}
-
-	c.parseBottomStage = &bottomParser{
-		name:             name + ".parse_bottom_stage",
-		bottomPort:       c.BottomPort,
-		mshr:             mshr,
-		bankBufs:         c.bankBufs,
-		transactions:     &c.postCoalesceTransactions,
-		log2BlockSize:    b.log2BlockSize,
-		wayAssociativity: b.wayAssocitivity,
-	}
-
-	c.respondStage = &respondStage{
-		name:         name + ".respond_stage",
-		topPort:      c.TopPort,
-		transactions: &c.transactions,
-	}
+	c.parseBottomStage = &bottomParser{cache: c}
+	c.respondStage = &respondStage{cache: c}
 
 	c.controlStage = &controlStage{
 		ctrlPort:     c.ControlPort,
 		transactions: &c.transactions,
-		directory:    dir,
+		directory:    c.directory,
 	}
 
 	return c

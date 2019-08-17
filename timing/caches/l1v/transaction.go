@@ -16,6 +16,8 @@ const (
 )
 
 type transaction struct {
+	id string
+
 	read                *mem.ReadReq
 	readToBottom        *mem.ReadReq
 	dataReadyFromBottom *mem.DataReadyRsp

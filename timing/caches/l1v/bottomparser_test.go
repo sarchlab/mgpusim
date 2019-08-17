@@ -7,17 +7,18 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/ca"
 )
 
 var _ = Describe("Bottom Parser", func() {
 	var (
-		mockCtrl          *gomock.Controller
-		bottomPort        *MockPort
-		bankBuf           *MockBuffer
-		mshr              *MockMSHR
-		postCTransactions []*transaction
-		p                 *bottomParser
+		mockCtrl   *gomock.Controller
+		bottomPort *MockPort
+		bankBuf    *MockBuffer
+		mshr       *MockMSHR
+		p          *bottomParser
+		c          *Cache
 	)
 
 	BeforeEach(func() {
@@ -25,15 +26,16 @@ var _ = Describe("Bottom Parser", func() {
 		bottomPort = NewMockPort(mockCtrl)
 		bankBuf = NewMockBuffer(mockCtrl)
 		mshr = NewMockMSHR(mockCtrl)
-		postCTransactions = nil
-		p = &bottomParser{
-			bottomPort:       bottomPort,
-			mshr:             mshr,
-			bankBufs:         []util.Buffer{bankBuf},
-			transactions:     &postCTransactions,
+		c = &Cache{
 			log2BlockSize:    6,
+			BottomPort:       bottomPort,
+			mshr:             mshr,
 			wayAssociativity: 4,
+			bankBufs:         []util.Buffer{bankBuf},
 		}
+		c.TickingComponent = akitaext.NewTickingComponent(
+			"cache", nil, 1, c)
+		p = &bottomParser{cache: c}
 	})
 
 	AfterEach(func() {
@@ -64,7 +66,8 @@ var _ = Describe("Bottom Parser", func() {
 				writeToBottom:           writeToBottom,
 				preCoalesceTransactions: []*transaction{preCTrans1, preCTrans2},
 			}
-			postCTransactions = append(postCTransactions, postCTrans)
+			c.postCoalesceTransactions = append(
+				c.postCoalesceTransactions, postCTrans)
 			done := mem.NewDoneRsp(11, nil, nil, writeToBottom.GetID())
 
 			bottomPort.EXPECT().Peek().Return(done)
@@ -75,7 +78,7 @@ var _ = Describe("Bottom Parser", func() {
 			Expect(madeProgress).To(BeTrue())
 			Expect(preCTrans1.done).To(BeTrue())
 			Expect(preCTrans2.done).To(BeTrue())
-			Expect(postCTransactions).NotTo(ContainElement(postCTrans))
+			Expect(c.postCoalesceTransactions).NotTo(ContainElement(postCTrans))
 		})
 	})
 
@@ -138,7 +141,7 @@ var _ = Describe("Bottom Parser", func() {
 					preCTrans2,
 				},
 			}
-			postCTransactions = append(postCTransactions, postCTrans1)
+			c.postCoalesceTransactions = append(c.postCoalesceTransactions, postCTrans1)
 
 			postCWrite = mem.NewWriteReq(0, nil, nil, 0x100)
 			postCWrite.Data = []byte{
@@ -189,12 +192,12 @@ var _ = Describe("Bottom Parser", func() {
 			Expect(preCTrans1.data).To(Equal([]byte{1, 2, 3, 4}))
 			Expect(preCTrans2.done).To(BeTrue())
 			Expect(preCTrans2.data).To(Equal([]byte{5, 6, 7, 8}))
-			Expect(postCTransactions).NotTo(ContainElement(postCTrans1))
+			Expect(c.postCoalesceTransactions).NotTo(ContainElement(postCTrans1))
 		})
 
 		It("should combine write", func() {
 			mshrEntry.Requests = append(mshrEntry.Requests, postCTrans2)
-			postCTransactions = append(postCTransactions, postCTrans2)
+			c.postCoalesceTransactions = append(c.postCoalesceTransactions, postCTrans2)
 
 			bottomPort.EXPECT().Peek().Return(dataReady)
 			bottomPort.EXPECT().Retrieve(gomock.Any())
@@ -235,8 +238,8 @@ var _ = Describe("Bottom Parser", func() {
 			Expect(preCTrans2.data).To(Equal([]byte{5, 6, 7, 8}))
 			Expect(preCTrans3.done).To(BeTrue())
 			Expect(preCTrans4.done).To(BeTrue())
-			Expect(postCTransactions).NotTo(ContainElement(postCTrans1))
-			Expect(postCTransactions).NotTo(ContainElement(postCTrans2))
+			Expect(c.postCoalesceTransactions).NotTo(ContainElement(postCTrans1))
+			Expect(c.postCoalesceTransactions).NotTo(ContainElement(postCTrans2))
 		})
 	})
 

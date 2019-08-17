@@ -23,4 +23,5 @@ __pycache__
 .idea
 vendor
 .DS_Store
+*.json
 __debug_bin

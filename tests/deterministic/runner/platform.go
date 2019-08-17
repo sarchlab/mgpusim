@@ -10,7 +10,6 @@ import (
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
-	"gitlab.com/akita/vis/trace"
 )
 
 var UseParallelEngine bool
@@ -50,15 +49,6 @@ func buildNR9NanoPlatformWithPerfectMemorySystem(
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
 		WithNumMemoryBank(8)
-
-	if TraceVis {
-		tracer := trace.NewMongoDBTracer()
-		tracer.Init()
-		hook := trace.NewHook(tracer)
-		gpuBuilder.SetTraceHook(hook)
-
-		gpuDriver.AcceptHook(hook)
-	}
 
 	if TraceMem {
 		gpuBuilder.EnableMemTracing = true

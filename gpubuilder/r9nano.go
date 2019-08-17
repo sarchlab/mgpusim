@@ -21,7 +21,6 @@ import (
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/util/tracing"
-	"gitlab.com/akita/vis/trace"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -38,10 +37,11 @@ type R9NanoGPUBuilder struct {
 	EnableISADebug    bool
 	EnableInstTracing bool
 	EnableMemTracing  bool
-	EnableVisTracing  bool
+	enableVisTracing  bool
+	visTracer         tracing.Tracer
+	MemTracer         tracing.Tracer
 
-	gpuName string
-
+	gpuName                           string
 	gpu                               *gcn3.GPU
 	InternalConn                      *akita.DirectConnection
 	CP                                *gcn3.CommandProcessor
@@ -73,10 +73,6 @@ type R9NanoGPUBuilder struct {
 	l1ToL2Connection                  *akita.DirectConnection
 	l2ToDramConnections               []*akita.DirectConnection
 	l1ITol1AddrTranslatorConnections  []*akita.DirectConnection
-
-	traceHook *trace.Hook
-
-	MemTracer tracing.Tracer
 }
 
 // MakeR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.
@@ -148,6 +144,14 @@ func (b R9NanoGPUBuilder) WithNumCUPerShaderArray(n int) R9NanoGPUBuilder {
 	return b
 }
 
+// WithVisTracer applies a tracer to trace all the tasks of all the GPU
+// components
+func (b R9NanoGPUBuilder) WithVisTracer(t tracing.Tracer) R9NanoGPUBuilder {
+	b.enableVisTracing = true
+	b.visTracer = t
+	return b
+}
+
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.gpuName = name
@@ -174,16 +178,6 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.connectVMToCP()
 
 	return b.gpu
-}
-
-// SetTraceHook sets to a hook that captures all the traces from GPU components.
-func (b *R9NanoGPUBuilder) SetTraceHook(h *trace.Hook) {
-	if h != nil {
-		b.EnableVisTracing = true
-	} else {
-		b.EnableVisTracing = false
-	}
-	b.traceHook = h
 }
 
 func (b *R9NanoGPUBuilder) reset() {
@@ -242,8 +236,9 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.CP.ToCUs)
 	b.InternalConn.PlugIn(b.CP.ToVMModules)
 
-	if b.EnableVisTracing {
-		b.ACE.AcceptHook(b.traceHook)
+	if b.enableVisTracing {
+		tracing.CollectTrace(b.CP, b.visTracer)
+		tracing.CollectTrace(b.ACE, b.visTracer)
 	}
 }
 
@@ -347,6 +342,10 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 		translationConn.PlugIn(at.TranslationPort)
 
 		b.l1vAddrTrans = append(b.l1vAddrTrans, at)
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(at, b.visTracer)
+		}
 	}
 	b.gpu.L1VAddrTranslator = append(
 		[]*addresstranslator.AddressTranslator{},
@@ -382,6 +381,10 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 		translationConn.PlugIn(at.TranslationPort)
 
 		b.l1sAddrTrans = append(b.l1sAddrTrans, at)
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(at, b.visTracer)
+		}
 	}
 	b.gpu.L1SAddrTranslator = append(
 		[]*addresstranslator.AddressTranslator{},
@@ -411,6 +414,10 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 		b.InternalConn.PlugIn(at.TranslationPort)
 
 		b.l1iAddrTrans = append(b.l1iAddrTrans, at)
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(at, b.visTracer)
+		}
 	}
 	b.gpu.L1IAddrTranslator = append(
 		[]*addresstranslator.AddressTranslator{},
@@ -432,6 +439,10 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 	b.l1TLBToL2TLBConnection.PlugIn(l2TLB.TopPort)
 	b.InternalConn.PlugIn(l2TLB.ControlPort)
 	b.externalConn.PlugIn(l2TLB.BottomPort)
+
+	if b.enableVisTracing {
+		tracing.CollectTrace(l2TLB, b.visTracer)
+	}
 
 	b.buildL1VTLBs()
 	b.buildL1STLBs()
@@ -462,6 +473,10 @@ func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 		conn.PlugIn(l1TLB.TopPort)
 		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(l1TLB, b.visTracer)
+		}
 	}
 }
 
@@ -487,6 +502,10 @@ func (b *R9NanoGPUBuilder) buildL1STLBs() {
 		conn.PlugIn(l1TLB.TopPort)
 		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(l1TLB, b.visTracer)
+		}
 	}
 }
 
@@ -508,6 +527,9 @@ func (b *R9NanoGPUBuilder) buildL1ITLBs() {
 		b.InternalConn.PlugIn(l1TLB.TopPort)
 		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
+		if b.enableVisTracing {
+			tracing.CollectTrace(l1TLB, b.visTracer)
+		}
 	}
 }
 
@@ -539,6 +561,9 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
 		if b.EnableMemTracing {
 			tracing.CollectTrace(sCache, b.MemTracer)
+		}
+		if b.enableVisTracing {
+			tracing.CollectTrace(sCache, b.visTracer)
 		}
 	}
 }
@@ -577,6 +602,9 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		if b.EnableMemTracing {
 			tracing.CollectTrace(iCache, b.MemTracer)
 		}
+		if b.enableVisTracing {
+			tracing.CollectTrace(iCache, b.visTracer)
+		}
 	}
 }
 
@@ -610,6 +638,9 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 
 		if b.EnableMemTracing {
 			tracing.CollectTrace(dCache, b.MemTracer)
+		}
+		if b.enableVisTracing {
+			tracing.CollectTrace(dCache, b.visTracer)
 		}
 	}
 }
@@ -647,6 +678,9 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		if b.EnableMemTracing {
 			tracing.CollectTrace(l2Cache, b.MemTracer)
 		}
+		if b.enableVisTracing {
+			tracing.CollectTrace(l2Cache, b.visTracer)
+		}
 	}
 }
 
@@ -680,6 +714,9 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 
 		if b.EnableMemTracing {
 			tracing.CollectTrace(memCtrl, b.MemTracer)
+		}
+		if b.enableVisTracing {
+			tracing.CollectTrace(memCtrl, b.visTracer)
 		}
 	}
 }
@@ -722,8 +759,8 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 			cu.AcceptHook(isaDebugger)
 		}
 
-		if b.EnableVisTracing {
-			cu.AcceptHook(b.traceHook)
+		if b.enableVisTracing {
+			tracing.CollectTrace(cu, b.visTracer)
 		}
 	}
 }

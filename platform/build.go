@@ -10,7 +10,7 @@ import (
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/noc"
-	"gitlab.com/akita/vis/trace"
+	"gitlab.com/akita/util/tracing"
 )
 
 var UseParallelEngine bool
@@ -55,7 +55,7 @@ func BuildNEmuGPUPlatform(n int) (
 	for i := 0; i < n; i++ {
 		gpu := gpuBuilder.
 			WithMemOffset(uint64(i+1) * 4 * mem.GB).
-			Build(fmt.Sprintf("GPU%d", i+1))
+			Build(fmt.Sprintf("GPU_%d", i+1))
 
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
 		connection.PlugIn(gpu.ToDriver)
@@ -101,12 +101,11 @@ func BuildNR9NanoPlatform(
 		WithNumMemoryBank(8)
 
 	if TraceVis {
-		tracer := trace.NewMongoDBTracer()
+		tracer := tracing.NewMongoDBTracer()
 		tracer.Init()
-		hook := trace.NewHook(tracer)
-		gpuBuilder.SetTraceHook(hook)
+		tracing.CollectTrace(gpuDriver, tracer)
 
-		gpuDriver.AcceptHook(hook)
+		gpuBuilder = gpuBuilder.WithVisTracer(tracer)
 	}
 
 	if TraceMem {
@@ -121,7 +120,7 @@ func BuildNR9NanoPlatform(
 	rdmaAddressTable.BankSize = 4 * mem.GB
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
 	for i := 1; i < numGPUs+1; i++ {
-		name := fmt.Sprintf("GPU%d", i)
+		name := fmt.Sprintf("GPU_%d", i)
 		memAddrOffset := uint64(i) * 4 * mem.GB
 		gpu := gpuBuilder.
 			WithMemAddrOffset(memAddrOffset).
