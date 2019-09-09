@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/gcn3/timing/wavefront"
@@ -60,7 +59,7 @@ func (c *mockCUComponent) Flush() {
 var _ = Describe("Scheduler", func() {
 	var (
 		mockCtrl         *gomock.Controller
-		engine           *mock_akita.MockEngine
+		engine           *MockEngine
 		cu               *ComputeUnit
 		branchUnit       *mockCUComponent
 		ldsDecoder       *mockCUComponent
@@ -70,14 +69,14 @@ var _ = Describe("Scheduler", func() {
 		scheduler        *SchedulerImpl
 		fetchArbitor     *mockWfArbitor
 		issueArbitor     *mockWfArbitor
-		instMem          *mock_akita.MockPort
-		toInstMem        *mock_akita.MockPort
+		instMem          *MockPort
+		toInstMem        *MockPort
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
-		engine = mock_akita.NewMockEngine(mockCtrl)
+		engine = NewMockEngine(mockCtrl)
 		cu = NewComputeUnit("cu", engine)
 		cu.Freq = 1
 
@@ -97,10 +96,10 @@ var _ = Describe("Scheduler", func() {
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
 		cu.SRegFile = NewSimpleRegisterFile(16384, 0)
 
-		instMem = mock_akita.NewMockPort(mockCtrl)
+		instMem = NewMockPort(mockCtrl)
 		cu.InstMem = instMem
 
-		toInstMem = mock_akita.NewMockPort(mockCtrl)
+		toInstMem = NewMockPort(mockCtrl)
 		cu.ToInstMem = toInstMem
 
 		fetchArbitor = newMockWfArbitor()
@@ -117,12 +116,12 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*wavefront.Wavefront{wf})
 
-		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src()).To(BeIdenticalTo(cu.ToInstMem))
-			Expect(req.Dst()).To(BeIdenticalTo(instMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
+			Expect(req.Dst).To(BeIdenticalTo(instMem))
 			Expect(req.Address).To(Equal(uint64(0x180)))
-			Expect(req.MemByteSize).To(Equal(uint64(64)))
+			Expect(req.AccessByteSize).To(Equal(uint64(64)))
 		})
 
 		scheduler.DoFetch(10)
@@ -138,12 +137,12 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*wavefront.Wavefront{wf})
 
-		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src()).To(BeIdenticalTo(cu.ToInstMem))
-			Expect(req.Dst()).To(BeIdenticalTo(instMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
+			Expect(req.Dst).To(BeIdenticalTo(instMem))
 			Expect(req.Address).To(Equal(uint64(0x180)))
-			Expect(req.MemByteSize).To(Equal(uint64(64)))
+			Expect(req.AccessByteSize).To(Equal(uint64(64)))
 		}).Return(&akita.SendError{})
 
 		scheduler.DoFetch(10)

@@ -90,7 +90,11 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			transactions[i].Read = mem.NewReadReq(0, nil, nil, 0x100, 4)
+			read := mem.ReadReqBuilder{}.
+				WithAddress(0x100).
+				WithByteSize(4).
+				Build()
+			transactions[i].Read = read
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
 
@@ -102,7 +106,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.InFlightVectorMemAccess).To(HaveLen(4))
-		Expect(cu.InFlightVectorMemAccess[3].Read.IsLastInWave).To(BeTrue())
+		Expect(cu.InFlightVectorMemAccess[3].Read.CanWaitForCoalesce).
+			To(BeFalse())
 		Expect(bu.SendBuf).To(HaveLen(4))
 	})
 
@@ -117,7 +122,10 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
-			transactions[i].Write = mem.NewWriteReq(0, nil, nil, 0x100)
+			write := mem.WriteReqBuilder{}.
+				WithAddress(0x100).
+				Build()
+			transactions[i].Write = write
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
 
@@ -127,13 +135,20 @@ var _ = Describe("Vector Memory Unit", func() {
 		Expect(wave.OutstandingVectorMemAccess).To(Equal(1))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(cu.InFlightVectorMemAccess).To(HaveLen(4))
-		Expect(cu.InFlightVectorMemAccess[3].Write.IsLastInWave).To(BeTrue())
+		Expect(cu.InFlightVectorMemAccess[3].Write.CanWaitForCoalesce).
+			To(BeFalse())
 		Expect(bu.SendBuf).To(HaveLen(4))
 	})
 
 	It("should send memory access requests", func() {
-		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem, 0, 4)
-		loadReq.SetSendTime(10)
+		loadReq := mem.ReadReqBuilder{}.
+			WithSendTime(10).
+			WithSrc(cu.ToVectorMem).
+			WithDst(vectorMem).
+			WithAddress(0).
+			WithByteSize(4).
+			Build()
+		loadReq.RecvTime = 10
 		bu.SendBuf = append(bu.SendBuf, loadReq)
 
 		toVectorMem.EXPECT().Send(loadReq)
@@ -143,7 +158,13 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should not remove request from read buffer, if send fails", func() {
-		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem, 0, 4)
+		loadReq := mem.ReadReqBuilder{}.
+			WithSendTime(10).
+			WithSrc(cu.ToVectorMem).
+			WithDst(vectorMem).
+			WithAddress(0).
+			WithByteSize(4).
+			Build()
 		bu.SendBuf = append(bu.SendBuf, loadReq)
 
 		toVectorMem.EXPECT().Send(loadReq).Return(&akita.SendError{})
@@ -172,7 +193,13 @@ var _ = Describe("Vector Memory Unit", func() {
 		bu.toRead = wave
 		bu.toWrite = wave
 
-		loadReq := mem.NewReadReq(10, cu.ToVectorMem, vectorMem, 0, 4)
+		loadReq := mem.ReadReqBuilder{}.
+			WithSendTime(10).
+			WithSrc(cu.ToVectorMem).
+			WithDst(vectorMem).
+			WithAddress(0).
+			WithByteSize(4).
+			Build()
 		bu.SendBuf = append(bu.SendBuf, loadReq)
 
 		bu.Flush()

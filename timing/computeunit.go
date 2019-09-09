@@ -61,7 +61,7 @@ type ComputeUnit struct {
 	ToCP akita.Port
 	CP   akita.Port
 
-	inCPRequestProcessingStage akita.Req
+	inCPRequestProcessingStage akita.Msg
 	cpRequestHandlingComplete  bool
 
 	isDraining bool
@@ -71,7 +71,7 @@ type ComputeUnit struct {
 	flushLatency   uint64
 	flushCycleLeft uint64
 
-	toSendToCP akita.Req
+	toSendToCP akita.Msg
 
 	currentFlushReq *gcn3.CUPipelineFlushReq
 }
@@ -232,7 +232,7 @@ func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) {
 	if cu.toSendToCP == nil {
 		return
 	}
-	cu.toSendToCP.SetSendTime(now)
+	cu.toSendToCP.Meta().SendTime = now
 	sendErr := cu.ToCP.Send(cu.toSendToCP)
 	if sendErr == nil {
 		cu.toSendToCP = nil
@@ -371,8 +371,8 @@ func (cu *ComputeUnit) handleMapWGReq(
 	}
 
 	req.Ok = false
-	req.SwapSrcAndDst()
-	req.SetSendTime(now)
+	req.Src, req.Dst = req.Dst, req.Src
+	req.SendTime = now
 	err := cu.ToACE.Send(req)
 	if err != nil {
 		log.Panic(err)
@@ -395,7 +395,7 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 		wf.State = wavefront.WfReady
 
 		tracing.StartTask(wf.UID,
-			tracing.ReqIDAtReceiver(evt.MapWGReq, cu),
+			tracing.MsgIDAtReceiver(evt.MapWGReq, cu),
 			now,
 			cu,
 			"wavefront",
@@ -408,8 +408,8 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 	if evt.IsLastInWG {
 		req := evt.MapWGReq
 		req.Ok = true
-		req.SwapSrcAndDst()
-		req.SetSendTime(evt.Time())
+		req.Src, req.Dst = req.Dst, req.Src
+		req.SendTime = evt.Time()
 		err := cu.ToACE.Send(req)
 		if err != nil {
 			log.Panic(err)
@@ -468,7 +468,7 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 	wg *wavefront.WorkGroup,
 ) bool {
 	mapReq := wg.MapReq
-	dispatcher := mapReq.Dst() // This is dst since the mapReq has been sent back already
+	dispatcher := mapReq.Dst // This is dst since the mapReq has been sent back already
 	now := evt.Time()
 	mesg := gcn3.NewWGFinishMesg(cu.ToACE, dispatcher, now, wg.WorkGroup)
 
@@ -607,7 +607,7 @@ func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
 		cu.handleVectorDataLoadReturn(now, rsp)
-	case *mem.DoneRsp:
+	case *mem.WriteDoneRsp:
 		cu.handleVectorDataStoreRsp(now, rsp)
 	default:
 		log.Panicf("cannot handle request of type %s from ToInstMem port",
@@ -650,7 +650,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		cu.VRegFile[wf.SIMDID].Write(access)
 	}
 
-	if info.Read.IsLastInWave {
+	if !info.Read.CanWaitForCoalesce {
 		wf.OutstandingVectorMemAccess--
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
@@ -663,7 +663,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	now akita.VTimeInSec,
-	rsp *mem.DoneRsp,
+	rsp *mem.WriteDoneRsp,
 ) {
 	info := cu.InFlightVectorMemAccess[0]
 	if info.Write.ID != rsp.RespondTo {
@@ -673,7 +673,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	tracing.TraceReqFinalize(info.Write, now, cu)
 
 	wf := info.Wavefront
-	if info.Write.IsLastInWave {
+	if !info.Write.CanWaitForCoalesce {
 		wf.OutstandingVectorMemAccess--
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
@@ -778,13 +778,13 @@ func NewComputeUnit(
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*wavefront.WorkGroup)
 
-	cu.ToACE = akita.NewLimitNumReqPort(cu, 4)
-	cu.ToInstMem = akita.NewLimitNumReqPort(cu, 4)
-	cu.ToScalarMem = akita.NewLimitNumReqPort(cu, 4)
-	cu.ToVectorMem = akita.NewLimitNumReqPort(cu, 4)
+	cu.ToACE = akita.NewLimitNumMsgPort(cu, 4)
+	cu.ToInstMem = akita.NewLimitNumMsgPort(cu, 4)
+	cu.ToScalarMem = akita.NewLimitNumMsgPort(cu, 4)
+	cu.ToVectorMem = akita.NewLimitNumMsgPort(cu, 4)
 
-	cu.ToCP = akita.NewLimitNumReqPort(cu, 4)
-	cu.CP = akita.NewLimitNumReqPort(cu, 4)
+	cu.ToCP = akita.NewLimitNumMsgPort(cu, 4)
+	cu.CP = akita.NewLimitNumMsgPort(cu, 4)
 
 	cu.flushLatency = 1000
 

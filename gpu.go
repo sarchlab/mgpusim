@@ -59,7 +59,7 @@ func (g *GPU) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
 // as Events.
 func (g *GPU) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
-	akita.ProcessReqAsEvent(req, g.engine, g.Freq)
+	akita.ProcessMsgAsEvent(req, g.engine, g.Freq)
 }
 
 // Handle defines how a GPU handles akita.
@@ -78,20 +78,20 @@ func (g *GPU) Handle(e akita.Event) error {
 
 	g.Lock()
 
-	req := e.(akita.Req)
+	req := e.(akita.Msg)
 
-	if req.Src() == g.CommandProcessor { // From the CommandProcessor
-		req.SetSrc(g.ToDriver)
-		req.SetDst(g.Driver)
-		req.SetSendTime(now)
+	if req.Meta().Src == g.CommandProcessor { // From the CommandProcessor
+		req.Meta().Src = g.ToDriver
+		req.Meta().Dst = g.Driver
+		req.Meta().SendTime = now
 		err := g.ToDriver.Send(req)
 		if err != nil {
 			panic(err)
 		}
-	} else if req.Src() == g.Driver { // From the Driver
-		req.SetSrc(g.ToCommandProcessor)
-		req.SetDst(g.CommandProcessor)
-		req.SetSendTime(now)
+	} else if req.Meta().Src == g.Driver { // From the Driver
+		req.Meta().Src = g.ToCommandProcessor
+		req.Meta().Dst = g.CommandProcessor
+		req.Meta().SendTime = now
 		err := g.ToCommandProcessor.Send(req)
 		if err != nil {
 			panic(err)
@@ -116,8 +116,8 @@ func NewGPU(name string, engine akita.Engine) *GPU {
 	g.engine = engine
 	g.Freq = 1 * akita.GHz
 
-	g.ToDriver = akita.NewLimitNumReqPort(g, 1)
-	g.ToCommandProcessor = akita.NewLimitNumReqPort(g, 1)
+	g.ToDriver = akita.NewLimitNumMsgPort(g, 1)
+	g.ToCommandProcessor = akita.NewLimitNumMsgPort(g, 1)
 
 	return g
 }

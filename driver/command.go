@@ -9,7 +9,7 @@ import (
 // A Command is a task to execute later
 type Command interface {
 	GetID() string
-	GetReqs() []akita.Req
+	GetReqs() []akita.Msg
 }
 
 // A MemCopyH2DCommand is a command that copies memory from the host to a
@@ -18,7 +18,7 @@ type MemCopyH2DCommand struct {
 	ID   string
 	Dst  GPUPtr
 	Src  interface{}
-	Reqs []akita.Req
+	Reqs []akita.Msg
 }
 
 // GetID returns the ID of the command
@@ -27,7 +27,7 @@ func (c *MemCopyH2DCommand) GetID() string {
 }
 
 // GetReq returns the request associated with the command
-func (c *MemCopyH2DCommand) GetReqs() []akita.Req {
+func (c *MemCopyH2DCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }
 
@@ -38,7 +38,7 @@ type MemCopyD2HCommand struct {
 	Dst     interface{}
 	Src     GPUPtr
 	RawData []byte
-	Reqs    []akita.Req
+	Reqs    []akita.Msg
 }
 
 // GetID returns the ID of the command
@@ -46,8 +46,8 @@ func (c *MemCopyD2HCommand) GetID() string {
 	return c.ID
 }
 
-// GetReq returns the request associated with the command
-func (c *MemCopyD2HCommand) GetReqs() []akita.Req {
+// GetReqs returns the request associated with the command
+func (c *MemCopyD2HCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }
 
@@ -61,7 +61,7 @@ type LaunchKernelCommand struct {
 	KernelArgs interface{}
 	Packet     *kernels.HsaKernelDispatchPacket
 	DPacket    GPUPtr
-	Reqs       []akita.Req
+	Reqs       []akita.Msg
 }
 
 // GetID returns the ID of the command
@@ -69,15 +69,15 @@ func (c *LaunchKernelCommand) GetID() string {
 	return c.ID
 }
 
-// GetReq returns the request associated with the command
-func (c *LaunchKernelCommand) GetReqs() []akita.Req {
+// GetReqs returns the request associated with the command
+func (c *LaunchKernelCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }
 
 // A FlushCommand is a command triggers the GPU cache to flush
 type FlushCommand struct {
 	ID   string
-	Reqs []akita.Req
+	Reqs []akita.Msg
 }
 
 // GetID returns the ID of the command
@@ -85,8 +85,8 @@ func (c *FlushCommand) GetID() string {
 	return c.ID
 }
 
-// GetReq returns the request associated with the command
-func (c *FlushCommand) GetReqs() []akita.Req {
+// GetReqs returns the request associated with the command
+func (c *FlushCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }
 
@@ -101,7 +101,7 @@ func (c *NoopCommand) GetID() string {
 	return c.ID
 }
 
-// GetReq returns the request associated with the command
-func (c *NoopCommand) GetReqs() []akita.Req {
+// GetReqs returns the request associated with the command
+func (c *NoopCommand) GetReqs() []akita.Msg {
 	return nil
 }

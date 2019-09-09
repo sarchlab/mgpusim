@@ -4,8 +4,6 @@ import (
 	"log"
 	"testing"
 
-	"gitlab.com/akita/akita/mock_akita"
-
 	"github.com/golang/mock/gomock"
 
 	. "github.com/onsi/ginkgo"
@@ -14,6 +12,8 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
+
+//go:generate mockgen -destination "mock_akita_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/akita Port,Engine
 
 func TestRDMA(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
@@ -25,22 +25,22 @@ var _ = Describe("Engine", func() {
 	var (
 		mockCtrl *gomock.Controller
 
-		engine        *mock_akita.MockEngine
+		engine        *MockEngine
 		rdmaEngine    *Engine
-		toInside      *mock_akita.MockPort
-		toOutside     *mock_akita.MockPort
+		toInside      *MockPort
+		toOutside     *MockPort
 		localModules  *cache.SingleLowModuleFinder
 		remoteModules *cache.SingleLowModuleFinder
-		localCache    *mock_akita.MockPort
-		remoteGPU     *mock_akita.MockPort
+		localCache    *MockPort
+		remoteGPU     *MockPort
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
-		engine = mock_akita.NewMockEngine(mockCtrl)
-		localCache = mock_akita.NewMockPort(mockCtrl)
-		remoteGPU = mock_akita.NewMockPort(mockCtrl)
+		engine = NewMockEngine(mockCtrl)
+		localCache = NewMockPort(mockCtrl)
+		remoteGPU = NewMockPort(mockCtrl)
 		localModules = new(cache.SingleLowModuleFinder)
 		localModules.LowModule = localCache
 		remoteModules = new(cache.SingleLowModuleFinder)
@@ -48,8 +48,8 @@ var _ = Describe("Engine", func() {
 
 		rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
 
-		toInside = mock_akita.NewMockPort(mockCtrl)
-		toOutside = mock_akita.NewMockPort(mockCtrl)
+		toInside = NewMockPort(mockCtrl)
+		toOutside = NewMockPort(mockCtrl)
 		rdmaEngine.ToInside = toInside
 		rdmaEngine.ToOutside = toOutside
 	})
@@ -62,8 +62,13 @@ var _ = Describe("Engine", func() {
 		var read *mem.ReadReq
 
 		BeforeEach(func() {
-			read = mem.NewReadReq(6,
-				localCache, rdmaEngine.ToOutside, 0x100, 64)
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithSrc(localCache).
+				WithDst(rdmaEngine.ToOutside).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
 		})
 
 		It("should send read to outside", func() {
@@ -94,8 +99,13 @@ var _ = Describe("Engine", func() {
 		var read *mem.ReadReq
 
 		BeforeEach(func() {
-			read = mem.NewReadReq(6,
-				remoteGPU, rdmaEngine.ToOutside, 0x100, 64)
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithSrc(localCache).
+				WithDst(rdmaEngine.ToOutside).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
 		})
 
 		It("should send read to outside", func() {
@@ -130,16 +140,27 @@ var _ = Describe("Engine", func() {
 		)
 
 		BeforeEach(func() {
-			readFromInside = mem.NewReadReq(4,
-				localCache, rdmaEngine.ToInside,
-				0x100, 64)
-			read = mem.NewReadReq(6,
-				rdmaEngine.ToOutside, remoteGPU,
-				0x100, 64)
-			rsp = mem.NewDataReadyRsp(9,
-				remoteGPU,
-				rdmaEngine.ToOutside,
-				read.GetID())
+			readFromInside = mem.ReadReqBuilder{}.
+				WithSendTime(4).
+				WithSrc(localCache).
+				WithDst(rdmaEngine.ToInside).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithSrc(rdmaEngine.ToOutside).
+				WithDst(remoteGPU).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
+			rsp = mem.DataReadyRspBuilder{}.
+				WithSendTime(9).
+				WithSrc(remoteGPU).
+				WithDst(rdmaEngine.ToOutside).
+				WithRspTo(read.ID).
+				Build()
+
 			rdmaEngine.transactionsFromInside = append(
 				rdmaEngine.transactionsFromInside,
 				transaction{
@@ -180,16 +201,26 @@ var _ = Describe("Engine", func() {
 		)
 
 		BeforeEach(func() {
-			readFromOutside = mem.NewReadReq(4,
-				localCache, rdmaEngine.ToInside,
-				0x100, 64)
-			read = mem.NewReadReq(6,
-				rdmaEngine.ToOutside, remoteGPU,
-				0x100, 64)
-			rsp = mem.NewDataReadyRsp(9,
-				remoteGPU,
-				rdmaEngine.ToOutside,
-				read.GetID())
+			readFromOutside = mem.ReadReqBuilder{}.
+				WithSendTime(4).
+				WithSrc(localCache).
+				WithDst(rdmaEngine.ToInside).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithSrc(rdmaEngine.ToOutside).
+				WithDst(remoteGPU).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
+			rsp = mem.DataReadyRspBuilder{}.
+				WithSendTime(9).
+				WithSrc(remoteGPU).
+				WithDst(rdmaEngine.ToOutside).
+				WithRspTo(read.ID).
+				Build()
 			rdmaEngine.transactionsFromOutside = append(
 				rdmaEngine.transactionsFromInside,
 				transaction{

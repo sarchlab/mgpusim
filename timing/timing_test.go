@@ -10,7 +10,7 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
-//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_akita_test.go gitlab.com/akita/akita Port
+//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_akita_test.go gitlab.com/akita/akita Port,Engine
 
 func TestSimulator(t *testing.T) {
 	log.SetOutput(GinkgoWriter)

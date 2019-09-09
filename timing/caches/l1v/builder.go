@@ -112,9 +112,9 @@ func (b *Builder) Build(name string) *Cache {
 	c.TickingComponent = akitaext.NewTickingComponent(
 		name, b.engine, b.freq, c)
 
-	c.TopPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
-	c.BottomPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
-	c.ControlPort = akita.NewLimitNumReqPort(c, b.numReqsPerCycle)
+	c.TopPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle)
+	c.BottomPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle)
+	c.ControlPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle)
 
 	c.dirBuf = util.NewBuffer(b.numReqsPerCycle)
 	c.bankBufs = make([]util.Buffer, b.numBank)

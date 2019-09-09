@@ -157,12 +157,12 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 
 	for i, t := range transactions {
 		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
-		if i == len(transactions)-1 {
-			t.Read.IsLastInWave = true
+		if i != len(transactions)-1 {
+			t.Read.CanWaitForCoalesce = true
 		}
 		lowModule := u.cu.VectorMemModules.Find(t.Read.Address)
-		t.Read.SetDst(lowModule)
-		t.Read.SetSrc(u.cu.ToVectorMem)
+		t.Read.Dst = lowModule
+		t.Read.Src = u.cu.ToVectorMem
 		t.Read.PID = u.toExec.PID()
 		u.SendBuf = append(u.SendBuf, t.Read)
 		tracing.TraceReqInitiate(t.Read, now, u.cu, u.toExec.DynamicInst().ID)
@@ -185,12 +185,12 @@ func (u *VectorMemoryUnit) executeFlatStore(
 
 	for i, t := range transactions {
 		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
-		if i == len(transactions)-1 {
-			t.Write.IsLastInWave = true
+		if i != len(transactions)-1 {
+			t.Write.CanWaitForCoalesce = true
 		}
 		lowModule := u.cu.VectorMemModules.Find(t.Write.Address)
-		t.Write.SetDst(lowModule)
-		t.Write.SetSrc(u.cu.ToVectorMem)
+		t.Write.Dst = lowModule
+		t.Write.Src = u.cu.ToVectorMem
 		t.Write.PID = u.toExec.PID()
 		u.SendBuf = append(u.SendBuf, t.Write)
 		tracing.TraceReqInitiate(t.Write, now, u.cu, u.toExec.DynamicInst().ID)
@@ -202,7 +202,7 @@ func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
 
 	if len(u.SendBuf) > 0 {
 		req := u.SendBuf[0]
-		req.SetSendTime(now)
+		req.Meta().SendTime = now
 		err := u.cu.ToVectorMem.Send(req)
 		if err == nil {
 			u.SendBuf = u.SendBuf[1:]

@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/timing/wavefront"
@@ -54,8 +53,8 @@ var _ = Describe("Scalar Unit", func() {
 		sp          *mockScratchpadPreparer
 		bu          *ScalarUnit
 		alu         *mockALU
-		scalarMem   *mock_akita.MockPort
-		toScalarMem *mock_akita.MockPort
+		scalarMem   *MockPort
+		toScalarMem *MockPort
 	)
 
 	BeforeEach(func() {
@@ -65,10 +64,10 @@ var _ = Describe("Scalar Unit", func() {
 		alu = new(mockALU)
 		bu = NewScalarUnit(cu, sp, alu)
 
-		scalarMem = mock_akita.NewMockPort(mockCtrl)
+		scalarMem = NewMockPort(mockCtrl)
 		cu.ScalarMem = scalarMem
 
-		toScalarMem = mock_akita.NewMockPort(mockCtrl)
+		toScalarMem = NewMockPort(mockCtrl)
 		cu.ToScalarMem = toScalarMem
 	})
 
@@ -172,15 +171,21 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should send request out", func() {
-		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem, 1024, 4)
+		req := mem.ReadReqBuilder{}.
+			WithSendTime(10).
+			WithSrc(cu.ToScalarMem).
+			WithDst(scalarMem).
+			WithAddress(1024).
+			WithByteSize(4).
+			Build()
 		bu.readBuf = append(bu.readBuf, req)
 
-		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src()).To(BeIdenticalTo(cu.ToScalarMem))
-			Expect(req.Dst()).To(BeIdenticalTo(scalarMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem))
+			Expect(req.Dst).To(BeIdenticalTo(scalarMem))
 			Expect(req.Address).To(Equal(uint64(1024)))
-			Expect(req.MemByteSize).To(Equal(uint64(4)))
+			Expect(req.AccessByteSize).To(Equal(uint64(4)))
 		})
 
 		bu.Run(11)
@@ -189,15 +194,21 @@ var _ = Describe("Scalar Unit", func() {
 	})
 
 	It("should retry if send request failed", func() {
-		req := mem.NewReadReq(10, cu.ToScalarMem, scalarMem, 1024, 4)
+		req := mem.ReadReqBuilder{}.
+			WithSendTime(10).
+			WithSrc(cu.ToScalarMem).
+			WithDst(scalarMem).
+			WithAddress(1024).
+			WithByteSize(4).
+			Build()
 		bu.readBuf = append(bu.readBuf, req)
 
-		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Req) {
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src()).To(BeIdenticalTo(cu.ToScalarMem))
-			Expect(req.Dst()).To(BeIdenticalTo(scalarMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem))
+			Expect(req.Dst).To(BeIdenticalTo(scalarMem))
 			Expect(req.Address).To(Equal(uint64(1024)))
-			Expect(req.MemByteSize).To(Equal(uint64(4)))
+			Expect(req.AccessByteSize).To(Equal(uint64(4)))
 		}).Return(&akita.SendError{})
 
 		bu.Run(11)

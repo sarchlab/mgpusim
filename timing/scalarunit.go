@@ -133,10 +133,14 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 	if len(u.readBuf) < u.readBufSize {
 		u.toExec.OutstandingScalarMemAccess++
 
-		req := mem.NewReadReq(now, u.cu.ToScalarMem, u.cu.ScalarMem,
-			sp.Base+sp.Offset, uint64(byteSize))
-		req.PID = u.toExec.PID()
-		req.IsLastInWave = true
+		req := mem.ReadReqBuilder{}.
+			WithSendTime(now).
+			WithSrc(u.cu.ToScalarMem).
+			WithDst(u.cu.ScalarMem).
+			WithAddress(sp.Base + sp.Offset).
+			WithPID(u.toExec.PID()).
+			WithByteSize(uint64(byteSize)).
+			Build()
 		u.readBuf = append(u.readBuf, req)
 
 		info := new(ScalarMemAccessInfo)
@@ -176,7 +180,7 @@ func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
 func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) bool {
 	if len(u.readBuf) > 0 {
 		req := u.readBuf[0]
-		req.SetSendTime(now)
+		req.SendTime = now
 		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]

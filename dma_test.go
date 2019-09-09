@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
@@ -13,18 +12,18 @@ import (
 var _ = Describe("DMAEngine", func() {
 	var (
 		mockCtrl          *gomock.Controller
-		engine            *mock_akita.MockEngine
-		toCP              *mock_akita.MockPort
-		toMem             *mock_akita.MockPort
+		engine            *MockEngine
+		toCP              *MockPort
+		toMem             *MockPort
 		localModuleFinder *cache.SingleLowModuleFinder
 		dmaEngine         *DMAEngine
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		engine = mock_akita.NewMockEngine(mockCtrl)
-		toCP = mock_akita.NewMockPort(mockCtrl)
-		toMem = mock_akita.NewMockPort(mockCtrl)
+		engine = NewMockEngine(mockCtrl)
+		toCP = NewMockPort(mockCtrl)
+		toMem = NewMockPort(mockCtrl)
 
 		localModuleFinder = new(cache.SingleLowModuleFinder)
 		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
@@ -92,25 +91,42 @@ var _ = Describe("DMAEngine", func() {
 		req := NewMemCopyD2HReq(5, nil, toCP, 20, dstBuf)
 		dmaEngine.processingReq = req
 
-		reqToBottom1 := mem.NewReadReq(6, toMem, nil, 20, 44)
-		reqToBottom2 := mem.NewReadReq(6, toMem, nil, 64, 64)
-		reqToBottom3 := mem.NewReadReq(6, toMem, nil, 128, 20)
+		reqToBottom1 := mem.ReadReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(20).
+			WithByteSize(64).
+			Build()
+		reqToBottom2 := mem.ReadReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(64).
+			WithByteSize(64).
+			Build()
+		reqToBottom3 := mem.ReadReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(128).
+			WithByteSize(64).
+			Build()
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom1)
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom2)
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom3)
 
-		dataReady := mem.NewDataReadyRsp(7, nil, toMem, reqToBottom2.ID)
-		dataReady.Data = []byte{
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-		}
-
+		dataReady := mem.DataReadyRspBuilder{}.
+			WithSendTime(7).
+			WithDst(toMem).
+			WithRspTo(reqToBottom2.ID).
+			WithData([]byte{
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+			}).Build()
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(dataReady)
 
 		dmaEngine.parseFromMem(10)
@@ -128,21 +144,29 @@ var _ = Describe("DMAEngine", func() {
 		req := NewMemCopyD2HReq(5, nil, toCP, 20, dstBuf)
 		dmaEngine.processingReq = req
 
-		reqToBottom2 := mem.NewReadReq(6, toMem, nil, 64, 64)
+		reqToBottom2 := mem.ReadReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(64).
+			WithByteSize(64).
+			Build()
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom2)
 
-		dataReady := mem.NewDataReadyRsp(7, nil, toMem, reqToBottom2.ID)
-		dataReady.Data = []byte{
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-			1, 2, 3, 4, 5, 6, 7, 8,
-		}
-
+		dataReady := mem.DataReadyRspBuilder{}.
+			WithSendTime(7).
+			WithDst(toMem).
+			WithRspTo(reqToBottom2.ID).
+			WithData([]byte{
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+				1, 2, 3, 4, 5, 6, 7, 8,
+			}).
+			Build()
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(dataReady)
 
 		dmaEngine.parseFromMem(10)
@@ -159,14 +183,31 @@ var _ = Describe("DMAEngine", func() {
 		req := NewMemCopyH2DReq(5, nil, toCP, srcBuf, 20)
 		dmaEngine.processingReq = req
 
-		reqToBottom1 := mem.NewWriteReq(6, toMem, nil, 20)
-		reqToBottom2 := mem.NewWriteReq(6, toMem, nil, 64)
-		reqToBottom3 := mem.NewWriteReq(6, toMem, nil, 128)
+		reqToBottom1 := mem.WriteReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(20).
+			Build()
+		reqToBottom2 := mem.WriteReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(64).
+			Build()
+		reqToBottom3 := mem.WriteReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(128).
+			Build()
+
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom1)
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom2)
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom3)
 
-		done := mem.NewDoneRsp(7, nil, toMem, reqToBottom2.ID)
+		done := mem.WriteDoneRspBuilder{}.
+			WithSendTime(7).
+			WithDst(toMem).
+			WithRspTo(reqToBottom2.ID).
+			Build()
 
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(done)
 
@@ -184,10 +225,18 @@ var _ = Describe("DMAEngine", func() {
 		req := NewMemCopyH2DReq(5, nil, toCP, srcBuf, 20)
 		dmaEngine.processingReq = req
 
-		reqToBottom2 := mem.NewWriteReq(6, toMem, nil, 64)
+		reqToBottom2 := mem.WriteReqBuilder{}.
+			WithSendTime(6).
+			WithSrc(toMem).
+			WithAddress(64).
+			Build()
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom2)
 
-		done := mem.NewDoneRsp(7, nil, toMem, reqToBottom2.ID)
+		done := mem.WriteDoneRspBuilder{}.
+			WithSendTime(7).
+			WithDst(toMem).
+			WithRspTo(reqToBottom2.ID).
+			Build()
 
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(done)
 

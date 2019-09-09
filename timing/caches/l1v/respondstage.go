@@ -31,8 +31,13 @@ func (s *respondStage) respondReadTrans(
 	}
 
 	read := trans.read
-	dr := mem.NewDataReadyRsp(now, s.cache.TopPort, read.Src(), read.GetID())
-	dr.Data = trans.data
+	dr := mem.DataReadyRspBuilder{}.
+		WithSendTime(now).
+		WithSrc(s.cache.TopPort).
+		WithDst(read.Src).
+		WithRspTo(read.ID).
+		WithData(trans.data).
+		Build()
 	err := s.cache.TopPort.Send(dr)
 	if err != nil {
 		return false
@@ -54,7 +59,12 @@ func (s *respondStage) respondWriteTrans(
 	}
 
 	write := trans.write
-	done := mem.NewDoneRsp(now, s.cache.TopPort, write.Src(), write.GetID())
+	done := mem.WriteDoneRspBuilder{}.
+		WithSendTime(now).
+		WithSrc(s.cache.TopPort).
+		WithDst(write.Src).
+		WithRspTo(write.ID).
+		Build()
 	err := s.cache.TopPort.Send(done)
 	if err != nil {
 		return false

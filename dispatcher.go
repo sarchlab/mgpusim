@@ -6,36 +6,9 @@ import (
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/util/ca"
 	"gitlab.com/akita/util/tracing"
 	"gopkg.in/cheggaaa/pb.v1"
 )
-
-// MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to
-// ask the ComputeUnit to reserve resources for the work-group
-type MapWGReq struct {
-	*akita.ReqBase
-
-	WG               *kernels.WorkGroup
-	PID              ca.PID
-	Ok               bool
-	CUOutOfResources bool
-}
-
-// NewMapWGReq returns a newly created MapWGReq
-func NewMapWGReq(
-	src, dst akita.Port,
-	time akita.VTimeInSec,
-	wg *kernels.WorkGroup,
-) *MapWGReq {
-	r := new(MapWGReq)
-	r.ReqBase = akita.NewReqBase()
-	r.SetSrc(src)
-	r.SetDst(dst)
-	r.SetSendTime(time)
-	r.WG = wg
-	return r
-}
 
 // A MapWGEvent is an event used by the dispatcher to map a work-group
 type MapWGEvent struct {
@@ -47,31 +20,6 @@ func NewMapWGEvent(t akita.VTimeInSec, handler akita.Handler) *MapWGEvent {
 	e := new(MapWGEvent)
 	e.EventBase = akita.NewEventBase(t, handler)
 	return e
-}
-
-// A WGFinishMesg is sent by a compute unit to notify about the completion of
-// a work-group
-type WGFinishMesg struct {
-	*akita.ReqBase
-
-	WG *kernels.WorkGroup
-}
-
-// NewWGFinishMesg creates and returns a newly created WGFinishMesg
-func NewWGFinishMesg(
-	src, dst akita.Port,
-	time akita.VTimeInSec,
-	wg *kernels.WorkGroup,
-) *WGFinishMesg {
-	m := new(WGFinishMesg)
-	m.ReqBase = akita.NewReqBase()
-
-	m.SetSrc(src)
-	m.SetDst(dst)
-	m.SetSendTime(time)
-	m.WG = wg
-
-	return m
 }
 
 // DispatcherState defines the current state of the dispatcher
@@ -146,7 +94,7 @@ type Dispatcher struct {
 
 func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
-	akita.ProcessReqAsEvent(req, d.engine, d.Freq)
+	akita.ProcessMsgAsEvent(req, d.engine, d.Freq)
 }
 
 func (d *Dispatcher) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
@@ -173,7 +121,6 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 		d.handleMapWGReq(evt)
 	case *WGFinishMesg:
 		d.handleWGFinishMesg(evt)
-
 	default:
 		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
 	}
@@ -207,8 +154,8 @@ func (d *Dispatcher) replyLaunchKernelReq(
 	now akita.VTimeInSec,
 ) *akita.SendError {
 	req.OK = ok
-	req.SwapSrcAndDst()
-	req.SetSendTime(req.RecvTime())
+	req.Src, req.Dst = req.Dst, req.Src
+	req.SendTime = req.RecvTime
 	return d.ToCommandProcessor.Send(req)
 }
 
@@ -247,7 +194,7 @@ func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
 
 	tracing.TraceReqInitiate(
 		req, now, d,
-		tracing.ReqIDAtReceiver(d.dispatchingReq, d))
+		tracing.MsgIDAtReceiver(d.dispatchingReq, d))
 
 	return nil
 }
@@ -306,7 +253,7 @@ func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
 
 func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 	d.completedWGs = append(d.completedWGs, mesg.WG)
-	d.cuBusy[mesg.Src()] = false
+	d.cuBusy[mesg.Src] = false
 
 	mapWGReq := d.dispatchedWGs[mesg.WG.UID]
 	delete(d.dispatchedWGs, mesg.WG.UID)
@@ -335,8 +282,8 @@ func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
 
 func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 	req := d.dispatchingReq
-	req.SwapSrcAndDst()
-	req.SetSendTime(now)
+	req.Src, req.Dst = req.Dst, req.Src
+	req.SendTime = now
 
 	d.completedWGs = nil
 	d.dispatchingReq = nil
@@ -389,8 +336,8 @@ func NewDispatcher(
 	d.cuBusy = make(map[akita.Port]bool, 0)
 	d.dispatchedWGs = make(map[string]*MapWGReq)
 
-	d.ToCommandProcessor = akita.NewLimitNumReqPort(d, 1)
-	d.ToCUs = akita.NewLimitNumReqPort(d, 1)
+	d.ToCommandProcessor = akita.NewLimitNumMsgPort(d, 1)
+	d.ToCUs = akita.NewLimitNumMsgPort(d, 1)
 
 	d.state = DispatcherIdle
 

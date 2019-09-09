@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
@@ -104,16 +103,16 @@ var _ = Describe("ComputeUnit", func() {
 	var (
 		mockCtrl         *gomock.Controller
 		cu               *ComputeUnit
-		engine           *mock_akita.MockEngine
+		engine           *MockEngine
 		wgMapper         *mockWGMapper
 		wfDispatcher     *mockWfDispatcher
 		decoder          *mockDecoder
-		toInstMem        *mock_akita.MockPort
-		toScalarMem      *mock_akita.MockPort
-		toVectorMem      *mock_akita.MockPort
-		toACE            *mock_akita.MockPort
-		toCP             *mock_akita.MockPort
-		cp               *mock_akita.MockPort
+		toInstMem        *MockPort
+		toScalarMem      *MockPort
+		toVectorMem      *MockPort
+		toACE            *MockPort
+		toCP             *MockPort
+		cp               *MockPort
 		branchUnit       *mock_timing.MockCUComponent
 		vectorMemDecoder *mock_timing.MockCUComponent
 		vectorMemUnit    *mock_timing.MockCUComponent
@@ -124,7 +123,7 @@ var _ = Describe("ComputeUnit", func() {
 		simdUnit         *mock_timing.MockCUComponent
 		ldsUnit          *mock_timing.MockCUComponent
 
-		instMem *mock_akita.MockPort
+		instMem *MockPort
 
 		grid *kernels.Grid
 
@@ -133,7 +132,7 @@ var _ = Describe("ComputeUnit", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		engine = mock_akita.NewMockEngine(mockCtrl)
+		engine = NewMockEngine(mockCtrl)
 		wgMapper = new(mockWGMapper)
 		wfDispatcher = new(mockWfDispatcher)
 		decoder = new(mockDecoder)
@@ -172,20 +171,20 @@ var _ = Describe("ComputeUnit", func() {
 			cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
 		}
 
-		toInstMem = mock_akita.NewMockPort(mockCtrl)
-		toACE = mock_akita.NewMockPort(mockCtrl)
-		toScalarMem = mock_akita.NewMockPort(mockCtrl)
-		toVectorMem = mock_akita.NewMockPort(mockCtrl)
+		toInstMem = NewMockPort(mockCtrl)
+		toACE = NewMockPort(mockCtrl)
+		toScalarMem = NewMockPort(mockCtrl)
+		toVectorMem = NewMockPort(mockCtrl)
 		cu.ToInstMem = toInstMem
 		cu.ToACE = toACE
 		cu.ToScalarMem = toScalarMem
 		cu.ToVectorMem = toVectorMem
 
-		instMem = mock_akita.NewMockPort(mockCtrl)
+		instMem = NewMockPort(mockCtrl)
 		cu.InstMem = instMem
 
-		toCP = mock_akita.NewMockPort(mockCtrl)
-		cp = mock_akita.NewMockPort(mockCtrl)
+		toCP = NewMockPort(mockCtrl)
+		cp = NewMockPort(mockCtrl)
 
 		cu.ToCP = toCP
 		cu.CP = cp
@@ -205,8 +204,8 @@ var _ = Describe("ComputeUnit", func() {
 		BeforeEach(func() {
 			wg := grid.WorkGroups[0]
 			req = gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
-			req.SetRecvTime(10)
-			req.SetEventTime(10)
+			req.RecvTime = 10
+			req.EventTime = 10
 
 			toACE.EXPECT().Retrieve(gomock.Any()).Return(req)
 		})
@@ -236,22 +235,33 @@ var _ = Describe("ComputeUnit", func() {
 			wf.SetDynamicInst(inst)
 			wf.PC = 0x1000
 
-			req := mem.NewReadReq(8, cu.ToInstMem, instMem, 0x100, 64)
+			req := mem.ReadReqBuilder{}.
+				WithSendTime(8).
+				WithSrc(cu.ToInstMem).
+				WithDst(instMem).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
 
-			dataReady = mem.NewDataReadyRsp(10,
-				instMem, cu.ToInstMem, req.ID)
-			dataReady.Data = []byte{
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-			}
-			dataReady.SetRecvTime(10)
-			dataReady.SetEventTime(10)
+			dataReady = mem.DataReadyRspBuilder{}.
+				WithSendTime(10).
+				WithSrc(instMem).
+				WithDst(cu.ToInstMem).
+				WithRspTo(req.ID).
+				WithData([]byte{
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+				}).
+				Build()
+
+			dataReady.RecvTime = 10
+			dataReady.EventTime = 10
 			toInstMem.EXPECT().Retrieve(gomock.Any()).Return(dataReady)
 
 			info := new(InstFetchReqInfo)
@@ -279,7 +289,12 @@ var _ = Describe("ComputeUnit", func() {
 			wf.SRegOffset = 0
 			wf.OutstandingScalarMemAccess = 1
 
-			read := mem.NewReadReq(8, cu.ToScalarMem, nil, 0x100, 4)
+			read := mem.ReadReqBuilder{}.
+				WithSendTime(8).
+				WithSrc(cu.ToScalarMem).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
 
 			info := new(ScalarMemAccessInfo)
 			info.Inst = wavefront.NewInst(insts.NewInst())
@@ -288,9 +303,12 @@ var _ = Describe("ComputeUnit", func() {
 			info.Req = read
 			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
 
-			req := mem.NewDataReadyRsp(10, nil, nil, read.ID)
-			req.Data = insts.Uint32ToBytes(32)
-			req.SetSendTime(10)
+			req := mem.DataReadyRspBuilder{}.
+				WithSendTime(10).
+				WithRspTo(read.ID).
+				WithData(insts.Uint32ToBytes(32)).
+				Build()
+			req.RecvTime = 10
 			toScalarMem.EXPECT().Retrieve(gomock.Any()).Return(req)
 
 			cu.processInputFromScalarMem(10)
@@ -327,7 +345,12 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			read = mem.NewReadReq(8, nil, nil, 0x100, 16)
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(8).
+				WithAddress(0x100).
+				WithByteSize(16).
+				CanWaitForCoalesce().
+				Build()
 
 			info = VectorMemAccessInfo{}
 			info.Read = read
@@ -342,8 +365,11 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightVectorMemAccess = append(
 				cu.InFlightVectorMemAccess, info)
 
-			dataReady := mem.NewDataReadyRsp(10, nil, nil, read.ID)
-			dataReady.Data = make([]byte, 64)
+			dataReady := mem.DataReadyRspBuilder{}.
+				WithSendTime(10).
+				WithRspTo(read.ID).
+				WithData(make([]byte, 16)).
+				Build()
 			for i := 0; i < 4; i++ {
 				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
@@ -370,7 +396,7 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle vector data load return, and the return is the last one for an instruction", func() {
-			read.IsLastInWave = true
+			read.CanWaitForCoalesce = false
 
 			cu.processInputFromVectorMem(10)
 
@@ -396,7 +422,7 @@ var _ = Describe("ComputeUnit", func() {
 			wf       *wavefront.Wavefront
 			info     VectorMemAccessInfo
 			writeReq *mem.WriteReq
-			doneRsp  *mem.DoneRsp
+			doneRsp  *mem.WriteDoneRsp
 		)
 
 		BeforeEach(func() {
@@ -410,7 +436,11 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingVectorMemAccess = 1
 			wf.OutstandingScalarMemAccess = 1
 
-			writeReq = mem.NewWriteReq(8, nil, nil, 0x100)
+			writeReq = mem.WriteReqBuilder{}.
+				WithSendTime(8).
+				WithAddress(0x100).
+				CanWaitForCoalesce().
+				Build()
 
 			info = VectorMemAccessInfo{}
 			info.Wavefront = wf
@@ -418,7 +448,10 @@ var _ = Describe("ComputeUnit", func() {
 			info.Write = writeReq
 			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
 
-			doneRsp = mem.NewDoneRsp(10, nil, nil, writeReq.ID)
+			doneRsp = mem.WriteDoneRspBuilder{}.
+				WithSendTime(10).
+				WithRspTo(writeReq.ID).
+				Build()
 			toVectorMem.EXPECT().Retrieve(gomock.Any()).Return(doneRsp)
 		})
 
@@ -430,7 +463,7 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle vector data store return and the return is the last one from an instruction", func() {
-			writeReq.IsLastInWave = true
+			writeReq.CanWaitForCoalesce = false
 
 			cu.processInputFromVectorMem(10)
 
@@ -442,7 +475,7 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle flush and drain requests", func() {
 		It("handle a Pipeline drain request from CP", func() {
 			req := gcn3.NewCUPipelineDrainReq(10, nil, cu.ToCP)
-			req.SetEventTime(10)
+			req.EventTime = 10
 
 			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
@@ -454,7 +487,7 @@ var _ = Describe("ComputeUnit", func() {
 		})
 		It("should handle a pipeline flush request from CU", func() {
 			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
-			req.SetEventTime(10)
+			req.EventTime = 10
 
 			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
@@ -487,8 +520,8 @@ var _ = Describe("ComputeUnit", func() {
 			cu.isPaused = true
 
 			rsp := gcn3.NewCUPipelineRestartReq(10, nil, cu.ToCP)
-			rsp.SetRecvTime(10)
-			rsp.SetEventTime(10)
+			rsp.RecvTime = 10
+			rsp.EventTime = 10
 
 			toCP.EXPECT().Retrieve(gomock.Any()).Return(rsp)
 
@@ -499,7 +532,7 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should flush the full CU", func() {
 			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
-			req.SetEventTime(10)
+			req.EventTime = 10
 
 			cu.currentFlushReq = req
 

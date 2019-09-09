@@ -53,8 +53,8 @@ func NewShootdownControlComponent(
 ) *ShootdownControlComponent {
 	ctrl := new(ShootdownControlComponent)
 	ctrl.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, ctrl)
-	ctrl.toCU = akita.NewLimitNumReqPort(ctrl, 1)
-	ctrl.toVMModule = akita.NewLimitNumReqPort(ctrl, 1)
+	ctrl.toCU = akita.NewLimitNumMsgPort(ctrl, 1)
+	ctrl.toVMModule = akita.NewLimitNumMsgPort(ctrl, 1)
 	return ctrl
 
 }
@@ -101,7 +101,10 @@ func (ctrlComp *ShootdownControlComponent) handleShootdownReqEvent(evt *Shootdow
 
 }
 
-func (ctrlComp *ShootdownControlComponent) handleCURsp(now akita.VTimeInSec, req akita.Req) {
+func (ctrlComp *ShootdownControlComponent) handleCURsp(
+	now akita.VTimeInSec,
+	req akita.Msg,
+) {
 
 	ctrlComp.cuRspsReceived++
 
@@ -129,7 +132,9 @@ func (ctrlComp *ShootdownControlComponent) handleCURsp(now akita.VTimeInSec, req
 
 }
 
-func (ctrlComp *ShootdownControlComponent) handleVMUnitRsp(now akita.VTimeInSec, req akita.Req) {
+func (ctrlComp *ShootdownControlComponent) handleVMUnitRsp(
+	now akita.VTimeInSec,
+	req akita.Msg) {
 
 	ctrlComp.vmRspsReceived++
 
@@ -322,7 +327,8 @@ func main() {
 	ctrlComponent.gpuDriver = r.GPUDriver
 
 	for i := 0; i < len(r.GPUDriver.GPUs[0].CUs); i++ {
-		ctrlComponent.cus = append(ctrlComponent.cus, akita.NewLimitNumReqPort(ctrlComponent, 1))
+		ctrlComponent.cus = append(ctrlComponent.cus,
+			akita.NewLimitNumMsgPort(ctrlComponent, 1))
 		r.GPUDriver.GPUs[0].InternalConnection.PlugIn(ctrlComponent.cus[i])
 	}
 
@@ -345,7 +351,7 @@ func main() {
 	totalVMUnits := l1VTLBCount + l1STLBCount + l1ITLBCount + mmuCount + l2TLBCount
 
 	for i := 0; i < totalVMUnits; i++ {
-		ctrlComponent.vmModules = append(ctrlComponent.vmModules, akita.NewLimitNumReqPort(ctrlComponent, 1))
+		ctrlComponent.vmModules = append(ctrlComponent.vmModules, akita.NewLimitNumMsgPort(ctrlComponent, 1))
 		r.GPUDriver.GPUs[0].InternalConnection.PlugIn(ctrlComponent.vmModules[i])
 	}
 

@@ -213,15 +213,15 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 	write := trans.write
 	addr := write.Address
 
-	writeToBottom := mem.NewWriteReq(
-		now,
-		d.cache.BottomPort,
-		d.cache.lowModuleFinder.Find(addr),
-		addr,
-	)
-	writeToBottom.Data = write.Data
-	writeToBottom.DirtyMask = write.DirtyMask
-	writeToBottom.PID = write.PID
+	writeToBottom := mem.WriteReqBuilder{}.
+		WithSendTime(now).
+		WithSrc(d.cache.BottomPort).
+		WithDst(d.cache.lowModuleFinder.Find(addr)).
+		WithAddress(addr).
+		WithPID(write.PID).
+		WithData(write.Data).
+		WithDirtyMask(write.DirtyMask).
+		Build()
 
 	err := d.cache.BottomPort.Send(writeToBottom)
 	if err != nil {
@@ -285,9 +285,14 @@ func (d *directory) fetchFromBottom(
 	cacheLineID := addr / blockSize * blockSize
 
 	bottomModule := d.cache.lowModuleFinder.Find(cacheLineID)
-	readToBottom := mem.NewReadReq(now, d.cache.BottomPort, bottomModule,
-		cacheLineID, 1<<d.cache.log2BlockSize)
-	readToBottom.PID = pid
+	readToBottom := mem.ReadReqBuilder{}.
+		WithSendTime(now).
+		WithSrc(d.cache.BottomPort).
+		WithDst(bottomModule).
+		WithAddress(cacheLineID).
+		WithPID(pid).
+		WithByteSize(blockSize).
+		Build()
 	err := d.cache.BottomPort.Send(readToBottom)
 	if err != nil {
 		return false

@@ -18,11 +18,11 @@ type DMAEngine struct {
 
 	localDataSource cache.LowModuleFinder
 
-	processingReq akita.Req
+	processingReq akita.Msg
 
-	toSendToMem []akita.Req
-	toSendToCP  []akita.Req
-	pendingReqs []akita.Req
+	toSendToMem []akita.Msg
+	toSendToCP  []akita.Msg
+	pendingReqs []akita.Msg
 
 	ToCP  akita.Port
 	ToMem akita.Port
@@ -57,14 +57,14 @@ func (dma *DMAEngine) tick(evt akita.TickEvent) error {
 func (dma *DMAEngine) send(
 	now akita.VTimeInSec,
 	port akita.Port,
-	reqs *[]akita.Req,
+	reqs *[]akita.Msg,
 ) {
 	if len(*reqs) == 0 {
 		return
 	}
 
 	req := (*reqs)[0]
-	req.SetSendTime(now)
+	req.Meta().SendTime = now
 	err := port.Send(req)
 	if err == nil {
 		dma.NeedTick = true
@@ -83,7 +83,7 @@ func (dma *DMAEngine) parseFromMem(now akita.VTimeInSec) {
 	switch req := req.(type) {
 	case *mem.DataReadyRsp:
 		dma.processDataReadyRsp(now, req)
-	case *mem.DoneRsp:
+	case *mem.WriteDoneRsp:
 		dma.processDoneRsp(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
@@ -102,29 +102,29 @@ func (dma *DMAEngine) processDataReadyRsp(
 
 	if len(dma.pendingReqs) == 0 {
 		dma.processingReq = nil
-		processing.SwapSrcAndDst()
+		processing.Src, processing.Dst = processing.Dst, processing.Src
 		dma.toSendToCP = append(dma.toSendToCP, processing)
 	}
 }
 
 func (dma *DMAEngine) processDoneRsp(
 	now akita.VTimeInSec,
-	rsp *mem.DoneRsp,
+	rsp *mem.WriteDoneRsp,
 ) {
 	dma.removeReqFromPendingReqList(rsp.RespondTo)
 	processing := dma.processingReq.(*MemCopyH2DReq)
 	if len(dma.pendingReqs) == 0 {
 		dma.processingReq = nil
-		processing.SwapSrcAndDst()
+		processing.Src, processing.Dst = processing.Dst, processing.Src
 		dma.toSendToCP = append(dma.toSendToCP, processing)
 	}
 }
 
-func (dma *DMAEngine) removeReqFromPendingReqList(id string) akita.Req {
-	var reqToRet akita.Req
-	newList := make([]akita.Req, 0, len(dma.pendingReqs)-1)
+func (dma *DMAEngine) removeReqFromPendingReqList(id string) akita.Msg {
+	var reqToRet akita.Msg
+	newList := make([]akita.Msg, 0, len(dma.pendingReqs)-1)
 	for _, r := range dma.pendingReqs {
-		if r.GetID() == id {
+		if r.Meta().ID == id {
 			reqToRet = r
 		} else {
 			newList = append(newList, r)
@@ -181,8 +181,13 @@ func (dma *DMAEngine) parseMemCopyH2D(
 		}
 
 		module := dma.localDataSource.Find(addr)
-		reqToBottom := mem.NewWriteReq(now, dma.ToMem, module, addr)
-		reqToBottom.Data = req.SrcBuffer[offset : offset+length]
+		reqToBottom := mem.WriteReqBuilder{}.
+			WithSendTime(now).
+			WithSrc(dma.ToMem).
+			WithDst(module).
+			WithAddress(addr).
+			WithData(req.SrcBuffer[offset : offset+length]).
+			Build()
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
@@ -211,7 +216,13 @@ func (dma *DMAEngine) parseMemCopyD2H(
 		}
 
 		module := dma.localDataSource.Find(addr)
-		reqToBottom := mem.NewReadReq(now, dma.ToMem, module, addr, length)
+		reqToBottom := mem.ReadReqBuilder{}.
+			WithSendTime(now).
+			WithSrc(dma.ToMem).
+			WithDst(module).
+			WithAddress(addr).
+			WithByteSize(length).
+			Build()
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
@@ -236,8 +247,8 @@ func NewDMAEngine(
 
 	dma.localDataSource = localDataSource
 
-	dma.ToCP = akita.NewLimitNumReqPort(dma, 40960000)
-	dma.ToMem = akita.NewLimitNumReqPort(dma, 64)
+	dma.ToCP = akita.NewLimitNumMsgPort(dma, 40960000)
+	dma.ToMem = akita.NewLimitNumMsgPort(dma, 64)
 
 	return dma
 }

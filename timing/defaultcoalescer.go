@@ -142,8 +142,10 @@ func (c defaultCoalescer) findOrCreateReadReq(
 		}
 	}
 
-	req := mem.NewReadReq(0, nil, nil,
-		c.cacheLineID(addr), 1<<c.log2CacheLineSize)
+	req := mem.ReadReqBuilder{}.
+		WithAddress(c.cacheLineID(addr)).
+		WithByteSize(1 << c.log2CacheLineSize).
+		Build()
 	*reqs = append(*reqs, req)
 	return req
 }
@@ -160,10 +162,11 @@ func (c defaultCoalescer) findOrCreateWriteReq(
 		}
 	}
 
-	req := mem.NewWriteReq(0, nil, nil,
-		c.cacheLineID(addr))
-	req.Data = make([]byte, 1<<c.log2CacheLineSize)
-	req.DirtyMask = make([]bool, 1<<c.log2CacheLineSize)
+	req := mem.WriteReqBuilder{}.
+		WithAddress(c.cacheLineID(addr)).
+		WithData(make([]byte, 1<<c.log2CacheLineSize)).
+		WithDirtyMask(make([]bool, 1<<c.log2CacheLineSize)).
+		Build()
 	c.mergeDataWithReq(req, addr, data)
 	*reqs = append(*reqs, req)
 	return req

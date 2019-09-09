@@ -22,7 +22,7 @@ func (p *bottomParser) Tick(now akita.VTimeInSec) bool {
 	}
 
 	switch rsp := item.(type) {
-	case *mem.DoneRsp:
+	case *mem.WriteDoneRsp:
 		return p.processDoneRsp(now, rsp)
 	case *mem.DataReadyRsp:
 		return p.processDataReady(now, rsp)
@@ -33,7 +33,7 @@ func (p *bottomParser) Tick(now akita.VTimeInSec) bool {
 
 func (p *bottomParser) processDoneRsp(
 	now akita.VTimeInSec,
-	done *mem.DoneRsp,
+	done *mem.WriteDoneRsp,
 ) bool {
 	trans := p.findTransactionByWriteToBottomID(done.GetRespondTo())
 	if trans == nil || trans.fetchAndWrite {
@@ -126,7 +126,7 @@ func (p *bottomParser) finalizeMSHRTrans(
 			for _, preCTrans := range trans.preCoalesceTransactions {
 				read := preCTrans.read
 				offset := read.Address - mshrEntry.Block.Tag
-				preCTrans.data = data[offset : offset+read.MemByteSize]
+				preCTrans.data = data[offset : offset+read.AccessByteSize]
 				preCTrans.done = true
 			}
 		} else {

@@ -51,7 +51,7 @@ var _ = Describe("Dispatcher", func() {
 		req := NewLaunchKernelReq(10, nil, dispatcher.ToCommandProcessor)
 		req.HsaCo = &insts.HsaCo{}
 		req.Packet = &kernels.HsaKernelDispatchPacket{}
-		req.SetRecvTime(10)
+		req.RecvTime = 10
 		gridBuilder.EXPECT().NumWG().Return(5)
 		gridBuilder.EXPECT().SetKernel(kernels.KernelLaunchInfo{
 			CodeObject: req.HsaCo,
@@ -115,7 +115,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.dispatchingCUID = 0
 		dispatcher.currentWG = wg
 		req := NewMapWGReq(cu0, dispatcher.ToCUs, 10, wg)
-		req.SetRecvTime(11)
+		req.RecvTime = 11
 		req.Ok = false
 
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
@@ -131,7 +131,7 @@ var _ = Describe("Dispatcher", func() {
 
 			wg := &kernels.WorkGroup{}
 			req := NewMapWGReq(cu0, dispatcher.ToCUs, 10, wg)
-			req.SetRecvTime(11)
+			req.RecvTime = 11
 			req.Ok = true
 
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
@@ -146,7 +146,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatchReq := NewMapWGReq(dispatcher.ToCUs, nil, 6, wg)
 		dispatcher.dispatchedWGs[wg.UID] = dispatchReq
 		req := NewWGFinishMesg(cu0, dispatcher.ToCUs, 10, wg)
-		req.SetRecvTime(11)
+		req.RecvTime = 11
 
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(&MapWGEvent{}))
 
