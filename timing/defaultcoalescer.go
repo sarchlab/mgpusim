@@ -163,7 +163,7 @@ func (c defaultCoalescer) findOrCreateWriteReq(
 	}
 
 	req := mem.WriteReqBuilder{}.
-		WithAddress(addr).
+		WithAddress(c.cacheLineID(addr)).
 		WithData(make([]byte, 1<<c.log2CacheLineSize)).
 		WithDirtyMask(make([]bool, 1<<c.log2CacheLineSize)).
 		Build()
