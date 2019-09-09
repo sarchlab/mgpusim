@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo" // . "github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/mem/vm"
 )
 
@@ -13,27 +12,27 @@ var _ = Describe("CommandProcessor", func() {
 
 	var (
 		mockCtrl         *gomock.Controller
-		engine           *mock_akita.MockEngine
-		driver           *mock_akita.MockPort
-		dispatcher       *mock_akita.MockPort
+		engine           *MockEngine
+		driver           *MockPort
+		dispatcher       *MockPort
 		commandProcessor *CommandProcessor
-		toDriver         *mock_akita.MockPort
-		toDispatcher     *mock_akita.MockPort
-		cus              []*mock_akita.MockPort
-		toCU             *mock_akita.MockPort
-		vmModules        []*mock_akita.MockPort
-		toVMModules      *mock_akita.MockPort
+		toDriver         *MockPort
+		toDispatcher     *MockPort
+		cus              []*MockPort
+		toCU             *MockPort
+		vmModules        []*MockPort
+		toVMModules      *MockPort
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
-		engine = mock_akita.NewMockEngine(mockCtrl)
+		engine = NewMockEngine(mockCtrl)
 
-		driver = mock_akita.NewMockPort(mockCtrl)
-		dispatcher = mock_akita.NewMockPort(mockCtrl)
-		toDriver = mock_akita.NewMockPort(mockCtrl)
-		toDispatcher = mock_akita.NewMockPort(mockCtrl)
+		driver = NewMockPort(mockCtrl)
+		dispatcher = NewMockPort(mockCtrl)
+		toDriver = NewMockPort(mockCtrl)
+		toDispatcher = NewMockPort(mockCtrl)
 		commandProcessor = NewCommandProcessor("commandProcessor", engine)
 		commandProcessor.numCUs = 10
 		commandProcessor.numVMUnits = 11
@@ -43,23 +42,23 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.Dispatcher = dispatcher
 		commandProcessor.Driver = driver
 
-		toCU = mock_akita.NewMockPort(mockCtrl)
-		toVMModules = mock_akita.NewMockPort(mockCtrl)
+		toCU = NewMockPort(mockCtrl)
+		toVMModules = NewMockPort(mockCtrl)
 
 		commandProcessor.ToCUs = toCU
 		commandProcessor.ToVMModules = toVMModules
 
 		for i := 0; i < int(commandProcessor.numCUs); i++ {
 
-			cus = append(cus, mock_akita.NewMockPort(mockCtrl))
-			commandProcessor.CUs = append(commandProcessor.CUs, akita.NewLimitNumReqPort(commandProcessor, 1))
+			cus = append(cus, NewMockPort(mockCtrl))
+			commandProcessor.CUs = append(commandProcessor.CUs, akita.NewLimitNumMsgPort(commandProcessor, 1))
 			commandProcessor.CUs[i] = cus[i]
 		}
 
 		for i := 0; i < int(commandProcessor.numVMUnits); i++ {
 
-			vmModules = append(vmModules, mock_akita.NewMockPort(mockCtrl))
-			commandProcessor.VMModules = append(commandProcessor.VMModules, akita.NewLimitNumReqPort(commandProcessor, 1))
+			vmModules = append(vmModules, NewMockPort(mockCtrl))
+			commandProcessor.VMModules = append(commandProcessor.VMModules, akita.NewLimitNumMsgPort(commandProcessor, 1))
 			commandProcessor.VMModules[i] = vmModules[i]
 		}
 
@@ -72,7 +71,7 @@ var _ = Describe("CommandProcessor", func() {
 	It("should forward kernel launching request to Dispatcher", func() {
 		req := NewLaunchKernelReq(10,
 			driver, commandProcessor.ToDriver)
-		req.SetEventTime(10)
+		req.EventTime = 10
 
 		toDispatcher.EXPECT().Send(gomock.AssignableToTypeOf(req))
 
@@ -94,7 +93,7 @@ var _ = Describe("CommandProcessor", func() {
 		vAddr[0] = 0x1000
 
 		req := NewShootdownCommand(10, nil, commandProcessor.ToDriver, vAddr, 1)
-		req.SetEventTime(10)
+		req.EventTime = 10
 
 		for i := 0; i < int(commandProcessor.numCUs); i++ {
 			reqDrain := NewCUPipelineDrainReq(10, commandProcessor.ToCUs, commandProcessor.CUs[i])
@@ -113,7 +112,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		req := NewCUPipelineDrainRsp(10, nil, commandProcessor.ToCUs)
 		req.drainPipelineComplete = true
-		req.SetEventTime(10)
+		req.EventTime = 10
 
 		commandProcessor.numCURecvdAck = commandProcessor.numCUs - 1
 

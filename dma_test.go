@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/mock_akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 )
@@ -13,18 +12,18 @@ import (
 var _ = Describe("DMAEngine", func() {
 	var (
 		mockCtrl          *gomock.Controller
-		engine            *mock_akita.MockEngine
-		toCP              *mock_akita.MockPort
-		toMem             *mock_akita.MockPort
+		engine            *MockEngine
+		toCP              *MockPort
+		toMem             *MockPort
 		localModuleFinder *cache.SingleLowModuleFinder
 		dmaEngine         *DMAEngine
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		engine = mock_akita.NewMockEngine(mockCtrl)
-		toCP = mock_akita.NewMockPort(mockCtrl)
-		toMem = mock_akita.NewMockPort(mockCtrl)
+		engine = NewMockEngine(mockCtrl)
+		toCP = NewMockPort(mockCtrl)
+		toMem = NewMockPort(mockCtrl)
 
 		localModuleFinder = new(cache.SingleLowModuleFinder)
 		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)

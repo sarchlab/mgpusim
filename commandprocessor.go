@@ -8,7 +8,6 @@ import (
 	"gitlab.com/akita/util/tracing"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/idealmemcontroller"
@@ -66,7 +65,7 @@ func (p *CommandProcessor) NotifyRecv(
 	port akita.Port,
 ) {
 	req := port.Retrieve(now)
-	akita.ProcessReqAsEvent(req, p.engine, p.Freq)
+	akita.ProcessMsgAsEvent(req, p.engine, p.Freq)
 }
 
 func (p *CommandProcessor) NotifyPortFree(
@@ -94,8 +93,8 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 		return p.processMemCopyReq(req)
 	case *MemCopyH2DReq:
 		return p.processMemCopyReq(req)
-	case *mem.InvalidDoneRsp:
-		// Do nothing
+	// case *mem.InvalidDoneRsp:
+	// Do nothing
 	case *ShootDownCommand:
 		return p.handleShootdownCommand(req)
 	case *CUPipelineDrainRsp:
@@ -113,18 +112,19 @@ func (p *CommandProcessor) processLaunchKernelReq(
 	req *LaunchKernelReq,
 ) error {
 	now := req.Time()
-	if req.Src() == p.Driver {
+	if req.Src == p.Driver {
 		reqToBottom := NewLaunchKernelReq(now, p.ToDispatcher, p.Dispatcher)
 		reqToBottom.PID = req.PID
 		reqToBottom.Packet = req.Packet
 		reqToBottom.PacketAddress = req.PacketAddress
 		reqToBottom.HsaCo = req.HsaCo
-		reqToBottom.SetSendTime(now)
+		reqToBottom.SendTime = now
 		p.ToDispatcher.Send(reqToBottom)
 		p.bottomReqIDToTopReqMap[reqToBottom.ID] = req
 		tracing.TraceReqReceive(req, now, p)
-		tracing.TraceReqInitiate(reqToBottom, now, p, tracing.ReqIDAtReceiver(req, p))
-	} else if req.Src() == p.Dispatcher {
+		tracing.TraceReqInitiate(reqToBottom, now, p,
+			tracing.MsgIDAtReceiver(req, p))
+	} else if req.Src == p.Dispatcher {
 		evt := NewReplyKernelCompletionEvent(
 			p.Freq.NCyclesLater(p.kernelFixedOverheadInCycles, now),
 			p, req,
@@ -141,8 +141,8 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelComp
 
 	req := evt.Req
 	originalReq := p.bottomReqIDToTopReqMap[req.ID]
-	originalReq.SetSendTime(now)
-	originalReq.SwapSrcAndDst()
+	originalReq.SendTime = now
+	originalReq.Src, originalReq.Dst = originalReq.Dst, originalReq.Src
 	p.ToDriver.Send(originalReq)
 	tracing.TraceReqFinalize(req, now, p)
 	tracing.TraceReqComplete(originalReq, now, p)
@@ -244,8 +244,9 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 
 	p.currFlushRequest = cmd
 	if p.numFlushACK == 0 {
-		p.currFlushRequest.SwapSrcAndDst()
-		p.currFlushRequest.SetSendTime(now)
+		p.currFlushRequest.Src, p.currFlushRequest.Dst =
+			p.currFlushRequest.Dst, p.currFlushRequest.Src
+		p.currFlushRequest.SendTime = now
 		err := p.ToDriver.Send(p.currFlushRequest)
 		if err != nil {
 			panic("send failed")
@@ -256,7 +257,11 @@ func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 }
 
 func (p *CommandProcessor) flushCache(now akita.VTimeInSec, port akita.Port) {
-	flushReq := cache.NewFlushReq(now, p.ToDispatcher, port)
+	flushReq := cache.FlushReqBuilder{}.
+		WithSendTime(now).
+		WithSrc(p.ToDispatcher).
+		WithDst(port).
+		Build()
 	err := p.ToDispatcher.Send(flushReq)
 	if err != nil {
 		log.Panic("Fail to send flush request")
@@ -269,8 +274,9 @@ func (p *CommandProcessor) handleCacheFlushRsp(
 ) error {
 	p.numFlushACK--
 	if p.numFlushACK == 0 {
-		p.currFlushRequest.SwapSrcAndDst()
-		p.currFlushRequest.SetSendTime(req.Time())
+		p.currFlushRequest.Src, p.currFlushRequest.Dst =
+			p.currFlushRequest.Dst, p.currFlushRequest.Src
+		p.currFlushRequest.SendTime = req.Time()
 		err := p.ToDriver.Send(p.currFlushRequest)
 		if err != nil {
 			panic("send failed")
@@ -280,21 +286,20 @@ func (p *CommandProcessor) handleCacheFlushRsp(
 	return nil
 }
 
-func (p *CommandProcessor) processMemCopyReq(req akita.Req) error {
+func (p *CommandProcessor) processMemCopyReq(req akita.Msg) error {
 	now := req.Time()
-	if req.Src() == p.Driver {
-		req.SetDst(p.DMAEngine)
-		req.SetSrc(p.ToDispatcher)
-		req.SetSendTime(now)
+	if req.Meta().Src == p.Driver {
+		req.Meta().Dst = p.DMAEngine
+		req.Meta().Src = p.Dispatcher
+		req.Meta().SendTime = now
 		err := p.ToDispatcher.Send(req)
 		if err != nil {
 			panic(err)
 		}
-
-	} else if req.Src() == p.DMAEngine {
-		req.SetDst(p.Driver)
-		req.SetSrc(p.ToDriver)
-		req.SetSendTime(now)
+	} else if req.Meta().Src == p.DMAEngine {
+		req.Meta().Dst = p.Driver
+		req.Meta().Src = p.ToDriver
+		req.Meta().SendTime = now
 		err := p.ToDriver.Send(req)
 		if err != nil {
 			panic(err)
@@ -316,11 +321,11 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.kernelFixedOverheadInCycles = 1600
 	c.L2Caches = make([]*writeback.Cache, 0)
 
-	c.ToDriver = akita.NewLimitNumReqPort(c, 1)
-	c.ToDispatcher = akita.NewLimitNumReqPort(c, 1)
+	c.ToDriver = akita.NewLimitNumMsgPort(c, 1)
+	c.ToDispatcher = akita.NewLimitNumMsgPort(c, 1)
 
-	c.ToCUs = akita.NewLimitNumReqPort(c, 1)
-	c.ToVMModules = akita.NewLimitNumReqPort(c, 1)
+	c.ToCUs = akita.NewLimitNumMsgPort(c, 1)
+	c.ToVMModules = akita.NewLimitNumMsgPort(c, 1)
 
 	c.bottomReqIDToTopReqMap = make(map[string]*LaunchKernelReq)
 

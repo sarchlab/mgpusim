@@ -182,10 +182,10 @@ func (mr *MockPortMockRecorder) NotifyAvailable(arg0 interface{}) *gomock.Call {
 }
 
 // Peek mocks base method
-func (m *MockPort) Peek() akita.Req {
+func (m *MockPort) Peek() akita.Msg {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Peek")
-	ret0, _ := ret[0].(akita.Req)
+	ret0, _ := ret[0].(akita.Msg)
 	return ret0
 }
 
@@ -196,7 +196,7 @@ func (mr *MockPortMockRecorder) Peek() *gomock.Call {
 }
 
 // Recv mocks base method
-func (m *MockPort) Recv(arg0 akita.Req) *akita.SendError {
+func (m *MockPort) Recv(arg0 akita.Msg) *akita.SendError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Recv", arg0)
 	ret0, _ := ret[0].(*akita.SendError)
@@ -210,10 +210,10 @@ func (mr *MockPortMockRecorder) Recv(arg0 interface{}) *gomock.Call {
 }
 
 // Retrieve mocks base method
-func (m *MockPort) Retrieve(arg0 akita.VTimeInSec) akita.Req {
+func (m *MockPort) Retrieve(arg0 akita.VTimeInSec) akita.Msg {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Retrieve", arg0)
-	ret0, _ := ret[0].(akita.Req)
+	ret0, _ := ret[0].(akita.Msg)
 	return ret0
 }
 
@@ -224,7 +224,7 @@ func (mr *MockPortMockRecorder) Retrieve(arg0 interface{}) *gomock.Call {
 }
 
 // Send mocks base method
-func (m *MockPort) Send(arg0 akita.Req) *akita.SendError {
+func (m *MockPort) Send(arg0 akita.Msg) *akita.SendError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Send", arg0)
 	ret0, _ := ret[0].(*akita.SendError)
