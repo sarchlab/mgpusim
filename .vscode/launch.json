@@ -55,6 +55,8 @@
             "args": [
                 "-verify",
                 "-length=1024",
+                "-gpus=1,2",
+                "-timing"
             ]
         },
         {
