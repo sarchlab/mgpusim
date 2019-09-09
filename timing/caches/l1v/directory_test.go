@@ -66,8 +66,13 @@ var _ = Describe("Directory", func() {
 		)
 
 		BeforeEach(func() {
-			read = mem.NewReadReq(6, nil, nil, 0x104, 4)
-			read.PID = 1
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithAddress(0x104).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
+
 			trans = &transaction{
 				read: read,
 			}
@@ -97,8 +102,12 @@ var _ = Describe("Directory", func() {
 			block = &cache.Block{
 				IsValid: true,
 			}
-			read = mem.NewReadReq(6, nil, nil, 0x104, 4)
-			read.PID = 1
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithAddress(0x104).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
 			trans = &transaction{
 				read: read,
 			}
@@ -153,8 +162,12 @@ var _ = Describe("Directory", func() {
 				IsValid: true,
 			}
 			mshrEntry = &cache.MSHREntry{}
-			read = mem.NewReadReq(6, nil, nil, 0x104, 4)
-			read.PID = 1
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithAddress(0x104).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
 			trans = &transaction{
 				read: read,
 			}
@@ -171,7 +184,7 @@ var _ = Describe("Directory", func() {
 			bottomPort.EXPECT().Send(gomock.Any()).Do(func(read *mem.ReadReq) {
 				readToBottom = read
 				Expect(read.Address).To(Equal(uint64(0x100)))
-				Expect(read.MemByteSize).To(Equal(uint64(64)))
+				Expect(read.AccessByteSize).To(Equal(uint64(64)))
 				Expect(read.PID).To(Equal(ca.PID(1)))
 			})
 			mshr.EXPECT().IsFull().Return(false)
@@ -242,9 +255,12 @@ var _ = Describe("Directory", func() {
 		)
 
 		BeforeEach(func() {
-			write = mem.NewWriteReq(10, nil, nil, 0x104)
-			write.Data = []byte{1, 2, 3, 4}
-			write.PID = 1
+			write = mem.WriteReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x104).
+				WithPID(1).
+				WithData([]byte{1, 2, 3, 4}).
+				Build()
 			trans = &transaction{
 				write: write,
 			}
@@ -281,9 +297,12 @@ var _ = Describe("Directory", func() {
 		)
 
 		BeforeEach(func() {
-			write = mem.NewWriteReq(10, nil, nil, 0x104)
-			write.Data = []byte{1, 2, 3, 4}
-			write.PID = 1
+			write = mem.WriteReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x104).
+				WithPID(1).
+				WithData([]byte{1, 2, 3, 4}).
+				Build()
 			trans = &transaction{
 				write: write,
 			}
@@ -375,10 +394,13 @@ var _ = Describe("Directory", func() {
 		)
 
 		BeforeEach(func() {
-			write = mem.NewWriteReq(10, nil, nil, 0x104)
-			write.Data = []byte{1, 2, 3, 4}
-			write.DirtyMask = []bool{true, true, false, false}
-			write.PID = 1
+			write = mem.WriteReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x104).
+				WithPID(1).
+				WithData([]byte{1, 2, 3, 4}).
+				WithDirtyMask([]bool{true, true, false, false}).
+				Build()
 			trans = &transaction{
 				write: write,
 			}
@@ -398,7 +420,14 @@ var _ = Describe("Directory", func() {
 		})
 
 		It("should not write again if write already happened", func() {
-			trans.writeToBottom = mem.NewWriteReq(0, nil, nil, 0)
+			write = mem.WriteReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x104).
+				WithPID(1).
+				WithData([]byte{1, 2, 3, 4}).
+				WithDirtyMask([]bool{true, true, false, false}).
+				Build()
+			trans.writeToBottom = write
 
 			inBuf.EXPECT().Peek().Return(trans)
 			inBuf.EXPECT().Pop()
@@ -412,7 +441,7 @@ var _ = Describe("Directory", func() {
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(read *mem.ReadReq) {
 					Expect(read.Address).To(Equal(uint64(0x100)))
-					Expect(read.MemByteSize).To(Equal(uint64(64)))
+					Expect(read.AccessByteSize).To(Equal(uint64(64)))
 					Expect(read.PID).To(Equal(ca.PID(1)))
 				})
 
@@ -452,7 +481,7 @@ var _ = Describe("Directory", func() {
 			bottomPort.EXPECT().Send(gomock.Any()).
 				Do(func(read *mem.ReadReq) {
 					Expect(read.Address).To(Equal(uint64(0x100)))
-					Expect(read.MemByteSize).To(Equal(uint64(64)))
+					Expect(read.AccessByteSize).To(Equal(uint64(64)))
 					Expect(read.PID).To(Equal(ca.PID(1)))
 				})
 
@@ -479,9 +508,12 @@ var _ = Describe("Directory", func() {
 		)
 
 		BeforeEach(func() {
-			write = mem.NewWriteReq(10, nil, nil, 0x100)
-			write.Data = make([]byte, 64)
-			write.PID = 1
+			write = mem.WriteReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x100).
+				WithPID(1).
+				WithData(make([]byte, 64)).
+				Build()
 			trans = &transaction{
 				write: write,
 			}

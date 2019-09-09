@@ -45,7 +45,12 @@ var _ = Describe("Respond Stage", func() {
 		)
 
 		BeforeEach(func() {
-			read = mem.NewReadReq(5, nil, nil, 0x100, 4)
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(5).
+				WithAddress(0x100).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
 			trans = &transaction{read: read}
 			cache.transactions = append(cache.transactions, trans)
 		})
@@ -70,7 +75,7 @@ var _ = Describe("Respond Stage", func() {
 			trans.done = true
 			topPort.EXPECT().Send(gomock.Any()).
 				Do(func(dr *mem.DataReadyRsp) {
-					Expect(dr.RespondTo).To(Equal(read.GetID()))
+					Expect(dr.RespondTo).To(Equal(read.ID))
 					Expect(dr.Data).To(Equal([]byte{1, 2, 3, 4}))
 				})
 
@@ -88,7 +93,11 @@ var _ = Describe("Respond Stage", func() {
 		)
 
 		BeforeEach(func() {
-			write = mem.NewWriteReq(5, nil, nil, 0x100)
+			write = mem.WriteReqBuilder{}.
+				WithSendTime(5).
+				WithAddress(0x100).
+				WithPID(1).
+				Build()
 			trans = &transaction{write: write}
 			cache.transactions = append(cache.transactions, trans)
 		})
@@ -111,8 +120,8 @@ var _ = Describe("Respond Stage", func() {
 			trans.data = []byte{1, 2, 3, 4}
 			trans.done = true
 			topPort.EXPECT().Send(gomock.Any()).
-				Do(func(done *mem.DoneRsp) {
-					Expect(done.RespondTo).To(Equal(write.GetID()))
+				Do(func(done *mem.WriteDoneRsp) {
+					Expect(done.RespondTo).To(Equal(write.ID))
 				})
 
 			madeProgress := s.Tick(10)

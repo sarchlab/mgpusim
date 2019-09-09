@@ -46,7 +46,7 @@ var _ = Describe("Control Stage", func() {
 
 	It("should wait for the cache to finish transactions", func() {
 		transactions = []*transaction{{}}
-		flushReq := cache.NewFlushReq(0, nil, nil)
+		flushReq := cache.FlushReqBuilder{}.Build()
 		s.currReq = flushReq
 
 		madeProgress := s.Tick(10)
@@ -55,7 +55,7 @@ var _ = Describe("Control Stage", func() {
 	})
 
 	It("should reset directory", func() {
-		flushReq := cache.NewFlushReq(0, nil, nil)
+		flushReq := cache.FlushReqBuilder{}.Build()
 		ctrlPort.EXPECT().Peek().Return(flushReq)
 		ctrlPort.EXPECT().Retrieve(gomock.Any())
 		directory.EXPECT().Reset()
@@ -70,7 +70,7 @@ var _ = Describe("Control Stage", func() {
 	})
 
 	It("should stall if send rsp failed", func() {
-		flushReq := cache.NewFlushReq(0, nil, nil)
+		flushReq := cache.FlushReqBuilder{}.Build()
 		ctrlPort.EXPECT().Peek().Return(flushReq)
 		ctrlPort.EXPECT().Retrieve(gomock.Any())
 		ctrlPort.EXPECT().Send(gomock.Any()).

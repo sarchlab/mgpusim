@@ -49,10 +49,18 @@ var _ = Describe("Coalescer", func() {
 		)
 
 		BeforeEach(func() {
-			read1 = mem.NewReadReq(10, nil, nil, 0x100, 4)
-			read1.PID = 1
-			read2 = mem.NewReadReq(10, nil, nil, 0x104, 4)
-			read2.PID = 1
+			read1 = mem.ReadReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x100).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
+			read2 = mem.ReadReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x104).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
 
 			topPort.EXPECT().Peek().Return(read1)
 			topPort.EXPECT().Retrieve(gomock.Any())
@@ -64,7 +72,12 @@ var _ = Describe("Coalescer", func() {
 
 		Context("not coalescable", func() {
 			It("should send to dir stage", func() {
-				read3 := mem.NewReadReq(10, nil, nil, 0x148, 4)
+				read3 := mem.ReadReqBuilder{}.
+					WithSendTime(1).
+					WithAddress(0x148).
+					WithPID(1).
+					WithByteSize(4).
+					Build()
 
 				dirBuf.EXPECT().CanPush().
 					Return(true)
@@ -84,7 +97,12 @@ var _ = Describe("Coalescer", func() {
 			})
 
 			It("should stall if cannot send to dir", func() {
-				read3 := mem.NewReadReq(10, nil, nil, 0x148, 4)
+				read3 := mem.ReadReqBuilder{}.
+					WithSendTime(10).
+					WithAddress(0x148).
+					WithPID(1).
+					WithByteSize(4).
+					Build()
 
 				dirBuf.EXPECT().CanPush().
 					Return(false)
@@ -100,9 +118,12 @@ var _ = Describe("Coalescer", func() {
 
 		Context("last in wave, coalescable", func() {
 			It("should send to dir stage", func() {
-				read3 := mem.NewReadReq(10, nil, nil, 0x108, 4)
-				read3.PID = 1
-				read3.IsLastInWave = true
+				read3 := mem.ReadReqBuilder{}.
+					WithSendTime(1).
+					WithAddress(0x108).
+					WithPID(1).
+					WithByteSize(4).
+					Build()
 
 				dirBuf.EXPECT().CanPush().
 					Return(true)
@@ -111,7 +132,7 @@ var _ = Describe("Coalescer", func() {
 						Expect(trans.preCoalesceTransactions).To(HaveLen(3))
 						Expect(trans.read.Address).To(Equal(uint64(0x100)))
 						Expect(trans.read.PID).To(Equal(ca.PID(1)))
-						Expect(trans.read.MemByteSize).To(Equal(uint64(64)))
+						Expect(trans.read.AccessByteSize).To(Equal(uint64(64)))
 					})
 				topPort.EXPECT().Peek().Return(read3)
 				topPort.EXPECT().Retrieve(gomock.Any())
@@ -125,8 +146,12 @@ var _ = Describe("Coalescer", func() {
 			})
 
 			It("should stall if cannot send", func() {
-				read3 := mem.NewReadReq(10, nil, nil, 0x108, 4)
-				read3.IsLastInWave = true
+				read3 := mem.ReadReqBuilder{}.
+					WithSendTime(10).
+					WithAddress(0x108).
+					WithPID(1).
+					WithByteSize(4).
+					Build()
 
 				dirBuf.EXPECT().CanPush().
 					Return(false)
@@ -142,8 +167,12 @@ var _ = Describe("Coalescer", func() {
 
 		Context("last in wave, not coalescable", func() {
 			It("should send to dir stage", func() {
-				read3 := mem.NewReadReq(10, nil, nil, 0x148, 4)
-				read3.IsLastInWave = true
+				read3 := mem.ReadReqBuilder{}.
+					WithSendTime(10).
+					WithAddress(0x148).
+					WithPID(1).
+					WithByteSize(4).
+					Build()
 
 				dirBuf.EXPECT().CanPush().
 					Return(true).Times(2)
@@ -167,8 +196,12 @@ var _ = Describe("Coalescer", func() {
 			})
 
 			It("should stall is cannot send to dir stage", func() {
-				read3 := mem.NewReadReq(10, nil, nil, 0x148, 4)
-				read3.IsLastInWave = true
+				read3 := mem.ReadReqBuilder{}.
+					WithSendTime(10).
+					WithAddress(0x148).
+					WithPID(1).
+					WithByteSize(4).
+					Build()
 
 				dirBuf.EXPECT().CanPush().
 					Return(false)
@@ -183,8 +216,12 @@ var _ = Describe("Coalescer", func() {
 
 			It("should stall is cannot send to dir stage in the second time",
 				func() {
-					read3 := mem.NewReadReq(10, nil, nil, 0x148, 4)
-					read3.IsLastInWave = true
+					read3 := mem.ReadReqBuilder{}.
+						WithSendTime(10).
+						WithAddress(0x148).
+						WithPID(1).
+						WithByteSize(4).
+						Build()
 
 					dirBuf.EXPECT().CanPush().
 						Return(true)
@@ -207,24 +244,29 @@ var _ = Describe("Coalescer", func() {
 
 	Context("write", func() {
 		It("should coalesce write", func() {
-			write1 := mem.NewWriteReq(10, nil, nil, 0x104)
-			write1.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 9}
-			write1.PID = 1
-			write1.DirtyMask = []bool{
-				true, true, true, true,
-				false, false, false, false,
-				true, true, true, true,
-			}
+			write1 := mem.WriteReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x104).
+				WithPID(1).
+				WithData([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 9}).
+				WithDirtyMask([]bool{
+					true, true, true, true,
+					false, false, false, false,
+					true, true, true, true,
+				}).
+				Build()
 
-			write2 := mem.NewWriteReq(10, nil, nil, 0x108)
-			write2.Data = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 9}
-			write2.PID = 1
-			write2.DirtyMask = []bool{
-				true, true, true, true,
-				true, true, true, true,
-				false, false, false, false,
-			}
-			write2.IsLastInWave = true
+			write2 := mem.WriteReqBuilder{}.
+				WithSendTime(10).
+				WithAddress(0x108).
+				WithPID(1).
+				WithData([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 9}).
+				WithDirtyMask([]bool{
+					true, true, true, true,
+					true, true, true, true,
+					false, false, false, false,
+				}).
+				Build()
 
 			topPort.EXPECT().Peek().Return(write1)
 			topPort.EXPECT().Peek().Return(write2)

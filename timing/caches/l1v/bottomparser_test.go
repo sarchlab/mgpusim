@@ -110,36 +110,63 @@ var _ = Describe("Bottom Parser", func() {
 		)
 
 		BeforeEach(func() {
-			read1 = mem.NewReadReq(1, nil, nil, 0x100, 4)
-			read1.PID = 1
-			read2 = mem.NewReadReq(1, nil, nil, 0x104, 4)
-			read2.PID = 1
-			write1 = mem.NewWriteReq(1, nil, nil, 0x108)
-			write1.Data = []byte{9, 9, 9, 9}
-			write1.PID = 1
-			write2 = mem.NewWriteReq(1, nil, nil, 0x10C)
-			write2.Data = []byte{9, 9, 9, 9}
-			write2.PID = 1
+			read1 = mem.ReadReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x100).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
+			read2 = mem.ReadReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x104).
+				WithPID(1).
+				WithByteSize(4).
+				Build()
+			write1 = mem.WriteReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x108).
+				WithPID(1).
+				WithData([]byte{9, 9, 9, 9}).
+				Build()
+			write2 = mem.WriteReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x10C).
+				WithPID(1).
+				WithData([]byte{9, 9, 9, 9}).
+				Build()
+
 			preCTrans1 = &transaction{read: read1}
 			preCTrans2 = &transaction{read: read2}
 			preCTrans3 = &transaction{write: write1}
 			preCTrans4 = &transaction{write: write2}
 
-			postCRead = mem.NewReadReq(0, nil, nil, 0x100, 64)
-			postCRead.PID = 1
-			readToBottom = mem.NewReadReq(2, nil, nil, 0x100, 64)
-			readToBottom.PID = 1
-			dataReady = mem.NewDataReadyRsp(4, nil, nil, readToBottom.GetID())
-			dataReady.Data = []byte{
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-			}
+			postCRead = mem.ReadReqBuilder{}.
+				WithSendTime(0).
+				WithAddress(0x100).
+				WithPID(1).
+				WithByteSize(64).
+				Build()
+			readToBottom = mem.ReadReqBuilder{}.
+				WithSendTime(2).
+				WithAddress(0x100).
+				WithPID(1).
+				WithByteSize(64).
+				Build()
+
+			dataReady = mem.DataReadyRspBuilder{}.
+				WithSendTime(4).
+				WithRspTo(readToBottom.ID).
+				WithData([]byte{
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+				}).
+				Build()
 			block = &cache.Block{
 				PID: 1,
 				Tag: 0x100,
@@ -155,15 +182,19 @@ var _ = Describe("Bottom Parser", func() {
 			}
 			c.postCoalesceTransactions = append(c.postCoalesceTransactions, postCTrans1)
 
-			postCWrite = mem.NewWriteReq(0, nil, nil, 0x100)
-			postCWrite.Data = []byte{
-				0, 0, 0, 0, 0, 0, 0, 0,
-				9, 9, 9, 9, 9, 9, 9, 9,
-			}
-			postCWrite.DirtyMask = []bool{
-				false, false, false, false, false, false, false, false,
-				true, true, true, true, true, true, true, true,
-			}
+			postCWrite = mem.WriteReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x100).
+				WithPID(1).
+				WithData([]byte{
+					0, 0, 0, 0, 0, 0, 0, 0,
+					9, 9, 9, 9, 9, 9, 9, 9,
+				}).
+				WithDirtyMask([]bool{
+					false, false, false, false, false, false, false, false,
+					true, true, true, true, true, true, true, true,
+				}).
+				Build()
 			postCTrans2 = &transaction{
 				write: postCWrite,
 				preCoalesceTransactions: []*transaction{
