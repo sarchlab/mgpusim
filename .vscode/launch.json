@@ -33,11 +33,11 @@
             "program": "${workspaceFolder}/timing"
         },
         {
-            "name": "Test gitlab.com/akita/gcn3/timing/newcache/l1v",
+            "name": "Test gitlab.com/akita/gcn3/timing/caches/l1v",
             "type": "go",
             "request": "launch",
             "mode": "test",
-            "program": "${workspaceFolder}/timing/newcaches/l1v"
+            "program": "${workspaceFolder}/timing/caches/l1v"
         },
         {
             "name": "L1V acceptance test",

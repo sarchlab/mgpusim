@@ -54,12 +54,14 @@ var _ = Describe("Coalescer", func() {
 				WithAddress(0x100).
 				WithPID(1).
 				WithByteSize(4).
+				CanWaitForCoalesce().
 				Build()
 			read2 = mem.ReadReqBuilder{}.
 				WithSendTime(1).
 				WithAddress(0x104).
 				WithPID(1).
 				WithByteSize(4).
+				CanWaitForCoalesce().
 				Build()
 
 			topPort.EXPECT().Peek().Return(read1)
@@ -77,6 +79,7 @@ var _ = Describe("Coalescer", func() {
 					WithAddress(0x148).
 					WithPID(1).
 					WithByteSize(4).
+					CanWaitForCoalesce().
 					Build()
 
 				dirBuf.EXPECT().CanPush().
@@ -125,9 +128,11 @@ var _ = Describe("Coalescer", func() {
 					WithByteSize(4).
 					Build()
 
-				dirBuf.EXPECT().CanPush().
+				dirBuf.EXPECT().
+					CanPush().
 					Return(true)
-				dirBuf.EXPECT().Push(gomock.Any()).
+				dirBuf.EXPECT().
+					Push(gomock.Any()).
 					Do(func(trans *transaction) {
 						Expect(trans.preCoalesceTransactions).To(HaveLen(3))
 						Expect(trans.read.Address).To(Equal(uint64(0x100)))
@@ -214,7 +219,7 @@ var _ = Describe("Coalescer", func() {
 				Expect(c.toCoalesce).To(HaveLen(2))
 			})
 
-			It("should stall is cannot send to dir stage in the second time",
+			It("should stall if cannot send to dir stage in the second time",
 				func() {
 					read3 := mem.ReadReqBuilder{}.
 						WithSendTime(10).
@@ -223,9 +228,9 @@ var _ = Describe("Coalescer", func() {
 						WithByteSize(4).
 						Build()
 
-					dirBuf.EXPECT().CanPush().
-						Return(true)
-					dirBuf.EXPECT().Push(gomock.Any()).
+					dirBuf.EXPECT().CanPush().Return(true)
+					dirBuf.EXPECT().
+						Push(gomock.Any()).
 						Do(func(trans *transaction) {
 							Expect(trans.preCoalesceTransactions).To(HaveLen(2))
 						})
@@ -254,6 +259,7 @@ var _ = Describe("Coalescer", func() {
 					false, false, false, false,
 					true, true, true, true,
 				}).
+				CanWaitForCoalesce().
 				Build()
 
 			write2 := mem.WriteReqBuilder{}.
