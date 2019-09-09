@@ -50,25 +50,37 @@ var _ = Describe("Bottom Parser", func() {
 
 	Context("write done", func() {
 		It("should handle write done", func() {
-			write1 := mem.NewWriteReq(4, nil, nil, 0x100)
-			write1.PID = 1
+			write1 := mem.WriteReqBuilder{}.
+				WithSendTime(4).
+				WithAddress(0x100).
+				WithPID(1).
+				Build()
 			preCTrans1 := &transaction{
 				write: write1,
 			}
-			write2 := mem.NewWriteReq(4, nil, nil, 0x104)
-			write2.PID = 1
+			write2 := mem.WriteReqBuilder{}.
+				WithSendTime(4).
+				WithAddress(0x104).
+				WithPID(1).
+				Build()
 			preCTrans2 := &transaction{
 				write: write2,
 			}
-			writeToBottom := mem.NewWriteReq(6, nil, nil, 0x100)
-			writeToBottom.PID = 1
+			writeToBottom := mem.WriteReqBuilder{}.
+				WithSendTime(4).
+				WithAddress(0x100).
+				WithPID(1).
+				Build()
 			postCTrans := &transaction{
 				writeToBottom:           writeToBottom,
 				preCoalesceTransactions: []*transaction{preCTrans1, preCTrans2},
 			}
 			c.postCoalesceTransactions = append(
 				c.postCoalesceTransactions, postCTrans)
-			done := mem.NewDoneRsp(11, nil, nil, writeToBottom.GetID())
+			done := mem.WriteDoneRspBuilder{}.
+				WithSendTime(11).
+				WithRspTo(writeToBottom.ID).
+				Build()
 
 			bottomPort.EXPECT().Peek().Return(done)
 			bottomPort.EXPECT().Retrieve(gomock.Any())

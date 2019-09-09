@@ -94,9 +94,20 @@ var _ = Describe("Bankstage", func() {
 				CacheAddress: 0x400,
 				ReadCount:    1,
 			}
-			preCRead1 = mem.NewReadReq(1, nil, nil, 0x104, 4)
-			preCRead2 = mem.NewReadReq(2, nil, nil, 0x108, 8)
-			postCRead = mem.NewReadReq(0, nil, nil, 0x100, 64)
+			preCRead1 = mem.ReadReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x104).
+				WithByteSize(4).
+				Build()
+			preCRead2 = mem.ReadReqBuilder{}.
+				WithSendTime(2).
+				WithAddress(0x108).
+				WithByteSize(8).
+				Build()
+			postCRead = mem.ReadReqBuilder{}.
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
 			preCTrans1 = &transaction{read: preCRead1}
 			preCTrans2 = &transaction{read: preCRead2}
 			postCTrans = &transaction{
@@ -142,27 +153,30 @@ var _ = Describe("Bankstage", func() {
 				IsLocked:     true,
 			}
 
-			write = mem.NewWriteReq(1, nil, nil, 0x100)
-			write.Data = []byte{
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-				1, 2, 3, 4, 5, 6, 7, 8,
-			}
-			write.DirtyMask = []bool{
-				false, false, false, false, false, false, false, false,
-				true, true, true, true, true, true, true, true,
-				false, false, false, false, false, false, false, false,
-				false, false, false, false, false, false, false, false,
-				false, false, false, false, false, false, false, false,
-				false, false, false, false, false, false, false, false,
-				false, false, false, false, false, false, false, false,
-				false, false, false, false, false, false, false, false,
-			}
+			write = mem.WriteReqBuilder{}.
+				WithSendTime(1).
+				WithAddress(0x100).
+				WithData([]byte{
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+					1, 2, 3, 4, 5, 6, 7, 8,
+				}).
+				WithDirtyMask([]bool{
+					false, false, false, false, false, false, false, false,
+					true, true, true, true, true, true, true, true,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+					false, false, false, false, false, false, false, false,
+				}).
+				Build()
 			trans = &transaction{
 				write:      write,
 				block:      block,
