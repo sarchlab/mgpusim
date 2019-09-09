@@ -43,7 +43,7 @@ type ComputeUnit struct {
 
 func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
 	req := port.Retrieve(now)
-	akita.ProcessReqAsEvent(req, cu.engine, cu.Freq)
+	akita.ProcessMsgAsEvent(req, cu.engine, cu.Freq)
 }
 
 func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
@@ -72,12 +72,12 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 
 func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
 	req.Ok = true
-	req.SwapSrcAndDst()
-	req.SetSendTime(req.Time())
+	req.Src, req.Dst = req.Dst, req.Src
+	req.SendTime = req.Time()
 	err := cu.ToDispatcher.Send(req)
 	if err != nil {
-		req.SwapSrcAndDst()
-		req.SetEventTime(cu.Freq.NextTick(req.Time()))
+		req.Src, req.Dst = req.Dst, req.Src
+		req.EventTime = cu.Freq.NextTick(req.Time())
 		cu.engine.Schedule(req)
 	} else {
 		if cu.nextTick <= req.Time() {
@@ -336,7 +336,7 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	delete(cu.wfs, evt.Req.WG)
-	req := gcn3.NewWGFinishMesg(cu.ToDispatcher, evt.Req.Dst(), evt.Time(), evt.Req.WG)
+	req := gcn3.NewWGFinishMesg(cu.ToDispatcher, evt.Req.Dst, evt.Time(), evt.Req.WG)
 	err := cu.ToDispatcher.Send(req)
 	if err != nil {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
@@ -368,7 +368,7 @@ func NewComputeUnit(
 	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
-	cu.ToDispatcher = akita.NewLimitNumReqPort(cu, 1)
+	cu.ToDispatcher = akita.NewLimitNumMsgPort(cu, 1)
 
 	return cu
 }
