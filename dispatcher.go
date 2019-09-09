@@ -121,7 +121,6 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 		d.handleMapWGReq(evt)
 	case *WGFinishMesg:
 		d.handleWGFinishMesg(evt)
-
 	default:
 		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
 	}

@@ -290,7 +290,7 @@ func (p *CommandProcessor) processMemCopyReq(req akita.Msg) error {
 	now := req.Time()
 	if req.Meta().Src == p.Driver {
 		req.Meta().Dst = p.DMAEngine
-		req.Meta().Src = p.Dispatcher
+		req.Meta().Src = p.ToDispatcher
 		req.Meta().SendTime = now
 		err := p.ToDispatcher.Send(req)
 		if err != nil {
