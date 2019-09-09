@@ -55,7 +55,8 @@ func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
 	trans := s.currTrans
 	block := trans.block
 
-	data, err := s.cache.storage.Read(block.CacheAddress, trans.read.MemByteSize)
+	data, err := s.cache.storage.Read(
+		block.CacheAddress, trans.read.AccessByteSize)
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +64,7 @@ func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
 
 	for _, t := range trans.preCoalesceTransactions {
 		offset := t.read.Address - block.Tag
-		t.data = data[offset : offset+t.read.MemByteSize]
+		t.data = data[offset : offset+t.read.AccessByteSize]
 		t.done = true
 	}
 

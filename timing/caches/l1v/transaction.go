@@ -25,8 +25,8 @@ type transaction struct {
 
 	write          *mem.WriteReq
 	writeToBottom  *mem.WriteReq
-	doneFromBottom *mem.DoneRsp
-	doneToTop      *mem.DoneRsp
+	doneFromBottom *mem.WriteDoneRsp
+	doneToTop      *mem.WriteDoneRsp
 
 	preCoalesceTransactions []*transaction
 

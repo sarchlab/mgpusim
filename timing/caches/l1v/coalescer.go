@@ -136,9 +136,9 @@ func (c *coalescer) createTransaction(req mem.AccessReq, now akita.VTimeInSec) *
 func (c *coalescer) isReqLastInWave(req mem.AccessReq) bool {
 	switch req := req.(type) {
 	case *mem.ReadReq:
-		return req.IsLastInWave
+		return !req.CanWaitForCoalesce
 	case *mem.WriteReq:
-		return req.IsLastInWave
+		return !req.CanWaitForCoalesce
 	default:
 		panic("unknown type")
 	}
@@ -157,13 +157,13 @@ func (c *coalescer) coalesceAndSend(now akita.VTimeInSec) bool {
 	if c.toCoalesce[0].read != nil {
 		trans = c.coalesceRead()
 		tracing.StartTask(trans.id,
-			tracing.ReqIDAtReceiver(c.toCoalesce[0].read, c.cache),
+			tracing.MsgIDAtReceiver(c.toCoalesce[0].read, c.cache),
 			now,
 			c.cache, "l1_transaction", "read", nil)
 	} else {
 		trans = c.coalesceWrite()
 		tracing.StartTask(trans.id,
-			tracing.ReqIDAtReceiver(c.toCoalesce[0].write, c.cache),
+			tracing.MsgIDAtReceiver(c.toCoalesce[0].write, c.cache),
 			now,
 			c.cache, "l1_transaction", "write", nil)
 	}
@@ -178,8 +178,11 @@ func (c *coalescer) coalesceAndSend(now akita.VTimeInSec) bool {
 func (c *coalescer) coalesceRead() *transaction {
 	blockSize := uint64(1 << c.cache.log2BlockSize)
 	cachelineID := c.toCoalesce[0].Address() / blockSize * blockSize
-	coalescedRead := mem.NewReadReq(0, nil, nil, cachelineID, blockSize)
-	coalescedRead.PID = c.toCoalesce[0].PID()
+	coalescedRead := mem.ReadReqBuilder{}.
+		WithAddress(cachelineID).
+		WithByteSize(blockSize).
+		WithPID(c.toCoalesce[0].PID()).
+		Build()
 	return &transaction{
 		id:                      xid.New().String(),
 		read:                    coalescedRead,
@@ -190,10 +193,12 @@ func (c *coalescer) coalesceRead() *transaction {
 func (c *coalescer) coalesceWrite() *transaction {
 	blockSize := uint64(1 << c.cache.log2BlockSize)
 	cachelineID := c.toCoalesce[0].Address() / blockSize * blockSize
-	write := mem.NewWriteReq(0, nil, nil, cachelineID)
-	write.Data = make([]byte, blockSize)
-	write.DirtyMask = make([]bool, blockSize)
-	write.PID = c.toCoalesce[0].PID()
+	write := mem.WriteReqBuilder{}.
+		WithAddress(cachelineID).
+		WithPID(c.toCoalesce[0].PID()).
+		WithData(make([]byte, blockSize)).
+		WithDirtyMask(make([]bool, blockSize)).
+		Build()
 
 	for _, t := range c.toCoalesce {
 		w := t.write

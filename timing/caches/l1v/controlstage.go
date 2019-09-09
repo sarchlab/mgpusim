@@ -28,9 +28,12 @@ func (s *controlStage) Tick(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	rsp := cache.NewFlushRsp(now,
-		s.ctrlPort, s.currReq.Src(),
-		s.currReq.GetID())
+	rsp := cache.FlushRspBuilder{}.
+		WithSendTime(now).
+		WithSrc(s.ctrlPort).
+		WithDst(s.currReq.Src).
+		WithRspTo(s.currReq.ID).
+		Build()
 	err := s.ctrlPort.Send(rsp)
 	if err != nil {
 		return false
