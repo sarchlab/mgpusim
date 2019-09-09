@@ -24,7 +24,7 @@ type Driver struct {
 	GPUs []*gcn3.GPU
 	MMU  mmu.MMU
 
-	requestsToSend []akita.Req
+	requestsToSend []akita.Msg
 
 	contextMutex sync.Mutex
 	contexts     []*Context
@@ -124,7 +124,7 @@ func (d *Driver) sendToGPUs(now akita.VTimeInSec) {
 	}
 
 	req := d.requestsToSend[0]
-	req.SetSendTime(now)
+	req.Meta().SendTime = now
 	err := d.ToGPUs.Send(req)
 	if err == nil {
 		d.requestsToSend = d.requestsToSend[1:]
@@ -268,14 +268,14 @@ func (d *Driver) processMemCopyH2DCommand(
 func (d *Driver) logTaskToGPUInitiate(
 	now akita.VTimeInSec,
 	cmd Command,
-	req akita.Req,
+	req akita.Msg,
 ) {
 	tracing.TraceReqInitiate(req, now, d, cmd.GetID())
 }
 
 func (d *Driver) logTaskToGPUClear(
 	now akita.VTimeInSec,
-	req akita.Req,
+	req akita.Msg,
 ) {
 	tracing.TraceReqFinalize(req, now, d)
 }
@@ -289,7 +289,7 @@ func (d *Driver) processMemCopyH2DReturn(
 	cmd, cmdQueue := d.findCommandByReq(req)
 
 	copyCmd := cmd.(*MemCopyH2DCommand)
-	newReqs := make([]akita.Req, 0, len(copyCmd.Reqs)-1)
+	newReqs := make([]akita.Msg, 0, len(copyCmd.Reqs)-1)
 	for _, r := range copyCmd.GetReqs() {
 		if r != req {
 			newReqs = append(newReqs, r)
@@ -352,7 +352,7 @@ func (d *Driver) processMemCopyD2HReturn(
 	cmd, cmdQueue := d.findCommandByReq(req)
 
 	copyCmd := cmd.(*MemCopyD2HCommand)
-	newReqs := make([]akita.Req, 0, len(copyCmd.Reqs)-1)
+	newReqs := make([]akita.Msg, 0, len(copyCmd.Reqs)-1)
 	for _, r := range copyCmd.GetReqs() {
 		if r != req {
 			newReqs = append(newReqs, r)
@@ -443,7 +443,7 @@ func (d *Driver) processFlushReturn(
 	d.logCmdComplete(cmd, now)
 }
 
-func (d *Driver) findCommandByReq(req akita.Req) (Command, *CommandQueue) {
+func (d *Driver) findCommandByReq(req akita.Msg) (Command, *CommandQueue) {
 	d.contextMutex.Lock()
 	defer d.contextMutex.Unlock()
 
@@ -488,7 +488,7 @@ func NewDriver(engine akita.Engine, mmu mmu.MMU) *Driver {
 
 	driver.MMU = mmu
 
-	driver.ToGPUs = akita.NewLimitNumReqPort(driver, 40960000)
+	driver.ToGPUs = akita.NewLimitNumMsgPort(driver, 40960000)
 
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)
