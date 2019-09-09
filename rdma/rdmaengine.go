@@ -10,10 +10,10 @@ import (
 )
 
 type transaction struct {
-	fromInside  akita.Req
-	fromOutside akita.Req
-	toInside    akita.Req
-	toOutside   akita.Req
+	fromInside  akita.Msg
+	fromOutside akita.Msg
+	toInside    akita.Msg
+	toOutside   akita.Msg
 }
 
 // An Engine is a component that helps one GPU to access the memory on
@@ -66,7 +66,7 @@ func (e *Engine) processFromInside(now akita.VTimeInSec) {
 	switch req := req.(type) {
 	case mem.AccessReq:
 		e.processReqFromInside(now, req)
-	case mem.MemRsp:
+	case mem.AccessRsp:
 		e.processRspFromInside(now, req)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
@@ -82,7 +82,7 @@ func (e *Engine) processFromOutside(now akita.VTimeInSec) {
 	switch req := req.(type) {
 	case mem.AccessReq:
 		e.processReqFromOutside(now, req)
-	case mem.MemRsp:
+	case mem.AccessRsp:
 		e.processRspFromOutside(now, req)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
@@ -93,9 +93,9 @@ func (e *Engine) processReqFromInside(now akita.VTimeInSec, req mem.AccessReq) {
 	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
 
 	cloned := e.cloneReq(req)
-	cloned.SetSrc(e.ToOutside)
-	cloned.SetDst(dst)
-	cloned.SetSendTime(now)
+	cloned.Meta().Src = e.ToOutside
+	cloned.Meta().Dst = dst
+	cloned.Meta().SendTime = now
 
 	err := e.ToOutside.Send(cloned)
 	if err == nil {
@@ -113,13 +113,16 @@ func (e *Engine) processReqFromInside(now akita.VTimeInSec, req mem.AccessReq) {
 	}
 }
 
-func (e *Engine) processReqFromOutside(now akita.VTimeInSec, req mem.AccessReq) {
+func (e *Engine) processReqFromOutside(
+	now akita.VTimeInSec,
+	req mem.AccessReq,
+) {
 	dst := e.localModules.Find(req.GetAddress())
 
 	cloned := e.cloneReq(req)
-	cloned.SetSrc(e.ToInside)
-	cloned.SetDst(dst)
-	cloned.SetSendTime(now)
+	cloned.Meta().Src = e.ToInside
+	cloned.Meta().Dst = dst
+	cloned.Meta().SendTime = now
 
 	err := e.ToInside.Send(cloned)
 	if err == nil {
@@ -138,15 +141,15 @@ func (e *Engine) processReqFromOutside(now akita.VTimeInSec, req mem.AccessReq) 
 	}
 }
 
-func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.MemRsp) {
+func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.AccessRsp) {
 	transactionIndex := e.findTransactionByRspToID(
 		rsp.GetRespondTo(), e.transactionsFromOutside)
 	transaction := e.transactionsFromOutside[transactionIndex]
 
-	rspToOutside := e.cloneRsp(rsp, transaction.fromOutside.GetID())
-	rspToOutside.SetSendTime(now)
-	rspToOutside.SetSrc(e.ToOutside)
-	rspToOutside.SetDst(transaction.fromOutside.Src())
+	rspToOutside := e.cloneRsp(rsp, transaction.fromOutside.Meta().ID)
+	rspToOutside.Meta().SendTime = now
+	rspToOutside.Meta().Src = e.ToInside
+	rspToOutside.Meta().Dst = transaction.fromOutside.Meta().Src
 
 	err := e.ToOutside.Send(rspToOutside)
 	if err == nil {
@@ -162,15 +165,15 @@ func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.MemRsp) {
 	}
 }
 
-func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.MemRsp) {
+func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.AccessRsp) {
 	transactionIndex := e.findTransactionByRspToID(
 		rsp.GetRespondTo(), e.transactionsFromInside)
 	transaction := e.transactionsFromInside[transactionIndex]
 
-	rspToInside := e.cloneRsp(rsp, transaction.fromInside.GetID())
-	rspToInside.SetSendTime(now)
-	rspToInside.SetSrc(e.ToInside)
-	rspToInside.SetDst(transaction.fromInside.Src())
+	rspToInside := e.cloneRsp(rsp, transaction.fromInside.Meta().ID)
+	rspToInside.Meta().SendTime = now
+	rspToInside.Meta().Src = e.ToInside
+	rspToInside.Meta().Dst = transaction.fromInside.Meta().Src
 
 	err := e.ToInside.Send(rspToInside)
 	if err == nil {
@@ -191,11 +194,11 @@ func (e *Engine) findTransactionByRspToID(
 	transactions []transaction,
 ) int {
 	for i, trans := range transactions {
-		if trans.toOutside != nil && trans.toOutside.GetID() == rspTo {
+		if trans.toOutside != nil && trans.toOutside.Meta().ID == rspTo {
 			return i
 		}
 
-		if trans.toInside != nil && trans.toInside.GetID() == rspTo {
+		if trans.toInside != nil && trans.toInside.Meta().ID == rspTo {
 			return i
 		}
 	}
@@ -207,15 +210,23 @@ func (e *Engine) findTransactionByRspToID(
 func (e *Engine) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	switch origin := origin.(type) {
 	case *mem.ReadReq:
-		read := mem.NewReadReq(origin.SendTime(),
-			origin.Src(), origin.Dst(),
-			origin.Address, origin.MemByteSize)
+		read := mem.ReadReqBuilder{}.
+			WithSendTime(origin.SendTime).
+			WithSrc(origin.Src).
+			WithDst(origin.Dst).
+			WithAddress(origin.Address).
+			WithByteSize(origin.AccessByteSize).
+			Build()
 		return read
 	case *mem.WriteReq:
-		write := mem.NewWriteReq(origin.SendTime(),
-			origin.Src(), origin.Dst(),
-			origin.Address)
-		write.Data = origin.Data
+		write := mem.WriteReqBuilder{}.
+			WithSendTime(origin.SendTime).
+			WithSrc(origin.Src).
+			WithDst(origin.Dst).
+			WithAddress(origin.Address).
+			WithData(origin.Data).
+			WithDirtyMask(origin.DirtyMask).
+			Build()
 		return write
 	default:
 		log.Panicf("cannot clone request of type %s",
@@ -224,16 +235,24 @@ func (e *Engine) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	return nil
 }
 
-func (e *Engine) cloneRsp(origin mem.MemRsp, rspTo string) mem.MemRsp {
+func (e *Engine) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 	switch origin := origin.(type) {
 	case *mem.DataReadyRsp:
-		rsp := mem.NewDataReadyRsp(origin.SendTime(),
-			origin.Src(), origin.Dst(), rspTo)
-		rsp.Data = origin.Data
+		rsp := mem.DataReadyRspBuilder{}.
+			WithSendTime(origin.SendTime).
+			WithSrc(origin.Src).
+			WithDst(origin.Dst).
+			WithRspTo(rspTo).
+			WithData(origin.Data).
+			Build()
 		return rsp
-	case *mem.DoneRsp:
-		rsp := mem.NewDoneRsp(origin.SendTime(),
-			origin.Src(), origin.Dst(), rspTo)
+	case *mem.WriteDoneRsp:
+		rsp := mem.WriteDoneRspBuilder{}.
+			WithSendTime(origin.SendTime).
+			WithSrc(origin.Src).
+			WithDst(origin.Dst).
+			WithRspTo(rspTo).
+			Build()
 		return rsp
 	default:
 		log.Panicf("cannot clone request of type %s",
@@ -269,8 +288,8 @@ func NewEngine(
 	e.localModules = localModules
 	e.RemoteRDMAAddressTable = remoteModules
 
-	e.ToInside = akita.NewLimitNumReqPort(e, 1)
-	e.ToOutside = akita.NewLimitNumReqPort(e, 1)
+	e.ToInside = akita.NewLimitNumMsgPort(e, 1)
+	e.ToOutside = akita.NewLimitNumMsgPort(e, 1)
 
 	return e
 }
