@@ -38,7 +38,7 @@ func NewControlComponent(
 ) *ControlComponent {
 	ctrlComponent := new(ControlComponent)
 	ctrlComponent.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, ctrlComponent)
-	ctrlComponent.toCU = akita.NewLimitNumReqPort(ctrlComponent, 1)
+	ctrlComponent.toCU = akita.NewLimitNumMsgPort(ctrlComponent, 1)
 	return ctrlComponent
 
 }
@@ -67,7 +67,9 @@ func (ctrlComp *ControlComponent) handleTickEvent(tick akita.TickEvent) {
 
 }
 
-func (ctrlComp *ControlComponent) handleCUPipelineDrain(evt *cuPipelineDrainReqEvent) {
+func (ctrlComp *ControlComponent) handleCUPipelineDrain(
+	evt *cuPipelineDrainReqEvent,
+) {
 	req := evt.req
 	sendErr := ctrlComp.toCU.Send(req)
 	if sendErr != nil {
@@ -76,7 +78,7 @@ func (ctrlComp *ControlComponent) handleCUPipelineDrain(evt *cuPipelineDrainReqE
 
 }
 
-func (ctrlComp *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Req) {
+func (ctrlComp *ControlComponent) checkCU(now akita.VTimeInSec, req akita.Msg) {
 
 	ctrlComp.cuRspsReceived++
 
@@ -174,7 +176,8 @@ func main() {
 	ctrlComponent.gpuDriver = r.GPUDriver
 
 	for i := 0; i < len(r.GPUDriver.GPUs[0].CUs); i++ {
-		ctrlComponent.cus = append(ctrlComponent.cus, akita.NewLimitNumReqPort(ctrlComponent, 1))
+		ctrlComponent.cus = append(ctrlComponent.cus,
+			akita.NewLimitNumMsgPort(ctrlComponent, 1))
 		r.GPUDriver.GPUs[0].InternalConnection.PlugIn(ctrlComponent.cus[i])
 	}
 

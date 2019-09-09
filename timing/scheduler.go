@@ -123,9 +123,14 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
-		req := mem.NewReadReq(now, s.cu.ToInstMem, s.cu.InstMem, addr, 64)
-		req.PID = wf.PID()
-		req.IsLastInWave = true
+		req := mem.ReadReqBuilder{}.
+			WithSendTime(now).
+			WithSrc(s.cu.ToInstMem).
+			WithDst(s.cu.InstMem).
+			WithAddress(addr).
+			WithPID(wf.PID()).
+			WithByteSize(64).
+			Build()
 
 		err := s.cu.ToInstMem.Send(req)
 		if err == nil {

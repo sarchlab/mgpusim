@@ -244,7 +244,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 
 func (b *R9NanoGPUBuilder) connectCUToCP() {
 	for i := 0; i < b.numCU(); i++ {
-		b.CP.CUs = append(b.CP.CUs, akita.NewLimitNumReqPort(b.CP, 1))
+		b.CP.CUs = append(b.CP.CUs, akita.NewLimitNumMsgPort(b.CP, 1))
 		b.InternalConn.PlugIn(b.CP.CUs[i])
 		b.CP.CUs[i] = b.gpu.CUs[i].(*timing.ComputeUnit).ToCP
 		b.CP.ToCUs = b.gpu.CUs[i].(*timing.ComputeUnit).CP
@@ -261,7 +261,7 @@ func (b *R9NanoGPUBuilder) connectVMToCP() {
 	totalVMUnits := l1VTLBCount + l1STLBCount + l1ITLBCount + mmuCount + l2TLBCount
 
 	for i := 0; i < totalVMUnits; i++ {
-		b.CP.VMModules = append(b.CP.VMModules, akita.NewLimitNumReqPort(b.CP, 1))
+		b.CP.VMModules = append(b.CP.VMModules, akita.NewLimitNumMsgPort(b.CP, 1))
 		b.InternalConn.PlugIn(b.CP.VMModules[i])
 	}
 
