@@ -181,8 +181,13 @@ func (dma *DMAEngine) parseMemCopyH2D(
 		}
 
 		module := dma.localDataSource.Find(addr)
-		reqToBottom := mem.NewWriteReq(now, dma.ToMem, module, addr)
-		reqToBottom.Data = req.SrcBuffer[offset : offset+length]
+		reqToBottom := mem.WriteReqBuilder{}.
+			WithSendTime(now).
+			WithSrc(dma.ToMem).
+			WithDst(module).
+			WithAddress(addr).
+			WithData(req.SrcBuffer[offset : offset+length]).
+			Build()
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
@@ -211,7 +216,13 @@ func (dma *DMAEngine) parseMemCopyD2H(
 		}
 
 		module := dma.localDataSource.Find(addr)
-		reqToBottom := mem.NewReadReq(now, dma.ToMem, module, addr, length)
+		reqToBottom := mem.ReadReqBuilder{}.
+			WithSendTime(now).
+			WithSrc(dma.ToMem).
+			WithDst(module).
+			WithAddress(addr).
+			WithByteSize(length).
+			Build()
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
