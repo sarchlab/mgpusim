@@ -23,7 +23,11 @@ type Engine struct {
 	ticker *akita.Ticker
 
 	ToOutside akita.Port
-	ToInside  akita.Port
+
+	ToL1      akita.Port
+	ToL2      akita.Port
+
+	CtrlPort  akita.Port
 
 	engine                 akita.Engine
 	localModules           cache.LowModuleFinder
@@ -49,7 +53,8 @@ func (e *Engine) Handle(evt akita.Event) error {
 func (e *Engine) tick(now akita.VTimeInSec) {
 	e.needTick = false
 
-	e.processFromInside(now)
+	e.processFromL1(now)
+	e.processFromL2(now)
 	e.processFromOutside(now)
 
 	if e.needTick {
@@ -57,21 +62,35 @@ func (e *Engine) tick(now akita.VTimeInSec) {
 	}
 }
 
-func (e *Engine) processFromInside(now akita.VTimeInSec) {
-	req := e.ToInside.Peek()
+func (e *Engine) processFromL1(now akita.VTimeInSec) {
+	req := e.ToL1.Peek()
 	if req == nil {
 		return
 	}
 
 	switch req := req.(type) {
 	case mem.AccessReq:
-		e.processReqFromInside(now, req)
-	case mem.AccessRsp:
-		e.processRspFromInside(now, req)
+		e.processReqFromL1(now, req)
+
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 	}
 }
+
+
+func (e *Engine) processFromL2(now akita.VTimeInSec) {
+	req := e.ToL2.Peek()
+
+	if req == nil {
+		return
+	}
+
+	switch req := req. (type) {
+	case mem.AccessRsp:
+		e.processRspFromL2(now, req)
+	}
+}
+
 
 func (e *Engine) processFromOutside(now akita.VTimeInSec) {
 	req := e.ToOutside.Peek()
@@ -89,7 +108,7 @@ func (e *Engine) processFromOutside(now akita.VTimeInSec) {
 	}
 }
 
-func (e *Engine) processReqFromInside(now akita.VTimeInSec, req mem.AccessReq) {
+func (e *Engine) processReqFromL1(now akita.VTimeInSec, req mem.AccessReq) {
 	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
 
 	cloned := e.cloneReq(req)
@@ -99,7 +118,7 @@ func (e *Engine) processReqFromInside(now akita.VTimeInSec, req mem.AccessReq) {
 
 	err := e.ToOutside.Send(cloned)
 	if err == nil {
-		e.ToInside.Retrieve(now)
+		e.ToL1.Retrieve(now)
 
 		//fmt.Printf("%s req inside %s -> outside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
@@ -120,11 +139,11 @@ func (e *Engine) processReqFromOutside(
 	dst := e.localModules.Find(req.GetAddress())
 
 	cloned := e.cloneReq(req)
-	cloned.Meta().Src = e.ToInside
+	cloned.Meta().Src = e.ToL2
 	cloned.Meta().Dst = dst
 	cloned.Meta().SendTime = now
 
-	err := e.ToInside.Send(cloned)
+	err := e.ToL2.Send(cloned)
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 
@@ -141,7 +160,7 @@ func (e *Engine) processReqFromOutside(
 	}
 }
 
-func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.AccessRsp) {
+func (e *Engine) processRspFromL2(now akita.VTimeInSec, rsp mem.AccessRsp) {
 	transactionIndex := e.findTransactionByRspToID(
 		rsp.GetRespondTo(), e.transactionsFromOutside)
 	transaction := e.transactionsFromOutside[transactionIndex]
@@ -153,7 +172,7 @@ func (e *Engine) processRspFromInside(now akita.VTimeInSec, rsp mem.AccessRsp) {
 
 	err := e.ToOutside.Send(rspToOutside)
 	if err == nil {
-		e.ToInside.Retrieve(now)
+		e.ToL2.Retrieve(now)
 
 		//fmt.Printf("%s rsp inside %s -> outside %s\n",
 		//e.Name(), rsp.GetID(), rspToOutside.GetID())
@@ -172,10 +191,10 @@ func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.AccessRsp) 
 
 	rspToInside := e.cloneRsp(rsp, transaction.fromInside.Meta().ID)
 	rspToInside.Meta().SendTime = now
-	rspToInside.Meta().Src = e.ToInside
+	rspToInside.Meta().Src = e.ToL2
 	rspToInside.Meta().Dst = transaction.fromInside.Meta().Src
 
-	err := e.ToInside.Send(rspToInside)
+	err := e.ToL2.Send(rspToInside)
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 
@@ -288,7 +307,9 @@ func NewEngine(
 	e.localModules = localModules
 	e.RemoteRDMAAddressTable = remoteModules
 
-	e.ToInside = akita.NewLimitNumMsgPort(e, 1)
+	e.ToL1 = akita.NewLimitNumMsgPort(e, 1)
+	e.ToL2 = akita.NewLimitNumMsgPort(e, 1)
+	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1)
 	e.ToOutside = akita.NewLimitNumMsgPort(e, 1)
 
 	return e
