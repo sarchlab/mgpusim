@@ -24,10 +24,14 @@ type Engine struct {
 
 	ToOutside akita.Port
 
-	ToL1      akita.Port
-	ToL2      akita.Port
+	ToL1 akita.Port
+	ToL2 akita.Port
 
-	CtrlPort  akita.Port
+	CtrlPort akita.Port
+
+	isDraining      bool
+	pauseIncomingReqsFromL1       bool
+	currentDrainReq *RDMADrainReq
 
 	engine                 akita.Engine
 	localModules           cache.LowModuleFinder
@@ -53,6 +57,10 @@ func (e *Engine) Handle(evt akita.Event) error {
 func (e *Engine) tick(now akita.VTimeInSec) {
 	e.needTick = false
 
+	e.processFromCtrlPort(now)
+	if e.isDraining {
+		e.drainRDMA(now)
+	}
 	e.processFromL1(now)
 	e.processFromL2(now)
 	e.processFromOutside(now)
@@ -62,7 +70,61 @@ func (e *Engine) tick(now akita.VTimeInSec) {
 	}
 }
 
+func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) {
+	req := e.CtrlPort.Peek()
+	if req == nil {
+		return
+	}
+
+	req = e.CtrlPort.Retrieve(now)
+
+	switch req := req.(type) {
+	case *RDMADrainReq:
+		e.currentDrainReq = req
+		e.isDraining = true
+		e.pauseIncomingReqsFromL1 = true
+	case *RDMARestartReq:
+		e.processRDMARestartReq(now)
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+	}
+}
+
+func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
+	e.currentDrainReq = nil
+	e.pauseIncomingReqsFromL1 = false
+	return true
+}
+
+
+func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
+
+	if len(e.transactionsFromOutside) == 0 && len(e.transactionsFromInside) == 0 {
+		drainCompleteRsp := RDMADrainRspBuilder{}.
+			WithSendTime(now).
+			WithSrc(e.CtrlPort).
+			WithDst(e.currentDrainReq.Src).
+			Build()
+
+		err := e.CtrlPort.Send(drainCompleteRsp)
+		if err != nil {
+			return false
+		}
+		e.isDraining = false
+		return true
+
+	}
+
+	return true
+
+}
+
 func (e *Engine) processFromL1(now akita.VTimeInSec) {
+
+	if e.pauseIncomingReqsFromL1 {
+		e.needTick = true
+		return
+	}
 	req := e.ToL1.Peek()
 	if req == nil {
 		return
@@ -77,7 +139,6 @@ func (e *Engine) processFromL1(now akita.VTimeInSec) {
 	}
 }
 
-
 func (e *Engine) processFromL2(now akita.VTimeInSec) {
 	req := e.ToL2.Peek()
 
@@ -85,12 +146,11 @@ func (e *Engine) processFromL2(now akita.VTimeInSec) {
 		return
 	}
 
-	switch req := req. (type) {
+	switch req := req.(type) {
 	case mem.AccessRsp:
 		e.processRspFromL2(now, req)
 	}
 }
-
 
 func (e *Engine) processFromOutside(now akita.VTimeInSec) {
 	req := e.ToOutside.Peek()

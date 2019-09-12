@@ -29,11 +29,13 @@ var _ = Describe("Engine", func() {
 		rdmaEngine    *Engine
 		toL1      *MockPort
 		toL2      *MockPort
+		ctrlPort  *MockPort
 		toOutside     *MockPort
 		localModules  *cache.SingleLowModuleFinder
 		remoteModules *cache.SingleLowModuleFinder
 		localCache    *MockPort
 		remoteGPU     *MockPort
+		controllingComponent *MockPort
 	)
 
 	BeforeEach(func() {
@@ -41,6 +43,7 @@ var _ = Describe("Engine", func() {
 
 		engine = NewMockEngine(mockCtrl)
 		localCache = NewMockPort(mockCtrl)
+		controllingComponent = NewMockPort(mockCtrl)
 		remoteGPU = NewMockPort(mockCtrl)
 		localModules = new(cache.SingleLowModuleFinder)
 		localModules.LowModule = localCache
@@ -51,9 +54,12 @@ var _ = Describe("Engine", func() {
 
 		toL1 = NewMockPort(mockCtrl)
 		toL2 = NewMockPort(mockCtrl)
+		ctrlPort = NewMockPort(mockCtrl)
 		toOutside = NewMockPort(mockCtrl)
 		rdmaEngine.ToL1= toL1
 		rdmaEngine.ToL2 = toL2
+		rdmaEngine.CtrlPort = ctrlPort
+
 
 		rdmaEngine.ToOutside = toOutside
 	})
@@ -255,5 +261,95 @@ var _ = Describe("Engine", func() {
 
 			Expect(rdmaEngine.transactionsFromOutside).To(HaveLen(1))
 		})
+	})
+	Context("Drain related handling", func() {
+
+		var (
+			read *mem.ReadReq
+			drainReq *RDMADrainReq
+			restartReq *RDMARestartReq
+		)
+
+		BeforeEach(func() {
+			read = mem.ReadReqBuilder{}.
+				WithSendTime(6).
+				WithSrc(localCache).
+				WithDst(rdmaEngine.ToOutside).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
+			drainReq = RDMADrainReqBuilder{}.
+				WithSendTime(6).
+				WithSrc(controllingComponent).
+				WithDst(rdmaEngine.CtrlPort).Build()
+			restartReq = RDMARestartReqBuilder{}.
+				WithSendTime(6).
+				WithSrc(controllingComponent).
+				WithDst(rdmaEngine.CtrlPort).Build()
+
+
+		})
+
+		It("should handle drain req", func() {
+			ctrlPort.EXPECT().Peek().Return(drainReq)
+			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(drainReq)
+
+			rdmaEngine.processFromCtrlPort(10)
+
+			Expect(rdmaEngine.currentDrainReq).To(Equal(drainReq))
+			Expect(rdmaEngine.isDraining).To(BeTrue())
+			Expect(rdmaEngine.pauseIncomingReqsFromL1).To(BeTrue())
+
+
+		})
+
+		It("should send a drain complete rsp", func() {
+			rdmaEngine.currentDrainReq = drainReq
+			rdmaEngine.isDraining = true
+
+			ctrlPort.EXPECT().
+				Send(gomock.AssignableToTypeOf(&RDMADrainRsp{})).
+				Return(nil)
+			rdmaEngine.drainRDMA(10)
+
+			Expect(rdmaEngine.isDraining).To(BeFalse())
+
+
+		})
+
+		It("should not send a drain complete rsp if transactions pending", func() {
+			rdmaEngine.transactionsFromInside = append(
+				rdmaEngine.transactionsFromInside,
+				transaction{
+					fromInside: read,
+					toOutside:  read,
+				})
+			rdmaEngine.currentDrainReq = drainReq
+			rdmaEngine.isDraining = true
+
+			rdmaEngine.drainRDMA(10)
+
+			Expect(rdmaEngine.isDraining).To(BeTrue())
+
+
+		})
+
+		It("should handle drain restart req", func() {
+			rdmaEngine.currentDrainReq = drainReq
+			rdmaEngine.pauseIncomingReqsFromL1 = true
+
+			ctrlPort.EXPECT().Peek().Return(restartReq)
+			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(restartReq)
+
+			rdmaEngine.processFromCtrlPort(10)
+
+			Expect(rdmaEngine.currentDrainReq).To(BeNil())
+			Expect(rdmaEngine.pauseIncomingReqsFromL1).To(BeFalse())
+
+
+		})
+
+
+
 	})
 })
