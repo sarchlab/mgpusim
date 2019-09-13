@@ -203,8 +203,9 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 		nil,
 	)
 	b.gpu.RDMAEngine = b.RDMAEngine
-	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToInside
-	b.InternalConn.PlugIn(b.RDMAEngine.ToInside)
+	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToL1
+	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL1)
+	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL2)
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
