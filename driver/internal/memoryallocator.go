@@ -25,6 +25,17 @@ type MemoryAllocator interface {
 	) vm.Page
 }
 
+// NewMemoryAllocator creates a new memory allocator.
+func NewMemoryAllocator(mmu mmu.MMU, log2PageSize uint64) MemoryAllocator {
+	a := &memoryAllocatorImpl{
+		mmu:                 mmu,
+		log2PageSize:        log2PageSize,
+		processMemoryStates: make(map[ca.PID]*processMemoryState),
+		vAddrToPageMapping:  make(map[uint64]vm.Page),
+	}
+	return a
+}
+
 type processMemoryState struct {
 	pid       ca.PID
 	nextVAddr uint64
@@ -36,13 +47,6 @@ type deviceMemoryState struct {
 	initialAddress        uint64
 	storageSize           uint64
 	nextPAddr             uint64
-}
-
-func (s *deviceMemoryState) updateNextPAddr(pageSize uint64) {
-	s.nextPAddr += pageSize
-	if s.nextPAddr > s.initialAddress+s.storageSize {
-		panic("memory is full")
-	}
 }
 
 // A memoryAllocatorImpl provides the default implementation for
@@ -57,13 +61,14 @@ type memoryAllocatorImpl struct {
 	totalStorageByteSize uint64
 }
 
-func newMemoryAllocatorImpl(mmu mmu.MMU) *memoryAllocatorImpl {
-	a := &memoryAllocatorImpl{
-		mmu:                 mmu,
-		processMemoryStates: make(map[ca.PID]*processMemoryState),
-		vAddrToPageMapping:  make(map[uint64]vm.Page),
+func (a *memoryAllocatorImpl) thereMustBeSpaceLeft(
+	pAddr uint64,
+	deviceID int,
+) {
+	dState := a.deviceMemoryStates[deviceID]
+	if pAddr >= dState.initialAddress+dState.storageSize {
+		panic("out of space")
 	}
-	return a
 }
 
 func (a *memoryAllocatorImpl) RegisterStorage(
@@ -129,6 +134,7 @@ func (a *memoryAllocatorImpl) allocatePages(
 	pageSize := uint64(1 << a.log2PageSize)
 	nextVAddr := pState.nextVAddr
 	nextPAddr := dState.nextPAddr
+	a.thereMustBeSpaceLeft(nextPAddr, deviceID)
 
 	for i := 0; i < numPages; i++ {
 		pAddr := nextPAddr + uint64(i)*pageSize
@@ -207,17 +213,20 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 ) vm.Page {
 	pageSize := uint64(1 << a.log2PageSize)
 	dState := a.deviceMemoryStates[deviceID]
+	nextPAddr := dState.nextPAddr
+	a.thereMustBeSpaceLeft(nextPAddr, deviceID)
 
 	page := vm.Page{
 		PID:      pid,
 		VAddr:    vAddr,
-		PAddr:    dState.nextPAddr,
+		PAddr:    nextPAddr,
 		PageSize: pageSize,
 		Valid:    true,
 		GPUID:    uint64(deviceID),
 		Unified:  isUnified,
 	}
 	a.vAddrToPageMapping[page.VAddr] = page
+	dState.nextPAddr += pageSize
 
 	a.mmu.CreatePage(&page)
 

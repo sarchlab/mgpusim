@@ -21,8 +21,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		mmu = NewMockMMU(mockCtrl)
 
-		allocator = newMemoryAllocatorImpl(mmu)
-		allocator.log2PageSize = 12
+		allocator = NewMemoryAllocator(mmu, 12).(*memoryAllocatorImpl)
 		configAFourGPUSystem(allocator)
 
 	})
@@ -91,9 +90,6 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		mmu.EXPECT().CreatePage(page)
 		ptr := allocator.Allocate(1, 4000, 1)
 
-		// mmu.EXPECT().
-		// 	Translate(ca.PID(1), uint64(page.VAddr)).
-		// 	Return(page)
 		mmu.EXPECT().RemovePage(ca.PID(1), uint64(page.VAddr))
 		mmu.EXPECT().CreatePage(&vm.Page{
 			PID:      1,

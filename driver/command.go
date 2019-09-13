@@ -26,7 +26,7 @@ func (c *MemCopyH2DCommand) GetID() string {
 	return c.ID
 }
 
-// GetReq returns the request associated with the command
+// GetReqs returns the requests associated with the command
 func (c *MemCopyH2DCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }

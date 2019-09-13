@@ -10,6 +10,7 @@ import (
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/gcn3/driver/internal"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/util/tracing"
 )
@@ -18,7 +19,7 @@ import (
 type Driver struct {
 	*akita.TickingComponent
 
-	memAllocator memoryAllocator
+	memAllocator internal.MemoryAllocator
 	distributor  distributor
 
 	GPUs []*gcn3.GPU
@@ -478,8 +479,7 @@ func NewDriver(engine akita.Engine, mmu mmu.MMU) *Driver {
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
-	memAllocatorImpl := newMemoryAllocatorImpl(mmu)
-	memAllocatorImpl.pageSizeAsPowerOf2 = 12
+	memAllocatorImpl := internal.NewMemoryAllocator(mmu, 12)
 	driver.memAllocator = memAllocatorImpl
 
 	distributorImpl := newDistributorImpl(memAllocatorImpl)
