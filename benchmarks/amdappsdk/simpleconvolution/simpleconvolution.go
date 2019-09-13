@@ -100,10 +100,9 @@ func (b *Benchmark) initMem() {
 
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
-		b.dMasks[i] = b.driver.AllocateMemoryWithAlignment(
+		b.dMasks[i] = b.driver.AllocateMemory(
 			b.context,
-			uint64(b.maskSize*b.maskSize*4),
-			4096)
+			uint64(b.maskSize*b.maskSize*4))
 		b.driver.MemCopyH2D(b.context, b.dMasks[i], b.hMask)
 	}
 

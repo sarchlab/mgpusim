@@ -73,7 +73,7 @@ func (b *Benchmark) initMem() {
 		b.hVerInputArray[i] = temp
 	}
 
-	b.dInputArray = b.driver.AllocateMemoryWithAlignment(b.context, uint64(b.Length*4), 4096)
+	b.dInputArray = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 	b.driver.MemCopyH2D(b.context, b.dInputArray, b.hInputArray)
 }
 
@@ -94,7 +94,7 @@ func (b *Benchmark) exec() {
 
 			kernArg := FastWalshTransformKernelArgs{
 				TArray: b.dInputArray,
-				Step: step,
+				Step:   step,
 			}
 
 			b.driver.EnqueueLaunchKernel(
@@ -133,8 +133,8 @@ func (b *Benchmark) Verify() {
 
 	for i := uint32(0); i < b.Length; i++ {
 		if b.hInputArray[i] != b.hVerInputArray[i] {
-			panic(fmt.Sprintf("Mismatch at %d, expected %f found %f", 
-			i, b.hInputArray[i], b.hVerInputArray[i]) )
+			panic(fmt.Sprintf("Mismatch at %d, expected %f found %f",
+				i, b.hInputArray[i], b.hVerInputArray[i]))
 		}
 	}
 

@@ -117,10 +117,10 @@ func (b *Benchmark) initMem() {
 		b.hInput[i] = 1
 	}
 
-	b.dData1 = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.paddedDataSize*4), 4096)
-	b.dData2 = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.paddedDataSize*4), 4096)
+	b.dData1 = b.driver.AllocateMemory(b.context,
+		uint64(b.paddedDataSize*4))
+	b.dData2 = b.driver.AllocateMemory(b.context,
+		uint64(b.paddedDataSize*4))
 
 	b.currData = &b.dData1
 	b.newData = &b.dData2

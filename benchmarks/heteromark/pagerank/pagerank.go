@@ -91,16 +91,16 @@ func (b *Benchmark) initMem() {
 		b.verPageRank[i] = initData
 	}
 
-	b.dPageRank = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.NumNodes*4), 4096)
-	b.dPageRankTemp = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.NumNodes*4), 4096)
-	b.dRowOffsets = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64((b.NumNodes+1)*4), 4096)
-	b.dColumnNumbers = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.NumConnections*4), 4096)
-	b.dValues = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.NumConnections*4), 4096)
+	b.dPageRank = b.driver.AllocateMemory(
+		b.context, uint64(b.NumNodes*4))
+	b.dPageRankTemp = b.driver.AllocateMemory(
+		b.context, uint64(b.NumNodes*4))
+	b.dRowOffsets = b.driver.AllocateMemory(
+		b.context, uint64((b.NumNodes+1)*4))
+	b.dColumnNumbers = b.driver.AllocateMemory(
+		b.context, uint64(b.NumConnections*4))
+	b.dValues = b.driver.AllocateMemory(
+		b.context, uint64(b.NumConnections*4))
 
 }
 

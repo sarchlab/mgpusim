@@ -97,16 +97,16 @@ func (b *Benchmark) initMem() {
 		b.p[i] = float32(i) * math.Pi
 	}
 
-	b.dA = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*b.NX*4), 4096)
-	b.dR = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NX*4), 4096)
-	b.dS = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*4), 4096)
-	b.dP = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*4), 4096)
-	b.dQ = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NX*4), 4096)
+	b.dA = b.driver.AllocateMemory(b.context,
+		uint64(b.NY*b.NX*4))
+	b.dR = b.driver.AllocateMemory(b.context,
+		uint64(b.NX*4))
+	b.dS = b.driver.AllocateMemory(b.context,
+		uint64(b.NY*4))
+	b.dP = b.driver.AllocateMemory(b.context,
+		uint64(b.NY*4))
+	b.dQ = b.driver.AllocateMemory(b.context,
+		uint64(b.NX*4))
 
 }
 
