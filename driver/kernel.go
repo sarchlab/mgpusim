@@ -59,8 +59,8 @@ func (d *Driver) enqueueCopyKernArgsToGPU(
 	kernelArgs interface{},
 ) GPUPtr {
 	d.updateLDSPointers(co, kernelArgs)
-	dKernArgData := d.AllocateMemoryWithAlignment(
-		queue.Context, uint64(binary.Size(kernelArgs)), 4096)
+	dKernArgData := d.AllocateMemory(
+		queue.Context, uint64(binary.Size(kernelArgs)))
 	d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
 	return dKernArgData
 }
@@ -69,9 +69,9 @@ func (d *Driver) enqueueCopyInstructionsToGPU(
 	queue *CommandQueue,
 	co *insts.HsaCo,
 ) GPUPtr {
-	dCoData := d.AllocateMemoryWithAlignment(
+	dCoData := d.AllocateMemory(
 		queue.Context,
-		uint64(len(co.Data)), 4096)
+		uint64(len(co.Data)))
 	d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
 	return dCoData
 }
@@ -92,8 +92,8 @@ func (d *Driver) createAQLPacket(
 	packet.WorkgroupSizeZ = wgSize[2]
 	packet.KernelObject = uint64(dCoData)
 	packet.KernargAddress = uint64(dKernArgData)
-	dPacket := d.AllocateMemoryWithAlignment(
-		queue.Context, uint64(binary.Size(packet)), 4096)
+	dPacket := d.AllocateMemory(
+		queue.Context, uint64(binary.Size(packet)))
 	d.EnqueueMemCopyH2D(queue, dPacket, packet)
 	return packet, dPacket
 }

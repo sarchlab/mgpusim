@@ -1,5 +1,7 @@
 package driver
 
+import "gitlab.com/akita/gcn3/driver/internal"
+
 // A distributor can distribute a virtually consecutive memory to multiple GPUs.
 type distributor interface {
 	Distribute(
@@ -11,10 +13,10 @@ type distributor interface {
 
 type distributorImpl struct {
 	pageSizeAsPowerOf2 uint64
-	memAllocator       memoryAllocator
+	memAllocator       internal.MemoryAllocator
 }
 
-func newDistributorImpl(memAllocator memoryAllocator) *distributorImpl {
+func newDistributorImpl(memAllocator internal.MemoryAllocator) *distributorImpl {
 	return &distributorImpl{
 		memAllocator: memAllocator,
 	}
@@ -46,7 +48,8 @@ func (d *distributorImpl) Distribute(
 	var i uint64
 	var lastAllocatedGPU uint64
 	for i = 0; i < numGPUsToUse; i++ {
-		d.memAllocator.Remap(ctx,
+		d.memAllocator.Remap(
+			ctx.pid,
 			addr+i*numPagesPerGPU*pageSize,
 			numPagesPerGPU*pageSize,
 			gpuIDs[i],
@@ -56,7 +59,8 @@ func (d *distributorImpl) Distribute(
 	}
 
 	for i := uint64(0); i < remainingPages; i++ {
-		d.memAllocator.Remap(ctx,
+		d.memAllocator.Remap(
+			ctx.pid,
 			addr+(numPagesPerGPU*numGPUsToUse+i)*pageSize,
 			pageSize,
 			gpuIDs[lastAllocatedGPU],

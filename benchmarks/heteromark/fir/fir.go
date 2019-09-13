@@ -79,14 +79,14 @@ func (b *Benchmark) initMem() {
 	}
 
 	b.gFilterData = make([]driver.GPUPtr, len(b.gpus))
-	b.gHistoryData = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.numTaps*4), 4096)
-	b.gInputData = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.Length*4), 4096)
+	b.gHistoryData = b.driver.AllocateMemory(
+		b.context, uint64(b.numTaps*4))
+	b.gInputData = b.driver.AllocateMemory(
+		b.context, uint64(b.Length*4))
 	b.driver.Distribute(b.context,
 		b.gInputData, uint64(b.Length*4), b.gpus)
-	b.gOutputData = b.driver.AllocateMemoryWithAlignment(
-		b.context, uint64(b.Length*4), 4096)
+	b.gOutputData = b.driver.AllocateMemory(
+		b.context, uint64(b.Length*4))
 	b.driver.Distribute(b.context,
 		b.gOutputData, uint64(b.Length*4), b.gpus)
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)

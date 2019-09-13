@@ -91,14 +91,14 @@ func (b *Benchmark) initMem() {
 		}
 	}
 
-	b.dA = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*b.NX*4), 4096)
-	b.dX = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*4), 4096)
-	b.dY = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NY*4), 4096)
-	b.dTmp = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NX*4), 4096)
+	b.dA = b.driver.AllocateMemory(b.context,
+		uint64(b.NY*b.NX*4))
+	b.dX = b.driver.AllocateMemory(b.context,
+		uint64(b.NY*4))
+	b.dY = b.driver.AllocateMemory(b.context,
+		uint64(b.NY*4))
+	b.dTmp = b.driver.AllocateMemory(b.context,
+		uint64(b.NX*4))
 }
 
 func (b *Benchmark) exec() {

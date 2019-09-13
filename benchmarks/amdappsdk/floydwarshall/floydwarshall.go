@@ -106,8 +106,12 @@ func (b *Benchmark) initMem() {
 	copy(b.hVerificationPathDistanceMatrix, b.hOutputPathDistanceMatrix)
 	copy(b.hVerificationPathMatrix, b.hOutputPathMatrix)
 
-	b.dOutputPathMatrix = b.driver.AllocateMemoryWithAlignment(b.context, uint64(numNodes*numNodes*4), 4096)
-	b.dOutputPathDistanceMatrix = b.driver.AllocateMemoryWithAlignment(b.context, uint64(numNodes*numNodes*4), 4096)
+	b.dOutputPathMatrix = b.driver.AllocateMemory(
+		b.context,
+		uint64(numNodes*numNodes*4))
+	b.dOutputPathDistanceMatrix = b.driver.AllocateMemory(
+		b.context,
+		uint64(numNodes*numNodes*4))
 
 	b.driver.MemCopyH2D(b.context, b.dOutputPathMatrix, b.hOutputPathMatrix)
 	b.driver.MemCopyH2D(b.context, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)

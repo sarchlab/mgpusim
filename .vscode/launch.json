@@ -19,6 +19,13 @@
             "program": "${workspaceFolder}/driver"
         },
         {
+            "name": "Test gitlab.com/akita/gcn3/driver/internal",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/driver/internal"
+        },
+        {
             "name": "Test gitlab.com/akita/gcn3/kernels",
             "type": "go",
             "request": "launch",

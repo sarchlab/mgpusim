@@ -95,14 +95,14 @@ func (b *Benchmark) initMem() {
 	b.hFrontier[b.sourceNode] = 0
 	b.hCost[b.sourceNode] = 0
 
-	b.dFrontier = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(b.NumNode*4), 4096)
-	b.dEdgeArray = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64((b.NumNode+1)*4), 4096)
-	b.dEdgeArrayAux = b.driver.AllocateMemoryWithAlignment(b.context,
-		uint64(len(b.graph.edgeList)*4), 4096)
-	b.dFlag = b.driver.AllocateMemoryWithAlignment(b.context,
-		4, 4096)
+	b.dFrontier = b.driver.AllocateMemory(b.context,
+		uint64(b.NumNode*4))
+	b.dEdgeArray = b.driver.AllocateMemory(b.context,
+		uint64((b.NumNode+1)*4))
+	b.dEdgeArrayAux = b.driver.AllocateMemory(b.context,
+		uint64(len(b.graph.edgeList)*4))
+	b.dFlag = b.driver.AllocateMemory(b.context,
+		4)
 }
 
 func (b *Benchmark) exec() {
