@@ -122,7 +122,6 @@ func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
 func (e *Engine) processFromL1(now akita.VTimeInSec) {
 
 	if e.pauseIncomingReqsFromL1 {
-		e.needTick = true
 		return
 	}
 	req := e.ToL1.Peek()

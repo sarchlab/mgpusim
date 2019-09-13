@@ -46,7 +46,7 @@ func (b RDMADrainReqBuilder) WithDst(dst akita.Port) RDMADrainReqBuilder {
 // Build creats a new RDMADrainReq
 func (b RDMADrainReqBuilder) Build() *RDMADrainReq {
 	r := &RDMADrainReq{}
-	//r.ID = akita.GetIDGenerator().Generate()
+	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -95,7 +95,7 @@ func (b RDMARestartReqBuilder) WithDst(dst akita.Port) RDMARestartReqBuilder {
 // Build creats a new RDMADrainRsp
 func (b RDMARestartReqBuilder) Build() *RDMARestartReq {
 	r := &RDMARestartReq{}
-	//r.ID = akita.GetIDGenerator().Generate()
+	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -143,7 +143,7 @@ func (b RDMADrainRspBuilder) WithDst(dst akita.Port) RDMADrainRspBuilder {
 // Build creats a new RDMADrainRsp
 func (b RDMADrainRspBuilder) Build() *RDMADrainRsp {
 	r := &RDMADrainRsp{}
-	//r.ID = akita.GetIDGenerator().Generate()
+	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
