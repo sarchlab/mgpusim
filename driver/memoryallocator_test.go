@@ -62,16 +62,40 @@ var _ = ginkgo.Describe("MemoryAllocatorImpl", func() {
 				VAddr:    4096,
 				PageSize: 4096,
 				Valid:    true,
+				Unified:  false,
 			})
 
-		ptr := allocator.AllocateWithAlignment(context, 8, 64)
+		ptr := allocator.AllocateWithAlignment(context, 8, 64,false)
 		Expect(ptr).To(Equal(GPUPtr(4096)))
 		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(1))
 		Expect(allocator.deviceMemoryStates[1].memoryChunks).To(HaveLen(2))
 
-		ptr = allocator.AllocateWithAlignment(context, 8, 64)
+		ptr = allocator.AllocateWithAlignment(context, 8, 64,false)
 		Expect(ptr).To(Equal(GPUPtr(4160)))
 		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(1))
+		Expect(allocator.deviceMemoryStates[1].memoryChunks).To(HaveLen(4))
+	})
+
+	ginkgo.It("should allocate unified memory with alignment", func() {
+		mmu.EXPECT().CreatePage(
+			&vm.Page{
+				PID:      1,
+				PAddr:    0x100000000,
+				VAddr:    4096,
+				PageSize: 4096,
+				Valid:    true,
+				Unified:  false,
+			})
+
+		ptr := allocator.AllocateWithAlignment(context, 8, 64,false)
+		Expect(ptr).To(Equal(GPUPtr(4096)))
+		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(1))
+		Expect(allocator.deviceMemoryStates[1].memoryChunks).To(HaveLen(2))
+
+		ptr = allocator.AllocateWithAlignment(context, 8, 64,false)
+		Expect(ptr).To(Equal(GPUPtr(4160)))
+		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(1))
+		Expect(allocator.deviceMemoryStates[1].allocatedPages[0].Unified).To(BeTrue())
 		Expect(allocator.deviceMemoryStates[1].memoryChunks).To(HaveLen(4))
 	})
 

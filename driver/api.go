@@ -84,8 +84,28 @@ func (d *Driver) AllocateMemoryWithAlignment(
 	ctx *Context,
 	byteSize, alignment uint64,
 ) GPUPtr {
-	return d.memAllocator.AllocateWithAlignment(ctx, byteSize, alignment)
+	return d.memAllocator.AllocateWithAlignment(ctx, byteSize, alignment,false)
 }
+
+//AllocateUnifiedMemory allocates a unified memory. Allocation is done on CPU
+func (d *Driver) AllocateUnifiedMemory(
+	ctx *Context,
+	byteSize uint64,
+) GPUPtr {
+	ctx.currentGPUID = 1
+	return d.memAllocator.AllocateUnified(ctx, byteSize)
+}
+
+// AllocateUnifiedMemoryWithAlignment allocates a chunk of memory of size byteSize on the CPU
+// The return address must be a multiple of alignment.
+func (d *Driver) AllocateUnifiedMemoryWithAlignment(
+	ctx *Context,
+	byteSize, alignment uint64,
+) GPUPtr {
+	ctx.currentGPUID = 1
+	return d.memAllocator.AllocateWithAlignment(ctx, byteSize, alignment, true)
+}
+
 
 // Remap keeps the virtual address unchanged and moves the physical address to
 // another GPU
