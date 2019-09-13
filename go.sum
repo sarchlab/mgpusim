@@ -51,6 +51,7 @@ gitlab.com/akita/akita v1.3.2 h1:5xdz4fpTYcw8XWpG5BJQrQb0QmT3rIQs1DSUiHmtwy8=
 gitlab.com/akita/akita v1.3.2/go.mod h1:eNUGyDnGKgimk6ndOBkRfaPrv5eeWlk0P2ETsUfmsBg=
 gitlab.com/akita/akita v1.4.0 h1:FIxA1BfzyeWEZHFCChzWhMHQPgGnKaa/9amKsuw9VQU=
 gitlab.com/akita/akita v1.4.0/go.mod h1:Eg4bfvRGNFhXCTKUigGi4X2PRCt+nUMtN1qjmZgnvFs=
+gitlab.com/akita/akita v1.4.1/go.mod h1:Eg4bfvRGNFhXCTKUigGi4X2PRCt+nUMtN1qjmZgnvFs=
 gitlab.com/akita/mem v1.2.5 h1:le9oWtf3sichBRrmdFpZebXwrWqFqRGqTTvWUAsg69k=
 gitlab.com/akita/mem v1.2.5/go.mod h1:O01TzLJNkMB0qAWROMcP34f6V99eOTfatWKpfzbuye8=
 gitlab.com/akita/mem v1.2.6 h1:LVcAQ7RxrjAQ5kPxSyxXIe6Xcrt7TBUHv3JjHdomxsE=
