@@ -128,8 +128,8 @@ func (b PageMigrationRspFromPMCBuilder) WithDst(dst akita.Port) PageMigrationRsp
 }
 
 // Build creats a new PageMigrationReqToPMC
-func (b PageMigrationRspFromPMCBuilder ) Build() *PageMigrationReqToPMC{
-	r := &PageMigrationReqToPMC{}
+func (b PageMigrationRspFromPMCBuilder ) Build() *PageMigrationRspFromPMC{
+	r := &PageMigrationRspFromPMC{}
 	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst

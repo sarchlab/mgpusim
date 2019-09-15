@@ -2,6 +2,7 @@ package gpubuilder
 
 import (
 	"fmt"
+	"gitlab.com/akita/gcn3/pagemigrationcontroller"
 	"log"
 	"os"
 
@@ -60,8 +61,10 @@ type R9NanoGPUBuilder struct {
 	DRAMs                             []*idealmemcontroller.Comp
 	LowModuleFinderForL1              *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2              *cache.InterleavedLowModuleFinder
+	LowModuleFinderForPMC              *cache.InterleavedLowModuleFinder
 	DMAEngine                         *gcn3.DMAEngine
 	RDMAEngine                        *rdma.Engine
+	PageMigrationController            *pagemigrationcontroller.PageMigrationController
 	cuToL1VAddrTranslatorConnections  []*akita.DirectConnection
 	cuToL1SAddrTranslatorConnections  []*akita.DirectConnection
 	cuToL1IConnections                []*akita.DirectConnection
@@ -206,6 +209,25 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToInside
 	b.InternalConn.PlugIn(b.RDMAEngine.ToInside)
 }
+
+func (b *R9NanoGPUBuilder) buildPageMigrationController() {
+	b.PageMigrationController = pagemigrationcontroller.NewPageMigrationController(
+		fmt.Sprintf("%s.PMC", b.gpuName),
+		b.engine,
+		b.LowModuleFinderForPMC)
+
+	b.gpu.PMC = b.PageMigrationController
+
+	b.gpu.PMC.MemCtrlFinder = b.LowModuleFinderForPMC
+
+	b.InternalConn.PlugIn(b.gpu.PMC.ToCtrlPort)
+	b.InternalConn.PlugIn(b.gpu.PMC.CtrlPort)
+	b.InternalConn.PlugIn(b.gpu.PMC.ToMemCtrl)
+
+	//b.CP.PMC = b.gpu.PageMigrationEngine.ToCP
+	//b.gpu.PageMigrationEngine.CP = b.CP.ToPMC
+}
+
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
 	b.DMAEngine = gcn3.NewDMAEngine(
@@ -686,6 +708,8 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 
 func (b *R9NanoGPUBuilder) buildMemControllers() {
 	b.LowModuleFinderForL2 = cache.NewInterleavedLowModuleFinder(4096)
+	b.LowModuleFinderForPMC = cache.NewInterleavedLowModuleFinder(4096)
+
 
 	numDramController := b.numMemoryBank
 	for i := 0; i < numDramController; i++ {
@@ -707,6 +731,9 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 
 		b.LowModuleFinderForL2.LowModules = append(
 			b.LowModuleFinderForL2.LowModules, memCtrl.ToTop)
+		b.LowModuleFinderForPMC.LowModules = append(
+			b.LowModuleFinderForPMC.LowModules, memCtrl.ToTop)
+
 		b.gpu.MemoryControllers = append(
 			b.gpu.MemoryControllers, memCtrl)
 		b.CP.DRAMControllers = append(

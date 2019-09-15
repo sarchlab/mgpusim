@@ -4,8 +4,6 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/tlb"
 	"log"
 	"reflect"
 )
@@ -33,7 +31,7 @@ type PageMigrationController struct {
 	toRspToAnotherPMC           []*DataPullRspFromRemotePMC
 	receivedDataFromAnothePMC   []*DataPullRspFromRemotePMC
 	writeReqToMemCtrl            []*mem.WriteReq
-	receivedWriteDoneFromMemCtrl *mem.DoneRsp
+	receivedWriteDoneFromMemCtrl *mem.WriteDoneRsp
 	toSendToCtrlPort                  *PageMigrationRspFromPMC
 
 	freq     akita.Freq
@@ -55,7 +53,6 @@ type PageMigrationController struct {
 
 	ishandlingPageMigration        bool
 
-	requestingRDMAPort akita.Port
 
 }
 
@@ -222,7 +219,14 @@ func (e *PageMigrationController) processReadPageReqFromAnotherPMC(now akita.VTi
 	for i := 0; i < len(e.currentPullReqFromAnotherPMC); i++ {
 		address := e.currentPullReqFromAnotherPMC[i].ToReadFromPhyAddress
 		dataTransferSize := e.currentPullReqFromAnotherPMC[i].DataTransferSize
-		req := mem.NewReadReq(now, e.ToMemCtrl, e.MemCtrlFinder.Find(address), address, dataTransferSize)
+		req := mem.ReadReqBuilder{}.
+			WithSendTime(now).
+			WithSrc(e.ToMemCtrl).
+			WithDst(e.MemCtrlFinder.Find(address)).
+			WithAddress(address).
+			WithByteSize(dataTransferSize).
+			Build()
+
 		req.ID = e.currentPullReqFromAnotherPMC[i].ID
 		e.toSendToMemCtrl = append(e.toSendToMemCtrl, req)
 	}
@@ -264,7 +268,7 @@ func (e *PageMigrationController) processFromMemCtrl(now akita.VTimeInSec) {
 	switch req := req.(type) {
 	case *mem.DataReadyRsp:
 		e.handleDataReadyRspFromMemCtrl(now, req)
-	case *mem.DoneRsp:
+	case *mem.WriteDoneRsp:
 		e.handleWriteDoneRspFromMemCtrl(now, req)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
@@ -285,9 +289,13 @@ func (e *PageMigrationController) processDataReadyRspFromMemCtrl(now akita.VTime
 
 	for i := 0; i < len(e.dataReadyRspFromMemCtrl); i++ {
 		data := e.dataReadyRspFromMemCtrl[i].Data
-		rsp := NewDataPullRspFromRemotePMCToAnotherPM(now, e.ToOutside, e.requestingPMCtrlPortort, data)
+		rsp := DataPullRspFromRemotePMCBuilder{}.
+			WithSendTime(now).
+			WithSrc(e.ToOutside).
+			WithDst(e.requestingPMCtrlPort).
+			WithData(data).
+			Build()
 		rsp.ID = e.dataReadyRspFromMemCtrl[i].RespondTo
-		//log.Printf("Read data address ID from memctrl  is %d \n", rsp.ID)
 
 		e.toRspToAnotherPMC = append(e.toRspToAnotherPMC, rsp)
 
@@ -310,7 +318,6 @@ func (e *PageMigrationController) sendDataReadyRspToRequestingPMC(now akita.VTim
 		sendPacket.SendTime = now
 		sendErr := e.ToOutside.Send(sendPacket)
 		if sendErr == nil {
-			//log.Printf("rEPLYING FOR REQ to PMC %d ", e.toRspToAnotherPMC[i].ID)
 			e.needTick = true
 		} else {
 			newInToSendRspToAnotherPMC = append(newInToSendRspToAnotherPMC, sendPacket)
@@ -318,14 +325,12 @@ func (e *PageMigrationController) sendDataReadyRspToRequestingPMC(now akita.VTim
 	}
 
 	e.toRspToAnotherPMC = newInToSendRspToAnotherPMC
-	//log.Printf("rdma %s sending  RSP length %d \n", e.Name(), len(e.toRspToAnotherPMC))
 
 }
 
 func (e *PageMigrationController) handleDataPullRspFromRemotePMC(now akita.VTimeInSec, req *DataPullRspFromRemotePMC) {
 	e.needTick = true
 	e.receivedDataFromAnothePMC = append(e.receivedDataFromAnothePMC, req)
-	//log.Printf(" RSP from  PMC %d", req.ID)
 	e.ToOutside.Retrieve(now)
 
 }
@@ -341,9 +346,13 @@ func (e *PageMigrationController) processDataPullRspFromRemotePMC(now akita.VTim
 		if !found {
 			log.Panicf("We do not know where the mem controller should write")
 		}
-		//log.Printf("PMC writing to address %d  with length %d \n", address, len(data))
-		req := mem.NewWriteReq(now, e.ToMemCtrl, e.MemCtrlFinder.Find(address), address)
-		req.Data = data
+		req := mem.WriteReqBuilder{}.
+			   WithSendTime(now).
+			   WithSrc(e.ToMemCtrl).
+			   WithDst(e.MemCtrlFinder.Find(address)).
+			   WithData(data).
+			   Build()
+
 		e.writeReqToMemCtrl = append(e.writeReqToMemCtrl, req)
 		delete(e.reqIDToWriteAddressMap, e.receivedDataFromAnothePMC[i].ID)
 	}
@@ -361,7 +370,7 @@ func (e *PageMigrationController) sendWriteReqToMemCtrl(now akita.VTimeInSec) {
 	newInWriteReqToMemCtrl := make([]*mem.WriteReq, 0)
 
 	for i := 0; i < len(e.writeReqToMemCtrl); i++ {
-		e.writeReqToMemCtrl[i].SetSendTime(now)
+		e.writeReqToMemCtrl[i].SendTime = now
 		err := e.ToMemCtrl.Send(e.writeReqToMemCtrl[i])
 		if err == nil {
 			//log.Printf("Sending write req to mem ctrl with ID %d", e.writeReqToMemCtrl[i].ID)
@@ -375,7 +384,7 @@ func (e *PageMigrationController) sendWriteReqToMemCtrl(now akita.VTimeInSec) {
 	e.writeReqToMemCtrl = newInWriteReqToMemCtrl
 }
 
-func (e *PageMigrationController) handleWriteDoneRspFromMemCtrl(now akita.VTimeInSec, rsp *mem.DoneRsp) {
+func (e *PageMigrationController) handleWriteDoneRspFromMemCtrl(now akita.VTimeInSec, rsp *mem.WriteDoneRsp) {
 	e.needTick = true
 	e.receivedWriteDoneFromMemCtrl = rsp
 }
@@ -386,8 +395,6 @@ func (e *PageMigrationController) processWriteDoneRspFromMemCtrl(now akita.VTime
 	}
 
 	e.numDataRspPendingForPageMigration--
-	//log.Printf("Pending rsp %d \n", e.numDataRspPendingForPageMigration)
-	//log.Printf("Write done for req %d \n", e.receivedWriteDoneFromMemCtrl.ID)
 	e.receivedWriteDoneFromMemCtrl = nil
 	e.needTick = true
 
@@ -396,7 +403,12 @@ func (e *PageMigrationController) processWriteDoneRspFromMemCtrl(now akita.VTime
 	}
 	if e.numDataRspPendingForPageMigration == 0 {
 		//log.Printf("Sending migration complete rsp to CtrlPort \n")
-		rsp := NewOnDemandPageMigrationRsp(now, e.ToCtrlPort, e.CtrlPort, true)
+		rsp := PageMigrationRspFromPMCBuilder{}.
+			WithSendTime(now).
+			WithSrc(e.ToCtrlPort).
+			WithDst(e.CtrlPort).
+			Build()
+
 		e.toSendToCtrlPort = rsp
 		e.numDataRspPendingForPageMigration = -1
 
@@ -409,7 +421,7 @@ func (e *PageMigrationController) sendMigrationCompleteRspToCtrlPort(now akita.V
 		return
 	}
 
-	e.toSendToCtrlPort.SetSendTime(now)
+	e.toSendToCtrlPort.SendTime = now
 	err := e.ToCtrlPort.Send(e.toSendToCtrlPort)
 
 	if err == nil {
@@ -438,7 +450,7 @@ func (e *PageMigrationController) SetFreq(freq akita.Freq) {
 }
 
 
-func NewEngine(
+func NewPageMigrationController(
 	name string,
 	engine akita.Engine,
 	memCtrlFinder cache.LowModuleFinder,
@@ -451,16 +463,15 @@ func NewEngine(
 	e.engine = engine
 	e.MemCtrlFinder = memCtrlFinder
 
-	e.ToOutside = akita.NewLimitNumReqPort(e, 1)
-	e.ToMemCtrl = akita.NewLimitNumReqPort(e, 1)
-	e.ToCtrlPort = akita.NewLimitNumReqPort(e, 1)
-	e.CtrlPort = akita.NewLimitNumReqPort(e, 1)
+	e.ToOutside = akita.NewLimitNumMsgPort(e, 1)
+	e.ToMemCtrl = akita.NewLimitNumMsgPort(e, 1)
+	e.ToCtrlPort = akita.NewLimitNumMsgPort(e, 1)
+	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1)
 
 	e.onDemandPagingDataTransferSize = 256
 	e.numDataRspPendingForPageMigration = -1
 
 	e.reqIDToWriteAddressMap = make(map[string]uint64)
-	e.requestingRDMAPort = akita.NewLimitNumReqPort(e, 1)
 
 	return e
 }
