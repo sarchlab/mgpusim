@@ -1,19 +1,20 @@
 package pagemigrationcontroller
 
 import (
+	"log"
+	"reflect"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
-	"log"
-	"reflect"
 )
 
 type PageMigrationController struct {
 	*akita.ComponentBase
 	ticker *akita.Ticker
 
-	RemotePort akita.Port
-	CtrlPort  akita.Port
+	RemotePort   akita.Port
+	CtrlPort     akita.Port
 	LocalMemPort akita.Port
 
 	engine                akita.Engine
@@ -23,11 +24,11 @@ type PageMigrationController struct {
 	currentPullReqFromAnotherPMC []*DataPullReq
 
 	toPullFromAnotherPMC         []*DataPullReq
-	toSendLocalMemPort              []*mem.ReadReq
+	toSendLocalMemPort           []*mem.ReadReq
 	dataReadyRspFromMemCtrl      []*mem.DataReadyRsp
 	toRspToAnotherPMC            []*DataPullRsp
 	receivedDataFromAnothePMC    []*DataPullRsp
-	writeReqLocalMemPort            []*mem.WriteReq
+	writeReqLocalMemPort         []*mem.WriteReq
 	receivedWriteDoneFromMemCtrl *mem.WriteDoneRsp
 	toSendToCtrlPort             *PageMigrationRspFromPMC
 
@@ -435,6 +436,7 @@ func NewPageMigrationController(
 	name string,
 	engine akita.Engine,
 	memCtrlFinder cache.LowModuleFinder,
+	remoteModules cache.LowModuleFinder,
 ) *PageMigrationController {
 	e := new(PageMigrationController)
 	e.freq = 1 * akita.GHz
@@ -447,6 +449,7 @@ func NewPageMigrationController(
 	e.RemotePort = akita.NewLimitNumMsgPort(e, 1)
 	e.LocalMemPort = akita.NewLimitNumMsgPort(e, 1)
 	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1)
+	e.RemotePMCAddressTable = remoteModules
 
 	e.onDemandPagingDataTransferSize = 256
 	e.numDataRspPendingForPageMigration = -1

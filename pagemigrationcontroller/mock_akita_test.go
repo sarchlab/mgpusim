@@ -4,9 +4,10 @@
 package pagemigrationcontroller
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	akita "gitlab.com/akita/akita"
-	reflect "reflect"
 )
 
 // MockPort is a mock of Port interface

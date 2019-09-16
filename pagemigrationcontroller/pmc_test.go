@@ -1,13 +1,10 @@
 package pagemigrationcontroller
 
-
-
 import (
 	"log"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
@@ -28,11 +25,11 @@ var _ = Describe("PMC", func() {
 		mockCtrl *gomock.Controller
 
 		engine        *MockEngine
-		pmc  *PageMigrationController
-		RemotePort     *MockPort
-		LocalMemPort     *MockPort
+		pmc           *PageMigrationController
+		RemotePort    *MockPort
+		LocalMemPort  *MockPort
 		memCtrl       *MockPort
-		ctrlPort          *MockPort
+		ctrlPort      *MockPort
 		localModules  *cache.SingleLowModuleFinder
 		remoteModules *cache.SingleLowModuleFinder
 		memCtrlFinder *cache.SingleLowModuleFinder
@@ -68,16 +65,14 @@ var _ = Describe("PMC", func() {
 		mockCtrl.Finish()
 	})
 
-
-
 	Context("should handle page migration req", func() {
 		It("should receive a page migraiton req from Control port", func() {
-			req := PageMigrationReqToPMCBuilder{}. 
-				   WithSendTime(10).
-				   WithSrc(nil).
-				   WithDst(pmc.CtrlPort).
-				   WithPageSize(4*mem.KB).
-				   Build()
+			req := PageMigrationReqToPMCBuilder{}.
+				WithSendTime(10).
+				WithSrc(nil).
+				WithDst(pmc.CtrlPort).
+				WithPageSize(4 * mem.KB).
+				Build()
 
 			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
@@ -93,9 +88,8 @@ var _ = Describe("PMC", func() {
 				WithSendTime(10).
 				WithSrc(nil).
 				WithDst(pmc.CtrlPort).
-				WithPageSize(4*mem.KB).
+				WithPageSize(4 * mem.KB).
 				Build()
-
 
 			pmc.currentMigrationRequest = req
 
@@ -109,12 +103,12 @@ var _ = Describe("PMC", func() {
 		It("should send a migration req to another PMC", func() {
 
 			req := DataPullReqBuilder{}.
-				   WithSendTime(10).
-				   WithSrc(pmc.RemotePort).
-				   WithDst(nil).
-				   WithReadFromPhyAddress(0x100).
-				   WithDataTransferSize(256).
-				   Build()
+				WithSendTime(10).
+				WithSrc(pmc.RemotePort).
+				WithDst(nil).
+				WithReadFromPhyAddress(0x100).
+				WithDataTransferSize(256).
+				Build()
 
 			pmc.toPullFromAnotherPMC = append(pmc.toPullFromAnotherPMC, req)
 
@@ -166,12 +160,12 @@ var _ = Describe("PMC", func() {
 		})
 		It("send the data request from page migration to MemCtrl", func() {
 			req := mem.ReadReqBuilder{}.
-				 WithSendTime(10).
-				 WithSrc(pmc.LocalMemPort).
-				 WithDst(pmc.MemCtrlFinder.Find(0x100)).
+				WithSendTime(10).
+				WithSrc(pmc.LocalMemPort).
+				WithDst(pmc.MemCtrlFinder.Find(0x100)).
 				WithAddress(0x100).
-				  WithByteSize(0x04).
-				  Build()
+				WithByteSize(0x04).
+				Build()
 			pmc.toSendLocalMemPort = append(pmc.toSendLocalMemPort, req)
 
 			LocalMemPort.EXPECT().Send(req).Return(nil)
@@ -184,10 +178,10 @@ var _ = Describe("PMC", func() {
 
 		It("should receive a data ready rsp from MemCtrl", func() {
 			req := mem.DataReadyRspBuilder{}.
-				   WithSendTime(10).
-				   WithSrc(nil).
-				   WithDst(pmc.LocalMemPort).
-				   Build()
+				WithSendTime(10).
+				WithSrc(nil).
+				WithDst(pmc.LocalMemPort).
+				Build()
 
 			LocalMemPort.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
@@ -221,11 +215,11 @@ var _ = Describe("PMC", func() {
 			data := make([]byte, 0)
 			data = append(data, 0x04)
 			req := DataPullRspBuilder{}.
-				   WithSendTime(10).
-				   WithSrc(pmc.RemotePort).
-				   WithDst(nil).
-				   WithData(data).
-				   Build()
+				WithSendTime(10).
+				WithSrc(pmc.RemotePort).
+				WithDst(nil).
+				WithData(data).
+				Build()
 
 			pmc.toRspToAnotherPMC = append(pmc.toRspToAnotherPMC, req)
 
@@ -259,11 +253,11 @@ var _ = Describe("PMC", func() {
 		It("should process a data migration rsp from requested PMC", func() {
 			data := []byte{1, 2}
 			migrationReq := PageMigrationReqToPMCBuilder{}.
-				            WithSendTime(10).
-				            WithSrc(nil).
-				            WithDst(pmc.CtrlPort).
-				            WithPageSize(4*mem.KB).
-				            Build()
+				WithSendTime(10).
+				WithSrc(nil).
+				WithDst(pmc.CtrlPort).
+				WithPageSize(4 * mem.KB).
+				Build()
 
 			req := DataPullRspBuilder{}.
 				WithSendTime(10).
@@ -272,9 +266,7 @@ var _ = Describe("PMC", func() {
 				WithData(data).
 				Build()
 
-			pmc.reqIDToWriteAddressMap[req.ID]=0x100
-
-
+			pmc.reqIDToWriteAddressMap[req.ID] = 0x100
 
 			pmc.currentMigrationRequest = migrationReq
 			pmc.receivedDataFromAnothePMC = append(pmc.receivedDataFromAnothePMC, req)
@@ -288,13 +280,12 @@ var _ = Describe("PMC", func() {
 		It("should send a write req to mem ctrl", func() {
 			data := []byte{1, 2}
 			req := mem.WriteReqBuilder{}.
-				   WithSendTime(10).
-				   WithSrc(pmc.LocalMemPort).
-				   WithDst(pmc.MemCtrlFinder.Find(0X100)).
-				   WithAddress(0x100).
-				   WithData(data).
-				   Build()
-
+				WithSendTime(10).
+				WithSrc(pmc.LocalMemPort).
+				WithDst(pmc.MemCtrlFinder.Find(0X100)).
+				WithAddress(0x100).
+				WithData(data).
+				Build()
 
 			pmc.writeReqLocalMemPort = append(pmc.writeReqLocalMemPort, req)
 
@@ -308,11 +299,11 @@ var _ = Describe("PMC", func() {
 		})
 		It("should process a write done rsp from memctrl", func() {
 			req := mem.WriteDoneRspBuilder{}.
-				   WithSendTime(10).
-				   WithSrc(nil).
-				   WithDst(pmc.LocalMemPort).
-				   WithRspTo("xx").
-				   Build()
+				WithSendTime(10).
+				WithSrc(nil).
+				WithDst(pmc.LocalMemPort).
+				WithRspTo("xx").
+				Build()
 
 			pmc.receivedWriteDoneFromMemCtrl = req
 
@@ -337,10 +328,9 @@ var _ = Describe("PMC", func() {
 				WithSendTime(10).
 				WithSrc(nil).
 				WithDst(pmc.CtrlPort).
-				WithPageSize(4*mem.KB).
+				WithPageSize(4 * mem.KB).
 				Build()
 			pmc.currentMigrationRequest = pageMigrationReq
-
 
 			pmc.receivedWriteDoneFromMemCtrl = req
 
@@ -357,10 +347,10 @@ var _ = Describe("PMC", func() {
 
 		It("should send migration complete rsp to CP", func() {
 			req := PageMigrationRspFromPMCBuilder{}.
-				   WithSendTime(10).
-				   WithSrc(pmc.CtrlPort).
-				   WithDst(nil).
-				   Build()
+				WithSendTime(10).
+				WithSrc(pmc.CtrlPort).
+				WithDst(nil).
+				Build()
 
 			pmc.toSendToCtrlPort = req
 			pmc.isHandlingPageMigration = true
@@ -376,4 +366,3 @@ var _ = Describe("PMC", func() {
 
 	})
 })
-
