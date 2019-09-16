@@ -18,7 +18,7 @@ require (
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 )
 
-// replace gitlab.com/akita/mem => ../mem
+replace gitlab.com/akita/mem => ../mem
 
 // replace gitlab.com/akita/util => ../util
 

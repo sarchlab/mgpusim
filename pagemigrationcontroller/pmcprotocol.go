@@ -142,20 +142,20 @@ func (b PageMigrationRspFromPMCBuilder ) Build() *PageMigrationRspFromPMC{
 
 
 
-// A DataPullReqToRemotePMC asks remote PMC that holds the page for a page
-type DataPullReqToRemotePMC struct {
+// A DataPullReq asks remote PMC that holds the page for a page
+type DataPullReq struct {
 	akita.MsgMeta
 	ToReadFromPhyAddress  uint64
 	DataTransferSize uint64
 }
 
 // Meta returns the meta data associated with the message.
-func (r *DataPullReqToRemotePMC) Meta() *akita.MsgMeta {
+func (r *DataPullReq) Meta() *akita.MsgMeta {
 	return &r.MsgMeta
 }
 
-// DataPullReqToRemotePMCBuilder can build new Data pull reqs
-type DataPullReqToRemotePMCBuilder struct {
+// DataPullReqBuilder can build new Data pull reqs
+type DataPullReqBuilder struct {
 	sendTime akita.VTimeInSec
 	src, dst akita.Port
 	ToReadFromPhyAddress  uint64
@@ -163,33 +163,33 @@ type DataPullReqToRemotePMCBuilder struct {
 }
 
 // WithSendTime sets the send time of the request to build.:w
-func (b DataPullReqToRemotePMCBuilder) WithSendTime(
+func (b DataPullReqBuilder) WithSendTime(
 	t akita.VTimeInSec,
-) DataPullReqToRemotePMCBuilder {
+) DataPullReqBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b DataPullReqToRemotePMCBuilder ) WithSrc(src akita.Port) DataPullReqToRemotePMCBuilder  {
+func (b DataPullReqBuilder ) WithSrc(src akita.Port) DataPullReqBuilder  {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullReqToRemotePMCBuilder) WithDst(dst akita.Port) DataPullReqToRemotePMCBuilder  {
+func (b DataPullReqBuilder) WithDst(dst akita.Port) DataPullReqBuilder  {
 	b.dst = dst
 	return b
 }
 
 // WithReadFromPhyAddress sets the read address of the request to build.
-func (b DataPullReqToRemotePMCBuilder) WithReadFromPhyAddress(toReadFromPhyAddress uint64) DataPullReqToRemotePMCBuilder  {
+func (b DataPullReqBuilder) WithReadFromPhyAddress(toReadFromPhyAddress uint64) DataPullReqBuilder  {
 	b.ToReadFromPhyAddress = toReadFromPhyAddress
 	return b
 }
 
 // WithDataTransferSize sets the data transfer size of the request to build.
-func (b DataPullReqToRemotePMCBuilder) WithDataTransferSize(dataTransferSize uint64) DataPullReqToRemotePMCBuilder {
+func (b DataPullReqBuilder) WithDataTransferSize(dataTransferSize uint64) DataPullReqBuilder {
 	b.DataTransferSize = dataTransferSize
 	return b
 }
@@ -197,9 +197,9 @@ func (b DataPullReqToRemotePMCBuilder) WithDataTransferSize(dataTransferSize uin
 
 
 
-// Build creats a new DataPullReqToRemotePMC
-func (b DataPullReqToRemotePMCBuilder ) Build() *DataPullReqToRemotePMC{
-	r := &DataPullReqToRemotePMC{}
+// Build creats a new DataPullReq
+func (b DataPullReqBuilder ) Build() *DataPullReq{
+	r := &DataPullReq{}
 	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
@@ -210,46 +210,46 @@ func (b DataPullReqToRemotePMCBuilder ) Build() *DataPullReqToRemotePMC{
 	return r
 }
 
-// A DataPullRspFromRemotePMC returns requested data
-type DataPullRspFromRemotePMC struct {
+// A DataPullRsp returns requested data
+type DataPullRsp struct {
 	akita.MsgMeta
 	Data      []byte
 }
 
 // Meta returns the meta data associated with the message.
-func (r *DataPullRspFromRemotePMC) Meta() *akita.MsgMeta {
+func (r *DataPullRsp) Meta() *akita.MsgMeta {
 	return &r.MsgMeta
 }
 
-// DataPullRspFromRemotePMCBuilder can build new Data pull rsps
-type DataPullRspFromRemotePMCBuilder struct {
+// DataPullRspBuilder can build new Data pull rsps
+type DataPullRspBuilder struct {
 	sendTime akita.VTimeInSec
 	src, dst akita.Port
 	Data []byte
 }
 
 // WithSendTime sets the send time of the request to build
-func (b DataPullRspFromRemotePMCBuilder) WithSendTime(
+func (b DataPullRspBuilder) WithSendTime(
 	t akita.VTimeInSec,
-) DataPullRspFromRemotePMCBuilder {
+) DataPullRspBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b DataPullRspFromRemotePMCBuilder ) WithSrc(src akita.Port) DataPullRspFromRemotePMCBuilder  {
+func (b DataPullRspBuilder ) WithSrc(src akita.Port) DataPullRspBuilder  {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullRspFromRemotePMCBuilder) WithDst(dst akita.Port) DataPullRspFromRemotePMCBuilder  {
+func (b DataPullRspBuilder) WithDst(dst akita.Port) DataPullRspBuilder  {
 	b.dst = dst
 	return b
 }
 
 // WithData sets the data to build
-func (b DataPullRspFromRemotePMCBuilder) WithData(Data []byte) DataPullRspFromRemotePMCBuilder  {
+func (b DataPullRspBuilder) WithData(Data []byte) DataPullRspBuilder  {
 	b.Data = Data
 	return b
 }
@@ -258,9 +258,9 @@ func (b DataPullRspFromRemotePMCBuilder) WithData(Data []byte) DataPullRspFromRe
 
 
 
-// Build creats a new DataPullRspFromRemotePMC
-func (b DataPullRspFromRemotePMCBuilder) Build() *DataPullRspFromRemotePMC{
-	r := &DataPullRspFromRemotePMC{}
+// Build creats a new DataPullRsp
+func (b DataPullRspBuilder) Build() *DataPullRsp{
+	r := &DataPullRsp{}
 	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst

@@ -220,9 +220,8 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 
 	b.gpu.PMC.MemCtrlFinder = b.LowModuleFinderForPMC
 
-	b.InternalConn.PlugIn(b.gpu.PMC.ToCtrlPort)
 	b.InternalConn.PlugIn(b.gpu.PMC.CtrlPort)
-	b.InternalConn.PlugIn(b.gpu.PMC.ToMemCtrl)
+	b.InternalConn.PlugIn(b.gpu.PMC.LocalMemPort)
 
 	//b.CP.PMC = b.gpu.PageMigrationEngine.ToCP
 	//b.gpu.PageMigrationEngine.CP = b.CP.ToPMC
