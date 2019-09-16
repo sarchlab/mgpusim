@@ -51,7 +51,7 @@ var _ = Describe("PMC", func() {
 		memCtrlFinder = new(cache.SingleLowModuleFinder)
 		memCtrlFinder.LowModule = memCtrl
 
-		pmc = NewPageMigrationController("PMC", engine, memCtrlFinder)
+		pmc = NewPageMigrationController("PMC", engine, memCtrlFinder, remoteModules)
 
 		RemotePort = NewMockPort(mockCtrl)
 		ctrlPort = NewMockPort(mockCtrl)
