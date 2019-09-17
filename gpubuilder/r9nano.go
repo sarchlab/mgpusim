@@ -168,7 +168,7 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.buildMemSystem()
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
-	b.buildPageMigrationController()
+	//b.buildPageMigrationController()
 	b.buildCUs()
 
 	b.InternalConn.PlugIn(b.gpu.ToCommandProcessor)

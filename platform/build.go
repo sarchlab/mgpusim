@@ -120,10 +120,9 @@ func BuildNR9NanoPlatform(
 	rdmaAddressTable.BankSize = 4 * mem.GB
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
 
-	pmcAddressTable := new(cache.BankedLowModuleFinder)
+	/*pmcAddressTable := new(cache.BankedLowModuleFinder)
 	pmcAddressTable.BankSize = 4 * mem.GB
-	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)
-
+	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)*/
 
 	for i := 1; i < numGPUs+1; i++ {
 		name := fmt.Sprintf("GPU_%d", i)
@@ -140,14 +139,11 @@ func BuildNR9NanoPlatform(
 			gpu.RDMAEngine.ToOutside)
 		connection.PlugIn(gpu.RDMAEngine.ToOutside)
 
-
-
-		gpu.PMC.RemotePMCAddressTable = pmcAddressTable
+		/*gpu.PMC.RemotePMCAddressTable = pmcAddressTable
 		pmcAddressTable.LowModules = append(
 			pmcAddressTable.LowModules,
 			gpu.PMC.RemotePort)
-		connection.PlugIn(gpu.PMC.RemotePort)
-
+		connection.PlugIn(gpu.PMC.RemotePort)*/
 
 	}
 
