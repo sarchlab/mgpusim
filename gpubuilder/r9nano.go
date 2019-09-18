@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/pagemigrationcontroller"
 	"gitlab.com/akita/gcn3/rdma"
 	"gitlab.com/akita/gcn3/timing"
 	"gitlab.com/akita/gcn3/timing/caches/l1v"
@@ -60,8 +61,10 @@ type R9NanoGPUBuilder struct {
 	DRAMs                             []*idealmemcontroller.Comp
 	LowModuleFinderForL1              *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2              *cache.InterleavedLowModuleFinder
+	LowModuleFinderForPMC             *cache.InterleavedLowModuleFinder
 	DMAEngine                         *gcn3.DMAEngine
 	RDMAEngine                        *rdma.Engine
+	PageMigrationController           *pagemigrationcontroller.PageMigrationController
 	cuToL1VAddrTranslatorConnections  []*akita.DirectConnection
 	cuToL1SAddrTranslatorConnections  []*akita.DirectConnection
 	cuToL1IConnections                []*akita.DirectConnection
@@ -165,6 +168,7 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.buildMemSystem()
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
+	//b.buildPageMigrationController()
 	b.buildCUs()
 
 	b.InternalConn.PlugIn(b.gpu.ToCommandProcessor)
@@ -206,6 +210,24 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToL1
 	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL1)
 	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL2)
+}
+
+func (b *R9NanoGPUBuilder) buildPageMigrationController() {
+	b.PageMigrationController = pagemigrationcontroller.NewPageMigrationController(
+		fmt.Sprintf("%s.PMC", b.gpuName),
+		b.engine,
+		b.LowModuleFinderForPMC,
+		nil)
+
+	b.gpu.PMC = b.PageMigrationController
+
+	b.gpu.PMC.MemCtrlFinder = b.LowModuleFinderForPMC
+
+	b.InternalConn.PlugIn(b.gpu.PMC.CtrlPort)
+	b.InternalConn.PlugIn(b.gpu.PMC.LocalMemPort)
+
+	//b.CP.PMC = b.gpu.PageMigrationEngine.ToCP
+	//b.gpu.PageMigrationEngine.CP = b.CP.ToPMC
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
@@ -687,6 +709,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 
 func (b *R9NanoGPUBuilder) buildMemControllers() {
 	b.LowModuleFinderForL2 = cache.NewInterleavedLowModuleFinder(4096)
+	b.LowModuleFinderForPMC = cache.NewInterleavedLowModuleFinder(4096)
 
 	numDramController := b.numMemoryBank
 	for i := 0; i < numDramController; i++ {
@@ -708,6 +731,9 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 
 		b.LowModuleFinderForL2.LowModules = append(
 			b.LowModuleFinderForL2.LowModules, memCtrl.ToTop)
+		b.LowModuleFinderForPMC.LowModules = append(
+			b.LowModuleFinderForPMC.LowModules, memCtrl.ToTop)
+
 		b.gpu.MemoryControllers = append(
 			b.gpu.MemoryControllers, memCtrl)
 		b.CP.DRAMControllers = append(

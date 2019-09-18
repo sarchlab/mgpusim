@@ -1,6 +1,7 @@
 package gcn3
 
 import (
+	"gitlab.com/akita/gcn3/pagemigrationcontroller"
 	"log"
 
 	"gitlab.com/akita/akita"
@@ -27,6 +28,7 @@ type GPU struct {
 	Driver             akita.Port
 	CommandProcessor   akita.Port
 	RDMAEngine         *rdma.Engine
+	PMC                *pagemigrationcontroller.PageMigrationController
 	Dispatchers        []akita.Component
 	CUs                []akita.Component
 	L1VCaches          []akita.Component
