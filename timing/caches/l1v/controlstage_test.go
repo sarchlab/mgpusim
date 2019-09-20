@@ -47,7 +47,7 @@ var _ = Describe("Control Stage", func() {
 	It("should wait for the cache to finish transactions", func() {
 		transactions = []*transaction{{}}
 		flushReq := cache.FlushReqBuilder{}.Build()
-		s.currReq = flushReq
+		s.currFlushReq = flushReq
 
 		madeProgress := s.Tick(10)
 
@@ -66,7 +66,7 @@ var _ = Describe("Control Stage", func() {
 		madeProgress := s.Tick(10)
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(s.currReq).To(BeNil())
+		Expect(s.currFlushReq).To(BeNil())
 	})
 
 	It("should stall if send rsp failed", func() {
@@ -79,7 +79,7 @@ var _ = Describe("Control Stage", func() {
 		madeProgress := s.Tick(10)
 
 		Expect(madeProgress).To(BeFalse())
-		Expect(s.currReq).NotTo(BeNil())
+		Expect(s.currFlushReq).NotTo(BeNil())
 	})
 
 })

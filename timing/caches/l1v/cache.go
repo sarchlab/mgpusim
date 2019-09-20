@@ -45,20 +45,32 @@ type Cache struct {
 func (c *Cache) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	for i := 0; i < c.numReqPerCycle; i++ {
-		if !c.isPaused {
+	if !c.isPaused {
 
+		for i := 0; i < c.numReqPerCycle; i++ {
 			madeProgress = c.respondStage.Tick(now) || madeProgress
+		}
+
+		for i := 0; i < c.numReqPerCycle; i++ {
 			madeProgress = c.parseBottomStage.Tick(now) || madeProgress
-			for _, bs := range c.bankStages {
+		}
+
+		for _, bs := range c.bankStages {
+			for i := 0; i < c.numReqPerCycle; i++ {
 				madeProgress = bs.Tick(now) || madeProgress
 			}
+		}
+
+		for i := 0; i < c.numReqPerCycle; i++ {
 			madeProgress = c.directoryStage.Tick(now) || madeProgress
+		}
+
+		for i := 0; i < c.numReqPerCycle; i++ {
 			madeProgress = c.coalesceStage.Tick(now) || madeProgress
 		}
-		madeProgress = c.controlStage.Tick(now) || madeProgress
-
 	}
+
+	madeProgress = c.controlStage.Tick(now) || madeProgress
 
 	return madeProgress
 }
