@@ -13,6 +13,11 @@ type bankStage struct {
 	currTrans *transaction
 }
 
+func (s *bankStage) Reset() {
+	s.cycleLeft = 0
+	s.currTrans = nil
+}
+
 func (s *bankStage) Tick(now akita.VTimeInSec) bool {
 	if s.currTrans != nil {
 		s.cycleLeft--

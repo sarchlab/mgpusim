@@ -37,22 +37,40 @@ type Cache struct {
 
 	transactions             []*transaction
 	postCoalesceTransactions []*transaction
+
+	isPaused bool
 }
 
 // Tick update the state of the cache
 func (c *Cache) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	for i := 0; i < c.numReqPerCycle; i++ {
-		madeProgress = c.respondStage.Tick(now) || madeProgress
-		madeProgress = c.parseBottomStage.Tick(now) || madeProgress
-		for _, bs := range c.bankStages {
-			madeProgress = bs.Tick(now) || madeProgress
+	if !c.isPaused {
+
+		for i := 0; i < c.numReqPerCycle; i++ {
+			madeProgress = c.respondStage.Tick(now) || madeProgress
 		}
-		madeProgress = c.directoryStage.Tick(now) || madeProgress
-		madeProgress = c.coalesceStage.Tick(now) || madeProgress
-		madeProgress = c.controlStage.Tick(now) || madeProgress
+
+		for i := 0; i < c.numReqPerCycle; i++ {
+			madeProgress = c.parseBottomStage.Tick(now) || madeProgress
+		}
+
+		for _, bs := range c.bankStages {
+			for i := 0; i < c.numReqPerCycle; i++ {
+				madeProgress = bs.Tick(now) || madeProgress
+			}
+		}
+
+		for i := 0; i < c.numReqPerCycle; i++ {
+			madeProgress = c.directoryStage.Tick(now) || madeProgress
+		}
+
+		for i := 0; i < c.numReqPerCycle; i++ {
+			madeProgress = c.coalesceStage.Tick(now) || madeProgress
+		}
 	}
+
+	madeProgress = c.controlStage.Tick(now) || madeProgress
 
 	return madeProgress
 }

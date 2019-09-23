@@ -149,6 +149,9 @@ func (b *Builder) Build(name string) *Cache {
 		ctrlPort:     c.ControlPort,
 		transactions: &c.transactions,
 		directory:    c.directory,
+		cache:        c,
+		bankStages:   c.bankStages,
+		coalescer:    c.coalesceStage,
 	}
 
 	return c

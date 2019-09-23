@@ -15,6 +15,10 @@ type coalescer struct {
 	toCoalesce []*transaction
 }
 
+func (c *coalescer) Reset() {
+	c.toCoalesce = nil
+}
+
 func (c *coalescer) Tick(now akita.VTimeInSec) bool {
 	req := c.cache.TopPort.Peek()
 	if req == nil {
