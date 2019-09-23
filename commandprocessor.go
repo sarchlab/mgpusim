@@ -4,14 +4,13 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/gcn3/timing/caches/l1v"
-	"gitlab.com/akita/util/tracing"
-
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/timing/caches/l1v"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/util/tracing"
 )
 
 // CommandProcessor is an Akita component that is responsible for receiving
@@ -97,8 +96,6 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 	// Do nothing
 	case *ShootDownCommand:
 		return p.handleShootdownCommand(req)
-	case *CUPipelineDrainRsp:
-		return p.handleCUPipelineDrainRsp(req)
 	case *vm.InvalidationCompleteRsp:
 		return p.handleVMInvalidationRsp(req)
 
@@ -150,7 +147,7 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(evt *ReplyKernelComp
 }
 
 func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
-	now := cmd.Time()
+	//now := cmd.Time()
 
 	if p.shootDownInProcess == true {
 		return nil
@@ -159,43 +156,8 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 	p.curShootdownRequest = cmd
 	p.shootDownInProcess = true
 
-	for i := 0; i < len(p.CUs); i++ {
-		req := NewCUPipelineDrainReq(now, p.ToCUs, p.CUs[i])
-		err := p.ToCUs.Send(req)
-		if err != nil {
-			log.Panicf("failed to send pipeline drain request to CU")
-		}
-
-	}
-
-	//TODO: NotifyRecvl already does a retrieve from port. Why do it again
-
 	return nil
 
-}
-
-func (p *CommandProcessor) handleCUPipelineDrainRsp(
-	cmd *CUPipelineDrainRsp,
-) error {
-	now := cmd.Time()
-
-	if cmd.drainPipelineComplete == true {
-		p.numCURecvdAck = p.numCURecvdAck + 1
-
-	}
-
-	if p.numCURecvdAck == p.numCUs {
-		shootDownCmd := p.curShootdownRequest
-		for i := 0; i < len(p.VMModules); i++ {
-			req := vm.NewPTEInvalidationReq(now, p.ToVMModules, p.VMModules[i], shootDownCmd.PID, shootDownCmd.VAddr)
-			err := p.ToVMModules.Send(req)
-			if err != nil {
-				log.Panicf("failed to send shootdown request to VM Modules")
-			}
-		}
-	}
-
-	return nil
 }
 
 func (p *CommandProcessor) handleVMInvalidationRsp(

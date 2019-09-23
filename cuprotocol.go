@@ -6,39 +6,101 @@ import (
 	"gitlab.com/akita/util/ca"
 )
 
-type CUPipelineDrainReq struct {
+//A CUPipelineRestartReq is a message from CP to ask the CU pipeline to resume after a flush/drain
+type CUPipelineRestartReq struct {
 	akita.MsgMeta
-	drainPipeline bool
 }
 
 // Meta returns the meta data associated with the message.
-func (m *CUPipelineDrainReq) Meta() *akita.MsgMeta {
+func (m *CUPipelineRestartReq) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
-type CUPipelineDrainRsp struct {
+// CUPipelineRestartReqBuilder can build new CU restart reqs
+type CUPipelineRestartReqBuilder struct {
+	sendTime akita.VTimeInSec
+	src, dst akita.Port
+}
+
+// WithSendTime sets the send time of the request to build.:w
+func (b CUPipelineRestartReqBuilder) WithSendTime(
+	t akita.VTimeInSec,
+) CUPipelineRestartReqBuilder {
+	b.sendTime = t
+	return b
+}
+
+// WithSrc sets the source of the request to build.
+func (b CUPipelineRestartReqBuilder) WithSrc(src akita.Port) CUPipelineRestartReqBuilder {
+	b.src = src
+	return b
+}
+
+// WithDst sets the destination of the request to build.
+func (b CUPipelineRestartReqBuilder) WithDst(dst akita.Port) CUPipelineRestartReqBuilder {
+	b.dst = dst
+	return b
+}
+
+// Build creats a new CUPipelineRestartReq
+func (b CUPipelineRestartReqBuilder) Build() *CUPipelineRestartReq {
+	r := &CUPipelineRestartReq{}
+	r.ID = akita.GetIDGenerator().Generate()
+	r.Src = b.src
+	r.Dst = b.dst
+	r.SendTime = b.sendTime
+	return r
+}
+
+//A CUPipelineRestartRsp is a message from CU indicating the restart is complete
+type CUPipelineRestartRsp struct {
 	akita.MsgMeta
-	drainPipelineComplete bool
 }
 
 // Meta returns the meta data associated with the message.
-func (m *CUPipelineDrainRsp) Meta() *akita.MsgMeta {
+func (m *CUPipelineRestartRsp) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
-type CUPipelineRestart struct {
-	akita.MsgMeta
-	restartPipeline bool
+// CUPipelineRestartReqBuilder can build new CU restart reqs
+type CUPipelineRestartRspBuilder struct {
+	sendTime akita.VTimeInSec
+	src, dst akita.Port
 }
 
-// Meta returns the meta data associated with the message.
-func (m *CUPipelineRestart) Meta() *akita.MsgMeta {
-	return &m.MsgMeta
+// WithSendTime sets the send time of the request to build.:w
+func (b CUPipelineRestartRspBuilder) WithSendTime(
+	t akita.VTimeInSec,
+) CUPipelineRestartRspBuilder {
+	b.sendTime = t
+	return b
 }
 
+// WithSrc sets the source of the request to build.
+func (b CUPipelineRestartRspBuilder) WithSrc(src akita.Port) CUPipelineRestartRspBuilder {
+	b.src = src
+	return b
+}
+
+// WithDst sets the destination of the request to build.
+func (b CUPipelineRestartRspBuilder) WithDst(dst akita.Port) CUPipelineRestartRspBuilder {
+	b.dst = dst
+	return b
+}
+
+// Build creats a new CUPipelineRestartRsp
+func (b CUPipelineRestartRspBuilder) Build() *CUPipelineRestartRsp {
+	r := &CUPipelineRestartRsp{}
+	r.ID = akita.GetIDGenerator().Generate()
+	r.Src = b.src
+	r.Dst = b.dst
+	r.SendTime = b.sendTime
+	return r
+}
+
+//A CUPipelineFlushReq is a message from CP to ask the CU pipeline to flush
 type CUPipelineFlushReq struct {
 	akita.MsgMeta
-	flushPipeline bool
 }
 
 // Meta returns the meta data associated with the message.
@@ -46,9 +108,45 @@ func (m *CUPipelineFlushReq) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// CUPipelineFlushReqBuilder can build new CU flush reqs
+type CUPipelineFlushReqBuilder struct {
+	sendTime akita.VTimeInSec
+	src, dst akita.Port
+}
+
+// WithSendTime sets the send time of the request to build.:w
+func (b CUPipelineFlushReqBuilder) WithSendTime(
+	t akita.VTimeInSec,
+) CUPipelineFlushReqBuilder {
+	b.sendTime = t
+	return b
+}
+
+// WithSrc sets the source of the request to build.
+func (b CUPipelineFlushReqBuilder) WithSrc(src akita.Port) CUPipelineFlushReqBuilder {
+	b.src = src
+	return b
+}
+
+// WithDst sets the destination of the request to build.
+func (b CUPipelineFlushReqBuilder) WithDst(dst akita.Port) CUPipelineFlushReqBuilder {
+	b.dst = dst
+	return b
+}
+
+// Build creats a new CUPipelineFlushReq
+func (b CUPipelineFlushReqBuilder) Build() *CUPipelineFlushReq {
+	r := &CUPipelineFlushReq{}
+	r.ID = akita.GetIDGenerator().Generate()
+	r.Src = b.src
+	r.Dst = b.dst
+	r.SendTime = b.sendTime
+	return r
+}
+
+//A CUPipelineFlushRsp is a message from CU to CP indicating flush is complete
 type CUPipelineFlushRsp struct {
 	akita.MsgMeta
-	flushPipelineComplete bool
 }
 
 // Meta returns the meta data associated with the message.
@@ -56,79 +154,40 @@ func (m *CUPipelineFlushRsp) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
-func NewCUPipelineDrainReq(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *CUPipelineDrainReq {
-	req := new(CUPipelineDrainReq)
-
-	req.SendTime = time
-	req.Src = src
-	req.Dst = dst
-
-	req.drainPipeline = true
-
-	return req
+// CUPipelineFlushRspBuilder can build new CU flush rsps
+type CUPipelineFlushRspBuilder struct {
+	sendTime akita.VTimeInSec
+	src, dst akita.Port
 }
 
-func NewCUPipelineDrainRsp(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *CUPipelineDrainRsp {
-	req := new(CUPipelineDrainRsp)
-
-	req.SendTime = time
-	req.Src = src
-	req.Dst = dst
-
-	req.drainPipelineComplete = true
-
-	return req
+// WithSendTime sets the send time of the request to build.:w
+func (b CUPipelineFlushRspBuilder) WithSendTime(
+	t akita.VTimeInSec,
+) CUPipelineFlushRspBuilder {
+	b.sendTime = t
+	return b
 }
 
-func NewCUPipelineRestartReq(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *CUPipelineRestart {
-	req := new(CUPipelineRestart)
-
-	req.SendTime = time
-	req.Src = src
-	req.Dst = dst
-
-	req.restartPipeline = true
-
-	return req
+// WithSrc sets the source of the request to build.
+func (b CUPipelineFlushRspBuilder) WithSrc(src akita.Port) CUPipelineFlushRspBuilder {
+	b.src = src
+	return b
 }
 
-func NewCUPipelineFlushReq(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *CUPipelineFlushReq {
-	req := new(CUPipelineFlushReq)
-
-	req.SendTime = time
-	req.Src = src
-	req.Dst = dst
-
-	req.flushPipeline = true
-
-	return req
+// WithDst sets the destination of the request to build.
+func (b CUPipelineFlushRspBuilder) WithDst(dst akita.Port) CUPipelineFlushRspBuilder {
+	b.dst = dst
+	return b
 }
 
-func NewCUPipelineFlushRsp(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *CUPipelineFlushRsp {
-	req := new(CUPipelineFlushRsp)
-
-	req.SendTime = time
-	req.Src = src
-	req.Dst = dst
-
-	req.flushPipelineComplete = true
-
-	return req
+// Build creates a new CUPipelineFlushRsp
+func (b CUPipelineFlushRspBuilder) Build() *CUPipelineFlushRsp {
+	r := &CUPipelineFlushRsp{}
+	r.ID = akita.GetIDGenerator().Generate()
+	r.Src = b.src
+	r.Dst = b.dst
+	r.SendTime = b.sendTime
+	return r
 }
 
 // MapWGReq is a request that is send by the Dispatcher to a ComputeUnit to

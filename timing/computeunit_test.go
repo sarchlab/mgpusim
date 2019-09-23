@@ -472,22 +472,14 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 		})
 	})
-	Context("should handle flush and drain requests", func() {
-		It("handle a Pipeline drain request from CP", func() {
-			req := gcn3.NewCUPipelineDrainReq(10, nil, cu.ToCP)
-			req.EventTime = 10
+	Context("should handle flush  request", func() {
 
-			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
-
-			cu.processInputFromCP(11)
-
-			Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
-			Expect(cu.isDraining).To(BeTrue())
-
-		})
 		It("should handle a pipeline flush request from CU", func() {
-			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
-			req.EventTime = 10
+			req := gcn3.CUPipelineFlushReqBuilder{}.
+				WithSrc(nil).
+				WithDst(cu.ToCP).
+				WithSendTime(10).
+				Build()
 
 			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
@@ -516,23 +508,31 @@ var _ = Describe("ComputeUnit", func() {
 
 		})
 
-		It("should restart a paused CU", func() {
+		It("should handle a restart request", func() {
 			cu.isPaused = true
 
-			rsp := gcn3.NewCUPipelineRestartReq(10, nil, cu.ToCP)
-			rsp.RecvTime = 10
-			rsp.EventTime = 10
+			req := gcn3.CUPipelineRestartReqBuilder{}.
+				WithSendTime(10).
+				WithSrc(nil).
+				WithDst(cu.ToCP).
+				Build()
 
-			toCP.EXPECT().Retrieve(gomock.Any()).Return(rsp)
+			toCP.EXPECT().Retrieve(gomock.Any()).Return(req)
+			toCP.EXPECT().Send(gomock.Any())
 
 			cu.processInputFromCP(11)
-			Expect(cu.isPaused).To(BeFalse())
+			Expect(cu.isPaused).To(BeTrue())
+			Expect(cu.isSendingOutShadowBufferReqs).To(BeTrue())
 
 		})
 
 		It("should flush the full CU", func() {
-			req := gcn3.NewCUPipelineFlushReq(10, nil, cu.ToCP)
-			req.EventTime = 10
+
+			req := gcn3.CUPipelineFlushReqBuilder{}.
+				WithSrc(nil).
+				WithDst(cu.ToCP).
+				WithSendTime(10).
+				Build()
 
 			cu.currentFlushReq = req
 
@@ -555,16 +555,59 @@ var _ = Describe("ComputeUnit", func() {
 			vectorMemDecoder.EXPECT().Flush()
 			vectorMemUnit.EXPECT().Flush()
 
-			cu.flushCycleLeft = 0
 			cu.flushPipeline(10)
 
 			Expect(cu.InFlightInstFetch).To(BeNil())
 			Expect(cu.InFlightVectorMemAccess).To(BeNil())
 			Expect(cu.InFlightScalarMemAccess).To(BeNil())
 
+			Expect(cu.shadowInFlightInstFetch).To(Not(BeNil()))
+			Expect(cu.shadowInFlightVectorMemAccess).To(Not(BeNil()))
+			Expect(cu.shadowInFlightScalarMemAccess).To(Not(BeNil()))
+
 			Expect(cu.toSendToCP).NotTo(BeNil())
 			Expect(cu.isFlushing).To(BeFalse())
 			Expect(cu.isPaused).To(BeTrue())
+
+		})
+
+		It("should not restart a CU where there are shadow buffer reqs pending", func() {
+			info := new(InstFetchReqInfo)
+			req := mem.ReadReqBuilder{}.
+				WithSendTime(8).
+				WithSrc(cu.ToInstMem).
+				WithDst(instMem).
+				WithAddress(0x100).
+				WithByteSize(64).
+				Build()
+			info.Req = req
+
+			cu.shadowInFlightInstFetch = append(cu.InFlightInstFetch, info)
+
+			scalarMemInfo := new(ScalarMemAccessInfo)
+			scalarMemInfo.Req = req
+			cu.shadowInFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, scalarMemInfo)
+
+			vectorMemInfo := VectorMemAccessInfo{}
+			vectorMemInfo.Read = req
+			cu.shadowInFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, vectorMemInfo)
+
+			toInstMem.EXPECT().Send(gomock.Any())
+			toVectorMem.EXPECT().Send(gomock.Any())
+			toScalarMem.EXPECT().Send(gomock.Any())
+
+			cu.checkShadowBuffers(11)
+
+		})
+
+		It("should restart a CU where there are  no shadow buffer reqs pending", func() {
+			cu.shadowInFlightInstFetch = nil
+			cu.shadowInFlightScalarMemAccess = nil
+			cu.shadowInFlightVectorMemAccess = nil
+
+			cu.checkShadowBuffers(11)
+
+			Expect(cu.isPaused).To(BeFalse())
 
 		})
 
