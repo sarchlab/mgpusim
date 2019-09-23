@@ -23,8 +23,8 @@ type controlStage struct {
 func (s *controlStage) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	madeProgress = s.processCurrentFlush(now) || madeProgress
 	madeProgress = s.processNewRequest(now) || madeProgress
+	madeProgress = s.processCurrentFlush(now) || madeProgress
 
 	return madeProgress
 }
@@ -34,10 +34,8 @@ func (s *controlStage) processCurrentFlush(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	if s.currFlushReq.DiscardInflight {
-		if len(s.cache.transactions) == 0 {
-			return false
-		}
+	if s.shouldWaitForInFlightTransactions() {
+		return false
 	}
 
 	rsp := cache.FlushRspBuilder{}.
@@ -90,7 +88,6 @@ func (s *controlStage) processNewRequest(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	req = s.ctrlPort.Peek()
 	switch req := req.(type) {
 	case *cache.FlushReq:
 		return s.startCacheFlush(now, req)
@@ -115,93 +112,6 @@ func (s *controlStage) startCacheFlush(
 	s.ctrlPort.Retrieve(now)
 
 	return true
-
-	// 	s.cache.transactions = nil
-
-	// 	//log.Printf("POST C TRANSACTIONS %d \n", len(s.cache.postCoalesceTransactions))
-	// 	s.cache.postCoalesceTransactions = nil
-
-	// 	//Bank Stage component reset
-	// 	for i := 0; i < len(s.bankStages); i++ {
-	// 		s.bankStages[i].currTrans = nil
-	// 		for {
-	// 			out := s.cache.bankBufs[i].Pop()
-	// 			if out == nil {
-	// 				break
-	// 			}
-	// 		}
-	// 		/*for {
-	// 			out := s.cache.bankStages[i].inBuf.Pop()
-	// 			if out == nil {
-	// 				break
-	// 			}
-	// 		}*/
-	// 	}
-
-	// 	//Bottom Parser Stage  Reset
-	// 	/*for i := 0; i < len(s.cache.parseBottomStage.bankBufs); i++ {
-	// 		for {
-	// 			out := s.cache.parseBottomStage.bankBufs[i].Pop()
-	// 			if out == nil {
-	// 				break
-	// 			}
-	// 		}
-	// 	}*/
-	// 	//s.cache.parseBottomStage.mshr.Reset()
-
-	// 	//Coalescer Stage Reset
-	// 	s.coalescer.toCoalesce = nil
-	// 	/*for {
-	// 		out := s.cache.coalesceStage.dirBuf.Pop()
-	// 		if out == nil {
-	// 			break
-	// 		}
-	// 	}*/
-
-	// 	//Directory component reset
-	// 	/*s.cache.directoryStage.mshr.Reset()
-	// 	for i := 0; i < len(s.cache.directoryStage.bankBufs); i++ {
-	// 		for {
-	// 			out := s.cache.directoryStage.bankBufs[i].Pop()
-	// 			if out == nil {
-	// 				break
-	// 			}
-	// 		}
-
-	// 	}
-	// 	for {
-	// 		out := s.cache.directoryStage.inBuf.Pop()
-	// 		if out == nil {
-	// 			break
-	// 		}
-	// 	}*/
-
-	// 	for {
-	// 		out := s.cache.dirBuf.Pop()
-	// 		if out == nil {
-	// 			break
-	// 		}
-	// 	}
-
-	// 	s.directory.Reset()
-	// 	s.cache.mshr.Reset()
-
-	// 	s.cache.isPaused = true
-	// 	s.currFlushReq = nil
-
-	// 	rsp := cache.FlushRspBuilder{}.
-	// 		WithSendTime(now).
-	// 		WithSrc(s.ctrlPort).
-	// 		WithDst(s.currFlushReq.Src).
-	// 		WithRspTo(s.currFlushReq.ID).
-	// 		Build()
-	// 	err := s.ctrlPort.Send(rsp)
-	// 	if err != nil {
-	// 		return false
-	// 	}
-
-	// 	return true
-	// }
 }
 
 func (s *controlStage) doCacheRestart(now akita.VTimeInSec, req *cache.RestartReq) bool {
@@ -229,4 +139,13 @@ func (s *controlStage) doCacheRestart(now akita.VTimeInSec, req *cache.RestartRe
 	}
 
 	return true
+}
+
+func (s *controlStage) shouldWaitForInFlightTransactions() bool {
+	if s.currFlushReq.DiscardInflight == false {
+		if len(s.cache.transactions) != 0 {
+			return true
+		}
+	}
+	return false
 }
