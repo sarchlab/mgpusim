@@ -26,7 +26,7 @@ func (s *controlStage) Tick(now akita.VTimeInSec) bool {
 	madeProgress = s.processCurrentFlush(now) || madeProgress
 	madeProgress = s.processNewRequest(now) || madeProgress
 
-	return true
+	return madeProgress
 }
 
 func (s *controlStage) processCurrentFlush(now akita.VTimeInSec) bool {
