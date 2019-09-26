@@ -33,6 +33,11 @@ var _ = Describe("CommandProcessor", func() {
 		rdma                *MockPort
 		toPMC               *MockPort
 		pmc                 *MockPort
+		toCaches            *MockPort
+		l1VCaches           []*MockPort
+		l1SCaches           []*MockPort
+		l1ICaches           []*MockPort
+		l2Caches            []*MockPort
 	)
 
 	BeforeEach(func() {
@@ -57,12 +62,14 @@ var _ = Describe("CommandProcessor", func() {
 		toPMC = NewMockPort(mockCtrl)
 		toRDMA = NewMockPort(mockCtrl)
 		toAddressTranslator = NewMockPort(mockCtrl)
+		toCaches = NewMockPort(mockCtrl)
 
 		commandProcessor.ToCUs = toCU
 		commandProcessor.ToPMC = toPMC
 		commandProcessor.ToAddressTranslators = toAddressTranslator
 		commandProcessor.ToTLBs = toTLB
 		commandProcessor.ToRDMA = toRDMA
+		commandProcessor.ToCaches = toCaches
 
 		for i := 0; i < int(10); i++ {
 
@@ -77,6 +84,23 @@ var _ = Describe("CommandProcessor", func() {
 			addressTranslators = append(addressTranslators, NewMockPort(mockCtrl))
 			commandProcessor.AddressTranslators = append(commandProcessor.AddressTranslators, akita.NewLimitNumMsgPort(commandProcessor, 1))
 			commandProcessor.AddressTranslators[i] = addressTranslators[i]
+
+			l1ICaches = append(l1ICaches, NewMockPort(mockCtrl))
+			commandProcessor.L1ICaches = append(commandProcessor.L1ICaches, akita.NewLimitNumMsgPort(commandProcessor, 1))
+			commandProcessor.L1ICaches[i] = l1ICaches[i]
+
+			l1SCaches = append(l1SCaches, NewMockPort(mockCtrl))
+			commandProcessor.L1SCaches = append(commandProcessor.L1SCaches, akita.NewLimitNumMsgPort(commandProcessor, 1))
+			commandProcessor.L1SCaches[i] = l1SCaches[i]
+
+			l1VCaches = append(l1VCaches, NewMockPort(mockCtrl))
+			commandProcessor.L1VCaches = append(commandProcessor.L1VCaches, akita.NewLimitNumMsgPort(commandProcessor, 1))
+			commandProcessor.L1VCaches[i] = l1VCaches[i]
+
+			l2Caches = append(l2Caches, NewMockPort(mockCtrl))
+			commandProcessor.L2Caches = append(commandProcessor.L2Caches, akita.NewLimitNumMsgPort(commandProcessor, 1))
+			commandProcessor.L2Caches[i] = l2Caches[i]
+
 		}
 
 		rdma = NewMockPort(mockCtrl)
@@ -172,6 +196,61 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a AT  flush rsp", func() {
+		req := addresstranslator.AddressTranslatorFlushRspBuilder{}.Build()
+		req.SendTime = 10
+		req.Dst = commandProcessor.ToAddressTranslators
+		commandProcessor.numAddrTranslationAck = 1
+
+		for i := 0; i < 10; i++ {
+			cacheFlushReq := cache.FlushReqBuilder{}.Build()
+			cacheFlushReq.SendTime = 10
+			cacheFlushReq.Src = commandProcessor.ToCaches
+			cacheFlushReq.Dst = commandProcessor.L1ICaches[i]
+			cacheFlushReq.DiscardInflight = true
+			cacheFlushReq.PauseAfterFlushing = true
+			cacheFlushReq.InvalidateAllCachelines = true
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheFlushReq))
+
+		}
+
+		for i := 0; i < 10; i++ {
+			cacheFlushReq := cache.FlushReqBuilder{}.Build()
+			cacheFlushReq.SendTime = 10
+			cacheFlushReq.Src = commandProcessor.ToCaches
+			cacheFlushReq.Dst = commandProcessor.L1VCaches[i]
+			cacheFlushReq.DiscardInflight = true
+			cacheFlushReq.PauseAfterFlushing = true
+			cacheFlushReq.InvalidateAllCachelines = true
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheFlushReq))
+
+		}
+
+		for i := 0; i < 10; i++ {
+			cacheFlushReq := cache.FlushReqBuilder{}.Build()
+			cacheFlushReq.SendTime = 10
+			cacheFlushReq.Src = commandProcessor.ToCaches
+			cacheFlushReq.Dst = commandProcessor.L1VCaches[i]
+			cacheFlushReq.DiscardInflight = true
+			cacheFlushReq.PauseAfterFlushing = true
+			cacheFlushReq.InvalidateAllCachelines = true
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheFlushReq))
+
+		}
+
+		for i := 0; i < 10; i++ {
+			cacheFlushReq := cache.FlushReqBuilder{}.Build()
+			cacheFlushReq.SendTime = 10
+			cacheFlushReq.Src = commandProcessor.ToCaches
+			cacheFlushReq.Dst = commandProcessor.L2Caches[i]
+			cacheFlushReq.DiscardInflight = true
+			cacheFlushReq.PauseAfterFlushing = true
+			cacheFlushReq.InvalidateAllCachelines = true
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheFlushReq))
+
+		}
+
+		commandProcessor.Handle(req)
+		Expect(commandProcessor.numCacheACK).To(Equal(uint64(40)))
 
 	})
 
@@ -218,6 +297,46 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a GPU restart req", func() {
+		req := NewGPURestartReq(10, nil, commandProcessor.ToDriver)
+
+		for i := 0; i < 10; i++ {
+			cacheRestartReq := cache.RestartReqBuilder{}.Build()
+			cacheRestartReq.SendTime = 10
+			cacheRestartReq.Src = commandProcessor.ToCaches
+			cacheRestartReq.Dst = commandProcessor.L1ICaches[i]
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheRestartReq))
+		}
+
+		for i := 0; i < 10; i++ {
+			cacheRestartReq := cache.RestartReqBuilder{}.Build()
+			cacheRestartReq.SendTime = 10
+			cacheRestartReq.Src = commandProcessor.ToCaches
+			cacheRestartReq.Dst = commandProcessor.L1SCaches[i]
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheRestartReq))
+
+		}
+
+		for i := 0; i < 10; i++ {
+			cacheRestartReq := cache.RestartReqBuilder{}.Build()
+			cacheRestartReq.SendTime = 10
+			cacheRestartReq.Src = commandProcessor.ToCaches
+			cacheRestartReq.Dst = commandProcessor.L1VCaches[i]
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheRestartReq))
+
+		}
+
+		for i := 0; i < 10; i++ {
+			cacheRestartReq := cache.RestartReqBuilder{}.Build()
+			cacheRestartReq.SendTime = 10
+			cacheRestartReq.Src = commandProcessor.ToCaches
+			cacheRestartReq.Dst = commandProcessor.L2Caches[i]
+			toCaches.EXPECT().Send(gomock.AssignableToTypeOf(cacheRestartReq))
+
+		}
+
+		commandProcessor.Handle(req)
+
+		Expect(commandProcessor.numCacheACK).To(Equal(uint64(40)))
 
 	})
 
@@ -311,7 +430,6 @@ var _ = Describe("CommandProcessor", func() {
 		reqToPMC.PMCPortOfRemoteGPU = req.DestinationPMCPort
 
 		toPMC.EXPECT().Send(gomock.AssignableToTypeOf(reqToPMC))
-
 		commandProcessor.Handle(req)
 
 	})

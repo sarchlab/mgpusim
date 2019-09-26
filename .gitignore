@@ -22,6 +22,8 @@ __pycache__
 *.orig.bc
 .idea
 vendor
+samples/fir_unified/
+samples/aes_unified/
 .DS_Store
 *.json
 __debug_bin

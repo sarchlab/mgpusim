@@ -7,9 +7,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/pagemigrationcontroller"
 	"gitlab.com/akita/gcn3/rdma"
-	"gitlab.com/akita/gcn3/timing/caches/l1v"
 	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/tlb"
@@ -36,20 +34,19 @@ type CommandProcessor struct {
 	AddressTranslators []akita.Port
 	RDMA               akita.Port
 	PMC                akita.Port
+	L1VCaches          []akita.Port
+	L1SCaches          []akita.Port
+	L1ICaches          []akita.Port
+	L2Caches           []akita.Port
+	DRAMControllers    []*idealmemcontroller.Comp
 
 	ToDriver     akita.Port
 	ToDispatcher akita.Port
 
-	L1VCaches            []*l1v.Cache
-	L1SCaches            []*l1v.Cache
-	L1ICaches            []*l1v.Cache
-	L2Caches             []*writeback.Cache
-	DRAMControllers      []*idealmemcontroller.Comp
 	ToCUs                akita.Port
 	ToTLBs               akita.Port
 	ToAddressTranslators akita.Port
-	ToL1Caches           akita.Port
-	ToL2Caches           akita.Port
+	ToCaches             akita.Port
 	ToRDMA               akita.Port
 	ToPMC                akita.Port
 
@@ -259,20 +256,20 @@ func (p *CommandProcessor) handleAddressTranslatorFlushRsp(cmd *addresstranslato
 
 	if p.numAddrTranslationAck == 0 {
 
-		for _, c := range p.L1SCaches {
-			p.flushAndResetL1Cache(now, c.ControlPort)
+		for _, port := range p.L1SCaches {
+			p.flushAndResetL1Cache(now, port)
 		}
 
-		for _, c := range p.L1VCaches {
-			p.flushAndResetL1Cache(now, c.ControlPort)
+		for _, port := range p.L1VCaches {
+			p.flushAndResetL1Cache(now, port)
 		}
 
-		for _, c := range p.L1ICaches {
-			p.flushAndResetL1Cache(now, c.ControlPort)
+		for _, port := range p.L1ICaches {
+			p.flushAndResetL1Cache(now, port)
 		}
 
-		for _, c := range p.L2Caches {
-			p.flushAndResetL2Cache(now, c.ControlPort)
+		for _, port := range p.L2Caches {
+			p.flushAndResetL2Cache(now, port)
 		}
 
 	}
@@ -283,14 +280,14 @@ func (p *CommandProcessor) handleAddressTranslatorFlushRsp(cmd *addresstranslato
 func (p *CommandProcessor) flushAndResetL1Cache(now akita.VTimeInSec, port akita.Port) {
 	req := cache.FlushReqBuilder{}.
 		WithSendTime(now).
-		WithSrc(p.ToL1Caches).
+		WithSrc(p.ToCaches).
 		WithDst(port).
 		PauseAfterFlushing().
 		DiscardInflight().
 		InvalidateAllCacheLines().
 		Build()
 
-	err := p.ToL1Caches.Send(req)
+	err := p.ToCaches.Send(req)
 	if err != nil {
 		log.Panicf("Failed to send reset request")
 	}
@@ -302,14 +299,14 @@ func (p *CommandProcessor) flushAndResetL1Cache(now akita.VTimeInSec, port akita
 func (p *CommandProcessor) flushAndResetL2Cache(now akita.VTimeInSec, port akita.Port) {
 	req := cache.FlushReqBuilder{}.
 		WithSendTime(now).
-		WithSrc(p.ToL1Caches).
+		WithSrc(p.ToCaches).
 		WithDst(port).
 		PauseAfterFlushing().
 		DiscardInflight().
 		InvalidateAllCacheLines().
 		Build()
 
-	err := p.ToL2Caches.Send(req)
+	err := p.ToCaches.Send(req)
 	if err != nil {
 		log.Panicf("Failed to send reset request")
 	}
@@ -372,18 +369,18 @@ func (p *CommandProcessor) handleTLBFlushRsp(cmd *tlb.TLBFlushRsp) error {
 
 func (p *CommandProcessor) handleGPURestartReq(cmd *GPURestartReq) error {
 	now := cmd.Time()
-	for _, c := range p.L2Caches {
-		p.restartL2Cache(now, c.ControlPort)
+	for _, port := range p.L2Caches {
+		p.restartL2Cache(now, port)
 	}
-	for _, c := range p.L1ICaches {
-		p.restartL1Cache(now, c.ControlPort)
+	for _, port := range p.L1ICaches {
+		p.restartL1Cache(now, port)
 	}
-	for _, c := range p.L1SCaches {
-		p.restartL1Cache(now, c.ControlPort)
+	for _, port := range p.L1SCaches {
+		p.restartL1Cache(now, port)
 	}
 
-	for _, c := range p.L1VCaches {
-		p.restartL1Cache(now, c.ControlPort)
+	for _, port := range p.L1VCaches {
+		p.restartL1Cache(now, port)
 	}
 
 	return nil
@@ -395,7 +392,7 @@ func (p *CommandProcessor) restartL2Cache(now akita.VTimeInSec, port akita.Port)
 		WithSrc(p.ToDispatcher).
 		WithDst(port).
 		Build()
-	err := p.ToDispatcher.Send(req)
+	err := p.ToCaches.Send(req)
 	p.numCacheACK++
 	if err != nil {
 		log.Panicf("Failed to send restart request")
@@ -408,7 +405,7 @@ func (p *CommandProcessor) restartL1Cache(now akita.VTimeInSec, port akita.Port)
 		WithSrc(p.ToDispatcher).
 		WithDst(port).
 		Build()
-	err := p.ToL1Caches.Send(req)
+	err := p.ToCaches.Send(req)
 	p.numCacheACK++
 	if err != nil {
 		log.Panicf("Failed to send restart request")
@@ -531,20 +528,20 @@ func (p *CommandProcessor) handlePageMigrationRsp(rsp *pagemigrationcontroller.P
 func (p *CommandProcessor) handleFlushCommand(cmd *FlushCommand) error {
 	now := cmd.Time()
 
-	for _, c := range p.L1ICaches {
-		p.flushCache(now, c.ControlPort)
+	for _, port := range p.L1ICaches {
+		p.flushCache(now, port)
 	}
 
-	for _, c := range p.L1SCaches {
-		p.flushCache(now, c.ControlPort)
+	for _, port := range p.L1SCaches {
+		p.flushCache(now, port)
 	}
 
-	for _, c := range p.L1VCaches {
-		p.flushCache(now, c.ControlPort)
+	for _, port := range p.L1VCaches {
+		p.flushCache(now, port)
 	}
 
-	for _, c := range p.L2Caches {
-		p.flushCache(now, c.ControlPort)
+	for _, port := range p.L2Caches {
+		p.flushCache(now, port)
 	}
 
 	p.currFlushRequest = cmd
@@ -567,7 +564,7 @@ func (p *CommandProcessor) flushCache(now akita.VTimeInSec, port akita.Port) {
 		WithSrc(p.ToDispatcher).
 		WithDst(port).
 		Build()
-	err := p.ToDispatcher.Send(flushReq)
+	err := p.ToCaches.Send(flushReq)
 	if err != nil {
 		log.Panic("Fail to send flush request")
 	}
@@ -607,7 +604,6 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.Freq = 1 * akita.GHz
 
 	c.kernelFixedOverheadInCycles = 1600
-	c.L2Caches = make([]*writeback.Cache, 0)
 
 	c.ToDriver = akita.NewLimitNumMsgPort(c, 1)
 	c.ToDispatcher = akita.NewLimitNumMsgPort(c, 1)
@@ -617,8 +613,7 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.ToRDMA = akita.NewLimitNumMsgPort(c, 1)
 	c.ToPMC = akita.NewLimitNumMsgPort(c, 1)
 	c.ToAddressTranslators = akita.NewLimitNumMsgPort(c, 1)
-	c.ToL1Caches = akita.NewLimitNumMsgPort(c, 1)
-	c.ToL2Caches = akita.NewLimitNumMsgPort(c, 1)
+	c.ToCaches = akita.NewLimitNumMsgPort(c, 1)
 
 	c.bottomReqIDToTopReqMap = make(map[string]*LaunchKernelReq)
 
