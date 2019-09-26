@@ -253,6 +253,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 
 	b.InternalConn.PlugIn(b.CP.ToDriver)
 	b.InternalConn.PlugIn(b.CP.ToDispatcher)
+	b.InternalConn.PlugIn(b.CP.ToCaches)
 	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.ACE.ToCUs)
 	b.InternalConn.PlugIn(b.CP.ToCUs)
@@ -536,7 +537,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.InternalConn.PlugIn(sCache.ControlPort)
 		b.l1ToL2Connection.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
-		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache)
+		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache.ControlPort)
 		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
 		if b.EnableMemTracing {
 			tracing.CollectTrace(sCache, b.MemTracer)
@@ -576,7 +577,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		bottomConn.PlugIn(iCache.BottomPort)
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
-		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache)
+		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache.ControlPort)
 		b.gpu.L1ICaches = append(b.gpu.L1ICaches, iCache)
 		if b.EnableMemTracing {
 			tracing.CollectTrace(iCache, b.MemTracer)
@@ -612,7 +613,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		b.InternalConn.PlugIn(dCache.ControlPort)
 		b.l1ToL2Connection.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
-		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache)
+		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache.ControlPort)
 		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
 
 		if b.EnableMemTracing {
@@ -642,7 +643,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		cacheBuilder.NumMSHREntry = 4096
 		l2Cache := cacheBuilder.Build()
 		b.L2Caches = append(b.L2Caches, l2Cache)
-		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache)
+		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache.ControlPort)
 		b.gpu.L2Caches = append(b.gpu.L2Caches, l2Cache)
 
 		b.LowModuleFinderForL1.LowModules = append(
