@@ -45,6 +45,20 @@ func (mr *MockMMUMockRecorder) CreatePage(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePage", reflect.TypeOf((*MockMMU)(nil).CreatePage), arg0)
 }
 
+// GetNumPages mocks base method
+func (m *MockMMU) GetNumPages(arg0 ca.PID) int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNumPages", arg0)
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetNumPages indicates an expected call of GetNumPages
+func (mr *MockMMUMockRecorder) GetNumPages(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNumPages", reflect.TypeOf((*MockMMU)(nil).GetNumPages), arg0)
+}
+
 // GetOrCreatePageTable mocks base method
 func (m *MockMMU) GetOrCreatePageTable(arg0 ca.PID) vm.PageTable {
 	m.ctrl.T.Helper()
