@@ -73,6 +73,20 @@ func (mr *MockMMUMockRecorder) GetOrCreatePageTable(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrCreatePageTable", reflect.TypeOf((*MockMMU)(nil).GetOrCreatePageTable), arg0)
 }
 
+// GetPageWithGivenVaddr mocks base method
+func (m *MockMMU) GetPageWithGivenVaddr(arg0 uint64, arg1 ca.PID) *vm.Page {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPageWithGivenVaddr", arg0, arg1)
+	ret0, _ := ret[0].(*vm.Page)
+	return ret0
+}
+
+// GetPageWithGivenVaddr indicates an expected call of GetPageWithGivenVaddr
+func (mr *MockMMUMockRecorder) GetPageWithGivenVaddr(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPageWithGivenVaddr", reflect.TypeOf((*MockMMU)(nil).GetPageWithGivenVaddr), arg0, arg1)
+}
+
 // InvalidatePage mocks base method
 func (m *MockMMU) InvalidatePage(arg0 uint64, arg1 ca.PID) {
 	m.ctrl.T.Helper()
@@ -83,6 +97,18 @@ func (m *MockMMU) InvalidatePage(arg0 uint64, arg1 ca.PID) {
 func (mr *MockMMUMockRecorder) InvalidatePage(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidatePage", reflect.TypeOf((*MockMMU)(nil).InvalidatePage), arg0, arg1)
+}
+
+// MarkPageAsMigrating mocks base method
+func (m *MockMMU) MarkPageAsMigrating(arg0 uint64, arg1 ca.PID) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "MarkPageAsMigrating", arg0, arg1)
+}
+
+// MarkPageAsMigrating indicates an expected call of MarkPageAsMigrating
+func (mr *MockMMUMockRecorder) MarkPageAsMigrating(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkPageAsMigrating", reflect.TypeOf((*MockMMU)(nil).MarkPageAsMigrating), arg0, arg1)
 }
 
 // RemovePage mocks base method

@@ -124,3 +124,15 @@ func (mr *MockMemoryAllocatorMockRecorder) Remap(arg0, arg1, arg2, arg3 interfac
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remap", reflect.TypeOf((*MockMemoryAllocator)(nil).Remap), arg0, arg1, arg2, arg3)
 }
+
+// RemovePage mocks base method
+func (m *MockMemoryAllocator) RemovePage(arg0 uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemovePage", arg0)
+}
+
+// RemovePage indicates an expected call of RemovePage
+func (mr *MockMemoryAllocatorMockRecorder) RemovePage(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePage", reflect.TypeOf((*MockMemoryAllocator)(nil).RemovePage), arg0)
+}

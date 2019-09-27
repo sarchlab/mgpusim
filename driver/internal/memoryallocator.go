@@ -17,6 +17,7 @@ type MemoryAllocator interface {
 	AllocateUnified(pid ca.PID, byteSize uint64) uint64
 	Free(vAddr uint64)
 	Remap(pid ca.PID, pageVAddr, byteSize uint64, deviceID int)
+	RemovePage(vAddr uint64)
 	AllocatePageWithGivenVAddr(
 		pid ca.PID,
 		deviceID int,
@@ -167,13 +168,13 @@ func (a *memoryAllocatorImpl) Remap(
 	pageSize := uint64(1 << a.log2PageSize)
 	addr := pageVAddr
 	for addr < pageVAddr+byteSize {
-		a.removePage(addr)
+		a.RemovePage(addr)
 		a.AllocatePageWithGivenVAddr(pid, deviceID, addr, false)
 		addr += pageSize
 	}
 }
 
-func (a *memoryAllocatorImpl) removePage(vAddr uint64) {
+func (a *memoryAllocatorImpl) RemovePage(vAddr uint64) {
 	page, ok := a.vAddrToPageMapping[vAddr]
 
 	if !ok {
@@ -241,5 +242,5 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 }
 
 func (a *memoryAllocatorImpl) Free(ptr uint64) {
-	a.removePage(ptr)
+	a.RemovePage(ptr)
 }

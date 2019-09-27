@@ -218,6 +218,30 @@ func NewRDMADrainRspToDriver(
 	return cmd
 }
 
+//RDMARestartCmd is  a cmd to unpause the RDMA
+type RDMARestartCmdFromDriver struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *RDMARestartCmdFromDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewRDMARestartCmdFromDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *RDMARestartCmdFromDriver {
+	cmd := new(RDMARestartCmdFromDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
 //GPURestartReq is  a req to GPU to start the pipeline and unpause all paused components
 type GPURestartReq struct {
 	akita.MsgMeta
@@ -313,6 +337,66 @@ func NewPageMigrationRspToDriver(
 	src, dst akita.Port,
 ) *PageMigrationRspToDriver {
 	cmd := new(PageMigrationRspToDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+type PageMigrationInfo struct {
+	GpuReqToVaddrMap map[uint64][]uint64
+}
+
+//PageMigrationReqToDriver is a req to driver from MMU to start page migration process
+type PageMigrationReqToDriver struct {
+	akita.MsgMeta
+
+	StartTime        akita.VTimeInSec
+	EndTime          akita.VTimeInSec
+	MigrationInfo    *PageMigrationInfo
+	CurAccessingGPUs []uint64
+	PID              ca.PID
+	CurPageHostGPU   uint64
+	PageSize         uint64
+	RespondToTop     bool
+}
+
+// Meta returns the meta data associated with the message.
+func (m *PageMigrationReqToDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewPageMigrationReqToDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *PageMigrationReqToDriver {
+	cmd := new(PageMigrationReqToDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+//PageMigrationRspFromDriver is a rsp from driver to MMU marking completion of migration
+type PageMigrationRspFromDriver struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+	Vaddr     []uint64
+	RspToTop  bool
+}
+
+// Meta returns the meta data associated with the message.
+func (m *PageMigrationRspFromDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewPageMigrationRspFromDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *PageMigrationRspFromDriver {
+	cmd := new(PageMigrationRspFromDriver)
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
