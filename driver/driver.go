@@ -42,7 +42,7 @@ type Driver struct {
 	engineMutex   sync.Mutex
 	simulationID  string
 
-	currentPageMigrationReq *gcn3.PageMigrationReqToDriver
+	currentPageMigrationReq *vm.PageMigrationReqToDriver
 	toSendToMMU             *gcn3.PageMigrationRspFromDriver
 	migrationReqToSendToCP  []*gcn3.PageMigrationReqToCP
 
@@ -510,7 +510,7 @@ func (d *Driver) parseFromMMU(now akita.VTimeInSec) {
 	}
 
 	switch req := req.(type) {
-	case *gcn3.PageMigrationReqToDriver:
+	case *vm.PageMigrationReqToDriver:
 		d.currentPageMigrationReq = req
 		d.isCurrentlyHandlingMigrationReq = true
 		d.initiateRDMADrain(now)
@@ -610,7 +610,7 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 	}
 }
 
-func (d *Driver) findRequestingGPUs(migrationInfo *gcn3.PageMigrationInfo) []uint64 {
+func (d *Driver) findRequestingGPUs(migrationInfo *vm.PageMigrationInfo) []uint64 {
 	requestingGPUs := make([]uint64, 0)
 
 	for i := 1; i < d.GetNumGPUs()+1; i++ {

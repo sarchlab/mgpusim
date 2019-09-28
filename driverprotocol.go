@@ -343,40 +343,6 @@ func NewPageMigrationRspToDriver(
 	return cmd
 }
 
-type PageMigrationInfo struct {
-	GpuReqToVaddrMap map[uint64][]uint64
-}
-
-//PageMigrationReqToDriver is a req to driver from MMU to start page migration process
-type PageMigrationReqToDriver struct {
-	akita.MsgMeta
-
-	StartTime        akita.VTimeInSec
-	EndTime          akita.VTimeInSec
-	MigrationInfo    *PageMigrationInfo
-	CurAccessingGPUs []uint64
-	PID              ca.PID
-	CurPageHostGPU   uint64
-	PageSize         uint64
-	RespondToTop     bool
-}
-
-// Meta returns the meta data associated with the message.
-func (m *PageMigrationReqToDriver) Meta() *akita.MsgMeta {
-	return &m.MsgMeta
-}
-
-func NewPageMigrationReqToDriver(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *PageMigrationReqToDriver {
-	cmd := new(PageMigrationReqToDriver)
-	cmd.SendTime = time
-	cmd.Src = src
-	cmd.Dst = dst
-	return cmd
-}
-
 //PageMigrationRspFromDriver is a rsp from driver to MMU marking completion of migration
 type PageMigrationRspFromDriver struct {
 	akita.MsgMeta
