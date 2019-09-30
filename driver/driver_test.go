@@ -372,7 +372,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should handle page migration req from MMU ", func() {
-		req := gcn3.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
+		req := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
 		toMMU.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 		driver.isCurrentlyHandlingMigrationReq = false
 
@@ -392,13 +392,13 @@ var _ = ginkgo.Describe("Driver", func() {
 		req := gcn3.NewRDMADrainRspToDriver(10, nil, driver.ToGPUs)
 		driver.numRDMADrainACK = 1
 
-		pageMigrationReq := gcn3.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
+		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurPageHostGPU = 1
 		pageMigrationReq.CurAccessingGPUs = append(pageMigrationReq.CurAccessingGPUs, 1)
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
-		migrationInfo := new(gcn3.PageMigrationInfo)
+		migrationInfo := new(vm.PageMigrationInfo)
 		migrationInfo.GpuReqToVaddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 
@@ -417,13 +417,13 @@ var _ = ginkgo.Describe("Driver", func() {
 	ginkgo.It("should handle shootdown complete rsp", func() {
 		req := gcn3.NewShootdownCompleteRsp(10, nil, driver.ToGPUs)
 
-		pageMigrationReq := gcn3.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
+		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurPageHostGPU = 1
 		pageMigrationReq.CurAccessingGPUs = append(pageMigrationReq.CurAccessingGPUs, 1)
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
-		migrationInfo := new(gcn3.PageMigrationInfo)
+		migrationInfo := new(vm.PageMigrationInfo)
 		migrationInfo.GpuReqToVaddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 
@@ -520,14 +520,14 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		driver.numPagesMigratingACK = 1
 
-		pageMigrationReq := gcn3.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
+		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurPageHostGPU = 1
 		pageMigrationReq.CurAccessingGPUs = append(pageMigrationReq.CurAccessingGPUs, 1)
 		pageMigrationReq.RespondToTop = true
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
-		migrationInfo := new(gcn3.PageMigrationInfo)
+		migrationInfo := new(vm.PageMigrationInfo)
 		migrationInfo.GpuReqToVaddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 
@@ -546,7 +546,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			requestsToSend = append(requestsToSend, restartReq)
 		}
 
-		reqToMMU := gcn3.NewPageMigrationRspFromDriver(10, driver.ToMMU, driver.MMUPort)
+		reqToMMU := vm.NewPageMigrationRspFromDriver(10, driver.ToMMU, pageMigrationReq.Src)
 		reqToMMU.Vaddr = append(reqToMMU.Vaddr, 0x100)
 		reqToMMU.RspToTop = true
 
@@ -561,7 +561,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should send to MMU", func() {
-		reqToMMU := gcn3.NewPageMigrationRspFromDriver(10, driver.ToMMU, driver.MMUPort)
+		reqToMMU := vm.NewPageMigrationRspFromDriver(10, driver.ToMMU, nil)
 		driver.toSendToMMU = reqToMMU
 
 		toMMU.EXPECT().Send(reqToMMU)

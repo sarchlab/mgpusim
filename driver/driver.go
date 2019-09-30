@@ -27,8 +27,7 @@ type Driver struct {
 	GPUs []*gcn3.GPU
 	MMU  mmu.MMU
 
-	ToMMU   akita.Port
-	MMUPort akita.Port
+	ToMMU akita.Port
 
 	requestsToSend []akita.Msg
 
@@ -43,7 +42,7 @@ type Driver struct {
 	simulationID  string
 
 	currentPageMigrationReq *vm.PageMigrationReqToDriver
-	toSendToMMU             *gcn3.PageMigrationRspFromDriver
+	toSendToMMU             *vm.PageMigrationRspFromDriver
 	migrationReqToSendToCP  []*gcn3.PageMigrationReqToCP
 
 	isCurrentlyHandlingMigrationReq bool
@@ -130,6 +129,7 @@ func (d *Driver) handleTickEvent(evt akita.TickEvent) {
 
 	d.sendToGPUs(now)
 	d.sendToMMU(now)
+	d.sendMigrationReqToCP(now)
 	d.processReturnReq(now)
 	d.processNewCommand(now)
 	d.parseFromMMU(now)
@@ -723,7 +723,7 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 		pageVaddrs[requestingGPUs[i]] = migrationInfo.GpuReqToVaddrMap[uint64(requestingGPUs[i]+1)]
 	}
 
-	req := gcn3.NewPageMigrationRspFromDriver(now, d.ToMMU, d.MMUPort)
+	req := vm.NewPageMigrationRspFromDriver(now, d.ToMMU, d.currentPageMigrationReq.Src)
 
 	for _, vAddrs := range pageVaddrs {
 		for j := 0; j < len(vAddrs); j++ {
@@ -732,6 +732,7 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	}
 	req.RspToTop = d.currentPageMigrationReq.RespondToTop
 	d.toSendToMMU = req
+	d.currentPageMigrationReq = nil
 }
 
 func (d *Driver) sendToMMU(now akita.VTimeInSec) {

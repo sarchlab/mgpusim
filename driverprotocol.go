@@ -342,29 +342,3 @@ func NewPageMigrationRspToDriver(
 	cmd.Dst = dst
 	return cmd
 }
-
-//PageMigrationRspFromDriver is a rsp from driver to MMU marking completion of migration
-type PageMigrationRspFromDriver struct {
-	akita.MsgMeta
-
-	StartTime akita.VTimeInSec
-	EndTime   akita.VTimeInSec
-	Vaddr     []uint64
-	RspToTop  bool
-}
-
-// Meta returns the meta data associated with the message.
-func (m *PageMigrationRspFromDriver) Meta() *akita.MsgMeta {
-	return &m.MsgMeta
-}
-
-func NewPageMigrationRspFromDriver(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *PageMigrationRspFromDriver {
-	cmd := new(PageMigrationRspFromDriver)
-	cmd.SendTime = time
-	cmd.Src = src
-	cmd.Dst = dst
-	return cmd
-}
