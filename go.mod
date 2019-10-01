@@ -2,6 +2,7 @@ module gitlab.com/akita/gcn3
 
 require (
 	github.com/golang/mock v1.3.1
+	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/rs/xid v1.2.1

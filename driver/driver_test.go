@@ -394,12 +394,12 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
 		pageMigrationReq.PageSize = 4 * mem.KB
-		pageMigrationReq.CurPageHostGPU = 1
-		pageMigrationReq.CurAccessingGPUs = append(pageMigrationReq.CurAccessingGPUs, 1)
+		pageMigrationReq.CurrPageHostGPU = 1
+		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVaddrMap = GpuReqToVaddrMap
+		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 
 		driver.currentPageMigrationReq = pageMigrationReq
@@ -419,12 +419,12 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
 		pageMigrationReq.PageSize = 4 * mem.KB
-		pageMigrationReq.CurPageHostGPU = 1
-		pageMigrationReq.CurAccessingGPUs = append(pageMigrationReq.CurAccessingGPUs, 1)
+		pageMigrationReq.CurrPageHostGPU = 1
+		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVaddrMap = GpuReqToVaddrMap
+		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 
 		driver.currentPageMigrationReq = pageMigrationReq
@@ -448,7 +448,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.memAllocator.AllocatePageWithGivenVAddr(0, 1, 0x100, true)
 
 		mmu.EXPECT().
-			GetPageWithGivenVaddr(uint64(0x100), ca.PID(0)).
+			GetPageWithGivenVAddr(uint64(0x100), ca.PID(0)).
 			Return(&vm.Page{
 				PID:      0,
 				VAddr:    0x100,
@@ -522,13 +522,13 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
 		pageMigrationReq.PageSize = 4 * mem.KB
-		pageMigrationReq.CurPageHostGPU = 1
-		pageMigrationReq.CurAccessingGPUs = append(pageMigrationReq.CurAccessingGPUs, 1)
+		pageMigrationReq.CurrPageHostGPU = 1
+		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
 		pageMigrationReq.RespondToTop = true
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVaddrMap = GpuReqToVaddrMap
+		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 
 		driver.currentPageMigrationReq = pageMigrationReq
@@ -540,14 +540,14 @@ var _ = ginkgo.Describe("Driver", func() {
 			requestsToSend = append(requestsToSend, req)
 		}
 
-		for i := 0; i < len(pageMigrationReq.CurAccessingGPUs); i++ {
-			restartGPUID := pageMigrationReq.CurAccessingGPUs[i] - 1
+		for i := 0; i < len(pageMigrationReq.CurrAccessingGPUs); i++ {
+			restartGPUID := pageMigrationReq.CurrAccessingGPUs[i] - 1
 			restartReq := gcn3.NewGPURestartReq(10, driver.ToGPUs, driver.GPUs[restartGPUID].ToDriver)
 			requestsToSend = append(requestsToSend, restartReq)
 		}
 
 		reqToMMU := vm.NewPageMigrationRspFromDriver(10, driver.ToMMU, pageMigrationReq.Src)
-		reqToMMU.Vaddr = append(reqToMMU.Vaddr, 0x100)
+		reqToMMU.VAddr = append(reqToMMU.VAddr, 0x100)
 		reqToMMU.RspToTop = true
 
 		driver.processReturnReq(10)

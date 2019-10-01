@@ -73,18 +73,18 @@ func (mr *MockMMUMockRecorder) GetOrCreatePageTable(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrCreatePageTable", reflect.TypeOf((*MockMMU)(nil).GetOrCreatePageTable), arg0)
 }
 
-// GetPageWithGivenVaddr mocks base method
-func (m *MockMMU) GetPageWithGivenVaddr(arg0 uint64, arg1 ca.PID) *vm.Page {
+// GetPageWithGivenVAddr mocks base method
+func (m *MockMMU) GetPageWithGivenVAddr(arg0 uint64, arg1 ca.PID) *vm.Page {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPageWithGivenVaddr", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetPageWithGivenVAddr", arg0, arg1)
 	ret0, _ := ret[0].(*vm.Page)
 	return ret0
 }
 
-// GetPageWithGivenVaddr indicates an expected call of GetPageWithGivenVaddr
-func (mr *MockMMUMockRecorder) GetPageWithGivenVaddr(arg0, arg1 interface{}) *gomock.Call {
+// GetPageWithGivenVAddr indicates an expected call of GetPageWithGivenVAddr
+func (mr *MockMMUMockRecorder) GetPageWithGivenVAddr(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPageWithGivenVaddr", reflect.TypeOf((*MockMMU)(nil).GetPageWithGivenVaddr), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPageWithGivenVAddr", reflect.TypeOf((*MockMMU)(nil).GetPageWithGivenVAddr), arg0, arg1)
 }
 
 // InvalidatePage mocks base method
