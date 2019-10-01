@@ -52,7 +52,7 @@ type Driver struct {
 	numPagesMigratingACK            uint64
 	isCurrentlyMigratingOnePage     bool
 
-	remotePMCPorts []akita.Port
+	RemotePMCPorts []akita.Port
 }
 
 // Run starts a new threads that handles all commands in the command queues
@@ -577,7 +577,7 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 
 	if d.numShootDownACK == 0 {
 		toRequestFromGPU := d.currentPageMigrationReq.CurrPageHostGPU
-		toRequestFromPMEPort := d.remotePMCPorts[toRequestFromGPU-1]
+		toRequestFromPMEPort := d.RemotePMCPorts[toRequestFromGPU-1]
 
 		migrationInfo := d.currentPageMigrationReq.MigrationInfo
 

@@ -41,8 +41,8 @@ var _ = ginkgo.Describe("Driver", func() {
 		for i := 0; i < 2; i++ {
 			gpu := gcn3.NewGPU("GPU", engine)
 			remotePMCPorts = append(remotePMCPorts, NewMockPort(mockCtrl))
-			driver.remotePMCPorts = append(driver.remotePMCPorts, akita.NewLimitNumMsgPort(driver, 1))
-			driver.remotePMCPorts[i] = remotePMCPorts[i]
+			driver.RemotePMCPorts = append(driver.RemotePMCPorts, akita.NewLimitNumMsgPort(driver, 1))
+			driver.RemotePMCPorts[i] = remotePMCPorts[i]
 			driver.RegisterGPU(gpu, 4*mem.GB)
 
 		}
@@ -482,7 +482,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.processReturnReq(10)
 		Expect(driver.numPagesMigratingACK).To(Equal(uint64(1)))
 		Expect(driver.migrationReqToSendToCP[0].Dst).To(Equal(driver.GPUs[1].ToDriver))
-		Expect(driver.migrationReqToSendToCP[0].DestinationPMCPort).To(Equal(driver.remotePMCPorts[0]))
+		Expect(driver.migrationReqToSendToCP[0].DestinationPMCPort).To(Equal(driver.RemotePMCPorts[0]))
 		Expect(driver.migrationReqToSendToCP[0].ToReadFromPhysicalAddress).To(Equal(uint64(4294967296)))
 		Expect(driver.migrationReqToSendToCP[0].ToWriteToPhysicalAddress).To(Equal(uint64(8589934592)))
 		Expect(driver.migrationReqToSendToCP[0].PageSize).To(Equal(uint64(4 * mem.KB)))

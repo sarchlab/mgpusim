@@ -92,6 +92,8 @@ func BuildNR9NanoPlatform(
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
 	connection.SrcBufferCapacity = 40960000
 
+	mmuComponent.MigrationServiceProvider = gpuDriver.ToMMU
+
 	gpuBuilder := gpubuilder.MakeR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithExternalConn(connection).
@@ -120,9 +122,9 @@ func BuildNR9NanoPlatform(
 	rdmaAddressTable.BankSize = 4 * mem.GB
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
 
-	/*pmcAddressTable := new(cache.BankedLowModuleFinder)
+	pmcAddressTable := new(cache.BankedLowModuleFinder)
 	pmcAddressTable.BankSize = 4 * mem.GB
-	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)*/
+	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)
 
 	for i := 1; i < numGPUs+1; i++ {
 		name := fmt.Sprintf("GPU_%d", i)
@@ -139,16 +141,20 @@ func BuildNR9NanoPlatform(
 			gpu.RDMAEngine.ToOutside)
 		connection.PlugIn(gpu.RDMAEngine.ToOutside)
 
-		/*gpu.PMC.RemotePMCAddressTable = pmcAddressTable
+		gpu.PMC.RemotePMCAddressTable = pmcAddressTable
 		pmcAddressTable.LowModules = append(
 			pmcAddressTable.LowModules,
 			gpu.PMC.RemotePort)
-		connection.PlugIn(gpu.PMC.RemotePort)*/
+		connection.PlugIn(gpu.PMC.RemotePort)
+
+		gpuDriver.RemotePMCPorts = append(gpuDriver.RemotePMCPorts, gpu.PMC.RemotePort)
 
 	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)
 	connection.PlugIn(mmuComponent.ToTop)
+	connection.PlugIn(mmuComponent.MigrationPort)
+	connection.PlugIn(gpuDriver.ToMMU)
 
 	return engine, gpuDriver
 }

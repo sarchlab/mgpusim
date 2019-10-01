@@ -168,7 +168,7 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.buildMemSystem()
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
-	//b.buildPageMigrationController()
+	b.buildPageMigrationController()
 	b.buildCUs()
 
 	b.InternalConn.PlugIn(b.gpu.ToCommandProcessor)
@@ -209,6 +209,9 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToL1
 	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL1)
 	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL2)
+	b.CP.RDMA = b.gpu.RDMAEngine.CtrlPort
+	b.InternalConn.PlugIn(b.CP.RDMA)
+
 }
 
 func (b *R9NanoGPUBuilder) buildPageMigrationController() {
@@ -225,8 +228,9 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 	b.InternalConn.PlugIn(b.gpu.PMC.CtrlPort)
 	b.InternalConn.PlugIn(b.gpu.PMC.LocalMemPort)
 
-	//b.CP.PMC = b.gpu.PageMigrationEngine.ToCP
-	//b.gpu.PageMigrationEngine.CP = b.CP.ToPMC
+	b.CP.PMC = b.gpu.PMC.CtrlPort
+	b.InternalConn.PlugIn(b.CP.PMC)
+
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
@@ -257,6 +261,9 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.ACE.ToCUs)
 	b.InternalConn.PlugIn(b.CP.ToCUs)
+
+	b.InternalConn.PlugIn(b.CP.ToRDMA)
+	b.InternalConn.PlugIn(b.CP.ToPMC)
 
 	if b.enableVisTracing {
 		tracing.CollectTrace(b.CP, b.visTracer)
@@ -320,6 +327,9 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 
 		translationConn := b.addrTranslatorToTLBL1Connections[i]
 		translationConn.PlugIn(at.TranslationPort)
+		b.InternalConn.PlugIn(at.CtrlPort)
+
+		b.CP.AddressTranslators = append(b.CP.AddressTranslators, at.CtrlPort)
 
 		b.l1vAddrTrans = append(b.l1vAddrTrans, at)
 
@@ -359,6 +369,8 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 
 		translationConn := b.addrTranslatorToSTLBL1Connections[i]
 		translationConn.PlugIn(at.TranslationPort)
+		b.InternalConn.PlugIn(at.CtrlPort)
+		b.CP.AddressTranslators = append(b.CP.AddressTranslators, at.CtrlPort)
 
 		b.l1sAddrTrans = append(b.l1sAddrTrans, at)
 
@@ -392,6 +404,8 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 		conn.PlugIn(at.TopPort)
 		b.l1ToL2Connection.PlugIn(at.BottomPort)
 		b.InternalConn.PlugIn(at.TranslationPort)
+		b.InternalConn.PlugIn(at.CtrlPort)
+		b.CP.AddressTranslators = append(b.CP.AddressTranslators, at.CtrlPort)
 
 		b.l1iAddrTrans = append(b.l1iAddrTrans, at)
 
@@ -419,6 +433,7 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 	b.l1TLBToL2TLBConnection.PlugIn(l2TLB.TopPort)
 	b.InternalConn.PlugIn(l2TLB.ControlPort)
 	b.externalConn.PlugIn(l2TLB.BottomPort)
+	b.CP.TLBs = append(b.CP.TLBs, l2TLB.ControlPort)
 
 	if b.enableVisTracing {
 		tracing.CollectTrace(l2TLB, b.visTracer)
@@ -453,6 +468,7 @@ func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 		conn.PlugIn(l1TLB.TopPort)
 		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
+		b.CP.TLBs = append(b.CP.TLBs, l1TLB.ControlPort)
 
 		if b.enableVisTracing {
 			tracing.CollectTrace(l1TLB, b.visTracer)
@@ -482,6 +498,7 @@ func (b *R9NanoGPUBuilder) buildL1STLBs() {
 		conn.PlugIn(l1TLB.TopPort)
 		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
+		b.CP.TLBs = append(b.CP.TLBs, l1TLB.ControlPort)
 
 		if b.enableVisTracing {
 			tracing.CollectTrace(l1TLB, b.visTracer)
@@ -507,6 +524,8 @@ func (b *R9NanoGPUBuilder) buildL1ITLBs() {
 		b.InternalConn.PlugIn(l1TLB.TopPort)
 		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
 		b.InternalConn.PlugIn(l1TLB.ControlPort)
+		b.CP.TLBs = append(b.CP.TLBs, l1TLB.ControlPort)
+
 		if b.enableVisTracing {
 			tracing.CollectTrace(l1TLB, b.visTracer)
 		}
