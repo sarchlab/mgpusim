@@ -576,7 +576,6 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 	d.numShootDownACK--
 
 	if d.numShootDownACK == 0 {
-		log.Printf("RECVE SHOOTDOWN \n")
 		toRequestFromGPU := d.currentPageMigrationReq.CurrPageHostGPU
 		toRequestFromPMEPort := d.RemotePMCPorts[toRequestFromGPU-1]
 
@@ -594,6 +593,7 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 
 		for gpuID, vAddrs := range pageVaddrs {
 			for i := 0; i < len(vAddrs); i++ {
+
 				vAddr := vAddrs[i]
 				page, oldPaddr := d.preparePageForMigration(vAddr, context, gpuID)
 
@@ -603,11 +603,12 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 				req.ToWriteToPhysicalAddress = page.PAddr
 				req.PageSize = d.currentPageMigrationReq.PageSize
 
+				log.Printf("req from gpu %d , to read from %d, to write to %d \n", gpuID, req.ToReadFromPhysicalAddress, req.ToWriteToPhysicalAddress)
 				d.migrationReqToSendToCP = append(d.migrationReqToSendToCP, req)
 				d.numPagesMigratingACK++
-
 			}
 		}
+		d.NeedTick = true
 	}
 }
 
@@ -655,6 +656,8 @@ func (d *Driver) sendMigrationReqToCP(now akita.VTimeInSec) {
 	if len(d.migrationReqToSendToCP) == 0 {
 		return
 	}
+
+	log.Printf("sending to cp \n")
 
 	if d.isCurrentlyMigratingOnePage {
 		return

@@ -319,10 +319,7 @@ func (p *CommandProcessor) handleCacheFlushRsp(
 	req *cache.FlushRsp,
 ) error {
 	p.numCacheACK--
-	log.Printf("recve cu rsp\n")
-
 	if p.numCacheACK == 0 {
-
 		if p.shootDownInProcess {
 			for i := 0; i < len(p.TLBs); i++ {
 				now := req.Time()
