@@ -115,6 +115,8 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 		return p.handleAddressTranslatorFlushRsp(req)
 	case *tlb.TLBFlushRsp:
 		return p.handleTLBFlushRsp(req)
+	case *RDMARestartCmdFromDriver:
+		return p.handleRDMARestartCommand(req)
 	case *GPURestartReq:
 		return p.handleGPURestartReq(req)
 	case *cache.RestartRsp:
@@ -364,6 +366,24 @@ func (p *CommandProcessor) handleTLBFlushRsp(cmd *tlb.TLBFlushRsp) error {
 		}
 		p.shootDownInProcess = false
 	}
+	return nil
+}
+
+func (p *CommandProcessor) handleRDMARestartCommand(cmd *RDMARestartCmdFromDriver) error {
+	now := cmd.Time()
+
+	req := rdma.RDMARestartReqBuilder{}.
+		WithSrc(p.ToRDMA).
+		WithDst(p.RDMA).
+		WithSendTime(now).
+		Build()
+
+	err := p.ToRDMA.Send(req)
+
+	if err != nil {
+		log.Panicf("Failed to send restart req to RDMA")
+	}
+
 	return nil
 }
 
