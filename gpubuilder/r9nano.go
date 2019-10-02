@@ -276,7 +276,6 @@ func (b *R9NanoGPUBuilder) connectCUToCP() {
 		b.CP.CUs = append(b.CP.CUs, akita.NewLimitNumMsgPort(b.CP, 1))
 		b.InternalConn.PlugIn(b.CP.CUs[i])
 		b.CP.CUs[i] = b.gpu.CUs[i].(*timing.ComputeUnit).ToCP
-		b.CP.ToCUs = b.gpu.CUs[i].(*timing.ComputeUnit).CP
 	}
 }
 
@@ -750,7 +749,6 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 
 		b.InternalConn.PlugIn(cu.ToACE)
 		b.InternalConn.PlugIn(cu.ToCP)
-		b.InternalConn.PlugIn(cu.CP)
 
 		if b.EnableISADebug && i == 0 {
 			isaDebug, err := os.Create(fmt.Sprintf(

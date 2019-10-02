@@ -63,7 +63,6 @@ type ComputeUnit struct {
 	ToVectorMem akita.Port
 
 	ToCP akita.Port
-	CP   akita.Port
 
 	inCPRequestProcessingStage akita.Msg
 	cpRequestHandlingComplete  bool
@@ -234,6 +233,7 @@ func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) {
 	if cu.toSendToCP == nil {
 		return
 	}
+
 	cu.toSendToCP.Meta().SendTime = now
 	sendErr := cu.ToCP.Send(cu.toSendToCP)
 	if sendErr == nil {
@@ -278,6 +278,7 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 	cu.isFlushing = false
 
 	cu.NeedTick = true
+
 }
 
 func (cu *ComputeUnit) flushInternalComponents() {
@@ -905,7 +906,6 @@ func NewComputeUnit(
 	cu.ToVectorMem = akita.NewLimitNumMsgPort(cu, 4)
 
 	cu.ToCP = akita.NewLimitNumMsgPort(cu, 4)
-	cu.CP = akita.NewLimitNumMsgPort(cu, 4)
 
 	return cu
 }

@@ -576,6 +576,7 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 	d.numShootDownACK--
 
 	if d.numShootDownACK == 0 {
+		log.Printf("RECVE SHOOTDOWN \n")
 		toRequestFromGPU := d.currentPageMigrationReq.CurrPageHostGPU
 		toRequestFromPMEPort := d.RemotePMCPorts[toRequestFromGPU-1]
 

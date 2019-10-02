@@ -84,7 +84,7 @@ func (d *Driver) AllocateUnifiedMemory(
 	ctx *Context,
 	byteSize uint64,
 ) GPUPtr {
-	return GPUPtr(d.memAllocator.AllocateUnified(ctx.pid, byteSize))
+	return GPUPtr(d.memAllocator.AllocateUnified(ctx.pid, byteSize, ctx.currentGPUID))
 }
 
 // Remap keeps the virtual address unchanged and moves the physical address to
