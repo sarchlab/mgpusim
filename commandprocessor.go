@@ -232,10 +232,8 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 func (p *CommandProcessor) handleCUPipelineFlushRsp(cmd *CUPipelineFlushRsp) error {
 	now := cmd.Time()
 	p.numCUAck--
-	log.Printf("cu flush ack %d \n", p.numCUAck)
 
 	if p.numCUAck == 0 {
-		log.Printf("recve cp shoot\n")
 
 		for i := 0; i < len(p.AddressTranslators); i++ {
 			req := addresstranslator.AddressTranslatorFlushReqBuilder{}.
@@ -321,6 +319,8 @@ func (p *CommandProcessor) handleCacheFlushRsp(
 	req *cache.FlushRsp,
 ) error {
 	p.numCacheACK--
+	log.Printf("recve cu rsp\n")
+
 	if p.numCacheACK == 0 {
 
 		if p.shootDownInProcess {

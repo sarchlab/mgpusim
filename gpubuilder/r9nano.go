@@ -261,6 +261,8 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.ACE.ToCUs)
 	b.InternalConn.PlugIn(b.CP.ToCUs)
+	b.InternalConn.PlugIn(b.CP.ToTLBs)
+	b.InternalConn.PlugIn(b.CP.ToAddressTranslators)
 
 	b.InternalConn.PlugIn(b.CP.ToRDMA)
 	b.InternalConn.PlugIn(b.CP.ToPMC)
