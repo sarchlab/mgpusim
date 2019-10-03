@@ -14,7 +14,7 @@ type MemoryAllocator interface {
 	RegisterStorage(byteSize uint64)
 	GetDeviceIDByPAddr(pAddr uint64) int
 	Allocate(pid ca.PID, byteSize uint64, deviceID int) uint64
-	AllocateUnified(pid ca.PID, byteSize uint64, deviceID int) uint64
+	AllocateUnified(pid ca.PID, byteSize uint64) uint64
 	Free(vAddr uint64)
 	Remap(pid ca.PID, pageVAddr, byteSize uint64, deviceID int)
 	RemovePage(vAddr uint64)
@@ -109,7 +109,7 @@ func (a *memoryAllocatorImpl) Allocate(
 
 func (a *memoryAllocatorImpl) AllocateUnified(
 	pid ca.PID,
-	byteSize uint64, deviceID int,
+	byteSize uint64,
 ) uint64 {
 	pageSize := uint64(1 << a.log2PageSize)
 	numPages := (byteSize-1)/pageSize + 1

@@ -33,6 +33,7 @@ func (c *coalescer) processReq(
 	now akita.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
+
 	if c.isReqLastInWave(req) {
 		if len(c.toCoalesce) == 0 || c.canReqCoalesce(req) {
 			return c.processReqLastInWaveCoalescable(now, req)

@@ -174,6 +174,8 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 		d.processShootdownCompleteRsp(now, req)
 	case *gcn3.PageMigrationRspToDriver:
 		d.processPageMigrationRspFromCP(now, req)
+	case *gcn3.GPURestartRsp:
+		d.handleGPURestartRsp(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
@@ -603,7 +605,6 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 				req.ToWriteToPhysicalAddress = page.PAddr
 				req.PageSize = d.currentPageMigrationReq.PageSize
 
-				log.Printf("req from gpu %d , to read from %d, to write to %d \n", gpuID, req.ToReadFromPhysicalAddress, req.ToWriteToPhysicalAddress)
 				d.migrationReqToSendToCP = append(d.migrationReqToSendToCP, req)
 				d.numPagesMigratingACK++
 			}
@@ -656,8 +657,6 @@ func (d *Driver) sendMigrationReqToCP(now akita.VTimeInSec) {
 	if len(d.migrationReqToSendToCP) == 0 {
 		return
 	}
-
-	log.Printf("sending to cp \n")
 
 	if d.isCurrentlyMigratingOnePage {
 		return
@@ -736,7 +735,12 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	}
 	req.RspToTop = d.currentPageMigrationReq.RespondToTop
 	d.toSendToMMU = req
+
+}
+
+func (d *Driver) handleGPURestartRsp(now akita.VTimeInSec, req *gcn3.GPURestartRsp) {
 	d.currentPageMigrationReq = nil
+	d.isCurrentlyHandlingMigrationReq = false
 }
 
 func (d *Driver) sendToMMU(now akita.VTimeInSec) {

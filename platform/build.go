@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"log"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/driver"
@@ -100,7 +99,7 @@ func BuildNR9NanoPlatform(
 		WithExternalConn(connection).
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
-		WithNumShaderArray(16).
+		WithNumShaderArray(1).
 		WithNumMemoryBank(8)
 
 	if TraceVis {
@@ -130,8 +129,6 @@ func BuildNR9NanoPlatform(
 	for i := 1; i < numGPUs+1; i++ {
 		name := fmt.Sprintf("GPU_%d", i)
 		memAddrOffset := uint64(i) * 4 * mem.GB
-		log.Printf("offset is %d \n", memAddrOffset)
-
 		gpu := gpuBuilder.
 			WithMemAddrOffset(memAddrOffset).
 			Build(name, uint64(i))

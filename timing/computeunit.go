@@ -569,6 +569,8 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 		//log.Panic("response does not match request")
 	}
 
+	//log.Printf("cu %s scalar \n", cu.ComponentBase.Name())
+
 	wf := info.Wavefront
 	access := RegisterAccess{}
 	access.WaveOffset = wf.SRegOffset
@@ -622,6 +624,9 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		return
 		//log.Panic("CU cannot receive out of order memory return")
 	}
+
+	//log.Printf("cu %s vector \n", cu.ComponentBase.Name())
+
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 	tracing.TraceReqFinalize(info.Read, now, cu)
 
@@ -784,7 +789,6 @@ func (cu *ComputeUnit) checkShadowBuffers(now akita.VTimeInSec) {
 		cu.Scheduler.Resume()
 		cu.isPaused = false
 		cu.NeedTick = true
-
 	} else {
 		cu.sendOutShadowBufferReqs(now)
 	}
