@@ -41,6 +41,8 @@ type Driver struct {
 	engineMutex   sync.Mutex
 	simulationID  string
 
+	Log2PageSize uint64
+
 	currentPageMigrationReq *vm.PageMigrationReqToDriver
 	toSendToMMU             *vm.PageMigrationRspFromDriver
 	migrationReqToSendToCP  []*gcn3.PageMigrationReqToCP
@@ -755,16 +757,18 @@ func (d *Driver) sendToMMU(now akita.VTimeInSec) {
 }
 
 // NewDriver creates a new driver
-func NewDriver(engine akita.Engine, mmu mmu.MMU) *Driver {
+func NewDriver(engine akita.Engine, mmu mmu.MMU, log2PageSize uint64) *Driver {
 	driver := new(Driver)
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
-	memAllocatorImpl := internal.NewMemoryAllocator(mmu, 12)
+	driver.Log2PageSize = log2PageSize
+
+	memAllocatorImpl := internal.NewMemoryAllocator(mmu, log2PageSize)
 	driver.memAllocator = memAllocatorImpl
 
 	distributorImpl := newDistributorImpl(memAllocatorImpl)
-	distributorImpl.pageSizeAsPowerOf2 = 12
+	distributorImpl.pageSizeAsPowerOf2 = log2PageSize
 	driver.distributor = distributorImpl
 
 	driver.MMU = mmu

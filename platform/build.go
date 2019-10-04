@@ -34,7 +34,7 @@ func BuildNEmuGPUPlatform(n int) (
 
 	mmuBuilder := mmu.MakeBuilder()
 	mmuComponent := mmuBuilder.Build("MMU")
-	gpuDriver := driver.NewDriver(engine, mmuComponent)
+	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
 	connection := akita.NewDirectConnection(engine)
 	storage := mem.NewStorage(uint64(n+1) * 4 * mem.GB)
 
@@ -86,7 +86,7 @@ func BuildNR9NanoPlatform(
 		WithEngine(engine).
 		WithFreq(1 * akita.GHz)
 	mmuComponent := mmuBuilder.Build("MMU")
-	gpuDriver := driver.NewDriver(engine, mmuComponent)
+	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
 
 	//connection := akita.NewDirectConnection(engine)
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
@@ -100,7 +100,8 @@ func BuildNR9NanoPlatform(
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(1).
-		WithNumMemoryBank(8)
+		WithNumMemoryBank(8).
+		WithLog2PageSize(12)
 
 	if TraceVis {
 		tracer := tracing.NewMongoDBTracer()

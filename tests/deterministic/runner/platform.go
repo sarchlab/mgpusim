@@ -36,7 +36,7 @@ func buildNR9NanoPlatformWithPerfectMemorySystem(
 		WithEngine(engine).
 		WithFreq(1 * akita.GHz)
 	mmuComponent := mmuBuilder.Build("MMU")
-	gpuDriver := driver.NewDriver(engine, mmuComponent)
+	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
 
 	//connection := akita.NewDirectConnection(engine)
 	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
@@ -48,7 +48,8 @@ func buildNR9NanoPlatformWithPerfectMemorySystem(
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
-		WithNumMemoryBank(8)
+		WithNumMemoryBank(8).
+		WithLog2PageSize(12)
 
 	if TraceMem {
 		gpuBuilder.EnableMemTracing = true

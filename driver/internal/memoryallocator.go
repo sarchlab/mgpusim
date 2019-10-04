@@ -2,6 +2,7 @@ package internal
 
 import (
 	"log"
+	"math"
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
@@ -126,7 +127,7 @@ func (a *memoryAllocatorImpl) allocatePages(
 	if !found {
 		a.processMemoryStates[pid] = &processMemoryState{
 			pid:       pid,
-			nextVAddr: 4096,
+			nextVAddr: uint64(math.Pow(float64(2), float64(a.log2PageSize))),
 		}
 		pState = a.processMemoryStates[pid]
 	}
