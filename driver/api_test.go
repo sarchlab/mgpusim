@@ -23,7 +23,7 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 
 	ginkgo.BeforeEach(func() {
 		engine = akita.NewSerialEngine()
-		driver = NewDriver(engine, nil)
+		driver = NewDriver(engine, nil, 12)
 		driver.Run()
 	})
 
