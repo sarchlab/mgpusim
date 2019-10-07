@@ -4,7 +4,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/util/ca"
 )
@@ -49,10 +48,10 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		mmu.EXPECT().CreatePage(
 			&vm.Page{
 				PID:      1,
-				PAddr:    0x0,
+				PAddr:    0x100000000,
 				VAddr:    4096,
 				PageSize: 4096,
-				GPUID:    0,
+				GPUID:    1,
 				Valid:    true,
 				Unified:  true,
 			})

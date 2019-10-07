@@ -218,6 +218,30 @@ func NewRDMADrainRspToDriver(
 	return cmd
 }
 
+//RDMARestartCmd is  a cmd to unpause the RDMA
+type RDMARestartCmdFromDriver struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *RDMARestartCmdFromDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewRDMARestartCmdFromDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *RDMARestartCmdFromDriver {
+	cmd := new(RDMARestartCmdFromDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
 //GPURestartReq is  a req to GPU to start the pipeline and unpause all paused components
 type GPURestartReq struct {
 	akita.MsgMeta

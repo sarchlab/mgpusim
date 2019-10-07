@@ -78,7 +78,6 @@ func (e *PageMigrationController) tick(now akita.VTimeInSec) {
 	e.processDataPullRsp(now)
 	e.processWriteDoneRspFromMemCtrl(now)
 
-	e.needTick = true
 	if e.needTick {
 		e.ticker.TickLater(now)
 	}
