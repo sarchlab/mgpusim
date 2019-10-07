@@ -17,64 +17,6 @@ func (m *FlushCommand) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
-// ShootDownCommand requests the GPU to perform a TLB shootdown and invalidate
-// the corresponding PTE's
-type ShootDownCommand struct {
-	akita.MsgMeta
-
-	StartTime akita.VTimeInSec
-	EndTime   akita.VTimeInSec
-
-	VAddr []uint64
-	PID   ca.PID
-}
-
-// Meta returns the meta data associated with the message.
-func (m *ShootDownCommand) Meta() *akita.MsgMeta {
-	return &m.MsgMeta
-}
-
-type ShootDownCompleteRsp struct {
-	akita.MsgMeta
-
-	StartTime akita.VTimeInSec
-	EndTime   akita.VTimeInSec
-
-	shootDownComplete bool
-}
-
-// Meta returns the meta data associated with the message.
-func (m *ShootDownCompleteRsp) Meta() *akita.MsgMeta {
-	return &m.MsgMeta
-}
-
-//NewShootdownCommand tells the CP to drain all CU and invalidate PTE's in TLB and Page Tables
-func NewShootdownCommand(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-	vAddr []uint64,
-	pID ca.PID,
-) *ShootDownCommand {
-	cmd := new(ShootDownCommand)
-	cmd.SendTime = time
-	cmd.Src = src
-	cmd.Dst = dst
-	cmd.VAddr = vAddr
-	cmd.PID = pID
-	return cmd
-}
-
-func NewShootdownCompleteRsp(
-	time akita.VTimeInSec,
-	src, dst akita.Port,
-) *ShootDownCompleteRsp {
-	cmd := new(ShootDownCompleteRsp)
-	cmd.SendTime = time
-	cmd.Src = src
-	cmd.Dst = dst
-	return cmd
-}
-
 // NewFlushCommand Creates a new flush command, setting the request send time
 // with time and the source and destination.
 func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
@@ -170,4 +112,209 @@ func NewMemCopyD2HReq(
 	req.SrcAddress = srcAddress
 	req.DstBuffer = dstBuffer
 	return req
+}
+
+//ShootDownCommand requests the GPU to perform a TLB shootdown and invalidate
+// the corresponding PTE's
+type ShootDownCommand struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+
+	VAddr []uint64
+	PID   ca.PID
+}
+
+// Meta returns the meta data associated with the message.
+func (m *ShootDownCommand) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+//NewShootdownCommand tells the CP to drain all CU and invalidate PTE's in TLB and Page Tables
+func NewShootdownCommand(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+	vAddr []uint64,
+	pID ca.PID,
+) *ShootDownCommand {
+	cmd := new(ShootDownCommand)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	cmd.VAddr = vAddr
+	cmd.PID = pID
+	return cmd
+}
+
+type ShootDownCompleteRsp struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *ShootDownCompleteRsp) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewShootdownCompleteRsp(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *ShootDownCompleteRsp {
+	cmd := new(ShootDownCompleteRsp)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+//RDMADrainCmd is driver asking CP to drain local RDMA
+type RDMADrainCmdFromDriver struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *RDMADrainCmdFromDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewRDMADrainCmdFromDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *RDMADrainCmdFromDriver {
+	cmd := new(RDMADrainCmdFromDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+//RDMADrainCmd is  a rsp to driver indicating completion of RDMA drain
+type RDMADrainRspToDriver struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *RDMADrainRspToDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewRDMADrainRspToDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *RDMADrainRspToDriver {
+	cmd := new(RDMADrainRspToDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+//GPURestartReq is  a req to GPU to start the pipeline and unpause all paused components
+type GPURestartReq struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *GPURestartReq) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewGPURestartReq(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *GPURestartReq {
+	cmd := new(GPURestartReq)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+//GPURestartRsp is  a rsp indicating the restart is complete
+type GPURestartRsp struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *GPURestartRsp) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewGPURestartRsp(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *GPURestartRsp {
+	cmd := new(GPURestartRsp)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+//PageMigrationReqToCP is a request to CP to start the page migration process
+type PageMigrationReqToCP struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+
+	ToReadFromPhysicalAddress uint64
+	ToWriteToPhysicalAddress  uint64
+	DestinationPMCPort        akita.Port
+	PageSize                  uint64
+}
+
+// Meta returns the meta data associated with the message.
+func (m *PageMigrationReqToCP) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewPageMigrationReqToCP(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *PageMigrationReqToCP {
+	cmd := new(PageMigrationReqToCP)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}
+
+//PageMigrationRspToDriver is a rsp to driver indicating completion of Page Migration requests
+type PageMigrationRspToDriver struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *PageMigrationRspToDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewPageMigrationRspToDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *PageMigrationRspToDriver {
+	cmd := new(PageMigrationRspToDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
 }

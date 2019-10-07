@@ -179,7 +179,6 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.gpu.InternalConnection = b.InternalConn
 
 	b.connectCUToCP()
-	b.connectVMToCP()
 
 	return b.gpu
 }
@@ -254,10 +253,10 @@ func (b *R9NanoGPUBuilder) buildCP() {
 
 	b.InternalConn.PlugIn(b.CP.ToDriver)
 	b.InternalConn.PlugIn(b.CP.ToDispatcher)
+	b.InternalConn.PlugIn(b.CP.ToCaches)
 	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
 	b.InternalConn.PlugIn(b.ACE.ToCUs)
 	b.InternalConn.PlugIn(b.CP.ToCUs)
-	b.InternalConn.PlugIn(b.CP.ToVMModules)
 
 	if b.enableVisTracing {
 		tracing.CollectTrace(b.CP, b.visTracer)
@@ -271,48 +270,6 @@ func (b *R9NanoGPUBuilder) connectCUToCP() {
 		b.InternalConn.PlugIn(b.CP.CUs[i])
 		b.CP.CUs[i] = b.gpu.CUs[i].(*timing.ComputeUnit).ToCP
 		b.CP.ToCUs = b.gpu.CUs[i].(*timing.ComputeUnit).CP
-	}
-}
-
-func (b *R9NanoGPUBuilder) connectVMToCP() {
-	l1VTLBCount := b.numCU()
-	l1STLBCount := b.numShaderArray
-	l1ITLBCount := b.numShaderArray
-	l2TLBCount := 1
-	mmuCount := 1
-
-	totalVMUnits := l1VTLBCount + l1STLBCount + l1ITLBCount + mmuCount + l2TLBCount
-
-	for i := 0; i < totalVMUnits; i++ {
-		b.CP.VMModules = append(b.CP.VMModules, akita.NewLimitNumMsgPort(b.CP, 1))
-		b.InternalConn.PlugIn(b.CP.VMModules[i])
-	}
-
-	currentVMCount := 0
-
-	for i := 0; i < l1VTLBCount; i++ {
-		b.CP.VMModules[currentVMCount] = b.L1VTLBs[i].TopPort
-		currentVMCount++
-	}
-
-	for i := 0; i < l1STLBCount; i++ {
-		b.CP.VMModules[currentVMCount] = b.L1STLBs[i].TopPort
-		currentVMCount++
-	}
-
-	for i := 0; i < l1ITLBCount; i++ {
-		b.CP.VMModules[currentVMCount] = b.L1ITLBs[i].TopPort
-		currentVMCount++
-	}
-
-	b.CP.VMModules[currentVMCount] = b.L2TLBs[0].TopPort
-	currentVMCount++
-
-	b.CP.VMModules[currentVMCount] = b.mmu.ToTop
-	currentVMCount++
-
-	if currentVMCount != totalVMUnits {
-		log.Panicf(" You missed some VM units in initialization")
 	}
 }
 
@@ -580,7 +537,7 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.InternalConn.PlugIn(sCache.ControlPort)
 		b.l1ToL2Connection.PlugIn(sCache.BottomPort)
 		b.L1SCaches = append(b.L1SCaches, sCache)
-		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache)
+		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache.ControlPort)
 		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
 		if b.EnableMemTracing {
 			tracing.CollectTrace(sCache, b.MemTracer)
@@ -620,7 +577,7 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		bottomConn.PlugIn(iCache.BottomPort)
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
-		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache)
+		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache.ControlPort)
 		b.gpu.L1ICaches = append(b.gpu.L1ICaches, iCache)
 		if b.EnableMemTracing {
 			tracing.CollectTrace(iCache, b.MemTracer)
@@ -656,7 +613,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		b.InternalConn.PlugIn(dCache.ControlPort)
 		b.l1ToL2Connection.PlugIn(dCache.BottomPort)
 		b.L1VCaches = append(b.L1VCaches, dCache)
-		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache)
+		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache.ControlPort)
 		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
 
 		if b.EnableMemTracing {
@@ -686,7 +643,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		cacheBuilder.NumMSHREntry = 4096
 		l2Cache := cacheBuilder.Build()
 		b.L2Caches = append(b.L2Caches, l2Cache)
-		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache)
+		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache.ControlPort)
 		b.gpu.L2Caches = append(b.gpu.L2Caches, l2Cache)
 
 		b.LowModuleFinderForL1.LowModules = append(
