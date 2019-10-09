@@ -99,7 +99,7 @@ func BuildNR9NanoPlatform(
 		WithExternalConn(connection).
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
-		WithNumShaderArray(1).
+		WithNumShaderArray(16).
 		WithNumMemoryBank(8).
 		WithLog2PageSize(12)
 

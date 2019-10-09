@@ -3,7 +3,6 @@ package gpubuilder
 import (
 	"fmt"
 	"log"
-	"math"
 	"os"
 
 	"gitlab.com/akita/akita"
@@ -434,7 +433,7 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 		WithNumWays(64).
 		WithNumSets(64).
 		WithNumReqPerCycle(1024).
-		WithPageSize(uint64((math.Pow(float64(2), float64(b.log2PageSize))))).
+		WithPageSize(1 << b.log2PageSize).
 		WithLowModule(b.mmu.ToTop)
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.L2TLBs = append(b.L2TLBs, l2TLB)
@@ -462,7 +461,7 @@ func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 		WithNumWays(64).
 		WithNumSets(1).
 		WithNumReqPerCycle(4).
-		WithPageSize(uint64((math.Pow(float64(2), float64(b.log2PageSize)))))
+		WithPageSize(1 << b.log2PageSize)
 
 	l1VTLBCount := b.numCU()
 	for i := 0; i < l1VTLBCount; i++ {
@@ -494,7 +493,7 @@ func (b *R9NanoGPUBuilder) buildL1STLBs() {
 		WithLowModule(b.gpu.L2TLBs[0].TopPort).
 		WithNumWays(64).
 		WithNumSets(1).
-		WithPageSize(uint64((math.Pow(float64(2), float64(b.log2PageSize)))))
+		WithPageSize(1 << b.log2PageSize)
 
 	l1STLBCount := b.numShaderArray
 	for i := 0; i < l1STLBCount; i++ {
@@ -525,7 +524,7 @@ func (b *R9NanoGPUBuilder) buildL1ITLBs() {
 		WithLowModule(b.gpu.L2TLBs[0].TopPort).
 		WithNumWays(64).
 		WithNumSets(1).
-		WithPageSize(uint64((math.Pow(float64(2), float64(b.log2PageSize)))))
+		WithPageSize(1 << b.log2PageSize)
 
 	l1ITLBCount := b.numShaderArray
 	for i := 0; i < l1ITLBCount; i++ {

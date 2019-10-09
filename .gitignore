@@ -24,6 +24,7 @@ __pycache__
 vendor
 samples/fir_unified/
 samples/aes_unified/
+samples/*
 benchmarks/*
 .DS_Store
 *.json
