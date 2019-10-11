@@ -514,13 +514,11 @@ func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) {
 
 func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
 	if len(cu.InFlightInstFetch) == 0 {
-		//log.Panic("CU is fetching no instruction")
 		return
 	}
 
 	info := cu.InFlightInstFetch[0]
 	if info.Req.ID != rsp.RespondTo {
-		//log.Panic("response does not match request")
 		return
 	}
 
@@ -560,16 +558,12 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 ) {
 	if len(cu.InFlightScalarMemAccess) == 0 {
 		return
-		//log.Panic("CU is not loading scalar data")
 	}
 
 	info := cu.InFlightScalarMemAccess[0]
 	if info.Req.ID != rsp.RespondTo {
 		return
-		//log.Panic("response does not match request")
 	}
-
-	//log.Printf("cu %s scalar \n", cu.ComponentBase.Name())
 
 	wf := info.Wavefront
 	access := RegisterAccess{}
@@ -611,7 +605,6 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 ) {
 	if len(cu.InFlightVectorMemAccess) == 0 {
 		return
-		//log.Panic("CU is not accessing vector memory")
 	}
 
 	info := cu.InFlightVectorMemAccess[0]
@@ -622,11 +615,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 
 	if info.Read.ID != rsp.RespondTo {
 		return
-		//log.Panic("CU cannot receive out of order memory return")
 	}
-
-	//log.Printf("cu %s vector \n", cu.ComponentBase.Name())
-
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 	tracing.TraceReqFinalize(info.Read, now, cu)
 
@@ -665,10 +654,20 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	now akita.VTimeInSec,
 	rsp *mem.WriteDoneRsp,
 ) {
-	info := cu.InFlightVectorMemAccess[0]
-	if info.Write.ID != rsp.RespondTo {
-		log.Panic("CU cannot receive out of order memory return")
+	if len(cu.InFlightVectorMemAccess) == 0 {
+		return
 	}
+
+	info := cu.InFlightVectorMemAccess[0]
+
+	if info.Write == nil {
+		return
+	}
+
+	if info.Write.ID != rsp.RespondTo {
+		return
+	}
+
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 	tracing.TraceReqFinalize(info.Write, now, cu)
 

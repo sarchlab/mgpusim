@@ -741,8 +741,12 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 }
 
 func (d *Driver) handleGPURestartRsp(now akita.VTimeInSec, req *gcn3.GPURestartRsp) {
-	d.currentPageMigrationReq = nil
-	d.isCurrentlyHandlingMigrationReq = false
+	d.numRestartACK--
+	if d.numRestartACK == 0 {
+		d.currentPageMigrationReq = nil
+		d.isCurrentlyHandlingMigrationReq = false
+	}
+
 }
 
 func (d *Driver) sendToMMU(now akita.VTimeInSec) {
