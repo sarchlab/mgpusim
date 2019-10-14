@@ -126,12 +126,15 @@ func (e *PageMigrationController) processFromCtrlPort(now akita.VTimeInSec) {
 func (e *PageMigrationController) handleMigrationReqFromCtrlPort(now akita.VTimeInSec, req *PageMigrationReqToPMC) {
 	e.currentMigrationRequest = req
 	e.needTick = true
-	e.isHandlingPageMigration = true
 }
 
 func (e *PageMigrationController) processPageMigrationReqFromCtrlPort(now akita.VTimeInSec) {
 
 	if e.currentMigrationRequest == nil {
+		return
+	}
+
+	if e.isHandlingPageMigration {
 		return
 	}
 
@@ -159,7 +162,7 @@ func (e *PageMigrationController) processPageMigrationReqFromCtrlPort(now akita.
 		currentWriteAddress = currentWriteAddress + e.onDemandPagingDataTransferSize
 	}
 
-	e.currentMigrationRequest = nil
+	e.isHandlingPageMigration = true
 
 	e.needTick = true
 
@@ -334,6 +337,7 @@ func (e *PageMigrationController) processDataPullRsp(now akita.VTimeInSec) {
 			WithSrc(e.LocalMemPort).
 			WithDst(e.MemCtrlFinder.Find(address)).
 			WithData(data).
+			WithAddress(address).
 			Build()
 
 		e.writeReqLocalMemPort = append(e.writeReqLocalMemPort, req)
@@ -393,6 +397,7 @@ func (e *PageMigrationController) processWriteDoneRspFromMemCtrl(now akita.VTime
 			Build()
 
 		e.toSendToCtrlPort = rsp
+		e.currentMigrationRequest = nil
 		e.numDataRspPendingForPageMigration = -1
 
 	}

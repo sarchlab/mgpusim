@@ -34,7 +34,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		mmu = NewMockMMU(mockCtrl)
 		toMMU = NewMockPort(mockCtrl)
 
-		driver = NewDriver(engine, mmu)
+		driver = NewDriver(engine, mmu, 12)
 		driver.ToGPUs = toGPUs
 		driver.ToMMU = toMMU
 

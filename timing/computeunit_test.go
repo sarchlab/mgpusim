@@ -112,7 +112,6 @@ var _ = Describe("ComputeUnit", func() {
 		toVectorMem      *MockPort
 		toACE            *MockPort
 		toCP             *MockPort
-		cp               *MockPort
 		branchUnit       *mock_timing.MockCUComponent
 		vectorMemDecoder *mock_timing.MockCUComponent
 		vectorMemUnit    *mock_timing.MockCUComponent
@@ -184,10 +183,8 @@ var _ = Describe("ComputeUnit", func() {
 		cu.InstMem = instMem
 
 		toCP = NewMockPort(mockCtrl)
-		cp = NewMockPort(mockCtrl)
 
 		cu.ToCP = toCP
-		cu.CP = cp
 
 		grid = exampleGrid()
 	})

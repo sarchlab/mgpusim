@@ -27,12 +27,6 @@ var _ = ginkgo.Describe("Distributor", func() {
 		}
 	})
 
-	ginkgo.It("should panic if the address is not aligned with page", func() {
-		Expect(func() {
-			dist.Distribute(ctx, 4160, 64, []int{1, 2, 3})
-		}).To(Panic())
-	})
-
 	ginkgo.It("should distribute memory less than a page", func() {
 		memAllocator.EXPECT().
 			Remap(ca.PID(1), uint64(0x100000000), uint64(4096), 1)

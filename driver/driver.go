@@ -41,6 +41,8 @@ type Driver struct {
 	engineMutex   sync.Mutex
 	simulationID  string
 
+	Log2PageSize uint64
+
 	currentPageMigrationReq *vm.PageMigrationReqToDriver
 	toSendToMMU             *vm.PageMigrationRspFromDriver
 	migrationReqToSendToCP  []*gcn3.PageMigrationReqToCP
@@ -174,6 +176,8 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 		d.processShootdownCompleteRsp(now, req)
 	case *gcn3.PageMigrationRspToDriver:
 		d.processPageMigrationRspFromCP(now, req)
+	case *gcn3.GPURestartRsp:
+		d.handleGPURestartRsp(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
@@ -593,6 +597,7 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 
 		for gpuID, vAddrs := range pageVaddrs {
 			for i := 0; i < len(vAddrs); i++ {
+
 				vAddr := vAddrs[i]
 				page, oldPaddr := d.preparePageForMigration(vAddr, context, gpuID)
 
@@ -604,9 +609,9 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 
 				d.migrationReqToSendToCP = append(d.migrationReqToSendToCP, req)
 				d.numPagesMigratingACK++
-
 			}
 		}
+		d.NeedTick = true
 	}
 }
 
@@ -732,7 +737,16 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	}
 	req.RspToTop = d.currentPageMigrationReq.RespondToTop
 	d.toSendToMMU = req
-	d.currentPageMigrationReq = nil
+
+}
+
+func (d *Driver) handleGPURestartRsp(now akita.VTimeInSec, req *gcn3.GPURestartRsp) {
+	d.numRestartACK--
+	if d.numRestartACK == 0 {
+		d.currentPageMigrationReq = nil
+		d.isCurrentlyHandlingMigrationReq = false
+	}
+
 }
 
 func (d *Driver) sendToMMU(now akita.VTimeInSec) {
@@ -747,16 +761,18 @@ func (d *Driver) sendToMMU(now akita.VTimeInSec) {
 }
 
 // NewDriver creates a new driver
-func NewDriver(engine akita.Engine, mmu mmu.MMU) *Driver {
+func NewDriver(engine akita.Engine, mmu mmu.MMU, log2PageSize uint64) *Driver {
 	driver := new(Driver)
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
-	memAllocatorImpl := internal.NewMemoryAllocator(mmu, 12)
+	driver.Log2PageSize = log2PageSize
+
+	memAllocatorImpl := internal.NewMemoryAllocator(mmu, log2PageSize)
 	driver.memAllocator = memAllocatorImpl
 
 	distributorImpl := newDistributorImpl(memAllocatorImpl)
-	distributorImpl.pageSizeAsPowerOf2 = 12
+	distributorImpl.pageSizeAsPowerOf2 = log2PageSize
 	driver.distributor = distributorImpl
 
 	driver.MMU = mmu

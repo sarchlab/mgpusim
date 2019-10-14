@@ -115,6 +115,8 @@ func (p *CommandProcessor) Handle(e akita.Event) error {
 		return p.handleAddressTranslatorFlushRsp(req)
 	case *tlb.TLBFlushRsp:
 		return p.handleTLBFlushRsp(req)
+	case *RDMARestartCmdFromDriver:
+		return p.handleRDMARestartCommand(req)
 	case *GPURestartReq:
 		return p.handleGPURestartReq(req)
 	case *cache.RestartRsp:
@@ -234,6 +236,7 @@ func (p *CommandProcessor) handleCUPipelineFlushRsp(cmd *CUPipelineFlushRsp) err
 	p.numCUAck--
 
 	if p.numCUAck == 0 {
+
 		for i := 0; i < len(p.AddressTranslators); i++ {
 			req := addresstranslator.AddressTranslatorFlushReqBuilder{}.
 				WithSendTime(now).
@@ -319,7 +322,6 @@ func (p *CommandProcessor) handleCacheFlushRsp(
 ) error {
 	p.numCacheACK--
 	if p.numCacheACK == 0 {
-
 		if p.shootDownInProcess {
 			for i := 0; i < len(p.TLBs); i++ {
 				now := req.Time()
@@ -364,6 +366,24 @@ func (p *CommandProcessor) handleTLBFlushRsp(cmd *tlb.TLBFlushRsp) error {
 		}
 		p.shootDownInProcess = false
 	}
+	return nil
+}
+
+func (p *CommandProcessor) handleRDMARestartCommand(cmd *RDMARestartCmdFromDriver) error {
+	now := cmd.Time()
+
+	req := rdma.RDMARestartReqBuilder{}.
+		WithSrc(p.ToRDMA).
+		WithDst(p.RDMA).
+		WithSendTime(now).
+		Build()
+
+	err := p.ToRDMA.Send(req)
+
+	if err != nil {
+		log.Panicf("Failed to send restart req to RDMA")
+	}
+
 	return nil
 }
 

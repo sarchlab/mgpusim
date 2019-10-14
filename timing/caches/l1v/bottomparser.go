@@ -2,7 +2,6 @@ package l1v
 
 import (
 	"fmt"
-	"log"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
@@ -50,6 +49,7 @@ func (p *bottomParser) processDoneRsp(
 
 	tracing.TraceReqFinalize(trans.writeToBottom, now, p.cache)
 	tracing.EndTask(trans.id, now, p.cache)
+
 	return true
 }
 
@@ -59,7 +59,8 @@ func (p *bottomParser) processDataReady(
 ) bool {
 	trans := p.findTransactionByReadToBottomID(dr.GetRespondTo())
 	if trans == nil {
-		log.Panicf("cannot find trans")
+		p.cache.BottomPort.Retrieve(now)
+		return true
 	}
 	pid := trans.readToBottom.PID
 	bankBuf := p.getBankBuf(trans.block)
