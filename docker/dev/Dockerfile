@@ -62,11 +62,7 @@ RUN git clone https://gitlab.com/akita/gcn3.git
 
 
 COPY sshd_config /etc/ssh/sshd_config
-COPY entry_point.sh /bin/entry_point.sh
-RUN chmod +x /bin/entry_point.sh
 
-RUN mkdir -p /root/.config/fish
-RUN touch /root/.config/fish/config.fish
 RUN echo "set -gx GOPATH /root/go" >> /root/.config/fish/config.fish 
 RUN echo "set -gx PATH /usr/local/go/bin $GOPATH/bin $PATH" >> /root/.config/fish/config.fish
 

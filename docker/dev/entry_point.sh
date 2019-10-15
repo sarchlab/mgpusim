@@ -19,7 +19,7 @@ do
   echo "" >> /root/.ssh/authorized_keys
 done
 
-chsh -s /bin/fish root
+chsh -s /urs/bin/fish root
 
 mkdir /run/sshd
 # start ssh daemon
