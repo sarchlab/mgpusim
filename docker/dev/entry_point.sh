@@ -19,6 +19,8 @@ do
   echo "" >> /root/.ssh/authorized_keys
 done
 
+chsh -s /bin/fish root
+
 mkdir /run/sshd
 # start ssh daemon
 exec /usr/sbin/sshd -Def /etc/ssh/sshd_config
