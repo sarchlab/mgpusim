@@ -1,12 +1,10 @@
 FROM ubuntu:latest
 
-RUN apt-get update
-RUN apt-get install -y software-properties-common
-RUN apt-get install -y git openssh-server tmux vim fish python-dev python-pip python3-dev python3-pip ca-certificates curl wget
+RUN apt-get update && apt-get install -y software-properties-common
+RUN apt-get update && apt-get install -y git openssh-server tmux vim fish python-dev python-pip python3-dev python3-pip ca-certificates curl wget
 
 RUN add-apt-repository -y ppa:neovim-ppa/stable
-RUN apt-get update
-RUN apt-get install -y neovim
+RUN apt-get update && apt-get install -y neovim
 
 RUN wget https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz
 RUN tar -C /usr/local -xzf go1.13.1.linux-amd64.tar.gz
