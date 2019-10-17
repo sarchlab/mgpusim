@@ -1,8 +1,6 @@
 package l1v
 
 import (
-	"fmt"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -86,9 +84,6 @@ func (p *bottomParser) processDataReady(
 	p.cache.BottomPort.Retrieve(now)
 
 	tracing.TraceReqFinalize(trans.readToBottom, now, p.cache)
-	if p.cache.Name() == "GPU_1.L1I_00" {
-		fmt.Printf("Finalize fetch task %s\n", trans.readToBottom.ID)
-	}
 
 	return true
 }

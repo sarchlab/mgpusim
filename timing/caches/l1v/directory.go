@@ -1,8 +1,6 @@
 package l1v
 
 import (
-	"fmt"
-
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
@@ -299,10 +297,6 @@ func (d *directory) fetchFromBottom(
 	}
 
 	tracing.TraceReqInitiate(readToBottom, now, d.cache, trans.id)
-	if d.cache.Name() == "GPU_1.L1I_00" {
-		fmt.Printf("Initiate fetch task %s, %s\n", readToBottom.ID, trans.id)
-	}
-
 	trans.readToBottom = readToBottom
 	trans.block = victim
 
