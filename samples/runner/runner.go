@@ -101,6 +101,8 @@ func (r *Runner) startProfilingServer() {
 func (r *Runner) Init() *Runner {
 	go r.startProfilingServer()
 
+	log.SetFlags(log.Llongfile)
+
 	if r.Parallel {
 		platform.UseParallelEngine = true
 	}
@@ -126,7 +128,7 @@ func (r *Runner) addKernelTimeTracer() {
 	for _, gpu := range r.GPUDriver.GPUs {
 		gpuKernelTimeCountner := tracing.NewBusyTimeTracer(
 			func(task tracing.Task) bool {
-				return task.What == "Launch Kernel"
+				return task.What == "*gcn3.LaunchKernelReq"
 			})
 		r.PerGPUKernelTimeCounter = append(
 			r.PerGPUKernelTimeCounter, gpuKernelTimeCountner)
