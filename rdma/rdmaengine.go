@@ -29,9 +29,9 @@ type Engine struct {
 
 	CtrlPort akita.Port
 
-	isDraining      bool
-	pauseIncomingReqsFromL1       bool
-	currentDrainReq *RDMADrainReq
+	isDraining              bool
+	pauseIncomingReqsFromL1 bool
+	currentDrainReq         *RDMADrainReq
 
 	engine                 akita.Engine
 	localModules           cache.LowModuleFinder
@@ -96,8 +96,7 @@ func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
 	return true
 }
 
-
-func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
+func (e *Engine) drainRDMA(now akita.VTimeInSec) {
 
 	if len(e.transactionsFromOutside) == 0 && len(e.transactionsFromInside) == 0 {
 		drainCompleteRsp := RDMADrainRspBuilder{}.
@@ -108,14 +107,13 @@ func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
 
 		err := e.CtrlPort.Send(drainCompleteRsp)
 		if err != nil {
-			return false
+			return
 		}
 		e.isDraining = false
-		return true
-
 	}
 
-	return true
+	e.needTick = true
+	return
 
 }
 
