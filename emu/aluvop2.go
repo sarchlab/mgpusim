@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+//nolint:gocyclo,funlen
 func (u *ALUImpl) runVOP2(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
@@ -85,7 +86,6 @@ func (u *ALUImpl) runVCNDMASKB32(state InstEmuState) {
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
 	}
-
 }
 
 func (u *ALUImpl) runVADDF32(state InstEmuState) {
@@ -105,7 +105,6 @@ func (u *ALUImpl) runVADDF32(state InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -251,7 +250,6 @@ func (u *ALUImpl) runVMINI32(state InstEmuState) {
 
 		sp.DST[i] = uint64(dst)
 	}
-
 }
 
 func (u *ALUImpl) runVMAXI32(state InstEmuState) {
@@ -273,7 +271,6 @@ func (u *ALUImpl) runVMAXI32(state InstEmuState) {
 
 		sp.DST[i] = uint64(dst)
 	}
-
 }
 
 func (u *ALUImpl) runVMINU32(state InstEmuState) {
@@ -295,7 +292,6 @@ func (u *ALUImpl) runVMINU32(state InstEmuState) {
 
 		sp.DST[i] = uint64(dst)
 	}
-
 }
 
 func (u *ALUImpl) runVMAXU32(state InstEmuState) {
@@ -331,11 +327,10 @@ func (u *ALUImpl) runVLSHRREVB32(state InstEmuState) {
 			src0 := sp.SRC0[i]
 			src1 := sp.SRC1[i]
 			dst := src1 >> (src0 & 0x1f)
-			sp.DST[i] = uint64(dst)
+			sp.DST[i] = dst
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -355,7 +350,6 @@ func (u *ALUImpl) runVASHRREVI32(state InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -375,7 +369,6 @@ func (u *ALUImpl) runVLSHLREVB32(state InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -489,7 +482,6 @@ func (u *ALUImpl) runVMACF32(state InstEmuState) {
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
 	}
-
 }
 
 func (u *ALUImpl) runVADDI32(state InstEmuState) {
@@ -497,24 +489,10 @@ func (u *ALUImpl) runVADDI32(state InstEmuState) {
 	inst := state.Inst()
 	sp.VCC = 0
 
-	var i uint
 	if inst.IsSdwa == false {
-		for i = 0; i < 64; i++ {
-			if !laneMasked(sp.EXEC, i) {
-				continue
-			}
-
-			src0 := asInt32(uint32(sp.SRC0[i]))
-			src1 := asInt32(uint32(sp.SRC1[i]))
-
-			if (src1 > 0 && src0 > math.MaxInt32-src1) ||
-				(src1 < 0 && src0 < math.MinInt32+src1) {
-				sp.VCC |= 1 << uint32(i)
-			}
-
-			sp.DST[i] = uint64(int32ToBits(src0 + src1))
-		}
+		u.runVADDI32SDWA(state)
 	} else {
+		var i uint
 		for i = 0; i < 64; i++ {
 			if !laneMasked(sp.EXEC, i) {
 				continue
@@ -528,6 +506,27 @@ func (u *ALUImpl) runVADDI32(state InstEmuState) {
 			result := int32ToBits((src0 + src1) & asInt32(uint32(inst.DstSel)))
 			sp.DST[i] = uint64(result)
 		}
+	}
+}
+
+func (u *ALUImpl) runVADDI32SDWA(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := asInt32(uint32(sp.SRC0[i]))
+		src1 := asInt32(uint32(sp.SRC1[i]))
+
+		if (src1 > 0 && src0 > math.MaxInt32-src1) ||
+			(src1 < 0 && src0 < math.MinInt32+src1) {
+			sp.VCC |= 1 << uint32(i)
+		}
+
+		sp.DST[i] = uint64(int32ToBits(src0 + src1))
 	}
 }
 
@@ -553,7 +552,6 @@ func (u *ALUImpl) runVSUBI32(state InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -579,7 +577,6 @@ func (u *ALUImpl) runVSUBREVI32(state InstEmuState) {
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -595,7 +592,7 @@ func (u *ALUImpl) runVADDCU32(state InstEmuState) {
 				continue
 			}
 
-			carry := (sp.VCC & (1 << uint(i))) >> uint(i)
+			carry := (sp.VCC & (1 << i)) >> i
 
 			if sp.SRC0[i] > math.MaxUint32-carry-sp.SRC1[i] {
 				newVCC |= 1 << uint32(i)
@@ -606,7 +603,6 @@ func (u *ALUImpl) runVADDCU32(state InstEmuState) {
 		sp.VCC = newVCC
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -632,7 +628,6 @@ func (u *ALUImpl) runVSUBBU32(state InstEmuState) {
 		sp.VCC = newVCC
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }
 
@@ -648,17 +643,16 @@ func (u *ALUImpl) runVSUBBREVU32(state InstEmuState) {
 				continue
 			}
 
-			borrow := (sp.VCC & (1 << uint(i))) >> uint(i)
+			borrow := (sp.VCC & (1 << i)) >> i
 
 			if sp.SRC1[i] < sp.SRC0[i]+borrow {
 				newVCC |= 1 << uint32(i)
 			}
 
-			sp.DST[i] = uint64(sp.SRC1[i] - sp.SRC0[i] - borrow)
+			sp.DST[i] = sp.SRC1[i] - sp.SRC0[i] - borrow
 		}
 		sp.VCC = newVCC
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
-
 	}
 }

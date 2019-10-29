@@ -1,3 +1,4 @@
+// Package rdma provides the implementation of an RDMA engine.
 package rdma
 
 import (
@@ -97,8 +98,7 @@ func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
 }
 
 func (e *Engine) drainRDMA(now akita.VTimeInSec) {
-
-	if len(e.transactionsFromOutside) == 0 && len(e.transactionsFromInside) == 0 {
+	if e.fullyDrained() {
 		drainCompleteRsp := RDMADrainRspBuilder{}.
 			WithSendTime(now).
 			WithSrc(e.CtrlPort).
@@ -114,11 +114,14 @@ func (e *Engine) drainRDMA(now akita.VTimeInSec) {
 
 	e.needTick = true
 	return
+}
 
+func (e *Engine) fullyDrained() bool {
+	return len(e.transactionsFromOutside) == 0 &&
+		len(e.transactionsFromInside) == 0
 }
 
 func (e *Engine) processFromL1(now akita.VTimeInSec) {
-
 	if e.pauseIncomingReqsFromL1 {
 		return
 	}
@@ -180,11 +183,11 @@ func (e *Engine) processReqFromL1(now akita.VTimeInSec, req mem.AccessReq) {
 		//fmt.Printf("%s req inside %s -> outside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
 
-		transaction := transaction{
+		trans := transaction{
 			fromInside: req,
 			toOutside:  cloned,
 		}
-		e.transactionsFromInside = append(e.transactionsFromInside, transaction)
+		e.transactionsFromInside = append(e.transactionsFromInside, trans)
 		e.needTick = true
 	}
 }
@@ -207,12 +210,12 @@ func (e *Engine) processReqFromOutside(
 		//fmt.Printf("%s req outside %s -> inside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
 
-		transaction := transaction{
+		trans := transaction{
 			fromOutside: req,
 			toInside:    cloned,
 		}
 		e.transactionsFromOutside =
-			append(e.transactionsFromOutside, transaction)
+			append(e.transactionsFromOutside, trans)
 		e.needTick = true
 	}
 }
@@ -220,12 +223,12 @@ func (e *Engine) processReqFromOutside(
 func (e *Engine) processRspFromL2(now akita.VTimeInSec, rsp mem.AccessRsp) {
 	transactionIndex := e.findTransactionByRspToID(
 		rsp.GetRespondTo(), e.transactionsFromOutside)
-	transaction := e.transactionsFromOutside[transactionIndex]
+	trans := e.transactionsFromOutside[transactionIndex]
 
-	rspToOutside := e.cloneRsp(rsp, transaction.fromOutside.Meta().ID)
+	rspToOutside := e.cloneRsp(rsp, trans.fromOutside.Meta().ID)
 	rspToOutside.Meta().SendTime = now
 	rspToOutside.Meta().Src = e.ToOutside
-	rspToOutside.Meta().Dst = transaction.fromOutside.Meta().Src
+	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
 
 	err := e.ToOutside.Send(rspToOutside)
 	if err == nil {
@@ -244,12 +247,12 @@ func (e *Engine) processRspFromL2(now akita.VTimeInSec, rsp mem.AccessRsp) {
 func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.AccessRsp) {
 	transactionIndex := e.findTransactionByRspToID(
 		rsp.GetRespondTo(), e.transactionsFromInside)
-	transaction := e.transactionsFromInside[transactionIndex]
+	trans := e.transactionsFromInside[transactionIndex]
 
-	rspToInside := e.cloneRsp(rsp, transaction.fromInside.Meta().ID)
+	rspToInside := e.cloneRsp(rsp, trans.fromInside.Meta().ID)
 	rspToInside.Meta().SendTime = now
 	rspToInside.Meta().Src = e.ToL2
-	rspToInside.Meta().Dst = transaction.fromInside.Meta().Src
+	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
 
 	err := e.ToL2.Send(rspToInside)
 	if err == nil {

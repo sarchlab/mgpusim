@@ -155,6 +155,7 @@ func (d *Driver) sendToGPUs(now akita.VTimeInSec) {
 	}
 }
 
+//nolint:gocyclo
 func (d *Driver) processReturnReq(now akita.VTimeInSec) {
 	req := d.ToGPUs.Retrieve(now)
 	if req == nil {
@@ -522,7 +523,6 @@ func (d *Driver) parseFromMMU(now akita.VTimeInSec) {
 		log.Panicf("Driver canot handle request of type %s", reflect.TypeOf(req))
 	}
 	d.NeedTick = true
-
 }
 
 func (d *Driver) initiateRDMADrain(now akita.VTimeInSec) {
@@ -535,7 +535,6 @@ func (d *Driver) initiateRDMADrain(now akita.VTimeInSec) {
 		}
 	}
 	d.NeedTick = true
-
 }
 
 func (d *Driver) processRDMADrainRsp(now akita.VTimeInSec, req *gcn3.RDMADrainRspToDriver) {
@@ -573,7 +572,6 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) {
 	}
 
 	d.NeedTick = true
-
 }
 
 func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.ShootDownCompleteRsp) {
@@ -591,13 +589,11 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 		pageVaddrs := make(map[uint64][]uint64)
 
 		for i := 0; i < len(requestingGPUs); i++ {
-			pageVaddrs[requestingGPUs[i]] = migrationInfo.GpuReqToVAddrMap[uint64(requestingGPUs[i]+1)]
-
+			pageVaddrs[requestingGPUs[i]] = migrationInfo.GpuReqToVAddrMap[requestingGPUs[i]+1]
 		}
 
 		for gpuID, vAddrs := range pageVaddrs {
 			for i := 0; i < len(vAddrs); i++ {
-
 				vAddr := vAddrs[i]
 				page, oldPaddr := d.preparePageForMigration(vAddr, context, gpuID)
 
@@ -647,12 +643,11 @@ func (d *Driver) preparePageForMigration(vAddr uint64, context *Context, gpuID u
 	d.memAllocator.RemovePage(vAddr)
 
 	newPage := d.memAllocator.AllocatePageWithGivenVAddr(context.pid, int(gpuID+1), vAddr, true)
-	newPage.GPUID = uint64(gpuID + 1)
+	newPage.GPUID = gpuID + 1
 
 	d.MMU.MarkPageAsMigrating(vAddr, d.currentPageMigrationReq.PID)
 
 	return &newPage, oldPaddr
-
 }
 
 func (d *Driver) sendMigrationReqToCP(now akita.VTimeInSec) {
@@ -680,7 +675,6 @@ func (d *Driver) processPageMigrationRspFromCP(
 	now akita.VTimeInSec,
 	rsp *gcn3.PageMigrationRspToDriver,
 ) {
-
 	d.numPagesMigratingACK--
 	d.isCurrentlyMigratingOnePage = false
 
@@ -725,7 +719,7 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	pageVaddrs := make(map[uint64][]uint64)
 
 	for i := 0; i < len(requestingGPUs); i++ {
-		pageVaddrs[requestingGPUs[i]] = migrationInfo.GpuReqToVAddrMap[uint64(requestingGPUs[i]+1)]
+		pageVaddrs[requestingGPUs[i]] = migrationInfo.GpuReqToVAddrMap[requestingGPUs[i]+1]
 	}
 
 	req := vm.NewPageMigrationRspFromDriver(now, d.ToMMU, d.currentPageMigrationReq.Src)
@@ -737,7 +731,6 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	}
 	req.RspToTop = d.currentPageMigrationReq.RespondToTop
 	d.toSendToMMU = req
-
 }
 
 func (d *Driver) handleGPURestartRsp(now akita.VTimeInSec, req *gcn3.GPURestartRsp) {
@@ -746,7 +739,6 @@ func (d *Driver) handleGPURestartRsp(now akita.VTimeInSec, req *gcn3.GPURestartR
 		d.currentPageMigrationReq = nil
 		d.isCurrentlyHandlingMigrationReq = false
 	}
-
 }
 
 func (d *Driver) sendToMMU(now akita.VTimeInSec) {

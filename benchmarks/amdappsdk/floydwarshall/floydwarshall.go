@@ -1,3 +1,4 @@
+// Package floydwarshall implements the Floyd-Warshall benchmark from AMDAPPSDK.
 package floydwarshall
 
 import (
@@ -100,10 +101,10 @@ func (b *Benchmark) initMem() {
 
 	for i := uint32(0); i < numNodes; i++ {
 		for j := uint32(0); j < i; j++ {
-			b.hOutputPathMatrix[i*numNodes+j] = uint32(i)
-			b.hOutputPathMatrix[j*numNodes+i] = uint32(j)
+			b.hOutputPathMatrix[i*numNodes+j] = i
+			b.hOutputPathMatrix[j*numNodes+i] = j
 		}
-		b.hOutputPathMatrix[i*numNodes+i] = uint32(i)
+		b.hOutputPathMatrix[i*numNodes+i] = i
 	}
 
 	b.hVerificationPathMatrix = make([]uint32, numNodes*numNodes)
@@ -142,7 +143,7 @@ func printMatrix(matrix []uint32, n uint32) {
 }
 
 func (b *Benchmark) exec() {
-	numNodes := uint32(b.NumNodes)
+	numNodes := b.NumNodes
 	blockSize := uint32(8)
 
 	if numNodes%blockSize != 0 {
@@ -155,26 +156,25 @@ func (b *Benchmark) exec() {
 		kernArg := FloydWarshallKernelArgs{
 			b.dOutputPathDistanceMatrix,
 			b.dOutputPathMatrix,
-			uint32(numNodes),
-			uint32(pass),
+			numNodes,
+			pass,
 		}
 
 		b.driver.LaunchKernel(
 			b.context,
 			b.kernel,
-			[3]uint32{uint32(numNodes), uint32(numNodes), 1},
+			[3]uint32{numNodes, numNodes, 1},
 			[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 			&kernArg,
 		)
 	}
 
 	b.driver.MemCopyD2H(b.context, b.hOutputPathMatrix, b.dOutputPathMatrix)
-	b.driver.MemCopyD2H(b.context, b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
-
+	b.driver.MemCopyD2H(b.context,
+		b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
 }
 
 func (b *Benchmark) Verify() {
-
 	numNodes := b.NumNodes
 	var distanceYtoX, distanceYtoK, distanceKtoX, indirectDistance uint32
 	width := numNodes
@@ -182,17 +182,17 @@ func (b *Benchmark) Verify() {
 
 	for k := uint32(0); k < b.NumIterations; k++ {
 		for y := uint32(0); y < numNodes; y++ {
-			yXwidth = uint32(y * numNodes)
+			yXwidth = y * numNodes
 			for x := uint32(0); x < numNodes; x++ {
-				distanceYtoX = b.hVerificationPathDistanceMatrix[yXwidth+uint32(x)]
-				distanceYtoK = b.hVerificationPathDistanceMatrix[yXwidth+uint32(k)]
+				distanceYtoX = b.hVerificationPathDistanceMatrix[yXwidth+x]
+				distanceYtoK = b.hVerificationPathDistanceMatrix[yXwidth+k]
 				distanceKtoX = b.hVerificationPathDistanceMatrix[k*width+x]
 
 				indirectDistance = distanceYtoK + distanceKtoX
 
 				if indirectDistance < distanceYtoX {
-					b.hVerificationPathDistanceMatrix[yXwidth+uint32(x)] = indirectDistance
-					b.hVerificationPathMatrix[yXwidth+uint32(x)] = uint32(k)
+					b.hVerificationPathDistanceMatrix[yXwidth+x] = indirectDistance
+					b.hVerificationPathMatrix[yXwidth+x] = k
 				}
 			}
 		}

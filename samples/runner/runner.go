@@ -1,3 +1,4 @@
+// Package runner defines how default benchmark samples are executed.
 package runner
 
 import (

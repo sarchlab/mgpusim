@@ -485,7 +485,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		Expect(driver.migrationReqToSendToCP[0].DestinationPMCPort).To(Equal(driver.RemotePMCPorts[0]))
 		Expect(driver.migrationReqToSendToCP[0].ToReadFromPhysicalAddress).To(Equal(uint64(4294967296)))
 		Expect(driver.migrationReqToSendToCP[0].ToWriteToPhysicalAddress).To(Equal(uint64(8589934592)))
-		Expect(driver.migrationReqToSendToCP[0].PageSize).To(Equal(uint64(4 * mem.KB)))
+		Expect(driver.migrationReqToSendToCP[0].PageSize).To(Equal(4 * mem.KB))
 
 	})
 

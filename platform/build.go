@@ -1,3 +1,4 @@
+// Package platform provides predefined platform definitions.
 package platform
 
 import (
@@ -66,6 +67,7 @@ func BuildNEmuGPUPlatform(n int) (
 	return engine, gpuDriver
 }
 
+//nolint:gocyclo,funlen
 //BuildNR9NanoPlatform creates a platform that equips with several R9Nano GPUs
 func BuildNR9NanoPlatform(
 	numGPUs int,
@@ -128,7 +130,7 @@ func BuildNR9NanoPlatform(
 	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)
 
 	for i := 1; i < numGPUs+1; i++ {
-		name := fmt.Sprintf("GPU_%d", i)
+		name := fmt.Sprintf("GPU%d", i)
 		memAddrOffset := uint64(i) * 4 * mem.GB
 		gpu := gpuBuilder.
 			WithMemAddrOffset(memAddrOffset).
@@ -148,8 +150,8 @@ func BuildNR9NanoPlatform(
 			gpu.PMC.RemotePort)
 		connection.PlugIn(gpu.PMC.RemotePort)
 
-		gpuDriver.RemotePMCPorts = append(gpuDriver.RemotePMCPorts, gpu.PMC.RemotePort)
-
+		gpuDriver.RemotePMCPorts = append(
+			gpuDriver.RemotePMCPorts, gpu.PMC.RemotePort)
 	}
 
 	connection.PlugIn(gpuDriver.ToGPUs)

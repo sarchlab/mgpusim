@@ -66,6 +66,7 @@ func (wf *Wavefront) VRegValue(lane int, i int) uint32 {
 	return insts.BytesToUint32(wf.VRegFile[offset : offset+4])
 }
 
+//nolint:gocyclo,funlen
 // ReadReg returns the raw register value
 func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	numBytes := reg.ByteSize
@@ -104,8 +105,14 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	return value
 }
 
+//nolint:gocyclo,funlen
 // WriteReg returns the raw register value
-func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []byte) {
+func (wf *Wavefront) WriteReg(
+	reg *insts.Reg,
+	regCount int,
+	laneID int,
+	data []byte,
+) {
 	numBytes := reg.ByteSize
 	if regCount >= 2 {
 		numBytes *= regCount
@@ -139,5 +146,4 @@ func (wf *Wavefront) WriteReg(reg *insts.Reg, regCount int, laneID int, data []b
 	} else {
 		log.Panicf("Register type %s not supported", reg.Name)
 	}
-
 }

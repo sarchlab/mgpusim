@@ -54,6 +54,7 @@ func (d *WfDispatcherImpl) setWfInfo(wf *wavefront.Wavefront) {
 	wf.EXEC = 0xffffffffffffffff
 }
 
+//nolint:gocyclo,funlen
 func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 	co := wf.CodeObject
 	pkt := wf.Packet
@@ -66,7 +67,6 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 	}
 
 	if co.EnableSgprDispatchPtr() {
-
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 2, 0, wf.SRegOffset,
 			insts.Uint64ToBytes(wf.PacketAddress),
@@ -94,7 +94,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprDispatchId() {
+	if co.EnableSgprDispatchID() {
 		log.Printf("EnableSgprDispatchID is not supported")
 		// fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
 		SGPRPtr += 8
@@ -157,8 +157,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIdX() {
-
+	if co.EnableSgprWorkGroupIDX() {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
 			insts.Uint32ToBytes(uint32(wf.WG.IDX)),
@@ -169,8 +168,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIdY() {
-
+	if co.EnableSgprWorkGroupIDY() {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
 			insts.Uint32ToBytes(uint32(wf.WG.IDY)),
@@ -181,7 +179,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIdZ() {
+	if co.EnableSgprWorkGroupIDZ() {
 		d.cu.SRegFile.Write(RegisterAccess{
 			0, insts.SReg(SGPRPtr / 4), 1, 0, wf.SRegOffset,
 			insts.Uint32ToBytes(uint32(wf.WG.IDZ)),
@@ -215,7 +213,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 			false,
 		})
 
-		if co.EnableVgprWorkItemId() > 0 {
+		if co.EnableVgprWorkItemID() > 0 {
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
 				0, insts.VReg(1), 1, laneID, wf.VRegOffset,
 				insts.Uint32ToBytes(uint32(y)),
@@ -223,7 +221,7 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 			})
 		}
 
-		if co.EnableVgprWorkItemId() > 1 {
+		if co.EnableVgprWorkItemID() > 1 {
 			d.cu.VRegFile[wf.SIMDID].Write(RegisterAccess{
 				0, insts.VReg(2), 1, laneID, wf.VRegOffset,
 				insts.Uint32ToBytes(uint32(z)),
@@ -231,5 +229,4 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 			})
 		}
 	}
-
 }

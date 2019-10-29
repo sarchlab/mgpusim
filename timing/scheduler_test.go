@@ -343,9 +343,9 @@ var _ = Describe("Scheduler", func() {
 
 		scheduler.barrierBuffer = make([]*wavefront.Wavefront, 0, scheduler.barrierBufferSize)
 		for i := 0; i < 16; i++ {
-			wf := wavefront.NewWavefront(kernels.NewWavefront())
-			wf.State = wavefront.WfAtBarrier
-			scheduler.barrierBuffer = append(scheduler.barrierBuffer, wf)
+			wave := wavefront.NewWavefront(kernels.NewWavefront())
+			wave.State = wavefront.WfAtBarrier
+			scheduler.barrierBuffer = append(scheduler.barrierBuffer, wave)
 		}
 		scheduler.internalExecuting = wf
 		scheduler.EvaluateInternalInst(10)

@@ -55,9 +55,9 @@ func (d *ISADebugger) Func(
 	inst := detail["inst"].(*wavefront.Inst)
 
 	// For debugging
-	if wf.FirstWiFlatID != 0 {
-		return
-	}
+	// if wf.FirstWiFlatID != 0 {
+	// 	return
+	// }
 
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
@@ -67,23 +67,42 @@ func (d *ISADebugger) Func(
 	output += fmt.Sprintf("\tSCC: 0x%02x\n", wf.SCC)
 	output += fmt.Sprintf("\tVCC: 0x%016x\n", wf.VCC)
 
-	//sRegFileStorage := cu.SRegFile.Storage()
+	output += d.dumpSRegs(wf, cu)
+	output += d.dumpVRegs(wf, cu)
+
+	d.Logger.Print(output)
+}
+
+func (d *ISADebugger) dumpSRegs(
+	wf *wavefront.Wavefront,
+	cu *ComputeUnit,
+) string {
 	data := make([]byte, 4)
 	access := RegisterAccess{}
 	access.Data = data
 	access.RegCount = 1
 	access.WaveOffset = wf.SRegOffset
-	output += "\tSGPRs:\n"
+	output := "\tSGPRs:\n"
 	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {
 		access.Reg = insts.SReg(i)
 		cu.SRegFile.Read(access)
 		regValue := insts.BytesToUint32(data)
 		output += fmt.Sprintf("\t\ts%d: 0x%08x\n", i, regValue)
 	}
+	return output
+}
 
+func (d *ISADebugger) dumpVRegs(
+	wf *wavefront.Wavefront,
+	cu *ComputeUnit,
+) string {
 	simdID := wf.SIMDID
+	data := make([]byte, 4)
+	access := RegisterAccess{}
+	access.Data = data
+	access.RegCount = 1
 	access.WaveOffset = wf.VRegOffset
-	output += "\tVGPRs: \n"
+	output := "\tVGPRs: \n"
 	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
 		output += fmt.Sprintf("\t\tv%d: ", i)
 		access.Reg = insts.VReg(i)
@@ -95,6 +114,5 @@ func (d *ISADebugger) Func(
 		}
 		output += fmt.Sprintf("\n")
 	}
-
-	d.Logger.Print(output)
+	return output
 }

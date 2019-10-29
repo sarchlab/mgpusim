@@ -98,15 +98,15 @@ func (h *HsaCoHeader) UserSgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 1, 5)
 }
 
-func (h *HsaCoHeader) EnableSgprWorkGroupIdX() bool {
+func (h *HsaCoHeader) EnableSgprWorkGroupIDX() bool {
 	return extractBits(h.ComputePgmRsrc2, 7, 7) != 0
 }
 
-func (h *HsaCoHeader) EnableSgprWorkGroupIdY() bool {
+func (h *HsaCoHeader) EnableSgprWorkGroupIDY() bool {
 	return extractBits(h.ComputePgmRsrc2, 8, 8) != 0
 }
 
-func (h *HsaCoHeader) EnableSgprWorkGroupIdZ() bool {
+func (h *HsaCoHeader) EnableSgprWorkGroupIDZ() bool {
 	return extractBits(h.ComputePgmRsrc2, 9, 9) != 0
 }
 
@@ -116,7 +116,7 @@ func (h *HsaCoHeader) EnableSgprWorkGroupInfo() bool {
 }
 
 // EnableVpgrWorkItemId checks if the setup of the work-item is enabled
-func (h *HsaCoHeader) EnableVgprWorkItemId() uint32 {
+func (h *HsaCoHeader) EnableVgprWorkItemID() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 11, 12)
 }
 
@@ -146,7 +146,7 @@ func (h *HsaCoHeader) EnableSgprKernelArgSegmentPtr() bool {
 	return extractBits(h.Flags, 3, 3) != 0
 }
 
-func (h *HsaCoHeader) EnableSgprDispatchId() bool {
+func (h *HsaCoHeader) EnableSgprDispatchID() bool {
 	return extractBits(h.Flags, 4, 4) != 0
 }
 
@@ -187,7 +187,8 @@ func (h *HsaCoHeader) Info() string {
 	s += fmt.Sprintf("\t\tEnable SGPR Dispatch Ptr: %t\n", h.EnableSgprDispatchPtr())
 	s += fmt.Sprintf("\t\tEnable SGPR Queue Ptr: %t\n", h.EnableSgprQueuePtr())
 	s += fmt.Sprintf("\t\tEnable SGPR Kernarg Segment Ptr: %t\n", h.EnableSgprKernelArgSegmentPtr())
-	s += fmt.Sprintf("\t\tEnable SGPR Dispatch ID: %t\n", h.EnableSgprDispatchId())
+	s += fmt.Sprintf("\t\tEnable SGPR Dispatch ID: %t\n",
+		h.EnableSgprDispatchID())
 	s += fmt.Sprintf("\t\tEnable SGPR Flat Scratch Init: %t\n", h.EnableSgprFlatScratchInit())
 	s += fmt.Sprintf("\t\tEnable SGPR Private Segment Size: %t\n", h.EnableSgprPrivateSegementSize())
 	s += fmt.Sprintf("\t\tEnable SGPR Work-Group Count (X, Y, Z): %t %t %t\n",
@@ -195,15 +196,15 @@ func (h *HsaCoHeader) Info() string {
 		h.EnableSgprGridWorkGroupCountY(),
 		h.EnableSgprGridWorkGroupCountZ())
 	s += fmt.Sprintf("\t\tEnable SGPR Work-Group ID (X, Y, Z): %t %t %t\n",
-		h.EnableSgprWorkGroupIdX(),
-		h.EnableSgprWorkGroupIdY(),
-		h.EnableSgprWorkGroupIdZ())
+		h.EnableSgprWorkGroupIDX(),
+		h.EnableSgprWorkGroupIDY(),
+		h.EnableSgprWorkGroupIDZ())
 	s += fmt.Sprintf("\t\tEnable SGPR Work-Group Info %t\n", h.EnableSgprWorkGroupInfo())
 	s += fmt.Sprintf("\t\tEnable SGPR Private Segment Wave Byte Offset: %t\n", h.EnableSgprPrivateSegmentWaveByteOffset())
 
 	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID X: %t\n", true)
-	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Y: %t\n", h.EnableVgprWorkItemId() > 0)
-	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Z: %t\n", h.EnableVgprWorkItemId() > 1)
+	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Y: %t\n", h.EnableVgprWorkItemID() > 0)
+	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Z: %t\n", h.EnableVgprWorkItemID() > 1)
 
 	return s
 }

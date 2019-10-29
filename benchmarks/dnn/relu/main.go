@@ -1,3 +1,4 @@
+// Package relu implements the relu algorithm as a benchmark.
 package relu
 
 import (
@@ -64,16 +65,18 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-
 	if b.useUnifiedMemory {
-		b.gInputData = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
-		b.gOutputData = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
+		b.gInputData = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.Length*4))
+		b.gOutputData = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.Length*4))
 	} else {
 		b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 		b.driver.Distribute(b.context, b.gInputData, uint64(b.Length*4), b.gpus)
 
 		b.gOutputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
-		b.driver.Distribute(b.context, b.gOutputData, uint64(b.Length*4), b.gpus)
+		b.driver.Distribute(b.context, b.gOutputData,
+			uint64(b.Length*4), b.gpus)
 	}
 
 	b.inputData = make([]float32, b.Length)

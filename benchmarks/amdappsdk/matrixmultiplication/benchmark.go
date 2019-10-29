@@ -1,3 +1,5 @@
+// Package matrixmultiplication implements the matrix multiplication benchmark
+// from AMDAPPSDK.
 package matrixmultiplication
 
 import (

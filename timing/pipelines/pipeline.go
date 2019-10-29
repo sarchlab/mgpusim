@@ -1,3 +1,4 @@
+// Package pipelines defines a pipeline timing model.
 package pipelines
 
 import "gitlab.com/akita/akita"

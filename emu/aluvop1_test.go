@@ -259,7 +259,7 @@ var _ = Describe("ALU", func() {
 		sp.EXEC = 0x1
 
 		alu.Run(state)
-		Expect(uint64(sp.DST[0])).To(Equal(math.Float64bits(float64(-1.0))))
+		Expect(sp.DST[0]).To(Equal(math.Float64bits(float64(-1.0))))
 	})
 
 	It("should run V_RCP_F64", func() {
@@ -268,12 +268,12 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 37
 
 		sp := state.Scratchpad().AsVOP1()
-		sp.SRC0[0] = uint64(math.Float64bits(25.0))
+		sp.SRC0[0] = math.Float64bits(25.0)
 		sp.EXEC = 0x1
 
 		alu.Run(state)
 
-		Expect(math.Float64frombits(uint64(sp.DST[0]))).To(Equal(float64(0.04)))
+		Expect(math.Float64frombits(sp.DST[0])).To(Equal(float64(0.04)))
 	})
 
 	It("should run V_CVT_F32_F64", func() {
@@ -282,7 +282,7 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 15
 
 		sp := state.Scratchpad().AsVOP1()
-		sp.SRC0[0] = uint64(math.Float64bits(25.0))
+		sp.SRC0[0] = math.Float64bits(25.0)
 		sp.EXEC = 0x1
 
 		alu.Run(state)

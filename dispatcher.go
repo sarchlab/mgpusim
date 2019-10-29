@@ -135,7 +135,6 @@ func (d *Dispatcher) Handle(evt akita.Event) error {
 func (d *Dispatcher) handleLaunchKernelReq(
 	req *LaunchKernelReq,
 ) error {
-
 	if d.dispatchingReq != nil {
 		log.Panic("dispatcher not done dispatching the previous kernel")
 	}
@@ -215,9 +214,7 @@ func (d *Dispatcher) initKernelDispatching(
 	d.progressBar.ShowTimeLeft = true
 	d.progressBar.Start()
 
-	tracing.TraceReqReceive(
-		req, now, d)
-
+	tracing.TraceReqReceive(req, now, d)
 }
 
 func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {

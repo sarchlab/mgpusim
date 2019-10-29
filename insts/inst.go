@@ -140,7 +140,6 @@ func (i Inst) soppString(file *elf.File) string {
 					symbolFound = true
 				}
 			}
-
 		}
 		if !symbolFound {
 			operandStr = " " + i.SImm16.String()
@@ -297,6 +296,7 @@ func (i Inst) dsString() string {
 	return s
 }
 
+//nolint:gocyclo
 // String returns the disassembly of an instruction
 func (i Inst) String(file *elf.File) string {
 	switch i.FormatType {

@@ -81,6 +81,7 @@ func (b EmuGPUBuilder) WithStorage(s *mem.Storage) EmuGPUBuilder {
 	return b
 }
 
+//nolint:gocyclo,funlen
 // Build creates a very simple GPU for emulation purposes
 func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 	b.gpuName = name

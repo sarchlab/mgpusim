@@ -72,7 +72,6 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.ToCaches = toCaches
 
 		for i := 0; i < int(10); i++ {
-
 			cus = append(cus, NewMockPort(mockCtrl))
 			commandProcessor.CUs = append(commandProcessor.CUs, akita.NewLimitNumMsgPort(commandProcessor, 1))
 			commandProcessor.CUs[i] = cus[i]
@@ -81,8 +80,11 @@ var _ = Describe("CommandProcessor", func() {
 			commandProcessor.TLBs = append(commandProcessor.TLBs, akita.NewLimitNumMsgPort(commandProcessor, 1))
 			commandProcessor.TLBs[i] = tlbs[i]
 
-			addressTranslators = append(addressTranslators, NewMockPort(mockCtrl))
-			commandProcessor.AddressTranslators = append(commandProcessor.AddressTranslators, akita.NewLimitNumMsgPort(commandProcessor, 1))
+			addressTranslators = append(addressTranslators,
+				NewMockPort(mockCtrl))
+			commandProcessor.AddressTranslators =
+				append(commandProcessor.AddressTranslators,
+					akita.NewLimitNumMsgPort(commandProcessor, 1))
 			commandProcessor.AddressTranslators[i] = addressTranslators[i]
 
 			l1ICaches = append(l1ICaches, NewMockPort(mockCtrl))
@@ -100,7 +102,6 @@ var _ = Describe("CommandProcessor", func() {
 			l2Caches = append(l2Caches, NewMockPort(mockCtrl))
 			commandProcessor.L2Caches = append(commandProcessor.L2Caches, akita.NewLimitNumMsgPort(commandProcessor, 1))
 			commandProcessor.L2Caches[i] = l2Caches[i]
-
 		}
 
 		rdma = NewMockPort(mockCtrl)
@@ -108,7 +109,6 @@ var _ = Describe("CommandProcessor", func() {
 
 		pmc = NewMockPort(mockCtrl)
 		commandProcessor.PMC = pmc
-
 	})
 
 	AfterEach(func() {

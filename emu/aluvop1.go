@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+//nolint:gocyclo,funlen
 func (u *ALUImpl) runVOP1(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
@@ -172,7 +173,7 @@ func (u *ALUImpl) runVNOTB32(state InstEmuState) {
 
 		src := uint32(sp.SRC0[i])
 		dst := ^src
-		sp.DST[i] = uint64(uint32(dst))
+		sp.DST[i] = uint64(dst)
 	}
 }
 
@@ -184,10 +185,8 @@ func (u *ALUImpl) runVCVTF32UBYTE0(state InstEmuState) {
 			continue
 		}
 
-		//src := math.Float32frombits(uint32(sp.SRC0[i]))
-		//dst := math.Log2(float64(src))
-		//sp.DST[i] = uint64(math.Float32bits(float32(dst)))
-		sp.DST[i] = uint64(math.Float32bits(float32((uint32(sp.SRC0[i]) << 24) >> 24)))
+		sp.DST[i] = uint64(math.Float32bits(
+			float32((uint32(sp.SRC0[i]) << 24) >> 24)))
 	}
 }
 
@@ -200,12 +199,11 @@ func (u *ALUImpl) runVCVTF64F32(state InstEmuState) {
 		}
 
 		src := math.Float32frombits(uint32(sp.SRC0[i]))
-		sp.DST[i] = uint64(math.Float64bits(float64(src)))
+		sp.DST[i] = math.Float64bits(float64(src))
 	}
 }
 
 func (u *ALUImpl) runVRCPF64(state InstEmuState) {
-
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -213,14 +211,13 @@ func (u *ALUImpl) runVRCPF64(state InstEmuState) {
 			continue
 		}
 
-		src := math.Float64frombits(uint64(sp.SRC0[i]))
+		src := math.Float64frombits(sp.SRC0[i])
 		dst := float64(1.0) / src
-		sp.DST[i] = uint64(math.Float64bits(dst))
+		sp.DST[i] = math.Float64bits(dst)
 	}
 }
 
 func (u *ALUImpl) runVCVTF32F64(state InstEmuState) {
-
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -228,14 +225,13 @@ func (u *ALUImpl) runVCVTF32F64(state InstEmuState) {
 			continue
 		}
 
-		src := math.Float64frombits(uint64(sp.SRC0[i]))
+		src := math.Float64frombits(sp.SRC0[i])
 		dst := float32(src)
 		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }
 
 func (u *ALUImpl) runVCVTF16F32(state InstEmuState) {
-
 	sp := state.Scratchpad().AsVOP1()
 	var i uint
 	for i = 0; i < 64; i++ {
@@ -261,6 +257,6 @@ func (u *ALUImpl) runVCVTF16F32(state InstEmuState) {
 			}
 		}
 		f16 := (sign << 15) | uint16(exp16<<10) | frac
-		sp.DST[i] = uint64(uint16(f16))
+		sp.DST[i] = uint64(f16)
 	}
 }

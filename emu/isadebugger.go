@@ -72,6 +72,7 @@ func (h *ISADebugger) logWholeWf(wf *Wavefront) {
 	h.Logger.Print(output)
 }
 
+//nolint:gocyclo
 func (h *ISADebugger) logDiffWf(wf *Wavefront) {
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
@@ -99,7 +100,6 @@ func (h *ISADebugger) logDiffWf(wf *Wavefront) {
 
 	output += "\tVGPRs: \n"
 	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
-
 		updated := false
 		for laneID := 0; laneID < 64; laneID++ {
 			regValue := insts.BytesToUint32(wf.ReadReg(insts.VReg(i), 1, laneID))
@@ -118,7 +118,6 @@ func (h *ISADebugger) logDiffWf(wf *Wavefront) {
 			}
 			output += fmt.Sprintf("\n")
 		}
-
 	}
 
 	h.Logger.Print(output)

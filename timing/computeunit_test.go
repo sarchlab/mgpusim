@@ -63,7 +63,10 @@ func (comp *mockComponent) CanAcceptWave() bool {
 	return true
 }
 
-func (comp *mockComponent) AcceptWave(wave wavefront.Wavefront, now akita.VTimeInSec) {
+func (comp *mockComponent) AcceptWave(
+	wave *wavefront.Wavefront,
+	now akita.VTimeInSec,
+) {
 
 }
 
@@ -663,7 +666,8 @@ func min(a, b uint32) uint32 {
 
 	})
 
-	It("should start a benchmark. After some time when the drain request is received it should do a pipeline drain", func() {
+	It("should start a benchmark. After some time when the drain request "+
+	"is received it should do a pipeline drain", func() {
 		type KernelArgs struct {
 			Output              driver.GPUPtr
 			Filter              driver.GPUPtr

@@ -1,3 +1,4 @@
+// Package maxpooling implements the maxpooling algorithm as a benchmark.
 package maxpooling
 
 import (
@@ -107,7 +108,6 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-
 	if b.useUnifiedMemory {
 		b.Bottom = b.driver.AllocateUnifiedMemory(
 			b.context, uint64(b.LengthInput*4))

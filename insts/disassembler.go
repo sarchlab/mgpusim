@@ -77,7 +77,6 @@ func (d *Disassembler) matchFormat(firstFourBytes uint32) (*Format, error) {
 		}
 
 		if (firstFourBytes^f.Encoding)&f.Mask == 0 {
-
 			// Consider VOP3b
 			if f.FormatType == VOP3a {
 				opcode := f.retrieveOpcode(firstFourBytes)
@@ -95,7 +94,10 @@ func (d *Disassembler) matchFormat(firstFourBytes uint32) (*Format, error) {
 		"bytes are " + bytesString)
 }
 
-func (d *Disassembler) lookUp(format *Format, opcode Opcode) (*InstType, error) {
+func (d *Disassembler) lookUp(
+	format *Format,
+	opcode Opcode,
+) (*InstType, error) {
 	if d.decodeTables[format.FormatType] != nil &&
 		d.decodeTables[format.FormatType].insts[opcode] != nil {
 		return d.decodeTables[format.FormatType].insts[opcode], nil
@@ -163,32 +165,33 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 	return nil
 }
 
+//nolint:gocyclo,funlen
 func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 
-	operand_bits := uint16(extractBits(bytes, 0, 8))
-	if operand_bits == 249 {
+	operandBits := uint16(extractBits(bytes, 0, 8))
+	if operandBits == 249 {
 		if len(buf) < 8 {
 			return errors.New("no enough bytes")
 		}
 		inst.IsSdwa = true
-		sdwa_bytes := binary.LittleEndian.Uint32(buf[4:8])
-		src0_bits := int(extractBits(sdwa_bytes, 0, 7))
-		inst.Src0 = NewVRegOperand(src0_bits, src0_bits, 0)
+		sdwaBytes := binary.LittleEndian.Uint32(buf[4:8])
+		src0Bits := int(extractBits(sdwaBytes, 0, 7))
+		inst.Src0 = NewVRegOperand(src0Bits, src0Bits, 0)
 
-		dst_sel := int(extractBits(sdwa_bytes, 8, 10))
-		dst_unused := int(extractBits(sdwa_bytes, 11, 12))
-		clamp := int(extractBits(sdwa_bytes, 13, 13))
-		src0_sel := int(extractBits(sdwa_bytes, 16, 18))
-		src0_sext := int(extractBits(sdwa_bytes, 19, 19))
-		src0_neg := int(extractBits(sdwa_bytes, 20, 20))
-		src0_abs := int(extractBits(sdwa_bytes, 21, 21))
-		src1_sel := int(extractBits(sdwa_bytes, 24, 26))
-		src1_sext := int(extractBits(sdwa_bytes, 27, 27))
-		src1_neg := int(extractBits(sdwa_bytes, 28, 28))
-		src1_abs := int(extractBits(sdwa_bytes, 29, 29))
+		dstSel := int(extractBits(sdwaBytes, 8, 10))
+		dstUnused := int(extractBits(sdwaBytes, 11, 12))
+		clamp := int(extractBits(sdwaBytes, 13, 13))
+		src0Sel := int(extractBits(sdwaBytes, 16, 18))
+		src0Sext := int(extractBits(sdwaBytes, 19, 19))
+		src0Neg := int(extractBits(sdwaBytes, 20, 20))
+		src0Abs := int(extractBits(sdwaBytes, 21, 21))
+		src1Sel := int(extractBits(sdwaBytes, 24, 26))
+		src1Sext := int(extractBits(sdwaBytes, 27, 27))
+		src1Neg := int(extractBits(sdwaBytes, 28, 28))
+		src1Abs := int(extractBits(sdwaBytes, 29, 29))
 
-		switch dst_sel {
+		switch dstSel {
 		case 0:
 			inst.DstSel = 0xff
 		case 1:
@@ -205,7 +208,7 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 			inst.DstSel = 0xFFFFFFFF
 		}
 
-		switch dst_unused {
+		switch dstUnused {
 		case 0:
 		case 1:
 			log.Panicf("DST_UNUSED SEXT is not implemented")
@@ -219,7 +222,7 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 			log.Panicf("CLAMP is not implemented")
 		}
 
-		switch src0_sel {
+		switch src0Sel {
 		case 0:
 			inst.Src0Sel = 0xff
 		case 1:
@@ -236,25 +239,25 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 			inst.Src0Sel = 0xFFFFFFFF
 		}
 
-		switch src0_sext {
+		switch src0Sext {
 		case 0:
 		case 1:
 			log.Panicf("SRC0_SEXT is not implemented")
 		}
 
-		switch src0_neg {
+		switch src0Neg {
 		case 0:
 		case 1:
 			log.Panicf("SRC0_NEG when true is not implemented")
 		}
 
-		switch src0_abs {
+		switch src0Abs {
 		case 0:
 		case 1:
 			log.Panicf("SRC0_ABS is not implemented")
 		}
 
-		switch src1_sel {
+		switch src1Sel {
 		case 0:
 			inst.Src1Sel = 0xff
 		case 1:
@@ -271,28 +274,27 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 			inst.Src1Sel = 0xFFFFFFFF
 		}
 
-		switch src1_sext {
+		switch src1Sext {
 		case 0:
 		case 1:
 			log.Panicf("SRC1_SEXT is not implemented")
 		}
 
-		switch src1_neg {
+		switch src1Neg {
 		case 0:
 		case 1:
 			log.Panicf("SRC1_NEG when true is not implemented")
 		}
 
-		switch src1_abs {
+		switch src1Abs {
 		case 0:
 		case 1:
 			log.Panicf("SRC1_ABS is not implemented")
 		}
 
 		inst.ByteSize += 4
-
 	} else {
-		inst.Src0, _ = getOperand(operand_bits)
+		inst.Src0, _ = getOperand(operandBits)
 	}
 
 	if inst.Src0.OperandType == LiteralConstant {
@@ -347,6 +349,7 @@ func (d *Disassembler) decodeFLAT(inst *Inst, buf []byte) error {
 	return nil
 }
 
+//nolint:gocyclo,funlen
 func (d *Disassembler) decodeSMEM(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
@@ -617,6 +620,7 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	return nil
 }
 
+//nolint:gocyclo,funlen
 // Decode parses the head of the buffer and returns the next instruction
 func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint32(buf[:4]))
@@ -680,7 +684,11 @@ func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 
 // Disassemble take a binary file as an input and put the assembly code in a
 // writer
-func (d *Disassembler) Disassemble(file *elf.File, filename string, w io.Writer) {
+func (d *Disassembler) Disassemble(
+	file *elf.File,
+	filename string,
+	w io.Writer,
+) {
 	fmt.Fprintf(w, "\n%s:\tfile format ELF64-amdgpu\n", filename)
 	fmt.Fprintf(w, "\nDisassembly of section .text:")
 
@@ -702,7 +710,7 @@ func (d *Disassembler) Disassemble(file *elf.File, filename string, w io.Writer)
 		inst, err := d.Decode(buf)
 		inst.PC = pc + sec.Offset
 		if err != nil {
-			fmt.Printf("Instuction not decodable\n")
+			fmt.Printf("Instruction not decodable\n")
 			buf = buf[4:]
 			pc += 4
 		} else {

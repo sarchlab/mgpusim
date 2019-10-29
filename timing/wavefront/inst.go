@@ -1,12 +1,10 @@
+// Package wavefront defines concepts related to a wavefront.
 package wavefront
 
 import (
-	"github.com/rs/xid"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 )
-
-//var _NextInstIDMutex sync.Mutex
-//var _NextInstID uint64
 
 // Inst in the timing package is a wrapper of the insts.Inst.
 type Inst struct {
@@ -20,12 +18,7 @@ func NewInst(raw *insts.Inst) *Inst {
 	i := new(Inst)
 	i.Inst = raw
 
-	//_NextInstIDMutex.Lock()
-	//i.ID = _NextInstID
-	//_NextInstID++
-	//_NextInstIDMutex.Unlock()
-
-	i.ID = xid.New().String()
+	i.ID = akita.GetIDGenerator().Generate()
 
 	return i
 }

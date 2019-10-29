@@ -1,3 +1,5 @@
+// Package fastwalshtransform implements the fastwalshtransform benchmark from
+// AMDAPPSDK.
 package fastwalshtransform
 
 import (
@@ -74,14 +76,13 @@ func (b *Benchmark) initMem() {
 	b.hVerInputArray = make([]float32, b.Length)
 
 	for i := uint32(0); i < b.Length; i++ {
-		temp := float32(rand.Float32() + float32(rand.Int31n(255)))
+		temp := rand.Float32() + float32(rand.Int31n(255))
 		b.hInputArray[i] = temp
 		b.hVerInputArray[i] = temp
 	}
 
 	if b.useUnifiedMemory {
 		b.dInputArray = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
-
 	} else {
 		b.dInputArray = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 	}
@@ -96,14 +97,11 @@ func printArray(array []float32, n uint32) {
 }
 
 func (b *Benchmark) exec() {
-
-	globalThreadSize := uint32(b.Length / 2)
+	globalThreadSize := b.Length / 2
 	localThreadSize := uint16(256)
 
 	for _, queue := range b.queues {
-
 		for step := uint32(1); step < b.Length; step <<= 1 {
-
 			kernArg := FastWalshTransformKernelArgs{
 				TArray: b.dInputArray,
 				Step:   step,
@@ -112,8 +110,8 @@ func (b *Benchmark) exec() {
 			b.driver.EnqueueLaunchKernel(
 				queue,
 				b.kernel,
-				[3]uint32{uint32(globalThreadSize), 1, 1},
-				[3]uint16{uint16(localThreadSize), 1, 1},
+				[3]uint32{globalThreadSize, 1, 1},
+				[3]uint16{localThreadSize, 1, 1},
 				&kernArg,
 			)
 		}
@@ -127,15 +125,14 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) Verify() {
-
 	for step := uint32(1); step < b.Length; step <<= 1 {
-		jump := uint32(step << 1)
+		jump := step << 1
 		for group := uint32(0); group < step; group++ {
-			for pair := uint32(group); pair < b.Length; pair += jump {
-				match := uint32(pair + step)
+			for pair := group; pair < b.Length; pair += jump {
+				match := pair + step
 
-				T1 := float32(b.hVerInputArray[pair])
-				T2 := float32(b.hVerInputArray[match])
+				T1 := b.hVerInputArray[pair]
+				T2 := b.hVerInputArray[match]
 
 				b.hVerInputArray[pair] = T1 + T2
 				b.hVerInputArray[match] = T1 - T2

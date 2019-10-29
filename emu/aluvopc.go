@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+//nolint:gocyclo,funlen
 func (u *ALUImpl) runVOPC(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
@@ -202,7 +203,6 @@ func (u *ALUImpl) runVCmpEqU32(state InstEmuState) {
 			sp.VCC = sp.VCC | (1 << i)
 		}
 	}
-
 }
 
 func (u *ALUImpl) runVCmpLeU32(state InstEmuState) {
