@@ -44,6 +44,8 @@ type Benchmark struct {
 	dColumnNumbers driver.GPUPtr
 	dValues        driver.GPUPtr
 	dLocalValues   driver.LocalPtr
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -56,6 +58,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -91,16 +98,30 @@ func (b *Benchmark) initMem() {
 		b.verPageRank[i] = initData
 	}
 
-	b.dPageRank = b.driver.AllocateMemory(
-		b.context, uint64(b.NumNodes*4))
-	b.dPageRankTemp = b.driver.AllocateMemory(
-		b.context, uint64(b.NumNodes*4))
-	b.dRowOffsets = b.driver.AllocateMemory(
-		b.context, uint64((b.NumNodes+1)*4))
-	b.dColumnNumbers = b.driver.AllocateMemory(
-		b.context, uint64(b.NumConnections*4))
-	b.dValues = b.driver.AllocateMemory(
-		b.context, uint64(b.NumConnections*4))
+	if b.useUnifiedMemory {
+		b.dPageRank = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.NumNodes*4))
+		b.dPageRankTemp = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.NumNodes*4))
+		b.dRowOffsets = b.driver.AllocateUnifiedMemory(
+			b.context, uint64((b.NumNodes+1)*4))
+		b.dColumnNumbers = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.NumConnections*4))
+		b.dValues = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.NumConnections*4))
+
+	} else {
+		b.dPageRank = b.driver.AllocateMemory(
+			b.context, uint64(b.NumNodes*4))
+		b.dPageRankTemp = b.driver.AllocateMemory(
+			b.context, uint64(b.NumNodes*4))
+		b.dRowOffsets = b.driver.AllocateMemory(
+			b.context, uint64((b.NumNodes+1)*4))
+		b.dColumnNumbers = b.driver.AllocateMemory(
+			b.context, uint64(b.NumConnections*4))
+		b.dValues = b.driver.AllocateMemory(
+			b.context, uint64(b.NumConnections*4))
+	}
 
 }
 

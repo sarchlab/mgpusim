@@ -59,6 +59,8 @@ type Benchmark struct {
 	dClusters     []driver.GPUPtr
 
 	gpuRMSE float64
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -92,6 +94,11 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	}
 }
 
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
+}
+
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
@@ -99,27 +106,43 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.dFeatures = b.driver.AllocateMemory(
-		b.context,
-		uint64(b.NumPoints*b.NumFeatures*4))
-	b.driver.Distribute(b.context, b.dFeatures,
-		uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
 
-	b.dFeaturesSwap = b.driver.AllocateMemory(
-		b.context, uint64(b.NumPoints*b.NumFeatures*4))
-	b.driver.Distribute(b.context, b.dFeaturesSwap,
-		uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
+	if b.useUnifiedMemory {
+		b.dFeatures = b.driver.AllocateUnifiedMemory(
+			b.context,
+			uint64(b.NumPoints*b.NumFeatures*4))
+		b.dFeaturesSwap = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.NumPoints*b.NumFeatures*4))
+		b.dMembership = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.NumPoints*4))
+	} else {
+		b.dFeatures = b.driver.AllocateMemory(
+			b.context,
+			uint64(b.NumPoints*b.NumFeatures*4))
+		b.driver.Distribute(b.context, b.dFeatures,
+			uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
 
-	b.dMembership = b.driver.AllocateMemory(
-		b.context, uint64(b.NumPoints*4))
-	b.driver.Distribute(b.context, b.dMembership,
-		uint64(b.NumPoints*4), b.gpus)
+		b.dFeaturesSwap = b.driver.AllocateMemory(
+			b.context, uint64(b.NumPoints*b.NumFeatures*4))
+		b.driver.Distribute(b.context, b.dFeaturesSwap,
+			uint64(b.NumPoints*b.NumFeatures*4), b.gpus)
+
+		b.dMembership = b.driver.AllocateMemory(
+			b.context, uint64(b.NumPoints*4))
+		b.driver.Distribute(b.context, b.dMembership,
+			uint64(b.NumPoints*4), b.gpus)
+	}
 
 	b.dClusters = make([]driver.GPUPtr, len(b.gpus))
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
-		b.dClusters[i] = b.driver.AllocateMemory(
-			b.context, uint64(b.NumClusters*b.NumFeatures*4))
+		if b.useUnifiedMemory {
+			b.dClusters[i] = b.driver.AllocateUnifiedMemory(
+				b.context, uint64(b.NumClusters*b.NumFeatures*4))
+		} else {
+			b.dClusters[i] = b.driver.AllocateMemory(
+				b.context, uint64(b.NumClusters*b.NumFeatures*4))
+		}
 	}
 
 	rand.Seed(0)

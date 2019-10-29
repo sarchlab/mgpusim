@@ -5,11 +5,10 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/tests/deterministic/runner"
-
 	"gitlab.com/akita/gcn3/driver"
+	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/gcn3/tests/deterministic/runner"
 )
 
 type KernelArgs struct {
@@ -23,6 +22,8 @@ type Benchmark struct {
 	context *driver.Context
 
 	hsaco *insts.HsaCo
+
+	useUnifiedMemory bool
 }
 
 func (b *Benchmark) SelectGPU(gpus []int) {
@@ -36,6 +37,11 @@ func (b *Benchmark) Run() {
 }
 
 func (Benchmark) Verify() {
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {

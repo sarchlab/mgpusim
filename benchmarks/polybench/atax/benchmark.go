@@ -36,6 +36,8 @@ type Benchmark struct {
 	a, x, y, yOutput, tmp []float32
 	dA, dX, dY, dTmp      driver.GPUPtr
 	cpuY                  []float32
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -48,6 +50,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -91,14 +98,26 @@ func (b *Benchmark) initMem() {
 		}
 	}
 
-	b.dA = b.driver.AllocateMemory(b.context,
-		uint64(b.NY*b.NX*4))
-	b.dX = b.driver.AllocateMemory(b.context,
-		uint64(b.NY*4))
-	b.dY = b.driver.AllocateMemory(b.context,
-		uint64(b.NY*4))
-	b.dTmp = b.driver.AllocateMemory(b.context,
-		uint64(b.NX*4))
+	if b.useUnifiedMemory {
+		b.dA = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.NY*b.NX*4))
+		b.dX = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.NY*4))
+		b.dY = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.NY*4))
+		b.dTmp = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.NX*4))
+	} else {
+		b.dA = b.driver.AllocateMemory(b.context,
+			uint64(b.NY*b.NX*4))
+		b.dX = b.driver.AllocateMemory(b.context,
+			uint64(b.NY*4))
+		b.dY = b.driver.AllocateMemory(b.context,
+			uint64(b.NY*4))
+		b.dTmp = b.driver.AllocateMemory(b.context,
+			uint64(b.NX*4))
+	}
+
 }
 
 func (b *Benchmark) exec() {

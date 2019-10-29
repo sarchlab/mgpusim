@@ -123,6 +123,10 @@ func (a *memoryAllocatorImpl) allocatePages(
 	deviceID int,
 	unified bool,
 ) (firstPageVAddr uint64) {
+	a.Lock()
+	defer a.Unlock()
+
+	// log.Printf("num pages %d \n", numPages)
 	pState, found := a.processMemoryStates[pid]
 	if !found {
 		a.processMemoryStates[pid] = &processMemoryState{
@@ -176,6 +180,9 @@ func (a *memoryAllocatorImpl) Remap(
 }
 
 func (a *memoryAllocatorImpl) RemovePage(vAddr uint64) {
+	a.Lock()
+	defer a.Unlock()
+
 	page, ok := a.vAddrToPageMapping[vAddr]
 
 	if !ok {
@@ -213,6 +220,9 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 	vAddr uint64,
 	isUnified bool,
 ) vm.Page {
+	a.Lock()
+	defer a.Unlock()
+
 	pageSize := uint64(1 << a.log2PageSize)
 	dState := a.deviceMemoryStates[deviceID]
 	nextPAddr := dState.nextPAddr

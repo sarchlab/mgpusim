@@ -4,10 +4,9 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/akita/gcn3/kernels"
-
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/gcn3/kernels"
 )
 
 type KernelArgs struct {
@@ -37,6 +36,8 @@ type Benchmark struct {
 	gHistoryData driver.GPUPtr
 	gInputData   driver.GPUPtr
 	gOutputData  driver.GPUPtr
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -59,6 +60,11 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
+}
+
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
@@ -78,23 +84,39 @@ func (b *Benchmark) initMem() {
 		b.inputData[i] = float32(i)
 	}
 
-	b.gFilterData = make([]driver.GPUPtr, len(b.gpus))
-	b.gHistoryData = b.driver.AllocateMemory(
-		b.context, uint64(b.numTaps*4))
-	b.gInputData = b.driver.AllocateMemory(
-		b.context, uint64(b.Length*4))
-	b.driver.Distribute(b.context,
-		b.gInputData, uint64(b.Length*4), b.gpus)
-	b.gOutputData = b.driver.AllocateMemory(
-		b.context, uint64(b.Length*4))
-	b.driver.Distribute(b.context,
-		b.gOutputData, uint64(b.Length*4), b.gpus)
+	if b.useUnifiedMemory {
+		b.gFilterData = make([]driver.GPUPtr, len(b.gpus))
+		b.gHistoryData = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.numTaps*4))
+		b.gInputData = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.Length*4))
+		b.gOutputData = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(b.Length*4))
+	} else {
+		b.gFilterData = make([]driver.GPUPtr, len(b.gpus))
+		b.gHistoryData = b.driver.AllocateMemory(
+			b.context, uint64(b.numTaps*4))
+		b.gInputData = b.driver.AllocateMemory(
+			b.context, uint64(b.Length*4))
+		b.driver.Distribute(b.context,
+			b.gInputData, uint64(b.Length*4), b.gpus)
+		b.gOutputData = b.driver.AllocateMemory(
+			b.context, uint64(b.Length*4))
+		b.driver.Distribute(b.context,
+			b.gOutputData, uint64(b.Length*4), b.gpus)
+	}
+
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
 
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
-		b.gFilterData[i] = b.driver.AllocateMemory(
-			b.context, uint64(b.numTaps*4))
+		if b.useUnifiedMemory {
+			b.gFilterData[i] = b.driver.AllocateUnifiedMemory(
+				b.context, uint64(b.numTaps*4))
+		} else {
+			b.gFilterData[i] = b.driver.AllocateMemory(
+				b.context, uint64(b.numTaps*4))
+		}
 		b.driver.MemCopyH2D(b.context, b.gFilterData[i], b.filterData)
 	}
 

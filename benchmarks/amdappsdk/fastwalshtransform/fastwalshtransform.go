@@ -3,12 +3,11 @@ package fastwalshtransform
 import (
 	"fmt"
 	"log"
+	"math/rand"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
-
-	"math/rand"
 )
 
 type FastWalshTransformKernelArgs struct {
@@ -27,6 +26,8 @@ type Benchmark struct {
 	hInputArray    []float32
 	hVerInputArray []float32
 	dInputArray    driver.GPUPtr
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -48,6 +49,11 @@ func (b *Benchmark) loadProgram() {
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) Run() {
@@ -73,7 +79,13 @@ func (b *Benchmark) initMem() {
 		b.hVerInputArray[i] = temp
 	}
 
-	b.dInputArray = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	if b.useUnifiedMemory {
+		b.dInputArray = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
+
+	} else {
+		b.dInputArray = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+	}
+
 	b.driver.MemCopyH2D(b.context, b.dInputArray, b.hInputArray)
 }
 

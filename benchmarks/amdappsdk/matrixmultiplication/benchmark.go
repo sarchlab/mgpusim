@@ -15,6 +15,7 @@ type Benchmark struct {
 
 	X, Y, Z                   uint32
 	MatrixA, MatrixB, MatrixC *Matrix
+	useUnifiedMemory          bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -32,6 +33,11 @@ func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
 	b.exec()
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) initMem() {
@@ -57,6 +63,7 @@ func (b *Benchmark) initMem() {
 func (b *Benchmark) exec() {
 	m := NewGPUMatrixMultiplier(b.driver, b.context)
 	m.SelectGPU(b.gpus)
+	m.useUnifiedMemory = b.useUnifiedMemory
 	b.MatrixC = m.Multiply(b.MatrixA, b.MatrixB)
 }
 

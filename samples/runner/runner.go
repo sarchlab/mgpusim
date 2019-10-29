@@ -31,6 +31,9 @@ var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false, "Report th
 var gpuFlag = flag.String("gpus", "1",
 	"The GPUs to use, use a format like 1,2,3,4")
 
+var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
+	"Run benchmark with Unified Memory or not")
+
 type cacheLatencyTracer struct {
 	tracer *tracing.AverageTimeTracer
 	cache  akita.Component
@@ -48,6 +51,7 @@ type Runner struct {
 	Verify                  bool
 	Parallel                bool
 	ReportCacheLatency      bool
+	UseUnifiedMemory        bool
 
 	GPUIDs []int
 }
@@ -76,6 +80,10 @@ func (r *Runner) ParseFlag() *Runner {
 
 	if *timingFlag {
 		r.Timing = true
+	}
+
+	if *useUnifiedMemoryFlag {
+		r.UseUnifiedMemory = true
 	}
 
 	if *cacheLatencyReportFlag {
@@ -171,12 +179,18 @@ func (r *Runner) parseGPUFlag() {
 // AddBenchmark adds an benchmark that the driver runs
 func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
 	b.SelectGPU(r.GPUIDs)
+	if r.UseUnifiedMemory {
+		b.SetUnifiedMemory()
+	}
 	r.Benchmarks = append(r.Benchmarks, b)
 }
 
 // AddBenchmarkWithoutSettingGPUsToUse allows for user specified GPUs for
 // the benchmark to run.
 func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
+	if r.UseUnifiedMemory {
+		b.SetUnifiedMemory()
+	}
 	r.Benchmarks = append(r.Benchmarks, b)
 }
 
