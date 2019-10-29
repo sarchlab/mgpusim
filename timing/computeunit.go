@@ -138,25 +138,21 @@ func (cu *ComputeUnit) handleTickEvent(evt akita.TickEvent) {
 	}
 }
 
+//nolint:gocyclo
 func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) {
 	madeProgress := false
 
 	madeProgress = cu.BranchUnit.Run(now) || madeProgress
-
 	madeProgress = cu.ScalarUnit.Run(now) || madeProgress
 	madeProgress = cu.ScalarDecoder.Run(now) || madeProgress
-
 	for _, simdUnit := range cu.SIMDUnit {
 		madeProgress = simdUnit.Run(now) || madeProgress
 	}
 	madeProgress = cu.VectorDecoder.Run(now) || madeProgress
-
 	madeProgress = cu.LDSUnit.Run(now) || madeProgress
 	madeProgress = cu.LDSDecoder.Run(now) || madeProgress
-
 	madeProgress = cu.VectorMemUnit.Run(now) || madeProgress
 	madeProgress = cu.VectorMemDecoder.Run(now) || madeProgress
-
 	madeProgress = cu.Scheduler.Run(now) || madeProgress
 
 	if madeProgress {
@@ -165,7 +161,6 @@ func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
-
 	if !cu.isPaused {
 		cu.processInputFromACE(now)
 		cu.processInputFromInstMem(now)
@@ -178,7 +173,6 @@ func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
 }
 
 func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
-
 	req := cu.ToCP.Retrieve(now)
 
 	if req == nil {
@@ -201,7 +195,6 @@ func (cu *ComputeUnit) handlePipelineFlushReq(
 	now akita.VTimeInSec,
 	req *gcn3.CUPipelineFlushReq,
 ) error {
-
 	cu.isFlushing = true
 	cu.currentFlushReq = req
 
@@ -240,11 +233,9 @@ func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) {
 		cu.toSendToCP = nil
 		cu.NeedTick = true
 	}
-
 }
 
 func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
-
 	if cu.currentFlushReq == nil {
 		return
 	}
@@ -278,11 +269,9 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 	cu.isFlushing = false
 
 	cu.NeedTick = true
-
 }
 
 func (cu *ComputeUnit) flushInternalComponents() {
-
 	cu.BranchUnit.Flush()
 
 	cu.ScalarUnit.Flush()
@@ -297,7 +286,6 @@ func (cu *ComputeUnit) flushInternalComponents() {
 	cu.LDSDecoder.Flush()
 	cu.VectorMemDecoder.Flush()
 	cu.VectorMemUnit.Flush()
-
 }
 
 func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
@@ -569,7 +557,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	access := RegisterAccess{}
 	access.WaveOffset = wf.SRegOffset
 	access.Reg = info.DstSGPR
-	access.RegCount = int(len(rsp.Data) / 4)
+	access.RegCount = len(rsp.Data) / 4
 	access.Data = rsp.Data
 	cu.SRegFile.Write(access)
 
@@ -599,6 +587,7 @@ func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
 	}
 }
 
+//nolint:gocyclo
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	now akita.VTimeInSec,
 	rsp *mem.DataReadyRsp,
@@ -616,6 +605,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	if info.Read.ID != rsp.RespondTo {
 		return
 	}
+
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
 	tracing.TraceReqFinalize(info.Read, now, cu)
 
@@ -686,7 +676,6 @@ func (cu *ComputeUnit) UpdatePCAndSetReady(wf *wavefront.Wavefront) {
 	wf.State = wavefront.WfReady
 	wf.PC += uint64(wf.Inst().ByteSize)
 	cu.removeStaleInstBuffer(wf)
-
 }
 
 func (cu *ComputeUnit) removeStaleInstBuffer(wf *wavefront.Wavefront) {
@@ -769,7 +758,6 @@ func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() {
 	cu.isSendingOutShadowBufferReqs = false
 	for i := 0; i < len(cu.shadowInFlightVectorMemAccess); i++ {
 		cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, cu.shadowInFlightVectorMemAccess[i])
-
 	}
 
 	for i := 0; i < len(cu.shadowInFlightScalarMemAccess); i++ {
@@ -782,7 +770,10 @@ func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() {
 }
 
 func (cu *ComputeUnit) checkShadowBuffers(now akita.VTimeInSec) {
-	numReqsPendingToSend := len(cu.shadowInFlightScalarMemAccess) + len(cu.shadowInFlightVectorMemAccess) + len(cu.shadowInFlightInstFetch)
+	numReqsPendingToSend :=
+		len(cu.shadowInFlightScalarMemAccess) +
+			len(cu.shadowInFlightVectorMemAccess) +
+			len(cu.shadowInFlightInstFetch)
 	if numReqsPendingToSend == 0 {
 		cu.isSendingOutShadowBufferReqs = false
 		cu.Scheduler.Resume()
@@ -797,7 +788,6 @@ func (cu *ComputeUnit) sendOutShadowBufferReqs(now akita.VTimeInSec) {
 	cu.sendScalarShadowBufferAccesses(now)
 	cu.sendVectorShadowBufferAccesses(now)
 	cu.sendInstFetchShadowBufferAccesses(now)
-
 }
 
 func (cu *ComputeUnit) sendScalarShadowBufferAccesses(now akita.VTimeInSec) {
@@ -839,9 +829,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(now akita.VTimeInSec) {
 				cu.NeedTick = true
 			}
 		}
-
 	}
-
 }
 
 func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses(now akita.VTimeInSec) {
@@ -859,7 +847,6 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses(now akita.VTimeInSec) {
 	}
 }
 func (cu *ComputeUnit) populateShadowBuffers() {
-
 	for i := 0; i < len(cu.InFlightInstFetch); i++ {
 		cu.shadowInFlightInstFetch = append(cu.shadowInFlightInstFetch, cu.InFlightInstFetch[i])
 	}
@@ -875,17 +862,14 @@ func (cu *ComputeUnit) populateShadowBuffers() {
 	cu.InFlightScalarMemAccess = nil
 	cu.InFlightInstFetch = nil
 	cu.InFlightVectorMemAccess = nil
-
 }
 
 func (cu *ComputeUnit) setWavesToReady() {
-
 	for _, wfPool := range cu.WfPools {
 		for _, wf := range wfPool.wfs {
 			if wf.State != wavefront.WfCompleted {
 				wf.State = wavefront.WfReady
 				wf.IsFetching = false
-
 			}
 		}
 	}

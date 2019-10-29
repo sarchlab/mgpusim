@@ -44,7 +44,6 @@ func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 	}
 
 	return d.processReadMiss(now, trans)
-
 }
 
 func (d *directory) processMSHRHit(

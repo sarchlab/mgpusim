@@ -106,7 +106,6 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-
 	if b.useUnifiedMemory {
 		b.dFeatures = b.driver.AllocateUnifiedMemory(
 			b.context,
@@ -204,7 +203,6 @@ func (b *Benchmark) verifySwap() {
 			}
 		}
 	}
-
 }
 
 func (b *Benchmark) kmeansClustering() {
@@ -340,7 +338,6 @@ func (b *Benchmark) Verify() {
 	} else {
 		log.Fatal("error")
 	}
-
 }
 
 func (b *Benchmark) cpuKMeans() {
@@ -378,7 +375,6 @@ func (b *Benchmark) updateMembershipCPU() float64 {
 				minDistance = dist
 				clusterIndex = j
 			}
-
 		}
 		newMembership[i] = int32(clusterIndex)
 	}

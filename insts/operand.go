@@ -80,19 +80,7 @@ func NewFloatOperand(code int, value float64) *Operand {
 func (o Operand) String() string {
 	switch o.OperandType {
 	case RegOperand:
-		if o.RegCount > 1 {
-			if o.Register.IsSReg() {
-				return fmt.Sprintf("s[%d:%d]",
-					o.Register.RegIndex(), o.Register.RegIndex()+o.RegCount-1)
-			} else if o.Register.IsVReg() {
-				return fmt.Sprintf("v[%d:%d]",
-					o.Register.RegIndex(), o.Register.RegIndex()+o.RegCount-1)
-			} else if strings.Contains(o.Register.Name, "lo") {
-				return o.Register.Name[:len(o.Register.Name)-2]
-			}
-			return fmt.Sprintf("<unknown: %+v>", o.Register)
-		}
-		return o.Register.Name
+		return o.regOperandToString()
 	case IntOperand:
 		return fmt.Sprintf("%d", o.IntValue)
 	case FloatOperand:
@@ -111,12 +99,28 @@ func (o Operand) String() string {
 	}
 }
 
+func (o Operand) regOperandToString() string {
+	if o.RegCount > 1 {
+		if o.Register.IsSReg() {
+			return fmt.Sprintf("s[%d:%d]",
+				o.Register.RegIndex(), o.Register.RegIndex()+o.RegCount-1)
+		} else if o.Register.IsVReg() {
+			return fmt.Sprintf("v[%d:%d]",
+				o.Register.RegIndex(), o.Register.RegIndex()+o.RegCount-1)
+		} else if strings.Contains(o.Register.Name, "lo") {
+			return o.Register.Name[:len(o.Register.Name)-2]
+		}
+		return fmt.Sprintf("<unknown: %+v>", o.Register)
+	}
+	return o.Register.Name
+}
+
+//nolint:gocyclo,funlen
 func getOperand(num uint16) (*Operand, error) {
 	code := int(num)
 	switch {
 	case num >= 0 && num <= 101:
 		return NewSRegOperand(code, code, 0), nil
-
 	case num == 102:
 		return NewRegOperand(code, FlatSratchLo, 0), nil
 	case num == 103:
@@ -137,23 +141,18 @@ func getOperand(num uint16) (*Operand, error) {
 		return NewRegOperand(code, TmaLo, 0), nil
 	case num == 111:
 		return NewRegOperand(code, TmaHi, 0), nil
-
 	case num >= 112 && num < 123:
 		return NewRegOperand(code, Timp0+RegType(num-112), 0), nil
-
 	case num == 124:
 		return NewRegOperand(code, M0, 0), nil
 	case num == 126:
 		return NewRegOperand(code, EXECLO, 0), nil
 	case num == 127:
 		return NewRegOperand(code, EXECHI, 0), nil
-
 	case num >= 128 && num <= 192:
 		return NewIntOperand(code, int64(num)-128), nil
-
 	case num >= 193 && num <= 208:
 		return NewIntOperand(code, 192-int64(num)), nil
-
 	case num == 240:
 		return NewFloatOperand(code, 0.5), nil
 	case num == 241:
@@ -178,13 +177,10 @@ func getOperand(num uint16) (*Operand, error) {
 		return NewRegOperand(code, EXECZ, 0), nil
 	case num == 253:
 		return NewRegOperand(code, SCC, 0), nil
-
 	case num == 255:
 		return &Operand{code, LiteralConstant, nil, 0, 0, 0, 0}, nil
-
 	case num >= 256 && num <= 511:
 		return NewVRegOperand(code, int(num)-256, 0), nil
-
 	default:
 		return nil, fmt.Errorf("cannot find Operand %d", num)
 	}

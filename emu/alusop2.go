@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/gcn3/insts"
 )
 
+//nolint:gocyclo,funlen
 func (u *ALUImpl) runSOP2(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
@@ -258,7 +259,6 @@ func (u *ALUImpl) runSLSHLB64(state InstEmuState) {
 }
 
 func (u *ALUImpl) runSLSHRB32(state InstEmuState) {
-
 	sp := state.Scratchpad().AsSOP2()
 	sp.DST = sp.SRC0 >> (sp.SRC1 & 0x1f)
 
@@ -270,7 +270,6 @@ func (u *ALUImpl) runSLSHRB32(state InstEmuState) {
 }
 
 func (u *ALUImpl) runSLSHRB64(state InstEmuState) {
-
 	sp := state.Scratchpad().AsSOP2()
 	sp.DST = sp.SRC0 >> (sp.SRC1 & 0x3f)
 

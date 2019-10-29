@@ -119,7 +119,6 @@ func (b *Benchmark) initMem() {
 		}
 		b.driver.MemCopyH2D(b.context, b.gFilterData[i], b.filterData)
 	}
-
 }
 
 func (b *Benchmark) exec() {

@@ -1,3 +1,4 @@
+// Package stencil2d implements the stencil2d benchmark from the SHOC suite.
 package stencil2d
 
 import (
@@ -180,6 +181,23 @@ func (b *Benchmark) exec() {
 }
 
 func (b *Benchmark) Verify() {
+	cpuOutput := b.cpuStencil2D()
+
+	for x := 0; x < b.NumRows; x++ {
+		for y := 0; y < b.NumCols; y++ {
+			index := x*b.numPaddedCols + y
+			if b.hOutput[index] != cpuOutput[index] {
+				log.Printf("not match at (%d,%d), expected %f to equal %f\n",
+					x, y,
+					b.hOutput[index], cpuOutput[index])
+			}
+		}
+	}
+
+	log.Printf("Passed!\n")
+}
+
+func (b *Benchmark) cpuStencil2D() []float32 {
 	cpuOutput := make([]float32, b.paddedDataSize)
 	for x := 0; x < b.NumRows; x++ {
 		for y := 0; y < b.NumCols; y++ {
@@ -214,16 +232,6 @@ func (b *Benchmark) Verify() {
 			}
 		}
 	}
-	for x := 0; x < b.NumRows; x++ {
-		for y := 0; y < b.NumCols; y++ {
-			index := x*b.numPaddedCols + y
-			if b.hOutput[index] != cpuOutput[index] {
-				log.Printf("not match at (%d,%d), expected %f to equal %f\n",
-					x, y,
-					b.hOutput[index], cpuOutput[index])
-			}
-		}
-	}
 
-	log.Printf("Passed!\n")
+	return cpuOutput
 }

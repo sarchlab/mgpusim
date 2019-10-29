@@ -1,3 +1,4 @@
+// Package benchmarks defines Benchmark interface.
 package benchmarks
 
 // A Benchmark is a GPU program that can run on the GCN3 simulator

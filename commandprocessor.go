@@ -83,6 +83,7 @@ func (p *CommandProcessor) NotifyPortFree(
 	//panic("implement me")
 }
 
+//nolint:gocyclo,funlen
 // Handle processes the events that is scheduled for the CommandProcessor
 func (p *CommandProcessor) Handle(e akita.Event) error {
 	p.Lock()
@@ -204,7 +205,6 @@ func (p *CommandProcessor) handleRDMADrainRsp(cmd *rdma.RDMADrainRsp) error {
 }
 
 func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
-
 	if p.shootDownInProcess == true {
 		return nil
 	}
@@ -224,11 +224,9 @@ func (p *CommandProcessor) handleShootdownCommand(cmd *ShootDownCommand) error {
 		if err != nil {
 			log.Panicf("failed to send pipeline flush request to CU")
 		}
-
 	}
 
 	return nil
-
 }
 
 func (p *CommandProcessor) handleCUPipelineFlushRsp(cmd *CUPipelineFlushRsp) error {
@@ -236,7 +234,6 @@ func (p *CommandProcessor) handleCUPipelineFlushRsp(cmd *CUPipelineFlushRsp) err
 	p.numCUAck--
 
 	if p.numCUAck == 0 {
-
 		for i := 0; i < len(p.AddressTranslators); i++ {
 			req := addresstranslator.AddressTranslatorFlushReqBuilder{}.
 				WithSendTime(now).
@@ -258,7 +255,6 @@ func (p *CommandProcessor) handleAddressTranslatorFlushRsp(cmd *addresstranslato
 	p.numAddrTranslationAck--
 
 	if p.numAddrTranslationAck == 0 {
-
 		for _, port := range p.L1SCaches {
 			p.flushAndResetL1Cache(now, port)
 		}
@@ -274,13 +270,15 @@ func (p *CommandProcessor) handleAddressTranslatorFlushRsp(cmd *addresstranslato
 		for _, port := range p.L2Caches {
 			p.flushAndResetL2Cache(now, port)
 		}
-
 	}
 
 	return nil
 }
 
-func (p *CommandProcessor) flushAndResetL1Cache(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) flushAndResetL1Cache(
+	now akita.VTimeInSec,
+	port akita.Port,
+) {
 	req := cache.FlushReqBuilder{}.
 		WithSendTime(now).
 		WithSrc(p.ToCaches).
@@ -296,7 +294,6 @@ func (p *CommandProcessor) flushAndResetL1Cache(now akita.VTimeInSec, port akita
 	}
 
 	p.numCacheACK++
-
 }
 
 func (p *CommandProcessor) flushAndResetL2Cache(now akita.VTimeInSec, port akita.Port) {
@@ -313,8 +310,8 @@ func (p *CommandProcessor) flushAndResetL2Cache(now akita.VTimeInSec, port akita
 	if err != nil {
 		log.Panicf("Failed to send reset request")
 	}
-	p.numCacheACK++
 
+	p.numCacheACK++
 }
 
 func (p *CommandProcessor) handleCacheFlushRsp(
@@ -339,7 +336,6 @@ func (p *CommandProcessor) handleCacheFlushRsp(
 					log.Panicf("failed to send shootdown request to TLBs")
 				}
 			}
-
 		} else {
 			p.currFlushRequest.Src, p.currFlushRequest.Dst =
 				p.currFlushRequest.Dst, p.currFlushRequest.Src
@@ -468,7 +464,6 @@ func (p *CommandProcessor) handleTLBRestartRsp(rsp *tlb.TLBRestartRsp) error {
 			if err != nil {
 				log.Panicf("Failed to send restart req to Address translation units")
 			}
-
 		}
 	}
 	return nil
@@ -490,7 +485,6 @@ func (p *CommandProcessor) handleAddressTranslatorRestartRsp(rsp *addresstransla
 			if err != nil {
 				log.Panicf("Failed to send restart req to CU")
 			}
-
 		}
 	}
 	return nil
@@ -505,7 +499,6 @@ func (p *CommandProcessor) handleCUPipelineRestartRsp(rsp *CUPipelineRestartRsp)
 		if err != nil {
 			log.Panicf("Failed to send restart rsp to driver")
 		}
-
 	}
 	return nil
 }
@@ -539,7 +532,6 @@ func (p *CommandProcessor) handlePageMigrationRsp(rsp *pagemigrationcontroller.P
 	err := p.ToDriver.Send(req)
 	if err != nil {
 		log.Panicf("Unable to send migration complete rsp to Driver")
-
 	}
 
 	return nil

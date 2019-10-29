@@ -56,7 +56,7 @@ var _ = Describe("ALU", func() {
 		sp.SRC1 = 10
 		alu.Run(state)
 
-		Expect(sp.DST).To(Equal(uint64(^uint64(0) - 4)))
+		Expect(sp.DST).To(Equal(^uint64(0) - 4))
 		Expect(sp.SCC).To(Equal(uint8(1)))
 	})
 
@@ -106,7 +106,7 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(byte(0)))
 	})
 
-	It("should run S_SUB_I32, when overflow and src1 is positve", func() {
+	It("should run S_SUB_I32, when overflow and src1 is positive", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOP2
 		state.inst.Opcode = 3

@@ -1,3 +1,4 @@
+// Package bicg implements the bicg benchmark from Polybench.
 package bicg
 
 import (
@@ -115,7 +116,6 @@ func (b *Benchmark) initMem() {
 			uint64(b.NY*4))
 		b.dQ = b.driver.AllocateUnifiedMemory(b.context,
 			uint64(b.NX*4))
-
 	} else {
 		b.dA = b.driver.AllocateMemory(b.context,
 			uint64(b.NY*b.NX*4))
@@ -128,7 +128,6 @@ func (b *Benchmark) initMem() {
 		b.dQ = b.driver.AllocateMemory(b.context,
 			uint64(b.NX*4))
 	}
-
 }
 
 func (b *Benchmark) exec() {

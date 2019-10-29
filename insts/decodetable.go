@@ -1,5 +1,6 @@
 package insts
 
+//nolint:gocyclo,funlen
 func (d *Disassembler) initializeDecodeTable() {
 	d.decodeTables = make(map[FormatType]*decodeTable)
 
@@ -1056,5 +1057,4 @@ func (d *Disassembler) initializeDecodeTable() {
 	d.addInstType(&InstType{"ds_condxchg32_rtn_b128", 253, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_read_b96", 254, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
 	d.addInstType(&InstType{"ds_read_b128", 255, FormatTable[DS], 0, ExeUnitLDS, 0, 0, 0, 0, 0})
-
 }

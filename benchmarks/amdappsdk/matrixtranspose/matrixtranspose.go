@@ -1,3 +1,5 @@
+// Package matrixtranspose implements the matrix transpose benchmark from
+// AMDAPPSDK.
 package matrixtranspose
 
 import (
@@ -104,7 +106,6 @@ func (b *Benchmark) initMem() {
 			b.context, uint64(numData*4))
 		b.driver.Distribute(b.context, b.dInputData, uint64(numData*4), b.gpus)
 		b.driver.Distribute(b.context, b.dOutputData, uint64(numData*4), b.gpus)
-
 	}
 
 	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
@@ -136,7 +137,6 @@ func (b *Benchmark) exec() {
 			[3]uint16{uint16(b.blockSize), uint16(b.blockSize), 1},
 			&kernArg,
 		)
-
 	}
 
 	for _, q := range b.queues {

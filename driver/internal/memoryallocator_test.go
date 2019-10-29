@@ -89,7 +89,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		mmu.EXPECT().CreatePage(page)
 		ptr := allocator.Allocate(1, 4000, 1)
 
-		mmu.EXPECT().RemovePage(ca.PID(1), uint64(page.VAddr))
+		mmu.EXPECT().RemovePage(ca.PID(1), page.VAddr)
 		mmu.EXPECT().CreatePage(&vm.Page{
 			PID:      1,
 			PAddr:    0x200000000,
@@ -98,12 +98,12 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 			GPUID:    2,
 			Valid:    true,
 		})
-		allocator.Remap(1, uint64(ptr), 4000, 2)
+		allocator.Remap(1, ptr, 4000, 2)
 
 		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(0))
 		Expect(allocator.deviceMemoryStates[2].allocatedPages).To(HaveLen(1))
 		Expect(allocator.deviceMemoryStates[2].allocatedPages[0].VAddr).
-			To(Equal(uint64(ptr)))
+			To(Equal(ptr))
 		Expect(allocator.deviceMemoryStates[2].allocatedPages[0].PAddr).
 			To(Equal(uint64(0x200000000)))
 	})
@@ -113,5 +113,4 @@ func configAFourGPUSystem(allocator *memoryAllocatorImpl) {
 	for i := 0; i < 5; i++ { // 5 devices = 1 CPU + 4 GPUs
 		allocator.RegisterStorage(0x100000000)
 	}
-
 }

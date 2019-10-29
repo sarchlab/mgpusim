@@ -53,7 +53,6 @@ func (b *Benchmark) Run() {
 
 	if b.useUnifiedMemory {
 		gpuData = b.driver.AllocateUnifiedMemory(b.context, b.ByteSize)
-
 	}
 	b.driver.MemCopyH2D(b.context, gpuData, b.data)
 	b.driver.MemCopyD2H(b.context, b.retData, gpuData)

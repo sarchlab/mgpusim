@@ -1,3 +1,4 @@
+// Package pagerank implements the PageRank benchmark form Hetero-Mark.
 package pagerank
 
 import (
@@ -85,7 +86,6 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-
 	initData := float32(1.0) / float32(b.NumNodes)
 	b.hPageRank = make([]float32, b.NumNodes)
 	b.verPageRank = make([]float32, b.NumNodes)
@@ -109,7 +109,6 @@ func (b *Benchmark) initMem() {
 			b.context, uint64(b.NumConnections*4))
 		b.dValues = b.driver.AllocateUnifiedMemory(
 			b.context, uint64(b.NumConnections*4))
-
 	} else {
 		b.dPageRank = b.driver.AllocateMemory(
 			b.context, uint64(b.NumNodes*4))
@@ -122,7 +121,6 @@ func (b *Benchmark) initMem() {
 		b.dValues = b.driver.AllocateMemory(
 			b.context, uint64(b.NumConnections*4))
 	}
-
 }
 
 func printMatrix(matrix [][]float32, n uint32) {
@@ -175,7 +173,7 @@ func (b *Benchmark) exec() {
 		b.driver.LaunchKernel(
 			b.context,
 			b.kernel,
-			[3]uint32{uint32(b.NumNodes) * 64, 1, 1},
+			[3]uint32{b.NumNodes * 64, 1, 1},
 			[3]uint16{uint16(localWorkSize), 1, 1},
 			&kernArg,
 		)
@@ -194,9 +192,8 @@ func (b *Benchmark) Verify() {
 	for i = 0; i < b.MaxIterations; i++ {
 		for i := uint32(0); i < b.NumNodes; i++ {
 			newValue := float32(0)
-			for j := uint32(m.rowOffsets[i]); j < m.rowOffsets[i+1]; j++ {
-				newValue += float32(m.values[j]) *
-					b.verPageRank[m.columnNumbers[j]]
+			for j := m.rowOffsets[i]; j < m.rowOffsets[i+1]; j++ {
+				newValue += m.values[j] * b.verPageRank[m.columnNumbers[j]]
 			}
 			b.verPageRankTemp[i] = newValue
 		}

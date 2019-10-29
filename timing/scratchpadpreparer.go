@@ -27,6 +27,7 @@ func NewScratchpadPreparerImpl(cu *ComputeUnit) *ScratchpadPreparerImpl {
 	return p
 }
 
+//nolint:gocyclo
 // Prepare read from the register file and sets the scratchpad layout
 func (p *ScratchpadPreparerImpl) Prepare(
 	instEmuState emu.InstEmuState,
@@ -305,6 +306,7 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	}
 }
 
+//nolint:gocyclo
 // Commit write to the register file according to the scratchpad layout
 func (p *ScratchpadPreparerImpl) Commit(
 	instEmuState emu.InstEmuState,
@@ -560,6 +562,7 @@ func (p *ScratchpadPreparerImpl) readRegAsUint32(
 	return insts.BytesToUint32(buf)
 }
 
+//nolint:gocyclo
 func (p *ScratchpadPreparerImpl) readReg(
 	reg *insts.Reg,
 	regCount int,
@@ -619,6 +622,7 @@ func (p *ScratchpadPreparerImpl) writeOperand(
 	p.writeReg(operand.Register, operand.RegCount, wf, laneID, buf)
 }
 
+//nolint:gocyclo
 func (p *ScratchpadPreparerImpl) writeReg(
 	reg *insts.Reg,
 	regCount int,

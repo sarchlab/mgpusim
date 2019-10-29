@@ -1,3 +1,4 @@
+// Package internal provides support for the driver implementation.
 package internal
 
 import (

@@ -100,7 +100,6 @@ func (m *GPUMatrixMultiplier) launchKernel(
 	for _, q := range queues {
 		m.driver.DrainCommandQueue(q)
 	}
-
 }
 
 func (m *GPUMatrixMultiplier) initMemory(
@@ -128,14 +127,13 @@ func (m *GPUMatrixMultiplier) initMemory(
 
 		return gA, gB, gC
 	}
-
 }
 
 func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 	matrix *Matrix,
 	gm driver.GPUPtr,
 ) {
-	m.driver.MemCopyD2H(m.context, matrix.Data, driver.GPUPtr(gm))
+	m.driver.MemCopyD2H(m.context, matrix.Data, gm)
 }
 
 func (m *GPUMatrixMultiplier) loadKernel() {

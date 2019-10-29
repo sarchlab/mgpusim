@@ -40,6 +40,7 @@ func (u *ALUImpl) LDS() []byte {
 }
 
 // Run executes the instruction in the scatchpad of the InstEmuState
+//nolint:gocyclo
 func (u *ALUImpl) Run(state InstEmuState) {
 	inst := state.Inst()
 
@@ -73,7 +74,6 @@ func (u *ALUImpl) Run(state InstEmuState) {
 	default:
 		log.Panicf("Inst format %s is not supported", inst.Format.FormatName)
 	}
-
 }
 
 func (u *ALUImpl) runFlat(state InstEmuState) {
@@ -175,7 +175,6 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 		sp.DST[i*4+2] = insts.BytesToUint32(buf[8:12])
 		sp.DST[i*4+3] = insts.BytesToUint32(buf[12:16])
 	}
-
 }
 
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
@@ -248,6 +247,8 @@ func (u *ALUImpl) runSLOADDWORDX4(state InstEmuState) {
 	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 16)
 	copy(spRaw[32:48], buf)
 }
+
+//nolint:gocyclo
 func (u *ALUImpl) runSOPP(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {

@@ -68,12 +68,12 @@ func (b *gridBuilderImpl) NextWG() *WorkGroup {
 	wg.SizeX = int(b.packet.WorkgroupSizeX)
 	wg.SizeY = int(b.packet.WorkgroupSizeY)
 	wg.SizeZ = int(b.packet.WorkgroupSizeZ)
-	wg.IDX = int(b.xid)
-	wg.IDY = int(b.yid)
-	wg.IDZ = int(b.zid)
-	wg.CurrSizeX = int(xToAllocate)
-	wg.CurrSizeY = int(yToAllocate)
-	wg.CurrSizeZ = int(zToAllocate)
+	wg.IDX = b.xid
+	wg.IDY = b.yid
+	wg.IDZ = b.zid
+	wg.CurrSizeX = xToAllocate
+	wg.CurrSizeY = yToAllocate
+	wg.CurrSizeZ = zToAllocate
 
 	b.spawnWorkItems(wg)
 	b.formWavefronts(wg)

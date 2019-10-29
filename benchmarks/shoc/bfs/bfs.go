@@ -1,3 +1,4 @@
+// Package bfs implements the bfs benchmark from the SHOC suite.
 package bfs
 
 import (
@@ -111,7 +112,6 @@ func (b *Benchmark) initMem() {
 			uint64(len(b.graph.edgeList)*4))
 		b.dFlag = b.driver.AllocateUnifiedMemory(b.context,
 			4)
-
 	} else {
 		b.dFrontier = b.driver.AllocateMemory(b.context,
 			uint64(b.NumNode*4))
@@ -122,7 +122,6 @@ func (b *Benchmark) initMem() {
 		b.dFlag = b.driver.AllocateMemory(b.context,
 			4)
 	}
-
 }
 
 func (b *Benchmark) exec() {

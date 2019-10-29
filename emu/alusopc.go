@@ -4,6 +4,7 @@ import (
 	"log"
 )
 
+//nolint:gocyclo,funlen
 func (u *ALUImpl) runSOPC(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {
@@ -61,7 +62,6 @@ func (u *ALUImpl) runSCMPGEI32(state InstEmuState) {
 	} else {
 		sp.SCC = 0
 	}
-
 }
 
 func (u *ALUImpl) runSCMPEQU32(state InstEmuState) {

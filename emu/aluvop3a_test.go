@@ -317,13 +317,13 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 640
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.SRC0[0] = uint64(math.Float64bits(2.0))
-		sp.SRC1[0] = uint64(math.Float64bits(3.1))
+		sp.SRC0[0] = math.Float64bits(2.0)
+		sp.SRC1[0] = math.Float64bits(3.1)
 		sp.EXEC = 0x1
 
 		alu.Run(state)
 
-		Expect(sp.DST[0]).To(Equal(uint64(math.Float64bits(float64(5.1)))))
+		Expect(sp.DST[0]).To(Equal(math.Float64bits(float64(5.1))))
 	})
 
 	It("should run V_FMA_F64", func() {
@@ -332,14 +332,14 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 460
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.SRC0[0] = uint64(math.Float64bits(2.0))
-		sp.SRC1[0] = uint64(math.Float64bits(3.1))
-		sp.SRC2[0] = uint64(math.Float64bits(2.5))
+		sp.SRC0[0] = math.Float64bits(2.0)
+		sp.SRC1[0] = math.Float64bits(3.1)
+		sp.SRC2[0] = math.Float64bits(2.5)
 		sp.EXEC = 0x1
 
 		alu.Run(state)
 
-		Expect(sp.DST[0]).To(Equal(uint64(math.Float64bits(float64(8.7)))))
+		Expect(sp.DST[0]).To(Equal(math.Float64bits(float64(8.7))))
 	})
 
 	It("should run V_MUL_F64", func() {
@@ -348,13 +348,13 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 641
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.SRC0[0] = uint64(math.Float64bits(2.0))
-		sp.SRC1[0] = uint64(math.Float64bits(3.1))
+		sp.SRC0[0] = math.Float64bits(2.0)
+		sp.SRC1[0] = math.Float64bits(3.1)
 		sp.EXEC = 0x1
 
 		alu.Run(state)
 
-		Expect(sp.DST[0]).To(Equal(uint64(math.Float64bits(float64(6.2)))))
+		Expect(sp.DST[0]).To(Equal(math.Float64bits(float64(6.2))))
 	})
 
 	It("should run V_DIV_FMAS_F64", func() {
@@ -363,15 +363,16 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 483
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.SRC0[0] = uint64(math.Float64bits(2.0))
-		sp.SRC1[0] = uint64(math.Float64bits(1.1))
-		sp.SRC2[0] = uint64(math.Float64bits(4.0))
+		sp.SRC0[0] = math.Float64bits(2.0)
+		sp.SRC1[0] = math.Float64bits(1.1)
+		sp.SRC2[0] = math.Float64bits(4.0)
 		sp.EXEC = 0x1
 		sp.VCC = 1
 
 		alu.Run(state)
 
-		Expect(sp.DST[0]).To(Equal(uint64(math.Float64bits(float64(6.2) * math.Pow(2.0, 64)))))
+		Expect(sp.DST[0]).
+			To(Equal(math.Float64bits(float64(6.2) * math.Pow(2.0, 64))))
 	})
 
 	It("should run V_DIV_FIXUP_F64", func() {
@@ -380,14 +381,14 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 479
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.SRC0[0] = uint64(math.Float64bits(0))
-		sp.SRC1[0] = uint64(math.Float64bits(0))
-		sp.SRC2[0] = uint64(math.Float64bits(0))
+		sp.SRC0[0] = math.Float64bits(0)
+		sp.SRC1[0] = math.Float64bits(0)
+		sp.SRC2[0] = math.Float64bits(0)
 		sp.EXEC = 0x1
 
 		alu.Run(state)
 		// 0 / 0
-		Expect(sp.DST[0]).To(Equal(uint64(math.Float64bits(0xFFF8000000000000))))
+		Expect(sp.DST[0]).To(Equal(math.Float64bits(0xFFF8000000000000)))
 	})
 
 	It("should run V_DIV_FIXUP_F64", func() {
@@ -396,14 +397,13 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 479
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.SRC0[0] = uint64(math.Float64bits(0))
-		sp.SRC1[0] = uint64(math.Float64bits(0x7FF0000000000000))
-		sp.SRC2[0] = uint64(math.Float64bits(0x7FF0000000000000))
+		sp.SRC0[0] = math.Float64bits(0)
+		sp.SRC1[0] = math.Float64bits(0x7FF0000000000000)
+		sp.SRC2[0] = math.Float64bits(0x7FF0000000000000)
 		sp.EXEC = 0x1
 
 		alu.Run(state)
 		// inf / inf
-		Expect(sp.DST[0]).To(Equal(uint64(math.Float64bits(0xFFF8000000000000))))
+		Expect(sp.DST[0]).To(Equal(math.Float64bits(0xFFF8000000000000)))
 	})
-
 })

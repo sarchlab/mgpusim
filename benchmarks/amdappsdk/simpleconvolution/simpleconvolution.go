@@ -1,3 +1,5 @@
+// Package simpleconvolution implements the Simple Convolution benchmark from
+// AMDAPPSDK.
 package simpleconvolution
 
 import (
@@ -90,7 +92,7 @@ func (b *Benchmark) initMem() {
 	b.hMask = make([]float32, b.maskSize*b.maskSize)
 
 	for i := uint32(0); i < numInputData; i++ {
-		b.hInputData[i] = uint32(i)
+		b.hInputData[i] = i
 	}
 
 	for i := uint32(0); i < b.maskSize*b.maskSize; i++ {
@@ -98,14 +100,19 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.useUnifiedMemory {
-		b.dInputData = b.driver.AllocateUnifiedMemory(b.context, uint64(numInputData*4))
-		b.dOutputData = b.driver.AllocateUnifiedMemory(b.context, uint64(numInputData*4))
-
+		b.dInputData = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(numInputData*4))
+		b.dOutputData = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(numInputData*4))
 	} else {
-		b.dInputData = b.driver.AllocateMemory(b.context, uint64(numInputData*4))
-		b.driver.Distribute(b.context, b.dInputData, uint64(numInputData*4), b.gpus)
-		b.dOutputData = b.driver.AllocateMemory(b.context, uint64(numInputData*4))
-		b.driver.Distribute(b.context, b.dInputData, uint64(numInputData*4), b.gpus)
+		b.dInputData = b.driver.AllocateMemory(b.context,
+			uint64(numInputData*4))
+		b.driver.Distribute(b.context, b.dInputData,
+			uint64(numInputData*4), b.gpus)
+		b.dOutputData = b.driver.AllocateMemory(b.context,
+			uint64(numInputData*4))
+		b.driver.Distribute(b.context, b.dInputData,
+			uint64(numInputData*4), b.gpus)
 	}
 
 	b.dMasks = make([]driver.GPUPtr, len(b.gpus))
@@ -126,7 +133,6 @@ func (b *Benchmark) initMem() {
 
 	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
 	b.driver.MemCopyH2D(b.context, b.dOutputData, b.hOutputData)
-
 }
 
 func (b *Benchmark) exec() {
@@ -152,7 +158,7 @@ func (b *Benchmark) exec() {
 		b.driver.EnqueueLaunchKernel(
 			queues[i],
 			b.kernel,
-			[3]uint32{uint32(gridSize), 1, 1},
+			[3]uint32{gridSize, 1, 1},
 			[3]uint16{uint16(64), 1, 1},
 			&kernArg,
 		)

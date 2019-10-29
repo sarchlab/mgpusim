@@ -61,5 +61,4 @@ func sdwaUnusedString(sdwaUnused SDWAUnused) string {
 		log.Panic("unknown SDWAUnused type")
 		return ""
 	}
-
 }

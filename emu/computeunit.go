@@ -147,6 +147,7 @@ func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *gcn3.MapWGReq) []byte
 	return lds
 }
 
+//nolint:funlen,gocyclo
 func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 	co := wf.CodeObject
 	pkt := wf.Packet
@@ -179,7 +180,7 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 		SGPRPtr += 8
 	}
 
-	if co.EnableSgprDispatchId() {
+	if co.EnableSgprDispatchID() {
 		log.Printf("EnableSgprDispatchID is not supported")
 		//fmt.Printf("s%d SGPRDispatchID\n", SGPRPtr/4)
 		SGPRPtr += 8
@@ -218,21 +219,21 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIdX() {
+	if co.EnableSgprWorkGroupIDX() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDX))
 		//fmt.Printf("s%d WorkGroupIdX\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIdY() {
+	if co.EnableSgprWorkGroupIDY() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDY))
 		//fmt.Printf("s%d WorkGroupIdY\n", SGPRPtr/4)
 		SGPRPtr += 4
 	}
 
-	if co.EnableSgprWorkGroupIdZ() {
+	if co.EnableSgprWorkGroupIDZ() {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDZ))
 		//fmt.Printf("s%d WorkGroupIdZ\n", SGPRPtr/4)
@@ -258,11 +259,11 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 
 		wf.WriteReg(insts.VReg(0), 1, laneID, insts.Uint32ToBytes(uint32(x)))
 
-		if co.EnableVgprWorkItemId() > 0 {
+		if co.EnableVgprWorkItemID() > 0 {
 			wf.WriteReg(insts.VReg(1), 1, laneID, insts.Uint32ToBytes(uint32(y)))
 		}
 
-		if co.EnableVgprWorkItemId() > 1 {
+		if co.EnableVgprWorkItemID() > 1 {
 			wf.WriteReg(insts.VReg(2), 1, laneID, insts.Uint32ToBytes(uint32(z)))
 		}
 	}

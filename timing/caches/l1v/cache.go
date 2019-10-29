@@ -46,31 +46,64 @@ func (c *Cache) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
 	if !c.isPaused {
-
-		for i := 0; i < c.numReqPerCycle; i++ {
-			madeProgress = c.respondStage.Tick(now) || madeProgress
-		}
-
-		for i := 0; i < c.numReqPerCycle; i++ {
-			madeProgress = c.parseBottomStage.Tick(now) || madeProgress
-		}
-
-		for _, bs := range c.bankStages {
-			for i := 0; i < c.numReqPerCycle; i++ {
-				madeProgress = bs.Tick(now) || madeProgress
-			}
-		}
-
-		for i := 0; i < c.numReqPerCycle; i++ {
-			madeProgress = c.directoryStage.Tick(now) || madeProgress
-		}
-
-		for i := 0; i < c.numReqPerCycle; i++ {
-			madeProgress = c.coalesceStage.Tick(now) || madeProgress
-		}
+		madeProgress = c.runPipeline(now) || madeProgress
 	}
 
 	madeProgress = c.controlStage.Tick(now) || madeProgress
 
+	return madeProgress
+}
+
+func (c *Cache) runPipeline(now akita.VTimeInSec) bool {
+	madeProgress := false
+	madeProgress = c.tickRespondStage(now) || madeProgress
+	madeProgress = c.tickParseBottomStage(now) || madeProgress
+	madeProgress = c.tickBankStage(now) || madeProgress
+	madeProgress = c.tickDirectoryStage(now) || madeProgress
+	madeProgress = c.tickCoalesceState(now) || madeProgress
+	return madeProgress
+}
+
+func (c *Cache) tickRespondStage(now akita.VTimeInSec) bool {
+	madeProgress := false
+	for i := 0; i < c.numReqPerCycle; i++ {
+		madeProgress = c.respondStage.Tick(now) || madeProgress
+	}
+	return madeProgress
+}
+
+func (c *Cache) tickParseBottomStage(now akita.VTimeInSec) bool {
+	madeProgress := false
+
+	for i := 0; i < c.numReqPerCycle; i++ {
+		madeProgress = c.parseBottomStage.Tick(now) || madeProgress
+	}
+
+	return madeProgress
+}
+
+func (c *Cache) tickBankStage(now akita.VTimeInSec) bool {
+	madeProgress := false
+	for _, bs := range c.bankStages {
+		for i := 0; i < c.numReqPerCycle; i++ {
+			madeProgress = bs.Tick(now) || madeProgress
+		}
+	}
+	return madeProgress
+}
+
+func (c *Cache) tickDirectoryStage(now akita.VTimeInSec) bool {
+	madeProgress := false
+	for i := 0; i < c.numReqPerCycle; i++ {
+		madeProgress = c.directoryStage.Tick(now) || madeProgress
+	}
+	return madeProgress
+}
+
+func (c *Cache) tickCoalesceState(now akita.VTimeInSec) bool {
+	madeProgress := false
+	for i := 0; i < c.numReqPerCycle; i++ {
+		madeProgress = c.coalesceStage.Tick(now) || madeProgress
+	}
 	return madeProgress
 }

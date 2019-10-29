@@ -40,5 +40,4 @@ func (u *ALUImpl) runSMULKI32(state InstEmuState) {
 	dst := asInt32(uint32(sp.DST))
 
 	sp.DST = int64ToBits(int64(int32(imm) * dst))
-
 }

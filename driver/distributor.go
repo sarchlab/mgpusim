@@ -68,5 +68,5 @@ func (d *distributorImpl) Distribute(
 		byteAllocatedOnEachGPU[lastAllocatedGPU] += pageSize
 	}
 
-	return
+	return byteAllocatedOnEachGPU
 }

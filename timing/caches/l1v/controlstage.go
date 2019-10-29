@@ -72,7 +72,6 @@ func (s *controlStage) hardResetCache(now akita.VTimeInSec) {
 
 	s.cache.transactions = nil
 	s.cache.postCoalesceTransactions = nil
-
 }
 
 func (s *controlStage) flushPort(port akita.Port, now akita.VTimeInSec) {

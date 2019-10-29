@@ -582,7 +582,7 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(uint32(sp.DST[0])).To(Equal(uint32(4)))
-		Expect(uint32(sp.DST[1])).To(Equal(uint32(^uint32(0) - 5)))
+		Expect(uint32(sp.DST[1])).To(Equal(^uint32(0) - 5))
 		Expect(sp.VCC).To(Equal(uint64(2)))
 	})
 

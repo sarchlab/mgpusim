@@ -93,7 +93,6 @@ func (b *Benchmark) initMem() {
 
 	if b.useUnifiedMemory {
 		b.gInputData = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
-
 	} else {
 		b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
 		b.driver.Distribute(
@@ -124,52 +123,60 @@ func (b *Benchmark) exec() {
 
 	for stage := 0; stage < numStages; stage++ {
 		for passOfStage := 0; passOfStage < stage+1; passOfStage++ {
-			totalWIs := b.Length / 2
-			wiPerQueue := totalWIs / len(queues)
-			remainder := totalWIs % len(queues)
-
-			log.Printf("Stage %d, pass %d\n", stage, passOfStage)
-
-			if doPerPassVerify {
-				b.driver.MemCopyD2H(b.context, b.perPassIn, b.gInputData)
-			}
-
-			for i, q := range queues {
-				kernArg := BitonicKernelArgs{
-					b.gInputData,
-					uint32(stage),
-					uint32(passOfStage),
-					uint32(direction),
-					0,
-					int64(wiPerQueue * i), 0, 0,
-				}
-
-				numWi := wiPerQueue
-				if i == len(queues)-1 {
-					numWi += remainder
-				}
-
-				b.driver.EnqueueLaunchKernel(
-					q,
-					b.hsaco,
-					[3]uint32{uint32(numWi), 1, 1},
-					[3]uint16{64, 1, 1},
-					&kernArg,
-				)
-			}
-
-			for _, q := range queues {
-				b.driver.DrainCommandQueue(q)
-			}
-
-			if doPerPassVerify {
-				b.driver.MemCopyD2H(b.context, b.perPassOut, b.gInputData)
-				b.verifyPass(b.perPassIn, b.perPassOut, stage, passOfStage)
-			}
+			b.runPass(stage, passOfStage, direction, queues)
 		}
 	}
 
 	b.driver.MemCopyD2H(b.context, b.outputData, b.gInputData)
+}
+
+func (b *Benchmark) runPass(
+	stage, passOfStage int,
+	direction int,
+	queues []*driver.CommandQueue,
+) {
+	totalWIs := b.Length / 2
+	wiPerQueue := totalWIs / len(queues)
+	remainder := totalWIs % len(queues)
+
+	log.Printf("Stage %d, pass %d\n", stage, passOfStage)
+
+	if doPerPassVerify {
+		b.driver.MemCopyD2H(b.context, b.perPassIn, b.gInputData)
+	}
+
+	for i, q := range queues {
+		kernArg := BitonicKernelArgs{
+			b.gInputData,
+			uint32(stage),
+			uint32(passOfStage),
+			uint32(direction),
+			0,
+			int64(wiPerQueue * i), 0, 0,
+		}
+
+		numWi := wiPerQueue
+		if i == len(queues)-1 {
+			numWi += remainder
+		}
+
+		b.driver.EnqueueLaunchKernel(
+			q,
+			b.hsaco,
+			[3]uint32{uint32(numWi), 1, 1},
+			[3]uint16{64, 1, 1},
+			&kernArg,
+		)
+	}
+
+	for _, q := range queues {
+		b.driver.DrainCommandQueue(q)
+	}
+
+	if doPerPassVerify {
+		b.driver.MemCopyD2H(b.context, b.perPassOut, b.gInputData)
+		b.verifyPass(b.perPassIn, b.perPassOut, stage, passOfStage)
+	}
 }
 
 func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) {
@@ -220,7 +227,6 @@ func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) {
 	// if failed {
 	// 	panic("failed")
 	// }
-
 }
 
 // Verify checks if the array is sorted

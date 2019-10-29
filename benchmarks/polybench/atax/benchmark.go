@@ -1,3 +1,4 @@
+// Package atax implements the ATAX benchmark from Polybench.
 package atax
 
 import (
@@ -117,7 +118,6 @@ func (b *Benchmark) initMem() {
 		b.dTmp = b.driver.AllocateMemory(b.context,
 			uint64(b.NX*4))
 	}
-
 }
 
 func (b *Benchmark) exec() {

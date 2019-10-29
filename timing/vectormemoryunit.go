@@ -129,7 +129,6 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(now akita.VTimeInSec) {
-
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 16, 17, 18, 19, 20, 21, 22, 23: // FLAT_LOAD_BYTE

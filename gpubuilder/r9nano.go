@@ -162,6 +162,7 @@ func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder
 	return b
 }
 
+//nolint:gocyclo,funlen
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.gpuName = name
@@ -218,7 +219,6 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL2)
 	b.CP.RDMA = b.gpu.RDMAEngine.CtrlPort
 	b.InternalConn.PlugIn(b.CP.RDMA)
-
 }
 
 func (b *R9NanoGPUBuilder) buildPageMigrationController() {
@@ -237,7 +237,6 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 
 	b.CP.PMC = b.gpu.PMC.CtrlPort
 	b.InternalConn.PlugIn(b.CP.PMC)
-
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
@@ -246,7 +245,6 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 		b.engine,
 		b.LowModuleFinderForL2)
 	b.CP.DMAEngine = b.DMAEngine.ToCP
-
 }
 
 func (b *R9NanoGPUBuilder) buildCP() {

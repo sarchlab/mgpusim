@@ -2,6 +2,7 @@ package emu
 
 import "log"
 
+//nolint:gocyclo
 func (u *ALUImpl) runSOP1(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {

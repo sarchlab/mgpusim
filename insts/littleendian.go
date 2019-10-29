@@ -5,13 +5,13 @@ import "encoding/binary"
 // Uint8ToBytes returns the bytes representation of a uint32 value
 func Uint8ToBytes(num uint8) []byte {
 	data := make([]byte, 1)
-	data[0] = byte(num)
+	data[0] = num
 	return data
 }
 
 // BytesToUint8 decode a uint32 number from bytes
 func BytesToUint8(data []byte) uint8 {
-	return uint8(data[0])
+	return data[0]
 }
 
 // Uint32ToBytes returns the bytes representation of a uint32 value

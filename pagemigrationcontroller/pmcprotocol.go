@@ -67,7 +67,9 @@ func (b PageMigrationReqToPMCBuilder) WithPageSize(pageSize uint64) PageMigratio
 }
 
 // WithPageSize sets the page size.
-func (b PageMigrationReqToPMCBuilder) WithPMCPortOfRemoteGPU(pmcPortOfRemoteGPU akita.Port) PageMigrationReqToPMCBuilder {
+func (b PageMigrationReqToPMCBuilder) WithPMCPortOfRemoteGPU(
+	pmcPortOfRemoteGPU akita.Port,
+) PageMigrationReqToPMCBuilder {
 	b.PMCPortOfRemoteGPU = pmcPortOfRemoteGPU
 	return b
 }

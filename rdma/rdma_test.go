@@ -25,16 +25,16 @@ var _ = Describe("Engine", func() {
 	var (
 		mockCtrl *gomock.Controller
 
-		engine        *MockEngine
-		rdmaEngine    *Engine
-		toL1      *MockPort
-		toL2      *MockPort
-		ctrlPort  *MockPort
-		toOutside     *MockPort
-		localModules  *cache.SingleLowModuleFinder
-		remoteModules *cache.SingleLowModuleFinder
-		localCache    *MockPort
-		remoteGPU     *MockPort
+		engine               *MockEngine
+		rdmaEngine           *Engine
+		toL1                 *MockPort
+		toL2                 *MockPort
+		ctrlPort             *MockPort
+		toOutside            *MockPort
+		localModules         *cache.SingleLowModuleFinder
+		remoteModules        *cache.SingleLowModuleFinder
+		localCache           *MockPort
+		remoteGPU            *MockPort
 		controllingComponent *MockPort
 	)
 
@@ -56,10 +56,9 @@ var _ = Describe("Engine", func() {
 		toL2 = NewMockPort(mockCtrl)
 		ctrlPort = NewMockPort(mockCtrl)
 		toOutside = NewMockPort(mockCtrl)
-		rdmaEngine.ToL1= toL1
+		rdmaEngine.ToL1 = toL1
 		rdmaEngine.ToL2 = toL2
 		rdmaEngine.CtrlPort = ctrlPort
-
 
 		rdmaEngine.ToOutside = toOutside
 	})
@@ -265,8 +264,8 @@ var _ = Describe("Engine", func() {
 	Context("Drain related handling", func() {
 
 		var (
-			read *mem.ReadReq
-			drainReq *RDMADrainReq
+			read       *mem.ReadReq
+			drainReq   *RDMADrainReq
 			restartReq *RDMARestartReq
 		)
 
@@ -287,7 +286,6 @@ var _ = Describe("Engine", func() {
 				WithSrc(controllingComponent).
 				WithDst(rdmaEngine.CtrlPort).Build()
 
-
 		})
 
 		It("should handle drain req", func() {
@@ -299,7 +297,6 @@ var _ = Describe("Engine", func() {
 			Expect(rdmaEngine.currentDrainReq).To(Equal(drainReq))
 			Expect(rdmaEngine.isDraining).To(BeTrue())
 			Expect(rdmaEngine.pauseIncomingReqsFromL1).To(BeTrue())
-
 
 		})
 
@@ -313,7 +310,6 @@ var _ = Describe("Engine", func() {
 			rdmaEngine.drainRDMA(10)
 
 			Expect(rdmaEngine.isDraining).To(BeFalse())
-
 
 		})
 
@@ -331,7 +327,6 @@ var _ = Describe("Engine", func() {
 
 			Expect(rdmaEngine.isDraining).To(BeTrue())
 
-
 		})
 
 		It("should handle drain restart req", func() {
@@ -346,10 +341,7 @@ var _ = Describe("Engine", func() {
 			Expect(rdmaEngine.currentDrainReq).To(BeNil())
 			Expect(rdmaEngine.pauseIncomingReqsFromL1).To(BeFalse())
 
-
 		})
-
-
 
 	})
 })

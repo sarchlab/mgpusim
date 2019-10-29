@@ -80,7 +80,7 @@ func (g matrixGenerator) selectRowData(
 ) {
 	indexes := g.yCoordIndex[row]
 	for _, index := range indexes {
-		cols = append(cols, uint32(g.xCoords[index]))
+		cols = append(cols, g.xCoords[index])
 		values = append(values, g.values[index])
 	}
 	return
@@ -121,7 +121,6 @@ func (g *matrixGenerator) generateOneConnection() {
 	}
 	g.xCoordIndex[x] = append(g.xCoordIndex[x], uint32(len(g.values)-1))
 	g.yCoordIndex[y] = append(g.yCoordIndex[y], uint32(len(g.values)-1))
-
 }
 
 func (g matrixGenerator) generateUnoccupiedPosition() (x, y uint32) {
