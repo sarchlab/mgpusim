@@ -35,6 +35,8 @@ type Benchmark struct {
 	outputData            []uint32
 	gInputData            driver.GPUPtr
 	perPassIn, perPassOut []uint32
+
+	useUnifiedMemory bool
 }
 
 // NewBenchmark creates a new bitonic sort benchmark.
@@ -64,6 +66,11 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpusToUse = gpuIDs
 }
 
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
+}
+
 // Run runs the benchmark on simulated GPU platform
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpusToUse[0])
@@ -84,11 +91,16 @@ func (b *Benchmark) initMem() {
 		b.perPassOut = make([]uint32, b.Length)
 	}
 
-	b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
-	b.driver.Distribute(
-		b.context,
-		b.gInputData, uint64(b.Length*4),
-		b.gpusToUse)
+	if b.useUnifiedMemory {
+		b.gInputData = b.driver.AllocateUnifiedMemory(b.context, uint64(b.Length*4))
+
+	} else {
+		b.gInputData = b.driver.AllocateMemory(b.context, uint64(b.Length*4))
+		b.driver.Distribute(
+			b.context,
+			b.gInputData, uint64(b.Length*4),
+			b.gpusToUse)
+	}
 
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
 }

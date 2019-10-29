@@ -40,6 +40,8 @@ type Benchmark struct {
 	hOutputData []uint32
 	dInputData  driver.GPUPtr
 	dOutputData driver.GPUPtr
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -54,6 +56,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -85,12 +92,20 @@ func (b *Benchmark) initMem() {
 		b.hInputData[i] = uint32(i)
 	}
 
-	b.dInputData = b.driver.AllocateMemory(
-		b.context, uint64(numData*4))
-	b.dOutputData = b.driver.AllocateMemory(
-		b.context, uint64(numData*4))
-	b.driver.Distribute(b.context, b.dInputData, uint64(numData*4), b.gpus)
-	b.driver.Distribute(b.context, b.dOutputData, uint64(numData*4), b.gpus)
+	if b.useUnifiedMemory {
+		b.dInputData = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(numData*4))
+		b.dOutputData = b.driver.AllocateUnifiedMemory(
+			b.context, uint64(numData*4))
+	} else {
+		b.dInputData = b.driver.AllocateMemory(
+			b.context, uint64(numData*4))
+		b.dOutputData = b.driver.AllocateMemory(
+			b.context, uint64(numData*4))
+		b.driver.Distribute(b.context, b.dInputData, uint64(numData*4), b.gpus)
+		b.driver.Distribute(b.context, b.dOutputData, uint64(numData*4), b.gpus)
+
+	}
 
 	b.driver.MemCopyH2D(b.context, b.dInputData, b.hInputData)
 }

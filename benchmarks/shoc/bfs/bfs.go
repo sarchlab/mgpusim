@@ -41,6 +41,8 @@ type Benchmark struct {
 	dEdgeArray    driver.GPUPtr
 	dEdgeArrayAux driver.GPUPtr
 	dFlag         driver.GPUPtr
+
+	useUnifiedMemory bool
 }
 
 // NewBenchmark creates a new BFS benchmark
@@ -58,6 +60,11 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 		panic("BFS does not support multi-GPU execution yet.")
 	}
 	b.gpus = gpus
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -95,14 +102,27 @@ func (b *Benchmark) initMem() {
 	b.hFrontier[b.sourceNode] = 0
 	b.hCost[b.sourceNode] = 0
 
-	b.dFrontier = b.driver.AllocateMemory(b.context,
-		uint64(b.NumNode*4))
-	b.dEdgeArray = b.driver.AllocateMemory(b.context,
-		uint64((b.NumNode+1)*4))
-	b.dEdgeArrayAux = b.driver.AllocateMemory(b.context,
-		uint64(len(b.graph.edgeList)*4))
-	b.dFlag = b.driver.AllocateMemory(b.context,
-		4)
+	if b.useUnifiedMemory {
+		b.dFrontier = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.NumNode*4))
+		b.dEdgeArray = b.driver.AllocateUnifiedMemory(b.context,
+			uint64((b.NumNode+1)*4))
+		b.dEdgeArrayAux = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(len(b.graph.edgeList)*4))
+		b.dFlag = b.driver.AllocateUnifiedMemory(b.context,
+			4)
+
+	} else {
+		b.dFrontier = b.driver.AllocateMemory(b.context,
+			uint64(b.NumNode*4))
+		b.dEdgeArray = b.driver.AllocateMemory(b.context,
+			uint64((b.NumNode+1)*4))
+		b.dEdgeArrayAux = b.driver.AllocateMemory(b.context,
+			uint64(len(b.graph.edgeList)*4))
+		b.dFlag = b.driver.AllocateMemory(b.context,
+			4)
+	}
+
 }
 
 func (b *Benchmark) exec() {

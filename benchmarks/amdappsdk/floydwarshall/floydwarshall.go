@@ -3,12 +3,11 @@ package floydwarshall
 import (
 	"fmt"
 	"log"
+	"math/rand"
 
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
-
-	"math/rand"
 )
 
 type FloydWarshallKernelArgs struct {
@@ -35,6 +34,8 @@ type Benchmark struct {
 
 	hVerificationPathMatrix         []uint32
 	hVerificationPathDistanceMatrix []uint32
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -47,6 +48,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -106,12 +112,21 @@ func (b *Benchmark) initMem() {
 	copy(b.hVerificationPathDistanceMatrix, b.hOutputPathDistanceMatrix)
 	copy(b.hVerificationPathMatrix, b.hOutputPathMatrix)
 
-	b.dOutputPathMatrix = b.driver.AllocateMemory(
-		b.context,
-		uint64(numNodes*numNodes*4))
-	b.dOutputPathDistanceMatrix = b.driver.AllocateMemory(
-		b.context,
-		uint64(numNodes*numNodes*4))
+	if b.useUnifiedMemory {
+		b.dOutputPathMatrix = b.driver.AllocateUnifiedMemory(
+			b.context,
+			uint64(numNodes*numNodes*4))
+		b.dOutputPathDistanceMatrix = b.driver.AllocateUnifiedMemory(
+			b.context,
+			uint64(numNodes*numNodes*4))
+	} else {
+		b.dOutputPathMatrix = b.driver.AllocateMemory(
+			b.context,
+			uint64(numNodes*numNodes*4))
+		b.dOutputPathDistanceMatrix = b.driver.AllocateMemory(
+			b.context,
+			uint64(numNodes*numNodes*4))
+	}
 
 	b.driver.MemCopyH2D(b.context, b.dOutputPathMatrix, b.hOutputPathMatrix)
 	b.driver.MemCopyH2D(b.context, b.dOutputPathDistanceMatrix, b.hOutputPathDistanceMatrix)

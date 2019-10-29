@@ -5,9 +5,8 @@ import (
 	"log"
 	"math/rand"
 
-	"gitlab.com/akita/gcn3/samples/runner"
-
 	"gitlab.com/akita/gcn3/driver"
+	"gitlab.com/akita/gcn3/samples/runner"
 )
 
 type Benchmark struct {
@@ -18,6 +17,8 @@ type Benchmark struct {
 	ByteSize uint64
 	data     []byte
 	retData  []byte
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -34,6 +35,11 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpu = gpus[0]
 }
 
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
+}
+
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpu)
 
@@ -44,6 +50,11 @@ func (b *Benchmark) Run() {
 	}
 
 	gpuData := b.driver.AllocateMemory(b.context, b.ByteSize)
+
+	if b.useUnifiedMemory {
+		gpuData = b.driver.AllocateUnifiedMemory(b.context, b.ByteSize)
+
+	}
 
 	b.driver.MemCopyH2D(b.context, gpuData, b.data)
 	b.driver.MemCopyD2H(b.context, b.retData, gpuData)

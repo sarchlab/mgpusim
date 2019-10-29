@@ -58,6 +58,8 @@ type Benchmark struct {
 	paddedDataSize                int
 	pad                           int
 	localRows, localCols          int
+
+	useUnifiedMemory bool
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -77,6 +79,11 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
+}
+
+// Use Unified Memory
+func (b *Benchmark) SetUnifiedMemory() {
+	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
@@ -117,10 +124,17 @@ func (b *Benchmark) initMem() {
 		b.hInput[i] = 1
 	}
 
-	b.dData1 = b.driver.AllocateMemory(b.context,
-		uint64(b.paddedDataSize*4))
-	b.dData2 = b.driver.AllocateMemory(b.context,
-		uint64(b.paddedDataSize*4))
+	if b.useUnifiedMemory {
+		b.dData1 = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.paddedDataSize*4))
+		b.dData2 = b.driver.AllocateUnifiedMemory(b.context,
+			uint64(b.paddedDataSize*4))
+	} else {
+		b.dData1 = b.driver.AllocateMemory(b.context,
+			uint64(b.paddedDataSize*4))
+		b.dData2 = b.driver.AllocateMemory(b.context,
+			uint64(b.paddedDataSize*4))
+	}
 
 	b.currData = &b.dData1
 	b.newData = &b.dData2

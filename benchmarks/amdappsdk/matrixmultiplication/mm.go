@@ -3,9 +3,8 @@ package matrixmultiplication
 import (
 	"log"
 
-	"gitlab.com/akita/gcn3/insts"
-
 	"gitlab.com/akita/gcn3/driver"
+	"gitlab.com/akita/gcn3/insts"
 	"gitlab.com/akita/gcn3/kernels"
 )
 
@@ -18,10 +17,11 @@ type MatrixMultiplier interface {
 // A GPUMatrixMultiplier is a MatrixMultiplier that runs the
 // MatrixMultiplication on GCN3 simulator.
 type GPUMatrixMultiplier struct {
-	driver  *driver.Driver
-	context *driver.Context
-	gpus    []int
-	kernel  *insts.HsaCo
+	driver           *driver.Driver
+	context          *driver.Context
+	gpus             []int
+	kernel           *insts.HsaCo
+	useUnifiedMemory bool
 }
 
 // NewGPUMatrixMultiplier creates a new GPUMatrixMultiplier, injecting the
@@ -106,19 +106,29 @@ func (m *GPUMatrixMultiplier) launchKernel(
 func (m *GPUMatrixMultiplier) initMemory(
 	mA, mB, mC *Matrix,
 ) (driver.GPUPtr, driver.GPUPtr, driver.GPUPtr) {
-	gA := m.driver.AllocateMemory(m.context, uint64(mA.Width*mA.Height*4))
-	m.driver.Distribute(m.context, gA, uint64(mA.Width*mA.Height*4), m.gpus)
+	if m.useUnifiedMemory {
+		gA := m.driver.AllocateUnifiedMemory(m.context, uint64(mA.Width*mA.Height*4))
+		gB := m.driver.AllocateUnifiedMemory(m.context, uint64(mB.Width*mB.Height*4))
+		gC := m.driver.AllocateUnifiedMemory(m.context, uint64(mC.Width*mC.Height*4))
+		m.driver.MemCopyH2D(m.context, gA, mA.Data)
+		m.driver.MemCopyH2D(m.context, gB, mB.Data)
 
-	gB := m.driver.AllocateMemory(m.context, uint64(mB.Width*mB.Height*4))
-	m.driver.Distribute(m.context, gB, uint64(mB.Width*mB.Height*4), m.gpus)
+		return gA, gB, gC
+	} else {
+		gA := m.driver.AllocateMemory(m.context, uint64(mA.Width*mA.Height*4))
+		m.driver.Distribute(m.context, gA, uint64(mA.Width*mA.Height*4), m.gpus)
 
-	gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
-	m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
+		gB := m.driver.AllocateMemory(m.context, uint64(mB.Width*mB.Height*4))
+		m.driver.Distribute(m.context, gB, uint64(mB.Width*mB.Height*4), m.gpus)
 
-	m.driver.MemCopyH2D(m.context, gA, mA.Data)
-	m.driver.MemCopyH2D(m.context, gB, mB.Data)
+		gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
+		m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
+		m.driver.MemCopyH2D(m.context, gA, mA.Data)
+		m.driver.MemCopyH2D(m.context, gB, mB.Data)
 
-	return gA, gB, gC
+		return gA, gB, gC
+	}
+
 }
 
 func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
