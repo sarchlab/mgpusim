@@ -5,12 +5,11 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/akitaext"
 )
 
 // A Cache is a customized L1 cache the for R9nano GPUs.
 type Cache struct {
-	*akitaext.TickingComponent
+	*akita.TickingComponent
 
 	TopPort     akita.Port
 	BottomPort  akita.Port

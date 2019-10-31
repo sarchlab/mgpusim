@@ -22,7 +22,7 @@ func (d *Driver) EnqueueLaunchKernel(
 	packet, dPacket := d.createAQLPacket(
 		queue, gridSize, wgSize, dCoData, dKernArgData)
 	d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
-	d.enqueueFinalFlush(queue)
+	// d.enqueueFinalFlush(queue)
 }
 
 func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {

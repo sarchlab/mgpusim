@@ -40,10 +40,10 @@ var _ = Describe("DMAEngine", func() {
 		req := NewMemCopyH2DReq(5, nil, toCP, srcBuf, 20)
 		dmaEngine.processingReq = req
 
-		dmaEngine.parseFromCP(6)
+		madeProgress := dmaEngine.parseFromCP(6)
 
 		Expect(dmaEngine.toSendToMem).To(HaveLen(0))
-		Expect(dmaEngine.NeedTick).To(BeFalse())
+		Expect(madeProgress).To(BeFalse())
 	})
 
 	It("should parse MemCopyH2D from CP", func() {
@@ -52,7 +52,7 @@ var _ = Describe("DMAEngine", func() {
 
 		toCP.EXPECT().Retrieve(akita.VTimeInSec(6)).Return(req)
 
-		dmaEngine.parseFromCP(6)
+		madeProgress := dmaEngine.parseFromCP(6)
 
 		Expect(dmaEngine.processingReq).To(BeIdenticalTo(req))
 		Expect(dmaEngine.toSendToMem).To(HaveLen(3))
@@ -62,7 +62,7 @@ var _ = Describe("DMAEngine", func() {
 			To(Equal(uint64(64)))
 		Expect(dmaEngine.toSendToMem[2].(*mem.WriteReq).Address).
 			To(Equal(uint64(128)))
-		Expect(dmaEngine.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(dmaEngine.pendingReqs).To(HaveLen(3))
 	})
 
@@ -72,7 +72,7 @@ var _ = Describe("DMAEngine", func() {
 
 		toCP.EXPECT().Retrieve(akita.VTimeInSec(6)).Return(req)
 
-		dmaEngine.parseFromCP(6)
+		madeProgress := dmaEngine.parseFromCP(6)
 
 		Expect(dmaEngine.processingReq).To(BeIdenticalTo(req))
 		Expect(dmaEngine.toSendToMem).To(HaveLen(3))
@@ -82,7 +82,7 @@ var _ = Describe("DMAEngine", func() {
 			To(Equal(uint64(64)))
 		Expect(dmaEngine.toSendToMem[2].(*mem.ReadReq).Address).
 			To(Equal(uint64(128)))
-		Expect(dmaEngine.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(dmaEngine.pendingReqs).To(HaveLen(3))
 	})
 
@@ -129,9 +129,9 @@ var _ = Describe("DMAEngine", func() {
 			}).Build()
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(dataReady)
 
-		dmaEngine.parseFromMem(10)
+		madeProgress := dmaEngine.parseFromMem(10)
 
-		Expect(dmaEngine.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(dmaEngine.processingReq).To(BeIdenticalTo(req))
 		Expect(dmaEngine.pendingReqs).NotTo(ContainElement(reqToBottom2))
 		Expect(dmaEngine.pendingReqs).To(ContainElement(reqToBottom1))
@@ -169,9 +169,9 @@ var _ = Describe("DMAEngine", func() {
 			Build()
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(dataReady)
 
-		dmaEngine.parseFromMem(10)
+		madeProgress := dmaEngine.parseFromMem(10)
 
-		Expect(dmaEngine.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(dmaEngine.processingReq).To(BeNil())
 		Expect(dmaEngine.pendingReqs).NotTo(ContainElement(reqToBottom2))
 		Expect(dstBuf[44:108]).To(Equal(dataReady.Data))
@@ -211,9 +211,9 @@ var _ = Describe("DMAEngine", func() {
 
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(done)
 
-		dmaEngine.parseFromMem(10)
+		madeProgress := dmaEngine.parseFromMem(10)
 
-		Expect(dmaEngine.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(dmaEngine.processingReq).To(BeIdenticalTo(req))
 		Expect(dmaEngine.pendingReqs).NotTo(ContainElement(reqToBottom2))
 		Expect(dmaEngine.pendingReqs).To(ContainElement(reqToBottom1))
@@ -240,9 +240,9 @@ var _ = Describe("DMAEngine", func() {
 
 		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(done)
 
-		dmaEngine.parseFromMem(10)
+		madeProgress := dmaEngine.parseFromMem(10)
 
-		Expect(dmaEngine.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(dmaEngine.processingReq).To(BeNil())
 		Expect(dmaEngine.pendingReqs).NotTo(ContainElement(reqToBottom2))
 		Expect(dmaEngine.toSendToCP).To(ContainElement(req))

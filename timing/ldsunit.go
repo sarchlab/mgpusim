@@ -48,7 +48,6 @@ func (u *LDSUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
 // Run executes three pipeline stages that are controlled by the LDSUnit
@@ -68,9 +67,6 @@ func (u *LDSUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
 
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", true)
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", false)
-
 		u.toExec = u.toRead
 		u.toRead = nil
 		return true
@@ -87,9 +83,6 @@ func (u *LDSUnit) runExecStage(now akita.VTimeInSec) bool {
 		u.alu.SetLDS(u.toExec.WG.LDS)
 		u.alu.Run(u.toExec)
 
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "write", false)
-
 		u.toWrite = u.toExec
 		u.toExec = nil
 		return true
@@ -104,7 +97,6 @@ func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.logInstStageTask(now, u.toWrite.DynamicInst(), "write", true)
 	u.cu.logInstTask(now, u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)

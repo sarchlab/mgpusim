@@ -8,7 +8,6 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -44,7 +43,7 @@ var _ = Describe("Directory", func() {
 			wayAssociativity: 4,
 			bankBufs:         []util.Buffer{bankBuf},
 		}
-		c.TickingComponent = akitaext.NewTickingComponent(
+		c.TickingComponent = akita.NewTickingComponent(
 			"cache", nil, 1, c)
 		d = &directory{cache: c}
 	})

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util/tracing"
-	"gitlab.com/akita/vis/trace"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
@@ -89,21 +88,19 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	cu.InvokeHook(&ctx)
 
 	cu.Lock()
+	defer cu.Unlock()
 
 	switch evt := evt.(type) {
 	case akita.TickEvent:
-		cu.handleTickEvent(evt)
+		cu.TickingComponent.Handle(evt)
 	case *WfDispatchEvent:
 		cu.handleWfDispatchEvent(evt)
 	case *WfCompletionEvent:
 		cu.handleWfCompletionEvent(evt)
 	default:
-		cu.Unlock()
 		log.Panicf("Unable to process evevt of type %s",
 			reflect.TypeOf(evt))
 	}
-
-	cu.Unlock()
 
 	ctx.Pos = akita.HookPosAfterEvent
 	cu.InvokeHook(&ctx)
@@ -111,84 +108,89 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	return nil
 }
 
-func (cu *ComputeUnit) handleTickEvent(evt akita.TickEvent) {
-	now := evt.Time()
-	cu.NeedTick = false
+func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
+	cu.Lock()
+	defer cu.Unlock()
 
-	if !cu.isPaused {
-		cu.runPipeline(now)
-	}
+	madeProgress := false
 
-	cu.processInput(now)
-	if cu.isFlushing {
-		//If a flush request arrives before the shadow buffer requests have been sent out
-		if cu.isSendingOutShadowBufferReqs {
-			cu.reInsertShadowBufferReqsToOriginalBuffers()
-		}
-		cu.flushPipeline(now)
-	}
-	cu.sendToCP(now)
+	madeProgress = cu.runPipeline(now) || madeProgress
+	madeProgress = cu.sendToCP(now) || madeProgress
+	madeProgress = cu.processInput(now) || madeProgress
+	madeProgress = cu.doFlush(now) || madeProgress
 
-	if cu.isSendingOutShadowBufferReqs {
-		cu.checkShadowBuffers(now)
-	}
-
-	if cu.NeedTick {
-		cu.TickLater(now)
-	}
+	return madeProgress
 }
 
 //nolint:gocyclo
-func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) {
+func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	madeProgress = cu.BranchUnit.Run(now) || madeProgress
-	madeProgress = cu.ScalarUnit.Run(now) || madeProgress
-	madeProgress = cu.ScalarDecoder.Run(now) || madeProgress
-	for _, simdUnit := range cu.SIMDUnit {
-		madeProgress = simdUnit.Run(now) || madeProgress
-	}
-	madeProgress = cu.VectorDecoder.Run(now) || madeProgress
-	madeProgress = cu.LDSUnit.Run(now) || madeProgress
-	madeProgress = cu.LDSDecoder.Run(now) || madeProgress
-	madeProgress = cu.VectorMemUnit.Run(now) || madeProgress
-	madeProgress = cu.VectorMemDecoder.Run(now) || madeProgress
-	madeProgress = cu.Scheduler.Run(now) || madeProgress
-
-	if madeProgress {
-		cu.NeedTick = true
-	}
-}
-
-func (cu *ComputeUnit) processInput(now akita.VTimeInSec) {
 	if !cu.isPaused {
-		cu.processInputFromACE(now)
-		cu.processInputFromInstMem(now)
-		cu.processInputFromScalarMem(now)
-		cu.processInputFromVectorMem(now)
+		madeProgress = cu.BranchUnit.Run(now) || madeProgress
+		madeProgress = cu.ScalarUnit.Run(now) || madeProgress
+		madeProgress = cu.ScalarDecoder.Run(now) || madeProgress
+		for _, simdUnit := range cu.SIMDUnit {
+			madeProgress = simdUnit.Run(now) || madeProgress
+		}
+		madeProgress = cu.VectorDecoder.Run(now) || madeProgress
+		madeProgress = cu.LDSUnit.Run(now) || madeProgress
+		madeProgress = cu.LDSDecoder.Run(now) || madeProgress
+		madeProgress = cu.VectorMemUnit.Run(now) || madeProgress
+		madeProgress = cu.VectorMemDecoder.Run(now) || madeProgress
+		madeProgress = cu.Scheduler.Run(now) || madeProgress
 	}
-	//When pausing we still allow requests from CP so that we can receive the resume command correctly
 
-	cu.processInputFromCP(now)
+	return madeProgress
 }
 
-func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) {
-	req := cu.ToCP.Retrieve(now)
-
-	if req == nil {
-		return
+func (cu *ComputeUnit) doFlush(now akita.VTimeInSec) bool {
+	madeProgress := false
+	if cu.isFlushing {
+		//If a flush request arrives before the shadow buffer requests have been sent out
+		if cu.isSendingOutShadowBufferReqs {
+			madeProgress = cu.reInsertShadowBufferReqsToOriginalBuffers() || madeProgress
+		}
+		madeProgress = cu.flushPipeline(now) || madeProgress
 	}
 
-	cu.NeedTick = true
+	if cu.isSendingOutShadowBufferReqs {
+		madeProgress = cu.checkShadowBuffers(now) || madeProgress
+	}
+
+	return madeProgress
+}
+
+func (cu *ComputeUnit) processInput(now akita.VTimeInSec) bool {
+	madeProgress := false
+
+	if !cu.isPaused {
+		madeProgress = cu.processInputFromACE(now) || madeProgress
+		madeProgress = cu.processInputFromInstMem(now) || madeProgress
+		madeProgress = cu.processInputFromScalarMem(now) || madeProgress
+		madeProgress = cu.processInputFromVectorMem(now) || madeProgress
+	}
+
+	madeProgress = cu.processInputFromCP(now) || madeProgress
+
+	return madeProgress
+}
+
+func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) bool {
+	req := cu.ToCP.Retrieve(now)
+	if req == nil {
+		return false
+	}
 
 	cu.inCPRequestProcessingStage = req
-
 	switch req := req.(type) {
 	case *gcn3.CUPipelineRestartReq:
 		cu.handlePipelineResume(now, req)
 	case *gcn3.CUPipelineFlushReq:
 		cu.handlePipelineFlushReq(now, req)
 	}
+
+	return true
 }
 
 func (cu *ComputeUnit) handlePipelineFlushReq(
@@ -222,25 +224,28 @@ func (cu *ComputeUnit) handlePipelineResume(
 	return nil
 }
 
-func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) {
+func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) bool {
 	if cu.toSendToCP == nil {
-		return
+		return false
 	}
 
 	cu.toSendToCP.Meta().SendTime = now
 	sendErr := cu.ToCP.Send(cu.toSendToCP)
 	if sendErr == nil {
 		cu.toSendToCP = nil
-		cu.NeedTick = true
+		return true
 	}
+
+	return false
 }
 
-func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
+func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) bool {
 	if cu.currentFlushReq == nil {
-		return
+		return false
 	}
+
 	if cu.isHandlingWfCompletionEvent == true {
-		return
+		return false
 	}
 
 	cu.shadowInFlightInstFetch = nil
@@ -249,11 +254,8 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 
 	cu.populateShadowBuffers()
 	cu.setWavesToReady()
-
 	cu.Scheduler.Flush()
-
 	cu.flushInternalComponents()
-
 	cu.Scheduler.Pause()
 	cu.isPaused = true
 
@@ -263,12 +265,10 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) {
 		WithDst(cu.currentFlushReq.Src).
 		Build()
 	cu.toSendToCP = respondToCP
-
 	cu.currentFlushReq = nil
-
 	cu.isFlushing = false
 
-	cu.NeedTick = true
+	return true
 }
 
 func (cu *ComputeUnit) flushInternalComponents() {
@@ -288,24 +288,25 @@ func (cu *ComputeUnit) flushInternalComponents() {
 	cu.VectorMemUnit.Flush()
 }
 
-func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) {
+func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) bool {
 	req := cu.ToACE.Retrieve(now)
 	if req == nil {
-		return
+		return false
 	}
 
 	switch req := req.(type) {
 	case *gcn3.MapWGReq:
-		cu.handleMapWGReq(now, req)
+		return cu.handleMapWGReq(now, req)
+	default:
+		panic("unknown req type")
 	}
 }
 
 func (cu *ComputeUnit) handleMapWGReq(
 	now akita.VTimeInSec,
 	req *gcn3.MapWGReq,
-) error {
+) bool {
 	ok := false
-
 	if len(cu.WfToDispatch) == 0 {
 		ok = cu.WGMapper.MapWG(req)
 	}
@@ -336,7 +337,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 
 		tracing.TraceReqReceive(req, now, cu)
 
-		return nil
+		return true
 	}
 
 	req.Ok = false
@@ -347,7 +348,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 		log.Panic(err)
 	}
 
-	return nil
+	return true
 }
 
 func (cu *ComputeUnit) handleWfDispatchEvent(
@@ -484,12 +485,11 @@ func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *wavefront.Wavefront {
 	return wf
 }
 
-func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) {
+func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) bool {
 	rsp := cu.ToInstMem.Retrieve(now)
 	if rsp == nil {
-		return
+		return false
 	}
-	cu.NeedTick = true
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
@@ -498,16 +498,21 @@ func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) {
 		log.Panicf("cannot handle request of type %s from ToInstMem port",
 			reflect.TypeOf(rsp))
 	}
+	return true
 }
 
-func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataReadyRsp) {
+func (cu *ComputeUnit) handleFetchReturn(
+	now akita.VTimeInSec,
+	rsp *mem.DataReadyRsp,
+) bool {
 	if len(cu.InFlightInstFetch) == 0 {
-		return
+		return false
 	}
 
 	info := cu.InFlightInstFetch[0]
 	if info.Req.ID != rsp.RespondTo {
-		return
+		// return false
+		panic("return in wrong order")
 	}
 
 	wf := info.Wavefront
@@ -522,14 +527,14 @@ func (cu *ComputeUnit) handleFetchReturn(now akita.VTimeInSec, rsp *mem.DataRead
 	wf.LastFetchTime = now
 
 	tracing.TraceReqFinalize(info.Req, now, cu)
+	return true
 }
 
-func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
+func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) bool {
 	rsp := cu.ToScalarMem.Retrieve(now)
 	if rsp == nil {
-		return
+		return false
 	}
-	cu.NeedTick = true
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
@@ -538,6 +543,7 @@ func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) {
 		log.Panicf("cannot handle request of type %s from ToInstMem port",
 			reflect.TypeOf(rsp))
 	}
+	return true
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(
@@ -564,17 +570,15 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	wf.OutstandingScalarMemAccess--
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
-	cu.logInstStageTask(now, info.Inst, "mem", true)
 	cu.logInstTask(now, wf, info.Inst, true)
 	tracing.TraceReqFinalize(info.Req, now, cu)
 }
 
-func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
+func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) bool {
 	rsp := cu.ToVectorMem.Retrieve(now)
 	if rsp == nil {
-		return
+		return false
 	}
-	cu.NeedTick = true
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
@@ -585,6 +589,8 @@ func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) {
 		log.Panicf("cannot handle request of type %s from ToInstMem port",
 			reflect.TypeOf(rsp))
 	}
+
+	return true
 }
 
 //nolint:gocyclo
@@ -635,7 +641,6 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 			wf.OutstandingScalarMemAccess--
 		}
 
-		cu.logInstStageTask(now, info.Inst, "mem", true)
 		cu.logInstTask(now, wf, info.Inst, true)
 	}
 }
@@ -667,7 +672,6 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-		cu.logInstStageTask(now, info.Inst, "mem", true)
 		cu.logInstTask(now, wf, info.Inst, true)
 	}
 }
@@ -722,39 +726,7 @@ func (cu *ComputeUnit) logInstTask(
 	)
 }
 
-func (cu *ComputeUnit) logInstStageTask(
-	now akita.VTimeInSec,
-	inst *wavefront.Inst,
-	stage string,
-	completed bool,
-) {
-	if len(cu.Hooks) > 0 {
-		task := trace.Task{
-			ID:           inst.ID + "_" + stage,
-			ParentID:     inst.ID,
-			Type:         "Inst Stage",
-			What:         stage,
-			Where:        cu.Name(),
-			InitiateTime: float64(now),
-		}
-
-		ctx := akita.HookCtx{
-			Domain: cu,
-			Now:    now,
-			Item:   task,
-		}
-		if completed {
-			ctx.Pos = trace.HookPosTaskClear
-		} else {
-			task.InitiateTime = float64(now)
-			ctx.Pos = trace.HookPosTaskInitiate
-		}
-
-		cu.InvokeHook(&ctx)
-	}
-}
-
-func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() {
+func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() bool {
 	cu.isSendingOutShadowBufferReqs = false
 	for i := 0; i < len(cu.shadowInFlightVectorMemAccess); i++ {
 		cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, cu.shadowInFlightVectorMemAccess[i])
@@ -767,30 +739,39 @@ func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() {
 	for i := 0; i < len(cu.shadowInFlightInstFetch); i++ {
 		cu.InFlightInstFetch = append(cu.InFlightInstFetch, cu.shadowInFlightInstFetch[i])
 	}
+
+	return true
 }
 
-func (cu *ComputeUnit) checkShadowBuffers(now akita.VTimeInSec) {
+func (cu *ComputeUnit) checkShadowBuffers(now akita.VTimeInSec) bool {
 	numReqsPendingToSend :=
 		len(cu.shadowInFlightScalarMemAccess) +
 			len(cu.shadowInFlightVectorMemAccess) +
 			len(cu.shadowInFlightInstFetch)
+
 	if numReqsPendingToSend == 0 {
 		cu.isSendingOutShadowBufferReqs = false
 		cu.Scheduler.Resume()
 		cu.isPaused = false
-		cu.NeedTick = true
+		return true
 	} else {
-		cu.sendOutShadowBufferReqs(now)
+		return cu.sendOutShadowBufferReqs(now)
 	}
 }
 
-func (cu *ComputeUnit) sendOutShadowBufferReqs(now akita.VTimeInSec) {
-	cu.sendScalarShadowBufferAccesses(now)
-	cu.sendVectorShadowBufferAccesses(now)
-	cu.sendInstFetchShadowBufferAccesses(now)
+func (cu *ComputeUnit) sendOutShadowBufferReqs(now akita.VTimeInSec) bool {
+	madeProgress := false
+
+	madeProgress = cu.sendScalarShadowBufferAccesses(now) || madeProgress
+	madeProgress = cu.sendVectorShadowBufferAccesses(now) || madeProgress
+	madeProgress = cu.sendInstFetchShadowBufferAccesses(now) || madeProgress
+
+	return madeProgress
 }
 
-func (cu *ComputeUnit) sendScalarShadowBufferAccesses(now akita.VTimeInSec) {
+func (cu *ComputeUnit) sendScalarShadowBufferAccesses(
+	now akita.VTimeInSec,
+) bool {
 	if len(cu.shadowInFlightScalarMemAccess) > 0 {
 		info := cu.shadowInFlightScalarMemAccess[0]
 		req := info.Req
@@ -798,14 +779,19 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses(now akita.VTimeInSec) {
 		req.SendTime = now
 		err := cu.ToScalarMem.Send(req)
 		if err == nil {
-			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
-			cu.shadowInFlightScalarMemAccess = cu.shadowInFlightScalarMemAccess[1:]
-			cu.NeedTick = true
+			cu.InFlightScalarMemAccess =
+				append(cu.InFlightScalarMemAccess, info)
+			cu.shadowInFlightScalarMemAccess =
+				cu.shadowInFlightScalarMemAccess[1:]
+			return true
 		}
 	}
+	return false
 }
 
-func (cu *ComputeUnit) sendVectorShadowBufferAccesses(now akita.VTimeInSec) {
+func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
+	now akita.VTimeInSec,
+) bool {
 	if len(cu.shadowInFlightVectorMemAccess) > 0 {
 		info := cu.shadowInFlightVectorMemAccess[0]
 		if info.Read != nil {
@@ -816,7 +802,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(now akita.VTimeInSec) {
 			if err == nil {
 				cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess = cu.shadowInFlightVectorMemAccess[1:]
-				cu.NeedTick = true
+				return true
 			}
 		} else if info.Write != nil {
 			req := info.Write
@@ -826,13 +812,16 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(now akita.VTimeInSec) {
 			if err == nil {
 				cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess = cu.shadowInFlightVectorMemAccess[1:]
-				cu.NeedTick = true
+				return true
 			}
 		}
 	}
+	return false
 }
 
-func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses(now akita.VTimeInSec) {
+func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses(
+	now akita.VTimeInSec,
+) bool {
 	if len(cu.shadowInFlightInstFetch) > 0 {
 		info := cu.shadowInFlightInstFetch[0]
 		req := info.Req
@@ -842,9 +831,10 @@ func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses(now akita.VTimeInSec) {
 		if err == nil {
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 			cu.shadowInFlightInstFetch = cu.shadowInFlightInstFetch[1:]
-			cu.NeedTick = true
+			return true
 		}
 	}
+	return false
 }
 func (cu *ComputeUnit) populateShadowBuffers() {
 	for i := 0; i < len(cu.InFlightInstFetch); i++ {
@@ -887,12 +877,11 @@ func NewComputeUnit(
 	cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*wavefront.WorkGroup)
 
-	cu.ToACE = akita.NewLimitNumMsgPort(cu, 4)
-	cu.ToInstMem = akita.NewLimitNumMsgPort(cu, 4)
-	cu.ToScalarMem = akita.NewLimitNumMsgPort(cu, 4)
-	cu.ToVectorMem = akita.NewLimitNumMsgPort(cu, 4)
-
-	cu.ToCP = akita.NewLimitNumMsgPort(cu, 4)
+	cu.ToACE = akita.NewLimitNumMsgPort(cu, 4, name+".ToACE")
+	cu.ToInstMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
+	cu.ToScalarMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
+	cu.ToVectorMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")
+	cu.ToCP = akita.NewLimitNumMsgPort(cu, 4, name+".ToCP")
 
 	return cu
 }

@@ -55,9 +55,6 @@ func (du *DecodeUnit) AcceptWave(
 
 	du.toDecode = wave
 	du.decoded = false
-
-	du.cu.logInstStageTask(now, wave.DynamicInst(), "issue", true)
-	du.cu.logInstStageTask(now, wave.DynamicInst(), "decode", false)
 }
 
 // Run decodes the instruction and sends the instruction to the next pipeline
@@ -75,7 +72,6 @@ func (du *DecodeUnit) Run(now akita.VTimeInSec) bool {
 	}
 
 	if du.toDecode != nil && !du.decoded {
-		du.cu.logInstStageTask(now, du.toDecode.DynamicInst(), "decode", true)
 		du.decoded = true
 		return true
 	}

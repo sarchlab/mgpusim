@@ -30,7 +30,6 @@ type R9NanoGPUBuilder struct {
 	freq                akita.Freq
 	memAddrOffset       uint64
 	mmu                 *mmu.MMUImpl
-	externalConn        akita.Connection
 	numShaderArray      int
 	numCUPerShaderArray int
 	numMemoryBank       int
@@ -103,15 +102,6 @@ func (b R9NanoGPUBuilder) WithFreq(freq akita.Freq) R9NanoGPUBuilder {
 	return b
 }
 
-// WithExternalConn sets the external connection for CPU-GPU and inter-GPU
-// communication.
-func (b R9NanoGPUBuilder) WithExternalConn(
-	conn akita.Connection,
-) R9NanoGPUBuilder {
-	b.externalConn = conn
-	return b
-}
-
 // WithMemAddrOffset sets the address of the first byte of the GPU to build.
 func (b R9NanoGPUBuilder) WithMemAddrOffset(
 	offset uint64,
@@ -167,8 +157,9 @@ func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder
 func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.gpuName = name
 
-	b.InternalConn = akita.NewDirectConnection(b.engine)
-	b.gpu = gcn3.NewGPU(b.gpuName, b.engine)
+	b.InternalConn = akita.NewDirectConnection(name+"InteralConn",
+		b.engine, 1*akita.GHz)
+	b.gpu = gcn3.NewGPU(b.gpuName)
 
 	b.gpu.GPUID = ID
 
@@ -179,10 +170,8 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.buildPageMigrationController()
 	b.buildCUs()
 
-	b.InternalConn.PlugIn(b.gpu.ToCommandProcessor)
-	b.InternalConn.PlugIn(b.DMAEngine.ToCP)
-	b.InternalConn.PlugIn(b.DMAEngine.ToMem)
-	b.externalConn.PlugIn(b.gpu.ToDriver)
+	b.InternalConn.PlugIn(b.DMAEngine.ToCP, 1)
+	b.InternalConn.PlugIn(b.DMAEngine.ToMem, 1)
 
 	b.gpu.InternalConnection = b.InternalConn
 
@@ -210,15 +199,15 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	b.RDMAEngine = rdma.NewEngine(
 		fmt.Sprintf("%s.RDMA", b.gpuName),
 		b.engine,
-		b.LowModuleFinderForL2,
+		b.LowModuleFinderForL1,
 		nil,
 	)
 	b.gpu.RDMAEngine = b.RDMAEngine
 	b.LowModuleFinderForL1.ModuleForOtherAddresses = b.RDMAEngine.ToL1
-	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL1)
-	b.InternalConn.PlugIn(b.gpu.RDMAEngine.ToL2)
+	b.l1ToL2Connection.PlugIn(b.gpu.RDMAEngine.ToL1, 1)
+	b.l1ToL2Connection.PlugIn(b.gpu.RDMAEngine.ToL2, 1)
 	b.CP.RDMA = b.gpu.RDMAEngine.CtrlPort
-	b.InternalConn.PlugIn(b.CP.RDMA)
+	b.InternalConn.PlugIn(b.CP.RDMA, 1)
 }
 
 func (b *R9NanoGPUBuilder) buildPageMigrationController() {
@@ -232,11 +221,11 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 
 	b.gpu.PMC.MemCtrlFinder = b.LowModuleFinderForPMC
 
-	b.InternalConn.PlugIn(b.gpu.PMC.CtrlPort)
-	b.InternalConn.PlugIn(b.gpu.PMC.LocalMemPort)
+	b.InternalConn.PlugIn(b.gpu.PMC.CtrlPort, 1)
+	b.InternalConn.PlugIn(b.gpu.PMC.LocalMemPort, 16)
 
 	b.CP.PMC = b.gpu.PMC.CtrlPort
-	b.InternalConn.PlugIn(b.CP.PMC)
+	b.InternalConn.PlugIn(b.CP.PMC, 128)
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
@@ -249,8 +238,7 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 
 func (b *R9NanoGPUBuilder) buildCP() {
 	b.CP = gcn3.NewCommandProcessor(b.gpuName+".CommandProcessor", b.engine)
-	b.CP.Driver = b.gpu.ToCommandProcessor
-	b.gpu.CommandProcessor = b.CP.ToDriver
+	b.gpu.CommandProcessor = b.CP
 
 	b.ACE = gcn3.NewDispatcher(
 		b.gpuName+".Dispatcher",
@@ -260,17 +248,16 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	b.CP.Dispatcher = b.ACE.ToCommandProcessor
 	b.gpu.Dispatchers = append(b.gpu.Dispatchers, b.ACE)
 
-	b.InternalConn.PlugIn(b.CP.ToDriver)
-	b.InternalConn.PlugIn(b.CP.ToDispatcher)
-	b.InternalConn.PlugIn(b.CP.ToCaches)
-	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor)
-	b.InternalConn.PlugIn(b.ACE.ToCUs)
-	b.InternalConn.PlugIn(b.CP.ToCUs)
-	b.InternalConn.PlugIn(b.CP.ToTLBs)
-	b.InternalConn.PlugIn(b.CP.ToAddressTranslators)
-
-	b.InternalConn.PlugIn(b.CP.ToRDMA)
-	b.InternalConn.PlugIn(b.CP.ToPMC)
+	b.InternalConn.PlugIn(b.CP.ToDriver, 1)
+	b.InternalConn.PlugIn(b.CP.ToDispatcher, 128)
+	b.InternalConn.PlugIn(b.CP.ToCaches, 128)
+	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor, 1)
+	b.InternalConn.PlugIn(b.ACE.ToCUs, 4)
+	b.InternalConn.PlugIn(b.CP.ToCUs, 128)
+	b.InternalConn.PlugIn(b.CP.ToTLBs, 128)
+	b.InternalConn.PlugIn(b.CP.ToAddressTranslators, 128)
+	b.InternalConn.PlugIn(b.CP.ToRDMA, 4)
+	b.InternalConn.PlugIn(b.CP.ToPMC, 4)
 
 	if b.enableVisTracing {
 		tracing.CollectTrace(b.CP, b.visTracer)
@@ -279,9 +266,8 @@ func (b *R9NanoGPUBuilder) buildCP() {
 }
 
 func (b *R9NanoGPUBuilder) connectCUToCP() {
+	b.CP.CUs = make([]akita.Port, b.numCU())
 	for i := 0; i < b.numCU(); i++ {
-		b.CP.CUs = append(b.CP.CUs, akita.NewLimitNumMsgPort(b.CP, 1))
-		b.InternalConn.PlugIn(b.CP.CUs[i])
 		b.CP.CUs[i] = b.gpu.CUs[i].(*timing.ComputeUnit).ToCP
 	}
 }
@@ -323,17 +309,18 @@ func (b *R9NanoGPUBuilder) buildL1VAddrTranslators() {
 			WithTranslationProvider(b.L1VTLBs[i].TopPort).
 			Build(name)
 
-		topConn := akita.NewDirectConnection(b.engine)
+		topConn := akita.NewDirectConnection(name+"-"+"CU",
+			b.engine, 1*akita.GHz)
 		b.cuToL1VAddrTranslatorConnections = append(
 			b.cuToL1VAddrTranslatorConnections, topConn)
-		topConn.PlugIn(at.TopPort)
+		topConn.PlugIn(at.TopPort, 4)
 
 		bottomConn := b.addrTranslatorToL1VConnections[i]
-		bottomConn.PlugIn(at.BottomPort)
+		bottomConn.PlugIn(at.BottomPort, 4)
 
 		translationConn := b.addrTranslatorToTLBL1Connections[i]
-		translationConn.PlugIn(at.TranslationPort)
-		b.InternalConn.PlugIn(at.CtrlPort)
+		translationConn.PlugIn(at.TranslationPort, 4)
+		b.InternalConn.PlugIn(at.CtrlPort, 1)
 
 		b.CP.AddressTranslators = append(b.CP.AddressTranslators, at.CtrlPort)
 
@@ -365,17 +352,17 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 			WithTranslationProvider(b.L1STLBs[i].TopPort).
 			Build(name)
 
-		topConn := akita.NewDirectConnection(b.engine)
+		topConn := akita.NewDirectConnection(name+"CU", b.engine, 1*akita.GHz)
 		b.cuToL1SAddrTranslatorConnections = append(
 			b.cuToL1SAddrTranslatorConnections, topConn)
-		topConn.PlugIn(at.TopPort)
+		topConn.PlugIn(at.TopPort, 4)
 
 		bottomConn := b.addrTranslatorToL1SConnections[i]
-		bottomConn.PlugIn(at.BottomPort)
+		bottomConn.PlugIn(at.BottomPort, 4)
 
 		translationConn := b.addrTranslatorToSTLBL1Connections[i]
-		translationConn.PlugIn(at.TranslationPort)
-		b.InternalConn.PlugIn(at.CtrlPort)
+		translationConn.PlugIn(at.TranslationPort, 4)
+		b.InternalConn.PlugIn(at.CtrlPort, 1)
 		b.CP.AddressTranslators = append(b.CP.AddressTranslators, at.CtrlPort)
 
 		b.l1sAddrTrans = append(b.l1sAddrTrans, at)
@@ -384,6 +371,7 @@ func (b *R9NanoGPUBuilder) buildL1SAddrTranslators() {
 			tracing.CollectTrace(at, b.visTracer)
 		}
 	}
+
 	b.gpu.L1SAddrTranslator = append(
 		[]*addresstranslator.AddressTranslator{},
 		b.l1sAddrTrans...)
@@ -404,13 +392,13 @@ func (b *R9NanoGPUBuilder) buildL1IAddrTranslators() {
 			WithTranslationProvider(b.L1ITLBs[i].TopPort).
 			Build(name)
 
-		conn := akita.NewDirectConnection(b.engine)
+		conn := akita.NewDirectConnection(name+"-L1I", b.engine, 1*akita.GHz)
 		b.l1ITol1AddrTranslatorConnections = append(
 			b.l1ITol1AddrTranslatorConnections, conn)
-		conn.PlugIn(at.TopPort)
-		b.l1ToL2Connection.PlugIn(at.BottomPort)
-		b.InternalConn.PlugIn(at.TranslationPort)
-		b.InternalConn.PlugIn(at.CtrlPort)
+		conn.PlugIn(at.TopPort, 4)
+		b.l1ToL2Connection.PlugIn(at.BottomPort, 16)
+		b.InternalConn.PlugIn(at.TranslationPort, 4)
+		b.InternalConn.PlugIn(at.CtrlPort, 1)
 		b.CP.AddressTranslators = append(b.CP.AddressTranslators, at.CtrlPort)
 
 		b.l1iAddrTrans = append(b.l1iAddrTrans, at)
@@ -436,10 +424,10 @@ func (b *R9NanoGPUBuilder) buildTLBs() {
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.L2TLBs = append(b.L2TLBs, l2TLB)
 	b.gpu.L2TLBs = append(b.gpu.L2TLBs, l2TLB)
-	b.l1TLBToL2TLBConnection = akita.NewDirectConnection(b.engine)
-	b.l1TLBToL2TLBConnection.PlugIn(l2TLB.TopPort)
-	b.InternalConn.PlugIn(l2TLB.ControlPort)
-	b.externalConn.PlugIn(l2TLB.BottomPort)
+	b.l1TLBToL2TLBConnection = akita.NewDirectConnection(
+		b.gpuName+".l1TLB-l2TLB", b.engine, 1*akita.GHz)
+	b.l1TLBToL2TLBConnection.PlugIn(l2TLB.TopPort, 64)
+	b.InternalConn.PlugIn(l2TLB.ControlPort, 1)
 	b.CP.TLBs = append(b.CP.TLBs, l2TLB.ControlPort)
 
 	if b.enableVisTracing {
@@ -469,13 +457,13 @@ func (b *R9NanoGPUBuilder) buildL1VTLBs() {
 		b.L1VTLBs = append(b.L1VTLBs, l1TLB)
 		b.gpu.L1VTLBs = append(b.gpu.L1VTLBs, l1TLB)
 
-		conn := akita.NewDirectConnection(b.engine)
+		conn := akita.NewDirectConnection(name+"-At", b.engine, akita.GHz)
 		b.addrTranslatorToTLBL1Connections = append(
 			b.addrTranslatorToTLBL1Connections, conn)
 
-		conn.PlugIn(l1TLB.TopPort)
-		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
-		b.InternalConn.PlugIn(l1TLB.ControlPort)
+		conn.PlugIn(l1TLB.TopPort, 4)
+		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort, 16)
+		b.InternalConn.PlugIn(l1TLB.ControlPort, 1)
 		b.CP.TLBs = append(b.CP.TLBs, l1TLB.ControlPort)
 
 		if b.enableVisTracing {
@@ -501,12 +489,13 @@ func (b *R9NanoGPUBuilder) buildL1STLBs() {
 		b.L1STLBs = append(b.L1STLBs, l1TLB)
 		b.gpu.L1STLBs = append(b.gpu.L1STLBs, l1TLB)
 
-		conn := akita.NewDirectConnection(b.engine)
+		conn := akita.NewDirectConnection(l1TLB.Name()+"-At",
+			b.engine, b.freq)
 		b.addrTranslatorToSTLBL1Connections = append(
 			b.addrTranslatorToSTLBL1Connections, conn)
-		conn.PlugIn(l1TLB.TopPort)
-		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
-		b.InternalConn.PlugIn(l1TLB.ControlPort)
+		conn.PlugIn(l1TLB.TopPort, 4)
+		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort, 16)
+		b.InternalConn.PlugIn(l1TLB.ControlPort, 1)
 		b.CP.TLBs = append(b.CP.TLBs, l1TLB.ControlPort)
 
 		if b.enableVisTracing {
@@ -531,9 +520,9 @@ func (b *R9NanoGPUBuilder) buildL1ITLBs() {
 
 		b.L1ITLBs = append(b.L1ITLBs, l1TLB)
 		b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, l1TLB)
-		b.InternalConn.PlugIn(l1TLB.TopPort)
-		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort)
-		b.InternalConn.PlugIn(l1TLB.ControlPort)
+		b.InternalConn.PlugIn(l1TLB.TopPort, 4)
+		b.l1TLBToL2TLBConnection.PlugIn(l1TLB.BottomPort, 16)
+		b.InternalConn.PlugIn(l1TLB.ControlPort, 1)
 		b.CP.TLBs = append(b.CP.TLBs, l1TLB.ControlPort)
 
 		if b.enableVisTracing {
@@ -558,13 +547,13 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		name := fmt.Sprintf("%s.L1K_%02d", b.gpuName, i)
 		sCache := builder.Build(name)
 
-		topConn := akita.NewDirectConnection(b.engine)
+		topConn := akita.NewDirectConnection(name+"Cu", b.engine, b.freq)
 		b.addrTranslatorToL1SConnections = append(
 			b.addrTranslatorToL1SConnections, topConn)
-		topConn.PlugIn(sCache.TopPort)
+		topConn.PlugIn(sCache.TopPort, 4)
 
-		b.InternalConn.PlugIn(sCache.ControlPort)
-		b.l1ToL2Connection.PlugIn(sCache.BottomPort)
+		b.InternalConn.PlugIn(sCache.ControlPort, 1)
+		b.l1ToL2Connection.PlugIn(sCache.BottomPort, 16)
 		b.L1SCaches = append(b.L1SCaches, sCache)
 		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache.ControlPort)
 		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
@@ -596,14 +585,14 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 			}).
 			Build(name)
 
-		topConn := akita.NewDirectConnection(b.engine)
+		topConn := akita.NewDirectConnection(name+"-Cu", b.engine, b.freq)
 		b.cuToL1IConnections = append(b.cuToL1IConnections, topConn)
-		topConn.PlugIn(iCache.TopPort)
+		topConn.PlugIn(iCache.TopPort, 4)
 
-		b.InternalConn.PlugIn(iCache.ControlPort)
+		b.InternalConn.PlugIn(iCache.ControlPort, 1)
 
 		bottomConn := b.l1ITol1AddrTranslatorConnections[i]
-		bottomConn.PlugIn(iCache.BottomPort)
+		bottomConn.PlugIn(iCache.BottomPort, 4)
 
 		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache.ControlPort)
@@ -633,14 +622,14 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		name := fmt.Sprintf("%s.L1D_%02d", b.gpuName, i)
 		dCache := builder.Build(name)
 
-		conn := akita.NewDirectConnection(b.engine)
+		conn := akita.NewDirectConnection(name+"-At", b.engine, b.freq)
 		b.addrTranslatorToL1VConnections = append(
 			b.addrTranslatorToL1VConnections,
 			conn)
 
-		conn.PlugIn(dCache.TopPort)
-		b.InternalConn.PlugIn(dCache.ControlPort)
-		b.l1ToL2Connection.PlugIn(dCache.BottomPort)
+		conn.PlugIn(dCache.TopPort, 4)
+		b.InternalConn.PlugIn(dCache.ControlPort, 1)
+		b.l1ToL2Connection.PlugIn(dCache.BottomPort, 16)
 		b.L1VCaches = append(b.L1VCaches, dCache)
 		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache.ControlPort)
 		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
@@ -648,6 +637,7 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		if b.EnableMemTracing {
 			tracing.CollectTrace(dCache, b.MemTracer)
 		}
+
 		if b.enableVisTracing {
 			tracing.CollectTrace(dCache, b.visTracer)
 		}
@@ -662,7 +652,8 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
 	b.LowModuleFinderForL1.LowAddress = b.memAddrOffset
 	b.LowModuleFinderForL1.HighAddress = b.memAddrOffset + 4*mem.GB
-	b.l1ToL2Connection = akita.NewDirectConnection(b.engine)
+	b.l1ToL2Connection = akita.NewDirectConnection(b.gpuName+"l1-l2",
+		b.engine, b.freq)
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
 		cacheBuilder.CacheName = fmt.Sprintf("%s.L2_%d", b.gpuName, i)
@@ -678,11 +669,11 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		b.LowModuleFinderForL1.LowModules = append(
 			b.LowModuleFinderForL1.LowModules, l2Cache.TopPort)
 
-		b.l1ToL2Connection.PlugIn(l2Cache.TopPort)
+		b.l1ToL2Connection.PlugIn(l2Cache.TopPort, 64)
 
-		bottomConn := b.l2ToDramConnections[i]
-		bottomConn.PlugIn(l2Cache.BottomPort)
-		b.InternalConn.PlugIn(l2Cache.ControlPort)
+		// bottomConn := b.l2ToDramConnections[i]
+		b.InternalConn.PlugIn(l2Cache.BottomPort, 64)
+		b.InternalConn.PlugIn(l2Cache.ControlPort, 1)
 
 		if b.EnableMemTracing {
 			tracing.CollectTrace(l2Cache, b.MemTracer)
@@ -711,9 +702,10 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 		}
 		memCtrl.AddressConverter = addrConverter
 
-		conn := akita.NewDirectConnection(b.engine)
-		b.l2ToDramConnections = append(b.l2ToDramConnections, conn)
-		conn.PlugIn(memCtrl.ToTop)
+		// conn := akita.NewDirectConnection(memCtrl.Name()+"-L2",
+		// 	b.engine, b.freq)
+		// b.l2ToDramConnections = append(b.l2ToDramConnections, conn)
+		b.InternalConn.PlugIn(memCtrl.ToTop, 64)
 
 		b.LowModuleFinderForL2.LowModules = append(
 			b.LowModuleFinderForL2.LowModules, memCtrl.ToTop)
@@ -758,8 +750,8 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		b.gpu.CUs = append(b.gpu.CUs, cu)
 		b.ACE.RegisterCU(cu.ToACE)
 
-		b.InternalConn.PlugIn(cu.ToACE)
-		b.InternalConn.PlugIn(cu.ToCP)
+		b.InternalConn.PlugIn(cu.ToACE, 1)
+		b.InternalConn.PlugIn(cu.ToCP, 1)
 
 		if b.EnableISADebug && i == 0 {
 			isaDebug, err := os.Create(fmt.Sprintf(

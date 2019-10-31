@@ -4,8 +4,8 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/akita"
 	cache2 "gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util/akitaext"
 )
 
 var _ = Describe("Control Stage", func() {
@@ -43,7 +43,7 @@ var _ = Describe("Control Stage", func() {
 			mshr:          mshr,
 			coalesceStage: c,
 		}
-		cache.TickingComponent = akitaext.NewTickingComponent(
+		cache.TickingComponent = akita.NewTickingComponent(
 			"cache", nil, 1, cache)
 
 		s = &controlStage{

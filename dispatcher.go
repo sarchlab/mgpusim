@@ -1,36 +1,31 @@
 package gcn3
 
 import (
+	"fmt"
 	"log"
-	"reflect"
 
+	mpb "github.com/vbauerster/mpb/v4"
+	"github.com/vbauerster/mpb/v4/decor"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/util/tracing"
-	"gopkg.in/cheggaaa/pb.v1"
 )
 
-// A MapWGEvent is an event used by the dispatcher to map a work-group
-type MapWGEvent struct {
-	*akita.EventBase
-}
-
-// NewMapWGEvent creates a new MapWGEvent
-func NewMapWGEvent(t akita.VTimeInSec, handler akita.Handler) *MapWGEvent {
-	e := new(MapWGEvent)
-	e.EventBase = akita.NewEventBase(t, handler)
-	return e
-}
-
-// DispatcherState defines the current state of the dispatcher
-type DispatcherState int
+// dispatcherState defines the current state of the dispatcher
+type dispatcherState int
 
 // A list of all possible dispatcher states
 const (
-	DispatcherIdle DispatcherState = iota
-	DispatcherToMapWG
-	DispatcherWaitMapWGACK
+	dispatcherIdle dispatcherState = iota
+	dispatcherToMapWG
+	dispatcherWaitMapWGACK
 )
+
+var barGroup *mpb.Progress
+
+func init() {
+	barGroup = mpb.New()
+}
 
 // A Dispatcher is a component that can dispatch work-groups and wavefronts
 // to ComputeUnits.
@@ -68,14 +63,12 @@ const (
 //                       the completion of a workgroup (Finalization(?))
 //
 type Dispatcher struct {
-	*akita.ComponentBase
+	*akita.TickingComponent
 
 	CUs    []akita.Port
 	cuBusy map[akita.Port]bool
 
-	engine      akita.Engine
 	gridBuilder kernels.GridBuilder
-	Freq        akita.Freq
 
 	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
 	dispatchingReq  *LaunchKernelReq
@@ -85,66 +78,107 @@ type Dispatcher struct {
 	completedWGs    []*kernels.WorkGroup
 	dispatchingWfs  []*kernels.Wavefront
 	dispatchingCUID int
-	state           DispatcherState
-	progressBar     *pb.ProgressBar
+	state           dispatcherState
+	progressBar     *mpb.Bar
 
 	ToCUs              akita.Port
 	ToCommandProcessor akita.Port
 }
 
-func (d *Dispatcher) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
-	req := port.Retrieve(now)
-	akita.ProcessMsgAsEvent(req, d.engine, d.Freq)
+func (d *Dispatcher) Tick(now akita.VTimeInSec) bool {
+	madeProgress := false
+
+	madeProgress = d.mapWG(now) || madeProgress
+	madeProgress = d.processReqFromCP(now) || madeProgress
+	madeProgress = d.processRspFromCU(now) || madeProgress
+
+	return madeProgress
 }
 
-func (d *Dispatcher) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
-	//panic("implement me")
-}
-
-// Handle perform actions when an event is triggered
-func (d *Dispatcher) Handle(evt akita.Event) error {
-	ctx := akita.HookCtx{
-		Domain: d,
-		Now:    evt.Time(),
-		Pos:    akita.HookPosBeforeEvent,
-		Item:   evt,
+func (d *Dispatcher) mapWG(now akita.VTimeInSec) bool {
+	if d.state != dispatcherToMapWG {
+		return false
 	}
-	d.InvokeHook(&ctx)
 
-	d.Lock()
-	switch evt := evt.(type) {
+	wg := d.currentWG
+	if wg == nil {
+		wg = d.gridBuilder.NextWG()
+		if wg == nil {
+			d.state = dispatcherIdle
+			return false
+		}
+		d.currentWG = wg
+	}
+
+	cuID, hasAvailableCU := d.nextAvailableCU()
+	if !hasAvailableCU {
+		d.state = dispatcherIdle
+		return false
+	}
+
+	CU := d.CUs[cuID]
+	req := NewMapWGReq(d.ToCUs, CU, now, wg)
+	req.PID = d.dispatchingReq.PID
+	d.state = dispatcherWaitMapWGACK
+	err := d.ToCUs.Send(req)
+	if err != nil {
+		return false
+	}
+
+	d.dispatchedWGs[wg.UID] = req
+	d.dispatchingCUID = cuID
+
+	tracing.TraceReqInitiate(
+		req, now, d,
+		tracing.MsgIDAtReceiver(d.dispatchingReq, d))
+
+	return true
+}
+
+func (d *Dispatcher) processReqFromCP(now akita.VTimeInSec) bool {
+	msg := d.ToCommandProcessor.Peek()
+	if msg == nil {
+		return false
+	}
+
+	switch req := msg.(type) {
 	case *LaunchKernelReq:
-		d.handleLaunchKernelReq(evt)
-	case *MapWGEvent:
-		d.handleMapWGEvent(evt)
-	case *MapWGReq:
-		d.handleMapWGReq(evt)
-	case *WGFinishMesg:
-		d.handleWGFinishMesg(evt)
-	default:
-		log.Panicf("Unable to process evevt of type %s", reflect.TypeOf(evt))
+		return d.processLaunchKernelReq(now, req)
 	}
-	d.Unlock()
 
-	ctx.Pos = akita.HookPosAfterEvent
-	d.InvokeHook(&ctx)
-
-	return nil
+	panic("never")
 }
 
-func (d *Dispatcher) handleLaunchKernelReq(
+func (d *Dispatcher) processRspFromCU(now akita.VTimeInSec) bool {
+	msg := d.ToCUs.Peek()
+	if msg == nil {
+		return false
+	}
+
+	switch msg := msg.(type) {
+	case *MapWGReq:
+		return d.processMapWGRsp(now, msg)
+	case *WGFinishMesg:
+		return d.processWGFinishMesg(now, msg)
+	}
+
+	panic("never")
+}
+
+func (d *Dispatcher) processLaunchKernelReq(
+	now akita.VTimeInSec,
 	req *LaunchKernelReq,
-) error {
+) bool {
 	if d.dispatchingReq != nil {
 		log.Panic("dispatcher not done dispatching the previous kernel")
 	}
 
-	d.initKernelDispatching(req.Time(), req)
-	d.scheduleMapWG(d.Freq.NextTick(req.Time()))
+	d.initKernelDispatching(now, req)
+	d.ToCommandProcessor.Retrieve(now)
 
-	tracing.TraceReqReceive(req, req.Time(), d)
+	tracing.TraceReqReceive(req, now, d)
 
-	return nil
+	return true
 }
 
 func (d *Dispatcher) replyLaunchKernelReq(
@@ -156,46 +190,6 @@ func (d *Dispatcher) replyLaunchKernelReq(
 	req.Src, req.Dst = req.Dst, req.Src
 	req.SendTime = req.RecvTime
 	return d.ToCommandProcessor.Send(req)
-}
-
-// handleMapWGEvent initiates work-group mapping
-func (d *Dispatcher) handleMapWGEvent(evt *MapWGEvent) error {
-	now := evt.Time()
-
-	wg := d.currentWG
-	if wg == nil {
-		wg = d.gridBuilder.NextWG()
-		if wg == nil {
-			d.state = DispatcherIdle
-			return nil
-		}
-		d.currentWG = wg
-	}
-
-	cuID, hasAvailableCU := d.nextAvailableCU()
-	if !hasAvailableCU {
-		d.state = DispatcherIdle
-		return nil
-	}
-
-	CU := d.CUs[cuID]
-	req := NewMapWGReq(d.ToCUs, CU, now, wg)
-	req.PID = d.dispatchingReq.PID
-	d.state = DispatcherWaitMapWGACK
-	err := d.ToCUs.Send(req)
-	if err != nil {
-		d.scheduleMapWG(d.Freq.NextTick(now))
-		return nil
-	}
-
-	d.dispatchedWGs[wg.UID] = req
-	d.dispatchingCUID = cuID
-
-	tracing.TraceReqInitiate(
-		req, now, d,
-		tracing.MsgIDAtReceiver(d.dispatchingReq, d))
-
-	return nil
 }
 
 func (d *Dispatcher) initKernelDispatching(
@@ -210,71 +204,86 @@ func (d *Dispatcher) initKernelDispatching(
 	})
 	d.totalWGs = d.gridBuilder.NumWG()
 	d.dispatchingCUID = -1
-	d.progressBar = pb.New(d.totalWGs)
-	d.progressBar.ShowTimeLeft = true
-	d.progressBar.Start()
+	d.state = dispatcherToMapWG
+
+	d.progressBar = barGroup.AddBar(
+		int64(d.totalWGs),
+		mpb.PrependDecorators(
+			decor.Name(fmt.Sprintf("At %s, Kernel: %s, ", d.Name(), req.ID)),
+			decor.Counters(0, "%d/%d"),
+		),
+		mpb.AppendDecorators(
+			decor.Percentage(),
+			decor.AverageSpeed(0, " %.2f/s, "),
+			decor.AverageETA(decor.ET_STYLE_HHMMSS),
+		),
+	)
+	d.progressBar.SetTotal(int64(d.totalWGs), false)
 
 	tracing.TraceReqReceive(req, now, d)
 }
 
-func (d *Dispatcher) scheduleMapWG(time akita.VTimeInSec) {
-	evt := NewMapWGEvent(time, d)
-	d.engine.Schedule(evt)
-}
-
-// handleMapWGReq deals with the response of the MapWGReq from a compute unit.
-func (d *Dispatcher) handleMapWGReq(req *MapWGReq) error {
-	now := req.Time()
-
-	if !req.Ok {
-		d.state = DispatcherToMapWG
-		d.cuBusy[d.CUs[d.dispatchingCUID]] = true
-		d.scheduleMapWG(now)
-
-		delete(d.dispatchedWGs, d.currentWG.UID)
-
-		tracing.TraceReqReceive(
-			req, now, d)
-
-		return nil
+func (d *Dispatcher) processMapWGRsp(
+	now akita.VTimeInSec,
+	rsp *MapWGReq,
+) bool {
+	if !rsp.Ok {
+		return d.processFailedMapWGRsp(now, rsp)
 	}
-
-	//wg := d.dispatchingWGs[0]
-	d.currentWG = nil
-	//d.dispatchingWfs = append(d.dispatchingWfs, wg.Wavefronts...)
-	d.state = DispatcherToMapWG
-	d.scheduleMapWG(now)
-
-	return nil
+	return d.processSuccessfulMapWGRsp(now, rsp)
 }
 
-func (d *Dispatcher) handleWGFinishMesg(mesg *WGFinishMesg) error {
-	d.completedWGs = append(d.completedWGs, mesg.WG)
-	d.cuBusy[mesg.Src] = false
+func (d *Dispatcher) processFailedMapWGRsp(
+	now akita.VTimeInSec,
+	rsp *MapWGReq,
+) bool {
+	d.state = dispatcherToMapWG
+	d.cuBusy[d.CUs[d.dispatchingCUID]] = true
 
-	mapWGReq := d.dispatchedWGs[mesg.WG.UID]
-	delete(d.dispatchedWGs, mesg.WG.UID)
+	delete(d.dispatchedWGs, d.currentWG.UID)
+	d.ToCUs.Retrieve(now)
 
-	tracing.TraceReqFinalize(
-		mapWGReq, mesg.Time(), d)
+	tracing.TraceReqReceive(rsp, now, d)
+
+	return true
+}
+
+func (d *Dispatcher) processSuccessfulMapWGRsp(
+	now akita.VTimeInSec,
+	rsp *MapWGReq,
+) bool {
+	d.currentWG = nil
+	d.state = dispatcherToMapWG
+	d.ToCUs.Retrieve(now)
+	return true
+}
+
+func (d *Dispatcher) processWGFinishMesg(
+	now akita.VTimeInSec,
+	msg *WGFinishMesg,
+) bool {
+	d.ToCUs.Retrieve(now)
+	d.completedWGs = append(d.completedWGs, msg.WG)
+	d.cuBusy[msg.Src] = false
+
+	mapWGReq := d.dispatchedWGs[msg.WG.UID]
+	delete(d.dispatchedWGs, msg.WG.UID)
+
+	tracing.TraceReqFinalize(mapWGReq, now, d)
 
 	if d.progressBar != nil {
 		d.progressBar.Increment()
 	}
 
 	if d.totalWGs <= len(d.completedWGs) {
-		if d.progressBar != nil {
-			d.progressBar.Finish()
-		}
-		d.replyKernelFinish(mesg.Time())
-		return nil
+		d.replyKernelFinish(now)
+		return true
 	}
 
-	if d.state == DispatcherIdle {
-		d.state = DispatcherToMapWG
-		d.scheduleMapWG(d.Freq.NextTick(mesg.Time()))
+	if d.state == dispatcherIdle {
+		d.state = dispatcherToMapWG
 	}
-	return nil
+	return true
 }
 
 func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
@@ -290,8 +299,7 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
 		log.Panic(err)
 	}
 
-	tracing.TraceReqComplete(
-		req, now, d)
+	tracing.TraceReqComplete(req, now, d)
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
@@ -324,19 +332,19 @@ func NewDispatcher(
 	gridBuilder kernels.GridBuilder,
 ) *Dispatcher {
 	d := new(Dispatcher)
-	d.ComponentBase = akita.NewComponentBase(name)
+	d.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, d)
 
 	d.gridBuilder = gridBuilder
-	d.engine = engine
 
 	d.CUs = make([]akita.Port, 0)
 	d.cuBusy = make(map[akita.Port]bool, 0)
 	d.dispatchedWGs = make(map[string]*MapWGReq)
 
-	d.ToCommandProcessor = akita.NewLimitNumMsgPort(d, 1)
-	d.ToCUs = akita.NewLimitNumMsgPort(d, 1)
+	d.ToCommandProcessor = akita.NewLimitNumMsgPort(d, 1,
+		name+".ToCommandProcessor")
+	d.ToCUs = akita.NewLimitNumMsgPort(d, 1, name+".ToCUs")
 
-	d.state = DispatcherIdle
+	d.state = dispatcherIdle
 
 	return d
 }

@@ -119,12 +119,12 @@ func (d *Driver) EnqueueMemCopyH2D(
 	dst GPUPtr,
 	src interface{},
 ) {
+	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyH2DCommand{
 		ID:  xid.New().String(),
 		Dst: dst,
 		Src: src,
 	}
-
 	d.Enqueue(queue, cmd)
 }
 
@@ -134,12 +134,31 @@ func (d *Driver) EnqueueMemCopyD2H(
 	dst interface{},
 	src GPUPtr,
 ) {
+	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyD2HCommand{
 		ID:  xid.New().String(),
 		Dst: dst,
 		Src: src,
 	}
 	d.Enqueue(queue, cmd)
+}
+
+func (d *Driver) enqueueFlushBeforeMemCopy(queue *CommandQueue) {
+	dirty := queue.Context.l2Dirty
+	queue.commandsMutex.Lock()
+	for _, cmd := range queue.commands {
+		switch cmd.(type) {
+		case *LaunchKernelCommand:
+			dirty = true
+		case *FlushCommand:
+			dirty = false
+		}
+	}
+	queue.commandsMutex.Unlock()
+
+	if dirty {
+		d.enqueueFinalFlush(queue)
+	}
 }
 
 // MemCopyH2D copies a memory from the host to a GPU device.

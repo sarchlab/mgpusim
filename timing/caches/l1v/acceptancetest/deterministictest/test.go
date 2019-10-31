@@ -43,7 +43,7 @@ func newTest(name string) *test {
 	t := new(test)
 
 	t.engine = akita.NewSerialEngine()
-	t.conn = akita.NewDirectConnection(t.engine)
+	t.conn = akita.NewDirectConnection("conn", t.engine, 1*akita.GHz)
 
 	t.dram = idealmemcontroller.New("dram", t.engine, 1*mem.GB)
 	t.lowModuleFinder = new(cache.SingleLowModuleFinder)
@@ -61,11 +61,11 @@ func newTest(name string) *test {
 	t.agent.ReadLeft = 10000
 	t.agent.LowModule = t.c.TopPort
 
-	t.conn.PlugIn(t.agent.ToMem)
-	t.conn.PlugIn(t.c.TopPort)
-	t.conn.PlugIn(t.c.BottomPort)
-	t.conn.PlugIn(t.c.ControlPort)
-	t.conn.PlugIn(t.dram.ToTop)
+	t.conn.PlugIn(t.agent.ToMem, 4)
+	t.conn.PlugIn(t.c.TopPort, 4)
+	t.conn.PlugIn(t.c.BottomPort, 16)
+	t.conn.PlugIn(t.c.ControlPort, 1)
+	t.conn.PlugIn(t.dram.ToTop, 16)
 
 	return t
 }

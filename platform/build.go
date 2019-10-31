@@ -10,7 +10,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm/mmu"
-	"gitlab.com/akita/noc"
+	"gitlab.com/akita/noc/networking/pcie"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -36,7 +36,7 @@ func BuildNEmuGPUPlatform(n int) (
 	mmuBuilder := mmu.MakeBuilder()
 	mmuComponent := mmuBuilder.Build("MMU")
 	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
-	connection := akita.NewDirectConnection(engine)
+	connection := akita.NewDirectConnection("ExternalConn", engine, 1*akita.GHz)
 	storage := mem.NewStorage(uint64(n+1) * 4 * mem.GB)
 
 	gpuBuilder := gpubuilder.MakeEmuGPUBuilder().
@@ -59,10 +59,10 @@ func BuildNEmuGPUPlatform(n int) (
 			Build(fmt.Sprintf("GPU_%d", i+1))
 
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-		connection.PlugIn(gpu.ToDriver)
+		connection.PlugIn(gpu.CommandProcessor.ToDriver, 64)
 	}
 
-	connection.PlugIn(gpuDriver.ToGPUs)
+	connection.PlugIn(gpuDriver.ToGPUs, 4)
 
 	return engine, gpuDriver
 }
@@ -82,7 +82,7 @@ func BuildNR9NanoPlatform(
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
@@ -91,14 +91,26 @@ func BuildNR9NanoPlatform(
 	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
 
 	//connection := akita.NewDirectConnection(engine)
-	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
-	connection.SrcBufferCapacity = 40960000
+	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
+	// connection.SrcBufferCapacity = 40960000
+	pcieConnector := new(pcie.Connector).
+		WithEngine(engine).
+		WithVersion3().
+		WithX16().
+		WithNetworkName("PCIe")
+	pcieConnector.CreateNetwork()
+	rootComplexID := pcieConnector.CreateRootComplex(
+		[]akita.Port{
+			gpuDriver.ToGPUs,
+			gpuDriver.ToMMU,
+			mmuComponent.MigrationPort,
+			mmuComponent.ToTop,
+		})
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.ToMMU
 
 	gpuBuilder := gpubuilder.MakeR9NanoGPUBuilder().
 		WithEngine(engine).
-		WithExternalConn(connection).
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
@@ -129,35 +141,35 @@ func BuildNR9NanoPlatform(
 	pmcAddressTable.BankSize = 4 * mem.GB
 	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)
 
+	lastSwitchID := rootComplexID
 	for i := 1; i < numGPUs+1; i++ {
+		if i%2 == 1 {
+			lastSwitchID = pcieConnector.AddSwitch(lastSwitchID)
+		}
+
 		name := fmt.Sprintf("GPU%d", i)
 		memAddrOffset := uint64(i) * 4 * mem.GB
 		gpu := gpuBuilder.
 			WithMemAddrOffset(memAddrOffset).
 			Build(name, uint64(i))
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-		gpu.Driver = gpuDriver.ToGPUs
+		gpu.CommandProcessor.Driver = gpuDriver.ToGPUs
 
 		gpu.RDMAEngine.RemoteRDMAAddressTable = rdmaAddressTable
 		rdmaAddressTable.LowModules = append(
 			rdmaAddressTable.LowModules,
 			gpu.RDMAEngine.ToOutside)
-		connection.PlugIn(gpu.RDMAEngine.ToOutside)
 
 		gpu.PMC.RemotePMCAddressTable = pmcAddressTable
 		pmcAddressTable.LowModules = append(
 			pmcAddressTable.LowModules,
 			gpu.PMC.RemotePort)
-		connection.PlugIn(gpu.PMC.RemotePort)
 
 		gpuDriver.RemotePMCPorts = append(
 			gpuDriver.RemotePMCPorts, gpu.PMC.RemotePort)
-	}
 
-	connection.PlugIn(gpuDriver.ToGPUs)
-	connection.PlugIn(mmuComponent.ToTop)
-	connection.PlugIn(mmuComponent.MigrationPort)
-	connection.PlugIn(gpuDriver.ToMMU)
+		pcieConnector.PlugInDevice(lastSwitchID, gpu.ExternalPorts())
+	}
 
 	return engine, gpuDriver
 }

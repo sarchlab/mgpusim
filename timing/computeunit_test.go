@@ -271,14 +271,14 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle fetch return", func() {
-			cu.processInputFromInstMem(10)
+			madeProgress := cu.processInputFromInstMem(10)
 
 			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
 			Expect(wf.PC).To(Equal(uint64(0x1000)))
 			Expect(cu.InFlightInstFetch).To(HaveLen(0))
 			Expect(wf.InstBuffer).To(HaveLen(64))
-			Expect(cu.NeedTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 		})
 	})
 
@@ -456,10 +456,10 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle vector data store return and the return is not the last one from an instruction", func() {
-			cu.processInputFromVectorMem(10)
+			madeProgress := cu.processInputFromVectorMem(10)
 
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
-			Expect(cu.NeedTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("should handle vector data store return and the return is the last one from an instruction", func() {

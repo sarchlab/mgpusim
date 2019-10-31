@@ -1,7 +1,7 @@
 package kernels
 
 import (
-	"github.com/rs/xid"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/insts"
 )
 
@@ -41,7 +41,7 @@ type WorkGroup struct {
 // NewWorkGroup creates a workgroup object
 func NewWorkGroup() *WorkGroup {
 	wg := new(WorkGroup)
-	wg.UID = xid.New().String()
+	wg.UID = akita.GetIDGenerator().Generate()
 	wg.Wavefronts = make([]*Wavefront, 0)
 	wg.WorkItems = make([]*WorkItem, 0)
 	return wg
@@ -63,7 +63,7 @@ type Wavefront struct {
 // NewWavefront returns a new Wavefront
 func NewWavefront() *Wavefront {
 	wf := new(Wavefront)
-	wf.UID = xid.New().String()
+	wf.UID = akita.GetIDGenerator().Generate()
 	wf.WorkItems = make([]*WorkItem, 0, 64)
 	return wf
 }

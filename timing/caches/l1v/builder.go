@@ -5,7 +5,6 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/akitaext"
 )
 
 // A Builder can build an l1v cache
@@ -109,12 +108,14 @@ func (b *Builder) Build(name string) *Cache {
 		log2BlockSize:  b.log2BlockSize,
 		numReqPerCycle: b.numReqsPerCycle,
 	}
-	c.TickingComponent = akitaext.NewTickingComponent(
+	c.TickingComponent = akita.NewTickingComponent(
 		name, b.engine, b.freq, c)
 
-	c.TopPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle)
-	c.BottomPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle)
-	c.ControlPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle)
+	c.TopPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle, name+".TopPort")
+	c.BottomPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle,
+		name+".BottomPort")
+	c.ControlPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle,
+		name+"ControlPort")
 
 	c.dirBuf = util.NewBuffer(b.numReqsPerCycle)
 	c.bankBufs = make([]util.Buffer, b.numBank)

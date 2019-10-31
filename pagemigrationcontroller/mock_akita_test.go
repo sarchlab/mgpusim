@@ -4,10 +4,9 @@
 package pagemigrationcontroller
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	akita "gitlab.com/akita/akita"
+	reflect "reflect"
 )
 
 // MockPort is a mock of Port interface
@@ -33,6 +32,18 @@ func (m *MockPort) EXPECT() *MockPortMockRecorder {
 	return m.recorder
 }
 
+// AcceptHook mocks base method
+func (m *MockPort) AcceptHook(arg0 akita.Hook) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AcceptHook", arg0)
+}
+
+// AcceptHook indicates an expected call of AcceptHook
+func (mr *MockPortMockRecorder) AcceptHook(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptHook", reflect.TypeOf((*MockPort)(nil).AcceptHook), arg0)
+}
+
 // Component mocks base method
 func (m *MockPort) Component() akita.Component {
 	m.ctrl.T.Helper()
@@ -45,6 +56,20 @@ func (m *MockPort) Component() akita.Component {
 func (mr *MockPortMockRecorder) Component() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Component", reflect.TypeOf((*MockPort)(nil).Component))
+}
+
+// Name mocks base method
+func (m *MockPort) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockPortMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockPort)(nil).Name))
 }
 
 // NotifyAvailable mocks base method

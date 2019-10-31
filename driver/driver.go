@@ -114,36 +114,22 @@ func (d *Driver) RegisterGPU(gpu *gcn3.GPU, dramSize uint64) {
 	d.memAllocator.RegisterStorage(dramSize)
 }
 
-// Handle process event that is scheduled on the driver
-func (d *Driver) Handle(e akita.Event) error {
-	switch e := e.(type) {
-	case akita.TickEvent:
-		d.handleTickEvent(e)
-	default:
-		log.Panicf("cannot handle event of type %s", reflect.TypeOf(e))
-	}
-	return nil
+func (d *Driver) Tick(now akita.VTimeInSec) bool {
+	madeProgress := false
+
+	madeProgress = d.sendToGPUs(now) || madeProgress
+	madeProgress = d.sendToMMU(now) || madeProgress
+	madeProgress = d.sendMigrationReqToCP(now) || madeProgress
+	madeProgress = d.processReturnReq(now) || madeProgress
+	madeProgress = d.processNewCommand(now) || madeProgress
+	madeProgress = d.parseFromMMU(now) || madeProgress
+
+	return madeProgress
 }
 
-func (d *Driver) handleTickEvent(evt akita.TickEvent) {
-	now := evt.Time()
-	d.NeedTick = false
-
-	d.sendToGPUs(now)
-	d.sendToMMU(now)
-	d.sendMigrationReqToCP(now)
-	d.processReturnReq(now)
-	d.processNewCommand(now)
-	d.parseFromMMU(now)
-
-	if d.NeedTick {
-		d.TickLater(now)
-	}
-}
-
-func (d *Driver) sendToGPUs(now akita.VTimeInSec) {
+func (d *Driver) sendToGPUs(now akita.VTimeInSec) bool {
 	if len(d.requestsToSend) == 0 {
-		return
+		return false
 	}
 
 	req := d.requestsToSend[0]
@@ -151,40 +137,46 @@ func (d *Driver) sendToGPUs(now akita.VTimeInSec) {
 	err := d.ToGPUs.Send(req)
 	if err == nil {
 		d.requestsToSend = d.requestsToSend[1:]
-		d.NeedTick = true
+		return true
 	}
+
+	return false
 }
 
 //nolint:gocyclo
-func (d *Driver) processReturnReq(now akita.VTimeInSec) {
+func (d *Driver) processReturnReq(now akita.VTimeInSec) bool {
 	req := d.ToGPUs.Retrieve(now)
 	if req == nil {
-		return
+		return false
 	}
 
 	switch req := req.(type) {
 	case *gcn3.MemCopyH2DReq:
-		d.processMemCopyH2DReturn(now, req)
+		return d.processMemCopyH2DReturn(now, req)
 	case *gcn3.MemCopyD2HReq:
-		d.processMemCopyD2HReturn(now, req)
+		return d.processMemCopyD2HReturn(now, req)
 	case *gcn3.LaunchKernelReq:
-		d.processLaunchKernelReturn(now, req)
+		return d.processLaunchKernelReturn(now, req)
 	case *gcn3.FlushCommand:
-		d.processFlushReturn(now, req)
+		return d.processFlushReturn(now, req)
 	case *gcn3.RDMADrainRspToDriver:
-		d.processRDMADrainRsp(now, req)
+		return d.processRDMADrainRsp(now, req)
 	case *gcn3.ShootDownCompleteRsp:
-		d.processShootdownCompleteRsp(now, req)
+		return d.processShootdownCompleteRsp(now, req)
 	case *gcn3.PageMigrationRspToDriver:
-		d.processPageMigrationRspFromCP(now, req)
+		return d.processPageMigrationRspFromCP(now, req)
 	case *gcn3.GPURestartRsp:
-		d.handleGPURestartRsp(now, req)
+		return d.handleGPURestartRsp(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
+
+	panic("never")
 }
 
-func (d *Driver) processNewCommand(now akita.VTimeInSec) {
+func (d *Driver) processNewCommand(now akita.VTimeInSec) bool {
+	madeProgress := false
+
 	d.contextMutex.Lock()
 	for _, context := range d.contexts {
 		context.queueMutex.Lock()
@@ -197,17 +189,19 @@ func (d *Driver) processNewCommand(now akita.VTimeInSec) {
 				continue
 			}
 
-			d.processOneCommand(now, q)
+			madeProgress = d.processOneCommand(now, q) || madeProgress
 		}
 		context.queueMutex.Unlock()
 	}
 	d.contextMutex.Unlock()
+
+	return madeProgress
 }
 
 func (d *Driver) processOneCommand(
 	now akita.VTimeInSec,
 	cmdQueue *CommandQueue,
-) {
+) bool {
 	cmd := cmdQueue.Peek()
 
 	switch cmd := cmd.(type) {
@@ -226,6 +220,7 @@ func (d *Driver) processOneCommand(
 	}
 
 	d.logCmdStart(cmd, now)
+	return true
 }
 
 func (d *Driver) logCmdStart(cmd Command, now akita.VTimeInSec) {
@@ -248,16 +243,16 @@ func (d *Driver) processNoopCommand(
 	now akita.VTimeInSec,
 	cmd *NoopCommand,
 	queue *CommandQueue,
-) {
+) bool {
 	queue.Dequeue()
-	d.TickLater(now)
+	return true
 }
 
 func (d *Driver) processMemCopyH2DCommand(
 	now akita.VTimeInSec,
 	cmd *MemCopyH2DCommand,
 	queue *CommandQueue,
-) {
+) bool {
 	buffer := bytes.NewBuffer(nil)
 	err := binary.Write(buffer, binary.LittleEndian, cmd.Src)
 	if err != nil {
@@ -281,7 +276,7 @@ func (d *Driver) processMemCopyH2DCommand(
 
 		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyH2DReq(now,
-			d.ToGPUs, d.GPUs[gpuID-1].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID-1].CommandProcessor.ToDriver,
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -294,7 +289,7 @@ func (d *Driver) processMemCopyH2DCommand(
 		d.logTaskToGPUInitiate(now, cmd, req)
 	}
 	queue.IsRunning = true
-	d.NeedTick = true
+	return true
 }
 
 func (d *Driver) logTaskToGPUInitiate(
@@ -315,7 +310,7 @@ func (d *Driver) logTaskToGPUClear(
 func (d *Driver) processMemCopyH2DReturn(
 	now akita.VTimeInSec,
 	req *gcn3.MemCopyH2DReq,
-) {
+) bool {
 	d.logTaskToGPUClear(now, req)
 
 	cmd, cmdQueue := d.findCommandByReq(req)
@@ -336,14 +331,14 @@ func (d *Driver) processMemCopyH2DReturn(
 		d.logCmdComplete(cmd, now)
 	}
 
-	d.NeedTick = true
+	return true
 }
 
 func (d *Driver) processMemCopyD2HCommand(
 	now akita.VTimeInSec,
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
-) {
+) bool {
 	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
 
 	offset := uint64(0)
@@ -359,7 +354,7 @@ func (d *Driver) processMemCopyD2HCommand(
 
 		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
 		req := gcn3.NewMemCopyD2HReq(now,
-			d.ToGPUs, d.GPUs[gpuID-1].ToDriver,
+			d.ToGPUs, d.GPUs[gpuID-1].CommandProcessor.ToDriver,
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
 		d.requestsToSend = append(d.requestsToSend, req)
@@ -372,13 +367,13 @@ func (d *Driver) processMemCopyD2HCommand(
 	}
 
 	queue.IsRunning = true
-	d.NeedTick = true
+	return true
 }
 
 func (d *Driver) processMemCopyD2HReturn(
 	now akita.VTimeInSec,
 	req *gcn3.MemCopyD2HReq,
-) {
+) bool {
 	d.logTaskToGPUClear(now, req)
 
 	cmd, cmdQueue := d.findCommandByReq(req)
@@ -405,16 +400,16 @@ func (d *Driver) processMemCopyD2HReturn(
 		d.logCmdComplete(copyCmd, now)
 	}
 
-	d.NeedTick = true
+	return true
 }
 
 func (d *Driver) processLaunchKernelCommand(
 	now akita.VTimeInSec,
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
-) {
+) bool {
 	req := gcn3.NewLaunchKernelReq(now,
-		d.ToGPUs, d.GPUs[queue.GPUID-1].ToDriver)
+		d.ToGPUs, d.GPUs[queue.GPUID-1].CommandProcessor.ToDriver)
 	req.PID = queue.Context.pid
 	req.HsaCo = cmd.CodeObject
 
@@ -425,54 +420,78 @@ func (d *Driver) processLaunchKernelCommand(
 	cmd.Reqs = append(cmd.Reqs, req)
 
 	d.requestsToSend = append(d.requestsToSend, req)
-	d.NeedTick = true
+
+	queue.Context.l2Dirty = true
 
 	d.logCmdStart(cmd, now)
 	d.logTaskToGPUInitiate(now, cmd, req)
+
+	return true
 }
 
 func (d *Driver) processLaunchKernelReturn(
 	now akita.VTimeInSec,
 	req *gcn3.LaunchKernelReq,
-) {
+) bool {
 	cmd, cmdQueue := d.findCommandByReq(req)
 	cmdQueue.IsRunning = false
 	cmdQueue.Dequeue()
-	d.NeedTick = true
 
 	d.logTaskToGPUClear(now, req)
 	d.logCmdComplete(cmd, now)
+
+	return true
 }
 
 func (d *Driver) processFlushCommand(
 	now akita.VTimeInSec,
 	cmd *FlushCommand,
 	queue *CommandQueue,
-) {
-	req := gcn3.NewFlushCommand(now,
-		d.ToGPUs, d.GPUs[queue.GPUID-1].ToDriver)
-
-	d.requestsToSend = append(d.requestsToSend, req)
+) bool {
+	for _, gpu := range d.GPUs {
+		req := gcn3.NewFlushCommand(now,
+			d.ToGPUs, gpu.CommandProcessor.ToDriver)
+		d.requestsToSend = append(d.requestsToSend, req)
+		cmd.Reqs = append(cmd.Reqs, req)
+		d.logTaskToGPUInitiate(now, cmd, req)
+	}
 
 	queue.IsRunning = true
-	cmd.Reqs = append(cmd.Reqs, req)
-	d.NeedTick = true
 
 	d.logCmdStart(cmd, now)
-	d.logTaskToGPUInitiate(now, cmd, req)
+
+	return true
 }
 
 func (d *Driver) processFlushReturn(
 	now akita.VTimeInSec,
 	req *gcn3.FlushCommand,
-) {
+) bool {
+	d.logTaskToGPUClear(now, req)
+
 	cmd, cmdQueue := d.findCommandByReq(req)
+	flushCmd := cmd.(*FlushCommand)
+
+	newReqs := make([]akita.Msg, 0)
+	for _, r := range flushCmd.Reqs {
+		if r != req {
+			newReqs = append(newReqs, r)
+		}
+	}
+	flushCmd.Reqs = newReqs
+
+	if len(flushCmd.Reqs) > 0 {
+		return true
+	}
+
 	cmdQueue.IsRunning = false
 	cmdQueue.Dequeue()
-	d.NeedTick = true
 
-	d.logTaskToGPUClear(now, req)
+	cmdQueue.Context.l2Dirty = false
+
 	d.logCmdComplete(cmd, now)
+
+	return true
 }
 
 func (d *Driver) findCommandByReq(req akita.Msg) (Command, *CommandQueue) {
@@ -504,14 +523,14 @@ func (d *Driver) reserveMemoryForCPU() {
 	d.memAllocator.RegisterStorage(1 << 32)
 }
 
-func (d *Driver) parseFromMMU(now akita.VTimeInSec) {
+func (d *Driver) parseFromMMU(now akita.VTimeInSec) bool {
 	if d.isCurrentlyHandlingMigrationReq {
-		return
+		return false
 	}
-	req := d.ToMMU.Retrieve(now)
 
+	req := d.ToMMU.Retrieve(now)
 	if req == nil {
-		return
+		return false
 	}
 
 	switch req := req.(type) {
@@ -522,30 +541,38 @@ func (d *Driver) parseFromMMU(now akita.VTimeInSec) {
 	default:
 		log.Panicf("Driver canot handle request of type %s", reflect.TypeOf(req))
 	}
-	d.NeedTick = true
+
+	return true
 }
 
-func (d *Driver) initiateRDMADrain(now akita.VTimeInSec) {
+func (d *Driver) initiateRDMADrain(now akita.VTimeInSec) bool {
 	for i := 0; i < len(d.GPUs); i++ {
-		req := gcn3.NewRDMADrainCmdFromDriver(now, d.ToGPUs, d.GPUs[i].ToDriver)
+		req := gcn3.NewRDMADrainCmdFromDriver(now, d.ToGPUs,
+			d.GPUs[i].CommandProcessor.ToDriver)
 		err := d.ToGPUs.Send(req)
 		d.numRDMADrainACK++
 		if err != nil {
 			log.Panicf("Failed to send RDMA Drain reqs to all GPUs")
 		}
 	}
-	d.NeedTick = true
+
+	return true
 }
 
-func (d *Driver) processRDMADrainRsp(now akita.VTimeInSec, req *gcn3.RDMADrainRspToDriver) {
+func (d *Driver) processRDMADrainRsp(
+	now akita.VTimeInSec,
+	req *gcn3.RDMADrainRspToDriver,
+) bool {
 	d.numRDMADrainACK--
 
 	if d.numRDMADrainACK == 0 {
 		d.sendShootDownReqs(now)
 	}
+
+	return true
 }
 
-func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) {
+func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) bool {
 	vAddr := make([]uint64, 0)
 	migrationInfo := d.currentPageMigrationReq.MigrationInfo
 
@@ -567,14 +594,17 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) {
 
 	for i := 0; i < len(accesingGPUs); i++ {
 		toShootdownGPU := accesingGPUs[i] - 1
-		shootDwnReq := gcn3.NewShootdownCommand(now, d.ToGPUs, d.GPUs[toShootdownGPU].ToDriver, vAddr, pid)
+		shootDwnReq := gcn3.NewShootdownCommand(now, d.ToGPUs, d.GPUs[toShootdownGPU].CommandProcessor.ToDriver, vAddr, pid)
 		d.requestsToSend = append(d.requestsToSend, shootDwnReq)
 	}
 
-	d.NeedTick = true
+	return true
 }
 
-func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.ShootDownCompleteRsp) {
+func (d *Driver) processShootdownCompleteRsp(
+	now akita.VTimeInSec,
+	req *gcn3.ShootDownCompleteRsp,
+) bool {
 	d.numShootDownACK--
 
 	if d.numShootDownACK == 0 {
@@ -597,7 +627,8 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 				vAddr := vAddrs[i]
 				page, oldPaddr := d.preparePageForMigration(vAddr, context, gpuID)
 
-				req := gcn3.NewPageMigrationReqToCP(now, d.ToGPUs, d.GPUs[gpuID].ToDriver)
+				req := gcn3.NewPageMigrationReqToCP(now, d.ToGPUs,
+					d.GPUs[gpuID].CommandProcessor.ToDriver)
 				req.DestinationPMCPort = toRequestFromPMEPort
 				req.ToReadFromPhysicalAddress = oldPaddr
 				req.ToWriteToPhysicalAddress = page.PAddr
@@ -607,8 +638,10 @@ func (d *Driver) processShootdownCompleteRsp(now akita.VTimeInSec, req *gcn3.Sho
 				d.numPagesMigratingACK++
 			}
 		}
-		d.NeedTick = true
+		return true
 	}
+
+	return false
 }
 
 func (d *Driver) findRequestingGPUs(migrationInfo *vm.PageMigrationInfo) []uint64 {
@@ -650,31 +683,32 @@ func (d *Driver) preparePageForMigration(vAddr uint64, context *Context, gpuID u
 	return &newPage, oldPaddr
 }
 
-func (d *Driver) sendMigrationReqToCP(now akita.VTimeInSec) {
+func (d *Driver) sendMigrationReqToCP(now akita.VTimeInSec) bool {
 	if len(d.migrationReqToSendToCP) == 0 {
-		return
+		return false
 	}
 
 	if d.isCurrentlyMigratingOnePage {
-		return
+		return false
 	}
 
 	req := d.migrationReqToSendToCP[0]
 	req.SendTime = now
 
 	err := d.ToGPUs.Send(req)
-
 	if err == nil {
 		d.migrationReqToSendToCP = d.migrationReqToSendToCP[1:]
 		d.isCurrentlyMigratingOnePage = true
-		d.NeedTick = true
+		return true
 	}
+
+	return false
 }
 
 func (d *Driver) processPageMigrationRspFromCP(
 	now akita.VTimeInSec,
 	rsp *gcn3.PageMigrationRspToDriver,
-) {
+) bool {
 	d.numPagesMigratingACK--
 	d.isCurrentlyMigratingOnePage = false
 
@@ -683,12 +717,14 @@ func (d *Driver) processPageMigrationRspFromCP(
 		d.prepareGPURestartReqs(now)
 		d.preparePageMigrationRspToMMU(now)
 	}
-	d.NeedTick = true
+
+	return true
 }
 
 func (d *Driver) prepareRDMARestartReqs(now akita.VTimeInSec) {
 	for i := 0; i < len(d.GPUs); i++ {
-		req := gcn3.NewRDMARestartCmdFromDriver(now, d.ToGPUs, d.GPUs[i].ToDriver)
+		req := gcn3.NewRDMARestartCmdFromDriver(now, d.ToGPUs,
+			d.GPUs[i].CommandProcessor.ToDriver)
 		d.requestsToSend = append(d.requestsToSend, req)
 	}
 }
@@ -698,7 +734,8 @@ func (d *Driver) prepareGPURestartReqs(now akita.VTimeInSec) {
 
 	for i := 0; i < len(accessingGPUs); i++ {
 		restartGPUID := accessingGPUs[i] - 1
-		restartReq := gcn3.NewGPURestartReq(now, d.ToGPUs, d.GPUs[restartGPUID].ToDriver)
+		restartReq := gcn3.NewGPURestartReq(
+			now, d.ToGPUs, d.GPUs[restartGPUID].CommandProcessor.ToDriver)
 		d.requestsToSend = append(d.requestsToSend, restartReq)
 		d.numRestartACK++
 	}
@@ -733,23 +770,29 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	d.toSendToMMU = req
 }
 
-func (d *Driver) handleGPURestartRsp(now akita.VTimeInSec, req *gcn3.GPURestartRsp) {
+func (d *Driver) handleGPURestartRsp(
+	now akita.VTimeInSec,
+	req *gcn3.GPURestartRsp,
+) bool {
 	d.numRestartACK--
 	if d.numRestartACK == 0 {
 		d.currentPageMigrationReq = nil
 		d.isCurrentlyHandlingMigrationReq = false
 	}
+	return true
 }
 
-func (d *Driver) sendToMMU(now akita.VTimeInSec) {
+func (d *Driver) sendToMMU(now akita.VTimeInSec) bool {
 	if d.toSendToMMU == nil {
-		return
+		return false
 	}
 	err := d.ToMMU.Send(d.toSendToMMU)
 	if err == nil {
-		d.NeedTick = true
 		d.toSendToMMU = nil
+		return true
 	}
+
+	return false
 }
 
 // NewDriver creates a new driver
@@ -769,8 +812,8 @@ func NewDriver(engine akita.Engine, mmu mmu.MMU, log2PageSize uint64) *Driver {
 
 	driver.MMU = mmu
 
-	driver.ToGPUs = akita.NewLimitNumMsgPort(driver, 40960000)
-	driver.ToMMU = akita.NewLimitNumMsgPort(driver, 1)
+	driver.ToGPUs = akita.NewLimitNumMsgPort(driver, 40960000, "driver.ToGPUs")
+	driver.ToMMU = akita.NewLimitNumMsgPort(driver, 1, "driver.ToMMU")
 
 	driver.enqueueSignal = make(chan bool)
 	driver.driverStopped = make(chan bool)

@@ -21,6 +21,7 @@ func (m *FlushCommand) Meta() *akita.MsgMeta {
 // with time and the source and destination.
 func NewFlushCommand(time akita.VTimeInSec, src, dst akita.Port) *FlushCommand {
 	cmd := new(FlushCommand)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -50,6 +51,7 @@ func NewLaunchKernelReq(
 	time akita.VTimeInSec,
 	src, dst akita.Port) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
+	r.ID = akita.GetIDGenerator().Generate()
 	r.SendTime = time
 	r.Src = src
 	r.Dst = dst
@@ -77,6 +79,7 @@ func NewMemCopyH2DReq(
 	dstAddress uint64,
 ) *MemCopyH2DReq {
 	req := new(MemCopyH2DReq)
+	req.ID = akita.GetIDGenerator().Generate()
 	req.SendTime = time
 	req.Src = src
 	req.Dst = dst
@@ -106,6 +109,7 @@ func NewMemCopyD2HReq(
 	dstBuffer []byte,
 ) *MemCopyD2HReq {
 	req := new(MemCopyD2HReq)
+	req.ID = akita.GetIDGenerator().Generate()
 	req.SendTime = time
 	req.Src = src
 	req.Dst = dst
@@ -139,6 +143,7 @@ func NewShootdownCommand(
 	pID ca.PID,
 ) *ShootDownCommand {
 	cmd := new(ShootDownCommand)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -164,6 +169,7 @@ func NewShootdownCompleteRsp(
 	src, dst akita.Port,
 ) *ShootDownCompleteRsp {
 	cmd := new(ShootDownCompleteRsp)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -188,6 +194,7 @@ func NewRDMADrainCmdFromDriver(
 	src, dst akita.Port,
 ) *RDMADrainCmdFromDriver {
 	cmd := new(RDMADrainCmdFromDriver)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -212,6 +219,7 @@ func NewRDMADrainRspToDriver(
 	src, dst akita.Port,
 ) *RDMADrainRspToDriver {
 	cmd := new(RDMADrainRspToDriver)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -236,6 +244,7 @@ func NewRDMARestartCmdFromDriver(
 	src, dst akita.Port,
 ) *RDMARestartCmdFromDriver {
 	cmd := new(RDMARestartCmdFromDriver)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -260,6 +269,7 @@ func NewGPURestartReq(
 	src, dst akita.Port,
 ) *GPURestartReq {
 	cmd := new(GPURestartReq)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -284,6 +294,7 @@ func NewGPURestartRsp(
 	src, dst akita.Port,
 ) *GPURestartRsp {
 	cmd := new(GPURestartRsp)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -313,6 +324,7 @@ func NewPageMigrationReqToCP(
 	src, dst akita.Port,
 ) *PageMigrationReqToCP {
 	cmd := new(PageMigrationReqToCP)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
@@ -337,6 +349,7 @@ func NewPageMigrationRspToDriver(
 	src, dst akita.Port,
 ) *PageMigrationRspToDriver {
 	cmd := new(PageMigrationRspToDriver)
+	cmd.ID = akita.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst

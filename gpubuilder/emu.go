@@ -85,7 +85,8 @@ func (b EmuGPUBuilder) WithStorage(s *mem.Storage) EmuGPUBuilder {
 // Build creates a very simple GPU for emulation purposes
 func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 	b.gpuName = name
-	connection := akita.NewDirectConnection(b.engine)
+	connection := akita.NewDirectConnection(
+		"InterGPUConn", b.engine, 1*akita.GHz)
 
 	dispatcher := gcn3.NewDispatcher(
 		b.gpuName+".Dispatcher",
@@ -123,7 +124,7 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 			fmt.Sprintf("%s.CU%d", b.gpuName, i),
 			b.engine, disassembler, b.iommu, gpuMem.Storage, nil)
 
-		connection.PlugIn(computeUnit.ToDispatcher)
+		connection.PlugIn(computeUnit.ToDispatcher, 4)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
 
 		if b.EnableISADebug {
@@ -136,10 +137,9 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		}
 	}
 
-	gpu := gcn3.NewGPU(b.gpuName, b.engine)
-	gpu.Driver = b.driver.ToGPUs
-	gpu.CommandProcessor = commandProcessor.ToDriver
-	commandProcessor.Driver = gpu.ToCommandProcessor
+	gpu := gcn3.NewGPU(b.gpuName)
+	gpu.CommandProcessor = commandProcessor
+	commandProcessor.Driver = b.driver.ToGPUs
 	gpu.Storage = b.storage
 
 	localDataSource := new(cache.SingleLowModuleFinder)
@@ -148,15 +148,14 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		fmt.Sprintf("%s.DMA", b.gpuName), b.engine, localDataSource)
 	commandProcessor.DMAEngine = dmaEngine.ToCP
 
-	connection.PlugIn(gpu.ToCommandProcessor)
-	connection.PlugIn(commandProcessor.ToDriver)
-	connection.PlugIn(commandProcessor.ToDispatcher)
-	connection.PlugIn(b.driver.ToGPUs)
-	connection.PlugIn(dispatcher.ToCommandProcessor)
-	connection.PlugIn(dispatcher.ToCUs)
-	connection.PlugIn(gpuMem.ToTop)
-	connection.PlugIn(dmaEngine.ToCP)
-	connection.PlugIn(dmaEngine.ToMem)
+	connection.PlugIn(commandProcessor.ToDriver, 1)
+	connection.PlugIn(commandProcessor.ToDispatcher, 1)
+	connection.PlugIn(b.driver.ToGPUs, 1)
+	connection.PlugIn(dispatcher.ToCommandProcessor, 1)
+	connection.PlugIn(dispatcher.ToCUs, 1)
+	connection.PlugIn(gpuMem.ToTop, 1)
+	connection.PlugIn(dmaEngine.ToCP, 1)
+	connection.PlugIn(dmaEngine.ToMem, 1)
 	gpu.InternalConnection = connection
 
 	return gpu

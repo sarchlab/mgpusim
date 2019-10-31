@@ -58,7 +58,6 @@ func (u *ScalarUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
@@ -79,9 +78,6 @@ func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
 
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", true)
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", false)
-
 		u.toExec = u.toRead
 		u.toRead = nil
 		return true
@@ -100,9 +96,6 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 			return true
 		} else {
 			u.alu.Run(u.toExec)
-
-			u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
-			u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "write", false)
 
 			u.toWrite = u.toExec
 			u.toExec = nil
@@ -153,8 +146,6 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
 
 		u.cu.UpdatePCAndSetReady(u.toExec)
 
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", false)
 		tracing.TraceReqInitiate(req, now, u.cu, u.toExec.DynamicInst().ID)
 
 		u.toExec = nil
@@ -168,7 +159,6 @@ func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.logInstStageTask(now, u.toWrite.DynamicInst(), "write", true)
 	u.cu.logInstTask(now, u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)
@@ -194,6 +184,5 @@ func (u *ScalarUnit) Flush() {
 	u.toRead = nil
 	u.toExec = nil
 	u.toWrite = nil
-
 	u.readBuf = nil
 }

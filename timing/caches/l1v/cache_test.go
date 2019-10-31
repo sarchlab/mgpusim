@@ -28,7 +28,7 @@ var _ = Describe("Cache", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		cuPort = NewMockPort(mockCtrl)
 		engine = akita.NewSerialEngine()
-		connection = akita.NewDirectConnection(engine)
+		connection = akita.NewDirectConnection("conn", engine, 1*akita.GHz)
 		dram = idealmemcontroller.New("dram", engine, 4*mem.GB)
 		lowModuleFinder = &cache.SingleLowModuleFinder{
 			LowModule: dram.ToTop,
@@ -38,11 +38,11 @@ var _ = Describe("Cache", func() {
 			WithLowModuleFinder(lowModuleFinder).
 			Build("cache")
 
-		connection.PlugIn(dram.ToTop)
-		connection.PlugIn(c.TopPort)
-		connection.PlugIn(c.BottomPort)
+		connection.PlugIn(dram.ToTop, 64)
+		connection.PlugIn(c.TopPort, 4)
+		connection.PlugIn(c.BottomPort, 16)
 		cuPort.EXPECT().SetConnection(connection)
-		connection.PlugIn(cuPort)
+		connection.PlugIn(cuPort, 4)
 	})
 
 	AfterEach(func() {

@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
 	"gitlab.com/akita/gcn3/benchmarks"
 	"gitlab.com/akita/gcn3/driver"
 	"gitlab.com/akita/gcn3/platform"
@@ -123,9 +122,7 @@ func (r *Runner) addKernelTimeTracer() {
 			})
 		r.PerGPUKernelTimeCounter = append(
 			r.PerGPUKernelTimeCounter, gpuKernelTimeCountner)
-		tracing.CollectTrace(
-			gpu.CommandProcessor.Component().(*gcn3.CommandProcessor),
-			gpuKernelTimeCountner)
+		tracing.CollectTrace(gpu.CommandProcessor, gpuKernelTimeCountner)
 	}
 }
 

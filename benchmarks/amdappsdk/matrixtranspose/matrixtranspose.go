@@ -10,8 +10,6 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 )
 
-//go:generate esc -o=bindata.go -pkg=$GOPACKAGE -private kernels.hsaco
-
 type MatrixTransposeKernelArgs struct {
 	Output              driver.GPUPtr
 	Input               driver.GPUPtr

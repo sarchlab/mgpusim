@@ -59,7 +59,6 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toRead = wave
-	u.cu.logInstStageTask(now, wave.DynamicInst(), "read", false)
 }
 
 // IsIdle moves one wavefront into the read buffer of the Scalar unit
@@ -84,9 +83,6 @@ func (u *VectorMemoryUnit) runReadStage(now akita.VTimeInSec) bool {
 
 	if u.toExec == nil {
 		u.scratchpadPreparer.Prepare(u.toRead, u.toRead)
-
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "read", true)
-		u.cu.logInstStageTask(now, u.toRead.DynamicInst(), "exec", false)
 
 		u.toExec = u.toRead
 		u.toRead = nil
@@ -114,9 +110,6 @@ func (u *VectorMemoryUnit) runExecStage(now akita.VTimeInSec) bool {
 		default:
 			log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
 		}
-
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "exec", true)
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", false)
 
 		//u.toWrite = u.toExec
 
@@ -146,7 +139,6 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 	transactions := u.coalescer.generateMemTransactions(u.toExec)
 
 	if len(transactions) == 0 {
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
 		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
 		return
 	}
@@ -174,7 +166,6 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	transactions := u.coalescer.generateMemTransactions(u.toExec)
 
 	if len(transactions) == 0 {
-		u.cu.logInstStageTask(now, u.toExec.DynamicInst(), "mem", true)
 		u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
 		return
 	}

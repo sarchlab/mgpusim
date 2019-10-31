@@ -16,20 +16,22 @@ import (
 	"gitlab.com/akita/mem/vm/mmu"
 )
 
+type emulationEvent struct {
+	*akita.EventBase
+}
+
 // A ComputeUnit in the emu package is a component that omit the pipeline design
 // but can still run the GCN3 instructions.
 //
 //     ToDispatcher <=> The port that connect the CU with the dispatcher
 //
 type ComputeUnit struct {
-	*akita.ComponentBase
+	*akita.TickingComponent
 
-	engine             akita.Engine
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
 	storageAccessor    *storageAccessor
-	Freq               akita.Freq
 
 	nextTick    akita.VTimeInSec
 	queueingWGs []*gcn3.MapWGReq
@@ -41,24 +43,15 @@ type ComputeUnit struct {
 	ToDispatcher akita.Port
 }
 
-func (cu *ComputeUnit) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
-	req := port.Retrieve(now)
-	akita.ProcessMsgAsEvent(req, cu.engine, cu.Freq)
-}
-
-func (cu *ComputeUnit) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
-	// Do nothing
-}
-
 // Handle defines the behavior on event scheduled on the ComputeUnit
 func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	cu.Lock()
 
 	switch evt := evt.(type) {
-	case *gcn3.MapWGReq:
-		cu.handleMapWGReq(evt)
-	case *akita.TickEvent:
-		cu.handleTickEvent(evt)
+	case akita.TickEvent:
+		cu.TickingComponent.Handle(evt)
+	case *emulationEvent:
+		cu.runEmulation(evt)
 	case *WGCompleteEvent:
 		cu.handleWGCompleteEvent(evt)
 	default:
@@ -70,34 +63,40 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	return nil
 }
 
-func (cu *ComputeUnit) handleMapWGReq(req *gcn3.MapWGReq) error {
-	req.Ok = true
-	req.Src, req.Dst = req.Dst, req.Src
-	req.SendTime = req.Time()
-	err := cu.ToDispatcher.Send(req)
-	if err != nil {
-		req.Src, req.Dst = req.Dst, req.Src
-		req.EventTime = cu.Freq.NextTick(req.Time())
-		cu.engine.Schedule(req)
-	} else {
-		if cu.nextTick <= req.Time() {
-			cu.nextTick = akita.VTimeInSec(math.Ceil(float64(req.Time())))
-			//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
-			evt := akita.NewTickEvent(
-				cu.nextTick,
-				cu,
-			)
-			cu.engine.Schedule(evt)
-		}
-
-		cu.queueingWGs = append(cu.queueingWGs, req)
-		cu.wfs[req.WG] = make([]*Wavefront, 0, 64)
-	}
-
-	return nil
+func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
+	cu.processMapWGReq(now)
+	return false
 }
 
-func (cu *ComputeUnit) handleTickEvent(evt *akita.TickEvent) error {
+func (cu *ComputeUnit) processMapWGReq(now akita.VTimeInSec) {
+	msg := cu.ToDispatcher.Retrieve(now)
+	if msg == nil {
+		return
+	}
+
+	req := msg.(*gcn3.MapWGReq)
+	req.Ok = true
+	req.Src, req.Dst = req.Dst, req.Src
+	req.SendTime = now
+	err := cu.ToDispatcher.Send(req)
+	if err != nil {
+		return
+	}
+
+	if cu.nextTick <= now {
+		cu.nextTick = akita.VTimeInSec(math.Ceil(float64(now)))
+		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
+		evt := &emulationEvent{
+			akita.NewEventBase(cu.nextTick, cu),
+		}
+		cu.Engine.Schedule(evt)
+	}
+
+	cu.queueingWGs = append(cu.queueingWGs, req)
+	cu.wfs[req.WG] = make([]*Wavefront, 0, 64)
+}
+
+func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
 	for len(cu.queueingWGs) > 0 {
 		wg := cu.queueingWGs[0]
 		cu.queueingWGs = cu.queueingWGs[1:]
@@ -119,7 +118,7 @@ func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now akita.VTimeInSec) error {
 	}
 
 	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu, req)
-	cu.engine.Schedule(evt)
+	cu.Engine.Schedule(evt)
 
 	return nil
 }
@@ -342,7 +341,7 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	if err != nil {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
 			cu, evt.Req)
-		cu.engine.Schedule(newEvent)
+		cu.Engine.Schedule(newEvent)
 	}
 	return nil
 }
@@ -357,10 +356,9 @@ func NewComputeUnit(
 	sAccessor *storageAccessor,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
-	cu.ComponentBase = akita.NewComponentBase(name)
+	cu.TickingComponent = akita.NewTickingComponent(name,
+		engine, 1*akita.GHz, cu)
 
-	cu.engine = engine
-	cu.Freq = 1 * akita.GHz
 	cu.decoder = decoder
 	cu.scratchpadPreparer = scratchpadPreparer
 	cu.alu = alu
@@ -369,7 +367,7 @@ func NewComputeUnit(
 	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
-	cu.ToDispatcher = akita.NewLimitNumMsgPort(cu, 1)
+	cu.ToDispatcher = akita.NewLimitNumMsgPort(cu, 1, name+".ToDispatcher")
 
 	return cu
 }

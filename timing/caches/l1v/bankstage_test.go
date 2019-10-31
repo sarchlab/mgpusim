@@ -4,10 +4,10 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/akitaext"
 )
 
 var _ = Describe("Bankstage", func() {
@@ -29,7 +29,7 @@ var _ = Describe("Bankstage", func() {
 			storage:       storage,
 			log2BlockSize: 6,
 		}
-		c.TickingComponent = akitaext.NewTickingComponent(
+		c.TickingComponent = akita.NewTickingComponent(
 			"cache", nil, 1, c)
 		s = &bankStage{
 			cache:  c,
