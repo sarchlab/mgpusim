@@ -61,7 +61,7 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-verify",
-                "-timing"
+                // "-timing"
             ]
         },
         {

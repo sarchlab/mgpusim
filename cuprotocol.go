@@ -213,6 +213,7 @@ func NewMapWGReq(
 	wg *kernels.WorkGroup,
 ) *MapWGReq {
 	r := new(MapWGReq)
+	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = src
 	r.Dst = dst
 	r.SendTime = time
@@ -240,7 +241,7 @@ func NewWGFinishMesg(
 	wg *kernels.WorkGroup,
 ) *WGFinishMesg {
 	m := new(WGFinishMesg)
-
+	m.ID = akita.GetIDGenerator().Generate()
 	m.Src = src
 	m.Dst = dst
 	m.SendTime = time

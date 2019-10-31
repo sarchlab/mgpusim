@@ -39,9 +39,11 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.ToMMU = toMMU
 
 		for i := 0; i < 2; i++ {
-			gpu := gcn3.NewGPU("GPU", engine)
+			gpu := gcn3.NewGPU("GPU")
+			gpu.CommandProcessor = gcn3.NewCommandProcessor("cp", engine)
 			remotePMCPorts = append(remotePMCPorts, NewMockPort(mockCtrl))
-			driver.RemotePMCPorts = append(driver.RemotePMCPorts, akita.NewLimitNumMsgPort(driver, 1))
+			driver.RemotePMCPorts = append(driver.RemotePMCPorts,
+				akita.NewLimitNumMsgPort(driver, 1, ""))
 			driver.RemotePMCPorts[i] = remotePMCPorts[i]
 			driver.RegisterGPU(gpu, 4*mem.GB)
 
@@ -111,7 +113,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(driver.requestsToSend).To(HaveLen(4))
 			Expect(cmdQueue.IsRunning).To(BeTrue())
@@ -141,7 +143,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			engine.EXPECT().
 				Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -170,7 +172,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
 			Expect(cmdQueue.NumCommand()).To(Equal(0))
@@ -205,7 +207,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
@@ -236,7 +238,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -265,7 +267,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
 			Expect(cmdQueue.commands).To(HaveLen(0))
@@ -294,7 +296,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
@@ -320,7 +322,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-		driver.Handle(*akita.NewTickEvent(11, nil))
+		driver.Handle(akita.MakeTickEvent(11, nil))
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.commands).To(HaveLen(0))
@@ -340,11 +342,11 @@ var _ = ginkgo.Describe("Driver", func() {
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-			driver.Handle(*akita.NewTickEvent(11, nil))
+			driver.Handle(akita.MakeTickEvent(11, nil))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmd.Reqs).To(HaveLen(1))
-			Expect(driver.requestsToSend).To(HaveLen(1))
+			Expect(cmd.Reqs).To(HaveLen(2))
+			Expect(driver.requestsToSend).To(HaveLen(2))
 		})
 	})
 
@@ -365,7 +367,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(akita.TickEvent{}))
 
-		driver.Handle(*akita.NewTickEvent(11, nil))
+		driver.Handle(akita.MakeTickEvent(11, nil))
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.commands).To(HaveLen(0))
@@ -377,7 +379,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.isCurrentlyHandlingMigrationReq = false
 
 		for i := 0; i < 2; i++ {
-			rdmaDrainReq := gcn3.NewRDMADrainCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].ToDriver)
+			rdmaDrainReq := gcn3.NewRDMADrainCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].CommandProcessor.ToDriver)
 			toGPUs.EXPECT().Send(gomock.AssignableToTypeOf(rdmaDrainReq))
 
 		}
@@ -388,6 +390,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		Expect(driver.isCurrentlyHandlingMigrationReq).To(BeTrue())
 		Expect(driver.numRDMADrainACK).To(Equal(uint64(2)))
 	})
+
 	ginkgo.It("should handle RDMA Drain RSP ", func() {
 		req := gcn3.NewRDMADrainRspToDriver(10, nil, driver.ToGPUs)
 		driver.numRDMADrainACK = 1
@@ -406,10 +409,10 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
-		driver.processReturnReq(10)
+		madeProgress := driver.processReturnReq(10)
 
 		Expect(driver.numShootDownACK).To(Equal(uint64(1)))
-		Expect(driver.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(len(driver.requestsToSend)).To(Equal(1))
 
 	})
@@ -481,25 +484,31 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		driver.processReturnReq(10)
 		Expect(driver.numPagesMigratingACK).To(Equal(uint64(1)))
-		Expect(driver.migrationReqToSendToCP[0].Dst).To(Equal(driver.GPUs[1].ToDriver))
-		Expect(driver.migrationReqToSendToCP[0].DestinationPMCPort).To(Equal(driver.RemotePMCPorts[0]))
-		Expect(driver.migrationReqToSendToCP[0].ToReadFromPhysicalAddress).To(Equal(uint64(4294967296)))
-		Expect(driver.migrationReqToSendToCP[0].ToWriteToPhysicalAddress).To(Equal(uint64(8589934592)))
-		Expect(driver.migrationReqToSendToCP[0].PageSize).To(Equal(4 * mem.KB))
+		Expect(driver.migrationReqToSendToCP[0].Dst).
+			To(Equal(driver.GPUs[1].CommandProcessor.ToDriver))
+		Expect(driver.migrationReqToSendToCP[0].DestinationPMCPort).
+			To(Equal(driver.RemotePMCPorts[0]))
+		Expect(driver.migrationReqToSendToCP[0].ToReadFromPhysicalAddress).
+			To(Equal(uint64(4294967296)))
+		Expect(driver.migrationReqToSendToCP[0].ToWriteToPhysicalAddress).
+			To(Equal(uint64(8589934592)))
+		Expect(driver.migrationReqToSendToCP[0].PageSize).
+			To(Equal(4 * mem.KB))
 
 	})
 
 	ginkgo.It("should send migration req to CP", func() {
-		migrationReqToCP := gcn3.NewPageMigrationReqToCP(10, driver.ToGPUs, driver.GPUs[1].ToDriver)
+		migrationReqToCP :=
+			gcn3.NewPageMigrationReqToCP(10, driver.ToGPUs,
+				driver.GPUs[1].CommandProcessor.ToDriver)
 		driver.migrationReqToSendToCP = append(driver.migrationReqToSendToCP, migrationReqToCP)
 
 		toGPUs.EXPECT().Send(migrationReqToCP)
 
-		driver.sendMigrationReqToCP(10)
+		madeProgress := driver.sendMigrationReqToCP(10)
 
 		Expect(driver.isCurrentlyMigratingOnePage).To(BeTrue())
-		Expect(driver.NeedTick).To(BeTrue())
-
+		Expect(madeProgress).To(BeTrue())
 	})
 
 	ginkgo.It("should process page migration rsp from CP", func() {
@@ -530,19 +539,18 @@ var _ = ginkgo.Describe("Driver", func() {
 		migrationInfo := new(vm.PageMigrationInfo)
 		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
-
 		driver.currentPageMigrationReq = pageMigrationReq
 
 		requestsToSend := make([]akita.Msg, 0)
-
 		for i := 0; i < 2; i++ {
-			req := gcn3.NewRDMARestartCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].ToDriver)
+			req := gcn3.NewRDMARestartCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].CommandProcessor.ToDriver)
 			requestsToSend = append(requestsToSend, req)
 		}
 
 		for i := 0; i < len(pageMigrationReq.CurrAccessingGPUs); i++ {
 			restartGPUID := pageMigrationReq.CurrAccessingGPUs[i] - 1
-			restartReq := gcn3.NewGPURestartReq(10, driver.ToGPUs, driver.GPUs[restartGPUID].ToDriver)
+			restartReq := gcn3.NewGPURestartReq(10, driver.ToGPUs,
+				driver.GPUs[restartGPUID].CommandProcessor.ToDriver)
 			requestsToSend = append(requestsToSend, restartReq)
 		}
 
@@ -553,11 +561,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.processReturnReq(10)
 
 		Expect(driver.toSendToMMU).To(Equal(reqToMMU))
-
-		for i := 0; i < len(requestsToSend); i++ {
-			Expect(driver.requestsToSend[i]).To(Equal(requestsToSend[i]))
-		}
-
+		Expect(driver.requestsToSend).To(HaveLen(len(requestsToSend)))
 	})
 
 	ginkgo.It("should send to MMU", func() {
@@ -566,11 +570,9 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		toMMU.EXPECT().Send(reqToMMU)
 
-		driver.sendToMMU(10)
+		madeProgress := driver.sendToMMU(10)
 
-		Expect(driver.NeedTick).To(BeTrue())
+		Expect(madeProgress).To(BeTrue())
 		Expect(driver.toSendToMMU).To(BeNil())
-
 	})
-
 })

@@ -92,11 +92,13 @@ func (b *Benchmark) initMem() {
 	b.hMask = make([]float32, b.maskSize*b.maskSize)
 
 	for i := uint32(0); i < numInputData; i++ {
-		b.hInputData[i] = i
+		// b.hInputData[i] = i
+		b.hInputData[i] = 1
 	}
 
 	for i := uint32(0); i < b.maskSize*b.maskSize; i++ {
-		b.hMask[i] = float32(i)
+		// b.hMask[i] = float32(i)
+		b.hMask[i] = float32(1)
 	}
 
 	if b.useUnifiedMemory {
@@ -116,7 +118,6 @@ func (b *Benchmark) initMem() {
 	}
 
 	b.dMasks = make([]driver.GPUPtr, len(b.gpus))
-
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		if b.useUnifiedMemory {
@@ -181,8 +182,11 @@ func (b *Benchmark) Verify() {
 			cpuOutput := cpuOutputImage[index]
 
 			if cpuOutput != gpuOutput {
-				log.Panicf("mismatch as position %d, %d. Expected %d, but get %d",
-					i, j, cpuOutput, gpuOutput)
+				log.Printf("mismatch as position %d, %d (addr 0x%x). "+
+					"Expected %d, but get %d",
+					i, j,
+					uint64(b.dOutputData)+uint64(4*index),
+					cpuOutput, gpuOutput)
 			}
 		}
 	}

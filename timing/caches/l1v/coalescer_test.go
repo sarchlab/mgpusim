@@ -4,8 +4,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -27,7 +27,7 @@ var _ = Describe("Coalescer", func() {
 			TopPort:       topPort,
 			dirBuf:        dirBuf,
 		}
-		cache.TickingComponent = akitaext.NewTickingComponent(
+		cache.TickingComponent = akita.NewTickingComponent(
 			"cache", nil, 1, cache)
 		c = coalescer{cache: cache}
 	})

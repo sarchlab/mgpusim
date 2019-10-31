@@ -28,57 +28,42 @@ type DMAEngine struct {
 	ToMem akita.Port
 }
 
-func (dma *DMAEngine) Handle(evt akita.Event) error {
-	switch evt := evt.(type) {
-	case akita.TickEvent:
-		return dma.tick(evt)
-	default:
-		log.Panicf("cannot handle event for type %s", reflect.TypeOf(evt))
-	}
-	return nil
-}
+func (dma *DMAEngine) Tick(now akita.VTimeInSec) bool {
+	madeProgress := false
 
-func (dma *DMAEngine) tick(evt akita.TickEvent) error {
-	now := evt.Time()
-	dma.NeedTick = false
+	madeProgress = dma.send(now, dma.ToCP, &dma.toSendToCP) || madeProgress
+	madeProgress = dma.send(now, dma.ToMem, &dma.toSendToMem) || madeProgress
+	madeProgress = dma.parseFromMem(now) || madeProgress
+	madeProgress = dma.parseFromCP(now) || madeProgress
 
-	dma.send(now, dma.ToCP, &dma.toSendToCP)
-	dma.send(now, dma.ToMem, &dma.toSendToMem)
-	dma.parseFromMem(now)
-	dma.parseFromCP(now)
-
-	if dma.NeedTick == true {
-		dma.TickLater(now)
-	}
-
-	return nil
+	return madeProgress
 }
 
 func (dma *DMAEngine) send(
 	now akita.VTimeInSec,
 	port akita.Port,
 	reqs *[]akita.Msg,
-) {
+) bool {
 	if len(*reqs) == 0 {
-		return
+		return false
 	}
 
 	req := (*reqs)[0]
 	req.Meta().SendTime = now
 	err := port.Send(req)
 	if err == nil {
-		dma.NeedTick = true
 		*reqs = (*reqs)[1:]
+		return true
 	}
+
+	return false
 }
 
-func (dma *DMAEngine) parseFromMem(now akita.VTimeInSec) {
+func (dma *DMAEngine) parseFromMem(now akita.VTimeInSec) bool {
 	req := dma.ToMem.Retrieve(now)
 	if req == nil {
-		return
+		return false
 	}
-
-	dma.NeedTick = true
 
 	switch req := req.(type) {
 	case *mem.DataReadyRsp:
@@ -88,6 +73,8 @@ func (dma *DMAEngine) parseFromMem(now akita.VTimeInSec) {
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
+
+	return true
 }
 
 func (dma *DMAEngine) processDataReadyRsp(
@@ -99,6 +86,7 @@ func (dma *DMAEngine) processDataReadyRsp(
 
 	offset := req.Address - processing.SrcAddress
 	copy(processing.DstBuffer[offset:], rsp.Data)
+	// fmt.Printf("Dma DataReady %x, %v\n", req.Address, rsp.Data)
 
 	if len(dma.pendingReqs) == 0 {
 		dma.processingReq = nil
@@ -139,18 +127,17 @@ func (dma *DMAEngine) removeReqFromPendingReqList(id string) akita.Msg {
 	return reqToRet
 }
 
-func (dma *DMAEngine) parseFromCP(now akita.VTimeInSec) {
+func (dma *DMAEngine) parseFromCP(now akita.VTimeInSec) bool {
 	if dma.processingReq != nil {
-		return
+		return false
 	}
 
 	req := dma.ToCP.Retrieve(now)
 	if req == nil {
-		return
+		return false
 	}
 
 	dma.processingReq = req
-	dma.NeedTick = true
 
 	switch req := req.(type) {
 	case *MemCopyH2DReq:
@@ -160,6 +147,8 @@ func (dma *DMAEngine) parseFromCP(now akita.VTimeInSec) {
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 	}
+
+	return true
 }
 
 func (dma *DMAEngine) parseMemCopyH2D(
@@ -240,15 +229,14 @@ func NewDMAEngine(
 	localDataSource cache.LowModuleFinder,
 ) *DMAEngine {
 	dma := new(DMAEngine)
-	dma.TickingComponent = akita.NewTickingComponent(name, engine,
-		1*akita.GHz, dma)
+	dma.TickingComponent = akita.NewTickingComponent(
+		name, engine, 1*akita.GHz, dma)
 
 	dma.Log2AccessSize = 6
-
 	dma.localDataSource = localDataSource
 
-	dma.ToCP = akita.NewLimitNumMsgPort(dma, 40960000)
-	dma.ToMem = akita.NewLimitNumMsgPort(dma, 64)
+	dma.ToCP = akita.NewLimitNumMsgPort(dma, 40960000, name+".ToCP")
+	dma.ToMem = akita.NewLimitNumMsgPort(dma, 64, name+".ToMem")
 
 	return dma
 }

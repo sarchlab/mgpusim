@@ -4,10 +4,10 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -33,7 +33,7 @@ var _ = Describe("Bottom Parser", func() {
 			wayAssociativity: 4,
 			bankBufs:         []util.Buffer{bankBuf},
 		}
-		c.TickingComponent = akitaext.NewTickingComponent(
+		c.TickingComponent = akita.NewTickingComponent(
 			"cache", nil, 1, c)
 		p = &bottomParser{cache: c}
 	})

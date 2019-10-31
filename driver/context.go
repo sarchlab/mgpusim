@@ -11,6 +11,7 @@ type Context struct {
 	pid           ca.PID
 	currentGPUID  int
 	prevPageVAddr uint64
+	l2Dirty       bool
 
 	queueMutex sync.Mutex
 	queues     []*CommandQueue

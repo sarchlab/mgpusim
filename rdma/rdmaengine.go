@@ -20,8 +20,7 @@ type transaction struct {
 // An Engine is a component that helps one GPU to access the memory on
 // another GPU
 type Engine struct {
-	*akita.ComponentBase
-	ticker *akita.Ticker
+	*akita.TickingComponent
 
 	ToOutside akita.Port
 
@@ -34,60 +33,45 @@ type Engine struct {
 	pauseIncomingReqsFromL1 bool
 	currentDrainReq         *RDMADrainReq
 
-	engine                 akita.Engine
 	localModules           cache.LowModuleFinder
 	RemoteRDMAAddressTable cache.LowModuleFinder
 
 	transactionsFromOutside []transaction
 	transactionsFromInside  []transaction
-
-	freq     akita.Freq
-	needTick bool
 }
 
-func (e *Engine) Handle(evt akita.Event) error {
-	switch evt := evt.(type) {
-	case akita.TickEvent:
-		e.tick(evt.Time())
-	default:
-		log.Panicf("cannot handle event of type %s", reflect.TypeOf(evt))
-	}
-	return nil
-}
+func (e *Engine) Tick(now akita.VTimeInSec) bool {
+	madeProgress := false
 
-func (e *Engine) tick(now akita.VTimeInSec) {
-	e.needTick = false
-
-	e.processFromCtrlPort(now)
+	madeProgress = e.processFromCtrlPort(now) || madeProgress
 	if e.isDraining {
-		e.drainRDMA(now)
+		madeProgress = e.drainRDMA(now) || madeProgress
 	}
-	e.processFromL1(now)
-	e.processFromL2(now)
-	e.processFromOutside(now)
+	madeProgress = e.processFromL1(now) || madeProgress
+	madeProgress = e.processFromL2(now) || madeProgress
+	madeProgress = e.processFromOutside(now) || madeProgress
 
-	if e.needTick {
-		e.ticker.TickLater(now)
-	}
+	return madeProgress
 }
 
-func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) {
+func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) bool {
 	req := e.CtrlPort.Peek()
 	if req == nil {
-		return
+		return false
 	}
 
 	req = e.CtrlPort.Retrieve(now)
-
 	switch req := req.(type) {
 	case *RDMADrainReq:
 		e.currentDrainReq = req
 		e.isDraining = true
 		e.pauseIncomingReqsFromL1 = true
+		return true
 	case *RDMARestartReq:
-		e.processRDMARestartReq(now)
+		return e.processRDMARestartReq(now)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
 	}
 }
 
@@ -97,7 +81,7 @@ func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (e *Engine) drainRDMA(now akita.VTimeInSec) {
+func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
 	if e.fullyDrained() {
 		drainCompleteRsp := RDMADrainRspBuilder{}.
 			WithSendTime(now).
@@ -107,13 +91,13 @@ func (e *Engine) drainRDMA(now akita.VTimeInSec) {
 
 		err := e.CtrlPort.Send(drainCompleteRsp)
 		if err != nil {
-			return
+			return false
 		}
-		e.isDraining = false
-	}
 
-	e.needTick = true
-	return
+		e.isDraining = false
+		return true
+	}
+	return false
 }
 
 func (e *Engine) fullyDrained() bool {
@@ -121,54 +105,60 @@ func (e *Engine) fullyDrained() bool {
 		len(e.transactionsFromInside) == 0
 }
 
-func (e *Engine) processFromL1(now akita.VTimeInSec) {
+func (e *Engine) processFromL1(now akita.VTimeInSec) bool {
 	if e.pauseIncomingReqsFromL1 {
-		return
+		return false
 	}
+
 	req := e.ToL1.Peek()
 	if req == nil {
-		return
+		return false
 	}
 
 	switch req := req.(type) {
 	case mem.AccessReq:
-		e.processReqFromL1(now, req)
-
+		return e.processReqFromL1(now, req)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
 	}
 }
 
-func (e *Engine) processFromL2(now akita.VTimeInSec) {
+func (e *Engine) processFromL2(now akita.VTimeInSec) bool {
 	req := e.ToL2.Peek()
-
 	if req == nil {
-		return
+		return false
 	}
 
 	switch req := req.(type) {
 	case mem.AccessRsp:
-		e.processRspFromL2(now, req)
+		return e.processRspFromL2(now, req)
+	default:
+		panic("unknown req type")
 	}
 }
 
-func (e *Engine) processFromOutside(now akita.VTimeInSec) {
+func (e *Engine) processFromOutside(now akita.VTimeInSec) bool {
 	req := e.ToOutside.Peek()
 	if req == nil {
-		return
+		return false
 	}
 
 	switch req := req.(type) {
 	case mem.AccessReq:
-		e.processReqFromOutside(now, req)
+		return e.processReqFromOutside(now, req)
 	case mem.AccessRsp:
-		e.processRspFromOutside(now, req)
+		return e.processRspFromOutside(now, req)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
 	}
 }
 
-func (e *Engine) processReqFromL1(now akita.VTimeInSec, req mem.AccessReq) {
+func (e *Engine) processReqFromL1(
+	now akita.VTimeInSec,
+	req mem.AccessReq,
+) bool {
 	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
 
 	cloned := e.cloneReq(req)
@@ -188,14 +178,15 @@ func (e *Engine) processReqFromL1(now akita.VTimeInSec, req mem.AccessReq) {
 			toOutside:  cloned,
 		}
 		e.transactionsFromInside = append(e.transactionsFromInside, trans)
-		e.needTick = true
+		return true
 	}
+	return false
 }
 
 func (e *Engine) processReqFromOutside(
 	now akita.VTimeInSec,
 	req mem.AccessReq,
-) {
+) bool {
 	dst := e.localModules.Find(req.GetAddress())
 
 	cloned := e.cloneReq(req)
@@ -216,11 +207,15 @@ func (e *Engine) processReqFromOutside(
 		}
 		e.transactionsFromOutside =
 			append(e.transactionsFromOutside, trans)
-		e.needTick = true
+		return true
 	}
+	return false
 }
 
-func (e *Engine) processRspFromL2(now akita.VTimeInSec, rsp mem.AccessRsp) {
+func (e *Engine) processRspFromL2(
+	now akita.VTimeInSec,
+	rsp mem.AccessRsp,
+) bool {
 	transactionIndex := e.findTransactionByRspToID(
 		rsp.GetRespondTo(), e.transactionsFromOutside)
 	trans := e.transactionsFromOutside[transactionIndex]
@@ -240,11 +235,15 @@ func (e *Engine) processRspFromL2(now akita.VTimeInSec, rsp mem.AccessRsp) {
 		e.transactionsFromOutside =
 			append(e.transactionsFromOutside[:transactionIndex],
 				e.transactionsFromOutside[transactionIndex+1:]...)
-		e.needTick = true
+		return true
 	}
+	return false
 }
 
-func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.AccessRsp) {
+func (e *Engine) processRspFromOutside(
+	now akita.VTimeInSec,
+	rsp mem.AccessRsp,
+) bool {
 	transactionIndex := e.findTransactionByRspToID(
 		rsp.GetRespondTo(), e.transactionsFromInside)
 	trans := e.transactionsFromInside[transactionIndex]
@@ -264,8 +263,9 @@ func (e *Engine) processRspFromOutside(now akita.VTimeInSec, rsp mem.AccessRsp) 
 		e.transactionsFromInside =
 			append(e.transactionsFromInside[:transactionIndex],
 				e.transactionsFromInside[transactionIndex+1:]...)
-		e.needTick = true
+		return true
 	}
+	return false
 }
 
 func (e *Engine) findTransactionByRspToID(
@@ -340,16 +340,8 @@ func (e *Engine) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 	return nil
 }
 
-func (e *Engine) NotifyRecv(now akita.VTimeInSec, port akita.Port) {
-	e.ticker.TickLater(now)
-}
-
-func (e *Engine) NotifyPortFree(now akita.VTimeInSec, port akita.Port) {
-	e.ticker.TickLater(now)
-}
-
 func (e *Engine) SetFreq(freq akita.Freq) {
-	e.freq = freq
+	e.TickingComponent.Freq = freq
 }
 
 func NewEngine(
@@ -359,18 +351,14 @@ func NewEngine(
 	remoteModules cache.LowModuleFinder,
 ) *Engine {
 	e := new(Engine)
-	e.freq = 1 * akita.GHz
-	e.ComponentBase = akita.NewComponentBase(name)
-	e.ticker = akita.NewTicker(e, engine, e.freq)
-
-	e.engine = engine
+	e.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, e)
 	e.localModules = localModules
 	e.RemoteRDMAAddressTable = remoteModules
 
-	e.ToL1 = akita.NewLimitNumMsgPort(e, 1)
-	e.ToL2 = akita.NewLimitNumMsgPort(e, 1)
-	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1)
-	e.ToOutside = akita.NewLimitNumMsgPort(e, 1)
+	e.ToL1 = akita.NewLimitNumMsgPort(e, 1, name+".ToL1")
+	e.ToL2 = akita.NewLimitNumMsgPort(e, 1, name+".ToL2")
+	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1, name+".CtrlPort")
+	e.ToOutside = akita.NewLimitNumMsgPort(e, 1, name+".ToOutside")
 
 	return e
 }

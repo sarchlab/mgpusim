@@ -76,11 +76,10 @@ var _ = Describe("PMC", func() {
 
 			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
-			pmc.processFromCtrlPort(11)
+			madeProgress := pmc.processFromCtrlPort(11)
 
 			Expect(pmc.currentMigrationRequest).To(BeEquivalentTo(req))
-			Expect(pmc.needTick).To(BeTrue())
-
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("should process the page migration req from Control Port", func() {
@@ -93,15 +92,13 @@ var _ = Describe("PMC", func() {
 
 			pmc.currentMigrationRequest = req
 
-			pmc.processPageMigrationReqFromCtrlPort(11)
+			madeProgress := pmc.processPageMigrationReqFromCtrlPort(11)
 
 			Expect(pmc.toPullFromAnotherPMC).ToNot(BeNil())
-			Expect(pmc.needTick).To(BeTrue())
-
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("should send a migration req to another PMC", func() {
-
 			req := DataPullReqBuilder{}.
 				WithSendTime(10).
 				WithSrc(pmc.RemotePort).
@@ -114,13 +111,12 @@ var _ = Describe("PMC", func() {
 
 			RemotePort.EXPECT().Send(req).Return(nil)
 
-			pmc.sendMigrationReqToAnotherPMC(11)
+			madeProgress := pmc.sendMigrationReqToAnotherPMC(11)
 
-			Expect(pmc.needTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("should receive a data request for page migration from another PMC", func() {
-
 			req := DataPullReqBuilder{}.
 				WithSendTime(10).
 				WithSrc(pmc.RemotePort).
@@ -132,10 +128,9 @@ var _ = Describe("PMC", func() {
 			RemotePort.EXPECT().Peek().Return(req)
 			RemotePort.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
-			pmc.processFromOutside(11)
+			madeProgress := pmc.processFromOutside(11)
 
-			Expect(pmc.needTick).To(BeTrue())
-
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("process a read page req from another PMC", func() {
@@ -148,16 +143,15 @@ var _ = Describe("PMC", func() {
 				Build()
 			pmc.currentPullReqFromAnotherPMC = append(pmc.currentPullReqFromAnotherPMC, req)
 
-			pmc.processReadPageReqFromAnotherPMC(11)
+			madeProgress := pmc.processReadPageReqFromAnotherPMC(11)
 
 			Expect(pmc.toSendLocalMemPort).ToNot(BeNil())
 			Expect(pmc.toSendLocalMemPort[0].Address).To(BeEquivalentTo(uint64(0x100)))
 			Expect(pmc.toSendLocalMemPort[0].AccessByteSize).To(BeEquivalentTo(uint64(0x100)))
 			Expect(pmc.toSendLocalMemPort[0].ID).To(BeEquivalentTo(req.ID))
-
-			Expect(pmc.needTick).To(BeTrue())
-
+			Expect(madeProgress).To(BeTrue())
 		})
+
 		It("send the data request from page migration to MemCtrl", func() {
 			req := mem.ReadReqBuilder{}.
 				WithSendTime(10).
@@ -170,10 +164,9 @@ var _ = Describe("PMC", func() {
 
 			LocalMemPort.EXPECT().Send(req).Return(nil)
 
-			pmc.sendReadReqLocalMemPort(11)
+			madeProgress := pmc.sendReadReqLocalMemPort(11)
 
-			Expect(pmc.needTick).To(BeTrue())
-
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("should receive a data ready rsp from MemCtrl", func() {
@@ -185,10 +178,9 @@ var _ = Describe("PMC", func() {
 
 			LocalMemPort.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
-			pmc.processFromMemCtrl(11)
+			madeProgress := pmc.processFromMemCtrl(11)
 
-			Expect(pmc.needTick).To(BeTrue())
-
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("process a data ready rsp from Mem Ctrl", func() {
@@ -201,14 +193,15 @@ var _ = Describe("PMC", func() {
 				WithData(data).
 				Build()
 
-			pmc.dataReadyRspFromMemCtrl = append(pmc.dataReadyRspFromMemCtrl, req)
+			pmc.dataReadyRspFromMemCtrl = append(
+				pmc.dataReadyRspFromMemCtrl, req)
 
 			pmc.processDataReadyRspFromMemCtrl(11)
 
 			Expect(pmc.toRspToAnotherPMC[0]).ToNot(BeNil())
 			Expect(pmc.toRspToAnotherPMC[0].Data).To(HaveLen(1))
-			Expect(pmc.toRspToAnotherPMC[0].Data[0]).To(BeEquivalentTo(uint64(0x4)))
-
+			Expect(pmc.toRspToAnotherPMC[0].Data[0]).
+				To(BeEquivalentTo(uint64(0x4)))
 		})
 
 		It("should send a data ready rsp to requesting PMC", func() {
@@ -225,11 +218,10 @@ var _ = Describe("PMC", func() {
 
 			RemotePort.EXPECT().Send(req).Return(nil)
 
-			pmc.sendDataReadyRspToRequestingPMC(11)
+			madeProgress := pmc.sendDataReadyRspToRequestingPMC(11)
 
-			Expect(pmc.needTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 			Expect(len(pmc.toRspToAnotherPMC)).To(BeEquivalentTo(0))
-
 		})
 
 		It("should receive a data ready rsp from the requested PMC", func() {
@@ -244,10 +236,9 @@ var _ = Describe("PMC", func() {
 			RemotePort.EXPECT().Peek().Return(req)
 			RemotePort.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
 
-			pmc.processFromOutside(11)
+			madeProgress := pmc.processFromOutside(11)
 
-			Expect(pmc.needTick).To(BeTrue())
-
+			Expect(madeProgress).To(BeTrue())
 		})
 
 		It("should process a data migration rsp from requested PMC", func() {
@@ -271,12 +262,12 @@ var _ = Describe("PMC", func() {
 			pmc.currentMigrationRequest = migrationReq
 			pmc.receivedDataFromAnothePMC = append(pmc.receivedDataFromAnothePMC, req)
 
-			pmc.processDataPullRsp(11)
+			madeProgress := pmc.processDataPullRsp(11)
 
-			Expect(pmc.needTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 			Expect(pmc.writeReqLocalMemPort[0].Data).To(BeEquivalentTo(data))
-
 		})
+
 		It("should send a write req to mem ctrl", func() {
 			data := []byte{1, 2}
 			req := mem.WriteReqBuilder{}.
@@ -291,12 +282,12 @@ var _ = Describe("PMC", func() {
 
 			LocalMemPort.EXPECT().Send(req).Return(nil)
 
-			pmc.sendWriteReqLocalMemPort(11)
+			madeProgress := pmc.sendWriteReqLocalMemPort(11)
 
-			Expect(pmc.needTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 			Expect(pmc.toSendLocalMemPort).To(BeNil())
-
 		})
+
 		It("should process a write done rsp from memctrl", func() {
 			req := mem.WriteDoneRspBuilder{}.
 				WithSendTime(10).
@@ -309,12 +300,11 @@ var _ = Describe("PMC", func() {
 
 			pmc.numDataRspPendingForPageMigration = 10
 
-			pmc.processWriteDoneRspFromMemCtrl(11)
+			madeProgress := pmc.processWriteDoneRspFromMemCtrl(11)
 
-			Expect(pmc.needTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 			Expect(pmc.numDataRspPendingForPageMigration).ToNot(BeNil())
 			Expect(pmc.numDataRspPendingForPageMigration).To(BeEquivalentTo(uint64(9)))
-
 		})
 
 		It("should receive the last pending data for the page and prepare response for CP", func() {
@@ -331,18 +321,15 @@ var _ = Describe("PMC", func() {
 				WithPageSize(4 * mem.KB).
 				Build()
 			pmc.currentMigrationRequest = pageMigrationReq
-
 			pmc.receivedWriteDoneFromMemCtrl = req
-
 			pmc.numDataRspPendingForPageMigration = 1
 
-			pmc.processWriteDoneRspFromMemCtrl(11)
+			madeProgress := pmc.processWriteDoneRspFromMemCtrl(11)
 
-			Expect(pmc.needTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 			Expect(pmc.numDataRspPendingForPageMigration).ToNot(BeNil())
 			Expect(pmc.numDataRspPendingForPageMigration).To(BeEquivalentTo(-1))
 			Expect(pmc.toSendToCtrlPort).ToNot(BeNil())
-
 		})
 
 		It("should send migration complete rsp to CP", func() {
@@ -357,12 +344,10 @@ var _ = Describe("PMC", func() {
 
 			ctrlPort.EXPECT().Send(req).Return(nil)
 
-			pmc.sendMigrationCompleteRspToCtrlPort(11)
+			madeProgress := pmc.sendMigrationCompleteRspToCtrlPort(11)
 
-			Expect(pmc.needTick).To(BeTrue())
+			Expect(madeProgress).To(BeTrue())
 			Expect(pmc.isHandlingPageMigration).To(BeFalse())
-
 		})
-
 	})
 })

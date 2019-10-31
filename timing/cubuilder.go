@@ -139,7 +139,7 @@ func (b *Builder) connectToMem(cu *ComputeUnit) {
 	cu.InstMem = b.InstMem
 	cu.ScalarMem = b.ScalarMem
 	cu.VectorMemModules = b.VectorMemModules
-	b.ConnToInstMem.PlugIn(cu.ToInstMem)
-	b.ConnToScalarMem.PlugIn(cu.ToScalarMem)
-	b.ConnToVectorMem.PlugIn(cu.ToVectorMem)
+	b.ConnToInstMem.PlugIn(cu.ToInstMem, 4)
+	b.ConnToScalarMem.PlugIn(cu.ToScalarMem, 4)
+	b.ConnToVectorMem.PlugIn(cu.ToVectorMem, 4)
 }

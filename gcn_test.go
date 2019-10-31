@@ -10,6 +10,7 @@ import (
 
 //go:generate mockgen -destination "mock_kernels_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/gcn3/kernels GridBuilder
 //go:generate mockgen -destination "mock_akita_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/akita Engine,Port
+//go:generate mockgen -destination "mock_akitaext_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/util/akitaext BufferedSender
 
 func TestEmulator(t *testing.T) {
 	log.SetOutput(GinkgoWriter)

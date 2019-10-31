@@ -9,7 +9,6 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm/mmu"
-	"gitlab.com/akita/noc"
 )
 
 var UseParallelEngine bool
@@ -38,13 +37,10 @@ func buildNR9NanoPlatformWithPerfectMemorySystem(
 	mmuComponent := mmuBuilder.Build("MMU")
 	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
 
-	//connection := akita.NewDirectConnection(engine)
-	connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
-	connection.SrcBufferCapacity = 40960000
+	connection := akita.NewDirectConnection("ExternalConn", engine, 1*akita.GHz)
 
 	gpuBuilder := gpubuilder.MakeR9NanoGPUBuilder().
 		WithEngine(engine).
-		WithExternalConn(connection).
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
@@ -65,17 +61,20 @@ func buildNR9NanoPlatformWithPerfectMemorySystem(
 			WithMemAddrOffset(memAddrOffset).
 			Build(name, uint64(i))
 		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-		gpu.Driver = gpuDriver.ToGPUs
+		gpu.CommandProcessor.Driver = gpuDriver.ToGPUs
 
 		gpu.RDMAEngine.RemoteRDMAAddressTable = rdmaAddressTable
 		rdmaAddressTable.LowModules = append(
 			rdmaAddressTable.LowModules,
 			gpu.RDMAEngine.ToOutside)
-		connection.PlugIn(gpu.RDMAEngine.ToOutside)
+
+		for _, port := range gpu.ExternalPorts() {
+			connection.PlugIn(port, 64)
+		}
 	}
 
-	connection.PlugIn(gpuDriver.ToGPUs)
-	connection.PlugIn(mmuComponent.ToTop)
+	connection.PlugIn(gpuDriver.ToGPUs, 1)
+	connection.PlugIn(mmuComponent.ToTop, 1)
 
 	return engine, gpuDriver
 }
