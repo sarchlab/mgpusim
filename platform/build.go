@@ -19,6 +19,8 @@ var DebugISA bool
 var TraceVis bool
 var TraceMem bool
 
+const log2PageSize = 12
+
 // BuildNEmuGPUPlatform creates a simple platform for emulation purposes
 func BuildNEmuGPUPlatform(n int) (
 	akita.Engine,
@@ -33,9 +35,10 @@ func BuildNEmuGPUPlatform(n int) (
 	}
 	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	mmuBuilder := mmu.MakeBuilder()
+	mmuBuilder := mmu.MakeBuilder().
+		WithLog2PageSize(log2PageSize)
 	mmuComponent := mmuBuilder.Build("MMU")
-	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
+	gpuDriver := driver.NewDriver(engine, mmuComponent, log2PageSize)
 	connection := akita.NewDirectConnection("ExternalConn", engine, 1*akita.GHz)
 	storage := mem.NewStorage(uint64(n+1) * 4 * mem.GB)
 
@@ -86,9 +89,10 @@ func BuildNR9NanoPlatform(
 
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
-		WithFreq(1 * akita.GHz)
+		WithFreq(1 * akita.GHz).
+		WithLog2PageSize(log2PageSize)
 	mmuComponent := mmuBuilder.Build("MMU")
-	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
+	gpuDriver := driver.NewDriver(engine, mmuComponent, log2PageSize)
 
 	//connection := akita.NewDirectConnection(engine)
 	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
@@ -115,7 +119,7 @@ func BuildNR9NanoPlatform(
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
 		WithNumMemoryBank(8).
-		WithLog2PageSize(12)
+		WithLog2PageSize(log2PageSize)
 
 	if TraceVis {
 		tracer := tracing.NewMongoDBTracer()

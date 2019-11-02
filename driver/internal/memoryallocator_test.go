@@ -99,13 +99,6 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 			Valid:    true,
 		})
 		allocator.Remap(1, ptr, 4000, 2)
-
-		Expect(allocator.deviceMemoryStates[1].allocatedPages).To(HaveLen(0))
-		Expect(allocator.deviceMemoryStates[2].allocatedPages).To(HaveLen(1))
-		Expect(allocator.deviceMemoryStates[2].allocatedPages[0].VAddr).
-			To(Equal(ptr))
-		Expect(allocator.deviceMemoryStates[2].allocatedPages[0].PAddr).
-			To(Equal(uint64(0x200000000)))
 	})
 })
 

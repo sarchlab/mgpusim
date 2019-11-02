@@ -45,11 +45,9 @@ type processMemoryState struct {
 }
 
 type deviceMemoryState struct {
-	allocatedPages        []vm.Page
-	allocatedUnifiedPages []vm.Page
-	initialAddress        uint64
-	storageSize           uint64
-	nextPAddr             uint64
+	initialAddress  uint64
+	storageSize     uint64
+	availablePAddrs []uint64
 }
 
 // A memoryAllocatorImpl provides the default implementation for
@@ -64,24 +62,19 @@ type memoryAllocatorImpl struct {
 	totalStorageByteSize uint64
 }
 
-func (a *memoryAllocatorImpl) thereMustBeSpaceLeft(
-	pAddr uint64,
-	deviceID int,
-) {
-	dState := a.deviceMemoryStates[deviceID]
-	if pAddr >= dState.initialAddress+dState.storageSize {
-		panic("out of space")
-	}
-}
-
 func (a *memoryAllocatorImpl) RegisterStorage(
 	byteSize uint64,
 ) {
 	state := &deviceMemoryState{}
 	state.storageSize = byteSize
 	state.initialAddress = a.totalStorageByteSize
-	state.nextPAddr = a.totalStorageByteSize
 	a.deviceMemoryStates = append(a.deviceMemoryStates, state)
+
+	pageSize := uint64(1 << a.log2PageSize)
+	endAddr := state.initialAddress + byteSize
+	for addr := state.initialAddress; addr < endAddr; addr += pageSize {
+		state.availablePAddrs = append(state.availablePAddrs, addr)
+	}
 
 	a.totalStorageByteSize += byteSize
 }
@@ -140,11 +133,15 @@ func (a *memoryAllocatorImpl) allocatePages(
 
 	pageSize := uint64(1 << a.log2PageSize)
 	nextVAddr := pState.nextVAddr
-	nextPAddr := dState.nextPAddr
-	a.thereMustBeSpaceLeft(nextPAddr, deviceID)
+	// a.thereMustBeSpaceLeft(nextPAddr, deviceID)
 
 	for i := 0; i < numPages; i++ {
-		pAddr := nextPAddr + uint64(i)*pageSize
+		if len(dState.availablePAddrs) == 0 {
+			panic("no more space left")
+		}
+
+		pAddr := dState.availablePAddrs[0]
+		dState.availablePAddrs = dState.availablePAddrs[1:]
 		vAddr := nextVAddr + uint64(i)*pageSize
 
 		page := vm.Page{
@@ -160,7 +157,6 @@ func (a *memoryAllocatorImpl) allocatePages(
 		a.mmu.CreatePage(&page)
 	}
 
-	dState.nextPAddr += pageSize * uint64(numPages)
 	pState.nextVAddr += pageSize * uint64(numPages)
 
 	return nextVAddr
@@ -190,27 +186,9 @@ func (a *memoryAllocatorImpl) RemovePage(vAddr uint64) {
 		panic("page not found")
 	}
 
-	isUnified := page.Unified
 	deviceID := a.GetDeviceIDByPAddr(page.PAddr)
 	dState := a.deviceMemoryStates[deviceID]
-
-	if isUnified {
-		newPages := []vm.Page{}
-		for _, p := range dState.allocatedUnifiedPages {
-			if p != page {
-				newPages = append(newPages, p)
-			}
-		}
-		dState.allocatedUnifiedPages = newPages
-	} else {
-		newPages := []vm.Page{}
-		for _, p := range dState.allocatedPages {
-			if p != page {
-				newPages = append(newPages, p)
-			}
-		}
-		dState.allocatedPages = newPages
-	}
+	dState.availablePAddrs = append(dState.availablePAddrs, page.PAddr)
 
 	a.mmu.RemovePage(page.PID, page.VAddr)
 }
@@ -226,8 +204,11 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 
 	pageSize := uint64(1 << a.log2PageSize)
 	dState := a.deviceMemoryStates[deviceID]
-	nextPAddr := dState.nextPAddr
-	a.thereMustBeSpaceLeft(nextPAddr, deviceID)
+	if len(dState.availablePAddrs) == 0 {
+		panic("no more space left")
+	}
+	nextPAddr := dState.availablePAddrs[0]
+	dState.availablePAddrs = dState.availablePAddrs[1:]
 
 	page := vm.Page{
 		PID:      pid,
@@ -239,16 +220,8 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 		Unified:  isUnified,
 	}
 	a.vAddrToPageMapping[page.VAddr] = page
-	dState.nextPAddr += pageSize
 
 	a.mmu.CreatePage(&page)
-
-	if isUnified {
-		dState.allocatedUnifiedPages = append(dState.allocatedUnifiedPages,
-			page)
-	} else {
-		dState.allocatedPages = append(dState.allocatedPages, page)
-	}
 
 	return page
 }

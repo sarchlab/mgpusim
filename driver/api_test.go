@@ -5,6 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/vm/mmu"
 )
 
 func enqueueNoopCommand(d *Driver, q *CommandQueue) {
@@ -15,15 +17,19 @@ func enqueueNoopCommand(d *Driver, q *CommandQueue) {
 }
 
 var _ = ginkgo.Describe("Driver async API execution", func() {
-
 	var (
-		engine akita.Engine
-		driver *Driver
+		engine  akita.Engine
+		mmuComp *mmu.MMUImpl
+		driver  *Driver
 	)
 
 	ginkgo.BeforeEach(func() {
 		engine = akita.NewSerialEngine()
-		driver = NewDriver(engine, nil, 12)
+		mmuComp = mmu.MakeBuilder().
+			WithLog2PageSize(12).
+			Build("mmu")
+		driver = NewDriver(engine, mmuComp, 12)
+		driver.memAllocator.RegisterStorage(1 * mem.GB)
 		driver.Run()
 	})
 
@@ -49,4 +55,10 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		Expect(q.commands).To(HaveLen(0))
 	})
 
+	ginkgo.Measure("Memory allocation", func(b ginkgo.Benchmarker) {
+		context := driver.Init()
+		b.Time("runtime", func() {
+			driver.AllocateMemory(context, 400*mem.MB)
+		})
+	}, 10)
 })
