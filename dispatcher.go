@@ -91,6 +91,7 @@ func (d *Dispatcher) Tick(now akita.VTimeInSec) bool {
 	madeProgress = d.mapWG(now) || madeProgress
 	madeProgress = d.processReqFromCP(now) || madeProgress
 	madeProgress = d.processRspFromCU(now) || madeProgress
+	madeProgress = d.replyKernelFinish(now) || madeProgress
 
 	return madeProgress
 }
@@ -275,31 +276,35 @@ func (d *Dispatcher) processWGFinishMesg(
 		d.progressBar.Increment()
 	}
 
-	if d.totalWGs <= len(d.completedWGs) {
-		d.replyKernelFinish(now)
-		return true
-	}
-
 	if d.state == dispatcherIdle {
 		d.state = dispatcherToMapWG
 	}
 	return true
 }
 
-func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) {
+func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) bool {
+	if d.dispatchingReq == nil {
+		return false
+	}
+
+	if len(d.completedWGs) < d.totalWGs {
+		return false
+	}
+
 	req := d.dispatchingReq
 	req.Src, req.Dst = req.Dst, req.Src
 	req.SendTime = now
+	err := d.ToCommandProcessor.Send(req)
+	if err != nil {
+		return false
+	}
 
 	d.completedWGs = nil
 	d.dispatchingReq = nil
 
-	err := d.ToCommandProcessor.Send(req)
-	if err != nil {
-		log.Panic(err)
-	}
-
 	tracing.TraceReqComplete(req, now, d)
+
+	return true
 }
 
 // RegisterCU adds a CU to the dispatcher so that the dispatcher can
