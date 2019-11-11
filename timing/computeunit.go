@@ -13,6 +13,8 @@ import (
 	"gitlab.com/akita/gcn3/timing/wavefront"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -57,6 +59,7 @@ type ComputeUnit struct {
 	VectorMemModules cache.LowModuleFinder
 
 	ToACE       akita.Port
+	toACESender akitaext.BufferedSender
 	ToInstMem   akita.Port
 	ToScalarMem akita.Port
 	ToVectorMem akita.Port
@@ -115,6 +118,7 @@ func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = cu.runPipeline(now) || madeProgress
+	madeProgress = cu.sendToACE(now) || madeProgress
 	madeProgress = cu.sendToCP(now) || madeProgress
 	madeProgress = cu.processInput(now) || madeProgress
 	madeProgress = cu.doFlush(now) || madeProgress
@@ -239,6 +243,10 @@ func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) bool {
 	return false
 }
 
+func (cu *ComputeUnit) sendToACE(now akita.VTimeInSec) bool {
+	return cu.toACESender.Tick(now)
+}
+
 func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) bool {
 	if cu.currentFlushReq == nil {
 		return false
@@ -343,10 +351,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 	req.Ok = false
 	req.Src, req.Dst = req.Dst, req.Src
 	req.SendTime = now
-	err := cu.ToACE.Send(req)
-	if err != nil {
-		log.Panic(err)
-	}
+	cu.toACESender.Send(req)
 
 	return true
 }
@@ -380,10 +385,7 @@ func (cu *ComputeUnit) handleWfDispatchEvent(
 		req.Ok = true
 		req.Src, req.Dst = req.Dst, req.Src
 		req.SendTime = evt.Time()
-		err := cu.ToACE.Send(req)
-		if err != nil {
-			log.Panic(err)
-		}
+		cu.toACESender.Send(req)
 	}
 
 	cu.running = true
@@ -878,6 +880,8 @@ func NewComputeUnit(
 	cu.wgToManagedWgMapping = make(map[*kernels.WorkGroup]*wavefront.WorkGroup)
 
 	cu.ToACE = akita.NewLimitNumMsgPort(cu, 4, name+".ToACE")
+	cu.toACESender = akitaext.NewBufferedSender(
+		cu.ToACE, util.NewBuffer(40960000))
 	cu.ToInstMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
 	cu.ToScalarMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
 	cu.ToVectorMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")
