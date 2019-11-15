@@ -23,7 +23,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (h *ISADebugger) Func(ctx *akita.HookCtx) {
+func (h *ISADebugger) Func(ctx akita.HookCtx) {
 	wf, ok := ctx.Item.(*Wavefront)
 	if !ok {
 		return

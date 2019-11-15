@@ -88,7 +88,7 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 		Pos:    akita.HookPosBeforeEvent,
 		Item:   evt,
 	}
-	cu.InvokeHook(&ctx)
+	cu.InvokeHook(ctx)
 
 	cu.Lock()
 	defer cu.Unlock()
@@ -106,7 +106,7 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	}
 
 	ctx.Pos = akita.HookPosAfterEvent
-	cu.InvokeHook(&ctx)
+	cu.InvokeHook(ctx)
 
 	return nil
 }
