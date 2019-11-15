@@ -27,7 +27,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 
 // Func defines the action that the ISADebugger takes
 func (d *ISADebugger) Func(
-	ctx *akita.HookCtx,
+	ctx akita.HookCtx,
 ) {
 	task, ok := ctx.Item.(tracing.Task)
 	if !ok {

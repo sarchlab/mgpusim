@@ -312,7 +312,7 @@ func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
 		Item:   wf,
 		Detail: inst,
 	}
-	cu.InvokeHook(&ctx)
+	cu.InvokeHook(ctx)
 }
 
 func (cu *ComputeUnit) executeInst(wf *Wavefront) {
