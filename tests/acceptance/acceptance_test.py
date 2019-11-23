@@ -33,20 +33,29 @@ class Test(object):
 
         err |= self.compile()
 
-        err |= self.run_test(False, False, '1')
-        err |= self.run_test(False, True, '1')
-        err |= self.run_test(True, False, '1')
-        err |= self.run_test(True, True, '1')
+        err |= self.run_test(False, False, False, '1')
+        err |= self.run_test(False, True, False, '1')
+        err |= self.run_test(True, False, False, '1')
+        err |= self.run_test(True, True, False, '1')
+
+        err |= self.run_test(False, False, True, '1,2')
+        err |= self.run_test(False, False, True, '1,2,3,4')
+        err |= self.run_test(False, True, True, '1,2')
+        err |= self.run_test(False, True, True, '1,2,3,4')
+        err |= self.run_test(True, False, True, '1,2')
+        err |= self.run_test(True, False, True, '1,2,3,4')
+        err |= self.run_test(True, True, True, '1,2')
+        err |= self.run_test(True, True, True, '1,2,3,4')
 
         if test_multi_gpu:
-            err |= self.run_test(False, False, '1,2')
-            err |= self.run_test(False, False, '1,2,3,4')
-            err |= self.run_test(False, True, '1,2')
-            err |= self.run_test(False, True, '1,2,3,4')
-            err |= self.run_test(True, False, '1,2')
-            err |= self.run_test(True, False, '1,2,3,4')
-            err |= self.run_test(True, True, '1,2')
-            err |= self.run_test(True, True, '1,2,3,4')
+            err |= self.run_test(False, False, False, '1,2')
+            err |= self.run_test(False, False, False, '1,2,3,4')
+            err |= self.run_test(False, True, False, '1,2')
+            err |= self.run_test(False, True, False, '1,2,3,4')
+            err |= self.run_test(True, False, False, '1,2')
+            err |= self.run_test(True, False, False, '1,2,3,4')
+            err |= self.run_test(True, True, False, '1,2')
+            err |= self.run_test(True, True, False, '1,2,3,4')
 
         return err
 
@@ -62,10 +71,15 @@ class Test(object):
             print(colors.fg.red + "Compile failed " + self.path + colors.reset)
             return True
 
-    def run_test(self, timing, parallel, gpus):
+    def run_test(self, timing, parallel, unified_multi_gpu, gpus):
         fp = open(os.devnull, 'w')
-        cmd = ['./'+self.executable, '-verify', '-gpus='+gpus]
+        cmd = ['./'+self.executable, '-verify']
         cmd.extend(self.size_args)
+
+        if unified_multi_gpu:
+            cmd.append('-unified-gpus='+gpus)
+        else:
+            cmd.append('-gpus='+gpus)
 
         if timing:
             cmd.append('-timing')
@@ -74,7 +88,7 @@ class Test(object):
             cmd.append('-parallel')
 
         cmd_string = 'cd ' + self.path + ' && ' + ' '.join(cmd)
-        print('Running ' + cmd_string + ' ...')
+        print('Running ' + cmd_string)
 
         p = subprocess.Popen(cmd, shell=False,
                              cwd=self.path,

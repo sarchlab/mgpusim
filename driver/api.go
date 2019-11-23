@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/rs/xid"
+	"gitlab.com/akita/gcn3/driver/internal"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -34,10 +35,47 @@ func (d *Driver) GetNumGPUs() int {
 // SelectGPU requires the driver to perform the following APIs on a selected
 // GPU
 func (d *Driver) SelectGPU(c *Context, gpuID int) {
-	if gpuID >= len(d.GPUs)+1 {
+	if gpuID >= len(d.devices) {
 		log.Panicf("GPU %d is not available", gpuID)
 	}
 	c.currentGPUID = gpuID
+}
+
+// CreateUnifiedGPU can create a virtual GPU that bundles multiple GPUs
+// together. It returns the DeviceID of the created unified multi-GPU device.
+func (d *Driver) CreateUnifiedGPU(c *Context, gpuIDs []int) int {
+	d.mustNotBeAnEmptyList(gpuIDs)
+	d.mustBeAllActualGPUs(gpuIDs)
+
+	dev := &internal.Device{
+		ID:            len(d.devices),
+		Type:          internal.DeviceTypeUnifiedGPU,
+		UnifiedGPUIDs: gpuIDs,
+	}
+
+	for _, gpuID := range gpuIDs {
+		dev.ActualGPUs = append(dev.ActualGPUs, d.devices[gpuID])
+	}
+
+	d.devices = append(d.devices, dev)
+	d.memAllocator.RegisterDevice(dev)
+
+	return dev.ID
+}
+
+func (d *Driver) mustNotBeAnEmptyList(gpuIDs []int) {
+	if len(gpuIDs) == 0 {
+		panic("must unify at least 1 GPU")
+	}
+}
+
+func (d *Driver) mustBeAllActualGPUs(gpuIDs []int) {
+	for _, gpuID := range gpuIDs {
+		dev := d.devices[gpuID]
+		if dev.Type != internal.DeviceTypeGPU {
+			panic("can only unify GPUs")
+		}
+	}
 }
 
 // CreateCommandQueue creates a command queue in the driver
@@ -75,8 +113,8 @@ func (d *Driver) AllocateMemory(
 	ctx *Context,
 	byteSize uint64,
 ) GPUPtr {
-	return GPUPtr(d.memAllocator.Allocate(ctx.pid, byteSize,
-		ctx.currentGPUID))
+	ptr := d.memAllocator.Allocate(ctx.pid, byteSize, ctx.currentGPUID)
+	return GPUPtr(ptr)
 }
 
 //AllocateUnifiedMemory allocates a unified memory. Allocation is done on CPU

@@ -2,7 +2,6 @@ package bfs
 
 import (
 	"fmt"
-	"math"
 )
 
 type graph struct {
@@ -25,10 +24,11 @@ func (g *graph) generate(numNode, degree int) {
 				offset++
 			}
 		}
-		if i != 0 {
-			g.edgeList[offset] = int32(math.Floor(float64(i-1) / float64(degree)))
-			offset++
-		}
+		// if i != 0 {
+		// 	g.edgeList[offset] =
+		// 		int32(math.Floor(float64(i-1) / float64(degree)))
+		// 	offset++
+		// }
 	}
 	g.edgeOffsets[numNode] = offset
 }

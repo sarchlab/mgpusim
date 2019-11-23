@@ -10,6 +10,7 @@ import (
 type Command interface {
 	GetID() string
 	GetReqs() []akita.Msg
+	RemoveReq(req akita.Msg)
 }
 
 // A MemCopyH2DCommand is a command that copies memory from the host to a
@@ -31,6 +32,12 @@ func (c *MemCopyH2DCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }
 
+// RemoveReq removes a request from the request list associated with the
+// command.
+func (c *MemCopyH2DCommand) RemoveReq(req akita.Msg) {
+	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
+}
+
 // A MemCopyD2HCommand is a command that copies memory from the host to a
 // GPU when the command is processed
 type MemCopyD2HCommand struct {
@@ -49,6 +56,12 @@ func (c *MemCopyD2HCommand) GetID() string {
 // GetReqs returns the request associated with the command
 func (c *MemCopyD2HCommand) GetReqs() []akita.Msg {
 	return c.Reqs
+}
+
+// RemoveReq removes a request from the request list associated with the
+// command.
+func (c *MemCopyD2HCommand) RemoveReq(req akita.Msg) {
+	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
 }
 
 // A LaunchKernelCommand is a command will execute a kernel when it is
@@ -74,6 +87,12 @@ func (c *LaunchKernelCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }
 
+// RemoveReq removes a request from the request list associated with the
+// command.
+func (c *LaunchKernelCommand) RemoveReq(req akita.Msg) {
+	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
+}
+
 // A FlushCommand is a command triggers the GPU cache to flush
 type FlushCommand struct {
 	ID   string
@@ -90,6 +109,12 @@ func (c *FlushCommand) GetReqs() []akita.Msg {
 	return c.Reqs
 }
 
+// RemoveReq removes a request from the request list associated with the
+// command.
+func (c *FlushCommand) RemoveReq(req akita.Msg) {
+	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
+}
+
 // A NoopCommand is a command that does not do anything. It is used for testing
 // purposes.
 type NoopCommand struct {
@@ -104,4 +129,20 @@ func (c *NoopCommand) GetID() string {
 // GetReqs returns the request associated with the command
 func (c *NoopCommand) GetReqs() []akita.Msg {
 	return nil
+}
+
+// RemoveReq removes a request from the request list associated with the
+// command.
+func (c *NoopCommand) RemoveReq(req akita.Msg) {
+	// no action
+}
+
+func removeMsgFromMsgList(msg akita.Msg, msgs []akita.Msg) []akita.Msg {
+	newMsgs := make([]akita.Msg, 0, len(msgs)-1)
+	for _, m := range msgs {
+		if m != msg {
+			newMsgs = append(newMsgs, m)
+		}
+	}
+	return newMsgs
 }

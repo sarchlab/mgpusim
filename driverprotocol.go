@@ -37,8 +37,7 @@ type LaunchKernelReq struct {
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
 	HsaCo         *insts.HsaCo
-
-	OK bool
+	WGFilter      func(*LaunchKernelReq, *kernels.WorkGroup) bool
 }
 
 // Meta returns the meta data associated with the message.

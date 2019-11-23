@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/gcn3/driver/internal"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm/mmu"
 )
@@ -29,7 +30,12 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 			WithLog2PageSize(12).
 			Build("mmu")
 		driver = NewDriver(engine, mmuComp, 12)
-		driver.memAllocator.RegisterStorage(1 * mem.GB)
+		gpuDevice := &internal.Device{
+			ID:   1,
+			Type: internal.DeviceTypeCPU,
+		}
+		gpuDevice.SetTotalMemSize(1 * mem.GB)
+		driver.memAllocator.RegisterDevice(gpuDevice)
 		driver.Run()
 	})
 
