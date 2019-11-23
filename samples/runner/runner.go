@@ -28,9 +28,11 @@ var visTracing = flag.Bool("trace-vis", false,
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false, "Report the average cache latency.")
-var gpuFlag = flag.String("gpus", "1",
-	"The GPUs to use, use a format like 1,2,3,4")
-
+var gpuFlag = flag.String("gpus", "",
+	"The GPUs to use, use a format like 1,2,3,4. By default, GPU 1 is used.")
+var unifiedGPUFlag = flag.String("unified-gpus", "",
+	`Run multi-GPU benchmark in a unified mode.
+Use a format like 1,2,3,4. Cannot coexist with -gpus.`)
 var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 	"Run benchmark with Unified Memory or not")
 
@@ -90,7 +92,6 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportCacheLatency = true
 	}
 
-	r.parseGPUFlag()
 	return r
 }
 
@@ -100,7 +101,8 @@ func (r *Runner) startProfilingServer() {
 		panic(err)
 	}
 
-	fmt.Println("Profiling server running on:", listener.Addr().(*net.TCPAddr).Port)
+	fmt.Println("Profiling server running on:",
+		listener.Addr().(*net.TCPAddr).Port)
 
 	panic(http.Serve(listener, nil))
 }
@@ -108,6 +110,8 @@ func (r *Runner) startProfilingServer() {
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
 	go r.startProfilingServer()
+
+	r.ParseFlag()
 
 	log.SetFlags(log.Llongfile)
 
@@ -119,6 +123,8 @@ func (r *Runner) Init() *Runner {
 	} else {
 		r.Engine, r.GPUDriver = platform.BuildNEmuGPUPlatform(4)
 	}
+
+	r.parseGPUFlag()
 
 	r.addKernelTimeTracer()
 	r.addCacheLatencyTracer()
@@ -163,15 +169,37 @@ func (r *Runner) addCacheLatencyTracer() {
 }
 
 func (r *Runner) parseGPUFlag() {
-	r.GPUIDs = make([]int, 0)
-	gpuIDTokens := strings.Split(*gpuFlag, ",")
+	if *gpuFlag == "" && *unifiedGPUFlag == "" {
+		r.GPUIDs = []int{1}
+		return
+	}
+
+	if *gpuFlag != "" && *unifiedGPUFlag != "" {
+		panic("cannot use -gpus and -unified-gpus together")
+	}
+
+	if *unifiedGPUFlag != "" {
+		gpuIDs := r.gpuIDStringToList(*unifiedGPUFlag)
+		unifiedGPUID := r.GPUDriver.CreateUnifiedGPU(nil, gpuIDs)
+		r.GPUIDs = []int{unifiedGPUID}
+		return
+	}
+
+	gpuIDs := r.gpuIDStringToList(*gpuFlag)
+	r.GPUIDs = gpuIDs
+}
+
+func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
+	gpuIDs := make([]int, 0)
+	gpuIDTokens := strings.Split(gpuIDsString, ",")
 	for _, t := range gpuIDTokens {
 		gpuID, err := strconv.Atoi(t)
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
-		r.GPUIDs = append(r.GPUIDs, gpuID)
+		gpuIDs = append(gpuIDs, gpuID)
 	}
+	return gpuIDs
 }
 
 // AddBenchmark adds an benchmark that the driver runs

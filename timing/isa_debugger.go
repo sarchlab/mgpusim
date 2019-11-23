@@ -34,7 +34,7 @@ func (d *ISADebugger) Func(
 		return
 	}
 
-	if ctx.Pos == tracing.HookPosTaskStart {
+	if ctx.Pos == tracing.HookPosTaskStart && task.Kind == "inst" {
 		d.inflightInst[task.ID] = task
 		return
 	}
@@ -45,7 +45,8 @@ func (d *ISADebugger) Func(
 
 	oringinalTask, ok := d.inflightInst[task.ID]
 	if !ok {
-		panic("inst is not inflight")
+		return
+		// panic("inst is not inflight")
 	}
 	delete(d.inflightInst, task.ID)
 
@@ -55,9 +56,9 @@ func (d *ISADebugger) Func(
 	inst := detail["inst"].(*wavefront.Inst)
 
 	// For debugging
-	// if wf.FirstWiFlatID != 0 {
-	// 	return
-	// }
+	if wf.FirstWiFlatID != 960 {
+		return
+	}
 
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)

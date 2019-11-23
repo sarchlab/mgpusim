@@ -16,20 +16,40 @@ type storageAccessor struct {
 }
 
 func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
-	phyAddr, page := a.mmu.Translate(pid, vAddr)
-	if page == nil {
-		log.Panic("page not found in page table")
-	}
+	data := make([]byte, byteSize)
+	sizeLeft := byteSize
+	offset := uint64(0)
+	log2PageSize := uint64(12)
+	// pageSize := uint64(1 << log2PageSize)
 
-	//fmt.Printf("pid: %d, va: 0x%x, pa: 0x%x\n", pid, vAddr, phyAddr)
+	for sizeLeft > 0 {
+		currVAddr := vAddr + offset
+		nextPageStart := ((currVAddr >> log2PageSize) + 1) << log2PageSize
+		sizeInPageLeft := nextPageStart - currVAddr
+		sizeToRead := sizeInPageLeft
+		if sizeToRead > sizeLeft {
+			sizeToRead = sizeLeft
+		}
 
-	storageAddr := phyAddr
-	if a.addrConverter != nil {
-		storageAddr = a.addrConverter.ConvertExternalToInternal(phyAddr)
-	}
-	data, err := a.storage.Read(storageAddr, byteSize)
-	if err != nil {
-		log.Panic(err)
+		pAddr, page := a.mmu.Translate(pid, currVAddr)
+		if page == nil {
+			log.Panic("page not found in page table")
+		}
+
+		storageAddr := pAddr
+		if a.addrConverter != nil {
+			storageAddr = a.addrConverter.ConvertExternalToInternal(pAddr)
+		}
+
+		d, err := a.storage.Read(storageAddr, sizeToRead)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		copy(data[offset:], d)
+
+		offset += sizeToRead
+		sizeLeft -= sizeToRead
 	}
 
 	return data
@@ -49,6 +69,8 @@ func (a *storageAccessor) Write(pid ca.PID, vAddr uint64, data []byte) {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	// log.Printf("write, %d, %d, %d, %v", pid, vAddr, phyAddr, data)
 }
 
 // NewStorageAccessor creates a storageAccessor, injecting dependencies

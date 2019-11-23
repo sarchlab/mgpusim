@@ -5,6 +5,7 @@ package driver
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	internal "gitlab.com/akita/gcn3/driver/internal"
 	vm "gitlab.com/akita/mem/vm"
 	ca "gitlab.com/akita/util/ca"
 	reflect "reflect"
@@ -101,16 +102,16 @@ func (mr *MockMemoryAllocatorMockRecorder) GetDeviceIDByPAddr(arg0 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeviceIDByPAddr", reflect.TypeOf((*MockMemoryAllocator)(nil).GetDeviceIDByPAddr), arg0)
 }
 
-// RegisterStorage mocks base method
-func (m *MockMemoryAllocator) RegisterStorage(arg0 uint64) {
+// RegisterDevice mocks base method
+func (m *MockMemoryAllocator) RegisterDevice(arg0 *internal.Device) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterStorage", arg0)
+	m.ctrl.Call(m, "RegisterDevice", arg0)
 }
 
-// RegisterStorage indicates an expected call of RegisterStorage
-func (mr *MockMemoryAllocatorMockRecorder) RegisterStorage(arg0 interface{}) *gomock.Call {
+// RegisterDevice indicates an expected call of RegisterDevice
+func (mr *MockMemoryAllocatorMockRecorder) RegisterDevice(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterStorage", reflect.TypeOf((*MockMemoryAllocator)(nil).RegisterStorage), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterDevice", reflect.TypeOf((*MockMemoryAllocator)(nil).RegisterDevice), arg0)
 }
 
 // Remap mocks base method

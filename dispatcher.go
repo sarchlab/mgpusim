@@ -73,6 +73,7 @@ type Dispatcher struct {
 	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
 	dispatchingReq  *LaunchKernelReq
 	totalWGs        int
+	dispatchedAll   bool
 	currentWG       *kernels.WorkGroup
 	dispatchedWGs   map[string]*MapWGReq
 	completedWGs    []*kernels.WorkGroup
@@ -101,15 +102,13 @@ func (d *Dispatcher) mapWG(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	wg := d.currentWG
+	wg := d.nextWG()
 	if wg == nil {
-		wg = d.gridBuilder.NextWG()
-		if wg == nil {
-			d.state = dispatcherIdle
-			return false
-		}
-		d.currentWG = wg
+		d.state = dispatcherIdle
+		d.dispatchedAll = true
+		return false
 	}
+	d.currentWG = wg
 
 	cuID, hasAvailableCU := d.nextAvailableCU()
 	if !hasAvailableCU {
@@ -134,6 +133,27 @@ func (d *Dispatcher) mapWG(now akita.VTimeInSec) bool {
 		tracing.MsgIDAtReceiver(d.dispatchingReq, d))
 
 	return true
+}
+
+func (d *Dispatcher) nextWG() *kernels.WorkGroup {
+	if d.currentWG != nil {
+		return d.currentWG
+	}
+
+	for {
+		wg := d.gridBuilder.NextWG()
+		if wg == nil {
+			return nil
+		}
+
+		if d.dispatchingReq.WGFilter == nil {
+			return wg
+		}
+
+		if d.dispatchingReq.WGFilter(d.dispatchingReq, wg) {
+			return wg
+		}
+	}
 }
 
 func (d *Dispatcher) processReqFromCP(now akita.VTimeInSec) bool {
@@ -187,7 +207,6 @@ func (d *Dispatcher) replyLaunchKernelReq(
 	req *LaunchKernelReq,
 	now akita.VTimeInSec,
 ) *akita.SendError {
-	req.OK = ok
 	req.Src, req.Dst = req.Dst, req.Src
 	req.SendTime = req.RecvTime
 	return d.ToCommandProcessor.Send(req)
@@ -206,11 +225,19 @@ func (d *Dispatcher) initKernelDispatching(
 	d.totalWGs = d.gridBuilder.NumWG()
 	d.dispatchingCUID = -1
 	d.state = dispatcherToMapWG
+	d.dispatchedAll = false
+	d.dispatchedWGs = make(map[string]*MapWGReq)
 
+	d.initializeProgressBar(req.ID)
+
+	tracing.TraceReqReceive(req, now, d)
+}
+
+func (d *Dispatcher) initializeProgressBar(kernelID string) {
 	d.progressBar = barGroup.AddBar(
 		int64(d.totalWGs),
 		mpb.PrependDecorators(
-			decor.Name(fmt.Sprintf("At %s, Kernel: %s, ", d.Name(), req.ID)),
+			decor.Name(fmt.Sprintf("At %s, Kernel: %s, ", d.Name(), kernelID)),
 			decor.Counters(0, "%d/%d"),
 		),
 		mpb.AppendDecorators(
@@ -220,8 +247,6 @@ func (d *Dispatcher) initKernelDispatching(
 		),
 	)
 	d.progressBar.SetTotal(int64(d.totalWGs), false)
-
-	tracing.TraceReqReceive(req, now, d)
 }
 
 func (d *Dispatcher) processMapWGRsp(
@@ -253,9 +278,13 @@ func (d *Dispatcher) processSuccessfulMapWGRsp(
 	now akita.VTimeInSec,
 	rsp *MapWGReq,
 ) bool {
+	// log.Printf("%s, WG (%d, %d, %d) mapped",
+	// 	d.Name(), d.currentWG.IDX, d.currentWG.IDY, d.currentWG.IDZ)
+
 	d.currentWG = nil
 	d.state = dispatcherToMapWG
 	d.ToCUs.Retrieve(now)
+
 	return true
 }
 
@@ -268,7 +297,7 @@ func (d *Dispatcher) processWGFinishMesg(
 	d.cuBusy[msg.Src] = false
 
 	mapWGReq := d.dispatchedWGs[msg.WG.UID]
-	delete(d.dispatchedWGs, msg.WG.UID)
+	// delete(d.dispatchedWGs, msg.WG.UID)
 
 	tracing.TraceReqFinalize(mapWGReq, now, d)
 
@@ -287,7 +316,7 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	if len(d.completedWGs) < d.totalWGs {
+	if !d.isKernelFinished() {
 		return false
 	}
 
@@ -303,6 +332,18 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) bool {
 	d.dispatchingReq = nil
 
 	tracing.TraceReqComplete(req, now, d)
+
+	return true
+}
+
+func (d *Dispatcher) isKernelFinished() bool {
+	if !d.dispatchedAll {
+		return false
+	}
+
+	if len(d.completedWGs) < len(d.dispatchedWGs) {
+		return false
+	}
 
 	return true
 }

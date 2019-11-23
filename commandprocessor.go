@@ -279,6 +279,7 @@ func (p *CommandProcessor) processLaunchKernelReq(
 	reqToBottom.PacketAddress = req.PacketAddress
 	reqToBottom.HsaCo = req.HsaCo
 	reqToBottom.SendTime = now
+	reqToBottom.WGFilter = req.WGFilter
 
 	p.toDispatcherSender.Send(reqToBottom)
 	p.bottomReqIDToTopReqMap[reqToBottom.ID] = req

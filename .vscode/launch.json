@@ -33,6 +33,13 @@
             "program": "${workspaceFolder}/kernels"
         },
         {
+            "name": "Test gitlab.com/akita/gcn3/emu",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/emu"
+        },
+        {
             "name": "Test gitlab.com/akita/gcn3/timing",
             "type": "go",
             "request": "launch",
@@ -54,6 +61,19 @@
             "program": "${workspaceFolder}/timing/newcaches/l1v/acceptancetest"
         },
         {
+            "name": "ATAX",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/atax",
+            "args": [
+                "-verify",
+                "-x=256",
+                "-y=256",
+                "-timing",
+            ]
+        },
+        {
             "name": "FIR",
             "type": "go",
             "request": "launch",
@@ -61,8 +81,22 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-verify",
-                "-length=64",
-                // "-timing"
+                "-length=65536",
+                "-timing",
+                "-unified-gpus=1,2"
+            ]
+        },
+        {
+            "name": "Relu",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/relu",
+            "args": [
+                "-verify",
+                "-length=32768",
+                "-timing",
+                "-unified-gpus=1,2"
             ]
         },
         {
@@ -150,7 +184,10 @@
             "program": "${workspaceFolder}/samples/bfs",
             "args": [
                 "-verify",
-                "-debug-isa"
+                "-node=1024",
+                "-unified-gpus=1,2",
+                // "-debug-isa",
+                // "-timing",
             ]
         },
     ]

@@ -25,6 +25,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		remotePMCPorts []*MockPort
 		context        *Context
 		cmdQueue       *CommandQueue
+		memAllocator   *MockMemoryAllocator
 	)
 
 	ginkgo.BeforeEach(func() {
@@ -33,10 +34,13 @@ var _ = ginkgo.Describe("Driver", func() {
 		toGPUs = NewMockPort(mockCtrl)
 		mmu = NewMockMMU(mockCtrl)
 		toMMU = NewMockPort(mockCtrl)
+		memAllocator = NewMockMemoryAllocator(mockCtrl)
+		memAllocator.EXPECT().RegisterDevice(gomock.Any()).AnyTimes()
 
 		driver = NewDriver(engine, mmu, 12)
 		driver.ToGPUs = toGPUs
 		driver.ToMMU = toMMU
+		driver.memAllocator = memAllocator
 
 		for i := 0; i < 2; i++ {
 			gpu := gcn3.NewGPU("GPU")
@@ -46,7 +50,6 @@ var _ = ginkgo.Describe("Driver", func() {
 				akita.NewLimitNumMsgPort(driver, 1, ""))
 			driver.RemotePMCPorts[i] = remotePMCPorts[i]
 			driver.RegisterGPU(gpu, 4*mem.GB)
-
 		}
 
 		context = driver.Init()
@@ -60,7 +63,6 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.Context("process MemCopyH2D command", func() {
 		ginkgo.It("should send request", func() {
-
 			srcData := make([]byte, 0x2200)
 			cmd := &MemCopyH2DCommand{
 				Dst: GPUPtr(0x200000100),
@@ -105,6 +107,18 @@ var _ = ginkgo.Describe("Driver", func() {
 					PageSize: 0x1000,
 					Valid:    true,
 				})
+			memAllocator.EXPECT().
+				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
+				Return(1)
+			memAllocator.EXPECT().
+				GetDeviceIDByPAddr(uint64(0x1_0000_0800)).
+				Return(1)
+			memAllocator.EXPECT().
+				GetDeviceIDByPAddr(uint64(0x1_0000_1000)).
+				Return(1)
+			memAllocator.EXPECT().
+				GetDeviceIDByPAddr(uint64(0x1_0000_2000)).
+				Return(1)
 
 			toGPUs.EXPECT().
 				Retrieve(akita.VTimeInSec(11)).
@@ -185,20 +199,22 @@ var _ = ginkgo.Describe("Driver", func() {
 			data := uint32(1)
 			cmd := &MemCopyD2HCommand{
 				Dst: &data,
-				Src: GPUPtr(0x200000100),
+				Src: GPUPtr(0x2_0000_0100),
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
 			mmu.EXPECT().Translate(ca.PID(1), uint64(0x200000100)).
-				Return(uint64(0x100000100), &vm.Page{
+				Return(uint64(0x1_0000_0100), &vm.Page{
 					PID:      1,
-					VAddr:    0x200000000,
-					PAddr:    0x100000000,
+					VAddr:    0x2_0000_0000,
+					PAddr:    0x1_0000_0000,
 					PageSize: 0x1000,
 					Valid:    true,
 				})
-
+			memAllocator.EXPECT().
+				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
+				Return(1)
 			toGPUs.EXPECT().
 				Retrieve(akita.VTimeInSec(11)).
 				Return(nil)
@@ -420,35 +436,29 @@ var _ = ginkgo.Describe("Driver", func() {
 	ginkgo.It("should handle shootdown complete rsp", func() {
 		req := gcn3.NewShootdownCompleteRsp(10, nil, driver.ToGPUs)
 
-		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
+		pageMigrationReq := vm.NewPageMigrationReqToDriver(
+			10, nil, driver.ToMMU)
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurrPageHostGPU = 1
-		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
-		GpuReqToVaddrMap := make(map[uint64][]uint64)
-		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
+		pageMigrationReq.CurrAccessingGPUs =
+			append(pageMigrationReq.CurrAccessingGPUs, 1)
+		GPUReqToVaddrMap := make(map[uint64][]uint64)
+		GPUReqToVaddrMap[2] = append(GPUReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
+		migrationInfo.GpuReqToVAddrMap = GPUReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
-
 		driver.currentPageMigrationReq = pageMigrationReq
-
 		driver.numShootDownACK = 1
 
-		page := &vm.Page{
+		page2 := &vm.Page{
 			PID:      0,
 			VAddr:    0x100,
-			PAddr:    4294967296,
+			PAddr:    8589934592,
 			PageSize: 4096,
 			Valid:    true,
-			GPUID:    1,
+			GPUID:    2,
 			Unified:  true,
 		}
-
-		mmu.EXPECT().CreatePage(page)
-		mmu.CreatePage(page)
-
-		mmu.EXPECT().CreatePage(page)
-		driver.memAllocator.AllocatePageWithGivenVAddr(0, 1, 0x100, true)
 
 		mmu.EXPECT().
 			GetPageWithGivenVAddr(uint64(0x100), ca.PID(0)).
@@ -461,29 +471,18 @@ var _ = ginkgo.Describe("Driver", func() {
 				GPUID:    1,
 				Unified:  true,
 			})
-
-		page2 := &vm.Page{
-			PID:      0,
-			VAddr:    0x100,
-			PAddr:    8589934592,
-			PageSize: 4096,
-			Valid:    true,
-			GPUID:    2,
-			Unified:  true,
-		}
-
-		mmu.EXPECT().CreatePage(page2)
-
-		mmu.EXPECT().RemovePage(ca.PID(0), uint64(0x100))
+		memAllocator.EXPECT().RemovePage(uint64(0x100))
+		memAllocator.EXPECT().
+			AllocatePageWithGivenVAddr(ca.PID(0), 2, uint64(0x100), true).
+			Return(*page2)
 		mmu.EXPECT().MarkPageAsMigrating(uint64(0x100), ca.PID(0))
 
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
-		//migrationReqToCP := gcn3.NewPageMigrationReqToCP(10, driver.ToGPUs, driver.GPUs[1].ToDriver)
-		//migrationReqToCP.DestinationPMCPort = driver.remotePMCPorts[0]
-
 		driver.processReturnReq(10)
-		Expect(driver.numPagesMigratingACK).To(Equal(uint64(1)))
+
+		Expect(driver.numPagesMigratingACK).
+			To(Equal(uint64(1)))
 		Expect(driver.migrationReqToSendToCP[0].Dst).
 			To(Equal(driver.GPUs[1].CommandProcessor.ToDriver))
 		Expect(driver.migrationReqToSendToCP[0].DestinationPMCPort).

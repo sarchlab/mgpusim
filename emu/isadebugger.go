@@ -30,7 +30,7 @@ func (h *ISADebugger) Func(ctx akita.HookCtx) {
 	}
 
 	// For debugging
-	if wf.FirstWiFlatID != 0 {
+	if wf.FirstWiFlatID != 960 {
 		return
 	}
 

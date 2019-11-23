@@ -2,8 +2,6 @@
 package internal
 
 import (
-	"log"
-	"math"
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
@@ -13,7 +11,7 @@ import (
 
 // A MemoryAllocator can allocate memory on the CPU and GPUs
 type MemoryAllocator interface {
-	RegisterStorage(byteSize uint64)
+	RegisterDevice(device *Device)
 	GetDeviceIDByPAddr(pAddr uint64) int
 	Allocate(pid ca.PID, byteSize uint64, deviceID int) uint64
 	AllocateUnified(pid ca.PID, byteSize uint64) uint64
@@ -31,10 +29,12 @@ type MemoryAllocator interface {
 // NewMemoryAllocator creates a new memory allocator.
 func NewMemoryAllocator(mmu mmu.MMU, log2PageSize uint64) MemoryAllocator {
 	a := &memoryAllocatorImpl{
-		mmu:                 mmu,
-		log2PageSize:        log2PageSize,
-		processMemoryStates: make(map[ca.PID]*processMemoryState),
-		vAddrToPageMapping:  make(map[uint64]vm.Page),
+		mmu:                  mmu,
+		totalStorageByteSize: 4096, // Starting with a page to avoid 0 address.
+		log2PageSize:         log2PageSize,
+		processMemoryStates:  make(map[ca.PID]*processMemoryState),
+		vAddrToPageMapping:   make(map[uint64]vm.Page),
+		devices:              make(map[int]*Device),
 	}
 	return a
 }
@@ -42,12 +42,6 @@ func NewMemoryAllocator(mmu mmu.MMU, log2PageSize uint64) MemoryAllocator {
 type processMemoryState struct {
 	pid       ca.PID
 	nextVAddr uint64
-}
-
-type deviceMemoryState struct {
-	initialAddress  uint64
-	storageSize     uint64
-	availablePAddrs []uint64
 }
 
 // A memoryAllocatorImpl provides the default implementation for
@@ -58,38 +52,42 @@ type memoryAllocatorImpl struct {
 	log2PageSize         uint64
 	vAddrToPageMapping   map[uint64]vm.Page
 	processMemoryStates  map[ca.PID]*processMemoryState
-	deviceMemoryStates   []*deviceMemoryState
+	devices              map[int]*Device
 	totalStorageByteSize uint64
 }
 
-func (a *memoryAllocatorImpl) RegisterStorage(
-	byteSize uint64,
-) {
-	state := &deviceMemoryState{}
-	state.storageSize = byteSize
+func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
+	state := &device.memState
 	state.initialAddress = a.totalStorageByteSize
-	a.deviceMemoryStates = append(a.deviceMemoryStates, state)
 
 	pageSize := uint64(1 << a.log2PageSize)
-	endAddr := state.initialAddress + byteSize
+	endAddr := state.initialAddress + state.storageSize
 	for addr := state.initialAddress; addr < endAddr; addr += pageSize {
 		state.availablePAddrs = append(state.availablePAddrs, addr)
 	}
 
-	a.totalStorageByteSize += byteSize
+	a.totalStorageByteSize += state.storageSize
+
+	a.devices[device.ID] = device
 }
 
 func (a *memoryAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
-	for i := 0; i < len(a.deviceMemoryStates); i++ {
-		if pAddr >= a.deviceMemoryStates[i].initialAddress &&
-			pAddr < a.deviceMemoryStates[i].initialAddress+
-				a.deviceMemoryStates[i].storageSize {
-			return i
+	for id, dev := range a.devices {
+		state := dev.memState
+		if a.isPAddrOnDevice(pAddr, state) {
+			return id
 		}
 	}
 
-	log.Panic("device not found")
-	return 0
+	panic("device not found")
+}
+
+func (a *memoryAllocatorImpl) isPAddrOnDevice(
+	pAddr uint64,
+	state deviceMemoryState,
+) bool {
+	return pAddr >= state.initialAddress &&
+		pAddr < state.initialAddress+state.storageSize
 }
 
 func (a *memoryAllocatorImpl) Allocate(
@@ -125,23 +123,17 @@ func (a *memoryAllocatorImpl) allocatePages(
 	if !found {
 		a.processMemoryStates[pid] = &processMemoryState{
 			pid:       pid,
-			nextVAddr: uint64(math.Pow(float64(2), float64(a.log2PageSize))),
+			nextVAddr: uint64(1 << a.log2PageSize),
 		}
 		pState = a.processMemoryStates[pid]
 	}
-	dState := a.deviceMemoryStates[deviceID]
+	device := a.devices[deviceID]
 
 	pageSize := uint64(1 << a.log2PageSize)
 	nextVAddr := pState.nextVAddr
-	// a.thereMustBeSpaceLeft(nextPAddr, deviceID)
 
 	for i := 0; i < numPages; i++ {
-		if len(dState.availablePAddrs) == 0 {
-			panic("no more space left")
-		}
-
-		pAddr := dState.availablePAddrs[0]
-		dState.availablePAddrs = dState.availablePAddrs[1:]
+		pAddr := device.allocatePage()
 		vAddr := nextVAddr + uint64(i)*pageSize
 
 		page := vm.Page{
@@ -151,7 +143,7 @@ func (a *memoryAllocatorImpl) allocatePages(
 			PageSize: pageSize,
 			Valid:    true,
 			Unified:  unified,
-			GPUID:    uint64(deviceID),
+			GPUID:    uint64(a.GetDeviceIDByPAddr(pAddr)),
 		}
 		a.vAddrToPageMapping[page.VAddr] = page
 		a.mmu.CreatePage(&page)
@@ -187,7 +179,7 @@ func (a *memoryAllocatorImpl) RemovePage(vAddr uint64) {
 	}
 
 	deviceID := a.GetDeviceIDByPAddr(page.PAddr)
-	dState := a.deviceMemoryStates[deviceID]
+	dState := &a.devices[deviceID].memState
 	dState.availablePAddrs = append(dState.availablePAddrs, page.PAddr)
 
 	a.mmu.RemovePage(page.PID, page.VAddr)
@@ -203,17 +195,14 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 	defer a.Unlock()
 
 	pageSize := uint64(1 << a.log2PageSize)
-	dState := a.deviceMemoryStates[deviceID]
-	if len(dState.availablePAddrs) == 0 {
-		panic("no more space left")
-	}
-	nextPAddr := dState.availablePAddrs[0]
-	dState.availablePAddrs = dState.availablePAddrs[1:]
+
+	device := a.devices[deviceID]
+	pAddr := device.allocatePage()
 
 	page := vm.Page{
 		PID:      pid,
 		VAddr:    vAddr,
-		PAddr:    nextPAddr,
+		PAddr:    pAddr,
 		PageSize: pageSize,
 		Valid:    true,
 		GPUID:    uint64(deviceID),
