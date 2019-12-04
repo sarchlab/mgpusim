@@ -196,6 +196,7 @@ func (b DataPullReqBuilder) Build() *DataPullReq {
 	r.SendTime = b.sendTime
 	r.ToReadFromPhyAddress = b.ToReadFromPhyAddress
 	r.DataTransferSize = b.DataTransferSize
+	r.TrafficBytes = 12
 
 	return r
 }
@@ -252,6 +253,7 @@ func (b DataPullRspBuilder) Build() *DataPullRsp {
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
 	r.Data = b.Data
+	r.TrafficBytes = len(r.Data) + 12
 
 	return r
 }
