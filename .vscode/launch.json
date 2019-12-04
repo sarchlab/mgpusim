@@ -83,7 +83,6 @@
                 "-verify",
                 "-length=65536",
                 "-timing",
-                "-unified-gpus=1,2"
             ]
         },
         {

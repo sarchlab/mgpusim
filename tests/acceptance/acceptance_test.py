@@ -25,7 +25,11 @@ class Test(object):
         self.size_args = size_args
         self.benchmark_path = benchmark_path
 
-    def test(self, test_disassemble="true", test_multi_gpu="true"):
+    def test(self,
+             test_disassemble="true",
+             test_unified_multi_gpu="true",
+             test_multi_gpu="true",
+             ):
         err = False
 
         if test_disassemble:
@@ -38,14 +42,15 @@ class Test(object):
         err |= self.run_test(True, False, False, '1')
         err |= self.run_test(True, True, False, '1')
 
-        err |= self.run_test(False, False, True, '1,2')
-        err |= self.run_test(False, False, True, '1,2,3,4')
-        err |= self.run_test(False, True, True, '1,2')
-        err |= self.run_test(False, True, True, '1,2,3,4')
-        err |= self.run_test(True, False, True, '1,2')
-        err |= self.run_test(True, False, True, '1,2,3,4')
-        err |= self.run_test(True, True, True, '1,2')
-        err |= self.run_test(True, True, True, '1,2,3,4')
+        if test_unified_multi_gpu:
+            err |= self.run_test(False, False, True, '1,2')
+            err |= self.run_test(False, False, True, '1,2,3,4')
+            err |= self.run_test(False, True, True, '1,2')
+            err |= self.run_test(False, True, True, '1,2,3,4')
+            err |= self.run_test(True, False, True, '1,2')
+            err |= self.run_test(True, False, True, '1,2,3,4')
+            err |= self.run_test(True, True, True, '1,2')
+            err |= self.run_test(True, True, True, '1,2,3,4')
 
         if test_multi_gpu:
             err |= self.run_test(False, False, False, '1,2')
@@ -230,7 +235,9 @@ def main():
     err |= bfs.test(test_multi_gpu=False)
     err |= st.test(test_multi_gpu=False)
 
-    err |= cw.test(test_disassemble=False, test_multi_gpu=False)
+    err |= cw.test(test_disassemble=False,
+                   test_unified_multi_gpu=False,
+                   test_multi_gpu=False)
 
     # error |= compile('acceptancetests/cupipelinedraining')
     # error |= run_test('CU Pipeline Draining',

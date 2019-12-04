@@ -646,8 +646,17 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 
 func (b *R9NanoGPUBuilder) buildL2Caches() {
 	b.L2Caches = make([]*writeback.Cache, 0, b.numMemoryBank)
-	cacheBuilder := new(writeback.Builder)
-	cacheBuilder.Engine = b.engine
+
+	cacheBuilder := writeback.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithLog2BlockSize(6).
+		WithWayAssociativity(16).
+		WithByteSize(256 * mem.KB).
+		WithLowModuleFinder(b.LowModuleFinderForL2).
+		WithNumMSHREntry(64).
+		WithNumReqPerCycle(64)
+
 	b.LowModuleFinderForL1 = cache.NewInterleavedLowModuleFinder(4096)
 	b.LowModuleFinderForL1.UseAddressSpaceLimitation = true
 	b.LowModuleFinderForL1.LowAddress = b.memAddrOffset
@@ -655,13 +664,8 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 	b.l1ToL2Connection = akita.NewDirectConnection(b.gpuName+"l1-l2",
 		b.engine, b.freq)
 	for i := 0; i < b.numMemoryBank; i++ {
-		cacheBuilder.LowModuleFinder = b.LowModuleFinderForL2
-		cacheBuilder.CacheName = fmt.Sprintf("%s.L2_%d", b.gpuName, i)
-		cacheBuilder.WayAssociativity = 16
-		cacheBuilder.BlockSize = 64
-		cacheBuilder.ByteSize = 256 * mem.KB
-		cacheBuilder.NumMSHREntry = 4096
-		l2Cache := cacheBuilder.Build()
+		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)
+		l2Cache := cacheBuilder.Build(cacheName)
 		b.L2Caches = append(b.L2Caches, l2Cache)
 		b.CP.L2Caches = append(b.CP.L2Caches, l2Cache.ControlPort)
 		b.gpu.L2Caches = append(b.gpu.L2Caches, l2Cache)
