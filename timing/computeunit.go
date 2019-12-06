@@ -720,7 +720,7 @@ func (cu *ComputeUnit) logInstTask(
 		now,
 		cu,
 		"inst",
-		"inst",
+		inst.InstName,
 		map[string]interface{}{
 			"inst": inst,
 			"wf":   wf,

@@ -23,7 +23,7 @@ type SchedulerImpl struct {
 	cu                *ComputeUnit
 	fetchArbiter      WfArbiter
 	issueArbiter      WfArbiter
-	internalExecuting *wavefront.Wavefront
+	internalExecuting []*wavefront.Wavefront
 
 	barrierBuffer     []*wavefront.Wavefront
 	barrierBufferSize int
@@ -183,18 +183,15 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 }
 
 func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
-	if s.internalExecuting == nil {
-		wf.SetDynamicInst(wf.InstToIssue)
-		wf.InstToIssue = nil
-		s.internalExecuting = wf
-		wf.State = wavefront.WfRunning
-		//s.removeStaleInstBuffer(wf)
+	wf.SetDynamicInst(wf.InstToIssue)
+	wf.InstToIssue = nil
+	s.internalExecuting = append(s.internalExecuting, wf)
+	wf.State = wavefront.WfRunning
+	//s.removeStaleInstBuffer(wf)
 
-		s.cu.logInstTask(now, wf, wf.DynamicInst(), false)
+	s.cu.logInstTask(now, wf, wf.DynamicInst(), false)
 
-		return true
-	}
-	return false
+	return true
 }
 
 func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
@@ -223,38 +220,53 @@ func (s *SchedulerImpl) EvaluateInternalInst(now akita.VTimeInSec) bool {
 	}
 
 	madeProgress := false
-	executing := s.internalExecuting
 
-	switch s.internalExecuting.Inst().Opcode {
-	case 1: // S_ENDPGM
-		madeProgress = s.evalSEndPgm(s.internalExecuting, now) || madeProgress
-	case 10: // S_BARRIER
-		madeProgress = s.evalSBarrier(s.internalExecuting, now) || madeProgress
-	case 12: // S_WAITCNT
-		madeProgress = s.evalSWaitCnt(s.internalExecuting, now) || madeProgress
-	default:
-		// The program has to make progress
-		s.internalExecuting.State = wavefront.WfReady
-		s.internalExecuting = nil
-		madeProgress = true
+	newExecuting := make([]*wavefront.Wavefront, 0)
+	for _, executing := range s.internalExecuting {
+		instProgress := false
+		instCompleted := false
+
+		switch executing.Inst().Opcode {
+		case 1: // S_ENDPGM
+			instProgress, instCompleted = s.evalSEndPgm(executing, now)
+		case 10: // S_BARRIER
+			instProgress, instCompleted = s.evalSBarrier(executing, now)
+		case 12: // S_WAITCNT
+			instProgress, instCompleted = s.evalSWaitCnt(executing, now)
+		default:
+			// The program has to make progress
+			executing.State = wavefront.WfReady
+			instProgress = true
+			instCompleted = true
+		}
+		madeProgress = instProgress || madeProgress
+
+		if instCompleted {
+			s.cu.logInstTask(now, executing, executing.DynamicInst(), true)
+		} else {
+			newExecuting = append(newExecuting, executing)
+		}
 	}
 
-	if s.internalExecuting == nil {
-		s.cu.logInstTask(now, executing, executing.DynamicInst(), true)
-	}
+	s.internalExecuting = newExecuting
+
 	return madeProgress
 }
 
-func (s *SchedulerImpl) evalSEndPgm(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSEndPgm(
+	wf *wavefront.Wavefront,
+	now akita.VTimeInSec,
+) (madeProgress bool, instCompleted bool) {
 	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
-		return false
+		return false, false
 	}
+
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.Engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil
 
 	s.resetRegisterValue(wf)
-	return true
+	return true, true
 }
 
 func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
@@ -277,7 +289,10 @@ func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
 	}
 }
 
-func (s *SchedulerImpl) evalSBarrier(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSBarrier(
+	wf *wavefront.Wavefront,
+	now akita.VTimeInSec,
+) (madeProgress bool, instCompleted bool) {
 	wf.State = wavefront.WfAtBarrier
 
 	wg := wf.WG
@@ -285,16 +300,15 @@ func (s *SchedulerImpl) evalSBarrier(wf *wavefront.Wavefront, now akita.VTimeInS
 
 	if allAtBarrier {
 		s.passBarrier(wg)
-		s.internalExecuting = nil
-		return true
+		return true, true
 	}
 
 	if len(s.barrierBuffer) < s.barrierBufferSize {
 		s.barrierBuffer = append(s.barrierBuffer, wf)
-		s.internalExecuting = nil
-		return true
+		return true, true
 	}
-	return false
+
+	return false, false
 }
 
 func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *wavefront.WorkGroup) bool {
@@ -327,7 +341,10 @@ func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *wavefront.WorkGroup) {
 	s.barrierBuffer = newBarrierBuffer
 }
 
-func (s *SchedulerImpl) evalSWaitCnt(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) evalSWaitCnt(
+	wf *wavefront.Wavefront,
+	now akita.VTimeInSec,
+) (madeProgress bool, instCompleted bool) {
 	done := true
 	inst := wf.Inst()
 
@@ -340,11 +357,11 @@ func (s *SchedulerImpl) evalSWaitCnt(wf *wavefront.Wavefront, now akita.VTimeInS
 	}
 
 	if done {
-		s.cu.UpdatePCAndSetReady(s.internalExecuting)
-		s.internalExecuting = nil
-		return true
+		s.cu.UpdatePCAndSetReady(wf)
+		return true, true
 	}
-	return false
+
+	return false, false
 }
 
 func (s *SchedulerImpl) Pause() {
