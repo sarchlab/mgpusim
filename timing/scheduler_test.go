@@ -219,7 +219,7 @@ var _ = Describe("Scheduler", func() {
 
 		scheduler.DoIssue(10)
 
-		Expect(scheduler.internalExecuting).To(BeIdenticalTo(wf))
+		Expect(scheduler.internalExecuting).To(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfRunning))
 		Expect(wf.PC).To(Equal(uint64(10)))
 		Expect(wf.InstToIssue).To(BeNil())
@@ -237,7 +237,7 @@ var _ = Describe("Scheduler", func() {
 		engine.EXPECT().
 			Schedule(gomock.AssignableToTypeOf(&WfCompletionEvent{}))
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 	})
 
@@ -250,10 +250,10 @@ var _ = Describe("Scheduler", func() {
 		wf.State = wavefront.WfRunning
 		wf.OutstandingScalarMemAccess = 1
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 
-		Expect(scheduler.internalExecuting).NotTo(BeNil())
+		Expect(scheduler.internalExecuting).To(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfRunning))
 	})
 
@@ -266,10 +266,10 @@ var _ = Describe("Scheduler", func() {
 		wf.State = wavefront.WfRunning
 		wf.OutstandingVectorMemAccess = 1
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 
-		Expect(scheduler.internalExecuting).NotTo(BeNil())
+		Expect(scheduler.internalExecuting).To(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfRunning))
 	})
 
@@ -284,10 +284,10 @@ var _ = Describe("Scheduler", func() {
 		wf.OutstandingScalarMemAccess = 0
 		wf.OutstandingVectorMemAccess = 0
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 
-		Expect(scheduler.internalExecuting).To(BeNil())
+		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfReady))
 	})
 
@@ -300,7 +300,7 @@ var _ = Describe("Scheduler", func() {
 		wf.OutstandingScalarMemAccess = 1
 		wf.OutstandingVectorMemAccess = 1
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 
 		Expect(scheduler.internalExecuting).NotTo(BeNil())
@@ -319,13 +319,13 @@ var _ = Describe("Scheduler", func() {
 		}
 		wf := wg.Wfs[0]
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 
 		Expect(wf.State).To(Equal(wavefront.WfAtBarrier))
 		Expect(len(scheduler.barrierBuffer)).To(Equal(1))
 		Expect(scheduler.barrierBuffer[0]).To(BeIdenticalTo(wf))
-		Expect(scheduler.internalExecuting).To(BeNil())
+		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 	})
 
 	It("should wait if barrier buffer is full", func() {
@@ -347,7 +347,7 @@ var _ = Describe("Scheduler", func() {
 			wave.State = wavefront.WfAtBarrier
 			scheduler.barrierBuffer = append(scheduler.barrierBuffer, wave)
 		}
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 
 		//Expect(wf.State).To(Equal(WfRunning))
@@ -376,10 +376,10 @@ var _ = Describe("Scheduler", func() {
 		wf.DynamicInst().Opcode = 10
 		wg.Wfs = append(wg.Wfs, wf)
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.EvaluateInternalInst(10)
 
-		Expect(scheduler.internalExecuting).To(BeNil())
+		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 		Expect(len(scheduler.barrierBuffer)).To(Equal(0))
 		for i := 0; i < 4; i++ {
 			wf := wg.Wfs[i]
@@ -401,12 +401,12 @@ var _ = Describe("Scheduler", func() {
 		}
 		wf := wg.Wfs[0]
 
-		scheduler.internalExecuting = wf
+		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
 		scheduler.barrierBuffer = append(scheduler.barrierBuffer, wf)
 
 		scheduler.Flush()
 
-		Expect(scheduler.internalExecuting).To(BeNil())
+		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 		Expect(scheduler.barrierBuffer).To(BeNil())
 
 	})

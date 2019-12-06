@@ -43,10 +43,6 @@ class Test(object):
         err |= self.run_test(True, True, False, '1')
 
         if test_unified_multi_gpu:
-            err |= self.run_test(False, False, True, '1,2')
-            err |= self.run_test(False, False, True, '1,2,3,4')
-            err |= self.run_test(False, True, True, '1,2')
-            err |= self.run_test(False, True, True, '1,2,3,4')
             err |= self.run_test(True, False, True, '1,2')
             err |= self.run_test(True, False, True, '1,2,3,4')
             err |= self.run_test(True, True, True, '1,2')
