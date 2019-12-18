@@ -155,9 +155,6 @@
             "program": "${workspaceFolder}/samples/stencil2d",
             "args": [
                 "-verify",
-                "-iter=2",
-                "-row=16",
-                "-col=64",
                 // "-debug-isa"
             ]
         },
@@ -185,6 +182,18 @@
                 "-verify",
                 "-node=1024",
                 "-unified-gpus=1,2",
+                // "-debug-isa",
+                // "-timing",
+            ]
+        },
+        {
+            "name": "Concurrent workload",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/concurrentworkload",
+            "args": [
+                "-verify",
                 // "-debug-isa",
                 // "-timing",
             ]

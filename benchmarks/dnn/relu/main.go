@@ -123,12 +123,12 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) Verify() {
 	for i := 0; i < b.Length; i++ {
 		if b.inputData[i] > 0 && b.outputData[i] != b.inputData[i] {
-			log.Printf("mismatch at %d, input %f, output %f", i,
+			log.Panicf("mismatch at %d, input %f, output %f", i,
 				b.inputData[i], b.outputData[i])
 		}
 
 		if b.inputData[i] <= 0 && b.outputData[i] != 0 {
-			log.Printf("mismatch at %d, input %f, output %f", i,
+			log.Panicf("mismatch at %d, input %f, output %f", i,
 				b.inputData[i], b.outputData[i])
 		}
 	}

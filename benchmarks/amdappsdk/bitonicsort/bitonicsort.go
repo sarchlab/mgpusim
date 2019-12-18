@@ -220,7 +220,7 @@ func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) {
 	// failed := false
 	for i := 0; i < b.Length; i++ {
 		if cpuOut[i] != out[i] {
-			log.Printf("Mismatch after stage %d pass %d at pos %d, expected %d, but get %d", stage, pass, i, cpuOut[i], out[i])
+			log.Panicf("Mismatch after stage %d pass %d at pos %d, expected %d, but get %d", stage, pass, i, cpuOut[i], out[i])
 			// failed = true
 		}
 	}

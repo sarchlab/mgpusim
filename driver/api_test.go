@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/driver/internal"
 	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/mem/vm"
 )
 
 func enqueueNoopCommand(d *Driver, q *CommandQueue) {
@@ -19,17 +19,16 @@ func enqueueNoopCommand(d *Driver, q *CommandQueue) {
 
 var _ = ginkgo.Describe("Driver async API execution", func() {
 	var (
-		engine  akita.Engine
-		mmuComp *mmu.MMUImpl
-		driver  *Driver
+		engine    akita.Engine
+		pageTable vm.PageTable
+		driver    *Driver
 	)
 
 	ginkgo.BeforeEach(func() {
+		log2PageSize := uint64(12)
 		engine = akita.NewSerialEngine()
-		mmuComp = mmu.MakeBuilder().
-			WithLog2PageSize(12).
-			Build("mmu")
-		driver = NewDriver(engine, mmuComp, 12)
+		pageTable = vm.NewPageTable(log2PageSize)
+		driver = NewDriver(engine, pageTable, log2PageSize)
 		gpuDevice := &internal.Device{
 			ID:   1,
 			Type: internal.DeviceTypeCPU,

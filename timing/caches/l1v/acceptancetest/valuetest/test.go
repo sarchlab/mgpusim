@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/timing/caches/l1v"
@@ -14,13 +13,12 @@ import (
 )
 
 type test struct {
-	engine           akita.Engine
-	conn             *akita.DirectConnection
-	agent            *acceptancetests.MemAccessAgent
-	lowModuleFinder  *cache.SingleLowModuleFinder
-	dram             *idealmemcontroller.Comp
-	pageTableFactory vm.PageTableFactory
-	c                *l1v.Cache
+	engine          akita.Engine
+	conn            *akita.DirectConnection
+	agent           *acceptancetests.MemAccessAgent
+	lowModuleFinder *cache.SingleLowModuleFinder
+	dram            *idealmemcontroller.Comp
+	c               *l1v.Cache
 }
 
 func (t *test) run(wg *sync.WaitGroup) {
@@ -43,8 +41,6 @@ func newTest(name string) *test {
 	t.dram = idealmemcontroller.New("dram", t.engine, 1*mem.GB)
 	t.lowModuleFinder = new(cache.SingleLowModuleFinder)
 	t.lowModuleFinder.LowModule = t.dram.ToTop
-
-	t.pageTableFactory = new(vm.DefaultPageTableFactory)
 
 	t.c = l1v.NewBuilder().
 		WithEngine(t.engine).

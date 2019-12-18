@@ -31,8 +31,8 @@ func (s *mockInstState) Scratchpad() Scratchpad {
 var _ = Describe("ALU", func() {
 
 	var (
-		mockCtrl *gomock.Controller
-		mmu      *MockMMU
+		mockCtrl  *gomock.Controller
+		pageTable *MockPageTable
 
 		alu           *ALUImpl
 		state         *mockInstState
@@ -43,7 +43,7 @@ var _ = Describe("ALU", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mmu = NewMockMMU(mockCtrl)
+		pageTable = NewMockPageTable(mockCtrl)
 
 		storage = mem.NewStorage(1 * mem.GB)
 		addrConverter = &idealmemcontroller.InterleavingConverter{
@@ -52,7 +52,7 @@ var _ = Describe("ALU", func() {
 			CurrentElementIndex: 0,
 			Offset:              0,
 		}
-		sAccessor = newStorageAccessor(storage, mmu, addrConverter)
+		sAccessor = newStorageAccessor(storage, pageTable, 12, addrConverter)
 		alu = NewALU(sAccessor)
 
 		state = new(mockInstState)
@@ -65,9 +65,10 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_UBYTE", func() {
 		for i := 0; i < 64; i++ {
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(i*4)).
-				Return(uint64(i*4), &vm.Page{})
+			pageTable.EXPECT().Find(ca.PID(1), uint64(i*4)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
 		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -92,9 +93,11 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_USHORT", func() {
 		for i := 0; i < 64; i++ {
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(i*4)).
-				Return(uint64(i*4), &vm.Page{})
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(i*4)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
 		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -117,9 +120,11 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_DWORD", func() {
 		for i := 0; i < 64; i++ {
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(i*4)).
-				Return(uint64(i*4), &vm.Page{})
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(i*4)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
 		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -141,9 +146,11 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_DWORDX2", func() {
 		for i := 0; i < 64; i++ {
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(i*8)).
-				Return(uint64(i*8), &vm.Page{})
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(i*8)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
 		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -167,9 +174,11 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_DWORDX4", func() {
 		for i := 0; i < 64; i++ {
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(i*16)).
-				Return(uint64(i*16), &vm.Page{})
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(i*16)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
 		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -197,9 +206,11 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_STORE_DWORD", func() {
 		for i := 0; i < 64; i++ {
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(i*4)).
-				Return(uint64(i*4), &vm.Page{})
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(i*4)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
 		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -223,9 +234,11 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_STORE_DWORDX4", func() {
 		for i := 0; i < 64; i++ {
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(i*16)).
-				Return(uint64(i*16), &vm.Page{})
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(i*16)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
 		}
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.FLAT
@@ -251,9 +264,11 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORD", func() {
-		mmu.EXPECT().
-			Translate(ca.PID(1), uint64(1040)).
-			Return(uint64(1040), &vm.Page{})
+		pageTable.EXPECT().
+			Find(ca.PID(1), uint64(1040)).
+			Return(vm.Page{
+				PAddr: uint64(0),
+			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 0
@@ -270,9 +285,11 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORDX2", func() {
-		mmu.EXPECT().
-			Translate(ca.PID(1), uint64(1040)).
-			Return(uint64(1040), &vm.Page{})
+		pageTable.EXPECT().
+			Find(ca.PID(1), uint64(1040)).
+			Return(vm.Page{
+				PAddr: uint64(0),
+			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 1
@@ -291,9 +308,11 @@ var _ = Describe("ALU", func() {
 	})
 
 	It("should run S_LOAD_DWORDX4", func() {
-		mmu.EXPECT().
-			Translate(ca.PID(1), uint64(1040)).
-			Return(uint64(1040), &vm.Page{})
+		pageTable.EXPECT().
+			Find(ca.PID(1), uint64(1040)).
+			Return(vm.Page{
+				PAddr: uint64(0),
+			}, true)
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SMEM
 		state.inst.Opcode = 2

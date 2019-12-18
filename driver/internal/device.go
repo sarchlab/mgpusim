@@ -35,9 +35,11 @@ func (d *Device) allocatePage() (pAddr uint64) {
 	if d.Type == DeviceTypeUnifiedGPU {
 		return d.allocateUnifiedGPUPage()
 	}
+
 	d.mustHaveSpaceLeft()
 	pAddr = d.memState.availablePAddrs[0]
 	d.memState.availablePAddrs = d.memState.availablePAddrs[1:]
+
 	return pAddr
 }
 

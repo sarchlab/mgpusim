@@ -182,7 +182,7 @@ func (b *Benchmark) Verify() {
 			cpuOutput := cpuOutputImage[index]
 
 			if cpuOutput != gpuOutput {
-				log.Printf("mismatch as position %d, %d (addr 0x%x). "+
+				log.Panicf("mismatch as position %d, %d (addr 0x%x). "+
 					"Expected %d, but get %d",
 					i, j,
 					uint64(b.dOutputData)+uint64(4*index),

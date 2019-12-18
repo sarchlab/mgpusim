@@ -396,7 +396,7 @@ func (b *Benchmark) compareCentroids(cpuCentroids, gpuCentroids []float32) {
 		for j := 0; j < b.NumFeatures; j++ {
 			index := i*b.NumFeatures + j
 			if cpuCentroids[index] != gpuCentroids[index] {
-				log.Printf("centroid %d feature %d mismatch, CPU %f, GPU %f",
+				log.Panicf("centroid %d feature %d mismatch, CPU %f, GPU %f",
 					i, j, cpuCentroids[index], gpuCentroids[index])
 			}
 		}
