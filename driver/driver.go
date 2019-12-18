@@ -14,7 +14,6 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/util/ca"
 	"gitlab.com/akita/util/tracing"
 )
@@ -26,9 +25,9 @@ type Driver struct {
 	memAllocator internal.MemoryAllocator
 	distributor  distributor
 
-	GPUs    []*gcn3.GPU
-	devices []*internal.Device
-	MMU     mmu.MMU
+	GPUs      []*gcn3.GPU
+	devices   []*internal.Device
+	pageTable vm.PageTable
 
 	ToMMU akita.Port
 
@@ -291,10 +290,11 @@ func (d *Driver) processMemCopyH2DCommand(
 	addr := uint64(cmd.Dst)
 	sizeLeft := uint64(len(rawBytes))
 	for sizeLeft > 0 {
-		pAddr, page := d.MMU.Translate(queue.Context.pid, addr)
-		if page == nil {
+		page, found := d.pageTable.Find(queue.Context.pid, addr)
+		if !found {
 			panic("page not found")
 		}
+		pAddr := page.PAddr + (addr - page.VAddr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -372,7 +372,11 @@ func (d *Driver) processMemCopyD2HCommand(
 	addr := uint64(cmd.Src)
 	sizeLeft := uint64(len(cmd.RawData))
 	for sizeLeft > 0 {
-		pAddr, page := d.MMU.Translate(queue.Context.pid, addr)
+		page, found := d.pageTable.Find(queue.Context.pid, addr)
+		if !found {
+			panic("page not found")
+		}
+		pAddr := page.PAddr + (addr - page.VAddr)
 		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
 		sizeToCopy := sizeLeftInPage
 		if sizeLeft < sizeLeftInPage {
@@ -757,16 +761,18 @@ func (d *Driver) preparePageForMigration(
 	context *Context,
 	gpuID uint64,
 ) (*vm.Page, uint64) {
-	page := d.MMU.GetPageWithGivenVAddr(vAddr, context.pid)
+	page, found := d.pageTable.Find(context.pid, vAddr)
+	if !found {
+		panic("page not founds")
+	}
 	oldPaddr := page.PAddr
-
-	d.memAllocator.RemovePage(vAddr)
 
 	newPage := d.memAllocator.AllocatePageWithGivenVAddr(
 		context.pid, int(gpuID+1), vAddr, true)
 	newPage.GPUID = gpuID + 1
 
-	d.MMU.MarkPageAsMigrating(vAddr, d.currentPageMigrationReq.PID)
+	newPage.IsMigrating = true
+	d.pageTable.Update(newPage)
 
 	return &newPage, oldPaddr
 }
@@ -884,21 +890,25 @@ func (d *Driver) sendToMMU(now akita.VTimeInSec) bool {
 }
 
 // NewDriver creates a new driver
-func NewDriver(engine akita.Engine, mmu mmu.MMU, log2PageSize uint64) *Driver {
+func NewDriver(
+	engine akita.Engine,
+	pageTable vm.PageTable,
+	log2PageSize uint64,
+) *Driver {
 	driver := new(Driver)
 	driver.TickingComponent = akita.NewTickingComponent(
 		"driver", engine, 1*akita.GHz, driver)
 
 	driver.Log2PageSize = log2PageSize
 
-	memAllocatorImpl := internal.NewMemoryAllocator(mmu, log2PageSize)
+	memAllocatorImpl := internal.NewMemoryAllocator(pageTable, log2PageSize)
 	driver.memAllocator = memAllocatorImpl
 
 	distributorImpl := newDistributorImpl(memAllocatorImpl)
 	distributorImpl.pageSizeAsPowerOf2 = log2PageSize
 	driver.distributor = distributorImpl
 
-	driver.MMU = mmu
+	driver.pageTable = pageTable
 
 	driver.ToGPUs = akita.NewLimitNumMsgPort(driver, 40960000, "driver.ToGPUs")
 	driver.ToMMU = akita.NewLimitNumMsgPort(driver, 1, "driver.ToMMU")

@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -27,9 +26,12 @@ type MemoryAllocator interface {
 }
 
 // NewMemoryAllocator creates a new memory allocator.
-func NewMemoryAllocator(mmu mmu.MMU, log2PageSize uint64) MemoryAllocator {
+func NewMemoryAllocator(
+	pageTable vm.PageTable,
+	log2PageSize uint64,
+) MemoryAllocator {
 	a := &memoryAllocatorImpl{
-		mmu:                  mmu,
+		pageTable:            pageTable,
 		totalStorageByteSize: 4096, // Starting with a page to avoid 0 address.
 		log2PageSize:         log2PageSize,
 		processMemoryStates:  make(map[ca.PID]*processMemoryState),
@@ -48,7 +50,7 @@ type processMemoryState struct {
 // memoryAllocator
 type memoryAllocatorImpl struct {
 	sync.Mutex
-	mmu                  mmu.MMU
+	pageTable            vm.PageTable
 	log2PageSize         uint64
 	vAddrToPageMapping   map[uint64]vm.Page
 	processMemoryStates  map[ca.PID]*processMemoryState
@@ -57,6 +59,9 @@ type memoryAllocatorImpl struct {
 }
 
 func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
+	a.Lock()
+	defer a.Unlock()
+
 	state := &device.memState
 	state.initialAddress = a.totalStorageByteSize
 
@@ -72,6 +77,13 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 }
 
 func (a *memoryAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
+	a.Lock()
+	defer a.Unlock()
+
+	return a.deviceIDByPAddr(pAddr)
+}
+
+func (a *memoryAllocatorImpl) deviceIDByPAddr(pAddr uint64) int {
 	for id, dev := range a.devices {
 		state := dev.memState
 		if a.isPAddrOnDevice(pAddr, state) {
@@ -95,6 +107,9 @@ func (a *memoryAllocatorImpl) Allocate(
 	byteSize uint64,
 	deviceID int,
 ) uint64 {
+	a.Lock()
+	defer a.Unlock()
+
 	pageSize := uint64(1 << a.log2PageSize)
 	numPages := (byteSize-1)/pageSize + 1
 	return a.allocatePages(int(numPages), pid, deviceID, false)
@@ -104,6 +119,9 @@ func (a *memoryAllocatorImpl) AllocateUnified(
 	pid ca.PID,
 	byteSize uint64,
 ) uint64 {
+	a.Lock()
+	defer a.Unlock()
+
 	pageSize := uint64(1 << a.log2PageSize)
 	numPages := (byteSize-1)/pageSize + 1
 	return a.allocatePages(int(numPages), pid, 1, true)
@@ -115,9 +133,6 @@ func (a *memoryAllocatorImpl) allocatePages(
 	deviceID int,
 	unified bool,
 ) (firstPageVAddr uint64) {
-	a.Lock()
-	defer a.Unlock()
-
 	// log.Printf("num pages %d \n", numPages)
 	pState, found := a.processMemoryStates[pid]
 	if !found {
@@ -143,10 +158,11 @@ func (a *memoryAllocatorImpl) allocatePages(
 			PageSize: pageSize,
 			Valid:    true,
 			Unified:  unified,
-			GPUID:    uint64(a.GetDeviceIDByPAddr(pAddr)),
+			GPUID:    uint64(a.deviceIDByPAddr(pAddr)),
 		}
+
+		a.pageTable.Insert(page)
 		a.vAddrToPageMapping[page.VAddr] = page
-		a.mmu.CreatePage(&page)
 	}
 
 	pState.nextVAddr += pageSize * uint64(numPages)
@@ -159,11 +175,14 @@ func (a *memoryAllocatorImpl) Remap(
 	pageVAddr, byteSize uint64,
 	deviceID int,
 ) {
+	a.Lock()
+	defer a.Unlock()
+
 	pageSize := uint64(1 << a.log2PageSize)
 	addr := pageVAddr
 	for addr < pageVAddr+byteSize {
-		a.RemovePage(addr)
-		a.AllocatePageWithGivenVAddr(pid, deviceID, addr, false)
+		// a.removePage(addr)
+		a.allocatePageWithGivenVAddr(pid, deviceID, addr, false)
 		addr += pageSize
 	}
 }
@@ -172,17 +191,21 @@ func (a *memoryAllocatorImpl) RemovePage(vAddr uint64) {
 	a.Lock()
 	defer a.Unlock()
 
+	a.removePage(vAddr)
+}
+
+func (a *memoryAllocatorImpl) removePage(vAddr uint64) {
 	page, ok := a.vAddrToPageMapping[vAddr]
 
 	if !ok {
 		panic("page not found")
 	}
 
-	deviceID := a.GetDeviceIDByPAddr(page.PAddr)
+	deviceID := a.deviceIDByPAddr(page.PAddr)
 	dState := &a.devices[deviceID].memState
 	dState.availablePAddrs = append(dState.availablePAddrs, page.PAddr)
 
-	a.mmu.RemovePage(page.PID, page.VAddr)
+	a.pageTable.Remove(page.PID, page.VAddr)
 }
 
 func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
@@ -194,6 +217,15 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 	a.Lock()
 	defer a.Unlock()
 
+	return a.allocatePageWithGivenVAddr(pid, deviceID, vAddr, isUnified)
+}
+
+func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
+	pid ca.PID,
+	deviceID int,
+	vAddr uint64,
+	isUnified bool,
+) vm.Page {
 	pageSize := uint64(1 << a.log2PageSize)
 
 	device := a.devices[deviceID]
@@ -209,12 +241,14 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 		Unified:  isUnified,
 	}
 	a.vAddrToPageMapping[page.VAddr] = page
-
-	a.mmu.CreatePage(&page)
+	a.pageTable.Update(page)
 
 	return page
 }
 
 func (a *memoryAllocatorImpl) Free(ptr uint64) {
-	a.RemovePage(ptr)
+	a.Lock()
+	defer a.Unlock()
+
+	a.removePage(ptr)
 }

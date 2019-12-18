@@ -14,9 +14,8 @@ import (
 var _ = ginkgo.Describe("Driver", func() {
 
 	var (
-		mockCtrl *gomock.Controller
-		//gpu      *gcn3.GPU
-		mmu *MockMMU
+		mockCtrl  *gomock.Controller
+		pageTable *MockPageTable
 
 		driver         *Driver
 		engine         *MockEngine
@@ -32,12 +31,12 @@ var _ = ginkgo.Describe("Driver", func() {
 		mockCtrl = gomock.NewController(ginkgo.GinkgoT())
 		engine = NewMockEngine(mockCtrl)
 		toGPUs = NewMockPort(mockCtrl)
-		mmu = NewMockMMU(mockCtrl)
+		pageTable = NewMockPageTable(mockCtrl)
 		toMMU = NewMockPort(mockCtrl)
 		memAllocator = NewMockMemoryAllocator(mockCtrl)
 		memAllocator.EXPECT().RegisterDevice(gomock.Any()).AnyTimes()
 
-		driver = NewDriver(engine, mmu, 12)
+		driver = NewDriver(engine, pageTable, 12)
 		driver.ToGPUs = toGPUs
 		driver.ToMMU = toMMU
 		driver.memAllocator = memAllocator
@@ -71,42 +70,42 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(0x200000100)).
-				Return(uint64(0x100000100), &vm.Page{
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(0x200000100)).
+				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200000000,
 					PAddr:    0x100000000,
 					PageSize: 0x800,
 					Valid:    true,
-				})
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(0x200000800)).
-				Return(uint64(0x100000800), &vm.Page{
+				}, true)
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(0x200000800)).
+				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200000800,
 					PAddr:    0x100000800,
 					PageSize: 0x800,
 					Valid:    true,
-				})
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(0x200001000)).
-				Return(uint64(0x100001000), &vm.Page{
+				}, true)
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(0x200001000)).
+				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200001000,
 					PAddr:    0x100001000,
 					PageSize: 0x1000,
 					Valid:    true,
-				})
-			mmu.EXPECT().
-				Translate(ca.PID(1), uint64(0x200002000)).
-				Return(uint64(0x100002000), &vm.Page{
+				}, true)
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(0x200002000)).
+				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200002000,
 					PAddr:    0x100002000,
 					PageSize: 0x1000,
 					Valid:    true,
-				})
+				}, true)
 			memAllocator.EXPECT().
 				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
 				Return(1)
@@ -204,14 +203,14 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			mmu.EXPECT().Translate(ca.PID(1), uint64(0x200000100)).
-				Return(uint64(0x1_0000_0100), &vm.Page{
+			pageTable.EXPECT().Find(ca.PID(1), uint64(0x2_0000_0100)).
+				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x2_0000_0000,
 					PAddr:    0x1_0000_0000,
 					PageSize: 0x1000,
 					Valid:    true,
-				})
+				}, true)
 			memAllocator.EXPECT().
 				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
 				Return(1)
@@ -460,9 +459,9 @@ var _ = ginkgo.Describe("Driver", func() {
 			Unified:  true,
 		}
 
-		mmu.EXPECT().
-			GetPageWithGivenVAddr(uint64(0x100), ca.PID(0)).
-			Return(&vm.Page{
+		pageTable.EXPECT().
+			Find(ca.PID(0), uint64(0x100)).
+			Return(vm.Page{
 				PID:      0,
 				VAddr:    0x100,
 				PAddr:    4294967296,
@@ -470,13 +469,20 @@ var _ = ginkgo.Describe("Driver", func() {
 				Valid:    true,
 				GPUID:    1,
 				Unified:  true,
-			})
-		memAllocator.EXPECT().RemovePage(uint64(0x100))
+			}, true)
+		pageTable.EXPECT().Update(vm.Page{
+			PID:         0,
+			VAddr:       0x100,
+			PAddr:       8589934592,
+			PageSize:    0x1000,
+			Valid:       true,
+			GPUID:       2,
+			Unified:     true,
+			IsMigrating: true,
+		})
 		memAllocator.EXPECT().
 			AllocatePageWithGivenVAddr(ca.PID(0), 2, uint64(0x100), true).
 			Return(*page2)
-		mmu.EXPECT().MarkPageAsMigrating(uint64(0x100), ca.PID(0))
-
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
 		driver.processReturnReq(10)

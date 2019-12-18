@@ -5,36 +5,36 @@ import (
 
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/util/ca"
 )
 
 type storageAccessor struct {
 	storage       *mem.Storage
 	addrConverter idealmemcontroller.AddressConverter
-	mmu           mmu.MMU
+	pageTable     vm.PageTable
+	log2PageSize  uint64
 }
 
 func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
 	data := make([]byte, byteSize)
 	sizeLeft := byteSize
 	offset := uint64(0)
-	log2PageSize := uint64(12)
-	// pageSize := uint64(1 << log2PageSize)
 
 	for sizeLeft > 0 {
 		currVAddr := vAddr + offset
-		nextPageStart := ((currVAddr >> log2PageSize) + 1) << log2PageSize
+		nextPageStart := ((currVAddr >> a.log2PageSize) + 1) << a.log2PageSize
 		sizeInPageLeft := nextPageStart - currVAddr
 		sizeToRead := sizeInPageLeft
 		if sizeToRead > sizeLeft {
 			sizeToRead = sizeLeft
 		}
 
-		pAddr, page := a.mmu.Translate(pid, currVAddr)
-		if page == nil {
-			log.Panic("page not found in page table")
+		page, found := a.pageTable.Find(pid, currVAddr)
+		if !found {
+			panic("page not found in page table")
 		}
+		pAddr := page.PAddr + (currVAddr - page.VAddr)
 
 		storageAddr := pAddr
 		if a.addrConverter != nil {
@@ -56,33 +56,51 @@ func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
 }
 
 func (a *storageAccessor) Write(pid ca.PID, vAddr uint64, data []byte) {
-	phyAddr, page := a.mmu.Translate(pid, vAddr)
-	if page == nil {
-		log.Panic("page not found in page table")
-	}
+	sizeLeft := uint64(len(data))
+	offset := uint64(0)
 
-	storageAddr := phyAddr
-	if a.addrConverter != nil {
-		storageAddr = a.addrConverter.ConvertExternalToInternal(phyAddr)
-	}
-	err := a.storage.Write(storageAddr, data)
-	if err != nil {
-		log.Panic(err)
-	}
+	for sizeLeft > 0 {
+		currVAddr := vAddr + offset
+		nextPageStart := ((currVAddr >> a.log2PageSize) + 1) << a.log2PageSize
+		sizeInPageLeft := nextPageStart - currVAddr
+		sizeToWrite := sizeInPageLeft
+		if sizeToWrite > sizeLeft {
+			sizeToWrite = sizeLeft
+		}
 
-	// log.Printf("write, %d, %d, %d, %v", pid, vAddr, phyAddr, data)
+		page, found := a.pageTable.Find(pid, vAddr)
+		if !found {
+			panic("page not found in page table")
+		}
+		pAddr := page.PAddr + (currVAddr - page.VAddr)
+
+		storageAddr := pAddr
+		if a.addrConverter != nil {
+			storageAddr = a.addrConverter.ConvertExternalToInternal(pAddr)
+		}
+
+		err := a.storage.Write(storageAddr, data[offset:offset+sizeToWrite])
+		if err != nil {
+			log.Panic(err)
+		}
+
+		offset += sizeToWrite
+		sizeLeft -= sizeToWrite
+	}
 }
 
 // NewStorageAccessor creates a storageAccessor, injecting dependencies
 // of the storage and mmu.
 func newStorageAccessor(
 	storage *mem.Storage,
-	mmu mmu.MMU,
+	pageTable vm.PageTable,
+	log2PageSize uint64,
 	addrConverter idealmemcontroller.AddressConverter,
 ) *storageAccessor {
 	a := new(storageAccessor)
 	a.storage = storage
 	a.addrConverter = addrConverter
-	a.mmu = mmu
+	a.pageTable = pageTable
+	a.log2PageSize = log2PageSize
 	return a
 }

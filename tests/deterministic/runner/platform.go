@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/gcn3/gpubuilder"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/mem/vm/mmu"
 )
 
@@ -15,7 +16,9 @@ var UseParallelEngine bool
 var DebugISA bool
 var TraceVis bool
 var TraceMem bool
+var log2PageSize uint64 = 12
 
+//nolint:gocyclo,funlen
 func buildNR9NanoPlatformWithPerfectMemorySystem(
 	numGPUs int,
 ) (
@@ -31,11 +34,14 @@ func buildNR9NanoPlatformWithPerfectMemorySystem(
 	}
 	//engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
+	pageTable := vm.NewPageTable(log2PageSize)
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(log2PageSize).
 		WithFreq(1 * akita.GHz)
 	mmuComponent := mmuBuilder.Build("MMU")
-	gpuDriver := driver.NewDriver(engine, mmuComponent, 12)
+	gpuDriver := driver.NewDriver(engine, pageTable, log2PageSize)
 
 	connection := akita.NewDirectConnection("ExternalConn", engine, 1*akita.GHz)
 

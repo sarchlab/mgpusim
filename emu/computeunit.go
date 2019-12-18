@@ -13,7 +13,7 @@ import (
 	"gitlab.com/akita/gcn3/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/mem/vm"
 )
 
 type emulationEvent struct {
@@ -377,12 +377,14 @@ func BuildComputeUnit(
 	name string,
 	engine akita.Engine,
 	decoder Decoder,
-	mmu mmu.MMU,
+	pageTable vm.PageTable,
+	log2PageSize uint64,
 	storage *mem.Storage,
 	addrConverter idealmemcontroller.AddressConverter,
 ) *ComputeUnit {
 	scratchpadPreparer := NewScratchpadPreparerImpl()
-	sAccessor := newStorageAccessor(storage, mmu, addrConverter)
+	sAccessor := newStorageAccessor(
+		storage, pageTable, log2PageSize, addrConverter)
 	alu := NewALU(sAccessor)
 	cu := NewComputeUnit(name, engine, decoder,
 		scratchpadPreparer, alu, sAccessor)

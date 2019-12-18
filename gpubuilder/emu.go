@@ -15,20 +15,20 @@ import (
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	memtraces "gitlab.com/akita/mem/trace"
-	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/util/tracing"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
 type EmuGPUBuilder struct {
-	engine      akita.Engine
-	freq        akita.Freq
-	driver      *driver.Driver
-	gpuName     string
-	iommu       mmu.MMU
-	memOffset   uint64
-	memCapacity uint64
-	storage     *mem.Storage
+	engine       akita.Engine
+	freq         akita.Freq
+	driver       *driver.Driver
+	pageTable    vm.PageTable
+	log2PageSize uint64
+	memOffset    uint64
+	memCapacity  uint64
+	storage      *mem.Storage
 
 	EnableISADebug    bool
 	EnableInstTracing bool
@@ -39,6 +39,7 @@ type EmuGPUBuilder struct {
 func MakeEmuGPUBuilder() EmuGPUBuilder {
 	b := EmuGPUBuilder{}
 	b.freq = 1 * akita.GHz
+	b.log2PageSize = 12
 
 	b.EnableISADebug = false
 	b.EnableInstTracing = false
@@ -57,9 +58,15 @@ func (b EmuGPUBuilder) WithDriver(d *driver.Driver) EmuGPUBuilder {
 	return b
 }
 
-// WithIOMMU sets the IOMMU unit that provides the address translation
-func (b EmuGPUBuilder) WithIOMMU(mmu mmu.MMU) EmuGPUBuilder {
-	b.iommu = mmu
+// WithPageTable sets the page table that provides the address translation
+func (b EmuGPUBuilder) WithPageTable(pageTable vm.PageTable) EmuGPUBuilder {
+	b.pageTable = pageTable
+	return b
+}
+
+// WithLog2PageSize sets the page size of the GPU, as a power of 2.
+func (b EmuGPUBuilder) WithLog2PageSize(n uint64) EmuGPUBuilder {
+	b.log2PageSize = n
 	return b
 }
 
@@ -84,22 +91,21 @@ func (b EmuGPUBuilder) WithStorage(s *mem.Storage) EmuGPUBuilder {
 //nolint:gocyclo,funlen
 // Build creates a very simple GPU for emulation purposes
 func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
-	b.gpuName = name
 	connection := akita.NewDirectConnection(
 		"InterGPUConn", b.engine, 1*akita.GHz)
 
 	dispatcher := gcn3.NewDispatcher(
-		b.gpuName+".Dispatcher",
+		name+".Dispatcher",
 		b.engine,
 		kernels.NewGridBuilder())
 	dispatcher.Freq = b.freq
 
 	commandProcessor := gcn3.NewCommandProcessor(
-		b.gpuName+".CommandProcessor", b.engine)
+		name+".CommandProcessor", b.engine)
 	commandProcessor.Dispatcher = dispatcher.ToCommandProcessor
 
 	gpuMem := idealmemcontroller.New(
-		b.gpuName+".GlobalMem", b.engine, b.memCapacity)
+		name+".GlobalMem", b.engine, b.memCapacity)
 	gpuMem.Freq = 1 * akita.GHz
 	gpuMem.Latency = 1
 	// addrConverter := idealmemcontroller.InterleavingConverter{
@@ -121,8 +127,9 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 
 	for i := 0; i < 4; i++ {
 		computeUnit := emu.BuildComputeUnit(
-			fmt.Sprintf("%s.CU%d", b.gpuName, i),
-			b.engine, disassembler, b.iommu, gpuMem.Storage, nil)
+			fmt.Sprintf("%s.CU%d", name, i),
+			b.engine, disassembler, b.pageTable,
+			b.log2PageSize, gpuMem.Storage, nil)
 
 		connection.PlugIn(computeUnit.ToDispatcher, 4)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
@@ -137,7 +144,7 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		}
 	}
 
-	gpu := gcn3.NewGPU(b.gpuName)
+	gpu := gcn3.NewGPU(name)
 	gpu.CommandProcessor = commandProcessor
 	commandProcessor.Driver = b.driver.ToGPUs
 	gpu.Storage = b.storage
@@ -145,7 +152,7 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 	localDataSource := new(cache.SingleLowModuleFinder)
 	localDataSource.LowModule = gpuMem.ToTop
 	dmaEngine := gcn3.NewDMAEngine(
-		fmt.Sprintf("%s.DMA", b.gpuName), b.engine, localDataSource)
+		fmt.Sprintf("%s.DMA", name), b.engine, localDataSource)
 	commandProcessor.DMAEngine = dmaEngine.ToCP
 
 	connection.PlugIn(commandProcessor.ToDriver, 1)

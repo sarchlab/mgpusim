@@ -183,10 +183,12 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) Verify() {
 	cpuOutput := b.cpuStencil2D()
 
+	mismatch := false
 	for x := 0; x < b.NumRows; x++ {
 		for y := 0; y < b.NumCols; y++ {
 			index := x*b.numPaddedCols + y
 			if b.hOutput[index] != cpuOutput[index] {
+				mismatch = true
 				log.Printf("not match at (%d,%d), expected %f to equal %f\n",
 					x, y,
 					b.hOutput[index], cpuOutput[index])
@@ -194,6 +196,9 @@ func (b *Benchmark) Verify() {
 		}
 	}
 
+	if mismatch {
+		panic("Mismatch!\n")
+	}
 	log.Printf("Passed!\n")
 }
 

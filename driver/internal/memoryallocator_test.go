@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/util/ca"
 )
 
 var _ = Describe("MemoryAllocatorImpl", func() {
@@ -13,14 +12,14 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 	var (
 		mockCtrl  *gomock.Controller
 		allocator *memoryAllocatorImpl
-		mmu       *MockMMU
+		pageTable *MockPageTable
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mmu = NewMockMMU(mockCtrl)
+		pageTable = NewMockPageTable(mockCtrl)
 
-		allocator = NewMemoryAllocator(mmu, 12).(*memoryAllocatorImpl)
+		allocator = NewMemoryAllocator(pageTable, 12).(*memoryAllocatorImpl)
 		configAFourGPUSystem(allocator)
 
 	})
@@ -30,8 +29,8 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 	})
 
 	It("should allocate memory", func() {
-		mmu.EXPECT().CreatePage(
-			&vm.Page{
+		pageTable.EXPECT().Insert(
+			vm.Page{
 				PID:      1,
 				PAddr:    0x1_0000_1000,
 				VAddr:    4096,
@@ -45,8 +44,8 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 	})
 
 	It("should allocate unified memory", func() {
-		mmu.EXPECT().CreatePage(
-			&vm.Page{
+		pageTable.EXPECT().Insert(
+			vm.Page{
 				PID:      1,
 				PAddr:    0x1_0000_1000,
 				VAddr:    4096,
@@ -62,8 +61,8 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 
 	It("should allocate memory larger than a page", func() {
 		for i := uint64(0); i < 3; i++ {
-			mmu.EXPECT().CreatePage(
-				&vm.Page{
+			pageTable.EXPECT().Insert(
+				vm.Page{
 					PID:      1,
 					PAddr:    0x1_0000_1000 + 0x1000*i,
 					VAddr:    4096 + 0x1000*i,
@@ -78,7 +77,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 	})
 
 	It("should remap page to another device", func() {
-		page := &vm.Page{
+		page := vm.Page{
 			PID:      1,
 			PAddr:    0x1_0000_1000,
 			VAddr:    4096,
@@ -86,18 +85,13 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 			GPUID:    1,
 			Valid:    true,
 		}
-		mmu.EXPECT().CreatePage(page)
+		pageTable.EXPECT().Insert(page)
 		ptr := allocator.Allocate(1, 4000, 1)
 
-		mmu.EXPECT().RemovePage(ca.PID(1), page.VAddr)
-		mmu.EXPECT().CreatePage(&vm.Page{
-			PID:      1,
-			PAddr:    0x2_0000_1000,
-			VAddr:    4096,
-			PageSize: 4096,
-			GPUID:    2,
-			Valid:    true,
-		})
+		updatedPage := page
+		updatedPage.PAddr = 0x2_0000_1000
+		updatedPage.GPUID = 2
+		pageTable.EXPECT().Update(updatedPage)
 		allocator.Remap(1, ptr, 4000, 2)
 	})
 })
