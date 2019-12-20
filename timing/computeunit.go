@@ -513,8 +513,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 
 	info := cu.InFlightInstFetch[0]
 	if info.Req.ID != rsp.RespondTo {
-		// return false
-		panic("return in wrong order")
+		return false
 	}
 
 	wf := info.Wavefront

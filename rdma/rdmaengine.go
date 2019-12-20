@@ -76,8 +76,19 @@ func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) bool {
 }
 
 func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
+	restartCompleteRsp := RDMARestartRspBuilder{}.
+		WithSendTime(now).
+		WithSrc(e.CtrlPort).
+		WithDst(e.currentDrainReq.Src).
+		Build()
+	err := e.CtrlPort.Send(restartCompleteRsp)
+
+	if err != nil {
+		return false
+	}
 	e.currentDrainReq = nil
 	e.pauseIncomingReqsFromL1 = false
+
 	return true
 }
 

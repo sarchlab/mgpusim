@@ -395,7 +395,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		for i := 0; i < 2; i++ {
 			rdmaDrainReq := gcn3.NewRDMADrainCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].CommandProcessor.ToDriver)
-			toGPUs.EXPECT().Send(gomock.AssignableToTypeOf(rdmaDrainReq))
+			driver.requestsToSend = append(driver.requestsToSend, rdmaDrainReq)
 
 		}
 
@@ -528,7 +528,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	})
 
-	ginkgo.It("should process page migration rsp from CP and send restart reqs to GPU, RDMA and reply to MMU", func() {
+	ginkgo.It("should process page migration rsp from CP and send restart reqs to GPU and reply to MMU", func() {
 		req := gcn3.NewPageMigrationRspToDriver(10, nil, driver.ToGPUs)
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
@@ -546,30 +546,68 @@ var _ = ginkgo.Describe("Driver", func() {
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
-		requestsToSend := make([]akita.Msg, 0)
-		for i := 0; i < 2; i++ {
-			req := gcn3.NewRDMARestartCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].CommandProcessor.ToDriver)
-			requestsToSend = append(requestsToSend, req)
-		}
-
-		for i := 0; i < len(pageMigrationReq.CurrAccessingGPUs); i++ {
-			restartGPUID := pageMigrationReq.CurrAccessingGPUs[i] - 1
-			restartReq := gcn3.NewGPURestartReq(10, driver.ToGPUs,
-				driver.GPUs[restartGPUID].CommandProcessor.ToDriver)
-			requestsToSend = append(requestsToSend, restartReq)
-		}
-
 		reqToMMU := vm.NewPageMigrationRspFromDriver(10, driver.ToMMU, pageMigrationReq.Src)
 		reqToMMU.VAddr = append(reqToMMU.VAddr, 0x100)
 		reqToMMU.RspToTop = true
 
 		driver.processReturnReq(10)
 
-		Expect(driver.toSendToMMU).To(Equal(reqToMMU))
-		Expect(driver.requestsToSend).To(HaveLen(len(requestsToSend)))
+		Expect(driver.toSendToMMU).To(BeEquivalentTo(reqToMMU))
+		Expect(driver.requestsToSend).To(HaveLen(1))
 	})
 
-	ginkgo.It("should send to MMU", func() {
+	ginkgo.It("should process gpu restart rsp and send restart req to RDMAs", func() {
+		req := gcn3.NewGPURestartRsp(10, nil, driver.ToGPUs)
+		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
+
+		driver.numRestartACK = 1
+
+		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
+		pageMigrationReq.PageSize = 4 * mem.KB
+		pageMigrationReq.CurrPageHostGPU = 1
+		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
+		pageMigrationReq.RespondToTop = true
+		GpuReqToVaddrMap := make(map[uint64][]uint64)
+		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
+		migrationInfo := new(vm.PageMigrationInfo)
+		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
+		pageMigrationReq.MigrationInfo = migrationInfo
+		driver.currentPageMigrationReq = pageMigrationReq
+
+		driver.processReturnReq(10)
+
+		Expect(driver.requestsToSend).To(HaveLen(2))
+
+	})
+
+	ginkgo.It("should handle rdma restart rsp", func() {
+		req := gcn3.NewRDMARestartRspToDriver(10, nil, driver.ToGPUs)
+		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
+
+		driver.numRDMARestartACK = 1
+
+		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
+		pageMigrationReq.PageSize = 4 * mem.KB
+		pageMigrationReq.CurrPageHostGPU = 1
+		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
+		pageMigrationReq.RespondToTop = true
+		GpuReqToVaddrMap := make(map[uint64][]uint64)
+		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
+		migrationInfo := new(vm.PageMigrationInfo)
+		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
+		pageMigrationReq.MigrationInfo = migrationInfo
+		driver.currentPageMigrationReq = pageMigrationReq
+
+		driver.processReturnReq(10)
+
+		Expect(driver.currentPageMigrationReq).To(BeNil())
+		Expect(driver.isCurrentlyHandlingMigrationReq).To(BeFalse())
+	})
+
+
+
+
+		ginkgo.It("should send to MMU", func() {
 		reqToMMU := vm.NewPageMigrationRspFromDriver(10, driver.ToMMU, nil)
 		driver.toSendToMMU = reqToMMU
 
