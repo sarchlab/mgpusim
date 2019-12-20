@@ -354,3 +354,26 @@ func NewPageMigrationRspToDriver(
 	cmd.Dst = dst
 	return cmd
 }
+
+type RDMARestartRspToDriver struct {
+	akita.MsgMeta
+
+	StartTime akita.VTimeInSec
+	EndTime   akita.VTimeInSec
+}
+
+// Meta returns the meta data associated with the message.
+func (m *RDMARestartRspToDriver) Meta() *akita.MsgMeta {
+	return &m.MsgMeta
+}
+
+func NewRDMARestartRspToDriver(
+	time akita.VTimeInSec,
+	src, dst akita.Port,
+) *RDMARestartRspToDriver {
+	cmd := new(RDMARestartRspToDriver)
+	cmd.SendTime = time
+	cmd.Src = src
+	cmd.Dst = dst
+	return cmd
+}

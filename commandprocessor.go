@@ -186,6 +186,8 @@ func (p *CommandProcessor) processRspFromRDMAs(now akita.VTimeInSec) bool {
 	switch req := msg.(type) {
 	case *rdma.RDMADrainRsp:
 		return p.processRDMADrainRsp(now, req)
+	case *rdma.RDMARestartRsp:
+		return p.processRDMARestartRsp(now, req)
 	}
 
 	panic("never")
@@ -548,6 +550,14 @@ func (p *CommandProcessor) processRDMARestartCommand(
 	return true
 }
 
+func (p *CommandProcessor) processRDMARestartRsp(now akita.VTimeInSec, rsp *rdma.RDMARestartRsp) bool {
+	req := NewRDMARestartRspToDriver(now, p.ToDriver, p.Driver)
+	p.toDriverSender.Send(req)
+	p.ToRDMA.Retrieve(now)
+
+	return true
+}
+
 func (p *CommandProcessor) processGPURestartReq(
 	now akita.VTimeInSec,
 	cmd *GPURestartReq,
@@ -574,7 +584,7 @@ func (p *CommandProcessor) processGPURestartReq(
 func (p *CommandProcessor) restartCache(now akita.VTimeInSec, port akita.Port) {
 	req := cache.RestartReqBuilder{}.
 		WithSendTime(now).
-		WithSrc(p.ToDispatcher).
+		WithSrc(p.ToCaches).
 		WithDst(port).
 		Build()
 

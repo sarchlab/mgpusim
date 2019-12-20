@@ -50,6 +50,7 @@ type Driver struct {
 	migrationReqToSendToCP          []*gcn3.PageMigrationReqToCP
 	isCurrentlyHandlingMigrationReq bool
 	numRDMADrainACK                 uint64
+	numRDMARestartACK               uint64
 	numShootDownACK                 uint64
 	numRestartACK                   uint64
 	numPagesMigratingACK            uint64
@@ -174,6 +175,8 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) bool {
 		return d.processShootdownCompleteRsp(now, req)
 	case *gcn3.PageMigrationRspToDriver:
 		return d.processPageMigrationRspFromCP(now, req)
+	case *gcn3.RDMARestartRspToDriver:
+		return d.processRDMARestartRspToDriver(now, req)
 	case *gcn3.GPURestartRsp:
 		return d.handleGPURestartRsp(now, req)
 	default:
@@ -634,11 +637,8 @@ func (d *Driver) initiateRDMADrain(now akita.VTimeInSec) bool {
 	for i := 0; i < len(d.GPUs); i++ {
 		req := gcn3.NewRDMADrainCmdFromDriver(now, d.ToGPUs,
 			d.GPUs[i].CommandProcessor.ToDriver)
-		err := d.ToGPUs.Send(req)
+		d.requestsToSend = append(d.requestsToSend, req)
 		d.numRDMADrainACK++
-		if err != nil {
-			log.Panicf("Failed to send RDMA Drain reqs to all GPUs")
-		}
 	}
 
 	return true
@@ -807,20 +807,11 @@ func (d *Driver) processPageMigrationRspFromCP(
 	d.isCurrentlyMigratingOnePage = false
 
 	if d.numPagesMigratingACK == 0 {
-		d.prepareRDMARestartReqs(now)
 		d.prepareGPURestartReqs(now)
 		d.preparePageMigrationRspToMMU(now)
 	}
 
 	return true
-}
-
-func (d *Driver) prepareRDMARestartReqs(now akita.VTimeInSec) {
-	for i := 0; i < len(d.GPUs); i++ {
-		req := gcn3.NewRDMARestartCmdFromDriver(now, d.ToGPUs,
-			d.GPUs[i].CommandProcessor.ToDriver)
-		d.requestsToSend = append(d.requestsToSend, req)
-	}
 }
 
 func (d *Driver) prepareGPURestartReqs(now akita.VTimeInSec) {
@@ -870,8 +861,29 @@ func (d *Driver) handleGPURestartRsp(
 ) bool {
 	d.numRestartACK--
 	if d.numRestartACK == 0 {
+		d.prepareRDMARestartReqs(now)
+	}
+	return true
+}
+
+func (d *Driver) prepareRDMARestartReqs(now akita.VTimeInSec) {
+	for i := 0; i < len(d.GPUs); i++ {
+		req := gcn3.NewRDMARestartCmdFromDriver(now, d.ToGPUs,
+			d.GPUs[i].CommandProcessor.ToDriver)
+		d.requestsToSend = append(d.requestsToSend, req)
+		d.numRDMARestartACK++
+	}
+}
+
+func (d *Driver) processRDMARestartRspToDriver(
+	now akita.VTimeInSec,
+	rsp *gcn3.RDMARestartRspToDriver) bool {
+	d.numRDMARestartACK--
+
+	if d.numRDMARestartACK == 0 {
 		d.currentPageMigrationReq = nil
 		d.isCurrentlyHandlingMigrationReq = false
+		return true
 	}
 	return true
 }
@@ -880,7 +892,9 @@ func (d *Driver) sendToMMU(now akita.VTimeInSec) bool {
 	if d.toSendToMMU == nil {
 		return false
 	}
-	err := d.ToMMU.Send(d.toSendToMMU)
+	req := d.toSendToMMU
+	req.SendTime = now
+	err := d.ToMMU.Send(req)
 	if err == nil {
 		d.toSendToMMU = nil
 		return true

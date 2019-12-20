@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
@@ -335,6 +334,9 @@ var _ = Describe("Engine", func() {
 
 			ctrlPort.EXPECT().Peek().Return(restartReq)
 			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(restartReq)
+			ctrlPort.EXPECT().
+				Send(gomock.AssignableToTypeOf(&RDMARestartRsp{})).
+				Return(nil)
 
 			rdmaEngine.processFromCtrlPort(10)
 
