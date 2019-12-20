@@ -528,6 +528,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	wf.LastFetchTime = now
 
 	tracing.TraceReqFinalize(info.Req, now, cu)
+	tracing.EndTask(info.Req.ID+"_fetch", now, cu)
 	return true
 }
 
@@ -719,12 +720,33 @@ func (cu *ComputeUnit) logInstTask(
 		now,
 		cu,
 		"inst",
-		inst.InstName,
+		cu.execUnitToString(inst.ExeUnit),
+		// inst.InstName,
 		map[string]interface{}{
 			"inst": inst,
 			"wf":   wf,
 		},
 	)
+}
+
+func (cu *ComputeUnit) execUnitToString(u insts.ExeUnit) string {
+	switch u {
+	case insts.ExeUnitVALU:
+		return "VALU"
+	case insts.ExeUnitScalar:
+		return "Scalar"
+	case insts.ExeUnitVMem:
+		return "VMem"
+	case insts.ExeUnitBranch:
+		return "Branch"
+	case insts.ExeUnitLDS:
+		return "LDS"
+	case insts.ExeUnitGDS:
+		return "GDS"
+	case insts.ExeUnitSpecial:
+		return "Special"
+	}
+	panic("unknown exec unit")
 }
 
 func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() bool {

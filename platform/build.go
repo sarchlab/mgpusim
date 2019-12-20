@@ -124,7 +124,7 @@ func BuildNR9NanoPlatform(
 		WithLog2PageSize(log2PageSize)
 
 	if TraceVis {
-		tracer := tracing.NewMongoDBTracer()
+		tracer := tracing.NewMySQLTracer()
 		tracer.Init()
 		tracing.CollectTrace(gpuDriver, tracer)
 

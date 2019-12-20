@@ -53,14 +53,7 @@ func (u *SIMDUnit) IsIdle() bool {
 func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toExec = wave
 
-	// The cycle left if calculated. The pipeline is like the following
-	//
-	// Lane 00-31 r e w
-	// Lane 32-64   r e w
-	//
-	// The total number of cycles is the execution time plus the first read
-	// and the last write.
-	u.cycleLeft = 64/u.NumSinglePrecisionUnit + 2
+	u.cycleLeft = 64 / u.NumSinglePrecisionUnit
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit

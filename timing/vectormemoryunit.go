@@ -46,7 +46,7 @@ func NewVectorMemoryUnit(
 	u.SendBufSize = 256
 	u.SendBuf = make([]mem.AccessReq, 0, u.SendBufSize)
 
-	u.AddrCoalescingLatency = 40
+	u.AddrCoalescingLatency = 1
 
 	return u
 }

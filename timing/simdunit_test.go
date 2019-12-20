@@ -38,7 +38,7 @@ var _ = Describe("SIMD Unit", func() {
 		wave := new(wavefront.Wavefront)
 		bu.AcceptWave(wave, 10)
 		Expect(bu.toExec).To(BeIdenticalTo(wave))
-		Expect(bu.cycleLeft).To(Equal(6))
+		Expect(bu.cycleLeft).To(Equal(4))
 	})
 
 	It("should run", func() {
