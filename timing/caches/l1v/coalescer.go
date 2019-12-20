@@ -4,7 +4,6 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util/tracing"
@@ -187,7 +186,7 @@ func (c *coalescer) coalesceRead() *transaction {
 		WithPID(c.toCoalesce[0].PID()).
 		Build()
 	return &transaction{
-		id:                      xid.New().String(),
+		id:                      akita.GetIDGenerator().Generate(),
 		read:                    coalescedRead,
 		preCoalesceTransactions: c.toCoalesce,
 	}
@@ -214,7 +213,7 @@ func (c *coalescer) coalesceWrite() *transaction {
 		}
 	}
 	return &transaction{
-		id:                      xid.New().String(),
+		id:                      akita.GetIDGenerator().Generate(),
 		write:                   write,
 		preCoalesceTransactions: c.toCoalesce,
 	}

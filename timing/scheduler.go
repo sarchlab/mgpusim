@@ -115,8 +115,6 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 
 	if len(wfs) > 0 {
 		wf := wfs[0]
-		//wf.inst = NewInst(nil)
-		// log.Printf("fetching wf %d pc %d\n", wf.FirstWiFlatID, wf.PC)
 
 		if len(wf.InstBuffer) == 0 {
 			wf.InstBufferStartPC = wf.PC & 0xffffffffffffffc0
@@ -143,7 +141,9 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 
 			madeProgress = true
 
-			tracing.TraceReqInitiate(req, now, s.cu, wf.UID)
+			tracing.StartTask(req.ID+"_fetch", wf.UID,
+				now, s.cu, "fetch", "fetch", nil)
+			tracing.TraceReqInitiate(req, now, s.cu, req.ID+"_fetch")
 		}
 	}
 
