@@ -14,7 +14,7 @@ def compile(path):
         cprint("Compiled " + path, 'green')
         return False
     else:
-        print("Compile failed " + path, 'red')
+        cprint("Compile failed " + path, 'red')
         return True
 
 
@@ -86,7 +86,7 @@ class Test(object):
             cprint("Compiled " + self.path, 'green')
             return False
         else:
-            print("Compile failed " + self.path, 'red')
+            cprint("Compile failed " + self.path, 'red')
             return True
 
     def run_test(self,
@@ -125,7 +125,7 @@ class Test(object):
             cprint('Passed.', 'green')
             return False
         else:
-            print('Failed.', 'red')
+            cprint('Failed.', 'red')
             return True
 
     def test_disassemble(self):
