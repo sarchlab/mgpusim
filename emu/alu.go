@@ -7,7 +7,7 @@ import (
 
 	"encoding/binary"
 
-	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mgpusim/insts"
 )
 
 type ALU interface {

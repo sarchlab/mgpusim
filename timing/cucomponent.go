@@ -2,10 +2,10 @@ package timing
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
-//go:generate mockgen -destination mock_timing/cucomponent.go gitlab.com/akita/gcn3/timing CUComponent
+//go:generate mockgen -destination mock_timing/cucomponent.go gitlab.com/akita/mgpusim/timing CUComponent
 
 // A CUComponent is an element installed in the compute unit
 type CUComponent interface {

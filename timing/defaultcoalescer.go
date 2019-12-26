@@ -1,8 +1,8 @@
 package timing
 
 import (
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 

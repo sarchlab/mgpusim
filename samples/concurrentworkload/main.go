@@ -7,9 +7,9 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/bitonicsort"
-	"gitlab.com/akita/gcn3/benchmarks/heteromark/fir"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/bitonicsort"
+	"gitlab.com/akita/mgpusim/benchmarks/heteromark/fir"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 func main() {

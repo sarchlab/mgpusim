@@ -6,8 +6,8 @@ import (
 	"math/rand"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 type Benchmark struct {

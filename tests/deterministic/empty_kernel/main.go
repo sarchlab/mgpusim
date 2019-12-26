@@ -5,10 +5,10 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/gcn3/tests/deterministic/runner"
+	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/tests/deterministic/runner"
 )
 
 type KernelArgs struct {

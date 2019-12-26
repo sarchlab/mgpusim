@@ -1,6 +1,6 @@
 package timing
 
-import "gitlab.com/akita/gcn3/kernels"
+import "gitlab.com/akita/mgpusim/kernels"
 
 // WfDispatchInfo preservers the information from a work-group mapping to
 // guarantee a wavefront to be dispatching to its designated location

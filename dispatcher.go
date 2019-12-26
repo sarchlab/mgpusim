@@ -7,7 +7,7 @@ import (
 	mpb "github.com/vbauerster/mpb/v4"
 	"github.com/vbauerster/mpb/v4/decor"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/util/tracing"
 )
 

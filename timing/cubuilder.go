@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/emu"
+	"gitlab.com/akita/mgpusim/emu"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util/tracing"
 )

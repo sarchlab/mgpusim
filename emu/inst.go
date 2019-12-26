@@ -1,7 +1,7 @@
 package emu
 
 import (
-	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/util/ca"
 )
 

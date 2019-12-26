@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/rs/xid"
-	"gitlab.com/akita/gcn3/driver/internal"
+	"gitlab.com/akita/mgpusim/driver/internal"
 	"gitlab.com/akita/util/ca"
 )
 

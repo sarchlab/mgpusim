@@ -2,8 +2,8 @@ package timing
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/emu"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim/emu"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
 // A LDSUnit performs Scalar operations

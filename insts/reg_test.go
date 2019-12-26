@@ -3,7 +3,7 @@ package insts_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mgpusim/insts"
 )
 
 var _ = Describe("Register", func() {

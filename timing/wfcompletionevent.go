@@ -2,7 +2,7 @@ package timing
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
 // A WfCompletionEvent marks the completion of a wavefront

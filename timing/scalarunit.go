@@ -4,9 +4,9 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/emu"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim/emu"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util/tracing"
 )

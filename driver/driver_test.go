@@ -5,7 +5,7 @@ import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/util/ca"

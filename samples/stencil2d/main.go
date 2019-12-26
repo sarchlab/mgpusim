@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/shoc/stencil2d"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/shoc/stencil2d"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var numRow = flag.Int("row", 64, "The number of rows in the input matrix.")

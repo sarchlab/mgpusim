@@ -5,8 +5,8 @@ import (
 
 	_ "net/http/pprof"
 
-	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/matrixmultiplication"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/matrixmultiplication"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var xFlag = flag.Uint("x", 64, "The height of the first matrix.")

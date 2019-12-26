@@ -58,7 +58,7 @@ RUN git clone https://gitlab.com/akita/akita.git
 RUN git clone https://gitlab.com/akita/util.git
 RUN git clone https://gitlab.com/akita/mem.git
 RUN git clone https://gitlab.com/akita/noc.git
-RUN git clone https://gitlab.com/akita/gcn3.git
+RUN git clone https://gitlab.com/akita/mgpusim.git
 
 
 COPY sshd_config /etc/ssh/sshd_config

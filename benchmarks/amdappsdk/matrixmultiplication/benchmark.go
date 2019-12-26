@@ -7,7 +7,7 @@ import (
 	"math"
 	"math/rand"
 
-	"gitlab.com/akita/gcn3/driver"
+	"gitlab.com/akita/mgpusim/driver"
 )
 
 type Benchmark struct {

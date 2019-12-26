@@ -5,8 +5,8 @@ import (
 	"reflect"
 
 	"github.com/rs/xid"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
 )
 
 // EnqueueLaunchKernel schedules kernel to be launched later

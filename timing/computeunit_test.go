@@ -5,11 +5,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/gcn3/timing/mock_timing"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/timing/mock_timing"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 	"gitlab.com/akita/mem"
 )
 

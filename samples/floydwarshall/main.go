@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/floydwarshall"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/floydwarshall"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var numNodes = flag.Int("node", 16, "The number of nodes in the graph")

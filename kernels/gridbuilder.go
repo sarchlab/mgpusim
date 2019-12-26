@@ -1,7 +1,7 @@
 package kernels
 
 import (
-	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mgpusim/insts"
 )
 
 // KernelLaunchInfo includes the necessary information to launch a kernel.

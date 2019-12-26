@@ -4,8 +4,8 @@ import (
 	"flag"
 	"math"
 
-	"gitlab.com/akita/gcn3/benchmarks/shoc/bfs"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/shoc/bfs"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var numNode = flag.Int("node", 64, "The width of the matrix.")

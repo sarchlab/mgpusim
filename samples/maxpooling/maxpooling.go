@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/dnn/maxpooling"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/dnn/maxpooling"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var n = flag.Int("n", 1, "Batch size.")

@@ -1,6 +1,6 @@
 package timing
 
-import "gitlab.com/akita/gcn3/timing/wavefront"
+import "gitlab.com/akita/mgpusim/timing/wavefront"
 
 // Coalescer can generate memory access instructions from instruction, register
 // values.
