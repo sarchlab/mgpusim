@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/heteromark/aes"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/heteromark/aes"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var lenInput = flag.Int("length", 65536, "The length of array to sort.")

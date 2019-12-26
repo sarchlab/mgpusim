@@ -1,8 +1,8 @@
 package wavefront
 
 import (
-	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/kernels"
 )
 
 // A WorkGroup is a wrapper for the kernels.WorkGroup

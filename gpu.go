@@ -2,8 +2,8 @@ package gcn3
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/pagemigrationcontroller"
-	"gitlab.com/akita/gcn3/rdma"
+	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"

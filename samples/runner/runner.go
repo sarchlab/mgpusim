@@ -14,9 +14,9 @@ import (
 
 	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/benchmarks"
-	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/platform"
+	"gitlab.com/akita/mgpusim/benchmarks"
+	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/platform"
 	"gitlab.com/akita/util/tracing"
 )
 

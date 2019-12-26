@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/gpubuilder"
+	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/gpubuilder"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm"

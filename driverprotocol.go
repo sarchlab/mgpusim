@@ -2,8 +2,8 @@ package gcn3
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/util/ca"
 )
 

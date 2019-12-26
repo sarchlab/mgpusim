@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/amdappsdk/fastwalshtransform"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/fastwalshtransform"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var length = flag.Int("length", 1024, "The length of the array that will be transformed")

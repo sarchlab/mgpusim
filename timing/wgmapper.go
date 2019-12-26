@@ -1,9 +1,9 @@
 package timing
 
 import (
-	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/kernels"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
 // WGMapper defines the behavior of how a workgroup is mapped in the compute

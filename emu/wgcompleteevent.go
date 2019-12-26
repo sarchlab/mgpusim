@@ -2,7 +2,7 @@ package emu
 
 import "gitlab.com/akita/akita"
 import (
-	"gitlab.com/akita/gcn3"
+	"gitlab.com/akita/mgpusim"
 )
 
 // WGCompleteEvent is an event that marks the completion of a work-group

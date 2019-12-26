@@ -9,9 +9,9 @@ import (
 
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/driver/internal"
-	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/driver/internal"
+	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/util/ca"

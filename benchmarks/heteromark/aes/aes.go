@@ -5,9 +5,9 @@ import (
 	"log"
 	"math/rand"
 
-	"gitlab.com/akita/gcn3/driver"
-	"gitlab.com/akita/gcn3/insts"
-	"gitlab.com/akita/gcn3/kernels"
+	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
 )
 
 var expandedKey []uint32 = []uint32{

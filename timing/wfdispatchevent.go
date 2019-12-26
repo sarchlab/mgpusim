@@ -2,8 +2,8 @@ package timing
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
 // WfDispatchEvent is the event that the dispatcher dispatches a wavefront

@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
 // A DecodeUnit is any type of decode unit that takes one cycle to decode

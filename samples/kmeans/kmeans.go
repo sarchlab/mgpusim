@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/gcn3/benchmarks/heteromark/kmeans"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/heteromark/kmeans"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var points = flag.Int("points", 1024, "The number of points.")

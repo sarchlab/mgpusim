@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/insts"
+	"gitlab.com/akita/mgpusim/insts"
 )
 
 // ISADebugger is a hook that hooks to a emulator computeunit for each intruction

@@ -6,8 +6,8 @@ import (
 	"reflect"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/gcn3/pagemigrationcontroller"
-	"gitlab.com/akita/gcn3/rdma"
+	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/addresstranslator"

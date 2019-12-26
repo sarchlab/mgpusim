@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	"gitlab.com/akita/gcn3/benchmarks/heteromark/pagerank"
-	"gitlab.com/akita/gcn3/samples/runner"
+	"gitlab.com/akita/mgpusim/benchmarks/heteromark/pagerank"
+	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
 var numNode = flag.Int("node", 16, "The number of nodes")
