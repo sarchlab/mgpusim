@@ -731,7 +731,10 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 }
 
 func (b *R9NanoGPUBuilder) buildCUs() {
-	cuBuilder := timing.NewBuilder()
+	cuBuilder := timing.MakeBuilder()
+	if b.visTracer != nil {
+		cuBuilder = cuBuilder.WithVisTracer(b.visTracer)
+	}
 	cuBuilder.Engine = b.engine
 	cuBuilder.Freq = b.freq
 	cuBuilder.Decoder = insts.NewDisassembler()

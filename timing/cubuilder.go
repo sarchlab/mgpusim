@@ -1,9 +1,12 @@
 package timing
 
 import (
+	"fmt"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/util/tracing"
 )
 
 // A Builder can construct a fully functional ComputeUnit to the outside world.
@@ -27,16 +30,25 @@ type Builder struct {
 	ConnToInstMem   akita.Connection
 	ConnToScalarMem akita.Connection
 	ConnToVectorMem akita.Connection
+
+	visTracer        tracing.Tracer
+	enableVisTracing bool
 }
 
 // NewBuilder returns a default builder object
-func NewBuilder() *Builder {
-	b := new(Builder)
+func MakeBuilder() Builder {
+	var b Builder
 	b.Freq = 800 * akita.MHz
 	b.SIMDCount = 4
 	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}
 
+	return b
+}
+
+func (b Builder) WithVisTracer(t tracing.Tracer) Builder {
+	b.enableVisTracing = true
+	b.visTracer = t
 	return b
 }
 
@@ -92,7 +104,11 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	vectorDecoder := NewDecodeUnit(cu)
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.SIMDCount; i++ {
-		simdUnit := NewSIMDUnit(cu, b.ScratchpadPreparer, b.ALU)
+		name := fmt.Sprintf(b.CUName+".SIMD%d", i)
+		simdUnit := NewSIMDUnit(cu, name, b.ScratchpadPreparer, b.ALU)
+		if b.enableVisTracing {
+			tracing.CollectTrace(simdUnit, b.visTracer)
+		}
 		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
 	}

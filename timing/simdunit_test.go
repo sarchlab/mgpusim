@@ -10,17 +10,20 @@ import (
 var _ = Describe("SIMD Unit", func() {
 
 	var (
-		cu  *ComputeUnit
-		bu  *SIMDUnit
-		sp  *mockScratchpadPreparer
-		alu *mockALU
+		cu   *ComputeUnit
+		bu   *SIMDUnit
+		sp   *mockScratchpadPreparer
+		alu  *mockALU
+		name string
 	)
 
 	BeforeEach(func() {
 		cu = NewComputeUnit("cu", nil)
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
-		bu = NewSIMDUnit(cu, sp, alu)
+		name = "simd"
+		bu = NewSIMDUnit(cu, name, sp, alu)
+
 	})
 
 	It("should allow accepting wavefront", func() {
@@ -36,6 +39,8 @@ var _ = Describe("SIMD Unit", func() {
 
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
+		inst := wavefront.NewInst(insts.NewInst())
+		wave.SetDynamicInst(inst)
 		bu.AcceptWave(wave, 10)
 		Expect(bu.toExec).To(BeIdenticalTo(wave))
 		Expect(bu.cycleLeft).To(Equal(4))
