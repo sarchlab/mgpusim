@@ -4,11 +4,16 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/gcn3/emu"
 	"gitlab.com/akita/gcn3/timing/wavefront"
+	"gitlab.com/akita/util/tracing"
 )
 
 // A SIMDUnit performs branch operations
 type SIMDUnit struct {
+	akita.HookableBase
+
 	cu *ComputeUnit
+
+	name string
 
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
@@ -25,10 +30,12 @@ type SIMDUnit struct {
 // the compute unit.
 func NewSIMDUnit(
 	cu *ComputeUnit,
+	name string,
 	scratchpadPreparer ScratchpadPreparer,
 	alu emu.ALU,
 ) *SIMDUnit {
 	u := new(SIMDUnit)
+	u.name = name
 	u.cu = cu
 	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
@@ -54,6 +61,7 @@ func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	u.toExec = wave
 
 	u.cycleLeft = 64 / u.NumSinglePrecisionUnit
+	u.logPipelineTask(now, u.toExec.DynamicInst(), false)
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
@@ -77,6 +85,7 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.cu.UpdatePCAndSetReady(u.toExec)
 
+	u.logPipelineTask(now, u.toExec.DynamicInst(), true)
 	u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
 
 	u.toExec = nil
@@ -85,4 +94,34 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 
 func (u *SIMDUnit) Flush() {
 	u.toExec = nil
+}
+
+func (u *SIMDUnit) logPipelineTask(
+	now akita.VTimeInSec,
+	inst *wavefront.Inst,
+	completed bool,
+) {
+	if completed {
+		tracing.EndTask(
+			inst.ID+"_simd_exec",
+			now,
+			u,
+		)
+		return
+	}
+
+	tracing.StartTask(
+		inst.ID+"_simd_exec",
+		inst.ID,
+		now,
+		u,
+		"pipeline",
+		u.cu.execUnitToString(inst.ExeUnit),
+		// inst.InstName,
+		nil,
+	)
+}
+
+func (u *SIMDUnit) Name() string {
+	return u.name
 }
