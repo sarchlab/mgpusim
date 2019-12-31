@@ -25,7 +25,7 @@ var _ = Describe("FetchArbiter", func() {
 	It("should find the oldest wf to dispatch", func() {
 		wfLastFetchTime := []akita.VTimeInSec{
 			10.2, 10.3, 9.8, 9.7, 9.4,
-			9.6, 9.6, 9.5, 9.8, 10.0,
+			9.6, 9.5, 9.6, 9.8, 10.0,
 		}
 		wfState := []wavefront.WfState{
 			wavefront.WfRunning, wavefront.WfRunning, wavefront.WfReady, wavefront.WfReady, wavefront.WfRunning,

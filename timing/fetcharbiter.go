@@ -37,6 +37,7 @@ func (a *FetchArbiter) Arbitrate(
 
 			if wf.LastFetchTime < oldestTime {
 				toFetch = wf
+				oldestTime = wf.LastFetchTime
 			}
 			wf.RUnlock()
 		}
