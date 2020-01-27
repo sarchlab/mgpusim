@@ -9,11 +9,11 @@ import (
 
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim"
-	"gitlab.com/akita/mgpusim/driver/internal"
-	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
+	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/driver/internal"
+	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/util/ca"
 	"gitlab.com/akita/util/tracing"
 )
@@ -491,9 +491,11 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 			wg *kernels.WorkGroup,
 		) bool {
 			pkt := req.Packet
+			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
+			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
 			flattenedID :=
-				wg.IDZ*int(pkt.GridSizeX)*int(pkt.GridSizeY) +
-					wg.IDY*int(pkt.GridSizeX) +
+				wg.IDZ*int(numWGX)*int(numWGY) +
+					wg.IDY*int(numWGX) +
 					wg.IDX
 			return flattenedID%numGPUs == currentGPUIndex
 		}
