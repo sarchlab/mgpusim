@@ -28,6 +28,7 @@ RUN nvim +PlugInstall +UpdateRemotePlugins +qall
 # RUN nvim +GoInstallBinaries +qall
 RUN echo "colorscheme molokai" >> /root/.vimrc
 
+RUN export GO111MODULE=on
 RUN go get github.com/klauspost/asmfmt/cmd/asmfmt
 RUN go get github.com/go-delve/delve/cmd/dlv
 RUN go get github.com/kisielk/errcheck
@@ -38,7 +39,7 @@ RUN go get github.com/rogpeppe/godef
 RUN go get github.com/zmb3/gogetdoc
 RUN go get golang.org/x/tools/cmd/goimports
 RUN go get golang.org/x/lint/golint
-RUN go get golang.org/x/tools/cmd/gopls
+RUN GO111MODULE=on go get golang.org/x/tools/gopls@latest
 RUN go get github.com/alecthomas/gometalinter
 RUN go get github.com/golangci/golangci-lint/cmd/golangci-lint
 RUN go get github.com/fatih/gomodifytags
