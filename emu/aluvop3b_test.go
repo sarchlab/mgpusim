@@ -41,6 +41,25 @@ var _ = Describe("ALU", func() {
 		Expect(sp.VCC).To(Equal(uint64(0x2)))
 	})
 
+	It("should run V_SUBREV_U32 VOP3b", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3b
+		state.inst.Opcode = 283
+
+		sp := state.Scratchpad().AsVOP3B()
+		sp.SRC0[0] = uint64(2)
+		sp.SRC1[0] = uint64(0xffffffff)
+		sp.SRC0[1] = uint64(2)
+		sp.SRC1[1] = uint64(0x0)
+		sp.EXEC = 3
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0xfffffffd)))
+		Expect(sp.DST[1]).To(Equal(uint64(0xfffffffe)))
+		Expect(sp.VCC).To(Equal(uint64(2)))
+	})
+
 	It("should run V_ADDC_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP3b
@@ -59,6 +78,48 @@ var _ = Describe("ALU", func() {
 
 		Expect(sp.DST[0]).To(Equal(uint64(0)))
 		Expect(sp.DST[1]).To(Equal(uint64(0xfffffffe)))
+		Expect(sp.SDST).To(Equal(uint64(1)))
+	})
+
+	It("should run V_SUBB_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3b
+		state.inst.Opcode = 285
+
+		sp := state.scratchpad.AsVOP3B()
+		sp.SRC0[0] = uint64(0x1)
+		sp.SRC1[0] = uint64(0x2)
+		sp.SRC2[0] = uint64(0x1)
+		sp.SRC0[1] = uint64(0xfffffffd)
+		sp.SRC1[1] = uint64(0x1)
+		sp.SRC2[1] = uint64(0x1)
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0xfffffffe)))
+		Expect(sp.DST[1]).To(Equal(uint64(0xfffffffc)))
+		Expect(sp.SDST).To(Equal(uint64(1)))
+	})
+
+	It("should run V_SUBBREV_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3b
+		state.inst.Opcode = 286
+
+		sp := state.scratchpad.AsVOP3B()
+		sp.SRC1[0] = uint64(0x1)
+		sp.SRC0[0] = uint64(0x2)
+		sp.SRC2[0] = uint64(0x1)
+		sp.SRC1[1] = uint64(0xfffffffd)
+		sp.SRC0[1] = uint64(0x1)
+		sp.SRC2[1] = uint64(0x1)
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0xfffffffe)))
+		Expect(sp.DST[1]).To(Equal(uint64(0xfffffffc)))
 		Expect(sp.SDST).To(Equal(uint64(1)))
 	})
 

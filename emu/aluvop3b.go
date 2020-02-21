@@ -13,8 +13,14 @@ func (u *ALUImpl) runVOP3B(state InstEmuState) {
 	switch inst.Opcode {
 	case 281:
 		u.runVADDU32VOP3b(state)
+	case 283:
+		u.runVSUBREVU32VOP3b(state)
 	case 284:
 		u.runVADDCU32VOP3b(state)
+	case 285:
+		u.runVSUBBU32VOP3b(state)
+	case 286:
+		u.runVSUBBREVU32VOP3b(state)
 	case 481:
 		u.runVDIVSCALEF64(state)
 	default:
@@ -33,9 +39,27 @@ func (u *ALUImpl) runVADDU32VOP3b(state InstEmuState) {
 			continue
 		}
 
-		sp.DST[i] = sp.SRC1[i] + sp.SRC0[i]
-		if sp.DST[i] > 0x100000000 {
+		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i]
+		if sp.DST[i] > 0xffffffff {
 			sp.VCC |= 1 << i
+			sp.DST[i] &= 0xffffffff
+		}
+	}
+}
+
+func (u *ALUImpl) runVSUBREVU32VOP3b(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3B()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		sp.DST[i] = sp.SRC1[i] - sp.SRC0[i]
+		if sp.DST[i] > 0xffffffff {
+			sp.VCC |= 1 << i
+			sp.DST[i] &= 0xffffffff
 		}
 	}
 }
@@ -50,6 +74,44 @@ func (u *ALUImpl) runVADDCU32VOP3b(state InstEmuState) {
 		}
 
 		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i] + ((sp.SRC2[i] & (1 << i)) >> i)
+		carry := uint64(0)
+		if sp.DST[i] > 0xffffffff {
+			carry = 1
+		}
+		sp.SDST |= carry << i
+		sp.DST[i] &= 0xffffffff
+	}
+}
+
+func (u *ALUImpl) runVSUBBU32VOP3b(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3B()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		sp.DST[i] = sp.SRC0[i] - sp.SRC1[i] - ((sp.SRC2[i] & (1 << i)) >> i)
+		carry := uint64(0)
+		if sp.DST[i] > 0xffffffff {
+			carry = 1
+		}
+		sp.SDST |= carry << i
+		sp.DST[i] &= 0xffffffff
+	}
+}
+
+func (u *ALUImpl) runVSUBBREVU32VOP3b(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3B()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		sp.DST[i] = sp.SRC1[i] - sp.SRC0[i] - ((sp.SRC2[i] & (1 << i)) >> i)
 		carry := uint64(0)
 		if sp.DST[i] > 0xffffffff {
 			carry = 1
