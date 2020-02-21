@@ -5,10 +5,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
 var _ = Describe("Vector Memory Unit", func() {
@@ -46,42 +47,47 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should not allow accepting wavefront is the read stage buffer is occupied", func() {
-		bu.toRead = new(wavefront.Wavefront)
-		Expect(bu.CanAcceptWave()).To(BeFalse())
+		bu.toRead = append(bu.toRead, new(wavefront.Wavefront))
+		Expect(bu.CanAcceptWave()).To(BeTrue())
 	})
 
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
 		bu.AcceptWave(wave, 10)
-		Expect(bu.toRead).To(BeIdenticalTo(wave))
+		Expect(bu.toRead[0]).To(BeIdenticalTo(wave))
 	})
 
 	It("should read", func() {
-		wave := new(wavefront.Wavefront)
-		bu.toRead = wave
+		kWave := kernels.NewWavefront()
+		wave := wavefront.NewWavefront(kWave)
+
+		bu.toRead = append(bu.toRead, wave)
 
 		madeProgress := bu.runReadStage(10)
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(bu.toExec).To(BeIdenticalTo(wave))
+		Expect(bu.toExec[0]).To(BeIdenticalTo(wave))
 		Expect(bu.toRead).To(BeNil())
-		Expect(bu.AddrCoalescingCycleLeft).To(Equal(bu.AddrCoalescingLatency))
+		Expect(bu.AddrCoalescingCycleLeft[wave.UID]).To(Equal(bu.AddrCoalescingCycleLeft[wave.UID]))
 	})
 
 	It("should reduce cycle left when executing", func() {
-		wave := new(wavefront.Wavefront)
-		bu.toExec = wave
-		bu.AddrCoalescingCycleLeft = 40
+		kWave := kernels.NewWavefront()
+		wave := wavefront.NewWavefront(kWave)
+
+		bu.toExec = append(bu.toExec, wave)
+		bu.AddrCoalescingCycleLeft[wave.UID] = 40
 
 		madeProgress := bu.runExecStage(10)
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(bu.toExec).To(BeIdenticalTo(wave))
-		Expect(bu.AddrCoalescingCycleLeft).To(Equal(39))
+		Expect(bu.toExec[0]).To(BeIdenticalTo(wave))
+		Expect(bu.AddrCoalescingCycleLeft[wave.UID]).To(Equal(39))
 	})
 
 	It("should run flat_load_dword", func() {
-		wave := wavefront.NewWavefront(nil)
+		kWave := kernels.NewWavefront()
+		wave := wavefront.NewWavefront(kWave)
 		inst := wavefront.NewInst(insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 20
@@ -98,7 +104,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
 
-		bu.toExec = wave
+		bu.toExec = append(bu.toExec, wave)
 
 		bu.Run(10)
 
@@ -112,13 +118,14 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should run flat_store_dword", func() {
-		wave := wavefront.NewWavefront(nil)
+		kWave := kernels.NewWavefront()
+		wave := wavefront.NewWavefront(kWave)
 		inst := wavefront.NewInst(insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 28
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wave.SetDynamicInst(inst)
-		bu.toExec = wave
+		bu.toExec = append(bu.toExec, wave)
 
 		transactions := make([]VectorMemAccessInfo, 4)
 		for i := 0; i < 4; i++ {
@@ -189,9 +196,9 @@ var _ = Describe("Vector Memory Unit", func() {
 		}
 		sp.EXEC = 0xffffffffffffffff
 
-		bu.toExec = wave
-		bu.toRead = wave
-		bu.toWrite = wave
+		bu.toExec = append(bu.toExec, wave)
+		bu.toRead = append(bu.toRead, wave)
+		bu.toWrite = append(bu.toWrite, wave)
 
 		loadReq := mem.ReadReqBuilder{}.
 			WithSendTime(10).
