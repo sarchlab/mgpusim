@@ -6,16 +6,16 @@ import (
 	"os"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	memtraces "gitlab.com/akita/mem/trace"
 	"gitlab.com/akita/mem/vm"
+	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/emu"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -30,9 +30,9 @@ type EmuGPUBuilder struct {
 	memCapacity  uint64
 	storage      *mem.Storage
 
-	EnableISADebug    bool
-	EnableInstTracing bool
-	EnableMemTracing  bool
+	enableISADebug     bool
+	enableMemTracing   bool
+	disableProgressBar bool
 }
 
 // MakeEmuGPUBuilder creates a new EmuGPUBuilder
@@ -41,8 +41,7 @@ func MakeEmuGPUBuilder() EmuGPUBuilder {
 	b.freq = 1 * akita.GHz
 	b.log2PageSize = 12
 
-	b.EnableISADebug = false
-	b.EnableInstTracing = false
+	b.enableISADebug = false
 	return b
 }
 
@@ -88,6 +87,25 @@ func (b EmuGPUBuilder) WithStorage(s *mem.Storage) EmuGPUBuilder {
 	return b
 }
 
+// WithISADebugging enables the simulation to dump instruction execution
+// information.
+func (b EmuGPUBuilder) WithISADebugging() EmuGPUBuilder {
+	b.enableISADebug = true
+	return b
+}
+
+// WithMemTracing enables the simulation to dump memory transaction information.
+func (b EmuGPUBuilder) WithMemTracing() EmuGPUBuilder {
+	b.enableMemTracing = true
+	return b
+}
+
+// WithoutProgressBar will disable the progress bar for kernel execution.
+func (b EmuGPUBuilder) WithoutProgressBar() EmuGPUBuilder {
+	b.disableProgressBar = true
+	return b
+}
+
 //nolint:gocyclo,funlen
 // Build creates a very simple GPU for emulation purposes
 func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
@@ -98,6 +116,7 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		name+".Dispatcher",
 		b.engine,
 		kernels.NewGridBuilder())
+	dispatcher.ShowProgressBar = !b.disableProgressBar
 	dispatcher.Freq = b.freq
 
 	commandProcessor := gcn3.NewCommandProcessor(
@@ -108,15 +127,9 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		name+".GlobalMem", b.engine, b.memCapacity)
 	gpuMem.Freq = 1 * akita.GHz
 	gpuMem.Latency = 1
-	// addrConverter := idealmemcontroller.InterleavingConverter{
-	// 	InterleavingSize:    b.memCapacity,
-	// 	TotalNumOfElements:  1,
-	// 	CurrentElementIndex: 0,
-	// 	Offset:              b.memOffset,
-	// }
-	// gpuMem.AddressConverter = addrConverter
+
 	gpuMem.Storage = b.storage
-	if b.EnableMemTracing {
+	if b.enableMemTracing {
 		file, _ := os.Create("mem.trace")
 		logger := log.New(file, "", 0)
 		memTracer := memtraces.NewTracer(logger)
@@ -134,7 +147,7 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		connection.PlugIn(computeUnit.ToDispatcher, 4)
 		dispatcher.RegisterCU(computeUnit.ToDispatcher)
 
-		if b.EnableISADebug {
+		if b.enableISADebug {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", computeUnit.Name()))
 			if err != nil {
 				log.Fatal(err.Error())

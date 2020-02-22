@@ -80,6 +80,7 @@ type Dispatcher struct {
 	dispatchingWfs  []*kernels.Wavefront
 	dispatchingCUID int
 	state           dispatcherState
+	ShowProgressBar bool
 	progressBar     *mpb.Bar
 
 	ToCUs              akita.Port
@@ -234,6 +235,10 @@ func (d *Dispatcher) initKernelDispatching(
 }
 
 func (d *Dispatcher) initializeProgressBar(kernelID string) {
+	if !d.ShowProgressBar {
+		return
+	}
+
 	d.progressBar = barGroup.AddBar(
 		int64(d.totalWGs),
 		mpb.PrependDecorators(
@@ -391,6 +396,7 @@ func NewDispatcher(
 	d.ToCUs = akita.NewLimitNumMsgPort(d, 1, name+".ToCUs")
 
 	d.state = dispatcherIdle
+	d.ShowProgressBar = true
 
 	return d
 }

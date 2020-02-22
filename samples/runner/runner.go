@@ -27,6 +27,7 @@ var visTracing = flag.Bool("trace-vis", false,
 	"Generate trace for visualization purposes.")
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
+var disableProgressBar = flag.Bool("no-progress-bar", false, "Disables the progress bar")
 var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false, "Report the average cache latency.")
 var gpuFlag = flag.String("gpus", "",
 	"The GPUs to use, use a format like 1,2,3,4. By default, GPU 1 is used.")
@@ -62,18 +63,6 @@ type Runner struct {
 func (r *Runner) ParseFlag() *Runner {
 	if *parallelFlag {
 		r.Parallel = true
-	}
-
-	if *isaDebug {
-		platform.DebugISA = true
-	}
-
-	if *visTracing {
-		platform.TraceVis = true
-	}
-
-	if *memTracing {
-		platform.TraceMem = true
 	}
 
 	if *verifyFlag {
@@ -115,13 +104,10 @@ func (r *Runner) Init() *Runner {
 
 	log.SetFlags(log.Llongfile)
 
-	if r.Parallel {
-		platform.UseParallelEngine = true
-	}
 	if r.Timing {
-		r.Engine, r.GPUDriver = platform.BuildNR9NanoPlatform(4)
+		r.buildTimingPlatform()
 	} else {
-		r.Engine, r.GPUDriver = platform.BuildNEmuGPUPlatform(4)
+		r.buildEmuPlatform()
 	}
 
 	r.parseGPUFlag()
@@ -130,6 +116,58 @@ func (r *Runner) Init() *Runner {
 	r.addCacheLatencyTracer()
 
 	return r
+}
+
+func (r *Runner) buildEmuPlatform() {
+	b := platform.MakeEmuBuilder()
+
+	if r.Parallel {
+		b = b.WithParallelEngine()
+	}
+
+	if *isaDebug {
+		b = b.WithISADebugging()
+	}
+
+	if *visTracing {
+		b = b.WithVisTracing()
+	}
+
+	if *memTracing {
+		b = b.WithMemTracing()
+	}
+
+	if *disableProgressBar {
+		b = b.WithoutProgressBar()
+	}
+
+	r.Engine, r.GPUDriver = b.Build()
+}
+
+func (r *Runner) buildTimingPlatform() {
+	b := platform.MakeR9NanoBuilder()
+
+	if r.Parallel {
+		b = b.WithParallelEngine()
+	}
+
+	if *isaDebug {
+		b = b.WithISADebugging()
+	}
+
+	if *visTracing {
+		b = b.WithVisTracing()
+	}
+
+	if *memTracing {
+		b = b.WithMemTracing()
+	}
+
+	if *disableProgressBar {
+		b = b.WithoutProgressBar()
+	}
+
+	r.Engine, r.GPUDriver = b.Build()
 }
 
 func (r *Runner) addKernelTimeTracer() {

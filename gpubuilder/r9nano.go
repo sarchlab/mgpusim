@@ -6,21 +6,20 @@ import (
 	"os"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/cache/writeback"
+	"gitlab.com/akita/mem/idealmemcontroller"
+	"gitlab.com/akita/mem/vm/addresstranslator"
+	"gitlab.com/akita/mem/vm/mmu"
+	"gitlab.com/akita/mem/vm/tlb"
+	gcn3 "gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mgpusim/timing"
 	"gitlab.com/akita/mgpusim/timing/caches/l1v"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/cache/writeback"
-	"gitlab.com/akita/mem/idealmemcontroller"
-	memtraces "gitlab.com/akita/mem/trace"
-	"gitlab.com/akita/mem/vm/addresstranslator"
-	"gitlab.com/akita/mem/vm/mmu"
-	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -34,12 +33,12 @@ type R9NanoGPUBuilder struct {
 	numCUPerShaderArray int
 	numMemoryBank       int
 
-	EnableISADebug    bool
-	EnableInstTracing bool
-	EnableMemTracing  bool
-	enableVisTracing  bool
-	visTracer         tracing.Tracer
-	MemTracer         tracing.Tracer
+	enableISADebugging bool
+	enableMemTracing   bool
+	enableVisTracing   bool
+	disableProgressBar bool
+	visTracer          tracing.Tracer
+	memTracer          tracing.Tracer
 
 	gpuName                           string
 	gpu                               *gcn3.GPU
@@ -147,17 +146,36 @@ func (b R9NanoGPUBuilder) WithVisTracer(t tracing.Tracer) R9NanoGPUBuilder {
 	return b
 }
 
+// WithMemTracer applies a tracer to trace the memory transactions.
+func (b R9NanoGPUBuilder) WithMemTracer(t tracing.Tracer) R9NanoGPUBuilder {
+	b.enableMemTracing = true
+	b.memTracer = t
+	return b
+}
+
+// WithISADebugging enables the GPU to dump instruction execution information.
+func (b R9NanoGPUBuilder) WithISADebugging() R9NanoGPUBuilder {
+	b.enableISADebugging = true
+	return b
+}
+
+// WithoutProgressBar disables the progress bar for kernel execution
+func (b R9NanoGPUBuilder) WithoutProgressBar() R9NanoGPUBuilder {
+	b.disableProgressBar = true
+	return b
+}
+
+// WithLog2PageSize sets the page size with the power of 2.
 func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder {
 	b.log2PageSize = log2PageSize
 	return b
 }
 
-//nolint:gocyclo,funlen
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
 func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
 	b.gpuName = name
 
-	b.InternalConn = akita.NewDirectConnection(name+"InteralConn",
+	b.InternalConn = akita.NewDirectConnection(name+"InternalConn",
 		b.engine, 1*akita.GHz)
 	b.gpu = gcn3.NewGPU(b.gpuName)
 
@@ -245,6 +263,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		b.engine,
 		kernels.NewGridBuilder())
 	b.ACE.Freq = b.freq
+	b.ACE.ShowProgressBar = !b.disableProgressBar
 	b.CP.Dispatcher = b.ACE.ToCommandProcessor
 	b.gpu.Dispatchers = append(b.gpu.Dispatchers, b.ACE)
 
@@ -273,13 +292,8 @@ func (b *R9NanoGPUBuilder) connectCUToCP() {
 }
 
 func (b *R9NanoGPUBuilder) buildMemSystem() {
-	if b.EnableMemTracing {
-		file, err := os.Create("mem.trace")
-		if err != nil {
-			panic(err)
-		}
-		logger := log.New(file, "", 0)
-		b.MemTracer = memtraces.NewTracer(logger)
+	if b.enableMemTracing {
+
 	}
 
 	b.buildMemControllers()
@@ -557,8 +571,8 @@ func (b *R9NanoGPUBuilder) buildL1SCaches() {
 		b.L1SCaches = append(b.L1SCaches, sCache)
 		b.CP.L1SCaches = append(b.CP.L1SCaches, sCache.ControlPort)
 		b.gpu.L1SCaches = append(b.gpu.L1SCaches, sCache)
-		if b.EnableMemTracing {
-			tracing.CollectTrace(sCache, b.MemTracer)
+		if b.enableMemTracing {
+			tracing.CollectTrace(sCache, b.memTracer)
 		}
 		if b.enableVisTracing {
 			tracing.CollectTrace(sCache, b.visTracer)
@@ -597,8 +611,8 @@ func (b *R9NanoGPUBuilder) buildL1ICaches() {
 		b.L1ICaches = append(b.L1ICaches, iCache)
 		b.CP.L1ICaches = append(b.CP.L1ICaches, iCache.ControlPort)
 		b.gpu.L1ICaches = append(b.gpu.L1ICaches, iCache)
-		if b.EnableMemTracing {
-			tracing.CollectTrace(iCache, b.MemTracer)
+		if b.enableMemTracing {
+			tracing.CollectTrace(iCache, b.memTracer)
 		}
 		if b.enableVisTracing {
 			tracing.CollectTrace(iCache, b.visTracer)
@@ -634,8 +648,8 @@ func (b *R9NanoGPUBuilder) buildL1VCaches() {
 		b.CP.L1VCaches = append(b.CP.L1VCaches, dCache.ControlPort)
 		b.gpu.L1VCaches = append(b.gpu.L1VCaches, dCache)
 
-		if b.EnableMemTracing {
-			tracing.CollectTrace(dCache, b.MemTracer)
+		if b.enableMemTracing {
+			tracing.CollectTrace(dCache, b.memTracer)
 		}
 
 		if b.enableVisTracing {
@@ -679,8 +693,8 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		b.InternalConn.PlugIn(l2Cache.BottomPort, 64)
 		b.InternalConn.PlugIn(l2Cache.ControlPort, 1)
 
-		if b.EnableMemTracing {
-			tracing.CollectTrace(l2Cache, b.MemTracer)
+		if b.enableMemTracing {
+			tracing.CollectTrace(l2Cache, b.memTracer)
 		}
 		if b.enableVisTracing {
 			tracing.CollectTrace(l2Cache, b.visTracer)
@@ -721,8 +735,8 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 		b.CP.DRAMControllers = append(
 			b.CP.DRAMControllers, memCtrl)
 
-		if b.EnableMemTracing {
-			tracing.CollectTrace(memCtrl, b.MemTracer)
+		if b.enableMemTracing {
+			tracing.CollectTrace(memCtrl, b.memTracer)
 		}
 		if b.enableVisTracing {
 			tracing.CollectTrace(memCtrl, b.visTracer)
@@ -760,7 +774,7 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		b.InternalConn.PlugIn(cu.ToACE, 1)
 		b.InternalConn.PlugIn(cu.ToCP, 1)
 
-		if b.EnableISADebug && i == 0 {
+		if b.enableISADebugging && i == 0 {
 			isaDebug, err := os.Create(fmt.Sprintf(
 				"isa_timing_%s.debug", cu.Name()))
 			if err != nil {
