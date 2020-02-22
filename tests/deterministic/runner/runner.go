@@ -18,12 +18,7 @@ import (
 	"gitlab.com/akita/util/tracing"
 )
 
-var parallelFlag = flag.Bool("parallel", false, "Run the simulation in parallel.")
-var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
-var visTracing = flag.Bool("trace-vis", false,
-	"Generate trace for visualization purposes.")
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
-var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false, "Report the average cache latency.")
 var gpuFlag = flag.String("gpus", "1",
 	"The GPUs to use, use a format like 1,2,3,4")
@@ -51,22 +46,6 @@ type Runner struct {
 
 // ParseFlag applies the runner flag to runner object
 func (r *Runner) ParseFlag() *Runner {
-	if *parallelFlag {
-		r.Parallel = true
-	}
-
-	if *isaDebug {
-		platform.DebugISA = true
-	}
-
-	if *visTracing {
-		platform.TraceVis = true
-	}
-
-	if *memTracing {
-		platform.TraceMem = true
-	}
-
 	if *verifyFlag {
 		r.Verify = true
 	}
@@ -96,11 +75,8 @@ func (r *Runner) startProfilingServer() {
 func (r *Runner) Init() *Runner {
 	go r.startProfilingServer()
 
-	if r.Parallel {
-		platform.UseParallelEngine = true
-	}
-
-	r.Engine, r.GPUDriver = buildNR9NanoPlatformWithPerfectMemorySystem(4)
+	builder := platform.MakeR9NanoBuilder().WithNumGPU(4)
+	r.Engine, r.GPUDriver = builder.Build()
 
 	r.addKernelTimeTracer()
 	r.addCacheLatencyTracer()
