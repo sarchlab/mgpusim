@@ -11,14 +11,15 @@ import (
 )
 
 type SpmvKernelArgs struct {
-	Val                 driver.GPUPtr
-	Vec                 driver.GPUPtr
-	Cols                driver.GPUPtr
-	RowDelimiters       driver.GPUPtr
-	Dim                 int32
-	VecWidth            int32
-	PartialSums         driver.LocalPtr
+	Val           driver.GPUPtr
+	Vec           driver.GPUPtr
+	Cols          driver.GPUPtr
+	RowDelimiters driver.GPUPtr
+	Dim           int32
+	//VecWidth            int32
+	//PartialSums         driver.LocalPtr
 	Out                 driver.GPUPtr
+	Padding             int32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -69,7 +70,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) loadProgram() {
 	hsacoBytes := _escFSMustByte(false, "/spmv.hsaco")
 
-	b.spmvKernel = kernels.LoadProgramFromMemory(hsacoBytes, "spmv_csr_vector_kernel")
+	b.spmvKernel = kernels.LoadProgramFromMemory(hsacoBytes, "spmv_csr_scalar_kernel")
 	if b.spmvKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -86,7 +87,7 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.nItems = (b.Dim * b.Dim / 100) // 1% of entries will be non-zero
+	b.nItems = ((b.Dim * b.Dim) / 100) // 1% of entries will be non-zero
 	b.val = make([]float32, b.nItems)
 	b.vec = make([]float32, b.Dim)
 	b.cols = make([]int32, b.nItems)
@@ -125,34 +126,39 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dVecData, b.vec)
 	b.driver.MemCopyH2D(b.context, b.dColsData, b.cols)
 	b.driver.MemCopyH2D(b.context, b.dRowDData, b.rowDelimiter)
+	b.driver.MemCopyH2D(b.context, b.dOutData, b.out)
 
-	//TODO: Review vecWidth and maxwidth
-	vecWidth := int32(32)  // PreferredWorkGroupSizeMultiple
-	maxLocal := int32(256) // MaxWorkGroupSize
+	//TODO: Review vecWidth, blockSize, and maxwidth
+	vecWidth := int32(32)   // PreferredWorkGroupSizeMultiple
+	maxLocal := int32(128)  // MaxWorkGroupSize
+	blockSize := int32(128) // BLOCK_SIZE
 
 	localWorkSize := vecWidth
-	for ok := true; ok; ok = ((localWorkSize+vecWidth <= maxLocal) && localWorkSize+vecWidth <= 128) {
+	for ok := true; ok; ok = ((localWorkSize+vecWidth <= maxLocal) && localWorkSize+vecWidth <= blockSize) {
 		localWorkSize += vecWidth
 	}
 
-	vectorGlobalWSize := b.Dim * vecWidth
+	// vectorGlobalWSize := b.Dim * vecWidth
 
 	args := SpmvKernelArgs{
-		Val:                 b.dValData,
-		Vec:                 b.dVecData,
-		Cols:                b.dColsData,
-		RowDelimiters:       b.dRowDData,
-		Dim:                 b.Dim,
-		VecWidth:            vecWidth,
-		PartialSums:         128, //hardcoded value in spmv.cl
+		Val:           b.dValData,
+		Vec:           b.dVecData,
+		Cols:          b.dColsData,
+		RowDelimiters: b.dRowDData,
+		Dim:           b.Dim,
+		// VecWidth:            vecWidth,
+		// PartialSums:         128, //hardcoded value in spmv.cl
 		Out:                 b.dOutData,
+		Padding:             0,
 		HiddenGlobalOffsetX: 0,
 		HiddenGlobalOffsetY: 0,
 		HiddenGlobalOffsetZ: 0,
 	}
 
-	globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
-	localSize := [3]uint16{uint16(localWorkSize), 1, 1}
+	// globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
+	// localSize := [3]uint16{uint16(localWorkSize), 1, 1}
+	globalSize := [3]uint32{uint32(b.Dim), 1, 1}
+	localSize := [3]uint16{uint16(blockSize), 1, 1}
 
 	b.driver.LaunchKernel(b.context,
 		b.spmvKernel,
