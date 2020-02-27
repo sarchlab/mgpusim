@@ -210,6 +210,23 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[1]).To(Equal(uint64(1)))
 	})
 
+	It("should run V_MAD_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 449
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = 10
+		sp.SRC1[0] = 20
+		sp.SRC2[0] = 30
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(230)))
+
+	})
+
 	It("should run V_MAD_U32_U24", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP3a

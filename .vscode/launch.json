@@ -106,6 +106,16 @@
             ]
         },
         {
+            "name": "NBody",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/nbody",
+            "args": [
+                "-verify",
+            ]
+        },
+        {
             "name": "Relu",
             "type": "go",
             "request": "launch",
