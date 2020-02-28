@@ -68,7 +68,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.isFirstLuanch = true
 	b.exchange = true
 	b.NumIterations = 1
-	b.NumParticles = 1024
+	b.NumParticles = 256
 
 	if b.NumParticles < b.groupSize {
 		b.NumParticles = b.groupSize
@@ -174,12 +174,14 @@ func (b *Benchmark) exec() {
 		b.dVel, b.dNewVel = b.dNewVel, b.dVel
 	}
 
-	b.driver.MemCopyD2H(b.context, b.pos, *b.dNewPos)
+	b.driver.MemCopyD2H(b.context, b.pos, *b.dPos)
 }
 
 func (b *Benchmark) Verify() {
-	b.refPos = b.initPos
-	b.refVel = b.initVel
+	b.refPos = make([]float32, b.numBodies*4)
+	b.refVel = make([]float32, b.numBodies*4)
+	copy(b.refPos, b.initPos)
+	copy(b.refVel, b.initVel)
 
 	for i := int32(0); i < b.NumIterations; i++ {
 		b.nbodyCPU()
@@ -189,7 +191,7 @@ func (b *Benchmark) Verify() {
 	for i := int32(0); i < (b.numBodies * 4); i++ {
 		if b.refPos[i] != b.pos[i] {
 			mismatch = true
-			log.Printf("not match at (%d), expected %f to equal %f\n",
+			log.Printf("not match at (%d), expected %g to equal %g\n",
 				i,
 				b.pos[i], b.refPos[i])
 		}
@@ -233,7 +235,8 @@ func (b *Benchmark) nbodyCPU() {
 
 func random(randMax float32, randMin float32) float32 {
 	result := rand.Float32()
-	return ((1.0-result)*randMin + result*randMax)
+	result = ((1.0-result)*randMin + result*randMax)
+	return result
 }
 
 func (b *Benchmark) fill() {
@@ -252,6 +255,6 @@ func (b *Benchmark) fill() {
 		b.initVel[3] = 0.0 // unused
 	}
 
-	b.pos = b.initPos
-	b.vel = b.initVel
+	copy(b.pos, b.initPos)
+	copy(b.vel, b.initVel)
 }
