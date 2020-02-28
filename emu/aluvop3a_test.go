@@ -216,15 +216,15 @@ var _ = Describe("ALU", func() {
 		state.inst.Opcode = 449
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.SRC0[0] = 10
-		sp.SRC1[0] = 20
-		sp.SRC2[0] = 30
+		sp.SRC0[0] = uint64(math.Float32bits(10.0))
+		sp.SRC1[0] = uint64(math.Float32bits(20.0))
+		sp.SRC2[0] = uint64(math.Float32bits(30.0))
 		sp.EXEC = 1
 
 		alu.Run(state)
 
-		Expect(sp.DST[0]).To(Equal(uint64(230)))
-
+		dst := math.Float32frombits(uint32(sp.DST[0]))
+		Expect(dst).To(Equal(float32(230.0)))
 	})
 
 	It("should run V_MAD_U32_U24", func() {

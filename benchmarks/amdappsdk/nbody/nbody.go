@@ -20,7 +20,6 @@ type NBodyKernelArgs struct {
 	LocalPos            driver.LocalPtr
 	NewPosition         driver.GPUPtr
 	NewVelocity         driver.GPUPtr
-	Padding             int32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -62,13 +61,13 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.driver = driver
 	b.context = driver.Init()
 	b.loadProgram()
-	b.groupSize = 256
+	b.groupSize = 64
 	b.delT = 0.005
 	b.espSqr = 500.0
 	b.isFirstLuanch = true
 	b.exchange = true
 	b.NumIterations = 1
-	b.NumParticles = 256
+	b.NumParticles = 64
 
 	if b.NumParticles < b.groupSize {
 		b.NumParticles = b.groupSize
@@ -107,7 +106,6 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-
 	b.initPos = make([]float32, b.numBodies*4)
 	b.initVel = make([]float32, b.numBodies*4)
 	b.pos = make([]float32, b.numBodies*4) // Should be aligned to 16
@@ -148,17 +146,15 @@ func (b *Benchmark) exec() {
 	localSize := [3]uint16{uint16(b.groupSize), 1, 1}
 
 	for i := int32(0); i < b.NumIterations; i++ {
-
 		args := NBodyKernelArgs{
 			Pos:                 *b.dPos,
 			Vel:                 *b.dVel,
 			NumBodies:           b.numBodies,
 			DeltaTime:           b.delT,
 			EpsSqr:              b.espSqr,
-			LocalPos:            256 * 4 * 4,
+			LocalPos:            64 * 4 * 4,
 			NewPosition:         *b.dNewPos,
 			NewVelocity:         *b.dNewVel,
-			Padding:             0,
 			HiddenGlobalOffsetX: 0,
 			HiddenGlobalOffsetY: 0,
 			HiddenGlobalOffsetZ: 0,
@@ -244,9 +240,11 @@ func (b *Benchmark) fill() {
 		index := int32(4 * i)
 
 		for j := int32(0); j < 3; j++ {
-			b.initPos[index+j] = random(3, 50)
+			// b.initPos[index+j] = random(3, 50)
+			b.initPos[index+j] = 1.0
 		}
-		b.initPos[index+3] = random(1, 1000)
+		// b.initPos[index+3] = random(1, 1000)
+		b.initPos[index+3] = 1.0
 
 		for j := int32(0); j < 3; j++ {
 			b.initVel[index+j] = 0.0

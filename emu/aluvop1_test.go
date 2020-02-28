@@ -247,8 +247,8 @@ var _ = Describe("ALU", func() {
 
 		alu.Run(state)
 
-		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(2.0)))
-		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(25.0)))
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(0.5)))
+		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(0.04)))
 	})
 
 	It("should run V_CVT_F32_UBYTE0", func() {
