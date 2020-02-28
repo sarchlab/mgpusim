@@ -61,13 +61,13 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.driver = driver
 	b.context = driver.Init()
 	b.loadProgram()
-	b.groupSize = 64
+	b.groupSize = 256
 	b.delT = 0.005
 	b.espSqr = 500.0
 	b.isFirstLuanch = true
 	b.exchange = true
-	b.NumIterations = 1
-	b.NumParticles = 64
+	b.NumIterations = 4
+	b.NumParticles = 4096
 
 	if b.NumParticles < b.groupSize {
 		b.NumParticles = b.groupSize
@@ -152,7 +152,7 @@ func (b *Benchmark) exec() {
 			NumBodies:           b.numBodies,
 			DeltaTime:           b.delT,
 			EpsSqr:              b.espSqr,
-			LocalPos:            64 * 4 * 4,
+			LocalPos:            driver.LocalPtr(b.groupSize * 4 * 4),
 			NewPosition:         *b.dNewPos,
 			NewVelocity:         *b.dNewVel,
 			HiddenGlobalOffsetX: 0,
@@ -185,7 +185,7 @@ func (b *Benchmark) Verify() {
 
 	mismatch := false
 	for i := int32(0); i < (b.numBodies * 4); i++ {
-		if b.refPos[i] != b.pos[i] {
+		if math.Abs(float64(b.refPos[i]-b.pos[i])) > 0.001 {
 			mismatch = true
 			log.Printf("not match at (%d), expected %g to equal %g\n",
 				i,
@@ -202,11 +202,11 @@ func (b *Benchmark) Verify() {
 
 func (b *Benchmark) nbodyCPU() {
 	for i := int32(0); i < b.numBodies; i++ {
-		myIndex := int32(4 * i)
+		myIndex := 4 * i
 		acc := [3]float32{0.0, 0.0, 0.0}
 		for j := int32(0); j < b.numBodies; j++ {
 			r := [3]float32{0.0, 0.0, 0.0}
-			index := int32(4 * j)
+			index := 4 * j
 
 			distSqr := float32(0.0)
 			for k := int32(0); k < 3; k++ {
@@ -238,7 +238,7 @@ func random(randMax float32, randMin float32) float32 {
 
 func (b *Benchmark) fill() {
 	for i := int32(0); i < b.numBodies; i++ {
-		index := int32(4 * i)
+		index := 4 * i
 
 		for j := int32(0); j < 3; j++ {
 			b.initPos[index+j] = random(3, 50)
