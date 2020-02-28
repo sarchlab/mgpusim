@@ -57,6 +57,41 @@ var _ = Describe("Disassembler", func() {
 
 		Expect(err).To(BeNil())
 		Expect(inst.String(nil)).To(Equal("ds_read_b32 v1, v16 offset:8"))
+	})
 
+	It("should decode D2850001 00000503", func() {
+		buf := []byte{0x01, 0x00, 0x85, 0xd2, 0x03, 0x05, 0x00, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("v_mul_lo_u32 v1, v3, s2"))
+	})
+
+	It("should decode D2860004 00000503", func() {
+		buf := []byte{0x04, 0x00, 0x86, 0xd2, 0x03, 0x05, 0x00, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("v_mul_hi_u32 v4, v3, s2"))
+	})
+
+	It("should decode 041C0D0E", func() {
+		buf := []byte{0x0e, 0x0d, 0x1c, 0x04}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("v_sub_f32_e32 v14, v14, v6"))
+	})
+
+	It("should decode 7E224911", func() {
+		buf := []byte{0x11, 0x49, 0x22, 0x7e}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).To(Equal("v_rsq_f32_e32 v17, v17"))
 	})
 })

@@ -196,6 +196,7 @@ func (b *Benchmark) Verify() {
 	if mismatch {
 		panic("Mismatch!\n")
 	}
+
 	log.Printf("Passed!\n")
 }
 
@@ -240,11 +241,11 @@ func (b *Benchmark) fill() {
 		index := int32(4 * i)
 
 		for j := int32(0); j < 3; j++ {
-			// b.initPos[index+j] = random(3, 50)
-			b.initPos[index+j] = 1.0
+			b.initPos[index+j] = random(3, 50)
+			// b.initPos[index+j] = 1.0
 		}
-		// b.initPos[index+3] = random(1, 1000)
-		b.initPos[index+3] = 1.0
+		b.initPos[index+3] = random(1, 1000)
+		// b.initPos[index+3] = 1.0
 
 		for j := int32(0); j < 3; j++ {
 			b.initVel[index+j] = 0.0
