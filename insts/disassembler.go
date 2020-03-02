@@ -156,12 +156,20 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 	}
 
 	dstValue := extractBits(bytes, 17, 24)
-	if inst.Opcode == 2 {
-		// v_readfirstlane_b32
+	switch inst.Opcode {
+	case 2: // v_readfirstlane_b32
 		inst.Dst, _ = getOperand(uint16(dstValue))
-	} else {
+	default:
 		inst.Dst, _ = getOperand(uint16(dstValue + 256))
 	}
+
+	switch inst.Opcode {
+	case 4: // v_cvt_f64_i32_e32
+		inst.Dst.RegCount = 2
+	case 15: // v_cvt_f32_f64_e32
+		inst.Src0.RegCount = 2
+	}
+
 	return nil
 }
 

@@ -219,15 +219,56 @@ func (i Inst) sopcString() string {
 }
 
 func (i Inst) vop3aString() string {
-	// TODO: Lots of things not considered here
-	s := fmt.Sprintf("%s %s, %s, %s",
-		i.InstName, i.Dst.String(),
-		i.Src0.String(), i.Src1.String())
+	s := fmt.Sprintf("%s %s",
+		i.InstName, i.Dst.String())
 
-	if i.Src2 != nil {
-		s += ", " + i.Src2.String()
+	s += ", " + i.vop3aInputOperandString(*i.Src0,
+		i.isInputNeg(0),
+		i.isInputAbs(0))
+
+	s += ", " + i.vop3aInputOperandString(*i.Src1,
+		i.isInputNeg(1),
+		i.isInputAbs(1))
+
+	if i.Src2 == nil {
+		return s
 	}
+
+	s += ", " + i.vop3aInputOperandString(*i.Src2,
+		i.isInputNeg(2),
+		i.isInputAbs(2))
+
 	return s
+}
+
+func (i Inst) vop3aInputOperandString(operand Operand, neg, abs bool) string {
+	s := ""
+
+	if neg {
+		s += "-"
+	}
+
+	if abs {
+		s += "|"
+	}
+
+	s += operand.String()
+
+	if abs {
+		s += "|"
+	}
+
+	return s
+}
+
+func (i Inst) isInputNeg(n uint) bool {
+	mask := 1 << n
+	return i.Neg&mask > 0
+}
+
+func (i Inst) isInputAbs(n uint) bool {
+	mask := 1 << n
+	return i.Abs&mask > 0
 }
 
 func (i Inst) vop3bString() string {
