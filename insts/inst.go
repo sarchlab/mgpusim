@@ -82,6 +82,8 @@ type Inst struct {
 	Src1Sext  bool
 	Src1Neg   bool
 	Src1Abs   bool
+	Src2Neg   bool
+	Src2Abs   bool
 }
 
 // NewInst creates a zero-filled instruction
@@ -178,6 +180,8 @@ func (i Inst) vop2String() string {
 	switch i.Opcode {
 	case 0, 28, 29:
 		s += ", vcc"
+	case 24, 37: // madak
+		s += ", " + i.Src2.String()
 	}
 
 	if i.IsSdwa {
@@ -223,20 +227,20 @@ func (i Inst) vop3aString() string {
 		i.InstName, i.Dst.String())
 
 	s += ", " + i.vop3aInputOperandString(*i.Src0,
-		i.isInputNeg(0),
-		i.isInputAbs(0))
+		i.Src0Neg,
+		i.Src0Abs)
 
 	s += ", " + i.vop3aInputOperandString(*i.Src1,
-		i.isInputNeg(1),
-		i.isInputAbs(1))
+		i.Src1Neg,
+		i.Src1Abs)
 
 	if i.Src2 == nil {
 		return s
 	}
 
 	s += ", " + i.vop3aInputOperandString(*i.Src2,
-		i.isInputNeg(2),
-		i.isInputAbs(2))
+		i.Src2Neg,
+		i.Src2Abs)
 
 	return s
 }
@@ -259,16 +263,6 @@ func (i Inst) vop3aInputOperandString(operand Operand, neg, abs bool) string {
 	}
 
 	return s
-}
-
-func (i Inst) isInputNeg(n uint) bool {
-	mask := 1 << n
-	return i.Neg&mask > 0
-}
-
-func (i Inst) isInputAbs(n uint) bool {
-	mask := 1 << n
-	return i.Abs&mask > 0
 }
 
 func (i Inst) vop3bString() string {
