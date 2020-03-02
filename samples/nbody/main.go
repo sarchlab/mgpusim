@@ -7,8 +7,8 @@ import (
 	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
-//var numIter = flag.Int("iter", 5, "The number of iterations to run.")
-//var dimension = flag.Int("dim", 64, "The number of columns/rows in the matrix.")
+var numIter = flag.Int("iter", 8, "The number of iterations to run.")
+var particles = flag.Int("particles", 1024, "The number of particles in the body.")
 
 func main() {
 	flag.Parse()
@@ -16,8 +16,8 @@ func main() {
 	runner := new(runner.Runner).ParseFlag().Init()
 
 	benchmark := nbody.NewBenchmark(runner.GPUDriver)
-	//benchmark.NumIteration = int32(*numIter)
-	//benchmark.Dim = int32(*dimension)
+	benchmark.NumIterations = int32(*numIter)
+	benchmark.NumParticles = int32(*particles)
 
 	runner.AddBenchmark(benchmark)
 

@@ -5,7 +5,7 @@ require (
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/mjibson/esc v0.2.0 // indirect
-	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.8.1
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/xid v1.2.1

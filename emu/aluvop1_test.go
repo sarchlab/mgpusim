@@ -61,6 +61,20 @@ var _ = Describe("ALU", func() {
 
 	})
 
+	It("should run V_CVT_F64_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 4
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(1)
+		sp.EXEC = 0x1
+
+		alu.Run(state)
+
+		Expect(math.Float64frombits(sp.DST[0])).To(Equal(float64(1.0)))
+	})
+
 	It("should run V_CVT_F32_U32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP1

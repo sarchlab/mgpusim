@@ -43,7 +43,6 @@ type Benchmark struct {
 	refVel           []float32 // Reference velocity
 	groupSize        int32     // Work-Group size
 	NumIterations    int32
-	isFirstLuanch    bool
 	exchange         bool
 	numBodies        int32
 	currPos          driver.GPUPtr
@@ -64,10 +63,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.groupSize = 256
 	b.delT = 0.005
 	b.espSqr = 500.0
-	b.isFirstLuanch = true
 	b.exchange = true
-	b.NumIterations = 4
-	b.NumParticles = 4096
 
 	if b.NumParticles < b.groupSize {
 		b.NumParticles = b.groupSize

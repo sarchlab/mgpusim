@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
-var mb = flag.Int("MB", 8, "data size (in megabytes)")
+var mb = flag.Int("MB", 1, "data size (in megabytes)")
 var passes = flag.Int("passes", 5, "data size (in megabytes)")
 
 func main() {

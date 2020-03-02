@@ -12,6 +12,8 @@ func (u *ALUImpl) runSOP1(state InstEmuState) {
 		u.runSMOVB64(state)
 	case 4:
 		u.runSNOTU32(state)
+	case 8:
+		u.runSBREVB32(state)
 	case 28:
 		u.runSGETPCB64(state)
 	case 32:
@@ -51,6 +53,19 @@ func (u *ALUImpl) runSNOTU32(state InstEmuState) {
 	if sp.DST != 0 {
 		sp.SCC = 1
 	}
+}
+
+func (u *ALUImpl) runSBREVB32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP1()
+	dst := uint64(0)
+	for i := 0; i < 32; i++ {
+		bit := uint64(1 << (31 - i))
+		bit = sp.SRC0 & bit
+		bit = bit >> (31 - i)
+		bit = bit << i
+		dst = dst | bit
+	}
+	sp.DST = dst
 }
 
 func (u *ALUImpl) runSGETPCB64(state InstEmuState) {

@@ -47,11 +47,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.driver = driver
 	b.context = driver.Init()
 	b.loadProgram()
-	b.Bytes *= 1024 * 1024
-	b.halfNFfts = b.Bytes / (512 * 4 * 2 * 2)
-	b.nFfts = b.halfNFfts * 2
-	b.halfNCmplx = b.halfNFfts * 512
-	b.usedBytes = uint64(b.halfNCmplx) * 2 * 4 * 2
 	return b
 }
 
@@ -84,6 +79,13 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
+
+	b.Bytes = b.Bytes * 1024 * 1024
+	b.halfNFfts = b.Bytes / (512 * 4 * 2 * 2)
+	b.nFfts = b.halfNFfts * 2
+	b.halfNCmplx = b.halfNFfts * 512
+	b.usedBytes = uint64(b.halfNCmplx) * 2 * 4 * 2
+
 	b.source = make([]float2, b.usedBytes>>3)
 	b.result = make([]float2, b.usedBytes>>3)
 	b.fill()
