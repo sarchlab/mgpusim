@@ -512,7 +512,7 @@ func (d *Disassembler) decodeVOP3b(inst *Inst, buf []byte) error {
 		inst.Src1.RegCount = 2
 	}
 
-	if inst.Opcode > 255 {
+	if inst.Opcode > 255 && inst.SRC2Width > 0 {
 		inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
 		if inst.SRC2Width == 64 {
 			inst.Src2.RegCount = 2
