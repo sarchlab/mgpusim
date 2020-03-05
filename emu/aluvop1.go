@@ -13,6 +13,8 @@ func (u *ALUImpl) runVOP1(state InstEmuState) {
 		u.runVMOVB32(state)
 	case 2:
 		u.runVREADFIRSTLANEB32(state)
+	case 4:
+		u.runVCVTF64I32(state)
 	case 6:
 		u.runVCVTF32U32(state)
 	case 7:
@@ -31,6 +33,8 @@ func (u *ALUImpl) runVOP1(state InstEmuState) {
 		u.runTRUNKF32(state)
 	case 34, 35:
 		u.runVRCPIFLAGF32(state)
+	case 36:
+		u.runVRSQF32(state)
 	case 37:
 		u.runVRCPF64(state)
 	case 43:
@@ -67,6 +71,19 @@ func (u *ALUImpl) runVREADFIRSTLANEB32(state InstEmuState) {
 
 	for i = 0; i < 64; i++ {
 		sp.DST[i] = sp.SRC0[laneid]
+	}
+}
+
+func (u *ALUImpl) runVCVTF64I32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		sp.DST[i] = math.Float64bits(float64(int32(sp.SRC0[i])))
 	}
 }
 
@@ -143,6 +160,21 @@ func (u *ALUImpl) runTRUNKF32(state InstEmuState) {
 
 		src := math.Float32frombits(uint32(sp.SRC0[i]))
 		dst := float32(math.Trunc(float64(src)))
+		sp.DST[i] = uint64(math.Float32bits(dst))
+	}
+}
+
+func (u *ALUImpl) runVRSQF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src := math.Float32frombits(uint32(sp.SRC0[i]))
+		dst := float32(1.0 / math.Sqrt(float64(src)))
 		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }

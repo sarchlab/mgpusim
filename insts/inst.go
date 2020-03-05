@@ -82,6 +82,8 @@ type Inst struct {
 	Src1Sext  bool
 	Src1Neg   bool
 	Src1Abs   bool
+	Src2Neg   bool
+	Src2Abs   bool
 }
 
 // NewInst creates a zero-filled instruction
@@ -178,6 +180,8 @@ func (i Inst) vop2String() string {
 	switch i.Opcode {
 	case 0, 28, 29:
 		s += ", vcc"
+	case 24, 37: // madak
+		s += ", " + i.Src2.String()
 	}
 
 	if i.IsSdwa {
@@ -219,14 +223,45 @@ func (i Inst) sopcString() string {
 }
 
 func (i Inst) vop3aString() string {
-	// TODO: Lots of things not considered here
-	s := fmt.Sprintf("%s %s, %s, %s",
-		i.InstName, i.Dst.String(),
-		i.Src0.String(), i.Src1.String())
+	s := fmt.Sprintf("%s %s",
+		i.InstName, i.Dst.String())
 
-	if i.Src2 != nil {
-		s += ", " + i.Src2.String()
+	s += ", " + i.vop3aInputOperandString(*i.Src0,
+		i.Src0Neg,
+		i.Src0Abs)
+
+	s += ", " + i.vop3aInputOperandString(*i.Src1,
+		i.Src1Neg,
+		i.Src1Abs)
+
+	if i.Src2 == nil {
+		return s
 	}
+
+	s += ", " + i.vop3aInputOperandString(*i.Src2,
+		i.Src2Neg,
+		i.Src2Abs)
+
+	return s
+}
+
+func (i Inst) vop3aInputOperandString(operand Operand, neg, abs bool) string {
+	s := ""
+
+	if neg {
+		s += "-"
+	}
+
+	if abs {
+		s += "|"
+	}
+
+	s += operand.String()
+
+	if abs {
+		s += "|"
+	}
+
 	return s
 }
 

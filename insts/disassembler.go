@@ -156,12 +156,20 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 	}
 
 	dstValue := extractBits(bytes, 17, 24)
-	if inst.Opcode == 2 {
-		// v_readfirstlane_b32
+	switch inst.Opcode {
+	case 2: // v_readfirstlane_b32
 		inst.Dst, _ = getOperand(uint16(dstValue))
-	} else {
+	default:
 		inst.Dst, _ = getOperand(uint16(dstValue + 256))
 	}
+
+	switch inst.Opcode {
+	case 4: // v_cvt_f64_i32_e32
+		inst.Dst.RegCount = 2
+	case 15: // v_cvt_f32_f64_e32
+		inst.Src0.RegCount = 2
+	}
+
 	return nil
 }
 
@@ -307,8 +315,18 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 
 	bits := int(extractBits(bytes, 9, 16))
 	inst.Src1 = NewVRegOperand(bits, bits, 0)
+
 	bits = int(extractBits(bytes, 17, 24))
 	inst.Dst = NewVRegOperand(bits, bits, 0)
+
+	switch inst.Opcode {
+	case 24, 37: // v_madak
+		inst.Imm = true
+		inst.ByteSize += 4
+		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
+		inst.Src2.LiteralConstant = BytesToUint32(buf[4:8])
+	}
+
 	return nil
 }
 
@@ -494,7 +512,7 @@ func (d *Disassembler) decodeVOP3b(inst *Inst, buf []byte) error {
 		inst.Src1.RegCount = 2
 	}
 
-	if inst.Opcode > 255 {
+	if inst.Opcode > 255 && inst.SRC2Width > 0 {
 		inst.Src2, _ = getOperand(uint16(extractBits(bytesHi, 18, 26)))
 		if inst.SRC2Width == 64 {
 			inst.Src2.RegCount = 2
@@ -521,6 +539,8 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 	}
 
 	inst.Abs = int(extractBits(bytesLo, 8, 10))
+	d.parseAbs(inst, inst.Abs)
+
 	if extractBits(bytesLo, 15, 15) != 0 {
 		inst.Clamp = true
 	}
@@ -543,7 +563,37 @@ func (d *Disassembler) decodeVOP3a(inst *Inst, buf []byte) error {
 
 	inst.Omod = int(extractBits(bytesHi, 27, 28))
 	inst.Neg = int(extractBits(bytesHi, 29, 31))
+	d.parseNeg(inst, inst.Neg)
+
 	return nil
+}
+
+func (d *Disassembler) parseNeg(inst *Inst, neg int) {
+	if neg&0b001 > 0 {
+		inst.Src0Neg = true
+	}
+
+	if neg&0b010 > 0 {
+		inst.Src1Neg = true
+	}
+
+	if neg&0b100 > 0 {
+		inst.Src2Neg = true
+	}
+}
+
+func (d *Disassembler) parseAbs(inst *Inst, abs int) {
+	if abs&0b001 > 0 {
+		inst.Src0Abs = true
+	}
+
+	if abs&0b010 > 0 {
+		inst.Src1Abs = true
+	}
+
+	if abs&0b100 > 0 {
+		inst.Src2Abs = true
+	}
 }
 
 func (d *Disassembler) decodeSOP1(inst *Inst, buf []byte) error {
@@ -690,7 +740,7 @@ func (d *Disassembler) Disassemble(
 	w io.Writer,
 ) {
 	fmt.Fprintf(w, "\n%s:\tfile format ELF64-amdgpu\n", filename)
-	fmt.Fprintf(w, "\nDisassembly of section .text:")
+	fmt.Fprintf(w, "\n\nDisassembly of section .text:\n")
 
 	sec := file.Section(".text")
 	data, _ := sec.Data()
@@ -721,9 +771,9 @@ func (d *Disassembler) Disassemble(
 			}
 
 			fmt.Fprintf(w, "// %012X: ", sec.Offset+pc)
-			fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[0:4]))
+			fmt.Fprintf(w, "%08X", binary.LittleEndian.Uint32(buf[0:4]))
 			if inst.ByteSize == 8 {
-				fmt.Fprintf(w, "%08X ", binary.LittleEndian.Uint32(buf[4:8]))
+				fmt.Fprintf(w, " %08X", binary.LittleEndian.Uint32(buf[4:8]))
 			}
 			fmt.Fprintf(w, "\n")
 			buf = buf[inst.ByteSize:]
