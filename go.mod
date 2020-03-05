@@ -9,7 +9,6 @@ require (
 	github.com/onsi/gomega v1.8.1
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/xid v1.2.1
-	github.com/stretchr/testify v1.3.0
 	github.com/tebeka/atexit v0.1.0
 	github.com/vbauerster/mpb/v4 v4.11.2
 	gitlab.com/akita/akita v1.10.0
@@ -31,7 +30,7 @@ require (
 
 // replace gitlab.com/akita/noc => ../noc
 
-replace gitlab.com/akita/mem => ../mem
+// replace gitlab.com/akita/mem => ../mem
 
 // replace gitlab.com/akita/util => ../util
 
