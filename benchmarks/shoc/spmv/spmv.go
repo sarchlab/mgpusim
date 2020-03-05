@@ -16,10 +16,10 @@ type SpmvKernelArgs struct {
 	Cols          driver.GPUPtr
 	RowDelimiters driver.GPUPtr
 	Dim           int32
+	Padding       int32
 	//VecWidth            int32
 	//PartialSums         driver.LocalPtr
 	Out                 driver.GPUPtr
-	Padding             int32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
