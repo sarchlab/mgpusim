@@ -83,7 +83,7 @@ func (u *ALUImpl) runVCVTF64I32(state InstEmuState) {
 			continue
 		}
 
-		sp.DST[i] = uint64(math.Float64bits(float64(int32(sp.SRC0[i]))))
+		sp.DST[i] = math.Float64bits(float64(int32(sp.SRC0[i])))
 	}
 }
 

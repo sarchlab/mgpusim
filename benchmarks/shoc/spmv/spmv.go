@@ -16,10 +16,10 @@ type SpmvKernelArgs struct {
 	Cols          driver.GPUPtr
 	RowDelimiters driver.GPUPtr
 	Dim           int32
-	//VecWidth            int32
-	//PartialSums         driver.LocalPtr
-	Out                 driver.GPUPtr
+	// VecWidth            int32
+	// PartialSums         driver.LocalPtr
 	Padding             int32
+	Out                 driver.GPUPtr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -33,7 +33,6 @@ type Benchmark struct {
 	useUnifiedMemory bool
 	spmvKernel       *insts.HsaCo
 
-	NumIteration int32
 	Dim          int32
 	dValData     driver.GPUPtr
 	dVecData     driver.GPUPtr
@@ -129,16 +128,16 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dOutData, b.out)
 
 	//TODO: Review vecWidth, blockSize, and maxwidth
-	vecWidth := int32(32)   // PreferredWorkGroupSizeMultiple
-	maxLocal := int32(128)  // MaxWorkGroupSize
+	// vecWidth := int32(64)    // PreferredWorkGroupSizeMultiple
+	// maxLocal := int32(64)    // MaxWorkGroupSize
 	blockSize := int32(128) // BLOCK_SIZE
 
-	localWorkSize := vecWidth
-	for ok := true; ok; ok = ((localWorkSize+vecWidth <= maxLocal) && localWorkSize+vecWidth <= blockSize) {
-		localWorkSize += vecWidth
-	}
+	// localWorkSize := vecWidth
+	// for ok := true; ok; ok = ((localWorkSize+vecWidth <= maxLocal) && localWorkSize+vecWidth <= blockSize) {
+	//	localWorkSize += vecWidth
+	// }
 
-	// vectorGlobalWSize := b.Dim * vecWidth
+	// vectorGlobalWSize := b.Dim * vecWidth // 1 warp per row
 
 	args := SpmvKernelArgs{
 		Val:           b.dValData,
@@ -146,19 +145,19 @@ func (b *Benchmark) exec() {
 		Cols:          b.dColsData,
 		RowDelimiters: b.dRowDData,
 		Dim:           b.Dim,
-		// VecWidth:            vecWidth,
-		// PartialSums:         128, //hardcoded value in spmv.cl
-		Out:                 b.dOutData,
+		//VecWidth:            vecWidth,
+		//PartialSums:         driver.LocalPtr(blockSize*4), //hardcoded value in spmv.cl
 		Padding:             0,
+		Out:                 b.dOutData,
 		HiddenGlobalOffsetX: 0,
 		HiddenGlobalOffsetY: 0,
 		HiddenGlobalOffsetZ: 0,
 	}
 
-	// globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
-	// localSize := [3]uint16{uint16(localWorkSize), 1, 1}
 	globalSize := [3]uint32{uint32(b.Dim), 1, 1}
 	localSize := [3]uint16{uint16(blockSize), 1, 1}
+	//globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
+	//localSize := [3]uint16{uint16(localWorkSize), 1, 1}
 
 	b.driver.LaunchKernel(b.context,
 		b.spmvKernel,
