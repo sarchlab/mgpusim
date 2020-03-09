@@ -402,6 +402,22 @@ var _ = Describe("ALU", func() {
 		Expect(asFloat32(uint32(sp.DST[0]))).To(Equal(float32(1024.0 + 16.0*4.0)))
 	})
 
+	It("should run V_MADAK_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 24
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = uint64(float32ToBits(4))
+		sp.SRC1[0] = uint64(float32ToBits(16))
+		sp.LiteralConstant = uint64(float32ToBits(1024))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(asFloat32(uint32(sp.DST[0]))).To(Equal(float32(1024.0 + 16.0*4.0)))
+	})
+
 	It("should run V_ADD_I32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP2

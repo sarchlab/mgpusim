@@ -4,10 +4,10 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -229,6 +229,35 @@ var _ = Describe("ALU", func() {
 			buf, err := storage.Read(uint64(i*4), uint64(4))
 			Expect(err).To(BeNil())
 			Expect(insts.BytesToUint32(buf)).To(Equal(uint32(i)))
+		}
+	})
+
+	It("should run FLAT_STORE_DWORDX2", func() {
+		for i := 0; i < 64; i++ {
+			pageTable.EXPECT().
+				Find(ca.PID(1), uint64(i*16)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
+		}
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.FLAT
+		state.inst.Opcode = 29
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 16)
+			layout.DATA[i*4] = uint32(i)
+			layout.DATA[(i*4)+1] = uint32(i)
+		}
+		layout.EXEC = 0xffffffffffffffff
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			buf, err := storage.Read(uint64(i*16), uint64(16))
+			Expect(err).To(BeNil())
+			Expect(insts.BytesToUint32(buf[0:4])).To(Equal(uint32(i)))
 		}
 	})
 

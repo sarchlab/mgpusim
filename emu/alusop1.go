@@ -57,15 +57,15 @@ func (u *ALUImpl) runSNOTU32(state InstEmuState) {
 
 func (u *ALUImpl) runSBREVB32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP1()
-	dst := uint64(0)
+	dst := uint32(0)
 	for i := 0; i < 32; i++ {
-		bit := uint64(1 << (31 - i))
-		bit = sp.SRC0 & bit
+		bit := uint32(1 << (31 - i))
+		bit = uint32(sp.SRC0) & bit
 		bit = bit >> (31 - i)
 		bit = bit << i
 		dst = dst | bit
 	}
-	sp.DST = dst
+	sp.DST = uint64(dst)
 }
 
 func (u *ALUImpl) runSGETPCB64(state InstEmuState) {
