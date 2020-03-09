@@ -123,6 +123,10 @@ func (p *ScratchpadPreparerImpl) prepareVOP2(
 	copy(sp[0:8], wf.ReadReg(insts.Regs[insts.EXEC], 1, 0))
 	copy(sp[520:528], wf.ReadReg(insts.Regs[insts.VCC], 1, 0))
 
+	if inst.Src2 != nil {
+		p.readOperand(inst.Src2, wf, 0, sp[1552:1560])
+	}
+
 	dstOffset := 8
 	src0Offset := 528
 	src1Offset := 1040

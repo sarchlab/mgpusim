@@ -10,14 +10,14 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-type float2 struct {
-	x float32
-	y float32
+type Float2 struct {
+	X, Y float32
 }
 
 type FFTKernelArgs struct {
 	Work                driver.GPUPtr
 	Smem                driver.LocalPtr
+	Paddinng            int32
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -38,8 +38,8 @@ type Benchmark struct {
 	halfNCmplx int32
 	usedBytes  uint64
 	dSource    driver.GPUPtr
-	source     []float2
-	result     []float2
+	source     []Float2
+	result     []Float2
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -79,15 +79,14 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-
 	b.Bytes = b.Bytes * 1024 * 1024
 	b.halfNFfts = b.Bytes / (512 * 4 * 2 * 2)
 	b.nFfts = b.halfNFfts * 2
 	b.halfNCmplx = b.halfNFfts * 512
 	b.usedBytes = uint64(b.halfNCmplx) * 2 * 4 * 2
 
-	b.source = make([]float2, b.usedBytes>>3)
-	b.result = make([]float2, b.usedBytes>>3)
+	b.source = make([]Float2, b.usedBytes>>3)
+	b.result = make([]Float2, b.usedBytes>>3)
 	b.fill()
 
 	if b.useUnifiedMemory {
@@ -104,18 +103,19 @@ func (b *Benchmark) exec() {
 	localWorkSize := int32(64)
 	vectorGlobalWSize := localWorkSize * b.nFfts
 
-	args := FFTKernelArgs{
-		Work:                b.dSource,
-		Smem:                8 * 8 * 9,
-		HiddenGlobalOffsetX: 0,
-		HiddenGlobalOffsetY: 0,
-		HiddenGlobalOffsetZ: 0,
-	}
-
 	globalSize := [3]uint32{uint32(vectorGlobalWSize), 1, 1}
 	localSize := [3]uint16{uint16(localWorkSize), 1, 1}
 
 	for k := int32(0); k < b.Passes; k++ {
+		args := FFTKernelArgs{
+			Work:                b.dSource,
+			Smem:                8 * 8 * 9 * 8,
+			Paddinng:            0,
+			HiddenGlobalOffsetX: 0,
+			HiddenGlobalOffsetY: 0,
+			HiddenGlobalOffsetZ: 0,
+		}
+
 		b.driver.LaunchKernel(b.context,
 			b.fftKernel,
 			globalSize, localSize,
@@ -140,8 +140,8 @@ func (b *Benchmark) Verify() {
 
 func (b *Benchmark) fftCPU() int32 {
 	fail := int32(0)
-	fst := make([]float2, b.nFfts<<6)
-	snd := make([]float2, b.nFfts<<6)
+	fst := make([]Float2, b.nFfts<<6)
+	snd := make([]Float2, b.nFfts<<6)
 	for i := int32(0); i < (b.nFfts << 6); i++ {
 		fst[i] = b.source[i]
 	}
@@ -151,7 +151,7 @@ func (b *Benchmark) fftCPU() int32 {
 	}
 
 	for i := int32(0); i < (b.nFfts << 6); i++ {
-		if fst[i].x != snd[i].x || fst[i].y != snd[i].y {
+		if fst[i].X != snd[i].X || fst[i].Y != snd[i].Y {
 			fail = 1
 		}
 	}
@@ -162,9 +162,9 @@ func (b *Benchmark) fill() {
 	rand.Seed(1)
 
 	for i := int32(0); i < b.halfNCmplx; i++ {
-		b.source[i].x = (rand.Float32())*2 - 1
-		b.source[i].y = (rand.Float32())*2 - 1
-		b.source[i+b.halfNCmplx].x = b.source[i].x
-		b.source[i+b.halfNCmplx].y = b.source[i].y
+		b.source[i].X = (rand.Float32())*2 - 1
+		b.source[i].Y = (rand.Float32())*2 - 1
+		b.source[i+b.halfNCmplx].X = b.source[i].X
+		b.source[i+b.halfNCmplx].Y = b.source[i].Y
 	}
 }

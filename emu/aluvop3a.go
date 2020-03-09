@@ -15,6 +15,8 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 	switch inst.Opcode {
 	case 65: // 0x41
 		u.runVCmpLtF32VOP3a(state)
+	case 78: // 0x41
+		u.runVCmpNltF32VOP3a(state)
 	case 193: // 0xC1
 		u.runVCmpLtI32VOP3a(state)
 	case 196: // 0xC4
@@ -35,6 +37,8 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVCmpLtU64VOP3a(state)
 	case 256:
 		u.runVCNDMASKB32VOP3a(state)
+	case 258:
+		u.runVSUBF32VOP3a(state)
 	case 449:
 		u.runVMADF32(state)
 	case 451, 488:
@@ -79,7 +83,8 @@ func (u *ALUImpl) vop3aPreProcessAbs(state InstEmuState) {
 	inst := state.Inst()
 	sp := state.Scratchpad().AsVOP3A()
 
-	if strings.Contains(inst.InstName, "F32") {
+	if strings.Contains(inst.InstName, "F32") ||
+		strings.Contains(inst.InstName, "f32") {
 		if inst.Abs&0x1 != 0 {
 			for i := 0; i < 64; i++ {
 				src0 := math.Float32frombits(uint32(sp.SRC0[i]))
@@ -110,35 +115,103 @@ func (u *ALUImpl) vop3aPreProcessAbs(state InstEmuState) {
 
 func (u *ALUImpl) vop3aPreProcessNeg(state InstEmuState) {
 	inst := state.Inst()
-	sp := state.Scratchpad().AsVOP3A()
 
 	if strings.Contains(inst.InstName, "F64") ||
 		strings.Contains(inst.InstName, "f64") {
-		if inst.Neg&0x1 != 0 {
-			for i := 0; i < 64; i++ {
-				src0 := math.Float64frombits(sp.SRC0[i])
-				src0 = src0 * (-1.0)
-				sp.SRC0[i] = math.Float64bits(src0)
-			}
-		}
-
-		if inst.Neg&0x2 != 0 {
-			for i := 0; i < 64; i++ {
-				src1 := math.Float64frombits(sp.SRC1[i])
-				src1 = src1 * (-1.0)
-				sp.SRC1[i] = math.Float64bits(src1)
-			}
-		}
-
-		if inst.Neg&0x4 != 0 {
-			for i := 0; i < 64; i++ {
-				src2 := math.Float64frombits(sp.SRC2[i])
-				src2 = src2 * (-1.0)
-				sp.SRC2[i] = math.Float64bits(src2)
-			}
-		}
+		u.vop3aPreProcessF64Neg(state)
+	} else if strings.Contains(inst.InstName, "F32") ||
+		strings.Contains(inst.InstName, "f32") {
+		u.vop3aPreProcessF32Neg(state)
+	} else if strings.Contains(inst.InstName, "B32") ||
+		strings.Contains(inst.InstName, "b32") {
+		u.vop3aPreProcessB32Neg(state)
 	} else {
 		log.Printf("Negative operation for %s is not implemented.", inst.InstName)
+	}
+}
+
+func (u *ALUImpl) vop3aPreProcessF64Neg(state InstEmuState) {
+	inst := state.Inst()
+	sp := state.Scratchpad().AsVOP3A()
+
+	if inst.Neg&0x1 != 0 {
+		for i := 0; i < 64; i++ {
+			src0 := math.Float64frombits(sp.SRC0[i])
+			src0 = src0 * (-1.0)
+			sp.SRC0[i] = math.Float64bits(src0)
+		}
+	}
+
+	if inst.Neg&0x2 != 0 {
+		for i := 0; i < 64; i++ {
+			src1 := math.Float64frombits(sp.SRC1[i])
+			src1 = src1 * (-1.0)
+			sp.SRC1[i] = math.Float64bits(src1)
+		}
+	}
+
+	if inst.Neg&0x4 != 0 {
+		for i := 0; i < 64; i++ {
+			src2 := math.Float64frombits(sp.SRC2[i])
+			src2 = src2 * (-1.0)
+			sp.SRC2[i] = math.Float64bits(src2)
+		}
+	}
+}
+
+func (u *ALUImpl) vop3aPreProcessF32Neg(state InstEmuState) {
+	inst := state.Inst()
+	sp := state.Scratchpad().AsVOP3A()
+	if inst.Neg&0x1 != 0 {
+		for i := 0; i < 64; i++ {
+			src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+			src0 = src0 * (-1.0)
+			sp.SRC0[i] = uint64(math.Float32bits(src0))
+		}
+	}
+
+	if inst.Neg&0x2 != 0 {
+		for i := 0; i < 64; i++ {
+			src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+			src1 = src1 * (-1.0)
+			sp.SRC1[i] = uint64(math.Float32bits(src1))
+		}
+	}
+
+	if inst.Neg&0x4 != 0 {
+		for i := 0; i < 64; i++ {
+			src2 := math.Float32frombits(uint32(sp.SRC2[i]))
+			src2 = src2 * (-1.0)
+			sp.SRC2[i] = uint64(math.Float32bits(src2))
+		}
+	}
+}
+
+func (u *ALUImpl) vop3aPreProcessB32Neg(state InstEmuState) {
+	inst := state.Inst()
+	sp := state.Scratchpad().AsVOP3A()
+	if inst.Neg&0x1 != 0 {
+		for i := 0; i < 64; i++ {
+			src0 := asInt32(uint32(sp.SRC0[i]))
+			src0 = src0 * (-1.0)
+			sp.SRC0[i] = uint64(int32ToBits(src0))
+		}
+	}
+
+	if inst.Neg&0x2 != 0 {
+		for i := 0; i < 64; i++ {
+			src1 := asInt32(uint32(sp.SRC1[i]))
+			src1 = src1 * (-1.0)
+			sp.SRC1[i] = uint64(int32ToBits(src1))
+		}
+	}
+
+	if inst.Neg&0x4 != 0 {
+		for i := 0; i < 64; i++ {
+			src2 := asInt32(uint32(sp.SRC2[i]))
+			src2 = src2 * (-1.0)
+			sp.SRC2[i] = uint64(int32ToBits(src2))
+		}
 	}
 }
 
@@ -162,6 +235,23 @@ func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
 		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
 		if src0 < src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpNltF32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if !(src0 < src1) {
 			sp.DST[0] |= (1 << i)
 		}
 	}
@@ -343,6 +433,21 @@ func (u *ALUImpl) runVCNDMASKB32VOP3a(state InstEmuState) {
 		} else {
 			sp.DST[i] = sp.SRC0[i]
 		}
+	}
+}
+
+func (u *ALUImpl) runVSUBF32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 := math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 := math.Float32frombits(uint32(sp.SRC1[i]))
+		dst := src0 - src1
+		sp.DST[i] = uint64(math.Float32bits(dst))
 	}
 }
 

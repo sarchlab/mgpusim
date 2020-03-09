@@ -122,7 +122,9 @@ func (p *ScratchpadPreparerImpl) prepareVOP2(
 
 	layout.EXEC = wf.EXEC
 	layout.VCC = wf.VCC
-
+	if inst.Src2 != nil {
+		p.readOperand(inst.Src2, wf, 0, sp[1552:1560])
+	}
 	dstOffset := 8
 	src0Offset := 528
 	src1Offset := 1040
