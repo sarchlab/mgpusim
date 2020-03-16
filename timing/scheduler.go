@@ -4,9 +4,9 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/mem"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -90,10 +90,10 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 			if wf.InstToIssue != nil {
 				continue
 			}
-			//
-			//if !s.wfHasAtLeast8BytesInInstBuffer(wf) {
-			//	continue
-			//}
+
+			if !s.wfHasAtLeast8BytesInInstBuffer(wf) {
+				continue
+			}
 
 			inst, err := s.cu.Decoder.Decode(
 				wf.InstBuffer[wf.PC-wf.InstBufferStartPC:])
@@ -105,6 +105,10 @@ func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 		}
 	}
 	return madeProgress
+}
+
+func (s *SchedulerImpl) wfHasAtLeast8BytesInInstBuffer(wf *wavefront.Wavefront) bool {
+	return len(wf.InstBuffer[wf.PC-wf.InstBufferStartPC:]) >= 8
 }
 
 // DoFetch function of the scheduler will fetch instructions from the

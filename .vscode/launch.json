@@ -93,6 +93,7 @@
             "program": "${workspaceFolder}/samples/spmv",
             "args": [
                 "-verify",
+                "-timing",
             ]
         },
         {
@@ -102,7 +103,9 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fft",
             "args": [
+                "-MB=2",
                 "-verify",
+                "-timing",
             ]
         },
         {
@@ -113,6 +116,7 @@
             "program": "${workspaceFolder}/samples/nbody",
             "args": [
                 "-verify",
+                "-timing",
             ]
         },
         {
