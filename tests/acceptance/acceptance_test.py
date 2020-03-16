@@ -251,6 +251,18 @@ def main():
               'concurrentworkload',
               [],
               '')
+    sp = Test('../../samples/spmv',
+              'spmv',
+              [],
+              '../../benchmarks/shoc/spmv')
+    fft = Test('../../samples/fft',
+              'fft',
+              ['-MB=2'],
+              '../../benchmarks/shoc/fft')
+    nb = Test('../../samples/nbody',
+              'nbody',
+              [],
+              '../../benchmarks/shoc/nbody')
 
     args = parseArgs()
 
@@ -287,6 +299,12 @@ def main():
                         use_unified_memory=args.unified_memory)
         err |= st.test(test_unified_multi_gpu=True,
                        use_unified_memory=args.unified_memory)
+        err |= sp.test(test_unified_multi_gpu=True,
+                       use_unified_memory=args.unified_memory)
+        err |= fft.test(test_unified_multi_gpu=True,
+                       use_unified_memory=args.unified_memory)
+        err |= nb.test(test_unified_multi_gpu=True,
+                        use_unified_memory=args.unified_memory)
     elif args.discrete_multi_gpu:
         err |= aes.test(test_multi_gpu=True,
                         use_unified_memory=args.unified_memory)
@@ -303,10 +321,6 @@ def main():
         err |= bs.test(test_multi_gpu=True,
                        use_unified_memory=args.unified_memory)
         err |= sc.test(test_multi_gpu=True,
-                       use_unified_memory=args.unified_memory)
-        err |= re.test(test_multi_gpu=True,
-                       use_unified_memory=args.unified_memory)
-        err |= mp.test(test_multi_gpu=True,
                        use_unified_memory=args.unified_memory)
     else:
         err |= compile('../../insts/gcn3disassembler')
@@ -325,10 +339,14 @@ def main():
         err |= mp.test()
         err |= bfs.test(test_multi_gpu=False)
         err |= st.test(test_multi_gpu=False)
-
+        err |= sp.test(test_multi_gpu=False)
+        err |= fft.test(test_multi_gpu=False)
+        err |= nb.test(test_multi_gpu=False)
+        
         err |= cw.test(test_disassemble=False,
                        test_unified_multi_gpu=False,
                        test_multi_gpu=False)
+
 
     # error |= compile('acceptancetests/cupipelinedraining')
     # error |= run_test('CU Pipeline Draining',
