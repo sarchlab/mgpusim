@@ -6,12 +6,12 @@ import (
 	"reflect"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/tlb"
+	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/util"
 	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/tracing"
@@ -74,7 +74,6 @@ type CommandProcessor struct {
 	bottomReqIDToTopReqMap map[string]*LaunchKernelReq
 }
 
-//nolint:gocyclo,funlen
 // Handle processes the events that is scheduled for the CommandProcessor
 func (p *CommandProcessor) Handle(e akita.Event) error {
 	p.Lock()

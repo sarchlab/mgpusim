@@ -6,13 +6,13 @@ import (
 
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/cache"
+	gcn3 "gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/emu"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
 	"gitlab.com/akita/util/akitaext"
 	"gitlab.com/akita/util/tracing"
@@ -777,9 +777,9 @@ func (cu *ComputeUnit) checkShadowBuffers(now akita.VTimeInSec) bool {
 		cu.Scheduler.Resume()
 		cu.isPaused = false
 		return true
-	} else {
-		return cu.sendOutShadowBufferReqs(now)
 	}
+
+	return cu.sendOutShadowBufferReqs(now)
 }
 
 func (cu *ComputeUnit) sendOutShadowBufferReqs(now akita.VTimeInSec) bool {

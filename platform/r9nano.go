@@ -149,10 +149,11 @@ func (b R9NanoPlatformBuilder) createConnection(
 	//connection := akita.NewDirectConnection(engine)
 	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
 	// connection.SrcBufferCapacity = 40960000
-	pcieConnector := new(pcie.Connector).
+	pcieConnector := pcie.NewConnector().
 		WithEngine(engine).
 		WithVersion3().
 		WithX16().
+		WithSwitchLatency(140).
 		WithNetworkName("PCIe")
 	pcieConnector.CreateNetwork()
 	rootComplexID := pcieConnector.CreateRootComplex(
