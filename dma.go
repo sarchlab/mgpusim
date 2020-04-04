@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/util/tracing"
 )
 
 // A DMAEngine is responsible for accessing data that does not belongs to
@@ -82,6 +83,8 @@ func (dma *DMAEngine) processDataReadyRsp(
 	rsp *mem.DataReadyRsp,
 ) {
 	req := dma.removeReqFromPendingReqList(rsp.RespondTo).(*mem.ReadReq)
+	tracing.TraceReqFinalize(req, now, dma)
+
 	processing := dma.processingReq.(*MemCopyD2HReq)
 
 	offset := req.Address - processing.SrcAddress
@@ -89,6 +92,7 @@ func (dma *DMAEngine) processDataReadyRsp(
 	// fmt.Printf("Dma DataReady %x, %v\n", req.Address, rsp.Data)
 
 	if len(dma.pendingReqs) == 0 {
+		tracing.TraceReqComplete(dma.processingReq, now, dma)
 		dma.processingReq = nil
 		processing.Src, processing.Dst = processing.Dst, processing.Src
 		dma.toSendToCP = append(dma.toSendToCP, processing)
@@ -99,9 +103,12 @@ func (dma *DMAEngine) processDoneRsp(
 	now akita.VTimeInSec,
 	rsp *mem.WriteDoneRsp,
 ) {
-	dma.removeReqFromPendingReqList(rsp.RespondTo)
+	r := dma.removeReqFromPendingReqList(rsp.RespondTo)
+	tracing.TraceReqFinalize(r, now, dma)
+
 	processing := dma.processingReq.(*MemCopyH2DReq)
 	if len(dma.pendingReqs) == 0 {
+		tracing.TraceReqComplete(dma.processingReq, now, dma)
 		dma.processingReq = nil
 		processing.Src, processing.Dst = processing.Dst, processing.Src
 		dma.toSendToCP = append(dma.toSendToCP, processing)
@@ -136,9 +143,9 @@ func (dma *DMAEngine) parseFromCP(now akita.VTimeInSec) bool {
 	if req == nil {
 		return false
 	}
+	tracing.TraceReqReceive(req, now, dma)
 
 	dma.processingReq = req
-
 	switch req := req.(type) {
 	case *MemCopyH2DReq:
 		dma.parseMemCopyH2D(now, req)
@@ -180,6 +187,9 @@ func (dma *DMAEngine) parseMemCopyH2D(
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
+		tracing.TraceReqInitiate(reqToBottom, now, dma,
+			tracing.MsgIDAtReceiver(dma.processingReq, dma))
+
 		addr += length
 		lengthLeft -= length
 		offset += length
@@ -214,6 +224,9 @@ func (dma *DMAEngine) parseMemCopyD2H(
 			Build()
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
+
+		tracing.TraceReqInitiate(reqToBottom, now, dma,
+			tracing.MsgIDAtReceiver(dma.processingReq, dma))
 
 		addr += length
 		lengthLeft -= length

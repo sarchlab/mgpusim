@@ -252,6 +252,10 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 		b.engine,
 		b.LowModuleFinderForL2)
 	b.CP.DMAEngine = b.DMAEngine.ToCP
+
+	if b.enableVisTracing {
+		tracing.CollectTrace(b.DMAEngine, b.visTracer)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildCP() {
