@@ -20,9 +20,6 @@ import (
 // CommandProcessor is an Akita component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
 // GPU.
-//
-//     ToDriver <=> Receive request and send feedback to the driver
-//     ToDispatcher <=> Dispatcher of compute kernels
 type CommandProcessor struct {
 	*akita.TickingComponent
 
@@ -71,7 +68,9 @@ type CommandProcessor struct {
 
 	shootDownInProcess bool
 
-	bottomReqIDToTopReqMap map[string]*LaunchKernelReq
+	bottomKernelLaunchReqIDToTopReqMap map[string]*LaunchKernelReq
+	bottomMemCopyH2DReqIDToTopReqMap   map[string]*MemCopyH2DReq
+	bottomMemCopyD2HReqIDToTopReqMap   map[string]*MemCopyD2HReq
 }
 
 // Handle processes the events that is scheduled for the CommandProcessor
@@ -274,20 +273,19 @@ func (p *CommandProcessor) processLaunchKernelReq(
 	now akita.VTimeInSec,
 	req *LaunchKernelReq,
 ) bool {
-	reqToBottom := NewLaunchKernelReq(now, p.ToDispatcher, p.Dispatcher)
-	reqToBottom.PID = req.PID
-	reqToBottom.Packet = req.Packet
-	reqToBottom.PacketAddress = req.PacketAddress
-	reqToBottom.HsaCo = req.HsaCo
+	var reqToBottom LaunchKernelReq
+	reqToBottom = *req
+	reqToBottom.ID = akita.GetIDGenerator().Generate()
+	reqToBottom.Src = p.ToDispatcher
+	reqToBottom.Dst = p.Dispatcher
 	reqToBottom.SendTime = now
-	reqToBottom.WGFilter = req.WGFilter
 
-	p.toDispatcherSender.Send(reqToBottom)
-	p.bottomReqIDToTopReqMap[reqToBottom.ID] = req
+	p.toDispatcherSender.Send(&reqToBottom)
+	p.bottomKernelLaunchReqIDToTopReqMap[reqToBottom.ID] = req
 	p.ToDriver.Retrieve(now)
 
 	tracing.TraceReqReceive(req, now, p)
-	tracing.TraceReqInitiate(reqToBottom, now, p,
+	tracing.TraceReqInitiate(&reqToBottom, now, p,
 		tracing.MsgIDAtReceiver(req, p))
 
 	return true
@@ -312,7 +310,7 @@ func (p *CommandProcessor) handleReplyKernelCompletionEvent(
 	now := evt.Time()
 
 	req := evt.Req
-	originalReq := p.bottomReqIDToTopReqMap[req.ID]
+	originalReq := p.bottomKernelLaunchReqIDToTopReqMap[req.ID]
 	originalReq.SendTime = now
 	originalReq.Src, originalReq.Dst = originalReq.Dst, originalReq.Src
 
@@ -755,27 +753,82 @@ func (p *CommandProcessor) flushCache(now akita.VTimeInSec, port akita.Port) {
 	p.numCacheACK++
 }
 
+func (p *CommandProcessor) cloneMemCopyH2DReq(
+	req *MemCopyH2DReq,
+) *MemCopyH2DReq {
+	cloned := *req
+	cloned.ID = akita.GetIDGenerator().Generate()
+	p.bottomMemCopyH2DReqIDToTopReqMap[cloned.ID] = req
+	return &cloned
+}
+
+func (p *CommandProcessor) cloneMemCopyD2HReq(
+	req *MemCopyD2HReq,
+) *MemCopyD2HReq {
+	cloned := *req
+	cloned.ID = akita.GetIDGenerator().Generate()
+	p.bottomMemCopyD2HReqIDToTopReqMap[cloned.ID] = req
+	return &cloned
+}
+
 func (p *CommandProcessor) processMemCopyReq(
 	now akita.VTimeInSec,
 	req akita.Msg,
 ) bool {
-	req.Meta().Dst = p.DMAEngine
-	req.Meta().Src = p.ToDispatcher
-	req.Meta().SendTime = now
-	p.toDispatcherSender.Send(req)
+	var cloned akita.Msg
+	switch req := req.(type) {
+	case *MemCopyH2DReq:
+		cloned = p.cloneMemCopyH2DReq(req)
+	case *MemCopyD2HReq:
+		cloned = p.cloneMemCopyD2HReq(req)
+	default:
+		panic("unknown type")
+	}
+
+	cloned.Meta().Dst = p.DMAEngine
+	cloned.Meta().Src = p.ToDispatcher
+	cloned.Meta().SendTime = now
+
+	p.toDispatcherSender.Send(cloned)
 	p.ToDriver.Retrieve(now)
+
+	tracing.TraceReqReceive(req, now, p)
+	tracing.TraceReqInitiate(cloned, now, p, tracing.MsgIDAtReceiver(req, p))
+
 	return true
+}
+
+func (p *CommandProcessor) findAndRemoveOriginalMemCopyRequest(
+	rsp akita.Msg,
+) akita.Msg {
+	switch rsp := rsp.(type) {
+	case *MemCopyH2DReq:
+		origionalReq := p.bottomMemCopyH2DReqIDToTopReqMap[rsp.ID]
+		delete(p.bottomMemCopyH2DReqIDToTopReqMap, rsp.ID)
+		return origionalReq
+	case *MemCopyD2HReq:
+		originalReq := p.bottomMemCopyD2HReqIDToTopReqMap[rsp.ID]
+		delete(p.bottomMemCopyD2HReqIDToTopReqMap, rsp.ID)
+		return originalReq
+	default:
+		panic("unknown type")
+	}
 }
 
 func (p *CommandProcessor) processMemCopyRsp(
 	now akita.VTimeInSec,
 	req akita.Msg,
 ) bool {
-	req.Meta().Dst = p.Driver
-	req.Meta().Src = p.ToDriver
-	req.Meta().SendTime = now
-	p.toDriverSender.Send(req)
+	originalReq := p.findAndRemoveOriginalMemCopyRequest(req)
+	originalReq.Meta().Dst = p.Driver
+	originalReq.Meta().Src = p.ToDriver
+	originalReq.Meta().SendTime = now
+	p.toDriverSender.Send(originalReq)
 	p.ToDispatcher.Retrieve(now)
+
+	tracing.TraceReqComplete(originalReq, now, p)
+	tracing.TraceReqFinalize(req, now, p)
+
 	return true
 }
 
@@ -813,7 +866,9 @@ func NewCommandProcessor(name string, engine akita.Engine) *CommandProcessor {
 	c.toCachesSender = akitaext.NewBufferedSender(
 		c.ToDispatcher, util.NewBuffer(unlimited))
 
-	c.bottomReqIDToTopReqMap = make(map[string]*LaunchKernelReq)
+	c.bottomKernelLaunchReqIDToTopReqMap = make(map[string]*LaunchKernelReq)
+	c.bottomMemCopyH2DReqIDToTopReqMap = make(map[string]*MemCopyH2DReq)
+	c.bottomMemCopyD2HReqIDToTopReqMap = make(map[string]*MemCopyD2HReq)
 
 	return c
 }
