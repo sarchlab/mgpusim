@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,18 +18,24 @@ import (
 	"gitlab.com/akita/mgpusim/benchmarks"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
+	"gitlab.com/akita/mgpusim/timing/caches/l1v"
 	"gitlab.com/akita/util/tracing"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
-var parallelFlag = flag.Bool("parallel", false, "Run the simulation in parallel.")
+var parallelFlag = flag.Bool("parallel", false,
+	"Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var visTracing = flag.Bool("trace-vis", false,
 	"Generate trace for visualization purposes.")
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
-var disableProgressBar = flag.Bool("no-progress-bar", false, "Disables the progress bar")
-var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false, "Report the average cache latency.")
+var disableProgressBar = flag.Bool("no-progress-bar", false,
+	"Disables the progress bar")
+var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false,
+	"Report the average cache latency.")
+var cacheHitRateReportFlag = flag.Bool("report-cache-hit-rate", false,
+	"Report the cache hit rate of each cache.")
 var gpuFlag = flag.String("gpus", "",
 	"The GPUs to use, use a format like 1,2,3,4. By default, GPU 1 is used.")
 var unifiedGPUFlag = flag.String("unified-gpus", "",
@@ -42,6 +49,11 @@ type cacheLatencyTracer struct {
 	cache  akita.Component
 }
 
+type cacheHitRateTracer struct {
+	tracer *tracing.StepCountTracer
+	cache  akita.Component
+}
+
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
 	Engine                  akita.Engine
@@ -49,11 +61,13 @@ type Runner struct {
 	KernelTimeCounter       *tracing.BusyTimeTracer
 	PerGPUKernelTimeCounter []*tracing.BusyTimeTracer
 	CacheLatencyTracers     []cacheLatencyTracer
+	CacheHitRateTracers     []cacheHitRateTracer
 	Benchmarks              []benchmarks.Benchmark
 	Timing                  bool
 	Verify                  bool
 	Parallel                bool
 	ReportCacheLatency      bool
+	ReportCacheHitRate      bool
 	UseUnifiedMemory        bool
 
 	GPUIDs []int
@@ -79,6 +93,10 @@ func (r *Runner) ParseFlag() *Runner {
 
 	if *cacheLatencyReportFlag {
 		r.ReportCacheLatency = true
+	}
+
+	if *cacheHitRateReportFlag {
+		r.ReportCacheHitRate = true
 	}
 
 	return r
@@ -114,6 +132,7 @@ func (r *Runner) Init() *Runner {
 
 	r.addKernelTimeTracer()
 	r.addCacheLatencyTracer()
+	r.addCacheHitRateTracer()
 
 	return r
 }
@@ -206,6 +225,46 @@ func (r *Runner) addCacheLatencyTracer() {
 	}
 }
 
+func (r *Runner) addCacheHitRateTracer() {
+	if !r.ReportCacheHitRate {
+		return
+	}
+
+	for _, gpu := range r.GPUDriver.GPUs {
+		for _, cache := range gpu.L1VCaches {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+				cacheHitRateTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+		}
+
+		for _, cache := range gpu.L1SCaches {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+				cacheHitRateTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+		}
+
+		for _, cache := range gpu.L1ICaches {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+				cacheHitRateTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+		}
+
+		for _, cache := range gpu.L2Caches {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+				cacheHitRateTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+	}
+}
+
 func (r *Runner) parseGPUFlag() {
 	if *gpuFlag == "" && *unifiedGPUFlag == "" {
 		r.GPUIDs = []int{1}
@@ -278,17 +337,61 @@ func (r *Runner) Run() {
 	r.GPUDriver.Terminate()
 	r.Engine.Finished()
 
+	r.reportStats()
+
+	atexit.Exit(0)
+}
+
+func (r *Runner) reportStats() {
+	r.reportExecutionTime()
+	r.reportCacheLatency()
+	r.reportCacheHitRate()
+}
+
+func (r *Runner) reportExecutionTime() {
 	fmt.Printf("Kernel time: %.12f\n", r.KernelTimeCounter.BusyTime())
 	fmt.Printf("Total time: %.12f\n", r.Engine.CurrentTime())
 	for i, c := range r.PerGPUKernelTimeCounter {
 		fmt.Printf("GPU %d kernel time: %.12f\n", i+1, c.BusyTime())
 	}
+}
 
+func (r *Runner) reportCacheLatency() {
 	for _, tracer := range r.CacheLatencyTracers {
 		fmt.Printf("Cache %s average latency %.12f\n",
 			tracer.cache.Name(),
 			tracer.tracer.AverageTime(),
 		)
 	}
-	atexit.Exit(0)
+}
+
+func (r *Runner) reportCacheHitRate() {
+	f, err := os.Create("cache_hit.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	fmt.Fprintf(f, "name, read-hit, read-miss, read-mshr-miss, write-hit, write-miss, write-mshr-hit\n")
+
+	for _, tracer := range r.CacheHitRateTracers {
+		readHit := tracer.tracer.GetStepCount("read-hit")
+		readMiss := tracer.tracer.GetStepCount("read-miss")
+		readMSHRHit := tracer.tracer.GetStepCount("read-mshr-miss")
+		writeHit := tracer.tracer.GetStepCount("write-hit")
+		writeMiss := tracer.tracer.GetStepCount("write-miss")
+		writeMSHRHit := tracer.tracer.GetStepCount("write-mshr-miss")
+
+		totalTransaction := readHit + readMiss + readMSHRHit +
+			writeHit + writeMiss + writeMSHRHit
+
+		if totalTransaction == 0 {
+			continue
+		}
+
+		fmt.Fprintf(f, "%s, %d, %d, %d, %d, %d, %d\n",
+			tracer.cache.Name(),
+			readHit, readMiss, readMSHRHit,
+			writeHit, writeMiss, writeMSHRHit)
+	}
 }

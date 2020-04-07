@@ -52,7 +52,15 @@ func (d *directory) processMSHRHit(
 	mshrEntry *cache.MSHREntry,
 ) bool {
 	mshrEntry.Requests = append(mshrEntry.Requests, trans)
+
 	d.cache.dirBuf.Pop()
+
+	if trans.read != nil {
+		tracing.AddTaskStep(trans.id, now, d.cache, "read-mshr-hit")
+	} else {
+		tracing.AddTaskStep(trans.id, now, d.cache, "write-mshr-hit")
+	}
+
 	return true
 }
 
@@ -77,6 +85,7 @@ func (d *directory) processReadHit(
 	bankBuf.Push(trans)
 
 	d.cache.dirBuf.Pop()
+	tracing.AddTaskStep(trans.id, now, d.cache, "read-hit")
 
 	return true
 }
@@ -104,6 +113,7 @@ func (d *directory) processReadMiss(
 	}
 
 	d.cache.dirBuf.Pop()
+	tracing.AddTaskStep(trans.id, now, d.cache, "read-miss")
 
 	return true
 }
@@ -129,13 +139,24 @@ func (d *directory) processWrite(
 
 	block := d.cache.directory.Lookup(pid, cacheLineID)
 	if block != nil && block.IsValid {
-		return d.processWriteHit(now, trans, block)
+		ok := d.processWriteHit(now, trans, block)
+		if ok {
+			tracing.AddTaskStep(trans.id, now, d.cache, "write-hit")
+		}
+
+		return ok
 	}
 
 	if d.isPartialWrite(write) {
 		return d.partialWriteMiss(now, trans)
 	}
-	return d.fullLineWriteMiss(now, trans)
+
+	ok := d.fullLineWriteMiss(now, trans)
+	if ok {
+		tracing.AddTaskStep(trans.id, now, d.cache, "write-miss")
+	}
+
+	return ok
 }
 
 func (d *directory) isPartialWrite(write *mem.WriteReq) bool {
@@ -191,6 +212,8 @@ func (d *directory) partialWriteMiss(
 	}
 
 	d.cache.dirBuf.Pop()
+	tracing.AddTaskStep(trans.id, now, d.cache, "write-miss")
+
 	return true
 }
 
