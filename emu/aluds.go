@@ -38,7 +38,7 @@ func (u *ALUImpl) runDSWRITEB32(state InstEmuState) {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + uint32(inst.Offset0)
+		addr0 := layout.ADDR[i] + inst.Offset0
 		data0offset := uint(8 + 64*4)
 
 		copy(lds[addr0:addr0+4], sp[data0offset+i*16:data0offset+i*16+4])
@@ -57,9 +57,9 @@ func (u *ALUImpl) runDSWRITE2B32(state InstEmuState) {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + uint32(inst.Offset0)*4
+		addr0 := layout.ADDR[i] + inst.Offset0*4
 		data0offset := uint(8 + 64*4)
-		addr1 := layout.ADDR[i] + uint32(inst.Offset1)*4
+		addr1 := layout.ADDR[i] + inst.Offset1*4
 		data1offset := uint(8 + 64*4 + 256*4)
 
 		copy(lds[addr0:addr0+4], sp[data0offset+i*16:data0offset+i*16+4])
@@ -79,7 +79,8 @@ func (u *ALUImpl) runDSREADB32(state InstEmuState) {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + uint32(inst.Offset0)
+		addr0 := layout.ADDR[i] + inst.Offset0
+		// addr0 := layout.ADDR[i]
 		dstOffset := uint(8 + 64*4 + 256*4*2)
 		copy(sp[dstOffset+i*16:dstOffset+i*16+4], lds[addr0:addr0+4])
 	}
@@ -97,11 +98,11 @@ func (u *ALUImpl) runDSREAD2B32(state InstEmuState) {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + uint32(inst.Offset0)*4
+		addr0 := layout.ADDR[i] + inst.Offset0*4
 		dstOffset := uint(8 + 64*4 + 256*4*2)
 		copy(sp[dstOffset+i*16:dstOffset+i*16+4], lds[addr0:addr0+4])
 
-		addr1 := layout.ADDR[i] + uint32(inst.Offset1)*4
+		addr1 := layout.ADDR[i] + inst.Offset1*4
 		copy(sp[dstOffset+i*16+4:dstOffset+i*16+8], lds[addr1:addr1+4])
 	}
 }
@@ -118,11 +119,11 @@ func (u *ALUImpl) runDSWRITE2B64(state InstEmuState) {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + uint32(inst.Offset0)*8
+		addr0 := layout.ADDR[i] + inst.Offset0*8
 		data0Offset := uint(8 + 64*4)
 		copy(lds[addr0:addr0+8], sp[data0Offset+i*16:data0Offset+i*16+8])
 
-		addr1 := layout.ADDR[i] + uint32(inst.Offset1)*8
+		addr1 := layout.ADDR[i] + inst.Offset1*8
 		data1Offset := uint(8 + 64*4 + 256*4)
 		copy(lds[addr1:addr1+8], sp[data1Offset+i*16:data1Offset+i*16+8])
 	}
@@ -157,11 +158,11 @@ func (u *ALUImpl) runDSREAD2B64(state InstEmuState) {
 			continue
 		}
 
-		addr0 := layout.ADDR[i] + uint32(inst.Offset0)*8
+		addr0 := layout.ADDR[i] + inst.Offset0*8
 		dstOffset := uint(8 + 64*4 + 256*4*2)
 		copy(sp[dstOffset+i*16:dstOffset+i*16+8], lds[addr0:addr0+8])
 
-		addr1 := layout.ADDR[i] + uint32(inst.Offset1)*8
+		addr1 := layout.ADDR[i] + inst.Offset1*8
 		copy(sp[dstOffset+i*16+8:dstOffset+i*16+16], lds[addr1:addr1+8])
 	}
 }

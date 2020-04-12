@@ -3,6 +3,8 @@ package emu
 import (
 	"log"
 	"math"
+
+	"gitlab.com/akita/mgpusim/bitops"
 )
 
 //nolint:gocyclo,funlen
@@ -21,6 +23,8 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVMULF32(state)
 	case 5:
 		u.runVMULF32(state)
+	case 6:
+		u.runVMULI32I24(state)
 	case 8:
 		u.runVMULU32U24(state)
 	case 10:
@@ -164,6 +168,29 @@ func (u *ALUImpl) runVMULF32(state InstEmuState) {
 			src1 := math.Float32frombits(uint32(sp.SRC1[i]))
 			dst := src0 * src1
 			sp.DST[i] = uint64(math.Float32bits(dst))
+		}
+	} else {
+		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)
+	}
+}
+
+func (u *ALUImpl) runVMULI32I24(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	inst := state.Inst()
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !laneMasked(sp.EXEC, i) {
+				continue
+			}
+
+			src0 := int32(bitops.SignExt(
+				bitops.ExtractBitsFromU64(sp.SRC0[i], 0, 23), 23))
+			src1 := int32(bitops.SignExt(
+				bitops.ExtractBitsFromU64(sp.SRC1[i], 0, 23), 23))
+
+			dst := src0 * src1
+			sp.DST[i] = uint64(dst)
 		}
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented \n", inst.Opcode)

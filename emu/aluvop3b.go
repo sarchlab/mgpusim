@@ -13,6 +13,8 @@ func (u *ALUImpl) runVOP3B(state InstEmuState) {
 	switch inst.Opcode {
 	case 281:
 		u.runVADDU32VOP3b(state)
+	case 282:
+		u.runVSUBU32VOP3b(state)
 	case 283:
 		u.runVSUBREVU32VOP3b(state)
 	case 284:
@@ -41,6 +43,23 @@ func (u *ALUImpl) runVADDU32VOP3b(state InstEmuState) {
 
 		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i]
 		if sp.DST[i] > 0xffffffff {
+			sp.VCC |= 1 << i
+			sp.DST[i] &= 0xffffffff
+		}
+	}
+}
+
+func (u *ALUImpl) runVSUBU32VOP3b(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3B()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		sp.DST[i] = sp.SRC0[i] - sp.SRC1[i]
+		if sp.SRC0[i] < sp.SRC1[i] {
 			sp.VCC |= 1 << i
 			sp.DST[i] &= 0xffffffff
 		}

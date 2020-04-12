@@ -262,6 +262,22 @@ var _ = Describe("ALU", func() {
 		Expect(dst).To(Equal(float32(230.0)))
 	})
 
+	It("should run V_MAD_I32_I24", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 450
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = uint64(int32ToBits(-10))
+		sp.SRC1[0] = uint64(int32ToBits(-20))
+		sp.SRC2[0] = uint64(int32ToBits(-50))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0] & 0xffffffff).To(Equal(uint64(150)))
+	})
+
 	It("should run V_MAD_U32_U24", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP3a
@@ -276,7 +292,150 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(sp.DST[0]).To(Equal(uint64(250)))
+	})
 
+	It("should run V_MIN3_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 464
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = uint64(math.Float32bits((1)))
+		sp.SRC1[0] = uint64(math.Float32bits((2)))
+		sp.SRC2[0] = uint64(math.Float32bits((3)))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(math.Float32bits((1)))))
+	})
+
+	It("should run V_MIN3_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 465
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = uint64(int32ToBits(-1))
+		sp.SRC1[0] = uint64(int32ToBits(0))
+		sp.SRC2[0] = uint64(int32ToBits(1))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(asInt32(uint32(sp.DST[0]))).To(Equal(int32(-1)))
+	})
+
+	It("should run V_MIN3_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 466
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = 1
+		sp.SRC1[0] = 2
+		sp.SRC2[0] = 3
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(1)))
+	})
+
+	It("should run V_MAX3_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 467
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = uint64(math.Float32bits((1)))
+		sp.SRC1[0] = uint64(math.Float32bits((2)))
+		sp.SRC2[0] = uint64(math.Float32bits((3)))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(math.Float32bits((3)))))
+	})
+
+	It("should run V_MAX3_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 468
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = uint64(int32ToBits(-1))
+		sp.SRC1[0] = uint64(int32ToBits(0))
+		sp.SRC2[0] = uint64(int32ToBits(1))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(asInt32(uint32(sp.DST[0]))).To(Equal(int32(1)))
+	})
+
+	It("should run V_MAX3_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 469
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = 1
+		sp.SRC1[0] = 2
+		sp.SRC2[0] = 3
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(3)))
+	})
+
+	It("should run V_MED3_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 470
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = uint64(math.Float32bits((1)))
+		sp.SRC1[0] = uint64(math.Float32bits((2)))
+		sp.SRC2[0] = uint64(math.Float32bits((3)))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(math.Float32bits((2)))))
+	})
+
+	It("should run V_MED3_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 471
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = uint64(int32ToBits(-1))
+		sp.SRC1[0] = uint64(int32ToBits(0))
+		sp.SRC2[0] = uint64(int32ToBits(1))
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(asInt32(uint32(sp.DST[0]))).To(Equal(int32(0)))
+	})
+
+	It("should run V_MED3_U32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 472
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.SRC0[0] = 1
+		sp.SRC1[0] = 2
+		sp.SRC2[0] = 3
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(2)))
 	})
 
 	It("should run V_MAD_U64_U32", func() {

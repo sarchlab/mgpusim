@@ -59,8 +59,8 @@ type Inst struct {
 	Abs                 int
 	Omod                int
 	Neg                 int
-	Offset0             uint8
-	Offset1             uint8
+	Offset0             uint32
+	Offset1             uint32
 	SystemLevelCoherent bool
 	GlobalLevelCoherent bool
 	TextureFailEnable   bool

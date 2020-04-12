@@ -199,6 +199,13 @@ func (d *Driver) enqueueFlushBeforeMemCopy(queue *CommandQueue) {
 	}
 }
 
+func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
+	cmd := &FlushCommand{
+		ID: xid.New().String(),
+	}
+	d.Enqueue(queue, cmd)
+}
+
 // MemCopyH2D copies a memory from the host to a GPU device.
 func (d *Driver) MemCopyH2D(ctx *Context, dst GPUPtr, src interface{}) {
 	queue := d.CreateCommandQueue(ctx)
