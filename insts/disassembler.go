@@ -630,8 +630,9 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	bytesLo := binary.LittleEndian.Uint32(buf)
 	bytesHi := binary.LittleEndian.Uint32(buf[4:])
 
-	inst.Offset0 = uint8(extractBits(bytesLo, 0, 7))
-	inst.Offset1 = uint8(extractBits(bytesLo, 8, 15))
+	inst.Offset0 = extractBits(bytesLo, 0, 7)
+	inst.Offset1 = extractBits(bytesLo, 8, 15)
+	d.combineDSOffsets(inst)
 
 	gdsBit := extractBit(bytesLo, 16)
 	if gdsBit != 0 {
@@ -668,6 +669,15 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	}
 
 	return nil
+}
+
+func (d *Disassembler) combineDSOffsets(inst *Inst) {
+	switch inst.Opcode {
+	default:
+		inst.Offset0 += inst.Offset1 << 8
+	case 14, 15, 46, 47, 55, 56, 78, 79, 110, 111, 119, 120:
+		// do nothing
+	}
 }
 
 //nolint:gocyclo,funlen

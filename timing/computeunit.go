@@ -472,7 +472,7 @@ func (cu *ComputeUnit) wrapWG(
 ) *wavefront.WorkGroup {
 	wg := wavefront.NewWorkGroup(raw, req)
 
-	lds := make([]byte, wg.CodeObject.WGGroupSegmentByteSize)
+	lds := make([]byte, req.WG.Packet.GroupSegmentSize)
 	wg.LDS = lds
 
 	cu.wgToManagedWgMapping[raw] = wg

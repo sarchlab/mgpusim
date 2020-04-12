@@ -1,7 +1,7 @@
 module gitlab.com/akita/mgpusim
 
 require (
-	github.com/go-sql-driver/mysql v1.5.0 // indirect
+	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.3.5 // indirect
 	github.com/klauspost/compress v1.10.3 // indirect

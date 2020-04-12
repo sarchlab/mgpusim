@@ -153,6 +153,16 @@ var _ = Describe("Disassembler", func() {
 			To(Equal("ds_write2_b32 v17, v20, v46 offset1:66"))
 	})
 
+	It("should decode D81A03C0 0000211F", func() {
+		buf := []byte{0xC0, 0x03, 0x1a, 0xd8, 0x1F, 0x21, 0x00, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).
+			To(Equal("ds_write_b32 v31, v33 offset:960"))
+	})
+
 	It("should decode D11B0006 0002060D", func() {
 		buf := []byte{0x06, 0x00, 0x1b, 0xd1, 0x0d, 0x06, 0x02, 0x00}
 
@@ -161,5 +171,15 @@ var _ = Describe("Disassembler", func() {
 		Expect(err).To(BeNil())
 		Expect(inst.String(nil)).
 			To(Equal("v_subrev_u32_e64 v6, s[0:1], s13, v3"))
+	})
+
+	It("should decode D11A0222 00020081", func() {
+		buf := []byte{0x22, 0x02, 0x1a, 0xd1, 0x81, 0x00, 0x02, 0x00}
+
+		inst, err := disassembler.Decode(buf)
+
+		Expect(err).To(BeNil())
+		Expect(inst.String(nil)).
+			To(Equal("v_sub_u32_e64 v34, s[2:3], 1, v0"))
 	})
 })

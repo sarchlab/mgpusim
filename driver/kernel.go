@@ -17,26 +17,50 @@ func (d *Driver) EnqueueLaunchKernel(
 	wgSize [3]uint16,
 	kernelArgs interface{},
 ) {
-	dCoData := d.enqueueCopyInstructionsToGPU(queue, co)
-	dKernArgData := d.enqueueCopyKernArgsToGPU(queue, co, kernelArgs)
-	packet, dPacket := d.createAQLPacket(
-		queue, gridSize, wgSize, dCoData, dKernArgData)
+	dCoData, dKernArgData, dPacket := d.allocateGPUMemory(queue.Context, co)
+
+	packet := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
+	d.prepareLocalMemory(co, kernelArgs, packet)
+
+	d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
+	d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
+	d.EnqueueMemCopyH2D(queue, dPacket, packet)
+
 	d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
-	// d.enqueueFinalFlush(queue)
 }
 
-func (d *Driver) updateLDSPointers(co *insts.HsaCo, kernelArgs interface{}) {
-	ldsSize := uint32(0)
+func (d *Driver) allocateGPUMemory(
+	ctx *Context,
+	co *insts.HsaCo,
+) (dCoData, dKernArgData, dPacket GPUPtr) {
+	dCoData = d.AllocateMemory(ctx, uint64(len(co.Data)))
+	dKernArgData = d.AllocateMemory(ctx, co.KernargSegmentByteSize)
+
+	packet := kernels.HsaKernelDispatchPacket{}
+	dPacket = d.AllocateMemory(ctx, uint64(binary.Size(packet)))
+
+	return dCoData, dKernArgData, dPacket
+}
+
+func (d *Driver) prepareLocalMemory(
+	co *insts.HsaCo,
+	kernelArgs interface{},
+	packet *kernels.HsaKernelDispatchPacket,
+) {
+	ldsSize := co.WGGroupSegmentByteSize
+
 	kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
 	for i := 0; i < kernArgStruct.NumField(); i++ {
 		arg := kernArgStruct.Field(i).Interface()
+
 		switch ldsPtr := arg.(type) {
 		case LocalPtr:
 			kernArgStruct.Field(i).SetUint(uint64(ldsSize))
 			ldsSize += uint32(ldsPtr)
 		}
 	}
-	co.WGGroupSegmentByteSize = ldsSize
+
+	packet.GroupSegmentSize = ldsSize
 }
 
 // LaunchKernel is an easy way to run a kernel on the GCN3 simulator. It
@@ -53,36 +77,12 @@ func (d *Driver) LaunchKernel(
 	d.DrainCommandQueue(queue)
 }
 
-func (d *Driver) enqueueCopyKernArgsToGPU(
-	queue *CommandQueue,
-	co *insts.HsaCo,
-	kernelArgs interface{},
-) GPUPtr {
-	d.updateLDSPointers(co, kernelArgs)
-	dKernArgData := d.AllocateMemory(
-		queue.Context, uint64(binary.Size(kernelArgs)))
-	d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
-	return dKernArgData
-}
-
-func (d *Driver) enqueueCopyInstructionsToGPU(
-	queue *CommandQueue,
-	co *insts.HsaCo,
-) GPUPtr {
-	dCoData := d.AllocateMemory(
-		queue.Context,
-		uint64(len(co.Data)))
-	d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
-	return dCoData
-}
-
 func (d *Driver) createAQLPacket(
-	queue *CommandQueue,
 	gridSize [3]uint32,
 	wgSize [3]uint16,
 	dCoData GPUPtr,
 	dKernArgData GPUPtr,
-) (*kernels.HsaKernelDispatchPacket, GPUPtr) {
+) *kernels.HsaKernelDispatchPacket {
 	packet := new(kernels.HsaKernelDispatchPacket)
 	packet.GridSizeX = gridSize[0]
 	packet.GridSizeY = gridSize[1]
@@ -92,10 +92,7 @@ func (d *Driver) createAQLPacket(
 	packet.WorkgroupSizeZ = wgSize[2]
 	packet.KernelObject = uint64(dCoData)
 	packet.KernargAddress = uint64(dKernArgData)
-	dPacket := d.AllocateMemory(
-		queue.Context, uint64(binary.Size(packet)))
-	d.EnqueueMemCopyH2D(queue, dPacket, packet)
-	return packet, dPacket
+	return packet
 }
 
 func (d *Driver) enqueueLaunchKernelCommand(
@@ -109,13 +106,6 @@ func (d *Driver) enqueueLaunchKernelCommand(
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,
-	}
-	d.Enqueue(queue, cmd)
-}
-
-func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
-	cmd := &FlushCommand{
-		ID: xid.New().String(),
 	}
 	d.Enqueue(queue, cmd)
 }

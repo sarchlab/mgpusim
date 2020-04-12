@@ -5,12 +5,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mem"
+	gcn3 "gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/timing/mock_timing"
 	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/mem"
 )
 
 type mockWGMapper struct {
@@ -92,6 +92,7 @@ func exampleGrid() *kernels.Grid {
 	grid.Packet = packet
 
 	wg := kernels.NewWorkGroup()
+	wg.Packet = packet
 	wg.CodeObject = grid.CodeObject
 	grid.WorkGroups = append(grid.WorkGroups, wg)
 

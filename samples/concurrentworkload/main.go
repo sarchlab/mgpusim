@@ -2,9 +2,7 @@ package main
 
 import (
 	"flag"
-	"log"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/bitonicsort"
@@ -14,10 +12,6 @@ import (
 
 func main() {
 	flag.Parse()
-
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 
 	runner := new(runner.Runner).ParseFlag().Init()
 

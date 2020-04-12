@@ -8,12 +8,12 @@ import (
 	"encoding/binary"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
+	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/kernels"
 )
 
 type emulationEvent struct {
@@ -123,7 +123,10 @@ func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now akita.VTimeInSec) error {
 	return nil
 }
 
-func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error {
+func (cu *ComputeUnit) initWfs(
+	wg *kernels.WorkGroup,
+	req *gcn3.MapWGReq,
+) error {
 	lds := cu.initLDS(wg, req)
 
 	for _, wf := range wg.Wavefronts {
@@ -141,7 +144,7 @@ func (cu *ComputeUnit) initWfs(wg *kernels.WorkGroup, req *gcn3.MapWGReq) error 
 }
 
 func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *gcn3.MapWGReq) []byte {
-	ldsSize := req.WG.CodeObject.WGGroupSegmentByteSize
+	ldsSize := req.WG.Packet.GroupSegmentSize
 	lds := make([]byte, ldsSize)
 	return lds
 }

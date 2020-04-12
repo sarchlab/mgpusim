@@ -147,6 +147,8 @@ func (d *Dispatcher) nextWG() *kernels.WorkGroup {
 			return nil
 		}
 
+		wg.Packet = d.dispatchingReq.Packet
+
 		if d.dispatchingReq.WGFilter == nil {
 			return wg
 		}
