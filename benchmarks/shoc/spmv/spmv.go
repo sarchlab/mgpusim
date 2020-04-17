@@ -2,6 +2,7 @@
 package spmv
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 
@@ -87,7 +88,9 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.nItems = int32(float64(b.Dim*b.Dim) * b.Sparsity)
+	b.nItems = int32(float64(b.Dim) * float64(b.Dim) * b.Sparsity)
+	fmt.Printf("Number of non-zero elements %d\n", b.nItems)
+
 	b.matrix = csr.
 		MakeMatrixGenerator(uint32(b.Dim), uint32(b.nItems)).
 		GenerateMatrix()
