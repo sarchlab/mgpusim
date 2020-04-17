@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 
+	"gitlab.com/akita/mgpusim/benchmarks/matrix/csr"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
@@ -34,7 +35,7 @@ type Benchmark struct {
 	NumConnections uint32
 	MaxIterations  uint32
 
-	hMatrix         csrMatrix
+	hMatrix         csr.Matrix
 	hPageRank       []float32
 	verPageRank     []float32
 	verPageRankTemp []float32
@@ -90,8 +91,8 @@ func (b *Benchmark) initMem() {
 	b.hPageRank = make([]float32, b.NumNodes)
 	b.verPageRank = make([]float32, b.NumNodes)
 	b.verPageRankTemp = make([]float32, b.NumNodes)
-	b.hMatrix = makeMatrixGenerator(b.NumNodes, b.NumConnections).
-		generateMatrix()
+	b.hMatrix = csr.MakeMatrixGenerator(b.NumNodes, b.NumConnections).
+		GenerateMatrix()
 
 	for i := uint32(0); i < b.NumNodes; i++ {
 		b.hPageRank[i] = initData
@@ -135,11 +136,11 @@ func printMatrix(matrix [][]float32, n uint32) {
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dPageRank, b.hPageRank)
 	b.driver.MemCopyH2D(b.context, b.dRowOffsets,
-		b.hMatrix.rowOffsets)
+		b.hMatrix.RowOffsets)
 	b.driver.MemCopyH2D(b.context, b.dColumnNumbers,
-		b.hMatrix.columnNumbers)
+		b.hMatrix.ColumnNumbers)
 	b.driver.MemCopyH2D(b.context, b.dValues,
-		b.hMatrix.values)
+		b.hMatrix.Values)
 
 	b.dLocalValues = driver.LocalPtr(256)
 
@@ -192,8 +193,8 @@ func (b *Benchmark) Verify() {
 	for i = 0; i < b.MaxIterations; i++ {
 		for i := uint32(0); i < b.NumNodes; i++ {
 			newValue := float32(0)
-			for j := m.rowOffsets[i]; j < m.rowOffsets[i+1]; j++ {
-				newValue += m.values[j] * b.verPageRank[m.columnNumbers[j]]
+			for j := m.RowOffsets[i]; j < m.RowOffsets[i+1]; j++ {
+				newValue += m.Values[j] * b.verPageRank[m.ColumnNumbers[j]]
 			}
 			b.verPageRankTemp[i] = newValue
 		}
