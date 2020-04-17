@@ -35,6 +35,7 @@ type Benchmark struct {
 	spmvKernel       *insts.HsaCo
 
 	Dim       int32
+	Sparsity  float64
 	dValData  driver.GPUPtr
 	dVecData  driver.GPUPtr
 	dColsData driver.GPUPtr
@@ -86,7 +87,7 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.nItems = ((b.Dim * b.Dim) / 100) // 1% of entries will be non-zero
+	b.nItems = int32(float64(b.Dim*b.Dim) * b.Sparsity)
 	b.matrix = csr.
 		MakeMatrixGenerator(uint32(b.Dim), uint32(b.nItems)).
 		GenerateMatrix()
