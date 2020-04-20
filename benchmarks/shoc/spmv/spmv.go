@@ -2,9 +2,11 @@
 package spmv
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 
+	"gitlab.com/akita/mgpusim/benchmarks/matrix/csr"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
@@ -33,19 +35,18 @@ type Benchmark struct {
 	useUnifiedMemory bool
 	spmvKernel       *insts.HsaCo
 
-	Dim          int32
-	dValData     driver.GPUPtr
-	dVecData     driver.GPUPtr
-	dColsData    driver.GPUPtr
-	dRowDData    driver.GPUPtr
-	dOutData     driver.GPUPtr
-	nItems       int32
-	val          []float32
-	cols         []int32
-	rowDelimiter []int32
-	vec          []float32
-	out          []float32
-	maxval       float32
+	Dim       int32
+	Sparsity  float64
+	dValData  driver.GPUPtr
+	dVecData  driver.GPUPtr
+	dColsData driver.GPUPtr
+	dRowDData driver.GPUPtr
+	dOutData  driver.GPUPtr
+	nItems    int32
+	vec       []float32
+	out       []float32
+	maxval    float32
+	matrix    csr.Matrix
 }
 
 func NewBenchmark(driver *driver.Driver) *Benchmark {
@@ -69,7 +70,8 @@ func (b *Benchmark) SetUnifiedMemory() {
 func (b *Benchmark) loadProgram() {
 	hsacoBytes := _escFSMustByte(false, "/spmv.hsaco")
 
-	b.spmvKernel = kernels.LoadProgramFromMemory(hsacoBytes, "spmv_csr_scalar_kernel")
+	b.spmvKernel = kernels.LoadProgramFromMemory(
+		hsacoBytes, "spmv_csr_scalar_kernel")
 	if b.spmvKernel == nil {
 		log.Panic("Failed to load kernel binary")
 	}
@@ -86,14 +88,18 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.nItems = ((b.Dim * b.Dim) / 100) // 1% of entries will be non-zero
-	b.val = make([]float32, b.nItems)
+	b.nItems = int32(float64(b.Dim) * float64(b.Dim) * b.Sparsity)
+	fmt.Printf("Number of non-zero elements %d\n", b.nItems)
+
+	b.matrix = csr.
+		MakeMatrixGenerator(uint32(b.Dim), uint32(b.nItems)).
+		GenerateMatrix()
 	b.vec = make([]float32, b.Dim)
-	b.cols = make([]int32, b.nItems)
 	b.out = make([]float32, b.Dim)
-	b.rowDelimiter = make([]int32, b.Dim+1)
-	b.fill()
-	b.initRandomMatrix()
+
+	for j := int32(0); j < b.Dim; j++ {
+		b.vec[j] = (rand.Float32() * b.maxval)
+	}
 
 	if b.useUnifiedMemory {
 		b.dValData = b.driver.AllocateUnifiedMemory(b.context,
@@ -121,10 +127,10 @@ func (b *Benchmark) initMem() {
 }
 
 func (b *Benchmark) exec() {
-	b.driver.MemCopyH2D(b.context, b.dValData, b.val)
+	b.driver.MemCopyH2D(b.context, b.dValData, b.matrix.Values)
 	b.driver.MemCopyH2D(b.context, b.dVecData, b.vec)
-	b.driver.MemCopyH2D(b.context, b.dColsData, b.cols)
-	b.driver.MemCopyH2D(b.context, b.dRowDData, b.rowDelimiter)
+	b.driver.MemCopyH2D(b.context, b.dColsData, b.matrix.ColumnNumbers)
+	b.driver.MemCopyH2D(b.context, b.dRowDData, b.matrix.RowOffsets)
 	b.driver.MemCopyH2D(b.context, b.dOutData, b.out)
 
 	//TODO: Review vecWidth, blockSize, and maxwidth
@@ -184,6 +190,7 @@ func (b *Benchmark) Verify() {
 	if mismatch {
 		panic("Mismatch!\n")
 	}
+
 	log.Printf("Passed!\n")
 }
 
@@ -191,53 +198,11 @@ func (b *Benchmark) spmvCPU() []float32 {
 	cpuOutput := make([]float32, b.Dim)
 	for i := int32(0); i < b.Dim; i++ {
 		t := float32(0)
-		for j := b.rowDelimiter[i]; j < b.rowDelimiter[i+1]; j++ {
-			col := b.cols[j]
-			t += b.val[j] * b.vec[col]
+		for j := b.matrix.RowOffsets[i]; j < b.matrix.RowOffsets[i+1]; j++ {
+			col := b.matrix.ColumnNumbers[j]
+			t += b.matrix.Values[j] * b.vec[col]
 		}
 		cpuOutput[i] = t
 	}
 	return cpuOutput
-}
-
-func (b *Benchmark) fill() {
-	// Seed random number generator
-	rand.Seed(8675309)
-
-	for j := int32(0); j < b.nItems; j++ {
-		b.val[j] = (rand.Float32() * b.maxval)
-	}
-
-	for j := int32(0); j < b.Dim; j++ {
-		b.vec[j] = (rand.Float32() * b.maxval)
-	}
-}
-
-func (b *Benchmark) initRandomMatrix() {
-	nnzAssigned := int32(0)
-	// Figure out the probability that a nonzero should be assigned to a given
-	// spot in the matrix
-	prob := float64(b.nItems) / (float64(b.Dim) * float64(b.Dim))
-
-	// Randomly decide whether entry i,j gets a value, but ensure b.nItems values
-	// are assigned
-	fillRemaining := false
-	for i := int32(0); i < b.Dim; i++ {
-		b.rowDelimiter[i] = nnzAssigned
-		for j := int32(0); j < b.Dim; j++ {
-			numEntriesLeft := (b.Dim * b.Dim) - ((i * b.Dim) + j)
-			needToAssign := b.nItems - nnzAssigned
-			if numEntriesLeft <= needToAssign {
-				fillRemaining = true
-			}
-			if (nnzAssigned < b.nItems && rand.Float64() <= prob) || fillRemaining {
-				// Assign (i,j) a value
-				b.cols[nnzAssigned] = j
-				nnzAssigned++
-			}
-		}
-	}
-	// Observe the convention to put the number of non zeroes at the end of the
-	// row delimiters array
-	b.rowDelimiter[b.Dim] = b.nItems
 }

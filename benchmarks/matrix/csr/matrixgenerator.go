@@ -1,8 +1,8 @@
-package pagerank
+package csr
 
 import "math/rand"
 
-type matrixGenerator struct {
+type MatrixGenerator struct {
 	numNode, numConnection   uint32
 	xCoords, yCoords         []uint32
 	values                   []float32
@@ -10,14 +10,14 @@ type matrixGenerator struct {
 	xCoordIndex, yCoordIndex map[uint32][]uint32
 }
 
-func makeMatrixGenerator(numNode, numConnection uint32) matrixGenerator {
-	return matrixGenerator{
+func MakeMatrixGenerator(numNode, numConnection uint32) MatrixGenerator {
+	return MatrixGenerator{
 		numNode:       numNode,
 		numConnection: numConnection,
 	}
 }
 
-func (g matrixGenerator) generateMatrix() csrMatrix {
+func (g MatrixGenerator) GenerateMatrix() Matrix {
 	g.init()
 	g.generateConnections()
 	g.normalize()
@@ -25,7 +25,7 @@ func (g matrixGenerator) generateMatrix() csrMatrix {
 	return m
 }
 
-func (g *matrixGenerator) init() {
+func (g *MatrixGenerator) init() {
 	g.xCoords = make([]uint32, 0, g.numConnection)
 	g.yCoords = make([]uint32, 0, g.numConnection)
 	g.values = make([]float32, 0, g.numConnection)
@@ -34,13 +34,13 @@ func (g *matrixGenerator) init() {
 	g.yCoordIndex = make(map[uint32][]uint32)
 }
 
-func (g *matrixGenerator) generateConnections() {
+func (g *MatrixGenerator) generateConnections() {
 	for i := uint32(0); i < g.numConnection; i++ {
 		g.generateOneConnection()
 	}
 }
 
-func (g *matrixGenerator) normalize() {
+func (g *MatrixGenerator) normalize() {
 	for i := uint32(0); i < g.numNode; i++ {
 		sum := g.sumColumn(i)
 		if sum == 0 {
@@ -54,25 +54,25 @@ func (g *matrixGenerator) normalize() {
 	}
 }
 
-func (g matrixGenerator) outputCSRFormat() csrMatrix {
-	m := csrMatrix{}
+func (g MatrixGenerator) outputCSRFormat() Matrix {
+	m := Matrix{}
 	rowOffset := uint32(0)
 
 	for i := uint32(0); i < g.numNode; i++ {
 		cols, values := g.selectRowData(i)
 		g.sortRowData(cols, values)
 
-		m.rowOffsets = append(m.rowOffsets, rowOffset)
-		m.columnNumbers = append(m.columnNumbers, cols...)
-		m.values = append(m.values, values...)
+		m.RowOffsets = append(m.RowOffsets, rowOffset)
+		m.ColumnNumbers = append(m.ColumnNumbers, cols...)
+		m.Values = append(m.Values, values...)
 		rowOffset += uint32(len(cols))
 	}
-	m.rowOffsets = append(m.rowOffsets, rowOffset)
+	m.RowOffsets = append(m.RowOffsets, rowOffset)
 
 	return m
 }
 
-func (g matrixGenerator) selectRowData(
+func (g MatrixGenerator) selectRowData(
 	row uint32,
 ) (
 	cols []uint32,
@@ -86,7 +86,7 @@ func (g matrixGenerator) selectRowData(
 	return
 }
 
-func (g matrixGenerator) sortRowData(cols []uint32, values []float32) {
+func (g MatrixGenerator) sortRowData(cols []uint32, values []float32) {
 	for i := 0; i < len(cols); i++ {
 		for j := i; j < len(cols); j++ {
 			if cols[i] >= cols[j] {
@@ -97,7 +97,7 @@ func (g matrixGenerator) sortRowData(cols []uint32, values []float32) {
 	}
 }
 
-func (g matrixGenerator) sumColumn(i uint32) float32 {
+func (g MatrixGenerator) sumColumn(i uint32) float32 {
 	sum := float32(0)
 	indexes := g.xCoordIndex[i]
 	for _, index := range indexes {
@@ -106,7 +106,7 @@ func (g matrixGenerator) sumColumn(i uint32) float32 {
 	return sum
 }
 
-func (g *matrixGenerator) generateOneConnection() {
+func (g *MatrixGenerator) generateOneConnection() {
 	x, y := g.generateUnoccupiedPosition()
 	v := rand.Float32()
 	g.xCoords = append(g.xCoords, x)
@@ -123,7 +123,7 @@ func (g *matrixGenerator) generateOneConnection() {
 	g.yCoordIndex[y] = append(g.yCoordIndex[y], uint32(len(g.values)-1))
 }
 
-func (g matrixGenerator) generateUnoccupiedPosition() (x, y uint32) {
+func (g MatrixGenerator) generateUnoccupiedPosition() (x, y uint32) {
 	for {
 		x = uint32(rand.Int()) % g.numNode
 		y = uint32(rand.Int()) % g.numNode
@@ -134,11 +134,11 @@ func (g matrixGenerator) generateUnoccupiedPosition() (x, y uint32) {
 	}
 }
 
-func (g matrixGenerator) isPositionOccupied(x, y uint32) bool {
+func (g MatrixGenerator) isPositionOccupied(x, y uint32) bool {
 	_, ok := g.positionOccupied[y*g.numNode+x]
 	return ok
 }
 
-func (g matrixGenerator) markPositionOccupied(x, y uint32) {
+func (g MatrixGenerator) markPositionOccupied(x, y uint32) {
 	g.positionOccupied[y*g.numNode+x] = true
 }
