@@ -5,7 +5,7 @@ import (
 	"gitlab.com/akita/mgpusim/insts"
 )
 
-// A Grid is a running instance of a kernel
+// A Grid is a running instance of a kernel.
 type Grid struct {
 	CodeObject    *insts.HsaCo
 	Packet        *HsaKernelDispatchPacket
@@ -15,7 +15,7 @@ type Grid struct {
 	WorkItems  []*WorkItem
 }
 
-// NewGrid creates and returns a new grid object
+// NewGrid creates and returns a new grid object.
 func NewGrid() *Grid {
 	g := new(Grid)
 	g.WorkGroups = make([]*WorkGroup, 0)
@@ -23,7 +23,7 @@ func NewGrid() *Grid {
 	return g
 }
 
-// A WorkGroup is part of the kernel that runs on one ComputeUnit
+// A WorkGroup is part of the kernel that runs on one ComputeUnit.
 type WorkGroup struct {
 	UID                             string
 	CodeObject                      *insts.HsaCo
@@ -32,13 +32,12 @@ type WorkGroup struct {
 	SizeX, SizeY, SizeZ             int
 	IDX, IDY, IDZ                   int
 	CurrSizeX, CurrSizeY, CurrSizeZ int
-	//Grid                            *Grid
 
 	Wavefronts []*Wavefront
 	WorkItems  []*WorkItem
 }
 
-// NewWorkGroup creates a workgroup object
+// NewWorkGroup creates a workgroup object.
 func NewWorkGroup() *WorkGroup {
 	wg := new(WorkGroup)
 	wg.UID = akita.GetIDGenerator().Generate()
@@ -47,7 +46,7 @@ func NewWorkGroup() *WorkGroup {
 	return wg
 }
 
-// A Wavefront is a collection of
+// A Wavefront is a collection of work-items.
 type Wavefront struct {
 	UID           string
 	CodeObject    *insts.HsaCo
@@ -60,7 +59,7 @@ type Wavefront struct {
 	WorkItems []*WorkItem
 }
 
-// NewWavefront returns a new Wavefront
+// NewWavefront returns a new Wavefront.
 func NewWavefront() *Wavefront {
 	wf := new(Wavefront)
 	wf.UID = akita.GetIDGenerator().Generate()
@@ -68,13 +67,13 @@ func NewWavefront() *Wavefront {
 	return wf
 }
 
-// A WorkItem defines a set of vector registers
+// A WorkItem defines a set of vector registers.
 type WorkItem struct {
 	WG            *WorkGroup
 	IDX, IDY, IDZ int
 }
 
-// FlattenedID returns the workitem flattened ID
+// FlattenedID returns the work-item flattened ID.
 func (wi *WorkItem) FlattenedID() int {
 	return wi.IDX + wi.IDY*wi.WG.SizeX + wi.IDZ*wi.WG.SizeX*wi.WG.SizeY
 }

@@ -221,26 +221,26 @@ func NewMapWGReq(
 	return r
 }
 
-// A WGFinishMesg is sent by a compute unit to notify about the completion of
+// A WGFinishMsg is sent by a compute unit to notify about the completion of
 // a work-group
-type WGFinishMesg struct {
+type WGFinishMsg struct {
 	akita.MsgMeta
 
 	WG *kernels.WorkGroup
 }
 
 // Meta returns the meta data associated with the message.
-func (m *WGFinishMesg) Meta() *akita.MsgMeta {
+func (m *WGFinishMsg) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
-// NewWGFinishMesg creates and returns a newly created WGFinishMesg
+// NewWGFinishMesg creates and returns a newly created WGFinishMsg
 func NewWGFinishMesg(
 	src, dst akita.Port,
 	time akita.VTimeInSec,
 	wg *kernels.WorkGroup,
-) *WGFinishMesg {
-	m := new(WGFinishMesg)
+) *WGFinishMsg {
+	m := new(WGFinishMsg)
 	m.ID = akita.GetIDGenerator().Generate()
 	m.Src = src
 	m.Dst = dst

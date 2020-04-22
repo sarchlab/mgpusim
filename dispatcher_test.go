@@ -118,7 +118,7 @@ var _ = Describe("Dispatcher", func() {
 			Expect(dispatcher.state).To(Equal(dispatcherToMapWG))
 		})
 
-	It("should continue dispatching when receiving WGFinishMesg", func() {
+	It("should continue dispatching when receiving WGFinishMsg", func() {
 		dispatcher.cuBusy[cu0] = true
 		dispatcher.totalWGs = 10
 		wg := &kernels.WorkGroup{}
@@ -129,7 +129,7 @@ var _ = Describe("Dispatcher", func() {
 
 		toCUs.EXPECT().Retrieve(akita.VTimeInSec(10))
 
-		madeProgress := dispatcher.processWGFinishMesg(10, req)
+		madeProgress := dispatcher.processWGFinishMsg(10, req)
 
 		Expect(dispatcher.cuBusy[cu0]).To(BeFalse())
 		Expect(madeProgress).To(BeTrue())
