@@ -407,6 +407,7 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
+			cu.clearWGMapping(wg.WorkGroup)
 			cu.clearWGResource(wg)
 			tracing.TraceReqComplete(wg.MapReq, now, cu)
 		}
@@ -477,6 +478,12 @@ func (cu *ComputeUnit) wrapWG(
 
 	cu.wgToManagedWgMapping[raw] = wg
 	return wg
+}
+
+func (cu *ComputeUnit) clearWGMapping(
+	raw *kernels.WorkGroup,
+) {
+	delete(cu.wgToManagedWgMapping, raw)
 }
 
 func (cu *ComputeUnit) wrapWf(raw *kernels.Wavefront) *wavefront.Wavefront {

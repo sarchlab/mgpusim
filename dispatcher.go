@@ -59,7 +59,7 @@ func init() {
 //     MapWGReq ---- The request return from the compute unit tells if the
 //                   compute unit is able to run the work-group (Receive(?))
 //
-//     WGFinishMesg ---- The CU send this message to the dispatcher to notify
+//     WGFinishMsg ---- The CU send this message to the dispatcher to notify
 //                       the completion of a workgroup (Finalization(?))
 //
 type Dispatcher struct {
@@ -71,17 +71,18 @@ type Dispatcher struct {
 	gridBuilder kernels.GridBuilder
 
 	// The request that is being processed, one dispatcher can only dispatch one kernel at a time.
-	dispatchingReq  *LaunchKernelReq
-	totalWGs        int
-	dispatchedAll   bool
-	currentWG       *kernels.WorkGroup
-	dispatchedWGs   map[string]*MapWGReq
-	completedWGs    []*kernels.WorkGroup
-	dispatchingWfs  []*kernels.Wavefront
-	dispatchingCUID int
-	state           dispatcherState
-	ShowProgressBar bool
-	progressBar     *mpb.Bar
+	dispatchingReq    *LaunchKernelReq
+	totalWGs          int
+	dispatchedAll     bool
+	currentWG         *kernels.WorkGroup
+	dispatchedWGs     map[string]*MapWGReq
+	dispatchedWGCount uint64
+	completedWGCount  uint64
+	dispatchingWfs    []*kernels.Wavefront
+	dispatchingCUID   int
+	state             dispatcherState
+	ShowProgressBar   bool
+	progressBar       *mpb.Bar
 
 	ToCUs              akita.Port
 	ToCommandProcessor akita.Port
@@ -182,8 +183,8 @@ func (d *Dispatcher) processRspFromCU(now akita.VTimeInSec) bool {
 	switch msg := msg.(type) {
 	case *MapWGReq:
 		return d.processMapWGRsp(now, msg)
-	case *WGFinishMesg:
-		return d.processWGFinishMesg(now, msg)
+	case *WGFinishMsg:
+		return d.processWGFinishMsg(now, msg)
 	}
 
 	panic("never")
@@ -292,22 +293,28 @@ func (d *Dispatcher) processSuccessfulMapWGRsp(
 	d.state = dispatcherToMapWG
 	d.ToCUs.Retrieve(now)
 
+	d.dispatchedWGCount++
+
 	return true
 }
 
-func (d *Dispatcher) processWGFinishMesg(
+func (d *Dispatcher) processWGFinishMsg(
 	now akita.VTimeInSec,
-	msg *WGFinishMesg,
+	msg *WGFinishMsg,
 ) bool {
 	d.ToCUs.Retrieve(now)
-	d.completedWGs = append(d.completedWGs, msg.WG)
 	d.cuBusy[msg.Src] = false
 
-	mapWGReq := d.dispatchedWGs[msg.WG.UID]
-	// delete(d.dispatchedWGs, msg.WG.UID)
+	mapWGReq, found := d.dispatchedWGs[msg.WG.UID]
+	if !found {
+		panic("original request not found")
+	}
+
+	delete(d.dispatchedWGs, msg.WG.UID)
 
 	tracing.TraceReqFinalize(mapWGReq, now, d)
 
+	d.completedWGCount++
 	if d.progressBar != nil {
 		d.progressBar.Increment()
 	}
@@ -335,8 +342,13 @@ func (d *Dispatcher) replyKernelFinish(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	d.completedWGs = nil
+	d.completedWGCount = 0
+	d.dispatchedWGCount = 0
 	d.dispatchingReq = nil
+
+	if d.ShowProgressBar {
+		d.progressBar.Abort(false)
+	}
 
 	tracing.TraceReqComplete(req, now, d)
 
@@ -348,7 +360,7 @@ func (d *Dispatcher) isKernelFinished() bool {
 		return false
 	}
 
-	if len(d.completedWGs) < len(d.dispatchedWGs) {
+	if d.completedWGCount < d.dispatchedWGCount {
 		return false
 	}
 
