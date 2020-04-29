@@ -12,3 +12,9 @@ func pushBack(list *freeListElement, fAddr uint64) {
 	}
 	list.next = &freeListElement{fAddr,nil}
 }
+
+func popFront (list **freeListElement) uint64 {
+	first := (*list).freeAddr
+	*list = (*list).next
+	return first
+}

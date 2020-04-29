@@ -31,6 +31,12 @@ var _ = Describe("Buddy Allocator Metadata Structures", func() {
 		listElement = listElement.next
 		Expect(listElement.freeAddr).To(Equal(uint64(0x_0000_4000)))
 		Expect(listElement.next).To(BeNil())
+	})
 
+	It("should pop off the first element", func() {
+		val := popFront(&listElement)
+
+		Expect(val).To(Equal(uint64(0x_0000_1000)))
+		Expect(listElement.freeAddr).To(Equal(uint64(0x_0000_2000)))
 	})
 })
