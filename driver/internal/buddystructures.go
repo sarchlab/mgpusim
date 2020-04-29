@@ -1,6 +1,6 @@
 package internal
 
-//linked list for a free list level
+//linked list for a free list at each block order
 type freeListElement struct {
 	freeAddr uint64
 	next *freeListElement
