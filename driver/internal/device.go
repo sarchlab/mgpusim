@@ -23,6 +23,10 @@ type Device struct {
 
 
 func (d *Device) SetTotalMemSize(size uint64) {
+	if d.memState == nil {
+		d.memState = newDeviceRegularMemoryState(size)
+		return
+	}
 	d.memState.setStorageSize(size)
 }
 
