@@ -62,16 +62,16 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 	a.Lock()
 	defer a.Unlock()
 
-	state := &device.memState
-	state.initialAddress = a.totalStorageByteSize
+	state := device.memState
+	state.setInitialAddress(a.totalStorageByteSize)
 
 	pageSize := uint64(1 << a.log2PageSize)
-	endAddr := state.initialAddress + state.storageSize
-	for addr := state.initialAddress; addr < endAddr; addr += pageSize {
-		state.availablePAddrs = append(state.availablePAddrs, addr)
+	endAddr := state.getInitialAddress() + state.getStorageSize()
+	for addr := state.getInitialAddress(); addr < endAddr; addr += pageSize {
+		state.addSinglePAddr(addr)
 	}
 
-	a.totalStorageByteSize += state.storageSize
+	a.totalStorageByteSize += state.getStorageSize()
 
 	a.devices[device.ID] = device
 }
@@ -98,8 +98,8 @@ func (a *memoryAllocatorImpl) isPAddrOnDevice(
 	pAddr uint64,
 	state deviceMemoryState,
 ) bool {
-	return pAddr >= state.initialAddress &&
-		pAddr < state.initialAddress+state.storageSize
+	return pAddr >= state.getInitialAddress() &&
+		pAddr < state.getInitialAddress()+state.getStorageSize()
 }
 
 func (a *memoryAllocatorImpl) Allocate(
@@ -202,8 +202,8 @@ func (a *memoryAllocatorImpl) removePage(vAddr uint64) {
 	}
 
 	deviceID := a.deviceIDByPAddr(page.PAddr)
-	dState := &a.devices[deviceID].memState
-	dState.availablePAddrs = append(dState.availablePAddrs, page.PAddr)
+	dState := a.devices[deviceID].memState
+	dState.addSinglePAddr(page.PAddr)
 
 	a.pageTable.Remove(page.PID, page.VAddr)
 }

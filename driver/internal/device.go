@@ -21,14 +21,9 @@ type Device struct {
 	memState           deviceMemoryState
 }
 
-type deviceMemoryState struct {
-	initialAddress  uint64
-	storageSize     uint64
-	availablePAddrs []uint64
-}
 
 func (d *Device) SetTotalMemSize(size uint64) {
-	d.memState.storageSize = size
+	d.memState.setStorageSize(size)
 }
 
 func (d *Device) allocatePage() (pAddr uint64) {
@@ -37,14 +32,13 @@ func (d *Device) allocatePage() (pAddr uint64) {
 	}
 
 	d.mustHaveSpaceLeft()
-	pAddr = d.memState.availablePAddrs[0]
-	d.memState.availablePAddrs = d.memState.availablePAddrs[1:]
+	pAddr = d.memState.popNextAvailablePAddrs()
 
 	return pAddr
 }
 
 func (d *Device) mustHaveSpaceLeft() {
-	if len(d.memState.availablePAddrs) == 0 {
+	if d.memState.noAvailablePAddrs() {
 		panic("out of memory")
 	}
 }

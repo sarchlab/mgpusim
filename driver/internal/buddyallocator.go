@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/util/ca"
 )
 
+// NewBuddyAllocator creates a new buddy memory allocator.
 func NewBuddyAllocator (
 	pageTable vm.PageTable,
 	log2PageSize uint64,
@@ -47,14 +48,14 @@ func (b *buddyAllocatorImpl) Allocate(
 	byteSize uint64,
 	deviceID int,
 ) uint64 {
-		return -1
+		return 0
 }
 
 func (b *buddyAllocatorImpl) AllocateUnified(
 	pid ca.PID,
 	byteSize uint64,
 ) uint64 {
-		return -1
+		return 0
 }
 
 func (b *buddyAllocatorImpl) Remap(
