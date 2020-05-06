@@ -11,6 +11,21 @@ const (
 	DeviceTypeUnifiedGPU
 )
 
+// AllocatorType marks the type of memory allocator
+type AllocatorType int
+
+// Defines supported allocation algorithms
+const (
+	allocatorTypeDefault AllocatorType = iota
+	allocatorTypeBuddy
+)
+
+var MemoryAllocatorType AllocatorType = allocatorTypeDefault
+
+func (at *AllocatorType) UseBuddyAllocator() {
+	*at = allocatorTypeBuddy
+}
+
 // A device is a CPU or GPU managed by the driver.
 type Device struct {
 	ID                 int
@@ -24,8 +39,13 @@ type Device struct {
 
 func (d *Device) SetTotalMemSize(size uint64) {
 	if d.memState == nil {
-		d.memState = newDeviceRegularMemoryState(size)
-		return
+		switch MemoryAllocatorType {
+		case allocatorTypeDefault:
+			d.memState = newDeviceRegularMemoryState(size)
+			return
+		case allocatorTypeBuddy:
+			panic("need to implement")
+		}
 	}
 	d.memState.setStorageSize(size)
 }
