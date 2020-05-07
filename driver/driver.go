@@ -681,7 +681,10 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) bool {
 
 	for i := 0; i < len(accesingGPUs); i++ {
 		toShootdownGPU := accesingGPUs[i] - 1
-		shootDwnReq := mgpusim.NewShootdownCommand(now, d.ToGPUs, d.GPUs[toShootdownGPU].CommandProcessor.ToDriver, vAddr, pid)
+		shootDwnReq := mgpusim.NewShootdownCommand(
+			now,
+			d.ToGPUs, d.GPUs[toShootdownGPU].CommandProcessor.ToDriver,
+			vAddr, pid)
 		d.requestsToSend = append(d.requestsToSend, shootDwnReq)
 	}
 
