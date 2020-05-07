@@ -1,7 +1,7 @@
 package emu
 
-import "gitlab.com/akita/akita"
 import (
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mgpusim"
 )
 
@@ -9,12 +9,12 @@ import (
 type WGCompleteEvent struct {
 	*akita.EventBase
 
-	Req *gcn3.MapWGReq
+	Req *mgpusim.MapWGReq
 }
 
 // NewWGCompleteEvent returns a newly constructed WGCompleteEvent
 func NewWGCompleteEvent(t akita.VTimeInSec, handler akita.Handler,
-	req *gcn3.MapWGReq,
+	req *mgpusim.MapWGReq,
 ) *WGCompleteEvent {
 	e := new(WGCompleteEvent)
 	e.EventBase = akita.NewEventBase(t, handler)

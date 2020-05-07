@@ -11,7 +11,7 @@ import (
 	"gitlab.com/akita/mem/idealmemcontroller"
 	memtraces "gitlab.com/akita/mem/trace"
 	"gitlab.com/akita/mem/vm"
-	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/emu"
 	"gitlab.com/akita/mgpusim/insts"
@@ -108,18 +108,18 @@ func (b EmuGPUBuilder) WithoutProgressBar() EmuGPUBuilder {
 
 //nolint:gocyclo,funlen
 // Build creates a very simple GPU for emulation purposes
-func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
+func (b EmuGPUBuilder) Build(name string) *mgpusim.GPU {
 	connection := akita.NewDirectConnection(
 		"InterGPUConn", b.engine, 1*akita.GHz)
 
-	dispatcher := gcn3.NewDispatcher(
+	dispatcher := mgpusim.NewDispatcher(
 		name+".Dispatcher",
 		b.engine,
 		kernels.NewGridBuilder())
 	dispatcher.ShowProgressBar = !b.disableProgressBar
 	dispatcher.Freq = b.freq
 
-	commandProcessor := gcn3.NewCommandProcessor(
+	commandProcessor := mgpusim.NewCommandProcessor(
 		name+".CommandProcessor", b.engine)
 	commandProcessor.Dispatcher = dispatcher.ToCommandProcessor
 
@@ -157,14 +157,14 @@ func (b EmuGPUBuilder) Build(name string) *gcn3.GPU {
 		}
 	}
 
-	gpu := gcn3.NewGPU(name)
+	gpu := mgpusim.NewGPU(name)
 	gpu.CommandProcessor = commandProcessor
 	commandProcessor.Driver = b.driver.ToGPUs
 	gpu.Storage = b.storage
 
 	localDataSource := new(cache.SingleLowModuleFinder)
 	localDataSource.LowModule = gpuMem.ToTop
-	dmaEngine := gcn3.NewDMAEngine(
+	dmaEngine := mgpusim.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", name), b.engine, localDataSource)
 	commandProcessor.DMAEngine = dmaEngine.ToCP
 

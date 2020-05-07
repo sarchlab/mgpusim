@@ -1,14 +1,14 @@
-package gcn3
+package mgpusim
 
 import (
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/tlb"
+	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/rdma"
 )
 
 // A GPU is a wrapper that holds all the subcomponent of a GPU.

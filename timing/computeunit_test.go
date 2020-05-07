@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
-	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/timing/mock_timing"
@@ -18,7 +18,7 @@ type mockWGMapper struct {
 	UnmappedWg wavefront.WorkGroup
 }
 
-func (m *mockWGMapper) MapWG(req *gcn3.MapWGReq) bool {
+func (m *mockWGMapper) MapWG(req *mgpusim.MapWGReq) bool {
 	return m.OK
 }
 
@@ -199,12 +199,12 @@ var _ = Describe("ComputeUnit", func() {
 
 	Context("when processing MapWGReq", func() {
 		var (
-			req *gcn3.MapWGReq
+			req *mgpusim.MapWGReq
 		)
 
 		BeforeEach(func() {
 			wg := grid.WorkGroups[0]
-			req = gcn3.NewMapWGReq(nil, cu.ToACE, 10, wg)
+			req = mgpusim.NewMapWGReq(nil, cu.ToACE, 10, wg)
 			req.RecvTime = 10
 			req.EventTime = 10
 
@@ -476,7 +476,7 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle flush  request", func() {
 
 		It("should handle a pipeline flush request from CU", func() {
-			req := gcn3.CUPipelineFlushReqBuilder{}.
+			req := mgpusim.CUPipelineFlushReqBuilder{}.
 				WithSrc(nil).
 				WithDst(cu.ToCP).
 				WithSendTime(10).
@@ -512,7 +512,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should handle a restart request", func() {
 			cu.isPaused = true
 
-			req := gcn3.CUPipelineRestartReqBuilder{}.
+			req := mgpusim.CUPipelineRestartReqBuilder{}.
 				WithSendTime(10).
 				WithSrc(nil).
 				WithDst(cu.ToCP).
@@ -529,7 +529,7 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should flush the full CU", func() {
 
-			req := gcn3.CUPipelineFlushReqBuilder{}.
+			req := mgpusim.CUPipelineFlushReqBuilder{}.
 				WithSrc(nil).
 				WithDst(cu.ToCP).
 				WithSendTime(10).
