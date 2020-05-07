@@ -5,7 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Implementations of deviceMemoryState", func() {
+var _ = Describe("Implementation of regular deviceMemoryState", func() {
 
 	regularDMS := newDeviceRegularMemoryState(0x1_0000_0000)
 
