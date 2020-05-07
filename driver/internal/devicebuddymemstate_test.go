@@ -7,9 +7,10 @@ import (
 
 var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() {
 
-	buddyDMS := newDeviceBuddyMemoryState(0x1_0000_0000)
+	buddyDMS := newDeviceBuddyMemoryState()
 
 	BeforeEach(func() {
+		buddyDMS.setStorageSize(0x1_0000_0000)
 		buddyDMS.setInitialAddress(0x0_0000_1000)
 
 	})

@@ -7,9 +7,10 @@ import (
 
 var _ = Describe("Implementation of regular deviceMemoryState", func() {
 
-	regularDMS := newDeviceRegularMemoryState(0x1_0000_0000)
+	regularDMS := newDeviceRegularMemoryState()
 
 	BeforeEach(func() {
+		regularDMS.setStorageSize(0x1_0000_0000)
 		regularDMS.setInitialAddress(0x0_0000_1000)
 		rDMS := regularDMS.(*deviceMemoryStateImpl)
 		rDMS.availablePAddrs = rDMS.availablePAddrs[len(rDMS.availablePAddrs):]

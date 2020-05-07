@@ -10,11 +10,8 @@ type deviceMemoryState interface {
 	noAvailablePAddrs() bool
 }
 
-func newDeviceRegularMemoryState(size uint64) deviceMemoryState {
-	dms := &deviceMemoryStateImpl{
-		storageSize:     size,
-	}
-	return dms
+func newDeviceRegularMemoryState() deviceMemoryState {
+	return &deviceMemoryStateImpl{}
 }
 
 //original implementation of deviceMemoryState holding free addresses in array

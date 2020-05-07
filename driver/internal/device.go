@@ -41,10 +41,9 @@ func (d *Device) SetTotalMemSize(size uint64) {
 	if d.memState == nil {
 		switch MemoryAllocatorType {
 		case allocatorTypeDefault:
-			d.memState = newDeviceRegularMemoryState(size)
-			return
+			d.memState = newDeviceRegularMemoryState()
 		case allocatorTypeBuddy:
-			panic("need to implement")
+			d.memState = newDeviceBuddyMemoryState()
 		}
 	}
 	d.memState.setStorageSize(size)
