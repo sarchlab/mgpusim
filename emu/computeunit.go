@@ -11,7 +11,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
-	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 )
@@ -34,7 +34,7 @@ type ComputeUnit struct {
 	storageAccessor    *storageAccessor
 
 	nextTick    akita.VTimeInSec
-	queueingWGs []*gcn3.MapWGReq
+	queueingWGs []*mgpusim.MapWGReq
 	wfs         map[*kernels.WorkGroup][]*Wavefront
 	LDSStorage  []byte
 
@@ -74,7 +74,7 @@ func (cu *ComputeUnit) processMapWGReq(now akita.VTimeInSec) {
 		return
 	}
 
-	req := msg.(*gcn3.MapWGReq)
+	req := msg.(*mgpusim.MapWGReq)
 	req.Ok = true
 	req.Src, req.Dst = req.Dst, req.Src
 	req.SendTime = now
@@ -105,7 +105,7 @@ func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
 	return nil
 }
 
-func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now akita.VTimeInSec) error {
+func (cu *ComputeUnit) runWG(req *mgpusim.MapWGReq, now akita.VTimeInSec) error {
 	wg := req.WG
 	cu.initWfs(wg, req)
 
@@ -125,7 +125,7 @@ func (cu *ComputeUnit) runWG(req *gcn3.MapWGReq, now akita.VTimeInSec) error {
 
 func (cu *ComputeUnit) initWfs(
 	wg *kernels.WorkGroup,
-	req *gcn3.MapWGReq,
+	req *mgpusim.MapWGReq,
 ) error {
 	lds := cu.initLDS(wg, req)
 
@@ -143,7 +143,7 @@ func (cu *ComputeUnit) initWfs(
 	return nil
 }
 
-func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *gcn3.MapWGReq) []byte {
+func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *mgpusim.MapWGReq) []byte {
 	ldsSize := req.WG.Packet.GroupSegmentSize
 	lds := make([]byte, ldsSize)
 	return lds
@@ -339,7 +339,7 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	delete(cu.wfs, evt.Req.WG)
-	req := gcn3.NewWGFinishMesg(cu.ToDispatcher, evt.Req.Dst, evt.Time(), evt.Req.WG)
+	req := mgpusim.NewWGFinishMesg(cu.ToDispatcher, evt.Req.Dst, evt.Time(), evt.Req.WG)
 	err := cu.ToDispatcher.Send(req)
 	if err != nil {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
@@ -367,7 +367,7 @@ func NewComputeUnit(
 	cu.alu = alu
 	cu.storageAccessor = sAccessor
 
-	cu.queueingWGs = make([]*gcn3.MapWGReq, 0)
+	cu.queueingWGs = make([]*mgpusim.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
 	cu.ToDispatcher = akita.NewLimitNumMsgPort(cu, 1, name+".ToDispatcher")

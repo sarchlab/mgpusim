@@ -14,7 +14,7 @@ import (
 // A WGMapper is not a component and we assume the mapping process is done
 // within a cycle
 type WGMapper interface {
-	MapWG(req *gcn3.MapWGReq) bool
+	MapWG(req *mgpusim.MapWGReq) bool
 	UnmapWG(wg *wavefront.WorkGroup)
 }
 
@@ -101,7 +101,7 @@ func (m *WGMapperImpl) SetWfPoolSizes(numWfs []int) {
 
 // MapWG uses a first fit algorithm to allocate SGPR, VGPR, and LDS resources.
 // In terms of SIMD selection, it uses a round robin policy.
-func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
+func (m *WGMapperImpl) MapWG(req *mgpusim.MapWGReq) bool {
 	ok := true
 
 	m.cu.WfToDispatch = make(map[*kernels.Wavefront]*WfDispatchInfo)
@@ -128,7 +128,7 @@ func (m *WGMapperImpl) MapWG(req *gcn3.MapWGReq) bool {
 	return ok
 }
 
-func (m *WGMapperImpl) withinSGPRLimitation(req *gcn3.MapWGReq) bool {
+func (m *WGMapperImpl) withinSGPRLimitation(req *mgpusim.MapWGReq) bool {
 	co := req.WG.CodeObject
 	required := m.unitsOccupy(int(co.WFSgprCount), m.SGprGranularity)
 	for _, wf := range req.WG.Wavefronts {
@@ -144,7 +144,7 @@ func (m *WGMapperImpl) withinSGPRLimitation(req *gcn3.MapWGReq) bool {
 	return true
 }
 
-func (m *WGMapperImpl) withinLDSLimitation(req *gcn3.MapWGReq) bool {
+func (m *WGMapperImpl) withinLDSLimitation(req *mgpusim.MapWGReq) bool {
 	co := req.WG.CodeObject
 	required := m.unitsOccupy(int(co.WGGroupSegmentByteSize), m.LDSGranularity)
 	offset, ok := m.LDSMask.NextRegion(required, AllocStatusFree)
@@ -165,7 +165,7 @@ func (m *WGMapperImpl) withinLDSLimitation(req *gcn3.MapWGReq) bool {
 // This function sets the value of req.WfDispatchMap, to keep the information
 // about which SIMD should a wf dispatch to. This function also returns
 // a boolean value for if the matching is successful.
-func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
+func (m *WGMapperImpl) matchWfWithSIMDs(req *mgpusim.MapWGReq) bool {
 	vgprToUse := make([]int, m.NumWfPool)
 	wfPoolEntryUsed := make([]int, m.NumWfPool)
 	co := req.WG.CodeObject
@@ -205,7 +205,7 @@ func (m *WGMapperImpl) matchWfWithSIMDs(req *gcn3.MapWGReq) bool {
 	return true
 }
 
-func (m *WGMapperImpl) reserveResources(req *gcn3.MapWGReq) {
+func (m *WGMapperImpl) reserveResources(req *mgpusim.MapWGReq) {
 	for _, info := range m.cu.WfToDispatch {
 		m.WfPoolFreeCount[info.SIMDID]--
 	}
@@ -217,7 +217,7 @@ func (m *WGMapperImpl) reserveResources(req *gcn3.MapWGReq) {
 	}
 }
 
-func (m *WGMapperImpl) clearTempReservation(req *gcn3.MapWGReq) {
+func (m *WGMapperImpl) clearTempReservation(req *mgpusim.MapWGReq) {
 	m.cu.WfToDispatch = nil
 	m.SGprMask.ConvertStatus(AllocStatusToReserve, AllocStatusFree)
 	m.LDSMask.ConvertStatus(AllocStatusToReserve, AllocStatusFree)

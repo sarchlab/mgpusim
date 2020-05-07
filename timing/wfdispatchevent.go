@@ -12,7 +12,7 @@ type WfDispatchEvent struct {
 
 	ManagedWf  *wavefront.Wavefront
 	IsLastInWG bool
-	MapWGReq   *gcn3.MapWGReq
+	MapWGReq   *mgpusim.MapWGReq
 }
 
 // NewWfDispatchEvent creates a new WfDispatchCompletionEvent

@@ -10,12 +10,12 @@ type WorkGroup struct {
 	*kernels.WorkGroup
 
 	Wfs    []*Wavefront
-	MapReq *gcn3.MapWGReq
+	MapReq *mgpusim.MapWGReq
 	LDS    []byte
 }
 
 // NewWorkGroup returns a newly constructed WorkGroup
-func NewWorkGroup(raw *kernels.WorkGroup, req *gcn3.MapWGReq) *WorkGroup {
+func NewWorkGroup(raw *kernels.WorkGroup, req *mgpusim.MapWGReq) *WorkGroup {
 	wg := new(WorkGroup)
 	wg.WorkGroup = raw
 	wg.MapReq = req
