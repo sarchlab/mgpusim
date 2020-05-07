@@ -13,6 +13,7 @@ type deviceBuddyMemoryState struct {
 
 func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
 	bms.initialAddress = addr
+
 }
 
 func (bms *deviceBuddyMemoryState) getInitialAddress() uint64 {
@@ -22,9 +23,9 @@ func (bms *deviceBuddyMemoryState) getInitialAddress() uint64 {
 func (bms *deviceBuddyMemoryState) setStorageSize(size uint64) {
 	bms.storageSize = size
 	var order int
-	for order = 12; (1 << order) <= size; order++ {}
+	for order = 12; (1 << order) < size; order++ {}
+	order -= 12
 	bms.freeList = make([]*freeListElement, order)
-
 }
 
 func (bms *deviceBuddyMemoryState) getStorageSize() uint64 {

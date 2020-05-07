@@ -15,6 +15,18 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 	})
 
+	It("should properly set up the storage size", func() {
+		bDMS := newDeviceBuddyMemoryState()
+		bDMS.setStorageSize(0x1_0000_0000)
+
+		storagesize := bDMS.getStorageSize()
+		b := bDMS.(*deviceBuddyMemoryState)
+		listLength := len(b.freeList)
+
+		Expect(1 << (listLength + 12)).To(Equal(int(storagesize)))
+
+	})
+
 	It("should add PAddrs to regular DMS", func() {
 		buddyDMS.addSinglePAddr(0x0_0000_1000)
 		buddyDMS.addSinglePAddr(0x0_0000_2000)
