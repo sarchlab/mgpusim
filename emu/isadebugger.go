@@ -108,46 +108,6 @@ func (h *ISADebugger) logWholeWf(wf *Wavefront) {
 
 	output += fmt.Sprintf("}")
 
-	// output += fmt.Sprintf("\tPC: 0x%016x\n", wf.PC)
-	// output += fmt.Sprintf("\tEXEC: 0x%016x\n", wf.Exec)
-	// output += fmt.Sprintf("\tSCC: 0x%02x\n", wf.SCC)
-	// output += fmt.Sprintf("\tVCC: 0x%016x\n", wf.VCC)
-
-	// output += "\tSGPRs:\n"
-	// for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {
-	// 	regValue := insts.BytesToUint32(wf.ReadReg(insts.SReg(i), 1, 0))
-	// 	output += fmt.Sprintf("\t\ts%d: 0x%08x\n", i, regValue)
-	// }
-
-	// output += "\tVGPRs: \n"
-	// for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
-	// 	output += fmt.Sprintf("\t\tv%d: ", i)
-	// 	for laneID := 0; laneID < 64; laneID++ {
-	// 		regValue := insts.BytesToUint32(wf.ReadReg(insts.VReg(i), 1, laneID))
-	// 		output += fmt.Sprintf("0x%08x ", regValue)
-	// 	}
-	// 	output += fmt.Sprintf("\n")
-	// }
-
-	// if wf.WG.Packet.GroupSegmentSize > 0 {
-	// 	output += "\tLDS: \n"
-	// 	for i := uint32(0); i < wf.WG.Packet.GroupSegmentSize; i += 32 {
-	// 		output += "\t\t"
-
-	// 		for j := 3; j >= 0; j-- {
-	// 			startAddr := i + uint32(j*4)
-	// 			endAddr := i + uint32((j+1)*4)
-
-	// 			d := uint32(0)
-	// 			if endAddr <= wf.WG.Packet.GroupSegmentSize {
-	// 				d = binary.LittleEndian.Uint32(wf.LDS[startAddr:endAddr])
-	// 			}
-	// 			output += fmt.Sprintf("%08x ", d)
-	// 		}
-
-	// 		output += fmt.Sprintf("\t\t0x%08x\n", i)
-	// 	}
-	// }
 
 	h.Logger.Print(output)
 }
