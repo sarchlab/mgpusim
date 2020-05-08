@@ -487,10 +487,9 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 		numGPUs := len(dev.UnifiedGPUIDs)
 		currentGPUIndex := i
 		req.WGFilter = func(
-			req *mgpusim.LaunchKernelReq,
+			pkt *kernels.HsaKernelDispatchPacket,
 			wg *kernels.WorkGroup,
 		) bool {
-			pkt := req.Packet
 			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
 			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
 			flattenedID :=
