@@ -6,11 +6,19 @@ type freeListElement struct {
 	next *freeListElement
 }
 
-func pushBack(list *freeListElement, fAddr uint64) {
-	for list.next != nil {
-		list = list.next
+func pushBack(list **freeListElement, fAddr uint64) {
+	if *list == nil {
+		*list = &freeListElement{
+			freeAddr: fAddr,
+			next:     nil,
+		}
+		return
 	}
-	list.next = &freeListElement{fAddr,nil}
+	l := *list
+	for l.next != nil {
+		l = l.next
+	}
+	l.next = &freeListElement{fAddr,nil}
 }
 
 func popFront (list **freeListElement) uint64 {

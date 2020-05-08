@@ -27,6 +27,19 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 	})
 
+	It("should set initial addr and add to free list", func() {
+		bDMS := newDeviceBuddyMemoryState()
+		bDMS.setStorageSize(0x1_0000_0000)
+
+		bDMS.setInitialAddress(0x0_0000_1000)
+		iAddr := bDMS.getInitialAddress()
+		b := bDMS.(*deviceBuddyMemoryState)
+		freeBlock := b.freeList[0]
+
+		Expect(freeBlock).To(Not(BeNil()))
+		Expect(freeBlock.freeAddr).To(Equal(iAddr))
+	})
+
 	It("should add PAddrs to regular DMS", func() {
 		buddyDMS.addSinglePAddr(0x0_0000_1000)
 		buddyDMS.addSinglePAddr(0x0_0000_2000)

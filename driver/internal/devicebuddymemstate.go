@@ -13,7 +13,7 @@ type deviceBuddyMemoryState struct {
 
 func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
 	bms.initialAddress = addr
-
+	pushBack(&bms.freeList[0], addr)
 }
 
 func (bms *deviceBuddyMemoryState) getInitialAddress() uint64 {

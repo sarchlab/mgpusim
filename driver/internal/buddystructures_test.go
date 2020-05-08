@@ -21,7 +21,7 @@ var _ = Describe("Buddy Allocator Metadata Structures", func() {
 	})
 
 	It("should push to back of the list", func() {
-		pushBack(listElement,0x_0000_4000)
+		pushBack(&listElement,0x_0000_4000)
 
 		Expect(listElement.freeAddr).To(Equal(uint64(0x_0000_1000)))
 		listElement = listElement.next
@@ -31,6 +31,15 @@ var _ = Describe("Buddy Allocator Metadata Structures", func() {
 		listElement = listElement.next
 		Expect(listElement.freeAddr).To(Equal(uint64(0x_0000_4000)))
 		Expect(listElement.next).To(BeNil())
+	})
+
+	It("should push add an element to a nil list", func() {
+		var list *freeListElement
+		Expect(list).To(BeNil())
+
+		pushBack(&list, 0x0_0000_1000)
+
+		Expect(list).To(Not(BeNil()))
 	})
 
 	It("should pop off the first element", func() {
