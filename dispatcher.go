@@ -142,22 +142,8 @@ func (d *Dispatcher) nextWG() *kernels.WorkGroup {
 		return d.currentWG
 	}
 
-	for {
-		wg := d.gridBuilder.NextWG()
-		if wg == nil {
-			return nil
-		}
-
-		wg.Packet = d.dispatchingReq.Packet
-
-		if d.dispatchingReq.WGFilter == nil {
-			return wg
-		}
-
-		if d.dispatchingReq.WGFilter(d.dispatchingReq, wg) {
-			return wg
-		}
-	}
+	wg := d.gridBuilder.NextWG()
+	return wg
 }
 
 func (d *Dispatcher) processReqFromCP(now akita.VTimeInSec) bool {
@@ -225,6 +211,7 @@ func (d *Dispatcher) initKernelDispatching(
 		CodeObject: req.HsaCo,
 		Packet:     req.Packet,
 		PacketAddr: req.PacketAddress,
+		WGFilter:   req.WGFilter,
 	})
 	d.totalWGs = d.gridBuilder.NumWG()
 	d.dispatchingCUID = -1
