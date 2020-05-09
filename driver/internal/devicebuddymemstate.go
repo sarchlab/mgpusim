@@ -42,6 +42,11 @@ func (bms *deviceBuddyMemoryState) popNextAvailablePAddrs() uint64  {
 }
 
 func (bms *deviceBuddyMemoryState) noAvailablePAddrs() bool {
+	for _, fList := range bms.freeList {
+		if fList != nil {
+			return true
+		}
+	}
 	return false
 }
 
