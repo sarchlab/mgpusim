@@ -8,6 +8,7 @@ type deviceMemoryState interface {
 	addSinglePAddr(addr uint64)
 	popNextAvailablePAddrs() uint64
 	noAvailablePAddrs() bool
+	allocateMultiplePages(numPages int) []uint64
 }
 
 func newDeviceRegularMemoryState() deviceMemoryState {
@@ -49,4 +50,14 @@ func (dms *deviceMemoryStateImpl) popNextAvailablePAddrs() uint64  {
 
 func (dms *deviceMemoryStateImpl) noAvailablePAddrs() bool {
 	return len(dms.availablePAddrs) == 0
+}
+
+func (dms *deviceMemoryStateImpl) allocateMultiplePages(
+	numPages int,
+) (pAddrs []uint64) {
+	for i := 0; i < numPages; i++ {
+		pAddr := dms.popNextAvailablePAddrs()
+		pAddrs = append(pAddrs, pAddr)
+	}
+	return pAddrs
 }

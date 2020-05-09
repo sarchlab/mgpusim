@@ -43,6 +43,19 @@ var _ = Describe("Implementation of regular deviceMemoryState", func() {
 		Expect(rDMS.availablePAddrs).To(HaveLen(2))
 	})
 
+	It("should allocate multiple PAddrs", func() {
+		regularDMS.addSinglePAddr(0x0_0000_1000)
+		regularDMS.addSinglePAddr(0x0_0000_2000)
+		regularDMS.addSinglePAddr(0x0_0000_3000)
+		regularDMS.addSinglePAddr(0x0_0000_4000)
+
+		addrs := regularDMS.allocateMultiplePages(3)
+
+		Expect(addrs).To(HaveLen(3))
+		rDMS := regularDMS.(*deviceMemoryStateImpl)
+		Expect(rDMS.availablePAddrs).To(HaveLen(1))
+	})
+
 	It("should have no available PAddrs", func() {
 		ok := regularDMS.noAvailablePAddrs()
 		Expect(ok).To(BeTrue())

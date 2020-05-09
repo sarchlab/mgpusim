@@ -44,3 +44,9 @@ func (bms *deviceBuddyMemoryState) popNextAvailablePAddrs() uint64  {
 func (bms *deviceBuddyMemoryState) noAvailablePAddrs() bool {
 	return false
 }
+
+func (bms *deviceBuddyMemoryState) allocateMultiplePages(
+	numPages int,
+) (pAddrs []uint64) {
+	return pAddrs
+}
