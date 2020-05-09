@@ -36,7 +36,15 @@ type buddyAllocatorImpl struct {
 }
 
 func (b *buddyAllocatorImpl) RegisterDevice(device *Device) {
+	b.Lock()
+	defer b.Unlock()
 
+	state := device.memState
+	state.setInitialAddress(b.totalStorageByteSize)
+
+	b.totalStorageByteSize += state.getStorageSize()
+
+	b.devices[device.ID] = device
 }
 
 func (b *buddyAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
