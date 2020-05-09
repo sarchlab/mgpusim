@@ -48,7 +48,21 @@ func (b *buddyAllocatorImpl) RegisterDevice(device *Device) {
 }
 
 func (b *buddyAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
-	return -1
+	b.Lock()
+	defer b.Unlock()
+
+	return b.deviceIDByPAddr(pAddr)
+}
+
+func (b *buddyAllocatorImpl) deviceIDByPAddr(pAddr uint64) int {
+	for id, dev := range b.devices {
+		state := dev.memState
+		if isPAddrOnDevice(pAddr, state) {
+			return id
+		}
+	}
+
+	panic("device not found")
 }
 
 func (b *buddyAllocatorImpl) Allocate(

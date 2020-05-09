@@ -86,7 +86,7 @@ func (a *memoryAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
 func (a *memoryAllocatorImpl) deviceIDByPAddr(pAddr uint64) int {
 	for id, dev := range a.devices {
 		state := dev.memState
-		if a.isPAddrOnDevice(pAddr, state) {
+		if isPAddrOnDevice(pAddr, state) {
 			return id
 		}
 	}
@@ -94,7 +94,7 @@ func (a *memoryAllocatorImpl) deviceIDByPAddr(pAddr uint64) int {
 	panic("device not found")
 }
 
-func (a *memoryAllocatorImpl) isPAddrOnDevice(
+func isPAddrOnDevice(
 	pAddr uint64,
 	state deviceMemoryState,
 ) bool {
