@@ -73,7 +73,7 @@ func (b *buddyAllocatorImpl) Allocate(
 	b.Lock()
 	defer b.Unlock()
 
-	pageSize := uint64(b.log2PageSize)
+	pageSize := b.log2PageSize
 	numPages := (byteSize-1)/pageSize + 1
 	return b.allocatePages(int(numPages), pid, deviceID, false)
 }
