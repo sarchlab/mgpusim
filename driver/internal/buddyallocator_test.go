@@ -3,8 +3,8 @@ package internal
 import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	//. "github.com/onsi/gomega"
-	//"gitlab.com/akita/mem/vm"
+	. "github.com/onsi/gomega"
+	"gitlab.com/akita/mem/vm"
 )
 
 var _ = Describe("MemoryAllocatorImpl", func() {
@@ -28,7 +28,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		mockCtrl.Finish()
 	})
 
-	/*It("should allocate memory", func() {
+	It("should allocate memory", func() {
 		pageTable.EXPECT().Insert(
 			vm.Page{
 				PID:      1,
@@ -42,7 +42,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		ptr := allocator.Allocate(1, 8, 1)
 		Expect(ptr).To(Equal(uint64(4096)))
 	})
-
+	/*
 	It("should allocate unified memory", func() {
 		pageTable.EXPECT().Insert(
 			vm.Page{

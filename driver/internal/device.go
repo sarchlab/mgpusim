@@ -60,6 +60,15 @@ func (d *Device) allocatePage() (pAddr uint64) {
 	return pAddr
 }
 
+func (d *Device) allocateMultiplePages(numPages int) (pAddrs []uint64) {
+	//need to add if unified
+
+	d.mustHaveSpaceLeft()
+	pAddrs = d.memState.allocateMultiplePages(numPages)
+
+	return pAddrs
+}
+
 func (d *Device) mustHaveSpaceLeft() {
 	if d.memState.noAvailablePAddrs() {
 		panic("out of memory")

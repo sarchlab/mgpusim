@@ -70,7 +70,12 @@ func (b *buddyAllocatorImpl) Allocate(
 	byteSize uint64,
 	deviceID int,
 ) uint64 {
-		return 0
+	b.Lock()
+	defer b.Unlock()
+
+	pageSize := uint64(b.log2PageSize)
+	numPages := (byteSize-1)/pageSize + 1
+	return b.allocatePages(int(numPages), pid, deviceID, false)
 }
 
 func (b *buddyAllocatorImpl) AllocateUnified(
@@ -78,6 +83,50 @@ func (b *buddyAllocatorImpl) AllocateUnified(
 	byteSize uint64,
 ) uint64 {
 		return 0
+}
+
+func (b *buddyAllocatorImpl) allocatePages(
+	numPages int,
+	pid ca.PID,
+	deviceID int,
+	unified bool,
+) uint64 {
+	pState, found := b.processMemoryStates[pid]
+	if !found {
+		b.processMemoryStates[pid] = &processMemoryState{
+			pid:       pid,
+			nextVAddr: uint64(1 << b.log2PageSize),
+		}
+		pState = b.processMemoryStates[pid]
+	}
+	device := b.devices[deviceID]
+
+	pageSize := uint64(1 << b.log2PageSize)
+	nextVAddr := pState.nextVAddr
+
+	pAddrs := device.allocateMultiplePages(numPages)
+
+	for i := 0; i < numPages; i++ {
+		pAddr := pAddrs[i]
+		vAddr := nextVAddr + uint64(i)*pageSize
+
+		page := vm.Page{
+			PID:      pid,
+			VAddr:    vAddr,
+			PAddr:    pAddr,
+			PageSize: pageSize,
+			Valid:    true,
+			Unified:  unified,
+			GPUID:    uint64(b.deviceIDByPAddr(pAddr)),
+		}
+
+		b.pageTable.Insert(page)
+		b.vAddrToPageMapping[page.VAddr] = page
+	}
+
+	pState.nextVAddr += pageSize * uint64(numPages)
+
+	return nextVAddr
 }
 
 func (b *buddyAllocatorImpl) Remap(
