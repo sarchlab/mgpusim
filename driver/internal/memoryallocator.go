@@ -62,6 +62,15 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 	a.Lock()
 	defer a.Unlock()
 
+	if device.memState == nil {
+		switch MemoryAllocatorType {
+		case allocatorTypeDefault:
+			device.memState = newDeviceRegularMemoryState()
+		case allocatorTypeBuddy:
+			device.memState = newDeviceBuddyMemoryState()
+		}
+	}
+
 	state := device.memState
 	state.setInitialAddress(a.totalStorageByteSize)
 
