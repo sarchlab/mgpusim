@@ -23,7 +23,7 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		b := bDMS.(*deviceBuddyMemoryState)
 		listLength := len(b.freeList)
 
-		Expect(1 << (listLength + 12)).To(Equal(int(storagesize)))
+		Expect(1 << (listLength + 11)).To(Equal(int(storagesize)))
 
 	})
 
@@ -61,11 +61,55 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 	})
 
+	It("should allocate multiple PAddrs", func() {
+
+		addrs := buddyDMS.allocateMultiplePages(3)
+
+		Expect(addrs).To(HaveLen(3))
+		Expect(addrs[0]).To(Equal(uint64(0x0_0000_1000)))
+		Expect(addrs[1]).To(Equal(uint64(0x0_0000_2000)))
+		Expect(addrs[2]).To(Equal(uint64(0x0_0000_3000)))
+
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+
+		Expect(bDMS.freeList[0]).To(BeNil())
+
+		for i := len(bDMS.freeList)-3; i > 0; i-- {
+			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+		}
+		Expect(bDMS.freeList[len(bDMS.freeList)-2]).To(BeNil())
+		Expect(bDMS.freeList[len(bDMS.freeList)-1]).To(BeNil())
+	})
+
+	It("should allocate the whole space", func() {
+		addrs := buddyDMS.allocateMultiplePages(1048555)
+		Expect(addrs).To(HaveLen(1048555))
+
+		ok := buddyDMS.noAvailablePAddrs()
+		Expect(ok).To(BeTrue())
+	})
+
+	It("should find the proper buddy of a block", func() {
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		block := uint64(0x0_0000_1000)
+
+		buddy := bDMS.buddyOf(block, 12)
+		Expect(buddy).To(Equal(uint64(0x0_0000_2000)))
+
+		buddy = bDMS.buddyOf(block, 13)
+		Expect(buddy).To(Equal(uint64(0x0_0000_3000)))
+
+		buddy = bDMS.buddyOf(block, 14)
+		Expect(buddy).To(Equal(uint64(0x0_0000_5000)))
+	})
+
 	It("should have no available PAddrs", func() {
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		bDMS.freeList[0] = nil
 		ok := buddyDMS.noAvailablePAddrs()
 		Expect(ok).To(BeTrue())
 
-		buddyDMS.addSinglePAddr(0x0_0000_1000)
+		pushBack(&bDMS.freeList[0],0x0_0000_1000)
 		ok = buddyDMS.noAvailablePAddrs()
 		Expect(ok).To(BeFalse())
 	})

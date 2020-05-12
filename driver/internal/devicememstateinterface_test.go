@@ -52,6 +52,10 @@ var _ = Describe("Implementation of regular deviceMemoryState", func() {
 		addrs := regularDMS.allocateMultiplePages(3)
 
 		Expect(addrs).To(HaveLen(3))
+		Expect(addrs[0]).To(Equal(uint64(0x0_0000_1000)))
+		Expect(addrs[1]).To(Equal(uint64(0x0_0000_2000)))
+		Expect(addrs[2]).To(Equal(uint64(0x0_0000_3000)))
+
 		rDMS := regularDMS.(*deviceMemoryStateImpl)
 		Expect(rDMS.availablePAddrs).To(HaveLen(1))
 	})
