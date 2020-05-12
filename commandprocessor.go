@@ -1,4 +1,4 @@
-package gcn3
+package mgpusim
 
 import (
 	"log"

@@ -6,13 +6,13 @@ import (
 	"os"
 
 	memtraces "gitlab.com/akita/mem/trace"
+	"gitlab.com/akita/mgpusim"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/mem/vm/mmu"
-	gcn3 "gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/gpubuilder"
 	"gitlab.com/akita/noc/networking/pcie"
@@ -267,7 +267,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	pmcAddressTable *cache.BankedLowModuleFinder,
 	pcieConnector *pcie.Connector,
 	pcieSwitchID int,
-) *gcn3.GPU {
+) *mgpusim.GPU {
 	name := fmt.Sprintf("GPU%d", index)
 	memAddrOffset := uint64(index) * 4 * mem.GB
 	gpu := gpuBuilder.
@@ -285,7 +285,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 }
 
 func (b *R9NanoPlatformBuilder) configRDMAEngine(
-	gpu *gcn3.GPU,
+	gpu *mgpusim.GPU,
 	addrTable *cache.BankedLowModuleFinder,
 ) {
 	gpu.RDMAEngine.RemoteRDMAAddressTable = addrTable
@@ -295,7 +295,7 @@ func (b *R9NanoPlatformBuilder) configRDMAEngine(
 }
 
 func (b *R9NanoPlatformBuilder) configPMC(
-	gpu *gcn3.GPU,
+	gpu *mgpusim.GPU,
 	gpuDriver *driver.Driver,
 	addrTable *cache.BankedLowModuleFinder,
 ) {

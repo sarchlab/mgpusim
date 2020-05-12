@@ -4,11 +4,17 @@ import (
 	"gitlab.com/akita/mgpusim/insts"
 )
 
+type WGFilterFunc func(
+	*HsaKernelDispatchPacket,
+	*WorkGroup,
+) bool
+
 // KernelLaunchInfo includes the necessary information to launch a kernel.
 type KernelLaunchInfo struct {
 	CodeObject *insts.HsaCo
 	Packet     *HsaKernelDispatchPacket
 	PacketAddr uint64
+	WGFilter   WGFilterFunc
 }
 
 // A GridBuilder is the unit that can build a grid and its internal structure
@@ -27,7 +33,9 @@ func NewGridBuilder() GridBuilder {
 type gridBuilderImpl struct {
 	hsaco      *insts.HsaCo
 	packet     *HsaKernelDispatchPacket
+	filter     WGFilterFunc
 	packetAddr uint64
+	numWG      int
 
 	xid, yid, zid int
 }
@@ -38,57 +46,97 @@ func (b *gridBuilderImpl) SetKernel(
 	b.hsaco = info.CodeObject
 	b.packet = info.Packet
 	b.packetAddr = info.PacketAddr
+	b.filter = info.WGFilter
 	b.xid = 0
 	b.yid = 0
 	b.zid = 0
+
+	b.countWG()
 }
 
-func (b *gridBuilderImpl) NumWG() int {
+func (b *gridBuilderImpl) countWG() {
 	x := int(b.packet.GridSizeX-1)/int(b.packet.WorkgroupSizeX) + 1
 	y := int(b.packet.GridSizeY-1)/int(b.packet.WorkgroupSizeY) + 1
 	z := int(b.packet.GridSizeZ-1)/int(b.packet.WorkgroupSizeZ) + 1
-	return x * y * z
+
+	if b.filter == nil {
+		b.numWG = x * y * z
+		return
+	}
+
+	b.numWG = 0
+	for i := 0; i < x; i++ {
+		for j := 0; j < y; j++ {
+			for k := 0; k < z; k++ {
+				wg := WorkGroup{
+					IDX: i,
+					IDY: j,
+					IDZ: k,
+				}
+
+				if b.filter(b.packet, &wg) {
+					b.numWG++
+				}
+			}
+		}
+	}
+}
+
+func (b *gridBuilderImpl) NumWG() int {
+	return b.numWG
 }
 
 func (b *gridBuilderImpl) NextWG() *WorkGroup {
-	xLeft := int(b.packet.GridSizeX) - b.xid*int(b.packet.WorkgroupSizeX)
-	yLeft := int(b.packet.GridSizeY) - b.yid*int(b.packet.WorkgroupSizeY)
-	zLeft := int(b.packet.GridSizeZ) - b.zid*int(b.packet.WorkgroupSizeZ)
-
-	if xLeft <= 0 || yLeft <= 0 || zLeft <= 0 {
-		return nil
-	}
-
-	xToAllocate := min(xLeft, int(b.packet.WorkgroupSizeX))
-	yToAllocate := min(yLeft, int(b.packet.WorkgroupSizeY))
-	zToAllocate := min(zLeft, int(b.packet.WorkgroupSizeZ))
-
 	wg := NewWorkGroup()
-	wg.CodeObject = b.hsaco
-	wg.SizeX = int(b.packet.WorkgroupSizeX)
-	wg.SizeY = int(b.packet.WorkgroupSizeY)
-	wg.SizeZ = int(b.packet.WorkgroupSizeZ)
-	wg.IDX = b.xid
-	wg.IDY = b.yid
-	wg.IDZ = b.zid
-	wg.CurrSizeX = xToAllocate
-	wg.CurrSizeY = yToAllocate
-	wg.CurrSizeZ = zToAllocate
+
+	for {
+		xLeft := int(b.packet.GridSizeX) - b.xid*int(b.packet.WorkgroupSizeX)
+		yLeft := int(b.packet.GridSizeY) - b.yid*int(b.packet.WorkgroupSizeY)
+		zLeft := int(b.packet.GridSizeZ) - b.zid*int(b.packet.WorkgroupSizeZ)
+
+		if xLeft <= 0 || yLeft <= 0 || zLeft <= 0 {
+			return nil
+		}
+
+		xToAllocate := min(xLeft, int(b.packet.WorkgroupSizeX))
+		yToAllocate := min(yLeft, int(b.packet.WorkgroupSizeY))
+		zToAllocate := min(zLeft, int(b.packet.WorkgroupSizeZ))
+
+		wg.Packet = b.packet
+		wg.CodeObject = b.hsaco
+		wg.SizeX = int(b.packet.WorkgroupSizeX)
+		wg.SizeY = int(b.packet.WorkgroupSizeY)
+		wg.SizeZ = int(b.packet.WorkgroupSizeZ)
+		wg.IDX = b.xid
+		wg.IDY = b.yid
+		wg.IDZ = b.zid
+		wg.CurrSizeX = xToAllocate
+		wg.CurrSizeY = yToAllocate
+		wg.CurrSizeZ = zToAllocate
+
+		b.xid++
+		xLeft -= xToAllocate
+		if xLeft <= 0 {
+			b.xid = 0
+			b.yid++
+			yLeft -= yToAllocate
+			if yLeft <= 0 {
+				b.yid = 0
+				b.zid++
+			}
+		}
+
+		if b.filter == nil {
+			break
+		}
+
+		if b.filter(b.packet, wg) {
+			break
+		}
+	}
 
 	b.spawnWorkItems(wg)
 	b.formWavefronts(wg)
-
-	b.xid++
-	xLeft -= xToAllocate
-	if xLeft <= 0 {
-		b.xid = 0
-		b.yid++
-		yLeft -= yToAllocate
-		if yLeft <= 0 {
-			b.yid = 0
-			b.zid++
-		}
-	}
 
 	return wg
 }

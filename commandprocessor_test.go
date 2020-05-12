@@ -1,16 +1,16 @@
-package gcn3
+package mgpusim
 
 import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
-	rdma2 "gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/tlb"
+	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
+	rdma2 "gitlab.com/akita/mgpusim/rdma"
 )
 
 var _ = Describe("CommandProcessor", func() {

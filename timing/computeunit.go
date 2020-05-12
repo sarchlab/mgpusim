@@ -8,7 +8,7 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
-	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/emu"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
@@ -76,8 +76,8 @@ type ComputeUnit struct {
 
 	toSendToCP akita.Msg
 
-	currentFlushReq   *gcn3.CUPipelineFlushReq
-	currentRestartReq *gcn3.CUPipelineRestartReq
+	currentFlushReq   *mgpusim.CUPipelineFlushReq
+	currentRestartReq *mgpusim.CUPipelineRestartReq
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
@@ -188,9 +188,9 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) bool {
 
 	cu.inCPRequestProcessingStage = req
 	switch req := req.(type) {
-	case *gcn3.CUPipelineRestartReq:
+	case *mgpusim.CUPipelineRestartReq:
 		cu.handlePipelineResume(now, req)
-	case *gcn3.CUPipelineFlushReq:
+	case *mgpusim.CUPipelineFlushReq:
 		cu.handlePipelineFlushReq(now, req)
 	}
 
@@ -199,7 +199,7 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) bool {
 
 func (cu *ComputeUnit) handlePipelineFlushReq(
 	now akita.VTimeInSec,
-	req *gcn3.CUPipelineFlushReq,
+	req *mgpusim.CUPipelineFlushReq,
 ) error {
 	cu.isFlushing = true
 	cu.currentFlushReq = req
@@ -209,12 +209,12 @@ func (cu *ComputeUnit) handlePipelineFlushReq(
 
 func (cu *ComputeUnit) handlePipelineResume(
 	now akita.VTimeInSec,
-	req *gcn3.CUPipelineRestartReq,
+	req *mgpusim.CUPipelineRestartReq,
 ) error {
 	cu.isSendingOutShadowBufferReqs = true
 	cu.currentRestartReq = req
 
-	rsp := gcn3.CUPipelineRestartRspBuilder{}.
+	rsp := mgpusim.CUPipelineRestartRspBuilder{}.
 		WithSrc(cu.ToCP).
 		WithDst(cu.currentRestartReq.Src).
 		WithSendTime(now).
@@ -267,7 +267,7 @@ func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) bool {
 	cu.Scheduler.Pause()
 	cu.isPaused = true
 
-	respondToCP := gcn3.CUPipelineFlushRspBuilder{}.
+	respondToCP := mgpusim.CUPipelineFlushRspBuilder{}.
 		WithSendTime(now).
 		WithSrc(cu.ToCP).
 		WithDst(cu.currentFlushReq.Src).
@@ -303,7 +303,7 @@ func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) bool {
 	}
 
 	switch req := req.(type) {
-	case *gcn3.MapWGReq:
+	case *mgpusim.MapWGReq:
 		return cu.handleMapWGReq(now, req)
 	default:
 		panic("unknown req type")
@@ -312,7 +312,7 @@ func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) bool {
 
 func (cu *ComputeUnit) handleMapWGReq(
 	now akita.VTimeInSec,
-	req *gcn3.MapWGReq,
+	req *mgpusim.MapWGReq,
 ) bool {
 	ok := false
 	if len(cu.WfToDispatch) == 0 {
@@ -445,7 +445,7 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Dst // This is dst since the mapReq has been sent back already
 	now := evt.Time()
-	mesg := gcn3.NewWGFinishMesg(cu.ToACE, dispatcher, now, wg.WorkGroup)
+	mesg := mgpusim.NewWGFinishMesg(cu.ToACE, dispatcher, now, wg.WorkGroup)
 
 	err := cu.ToACE.Send(mesg)
 	if err != nil {
@@ -469,7 +469,7 @@ func (cu *ComputeUnit) hasMoreWfsToRun() bool {
 
 func (cu *ComputeUnit) wrapWG(
 	raw *kernels.WorkGroup,
-	req *gcn3.MapWGReq,
+	req *mgpusim.MapWGReq,
 ) *wavefront.WorkGroup {
 	wg := wavefront.NewWorkGroup(raw, req)
 

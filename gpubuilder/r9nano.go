@@ -13,7 +13,7 @@ import (
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
-	gcn3 "gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
@@ -41,10 +41,10 @@ type R9NanoGPUBuilder struct {
 	memTracer          tracing.Tracer
 
 	gpuName                           string
-	gpu                               *gcn3.GPU
+	gpu                               *mgpusim.GPU
 	InternalConn                      *akita.DirectConnection
-	CP                                *gcn3.CommandProcessor
-	ACE                               *gcn3.Dispatcher
+	CP                                *mgpusim.CommandProcessor
+	ACE                               *mgpusim.Dispatcher
 	L1VCaches                         []*l1v.Cache
 	L1SCaches                         []*l1v.Cache
 	L1ICaches                         []*l1v.Cache
@@ -60,7 +60,7 @@ type R9NanoGPUBuilder struct {
 	LowModuleFinderForL1              *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2              *cache.InterleavedLowModuleFinder
 	LowModuleFinderForPMC             *cache.InterleavedLowModuleFinder
-	DMAEngine                         *gcn3.DMAEngine
+	DMAEngine                         *mgpusim.DMAEngine
 	RDMAEngine                        *rdma.Engine
 	PageMigrationController           *pagemigrationcontroller.PageMigrationController
 	cuToL1VAddrTranslatorConnections  []*akita.DirectConnection
@@ -172,12 +172,12 @@ func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder
 }
 
 // Build creates a pre-configure GPU similar to the AMD R9 Nano GPU.
-func (b R9NanoGPUBuilder) Build(name string, ID uint64) *gcn3.GPU {
+func (b R9NanoGPUBuilder) Build(name string, ID uint64) *mgpusim.GPU {
 	b.gpuName = name
 
 	b.InternalConn = akita.NewDirectConnection(name+"InternalConn",
 		b.engine, 1*akita.GHz)
-	b.gpu = gcn3.NewGPU(b.gpuName)
+	b.gpu = mgpusim.NewGPU(b.gpuName)
 
 	b.gpu.GPUID = ID
 
@@ -247,7 +247,7 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
-	b.DMAEngine = gcn3.NewDMAEngine(
+	b.DMAEngine = mgpusim.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.gpuName),
 		b.engine,
 		b.LowModuleFinderForL2)
@@ -259,10 +259,10 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 }
 
 func (b *R9NanoGPUBuilder) buildCP() {
-	b.CP = gcn3.NewCommandProcessor(b.gpuName+".CommandProcessor", b.engine)
+	b.CP = mgpusim.NewCommandProcessor(b.gpuName+".CommandProcessor", b.engine)
 	b.gpu.CommandProcessor = b.CP
 
-	b.ACE = gcn3.NewDispatcher(
+	b.ACE = mgpusim.NewDispatcher(
 		b.gpuName+".Dispatcher",
 		b.engine,
 		kernels.NewGridBuilder())

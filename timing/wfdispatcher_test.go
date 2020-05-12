@@ -49,7 +49,7 @@ var _ = Describe("WfDispatcher", func() {
 		wf.WG = wg
 		wf.CodeObject = co
 		wf.Packet = packet
-		//req := gcn3.NewDispatchWfReq(nil, cu.ToACE, 10, nil)
+		//req := mgpusim.NewDispatchWfReq(nil, cu.ToACE, 10, nil)
 		wfDispatcher.DispatchWf(10, wf)
 
 		//Expect(len(engine.ScheduledEvent)).To(Equal(1))

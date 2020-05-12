@@ -48,7 +48,7 @@ var _ = Describe("WGMapper", func() {
 			wgMapper.WfPoolFreeCount[i] = 2
 		}
 
-		req := gcn3.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0])
+		req := mgpusim.NewMapWGReq(nil, nil, 0, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -72,7 +72,7 @@ var _ = Describe("WGMapper", func() {
 
 		// 10 Wfs, 64 SGPRs per wf. That is 640 in total
 		co.WFSgprCount = 64
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
+		req := mgpusim.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -95,7 +95,7 @@ var _ = Describe("WGMapper", func() {
 		wgMapper.LDSMask.SetStatus(0, 240, AllocStatusReserved)
 
 		co.WGGroupSegmentByteSize = 8192
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
+		req := mgpusim.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -123,7 +123,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 256
 		co.WIVgprCount = 20
 
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
+		req := mgpusim.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -148,7 +148,7 @@ var _ = Describe("WGMapper", func() {
 		wgMapper.WfPoolFreeCount[3] = 2
 
 		co.WIVgprCount = 102
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
+		req := mgpusim.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -171,7 +171,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 1024
 
 		wg := grid.WorkGroups[0]
-		req := gcn3.NewMapWGReq(nil, nil, 10, wg)
+		req := mgpusim.NewMapWGReq(nil, nil, 10, wg)
 
 		ok := wgMapper.MapWG(req)
 
@@ -207,7 +207,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 900
 
 		wg := grid.WorkGroups[0]
-		req := gcn3.NewMapWGReq(nil, nil, 10, wg)
+		req := mgpusim.NewMapWGReq(nil, nil, 10, wg)
 
 		ok := wgMapper.MapWG(req)
 
@@ -245,7 +245,7 @@ var _ = Describe("WGMapper", func() {
 
 		wg := grid.WorkGroups[0]
 		wg.CodeObject = co
-		req := gcn3.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
+		req := mgpusim.NewMapWGReq(nil, nil, 10, grid.WorkGroups[0])
 
 		ok := wgMapper.MapWG(req)
 
@@ -267,7 +267,7 @@ var _ = Describe("WGMapper", func() {
 		co.WGGroupSegmentByteSize = 1024
 		co.WFSgprCount = 64
 		wg.CodeObject = co
-		req := gcn3.NewMapWGReq(nil, nil, 0, wg)
+		req := mgpusim.NewMapWGReq(nil, nil, 0, wg)
 
 		managedWG := wavefront.NewWorkGroup(wg, req)
 

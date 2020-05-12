@@ -101,11 +101,11 @@ When we build the platform, we use the GPU builder to hide the complexity of the
 The main `Build` function serve well as a table of content for this section.
 
 ```go
-func (b *R9NanoGPUBuilder) Build() *gcn3.GPU {
+func (b *R9NanoGPUBuilder) Build() *mgpusim.GPU {
     b.Freq = 1000 * akita.MHz
     b.InternalConn = akita.NewDirectConnection(b.Engine)
 
-    b.GPU = gcn3.NewGPU(b.GPUName, b.Engine)
+    b.GPU = mgpusim.NewGPU(b.GPUName, b.Engine)
 
     b.buildCP()
     b.buildMemSystem()
@@ -132,11 +132,11 @@ We build the Command Processor (CP) and Asynchronous Compute Engine (ACE) first:
 
 ```go
 func (b *R9NanoGPUBuilder) buildCP() {
-    b.CP = gcn3.NewCommandProcessor(b.GPUName+".CommandProcessor", b.Engine)
+    b.CP = mgpusim.NewCommandProcessor(b.GPUName+".CommandProcessor", b.Engine)
     b.CP.Driver = b.GPU.ToCommandProcessor
     b.GPU.CommandProcessor = b.CP.ToDriver
 
-    b.ACE = gcn3.NewDispatcher(b.GPUName+"Dispatcher", b.Engine,
+    b.ACE = mgpusim.NewDispatcher(b.GPUName+"Dispatcher", b.Engine,
         new(kernels.GridBuilderImpl))
     b.ACE.Freq = b.Freq
     b.CP.Dispatcher = b.ACE.ToCommandProcessor
