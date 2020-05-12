@@ -36,9 +36,9 @@ func (bms *deviceBuddyMemoryState) addSinglePAddr(addr uint64) {
 
 }
 
-func (bms *deviceBuddyMemoryState) popNextAvailablePAddrs() uint64  {
-
-	return  0
+func (bms *deviceBuddyMemoryState) popNextAvailablePAddrs() uint64 {
+	addrs := bms.allocateMultiplePages(1)
+	return  addrs[0]
 }
 
 func (bms *deviceBuddyMemoryState) noAvailablePAddrs() bool {

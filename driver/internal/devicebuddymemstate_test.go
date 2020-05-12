@@ -41,24 +41,33 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 	})
 
 	It("should add PAddrs to regular DMS", func() {
-		buddyDMS.addSinglePAddr(0x0_0000_1000)
-		buddyDMS.addSinglePAddr(0x0_0000_2000)
-		buddyDMS.addSinglePAddr(0x0_0000_3000)
-		buddyDMS.addSinglePAddr(0x0_0000_4000)
+		//buddyDMS.addSinglePAddr(0x0_0000_1000)
+		//buddyDMS.addSinglePAddr(0x0_0000_2000)
+		//buddyDMS.addSinglePAddr(0x0_0000_3000)
+		//buddyDMS.addSinglePAddr(0x0_0000_4000)
 
 	})
 
 	It("should get next available PAddrs", func() {
 		//if last test didn't work this probably won't either
-		buddyDMS.addSinglePAddr(0x0_0000_1000)
-		buddyDMS.addSinglePAddr(0x0_0000_2000)
-		buddyDMS.addSinglePAddr(0x0_0000_3000)
-		buddyDMS.addSinglePAddr(0x0_0000_4000)
+		//buddyDMS.addSinglePAddr(0x0_0000_1000)
+		//buddyDMS.addSinglePAddr(0x0_0000_2000)
+		//buddyDMS.addSinglePAddr(0x0_0000_3000)
+		//buddyDMS.addSinglePAddr(0x0_0000_4000)
 
-		//addr1 := buddyDMS.popNextAvailablePAddrs()
-		//addr2 := buddyDMS.popNextAvailablePAddrs()
+		addr1 := buddyDMS.popNextAvailablePAddrs()
+		addr2 := buddyDMS.popNextAvailablePAddrs()
 
+		Expect(addr1).To(Equal(uint64(0x0_0000_1000)))
+		Expect(addr2).To(Equal(uint64(0x0_0000_2000)))
 
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+
+		Expect(bDMS.freeList[0]).To(BeNil())
+		for i := len(bDMS.freeList)-2; i > 0; i-- {
+			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+		}
+		Expect(bDMS.freeList[len(bDMS.freeList)-1]).To(BeNil())
 	})
 
 	It("should allocate multiple PAddrs", func() {
