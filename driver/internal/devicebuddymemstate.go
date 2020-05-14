@@ -9,8 +9,8 @@ type deviceBuddyMemoryState struct {
 	initialAddress  uint64
 	storageSize     uint64
 	freeList        []*freeListElement
-	bfBlockSplit    uint64
-	bfFreeBlocks    uint64
+	//bfBlockSplit    uint64
+	//bfFreeBlocks    uint64
 }
 
 func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
@@ -62,7 +62,6 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 	level := freeListLen - (order - 12)
 
 	i := level
-	iOrder := order
 
 	for {
 		if i < 0 {
@@ -72,15 +71,13 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 			break
 		}
 		i--
-		iOrder++
 	}
 
 	block := popFront(&bms.freeList[i])
 
 	for i < level {
 		i++
-		iOrder--
-		buddy := bms.buddyOf(block, iOrder)
+		buddy := bms.buddyOf(block, i)
 		pushBack(&bms.freeList[i], buddy)
 	}
 
@@ -92,10 +89,13 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 	return pAddrs
 }
 
-func (bms *deviceBuddyMemoryState) buddyOf(addr uint64, order int) uint64 {
-	offset := addr - bms.initialAddress
-	buddy := (offset ^ (1 << order)) + bms.initialAddress
-	return buddy
+func (bms *deviceBuddyMemoryState) buddyOf(addr uint64, level int) (buddy uint64) {
+	if bms.indexInLevelOf(addr, level) % 2 == 0 {
+		buddy = addr + bms.sizeOfLevel(level)
+	} else {
+		buddy = addr - bms.sizeOfLevel(level)
+	}
+	return
 }
 
 func (bms *deviceBuddyMemoryState) indexOfBlock(ptr uint64, level int) uint64 {

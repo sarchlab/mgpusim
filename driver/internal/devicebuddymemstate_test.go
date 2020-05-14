@@ -97,13 +97,13 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 		block := uint64(0x0_0000_1000)
 
-		buddy := bDMS.buddyOf(block, 12)
+		buddy := bDMS.buddyOf(block, 20)
 		Expect(buddy).To(Equal(uint64(0x0_0000_2000)))
 
-		buddy = bDMS.buddyOf(block, 13)
+		buddy = bDMS.buddyOf(block, 19)
 		Expect(buddy).To(Equal(uint64(0x0_0000_3000)))
 
-		buddy = bDMS.buddyOf(block, 14)
+		buddy = bDMS.buddyOf(block, 18)
 		Expect(buddy).To(Equal(uint64(0x0_0000_5000)))
 	})
 
