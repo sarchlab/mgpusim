@@ -49,11 +49,6 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 	})
 
 	It("should get next available PAddrs", func() {
-		//if last test didn't work this probably won't either
-		//buddyDMS.addSinglePAddr(0x0_0000_1000)
-		//buddyDMS.addSinglePAddr(0x0_0000_2000)
-		//buddyDMS.addSinglePAddr(0x0_0000_3000)
-		//buddyDMS.addSinglePAddr(0x0_0000_4000)
 
 		addr1 := buddyDMS.popNextAvailablePAddrs()
 		addr2 := buddyDMS.popNextAvailablePAddrs()
@@ -111,6 +106,49 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		buddy = bDMS.buddyOf(block, 14)
 		Expect(buddy).To(Equal(uint64(0x0_0000_5000)))
 	})
+
+	It("should find the size of the level", func() {
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+
+		answer := bDMS.sizeOfLevel(0)
+		Expect(answer).To(Equal(bDMS.storageSize))
+
+		answer = bDMS.sizeOfLevel(1)
+		Expect(answer).To(Equal(bDMS.storageSize/2))
+
+		answer = bDMS.sizeOfLevel(2)
+		Expect(answer).To(Equal(bDMS.storageSize/4))
+	})
+
+	It("should find the index of a block in their level", func() {
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+
+		answer := bDMS.indexInLevelOf(0x0_0000_1000, 0)
+		Expect(answer).To(Equal(uint64(0)))
+
+		answer = bDMS.indexInLevelOf(0x0_0000_1000, 1)
+		Expect(answer).To(Equal(uint64(0)))
+
+		answer = bDMS.indexInLevelOf(0x0_8000_1000, 1)
+		Expect(answer).To(Equal(uint64(1)))
+	})
+
+	It("should find the overall index of a block", func() {
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+
+		answer := bDMS.indexOfBlock(0x0_0000_1000, 0)
+		Expect(answer).To(Equal(uint64(0)))
+
+		answer = bDMS.indexOfBlock(0x0_0000_1000, 1)
+		Expect(answer).To(Equal(uint64(1)))
+
+		answer = bDMS.indexOfBlock(0x0_0000_1000, 2)
+		Expect(answer).To(Equal(uint64(3)))
+
+		answer = bDMS.indexOfBlock(0x0_8000_1000, 2)
+		Expect(answer).To(Equal(uint64(5)))
+	})
+
 
 	It("should have no available PAddrs", func() {
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)

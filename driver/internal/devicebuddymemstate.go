@@ -9,6 +9,8 @@ type deviceBuddyMemoryState struct {
 	initialAddress  uint64
 	storageSize     uint64
 	freeList        []*freeListElement
+	bfBlockSplit    uint64
+	bfFreeBlocks    uint64
 }
 
 func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
@@ -94,4 +96,16 @@ func (bms *deviceBuddyMemoryState) buddyOf(addr uint64, order int) uint64 {
 	offset := addr - bms.initialAddress
 	buddy := (offset ^ (1 << order)) + bms.initialAddress
 	return buddy
+}
+
+func (bms *deviceBuddyMemoryState) indexOfBlock(ptr uint64, level int) uint64 {
+	return (1 << level) + bms.indexInLevelOf(ptr,level) - 1
+}
+
+func (bms *deviceBuddyMemoryState) indexInLevelOf(ptr uint64, level int) uint64 {
+	return (ptr - bms.initialAddress) / bms.sizeOfLevel(level)
+}
+
+func (bms *deviceBuddyMemoryState) sizeOfLevel(level int) uint64 {
+	return bms.storageSize / (1 << level)
 }
