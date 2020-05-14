@@ -6,11 +6,12 @@ func newDeviceBuddyMemoryState() deviceMemoryState {
 
 //buddy allocation implementation of deviceMemoryState
 type deviceBuddyMemoryState struct {
-	initialAddress  uint64
-	storageSize     uint64
-	freeList        []*freeListElement
-	bfBlockSplit    uint64
+	initialAddress uint64
+	storageSize    uint64
+	freeList       []*freeListElement
+	bfBlockSplit   uint64
 	bfMergeList    uint64
+	blockTracking  map[uint64]*blockTracker
 }
 
 func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
@@ -18,6 +19,8 @@ func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
 	pushBack(&bms.freeList[0], addr)
 
 	bms.bfBlockSplit = 0
+	bms.bfMergeList = 0
+	bms.blockTracking = make(map[uint64]*blockTracker)
 }
 
 func (bms *deviceBuddyMemoryState) getInitialAddress() uint64 {
@@ -37,7 +40,12 @@ func (bms *deviceBuddyMemoryState) getStorageSize() uint64 {
 }
 
 func (bms *deviceBuddyMemoryState) addSinglePAddr(addr uint64) {
-
+	if bt, ok := bms.blockTracking[addr]; ok {
+		delete(bms.blockTracking, addr)
+		if bt.removePage() {
+			bms.freeBlock(bt.initialAddr)
+		}
+	}
 }
 
 func (bms *deviceBuddyMemoryState) popNextAvailablePAddrs() uint64 {
@@ -85,10 +93,18 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 		pushBack(&bms.freeList[i], buddy)
 	}
 
+	bTracker := &blockTracker{
+		initialAddr: block,
+		numOfPages:  numPages,
+	}
+
 	for j := 0; j < numPages; j++ {
 		pAddrs = append(pAddrs, block)
+		bms.blockTracking[block] = bTracker
 		block += 4096
 	}
+
+
 
 	return pAddrs
 }
@@ -120,4 +136,8 @@ func (bms *deviceBuddyMemoryState) updateSplitBlockBitField(index uint64) {
 
 func (bms *deviceBuddyMemoryState) updateMergeListBitField(index uint64) {
 	bms.bfMergeList ^= 1 << index
+}
+
+func (bms *deviceBuddyMemoryState) freeBlock(addr uint64) {
+
 }

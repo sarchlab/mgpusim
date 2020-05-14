@@ -26,3 +26,13 @@ func popFront (list **freeListElement) uint64 {
 	*list = (*list).next
 	return first
 }
+
+type blockTracker struct {
+	numOfPages  int
+	initialAddr uint64
+}
+
+func (bt *blockTracker) removePage() bool {
+	bt.numOfPages--
+	return bt.numOfPages == 0
+}
