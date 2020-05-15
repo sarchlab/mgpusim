@@ -9,8 +9,8 @@ type deviceBuddyMemoryState struct {
 	initialAddress uint64
 	storageSize    uint64
 	freeList       []*freeListElement
-	bfBlockSplit   uint64
-	bfMergeList    uint64
+	bfBlockSplit   *bitField
+	bfMergeList    *bitField
 	blockTracking  map[uint64]*blockTracker
 }
 
@@ -18,8 +18,7 @@ func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
 	bms.initialAddress = addr
 	pushBack(&bms.freeList[0], addr)
 
-	bms.bfBlockSplit = 0
-	bms.bfMergeList = 0
+
 	bms.blockTracking = make(map[uint64]*blockTracker)
 }
 
@@ -33,6 +32,9 @@ func (bms *deviceBuddyMemoryState) setStorageSize(size uint64) {
 	for order = 12; (1 << order) < size; order++ {}
 	order -= 12
 	bms.freeList = make([]*freeListElement, order+1)
+
+	bms.bfBlockSplit = newBitField(1 << order)
+	bms.bfMergeList = newBitField(1 << order)
 }
 
 func (bms *deviceBuddyMemoryState) getStorageSize() uint64 {
@@ -131,13 +133,26 @@ func (bms *deviceBuddyMemoryState) sizeOfLevel(level int) uint64 {
 }
 
 func (bms *deviceBuddyMemoryState) updateSplitBlockBitField(index uint64) {
-	bms.bfBlockSplit ^= 1 << index
+	bms.bfBlockSplit.updateBit(index)
 }
 
 func (bms *deviceBuddyMemoryState) updateMergeListBitField(index uint64) {
-	bms.bfMergeList ^= 1 << index
+	bms.bfMergeList.updateBit(index)
 }
 
 func (bms *deviceBuddyMemoryState) freeBlock(addr uint64) {
 
+}
+
+func (bms *deviceBuddyMemoryState) levelOfBlock(addr uint64) uint64 {
+	n := len(bms.freeList) - 1
+	if bms.blockHasBeenSplit(addr, n-1) {
+
+	}
+	return 0
+}
+
+func (bms *deviceBuddyMemoryState) blockHasBeenSplit(ptr uint64, level int) bool {
+	index := bms.indexOfBlock(ptr, level)
+	return bms.bfBlockSplit.checkBit(index)
 }

@@ -151,21 +151,34 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 	It("should update the bit field for which blocks are split", func() {
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
-		Expect(bDMS.bfBlockSplit).To(Equal(uint64(0b_0000)))
+		Expect(bDMS.bfBlockSplit.field[0]).To(Equal(uint64(0b_0000)))
 
 		bDMS.updateSplitBlockBitField(0)
-		Expect(bDMS.bfBlockSplit).To(Equal(uint64(0b_0001)))
+		Expect(bDMS.bfBlockSplit.field[0]).To(Equal(uint64(0b_0001)))
 
 		bDMS.updateSplitBlockBitField(1)
-		Expect(bDMS.bfBlockSplit).To(Equal(uint64(0b_0011)))
+		Expect(bDMS.bfBlockSplit.field[0]).To(Equal(uint64(0b_0011)))
 
 		bDMS.updateSplitBlockBitField(2)
-		Expect(bDMS.bfBlockSplit).To(Equal(uint64(0b_0111)))
+		Expect(bDMS.bfBlockSplit.field[0]).To(Equal(uint64(0b_0111)))
 
 		bDMS.updateSplitBlockBitField(1)
-		Expect(bDMS.bfBlockSplit).To(Equal(uint64(0b_0101)))
+		Expect(bDMS.bfBlockSplit.field[0]).To(Equal(uint64(0b_0101)))
 
-		bDMS.updateSplitBlockBitField((1 << len(bDMS.freeList)) - 1)
+		bDMS.updateSplitBlockBitField(1 << (len(bDMS.freeList) - 1))
+	})
+
+	It("should check if block has been split", func() {
+		addr := buddyDMS.popNextAvailablePAddrs()
+
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		listLen := len(bDMS.freeList)
+
+		answer := bDMS.blockHasBeenSplit(addr, listLen - 1)
+		Expect(answer).To(BeFalse())
+
+		answer = bDMS.blockHasBeenSplit(addr, listLen - 2)
+		Expect(answer).To(BeTrue())
 	})
 
 
