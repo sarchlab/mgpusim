@@ -145,10 +145,11 @@ func (bms *deviceBuddyMemoryState) freeBlock(addr uint64) {
 }
 
 func (bms *deviceBuddyMemoryState) levelOfBlock(addr uint64) uint64 {
-	n := len(bms.freeList) - 1
-	if bms.blockHasBeenSplit(addr, n-1) {
-
+	n := uint64(len(bms.freeList) - 1)
+	if bms.blockHasBeenSplit(addr, int(n-1)) {
+		return n
 	}
+	n -= 1
 	return 0
 }
 

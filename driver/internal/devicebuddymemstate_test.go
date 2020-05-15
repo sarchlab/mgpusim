@@ -168,6 +168,16 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		bDMS.updateSplitBlockBitField(1 << (len(bDMS.freeList) - 1))
 	})
 
+	It("should find the level of the block", func() {
+		addr := buddyDMS.popNextAvailablePAddrs()
+
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		listLen := len(bDMS.freeList)
+
+		level := bDMS.levelOfBlock(addr)
+		Expect(level).To(Equal(uint64(listLen-1)))
+	})
+
 	It("should check if block has been split", func() {
 		addr := buddyDMS.popNextAvailablePAddrs()
 
