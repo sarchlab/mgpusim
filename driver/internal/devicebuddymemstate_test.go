@@ -63,6 +63,13 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 			Expect(bDMS.freeList[i]).To(Not(BeNil()))
 		}
 		Expect(bDMS.freeList[len(bDMS.freeList)-1]).To(BeNil())
+
+		for i := 1; i < len(bDMS.freeList) - 1; i++ {
+			ok := bDMS.blockOrBuddyIsAllocated(addr1,i)
+			Expect(ok).To(BeTrue())
+		}
+		ok := bDMS.blockOrBuddyIsAllocated(addr1,len(bDMS.freeList) - 1)
+		Expect(ok).To(BeFalse())
 	})
 
 	It("should allocate multiple PAddrs", func() {
@@ -141,6 +148,8 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 		answer = bDMS.indexOfBlock(0x0_0000_1000, 1)
 		Expect(answer).To(Equal(uint64(1)))
+		answer = bDMS.indexOfBlock(0x0_0000_2000, 1)
+		Expect(answer).To(Equal(uint64(1)))
 
 		answer = bDMS.indexOfBlock(0x0_0000_1000, 2)
 		Expect(answer).To(Equal(uint64(3)))
@@ -175,7 +184,13 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		listLen := len(bDMS.freeList)
 
 		level := bDMS.levelOfBlock(addr)
-		Expect(level).To(Equal(uint64(listLen-1)))
+		Expect(level).To(Equal(listLen-1))
+
+		addrs := buddyDMS.allocateMultiplePages(2)
+		level = bDMS.levelOfBlock(addrs[0])
+		Expect(level).To(Equal(listLen-2))
+		level = bDMS.levelOfBlock(addrs[1])
+		Expect(level).To(Equal(listLen-2))
 	})
 
 	It("should check if block has been split", func() {
@@ -191,6 +206,62 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		Expect(answer).To(BeTrue())
 	})
 
+	It("should check if block or buddy is allocation", func() {
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		listLen := len(bDMS.freeList)
+
+		answer := bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-1)
+		Expect(answer).To(BeFalse())
+		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-1)
+		Expect(answer).To(BeFalse())
+		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-2)
+		Expect(answer).To(BeFalse())
+		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-3)
+		Expect(answer).To(BeFalse())
+
+		_ = buddyDMS.popNextAvailablePAddrs()
+
+		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-1)
+		Expect(answer).To(BeTrue())
+		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-1)
+		Expect(answer).To(BeTrue())
+		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-2)
+		Expect(answer).To(BeTrue())
+		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-3)
+		Expect(answer).To(BeTrue())
+	})
+
+	It("should add one block then free that block", func() {
+		addr := buddyDMS.popNextAvailablePAddrs()
+
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		bDMS.freeBlock(addr)
+
+		Expect(bDMS.freeList[0]).To(Not(BeNil()))
+		for i := len(bDMS.freeList)-1; i > 0; i-- {
+			Expect(bDMS.freeList[i]).To(BeNil())
+		}
+
+		for _, bits := range bDMS.bfMergeList.field {
+			Expect(bits).To(Equal(uint64(0)))
+		}
+		for _, bits := range bDMS.bfBlockSplit.field {
+			Expect(bits).To(Equal(uint64(0)))
+		}
+	})
+
+	It("should add two blocks then free one block", func() {
+		addr1 := buddyDMS.popNextAvailablePAddrs()
+		_ = buddyDMS.popNextAvailablePAddrs()
+
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		bDMS.freeBlock(addr1)
+
+		Expect(bDMS.freeList[0]).To(BeNil())
+		for i := len(bDMS.freeList)-1; i > 0; i-- {
+			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+		}
+	})
 
 	It("should have no available PAddrs", func() {
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)

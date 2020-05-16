@@ -87,6 +87,10 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 
 	block := popFront(&bms.freeList[i])
 
+	if i == level && i > 0{
+		bms.updateMergeListBitField(bms.indexOfBlock(block, i-1))
+	}
+
 	for i < level {
 		bms.updateSplitBlockBitField(bms.indexOfBlock(block, i))
 		bms.updateMergeListBitField(bms.indexOfBlock(block, i))
@@ -141,19 +145,42 @@ func (bms *deviceBuddyMemoryState) updateMergeListBitField(index uint64) {
 }
 
 func (bms *deviceBuddyMemoryState) freeBlock(addr uint64) {
-
+	level := bms.levelOfBlock(addr)
+	for level > 0 {
+		bms.updateMergeListBitField(bms.indexOfBlock(addr, level-1))
+		if !bms.blockOrBuddyIsAllocated(addr, level) {
+			bms.updateSplitBlockBitField(bms.indexOfBlock(addr, level-1))
+			buddy := bms.buddyOf(addr,level)
+			removeByValue(&bms.freeList[level], buddy)
+			if buddy < addr {
+				addr = buddy
+			}
+			level--
+		} else {
+			pushBack(&bms.freeList[level],addr)
+			return
+		}
+	}
+	pushBack(&bms.freeList[level],addr)
 }
 
-func (bms *deviceBuddyMemoryState) levelOfBlock(addr uint64) uint64 {
-	n := uint64(len(bms.freeList) - 1)
-	if bms.blockHasBeenSplit(addr, int(n-1)) {
-		return n
+func (bms *deviceBuddyMemoryState) levelOfBlock(addr uint64) int {
+	n := len(bms.freeList) - 1
+	for n > 0 {
+		if bms.blockHasBeenSplit(addr, n-1) {
+			return n
+		}
+		n -= 1
 	}
-	n -= 1
 	return 0
 }
 
 func (bms *deviceBuddyMemoryState) blockHasBeenSplit(ptr uint64, level int) bool {
 	index := bms.indexOfBlock(ptr, level)
 	return bms.bfBlockSplit.checkBit(index)
+}
+
+func (bms *deviceBuddyMemoryState) blockOrBuddyIsAllocated(ptr uint64, level int) bool {
+	index := bms.indexOfBlock(ptr, level - 1)
+	return bms.bfMergeList.checkBit(index)
 }
