@@ -52,6 +52,19 @@ var _ = Describe("Buddy Allocator Metadata Structures", func() {
 		Expect(listElement.freeAddr).To(Equal(uint64(0x_0000_2000)))
 	})
 
+	It("should remove a list element by value", func() {
+		ok := removeByValue(&listElement, 0x_0000_1000)
+		l := listElement
+		Expect(ok).To(BeTrue())
+		Expect(listElement.freeAddr).To(Equal(uint64(0x_0000_2000)))
+		listElement = listElement.next
+		Expect(listElement.freeAddr).To(Equal(uint64(0x_0000_3000)))
+		Expect(listElement.next).To(BeNil())
+
+		ok = removeByValue(&l, 0x_0000_1000)
+		Expect(ok).To(BeFalse())
+	})
+
 	It("should update a bit in the field", func() {
 		bitfield.updateBit(0)
 		Expect(bitfield.field[0]).To(Equal(uint64(0b_0001)))
