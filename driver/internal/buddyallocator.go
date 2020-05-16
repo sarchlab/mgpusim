@@ -173,7 +173,36 @@ func (b *buddyAllocatorImpl) AllocatePageWithGivenVAddr(
 	vAddr uint64,
 	isUnified bool,
 ) vm.Page {
-		return vm.Page{}
+	b.Lock()
+	defer b.Unlock()
+
+	return b.allocatePageWithGivenVAddr(pid, deviceID, vAddr, isUnified)
+}
+
+func (b *buddyAllocatorImpl) allocatePageWithGivenVAddr(
+	pid ca.PID,
+	deviceID int,
+	vAddr uint64,
+	isUnified bool,
+) vm.Page {
+	pageSize := uint64(1 << b.log2PageSize)
+
+	device := b.devices[deviceID]
+	pAddr := device.allocatePage()
+
+	page := vm.Page{
+		PID:      pid,
+		VAddr:    vAddr,
+		PAddr:    pAddr,
+		PageSize: pageSize,
+		Valid:    true,
+		GPUID:    uint64(deviceID),
+		Unified:  isUnified,
+	}
+	b.vAddrToPageMapping[page.VAddr] = page
+	b.pageTable.Update(page)
+
+	return page
 }
 
 func (b *buddyAllocatorImpl) Free(ptr uint64) {
