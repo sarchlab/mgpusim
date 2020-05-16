@@ -41,10 +41,22 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 	})
 
 	It("should add PAddrs to regular DMS", func() {
-		//buddyDMS.addSinglePAddr(0x0_0000_1000)
-		//buddyDMS.addSinglePAddr(0x0_0000_2000)
-		//buddyDMS.addSinglePAddr(0x0_0000_3000)
-		//buddyDMS.addSinglePAddr(0x0_0000_4000)
+		addr1 := buddyDMS.popNextAvailablePAddrs()
+		addr2 := buddyDMS.popNextAvailablePAddrs()
+
+		buddyDMS.addSinglePAddr(addr1)
+
+		bDMS := buddyDMS.(*deviceBuddyMemoryState)
+		Expect(bDMS.freeList[0]).To(BeNil())
+		for i := len(bDMS.freeList)-1; i > 0; i-- {
+			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+		}
+
+		buddyDMS.addSinglePAddr(addr2)
+		Expect(bDMS.freeList[0]).To(Not(BeNil()))
+		for i := len(bDMS.freeList)-1; i > 0; i-- {
+			Expect(bDMS.freeList[i]).To(BeNil())
+		}
 
 	})
 
