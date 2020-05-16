@@ -61,8 +61,9 @@ func (d *Device) allocatePage() (pAddr uint64) {
 }
 
 func (d *Device) allocateMultiplePages(numPages int) (pAddrs []uint64) {
-	//need to add if unified
-
+	if d.Type == DeviceTypeUnifiedGPU {
+		return d.allocateMultipleUnifiedGPUPages(numPages)
+	}
 	d.mustHaveSpaceLeft()
 	pAddrs = d.memState.allocateMultiplePages(numPages)
 
@@ -80,4 +81,11 @@ func (d *Device) allocateUnifiedGPUPage() (pAddr uint64) {
 	pAddr = dev.allocatePage()
 	d.nextActualGPUIndex = (d.nextActualGPUIndex + 1) % len(d.ActualGPUs)
 	return pAddr
+}
+
+func (d *Device) allocateMultipleUnifiedGPUPages(numPages int) (pAddrs []uint64) {
+	dev := d.ActualGPUs[d.nextActualGPUIndex]
+	pAddrs = dev.allocateMultiplePages(numPages)
+	d.nextActualGPUIndex = (d.nextActualGPUIndex + 1) % len(d.ActualGPUs)
+	return pAddrs
 }
