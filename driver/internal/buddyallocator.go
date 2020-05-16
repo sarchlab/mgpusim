@@ -39,6 +39,15 @@ func (b *buddyAllocatorImpl) RegisterDevice(device *Device) {
 	b.Lock()
 	defer b.Unlock()
 
+	if device.memState == nil {
+		switch MemoryAllocatorType {
+		case allocatorTypeDefault:
+			device.memState = newDeviceRegularMemoryState()
+		case allocatorTypeBuddy:
+			device.memState = newDeviceBuddyMemoryState()
+		}
+	}
+
 	state := device.memState
 	state.setInitialAddress(b.totalStorageByteSize)
 
@@ -73,7 +82,7 @@ func (b *buddyAllocatorImpl) Allocate(
 	b.Lock()
 	defer b.Unlock()
 
-	pageSize := b.log2PageSize
+	pageSize := uint64(1 << b.log2PageSize)
 	numPages := (byteSize-1)/pageSize + 1
 	return b.allocatePages(int(numPages), pid, deviceID, false)
 }
@@ -138,7 +147,24 @@ func (b *buddyAllocatorImpl) Remap(
 }
 
 func (b *buddyAllocatorImpl) RemovePage(vAddr uint64) {
+	b.Lock()
+	defer b.Unlock()
 
+	b.removePage(vAddr)
+}
+
+func (b *buddyAllocatorImpl) removePage(vAddr uint64) {
+	page, ok := b.vAddrToPageMapping[vAddr]
+
+	if !ok {
+		panic("page not found")
+	}
+
+	deviceID := b.deviceIDByPAddr(page.PAddr)
+	dState := b.devices[deviceID].memState
+	dState.addSinglePAddr(page.PAddr)
+
+	b.pageTable.Remove(page.PID, page.VAddr)
 }
 
 func (b *buddyAllocatorImpl) AllocatePageWithGivenVAddr(
@@ -151,5 +177,8 @@ func (b *buddyAllocatorImpl) AllocatePageWithGivenVAddr(
 }
 
 func (b *buddyAllocatorImpl) Free(ptr uint64) {
+	b.Lock()
+	defer b.Unlock()
 
+	b.removePage(ptr)
 }

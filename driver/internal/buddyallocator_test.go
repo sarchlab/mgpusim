@@ -7,7 +7,9 @@ import (
 	"gitlab.com/akita/mem/vm"
 )
 
-var _ = Describe("MemoryAllocatorImpl", func() {
+var _ = Describe("BuddyAllocatorImpl", func() {
+
+	MemoryAllocatorType.UseBuddyAllocator()
 
 	var (
 		mockCtrl  *gomock.Controller
@@ -42,7 +44,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		ptr := allocator.Allocate(1, 8, 1)
 		Expect(ptr).To(Equal(uint64(4096)))
 	})
-	/*
+/*
 	It("should allocate unified memory", func() {
 		pageTable.EXPECT().Insert(
 			vm.Page{
@@ -58,7 +60,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		ptr := allocator.AllocateUnified(1, 8)
 		Expect(ptr).To(Equal(uint64(4096)))
 	})
-
+*/
 	It("should allocate memory larger than a page", func() {
 		for i := uint64(0); i < 3; i++ {
 			pageTable.EXPECT().Insert(
@@ -75,7 +77,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		ptr := allocator.Allocate(1, 8196, 1)
 		Expect(ptr).To(Equal(uint64(4096)))
 	})
-
+/*
 	It("should remap page to another device", func() {
 		page := vm.Page{
 			PID:      1,

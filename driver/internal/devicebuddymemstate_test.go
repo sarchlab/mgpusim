@@ -11,7 +11,7 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 	BeforeEach(func() {
 		buddyDMS.setStorageSize(0x1_0000_0000)
-		buddyDMS.setInitialAddress(0x0_0000_1000)
+		buddyDMS.setInitialAddress(0x1_0000_1000)
 
 	})
 
@@ -31,7 +31,7 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		bDMS := newDeviceBuddyMemoryState()
 		bDMS.setStorageSize(0x1_0000_0000)
 
-		bDMS.setInitialAddress(0x0_0000_1000)
+		bDMS.setInitialAddress(0x1_0000_1000)
 		iAddr := bDMS.getInitialAddress()
 		b := bDMS.(*deviceBuddyMemoryState)
 		freeBlock := b.freeList[0]
@@ -65,8 +65,8 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		addr1 := buddyDMS.popNextAvailablePAddrs()
 		addr2 := buddyDMS.popNextAvailablePAddrs()
 
-		Expect(addr1).To(Equal(uint64(0x0_0000_1000)))
-		Expect(addr2).To(Equal(uint64(0x0_0000_2000)))
+		Expect(addr1).To(Equal(uint64(0x1_0000_1000)))
+		Expect(addr2).To(Equal(uint64(0x1_0000_2000)))
 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 
@@ -85,13 +85,12 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 	})
 
 	It("should allocate multiple PAddrs", func() {
-
 		addrs := buddyDMS.allocateMultiplePages(3)
 
 		Expect(addrs).To(HaveLen(3))
-		Expect(addrs[0]).To(Equal(uint64(0x0_0000_1000)))
-		Expect(addrs[1]).To(Equal(uint64(0x0_0000_2000)))
-		Expect(addrs[2]).To(Equal(uint64(0x0_0000_3000)))
+		Expect(addrs[0]).To(Equal(uint64(0x1_0000_1000)))
+		Expect(addrs[1]).To(Equal(uint64(0x1_0000_2000)))
+		Expect(addrs[2]).To(Equal(uint64(0x1_0000_3000)))
 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 
@@ -114,16 +113,16 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 	It("should find the proper buddy of a block", func() {
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
-		block := uint64(0x0_0000_1000)
+		block := uint64(0x1_0000_1000)
 
 		buddy := bDMS.buddyOf(block, 20)
-		Expect(buddy).To(Equal(uint64(0x0_0000_2000)))
+		Expect(buddy).To(Equal(uint64(0x1_0000_2000)))
 
 		buddy = bDMS.buddyOf(block, 19)
-		Expect(buddy).To(Equal(uint64(0x0_0000_3000)))
+		Expect(buddy).To(Equal(uint64(0x1_0000_3000)))
 
 		buddy = bDMS.buddyOf(block, 18)
-		Expect(buddy).To(Equal(uint64(0x0_0000_5000)))
+		Expect(buddy).To(Equal(uint64(0x1_0000_5000)))
 	})
 
 	It("should find the size of the level", func() {
@@ -142,31 +141,31 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 	It("should find the index of a block in their level", func() {
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 
-		answer := bDMS.indexInLevelOf(0x0_0000_1000, 0)
+		answer := bDMS.indexInLevelOf(0x1_0000_1000, 0)
 		Expect(answer).To(Equal(uint64(0)))
 
-		answer = bDMS.indexInLevelOf(0x0_0000_1000, 1)
+		answer = bDMS.indexInLevelOf(0x1_0000_1000, 1)
 		Expect(answer).To(Equal(uint64(0)))
 
-		answer = bDMS.indexInLevelOf(0x0_8000_1000, 1)
+		answer = bDMS.indexInLevelOf(0x1_8000_1000, 1)
 		Expect(answer).To(Equal(uint64(1)))
 	})
 
 	It("should find the overall index of a block", func() {
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 
-		answer := bDMS.indexOfBlock(0x0_0000_1000, 0)
+		answer := bDMS.indexOfBlock(0x1_0000_1000, 0)
 		Expect(answer).To(Equal(uint64(0)))
 
-		answer = bDMS.indexOfBlock(0x0_0000_1000, 1)
+		answer = bDMS.indexOfBlock(0x1_0000_1000, 1)
 		Expect(answer).To(Equal(uint64(1)))
-		answer = bDMS.indexOfBlock(0x0_0000_2000, 1)
+		answer = bDMS.indexOfBlock(0x1_0000_2000, 1)
 		Expect(answer).To(Equal(uint64(1)))
 
-		answer = bDMS.indexOfBlock(0x0_0000_1000, 2)
+		answer = bDMS.indexOfBlock(0x1_0000_1000, 2)
 		Expect(answer).To(Equal(uint64(3)))
 
-		answer = bDMS.indexOfBlock(0x0_8000_1000, 2)
+		answer = bDMS.indexOfBlock(0x1_8000_1000, 2)
 		Expect(answer).To(Equal(uint64(5)))
 	})
 
@@ -222,24 +221,24 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 		listLen := len(bDMS.freeList)
 
-		answer := bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-1)
+		answer := bDMS.blockOrBuddyIsAllocated(0x1_0000_1000, listLen-1)
 		Expect(answer).To(BeFalse())
-		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-1)
+		answer = bDMS.blockOrBuddyIsAllocated(0x1_0000_2000, listLen-1)
 		Expect(answer).To(BeFalse())
-		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-2)
+		answer = bDMS.blockOrBuddyIsAllocated(0x1_0000_1000, listLen-2)
 		Expect(answer).To(BeFalse())
-		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-3)
+		answer = bDMS.blockOrBuddyIsAllocated(0x1_0000_2000, listLen-3)
 		Expect(answer).To(BeFalse())
 
 		_ = buddyDMS.popNextAvailablePAddrs()
 
-		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-1)
+		answer = bDMS.blockOrBuddyIsAllocated(0x1_0000_1000, listLen-1)
 		Expect(answer).To(BeTrue())
-		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-1)
+		answer = bDMS.blockOrBuddyIsAllocated(0x1_0000_2000, listLen-1)
 		Expect(answer).To(BeTrue())
-		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_1000, listLen-2)
+		answer = bDMS.blockOrBuddyIsAllocated(0x1_0000_1000, listLen-2)
 		Expect(answer).To(BeTrue())
-		answer = bDMS.blockOrBuddyIsAllocated(0x0_0000_2000, listLen-3)
+		answer = bDMS.blockOrBuddyIsAllocated(0x1_0000_2000, listLen-3)
 		Expect(answer).To(BeTrue())
 	})
 
@@ -281,7 +280,7 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		ok := buddyDMS.noAvailablePAddrs()
 		Expect(ok).To(BeTrue())
 
-		pushBack(&bDMS.freeList[0],0x0_0000_1000)
+		pushBack(&bDMS.freeList[0],0x1_0000_1000)
 		ok = buddyDMS.noAvailablePAddrs()
 		Expect(ok).To(BeFalse())
 	})
