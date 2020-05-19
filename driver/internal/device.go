@@ -22,6 +22,10 @@ const (
 
 var MemoryAllocatorType AllocatorType = allocatorTypeDefault
 
+func (at *AllocatorType) UseDefaultAllocator() {
+	*at = allocatorTypeDefault
+}
+
 func (at *AllocatorType) UseBuddyAllocator() {
 	*at = allocatorTypeBuddy
 }

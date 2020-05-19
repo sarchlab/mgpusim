@@ -9,6 +9,8 @@ import (
 
 var _ = Describe("MemoryAllocatorImpl", func() {
 
+	MemoryAllocatorType.UseDefaultAllocator()
+
 	var (
 		mockCtrl  *gomock.Controller
 		allocator *memoryAllocatorImpl
