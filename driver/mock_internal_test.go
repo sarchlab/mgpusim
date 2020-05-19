@@ -5,8 +5,8 @@ package driver
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	internal "gitlab.com/akita/mgpusim/driver/internal"
 	vm "gitlab.com/akita/mem/vm"
+	internal "gitlab.com/akita/mgpusim/driver/internal"
 	ca "gitlab.com/akita/util/ca"
 	reflect "reflect"
 )

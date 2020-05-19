@@ -8,6 +8,8 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
 	"gitlab.com/akita/mgpusim"
+	"gitlab.com/akita/mgpusim/protocol"
+	"gitlab.com/akita/mgpusim/timing/cp"
 	"gitlab.com/akita/util/ca"
 )
 
@@ -43,7 +45,10 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		for i := 0; i < 2; i++ {
 			gpu := mgpusim.NewGPU("GPU")
-			gpu.CommandProcessor = mgpusim.NewCommandProcessor("cp", engine)
+			gpu.CommandProcessor = cp.MakeBuilder().
+				WithEngine(engine).
+				WithFreq(1 * akita.GHz).
+				Build("cp")
 			remotePMCPorts = append(remotePMCPorts, NewMockPort(mockCtrl))
 			driver.RemotePMCPorts = append(driver.RemotePMCPorts,
 				akita.NewLimitNumMsgPort(driver, 1, ""))
@@ -136,9 +141,9 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.Context("process MemCopyH2D return", func() {
 		ginkgo.It("should remove one request", func() {
-			req := mgpusim.NewMemCopyH2DReq(9, toGPUs, nil,
+			req := protocol.NewMemCopyH2DReq(9, toGPUs, nil,
 				make([]byte, 4), 0x104)
-			req2 := mgpusim.NewMemCopyH2DReq(9, toGPUs, nil,
+			req2 := protocol.NewMemCopyH2DReq(9, toGPUs, nil,
 				make([]byte, 4), 0x100)
 			cmd := &MemCopyH2DCommand{
 				Dst:  GPUPtr(0x100),
@@ -165,7 +170,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 
 		ginkgo.It("should remove command from queue if no more pending request", func() {
-			req := mgpusim.NewMemCopyH2DReq(9,
+			req := protocol.NewMemCopyH2DReq(9,
 				toGPUs, nil,
 				make([]byte, 4), 0x100)
 			cmd := &MemCopyH2DCommand{
@@ -233,9 +238,9 @@ var _ = ginkgo.Describe("Driver", func() {
 	ginkgo.Context("process MemCopyD2H return", func() {
 		ginkgo.It("should remove request", func() {
 			data := uint64(0)
-			req := mgpusim.NewMemCopyD2HReq(
+			req := protocol.NewMemCopyD2HReq(
 				9, nil, toGPUs, 0x100, []byte{1, 0, 0, 0})
-			req2 := mgpusim.NewMemCopyD2HReq(
+			req2 := protocol.NewMemCopyD2HReq(
 				9, nil, toGPUs, 0x104, []byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
 				Dst:  &data,
@@ -263,7 +268,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		ginkgo.It("should continue queue", func() {
 			data := uint32(0)
-			req := mgpusim.NewMemCopyD2HReq(9, nil, toGPUs,
+			req := protocol.NewMemCopyD2HReq(9, nil, toGPUs,
 				0x100,
 				[]byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
@@ -315,14 +320,14 @@ var _ = ginkgo.Describe("Driver", func() {
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
-			req := cmd.Reqs[0].(*mgpusim.LaunchKernelReq)
+			req := cmd.Reqs[0].(*protocol.LaunchKernelReq)
 			Expect(req.PID).To(Equal(ca.PID(1)))
 			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
 	})
 
 	ginkgo.It("should process LaunchKernel return", func() {
-		req := mgpusim.NewLaunchKernelReq(9, toGPUs, nil)
+		req := protocol.NewLaunchKernelReq(9, toGPUs, nil)
 		cmd := &LaunchKernelCommand{
 			Reqs: []akita.Msg{req},
 		}
@@ -366,7 +371,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should process Flush return", func() {
-		req := mgpusim.NewFlushCommand(9, toGPUs, nil)
+		req := protocol.NewFlushCommand(9, toGPUs, nil)
 		cmd := &FlushCommand{
 			Reqs: []akita.Msg{req},
 		}
@@ -394,7 +399,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		driver.isCurrentlyHandlingMigrationReq = false
 
 		for i := 0; i < 2; i++ {
-			rdmaDrainReq := mgpusim.NewRDMADrainCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].CommandProcessor.ToDriver)
+			rdmaDrainReq := protocol.NewRDMADrainCmdFromDriver(10, driver.ToGPUs, driver.GPUs[i].CommandProcessor.ToDriver)
 			driver.requestsToSend = append(driver.requestsToSend, rdmaDrainReq)
 
 		}
@@ -407,7 +412,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should handle RDMA Drain RSP ", func() {
-		req := mgpusim.NewRDMADrainRspToDriver(10, nil, driver.ToGPUs)
+		req := protocol.NewRDMADrainRspToDriver(10, nil, driver.ToGPUs)
 		driver.numRDMADrainACK = 1
 
 		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.ToMMU)
@@ -433,7 +438,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should handle shootdown complete rsp", func() {
-		req := mgpusim.NewShootdownCompleteRsp(10, nil, driver.ToGPUs)
+		req := protocol.NewShootdownCompleteRsp(10, nil, driver.ToGPUs)
 
 		pageMigrationReq := vm.NewPageMigrationReqToDriver(
 			10, nil, driver.ToMMU)
@@ -504,7 +509,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.It("should send migration req to CP", func() {
 		migrationReqToCP :=
-			mgpusim.NewPageMigrationReqToCP(10, driver.ToGPUs,
+			protocol.NewPageMigrationReqToCP(10, driver.ToGPUs,
 				driver.GPUs[1].CommandProcessor.ToDriver)
 		driver.migrationReqToSendToCP = append(driver.migrationReqToSendToCP, migrationReqToCP)
 
@@ -517,7 +522,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should process page migration rsp from CP", func() {
-		req := mgpusim.NewPageMigrationRspToDriver(10, nil, driver.ToGPUs)
+		req := protocol.NewPageMigrationRspToDriver(10, nil, driver.ToGPUs)
 
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 		driver.numPagesMigratingACK = 2
@@ -529,7 +534,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should process page migration rsp from CP and send restart reqs to GPU and reply to MMU", func() {
-		req := mgpusim.NewPageMigrationRspToDriver(10, nil, driver.ToGPUs)
+		req := protocol.NewPageMigrationRspToDriver(10, nil, driver.ToGPUs)
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
 		driver.numPagesMigratingACK = 1
@@ -557,7 +562,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should process gpu restart rsp and send restart req to RDMAs", func() {
-		req := mgpusim.NewGPURestartRsp(10, nil, driver.ToGPUs)
+		req := protocol.NewGPURestartRsp(10, nil, driver.ToGPUs)
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
 		driver.numRestartACK = 1
@@ -581,7 +586,7 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should handle rdma restart rsp", func() {
-		req := mgpusim.NewRDMARestartRspToDriver(10, nil, driver.ToGPUs)
+		req := protocol.NewRDMARestartRspToDriver(10, nil, driver.ToGPUs)
 		toGPUs.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(req)
 
 		driver.numRDMARestartACK = 1

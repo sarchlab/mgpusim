@@ -8,7 +8,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-var doPerPassVerify = true
+var doPerPassVerify = false
 
 type BitonicKernelArgs struct {
 	Input               driver.GPUPtr
