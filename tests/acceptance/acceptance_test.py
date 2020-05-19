@@ -251,6 +251,10 @@ def main():
               'concurrentworkload',
               [],
               '')
+    ck = Test('../../samples/concurrentworkload',
+              'concurrentworkload',
+              [],
+              '')
     sp = Test('../../samples/spmv',
               'spmv',
               [],
@@ -343,6 +347,9 @@ def main():
         err |= fft.test(test_multi_gpu=False)
         err |= nb.test(test_multi_gpu=False)
         
+        err |= ck.test(test_disassemble=False,
+                       test_unified_multi_gpu=False,
+                       test_multi_gpu=False)
         err |= cw.test(test_disassemble=False,
                        test_unified_multi_gpu=False,
                        test_multi_gpu=False)

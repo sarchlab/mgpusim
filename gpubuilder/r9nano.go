@@ -15,11 +15,11 @@ import (
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/rdma"
-	"gitlab.com/akita/mgpusim/timing"
 	"gitlab.com/akita/mgpusim/timing/caches/l1v"
+	"gitlab.com/akita/mgpusim/timing/cp"
+	"gitlab.com/akita/mgpusim/timing/cu"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -43,8 +43,7 @@ type R9NanoGPUBuilder struct {
 	gpuName                           string
 	gpu                               *mgpusim.GPU
 	InternalConn                      *akita.DirectConnection
-	CP                                *mgpusim.CommandProcessor
-	ACE                               *mgpusim.Dispatcher
+	CP                                *cp.CommandProcessor
 	L1VCaches                         []*l1v.Cache
 	L1SCaches                         []*l1v.Cache
 	L1ICaches                         []*l1v.Cache
@@ -60,7 +59,7 @@ type R9NanoGPUBuilder struct {
 	LowModuleFinderForL1              *cache.InterleavedLowModuleFinder
 	LowModuleFinderForL2              *cache.InterleavedLowModuleFinder
 	LowModuleFinderForPMC             *cache.InterleavedLowModuleFinder
-	DMAEngine                         *mgpusim.DMAEngine
+	DMAEngine                         *cp.DMAEngine
 	RDMAEngine                        *rdma.Engine
 	PageMigrationController           *pagemigrationcontroller.PageMigrationController
 	cuToL1VAddrTranslatorConnections  []*akita.DirectConnection
@@ -193,8 +192,6 @@ func (b R9NanoGPUBuilder) Build(name string, ID uint64) *mgpusim.GPU {
 
 	b.gpu.InternalConnection = b.InternalConn
 
-	b.connectCUToCP()
-
 	return b.gpu
 }
 
@@ -247,7 +244,7 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
-	b.DMAEngine = mgpusim.NewDMAEngine(
+	b.DMAEngine = cp.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.gpuName),
 		b.engine,
 		b.LowModuleFinderForL2)
@@ -259,40 +256,28 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 }
 
 func (b *R9NanoGPUBuilder) buildCP() {
-	b.CP = mgpusim.NewCommandProcessor(b.gpuName+".CommandProcessor", b.engine)
+	builder := cp.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq)
+	if !b.disableProgressBar {
+		builder = builder.ShowProgressBar()
+	}
+
+	if b.enableVisTracing {
+		builder = builder.WithVisTracer(b.visTracer)
+	}
+
+	b.CP = builder.Build(b.gpuName + ".CommandProcessor")
 	b.gpu.CommandProcessor = b.CP
 
-	b.ACE = mgpusim.NewDispatcher(
-		b.gpuName+".Dispatcher",
-		b.engine,
-		kernels.NewGridBuilder())
-	b.ACE.Freq = b.freq
-	b.ACE.ShowProgressBar = !b.disableProgressBar
-	b.CP.Dispatcher = b.ACE.ToCommandProcessor
-	b.gpu.Dispatchers = append(b.gpu.Dispatchers, b.ACE)
-
 	b.InternalConn.PlugIn(b.CP.ToDriver, 1)
-	b.InternalConn.PlugIn(b.CP.ToDispatcher, 128)
+	b.InternalConn.PlugIn(b.CP.ToDMA, 128)
 	b.InternalConn.PlugIn(b.CP.ToCaches, 128)
-	b.InternalConn.PlugIn(b.ACE.ToCommandProcessor, 1)
-	b.InternalConn.PlugIn(b.ACE.ToCUs, 4)
 	b.InternalConn.PlugIn(b.CP.ToCUs, 128)
 	b.InternalConn.PlugIn(b.CP.ToTLBs, 128)
 	b.InternalConn.PlugIn(b.CP.ToAddressTranslators, 128)
 	b.InternalConn.PlugIn(b.CP.ToRDMA, 4)
 	b.InternalConn.PlugIn(b.CP.ToPMC, 4)
-
-	if b.enableVisTracing {
-		tracing.CollectTrace(b.CP, b.visTracer)
-		tracing.CollectTrace(b.ACE, b.visTracer)
-	}
-}
-
-func (b *R9NanoGPUBuilder) connectCUToCP() {
-	b.CP.CUs = make([]akita.Port, b.numCU())
-	for i := 0; i < b.numCU(); i++ {
-		b.CP.CUs[i] = b.gpu.CUs[i].(*timing.ComputeUnit).ToCP
-	}
 }
 
 func (b *R9NanoGPUBuilder) buildMemSystem() {
@@ -749,7 +734,7 @@ func (b *R9NanoGPUBuilder) buildMemControllers() {
 }
 
 func (b *R9NanoGPUBuilder) buildCUs() {
-	cuBuilder := timing.MakeBuilder()
+	cuBuilder := cu.MakeBuilder()
 	if b.visTracer != nil {
 		cuBuilder = cuBuilder.WithVisTracer(b.visTracer)
 	}
@@ -771,25 +756,25 @@ func (b *R9NanoGPUBuilder) buildCUs() {
 		}
 		cuBuilder.VectorMemModules = lowModuleFinderForCU
 
-		cu := cuBuilder.Build()
-		b.gpu.CUs = append(b.gpu.CUs, cu)
-		b.ACE.RegisterCU(cu.ToACE)
+		computeUnit := cuBuilder.Build()
+		b.gpu.CUs = append(b.gpu.CUs, computeUnit)
+		b.CP.RegisterCU(computeUnit)
 
-		b.InternalConn.PlugIn(cu.ToACE, 1)
-		b.InternalConn.PlugIn(cu.ToCP, 1)
+		b.InternalConn.PlugIn(computeUnit.ToACE, 1)
+		b.InternalConn.PlugIn(computeUnit.ToCP, 1)
 
 		if b.enableISADebugging && i == 0 {
 			isaDebug, err := os.Create(fmt.Sprintf(
-				"isa_timing_%s.debug", cu.Name()))
+				"isa_timing_%s.debug", computeUnit.Name()))
 			if err != nil {
 				log.Fatal(err)
 			}
-			isaDebugger := timing.NewISADebugger(log.New(isaDebug, "", 0))
-			cu.AcceptHook(isaDebugger)
+			isaDebugger := cu.NewISADebugger(log.New(isaDebug, "", 0))
+			computeUnit.AcceptHook(isaDebugger)
 		}
 
 		if b.enableVisTracing {
-			tracing.CollectTrace(cu, b.visTracer)
+			tracing.CollectTrace(computeUnit, b.visTracer)
 		}
 	}
 }
