@@ -9,11 +9,12 @@ import (
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/rdma"
+	"gitlab.com/akita/mgpusim/timing/cp"
 )
 
 // A GPU is a wrapper that holds all the subcomponent of a GPU.
 type GPU struct {
-	CommandProcessor   *CommandProcessor
+	CommandProcessor   *cp.CommandProcessor
 	RDMAEngine         *rdma.Engine
 	PMC                *pagemigrationcontroller.PageMigrationController
 	Dispatchers        []akita.Component

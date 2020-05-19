@@ -5,9 +5,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/driver/internal"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mgpusim/driver/internal"
 )
 
 func enqueueNoopCommand(d *Driver, q *CommandQueue) {

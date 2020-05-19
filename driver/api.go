@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/rs/xid"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mgpusim/driver/internal"
 	"gitlab.com/akita/util/ca"
 )
@@ -201,7 +202,7 @@ func (d *Driver) enqueueFlushBeforeMemCopy(queue *CommandQueue) {
 
 func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
 	cmd := &FlushCommand{
-		ID: xid.New().String(),
+		ID: akita.GetIDGenerator().Generate(),
 	}
 	d.Enqueue(queue, cmd)
 }

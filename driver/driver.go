@@ -14,6 +14,7 @@ import (
 	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/driver/internal"
 	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/protocol"
 	"gitlab.com/akita/util/ca"
 	"gitlab.com/akita/util/tracing"
 )
@@ -38,16 +39,18 @@ type Driver struct {
 
 	ToGPUs akita.Port
 
-	driverStopped chan bool
-	enqueueSignal chan bool
-	engineMutex   sync.Mutex
-	simulationID  string
+	driverStopped      chan bool
+	enqueueSignal      chan bool
+	engineMutex        sync.Mutex
+	engineRunning      bool
+	engineRunningMutex sync.Mutex
+	simulationID       string
 
 	Log2PageSize uint64
 
 	currentPageMigrationReq         *vm.PageMigrationReqToDriver
 	toSendToMMU                     *vm.PageMigrationRspFromDriver
-	migrationReqToSendToCP          []*mgpusim.PageMigrationReqToCP
+	migrationReqToSendToCP          []*protocol.PageMigrationReqToCP
 	isCurrentlyHandlingMigrationReq bool
 	numRDMADrainACK                 uint64
 	numRDMARestartACK               uint64
@@ -96,7 +99,16 @@ func (d *Driver) runAsync() {
 			d.Engine.Pause()
 			d.TickLater(d.Engine.CurrentTime())
 			d.Engine.Continue()
-			d.runEngine()
+
+			d.engineRunningMutex.Lock()
+			if d.engineRunning {
+				d.engineRunningMutex.Unlock()
+				continue
+			}
+
+			d.engineRunning = true
+			go d.runEngine()
+			d.engineRunningMutex.Unlock()
 		}
 	}
 }
@@ -108,6 +120,10 @@ func (d *Driver) runEngine() {
 	if err != nil {
 		panic(err)
 	}
+
+	d.engineRunningMutex.Lock()
+	d.engineRunning = false
+	d.engineRunningMutex.Unlock()
 }
 
 // RegisterGPU tells the driver about the existence of a GPU
@@ -161,23 +177,23 @@ func (d *Driver) processReturnReq(now akita.VTimeInSec) bool {
 	}
 
 	switch req := req.(type) {
-	case *mgpusim.MemCopyH2DReq:
+	case *protocol.MemCopyH2DReq:
 		return d.processMemCopyH2DReturn(now, req)
-	case *mgpusim.MemCopyD2HReq:
+	case *protocol.MemCopyD2HReq:
 		return d.processMemCopyD2HReturn(now, req)
-	case *mgpusim.LaunchKernelReq:
+	case *protocol.LaunchKernelReq:
 		return d.processLaunchKernelReturn(now, req)
-	case *mgpusim.FlushCommand:
+	case *protocol.FlushCommand:
 		return d.processFlushReturn(now, req)
-	case *mgpusim.RDMADrainRspToDriver:
+	case *protocol.RDMADrainRspToDriver:
 		return d.processRDMADrainRsp(now, req)
-	case *mgpusim.ShootDownCompleteRsp:
+	case *protocol.ShootDownCompleteRsp:
 		return d.processShootdownCompleteRsp(now, req)
-	case *mgpusim.PageMigrationRspToDriver:
+	case *protocol.PageMigrationRspToDriver:
 		return d.processPageMigrationRspFromCP(now, req)
-	case *mgpusim.RDMARestartRspToDriver:
+	case *protocol.RDMARestartRspToDriver:
 		return d.processRDMARestartRspToDriver(now, req)
-	case *mgpusim.GPURestartRsp:
+	case *protocol.GPURestartRsp:
 		return d.handleGPURestartRsp(now, req)
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
@@ -305,7 +321,7 @@ func (d *Driver) processMemCopyH2DCommand(
 		}
 
 		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := mgpusim.NewMemCopyH2DReq(now,
+		req := protocol.NewMemCopyH2DReq(now,
 			d.ToGPUs, d.GPUs[gpuID-1].CommandProcessor.ToDriver,
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
@@ -339,7 +355,7 @@ func (d *Driver) logTaskToGPUClear(
 
 func (d *Driver) processMemCopyH2DReturn(
 	now akita.VTimeInSec,
-	req *mgpusim.MemCopyH2DReq,
+	req *protocol.MemCopyH2DReq,
 ) bool {
 	d.logTaskToGPUClear(now, req)
 
@@ -387,7 +403,7 @@ func (d *Driver) processMemCopyD2HCommand(
 		}
 
 		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := mgpusim.NewMemCopyD2HReq(now,
+		req := protocol.NewMemCopyD2HReq(now,
 			d.ToGPUs, d.GPUs[gpuID-1].CommandProcessor.ToDriver,
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -406,7 +422,7 @@ func (d *Driver) processMemCopyD2HCommand(
 
 func (d *Driver) processMemCopyD2HReturn(
 	now akita.VTimeInSec,
-	req *mgpusim.MemCopyD2HReq,
+	req *protocol.MemCopyD2HReq,
 ) bool {
 	d.logTaskToGPUClear(now, req)
 
@@ -447,7 +463,7 @@ func (d *Driver) processLaunchKernelCommand(
 		return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, queue)
 	}
 
-	req := mgpusim.NewLaunchKernelReq(now,
+	req := protocol.NewLaunchKernelReq(now,
 		d.ToGPUs, d.GPUs[queue.GPUID-1].CommandProcessor.ToDriver)
 	req.PID = queue.Context.pid
 	req.HsaCo = cmd.CodeObject
@@ -477,7 +493,7 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	d.logCmdStart(cmd, now)
 
 	for i, gpuID := range dev.UnifiedGPUIDs {
-		req := mgpusim.NewLaunchKernelReq(now,
+		req := protocol.NewLaunchKernelReq(now,
 			d.ToGPUs, d.GPUs[gpuID-1].CommandProcessor.ToDriver)
 		req.PID = queue.Context.pid
 		req.HsaCo = cmd.CodeObject
@@ -514,7 +530,7 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 
 func (d *Driver) processLaunchKernelReturn(
 	now akita.VTimeInSec,
-	req *mgpusim.LaunchKernelReq,
+	req *protocol.LaunchKernelReq,
 ) bool {
 	cmd, cmdQueue := d.findCommandByReq(req)
 	cmd.RemoveReq(req)
@@ -537,7 +553,7 @@ func (d *Driver) processFlushCommand(
 	queue *CommandQueue,
 ) bool {
 	for _, gpu := range d.GPUs {
-		req := mgpusim.NewFlushCommand(now,
+		req := protocol.NewFlushCommand(now,
 			d.ToGPUs, gpu.CommandProcessor.ToDriver)
 		d.requestsToSend = append(d.requestsToSend, req)
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -553,7 +569,7 @@ func (d *Driver) processFlushCommand(
 
 func (d *Driver) processFlushReturn(
 	now akita.VTimeInSec,
-	req *mgpusim.FlushCommand,
+	req *protocol.FlushCommand,
 ) bool {
 	d.logTaskToGPUClear(now, req)
 
@@ -636,7 +652,7 @@ func (d *Driver) parseFromMMU(now akita.VTimeInSec) bool {
 
 func (d *Driver) initiateRDMADrain(now akita.VTimeInSec) bool {
 	for i := 0; i < len(d.GPUs); i++ {
-		req := mgpusim.NewRDMADrainCmdFromDriver(now, d.ToGPUs,
+		req := protocol.NewRDMADrainCmdFromDriver(now, d.ToGPUs,
 			d.GPUs[i].CommandProcessor.ToDriver)
 		d.requestsToSend = append(d.requestsToSend, req)
 		d.numRDMADrainACK++
@@ -647,7 +663,7 @@ func (d *Driver) initiateRDMADrain(now akita.VTimeInSec) bool {
 
 func (d *Driver) processRDMADrainRsp(
 	now akita.VTimeInSec,
-	req *mgpusim.RDMADrainRspToDriver,
+	req *protocol.RDMADrainRspToDriver,
 ) bool {
 	d.numRDMADrainACK--
 
@@ -680,7 +696,7 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) bool {
 
 	for i := 0; i < len(accesingGPUs); i++ {
 		toShootdownGPU := accesingGPUs[i] - 1
-		shootDwnReq := mgpusim.NewShootdownCommand(
+		shootDwnReq := protocol.NewShootdownCommand(
 			now,
 			d.ToGPUs, d.GPUs[toShootdownGPU].CommandProcessor.ToDriver,
 			vAddr, pid)
@@ -692,7 +708,7 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) bool {
 
 func (d *Driver) processShootdownCompleteRsp(
 	now akita.VTimeInSec,
-	req *mgpusim.ShootDownCompleteRsp,
+	req *protocol.ShootDownCompleteRsp,
 ) bool {
 	d.numShootDownACK--
 
@@ -718,7 +734,7 @@ func (d *Driver) processShootdownCompleteRsp(
 				page, oldPaddr :=
 					d.preparePageForMigration(vAddr, context, gpuID)
 
-				req := mgpusim.NewPageMigrationReqToCP(now, d.ToGPUs,
+				req := protocol.NewPageMigrationReqToCP(now, d.ToGPUs,
 					d.GPUs[gpuID].CommandProcessor.ToDriver)
 				req.DestinationPMCPort = toRequestFromPMCPort
 				req.ToReadFromPhysicalAddress = oldPaddr
@@ -805,7 +821,7 @@ func (d *Driver) sendMigrationReqToCP(now akita.VTimeInSec) bool {
 
 func (d *Driver) processPageMigrationRspFromCP(
 	now akita.VTimeInSec,
-	rsp *mgpusim.PageMigrationRspToDriver,
+	rsp *protocol.PageMigrationRspToDriver,
 ) bool {
 	d.numPagesMigratingACK--
 	d.isCurrentlyMigratingOnePage = false
@@ -823,7 +839,7 @@ func (d *Driver) prepareGPURestartReqs(now akita.VTimeInSec) {
 
 	for i := 0; i < len(accessingGPUs); i++ {
 		restartGPUID := accessingGPUs[i] - 1
-		restartReq := mgpusim.NewGPURestartReq(
+		restartReq := protocol.NewGPURestartReq(
 			now, d.ToGPUs, d.GPUs[restartGPUID].CommandProcessor.ToDriver)
 		d.requestsToSend = append(d.requestsToSend, restartReq)
 		d.numRestartACK++
@@ -861,7 +877,7 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 
 func (d *Driver) handleGPURestartRsp(
 	now akita.VTimeInSec,
-	req *mgpusim.GPURestartRsp,
+	req *protocol.GPURestartRsp,
 ) bool {
 	d.numRestartACK--
 	if d.numRestartACK == 0 {
@@ -872,7 +888,7 @@ func (d *Driver) handleGPURestartRsp(
 
 func (d *Driver) prepareRDMARestartReqs(now akita.VTimeInSec) {
 	for i := 0; i < len(d.GPUs); i++ {
-		req := mgpusim.NewRDMARestartCmdFromDriver(now, d.ToGPUs,
+		req := protocol.NewRDMARestartCmdFromDriver(now, d.ToGPUs,
 			d.GPUs[i].CommandProcessor.ToDriver)
 		d.requestsToSend = append(d.requestsToSend, req)
 		d.numRDMARestartACK++
@@ -881,7 +897,7 @@ func (d *Driver) prepareRDMARestartReqs(now akita.VTimeInSec) {
 
 func (d *Driver) processRDMARestartRspToDriver(
 	now akita.VTimeInSec,
-	rsp *mgpusim.RDMARestartRspToDriver) bool {
+	rsp *protocol.RDMARestartRspToDriver) bool {
 	d.numRDMARestartACK--
 
 	if d.numRDMARestartACK == 0 {

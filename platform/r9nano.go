@@ -175,6 +175,7 @@ func (b R9NanoPlatformBuilder) createEngine() akita.Engine {
 		engine = akita.NewSerialEngine()
 	}
 	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+
 	return engine
 }
 

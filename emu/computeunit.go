@@ -11,9 +11,9 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mgpusim"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/protocol"
 )
 
 type emulationEvent struct {
@@ -34,13 +34,47 @@ type ComputeUnit struct {
 	storageAccessor    *storageAccessor
 
 	nextTick    akita.VTimeInSec
-	queueingWGs []*mgpusim.MapWGReq
+	queueingWGs []*protocol.MapWGReq
 	wfs         map[*kernels.WorkGroup][]*Wavefront
 	LDSStorage  []byte
 
 	GlobalMemStorage *mem.Storage
 
 	ToDispatcher akita.Port
+}
+
+// ControlPort returns the port that can receive controlling messages from the
+// Command Processor.
+func (cu *ComputeUnit) ControlPort() akita.Port {
+	return cu.ToDispatcher
+}
+
+// DispatchingPort returns the port that the dispatcher can use to dispatch
+// work-groups to the CU.
+func (cu *ComputeUnit) DispatchingPort() akita.Port {
+	return cu.ToDispatcher
+}
+
+// WfPoolSize returns an array of the numbers of wavefronts that each SIMD unit
+// can execute.
+func (cu *ComputeUnit) WfPoolSizes() []int {
+	return []int{math.MaxInt32}
+}
+
+// VRegCounts returns an array of the numbers of vector regsiters in each SIMD
+// unit.
+func (cu *ComputeUnit) VRegCounts() []int {
+	return []int{-1}
+}
+
+// SRegCounts returns the number of scalar register in the Compute Unit.
+func (cu *ComputeUnit) SRegCount() int {
+	return -1
+}
+
+// LDSBytes returns the number of bytes in the LDS of the CU.
+func (cu *ComputeUnit) LDSBytes() int {
+	return -1
 }
 
 // Handle defines the behavior on event scheduled on the ComputeUnit
@@ -74,14 +108,7 @@ func (cu *ComputeUnit) processMapWGReq(now akita.VTimeInSec) {
 		return
 	}
 
-	req := msg.(*mgpusim.MapWGReq)
-	req.Ok = true
-	req.Src, req.Dst = req.Dst, req.Src
-	req.SendTime = now
-	err := cu.ToDispatcher.Send(req)
-	if err != nil {
-		return
-	}
+	req := msg.(*protocol.MapWGReq)
 
 	if cu.nextTick <= now {
 		cu.nextTick = akita.VTimeInSec(math.Ceil(float64(now)))
@@ -93,7 +120,7 @@ func (cu *ComputeUnit) processMapWGReq(now akita.VTimeInSec) {
 	}
 
 	cu.queueingWGs = append(cu.queueingWGs, req)
-	cu.wfs[req.WG] = make([]*Wavefront, 0, 64)
+	cu.wfs[req.WorkGroup] = make([]*Wavefront, 0, 64)
 }
 
 func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
@@ -105,8 +132,11 @@ func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
 	return nil
 }
 
-func (cu *ComputeUnit) runWG(req *mgpusim.MapWGReq, now akita.VTimeInSec) error {
-	wg := req.WG
+func (cu *ComputeUnit) runWG(
+	req *protocol.MapWGReq,
+	now akita.VTimeInSec,
+) error {
+	wg := req.WorkGroup
 	cu.initWfs(wg, req)
 
 	for !cu.isAllWfCompleted(wg) {
@@ -125,7 +155,7 @@ func (cu *ComputeUnit) runWG(req *mgpusim.MapWGReq, now akita.VTimeInSec) error 
 
 func (cu *ComputeUnit) initWfs(
 	wg *kernels.WorkGroup,
-	req *mgpusim.MapWGReq,
+	req *protocol.MapWGReq,
 ) error {
 	lds := cu.initLDS(wg, req)
 
@@ -143,8 +173,8 @@ func (cu *ComputeUnit) initWfs(
 	return nil
 }
 
-func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *mgpusim.MapWGReq) []byte {
-	ldsSize := req.WG.Packet.GroupSegmentSize
+func (cu *ComputeUnit) initLDS(wg *kernels.WorkGroup, req *protocol.MapWGReq) []byte {
+	ldsSize := req.WorkGroup.Packet.GroupSegmentSize
 	lds := make([]byte, ldsSize)
 	return lds
 }
@@ -338,14 +368,21 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 }
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
-	delete(cu.wfs, evt.Req.WG)
-	req := mgpusim.NewWGFinishMesg(cu.ToDispatcher, evt.Req.Dst, evt.Time(), evt.Req.WG)
+	delete(cu.wfs, evt.Req.WorkGroup)
+
+	req := protocol.WGCompletionMsgBuilder{}.
+		WithRspTo(evt.Req.ID).
+		WithSrc(cu.ToDispatcher).
+		WithDst(evt.Req.Src).
+		WithSendTime(evt.Time()).
+		Build()
 	err := cu.ToDispatcher.Send(req)
 	if err != nil {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
 			cu, evt.Req)
 		cu.Engine.Schedule(newEvent)
 	}
+
 	return nil
 }
 
@@ -367,7 +404,7 @@ func NewComputeUnit(
 	cu.alu = alu
 	cu.storageAccessor = sAccessor
 
-	cu.queueingWGs = make([]*mgpusim.MapWGReq, 0)
+	cu.queueingWGs = make([]*protocol.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
 	cu.ToDispatcher = akita.NewLimitNumMsgPort(cu, 1, name+".ToDispatcher")

@@ -15,7 +15,7 @@ import (
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/emu"
 	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/timing/cp"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -112,16 +112,10 @@ func (b EmuGPUBuilder) Build(name string) *mgpusim.GPU {
 	connection := akita.NewDirectConnection(
 		"InterGPUConn", b.engine, 1*akita.GHz)
 
-	dispatcher := mgpusim.NewDispatcher(
-		name+".Dispatcher",
-		b.engine,
-		kernels.NewGridBuilder())
-	dispatcher.ShowProgressBar = !b.disableProgressBar
-	dispatcher.Freq = b.freq
-
-	commandProcessor := mgpusim.NewCommandProcessor(
-		name+".CommandProcessor", b.engine)
-	commandProcessor.Dispatcher = dispatcher.ToCommandProcessor
+	commandProcessor := cp.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(1 * akita.GHz).
+		Build(name + ".CommandProcessor")
 
 	gpuMem := idealmemcontroller.New(
 		name+".GlobalMem", b.engine, b.memCapacity)
@@ -145,7 +139,7 @@ func (b EmuGPUBuilder) Build(name string) *mgpusim.GPU {
 			b.log2PageSize, gpuMem.Storage, nil)
 
 		connection.PlugIn(computeUnit.ToDispatcher, 4)
-		dispatcher.RegisterCU(computeUnit.ToDispatcher)
+		commandProcessor.RegisterCU(computeUnit)
 
 		if b.enableISADebug {
 			isaDebug, err := os.Create(fmt.Sprintf("isa_%s.debug", computeUnit.Name()))
@@ -164,15 +158,14 @@ func (b EmuGPUBuilder) Build(name string) *mgpusim.GPU {
 
 	localDataSource := new(cache.SingleLowModuleFinder)
 	localDataSource.LowModule = gpuMem.ToTop
-	dmaEngine := mgpusim.NewDMAEngine(
+	dmaEngine := cp.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", name), b.engine, localDataSource)
 	commandProcessor.DMAEngine = dmaEngine.ToCP
 
 	connection.PlugIn(commandProcessor.ToDriver, 1)
-	connection.PlugIn(commandProcessor.ToDispatcher, 1)
+	connection.PlugIn(commandProcessor.ToDMA, 1)
+	connection.PlugIn(commandProcessor.ToCUs, 1)
 	connection.PlugIn(b.driver.ToGPUs, 1)
-	connection.PlugIn(dispatcher.ToCommandProcessor, 1)
-	connection.PlugIn(dispatcher.ToCUs, 1)
 	connection.PlugIn(gpuMem.ToTop, 1)
 	connection.PlugIn(dmaEngine.ToCP, 1)
 	connection.PlugIn(dmaEngine.ToMem, 1)
