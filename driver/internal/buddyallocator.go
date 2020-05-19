@@ -91,7 +91,12 @@ func (b *buddyAllocatorImpl) AllocateUnified(
 	pid ca.PID,
 	byteSize uint64,
 ) uint64 {
-		return 0
+	b.Lock()
+	defer b.Unlock()
+
+	pageSize := uint64(1 << b.log2PageSize)
+	numPages := (byteSize-1)/pageSize + 1
+	return b.allocatePages(int(numPages), pid, 1, true)
 }
 
 func (b *buddyAllocatorImpl) allocatePages(
@@ -143,7 +148,18 @@ func (b *buddyAllocatorImpl) Remap(
 	pageVAddr, byteSize uint64,
 	deviceID int,
 ) {
+	b.Lock()
+	defer b.Unlock()
 
+	pageSize := uint64(1 << b.log2PageSize)
+	addr := pageVAddr
+	vAddrs := make([]uint64,0)
+	for addr < pageVAddr+byteSize {
+		vAddrs = append(vAddrs, addr)
+		addr += pageSize
+	}
+
+	b.allocateMultiplePagesWithGivenVAddrs(pid, deviceID, vAddrs, false)
 }
 
 func (b *buddyAllocatorImpl) RemovePage(vAddr uint64) {
@@ -204,6 +220,36 @@ func (b *buddyAllocatorImpl) allocatePageWithGivenVAddr(
 
 	return page
 }
+
+func (b *buddyAllocatorImpl) allocateMultiplePagesWithGivenVAddrs(
+	pid ca.PID,
+	deviceID int,
+	vAddrs []uint64,
+	isUnified bool,
+) (pages []vm.Page) {
+	pageSize := uint64(1 << b.log2PageSize)
+
+	device := b.devices[deviceID]
+	pAddrs := device.allocateMultiplePages(len(vAddrs))
+
+	for i, vAddr := range vAddrs {
+		page := vm.Page{
+			PID:      pid,
+			VAddr:    vAddr,
+			PAddr:    pAddrs[i],
+			PageSize: pageSize,
+			Valid:    true,
+			GPUID:    uint64(deviceID),
+			Unified:  isUnified,
+		}
+		b.vAddrToPageMapping[page.VAddr] = page
+		b.pageTable.Update(page)
+		pages = append(pages, page)
+	}
+
+	return pages
+}
+
 
 func (b *buddyAllocatorImpl) Free(ptr uint64) {
 	b.Lock()
