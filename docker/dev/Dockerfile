@@ -1,7 +1,7 @@
-FROM ubuntu:latest
+FROM ubuntu:18.04
 
 RUN apt-get update && apt-get install -y software-properties-common
-RUN apt-get update && apt-get install -y git openssh-server tmux vim fish python-dev python-pip python3-dev python3-pip ca-certificates curl wget
+RUN apt-get update && apt-get install -y git openssh-server tmux vim fish python3-dev python3-pip ca-certificates curl wget
 
 RUN add-apt-repository -y ppa:neovim-ppa/stable
 RUN apt-get update && apt-get install -y neovim
@@ -41,7 +41,6 @@ RUN go get golang.org/x/tools/cmd/goimports
 RUN go get golang.org/x/lint/golint
 RUN GO111MODULE=on go get golang.org/x/tools/gopls@latest
 RUN go get github.com/alecthomas/gometalinter
-RUN go get github.com/golangci/golangci-lint/cmd/golangci-lint
 RUN go get github.com/fatih/gomodifytags
 RUN go get golang.org/x/tools/cmd/gorename
 RUN go get github.com/jstemmer/gotags
@@ -50,6 +49,9 @@ RUN go get github.com/josharian/impl
 RUN go get honnef.co/go/tools/cmd/keyify
 RUN go get github.com/fatih/motion
 RUN go get github.com/koron/iferr
+
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0
+
 
 RUN go get github.com/onsi/ginkgo/ginkgo
 RUN go get github.com/golang/mock/mockgen
