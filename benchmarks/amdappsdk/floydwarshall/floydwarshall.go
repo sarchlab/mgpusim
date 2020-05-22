@@ -11,7 +11,8 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-type FloydWarshallKernelArgs struct {
+// KernelArgs defines kernel arguments
+type KernelArgs struct {
 	OutputPathDistanceMatrix driver.GPUPtr
 	OutputPathMatrix         driver.GPUPtr
 
@@ -19,6 +20,7 @@ type FloydWarshallKernelArgs struct {
 	Pass     uint32
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -39,6 +41,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark creates a new benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -47,11 +50,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects gpu
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory Use Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -65,6 +69,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// Run runs the benchmark
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -153,7 +158,7 @@ func (b *Benchmark) exec() {
 	for k := uint32(0); k < b.NumIterations; k++ {
 		pass := k
 
-		kernArg := FloydWarshallKernelArgs{
+		kernArg := KernelArgs{
 			b.dOutputPathDistanceMatrix,
 			b.dOutputPathMatrix,
 			numNodes,
@@ -174,6 +179,7 @@ func (b *Benchmark) exec() {
 		b.hOutputPathDistanceMatrix, b.dOutputPathDistanceMatrix)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	numNodes := b.NumNodes
 	var distanceYtoX, distanceYtoK, distanceKtoX, indirectDistance uint32

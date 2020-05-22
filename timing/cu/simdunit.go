@@ -50,7 +50,7 @@ func (u *SIMDUnit) CanAcceptWave() bool {
 	return u.toExec == nil
 }
 
-// CanAcceptWave checks if the buffer of the read stage is occupied or not
+// IsIdle checks if the buffer of the read stage is occupied or not
 func (u *SIMDUnit) IsIdle() bool {
 	u.isIdle = (u.toExec == nil)
 	return u.isIdle
@@ -92,6 +92,7 @@ func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
 	return true
 }
 
+// Flush flushes
 func (u *SIMDUnit) Flush() {
 	u.toExec = nil
 }
@@ -122,6 +123,7 @@ func (u *SIMDUnit) logPipelineTask(
 	)
 }
 
+// Name names the unit
 func (u *SIMDUnit) Name() string {
 	return u.name
 }

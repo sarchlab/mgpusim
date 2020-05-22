@@ -10,6 +10,7 @@ import (
 
 var doPerPassVerify = false
 
+// BitonicKernelArgs defines kernel arguments
 type BitonicKernelArgs struct {
 	Input               driver.GPUPtr
 	Stage               uint32
@@ -21,6 +22,7 @@ type BitonicKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	gpusToUse []int
 	driver    *driver.Driver
@@ -66,7 +68,7 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpusToUse = gpuIDs
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }

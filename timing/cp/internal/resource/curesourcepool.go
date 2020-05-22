@@ -5,6 +5,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// DispatchableCU handles dispatch resource
 type DispatchableCU interface {
 	// DispatchingPort returns the port that the dispatcher can dispatch workgroups to.
 	DispatchingPort() akita.Port
@@ -39,6 +40,7 @@ type CUResourcePoolImpl struct {
 	cus           []CUResource
 }
 
+// NewCUResourcePool returns a CUResourcePoll
 func NewCUResourcePool() *CUResourcePoolImpl {
 	p := &CUResourcePoolImpl{
 		registeredCUs: make(map[DispatchableCU]bool),

@@ -38,15 +38,15 @@ type ComputeUnit struct {
 	running bool
 
 	Scheduler        Scheduler
-	BranchUnit       CUComponent
-	VectorMemDecoder CUComponent
-	VectorMemUnit    CUComponent
-	ScalarDecoder    CUComponent
-	VectorDecoder    CUComponent
-	LDSDecoder       CUComponent
-	ScalarUnit       CUComponent
-	SIMDUnit         []CUComponent
-	LDSUnit          CUComponent
+	BranchUnit       SubComponent
+	VectorMemDecoder SubComponent
+	VectorMemUnit    SubComponent
+	ScalarDecoder    SubComponent
+	VectorDecoder    SubComponent
+	LDSDecoder       SubComponent
+	ScalarUnit       SubComponent
+	SIMDUnit         []SubComponent
+	LDSUnit          SubComponent
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
@@ -116,7 +116,7 @@ func (cu *ComputeUnit) DispatchingPort() akita.Port {
 	return cu.ToACE
 }
 
-// WfPoolSize returns an array of the numbers of wavefronts that each SIMD unit
+// WfPoolSizes returns an array of the numbers of wavefronts that each SIMD unit
 // can execute.
 func (cu *ComputeUnit) WfPoolSizes() []int {
 	return []int{10, 10, 10, 10}
@@ -128,7 +128,7 @@ func (cu *ComputeUnit) VRegCounts() []int {
 	return []int{16384, 16384, 16384, 16384}
 }
 
-// SRegCounts returns the number of scalar register in the Compute Unit.
+// SRegCount returns the number of scalar register in the Compute Unit.
 func (cu *ComputeUnit) SRegCount() int {
 	return 3200
 }
@@ -138,6 +138,7 @@ func (cu *ComputeUnit) LDSBytes() int {
 	return 64 * 1024
 }
 
+// Tick ticks
 func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
 	cu.Lock()
 	defer cu.Unlock()
@@ -660,6 +661,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	}
 }
 
+// UpdatePCAndSetReady is self explained
 func (cu *ComputeUnit) UpdatePCAndSetReady(wf *wavefront.Wavefront) {
 	wf.State = wavefront.WfReady
 	wf.PC += uint64(wf.Inst().ByteSize)

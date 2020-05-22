@@ -51,6 +51,7 @@ func (wf *Wavefront) Scratchpad() Scratchpad {
 	return wf.scratchpad
 }
 
+// PID returns pid
 func (wf *Wavefront) PID() ca.PID {
 	return wf.pid
 }
@@ -66,8 +67,8 @@ func (wf *Wavefront) VRegValue(lane int, i int) uint32 {
 	return insts.BytesToUint32(wf.VRegFile[offset : offset+4])
 }
 
-//nolint:gocyclo,funlen
 // ReadReg returns the raw register value
+//nolint:gocyclo
 func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	numBytes := reg.ByteSize
 	if regCount >= 2 {
@@ -105,8 +106,8 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	return value
 }
 
-//nolint:gocyclo,funlen
 // WriteReg returns the raw register value
+//nolint:gocyclo
 func (wf *Wavefront) WriteReg(
 	reg *insts.Reg,
 	regCount int,
@@ -118,7 +119,6 @@ func (wf *Wavefront) WriteReg(
 		numBytes *= regCount
 	}
 
-	// There are some concerns in terms of reading VCC and EXEC (64 or 32? And how to decide?)
 	if reg.IsSReg() {
 		offset := reg.RegIndex() * 4
 		copy(wf.SRegFile[offset:offset+numBytes], data)

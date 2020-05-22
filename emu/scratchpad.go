@@ -24,6 +24,8 @@ func (sp Scratchpad) AsSOPP() *SOPPLayout {
 	return (*SOPPLayout)(unsafe.Pointer(&sp[0]))
 }
 
+// AsSOPK returns the ScratchPad as a struct representing the SOPK scratchpad
+// layout
 func (sp Scratchpad) AsSOPK() *SOPKLayout {
 	return (*SOPKLayout)(unsafe.Pointer(&sp[0]))
 }

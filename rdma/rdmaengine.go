@@ -31,7 +31,7 @@ type Engine struct {
 
 	isDraining              bool
 	pauseIncomingReqsFromL1 bool
-	currentDrainReq         *RDMADrainReq
+	currentDrainReq         *DrainReq
 
 	localModules           cache.LowModuleFinder
 	RemoteRDMAAddressTable cache.LowModuleFinder
@@ -40,6 +40,7 @@ type Engine struct {
 	transactionsFromInside  []transaction
 }
 
+// Tick checks if make progress
 func (e *Engine) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
@@ -62,12 +63,12 @@ func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) bool {
 
 	req = e.CtrlPort.Retrieve(now)
 	switch req := req.(type) {
-	case *RDMADrainReq:
+	case *DrainReq:
 		e.currentDrainReq = req
 		e.isDraining = true
 		e.pauseIncomingReqsFromL1 = true
 		return true
-	case *RDMARestartReq:
+	case *RestartReq:
 		return e.processRDMARestartReq(now)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
@@ -76,7 +77,7 @@ func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) bool {
 }
 
 func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
-	restartCompleteRsp := RDMARestartRspBuilder{}.
+	restartCompleteRsp := RestartRspBuilder{}.
 		WithSendTime(now).
 		WithSrc(e.CtrlPort).
 		WithDst(e.currentDrainReq.Src).
@@ -94,7 +95,7 @@ func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
 
 func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
 	if e.fullyDrained() {
-		drainCompleteRsp := RDMADrainRspBuilder{}.
+		drainCompleteRsp := DrainRspBuilder{}.
 			WithSendTime(now).
 			WithSrc(e.CtrlPort).
 			WithDst(e.currentDrainReq.Src).
@@ -351,10 +352,12 @@ func (e *Engine) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 	return nil
 }
 
+// SetFreq sets freq
 func (e *Engine) SetFreq(freq akita.Freq) {
 	e.TickingComponent.Freq = freq
 }
 
+// NewEngine creates new engine
 func NewEngine(
 	name string,
 	engine akita.Engine,

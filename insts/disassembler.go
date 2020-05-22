@@ -680,8 +680,8 @@ func (d *Disassembler) combineDSOffsets(inst *Inst) {
 	}
 }
 
-//nolint:gocyclo,funlen
 // Decode parses the head of the buffer and returns the next instruction
+//nolint:gocyclo,funlen
 func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint32(buf[:4]))
 	if err != nil {

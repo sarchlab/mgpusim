@@ -11,7 +11,8 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-type KernalArgs struct {
+// KernelArgs defines kernel arguments
+type KernelArgs struct {
 	Reference          driver.GPUPtr
 	InputItemSets      driver.GPUPtr
 	OutputItemSets     driver.GPUPtr
@@ -54,6 +55,7 @@ var blosum62 [][]int32 = [][]int32{
 	{-4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, 1},
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver           *driver.Driver
 	context          *driver.Context
@@ -74,6 +76,7 @@ type Benchmark struct {
 	dReference        driver.GPUPtr
 }
 
+// NewBenchmark creates a new benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -103,6 +106,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// SetLength sets length
 func (b *Benchmark) SetLength(length int) {
 	// if length%16 != 0 {
 	// 	panic("NW length must be a multiple of 16")
@@ -113,10 +117,12 @@ func (b *Benchmark) SetLength(length int) {
 	b.col = length + 1
 }
 
+// SetPenalty sets penalty
 func (b *Benchmark) SetPenalty(penalty int) {
 	b.penalty = penalty
 }
 
+// SelectGPU selects gpu
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	if len(gpuIDs) > 1 {
 		panic("nw does not support multi-GPU mode")
@@ -125,11 +131,13 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpuIDs = gpuIDs
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.initMem()
 	b.exec()
 }
 
+// SetUnifiedMemory Use Unified Memor
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -210,7 +218,7 @@ func (b *Benchmark) runKernel1() {
 		globalSize := [3]uint32{uint32(b.blockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.blockSize), 1, 1}
 
-		args := KernalArgs{
+		args := KernelArgs{
 			Reference:          b.dReference,
 			InputItemSets:      b.dInputItemSets,
 			OutputItemSets:     b.dOutputItemSets,
@@ -246,7 +254,7 @@ func (b *Benchmark) runKernel2() {
 		globalSize := [3]uint32{uint32(b.blockSize * blk), 1, 1}
 		localSize := [3]uint16{uint16(b.blockSize), 1, 1}
 
-		args := KernalArgs{
+		args := KernelArgs{
 			Reference:          b.dReference,
 			InputItemSets:      b.dInputItemSets,
 			OutputItemSets:     b.dOutputItemSets,
@@ -272,6 +280,7 @@ func (b *Benchmark) runKernel2() {
 	}
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	// fmt.Printf("\nReference:\n")
 	// for i := 0; i < b.row; i++ {

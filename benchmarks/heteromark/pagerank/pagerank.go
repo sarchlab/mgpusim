@@ -12,7 +12,8 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-type PageRankKernelArgs struct {
+// KernelArgs defines kernel arguments
+type KernelArgs struct {
 	NumRows   uint32
 	Padding   uint32
 	RowOffset driver.GPUPtr
@@ -24,6 +25,7 @@ type PageRankKernelArgs struct {
 	Y         driver.GPUPtr
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -50,6 +52,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -58,11 +61,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -76,6 +80,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -148,9 +153,9 @@ func (b *Benchmark) exec() {
 	i := uint32(0)
 
 	for i = 0; i < b.MaxIterations; i++ {
-		var kernArg PageRankKernelArgs
+		var kernArg KernelArgs
 		if i%2 == 0 {
-			kernArg = PageRankKernelArgs{
+			kernArg = KernelArgs{
 				NumRows:   b.NumNodes,
 				RowOffset: b.dRowOffsets,
 				Col:       b.dColumnNumbers,
@@ -160,7 +165,7 @@ func (b *Benchmark) exec() {
 				Y:         b.dPageRankTemp,
 			}
 		} else {
-			kernArg = PageRankKernelArgs{
+			kernArg = KernelArgs{
 				NumRows:   b.NumNodes,
 				RowOffset: b.dRowOffsets,
 				Col:       b.dColumnNumbers,
@@ -187,6 +192,7 @@ func (b *Benchmark) exec() {
 	}
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	var i uint32
 	m := b.hMatrix

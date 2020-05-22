@@ -5,6 +5,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// CUResource handle CU resources
 type CUResource interface {
 	ReserveResourceForWG(wg *kernels.WorkGroup) (
 		locations []WfLocation,

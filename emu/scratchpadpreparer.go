@@ -29,8 +29,8 @@ func NewScratchpadPreparerImpl() *ScratchpadPreparerImpl {
 	return p
 }
 
-//nolint:gocyclo,funlen
 // Prepare read from the register file and sets the scratchpad layout
+//nolint:gocyclo
 func (p *ScratchpadPreparerImpl) Prepare(
 	instEmuState InstEmuState,
 	wf *Wavefront,

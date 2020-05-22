@@ -38,8 +38,7 @@ func NewLDSUnit(
 func (u *LDSUnit) CanAcceptWave() bool {
 	return u.toRead == nil
 }
-
-// CanAcceptWave checks if the buffer of the read stage is occupied or not
+// IsIdle checks idleness
 func (u *LDSUnit) IsIdle() bool {
 	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
 	return u.isIdle
@@ -104,7 +103,7 @@ func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) bool {
 	u.toWrite = nil
 	return true
 }
-
+// Flush clears the unit
 func (u *LDSUnit) Flush() {
 	u.toRead = nil
 	u.toExec = nil

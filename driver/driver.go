@@ -140,6 +140,7 @@ func (d *Driver) RegisterGPU(gpu *mgpusim.GPU, dramSize uint64) {
 	d.devices = append(d.devices, gpuDevice)
 }
 
+// Tick ticks
 func (d *Driver) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 

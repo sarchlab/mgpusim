@@ -108,6 +108,5 @@ func (h *ISADebugger) logWholeWf(wf *Wavefront) {
 
 	output += fmt.Sprintf("}")
 
-
 	h.Logger.Print(output)
 }

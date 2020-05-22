@@ -2,6 +2,7 @@ package csr
 
 import "math/rand"
 
+// MatrixGenerator defines a matrix generator
 type MatrixGenerator struct {
 	numNode, numConnection   uint32
 	xCoords, yCoords         []uint32
@@ -10,6 +11,7 @@ type MatrixGenerator struct {
 	xCoordIndex, yCoordIndex map[uint32][]uint32
 }
 
+// MakeMatrixGenerator returns a matrixGenerator
 func MakeMatrixGenerator(numNode, numConnection uint32) MatrixGenerator {
 	return MatrixGenerator{
 		numNode:       numNode,
@@ -17,6 +19,7 @@ func MakeMatrixGenerator(numNode, numConnection uint32) MatrixGenerator {
 	}
 }
 
+// GenerateMatrix generates matrix
 func (g MatrixGenerator) GenerateMatrix() Matrix {
 	g.init()
 	g.generateConnections()
