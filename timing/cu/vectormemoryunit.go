@@ -233,6 +233,7 @@ func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
+// Flush flushes
 func (u *VectorMemoryUnit) Flush() {
 	for waveID := range u.AddrCoalescingCycleLeft {
 		delete(u.AddrCoalescingCycleLeft, waveID)

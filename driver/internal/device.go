@@ -30,7 +30,8 @@ func (at *AllocatorType) UseBuddyAllocator() {
 	*at = allocatorTypeBuddy
 }
 
-// A device is a CPU or GPU managed by the driver.
+//Device is a CPU or GPU managed by the driver.
+
 type Device struct {
 	ID                 int
 	Type               DeviceType
@@ -41,6 +42,7 @@ type Device struct {
 }
 
 
+//SetTotalMemSize sets total memory size
 func (d *Device) SetTotalMemSize(size uint64) {
 	if d.memState == nil {
 		switch MemoryAllocatorType {

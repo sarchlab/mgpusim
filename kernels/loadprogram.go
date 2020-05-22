@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/mgpusim/insts"
 )
 
+// LoadProgram loads program
 func LoadProgram(filePath, kernelName string) *insts.HsaCo {
 	executable, err := elf.Open(filePath)
 	if err != nil {
@@ -51,6 +52,7 @@ func LoadProgram(filePath, kernelName string) *insts.HsaCo {
 	return nil
 }
 
+// LoadProgramFromMemory loads program
 func LoadProgramFromMemory(data []byte, kernelName string) *insts.HsaCo {
 	reader := bytes.NewReader(data)
 	executable, err := elf.NewFile(reader)

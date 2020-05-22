@@ -4,45 +4,45 @@ import (
 	"gitlab.com/akita/akita"
 )
 
-// A RDMADrainReq asks the rdma to stop processing requests from L1 while allowing pending requests to L2 to complete
-type RDMADrainReq struct {
+// DrainReq asks the rdma to stop processing requests from L1 while allowing pending requests to L2 to complete
+type DrainReq struct {
 	akita.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (r *RDMADrainReq) Meta() *akita.MsgMeta {
+func (r *DrainReq) Meta() *akita.MsgMeta {
 	return &r.MsgMeta
 }
 
-// RDMADrainReqBuilder can build RDMA drain requests
-type RDMADrainReqBuilder struct {
+// DrainReqBuilder can build RDMA drain requests
+type DrainReqBuilder struct {
 	sendTime akita.VTimeInSec
 	src, dst akita.Port
 }
 
 // WithSendTime sets the send time of the request to build.:w
-func (b RDMADrainReqBuilder) WithSendTime(
+func (b DrainReqBuilder) WithSendTime(
 	t akita.VTimeInSec,
-) RDMADrainReqBuilder {
+) DrainReqBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b RDMADrainReqBuilder) WithSrc(src akita.Port) RDMADrainReqBuilder {
+func (b DrainReqBuilder) WithSrc(src akita.Port) DrainReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b RDMADrainReqBuilder) WithDst(dst akita.Port) RDMADrainReqBuilder {
+func (b DrainReqBuilder) WithDst(dst akita.Port) DrainReqBuilder {
 	b.dst = dst
 	return b
 }
 
-// Build creats a new RDMADrainReq
-func (b RDMADrainReqBuilder) Build() *RDMADrainReq {
-	r := &RDMADrainReq{}
+// Build creats a new DrainReq
+func (b DrainReqBuilder) Build() *DrainReq {
+	r := &DrainReq{}
 	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
@@ -50,45 +50,45 @@ func (b RDMADrainReqBuilder) Build() *RDMADrainReq {
 	return r
 }
 
-// A RDMARestartReq is a message to allow rdma to continue processing reqs from L1
-type RDMARestartReq struct {
+// RestartReq is a message to allow rdma to continue processing reqs from L1
+type RestartReq struct {
 	akita.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (r *RDMARestartReq) Meta() *akita.MsgMeta {
+func (r *RestartReq) Meta() *akita.MsgMeta {
 	return &r.MsgMeta
 }
 
-// RDMARestartBuilder can build RDMA restart req
-type RDMARestartReqBuilder struct {
+// RestartReqBuilder can build RDMA restart req
+type RestartReqBuilder struct {
 	sendTime akita.VTimeInSec
 	src, dst akita.Port
 }
 
 // WithSendTime sets the send time of the request to build
-func (b RDMARestartReqBuilder) WithSendTime(
+func (b RestartReqBuilder) WithSendTime(
 	t akita.VTimeInSec,
-) RDMARestartReqBuilder {
+) RestartReqBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b RDMARestartReqBuilder) WithSrc(src akita.Port) RDMARestartReqBuilder {
+func (b RestartReqBuilder) WithSrc(src akita.Port) RestartReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b RDMARestartReqBuilder) WithDst(dst akita.Port) RDMARestartReqBuilder {
+func (b RestartReqBuilder) WithDst(dst akita.Port) RestartReqBuilder {
 	b.dst = dst
 	return b
 }
 
 // Build creats a new RDMADrainRsp
-func (b RDMARestartReqBuilder) Build() *RDMARestartReq {
-	r := &RDMARestartReq{}
+func (b RestartReqBuilder) Build() *RestartReq {
+	r := &RestartReq{}
 	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
@@ -96,45 +96,45 @@ func (b RDMARestartReqBuilder) Build() *RDMARestartReq {
 	return r
 }
 
-// A RDMADrainRsp is a drain complete response to a RDMA Drain Req
-type RDMADrainRsp struct {
+//DrainRsp is a drain complete response to a RDMA Drain Req
+type DrainRsp struct {
 	akita.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (r *RDMADrainRsp) Meta() *akita.MsgMeta {
+func (r *DrainRsp) Meta() *akita.MsgMeta {
 	return &r.MsgMeta
 }
 
-// RDMADrainRspBuilder can build RDMA drain responses
-type RDMADrainRspBuilder struct {
+// DrainRspBuilder can build RDMA drain responses
+type DrainRspBuilder struct {
 	sendTime akita.VTimeInSec
 	src, dst akita.Port
 }
 
 // WithSendTime sets the send time of the request to build
-func (b RDMADrainRspBuilder) WithSendTime(
+func (b DrainRspBuilder) WithSendTime(
 	t akita.VTimeInSec,
-) RDMADrainRspBuilder {
+) DrainRspBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b RDMADrainRspBuilder) WithSrc(src akita.Port) RDMADrainRspBuilder {
+func (b DrainRspBuilder) WithSrc(src akita.Port) DrainRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b RDMADrainRspBuilder) WithDst(dst akita.Port) RDMADrainRspBuilder {
+func (b DrainRspBuilder) WithDst(dst akita.Port) DrainRspBuilder {
 	b.dst = dst
 	return b
 }
 
 // Build creats a new RDMADrainRsp
-func (b RDMADrainRspBuilder) Build() *RDMADrainRsp {
-	r := &RDMADrainRsp{}
+func (b DrainRspBuilder) Build() *DrainRsp {
+	r := &DrainRsp{}
 	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
@@ -142,45 +142,45 @@ func (b RDMADrainRspBuilder) Build() *RDMADrainRsp {
 	return r
 }
 
-// A RDMADrainRsp is a drain complete response to a RDMA Drain Req
-type RDMARestartRsp struct {
+//RestartRsp is a drain complete response to a RDMA Drain Req
+type RestartRsp struct {
 	akita.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (r *RDMARestartRsp) Meta() *akita.MsgMeta {
+func (r *RestartRsp) Meta() *akita.MsgMeta {
 	return &r.MsgMeta
 }
 
-// RDMADrainRspBuilder can build RDMA drain responses
-type RDMARestartRspBuilder struct {
+//RestartRspBuilder can build RDMA drain responses
+type RestartRspBuilder struct {
 	sendTime akita.VTimeInSec
 	src, dst akita.Port
 }
 
 // WithSendTime sets the send time of the request to build
-func (b RDMARestartRspBuilder) WithSendTime(
+func (b RestartRspBuilder) WithSendTime(
 	t akita.VTimeInSec,
-) RDMARestartRspBuilder {
+) RestartRspBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b RDMARestartRspBuilder) WithSrc(src akita.Port) RDMARestartRspBuilder {
+func (b RestartRspBuilder) WithSrc(src akita.Port) RestartRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b RDMARestartRspBuilder) WithDst(dst akita.Port) RDMARestartRspBuilder {
+func (b RestartRspBuilder) WithDst(dst akita.Port) RestartRspBuilder {
 	b.dst = dst
 	return b
 }
 
 // Build creats a new RDMADrainRsp
-func (b RDMARestartRspBuilder) Build() *RDMARestartRsp {
-	r := &RDMARestartRsp{}
+func (b RestartRspBuilder) Build() *RestartRsp {
+	r := &RestartRsp{}
 	r.ID = akita.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst

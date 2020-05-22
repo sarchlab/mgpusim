@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mgpusim/insts"
 )
 
+//ALU does its jobs
 type ALU interface {
 	Run(state InstEmuState)
 
@@ -35,6 +36,7 @@ func (u *ALUImpl) SetLDS(lds []byte) {
 	u.lds = lds
 }
 
+//LDS returns lds
 func (u *ALUImpl) LDS() []byte {
 	return u.lds
 }

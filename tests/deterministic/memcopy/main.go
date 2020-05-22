@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mgpusim/samples/runner"
 )
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -22,6 +23,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -29,6 +31,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	if len(gpus) > 1 {
 		panic("memory copy benchmark only support a single GPU")
@@ -36,11 +39,12 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpu = gpus[0]
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpu)
 
@@ -58,6 +62,7 @@ func (b *Benchmark) Run() {
 	b.driver.MemCopyD2H(b.context, b.retData, gpuData)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	for i := uint64(0); i < b.ByteSize; i++ {
 		if b.data[i] != b.retData[i] {

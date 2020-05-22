@@ -151,6 +151,7 @@ func NewShootdownCommand(
 	return cmd
 }
 
+// ShootDownCompleteRsp defines a respond
 type ShootDownCompleteRsp struct {
 	akita.MsgMeta
 
@@ -163,6 +164,7 @@ func (m *ShootDownCompleteRsp) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewShootdownCompleteRsp creates a new respond
 func NewShootdownCompleteRsp(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -175,7 +177,7 @@ func NewShootdownCompleteRsp(
 	return cmd
 }
 
-//RDMADrainCmd is driver asking CP to drain local RDMA
+//RDMADrainCmdFromDriver is driver asking CP to drain local RDMA
 type RDMADrainCmdFromDriver struct {
 	akita.MsgMeta
 
@@ -188,6 +190,7 @@ func (m *RDMADrainCmdFromDriver) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewRDMADrainCmdFromDriver creates a new RDMADrainCmdFromDriver
 func NewRDMADrainCmdFromDriver(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -200,7 +203,7 @@ func NewRDMADrainCmdFromDriver(
 	return cmd
 }
 
-//RDMADrainCmd is  a rsp to driver indicating completion of RDMA drain
+//RDMADrainRspToDriver is  a rsp to driver indicating completion of RDMA drain
 type RDMADrainRspToDriver struct {
 	akita.MsgMeta
 
@@ -213,6 +216,7 @@ func (m *RDMADrainRspToDriver) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+//NewRDMADrainRspToDriver creates a new RDMADrainRspToDriver
 func NewRDMADrainRspToDriver(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -225,7 +229,7 @@ func NewRDMADrainRspToDriver(
 	return cmd
 }
 
-//RDMARestartCmd is  a cmd to unpause the RDMA
+//RDMARestartCmdFromDriver is  a cmd to unpause the RDMA
 type RDMARestartCmdFromDriver struct {
 	akita.MsgMeta
 
@@ -238,6 +242,7 @@ func (m *RDMARestartCmdFromDriver) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewRDMARestartCmdFromDriver creates a new RDMARestartCmdFromDriver
 func NewRDMARestartCmdFromDriver(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -263,6 +268,7 @@ func (m *GPURestartReq) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewGPURestartReq creates a GPURestart request
 func NewGPURestartReq(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -288,6 +294,7 @@ func (m *GPURestartRsp) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewGPURestartRsp creates a GPURestart respond
 func NewGPURestartRsp(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -318,6 +325,7 @@ func (m *PageMigrationReqToCP) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewPageMigrationReqToCP creates a PageMigrationReqToCP
 func NewPageMigrationReqToCP(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -343,6 +351,7 @@ func (m *PageMigrationRspToDriver) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewPageMigrationRspToDriver creates a PageMigrationRspToCP
 func NewPageMigrationRspToDriver(
 	time akita.VTimeInSec,
 	src, dst akita.Port,
@@ -355,6 +364,7 @@ func NewPageMigrationRspToDriver(
 	return cmd
 }
 
+// RDMARestartRspToDriver defines a respond
 type RDMARestartRspToDriver struct {
 	akita.MsgMeta
 
@@ -367,6 +377,7 @@ func (m *RDMARestartRspToDriver) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
+// NewRDMARestartRspToDriver creates a RDMARestartRspToDriver
 func NewRDMARestartRspToDriver(
 	time akita.VTimeInSec,
 	src, dst akita.Port,

@@ -63,7 +63,7 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }

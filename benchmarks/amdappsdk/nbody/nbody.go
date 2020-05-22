@@ -11,7 +11,8 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-type NBodyKernelArgs struct {
+// KernelArgs defines kernel arguments
+type KernelArgs struct {
 	Pos                 driver.GPUPtr
 	Vel                 driver.GPUPtr
 	NumBodies           int32
@@ -25,6 +26,7 @@ type NBodyKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver           *driver.Driver
 	context          *driver.Context
@@ -55,6 +57,7 @@ type Benchmark struct {
 	dNewVel          *driver.GPUPtr
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -75,10 +78,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -92,6 +97,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -142,7 +148,7 @@ func (b *Benchmark) exec() {
 	localSize := [3]uint16{uint16(b.groupSize), 1, 1}
 
 	for i := int32(0); i < b.NumIterations; i++ {
-		args := NBodyKernelArgs{
+		args := KernelArgs{
 			Pos:                 *b.dPos,
 			Vel:                 *b.dVel,
 			NumBodies:           b.numBodies,
@@ -169,6 +175,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.pos, *b.dPos)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	b.refPos = make([]float32, b.numBodies*4)
 	b.refVel = make([]float32, b.numBodies*4)

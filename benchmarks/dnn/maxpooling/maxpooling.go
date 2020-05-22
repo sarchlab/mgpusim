@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// KernelArgs defines kernel arguments
 type KernelArgs struct {
 	NumThreads uint64
 	Bottom     driver.GPUPtr
@@ -32,6 +33,7 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -60,6 +62,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark makes a new benchmark
 func NewBenchmark(
 	driver *driver.Driver,
 	n int, c int, h int, w int,
@@ -92,15 +95,17 @@ func NewBenchmark(
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
@@ -169,6 +174,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.outputData, b.Top)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	cpuOutput := b.CPUMaxPooling()
 
@@ -190,6 +196,7 @@ func (b *Benchmark) Verify() {
 	log.Printf("Passed!\n")
 }
 
+// CPUMaxPooling returns cpuoutput
 func (b *Benchmark) CPUMaxPooling() []float32 {
 	cpuOutput := make([]float32, b.LengthOutput)
 

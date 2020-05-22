@@ -39,6 +39,7 @@ func (u *BranchUnit) CanAcceptWave() bool {
 	return u.toRead == nil
 }
 
+// IsIdle checks idleness
 func (u *BranchUnit) IsIdle() bool {
 	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
 	return u.isIdle
@@ -109,6 +110,7 @@ func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
 	return true
 }
 
+// Flush clear the unit
 func (u *BranchUnit) Flush() {
 	u.toRead = nil
 	u.toWrite = nil

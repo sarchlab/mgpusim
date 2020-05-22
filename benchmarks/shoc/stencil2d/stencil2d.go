@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// CopyRectKernelArgs defines kernel arguments
 type CopyRectKernelArgs struct {
 	Dst                 driver.GPUPtr
 	DOffset             int32
@@ -24,6 +25,7 @@ type CopyRectKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// StencilKernelArgs defines kernel arguments
 type StencilKernelArgs struct {
 	Data                driver.GPUPtr
 	NewData             driver.GPUPtr
@@ -38,6 +40,7 @@ type StencilKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -63,6 +66,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -78,11 +82,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -103,6 +108,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -180,6 +186,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.hOutput, *b.currData)
 }
 
+// Verify verfies
 func (b *Benchmark) Verify() {
 	cpuOutput := b.cpuStencil2D()
 

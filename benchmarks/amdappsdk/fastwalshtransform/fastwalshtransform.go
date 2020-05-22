@@ -12,11 +12,13 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-type FastWalshTransformKernelArgs struct {
+// KernelArgs defines kernel arguments
+type KernelArgs struct {
 	TArray driver.GPUPtr
 	Step   uint32
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -32,6 +34,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -40,6 +43,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
@@ -53,11 +57,12 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -102,7 +107,7 @@ func (b *Benchmark) exec() {
 
 	for _, queue := range b.queues {
 		for step := uint32(1); step < b.Length; step <<= 1 {
-			kernArg := FastWalshTransformKernelArgs{
+			kernArg := KernelArgs{
 				TArray: b.dInputArray,
 				Step:   step,
 			}
@@ -124,6 +129,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.hInputArray, b.dInputArray)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	for step := uint32(1); step < b.Length; step <<= 1 {
 		jump := step << 1

@@ -11,12 +11,14 @@ import (
 	"gitlab.com/akita/mgpusim/tests/deterministic/runner"
 )
 
+// KernelArgs defines kernel arguments
 type KernelArgs struct {
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -26,9 +28,11 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.context = b.driver.Init()
 	b.loadProgram()
@@ -36,10 +40,11 @@ func (b *Benchmark) Run() {
 	b.exec()
 }
 
+// Verify verifies
 func (Benchmark) Verify() {
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }

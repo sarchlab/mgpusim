@@ -174,7 +174,7 @@ var _ = Describe("CommandProcessor", func() {
 	It("should handle a RDMA drain req from driver", func() {
 		cmd := protocol.NewRDMADrainCmdFromDriver(
 			10, nil, commandProcessor.ToDriver)
-		drainReq := rdma2.RDMADrainReqBuilder{}.Build()
+		drainReq := rdma2.DrainReqBuilder{}.Build()
 
 		toRDMASender.EXPECT().Send(gomock.AssignableToTypeOf(drainReq))
 		toDriver.EXPECT().Retrieve(akita.VTimeInSec(10))
@@ -185,7 +185,7 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a RDMA drain rsp from RDMA", func() {
-		req := rdma2.RDMADrainRspBuilder{}.Build()
+		req := rdma2.DrainRspBuilder{}.Build()
 
 		drainRsp := protocol.NewRDMADrainRspToDriver(10,
 			commandProcessor.ToDriver, commandProcessor.Driver)

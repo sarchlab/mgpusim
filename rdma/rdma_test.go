@@ -264,8 +264,8 @@ var _ = Describe("Engine", func() {
 
 		var (
 			read       *mem.ReadReq
-			drainReq   *RDMADrainReq
-			restartReq *RDMARestartReq
+			drainReq   *DrainReq
+			restartReq *RestartReq
 		)
 
 		BeforeEach(func() {
@@ -276,11 +276,11 @@ var _ = Describe("Engine", func() {
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
-			drainReq = RDMADrainReqBuilder{}.
+			drainReq = DrainReqBuilder{}.
 				WithSendTime(6).
 				WithSrc(controllingComponent).
 				WithDst(rdmaEngine.CtrlPort).Build()
-			restartReq = RDMARestartReqBuilder{}.
+			restartReq = RestartReqBuilder{}.
 				WithSendTime(6).
 				WithSrc(controllingComponent).
 				WithDst(rdmaEngine.CtrlPort).Build()
@@ -304,7 +304,7 @@ var _ = Describe("Engine", func() {
 			rdmaEngine.isDraining = true
 
 			ctrlPort.EXPECT().
-				Send(gomock.AssignableToTypeOf(&RDMADrainRsp{})).
+				Send(gomock.AssignableToTypeOf(&DrainRsp{})).
 				Return(nil)
 			rdmaEngine.drainRDMA(10)
 
@@ -335,7 +335,7 @@ var _ = Describe("Engine", func() {
 			ctrlPort.EXPECT().Peek().Return(restartReq)
 			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(restartReq)
 			ctrlPort.EXPECT().
-				Send(gomock.AssignableToTypeOf(&RDMARestartRsp{})).
+				Send(gomock.AssignableToTypeOf(&RestartRsp{})).
 				Return(nil)
 
 			rdmaEngine.processFromCtrlPort(10)

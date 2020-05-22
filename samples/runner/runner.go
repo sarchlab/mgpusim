@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+
+	// Enable profiling
 	_ "net/http/pprof"
 	"os"
 	"strconv"

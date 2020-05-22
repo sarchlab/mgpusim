@@ -11,8 +11,8 @@ import (
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 )
-
-type SpmvKernelArgs struct {
+// KernelArgs sets up kernel arguments 
+type KernelArgs struct {
 	Val           driver.GPUPtr
 	Vec           driver.GPUPtr
 	Cols          driver.GPUPtr
@@ -26,7 +26,7 @@ type SpmvKernelArgs struct {
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
 }
-
+//Benchmark set up test parameters
 type Benchmark struct {
 	driver           *driver.Driver
 	context          *driver.Context
@@ -48,7 +48,7 @@ type Benchmark struct {
 	maxval    float32
 	matrix    csr.Matrix
 }
-
+// NewBenchmark creates a new benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -57,12 +57,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.maxval = 10
 	return b
 }
-
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -76,7 +76,7 @@ func (b *Benchmark) loadProgram() {
 		log.Panic("Failed to load kernel binary")
 	}
 }
-
+// Run runs the benchmark
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -145,7 +145,7 @@ func (b *Benchmark) exec() {
 
 	// vectorGlobalWSize := b.Dim * vecWidth // 1 warp per row
 
-	args := SpmvKernelArgs{
+	args := KernelArgs{
 		Val:           b.dValData,
 		Vec:           b.dVecData,
 		Cols:          b.dColsData,
@@ -173,7 +173,7 @@ func (b *Benchmark) exec() {
 
 	b.driver.MemCopyD2H(b.context, b.out, b.dOutData)
 }
-
+// Verify verifies results                 
 func (b *Benchmark) Verify() {
 	cpuOutput := b.spmvCPU()
 

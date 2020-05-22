@@ -5,14 +5,14 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	_ "net/http/pprof"
 
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
-type KMeansSwapArgs struct {
+// SwapArgs defines arguments
+type SwapArgs struct {
 	Feature             driver.GPUPtr
 	FeatureSwap         driver.GPUPtr
 	NPoints             int32
@@ -22,7 +22,8 @@ type KMeansSwapArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
-type KMeansComputeArgs struct {
+// ComputeArgs defines arguments
+type ComputeArgs struct {
 	Feature             driver.GPUPtr
 	Clusters            driver.GPUPtr
 	Membership          driver.GPUPtr
@@ -37,6 +38,7 @@ type KMeansComputeArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -63,6 +65,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark makes a new benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
@@ -85,6 +88,7 @@ func (b *Benchmark) loadKernels() {
 		hsacoBytes, "kmeans_kernel_swap")
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpus = gpuIDs
 	b.queues = make([]*driver.CommandQueue, len(b.gpus))
@@ -94,11 +98,12 @@ func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	}
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
@@ -164,7 +169,7 @@ func (b *Benchmark) transposeFeatures() {
 	for i, q := range b.queues {
 		numWI := b.NumPoints / len(b.gpus)
 
-		kernArg := KMeansSwapArgs{
+		kernArg := SwapArgs{
 			b.dFeatures,
 			b.dFeaturesSwap,
 			int32(b.NumPoints),
@@ -241,7 +246,7 @@ func (b *Benchmark) updateMembership() float64 {
 
 		numWI := b.NumPoints / len(b.gpus)
 
-		kernArg := KMeansComputeArgs{
+		kernArg := ComputeArgs{
 			b.dFeaturesSwap,
 			b.dClusters[i],
 			b.dMembership,
@@ -324,6 +329,7 @@ func (b *Benchmark) calculateRMSE() float64 {
 	return mse
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	gpuCentroids := make([]float32, b.NumClusters*b.NumFeatures)
 	copy(gpuCentroids, b.hClusters)

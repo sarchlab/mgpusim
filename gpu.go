@@ -38,6 +38,7 @@ type GPU struct {
 	GPUID uint64
 }
 
+// ExternalPorts returns external ports
 func (g *GPU) ExternalPorts() []akita.Port {
 	ports := []akita.Port{
 		g.CommandProcessor.ToDriver,

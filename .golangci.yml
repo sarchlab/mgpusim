@@ -229,6 +229,7 @@ linters-settings:
 linters:
   disable-all: true
   enable:
+    - golint
     - bodyclose
     - govet
     - stylecheck

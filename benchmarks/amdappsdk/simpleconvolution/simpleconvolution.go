@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// KernelArgs defines kernel arguments
 type KernelArgs struct {
 	Input                           driver.GPUPtr
 	Mask                            driver.GPUPtr
@@ -20,6 +21,7 @@ type KernelArgs struct {
 	OffsetX, OffsetY, OffsetZ       uint64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -42,6 +44,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -50,11 +53,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -71,12 +75,14 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// SetMaskSize sets masksize
 func (b *Benchmark) SetMaskSize(maskSize uint32) {
 	b.maskSize = maskSize
 	b.padHeight = maskSize - 1
 	b.padWidth = maskSize - 1
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
@@ -172,6 +178,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.hOutputData, b.dOutputData)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	cpuOutputImage := b.cpuSimpleConvolution()
 

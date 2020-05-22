@@ -77,12 +77,12 @@ func (wf *Wavefront) Inst() *insts.Inst {
 	return wf.inst.Inst
 }
 
-// DyanmicInst returns the insts with an ID
+// DynamicInst returns the insts with an ID
 func (wf *Wavefront) DynamicInst() *Inst {
 	return wf.inst
 }
 
-// Set the dynamic inst to execute
+// SetDynamicInst sets the dynamic inst to execute
 func (wf *Wavefront) SetDynamicInst(i *Inst) {
 	wf.inst = i
 }
@@ -97,10 +97,12 @@ func (wf *Wavefront) Scratchpad() emu.Scratchpad {
 	return wf.scratchpad
 }
 
+// PID returns pid
 func (wf *Wavefront) PID() ca.PID {
 	return wf.pid
 }
 
+// SetPID sets pid
 func (wf *Wavefront) SetPID(pid ca.PID) {
 	wf.pid = pid
 }
