@@ -17,25 +17,32 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 	It("should properly set up the storage size", func() {
 		bDMS := newDeviceBuddyMemoryState()
+		b := bDMS.(*deviceBuddyMemoryState)
+		Expect(b.initFlag).To(BeFalse())
+		Expect(b.freeList).To(HaveLen(0))
 		bDMS.setStorageSize(0x1_0000_0000)
+		Expect(b.freeList[0]).To(BeNil())
 
 		storagesize := bDMS.getStorageSize()
-		b := bDMS.(*deviceBuddyMemoryState)
+
 		listLength := len(b.freeList)
 
 		Expect(1 << (listLength + 11)).To(Equal(int(storagesize)))
 
 	})
 
-	It("should set initial addr and add to free list", func() {
+	It("should set initial addr before storage size and add to free list", func() {
 		bDMS := newDeviceBuddyMemoryState()
-		bDMS.setStorageSize(0x1_0000_0000)
 
 		bDMS.setInitialAddress(0x1_0000_1000)
 		iAddr := bDMS.getInitialAddress()
+		Expect(iAddr).To(Equal(uint64(0x1_0000_1000)))
 		b := bDMS.(*deviceBuddyMemoryState)
-		freeBlock := b.freeList[0]
+		Expect(b.freeList).To(HaveLen(0))
 
+		bDMS.setStorageSize(0x1_0000_0000)
+
+		freeBlock := b.freeList[0]
 		Expect(freeBlock).To(Not(BeNil()))
 		Expect(freeBlock.freeAddr).To(Equal(iAddr))
 	})

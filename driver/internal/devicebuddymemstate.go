@@ -6,6 +6,8 @@ func newDeviceBuddyMemoryState() deviceMemoryState {
 
 //buddy allocation implementation of deviceMemoryState
 type deviceBuddyMemoryState struct {
+	initFlag bool
+
 	initialAddress uint64
 	storageSize    uint64
 	freeList       []*freeListElement
@@ -16,10 +18,16 @@ type deviceBuddyMemoryState struct {
 
 func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
 	bms.initialAddress = addr
-	pushBack(&bms.freeList[0], addr)
 
 
 	bms.blockTracking = make(map[uint64]*blockTracker)
+
+	if len(bms.freeList) != 0 {
+		pushBack(&bms.freeList[0], addr)
+		bms.initFlag = false
+		return
+	}
+	bms.initFlag = true
 }
 
 func (bms *deviceBuddyMemoryState) getInitialAddress() uint64 {
@@ -35,6 +43,10 @@ func (bms *deviceBuddyMemoryState) setStorageSize(size uint64) {
 
 	bms.bfBlockSplit = newBitField(1 << order)
 	bms.bfMergeList = newBitField(1 << order)
+
+	if bms.initFlag {
+		pushBack(&bms.freeList[0], bms.initialAddress)
+	}
 }
 
 func (bms *deviceBuddyMemoryState) getStorageSize() uint64 {
@@ -109,8 +121,6 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 		bms.blockTracking[block] = bTracker
 		block += 4096
 	}
-
-
 
 	return pAddrs
 }
