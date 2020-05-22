@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// KernelArgs defines kernel arguments
 type KernelArgs struct {
 	Count               uint32
 	Padding             uint32
@@ -19,6 +20,7 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -34,6 +36,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
@@ -49,15 +52,17 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
@@ -120,6 +125,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.outputData, b.gOutputData)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	for i := 0; i < b.Length; i++ {
 		if b.inputData[i] > 0 && b.outputData[i] != b.inputData[i] {

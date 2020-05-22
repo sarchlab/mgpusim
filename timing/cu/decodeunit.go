@@ -10,7 +10,7 @@ import (
 // A DecodeUnit is any type of decode unit that takes one cycle to decode
 type DecodeUnit struct {
 	cu        *ComputeUnit
-	ExecUnits []CUComponent // Execution units, index by SIMD number
+	ExecUnits []SubComponent // Execution units, index by SIMD number
 
 	toDecode *wavefront.Wavefront
 	decoded  bool
@@ -29,7 +29,7 @@ func NewDecodeUnit(cu *ComputeUnit) *DecodeUnit {
 // AddExecutionUnit registers an executions unit to the decode unit, so that
 // the decode unit knows where to send the instruction to after decoding.
 // This function has to be called in the order of SIMD number.
-func (du *DecodeUnit) AddExecutionUnit(cuComponent CUComponent) {
+func (du *DecodeUnit) AddExecutionUnit(cuComponent SubComponent) {
 	du.ExecUnits = append(du.ExecUnits, cuComponent)
 }
 
@@ -39,6 +39,7 @@ func (du *DecodeUnit) CanAcceptWave() bool {
 	return du.toDecode == nil
 }
 
+// IsIdle checks idleness
 func (du *DecodeUnit) IsIdle() bool {
 	du.isIdle = (du.toDecode == nil) && (du.decoded == false)
 	return du.isIdle
@@ -79,6 +80,7 @@ func (du *DecodeUnit) Run(now akita.VTimeInSec) bool {
 	return false
 }
 
+// Flush clear the unit
 func (du *DecodeUnit) Flush() {
 	du.toDecode = nil
 }

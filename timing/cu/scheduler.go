@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/util/tracing"
 )
 
+// Scheduler does its job
 type Scheduler interface {
 	Run(now akita.VTimeInSec) bool
 	Pause()
@@ -17,6 +18,7 @@ type Scheduler interface {
 	Flush()
 }
 
+// SchedulerImpl implements scheduler
 // A Scheduler is the controlling unit of a compute unit. It decides which
 // wavefront to fetch and to issue.
 type SchedulerImpl struct {
@@ -54,6 +56,7 @@ func NewScheduler(
 	return s
 }
 
+// Run runs scheduler
 func (s *SchedulerImpl) Run(now akita.VTimeInSec) bool {
 	madeProgress := false
 	if s.isPaused == false {
@@ -74,6 +77,7 @@ func (s *SchedulerImpl) Run(now akita.VTimeInSec) bool {
 	return true
 }
 
+//DecodeNextInst checks
 func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
@@ -198,7 +202,7 @@ func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now akita.VTime
 	return true
 }
 
-func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) CUComponent {
+func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) SubComponent {
 	switch u {
 	case insts.ExeUnitBranch:
 		return s.cu.BranchUnit
@@ -368,14 +372,17 @@ func (s *SchedulerImpl) evalSWaitCnt(
 	return false, false
 }
 
+// Pause pauses
 func (s *SchedulerImpl) Pause() {
 	s.isPaused = true
 }
 
+// Resume resumes
 func (s *SchedulerImpl) Resume() {
 	s.isPaused = false
 }
 
+// Flush flushes
 func (s *SchedulerImpl) Flush() {
 	s.barrierBuffer = nil
 	s.internalExecuting = nil

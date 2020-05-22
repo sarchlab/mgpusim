@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mgpusim/driver"
 )
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -20,6 +21,7 @@ type Benchmark struct {
 	useUnifiedMemory          bool
 }
 
+// NewBenchmark makes a new benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -27,17 +29,19 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
 	b.exec()
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -69,6 +73,7 @@ func (b *Benchmark) exec() {
 	b.MatrixC = m.Multiply(b.MatrixA, b.MatrixB)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	m := CPUMatrixMultiplier{}
 	mCPU := m.Multiply(b.MatrixA, b.MatrixB)

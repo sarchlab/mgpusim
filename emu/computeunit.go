@@ -55,7 +55,7 @@ func (cu *ComputeUnit) DispatchingPort() akita.Port {
 	return cu.ToDispatcher
 }
 
-// WfPoolSize returns an array of the numbers of wavefronts that each SIMD unit
+// WfPoolSizes returns an array of the numbers of wavefronts that each SIMD unit
 // can execute.
 func (cu *ComputeUnit) WfPoolSizes() []int {
 	return []int{math.MaxInt32}
@@ -67,7 +67,7 @@ func (cu *ComputeUnit) VRegCounts() []int {
 	return []int{-1}
 }
 
-// SRegCounts returns the number of scalar register in the Compute Unit.
+// SRegCount returns the number of scalar register in the Compute Unit.
 func (cu *ComputeUnit) SRegCount() int {
 	return -1
 }
@@ -97,6 +97,7 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	return nil
 }
 
+// Tick ticks
 func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
 	cu.processMapWGReq(now)
 	return false

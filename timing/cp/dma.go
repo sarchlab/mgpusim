@@ -30,6 +30,7 @@ type DMAEngine struct {
 	ToMem akita.Port
 }
 
+// Tick ticks
 func (dma *DMAEngine) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 

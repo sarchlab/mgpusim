@@ -10,11 +10,13 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// Float2 is two floats
 type Float2 struct {
 	X, Y float32
 }
 
-type FFTKernelArgs struct {
+// KernelArgs defines kernel arguments
+type KernelArgs struct {
 	Work                driver.GPUPtr
 	Smem                driver.LocalPtr
 	Paddinng            int32
@@ -23,6 +25,7 @@ type FFTKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver           *driver.Driver
 	context          *driver.Context
@@ -42,6 +45,7 @@ type Benchmark struct {
 	result     []Float2
 }
 
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -50,11 +54,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -68,6 +73,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -107,7 +113,7 @@ func (b *Benchmark) exec() {
 	localSize := [3]uint16{uint16(localWorkSize), 1, 1}
 
 	for k := int32(0); k < b.Passes; k++ {
-		args := FFTKernelArgs{
+		args := KernelArgs{
 			Work:                b.dSource,
 			Smem:                8 * 8 * 9 * 8,
 			Paddinng:            0,
@@ -125,6 +131,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.result, b.dSource)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	mismatch := false
 

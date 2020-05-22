@@ -30,7 +30,7 @@ type R9NanoPlatformBuilder struct {
 	disableProgressBar bool
 }
 
-// MakeEmuBuilder creates a EmuBuilder with default parameters.
+// MakeR9NanoBuilder creates a EmuBuilder with default parameters.
 func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 	b := R9NanoPlatformBuilder{
 		numGPU:       4,

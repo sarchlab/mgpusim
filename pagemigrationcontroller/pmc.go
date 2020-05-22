@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/mem/cache"
 )
 
+//PageMigrationController control page migration
 type PageMigrationController struct {
 	*akita.TickingComponent
 
@@ -46,6 +47,7 @@ type PageMigrationController struct {
 	isHandlingPageMigration bool
 }
 
+// Tick updates the status of a PageMigrationController.
 //nolint:gocyclo
 func (e *PageMigrationController) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
@@ -444,10 +446,12 @@ func (e *PageMigrationController) sendMigrationCompleteRspToCtrlPort(
 	return false
 }
 
+// SetFreq sets freq
 func (e *PageMigrationController) SetFreq(freq akita.Freq) {
 	panic("not implemented")
 }
 
+// NewPageMigrationController returns a new controller
 func NewPageMigrationController(
 	name string,
 	engine akita.Engine,

@@ -13,6 +13,7 @@ type vectorMemAccessLaneInfo struct {
 	addrOffsetInCacheLine uint64
 }
 
+// VectorMemAccessInfo defines access info
 type VectorMemAccessInfo struct {
 	Read      *mem.ReadReq
 	Write     *mem.WriteReq
@@ -21,12 +22,14 @@ type VectorMemAccessInfo struct {
 	laneInfo  []vectorMemAccessLaneInfo
 }
 
+// InstFetchReqInfo defines request info
 type InstFetchReqInfo struct {
 	Req       *mem.ReadReq
 	Wavefront *wavefront.Wavefront
 	Address   uint64
 }
 
+// ScalarMemAccessInfo defines request info
 type ScalarMemAccessInfo struct {
 	Req       *mem.ReadReq
 	Wavefront *wavefront.Wavefront

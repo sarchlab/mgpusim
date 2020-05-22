@@ -5,8 +5,8 @@ import (
 	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
-// A CUComponent is an element installed in the compute unit
-type CUComponent interface {
+// A SubComponent is an element installed in the compute unit
+type SubComponent interface {
 	CanAcceptWave() bool
 	AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec)
 	Run(now akita.VTimeInSec) bool

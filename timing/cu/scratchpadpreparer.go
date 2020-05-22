@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/mgpusim/timing/wavefront"
 )
 
+// ScratchpadPreparer does its jobs
 type ScratchpadPreparer interface {
 	Prepare(instEmuState emu.InstEmuState, wf *wavefront.Wavefront)
 	Commit(instEmuState emu.InstEmuState, wf *wavefront.Wavefront)
@@ -27,8 +28,8 @@ func NewScratchpadPreparerImpl(cu *ComputeUnit) *ScratchpadPreparerImpl {
 	return p
 }
 
-//nolint:gocyclo
 // Prepare read from the register file and sets the scratchpad layout
+//nolint:gocyclo
 func (p *ScratchpadPreparerImpl) Prepare(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,
@@ -308,8 +309,8 @@ func (p *ScratchpadPreparerImpl) prepareDS(
 	}
 }
 
-//nolint:gocyclo
 // Commit write to the register file according to the scratchpad layout
+//nolint:gocyclo
 func (p *ScratchpadPreparerImpl) Commit(
 	instEmuState emu.InstEmuState,
 	wf *wavefront.Wavefront,

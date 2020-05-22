@@ -37,10 +37,12 @@ func NewGPUMatrixMultiplier(
 	return m
 }
 
+// SelectGPU selects GPU
 func (m *GPUMatrixMultiplier) SelectGPU(gpus []int) {
 	m.gpus = gpus
 }
 
+// KernelArgs defines kernel arguments
 type KernelArgs struct {
 	MatrixA             driver.GPUPtr
 	MatrixB             driver.GPUPtr
@@ -52,6 +54,7 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Multiply multiplies two matrice
 func (m *GPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
 	mC := new(Matrix)
 	mC.Width = mB.Width
@@ -113,20 +116,19 @@ func (m *GPUMatrixMultiplier) initMemory(
 		m.driver.MemCopyH2D(m.context, gB, mB.Data)
 
 		return gA, gB, gC
-	} else {
-		gA := m.driver.AllocateMemory(m.context, uint64(mA.Width*mA.Height*4))
-		m.driver.Distribute(m.context, gA, uint64(mA.Width*mA.Height*4), m.gpus)
-
-		gB := m.driver.AllocateMemory(m.context, uint64(mB.Width*mB.Height*4))
-		m.driver.Distribute(m.context, gB, uint64(mB.Width*mB.Height*4), m.gpus)
-
-		gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
-		m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
-		m.driver.MemCopyH2D(m.context, gA, mA.Data)
-		m.driver.MemCopyH2D(m.context, gB, mB.Data)
-
-		return gA, gB, gC
 	}
+	gA := m.driver.AllocateMemory(m.context, uint64(mA.Width*mA.Height*4))
+	m.driver.Distribute(m.context, gA, uint64(mA.Width*mA.Height*4), m.gpus)
+
+	gB := m.driver.AllocateMemory(m.context, uint64(mB.Width*mB.Height*4))
+	m.driver.Distribute(m.context, gB, uint64(mB.Width*mB.Height*4), m.gpus)
+
+	gC := m.driver.AllocateMemory(m.context, uint64(mC.Width*mC.Height*4))
+	m.driver.Distribute(m.context, gC, uint64(mC.Width*mC.Height*4), m.gpus)
+	m.driver.MemCopyH2D(m.context, gA, mA.Data)
+	m.driver.MemCopyH2D(m.context, gB, mB.Data)
+
+	return gA, gB, gC
 }
 
 func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
@@ -148,8 +150,10 @@ func (m *GPUMatrixMultiplier) loadKernel() {
 	}
 }
 
+// CPUMatrixMultiplier is a matrix multiplier
 type CPUMatrixMultiplier struct{}
 
+// Multiply multiplies two matrice
 func (m *CPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
 	if mA.Width != mB.Height {
 		log.Panic("matrix dimension mismatch")

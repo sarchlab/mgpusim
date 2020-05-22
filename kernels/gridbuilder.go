@@ -4,6 +4,7 @@ import (
 	"gitlab.com/akita/mgpusim/insts"
 )
 
+// WGFilterFunc is a filter
 type WGFilterFunc func(
 	*HsaKernelDispatchPacket,
 	*WorkGroup,

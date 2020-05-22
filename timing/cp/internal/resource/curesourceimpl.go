@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// CUResourceImpl implements CUResource
 type CUResourceImpl struct {
 	sync.Mutex
 

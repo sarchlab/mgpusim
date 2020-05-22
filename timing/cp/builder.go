@@ -38,7 +38,7 @@ func (b Builder) WithVisTracer(tracer tracing.Tracer) Builder {
 	return b
 }
 
-// Engine sets the even-driven simulation engine to use.
+// WithEngine sets the even-driven simulation engine to use.
 func (b Builder) WithEngine(engine akita.Engine) Builder {
 	b.engine = engine
 	return b

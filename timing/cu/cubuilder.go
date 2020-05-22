@@ -35,7 +35,7 @@ type Builder struct {
 	enableVisTracing bool
 }
 
-// NewBuilder returns a default builder object
+// MakeBuilder returns a default builder object
 func MakeBuilder() Builder {
 	var b Builder
 	b.Freq = 1000 * akita.MHz
@@ -45,7 +45,7 @@ func MakeBuilder() Builder {
 
 	return b
 }
-
+// WithVisTracer adds a tracer to the builder
 func (b Builder) WithVisTracer(t tracing.Tracer) Builder {
 	b.enableVisTracing = true
 	b.visTracer = t

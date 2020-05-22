@@ -89,83 +89,98 @@ func (h *HsaCoHeader) Priority() uint32 {
 	return extractBits(h.ComputePgmRsrc1, 10, 11)
 }
 
-// EnableSgprPrivateSegemtWaveByteOffset
+// EnableSgprPrivateSegmentWaveByteOffset enable wavebyteoffset
 func (h *HsaCoHeader) EnableSgprPrivateSegmentWaveByteOffset() bool {
 	return extractBits(h.ComputePgmRsrc2, 0, 0) != 0
 }
 
+// UserSgprCount returns user sgpr
 func (h *HsaCoHeader) UserSgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 1, 5)
 }
 
+//EnableSgprWorkGroupIDX enable idx
 func (h *HsaCoHeader) EnableSgprWorkGroupIDX() bool {
 	return extractBits(h.ComputePgmRsrc2, 7, 7) != 0
 }
 
+// EnableSgprWorkGroupIDY enable idy
 func (h *HsaCoHeader) EnableSgprWorkGroupIDY() bool {
 	return extractBits(h.ComputePgmRsrc2, 8, 8) != 0
 }
 
+// EnableSgprWorkGroupIDZ enable idz
 func (h *HsaCoHeader) EnableSgprWorkGroupIDZ() bool {
 	return extractBits(h.ComputePgmRsrc2, 9, 9) != 0
 }
 
-// EnableSgprWorkGroupInfo
+// EnableSgprWorkGroupInfo enable wg info
 func (h *HsaCoHeader) EnableSgprWorkGroupInfo() bool {
 	return extractBits(h.ComputePgmRsrc2, 10, 10) != 0
 }
 
-// EnableVpgrWorkItemId checks if the setup of the work-item is enabled
+// EnableVgprWorkItemID checks if the setup of the work-item is enabled
 func (h *HsaCoHeader) EnableVgprWorkItemID() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 11, 12)
 }
 
+//EnableExceptionAddressWatch enable exception address watch
 func (h *HsaCoHeader) EnableExceptionAddressWatch() bool {
 	return extractBits(h.ComputePgmRsrc2, 13, 13) != 0
 }
 
+//EnableExceptionMemoryViolation enable exception memory violation
 func (h *HsaCoHeader) EnableExceptionMemoryViolation() bool {
 	return extractBits(h.ComputePgmRsrc2, 14, 14) != 0
 }
 
-// EnableSgpPrivateSegmentBuffer checks if the private segment buffer
+// EnableSgprPrivateSegmentBuffer checks if the private segment buffer
 // information need to write into the SGPR
 func (h *HsaCoHeader) EnableSgprPrivateSegmentBuffer() bool {
 	return extractBits(h.Flags, 0, 0) != 0
 }
 
+//EnableSgprDispatchPtr enables dispatch ptr
 func (h *HsaCoHeader) EnableSgprDispatchPtr() bool {
 	return extractBits(h.Flags, 1, 1) != 0
 }
 
+// EnableSgprQueuePtr enables queue ptr
 func (h *HsaCoHeader) EnableSgprQueuePtr() bool {
 	return extractBits(h.Flags, 2, 2) != 0
 }
 
+//EnableSgprKernelArgSegmentPtr enables
 func (h *HsaCoHeader) EnableSgprKernelArgSegmentPtr() bool {
 	return extractBits(h.Flags, 3, 3) != 0
 }
 
+//EnableSgprDispatchID enables dispatch ID
 func (h *HsaCoHeader) EnableSgprDispatchID() bool {
 	return extractBits(h.Flags, 4, 4) != 0
 }
 
+//EnableSgprFlatScratchInit enables init
 func (h *HsaCoHeader) EnableSgprFlatScratchInit() bool {
 	return extractBits(h.Flags, 5, 5) != 0
 }
 
+// EnableSgprPrivateSegementSize enables size
 func (h *HsaCoHeader) EnableSgprPrivateSegementSize() bool {
 	return extractBits(h.Flags, 6, 6) != 0
 }
 
+// EnableSgprGridWorkGroupCountX enables wg countx
 func (h *HsaCoHeader) EnableSgprGridWorkGroupCountX() bool {
 	return extractBits(h.Flags, 7, 7) != 0
 }
 
+//EnableSgprGridWorkGroupCountY enables wg county
 func (h *HsaCoHeader) EnableSgprGridWorkGroupCountY() bool {
 	return extractBits(h.Flags, 8, 8) != 0
 }
 
+// EnableSgprGridWorkGroupCountZ enables wg countz
 func (h *HsaCoHeader) EnableSgprGridWorkGroupCountZ() bool {
 	return extractBits(h.Flags, 9, 9) != 0
 }

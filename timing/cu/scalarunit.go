@@ -49,7 +49,7 @@ func (u *ScalarUnit) CanAcceptWave() bool {
 	return u.toRead == nil
 }
 
-// CanAcceptWave checks if the buffer of the read stage is occupied or not
+// IsIdle checks idleness
 func (u *ScalarUnit) IsIdle() bool {
 	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil) && (len(u.readBuf) == 0)
 	return u.isIdle
@@ -89,17 +89,16 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 	if u.toExec == nil {
 		return false
 	}
-
 	if u.toWrite == nil {
 		if u.toExec.Inst().FormatType == insts.SMEM {
 			u.executeSMEMInst(now)
 			return true
-		} else {
-			u.alu.Run(u.toExec)
-
-			u.toWrite = u.toExec
-			u.toExec = nil
 		}
+		u.alu.Run(u.toExec)
+
+		u.toWrite = u.toExec
+		u.toExec = nil
+
 		return true
 	}
 	return false
@@ -180,6 +179,7 @@ func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) bool {
 	return false
 }
 
+// Flush clears the unit
 func (u *ScalarUnit) Flush() {
 	u.toRead = nil
 	u.toExec = nil

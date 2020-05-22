@@ -61,7 +61,8 @@ var s []uint8 = []uint8{
 	0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 }
 
-type AESArgs struct {
+// Args defines kernel arguments
+type Args struct {
 	Input               driver.GPUPtr
 	ExpandedKey         driver.GPUPtr
 	S                   driver.GPUPtr
@@ -70,6 +71,7 @@ type AESArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
@@ -88,6 +90,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark makes a new benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -96,13 +99,14 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpus = gpuIDs
 	b.gExpandedKey = make([]driver.GPUPtr, len(gpuIDs))
 	b.gS = make([]driver.GPUPtr, len(gpuIDs))
 }
 
-// Use Unified Memory
+// SetUnifiedMemory use Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -162,12 +166,14 @@ func (b *Benchmark) initMem() {
 	b.driver.MemCopyH2D(b.context, b.gInput, b.input)
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	b.driver.SelectGPU(b.context, b.gpus[0])
 	b.initMem()
 	b.LaunchKernel()
 }
 
+// LaunchKernel launches kernel
 func (b *Benchmark) LaunchKernel() {
 	queues := make([]*driver.CommandQueue, len(b.gpus))
 	numWi := b.Length / 16
@@ -175,7 +181,7 @@ func (b *Benchmark) LaunchKernel() {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
 
-		kernArg := AESArgs{
+		kernArg := Args{
 			b.gInput,
 			b.gExpandedKey[i],
 			b.gS[i],
@@ -193,6 +199,7 @@ func (b *Benchmark) LaunchKernel() {
 	}
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	gpuOutput := make([]byte, b.Length)
 	b.driver.MemCopyD2H(b.context, gpuOutput, b.gInput)

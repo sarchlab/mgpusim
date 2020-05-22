@@ -85,6 +85,7 @@ func (p *CommandProcessor) RegisterCU(cu CUInterfaceForCP) {
 	}
 }
 
+//Tick ticks
 func (p *CommandProcessor) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
 
@@ -184,9 +185,9 @@ func (p *CommandProcessor) processRspFromRDMAs(now akita.VTimeInSec) bool {
 	}
 
 	switch req := msg.(type) {
-	case *rdma.RDMADrainRsp:
+	case *rdma.DrainRsp:
 		return p.processRDMADrainRsp(now, req)
-	case *rdma.RDMARestartRsp:
+	case *rdma.RestartRsp:
 		return p.processRDMARestartRsp(now, req)
 	}
 
@@ -304,7 +305,7 @@ func (p *CommandProcessor) processRDMADrainCmd(
 	now akita.VTimeInSec,
 	cmd *protocol.RDMADrainCmdFromDriver,
 ) bool {
-	req := rdma.RDMADrainReqBuilder{}.
+	req := rdma.DrainReqBuilder{}.
 		WithSendTime(now).
 		WithSrc(p.ToRDMA).
 		WithDst(p.RDMA).
@@ -318,7 +319,7 @@ func (p *CommandProcessor) processRDMADrainCmd(
 
 func (p *CommandProcessor) processRDMADrainRsp(
 	now akita.VTimeInSec,
-	rsp *rdma.RDMADrainRsp,
+	rsp *rdma.DrainRsp,
 ) bool {
 	req := protocol.NewRDMADrainRspToDriver(now, p.ToDriver, p.Driver)
 
@@ -512,7 +513,7 @@ func (p *CommandProcessor) processRDMARestartCommand(
 	now akita.VTimeInSec,
 	cmd *protocol.RDMARestartCmdFromDriver,
 ) bool {
-	req := rdma.RDMARestartReqBuilder{}.
+	req := rdma.RestartReqBuilder{}.
 		WithSrc(p.ToRDMA).
 		WithDst(p.RDMA).
 		WithSendTime(now).
@@ -525,7 +526,7 @@ func (p *CommandProcessor) processRDMARestartCommand(
 	return true
 }
 
-func (p *CommandProcessor) processRDMARestartRsp(now akita.VTimeInSec, rsp *rdma.RDMARestartRsp) bool {
+func (p *CommandProcessor) processRDMARestartRsp(now akita.VTimeInSec, rsp *rdma.RestartRsp) bool {
 	req := protocol.NewRDMARestartRspToDriver(now, p.ToDriver, p.Driver)
 	p.toDriverSender.Send(req)
 	p.ToRDMA.Retrieve(now)

@@ -62,7 +62,7 @@ func (m *CUPipelineRestartRsp) Meta() *akita.MsgMeta {
 	return &m.MsgMeta
 }
 
-// CUPipelineRestartReqBuilder can build new CU restart reqs
+// CUPipelineRestartRspBuilder can build new CU restart reqs
 type CUPipelineRestartRspBuilder struct {
 	sendTime akita.VTimeInSec
 	src, dst akita.Port
@@ -314,6 +314,7 @@ func (b WGCompletionMsgBuilder) WithDst(
 	return b
 }
 
+// WithRspTo sets rspTo
 func (b WGCompletionMsgBuilder) WithRspTo(
 	rspTo string,
 ) WGCompletionMsgBuilder {
@@ -321,6 +322,7 @@ func (b WGCompletionMsgBuilder) WithRspTo(
 	return b
 }
 
+// Build builds WGCompletionMsg
 func (b WGCompletionMsgBuilder) Build() *WGCompletionMsg {
 	msg := &WGCompletionMsg{}
 	msg.Meta().ID = akita.GetIDGenerator().Generate()

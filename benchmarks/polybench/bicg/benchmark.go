@@ -11,6 +11,7 @@ import (
 	"gitlab.com/akita/mgpusim/kernels"
 )
 
+// Kernel1Args list first set of kernel arguments
 type Kernel1Args struct {
 	A      driver.GPUPtr
 	P      driver.GPUPtr
@@ -18,6 +19,7 @@ type Kernel1Args struct {
 	NX, NY int32
 }
 
+// Kernel2Args list second set of kernel arguments
 type Kernel2Args struct {
 	A      driver.GPUPtr
 	R      driver.GPUPtr
@@ -25,6 +27,7 @@ type Kernel2Args struct {
 	NX, NY int32
 }
 
+// Benchmark defines a benchmark
 type Benchmark struct {
 	driver           *driver.Driver
 	context          *driver.Context
@@ -41,6 +44,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+// NewBenchmark makes a new benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -49,11 +53,12 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
+// SelectGPU selects GPU
 func (b *Benchmark) SelectGPU(gpus []int) {
 	b.gpus = gpus
 }
 
-// Use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
@@ -74,6 +79,7 @@ func (b *Benchmark) loadProgram() {
 	}
 }
 
+// Run runs
 func (b *Benchmark) Run() {
 	for _, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
@@ -166,6 +172,7 @@ func (b *Benchmark) exec() {
 	b.driver.MemCopyD2H(b.context, b.qOutput, b.dQ)
 }
 
+// Verify verifies
 func (b *Benchmark) Verify() {
 	b.cpuBicg()
 
