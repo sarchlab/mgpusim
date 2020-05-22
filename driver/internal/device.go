@@ -23,12 +23,12 @@ const (
 //MemoryAllocatorType global flag variable for setting the allocator type
 var MemoryAllocatorType AllocatorType = allocatorTypeDefault
 
-//AllocatorType.UseDefaultAllocator sets the allocator type to default
+//UseDefaultAllocator sets the allocator type to default
 func (at *AllocatorType) UseDefaultAllocator() {
 	*at = allocatorTypeDefault
 }
 
-//AllocatorType.UseBuddyAllocator sets the allocator type to buddy
+//UseBuddyAllocator sets the allocator type to buddy
 func (at *AllocatorType) UseBuddyAllocator() {
 	*at = allocatorTypeBuddy
 }
