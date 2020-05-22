@@ -180,7 +180,7 @@ func (bms *deviceBuddyMemoryState) levelOfBlock(addr uint64) int {
 		if bms.blockHasBeenSplit(addr, n-1) {
 			return n
 		}
-		n -= 1
+		n--
 	}
 	return 0
 }
