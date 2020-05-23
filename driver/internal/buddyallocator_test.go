@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("BuddyAllocatorImpl", func() {
 
-	MemoryAllocatorType.UseBuddyAllocator()
+	MemoryAllocatorType = AllocatorTypeBuddy
 
 	var (
 		mockCtrl  *gomock.Controller

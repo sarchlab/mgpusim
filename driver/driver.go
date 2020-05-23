@@ -936,7 +936,13 @@ func NewDriver(
 
 	driver.Log2PageSize = log2PageSize
 
-	memAllocatorImpl := internal.NewMemoryAllocator(pageTable, log2PageSize)
+	var memAllocatorImpl internal.MemoryAllocator
+	switch internal.MemoryAllocatorType {
+	case internal.AllocatorTypeDefault:
+		memAllocatorImpl = internal.NewMemoryAllocator(pageTable, log2PageSize)
+	case internal.AllocatorTypeBuddy:
+		memAllocatorImpl = internal.NewBuddyAllocator(pageTable, log2PageSize)
+	}
 	driver.memAllocator = memAllocatorImpl
 
 	distributorImpl := newDistributorImpl(memAllocatorImpl)

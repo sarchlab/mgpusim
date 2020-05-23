@@ -64,9 +64,9 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 
 	if device.memState == nil {
 		switch MemoryAllocatorType {
-		case allocatorTypeDefault:
+		case AllocatorTypeDefault:
 			device.memState = newDeviceRegularMemoryState()
-		case allocatorTypeBuddy:
+		case AllocatorTypeBuddy:
 			device.memState = newDeviceBuddyMemoryState()
 		}
 	}

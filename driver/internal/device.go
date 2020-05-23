@@ -16,22 +16,13 @@ type AllocatorType int
 
 // Defines supported allocation algorithms
 const (
-	allocatorTypeDefault AllocatorType = iota
-	allocatorTypeBuddy
+	AllocatorTypeDefault AllocatorType = iota
+	AllocatorTypeBuddy
 )
 
 //MemoryAllocatorType global flag variable for setting the allocator type
-var MemoryAllocatorType AllocatorType = allocatorTypeDefault
+var MemoryAllocatorType AllocatorType = AllocatorTypeDefault
 
-//UseDefaultAllocator sets the allocator type to default
-func (at *AllocatorType) UseDefaultAllocator() {
-	*at = allocatorTypeDefault
-}
-
-//UseBuddyAllocator sets the allocator type to buddy
-func (at *AllocatorType) UseBuddyAllocator() {
-	*at = allocatorTypeBuddy
-}
 
 //Device is a CPU or GPU managed by the driver.
 type Device struct {
@@ -48,9 +39,9 @@ type Device struct {
 func (d *Device) SetTotalMemSize(size uint64) {
 	if d.memState == nil {
 		switch MemoryAllocatorType {
-		case allocatorTypeDefault:
+		case AllocatorTypeDefault:
 			d.memState = newDeviceRegularMemoryState()
-		case allocatorTypeBuddy:
+		case AllocatorTypeBuddy:
 			d.memState = newDeviceBuddyMemoryState()
 		}
 	}
