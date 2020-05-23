@@ -21,7 +21,7 @@ const (
 )
 
 //MemoryAllocatorType global flag variable for setting the allocator type
-var MemoryAllocatorType AllocatorType = AllocatorTypeDefault
+var MemoryAllocatorType AllocatorType = AllocatorTypeBuddy
 
 
 //Device is a CPU or GPU managed by the driver.
