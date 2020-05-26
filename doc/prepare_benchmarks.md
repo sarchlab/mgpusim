@@ -11,13 +11,13 @@ To generate an HSACO file from an OpenCL source code file, `clang-ocl` is requir
 Suppose the OpenCL file you want to compile is `kernels.cl`, you can run the following command to generate an HSACO:
 
 ```bash
-clang-ocl -mcpu=gfx803 kernels.cl -O kernels.hsaco
+clang-ocl -mcpu=gfx803 kernels.cl -o kernels.hsaco
 ```
 
 Here, `gfx803` is the instruction set architecture~(ISA) that Akita GCN3 supports. In case you want to dump the human-readable assembly, you can slightly change the command above to:
 
 ```bash
-clang-ocl -mcpu=gfx803 kernels.cl -S kernels.asm
+clang-ocl -mcpu=gfx803 kernels.cl -S -o kernels.asm
 ```
 
 As you may notice, `clang-ocl` add 3 extra arguments to the compiled kernel, including `HiddenGlobalOffsetX`, `HiddenGlobalOffsetY`, and `HiddenGlobalOffsetZ`. These fields may be helpful when we prepare benchmarks for multi-GPU execution. However, the use of these arguments should be very careful and for most of the time, only 0 should be passed to these fields.
