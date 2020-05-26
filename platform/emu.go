@@ -2,8 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"log"
-	"os"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
@@ -82,7 +80,7 @@ func (b EmuBuilder) Build() (akita.Engine, *driver.Driver) {
 	} else {
 		engine = akita.NewSerialEngine()
 	}
-	engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
