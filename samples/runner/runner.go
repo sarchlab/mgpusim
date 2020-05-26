@@ -201,7 +201,7 @@ func (r *Runner) addKernelTimeTracer() {
 	for _, gpu := range r.GPUDriver.GPUs {
 		gpuKernelTimeCountner := tracing.NewBusyTimeTracer(
 			func(task tracing.Task) bool {
-				return task.What == "*gcn3.LaunchKernelReq"
+				return task.What == "*protocol.LaunchKernelReq"
 			})
 		r.PerGPUKernelTimeCounter = append(
 			r.PerGPUKernelTimeCounter, gpuKernelTimeCountner)
