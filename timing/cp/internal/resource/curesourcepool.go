@@ -107,9 +107,10 @@ func (p *CUResourcePoolImpl) createVRegMasks(
 			continue
 		}
 
-		p.countMustBeAMultipleOfGranularity(r.vregCounts[i], r.vregGranularity)
+		p.countMustBeAMultipleOfGranularity(
+			r.vregCounts[i], r.vregGranularity*64)
 		r.vregMasks = append(r.vregMasks,
-			newResourceMask(r.vregCounts[i]/r.vregGranularity))
+			newResourceMask(r.vregCounts[i]/r.vregGranularity/64))
 	}
 }
 
