@@ -17,11 +17,17 @@ var _ = Describe("Relulayer", func() {
 	)
 
 	BeforeEach(func() {
-		_, gpuDriver = platform.MakeR9NanoBuilder().Build()
+		_, gpuDriver = platform.MakeEmuBuilder().
+			WithoutProgressBar().
+			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 
 		layer = layers.NewReluLayer(gpuDriver, context)
+	})
+
+	AfterEach(func() {
+		gpuDriver.Terminate()
 	})
 
 	It("should forward", func() {

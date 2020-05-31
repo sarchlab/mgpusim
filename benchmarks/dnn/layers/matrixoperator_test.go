@@ -16,10 +16,16 @@ var _ = Describe("Matrix Operator", func() {
 	)
 
 	BeforeEach(func() {
-		_, gpuDriver = platform.MakeR9NanoBuilder().Build()
+		_, gpuDriver = platform.MakeEmuBuilder().
+			WithoutProgressBar().
+			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 		mo = layers.NewMatrixOperator(gpuDriver, context)
+	})
+
+	AfterEach(func() {
+		gpuDriver.Terminate()
 	})
 
 	It("should do gemm", func() {

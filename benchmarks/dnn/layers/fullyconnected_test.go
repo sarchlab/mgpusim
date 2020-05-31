@@ -16,7 +16,9 @@ var _ = Describe("Fully Connected Layer", func() {
 	)
 
 	BeforeEach(func() {
-		_, gpuDriver = platform.MakeR9NanoBuilder().Build()
+		_, gpuDriver = platform.MakeEmuBuilder().
+			WithoutProgressBar().
+			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 		mo = NewMatrixOperator(gpuDriver, context)
@@ -35,6 +37,10 @@ var _ = Describe("Fully Connected Layer", func() {
 			[]float32{
 				10, 11,
 			})
+	})
+
+	AfterEach(func() {
+		gpuDriver.Terminate()
 	})
 
 	It("should forward", func() {
