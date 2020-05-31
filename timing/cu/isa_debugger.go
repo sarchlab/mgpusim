@@ -56,9 +56,9 @@ func (d *ISADebugger) Func(
 	inst := detail["inst"].(*wavefront.Inst)
 
 	// For debugging
-	if wf.FirstWiFlatID != 0 {
-		return
-	}
+	//if wf.FirstWiFlatID != 0 {
+	//	return
+	//}
 
 	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)

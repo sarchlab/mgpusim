@@ -122,7 +122,7 @@ func (r *Runner) Init() *Runner {
 
 	r.ParseFlag()
 
-	log.SetFlags(log.Llongfile)
+	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 
 	if r.Timing {
 		r.buildTimingPlatform()

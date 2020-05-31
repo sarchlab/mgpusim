@@ -361,7 +361,41 @@ var _ = Describe("ALU", func() {
 		Expect(layout.DST[1]).To(Equal(uint32(218)))
 		Expect(layout.DST[2]).To(Equal(uint32(219)))
 		Expect(layout.DST[3]).To(Equal(uint32(220)))
+	})
 
+	It("should run S_LOAD_DWORDX8", func() {
+		pageTable.EXPECT().
+			Find(ca.PID(1), uint64(1040)).
+			Return(vm.Page{
+				PAddr: uint64(0),
+			}, true)
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SMEM
+		state.inst.Opcode = 3
+
+		layout := state.Scratchpad().AsSMEM()
+		layout.Base = 1024
+		layout.Offset = 16
+
+		storage.Write(uint64(1040), insts.Uint32ToBytes(217))
+		storage.Write(uint64(1044), insts.Uint32ToBytes(218))
+		storage.Write(uint64(1048), insts.Uint32ToBytes(219))
+		storage.Write(uint64(1052), insts.Uint32ToBytes(220))
+		storage.Write(uint64(1056), insts.Uint32ToBytes(221))
+		storage.Write(uint64(1060), insts.Uint32ToBytes(222))
+		storage.Write(uint64(1064), insts.Uint32ToBytes(223))
+		storage.Write(uint64(1068), insts.Uint32ToBytes(224))
+
+		alu.Run(state)
+
+		Expect(layout.DST[0]).To(Equal(uint32(217)))
+		Expect(layout.DST[1]).To(Equal(uint32(218)))
+		Expect(layout.DST[2]).To(Equal(uint32(219)))
+		Expect(layout.DST[3]).To(Equal(uint32(220)))
+		Expect(layout.DST[4]).To(Equal(uint32(221)))
+		Expect(layout.DST[5]).To(Equal(uint32(222)))
+		Expect(layout.DST[6]).To(Equal(uint32(223)))
+		Expect(layout.DST[7]).To(Equal(uint32(224)))
 	})
 
 	It("should run S_CBRANCH", func() {

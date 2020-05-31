@@ -63,6 +63,7 @@ var _ = Describe("Scalar Unit", func() {
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
 		bu = NewScalarUnit(cu, sp, alu)
+		bu.log2CachelineSize = 6
 
 		scalarMem = NewMockPort(mockCtrl)
 		cu.ScalarMem = scalarMem
@@ -168,6 +169,33 @@ var _ = Describe("Scalar Unit", func() {
 		//Expect(len(cu.inFlightMemAccess)).To(Equal(1))
 		//Expect(conn.AllExpectedSent()).To(BeTrue())
 		Expect(bu.readBuf).To(HaveLen(1))
+	})
+
+	It("should run s_load_dwordx4, access cross cacheline", func() {
+		wave := wavefront.NewWavefront(nil)
+		bu.toExec = wave
+
+		inst := wavefront.NewInst(insts.NewInst())
+		inst.FormatType = insts.SMEM
+		inst.Opcode = 2
+		inst.Data = insts.NewSRegOperand(0, 0, 1)
+		wave.SetDynamicInst(inst)
+
+		sp := wave.Scratchpad().AsSMEM()
+		sp.Base = 0x1000
+		sp.Offset = 56
+
+		bu.Run(10)
+
+		Expect(wave.State).To(Equal(wavefront.WfReady))
+		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
+		Expect(bu.readBuf).To(HaveLen(2))
+		Expect(bu.readBuf[0].CanWaitForCoalesce).To(BeTrue())
+		Expect(bu.readBuf[0].Address).To(Equal(uint64(0x1038)))
+		Expect(bu.readBuf[0].AccessByteSize).To(Equal(uint64(8)))
+		Expect(bu.readBuf[1].CanWaitForCoalesce).To(BeFalse())
+		Expect(bu.readBuf[1].Address).To(Equal(uint64(0x1040)))
+		Expect(bu.readBuf[1].AccessByteSize).To(Equal(uint64(8)))
 	})
 
 	It("should send request out", func() {

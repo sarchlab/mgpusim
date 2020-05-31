@@ -31,8 +31,9 @@ type Builder struct {
 	ConnToScalarMem akita.Connection
 	ConnToVectorMem akita.Connection
 
-	visTracer        tracing.Tracer
-	enableVisTracing bool
+	visTracer         tracing.Tracer
+	enableVisTracing  bool
+	log2CachelineSize uint64
 }
 
 // MakeBuilder returns a default builder object
@@ -42,10 +43,18 @@ func MakeBuilder() Builder {
 	b.SIMDCount = 4
 	b.SGPRCount = 3200
 	b.VGPRCount = []int{16384, 16384, 16384, 16384}
+	b.log2CachelineSize = 6
 
 	return b
 }
-// WithVisTracer adds a tracer to the builder
+
+// WithLog2CachelineSize sets the cacheline size as a power of 2.
+func (b Builder) WithLog2CachelineSize(n uint64) Builder {
+	b.log2CachelineSize = n
+	return b
+}
+
+// WithVisTracer adds a tracer to the builder.
 func (b Builder) WithVisTracer(t tracing.Tracer) Builder {
 	b.enableVisTracing = true
 	b.visTracer = t
@@ -93,6 +102,7 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
 	scalarUnit := NewScalarUnit(cu, b.ScratchpadPreparer, b.ALU)
+	scalarUnit.log2CachelineSize = b.log2CachelineSize
 	cu.ScalarUnit = scalarUnit
 	for i := 0; i < b.SIMDCount; i++ {
 		scalarDecoder.AddExecutionUnit(scalarUnit)
