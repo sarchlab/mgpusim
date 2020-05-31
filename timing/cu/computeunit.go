@@ -540,23 +540,32 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	}
 
 	info := cu.InFlightScalarMemAccess[0]
-	if info.Req.ID != rsp.RespondTo {
+	req := info.Req
+	if req.ID != rsp.RespondTo {
 		return
 	}
 
 	wf := info.Wavefront
-	access := RegisterAccess{}
-	access.WaveOffset = wf.SRegOffset
-	access.Reg = info.DstSGPR
-	access.RegCount = len(rsp.Data) / 4
-	access.Data = rsp.Data
+	access := RegisterAccess{
+		WaveOffset: wf.SRegOffset,
+		Reg:        info.DstSGPR,
+		RegCount:   len(rsp.Data) / 4,
+		Data:       rsp.Data,
+	}
 	cu.SRegFile.Write(access)
 
-	wf.OutstandingScalarMemAccess--
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	cu.logInstTask(now, wf, info.Inst, true)
-	tracing.TraceReqFinalize(info.Req, now, cu)
+	tracing.TraceReqFinalize(req, now, cu)
+
+	if cu.isLastRead(req) {
+		wf.OutstandingScalarMemAccess--
+	}
+}
+
+func (cu *ComputeUnit) isLastRead(req *mem.ReadReq) bool {
+	return !req.CanWaitForCoalesce
 }
 
 func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) bool {
@@ -781,6 +790,7 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses(
 ) bool {
 	if len(cu.shadowInFlightScalarMemAccess) > 0 {
 		info := cu.shadowInFlightScalarMemAccess[0]
+
 		req := info.Req
 		req.ID = xid.New().String()
 		req.SendTime = now
@@ -793,6 +803,7 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses(
 			return true
 		}
 	}
+
 	return false
 }
 

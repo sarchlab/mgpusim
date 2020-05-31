@@ -25,6 +25,8 @@ type ScalarUnit struct {
 	readBufSize int
 	readBuf     []*mem.ReadReq
 
+	log2CachelineSize uint64
+
 	isIdle bool
 }
 
@@ -94,6 +96,7 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 			u.executeSMEMInst(now)
 			return true
 		}
+
 		u.alu.Run(u.toExec)
 
 		u.toWrite = u.toExec
@@ -104,51 +107,100 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (u *ScalarUnit) executeSMEMInst(now akita.VTimeInSec) {
+func (u *ScalarUnit) executeSMEMInst(now akita.VTimeInSec) bool {
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 0:
-		u.executeSMEMLoad(4, now)
+		return u.executeSMEMLoad(4, now)
 	case 1:
-		u.executeSMEMLoad(8, now)
+		return u.executeSMEMLoad(8, now)
 	case 2:
-		u.executeSMEMLoad(16, now)
+		return u.executeSMEMLoad(16, now)
+	case 3:
+		return u.executeSMEMLoad(32, now)
 	default:
 		log.Panicf("opcode %d is not supported.", inst.Opcode)
 	}
+
+	panic("never")
 }
 
-func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) {
+func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) bool {
 	inst := u.toExec.DynamicInst()
 	sp := u.toExec.Scratchpad().AsSMEM()
 
-	if len(u.readBuf) < u.readBufSize {
-		u.toExec.OutstandingScalarMemAccess++
+	start := sp.Base + sp.Offset
+	numCacheline := u.numCacheline(start, uint64(byteSize))
+
+	if len(u.readBuf)+numCacheline > u.readBufSize {
+		return false
+	}
+
+	curr := start
+	bytesLeft := uint64(byteSize)
+	regIndex := inst.Data.Register.RegIndex()
+	for bytesLeft > 0 {
+		bytesLeftInCacheline := u.byteInCacheline(curr, bytesLeft)
+		bytesLeft -= bytesLeftInCacheline
 
 		req := mem.ReadReqBuilder{}.
 			WithSendTime(now).
 			WithSrc(u.cu.ToScalarMem).
 			WithDst(u.cu.ScalarMem).
-			WithAddress(sp.Base + sp.Offset).
+			WithAddress(curr).
 			WithPID(u.toExec.PID()).
-			WithByteSize(uint64(byteSize)).
+			WithByteSize(bytesLeftInCacheline).
 			Build()
+		if bytesLeft > 0 {
+			req.CanWaitForCoalesce = true
+		}
 		u.readBuf = append(u.readBuf, req)
 
-		info := new(ScalarMemAccessInfo)
-		info.Req = req
-		info.Wavefront = u.toExec
-		info.DstSGPR = inst.Data.Register
-		info.Inst = inst
-		u.cu.InFlightScalarMemAccess = append(u.cu.InFlightScalarMemAccess,
-			info)
-
-		u.cu.UpdatePCAndSetReady(u.toExec)
+		info := &ScalarMemAccessInfo{
+			Req:       req,
+			Wavefront: u.toExec,
+			DstSGPR:   insts.SReg(regIndex + int((curr-start)/4)),
+			Inst:      inst,
+		}
+		u.cu.InFlightScalarMemAccess = append(
+			u.cu.InFlightScalarMemAccess, info)
 
 		tracing.TraceReqInitiate(req, now, u.cu, u.toExec.DynamicInst().ID)
 
-		u.toExec = nil
+		curr += bytesLeftInCacheline
 	}
+
+	u.toExec.OutstandingScalarMemAccess++
+	u.cu.UpdatePCAndSetReady(u.toExec)
+	u.toExec = nil
+
+	return true
+}
+
+func (u ScalarUnit) numCacheline(start, byteSize uint64) int {
+	count := 0
+	curr := start
+	cachelineSize := uint64(1) << u.log2CachelineSize
+
+	for curr < start+byteSize {
+		count++
+		curr += cachelineSize
+	}
+
+	return count
+}
+
+func (u ScalarUnit) byteInCacheline(curr, bytesLeft uint64) uint64 {
+	mask := ^(uint64(1<<u.log2CachelineSize) - 1)
+	cachelineStart := curr & mask
+	cachelineEnd := cachelineStart + (1 << u.log2CachelineSize)
+
+	bytesLeftInCacheline := cachelineEnd - curr
+	if bytesLeftInCacheline < bytesLeft {
+		return bytesLeftInCacheline
+	}
+
+	return bytesLeft
 }
 
 func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {

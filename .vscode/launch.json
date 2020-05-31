@@ -67,6 +67,13 @@
             "program": "${workspaceFolder}/timing/caches/l1v"
         },
         {
+            "name": "Test gitlab.com/akita/mgpusim/benchmarks/dnn/layers",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/benchmarks/dnn/layers"
+        },
+        {
             "name": "L1V acceptance test",
             "type": "go",
             "request": "launch",
@@ -278,6 +285,18 @@
                 "-unified-gpus=1,2",
                 // "-debug-isa",
                 // "-timing",
+            ]
+        },
+
+        {
+            "name": "XOR",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/xor",
+            "args": [
+                "-timing",
+                "-no-progress-bar"
             ]
         },
         {
