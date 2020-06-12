@@ -14,7 +14,7 @@ require (
 	gitlab.com/akita/dnn v0.3.0
 	gitlab.com/akita/mem v1.8.3
 	gitlab.com/akita/noc v1.4.0
-	gitlab.com/akita/util v0.5.0
+	gitlab.com/akita/util v0.6.3
 	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37 // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 )
