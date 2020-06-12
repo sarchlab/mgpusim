@@ -69,15 +69,15 @@ var _ = Describe("ComputeUnit", func() {
 		toVectorMem      *MockPort
 		toACE            *MockPort
 		toCP             *MockPort
-		branchUnit       *MockCUComponent
-		vectorMemDecoder *MockCUComponent
-		vectorMemUnit    *MockCUComponent
-		scalarDecoder    *MockCUComponent
-		vectorDecoder    *MockCUComponent
-		ldsDecoder       *MockCUComponent
-		scalarUnit       *MockCUComponent
-		simdUnit         *MockCUComponent
-		ldsUnit          *MockCUComponent
+		branchUnit       *MockSubComponent
+		vectorMemDecoder *MockSubComponent
+		vectorMemUnit    *MockSubComponent
+		scalarDecoder    *MockSubComponent
+		vectorDecoder    *MockSubComponent
+		ldsDecoder       *MockSubComponent
+		scalarUnit       *MockSubComponent
+		simdUnit         *MockSubComponent
+		ldsUnit          *MockSubComponent
 
 		instMem *MockPort
 
@@ -92,15 +92,15 @@ var _ = Describe("ComputeUnit", func() {
 		wfDispatcher = NewMockWfDispatcher(mockCtrl)
 		decoder = new(mockDecoder)
 		scheduler = new(mockScheduler)
-		branchUnit = NewMockCUComponent(mockCtrl)
-		vectorMemDecoder = NewMockCUComponent(mockCtrl)
-		vectorMemUnit = NewMockCUComponent(mockCtrl)
-		scalarDecoder = NewMockCUComponent(mockCtrl)
-		vectorDecoder = NewMockCUComponent(mockCtrl)
-		ldsDecoder = NewMockCUComponent(mockCtrl)
-		scalarUnit = NewMockCUComponent(mockCtrl)
-		simdUnit = NewMockCUComponent(mockCtrl)
-		ldsUnit = NewMockCUComponent(mockCtrl)
+		branchUnit = NewMockSubComponent(mockCtrl)
+		vectorMemDecoder = NewMockSubComponent(mockCtrl)
+		vectorMemUnit = NewMockSubComponent(mockCtrl)
+		scalarDecoder = NewMockSubComponent(mockCtrl)
+		vectorDecoder = NewMockSubComponent(mockCtrl)
+		ldsDecoder = NewMockSubComponent(mockCtrl)
+		scalarUnit = NewMockSubComponent(mockCtrl)
+		simdUnit = NewMockSubComponent(mockCtrl)
+		ldsUnit = NewMockSubComponent(mockCtrl)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WfDispatcher = wfDispatcher

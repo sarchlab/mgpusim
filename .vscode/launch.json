@@ -112,6 +112,9 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-verify",
+                "-timing",
+                "-gpus=1,2",
+                "-report-rdma-transaction-count"
             ]
         },
         {

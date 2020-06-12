@@ -153,6 +153,8 @@ gitlab.com/akita/noc v1.4.0/go.mod h1:j6Ej+bgLcG8GhgfP1BlUtHEYpKP9AhdbxedUtZek1G
 gitlab.com/akita/util v0.4.0/go.mod h1:2MtukqfcPK+bcy3sP1Y2h6DnuQASRlIqJz7X2wTXFGo=
 gitlab.com/akita/util v0.5.0 h1:czXgvxMOJnQ7L/unnfMw534p415g3dUJ4ruupREsVXY=
 gitlab.com/akita/util v0.5.0/go.mod h1:2MtukqfcPK+bcy3sP1Y2h6DnuQASRlIqJz7X2wTXFGo=
+gitlab.com/akita/util v0.6.3 h1:qHR2Scf+k0RW+bW5cQQh/ZznFYPmqivUYocQ8bkjuYk=
+gitlab.com/akita/util v0.6.3/go.mod h1:2MtukqfcPK+bcy3sP1Y2h6DnuQASRlIqJz7X2wTXFGo=
 go.mongodb.org/mongo-driver v1.0.3/go.mod h1:u7ryQJ+DOzQmeO7zB6MHyr8jkEQvC8vH7qLUO4lqsUM=
 go.mongodb.org/mongo-driver v1.3.2 h1:IYppNjEV/C+/3VPbhHVxQ4t04eVW0cLp0/pNdW++6Ug=
 go.mongodb.org/mongo-driver v1.3.2/go.mod h1:MSWZXKOynuguX+JSvwP8i+58jYCXxbia8HS3gZBapIE=

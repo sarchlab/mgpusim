@@ -11,31 +11,31 @@ import (
 	reflect "reflect"
 )
 
-// MockCUComponent is a mock of CUComponent interface
-type MockCUComponent struct {
+// MockSubComponent is a mock of SubComponent interface
+type MockSubComponent struct {
 	ctrl     *gomock.Controller
-	recorder *MockCUComponentMockRecorder
+	recorder *MockSubComponentMockRecorder
 }
 
-// MockCUComponentMockRecorder is the mock recorder for MockCUComponent
-type MockCUComponentMockRecorder struct {
-	mock *MockCUComponent
+// MockSubComponentMockRecorder is the mock recorder for MockSubComponent
+type MockSubComponentMockRecorder struct {
+	mock *MockSubComponent
 }
 
-// NewMockCUComponent creates a new mock instance
-func NewMockCUComponent(ctrl *gomock.Controller) *MockCUComponent {
-	mock := &MockCUComponent{ctrl: ctrl}
-	mock.recorder = &MockCUComponentMockRecorder{mock}
+// NewMockSubComponent creates a new mock instance
+func NewMockSubComponent(ctrl *gomock.Controller) *MockSubComponent {
+	mock := &MockSubComponent{ctrl: ctrl}
+	mock.recorder = &MockSubComponentMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockCUComponent) EXPECT() *MockCUComponentMockRecorder {
+func (m *MockSubComponent) EXPECT() *MockSubComponentMockRecorder {
 	return m.recorder
 }
 
 // CanAcceptWave mocks base method
-func (m *MockCUComponent) CanAcceptWave() bool {
+func (m *MockSubComponent) CanAcceptWave() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CanAcceptWave")
 	ret0, _ := ret[0].(bool)
@@ -43,25 +43,25 @@ func (m *MockCUComponent) CanAcceptWave() bool {
 }
 
 // CanAcceptWave indicates an expected call of CanAcceptWave
-func (mr *MockCUComponentMockRecorder) CanAcceptWave() *gomock.Call {
+func (mr *MockSubComponentMockRecorder) CanAcceptWave() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanAcceptWave", reflect.TypeOf((*MockCUComponent)(nil).CanAcceptWave))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanAcceptWave", reflect.TypeOf((*MockSubComponent)(nil).CanAcceptWave))
 }
 
 // AcceptWave mocks base method
-func (m *MockCUComponent) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
+func (m *MockSubComponent) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AcceptWave", wave, now)
 }
 
 // AcceptWave indicates an expected call of AcceptWave
-func (mr *MockCUComponentMockRecorder) AcceptWave(wave, now interface{}) *gomock.Call {
+func (mr *MockSubComponentMockRecorder) AcceptWave(wave, now interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptWave", reflect.TypeOf((*MockCUComponent)(nil).AcceptWave), wave, now)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptWave", reflect.TypeOf((*MockSubComponent)(nil).AcceptWave), wave, now)
 }
 
 // Run mocks base method
-func (m *MockCUComponent) Run(now akita.VTimeInSec) bool {
+func (m *MockSubComponent) Run(now akita.VTimeInSec) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", now)
 	ret0, _ := ret[0].(bool)
@@ -69,13 +69,13 @@ func (m *MockCUComponent) Run(now akita.VTimeInSec) bool {
 }
 
 // Run indicates an expected call of Run
-func (mr *MockCUComponentMockRecorder) Run(now interface{}) *gomock.Call {
+func (mr *MockSubComponentMockRecorder) Run(now interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockCUComponent)(nil).Run), now)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockSubComponent)(nil).Run), now)
 }
 
 // IsIdle mocks base method
-func (m *MockCUComponent) IsIdle() bool {
+func (m *MockSubComponent) IsIdle() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsIdle")
 	ret0, _ := ret[0].(bool)
@@ -83,19 +83,19 @@ func (m *MockCUComponent) IsIdle() bool {
 }
 
 // IsIdle indicates an expected call of IsIdle
-func (mr *MockCUComponentMockRecorder) IsIdle() *gomock.Call {
+func (mr *MockSubComponentMockRecorder) IsIdle() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsIdle", reflect.TypeOf((*MockCUComponent)(nil).IsIdle))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsIdle", reflect.TypeOf((*MockSubComponent)(nil).IsIdle))
 }
 
 // Flush mocks base method
-func (m *MockCUComponent) Flush() {
+func (m *MockSubComponent) Flush() {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Flush")
 }
 
 // Flush indicates an expected call of Flush
-func (mr *MockCUComponentMockRecorder) Flush() *gomock.Call {
+func (mr *MockSubComponentMockRecorder) Flush() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockCUComponent)(nil).Flush))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockSubComponent)(nil).Flush))
 }
