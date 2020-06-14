@@ -49,7 +49,7 @@ func (b *Benchmark) SelectGPU(gpus []int) {
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes := FSMustByte(false, "/kernels.hsaco")
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "fastWalshTransform")
 	if b.kernel == nil {

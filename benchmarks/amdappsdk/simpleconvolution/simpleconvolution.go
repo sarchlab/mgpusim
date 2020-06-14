@@ -64,10 +64,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "simpleNonSeparableConvolution")
 	if b.kernel == nil {

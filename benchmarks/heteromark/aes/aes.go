@@ -1,3 +1,4 @@
+// Package aes implements the AES benchmark form Hetero-Mark.
 package aes
 
 import (
@@ -61,8 +62,8 @@ var s []uint8 = []uint8{
 	0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 }
 
-// Args defines kernel arguments
-type Args struct {
+// KernelArgs defines kernel arguments
+type KernelArgs struct {
 	Input               driver.GPUPtr
 	ExpandedKey         driver.GPUPtr
 	S                   driver.GPUPtr
@@ -90,7 +91,7 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
-// NewBenchmark makes a new benchmark
+// NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 	b.driver = driver
@@ -99,23 +100,20 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
-// SelectGPU selects GPU
+// SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpus = gpuIDs
 	b.gExpandedKey = make([]driver.GPUPtr, len(gpuIDs))
 	b.gS = make([]driver.GPUPtr, len(gpuIDs))
 }
 
-// SetUnifiedMemory use Unified Memory
+// SetUnifiedMemory uses Unified Memory
 func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "Encrypt")
 	if b.hsaco == nil {
@@ -181,7 +179,7 @@ func (b *Benchmark) LaunchKernel() {
 		b.driver.SelectGPU(b.context, gpu)
 		queues[i] = b.driver.CreateCommandQueue(b.context)
 
-		kernArg := Args{
+		kernArg := KernelArgs{
 			b.gInput,
 			b.gExpandedKey[i],
 			b.gS[i],

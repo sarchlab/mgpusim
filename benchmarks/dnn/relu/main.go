@@ -43,10 +43,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.driver = driver
 	b.context = driver.Init()
 
-	hsacoBytes, err := Asset("relu.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "ReLUForward")
 
 	return b
