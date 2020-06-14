@@ -77,10 +77,8 @@ func NewBenchmark(
 	b.H = h
 	b.W = w
 
-	hsacoBytes, err := Asset("maxpooling.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "MaxPoolForward")
 	b.LengthInput = b.N * b.C * b.H * b.W
 	b.KernelH = 2

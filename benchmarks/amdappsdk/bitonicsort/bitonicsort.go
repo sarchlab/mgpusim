@@ -1,3 +1,5 @@
+// Package bitonicsort implements the bitonicsort benchmark from
+// AMDAPPSDK.
 package bitonicsort
 
 import (
@@ -52,10 +54,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "BitonicSort")
 	if b.hsaco == nil {
