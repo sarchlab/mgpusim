@@ -2,62 +2,90 @@ package l1v
 
 import (
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/pipelining"
 	"gitlab.com/akita/util/tracing"
 )
 
-type bankStage struct {
-	cache  *Cache
-	bankID int
+type bankTransaction struct {
+	*transaction
+}
 
-	cycleLeft int
-	currTrans *transaction
+func (t *bankTransaction) TaskID() string {
+	return t.transaction.id
+}
+
+type bankStage struct {
+	cache          *Cache
+	bankID         int
+	numReqPerCycle int
+
+	pipeline        pipelining.Pipeline
+	postPipelineBuf util.Buffer
 }
 
 func (s *bankStage) Reset() {
-	s.cycleLeft = 0
-	s.currTrans = nil
+	s.postPipelineBuf.Clear()
+	s.pipeline.Clear()
 }
 
 func (s *bankStage) Tick(now akita.VTimeInSec) bool {
-	if s.currTrans != nil {
-		s.cycleLeft--
+	madeProgress := false
 
-		if s.cycleLeft < 0 {
-			return s.finalizeTrans(now)
-		}
-
-		return true
+	for i := 0; i < s.numReqPerCycle; i++ {
+		madeProgress = s.finalizeTrans(now) || madeProgress
 	}
-	return s.extractFromBuf()
+
+	madeProgress = s.pipeline.Tick(now) || madeProgress
+
+	for i := 0; i < s.numReqPerCycle; i++ {
+		madeProgress = s.extractFromBuf(now) || madeProgress
+	}
+
+	return madeProgress
 }
 
-func (s *bankStage) extractFromBuf() bool {
+func (s *bankStage) extractFromBuf(now akita.VTimeInSec) bool {
 	item := s.cache.bankBufs[s.bankID].Peek()
 	if item == nil {
 		return false
 	}
 
-	s.currTrans = item.(*transaction)
-	s.cycleLeft = s.cache.bankLatency
+	if !s.pipeline.CanAccept() {
+		return false
+	}
+
+	s.pipeline.Accept(now, &bankTransaction{
+		transaction: item.(*transaction),
+	})
 	s.cache.bankBufs[s.bankID].Pop()
 	return true
 }
 
 func (s *bankStage) finalizeTrans(now akita.VTimeInSec) bool {
-	switch s.currTrans.bankAction {
+	item := s.postPipelineBuf.Peek()
+	if item == nil {
+		return false
+	}
+
+	trans := item.(*bankTransaction).transaction
+
+	switch trans.bankAction {
 	case bankActionReadHit:
-		return s.finalizeReadHitTrans(now)
+		return s.finalizeReadHitTrans(now, trans)
 	case bankActionWrite:
-		return s.finalizeWriteTrans(now)
+		return s.finalizeWriteTrans(now, trans)
 	case bankActionWriteFetched:
-		return s.finalizeWriteFetchedTrans(now)
+		return s.finalizeWriteFetchedTrans(now, trans)
 	default:
 		panic("cannot handle trans bank action")
 	}
 }
 
-func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
-	trans := s.currTrans
+func (s *bankStage) finalizeReadHitTrans(
+	now akita.VTimeInSec,
+	trans *transaction,
+) bool {
 	block := trans.block
 
 	data, err := s.cache.storage.Read(
@@ -73,15 +101,17 @@ func (s *bankStage) finalizeReadHitTrans(now akita.VTimeInSec) bool {
 		t.done = true
 	}
 
-	s.removeTransaction(s.currTrans)
-	s.currTrans = nil
+	s.removeTransaction(trans)
+	s.postPipelineBuf.Pop()
 
 	tracing.EndTask(trans.id, now, s.cache)
 	return true
 }
 
-func (s *bankStage) finalizeWriteTrans(now akita.VTimeInSec) bool {
-	trans := s.currTrans
+func (s *bankStage) finalizeWriteTrans(
+	now akita.VTimeInSec,
+	trans *transaction,
+) bool {
 	write := trans.write
 	block := trans.block
 	blockSize := 1 << s.cache.log2BlockSize
@@ -102,14 +132,16 @@ func (s *bankStage) finalizeWriteTrans(now akita.VTimeInSec) bool {
 	block.DirtyMask = write.DirtyMask
 	block.IsLocked = false
 
-	s.currTrans = nil
+	s.postPipelineBuf.Pop()
 
 	tracing.EndTask(trans.id, now, s.cache)
 	return true
 }
 
-func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
-	trans := s.currTrans
+func (s *bankStage) finalizeWriteFetchedTrans(
+	now akita.VTimeInSec,
+	trans *transaction,
+) bool {
 	block := trans.block
 
 	err := s.cache.storage.Write(block.CacheAddress, trans.data)
@@ -120,7 +152,7 @@ func (s *bankStage) finalizeWriteFetchedTrans(now akita.VTimeInSec) bool {
 	block.DirtyMask = trans.writeFetchedDirtyMask
 	block.IsLocked = false
 
-	s.currTrans = nil
+	s.postPipelineBuf.Pop()
 
 	return true
 }

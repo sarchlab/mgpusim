@@ -1,10 +1,14 @@
 package l1v
 
 import (
+	"fmt"
+
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/pipelining"
+	"gitlab.com/akita/util/tracing"
 )
 
 // A Builder can build an l1v cache
@@ -17,8 +21,9 @@ type Builder struct {
 	numMSHREntry    int
 	numBank         int
 	bankLatency     int
-	numReqsPerCycle int
+	numReqPerCycle  int
 	lowModuleFinder cache.LowModuleFinder
+	visTracer       tracing.Tracer
 }
 
 // NewBuilder creates a builder with default parameter setting
@@ -30,8 +35,8 @@ func NewBuilder() *Builder {
 		wayAssocitivity: 2,
 		numMSHREntry:    4,
 		numBank:         1,
-		numReqsPerCycle: 4,
-		bankLatency:     0,
+		numReqPerCycle:  4,
+		bankLatency:     20,
 	}
 }
 
@@ -87,7 +92,13 @@ func (b *Builder) WithBankLatency(n int) *Builder {
 // WithNumReqsPerCycle sets the number of requests that the cache can process
 // per cycle
 func (b *Builder) WithNumReqsPerCycle(n int) *Builder {
-	b.numReqsPerCycle = n
+	b.numReqPerCycle = n
+	return b
+}
+
+// WithVisTracer sets the visualization tracer
+func (b *Builder) WithVisTracer(tracer tracing.Tracer) *Builder {
+	b.visTracer = tracer
 	return b
 }
 
@@ -106,21 +117,21 @@ func (b *Builder) Build(name string) *Cache {
 
 	c := &Cache{
 		log2BlockSize:  b.log2BlockSize,
-		numReqPerCycle: b.numReqsPerCycle,
+		numReqPerCycle: b.numReqPerCycle,
 	}
 	c.TickingComponent = akita.NewTickingComponent(
 		name, b.engine, b.freq, c)
 
-	c.TopPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle, name+".TopPort")
-	c.BottomPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle,
+	c.TopPort = akita.NewLimitNumMsgPort(c, b.numReqPerCycle, name+".TopPort")
+	c.BottomPort = akita.NewLimitNumMsgPort(c, b.numReqPerCycle,
 		name+".BottomPort")
-	c.ControlPort = akita.NewLimitNumMsgPort(c, b.numReqsPerCycle,
+	c.ControlPort = akita.NewLimitNumMsgPort(c, b.numReqPerCycle,
 		name+"ControlPort")
 
-	c.dirBuf = util.NewBuffer(b.numReqsPerCycle)
+	c.dirBuf = util.NewBuffer(b.numReqPerCycle)
 	c.bankBufs = make([]util.Buffer, b.numBank)
 	for i := 0; i < b.numBank; i++ {
-		c.bankBufs[i] = util.NewBuffer(b.numReqsPerCycle)
+		c.bankBufs[i] = util.NewBuffer(b.numReqPerCycle)
 	}
 
 	c.mshr = cache.NewMSHR(b.numMSHREntry)
@@ -134,14 +145,34 @@ func (b *Builder) Build(name string) *Cache {
 	c.wayAssociativity = b.wayAssocitivity
 	c.lowModuleFinder = b.lowModuleFinder
 
+	b.buildStages(c)
+
+	if b.visTracer != nil {
+		tracing.CollectTrace(c, b.visTracer)
+	}
+
+	return c
+}
+
+func (b *Builder) buildStages(c *Cache) {
 	c.coalesceStage = &coalescer{cache: c}
 	c.directoryStage = &directory{cache: c}
 	for i := 0; i < b.numBank; i++ {
+		pipelineName := fmt.Sprintf("%s.Bank_%02d.Pipeline", c.Name(), i)
+		postPipelineBuf := util.NewBuffer(b.numReqPerCycle)
 		bs := &bankStage{
-			cache:  c,
-			bankID: i,
+			cache:          c,
+			bankID:         i,
+			numReqPerCycle: b.numReqPerCycle,
+			pipeline: pipelining.NewPipeline(
+				pipelineName, b.bankLatency, 1, postPipelineBuf),
+			postPipelineBuf: postPipelineBuf,
 		}
 		c.bankStages = append(c.bankStages, bs)
+
+		if b.visTracer != nil {
+			tracing.CollectTrace(bs.pipeline, b.visTracer)
+		}
 	}
 	c.parseBottomStage = &bottomParser{cache: c}
 	c.respondStage = &respondStage{cache: c}
@@ -154,16 +185,10 @@ func (b *Builder) Build(name string) *Cache {
 		bankStages:   c.bankStages,
 		coalescer:    c.coalesceStage,
 	}
-
-	return c
 }
 
 func (b *Builder) assertAllRequiredInformationIsAvailable() {
 	if b.engine == nil {
 		panic("engine is not specified")
-	}
-
-	if b.lowModuleFinder == nil {
-		panic("lowModuleFinder is not specified")
 	}
 }

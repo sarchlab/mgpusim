@@ -15,11 +15,18 @@ func (s *respondStage) Tick(now akita.VTimeInSec) bool {
 		return false
 	}
 
-	trans := s.cache.transactions[0]
-	if trans.read != nil {
-		return s.respondReadTrans(now, trans)
+	for _, trans := range s.cache.transactions {
+		if !trans.done {
+			continue
+		}
+
+		if trans.read != nil {
+			return s.respondReadTrans(now, trans)
+		}
+		return s.respondWriteTrans(now, trans)
 	}
-	return s.respondWriteTrans(now, trans)
+
+	return false
 }
 
 func (s *respondStage) respondReadTrans(
@@ -43,7 +50,7 @@ func (s *respondStage) respondReadTrans(
 		return false
 	}
 
-	s.cache.transactions = s.cache.transactions[1:]
+	s.removeTransaction(trans)
 
 	tracing.TraceReqComplete(read, now, s.cache)
 
@@ -70,9 +77,21 @@ func (s *respondStage) respondWriteTrans(
 		return false
 	}
 
-	s.cache.transactions = s.cache.transactions[1:]
+	s.removeTransaction(trans)
 
 	tracing.TraceReqComplete(write, now, s.cache)
 
 	return true
+}
+
+func (s *respondStage) removeTransaction(trans *transaction) {
+	for i, t := range s.cache.transactions {
+		if t == trans {
+			s.cache.transactions = append(s.cache.transactions[:i],
+				s.cache.transactions[i+1:]...)
+			return
+		}
+	}
+
+	panic("not found")
 }

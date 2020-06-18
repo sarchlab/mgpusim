@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/rdma"
+	"gitlab.com/akita/mgpusim/timing/caches/rob"
 	"gitlab.com/akita/mgpusim/timing/cp"
 )
 
@@ -28,6 +29,10 @@ type GPU struct {
 	L1VTLBs            []*tlb.TLB
 	L1STLBs            []*tlb.TLB
 	L1ITLBs            []*tlb.TLB
+	L1VROBs            []*rob.ReorderBuffer
+	L1IROBs            []*rob.ReorderBuffer
+	L1SROBs            []*rob.ReorderBuffer
+	ReorderBuffers     []*rob.ReorderBuffer
 	L1VAddrTranslator  []*addresstranslator.AddressTranslator
 	L1IAddrTranslator  []*addresstranslator.AddressTranslator
 	L1SAddrTranslator  []*addresstranslator.AddressTranslator

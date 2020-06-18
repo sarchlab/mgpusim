@@ -41,6 +41,11 @@ type Engine struct {
 	transactionsFromInside  []transaction
 }
 
+// SetLocalModuleFinder sets the table to lookup for local data.
+func (e *Engine) SetLocalModuleFinder(lmf cache.LowModuleFinder) {
+	e.localModules = lmf
+}
+
 // Tick checks if make progress
 func (e *Engine) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
@@ -106,7 +111,6 @@ func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
 		if err != nil {
 			return false
 		}
-
 		e.isDraining = false
 		return true
 	}

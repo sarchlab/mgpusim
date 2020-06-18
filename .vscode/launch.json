@@ -81,6 +81,21 @@
             "program": "${workspaceFolder}/timing/newcaches/l1v/acceptancetest"
         },
         {
+            "name": "AES",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/aes",
+            "args": [
+                "-verify",
+                "-length=16384",
+                "-unified-gpus=1,2",
+                "-use-unified-memory",
+                "-timing",
+                "-no-progress-bar"
+            ]
+        },
+        {
             "name": "ATAX",
             "type": "go",
             "request": "launch",
@@ -111,10 +126,9 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fir",
             "args": [
-                "-verify",
                 "-timing",
-                "-gpus=1,2",
-                "-report-rdma-transaction-count"
+                "-verify",
+                "--no-progress-bar",
             ]
         },
         {
@@ -160,6 +174,9 @@
                 "-MB=2",
                 "-verify",
                 "-timing",
+                "-unified-gpus=1,2,3,4",
+                "-use-unified-memory",
+                "-no-progress-bar"
             ]
         },
         {
@@ -183,7 +200,6 @@
                 "-verify",
                 "-length=32768",
                 "-timing",
-                "-unified-gpus=1,2"
             ]
         },
         {
@@ -206,8 +222,12 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/matrixtranspose",
             "args": [
-                "-width=68",
-                "-verify"
+                "-width=256",
+                "-verify",
+                "-gpus=1,2,3,4",
+                "-timing",
+                "-use-unified-memory",
+                "-no-progress-bar",
             ]
         },
         {

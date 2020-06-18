@@ -2,9 +2,9 @@ package cp
 
 import (
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/protocol"
@@ -55,11 +55,12 @@ type CommandProcessor struct {
 	currShootdownRequest *protocol.ShootDownCommand
 	currFlushRequest     *protocol.FlushCommand
 
-	numTLBs               uint64
-	numCUAck              uint64
-	numAddrTranslationAck uint64
-	numTLBAck             uint64
-	numCacheACK           uint64
+	numTLBs                      uint64
+	numCUAck                     uint64
+	numAddrTranslationFlushAck   uint64
+	numAddrTranslationRestartAck uint64
+	numTLBAck                    uint64
+	numCacheACK                  uint64
 
 	shootDownInProcess bool
 
@@ -100,16 +101,31 @@ func (p *CommandProcessor) Tick(now akita.VTimeInSec) bool {
 func (p *CommandProcessor) sendMsgsOut(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	madeProgress = p.toDriverSender.Tick(now) || madeProgress
-	madeProgress = p.toDMASender.Tick(now) || madeProgress
-	madeProgress = p.toCUsSender.Tick(now) || madeProgress
-	madeProgress = p.toTLBsSender.Tick(now) || madeProgress
-	madeProgress = p.toAddressTranslatorsSender.Tick(now) || madeProgress
-	madeProgress = p.toCachesSender.Tick(now) || madeProgress
-	madeProgress = p.toRDMASender.Tick(now) || madeProgress
-	madeProgress = p.toPMCSender.Tick(now) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(now, p.toDriverSender) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(now, p.toDMASender) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(now, p.toCUsSender) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(now, p.toTLBsSender) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(
+		now, p.toAddressTranslatorsSender) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(now, p.toCachesSender) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(now, p.toRDMASender) || madeProgress
+	madeProgress = p.sendMsgsOutFromPort(now, p.toPMCSender) || madeProgress
 
 	return madeProgress
+}
+
+func (p *CommandProcessor) sendMsgsOutFromPort(
+	now akita.VTimeInSec,
+	sender akitaext.BufferedSender,
+) (madeProgress bool) {
+	for {
+		ok := sender.Tick(now)
+		if ok {
+			madeProgress = true
+		} else {
+			return madeProgress
+		}
+	}
 }
 
 func (p *CommandProcessor) tickDispatchers(
@@ -227,16 +243,17 @@ func (p *CommandProcessor) processRspFromCaches(now akita.VTimeInSec) bool {
 }
 
 func (p *CommandProcessor) processRspFromATs(now akita.VTimeInSec) bool {
-	msg := p.ToAddressTranslators.Peek()
-	if msg == nil {
+	item := p.ToAddressTranslators.Peek()
+	if item == nil {
 		return false
 	}
 
-	switch req := msg.(type) {
-	case *addresstranslator.AddressTranslatorFlushRsp:
-		return p.processAddressTranslatorFlushRsp(now, req)
-	case *addresstranslator.AddressTranslatorRestartRsp:
-		return p.processAddressTranslatorRestartRsp(now, req)
+	msg := item.(*mem.ControlMsg)
+
+	if p.numAddrTranslationFlushAck > 0 {
+		return p.processAddressTranslatorFlushRsp(now, msg)
+	} else if p.numAddrTranslationRestartAck > 0 {
+		return p.processAddressTranslatorRestartRsp(now, msg)
 	}
 
 	panic("never")
@@ -363,13 +380,14 @@ func (p *CommandProcessor) processCUPipelineFlushRsp(
 
 	if p.numCUAck == 0 {
 		for i := 0; i < len(p.AddressTranslators); i++ {
-			req := addresstranslator.AddressTranslatorFlushReqBuilder{}.
+			req := mem.ControlMsgBuilder{}.
 				WithSendTime(now).
 				WithSrc(p.ToAddressTranslators).
 				WithDst(p.AddressTranslators[i]).
+				ToDiscardTransactions().
 				Build()
 			p.toAddressTranslatorsSender.Send(req)
-			p.numAddrTranslationAck++
+			p.numAddrTranslationFlushAck++
 		}
 	}
 
@@ -380,11 +398,11 @@ func (p *CommandProcessor) processCUPipelineFlushRsp(
 
 func (p *CommandProcessor) processAddressTranslatorFlushRsp(
 	now akita.VTimeInSec,
-	cmd *addresstranslator.AddressTranslatorFlushRsp,
+	msg *mem.ControlMsg,
 ) bool {
-	p.numAddrTranslationAck--
+	p.numAddrTranslationFlushAck--
 
-	if p.numAddrTranslationAck == 0 {
+	if p.numAddrTranslationFlushAck == 0 {
 		for _, port := range p.L1SCaches {
 			p.flushAndResetL1Cache(now, port)
 		}
@@ -600,14 +618,17 @@ func (p *CommandProcessor) processTLBRestartRsp(
 
 	if p.numTLBAck == 0 {
 		for i := 0; i < len(p.AddressTranslators); i++ {
-			req := addresstranslator.AddressTranslatorRestartReqBuilder{}.
+			req := mem.ControlMsgBuilder{}.
 				WithSendTime(now).
 				WithSrc(p.ToAddressTranslators).
 				WithDst(p.AddressTranslators[i]).
+				ToRestart().
 				Build()
 			p.toAddressTranslatorsSender.Send(req)
 
-			p.numAddrTranslationAck++
+			// fmt.Printf("Restarting %s\n", p.AddressTranslators[i].Name())
+
+			p.numAddrTranslationRestartAck++
 		}
 	}
 
@@ -618,11 +639,11 @@ func (p *CommandProcessor) processTLBRestartRsp(
 
 func (p *CommandProcessor) processAddressTranslatorRestartRsp(
 	now akita.VTimeInSec,
-	rsp *addresstranslator.AddressTranslatorRestartRsp,
+	rsp *mem.ControlMsg,
 ) bool {
-	p.numAddrTranslationAck--
+	p.numAddrTranslationRestartAck--
 
-	if p.numAddrTranslationAck == 0 {
+	if p.numAddrTranslationRestartAck == 0 {
 		for i := 0; i < len(p.CUs); i++ {
 			req := protocol.CUPipelineRestartReqBuilder{}.
 				WithSendTime(now).
