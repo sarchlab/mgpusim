@@ -27,9 +27,10 @@ type ComputeUnit struct {
 	Decoder      emu.Decoder
 	WfPools      []*WavefrontPool
 
-	InFlightInstFetch       []*InstFetchReqInfo
-	InFlightScalarMemAccess []*ScalarMemAccessInfo
-	InFlightVectorMemAccess []VectorMemAccessInfo
+	InFlightInstFetch            []*InstFetchReqInfo
+	InFlightScalarMemAccess      []*ScalarMemAccessInfo
+	InFlightVectorMemAccess      []VectorMemAccessInfo
+	InFlightVectorMemAccessLimit int
 
 	shadowInFlightInstFetch       []*InstFetchReqInfo
 	shadowInFlightScalarMemAccess []*ScalarMemAccessInfo
@@ -196,7 +197,7 @@ func (cu *ComputeUnit) doFlush(now akita.VTimeInSec) bool {
 func (cu *ComputeUnit) processInput(now akita.VTimeInSec) bool {
 	madeProgress := false
 
-	if !cu.isPaused {
+	if !cu.isPaused || cu.isSendingOutShadowBufferReqs {
 		madeProgress = cu.processInputFromACE(now) || madeProgress
 		madeProgress = cu.processInputFromInstMem(now) || madeProgress
 		madeProgress = cu.processInputFromScalarMem(now) || madeProgress
@@ -814,17 +815,18 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
 		info := cu.shadowInFlightVectorMemAccess[0]
 		if info.Read != nil {
 			req := info.Read
-			req.ID = xid.New().String()
+			req.ID = akita.GetIDGenerator().Generate()
 			req.SendTime = now
 			err := cu.ToVectorMem.Send(req)
 			if err == nil {
-				cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
+				cu.InFlightVectorMemAccess = append(
+					cu.InFlightVectorMemAccess, info)
 				cu.shadowInFlightVectorMemAccess = cu.shadowInFlightVectorMemAccess[1:]
 				return true
 			}
 		} else if info.Write != nil {
 			req := info.Write
-			req.ID = xid.New().String()
+			req.ID = akita.GetIDGenerator().Generate()
 			req.SendTime = now
 			err := cu.ToVectorMem.Send(req)
 			if err == nil {

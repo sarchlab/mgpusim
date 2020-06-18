@@ -40,6 +40,12 @@ type Cache struct {
 	isPaused bool
 }
 
+// SetLowModuleFinder sets the finder that tells which remote port can serve
+// the data on a certain address.
+func (c *Cache) SetLowModuleFinder(lmf cache.LowModuleFinder) {
+	c.lowModuleFinder = lmf
+}
+
 // Tick update the state of the cache
 func (c *Cache) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false
@@ -84,9 +90,7 @@ func (c *Cache) tickParseBottomStage(now akita.VTimeInSec) bool {
 func (c *Cache) tickBankStage(now akita.VTimeInSec) bool {
 	madeProgress := false
 	for _, bs := range c.bankStages {
-		for i := 0; i < c.numReqPerCycle; i++ {
-			madeProgress = bs.Tick(now) || madeProgress
-		}
+		madeProgress = bs.Tick(now) || madeProgress
 	}
 	return madeProgress
 }

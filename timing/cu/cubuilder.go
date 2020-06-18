@@ -4,47 +4,74 @@ import (
 	"fmt"
 
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mgpusim/emu"
+	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/util"
+	"gitlab.com/akita/util/pipelining"
 	"gitlab.com/akita/util/tracing"
 )
 
-// A Builder can construct a fully functional ComputeUnit to the outside world.
-// It simplify the compute unit building process.
+// A Builder can construct a fully functional Compute Unit.
 type Builder struct {
-	Engine    akita.Engine
-	Freq      akita.Freq
-	CUName    string
-	SIMDCount int
-	VGPRCount []int
-	SGPRCount int
-
-	Decoder            emu.Decoder
-	ScratchpadPreparer ScratchpadPreparer
-	ALU                emu.ALU
-
-	InstMem          akita.Port
-	ScalarMem        akita.Port
-	VectorMemModules cache.LowModuleFinder
-
-	ConnToInstMem   akita.Connection
-	ConnToScalarMem akita.Connection
-	ConnToVectorMem akita.Connection
-
-	visTracer         tracing.Tracer
-	enableVisTracing  bool
+	engine            akita.Engine
+	freq              akita.Freq
+	name              string
+	simdCount         int
+	vgprCount         []int
+	sgprCount         int
 	log2CachelineSize uint64
+
+	decoder            emu.Decoder
+	scratchpadPreparer ScratchpadPreparer
+	alu                emu.ALU
+
+	visTracer        tracing.Tracer
+	enableVisTracing bool
 }
 
 // MakeBuilder returns a default builder object
 func MakeBuilder() Builder {
 	var b Builder
-	b.Freq = 1000 * akita.MHz
-	b.SIMDCount = 4
-	b.SGPRCount = 3200
-	b.VGPRCount = []int{16384, 16384, 16384, 16384}
+	b.freq = 1000 * akita.MHz
+	b.simdCount = 4
+	b.sgprCount = 3200
+	b.vgprCount = []int{16384, 16384, 16384, 16384}
 	b.log2CachelineSize = 6
 
+	return b
+}
+
+// WithEngine sets the engine to use.
+func (b Builder) WithEngine(engine akita.Engine) Builder {
+	b.engine = engine
+	return b
+}
+
+// WithFreq sets the frequency.
+func (b Builder) WithFreq(f akita.Freq) Builder {
+	b.freq = f
+	return b
+}
+
+// WithSIMDCount sets the number of SIMD unit in the ComputeUnit.
+func (b Builder) WithSIMDCount(n int) Builder {
+	b.simdCount = n
+	return b
+}
+
+// WithVGPRCount sets the number of VGPRs associated with each SIMD Unit.
+func (b Builder) WithVGPRCount(counts []int) Builder {
+	if len(counts) != b.simdCount {
+		panic("counts must have a length that equals to the SIMD count")
+	}
+
+	b.vgprCount = counts
+	return b
+}
+
+// WithSGPRCount equals the number of SGPRs in the Compute Unit.
+func (b Builder) WithSGPRCount(count int) Builder {
+	b.sgprCount = count
 	return b
 }
 
@@ -62,15 +89,17 @@ func (b Builder) WithVisTracer(t tracing.Tracer) Builder {
 }
 
 // Build returns a newly constructed compute unit according to the
-// configuration
-func (b *Builder) Build() *ComputeUnit {
-	cu := NewComputeUnit(b.CUName, b.Engine)
-	cu.Freq = b.Freq
-	cu.Decoder = b.Decoder
+// configuration.
+func (b *Builder) Build(name string) *ComputeUnit {
+	b.name = name
+	cu := NewComputeUnit(name, b.engine)
+	cu.Freq = b.freq
+	cu.Decoder = insts.NewDisassembler()
 	cu.WfDispatcher = NewWfDispatcher(cu)
+	cu.InFlightVectorMemAccessLimit = 512
 
-	b.ALU = emu.NewALU(nil)
-	b.ScratchpadPreparer = NewScratchpadPreparerImpl(cu)
+	b.alu = emu.NewALU(nil)
+	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {
 		cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
@@ -82,8 +111,6 @@ func (b *Builder) Build() *ComputeUnit {
 	b.equipLDSUnit(cu)
 	b.equipVectorMemoryUnit(cu)
 	b.equipRegisterFiles(cu)
-
-	b.connectToMem(cu)
 
 	return cu
 }
@@ -97,14 +124,14 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 }
 
 func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
-	cu.BranchUnit = NewBranchUnit(cu, b.ScratchpadPreparer, b.ALU)
+	cu.BranchUnit = NewBranchUnit(cu, b.scratchpadPreparer, b.alu)
 
 	scalarDecoder := NewDecodeUnit(cu)
 	cu.ScalarDecoder = scalarDecoder
-	scalarUnit := NewScalarUnit(cu, b.ScratchpadPreparer, b.ALU)
+	scalarUnit := NewScalarUnit(cu, b.scratchpadPreparer, b.alu)
 	scalarUnit.log2CachelineSize = b.log2CachelineSize
 	cu.ScalarUnit = scalarUnit
-	for i := 0; i < b.SIMDCount; i++ {
+	for i := 0; i < b.simdCount; i++ {
 		scalarDecoder.AddExecutionUnit(scalarUnit)
 	}
 }
@@ -112,9 +139,9 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	vectorDecoder := NewDecodeUnit(cu)
 	cu.VectorDecoder = vectorDecoder
-	for i := 0; i < b.SIMDCount; i++ {
-		name := fmt.Sprintf(b.CUName+".SIMD%d", i)
-		simdUnit := NewSIMDUnit(cu, name, b.ScratchpadPreparer, b.ALU)
+	for i := 0; i < b.simdCount; i++ {
+		name := fmt.Sprintf(b.name+".SIMD%d", i)
+		simdUnit := NewSIMDUnit(cu, name, b.scratchpadPreparer, b.alu)
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
@@ -127,10 +154,10 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
-	ldsUnit := NewLDSUnit(cu, b.ScratchpadPreparer, b.ALU)
+	ldsUnit := NewLDSUnit(cu, b.scratchpadPreparer, b.alu)
 	cu.LDSUnit = ldsUnit
 
-	for i := 0; i < b.SIMDCount; i++ {
+	for i := 0; i < b.simdCount; i++ {
 		ldsDecoder.AddExecutionUnit(ldsUnit)
 	}
 }
@@ -140,31 +167,34 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	cu.VectorMemDecoder = vectorMemDecoder
 
 	coalescer := &defaultCoalescer{
-		log2CacheLineSize: 6,
+		log2CacheLineSize: b.log2CachelineSize,
 	}
-	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.ScratchpadPreparer, coalescer)
+	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.scratchpadPreparer, coalescer)
 	cu.VectorMemUnit = vectorMemoryUnit
 
-	for i := 0; i < b.SIMDCount; i++ {
+	vectorMemoryUnit.postInstructionPipelineBuffer = util.NewBuffer(8)
+	vectorMemoryUnit.instructionPipeline = pipelining.NewPipeline(
+		cu.Name()+".VectorMemoryUnit.InstPipeline",
+		6, 1,
+		vectorMemoryUnit.postInstructionPipelineBuffer)
+
+	vectorMemoryUnit.postTransactionPipelineBuffer = util.NewBuffer(8)
+	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
+		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
+		60, 1,
+		vectorMemoryUnit.postTransactionPipelineBuffer)
+
+	for i := 0; i < b.simdCount; i++ {
 		vectorMemDecoder.AddExecutionUnit(vectorMemoryUnit)
 	}
 }
 
 func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
-	sRegFile := NewSimpleRegisterFile(uint64(b.SGPRCount*4), 0)
+	sRegFile := NewSimpleRegisterFile(uint64(b.sgprCount*4), 0)
 	cu.SRegFile = sRegFile
 
-	for i := 0; i < b.SIMDCount; i++ {
-		vRegFile := NewSimpleRegisterFile(uint64(b.VGPRCount[i]*4), 1024)
+	for i := 0; i < b.simdCount; i++ {
+		vRegFile := NewSimpleRegisterFile(uint64(b.vgprCount[i]*4), 1024)
 		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
-}
-
-func (b *Builder) connectToMem(cu *ComputeUnit) {
-	cu.InstMem = b.InstMem
-	cu.ScalarMem = b.ScalarMem
-	cu.VectorMemModules = b.VectorMemModules
-	b.ConnToInstMem.PlugIn(cu.ToInstMem, 4)
-	b.ConnToScalarMem.PlugIn(cu.ToScalarMem, 4)
-	b.ConnToVectorMem.PlugIn(cu.ToVectorMem, 4)
 }

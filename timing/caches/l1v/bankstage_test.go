@@ -12,17 +12,21 @@ import (
 
 var _ = Describe("Bankstage", func() {
 	var (
-		mockCtrl *gomock.Controller
-		inBuf    *MockBuffer
-		storage  *mem.Storage
-		s        *bankStage
-		c        *Cache
+		mockCtrl        *gomock.Controller
+		inBuf           *MockBuffer
+		storage         *mem.Storage
+		pipeline        *MockPipeline
+		postPipelineBuf *MockBuffer
+		s               *bankStage
+		c               *Cache
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		inBuf = NewMockBuffer(mockCtrl)
 		storage = mem.NewStorage(4 * mem.KB)
+		pipeline = NewMockPipeline(mockCtrl)
+		postPipelineBuf = NewMockBuffer(mockCtrl)
 		c = &Cache{
 			bankLatency:   10,
 			bankBufs:      []util.Buffer{inBuf},
@@ -32,8 +36,11 @@ var _ = Describe("Bankstage", func() {
 		c.TickingComponent = akita.NewTickingComponent(
 			"cache", nil, 1, c)
 		s = &bankStage{
-			cache:  c,
-			bankID: 0,
+			cache:           c,
+			bankID:          0,
+			numReqPerCycle:  1,
+			pipeline:        pipeline,
+			postPipelineBuf: postPipelineBuf,
 		}
 	})
 
@@ -42,33 +49,32 @@ var _ = Describe("Bankstage", func() {
 	})
 
 	It("should do nothing if no request", func() {
+		pipeline.EXPECT().Tick(akita.VTimeInSec(10)).Return(false)
 		inBuf.EXPECT().Peek().Return(nil)
+		postPipelineBuf.EXPECT().Peek().Return(nil)
+
 		madeProgress := s.Tick(10)
+
 		Expect(madeProgress).To(BeFalse())
 	})
 
-	It("should start count down", func() {
+	It("should insert transactions into pipeline", func() {
 		trans := &transaction{}
 
 		inBuf.EXPECT().Peek().Return(trans)
 		inBuf.EXPECT().Pop()
+		pipeline.EXPECT().Tick(akita.VTimeInSec(10)).Return(false)
+		pipeline.EXPECT().CanAccept().Return(true)
+		pipeline.EXPECT().
+			Accept(akita.VTimeInSec(10), gomock.Any()).
+			Do(func(now akita.VTimeInSec, t *bankTransaction) {
+				Expect(t.transaction).To(BeIdenticalTo(trans))
+			})
+		postPipelineBuf.EXPECT().Peek().Return(nil)
 
 		madeProgress := s.Tick(10)
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(s.currTrans).To(BeIdenticalTo(trans))
-		Expect(s.cycleLeft).To(Equal(10))
-	})
-
-	It("should count down", func() {
-		trans := &transaction{}
-		s.currTrans = trans
-		s.cycleLeft = 10
-
-		madeProgress := s.Tick(10)
-
-		Expect(madeProgress).To(BeTrue())
-		Expect(s.cycleLeft).To(Equal(9))
 	})
 
 	Context("read hit", func() {
@@ -121,15 +127,19 @@ var _ = Describe("Bankstage", func() {
 			c.postCoalesceTransactions = append(
 				c.postCoalesceTransactions, postCTrans)
 
-			s.currTrans = postCTrans
-			s.cycleLeft = 0
+			postPipelineBuf.EXPECT().Peek().Return(&bankTransaction{
+				transaction: postCTrans,
+			})
 		})
 
 		It("should read", func() {
+			pipeline.EXPECT().Tick(akita.VTimeInSec(10))
+			inBuf.EXPECT().Peek().Return(nil)
+			postPipelineBuf.EXPECT().Pop()
+
 			madeProgress := s.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(s.currTrans).To(BeNil())
 			Expect(preCTrans1.data).To(Equal([]byte{5, 6, 7, 8}))
 			Expect(preCTrans1.done).To(BeTrue())
 			Expect(preCTrans2.data).To(Equal([]byte{1, 2, 3, 4, 5, 6, 7, 8}))
@@ -183,15 +193,19 @@ var _ = Describe("Bankstage", func() {
 				bankAction: bankActionWrite,
 			}
 
-			s.currTrans = trans
-			s.cycleLeft = 0
+			postPipelineBuf.EXPECT().
+				Peek().
+				Return(&bankTransaction{transaction: trans})
 		})
 
 		It("should write", func() {
+			pipeline.EXPECT().Tick(akita.VTimeInSec(10))
+			inBuf.EXPECT().Peek().Return(nil)
+			postPipelineBuf.EXPECT().Pop()
+
 			madeProgress := s.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(s.currTrans).To(BeNil())
 			Expect(block.IsLocked).To(BeFalse())
 			data, _ := storage.Read(0x400, 64)
 			Expect(data).To(Equal([]byte{
@@ -236,19 +250,23 @@ var _ = Describe("Bankstage", func() {
 			}
 			trans.writeFetchedDirtyMask = make([]bool, 64)
 
-			s.currTrans = trans
-			s.cycleLeft = 0
+			postPipelineBuf.EXPECT().
+				Peek().
+				Return(&bankTransaction{transaction: trans})
 		})
 
 		It("should write fetched", func() {
+			pipeline.EXPECT().Tick(akita.VTimeInSec(10))
+			inBuf.EXPECT().Peek().Return(nil)
+			postPipelineBuf.EXPECT().Pop()
+
 			madeProgress := s.Tick(10)
 
 			Expect(madeProgress).To(BeTrue())
-			Expect(s.currTrans).To(BeNil())
+			// Expect(s.currTrans).To(BeNil())
 			Expect(block.IsLocked).To(BeFalse())
 			data, _ := storage.Read(0x400, 64)
 			Expect(data).To(Equal(trans.data))
 		})
 	})
-
 })

@@ -32,11 +32,6 @@ var _ = Describe("Respond Stage", func() {
 		mockCtrl.Finish()
 	})
 
-	It("should do nothing if there is no transaction", func() {
-		madeProgress := s.Tick(10)
-		Expect(madeProgress).To(BeFalse())
-	})
-
 	Context("read", func() {
 		var (
 			read  *mem.ReadReq
@@ -52,11 +47,6 @@ var _ = Describe("Respond Stage", func() {
 				Build()
 			trans = &transaction{read: read}
 			cache.transactions = append(cache.transactions, trans)
-		})
-
-		It("should do nothing if the transaction is not ready", func() {
-			madeProgress := s.Tick(10)
-			Expect(madeProgress).To(BeFalse())
 		})
 
 		It("should stall if cannot send to top", func() {
@@ -99,11 +89,6 @@ var _ = Describe("Respond Stage", func() {
 				Build()
 			trans = &transaction{write: write}
 			cache.transactions = append(cache.transactions, trans)
-		})
-
-		It("should do nothing if the transaction is not ready", func() {
-			madeProgress := s.Tick(10)
-			Expect(madeProgress).To(BeFalse())
 		})
 
 		It("should stall if cannot send to top", func() {
