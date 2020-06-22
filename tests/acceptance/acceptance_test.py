@@ -251,8 +251,8 @@ def main():
               'concurrentworkload',
               [],
               '')
-    ck = Test('../../samples/concurrentworkload',
-              'concurrentworkload',
+    ck = Test('../../samples/concurrentkernel',
+              'concurrentkernel',
               [],
               '')
     sp = Test('../../samples/spmv',
@@ -260,9 +260,9 @@ def main():
               [],
               '../../benchmarks/shoc/spmv')
     fft = Test('../../samples/fft',
-              'fft',
-              ['-MB=2'],
-              '../../benchmarks/shoc/fft')
+               'fft',
+               ['-MB=2'],
+               '../../benchmarks/shoc/fft')
     nb = Test('../../samples/nbody',
               'nbody',
               [],
@@ -306,9 +306,9 @@ def main():
         err |= sp.test(test_unified_multi_gpu=True,
                        use_unified_memory=args.unified_memory)
         err |= fft.test(test_unified_multi_gpu=True,
-                       use_unified_memory=args.unified_memory)
-        err |= nb.test(test_unified_multi_gpu=True,
                         use_unified_memory=args.unified_memory)
+        err |= nb.test(test_unified_multi_gpu=True,
+                       use_unified_memory=args.unified_memory)
     elif args.discrete_multi_gpu:
         err |= aes.test(test_multi_gpu=True,
                         use_unified_memory=args.unified_memory)
@@ -346,14 +346,13 @@ def main():
         err |= sp.test(test_multi_gpu=False)
         err |= fft.test(test_multi_gpu=False)
         err |= nb.test(test_multi_gpu=False)
-        
+
         err |= ck.test(test_disassemble=False,
                        test_unified_multi_gpu=False,
                        test_multi_gpu=False)
         err |= cw.test(test_disassemble=False,
                        test_unified_multi_gpu=False,
                        test_multi_gpu=False)
-
 
     # error |= compile('acceptancetests/cupipelinedraining')
     # error |= run_test('CU Pipeline Draining',

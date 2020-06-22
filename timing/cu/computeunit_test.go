@@ -69,15 +69,15 @@ var _ = Describe("ComputeUnit", func() {
 		toVectorMem      *MockPort
 		toACE            *MockPort
 		toCP             *MockPort
-		branchUnit       *MockCUComponent
-		vectorMemDecoder *MockCUComponent
-		vectorMemUnit    *MockCUComponent
-		scalarDecoder    *MockCUComponent
-		vectorDecoder    *MockCUComponent
-		ldsDecoder       *MockCUComponent
-		scalarUnit       *MockCUComponent
-		simdUnit         *MockCUComponent
-		ldsUnit          *MockCUComponent
+		branchUnit       *MockSubComponent
+		vectorMemDecoder *MockSubComponent
+		vectorMemUnit    *MockSubComponent
+		scalarDecoder    *MockSubComponent
+		vectorDecoder    *MockSubComponent
+		ldsDecoder       *MockSubComponent
+		scalarUnit       *MockSubComponent
+		simdUnit         *MockSubComponent
+		ldsUnit          *MockSubComponent
 
 		instMem *MockPort
 
@@ -92,15 +92,15 @@ var _ = Describe("ComputeUnit", func() {
 		wfDispatcher = NewMockWfDispatcher(mockCtrl)
 		decoder = new(mockDecoder)
 		scheduler = new(mockScheduler)
-		branchUnit = NewMockCUComponent(mockCtrl)
-		vectorMemDecoder = NewMockCUComponent(mockCtrl)
-		vectorMemUnit = NewMockCUComponent(mockCtrl)
-		scalarDecoder = NewMockCUComponent(mockCtrl)
-		vectorDecoder = NewMockCUComponent(mockCtrl)
-		ldsDecoder = NewMockCUComponent(mockCtrl)
-		scalarUnit = NewMockCUComponent(mockCtrl)
-		simdUnit = NewMockCUComponent(mockCtrl)
-		ldsUnit = NewMockCUComponent(mockCtrl)
+		branchUnit = NewMockSubComponent(mockCtrl)
+		vectorMemDecoder = NewMockSubComponent(mockCtrl)
+		vectorMemUnit = NewMockSubComponent(mockCtrl)
+		scalarDecoder = NewMockSubComponent(mockCtrl)
+		vectorDecoder = NewMockSubComponent(mockCtrl)
+		ldsDecoder = NewMockSubComponent(mockCtrl)
+		scalarUnit = NewMockSubComponent(mockCtrl)
+		simdUnit = NewMockSubComponent(mockCtrl)
+		ldsUnit = NewMockSubComponent(mockCtrl)
 
 		cu = NewComputeUnit("cu", engine)
 		cu.WfDispatcher = wfDispatcher
@@ -261,12 +261,18 @@ var _ = Describe("ComputeUnit", func() {
 	})
 
 	Context("should handle DataReady from ToScalarMem port", func() {
-		It("should handle scalar data load return", func() {
+		var (
+			wf *wavefront.Wavefront
+		)
+
+		BeforeEach(func() {
 			rawWf := grid.WorkGroups[0].Wavefronts[0]
-			wf := wavefront.NewWavefront(rawWf)
+			wf = wavefront.NewWavefront(rawWf)
 			wf.SRegOffset = 0
 			wf.OutstandingScalarMemAccess = 1
+		})
 
+		It("should handle scalar data load return", func() {
 			read := mem.ReadReqBuilder{}.
 				WithSendTime(8).
 				WithSrc(cu.ToScalarMem).
@@ -281,21 +287,22 @@ var _ = Describe("ComputeUnit", func() {
 			info.Req = read
 			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
 
-			req := mem.DataReadyRspBuilder{}.
+			rsp := mem.DataReadyRspBuilder{}.
 				WithSendTime(10).
 				WithRspTo(read.ID).
 				WithData(insts.Uint32ToBytes(32)).
 				Build()
-			req.RecvTime = 10
-			toScalarMem.EXPECT().Retrieve(gomock.Any()).Return(req)
+			rsp.RecvTime = 10
+			toScalarMem.EXPECT().Retrieve(gomock.Any()).Return(rsp)
 
 			cu.processInputFromScalarMem(10)
 
-			access := RegisterAccess{}
-			access.Reg = insts.SReg(0)
-			access.WaveOffset = 0
-			access.RegCount = 1
-			access.Data = make([]byte, 4)
+			access := RegisterAccess{
+				Reg:        insts.SReg(0),
+				RegCount:   1,
+				WaveOffset: 0,
+				Data:       make([]byte, 4),
+			}
 			cu.SRegFile.Read(access)
 			Expect(insts.BytesToUint32(access.Data)).To(Equal(uint32(32)))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
@@ -467,8 +474,8 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.isFlushing).To(BeTrue())
 			Expect(cu.currentFlushReq).To(BeIdenticalTo(req))
 		})
-		It("should flush internal CU buffers", func() {
 
+		It("should flush internal CU buffers", func() {
 			info := new(InstFetchReqInfo)
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
 
@@ -483,7 +490,6 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.InFlightInstFetch).To(BeNil())
 			Expect(cu.InFlightVectorMemAccess).To(BeNil())
 			Expect(cu.InFlightScalarMemAccess).To(BeNil())
-
 		})
 
 		It("should handle a restart request", func() {
@@ -544,7 +550,6 @@ var _ = Describe("ComputeUnit", func() {
 			Expect(cu.toSendToCP).NotTo(BeNil())
 			Expect(cu.isFlushing).To(BeFalse())
 			Expect(cu.isPaused).To(BeTrue())
-
 		})
 
 		It("should not restart a CU where there are shadow buffer reqs pending", func() {
@@ -573,7 +578,6 @@ var _ = Describe("ComputeUnit", func() {
 			toScalarMem.EXPECT().Send(gomock.Any())
 
 			cu.checkShadowBuffers(11)
-
 		})
 
 		It("should restart a CU where there are  no shadow buffer reqs pending", func() {
@@ -584,16 +588,6 @@ var _ = Describe("ComputeUnit", func() {
 			cu.checkShadowBuffers(11)
 
 			Expect(cu.isPaused).To(BeFalse())
-
 		})
-
 	})
-
 })
-
-func min(a, b uint32) uint32 {
-	if a < b {
-		return a
-	}
-	return b
-}

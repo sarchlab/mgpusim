@@ -139,10 +139,7 @@ func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 }
 
 func (m *GPUMatrixMultiplier) loadKernel() {
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	m.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "mmmKernel_local")
 	if m.kernel == nil {

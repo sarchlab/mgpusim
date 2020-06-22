@@ -67,11 +67,33 @@
             "program": "${workspaceFolder}/timing/caches/l1v"
         },
         {
+            "name": "Test gitlab.com/akita/mgpusim/benchmarks/dnn/layers",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/benchmarks/dnn/layers"
+        },
+        {
             "name": "L1V acceptance test",
             "type": "go",
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/timing/newcaches/l1v/acceptancetest"
+        },
+        {
+            "name": "AES",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/aes",
+            "args": [
+                "-verify",
+                "-length=16384",
+                "-unified-gpus=1,2",
+                "-use-unified-memory",
+                "-timing",
+                "-no-progress-bar"
+            ]
         },
         {
             "name": "ATAX",
@@ -104,7 +126,9 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fir",
             "args": [
+                "-timing",
                 "-verify",
+                "--no-progress-bar",
             ]
         },
         {
@@ -150,6 +174,9 @@
                 "-MB=2",
                 "-verify",
                 "-timing",
+                "-unified-gpus=1,2,3,4",
+                "-use-unified-memory",
+                "-no-progress-bar"
             ]
         },
         {
@@ -173,7 +200,6 @@
                 "-verify",
                 "-length=32768",
                 "-timing",
-                "-unified-gpus=1,2"
             ]
         },
         {
@@ -196,8 +222,12 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/matrixtranspose",
             "args": [
-                "-width=68",
-                "-verify"
+                "-width=256",
+                "-verify",
+                "-gpus=1,2,3,4",
+                "-timing",
+                "-use-unified-memory",
+                "-no-progress-bar",
             ]
         },
         {
@@ -278,6 +308,18 @@
                 "-unified-gpus=1,2",
                 // "-debug-isa",
                 // "-timing",
+            ]
+        },
+
+        {
+            "name": "XOR",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/xor",
+            "args": [
+                "-timing",
+                "-no-progress-bar"
             ]
         },
         {

@@ -7,7 +7,6 @@ import (
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/protocol"
@@ -225,29 +224,24 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.numCUAck = 1
 
 		for i := 0; i < 10; i++ {
-			atFlushReq := addresstranslator.
-				AddressTranslatorFlushReqBuilder{}.
-				Build()
-			atFlushReq.SendTime = 10
-			atFlushReq.Src = commandProcessor.ToAddressTranslators
-			atFlushReq.Dst = commandProcessor.AddressTranslators[i]
-
-			toAddressTranslatorSender.EXPECT().
-				Send(gomock.AssignableToTypeOf(atFlushReq))
+			toAddressTranslatorSender.EXPECT().Send(gomock.Any())
 		}
 		toCU.EXPECT().Retrieve(akita.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processCUPipelineFlushRsp(10, req)
 
-		Expect(commandProcessor.numAddrTranslationAck).To(Equal(uint64(10)))
+		Expect(commandProcessor.numAddrTranslationFlushAck).
+			To(Equal(uint64(10)))
 		Expect(madeProgress).To(BeTrue())
 	})
 
 	It("should handle a AT flush rsp", func() {
-		req := addresstranslator.AddressTranslatorFlushRspBuilder{}.Build()
-		req.SendTime = 10
-		req.Dst = commandProcessor.ToAddressTranslators
-		commandProcessor.numAddrTranslationAck = 1
+		req := mem.ControlMsgBuilder{}.
+			WithSendTime(10).
+			WithDst(commandProcessor.ToAddressTranslators).
+			ToNotifyDone().
+			Build()
+		commandProcessor.numAddrTranslationFlushAck = 1
 
 		for i := 0; i < 10; i++ {
 			cacheFlushReq := cache.FlushReqBuilder{}.Build()
@@ -427,28 +421,25 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.numTLBAck = 1
 
 		for i := 0; i < 10; i++ {
-			atRestartReq := addresstranslator.AddressTranslatorRestartReqBuilder{}.Build()
-			atRestartReq.SendTime = 10
-			atRestartReq.Src = commandProcessor.ToAddressTranslators
-			atRestartReq.Dst = commandProcessor.AddressTranslators[i]
-
 			toAddressTranslatorSender.EXPECT().
-				Send(gomock.AssignableToTypeOf(atRestartReq))
+				Send(gomock.Any())
 		}
 		toTLB.EXPECT().Retrieve(akita.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processTLBRestartRsp(10, req)
 
 		Expect(madeProgress).To(BeTrue())
-		Expect(commandProcessor.numAddrTranslationAck).To(Equal(uint64(10)))
+		Expect(commandProcessor.numAddrTranslationRestartAck).
+			To(Equal(uint64(10)))
 	})
 
 	It("should handle a AT restart rsp", func() {
-		req := addresstranslator.AddressTranslatorRestartRspBuilder{}.Build()
-		req.SendTime = 10
-		req.Dst = commandProcessor.ToAddressTranslators
-
-		commandProcessor.numAddrTranslationAck = 1
+		req := mem.ControlMsgBuilder{}.
+			WithDst(commandProcessor.ToAddressTranslators).
+			WithSendTime(10).
+			ToNotifyDone().
+			Build()
+		commandProcessor.numAddrTranslationRestartAck = 1
 
 		for i := 0; i < 10; i++ {
 			cuRestartReq := protocol.CUPipelineRestartReqBuilder{}.Build()

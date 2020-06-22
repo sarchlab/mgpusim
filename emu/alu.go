@@ -236,6 +236,8 @@ func (u *ALUImpl) runSMEM(state InstEmuState) {
 		u.runSLOADDWORDX2(state)
 	case 2:
 		u.runSLOADDWORDX4(state)
+	case 3:
+		u.runSLOADDWORDX8(state)
 	default:
 		log.Panicf("Opcode %d for SMEM format is not implemented", inst.Opcode)
 	}
@@ -266,6 +268,15 @@ func (u *ALUImpl) runSLOADDWORDX4(state InstEmuState) {
 
 	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 16)
 	copy(spRaw[32:48], buf)
+}
+
+func (u *ALUImpl) runSLOADDWORDX8(state InstEmuState) {
+	sp := state.Scratchpad().AsSMEM()
+	spRaw := state.Scratchpad()
+	pid := state.PID()
+
+	buf := u.storageAccessor.Read(pid, sp.Base+sp.Offset, 32)
+	copy(spRaw[32:64], buf)
 }
 
 //nolint:gocyclo

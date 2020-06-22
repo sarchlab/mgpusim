@@ -645,7 +645,8 @@ func (d *Driver) parseFromMMU(now akita.VTimeInSec) bool {
 		d.isCurrentlyHandlingMigrationReq = true
 		d.initiateRDMADrain(now)
 	default:
-		log.Panicf("Driver canot handle request of type %s", reflect.TypeOf(req))
+		log.Panicf("Driver canot handle request of type %s",
+			reflect.TypeOf(req))
 	}
 
 	return true
@@ -681,7 +682,7 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) bool {
 
 	numReqsGPUInMap := 0
 	for i := 1; i < d.GetNumGPUs()+1; i++ {
-		pages, found := migrationInfo.GpuReqToVAddrMap[uint64(i)]
+		pages, found := migrationInfo.GPUReqToVAddrMap[uint64(i)]
 
 		if found {
 			numReqsGPUInMap++
@@ -726,7 +727,7 @@ func (d *Driver) processShootdownCompleteRsp(
 
 		for i := 0; i < len(requestingGPUs); i++ {
 			pageVaddrs[requestingGPUs[i]] =
-				migrationInfo.GpuReqToVAddrMap[requestingGPUs[i]+1]
+				migrationInfo.GPUReqToVAddrMap[requestingGPUs[i]+1]
 		}
 
 		for gpuID, vAddrs := range pageVaddrs {
@@ -752,11 +753,13 @@ func (d *Driver) processShootdownCompleteRsp(
 	return false
 }
 
-func (d *Driver) findRequestingGPUs(migrationInfo *vm.PageMigrationInfo) []uint64 {
+func (d *Driver) findRequestingGPUs(
+	migrationInfo *vm.PageMigrationInfo,
+) []uint64 {
 	requestingGPUs := make([]uint64, 0)
 
 	for i := 1; i < d.GetNumGPUs()+1; i++ {
-		_, found := migrationInfo.GpuReqToVAddrMap[uint64(i)]
+		_, found := migrationInfo.GPUReqToVAddrMap[uint64(i)]
 		if found {
 			requestingGPUs = append(requestingGPUs, uint64(i-1))
 		}
@@ -853,7 +856,7 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	migrationInfo := d.currentPageMigrationReq.MigrationInfo
 
 	for i := 1; i < d.GetNumGPUs()+1; i++ {
-		_, found := migrationInfo.GpuReqToVAddrMap[uint64(i)]
+		_, found := migrationInfo.GPUReqToVAddrMap[uint64(i)]
 		if found {
 			requestingGPUs = append(requestingGPUs, uint64(i-1))
 		}
@@ -862,7 +865,7 @@ func (d *Driver) preparePageMigrationRspToMMU(now akita.VTimeInSec) {
 	pageVaddrs := make(map[uint64][]uint64)
 
 	for i := 0; i < len(requestingGPUs); i++ {
-		pageVaddrs[requestingGPUs[i]] = migrationInfo.GpuReqToVAddrMap[requestingGPUs[i]+1]
+		pageVaddrs[requestingGPUs[i]] = migrationInfo.GPUReqToVAddrMap[requestingGPUs[i]+1]
 	}
 
 	req := vm.NewPageMigrationRspFromDriver(now, d.ToMMU, d.currentPageMigrationReq.Src)

@@ -422,7 +422,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
+		migrationInfo.GPUReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 
 		driver.currentPageMigrationReq = pageMigrationReq
@@ -449,7 +449,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		GPUReqToVaddrMap := make(map[uint64][]uint64)
 		GPUReqToVaddrMap[2] = append(GPUReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVAddrMap = GPUReqToVaddrMap
+		migrationInfo.GPUReqToVAddrMap = GPUReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 		driver.numShootDownACK = 1
@@ -547,7 +547,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
+		migrationInfo.GPUReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
@@ -575,14 +575,13 @@ var _ = ginkgo.Describe("Driver", func() {
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
+		migrationInfo.GPUReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
 		driver.processReturnReq(10)
 
 		Expect(driver.requestsToSend).To(HaveLen(2))
-
 	})
 
 	ginkgo.It("should handle rdma restart rsp", func() {
@@ -599,7 +598,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		GpuReqToVaddrMap := make(map[uint64][]uint64)
 		GpuReqToVaddrMap[2] = append(GpuReqToVaddrMap[2], 0x100)
 		migrationInfo := new(vm.PageMigrationInfo)
-		migrationInfo.GpuReqToVAddrMap = GpuReqToVaddrMap
+		migrationInfo.GPUReqToVAddrMap = GpuReqToVaddrMap
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
