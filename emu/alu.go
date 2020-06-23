@@ -95,6 +95,8 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 		u.runFlatStoreDWord(state)
 	case 29:
 		u.runFlatStoreDWordX2(state)
+	case 30:
+		u.runFlatStoreDWordX3(state)
 	case 31:
 		u.runFlatStoreDWordX4(state)
 	default:
@@ -204,6 +206,23 @@ func (u *ALUImpl) runFlatStoreDWordX2(state InstEmuState) {
 		buf := make([]byte, 8)
 		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
 		copy(buf[4:8], insts.Uint32ToBytes(sp.DATA[(i*4)+1]))
+
+		u.storageAccessor.Write(pid, sp.ADDR[i], buf)
+	}
+}
+
+func (u *ALUImpl) runFlatStoreDWordX3(state InstEmuState) {
+	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
+	for i := uint(0); i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		buf := make([]byte, 12)
+		copy(buf[0:4], insts.Uint32ToBytes(sp.DATA[i*4]))
+		copy(buf[4:8], insts.Uint32ToBytes(sp.DATA[(i*4)+1]))
+		copy(buf[8:12], insts.Uint32ToBytes(sp.DATA[(i*4)+2]))
 
 		u.storageAccessor.Write(pid, sp.ADDR[i], buf)
 	}
