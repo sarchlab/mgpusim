@@ -1,11 +1,12 @@
-#define CL_KERNEL_LOOP(i, n)                        \
+/*#define CL_KERNEL_LOOP(i, n)                        \
   for (int i = get_group_id(0) * get_local_size(0) + get_local_id(0); \
       i < (n);                                       \
       i += get_local_size(0) * get_num_groups(0))
+*/
 
 __kernel void MaxPoolForward(const int nthreads, __global float* bottom_data, const int num, const int channels, const int height, const int width, const int pooled_height, const int pooled_width, const int kernel_h, const int kernel_w, const int stride_h, const int stride_w, const int pad_h, const int pad_w, __global float* top_data, __global int* mask_data, __global int* indexs) {
-  CL_KERNEL_LOOP(index, num * channels * pooled_height * pooled_width) {
-    indexs[index] = index;
+    int index = get_global_id(0);
+    //indexs[index] = index;
     indexs[3] = get_local_size(0) * get_num_groups(0);
     int pw = index % pooled_width;
     int ph = (index / pooled_width) % pooled_height;
@@ -18,7 +19,7 @@ __kernel void MaxPoolForward(const int nthreads, __global float* bottom_data, co
     int ch = channels + 10;
     int preph = index / pooled_width;
     int aftph = preph % pooled_height;
-    int test = 0 % 1;
+    int test = 0 % pooled_height;
     indexs[20] = ppw;
     indexs[21] = pph;
     indexs[22] = ch;
@@ -47,7 +48,6 @@ __kernel void MaxPoolForward(const int nthreads, __global float* bottom_data, co
     }
     //top_data[index] = maxval;
     mask_data[index] = maxidx;
-  }
 }
 
 __kernel void MaxPoolBackward(

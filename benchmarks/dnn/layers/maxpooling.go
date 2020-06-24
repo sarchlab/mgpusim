@@ -192,7 +192,6 @@ func (m *MaxPoolingLayer) CPUMaxpooling(input []float64) []float32 {
 // Forward performs the forward propagation algorithm.
 func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 	input := inputT.(*Tensor)
-	log.Print("mmp", input.Vector())
 	B := inputT.Size()[0]
 	C := inputT.Size()[1]
 	Hin := inputT.Size()[2]
@@ -202,7 +201,6 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 	padding := m.padding
 	Hout := (Hin+2*padding[0]-ks[0])/stride[0] + 1
 	Wout := (Win+2*padding[1]-ks[1])/stride[1] + 1
-	log.Print(B, C, Hin, Win, ks, stride, padding, Hout, Wout)
 	m.B = B
 	m.C = C
 	m.Hin = Hin
