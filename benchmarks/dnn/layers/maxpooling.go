@@ -48,7 +48,7 @@ type KernelArgsForward struct {
 	PadW       int32
 	Top        driver.GPUPtr
 	Mask       driver.GPUPtr //Record the indices of max element. Used in Backward propogation.
-	Indexs     driver.GPUPtr //Debug
+	//Indexs     driver.GPUPtr //Debug
 
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -219,12 +219,12 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 		size:   []int{B, C, Hout, Wout},
 		ptr:    m.GPUDriver.AllocateMemory(m.GPUCtx, uint64(B*C*Hout*Wout*4)),
 	}
-	indexs := &Tensor{
+	/*indexs := &Tensor{
 		driver: m.GPUDriver,
 		ctx:    m.GPUCtx,
 		size:   []int{B, C, Hout, Wout},
 		ptr:    m.GPUDriver.AllocateMemory(m.GPUCtx, uint64(100*4)),
-	}
+	}*/
 
 	kernArg := KernelArgsForward{
 		uint64(B * C * Hout * Wout), input.ptr,
@@ -235,7 +235,7 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 		int32(padding[0]), int32(padding[1]),
 		output.ptr,
 		mask.ptr,
-		indexs.ptr,
+		//indexs.ptr,
 		0, 0, 0,
 	}
 	m.GPUDriver.LaunchKernel(
@@ -245,12 +245,12 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
-	temp := make([]float32, 100)
+	/*temp := make([]float32, )
 	m.GPUDriver.MemCopyD2H(m.GPUCtx, temp, output.ptr)
 	log.Print(temp)
 	temp2 := make([]uint32, 100)
 	m.GPUDriver.MemCopyD2H(m.GPUCtx, temp2, indexs.ptr)
-	log.Print(temp2)
+	log.Print(temp2)*/
 
 	/*if m.verifyForward {
 		cpuOutput := m.CPUMaxpooling(input.Vector())
