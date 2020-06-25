@@ -30,6 +30,12 @@ type DMAEngine struct {
 	ToMem akita.Port
 }
 
+// SetLocalDataSource sets the table that maps from addresses to port that can
+// provide the data.
+func (dma *DMAEngine) SetLocalDataSource(s cache.LowModuleFinder) {
+	dma.localDataSource = s
+}
+
 // Tick ticks
 func (dma *DMAEngine) Tick(now akita.VTimeInSec) bool {
 	madeProgress := false

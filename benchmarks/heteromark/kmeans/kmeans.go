@@ -1,3 +1,4 @@
+// Package kmeans implements the Kmeans benchmark form Hetero-Mark.
 package kmeans
 
 import (
@@ -78,10 +79,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 }
 
 func (b *Benchmark) loadKernels() {
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+
 	b.computeKernel = kernels.LoadProgramFromMemory(
 		hsacoBytes, "kmeans_kernel_compute")
 	b.swapKernel = kernels.LoadProgramFromMemory(

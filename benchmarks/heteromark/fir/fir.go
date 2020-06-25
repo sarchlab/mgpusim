@@ -1,3 +1,4 @@
+// Package fir implements the FIR benchmark form Hetero-Mark.
 package fir
 
 import (
@@ -50,10 +51,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.context = b.driver.Init()
 	b.queue = driver.CreateCommandQueue(b.context)
 
-	hsacoBytes, err := Asset("kernels.hsaco")
-	if err != nil {
-		log.Panic(err)
-	}
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "FIR")
 
 	return b

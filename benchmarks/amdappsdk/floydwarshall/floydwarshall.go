@@ -61,7 +61,7 @@ func (b *Benchmark) SetUnifiedMemory() {
 }
 
 func (b *Benchmark) loadProgram() {
-	hsacoBytes := FSMustByte(false, "/kernels.hsaco")
+	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "floydWarshallPass")
 	if b.kernel == nil {
