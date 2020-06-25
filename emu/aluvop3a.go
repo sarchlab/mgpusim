@@ -254,7 +254,7 @@ func (u *ALUImpl) vop3aPostprocess(state InstEmuState) {
 
 func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
-	sp.VCC = 0
+	// sp.VCC = 0
 	var i uint
 	var src0, src1 float32
 	for i = 0; i < 64; i++ {
@@ -271,7 +271,7 @@ func (u *ALUImpl) runVCmpLtF32VOP3a(state InstEmuState) {
 
 func (u *ALUImpl) runVCmpGtF32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
-	sp.VCC = 0
+	// sp.VCC = 0
 	var i uint
 	var src0, src1 float32
 	for i = 0; i < 64; i++ {
@@ -288,7 +288,7 @@ func (u *ALUImpl) runVCmpGtF32VOP3a(state InstEmuState) {
 
 func (u *ALUImpl) runVCmpNltF32VOP3a(state InstEmuState) {
 	sp := state.Scratchpad().AsVOP3A()
-	sp.VCC = 0
+	// sp.VCC = 0
 	var i uint
 	var src0, src1 float32
 	for i = 0; i < 64; i++ {

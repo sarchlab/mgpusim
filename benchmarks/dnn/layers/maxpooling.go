@@ -101,11 +101,11 @@ func NewMaxPoolingLayer(
 		panic("fail to load maxpooling forward kernel")
 	}
 
-	m.backwardKernel = kernels.LoadProgramFromMemory(
-		kernelBytes, "MaxPoolBackward")
-	if m.backwardKernel == nil {
-		panic("fail to load maxpooling backward kernel")
-	}
+	// m.backwardKernel = kernels.LoadProgramFromMemory(
+	// 	kernelBytes, "MaxPoolBackward")
+	// if m.backwardKernel == nil {
+	// 	panic("fail to load maxpooling backward kernel")
+	// }
 	return m
 }
 
