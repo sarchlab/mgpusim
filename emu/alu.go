@@ -186,12 +186,14 @@ func (u *ALUImpl) runFlatLoadDWordX4(state InstEmuState) {
 func (u *ALUImpl) runFlatStoreDWord(state InstEmuState) {
 	sp := state.Scratchpad().AsFlat()
 	pid := state.PID()
+
 	for i := uint(0); i < 64; i++ {
 		if !laneMasked(sp.EXEC, i) {
 			continue
 		}
 
-		u.storageAccessor.Write(pid, sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
+		u.storageAccessor.Write(
+			pid, sp.ADDR[i], insts.Uint32ToBytes(sp.DATA[i*4]))
 	}
 }
 

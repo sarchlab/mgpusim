@@ -24,6 +24,8 @@ func (u *ALUImpl) runVOP3A(state InstEmuState) {
 		u.runVCmpNltF32VOP3a(state)
 	case 193: // 0xC1
 		u.runVCmpLtI32VOP3a(state)
+	case 195: // 0xC3
+		u.runVCmpLeI32VOP3a(state)
 	case 196: // 0xC4
 		u.runVCmpGtI32VOP3a(state)
 	case 198: // 0xC6
@@ -314,6 +316,24 @@ func (u *ALUImpl) runVCmpLtI32VOP3a(state InstEmuState) {
 		src1 := asInt32(uint32(sp.SRC1[i]))
 
 		if src0 < src1 {
+			sp.DST[0] |= (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLeI32VOP3a(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP3A()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		src0 := asInt32(uint32(sp.SRC0[i]))
+		src1 := asInt32(uint32(sp.SRC1[i]))
+
+		if src0 <= src1 {
 			sp.DST[0] |= (1 << i)
 		}
 	}
