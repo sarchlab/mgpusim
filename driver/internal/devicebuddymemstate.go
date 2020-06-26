@@ -1,5 +1,9 @@
 package internal
 
+import (
+	"container/list"
+)
+
 func newDeviceBuddyMemoryState(log2pagesize uint64) deviceMemoryState {
 	return &deviceBuddyMemoryState{
 		log2PageSize: log2pagesize,
@@ -13,7 +17,7 @@ type deviceBuddyMemoryState struct {
 	log2PageSize   uint64
 	initialAddress uint64
 	storageSize    uint64
-	freeList       []*freeListElement
+	freeList       []list.List
 	bfBlockSplit   *bitField
 	bfMergeList    *bitField
 	blockTracking  map[uint64]*blockTracker
@@ -24,7 +28,7 @@ func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
 	bms.blockTracking = make(map[uint64]*blockTracker)
 
 	if len(bms.freeList) != 0 {
-		pushBack(&bms.freeList[0], addr)
+		bms.freeList[0].PushBack(addr)
 		bms.initFlag = false
 		return
 	}
@@ -40,13 +44,16 @@ func (bms *deviceBuddyMemoryState) setStorageSize(size uint64) {
 	var order int
 	for order = int(bms.log2PageSize); (1 << order) < size; order++ {}
 	order -= int(bms.log2PageSize)
-	bms.freeList = make([]*freeListElement, order+1)
+	bms.freeList = make([]list.List, order+1)
+	for _, l := range bms.freeList {
+		l.Init()
+	}
 
 	bms.bfBlockSplit = newBitField(1 << order)
 	bms.bfMergeList = newBitField(1 << order)
 
 	if bms.initFlag {
-		pushBack(&bms.freeList[0], bms.initialAddress)
+		bms.freeList[0].PushBack(bms.initialAddress)
 	}
 }
 
@@ -70,7 +77,7 @@ func (bms *deviceBuddyMemoryState) popNextAvailablePAddrs() uint64 {
 
 func (bms *deviceBuddyMemoryState) noAvailablePAddrs() bool {
 	for _, fList := range bms.freeList {
-		if fList != nil {
+		if fList.Len() != 0 {
 			return false
 		}
 	}
@@ -92,13 +99,13 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 		if i < 0 {
 			panic("not enough memory available")
 		}
-		if bms.freeList[i] != nil {
+		if bms.freeList[i].Len() != 0 {
 			break
 		}
 		i--
 	}
-
-	block := popFront(&bms.freeList[i])
+	e := bms.freeList[i].Front()
+	block := bms.freeList[i].Remove(e).(uint64)
 
 	if i == level && i > 0 {
 		bms.updateMergeListBitField(bms.indexOfBlock(block, i-1))
@@ -109,7 +116,7 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 		bms.updateMergeListBitField(bms.indexOfBlock(block, i))
 		i++
 		buddy := bms.buddyOf(block, i)
-		pushBack(&bms.freeList[i], buddy)
+		bms.freeList[i].PushBack(buddy)
 	}
 
 	bTracker := &blockTracker{
@@ -168,11 +175,25 @@ func (bms *deviceBuddyMemoryState) freeBlock(addr uint64) {
 			}
 			level--
 		} else {
-			pushBack(&bms.freeList[level],addr)
+			bms.freeList[level].PushBack(addr)
 			return
 		}
 	}
-	pushBack(&bms.freeList[level],addr)
+	bms.freeList[level].PushBack(addr)
+}
+
+func removeByValue(l *list.List, fAddr uint64) bool {
+	if l.Len() == 0 {
+		return false
+	}
+
+	for e := l.Front(); e != nil; e = e.Next() {
+		if e.Value.(uint64) == fAddr {
+			l.Remove(e)
+			return true
+		}
+	}
+	return false
 }
 
 func (bms *deviceBuddyMemoryState) levelOfBlock(addr uint64) int {

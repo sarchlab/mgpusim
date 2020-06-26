@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"container/list"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -21,7 +22,7 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		Expect(b.initFlag).To(BeFalse())
 		Expect(b.freeList).To(HaveLen(0))
 		bDMS.setStorageSize(0x1_0000_0000)
-		Expect(b.freeList[0]).To(BeNil())
+		Expect(b.freeList[0].Len()).To(BeZero())
 
 		storagesize := bDMS.getStorageSize()
 
@@ -42,28 +43,52 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 		bDMS.setStorageSize(0x1_0000_0000)
 
-		freeBlock := b.freeList[0]
+		freeBlock := b.freeList[0].Front()
 		Expect(freeBlock).To(Not(BeNil()))
-		Expect(freeBlock.freeAddr).To(Equal(iAddr))
+		Expect(freeBlock.Value.(uint64)).To(Equal(iAddr))
 	})
 
-	It("should add PAddrs to regular DMS", func() {
+	It("should add PAddrs to buddy DMS", func() {
 		addr1 := buddyDMS.popNextAvailablePAddrs()
 		addr2 := buddyDMS.popNextAvailablePAddrs()
 
 		buddyDMS.addSinglePAddr(addr1)
 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
-		Expect(bDMS.freeList[0]).To(BeNil())
+		Expect(bDMS.freeList[0].Len()).To(BeZero())
 		for i := len(bDMS.freeList)-1; i > 0; i-- {
-			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
 
 		buddyDMS.addSinglePAddr(addr2)
-		Expect(bDMS.freeList[0]).To(Not(BeNil()))
+		Expect(bDMS.freeList[0].Len()).To(Not(BeZero()))
 		for i := len(bDMS.freeList)-1; i > 0; i-- {
-			Expect(bDMS.freeList[i]).To(BeNil())
+			Expect(bDMS.freeList[i].Len()).To(BeZero())
 		}
+	})
+
+	It("should remove an value from the linked list", func () {
+		l := list.New()
+		addr1 := uint64(0x1000)
+		addr2 := uint64(0x2000)
+		addr3 := uint64(0x3000)
+		addr4 := uint64(0x4000)
+		l.PushBack(addr1)
+		l.PushBack(addr2)
+		l.PushBack(addr3)
+		l.PushBack(addr4)
+		Expect(l.Len()).To(Equal(4))
+		removeByValue(l, addr2)
+		Expect(l.Len()).To(Equal(3))
+		removeByValue(l, addr3)
+		Expect(l.Len()).To(Equal(2))
+		removeByValue(l, addr1)
+		Expect(l.Len()).To(Equal(1))
+		ok := removeByValue(l, addr2)
+		Expect(l.Len()).To(Equal(1))
+		Expect(ok).To(BeFalse())
+		removeByValue(l, addr4)
+		Expect(l.Len()).To(Equal(0))
 	})
 
 	It("should get next available PAddrs", func() {
@@ -75,11 +100,11 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 
-		Expect(bDMS.freeList[0]).To(BeNil())
+		Expect(bDMS.freeList[0].Len()).To(BeZero())
 		for i := len(bDMS.freeList)-2; i > 0; i-- {
-			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
-		Expect(bDMS.freeList[len(bDMS.freeList)-1]).To(BeNil())
+		Expect(bDMS.freeList[len(bDMS.freeList)-1].Len()).To(BeZero())
 
 		for i := 1; i < len(bDMS.freeList) - 1; i++ {
 			ok := bDMS.blockOrBuddyIsAllocated(addr1,i)
@@ -99,13 +124,13 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 
-		Expect(bDMS.freeList[0]).To(BeNil())
+		Expect(bDMS.freeList[0].Len()).To(BeZero())
 
 		for i := len(bDMS.freeList)-3; i > 0; i-- {
-			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
-		Expect(bDMS.freeList[len(bDMS.freeList)-2]).To(BeNil())
-		Expect(bDMS.freeList[len(bDMS.freeList)-1]).To(BeNil())
+		Expect(bDMS.freeList[len(bDMS.freeList)-2].Len()).To(BeZero())
+		Expect(bDMS.freeList[len(bDMS.freeList)-1].Len()).To(BeZero())
 	})
 
 	It("should allocate the whole space", func() {
@@ -253,9 +278,9 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 		bDMS.freeBlock(addr)
 
-		Expect(bDMS.freeList[0]).To(Not(BeNil()))
+		Expect(bDMS.freeList[0].Len()).To(Not(BeZero()))
 		for i := len(bDMS.freeList)-1; i > 0; i-- {
-			Expect(bDMS.freeList[i]).To(BeNil())
+			Expect(bDMS.freeList[i].Len()).To(BeZero())
 		}
 
 		for _, bits := range bDMS.bfMergeList.field {
@@ -273,19 +298,19 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 		bDMS.freeBlock(addr1)
 
-		Expect(bDMS.freeList[0]).To(BeNil())
+		Expect(bDMS.freeList[0].Len()).To(BeZero())
 		for i := len(bDMS.freeList)-1; i > 0; i-- {
-			Expect(bDMS.freeList[i]).To(Not(BeNil()))
+			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
 	})
 
 	It("should have no available PAddrs", func() {
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
-		bDMS.freeList[0] = nil
+		bDMS.freeList[0].Init()
 		ok := buddyDMS.noAvailablePAddrs()
 		Expect(ok).To(BeTrue())
 
-		pushBack(&bDMS.freeList[0],0x1_0000_1000)
+		bDMS.freeList[0].PushBack(0x1_0000_1000)
 		ok = buddyDMS.noAvailablePAddrs()
 		Expect(ok).To(BeFalse())
 	})
