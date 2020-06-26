@@ -67,8 +67,7 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 		case AllocatorTypeDefault:
 			device.memState = newDeviceRegularMemoryState(a.log2PageSize)
 		case AllocatorTypeBuddy:
-			panic("Allocator type somehow mismatched")
-			//device.memState = newDeviceBuddyMemoryState()
+			device.memState = newDeviceBuddyMemoryState(a.log2PageSize)
 		}
 	}
 
