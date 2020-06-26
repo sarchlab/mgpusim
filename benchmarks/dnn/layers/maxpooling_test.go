@@ -57,7 +57,7 @@ var _ = FDescribe("Max Pooling Layer", func() {
 		output := layer.Backward(input)
 
 		Expect(output.Size()).To(Equal([]int{1, 1, 2, 4}))
-		Expect(output.Vector()).To(Equal([]float64{0, 0, 0, 0, 0, 8, 0, 10}))
+		Expect(output.Vector()).To(Equal([]float64{0, 0, 0, 0, 0, 10, 0, 11}))
 	})
 
 })
