@@ -258,6 +258,9 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 	}*/
 
 	m.saveMask(mask)
+	/*temp := make([]int32, 2)
+	m.GPUDriver.MemCopyD2H(m.GPUCtx, temp, m.forwardMask)
+	log.Print(temp)*/
 	return output
 }
 
@@ -287,7 +290,7 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 	output := &Tensor{
 		driver: m.GPUDriver,
 		ctx:    m.GPUCtx,
-		size:   []int{B, C, Hout, Wout},
+		size:   []int{B, C, Hin, Win},
 		ptr:    m.GPUDriver.AllocateMemory(m.GPUCtx, uint64(B*C*Hin*Win*4)),
 	}
 
@@ -306,13 +309,13 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 		m.GPUCtx,
 		m.forwardKernel,
 		[3]uint32{uint32(B * C * Hin * Win), 1, 1},
-		[3]uint16{uint16(C), uint16(B), 1},
+		[3]uint16{1, 1, 1},
 		&kernArg,
 	)
 
-	if m.verifyBackward {
+	/*if m.verifyBackward {
 		m.verifyBackPass(input, output)
-	}
+	}*/
 
 	return output
 }

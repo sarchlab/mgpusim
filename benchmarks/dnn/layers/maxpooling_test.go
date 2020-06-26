@@ -20,12 +20,12 @@ var _ = FDescribe("Max Pooling Layer", func() {
 	BeforeEach(func() {
 		_, gpuDriver = platform.MakeEmuBuilder().
 			WithoutProgressBar().
-			WithISADebugging().
+			//WithISADebugging().
 			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 		stride := [2]int{2, 2}
-		padding := [2]int{0, 0}
+		padding := [2]int{1, 1}
 		kernelSize := [2]int{2, 2}
 		layer = layers.NewMaxPoolingLayer(stride, padding, kernelSize, gpuDriver, context)
 		layer.EnableVerification()
@@ -38,14 +38,26 @@ var _ = FDescribe("Max Pooling Layer", func() {
 	It("should forward", func() {
 		input := layers.NewTensor(gpuDriver, context)
 		input.Init([]float64{
-			1, 2, 3, 10,
-			7, 8, 9, 4,
+			1, 2, 3, 4,
+			7, 8, 9, 10,
 		}, []int{1, 1, 2, 4})
 
 		output := layer.Forward(input)
 
-		Expect(output.Size()).To(Equal([]int{1, 1, 1, 2}))
-		Expect(output.Vector()).To(Equal([]float64{8, 10}))
+		Expect(output.Size()).To(Equal([]int{1, 1, 1, 6}))
+		Expect(output.Vector()).To(Equal([]float64{1, 3, 4, 7, 9, 10}))
+	})
+
+	It("should backward", func() {
+		input := layers.NewTensor(gpuDriver, context)
+		input.Init([]float64{
+			10, 11,
+		}, []int{1, 1, 2, 4})
+
+		output := layer.Backward(input)
+
+		Expect(output.Size()).To(Equal([]int{1, 1, 2, 4}))
+		Expect(output.Vector()).To(Equal([]float64{0, 0, 0, 0, 0, 8, 0, 10}))
 	})
 
 })

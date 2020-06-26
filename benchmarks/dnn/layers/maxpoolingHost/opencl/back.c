@@ -16,22 +16,23 @@ int main(void) {
   int channels = 1;
  int height = 2;
 int width = 4;
+int ph = 1;
+int pw = 2;
 int kh = 2;
 int kw = 2;
 int sh = 2;
 int sw = 2;
-int poh=1;
-int pow=1;
-int ph = (height+2*poh-kh)/sh + 1;
-int pw = (width+2*pow-kw)/sw + 1;
+int poh=0;
+int pow=0;
 float* bottom = (float*) malloc(8*sizeof(float));
-float* top = (float*) malloc(ph*pw*sizeof(float));
-int* mask = (int*) malloc(ph*pw*sizeof(int));
+float* top = (float*) malloc(2*sizeof(float));
+int* mask = (int*) malloc(2*sizeof(int));
 //int* indexs = (int*) malloc(100*sizeof(int));
 
-    for(int i = 0; i < 8; i++) {
-	bottom[i] = (float)(i+1);
-    }
+    top[0] = 10;
+    top[1] = 11;
+    mask[0] = 6;
+    mask[1] = 8;
 
     // Load the kernel source code into the array source_str
     FILE *fp;
@@ -67,16 +68,18 @@ int* mask = (int*) malloc(ph*pw*sizeof(int));
     cl_mem bottom_m = clCreateBuffer(context, CL_MEM_READ_ONLY,
             8 * sizeof(float), NULL, &ret);
     cl_mem top_m = clCreateBuffer(context, CL_MEM_WRITE_ONLY, 
-            ph*pw * sizeof(float), NULL, &ret);
+            2 * sizeof(float), NULL, &ret);
     cl_mem mask_m = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
-            ph*pw * sizeof(int), NULL, &ret);
+            2 * sizeof(int), NULL, &ret);
 /*    cl_mem index_m = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
             100 * sizeof(int), NULL, &ret);
 */ 
     // Copy the lists A and B to their respective memory buffers
     
-    ret = clEnqueueWriteBuffer(command_queue, bottom_m, CL_TRUE, 0,
-            8 * sizeof(float), bottom, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, top_m, CL_TRUE, 0,
+            2 * sizeof(float), top, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, mask_m, CL_TRUE, 0,
+            2 * sizeof(int), mask, 0, NULL, NULL);
     
  
     // Create a program from the kernel source
@@ -87,45 +90,42 @@ int* mask = (int*) malloc(ph*pw*sizeof(int));
     ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
  
     // Create the OpenCL kernel
-    cl_kernel kernel = clCreateKernel(program, "MaxPoolForward", &ret);
+    cl_kernel kernel = clCreateKernel(program, "MaxPoolBackward", &ret);
  
     // Set the arguments of the kernel
     ret = clSetKernelArg(kernel, 0, sizeof(int), &nthreads);
-    ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&bottom_m);
-    ret = clSetKernelArg(kernel, 2, sizeof(int), &num);
-    ret = clSetKernelArg(kernel, 3, sizeof(int), &channels);
-    ret = clSetKernelArg(kernel, 4, sizeof(int), &height);
-    ret = clSetKernelArg(kernel, 5, sizeof(int), &width);
-    ret = clSetKernelArg(kernel, 6, sizeof(int), &ph);
-    ret = clSetKernelArg(kernel, 7, sizeof(int), &pw);
-    ret = clSetKernelArg(kernel, 8, sizeof(int), &kh);
-    ret = clSetKernelArg(kernel, 9, sizeof(int), &kw);
-    ret = clSetKernelArg(kernel, 10, sizeof(int), &sh);
-    ret = clSetKernelArg(kernel, 11, sizeof(int), &sw);
-    ret = clSetKernelArg(kernel, 12, sizeof(int), &poh);
-    ret = clSetKernelArg(kernel, 13, sizeof(int), &pow);
-    ret = clSetKernelArg(kernel, 14, sizeof(cl_mem), (void*)&top_m);
-    ret = clSetKernelArg(kernel, 15, sizeof(cl_mem), (void*)&mask_m);
+    ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&top_m);
+    ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&mask_m);
+    ret = clSetKernelArg(kernel, 3, sizeof(int), &num);
+    ret = clSetKernelArg(kernel, 4, sizeof(int), &channels);
+    ret = clSetKernelArg(kernel, 5, sizeof(int), &height);
+    ret = clSetKernelArg(kernel, 6, sizeof(int), &width);
+    ret = clSetKernelArg(kernel, 7, sizeof(int), &ph);
+    ret = clSetKernelArg(kernel, 8, sizeof(int), &pw);
+    ret = clSetKernelArg(kernel, 9, sizeof(int), &kh);
+    ret = clSetKernelArg(kernel, 10, sizeof(int), &kw);
+    ret = clSetKernelArg(kernel, 11, sizeof(int), &sh);
+    ret = clSetKernelArg(kernel, 12, sizeof(int), &sw);
+    ret = clSetKernelArg(kernel, 13, sizeof(int), &poh);
+    ret = clSetKernelArg(kernel, 14, sizeof(int), &pow);
+    ret = clSetKernelArg(kernel, 15, sizeof(cl_mem), (void*)&bottom_m);;
     // Execute the OpenCL kernel on the list
     size_t global_item_size = 8; // Process the entire lists
-    size_t local_item_size = 4; // Divide work items into groups of 64
+    size_t local_item_size = 1; // Divide work items into groups of 64
     ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, 
             &global_item_size, &local_item_size, 0, NULL, NULL);
  
     // Read the memory buffer C on the device to the local variable C
     //int *C = (int*)malloc(sizeof(int)*LIST_SIZE);
-    ret = clEnqueueReadBuffer(command_queue, top_m, CL_TRUE, 0, 
-            ph*pw * sizeof(float), top, 0, NULL, NULL);
-    ret = clEnqueueReadBuffer(command_queue, mask_m, CL_TRUE, 0,
-            ph*pw * sizeof(int), mask, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, bottom_m, CL_TRUE, 0, 
+            8 * sizeof(float), bottom, 0, NULL, NULL);
+    
  
     // Display the result to the screen
     printf("result\n");
-    for(int i = 0; i < ph*pw; i++)
-        printf("%f\n", top[i]);
-    printf("indices\n");
-    for(int i = 0; i < ph*pw; i++)
-        printf("%d\n", mask[i]);
+    for(int i = 0; i < 8; i++)
+        printf("%f\n", bottom[i]);
+    
  
     // Clean up
     /*ret = clFlush(command_queue);
