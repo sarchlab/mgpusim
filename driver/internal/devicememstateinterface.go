@@ -27,6 +27,12 @@ type deviceMemoryStateImpl struct {
 
 func (dms *deviceMemoryStateImpl) setInitialAddress(addr uint64) {
 	dms.initialAddress = addr
+
+	pageSize := uint64(1 << dms.log2PageSize)
+	endAddr := dms.initialAddress + dms.storageSize
+	for addr := dms.initialAddress; addr < endAddr; addr += pageSize {
+		dms.addSinglePAddr(addr)
+	}
 }
 
 func (dms *deviceMemoryStateImpl) getInitialAddress() uint64 {

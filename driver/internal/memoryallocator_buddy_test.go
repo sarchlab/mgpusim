@@ -13,7 +13,7 @@ var _ = Describe("BuddyAllocatorImpl", func() {
 
 	var (
 		mockCtrl  *gomock.Controller
-		allocator *buddyAllocatorImpl
+		allocator *memoryAllocatorImpl
 		pageTable *MockPageTable
 	)
 
@@ -21,7 +21,7 @@ var _ = Describe("BuddyAllocatorImpl", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		pageTable = NewMockPageTable(mockCtrl)
 
-		allocator = NewBuddyAllocator(pageTable, 12).(*buddyAllocatorImpl)
+		allocator = NewMemoryAllocator(pageTable, 12).(*memoryAllocatorImpl)
 		configAFourGPUSystemBuddy(allocator)
 
 	})
@@ -98,7 +98,7 @@ var _ = Describe("BuddyAllocatorImpl", func() {
 	})
 })
 
-func configAFourGPUSystemBuddy(allocator *buddyAllocatorImpl) {
+func configAFourGPUSystemBuddy(allocator *memoryAllocatorImpl) {
 	cpu := &Device{
 		ID:           0,
 		Type:         DeviceTypeCPU,

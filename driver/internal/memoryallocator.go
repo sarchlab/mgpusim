@@ -75,12 +75,6 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 	state := device.memState
 	state.setInitialAddress(a.totalStorageByteSize)
 
-	pageSize := uint64(1 << a.log2PageSize)
-	endAddr := state.getInitialAddress() + state.getStorageSize()
-	for addr := state.getInitialAddress(); addr < endAddr; addr += pageSize {
-		state.addSinglePAddr(addr)
-	}
-
 	a.totalStorageByteSize += state.getStorageSize()
 
 	a.devices[device.ID] = device
@@ -157,8 +151,10 @@ func (a *memoryAllocatorImpl) allocatePages(
 	pageSize := uint64(1 << a.log2PageSize)
 	nextVAddr := pState.nextVAddr
 
+	pAddrs := device.allocateMultiplePages(numPages)
+
 	for i := 0; i < numPages; i++ {
-		pAddr := device.allocatePage()
+		pAddr := pAddrs[i]
 		vAddr := nextVAddr + uint64(i)*pageSize
 
 		page := vm.Page{
@@ -190,11 +186,13 @@ func (a *memoryAllocatorImpl) Remap(
 
 	pageSize := uint64(1 << a.log2PageSize)
 	addr := pageVAddr
+	vAddrs := make([]uint64,0)
 	for addr < pageVAddr+byteSize {
-		// a.removePage(addr)
-		a.allocatePageWithGivenVAddr(pid, deviceID, addr, false)
+		vAddrs = append(vAddrs, addr)
 		addr += pageSize
 	}
+
+	a.allocateMultiplePagesWithGivenVAddrs(pid, deviceID, vAddrs, false)
 }
 
 func (a *memoryAllocatorImpl) RemovePage(vAddr uint64) {
@@ -254,6 +252,35 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 	a.pageTable.Update(page)
 
 	return page
+}
+
+func (a *memoryAllocatorImpl) allocateMultiplePagesWithGivenVAddrs(
+	pid ca.PID,
+	deviceID int,
+	vAddrs []uint64,
+	isUnified bool,
+) (pages []vm.Page) {
+	pageSize := uint64(1 << a.log2PageSize)
+
+	device := a.devices[deviceID]
+	pAddrs := device.allocateMultiplePages(len(vAddrs))
+
+	for i, vAddr := range vAddrs {
+		page := vm.Page{
+			PID:      pid,
+			VAddr:    vAddr,
+			PAddr:    pAddrs[i],
+			PageSize: pageSize,
+			Valid:    true,
+			GPUID:    uint64(deviceID),
+			Unified:  isUnified,
+		}
+		a.vAddrToPageMapping[page.VAddr] = page
+		a.pageTable.Update(page)
+		pages = append(pages, page)
+	}
+
+	return pages
 }
 
 func (a *memoryAllocatorImpl) Free(ptr uint64) {
