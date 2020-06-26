@@ -7,7 +7,7 @@ import (
 
 var _ = Describe("Implementation of regular deviceMemoryState", func() {
 
-	regularDMS := newDeviceRegularMemoryState()
+	regularDMS := newDeviceRegularMemoryState(12)
 
 	BeforeEach(func() {
 		regularDMS.setStorageSize(0x1_0000_0000)

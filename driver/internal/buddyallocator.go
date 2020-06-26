@@ -12,14 +12,14 @@ func NewBuddyAllocator (
 	pageTable vm.PageTable,
 	log2PageSize uint64,
 ) MemoryAllocator {
-		a := &buddyAllocatorImpl{
-			pageTable:            pageTable,
-			totalStorageByteSize: 4096, // Starting with a page to avoid 0 address.
-			log2PageSize:         log2PageSize,
-			processMemoryStates:  make(map[ca.PID]*processMemoryState),
-			vAddrToPageMapping:   make(map[uint64]vm.Page),
-			devices:              make(map[int]*Device),
-		}
+	a := &buddyAllocatorImpl{
+		pageTable:            pageTable,
+		totalStorageByteSize: 1 << log2PageSize, // Starting with a page to avoid 0 address.
+		log2PageSize:         log2PageSize,
+		processMemoryStates:  make(map[ca.PID]*processMemoryState),
+		vAddrToPageMapping:   make(map[uint64]vm.Page),
+		devices:              make(map[int]*Device),
+	}
 	return a
 }
 
@@ -42,9 +42,10 @@ func (b *buddyAllocatorImpl) RegisterDevice(device *Device) {
 	if device.memState == nil {
 		switch MemoryAllocatorType {
 		case AllocatorTypeDefault:
-			device.memState = newDeviceRegularMemoryState()
+			panic("Allocator type somehow mismatched")
+			//device.memState = newDeviceRegularMemoryState()
 		case AllocatorTypeBuddy:
-			device.memState = newDeviceBuddyMemoryState()
+			device.memState = newDeviceBuddyMemoryState(b.log2PageSize)
 		}
 	}
 

@@ -20,11 +20,11 @@ const (
 	AllocatorTypeBuddy
 )
 
-//MemoryAllocatorType global flag variable for setting the allocator type
+// MemoryAllocatorType global flag variable for setting the allocator type
 var MemoryAllocatorType AllocatorType = AllocatorTypeBuddy
 
 
-//Device is a CPU or GPU managed by the driver.
+// Device is a CPU or GPU managed by the driver.
 type Device struct {
 	ID                 int
 	Type               DeviceType
@@ -32,17 +32,18 @@ type Device struct {
 	ActualGPUs         []*Device
 	nextActualGPUIndex int
 	memState           deviceMemoryState
+	Log2PageSize       uint64
 }
 
 
-//SetTotalMemSize sets total memory size
+// SetTotalMemSize sets total memory size
 func (d *Device) SetTotalMemSize(size uint64) {
 	if d.memState == nil {
 		switch MemoryAllocatorType {
 		case AllocatorTypeDefault:
-			d.memState = newDeviceRegularMemoryState()
+			d.memState = newDeviceRegularMemoryState(d.Log2PageSize)
 		case AllocatorTypeBuddy:
-			d.memState = newDeviceBuddyMemoryState()
+			d.memState = newDeviceBuddyMemoryState(d.Log2PageSize)
 		}
 	}
 	d.memState.setStorageSize(size)

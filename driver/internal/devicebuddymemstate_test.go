@@ -7,7 +7,7 @@ import (
 
 var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() {
 
-	buddyDMS := newDeviceBuddyMemoryState()
+	buddyDMS := newDeviceBuddyMemoryState(12)
 
 	BeforeEach(func() {
 		buddyDMS.setStorageSize(0x1_0000_0000)
@@ -16,7 +16,7 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 	})
 
 	It("should properly set up the storage size", func() {
-		bDMS := newDeviceBuddyMemoryState()
+		bDMS := newDeviceBuddyMemoryState(12)
 		b := bDMS.(*deviceBuddyMemoryState)
 		Expect(b.initFlag).To(BeFalse())
 		Expect(b.freeList).To(HaveLen(0))
@@ -32,7 +32,7 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 	})
 
 	It("should set initial addr before storage size and add to free list", func() {
-		bDMS := newDeviceBuddyMemoryState()
+		bDMS := newDeviceBuddyMemoryState(12)
 
 		bDMS.setInitialAddress(0x1_0000_1000)
 		iAddr := bDMS.getInitialAddress()
@@ -64,11 +64,9 @@ var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() 
 		for i := len(bDMS.freeList)-1; i > 0; i-- {
 			Expect(bDMS.freeList[i]).To(BeNil())
 		}
-
 	})
 
 	It("should get next available PAddrs", func() {
-
 		addr1 := buddyDMS.popNextAvailablePAddrs()
 		addr2 := buddyDMS.popNextAvailablePAddrs()
 

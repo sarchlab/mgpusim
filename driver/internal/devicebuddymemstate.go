@@ -1,13 +1,16 @@
 package internal
 
-func newDeviceBuddyMemoryState() deviceMemoryState {
-	return &deviceBuddyMemoryState{}
+func newDeviceBuddyMemoryState(log2pagesize uint64) deviceMemoryState {
+	return &deviceBuddyMemoryState{
+		log2PageSize: log2pagesize,
+	}
 }
 
-//buddy allocation implementation of deviceMemoryState
+// A deviceBuddyMemoryState implements deviceMemoryState as a buddy allocator
 type deviceBuddyMemoryState struct {
 	initFlag bool
 
+	log2PageSize   uint64
 	initialAddress uint64
 	storageSize    uint64
 	freeList       []*freeListElement
@@ -18,8 +21,6 @@ type deviceBuddyMemoryState struct {
 
 func (bms *deviceBuddyMemoryState) setInitialAddress(addr uint64) {
 	bms.initialAddress = addr
-
-
 	bms.blockTracking = make(map[uint64]*blockTracker)
 
 	if len(bms.freeList) != 0 {
@@ -37,8 +38,8 @@ func (bms *deviceBuddyMemoryState) getInitialAddress() uint64 {
 func (bms *deviceBuddyMemoryState) setStorageSize(size uint64) {
 	bms.storageSize = size
 	var order int
-	for order = 12; (1 << order) < size; order++ {}
-	order -= 12
+	for order = int(bms.log2PageSize); (1 << order) < size; order++ {}
+	order -= int(bms.log2PageSize)
 	bms.freeList = make([]*freeListElement, order+1)
 
 	bms.bfBlockSplit = newBitField(1 << order)
@@ -99,7 +100,7 @@ func (bms *deviceBuddyMemoryState) allocateMultiplePages(
 
 	block := popFront(&bms.freeList[i])
 
-	if i == level && i > 0{
+	if i == level && i > 0 {
 		bms.updateMergeListBitField(bms.indexOfBlock(block, i-1))
 	}
 

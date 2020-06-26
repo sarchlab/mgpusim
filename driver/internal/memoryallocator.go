@@ -32,7 +32,7 @@ func NewMemoryAllocator(
 ) MemoryAllocator {
 	a := &memoryAllocatorImpl{
 		pageTable:            pageTable,
-		totalStorageByteSize: 4096, // Starting with a page to avoid 0 address.
+		totalStorageByteSize: 1 << log2PageSize, // Starting with a page to avoid 0 address.
 		log2PageSize:         log2PageSize,
 		processMemoryStates:  make(map[ca.PID]*processMemoryState),
 		vAddrToPageMapping:   make(map[uint64]vm.Page),
@@ -65,9 +65,10 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 	if device.memState == nil {
 		switch MemoryAllocatorType {
 		case AllocatorTypeDefault:
-			device.memState = newDeviceRegularMemoryState()
+			device.memState = newDeviceRegularMemoryState(a.log2PageSize)
 		case AllocatorTypeBuddy:
-			device.memState = newDeviceBuddyMemoryState()
+			panic("Allocator type somehow mismatched")
+			//device.memState = newDeviceBuddyMemoryState()
 		}
 	}
 

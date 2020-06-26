@@ -11,12 +11,15 @@ type deviceMemoryState interface {
 	allocateMultiplePages(numPages int) []uint64
 }
 
-func newDeviceRegularMemoryState() deviceMemoryState {
-	return &deviceMemoryStateImpl{}
+func newDeviceRegularMemoryState(log2pagesize uint64) deviceMemoryState {
+	return &deviceMemoryStateImpl{
+		log2PageSize: log2pagesize,
+	}
 }
 
 //original implementation of deviceMemoryState holding free addresses in array
 type deviceMemoryStateImpl struct {
+	log2PageSize    uint64
 	initialAddress  uint64
 	storageSize     uint64
 	availablePAddrs []uint64

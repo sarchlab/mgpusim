@@ -100,18 +100,20 @@ var _ = Describe("BuddyAllocatorImpl", func() {
 
 func configAFourGPUSystemBuddy(allocator *buddyAllocatorImpl) {
 	cpu := &Device{
-		ID:   0,
-		Type: DeviceTypeCPU,
-		memState: newDeviceBuddyMemoryState(),
+		ID:           0,
+		Type:         DeviceTypeCPU,
+		Log2PageSize: 12,
+		memState:     newDeviceBuddyMemoryState(12),
 	}
 	cpu.SetTotalMemSize(0x1_0000_0000)
 	allocator.RegisterDevice(cpu)
 
 	for i := 0; i < 4; i++ { // 5 devices = 1 CPU + 4 GPUs
 		gpu := &Device{
-			ID:   i + 1,
-			Type: DeviceTypeGPU,
-			memState: newDeviceBuddyMemoryState(),
+			ID:           i + 1,
+			Type:         DeviceTypeGPU,
+			Log2PageSize: 12,
+			memState:     newDeviceBuddyMemoryState(12),
 		}
 		gpu.SetTotalMemSize(0x1_0000_0000)
 		allocator.RegisterDevice(gpu)
