@@ -91,6 +91,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 		updatedPage := page
 		updatedPage.PAddr = 0x2_0000_1000
 		updatedPage.GPUID = 2
+		pageTable.EXPECT().Remove(page.PID, page.VAddr)
 		pageTable.EXPECT().Update(updatedPage)
 		allocator.Remap(1, ptr, 4000, 2)
 	})
