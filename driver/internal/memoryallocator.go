@@ -187,7 +187,6 @@ func (a *memoryAllocatorImpl) Remap(
 	addr := pageVAddr
 	vAddrs := make([]uint64,0)
 	for addr < pageVAddr+byteSize {
-		a.removePage(addr)
 		vAddrs = append(vAddrs, addr)
 		addr += pageSize
 	}
