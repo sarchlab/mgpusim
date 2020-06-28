@@ -27,7 +27,7 @@ type MaxPoolingLayer struct {
 	forwardKernel  *insts.HsaCo
 	backwardKernel *insts.HsaCo
 
-	forwardMask driver.GPUPtr //Record the indices of max element. Used in Backward propogation.
+	forwardMask driver.GPUPtr //Record the indices of max element. Used in Backward propagation.
 }
 
 // KernelArgsForward defines forward kernel arguments
@@ -47,7 +47,7 @@ type KernelArgsForward struct {
 	PadH       int32
 	PadW       int32
 	Top        driver.GPUPtr
-	Mask       driver.GPUPtr //Record the indices of max element. Used in Backward propogation.
+	Mask       driver.GPUPtr //Record the indices of max element. Used in Backward propagation.
 	//Indexs     driver.GPUPtr //Debug
 
 	HiddenGlobalOffsetX int64
@@ -190,6 +190,7 @@ func (m *MaxPoolingLayer) CPUMaxpooling(input []float64) []float32 {
 }
 
 // Forward performs the forward propagation algorithm.
+//nolint:funlen
 func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 	input := inputT.(*Tensor)
 	B := inputT.Size()[0]

@@ -45,6 +45,7 @@ func (u *ALUImpl) LDS() []byte {
 //nolint:gocyclo
 func (u *ALUImpl) Run(state InstEmuState) {
 	inst := state.Inst()
+	fmt.Printf("%s\n", inst.String(nil))
 
 	switch inst.FormatType {
 	case insts.SOP1:
@@ -78,6 +79,8 @@ func (u *ALUImpl) Run(state InstEmuState) {
 	}
 }
 
+//nolint:gocyclo
+//nolint:funlen
 func (u *ALUImpl) runFlat(state InstEmuState) {
 	inst := state.Inst()
 	switch inst.Opcode {

@@ -20,7 +20,7 @@ var _ = FDescribe("Max Pooling Layer", func() {
 	BeforeEach(func() {
 		_, gpuDriver = platform.MakeEmuBuilder().
 			WithoutProgressBar().
-			//WithISADebugging().
+			WithISADebugging().
 			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
