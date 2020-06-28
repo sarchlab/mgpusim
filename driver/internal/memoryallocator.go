@@ -150,10 +150,8 @@ func (a *memoryAllocatorImpl) allocatePages(
 	pageSize := uint64(1 << a.log2PageSize)
 	nextVAddr := pState.nextVAddr
 
-	pAddrs := device.allocateMultiplePages(numPages)
-
 	for i := 0; i < numPages; i++ {
-		pAddr := pAddrs[i]
+		pAddr := device.allocatePage()
 		vAddr := nextVAddr + uint64(i)*pageSize
 
 		page := vm.Page{
