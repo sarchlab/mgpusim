@@ -42,7 +42,33 @@ func (g *graph) generate(numNode, degree int) {
 	g.edgeOffsets[numNode] = offset
 }
 
-func (g *graph) loadGraph(path string) (int, int, int) {
+func (g *graph) generateFromText(path string) (int, int, int) {
+	g.loadGraph(path)
+
+	numNode := len(g.nodeToIDMap)
+	g.nodesWithEdges = make([]int32, numNode+1)
+	g.edgeOffsets = make([]int32, numNode+1)
+	g.edgeList = make([]int32, 0)
+
+	offset := int32(0)
+	i := int32(0)
+	edgeCount := 0
+	for _, id := range g.nodeToIDMap {
+		g.nodesWithEdges[i] = id
+		g.edgeOffsets[i] = offset
+		edgeCount = edgeCount + len(g.edgeListMap[id])
+		for _, val := range g.edgeListMap[id] {
+			g.edgeList = append(g.edgeList, val)
+			offset++
+		}
+		i++
+	}
+
+	degree := edgeCount / numNode
+	return numNode, edgeCount, degree
+}
+
+func (g *graph) loadGraph(path string) {
 	g.nodeToIDMap = make(map[int32]int32)
 	g.IDToNodeMap = make(map[int32]int32)
 	g.edgeListMap = make(map[int32][]int32)
@@ -51,7 +77,6 @@ func (g *graph) loadGraph(path string) (int, int, int) {
 	graphFile, err := os.Open(path)
 	if err != nil {
 		log.Panic(err)
-		return 0, 0, 0
 	}
 	reader := bufio.NewReader(graphFile)
 
@@ -87,28 +112,6 @@ func (g *graph) loadGraph(path string) (int, int, int) {
 		}
 	}
 	graphFile.Close()
-
-	numNode := len(g.nodeToIDMap)
-	g.nodesWithEdges = make([]int32, numNode+1)
-	g.edgeOffsets = make([]int32, numNode+1)
-	g.edgeList = make([]int32, 0)
-
-	offset := int32(0)
-	i := int32(0)
-	edgeCount := 0
-	for _, id := range g.nodeToIDMap {
-		g.nodesWithEdges[i] = id
-		g.edgeOffsets[i] = offset
-		edgeCount = edgeCount + len(g.edgeListMap[id])
-		for _, val := range g.edgeListMap[id] {
-			g.edgeList = append(g.edgeList, val)
-			offset++
-		}
-		i++
-	}
-
-	degree := edgeCount / numNode
-	return numNode, edgeCount, degree
 }
 
 func (g graph) Dump(mode string) {

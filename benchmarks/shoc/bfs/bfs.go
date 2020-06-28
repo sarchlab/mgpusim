@@ -96,7 +96,7 @@ func (b *Benchmark) initMem() {
 		b.graph.generate(b.NumNode, b.Degree)
 		b.graphMode = "auto"
 	} else {
-		b.NumNode, _, b.Degree = b.graph.loadGraph(b.Path)
+		b.NumNode, _, b.Degree = b.graph.generateFromText(b.Path)
 		b.graphMode = "taxtual"
 	}
 
