@@ -30,10 +30,12 @@ type Benchmark struct {
 	queues  []*driver.CommandQueue
 	kernel  *insts.HsaCo
 
+	Path          string
 	NumNode       int
 	Degree        int
 	MaxDepth      int
 	graph         graph
+	graphMode     string
 	sourceNode    int
 	hFrontier     []uint32
 	hCost         []uint32
@@ -90,7 +92,13 @@ func (b *Benchmark) Run() {
 }
 
 func (b *Benchmark) initMem() {
-	b.graph.generate(b.NumNode, b.Degree)
+	if b.Path == "" {
+		b.graph.generate(b.NumNode, b.Degree)
+		b.graphMode = "auto"
+	} else {
+		b.NumNode, _, b.Degree = b.graph.loadGraph(b.Path)
+		b.graphMode = "taxtual"
+	}
 
 	b.hFrontier = make([]uint32, b.NumNode)
 	b.hCost = make([]uint32, b.NumNode)
