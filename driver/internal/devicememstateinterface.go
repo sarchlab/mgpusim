@@ -1,5 +1,6 @@
 package internal
 
+// A DeviceMemoryState handles the internal memory allocation algorithms
 type DeviceMemoryState interface {
 	setInitialAddress(addr uint64)
 	getInitialAddress() uint64
