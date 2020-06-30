@@ -1,8 +1,3 @@
-/*#define CL_KERNEL_LOOP(i, n)                        \
-  for (int i = get_group_id(0) * get_local_size(0) + get_local_id(0); \
-      i < (n);                                       \
-      i += get_local_size(0) * get_num_groups(0))
-*/
 
 __kernel void MaxPoolForward(int nthreads, __global float* bottom_data, int num,
                              int channels, int height, int width,
@@ -24,7 +19,7 @@ __kernel void MaxPoolForward(int nthreads, __global float* bottom_data, int num,
 
   float maxval = -1;
   int maxidx = -1;
-  // bottom_data = bottom_data + (n * channels + c) * height * width;
+  bottom_data = bottom_data + (n * channels + c) * height * width;
   for (int h = hstart; h < hend; h++) {
     for (int w = wstart; w < wend; w++) {
       if (bottom_data[h * width + w] > maxval) {

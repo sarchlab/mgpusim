@@ -129,7 +129,6 @@ func (m *MaxPoolingLayer) saveMask(input *Tensor) {
 	temp := make([]uint32, numElement)
 	m.GPUDriver.MemCopyD2H(m.GPUCtx, temp, input.ptr)
 	m.GPUDriver.MemCopyH2D(m.GPUCtx, m.forwardMask, temp)
-	log.Print("here", temp)
 }
 
 // CPUMaxpooling returns output of maxpooling layer.
@@ -207,7 +206,6 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 	m.Hout = Hout
 	m.Win = Win
 	m.Wout = Wout
-	log.Print("BBBBBB", m.B)
 	output := &Tensor{
 		driver: m.GPUDriver,
 		ctx:    m.GPUCtx,
@@ -240,7 +238,6 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 	)
 
 	m.saveMask(mask)
-	log.Print("mmp", m.B)
 	return output
 }
 
