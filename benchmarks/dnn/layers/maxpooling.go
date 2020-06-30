@@ -48,7 +48,6 @@ type KernelArgsForward struct {
 	PadW       int32
 	Top        driver.GPUPtr
 	Mask       driver.GPUPtr //Record the indices of max element. Used in Backward propagation.
-	//Indexs     driver.GPUPtr //Debug
 
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -60,18 +59,18 @@ type KernelArgsBackward struct {
 	NumThreads uint64
 	Top        driver.GPUPtr
 	Mask       driver.GPUPtr
-	N          uint32
-	C          uint32
-	H          uint32
-	W          uint32
-	PooledH    uint32
-	PooledW    uint32
-	KernelH    uint32
-	KernelW    uint32
-	StrideH    uint32
-	StrideW    uint32
-	PadH       uint32
-	PadW       uint32
+	N          int32
+	C          int32
+	H          int32
+	W          int32
+	PooledH    int32
+	PooledW    int32
+	KernelH    int32
+	KernelW    int32
+	StrideH    int32
+	StrideW    int32
+	PadH       int32
+	PadW       int32
 	Bottom     driver.GPUPtr
 
 	HiddenGlobalOffsetX int64
@@ -101,11 +100,11 @@ func NewMaxPoolingLayer(
 		panic("fail to load maxpooling forward kernel")
 	}
 
-	// m.backwardKernel = kernels.LoadProgramFromMemory(
-	// 	kernelBytes, "MaxPoolBackward")
-	// if m.backwardKernel == nil {
-	// 	panic("fail to load maxpooling backward kernel")
-	// }
+	m.backwardKernel = kernels.LoadProgramFromMemory(
+		kernelBytes, "MaxPoolBackward")
+	if m.backwardKernel == nil {
+		panic("fail to load maxpooling backward kernel")
+	}
 	return m
 }
 
@@ -208,6 +207,7 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 	m.Hout = Hout
 	m.Win = Win
 	m.Wout = Wout
+	log.Print("BBBBBB", m.B)
 	output := &Tensor{
 		driver: m.GPUDriver,
 		ctx:    m.GPUCtx,
@@ -220,13 +220,6 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 		size:   []int{B, C, Hout, Wout},
 		ptr:    m.GPUDriver.AllocateMemory(m.GPUCtx, uint64(B*C*Hout*Wout*4)),
 	}
-	/*indexs := &Tensor{
-		driver: m.GPUDriver,
-		ctx:    m.GPUCtx,
-		size:   []int{B, C, Hout, Wout},
-		ptr:    m.GPUDriver.AllocateMemory(m.GPUCtx, uint64(100*4)),
-	}*/
-
 	kernArg := KernelArgsForward{
 		uint64(B * C * Hout * Wout), input.ptr,
 		int32(B), int32(C), int32(Hin), int32(Win),
@@ -236,7 +229,6 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 		int32(padding[0]), int32(padding[1]),
 		output.ptr,
 		mask.ptr,
-		//indexs.ptr,
 		0, 0, 0,
 	}
 	m.GPUDriver.LaunchKernel(
@@ -246,22 +238,9 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
-	/*temp := make([]float32, )
-	m.GPUDriver.MemCopyD2H(m.GPUCtx, temp, output.ptr)
-	log.Print(temp)
-	temp2 := make([]uint32, 100)
-	m.GPUDriver.MemCopyD2H(m.GPUCtx, temp2, indexs.ptr)
-	log.Print(temp2)*/
-
-	/*if m.verifyForward {
-		cpuOutput := m.CPUMaxpooling(input.Vector())
-		m.verifyForwardPass(cpuOutput, input, output)
-	}*/
 
 	m.saveMask(mask)
-	/*temp := make([]int32, 2)
-	m.GPUDriver.MemCopyD2H(m.GPUCtx, temp, m.forwardMask)
-	log.Print(temp)*/
+	log.Print("mmp", m.B)
 	return output
 }
 
@@ -288,6 +267,7 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 	Hout := m.Hout
 	Win := m.Win
 	Wout := m.Wout
+	log.Print(ks, stride, padding, B, C, Hin, Hout, Win, Wout)
 	output := &Tensor{
 		driver: m.GPUDriver,
 		ctx:    m.GPUCtx,
@@ -297,11 +277,11 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 
 	kernArg := KernelArgsBackward{
 		uint64(B * C * Hin * Win), input.ptr, m.forwardMask,
-		uint32(B), uint32(C), uint32(Hin), uint32(Win),
-		uint32(Hout), uint32(Wout),
-		uint32(ks[0]), uint32(ks[1]),
-		uint32(stride[0]), uint32(stride[1]),
-		uint32(padding[0]), uint32(padding[1]),
+		int32(B), int32(C), int32(Hin), int32(Win),
+		int32(Hout), int32(Wout),
+		int32(ks[0]), int32(ks[1]),
+		int32(stride[0]), int32(stride[1]),
+		int32(padding[0]), int32(padding[1]),
 		output.ptr,
 		0, 0, 0,
 	}
@@ -310,7 +290,7 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 		m.GPUCtx,
 		m.forwardKernel,
 		[3]uint32{uint32(B * C * Hin * Win), 1, 1},
-		[3]uint16{1, 1, 1},
+		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
 
