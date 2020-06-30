@@ -11,6 +11,7 @@ type deviceMemoryState interface {
 	allocateMultiplePages(numPages int) []uint64
 }
 
+// NewDeviceMemoryState creates a new device memory state based on allocator type.
 func NewDeviceMemoryState(log2pagesize uint64) deviceMemoryState {
 	switch MemoryAllocatorType {
 	case AllocatorTypeDefault:
