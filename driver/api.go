@@ -52,7 +52,7 @@ func (d *Driver) CreateUnifiedGPU(c *Context, gpuIDs []int) int {
 		ID:            len(d.devices),
 		Type:          internal.DeviceTypeUnifiedGPU,
 		UnifiedGPUIDs: gpuIDs,
-		Log2PageSize:  d.Log2PageSize,
+		MemState:      internal.NewDeviceMemoryState(d.Log2PageSize),
 	}
 
 	for _, gpuID := range gpuIDs {
