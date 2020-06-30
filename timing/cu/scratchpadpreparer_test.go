@@ -424,6 +424,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 	It("should commit for VOP3a", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP3a
+		inst.Opcode = 449
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.SetDynamicInst(wavefront.NewInst(inst))
 
@@ -440,6 +441,24 @@ var _ = Describe("ScratchpadPreparer", func() {
 			Expect(sp.readRegAsUint32(insts.VReg(0), wf, i)).To(Equal(uint32(i)))
 		}
 		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
+	})
+
+	It("should commit for VOP3a CMP", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.VOP3a
+		inst.Opcode = 20
+		inst.Dst = insts.NewSRegOperand(0, 0, 1)
+		wf.SetDynamicInst(wavefront.NewInst(inst))
+
+		layout := wf.Scratchpad().AsVOP3A()
+		layout.EXEC = 0xfffffffffffffffe
+		for i := 0; i < 64; i++ {
+			layout.DST[i] = uint64(i)
+		}
+
+		sp.Commit(wf, wf)
+
+		Expect(sp.readRegAsUint32(insts.SReg(0), wf, 0)).To(Equal(uint32(0)))
 	})
 
 	It("should commit for VOP3b", func() {
