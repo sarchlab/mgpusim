@@ -1,6 +1,6 @@
 package internal
 
-type deviceMemoryState interface {
+type DeviceMemoryState interface {
 	setInitialAddress(addr uint64)
 	getInitialAddress() uint64
 	setStorageSize(size uint64)
@@ -12,7 +12,7 @@ type deviceMemoryState interface {
 }
 
 // NewDeviceMemoryState creates a new device memory state based on allocator type.
-func NewDeviceMemoryState(log2pagesize uint64) deviceMemoryState {
+func NewDeviceMemoryState(log2pagesize uint64) DeviceMemoryState {
 	switch MemoryAllocatorType {
 	case AllocatorTypeDefault:
 		return newDeviceRegularMemoryState(log2pagesize)
@@ -23,13 +23,13 @@ func NewDeviceMemoryState(log2pagesize uint64) deviceMemoryState {
 	}
 }
 
-func newDeviceRegularMemoryState(log2pagesize uint64) deviceMemoryState {
+func newDeviceRegularMemoryState(log2pagesize uint64) DeviceMemoryState {
 	return &deviceMemoryStateImpl{
 		log2PageSize: log2pagesize,
 	}
 }
 
-//original implementation of deviceMemoryState holding free addresses in array
+//original implementation of DeviceMemoryState holding free addresses in array
 type deviceMemoryStateImpl struct {
 	log2PageSize    uint64
 	initialAddress  uint64

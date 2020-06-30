@@ -4,13 +4,13 @@ import (
 	"container/list"
 )
 
-func newDeviceBuddyMemoryState(log2pagesize uint64) deviceMemoryState {
+func newDeviceBuddyMemoryState(log2pagesize uint64) DeviceMemoryState {
 	return &deviceBuddyMemoryState{
 		log2PageSize: log2pagesize,
 	}
 }
 
-// A deviceBuddyMemoryState implements deviceMemoryState as a buddy allocator
+// A deviceBuddyMemoryState implements DeviceMemoryState as a buddy allocator
 type deviceBuddyMemoryState struct {
 	initFlag bool
 

@@ -90,7 +90,7 @@ func (a *memoryAllocatorImpl) deviceIDByPAddr(pAddr uint64) int {
 
 func isPAddrOnDevice(
 	pAddr uint64,
-	state deviceMemoryState,
+	state DeviceMemoryState,
 ) bool {
 	return pAddr >= state.getInitialAddress() &&
 		pAddr < state.getInitialAddress()+state.getStorageSize()

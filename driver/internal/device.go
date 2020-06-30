@@ -31,7 +31,7 @@ type Device struct {
 	UnifiedGPUIDs      []int
 	ActualGPUs         []*Device
 	nextActualGPUIndex int
-	MemState           deviceMemoryState
+	MemState           DeviceMemoryState
 }
 
 

@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Implementation of buddy allocation deviceMemoryState", func() {
+var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() {
 
 	buddyDMS := newDeviceBuddyMemoryState(12)
 
