@@ -62,16 +62,7 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 	a.Lock()
 	defer a.Unlock()
 
-	if device.memState == nil {
-		switch MemoryAllocatorType {
-		case AllocatorTypeDefault:
-			device.memState = newDeviceRegularMemoryState(a.log2PageSize)
-		case AllocatorTypeBuddy:
-			device.memState = newDeviceBuddyMemoryState(a.log2PageSize)
-		}
-	}
-
-	state := device.memState
+	state := device.MemState
 	state.setInitialAddress(a.totalStorageByteSize)
 
 	a.totalStorageByteSize += state.getStorageSize()
@@ -88,7 +79,7 @@ func (a *memoryAllocatorImpl) GetDeviceIDByPAddr(pAddr uint64) int {
 
 func (a *memoryAllocatorImpl) deviceIDByPAddr(pAddr uint64) int {
 	for id, dev := range a.devices {
-		state := dev.memState
+		state := dev.MemState
 		if isPAddrOnDevice(pAddr, state) {
 			return id
 		}
@@ -207,7 +198,7 @@ func (a *memoryAllocatorImpl) removePage(vAddr uint64) {
 	}
 
 	deviceID := a.deviceIDByPAddr(page.PAddr)
-	dState := a.devices[deviceID].memState
+	dState := a.devices[deviceID].MemState
 	dState.addSinglePAddr(page.PAddr)
 
 	a.pageTable.Remove(page.PID, page.VAddr)

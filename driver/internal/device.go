@@ -31,22 +31,13 @@ type Device struct {
 	UnifiedGPUIDs      []int
 	ActualGPUs         []*Device
 	nextActualGPUIndex int
-	memState           deviceMemoryState
-	Log2PageSize       uint64
+	MemState           deviceMemoryState
 }
 
 
 // SetTotalMemSize sets total memory size
 func (d *Device) SetTotalMemSize(size uint64) {
-	if d.memState == nil {
-		switch MemoryAllocatorType {
-		case AllocatorTypeDefault:
-			d.memState = newDeviceRegularMemoryState(d.Log2PageSize)
-		case AllocatorTypeBuddy:
-			d.memState = newDeviceBuddyMemoryState(d.Log2PageSize)
-		}
-	}
-	d.memState.setStorageSize(size)
+	d.MemState.setStorageSize(size)
 }
 
 func (d *Device) allocatePage() (pAddr uint64) {
@@ -55,7 +46,7 @@ func (d *Device) allocatePage() (pAddr uint64) {
 	}
 
 	d.mustHaveSpaceLeft()
-	pAddr = d.memState.popNextAvailablePAddrs()
+	pAddr = d.MemState.popNextAvailablePAddrs()
 
 	return pAddr
 }
@@ -65,13 +56,13 @@ func (d *Device) allocateMultiplePages(numPages int) (pAddrs []uint64) {
 		return d.allocateMultipleUnifiedGPUPages(numPages)
 	}
 	d.mustHaveSpaceLeft()
-	pAddrs = d.memState.allocateMultiplePages(numPages)
+	pAddrs = d.MemState.allocateMultiplePages(numPages)
 
 	return pAddrs
 }
 
 func (d *Device) mustHaveSpaceLeft() {
-	if d.memState.noAvailablePAddrs() {
+	if d.MemState.noAvailablePAddrs() {
 		panic("out of memory")
 	}
 }

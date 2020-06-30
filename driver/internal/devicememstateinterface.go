@@ -11,6 +11,17 @@ type deviceMemoryState interface {
 	allocateMultiplePages(numPages int) []uint64
 }
 
+func NewDeviceMemoryState(log2pagesize uint64) deviceMemoryState {
+	switch MemoryAllocatorType {
+	case AllocatorTypeDefault:
+		return newDeviceRegularMemoryState(log2pagesize)
+	case AllocatorTypeBuddy:
+		return newDeviceBuddyMemoryState(log2pagesize)
+	default:
+		panic("Invalid memory allocator type")
+	}
+}
+
 func newDeviceRegularMemoryState(log2pagesize uint64) deviceMemoryState {
 	return &deviceMemoryStateImpl{
 		log2PageSize: log2pagesize,
