@@ -288,7 +288,7 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 
 	m.GPUDriver.LaunchKernel(
 		m.GPUCtx,
-		m.forwardKernel,
+		m.backwardKernel,
 		[3]uint32{uint32(B * C * Hin * Win), 1, 1},
 		[3]uint16{64, 1, 1},
 		&kernArg,
