@@ -97,7 +97,7 @@ func (b *Benchmark) initMem() {
 		b.graphMode = "auto"
 	} else {
 		b.NumNode, _, b.Degree = b.graph.generateFromText(b.Path)
-		b.graphMode = "taxtual"
+		b.graphMode = "textual"
 	}
 
 	b.hFrontier = make([]uint32, b.NumNode)
