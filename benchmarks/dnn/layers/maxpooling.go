@@ -113,7 +113,6 @@ func NewMaxPoolingLayer(
 func (m *MaxPoolingLayer) EnableVerification() {
 	m.verifyForward = true
 	m.verifyBackward = true
-	//m.cpuLayer = layers.NewFullyConnectedLayer(f.InputSize, f.OutputSize)
 }
 
 func (m *MaxPoolingLayer) saveMask(input *Tensor) {
@@ -237,17 +236,21 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 		&kernArg,
 	)
 
+	if m.verifyForward {
+		cpuOutput := m.CPUMaxpooling(input.Vector())
+		m.verifyForwardPass(cpuOutput, output)
+	}
+
 	m.saveMask(mask)
 	return output
 }
 
-func (m *MaxPoolingLayer) verifyForwardPass(cpu []float32, input, output *Tensor) {
-	inputV := input.Vector()
+func (m *MaxPoolingLayer) verifyForwardPass(cpu []float32, output *Tensor) {
 	gpu := output.Vector()
 	for i := 0; i < len(cpu); i++ {
 		if cpu[i] != float32(gpu[i]) {
-			log.Panicf("Mismatch at %d, expected %f, but get %f. Input is %f",
-				i, cpu[i], gpu[i], inputV[i])
+			log.Panicf("Mismatch at %d, expected %f, but get %f.",
+				i, cpu[i], gpu[i])
 		}
 	}
 }
@@ -291,9 +294,9 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 		&kernArg,
 	)
 
-	/*if m.verifyBackward {
+	if m.verifyBackward {
 		m.verifyBackPass(input, output)
-	}*/
+	}
 
 	return output
 }
@@ -301,11 +304,12 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 func (m *MaxPoolingLayer) verifyBackPass(input *Tensor, output *Tensor) {
 	inputV := input.Vector()
 	outputV := output.Vector()
-	mask := make([]int, len(inputV))
+	mask := make([]uint32, input.Size()[0]*input.Size()[1]*input.Size()[2]*input.Size()[3])
 	m.GPUDriver.MemCopyD2H(m.GPUCtx, mask, m.forwardMask)
 	count := 0
-	for i := 0; i < len(outputV); i++ {
-		if i == mask[count] {
+	var i uint32 = 0
+	for i = 0; int(i) < len(outputV); i++ {
+		if i+1 == mask[count] {
 			if inputV[count] != outputV[i] {
 				log.Panicf("Mismatch at %d, expected %f, but get %f.",
 					i, inputV[count], outputV[i])
