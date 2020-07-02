@@ -91,5 +91,4 @@ var _ = Describe("Max Pooling Layer", func() {
 			Expect(output.Vector()[i]).To(BeNumerically("~", expectedOutput[i], 0.01))
 		}
 	})
-
 })

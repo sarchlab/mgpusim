@@ -246,12 +246,19 @@ func (m *MaxPoolingLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 }
 
 func (m *MaxPoolingLayer) verifyForwardPass(cpu []float32, output *Tensor) {
+	misMatch := false
 	gpu := output.Vector()
+
 	for i := 0; i < len(cpu); i++ {
 		if cpu[i] != float32(gpu[i]) {
-			log.Panicf("Mismatch at %d, expected %f, but get %f.",
+			log.Printf("Mismatch at %d, expected %f, but get %f.",
 				i, cpu[i], gpu[i])
+			misMatch = true
 		}
+	}
+
+	if misMatch {
+		panic("forward pass verification failed")
 	}
 }
 
@@ -267,7 +274,6 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 	Hout := m.Hout
 	Win := m.Win
 	Wout := m.Wout
-	log.Print(ks, stride, padding, B, C, Hin, Hout, Win, Wout)
 	output := &Tensor{
 		driver: m.GPUDriver,
 		ctx:    m.GPUCtx,
