@@ -40,8 +40,8 @@ var _ = Describe("Max Pooling Layer", func() {
 		input := layers.NewTensor(gpuDriver, context)
 		input.Init([]float64{
 			1, 2, 3, 4,
-			5, 6.6, 7, 8.8,
-			2, 3, 4, 5,
+			50, 6.6, 7, 8.8,
+			2, 3, 40, 5,
 			11, 12, 13, 14,
 		}, []int{1, 2, 2, 4})
 
@@ -50,8 +50,8 @@ var _ = Describe("Max Pooling Layer", func() {
 		Expect(output.Size()).To(Equal([]int{1, 2, 2, 2})) //Batch * Channel * Height * Width
 		expectedOutput := []float64{
 			2, 4,
-			6.6, 8.8,
-			3, 5,
+			50, 8.8,
+			3, 40,
 			12, 14,
 		}
 		for i := range expectedOutput {

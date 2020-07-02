@@ -130,6 +130,22 @@ func (m *MaxPoolingLayer) saveMask(input *Tensor) {
 	m.GPUDriver.MemCopyH2D(m.GPUCtx, m.forwardMask, temp)
 }
 
+//MinInt Find Min of two Ints.
+func MinInt(a int, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+//MaxInt Find Max of two Ints.
+func MaxInt(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // CPUMaxpooling returns output of maxpooling layer.
 func (m *MaxPoolingLayer) CPUMaxpooling(input []float64) []float32 {
 	outputLen := m.B * m.C * m.Hout * m.Wout
@@ -151,32 +167,20 @@ func (m *MaxPoolingLayer) CPUMaxpooling(input []float64) []float32 {
 		ph := (i / wout) % hout
 		c := (i / wout / hout) % C
 		n := i / wout / hout / C
-
 		hStart := ph*StrideH - PadH
 		wStart := pw*StrideW - PadW
-		hEnd := hStart + KernelH
-		if hEnd > hin {
-			hEnd = hin
-		}
-		wEnd := wStart + KernelW
-		if wEnd > win {
-			wEnd = win
-		}
-		if hStart < 0 {
-			hStart = 0
-		}
-		if wStart < 0 {
-			wStart = 0
-		}
+		hEnd := MinInt(hStart+KernelH, hin)
+		wEnd := MinInt(wStart+KernelW, win)
+		hStart = MaxInt(hStart, 0)
+		wStart = MaxInt(wStart, 0)
 
 		maxVal := float64(-math.MaxFloat32)
-		maxIdx := -1
-
 		offset := (n*C + c) * hin * win
 		for h := hStart; h < hEnd; h++ {
 			for w := wStart; w < wEnd; w++ {
-				maxIdx = h*win + w
-				maxVal = input[maxIdx+offset]
+				if input[h*win+w+offset] > maxVal {
+					maxVal = input[h*win+w+offset]
+				}
 			}
 		}
 
