@@ -41,6 +41,25 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(0x2)))
 	})
 
+	It("should run v_cmp_gt_f32 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 68
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.EXEC = 0x7
+		sp.SRC0[0] = uint64(math.Float32bits(-1.2))
+		sp.SRC1[0] = uint64(math.Float32bits(-1.2))
+		sp.SRC0[1] = uint64(math.Float32bits(-2.5))
+		sp.SRC1[1] = uint64(math.Float32bits(0.0))
+		sp.SRC0[2] = uint64(math.Float32bits(1.5))
+		sp.SRC1[2] = uint64(math.Float32bits(0.0))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0x4)))
+	})
+
 	It("should run v_cmp_nlt_f32 VOP3a", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP3a
@@ -60,23 +79,88 @@ var _ = Describe("ALU", func() {
 		Expect(sp.DST[0]).To(Equal(uint64(0x5)))
 	})
 
-	It("should run v_cmp_gt_i32 VOP3a", func() {
+	It("should run v_cmp_lt_i32 VOP3a", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP3a
-		state.inst.Opcode = 196
+		state.inst.Opcode = 193
 
 		sp := state.Scratchpad().AsVOP3A()
-		sp.EXEC = 0x7
+		sp.EXEC = 0xf
 		sp.SRC0[0] = uint64(int32ToBits(-1))
 		sp.SRC1[0] = uint64(int32ToBits(1))
 		sp.SRC0[1] = uint64(int32ToBits(2))
 		sp.SRC1[1] = uint64(int32ToBits(1))
 		sp.SRC0[2] = uint64(int32ToBits(0))
 		sp.SRC1[2] = uint64(int32ToBits(-1))
+		sp.SRC0[3] = uint64(int32ToBits(-1))
+		sp.SRC1[3] = uint64(int32ToBits(-1))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0x1)))
+	})
+
+	It("should run v_cmp_le_i32 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 195
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.EXEC = 0xf
+		sp.SRC0[0] = uint64(int32ToBits(-1))
+		sp.SRC1[0] = uint64(int32ToBits(1))
+		sp.SRC0[1] = uint64(int32ToBits(2))
+		sp.SRC1[1] = uint64(int32ToBits(1))
+		sp.SRC0[2] = uint64(int32ToBits(0))
+		sp.SRC1[2] = uint64(int32ToBits(-1))
+		sp.SRC0[3] = uint64(int32ToBits(-1))
+		sp.SRC1[3] = uint64(int32ToBits(-1))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0x9)))
+	})
+
+	It("should run v_cmp_gt_i32 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 196
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.EXEC = 0xf
+		sp.SRC0[0] = uint64(int32ToBits(-1))
+		sp.SRC1[0] = uint64(int32ToBits(1))
+		sp.SRC0[1] = uint64(int32ToBits(2))
+		sp.SRC1[1] = uint64(int32ToBits(1))
+		sp.SRC0[2] = uint64(int32ToBits(0))
+		sp.SRC1[2] = uint64(int32ToBits(-1))
+		sp.SRC0[3] = uint64(int32ToBits(-1))
+		sp.SRC1[3] = uint64(int32ToBits(-1))
 
 		alu.Run(state)
 
 		Expect(sp.DST[0]).To(Equal(uint64(0x6)))
+	})
+
+	It("should run v_cmp_ge_i32 VOP3a", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP3a
+		state.inst.Opcode = 198
+
+		sp := state.Scratchpad().AsVOP3A()
+		sp.EXEC = 0xf
+		sp.SRC0[0] = uint64(int32ToBits(-1))
+		sp.SRC1[0] = uint64(int32ToBits(1))
+		sp.SRC0[1] = uint64(int32ToBits(2))
+		sp.SRC1[1] = uint64(int32ToBits(1))
+		sp.SRC0[2] = uint64(int32ToBits(0))
+		sp.SRC1[2] = uint64(int32ToBits(-1))
+		sp.SRC0[3] = uint64(int32ToBits(-1))
+		sp.SRC1[3] = uint64(int32ToBits(-1))
+
+		alu.Run(state)
+
+		Expect(sp.DST[0]).To(Equal(uint64(0xe)))
 	})
 
 	It("should run V_CMP_LT_U32 VOP3a", func() {
