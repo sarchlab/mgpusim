@@ -17,8 +17,6 @@ var padH = flag.Int("pad-h", 0, "Padding height.")
 var padW = flag.Int("pad-w", 0, "Padding width.")
 var strideH = flag.Int("stride-h", 1, "Stride on the y-axis.")
 var strideW = flag.Int("stride-w", 1, "Stride on the x-axis.")
-var verify = flag.Bool("verify-while-executing", false,
-	"Verify the emulation result right after the forward and the backward pass.")
 
 func main() {
 	flag.Parse()
@@ -39,10 +37,6 @@ func main() {
 	}
 	benchmark := maxpooling.NewBenchmark(
 		runner.GPUDriver, parameter)
-
-	if *verify {
-		benchmark.EnableVerification()
-	}
 
 	runner.AddBenchmark(benchmark)
 

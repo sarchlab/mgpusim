@@ -264,6 +264,8 @@ func (m *MaxPoolingLayer) verifyForwardPass(cpu []float32, output *Tensor) {
 	if misMatch {
 		panic("forward pass verification failed")
 	}
+
+	log.Printf("MaxPooling forward passed!\n")
 }
 
 // Backward performs the backward propagation operation.
@@ -344,19 +346,6 @@ func (m *MaxPoolingLayer) verifyBackPass(gpuOutput, cpuOutput []float64) {
 	if mismatch {
 		panic("mismatch")
 	}
-	// inputV := input.Vector()
-	// outputV := output.Vector()
-	// mask := make([]uint32,
-	// 	input.Size()[0]*input.Size()[1]*input.Size()[2]*input.Size()[3])
-	// m.GPUDriver.MemCopyD2H(m.GPUCtx, mask, m.forwardMask)
-	// count := 0
-	// var i uint32 = 0
-	// for i = 0; int(i) < len(outputV); i++ {
-	// 	if i+1 == mask[count] {
-	// 		if inputV[count] != outputV[i] {
-	// 			log.Panicf("Mismatch at %d, expected %f, but get %f.",
-	// 				i, inputV[count], outputV[i])
-	// 		}
-	// 	}
-	// }
+
+	log.Printf("MaxPooling backward passed!\n")
 }
