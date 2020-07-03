@@ -55,7 +55,16 @@ func (g *graph) generateFromText(path string) (int, int, int) {
 	edgeCount := 0
 	for _, id := range g.nodeToIDMap {
 		g.nodesWithEdges[i] = id
-		g.edgeOffsets[i] = offset
+		if len(g.edgeListMap[id]) == 0 {
+			if offset == 0 {
+				g.edgeOffsets[i] = 0
+			} else {
+				g.edgeOffsets[i] = offset - 1
+			}
+		} else {
+			g.edgeOffsets[i] = offset
+		}
+
 		edgeCount = edgeCount + len(g.edgeListMap[id])
 		for _, val := range g.edgeListMap[id] {
 			g.edgeList = append(g.edgeList, val)
@@ -92,7 +101,13 @@ func (g *graph) loadGraph(path string) {
 
 		if len(validLine) > 0 {
 			var nodeFrom, nodeTo int32
-			fmt.Sscanf(validLine, "%d %d", &nodeFrom, &nodeTo)
+			n, err := fmt.Sscanf(validLine, "%d %d", &nodeFrom, &nodeTo)
+			if n != 2 {
+				continue
+			}
+			if err != nil {
+				log.Panic("cannot scan from " + path)
+			}
 
 			if _, ok := g.nodeToIDMap[nodeFrom]; !ok {
 				g.nodeToIDMap[nodeFrom] = currNodeID
