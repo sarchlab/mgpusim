@@ -305,25 +305,58 @@ func (m *MaxPoolingLayer) Backward(inputT tensor.Tensor) tensor.Tensor {
 	)
 
 	if m.verifyBackward {
-		m.verifyBackPass(input, output)
+		cpuOutput := m.cpuBackPass(input)
+		m.verifyBackPass(output.Vector(), cpuOutput)
 	}
 
 	return output
 }
 
-func (m *MaxPoolingLayer) verifyBackPass(input *Tensor, output *Tensor) {
-	inputV := input.Vector()
-	outputV := output.Vector()
-	mask := make([]uint32, input.Size()[0]*input.Size()[1]*input.Size()[2]*input.Size()[3])
+func (m *MaxPoolingLayer) cpuBackPass(input *Tensor) []float64 {
+	output := make([]float64,
+		input.Size()[0]*input.Size()[1]*m.Hin*m.Win)
+	mask := make([]uint32,
+		input.Size()[0]*input.Size()[1]*input.Size()[2]*input.Size()[3])
 	m.GPUDriver.MemCopyD2H(m.GPUCtx, mask, m.forwardMask)
-	count := 0
-	var i uint32 = 0
-	for i = 0; int(i) < len(outputV); i++ {
-		if i+1 == mask[count] {
-			if inputV[count] != outputV[i] {
-				log.Panicf("Mismatch at %d, expected %f, but get %f.",
-					i, inputV[count], outputV[i])
-			}
+	inputV := input.Vector()
+
+	for i := 0; i < len(mask); i++ {
+		channelNum := i / input.Size()[2] / input.Size()[3]
+		offset := uint32(channelNum * m.Hin * m.Win)
+		output[offset+mask[i]-1] += inputV[i]
+	}
+
+	return output
+}
+
+func (m *MaxPoolingLayer) verifyBackPass(gpuOutput, cpuOutput []float64) {
+	mismatch := false
+
+	for i := range gpuOutput {
+		if gpuOutput[i] != cpuOutput[i] {
+			log.Printf(
+				"mismatch in back propagation, expected %f, but get %f",
+				cpuOutput[i], gpuOutput[i])
+			mismatch = false
 		}
 	}
+
+	if mismatch {
+		panic("mismatch")
+	}
+	// inputV := input.Vector()
+	// outputV := output.Vector()
+	// mask := make([]uint32,
+	// 	input.Size()[0]*input.Size()[1]*input.Size()[2]*input.Size()[3])
+	// m.GPUDriver.MemCopyD2H(m.GPUCtx, mask, m.forwardMask)
+	// count := 0
+	// var i uint32 = 0
+	// for i = 0; int(i) < len(outputV); i++ {
+	// 	if i+1 == mask[count] {
+	// 		if inputV[count] != outputV[i] {
+	// 			log.Panicf("Mismatch at %d, expected %f, but get %f.",
+	// 				i, inputV[count], outputV[i])
+	// 		}
+	// 	}
+	// }
 }

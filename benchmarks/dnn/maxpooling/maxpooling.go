@@ -7,8 +7,6 @@ import (
 
 	"gitlab.com/akita/mgpusim/benchmarks/dnn/layers"
 	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
 )
 
 // Parameters defines the parameters of the maxpooling benchmark.
@@ -44,7 +42,6 @@ type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
 	gpus    []int
-	hsaco   *insts.HsaCo
 
 	parameters Parameters
 	layer      *layers.MaxPoolingLayer
@@ -69,10 +66,6 @@ func NewBenchmark(
 		[2]int{b.parameters.KernelH, b.parameters.KernelW},
 		b.driver, b.context,
 	)
-
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
-
-	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "MaxPoolForward")
 
 	return b
 }
@@ -102,13 +95,12 @@ func (b *Benchmark) Run() {
 func (b *Benchmark) exec() {
 	forwardIn := make([]float64, b.parameters.InputLength())
 	for i := 0; i < b.parameters.InputLength(); i++ {
-		// forwardIn[i] = rand.NormFloat64()
-		forwardIn[i] = float64(-i)
+		forwardIn[i] = rand.Float64()
 	}
 
 	backwardIn := make([]float64, b.parameters.OutputLength())
 	for i := 0; i < b.parameters.OutputLength(); i++ {
-		backwardIn[i] = rand.NormFloat64()
+		backwardIn[i] = rand.Float64()
 	}
 
 	forwardInputTensor := layers.NewTensor(b.driver, b.context)
