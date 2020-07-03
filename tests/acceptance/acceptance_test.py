@@ -237,7 +237,16 @@ def main():
               '../../benchmarks/dnn/relu')
     mp = Test('../../samples/maxpooling',
               'maxpooling',
-              [],
+              [
+                  '-h=128',
+                  '-w=128',
+                  '-c=3',
+                  '-n=4',
+                  '-stride-w=2',
+                  '-stride-h=2',
+                  '-kernel-w=2',
+                  '-kernel-h=2',
+              ],
               '../../benchmarks/dnn/maxpooling')
     bfs = Test('../../samples/bfs',
                'bfs',
@@ -286,6 +295,8 @@ def main():
         err |= pagerank.test(test_unified_multi_gpu=True,
                              use_unified_memory=args.unified_memory)
         err |= mm.test(test_unified_multi_gpu=True,
+                       use_unified_memory=args.unified_memory)
+        err |= mt.test(test_unified_multi_gpu=True,
                        use_unified_memory=args.unified_memory)
         err |= mt.test(test_unified_multi_gpu=True,
                        use_unified_memory=args.unified_memory)
@@ -340,7 +351,7 @@ def main():
         err |= sc.test()
         err |= fw.test(test_multi_gpu=False)
         err |= re.test()
-        err |= mp.test()
+        err |= mp.test(test_multi_gpu=False)
         err |= bfs.test(test_multi_gpu=False)
         err |= st.test(test_multi_gpu=False)
         err |= sp.test(test_multi_gpu=False)
