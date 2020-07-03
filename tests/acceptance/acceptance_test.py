@@ -19,7 +19,7 @@ def compile(path):
 
 
 class Test(object):
-    """ define a benchmark to test　"""
+    """ define a benchmark to test """
 
     def __init__(self, path, executable, size_args, benchmark_path):
         self.path = path
