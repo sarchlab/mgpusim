@@ -243,6 +243,25 @@
                 "-gpus=1,2"
             ]
         },
+
+        {
+            "name": "MaxPooling",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/maxpooling",
+            "args": [
+                "-verify-while-executing",
+                "-h=4",
+                "-w=4",
+                "-pad-h=0",
+                "-pad-w=0",
+                "-stride-h=1",
+                "-stride-w=1",
+                "-kernel-h=3",
+                "-kernel-w=3",
+            ]
+        },
         {
             "name": "Floyd Warshall",
             "type": "go",

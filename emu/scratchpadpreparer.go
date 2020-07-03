@@ -415,6 +415,11 @@ func (p *ScratchpadPreparerImpl) commitVOP3a(
 	inst := instEmuState.Inst()
 	sp := instEmuState.Scratchpad()
 
+	if inst.Opcode <= 255 {
+		p.commitVOP3aCmp(instEmuState, wf)
+		return
+	}
+
 	wf.WriteReg(insts.Regs[insts.VCC], 1, 0, sp[520:528])
 
 	exec := sp.AsVOP3A().EXEC
@@ -427,6 +432,16 @@ func (p *ScratchpadPreparerImpl) commitVOP3a(
 		offset := 8 + i*8
 		p.writeOperand(inst.Dst, wf, i, sp[offset:offset+8])
 	}
+}
+
+func (p *ScratchpadPreparerImpl) commitVOP3aCmp(
+	instEmuState InstEmuState,
+	wf *Wavefront,
+) {
+	inst := instEmuState.Inst()
+	sp := instEmuState.Scratchpad()
+
+	p.writeOperand(inst.Dst, wf, 0, sp[8:16])
 }
 
 func (p *ScratchpadPreparerImpl) commitVOP3b(

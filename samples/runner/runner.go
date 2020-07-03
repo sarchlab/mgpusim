@@ -51,6 +51,12 @@ Use a format like 1,2,3,4. Cannot coexist with -gpus.`)
 var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 	"Run benchmark with Unified Memory or not")
 
+type verificationPreEnablingBenchmark interface {
+	benchmarks.Benchmark
+
+	EnableVerification()
+}
+
 type cacheLatencyTracer struct {
 	tracer *tracing.AverageTimeTracer
 	cache  akita.Component
@@ -424,7 +430,14 @@ func (r *Runner) Run() {
 	for _, b := range r.Benchmarks {
 		wg.Add(1)
 		go func(b benchmarks.Benchmark, wg *sync.WaitGroup) {
+			if r.Verify {
+				if b, ok := b.(verificationPreEnablingBenchmark); ok {
+					b.EnableVerification()
+				}
+			}
+
 			b.Run()
+
 			if r.Verify {
 				b.Verify()
 			}

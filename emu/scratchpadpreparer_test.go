@@ -410,9 +410,28 @@ var _ = Describe("ScratchpadPreparer", func() {
 		Expect(wf.VCC).To(Equal(uint64(0xffff0000ffff0000)))
 	})
 
+	It("should commit for VOP3a CMP", func() {
+		inst := insts.NewInst()
+		inst.FormatType = insts.VOP3a
+		inst.Opcode = 20
+		inst.Dst = insts.NewSRegOperand(0, 0, 1)
+		wf.inst = inst
+
+		layout := wf.Scratchpad().AsVOP3A()
+		layout.EXEC = 0xfffffffffffffffe
+		for i := 0; i < 64; i++ {
+			layout.DST[i] = uint64(i)
+		}
+
+		sp.Commit(wf, wf)
+
+		Expect(wf.SRegValue(0)).To(Equal(uint32(0)))
+	})
+
 	It("should commit for VOP3a", func() {
 		inst := insts.NewInst()
 		inst.FormatType = insts.VOP3a
+		inst.Opcode = 449
 		inst.Dst = insts.NewVRegOperand(0, 0, 1)
 		wf.inst = inst
 
