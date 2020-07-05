@@ -34,27 +34,10 @@ type Device struct {
 	MemState           DeviceMemoryState
 }
 
+
 // SetTotalMemSize sets total memory size
 func (d *Device) SetTotalMemSize(size uint64) {
 	d.MemState.setStorageSize(size)
-}
-
-func (d *Device) allocatePhysicalAddresses(numPages int) (pAddrs []uint64) {
-	if d.Type == DeviceTypeUnifiedGPU {
-		numSplitPages := numPages
-		for numGPUs := len(d.ActualGPUs); numGPUs > 0; numGPUs-- {
-			allocPages := numSplitPages/numGPUs
-			if numSplitPages%numGPUs != 0 {
-				allocPages++
-			}
-			paddrs := d.allocateMultiplePages(allocPages)
-			pAddrs = append(pAddrs, paddrs...)
-			numSplitPages -= allocPages
-		}
-	} else {
-		pAddrs = d.allocateMultiplePages(numPages)
-	}
-	return pAddrs
 }
 
 func (d *Device) allocatePage() (pAddr uint64) {
