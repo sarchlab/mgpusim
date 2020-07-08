@@ -429,7 +429,6 @@ func (b *shaderArrayBuilder) buildL1ITLB(sa *shaderArray) {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithNumMSHREntry(4).
-		WithNumMSHREntry(4).
 		WithNumSets(1).
 		WithNumWays(64).
 		WithNumReqPerCycle(4)
@@ -452,7 +451,8 @@ func (b *shaderArrayBuilder) buildL1ICache(sa *shaderArray) {
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssocitivity(4).
 		WithNumMSHREntry(16).
-		WithTotalByteSize(32 * mem.KB)
+		WithTotalByteSize(32 * mem.KB).
+		WithNumReqsPerCycle(4)
 
 	name := fmt.Sprintf("%s.L1ICache", b.name)
 	cache := builder.Build(name)
