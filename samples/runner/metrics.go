@@ -23,8 +23,8 @@ func (c *collector) Collect(where, what string, value float64) {
 	})
 }
 
-func (c *collector) Dump() {
-	f, err := os.Create("metrics.csv")
+func (c *collector) Dump(name string) {
+	f, err := os.Create(name + ".csv")
 	if err != nil {
 		panic(err)
 	}
