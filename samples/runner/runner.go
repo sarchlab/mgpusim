@@ -50,9 +50,9 @@ var unifiedGPUFlag = flag.String("unified-gpus", "",
 Use a format like 1,2,3,4. Cannot coexist with -gpus.`)
 var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 	"Run benchmark with Unified Memory or not")
-var filenameFlag = flag.String("metric-file-name", "metrics", 
+var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
+var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
-
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
 
@@ -135,6 +135,13 @@ func (r *Runner) ParseFlag() *Runner {
 	}
 
 	if *rdmaTransactionCountReportFlag {
+		r.ReportRDMATransactionCount = true
+	}
+
+	if *reportAll {
+		r.ReportCacheLatency = true
+		r.ReportCacheHitRate = true
+		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
 	}
 
