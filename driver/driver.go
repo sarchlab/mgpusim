@@ -131,8 +131,9 @@ func (d *Driver) RegisterGPU(gpu *mgpusim.GPU, dramSize uint64) {
 	d.GPUs = append(d.GPUs, gpu)
 
 	gpuDevice := &internal.Device{
-		ID:   len(d.GPUs),
-		Type: internal.DeviceTypeGPU,
+		ID:       len(d.GPUs),
+		Type:     internal.DeviceTypeGPU,
+		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
 	}
 	gpuDevice.SetTotalMemSize(dramSize)
 	d.memAllocator.RegisterDevice(gpuDevice)
@@ -620,8 +621,9 @@ func (d *Driver) findCommandByReq(req akita.Msg) (Command, *CommandQueue) {
 
 func (d *Driver) createCPU() {
 	cpu := &internal.Device{
-		ID:   0,
-		Type: internal.DeviceTypeCPU,
+		ID:       0,
+		Type:     internal.DeviceTypeCPU,
+		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
 	}
 	cpu.SetTotalMemSize(4 * mem.GB)
 

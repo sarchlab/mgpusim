@@ -98,22 +98,20 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 
 func configAFourGPUSystem(allocator *memoryAllocatorImpl) {
 	cpu := &Device{
-		ID:   0,
-		Type: DeviceTypeCPU,
-		memState: deviceMemoryState{
-			storageSize: 0x1_0000_0000,
-		},
+		ID:       0,
+		Type:     DeviceTypeCPU,
+		MemState: NewDeviceMemoryState(12),
 	}
+	cpu.SetTotalMemSize(0x1_0000_0000)
 	allocator.RegisterDevice(cpu)
 
 	for i := 0; i < 4; i++ { // 5 devices = 1 CPU + 4 GPUs
 		gpu := &Device{
-			ID:   i + 1,
-			Type: DeviceTypeGPU,
-			memState: deviceMemoryState{
-				storageSize: 0x1_0000_0000,
-			},
+			ID:       i + 1,
+			Type:     DeviceTypeGPU,
+			MemState: NewDeviceMemoryState(12),
 		}
+		gpu.SetTotalMemSize(0x1_0000_0000)
 		allocator.RegisterDevice(gpu)
 	}
 }

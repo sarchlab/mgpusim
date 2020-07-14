@@ -11,25 +11,33 @@ const (
 	DeviceTypeUnifiedGPU
 )
 
-//Device is a CPU or GPU managed by the driver.
+// AllocatorType marks the type of memory allocator
+type AllocatorType int
+
+// Defines supported allocation algorithms
+const (
+	AllocatorTypeDefault AllocatorType = iota
+	AllocatorTypeBuddy
+)
+
+// MemoryAllocatorType global flag variable for setting the allocator type
+var MemoryAllocatorType AllocatorType = AllocatorTypeBuddy
+
+
+// Device is a CPU or GPU managed by the driver.
 type Device struct {
 	ID                 int
 	Type               DeviceType
 	UnifiedGPUIDs      []int
 	ActualGPUs         []*Device
 	nextActualGPUIndex int
-	memState           deviceMemoryState
+	MemState           DeviceMemoryState
 }
 
-type deviceMemoryState struct {
-	initialAddress  uint64
-	storageSize     uint64
-	availablePAddrs []uint64
-}
 
-//SetTotalMemSize sets total memory size
+// SetTotalMemSize sets total memory size
 func (d *Device) SetTotalMemSize(size uint64) {
-	d.memState.storageSize = size
+	d.MemState.setStorageSize(size)
 }
 
 func (d *Device) allocatePage() (pAddr uint64) {
@@ -38,14 +46,23 @@ func (d *Device) allocatePage() (pAddr uint64) {
 	}
 
 	d.mustHaveSpaceLeft()
-	pAddr = d.memState.availablePAddrs[0]
-	d.memState.availablePAddrs = d.memState.availablePAddrs[1:]
+	pAddr = d.MemState.popNextAvailablePAddrs()
 
 	return pAddr
 }
 
+func (d *Device) allocateMultiplePages(numPages int) (pAddrs []uint64) {
+	if d.Type == DeviceTypeUnifiedGPU {
+		return d.allocateMultipleUnifiedGPUPages(numPages)
+	}
+	d.mustHaveSpaceLeft()
+	pAddrs = d.MemState.allocateMultiplePages(numPages)
+
+	return pAddrs
+}
+
 func (d *Device) mustHaveSpaceLeft() {
-	if len(d.memState.availablePAddrs) == 0 {
+	if d.MemState.noAvailablePAddrs() {
 		panic("out of memory")
 	}
 }
@@ -55,4 +72,11 @@ func (d *Device) allocateUnifiedGPUPage() (pAddr uint64) {
 	pAddr = dev.allocatePage()
 	d.nextActualGPUIndex = (d.nextActualGPUIndex + 1) % len(d.ActualGPUs)
 	return pAddr
+}
+
+func (d *Device) allocateMultipleUnifiedGPUPages(numPages int) (pAddrs []uint64) {
+	dev := d.ActualGPUs[d.nextActualGPUIndex]
+	pAddrs = dev.allocateMultiplePages(numPages)
+	d.nextActualGPUIndex = (d.nextActualGPUIndex + 1) % len(d.ActualGPUs)
+	return pAddrs
 }
