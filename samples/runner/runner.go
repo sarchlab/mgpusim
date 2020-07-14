@@ -140,7 +140,6 @@ func (r *Runner) ParseFlag() *Runner {
 	if *reportAll {
 		r.ReportCacheLatency = true
 		r.ReportCacheHitRate = true
-		r.ReportCacheHitRate = true
 		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
 	}
