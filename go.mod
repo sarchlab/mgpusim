@@ -12,10 +12,10 @@ require (
 	github.com/vbauerster/mpb/v4 v4.12.2
 	gitlab.com/akita/akita v1.10.1
 	gitlab.com/akita/dnn v0.3.0
-	gitlab.com/akita/mem v1.8.6
+	gitlab.com/akita/mem v1.8.7
 	gitlab.com/akita/noc v1.4.0
 	gitlab.com/akita/util v0.6.4
-	golang.org/x/crypto v0.0.0-20200707235045-ab33eee955e0 // indirect
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208 // indirect
 )
 
