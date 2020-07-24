@@ -457,6 +457,7 @@ func (b *R9NanoGPUBuilder) buildMemBanks() {
 		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)
 		l2 := l2Builder.Build(cacheName)
 		b.l2Caches = append(b.l2Caches, l2)
+		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
 		l2.SetLowModuleFinder(&cache.SingleLowModuleFinder{
 			LowModule: dram.ToTop,
 		})

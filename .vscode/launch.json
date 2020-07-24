@@ -171,12 +171,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fft",
             "args": [
-                "-MB=2",
-                "-verify",
                 "-timing",
-                "-unified-gpus=1,2,3,4",
-                "-use-unified-memory",
-                "-no-progress-bar"
             ]
         },
         {
