@@ -21,7 +21,6 @@ import (
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
 	"gitlab.com/akita/mgpusim/rdma"
-	"gitlab.com/akita/mgpusim/timing/caches/l1v"
 	"gitlab.com/akita/util/tracing"
 )
 
@@ -53,6 +52,7 @@ var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
 var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
+
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
 
@@ -262,6 +262,36 @@ func (r *Runner) addCacheLatencyTracer() {
 	}
 
 	for _, gpu := range r.GPUDriver.GPUs {
+		for _, cache := range gpu.L1ICaches {
+			tracer := tracing.NewAverageTimeTracer(
+				func(task tracing.Task) bool {
+					return task.Kind == "req_in"
+				})
+			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+				cacheLatencyTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+
+		for _, cache := range gpu.L1SCaches {
+			tracer := tracing.NewAverageTimeTracer(
+				func(task tracing.Task) bool {
+					return task.Kind == "req_in"
+				})
+			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+				cacheLatencyTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+
+		for _, cache := range gpu.L1VCaches {
+			tracer := tracing.NewAverageTimeTracer(
+				func(task tracing.Task) bool {
+					return task.Kind == "req_in"
+				})
+			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+				cacheLatencyTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+
 		for _, cache := range gpu.L2Caches {
 			tracer := tracing.NewAverageTimeTracer(
 				func(task tracing.Task) bool {
@@ -285,7 +315,7 @@ func (r *Runner) addCacheHitRateTracer() {
 				func(task tracing.Task) bool { return true })
 			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+			tracing.CollectTrace(cache, tracer)
 		}
 
 		for _, cache := range gpu.L1SCaches {
@@ -293,7 +323,7 @@ func (r *Runner) addCacheHitRateTracer() {
 				func(task tracing.Task) bool { return true })
 			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+			tracing.CollectTrace(cache, tracer)
 		}
 
 		for _, cache := range gpu.L1ICaches {
@@ -301,7 +331,7 @@ func (r *Runner) addCacheHitRateTracer() {
 				func(task tracing.Task) bool { return true })
 			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+			tracing.CollectTrace(cache, tracer)
 		}
 
 		for _, cache := range gpu.L2Caches {
