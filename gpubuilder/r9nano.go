@@ -461,6 +461,11 @@ func (b *R9NanoGPUBuilder) buildMemBanks() {
 		l2.SetLowModuleFinder(&cache.SingleLowModuleFinder{
 			LowModule: dram.ToTop,
 		})
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(dram, b.visTracer)
+			tracing.CollectTrace(l2, b.visTracer)
+		}
 	}
 }
 
