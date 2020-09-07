@@ -203,6 +203,7 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
 		WithNumMemoryBank(8).
+		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize)
 
 	gpuBuilder = b.setVisTracer(gpuDriver, gpuBuilder)

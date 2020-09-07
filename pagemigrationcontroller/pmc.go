@@ -467,7 +467,7 @@ func NewPageMigrationController(
 	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1, name+"CtrlPort")
 	e.RemotePMCAddressTable = remoteModules
 
-	e.onDemandPagingDataTransferSize = 256
+	e.onDemandPagingDataTransferSize = 64
 	e.numDataRspPendingForPageMigration = -1
 
 	e.reqIDToWriteAddressMap = make(map[string]uint64)
