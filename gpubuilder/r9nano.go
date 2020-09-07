@@ -445,6 +445,7 @@ func (b *R9NanoGPUBuilder) buildMemBanks() {
 			fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
 			b.engine, 512*mem.MB)
 		b.drams = append(b.drams, dram)
+		b.gpu.MemoryControllers = append(b.gpu.MemoryControllers, dram)
 
 		addrConverter := idealmemcontroller.InterleavingConverter{
 			InterleavingSize:    1 << b.log2MemoryBankInterleavingSize,
@@ -530,11 +531,12 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 }
 
 func (b *R9NanoGPUBuilder) buildPageMigrationController() {
-	b.pageMigrationController = pagemigrationcontroller.NewPageMigrationController(
-		fmt.Sprintf("%s.PMC", b.gpuName),
-		b.engine,
-		b.lowModuleFinderForPMC,
-		nil)
+	b.pageMigrationController =
+		pagemigrationcontroller.NewPageMigrationController(
+			fmt.Sprintf("%s.PMC", b.gpuName),
+			b.engine,
+			b.lowModuleFinderForPMC,
+			nil)
 
 	b.gpu.PMC = b.pageMigrationController
 }
