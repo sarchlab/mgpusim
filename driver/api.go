@@ -2,7 +2,10 @@ package driver
 
 import (
 	"log"
+	"math"
 	"sync/atomic"
+
+	"gitlab.com/akita/mgpusim/kernels"
 
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
@@ -183,6 +186,29 @@ func (d *Driver) EnqueueMemCopyD2H(
 	d.Enqueue(queue, cmd)
 }
 
+// EnqueueMemCopyD2D registers a MemCopyD2DCommand (LaunchKernelCommand) in the
+// queue.
+func (d *Driver) EnqueueMemCopyD2D(
+	queue *CommandQueue,
+	dst GPUPtr,
+	src GPUPtr,
+	num int,
+) {
+	kernelBytes := _escFSMustByte(false, "/memcopy.hsaco")
+	co := kernels.LoadProgramFromMemory(
+		kernelBytes, "copyKernel")
+	if co == nil {
+		panic("fail to load copyKernel kernel")
+	}
+	gridSize := [3]uint32{uint32(math.Ceil(float64(num) / float64(64*4))), 1, 1}
+	//total_bytes / (wgSize * 4). Each thread copies 4 bytes.
+
+	wgSize := [3]uint16{64, 1, 1}
+	kernelArgs := KernelMemCopyArgs{src, dst, int64(num)}
+
+	d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, &kernelArgs)
+}
+
 func (d *Driver) enqueueFlushBeforeMemCopy(queue *CommandQueue) {
 	dirty := queue.Context.l2Dirty
 	queue.commandsMutex.Lock()
@@ -219,5 +245,13 @@ func (d *Driver) MemCopyH2D(ctx *Context, dst GPUPtr, src interface{}) {
 func (d *Driver) MemCopyD2H(ctx *Context, dst interface{}, src GPUPtr) {
 	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueMemCopyD2H(queue, dst, src)
+	d.DrainCommandQueue(queue)
+}
+
+// MemCopyD2D copies a memory from a GPU device to another GPU device. num is
+// the total number of bytes.
+func (d *Driver) MemCopyD2D(ctx *Context, dst GPUPtr, src GPUPtr, num int) {
+	queue := d.CreateCommandQueue(ctx)
+	d.EnqueueMemCopyD2D(queue, dst, src, num)
 	d.DrainCommandQueue(queue)
 }
