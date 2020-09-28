@@ -424,6 +424,10 @@ func (b *R9NanoGPUBuilder) buildSAs() {
 		saBuilder = saBuilder.withVisTracer(b.visTracer)
 	}
 
+	if b.enableMemTracing {
+		saBuilder = saBuilder.withMemTracer(b.memTracer)
+	}
+
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA_%02d", b.gpuName, i)
 		b.buildSA(saBuilder, saName)
@@ -466,6 +470,11 @@ func (b *R9NanoGPUBuilder) buildMemBanks() {
 		if b.enableVisTracing {
 			tracing.CollectTrace(dram, b.visTracer)
 			tracing.CollectTrace(l2, b.visTracer)
+		}
+
+		if b.enableMemTracing {
+			tracing.CollectTrace(dram, b.memTracer)
+			tracing.CollectTrace(l2, b.memTracer)
 		}
 	}
 }

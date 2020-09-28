@@ -44,6 +44,7 @@ type shaderArrayBuilder struct {
 	log2CacheLineSize uint64
 	log2PageSize      uint64
 	visTracer         tracing.Tracer
+	memTracer         tracing.Tracer
 }
 
 func makeShaderArrayBuilder() shaderArrayBuilder {
@@ -96,6 +97,13 @@ func (b shaderArrayBuilder) withVisTracer(
 	visTracer tracing.Tracer,
 ) shaderArrayBuilder {
 	b.visTracer = visTracer
+	return b
+}
+
+func (b shaderArrayBuilder) withMemTracer(
+	memTracer tracing.Tracer,
+) shaderArrayBuilder {
+	b.memTracer = memTracer
 	return b
 }
 
@@ -318,6 +326,10 @@ func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
 		name := fmt.Sprintf("%s.L1VCache_%02d", b.name, i)
 		cache := builder.Build(name)
 		sa.l1vCaches = append(sa.l1vCaches, cache)
+
+		if b.memTracer != nil {
+			tracing.CollectTrace(cache, b.memTracer)
+		}
 	}
 }
 
@@ -390,6 +402,10 @@ func (b *shaderArrayBuilder) buildL1SCache(sa *shaderArray) {
 	if b.visTracer != nil {
 		tracing.CollectTrace(cache, b.visTracer)
 	}
+
+	if b.memTracer != nil {
+		tracing.CollectTrace(cache, b.memTracer)
+	}
 }
 
 func (b *shaderArrayBuilder) buildL1IReorderBuffer(sa *shaderArray) {
@@ -460,5 +476,9 @@ func (b *shaderArrayBuilder) buildL1ICache(sa *shaderArray) {
 
 	if b.visTracer != nil {
 		tracing.CollectTrace(cache, b.visTracer)
+	}
+
+	if b.memTracer != nil {
+		tracing.CollectTrace(cache, b.memTracer)
 	}
 }
