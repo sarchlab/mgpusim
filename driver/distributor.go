@@ -1,6 +1,8 @@
 package driver
 
-import "gitlab.com/akita/mgpusim/driver/internal"
+import (
+	"gitlab.com/akita/mgpusim/driver/internal"
+)
 
 // A distributor can distribute a virtually consecutive memory to multiple GPUs.
 type distributor interface {
@@ -33,7 +35,7 @@ func (d *distributorImpl) Distribute(
 	}
 
 	byteAllocatedOnEachGPU = make([]uint64, len(gpuIDs))
-	numPages := ((byteSize-1)/pageSize + 1)
+	numPages := (byteSize-1)/pageSize + 1
 	numGPUs := uint64(len(gpuIDs))
 	numPagesPerGPU := numPages / numGPUs
 	numGPUsToUse := uint64(0)
