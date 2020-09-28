@@ -145,7 +145,35 @@ func (d *Driver) Distribute(
 	byteSize uint64,
 	gpuIDs []int,
 ) []uint64 {
-	return d.distributor.Distribute(ctx, uint64(addr), byteSize, gpuIDs)
+	physicalGPUIDs := make([]int, 0)
+
+	for _, gpuID := range gpuIDs {
+		switch d.devices[gpuID].Type {
+		case internal.DeviceTypeGPU:
+			physicalGPUIDs = append(physicalGPUIDs, gpuID)
+		case internal.DeviceTypeUnifiedGPU:
+			physicalGPUIDs = append(physicalGPUIDs,
+				d.devices[gpuID].UnifiedGPUIDs...)
+		}
+	}
+
+	physicalGPUIDs = unique(physicalGPUIDs)
+
+	return d.distributor.Distribute(ctx, uint64(addr), byteSize, physicalGPUIDs)
+}
+
+func unique(in []int) []int {
+	keys := make(map[int]bool)
+	list := make([]int, 0)
+
+	for _, entry := range in {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+
+	return list
 }
 
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
