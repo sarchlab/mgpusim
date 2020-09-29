@@ -11,8 +11,8 @@ import (
 
 var path = flag.String("load-graph", "", "Path to file from which graph to be loaded. "+
 	"Currently only supports text files.\nThe graph is considered directed and edges are "+
-	"needed to described in single \nwith format: <node from> <node to>. You can add comment "+
-	"preceded by #")
+	"needed to described in single line \nwith format: <node from> <node to>. You can add "+
+	"comment preceded by #")
 var numNode = flag.Int("node", 64, "The width of the matrix.")
 var degree = flag.Int("degree", 3, "The height of the matrix.")
 var maxDepth = flag.Int("depth", 0, "The max depth to search, 0 means unlimited")
