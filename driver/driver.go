@@ -795,7 +795,7 @@ func (d *Driver) preparePageForMigration(
 
 	newPage := d.memAllocator.AllocatePageWithGivenVAddr(
 		context.pid, int(gpuID+1), vAddr, true)
-	newPage.GPUID = gpuID + 1
+	newPage.DeviceID = gpuID + 1
 
 	newPage.IsMigrating = true
 	d.pageTable.Update(newPage)

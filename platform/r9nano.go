@@ -24,6 +24,8 @@ type R9NanoPlatformBuilder struct {
 	useParallelEngine  bool
 	debugISA           bool
 	traceVis           bool
+	visTraceStartTime  akita.VTimeInSec
+	visTraceEndTime    akita.VTimeInSec
 	traceMem           bool
 	numGPU             int
 	log2PageSize       uint64
@@ -33,8 +35,10 @@ type R9NanoPlatformBuilder struct {
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
 func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 	b := R9NanoPlatformBuilder{
-		numGPU:       4,
-		log2PageSize: 12,
+		numGPU:            4,
+		log2PageSize:      12,
+		visTraceStartTime: -1,
+		visTraceEndTime:   -1,
 	}
 	return b
 }
@@ -54,6 +58,19 @@ func (b R9NanoPlatformBuilder) WithISADebugging() R9NanoPlatformBuilder {
 // WithVisTracing lets the platform to record traces for visualization purposes.
 func (b R9NanoPlatformBuilder) WithVisTracing() R9NanoPlatformBuilder {
 	b.traceVis = true
+	return b
+}
+
+// WithPartialVisTracing lets the platform to record traces for visualization
+// purposes. The trace will only be collected from the start time to the end
+// time.
+func (b R9NanoPlatformBuilder) WithPartialVisTracing(
+	start, end akita.VTimeInSec,
+) R9NanoPlatformBuilder {
+	b.traceVis = true
+	b.visTraceStartTime = start
+	b.visTraceEndTime = end
+
 	return b
 }
 
@@ -253,7 +270,9 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 		return gpuBuilder
 	}
 
-	tracer := tracing.NewMySQLTracer()
+	tracer := tracing.NewMySQLTracerWithTimeRange(
+		b.visTraceStartTime,
+		b.visTraceEndTime)
 	tracer.Init()
 	tracing.CollectTrace(gpuDriver, tracer)
 
