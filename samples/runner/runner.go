@@ -30,6 +30,12 @@ var parallelFlag = flag.Bool("parallel", false,
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var visTracing = flag.Bool("trace-vis", false,
 	"Generate trace for visualization purposes.")
+var visTraceStartTime = flag.Float64("trace-vis-start", -1,
+	"The starting time to collect visualization traces. A negative number "+
+		"represents starting from the beginning.")
+var visTraceEndTime = flag.Float64("trace-vis-end", -1,
+	"The end time of collecting visualization traces. A negative number"+
+		"means that the trace will be collected to the end of the simulation.")
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 var disableProgressBar = flag.Bool("no-progress-bar", false,
@@ -224,7 +230,10 @@ func (r *Runner) buildTimingPlatform() {
 	}
 
 	if *visTracing {
-		b = b.WithVisTracing()
+		b = b.WithPartialVisTracing(
+			akita.VTimeInSec(*visTraceStartTime),
+			akita.VTimeInSec(*visTraceEndTime),
+		)
 	}
 
 	if *memTracing {

@@ -460,7 +460,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			PAddr:    8589934592,
 			PageSize: 4096,
 			Valid:    true,
-			GPUID:    2,
+			DeviceID: 2,
 			Unified:  true,
 		}
 
@@ -472,7 +472,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				PAddr:    4294967296,
 				PageSize: 0x1000,
 				Valid:    true,
-				GPUID:    1,
+				DeviceID: 1,
 				Unified:  true,
 			}, true)
 		pageTable.EXPECT().Update(vm.Page{
@@ -481,7 +481,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			PAddr:       8589934592,
 			PageSize:    0x1000,
 			Valid:       true,
-			GPUID:       2,
+			DeviceID:    2,
 			Unified:     true,
 			IsMigrating: true,
 		})

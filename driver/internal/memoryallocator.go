@@ -152,7 +152,7 @@ func (a *memoryAllocatorImpl) allocatePages(
 			PageSize: pageSize,
 			Valid:    true,
 			Unified:  unified,
-			GPUID:    uint64(a.deviceIDByPAddr(pAddr)),
+			DeviceID: uint64(a.deviceIDByPAddr(pAddr)),
 		}
 
 		a.pageTable.Insert(page)
@@ -174,7 +174,7 @@ func (a *memoryAllocatorImpl) Remap(
 
 	pageSize := uint64(1 << a.log2PageSize)
 	addr := pageVAddr
-	vAddrs := make([]uint64,0)
+	vAddrs := make([]uint64, 0)
 	for addr < pageVAddr+byteSize {
 		vAddrs = append(vAddrs, addr)
 		addr += pageSize
@@ -233,7 +233,7 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 		PAddr:    pAddr,
 		PageSize: pageSize,
 		Valid:    true,
-		GPUID:    uint64(deviceID),
+		DeviceID: uint64(deviceID),
 		Unified:  isUnified,
 	}
 	a.vAddrToPageMapping[page.VAddr] = page
@@ -260,7 +260,7 @@ func (a *memoryAllocatorImpl) allocateMultiplePagesWithGivenVAddrs(
 			PAddr:    pAddrs[i],
 			PageSize: pageSize,
 			Valid:    true,
-			GPUID:    uint64(deviceID),
+			DeviceID: uint64(deviceID),
 			Unified:  isUnified,
 		}
 		a.vAddrToPageMapping[page.VAddr] = page
