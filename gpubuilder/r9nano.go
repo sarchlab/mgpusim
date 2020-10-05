@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
-	"gitlab.com/akita/mem/idealmemcontroller"
+	"gitlab.com/akita/mem/dram"
 	"gitlab.com/akita/mem/vm/addresstranslator"
 	"gitlab.com/akita/mem/vm/mmu"
 	"gitlab.com/akita/mem/vm/tlb"
@@ -59,7 +59,7 @@ type R9NanoGPUBuilder struct {
 	l1sTLBs                 []*tlb.TLB
 	l1iTLBs                 []*tlb.TLB
 	l2TLBs                  []*tlb.TLB
-	drams                   []*idealmemcontroller.Comp
+	drams                   []*dram.MemController
 	lowModuleFinderForL1    *cache.InterleavedLowModuleFinder
 	lowModuleFinderForL2    *cache.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *cache.InterleavedLowModuleFinder
@@ -190,7 +190,8 @@ func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder
 func (b R9NanoGPUBuilder) Build(name string, id uint64) *mgpusim.GPU {
 	b.createGPU(name, id)
 	b.buildSAs()
-	b.buildMemBanks()
+	b.buildL2Caches()
+	b.buildDRAMControllers()
 	b.buildCP()
 	b.buildL2TLB()
 
@@ -285,14 +286,17 @@ func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
 	lowModuleFinder := cache.NewInterleavedLowModuleFinder(
 		1 << b.log2MemoryBankInterleavingSize)
 
-	for _, l2 := range b.l2Caches {
+	for i, l2 := range b.l2Caches {
 		b.l2ToDramConnection.PlugIn(l2.BottomPort, 64)
+		l2.SetLowModuleFinder(&cache.SingleLowModuleFinder{
+			LowModule: b.drams[i].TopPort,
+		})
 	}
 
 	for _, dram := range b.drams {
-		b.l2ToDramConnection.PlugIn(dram.ToTop, 64)
+		b.l2ToDramConnection.PlugIn(dram.TopPort, 64)
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
-			dram.ToTop)
+			dram.TopPort)
 	}
 
 	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
@@ -434,7 +438,7 @@ func (b *R9NanoGPUBuilder) buildSAs() {
 	}
 }
 
-func (b *R9NanoGPUBuilder) buildMemBanks() {
+func (b *R9NanoGPUBuilder) buildL2Caches() {
 	l2Builder := writeback.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
@@ -442,41 +446,106 @@ func (b *R9NanoGPUBuilder) buildMemBanks() {
 		WithWayAssociativity(16).
 		WithByteSize(256 * mem.KB).
 		WithNumMSHREntry(64).
-		WithNumReqPerCycle(64)
+		WithNumReqPerCycle(1)
 
 	for i := 0; i < b.numMemoryBank; i++ {
-		dram := idealmemcontroller.New(
-			fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
-			b.engine, 512*mem.MB)
-		b.drams = append(b.drams, dram)
-		b.gpu.MemoryControllers = append(b.gpu.MemoryControllers, dram)
-
-		addrConverter := idealmemcontroller.InterleavingConverter{
-			InterleavingSize:    1 << b.log2MemoryBankInterleavingSize,
-			TotalNumOfElements:  b.numMemoryBank,
-			CurrentElementIndex: i,
-			Offset:              b.memAddrOffset,
-		}
-		dram.AddressConverter = addrConverter
-
 		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)
 		l2 := l2Builder.Build(cacheName)
 		b.l2Caches = append(b.l2Caches, l2)
 		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
-		l2.SetLowModuleFinder(&cache.SingleLowModuleFinder{
-			LowModule: dram.ToTop,
-		})
 
 		if b.enableVisTracing {
-			tracing.CollectTrace(dram, b.visTracer)
 			tracing.CollectTrace(l2, b.visTracer)
 		}
 
 		if b.enableMemTracing {
-			tracing.CollectTrace(dram, b.memTracer)
 			tracing.CollectTrace(l2, b.memTracer)
 		}
 	}
+}
+
+func (b *R9NanoGPUBuilder) buildDRAMControllers() {
+	memCtrlBuilder := b.createDramControllerBuilder()
+
+	for i := 0; i < b.numMemoryBank; i++ {
+		dramName := fmt.Sprintf("%s.DRAM_%d", b.gpuName, i)
+		dram := memCtrlBuilder.
+			WithInterleavingAddrConversion(
+				1<<b.log2MemoryBankInterleavingSize,
+				b.numMemoryBank,
+				i, b.memAddrOffset, b.memAddrOffset+4*mem.GB,
+			).
+			Build(dramName)
+		// dram := idealmemcontroller.New(
+		// 	fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
+		// 	b.engine, 512*mem.MB)
+		b.drams = append(b.drams, dram)
+		b.gpu.MemoryControllers = append(b.gpu.MemoryControllers, dram)
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(dram, b.visTracer)
+		}
+
+		if b.enableMemTracing {
+			tracing.CollectTrace(dram, b.memTracer)
+		}
+	}
+}
+
+func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
+	memBankSize := 4 * mem.GB / uint64(b.numMemoryBank)
+	if 4*mem.GB%uint64(b.numMemoryBank) != 0 {
+		panic("GPU memory size is not a multiple of the number of memory banks")
+	}
+	dramCol := 64
+	dramRow := 4096
+	dramDeviceWidth := 32
+	dramBankSize := dramCol * dramRow * dramDeviceWidth
+	dramBank := 4
+	dramBankGroup := 1
+	dramBusWidth := 256
+	dramDevicePerRank := dramBusWidth / dramDeviceWidth
+	dramRankSize := dramBankSize * dramDevicePerRank * dramBank
+	dramRank := int(memBankSize) / dramRankSize
+
+	memCtrlBuilder := dram.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(500 * akita.MHz).
+		WithProtocol(dram.GDDR5).
+		WithBurstLength(8).
+		WithDeviceWidth(dramDeviceWidth).
+		WithBusWidth(dramBusWidth).
+		WithNumChannel(1).
+		WithNumRank(dramRank).
+		WithNumBankGroup(dramBankGroup).
+		WithNumBank(dramBank).
+		WithNumCol(dramCol).
+		WithNumRow(dramRow).
+		WithCommandQueueSize(8).
+		WithTransactionQueueSize(32).
+		WithTCL(24).
+		WithTCWL(7).
+		WithTRCDRD(18).
+		WithTRCDWR(15).
+		WithTRP(18).
+		WithTRAS(42).
+		WithTREFI(11699).
+		WithTRRDS(9).
+		WithTRRDL(9).
+		WithTWTRS(8).
+		WithTWTRL(8).
+		WithTWR(18).
+		WithTCCDS(2).
+		WithTCCDL(3).
+		WithTRTRS(0).
+		WithTRTP(3).
+		WithTPPD(2)
+
+	if b.visTracer != nil {
+		memCtrlBuilder = memCtrlBuilder.WithAdditionalTracer(b.visTracer)
+	}
+
+	return memCtrlBuilder
 }
 
 func (b *R9NanoGPUBuilder) buildSA(

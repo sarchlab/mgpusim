@@ -647,7 +647,7 @@ func (d *Driver) parseFromMMU(now akita.VTimeInSec) bool {
 		d.isCurrentlyHandlingMigrationReq = true
 		d.initiateRDMADrain(now)
 	default:
-		log.Panicf("Driver canot handle request of type %s",
+		log.Panicf("Driver cannot handle request of type %s",
 			reflect.TypeOf(req))
 	}
 
@@ -694,17 +694,17 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) bool {
 		}
 	}
 
-	accesingGPUs := d.currentPageMigrationReq.CurrAccessingGPUs
+	accessingGPUs := d.currentPageMigrationReq.CurrAccessingGPUs
 	pid := d.currentPageMigrationReq.PID
-	d.numShootDownACK = uint64(len(accesingGPUs))
+	d.numShootDownACK = uint64(len(accessingGPUs))
 
-	for i := 0; i < len(accesingGPUs); i++ {
-		toShootdownGPU := accesingGPUs[i] - 1
-		shootDwnReq := protocol.NewShootdownCommand(
+	for i := 0; i < len(accessingGPUs); i++ {
+		toShootdownGPU := accessingGPUs[i] - 1
+		shootDownReq := protocol.NewShootdownCommand(
 			now,
 			d.ToGPUs, d.GPUs[toShootdownGPU].CommandProcessor.ToDriver,
 			vAddr, pid)
-		d.requestsToSend = append(d.requestsToSend, shootDwnReq)
+		d.requestsToSend = append(d.requestsToSend, shootDownReq)
 	}
 
 	return true

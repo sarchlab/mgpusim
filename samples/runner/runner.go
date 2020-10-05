@@ -16,7 +16,6 @@ import (
 
 	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mgpusim/benchmarks"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
@@ -77,7 +76,7 @@ type cacheHitRateTracer struct {
 
 type dramTransactionCountTracer struct {
 	tracer *tracing.AverageTimeTracer
-	dram   *idealmemcontroller.Comp
+	dram   tracing.NamedHookable
 }
 
 type rdmaTransactionCountTracer struct {
@@ -405,7 +404,7 @@ func (r *Runner) addDRAMTracer() {
 	for _, gpu := range r.GPUDriver.GPUs {
 		for _, dram := range gpu.MemoryControllers {
 			t := dramTransactionCountTracer{}
-			t.dram = dram.(*idealmemcontroller.Comp)
+			t.dram = dram.(tracing.NamedHookable)
 			t.tracer = tracing.NewAverageTimeTracer(
 				func(task tracing.Task) bool {
 					return true
