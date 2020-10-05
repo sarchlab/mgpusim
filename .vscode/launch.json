@@ -128,11 +128,6 @@
             "args": [
                 "-timing",
                 "-verify",
-                "-length=8192",
-                "-gpus=1,2",
-                "--no-progress-bar",
-                "--report-all",
-                "--use-unified-memory"
             ]
         },
         {
