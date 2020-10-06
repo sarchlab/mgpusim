@@ -43,6 +43,7 @@ type _escFile struct {
 
 func (_escLocalFS) Open(name string) (http.File, error) {
 	f, present := _escData[path.Clean(name)]
+	// fmt.Println(path.Clean(name))
 	if !present {
 		return nil, os.ErrNotExist
 	}
@@ -312,6 +313,21 @@ hwUP9+NwLIyNHyaV2PjhYudC2Lh6BQB+b7cdFs/GD5NiD61CT/79tG2+d7yNJPPwPfyZfJOe4+B7xjeT
 w33vpy7G4mdqIP0cTloDEo3NMUXK+ZiBnvpZmknapNKTxqXxq1z/9Ey+G++7GPbeiuRO7Dkn9Pn9luLc
 Y6jSc1JnH9N/J1PivxlNdkda/J8BAAD//5VIJrK4JQAA
 `,
+	},
+
+	"im2col.hsaco": {
+		name:    "im2col.hsaco",
+		local:   "im2col.hsaco",
+		size:    13832,
+		modtime: 1578852356,
+		compressed: ``,
+	},
+	"col2im.hsaco": {
+		name:    "col2im.hsaco",
+		local:   "col2im.hsaco",
+		size:    13928,
+		modtime: 1578852356,
+		compressed: ``,
 	},
 }
 
