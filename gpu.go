@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/rdma"
+	"gitlab.com/akita/mgpusim/timing/caches/l1v"
 	"gitlab.com/akita/mgpusim/timing/caches/rob"
 	"gitlab.com/akita/mgpusim/timing/cp"
 )
@@ -20,9 +21,9 @@ type GPU struct {
 	PMC                *pagemigrationcontroller.PageMigrationController
 	Dispatchers        []akita.Component
 	CUs                []akita.Component
-	L1VCaches          []akita.Component
-	L1ICaches          []akita.Component
-	L1SCaches          []akita.Component
+	L1VCaches          []*l1v.Cache
+	L1ICaches          []*l1v.Cache
+	L1SCaches          []*l1v.Cache
 	L2Caches           []*writeback.Cache
 	L2CacheFinder      cache.LowModuleFinder
 	L2TLBs             []*tlb.TLB

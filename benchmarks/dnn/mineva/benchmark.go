@@ -75,7 +75,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 			Network:    b.network,
 			BatchSize:  math.MaxInt32,
 		},
-		Epoch:         1000,
+		Epoch:         1,
 		BatchSize:     128,
 		ShowBatchInfo: true,
 	}

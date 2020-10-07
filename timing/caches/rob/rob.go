@@ -3,7 +3,6 @@ package rob
 
 import (
 	"container/list"
-	"fmt"
 
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mem"
@@ -176,9 +175,6 @@ func (b *ReorderBuffer) parseBottom(now akita.VTimeInSec) bool {
 
 	rsp := item.(mem.AccessRsp)
 	rspTo := rsp.GetRespondTo()
-	if rspTo == "5818306" {
-		fmt.Printf("Here\n")
-	}
 	transElement, found := b.toBottomReqIDToTransactionTable[rspTo]
 
 	if found {

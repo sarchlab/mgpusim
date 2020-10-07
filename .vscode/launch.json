@@ -128,7 +128,6 @@
             "args": [
                 "-timing",
                 "-verify",
-                "--no-progress-bar",
             ]
         },
         {
@@ -171,12 +170,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fft",
             "args": [
-                "-MB=2",
-                "-verify",
                 "-timing",
-                "-unified-gpus=1,2,3,4",
-                "-use-unified-memory",
-                "-no-progress-bar"
             ]
         },
         {
@@ -241,6 +235,25 @@
                 "-length=128",
                 "-timing",
                 "-gpus=1,2"
+            ]
+        },
+
+        {
+            "name": "MaxPooling",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/maxpooling",
+            "args": [
+                "-verify-while-executing",
+                "-h=4",
+                "-w=4",
+                "-pad-h=0",
+                "-pad-w=0",
+                "-stride-h=1",
+                "-stride-w=1",
+                "-kernel-h=3",
+                "-kernel-w=3",
             ]
         },
         {

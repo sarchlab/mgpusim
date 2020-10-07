@@ -1,6 +1,7 @@
 package emu
 
 import (
+	"fmt"
 	"log"
 	"math"
 )
@@ -15,6 +16,8 @@ func (u *ALUImpl) runVOP1(state InstEmuState) {
 		u.runVREADFIRSTLANEB32(state)
 	case 4:
 		u.runVCVTF64I32(state)
+	case 5:
+		u.runVCVTF32I32(state)
 	case 6:
 		u.runVCVTF32U32(state)
 	case 7:
@@ -43,6 +46,8 @@ func (u *ALUImpl) runVOP1(state InstEmuState) {
 		u.runVNOTB32(state)
 	case 44:
 		u.runBFREVB32(state)
+	case 76:
+		u.runLogLegacyF32(state)
 
 	default:
 		log.Panicf("Opcode %d for VOP1 format is not implemented", inst.Opcode)
@@ -88,6 +93,19 @@ func (u *ALUImpl) runVCVTF64I32(state InstEmuState) {
 		}
 
 		sp.DST[i] = math.Float64bits(float64(int32(sp.SRC0[i])))
+	}
+}
+
+func (u *ALUImpl) runVCVTF32I32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		sp.DST[i] = uint64(math.Float32bits(float32(int32(sp.SRC0[i]))))
 	}
 }
 
@@ -329,5 +347,22 @@ func (u *ALUImpl) runVCVTF16F32(state InstEmuState) {
 		}
 		f16 := (sign << 15) | uint16(exp16<<10) | frac
 		sp.DST[i] = uint64(f16)
+	}
+}
+
+func (u *ALUImpl) runLogLegacyF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP1()
+
+	fmt.Printf("Print value inst:\n")
+
+	var i uint
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+
+		fmt.Printf("Print value %d\n", sp.SRC0[i])
+
+		sp.DST[i] = sp.SRC0[i]
 	}
 }

@@ -30,8 +30,9 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		pageTable = vm.NewPageTable(log2PageSize)
 		driver = NewDriver(engine, pageTable, log2PageSize)
 		gpuDevice := &internal.Device{
-			ID:   1,
-			Type: internal.DeviceTypeCPU,
+			ID:       1,
+			Type:     internal.DeviceTypeCPU,
+			MemState: internal.NewDeviceMemoryState(log2PageSize),
 		}
 		gpuDevice.SetTotalMemSize(1 * mem.GB)
 		driver.memAllocator.RegisterDevice(gpuDevice)
@@ -67,3 +68,4 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		})
 	}, 10)
 })
+

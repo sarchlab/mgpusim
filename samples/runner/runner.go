@@ -16,25 +16,33 @@ import (
 
 	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem/idealmemcontroller"
 	"gitlab.com/akita/mgpusim/benchmarks"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
 	"gitlab.com/akita/mgpusim/rdma"
-	"gitlab.com/akita/mgpusim/timing/caches/l1v"
 	"gitlab.com/akita/util/tracing"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
+var maxInstCount = flag.Uint64("max-inst", 0,
+	"Terminate the simulation after the given number of instructions is retired.")
 var parallelFlag = flag.Bool("parallel", false,
 	"Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
 var visTracing = flag.Bool("trace-vis", false,
 	"Generate trace for visualization purposes.")
+var visTraceStartTime = flag.Float64("trace-vis-start", -1,
+	"The starting time to collect visualization traces. A negative number "+
+		"represents starting from the beginning.")
+var visTraceEndTime = flag.Float64("trace-vis-end", -1,
+	"The end time of collecting visualization traces. A negative number"+
+		"means that the trace will be collected to the end of the simulation.")
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
 var disableProgressBar = flag.Bool("no-progress-bar", false,
 	"Disables the progress bar")
+var instCountReportFlag = flag.Bool("report-inst-count", false,
+	"Report the number of instructions executed in each compute unit.")
 var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false,
 	"Report the average cache latency.")
 var cacheHitRateReportFlag = flag.Bool("report-cache-hit-rate", false,
@@ -50,6 +58,20 @@ var unifiedGPUFlag = flag.String("unified-gpus", "",
 Use a format like 1,2,3,4. Cannot coexist with -gpus.`)
 var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 	"Run benchmark with Unified Memory or not")
+var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
+var filenameFlag = flag.String("metric-file-name", "metrics",
+	"Modify the name of the output csv file.")
+
+type verificationPreEnablingBenchmark interface {
+	benchmarks.Benchmark
+
+	EnableVerification()
+}
+
+type instCountTracer struct {
+	tracer *instTracer
+	cu     akita.Component
+}
 
 type cacheLatencyTracer struct {
 	tracer *tracing.AverageTimeTracer
@@ -63,7 +85,7 @@ type cacheHitRateTracer struct {
 
 type dramTransactionCountTracer struct {
 	tracer *tracing.AverageTimeTracer
-	dram   *idealmemcontroller.Comp
+	dram   tracing.NamedHookable
 }
 
 type rdmaTransactionCountTracer struct {
@@ -76,8 +98,10 @@ type rdmaTransactionCountTracer struct {
 type Runner struct {
 	Engine                     akita.Engine
 	GPUDriver                  *driver.Driver
+	maxInstStopper             *instTracer
 	KernelTimeCounter          *tracing.BusyTimeTracer
 	PerGPUKernelTimeCounter    []*tracing.BusyTimeTracer
+	InstCountTracers           []instCountTracer
 	CacheLatencyTracers        []cacheLatencyTracer
 	CacheHitRateTracers        []cacheHitRateTracer
 	RDMATransactionCounters    []rdmaTransactionCountTracer
@@ -86,6 +110,7 @@ type Runner struct {
 	Timing                     bool
 	Verify                     bool
 	Parallel                   bool
+	ReportInstCount            bool
 	ReportCacheLatency         bool
 	ReportCacheHitRate         bool
 	ReportRDMATransactionCount bool
@@ -97,6 +122,7 @@ type Runner struct {
 }
 
 // ParseFlag applies the runner flag to runner object
+//nolint:gocyclo
 func (r *Runner) ParseFlag() *Runner {
 	if *parallelFlag {
 		r.Parallel = true
@@ -114,6 +140,10 @@ func (r *Runner) ParseFlag() *Runner {
 		r.UseUnifiedMemory = true
 	}
 
+	if *instCountReportFlag {
+		r.ReportInstCount = true
+	}
+
 	if *cacheLatencyReportFlag {
 		r.ReportCacheLatency = true
 	}
@@ -127,6 +157,14 @@ func (r *Runner) ParseFlag() *Runner {
 	}
 
 	if *rdmaTransactionCountReportFlag {
+		r.ReportRDMATransactionCount = true
+	}
+
+	if *reportAll {
+		r.ReportInstCount = true
+		r.ReportCacheLatency = true
+		r.ReportCacheHitRate = true
+		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
 	}
 
@@ -162,11 +200,15 @@ func (r *Runner) Init() *Runner {
 	r.parseGPUFlag()
 
 	r.metricsCollector = &collector{}
+	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
+	r.addInstCountTracer()
 	r.addCacheLatencyTracer()
 	r.addCacheHitRateTracer()
 	r.addRDMAEngineTracer()
 	r.addDRAMTracer()
+
+	atexit.Register(func() { r.reportStats() })
 
 	return r
 }
@@ -209,7 +251,10 @@ func (r *Runner) buildTimingPlatform() {
 	}
 
 	if *visTracing {
-		b = b.WithVisTracing()
+		b = b.WithPartialVisTracing(
+			akita.VTimeInSec(*visTraceStartTime),
+			akita.VTimeInSec(*visTraceEndTime),
+		)
 	}
 
 	if *memTracing {
@@ -223,6 +268,19 @@ func (r *Runner) buildTimingPlatform() {
 	r.Engine, r.GPUDriver = b.Build()
 }
 
+func (r *Runner) addMaxInstStopper() {
+	if *maxInstCount == 0 {
+		return
+	}
+
+	r.maxInstStopper = newInstStopper(*maxInstCount)
+	for _, gpu := range r.GPUDriver.GPUs {
+		for _, cu := range gpu.CUs {
+			tracing.CollectTrace(cu.(tracing.NamedHookable), r.maxInstStopper)
+		}
+	}
+}
+
 func (r *Runner) addKernelTimeTracer() {
 	r.KernelTimeCounter = tracing.NewBusyTimeTracer(
 		func(task tracing.Task) bool {
@@ -231,13 +289,31 @@ func (r *Runner) addKernelTimeTracer() {
 	tracing.CollectTrace(r.GPUDriver, r.KernelTimeCounter)
 
 	for _, gpu := range r.GPUDriver.GPUs {
-		gpuKernelTimeCountner := tracing.NewBusyTimeTracer(
+		gpuKernelTimeCounter := tracing.NewBusyTimeTracer(
 			func(task tracing.Task) bool {
 				return task.What == "*protocol.LaunchKernelReq"
 			})
 		r.PerGPUKernelTimeCounter = append(
-			r.PerGPUKernelTimeCounter, gpuKernelTimeCountner)
-		tracing.CollectTrace(gpu.CommandProcessor, gpuKernelTimeCountner)
+			r.PerGPUKernelTimeCounter, gpuKernelTimeCounter)
+		tracing.CollectTrace(gpu.CommandProcessor, gpuKernelTimeCounter)
+	}
+}
+
+func (r *Runner) addInstCountTracer() {
+	if !r.ReportInstCount {
+		return
+	}
+
+	for _, gpu := range r.GPUDriver.GPUs {
+		for _, cu := range gpu.CUs {
+			tracer := newInstTracer()
+			r.InstCountTracers = append(r.InstCountTracers,
+				instCountTracer{
+					tracer: tracer,
+					cu:     cu,
+				})
+			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
+		}
 	}
 }
 
@@ -247,6 +323,36 @@ func (r *Runner) addCacheLatencyTracer() {
 	}
 
 	for _, gpu := range r.GPUDriver.GPUs {
+		for _, cache := range gpu.L1ICaches {
+			tracer := tracing.NewAverageTimeTracer(
+				func(task tracing.Task) bool {
+					return task.Kind == "req_in"
+				})
+			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+				cacheLatencyTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+
+		for _, cache := range gpu.L1SCaches {
+			tracer := tracing.NewAverageTimeTracer(
+				func(task tracing.Task) bool {
+					return task.Kind == "req_in"
+				})
+			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+				cacheLatencyTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+
+		for _, cache := range gpu.L1VCaches {
+			tracer := tracing.NewAverageTimeTracer(
+				func(task tracing.Task) bool {
+					return task.Kind == "req_in"
+				})
+			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+				cacheLatencyTracer{tracer: tracer, cache: cache})
+			tracing.CollectTrace(cache, tracer)
+		}
+
 		for _, cache := range gpu.L2Caches {
 			tracer := tracing.NewAverageTimeTracer(
 				func(task tracing.Task) bool {
@@ -270,7 +376,7 @@ func (r *Runner) addCacheHitRateTracer() {
 				func(task tracing.Task) bool { return true })
 			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+			tracing.CollectTrace(cache, tracer)
 		}
 
 		for _, cache := range gpu.L1SCaches {
@@ -278,7 +384,7 @@ func (r *Runner) addCacheHitRateTracer() {
 				func(task tracing.Task) bool { return true })
 			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+			tracing.CollectTrace(cache, tracer)
 		}
 
 		for _, cache := range gpu.L1ICaches {
@@ -286,7 +392,7 @@ func (r *Runner) addCacheHitRateTracer() {
 				func(task tracing.Task) bool { return true })
 			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache.(*l1v.Cache), tracer)
+			tracing.CollectTrace(cache, tracer)
 		}
 
 		for _, cache := range gpu.L2Caches {
@@ -351,7 +457,7 @@ func (r *Runner) addDRAMTracer() {
 	for _, gpu := range r.GPUDriver.GPUs {
 		for _, dram := range gpu.MemoryControllers {
 			t := dramTransactionCountTracer{}
-			t.dram = dram.(*idealmemcontroller.Comp)
+			t.dram = dram.(tracing.NamedHookable)
 			t.tracer = tracing.NewAverageTimeTracer(
 				func(task tracing.Task) bool {
 					return true
@@ -424,7 +530,14 @@ func (r *Runner) Run() {
 	for _, b := range r.Benchmarks {
 		wg.Add(1)
 		go func(b benchmarks.Benchmark, wg *sync.WaitGroup) {
+			if r.Verify {
+				if b, ok := b.(verificationPreEnablingBenchmark); ok {
+					b.EnableVerification()
+				}
+			}
+
 			b.Run()
+
 			if r.Verify {
 				b.Verify()
 			}
@@ -436,18 +549,26 @@ func (r *Runner) Run() {
 	r.GPUDriver.Terminate()
 	r.Engine.Finished()
 
-	r.reportStats()
+	//r.reportStats()
 
 	atexit.Exit(0)
 }
 
 func (r *Runner) reportStats() {
 	r.reportExecutionTime()
+	r.reportInstCount()
 	r.reportCacheLatency()
 	r.reportCacheHitRate()
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
 	r.dumpMetrics()
+}
+
+func (r *Runner) reportInstCount() {
+	for _, t := range r.InstCountTracers {
+		r.metricsCollector.Collect(
+			t.cu.Name(), "inst_count", float64(t.tracer.count))
+	}
 }
 
 func (r *Runner) reportExecutionTime() {
@@ -538,5 +659,5 @@ func (r *Runner) reportDRAMTransactionCount() {
 }
 
 func (r *Runner) dumpMetrics() {
-	r.metricsCollector.Dump()
+	r.metricsCollector.Dump(*filenameFlag)
 }

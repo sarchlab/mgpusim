@@ -2,7 +2,10 @@ package driver
 
 import (
 	"log"
+	"math"
 	"sync/atomic"
+
+	"gitlab.com/akita/mgpusim/kernels"
 
 	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
@@ -52,6 +55,7 @@ func (d *Driver) CreateUnifiedGPU(c *Context, gpuIDs []int) int {
 		ID:            len(d.devices),
 		Type:          internal.DeviceTypeUnifiedGPU,
 		UnifiedGPUIDs: gpuIDs,
+		MemState:      internal.NewDeviceMemoryState(d.Log2PageSize),
 	}
 
 	for _, gpuID := range gpuIDs {
@@ -141,7 +145,35 @@ func (d *Driver) Distribute(
 	byteSize uint64,
 	gpuIDs []int,
 ) []uint64 {
-	return d.distributor.Distribute(ctx, uint64(addr), byteSize, gpuIDs)
+	physicalGPUIDs := make([]int, 0)
+
+	for _, gpuID := range gpuIDs {
+		switch d.devices[gpuID].Type {
+		case internal.DeviceTypeGPU:
+			physicalGPUIDs = append(physicalGPUIDs, gpuID)
+		case internal.DeviceTypeUnifiedGPU:
+			physicalGPUIDs = append(physicalGPUIDs,
+				d.devices[gpuID].UnifiedGPUIDs...)
+		}
+	}
+
+	physicalGPUIDs = unique(physicalGPUIDs)
+
+	return d.distributor.Distribute(ctx, uint64(addr), byteSize, physicalGPUIDs)
+}
+
+func unique(in []int) []int {
+	keys := make(map[int]bool)
+	list := make([]int, 0)
+
+	for _, entry := range in {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+
+	return list
 }
 
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
@@ -182,6 +214,29 @@ func (d *Driver) EnqueueMemCopyD2H(
 	d.Enqueue(queue, cmd)
 }
 
+// EnqueueMemCopyD2D registers a MemCopyD2DCommand (LaunchKernelCommand) in the
+// queue.
+func (d *Driver) EnqueueMemCopyD2D(
+	queue *CommandQueue,
+	dst GPUPtr,
+	src GPUPtr,
+	num int,
+) {
+	kernelBytes := _escFSMustByte(false, "/memcopy.hsaco")
+	co := kernels.LoadProgramFromMemory(
+		kernelBytes, "copyKernel")
+	if co == nil {
+		panic("fail to load copyKernel kernel")
+	}
+	gridSize := [3]uint32{uint32(math.Ceil(float64(num) / float64(64*4))), 1, 1}
+	//total_bytes / (wgSize * 4). Each thread copies 4 bytes.
+
+	wgSize := [3]uint16{64, 1, 1}
+	kernelArgs := KernelMemCopyArgs{src, dst, int64(num)}
+
+	d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, &kernelArgs)
+}
+
 func (d *Driver) enqueueFlushBeforeMemCopy(queue *CommandQueue) {
 	dirty := queue.Context.l2Dirty
 	queue.commandsMutex.Lock()
@@ -218,5 +273,13 @@ func (d *Driver) MemCopyH2D(ctx *Context, dst GPUPtr, src interface{}) {
 func (d *Driver) MemCopyD2H(ctx *Context, dst interface{}, src GPUPtr) {
 	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueMemCopyD2H(queue, dst, src)
+	d.DrainCommandQueue(queue)
+}
+
+// MemCopyD2D copies a memory from a GPU device to another GPU device. num is
+// the total number of bytes.
+func (d *Driver) MemCopyD2D(ctx *Context, dst GPUPtr, src GPUPtr, num int) {
+	queue := d.CreateCommandQueue(ctx)
+	d.EnqueueMemCopyD2D(queue, dst, src, num)
 	d.DrainCommandQueue(queue)
 }

@@ -44,6 +44,7 @@ type shaderArrayBuilder struct {
 	log2CacheLineSize uint64
 	log2PageSize      uint64
 	visTracer         tracing.Tracer
+	memTracer         tracing.Tracer
 }
 
 func makeShaderArrayBuilder() shaderArrayBuilder {
@@ -96,6 +97,13 @@ func (b shaderArrayBuilder) withVisTracer(
 	visTracer tracing.Tracer,
 ) shaderArrayBuilder {
 	b.visTracer = visTracer
+	return b
+}
+
+func (b shaderArrayBuilder) withMemTracer(
+	memTracer tracing.Tracer,
+) shaderArrayBuilder {
+	b.memTracer = memTracer
 	return b
 }
 
@@ -264,7 +272,7 @@ func (b *shaderArrayBuilder) buildL1VAddressTranslators(sa *shaderArray) {
 	builder := addresstranslator.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithGPUID(b.gpuID).
+		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize)
 
 	for i := 0; i < b.numCU; i++ {
@@ -282,7 +290,6 @@ func (b *shaderArrayBuilder) buildL1VTLBs(sa *shaderArray) {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithNumMSHREntry(4).
 		WithNumMSHREntry(4).
 		WithNumSets(1).
 		WithNumWays(64).
@@ -318,6 +325,10 @@ func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
 		name := fmt.Sprintf("%s.L1VCache_%02d", b.name, i)
 		cache := builder.Build(name)
 		sa.l1vCaches = append(sa.l1vCaches, cache)
+
+		if b.memTracer != nil {
+			tracing.CollectTrace(cache, b.memTracer)
+		}
 	}
 }
 
@@ -341,7 +352,7 @@ func (b *shaderArrayBuilder) buildL1SAddressTranslator(sa *shaderArray) {
 	builder := addresstranslator.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithGPUID(b.gpuID).
+		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize)
 
 	name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
@@ -357,7 +368,6 @@ func (b *shaderArrayBuilder) buildL1STLB(sa *shaderArray) {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithNumMSHREntry(4).
 		WithNumMSHREntry(4).
 		WithNumSets(1).
 		WithNumWays(64).
@@ -390,6 +400,10 @@ func (b *shaderArrayBuilder) buildL1SCache(sa *shaderArray) {
 	if b.visTracer != nil {
 		tracing.CollectTrace(cache, b.visTracer)
 	}
+
+	if b.memTracer != nil {
+		tracing.CollectTrace(cache, b.memTracer)
+	}
 }
 
 func (b *shaderArrayBuilder) buildL1IReorderBuffer(sa *shaderArray) {
@@ -412,7 +426,7 @@ func (b *shaderArrayBuilder) buildL1IAddressTranslator(sa *shaderArray) {
 	builder := addresstranslator.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithGPUID(b.gpuID).
+		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize)
 
 	name := fmt.Sprintf("%s.L1IAddrTrans", b.name)
@@ -428,7 +442,6 @@ func (b *shaderArrayBuilder) buildL1ITLB(sa *shaderArray) {
 	builder := tlb.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithNumMSHREntry(4).
 		WithNumMSHREntry(4).
 		WithNumSets(1).
 		WithNumWays(64).
@@ -452,7 +465,8 @@ func (b *shaderArrayBuilder) buildL1ICache(sa *shaderArray) {
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssocitivity(4).
 		WithNumMSHREntry(16).
-		WithTotalByteSize(32 * mem.KB)
+		WithTotalByteSize(32 * mem.KB).
+		WithNumReqsPerCycle(4)
 
 	name := fmt.Sprintf("%s.L1ICache", b.name)
 	cache := builder.Build(name)
@@ -460,5 +474,9 @@ func (b *shaderArrayBuilder) buildL1ICache(sa *shaderArray) {
 
 	if b.visTracer != nil {
 		tracing.CollectTrace(cache, b.visTracer)
+	}
+
+	if b.memTracer != nil {
+		tracing.CollectTrace(cache, b.memTracer)
 	}
 }

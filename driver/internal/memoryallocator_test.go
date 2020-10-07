@@ -35,7 +35,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 				PAddr:    0x1_0000_1000,
 				VAddr:    4096,
 				PageSize: 4096,
-				GPUID:    1,
+				DeviceID: 1,
 				Valid:    true,
 			})
 
@@ -50,7 +50,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 				PAddr:    0x1_0000_1000,
 				VAddr:    4096,
 				PageSize: 4096,
-				GPUID:    1,
+				DeviceID: 1,
 				Valid:    true,
 				Unified:  true,
 			})
@@ -66,7 +66,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 					PID:      1,
 					PAddr:    0x1_0000_1000 + 0x1000*i,
 					VAddr:    4096 + 0x1000*i,
-					GPUID:    1,
+					DeviceID: 1,
 					PageSize: 4096,
 					Valid:    true,
 				})
@@ -82,7 +82,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 			PAddr:    0x1_0000_1000,
 			VAddr:    4096,
 			PageSize: 4096,
-			GPUID:    1,
+			DeviceID: 1,
 			Valid:    true,
 		}
 		pageTable.EXPECT().Insert(page)
@@ -90,7 +90,7 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 
 		updatedPage := page
 		updatedPage.PAddr = 0x2_0000_1000
-		updatedPage.GPUID = 2
+		updatedPage.DeviceID = 2
 		pageTable.EXPECT().Update(updatedPage)
 		allocator.Remap(1, ptr, 4000, 2)
 	})
@@ -98,22 +98,20 @@ var _ = Describe("MemoryAllocatorImpl", func() {
 
 func configAFourGPUSystem(allocator *memoryAllocatorImpl) {
 	cpu := &Device{
-		ID:   0,
-		Type: DeviceTypeCPU,
-		memState: deviceMemoryState{
-			storageSize: 0x1_0000_0000,
-		},
+		ID:       0,
+		Type:     DeviceTypeCPU,
+		MemState: NewDeviceMemoryState(12),
 	}
+	cpu.SetTotalMemSize(0x1_0000_0000)
 	allocator.RegisterDevice(cpu)
 
 	for i := 0; i < 4; i++ { // 5 devices = 1 CPU + 4 GPUs
 		gpu := &Device{
-			ID:   i + 1,
-			Type: DeviceTypeGPU,
-			memState: deviceMemoryState{
-				storageSize: 0x1_0000_0000,
-			},
+			ID:       i + 1,
+			Type:     DeviceTypeGPU,
+			MemState: NewDeviceMemoryState(12),
 		}
+		gpu.SetTotalMemSize(0x1_0000_0000)
 		allocator.RegisterDevice(gpu)
 	}
 }

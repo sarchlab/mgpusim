@@ -131,8 +131,9 @@ func (d *Driver) RegisterGPU(gpu *mgpusim.GPU, dramSize uint64) {
 	d.GPUs = append(d.GPUs, gpu)
 
 	gpuDevice := &internal.Device{
-		ID:   len(d.GPUs),
-		Type: internal.DeviceTypeGPU,
+		ID:       len(d.GPUs),
+		Type:     internal.DeviceTypeGPU,
+		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
 	}
 	gpuDevice.SetTotalMemSize(dramSize)
 	d.memAllocator.RegisterDevice(gpuDevice)
@@ -620,8 +621,9 @@ func (d *Driver) findCommandByReq(req akita.Msg) (Command, *CommandQueue) {
 
 func (d *Driver) createCPU() {
 	cpu := &internal.Device{
-		ID:   0,
-		Type: internal.DeviceTypeCPU,
+		ID:       0,
+		Type:     internal.DeviceTypeCPU,
+		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
 	}
 	cpu.SetTotalMemSize(4 * mem.GB)
 
@@ -645,7 +647,7 @@ func (d *Driver) parseFromMMU(now akita.VTimeInSec) bool {
 		d.isCurrentlyHandlingMigrationReq = true
 		d.initiateRDMADrain(now)
 	default:
-		log.Panicf("Driver canot handle request of type %s",
+		log.Panicf("Driver cannot handle request of type %s",
 			reflect.TypeOf(req))
 	}
 
@@ -692,17 +694,17 @@ func (d *Driver) sendShootDownReqs(now akita.VTimeInSec) bool {
 		}
 	}
 
-	accesingGPUs := d.currentPageMigrationReq.CurrAccessingGPUs
+	accessingGPUs := d.currentPageMigrationReq.CurrAccessingGPUs
 	pid := d.currentPageMigrationReq.PID
-	d.numShootDownACK = uint64(len(accesingGPUs))
+	d.numShootDownACK = uint64(len(accessingGPUs))
 
-	for i := 0; i < len(accesingGPUs); i++ {
-		toShootdownGPU := accesingGPUs[i] - 1
-		shootDwnReq := protocol.NewShootdownCommand(
+	for i := 0; i < len(accessingGPUs); i++ {
+		toShootdownGPU := accessingGPUs[i] - 1
+		shootDownReq := protocol.NewShootdownCommand(
 			now,
 			d.ToGPUs, d.GPUs[toShootdownGPU].CommandProcessor.ToDriver,
 			vAddr, pid)
-		d.requestsToSend = append(d.requestsToSend, shootDwnReq)
+		d.requestsToSend = append(d.requestsToSend, shootDownReq)
 	}
 
 	return true
@@ -793,7 +795,7 @@ func (d *Driver) preparePageForMigration(
 
 	newPage := d.memAllocator.AllocatePageWithGivenVAddr(
 		context.pid, int(gpuID+1), vAddr, true)
-	newPage.GPUID = gpuID + 1
+	newPage.DeviceID = gpuID + 1
 
 	newPage.IsMigrating = true
 	d.pageTable.Update(newPage)

@@ -160,12 +160,17 @@ func (b *Builder) buildStages(c *Cache) {
 	for i := 0; i < b.numBank; i++ {
 		pipelineName := fmt.Sprintf("%s.Bank_%02d.Pipeline", c.Name(), i)
 		postPipelineBuf := util.NewBuffer(b.numReqPerCycle)
+		pipeline := pipelining.MakeBuilder().
+			WithPipelineWidth(b.numReqPerCycle).
+			WithNumStage(b.bankLatency).
+			WithCyclePerStage(1).
+			WithPostPipelineBuffer(postPipelineBuf).
+			Build(pipelineName)
 		bs := &bankStage{
-			cache:          c,
-			bankID:         i,
-			numReqPerCycle: b.numReqPerCycle,
-			pipeline: pipelining.NewPipeline(
-				pipelineName, b.bankLatency, 1, postPipelineBuf),
+			cache:           c,
+			bankID:          i,
+			numReqPerCycle:  b.numReqPerCycle,
+			pipeline:        pipeline,
 			postPipelineBuf: postPipelineBuf,
 		}
 		c.bankStages = append(c.bankStages, bs)
