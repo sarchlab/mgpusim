@@ -213,7 +213,7 @@ var _escData = map[string]*_escFile{
 		name:    "col2im.hsaco",
 		local:   "col2im.hsaco",
 		size:    13928,
-		modtime: 1602188630,
+		modtime: 1602194869,
 		compressed: `
 H4sIAAAAAAAC/+xbTWwb153/zZvhaDgzHJISReqDksa0bDl0JFNjWpF9WX+tlSC248TZfOwiMGhyJFGm
 SIGivPYCmpBKJDGBsSsEOeRgLINgj3vroTd9AAWKJkAh8tSDD73k0J7aAm16Eos3HxLJWI6Dpkir8g9I

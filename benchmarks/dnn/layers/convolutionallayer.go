@@ -107,7 +107,7 @@ func NewConvolutionalLayer(
 }
 
 func (l *Conv2D) loadKernels(){
-	hsacoBytes := _escFSMustByte(true, "./im2col.hsaco")
+	hsacoBytes := _escFSMustByte(true, "/im2col.hsaco")
 	//clang-ocl -mcpu=gfx803 im2col.cl -o im2col.hsaco
 	//clang-ocl -mcpu=gfx803 im2col.cl -S -o im2col.asm
 	// source bash
@@ -118,14 +118,14 @@ func (l *Conv2D) loadKernels(){
 		log.Panic("Failed to load im2col kernel binary")
 	}
 
-	hsacoBytes1 := _escFSMustByte(true, "./col2im.hsaco")
+	hsacoBytes1 := _escFSMustByte(true, "/col2im.hsaco")
 
 	l.col2imKernel = kernels.LoadProgramFromMemory(hsacoBytes1, "col2imKernel")
 	if l.col2imKernel == nil {
 		log.Panic("Failed to load col2im kernel binary")
 	}
 
-	hsacoBytes2 := _escFSMustByte(true, "./flatten.hsaco")
+	hsacoBytes2 := _escFSMustByte(true, "/flatten.hsaco")
 
 	l.flatKernel = kernels.LoadProgramFromMemory(hsacoBytes2, "flatKernel")
 	if l.flatKernel == nil {
