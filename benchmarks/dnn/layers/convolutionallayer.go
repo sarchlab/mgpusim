@@ -43,6 +43,7 @@ type Conv2D struct {
 
 	im2colKernel	*insts.HsaCo
 	col2imKernel	*insts.HsaCo
+	flatKernel		*insts.HsaCo
 	
 	parameters      *Vector 
 	kernel			*Vector
@@ -68,6 +69,16 @@ type KernelArgsim2col struct {
 	InputDimensions, MaskDimensions, StrDimensions, PadVertDimensions, PadHoriDimensions [2]uint32
 	Channel                         uint32
 	Batch							uint32
+	OffsetX, OffsetY, OffsetZ       uint64
+}
+
+type KernelArgsFlatten struct {
+	Input                           driver.GPUPtr
+	Output                          driver.GPUPtr
+	InputChannel                    uint32
+	OutputChannel					uint32
+	Height							uint32
+	Width							uint32
 	OffsetX, OffsetY, OffsetZ       uint64
 }
 
@@ -107,10 +118,17 @@ func (l *Conv2D) loadKernels(){
 		log.Panic("Failed to load im2col kernel binary")
 	}
 
-	hsacoBytes = _escFSMustByte(true, "./col2im.hsaco")
+	hsacoBytes1 := _escFSMustByte(true, "./col2im.hsaco")
 
-	l.col2imKernel = kernels.LoadProgramFromMemory(hsacoBytes, "col2imKernel")
+	l.col2imKernel = kernels.LoadProgramFromMemory(hsacoBytes1, "col2imKernel")
 	if l.col2imKernel == nil {
+		log.Panic("Failed to load col2im kernel binary")
+	}
+
+	hsacoBytes2 := _escFSMustByte(true, "./flatten.hsaco")
+
+	l.flatKernel = kernels.LoadProgramFromMemory(hsacoBytes2, "flatKernel")
+	if l.flatKernel == nil {
 		log.Panic("Failed to load col2im kernel binary")
 	}
 }
@@ -276,6 +294,33 @@ func (l *Conv2D) verifyBackPass(input, output *Tensor) {
 	// log.Printf("Conv2D backward verification passed!")
 }
 
+func (l *Conv2D) flipped(input driver.GPUPtr, output driver.GPUPtr){
+	gridSize := l.kernelSize[0] * l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1]
+
+	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
+	kernArg := KernelArgsFlatten{
+		input,
+		output,
+		uint32(l.kernelSize[1]),
+		uint32(l.kernelSize[0]),
+		uint32(l.kernelSize[2]),
+		uint32(l.kernelSize[3]),
+		uint64(gridSize), 0, 0,
+	}
+
+	l.GPUDriver.EnqueueLaunchKernel(
+		queue,
+		l.im2colKernel,
+		[3]uint32{uint32(gridSize), 1, 1},
+		[3]uint16{uint16(64), 1, 1},
+		&kernArg,
+	)
+
+	l.GPUDriver.DrainCommandQueue(queue)
+
+	return
+
+}
 
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	save := inputTensor.(*Tensor)
@@ -313,9 +358,9 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	dInputData := l.GPUDriver.AllocateMemory(l.GPUCtx,
 		uint64(inputTotalSize*sizeOfFloat))
 
-	// assuming kernel flipped already in row major, 1D falttened
-	
-	kernelM := l.kernel.AsMatrix(l.outputSize[0],  l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1])
+	// assuming kernel is in
+	kernel_b := l.kernel.AsMatrix(l.outputSize[0],  l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1])
+	kernelM := l.MatrixOperator.CreateMatrix(l.outputSize[0],  l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1])
 	im2colM := l.MatrixOperator.CreateMatrix(l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1], fieldHeight * fieldWidth)
 	outputM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight * fieldWidth)
 	biasM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight * fieldWidth)
@@ -333,6 +378,7 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 		gridSize := ((b.Width + b.padWidth) * (b.Height + b.padHeight)) /
 			uint32(len(b.gpus))
 		*/
+	l.flipped(kernel_b.data, kernelM.data);
 	l.im2col(dInputData, dim2colData, l.kernelSize[1], batchSize, gridSize);
 	l.MatrixOperator.Gemm(false, false,
 		l.outputSize[0], l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1], fieldHeight * fieldWidth,
