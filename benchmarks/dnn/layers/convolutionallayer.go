@@ -129,7 +129,7 @@ func (l *Conv2D) loadKernels(){
 
 	l.flatKernel = kernels.LoadProgramFromMemory(hsacoBytes2, "flatKernel")
 	if l.flatKernel == nil {
-		log.Panic("Failed to load col2im kernel binary")
+		log.Panic("Failed to load flat kernel binary")
 	}
 }
 
