@@ -109,7 +109,7 @@ func (l *Conv2D) loadKernels() {
 	// source bash
 	//esc -private -o esc.go -pkg simpleimcol ./im2col.hsaco
 
-	l.im2colKernel = kernels.LoadProgramFromMemory(hsacoBytes, "im2colKernel$local")
+	l.im2colKernel = kernels.LoadProgramFromMemory(hsacoBytes, "im2colKernel")
 	if l.im2colKernel == nil {
 		log.Panic("Failed to load im2col kernel binary")
 	}
