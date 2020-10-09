@@ -3,7 +3,9 @@ package layers
 import (
 
 	// "math"
+	"fmt"
 	"log"
+
 	// "gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/tensor"
 	"gitlab.com/akita/mgpusim/driver"
@@ -317,7 +319,7 @@ func (l *Conv2D) flipped(input driver.GPUPtr, output driver.GPUPtr) {
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	save := inputTensor.(*Tensor)
 	l.saveInput(save)
-	sizeOfFloat := 4
+	// sizeOfFloat := 4
 	if inputTensor.Size()[0] != l.inputSize[0] ||
 		inputTensor.Size()[1] != l.inputSize[1] ||
 		inputTensor.Size()[2] != l.inputSize[2] {
@@ -338,7 +340,7 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	fieldWidth := (inputWidth-l.kernelSize[3]+l.padding[1]+l.padding[3])/l.stride[1] + 1
 	fieldHeight := (inputHeight-l.kernelSize[2]+l.padding[0]+l.padding[2])/l.stride[0] + 1
 
-	inputTotalSize := l.inputSize[0] * l.inputSize[1] * l.inputSize[2]
+	// inputTotalSize := l.inputSize[0] * l.inputSize[1] * l.inputSize[2]
 	//imcolOutputSize := fieldWidth * fieldHeight * l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1]
 	outputTotalSize := l.outputSize[0] * outputHeight * outputWidth
 	//kernelTotalSize := l.kernelSize[0] * l.kernelSize[2] * l.kernelSize[3]
@@ -346,8 +348,8 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	cpuOutput := make([]float64, outputTotalSize)
 	// assume kernel in kernelTEMP
 
-	dInputData := l.GPUDriver.AllocateMemory(l.GPUCtx,
-		uint64(inputTotalSize*sizeOfFloat))
+	// dInputData := l.GPUDriver.AllocateMemory(l.GPUCtx,
+	// 	uint64(inputTotalSize*sizeOfFloat))
 
 	// assuming kernel is in
 	kernel_b := l.kernel.AsMatrix(l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1])
@@ -360,7 +362,7 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	dOutputData := outputM.data
 	// dKernel := kernelM.data
 
-	l.GPUDriver.MemCopyH2D(l.GPUCtx, dInputData, input.ptr)
+	// l.GPUDriver.MemCopyH2D(l.GPUCtx, dInputData, input.ptr)
 	//l.GPUDriver.MemCopyH2D(l.GPUCtx, dKernel, l.kernelTEMP)
 
 	gridSize := fieldWidth * fieldHeight * l.kernelSize[1]
@@ -370,7 +372,16 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 			uint32(len(b.gpus))
 	*/
 	l.flipped(kernel_b.data, kernelM.data)
-	l.im2col(dInputData, dim2colData, l.kernelSize[1], batchSize, gridSize)
+	hInputData := make([]float32, 3*3)
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hInputData, input.ptr)
+	fmt.Println(hInputData)
+
+	l.im2col(input.ptr, dim2colData, l.kernelSize[1], batchSize, gridSize)
+
+	hIm2ColData := make([]float32, l.kernelSize[2]*l.kernelSize[3])
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dim2colData)
+	fmt.Println(hIm2ColData)
+
 	l.MatrixOperator.Gemm(false, false,
 		l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1], fieldHeight*fieldWidth,
 		1.0, 1.0,
@@ -585,7 +596,7 @@ func (l *Conv2D) im2col(dInputData driver.GPUPtr, dim2colData driver.GPUPtr, cha
 		[2]uint32{uint32(l.padding[3]), uint32(l.padding[1])},
 		uint32(channel),
 		uint32(batchSize),
-		uint64(gridSize), 0, 0,
+		0, 0, 0,
 	}
 
 	l.GPUDriver.EnqueueLaunchKernel(
