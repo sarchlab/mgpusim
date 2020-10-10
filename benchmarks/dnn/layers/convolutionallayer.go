@@ -9,11 +9,8 @@ import (
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
-
-
 	// "fmt"
 )
-
 
 // NewConvolutionalLayer creates a new convolutional layer for the DNN network.
 // The inputSize should be a 3-number array representing [channel, height,
@@ -41,62 +38,61 @@ type Conv2D struct {
 	padding               []int
 	// bias                  []int
 
-	im2colKernel	*insts.HsaCo
-	col2imKernel	*insts.HsaCo
-	flatKernel		*insts.HsaCo
-	
-	parameters      *Vector 
-	kernel			*Vector
+	im2colKernel *insts.HsaCo
+	col2imKernel *insts.HsaCo
+	flatKernel   *insts.HsaCo
+
+	parameters      *Vector
+	kernel          *Vector
 	bias            *Vector
-	gradients       *Vector  //TODO: useful?
-	inputGradients  *Vector 
+	gradients       *Vector //TODO: useful?
+	inputGradients  *Vector
 	weightGradients *Vector
 	biasGradients   *Vector
 }
 
 type KernelArgsCol2im struct {
 	Input_h, Input_w, Channels, Output_h, Output_w, Kernel_h, Kernel_w, Pad_h, Pad_w, Stride_h, Stride_w, Dilation_h, Dilation_w int32
-	Col_buffer driver.GPUPtr
-	Col_offset int32
-	Im_buffer driver.GPUPtr
-	Im_offset int32
-	OffsetX, OffsetY, OffsetZ       uint64
+	Col_buffer                                                                                                                   driver.GPUPtr
+	Col_offset                                                                                                                   int32
+	Im_buffer                                                                                                                    driver.GPUPtr
+	Im_offset                                                                                                                    int32
+	OffsetX, OffsetY, OffsetZ                                                                                                    uint64
 }
 
 type KernelArgsim2col struct {
-	Input                           driver.GPUPtr
-	Output                          driver.GPUPtr
+	Input                                                                                driver.GPUPtr
+	Output                                                                               driver.GPUPtr
 	InputDimensions, MaskDimensions, StrDimensions, PadVertDimensions, PadHoriDimensions [2]uint32
-	Channel                         uint32
-	Batch							uint32
-	OffsetX, OffsetY, OffsetZ       uint64
+	Channel                                                                              uint32
+	Batch                                                                                uint32
+	OffsetX, OffsetY, OffsetZ                                                            uint64
 }
 
 type KernelArgsFlatten struct {
-	Input                           driver.GPUPtr
-	Output                          driver.GPUPtr
-	InputChannel                    uint32
-	OutputChannel					uint32
-	Height							uint32
-	Width							uint32
-	OffsetX, OffsetY, OffsetZ       uint64
+	Input                     driver.GPUPtr
+	Output                    driver.GPUPtr
+	InputChannel              uint32
+	OutputChannel             uint32
+	Height                    uint32
+	Width                     uint32
+	OffsetX, OffsetY, OffsetZ uint64
 }
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$GPU_VERSION$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 
-
 func NewConvolutionalLayer(
-	inputSize, kernelSize, stride, padding []int, GPUDriver *driver.Driver, GPUCtx  *driver.Context, MatrixOperator *MatrixOperator,
- ) *Conv2D {
+	inputSize, kernelSize, stride, padding []int, GPUDriver *driver.Driver, GPUCtx *driver.Context, MatrixOperator *MatrixOperator,
+) *Conv2D {
 	// argumentsMustBeValid(inputSize, kernelSize, stride, padding)
 
 	l := &Conv2D{
-		inputSize:  inputSize,
-		kernelSize: kernelSize,
-		stride:     stride,
-		padding:    padding,
-		GPUDriver: 	GPUDriver,
-		GPUCtx:		GPUCtx,
+		inputSize:      inputSize,
+		kernelSize:     kernelSize,
+		stride:         stride,
+		padding:        padding,
+		GPUDriver:      GPUDriver,
+		GPUCtx:         GPUCtx,
 		MatrixOperator: MatrixOperator,
 	}
 	l.calculateOutputSize()
@@ -106,7 +102,7 @@ func NewConvolutionalLayer(
 	return l
 }
 
-func (l *Conv2D) loadKernels(){
+func (l *Conv2D) loadKernels() {
 	hsacoBytes := _escFSMustByte(true, "/im2col.hsaco")
 	//clang-ocl -mcpu=gfx803 im2col.cl -o im2col.hsaco
 	//clang-ocl -mcpu=gfx803 im2col.cl -S -o im2col.asm
@@ -127,9 +123,9 @@ func (l *Conv2D) loadKernels(){
 
 	hsacoBytes2 := _escFSMustByte(true, "/flatten.hsaco")
 
-	l.flatKernel = kernels.LoadProgramFromMemory(hsacoBytes2, "flatKernel")
+	l.flatKernel = kernels.LoadProgramFromMemory(hsacoBytes2, "flattenKernel")
 	if l.flatKernel == nil {
-		log.Panic("Failed to load flat kernel binary")
+		log.Panic("Failed to load flatten kernel binary")
 	}
 }
 
@@ -142,7 +138,7 @@ func (l *Conv2D) allocateGradients() {
 	sizeOfFloat := 4
 	numGradients := l.numWeights() + l.numInput() + l.numBias()
 	gradientsPtr := l.GPUDriver.AllocateMemory(
-		l.GPUCtx, uint64(numGradients * sizeOfFloat))
+		l.GPUCtx, uint64(numGradients*sizeOfFloat))
 
 	l.inputGradients = &Vector{
 		size:      l.numInput(),
@@ -152,13 +148,13 @@ func (l *Conv2D) allocateGradients() {
 	}
 	l.weightGradients = &Vector{
 		size:      l.numWeights(),
-		ptr:       gradientsPtr + driver.GPUPtr(l.numInput() * sizeOfFloat),
+		ptr:       gradientsPtr + driver.GPUPtr(l.numInput()*sizeOfFloat),
 		GPUDriver: l.GPUDriver,
 		GPUCtx:    l.GPUCtx,
 	}
 	l.biasGradients = &Vector{
 		size:      l.numBias(),
-		ptr:       gradientsPtr + driver.GPUPtr((l.numInput() + l.numWeights()) * sizeOfFloat),
+		ptr:       gradientsPtr + driver.GPUPtr((l.numInput()+l.numWeights())*sizeOfFloat),
 		GPUDriver: l.GPUDriver,
 		GPUCtx:    l.GPUCtx,
 	}
@@ -167,7 +163,7 @@ func (l *Conv2D) allocateGradients() {
 func (l *Conv2D) allocateParams() {
 	sizeOfFloat := 4
 	parametersPtr := l.GPUDriver.AllocateMemory(
-		l.GPUCtx, uint64(l.numParameters() * sizeOfFloat))
+		l.GPUCtx, uint64(l.numParameters()*sizeOfFloat))
 
 	l.parameters = &Vector{
 		size:      l.numParameters(),
@@ -183,7 +179,7 @@ func (l *Conv2D) allocateParams() {
 	}
 	l.bias = &Vector{
 		size:      l.numBias(),
-		ptr:       parametersPtr + driver.GPUPtr(l.numWeights() * sizeOfFloat),
+		ptr:       parametersPtr + driver.GPUPtr(l.numWeights()*sizeOfFloat),
 		GPUDriver: l.GPUDriver,
 		GPUCtx:    l.GPUCtx,
 	}
@@ -195,14 +191,12 @@ func (l *Conv2D) EnableVerification() {
 	// l.cpuLayer = layers.NewConvolutionalLayer(l.inputSize, l.kernelSize, l.stride, l.padding)
 }
 
-
-
 func (l *Conv2D) saveInput(input *Tensor) {
 	if l.forwardInput != 0 {
 		l.GPUDriver.FreeMemory(l.GPUCtx, l.forwardInput)
 	}
 
-	numElement := input.Size()[0] * input.Size()[1] * input.Size()[2] 
+	numElement := input.Size()[0] * input.Size()[1] * input.Size()[2]
 	l.forwardInput = l.GPUDriver.AllocateMemory(l.GPUCtx,
 		uint64(numElement*4))
 
@@ -211,14 +205,13 @@ func (l *Conv2D) saveInput(input *Tensor) {
 	l.GPUDriver.MemCopyH2D(l.GPUCtx, l.forwardInput, temp)
 }
 
-
 func (l Conv2D) numParameters() int {
 	numParameters := l.numWeights() + l.numBias()
 	return numParameters
 }
 
 func (l Conv2D) numBias() int {
-	numBias := l.outputSize[0] //TODO: the number of bias equals to the output channel size? 
+	numBias := l.outputSize[0] //TODO: the number of bias equals to the output channel size?
 	return numBias
 }
 
@@ -227,9 +220,8 @@ func (l Conv2D) numWeights() int {
 	return numWeights
 }
 
-
 func (l Conv2D) numInput() int {
-	numInput := l.inputSize[0] * l.inputSize[1] * l.inputSize[2]// number of elements in input.
+	numInput := l.inputSize[0] * l.inputSize[1] * l.inputSize[2] // number of elements in input.
 	return numInput
 }
 
@@ -294,7 +286,7 @@ func (l *Conv2D) verifyBackPass(input, output *Tensor) {
 	// log.Printf("Conv2D backward verification passed!")
 }
 
-func (l *Conv2D) flipped(input driver.GPUPtr, output driver.GPUPtr){
+func (l *Conv2D) flipped(input driver.GPUPtr, output driver.GPUPtr) {
 	gridSize := l.kernelSize[0] * l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1]
 
 	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
@@ -324,15 +316,15 @@ func (l *Conv2D) flipped(input driver.GPUPtr, output driver.GPUPtr){
 
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	save := inputTensor.(*Tensor)
-	l.saveInput(save) 
+	l.saveInput(save)
 	sizeOfFloat := 4
-	if (inputTensor.Size()[0] != l.inputSize[0] || 
-	inputTensor.Size()[1] != l.inputSize[1] || 
-	inputTensor.Size()[2] != l.inputSize[2]) {
+	if inputTensor.Size()[0] != l.inputSize[0] ||
+		inputTensor.Size()[1] != l.inputSize[1] ||
+		inputTensor.Size()[2] != l.inputSize[2] {
 		panic("input dimension not correct")
 	}
 
-	batchSize := 1; // preserved variable for batchSize
+	batchSize := 1 // preserved variable for batchSize
 	input := save
 	// inputTensor.(*tensor.SimpleTensor)
 	output := &tensor.SimpleTensor{}
@@ -343,15 +335,14 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	inputHeight := l.inputSize[1]
 	inputWidth := l.inputSize[2]
 
-	fieldWidth := (inputWidth - l.kernelSize[3] + l.padding[1] + l.padding[3]) / l.stride[1] + 1
-	fieldHeight := (inputHeight - l.kernelSize[2] + l.padding[0] + l.padding[2]) / l.stride[0] + 1
+	fieldWidth := (inputWidth-l.kernelSize[3]+l.padding[1]+l.padding[3])/l.stride[1] + 1
+	fieldHeight := (inputHeight-l.kernelSize[2]+l.padding[0]+l.padding[2])/l.stride[0] + 1
 
-	inputTotalSize := l.inputSize[0]*l.inputSize[1]*l.inputSize[2]
+	inputTotalSize := l.inputSize[0] * l.inputSize[1] * l.inputSize[2]
 	//imcolOutputSize := fieldWidth * fieldHeight * l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1]
 	outputTotalSize := l.outputSize[0] * outputHeight * outputWidth
 	//kernelTotalSize := l.kernelSize[0] * l.kernelSize[2] * l.kernelSize[3]
-	
-		
+
 	cpuOutput := make([]float64, outputTotalSize)
 	// assume kernel in kernelTEMP
 
@@ -359,29 +350,32 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 		uint64(inputTotalSize*sizeOfFloat))
 
 	// assuming kernel is in
-	kernel_b := l.kernel.AsMatrix(l.outputSize[0],  l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1])
-	kernelM := l.MatrixOperator.CreateMatrix(l.outputSize[0],  l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1])
-	im2colM := l.MatrixOperator.CreateMatrix(l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1], fieldHeight * fieldWidth)
-	outputM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight * fieldWidth)
-	biasM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight * fieldWidth)
+	kernel_b := l.kernel.AsMatrix(l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1])
+	kernelM := l.MatrixOperator.CreateMatrix(l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1])
+	im2colM := l.MatrixOperator.CreateMatrix(l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1], fieldHeight*fieldWidth)
+	outputM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight*fieldWidth)
+	biasM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight*fieldWidth)
 
 	dim2colData := im2colM.data
 	dOutputData := outputM.data
 	// dKernel := kernelM.data
-	
+
 	l.GPUDriver.MemCopyH2D(l.GPUCtx, dInputData, input.ptr)
 	//l.GPUDriver.MemCopyH2D(l.GPUCtx, dKernel, l.kernelTEMP)
 
 	gridSize := fieldWidth * fieldHeight * l.kernelSize[1]
-		// need to be changed, since it is not standard number for a kernel call
-		/*
+	// need to be changed, since it is not standard number for a kernel call
+	/*
 		gridSize := ((b.Width + b.padWidth) * (b.Height + b.padHeight)) /
 			uint32(len(b.gpus))
-		*/
-	l.flipped(kernel_b.data, kernelM.data);
-	l.im2col(dInputData, dim2colData, l.kernelSize[1], batchSize, gridSize);
+	*/
+	l.flipped(kernel_b.data, kernelM.data)
+	l.im2col(dInputData, dim2colData, l.kernelSize[1], batchSize, gridSize)
+	temp := make([]float64, 3*3)
+	
+	l.GPUDriver.MemCopyH2D(l.GPUCtx, dInputData, input.ptr)
 	l.MatrixOperator.Gemm(false, false,
-		l.outputSize[0], l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1], fieldHeight * fieldWidth,
+		l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1], fieldHeight*fieldWidth,
 		1.0, 1.0,
 		kernelM, im2colM, biasM, outputM)
 
@@ -393,7 +387,6 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 }
 
 func (l *Conv2D) Backward(inputTensor tensor.Tensor) {
-	
 
 	// for i := range l.gradients {
 	// 	l.gradients[i] = 0
@@ -405,10 +398,10 @@ func (l *Conv2D) Backward(inputTensor tensor.Tensor) {
 	// l.calculateBiasGradients(input) //TODO: add bias
 	l.calculateInputGradients(inputTensor)
 	output.Init(l.inputGradients.Raw(), l.inputSize)
-	return 
+	return
 }
 
-func (l *Conv2D) calculateInputGradients(input tensor.Tensor){
+func (l *Conv2D) calculateInputGradients(input tensor.Tensor) {
 	sizeOfFloat := 4
 	tempInput := input.(*Tensor)
 	outputGradient := tempInput.Vector()
@@ -439,13 +432,13 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor){
 		size:   []int{outputChannelSize, kernelChannelSize * inputChannelNum * sizeOfFloat}, // TODO: correct?
 		ptr:    l.GPUDriver.AllocateMemory(l.GPUCtx, uint64(outputChannelSize*kernelChannelSize*inputChannelNum)),
 	}
-	
+
 	zeroMatrix := NewTensor(l.GPUDriver, l.GPUCtx)
 	zeroMatrix.Init(
-		make([]float64, outputChannelSize * kernelChannelSize * inputChannelNum),
+		make([]float64, outputChannelSize*kernelChannelSize*inputChannelNum),
 		[]int{outputChannelSize, kernelChannelSize * inputChannelNum}, //TODO: correct?
 	)
-	
+
 	l.GPUDriver.MemCopyH2D(l.GPUCtx, dOutputGradient, outputGradient)
 	OutputGradientT := &Tensor{
 		driver: l.GPUDriver,
@@ -456,24 +449,23 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor){
 
 	// GPU call one: gemm(dOutputGradient, dKernel) -> dColData
 	// GPU call two: Col2im(dColData) -> dimputGradientData
-	weightMatrix := l.kernel.AsMatrix(kernelChannelSize * inputChannelNum, outputChannelNum)
+	weightMatrix := l.kernel.AsMatrix(kernelChannelSize*inputChannelNum, outputChannelNum)
 	// weightMatrixTrans := l.MatrixOperator.CreateMatrix(l.outputSize, l.InputSize)
 	// l.MatrixOperator.Transpose(weightMatrix, weightMatrixTrans)
 
 	// ColDataMatrix := dColData.AsMatrix(outputChannelSize, kernelTotalSize)
 
 	l.MatrixOperator.Gemm(false, true,
-		outputChannelSize, outputChannelNum, kernelChannelSize * inputChannelNum, //TODO: correct?
+		outputChannelSize, outputChannelNum, kernelChannelSize*inputChannelNum, //TODO: correct?
 		1.0, 1.0,
 		OutputGradientT.Matrix(), weightMatrix, zeroMatrix.Matrix(),
 		ColData.Matrix())
-	
-	l.col2im(ColData)
-	
-	// l.MatrixOperator.Free(weightMatrixTrans)
-	return 
-}
 
+	l.col2im(ColData)
+
+	// l.MatrixOperator.Free(weightMatrixTrans)
+	return
+}
 
 func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 	sizeOfFloat := 4
@@ -505,7 +497,6 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 	dIm2colData := l.GPUDriver.AllocateMemory(l.GPUCtx,
 		uint64(colSize*sizeOfFloat))
 
-	
 	l.GPUDriver.MemCopyH2D(l.GPUCtx, dOutputGradient, outputGradient)
 	OutputGradientT := &Tensor{
 		driver: l.GPUDriver,
@@ -515,76 +506,76 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 	}
 	batchSize := 1
 	gridSize := outputChannelSize
-	l.im2col(l.forwardInput, dIm2colData, l.kernelSize[1], batchSize, gridSize);
+	l.im2col(l.forwardInput, dIm2colData, l.kernelSize[1], batchSize, gridSize)
 
 	// GPU call one: im2col(dInputData) -> dIm2colData
 	// GPU call two: Gemm(dIm2colData, dOutputGradient) -> dWeightGradientData
-	
+
 	weightGradientM := l.weightGradients.AsMatrix(kernelChannelSize*inputChannelNum, outputChannelNum) //TODO: correct?
-	
+
 	dIm2colTensor := &Tensor{
 		driver: l.GPUDriver,
 		ctx:    l.GPUCtx,
 		size:   []int{outputChannelSize, kernelChannelSize * inputChannelNum}, // TODO: correct?
 		ptr:    dIm2colData,
 	}
-	
+
 	zeroMatrix := NewTensor(l.GPUDriver, l.GPUCtx)
 	zeroMatrix.Init(
 		make([]float64, kernelTotalSize),
-		[]int{kernelChannelSize*inputChannelNum, outputChannelNum}, //TODO: correct?
+		[]int{kernelChannelSize * inputChannelNum, outputChannelNum}, //TODO: correct?
 	)
-	
+
 	l.MatrixOperator.Gemm(false, false,
 		kernelChannelSize*inputChannelNum, outputChannelSize, outputChannelNum, //TODO: correct?
 		1.0, 1.0,
 		dIm2colTensor.Matrix(), OutputGradientT.Matrix(), zeroMatrix.Matrix(),
 		weightGradientM)
-	
+
 	// l.MatrixOperator.Free(weightMatrixTrans)
-	return 
+	return
 }
 
-func (l *Conv2D) col2im(input *Tensor)  {
-		ColData := input.Matrix().data
-		queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
+func (l *Conv2D) col2im(input *Tensor) {
+	ColData := input.Matrix().data
+	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
 
-		inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
-		inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
-		inputChannelNum := l.inputSize[0]
-		inputChannelSize := inputHeight * inputWidth
-		inputTotalSize := inputChannelNum * inputChannelSize
-		
-		gridSize := uint32(inputTotalSize)
-		kernArg := KernelArgsCol2im{
-			int32(l.inputSize[1]), int32(l.inputSize[2]), int32(l.inputSize[0]),
-			int32(l.outputSize[1]), int32(l.outputSize[2]),
-			int32(l.kernelSize[2]), int32(l.kernelSize[3]),
-			int32(l.padding[0]), int32(l.padding[1]),
-			int32(l.stride[0]), int32(l.stride[1]),
-			int32(1), int32(1),
-			ColData, int32(0),
-			l.inputGradients.ptr, int32(0), 
+	inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
+	inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
+	inputChannelNum := l.inputSize[0]
+	inputChannelSize := inputHeight * inputWidth
+	inputTotalSize := inputChannelNum * inputChannelSize
 
-			uint64(gridSize), 0, 0, 
-		}
-		// fmt.Println("    ~~~~~~~~~    ")
-		l.GPUDriver.EnqueueLaunchKernel(
-			queue,
-			l.col2imKernel, //TODO: replace kernel 
-			[3]uint32{gridSize, 1, 1},
-			[3]uint16{uint16(64), 1, 1},
-			&kernArg,
-		)
-		// fmt.Println("    ??????????    ")
-		l.GPUDriver.DrainCommandQueue(queue)
+	gridSize := uint32(inputTotalSize)
+	kernArg := KernelArgsCol2im{
+		int32(l.inputSize[1]), int32(l.inputSize[2]), int32(l.inputSize[0]),
+		int32(l.outputSize[1]), int32(l.outputSize[2]),
+		int32(l.kernelSize[2]), int32(l.kernelSize[3]),
+		int32(l.padding[0]), int32(l.padding[1]),
+		int32(l.stride[0]), int32(l.stride[1]),
+		int32(1), int32(1),
+		ColData, int32(0),
+		l.inputGradients.ptr, int32(0),
 
-		// fmt.Println("    !!!!!!!!!!    ")
+		0, 0, 0,
+	}
+	// fmt.Println("    ~~~~~~~~~    ")
+	l.GPUDriver.EnqueueLaunchKernel(
+		queue,
+		l.col2imKernel, //TODO: replace kernel
+		[3]uint32{gridSize, 1, 1},
+		[3]uint16{uint16(64), 1, 1},
+		&kernArg,
+	)
+	// fmt.Println("    ??????????    ")
+	l.GPUDriver.DrainCommandQueue(queue)
 
-		return
+	// fmt.Println("    !!!!!!!!!!    ")
+
+	return
 }
 
-func (l *Conv2D) im2col(dInputData driver.GPUPtr, dim2colData driver.GPUPtr, channel int, batchSize int, gridSize int){
+func (l *Conv2D) im2col(dInputData driver.GPUPtr, dim2colData driver.GPUPtr, channel int, batchSize int, gridSize int) {
 
 	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
 	kernArg := KernelArgsim2col{
@@ -597,7 +588,7 @@ func (l *Conv2D) im2col(dInputData driver.GPUPtr, dim2colData driver.GPUPtr, cha
 		[2]uint32{uint32(l.padding[3]), uint32(l.padding[1])},
 		uint32(channel),
 		uint32(batchSize),
-		uint64(gridSize), 0, 0,
+		0, 0, 0,
 	}
 
 	l.GPUDriver.EnqueueLaunchKernel(
@@ -613,7 +604,6 @@ func (l *Conv2D) im2col(dInputData driver.GPUPtr, dim2colData driver.GPUPtr, cha
 	return
 }
 
-
 func (l *Conv2D) calculateOutputSize() {
 	width := (l.inputSize[2]-l.kernelSize[3]+l.padding[1]+l.padding[3])/
 		l.stride[1] + 1
@@ -622,6 +612,7 @@ func (l *Conv2D) calculateOutputSize() {
 	channel := l.kernelSize[0]
 	l.outputSize = []int{channel, height, width}
 }
+
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$CPU_VERSION$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 
 // NewConvolutionalLayer creates a new convolutional layer for the DNN network.

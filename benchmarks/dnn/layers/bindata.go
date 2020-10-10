@@ -213,7 +213,7 @@ var _escData = map[string]*_escFile{
 		name:    "col2im.hsaco",
 		local:   "col2im.hsaco",
 		size:    13928,
-		modtime: 1602194869,
+		modtime: 1602267721,
 		compressed: `
 H4sIAAAAAAAC/+xbTWwb153/zZvhaDgzHJISReqDksa0bDl0JFNjWpF9WX+tlSC248TZfOwiMGhyJFGm
 SIGivPYCmpBKJDGBsSsEOeRgLINgj3vroTd9AAWKJkAh8tSDD73k0J7aAm16Eos3HxLJWI6Dpkir8g9I
@@ -270,7 +270,7 @@ PI+rJX77eA8mbJUtwx8LNrB1iHmH/0tj7RsoNm7xWeZg/VaeUr+pRt8b6DNrQcC735G/1w+R/70tv/Qd
 		name:    "flatten.hsaco",
 		local:   "flatten.hsaco",
 		size:    9528,
-		modtime: 1602192317,
+		modtime: 1602268008,
 		compressed: `
 H4sIAAAAAAAC/+xazW/byBV/HFKURFFWWiNAnCAIWxRwG1SyTCuO7Ev9VStG/JW4iZMWQUCTow+HIgWK
 MuwCVpwUNgo0QIscghz6B+SQQ489xc61LQrbwAJ7CLB7yWXvu8fVYsihRCqW4+xmkd2sHmD/xHlfvzd8
@@ -307,7 +307,7 @@ W/y/CQAA//+niXMbOCUAAA==
 		name:    "gpu_gemm.hsaco",
 		local:   "gpu_gemm.hsaco",
 		size:    13800,
-		modtime: 1602187508,
+		modtime: 1592168288,
 		compressed: `
 H4sIAAAAAAAC/+xby28TVxc/cz0eO5MH+b5uCKB2mlYKIGZij+PEyYa8moBIQiAtj1YU3XiuHSfzsMbj
 NKnAhLRELJCKqkpd0mWl9m8gQeqiy4Y1i26QUFds2mVdzePaM04MQTwF85M8Z+ace+45v3vnjn3H9177
@@ -343,7 +343,7 @@ cWgX+6daNag/HW812ZBWHHb2S9Rnp+OTyv0N/myD/MDb94EangdUcrvef3X0+PfgQPN9O80qED3fCFU0
 		name:    "im2col.hsaco",
 		local:   "im2col.hsaco",
 		size:    13832,
-		modtime: 1602188630,
+		modtime: 1602267998,
 		compressed: `
 H4sIAAAAAAAC/+xb3W8bWdl/5synj8cex0266Vav3qkWKFuI40xc1+0NTZutW23appttdwtaVhN74ri1
 x9Z4XCVInbVD7c3FSsBKoL3oP4DggguQVlzEqbjbRVXiCySkvUBCe1Nxh+CyRmc+7LGp+wGFQpmfFD+e
@@ -390,7 +390,7 @@ vf6E/l0ZY/9T1/67T7D/WwAAAP//HhEmwwg2AAA=
 		name:    "maxpooling.hsaco",
 		local:   "maxpooling.hsaco",
 		size:    22736,
-		modtime: 1602187508,
+		modtime: 1594134682,
 		compressed: `
 H4sIAAAAAAAC/+xcS3Acx3n+t6dndrZ3XthdPBYPckkxfEmEgOEKWjJ2IlKUSNmkRJl+yHFczBK7BEEC
 u6jFUiZd3vEANkFIYZVZKhYrpWKCHFLliuNLTkkOIciLDnmJixxSleiQQ5y4ck3F5YMLSP3dPdidEZei
@@ -480,7 +480,7 @@ fTdWjfgvYQgTssoInGFOll/t0Hwgf/dh99KxvtelVFrnhNxDxu94u+1tzx98VchvfkT/vd6h/N/I8k7s
 		name:    "relu.hsaco",
 		local:   "relu.hsaco",
 		size:    13904,
-		modtime: 1602187508,
+		modtime: 1592168288,
 		compressed: `
 H4sIAAAAAAAC/+xbzW/U1hY//shkMuG9x3ugJ8hb4AfvKYCenRlPPiZZvJKPJkEkIZDykVYI3dh3JpN4
 7JHHE5KKDmkWBVWRSkvXbVddsehfkETqP1ChLll0w76q1C6Zyva94w9iAiWUUu5PGh/7fNx7ju+x5/he
@@ -516,7 +516,7 @@ pZbw3U5bLH7yGQ/0kyZjaQ5Vwpjmdu+e0rdi70VQ7OR8+iME9+n0LuM3EXvHguIb1afze5y/Cwn2Hfmg
 		name:    "trans.hsaco",
 		local:   "trans.hsaco",
 		size:    9656,
-		modtime: 1602187508,
+		modtime: 1592168288,
 		compressed: `
 H4sIAAAAAAAC/+xaTXPbxBt/JCuO4+T/B0605YAIh7QdJCtynDi50Lw0SadJmjbQUphOZyOtbTV6G2kd
 YgbSF2inM3SGl+FePgCHHjm1OfABmJ576IHO8AXgiBlJu7bkWn2BdgpUv5n4sZ6XfX7PWqvsrvbi0ZVF
