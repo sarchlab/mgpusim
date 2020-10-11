@@ -47,7 +47,7 @@ var _ = Describe("Convolutional Layer", func() {
 			})
 	})
 
-	FIt("Forward, 1 input channel, 1 output channel, stride 1", func() {
+	It("Forward, 1 input channel, 1 output channel, stride 1", func() {
 		// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
 
 		input.Init([]float64{
