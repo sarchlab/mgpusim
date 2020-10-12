@@ -38,7 +38,7 @@ var _ = Describe("ALU", func() {
 
 		Expect(sp.DST[0]).To(Equal(uint64(3)))
 		Expect(sp.DST[1] & 0xffffffff).To(Equal(uint64(1)))
-		Expect(sp.VCC).To(Equal(uint64(0x2)))
+		Expect(sp.SDST).To(Equal(uint64(0x2)))
 	})
 
 	It("should run V_SUB_U32 VOP3b", func() {
@@ -57,7 +57,7 @@ var _ = Describe("ALU", func() {
 
 		Expect(sp.DST[0] & 0xffffffff).To(Equal(uint64(0xffffffff)))
 		Expect(sp.DST[1] & 0xffffffff).To(Equal(uint64(0xfffffffd)))
-		Expect(sp.VCC).To(Equal(uint64(0x1)))
+		Expect(sp.SDST).To(Equal(uint64(0x1)))
 	})
 
 	It("should run V_SUBREV_U32 VOP3b", func() {
@@ -76,7 +76,7 @@ var _ = Describe("ALU", func() {
 
 		Expect(sp.DST[0]).To(Equal(uint64(0xfffffffd)))
 		Expect(sp.DST[1]).To(Equal(uint64(0xfffffffe)))
-		Expect(sp.VCC).To(Equal(uint64(2)))
+		Expect(sp.SDST).To(Equal(uint64(2)))
 	})
 
 	It("should run V_ADDC_U32", func() {

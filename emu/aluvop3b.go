@@ -43,7 +43,7 @@ func (u *ALUImpl) runVADDU32VOP3b(state InstEmuState) {
 
 		sp.DST[i] = sp.SRC0[i] + sp.SRC1[i]
 		if sp.DST[i] > 0xffffffff {
-			sp.VCC |= 1 << i
+			sp.SDST |= 1 << i
 			sp.DST[i] &= 0xffffffff
 		}
 	}
@@ -60,7 +60,7 @@ func (u *ALUImpl) runVSUBU32VOP3b(state InstEmuState) {
 
 		sp.DST[i] = sp.SRC0[i] - sp.SRC1[i]
 		if sp.SRC0[i] < sp.SRC1[i] {
-			sp.VCC |= 1 << i
+			sp.SDST |= 1 << i
 			sp.DST[i] &= 0xffffffff
 		}
 	}
@@ -77,7 +77,7 @@ func (u *ALUImpl) runVSUBREVU32VOP3b(state InstEmuState) {
 
 		sp.DST[i] = sp.SRC1[i] - sp.SRC0[i]
 		if sp.DST[i] > 0xffffffff {
-			sp.VCC |= 1 << i
+			sp.SDST |= 1 << i
 			sp.DST[i] &= 0xffffffff
 		}
 	}

@@ -8,11 +8,12 @@
       i += get_local_size(0) * get_num_groups(0))
 
 // Kernel for fast unfold+copy
-// (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
-kernel void im2col_kernel(const int n, const global float* im_data, int im_offset,
-    const int height, const int width, const int ksize_h, const int ksize_w, const int pad_h,
-    const int pad_w, const int stride_h, const int stride_w, const int height_col, const int width_col,
-    global float* col_data, int col_offset) {
+// (borrowed from Caffe:
+https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu) kernel
+void im2col_kernel(const int n, const global float* im_data, int im_offset,
+    const int height, const int width, const int ksize_h, const int ksize_w,
+const int pad_h, const int pad_w, const int stride_h, const int stride_w, const
+int height_col, const int width_col, global float* col_data, int col_offset) {
   global const float *data_im = im_data + im_offset;
   global float *data_col = col_data + col_offset;
 
@@ -39,61 +40,67 @@ kernel void im2col_kernel(const int n, const global float* im_data, int im_offse
 }
 */
 
+__kernel void im2colKernel(__global float* input, __global float* output,
+                           const uint2 inputDimensions,
+                           const uint2 maskDimensions,
+                           const uint2 strDimensions,
+                           const uint2 padVertDimensions,
+                           const uint2 padHoriDImensions, const uint channel,
+                           const uint batch) {
+  uint tid = get_global_id(0);
 
-__kernel void im2colKernel(__global  float  * input,
-											__global  float  * output,
-											const     uint2  inputDimensions,
-											const     uint2  maskDimensions,
-                      const     uint2  strDimensions,
-                      const     uint2  padVertDimensions,
-                      const     uint2  padHoriDImensions,
-                      const     uint   channel,
-                      const     uint   batch)
-{
-    uint tid   = get_global_id(0);
-    
-    uint width  = inputDimensions.x;
-    uint height = inputDimensions.y;
-    
-    uint maskWidth  = maskDimensions.x;
-    uint maskHeight = maskDimensions.y;
+  uint width = inputDimensions.x;
+  uint height = inputDimensions.y;
 
-    uint fieldWidth = (width - maskWidth + padHoriDImensions.x + padHoriDImensions.y) / strDimensions.x + 1;
-	  uint fieldHeight = (height - maskHeight + padVertDimensions.x + padVertDimensions.y) / strDimensions.y + 1;
+  uint maskWidth = maskDimensions.x;
+  uint maskHeight = maskDimensions.y;
 
-    uint realWidth = fieldHeight * fieldWidth;
-    uint realHeight = maskHeight * maskWidth;
+  uint fieldWidth =
+      (width - maskWidth + padHoriDImensions.x + padHoriDImensions.y) /
+          strDimensions.x +
+      1;
+  uint fieldHeight =
+      (height - maskHeight + padVertDimensions.x + padVertDimensions.y) /
+          strDimensions.y +
+      1;
 
-    uint batch_id = tid / (channel * realWidth);
-    uint pid = tid % (channel * realWidth);
-    uint channel_id = pid / realWidth;
-    pid = pid % realWidth;
+  uint realWidth = fieldHeight * fieldWidth;
+  uint realHeight = maskHeight * maskWidth;
 
-    uint cut_id = tid / realWidth; // nth matrix, ignoring channel and batch, note 0th
+  uint batch_id = tid / (channel * realWidth);
+  uint pid = tid % (channel * realWidth);
+  uint channel_id = pid / realWidth;
+  pid = pid % realWidth;
 
-    if(pid >= realWidth || channel_id >= channel || batch_id >= batch)
-		  return;
+  uint cut_id =
+      tid / realWidth;  // nth matrix, ignoring channel and batch, note 0th
 
-    uint x = pid%fieldWidth;
-    uint y = pid/fieldWidth;
-    for (int i = 0; i < maskHeight; i++) {
-			for (int j = 0; j < maskWidth; j++) {
-					
-					uint indexOut =  (y + x * fieldHeight) + (i + j * maskHeight)* fieldHeight * fieldWidth + cut_id * fieldHeight * fieldWidth * maskHeight * maskWidth; 
-          // the output is row wise, meaning for a new channel, a new matrix is added to the down side of the originial one
-          uint indexRawVert = (i + y * strDimensions.y) - padVertDimensions.x;
-          uint indexRawHori = (j + x *strDimensions.x) - padHoriDImensions.x;
-					//uint indexIn = (i + y * strDimensions.y) * width + (j + x*strDimensions.x);
+  if (pid >= realWidth || channel_id >= channel || batch_id >= batch) return;
 
-          if (indexRawVert >= 0 && indexRawVert < height && indexRawHori  >=0 && indexRawHori  < width){
-          // the input is considered to be row major
-						uint indexIn = indexRawVert * width + indexRawHori + cut_id * width * height;
-						output[indexOut] = input[indexIn];
-					}else{
-						output[indexOut] = 0.0;
-					}
+  uint x = pid % fieldWidth;
+  uint y = pid / fieldWidth;
+  for (int i = 0; i < maskHeight; i++) {
+    for (int j = 0; j < maskWidth; j++) {
+      uint indexOut =
+          (y + x * fieldHeight) +
+          (i + j * maskHeight) * fieldHeight * fieldWidth +
+          cut_id * fieldHeight * fieldWidth * maskHeight * maskWidth;
+      // the output is row wise, meaning for a new channel, a new matrix is
+      // added to the down side of the originial one
+      uint indexRawVert = (i + y * strDimensions.y) - padVertDimensions.x;
+      uint indexRawHori = (j + x * strDimensions.x) - padHoriDImensions.x;
+      // uint indexIn = (i + y * strDimensions.y) * width + (j +
+      // x*strDimensions.x);
 
-			}
-		}
+      if (indexRawVert >= 0 && indexRawVert < height && indexRawHori >= 0 &&
+          indexRawHori < width) {
+        // the input is considered to be row major
+        uint indexIn =
+            indexRawVert * width + indexRawHori + cut_id * width * height;
+        output[indexOut] = input[indexIn];
+      } else {
+        output[indexOut] = 0.0;
+      }
+    }
+  }
 }
-
