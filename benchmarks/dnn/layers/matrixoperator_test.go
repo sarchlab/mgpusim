@@ -1,9 +1,8 @@
-package layers_test
+package layers
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/benchmarks/dnn/layers"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
 )
@@ -12,7 +11,7 @@ var _ = Describe("Matrix Operator", func() {
 	var (
 		gpuDriver *driver.Driver
 		context   *driver.Context
-		mo        *layers.MatrixOperator
+		mo        *MatrixOperator
 	)
 
 	BeforeEach(func() {
@@ -21,7 +20,7 @@ var _ = Describe("Matrix Operator", func() {
 			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
-		mo = layers.NewMatrixOperator(gpuDriver, context)
+		mo = NewMatrixOperator(gpuDriver, context)
 	})
 
 	AfterEach(func() {

@@ -53,13 +53,26 @@ type Conv2D struct {
 	biasGradients   *Vector
 }
 
-type KernelArgsCol2im struct {
-	Input_h, Input_w, Channels, Output_h, Output_w, Kernel_h, Kernel_w, Pad_h, Pad_w, Stride_h, Stride_w, Dilation_h, Dilation_w int32
-	Col_buffer                                                                                                                   driver.GPUPtr
-	Col_offset                                                                                                                   int32
-	Im_buffer                                                                                                                    driver.GPUPtr
-	Im_offset                                                                                                                    int32
-	OffsetX, OffsetY, OffsetZ                                                                                                    uint64
+// KernelArgsCol2Im represents the kernel arguments for the Col2Im kernel.
+type KernelArgsCol2Im struct {
+	InputHeight               int32
+	InputWidth                int32
+	Channels                  int32
+	OutputHeight              int32
+	OutputWidth               int32
+	KernelHeight              int32
+	KernelWidth               int32
+	PadHeight                 int32
+	PadWidth                  int32
+	StrideHeight              int32
+	StrideWidth               int32
+	DilationHeight            int32
+	DilationWidth             int32
+	ColBuffer                 driver.GPUPtr
+	ColOffset                 int32
+	ImBuffer                  driver.GPUPtr
+	ImOffset                  int32
+	OffsetX, OffsetY, OffsetZ uint64
 }
 
 // KernelArgsIm2Col represents the kernel arguments for the Im2Col kernel.
@@ -344,6 +357,7 @@ func numElements(size []int) int {
 	return product
 }
 
+// Forward processes the forward pass over the convolutional layer.
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	l.inputSizeMustMatch(inputTensor)
 
@@ -352,9 +366,7 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	save := inputTensor.(*Tensor)
 	l.saveInput(save)
 
-	batchSize := 1 // preserved variable for batchSize
 	input := save
-	// inputTensor.(*tensor.SimpleTensor)
 
 	outputSize := []int{
 		input.Size()[0],
@@ -404,7 +416,7 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hInputData, input.ptr)
 	fmt.Println("Forward, input Data ", hInputData)
 
-	l.im2col(input.ptr, dIm2ColData, l.numChannels(), batchSize, gridSize)
+	l.im2col(input.ptr, dIm2ColData, l.numChannels(), input.Size()[0], gridSize)
 
 	hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dIm2ColData)
@@ -430,8 +442,8 @@ func (l *Conv2D) inputSizeMustMatch(inputTensor tensor.Tensor) {
 	}
 }
 
+// Backward performs the backward pass over the convoluational layer.
 func (l *Conv2D) Backward(inputTensor tensor.Tensor) {
-
 	// for i := range l.gradients {
 	// 	l.gradients[i] = 0
 	// }
@@ -593,7 +605,7 @@ func (l *Conv2D) col2im(input *Tensor) {
 	inputTotalSize := inputChannelNum * inputChannelSize
 
 	gridSize := uint32(inputTotalSize)
-	kernArg := KernelArgsCol2im{
+	kernArg := KernelArgsCol2Im{
 		int32(l.inputSize[1]), int32(l.inputSize[2]), int32(l.inputSize[0]),
 		int32(l.outputSize[1]), int32(l.outputSize[2]),
 		int32(l.kernelSize[2]), int32(l.kernelSize[3]),
