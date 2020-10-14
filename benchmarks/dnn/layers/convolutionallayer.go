@@ -89,6 +89,7 @@ type KernelArgsIm2Col struct {
 	OffsetX, OffsetY, OffsetZ uint64
 }
 
+// KernelArgsFlatten represents the kernel arguments for the Flatten kernel.
 type KernelArgsFlatten struct {
 	Input                     driver.GPUPtr
 	Output                    driver.GPUPtr
@@ -358,6 +359,7 @@ func numElements(size []int) int {
 }
 
 // Forward processes the forward pass over the convolutional layer.
+//nolint:funlen
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	l.inputSizeMustMatch(inputTensor)
 
