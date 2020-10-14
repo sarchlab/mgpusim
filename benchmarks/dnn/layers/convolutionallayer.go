@@ -363,8 +363,6 @@ func numElements(size []int) int {
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	l.inputSizeMustMatch(inputTensor)
 
-	sizeOfFloat := 4
-
 	save := inputTensor.(*Tensor)
 	l.saveInput(save)
 
@@ -376,70 +374,61 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 		l.outputSize[1],
 		l.outputSize[2],
 	}
-	outputElements := numElements(outputSize)
-	output := &Tensor{
-		driver: l.GPUDriver,
-		ctx:    l.GPUCtx,
-		size:   outputSize,
-		ptr: l.GPUDriver.AllocateMemory(l.GPUCtx,
-			uint64(outputElements*sizeOfFloat)),
-	}
 
-	outputHeight := l.outputSize[1]
-	outputWidth := l.outputSize[2]
+	outputHeight := outputSize[2]
+	outputWidth := outputSize[3]
 
-	// inputHeight := l.inputSize[1]
-	// inputWidth := l.inputSize[2]
-
-	// kernel_b := l.kernel.AsMatrix(l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1])
-	// kernelM := l.MatrixOperator.CreateMatrix(l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1])
+	im2ColMatrixHeight := l.numChannels() * l.kernelWidth() * l.kernelHeight()
+	im2ColMatrixWidth := outputWidth * outputHeight * input.Size()[0]
 	im2ColMatrix := l.MatrixOperator.CreateMatrix(
-		l.numChannels()*l.kernelWidth()*l.kernelHeight(),
-		outputWidth*outputHeight*l.numKernels(),
-	)
-	// outputM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight*fieldWidth)
-	// biasM := l.MatrixOperator.CreateMatrix(l.outputSize[0], fieldHeight*fieldWidth)
+		im2ColMatrixHeight, im2ColMatrixWidth)
 
 	dIm2ColData := im2ColMatrix.data
-	// dOutputData := outputM.data
-	// dKernel := kernelM.data
 
-	// l.GPUDriver.MemCopyH2D(l.GPUCtx, dInputData, input.ptr)
-	//l.GPUDriver.MemCopyH2D(l.GPUCtx, dKernel, l.kernelTEMP)
-
-	gridSize := outputWidth * outputHeight * l.numChannels()
-	// need to be changed, since it is not standard number for a kernel call
-	/*
-		gridSize := ((b.Width + b.padWidth) * (b.Height + b.padHeight)) /
-			uint32(len(b.gpus))
-	*/
-	// l.flipped(kernel_b.data, kernelM.data)
 	hInputData := make([]float32, 3*3)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hInputData, input.ptr)
 	fmt.Println("Forward, input Data ", hInputData)
 
-	l.im2col(input.ptr, dIm2ColData, l.numChannels(), input.Size()[0], gridSize)
+	l.im2col(input.ptr, dIm2ColData,
+		l.numChannels(), input.Size()[0], im2ColMatrixWidth)
 
 	hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dIm2ColData)
 	fmt.Println(hIm2ColData)
 
-	// l.MatrixOperator.Gemm(false, false,
-	// 	l.outputSize[0], l.kernelSize[2]*l.kernelSize[3]*l.kernelSize[1], fieldHeight*fieldWidth,
-	// 	1.0, 1.0,
-	// 	kernelM, im2colM, biasM, outputM)
+	kernelMatrixWidth := l.kernelWidth() * l.kernelHeight() * l.numChannels()
+	kernelMatrix := l.kernel.AsMatrix(l.numChannels(), kernelMatrixWidth)
+	outputMatrix := l.MatrixOperator.CreateMatrix(
+		l.numKernels(), im2ColMatrixWidth)
+	biasMatrix := l.MatrixOperator.CreateMatrix(
+		l.numKernels(), im2ColMatrixWidth)
 
-	// l.MatrixOperator.Free(biasM)
+	l.MatrixOperator.Gemm(
+		false, false,
+		l.numKernels(),
+		kernelMatrixWidth,
+		input.Size()[0]*input.Size()[2]*input.Size()[3],
+		1.0, 1.0,
+		kernelMatrix, im2ColMatrix, biasMatrix, outputMatrix)
 
-	// l.GPUDriver.MemCopyD2H(l.GPUCtx, cpuOutput, dOutputData)
-	// output.Init(cpuOutput, l.outputSize)
+	output := &Tensor{
+		driver: l.GPUDriver,
+		ctx:    l.GPUCtx,
+		size:   outputSize,
+		ptr:    outputMatrix.data,
+	}
+
+	fmt.Println(output.Vector())
+
+	l.MatrixOperator.Free(biasMatrix)
+
 	return output
 }
 
 func (l *Conv2D) inputSizeMustMatch(inputTensor tensor.Tensor) {
-	if inputTensor.Size()[0] != l.inputSize[0] ||
-		inputTensor.Size()[1] != l.inputSize[1] ||
-		inputTensor.Size()[2] != l.inputSize[2] {
+	if inputTensor.Size()[1] != l.inputSize[0] ||
+		inputTensor.Size()[2] != l.inputSize[1] ||
+		inputTensor.Size()[3] != l.inputSize[2] {
 		panic("input dimension not correct")
 	}
 }

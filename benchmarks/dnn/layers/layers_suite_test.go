@@ -15,24 +15,27 @@ func TestLayers(t *testing.T) {
 	RunSpecs(t, "Layers Suite")
 }
 
-type dataJSON struct {
+type tensorJSON struct {
 	Data []float64
 	Size []int
 }
 
-type inputOutputPair struct {
-	Input  dataJSON
-	Output dataJSON
+func (t tensorJSON) numElement() int {
+	product := 1
+	for _, s := range t.Size {
+		product *= s
+	}
+	return product
 }
 
-func loadInputOutputPair(filename string) []inputOutputPair {
+func loadDatasets(filename string) []map[string]tensorJSON {
 	jsonFile, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
 	defer jsonFile.Close()
 
-	var pairs []inputOutputPair
+	var pairs []map[string]tensorJSON
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	err = json.Unmarshal(byteValue, &pairs)

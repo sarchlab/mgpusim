@@ -15,6 +15,19 @@ type Vector struct {
 	GPUCtx    *driver.Context
 }
 
+// Init intialized the data and the size of the vector.
+func (v *Vector) Init(data []float64, size int) {
+	v.size = size
+	v.ptr = v.GPUDriver.AllocateMemory(v.GPUCtx, uint64(len(data)*4))
+
+	tempData := make([]float32, len(data))
+	for i, value := range data {
+		tempData[i] = float32(value)
+	}
+
+	v.GPUDriver.MemCopyH2D(v.GPUCtx, v.ptr, tempData)
+}
+
 // AsMatrix returns the vector as a matrix, with given row and col size.
 func (v Vector) AsMatrix(row, col int) *Matrix {
 	m := &Matrix{

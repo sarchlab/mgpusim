@@ -52,38 +52,71 @@ var _ = Describe("Convolutional Layer", func() {
 			})
 	})
 
-	FIt("should do im2col", func() {
-		pairs := loadInputOutputPair("im2col_test_data.json")
+	It("should do im2col", func() {
+		goldDatasets := loadDatasets("im2col_test_data.json")
 
-		for _, p := range pairs {
-			input.Init(p.Input.Data, p.Input.Size)
+		for _, d := range goldDatasets {
+			goldIn := d["input"]
+			goldOut := d["output"]
+
+			input.Init(goldIn.Data, goldIn.Size)
 			output := NewTensor(gpuDriver, context)
 			output.Init(
-				make([]float64, p.Output.Size[0]*p.Output.Size[1]),
-				p.Output.Size)
+				make([]float64, goldOut.Size[0]*goldOut.Size[1]),
+				goldOut.Size)
 
-			convLayer.im2col(input.ptr, output.ptr, p.Input.Size[1], p.Input.Size[0], p.Output.Size[1])
+			convLayer.im2col(input.ptr, output.ptr,
+				goldIn.Size[1], goldIn.Size[0], goldOut.Size[1])
 
-			Expect(output.Vector()).To(Equal(p.Output.Data))
+			Expect(output.Vector()).To(Equal(goldOut.Data))
 		}
 	})
 
-	It("Forward, 1 input channel, 1 output channel, stride 1", func() {
+	FIt("should forward", func() {
+		goldDatasets := loadDatasets("conv_forward_test_data.json")
+
+		for _, d := range goldDatasets {
+			goldIn := d["input"]
+			goldOut := d["output"]
+			goldKernel := d["kernel"]
+			goldStride := d["stride"]
+			goldPadding := d["padding"]
+
+			layer := NewConvolutionalLayer(
+				goldIn.Size[1:],
+				goldKernel.Size,
+				goldStride.Size,
+				goldPadding.Size,
+				gpuDriver, context, mo)
+			layer.kernel.Init(goldKernel.Data, goldKernel.numElement())
+
+			input.Init(goldIn.Data, goldIn.Size)
+
+			output := layer.Forward(input)
+
+			Expect(output.Size()).To(Equal(goldOut.Size))
+			Expect(output.Vector()).To(Equal(goldOut.Data))
+			// Expect(layer.forwardInput).To(Equal(input.Vector()))
+		}
+
 		// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
+		// pairs := loadInputOutputPair("conv_forward_test_data.json")
 
-		input.Init([]float64{
-			1.0, 1.0, 1.0,
-			2.0, 2.0, 2.0,
-			3.0, 3.0, 3.0,
-		}, []int{1, 3, 3})
+		// for _, p := range pairs {
+		// 	input.Init(p.Input.Data, p.Input.Size, []float64{
+		// 		1.0, 1.0, 1.0,
+		// 		2.0, 2.0, 2.0,
+		// 		3.0, 3.0, 3.0,
+		// 	}, []int{1, 3, 3})
 
-		output := convLayer.Forward(input)
+		// 	output := convLayer.Forward(input)
 
-		// fmt.Println(ConvLayer.inputWithPadding)
+		// 	// fmt.Println(ConvLayer.inputWithPadding)
 
-		Expect(output.Size()).To(Equal([]int{1, 3, 3}))
-		Expect(output.Vector()).To(Equal([]float64{16, 24, 16, 28, 42, 28, 16, 24, 16}))
-		Expect(convLayer.forwardInput).To(Equal(input.Vector()))
+		// 	Expect(output.Size()).To(Equal([]int{1, 3, 3}))
+		// 	Expect(output.Vector()).To(Equal([]float64{16, 24, 16, 28, 42, 28, 16, 24, 16}))
+		// 	Expect(convLayer.forwardInput).To(Equal(input.Vector()))
+		// }
 	})
 
 	It("Backward, 1 input channel, 1 output channel, stride 1", func() {
