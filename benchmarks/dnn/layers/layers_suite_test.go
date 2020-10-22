@@ -16,8 +16,9 @@ func TestLayers(t *testing.T) {
 }
 
 type tensorJSON struct {
-	Data []float64
-	Size []int
+	Data       []float64
+	Size       []int
+	Descriptor string
 }
 
 func (t tensorJSON) numElement() int {

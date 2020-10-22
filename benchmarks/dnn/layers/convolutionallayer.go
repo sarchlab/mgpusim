@@ -40,9 +40,10 @@ type Conv2D struct {
 	padding               []int
 	// bias                  []int
 
-	im2colKernel *insts.HsaCo
-	col2imKernel *insts.HsaCo
-	flatKernel   *insts.HsaCo
+	im2colNCHWKernel *insts.HsaCo
+	im2colCNHWKernel *insts.HsaCo
+	col2imKernel     *insts.HsaCo
+	flatKernel       *insts.HsaCo
 
 	parameters      *Vector
 	kernel          *Vector
@@ -127,10 +128,15 @@ func NewConvolutionalLayer(
 
 func (l *Conv2D) loadKernels() {
 	im2colHsaCoBytes := _escFSMustByte(true, "/im2col.hsaco")
-	l.im2colKernel = kernels.LoadProgramFromMemory(
-		im2colHsaCoBytes, "im2colKernel")
-	if l.im2colKernel == nil {
-		log.Panic("Failed to load im2col kernel binary")
+	l.im2colNCHWKernel = kernels.LoadProgramFromMemory(
+		im2colHsaCoBytes, "im2colKernelNCHW")
+	if l.im2colNCHWKernel == nil {
+		log.Panic("Failed to load im2col NCHW kernel binary")
+	}
+	l.im2colCNHWKernel = kernels.LoadProgramFromMemory(
+		im2colHsaCoBytes, "im2colKernelCNHW")
+	if l.im2colCNHWKernel == nil {
+		log.Panic("Failed to load im2col CNHW kernel binary")
 	}
 
 	col2imHsaCoBytes := _escFSMustByte(true, "/col2im.hsaco")
@@ -339,7 +345,7 @@ func (l *Conv2D) flipped(input driver.GPUPtr, output driver.GPUPtr) {
 
 	l.GPUDriver.EnqueueLaunchKernel(
 		queue,
-		l.im2colKernel,
+		l.im2colNCHWKernel,
 		[3]uint32{uint32(gridSize), 1, 1},
 		[3]uint16{uint16(64), 1, 1},
 		&kernArg,
@@ -388,9 +394,6 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	hInputData := make([]float32, 3*3)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hInputData, input.ptr)
 	fmt.Println("Forward, input Data ", hInputData)
-
-	l.im2col(input.ptr, dIm2ColData,
-		l.numChannels(), input.Size()[0], im2ColMatrixWidth)
 
 	hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dIm2ColData)
@@ -529,7 +532,7 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 
 	batchSize := 1
 	gridSize := outputChannelSize
-	l.im2col(l.forwardInput, dIm2colData, l.kernelSize[1], batchSize, gridSize)
+	l.im2ColNCHW(l.forwardInput, dIm2colData, l.kernelSize[1], batchSize, gridSize)
 
 	// GPU call one: im2col(dInputData) -> dIm2colData
 	// GPU call two: Gemm(dIm2colData, dOutputGradient) -> dWeightGradientData
@@ -621,7 +624,39 @@ func (l *Conv2D) col2im(input *Tensor) {
 	return
 }
 
-func (l *Conv2D) im2col(
+func (l *Conv2D) im2Col(
+	input *Tensor,
+	dIm2ColData driver.GPUPtr,
+) {
+	outputHeight := l.outputSize[1]
+	outputWidth := l.outputSize[2]
+	gridSize := outputHeight * outputWidth
+
+	switch input.Descriptor() {
+	case "", "NCHW":
+		gridSize *= input.Size()[0]
+		l.im2ColNCHW(input.ptr, dIm2ColData,
+			input.Size()[1], input.Size()[0], gridSize)
+	case "CNHW":
+		gridSize *= input.Size()[1]
+		l.im2ColCNHW(input.ptr, dIm2ColData,
+			input.Size()[0], input.Size()[1], gridSize)
+
+		hIm2ColData := make([]float32, gridSize*input.Size()[0]*input.Size()[2]*input.Size()[3])
+		l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dIm2ColData)
+		fmt.Printf("\n\nIm2Col Matrix:\n")
+		for i := 0; i < input.Size()[0]*input.Size()[2]*input.Size()[3]; i++ {
+			for j := 0; j < gridSize; j++ {
+				fmt.Printf("%4.0f ", hIm2ColData[i*gridSize+j])
+			}
+			fmt.Printf("\n")
+		}
+	default:
+		panic("unsupported tensor type " + input.Descriptor())
+	}
+}
+
+func (l *Conv2D) im2ColNCHW(
 	dInputData driver.GPUPtr,
 	dIm2ColData driver.GPUPtr,
 	channel int,
@@ -644,7 +679,39 @@ func (l *Conv2D) im2col(
 
 	l.GPUDriver.EnqueueLaunchKernel(
 		queue,
-		l.im2colKernel,
+		l.im2colNCHWKernel,
+		[3]uint32{uint32(gridSize), 1, 1},
+		[3]uint16{uint16(64), 1, 1},
+		&kernArg,
+	)
+
+	l.GPUDriver.DrainCommandQueue(queue)
+}
+
+func (l *Conv2D) im2ColCNHW(
+	dInputData driver.GPUPtr,
+	dIm2ColData driver.GPUPtr,
+	channel int,
+	batchSize int,
+	gridSize int,
+) {
+	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
+	kernArg := KernelArgsIm2Col{
+		dInputData,
+		dIm2ColData,
+		[2]uint32{uint32(l.inputSize[2]), uint32(l.inputSize[1])},
+		[2]uint32{uint32(l.kernelSize[3]), uint32(l.kernelSize[2])},
+		[2]uint32{uint32(l.stride[0]), uint32(l.stride[1])},
+		[2]uint32{uint32(l.padding[0]), uint32(l.padding[2])},
+		[2]uint32{uint32(l.padding[3]), uint32(l.padding[1])},
+		uint32(channel),
+		uint32(batchSize),
+		0, 0, 0,
+	}
+
+	l.GPUDriver.EnqueueLaunchKernel(
+		queue,
+		l.im2colCNHWKernel,
 		[3]uint32{uint32(gridSize), 1, 1},
 		[3]uint16{uint16(64), 1, 1},
 		&kernArg,

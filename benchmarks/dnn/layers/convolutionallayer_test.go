@@ -30,8 +30,9 @@ var _ = Describe("Convolutional Layer", func() {
 		// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
 
 		_, gpuDriver = platform.MakeEmuBuilder().
-			WithISADebugging().
-			WithoutProgressBar().Build()
+			// WithISADebugging().
+			WithoutProgressBar().
+			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 		mo = NewMatrixOperator(gpuDriver, context)
@@ -52,7 +53,7 @@ var _ = Describe("Convolutional Layer", func() {
 			})
 	})
 
-	It("should do im2col", func() {
+	FIt("should do im2col", func() {
 		goldDatasets := loadDatasets("im2col_test_data.json")
 
 		for _, d := range goldDatasets {
@@ -60,19 +61,21 @@ var _ = Describe("Convolutional Layer", func() {
 			goldOut := d["output"]
 
 			input.Init(goldIn.Data, goldIn.Size)
+			input.descriptor = goldIn.Descriptor
 			output := NewTensor(gpuDriver, context)
 			output.Init(
 				make([]float64, goldOut.Size[0]*goldOut.Size[1]),
 				goldOut.Size)
 
-			convLayer.im2col(input.ptr, output.ptr,
-				goldIn.Size[1], goldIn.Size[0], goldOut.Size[1])
+			fmt.Println(input)
+
+			convLayer.im2Col(input, output.ptr)
 
 			Expect(output.Vector()).To(Equal(goldOut.Data))
 		}
 	})
 
-	FIt("should forward", func() {
+	It("should forward", func() {
 		goldDatasets := loadDatasets("conv_forward_test_data.json")
 
 		for _, d := range goldDatasets {

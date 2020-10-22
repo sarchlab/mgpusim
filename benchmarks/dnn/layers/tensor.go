@@ -7,8 +7,9 @@ type Tensor struct {
 	size []int
 	ptr  driver.GPUPtr
 
-	driver *driver.Driver
-	ctx    *driver.Context
+	driver     *driver.Driver
+	ctx        *driver.Context
+	descriptor string
 }
 
 // NewTensor creates a new tensor.
@@ -35,6 +36,11 @@ func (t *Tensor) Init(data []float64, size []int) {
 // Size returns the sizes for the tensor in each dimension.
 func (t Tensor) Size() []int {
 	return t.size
+}
+
+// Descriptor returns the tensor descriptor
+func (t Tensor) Descriptor() string {
+	return t.descriptor
 }
 
 // Vector returns the tensor data as an array.
