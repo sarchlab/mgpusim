@@ -364,6 +364,28 @@ func numElements(size []int) int {
 	return product
 }
 
+func (l *Conv2D) inputBatchSize(input tensor.Tensor) int {
+	switch input.Descriptor() {
+	case "", "NCHW":
+		return input.Size()[0]
+	case "CNHW":
+		return input.Size()[1]
+	default:
+		panic("tensor type " + input.Descriptor() + "is not supported")
+	}
+}
+
+func (l *Conv2D) inputChannelSize(input tensor.Tensor) int {
+	switch input.Descriptor() {
+	case "", "NCHW":
+		return input.Size()[1]
+	case "CNHW":
+		return input.Size()[0]
+	default:
+		panic("tensor type " + input.Descriptor() + "is not supported")
+	}
+}
+
 // Forward processes the forward pass over the convolutional layer.
 //nolint:funlen
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
@@ -372,11 +394,12 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	save := inputTensor.(*Tensor)
 	l.saveInput(save)
 
-	input := save
+	batchSize := l.inputBatchSize(inputTensor)
 
+	input := save
 	outputSize := []int{
-		input.Size()[0],
 		l.outputSize[0],
+		batchSize,
 		l.outputSize[1],
 		l.outputSize[2],
 	}
@@ -385,22 +408,36 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	outputWidth := outputSize[3]
 
 	im2ColMatrixHeight := l.numChannels() * l.kernelWidth() * l.kernelHeight()
-	im2ColMatrixWidth := outputWidth * outputHeight * input.Size()[0]
+	im2ColMatrixWidth := outputWidth * outputHeight * batchSize
 	im2ColMatrix := l.MatrixOperator.CreateMatrix(
 		im2ColMatrixHeight, im2ColMatrixWidth)
 
-	dIm2ColData := im2ColMatrix.data
-
-	hInputData := make([]float32, 3*3)
-	l.GPUDriver.MemCopyD2H(l.GPUCtx, hInputData, input.ptr)
-	fmt.Println("Forward, input Data ", hInputData)
+	l.im2Col(input, im2ColMatrix.data)
 
 	hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
-	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dIm2ColData)
-	fmt.Println(hIm2ColData)
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, im2ColMatrix.data)
+	fmt.Print("\n\nim2col:\n")
+	for i := 0; i < im2ColMatrixHeight; i++ {
+		for j := 0; j < im2ColMatrixWidth; j++ {
+			fmt.Printf("%4.3f, ", hIm2ColData[i*im2ColMatrixWidth+j])
+		}
+		fmt.Print("\n")
+	}
 
 	kernelMatrixWidth := l.kernelWidth() * l.kernelHeight() * l.numChannels()
-	kernelMatrix := l.kernel.AsMatrix(l.numChannels(), kernelMatrixWidth)
+	kernelMatrixHeight := l.numKernels()
+	kernelMatrix := l.kernel.AsMatrix(kernelMatrixHeight, kernelMatrixWidth)
+
+	hKernelData := make([]float32, kernelMatrixWidth*kernelMatrixHeight)
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hKernelData, kernelMatrix.data)
+	fmt.Print("\n\nkernel:\n")
+	for i := 0; i < kernelMatrixHeight; i++ {
+		for j := 0; j < kernelMatrixWidth; j++ {
+			fmt.Printf("%4.3f, ", hKernelData[i*kernelMatrixWidth+j])
+		}
+		fmt.Print("\n")
+	}
+
 	outputMatrix := l.MatrixOperator.CreateMatrix(
 		l.numKernels(), im2ColMatrixWidth)
 	biasMatrix := l.MatrixOperator.CreateMatrix(
@@ -408,20 +445,29 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 
 	l.MatrixOperator.Gemm(
 		false, false,
-		l.numKernels(),
+		kernelMatrixHeight,
 		kernelMatrixWidth,
-		input.Size()[0]*input.Size()[2]*input.Size()[3],
+		im2ColMatrixWidth,
 		1.0, 1.0,
 		kernelMatrix, im2ColMatrix, biasMatrix, outputMatrix)
 
 	output := &Tensor{
-		driver: l.GPUDriver,
-		ctx:    l.GPUCtx,
-		size:   outputSize,
-		ptr:    outputMatrix.data,
+		driver:     l.GPUDriver,
+		ctx:        l.GPUCtx,
+		size:       outputSize,
+		ptr:        outputMatrix.data,
+		descriptor: "CNHW",
 	}
 
-	fmt.Println(output.Vector())
+	hOutputData := make([]float32, kernelMatrixWidth*im2ColMatrixWidth)
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hOutputData, outputMatrix.data)
+	fmt.Print("\n\noutput:\n")
+	for i := 0; i < kernelMatrixHeight; i++ {
+		for j := 0; j < im2ColMatrixWidth; j++ {
+			fmt.Printf("%4.3f, ", hOutputData[i*im2ColMatrixWidth+j])
+		}
+		fmt.Print("\n")
+	}
 
 	l.MatrixOperator.Free(biasMatrix)
 
@@ -429,7 +475,7 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 }
 
 func (l *Conv2D) inputSizeMustMatch(inputTensor tensor.Tensor) {
-	if inputTensor.Size()[1] != l.inputSize[0] ||
+	if l.inputChannelSize(inputTensor) != l.inputSize[0] ||
 		inputTensor.Size()[2] != l.inputSize[1] ||
 		inputTensor.Size()[3] != l.inputSize[2] {
 		panic("input dimension not correct")
