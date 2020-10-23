@@ -642,15 +642,15 @@ func (l *Conv2D) im2Col(
 		l.im2ColCNHW(input.ptr, dIm2ColData,
 			input.Size()[0], input.Size()[1], gridSize)
 
-		hIm2ColData := make([]float32, gridSize*input.Size()[0]*input.Size()[2]*input.Size()[3])
-		l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dIm2ColData)
-		fmt.Printf("\n\nIm2Col Matrix:\n")
-		for i := 0; i < input.Size()[0]*input.Size()[2]*input.Size()[3]; i++ {
-			for j := 0; j < gridSize; j++ {
-				fmt.Printf("%4.0f ", hIm2ColData[i*gridSize+j])
-			}
-			fmt.Printf("\n")
-		}
+		// hIm2ColData := make([]float32, gridSize*input.Size()[0]*input.Size()[2]*input.Size()[3])
+		// l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, dIm2ColData)
+		// fmt.Printf("\n\nIm2Col Matrix:\n")
+		// for i := 0; i < input.Size()[0]*input.Size()[2]*input.Size()[3]; i++ {
+		// 	for j := 0; j < gridSize; j++ {
+		// 		fmt.Printf("%4.0f ", hIm2ColData[i*gridSize+j])
+		// 	}
+		// 	fmt.Printf("\n")
+		// }
 	default:
 		panic("unsupported tensor type " + input.Descriptor())
 	}

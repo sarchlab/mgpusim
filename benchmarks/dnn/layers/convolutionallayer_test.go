@@ -53,7 +53,7 @@ var _ = Describe("Convolutional Layer", func() {
 			})
 	})
 
-	FIt("should do im2col", func() {
+	It("should do im2col", func() {
 		goldDatasets := loadDatasets("im2col_test_data.json")
 
 		for _, d := range goldDatasets {
@@ -66,8 +66,6 @@ var _ = Describe("Convolutional Layer", func() {
 			output.Init(
 				make([]float64, goldOut.Size[0]*goldOut.Size[1]),
 				goldOut.Size)
-
-			fmt.Println(input)
 
 			convLayer.im2Col(input, output.ptr)
 
