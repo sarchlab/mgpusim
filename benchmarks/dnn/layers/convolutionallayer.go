@@ -416,13 +416,6 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 
 	hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, im2ColMatrix.data)
-	fmt.Print("\n\nim2col:\n")
-	for i := 0; i < im2ColMatrixHeight; i++ {
-		for j := 0; j < im2ColMatrixWidth; j++ {
-			fmt.Printf("%4.3f, ", hIm2ColData[i*im2ColMatrixWidth+j])
-		}
-		fmt.Print("\n")
-	}
 
 	kernelMatrixWidth := l.kernelWidth() * l.kernelHeight() * l.numChannels()
 	kernelMatrixHeight := l.numKernels()
@@ -430,24 +423,17 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 
 	hKernelData := make([]float32, kernelMatrixWidth*kernelMatrixHeight)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hKernelData, kernelMatrix.data)
-	fmt.Print("\n\nkernel:\n")
-	for i := 0; i < kernelMatrixHeight; i++ {
-		for j := 0; j < kernelMatrixWidth; j++ {
-			fmt.Printf("%4.3f, ", hKernelData[i*kernelMatrixWidth+j])
-		}
-		fmt.Print("\n")
-	}
 
 	outputMatrix := l.MatrixOperator.CreateMatrix(
-		l.numKernels(), im2ColMatrixWidth)
+		kernelMatrixHeight, im2ColMatrixWidth)
 	biasMatrix := l.MatrixOperator.CreateMatrix(
-		l.numKernels(), im2ColMatrixWidth)
+		kernelMatrixHeight, im2ColMatrixWidth)
 
 	l.MatrixOperator.Gemm(
 		false, false,
 		kernelMatrixHeight,
-		kernelMatrixWidth,
 		im2ColMatrixWidth,
+		kernelMatrixWidth,
 		1.0, 1.0,
 		kernelMatrix, im2ColMatrix, biasMatrix, outputMatrix)
 
@@ -461,13 +447,6 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 
 	hOutputData := make([]float32, kernelMatrixWidth*im2ColMatrixWidth)
 	l.GPUDriver.MemCopyD2H(l.GPUCtx, hOutputData, outputMatrix.data)
-	fmt.Print("\n\noutput:\n")
-	for i := 0; i < kernelMatrixHeight; i++ {
-		for j := 0; j < im2ColMatrixWidth; j++ {
-			fmt.Printf("%4.3f, ", hOutputData[i*im2ColMatrixWidth+j])
-		}
-		fmt.Print("\n")
-	}
 
 	l.MatrixOperator.Free(biasMatrix)
 
