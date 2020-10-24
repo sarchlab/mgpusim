@@ -83,8 +83,17 @@ var _ = Describe("Convolutional Layer", func() {
 			goldStride := d["stride"]
 			goldPadding := d["padding"]
 
+			inputSize := []int{
+				goldIn.Size[1],
+				goldIn.Size[2],
+				goldIn.Size[3],
+			}
+			if goldIn.Descriptor == "CNHW" {
+				inputSize[0] = goldIn.Size[0]
+			}
+
 			layer := NewConvolutionalLayer(
-				goldIn.Size[1:],
+				inputSize,
 				goldKernel.Size,
 				goldStride.Size,
 				goldPadding.Size,
@@ -92,12 +101,17 @@ var _ = Describe("Convolutional Layer", func() {
 			layer.kernel.Init(goldKernel.Data, goldKernel.numElement())
 
 			input.Init(goldIn.Data, goldIn.Size)
+			input.descriptor = goldIn.Descriptor
 
 			output := layer.Forward(input)
 
 			Expect(output.Size()).To(Equal(goldOut.Size))
-			Expect(output.Vector()).To(Equal(goldOut.Data))
-			// Expect(layer.forwardInput).To(Equal(input.Vector()))
+			Expect(output.Descriptor()).To(Equal(goldOut.Descriptor))
+
+			outputV := output.Vector()
+			for i := range outputV {
+				Expect(outputV[i]).To(BeNumerically("~", goldOut.Data[i], 1e-3))
+			}
 		}
 
 		// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
