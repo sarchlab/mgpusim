@@ -3,7 +3,10 @@ package layers
 import (
 	// "fmt"
 
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -12,6 +15,33 @@ import (
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
 )
+
+type im2ColDataSet struct {
+	Input    tensorJSON `json:"input,omitempty"`
+	Output   tensorJSON `json:"output,omitempty"`
+	MaskSize [2]int     `json:"mask_size,omitempty"`
+	Padding  [4]int     `json:"padding,omitempty"`
+	Stride   [2]int     `json:"stride,omitempty"`
+	Dilation [2]int     `json:"dilation,omitempty"`
+}
+
+func loadIm2ColDatasets(filename string) []im2ColDataSet {
+	jsonFile, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+
+	var im2ColData []im2ColDataSet
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(byteValue, &im2ColData)
+	if err != nil {
+		panic(err)
+	}
+
+	return im2ColData
+}
 
 var _ = Describe("Convolutional Layer", func() {
 
@@ -53,12 +83,12 @@ var _ = Describe("Convolutional Layer", func() {
 			})
 	})
 
-	It("should do im2col", func() {
-		goldDatasets := loadDatasets("im2col_test_data.json")
+	FIt("should do im2col", func() {
+		goldDatasets := loadIm2ColDatasets("im2col_test_data.json")
 
 		for _, d := range goldDatasets {
-			goldIn := d["input"]
-			goldOut := d["output"]
+			goldIn := d.Input
+			goldOut := d.Output
 
 			input.Init(goldIn.Data, goldIn.Size)
 			input.descriptor = goldIn.Descriptor
@@ -66,14 +96,16 @@ var _ = Describe("Convolutional Layer", func() {
 			output.Init(
 				make([]float64, goldOut.Size[0]*goldOut.Size[1]),
 				goldOut.Size)
+			outputMatrix := output.Matrix()
 
-			convLayer.im2Col(input, output.ptr)
+			convLayer.im2Col(input, outputMatrix,
+				d.MaskSize, d.Padding, d.Stride, d.Dilation)
 
 			Expect(output.Vector()).To(Equal(goldOut.Data))
 		}
 	})
 
-	FIt("should forward", func() {
+	It("should forward", func() {
 		goldDatasets := loadDatasets("conv_forward_test_data.json")
 
 		for _, d := range goldDatasets {

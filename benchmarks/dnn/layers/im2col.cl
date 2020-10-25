@@ -1,10 +1,8 @@
-__kernel void im2colKernelNCHW(__global float* input, __global float* output,
-                               const uint2 inputDimensions,
-                               const uint2 maskDimensions,
-                               const uint2 strDimensions,
-                               const uint2 padVertDimensions,
-                               const uint2 padHoriDImensions,
-                               const uint channel, const uint batch) {
+__kernel void im2colKernelNCHW(
+    __global float* input, __global float* output, const uint2 inputDimensions,
+    const uint2 maskDimensions, const uint2 strDimensions,
+    const uint2 padVertDimensions, const uint2 padHoriDImensions,
+    const uint2 dilation, const uint channel, const uint batch) {
   uint tid = get_global_id(0);
 
   uint width = inputDimensions.x;
@@ -63,13 +61,11 @@ __kernel void im2colKernelNCHW(__global float* input, __global float* output,
   }
 }
 
-__kernel void im2colKernelCNHW(__global float* input, __global float* output,
-                               const uint2 inputDimensions,
-                               const uint2 maskDimensions,
-                               const uint2 strDimensions,
-                               const uint2 padVertDimensions,
-                               const uint2 padHoriDImensions,
-                               const uint channel, const uint batch) {
+__kernel void im2colKernelCNHW(
+    __global float* input, __global float* output, const uint2 inputDimensions,
+    const uint2 maskDimensions, const uint2 strDimensions,
+    const uint2 padVertDimensions, const uint2 padHoriDImensions,
+    const uint2 dilation, const uint channel, const uint batch) {
   uint tid = get_global_id(0);
 
   uint width = inputDimensions.x;
