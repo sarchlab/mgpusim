@@ -101,7 +101,21 @@ var _ = Describe("Convolutional Layer", func() {
 			convLayer.im2Col(input, outputMatrix,
 				d.MaskSize, d.Padding, d.Stride, d.Dilation)
 
-			Expect(output.Vector()).To(Equal(goldOut.Data))
+			Expect(outputMatrix.row).To(Equal(goldOut.Size[0]))
+			Expect(outputMatrix.col).To(Equal(goldOut.Size[1]))
+			outputV := output.Vector()
+
+			fmt.Printf("\n\nIm2Col output:\n")
+			for i := 0; i < outputMatrix.col; i++ {
+				for j := 0; j < outputMatrix.row; j++ {
+					fmt.Printf("%4.2f, ", outputV[i*outputMatrix.row+j])
+				}
+				fmt.Printf("\n")
+			}
+
+			for i := range goldOut.Data {
+				Expect(outputV[i]).To(BeNumerically("~", goldOut.Data[i], 1e-3))
+			}
 		}
 	})
 

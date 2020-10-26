@@ -11,14 +11,14 @@ __kernel void im2colKernelNCHW(
   uint maskWidth = maskDimensions.x;
   uint maskHeight = maskDimensions.y;
 
-  uint fieldWidth =
-      (width - maskWidth + padHoriDImensions.x + padHoriDImensions.y) /
-          strDimensions.x +
-      1;
-  uint fieldHeight =
-      (height - maskHeight + padVertDimensions.x + padVertDimensions.y) /
-          strDimensions.y +
-      1;
+  uint fieldWidth = (width - maskWidth - (maskWidth - 1) * dilation.x +
+                     padHoriDImensions.x + padHoriDImensions.y) /
+                        strDimensions.x +
+                    1;
+  uint fieldHeight = (height - maskHeight - (maskHeight - 1) * dilation.y +
+                      padVertDimensions.x + padVertDimensions.y) /
+                         strDimensions.y +
+                     1;
 
   uint outWidth = fieldHeight * fieldWidth * batch;
   uint outHeight = maskHeight * maskWidth * channel;
@@ -37,8 +37,10 @@ __kernel void im2colKernelNCHW(
   uint y = 0;
   uint x = 0;
   for (int i = 0; i < outHeight; i++) {
-    int real_x = x + block_x * strDimensions.x - padHoriDImensions.x;
-    int real_y = y + block_y * strDimensions.y - padVertDimensions.x;
+    int real_x =
+        x + block_x * strDimensions.x - padHoriDImensions.x + dilation.x * x;
+    int real_y =
+        y + block_y * strDimensions.y - padVertDimensions.x + dilation.y * y;
     int input_index = batch_id * picture_size + channel_id * frame_size +
                       real_y * width + real_x;
     int output_index = i * outWidth + tid;
@@ -74,14 +76,14 @@ __kernel void im2colKernelCNHW(
   uint maskWidth = maskDimensions.x;
   uint maskHeight = maskDimensions.y;
 
-  uint fieldWidth =
-      (width - maskWidth + padHoriDImensions.x + padHoriDImensions.y) /
-          strDimensions.x +
-      1;
-  uint fieldHeight =
-      (height - maskHeight + padVertDimensions.x + padVertDimensions.y) /
-          strDimensions.y +
-      1;
+  uint fieldWidth = (width - maskWidth - (maskWidth - 1) * dilation.x +
+                     padHoriDImensions.x + padHoriDImensions.y) /
+                        strDimensions.x +
+                    1;
+  uint fieldHeight = (height - maskHeight - (maskHeight - 1) * dilation.y +
+                      padVertDimensions.x + padVertDimensions.y) /
+                         strDimensions.y +
+                     1;
 
   uint outWidth = fieldHeight * fieldWidth * batch;
   uint outHeight = maskHeight * maskWidth * channel;
@@ -100,8 +102,10 @@ __kernel void im2colKernelCNHW(
   uint y = 0;
   uint x = 0;
   for (int i = 0; i < outHeight; i++) {
-    int real_x = x + block_x * strDimensions.x - padHoriDImensions.x;
-    int real_y = y + block_y * strDimensions.y - padVertDimensions.x;
+    int real_x =
+        x + block_x * strDimensions.x - padHoriDImensions.x + dilation.x * x;
+    int real_y =
+        y + block_y * strDimensions.y - padVertDimensions.x + dilation.y * y;
     int input_index = batch_id * frame_size + channel_id * frame_size * batch +
                       real_y * width + real_x;
     int output_index = i * outWidth + tid;
