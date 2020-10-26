@@ -43,6 +43,33 @@ func loadIm2ColDatasets(filename string) []im2ColDataSet {
 	return im2ColData
 }
 
+type backwardDataSet struct {
+	KernelSize     []int      `json:"kernel_size,omitempty"`
+	StrideSize     []int      `json:"stride_size,omitempty"`
+	PaddingSize    []int      `json:"padding_size,omitempty"`
+	ForwardInput   tensorJSON `json:"forward_input,omitempty"`
+	BackwardInput  tensorJSON `json:"backward_input,omitempty"`
+	WeightGradient tensorJSON `json:"weight_gradient,omitempty"`
+}
+
+func loadBackwardDatasets(filename string) []backwardDataSet {
+	jsonFile, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+
+	var backwardData []backwardDataSet
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(byteValue, &backwardData)
+	if err != nil {
+		panic(err)
+	}
+
+	return backwardData
+}
+
 var _ = Describe("Convolutional Layer", func() {
 
 	var (
@@ -83,7 +110,7 @@ var _ = Describe("Convolutional Layer", func() {
 			})
 	})
 
-	FIt("should do im2col", func() {
+	It("should do im2col", func() {
 		goldDatasets := loadIm2ColDatasets("im2col_test_data.json")
 
 		for _, d := range goldDatasets {
@@ -105,13 +132,13 @@ var _ = Describe("Convolutional Layer", func() {
 			Expect(outputMatrix.col).To(Equal(goldOut.Size[1]))
 			outputV := output.Vector()
 
-			fmt.Printf("\n\nIm2Col output:\n")
-			for i := 0; i < outputMatrix.col; i++ {
-				for j := 0; j < outputMatrix.row; j++ {
-					fmt.Printf("%4.2f, ", outputV[i*outputMatrix.row+j])
-				}
-				fmt.Printf("\n")
-			}
+			// fmt.Printf("\n\nIm2Col output:\n")
+			// for i := 0; i < outputMatrix.col; i++ {
+			// 	for j := 0; j < outputMatrix.row; j++ {
+			// 		fmt.Printf("%4.2f, ", outputV[i*outputMatrix.row+j])
+			// 	}
+			// 	fmt.Printf("\n")
+			// }
 
 			for i := range goldOut.Data {
 				Expect(outputV[i]).To(BeNumerically("~", goldOut.Data[i], 1e-3))
@@ -119,7 +146,7 @@ var _ = Describe("Convolutional Layer", func() {
 		}
 	})
 
-	FIt("should forward", func() {
+	It("should forward", func() {
 		goldDatasets := loadDatasets("conv_forward_test_data.json")
 
 		for _, d := range goldDatasets {
@@ -159,25 +186,44 @@ var _ = Describe("Convolutional Layer", func() {
 				Expect(outputV[i]).To(BeNumerically("~", goldOut.Data[i], 1e-3))
 			}
 		}
+	})
 
-		// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
-		// pairs := loadInputOutputPair("conv_forward_test_data.json")
+	FIt("should do backward", func() {
+		goldDatasets := loadBackwardDatasets("conv_backward_test_data.json")
 
-		// for _, p := range pairs {
-		// 	input.Init(p.Input.Data, p.Input.Size, []float64{
-		// 		1.0, 1.0, 1.0,
-		// 		2.0, 2.0, 2.0,
-		// 		3.0, 3.0, 3.0,
-		// 	}, []int{1, 3, 3})
+		for _, d := range goldDatasets {
+			forwardIn := d.ForwardInput
 
-		// 	output := convLayer.Forward(input)
+			layerInputSize := []int{
+				forwardIn.Size[1],
+				forwardIn.Size[2],
+				forwardIn.Size[3],
+			}
 
-		// 	// fmt.Println(ConvLayer.inputWithPadding)
+			layer := NewConvolutionalLayer(layerInputSize,
+				d.KernelSize, d.StrideSize, d.PaddingSize,
+				gpuDriver, context, mo)
 
-		// 	Expect(output.Size()).To(Equal([]int{1, 3, 3}))
-		// 	Expect(output.Vector()).To(Equal([]float64{16, 24, 16, 28, 42, 28, 16, 24, 16}))
-		// 	Expect(convLayer.forwardInput).To(Equal(input.Vector()))
-		// }
+			forwardInputT := NewTensor(gpuDriver, context)
+			forwardInputT.Init(forwardIn.Data, forwardIn.Size)
+			forwardInputT.descriptor = forwardIn.Descriptor
+			layer.forwardInput = forwardInputT
+
+			backwardIn := d.BackwardInput
+			backwardInT := NewTensor(gpuDriver, context)
+			backwardInT.Init(backwardIn.Data, backwardIn.Size)
+			backwardInT.descriptor = backwardIn.Descriptor
+
+			layer.Backward(backwardInT)
+
+			goldWeightGradients := d.WeightGradient
+			weightGradients := layer.weightGradients.Raw()
+			for i := range weightGradients {
+				Expect(weightGradients[i]).
+					To(BeNumerically("~", goldWeightGradients.Data[i], 1e-3))
+			}
+
+		}
 	})
 
 	It("Backward, 1 input channel, 1 output channel, stride 1", func() {

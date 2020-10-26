@@ -1,6 +1,8 @@
 package layers
 
 import (
+	"fmt"
+
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
@@ -63,6 +65,24 @@ func (mo *MatrixOperator) CreateMatrix(row, col int) *Matrix {
 		data: mo.driver.AllocateMemory(mo.context, uint64(row*col*4)),
 	}
 	return m
+}
+
+// Dump prints the matrix content to a string
+func (mo *MatrixOperator) Dump(name string, matrix *Matrix) string {
+	sizeOfFloat := 4
+	hData := make([]float32, matrix.col*matrix.row*sizeOfFloat)
+	mo.driver.MemCopyD2H(mo.context, hData, matrix.data)
+
+	out := fmt.Sprintf("\n\n%s:\n", name)
+	for i := 0; i < matrix.row; i++ {
+		for j := 0; j < matrix.col; j++ {
+			out += fmt.Sprintf("%4f, ", hData[i*matrix.col+j])
+		}
+		out += "\n"
+	}
+	out += "\n"
+
+	return out
 }
 
 // Free fress the memory of the matrix.

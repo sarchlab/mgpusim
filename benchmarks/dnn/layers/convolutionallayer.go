@@ -28,7 +28,7 @@ type Conv2D struct {
 	GPUCtx         *driver.Context
 	MatrixOperator *MatrixOperator
 
-	forwardInput driver.GPUPtr
+	forwardInput *Tensor
 
 	verifyForward  bool
 	verifyBackward bool
@@ -220,17 +220,7 @@ func (l *Conv2D) EnableVerification() {
 }
 
 func (l *Conv2D) saveInput(input *Tensor) {
-	if l.forwardInput != 0 {
-		l.GPUDriver.FreeMemory(l.GPUCtx, l.forwardInput)
-	}
-
-	numElement := input.Size()[0] * input.Size()[1] * input.Size()[2]
-	l.forwardInput = l.GPUDriver.AllocateMemory(l.GPUCtx,
-		uint64(numElement*4))
-
-	temp := make([]float32, numElement)
-	l.GPUDriver.MemCopyD2H(l.GPUCtx, temp, input.ptr)
-	l.GPUDriver.MemCopyH2D(l.GPUCtx, l.forwardInput, temp)
+	l.forwardInput = input
 }
 
 func (l Conv2D) numParameters() int {
@@ -420,9 +410,6 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 		[2]int{0, 0},
 	)
 
-	hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
-	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, im2ColMatrix.data)
-
 	kernelMatrixWidth := l.kernelWidth() * l.kernelHeight() * l.numChannels()
 	kernelMatrixHeight := l.numKernels()
 	kernelMatrix := l.kernel.AsMatrix(kernelMatrixHeight, kernelMatrixWidth)
@@ -451,9 +438,6 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 		descriptor: "CNHW",
 	}
 
-	// hOutputData := make([]float32, kernelMatrixWidth*im2ColMatrixWidth)
-	// l.GPUDriver.MemCopyD2H(l.GPUCtx, hOutputData, outputMatrix.data)
-
 	l.MatrixOperator.Free(biasMatrix)
 
 	return output
@@ -475,8 +459,8 @@ func (l *Conv2D) Backward(inputTensor tensor.Tensor) {
 	// input := inputTensor.(*tensor.SimpleTensor)
 	output := &tensor.SimpleTensor{}
 	l.calculateWeightGradients(inputTensor)
-	l.calculateBiasGradients(inputTensor)
-	l.calculateInputGradients(inputTensor)
+	// l.calculateBiasGradients(inputTensor)
+	// l.calculateInputGradients(inputTensor)
 	output.Init(l.inputGradients.Raw(), l.inputSize)
 	return
 }
@@ -534,66 +518,38 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) {
 }
 
 func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
-	// sizeOfFloat := 4
-	// // tempInput := input.(*tensor.SimpleTensor)
-	// outputGradient := input.(*Tensor)
+	im2ColHeight := l.kernelWidth() * l.kernelHeight() * l.numChannels()
+	im2ColWidth := l.kernelWidth() * l.kernelHeight()
 
-	// // inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
-	// // inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
-	// inputChannelNum := l.inputSize[0]
-	// // inputChannelSize := inputHeight * inputWidth
-	// //inputTotalSize := inputChannelNum * inputChannelSize
+	im2ColMat := l.MatrixOperator.CreateMatrix(im2ColHeight, im2ColWidth)
+	l.im2Col(l.forwardInput, im2ColMat,
+		[2]int{l.kernelWidth(), l.kernelHeight()},
+		[4]int{l.padding[0], l.padding[1], l.padding[2], l.padding[3]},
+		[2]int{l.stride[0], l.stride[1]},
+		[2]int{0, 0},
+	)
 
-	// outputHeight := l.outputSize[1]
-	// outputWidth := l.outputSize[2]
-	// outputChannelNum := l.outputSize[0]
-	// outputChannelSize := outputHeight * outputWidth
-	// // outputTotalSize := outputChannelNum * outputChannelSize
+	// fmt.Println(l.MatrixOperator.Dump("Im2Col", im2ColMat))
 
-	// kernelHeight := l.kernelSize[2]
-	// kernelWidth := l.kernelSize[3]
-	// kernelChannelSize := kernelHeight * kernelWidth
-	// kernelTotalSize := outputChannelNum * inputChannelNum * kernelChannelSize
+	backwardInMat := &Matrix{
+		col:  l.kernelWidth() * l.kernelHeight() * l.numChannels(),
+		row:  l.numKernels(),
+		data: input.(*Tensor).ptr,
+	}
 
-	// outputGradient.size = []int{outputChannelSize, outputChannelNum}
+	biasMat := l.MatrixOperator.CreateMatrix(l.numKernels(), im2ColWidth)
+	weightGradientMat := &Matrix{
+		col:  im2ColWidth,
+		row:  l.numKernels(),
+		data: l.weightGradients.ptr,
+	}
 
-	// colSize := outputChannelSize * kernelChannelSize * outputChannelNum
-	// dIm2colData := l.GPUDriver.AllocateMemory(l.GPUCtx,
-	// 	uint64(colSize*sizeOfFloat))
+	l.MatrixOperator.Gemm(false, false,
+		l.numKernels(), im2ColWidth, im2ColHeight,
+		1, 1,
+		backwardInMat, im2ColMat, biasMat, weightGradientMat)
 
-	// batchSize := 1
-	// gridSize := outputChannelSize
-	// l.im2ColNCHW(l.forwardInput, dIm2colData, l.kernelSize[1], batchSize, gridSize)
-
-	// // GPU call one: im2col(dInputData) -> dIm2colData
-	// // GPU call two: Gemm(dIm2colData, dOutputGradient) -> dWeightGradientData
-
-	// weightGradientM := l.weightGradients.AsMatrix(kernelChannelSize*inputChannelNum, outputChannelNum)
-
-	// dIm2colTensor := &Tensor{
-	// 	driver: l.GPUDriver,
-	// 	ctx:    l.GPUCtx,
-	// 	size:   []int{outputChannelSize, kernelChannelSize * inputChannelNum},
-	// 	ptr:    dIm2colData,
-	// }
-
-	// zeroMatrix := NewTensor(l.GPUDriver, l.GPUCtx)
-	// zeroMatrix.Init(
-	// 	make([]float64, kernelTotalSize),
-	// 	[]int{kernelChannelSize * inputChannelNum, outputChannelNum},
-	// )
-
-	// l.MatrixOperator.Gemm(false, false,
-	// 	kernelChannelSize*inputChannelNum, outputChannelNum, outputChannelSize,
-	// 	1.0, 1.0,
-	// 	dIm2colTensor.Matrix(), outputGradient.Matrix(), zeroMatrix.Matrix(),
-	// 	weightGradientM)
-
-	// // Output := make([]float32, kernelTotalSize)
-	// // l.GPUDriver.MemCopyD2H(l.GPUCtx, Output, l.weightGradients.ptr)
-	// // fmt.Println("WG ", Output)
-	// // l.MatrixOperator.Free(weightMatrixTrans)
-	// return
+	// fmt.Printf(l.MatrixOperator.Dump("Weight Gradient", weightGradientMat))
 }
 
 func (l *Conv2D) calculateBiasGradients(input tensor.Tensor) {
