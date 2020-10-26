@@ -7,11 +7,11 @@ import (
 	"gitlab.com/akita/mgpusim/platform"
 )
 
-var _ = Describe("Matrix Operator", func() {
+var _ = Describe("Tensor Operator", func() {
 	var (
 		gpuDriver *driver.Driver
 		context   *driver.Context
-		mo        *MatrixOperator
+		to        *TensorOperator
 	)
 
 	BeforeEach(func() {
@@ -20,7 +20,7 @@ var _ = Describe("Matrix Operator", func() {
 			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
-		mo = NewMatrixOperator(gpuDriver, context)
+		to = NewTensorOperator(gpuDriver, context)
 	})
 
 	AfterEach(func() {
@@ -28,33 +28,33 @@ var _ = Describe("Matrix Operator", func() {
 	})
 
 	It("should do gemm", func() {
-		a := mo.CreateMatrix(3, 2)
-		mo.ToGPU(a, []float32{
+		a := to.CreateTensor([]int{3, 2})
+		to.ToGPU(a, []float32{
 			1, 2, 3,
 			4, 5, 6,
 		})
 
-		b := mo.CreateMatrix(1, 3)
-		mo.ToGPU(b, []float32{
+		b := to.CreateTensor([]int{1, 3})
+		to.ToGPU(b, []float32{
 			7,
 			8,
 			9,
 		})
 
-		c := mo.CreateMatrix(1, 2)
-		mo.ToGPU(c, []float32{
+		c := to.CreateTensor([]int{1, 2})
+		to.ToGPU(c, []float32{
 			-1, -2,
 		})
 
-		d := mo.CreateMatrix(1, 2)
+		d := to.CreateTensor([]int{1, 2})
 
-		mo.Gemm(false, false,
+		to.Gemm(false, false,
 			2, 1, 3,
 			0.1, 2.2,
 			a, b, c, d)
 
 		outData := make([]float32, 2)
-		mo.FromGPU(d, outData)
+		to.FromGPU(d, outData)
 
 		expectedOutData := []float32{2.8, 7.8}
 
@@ -65,19 +65,19 @@ var _ = Describe("Matrix Operator", func() {
 	})
 
 	It("should transpose", func() {
-		in := mo.CreateMatrix(2, 3)
-		out := mo.CreateMatrix(3, 2)
+		in := to.CreateTensor([]int{2, 3})
+		out := to.CreateTensor([]int{3, 2})
 
 		inData := []float32{
 			1, 2, 3,
 			4, 5, 6,
 		}
-		mo.ToGPU(in, inData)
+		to.ToGPU(in, inData)
 
-		mo.Transpose(in, out)
+		to.Transpose(in, out)
 
 		outData := make([]float32, 3*2)
-		mo.FromGPU(out, outData)
+		to.FromGPU(out, outData)
 
 		Expect(outData).To(Equal([]float32{
 			1, 4,

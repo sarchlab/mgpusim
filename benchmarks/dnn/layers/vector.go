@@ -29,11 +29,12 @@ func (v *Vector) Init(data []float64, size int) {
 }
 
 // AsMatrix returns the vector as a matrix, with given row and col size.
-func (v Vector) AsMatrix(row, col int) *Matrix {
-	m := &Matrix{
-		col:  col,
-		row:  row,
-		data: v.ptr,
+func (v Vector) AsMatrix(row, col int) *Tensor {
+	m := &Tensor{
+		size:   []int{row, col},
+		ptr:    v.ptr,
+		driver: v.GPUDriver,
+		ctx:    v.GPUCtx,
 	}
 	return m
 }

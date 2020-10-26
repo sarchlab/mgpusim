@@ -26,7 +26,7 @@ import (
 type Conv2D struct {
 	GPUDriver      *driver.Driver
 	GPUCtx         *driver.Context
-	MatrixOperator *MatrixOperator
+	TensorOperator *TensorOperator
 
 	forwardInput *Tensor
 
@@ -107,7 +107,7 @@ func NewConvolutionalLayer(
 	inputSize, kernelSize, stride, padding []int,
 	GPUDriver *driver.Driver,
 	GPUCtx *driver.Context,
-	MatrixOperator *MatrixOperator,
+	TensorOperator *TensorOperator,
 ) *Conv2D {
 	// argumentsMustBeValid(inputSize, kernelSize, stride, padding)
 
@@ -118,7 +118,7 @@ func NewConvolutionalLayer(
 		padding:        padding,
 		GPUDriver:      GPUDriver,
 		GPUCtx:         GPUCtx,
-		MatrixOperator: MatrixOperator,
+		TensorOperator: TensorOperator,
 	}
 	l.calculateOutputSize()
 	l.loadKernels()
@@ -400,8 +400,8 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 
 	im2ColMatrixHeight := l.numChannels() * l.kernelWidth() * l.kernelHeight()
 	im2ColMatrixWidth := outputWidth * outputHeight * batchSize
-	im2ColMatrix := l.MatrixOperator.CreateMatrix(
-		im2ColMatrixHeight, im2ColMatrixWidth)
+	im2ColMatrix := l.TensorOperator.CreateTensor(
+		[]int{im2ColMatrixHeight, im2ColMatrixWidth})
 
 	l.im2Col(input, im2ColMatrix,
 		[2]int{l.kernelWidth(), l.kernelHeight()},
@@ -415,14 +415,14 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	kernelMatrix := l.kernel.AsMatrix(kernelMatrixHeight, kernelMatrixWidth)
 
 	hKernelData := make([]float32, kernelMatrixWidth*kernelMatrixHeight)
-	l.GPUDriver.MemCopyD2H(l.GPUCtx, hKernelData, kernelMatrix.data)
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hKernelData, kernelMatrix.ptr)
 
-	outputMatrix := l.MatrixOperator.CreateMatrix(
-		kernelMatrixHeight, im2ColMatrixWidth)
-	biasMatrix := l.MatrixOperator.CreateMatrix(
-		kernelMatrixHeight, im2ColMatrixWidth)
+	outputMatrix := l.TensorOperator.CreateTensor(
+		[]int{kernelMatrixHeight, im2ColMatrixWidth})
+	biasMatrix := l.TensorOperator.CreateTensor(
+		[]int{kernelMatrixHeight, im2ColMatrixWidth})
 
-	l.MatrixOperator.Gemm(
+	l.TensorOperator.Gemm(
 		false, false,
 		kernelMatrixHeight,
 		im2ColMatrixWidth,
@@ -434,11 +434,11 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 		driver:     l.GPUDriver,
 		ctx:        l.GPUCtx,
 		size:       outputSize,
-		ptr:        outputMatrix.data,
+		ptr:        outputMatrix.ptr,
 		descriptor: "CNHW",
 	}
 
-	l.MatrixOperator.Free(biasMatrix)
+	l.TensorOperator.Free(biasMatrix)
 
 	return output
 }
@@ -466,54 +466,55 @@ func (l *Conv2D) Backward(inputTensor tensor.Tensor) {
 }
 
 func (l *Conv2D) calculateInputGradients(input tensor.Tensor) {
-	// sizeOfFloat := 4
-	outputGradient := input.(*Tensor)
-	// outputGradient := tempInput.ptr
+	// // sizeOfFloat := 4
+	// outputGradient := input.(*Tensor)
+	// // outputGradient := tempInput.ptr
 
-	// inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
-	// inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
-	inputChannelNum := l.inputSize[0]
-	// inputChannelSize := inputHeight * inputWidth
-	//inputTotalSize := inputChannelNum * inputChannelSize
+	// // inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
+	// // inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
+	// inputChannelNum := l.inputSize[0]
+	// // inputChannelSize := inputHeight * inputWidth
+	// //inputTotalSize := inputChannelNum * inputChannelSize
 
-	outputHeight := l.outputSize[1]
-	outputWidth := l.outputSize[2]
-	outputChannelNum := l.outputSize[0]
-	outputChannelSize := outputHeight * outputWidth
-	// outputTotalSize := outputChannelNum * outputChannelSize
+	// outputHeight := l.outputSize[1]
+	// outputWidth := l.outputSize[2]
+	// outputChannelNum := l.outputSize[0]
+	// outputChannelSize := outputHeight * outputWidth
+	// // outputTotalSize := outputChannelNum * outputChannelSize
 
-	kernelHeight := l.kernelSize[2]
-	kernelWidth := l.kernelSize[3]
-	kernelChannelSize := kernelHeight * kernelWidth
-	// kernelTotalSize := outputChannelNum * inputChannelNum * kernelChannelSize
-	outputGradient.size = []int{outputChannelSize, outputChannelNum}
+	// kernelHeight := l.kernelSize[2]
+	// kernelWidth := l.kernelSize[3]
+	// kernelChannelSize := kernelHeight * kernelWidth
+	// // kernelTotalSize := outputChannelNum * inputChannelNum * kernelChannelSize
+	// outputGradient.size = []int{outputChannelSize, outputChannelNum}
 
-	ColData := NewTensor(l.GPUDriver, l.GPUCtx)
-	ColData.Init(
-		make([]float64, outputChannelSize*kernelChannelSize*inputChannelNum),
-		[]int{outputChannelSize, kernelChannelSize * inputChannelNum})
+	// ColData := NewTensor(l.GPUDriver, l.GPUCtx)
+	// ColData.Init(
+	// 	make([]float64, outputChannelSize*kernelChannelSize*inputChannelNum),
+	// 	[]int{outputChannelSize, kernelChannelSize * inputChannelNum})
 
-	zeroMatrix := NewTensor(l.GPUDriver, l.GPUCtx)
-	zeroMatrix.Init(
-		make([]float64, outputChannelSize*kernelChannelSize*inputChannelNum),
-		[]int{outputChannelSize, kernelChannelSize * inputChannelNum},
-	)
-	// GPU call one: gemm(dOutputGradient, dKernel) -> dColData
-	// GPU call two: Col2im(dColData) -> dimputGradientData
-	weightMatrix := l.kernel.AsMatrix(kernelChannelSize*inputChannelNum, outputChannelNum)
-	weightMatrixTrans := l.MatrixOperator.CreateMatrix(outputChannelNum, kernelChannelSize*inputChannelNum)
-	l.MatrixOperator.Transpose(weightMatrix, weightMatrixTrans)
+	// zeroMatrix := NewTensor(l.GPUDriver, l.GPUCtx)
+	// zeroMatrix.Init(
+	// 	make([]float64, outputChannelSize*kernelChannelSize*inputChannelNum),
+	// 	[]int{outputChannelSize, kernelChannelSize * inputChannelNum},
+	// )
+	// // GPU call one: gemm(dOutputGradient, dKernel) -> dColData
+	// // GPU call two: Col2im(dColData) -> dimputGradientData
+	// weightMatrix := l.kernel.AsMatrix(kernelChannelSize*inputChannelNum, outputChannelNum)
+	// weightMatrixTrans := l.TensorOperator.CreateTensor(
+	// 	[]int{outputChannelNum, kernelChannelSize * inputChannelNum})
+	// l.TensorOperator.Transpose(weightMatrix, weightMatrixTrans)
 
-	fmt.Println(outputChannelSize, outputChannelNum, kernelChannelSize*inputChannelNum)
-	l.MatrixOperator.Gemm(false, false,
-		outputChannelSize, kernelChannelSize*inputChannelNum, outputChannelNum,
-		1.0, 1.0,
-		outputGradient.Matrix(), weightMatrixTrans, zeroMatrix.Matrix(),
-		ColData.Matrix())
+	// fmt.Println(outputChannelSize, outputChannelNum, kernelChannelSize*inputChannelNum)
+	// l.TensorOperator.Gemm(false, false,
+	// 	outputChannelSize, kernelChannelSize*inputChannelNum, outputChannelNum,
+	// 	1.0, 1.0,
+	// 	outputGradient.Matrix(), weightMatrixTrans, zeroMatrix.Matrix(),
+	// 	ColData.Matrix())
 
-	l.col2im(ColData) //TODO: page not found error
+	// l.col2im(ColData) //TODO: page not found error
 
-	// l.MatrixOperator.Free(weightMatrixTrans)
+	// // l.TensorOperator.Free(weightMatrixTrans)
 	return
 }
 
@@ -521,7 +522,8 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 	im2ColHeight := l.kernelWidth() * l.kernelHeight() * l.numChannels()
 	im2ColWidth := l.kernelWidth() * l.kernelHeight()
 
-	im2ColMat := l.MatrixOperator.CreateMatrix(im2ColHeight, im2ColWidth)
+	im2ColMat := l.TensorOperator.CreateTensor(
+		[]int{im2ColHeight, im2ColWidth})
 	l.im2Col(l.forwardInput, im2ColMat,
 		[2]int{l.kernelWidth(), l.kernelHeight()},
 		[4]int{l.padding[0], l.padding[1], l.padding[2], l.padding[3]},
@@ -529,27 +531,25 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 		[2]int{0, 0},
 	)
 
-	// fmt.Println(l.MatrixOperator.Dump("Im2Col", im2ColMat))
+	fmt.Println(l.TensorOperator.Dump("Im2Col", im2ColMat))
 
-	backwardInMat := &Matrix{
-		col:  l.kernelWidth() * l.kernelHeight() * l.numChannels(),
-		row:  l.numKernels(),
-		data: input.(*Tensor).ptr,
+	backwardInMat := input.(*Tensor).Reshape([]int{
+		l.numKernels(),
+		l.kernelWidth() * l.kernelHeight() * l.numChannels(),
+	})
+
+	biasMat := l.TensorOperator.CreateTensor([]int{l.numKernels(), im2ColWidth})
+	weightGradientMat := &Tensor{
+		size: []int{l.numKernels(), im2ColWidth},
+		ptr:  l.weightGradients.ptr,
 	}
 
-	biasMat := l.MatrixOperator.CreateMatrix(l.numKernels(), im2ColWidth)
-	weightGradientMat := &Matrix{
-		col:  im2ColWidth,
-		row:  l.numKernels(),
-		data: l.weightGradients.ptr,
-	}
-
-	l.MatrixOperator.Gemm(false, false,
+	l.TensorOperator.Gemm(false, false,
 		l.numKernels(), im2ColWidth, im2ColHeight,
 		1, 1,
 		backwardInMat, im2ColMat, biasMat, weightGradientMat)
 
-	// fmt.Printf(l.MatrixOperator.Dump("Weight Gradient", weightGradientMat))
+	fmt.Printf(l.TensorOperator.Dump("Weight Gradient", weightGradientMat))
 }
 
 func (l *Conv2D) calculateBiasGradients(input tensor.Tensor) {
@@ -575,45 +575,45 @@ func (l *Conv2D) calculateBiasGradients(input tensor.Tensor) {
 	l.GPUDriver.MemCopyH2D(l.GPUCtx, l.biasGradients.ptr, tempData)
 }
 
-func (l *Conv2D) col2im(input *Tensor) {
-	ColData := input.Matrix().data
-	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
+// func (l *Conv2D) col2im(input *Tensor) {
+// 	ColData := input.Matrix().data
+// 	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
 
-	inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
-	inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
-	inputChannelNum := l.inputSize[0]
-	inputChannelSize := inputHeight * inputWidth
-	inputTotalSize := inputChannelNum * inputChannelSize
+// 	inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
+// 	inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
+// 	inputChannelNum := l.inputSize[0]
+// 	inputChannelSize := inputHeight * inputWidth
+// 	inputTotalSize := inputChannelNum * inputChannelSize
 
-	gridSize := uint32(inputTotalSize)
-	kernArg := KernelArgsCol2Im{
-		int32(l.inputSize[1]), int32(l.inputSize[2]), int32(l.inputSize[0]),
-		int32(l.outputSize[1]), int32(l.outputSize[2]),
-		int32(l.kernelSize[2]), int32(l.kernelSize[3]),
-		int32(l.padding[0]), int32(l.padding[1]),
-		int32(l.stride[0]), int32(l.stride[1]),
-		int32(1), int32(1),
-		ColData, int32(0),
-		l.inputGradients.ptr, int32(0),
+// 	gridSize := uint32(inputTotalSize)
+// 	kernArg := KernelArgsCol2Im{
+// 		int32(l.inputSize[1]), int32(l.inputSize[2]), int32(l.inputSize[0]),
+// 		int32(l.outputSize[1]), int32(l.outputSize[2]),
+// 		int32(l.kernelSize[2]), int32(l.kernelSize[3]),
+// 		int32(l.padding[0]), int32(l.padding[1]),
+// 		int32(l.stride[0]), int32(l.stride[1]),
+// 		int32(1), int32(1),
+// 		ColData, int32(0),
+// 		l.inputGradients.ptr, int32(0),
 
-		0, 0, 0,
-	}
-	l.GPUDriver.EnqueueLaunchKernel(
-		queue,
-		l.col2imKernel,
-		[3]uint32{gridSize, 1, 1},
-		[3]uint16{uint16(64), 1, 1},
-		&kernArg,
-	)
+// 		0, 0, 0,
+// 	}
+// 	l.GPUDriver.EnqueueLaunchKernel(
+// 		queue,
+// 		l.col2imKernel,
+// 		[3]uint32{gridSize, 1, 1},
+// 		[3]uint16{uint16(64), 1, 1},
+// 		&kernArg,
+// 	)
 
-	l.GPUDriver.DrainCommandQueue(queue)
+// 	l.GPUDriver.DrainCommandQueue(queue)
 
-	return
-}
+// 	return
+// }
 
 func (l *Conv2D) im2Col(
 	input *Tensor,
-	im2ColMatrix *Matrix,
+	im2ColMatrix *Tensor,
 	maskDimension [2]int,
 	padding [4]int,
 	stride [2]int,
@@ -644,7 +644,7 @@ func (l *Conv2D) fieldSize(
 
 func (l *Conv2D) im2ColNCHW(
 	input *Tensor,
-	matrix *Matrix,
+	matrix *Tensor,
 	maskDimension [2]int,
 	padding [4]int,
 	stride [2]int,
@@ -653,7 +653,7 @@ func (l *Conv2D) im2ColNCHW(
 	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
 	kernArg := KernelArgsIm2Col{
 		input.ptr,
-		matrix.data,
+		matrix.ptr,
 		[2]uint32{uint32(input.size[3]), uint32(input.size[2])},
 		[2]uint32{uint32(maskDimension[0]), uint32(maskDimension[1])},
 		[2]uint32{uint32(stride[0]), uint32(stride[1])},
@@ -686,7 +686,7 @@ func (l *Conv2D) im2ColNCHW(
 
 func (l *Conv2D) im2ColCNHW(
 	input *Tensor,
-	matrix *Matrix,
+	matrix *Tensor,
 	maskDimension [2]int,
 	padding [4]int,
 	stride [2]int,
@@ -695,7 +695,7 @@ func (l *Conv2D) im2ColCNHW(
 	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
 	kernArg := KernelArgsIm2Col{
 		input.ptr,
-		matrix.data,
+		matrix.ptr,
 		[2]uint32{uint32(input.size[3]), uint32(input.size[2])},
 		[2]uint32{uint32(maskDimension[0]), uint32(maskDimension[1])},
 		[2]uint32{uint32(stride[0]), uint32(stride[1])},

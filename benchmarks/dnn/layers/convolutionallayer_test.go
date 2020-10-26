@@ -75,7 +75,7 @@ var _ = Describe("Convolutional Layer", func() {
 	var (
 		gpuDriver *driver.Driver
 		context   *driver.Context
-		mo        *MatrixOperator
+		to        *TensorOperator
 		input     *Tensor
 		// kernel *Tensor
 		convLayer *Conv2D
@@ -92,13 +92,13 @@ var _ = Describe("Convolutional Layer", func() {
 			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
-		mo = NewMatrixOperator(gpuDriver, context)
+		to = NewTensorOperator(gpuDriver, context)
 		input = NewTensor(gpuDriver, context)
 
 		convLayer = NewConvolutionalLayer(
 			[]int{1, 3, 3}, []int{1, 1, 3, 3},
 			[]int{1, 1}, []int{1, 1, 1, 1},
-			gpuDriver, context, mo)
+			gpuDriver, context, to)
 
 		// ConvLayer.Randomize()
 
@@ -123,23 +123,11 @@ var _ = Describe("Convolutional Layer", func() {
 			output.Init(
 				make([]float64, goldOut.Size[0]*goldOut.Size[1]),
 				goldOut.Size)
-			outputMatrix := output.Matrix()
 
-			convLayer.im2Col(input, outputMatrix,
+			convLayer.im2Col(input, output,
 				d.MaskSize, d.Padding, d.Stride, d.Dilation)
 
-			Expect(outputMatrix.row).To(Equal(goldOut.Size[0]))
-			Expect(outputMatrix.col).To(Equal(goldOut.Size[1]))
 			outputV := output.Vector()
-
-			// fmt.Printf("\n\nIm2Col output:\n")
-			// for i := 0; i < outputMatrix.col; i++ {
-			// 	for j := 0; j < outputMatrix.row; j++ {
-			// 		fmt.Printf("%4.2f, ", outputV[i*outputMatrix.row+j])
-			// 	}
-			// 	fmt.Printf("\n")
-			// }
-
 			for i := range goldOut.Data {
 				Expect(outputV[i]).To(BeNumerically("~", goldOut.Data[i], 1e-3))
 			}
@@ -170,7 +158,7 @@ var _ = Describe("Convolutional Layer", func() {
 				goldKernel.Size,
 				goldStride.Size,
 				goldPadding.Size,
-				gpuDriver, context, mo)
+				gpuDriver, context, to)
 			layer.kernel.Init(goldKernel.Data, goldKernel.numElement())
 
 			input.Init(goldIn.Data, goldIn.Size)
@@ -188,7 +176,7 @@ var _ = Describe("Convolutional Layer", func() {
 		}
 	})
 
-	FIt("should do backward", func() {
+	It("should do backward", func() {
 		goldDatasets := loadBackwardDatasets("conv_backward_test_data.json")
 
 		for _, d := range goldDatasets {
@@ -202,7 +190,7 @@ var _ = Describe("Convolutional Layer", func() {
 
 			layer := NewConvolutionalLayer(layerInputSize,
 				d.KernelSize, d.StrideSize, d.PaddingSize,
-				gpuDriver, context, mo)
+				gpuDriver, context, to)
 
 			forwardInputT := NewTensor(gpuDriver, context)
 			forwardInputT.Init(forwardIn.Data, forwardIn.Size)

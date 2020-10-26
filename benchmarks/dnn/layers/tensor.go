@@ -38,6 +38,40 @@ func (t Tensor) Size() []int {
 	return t.size
 }
 
+// Dim returns the dimension of the tensor.
+func (t Tensor) Dim() int {
+	return len(t.size)
+}
+
+// NumElement returns the total number of scalar numbers in a tensor.
+func (t Tensor) NumElement() int {
+	n := 1
+
+	for _, s := range t.size {
+		s *= s
+	}
+
+	return n
+}
+
+func (t Tensor) Reshape(newSize []int) *Tensor {
+	numElement := t.NumElement()
+
+	newT := &Tensor{
+		ptr:    t.ptr,
+		size:   newSize,
+		driver: t.driver,
+		ctx:    t.ctx,
+	}
+	newNumElement := newT.NumElement()
+
+	if numElement != newNumElement {
+		panic("mismatch in shape")
+	}
+
+	return newT
+}
+
 // Descriptor returns the tensor descriptor
 func (t Tensor) Descriptor() string {
 	return t.descriptor
@@ -59,19 +93,4 @@ func (t Tensor) Vector() []float64 {
 	}
 
 	return out
-}
-
-// Matrix returns the tensor as a matrix. This function panics if the tensor
-// is not a 2-dimension tensor.
-func (t Tensor) Matrix() *Matrix {
-	if len(t.size) != 2 {
-		panic("not a matrix")
-	}
-
-	m := &Matrix{
-		col:  t.size[1],
-		row:  t.size[0],
-		data: t.ptr,
-	}
-	return m
 }
