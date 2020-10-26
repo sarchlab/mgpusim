@@ -119,7 +119,7 @@ var _ = Describe("Convolutional Layer", func() {
 		}
 	})
 
-	It("should forward", func() {
+	FIt("should forward", func() {
 		goldDatasets := loadDatasets("conv_forward_test_data.json")
 
 		for _, d := range goldDatasets {

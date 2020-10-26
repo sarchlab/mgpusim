@@ -390,66 +390,71 @@ func (l *Conv2D) inputChannelSize(input tensor.Tensor) int {
 // Forward processes the forward pass over the convolutional layer.
 //nolint:funlen
 func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
-	// l.inputSizeMustMatch(inputTensor)
+	l.inputSizeMustMatch(inputTensor)
 
-	// save := inputTensor.(*Tensor)
-	// l.saveInput(save)
+	save := inputTensor.(*Tensor)
+	l.saveInput(save)
 
-	// batchSize := l.inputBatchSize(inputTensor)
+	batchSize := l.inputBatchSize(inputTensor)
 
-	// input := save
-	// outputSize := []int{
-	// 	l.outputSize[0],
-	// 	batchSize,
-	// 	l.outputSize[1],
-	// 	l.outputSize[2],
-	// }
+	input := save
+	outputSize := []int{
+		l.outputSize[0],
+		batchSize,
+		l.outputSize[1],
+		l.outputSize[2],
+	}
 
-	// outputHeight := outputSize[2]
-	// outputWidth := outputSize[3]
+	outputHeight := outputSize[2]
+	outputWidth := outputSize[3]
 
-	// im2ColMatrixHeight := l.numChannels() * l.kernelWidth() * l.kernelHeight()
-	// im2ColMatrixWidth := outputWidth * outputHeight * batchSize
-	// im2ColMatrix := l.MatrixOperator.CreateMatrix(
-	// 	im2ColMatrixHeight, im2ColMatrixWidth)
+	im2ColMatrixHeight := l.numChannels() * l.kernelWidth() * l.kernelHeight()
+	im2ColMatrixWidth := outputWidth * outputHeight * batchSize
+	im2ColMatrix := l.MatrixOperator.CreateMatrix(
+		im2ColMatrixHeight, im2ColMatrixWidth)
 
-	// l.im2Col(input, im2ColMatrix)
+	l.im2Col(input, im2ColMatrix,
+		[2]int{l.kernelWidth(), l.kernelHeight()},
+		[4]int{l.padding[0], l.padding[1], l.padding[2], l.padding[3]},
+		[2]int{l.stride[0], l.stride[1]},
+		[2]int{0, 0},
+	)
 
-	// hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
-	// l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, im2ColMatrix.data)
+	hIm2ColData := make([]float32, im2ColMatrix.col*im2ColMatrix.row)
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hIm2ColData, im2ColMatrix.data)
 
-	// kernelMatrixWidth := l.kernelWidth() * l.kernelHeight() * l.numChannels()
-	// kernelMatrixHeight := l.numKernels()
-	// kernelMatrix := l.kernel.AsMatrix(kernelMatrixHeight, kernelMatrixWidth)
+	kernelMatrixWidth := l.kernelWidth() * l.kernelHeight() * l.numChannels()
+	kernelMatrixHeight := l.numKernels()
+	kernelMatrix := l.kernel.AsMatrix(kernelMatrixHeight, kernelMatrixWidth)
 
-	// hKernelData := make([]float32, kernelMatrixWidth*kernelMatrixHeight)
-	// l.GPUDriver.MemCopyD2H(l.GPUCtx, hKernelData, kernelMatrix.data)
+	hKernelData := make([]float32, kernelMatrixWidth*kernelMatrixHeight)
+	l.GPUDriver.MemCopyD2H(l.GPUCtx, hKernelData, kernelMatrix.data)
 
-	// outputMatrix := l.MatrixOperator.CreateMatrix(
-	// 	kernelMatrixHeight, im2ColMatrixWidth)
-	// biasMatrix := l.MatrixOperator.CreateMatrix(
-	// 	kernelMatrixHeight, im2ColMatrixWidth)
+	outputMatrix := l.MatrixOperator.CreateMatrix(
+		kernelMatrixHeight, im2ColMatrixWidth)
+	biasMatrix := l.MatrixOperator.CreateMatrix(
+		kernelMatrixHeight, im2ColMatrixWidth)
 
-	// l.MatrixOperator.Gemm(
-	// 	false, false,
-	// 	kernelMatrixHeight,
-	// 	im2ColMatrixWidth,
-	// 	kernelMatrixWidth,
-	// 	1.0, 1.0,
-	// 	kernelMatrix, im2ColMatrix, biasMatrix, outputMatrix)
+	l.MatrixOperator.Gemm(
+		false, false,
+		kernelMatrixHeight,
+		im2ColMatrixWidth,
+		kernelMatrixWidth,
+		1.0, 1.0,
+		kernelMatrix, im2ColMatrix, biasMatrix, outputMatrix)
 
 	output := &Tensor{
-		driver: l.GPUDriver,
-		ctx:    l.GPUCtx,
-		// size:       outputSize,
-		// ptr:        outputMatrix.data,
+		driver:     l.GPUDriver,
+		ctx:        l.GPUCtx,
+		size:       outputSize,
+		ptr:        outputMatrix.data,
 		descriptor: "CNHW",
 	}
 
 	// hOutputData := make([]float32, kernelMatrixWidth*im2ColMatrixWidth)
 	// l.GPUDriver.MemCopyD2H(l.GPUCtx, hOutputData, outputMatrix.data)
 
-	// l.MatrixOperator.Free(biasMatrix)
+	l.MatrixOperator.Free(biasMatrix)
 
 	return output
 }
