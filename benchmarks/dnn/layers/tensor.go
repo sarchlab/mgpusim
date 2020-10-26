@@ -48,12 +48,14 @@ func (t Tensor) NumElement() int {
 	n := 1
 
 	for _, s := range t.size {
-		s *= s
+		n *= s
 	}
 
 	return n
 }
 
+// Reshape creates another tensor with different sizes. The new tensor shares
+// the buffer with the old tensor.
 func (t Tensor) Reshape(newSize []int) *Tensor {
 	numElement := t.NumElement()
 

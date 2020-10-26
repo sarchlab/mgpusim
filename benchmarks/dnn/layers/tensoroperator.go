@@ -13,8 +13,9 @@ type TensorOperator struct {
 	driver  *driver.Driver
 	context *driver.Context
 
-	gemmKernel      *insts.HsaCo
-	transposeKernel *insts.HsaCo
+	gemmKernel            *insts.HsaCo
+	transposeKernel       *insts.HsaCo
+	transposeTensorKernel *insts.HsaCo
 }
 
 // NewTensorOperator creates a new tensor operator, injecting depencies // including the GPU driver and the GPU context.
@@ -29,6 +30,7 @@ func NewTensorOperator(
 
 	to.loadGemmKernel()
 	to.loadMatrixTransposeKernel()
+	to.loadTransposeTensorKernel()
 
 	return to
 }
@@ -51,6 +53,15 @@ func (to *TensorOperator) loadMatrixTransposeKernel() {
 	}
 }
 
+func (to *TensorOperator) loadTransposeTensorKernel() {
+	bytes := _escFSMustByte(false, "/transpose.hsaco")
+	to.transposeTensorKernel = kernels.LoadProgramFromMemory(bytes,
+		"transpose_tensor")
+	if to.transposeKernel == nil {
+		panic("failed to load transpose tensor kernel")
+	}
+}
+
 // CreateTensor creates a new Tensor.
 func (to *TensorOperator) CreateTensor(size []int) *Tensor {
 	sizeOfFloat := 4
@@ -60,7 +71,9 @@ func (to *TensorOperator) CreateTensor(size []int) *Tensor {
 	}
 
 	m := &Tensor{
-		size: size,
+		driver: to.driver,
+		ctx:    to.context,
+		size:   size,
 		ptr: to.driver.AllocateMemory(
 			to.context, uint64(numElement*sizeOfFloat)),
 	}
@@ -74,11 +87,36 @@ func (to *TensorOperator) Dump(name string, tensor *Tensor) string {
 	hData := make([]float32, tensor.NumElement()*sizeOfFloat)
 	to.driver.MemCopyD2H(to.context, hData, tensor.ptr)
 
-	// currPos := make([]int, len(tensor.size))
+	// currPos := make([]int, len(tensor.size)+1)
+	dimSize := make([]int, tensor.Dim())
+	product := 1
+	for i := tensor.Dim() - 1; i >= 0; i-- {
+		product *= tensor.size[i]
+		dimSize[i] = product
+	}
 
 	out := fmt.Sprintf("\n\n%s:\n", name)
+	indent := 0
 	for i := 0; i < tensor.NumElement(); i++ {
+		for _, d := range dimSize {
+			if i%d == 0 {
+				out += "\n"
+				for k := 0; k < indent; k++ {
+					out += " "
+				}
+				out += "["
+				indent++
+			}
+		}
+
 		out += fmt.Sprintf("%4f, ", hData[i])
+
+		for _, d := range dimSize {
+			if (i+1)%d == 0 {
+				out += "],"
+				indent--
+			}
+		}
 	}
 	out += "\n"
 
@@ -155,8 +193,9 @@ type MatrixTransposeKernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
-// Transpose transposes the in Matrix and stores the results in the out Matrix.
-func (to *TensorOperator) Transpose(in, out *Tensor) {
+// TransposeMatrix transposes the in Matrix and stores the results in the out
+// Matrix.
+func (to *TensorOperator) TransposeMatrix(in, out *Tensor) {
 	to.mustBeMatrix(in)
 	to.mustBeMatrix(out)
 
@@ -188,5 +227,81 @@ func (to *TensorOperator) Transpose(in, out *Tensor) {
 func (to *TensorOperator) mustBeMatrix(t *Tensor) {
 	if t.Dim() != 2 {
 		panic("not a matrix")
+	}
+}
+
+type transposeTensorArgs struct {
+	In          driver.GPUPtr
+	Out         driver.GPUPtr
+	InSize      driver.GPUPtr
+	OutSize     driver.GPUPtr
+	Order       driver.GPUPtr
+	InIndexBuf  driver.GPUPtr
+	OutIndexBuf driver.GPUPtr
+	Dim         int32
+}
+
+// TransposeTensor reorders the axis order.
+func (to *TensorOperator) TransposeTensor(in, out *Tensor, order []int) {
+	sizeOfInt32 := int32(4)
+	dim := int32(in.Dim())
+	hOrder := make([]int32, dim)
+	hInSize := make([]int32, dim)
+	hOutSize := make([]int32, dim)
+
+	for i := int32(0); i < dim; i++ {
+		hOrder[i] = int32(order[i])
+		hInSize[i] = int32(in.size[i])
+		hOutSize[i] = int32(out.size[i])
+	}
+
+	dOrder := to.driver.AllocateMemory(to.context, uint64(dim*sizeOfInt32))
+	to.driver.MemCopyH2D(to.context, dOrder, hOrder)
+	defer to.driver.FreeMemory(to.context, dOrder)
+
+	dInSize := to.driver.AllocateMemory(to.context, uint64(dim*sizeOfInt32))
+	to.driver.MemCopyH2D(to.context, dInSize, hInSize)
+	defer to.driver.FreeMemory(to.context, dInSize)
+
+	dOutSize := to.driver.AllocateMemory(to.context, uint64(dim*sizeOfInt32))
+	to.driver.MemCopyH2D(to.context, dOutSize, hOutSize)
+	defer to.driver.FreeMemory(to.context, dOutSize)
+
+	dInIndexBuf := to.driver.AllocateMemory(to.context,
+		uint64(int32(in.NumElement())*dim*sizeOfInt32))
+	defer to.driver.FreeMemory(to.context, dInIndexBuf)
+
+	dOutIndexBuf := to.driver.AllocateMemory(to.context,
+		uint64(int32(in.NumElement())*dim*sizeOfInt32))
+	defer to.driver.FreeMemory(to.context, dOutIndexBuf)
+
+	args := transposeTensorArgs{
+		In:          in.ptr,
+		Out:         out.ptr,
+		InSize:      dInSize,
+		OutSize:     dOutSize,
+		Order:       dOrder,
+		InIndexBuf:  dInIndexBuf,
+		OutIndexBuf: dOutIndexBuf,
+		Dim:         dim,
+	}
+
+	to.driver.LaunchKernel(
+		to.context,
+		to.transposeTensorKernel,
+		[3]uint32{uint32(in.NumElement()), 1, 1},
+		[3]uint16{uint16(64), 1, 1},
+		&args,
+	)
+
+	hInIndexBuf := make([]int32, dim*int32(in.NumElement()))
+	to.driver.MemCopyD2H(to.context, hInIndexBuf, dOutIndexBuf)
+	fmt.Printf("\n\nOutIndexBuf:\n")
+	for i := 0; i < in.NumElement(); i++ {
+		fmt.Printf("%d: ", i)
+		for j := int32(0); j < dim; j++ {
+			fmt.Printf("%d, ", hInIndexBuf[int32(i)*dim+j])
+		}
+		fmt.Printf("\n")
 	}
 }

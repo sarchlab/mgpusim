@@ -306,7 +306,7 @@ func (f *FullyConnectedLayer) calculateWeightGradients(input *Tensor) {
 	}
 	forwardMatrixTrans := f.TensorOperator.CreateTensor(
 		[]int{f.InputSize, size[0]})
-	f.TensorOperator.Transpose(forwardMatrix, forwardMatrixTrans)
+	f.TensorOperator.TransposeMatrix(forwardMatrix, forwardMatrixTrans)
 
 	zeroMatrix := f.TensorOperator.CreateTensor(
 		[]int{f.InputSize, f.OutputSize})
@@ -329,7 +329,7 @@ func (f FullyConnectedLayer) calculateInputGradients(input *Tensor) *Tensor {
 	weightMatrix := f.weight.AsMatrix(f.InputSize, f.OutputSize)
 	weightMatrixTrans := f.TensorOperator.CreateTensor(
 		[]int{f.OutputSize, f.InputSize})
-	f.TensorOperator.Transpose(weightMatrix, weightMatrixTrans)
+	f.TensorOperator.TransposeMatrix(weightMatrix, weightMatrixTrans)
 
 	zeroMatrix := NewTensor(f.GPUDriver, f.GPUCtx)
 	zeroMatrix.Init(
