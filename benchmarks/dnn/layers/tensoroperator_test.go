@@ -16,6 +16,7 @@ var _ = Describe("Tensor Operator", func() {
 
 	BeforeEach(func() {
 		_, gpuDriver = platform.MakeEmuBuilder().
+			WithISADebugging().
 			WithoutProgressBar().
 			Build()
 		gpuDriver.Run()
@@ -86,7 +87,7 @@ var _ = Describe("Tensor Operator", func() {
 		}))
 	})
 
-	FIt("should do general transpose", func() {
+	It("should do general transpose", func() {
 		in := to.CreateTensor([]int{2, 4, 3, 3})
 		inData := []float32{
 			1.111, 1.112, 1.113,

@@ -293,15 +293,4 @@ func (to *TensorOperator) TransposeTensor(in, out *Tensor, order []int) {
 		[3]uint16{uint16(64), 1, 1},
 		&args,
 	)
-
-	hInIndexBuf := make([]int32, dim*int32(in.NumElement()))
-	to.driver.MemCopyD2H(to.context, hInIndexBuf, dOutIndexBuf)
-	fmt.Printf("\n\nOutIndexBuf:\n")
-	for i := 0; i < in.NumElement(); i++ {
-		fmt.Printf("%d: ", i)
-		for j := int32(0); j < dim; j++ {
-			fmt.Printf("%d, ", hInIndexBuf[int32(i)*dim+j])
-		}
-		fmt.Printf("\n")
-	}
 }

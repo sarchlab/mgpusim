@@ -66,7 +66,7 @@ func (u *ALUImpl) runSCMPGEI32(state InstEmuState) {
 
 func (u *ALUImpl) runSCMPEQU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 == sp.SRC1 {
+	if uint32(sp.SRC0) == uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -75,7 +75,7 @@ func (u *ALUImpl) runSCMPEQU32(state InstEmuState) {
 
 func (u *ALUImpl) runSCMPLGU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 != sp.SRC1 {
+	if uint32(sp.SRC0) != uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -84,7 +84,7 @@ func (u *ALUImpl) runSCMPLGU32(state InstEmuState) {
 
 func (u *ALUImpl) runSCMPGTU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 > sp.SRC1 {
+	if uint32(sp.SRC0) > uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
@@ -93,7 +93,7 @@ func (u *ALUImpl) runSCMPGTU32(state InstEmuState) {
 
 func (u *ALUImpl) runSCMPLTU32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPC()
-	if sp.SRC0 < sp.SRC1 {
+	if uint32(sp.SRC0) < uint32(sp.SRC1) {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0

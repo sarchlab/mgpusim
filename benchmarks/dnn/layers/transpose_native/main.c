@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Create the compute program from the source buffer
-  char *kernelSource = read_file("../transpose.cl");
+  char *kernelSource = read_file("transpose.cl");
   program = clCreateProgramWithSource(context, 1, (const char **)&kernelSource,
                                       NULL, &err);
   if (err != CL_SUCCESS) {
