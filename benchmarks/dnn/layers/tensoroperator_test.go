@@ -89,6 +89,7 @@ var _ = Describe("Tensor Operator", func() {
 
 	It("should do general transpose", func() {
 		in := to.CreateTensor([]int{2, 4, 3, 3})
+		in.descriptor = "CNHW"
 		inData := []float32{
 			1.111, 1.112, 1.113,
 			1.121, 1.122, 1.123,
@@ -165,5 +166,6 @@ var _ = Describe("Tensor Operator", func() {
 		for i := range outData {
 			Expect(outV[i]).To(BeNumerically("~", outData[i], 1e-3))
 		}
+		Expect(out.descriptor).To(Equal("NCHW"))
 	})
 })

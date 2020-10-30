@@ -293,4 +293,9 @@ func (to *TensorOperator) TransposeTensor(in, out *Tensor, order []int) {
 		[3]uint16{uint16(64), 1, 1},
 		&args,
 	)
+
+	out.descriptor = ""
+	for i := 0; i < len(in.descriptor); i++ {
+		out.descriptor += string(in.descriptor[order[i]])
+	}
 }
