@@ -77,6 +77,10 @@ func (to *TensorOperator) CreateTensor(size []int) *Tensor {
 		ptr: to.driver.AllocateMemory(
 			to.context, uint64(numElement*sizeOfFloat)),
 	}
+
+	hostData := make([]float32, numElement)
+	to.driver.MemCopyH2D(to.context, m.ptr, hostData)
+
 	return m
 }
 
@@ -143,10 +147,11 @@ func (to *TensorOperator) FromGPU(m *Tensor, data []float32) {
 
 // GemmKernArgs represents the kernel arguments of the gemm operation.
 type GemmKernArgs struct {
-	M, N, K     int32
-	Alpha, Beta float32
-	Padding     int32
-	A, B, C, D  driver.GPUPtr
+	M, N, K                   int32
+	Alpha, Beta               float32
+	Padding                   int32
+	A, B, C, D                driver.GPUPtr
+	OffsetX, OffsetY, OffsetZ int32
 }
 
 // Gemm calculates D = alpha * A * B + beta * C.
@@ -231,14 +236,16 @@ func (to *TensorOperator) mustBeMatrix(t *Tensor) {
 }
 
 type transposeTensorArgs struct {
-	In          driver.GPUPtr
-	Out         driver.GPUPtr
-	InSize      driver.GPUPtr
-	OutSize     driver.GPUPtr
-	Order       driver.GPUPtr
-	InIndexBuf  driver.GPUPtr
-	OutIndexBuf driver.GPUPtr
-	Dim         int32
+	In                        driver.GPUPtr
+	Out                       driver.GPUPtr
+	InSize                    driver.GPUPtr
+	OutSize                   driver.GPUPtr
+	Order                     driver.GPUPtr
+	InIndexBuf                driver.GPUPtr
+	OutIndexBuf               driver.GPUPtr
+	Dim                       int32
+	Padding                   int32
+	OffsetX, OffsetY, OffsetZ int32
 }
 
 // TransposeTensor reorders the axis order.

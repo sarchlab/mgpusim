@@ -402,6 +402,7 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	im2ColMatrixWidth := outputWidth * outputHeight * batchSize
 	im2ColMatrix := l.TensorOperator.CreateTensor(
 		[]int{im2ColMatrixHeight, im2ColMatrixWidth})
+	defer l.TensorOperator.Free(im2ColMatrix)
 
 	l.im2Col(input, im2ColMatrix,
 		[2]int{l.kernelWidth(), l.kernelHeight()},
@@ -437,10 +438,26 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 		ptr:        outputMatrix.ptr,
 		descriptor: "CNHW",
 	}
+	fmt.Printf(l.TensorOperator.Dump("im2col", im2ColMatrix))
+	fmt.Printf(l.TensorOperator.Dump("kernel matrix", kernelMatrix))
+	fmt.Printf(l.TensorOperator.Dump("bias matrix", biasMatrix))
+	fmt.Printf(l.TensorOperator.Dump("gemm out matrix", outputMatrix))
+	fmt.Printf(l.TensorOperator.Dump("Forward output, pre trans", output))
+
+	transposedOutput := l.TensorOperator.CreateTensor([]int{
+		batchSize,
+		l.outputSize[0],
+		l.outputSize[1],
+		l.outputSize[2]})
+	l.TensorOperator.TransposeTensor(
+		output, transposedOutput, []int{1, 0, 2, 3})
 
 	l.TensorOperator.Free(biasMatrix)
+	l.TensorOperator.Free(output)
 
-	return output
+	fmt.Printf(l.TensorOperator.Dump("Forward output", transposedOutput))
+
+	return transposedOutput
 }
 
 func (l *Conv2D) inputSizeMustMatch(inputTensor tensor.Tensor) {

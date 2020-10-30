@@ -87,6 +87,30 @@ var _ = Describe("Tensor Operator", func() {
 		}))
 	})
 
+	It("should do general transpose 1", func() {
+		in := to.CreateTensor([]int{1, 2, 3, 3})
+		in.descriptor = "CNHW"
+		inData := []float32{
+			15, 18, 9, 30, 36, 18, 25, 30, 15,
+			15, 18, 9, 30, 36, 18, 25, 30, 15,
+		}
+		to.ToGPU(in, inData)
+
+		outData := []float32{
+			15, 18, 9, 30, 36, 18, 25, 30, 15,
+			15, 18, 9, 30, 36, 18, 25, 30, 15,
+		}
+
+		out := to.CreateTensor([]int{2, 1, 3, 3})
+		to.TransposeTensor(in, out, []int{1, 0, 2, 3})
+		outV := out.Vector()
+
+		for i := range outData {
+			Expect(outV[i]).To(BeNumerically("~", outData[i], 1e-3))
+		}
+		Expect(out.descriptor).To(Equal("NCHW"))
+	})
+
 	It("should do general transpose", func() {
 		in := to.CreateTensor([]int{2, 4, 3, 3})
 		in.descriptor = "CNHW"

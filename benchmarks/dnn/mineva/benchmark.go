@@ -38,25 +38,25 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 			simLayers.NewFullyConnectedLayer(
 				784, 256,
 				b.driver, b.context,
-				simLayers.NewMatrixOperator(b.driver, b.context),
+				simLayers.NewTensorOperator(b.driver, b.context),
 			),
 			simLayers.NewReluLayer(b.driver, b.context),
 			simLayers.NewFullyConnectedLayer(
 				256, 100,
 				b.driver, b.context,
-				simLayers.NewMatrixOperator(b.driver, b.context),
+				simLayers.NewTensorOperator(b.driver, b.context),
 			),
 			simLayers.NewReluLayer(b.driver, b.context),
 			simLayers.NewFullyConnectedLayer(
 				100, 100,
 				b.driver, b.context,
-				simLayers.NewMatrixOperator(b.driver, b.context),
+				simLayers.NewTensorOperator(b.driver, b.context),
 			),
 			simLayers.NewReluLayer(b.driver, b.context),
 			simLayers.NewFullyConnectedLayer(
 				100, 10,
 				b.driver, b.context,
-				simLayers.NewMatrixOperator(b.driver, b.context),
+				simLayers.NewTensorOperator(b.driver, b.context),
 			),
 			simLayers.GPUToCPULayer{
 				GPUDriver: b.driver,
