@@ -7,7 +7,6 @@ import (
 
 	"gitlab.com/akita/mgpusim/kernels"
 
-	"github.com/rs/xid"
 	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mgpusim/driver/internal"
 	"gitlab.com/akita/util/ca"
@@ -192,10 +191,11 @@ func (d *Driver) EnqueueMemCopyH2D(
 ) {
 	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyH2DCommand{
-		ID:  xid.New().String(),
+		ID:  akita.GetIDGenerator().Generate(),
 		Dst: dst,
 		Src: src,
 	}
+
 	d.Enqueue(queue, cmd)
 }
 
@@ -207,7 +207,7 @@ func (d *Driver) EnqueueMemCopyD2H(
 ) {
 	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyD2HCommand{
-		ID:  xid.New().String(),
+		ID:  akita.GetIDGenerator().Generate(),
 		Dst: dst,
 		Src: src,
 	}

@@ -87,7 +87,7 @@ var _ = Describe("Convolutional Layer", func() {
 		// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
 
 		_, gpuDriver = platform.MakeEmuBuilder().
-			WithISADebugging().
+			// WithISADebugging().
 			WithoutProgressBar().
 			Build()
 		gpuDriver.Run()

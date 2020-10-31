@@ -21,8 +21,7 @@ const (
 )
 
 // MemoryAllocatorType global flag variable for setting the allocator type
-var MemoryAllocatorType AllocatorType = AllocatorTypeBuddy
-
+var MemoryAllocatorType AllocatorType = AllocatorTypeDefault
 
 // Device is a CPU or GPU managed by the driver.
 type Device struct {
@@ -33,7 +32,6 @@ type Device struct {
 	nextActualGPUIndex int
 	MemState           DeviceMemoryState
 }
-
 
 // SetTotalMemSize sets total memory size
 func (d *Device) SetTotalMemSize(size uint64) {
