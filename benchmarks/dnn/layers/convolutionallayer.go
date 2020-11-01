@@ -537,14 +537,20 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 	backwardImageSize :=
 		l.outputSize[0] * l.outputSize[1] * l.outputSize[2] * sizeOfFloat
 
+	l.resetGradient()
 	for i := 0; i < input.Size()[0]; i++ {
 		im2ColHeight := l.outputSize[1] * l.outputSize[2]
-		im2ColWidth := l.kernelWidth() * l.kernelHeight()
+		im2ColWidth := l.numChannels() * l.kernelWidth() * l.kernelHeight()
 
 		forwardImage := l.TensorOperator.CreateTensorWithBuf(
 			l.forwardInput.ptr+driver.GPUPtr(i*forwardImageSize),
 			[]int{1, l.inputSize[0], l.inputSize[1], l.inputSize[2]},
 		)
+
+		// Treat input channel as images, so that channels can layout
+		// horizontally.
+		forwardImage = forwardImage.Reshape(
+			[]int{l.inputSize[0], 1, l.inputSize[1], l.inputSize[2]})
 
 		im2ColMat := l.TensorOperator.CreateTensor(
 			[]int{im2ColHeight, im2ColWidth})
@@ -555,20 +561,16 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 			[2]int{0, 0},
 		)
 
-		fmt.Println(l.TensorOperator.Dump("Im2Col", im2ColMat))
-
 		backwardLossImage := l.TensorOperator.CreateTensorWithBuf(
 			inputT.ptr+driver.GPUPtr(backwardImageSize*i),
 			[]int{1, l.outputSize[0], l.outputSize[1], l.outputSize[2]},
 		)
 
 		backwardInMat := backwardLossImage.Reshape([]int{
-			1,
+			l.numKernels(),
 			l.outputSize[1] * l.outputSize[2],
 		})
 
-		biasMat := l.TensorOperator.CreateTensor(
-			[]int{l.numKernels(), im2ColWidth})
 		weightGradientMat := &Tensor{
 			size: []int{l.numKernels(), im2ColWidth},
 			ptr:  l.weightGradients.ptr,
@@ -577,10 +579,20 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 		l.TensorOperator.Gemm(false, false,
 			l.numKernels(), im2ColWidth, im2ColHeight,
 			1, 1,
-			backwardInMat, im2ColMat, biasMat, weightGradientMat)
+			backwardInMat, im2ColMat, weightGradientMat, weightGradientMat)
 
+		fmt.Println(l.TensorOperator.Dump("Backward input matrix",
+			backwardInMat))
+		fmt.Println(l.TensorOperator.Dump("Im2Col", im2ColMat))
 		fmt.Printf(l.TensorOperator.Dump("Weight Gradient", weightGradientMat))
+
+		l.TensorOperator.Free(im2ColMat)
 	}
+}
+
+func (l *Conv2D) resetGradient() {
+	hZero := make([]float32, l.parameters.size)
+	l.GPUDriver.MemCopyH2D(l.GPUCtx, l.parameters.ptr, hZero)
 }
 
 func (l *Conv2D) calculateBiasGradients(input tensor.Tensor) {
