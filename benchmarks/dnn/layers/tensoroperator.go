@@ -84,6 +84,21 @@ func (to *TensorOperator) CreateTensor(size []int) *Tensor {
 	return m
 }
 
+// CreateTensorWithBuf creates a new tensor without allocating new GPU memory.
+func (to *TensorOperator) CreateTensorWithBuf(
+	ptr driver.GPUPtr,
+	size []int,
+) *Tensor {
+	t := &Tensor{
+		driver: to.driver,
+		ctx:    to.context,
+		size:   size,
+		ptr:    ptr,
+	}
+
+	return t
+}
+
 // Dump prints the tensor content to a string
 func (to *TensorOperator) Dump(name string, tensor *Tensor) string {
 	sizeOfFloat := 4

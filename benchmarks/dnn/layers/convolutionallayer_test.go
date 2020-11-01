@@ -134,7 +134,7 @@ var _ = Describe("Convolutional Layer", func() {
 		}
 	})
 
-	FIt("should forward", func() {
+	It("should forward", func() {
 		goldDatasets := loadDatasets("conv_forward_test_data.json")
 
 		for _, d := range goldDatasets {
@@ -211,46 +211,47 @@ var _ = Describe("Convolutional Layer", func() {
 					To(BeNumerically("~", goldWeightGradients.Data[i], 1e-3))
 			}
 
+			fmt.Printf("Passed one backward test\n")
 		}
 	})
 
-	It("Backward, 1 input channel, 1 output channel, stride 1", func() {
-		// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
+	// It("Backward, 1 input channel, 1 output channel, stride 1", func() {
+	// 	// ConvLayer = NewConvolutionalLayer([]int{1, 3, 3}, []int{1, 1, 3, 3}, []int{1, 1}, []int{1,1,1,1})
 
-		input.Init([]float64{
-			1.0, 1.0, 1.0,
-			2.0, 2.0, 2.0,
-			3.0, 3.0, 3.0,
-		},
-			[]int{1, 3, 3})
-		cpuOutput := make([]float32, 9)
-		convLayer.GPUDriver.MemCopyD2H(convLayer.GPUCtx, cpuOutput, input.ptr)
-		fmt.Println("TEST input.ptr: ", cpuOutput, " / ", input.ptr)
+	// 	input.Init([]float64{
+	// 		1.0, 1.0, 1.0,
+	// 		2.0, 2.0, 2.0,
+	// 		3.0, 3.0, 3.0,
+	// 	},
+	// 		[]int{1, 3, 3})
+	// 	cpuOutput := make([]float32, 9)
+	// 	convLayer.GPUDriver.MemCopyD2H(convLayer.GPUCtx, cpuOutput, input.ptr)
+	// 	fmt.Println("TEST input.ptr: ", cpuOutput, " / ", input.ptr)
 
-		convLayer.Forward(input)
+	// 	convLayer.Forward(input)
 
-		convLayer.Backward(input)
+	// 	convLayer.Backward(input)
 
-		Expect(convLayer.inputGradients).To(Equal([]float64{
-			8, 12, 8,
-			20, 30, 20,
-			24, 36, 24,
-		}))
-		Expect(convLayer.weightGradients).To(Equal([]float64{
-			16, 24, 16,
-			28, 42, 28,
-			16, 24, 16,
-		}))
+	// 	Expect(convLayer.inputGradients).To(Equal([]float64{
+	// 		8, 12, 8,
+	// 		20, 30, 20,
+	// 		24, 36, 24,
+	// 	}))
+	// 	Expect(convLayer.weightGradients).To(Equal([]float64{
+	// 		16, 24, 16,
+	// 		28, 42, 28,
+	// 		16, 24, 16,
+	// 	}))
 
-		BGOutput := make([]float32, 3*3)
-		convLayer.GPUDriver.MemCopyD2H(
-			convLayer.GPUCtx, BGOutput, convLayer.biasGradients.ptr)
-		fmt.Println("BGoutput: ", BGOutput)
-		// Expect(ConvLayer.biasGradients).To(Equal([]float64{
-		// 	12, 14,
-		// }))
-		// Expect(output.Size()).To(Equal([]int{1, 3, 3}))
-	})
+	// 	BGOutput := make([]float32, 3*3)
+	// 	convLayer.GPUDriver.MemCopyD2H(
+	// 		convLayer.GPUCtx, BGOutput, convLayer.biasGradients.ptr)
+	// 	fmt.Println("BGoutput: ", BGOutput)
+	// 	// Expect(ConvLayer.biasGradients).To(Equal([]float64{
+	// 	// 	12, 14,
+	// 	// }))
+	// 	// Expect(output.Size()).To(Equal([]int{1, 3, 3}))
+	// })
 
 	// It("Forward, 2 input channel, 1 output channel, stride 1", func() {
 	// 	ConvLayer = NewConvolutionalLayer([]int{2, 3, 3}, []int{1, 2, 3, 3}, []int{1, 1}, []int{1,1,1,1})
