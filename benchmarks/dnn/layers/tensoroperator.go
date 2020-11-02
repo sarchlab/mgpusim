@@ -321,3 +321,41 @@ func (to *TensorOperator) TransposeTensor(in, out *Tensor, order []int) {
 		out.descriptor += string(in.descriptor[order[i]])
 	}
 }
+
+// Rotate180 will rotate the lowest two dimensions by 180 degree.
+func (to *TensorOperator) Rotate180(in, out *Tensor) {
+	inV := in.Vector()
+	outV := make([]float64, len(inV))
+	for i := 0; i < len(inV); i++ {
+		outIndex := i
+		outPos := make([]int, len(in.size))
+		inPos := make([]int, len(in.size))
+
+		sizeLeft := outIndex
+		accumulatedLength := 1
+		for d := 0; d < len(in.size); d++ {
+			p := sizeLeft % in.size[len(in.size)-d-1]
+			sizeLeft /= in.size[len(in.size)-d-1]
+			outPos[len(in.size)-d-1] = p
+		}
+
+		for d := 0; d < len(in.size); d++ {
+			if d < len(in.size)-2 {
+				inPos[d] = outPos[d]
+			} else {
+				inPos[d] = in.size[d] - outPos[d] - 1
+			}
+		}
+
+		inIndex := 0
+		accumulatedLength = 1
+		for d := 0; d < len(in.size); d++ {
+			inIndex += inPos[len(in.size)-d-1] * accumulatedLength
+			accumulatedLength *= in.size[len(in.size)-d-1]
+		}
+
+		outV[outIndex] = inV[inIndex]
+	}
+
+	out.Init(outV, in.size)
+}

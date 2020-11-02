@@ -44,12 +44,13 @@ func loadIm2ColDatasets(filename string) []im2ColDataSet {
 }
 
 type backwardDataSet struct {
-	KernelSize     []int      `json:"kernel_size,omitempty"`
 	StrideSize     []int      `json:"stride_size,omitempty"`
 	PaddingSize    []int      `json:"padding_size,omitempty"`
+	Kernel         tensorJSON `json:"kernel,omitempty"`
 	ForwardInput   tensorJSON `json:"forward_input,omitempty"`
 	BackwardInput  tensorJSON `json:"backward_input,omitempty"`
 	WeightGradient tensorJSON `json:"weight_gradient,omitempty"`
+	InputGradient  tensorJSON `json:"input_gradient,omitempty"`
 }
 
 func loadBackwardDatasets(filename string) []backwardDataSet {
@@ -159,7 +160,7 @@ var _ = Describe("Convolutional Layer", func() {
 				goldStride.Size,
 				goldPadding.Size,
 				gpuDriver, context, to)
-			layer.kernel.Init(goldKernel.Data, goldKernel.numElement())
+			layer.kernel.Init(goldKernel.Data, goldKernel.Size)
 
 			input.Init(goldIn.Data, goldIn.Size)
 			input.descriptor = goldIn.Descriptor
@@ -176,7 +177,7 @@ var _ = Describe("Convolutional Layer", func() {
 		}
 	})
 
-	It("should do backward", func() {
+	FIt("should do backward", func() {
 		goldDatasets := loadBackwardDatasets("conv_backward_test_data.json")
 
 		for _, d := range goldDatasets {
@@ -189,8 +190,9 @@ var _ = Describe("Convolutional Layer", func() {
 			}
 
 			layer := NewConvolutionalLayer(layerInputSize,
-				d.KernelSize, d.StrideSize, d.PaddingSize,
+				d.Kernel.Size, d.StrideSize, d.PaddingSize,
 				gpuDriver, context, to)
+			layer.kernel.Init(d.Kernel.Data, d.Kernel.Size)
 
 			forwardInputT := NewTensor(gpuDriver, context)
 			forwardInputT.Init(forwardIn.Data, forwardIn.Size)
@@ -202,7 +204,7 @@ var _ = Describe("Convolutional Layer", func() {
 			backwardInT.Init(backwardIn.Data, backwardIn.Size)
 			backwardInT.descriptor = backwardIn.Descriptor
 
-			layer.Backward(backwardInT)
+			out := layer.Backward(backwardInT)
 
 			goldWeightGradients := d.WeightGradient
 			weightGradients := layer.weightGradients.Raw()
@@ -211,6 +213,12 @@ var _ = Describe("Convolutional Layer", func() {
 					To(BeNumerically("~", goldWeightGradients.Data[i], 1e-3))
 			}
 
+			goldInputGradients := d.InputGradient
+			inputGradients := out.Vector()
+			for i := range inputGradients {
+				Expect(inputGradients[i]).To(
+					BeNumerically("~", goldInputGradients.Data[i], 1e-3))
+			}
 			fmt.Printf("Passed one backward test\n")
 		}
 	})
