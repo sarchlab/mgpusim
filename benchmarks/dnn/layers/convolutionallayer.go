@@ -468,13 +468,24 @@ func (l *Conv2D) Backward(inputTensor tensor.Tensor) tensor.Tensor {
 
 func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 	inputT := input.(*Tensor)
+	inputTranspose := l.TensorOperator.CreateTensor([]int{
+		input.Size()[1], input.Size()[0], input.Size()[2], input.Size()[3],
+	})
+	defer l.TensorOperator.Free(inputTranspose)
 
-	im2ColMatrixWidth := l.inputSize[1] * l.inputSize[2]
-	im2ColMatrixHeight := l.kernelWidth() * l.kernelHeight()
+	l.TensorOperator.TransposeTensor(inputT, inputTranspose, []int{1, 0, 2, 3})
+
+	fmt.Printf(l.TensorOperator.Dump("input", inputT))
+	fmt.Printf(l.TensorOperator.Dump("input transpose", inputTranspose))
+
+	im2ColMatrixWidth := l.inputSize[1] * l.inputSize[2] * input.Size()[0]
+	im2ColMatrixHeight := l.kernelWidth() * l.kernelHeight() * l.numKernels()
 
 	im2ColMatrix := l.TensorOperator.CreateTensor(
 		[]int{im2ColMatrixHeight, im2ColMatrixWidth})
-	l.im2Col(inputT, im2ColMatrix,
+	defer l.TensorOperator.Free(im2ColMatrix)
+
+	l.im2Col(inputTranspose, im2ColMatrix,
 		[2]int{l.kernelWidth(), l.kernelHeight()},
 		[4]int{l.padding[0], l.padding[1], l.padding[2], l.padding[3]},
 		[2]int{l.stride[0], l.stride[1]},
@@ -482,15 +493,32 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 	)
 
 	kernelRot := l.TensorOperator.CreateTensor(l.kernel.size)
+	defer l.TensorOperator.Free(kernelRot)
 	l.TensorOperator.Rotate180(l.kernel, kernelRot)
-	kernelMatrix := kernelRot.Reshape(
-		[]int{l.numChannels(), l.kernelWidth() * l.kernelHeight()})
+
+	kernelTranspose := l.TensorOperator.CreateTensor(
+		[]int{l.numChannels(),
+			l.numKernels(),
+			l.kernelHeight(),
+			l.kernelWidth(),
+		})
+	defer l.TensorOperator.Free(kernelTranspose)
+	l.TensorOperator.TransposeTensor(kernelRot, kernelTranspose,
+		[]int{1, 0, 2, 3})
+
+	kernelMatrix := kernelTranspose.Reshape(
+		[]int{
+			l.numChannels(),
+			l.numKernels() * l.kernelWidth() * l.kernelHeight(),
+		})
+
 	biasMatrix := l.TensorOperator.CreateTensor([]int{
 		im2ColMatrixWidth, im2ColMatrixHeight,
 	})
+	defer l.TensorOperator.Free(biasMatrix)
 
 	outputTensor := l.TensorOperator.CreateTensor(
-		[]int{1, l.numChannels(), l.inputSize[1], l.inputSize[2]})
+		[]int{input.Size()[0], l.numChannels(), l.inputSize[1], l.inputSize[2]})
 	outputMatrix := outputTensor.Reshape(
 		[]int{l.numChannels(), im2ColMatrixWidth})
 
