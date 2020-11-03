@@ -14,14 +14,6 @@ import (
 	// "fmt"
 )
 
-// NewConvolutionalLayer creates a new convolutional layer for the DNN network.
-// The inputSize should be a 3-number array representing [channel, height,
-// width]. The kernel size should be a 4-number array, representing [output
-// channel, input channel, height, width]. Stride is a 2-number array
-// representing [vertical stride, horizontal stride]. Padding is a 4-number
-// array, representing [top padding, right padding, bottom padding, left
-// padding].
-
 // A Conv2D can perform convolution operation on input data.
 type Conv2D struct {
 	GPUDriver      *driver.Driver
@@ -42,8 +34,6 @@ type Conv2D struct {
 
 	im2colNCHWKernel *insts.HsaCo
 	im2colCNHWKernel *insts.HsaCo
-	col2imKernel     *insts.HsaCo
-	flatKernel       *insts.HsaCo
 
 	parameters      *Vector
 	kernel          *Tensor
@@ -52,28 +42,6 @@ type Conv2D struct {
 	inputGradients  *Vector
 	weightGradients *Vector
 	biasGradients   *Vector
-}
-
-// KernelArgsCol2Im represents the kernel arguments for the Col2Im kernel.
-type KernelArgsCol2Im struct {
-	InputHeight               int32
-	InputWidth                int32
-	Channels                  int32
-	OutputHeight              int32
-	OutputWidth               int32
-	KernelHeight              int32
-	KernelWidth               int32
-	PadHeight                 int32
-	PadWidth                  int32
-	StrideHeight              int32
-	StrideWidth               int32
-	DilationHeight            int32
-	DilationWidth             int32
-	ColBuffer                 driver.GPUPtr
-	ColOffset                 int32
-	ImBuffer                  driver.GPUPtr
-	ImOffset                  int32
-	OffsetX, OffsetY, OffsetZ uint64
 }
 
 // KernelArgsIm2Col represents the kernel arguments for the Im2Col kernel.
@@ -91,18 +59,13 @@ type KernelArgsIm2Col struct {
 	OffsetX, OffsetY, OffsetZ uint64
 }
 
-// KernelArgsFlatten represents the kernel arguments for the Flatten kernel.
-type KernelArgsFlatten struct {
-	Input                     driver.GPUPtr
-	Output                    driver.GPUPtr
-	InputChannel              uint32
-	OutputChannel             uint32
-	Height                    uint32
-	Width                     uint32
-	OffsetX, OffsetY, OffsetZ uint64
-}
-
-// NewConvolutionalLayer creates a new convolutional layer with given settings.
+// NewConvolutionalLayer creates a new convolutional layer for the DNN network.
+// The inputSize should be a 3-number array representing [channel, height,
+// width]. The kernel size should be a 4-number array, representing [output
+// channel, input channel, height, width]. Stride is a 2-number array
+// representing [vertical stride, horizontal stride]. Padding is a 4-number
+// array, representing [top padding, right padding, bottom padding, left
+// padding].
 func NewConvolutionalLayer(
 	inputSize, kernelSize, stride, padding []int,
 	GPUDriver *driver.Driver,
@@ -138,20 +101,6 @@ func (l *Conv2D) loadKernels() {
 		im2colHsaCoBytes, "im2colKernelCNHW")
 	if l.im2colCNHWKernel == nil {
 		log.Panic("Failed to load im2col CNHW kernel binary")
-	}
-
-	col2imHsaCoBytes := _escFSMustByte(true, "/col2im.hsaco")
-	l.col2imKernel = kernels.LoadProgramFromMemory(
-		col2imHsaCoBytes, "col2imKernel")
-	if l.col2imKernel == nil {
-		log.Panic("Failed to load col2im kernel binary")
-	}
-
-	flattenHsaCoBytes := _escFSMustByte(true, "/flatten.hsaco")
-	l.flatKernel = kernels.LoadProgramFromMemory(
-		flattenHsaCoBytes, "flattenKernel")
-	if l.flatKernel == nil {
-		log.Panic("Failed to load flatten kernel binary")
 	}
 }
 
@@ -314,33 +263,6 @@ func (l *Conv2D) verifyBackPass(input, output *Tensor) {
 	// }
 
 	// log.Printf("Conv2D backward verification passed!")
-}
-
-func (l *Conv2D) flipped(input driver.GPUPtr, output driver.GPUPtr) {
-	gridSize := l.kernelSize[0] * l.kernelSize[2] * l.kernelSize[3] * l.kernelSize[1]
-
-	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
-	kernArg := KernelArgsFlatten{
-		input,
-		output,
-		uint32(l.kernelSize[1]),
-		uint32(l.kernelSize[0]),
-		uint32(l.kernelSize[2]),
-		uint32(l.kernelSize[3]),
-		uint64(gridSize), 0, 0,
-	}
-
-	l.GPUDriver.EnqueueLaunchKernel(
-		queue,
-		l.im2colNCHWKernel,
-		[3]uint32{uint32(gridSize), 1, 1},
-		[3]uint16{uint16(64), 1, 1},
-		&kernArg,
-	)
-
-	l.GPUDriver.DrainCommandQueue(queue)
-
-	return
 }
 
 func numElements(size []int) int {
@@ -582,11 +504,6 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 			1, 1,
 			backwardInMat, im2ColMat, weightGradientMat, weightGradientMat)
 
-		// fmt.Println(l.TensorOperator.Dump("Backward input matrix",
-		// 	backwardInMat))
-		// fmt.Println(l.TensorOperator.Dump("Im2Col", im2ColMat))
-		// fmt.Printf(l.TensorOperator.Dump("Weight Gradient", weightGradientMat))
-
 		l.TensorOperator.Free(im2ColMat)
 	}
 }
@@ -618,42 +535,6 @@ func (l *Conv2D) calculateBiasGradients(input tensor.Tensor) {
 
 	l.GPUDriver.MemCopyH2D(l.GPUCtx, l.biasGradients.ptr, tempData)
 }
-
-// func (l *Conv2D) col2im(input *Tensor) {
-// 	ColData := input.Matrix().data
-// 	queue := l.GPUDriver.CreateCommandQueue(l.GPUCtx)
-
-// 	inputHeight := l.inputSize[1] + l.padding[0] + l.padding[1]
-// 	inputWidth := l.inputSize[2] + l.padding[1] + l.padding[3]
-// 	inputChannelNum := l.inputSize[0]
-// 	inputChannelSize := inputHeight * inputWidth
-// 	inputTotalSize := inputChannelNum * inputChannelSize
-
-// 	gridSize := uint32(inputTotalSize)
-// 	kernArg := KernelArgsCol2Im{
-// 		int32(l.inputSize[1]), int32(l.inputSize[2]), int32(l.inputSize[0]),
-// 		int32(l.outputSize[1]), int32(l.outputSize[2]),
-// 		int32(l.kernelSize[2]), int32(l.kernelSize[3]),
-// 		int32(l.padding[0]), int32(l.padding[1]),
-// 		int32(l.stride[0]), int32(l.stride[1]),
-// 		int32(1), int32(1),
-// 		ColData, int32(0),
-// 		l.inputGradients.ptr, int32(0),
-
-// 		0, 0, 0,
-// 	}
-// 	l.GPUDriver.EnqueueLaunchKernel(
-// 		queue,
-// 		l.col2imKernel,
-// 		[3]uint32{gridSize, 1, 1},
-// 		[3]uint16{uint16(64), 1, 1},
-// 		&kernArg,
-// 	)
-
-// 	l.GPUDriver.DrainCommandQueue(queue)
-
-// 	return
-// }
 
 func (l *Conv2D) im2Col(
 	input *Tensor,
@@ -778,13 +659,3 @@ func (l *Conv2D) calculateOutputSize() {
 	channel := l.numKernels()
 	l.outputSize = []int{channel, height, width}
 }
-
-/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$CPU_VERSION$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
-
-// NewConvolutionalLayer creates a new convolutional layer for the DNN network.
-// The inputSize should be a 3-number array representing [channel, height,
-// width]. The kernel size should be a 4-number array, representing [output
-// channel, input channel, height, width]. Stride is a 2-number array
-// representing [vertical stride, horizontal stride]. Padding is a 4-number
-// array, representing [top padding, right padding, bottom padding, left
-// padding].

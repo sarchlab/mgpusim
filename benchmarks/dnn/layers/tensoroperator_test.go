@@ -16,7 +16,7 @@ var _ = Describe("Tensor Operator", func() {
 
 	BeforeEach(func() {
 		_, gpuDriver = platform.MakeEmuBuilder().
-			WithISADebugging().
+			// WithISADebugging().
 			WithoutProgressBar().
 			Build()
 		gpuDriver.Run()
