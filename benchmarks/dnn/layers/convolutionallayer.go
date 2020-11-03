@@ -3,7 +3,7 @@ package layers
 import (
 
 	// "math"
-	"fmt"
+
 	"log"
 
 	// "gitlab.com/akita/dnn/layers"
@@ -475,12 +475,8 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 
 	l.TensorOperator.TransposeTensor(inputT, inputTranspose, []int{1, 0, 2, 3})
 
-	fmt.Printf(l.TensorOperator.Dump("input", inputT))
-	fmt.Printf(l.TensorOperator.Dump("input transpose", inputTranspose))
-
 	im2ColMatrixWidth := l.inputSize[1] * l.inputSize[2] * input.Size()[0]
 	im2ColMatrixHeight := l.kernelWidth() * l.kernelHeight() * l.numKernels()
-
 	im2ColMatrix := l.TensorOperator.CreateTensor(
 		[]int{im2ColMatrixHeight, im2ColMatrixWidth})
 	defer l.TensorOperator.Free(im2ColMatrix)
@@ -506,11 +502,8 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 	l.TensorOperator.TransposeTensor(kernelRot, kernelTranspose,
 		[]int{1, 0, 2, 3})
 
-	kernelMatrix := kernelTranspose.Reshape(
-		[]int{
-			l.numChannels(),
-			l.numKernels() * l.kernelWidth() * l.kernelHeight(),
-		})
+	kernelMatrix := kernelTranspose.Reshape([]int{l.numChannels(),
+		l.numKernels() * l.kernelWidth() * l.kernelHeight()})
 
 	biasMatrix := l.TensorOperator.CreateTensor([]int{
 		im2ColMatrixWidth, im2ColMatrixHeight,
@@ -532,12 +525,6 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 		[]int{input.Size()[0], l.numChannels(), l.inputSize[1], l.inputSize[2]})
 	l.TensorOperator.TransposeTensor(outputTensor, outputTranspose,
 		[]int{1, 0, 2, 3})
-
-	fmt.Printf(l.TensorOperator.Dump("input", inputT))
-	fmt.Printf(l.TensorOperator.Dump("kernel matrix", kernelMatrix))
-	fmt.Printf(l.TensorOperator.Dump("im2col", im2ColMatrix))
-	fmt.Printf(l.TensorOperator.Dump("output matrix", outputMatrix))
-	fmt.Printf(l.TensorOperator.Dump("output", outputTensor))
 
 	return outputTranspose
 }
