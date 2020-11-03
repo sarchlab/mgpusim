@@ -39,7 +39,34 @@ func loadIm2ColDatasets(filename string) []im2ColDataSet {
 	return im2ColData
 }
 
-type backwardDataSet struct {
+type forwardDataset struct {
+	StrideSize  []int      `json:"stride_size,omitempty"`
+	PaddingSize []int      `json:"padding_size,omitempty"`
+	Kernel      tensorJSON `json:"kernel,omitempty"`
+	Bias        tensorJSON `json:"bias,omitempty"`
+	Input       tensorJSON `json:"input,omitempty"`
+	Output      tensorJSON `json:"output,omitempty"`
+}
+
+func loadForwardDatasets(filename string) []forwardDataset {
+	jsonFile, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+
+	var forwardData []forwardDataset
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(byteValue, &forwardData)
+	if err != nil {
+		panic(err)
+	}
+
+	return forwardData
+}
+
+type backwardDataset struct {
 	StrideSize     []int      `json:"stride_size,omitempty"`
 	PaddingSize    []int      `json:"padding_size,omitempty"`
 	Kernel         tensorJSON `json:"kernel,omitempty"`
@@ -47,16 +74,17 @@ type backwardDataSet struct {
 	BackwardInput  tensorJSON `json:"backward_input,omitempty"`
 	WeightGradient tensorJSON `json:"weight_gradient,omitempty"`
 	InputGradient  tensorJSON `json:"input_gradient,omitempty"`
+	BiasGradient   tensorJSON `json:"bias_gradient,omitempty"`
 }
 
-func loadBackwardDatasets(filename string) []backwardDataSet {
+func loadBackwardDatasets(filename string) []backwardDataset {
 	jsonFile, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
 	defer jsonFile.Close()
 
-	var backwardData []backwardDataSet
+	var backwardData []backwardDataset
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	err = json.Unmarshal(byteValue, &backwardData)
@@ -125,14 +153,15 @@ var _ = Describe("Convolutional Layer", func() {
 	})
 
 	It("should forward", func() {
-		goldDatasets := loadDatasets("conv_forward_test_data.json")
+		goldDatasets := loadForwardDatasets("conv_forward_test_data.json")
 
 		for _, d := range goldDatasets {
-			goldIn := d["input"]
-			goldOut := d["output"]
-			goldKernel := d["kernel"]
-			goldStride := d["stride"]
-			goldPadding := d["padding"]
+			goldIn := d.Input
+			goldOut := d.Output
+			goldKernel := d.Kernel
+			goldBias := d.Bias
+			goldStride := d.StrideSize
+			goldPadding := d.PaddingSize
 
 			inputSize := []int{
 				goldIn.Size[1],
@@ -146,10 +175,11 @@ var _ = Describe("Convolutional Layer", func() {
 			layer := NewConvolutionalLayer(
 				inputSize,
 				goldKernel.Size,
-				goldStride.Size,
-				goldPadding.Size,
+				goldStride,
+				goldPadding,
 				gpuDriver, context, to)
 			layer.kernel.Init(goldKernel.Data, goldKernel.Size)
+			layer.bias.Init(goldBias.Data, goldBias.Size)
 
 			input.Init(goldIn.Data, goldIn.Size)
 			input.descriptor = goldIn.Descriptor
@@ -207,6 +237,13 @@ var _ = Describe("Convolutional Layer", func() {
 			for i := range inputGradients {
 				Expect(inputGradients[i]).To(
 					BeNumerically("~", goldInputGradients.Data[i], 1e-3))
+			}
+
+			goldBiasGradients := d.BiasGradient
+			biasGradients := layer.biasGradients.Vector()
+			for i := range biasGradients {
+				Expect(biasGradients[i]).To(
+					BeNumerically("~", goldBiasGradients.Data[i], 1e-3))
 			}
 		}
 	})

@@ -16,6 +16,7 @@ type TensorOperator struct {
 	gemmKernel            *insts.HsaCo
 	transposeKernel       *insts.HsaCo
 	transposeTensorKernel *insts.HsaCo
+	elemWiseAddKernel     *insts.HsaCo
 }
 
 // NewTensorOperator creates a new tensor operator, injecting depencies // including the GPU driver and the GPU context.
@@ -31,6 +32,7 @@ func NewTensorOperator(
 	to.loadGemmKernel()
 	to.loadMatrixTransposeKernel()
 	to.loadTransposeTensorKernel()
+	to.loadElemWiseKernels()
 
 	return to
 }
@@ -59,6 +61,15 @@ func (to *TensorOperator) loadTransposeTensorKernel() {
 		"transpose_tensor")
 	if to.transposeKernel == nil {
 		panic("failed to load transpose tensor kernel")
+	}
+}
+
+func (to *TensorOperator) loadElemWiseKernels() {
+	bytes := _escFSMustByte(false, "/element_wise.hsaco")
+	to.elemWiseAddKernel = kernels.LoadProgramFromMemory(bytes,
+		"add")
+	if to.elemWiseAddKernel == nil {
+		panic("failed to load element-wise add kernel")
 	}
 }
 
@@ -358,4 +369,38 @@ func (to *TensorOperator) Rotate180(in, out *Tensor) {
 	}
 
 	out.Init(outV, in.size)
+}
+
+// Repeat can duplicate the elements in a tensor by the given number of times.
+func (to *TensorOperator) Repeat(in, out *Tensor, times int) {
+	sizeOfFloat := 4
+	ptr := out.ptr
+	for i := 0; i < times; i++ {
+		to.driver.MemCopyD2D(to.context, ptr, in.ptr,
+			in.NumElement()*sizeOfFloat)
+		ptr += driver.GPUPtr(in.NumElement() * sizeOfFloat)
+	}
+}
+
+type elemWiseAddKernArg struct {
+	Out, In1, In2             driver.GPUPtr
+	N, Padding                int32
+	OffsetX, OffsetY, OffsetZ int64
+}
+
+// ElemWiseAdd performs element-wise add operation by adding elements in in1
+// and in2 and store the results in out.
+func (to *TensorOperator) ElemWiseAdd(in1, in2, out *Tensor) {
+	args := elemWiseAddKernArg{
+		out.ptr, in1.ptr, out.ptr,
+		int32(out.NumElement()),
+		0,
+		0, 0, 0,
+	}
+	to.driver.LaunchKernel(
+		to.context, to.elemWiseAddKernel,
+		[3]uint32{uint32(out.NumElement()), 1, 1},
+		[3]uint16{64, 1, 1},
+		&args,
+	)
 }

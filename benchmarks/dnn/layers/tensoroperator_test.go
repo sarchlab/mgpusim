@@ -16,7 +16,7 @@ var _ = Describe("Tensor Operator", func() {
 
 	BeforeEach(func() {
 		_, gpuDriver = platform.MakeEmuBuilder().
-			// WithISADebugging().
+			WithISADebugging().
 			WithoutProgressBar().
 			Build()
 		gpuDriver.Run()
@@ -268,6 +268,46 @@ var _ = Describe("Tensor Operator", func() {
 			2.334, 2.333, 2.332, 2.331,
 			2.324, 2.323, 2.322, 2.321,
 			2.314, 2.313, 2.312, 2.311,
+		}
+
+		outV := out.Vector()
+		for i := 0; i < len(goldOut); i++ {
+			Expect(outV[i]).To(BeNumerically("~", goldOut[i], 1e-3))
+		}
+	})
+
+	It("should repeat", func() {
+		in := to.CreateTensor([]int{9})
+		in.Init([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9}, in.size)
+
+		out := to.CreateTensor([]int{36})
+
+		to.Repeat(in, out, 4)
+
+		goldOut := []float64{
+			1, 2, 3, 4, 5, 6, 7, 8, 9,
+			1, 2, 3, 4, 5, 6, 7, 8, 9,
+			1, 2, 3, 4, 5, 6, 7, 8, 9,
+			1, 2, 3, 4, 5, 6, 7, 8, 9,
+		}
+
+		outV := out.Vector()
+		for i := 0; i < len(goldOut); i++ {
+			Expect(outV[i]).To(BeNumerically("~", goldOut[i], 1e-3))
+		}
+	})
+
+	It("should do element-wise add", func() {
+		in := to.CreateTensor([]int{9})
+		in.Init([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9}, in.size)
+
+		out := to.CreateTensor([]int{9})
+		out.Init([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9}, in.size)
+
+		to.ElemWiseAdd(out, in, out)
+
+		goldOut := []float64{
+			2, 4, 6, 8, 10, 12, 14, 16, 18,
 		}
 
 		outV := out.Vector()
