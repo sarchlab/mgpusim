@@ -518,21 +518,28 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 	defer l.TensorOperator.Free(biasMatrix)
 
 	outputTensor := l.TensorOperator.CreateTensor(
-		[]int{input.Size()[0], l.numChannels(), l.inputSize[1], l.inputSize[2]})
+		[]int{l.numChannels(), input.Size()[0], l.inputSize[1], l.inputSize[2]})
 	outputMatrix := outputTensor.Reshape(
 		[]int{l.numChannels(), im2ColMatrixWidth})
+	defer l.TensorOperator.Free(outputTensor)
 
 	l.TensorOperator.Gemm(false, false,
 		l.numChannels(), im2ColMatrixWidth, im2ColMatrixHeight,
 		1, 1,
 		kernelMatrix, im2ColMatrix, biasMatrix, outputMatrix)
 
+	outputTranspose := l.TensorOperator.CreateTensor(
+		[]int{input.Size()[0], l.numChannels(), l.inputSize[1], l.inputSize[2]})
+	l.TensorOperator.TransposeTensor(outputTensor, outputTranspose,
+		[]int{1, 0, 2, 3})
+
 	fmt.Printf(l.TensorOperator.Dump("input", inputT))
 	fmt.Printf(l.TensorOperator.Dump("kernel matrix", kernelMatrix))
 	fmt.Printf(l.TensorOperator.Dump("im2col", im2ColMatrix))
-	fmt.Printf(l.TensorOperator.Dump("output", outputMatrix))
+	fmt.Printf(l.TensorOperator.Dump("output matrix", outputMatrix))
+	fmt.Printf(l.TensorOperator.Dump("output", outputTensor))
 
-	return outputTensor
+	return outputTranspose
 }
 
 func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
