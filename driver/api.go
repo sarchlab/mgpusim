@@ -228,7 +228,7 @@ func (d *Driver) EnqueueMemCopyD2D(
 	if co == nil {
 		panic("fail to load copyKernel kernel")
 	}
-	gridSize := [3]uint32{uint32(math.Ceil(float64(num) / float64(64*4))), 1, 1}
+	gridSize := [3]uint32{uint32(math.Ceil(float64(num) / float64(4))), 1, 1}
 	//total_bytes / (wgSize * 4). Each thread copies 4 bytes.
 
 	wgSize := [3]uint16{64, 1, 1}

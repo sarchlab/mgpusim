@@ -4,6 +4,7 @@ import (
 
 	// "math"
 
+	"fmt"
 	"log"
 
 	// "gitlab.com/akita/dnn/layers"
@@ -37,11 +38,10 @@ type Conv2D struct {
 
 	parameters      *Vector
 	kernel          *Tensor
-	bias            *Vector
+	bias            *Tensor
 	gradients       *Vector
-	inputGradients  *Vector
 	weightGradients *Vector
-	biasGradients   *Vector
+	biasGradients   *Tensor
 }
 
 // KernelArgsIm2Col represents the kernel arguments for the Im2Col kernel.
@@ -111,28 +111,19 @@ func (l *Conv2D) allocateMemory() {
 
 func (l *Conv2D) allocateGradients() {
 	sizeOfFloat := 4
-	numGradients := l.numWeights() + l.numInput() + l.numBias()
+	numGradients := l.numWeights() + l.numBias()
 	gradientsPtr := l.GPUDriver.AllocateMemory(
 		l.GPUCtx, uint64(numGradients*sizeOfFloat))
 
-	l.inputGradients = &Vector{
-		size:      l.numInput(),
+	l.weightGradients = &Vector{
+		size:      l.numWeights(),
 		ptr:       gradientsPtr,
 		GPUDriver: l.GPUDriver,
 		GPUCtx:    l.GPUCtx,
 	}
-	l.weightGradients = &Vector{
-		size:      l.numWeights(),
-		ptr:       gradientsPtr + driver.GPUPtr(l.numInput()*sizeOfFloat),
-		GPUDriver: l.GPUDriver,
-		GPUCtx:    l.GPUCtx,
-	}
-	l.biasGradients = &Vector{
-		size:      l.numBias(),
-		ptr:       gradientsPtr + driver.GPUPtr((l.numInput()+l.numWeights())*sizeOfFloat),
-		GPUDriver: l.GPUDriver,
-		GPUCtx:    l.GPUCtx,
-	}
+	l.biasGradients = l.TensorOperator.CreateTensorWithBuf(
+		gradientsPtr+driver.GPUPtr(l.numWeights()*sizeOfFloat),
+		[]int{l.numBias()})
 }
 
 func (l *Conv2D) allocateParams() {
@@ -148,12 +139,10 @@ func (l *Conv2D) allocateParams() {
 	}
 
 	l.kernel = l.TensorOperator.CreateTensorWithBuf(parametersPtr, l.kernelSize)
-	l.bias = &Vector{
-		size:      l.numBias(),
-		ptr:       parametersPtr + driver.GPUPtr(l.numWeights()*sizeOfFloat),
-		GPUDriver: l.GPUDriver,
-		GPUCtx:    l.GPUCtx,
-	}
+	l.bias = l.TensorOperator.CreateTensorWithBuf(
+		parametersPtr+driver.GPUPtr(l.numWeights()*sizeOfFloat),
+		[]int{l.numBias()},
+	)
 }
 
 // EnableVerification asks the layer to validate against CPU calculation after
@@ -174,7 +163,7 @@ func (l Conv2D) numParameters() int {
 }
 
 func (l Conv2D) numBias() int {
-	numBias := l.outputSize[0]
+	numBias := l.outputSize[0] * l.outputSize[1] * l.outputSize[2]
 	return numBias
 }
 
@@ -339,8 +328,15 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 
 	outputMatrix := l.TensorOperator.CreateTensor(
 		[]int{kernelMatrixHeight, im2ColMatrixWidth})
-	biasMatrix := l.TensorOperator.CreateTensor(
-		[]int{kernelMatrixHeight, im2ColMatrixWidth})
+	biasTensor := l.TensorOperator.CreateTensor(
+		[]int{batchSize, l.outputSize[0], l.outputSize[1], l.outputSize[2]})
+	biasTensorTrans := l.TensorOperator.CreateTensor(
+		[]int{l.outputSize[0], batchSize, l.outputSize[1], l.outputSize[2]})
+	l.TensorOperator.Repeat(l.bias, biasTensor, batchSize)
+	l.TensorOperator.TransposeTensor(biasTensor, biasTensorTrans,
+		[]int{1, 0, 2, 3})
+	biasMatrix := biasTensorTrans.Reshape(
+		[]int{l.numKernels(), im2ColMatrixWidth})
 
 	l.TensorOperator.Gemm(
 		false, false,
@@ -366,7 +362,8 @@ func (l *Conv2D) Forward(inputTensor tensor.Tensor) tensor.Tensor {
 	l.TensorOperator.TransposeTensor(
 		output, transposedOutput, []int{1, 0, 2, 3})
 
-	l.TensorOperator.Free(biasMatrix)
+	l.TensorOperator.Free(biasTensor)
+	l.TensorOperator.Free(biasTensorTrans)
 	l.TensorOperator.Free(output)
 
 	return transposedOutput
@@ -383,7 +380,7 @@ func (l *Conv2D) inputSizeMustMatch(inputTensor tensor.Tensor) {
 // Backward performs the backward pass over the convoluational layer.
 func (l *Conv2D) Backward(inputTensor tensor.Tensor) tensor.Tensor {
 	l.calculateWeightGradients(inputTensor)
-	// l.calculateBiasGradients(inputTensor)
+	l.calculateBiasGradients(inputTensor.(*Tensor))
 	output := l.calculateInputGradients(inputTensor)
 	return output
 }
@@ -513,27 +510,20 @@ func (l *Conv2D) resetGradient() {
 	l.GPUDriver.MemCopyH2D(l.GPUCtx, l.parameters.ptr, hZero)
 }
 
-func (l *Conv2D) calculateBiasGradients(input tensor.Tensor) {
-	// outputTotalSize := l.outputSize[0] * l.outputSize[1] * l.outputSize[2]
-	outputChannelNum := l.outputSize[0]
-	outputImageSize := l.outputSize[1] * l.outputSize[2]
+func (l *Conv2D) calculateBiasGradients(input *Tensor) {
+	sizeOfFloat := 4
+	zeros := make([]float32, l.numBias())
+	l.TensorOperator.ToGPU(l.biasGradients, zeros)
 
-	inputV := input.Vector()
-	biasV := l.biasGradients.Raw()
-
-	for i := 0; i < outputImageSize; i++ {
-		for j := 0; j < outputChannelNum; j++ {
-			index := i*outputChannelNum + j
-			biasV[j] += inputV[index]
-		}
+	for i := 0; i < input.Size()[0]; i++ {
+		t := l.TensorOperator.CreateTensorWithBuf(
+			input.ptr+driver.GPUPtr(i*numElements(l.outputSize)*sizeOfFloat),
+			l.outputSize,
+		)
+		l.TensorOperator.ElemWiseAdd(t, l.biasGradients, l.biasGradients)
 	}
 
-	tempData := make([]float32, outputChannelNum)
-	for i, value := range biasV {
-		tempData[i] = float32(value)
-	}
-
-	l.GPUDriver.MemCopyH2D(l.GPUCtx, l.biasGradients.ptr, tempData)
+	fmt.Println(l.TensorOperator.Dump("Bias Gradient", l.biasGradients))
 }
 
 func (l *Conv2D) im2Col(
