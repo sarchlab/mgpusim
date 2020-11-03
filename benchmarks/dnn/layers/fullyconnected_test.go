@@ -11,7 +11,7 @@ var _ = Describe("Fully Connected Layer", func() {
 	var (
 		gpuDriver *driver.Driver
 		context   *driver.Context
-		mo        *MatrixOperator
+		mo        *TensorOperator
 		layer     *FullyConnectedLayer
 	)
 
@@ -21,7 +21,7 @@ var _ = Describe("Fully Connected Layer", func() {
 			Build()
 		gpuDriver.Run()
 		context = gpuDriver.Init()
-		mo = NewMatrixOperator(gpuDriver, context)
+		mo = NewTensorOperator(gpuDriver, context)
 
 		layer = NewFullyConnectedLayer(4, 2, gpuDriver, context, mo)
 		layer.Randomize()

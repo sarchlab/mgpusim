@@ -16,7 +16,7 @@ type FullyConnectedLayer struct {
 
 	GPUDriver      *driver.Driver
 	GPUCtx         *driver.Context
-	MatrixOperator *MatrixOperator
+	TensorOperator *TensorOperator
 
 	verifyForward  bool
 	verifyBackward bool
@@ -37,14 +37,14 @@ func NewFullyConnectedLayer(
 	inputSize, outputSize int,
 	driver *driver.Driver,
 	ctx *driver.Context,
-	operator *MatrixOperator,
+	operator *TensorOperator,
 ) *FullyConnectedLayer {
 	return &FullyConnectedLayer{
 		InputSize:      inputSize,
 		OutputSize:     outputSize,
 		GPUDriver:      driver,
 		GPUCtx:         ctx,
-		MatrixOperator: operator,
+		TensorOperator: operator,
 	}
 }
 
@@ -163,24 +163,23 @@ func (f *FullyConnectedLayer) Forward(inputT tensor.Tensor) tensor.Tensor {
 
 	f.saveInput(input)
 
-	inputM := input.Matrix()
-	outputM := output.Matrix()
 	weightM := f.weight.AsMatrix(f.InputSize, f.OutputSize)
-	biasM := f.MatrixOperator.CreateMatrix(inputT.Size()[0], f.OutputSize)
+	biasM := f.TensorOperator.CreateTensor(
+		[]int{inputT.Size()[0], f.OutputSize})
 	biasData := make([]float32, f.OutputSize)
 	f.GPUDriver.MemCopyD2H(f.GPUCtx, biasData, f.bias.ptr)
 
 	for i := 0; i < inputT.Size()[0]; i++ {
-		ptr := driver.GPUPtr(uint64(biasM.data) + uint64(i*f.OutputSize*4))
+		ptr := driver.GPUPtr(uint64(biasM.ptr) + uint64(i*f.OutputSize*4))
 		f.GPUDriver.MemCopyH2D(f.GPUCtx, ptr, biasData)
 	}
 
-	f.MatrixOperator.Gemm(false, false,
+	f.TensorOperator.Gemm(false, false,
 		inputT.Size()[0], f.OutputSize, f.InputSize,
 		1.0, 1.0,
-		inputM, weightM, biasM, outputM)
+		input, weightM, biasM, output)
 
-	f.MatrixOperator.Free(biasM)
+	f.TensorOperator.Free(biasM)
 
 	f.verifyForwardPass(input, output)
 
@@ -301,25 +300,21 @@ func (f *FullyConnectedLayer) calculateBiasGradients(input tensor.Tensor) {
 
 func (f *FullyConnectedLayer) calculateWeightGradients(input *Tensor) {
 	size := input.Size()
-	forwardMatrix := &Matrix{
-		row:  size[0],
-		col:  f.InputSize,
-		data: f.forwardInput,
+	forwardMatrix := &Tensor{
+		size: []int{size[0], f.InputSize},
+		ptr:  f.forwardInput,
 	}
-	forwardMatrixTrans := f.MatrixOperator.CreateMatrix(
-		f.InputSize, size[0])
-	f.MatrixOperator.Transpose(forwardMatrix, forwardMatrixTrans)
+	forwardMatrixTrans := f.TensorOperator.CreateTensor(
+		[]int{f.InputSize, size[0]})
+	f.TensorOperator.TransposeMatrix(forwardMatrix, forwardMatrixTrans)
 
-	zeroMatrix := NewTensor(f.GPUDriver, f.GPUCtx)
-	zeroMatrix.Init(
-		make([]float64, f.numWeights()),
-		[]int{f.InputSize, f.OutputSize},
-	)
+	zeroMatrix := f.TensorOperator.CreateTensor(
+		[]int{f.InputSize, f.OutputSize})
 
-	f.MatrixOperator.Gemm(false, false,
+	f.TensorOperator.Gemm(false, false,
 		f.InputSize, f.OutputSize, size[0],
 		1.0, 1.0,
-		forwardMatrixTrans, input.Matrix(), zeroMatrix.Matrix(),
+		forwardMatrixTrans, input, zeroMatrix,
 		f.weightGradients.AsMatrix(f.InputSize, f.OutputSize),
 	)
 }
@@ -332,9 +327,9 @@ func (f FullyConnectedLayer) calculateInputGradients(input *Tensor) *Tensor {
 		[]int{size[0], f.InputSize})
 
 	weightMatrix := f.weight.AsMatrix(f.InputSize, f.OutputSize)
-	weightMatrixTrans := f.MatrixOperator.CreateMatrix(
-		f.OutputSize, f.InputSize)
-	f.MatrixOperator.Transpose(weightMatrix, weightMatrixTrans)
+	weightMatrixTrans := f.TensorOperator.CreateTensor(
+		[]int{f.OutputSize, f.InputSize})
+	f.TensorOperator.TransposeMatrix(weightMatrix, weightMatrixTrans)
 
 	zeroMatrix := NewTensor(f.GPUDriver, f.GPUCtx)
 	zeroMatrix.Init(
@@ -342,13 +337,15 @@ func (f FullyConnectedLayer) calculateInputGradients(input *Tensor) *Tensor {
 		[]int{size[0], f.InputSize},
 	)
 
-	f.MatrixOperator.Gemm(false, false,
+	f.TensorOperator.Gemm(false, false,
 		size[0], f.InputSize, f.OutputSize,
 		1.0, 1.0,
-		input.Matrix(), weightMatrixTrans, zeroMatrix.Matrix(),
-		output.Matrix())
+		input, weightMatrixTrans, zeroMatrix,
+		output)
 
-	f.MatrixOperator.Free(weightMatrixTrans)
+	f.TensorOperator.Free(weightMatrixTrans)
+	f.TensorOperator.Free(zeroMatrix)
+
 	return output
 }
 

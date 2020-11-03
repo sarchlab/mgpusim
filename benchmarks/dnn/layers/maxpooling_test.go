@@ -1,10 +1,8 @@
-package layers_test
+package layers
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"gitlab.com/akita/mgpusim/benchmarks/dnn/layers"
 
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
@@ -14,7 +12,7 @@ var _ = Describe("Max Pooling Layer", func() {
 	var (
 		gpuDriver *driver.Driver
 		context   *driver.Context
-		layer     *layers.MaxPoolingLayer
+		layer     *MaxPoolingLayer
 	)
 
 	BeforeEach(func() {
@@ -28,7 +26,8 @@ var _ = Describe("Max Pooling Layer", func() {
 		stride := [2]int{2, 2}     //[H, W]
 		padding := [2]int{1, 0}    //[H, W]
 		kernelSize := [2]int{2, 2} //[H, W]
-		layer = layers.NewMaxPoolingLayer(stride, padding, kernelSize, gpuDriver, context)
+		layer = NewMaxPoolingLayer(
+			stride, padding, kernelSize, gpuDriver, context)
 		layer.EnableVerification()
 	})
 
@@ -37,7 +36,7 @@ var _ = Describe("Max Pooling Layer", func() {
 	})
 
 	It("should forward", func() {
-		input := layers.NewTensor(gpuDriver, context)
+		input := NewTensor(gpuDriver, context)
 		input.Init([]float64{
 			1, 2, 3, 4,
 			50, 6.6, 7, 8.8,
@@ -60,7 +59,7 @@ var _ = Describe("Max Pooling Layer", func() {
 	})
 
 	It("should backward", func() {
-		input := layers.NewTensor(gpuDriver, context)
+		input := NewTensor(gpuDriver, context)
 		input.Init([]float64{
 			1, 2, 3, 4,
 			5, 6, 7, 8,
@@ -70,7 +69,7 @@ var _ = Describe("Max Pooling Layer", func() {
 		layer.Forward(input)
 
 		// Forward then Backward
-		inputB := layers.NewTensor(gpuDriver, context)
+		inputB := NewTensor(gpuDriver, context)
 		inputB.Init([]float64{
 			3, 4,
 			5, 6,

@@ -7,8 +7,9 @@ type Tensor struct {
 	size []int
 	ptr  driver.GPUPtr
 
-	driver *driver.Driver
-	ctx    *driver.Context
+	driver     *driver.Driver
+	ctx        *driver.Context
+	descriptor string
 }
 
 // NewTensor creates a new tensor.
@@ -37,6 +38,47 @@ func (t Tensor) Size() []int {
 	return t.size
 }
 
+// Dim returns the dimension of the tensor.
+func (t Tensor) Dim() int {
+	return len(t.size)
+}
+
+// NumElement returns the total number of scalar numbers in a tensor.
+func (t Tensor) NumElement() int {
+	n := 1
+
+	for _, s := range t.size {
+		n *= s
+	}
+
+	return n
+}
+
+// Reshape creates another tensor with different sizes. The new tensor shares
+// the buffer with the old tensor.
+func (t Tensor) Reshape(newSize []int) *Tensor {
+	numElement := t.NumElement()
+
+	newT := &Tensor{
+		ptr:    t.ptr,
+		size:   newSize,
+		driver: t.driver,
+		ctx:    t.ctx,
+	}
+	newNumElement := newT.NumElement()
+
+	if numElement != newNumElement {
+		panic("mismatch in shape")
+	}
+
+	return newT
+}
+
+// Descriptor returns the tensor descriptor
+func (t Tensor) Descriptor() string {
+	return t.descriptor
+}
+
 // Vector returns the tensor data as an array.
 func (t Tensor) Vector() []float64 {
 	numElem := 1
@@ -53,19 +95,4 @@ func (t Tensor) Vector() []float64 {
 	}
 
 	return out
-}
-
-// Matrix returns the tensor as a matrix. This function panics if the tensor
-// is not a 2-dimension tensor.
-func (t Tensor) Matrix() *Matrix {
-	if len(t.size) != 2 {
-		panic("not a matrix")
-	}
-
-	m := &Matrix{
-		col:  t.size[1],
-		row:  t.size[0],
-		data: t.ptr,
-	}
-	return m
 }

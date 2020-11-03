@@ -127,7 +127,6 @@ func (a *memoryAllocatorImpl) allocatePages(
 	deviceID int,
 	unified bool,
 ) (firstPageVAddr uint64) {
-	// log.Printf("num pages %d \n", numPages)
 	pState, found := a.processMemoryStates[pid]
 	if !found {
 		a.processMemoryStates[pid] = &processMemoryState{
