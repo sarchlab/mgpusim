@@ -177,7 +177,7 @@ var _ = Describe("Convolutional Layer", func() {
 		}
 	})
 
-	FIt("should do backward", func() {
+	It("should do backward", func() {
 		goldDatasets := loadBackwardDatasets("conv_backward_test_data.json")
 
 		for _, d := range goldDatasets {
