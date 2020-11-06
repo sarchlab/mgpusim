@@ -184,9 +184,9 @@ var _ = Describe("Scalar Unit", func() {
 		sp := wave.Scratchpad().AsSMEM()
 		sp.Base = 0x1000
 		sp.Offset = 56
-
+		start := sp.Base + sp.Offset
 		bu.Run(10)
-
+		Expect(bu.numCacheline(start, uint64(16))).To(Equal(2))
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
 		Expect(bu.readBuf).To(HaveLen(2))
@@ -261,5 +261,8 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(bu.toWrite).To(BeNil())
 		Expect(bu.toExec).To(BeNil())
 
+	})
+	It("should return correct num of cacheline", func() {
+		Expect(bu.numCacheline(0x1038, uint64(80))).To(Equal(3))
 	})
 })

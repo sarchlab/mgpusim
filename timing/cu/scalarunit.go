@@ -178,13 +178,21 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) bool {
 }
 
 func (u ScalarUnit) numCacheline(start, byteSize uint64) int {
-	count := 0
+	count := 1
 	curr := start
 	cachelineSize := uint64(1) << u.log2CachelineSize
+	mask := ^(uint64(1<<u.log2CachelineSize) - 1)
 
-	for curr < start+byteSize {
+	for byteSize > 0 {
+		cachelineStart := curr & mask
+		cachelineEnd := cachelineStart + cachelineSize
+		bytesLeftInCacheline := cachelineEnd - curr
+		if byteSize <= bytesLeftInCacheline {
+			return count
+		}
 		count++
-		curr += cachelineSize
+		curr += bytesLeftInCacheline
+		byteSize -= bytesLeftInCacheline
 	}
 
 	return count
