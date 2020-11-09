@@ -260,8 +260,8 @@ var _ = Describe("Scalar Unit", func() {
 		Expect(bu.toRead).To(BeNil())
 		Expect(bu.toWrite).To(BeNil())
 		Expect(bu.toExec).To(BeNil())
-
 	})
+
 	It("should return correct num of cacheline", func() {
 		Expect(bu.numCacheline(0x1038, uint64(80))).To(Equal(3))
 	})
