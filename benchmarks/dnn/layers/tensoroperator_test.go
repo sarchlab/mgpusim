@@ -297,6 +297,34 @@ var _ = Describe("Tensor Operator", func() {
 		}
 	})
 
+	It("should dilate", func() {
+		in := to.CreateTensor([]int{1, 1, 3, 3})
+		out := to.CreateTensor([]int{1, 1, 7, 5})
+
+		in.Init([]float64{
+			1, 2, 3,
+			4, 5, 6,
+			7, 8, 9,
+		}, in.size)
+
+		to.Dilate(in, out, [2]int{3, 2})
+
+		goldOut := []float64{
+			1, 0, 2, 0, 3,
+			0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0,
+			4, 0, 5, 0, 6,
+			0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0,
+			7, 0, 8, 0, 9,
+		}
+
+		outV := out.Vector()
+		for i := 0; i < len(goldOut); i++ {
+			Expect(outV[i]).To(BeNumerically("~", goldOut[i], 1e-3))
+		}
+	})
+
 	It("should do element-wise add", func() {
 		in := to.CreateTensor([]int{9})
 		in.Init([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9}, in.size)
