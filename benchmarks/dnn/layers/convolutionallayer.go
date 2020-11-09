@@ -1,18 +1,12 @@
 package layers
 
 import (
-
-	// "math"
-
-	"fmt"
 	"log"
 
-	// "gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/tensor"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
-	// "fmt"
 )
 
 // A Conv2D can perform convolution operation on input data.
@@ -385,14 +379,19 @@ func (l *Conv2D) Backward(inputTensor tensor.Tensor) tensor.Tensor {
 	return output
 }
 
+//nolint:funlen
 func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 	inputT := input.(*Tensor)
-	inputTranspose := l.TensorOperator.CreateTensor([]int{
-		input.Size()[1], input.Size()[0], input.Size()[2], input.Size()[3],
+	inputDilate := l.TensorOperator.CreateTensor([]int{
+		input.Size()[0], input.Size()[1],
+		input.Size()[2]*l.stride[1] - (l.stride[1] - 1),
+		input.Size()[3]*l.stride[0] - (l.stride[0] - 1),
 	})
-	defer l.TensorOperator.Free(inputTranspose)
+	defer l.TensorOperator.Free(inputDilate)
 
-	l.TensorOperator.TransposeTensor(inputT, inputTranspose, []int{1, 0, 2, 3})
+	l.TensorOperator.Dilate(inputT, inputDilate,
+		[2]int{l.stride[1], l.stride[0]})
+	inputDilate.descriptor = ""
 
 	im2ColMatrixWidth := l.inputSize[1] * l.inputSize[2] * input.Size()[0]
 	im2ColMatrixHeight := l.kernelWidth() * l.kernelHeight() * l.numKernels()
@@ -400,11 +399,15 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 		[]int{im2ColMatrixHeight, im2ColMatrixWidth})
 	defer l.TensorOperator.Free(im2ColMatrix)
 
-	l.im2Col(inputTranspose, im2ColMatrix,
+	l.im2Col(inputDilate, im2ColMatrix,
 		[2]int{l.kernelWidth(), l.kernelHeight()},
-		[4]int{l.padding[0], l.padding[1], l.padding[2], l.padding[3]},
-		[2]int{l.stride[0], l.stride[1]},
-		[2]int{0, 0},
+		[4]int{
+			l.kernelHeight() - 1 - l.padding[0],
+			l.kernelWidth() - 1 - l.padding[1],
+			l.kernelHeight() - 1 - l.padding[0],
+			l.kernelWidth() - 1 - l.padding[1],
+		},
+		[2]int{1, 1}, [2]int{0, 0},
 	)
 
 	kernelRot := l.TensorOperator.CreateTensor(l.kernel.size)
@@ -412,10 +415,8 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 	l.TensorOperator.Rotate180(l.kernel, kernelRot)
 
 	kernelTranspose := l.TensorOperator.CreateTensor(
-		[]int{l.numChannels(),
-			l.numKernels(),
-			l.kernelHeight(),
-			l.kernelWidth(),
+		[]int{l.numChannels(), l.numKernels(),
+			l.kernelHeight(), l.kernelWidth(),
 		})
 	defer l.TensorOperator.Free(kernelTranspose)
 	l.TensorOperator.TransposeTensor(kernelRot, kernelTranspose,
@@ -423,7 +424,6 @@ func (l *Conv2D) calculateInputGradients(input tensor.Tensor) tensor.Tensor {
 
 	kernelMatrix := kernelTranspose.Reshape([]int{l.numChannels(),
 		l.numKernels() * l.kernelWidth() * l.kernelHeight()})
-
 	biasMatrix := l.TensorOperator.CreateTensor([]int{
 		im2ColMatrixWidth, im2ColMatrixHeight,
 	})
@@ -477,8 +477,8 @@ func (l *Conv2D) calculateWeightGradients(input tensor.Tensor) {
 		l.im2Col(forwardImage, im2ColMat,
 			[2]int{l.outputSize[2], l.outputSize[1]},
 			[4]int{l.padding[0], l.padding[1], l.padding[2], l.padding[3]},
-			[2]int{l.stride[0], l.stride[1]},
-			[2]int{0, 0},
+			[2]int{1, 1},
+			[2]int{l.stride[0] - 1, l.stride[1] - 1},
 		)
 
 		backwardLossImage := l.TensorOperator.CreateTensorWithBuf(
@@ -522,8 +522,6 @@ func (l *Conv2D) calculateBiasGradients(input *Tensor) {
 		)
 		l.TensorOperator.ElemWiseAdd(t, l.biasGradients, l.biasGradients)
 	}
-
-	fmt.Println(l.TensorOperator.Dump("Bias Gradient", l.biasGradients))
 }
 
 func (l *Conv2D) im2Col(

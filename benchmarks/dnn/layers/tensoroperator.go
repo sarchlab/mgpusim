@@ -16,6 +16,7 @@ type TensorOperator struct {
 	gemmKernel            *insts.HsaCo
 	transposeKernel       *insts.HsaCo
 	transposeTensorKernel *insts.HsaCo
+	dilateTensorKernel    *insts.HsaCo
 	elemWiseAddKernel     *insts.HsaCo
 }
 
@@ -32,6 +33,7 @@ func NewTensorOperator(
 	to.loadGemmKernel()
 	to.loadMatrixTransposeKernel()
 	to.loadTransposeTensorKernel()
+	to.loadDilateTensorKernel()
 	to.loadElemWiseKernels()
 
 	return to
@@ -61,6 +63,15 @@ func (to *TensorOperator) loadTransposeTensorKernel() {
 		"transpose_tensor")
 	if to.transposeKernel == nil {
 		panic("failed to load transpose tensor kernel")
+	}
+}
+
+func (to *TensorOperator) loadDilateTensorKernel() {
+	bytes := _escFSMustByte(false, "/dilate.hsaco")
+	to.dilateTensorKernel = kernels.LoadProgramFromMemory(
+		bytes, "dilate_tensor")
+	if to.transposeKernel == nil {
+		panic("failed to load dilate tensor kernel")
 	}
 }
 
@@ -380,6 +391,74 @@ func (to *TensorOperator) Repeat(in, out *Tensor, times int) {
 			in.NumElement()*sizeOfFloat)
 		ptr += driver.GPUPtr(in.NumElement() * sizeOfFloat)
 	}
+}
+
+type dilateTensorKernelArg struct {
+	In                        driver.GPUPtr
+	Out                       driver.GPUPtr
+	InSize                    driver.GPUPtr
+	OutSize                   driver.GPUPtr
+	Dilate                    driver.GPUPtr
+	InIndexBuf                driver.GPUPtr
+	OutIndexBuf               driver.GPUPtr
+	Dim                       int32
+	Padding                   int32
+	OffsetX, OffsetY, OffsetZ int32
+}
+
+// Dilate adds zeros between the original elements.
+func (to *TensorOperator) Dilate(in, out *Tensor, dilate [2]int) {
+	sizeOfInt32 := int32(4)
+	dim := int32(in.Dim())
+	hDilate := make([]int32, 2)
+	hInSize := make([]int32, dim)
+	hOutSize := make([]int32, dim)
+
+	for i := int32(0); i < dim; i++ {
+		hInSize[i] = int32(in.size[i])
+		hOutSize[i] = int32(out.size[i])
+	}
+	hDilate[0] = int32(dilate[0])
+	hDilate[1] = int32(dilate[1])
+
+	dDilate := to.driver.AllocateMemory(to.context, uint64(dim*sizeOfInt32))
+	to.driver.MemCopyH2D(to.context, dDilate, hDilate)
+	defer to.driver.FreeMemory(to.context, dDilate)
+
+	dInSize := to.driver.AllocateMemory(to.context, uint64(dim*sizeOfInt32))
+	to.driver.MemCopyH2D(to.context, dInSize, hInSize)
+	defer to.driver.FreeMemory(to.context, dInSize)
+
+	dOutSize := to.driver.AllocateMemory(to.context, uint64(dim*sizeOfInt32))
+	to.driver.MemCopyH2D(to.context, dOutSize, hOutSize)
+	defer to.driver.FreeMemory(to.context, dOutSize)
+
+	dInIndexBuf := to.driver.AllocateMemory(to.context,
+		uint64(int32(in.NumElement())*dim*sizeOfInt32))
+	defer to.driver.FreeMemory(to.context, dInIndexBuf)
+
+	dOutIndexBuf := to.driver.AllocateMemory(to.context,
+		uint64(int32(in.NumElement())*dim*sizeOfInt32))
+	defer to.driver.FreeMemory(to.context, dOutIndexBuf)
+
+	args := dilateTensorKernelArg{
+		In:          in.ptr,
+		Out:         out.ptr,
+		InSize:      dInSize,
+		OutSize:     dOutSize,
+		Dilate:      dDilate,
+		InIndexBuf:  dInIndexBuf,
+		OutIndexBuf: dOutIndexBuf,
+		Dim:         dim,
+	}
+
+	to.driver.LaunchKernel(
+		to.context,
+		to.dilateTensorKernel,
+		[3]uint32{uint32(out.NumElement()), 1, 1},
+		[3]uint16{uint16(64), 1, 1},
+		&args,
+	)
 }
 
 type elemWiseAddKernArg struct {
