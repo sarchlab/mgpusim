@@ -342,7 +342,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/minervamultigpu",
             "args": [
-                "-timing",
+                // "-timing",
                 "-gpus=1,2",
                 "-mnist-data-folder=/home/yifan/dev/src/gitlab.com/akita/dnn/dataset/mnist/data/"
             ]

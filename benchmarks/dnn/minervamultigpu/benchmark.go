@@ -17,6 +17,7 @@ import (
 // Benchmark defines the Mineva network training benchmark.
 type Benchmark struct {
 	driver *driver.Driver
+	ctx    *driver.Context
 	gpus   []int
 
 	networks []training.Network
@@ -28,6 +29,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
+	b.ctx = driver.Init()
 
 	// b.enableLayerVerification(&b.network)
 
@@ -58,7 +60,7 @@ func (b *Benchmark) init() {
 }
 
 func (b *Benchmark) defineNetwork(gpuID int) {
-	context := b.driver.Init()
+	context := b.driver.InitWithExistingPID(b.ctx)
 	b.driver.SelectGPU(context, gpuID)
 	to := simLayers.NewTensorOperator(b.driver, context)
 
