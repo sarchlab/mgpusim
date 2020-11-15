@@ -30,6 +30,21 @@ func (d *Driver) Init() *Context {
 	return c
 }
 
+// InitWithExistingPID creates a new context that shares the same process ID
+// with the given context.
+func (d *Driver) InitWithExistingPID(ctx *Context) *Context {
+	c := &Context{
+		pid:          ctx.pid,
+		currentGPUID: 1,
+	}
+
+	d.contextMutex.Lock()
+	d.contexts = append(d.contexts, c)
+	d.contextMutex.Unlock()
+
+	return c
+}
+
 // GetNumGPUs return the number of GPUs in the platform
 func (d *Driver) GetNumGPUs() int {
 	return len(d.GPUs)
@@ -118,6 +133,8 @@ func (d *Driver) AllocateMemory(
 	byteSize uint64,
 ) GPUPtr {
 	ptr := d.memAllocator.Allocate(ctx.pid, byteSize, ctx.currentGPUID)
+
+	// log.Printf("Allocate %d\n", ptr)
 	return GPUPtr(ptr)
 }
 
@@ -179,6 +196,7 @@ func unique(in []int) []int {
 // with the function AllocateMemory earlier. Error will be returned if the ptr
 // provided is invalid.
 func (d *Driver) FreeMemory(ctx *Context, ptr GPUPtr) error {
+	// log.Printf("Free %d\n", ptr)
 	d.memAllocator.Free(uint64(ptr))
 	return nil
 }
