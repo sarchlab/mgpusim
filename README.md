@@ -61,6 +61,40 @@ You can run a simulation with the `--report-all` argument to enable all the perf
 - When you are done with developing, click the "Mark as ready" button in the merge request. Someone will review your code and see if the code can be merged. If nobody responds you in 2 days, please notify us on Slack.
 - There is no particular style requirement other than the default Go style requirement. Please run `gofmt`, `goimports`, or `goreturns` before making your merge request ready. Also, running `golangci-lint run` in the root directory will point you out most of the styling errors.
 
+## Citation
+
+If you use MGPUSim in your research, please cite our ISCA '19 paper. 
+
+```bibtex
+@inproceedings{sun19mgpusim, 
+    author = {Sun, Yifan and Baruah, Trinayan and Mojumder, Saiful A. and Dong, Shi and Gong, Xiang and Treadway, Shane and Bao, Yuhui and Hance, Spencer and McCardwell, Carter and Zhao, Vincent and Barclay, Harrison and Ziabari, Amir Kavyan and Chen, Zhongliang and Ubal, Rafael and Abell\'{a}n, Jos\'{e} L. and Kim, John and Joshi, Ajay and Kaeli, David}, 
+    title = {MGPUSim: Enabling Multi-GPU Performance Modeling and Optimization}, 
+    year = {2019}, 
+    isbn = {9781450366694}, 
+    publisher = {Association for Computing Machinery}, 
+    address = {New York, NY, USA}, 
+    url = {https://doi.org/10.1145/3307650.3322230}, 
+    doi = {10.1145/3307650.3322230}, 
+    booktitle = {Proceedings of the 46th International Symposium on Computer Architecture}, 
+    pages = {197–209}, 
+    numpages = {13}, 
+    keywords = {simulation, multi-GPU systems, memory management}, 
+    location = {Phoenix, Arizona}, 
+    series = {ISCA '19} 
+}
+```
+
+Papers that use MGPUSim:
+
+* Dynamic GMMU Bypass for Address Translation in Multi-GPU Systems
+* Valkyrie: Leveraging Inter-TLB Locality to Enhance GPU Performance
+* MGPU-TSM: A Multi-GPU System with Truly Shared Memory
+* Griffin: Hardware-Software Support for Efficient Page Migration in Multi-GPU Systems
+* HALCONE: A Hardware-Level Timestamp-based Cache Coherence Scheme for Multi-GPU systems
+* Priority-Based PCIe Scheduling for Multi-Tenant Multi-GPU Systems
+* Exploiting Adaptive Data Compression to Improve Performance and Energy-efficiency of Compute Workloads in Multi-GPU Systems
+
+
 ## License
 
 MIT © Project Akita Developers.
