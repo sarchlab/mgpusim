@@ -203,8 +203,10 @@ func (b R9NanoPlatformBuilder) createMMU(
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
 		WithFreq(1 * akita.GHz).
+		WithPageWalkingLatency(100).
 		WithLog2PageSize(b.log2PageSize).
 		WithPageTable(pageTable)
+
 	mmuComponent := mmuBuilder.Build("MMU")
 	return mmuComponent, pageTable
 }
