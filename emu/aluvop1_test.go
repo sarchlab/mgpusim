@@ -247,6 +247,42 @@ var _ = Describe("ALU", func() {
 		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(-3.0)))
 	})
 
+	It("should run V_EXP_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 32
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(1.1))
+		sp.SRC0[1] = uint64(math.Float32bits(-2.6))
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).
+			To(BeNumerically("~", float32(2.1436), 1e-3))
+		Expect(math.Float32frombits(uint32(sp.DST[1]))).
+			To(BeNumerically("~", float32(0.1649), 1e-3))
+	})
+
+	It("should run V_LOG_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 33
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(1.1))
+		sp.SRC0[1] = uint64(math.Float32bits(-2.6))
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).
+			To(BeNumerically("~", float32(0.1375), 1e-3))
+		Expect(math.IsNaN(float64(math.Float32frombits(uint32(sp.DST[1]))))).
+			To(BeTrue())
+	})
+
 	It("should run V_RCP_F32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP1
@@ -293,6 +329,22 @@ var _ = Describe("ALU", func() {
 
 		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(0.5)))
 		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(0.04)))
+	})
+
+	It("should run V_SQRT_F32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP1
+		state.inst.Opcode = 39
+
+		sp := state.Scratchpad().AsVOP1()
+		sp.SRC0[0] = uint64(math.Float32bits(4.0))
+		sp.SRC0[1] = uint64(math.Float32bits(625.0))
+		sp.EXEC = 0x3
+
+		alu.Run(state)
+
+		Expect(math.Float32frombits(uint32(sp.DST[0]))).To(Equal(float32(2.0)))
+		Expect(math.Float32frombits(uint32(sp.DST[1]))).To(Equal(float32(25.0)))
 	})
 
 	It("should run V_CVT_F32_UBYTE0", func() {

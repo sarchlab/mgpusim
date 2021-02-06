@@ -11,8 +11,28 @@ func (u *ALUImpl) runVOPC(state InstEmuState) {
 	switch inst.Opcode {
 	case 0x41: // v_cmp_lt_f32
 		u.runVCmpLtF32(state)
+	case 0x42: // v_cmp_eq_f32
+		u.runVCmpEqF32(state)
+	case 0x43: // v_cmp_le_f32
+		u.runVCmpLeF32(state)
 	case 0x44: // v_cmp_gt_f32
 		u.runVCmpGtF32(state)
+	case 0x45: // v_cmp_lg_f32
+		u.runVCmpLgF32(state)
+	case 0x46: // v_cmp_lg_f32
+		u.runVCmpGeF32(state)
+	case 0x49: // v_cmp_nge_f32
+		u.runVCmpNgeF32(state)
+	case 0x4A: // v_cmp_nlg_f32
+		u.runVCmpNlgF32(state)
+	case 0x4B: // v_cmp_ngt_f32
+		u.runVCmpNgtF32(state)
+	case 0x4C: // v_cmp_nle_f32
+		u.runVCmpNleF32(state)
+	case 0x4D: // v_cmp_neq_f32
+		u.runVCmpNeqF32(state)
+	case 0x4E: // v_cmp_nlt_f32
+		u.runVCmpNltF32(state)
 	case 0xC1: // v_cmp_lt_i32
 		u.runVCmpLtI32(state)
 	case 0xC3: // v_cmp_le_i32
@@ -73,6 +93,57 @@ func (u *ALUImpl) runVCmpLtF32(state InstEmuState) {
 	}
 }
 
+func (u *ALUImpl) runVCmpEqF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if src0 == src1 {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLeF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if src0 <= src1 {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpLgF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if src0 != src1 {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
 func (u *ALUImpl) runVCmpGtF32(state InstEmuState) {
 	sp := state.Scratchpad().AsVOPC()
 	sp.VCC = 0
@@ -85,6 +156,125 @@ func (u *ALUImpl) runVCmpGtF32(state InstEmuState) {
 		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
 		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
 		if src0 > src1 {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpGeF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if src0 >= src1 {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpNgeF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if !(src0 >= src1) {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpNlgF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if !(src0 != src1) {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpNgtF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if !(src0 > src1) {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpNleF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if !(src0 <= src1) {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpNeqF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if !(src0 == src1) {
+			sp.VCC = sp.VCC | (1 << i)
+		}
+	}
+}
+
+func (u *ALUImpl) runVCmpNltF32(state InstEmuState) {
+	sp := state.Scratchpad().AsVOPC()
+	sp.VCC = 0
+	var i uint
+	var src0, src1 float32
+	for i = 0; i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		src0 = math.Float32frombits(uint32(sp.SRC0[i]))
+		src1 = math.Float32frombits(uint32(sp.SRC1[i]))
+		if !(src0 < src1) {
 			sp.VCC = sp.VCC | (1 << i)
 		}
 	}

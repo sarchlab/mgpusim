@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/monitoring"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/cache/writeback"
@@ -40,6 +41,7 @@ type R9NanoGPUBuilder struct {
 	disableProgressBar bool
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
+	monitor            *monitoring.Monitor
 
 	gpuName                 string
 	gpu                     *mgpusim.GPU
@@ -183,6 +185,12 @@ func (b R9NanoGPUBuilder) WithLog2CacheLineSize(
 // WithLog2PageSize sets the page size with the power of 2.
 func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder {
 	b.log2PageSize = log2PageSize
+	return b
+}
+
+// WithMonitor sets the monitor to use.
+func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
+	b.monitor = m
 	return b
 }
 
@@ -461,6 +469,10 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		if b.enableMemTracing {
 			tracing.CollectTrace(l2, b.memTracer)
 		}
+
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(l2)
+		}
 	}
 }
 
@@ -489,6 +501,10 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 		if b.enableMemTracing {
 			tracing.CollectTrace(dram, b.memTracer)
 		}
+
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(dram)
+		}
 	}
 }
 
@@ -497,6 +513,7 @@ func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
 	if 4*mem.GB%uint64(b.numMemoryBank) != 0 {
 		panic("GPU memory size is not a multiple of the number of memory banks")
 	}
+
 	dramCol := 64
 	dramRow := 4096
 	dramDeviceWidth := 32
@@ -554,31 +571,71 @@ func (b *R9NanoGPUBuilder) buildSA(
 ) {
 	sa := saBuilder.Build(saName)
 
+	b.populateCUs(&sa)
+	b.populateROBs(&sa)
+	b.populateTLBs(&sa)
+	b.populateL1VAddressTranslators(&sa)
+	b.populateL1Vs(&sa)
+	b.populateScalerMemoryHierarchy(&sa)
+	b.populateInstMemoryHierarchy(&sa)
+}
+
+func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 	for _, cu := range sa.cus {
 		b.gpu.CUs = append(b.gpu.CUs, cu)
 		b.cus = append(b.cus, cu)
-	}
 
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(cu)
+		}
+	}
+}
+
+func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 	for _, rob := range sa.l1vROBs {
 		b.l1vReorderBuffers = append(b.l1vReorderBuffers, rob)
 		b.gpu.L1VROBs = append(b.gpu.L1VROBs, rob)
-	}
 
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(rob)
+		}
+	}
+}
+
+func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 	for _, tlb := range sa.l1vTLBs {
 		b.l1vTLBs = append(b.l1vTLBs, tlb)
 		b.gpu.L1VTLBs = append(b.gpu.L1VTLBs, tlb)
-	}
 
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(tlb)
+		}
+	}
+}
+
+func (b *R9NanoGPUBuilder) populateL1Vs(sa *shaderArray) {
 	for _, l1v := range sa.l1vCaches {
 		b.l1vCaches = append(b.l1vCaches, l1v)
 		b.gpu.L1VCaches = append(b.gpu.L1VCaches, l1v)
-	}
 
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(l1v)
+		}
+	}
+}
+
+func (b *R9NanoGPUBuilder) populateL1VAddressTranslators(sa *shaderArray) {
 	for _, at := range sa.l1vATs {
 		b.l1vAddrTrans = append(b.l1vAddrTrans, at)
 		b.gpu.L1VAddrTranslator = append(b.gpu.L1VAddrTranslator, at)
-	}
 
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(at)
+		}
+	}
+}
+
+func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
 	b.l1sAddrTrans = append(b.l1sAddrTrans, sa.l1sAT)
 	b.gpu.L1SAddrTranslator = append(b.gpu.L1SAddrTranslator, sa.l1sAT)
 	b.l1sReorderBuffers = append(b.l1sReorderBuffers, sa.l1sROB)
@@ -587,7 +644,9 @@ func (b *R9NanoGPUBuilder) buildSA(
 	b.gpu.L1SCaches = append(b.gpu.L1SCaches, sa.l1sCache)
 	b.l1sTLBs = append(b.l1sTLBs, sa.l1sTLB)
 	b.gpu.L1STLBs = append(b.gpu.L1STLBs, sa.l1sTLB)
+}
 
+func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 	b.l1iAddrTrans = append(b.l1iAddrTrans, sa.l1iAT)
 	b.gpu.L1IAddrTranslator = append(b.gpu.L1IAddrTranslator, sa.l1iAT)
 	b.l1iReorderBuffers = append(b.l1iReorderBuffers, sa.l1iROB)
@@ -606,6 +665,10 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 		nil,
 	)
 	b.gpu.RDMAEngine = b.rdmaEngine
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(b.rdmaEngine)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildPageMigrationController() {
@@ -617,6 +680,10 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 			nil)
 
 	b.gpu.PMC = b.pageMigrationController
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(b.pageMigrationController)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
@@ -627,6 +694,10 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 
 	if b.enableVisTracing {
 		tracing.CollectTrace(b.dmaEngine, b.visTracer)
+	}
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(b.dmaEngine)
 	}
 }
 
@@ -645,6 +716,10 @@ func (b *R9NanoGPUBuilder) buildCP() {
 
 	b.cp = builder.Build(b.gpuName + ".CommandProcessor")
 	b.gpu.CommandProcessor = b.cp
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(b.cp)
+	}
 
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
@@ -668,6 +743,10 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 
 	if b.enableVisTracing {
 		tracing.CollectTrace(l2TLB, b.visTracer)
+	}
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(l2TLB)
 	}
 }
 

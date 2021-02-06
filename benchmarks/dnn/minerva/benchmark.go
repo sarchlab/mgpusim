@@ -1,10 +1,10 @@
-// Package xor implements a extremely simple network that can perform the xor
-// operation.
-package xor
+// Package minerva implements mineva network
+package minerva
 
 import (
-	"fmt"
+	"math"
 
+	"gitlab.com/akita/dnn/dataset/mnist"
 	"gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/training"
 	"gitlab.com/akita/dnn/training/optimization"
@@ -17,8 +17,7 @@ type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
 	to      *tensor.GPUOperator
-
-	gpus []int
+	gpus    []int
 
 	network training.Network
 	trainer training.Trainer
@@ -35,36 +34,33 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 	b.network = training.Network{
 		Layers: []layers.Layer{
-			layers.NewFullyConnectedLayer(
-				b.to,
-				2, 4,
-			),
+			layers.NewFullyConnectedLayer(b.to, 784, 100),
 			layers.NewReluLayer(b.to),
-			layers.NewFullyConnectedLayer(
-				b.to,
-				4, 2,
-			),
+			// layers.NewFullyConnectedLayer(b.to, 256, 100),
+			// layers.NewReluLayer(b.to),
+			// layers.NewFullyConnectedLayer(b.to, 100, 100),
+			// layers.NewReluLayer(b.to),
+			layers.NewFullyConnectedLayer(b.to, 100, 10),
 		},
 	}
 
 	b.trainer = training.Trainer{
 		TO:              b.to,
-		DataSource:      NewDataSource(b.to),
+		DataSource:      mnist.NewTrainingDataSource(b.to),
 		Network:         b.network,
 		LossFunc:        training.NewSoftmaxCrossEntropy(b.to),
-		OptimizationAlg: optimization.NewAdam(b.to, 0.03),
-		Epoch:           50,
-		BatchSize:       4,
-		ShowBatchInfo:   true,
+		OptimizationAlg: optimization.NewAdam(b.to, 0.001),
+		Tester: &training.Tester{
+			DataSource: mnist.NewTestDataSource(b.to),
+			Network:    b.network,
+			BatchSize:  math.MaxInt32,
+		},
+		Epoch:         1,
+		BatchSize:     128,
+		ShowBatchInfo: true,
 	}
 
-	b.enableLayerVerification(&b.network)
-
 	return b
-}
-
-func (b *Benchmark) enableLayerVerification(network *training.Network) {
-
 }
 
 // SelectGPU selects the GPU to use.
@@ -79,17 +75,7 @@ func (b *Benchmark) Run() {
 	for _, l := range b.network.Layers {
 		l.Randomize()
 	}
-
 	b.trainer.Train()
-}
-
-func (b *Benchmark) printLayerParams() {
-	for i, l := range b.network.Layers {
-		params := l.Parameters()
-		if params != nil {
-			fmt.Println("Layer ", i, params.Vector())
-		}
-	}
 }
 
 // Verify runs the benchmark on the CPU and checks the result.

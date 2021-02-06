@@ -235,19 +235,19 @@ def main():
               'relu',
               [],
               '../../benchmarks/dnn/relu')
-    mp = Test('../../samples/maxpooling',
-              'maxpooling',
-              [
-                  '-h=128',
-                  '-w=128',
-                  '-c=3',
-                  '-n=4',
-                  '-stride-w=2',
-                  '-stride-h=2',
-                  '-kernel-w=2',
-                  '-kernel-h=2',
-              ],
-              '../../benchmarks/dnn/maxpooling')
+    # mp = Test('../../samples/maxpooling',
+    #           'maxpooling',
+    #           [
+    #               '-h=128',
+    #               '-w=128',
+    #               '-c=3',
+    #               '-n=4',
+    #               '-stride-w=2',
+    #               '-stride-h=2',
+    #               '-kernel-w=2',
+    #               '-kernel-h=2',
+    #           ],
+    #           '../../benchmarks/dnn/maxpooling')
     bfs = Test('../../samples/bfs',
                'bfs',
                ['-node=1024'],
@@ -308,8 +308,8 @@ def main():
                        use_unified_memory=args.unified_memory)
         err |= re.test(test_unified_multi_gpu=True,
                        use_unified_memory=args.unified_memory)
-        err |= mp.test(test_unified_multi_gpu=True,
-                       use_unified_memory=args.unified_memory)
+        # err |= mp.test(test_unified_multi_gpu=True,
+        #    use_unified_memory=args.unified_memory)
         err |= bfs.test(test_unified_multi_gpu=True,
                         use_unified_memory=args.unified_memory)
         err |= st.test(test_unified_multi_gpu=True,
@@ -351,7 +351,7 @@ def main():
         err |= sc.test()
         err |= fw.test(test_multi_gpu=False)
         err |= re.test()
-        err |= mp.test(test_multi_gpu=False)
+        # err |= mp.test(test_multi_gpu=False)
         err |= bfs.test(test_multi_gpu=False)
         err |= st.test(test_multi_gpu=False)
         err |= sp.test(test_multi_gpu=False)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/monitoring"
 	"gitlab.com/akita/mgpusim/benchmarks"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/platform"
@@ -107,6 +108,7 @@ type Runner struct {
 	RDMATransactionCounters    []rdmaTransactionCountTracer
 	DRAMTransactionCounters    []dramTransactionCountTracer
 	Benchmarks                 []benchmarks.Benchmark
+	monitor                    *monitoring.Monitor
 	Timing                     bool
 	Verify                     bool
 	Parallel                   bool
@@ -265,7 +267,12 @@ func (r *Runner) buildTimingPlatform() {
 		b = b.WithoutProgressBar()
 	}
 
+	r.monitor = monitoring.NewMonitor()
+	b = b.WithMonitor(r.monitor)
+
 	r.Engine, r.GPUDriver = b.Build()
+
+	r.monitor.StartServer()
 }
 
 func (r *Runner) addMaxInstStopper() {

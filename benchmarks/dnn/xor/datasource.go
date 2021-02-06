@@ -4,6 +4,7 @@ import "gitlab.com/akita/dnn/tensor"
 
 // DataSource defines the training dataset for the xor operation.
 type DataSource struct {
+	to        tensor.Operator
 	allData   []float64
 	allLabel  []int
 	imageSize int
@@ -11,9 +12,10 @@ type DataSource struct {
 }
 
 // NewDataSource creates a new XOR datasource
-func NewDataSource() *DataSource {
+func NewDataSource(to tensor.Operator) *DataSource {
 	ds := &DataSource{
 		imageSize: 2,
+		to:        to,
 	}
 	ds.allData = []float64{
 		0, 0,
@@ -39,9 +41,12 @@ func (ds *DataSource) NextBatch(batchSize int) (
 		end = len(ds.allLabel)
 	}
 
+	if start == end {
+		return nil, nil
+	}
+
 	rawData := ds.allData[start*ds.imageSize : end*ds.imageSize]
-	data = &tensor.SimpleTensor{}
-	data.Init(rawData, []int{end - start, ds.imageSize})
+	data = ds.to.CreateWithData(rawData, []int{end - start, ds.imageSize}, "")
 
 	label = ds.allLabel[start:end]
 

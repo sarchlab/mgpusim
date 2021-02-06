@@ -89,6 +89,8 @@ func (o Operand) String() string {
 			return "1.0"
 		case 0.5:
 			return "0.5"
+		case -1.0:
+			return "-1.0"
 		default:
 			return fmt.Sprintf("%.06f", o.FloatValue)
 		}

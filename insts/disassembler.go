@@ -154,6 +154,9 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 		}
 		inst.Src0.LiteralConstant = BytesToUint32(buf[4:8])
 	}
+	if inst.SRC0Width == 64 {
+		inst.Src0.RegCount = 2
+	}
 
 	dstValue := extractBits(bytes, 17, 24)
 	switch inst.Opcode {
@@ -162,12 +165,17 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 	default:
 		inst.Dst, _ = getOperand(uint16(dstValue + 256))
 	}
+	if inst.DSTWidth == 64 {
+		inst.Dst.RegCount = 2
+	}
 
 	switch inst.Opcode {
 	case 4: // v_cvt_f64_i32_e32
 		inst.Dst.RegCount = 2
 	case 15: // v_cvt_f32_f64_e32
 		inst.Src0.RegCount = 2
+	case 16: // v_cvt_f64_f32_e32
+		inst.Dst.RegCount = 2
 	}
 
 	return nil
@@ -645,30 +653,35 @@ func (d *Disassembler) decodeDS(inst *Inst, buf []byte) error {
 	if inst.SRC0Width > 0 {
 		data0Bits := int(extractBits(bytesHi, 8, 15))
 		inst.Data = NewVRegOperand(data0Bits, data0Bits, 1)
-		if inst.SRC0Width == 64 {
-			inst.Data.RegCount = 2
-		}
+		d.setRegCountFromWidth(inst.Data, inst.SRC0Width)
 	}
 
 	if inst.SRC1Width > 0 {
 		data1Bits := int(extractBits(bytesHi, 16, 23))
 		inst.Data1 = NewVRegOperand(data1Bits, data1Bits, 1)
-		if inst.SRC1Width == 64 {
-			inst.Data1.RegCount = 2
-		}
+		d.setRegCountFromWidth(inst.Data1, inst.SRC1Width)
 	}
 
 	if inst.DSTWidth > 0 {
 		dstBits := int(extractBits(bytesHi, 24, 31))
 		inst.Dst = NewVRegOperand(dstBits, dstBits, 1)
-		if inst.DSTWidth == 64 {
-			inst.Dst.RegCount = 2
-		} else if inst.DSTWidth == 128 {
-			inst.Dst.RegCount = 4
-		}
+		d.setRegCountFromWidth(inst.Dst, inst.DSTWidth)
 	}
 
 	return nil
+}
+
+func (d *Disassembler) setRegCountFromWidth(operand *Operand, width int) {
+	switch width {
+	case 64:
+		operand.RegCount = 2
+	case 96:
+		operand.RegCount = 3
+	case 128:
+		operand.RegCount = 4
+	default:
+		operand.RegCount = 1
+	}
 }
 
 func (d *Disassembler) combineDSOffsets(inst *Inst) {
