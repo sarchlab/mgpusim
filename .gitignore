@@ -23,7 +23,6 @@ __pycache__
 *.orig.bc
 .idea
 vendor
-samples/*
 .DS_Store
 *.json
 __debug_bin

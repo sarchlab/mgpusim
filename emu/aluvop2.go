@@ -374,7 +374,7 @@ func (u *ALUImpl) runVASHRREVI32(state InstEmuState) {
 			}
 			src0 := uint32(sp.SRC0[i])
 			src1 := int32(sp.SRC1[i])
-			dst := src1 >> (src0 & 0X1f)
+			dst := src1 >> (src0 & 0x1f)
 			sp.DST[i] = uint64(dst)
 		}
 	} else {
@@ -580,24 +580,24 @@ func (u *ALUImpl) runVADDI32Regular(state InstEmuState) {
 			continue
 		}
 
-		src0 := asInt32(uint32(sp.SRC0[i]))
-		src1 := asInt32(uint32(sp.SRC1[i]))
+		// src0 := asInt32(uint32(sp.SRC0[i]))
+		// src1 := asInt32(uint32(sp.SRC1[i]))
 
-		if (src1 > 0 && src0 > math.MaxInt32-src1) ||
-			(src1 < 0 && src0 < math.MinInt32+src1) {
-			sp.VCC |= 1 << uint32(i)
-		}
-
-		sp.DST[i] = uint64(int32ToBits(src0 + src1))
-
-		// src0 := uint32(sp.SRC0[i])
-		// src1 := uint32(sp.SRC1[i])
-
-		// if uint64(src0)+uint64(src1) > 0xffffffff {
+		// if (src1 > 0 && src0 > math.MaxInt32-src1) ||
+		// 	(src1 < 0 && src0 < math.MinInt32+src1) {
 		// 	sp.VCC |= 1 << uint32(i)
 		// }
 
-		// sp.DST[i] = uint64(src0 + src1)
+		// sp.DST[i] = uint64(int32ToBits(src0 + src1))
+
+		src0 := uint32(sp.SRC0[i])
+		src1 := uint32(sp.SRC1[i])
+
+		if uint64(src0)+uint64(src1) > 0xffffffff {
+			sp.VCC |= 1 << uint32(i)
+		}
+
+		sp.DST[i] = uint64(src0 + src1)
 	}
 }
 

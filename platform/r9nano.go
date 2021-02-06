@@ -9,6 +9,7 @@ import (
 	"gitlab.com/akita/mgpusim"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/monitoring"
 	"gitlab.com/akita/mem"
 	"gitlab.com/akita/mem/cache"
 	"gitlab.com/akita/mem/vm"
@@ -30,6 +31,7 @@ type R9NanoPlatformBuilder struct {
 	numGPU             int
 	log2PageSize       uint64
 	disableProgressBar bool
+	monitor            *monitoring.Monitor
 }
 
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
@@ -100,12 +102,28 @@ func (b R9NanoPlatformBuilder) WithLog2PageSize(
 	return b
 }
 
+// WithMonitor sets the monitor that is used to monitor the simulation
+func (b R9NanoPlatformBuilder) WithMonitor(
+	m *monitoring.Monitor,
+) R9NanoPlatformBuilder {
+	b.monitor = m
+	return b
+}
+
 // Build builds a platform with R9Nano GPUs.
 func (b R9NanoPlatformBuilder) Build() (akita.Engine, *driver.Driver) {
 	engine := b.createEngine()
+	if b.monitor != nil {
+		b.monitor.RegisterEngine(engine)
+	}
 
 	mmuComponent, pageTable := b.createMMU(engine)
+
 	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(gpuDriver)
+	}
+
 	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent)
 	pcieConnector, rootComplexID :=
 		b.createConnection(engine, gpuDriver, mmuComponent)
@@ -113,7 +131,6 @@ func (b R9NanoPlatformBuilder) Build() (akita.Engine, *driver.Driver) {
 	mmuComponent.MigrationServiceProvider = gpuDriver.ToMMU
 
 	rdmaAddressTable := b.createRDMAAddrTable()
-
 	pmcAddressTable := b.createPMCPageTable()
 
 	b.createGPUs(
@@ -208,6 +225,11 @@ func (b R9NanoPlatformBuilder) createMMU(
 		WithPageTable(pageTable)
 
 	mmuComponent := mmuBuilder.Build("MMU")
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(mmuComponent)
+	}
+
 	return mmuComponent, pageTable
 }
 
@@ -224,6 +246,10 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithNumMemoryBank(8).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize)
+
+	if b.monitor != nil {
+		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
+	}
 
 	gpuBuilder = b.setVisTracer(gpuDriver, gpuBuilder)
 	gpuBuilder = b.setMemTracer(gpuBuilder)
