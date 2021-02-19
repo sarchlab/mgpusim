@@ -22,16 +22,15 @@ import (
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
 type R9NanoPlatformBuilder struct {
-	useParallelEngine  bool
-	debugISA           bool
-	traceVis           bool
-	visTraceStartTime  akita.VTimeInSec
-	visTraceEndTime    akita.VTimeInSec
-	traceMem           bool
-	numGPU             int
-	log2PageSize       uint64
-	disableProgressBar bool
-	monitor            *monitoring.Monitor
+	useParallelEngine bool
+	debugISA          bool
+	traceVis          bool
+	visTraceStartTime akita.VTimeInSec
+	visTraceEndTime   akita.VTimeInSec
+	traceMem          bool
+	numGPU            int
+	log2PageSize      uint64
+	monitor           *monitoring.Monitor
 }
 
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
@@ -85,12 +84,6 @@ func (b R9NanoPlatformBuilder) WithMemTracing() R9NanoPlatformBuilder {
 // WithNumGPU sets the number of GPUs to build.
 func (b R9NanoPlatformBuilder) WithNumGPU(n int) R9NanoPlatformBuilder {
 	b.numGPU = n
-	return b
-}
-
-// WithoutProgressBar disables the progress bar for kernel execution
-func (b R9NanoPlatformBuilder) WithoutProgressBar() R9NanoPlatformBuilder {
-	b.disableProgressBar = true
 	return b
 }
 
@@ -254,10 +247,6 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	gpuBuilder = b.setVisTracer(gpuDriver, gpuBuilder)
 	gpuBuilder = b.setMemTracer(gpuBuilder)
 	gpuBuilder = b.setISADebugger(gpuBuilder)
-
-	if b.disableProgressBar {
-		gpuBuilder = gpuBuilder.WithoutProgressBar()
-	}
 
 	return gpuBuilder
 }

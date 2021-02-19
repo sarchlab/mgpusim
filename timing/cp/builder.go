@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/monitoring"
 	"gitlab.com/akita/mgpusim/protocol"
 	"gitlab.com/akita/mgpusim/timing/cp/internal/dispatching"
 	"gitlab.com/akita/mgpusim/timing/cp/internal/resource"
@@ -15,11 +16,11 @@ import (
 
 // Builder can build Command Processors
 type Builder struct {
-	freq            akita.Freq
-	engine          akita.Engine
-	visTracer       tracing.Tracer
-	showProgressBar bool
-	numDispatchers  int
+	freq           akita.Freq
+	engine         akita.Engine
+	visTracer      tracing.Tracer
+	monitor        *monitoring.Monitor
+	numDispatchers int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -50,9 +51,9 @@ func (b Builder) WithFreq(freq akita.Freq) Builder {
 	return b
 }
 
-// ShowProgressBar enables progress bar.
-func (b Builder) ShowProgressBar() Builder {
-	b.showProgressBar = true
+// WithMonitor sets the monitor used to show progress bars.
+func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
+	b.monitor = monitor
 	return b
 }
 
@@ -110,10 +111,8 @@ func (b *Builder) buildDispatchers(cp *CommandProcessor) {
 		WithCP(cp).
 		WithCUResourcePool(cuResourcePool).
 		WithDispatchingPort(cp.ToCUs).
-		WithRespondingPort(cp.ToDriver)
-	if b.showProgressBar {
-		builder = builder.WithProgressBar()
-	}
+		WithRespondingPort(cp.ToDriver).
+		WithMonitor(b.monitor)
 
 	for i := 0; i < b.numDispatchers; i++ {
 		disp := builder.Build(fmt.Sprintf("%s.Dispatcher%d", cp.Name(), i))

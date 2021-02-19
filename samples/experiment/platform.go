@@ -227,10 +227,6 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	gpuBuilder = b.setMemTracer(gpuBuilder)
 	gpuBuilder = b.setISADebugger(gpuBuilder)
 
-	if b.disableProgressBar {
-		gpuBuilder = gpuBuilder.WithoutProgressBar()
-	}
-
 	return gpuBuilder
 }
 

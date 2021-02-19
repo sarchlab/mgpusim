@@ -3,20 +3,13 @@ package dispatching
 import (
 	"fmt"
 
-	"github.com/vbauerster/mpb/v4"
-	"github.com/vbauerster/mpb/v4/decor"
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/monitoring"
 	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/protocol"
 	"gitlab.com/akita/mgpusim/timing/cp/internal/resource"
 	"gitlab.com/akita/util/tracing"
 )
-
-var barGroup *mpb.Progress
-
-func init() {
-	barGroup = mpb.New()
-}
 
 // A Dispatcher is a sub-component of a command processor that can dispatch
 // work-groups to compute units.
@@ -47,8 +40,8 @@ type DispatcherImpl struct {
 	latencyTable           []int
 	constantKernelOverhead int
 
-	showProgressBar bool
-	progressBar     *mpb.Bar
+	monitor     *monitoring.Monitor
+	progressBar *monitoring.ProgressBar
 }
 
 // Name returns the name of the dispatcher
@@ -81,30 +74,16 @@ func (d *DispatcherImpl) StartDispatching(req *protocol.LaunchKernelReq) {
 	d.numDispatchedWGs = 0
 	d.numCompletedWGs = 0
 
-	if d.showProgressBar {
-		d.initializeProgressBar(req.ID)
-	}
+	d.initializeProgressBar(req.ID)
 }
 
 func (d *DispatcherImpl) initializeProgressBar(kernelID string) {
-	if !d.showProgressBar {
-		return
+	if d.monitor != nil {
+		d.progressBar = d.monitor.CreateProgressBar(
+			fmt.Sprintf("At %s, Kernel: %s, ", d.Name(), kernelID),
+			uint64(d.alg.NumWG()),
+		)
 	}
-
-	d.progressBar = barGroup.AddBar(
-		int64(d.alg.NumWG()),
-		mpb.PrependDecorators(
-			decor.Name(fmt.Sprintf("At %s, Kernel: %s, ", d.Name(), kernelID)),
-			decor.Counters(0, "%d/%d"),
-		),
-		mpb.AppendDecorators(
-			decor.Percentage(),
-			decor.AverageSpeed(0, " %.2f/s, "),
-			decor.AverageETA(decor.ET_STYLE_HHMMSS),
-		),
-	)
-
-	d.progressBar.SetTotal(int64(d.alg.NumWG()), false)
 }
 
 func (d *DispatcherImpl) mustNotBeDispatchingAnotherKernel() {
@@ -159,13 +138,11 @@ func (d *DispatcherImpl) processMessagesFromCU(now akita.VTimeInSec) bool {
 		delete(d.originalReqs, msg.RspTo)
 		tracing.TraceReqFinalize(originalReq, now, d)
 
-		if d.showProgressBar {
-			d.progressBar.Increment()
+		if d.progressBar != nil {
+			d.progressBar.MoveInProgressToFinished(1)
 		}
 
 		return true
-		// default:
-		// panic("unknown msg type")
 	}
 
 	return false
@@ -197,6 +174,10 @@ func (d *DispatcherImpl) completeKernel(now akita.VTimeInSec) (
 
 	if err == nil {
 		d.dispatching = nil
+
+		if d.monitor != nil {
+			d.monitor.CompleteProgressBar(d.progressBar)
+		}
 
 		tracing.TraceReqComplete(req, now, d.cp)
 
@@ -240,8 +221,13 @@ func (d *DispatcherImpl) dispatchNextWG(
 		d.originalReqs[req.ID] = req
 		d.cycleLeft = d.latencyTable[len(d.currWG.locations)]
 
+		if d.progressBar != nil {
+			d.progressBar.IncrementInProgress(1)
+		}
+
 		tracing.TraceReqInitiate(req, now, d,
 			tracing.MsgIDAtReceiver(d.dispatching, d.cp))
+
 		return true
 	}
 
