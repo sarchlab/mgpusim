@@ -31,6 +31,7 @@ lint:
 unit_test:
   stage: test
   script:
+    - go get github.com/onsi/ginkgo/ginkgo/outline@v1.15.0
     - go install github.com/onsi/ginkgo/ginkgo
     - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
     - go test -coverprofile=cover.out ./...

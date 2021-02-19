@@ -190,6 +190,54 @@ var _ = Describe("Operator", func() {
 		}))
 	})
 
+	It("should do im2col", func() {
+		to.EnableVerification()
+
+		batch := 1
+		channel := 2
+		width := 4
+		height := 4
+		data := make([]float64, batch*channel*width*height)
+		for i := 0; i < batch*channel*width*height; i++ {
+			data[i] = float64(i)
+		}
+
+		input := to.CreateWithData(
+			data,
+			[]int{batch, channel, height, width},
+			"NCHW",
+		)
+		kernelSize := []int{3, 3}
+		padding := []int{0, 0}
+		stride := []int{1, 1}
+		dilation := []int{1, 1}
+
+		to.Im2Col(input, kernelSize, padding, stride, dilation)
+	})
+
+	It("should do im2col", func() {
+		to.EnableVerification()
+
+		width := 28
+		height := 28
+		data := make([]float64, width*height)
+		for i := 0; i < width*height; i++ {
+			data[i] = float64(i)
+		}
+
+		input := to.CreateWithData(
+			data,
+			[]int{1, 1, height, width},
+			"NCHW",
+		)
+		kernelSize := []int{5, 5}
+		padding := []int{2, 2}
+		stride := []int{1, 1}
+		dilation := []int{1, 1}
+
+		to.Im2Col(input, kernelSize, padding, stride, dilation)
+	})
+
 	It("should do im2col dilation", func() {
 		input := to.CreateWithData(
 			[]float64{
