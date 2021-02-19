@@ -70,38 +70,43 @@ func (o *GPUOperator) gpuTensorToCPUTensor(
 	return out.(*tensor.SimpleTensor)
 }
 
-func (o *GPUOperator) tensorMustMatch(a, b tensor.Tensor) {
-	o.descriptorMustMatch(a, b)
-	o.sizeMustMatch(a, b)
-	o.valueMustMatch(a, b)
+func (o *GPUOperator) tensorMustMatch(expected, actual tensor.Tensor) {
+	o.descriptorMustMatch(expected, actual)
+	o.sizeMustMatch(expected, actual)
+	o.valueMustMatch(expected, actual)
 }
 
-func (o *GPUOperator) descriptorMustMatch(a, b tensor.Tensor) {
-	descriptorA := a.Descriptor()
-	descriptorB := b.Descriptor()
+func (o *GPUOperator) descriptorMustMatch(expected, actual tensor.Tensor) {
+	descriptorA := expected.Descriptor()
+	descriptorB := actual.Descriptor()
 	if descriptorA != descriptorB {
+		fmt.Printf("Expected %s, but get %s\n", expected, actual)
 		panic("discriptor not match")
 	}
 }
 
-func (o *GPUOperator) sizeMustMatch(a, b tensor.Tensor) {
-	sizeA := a.Size()
-	sizeB := b.Size()
+func (o *GPUOperator) sizeMustMatch(expected, actual tensor.Tensor) {
+	sizeA := expected.Size()
+	sizeB := actual.Size()
 	if len(sizeA) != len(sizeB) {
 		panic("dimension mismatch")
 	}
+
 	for i := range sizeA {
 		if sizeA[i] != sizeB[i] {
+			fmt.Printf("Expected %v, but get %v\n", sizeA, sizeB)
 			panic("size mismatch")
 		}
 	}
 }
 
-func (o *GPUOperator) valueMustMatch(a, b tensor.Tensor) {
-	vectorA := a.Vector()
-	vectorB := b.Vector()
-	for i := range vectorA {
-		if math.Abs(vectorA[i]-vectorB[i]) > 1e-3 {
+func (o *GPUOperator) valueMustMatch(expected, actual tensor.Tensor) {
+	expectedV := expected.Vector()
+	actualV := actual.Vector()
+	for i := range expectedV {
+		if math.Abs(expectedV[i]-actualV[i]) > math.Abs(1e-2*expectedV[i]) {
+			fmt.Printf("At index %d, expected %f but get %f\n",
+				i, expectedV[i], actualV[i])
 			panic("value mismatch")
 		}
 	}
@@ -113,7 +118,6 @@ func (o *GPUOperator) loadKernels() {
 	loadKernel(&o.transposeKernel, kernelBytes, "transpose_tensor")
 	loadKernel(&o.rotateKernel, kernelBytes, "rotate_tensor")
 	loadKernel(&o.dilateKernel, kernelBytes, "dilate_tensor")
-	loadKernel(&o.im2ColKernel, kernelBytes, "im2col")
 	loadKernel(&o.softmaxExpKernel, kernelBytes, "softmax_exp")
 	loadKernel(&o.softmaxDivKernel, kernelBytes, "softmax_div")
 	loadKernel(&o.scaleAddKernel, kernelBytes, "scaleAdd")
@@ -122,6 +126,9 @@ func (o *GPUOperator) loadKernels() {
 	loadKernel(&o.adamKernel, kernelBytes, "adam")
 	loadKernel(&o.reluForwardKernel, kernelBytes, "reluForward")
 	loadKernel(&o.reluBackwardKernel, kernelBytes, "reluBackward")
+
+	kernelBytes = _escFSMustByte(false, "/im2col.hsaco")
+	loadKernel(&o.im2ColKernel, kernelBytes, "im2col")
 
 	kernelBytes = _escFSMustByte(false, "/maxpooling.hsaco")
 	loadKernel(&o.maxPoolingForwardKernel, kernelBytes, "MaxPoolForward")
@@ -197,7 +204,8 @@ func (o *GPUOperator) Copy(dst tensor.Tensor, src tensor.Tensor) {
 	s := src.(*Tensor)
 
 	if d.NumElement() != s.NumElement() {
-		panic("mismatch in size")
+		panic(fmt.Sprintf("mismatch in size src size %v dst size %v",
+			src.Size(), dst.Size()))
 	}
 
 	o.driver.MemCopyD2D(o.ctx, d.ptr, s.ptr, dst.NumElement()*sizeOfFloat32)
@@ -299,6 +307,13 @@ func (o *GPUOperator) Repeat(t tensor.Tensor, times int) tensor.Tensor {
 		)
 	}
 
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.Repeat(cpuIn, times)
+		o.tensorMustMatch(cpuOut, out)
+		fmt.Println("Repeat verified.")
+	}
+
 	return out
 }
 
@@ -336,7 +351,8 @@ type transposeKernelArgs struct {
 
 // Transpose reorders the axises of the tensor.
 func (o *GPUOperator) Transpose(t tensor.Tensor, order []int) tensor.Tensor {
-	if len(order) != len(t.Size()) {
+	input := t.(*Tensor)
+	if len(order) != len(input.Size()) {
 		panic("order should include all axes")
 	}
 
@@ -387,12 +403,32 @@ func (o *GPUOperator) Transpose(t tensor.Tensor, order []int) tensor.Tensor {
 		&args,
 	)
 
-	output.descriptor = ""
-	for i := 0; i < len(t.Descriptor()); i++ {
-		output.descriptor += string(t.Descriptor()[order[i]])
-	}
+	o.setTransposeOutputDescriptor(output, input, order)
+	o.verifyTranspose(output, input, order)
 
 	return output
+}
+
+func (o *GPUOperator) setTransposeOutputDescriptor(
+	output, input *Tensor,
+	order []int,
+) {
+	output.descriptor = ""
+	for i := 0; i < len(input.Descriptor()); i++ {
+		output.descriptor += string(input.Descriptor()[order[i]])
+	}
+}
+
+func (o *GPUOperator) verifyTranspose(
+	output, input *Tensor,
+	order []int,
+) {
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(input)
+		cpuOut := o.cpuOperator.Transpose(cpuIn, order)
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("Transpose verified.")
+	}
 }
 
 type rotateKernelArgs struct {
@@ -444,6 +480,13 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.Rotate180(cpuIn)
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("Rotate180 verified.")
+	}
 
 	return output
 }
@@ -508,6 +551,13 @@ func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
 		&args,
 	)
 
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.Dilate(cpuIn, dilate)
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("Dilate verified.")
+	}
+
 	return output
 }
 
@@ -526,6 +576,13 @@ func (o *GPUOperator) Sum(t tensor.Tensor, axis []int) tensor.Tensor {
 		}
 
 		in = out
+	}
+
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.Sum(cpuIn, axis)
+		o.tensorMustMatch(cpuOut, out)
+		fmt.Println("Sum verified.")
 	}
 
 	return out
@@ -645,7 +702,7 @@ func (o *GPUOperator) Gemm(
 		cpuC := o.gpuTensorToCPUTensor(c)
 		cpuOut := o.cpuOperator.Gemm(
 			transA, transB, alpha, beta, cpuA, cpuB, cpuC)
-		o.tensorMustMatch(d, cpuOut)
+		o.tensorMustMatch(cpuOut, d)
 		fmt.Println("Gemm verified.")
 	}
 
@@ -768,6 +825,19 @@ func (o *GPUOperator) Im2Col(
 		[3]uint16{uint16(64), 1, 1},
 		&kernArg,
 	)
+
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.Im2Col(cpuIn,
+			kernelSize, padding, stride, dilation)
+
+		// fmt.Println("Input: ", o.Dump(t))
+		// fmt.Println("CPU Output: ", o.cpuOperator.Dump(cpuOut))
+		// fmt.Println("GPU Output: ", o.Dump(output))
+
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("Im2Col verified.")
+	}
 
 	return output
 }
@@ -964,6 +1034,14 @@ func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
 		&divArgs,
 	)
 
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.Softmax(cpuIn)
+
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("Softmax verified.")
+	}
+
 	return output
 }
 
@@ -989,6 +1067,17 @@ func (o *GPUOperator) CrossEntropy(t tensor.Tensor, label []int) float64 {
 	}
 
 	loss /= float64(t.Size()[0])
+
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.CrossEntropy(cpuIn, label)
+
+		if cpuOut != loss {
+			panic("mismatch")
+		}
+
+		fmt.Println("CrossEntropy verified.")
+	}
 
 	return loss
 }
@@ -1027,6 +1116,14 @@ func (o *GPUOperator) CrossEntropyDerivative(
 		&args,
 	)
 
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.CrossEntropyDerivative(cpuIn, label)
+
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("CrossEntropyDerivative verified.")
+	}
+
 	return output
 }
 
@@ -1062,7 +1159,7 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
 		cpuOut := o.cpuOperator.SoftmaxCrossEntropyDerivative(cpuIn, label)
-		o.tensorMustMatch(output, cpuOut)
+		o.tensorMustMatch(cpuOut, output)
 		fmt.Println("SoftmaxCrossEntropyDerivative verified.")
 	}
 
@@ -1101,7 +1198,7 @@ func (o *GPUOperator) ElementWiseMul(
 		cpuA := o.gpuTensorToCPUTensor(a)
 		cpuB := o.gpuTensorToCPUTensor(a)
 		cpuOut := o.cpuOperator.ElementWiseMul(cpuA, cpuB)
-		o.tensorMustMatch(out, cpuOut)
+		o.tensorMustMatch(cpuOut, out)
 		fmt.Println("ElementWiseMul verified.")
 	}
 
@@ -1144,7 +1241,7 @@ func (o *GPUOperator) ScaleAdd(
 		cpuA := o.gpuTensorToCPUTensor(a)
 		cpuB := o.gpuTensorToCPUTensor(a)
 		cpuOut := o.cpuOperator.ScaleAdd(alpha, beta, cpuA, cpuB)
-		o.tensorMustMatch(out, cpuOut)
+		o.tensorMustMatch(cpuOut, out)
 		fmt.Println("ScaleAdd verified.")
 	}
 
@@ -1228,9 +1325,9 @@ func (o *GPUOperator) Adam(
 	if o.verification {
 		o.cpuOperator.Adam(cpuParams, cpuGradient, cpuVHistory, cpuSHistory, smoothFactor1, smoothFactor2, learningRate)
 
-		o.tensorMustMatch(vHistory, cpuVHistory)
-		o.tensorMustMatch(sHistory, cpuSHistory)
-		o.tensorMustMatch(params, cpuParams)
+		o.tensorMustMatch(cpuVHistory, vHistory)
+		o.tensorMustMatch(cpuSHistory, sHistory)
+		o.tensorMustMatch(cpuParams, params)
 	}
 }
 
@@ -1240,10 +1337,13 @@ type reluForwardKernelArgs struct {
 	OffsetX, OffsetY, OffsetZ int64
 }
 
-//ReluForward Implementation
+// ReluForward Implementation
 func (o *GPUOperator) ReluForward(
-	in tensor.Tensor) tensor.Tensor {
+	in tensor.Tensor,
+) tensor.Tensor {
 	out := o.Create(in.Size()).(*Tensor)
+	out.descriptor = in.Descriptor()
+
 	args := reluForwardKernelArgs{
 		In:    in.(*Tensor).ptr,
 		Out:   out.ptr,
@@ -1258,7 +1358,7 @@ func (o *GPUOperator) ReluForward(
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(in)
 		cpuOut := o.cpuOperator.ReluForward(cpuIn)
-		o.tensorMustMatch(out, cpuOut)
+		o.tensorMustMatch(cpuOut, out)
 		fmt.Println("ReluForward verified.")
 	}
 
@@ -1292,7 +1392,7 @@ func (o *GPUOperator) ReluBackward(
 		cpuForwardIn := o.gpuTensorToCPUTensor(forwardIn)
 		cpuBackIn := o.gpuTensorToCPUTensor(backIn)
 		cpuOut := o.cpuOperator.ReluBackward(cpuForwardIn, cpuBackIn)
-		o.tensorMustMatch(out, cpuOut)
+		o.tensorMustMatch(cpuOut, out)
 		fmt.Println("ReluBackward verified.")
 	}
 
