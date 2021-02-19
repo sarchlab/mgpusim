@@ -2,6 +2,7 @@ package dispatching
 
 import (
 	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/monitoring"
 	"gitlab.com/akita/mgpusim/kernels"
 	"gitlab.com/akita/mgpusim/protocol"
 	"gitlab.com/akita/mgpusim/timing/cp/internal/resource"
@@ -13,9 +14,9 @@ type Builder struct {
 	cp              tracing.NamedHookable
 	cuResourcePool  resource.CUResourcePool
 	alg             string
-	showProgressBar bool
 	respondingPort  akita.Port
 	dispatchingPort akita.Port
+	monitor         *monitoring.Monitor
 }
 
 // MakeBuilder creates a builder with default dispatching configureations.
@@ -52,12 +53,6 @@ func (b Builder) WithDispatchingPort(p akita.Port) Builder {
 	return b
 }
 
-// WithProgressBar enables progress bar.
-func (b Builder) WithProgressBar() Builder {
-	b.showProgressBar = true
-	return b
-}
-
 // WithAlg sets the dispatching algorithm.
 func (b Builder) WithAlg(alg string) Builder {
 	switch alg {
@@ -70,12 +65,17 @@ func (b Builder) WithAlg(alg string) Builder {
 	return b
 }
 
+// WithMonitor sets the monitor that manages progress bars.
+func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
+	b.monitor = monitor
+	return b
+}
+
 // Build creates a dispatcher.
 func (b Builder) Build(name string) Dispatcher {
 	d := &DispatcherImpl{
 		name:            name,
 		cp:              b.cp,
-		showProgressBar: b.showProgressBar,
 		respondingPort:  b.respondingPort,
 		dispatchingPort: b.dispatchingPort,
 		inflightWGs:     make(map[string]dispatchLocation),
@@ -89,6 +89,7 @@ func (b Builder) Build(name string) Dispatcher {
 			16, 17, 18, 19,
 		},
 		constantKernelOverhead: 1600,
+		monitor:                b.monitor,
 	}
 
 	switch b.alg {

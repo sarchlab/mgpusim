@@ -40,8 +40,6 @@ var visTraceEndTime = flag.Float64("trace-vis-end", -1,
 		"means that the trace will be collected to the end of the simulation.")
 var verifyFlag = flag.Bool("verify", false, "Verify the emulation result.")
 var memTracing = flag.Bool("trace-mem", false, "Generate memory trace")
-var disableProgressBar = flag.Bool("no-progress-bar", false,
-	"Disables the progress bar")
 var instCountReportFlag = flag.Bool("report-inst-count", false,
 	"Report the number of instructions executed in each compute unit.")
 var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false,
@@ -234,10 +232,6 @@ func (r *Runner) buildEmuPlatform() {
 		b = b.WithMemTracing()
 	}
 
-	if *disableProgressBar {
-		b = b.WithoutProgressBar()
-	}
-
 	r.Engine, r.GPUDriver = b.Build()
 }
 
@@ -261,10 +255,6 @@ func (r *Runner) buildTimingPlatform() {
 
 	if *memTracing {
 		b = b.WithMemTracing()
-	}
-
-	if *disableProgressBar {
-		b = b.WithoutProgressBar()
 	}
 
 	r.monitor = monitoring.NewMonitor()

@@ -136,7 +136,6 @@
                 "-timing",
                 "-verify",
                 "-length=1048576",
-                "-no-progress-bar"
             ]
         },
         {

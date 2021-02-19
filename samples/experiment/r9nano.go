@@ -37,7 +37,6 @@ type R9NanoGPUBuilder struct {
 	enableISADebugging bool
 	enableMemTracing   bool
 	enableVisTracing   bool
-	disableProgressBar bool
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 
@@ -163,12 +162,6 @@ func (b R9NanoGPUBuilder) WithMemTracer(t tracing.Tracer) R9NanoGPUBuilder {
 // WithISADebugging enables the GPU to dump instruction execution information.
 func (b R9NanoGPUBuilder) WithISADebugging() R9NanoGPUBuilder {
 	b.enableISADebugging = true
-	return b
-}
-
-// WithoutProgressBar disables the progress bar for kernel execution
-func (b R9NanoGPUBuilder) WithoutProgressBar() R9NanoGPUBuilder {
-	b.disableProgressBar = true
 	return b
 }
 
@@ -634,10 +627,6 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	builder := cp.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq)
-
-	if !b.disableProgressBar {
-		builder = builder.ShowProgressBar()
-	}
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)
