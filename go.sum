@@ -181,8 +181,8 @@ gitlab.com/akita/akita v1.10.0/go.mod h1:bGwhy0YF3Is29i+gnV8zTEeRC8XoHKd2p70vnmr
 gitlab.com/akita/akita v1.10.1/go.mod h1:bGwhy0YF3Is29i+gnV8zTEeRC8XoHKd2p70vnmrSBJo=
 gitlab.com/akita/akita v1.12.1 h1:LriqkFB5KaZVdmcZ0wPSZUzv2GBKBky+QivyLoV8Twk=
 gitlab.com/akita/akita v1.12.1/go.mod h1:DMLoKETax3p+tp8/eHtQg+387dpGlFELs3GtgEdCVQw=
-gitlab.com/akita/dnn v0.5.0 h1:f2ZYVbXrsQ6WAB5VBIXy/EF5/tdFBtuvqDeG5R4bm0E=
-gitlab.com/akita/dnn v0.5.0/go.mod h1:+hAcGZWqANBw55q4XaR/Y0dUF3Htg6gUQS+4EepYHTU=
+gitlab.com/akita/dnn v0.5.1 h1:+7jWCPUScD2OgKUuwGuorGrQmR6Fa0t2WhHA88CRkys=
+gitlab.com/akita/dnn v0.5.1/go.mod h1:+hAcGZWqANBw55q4XaR/Y0dUF3Htg6gUQS+4EepYHTU=
 gitlab.com/akita/mem v1.11.2 h1:wqpekFpkhWR4j4ArSUUi0LJ4rMBxsqEQoUXMQCTunXA=
 gitlab.com/akita/mem v1.11.2/go.mod h1:cThfs59p7/1cWsETBXz7O6oKsGEyAwK25coA1iOHlLo=
 gitlab.com/akita/noc v1.4.0 h1:B2KVYZe9Y9O1KBA9KxSKDv8l9Nw3MWaRR1Yfgj3u/jc=
@@ -289,7 +289,6 @@ golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135/go.mod h1:RgjU9mgBXZiqYHBn
 golang.org/x/tools v0.0.0-20190531172133-b3315ee88b7d/go.mod h1:/rFqwRUd4F7ZHNgwSSTFct+R/Kf4OFW1sUzUTQQTgfc=
 golang.org/x/tools v0.0.0-20190610165438-e9a20a139658/go.mod h1:/rFqwRUd4F7ZHNgwSSTFct+R/Kf4OFW1sUzUTQQTgfc=
 golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
-golang.org/x/tools v0.0.0-20201224043029-2b0845dc783e h1:4nW4NLDYnU28ojHaHO8OVxFHk/aQ33U01a9cjED+pzE=
 golang.org/x/tools v0.0.0-20201224043029-2b0845dc783e/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=

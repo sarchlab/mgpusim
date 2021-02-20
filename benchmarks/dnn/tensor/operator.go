@@ -36,6 +36,8 @@ type GPUOperator struct {
 	reluBackwardKernel                  *insts.HsaCo
 	maxPoolingForwardKernel             *insts.HsaCo
 	maxPoolingBackwardKernel            *insts.HsaCo
+	avgPoolingForwardKernel             *insts.HsaCo
+	avgPoolingBackwardKernel            *insts.HsaCo
 	gemmKernel                          *insts.HsaCo
 	crossEntropyDerivativeKernel        *insts.HsaCo
 	softmaxCrossEntropyDerivativeKernel *insts.HsaCo
@@ -104,8 +106,12 @@ func (o *GPUOperator) valueMustMatch(expected, actual tensor.Tensor) {
 	expectedV := expected.Vector()
 	actualV := actual.Vector()
 	for i := range expectedV {
+		if math.Abs(expectedV[i]) < 1e-5 && math.Abs(actualV[i]) < 1e-5 {
+			continue
+		}
+
 		if math.Abs(expectedV[i]-actualV[i]) > math.Abs(1e-2*expectedV[i]) {
-			fmt.Printf("At index %d, expected %f but get %f\n",
+			fmt.Printf("At index %d, expected %.15f but get %.15f\n",
 				i, expectedV[i], actualV[i])
 			panic("value mismatch")
 		}
@@ -133,6 +139,10 @@ func (o *GPUOperator) loadKernels() {
 	kernelBytes = _escFSMustByte(false, "/maxpooling.hsaco")
 	loadKernel(&o.maxPoolingForwardKernel, kernelBytes, "MaxPoolForward")
 	loadKernel(&o.maxPoolingBackwardKernel, kernelBytes, "MaxPoolBackward")
+
+	kernelBytes = _escFSMustByte(false, "/avgpooling.hsaco")
+	loadKernel(&o.avgPoolingForwardKernel, kernelBytes, "AvgPoolForward")
+	loadKernel(&o.avgPoolingBackwardKernel, kernelBytes, "AvgPoolBackward")
 
 	kernelBytes = _escFSMustByte(false, "/gemm.hsaco")
 	loadKernel(&o.gemmKernel, kernelBytes, "gemm")
@@ -831,10 +841,6 @@ func (o *GPUOperator) Im2Col(
 		cpuOut := o.cpuOperator.Im2Col(cpuIn,
 			kernelSize, padding, stride, dilation)
 
-		// fmt.Println("Input: ", o.Dump(t))
-		// fmt.Println("CPU Output: ", o.cpuOperator.Dump(cpuOut))
-		// fmt.Println("GPU Output: ", o.Dump(output))
-
 		o.tensorMustMatch(cpuOut, output)
 		fmt.Println("Im2Col verified.")
 	}
@@ -958,10 +964,96 @@ func (o *GPUOperator) MaxPoolingBackward(
 	return out
 }
 
+// AvgPoolingKernelArgsForward defines forward kernel arguments
+type AvgPoolingKernelArgsForward struct {
+	NumThreads uint64
+	Bottom     driver.GPUPtr
+	N          int32
+	C          int32
+	H          int32
+	W          int32
+	PooledH    int32
+	PooledW    int32
+	KernelH    int32
+	KernelW    int32
+	StrideH    int32
+	StrideW    int32
+	PadH       int32
+	PadW       int32
+	Top        driver.GPUPtr
+
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
+}
+
 // AvgPoolingForward calculates the forward propagation of the average pooling
 // layer.
-func (o *GPUOperator) AvgPoolingForward(t tensor.Tensor, kernelSize []int, padding []int, stride []int) tensor.Tensor {
-	panic("not implemented") // TODO: Implement
+func (o *GPUOperator) AvgPoolingForward(
+	t tensor.Tensor,
+	kernelSize, padding, stride []int,
+) tensor.Tensor {
+	input := t.(*Tensor)
+	B := input.size[0]
+	C := input.size[1]
+	Hin := input.size[2]
+	Win := input.size[3]
+	ks := kernelSize
+	Hout := (Hin+2*padding[0]-ks[0])/stride[0] + 1
+	Wout := (Win+2*padding[1]-ks[1])/stride[1] + 1
+	output := o.Create([]int{B, C, Hout, Wout}).(*Tensor)
+
+	kernArg := AvgPoolingKernelArgsForward{
+		uint64(B * C * Hout * Wout), input.ptr,
+		int32(B), int32(C), int32(Hin), int32(Win),
+		int32(Hout), int32(Wout),
+		int32(ks[0]), int32(ks[1]),
+		int32(stride[0]), int32(stride[1]),
+		int32(padding[0]), int32(padding[1]),
+		output.ptr,
+		0, 0, 0,
+	}
+	o.driver.LaunchKernel(
+		o.ctx,
+		o.avgPoolingForwardKernel,
+		[3]uint32{uint32(B * C * Hout * Wout), 1, 1},
+		[3]uint16{64, 1, 1},
+		&kernArg,
+	)
+
+	if o.verification {
+		cpuIn := o.gpuTensorToCPUTensor(t)
+		cpuOut := o.cpuOperator.AvgPoolingForward(cpuIn,
+			kernelSize, padding, stride)
+
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("AvgPoolingForward verified.")
+	}
+
+	return output
+}
+
+// AvgPoolingKernelArgsBackward defines forward kernel arguments
+type AvgPoolingKernelArgsBackward struct {
+	NumThreads uint64
+	Top        driver.GPUPtr
+	N          int32
+	C          int32
+	H          int32
+	W          int32
+	PooledH    int32
+	PooledW    int32
+	KernelH    int32
+	KernelW    int32
+	StrideH    int32
+	StrideW    int32
+	PadH       int32
+	PadW       int32
+	Bottom     driver.GPUPtr
+
+	HiddenGlobalOffsetX int64
+	HiddenGlobalOffsetY int64
+	HiddenGlobalOffsetZ int64
 }
 
 // AvgPoolingBackward claculates the backward propagation of the average pooling
@@ -970,7 +1062,48 @@ func (o *GPUOperator) AvgPoolingBackward(
 	forwardIn, backwardIn tensor.Tensor,
 	kernelSize, padding, stride []int,
 ) tensor.Tensor {
-	panic("not implemented") // TODO: Implement
+	input := backwardIn
+	ks := kernelSize
+	B := forwardIn.Size()[0]
+	C := forwardIn.Size()[1]
+	Hin := forwardIn.Size()[2]
+	Hout := backwardIn.Size()[2]
+	Win := forwardIn.Size()[3]
+	Wout := backwardIn.Size()[3]
+
+	output := o.Create([]int{B, C, Hin, Win}).(*Tensor)
+
+	kernArg := AvgPoolingKernelArgsBackward{
+		uint64(B * C * Hin * Win), input.(*Tensor).ptr,
+		int32(B), int32(C), int32(Hin), int32(Win),
+		int32(Hout), int32(Wout),
+		int32(ks[0]), int32(ks[1]),
+		int32(stride[0]), int32(stride[1]),
+		int32(padding[0]), int32(padding[1]),
+		output.ptr,
+		0, 0, 0,
+	}
+
+	o.driver.LaunchKernel(
+		o.ctx,
+		o.avgPoolingBackwardKernel,
+		[3]uint32{uint32(B * C * Hin * Win), 1, 1},
+		[3]uint16{64, 1, 1},
+		&kernArg,
+	)
+
+	if o.verification {
+		cpuForwardIn := o.gpuTensorToCPUTensor(forwardIn)
+		cpuBackwardIn := o.gpuTensorToCPUTensor(backwardIn)
+		cpuOut := o.cpuOperator.AvgPoolingBackward(
+			cpuForwardIn, cpuBackwardIn,
+			kernelSize, padding, stride)
+
+		o.tensorMustMatch(cpuOut, output)
+		fmt.Println("AvgPoolingBackward verified.")
+	}
+
+	return output
 }
 
 type softmaxExpKernelArg struct {
