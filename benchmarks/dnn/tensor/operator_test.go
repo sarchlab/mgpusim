@@ -530,7 +530,6 @@ var _ = Describe("Operator", func() {
 	It("should run reluBackward", func() {
 		in := to.CreateWithData([]float64{2, 3, 8, -6}, []int{4}, "")
 		backin := to.CreateWithData([]float64{-2, 3, 8, 7}, []int{4}, "")
-		_ = backin
 		output := to.ReluBackward(in, backin)
 
 		outputGold := []float64{-2, 3, 8, 0}
@@ -987,5 +986,66 @@ var _ = Describe("Operator", func() {
 		for i := range outGold {
 			Expect(outV[i]).To(BeNumerically("~", outGold[i], 1e-3))
 		}
+	})
+
+	It("should do average pooling forward", func() {
+		to.EnableVerification()
+
+		batch := 1
+		channel := 2
+		width := 4
+		height := 4
+		data := make([]float64, batch*channel*width*height)
+		for i := 0; i < batch*channel*width*height; i++ {
+			data[i] = float64(i)
+		}
+
+		input := to.CreateWithData(
+			data,
+			[]int{batch, channel, height, width},
+			"NCHW",
+		)
+		kernelSize := []int{3, 3}
+		padding := []int{0, 0}
+		stride := []int{1, 1}
+
+		to.AvgPoolingForward(input, kernelSize, padding, stride)
+	})
+
+	It("should do average pooling backward", func() {
+		to.EnableVerification()
+
+		batch := 1
+		channel := 2
+		fWidth := 4
+		fHeight := 4
+		forwardInData := make([]float64, batch*channel*fWidth*fHeight)
+		for i := 0; i < batch*channel*fWidth*fHeight; i++ {
+			forwardInData[i] = float64(i)
+		}
+		forwardIn := to.CreateWithData(
+			forwardInData,
+			[]int{batch, channel, fHeight, fWidth},
+			"NCHW",
+		)
+
+		bWidth := 2
+		bHeight := 2
+		backwardInData := make([]float64, batch*channel*bWidth*bHeight)
+		for i := 0; i < batch*channel*bWidth*bHeight; i++ {
+			backwardInData[i] = float64(i)
+		}
+		backwardIn := to.CreateWithData(
+			backwardInData,
+			[]int{batch, channel, bHeight, bWidth},
+			"NCHW",
+		)
+
+		kernelSize := []int{3, 3}
+		padding := []int{0, 0}
+		stride := []int{1, 1}
+
+		to.AvgPoolingBackward(forwardIn, backwardIn,
+			kernelSize, padding, stride)
 	})
 })
