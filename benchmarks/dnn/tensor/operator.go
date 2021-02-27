@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"math"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/dnn/tensor"
 	"gitlab.com/akita/mgpusim/driver"
 	"gitlab.com/akita/mgpusim/insts"
@@ -22,6 +25,7 @@ type GPUOperator struct {
 
 	sumKernel                           *insts.HsaCo
 	transposeKernel                     *insts.HsaCo
+	repeatKernel                        *insts.HsaCo
 	rotateKernel                        *insts.HsaCo
 	dilateKernel                        *insts.HsaCo
 	im2ColKernel                        *insts.HsaCo
@@ -118,40 +122,49 @@ func (o *GPUOperator) valueMustMatch(expected, actual tensor.Tensor) {
 	}
 }
 
+//go:embed operator.hsaco
+var operatorKernelBytes []byte
+
+//go:embed repeat.hsaco
+var repeatKernelBytes []byte
+
+//go:embed im2col.hsaco
+var im2ColKernelBytes []byte
+
+//go:embed maxpooling.hsaco
+var maxPoolingKernelBytes []byte
+
+//go:embed avgpooling.hsaco
+var avgPoolingKernelBytes []byte
+
+//go:embed gemm.hsaco
+var gemmKernelBytes []byte
+
+//go:embed cross_entropy.hsaco
+var crossEntropyKernelBytes []byte
+
 func (o *GPUOperator) loadKernels() {
-	kernelBytes := _escFSMustByte(false, "/operator.hsaco")
-	loadKernel(&o.sumKernel, kernelBytes, "sum_one_axis")
-	loadKernel(&o.transposeKernel, kernelBytes, "transpose_tensor")
-	loadKernel(&o.rotateKernel, kernelBytes, "rotate_tensor")
-	loadKernel(&o.dilateKernel, kernelBytes, "dilate_tensor")
-	loadKernel(&o.softmaxExpKernel, kernelBytes, "softmax_exp")
-	loadKernel(&o.softmaxDivKernel, kernelBytes, "softmax_div")
-	loadKernel(&o.scaleAddKernel, kernelBytes, "scaleAdd")
-	loadKernel(&o.elemWiseMulKernel, kernelBytes, "mul")
-	loadKernel(&o.rmsPropKernel, kernelBytes, "rmsProp")
-	loadKernel(&o.adamKernel, kernelBytes, "adam")
-	loadKernel(&o.reluForwardKernel, kernelBytes, "reluForward")
-	loadKernel(&o.reluBackwardKernel, kernelBytes, "reluBackward")
-
-	kernelBytes = _escFSMustByte(false, "/im2col.hsaco")
-	loadKernel(&o.im2ColKernel, kernelBytes, "im2col")
-
-	kernelBytes = _escFSMustByte(false, "/maxpooling.hsaco")
-	loadKernel(&o.maxPoolingForwardKernel, kernelBytes, "MaxPoolForward")
-	loadKernel(&o.maxPoolingBackwardKernel, kernelBytes, "MaxPoolBackward")
-
-	kernelBytes = _escFSMustByte(false, "/avgpooling.hsaco")
-	loadKernel(&o.avgPoolingForwardKernel, kernelBytes, "AvgPoolForward")
-	loadKernel(&o.avgPoolingBackwardKernel, kernelBytes, "AvgPoolBackward")
-
-	kernelBytes = _escFSMustByte(false, "/gemm.hsaco")
-	loadKernel(&o.gemmKernel, kernelBytes, "gemm")
-
-	kernelBytes = _escFSMustByte(false, "/cross_entropy.hsaco")
-	loadKernel(&o.crossEntropyDerivativeKernel, kernelBytes,
-		"cross_entropy_derivative")
-	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, kernelBytes,
-		"softmax_cross_entropy_derivative")
+	loadKernel(&o.sumKernel, operatorKernelBytes, "sum_one_axis")
+	loadKernel(&o.transposeKernel, operatorKernelBytes, "transpose_tensor")
+	loadKernel(&o.rotateKernel, operatorKernelBytes, "rotate_tensor")
+	loadKernel(&o.dilateKernel, operatorKernelBytes, "dilate_tensor")
+	loadKernel(&o.softmaxExpKernel, operatorKernelBytes, "softmax_exp")
+	loadKernel(&o.softmaxDivKernel, operatorKernelBytes, "softmax_div")
+	loadKernel(&o.scaleAddKernel, operatorKernelBytes, "scaleAdd")
+	loadKernel(&o.elemWiseMulKernel, operatorKernelBytes, "mul")
+	loadKernel(&o.rmsPropKernel, operatorKernelBytes, "rmsProp")
+	loadKernel(&o.adamKernel, operatorKernelBytes, "adam")
+	loadKernel(&o.reluForwardKernel, operatorKernelBytes, "reluForward")
+	loadKernel(&o.reluBackwardKernel, operatorKernelBytes, "reluBackward")
+	loadKernel(&o.repeatKernel, repeatKernelBytes, "repeat")
+	loadKernel(&o.im2ColKernel, im2ColKernelBytes, "im2col")
+	loadKernel(&o.maxPoolingForwardKernel, maxPoolingKernelBytes, "MaxPoolForward")
+	loadKernel(&o.maxPoolingBackwardKernel, maxPoolingKernelBytes, "MaxPoolBackward")
+	loadKernel(&o.avgPoolingForwardKernel, avgPoolingKernelBytes, "AvgPoolForward")
+	loadKernel(&o.avgPoolingBackwardKernel, avgPoolingKernelBytes, "AvgPoolBackward")
+	loadKernel(&o.gemmKernel, gemmKernelBytes, "gemm")
+	loadKernel(&o.crossEntropyDerivativeKernel, crossEntropyKernelBytes, "cross_entropy_derivative")
+	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, crossEntropyKernelBytes, "softmax_cross_entropy_derivative")
 }
 
 func loadKernel(hsaco **insts.HsaCo, kernelBytes []byte, name string) {
@@ -300,22 +313,31 @@ func (o *GPUOperator) Slice(t tensor.Tensor, start int, end int) tensor.Tensor {
 	return out
 }
 
+type repeatArgs struct {
+	Output, Input             driver.GPUPtr
+	InputLength, OutputLength uint32
+	OffsetX, OffsetY, OffsetZ int64
+}
+
 // Repeat will create another tensor that duplicates the input tensor by n
 // times.
 func (o *GPUOperator) Repeat(t tensor.Tensor, times int) tensor.Tensor {
 	numElem := t.NumElement()
 	out := o.Create([]int{numElem * times}).(*Tensor)
 
-	inPtr := t.(*Tensor).ptr
-	outPtr := uint64(out.ptr)
-
-	for i := 0; i < times; i++ {
-		o.driver.MemCopyD2D(o.ctx,
-			driver.GPUPtr(outPtr+uint64(i*numElem*sizeOfFloat32)),
-			inPtr,
-			numElem*sizeOfFloat32,
-		)
+	outLength := times * t.NumElement()
+	args := repeatArgs{
+		Output:       out.ptr,
+		Input:        t.(*Tensor).ptr,
+		InputLength:  uint32(t.NumElement()),
+		OutputLength: uint32(outLength),
 	}
+
+	o.driver.LaunchKernel(o.ctx, o.repeatKernel,
+		[3]uint32{uint32(outLength), 1, 1},
+		[3]uint16{64, 1, 1},
+		&args,
+	)
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
