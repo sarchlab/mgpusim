@@ -27,6 +27,22 @@ var _ = Describe("Operator", func() {
 		to = NewGPUOperator(gpuDriver, ctx)
 	})
 
+	It("should do repeat", func() {
+		to.EnableVerification()
+
+		inLength := 10
+		times := 5
+
+		inData := make([]float64, inLength)
+		for i := 0; i < inLength; i++ {
+			inData[i] = float64(i)
+		}
+
+		inTensor := to.CreateWithData(inData, []int{inLength}, "")
+
+		to.Repeat(inTensor, times)
+	})
+
 	It("should transpose", func() {
 		in := to.CreateWithData(
 			[]float64{
