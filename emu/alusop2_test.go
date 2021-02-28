@@ -29,7 +29,8 @@ var _ = Describe("ALU", func() {
 		copy(state.scratchpad[8:16], insts.Uint32ToBytes(1<<31+15)) // SRC1
 		alu.Run(state)
 
-		Expect(insts.BytesToUint32(state.scratchpad[16:24])).To(Equal(uint32(14)))
+		Expect(insts.BytesToUint32(state.scratchpad[16:24])).
+			To(Equal(uint32(14)))
 		Expect(state.scratchpad[24]).To(Equal(byte(1)))
 	})
 
@@ -285,6 +286,21 @@ var _ = Describe("ALU", func() {
 		Expect(sp.SCC).To(Equal(uint8(1)))
 	})
 
+	It("should run S_CSELECT_B32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 10
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC1 = 0xff
+		sp.SRC0 = 0xffff
+		sp.SCC = 1
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(0xffff)))
+	})
+
 	It("should run S_AND_B32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.SOP2
@@ -506,6 +522,21 @@ var _ = Describe("ALU", func() {
 		alu.Run(state)
 
 		Expect(sp.DST).To(Equal(uint64(35)))
+	})
+
+	It("should run S_MUL_I32", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.SOP2
+		state.inst.Opcode = 38
+
+		sp := state.Scratchpad().AsSOP2()
+		sp.SRC0 = 0b1111_0100
+		sp.SRC1 = 0b000000000_0000001_00000000000_00010
+
+		alu.Run(state)
+
+		Expect(sp.DST).To(Equal(uint64(1)))
+		Expect(sp.SCC).To(Equal(byte(1)))
 	})
 
 })

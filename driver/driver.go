@@ -480,7 +480,6 @@ func (d *Driver) processLaunchKernelCommand(
 
 	queue.Context.l2Dirty = true
 
-	d.logCmdStart(cmd, now)
 	d.logTaskToGPUInitiate(now, cmd, req)
 
 	return true

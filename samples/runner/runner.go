@@ -83,7 +83,7 @@ type cacheHitRateTracer struct {
 }
 
 type dramTransactionCountTracer struct {
-	tracer *tracing.AverageTimeTracer
+	tracer *dramTracer
 	dram   tracing.NamedHookable
 }
 
@@ -104,7 +104,7 @@ type Runner struct {
 	CacheLatencyTracers        []cacheLatencyTracer
 	CacheHitRateTracers        []cacheHitRateTracer
 	RDMATransactionCounters    []rdmaTransactionCountTracer
-	DRAMTransactionCounters    []dramTransactionCountTracer
+	DRAMTracers                []dramTransactionCountTracer
 	Benchmarks                 []benchmarks.Benchmark
 	monitor                    *monitoring.Monitor
 	Timing                     bool
@@ -455,14 +455,11 @@ func (r *Runner) addDRAMTracer() {
 		for _, dram := range gpu.MemoryControllers {
 			t := dramTransactionCountTracer{}
 			t.dram = dram.(tracing.NamedHookable)
-			t.tracer = tracing.NewAverageTimeTracer(
-				func(task tracing.Task) bool {
-					return true
-				})
+			t.tracer = newDramTracer()
 
 			tracing.CollectTrace(t.dram, t.tracer)
 
-			r.DRAMTransactionCounters = append(r.DRAMTransactionCounters, t)
+			r.DRAMTracers = append(r.DRAMTracers, t)
 		}
 	}
 }
@@ -646,11 +643,36 @@ func (r *Runner) reportRDMATransactionCount() {
 }
 
 func (r *Runner) reportDRAMTransactionCount() {
-	for _, t := range r.DRAMTransactionCounters {
+	for _, t := range r.DRAMTracers {
 		r.metricsCollector.Collect(
 			t.dram.Name(),
-			"trans_count",
-			float64(t.tracer.TotalCount()),
+			"read_trans_count",
+			float64(t.tracer.readCount),
+		)
+		r.metricsCollector.Collect(
+			t.dram.Name(),
+			"write_trans_count",
+			float64(t.tracer.writeCount),
+		)
+		r.metricsCollector.Collect(
+			t.dram.Name(),
+			"read_avg_latency",
+			float64(t.tracer.readAvgLatency),
+		)
+		r.metricsCollector.Collect(
+			t.dram.Name(),
+			"write_avg_latency",
+			float64(t.tracer.writeAvgLatency),
+		)
+		r.metricsCollector.Collect(
+			t.dram.Name(),
+			"read_size",
+			float64(t.tracer.readSize),
+		)
+		r.metricsCollector.Collect(
+			t.dram.Name(),
+			"write_size",
+			float64(t.tracer.writeSize),
 		)
 	}
 }

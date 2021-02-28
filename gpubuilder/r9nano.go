@@ -17,6 +17,7 @@ import (
 	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mgpusim/timing/caches/l1v"
 	"gitlab.com/akita/mgpusim/timing/caches/rob"
+	"gitlab.com/akita/mgpusim/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/timing/cp"
 	"gitlab.com/akita/mgpusim/timing/cu"
 	"gitlab.com/akita/util/tracing"
@@ -31,6 +32,7 @@ type R9NanoGPUBuilder struct {
 	numShaderArray                 int
 	numCUPerShaderArray            int
 	numMemoryBank                  int
+	l2CacheSize                    uint64
 	log2PageSize                   uint64
 	log2CacheLineSize              uint64
 	log2MemoryBankInterleavingSize uint64
@@ -49,7 +51,7 @@ type R9NanoGPUBuilder struct {
 	l1vReorderBuffers       []*rob.ReorderBuffer
 	l1iReorderBuffers       []*rob.ReorderBuffer
 	l1sReorderBuffers       []*rob.ReorderBuffer
-	l1vCaches               []*l1v.Cache
+	l1vCaches               []*writearound.Cache
 	l1sCaches               []*l1v.Cache
 	l1iCaches               []*l1v.Cache
 	l2Caches                []*writeback.Cache
@@ -80,10 +82,11 @@ func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 		freq:                           1 * akita.GHz,
 		numShaderArray:                 16,
 		numCUPerShaderArray:            4,
-		numMemoryBank:                  8,
+		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,
+		l2CacheSize:                    2 * mem.MB,
 	}
 	return b
 }
@@ -184,6 +187,13 @@ func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder
 // WithMonitor sets the monitor to use.
 func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 	b.monitor = m
+	return b
+}
+
+// WithL2CacheSize set the total L2 cache size. The size of the L2 cache is
+// split between memory banks.
+func (b R9NanoGPUBuilder) WithL2CacheSize(size uint64) R9NanoGPUBuilder {
+	b.l2CacheSize = size
 	return b
 }
 
@@ -440,12 +450,13 @@ func (b *R9NanoGPUBuilder) buildSAs() {
 }
 
 func (b *R9NanoGPUBuilder) buildL2Caches() {
+	byteSize := b.l2CacheSize / uint64(b.numMemoryBank)
 	l2Builder := writeback.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(16).
-		WithByteSize(256 * mem.KB).
+		WithByteSize(byteSize).
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1)
 
@@ -508,21 +519,21 @@ func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
 	}
 
 	dramCol := 64
-	dramRow := 4096
-	dramDeviceWidth := 32
+	dramRow := 16384
+	dramDeviceWidth := 128
 	dramBankSize := dramCol * dramRow * dramDeviceWidth
 	dramBank := 4
-	dramBankGroup := 1
+	dramBankGroup := 4
 	dramBusWidth := 256
 	dramDevicePerRank := dramBusWidth / dramDeviceWidth
 	dramRankSize := dramBankSize * dramDevicePerRank * dramBank
-	dramRank := int(memBankSize) / dramRankSize
+	dramRank := int(memBankSize * 8 / uint64(dramRankSize))
 
 	memCtrlBuilder := dram.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(500 * akita.MHz).
-		WithProtocol(dram.GDDR5).
-		WithBurstLength(8).
+		WithProtocol(dram.HBM).
+		WithBurstLength(4).
 		WithDeviceWidth(dramDeviceWidth).
 		WithBusWidth(dramBusWidth).
 		WithNumChannel(1).
@@ -533,20 +544,20 @@ func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
 		WithNumRow(dramRow).
 		WithCommandQueueSize(8).
 		WithTransactionQueueSize(32).
-		WithTCL(24).
-		WithTCWL(7).
-		WithTRCDRD(18).
-		WithTRCDWR(15).
-		WithTRP(18).
-		WithTRAS(42).
-		WithTREFI(11699).
-		WithTRRDS(9).
-		WithTRRDL(9).
-		WithTWTRS(8).
-		WithTWTRL(8).
-		WithTWR(18).
-		WithTCCDS(2).
-		WithTCCDL(3).
+		WithTCL(7).
+		WithTCWL(2).
+		WithTRCDRD(7).
+		WithTRCDWR(7).
+		WithTRP(7).
+		WithTRAS(17).
+		WithTREFI(1950).
+		WithTRRDS(2).
+		WithTRRDL(3).
+		WithTWTRS(3).
+		WithTWTRL(4).
+		WithTWR(8).
+		WithTCCDS(1).
+		WithTCCDL(1).
 		WithTRTRS(0).
 		WithTRTP(3).
 		WithTPPD(2)

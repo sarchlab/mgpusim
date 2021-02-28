@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"github.com/rs/xid"
+	"gitlab.com/akita/akita"
 	"gitlab.com/akita/mgpusim/insts"
 	"gitlab.com/akita/mgpusim/kernels"
 )
@@ -102,7 +102,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 	dPacket GPUPtr,
 ) {
 	cmd := &LaunchKernelCommand{
-		ID:         xid.New().String(),
+		ID:         akita.GetIDGenerator().Generate(),
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,

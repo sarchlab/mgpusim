@@ -1,4 +1,4 @@
-// Package minerva implements mineva network
+// Package minerva implements minerva network
 package minerva
 
 import (
@@ -12,7 +12,7 @@ import (
 	"gitlab.com/akita/mgpusim/driver"
 )
 
-// Benchmark defines the Mineva network training benchmark.
+// Benchmark defines the Minerva network training benchmark.
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context

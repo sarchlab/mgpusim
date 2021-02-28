@@ -9,6 +9,15 @@ func ExtractBitsFromU64(num uint64, loInclude, hiInclude int) uint64 {
 	return extracted
 }
 
+// ExtractBitsFromU32 will get the bits from loInclude to hiInclude.
+func ExtractBitsFromU32(num uint32, loInclude, hiInclude int) uint32 {
+	var mask uint32
+	var extracted uint32
+	mask = ((1 << (hiInclude - loInclude + 1)) - 1) << loInclude
+	extracted = (num & mask) >> loInclude
+	return extracted
+}
+
 // SignExt updates all the bits beyond the signBit to be the same as the sign
 // bit.
 func SignExt(in uint64, signBit int) (out uint64) {

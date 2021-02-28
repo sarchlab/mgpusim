@@ -12,7 +12,7 @@ import (
 	"gitlab.com/akita/mgpusim/driver"
 )
 
-// Benchmark defines the Mineva network training benchmark.
+// Benchmark defines the XOR network training benchmark.
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context

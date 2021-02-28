@@ -24,6 +24,7 @@ type GridBuilder interface {
 	SetKernel(info KernelLaunchInfo)
 	NumWG() int
 	NextWG() *WorkGroup
+	Skip(n int)
 }
 
 // NewGridBuilder creates a default grid builder
@@ -53,6 +54,12 @@ func (b *gridBuilderImpl) SetKernel(
 	b.zid = 0
 
 	b.countWG()
+}
+
+func (b *gridBuilderImpl) Skip(n int) {
+	for i := 0; i < n; i++ {
+		b.NextWG()
+	}
 }
 
 func (b *gridBuilderImpl) countWG() {

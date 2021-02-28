@@ -22,7 +22,7 @@ type Builder struct {
 // MakeBuilder creates a builder with default dispatching configureations.
 func MakeBuilder() Builder {
 	b := Builder{
-		alg: "round-robin",
+		alg: "partition",
 	}
 	return b
 }
@@ -56,7 +56,7 @@ func (b Builder) WithDispatchingPort(p akita.Port) Builder {
 // WithAlg sets the dispatching algorithm.
 func (b Builder) WithAlg(alg string) Builder {
 	switch alg {
-	case "round-robin":
+	case "round-robin", "greedy", "partition":
 		b.alg = alg
 	default:
 		panic("unknown dispatching algorithm " + alg)
@@ -81,12 +81,11 @@ func (b Builder) Build(name string) Dispatcher {
 		inflightWGs:     make(map[string]dispatchLocation),
 		originalReqs:    make(map[string]*protocol.MapWGReq),
 		latencyTable: []int{
-			3,
-			3, 3, 3, 3,
-			4, 5, 6, 7,
-			8, 9, 10, 11,
-			12, 13, 14, 15,
-			16, 17, 18, 19,
+			1,
+			4, 4, 4, 4,
+			5, 6, 7, 8,
+			9, 10, 11, 12,
+			13, 14, 15, 16,
 		},
 		constantKernelOverhead: 1600,
 		monitor:                b.monitor,
@@ -97,6 +96,15 @@ func (b Builder) Build(name string) Dispatcher {
 		d.alg = &roundRobinAlgorithm{
 			gridBuilder: kernels.NewGridBuilder(),
 			cuPool:      b.cuResourcePool,
+		}
+	case "greedy":
+		d.alg = &greedyAlgorithm{
+			gridBuilder: kernels.NewGridBuilder(),
+			cuPool:      b.cuResourcePool,
+		}
+	case "partition":
+		d.alg = &partitionAlgorithm{
+			cuPool: b.cuResourcePool,
 		}
 	default:
 		panic("unknown dispatching algorithm " + b.alg)
