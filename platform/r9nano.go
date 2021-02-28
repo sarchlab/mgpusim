@@ -236,7 +236,7 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
-		WithNumMemoryBank(8).
+		WithNumMemoryBank(16).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize)
 

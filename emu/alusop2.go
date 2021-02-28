@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 
+	"gitlab.com/akita/mgpusim/bitops"
 	"gitlab.com/akita/mgpusim/insts"
 )
 
@@ -31,6 +32,8 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 		u.runSMAXI32(state)
 	case 9:
 		u.runSMAXU32(state)
+	case 10:
+		u.runSCSELECTB32(state)
 	case 12:
 		u.runSANDB32(state)
 	case 13:
@@ -55,6 +58,8 @@ func (u *ALUImpl) runSOP2(state InstEmuState) {
 		u.runSBFMB32(state)
 	case 36:
 		u.runSMULI32(state)
+	case 38:
+		u.runSBFEI32(state)
 	default:
 		log.Panicf("Opcode %d for SOP2 format is not implemented", inst.Opcode)
 	}
@@ -204,6 +209,16 @@ func (u *ALUImpl) runSMAXU32(state InstEmuState) {
 	}
 }
 
+func (u *ALUImpl) runSCSELECTB32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	if sp.SCC == 1 {
+		sp.DST = sp.SRC0
+	} else {
+		sp.DST = sp.SRC1
+	}
+}
+
 func (u *ALUImpl) runSANDB32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOP2()
 
@@ -345,5 +360,23 @@ func (u *ALUImpl) runSMULI32(state InstEmuState) {
 
 	if src0 != 0 && dst/src0 != src1 {
 		sp.SCC = 1
+	}
+}
+
+func (u *ALUImpl) runSBFEI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOP2()
+
+	src0 := asInt32(uint32(sp.SRC0))
+	src1 := uint32(sp.SRC1)
+	offset := bitops.ExtractBitsFromU32(src1, 0, 4)
+	width := bitops.ExtractBitsFromU32(src1, 16, 22)
+	dst := (src0 >> offset) & ((1 << width) - 1)
+
+	sp.DST = uint64(int32ToBits(dst))
+
+	if dst != 0 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
 	}
 }

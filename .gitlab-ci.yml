@@ -44,6 +44,10 @@ cache_aceptance_test:
     - cd timing/caches/l1v/acceptancetest/valuetest
     - go build
     - ./valuetest
+    - cd ../../../../../
+    - cd timing/caches/writearound/acceptancetest/valuetest
+    - go build
+    - ./valuetest
 
 simulation_test:
   stage: acceptance_test

@@ -10,6 +10,7 @@ import (
 	"gitlab.com/akita/mem/vm/tlb"
 	"gitlab.com/akita/mgpusim/timing/caches/l1v"
 	"gitlab.com/akita/mgpusim/timing/caches/rob"
+	"gitlab.com/akita/mgpusim/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/timing/cu"
 	"gitlab.com/akita/util/tracing"
 )
@@ -25,7 +26,7 @@ type shaderArray struct {
 	l1sAT  *addresstranslator.AddressTranslator
 	l1iAT  *addresstranslator.AddressTranslator
 
-	l1vCaches []*l1v.Cache
+	l1vCaches []*writearound.Cache
 	l1sCache  *l1v.Cache
 	l1iCache  *l1v.Cache
 
@@ -307,7 +308,7 @@ func (b *shaderArrayBuilder) buildL1VTLBs(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
-	builder := l1v.NewBuilder().
+	builder := writearound.NewBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(60).

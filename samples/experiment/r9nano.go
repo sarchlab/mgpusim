@@ -16,6 +16,7 @@ import (
 	"gitlab.com/akita/mgpusim/rdma"
 	"gitlab.com/akita/mgpusim/timing/caches/l1v"
 	"gitlab.com/akita/mgpusim/timing/caches/rob"
+	"gitlab.com/akita/mgpusim/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/timing/cp"
 	"gitlab.com/akita/mgpusim/timing/cu"
 	"gitlab.com/akita/util/tracing"
@@ -47,7 +48,7 @@ type R9NanoGPUBuilder struct {
 	l1vReorderBuffers       []*rob.ReorderBuffer
 	l1iReorderBuffers       []*rob.ReorderBuffer
 	l1sReorderBuffers       []*rob.ReorderBuffer
-	l1vCaches               []*l1v.Cache
+	l1vCaches               []*writearound.Cache
 	l1sCaches               []*l1v.Cache
 	l1iCaches               []*l1v.Cache
 	l2Caches                []*writeback.Cache

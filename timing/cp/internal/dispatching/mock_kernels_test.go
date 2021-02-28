@@ -71,3 +71,15 @@ func (mr *MockGridBuilderMockRecorder) SetKernel(arg0 interface{}) *gomock.Call 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKernel", reflect.TypeOf((*MockGridBuilder)(nil).SetKernel), arg0)
 }
+
+// Skip mocks base method
+func (m *MockGridBuilder) Skip(arg0 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Skip", arg0)
+}
+
+// Skip indicates an expected call of Skip
+func (mr *MockGridBuilderMockRecorder) Skip(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Skip", reflect.TypeOf((*MockGridBuilder)(nil).Skip), arg0)
+}
