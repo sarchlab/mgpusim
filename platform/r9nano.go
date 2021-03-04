@@ -145,7 +145,7 @@ func (b R9NanoPlatformBuilder) createGPUs(
 	lastSwitchID := rootComplexID
 	for i := 1; i < b.numGPU+1; i++ {
 		if i%2 == 1 {
-			lastSwitchID = pcieConnector.AddSwitch(lastSwitchID)
+			lastSwitchID = pcieConnector.AddSwitch(rootComplexID)
 		}
 
 		b.createGPU(i, gpuBuilder, gpuDriver,
