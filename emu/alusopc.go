@@ -18,6 +18,8 @@ func (u *ALUImpl) runSOPC(state InstEmuState) {
 		u.runSCMPGEI32(state)
 	case 4:
 		u.runSCMPLTI32(state)
+	case 5:
+		u.runSCMPLEI32(state)
 	case 6:
 		u.runSCMPEQU32(state)
 	case 7:
@@ -47,6 +49,17 @@ func (u *ALUImpl) runSCMPLTI32(state InstEmuState) {
 	src0 := asInt32(uint32(sp.SRC0))
 	src1 := asInt32(uint32(sp.SRC1))
 	if src0 < src1 {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
+}
+
+func (u *ALUImpl) runSCMPLEI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPC()
+	src0 := asInt32(uint32(sp.SRC0))
+	src1 := asInt32(uint32(sp.SRC1))
+	if src0 <= src1 {
 		sp.SCC = 1
 	} else {
 		sp.SCC = 0
