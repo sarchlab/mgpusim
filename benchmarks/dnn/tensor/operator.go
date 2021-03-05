@@ -111,6 +111,7 @@ func (o *GPUOperator) valueMustMatch(expected, actual tensor.Tensor) {
 	actualV := actual.Vector()
 	for i := range expectedV {
 		if math.Abs(expectedV[i]) < 1e-5 && math.Abs(actualV[i]) < 1e-5 {
+			//value too small
 			continue
 		}
 

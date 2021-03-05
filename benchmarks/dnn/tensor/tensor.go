@@ -64,3 +64,8 @@ func (t *Tensor) Vector() []float64 {
 
 	return out
 }
+
+// Ptr returns the GPU pointer of the tensor.
+func (t *Tensor) Ptr() driver.GPUPtr {
+	return t.ptr
+}
