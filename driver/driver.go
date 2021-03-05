@@ -491,7 +491,6 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	queue *CommandQueue,
 ) bool {
 	dev := d.devices[queue.GPUID]
-	d.logCmdStart(cmd, now)
 
 	for i, gpuID := range dev.UnifiedGPUIDs {
 		req := protocol.NewLaunchKernelReq(now,

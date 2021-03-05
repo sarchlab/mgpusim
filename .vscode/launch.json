@@ -152,8 +152,9 @@
             "args": [
                 "-timing",
                 "-verify",
-                "-length=65536",
-                "-report-all"
+                "-length=128",
+                "-report-all",
+                "-unified-gpus=1,2"
             ]
         },
         {
