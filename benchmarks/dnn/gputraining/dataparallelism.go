@@ -18,18 +18,19 @@ import (
 // DataParallelismMultiGPUTrainer can use multiple GPUs to train the DNN model
 // in the data parallelism style.
 type DataParallelismMultiGPUTrainer struct {
-	TensorOperators []*gpuTensor.GPUOperator
-	Networks        []training.Network
-	DataSource      []training.DataSource
-	LossFunc        []training.LossFunction
-	OptimizationAlg []optimization.Alg
-	Tester          []*training.Tester
-	Epoch           int
-	BatchSize       int
-	ShowBatchInfo   bool
-	GPUs            []int
-	Contexts        []*driver.Context
-	Driver          *driver.Driver
+	TensorOperators  []*gpuTensor.GPUOperator
+	Networks         []training.Network
+	DataSource       []training.DataSource
+	LossFunc         []training.LossFunction
+	OptimizationAlg  []optimization.Alg
+	Tester           []*training.Tester
+	Epoch            int
+	MaxBatchPerEpoch int
+	BatchSize        int
+	ShowBatchInfo    bool
+	GPUs             []int
+	Contexts         []*driver.Context
+	Driver           *driver.Driver
 }
 
 // Train will run the training algorithm on the network.
@@ -56,6 +57,10 @@ func (t DataParallelismMultiGPUTrainer) Train() {
 
 			t.updateParameters()
 			batchNum++
+
+			if batchNum >= t.MaxBatchPerEpoch {
+				break
+			}
 		}
 
 		t.test()
@@ -197,6 +202,10 @@ func (t DataParallelismMultiGPUTrainer) test() {
 
 	for i := 0; i < len(t.Tester); i++ {
 		tester := t.Tester[i]
+		if tester == nil {
+			continue
+		}
+
 		accuracy := tester.Test()
 		log.Printf("Data Source %d Accuracy %f\n", i, accuracy)
 	}
