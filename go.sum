@@ -189,6 +189,8 @@ gitlab.com/akita/dnn v0.5.2-0.20210304005918-32949b07b0ab h1:e870MNeLIk3qdcbodh6
 gitlab.com/akita/dnn v0.5.2-0.20210304005918-32949b07b0ab/go.mod h1:+hAcGZWqANBw55q4XaR/Y0dUF3Htg6gUQS+4EepYHTU=
 gitlab.com/akita/dnn v0.5.2-0.20210304044001-23cd731cf811 h1:R98MFCsHGoM1GV2UIpoa/qNPuccJx8oCTEaSsdMpXBE=
 gitlab.com/akita/dnn v0.5.2-0.20210304044001-23cd731cf811/go.mod h1:+hAcGZWqANBw55q4XaR/Y0dUF3Htg6gUQS+4EepYHTU=
+gitlab.com/akita/dnn v0.5.2-0.20210305035643-5d0c4b839ac8 h1:GkIYC3nU3vbCl6z9urka2JJerBL1K/0/zI8YIop461E=
+gitlab.com/akita/dnn v0.5.2-0.20210305035643-5d0c4b839ac8/go.mod h1:+hAcGZWqANBw55q4XaR/Y0dUF3Htg6gUQS+4EepYHTU=
 gitlab.com/akita/mem v1.11.3 h1:hSukm8cmBo3mjEjCQAm2/NCaK4S+fLBsbyUIHQGacWY=
 gitlab.com/akita/mem v1.11.3/go.mod h1:cThfs59p7/1cWsETBXz7O6oKsGEyAwK25coA1iOHlLo=
 gitlab.com/akita/noc v1.4.0 h1:B2KVYZe9Y9O1KBA9KxSKDv8l9Nw3MWaRR1Yfgj3u/jc=
