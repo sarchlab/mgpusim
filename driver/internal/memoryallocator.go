@@ -4,8 +4,8 @@ package internal
 import (
 	"sync"
 
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 // A MemoryAllocator can allocate memory on the CPU and GPUs

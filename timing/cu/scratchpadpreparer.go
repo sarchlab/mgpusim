@@ -4,9 +4,9 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 // ScratchpadPreparer does its jobs

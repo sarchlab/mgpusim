@@ -4,10 +4,9 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mgpusim/protocol"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/protocol"
 )
 
 var _ = Describe("DMAEngine", func() {
@@ -16,7 +15,7 @@ var _ = Describe("DMAEngine", func() {
 		engine            *MockEngine
 		toCP              *MockPort
 		toMem             *MockPort
-		localModuleFinder *cache.SingleLowModuleFinder
+		localModuleFinder *mem.SingleLowModuleFinder
 		dmaEngine         *DMAEngine
 	)
 
@@ -26,7 +25,7 @@ var _ = Describe("DMAEngine", func() {
 		toCP = NewMockPort(mockCtrl)
 		toMem = NewMockPort(mockCtrl)
 
-		localModuleFinder = new(cache.SingleLowModuleFinder)
+		localModuleFinder = new(mem.SingleLowModuleFinder)
 		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
 		dmaEngine.ToCP = toCP
 		dmaEngine.ToMem = toMem
@@ -51,7 +50,7 @@ var _ = Describe("DMAEngine", func() {
 		srcBuf := make([]byte, 128)
 		req := protocol.NewMemCopyH2DReq(5, nil, toCP, srcBuf, 20)
 
-		toCP.EXPECT().Retrieve(akita.VTimeInSec(6)).Return(req)
+		toCP.EXPECT().Retrieve(sim.VTimeInSec(6)).Return(req)
 
 		madeProgress := dmaEngine.parseFromCP(6)
 
@@ -71,7 +70,7 @@ var _ = Describe("DMAEngine", func() {
 		dstBuf := make([]byte, 128)
 		req := protocol.NewMemCopyD2HReq(5, nil, toCP, 20, dstBuf)
 
-		toCP.EXPECT().Retrieve(akita.VTimeInSec(6)).Return(req)
+		toCP.EXPECT().Retrieve(sim.VTimeInSec(6)).Return(req)
 
 		madeProgress := dmaEngine.parseFromCP(6)
 
@@ -128,7 +127,7 @@ var _ = Describe("DMAEngine", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}).Build()
-		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(dataReady)
+		toMem.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(dataReady)
 
 		madeProgress := dmaEngine.parseFromMem(10)
 
@@ -168,7 +167,7 @@ var _ = Describe("DMAEngine", func() {
 				1, 2, 3, 4, 5, 6, 7, 8,
 			}).
 			Build()
-		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(dataReady)
+		toMem.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(dataReady)
 
 		madeProgress := dmaEngine.parseFromMem(10)
 
@@ -210,7 +209,7 @@ var _ = Describe("DMAEngine", func() {
 			WithRspTo(reqToBottom2.ID).
 			Build()
 
-		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(done)
+		toMem.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(done)
 
 		madeProgress := dmaEngine.parseFromMem(10)
 
@@ -239,7 +238,7 @@ var _ = Describe("DMAEngine", func() {
 			WithRspTo(reqToBottom2.ID).
 			Build()
 
-		toMem.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(done)
+		toMem.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(done)
 
 		madeProgress := dmaEngine.parseFromMem(10)
 

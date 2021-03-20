@@ -1,8 +1,8 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 // A WavefrontPool holds the wavefronts that will be scheduled in one SIMD
@@ -10,7 +10,7 @@ import (
 type WavefrontPool struct {
 	Capacity int
 	wfs      []*wavefront.Wavefront
-	VRegFile akita.Component
+	VRegFile sim.Component
 }
 
 // NewWavefrontPool creates and returns a new WavefrontPool

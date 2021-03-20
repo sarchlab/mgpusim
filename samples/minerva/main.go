@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/dnn/minerva"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/minerva"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var epochFlag = flag.Int("epoch", 1, "Number of epoch to run.")
@@ -24,7 +24,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := minerva.NewBenchmark(runner.GPUDriver)
+	benchmark := minerva.NewBenchmark(runner.Driver())
 	benchmark.Epoch = *epochFlag
 	benchmark.MaxBatchPerEpoch = *maxBatchPerEpochFlag
 	benchmark.BatchSize = *batchSizeFlag

@@ -7,12 +7,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
 )
 
-//go:generate mockgen -destination "mock_akita_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/akita Port,Engine
+//go:generate mockgen -destination "mock_sim_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/akita/v2/sim Port,Engine
 
 func TestRDMA(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
@@ -30,8 +29,8 @@ var _ = Describe("Engine", func() {
 		toL2                 *MockPort
 		ctrlPort             *MockPort
 		toOutside            *MockPort
-		localModules         *cache.SingleLowModuleFinder
-		remoteModules        *cache.SingleLowModuleFinder
+		localModules         *mem.SingleLowModuleFinder
+		remoteModules        *mem.SingleLowModuleFinder
 		localCache           *MockPort
 		remoteGPU            *MockPort
 		controllingComponent *MockPort
@@ -44,9 +43,9 @@ var _ = Describe("Engine", func() {
 		localCache = NewMockPort(mockCtrl)
 		controllingComponent = NewMockPort(mockCtrl)
 		remoteGPU = NewMockPort(mockCtrl)
-		localModules = new(cache.SingleLowModuleFinder)
+		localModules = new(mem.SingleLowModuleFinder)
 		localModules.LowModule = localCache
-		remoteModules = new(cache.SingleLowModuleFinder)
+		remoteModules = new(mem.SingleLowModuleFinder)
 		remoteModules.LowModule = remoteGPU
 
 		rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
@@ -84,7 +83,7 @@ var _ = Describe("Engine", func() {
 			toOutside.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
 				Return(nil)
-			toL1.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(read)
+			toL1.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(read)
 
 			rdmaEngine.processFromL1(10)
 
@@ -95,7 +94,7 @@ var _ = Describe("Engine", func() {
 			toL1.EXPECT().Peek().Return(read)
 			toOutside.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
-				Return(akita.NewSendError())
+				Return(sim.NewSendError())
 
 			rdmaEngine.processFromL1(10)
 
@@ -121,7 +120,7 @@ var _ = Describe("Engine", func() {
 			toL2.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
 				Return(nil)
-			toOutside.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(read)
+			toOutside.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(read)
 
 			rdmaEngine.processFromOutside(10)
 
@@ -132,7 +131,7 @@ var _ = Describe("Engine", func() {
 			toOutside.EXPECT().Peek().Return(read)
 			toL2.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
-				Return(akita.NewSendError())
+				Return(sim.NewSendError())
 
 			rdmaEngine.processFromOutside(10)
 
@@ -182,7 +181,7 @@ var _ = Describe("Engine", func() {
 			toL2.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
 				Return(nil)
-			toOutside.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(read)
+			toOutside.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(read)
 
 			rdmaEngine.processFromOutside(10)
 
@@ -193,7 +192,7 @@ var _ = Describe("Engine", func() {
 			toOutside.EXPECT().Peek().Return(rsp)
 			toL2.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
-				Return(akita.NewSendError())
+				Return(sim.NewSendError())
 
 			rdmaEngine.processFromOutside(10)
 
@@ -242,7 +241,7 @@ var _ = Describe("Engine", func() {
 			toOutside.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
 				Return(nil)
-			toL2.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(read)
+			toL2.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(read)
 
 			rdmaEngine.processFromL2(10)
 
@@ -253,7 +252,7 @@ var _ = Describe("Engine", func() {
 			toL2.EXPECT().Peek().Return(rsp)
 			toOutside.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
-				Return(akita.NewSendError())
+				Return(sim.NewSendError())
 
 			rdmaEngine.processFromL2(10)
 
@@ -289,7 +288,7 @@ var _ = Describe("Engine", func() {
 
 		It("should handle drain req", func() {
 			ctrlPort.EXPECT().Peek().Return(drainReq)
-			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(drainReq)
+			ctrlPort.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(drainReq)
 
 			rdmaEngine.processFromCtrlPort(10)
 
@@ -333,7 +332,7 @@ var _ = Describe("Engine", func() {
 			rdmaEngine.pauseIncomingReqsFromL1 = true
 
 			ctrlPort.EXPECT().Peek().Return(restartReq)
-			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10)).Return(restartReq)
+			ctrlPort.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(restartReq)
 			ctrlPort.EXPECT().
 				Send(gomock.AssignableToTypeOf(&RestartRsp{})).
 				Return(nil)

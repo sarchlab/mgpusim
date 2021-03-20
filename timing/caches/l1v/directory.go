@@ -1,18 +1,18 @@
 package l1v
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type directory struct {
 	cache *Cache
 }
 
-func (d *directory) Tick(now akita.VTimeInSec) bool {
+func (d *directory) Tick(now sim.VTimeInSec) bool {
 	item := d.cache.dirBuf.Peek()
 	if item == nil {
 		return false
@@ -26,7 +26,7 @@ func (d *directory) Tick(now akita.VTimeInSec) bool {
 	return d.processWrite(now, trans)
 }
 
-func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
+func (d *directory) processRead(now sim.VTimeInSec, trans *transaction) bool {
 	read := trans.read
 	addr := read.Address
 	pid := read.PID
@@ -47,7 +47,7 @@ func (d *directory) processRead(now akita.VTimeInSec, trans *transaction) bool {
 }
 
 func (d *directory) processMSHRHit(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 	mshrEntry *cache.MSHREntry,
 ) bool {
@@ -65,7 +65,7 @@ func (d *directory) processMSHRHit(
 }
 
 func (d *directory) processReadHit(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 	block *cache.Block,
 ) bool {
@@ -91,7 +91,7 @@ func (d *directory) processReadHit(
 }
 
 func (d *directory) processReadMiss(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	read := trans.read
@@ -119,7 +119,7 @@ func (d *directory) processReadMiss(
 }
 
 func (d *directory) processWrite(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	write := trans.write
@@ -176,7 +176,7 @@ func (d *directory) isPartialWrite(write *mem.WriteReq) bool {
 }
 
 func (d *directory) partialWriteMiss(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	write := trans.write
@@ -218,7 +218,7 @@ func (d *directory) partialWriteMiss(
 }
 
 func (d *directory) fullLineWriteMiss(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	write := trans.write
@@ -229,13 +229,13 @@ func (d *directory) fullLineWriteMiss(
 	return d.processWriteHit(now, trans, block)
 }
 
-func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
+func (d *directory) writeBottom(now sim.VTimeInSec, trans *transaction) bool {
 	write := trans.write
 	addr := write.Address
 
 	writeToBottom := mem.WriteReqBuilder{}.
 		WithSendTime(now).
-		WithSrc(d.cache.BottomPort).
+		WithSrc(d.cache.bottomPort).
 		WithDst(d.cache.lowModuleFinder.Find(addr)).
 		WithAddress(addr).
 		WithPID(write.PID).
@@ -243,7 +243,7 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 		WithDirtyMask(write.DirtyMask).
 		Build()
 
-	err := d.cache.BottomPort.Send(writeToBottom)
+	err := d.cache.bottomPort.Send(writeToBottom)
 	if err != nil {
 		return false
 	}
@@ -256,7 +256,7 @@ func (d *directory) writeBottom(now akita.VTimeInSec, trans *transaction) bool {
 }
 
 func (d *directory) processWriteHit(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 	block *cache.Block,
 ) bool {
@@ -295,7 +295,7 @@ func (d *directory) processWriteHit(
 }
 
 func (d *directory) fetchFromBottom(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 	victim *cache.Block,
 ) bool {
@@ -307,13 +307,13 @@ func (d *directory) fetchFromBottom(
 	bottomModule := d.cache.lowModuleFinder.Find(cacheLineID)
 	readToBottom := mem.ReadReqBuilder{}.
 		WithSendTime(now).
-		WithSrc(d.cache.BottomPort).
+		WithSrc(d.cache.bottomPort).
 		WithDst(bottomModule).
 		WithAddress(cacheLineID).
 		WithPID(pid).
 		WithByteSize(blockSize).
 		Build()
-	err := d.cache.BottomPort.Send(readToBottom)
+	err := d.cache.bottomPort.Send(readToBottom)
 	if err != nil {
 		return false
 	}
@@ -336,7 +336,7 @@ func (d *directory) fetchFromBottom(
 	return true
 }
 
-func (d *directory) getBankBuf(block *cache.Block) util.Buffer {
+func (d *directory) getBankBuf(block *cache.Block) buffering.Buffer {
 	numWaysPerSet := d.cache.directory.WayAssociativity()
 	blockID := block.SetID*numWaysPerSet + block.WayID
 	bankID := blockID % len(d.cache.bankBufs)

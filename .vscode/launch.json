@@ -220,7 +220,6 @@
             "args": [
                 "-verify",
                 "-length=32768",
-                "-timing",
             ]
         },
         {

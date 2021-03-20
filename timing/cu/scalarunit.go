@@ -3,12 +3,12 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A ScalarUnit performs Scalar operations
@@ -58,12 +58,12 @@ func (u *ScalarUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
+func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
 	u.toRead = wave
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
-func (u *ScalarUnit) Run(now akita.VTimeInSec) bool {
+func (u *ScalarUnit) Run(now sim.VTimeInSec) bool {
 	madeProgress := false
 	madeProgress = u.sendRequest(now) || madeProgress
 	madeProgress = u.runWriteStage(now) || madeProgress
@@ -72,7 +72,7 @@ func (u *ScalarUnit) Run(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) bool {
+func (u *ScalarUnit) runReadStage(now sim.VTimeInSec) bool {
 	if u.toRead == nil {
 		return false
 	}
@@ -87,7 +87,7 @@ func (u *ScalarUnit) runReadStage(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
+func (u *ScalarUnit) runExecStage(now sim.VTimeInSec) bool {
 	if u.toExec == nil {
 		return false
 	}
@@ -107,7 +107,7 @@ func (u *ScalarUnit) runExecStage(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (u *ScalarUnit) executeSMEMInst(now akita.VTimeInSec) bool {
+func (u *ScalarUnit) executeSMEMInst(now sim.VTimeInSec) bool {
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 0:
@@ -125,7 +125,7 @@ func (u *ScalarUnit) executeSMEMInst(now akita.VTimeInSec) bool {
 	panic("never")
 }
 
-func (u *ScalarUnit) executeSMEMLoad(byteSize int, now akita.VTimeInSec) bool {
+func (u *ScalarUnit) executeSMEMLoad(byteSize int, now sim.VTimeInSec) bool {
 	inst := u.toExec.DynamicInst()
 	sp := u.toExec.Scratchpad().AsSMEM()
 
@@ -211,7 +211,7 @@ func (u ScalarUnit) byteInCacheline(curr, bytesLeft uint64) uint64 {
 	return bytesLeft
 }
 
-func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
+func (u *ScalarUnit) runWriteStage(now sim.VTimeInSec) bool {
 	if u.toWrite == nil {
 		return false
 	}
@@ -226,7 +226,7 @@ func (u *ScalarUnit) runWriteStage(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (u *ScalarUnit) sendRequest(now akita.VTimeInSec) bool {
+func (u *ScalarUnit) sendRequest(now sim.VTimeInSec) bool {
 	if len(u.readBuf) > 0 {
 		req := u.readBuf[0]
 		req.SendTime = now

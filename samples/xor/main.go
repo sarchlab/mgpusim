@@ -4,8 +4,8 @@ import (
 	"flag"
 	"math/rand"
 
-	"gitlab.com/akita/mgpusim/benchmarks/dnn/xor"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/xor"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := xor.NewBenchmark(runner.GPUDriver)
+	benchmark := xor.NewBenchmark(runner.Driver())
 
 	runner.AddBenchmark(benchmark)
 

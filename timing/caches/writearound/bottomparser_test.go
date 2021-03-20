@@ -4,11 +4,11 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 var _ = Describe("Bottom Parser", func() {
@@ -28,12 +28,12 @@ var _ = Describe("Bottom Parser", func() {
 		mshr = NewMockMSHR(mockCtrl)
 		c = &Cache{
 			log2BlockSize:    6,
-			BottomPort:       bottomPort,
+			bottomPort:       bottomPort,
 			mshr:             mshr,
 			wayAssociativity: 4,
-			bankBufs:         []util.Buffer{bankBuf},
+			bankBufs:         []buffering.Buffer{bankBuf},
 		}
-		c.TickingComponent = akita.NewTickingComponent(
+		c.TickingComponent = sim.NewTickingComponent(
 			"cache", nil, 1, c)
 		p = &bottomParser{cache: c}
 	})

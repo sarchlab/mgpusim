@@ -1,19 +1,19 @@
 package l1v
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type bottomParser struct {
 	cache *Cache
 }
 
-func (p *bottomParser) Tick(now akita.VTimeInSec) bool {
-	item := p.cache.BottomPort.Peek()
+func (p *bottomParser) Tick(now sim.VTimeInSec) bool {
+	item := p.cache.bottomPort.Peek()
 	if item == nil {
 		return false
 	}
@@ -29,12 +29,12 @@ func (p *bottomParser) Tick(now akita.VTimeInSec) bool {
 }
 
 func (p *bottomParser) processDoneRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	done *mem.WriteDoneRsp,
 ) bool {
 	trans := p.findTransactionByWriteToBottomID(done.GetRespondTo())
 	if trans == nil || trans.fetchAndWrite {
-		p.cache.BottomPort.Retrieve(now)
+		p.cache.bottomPort.Retrieve(now)
 		return true
 	}
 
@@ -43,7 +43,7 @@ func (p *bottomParser) processDoneRsp(
 	}
 
 	p.removeTransaction(trans)
-	p.cache.BottomPort.Retrieve(now)
+	p.cache.bottomPort.Retrieve(now)
 
 	tracing.TraceReqFinalize(trans.writeToBottom, now, p.cache)
 	tracing.EndTask(trans.id, now, p.cache)
@@ -52,12 +52,12 @@ func (p *bottomParser) processDoneRsp(
 }
 
 func (p *bottomParser) processDataReady(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	dr *mem.DataReadyRsp,
 ) bool {
 	trans := p.findTransactionByReadToBottomID(dr.GetRespondTo())
 	if trans == nil {
-		p.cache.BottomPort.Retrieve(now)
+		p.cache.bottomPort.Retrieve(now)
 		return true
 	}
 	pid := trans.readToBottom.PID
@@ -81,7 +81,7 @@ func (p *bottomParser) processDataReady(
 	bankBuf.Push(trans)
 
 	p.removeTransaction(trans)
-	p.cache.BottomPort.Retrieve(now)
+	p.cache.bottomPort.Retrieve(now)
 
 	tracing.TraceReqFinalize(trans.readToBottom, now, p.cache)
 
@@ -114,7 +114,7 @@ func (p *bottomParser) mergeMSHRData(
 func (p *bottomParser) finalizeMSHRTrans(
 	mshrEntry *cache.MSHREntry,
 	data []byte,
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) {
 	for _, t := range mshrEntry.Requests {
 		trans := t.(*transaction)
@@ -169,7 +169,7 @@ func (p *bottomParser) removeTransaction(trans *transaction) {
 	}
 }
 
-func (p *bottomParser) getBankBuf(block *cache.Block) util.Buffer {
+func (p *bottomParser) getBankBuf(block *cache.Block) buffering.Buffer {
 	numWaysPerSet := p.cache.wayAssociativity
 	blockID := block.SetID*numWaysPerSet + block.WayID
 	bankID := blockID % len(p.cache.bankBufs)

@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/polybench/atax"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/polybench/atax"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var xFlag = flag.Int("x", 4096, "The width of the matrix.")
@@ -15,7 +15,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := atax.NewBenchmark(runner.GPUDriver)
+	benchmark := atax.NewBenchmark(runner.Driver())
 	benchmark.NX = *xFlag
 	benchmark.NY = *yFlag
 

@@ -1,18 +1,17 @@
-package gpubuilder
+package runner
 
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/vm/addresstranslator"
-	"gitlab.com/akita/mem/vm/tlb"
-	"gitlab.com/akita/mgpusim/timing/caches/l1v"
-	"gitlab.com/akita/mgpusim/timing/caches/rob"
-	"gitlab.com/akita/mgpusim/timing/caches/writearound"
-	"gitlab.com/akita/mgpusim/timing/cu"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm/addresstranslator"
+	"gitlab.com/akita/mem/v2/vm/tlb"
+	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
+	"gitlab.com/akita/mgpusim/v2/timing/caches/rob"
+	"gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
+	"gitlab.com/akita/mgpusim/v2/timing/cu"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type shaderArray struct {
@@ -40,8 +39,8 @@ type shaderArrayBuilder struct {
 	name  string
 	numCU int
 
-	engine            akita.Engine
-	freq              akita.Freq
+	engine            sim.Engine
+	freq              sim.Freq
 	log2CacheLineSize uint64
 	log2PageSize      uint64
 	visTracer         tracing.Tracer
@@ -53,19 +52,19 @@ func makeShaderArrayBuilder() shaderArrayBuilder {
 		gpuID:             0,
 		name:              "SA",
 		numCU:             4,
-		freq:              1 * akita.GHz,
+		freq:              1 * sim.GHz,
 		log2CacheLineSize: 6,
 		log2PageSize:      12,
 	}
 	return b
 }
 
-func (b shaderArrayBuilder) withEngine(e akita.Engine) shaderArrayBuilder {
+func (b shaderArrayBuilder) withEngine(e sim.Engine) shaderArrayBuilder {
 	b.engine = e
 	return b
 }
 
-func (b shaderArrayBuilder) withFreq(f akita.Freq) shaderArrayBuilder {
+func (b shaderArrayBuilder) withFreq(f sim.Freq) shaderArrayBuilder {
 	b.freq = f
 	return b
 }
@@ -151,21 +150,27 @@ func (b *shaderArrayBuilder) connectVectorMem(sa *shaderArray) {
 		l1v := sa.l1vCaches[i]
 		tlb := sa.l1vTLBs[i]
 
-		cu.VectorMemModules = &cache.SingleLowModuleFinder{
-			LowModule: rob.TopPort,
+		cu.VectorMemModules = &mem.SingleLowModuleFinder{
+			LowModule: rob.GetPortByName("Top"),
 		}
-		b.connectWithDirectConnection(cu.ToVectorMem, rob.TopPort, 8)
+		b.connectWithDirectConnection(cu.ToVectorMem,
+			rob.GetPortByName("Top"), 8)
 
-		rob.BottomUnit = at.TopPort
-		b.connectWithDirectConnection(rob.BottomPort, at.TopPort, 8)
+		atTopPort := at.GetPortByName("Top")
+		rob.BottomUnit = atTopPort
+		b.connectWithDirectConnection(
+			rob.GetPortByName("Bottom"), atTopPort, 8)
 
-		at.SetTranslationProvider(tlb.TopPort)
-		b.connectWithDirectConnection(at.TranslationPort, tlb.TopPort, 8)
+		tlbTopPort := tlb.GetPortByName("Top")
+		at.SetTranslationProvider(tlbTopPort)
+		b.connectWithDirectConnection(
+			at.GetPortByName("Translation"), tlbTopPort, 8)
 
-		at.SetLowModuleFinder(&cache.SingleLowModuleFinder{
-			LowModule: l1v.TopPort,
+		at.SetLowModuleFinder(&mem.SingleLowModuleFinder{
+			LowModule: l1v.GetPortByName("Top"),
 		})
-		b.connectWithDirectConnection(l1v.TopPort, at.BottomPort, 8)
+		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
+			at.GetPortByName("Bottom"), 8)
 	}
 }
 
@@ -175,22 +180,26 @@ func (b *shaderArrayBuilder) connectScalarMem(sa *shaderArray) {
 	tlb := sa.l1sTLB
 	l1s := sa.l1sCache
 
-	rob.BottomUnit = at.TopPort
-	b.connectWithDirectConnection(rob.BottomPort, at.TopPort, 8)
+	atTopPort := at.GetPortByName("Top")
+	rob.BottomUnit = atTopPort
+	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
 
-	at.SetTranslationProvider(tlb.TopPort)
-	b.connectWithDirectConnection(at.TranslationPort, tlb.TopPort, 8)
+	tlbTopPort := tlb.GetPortByName("Top")
+	at.SetTranslationProvider(tlbTopPort)
+	b.connectWithDirectConnection(
+		at.GetPortByName("Translation"), tlbTopPort, 8)
 
-	at.SetLowModuleFinder(&cache.SingleLowModuleFinder{
-		LowModule: l1s.TopPort,
+	at.SetLowModuleFinder(&mem.SingleLowModuleFinder{
+		LowModule: l1s.GetPortByName("Top"),
 	})
-	b.connectWithDirectConnection(l1s.TopPort, at.BottomPort, 8)
+	b.connectWithDirectConnection(
+		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 8)
 
-	conn := akita.NewDirectConnection(b.name, b.engine, b.freq)
-	conn.PlugIn(rob.TopPort, 8)
+	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
+	conn.PlugIn(rob.GetPortByName("Top"), 8)
 	for i := 0; i < b.numCU; i++ {
 		cu := sa.cus[i]
-		cu.ScalarMem = rob.TopPort
+		cu.ScalarMem = rob.GetPortByName("Top")
 		conn.PlugIn(cu.ToScalarMem, 8)
 	}
 }
@@ -201,32 +210,37 @@ func (b *shaderArrayBuilder) connectInstMem(sa *shaderArray) {
 	tlb := sa.l1iTLB
 	l1i := sa.l1iCache
 
-	rob.BottomUnit = l1i.TopPort
-	b.connectWithDirectConnection(rob.BottomPort, l1i.TopPort, 8)
+	l1iTopPort := l1i.GetPortByName("Top")
+	rob.BottomUnit = l1iTopPort
+	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort, 8)
 
-	l1i.SetLowModuleFinder(&cache.SingleLowModuleFinder{
-		LowModule: at.TopPort,
+	atTopPort := at.GetPortByName("Top")
+	l1i.SetLowModuleFinder(&mem.SingleLowModuleFinder{
+		LowModule: atTopPort,
 	})
-	b.connectWithDirectConnection(l1i.BottomPort, at.TopPort, 8)
+	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
 
-	at.SetTranslationProvider(tlb.TopPort)
-	b.connectWithDirectConnection(at.TranslationPort, tlb.TopPort, 8)
+	tlbTopPort := tlb.GetPortByName("Top")
+	at.SetTranslationProvider(tlbTopPort)
+	b.connectWithDirectConnection(
+		at.GetPortByName("Translation"), tlbTopPort, 8)
 
-	conn := akita.NewDirectConnection(b.name, b.engine, b.freq)
-	conn.PlugIn(rob.TopPort, 8)
+	robTopPort := rob.GetPortByName("Top")
+	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
+	conn.PlugIn(robTopPort, 8)
 	for i := 0; i < b.numCU; i++ {
 		cu := sa.cus[i]
-		cu.InstMem = rob.TopPort
+		cu.InstMem = rob.GetPortByName("Top")
 		conn.PlugIn(cu.ToInstMem, 8)
 	}
 }
 
 func (b *shaderArrayBuilder) connectWithDirectConnection(
-	port1, port2 akita.Port,
+	port1, port2 sim.Port,
 	bufferSize int,
 ) {
 	name := fmt.Sprintf("%s-%s", port1.Name(), port2.Name())
-	conn := akita.NewDirectConnection(
+	conn := sim.NewDirectConnection(
 		name,
 		b.engine, b.freq,
 	)

@@ -4,13 +4,13 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/util/v2/buffering"
 )
 
 type controlStage struct {
-	ctrlPort     akita.Port
+	ctrlPort     sim.Port
 	transactions *[]*transaction
 	directory    cache.Directory
 	cache        *Cache
@@ -20,7 +20,7 @@ type controlStage struct {
 	currFlushReq *cache.FlushReq
 }
 
-func (s *controlStage) Tick(now akita.VTimeInSec) bool {
+func (s *controlStage) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = s.processNewRequest(now) || madeProgress
@@ -29,7 +29,7 @@ func (s *controlStage) Tick(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *controlStage) processCurrentFlush(now akita.VTimeInSec) bool {
+func (s *controlStage) processCurrentFlush(now sim.VTimeInSec) bool {
 	if s.currFlushReq == nil {
 		return false
 	}
@@ -55,9 +55,9 @@ func (s *controlStage) processCurrentFlush(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (s *controlStage) hardResetCache(now akita.VTimeInSec) {
-	s.flushPort(s.cache.TopPort, now)
-	s.flushPort(s.cache.BottomPort, now)
+func (s *controlStage) hardResetCache(now sim.VTimeInSec) {
+	s.flushPort(s.cache.topPort, now)
+	s.flushPort(s.cache.bottomPort, now)
 	s.flushBuffer(s.cache.dirBuf)
 	for _, bankBuf := range s.cache.bankBufs {
 		s.flushBuffer(bankBuf)
@@ -78,18 +78,18 @@ func (s *controlStage) hardResetCache(now akita.VTimeInSec) {
 	}
 }
 
-func (s *controlStage) flushPort(port akita.Port, now akita.VTimeInSec) {
+func (s *controlStage) flushPort(port sim.Port, now sim.VTimeInSec) {
 	for port.Peek() != nil {
 		port.Retrieve(now)
 	}
 }
 
-func (s *controlStage) flushBuffer(buffer util.Buffer) {
+func (s *controlStage) flushBuffer(buffer buffering.Buffer) {
 	for buffer.Pop() != nil {
 	}
 }
 
-func (s *controlStage) processNewRequest(now akita.VTimeInSec) bool {
+func (s *controlStage) processNewRequest(now sim.VTimeInSec) bool {
 	req := s.ctrlPort.Peek()
 	if req == nil {
 		return false
@@ -108,7 +108,7 @@ func (s *controlStage) processNewRequest(now akita.VTimeInSec) bool {
 }
 
 func (s *controlStage) startCacheFlush(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *cache.FlushReq,
 ) bool {
 	if s.currFlushReq != nil {
@@ -121,17 +121,17 @@ func (s *controlStage) startCacheFlush(
 	return true
 }
 
-func (s *controlStage) doCacheRestart(now akita.VTimeInSec, req *cache.RestartReq) bool {
+func (s *controlStage) doCacheRestart(now sim.VTimeInSec, req *cache.RestartReq) bool {
 	s.cache.isPaused = false
 
 	s.ctrlPort.Retrieve(now)
 
-	for s.cache.TopPort.Peek() != nil {
-		s.cache.TopPort.Retrieve(now)
+	for s.cache.topPort.Peek() != nil {
+		s.cache.topPort.Retrieve(now)
 	}
 
-	for s.cache.BottomPort.Peek() != nil {
-		s.cache.BottomPort.Retrieve(now)
+	for s.cache.bottomPort.Peek() != nil {
+		s.cache.bottomPort.Retrieve(now)
 	}
 
 	rsp := cache.RestartRspBuilder{}.

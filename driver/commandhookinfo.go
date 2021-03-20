@@ -1,13 +1,13 @@
 package driver
 
 import (
-	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/v2/sim"
 )
 
 // CommandHookInfo carries the information provided to hooks that are
 // triggered by Comands.
 type CommandHookInfo struct {
-	Now     akita.VTimeInSec
+	Now     sim.VTimeInSec
 	IsStart bool
 	Queue   *CommandQueue
 }

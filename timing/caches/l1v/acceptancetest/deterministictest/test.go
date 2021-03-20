@@ -6,20 +6,19 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/akita/mem/idealmemcontroller"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/timing/caches/l1v"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/acceptancetests"
-	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/mem/v2/acceptancetests"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
 )
 
 type test struct {
-	engine          akita.Engine
-	conn            *akita.DirectConnection
+	engine          sim.Engine
+	conn            *sim.DirectConnection
 	agent           *acceptancetests.MemAccessAgent
-	lowModuleFinder *cache.SingleLowModuleFinder
+	lowModuleFinder *mem.SingleLowModuleFinder
 	dram            *idealmemcontroller.Comp
 	c               *l1v.Cache
 }
@@ -40,12 +39,12 @@ func (t *test) setMaxAddr(addr uint64) {
 func newTest(name string) *test {
 	t := new(test)
 
-	t.engine = akita.NewSerialEngine()
-	t.conn = akita.NewDirectConnection("conn", t.engine, 1*akita.GHz)
+	t.engine = sim.NewSerialEngine()
+	t.conn = sim.NewDirectConnection("conn", t.engine, 1*sim.GHz)
 
 	t.dram = idealmemcontroller.New("dram", t.engine, 1*mem.GB)
-	t.lowModuleFinder = new(cache.SingleLowModuleFinder)
-	t.lowModuleFinder.LowModule = t.dram.ToTop
+	t.lowModuleFinder = new(mem.SingleLowModuleFinder)
+	t.lowModuleFinder.LowModule = t.dram.GetPortByName("Top")
 
 	t.c = l1v.NewBuilder().
 		WithEngine(t.engine).
@@ -55,13 +54,13 @@ func newTest(name string) *test {
 	t.agent = acceptancetests.NewMemAccessAgent(t.engine)
 	t.agent.WriteLeft = 10000
 	t.agent.ReadLeft = 10000
-	t.agent.LowModule = t.c.TopPort
+	t.agent.LowModule = t.c.GetPortByName("Top")
 
-	t.conn.PlugIn(t.agent.ToMem, 4)
-	t.conn.PlugIn(t.c.TopPort, 4)
-	t.conn.PlugIn(t.c.BottomPort, 16)
-	t.conn.PlugIn(t.c.ControlPort, 1)
-	t.conn.PlugIn(t.dram.ToTop, 16)
+	t.conn.PlugIn(t.agent.GetPortByName("Mem"), 4)
+	t.conn.PlugIn(t.c.GetPortByName("Top"), 4)
+	t.conn.PlugIn(t.c.GetPortByName("Bottom"), 16)
+	t.conn.PlugIn(t.c.GetPortByName("Control"), 1)
+	t.conn.PlugIn(t.dram.GetPortByName("Top"), 16)
 
 	return t
 }

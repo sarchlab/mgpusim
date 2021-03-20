@@ -5,12 +5,12 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/benchmarks/mccl"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/platform"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/mccl"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
-var _ = Describe("Test Mccl", func() {
+var _ = Describe("MCCL", func() {
 	var (
 		gpuDriver *driver.Driver
 		context   *driver.Context
@@ -19,9 +19,10 @@ var _ = Describe("Test Mccl", func() {
 	)
 
 	BeforeEach(func() {
-		_, gpuDriver = platform.MakeR9NanoBuilder().
+		platform := runner.MakeR9NanoBuilder().
 			WithNumGPU(4).
 			Build()
+		gpuDriver = platform.Driver
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 	})

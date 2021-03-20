@@ -1,8 +1,8 @@
 package mccl
 
 import (
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/driver"
 )
 
 // BroadcastRing broadcast data from the root to other GPUs.
@@ -67,4 +67,3 @@ func BroadcastRing(
 		}
 	}
 }
-

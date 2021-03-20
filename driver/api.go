@@ -5,11 +5,11 @@ import (
 	"math"
 	"sync/atomic"
 
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/driver/internal"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/mgpusim/v2/driver/internal"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 var nextPID uint64
@@ -209,7 +209,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 ) {
 	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyH2DCommand{
-		ID:  akita.GetIDGenerator().Generate(),
+		ID:  sim.GetIDGenerator().Generate(),
 		Dst: dst,
 		Src: src,
 	}
@@ -225,7 +225,7 @@ func (d *Driver) EnqueueMemCopyD2H(
 ) {
 	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyD2HCommand{
-		ID:  akita.GetIDGenerator().Generate(),
+		ID:  sim.GetIDGenerator().Generate(),
 		Dst: dst,
 		Src: src,
 	}
@@ -275,7 +275,7 @@ func (d *Driver) enqueueFlushBeforeMemCopy(queue *CommandQueue) {
 
 func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
 	cmd := &FlushCommand{
-		ID: akita.GetIDGenerator().Generate(),
+		ID: sim.GetIDGenerator().Generate(),
 	}
 	d.Enqueue(queue, cmd)
 }

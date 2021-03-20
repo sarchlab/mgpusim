@@ -4,18 +4,18 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 type mockScheduler struct {
 }
 
-func (m *mockScheduler) Run(now akita.VTimeInSec) bool {
+func (m *mockScheduler) Run(now sim.VTimeInSec) bool {
 	return true
 }
 
@@ -188,10 +188,10 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should dispatch wavefront", func() {
 			wfDispatcher.EXPECT().
-				DispatchWf(akita.VTimeInSec(11),
+				DispatchWf(sim.VTimeInSec(11),
 					gomock.Any(), req.Wavefronts[0])
 			wfDispatcher.EXPECT().
-				DispatchWf(akita.VTimeInSec(11),
+				DispatchWf(sim.VTimeInSec(11),
 					gomock.Any(), req.Wavefronts[1])
 			engine.EXPECT().Schedule(gomock.Any())
 
@@ -466,7 +466,7 @@ var _ = Describe("ComputeUnit", func() {
 				WithSendTime(10).
 				Build()
 
-			toCP.EXPECT().Retrieve(akita.VTimeInSec(11)).Return(req)
+			toCP.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(req)
 
 			cu.processInputFromCP(11)
 

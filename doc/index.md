@@ -1,6 +1,6 @@
 # Akita GCN3 Model
 
-This repository contains the code for GCN3 Model for Akita.
+This repository contains the code for GCN3 Model for sim.
 
 ## Index
 

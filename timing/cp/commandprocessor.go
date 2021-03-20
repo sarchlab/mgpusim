@@ -1,55 +1,55 @@
 package cp
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm/tlb"
-	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/rdma"
-	"gitlab.com/akita/mgpusim/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/timing/cp/internal/resource"
-	"gitlab.com/akita/util/akitaext"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm/tlb"
+	"gitlab.com/akita/mgpusim/v2/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/rdma"
+	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
+	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
+	"gitlab.com/akita/util/v2/akitaext"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // CommandProcessor is an Akita component that is responsible for receiving
 // requests from the driver and dispatch the requests to other parts of the
 // GPU.
 type CommandProcessor struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
 	Dispatchers        []dispatching.Dispatcher
-	DMAEngine          akita.Port
-	Driver             akita.Port
-	TLBs               []akita.Port
-	CUs                []akita.Port
-	AddressTranslators []akita.Port
-	RDMA               akita.Port
-	PMC                akita.Port
-	L1VCaches          []akita.Port
-	L1SCaches          []akita.Port
-	L1ICaches          []akita.Port
-	L2Caches           []akita.Port
+	DMAEngine          sim.Port
+	Driver             sim.Port
+	TLBs               []sim.Port
+	CUs                []sim.Port
+	AddressTranslators []sim.Port
+	RDMA               sim.Port
+	PMC                sim.Port
+	L1VCaches          []sim.Port
+	L1SCaches          []sim.Port
+	L1ICaches          []sim.Port
+	L2Caches           []sim.Port
 	DRAMControllers    []*idealmemcontroller.Comp
 
-	ToDriver                   akita.Port
+	ToDriver                   sim.Port
 	toDriverSender             akitaext.BufferedSender
-	ToDMA                      akita.Port
+	ToDMA                      sim.Port
 	toDMASender                akitaext.BufferedSender
-	ToCUs                      akita.Port
+	ToCUs                      sim.Port
 	toCUsSender                akitaext.BufferedSender
-	ToTLBs                     akita.Port
+	ToTLBs                     sim.Port
 	toTLBsSender               akitaext.BufferedSender
-	ToAddressTranslators       akita.Port
+	ToAddressTranslators       sim.Port
 	toAddressTranslatorsSender akitaext.BufferedSender
-	ToCaches                   akita.Port
+	ToCaches                   sim.Port
 	toCachesSender             akitaext.BufferedSender
-	ToRDMA                     akita.Port
+	ToRDMA                     sim.Port
 	toRDMASender               akitaext.BufferedSender
-	ToPMC                      akita.Port
+	ToPMC                      sim.Port
 	toPMCSender                akitaext.BufferedSender
 
 	currShootdownRequest *protocol.ShootDownCommand
@@ -75,7 +75,7 @@ type CUInterfaceForCP interface {
 
 	// ControlPort returns a port on the CU that the CP can send controlling
 	// messages to.
-	ControlPort() akita.Port
+	ControlPort() sim.Port
 }
 
 // RegisterCU allows the Command Processor to control the CU.
@@ -87,7 +87,7 @@ func (p *CommandProcessor) RegisterCU(cu CUInterfaceForCP) {
 }
 
 //Tick ticks
-func (p *CommandProcessor) Tick(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = p.sendMsgsOut(now) || madeProgress
@@ -98,7 +98,7 @@ func (p *CommandProcessor) Tick(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (p *CommandProcessor) sendMsgsOut(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) sendMsgsOut(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = p.sendMsgsOutFromPort(now, p.toDriverSender) || madeProgress
@@ -115,7 +115,7 @@ func (p *CommandProcessor) sendMsgsOut(now akita.VTimeInSec) bool {
 }
 
 func (p *CommandProcessor) sendMsgsOutFromPort(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	sender akitaext.BufferedSender,
 ) (madeProgress bool) {
 	for {
@@ -129,7 +129,7 @@ func (p *CommandProcessor) sendMsgsOutFromPort(
 }
 
 func (p *CommandProcessor) tickDispatchers(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) (madeProgress bool) {
 	for _, d := range p.Dispatchers {
 		madeProgress = d.Tick(now) || madeProgress
@@ -138,7 +138,7 @@ func (p *CommandProcessor) tickDispatchers(
 	return madeProgress
 }
 
-func (p *CommandProcessor) processReqFromDriver(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processReqFromDriver(now sim.VTimeInSec) bool {
 	msg := p.ToDriver.Peek()
 	if msg == nil {
 		return false
@@ -166,7 +166,7 @@ func (p *CommandProcessor) processReqFromDriver(now akita.VTimeInSec) bool {
 	panic("never")
 }
 
-func (p *CommandProcessor) processRspFromInternal(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromInternal(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = p.processRspFromDMAs(now) || madeProgress
@@ -180,7 +180,7 @@ func (p *CommandProcessor) processRspFromInternal(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (p *CommandProcessor) processRspFromDMAs(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromDMAs(now sim.VTimeInSec) bool {
 	msg := p.ToDMA.Peek()
 	if msg == nil {
 		return false
@@ -194,7 +194,7 @@ func (p *CommandProcessor) processRspFromDMAs(now akita.VTimeInSec) bool {
 	panic("never")
 }
 
-func (p *CommandProcessor) processRspFromRDMAs(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromRDMAs(now sim.VTimeInSec) bool {
 	msg := p.ToRDMA.Peek()
 	if msg == nil {
 		return false
@@ -210,7 +210,7 @@ func (p *CommandProcessor) processRspFromRDMAs(now akita.VTimeInSec) bool {
 	panic("never")
 }
 
-func (p *CommandProcessor) processRspFromCUs(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromCUs(now sim.VTimeInSec) bool {
 	msg := p.ToCUs.Peek()
 	if msg == nil {
 		return false
@@ -226,7 +226,7 @@ func (p *CommandProcessor) processRspFromCUs(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (p *CommandProcessor) processRspFromCaches(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromCaches(now sim.VTimeInSec) bool {
 	msg := p.ToCaches.Peek()
 	if msg == nil {
 		return false
@@ -242,7 +242,7 @@ func (p *CommandProcessor) processRspFromCaches(now akita.VTimeInSec) bool {
 	panic("never")
 }
 
-func (p *CommandProcessor) processRspFromATs(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromATs(now sim.VTimeInSec) bool {
 	item := p.ToAddressTranslators.Peek()
 	if item == nil {
 		return false
@@ -259,7 +259,7 @@ func (p *CommandProcessor) processRspFromATs(now akita.VTimeInSec) bool {
 	panic("never")
 }
 
-func (p *CommandProcessor) processRspFromTLBs(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromTLBs(now sim.VTimeInSec) bool {
 	msg := p.ToTLBs.Peek()
 	if msg == nil {
 		return false
@@ -275,7 +275,7 @@ func (p *CommandProcessor) processRspFromTLBs(now akita.VTimeInSec) bool {
 	panic("never")
 }
 
-func (p *CommandProcessor) processRspFromPMC(now akita.VTimeInSec) bool {
+func (p *CommandProcessor) processRspFromPMC(now sim.VTimeInSec) bool {
 	msg := p.ToPMC.Peek()
 	if msg == nil {
 		return false
@@ -290,7 +290,7 @@ func (p *CommandProcessor) processRspFromPMC(now akita.VTimeInSec) bool {
 }
 
 func (p *CommandProcessor) processLaunchKernelReq(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *protocol.LaunchKernelReq,
 ) bool {
 	d := p.findAvailableDispatcher()
@@ -319,7 +319,7 @@ func (p *CommandProcessor) findAvailableDispatcher() dispatching.Dispatcher {
 	return nil
 }
 func (p *CommandProcessor) processRDMADrainCmd(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	cmd *protocol.RDMADrainCmdFromDriver,
 ) bool {
 	req := rdma.DrainReqBuilder{}.
@@ -335,7 +335,7 @@ func (p *CommandProcessor) processRDMADrainCmd(
 }
 
 func (p *CommandProcessor) processRDMADrainRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *rdma.DrainRsp,
 ) bool {
 	req := protocol.NewRDMADrainRspToDriver(now, p.ToDriver, p.Driver)
@@ -347,7 +347,7 @@ func (p *CommandProcessor) processRDMADrainRsp(
 }
 
 func (p *CommandProcessor) processShootdownCommand(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	cmd *protocol.ShootDownCommand,
 ) bool {
 	if p.shootDownInProcess == true {
@@ -373,7 +373,7 @@ func (p *CommandProcessor) processShootdownCommand(
 }
 
 func (p *CommandProcessor) processCUPipelineFlushRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *protocol.CUPipelineFlushRsp,
 ) bool {
 	p.numCUAck--
@@ -397,7 +397,7 @@ func (p *CommandProcessor) processCUPipelineFlushRsp(
 }
 
 func (p *CommandProcessor) processAddressTranslatorFlushRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	msg *mem.ControlMsg,
 ) bool {
 	p.numAddrTranslationFlushAck--
@@ -426,8 +426,8 @@ func (p *CommandProcessor) processAddressTranslatorFlushRsp(
 }
 
 func (p *CommandProcessor) flushAndResetL1Cache(
-	now akita.VTimeInSec,
-	port akita.Port,
+	now sim.VTimeInSec,
+	port sim.Port,
 ) {
 	req := cache.FlushReqBuilder{}.
 		WithSendTime(now).
@@ -442,7 +442,7 @@ func (p *CommandProcessor) flushAndResetL1Cache(
 	p.numCacheACK++
 }
 
-func (p *CommandProcessor) flushAndResetL2Cache(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) flushAndResetL2Cache(now sim.VTimeInSec, port sim.Port) {
 	req := cache.FlushReqBuilder{}.
 		WithSendTime(now).
 		WithSrc(p.ToCaches).
@@ -457,7 +457,7 @@ func (p *CommandProcessor) flushAndResetL2Cache(now akita.VTimeInSec, port akita
 }
 
 func (p *CommandProcessor) processCacheFlushRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *cache.FlushRsp,
 ) bool {
 	p.numCacheACK--
@@ -473,7 +473,7 @@ func (p *CommandProcessor) processCacheFlushRsp(
 }
 
 func (p *CommandProcessor) processRegularCacheFlush(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	flushRsp *cache.FlushRsp,
 ) bool {
 	p.currFlushRequest.Src, p.currFlushRequest.Dst =
@@ -488,7 +488,7 @@ func (p *CommandProcessor) processRegularCacheFlush(
 }
 
 func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	flushRsp *cache.FlushRsp,
 ) bool {
 	for i := 0; i < len(p.TLBs); i++ {
@@ -510,7 +510,7 @@ func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
 }
 
 func (p *CommandProcessor) processTLBFlushRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *tlb.TLBFlushRsp,
 ) bool {
 	p.numTLBAck--
@@ -528,7 +528,7 @@ func (p *CommandProcessor) processTLBFlushRsp(
 }
 
 func (p *CommandProcessor) processRDMARestartCommand(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	cmd *protocol.RDMARestartCmdFromDriver,
 ) bool {
 	req := rdma.RestartReqBuilder{}.
@@ -544,7 +544,7 @@ func (p *CommandProcessor) processRDMARestartCommand(
 	return true
 }
 
-func (p *CommandProcessor) processRDMARestartRsp(now akita.VTimeInSec, rsp *rdma.RestartRsp) bool {
+func (p *CommandProcessor) processRDMARestartRsp(now sim.VTimeInSec, rsp *rdma.RestartRsp) bool {
 	req := protocol.NewRDMARestartRspToDriver(now, p.ToDriver, p.Driver)
 	p.toDriverSender.Send(req)
 	p.ToRDMA.Retrieve(now)
@@ -553,7 +553,7 @@ func (p *CommandProcessor) processRDMARestartRsp(now akita.VTimeInSec, rsp *rdma
 }
 
 func (p *CommandProcessor) processGPURestartReq(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	cmd *protocol.GPURestartReq,
 ) bool {
 	for _, port := range p.L2Caches {
@@ -575,7 +575,7 @@ func (p *CommandProcessor) processGPURestartReq(
 	return true
 }
 
-func (p *CommandProcessor) restartCache(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) restartCache(now sim.VTimeInSec, port sim.Port) {
 	req := cache.RestartReqBuilder{}.
 		WithSendTime(now).
 		WithSrc(p.ToCaches).
@@ -588,7 +588,7 @@ func (p *CommandProcessor) restartCache(now akita.VTimeInSec, port akita.Port) {
 }
 
 func (p *CommandProcessor) processCacheRestartRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *cache.RestartRsp,
 ) bool {
 	p.numCacheACK--
@@ -611,7 +611,7 @@ func (p *CommandProcessor) processCacheRestartRsp(
 }
 
 func (p *CommandProcessor) processTLBRestartRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *tlb.TLBRestartRsp,
 ) bool {
 	p.numTLBAck--
@@ -638,7 +638,7 @@ func (p *CommandProcessor) processTLBRestartRsp(
 }
 
 func (p *CommandProcessor) processAddressTranslatorRestartRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.ControlMsg,
 ) bool {
 	p.numAddrTranslationRestartAck--
@@ -662,7 +662,7 @@ func (p *CommandProcessor) processAddressTranslatorRestartRsp(
 }
 
 func (p *CommandProcessor) processCUPipelineRestartRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *protocol.CUPipelineRestartRsp,
 ) bool {
 	p.numCUAck--
@@ -678,7 +678,7 @@ func (p *CommandProcessor) processCUPipelineRestartRsp(
 }
 
 func (p *CommandProcessor) processPageMigrationReq(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	cmd *protocol.PageMigrationReqToCP,
 ) bool {
 	req := pagemigrationcontroller.PageMigrationReqToPMCBuilder{}.
@@ -698,7 +698,7 @@ func (p *CommandProcessor) processPageMigrationReq(
 }
 
 func (p *CommandProcessor) processPageMigrationRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *pagemigrationcontroller.PageMigrationRspFromPMC,
 ) bool {
 	req := protocol.NewPageMigrationRspToDriver(now, p.ToDriver, p.Driver)
@@ -711,7 +711,7 @@ func (p *CommandProcessor) processPageMigrationRsp(
 }
 
 func (p *CommandProcessor) processFlushCommand(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	cmd *protocol.FlushCommand,
 ) bool {
 	if p.numCacheACK > 0 {
@@ -747,7 +747,7 @@ func (p *CommandProcessor) processFlushCommand(
 	return true
 }
 
-func (p *CommandProcessor) flushCache(now akita.VTimeInSec, port akita.Port) {
+func (p *CommandProcessor) flushCache(now sim.VTimeInSec, port sim.Port) {
 	flushReq := cache.FlushReqBuilder{}.
 		WithSendTime(now).
 		WithSrc(p.ToCaches).
@@ -761,7 +761,7 @@ func (p *CommandProcessor) cloneMemCopyH2DReq(
 	req *protocol.MemCopyH2DReq,
 ) *protocol.MemCopyH2DReq {
 	cloned := *req
-	cloned.ID = akita.GetIDGenerator().Generate()
+	cloned.ID = sim.GetIDGenerator().Generate()
 	p.bottomMemCopyH2DReqIDToTopReqMap[cloned.ID] = req
 	return &cloned
 }
@@ -770,16 +770,16 @@ func (p *CommandProcessor) cloneMemCopyD2HReq(
 	req *protocol.MemCopyD2HReq,
 ) *protocol.MemCopyD2HReq {
 	cloned := *req
-	cloned.ID = akita.GetIDGenerator().Generate()
+	cloned.ID = sim.GetIDGenerator().Generate()
 	p.bottomMemCopyD2HReqIDToTopReqMap[cloned.ID] = req
 	return &cloned
 }
 
 func (p *CommandProcessor) processMemCopyReq(
-	now akita.VTimeInSec,
-	req akita.Msg,
+	now sim.VTimeInSec,
+	req sim.Msg,
 ) bool {
-	var cloned akita.Msg
+	var cloned sim.Msg
 	switch req := req.(type) {
 	case *protocol.MemCopyH2DReq:
 		cloned = p.cloneMemCopyH2DReq(req)
@@ -803,8 +803,8 @@ func (p *CommandProcessor) processMemCopyReq(
 }
 
 func (p *CommandProcessor) findAndRemoveOriginalMemCopyRequest(
-	rsp akita.Msg,
-) akita.Msg {
+	rsp sim.Msg,
+) sim.Msg {
 	switch rsp := rsp.(type) {
 	case *protocol.MemCopyH2DReq:
 		origionalReq := p.bottomMemCopyH2DReqIDToTopReqMap[rsp.ID]
@@ -820,8 +820,8 @@ func (p *CommandProcessor) findAndRemoveOriginalMemCopyRequest(
 }
 
 func (p *CommandProcessor) processMemCopyRsp(
-	now akita.VTimeInSec,
-	req akita.Msg,
+	now sim.VTimeInSec,
+	req sim.Msg,
 ) bool {
 	originalReq := p.findAndRemoveOriginalMemCopyRequest(req)
 	originalReq.Meta().Dst = p.Driver

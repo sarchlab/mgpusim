@@ -4,11 +4,11 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 var _ = Describe("Directory", func() {
@@ -35,15 +35,15 @@ var _ = Describe("Directory", func() {
 		lowModuleFinder = NewMockLowModuleFinder(mockCtrl)
 		c = &Cache{
 			log2BlockSize:    6,
-			BottomPort:       bottomPort,
+			bottomPort:       bottomPort,
 			directory:        dir,
 			dirBuf:           inBuf,
 			lowModuleFinder:  lowModuleFinder,
 			mshr:             mshr,
 			wayAssociativity: 4,
-			bankBufs:         []util.Buffer{bankBuf},
+			bankBufs:         []buffering.Buffer{bankBuf},
 		}
-		c.TickingComponent = akita.NewTickingComponent(
+		c.TickingComponent = sim.NewTickingComponent(
 			"cache", nil, 1, c)
 		d = &directory{cache: c}
 	})
@@ -238,7 +238,7 @@ var _ = Describe("Directory", func() {
 			dir.EXPECT().FindVictim(uint64(0x100)).Return(block)
 			lowModuleFinder.EXPECT().Find(uint64(0x100)).Return(nil)
 			mshr.EXPECT().IsFull().Return(false)
-			bottomPort.EXPECT().Send(gomock.Any()).Return(&akita.SendError{})
+			bottomPort.EXPECT().Send(gomock.Any()).Return(&sim.SendError{})
 
 			madeProgress := d.Tick(10)
 
@@ -376,7 +376,7 @@ var _ = Describe("Directory", func() {
 			dir.EXPECT().Lookup(ca.PID(1), uint64(0x100)).Return(block)
 			bankBuf.EXPECT().CanPush().Return(true)
 			lowModuleFinder.EXPECT().Find(uint64(0x104))
-			bottomPort.EXPECT().Send(gomock.Any()).Return(&akita.SendError{})
+			bottomPort.EXPECT().Send(gomock.Any()).Return(&sim.SendError{})
 
 			madeProgress := d.Tick(10)
 

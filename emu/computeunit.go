@@ -7,17 +7,17 @@ import (
 
 	"encoding/binary"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
 )
 
 type emulationEvent struct {
-	*akita.EventBase
+	*sim.EventBase
 }
 
 // A ComputeUnit in the emu package is a component that omit the pipeline design
@@ -26,32 +26,32 @@ type emulationEvent struct {
 //     ToDispatcher <=> The port that connect the CU with the dispatcher
 //
 type ComputeUnit struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
 	storageAccessor    *storageAccessor
 
-	nextTick    akita.VTimeInSec
+	nextTick    sim.VTimeInSec
 	queueingWGs []*protocol.MapWGReq
 	wfs         map[*kernels.WorkGroup][]*Wavefront
 	LDSStorage  []byte
 
 	GlobalMemStorage *mem.Storage
 
-	ToDispatcher akita.Port
+	ToDispatcher sim.Port
 }
 
 // ControlPort returns the port that can receive controlling messages from the
 // Command Processor.
-func (cu *ComputeUnit) ControlPort() akita.Port {
+func (cu *ComputeUnit) ControlPort() sim.Port {
 	return cu.ToDispatcher
 }
 
 // DispatchingPort returns the port that the dispatcher can use to dispatch
 // work-groups to the CU.
-func (cu *ComputeUnit) DispatchingPort() akita.Port {
+func (cu *ComputeUnit) DispatchingPort() sim.Port {
 	return cu.ToDispatcher
 }
 
@@ -78,11 +78,11 @@ func (cu *ComputeUnit) LDSBytes() int {
 }
 
 // Handle defines the behavior on event scheduled on the ComputeUnit
-func (cu *ComputeUnit) Handle(evt akita.Event) error {
+func (cu *ComputeUnit) Handle(evt sim.Event) error {
 	cu.Lock()
 
 	switch evt := evt.(type) {
-	case akita.TickEvent:
+	case sim.TickEvent:
 		cu.TickingComponent.Handle(evt)
 	case *emulationEvent:
 		cu.runEmulation(evt)
@@ -98,12 +98,12 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 }
 
 // Tick ticks
-func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) Tick(now sim.VTimeInSec) bool {
 	cu.processMapWGReq(now)
 	return false
 }
 
-func (cu *ComputeUnit) processMapWGReq(now akita.VTimeInSec) {
+func (cu *ComputeUnit) processMapWGReq(now sim.VTimeInSec) {
 	msg := cu.ToDispatcher.Retrieve(now)
 	if msg == nil {
 		return
@@ -112,10 +112,10 @@ func (cu *ComputeUnit) processMapWGReq(now akita.VTimeInSec) {
 	req := msg.(*protocol.MapWGReq)
 
 	if cu.nextTick <= now {
-		cu.nextTick = akita.VTimeInSec(math.Ceil(float64(now)))
+		cu.nextTick = sim.VTimeInSec(math.Ceil(float64(now)))
 		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
 		evt := &emulationEvent{
-			akita.NewEventBase(cu.nextTick, cu),
+			sim.NewEventBase(cu.nextTick, cu),
 		}
 		cu.Engine.Schedule(evt)
 	}
@@ -135,7 +135,7 @@ func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
 
 func (cu *ComputeUnit) runWG(
 	req *protocol.MapWGReq,
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) error {
 	wg := req.WorkGroup
 	cu.initWfs(wg, req)
@@ -340,7 +340,7 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 }
 
 func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
-	ctx := akita.HookCtx{
+	ctx := sim.HookCtx{
 		Domain: cu,
 		Now:    0,
 		Item:   wf,
@@ -390,15 +390,15 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 // NewComputeUnit creates a new ComputeUnit with the given name
 func NewComputeUnit(
 	name string,
-	engine akita.Engine,
+	engine sim.Engine,
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
 	sAccessor *storageAccessor,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
-	cu.TickingComponent = akita.NewTickingComponent(name,
-		engine, 1*akita.GHz, cu)
+	cu.TickingComponent = sim.NewTickingComponent(name,
+		engine, 1*sim.GHz, cu)
 
 	cu.decoder = decoder
 	cu.scratchpadPreparer = scratchpadPreparer
@@ -408,7 +408,7 @@ func NewComputeUnit(
 	cu.queueingWGs = make([]*protocol.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
-	cu.ToDispatcher = akita.NewLimitNumMsgPort(cu, 1, name+".ToDispatcher")
+	cu.ToDispatcher = sim.NewLimitNumMsgPort(cu, 1, name+".ToDispatcher")
 
 	return cu
 }
@@ -416,7 +416,7 @@ func NewComputeUnit(
 // BuildComputeUnit build a compute unit
 func BuildComputeUnit(
 	name string,
-	engine akita.Engine,
+	engine sim.Engine,
 	decoder Decoder,
 	pageTable vm.PageTable,
 	log2PageSize uint64,

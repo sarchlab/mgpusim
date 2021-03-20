@@ -6,13 +6,13 @@ import (
 	"log"
 
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
 )
 
 // ISADebugger is a hook that hooks to a emulator computeunit for each intruction
 type ISADebugger struct {
-	akita.LogHookBase
+	sim.LogHookBase
 
 	isFirstEntry bool
 	// prevWf *Wavefront
@@ -31,7 +31,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 }
 
 // Func defines the behavior of the tracer when the tracer is invoked.
-func (h *ISADebugger) Func(ctx akita.HookCtx) {
+func (h *ISADebugger) Func(ctx sim.HookCtx) {
 	wf, ok := ctx.Item.(*Wavefront)
 	if !ok {
 		return

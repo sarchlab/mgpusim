@@ -3,8 +3,8 @@ package cu
 import (
 	"math"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 // A FetchArbiter can decide which wavefront in a scheduler can fetch
@@ -19,7 +19,7 @@ func (a *FetchArbiter) Arbitrate(
 ) []*wavefront.Wavefront {
 	list := make([]*wavefront.Wavefront, 0, 1)
 
-	oldestTime := akita.VTimeInSec(math.MaxFloat64)
+	oldestTime := sim.VTimeInSec(math.MaxFloat64)
 	var toFetch *wavefront.Wavefront
 	for _, wfPool := range wfPools {
 		for _, wf := range wfPool.wfs {

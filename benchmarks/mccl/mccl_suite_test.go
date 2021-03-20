@@ -9,5 +9,5 @@ import (
 
 func TestLayers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mccl Suite")
+	RunSpecs(t, "MCCL Suite")
 }

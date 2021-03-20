@@ -1,23 +1,23 @@
 package emu
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/protocol"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/protocol"
 )
 
 // WGCompleteEvent is an event that marks the completion of a work-group
 type WGCompleteEvent struct {
-	*akita.EventBase
+	*sim.EventBase
 
 	Req *protocol.MapWGReq
 }
 
 // NewWGCompleteEvent returns a newly constructed WGCompleteEvent
-func NewWGCompleteEvent(t akita.VTimeInSec, handler akita.Handler,
+func NewWGCompleteEvent(t sim.VTimeInSec, handler sim.Handler,
 	req *protocol.MapWGReq,
 ) *WGCompleteEvent {
 	e := new(WGCompleteEvent)
-	e.EventBase = akita.NewEventBase(t, handler)
+	e.EventBase = sim.NewEventBase(t, handler)
 	e.Req = req
 	return e
 }

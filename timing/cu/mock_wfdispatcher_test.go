@@ -5,43 +5,44 @@
 package cu
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	akita "gitlab.com/akita/akita"
-	protocol "gitlab.com/akita/mgpusim/protocol"
-	wavefront "gitlab.com/akita/mgpusim/timing/wavefront"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	sim "gitlab.com/akita/akita/v2/sim"
+	protocol "gitlab.com/akita/mgpusim/v2/protocol"
+	wavefront "gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
-// MockWfDispatcher is a mock of WfDispatcher interface
+// MockWfDispatcher is a mock of WfDispatcher interface.
 type MockWfDispatcher struct {
 	ctrl     *gomock.Controller
 	recorder *MockWfDispatcherMockRecorder
 }
 
-// MockWfDispatcherMockRecorder is the mock recorder for MockWfDispatcher
+// MockWfDispatcherMockRecorder is the mock recorder for MockWfDispatcher.
 type MockWfDispatcherMockRecorder struct {
 	mock *MockWfDispatcher
 }
 
-// NewMockWfDispatcher creates a new mock instance
+// NewMockWfDispatcher creates a new mock instance.
 func NewMockWfDispatcher(ctrl *gomock.Controller) *MockWfDispatcher {
 	mock := &MockWfDispatcher{ctrl: ctrl}
 	mock.recorder = &MockWfDispatcherMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWfDispatcher) EXPECT() *MockWfDispatcherMockRecorder {
 	return m.recorder
 }
 
-// DispatchWf mocks base method
-func (m *MockWfDispatcher) DispatchWf(now akita.VTimeInSec, wf *wavefront.Wavefront, location protocol.WfDispatchLocation) {
+// DispatchWf mocks base method.
+func (m *MockWfDispatcher) DispatchWf(now sim.VTimeInSec, wf *wavefront.Wavefront, location protocol.WfDispatchLocation) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "DispatchWf", now, wf, location)
 }
 
-// DispatchWf indicates an expected call of DispatchWf
+// DispatchWf indicates an expected call of DispatchWf.
 func (mr *MockWfDispatcherMockRecorder) DispatchWf(now, wf, location interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DispatchWf", reflect.TypeOf((*MockWfDispatcher)(nil).DispatchWf), now, wf, location)

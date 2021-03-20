@@ -1,24 +1,24 @@
-package platform
+package runner
 
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/gpubuilder"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mgpusim/v2/driver"
 )
 
 // EmuBuilder can build a platform for emulation purposes.
 type EmuBuilder struct {
-	useParallelEngine  bool
-	debugISA           bool
-	traceVis           bool
-	traceMem           bool
-	numGPU             int
-	log2PageSize       uint64
-	disableProgressBar bool
+	useParallelEngine bool
+	debugISA          bool
+	traceVis          bool
+	traceMem          bool
+	numGPU            int
+	log2PageSize      uint64
+
+	gpus []*GPU
 }
 
 // MakeEmuBuilder creates a EmuBuilder with default parameters.
@@ -60,12 +60,6 @@ func (b EmuBuilder) WithNumGPU(n int) EmuBuilder {
 	return b
 }
 
-// WithoutProgressBar disables the progress bar for kernel execution
-func (b EmuBuilder) WithoutProgressBar() EmuBuilder {
-	b.disableProgressBar = true
-	return b
-}
-
 // WithLog2PageSize sets the page size as a power of 2.
 func (b EmuBuilder) WithLog2PageSize(n uint64) EmuBuilder {
 	b.log2PageSize = n
@@ -73,21 +67,21 @@ func (b EmuBuilder) WithLog2PageSize(n uint64) EmuBuilder {
 }
 
 // Build builds a emulation platform.
-func (b EmuBuilder) Build() (akita.Engine, *driver.Driver) {
-	var engine akita.Engine
+func (b EmuBuilder) Build() *Platform {
+	var engine sim.Engine
 	if b.useParallelEngine {
-		engine = akita.NewParallelEngine()
+		engine = sim.NewParallelEngine()
 	} else {
-		engine = akita.NewSerialEngine()
+		engine = sim.NewSerialEngine()
 	}
-	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(sim.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
-	connection := akita.NewDirectConnection("ExternalConn", engine, 1*akita.GHz)
+	connection := sim.NewDirectConnection("ExternalConn", engine, 1*sim.GHz)
 	storage := mem.NewStorage(uint64(b.numGPU+1) * 4 * mem.GB)
 
-	gpuBuilder := gpubuilder.MakeEmuGPUBuilder().
+	gpuBuilder := MakeEmuGPUBuilder().
 		WithEngine(engine).
 		WithDriver(gpuDriver).
 		WithPageTable(pageTable).
@@ -103,20 +97,23 @@ func (b EmuBuilder) Build() (akita.Engine, *driver.Driver) {
 		gpuBuilder = gpuBuilder.WithMemTracing()
 	}
 
-	if b.disableProgressBar {
-		gpuBuilder = gpuBuilder.WithoutProgressBar()
-	}
-
 	for i := 0; i < b.numGPU; i++ {
 		gpu := gpuBuilder.
 			WithMemOffset(uint64(i+1) * 4 * mem.GB).
 			Build(fmt.Sprintf("GPU_%d", i+1))
 
-		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-		connection.PlugIn(gpu.CommandProcessor.ToDriver, 64)
+		cpPort := gpu.Domain.GetPortByName("CommandProcessor")
+		gpuDriver.RegisterGPU(cpPort, 4*mem.GB)
+		connection.PlugIn(cpPort, 64)
+
+		b.gpus = append(b.gpus, gpu)
 	}
 
-	connection.PlugIn(gpuDriver.ToGPUs, 4)
+	connection.PlugIn(gpuDriver.GetPortByName("GPU"), 4)
 
-	return engine, gpuDriver
+	return &Platform{
+		Engine: engine,
+		Driver: gpuDriver,
+		GPUs:   b.gpus,
+	}
 }

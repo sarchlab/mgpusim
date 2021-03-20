@@ -4,9 +4,9 @@ import (
 	"flag"
 	"math/rand"
 
-	"gitlab.com/akita/mgpusim/benchmarks/dnn/lenet"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/lenet"
 
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var epochFlag = flag.Int("epoch", 1, "Number of epoch to run.")
@@ -27,7 +27,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := lenet.NewBenchmark(runner.GPUDriver)
+	benchmark := lenet.NewBenchmark(runner.Driver())
 	benchmark.Epoch = *epochFlag
 	benchmark.MaxBatchPerEpoch = *maxBatchPerEpochFlag
 	benchmark.BatchSize = *batchSizeFlag

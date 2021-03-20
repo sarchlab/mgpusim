@@ -1,49 +1,49 @@
 package pagemigrationcontroller
 
 import (
-	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/v2/sim"
 )
 
 // A PageMigrationReqToPMC asks the local GPU PMC to transfer a given page from another GPU PMC
 type PageMigrationReqToPMC struct {
-	akita.MsgMeta
+	sim.MsgMeta
 	ToReadFromPhysicalAddress uint64
 	ToWriteToPhysicalAddress  uint64
-	PMCPortOfRemoteGPU        akita.Port
+	PMCPortOfRemoteGPU        sim.Port
 	PageSize                  uint64
 }
 
 // Meta returns the meta data associated with the message.
-func (r *PageMigrationReqToPMC) Meta() *akita.MsgMeta {
+func (r *PageMigrationReqToPMC) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
 // PageMigrationReqToPMCBuilder can build new PMC mgiration requests
 type PageMigrationReqToPMCBuilder struct {
-	sendTime             akita.VTimeInSec
-	src, dst             akita.Port
+	sendTime             sim.VTimeInSec
+	src, dst             sim.Port
 	ToReadFromPhyAddress uint64
 	ToWriteToPhyAddress  uint64
-	PMCPortOfRemoteGPU   akita.Port
+	PMCPortOfRemoteGPU   sim.Port
 	PageSize             uint64
 }
 
 // WithSendTime sets the send time of the request to build.:w
 func (b PageMigrationReqToPMCBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) PageMigrationReqToPMCBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b PageMigrationReqToPMCBuilder) WithSrc(src akita.Port) PageMigrationReqToPMCBuilder {
+func (b PageMigrationReqToPMCBuilder) WithSrc(src sim.Port) PageMigrationReqToPMCBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b PageMigrationReqToPMCBuilder) WithDst(dst akita.Port) PageMigrationReqToPMCBuilder {
+func (b PageMigrationReqToPMCBuilder) WithDst(dst sim.Port) PageMigrationReqToPMCBuilder {
 	b.dst = dst
 	return b
 }
@@ -68,7 +68,7 @@ func (b PageMigrationReqToPMCBuilder) WithPageSize(pageSize uint64) PageMigratio
 
 // WithPMCPortOfRemoteGPU sets the page size.
 func (b PageMigrationReqToPMCBuilder) WithPMCPortOfRemoteGPU(
-	pmcPortOfRemoteGPU akita.Port,
+	pmcPortOfRemoteGPU sim.Port,
 ) PageMigrationReqToPMCBuilder {
 	b.PMCPortOfRemoteGPU = pmcPortOfRemoteGPU
 	return b
@@ -77,7 +77,7 @@ func (b PageMigrationReqToPMCBuilder) WithPMCPortOfRemoteGPU(
 // Build creats a new PageMigrationReqToPMC
 func (b PageMigrationReqToPMCBuilder) Build() *PageMigrationReqToPMC {
 	r := &PageMigrationReqToPMC{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -90,36 +90,36 @@ func (b PageMigrationReqToPMCBuilder) Build() *PageMigrationReqToPMC {
 
 // A PageMigrationRspFromPMC notifies the PMC controlling device of page transfer completion
 type PageMigrationRspFromPMC struct {
-	akita.MsgMeta
+	sim.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (r *PageMigrationRspFromPMC) Meta() *akita.MsgMeta {
+func (r *PageMigrationRspFromPMC) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
 // PageMigrationRspFromPMCBuilder can build new PMC migration responses
 type PageMigrationRspFromPMCBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 }
 
 // WithSendTime sets the send time of the request to build.:w
 func (b PageMigrationRspFromPMCBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) PageMigrationRspFromPMCBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b PageMigrationRspFromPMCBuilder) WithSrc(src akita.Port) PageMigrationRspFromPMCBuilder {
+func (b PageMigrationRspFromPMCBuilder) WithSrc(src sim.Port) PageMigrationRspFromPMCBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b PageMigrationRspFromPMCBuilder) WithDst(dst akita.Port) PageMigrationRspFromPMCBuilder {
+func (b PageMigrationRspFromPMCBuilder) WithDst(dst sim.Port) PageMigrationRspFromPMCBuilder {
 	b.dst = dst
 	return b
 }
@@ -127,7 +127,7 @@ func (b PageMigrationRspFromPMCBuilder) WithDst(dst akita.Port) PageMigrationRsp
 // Build creats a new PageMigrationReqToPMC
 func (b PageMigrationRspFromPMCBuilder) Build() *PageMigrationRspFromPMC {
 	r := &PageMigrationRspFromPMC{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -137,40 +137,40 @@ func (b PageMigrationRspFromPMCBuilder) Build() *PageMigrationRspFromPMC {
 
 // A DataPullReq asks remote PMC that holds the page for a page
 type DataPullReq struct {
-	akita.MsgMeta
+	sim.MsgMeta
 	ToReadFromPhyAddress uint64
 	DataTransferSize     uint64
 }
 
 // Meta returns the meta data associated with the message.
-func (r *DataPullReq) Meta() *akita.MsgMeta {
+func (r *DataPullReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
 // DataPullReqBuilder can build new Data pull reqs
 type DataPullReqBuilder struct {
-	sendTime             akita.VTimeInSec
-	src, dst             akita.Port
+	sendTime             sim.VTimeInSec
+	src, dst             sim.Port
 	ToReadFromPhyAddress uint64
 	DataTransferSize     uint64
 }
 
 // WithSendTime sets the send time of the request to build.:w
 func (b DataPullReqBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) DataPullReqBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b DataPullReqBuilder) WithSrc(src akita.Port) DataPullReqBuilder {
+func (b DataPullReqBuilder) WithSrc(src sim.Port) DataPullReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullReqBuilder) WithDst(dst akita.Port) DataPullReqBuilder {
+func (b DataPullReqBuilder) WithDst(dst sim.Port) DataPullReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -190,7 +190,7 @@ func (b DataPullReqBuilder) WithDataTransferSize(dataTransferSize uint64) DataPu
 // Build creats a new DataPullReq
 func (b DataPullReqBuilder) Build() *DataPullReq {
 	r := &DataPullReq{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -203,38 +203,38 @@ func (b DataPullReqBuilder) Build() *DataPullReq {
 
 // A DataPullRsp returns requested data
 type DataPullRsp struct {
-	akita.MsgMeta
+	sim.MsgMeta
 	Data []byte
 }
 
 // Meta returns the meta data associated with the message.
-func (r *DataPullRsp) Meta() *akita.MsgMeta {
+func (r *DataPullRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
 // DataPullRspBuilder can build new Data pull rsps
 type DataPullRspBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 	Data     []byte
 }
 
 // WithSendTime sets the send time of the request to build
 func (b DataPullRspBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) DataPullRspBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b DataPullRspBuilder) WithSrc(src akita.Port) DataPullRspBuilder {
+func (b DataPullRspBuilder) WithSrc(src sim.Port) DataPullRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullRspBuilder) WithDst(dst akita.Port) DataPullRspBuilder {
+func (b DataPullRspBuilder) WithDst(dst sim.Port) DataPullRspBuilder {
 	b.dst = dst
 	return b
 }
@@ -248,7 +248,7 @@ func (b DataPullRspBuilder) WithData(Data []byte) DataPullRspBuilder {
 // Build creats a new DataPullRsp
 func (b DataPullRspBuilder) Build() *DataPullRsp {
 	r := &DataPullRsp{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime

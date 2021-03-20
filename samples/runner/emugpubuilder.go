@@ -1,50 +1,47 @@
-package gpubuilder
+package runner
 
 import (
 	"fmt"
 	"log"
 	"os"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/idealmemcontroller"
-	memtraces "gitlab.com/akita/mem/trace"
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mgpusim"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/cp"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
+	"gitlab.com/akita/mem/v2/mem"
+	memtraces "gitlab.com/akita/mem/v2/trace"
+	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/timing/cp"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
 type EmuGPUBuilder struct {
-	engine           akita.Engine
-	freq             akita.Freq
+	engine           sim.Engine
+	freq             sim.Freq
 	driver           *driver.Driver
 	pageTable        vm.PageTable
 	log2PageSize     uint64
 	memOffset        uint64
 	memCapacity      uint64
 	gpuName          string
-	gpu              *mgpusim.GPU
+	gpu              *sim.Domain
 	storage          *mem.Storage
 	commandProcessor *cp.CommandProcessor
 	gpuMem           *idealmemcontroller.Comp
 	dmaEngine        *cp.DMAEngine
 	computeUnits     []*emu.ComputeUnit
 
-	enableISADebug     bool
-	enableMemTracing   bool
-	disableProgressBar bool
+	enableISADebug   bool
+	enableMemTracing bool
 }
 
 // MakeEmuGPUBuilder creates a new EmuGPUBuilder
 func MakeEmuGPUBuilder() EmuGPUBuilder {
 	b := EmuGPUBuilder{}
-	b.freq = 1 * akita.GHz
+	b.freq = 1 * sim.GHz
 	b.log2PageSize = 12
 
 	b.enableISADebug = false
@@ -52,7 +49,7 @@ func MakeEmuGPUBuilder() EmuGPUBuilder {
 }
 
 // WithEngine sets the engine that the emulator GPUs to use
-func (b EmuGPUBuilder) WithEngine(e akita.Engine) EmuGPUBuilder {
+func (b EmuGPUBuilder) WithEngine(e sim.Engine) EmuGPUBuilder {
 	b.engine = e
 	return b
 }
@@ -106,21 +103,24 @@ func (b EmuGPUBuilder) WithMemTracing() EmuGPUBuilder {
 	return b
 }
 
-// WithoutProgressBar will disable the progress bar for kernel execution.
-func (b EmuGPUBuilder) WithoutProgressBar() EmuGPUBuilder {
-	b.disableProgressBar = true
-	return b
-}
-
 // Build creates a very simple GPU for emulation purposes
-func (b EmuGPUBuilder) Build(name string) *mgpusim.GPU {
+func (b EmuGPUBuilder) Build(name string) *GPU {
 	b.clear()
 	b.gpuName = name
 	b.buildMemory()
 	b.buildComputeUnits()
 	b.buildGPU()
 	b.connectInternalComponents()
-	return b.gpu
+	b.populateExternalPorts()
+
+	return &GPU{
+		Domain:           b.gpu,
+		CommandProcessor: b.commandProcessor,
+	}
+}
+
+func (b *EmuGPUBuilder) populateExternalPorts() {
+	b.gpu.AddPort("CommandProcessor", b.commandProcessor.ToDriver)
 }
 
 func (b *EmuGPUBuilder) clear() {
@@ -157,7 +157,7 @@ func (b *EmuGPUBuilder) buildComputeUnits() {
 func (b *EmuGPUBuilder) buildMemory() {
 	b.gpuMem = idealmemcontroller.New(
 		b.gpuName+".GlobalMem", b.engine, b.memCapacity)
-	b.gpuMem.Freq = 1 * akita.GHz
+	b.gpuMem.Freq = 1 * sim.GHz
 	b.gpuMem.Latency = 1
 	b.gpuMem.Storage = b.storage
 
@@ -172,31 +172,28 @@ func (b *EmuGPUBuilder) buildMemory() {
 func (b *EmuGPUBuilder) buildGPU() {
 	b.commandProcessor = cp.MakeBuilder().
 		WithEngine(b.engine).
-		WithFreq(1 * akita.GHz).
+		WithFreq(1 * sim.GHz).
 		Build(b.gpuName + ".CommandProcessor")
 
-	b.gpu = mgpusim.NewGPU(b.gpuName)
-	b.gpu.CommandProcessor = b.commandProcessor
-	b.commandProcessor.Driver = b.driver.ToGPUs
-	b.gpu.Storage = b.storage
+	b.gpu = sim.NewDomain(b.gpuName)
+	b.commandProcessor.Driver = b.driver.GetPortByName("GPU")
 
-	localDataSource := new(cache.SingleLowModuleFinder)
-	localDataSource.LowModule = b.gpuMem.ToTop
+	localDataSource := new(mem.SingleLowModuleFinder)
+	localDataSource.LowModule = b.gpuMem.GetPortByName("Top")
 	b.dmaEngine = cp.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.gpuName), b.engine, localDataSource)
 	b.commandProcessor.DMAEngine = b.dmaEngine.ToCP
 }
 
 func (b *EmuGPUBuilder) connectInternalComponents() {
-	connection := akita.NewDirectConnection(
-		"InterGPUConn", b.engine, 1*akita.GHz)
-	b.gpu.InternalConnection = connection
+	connection := sim.NewDirectConnection(
+		"InterGPUConn", b.engine, 1*sim.GHz)
 
 	connection.PlugIn(b.commandProcessor.ToDriver, 1)
 	connection.PlugIn(b.commandProcessor.ToDMA, 1)
 	connection.PlugIn(b.commandProcessor.ToCUs, 1)
-	connection.PlugIn(b.driver.ToGPUs, 1)
-	connection.PlugIn(b.gpuMem.ToTop, 1)
+	connection.PlugIn(b.driver.GetPortByName("GPU"), 1)
+	connection.PlugIn(b.gpuMem.GetPortByName("Top"), 1)
 	connection.PlugIn(b.dmaEngine.ToCP, 1)
 	connection.PlugIn(b.dmaEngine.ToMem, 1)
 

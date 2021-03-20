@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // EnqueueLaunchKernel schedules kernel to be launched later
@@ -102,7 +102,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 	dPacket GPUPtr,
 ) {
 	cmd := &LaunchKernelCommand{
-		ID:         akita.GetIDGenerator().Generate(),
+		ID:         sim.GetIDGenerator().Generate(),
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,

@@ -3,13 +3,13 @@ package rob
 import (
 	"container/list"
 
-	"gitlab.com/akita/akita"
+	"gitlab.com/akita/akita/v2/sim"
 )
 
 // A Builder can build ReorderBuffers.
 type Builder struct {
-	engine         akita.Engine
-	freq           akita.Freq
+	engine         sim.Engine
+	freq           sim.Freq
 	numReqPerCycle int
 	bufferSize     int
 }
@@ -17,20 +17,20 @@ type Builder struct {
 // MakeBuilder creates a builder with default parameters.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:           1 * akita.GHz,
+		freq:           1 * sim.GHz,
 		numReqPerCycle: 4,
 		bufferSize:     128,
 	}
 }
 
 // WithEngine sets the engine to use.
-func (b Builder) WithEngine(engine akita.Engine) Builder {
+func (b Builder) WithEngine(engine sim.Engine) Builder {
 	b.engine = engine
 	return b
 }
 
 // WithFreq sets the frequency that the ReorderBuffer works at.
-func (b Builder) WithFreq(freq akita.Freq) Builder {
+func (b Builder) WithFreq(freq sim.Freq) Builder {
 	b.freq = freq
 	return b
 }
@@ -52,7 +52,7 @@ func (b Builder) WithBufferSize(n int) Builder {
 func (b Builder) Build(name string) *ReorderBuffer {
 	rb := &ReorderBuffer{}
 
-	rb.TickingComponent = akita.NewTickingComponent(name, b.engine, b.freq, rb)
+	rb.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, rb)
 
 	rb.transactions = list.New()
 	rb.transactions.Init()
@@ -61,21 +61,30 @@ func (b Builder) Build(name string) *ReorderBuffer {
 	rb.bufferSize = b.bufferSize
 	rb.numReqPerCycle = b.numReqPerCycle
 
-	rb.TopPort = akita.NewLimitNumMsgPort(
+	b.createPorts(name, rb)
+
+	return rb
+}
+
+func (b *Builder) createPorts(name string, rb *ReorderBuffer) {
+	rb.topPort = sim.NewLimitNumMsgPort(
 		rb,
 		2*b.numReqPerCycle,
 		name+".TopPort",
 	)
-	rb.BottomPort = akita.NewLimitNumMsgPort(
+	rb.AddPort("Top", rb.topPort)
+
+	rb.bottomPort = sim.NewLimitNumMsgPort(
 		rb,
 		2*b.numReqPerCycle,
 		name+".BottomPort",
 	)
-	rb.ControlPort = akita.NewLimitNumMsgPort(
+	rb.AddPort("Bottom", rb.bottomPort)
+
+	rb.controlPort = sim.NewLimitNumMsgPort(
 		rb,
 		1,
 		name+".ControlPort",
 	)
-
-	return rb
+	rb.AddPort("Control", rb.controlPort)
 }

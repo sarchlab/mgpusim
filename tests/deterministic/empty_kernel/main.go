@@ -4,11 +4,11 @@ import (
 	"flag"
 	"log"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/tests/deterministic/runner"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 // KernelArgs defines kernel arguments
@@ -73,17 +73,17 @@ func (b *Benchmark) exec() {
 var numWfPerWGFlag = flag.Int("num-wf-per-wg", 1, "The number of wavefronts in each workgroup")
 var numWGFlag = flag.Int("num-wg", 1, "The number of workgroups in total")
 
-func run() akita.VTimeInSec {
+func run() sim.VTimeInSec {
 	runner := new(runner.Runner)
 	runner.Init()
 
 	benchmark := new(Benchmark)
-	benchmark.driver = runner.GPUDriver
+	benchmark.driver = runner.Driver()
 	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 
-	return runner.Engine.CurrentTime()
+	return runner.Engine().CurrentTime()
 }
 
 func main() {

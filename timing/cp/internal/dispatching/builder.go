@@ -1,12 +1,12 @@
 package dispatching
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/monitoring"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/timing/cp/internal/resource"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/monitoring"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A Builder can build dispatchers
@@ -14,8 +14,8 @@ type Builder struct {
 	cp              tracing.NamedHookable
 	cuResourcePool  resource.CUResourcePool
 	alg             string
-	respondingPort  akita.Port
-	dispatchingPort akita.Port
+	respondingPort  sim.Port
+	dispatchingPort sim.Port
 	monitor         *monitoring.Monitor
 }
 
@@ -42,13 +42,13 @@ func (b Builder) WithCUResourcePool(pool resource.CUResourcePool) Builder {
 
 // WithRespondingPort sets the port that the dispatcher can send WFCompleteMsg
 // to.
-func (b Builder) WithRespondingPort(p akita.Port) Builder {
+func (b Builder) WithRespondingPort(p sim.Port) Builder {
 	b.respondingPort = p
 	return b
 }
 
 // WithDispatchingPort sets the port that connects to the Compute Units.
-func (b Builder) WithDispatchingPort(p akita.Port) Builder {
+func (b Builder) WithDispatchingPort(p sim.Port) Builder {
 	b.dispatchingPort = p
 	return b
 }

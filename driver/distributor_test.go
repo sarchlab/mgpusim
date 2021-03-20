@@ -4,7 +4,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 var _ = ginkgo.Describe("Distributor", func() {
