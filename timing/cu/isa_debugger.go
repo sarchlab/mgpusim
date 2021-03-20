@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"log"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // ISADebugger is a logger hook that can dump the wavefront status after each
 // instruction execution
 type ISADebugger struct {
-	akita.LogHookBase
+	sim.LogHookBase
 	inflightInst map[string]tracing.Task
 }
 
@@ -27,7 +27,7 @@ func NewISADebugger(logger *log.Logger) *ISADebugger {
 
 // Func defines the action that the ISADebugger takes
 func (d *ISADebugger) Func(
-	ctx akita.HookCtx,
+	ctx sim.HookCtx,
 ) {
 	task, ok := ctx.Item.(tracing.Task)
 	if !ok {

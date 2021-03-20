@@ -5,9 +5,9 @@ import (
 	"log"
 	"math/rand"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 // Benchmark defines a benchmark
@@ -73,17 +73,17 @@ func (b *Benchmark) Verify() {
 	log.Printf("Passed!")
 }
 
-func run() akita.VTimeInSec {
+func run() sim.VTimeInSec {
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := NewBenchmark(runner.GPUDriver)
+	benchmark := NewBenchmark(runner.Driver())
 	benchmark.ByteSize = 1048576
 
 	runner.AddBenchmark(benchmark)
 
 	runner.Run()
 
-	return runner.Engine.CurrentTime()
+	return runner.Engine().CurrentTime()
 }
 
 func main() {

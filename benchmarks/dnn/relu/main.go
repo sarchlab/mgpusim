@@ -4,9 +4,9 @@ package relu
 import (
 	"log"
 
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // KernelArgs defines kernel arguments

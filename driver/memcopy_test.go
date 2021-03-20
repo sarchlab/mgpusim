@@ -3,8 +3,8 @@ package driver_test
 import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/platform"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var _ = ginkgo.Describe("Test Memory Copy D2", func() {
@@ -14,10 +14,11 @@ var _ = ginkgo.Describe("Test Memory Copy D2", func() {
 	)
 
 	ginkgo.BeforeEach(func() {
-		_, gpuDriver = platform.MakeEmuBuilder().
+
+		platform := runner.MakeEmuBuilder().
 			WithNumGPU(1).
-			WithoutProgressBar().
 			Build()
+		gpuDriver = platform.Driver
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 

@@ -1,13 +1,5 @@
 image: golang:latest
 
-cache:
-  paths:
-    - /apt-cache
-    - /go/src/github.com
-    - /go/src/golang.org
-    - /go/src/google.golang.org
-    - /go/src/gopkg.in
-
 stages:
   - build
   - test
@@ -24,15 +16,15 @@ go_build:
 lint:
   stage: build
   script:
-    - curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.26.0
+    - curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin
     - go build ./...
     - golangci-lint run ./...
 
 unit_test:
   stage: test
   script:
-    - go get github.com/onsi/ginkgo/ginkgo/outline@v1.15.0
-    - go install github.com/onsi/ginkgo/ginkgo
+    - go get -u github.com/onsi/ginkgo/ginkgo
+    - go build ./...
     - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
     - go test -coverprofile=cover.out ./...
     - go tool cover -func=cover.out > coverage.out
@@ -121,6 +113,7 @@ build_docker_image_master:
     - docker:dind
   only:
     - master
+    - v2
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
   script:

@@ -1,43 +1,43 @@
 package protocol
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 //A CUPipelineRestartReq is a message from CP to ask the CU pipeline to resume after a flush/drain
 type CUPipelineRestartReq struct {
-	akita.MsgMeta
+	sim.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (m *CUPipelineRestartReq) Meta() *akita.MsgMeta {
+func (m *CUPipelineRestartReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
 // CUPipelineRestartReqBuilder can build new CU restart reqs
 type CUPipelineRestartReqBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 }
 
 // WithSendTime sets the send time of the request to build.:w
 func (b CUPipelineRestartReqBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) CUPipelineRestartReqBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineRestartReqBuilder) WithSrc(src akita.Port) CUPipelineRestartReqBuilder {
+func (b CUPipelineRestartReqBuilder) WithSrc(src sim.Port) CUPipelineRestartReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineRestartReqBuilder) WithDst(dst akita.Port) CUPipelineRestartReqBuilder {
+func (b CUPipelineRestartReqBuilder) WithDst(dst sim.Port) CUPipelineRestartReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -45,7 +45,7 @@ func (b CUPipelineRestartReqBuilder) WithDst(dst akita.Port) CUPipelineRestartRe
 // Build creats a new CUPipelineRestartReq
 func (b CUPipelineRestartReqBuilder) Build() *CUPipelineRestartReq {
 	r := &CUPipelineRestartReq{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -54,36 +54,36 @@ func (b CUPipelineRestartReqBuilder) Build() *CUPipelineRestartReq {
 
 //A CUPipelineRestartRsp is a message from CU indicating the restart is complete
 type CUPipelineRestartRsp struct {
-	akita.MsgMeta
+	sim.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (m *CUPipelineRestartRsp) Meta() *akita.MsgMeta {
+func (m *CUPipelineRestartRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
 // CUPipelineRestartRspBuilder can build new CU restart reqs
 type CUPipelineRestartRspBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 }
 
 // WithSendTime sets the send time of the request to build.:w
 func (b CUPipelineRestartRspBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) CUPipelineRestartRspBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineRestartRspBuilder) WithSrc(src akita.Port) CUPipelineRestartRspBuilder {
+func (b CUPipelineRestartRspBuilder) WithSrc(src sim.Port) CUPipelineRestartRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineRestartRspBuilder) WithDst(dst akita.Port) CUPipelineRestartRspBuilder {
+func (b CUPipelineRestartRspBuilder) WithDst(dst sim.Port) CUPipelineRestartRspBuilder {
 	b.dst = dst
 	return b
 }
@@ -91,7 +91,7 @@ func (b CUPipelineRestartRspBuilder) WithDst(dst akita.Port) CUPipelineRestartRs
 // Build creats a new CUPipelineRestartRsp
 func (b CUPipelineRestartRspBuilder) Build() *CUPipelineRestartRsp {
 	r := &CUPipelineRestartRsp{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -100,36 +100,36 @@ func (b CUPipelineRestartRspBuilder) Build() *CUPipelineRestartRsp {
 
 //A CUPipelineFlushReq is a message from CP to ask the CU pipeline to flush
 type CUPipelineFlushReq struct {
-	akita.MsgMeta
+	sim.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (m *CUPipelineFlushReq) Meta() *akita.MsgMeta {
+func (m *CUPipelineFlushReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
 // CUPipelineFlushReqBuilder can build new CU flush reqs
 type CUPipelineFlushReqBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 }
 
 // WithSendTime sets the send time of the request to build.:w
 func (b CUPipelineFlushReqBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) CUPipelineFlushReqBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineFlushReqBuilder) WithSrc(src akita.Port) CUPipelineFlushReqBuilder {
+func (b CUPipelineFlushReqBuilder) WithSrc(src sim.Port) CUPipelineFlushReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineFlushReqBuilder) WithDst(dst akita.Port) CUPipelineFlushReqBuilder {
+func (b CUPipelineFlushReqBuilder) WithDst(dst sim.Port) CUPipelineFlushReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -137,7 +137,7 @@ func (b CUPipelineFlushReqBuilder) WithDst(dst akita.Port) CUPipelineFlushReqBui
 // Build creats a new CUPipelineFlushReq
 func (b CUPipelineFlushReqBuilder) Build() *CUPipelineFlushReq {
 	r := &CUPipelineFlushReq{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -146,36 +146,36 @@ func (b CUPipelineFlushReqBuilder) Build() *CUPipelineFlushReq {
 
 //A CUPipelineFlushRsp is a message from CU to CP indicating flush is complete
 type CUPipelineFlushRsp struct {
-	akita.MsgMeta
+	sim.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (m *CUPipelineFlushRsp) Meta() *akita.MsgMeta {
+func (m *CUPipelineFlushRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
 // CUPipelineFlushRspBuilder can build new CU flush rsps
 type CUPipelineFlushRspBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 }
 
 // WithSendTime sets the send time of the request to build.:w
 func (b CUPipelineFlushRspBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) CUPipelineFlushRspBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineFlushRspBuilder) WithSrc(src akita.Port) CUPipelineFlushRspBuilder {
+func (b CUPipelineFlushRspBuilder) WithSrc(src sim.Port) CUPipelineFlushRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineFlushRspBuilder) WithDst(dst akita.Port) CUPipelineFlushRspBuilder {
+func (b CUPipelineFlushRspBuilder) WithDst(dst sim.Port) CUPipelineFlushRspBuilder {
 	b.dst = dst
 	return b
 }
@@ -183,7 +183,7 @@ func (b CUPipelineFlushRspBuilder) WithDst(dst akita.Port) CUPipelineFlushRspBui
 // Build creates a new CUPipelineFlushRsp
 func (b CUPipelineFlushRspBuilder) Build() *CUPipelineFlushRsp {
 	r := &CUPipelineFlushRsp{}
-	r.ID = akita.GetIDGenerator().Generate()
+	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
 	r.SendTime = b.sendTime
@@ -202,40 +202,40 @@ type WfDispatchLocation struct {
 
 // MapWGReq is a request that dispatches a work-group to a compute unit.
 type MapWGReq struct {
-	akita.MsgMeta
+	sim.MsgMeta
 	WorkGroup  *kernels.WorkGroup
 	PID        ca.PID
 	Wavefronts []WfDispatchLocation
 }
 
 // Meta returns the meta data associated with the MapWGReq.
-func (r *MapWGReq) Meta() *akita.MsgMeta {
+func (r *MapWGReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
 // MapWGReqBuilder can build MapWGReqs.
 type MapWGReqBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 	pid      ca.PID
 	wg       *kernels.WorkGroup
 	wfs      []WfDispatchLocation
 }
 
 // WithSendTime sets the send time.
-func (b MapWGReqBuilder) WithSendTime(t akita.VTimeInSec) MapWGReqBuilder {
+func (b MapWGReqBuilder) WithSendTime(t sim.VTimeInSec) MapWGReqBuilder {
 	b.sendTime = t
 	return b
 }
 
 // WithSrc sets the source of the message.
-func (b MapWGReqBuilder) WithSrc(src akita.Port) MapWGReqBuilder {
+func (b MapWGReqBuilder) WithSrc(src sim.Port) MapWGReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the message.
-func (b MapWGReqBuilder) WithDst(dst akita.Port) MapWGReqBuilder {
+func (b MapWGReqBuilder) WithDst(dst sim.Port) MapWGReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -261,7 +261,7 @@ func (b MapWGReqBuilder) AddWf(wf WfDispatchLocation) MapWGReqBuilder {
 // Build creates the MapWGReq.
 func (b MapWGReqBuilder) Build() *MapWGReq {
 	r := &MapWGReq{}
-	r.Meta().ID = akita.GetIDGenerator().Generate()
+	r.Meta().ID = sim.GetIDGenerator().Generate()
 	r.Meta().SendTime = b.sendTime
 	r.Meta().Src = b.src
 	r.Meta().Dst = b.dst
@@ -274,25 +274,25 @@ func (b MapWGReqBuilder) Build() *MapWGReq {
 // WGCompletionMsg notifies the dispatcher that a work-group is completed
 // execution
 type WGCompletionMsg struct {
-	akita.MsgMeta
+	sim.MsgMeta
 	RspTo string
 }
 
 // Meta returns the meta data associated with the MapWGReq.
-func (r *WGCompletionMsg) Meta() *akita.MsgMeta {
+func (r *WGCompletionMsg) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
 // WGCompletionMsgBuilder can build MapWGReqs.
 type WGCompletionMsgBuilder struct {
-	sendTime akita.VTimeInSec
-	src, dst akita.Port
+	sendTime sim.VTimeInSec
+	src, dst sim.Port
 	rspTo    string
 }
 
 // WithSendTime sets the send time.
 func (b WGCompletionMsgBuilder) WithSendTime(
-	t akita.VTimeInSec,
+	t sim.VTimeInSec,
 ) WGCompletionMsgBuilder {
 	b.sendTime = t
 	return b
@@ -300,7 +300,7 @@ func (b WGCompletionMsgBuilder) WithSendTime(
 
 // WithSrc sets the source of the message.
 func (b WGCompletionMsgBuilder) WithSrc(
-	src akita.Port,
+	src sim.Port,
 ) WGCompletionMsgBuilder {
 	b.src = src
 	return b
@@ -308,7 +308,7 @@ func (b WGCompletionMsgBuilder) WithSrc(
 
 // WithDst sets the destination of the message.
 func (b WGCompletionMsgBuilder) WithDst(
-	dst akita.Port,
+	dst sim.Port,
 ) WGCompletionMsgBuilder {
 	b.dst = dst
 	return b
@@ -325,7 +325,7 @@ func (b WGCompletionMsgBuilder) WithRspTo(
 // Build builds WGCompletionMsg
 func (b WGCompletionMsgBuilder) Build() *WGCompletionMsg {
 	msg := &WGCompletionMsg{}
-	msg.Meta().ID = akita.GetIDGenerator().Generate()
+	msg.Meta().ID = sim.GetIDGenerator().Generate()
 	msg.Meta().SendTime = b.sendTime
 	msg.Meta().Src = b.src
 	msg.Meta().Dst = b.dst

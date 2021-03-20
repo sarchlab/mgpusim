@@ -1,16 +1,16 @@
 package driver
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // A Command is a task to execute later
 type Command interface {
 	GetID() string
-	GetReqs() []akita.Msg
-	RemoveReq(req akita.Msg)
+	GetReqs() []sim.Msg
+	RemoveReq(req sim.Msg)
 }
 
 // A MemCopyH2DCommand is a command that copies memory from the host to a
@@ -19,7 +19,7 @@ type MemCopyH2DCommand struct {
 	ID   string
 	Dst  GPUPtr
 	Src  interface{}
-	Reqs []akita.Msg
+	Reqs []sim.Msg
 }
 
 // GetID returns the ID of the command
@@ -28,13 +28,13 @@ func (c *MemCopyH2DCommand) GetID() string {
 }
 
 // GetReqs returns the requests associated with the command
-func (c *MemCopyH2DCommand) GetReqs() []akita.Msg {
+func (c *MemCopyH2DCommand) GetReqs() []sim.Msg {
 	return c.Reqs
 }
 
 // RemoveReq removes a request from the request list associated with the
 // command.
-func (c *MemCopyH2DCommand) RemoveReq(req akita.Msg) {
+func (c *MemCopyH2DCommand) RemoveReq(req sim.Msg) {
 	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
 }
 
@@ -45,7 +45,7 @@ type MemCopyD2HCommand struct {
 	Dst     interface{}
 	Src     GPUPtr
 	RawData []byte
-	Reqs    []akita.Msg
+	Reqs    []sim.Msg
 }
 
 // GetID returns the ID of the command
@@ -54,13 +54,13 @@ func (c *MemCopyD2HCommand) GetID() string {
 }
 
 // GetReqs returns the request associated with the command
-func (c *MemCopyD2HCommand) GetReqs() []akita.Msg {
+func (c *MemCopyD2HCommand) GetReqs() []sim.Msg {
 	return c.Reqs
 }
 
 // RemoveReq removes a request from the request list associated with the
 // command.
-func (c *MemCopyD2HCommand) RemoveReq(req akita.Msg) {
+func (c *MemCopyD2HCommand) RemoveReq(req sim.Msg) {
 	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
 }
 
@@ -74,7 +74,7 @@ type LaunchKernelCommand struct {
 	KernelArgs interface{}
 	Packet     *kernels.HsaKernelDispatchPacket
 	DPacket    GPUPtr
-	Reqs       []akita.Msg
+	Reqs       []sim.Msg
 }
 
 // GetID returns the ID of the command
@@ -83,20 +83,20 @@ func (c *LaunchKernelCommand) GetID() string {
 }
 
 // GetReqs returns the request associated with the command
-func (c *LaunchKernelCommand) GetReqs() []akita.Msg {
+func (c *LaunchKernelCommand) GetReqs() []sim.Msg {
 	return c.Reqs
 }
 
 // RemoveReq removes a request from the request list associated with the
 // command.
-func (c *LaunchKernelCommand) RemoveReq(req akita.Msg) {
+func (c *LaunchKernelCommand) RemoveReq(req sim.Msg) {
 	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
 }
 
 // A FlushCommand is a command triggers the GPU cache to flush
 type FlushCommand struct {
 	ID   string
-	Reqs []akita.Msg
+	Reqs []sim.Msg
 }
 
 // GetID returns the ID of the command
@@ -105,13 +105,13 @@ func (c *FlushCommand) GetID() string {
 }
 
 // GetReqs returns the request associated with the command
-func (c *FlushCommand) GetReqs() []akita.Msg {
+func (c *FlushCommand) GetReqs() []sim.Msg {
 	return c.Reqs
 }
 
 // RemoveReq removes a request from the request list associated with the
 // command.
-func (c *FlushCommand) RemoveReq(req akita.Msg) {
+func (c *FlushCommand) RemoveReq(req sim.Msg) {
 	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
 }
 
@@ -127,18 +127,18 @@ func (c *NoopCommand) GetID() string {
 }
 
 // GetReqs returns the request associated with the command
-func (c *NoopCommand) GetReqs() []akita.Msg {
+func (c *NoopCommand) GetReqs() []sim.Msg {
 	return nil
 }
 
 // RemoveReq removes a request from the request list associated with the
 // command.
-func (c *NoopCommand) RemoveReq(req akita.Msg) {
+func (c *NoopCommand) RemoveReq(req sim.Msg) {
 	// no action
 }
 
-func removeMsgFromMsgList(msg akita.Msg, msgs []akita.Msg) []akita.Msg {
-	newMsgs := make([]akita.Msg, 0, len(msgs)-1)
+func removeMsgFromMsgList(msg sim.Msg, msgs []sim.Msg) []sim.Msg {
+	newMsgs := make([]sim.Msg, 0, len(msgs)-1)
 	for _, m := range msgs {
 		if m != msg {
 			newMsgs = append(newMsgs, m)

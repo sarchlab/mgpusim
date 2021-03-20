@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	"gitlab.com/akita/mgpusim/benchmarks/heteromark/pagerank"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/pagerank"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var numNode = flag.Int("node", 16, "The number of nodes")
@@ -17,7 +17,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := pagerank.NewBenchmark(runner.GPUDriver)
+	benchmark := pagerank.NewBenchmark(runner.Driver())
 	benchmark.NumNodes = uint32(*numNode)
 
 	if *sparsity > 1 {

@@ -2,8 +2,8 @@
 package wavefront
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
 )
 
 // Inst in the timing package is a wrapper of the insts.Inst.
@@ -18,7 +18,7 @@ func NewInst(raw *insts.Inst) *Inst {
 	i := new(Inst)
 	i.Inst = raw
 
-	i.ID = akita.GetIDGenerator().Generate()
+	i.ID = sim.GetIDGenerator().Generate()
 
 	return i
 }

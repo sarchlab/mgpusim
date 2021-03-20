@@ -5,23 +5,22 @@ import (
 	"reflect"
 
 	"github.com/rs/xid"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/akitaext"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/util/v2/akitaext"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
 // simulation of a GCN3 ComputeUnit
 type ComputeUnit struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
 	WfDispatcher WfDispatcher
 	Decoder      emu.Decoder
@@ -51,18 +50,18 @@ type ComputeUnit struct {
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
 
-	InstMem          akita.Port
-	ScalarMem        akita.Port
-	VectorMemModules cache.LowModuleFinder
+	InstMem          sim.Port
+	ScalarMem        sim.Port
+	VectorMemModules mem.LowModuleFinder
 
-	ToACE       akita.Port
+	ToACE       sim.Port
 	toACESender akitaext.BufferedSender
-	ToInstMem   akita.Port
-	ToScalarMem akita.Port
-	ToVectorMem akita.Port
-	ToCP        akita.Port
+	ToInstMem   sim.Port
+	ToScalarMem sim.Port
+	ToVectorMem sim.Port
+	ToCP        sim.Port
 
-	inCPRequestProcessingStage akita.Msg
+	inCPRequestProcessingStage sim.Msg
 	cpRequestHandlingComplete  bool
 
 	isFlushing                   bool
@@ -70,18 +69,18 @@ type ComputeUnit struct {
 	isSendingOutShadowBufferReqs bool
 	isHandlingWfCompletionEvent  bool
 
-	toSendToCP akita.Msg
+	toSendToCP sim.Msg
 
 	currentFlushReq   *protocol.CUPipelineFlushReq
 	currentRestartReq *protocol.CUPipelineRestartReq
 }
 
 // Handle processes that events that are scheduled on the ComputeUnit
-func (cu *ComputeUnit) Handle(evt akita.Event) error {
-	ctx := akita.HookCtx{
+func (cu *ComputeUnit) Handle(evt sim.Event) error {
+	ctx := sim.HookCtx{
 		Domain: cu,
 		Now:    evt.Time(),
-		Pos:    akita.HookPosBeforeEvent,
+		Pos:    sim.HookPosBeforeEvent,
 		Item:   evt,
 	}
 	cu.InvokeHook(ctx)
@@ -90,7 +89,7 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 	defer cu.Unlock()
 
 	switch evt := evt.(type) {
-	case akita.TickEvent:
+	case sim.TickEvent:
 		cu.TickingComponent.Handle(evt)
 	case *WfCompletionEvent:
 		cu.handleWfCompletionEvent(evt)
@@ -99,7 +98,7 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 			reflect.TypeOf(evt))
 	}
 
-	ctx.Pos = akita.HookPosAfterEvent
+	ctx.Pos = sim.HookPosAfterEvent
 	cu.InvokeHook(ctx)
 
 	return nil
@@ -107,13 +106,13 @@ func (cu *ComputeUnit) Handle(evt akita.Event) error {
 
 // ControlPort returns the port that can receive controlling messages from the
 // Command Processor.
-func (cu *ComputeUnit) ControlPort() akita.Port {
+func (cu *ComputeUnit) ControlPort() sim.Port {
 	return cu.ToCP
 }
 
 // DispatchingPort returns the port that the dispatcher can use to dispatch
 // work-groups to the CU.
-func (cu *ComputeUnit) DispatchingPort() akita.Port {
+func (cu *ComputeUnit) DispatchingPort() sim.Port {
 	return cu.ToACE
 }
 
@@ -140,7 +139,7 @@ func (cu *ComputeUnit) LDSBytes() int {
 }
 
 // Tick ticks
-func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) Tick(now sim.VTimeInSec) bool {
 	cu.Lock()
 	defer cu.Unlock()
 
@@ -156,7 +155,7 @@ func (cu *ComputeUnit) Tick(now akita.VTimeInSec) bool {
 }
 
 //nolint:gocyclo
-func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) runPipeline(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	if !cu.isPaused {
@@ -177,7 +176,7 @@ func (cu *ComputeUnit) runPipeline(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (cu *ComputeUnit) doFlush(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) doFlush(now sim.VTimeInSec) bool {
 	madeProgress := false
 	if cu.isFlushing {
 		//If a flush request arrives before the shadow buffer requests have been sent out
@@ -194,7 +193,7 @@ func (cu *ComputeUnit) doFlush(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (cu *ComputeUnit) processInput(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) processInput(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	if !cu.isPaused || cu.isSendingOutShadowBufferReqs {
@@ -209,7 +208,7 @@ func (cu *ComputeUnit) processInput(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) processInputFromCP(now sim.VTimeInSec) bool {
 	req := cu.ToCP.Retrieve(now)
 	if req == nil {
 		return false
@@ -229,7 +228,7 @@ func (cu *ComputeUnit) processInputFromCP(now akita.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) handlePipelineFlushReq(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *protocol.CUPipelineFlushReq,
 ) error {
 	cu.isFlushing = true
@@ -239,7 +238,7 @@ func (cu *ComputeUnit) handlePipelineFlushReq(
 }
 
 func (cu *ComputeUnit) handlePipelineResume(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *protocol.CUPipelineRestartReq,
 ) error {
 	cu.isSendingOutShadowBufferReqs = true
@@ -259,7 +258,7 @@ func (cu *ComputeUnit) handlePipelineResume(
 	return nil
 }
 
-func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) sendToCP(now sim.VTimeInSec) bool {
 	if cu.toSendToCP == nil {
 		return false
 	}
@@ -274,11 +273,11 @@ func (cu *ComputeUnit) sendToCP(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (cu *ComputeUnit) sendToACE(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) sendToACE(now sim.VTimeInSec) bool {
 	return cu.toACESender.Tick(now)
 }
 
-func (cu *ComputeUnit) flushPipeline(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) flushPipeline(now sim.VTimeInSec) bool {
 	if cu.currentFlushReq == nil {
 		return false
 	}
@@ -327,7 +326,7 @@ func (cu *ComputeUnit) flushInternalComponents() {
 	cu.VectorMemUnit.Flush()
 }
 
-func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) processInputFromACE(now sim.VTimeInSec) bool {
 	req := cu.ToACE.Retrieve(now)
 	if req == nil {
 		return false
@@ -342,7 +341,7 @@ func (cu *ComputeUnit) processInputFromACE(now akita.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) handleMapWGReq(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *protocol.MapWGReq,
 ) bool {
 	wg := cu.wrapWG(req.WorkGroup, req)
@@ -471,7 +470,7 @@ func (cu *ComputeUnit) wrapWG(
 	return wg
 }
 
-func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) processInputFromInstMem(now sim.VTimeInSec) bool {
 	rsp := cu.ToInstMem.Retrieve(now)
 	if rsp == nil {
 		return false
@@ -488,7 +487,7 @@ func (cu *ComputeUnit) processInputFromInstMem(now akita.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) bool {
 	if len(cu.InFlightInstFetch) == 0 {
@@ -516,7 +515,7 @@ func (cu *ComputeUnit) handleFetchReturn(
 	return true
 }
 
-func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) processInputFromScalarMem(now sim.VTimeInSec) bool {
 	rsp := cu.ToScalarMem.Retrieve(now)
 	if rsp == nil {
 		return false
@@ -533,7 +532,7 @@ func (cu *ComputeUnit) processInputFromScalarMem(now akita.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
 	if len(cu.InFlightScalarMemAccess) == 0 {
@@ -569,7 +568,7 @@ func (cu *ComputeUnit) isLastRead(req *mem.ReadReq) bool {
 	return !req.CanWaitForCoalesce
 }
 
-func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) processInputFromVectorMem(now sim.VTimeInSec) bool {
 	rsp := cu.ToVectorMem.Retrieve(now)
 	if rsp == nil {
 		return false
@@ -590,7 +589,7 @@ func (cu *ComputeUnit) processInputFromVectorMem(now akita.VTimeInSec) bool {
 
 //nolint:gocyclo
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
 	if len(cu.InFlightVectorMemAccess) == 0 {
@@ -641,7 +640,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 }
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.WriteDoneRsp,
 ) {
 	if len(cu.InFlightVectorMemAccess) == 0 {
@@ -694,7 +693,7 @@ func (cu *ComputeUnit) flushCUBuffers() {
 }
 
 func (cu *ComputeUnit) logInstTask(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	wf *wavefront.Wavefront,
 	inst *wavefront.Inst,
 	completed bool,
@@ -760,7 +759,7 @@ func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() bool {
 	return true
 }
 
-func (cu *ComputeUnit) checkShadowBuffers(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) checkShadowBuffers(now sim.VTimeInSec) bool {
 	numReqsPendingToSend :=
 		len(cu.shadowInFlightScalarMemAccess) +
 			len(cu.shadowInFlightVectorMemAccess) +
@@ -776,7 +775,7 @@ func (cu *ComputeUnit) checkShadowBuffers(now akita.VTimeInSec) bool {
 	return cu.sendOutShadowBufferReqs(now)
 }
 
-func (cu *ComputeUnit) sendOutShadowBufferReqs(now akita.VTimeInSec) bool {
+func (cu *ComputeUnit) sendOutShadowBufferReqs(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = cu.sendScalarShadowBufferAccesses(now) || madeProgress
@@ -787,7 +786,7 @@ func (cu *ComputeUnit) sendOutShadowBufferReqs(now akita.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) sendScalarShadowBufferAccesses(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if len(cu.shadowInFlightScalarMemAccess) > 0 {
 		info := cu.shadowInFlightScalarMemAccess[0]
@@ -809,13 +808,13 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses(
 }
 
 func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if len(cu.shadowInFlightVectorMemAccess) > 0 {
 		info := cu.shadowInFlightVectorMemAccess[0]
 		if info.Read != nil {
 			req := info.Read
-			req.ID = akita.GetIDGenerator().Generate()
+			req.ID = sim.GetIDGenerator().Generate()
 			req.SendTime = now
 			err := cu.ToVectorMem.Send(req)
 			if err == nil {
@@ -826,7 +825,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
 			}
 		} else if info.Write != nil {
 			req := info.Write
-			req.ID = akita.GetIDGenerator().Generate()
+			req.ID = sim.GetIDGenerator().Generate()
 			req.SendTime = now
 			err := cu.ToVectorMem.Send(req)
 			if err == nil {
@@ -840,7 +839,7 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
 }
 
 func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if len(cu.shadowInFlightInstFetch) > 0 {
 		info := cu.shadowInFlightInstFetch[0]
@@ -888,19 +887,19 @@ func (cu *ComputeUnit) setWavesToReady() {
 // NewComputeUnit returns a newly constructed compute unit
 func NewComputeUnit(
 	name string,
-	engine akita.Engine,
+	engine sim.Engine,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
-	cu.TickingComponent = akita.NewTickingComponent(
-		name, engine, 1*akita.GHz, cu)
+	cu.TickingComponent = sim.NewTickingComponent(
+		name, engine, 1*sim.GHz, cu)
 
-	cu.ToACE = akita.NewLimitNumMsgPort(cu, 4, name+".ToACE")
+	cu.ToACE = sim.NewLimitNumMsgPort(cu, 4, name+".ToACE")
 	cu.toACESender = akitaext.NewBufferedSender(
-		cu.ToACE, util.NewBuffer(40960000))
-	cu.ToInstMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
-	cu.ToScalarMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
-	cu.ToVectorMem = akita.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")
-	cu.ToCP = akita.NewLimitNumMsgPort(cu, 4, name+".ToCP")
+		cu.ToACE, buffering.NewBuffer(40960000))
+	cu.ToInstMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
+	cu.ToScalarMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
+	cu.ToVectorMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")
+	cu.ToCP = sim.NewLimitNumMsgPort(cu, 4, name+".ToCP")
 
 	return cu
 }

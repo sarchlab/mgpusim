@@ -1,35 +1,35 @@
-package main
+package runner
 
 import (
 	"fmt"
 	"log"
 	"os"
 
-	memtraces "gitlab.com/akita/mem/trace"
-	"gitlab.com/akita/mgpusim"
+	memtraces "gitlab.com/akita/mem/v2/trace"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mem/vm/mmu"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/gpubuilder"
-	"gitlab.com/akita/noc/networking/pcie"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/monitoring"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mem/v2/vm/mmu"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/noc/v2/networking/pcie"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
 type R9NanoPlatformBuilder struct {
-	useParallelEngine  bool
-	debugISA           bool
-	traceVis           bool
-	visTraceStartTime  akita.VTimeInSec
-	visTraceEndTime    akita.VTimeInSec
-	traceMem           bool
-	numGPU             int
-	log2PageSize       uint64
-	disableProgressBar bool
+	useParallelEngine bool
+	debugISA          bool
+	traceVis          bool
+	visTraceStartTime sim.VTimeInSec
+	visTraceEndTime   sim.VTimeInSec
+	traceMem          bool
+	numGPU            int
+	log2PageSize      uint64
+	monitor           *monitoring.Monitor
+
+	gpus []*GPU
 }
 
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
@@ -65,7 +65,7 @@ func (b R9NanoPlatformBuilder) WithVisTracing() R9NanoPlatformBuilder {
 // purposes. The trace will only be collected from the start time to the end
 // time.
 func (b R9NanoPlatformBuilder) WithPartialVisTracing(
-	start, end akita.VTimeInSec,
+	start, end sim.VTimeInSec,
 ) R9NanoPlatformBuilder {
 	b.traceVis = true
 	b.visTraceStartTime = start
@@ -86,12 +86,6 @@ func (b R9NanoPlatformBuilder) WithNumGPU(n int) R9NanoPlatformBuilder {
 	return b
 }
 
-// WithoutProgressBar disables the progress bar for kernel execution
-func (b R9NanoPlatformBuilder) WithoutProgressBar() R9NanoPlatformBuilder {
-	b.disableProgressBar = true
-	return b
-}
-
 // WithLog2PageSize sets the page size as a power of 2.
 func (b R9NanoPlatformBuilder) WithLog2PageSize(
 	n uint64,
@@ -100,20 +94,35 @@ func (b R9NanoPlatformBuilder) WithLog2PageSize(
 	return b
 }
 
+// WithMonitor sets the monitor that is used to monitor the simulation
+func (b R9NanoPlatformBuilder) WithMonitor(
+	m *monitoring.Monitor,
+) R9NanoPlatformBuilder {
+	b.monitor = m
+	return b
+}
+
 // Build builds a platform with R9Nano GPUs.
-func (b R9NanoPlatformBuilder) Build() (akita.Engine, *driver.Driver) {
+func (b R9NanoPlatformBuilder) Build() *Platform {
 	engine := b.createEngine()
+	if b.monitor != nil {
+		b.monitor.RegisterEngine(engine)
+	}
 
 	mmuComponent, pageTable := b.createMMU(engine)
+
 	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(gpuDriver)
+	}
+
 	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent)
 	pcieConnector, rootComplexID :=
 		b.createConnection(engine, gpuDriver, mmuComponent)
 
-	mmuComponent.MigrationServiceProvider = gpuDriver.ToMMU
+	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
 
 	rdmaAddressTable := b.createRDMAAddrTable()
-
 	pmcAddressTable := b.createPMCPageTable()
 
 	b.createGPUs(
@@ -121,7 +130,10 @@ func (b R9NanoPlatformBuilder) Build() (akita.Engine, *driver.Driver) {
 		gpuBuilder, gpuDriver,
 		rdmaAddressTable, pmcAddressTable)
 
-	return engine, gpuDriver
+	return &Platform{
+		Engine: engine,
+		Driver: gpuDriver,
+	}
 }
 
 func (b R9NanoPlatformBuilder) createGPUs(
@@ -129,13 +141,13 @@ func (b R9NanoPlatformBuilder) createGPUs(
 	pcieConnector *pcie.Connector,
 	gpuBuilder R9NanoGPUBuilder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *cache.BankedLowModuleFinder,
-	pmcAddressTable *cache.BankedLowModuleFinder,
+	rdmaAddressTable *mem.BankedLowModuleFinder,
+	pmcAddressTable *mem.BankedLowModuleFinder,
 ) {
 	lastSwitchID := rootComplexID
 	for i := 1; i < b.numGPU+1; i++ {
 		if i%2 == 1 {
-			lastSwitchID = pcieConnector.AddSwitch(lastSwitchID)
+			lastSwitchID = pcieConnector.AddSwitch(rootComplexID)
 		}
 
 		b.createGPU(i, gpuBuilder, gpuDriver,
@@ -144,27 +156,27 @@ func (b R9NanoPlatformBuilder) createGPUs(
 	}
 }
 
-func (b R9NanoPlatformBuilder) createPMCPageTable() *cache.BankedLowModuleFinder {
-	pmcAddressTable := new(cache.BankedLowModuleFinder)
+func (b R9NanoPlatformBuilder) createPMCPageTable() *mem.BankedLowModuleFinder {
+	pmcAddressTable := new(mem.BankedLowModuleFinder)
 	pmcAddressTable.BankSize = 4 * mem.GB
 	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)
 	return pmcAddressTable
 }
 
-func (b R9NanoPlatformBuilder) createRDMAAddrTable() *cache.BankedLowModuleFinder {
-	rdmaAddressTable := new(cache.BankedLowModuleFinder)
+func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.BankedLowModuleFinder {
+	rdmaAddressTable := new(mem.BankedLowModuleFinder)
 	rdmaAddressTable.BankSize = 4 * mem.GB
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
 	return rdmaAddressTable
 }
 
 func (b R9NanoPlatformBuilder) createConnection(
-	engine akita.Engine,
+	engine sim.Engine,
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.MMUImpl,
 ) (*pcie.Connector, int) {
-	//connection := akita.NewDirectConnection(engine)
-	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
+	//connection := sim.NewDirectConnection(engine)
+	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
 	// connection.SrcBufferCapacity = 40960000
 	pcieConnector := pcie.NewConnector().
 		WithEngine(engine).
@@ -174,43 +186,50 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithNetworkName("PCIe")
 	pcieConnector.CreateNetwork()
 	rootComplexID := pcieConnector.CreateRootComplex(
-		[]akita.Port{
-			gpuDriver.ToGPUs,
-			gpuDriver.ToMMU,
-			mmuComponent.MigrationPort,
-			mmuComponent.ToTop,
+		[]sim.Port{
+			gpuDriver.GetPortByName("GPU"),
+			gpuDriver.GetPortByName("MMU"),
+			mmuComponent.GetPortByName("Migration"),
+			mmuComponent.GetPortByName("Top"),
 		})
 	return pcieConnector, rootComplexID
 }
 
-func (b R9NanoPlatformBuilder) createEngine() akita.Engine {
-	var engine akita.Engine
+func (b R9NanoPlatformBuilder) createEngine() sim.Engine {
+	var engine sim.Engine
 
 	if b.useParallelEngine {
-		engine = akita.NewParallelEngine()
+		engine = sim.NewParallelEngine()
 	} else {
-		engine = akita.NewSerialEngine()
+		engine = sim.NewSerialEngine()
 	}
-	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
+	// engine.AcceptHook(sim.NewEventLogger(log.New(os.Stdout, "", 0)))
 
 	return engine
 }
 
 func (b R9NanoPlatformBuilder) createMMU(
-	engine akita.Engine,
+	engine sim.Engine,
 ) (*mmu.MMUImpl, vm.PageTable) {
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
-		WithFreq(1 * akita.GHz).
+		WithFreq(1 * sim.GHz).
+		WithPageWalkingLatency(100).
 		WithLog2PageSize(b.log2PageSize).
 		WithPageTable(pageTable)
+
 	mmuComponent := mmuBuilder.Build("MMU")
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(mmuComponent)
+	}
+
 	return mmuComponent, pageTable
 }
 
 func (b *R9NanoPlatformBuilder) createGPUBuilder(
-	engine akita.Engine,
+	engine sim.Engine,
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.MMUImpl,
 ) R9NanoGPUBuilder {
@@ -219,9 +238,13 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
 		WithNumShaderArray(16).
-		WithNumMemoryBank(8).
+		WithNumMemoryBank(16).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize)
+
+	if b.monitor != nil {
+		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
+	}
 
 	gpuBuilder = b.setVisTracer(gpuDriver, gpuBuilder)
 	gpuBuilder = b.setMemTracer(gpuBuilder)
@@ -280,30 +303,33 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	index int,
 	gpuBuilder R9NanoGPUBuilder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *cache.BankedLowModuleFinder,
-	pmcAddressTable *cache.BankedLowModuleFinder,
+	rdmaAddressTable *mem.BankedLowModuleFinder,
+	pmcAddressTable *mem.BankedLowModuleFinder,
 	pcieConnector *pcie.Connector,
 	pcieSwitchID int,
-) *mgpusim.GPU {
+) *GPU {
 	name := fmt.Sprintf("GPU%d", index)
 	memAddrOffset := uint64(index) * 4 * mem.GB
 	gpu := gpuBuilder.
 		WithMemAddrOffset(memAddrOffset).
 		Build(name, uint64(index))
-	gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-	gpu.CommandProcessor.Driver = gpuDriver.ToGPUs
+	gpuDriver.RegisterGPU(gpu.Domain.GetPortByName("CommandProcessor"),
+		4*mem.GB)
+	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
 	b.configRDMAEngine(gpu, rdmaAddressTable)
 	b.configPMC(gpu, gpuDriver, pmcAddressTable)
 
-	pcieConnector.PlugInDevice(pcieSwitchID, gpu.ExternalPorts())
+	pcieConnector.PlugInDevice(pcieSwitchID, gpu.Domain.Ports())
+
+	b.gpus = append(b.gpus, gpu)
 
 	return gpu
 }
 
 func (b *R9NanoPlatformBuilder) configRDMAEngine(
-	gpu *mgpusim.GPU,
-	addrTable *cache.BankedLowModuleFinder,
+	gpu *GPU,
+	addrTable *mem.BankedLowModuleFinder,
 ) {
 	gpu.RDMAEngine.RemoteRDMAAddressTable = addrTable
 	addrTable.LowModules = append(
@@ -312,125 +338,14 @@ func (b *R9NanoPlatformBuilder) configRDMAEngine(
 }
 
 func (b *R9NanoPlatformBuilder) configPMC(
-	gpu *mgpusim.GPU,
+	gpu *GPU,
 	gpuDriver *driver.Driver,
-	addrTable *cache.BankedLowModuleFinder,
+	addrTable *mem.BankedLowModuleFinder,
 ) {
 	gpu.PMC.RemotePMCAddressTable = addrTable
 	addrTable.LowModules = append(
 		addrTable.LowModules,
-		gpu.PMC.RemotePort)
+		gpu.PMC.GetPortByName("Remote"))
 	gpuDriver.RemotePMCPorts = append(
-		gpuDriver.RemotePMCPorts, gpu.PMC.RemotePort)
-}
-
-// EmuBuilder can build a platform for emulation purposes.
-type EmuBuilder struct {
-	useParallelEngine  bool
-	debugISA           bool
-	traceVis           bool
-	traceMem           bool
-	numGPU             int
-	log2PageSize       uint64
-	disableProgressBar bool
-}
-
-// MakeEmuBuilder creates a EmuBuilder with default parameters.
-func MakeEmuBuilder() EmuBuilder {
-	b := EmuBuilder{
-		numGPU:       4,
-		log2PageSize: 12,
-	}
-	return b
-}
-
-// WithParallelEngine lets the EmuBuilder to use parallel engine.
-func (b EmuBuilder) WithParallelEngine() EmuBuilder {
-	b.useParallelEngine = true
-	return b
-}
-
-// WithISADebugging enables ISA debugging in the simulation.
-func (b EmuBuilder) WithISADebugging() EmuBuilder {
-	b.debugISA = true
-	return b
-}
-
-// WithVisTracing lets the platform to record traces for visualization purposes.
-func (b EmuBuilder) WithVisTracing() EmuBuilder {
-	b.traceVis = true
-	return b
-}
-
-// WithMemTracing lets the platform to trace memory operations.
-func (b EmuBuilder) WithMemTracing() EmuBuilder {
-	b.traceMem = true
-	return b
-}
-
-// WithNumGPU sets the number of GPUs to build.
-func (b EmuBuilder) WithNumGPU(n int) EmuBuilder {
-	b.numGPU = n
-	return b
-}
-
-// WithoutProgressBar disables the progress bar for kernel execution
-func (b EmuBuilder) WithoutProgressBar() EmuBuilder {
-	b.disableProgressBar = true
-	return b
-}
-
-// WithLog2PageSize sets the page size as a power of 2.
-func (b EmuBuilder) WithLog2PageSize(n uint64) EmuBuilder {
-	b.log2PageSize = n
-	return b
-}
-
-// Build builds a emulation platform.
-func (b EmuBuilder) Build() (akita.Engine, *driver.Driver) {
-	var engine akita.Engine
-	if b.useParallelEngine {
-		engine = akita.NewParallelEngine()
-	} else {
-		engine = akita.NewSerialEngine()
-	}
-	// engine.AcceptHook(akita.NewEventLogger(log.New(os.Stdout, "", 0)))
-
-	pageTable := vm.NewPageTable(b.log2PageSize)
-	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
-	connection := akita.NewDirectConnection("ExternalConn", engine, 1*akita.GHz)
-	storage := mem.NewStorage(uint64(b.numGPU+1) * 4 * mem.GB)
-
-	gpuBuilder := gpubuilder.MakeEmuGPUBuilder().
-		WithEngine(engine).
-		WithDriver(gpuDriver).
-		WithPageTable(pageTable).
-		WithLog2PageSize(b.log2PageSize).
-		WithMemCapacity(4 * mem.GB).
-		WithStorage(storage)
-
-	if b.debugISA {
-		gpuBuilder = gpuBuilder.WithISADebugging()
-	}
-
-	if b.traceMem {
-		gpuBuilder = gpuBuilder.WithMemTracing()
-	}
-
-	if b.disableProgressBar {
-		gpuBuilder = gpuBuilder.WithoutProgressBar()
-	}
-
-	for i := 0; i < b.numGPU; i++ {
-		gpu := gpuBuilder.
-			WithMemOffset(uint64(i+1) * 4 * mem.GB).
-			Build(fmt.Sprintf("GPU_%d", i+1))
-
-		gpuDriver.RegisterGPU(gpu, 4*mem.GB)
-		connection.PlugIn(gpu.CommandProcessor.ToDriver, 64)
-	}
-
-	connection.PlugIn(gpuDriver.ToGPUs, 4)
-
-	return engine, gpuDriver
+		gpuDriver.RemotePMCPorts, gpu.PMC.GetPortByName("Remote"))
 }

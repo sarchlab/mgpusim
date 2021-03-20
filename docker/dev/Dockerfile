@@ -57,9 +57,9 @@ RUN go get github.com/onsi/ginkgo/ginkgo
 RUN go get github.com/golang/mock/mockgen
 
 WORKDIR /root/dev/src/gitlab.com/akita
-RUN git clone https://gitlab.com/akita/akita.git
-RUN git clone https://gitlab.com/akita/util.git
-RUN git clone https://gitlab.com/akita/mem.git
+RUN git clone https://gitlab.com/akita/sim.git
+RUN git clone https://gitlab.com/akita/buffering.git
+RUN git clone https://gitlab.com/akita/mem/v2.git
 RUN git clone https://gitlab.com/akita/noc.git
 RUN git clone https://gitlab.com/akita/mgpusim.git
 

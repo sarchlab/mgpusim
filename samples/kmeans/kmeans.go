@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/heteromark/kmeans"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/kmeans"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var points = flag.Int("points", 1024, "The number of points.")
@@ -19,7 +19,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := kmeans.NewBenchmark(runner.GPUDriver)
+	benchmark := kmeans.NewBenchmark(runner.Driver())
 	benchmark.NumPoints = *points
 	benchmark.NumClusters = *clusters
 	benchmark.NumFeatures = *features

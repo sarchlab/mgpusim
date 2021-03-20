@@ -4,9 +4,9 @@ package rob
 import (
 	"container/list"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type transaction struct {
@@ -17,13 +17,13 @@ type transaction struct {
 
 // ReorderBuffer can maintain the returning order of memory transactions.
 type ReorderBuffer struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
-	TopPort     akita.Port
-	BottomPort  akita.Port
-	ControlPort akita.Port
+	topPort     sim.Port
+	bottomPort  sim.Port
+	controlPort sim.Port
 
-	BottomUnit akita.Port
+	BottomUnit sim.Port
 
 	bufferSize     int
 	numReqPerCycle int
@@ -34,7 +34,7 @@ type ReorderBuffer struct {
 }
 
 // Tick updates the status of the ReorderBuffer.
-func (b *ReorderBuffer) Tick(now akita.VTimeInSec) (madeProgress bool) {
+func (b *ReorderBuffer) Tick(now sim.VTimeInSec) (madeProgress bool) {
 	madeProgress = b.processControlMsg(now) || madeProgress
 
 	if !b.isFlushing {
@@ -45,9 +45,9 @@ func (b *ReorderBuffer) Tick(now akita.VTimeInSec) (madeProgress bool) {
 }
 
 func (b *ReorderBuffer) processControlMsg(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) (madeProgress bool) {
-	item := b.ControlPort.Peek()
+	item := b.controlPort.Peek()
 	if item == nil {
 		return false
 	}
@@ -63,17 +63,17 @@ func (b *ReorderBuffer) processControlMsg(
 }
 
 func (b *ReorderBuffer) discardTransactions(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	msg *mem.ControlMsg,
 ) (madeProgress bool) {
 	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.ControlPort).
+		WithSrc(b.controlPort).
 		WithDst(msg.Src).
 		WithSendTime(now).
 		ToNotifyDone().
 		Build()
 
-	err := b.ControlPort.Send(rsp)
+	err := b.controlPort.Send(rsp)
 	if err != nil {
 		return false
 	}
@@ -81,7 +81,7 @@ func (b *ReorderBuffer) discardTransactions(
 	b.isFlushing = true
 	b.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
 	b.transactions.Init()
-	b.ControlPort.Retrieve(now)
+	b.controlPort.Retrieve(now)
 
 	// fmt.Printf("%.10f, %s, rob flushed\n", now, b.Name())
 
@@ -89,17 +89,17 @@ func (b *ReorderBuffer) discardTransactions(
 }
 
 func (b *ReorderBuffer) restart(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	msg *mem.ControlMsg,
 ) (madeProgress bool) {
 	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.ControlPort).
+		WithSrc(b.controlPort).
 		WithDst(msg.Src).
 		WithSendTime(now).
 		ToNotifyDone().
 		Build()
 
-	err := b.ControlPort.Send(rsp)
+	err := b.controlPort.Send(rsp)
 	if err != nil {
 		return false
 	}
@@ -108,20 +108,20 @@ func (b *ReorderBuffer) restart(
 	b.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
 	b.transactions.Init()
 
-	for b.TopPort.Retrieve(now) != nil {
+	for b.topPort.Retrieve(now) != nil {
 	}
 
-	for b.BottomPort.Retrieve(now) != nil {
+	for b.bottomPort.Retrieve(now) != nil {
 	}
 
-	b.ControlPort.Retrieve(now)
+	b.controlPort.Retrieve(now)
 
 	// fmt.Printf("%.10f, %s, rob restarted\n", now, b.Name())
 
 	return true
 }
 
-func (b *ReorderBuffer) runPipeline(now akita.VTimeInSec) (madeProgress bool) {
+func (b *ReorderBuffer) runPipeline(now sim.VTimeInSec) (madeProgress bool) {
 	for i := 0; i < b.numReqPerCycle; i++ {
 		madeProgress = b.bottomUp(now) || madeProgress
 	}
@@ -137,12 +137,12 @@ func (b *ReorderBuffer) runPipeline(now akita.VTimeInSec) (madeProgress bool) {
 	return madeProgress
 }
 
-func (b *ReorderBuffer) topDown(now akita.VTimeInSec) bool {
+func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 	if b.isFull() {
 		return false
 	}
 
-	item := b.TopPort.Peek()
+	item := b.topPort.Peek()
 	if item == nil {
 		return false
 	}
@@ -150,15 +150,15 @@ func (b *ReorderBuffer) topDown(now akita.VTimeInSec) bool {
 	req := item.(mem.AccessReq)
 	trans := b.createTransaction(req)
 
-	trans.reqToBottom.Meta().Src = b.BottomPort
+	trans.reqToBottom.Meta().Src = b.bottomPort
 	trans.reqToBottom.Meta().SendTime = now
-	err := b.BottomPort.Send(trans.reqToBottom)
+	err := b.bottomPort.Send(trans.reqToBottom)
 	if err != nil {
 		return false
 	}
 
 	b.addTransaction(trans)
-	b.TopPort.Retrieve(now)
+	b.topPort.Retrieve(now)
 
 	tracing.TraceReqReceive(req, now, b)
 	tracing.TraceReqInitiate(trans.reqToBottom, now, b,
@@ -167,8 +167,8 @@ func (b *ReorderBuffer) topDown(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (b *ReorderBuffer) parseBottom(now akita.VTimeInSec) bool {
-	item := b.BottomPort.Peek()
+func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
+	item := b.bottomPort.Peek()
 	if item == nil {
 		return false
 	}
@@ -184,12 +184,12 @@ func (b *ReorderBuffer) parseBottom(now akita.VTimeInSec) bool {
 		tracing.TraceReqFinalize(trans.reqToBottom, now, b)
 	}
 
-	b.BottomPort.Retrieve(now)
+	b.bottomPort.Retrieve(now)
 
 	return true
 }
 
-func (b *ReorderBuffer) bottomUp(now akita.VTimeInSec) bool {
+func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	elem := b.transactions.Front()
 	if elem == nil {
 		return false
@@ -202,10 +202,10 @@ func (b *ReorderBuffer) bottomUp(now akita.VTimeInSec) bool {
 
 	rsp := b.duplicateRsp(trans.rspFromBottom, trans.reqFromTop.Meta().ID)
 	rsp.Meta().Dst = trans.reqFromTop.Meta().Src
-	rsp.Meta().Src = b.TopPort
+	rsp.Meta().Src = b.topPort
 	rsp.Meta().SendTime = now
 
-	err := b.TopPort.Send(rsp)
+	err := b.topPort.Send(rsp)
 	if err != nil {
 		return false
 	}

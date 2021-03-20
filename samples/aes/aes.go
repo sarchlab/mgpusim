@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/heteromark/aes"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/aes"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var lenInput = flag.Int("length", 65536, "The length of array to sort.")
@@ -14,7 +14,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := aes.NewBenchmark(runner.GPUDriver)
+	benchmark := aes.NewBenchmark(runner.Driver())
 	benchmark.Length = *lenInput
 
 	runner.AddBenchmark(benchmark)

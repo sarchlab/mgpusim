@@ -5,49 +5,48 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type transaction struct {
-	fromInside  akita.Msg
-	fromOutside akita.Msg
-	toInside    akita.Msg
-	toOutside   akita.Msg
+	fromInside  sim.Msg
+	fromOutside sim.Msg
+	toInside    sim.Msg
+	toOutside   sim.Msg
 }
 
 // An Engine is a component that helps one GPU to access the memory on
 // another GPU
 type Engine struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
-	ToOutside akita.Port
+	ToOutside sim.Port
 
-	ToL1 akita.Port
-	ToL2 akita.Port
+	ToL1 sim.Port
+	ToL2 sim.Port
 
-	CtrlPort akita.Port
+	CtrlPort sim.Port
 
 	isDraining              bool
 	pauseIncomingReqsFromL1 bool
 	currentDrainReq         *DrainReq
 
-	localModules           cache.LowModuleFinder
-	RemoteRDMAAddressTable cache.LowModuleFinder
+	localModules           mem.LowModuleFinder
+	RemoteRDMAAddressTable mem.LowModuleFinder
 
 	transactionsFromOutside []transaction
 	transactionsFromInside  []transaction
 }
 
 // SetLocalModuleFinder sets the table to lookup for local data.
-func (e *Engine) SetLocalModuleFinder(lmf cache.LowModuleFinder) {
+func (e *Engine) SetLocalModuleFinder(lmf mem.LowModuleFinder) {
 	e.localModules = lmf
 }
 
 // Tick checks if make progress
-func (e *Engine) Tick(now akita.VTimeInSec) bool {
+func (e *Engine) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = e.processFromCtrlPort(now) || madeProgress
@@ -61,7 +60,7 @@ func (e *Engine) Tick(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) bool {
+func (e *Engine) processFromCtrlPort(now sim.VTimeInSec) bool {
 	req := e.CtrlPort.Peek()
 	if req == nil {
 		return false
@@ -82,7 +81,7 @@ func (e *Engine) processFromCtrlPort(now akita.VTimeInSec) bool {
 	}
 }
 
-func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
+func (e *Engine) processRDMARestartReq(now sim.VTimeInSec) bool {
 	restartCompleteRsp := RestartRspBuilder{}.
 		WithSendTime(now).
 		WithSrc(e.CtrlPort).
@@ -99,7 +98,7 @@ func (e *Engine) processRDMARestartReq(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (e *Engine) drainRDMA(now akita.VTimeInSec) bool {
+func (e *Engine) drainRDMA(now sim.VTimeInSec) bool {
 	if e.fullyDrained() {
 		drainCompleteRsp := DrainRspBuilder{}.
 			WithSendTime(now).
@@ -122,7 +121,7 @@ func (e *Engine) fullyDrained() bool {
 		len(e.transactionsFromInside) == 0
 }
 
-func (e *Engine) processFromL1(now akita.VTimeInSec) bool {
+func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 	if e.pauseIncomingReqsFromL1 {
 		return false
 	}
@@ -141,7 +140,7 @@ func (e *Engine) processFromL1(now akita.VTimeInSec) bool {
 	}
 }
 
-func (e *Engine) processFromL2(now akita.VTimeInSec) bool {
+func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
 	req := e.ToL2.Peek()
 	if req == nil {
 		return false
@@ -155,7 +154,7 @@ func (e *Engine) processFromL2(now akita.VTimeInSec) bool {
 	}
 }
 
-func (e *Engine) processFromOutside(now akita.VTimeInSec) bool {
+func (e *Engine) processFromOutside(now sim.VTimeInSec) bool {
 	req := e.ToOutside.Peek()
 	if req == nil {
 		return false
@@ -173,7 +172,7 @@ func (e *Engine) processFromOutside(now akita.VTimeInSec) bool {
 }
 
 func (e *Engine) processReqFromL1(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
@@ -207,7 +206,7 @@ func (e *Engine) processReqFromL1(
 }
 
 func (e *Engine) processReqFromOutside(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	dst := e.localModules.Find(req.GetAddress())
@@ -240,7 +239,7 @@ func (e *Engine) processReqFromOutside(
 }
 
 func (e *Engine) processRspFromL2(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := e.findTransactionByRspToID(
@@ -271,7 +270,7 @@ func (e *Engine) processRspFromL2(
 }
 
 func (e *Engine) processRspFromOutside(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := e.findTransactionByRspToID(
@@ -376,26 +375,26 @@ func (e *Engine) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 }
 
 // SetFreq sets freq
-func (e *Engine) SetFreq(freq akita.Freq) {
+func (e *Engine) SetFreq(freq sim.Freq) {
 	e.TickingComponent.Freq = freq
 }
 
 // NewEngine creates new engine
 func NewEngine(
 	name string,
-	engine akita.Engine,
-	localModules cache.LowModuleFinder,
-	remoteModules cache.LowModuleFinder,
+	engine sim.Engine,
+	localModules mem.LowModuleFinder,
+	remoteModules mem.LowModuleFinder,
 ) *Engine {
 	e := new(Engine)
-	e.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, e)
+	e.TickingComponent = sim.NewTickingComponent(name, engine, 1*sim.GHz, e)
 	e.localModules = localModules
 	e.RemoteRDMAAddressTable = remoteModules
 
-	e.ToL1 = akita.NewLimitNumMsgPort(e, 1, name+".ToL1")
-	e.ToL2 = akita.NewLimitNumMsgPort(e, 1, name+".ToL2")
-	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1, name+".CtrlPort")
-	e.ToOutside = akita.NewLimitNumMsgPort(e, 1, name+".ToOutside")
+	e.ToL1 = sim.NewLimitNumMsgPort(e, 1, name+".ToL1")
+	e.ToL2 = sim.NewLimitNumMsgPort(e, 1, name+".ToL2")
+	e.CtrlPort = sim.NewLimitNumMsgPort(e, 1, name+".CtrlPort")
+	e.ToOutside = sim.NewLimitNumMsgPort(e, 1, name+".ToOutside")
 
 	return e
 }

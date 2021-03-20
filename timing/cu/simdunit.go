@@ -1,15 +1,15 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A SIMDUnit performs branch operations
 type SIMDUnit struct {
-	akita.HookableBase
+	sim.HookableBase
 
 	cu *ComputeUnit
 
@@ -57,7 +57,7 @@ func (u *SIMDUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
+func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
 	u.toExec = wave
 
 	u.cycleLeft = 64 / u.NumSinglePrecisionUnit
@@ -65,12 +65,12 @@ func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
-func (u *SIMDUnit) Run(now akita.VTimeInSec) bool {
+func (u *SIMDUnit) Run(now sim.VTimeInSec) bool {
 	madeProgress := u.runExecStage(now)
 	return madeProgress
 }
 
-func (u *SIMDUnit) runExecStage(now akita.VTimeInSec) bool {
+func (u *SIMDUnit) runExecStage(now sim.VTimeInSec) bool {
 	if u.toExec == nil {
 		return false
 	}
@@ -98,7 +98,7 @@ func (u *SIMDUnit) Flush() {
 }
 
 func (u *SIMDUnit) logPipelineTask(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	inst *wavefront.Inst,
 	completed bool,
 ) {

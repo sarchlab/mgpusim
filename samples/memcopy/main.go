@@ -5,8 +5,8 @@ import (
 	"log"
 	"math/rand"
 
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 // Benchmark defines a benchmark
@@ -79,7 +79,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := NewBenchmark(runner.GPUDriver)
+	benchmark := NewBenchmark(runner.Driver())
 	benchmark.ByteSize = 1048576
 
 	runner.AddBenchmark(benchmark)

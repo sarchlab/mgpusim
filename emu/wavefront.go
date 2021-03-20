@@ -3,9 +3,9 @@ package emu
 import (
 	"log"
 
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 // A Wavefront in the emu package is a wrapper for the kernels.Wavefront

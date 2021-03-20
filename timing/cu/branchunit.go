@@ -1,9 +1,9 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 // A BranchUnit performs branch operations
@@ -48,13 +48,13 @@ func (u *BranchUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *BranchUnit) AcceptWave(
 	wave *wavefront.Wavefront,
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) {
 	u.toRead = wave
 }
 
 // Run executes three pipeline stages that are controlled by the BranchUnit
-func (u *BranchUnit) Run(now akita.VTimeInSec) bool {
+func (u *BranchUnit) Run(now sim.VTimeInSec) bool {
 	madeProgress := false
 	madeProgress = u.runWriteStage(now) || madeProgress
 	madeProgress = u.runExecStage(now) || madeProgress
@@ -62,7 +62,7 @@ func (u *BranchUnit) Run(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (u *BranchUnit) runReadStage(now akita.VTimeInSec) bool {
+func (u *BranchUnit) runReadStage(now sim.VTimeInSec) bool {
 	if u.toRead == nil {
 		return false
 	}
@@ -78,7 +78,7 @@ func (u *BranchUnit) runReadStage(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (u *BranchUnit) runExecStage(now akita.VTimeInSec) bool {
+func (u *BranchUnit) runExecStage(now sim.VTimeInSec) bool {
 	if u.toExec == nil {
 		return false
 	}
@@ -93,7 +93,7 @@ func (u *BranchUnit) runExecStage(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (u *BranchUnit) runWriteStage(now akita.VTimeInSec) bool {
+func (u *BranchUnit) runWriteStage(now sim.VTimeInSec) bool {
 	if u.toWrite == nil {
 		return false
 	}

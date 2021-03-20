@@ -4,12 +4,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 var _ = Describe("Vector Memory Unit", func() {
@@ -41,7 +40,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		transactionPipeline = NewMockPipeline(mockCtrl)
 		transactionBuffer = NewMockBuffer(mockCtrl)
 		cu.ToVectorMem = toVectorMem
-		cu.VectorMemModules = new(cache.SingleLowModuleFinder)
+		cu.VectorMemModules = new(mem.SingleLowModuleFinder)
 		cu.InFlightVectorMemAccessLimit = 128
 
 		vecMemUnit.instructionPipeline = instPipeline
@@ -67,7 +66,7 @@ var _ = Describe("Vector Memory Unit", func() {
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
 
-		instPipeline.EXPECT().Accept(akita.VTimeInSec(10), gomock.Any())
+		instPipeline.EXPECT().Accept(sim.VTimeInSec(10), gomock.Any())
 
 		vecMemUnit.AcceptWave(wave, 10)
 
@@ -148,7 +147,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		vecMemUnit.transactionsWaiting = transactions
 
 		transactionPipeline.EXPECT().CanAccept().Return(true)
-		transactionPipeline.EXPECT().Accept(akita.VTimeInSec(10), gomock.Any())
+		transactionPipeline.EXPECT().Accept(sim.VTimeInSec(10), gomock.Any())
 
 		madeProgress := vecMemUnit.instToTransaction(10)
 
@@ -178,7 +177,7 @@ var _ = Describe("Vector Memory Unit", func() {
 
 		vecMemUnit.sendRequest(10)
 
-		Expect(loadReq.SendTime).To(Equal(akita.VTimeInSec(10)))
+		Expect(loadReq.SendTime).To(Equal(sim.VTimeInSec(10)))
 		Expect(vecMemUnit.numTransactionInFlight).To(Equal(uint64(0)))
 	})
 

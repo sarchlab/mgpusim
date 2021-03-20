@@ -3,16 +3,16 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // Scheduler does its job
 type Scheduler interface {
-	Run(now akita.VTimeInSec) bool
+	Run(now sim.VTimeInSec) bool
 	Pause()
 	Resume()
 	Flush()
@@ -57,7 +57,7 @@ func NewScheduler(
 }
 
 // Run runs scheduler
-func (s *SchedulerImpl) Run(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) Run(now sim.VTimeInSec) bool {
 	madeProgress := false
 	if s.isPaused == false {
 		madeProgress = s.EvaluateInternalInst(now) || madeProgress
@@ -78,7 +78,7 @@ func (s *SchedulerImpl) Run(now akita.VTimeInSec) bool {
 }
 
 //DecodeNextInst checks
-func (s *SchedulerImpl) DecodeNextInst(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) DecodeNextInst(now sim.VTimeInSec) bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
@@ -117,7 +117,7 @@ func (s *SchedulerImpl) wfHasAtLeast8BytesInInstBuffer(wf *wavefront.Wavefront) 
 
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
-func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) DoFetch(now sim.VTimeInSec) bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
@@ -160,7 +160,7 @@ func (s *SchedulerImpl) DoFetch(now akita.VTimeInSec) bool {
 
 // DoIssue function of the scheduler issues fetched instruction to the decoding
 // units
-func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) DoIssue(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	if s.isPaused == false {
@@ -190,7 +190,7 @@ func (s *SchedulerImpl) DoIssue(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now sim.VTimeInSec) bool {
 	wf.SetDynamicInst(wf.InstToIssue)
 	wf.InstToIssue = nil
 	s.internalExecuting = append(s.internalExecuting, wf)
@@ -222,7 +222,7 @@ func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) SubComponent {
 
 // EvaluateInternalInst updates the status of the instruction being executed
 // in the scheduler.
-func (s *SchedulerImpl) EvaluateInternalInst(now akita.VTimeInSec) bool {
+func (s *SchedulerImpl) EvaluateInternalInst(now sim.VTimeInSec) bool {
 	if s.internalExecuting == nil {
 		return false
 	}
@@ -263,7 +263,7 @@ func (s *SchedulerImpl) EvaluateInternalInst(now akita.VTimeInSec) bool {
 
 func (s *SchedulerImpl) evalSEndPgm(
 	wf *wavefront.Wavefront,
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
 	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
 		return false, false
@@ -299,7 +299,7 @@ func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
 
 func (s *SchedulerImpl) evalSBarrier(
 	wf *wavefront.Wavefront,
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
 	wf.State = wavefront.WfAtBarrier
 
@@ -351,7 +351,7 @@ func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *wavefront.WorkGroup) {
 
 func (s *SchedulerImpl) evalSWaitCnt(
 	wf *wavefront.Wavefront,
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
 	done := true
 	inst := wf.Inst()

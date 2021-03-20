@@ -5,20 +5,19 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/idealmemcontroller"
-	. "gitlab.com/akita/mgpusim/timing/caches/writearound"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
+	. "gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
+	"gitlab.com/akita/mem/v2/mem"
 )
 
 var _ = Describe("Cache", func() {
 	var (
 		mockCtrl        *gomock.Controller
-		engine          akita.Engine
-		connection      akita.Connection
-		lowModuleFinder cache.LowModuleFinder
+		engine          sim.Engine
+		connection      sim.Connection
+		lowModuleFinder mem.LowModuleFinder
 		dram            *idealmemcontroller.Comp
 		cuPort          *MockPort
 		c               *Cache
@@ -27,20 +26,20 @@ var _ = Describe("Cache", func() {
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		cuPort = NewMockPort(mockCtrl)
-		engine = akita.NewSerialEngine()
-		connection = akita.NewDirectConnection("conn", engine, 1*akita.GHz)
+		engine = sim.NewSerialEngine()
+		connection = sim.NewDirectConnection("conn", engine, 1*sim.GHz)
 		dram = idealmemcontroller.New("dram", engine, 4*mem.GB)
-		lowModuleFinder = &cache.SingleLowModuleFinder{
-			LowModule: dram.ToTop,
+		lowModuleFinder = &mem.SingleLowModuleFinder{
+			LowModule: dram.GetPortByName("Top"),
 		}
 		c = NewBuilder().
 			WithEngine(engine).
 			WithLowModuleFinder(lowModuleFinder).
 			Build("cache")
 
-		connection.PlugIn(dram.ToTop, 64)
-		connection.PlugIn(c.TopPort, 4)
-		connection.PlugIn(c.BottomPort, 16)
+		connection.PlugIn(dram.GetPortByName("Top"), 64)
+		connection.PlugIn(c.GetPortByName("Top"), 4)
+		connection.PlugIn(c.GetPortByName("Bottom"), 16)
 		cuPort.EXPECT().SetConnection(connection)
 		connection.PlugIn(cuPort, 4)
 	})
@@ -54,11 +53,11 @@ var _ = Describe("Cache", func() {
 		read := mem.ReadReqBuilder{}.
 			WithSendTime(1).
 			WithSrc(cuPort).
-			WithDst(c.TopPort).
+			WithDst(c.GetPortByName("Top")).
 			WithAddress(0x100).
 			WithByteSize(4).
 			Build()
-		c.TopPort.Recv(read)
+		c.GetPortByName("Top").Recv(read)
 
 		cuPort.EXPECT().Recv(gomock.Any()).
 			Do(func(dr *mem.DataReadyRsp) {
@@ -73,20 +72,20 @@ var _ = Describe("Cache", func() {
 		read1 := mem.ReadReqBuilder{}.
 			WithSendTime(1).
 			WithSrc(cuPort).
-			WithDst(c.TopPort).
+			WithDst(c.GetPortByName("Top")).
 			WithAddress(0x100).
 			WithByteSize(4).
 			Build()
-		c.TopPort.Recv(read1)
+		c.GetPortByName("Top").Recv(read1)
 
 		read2 := mem.ReadReqBuilder{}.
 			WithSendTime(1).
 			WithSrc(cuPort).
-			WithDst(c.TopPort).
+			WithDst(c.GetPortByName("Top")).
 			WithAddress(0x104).
 			WithByteSize(4).
 			Build()
-		c.TopPort.Recv(read2)
+		c.GetPortByName("Top").Recv(read2)
 
 		cuPort.EXPECT().Recv(gomock.Any()).
 			Do(func(dr *mem.DataReadyRsp) {
@@ -105,12 +104,12 @@ var _ = Describe("Cache", func() {
 		read1 := mem.ReadReqBuilder{}.
 			WithSendTime(1).
 			WithSrc(cuPort).
-			WithDst(c.TopPort).
+			WithDst(c.GetPortByName("Top")).
 			WithAddress(0x100).
 			WithByteSize(4).
 			Build()
 		read1.RecvTime = 0
-		c.TopPort.Recv(read1)
+		c.GetPortByName("Top").Recv(read1)
 		cuPort.EXPECT().Recv(gomock.Any()).
 			Do(func(dr *mem.DataReadyRsp) {
 				Expect(dr.Data).To(Equal([]byte{1, 2, 3, 4}))
@@ -121,12 +120,12 @@ var _ = Describe("Cache", func() {
 		read2 := mem.ReadReqBuilder{}.
 			WithSendTime(t1).
 			WithSrc(cuPort).
-			WithDst(c.TopPort).
+			WithDst(c.GetPortByName("Top")).
 			WithAddress(0x104).
 			WithByteSize(4).
 			Build()
 		read2.RecvTime = t1
-		c.TopPort.Recv(read2)
+		c.GetPortByName("Top").Recv(read2)
 		cuPort.EXPECT().Recv(gomock.Any()).
 			Do(func(dr *mem.DataReadyRsp) {
 				Expect(dr.Data).To(Equal([]byte{5, 6, 7, 8}))
@@ -141,12 +140,12 @@ var _ = Describe("Cache", func() {
 		write := mem.WriteReqBuilder{}.
 			WithSendTime(0).
 			WithSrc(cuPort).
-			WithDst(c.TopPort).
+			WithDst(c.GetPortByName("Top")).
 			WithAddress(0x100).
 			WithData([]byte{1, 2, 3, 4}).
 			Build()
 		write.RecvTime = 0
-		c.TopPort.Recv(write)
+		c.GetPortByName("Top").Recv(write)
 		cuPort.EXPECT().Recv(gomock.Any()).
 			Do(func(done *mem.WriteDoneRsp) {
 				Expect(done.RespondTo).To(Equal(write.ID))
@@ -162,7 +161,7 @@ var _ = Describe("Cache", func() {
 		write := mem.WriteReqBuilder{}.
 			WithSendTime(0).
 			WithSrc(cuPort).
-			WithDst(c.TopPort).
+			WithDst(c.GetPortByName("Top")).
 			WithAddress(0x100).
 			WithData(
 				[]byte{
@@ -177,7 +176,7 @@ var _ = Describe("Cache", func() {
 				}).
 			Build()
 		write.RecvTime = 0
-		c.TopPort.Recv(write)
+		c.GetPortByName("Top").Recv(write)
 		cuPort.EXPECT().Recv(gomock.Any()).
 			Do(func(done *mem.WriteDoneRsp) {
 				Expect(done.RespondTo).To(Equal(write.ID))

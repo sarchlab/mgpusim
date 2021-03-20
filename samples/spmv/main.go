@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/shoc/spmv"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/shoc/spmv"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 // Dim is dimension
@@ -19,7 +19,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := spmv.NewBenchmark(runner.GPUDriver)
+	benchmark := spmv.NewBenchmark(runner.Driver())
 	benchmark.Dim = int32(*Dim)
 	benchmark.Sparsity = *Sparsity
 

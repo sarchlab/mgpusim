@@ -1,10 +1,10 @@
 package l1v
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/pipelining"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/pipelining"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type bankTransaction struct {
@@ -21,7 +21,7 @@ type bankStage struct {
 	numReqPerCycle int
 
 	pipeline        pipelining.Pipeline
-	postPipelineBuf util.Buffer
+	postPipelineBuf buffering.Buffer
 }
 
 func (s *bankStage) Reset() {
@@ -29,7 +29,7 @@ func (s *bankStage) Reset() {
 	s.pipeline.Clear()
 }
 
-func (s *bankStage) Tick(now akita.VTimeInSec) bool {
+func (s *bankStage) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	for i := 0; i < s.numReqPerCycle; i++ {
@@ -45,7 +45,7 @@ func (s *bankStage) Tick(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *bankStage) extractFromBuf(now akita.VTimeInSec) bool {
+func (s *bankStage) extractFromBuf(now sim.VTimeInSec) bool {
 	item := s.cache.bankBufs[s.bankID].Peek()
 	if item == nil {
 		return false
@@ -62,7 +62,7 @@ func (s *bankStage) extractFromBuf(now akita.VTimeInSec) bool {
 	return true
 }
 
-func (s *bankStage) finalizeTrans(now akita.VTimeInSec) bool {
+func (s *bankStage) finalizeTrans(now sim.VTimeInSec) bool {
 	item := s.postPipelineBuf.Peek()
 	if item == nil {
 		return false
@@ -83,7 +83,7 @@ func (s *bankStage) finalizeTrans(now akita.VTimeInSec) bool {
 }
 
 func (s *bankStage) finalizeReadHitTrans(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	block := trans.block
@@ -109,7 +109,7 @@ func (s *bankStage) finalizeReadHitTrans(
 }
 
 func (s *bankStage) finalizeWriteTrans(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	write := trans.write
@@ -139,7 +139,7 @@ func (s *bankStage) finalizeWriteTrans(
 }
 
 func (s *bankStage) finalizeWriteFetchedTrans(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	block := trans.block

@@ -15,13 +15,12 @@ import (
 	"sync"
 
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/monitoring"
-	"gitlab.com/akita/mgpusim/benchmarks"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/platform"
-	"gitlab.com/akita/mgpusim/rdma"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/monitoring"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/benchmarks"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/rdma"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -69,22 +68,22 @@ type verificationPreEnablingBenchmark interface {
 
 type instCountTracer struct {
 	tracer *instTracer
-	cu     akita.Component
+	cu     TraceableComponent
 }
 
 type cacheLatencyTracer struct {
 	tracer *tracing.AverageTimeTracer
-	cache  akita.Component
+	cache  TraceableComponent
 }
 
 type cacheHitRateTracer struct {
 	tracer *tracing.StepCountTracer
-	cache  akita.Component
+	cache  TraceableComponent
 }
 
 type dramTransactionCountTracer struct {
 	tracer *dramTracer
-	dram   tracing.NamedHookable
+	dram   TraceableComponent
 }
 
 type rdmaTransactionCountTracer struct {
@@ -95,18 +94,19 @@ type rdmaTransactionCountTracer struct {
 
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
-	Engine                     akita.Engine
-	GPUDriver                  *driver.Driver
-	maxInstStopper             *instTracer
-	KernelTimeCounter          *tracing.BusyTimeTracer
-	PerGPUKernelTimeCounter    []*tracing.BusyTimeTracer
-	InstCountTracers           []instCountTracer
-	CacheLatencyTracers        []cacheLatencyTracer
-	CacheHitRateTracers        []cacheHitRateTracer
-	RDMATransactionCounters    []rdmaTransactionCountTracer
-	DRAMTracers                []dramTransactionCountTracer
-	Benchmarks                 []benchmarks.Benchmark
-	monitor                    *monitoring.Monitor
+	platform                *Platform
+	maxInstStopper          *instTracer
+	kernelTimeCounter       *tracing.BusyTimeTracer
+	perGPUKernelTimeCounter []*tracing.BusyTimeTracer
+	instCountTracers        []instCountTracer
+	cacheLatencyTracers     []cacheLatencyTracer
+	cacheHitRateTracers     []cacheHitRateTracer
+	rdmaTransactionCounters []rdmaTransactionCountTracer
+	dramTracers             []dramTransactionCountTracer
+	benchmarks              []benchmarks.Benchmark
+	monitor                 *monitoring.Monitor
+	metricsCollector        *collector
+
 	Timing                     bool
 	Verify                     bool
 	Parallel                   bool
@@ -116,7 +116,6 @@ type Runner struct {
 	ReportRDMATransactionCount bool
 	ReportDRAMTransactionCount bool
 	UseUnifiedMemory           bool
-	metricsCollector           *collector
 
 	GPUIDs []int
 }
@@ -198,7 +197,12 @@ func (r *Runner) Init() *Runner {
 	}
 
 	r.parseGPUFlag()
+	r.defineMetrics()
 
+	return r
+}
+
+func (r *Runner) defineMetrics() {
 	r.metricsCollector = &collector{}
 	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
@@ -209,12 +213,10 @@ func (r *Runner) Init() *Runner {
 	r.addDRAMTracer()
 
 	atexit.Register(func() { r.reportStats() })
-
-	return r
 }
 
 func (r *Runner) buildEmuPlatform() {
-	b := platform.MakeEmuBuilder()
+	b := MakeEmuBuilder()
 
 	if r.Parallel {
 		b = b.WithParallelEngine()
@@ -232,11 +234,11 @@ func (r *Runner) buildEmuPlatform() {
 		b = b.WithMemTracing()
 	}
 
-	r.Engine, r.GPUDriver = b.Build()
+	r.platform = b.Build()
 }
 
 func (r *Runner) buildTimingPlatform() {
-	b := platform.MakeR9NanoBuilder()
+	b := MakeR9NanoBuilder()
 
 	if r.Parallel {
 		b = b.WithParallelEngine()
@@ -248,8 +250,8 @@ func (r *Runner) buildTimingPlatform() {
 
 	if *visTracing {
 		b = b.WithPartialVisTracing(
-			akita.VTimeInSec(*visTraceStartTime),
-			akita.VTimeInSec(*visTraceEndTime),
+			sim.VTimeInSec(*visTraceStartTime),
+			sim.VTimeInSec(*visTraceEndTime),
 		)
 	}
 
@@ -260,7 +262,7 @@ func (r *Runner) buildTimingPlatform() {
 	r.monitor = monitoring.NewMonitor()
 	b = b.WithMonitor(r.monitor)
 
-	r.Engine, r.GPUDriver = b.Build()
+	r.platform = b.Build()
 
 	r.monitor.StartServer()
 }
@@ -271,7 +273,7 @@ func (r *Runner) addMaxInstStopper() {
 	}
 
 	r.maxInstStopper = newInstStopper(*maxInstCount)
-	for _, gpu := range r.GPUDriver.GPUs {
+	for _, gpu := range r.platform.GPUs {
 		for _, cu := range gpu.CUs {
 			tracing.CollectTrace(cu.(tracing.NamedHookable), r.maxInstStopper)
 		}
@@ -279,19 +281,19 @@ func (r *Runner) addMaxInstStopper() {
 }
 
 func (r *Runner) addKernelTimeTracer() {
-	r.KernelTimeCounter = tracing.NewBusyTimeTracer(
+	r.kernelTimeCounter = tracing.NewBusyTimeTracer(
 		func(task tracing.Task) bool {
 			return task.What == "*driver.LaunchKernelCommand"
 		})
-	tracing.CollectTrace(r.GPUDriver, r.KernelTimeCounter)
+	tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
 
-	for _, gpu := range r.GPUDriver.GPUs {
+	for _, gpu := range r.platform.GPUs {
 		gpuKernelTimeCounter := tracing.NewBusyTimeTracer(
 			func(task tracing.Task) bool {
 				return task.What == "*protocol.LaunchKernelReq"
 			})
-		r.PerGPUKernelTimeCounter = append(
-			r.PerGPUKernelTimeCounter, gpuKernelTimeCounter)
+		r.perGPUKernelTimeCounter = append(
+			r.perGPUKernelTimeCounter, gpuKernelTimeCounter)
 		tracing.CollectTrace(gpu.CommandProcessor, gpuKernelTimeCounter)
 	}
 }
@@ -301,10 +303,10 @@ func (r *Runner) addInstCountTracer() {
 		return
 	}
 
-	for _, gpu := range r.GPUDriver.GPUs {
+	for _, gpu := range r.platform.GPUs {
 		for _, cu := range gpu.CUs {
 			tracer := newInstTracer()
-			r.InstCountTracers = append(r.InstCountTracers,
+			r.instCountTracers = append(r.instCountTracers,
 				instCountTracer{
 					tracer: tracer,
 					cu:     cu,
@@ -319,13 +321,13 @@ func (r *Runner) addCacheLatencyTracer() {
 		return
 	}
 
-	for _, gpu := range r.GPUDriver.GPUs {
+	for _, gpu := range r.platform.GPUs {
 		for _, cache := range gpu.L1ICaches {
 			tracer := tracing.NewAverageTimeTracer(
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
-			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
 				cacheLatencyTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -335,7 +337,7 @@ func (r *Runner) addCacheLatencyTracer() {
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
-			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
 				cacheLatencyTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -345,7 +347,7 @@ func (r *Runner) addCacheLatencyTracer() {
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
-			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
 				cacheLatencyTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -355,7 +357,7 @@ func (r *Runner) addCacheLatencyTracer() {
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
-			r.CacheLatencyTracers = append(r.CacheLatencyTracers,
+			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
 				cacheLatencyTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -367,11 +369,11 @@ func (r *Runner) addCacheHitRateTracer() {
 		return
 	}
 
-	for _, gpu := range r.GPUDriver.GPUs {
+	for _, gpu := range r.platform.GPUs {
 		for _, cache := range gpu.L1VCaches {
 			tracer := tracing.NewStepCountTracer(
 				func(task tracing.Task) bool { return true })
-			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -379,7 +381,7 @@ func (r *Runner) addCacheHitRateTracer() {
 		for _, cache := range gpu.L1SCaches {
 			tracer := tracing.NewStepCountTracer(
 				func(task tracing.Task) bool { return true })
-			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -387,7 +389,7 @@ func (r *Runner) addCacheHitRateTracer() {
 		for _, cache := range gpu.L1ICaches {
 			tracer := tracing.NewStepCountTracer(
 				func(task tracing.Task) bool { return true })
-			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -395,7 +397,7 @@ func (r *Runner) addCacheHitRateTracer() {
 		for _, cache := range gpu.L2Caches {
 			tracer := tracing.NewStepCountTracer(
 				func(task tracing.Task) bool { return true })
-			r.CacheHitRateTracers = append(r.CacheHitRateTracers,
+			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
 				cacheHitRateTracer{tracer: tracer, cache: cache})
 			tracing.CollectTrace(cache, tracer)
 		}
@@ -407,7 +409,7 @@ func (r *Runner) addRDMAEngineTracer() {
 		return
 	}
 
-	for _, gpu := range r.GPUDriver.GPUs {
+	for _, gpu := range r.platform.GPUs {
 		t := rdmaTransactionCountTracer{}
 		t.rdmaEngine = gpu.RDMAEngine
 		t.incomingTracer = tracing.NewAverageTimeTracer(
@@ -417,7 +419,7 @@ func (r *Runner) addRDMAEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(akita.Msg).Meta().Src.Name(), "RDMA")
+					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
 				if !isFromOutside {
 					return false
 				}
@@ -431,7 +433,7 @@ func (r *Runner) addRDMAEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(akita.Msg).Meta().Src.Name(), "RDMA")
+					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
 				if isFromOutside {
 					return false
 				}
@@ -442,7 +444,7 @@ func (r *Runner) addRDMAEngineTracer() {
 		tracing.CollectTrace(t.rdmaEngine, t.incomingTracer)
 		tracing.CollectTrace(t.rdmaEngine, t.outgoingTracer)
 
-		r.RDMATransactionCounters = append(r.RDMATransactionCounters, t)
+		r.rdmaTransactionCounters = append(r.rdmaTransactionCounters, t)
 	}
 }
 
@@ -451,15 +453,15 @@ func (r *Runner) addDRAMTracer() {
 		return
 	}
 
-	for _, gpu := range r.GPUDriver.GPUs {
-		for _, dram := range gpu.MemoryControllers {
+	for _, gpu := range r.platform.GPUs {
+		for _, dram := range gpu.MemControllers {
 			t := dramTransactionCountTracer{}
-			t.dram = dram.(tracing.NamedHookable)
+			t.dram = dram.(TraceableComponent)
 			t.tracer = newDramTracer()
 
 			tracing.CollectTrace(t.dram, t.tracer)
 
-			r.DRAMTracers = append(r.DRAMTracers, t)
+			r.dramTracers = append(r.dramTracers, t)
 		}
 	}
 }
@@ -476,7 +478,7 @@ func (r *Runner) parseGPUFlag() {
 
 	if *unifiedGPUFlag != "" {
 		gpuIDs := r.gpuIDStringToList(*unifiedGPUFlag)
-		unifiedGPUID := r.GPUDriver.CreateUnifiedGPU(nil, gpuIDs)
+		unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpuIDs)
 		r.GPUIDs = []int{unifiedGPUID}
 		return
 	}
@@ -504,7 +506,7 @@ func (r *Runner) AddBenchmark(b benchmarks.Benchmark) {
 	if r.UseUnifiedMemory {
 		b.SetUnifiedMemory()
 	}
-	r.Benchmarks = append(r.Benchmarks, b)
+	r.benchmarks = append(r.benchmarks, b)
 }
 
 // AddBenchmarkWithoutSettingGPUsToUse allows for user specified GPUs for
@@ -513,15 +515,15 @@ func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
 	if r.UseUnifiedMemory {
 		b.SetUnifiedMemory()
 	}
-	r.Benchmarks = append(r.Benchmarks, b)
+	r.benchmarks = append(r.benchmarks, b)
 }
 
 // Run runs the benchmark on the simulator
 func (r *Runner) Run() {
-	r.GPUDriver.Run()
+	r.platform.Driver.Run()
 
 	var wg sync.WaitGroup
-	for _, b := range r.Benchmarks {
+	for _, b := range r.benchmarks {
 		wg.Add(1)
 		go func(b benchmarks.Benchmark, wg *sync.WaitGroup) {
 			if r.Verify {
@@ -540,8 +542,8 @@ func (r *Runner) Run() {
 	}
 	wg.Wait()
 
-	r.GPUDriver.Terminate()
-	r.Engine.Finished()
+	r.platform.Driver.Terminate()
+	r.platform.Engine.Finished()
 
 	//r.reportStats()
 
@@ -559,7 +561,7 @@ func (r *Runner) reportStats() {
 }
 
 func (r *Runner) reportInstCount() {
-	for _, t := range r.InstCountTracers {
+	for _, t := range r.instCountTracers {
 		r.metricsCollector.Collect(
 			t.cu.Name(), "inst_count", float64(t.tracer.count))
 	}
@@ -568,22 +570,22 @@ func (r *Runner) reportInstCount() {
 func (r *Runner) reportExecutionTime() {
 	if r.Timing {
 		r.metricsCollector.Collect(
-			r.GPUDriver.Name(),
-			"kernel_time", float64(r.KernelTimeCounter.BusyTime()))
+			r.platform.Driver.Name(),
+			"kernel_time", float64(r.kernelTimeCounter.BusyTime()))
 		r.metricsCollector.Collect(
-			r.GPUDriver.Name(),
-			"total_time", float64(r.Engine.CurrentTime()))
+			r.platform.Driver.Name(),
+			"total_time", float64(r.platform.Engine.CurrentTime()))
 
-		for i, c := range r.PerGPUKernelTimeCounter {
+		for i, c := range r.perGPUKernelTimeCounter {
 			r.metricsCollector.Collect(
-				r.GPUDriver.GPUs[i].CommandProcessor.Name(),
+				r.platform.GPUs[i].CommandProcessor.Name(),
 				"kernel_time", float64(c.BusyTime()))
 		}
 	}
 }
 
 func (r *Runner) reportCacheLatency() {
-	for _, tracer := range r.CacheLatencyTracers {
+	for _, tracer := range r.cacheLatencyTracers {
 		if tracer.tracer.AverageTime() == 0 {
 			continue
 		}
@@ -597,7 +599,7 @@ func (r *Runner) reportCacheLatency() {
 }
 
 func (r *Runner) reportCacheHitRate() {
-	for _, tracer := range r.CacheHitRateTracers {
+	for _, tracer := range r.cacheHitRateTracers {
 		readHit := tracer.tracer.GetStepCount("read-hit")
 		readMiss := tracer.tracer.GetStepCount("read-miss")
 		readMSHRHit := tracer.tracer.GetStepCount("read-mshr-miss")
@@ -628,7 +630,7 @@ func (r *Runner) reportCacheHitRate() {
 }
 
 func (r *Runner) reportRDMATransactionCount() {
-	for _, t := range r.RDMATransactionCounters {
+	for _, t := range r.rdmaTransactionCounters {
 		r.metricsCollector.Collect(
 			t.rdmaEngine.Name(),
 			"outgoing_trans_count",
@@ -643,7 +645,7 @@ func (r *Runner) reportRDMATransactionCount() {
 }
 
 func (r *Runner) reportDRAMTransactionCount() {
-	for _, t := range r.DRAMTracers {
+	for _, t := range r.dramTracers {
 		r.metricsCollector.Collect(
 			t.dram.Name(),
 			"read_trans_count",
@@ -679,4 +681,14 @@ func (r *Runner) reportDRAMTransactionCount() {
 
 func (r *Runner) dumpMetrics() {
 	r.metricsCollector.Dump(*filenameFlag)
+}
+
+// Driver returns the GPU driver used by the current runner.
+func (r *Runner) Driver() *driver.Driver {
+	return r.platform.Driver
+}
+
+// Engine returns the event-driven simulation engine used by the current runner.
+func (r *Runner) Engine() sim.Engine {
+	return r.platform.Engine
 }

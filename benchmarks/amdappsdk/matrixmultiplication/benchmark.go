@@ -7,7 +7,7 @@ import (
 	"math"
 	"math/rand"
 
-	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/v2/driver"
 )
 
 // Benchmark defines a benchmark

@@ -4,10 +4,10 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/buffering"
 )
 
 var _ = Describe("Bankstage", func() {
@@ -29,11 +29,11 @@ var _ = Describe("Bankstage", func() {
 		postPipelineBuf = NewMockBuffer(mockCtrl)
 		c = &Cache{
 			bankLatency:   10,
-			bankBufs:      []util.Buffer{inBuf},
+			bankBufs:      []buffering.Buffer{inBuf},
 			storage:       storage,
 			log2BlockSize: 6,
 		}
-		c.TickingComponent = akita.NewTickingComponent(
+		c.TickingComponent = sim.NewTickingComponent(
 			"cache", nil, 1, c)
 		s = &bankStage{
 			cache:           c,
@@ -49,7 +49,7 @@ var _ = Describe("Bankstage", func() {
 	})
 
 	It("should do nothing if no request", func() {
-		pipeline.EXPECT().Tick(akita.VTimeInSec(10)).Return(false)
+		pipeline.EXPECT().Tick(sim.VTimeInSec(10)).Return(false)
 		inBuf.EXPECT().Peek().Return(nil)
 		postPipelineBuf.EXPECT().Peek().Return(nil)
 
@@ -63,11 +63,11 @@ var _ = Describe("Bankstage", func() {
 
 		inBuf.EXPECT().Peek().Return(trans)
 		inBuf.EXPECT().Pop()
-		pipeline.EXPECT().Tick(akita.VTimeInSec(10)).Return(false)
+		pipeline.EXPECT().Tick(sim.VTimeInSec(10)).Return(false)
 		pipeline.EXPECT().CanAccept().Return(true)
 		pipeline.EXPECT().
-			Accept(akita.VTimeInSec(10), gomock.Any()).
-			Do(func(now akita.VTimeInSec, t *bankTransaction) {
+			Accept(sim.VTimeInSec(10), gomock.Any()).
+			Do(func(now sim.VTimeInSec, t *bankTransaction) {
 				Expect(t.transaction).To(BeIdenticalTo(trans))
 			})
 		postPipelineBuf.EXPECT().Peek().Return(nil)
@@ -133,7 +133,7 @@ var _ = Describe("Bankstage", func() {
 		})
 
 		It("should read", func() {
-			pipeline.EXPECT().Tick(akita.VTimeInSec(10))
+			pipeline.EXPECT().Tick(sim.VTimeInSec(10))
 			inBuf.EXPECT().Peek().Return(nil)
 			postPipelineBuf.EXPECT().Pop()
 
@@ -199,7 +199,7 @@ var _ = Describe("Bankstage", func() {
 		})
 
 		It("should write", func() {
-			pipeline.EXPECT().Tick(akita.VTimeInSec(10))
+			pipeline.EXPECT().Tick(sim.VTimeInSec(10))
 			inBuf.EXPECT().Peek().Return(nil)
 			postPipelineBuf.EXPECT().Pop()
 
@@ -256,7 +256,7 @@ var _ = Describe("Bankstage", func() {
 		})
 
 		It("should write fetched", func() {
-			pipeline.EXPECT().Tick(akita.VTimeInSec(10))
+			pipeline.EXPECT().Tick(sim.VTimeInSec(10))
 			inBuf.EXPECT().Peek().Return(nil)
 			postPipelineBuf.EXPECT().Pop()
 

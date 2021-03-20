@@ -4,7 +4,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mem/vm"
+	"gitlab.com/akita/mem/v2/vm"
 )
 
 var _ = Describe("MemoryAllocatorImpl", func() {

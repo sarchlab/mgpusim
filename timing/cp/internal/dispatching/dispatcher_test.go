@@ -4,10 +4,10 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
 )
 
 var _ = Describe("Dispatcher", func() {
@@ -132,7 +132,7 @@ var _ = Describe("Dispatcher", func() {
 		})
 		dispatchingPort.EXPECT().
 			Send(gomock.Any()).
-			Return(akita.NewSendError())
+			Return(sim.NewSendError())
 
 		madeProgress := dispatcher.Tick(10)
 
@@ -177,7 +177,7 @@ var _ = Describe("Dispatcher", func() {
 			Peek().
 			Return(wgCompletionMsg)
 		dispatchingPort.EXPECT().
-			Retrieve(akita.VTimeInSec(10))
+			Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := dispatcher.Tick(10)
 
@@ -207,7 +207,7 @@ var _ = Describe("Dispatcher", func() {
 			Peek().
 			Return(wgCompletionMsg)
 		dispatchingPort.EXPECT().
-			Retrieve(akita.VTimeInSec(10))
+			Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := dispatcher.Tick(10)
 
@@ -270,7 +270,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatchingPort.EXPECT().Peek().Return(nil)
 		respondingPort.EXPECT().
 			Send(gomock.Any()).
-			Return(akita.NewSendError())
+			Return(sim.NewSendError())
 
 		madeProgress := dispatcher.Tick(10)
 

@@ -4,9 +4,9 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 var _ = Describe("Coalescer", func() {
@@ -24,10 +24,10 @@ var _ = Describe("Coalescer", func() {
 		dirBuf = NewMockBuffer(mockCtrl)
 		cache = &Cache{
 			log2BlockSize: 6,
-			TopPort:       topPort,
+			topPort:       topPort,
 			dirBuf:        dirBuf,
 		}
-		cache.TickingComponent = akita.NewTickingComponent(
+		cache.TickingComponent = sim.NewTickingComponent(
 			"cache", nil, 1, cache)
 		c = coalescer{cache: cache}
 	})

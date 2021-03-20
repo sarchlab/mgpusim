@@ -3,11 +3,11 @@ package wavefront
 import (
 	"sync"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 // WfState marks what state that wavefront it in.
@@ -32,10 +32,10 @@ type Wavefront struct {
 
 	pid            ca.PID
 	State          WfState
-	inst           *Inst            // The instruction that is being executed
-	scratchpad     emu.Scratchpad   // A temp data buf that is shared by different stages
-	LastFetchTime  akita.VTimeInSec // The time that the last instruction was fetched
-	CompletedLanes int              // The number of lanes that is completed in the SIMD unit
+	inst           *Inst          // The instruction that is being executed
+	scratchpad     emu.Scratchpad // A temp data buf that is shared by different stages
+	LastFetchTime  sim.VTimeInSec // The time that the last instruction was fetched
+	CompletedLanes int            // The number of lanes that is completed in the SIMD unit
 
 	InstBuffer        []byte
 	InstBufferStartPC uint64

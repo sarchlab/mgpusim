@@ -5,9 +5,9 @@ import (
 	"log"
 	"math/rand"
 
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // CopyRectKernelArgs defines kernel arguments

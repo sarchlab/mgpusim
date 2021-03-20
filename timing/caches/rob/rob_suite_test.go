@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_akita_test.go gitlab.com/akita/akita Port,Engine
+//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_sim_test.go gitlab.com/akita/akita/v2/sim Port,Engine
 
 func TestRob(t *testing.T) {
 	RegisterFailHandler(Fail)

@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/bitonicsort"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/bitonicsort"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var length = flag.Int("length", 1024, "The length of array to sort.")
@@ -15,7 +15,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := bitonicsort.NewBenchmark(runner.GPUDriver)
+	benchmark := bitonicsort.NewBenchmark(runner.Driver())
 	benchmark.Length = *length
 	benchmark.OrderAscending = *orderAscending
 
