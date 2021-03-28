@@ -187,6 +187,7 @@ func (r *Runner) Init() *Runner {
 	go r.startProfilingServer()
 
 	r.ParseFlag()
+	r.parseGPUFlag()
 
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 
@@ -196,7 +197,8 @@ func (r *Runner) Init() *Runner {
 		r.buildEmuPlatform()
 	}
 
-	r.parseGPUFlag()
+	r.createUnifiedGPUs()
+
 	r.defineMetrics()
 
 	return r
@@ -216,7 +218,8 @@ func (r *Runner) defineMetrics() {
 }
 
 func (r *Runner) buildEmuPlatform() {
-	b := MakeEmuBuilder()
+	b := MakeEmuBuilder().
+		WithNumGPU(r.GPUIDs[len(r.GPUIDs)-1])
 
 	if r.Parallel {
 		b = b.WithParallelEngine()
@@ -238,7 +241,8 @@ func (r *Runner) buildEmuPlatform() {
 }
 
 func (r *Runner) buildTimingPlatform() {
-	b := MakeR9NanoBuilder()
+	b := MakeR9NanoBuilder().
+		WithNumGPU(r.GPUIDs[len(r.GPUIDs)-1])
 
 	if r.Parallel {
 		b = b.WithParallelEngine()
@@ -476,20 +480,29 @@ func (r *Runner) parseGPUFlag() {
 		panic("cannot use -gpus and -unified-gpus together")
 	}
 
-	if *unifiedGPUFlag != "" {
-		gpuIDs := r.gpuIDStringToList(*unifiedGPUFlag)
-		unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpuIDs)
-		r.GPUIDs = []int{unifiedGPUID}
+	var gpuIDs []int
+	if *gpuFlag != "" {
+		gpuIDs = r.gpuIDStringToList(*gpuFlag)
+	} else if *unifiedGPUFlag != "" {
+		gpuIDs = r.gpuIDStringToList(*unifiedGPUFlag)
+	}
+
+	r.GPUIDs = gpuIDs
+}
+
+func (r *Runner) createUnifiedGPUs() {
+	if *unifiedGPUFlag == "" {
 		return
 	}
 
-	gpuIDs := r.gpuIDStringToList(*gpuFlag)
-	r.GPUIDs = gpuIDs
+	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, r.GPUIDs)
+	r.GPUIDs = []int{unifiedGPUID}
 }
 
 func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
 	gpuIDs := make([]int, 0)
 	gpuIDTokens := strings.Split(gpuIDsString, ",")
+
 	for _, t := range gpuIDTokens {
 		gpuID, err := strconv.Atoi(t)
 		if err != nil {
@@ -497,6 +510,7 @@ func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
 		}
 		gpuIDs = append(gpuIDs, gpuID)
 	}
+
 	return gpuIDs
 }
 

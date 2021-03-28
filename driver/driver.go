@@ -506,11 +506,17 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 		) bool {
 			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
 			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
+			numWGZ := (pkt.GridSizeZ-1)/uint32(pkt.WorkgroupSizeZ) + 1
+			numWG := int(numWGX * numWGY * numWGZ)
+
 			flattenedID :=
 				wg.IDZ*int(numWGX)*int(numWGY) +
 					wg.IDY*int(numWGX) +
 					wg.IDX
-			return flattenedID%numGPUs == currentGPUIndex
+
+			wgPerGPU := (numWG-1)/numGPUs + 1
+
+			return flattenedID/wgPerGPU == currentGPUIndex
 		}
 
 		queue.IsRunning = true
