@@ -2,6 +2,7 @@ module gitlab.com/akita/mgpusim/v2
 
 require (
 	github.com/aws/aws-sdk-go v1.37.33 // indirect
+	github.com/fatih/color v1.10.0 // indirect
 	github.com/golang/mock v1.5.0
 	github.com/onsi/ginkgo v1.15.2
 	github.com/onsi/gomega v1.11.0

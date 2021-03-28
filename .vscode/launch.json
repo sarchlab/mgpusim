@@ -154,7 +154,7 @@
                 "-verify",
                 "-length=128",
                 "-report-all",
-                "-unified-gpus=1,2"
+                "-gpus=1,2"
             ]
         },
         {

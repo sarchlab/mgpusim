@@ -214,6 +214,8 @@ func (d *DispatcherImpl) dispatchNextWG(
 	req := reqBuilder.Build()
 	err := d.dispatchingPort.Send(req)
 
+	// fmt.Printf("%.10f, %d, %d\n", now, d.currWG.wg.IDX, d.currWG.cuID)
+
 	if err == nil {
 		d.currWG.valid = false
 		d.numDispatchedWGs++
