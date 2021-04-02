@@ -152,9 +152,9 @@
             "args": [
                 "-timing",
                 "-verify",
-                "-length=128",
+                "-length=128000",
                 "-report-all",
-                "-gpus=1,2"
+                "-max-inst=100"
             ]
         },
         {

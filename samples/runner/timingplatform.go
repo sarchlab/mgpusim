@@ -133,10 +133,11 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	return &Platform{
 		Engine: engine,
 		Driver: gpuDriver,
+		GPUs:   b.gpus,
 	}
 }
 
-func (b R9NanoPlatformBuilder) createGPUs(
+func (b *R9NanoPlatformBuilder) createGPUs(
 	rootComplexID int,
 	pcieConnector *pcie.Connector,
 	gpuBuilder R9NanoGPUBuilder,
