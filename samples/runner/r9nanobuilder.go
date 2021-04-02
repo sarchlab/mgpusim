@@ -43,7 +43,7 @@ type R9NanoGPUBuilder struct {
 	monitor            *monitoring.Monitor
 
 	gpuName                 string
-	gpu                     *sim.Domain
+	gpu                     *GPU
 	gpuID                   uint64
 	cp                      *cp.CommandProcessor
 	cus                     []*cu.ComputeUnit
@@ -212,30 +212,26 @@ func (b R9NanoGPUBuilder) Build(name string, id uint64) *GPU {
 
 	b.populateExternalPorts()
 
-	return &GPU{
-		Domain:           b.gpu,
-		CommandProcessor: b.cp,
-		RDMAEngine:       b.rdmaEngine,
-		PMC:              b.pageMigrationController,
-	}
+	return b.gpu
 }
 
 func (b *R9NanoGPUBuilder) populateExternalPorts() {
-	b.gpu.AddPort("CommandProcessor", b.cp.ToDriver)
-	b.gpu.AddPort("RDMA", b.rdmaEngine.ToOutside)
-	b.gpu.AddPort("PageMigrationController",
+	b.gpu.Domain.AddPort("CommandProcessor", b.cp.ToDriver)
+	b.gpu.Domain.AddPort("RDMA", b.rdmaEngine.ToOutside)
+	b.gpu.Domain.AddPort("PageMigrationController",
 		b.pageMigrationController.GetPortByName("Remote"))
 
 	for i, l2TLB := range b.l2TLBs {
 		name := fmt.Sprintf("Translation_%02d", i)
-		b.gpu.AddPort(name, l2TLB.GetPortByName("Bottom"))
+		b.gpu.Domain.AddPort(name, l2TLB.GetPortByName("Bottom"))
 	}
 }
 
 func (b *R9NanoGPUBuilder) createGPU(name string, id uint64) {
 	b.gpuName = name
 
-	b.gpu = sim.NewDomain(b.gpuName)
+	b.gpu = &GPU{}
+	b.gpu.Domain = sim.NewDomain(b.gpuName)
 	b.gpuID = id
 }
 
@@ -614,6 +610,7 @@ func (b *R9NanoGPUBuilder) buildSA(
 
 func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 	for _, cu := range sa.cus {
+		b.gpu.CUs = append(b.gpu.CUs, cu)
 		b.cus = append(b.cus, cu)
 
 		if b.monitor != nil {
@@ -683,6 +680,7 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 		b.lowModuleFinderForL1,
 		nil,
 	)
+	b.gpu.RDMAEngine = b.rdmaEngine
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.rdmaEngine)
@@ -696,6 +694,7 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 			b.engine,
 			b.lowModuleFinderForPMC,
 			nil)
+	b.gpu.PMC = b.pageMigrationController
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.pageMigrationController)
@@ -728,6 +727,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	}
 
 	b.cp = builder.Build(b.gpuName + ".CommandProcessor")
+	b.gpu.CommandProcessor = b.cp
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.cp)
