@@ -49,14 +49,18 @@ func (d *Driver) prepareLocalMemory(
 ) {
 	ldsSize := co.WGGroupSegmentByteSize
 
-	kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
-	for i := 0; i < kernArgStruct.NumField(); i++ {
-		arg := kernArgStruct.Field(i).Interface()
+	if reflect.TypeOf(kernelArgs).Kind() == reflect.Slice {
+		// From server, do nothing
+	} else {
+		kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
+		for i := 0; i < kernArgStruct.NumField(); i++ {
+			arg := kernArgStruct.Field(i).Interface()
 
-		switch ldsPtr := arg.(type) {
-		case LocalPtr:
-			kernArgStruct.Field(i).SetUint(uint64(ldsSize))
-			ldsSize += uint32(ldsPtr)
+			switch ldsPtr := arg.(type) {
+			case LocalPtr:
+				kernArgStruct.Field(i).SetUint(uint64(ldsSize))
+				ldsSize += uint32(ldsPtr)
+			}
 		}
 	}
 
