@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/mgpusim/benchmarks/dnn/tensor"
 	"gitlab.com/akita/mgpusim/benchmarks/mccl"
 
-	"gitlab.com/akita/dnn/dataset/cifar10"
+	"gitlab.com/akita/dnn/dataset/imagenet"
 	"gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/training"
 	"gitlab.com/akita/dnn/training/optimization"
@@ -68,39 +68,47 @@ func (b *Benchmark) defineNetwork(gpuID int) {
 
 	network := training.Network{
 		Layers: []layers.Layer{
-			layers.NewConv2D(to, []int{3, 32, 32}, []int{64, 3, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewConv2D(to, []int{3, 224, 224}, []int{64, 3, 3, 3}, []int{1, 1}, []int{1, 1}),
 			layers.NewReluLayer(to),
-			layers.NewConv2D(to, []int{64, 32, 32}, []int{64, 64, 3, 3}, []int{1, 1}, []int{1, 1}),
-			layers.NewReluLayer(to),
-			layers.NewMaxPoolingLayer(to, []int{2, 2}, []int{0, 0}, []int{2, 2}),
-
-			layers.NewConv2D(to, []int{64, 16, 16}, []int{128, 64, 3, 3}, []int{1, 1}, []int{1, 1}),
-			layers.NewReluLayer(to),
-			layers.NewConv2D(to, []int{128, 16, 16}, []int{128, 128, 3, 3}, []int{1, 1}, []int{1, 1}),
-			layers.NewReluLayer(to),
-			layers.NewConv2D(to, []int{128, 16, 16}, []int{128, 128, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewConv2D(to, []int{64, 224, 224}, []int{64, 64, 3, 3}, []int{1, 1}, []int{1, 1}),
 			layers.NewReluLayer(to),
 			layers.NewMaxPoolingLayer(to, []int{2, 2}, []int{0, 0}, []int{2, 2}),
 
-			layers.NewConv2D(to, []int{128, 8, 8}, []int{256, 128, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewConv2D(to, []int{64, 112, 112}, []int{128, 64, 3, 3}, []int{1, 1}, []int{1, 1}),
 			layers.NewReluLayer(to),
-			layers.NewConv2D(to, []int{256, 8, 8}, []int{256, 256, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewConv2D(to, []int{128, 112, 112}, []int{128, 128, 3, 3}, []int{1, 1}, []int{1, 1}),
 			layers.NewReluLayer(to),
-			layers.NewConv2D(to, []int{256, 8, 8}, []int{256, 256, 3, 3}, []int{1, 1}, []int{1, 1}),
-			layers.NewReluLayer(to),
-			layers.NewMaxPoolingLayer(to, []int{2, 2}, []int{0, 0}, []int{2, 2}),
-
-			layers.NewConv2D(to, []int{256, 4, 4}, []int{512, 256, 3, 3}, []int{1, 1}, []int{1, 1}),
-			layers.NewReluLayer(to),
-			layers.NewConv2D(to, []int{512, 4, 4}, []int{512, 512, 3, 3}, []int{1, 1}, []int{1, 1}),
-			layers.NewReluLayer(to),
-			layers.NewConv2D(to, []int{512, 4, 4}, []int{512, 512, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewConv2D(to, []int{128, 112, 112}, []int{128, 128, 3, 3}, []int{1, 1}, []int{1, 1}),
 			layers.NewReluLayer(to),
 			layers.NewMaxPoolingLayer(to, []int{2, 2}, []int{0, 0}, []int{2, 2}),
 
-			layers.NewFullyConnectedLayer(to, 2*2*512, 1*1*512),
+			layers.NewConv2D(to, []int{128, 56, 56}, []int{256, 128, 3, 3}, []int{1, 1}, []int{1, 1}),
 			layers.NewReluLayer(to),
-			layers.NewFullyConnectedLayer(to, 1*1*512, 10),
+			layers.NewConv2D(to, []int{256, 56, 56}, []int{256, 256, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewConv2D(to, []int{256, 56, 56}, []int{256, 256, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewMaxPoolingLayer(to, []int{2, 2}, []int{0, 0}, []int{2, 2}),
+
+			layers.NewConv2D(to, []int{256, 28, 28}, []int{512, 256, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewConv2D(to, []int{512, 28, 28}, []int{512, 512, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewConv2D(to, []int{512, 28, 28}, []int{512, 512, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewMaxPoolingLayer(to, []int{2, 2}, []int{0, 0}, []int{2, 2}),
+
+			layers.NewConv2D(to, []int{512, 14, 14}, []int{512, 512, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewConv2D(to, []int{512, 14, 14}, []int{512, 512, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewConv2D(to, []int{512, 14, 14}, []int{512, 512, 3, 3}, []int{1, 1}, []int{1, 1}),
+			layers.NewReluLayer(to),
+			layers.NewMaxPoolingLayer(to, []int{2, 2}, []int{0, 0}, []int{2, 2}),
+
+			layers.NewFullyConnectedLayer(to, 7*7*512, 2*2*512),
+			layers.NewReluLayer(to),
+			layers.NewFullyConnectedLayer(to, 2*2*512, 200),
 		},
 	}
 
@@ -116,13 +124,13 @@ func (b *Benchmark) createTrainer() {
 	lossFuncs := make([]training.LossFunction, len(b.networks))
 
 	for i := 0; i < len(b.networks); i++ {
-		sources[i] = cifar10.NewTrainingDataSource(b.to[i])
+		sources[i] = imagenet.NewTrainingDataSource(b.to[i])
 		alg[i] = optimization.NewAdam(b.to[i], 0.001)
 		lossFuncs[i] = training.NewSoftmaxCrossEntropy(b.to[i])
 
 		if b.EnableTesting {
 			testers[i] = &training.Tester{
-				DataSource: cifar10.NewTestDataSource(b.to[i]),
+				DataSource: imagenet.NewTestDataSource(b.to[i]),
 				Network:    b.networks[i],
 				BatchSize:  math.MaxInt32,
 			}
