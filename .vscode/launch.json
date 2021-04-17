@@ -152,9 +152,9 @@
             "args": [
                 "-timing",
                 "-verify",
-                "-length=128",
+                "-length=128000",
                 "-report-all",
-                "-unified-gpus=1,2"
+                "-max-inst=100"
             ]
         },
         {
@@ -220,7 +220,6 @@
             "args": [
                 "-verify",
                 "-length=32768",
-                "-timing",
             ]
         },
         {
@@ -407,5 +406,14 @@
                 // "-timing",
             ]
         },
+         {
+            "name": "Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/server",
+            "args": [
+            ]
+        }
     ]
 }

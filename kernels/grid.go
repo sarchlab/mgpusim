@@ -1,8 +1,8 @@
 package kernels
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
 )
 
 // A Grid is a running instance of a kernel.
@@ -40,7 +40,7 @@ type WorkGroup struct {
 // NewWorkGroup creates a workgroup object.
 func NewWorkGroup() *WorkGroup {
 	wg := new(WorkGroup)
-	wg.UID = akita.GetIDGenerator().Generate()
+	wg.UID = sim.GetIDGenerator().Generate()
 	wg.Wavefronts = make([]*Wavefront, 0)
 	wg.WorkItems = make([]*WorkItem, 0)
 	return wg
@@ -62,7 +62,7 @@ type Wavefront struct {
 // NewWavefront returns a new Wavefront.
 func NewWavefront() *Wavefront {
 	wf := new(Wavefront)
-	wf.UID = akita.GetIDGenerator().Generate()
+	wf.UID = sim.GetIDGenerator().Generate()
 	wf.WorkItems = make([]*WorkItem, 0, 64)
 	return wf
 }

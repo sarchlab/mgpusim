@@ -1,14 +1,14 @@
 package resource
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // DispatchableCU handles dispatch resource
 type DispatchableCU interface {
 	// DispatchingPort returns the port that the dispatcher can dispatch workgroups to.
-	DispatchingPort() akita.Port
+	DispatchingPort() sim.Port
 
 	// WfPoolSizes returns an array of how many wavefront each wavefront pool
 	// can hold. -1 is unlimited.

@@ -3,7 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/v2/insts"
 )
 
 var _ = Describe("Simple Register File", func() {

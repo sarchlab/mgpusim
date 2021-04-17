@@ -4,8 +4,8 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
 )
 
 var _ = Describe("Reorder Buffer", func() {
@@ -27,9 +27,9 @@ var _ = Describe("Reorder Buffer", func() {
 		rob = MakeBuilder().
 			WithBufferSize(10).
 			Build("rob")
-		rob.TopPort = topPort
-		rob.BottomPort = bottomPort
-		rob.ControlPort = ctrlPort
+		rob.topPort = topPort
+		rob.bottomPort = bottomPort
+		rob.controlPort = ctrlPort
 		rob.BottomUnit = NewMockPort(mockCtrl)
 	})
 
@@ -70,7 +70,7 @@ var _ = Describe("Reorder Buffer", func() {
 			topPort.EXPECT().Peek().Return(read)
 			bottomPort.EXPECT().
 				Send(gomock.Any()).
-				Return(akita.NewSendError())
+				Return(sim.NewSendError())
 
 			madeProgress := rob.topDown(10)
 
@@ -79,13 +79,13 @@ var _ = Describe("Reorder Buffer", func() {
 
 		It("should accept request from top and forward to bottom", func() {
 			topPort.EXPECT().Peek().Return(read)
-			topPort.EXPECT().Retrieve(akita.VTimeInSec(10))
+			topPort.EXPECT().Retrieve(sim.VTimeInSec(10))
 			bottomPort.EXPECT().
 				Send(gomock.Any()).
 				Do(func(req *mem.ReadReq) {
-					Expect(req.Src).To(BeIdenticalTo(rob.BottomPort))
+					Expect(req.Src).To(BeIdenticalTo(rob.bottomPort))
 					Expect(req.Dst).To(BeIdenticalTo(rob.BottomUnit))
-					Expect(req.SendTime).To(Equal(akita.VTimeInSec(10)))
+					Expect(req.SendTime).To(Equal(sim.VTimeInSec(10)))
 				}).
 				Return(nil)
 
@@ -123,7 +123,7 @@ var _ = Describe("Reorder Buffer", func() {
 				Build()
 
 			bottomPort.EXPECT().Peek().Return(rsp)
-			bottomPort.EXPECT().Retrieve(akita.VTimeInSec(10))
+			bottomPort.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 			madeProgress := rob.parseBottom(10)
 
@@ -134,7 +134,7 @@ var _ = Describe("Reorder Buffer", func() {
 
 	Context("bottom up", func() {
 		var (
-			topModule     akita.Port
+			topModule     sim.Port
 			writeFromTop  *mem.WriteReq
 			rspFromBottom *mem.WriteDoneRsp
 			transaction   *transaction
@@ -170,7 +170,7 @@ var _ = Describe("Reorder Buffer", func() {
 		})
 
 		It("should stall if TopPort is busy", func() {
-			topPort.EXPECT().Send(gomock.Any()).Return(akita.NewSendError())
+			topPort.EXPECT().Send(gomock.Any()).Return(sim.NewSendError())
 
 			madeProgress := rob.bottomUp(10)
 
@@ -185,7 +185,7 @@ var _ = Describe("Reorder Buffer", func() {
 				Do(func(rsp *mem.WriteDoneRsp) {
 					Expect(rsp.Dst).To(BeIdenticalTo(topModule))
 					Expect(rsp.Src).To(BeIdenticalTo(topPort))
-					Expect(rsp.SendTime).To(Equal(akita.VTimeInSec(10)))
+					Expect(rsp.SendTime).To(Equal(sim.VTimeInSec(10)))
 					Expect(rsp.RespondTo).To(Equal(writeFromTop.ID))
 				}).
 				Return(nil)
@@ -205,7 +205,7 @@ var _ = Describe("Reorder Buffer", func() {
 				Build()
 
 			ctrlPort.EXPECT().Peek().Return(flush)
-			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10))
+			ctrlPort.EXPECT().Retrieve(sim.VTimeInSec(10))
 			ctrlPort.EXPECT().Send(gomock.Any()).Return(nil)
 
 			madeProgress := rob.processControlMsg(10)
@@ -220,10 +220,10 @@ var _ = Describe("Reorder Buffer", func() {
 				Build()
 
 			ctrlPort.EXPECT().Peek().Return(restart)
-			ctrlPort.EXPECT().Retrieve(akita.VTimeInSec(10))
+			ctrlPort.EXPECT().Retrieve(sim.VTimeInSec(10))
 			ctrlPort.EXPECT().Send(gomock.Any()).Return(nil)
-			topPort.EXPECT().Retrieve(akita.VTimeInSec(10)).AnyTimes()
-			bottomPort.EXPECT().Retrieve(akita.VTimeInSec(10)).AnyTimes()
+			topPort.EXPECT().Retrieve(sim.VTimeInSec(10)).AnyTimes()
+			bottomPort.EXPECT().Retrieve(sim.VTimeInSec(10)).AnyTimes()
 
 			madeProgress := rob.processControlMsg(10)
 

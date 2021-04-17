@@ -3,10 +3,10 @@ package cu
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 var _ = Describe("WfDispatcher", func() {

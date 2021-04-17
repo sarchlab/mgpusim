@@ -3,8 +3,8 @@ package main_test
 import (
 	"testing"
 
-	"gitlab.com/akita/mgpusim/benchmarks/heteromark/fir"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/fir"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 func BenchmarkFIR(t *testing.B) {
@@ -15,7 +15,7 @@ func BenchmarkFIR(t *testing.B) {
 	runner.GPUIDs = []int{1}
 	runner.Init()
 
-	benchmark := fir.NewBenchmark(runner.GPUDriver)
+	benchmark := fir.NewBenchmark(runner.Driver())
 	benchmark.Length = 4096
 
 	runner.AddBenchmark(benchmark)

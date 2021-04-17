@@ -3,7 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 var _ = Describe("DecodeUnit", func() {

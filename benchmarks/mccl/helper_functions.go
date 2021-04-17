@@ -5,8 +5,8 @@ import (
 	// For embedded HsaCo files.
 	_ "embed"
 
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 var lastUsedGroupID int = 0

@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/v2/insts"
 )
 
 func TestDisassembler(t *testing.T) {

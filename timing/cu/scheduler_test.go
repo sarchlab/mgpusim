@@ -4,11 +4,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 type mockWfArbitor struct {
@@ -40,11 +40,11 @@ func (c *mockCUComponent) CanAcceptWave() bool {
 	return c.canAccept
 }
 
-func (c *mockCUComponent) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
+func (c *mockCUComponent) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
 	c.acceptedWave = append(c.acceptedWave, wave)
 }
 
-func (c *mockCUComponent) Run(now akita.VTimeInSec) bool {
+func (c *mockCUComponent) Run(now sim.VTimeInSec) bool {
 	return true
 }
 
@@ -116,7 +116,7 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*wavefront.Wavefront{wf})
 
-		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
+		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
 			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
 			Expect(req.Dst).To(BeIdenticalTo(instMem))
@@ -137,13 +137,13 @@ var _ = Describe("Scheduler", func() {
 		fetchArbitor.wfsToReturn = append(fetchArbitor.wfsToReturn,
 			[]*wavefront.Wavefront{wf})
 
-		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
+		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
 			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
 			Expect(req.Dst).To(BeIdenticalTo(instMem))
 			Expect(req.Address).To(Equal(uint64(0x180)))
 			Expect(req.AccessByteSize).To(Equal(uint64(64)))
-		}).Return(&akita.SendError{})
+		}).Return(&sim.SendError{})
 
 		scheduler.DoFetch(10)
 

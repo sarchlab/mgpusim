@@ -4,8 +4,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
 )
 
 var _ = Describe("Respond Stage", func() {
@@ -20,9 +20,9 @@ var _ = Describe("Respond Stage", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		topPort = NewMockPort(mockCtrl)
 		cache = &Cache{
-			TopPort: topPort,
+			topPort: topPort,
 		}
-		cache.TickingComponent = akita.NewTickingComponent(
+		cache.TickingComponent = sim.NewTickingComponent(
 			"cache", nil, 1, cache)
 		s = &respondStage{cache: cache}
 
@@ -52,7 +52,7 @@ var _ = Describe("Respond Stage", func() {
 		It("should stall if cannot send to top", func() {
 			trans.data = []byte{1, 2, 3, 4}
 			trans.done = true
-			topPort.EXPECT().Send(gomock.Any()).Return(&akita.SendError{})
+			topPort.EXPECT().Send(gomock.Any()).Return(&sim.SendError{})
 
 			madeProgress := s.Tick(10)
 
@@ -93,7 +93,7 @@ var _ = Describe("Respond Stage", func() {
 
 		It("should stall if cannot send to top", func() {
 			trans.done = true
-			topPort.EXPECT().Send(gomock.Any()).Return(&akita.SendError{})
+			topPort.EXPECT().Send(gomock.Any()).Return(&sim.SendError{})
 
 			madeProgress := s.Tick(10)
 

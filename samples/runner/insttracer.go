@@ -2,7 +2,7 @@ package runner
 
 import (
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // instTracer can trace the number of instruction completed.

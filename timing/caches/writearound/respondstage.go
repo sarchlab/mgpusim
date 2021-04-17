@@ -1,16 +1,16 @@
 package writearound
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type respondStage struct {
 	cache *Cache
 }
 
-func (s *respondStage) Tick(now akita.VTimeInSec) bool {
+func (s *respondStage) Tick(now sim.VTimeInSec) bool {
 	if len(s.cache.transactions) == 0 {
 		return false
 	}
@@ -30,7 +30,7 @@ func (s *respondStage) Tick(now akita.VTimeInSec) bool {
 }
 
 func (s *respondStage) respondReadTrans(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	if !trans.done {
@@ -40,12 +40,12 @@ func (s *respondStage) respondReadTrans(
 	read := trans.read
 	dr := mem.DataReadyRspBuilder{}.
 		WithSendTime(now).
-		WithSrc(s.cache.TopPort).
+		WithSrc(s.cache.topPort).
 		WithDst(read.Src).
 		WithRspTo(read.ID).
 		WithData(trans.data).
 		Build()
-	err := s.cache.TopPort.Send(dr)
+	err := s.cache.topPort.Send(dr)
 	if err != nil {
 		return false
 	}
@@ -58,7 +58,7 @@ func (s *respondStage) respondReadTrans(
 }
 
 func (s *respondStage) respondWriteTrans(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	trans *transaction,
 ) bool {
 	if !trans.done {
@@ -68,11 +68,11 @@ func (s *respondStage) respondWriteTrans(
 	write := trans.write
 	done := mem.WriteDoneRspBuilder{}.
 		WithSendTime(now).
-		WithSrc(s.cache.TopPort).
+		WithSrc(s.cache.topPort).
 		WithDst(write.Src).
 		WithRspTo(write.ID).
 		Build()
-	err := s.cache.TopPort.Send(done)
+	err := s.cache.topPort.Send(done)
 	if err != nil {
 		return false
 	}

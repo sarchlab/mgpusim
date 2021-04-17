@@ -4,11 +4,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 type mockInstState struct {

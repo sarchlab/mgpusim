@@ -3,10 +3,10 @@ package emu
 import (
 	"log"
 
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/idealmemcontroller"
-	"gitlab.com/akita/mem/vm"
-	"gitlab.com/akita/util/ca"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/util/v2/ca"
 )
 
 type storageAccessor struct {

@@ -3,18 +3,18 @@ package cu
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/pipelining"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/pipelining"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A Builder can construct a fully functional Compute Unit.
 type Builder struct {
-	engine            akita.Engine
-	freq              akita.Freq
+	engine            sim.Engine
+	freq              sim.Freq
 	name              string
 	simdCount         int
 	vgprCount         []int
@@ -32,7 +32,7 @@ type Builder struct {
 // MakeBuilder returns a default builder object
 func MakeBuilder() Builder {
 	var b Builder
-	b.freq = 1000 * akita.MHz
+	b.freq = 1000 * sim.MHz
 	b.simdCount = 4
 	b.sgprCount = 3200
 	b.vgprCount = []int{16384, 16384, 16384, 16384}
@@ -42,13 +42,13 @@ func MakeBuilder() Builder {
 }
 
 // WithEngine sets the engine to use.
-func (b Builder) WithEngine(engine akita.Engine) Builder {
+func (b Builder) WithEngine(engine sim.Engine) Builder {
 	b.engine = engine
 	return b
 }
 
 // WithFreq sets the frequency.
-func (b Builder) WithFreq(f akita.Freq) Builder {
+func (b Builder) WithFreq(f sim.Freq) Builder {
 	b.freq = f
 	return b
 }
@@ -172,13 +172,13 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.scratchpadPreparer, coalescer)
 	cu.VectorMemUnit = vectorMemoryUnit
 
-	vectorMemoryUnit.postInstructionPipelineBuffer = util.NewBuffer(8)
+	vectorMemoryUnit.postInstructionPipelineBuffer = buffering.NewBuffer(8)
 	vectorMemoryUnit.instructionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.InstPipeline",
 		6, 1,
 		vectorMemoryUnit.postInstructionPipelineBuffer)
 
-	vectorMemoryUnit.postTransactionPipelineBuffer = util.NewBuffer(8)
+	vectorMemoryUnit.postTransactionPipelineBuffer = buffering.NewBuffer(8)
 	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
 		60, 1,

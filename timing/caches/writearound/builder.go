@@ -3,18 +3,18 @@ package writearound
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/pipelining"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/pipelining"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A Builder can build an writearound cache
 type Builder struct {
-	engine          akita.Engine
-	freq            akita.Freq
+	engine          sim.Engine
+	freq            sim.Freq
 	log2BlockSize   uint64
 	totalByteSize   uint64
 	wayAssocitivity int
@@ -22,14 +22,14 @@ type Builder struct {
 	numBank         int
 	bankLatency     int
 	numReqPerCycle  int
-	lowModuleFinder cache.LowModuleFinder
+	lowModuleFinder mem.LowModuleFinder
 	visTracer       tracing.Tracer
 }
 
 // NewBuilder creates a builder with default parameter setting
 func NewBuilder() *Builder {
 	return &Builder{
-		freq:            1 * akita.GHz,
+		freq:            1 * sim.GHz,
 		log2BlockSize:   6,
 		totalByteSize:   4 * mem.KB,
 		wayAssocitivity: 2,
@@ -41,13 +41,13 @@ func NewBuilder() *Builder {
 }
 
 // WithEngine sets the event driven simulation engine that the cache uses
-func (b *Builder) WithEngine(engine akita.Engine) *Builder {
+func (b *Builder) WithEngine(engine sim.Engine) *Builder {
 	b.engine = engine
 	return b
 }
 
 // WithFreq sets the frequency that the cache works at
-func (b *Builder) WithFreq(freq akita.Freq) *Builder {
+func (b *Builder) WithFreq(freq sim.Freq) *Builder {
 	b.freq = freq
 	return b
 }
@@ -105,7 +105,7 @@ func (b *Builder) WithVisTracer(tracer tracing.Tracer) *Builder {
 // WithLowModuleFinder specifies how the cache units to create should find low
 // level modules.
 func (b *Builder) WithLowModuleFinder(
-	lowModuleFinder cache.LowModuleFinder,
+	lowModuleFinder mem.LowModuleFinder,
 ) *Builder {
 	b.lowModuleFinder = lowModuleFinder
 	return b
@@ -119,19 +119,22 @@ func (b *Builder) Build(name string) *Cache {
 		log2BlockSize:  b.log2BlockSize,
 		numReqPerCycle: b.numReqPerCycle,
 	}
-	c.TickingComponent = akita.NewTickingComponent(
+	c.TickingComponent = sim.NewTickingComponent(
 		name, b.engine, b.freq, c)
 
-	c.TopPort = akita.NewLimitNumMsgPort(c, b.numReqPerCycle, name+".TopPort")
-	c.BottomPort = akita.NewLimitNumMsgPort(c, b.numReqPerCycle,
+	c.topPort = sim.NewLimitNumMsgPort(c, b.numReqPerCycle, name+".TopPort")
+	c.AddPort("Top", c.topPort)
+	c.bottomPort = sim.NewLimitNumMsgPort(c, b.numReqPerCycle,
 		name+".BottomPort")
-	c.ControlPort = akita.NewLimitNumMsgPort(c, b.numReqPerCycle,
+	c.AddPort("Bottom", c.bottomPort)
+	c.controlPort = sim.NewLimitNumMsgPort(c, b.numReqPerCycle,
 		name+"ControlPort")
+	c.AddPort("Control", c.controlPort)
 
-	c.dirBuf = util.NewBuffer(b.numReqPerCycle)
-	c.bankBufs = make([]util.Buffer, b.numBank)
+	c.dirBuf = buffering.NewBuffer(b.numReqPerCycle)
+	c.bankBufs = make([]buffering.Buffer, b.numBank)
 	for i := 0; i < b.numBank; i++ {
-		c.bankBufs[i] = util.NewBuffer(b.numReqPerCycle)
+		c.bankBufs[i] = buffering.NewBuffer(b.numReqPerCycle)
 	}
 
 	c.mshr = cache.NewMSHR(b.numMSHREntry)
@@ -159,7 +162,7 @@ func (b *Builder) buildStages(c *Cache) {
 	c.directoryStage = &directory{cache: c}
 	for i := 0; i < b.numBank; i++ {
 		pipelineName := fmt.Sprintf("%s.Bank_%02d.Pipeline", c.Name(), i)
-		postPipelineBuf := util.NewBuffer(b.numReqPerCycle)
+		postPipelineBuf := buffering.NewBuffer(b.numReqPerCycle)
 		pipeline := pipelining.MakeBuilder().
 			WithPipelineWidth(b.numReqPerCycle).
 			WithNumStage(b.bankLatency).
@@ -183,7 +186,7 @@ func (b *Builder) buildStages(c *Cache) {
 	c.respondStage = &respondStage{cache: c}
 
 	c.controlStage = &controlStage{
-		ctrlPort:     c.ControlPort,
+		ctrlPort:     c.controlPort,
 		transactions: &c.transactions,
 		directory:    c.directory,
 		cache:        c,

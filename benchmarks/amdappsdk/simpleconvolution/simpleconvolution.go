@@ -5,9 +5,9 @@ package simpleconvolution
 import (
 	"log"
 
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // KernelArgs defines kernel arguments
@@ -179,6 +179,7 @@ func (b *Benchmark) exec() {
 func (b *Benchmark) Verify() {
 	cpuOutputImage := b.cpuSimpleConvolution()
 
+	mismatch := false
 	for i := uint32(0); i < b.Height; i++ {
 		for j := uint32(0); j < b.Width; j++ {
 			index := i*b.Width + j
@@ -186,13 +187,18 @@ func (b *Benchmark) Verify() {
 			cpuOutput := cpuOutputImage[index]
 
 			if cpuOutput != gpuOutput {
-				log.Panicf("mismatch as position %d, %d (addr 0x%x). "+
+				log.Printf("mismatch as position %d, %d (addr 0x%x). "+
 					"Expected %d, but get %d",
 					i, j,
 					uint64(b.dOutputData)+uint64(4*index),
 					cpuOutput, gpuOutput)
+				mismatch = true
 			}
 		}
+	}
+
+	if mismatch {
+		panic("verification failed")
 	}
 
 	log.Printf("Passed!\n")

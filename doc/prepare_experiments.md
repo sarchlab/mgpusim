@@ -16,8 +16,8 @@ package main
 import (
     "flag"
 
-    "gitlab.com/akita/mgpusim/benchmarks/heteromark/fir"
-    "gitlab.com/akita/mgpusim/samples/runner"
+    "gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/fir"
+    "gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 func main() {
@@ -42,7 +42,7 @@ Next, let's take a look at how the `Runner` is implemented. In general, if you w
 
 ```go
 type Runner struct {
-    engine            akita.Engine
+    engine            sim.Engine
     GPUDriver         *driver.Driver
     Benchmark         benchmarks.Benchmark
 }

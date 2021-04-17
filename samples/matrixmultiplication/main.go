@@ -5,8 +5,8 @@ import (
 
 	_ "net/http/pprof"
 
-	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/matrixmultiplication"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/matrixmultiplication"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var xFlag = flag.Uint("x", 64, "The height of the first matrix.")
@@ -18,7 +18,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := matrixmultiplication.NewBenchmark(runner.GPUDriver)
+	benchmark := matrixmultiplication.NewBenchmark(runner.Driver())
 	benchmark.X = uint32(*xFlag)
 	benchmark.Y = uint32(*yFlag)
 	benchmark.Z = uint32(*zFlag)

@@ -1,19 +1,19 @@
 package writearound
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/util"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/buffering"
 )
 
 // A Cache is a customized L1 cache the for R9nano GPUs.
 type Cache struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
-	TopPort     akita.Port
-	BottomPort  akita.Port
-	ControlPort akita.Port
+	topPort     sim.Port
+	bottomPort  sim.Port
+	controlPort sim.Port
 
 	numReqPerCycle   int
 	log2BlockSize    uint64
@@ -22,10 +22,10 @@ type Cache struct {
 	mshr             cache.MSHR
 	bankLatency      int
 	wayAssociativity int
-	lowModuleFinder  cache.LowModuleFinder
+	lowModuleFinder  mem.LowModuleFinder
 
-	dirBuf   util.Buffer
-	bankBufs []util.Buffer
+	dirBuf   buffering.Buffer
+	bankBufs []buffering.Buffer
 
 	coalesceStage    *coalescer
 	directoryStage   *directory
@@ -42,12 +42,12 @@ type Cache struct {
 
 // SetLowModuleFinder sets the finder that tells which remote port can serve
 // the data on a certain address.
-func (c *Cache) SetLowModuleFinder(lmf cache.LowModuleFinder) {
+func (c *Cache) SetLowModuleFinder(lmf mem.LowModuleFinder) {
 	c.lowModuleFinder = lmf
 }
 
 // Tick update the state of the cache
-func (c *Cache) Tick(now akita.VTimeInSec) bool {
+func (c *Cache) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	if !c.isPaused {
@@ -59,7 +59,7 @@ func (c *Cache) Tick(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (c *Cache) runPipeline(now akita.VTimeInSec) bool {
+func (c *Cache) runPipeline(now sim.VTimeInSec) bool {
 	madeProgress := false
 	madeProgress = c.tickRespondStage(now) || madeProgress
 	madeProgress = c.tickParseBottomStage(now) || madeProgress
@@ -69,7 +69,7 @@ func (c *Cache) runPipeline(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (c *Cache) tickRespondStage(now akita.VTimeInSec) bool {
+func (c *Cache) tickRespondStage(now sim.VTimeInSec) bool {
 	madeProgress := false
 	for i := 0; i < c.numReqPerCycle; i++ {
 		madeProgress = c.respondStage.Tick(now) || madeProgress
@@ -77,7 +77,7 @@ func (c *Cache) tickRespondStage(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (c *Cache) tickParseBottomStage(now akita.VTimeInSec) bool {
+func (c *Cache) tickParseBottomStage(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	for i := 0; i < c.numReqPerCycle; i++ {
@@ -87,7 +87,7 @@ func (c *Cache) tickParseBottomStage(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (c *Cache) tickBankStage(now akita.VTimeInSec) bool {
+func (c *Cache) tickBankStage(now sim.VTimeInSec) bool {
 	madeProgress := false
 	for _, bs := range c.bankStages {
 		madeProgress = bs.Tick(now) || madeProgress
@@ -95,7 +95,7 @@ func (c *Cache) tickBankStage(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (c *Cache) tickDirectoryStage(now akita.VTimeInSec) bool {
+func (c *Cache) tickDirectoryStage(now sim.VTimeInSec) bool {
 	madeProgress := false
 	for i := 0; i < c.numReqPerCycle; i++ {
 		madeProgress = c.directoryStage.Tick(now) || madeProgress
@@ -103,7 +103,7 @@ func (c *Cache) tickDirectoryStage(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (c *Cache) tickCoalesceState(now akita.VTimeInSec) bool {
+func (c *Cache) tickCoalesceState(now sim.VTimeInSec) bool {
 	madeProgress := false
 	for i := 0; i < c.numReqPerCycle; i++ {
 		madeProgress = c.coalesceStage.Tick(now) || madeProgress

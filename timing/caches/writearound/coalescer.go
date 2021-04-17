@@ -4,9 +4,9 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type coalescer struct {
@@ -18,8 +18,8 @@ func (c *coalescer) Reset() {
 	c.toCoalesce = nil
 }
 
-func (c *coalescer) Tick(now akita.VTimeInSec) bool {
-	req := c.cache.TopPort.Peek()
+func (c *coalescer) Tick(now sim.VTimeInSec) bool {
+	req := c.cache.topPort.Peek()
 	if req == nil {
 		return false
 	}
@@ -28,7 +28,7 @@ func (c *coalescer) Tick(now akita.VTimeInSec) bool {
 }
 
 func (c *coalescer) processReq(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	if c.isReqLastInWave(req) {
@@ -45,20 +45,20 @@ func (c *coalescer) processReq(
 }
 
 func (c *coalescer) processReqCoalescable(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	trans := c.createTransaction(req, now)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
-	c.cache.TopPort.Retrieve(now)
+	c.cache.topPort.Retrieve(now)
 
 	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 
 func (c *coalescer) processReqNoncoalescable(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	if !c.cache.dirBuf.CanPush() {
@@ -70,14 +70,14 @@ func (c *coalescer) processReqNoncoalescable(
 	trans := c.createTransaction(req, now)
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
-	c.cache.TopPort.Retrieve(now)
+	c.cache.topPort.Retrieve(now)
 
 	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 
 func (c *coalescer) processReqLastInWaveCoalescable(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	if !c.cache.dirBuf.CanPush() {
@@ -88,14 +88,14 @@ func (c *coalescer) processReqLastInWaveCoalescable(
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
 	c.coalesceAndSend(now)
-	c.cache.TopPort.Retrieve(now)
+	c.cache.topPort.Retrieve(now)
 
 	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 
 func (c *coalescer) processReqLastInWaveNoncoalescable(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	if !c.cache.dirBuf.CanPush() {
@@ -111,13 +111,13 @@ func (c *coalescer) processReqLastInWaveNoncoalescable(
 	c.toCoalesce = append(c.toCoalesce, trans)
 	c.cache.transactions = append(c.cache.transactions, trans)
 	c.coalesceAndSend(now)
-	c.cache.TopPort.Retrieve(now)
+	c.cache.topPort.Retrieve(now)
 
 	tracing.TraceReqReceive(req, now, c.cache)
 	return true
 }
 
-func (c *coalescer) createTransaction(req mem.AccessReq, now akita.VTimeInSec) *transaction {
+func (c *coalescer) createTransaction(req mem.AccessReq, now sim.VTimeInSec) *transaction {
 	switch req := req.(type) {
 	case *mem.ReadReq:
 		t := &transaction{
@@ -154,7 +154,7 @@ func (c *coalescer) canReqCoalesce(req mem.AccessReq) bool {
 	return false
 }
 
-func (c *coalescer) coalesceAndSend(now akita.VTimeInSec) bool {
+func (c *coalescer) coalesceAndSend(now sim.VTimeInSec) bool {
 	var trans *transaction
 	if c.toCoalesce[0].read != nil {
 		trans = c.coalesceRead()
@@ -186,7 +186,7 @@ func (c *coalescer) coalesceRead() *transaction {
 		WithPID(c.toCoalesce[0].PID()).
 		Build()
 	return &transaction{
-		id:                      akita.GetIDGenerator().Generate(),
+		id:                      sim.GetIDGenerator().Generate(),
 		read:                    coalescedRead,
 		preCoalesceTransactions: c.toCoalesce,
 	}
@@ -213,7 +213,7 @@ func (c *coalescer) coalesceWrite() *transaction {
 		}
 	}
 	return &transaction{
-		id:                      akita.GetIDGenerator().Generate(),
+		id:                      sim.GetIDGenerator().Generate(),
 		write:                   write,
 		preCoalesceTransactions: c.toCoalesce,
 	}

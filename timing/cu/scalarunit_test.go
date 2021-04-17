@@ -4,11 +4,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 type mockScratchpadPreparer struct {
@@ -208,7 +208,7 @@ var _ = Describe("Scalar Unit", func() {
 			Build()
 		bu.readBuf = append(bu.readBuf, req)
 
-		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
 			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem))
 			Expect(req.Dst).To(BeIdenticalTo(scalarMem))
@@ -231,13 +231,13 @@ var _ = Describe("Scalar Unit", func() {
 			Build()
 		bu.readBuf = append(bu.readBuf, req)
 
-		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r akita.Msg) {
+		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
 			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem))
 			Expect(req.Dst).To(BeIdenticalTo(scalarMem))
 			Expect(req.Address).To(Equal(uint64(1024)))
 			Expect(req.AccessByteSize).To(Equal(uint64(4)))
-		}).Return(&akita.SendError{})
+		}).Return(&sim.SendError{})
 
 		bu.Run(11)
 

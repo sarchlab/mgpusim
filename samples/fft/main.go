@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/shoc/fft"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/shoc/fft"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var mb = flag.Int("MB", 8, "data size (in megabytes)")
@@ -15,7 +15,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := fft.NewBenchmark(runner.GPUDriver)
+	benchmark := fft.NewBenchmark(runner.Driver())
 	benchmark.Bytes = int32(*mb)
 	benchmark.Passes = int32(*passes)
 

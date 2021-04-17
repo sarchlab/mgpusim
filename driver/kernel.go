@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // EnqueueLaunchKernel schedules kernel to be launched later
@@ -49,14 +49,18 @@ func (d *Driver) prepareLocalMemory(
 ) {
 	ldsSize := co.WGGroupSegmentByteSize
 
-	kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
-	for i := 0; i < kernArgStruct.NumField(); i++ {
-		arg := kernArgStruct.Field(i).Interface()
+	if reflect.TypeOf(kernelArgs).Kind() == reflect.Slice {
+		// From server, do nothing
+	} else {
+		kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
+		for i := 0; i < kernArgStruct.NumField(); i++ {
+			arg := kernArgStruct.Field(i).Interface()
 
-		switch ldsPtr := arg.(type) {
-		case LocalPtr:
-			kernArgStruct.Field(i).SetUint(uint64(ldsSize))
-			ldsSize += uint32(ldsPtr)
+			switch ldsPtr := arg.(type) {
+			case LocalPtr:
+				kernArgStruct.Field(i).SetUint(uint64(ldsSize))
+				ldsSize += uint32(ldsPtr)
+			}
 		}
 	}
 
@@ -102,7 +106,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 	dPacket GPUPtr,
 ) {
 	cmd := &LaunchKernelCommand{
-		ID:         akita.GetIDGenerator().Generate(),
+		ID:         sim.GetIDGenerator().Generate(),
 		CodeObject: co,
 		DPacket:    dPacket,
 		Packet:     packet,

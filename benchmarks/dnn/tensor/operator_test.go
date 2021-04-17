@@ -5,8 +5,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/driver"
-	"gitlab.com/akita/mgpusim/platform"
+	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var _ = Describe("Operator", func() {
@@ -17,10 +17,10 @@ var _ = Describe("Operator", func() {
 	)
 
 	BeforeEach(func() {
-		_, gpuDriver = platform.MakeEmuBuilder().
+		platform := runner.MakeEmuBuilder().
 			// WithISADebugging().
-			WithoutProgressBar().
 			Build()
+		gpuDriver = platform.Driver
 		gpuDriver.Run()
 		ctx = gpuDriver.Init()
 

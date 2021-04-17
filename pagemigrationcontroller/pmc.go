@@ -4,20 +4,19 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
 )
 
 //PageMigrationController control page migration
 type PageMigrationController struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
-	RemotePort   akita.Port
-	CtrlPort     akita.Port
-	LocalMemPort akita.Port
+	remotePort   sim.Port
+	ctrlPort     sim.Port
+	localMemPort sim.Port
 
-	RemotePMCAddressTable cache.LowModuleFinder
+	RemotePMCAddressTable mem.LowModuleFinder
 
 	currentMigrationRequest      *PageMigrationReqToPMC
 	currentPullReqFromAnotherPMC []*DataPullReq
@@ -33,23 +32,23 @@ type PageMigrationController struct {
 
 	onDemandPagingDataTransferSize uint64
 
-	requestingPMCtrlPort akita.Port
+	requestingPMCtrlPort sim.Port
 
 	numDataRspPendingForPageMigration int
 	reqIDToWriteAddressMap            map[string]uint64
 
-	MemCtrlFinder cache.LowModuleFinder
+	MemCtrlFinder mem.LowModuleFinder
 
-	DataTransferStartTime akita.VTimeInSec
-	DataTransferEndTime   akita.VTimeInSec
-	TotalDataTransferTime akita.VTimeInSec
+	DataTransferStartTime sim.VTimeInSec
+	DataTransferEndTime   sim.VTimeInSec
+	TotalDataTransferTime sim.VTimeInSec
 
 	isHandlingPageMigration bool
 }
 
 // Tick updates the status of a PageMigrationController.
 //nolint:gocyclo
-func (e *PageMigrationController) Tick(now akita.VTimeInSec) bool {
+func (e *PageMigrationController) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = e.sendMigrationReqToAnotherPMC(now) || madeProgress
@@ -70,9 +69,9 @@ func (e *PageMigrationController) Tick(now akita.VTimeInSec) bool {
 }
 
 func (e *PageMigrationController) processFromOutside(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
-	req := e.RemotePort.Peek()
+	req := e.remotePort.Peek()
 	if req == nil {
 		return false
 	}
@@ -89,14 +88,14 @@ func (e *PageMigrationController) processFromOutside(
 }
 
 func (e *PageMigrationController) processFromCtrlPort(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	//PMC handles only one page migration req at a time
 	if e.isHandlingPageMigration {
 		return false
 	}
 
-	req := e.CtrlPort.Retrieve(now)
+	req := e.ctrlPort.Retrieve(now)
 	if req == nil {
 		return false
 	}
@@ -113,7 +112,7 @@ func (e *PageMigrationController) processFromCtrlPort(
 }
 
 func (e *PageMigrationController) handleMigrationReqFromCtrlPort(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *PageMigrationReqToPMC,
 ) bool {
 	e.currentMigrationRequest = req
@@ -121,7 +120,7 @@ func (e *PageMigrationController) handleMigrationReqFromCtrlPort(
 }
 
 func (e *PageMigrationController) processPageMigrationReqFromCtrlPort(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if e.currentMigrationRequest == nil {
 		return false
@@ -144,7 +143,7 @@ func (e *PageMigrationController) processPageMigrationReqFromCtrlPort(
 	for i := 0; i < int(numDataTransfersForPage); i++ {
 		req := DataPullReqBuilder{}.
 			WithSendTime(now).
-			WithSrc(e.RemotePort).
+			WithSrc(e.remotePort).
 			WithDst(destination).
 			WithDataTransferSize(e.onDemandPagingDataTransferSize).
 			WithReadFromPhyAddress(startingPhysicalAddress).
@@ -161,7 +160,7 @@ func (e *PageMigrationController) processPageMigrationReqFromCtrlPort(
 }
 
 func (e *PageMigrationController) sendMigrationReqToAnotherPMC(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if len(e.toPullFromAnotherPMC) == 0 {
 		return false
@@ -173,7 +172,7 @@ func (e *PageMigrationController) sendMigrationReqToAnotherPMC(
 	for i := 0; i < len(e.toPullFromAnotherPMC); i++ {
 		sendPacket := e.toPullFromAnotherPMC[i]
 		sendPacket.SendTime = now
-		sendErr := e.RemotePort.Send(sendPacket)
+		sendErr := e.remotePort.Send(sendPacket)
 		if sendErr == nil {
 			madeProgress = true
 		} else {
@@ -187,17 +186,17 @@ func (e *PageMigrationController) sendMigrationReqToAnotherPMC(
 }
 
 func (e *PageMigrationController) handleDataPullReq(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *DataPullReq,
 ) bool {
-	e.RemotePort.Retrieve(now)
+	e.remotePort.Retrieve(now)
 	e.currentPullReqFromAnotherPMC = append(e.currentPullReqFromAnotherPMC, req)
 	e.requestingPMCtrlPort = req.Src
 	return true
 }
 
 func (e *PageMigrationController) processReadPageReqFromAnotherPMC(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if e.currentPullReqFromAnotherPMC == nil {
 		return false
@@ -208,7 +207,7 @@ func (e *PageMigrationController) processReadPageReqFromAnotherPMC(
 		dataTransferSize := e.currentPullReqFromAnotherPMC[i].DataTransferSize
 		req := mem.ReadReqBuilder{}.
 			WithSendTime(now).
-			WithSrc(e.LocalMemPort).
+			WithSrc(e.localMemPort).
 			WithDst(e.MemCtrlFinder.Find(address)).
 			WithAddress(address).
 			WithByteSize(dataTransferSize).
@@ -223,7 +222,7 @@ func (e *PageMigrationController) processReadPageReqFromAnotherPMC(
 }
 
 func (e *PageMigrationController) sendReadReqLocalMemPort(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if len(e.toSendLocalMemPort) == 0 {
 		return false
@@ -235,7 +234,7 @@ func (e *PageMigrationController) sendReadReqLocalMemPort(
 	for i := 0; i < len(e.toSendLocalMemPort); i++ {
 		sendPacket := e.toSendLocalMemPort[i]
 		sendPacket.SendTime = now
-		sendErr := e.LocalMemPort.Send(sendPacket)
+		sendErr := e.localMemPort.Send(sendPacket)
 		if sendErr == nil {
 			madeProgress = true
 		} else {
@@ -249,9 +248,9 @@ func (e *PageMigrationController) sendReadReqLocalMemPort(
 }
 
 func (e *PageMigrationController) processFromMemCtrl(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
-	req := e.LocalMemPort.Retrieve(now)
+	req := e.localMemPort.Retrieve(now)
 	if req == nil {
 		return false
 	}
@@ -268,7 +267,7 @@ func (e *PageMigrationController) processFromMemCtrl(
 }
 
 func (e *PageMigrationController) handleDataReadyRspFromMemCtrl(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) bool {
 	e.dataReadyRspFromMemCtrl = append(e.dataReadyRspFromMemCtrl, rsp)
@@ -276,7 +275,7 @@ func (e *PageMigrationController) handleDataReadyRspFromMemCtrl(
 }
 
 func (e *PageMigrationController) processDataReadyRspFromMemCtrl(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if e.dataReadyRspFromMemCtrl == nil {
 		return false
@@ -286,7 +285,7 @@ func (e *PageMigrationController) processDataReadyRspFromMemCtrl(
 		data := e.dataReadyRspFromMemCtrl[i].Data
 		rsp := DataPullRspBuilder{}.
 			WithSendTime(now).
-			WithSrc(e.RemotePort).
+			WithSrc(e.remotePort).
 			WithDst(e.requestingPMCtrlPort).
 			WithData(data).
 			Build()
@@ -300,7 +299,7 @@ func (e *PageMigrationController) processDataReadyRspFromMemCtrl(
 }
 
 func (e *PageMigrationController) sendDataReadyRspToRequestingPMC(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if len(e.toRspToAnotherPMC) == 0 {
 		return false
@@ -312,7 +311,7 @@ func (e *PageMigrationController) sendDataReadyRspToRequestingPMC(
 	for i := 0; i < len(e.toRspToAnotherPMC); i++ {
 		sendPacket := e.toRspToAnotherPMC[i]
 		sendPacket.SendTime = now
-		sendErr := e.RemotePort.Send(sendPacket)
+		sendErr := e.remotePort.Send(sendPacket)
 		if sendErr == nil {
 			madeProgress = true
 		} else {
@@ -325,16 +324,16 @@ func (e *PageMigrationController) sendDataReadyRspToRequestingPMC(
 }
 
 func (e *PageMigrationController) handleDataPullRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *DataPullRsp,
 ) bool {
 	e.receivedDataFromAnothePMC = append(e.receivedDataFromAnothePMC, req)
-	e.RemotePort.Retrieve(now)
+	e.remotePort.Retrieve(now)
 	return true
 }
 
 func (e *PageMigrationController) processDataPullRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if e.receivedDataFromAnothePMC == nil {
 		return false
@@ -348,7 +347,7 @@ func (e *PageMigrationController) processDataPullRsp(
 		}
 		req := mem.WriteReqBuilder{}.
 			WithSendTime(now).
-			WithSrc(e.LocalMemPort).
+			WithSrc(e.localMemPort).
 			WithDst(e.MemCtrlFinder.Find(address)).
 			WithData(data).
 			WithAddress(address).
@@ -363,7 +362,7 @@ func (e *PageMigrationController) processDataPullRsp(
 }
 
 func (e *PageMigrationController) sendWriteReqLocalMemPort(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if e.writeReqLocalMemPort == nil {
 		return false
@@ -374,7 +373,7 @@ func (e *PageMigrationController) sendWriteReqLocalMemPort(
 
 	for i := 0; i < len(e.writeReqLocalMemPort); i++ {
 		e.writeReqLocalMemPort[i].SendTime = now
-		err := e.LocalMemPort.Send(e.writeReqLocalMemPort[i])
+		err := e.localMemPort.Send(e.writeReqLocalMemPort[i])
 		if err == nil {
 			//log.Printf("Sending write req to mem ctrl with ID %d", e.writeReqLocalMemPort[i].ID)
 			madeProgress = true
@@ -388,7 +387,7 @@ func (e *PageMigrationController) sendWriteReqLocalMemPort(
 }
 
 func (e *PageMigrationController) handleWriteDoneRspFromMemCtrl(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.WriteDoneRsp,
 ) bool {
 	e.receivedWriteDoneFromMemCtrl = rsp
@@ -396,7 +395,7 @@ func (e *PageMigrationController) handleWriteDoneRspFromMemCtrl(
 }
 
 func (e *PageMigrationController) processWriteDoneRspFromMemCtrl(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if e.receivedWriteDoneFromMemCtrl == nil {
 		return false
@@ -412,7 +411,7 @@ func (e *PageMigrationController) processWriteDoneRspFromMemCtrl(
 		//log.Printf("Sending migration complete rsp to CtrlPort \n")
 		rsp := PageMigrationRspFromPMCBuilder{}.
 			WithSendTime(now).
-			WithSrc(e.CtrlPort).
+			WithSrc(e.ctrlPort).
 			WithDst(e.currentMigrationRequest.Src).
 			Build()
 
@@ -425,14 +424,14 @@ func (e *PageMigrationController) processWriteDoneRspFromMemCtrl(
 }
 
 func (e *PageMigrationController) sendMigrationCompleteRspToCtrlPort(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if e.toSendToCtrlPort == nil {
 		return false
 	}
 
 	e.toSendToCtrlPort.SendTime = now
-	err := e.CtrlPort.Send(e.toSendToCtrlPort)
+	err := e.ctrlPort.Send(e.toSendToCtrlPort)
 
 	if err == nil {
 		e.DataTransferEndTime = now
@@ -447,24 +446,30 @@ func (e *PageMigrationController) sendMigrationCompleteRspToCtrlPort(
 }
 
 // SetFreq sets freq
-func (e *PageMigrationController) SetFreq(freq akita.Freq) {
+func (e *PageMigrationController) SetFreq(freq sim.Freq) {
 	panic("not implemented")
 }
 
 // NewPageMigrationController returns a new controller
 func NewPageMigrationController(
 	name string,
-	engine akita.Engine,
-	memCtrlFinder cache.LowModuleFinder,
-	remoteModules cache.LowModuleFinder,
+	engine sim.Engine,
+	memCtrlFinder mem.LowModuleFinder,
+	remoteModules mem.LowModuleFinder,
 ) *PageMigrationController {
 	e := new(PageMigrationController)
-	e.TickingComponent = akita.NewTickingComponent(name, engine, 1*akita.GHz, e)
+	e.TickingComponent = sim.NewTickingComponent(name, engine, 1*sim.GHz, e)
 	e.MemCtrlFinder = memCtrlFinder
 
-	e.RemotePort = akita.NewLimitNumMsgPort(e, 1, name+".RemotePort")
-	e.LocalMemPort = akita.NewLimitNumMsgPort(e, 1, name+"LocalMemPort")
-	e.CtrlPort = akita.NewLimitNumMsgPort(e, 1, name+"CtrlPort")
+	e.remotePort = sim.NewLimitNumMsgPort(e, 1, name+".RemotePort")
+	e.AddPort("Remote", e.remotePort)
+
+	e.localMemPort = sim.NewLimitNumMsgPort(e, 1, name+"LocalMemPort")
+	e.AddPort("LocalMem", e.localMemPort)
+
+	e.ctrlPort = sim.NewLimitNumMsgPort(e, 1, name+"CtrlPort")
+	e.AddPort("Control", e.ctrlPort)
+
 	e.RemotePMCAddressTable = remoteModules
 
 	e.onDemandPagingDataTransferSize = 64

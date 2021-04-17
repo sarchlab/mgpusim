@@ -4,15 +4,15 @@ package lenet
 import (
 	"math"
 
-	"gitlab.com/akita/mgpusim/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/benchmarks/mccl"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/tensor"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/mccl"
 
 	"gitlab.com/akita/dnn/dataset/mnist"
 	"gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/training"
 	"gitlab.com/akita/dnn/training/optimization"
-	"gitlab.com/akita/mgpusim/benchmarks/dnn/gputraining"
-	"gitlab.com/akita/mgpusim/driver"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/gputraining"
+	"gitlab.com/akita/mgpusim/v2/driver"
 )
 
 // Benchmark defines the LeNet network training benchmark.

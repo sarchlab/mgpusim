@@ -5,8 +5,8 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/akita/mgpusim/benchmarks/shoc/bfs"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/shoc/bfs"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var path = flag.String("load-graph", "", "Path to file from which graph to be loaded. "+
@@ -22,7 +22,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := bfs.NewBenchmark(runner.GPUDriver)
+	benchmark := bfs.NewBenchmark(runner.Driver())
 	benchmark.Path = *path
 	benchmark.NumNode = *numNode
 	benchmark.Degree = *degree

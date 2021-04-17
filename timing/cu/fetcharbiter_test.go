@@ -3,8 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 var _ = Describe("FetchArbiter", func() {
@@ -23,7 +23,7 @@ var _ = Describe("FetchArbiter", func() {
 	})
 
 	It("should find the oldest wf to dispatch", func() {
-		wfLastFetchTime := []akita.VTimeInSec{
+		wfLastFetchTime := []sim.VTimeInSec{
 			10.2, 10.3, 9.8, 9.7, 9.4,
 			9.6, 9.5, 9.6, 9.8, 10.0,
 		}
@@ -46,6 +46,6 @@ var _ = Describe("FetchArbiter", func() {
 		wfs := arbiter.Arbitrate(wfPools)
 
 		Expect(len(wfs)).To(Equal(1))
-		Expect(wfs[0].LastFetchTime).To(Equal(akita.VTimeInSec(9.5)))
+		Expect(wfs[0].LastFetchTime).To(Equal(sim.VTimeInSec(9.5)))
 	})
 })

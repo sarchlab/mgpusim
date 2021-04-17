@@ -20,7 +20,7 @@ So next, let's take a look at how to write the function that builds a platform, 
 
 ```go
 func BuildNR9NanoPlatform(numGPUs int) (
-    akita.Engine,
+    sim.Engine,
     *driver.Driver,
 ) {
 ```
@@ -30,8 +30,8 @@ The build function takes 1 argument as the number of GPUs to create and return 2
 Next, we create the event-driven simulation engine.
 
 ```go
-    var engine akita.Engine
-    engine = akita.NewSerialEngine()
+    var engine sim.Engine
+    engine = sim.NewSerialEngine()
 ```
 
 For the platform under simulation, we need to define the parts that are shared by the multiple GPUs. We define a Memory Management Unit (MMU) that can perform the virtual address to physical address translation. In real hardware, the MMUs that serves the GPUs are usually called IOMMU and is a component located on the CPU chip. We also create a GPU driver. In a platform, there should be only one GPU driver that controls all the GPUs. Also, we create a fixed-bandwidth connection (models the PCIe bus) that connects the CPU and the GPUs.
@@ -40,7 +40,7 @@ For the platform under simulation, we need to define the parts that are shared b
     mmu := vm.NewMMU("MMU", engine, &vm.DefaultPageTableFactory{})
     mmu.Latency = 100
     gpuDriver := driver.NewDriver(engine, mmu)
-    connection := noc.NewFixedBandwidthConnection(32, engine, 1*akita.GHz)
+    connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
 ```
 
 Next, we create the GPUs. Since each GPU are very complex internally, we do not directly create them in the platform-building code, but we employ a GPUBuilder to create the GPUs.
@@ -54,7 +54,7 @@ Next, we create the GPUs. Since each GPU are very complex internally, we do not 
         ExternalConn:      connection,
     }
 
-    rdmaAddressTable := new(cache.BankedLowModuleFinder)
+    rdmaAddressTable := new(mem.BankedLowModuleFinder)
     rdmaAddressTable.BankSize = 4 * mem.GB
     for i := 0; i < numGPUs; i++ {
         gpuBuilder.GPUName = fmt.Sprintf("GPU_%d", i)
@@ -102,8 +102,8 @@ The main `Build` function serve well as a table of content for this section.
 
 ```go
 func (b *R9NanoGPUBuilder) Build() *mgpusim.GPU {
-    b.Freq = 1000 * akita.MHz
-    b.InternalConn = akita.NewDirectConnection(b.Engine)
+    b.Freq = 1000 * sim.MHz
+    b.InternalConn = sim.NewDirectConnection(b.Engine)
 
     b.GPU = mgpusim.NewGPU(b.GPUName, b.Engine)
 
@@ -186,7 +186,7 @@ func (b *R9NanoGPUBuilder) buildCUs() {
         cuBuilder.InstMem = b.L1ICaches[i/4].ToCU
         cuBuilder.ScalarMem = b.L1SCaches[i/4].ToCU
 
-        lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
+        lowModuleFinderForCU := new(mem.SingleLowModuleFinder)
         lowModuleFinderForCU.LowModule = b.L1VCaches[i].ToCU
         cuBuilder.VectorMemModules = lowModuleFinderForCU
 
@@ -204,7 +204,7 @@ Before the for loop, we create the CU builder and set up the arguments. We initi
 ```go
         cuBuilder.InstMem = b.L1ICaches[i/4].ToCU
         cuBuilder.ScalarMem = b.L1SCaches[i/4].ToCU
-        lowModuleFinderForCU := new(cache.SingleLowModuleFinder)
+        lowModuleFinderForCU := new(mem.SingleLowModuleFinder)
         lowModuleFinderForCU.LowModule = b.L1VCaches[i].ToCU
         cuBuilder.VectorMemModules = lowModuleFinderForCU
 ```

@@ -4,40 +4,39 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A DMAEngine is responsible for accessing data that does not belongs to
 // the GPU that the DMAEngine works in.
 type DMAEngine struct {
-	*akita.TickingComponent
+	*sim.TickingComponent
 
 	Log2AccessSize uint64
 
-	localDataSource cache.LowModuleFinder
+	localDataSource mem.LowModuleFinder
 
-	processingReq akita.Msg
+	processingReq sim.Msg
 
-	toSendToMem []akita.Msg
-	toSendToCP  []akita.Msg
-	pendingReqs []akita.Msg
+	toSendToMem []sim.Msg
+	toSendToCP  []sim.Msg
+	pendingReqs []sim.Msg
 
-	ToCP  akita.Port
-	ToMem akita.Port
+	ToCP  sim.Port
+	ToMem sim.Port
 }
 
 // SetLocalDataSource sets the table that maps from addresses to port that can
 // provide the data.
-func (dma *DMAEngine) SetLocalDataSource(s cache.LowModuleFinder) {
+func (dma *DMAEngine) SetLocalDataSource(s mem.LowModuleFinder) {
 	dma.localDataSource = s
 }
 
 // Tick ticks
-func (dma *DMAEngine) Tick(now akita.VTimeInSec) bool {
+func (dma *DMAEngine) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
 	madeProgress = dma.send(now, dma.ToCP, &dma.toSendToCP) || madeProgress
@@ -49,9 +48,9 @@ func (dma *DMAEngine) Tick(now akita.VTimeInSec) bool {
 }
 
 func (dma *DMAEngine) send(
-	now akita.VTimeInSec,
-	port akita.Port,
-	reqs *[]akita.Msg,
+	now sim.VTimeInSec,
+	port sim.Port,
+	reqs *[]sim.Msg,
 ) bool {
 	if len(*reqs) == 0 {
 		return false
@@ -68,7 +67,7 @@ func (dma *DMAEngine) send(
 	return false
 }
 
-func (dma *DMAEngine) parseFromMem(now akita.VTimeInSec) bool {
+func (dma *DMAEngine) parseFromMem(now sim.VTimeInSec) bool {
 	req := dma.ToMem.Retrieve(now)
 	if req == nil {
 		return false
@@ -87,7 +86,7 @@ func (dma *DMAEngine) parseFromMem(now akita.VTimeInSec) bool {
 }
 
 func (dma *DMAEngine) processDataReadyRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
 	req := dma.removeReqFromPendingReqList(rsp.RespondTo).(*mem.ReadReq)
@@ -108,7 +107,7 @@ func (dma *DMAEngine) processDataReadyRsp(
 }
 
 func (dma *DMAEngine) processDoneRsp(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	rsp *mem.WriteDoneRsp,
 ) {
 	r := dma.removeReqFromPendingReqList(rsp.RespondTo)
@@ -123,9 +122,9 @@ func (dma *DMAEngine) processDoneRsp(
 	}
 }
 
-func (dma *DMAEngine) removeReqFromPendingReqList(id string) akita.Msg {
-	var reqToRet akita.Msg
-	newList := make([]akita.Msg, 0, len(dma.pendingReqs)-1)
+func (dma *DMAEngine) removeReqFromPendingReqList(id string) sim.Msg {
+	var reqToRet sim.Msg
+	newList := make([]sim.Msg, 0, len(dma.pendingReqs)-1)
 	for _, r := range dma.pendingReqs {
 		if r.Meta().ID == id {
 			reqToRet = r
@@ -142,7 +141,7 @@ func (dma *DMAEngine) removeReqFromPendingReqList(id string) akita.Msg {
 	return reqToRet
 }
 
-func (dma *DMAEngine) parseFromCP(now akita.VTimeInSec) bool {
+func (dma *DMAEngine) parseFromCP(now sim.VTimeInSec) bool {
 	if dma.processingReq != nil {
 		return false
 	}
@@ -167,7 +166,7 @@ func (dma *DMAEngine) parseFromCP(now akita.VTimeInSec) bool {
 }
 
 func (dma *DMAEngine) parseMemCopyH2D(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *protocol.MemCopyH2DReq,
 ) {
 	offset := uint64(0)
@@ -205,7 +204,7 @@ func (dma *DMAEngine) parseMemCopyH2D(
 }
 
 func (dma *DMAEngine) parseMemCopyD2H(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	req *protocol.MemCopyD2HReq,
 ) {
 	offset := uint64(0)
@@ -246,18 +245,18 @@ func (dma *DMAEngine) parseMemCopyD2H(
 // that helps with locating the module that holds the data.
 func NewDMAEngine(
 	name string,
-	engine akita.Engine,
-	localDataSource cache.LowModuleFinder,
+	engine sim.Engine,
+	localDataSource mem.LowModuleFinder,
 ) *DMAEngine {
 	dma := new(DMAEngine)
-	dma.TickingComponent = akita.NewTickingComponent(
-		name, engine, 1*akita.GHz, dma)
+	dma.TickingComponent = sim.NewTickingComponent(
+		name, engine, 1*sim.GHz, dma)
 
 	dma.Log2AccessSize = 6
 	dma.localDataSource = localDataSource
 
-	dma.ToCP = akita.NewLimitNumMsgPort(dma, 40960000, name+".ToCP")
-	dma.ToMem = akita.NewLimitNumMsgPort(dma, 64, name+".ToMem")
+	dma.ToCP = sim.NewLimitNumMsgPort(dma, 40960000, name+".ToCP")
+	dma.ToMem = sim.NewLimitNumMsgPort(dma, 64, name+".ToMem")
 
 	return dma
 }

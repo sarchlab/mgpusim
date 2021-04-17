@@ -1,14 +1,14 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 // WfDispatchEvent is the event that the dispatcher dispatches a wavefront
 type WfDispatchEvent struct {
-	*akita.EventBase
+	*sim.EventBase
 
 	ManagedWf  *wavefront.Wavefront
 	IsLastInWG bool
@@ -17,12 +17,12 @@ type WfDispatchEvent struct {
 
 // NewWfDispatchEvent creates a new WfDispatchCompletionEvent
 func NewWfDispatchEvent(
-	t akita.VTimeInSec,
-	handler akita.Handler,
+	t sim.VTimeInSec,
+	handler sim.Handler,
 	Wf *wavefront.Wavefront,
 ) *WfDispatchEvent {
 	evt := new(WfDispatchEvent)
-	evt.EventBase = akita.NewEventBase(t, handler)
+	evt.EventBase = sim.NewEventBase(t, handler)
 	evt.ManagedWf = Wf
 	return evt
 }

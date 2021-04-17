@@ -1,3 +1,7 @@
 xor
+<<<<<<< HEAD
+xor.exe
+=======
 xor.exe
 *.csv
+>>>>>>> dea7fb75b8fbb31d7b64042c100668b4dc4cfb6b

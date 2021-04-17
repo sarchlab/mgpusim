@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/amdappsdk/floydwarshall"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/floydwarshall"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var numNodes = flag.Int("node", 16, "The number of nodes in the graph")
@@ -17,7 +17,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := floydwarshall.NewBenchmark(runner.GPUDriver)
+	benchmark := floydwarshall.NewBenchmark(runner.Driver())
 	benchmark.NumNodes = uint32(*numNodes)
 	benchmark.NumIterations = uint32(*numIterations)
 

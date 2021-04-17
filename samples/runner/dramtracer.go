@@ -3,9 +3,9 @@ package runner
 import (
 	"sync"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // dramTracer can trace DRAM activities.
@@ -16,8 +16,8 @@ type dramTracer struct {
 
 	readCount       int
 	writeCount      int
-	readAvgLatency  akita.VTimeInSec
-	writeAvgLatency akita.VTimeInSec
+	readAvgLatency  sim.VTimeInSec
+	writeAvgLatency sim.VTimeInSec
 	readSize        uint64
 	writeSize       uint64
 }
@@ -55,13 +55,13 @@ func (t *dramTracer) EndTask(task tracing.Task) {
 
 	switch originalTask.What {
 	case "*mem.ReadReq":
-		t.readAvgLatency = akita.VTimeInSec(
+		t.readAvgLatency = sim.VTimeInSec(
 			(float64(t.readAvgLatency)*float64(t.readCount) +
 				float64(taskTime)) / float64(t.readCount+1))
 		t.readCount++
 		t.readSize += originalTask.Detail.(*mem.ReadReq).AccessByteSize
 	case "*mem.WriteReq":
-		t.writeAvgLatency = akita.VTimeInSec(
+		t.writeAvgLatency = sim.VTimeInSec(
 			(float64(t.writeAvgLatency)*float64(t.writeCount) +
 				float64(taskTime)) / float64(t.writeCount+1))
 		t.writeCount++

@@ -1,13 +1,5 @@
 image: golang:latest
 
-cache:
-  paths:
-    - /apt-cache
-    - /go/src/github.com
-    - /go/src/golang.org
-    - /go/src/google.golang.org
-    - /go/src/gopkg.in
-
 stages:
   - build
   - test
@@ -24,15 +16,15 @@ go_build:
 lint:
   stage: build
   script:
-    - curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.26.0
+    - curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin
     - go build ./...
     - golangci-lint run ./...
 
 unit_test:
   stage: test
   script:
-    - go get github.com/onsi/ginkgo/ginkgo/outline@v1.15.0
-    - go install github.com/onsi/ginkgo/ginkgo
+    - go get -u github.com/onsi/ginkgo/ginkgo
+    - go build ./...
     - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress --skip="Stress"
     - go test -coverprofile=cover.out ./...
     - go tool cover -func=cover.out > coverage.out
@@ -49,55 +41,54 @@ cache_aceptance_test:
     - go build
     - ./valuetest
 
-simulation_test:
+single_gpu_test:
   stage: acceptance_test
   tags:
     - multi_core
   script:
-    - apt-get update -qq && apt-get install -y -qq python3 python3-pip
     - cd tests/acceptance
-    - pip3 install -r requirements.txt
-    - GOMAXPROCS=8 python3 -u acceptance_test.py
+    - go build
+    - ./acceptance -num-gpu=1
+  
+multi_discrete_gpu_test:
+  stage: acceptance_test
+  tags:
+    - multi_core
+  script:
+    - cd tests/acceptance
+    - go build
+    - ./acceptance -num-gpu=2 -no-unified-gpu -no-unified-memory
+    - ./acceptance -num-gpu=4 -no-unified-gpu -no-unified-memory
 
-discrete_multi_gpu_test:
+multi_unified_gpu_test:
   stage: acceptance_test
   tags:
     - multi_core
   script:
-    - apt-get update -qq && apt-get install -y -qq python3 python3-pip
     - cd tests/acceptance
-    - pip3 install -r requirements.txt
-    - GOMAXPROCS=8 python3 -u acceptance_test.py --discrete-multi-gpu
+    - go build
+    - ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
+    - ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
 
-unified_multi_gpu_test:
+multi_discrete_gpu_unified_memory_test:
   stage: acceptance_test
   tags:
     - multi_core
   script:
-    - apt-get update -qq && apt-get install -y -qq python3 python3-pip
     - cd tests/acceptance
-    - pip3 install -r requirements.txt
-    - GOMAXPROCS=8 python3 -u acceptance_test.py --unified-multi-gpu
+    - go build
+    - ./acceptance -num-gpu=2 -no-unified-gpu -only-unified-memory
+    - ./acceptance -num-gpu=4 -no-unified-gpu -only-unified-memory
 
-unified_memory_unified_multi_gpu_test:
+multi_unified_gpu_unified_memory_test:
   stage: acceptance_test
   tags:
     - multi_core
   script:
-    - apt-get update -qq && apt-get install -y -qq python3 python3-pip
     - cd tests/acceptance
-    - pip3 install -r requirements.txt
-    - GOMAXPROCS=8 python3 -u acceptance_test.py --unified-multi-gpu --unified-memory
-
-unified_memory_discrete_multi_gpu_test:
-  stage: acceptance_test
-  tags:
-    - multi_core
-  script:
-    - apt-get update -qq && apt-get install -y -qq python3 python3-pip
-    - cd tests/acceptance
-    - pip3 install -r requirements.txt
-    - GOMAXPROCS=8 python3 -u acceptance_test.py --discrete-multi-gpu --unified-memory
+    - go build
+    - ./acceptance -num-gpu=2 -only-unified-gpu -only-unified-memory
+    - ./acceptance -num-gpu=4 -only-unified-gpu -only-unified-memory
 
 deterministic_test:
   stage: acceptance_test
@@ -121,6 +112,7 @@ build_docker_image_master:
     - docker:dind
   only:
     - master
+    - v2
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
   script:

@@ -1,8 +1,8 @@
 package resource
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // CUResource handle CU resources
@@ -12,5 +12,5 @@ type CUResource interface {
 		ok bool,
 	)
 	FreeResourcesForWG(wg *kernels.WorkGroup)
-	DispatchingPort() akita.Port
+	DispatchingPort() sim.Port
 }

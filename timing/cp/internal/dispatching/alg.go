@@ -1,16 +1,16 @@
 package dispatching
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/timing/cp/internal/resource"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
 )
 
 type dispatchLocation struct {
 	valid     bool
 	cuID      int
-	cu        akita.Port
+	cu        sim.Port
 	wg        *kernels.WorkGroup
 	locations []protocol.WfDispatchLocation
 }

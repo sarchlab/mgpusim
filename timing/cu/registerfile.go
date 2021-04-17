@@ -3,13 +3,13 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
 )
 
 // A RegisterAccess is an incidence of reading or writing the register
 type RegisterAccess struct {
-	Time       akita.VTimeInSec
+	Time       sim.VTimeInSec
 	Reg        *insts.Reg
 	RegCount   int
 	LaneID     int

@@ -3,12 +3,12 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/insts"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
-	"gitlab.com/akita/util"
-	"gitlab.com/akita/util/pipelining"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/util/v2/buffering"
+	"gitlab.com/akita/util/v2/pipelining"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 type vectorMemInst struct {
@@ -32,10 +32,10 @@ type VectorMemoryUnit struct {
 	maxInstructionsInFlight uint64
 
 	instructionPipeline           pipelining.Pipeline
-	postInstructionPipelineBuffer util.Buffer
+	postInstructionPipelineBuffer buffering.Buffer
 	transactionsWaiting           []VectorMemAccessInfo
 	transactionPipeline           pipelining.Pipeline
-	postTransactionPipelineBuffer util.Buffer
+	postTransactionPipelineBuffer buffering.Buffer
 
 	isIdle bool
 }
@@ -63,7 +63,7 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(
 	wave *wavefront.Wavefront,
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) {
 	u.instructionPipeline.Accept(now, vectorMemInst{wavefront: wave})
 	u.numInstInFlight++
@@ -77,7 +77,7 @@ func (u *VectorMemoryUnit) IsIdle() bool {
 
 // Run executes three pipeline stages that are controlled by the
 // VectorMemoryUnit
-func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) bool {
+func (u *VectorMemoryUnit) Run(now sim.VTimeInSec) bool {
 	madeProgress := false
 	madeProgress = u.sendRequest(now) || madeProgress
 	madeProgress = u.transactionPipeline.Tick(now) || madeProgress
@@ -87,7 +87,7 @@ func (u *VectorMemoryUnit) Run(now akita.VTimeInSec) bool {
 }
 
 func (u *VectorMemoryUnit) instToTransaction(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if len(u.transactionsWaiting) > 0 {
 		return u.insertTransactionToPipeline(now)
@@ -97,7 +97,7 @@ func (u *VectorMemoryUnit) instToTransaction(
 }
 
 func (u *VectorMemoryUnit) insertTransactionToPipeline(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) bool {
 	if !u.transactionPipeline.CanAccept() {
 		return false
@@ -109,7 +109,7 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline(
 	return true
 }
 
-func (u *VectorMemoryUnit) execute(now akita.VTimeInSec) (madeProgress bool) {
+func (u *VectorMemoryUnit) execute(now sim.VTimeInSec) (madeProgress bool) {
 	item := u.postInstructionPipelineBuffer.Pop()
 	if item == nil {
 		return false
@@ -134,7 +134,7 @@ func (u *VectorMemoryUnit) execute(now akita.VTimeInSec) (madeProgress bool) {
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	wavefront *wavefront.Wavefront,
 ) bool {
 	inst := wavefront.DynamicInst()
@@ -151,7 +151,7 @@ func (u *VectorMemoryUnit) executeFlatInsts(
 }
 
 func (u *VectorMemoryUnit) executeFlatLoad(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	wave *wavefront.Wavefront,
 ) bool {
 	u.scratchpadPreparer.Prepare(wave, wave)
@@ -191,7 +191,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 	wave *wavefront.Wavefront,
 ) bool {
 	u.scratchpadPreparer.Prepare(wave, wave)
@@ -230,13 +230,13 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	return true
 }
 
-func (u *VectorMemoryUnit) sendRequest(now akita.VTimeInSec) bool {
+func (u *VectorMemoryUnit) sendRequest(now sim.VTimeInSec) bool {
 	item := u.postTransactionPipelineBuffer.Peek()
 	if item == nil {
 		return false
 	}
 
-	var req akita.Msg
+	var req sim.Msg
 	info := item.(VectorMemAccessInfo)
 	if info.Read != nil {
 		req = info.Read

@@ -1,24 +1,24 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 // A WfCompletionEvent marks the completion of a wavefront
 type WfCompletionEvent struct {
-	*akita.EventBase
+	*sim.EventBase
 	Wf *wavefront.Wavefront
 }
 
 // NewWfCompletionEvent returns a newly constructed WfCompleteEvent
 func NewWfCompletionEvent(
-	time akita.VTimeInSec,
-	handler akita.Handler,
+	time sim.VTimeInSec,
+	handler sim.Handler,
 	wf *wavefront.Wavefront,
 ) *WfCompletionEvent {
 	evt := new(WfCompletionEvent)
-	evt.EventBase = akita.NewEventBase(time, handler)
+	evt.EventBase = sim.NewEventBase(time, handler)
 	evt.Wf = wf
 	return evt
 }

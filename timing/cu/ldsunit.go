@@ -1,9 +1,9 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/emu"
-	"gitlab.com/akita/mgpusim/timing/wavefront"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/emu"
+	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 
 // A LDSUnit performs Scalar operations
@@ -38,6 +38,7 @@ func NewLDSUnit(
 func (u *LDSUnit) CanAcceptWave() bool {
 	return u.toRead == nil
 }
+
 // IsIdle checks idleness
 func (u *LDSUnit) IsIdle() bool {
 	u.isIdle = (u.toRead == nil) && (u.toWrite == nil) && (u.toExec == nil)
@@ -45,12 +46,12 @@ func (u *LDSUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront, now akita.VTimeInSec) {
+func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
 	u.toRead = wave
 }
 
 // Run executes three pipeline stages that are controlled by the LDSUnit
-func (u *LDSUnit) Run(now akita.VTimeInSec) bool {
+func (u *LDSUnit) Run(now sim.VTimeInSec) bool {
 	madeProgress := false
 	madeProgress = u.runWriteStage(now) || madeProgress
 	madeProgress = u.runExecStage(now) || madeProgress
@@ -58,7 +59,7 @@ func (u *LDSUnit) Run(now akita.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (u *LDSUnit) runReadStage(now akita.VTimeInSec) bool {
+func (u *LDSUnit) runReadStage(now sim.VTimeInSec) bool {
 	if u.toRead == nil {
 		return false
 	}
@@ -73,7 +74,7 @@ func (u *LDSUnit) runReadStage(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (u *LDSUnit) runExecStage(now akita.VTimeInSec) bool {
+func (u *LDSUnit) runExecStage(now sim.VTimeInSec) bool {
 	if u.toExec == nil {
 		return false
 	}
@@ -89,7 +90,7 @@ func (u *LDSUnit) runExecStage(now akita.VTimeInSec) bool {
 	return false
 }
 
-func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) bool {
+func (u *LDSUnit) runWriteStage(now sim.VTimeInSec) bool {
 	if u.toWrite == nil {
 		return false
 	}
@@ -103,6 +104,7 @@ func (u *LDSUnit) runWriteStage(now akita.VTimeInSec) bool {
 	u.toWrite = nil
 	return true
 }
+
 // Flush clears the unit
 func (u *LDSUnit) Flush() {
 	u.toRead = nil

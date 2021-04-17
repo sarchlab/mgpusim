@@ -4,8 +4,8 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/akita/mgpusim/bitops"
-	"gitlab.com/akita/mgpusim/insts"
+	"gitlab.com/akita/mgpusim/v2/bitops"
+	"gitlab.com/akita/mgpusim/v2/insts"
 )
 
 //nolint:gocyclo,funlen

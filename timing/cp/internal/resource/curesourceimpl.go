@@ -3,15 +3,15 @@ package resource
 import (
 	"sync"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mgpusim/kernels"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
 // CUResourceImpl implements CUResource
 type CUResourceImpl struct {
 	sync.Mutex
 
-	port akita.Port
+	port sim.Port
 
 	wfPoolFreeCount []int
 
@@ -32,7 +32,7 @@ type CUResourceImpl struct {
 }
 
 // DispatchingPort returns the port that the dispatcher send message to.
-func (r *CUResourceImpl) DispatchingPort() akita.Port {
+func (r *CUResourceImpl) DispatchingPort() sim.Port {
 	return r.port
 }
 

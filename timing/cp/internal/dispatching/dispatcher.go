@@ -3,12 +3,12 @@ package dispatching
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/akita/monitoring"
-	"gitlab.com/akita/mgpusim/kernels"
-	"gitlab.com/akita/mgpusim/protocol"
-	"gitlab.com/akita/mgpusim/timing/cp/internal/resource"
-	"gitlab.com/akita/util/tracing"
+	"gitlab.com/akita/akita/v2/monitoring"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
+	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A Dispatcher is a sub-component of a command processor that can dispatch
@@ -18,17 +18,17 @@ type Dispatcher interface {
 	RegisterCU(cu resource.DispatchableCU)
 	IsDispatching() bool
 	StartDispatching(req *protocol.LaunchKernelReq)
-	Tick(now akita.VTimeInSec) (madeProgress bool)
+	Tick(now sim.VTimeInSec) (madeProgress bool)
 }
 
 // A DispatcherImpl is a ticking component that can dispatch work-groups.
 type DispatcherImpl struct {
-	akita.HookableBase
+	sim.HookableBase
 
 	cp                     tracing.NamedHookable
 	name                   string
-	respondingPort         akita.Port
-	dispatchingPort        akita.Port
+	respondingPort         sim.Port
+	dispatchingPort        sim.Port
 	alg                    algorithm
 	dispatching            *protocol.LaunchKernelReq
 	currWG                 dispatchLocation
@@ -93,7 +93,7 @@ func (d *DispatcherImpl) mustNotBeDispatchingAnotherKernel() {
 }
 
 // Tick updates the state of the dispatcher.
-func (d *DispatcherImpl) Tick(now akita.VTimeInSec) (madeProgress bool) {
+func (d *DispatcherImpl) Tick(now sim.VTimeInSec) (madeProgress bool) {
 	if d.cycleLeft > 0 {
 		d.cycleLeft--
 		return true
@@ -112,7 +112,7 @@ func (d *DispatcherImpl) Tick(now akita.VTimeInSec) (madeProgress bool) {
 	return madeProgress
 }
 
-func (d *DispatcherImpl) processMessagesFromCU(now akita.VTimeInSec) bool {
+func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 	msg := d.dispatchingPort.Peek()
 	if msg == nil {
 		return false
@@ -164,7 +164,7 @@ func (d *DispatcherImpl) kernelCompleted() bool {
 	return true
 }
 
-func (d *DispatcherImpl) completeKernel(now akita.VTimeInSec) (
+func (d *DispatcherImpl) completeKernel(now sim.VTimeInSec) (
 	madeProgress bool,
 ) {
 	req := d.dispatching
@@ -189,7 +189,7 @@ func (d *DispatcherImpl) completeKernel(now akita.VTimeInSec) (
 }
 
 func (d *DispatcherImpl) dispatchNextWG(
-	now akita.VTimeInSec,
+	now sim.VTimeInSec,
 ) (madeProgress bool) {
 	if !d.currWG.valid {
 		if !d.alg.HasNext() {
@@ -213,6 +213,8 @@ func (d *DispatcherImpl) dispatchNextWG(
 	}
 	req := reqBuilder.Build()
 	err := d.dispatchingPort.Send(req)
+
+	// fmt.Printf("%.10f, %d, %d\n", now, d.currWG.wg.IDX, d.currWG.cuID)
 
 	if err == nil {
 		d.currWG.valid = false

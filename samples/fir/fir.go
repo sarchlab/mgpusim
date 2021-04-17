@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/benchmarks/heteromark/fir"
-	"gitlab.com/akita/mgpusim/samples/runner"
+	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/fir"
+	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
@@ -14,7 +14,7 @@ func main() {
 
 	runner := new(runner.Runner).ParseFlag().Init()
 
-	benchmark := fir.NewBenchmark(runner.GPUDriver)
+	benchmark := fir.NewBenchmark(runner.Driver())
 	benchmark.Length = *numData
 
 	runner.AddBenchmark(benchmark)

@@ -4,14 +4,14 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita"
-	"gitlab.com/akita/mem"
-	"gitlab.com/akita/mem/cache"
-	"gitlab.com/akita/mem/vm/tlb"
-	"gitlab.com/akita/mgpusim/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/protocol"
-	rdma2 "gitlab.com/akita/mgpusim/rdma"
-	"gitlab.com/akita/mgpusim/timing/cp/internal/dispatching"
+	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache"
+	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm/tlb"
+	"gitlab.com/akita/mgpusim/v2/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v2/rdma"
+	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
 )
 
 var _ = Describe("CommandProcessor", func() {
@@ -26,7 +26,7 @@ var _ = Describe("CommandProcessor", func() {
 		toCU               *MockPort
 		tlbs               []*MockPort
 		addressTranslators []*MockPort
-		rdma               *MockPort
+		rdmaPort           *MockPort
 		pmc                *MockPort
 		l1VCaches          []*MockPort
 		l1SCaches          []*MockPort
@@ -104,39 +104,39 @@ var _ = Describe("CommandProcessor", func() {
 
 		for i := 0; i < int(10); i++ {
 			cus = append(cus, NewMockPort(mockCtrl))
-			commandProcessor.CUs = append(commandProcessor.CUs, akita.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.CUs = append(commandProcessor.CUs, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
 			commandProcessor.CUs[i] = cus[i]
 
 			tlbs = append(tlbs, NewMockPort(mockCtrl))
-			commandProcessor.TLBs = append(commandProcessor.TLBs, akita.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.TLBs = append(commandProcessor.TLBs, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
 			commandProcessor.TLBs[i] = tlbs[i]
 
 			addressTranslators = append(addressTranslators,
 				NewMockPort(mockCtrl))
 			commandProcessor.AddressTranslators =
 				append(commandProcessor.AddressTranslators,
-					akita.NewLimitNumMsgPort(commandProcessor, 1, ""))
+					sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
 			commandProcessor.AddressTranslators[i] = addressTranslators[i]
 
 			l1ICaches = append(l1ICaches, NewMockPort(mockCtrl))
-			commandProcessor.L1ICaches = append(commandProcessor.L1ICaches, akita.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L1ICaches = append(commandProcessor.L1ICaches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
 			commandProcessor.L1ICaches[i] = l1ICaches[i]
 
 			l1SCaches = append(l1SCaches, NewMockPort(mockCtrl))
-			commandProcessor.L1SCaches = append(commandProcessor.L1SCaches, akita.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L1SCaches = append(commandProcessor.L1SCaches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
 			commandProcessor.L1SCaches[i] = l1SCaches[i]
 
 			l1VCaches = append(l1VCaches, NewMockPort(mockCtrl))
-			commandProcessor.L1VCaches = append(commandProcessor.L1VCaches, akita.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L1VCaches = append(commandProcessor.L1VCaches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
 			commandProcessor.L1VCaches[i] = l1VCaches[i]
 
 			l2Caches = append(l2Caches, NewMockPort(mockCtrl))
-			commandProcessor.L2Caches = append(commandProcessor.L2Caches, akita.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L2Caches = append(commandProcessor.L2Caches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
 			commandProcessor.L2Caches[i] = l2Caches[i]
 		}
 
-		rdma = NewMockPort(mockCtrl)
-		commandProcessor.RDMA = rdma
+		rdmaPort = NewMockPort(mockCtrl)
+		commandProcessor.RDMA = rdmaPort
 
 		pmc = NewMockPort(mockCtrl)
 		commandProcessor.PMC = pmc
@@ -152,7 +152,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		dispatcher.EXPECT().IsDispatching().Return(false)
 		dispatcher.EXPECT().StartDispatching(req)
-		toDriver.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toDriver.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processLaunchKernelReq(10, req)
 
@@ -173,10 +173,10 @@ var _ = Describe("CommandProcessor", func() {
 	It("should handle a RDMA drain req from driver", func() {
 		cmd := protocol.NewRDMADrainCmdFromDriver(
 			10, nil, commandProcessor.ToDriver)
-		drainReq := rdma2.DrainReqBuilder{}.Build()
+		drainReq := rdma.DrainReqBuilder{}.Build()
 
 		toRDMASender.EXPECT().Send(gomock.AssignableToTypeOf(drainReq))
-		toDriver.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toDriver.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processRDMADrainCmd(10, cmd)
 
@@ -184,12 +184,12 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a RDMA drain rsp from RDMA", func() {
-		req := rdma2.DrainRspBuilder{}.Build()
+		req := rdma.DrainRspBuilder{}.Build()
 
 		drainRsp := protocol.NewRDMADrainRspToDriver(10,
 			commandProcessor.ToDriver, commandProcessor.Driver)
 		toDriverSender.EXPECT().Send(gomock.AssignableToTypeOf(drainRsp))
-		toRDMA.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toRDMA.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processRDMADrainRsp(10, req)
 
@@ -209,7 +209,7 @@ var _ = Describe("CommandProcessor", func() {
 			cuFlushReq.Dst = commandProcessor.CUs[i]
 			toCUsSender.EXPECT().Send(gomock.AssignableToTypeOf(cuFlushReq))
 		}
-		toDriver.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toDriver.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processShootdownCommand(10, cmd)
 
@@ -226,7 +226,7 @@ var _ = Describe("CommandProcessor", func() {
 		for i := 0; i < 10; i++ {
 			toAddressTranslatorSender.EXPECT().Send(gomock.Any())
 		}
-		toCU.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toCU.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processCUPipelineFlushRsp(10, req)
 
@@ -291,7 +291,7 @@ var _ = Describe("CommandProcessor", func() {
 				Send(gomock.AssignableToTypeOf(cacheFlushReq))
 		}
 
-		toAddressTranslator.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toAddressTranslator.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processAddressTranslatorFlushRsp(
 			10, req)
@@ -320,7 +320,7 @@ var _ = Describe("CommandProcessor", func() {
 			toTLBSender.EXPECT().Send(gomock.AssignableToTypeOf(tlbFlushReq))
 		}
 
-		toCaches.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toCaches.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		commandProcessor.processCacheFlushRsp(10, req)
 
@@ -336,7 +336,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		rsp := protocol.NewShootdownCompleteRsp(10, commandProcessor.ToDriver, commandProcessor.Driver)
 		toDriverSender.EXPECT().Send(gomock.AssignableToTypeOf(rsp))
-		toTLB.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toTLB.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processTLBFlushRsp(10, req)
 
@@ -383,7 +383,7 @@ var _ = Describe("CommandProcessor", func() {
 				Send(gomock.AssignableToTypeOf(cacheRestartReq))
 		}
 
-		toDriver.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toDriver.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processGPURestartReq(10, req)
 
@@ -405,7 +405,7 @@ var _ = Describe("CommandProcessor", func() {
 			tlbRestartReq.Dst = commandProcessor.TLBs[i]
 			toTLBSender.EXPECT().Send(gomock.AssignableToTypeOf(tlbRestartReq))
 		}
-		toCaches.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toCaches.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processCacheRestartRsp(10, req)
 
@@ -424,7 +424,7 @@ var _ = Describe("CommandProcessor", func() {
 			toAddressTranslatorSender.EXPECT().
 				Send(gomock.Any())
 		}
-		toTLB.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toTLB.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processTLBRestartRsp(10, req)
 
@@ -448,7 +448,7 @@ var _ = Describe("CommandProcessor", func() {
 			cuRestartReq.Dst = commandProcessor.CUs[i]
 			toCUsSender.EXPECT().Send(gomock.AssignableToTypeOf(cuRestartReq))
 		}
-		toAddressTranslator.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toAddressTranslator.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress :=
 			commandProcessor.processAddressTranslatorRestartRsp(10, req)
@@ -467,7 +467,7 @@ var _ = Describe("CommandProcessor", func() {
 		gpuRestartRsp := protocol.NewGPURestartRsp(10,
 			commandProcessor.ToDriver, commandProcessor.Driver)
 		toDriverSender.EXPECT().Send(gomock.AssignableToTypeOf(gpuRestartRsp))
-		toCU.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toCU.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processCUPipelineRestartRsp(10, req)
 
@@ -492,7 +492,7 @@ var _ = Describe("CommandProcessor", func() {
 		reqToPMC.PMCPortOfRemoteGPU = req.DestinationPMCPort
 
 		toPMCSender.EXPECT().Send(gomock.AssignableToTypeOf(reqToPMC))
-		toDriver.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toDriver.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress :=
 			commandProcessor.processPageMigrationReq(10, req)
@@ -510,7 +510,7 @@ var _ = Describe("CommandProcessor", func() {
 			commandProcessor.ToDriver, commandProcessor.Driver)
 
 		toDriverSender.EXPECT().Send(gomock.AssignableToTypeOf(rsp))
-		toPMC.EXPECT().Retrieve(akita.VTimeInSec(10))
+		toPMC.EXPECT().Retrieve(sim.VTimeInSec(10))
 
 		madeProgress := commandProcessor.processPageMigrationRsp(10, req)
 
