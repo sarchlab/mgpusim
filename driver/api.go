@@ -6,9 +6,8 @@ import (
 	"sync/atomic"
 
 	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-
 	"gitlab.com/akita/mgpusim/v2/driver/internal"
+	"gitlab.com/akita/mgpusim/v2/kernels"
 	"gitlab.com/akita/util/v2/ca"
 )
 

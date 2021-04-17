@@ -211,16 +211,12 @@ gitlab.com/akita/akita v1.10.0/go.mod h1:bGwhy0YF3Is29i+gnV8zTEeRC8XoHKd2p70vnmr
 gitlab.com/akita/akita v1.10.1/go.mod h1:bGwhy0YF3Is29i+gnV8zTEeRC8XoHKd2p70vnmrSBJo=
 gitlab.com/akita/akita v1.12.1 h1:LriqkFB5KaZVdmcZ0wPSZUzv2GBKBky+QivyLoV8Twk=
 gitlab.com/akita/akita v1.12.1/go.mod h1:DMLoKETax3p+tp8/eHtQg+387dpGlFELs3GtgEdCVQw=
-<<<<<<< HEAD
-gitlab.com/akita/dnn v0.5.2 h1:sJ6LDTYgCB0e/PLyJCV/wfdDZjqCQXX8QOHzoipPoJQ=
-gitlab.com/akita/dnn v0.5.2/go.mod h1:9bR6UBdBPJc+t8j3mvX187F69LfiYbxtJIj3HhMuqlo=
-=======
 gitlab.com/akita/akita/v2 v2.0.0-alpha.2/go.mod h1:Es4u80jg4sEQKl5m5sa6HY78P44z2sgvjr5DZoRgUCs=
 gitlab.com/akita/akita/v2 v2.0.0-alpha.3 h1:WrRCdRlf8dFOtQSl3eFMC8MIVJekKfHUpc1g+r4wQVU=
 gitlab.com/akita/akita/v2 v2.0.0-alpha.3/go.mod h1:Es4u80jg4sEQKl5m5sa6HY78P44z2sgvjr5DZoRgUCs=
-gitlab.com/akita/dnn v0.5.1 h1:+7jWCPUScD2OgKUuwGuorGrQmR6Fa0t2WhHA88CRkys=
 gitlab.com/akita/dnn v0.5.1/go.mod h1:+hAcGZWqANBw55q4XaR/Y0dUF3Htg6gUQS+4EepYHTU=
->>>>>>> 6f227746d51f745fd4399ccba71a8c29044d762a
+gitlab.com/akita/dnn v0.5.2 h1:sJ6LDTYgCB0e/PLyJCV/wfdDZjqCQXX8QOHzoipPoJQ=
+gitlab.com/akita/dnn v0.5.2/go.mod h1:9bR6UBdBPJc+t8j3mvX187F69LfiYbxtJIj3HhMuqlo=
 gitlab.com/akita/mem v1.11.3 h1:hSukm8cmBo3mjEjCQAm2/NCaK4S+fLBsbyUIHQGacWY=
 gitlab.com/akita/mem v1.11.3/go.mod h1:cThfs59p7/1cWsETBXz7O6oKsGEyAwK25coA1iOHlLo=
 gitlab.com/akita/mem/v2 v2.0.0-alpha.1 h1:Ry9azddDakiimySlGunIh1RufWrODphvDgg6ZvJKZGs=
@@ -263,20 +259,17 @@ golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8/go.mod h1:CJ0aWSM057203Lf6IL
 golang.org/x/exp v0.0.0-20191002040644-a1355ae1e2c3 h1:n9HxLrNxWWtEb1cA950nuEEj3QnKbtsCJ6KjcgisNUs=
 golang.org/x/exp v0.0.0-20191002040644-a1355ae1e2c3/go.mod h1:NOZ3BPKG0ec/BKJQgnvsSFpcKLM5xXVWnvZS97DWHgE=
 golang.org/x/image v0.0.0-20180708004352-c73c2afc3b81/go.mod h1:ux5Hcp/YLpHSI86hEcLt0YII63i6oz57MZXIpbrjZUs=
-<<<<<<< HEAD
-golang.org/x/image v0.0.0-20191009234506-e7c1f5e7dbb8/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
-golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb h1:fqpd0EBDzlHRCjiphRR5Zo/RSWWQlWv34418dnEixWk=
-golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
-=======
 golang.org/x/image v0.0.0-20190227222117-0694c2d4d067/go.mod h1:kZ7UVZpmo3dzQBMxlp+ypCbDeSB+sBbTgSJuh5dn5js=
 golang.org/x/image v0.0.0-20190802002840-cff245a6509b/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/image v0.0.0-20190910094157-69e4b8554b2a/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
+golang.org/x/image v0.0.0-20191009234506-e7c1f5e7dbb8/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/image v0.0.0-20200119044424-58c23975cae1/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/image v0.0.0-20200430140353-33d19683fad8/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/image v0.0.0-20200618115811-c13761719519/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/image v0.0.0-20201208152932-35266b937fa6/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/image v0.0.0-20210216034530-4410531fe030/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
->>>>>>> 6f227746d51f745fd4399ccba71a8c29044d762a
+golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb h1:fqpd0EBDzlHRCjiphRR5Zo/RSWWQlWv34418dnEixWk=
+golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/lint v0.0.0-20181026193005-c67002cb31c3/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=
 golang.org/x/lint v0.0.0-20190227174305-5b3e6a55c961/go.mod h1:wehouNa3lNwaWXcvxsM5YxQ5yQlVC4a0KAMCusXpPoU=
 golang.org/x/lint v0.0.0-20190313153728-d0100b6bd8b3/go.mod h1:6SW0HCj/g11FgYtHlgUYUwCkIfeOF89ocIRzGO/8vkc=

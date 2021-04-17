@@ -9,13 +9,8 @@ require (
 	github.com/onsi/gomega v1.11.0
 	github.com/rs/xid v1.2.1
 	github.com/tebeka/atexit v0.3.0
-	gitlab.com/akita/dnn v0.5.2
-	go.mongodb.org/mongo-driver v1.4.6 // indirect
-	golang.org/x/crypto v0.0.0-20210218145215-b8e89b74b9df // indirect
-	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
-	golang.org/x/sys v0.0.0-20210218155724-8ebf48af031b // indirect
-	gonum.org/v1/gonum v0.8.2 // indirect
 	gitlab.com/akita/akita/v2 v2.0.0-alpha.3
+	gitlab.com/akita/dnn v0.5.2
 	gitlab.com/akita/mem/v2 v2.0.0-alpha.1
 	gitlab.com/akita/mgpusim v1.10.2
 	gitlab.com/akita/noc/v2 v2.0.0-alpha.1
