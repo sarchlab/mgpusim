@@ -112,6 +112,13 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	mmuComponent, pageTable := b.createMMU(engine)
 
 	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
+	// file, err := os.Create("driver_comm.csv")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// gpuDriver.GetPortByName("GPU").AcceptHook(
+	// 	sim.NewPortMsgLogger(log.New(file, "", 0)))
+
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
@@ -129,6 +136,8 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		rootComplexID, pcieConnector,
 		gpuBuilder, gpuDriver,
 		rdmaAddressTable, pmcAddressTable)
+
+	pcieConnector.EstablishRoute()
 
 	return &Platform{
 		Engine: engine,
@@ -181,12 +190,10 @@ func (b R9NanoPlatformBuilder) createConnection(
 	// connection.SrcBufferCapacity = 40960000
 	pcieConnector := pcie.NewConnector().
 		WithEngine(engine).
-		WithVersion3().
-		WithX16().
-		WithSwitchLatency(140).
-		WithNetworkName("PCIe")
-	pcieConnector.CreateNetwork()
-	rootComplexID := pcieConnector.CreateRootComplex(
+		WithVersion(3, 16).
+		WithSwitchLatency(140)
+	pcieConnector.CreateNetwork("PCIe")
+	rootComplexID := pcieConnector.AddRootComplex(
 		[]sim.Port{
 			gpuDriver.GetPortByName("GPU"),
 			gpuDriver.GetPortByName("MMU"),

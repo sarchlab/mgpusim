@@ -9,12 +9,11 @@ require (
 	github.com/onsi/gomega v1.11.0
 	github.com/rs/xid v1.2.1
 	github.com/tebeka/atexit v0.3.0
-	gitlab.com/akita/akita/v2 v2.0.0-alpha.3
+	gitlab.com/akita/akita/v2 v2.0.1
 	gitlab.com/akita/dnn v0.5.2
-	gitlab.com/akita/mem/v2 v2.0.0-alpha.1
-	gitlab.com/akita/mgpusim v1.10.2
-	gitlab.com/akita/noc/v2 v2.0.0-alpha.1
-	gitlab.com/akita/util/v2 v2.0.0-alpha.3
+	gitlab.com/akita/mem/v2 v2.0.0
+	gitlab.com/akita/noc/v2 v2.0.0
+	gitlab.com/akita/util/v2 v2.0.0
 	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670 // indirect
 	golang.org/x/sys v0.0.0-20210317225723-c4fcb01b228e // indirect
 	gonum.org/v1/gonum v0.9.0 // indirect
@@ -22,7 +21,7 @@ require (
 
 // replace github.com/syifan/goseth => ../goseth
 
-// replace gitlab.com/akita/akita => ../akita
+// replace gitlab.com/akita/akita/v2 => ../akita
 
 // replace gitlab.com/akita/noc => ../noc
 
