@@ -402,18 +402,20 @@
             "program": "${workspaceFolder}/samples/concurrentworkload",
             "args": [
                 "-verify",
+                "-gpus=1,2,3,4",
+                "-timing=true",
+                "-use-unified-memory=true"
                 // "-debug-isa",
                 // "-timing",
             ]
         },
-         {
+        {
             "name": "Server",
             "type": "go",
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/samples/server",
-            "args": [
-            ]
+            "args": []
         }
     ]
 }
