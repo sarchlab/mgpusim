@@ -27,7 +27,10 @@ type R9NanoPlatformBuilder struct {
 	traceMem          bool
 	numGPU            int
 	log2PageSize      uint64
-	monitor           *monitoring.Monitor
+
+	monitor *monitoring.Monitor
+
+	globalStorage *mem.Storage
 
 	gpus []*GPU
 }
@@ -128,6 +131,8 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.createConnection(engine, gpuDriver, mmuComponent)
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
+
+	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
 
 	rdmaAddressTable := b.createRDMAAddrTable()
 	pmcAddressTable := b.createPMCPageTable()
@@ -248,7 +253,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithNumShaderArray(16).
 		WithNumMemoryBank(16).
 		WithLog2MemoryBankInterleavingSize(7).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(b.globalStorage)
 
 	if b.monitor != nil {
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)

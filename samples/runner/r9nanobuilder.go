@@ -68,6 +68,7 @@ type R9NanoGPUBuilder struct {
 	dmaEngine               *cp.DMAEngine
 	rdmaEngine              *rdma.Engine
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
+	globalStroage           *mem.Storage
 
 	internalConn           *sim.DirectConnection
 	l1TLBToL2TLBConnection *sim.DirectConnection
@@ -193,6 +194,15 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 // split between memory banks.
 func (b R9NanoGPUBuilder) WithL2CacheSize(size uint64) R9NanoGPUBuilder {
 	b.l2CacheSize = size
+	return b
+}
+
+// WithGlobalStorage lets the GPU to build to use the externally provided
+// storage.
+func (b R9NanoGPUBuilder) WithGlobalStorage(
+	storage *mem.Storage,
+) R9NanoGPUBuilder {
+	b.globalStroage = storage
 	return b
 }
 
@@ -588,6 +598,10 @@ func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
 
 	if b.visTracer != nil {
 		memCtrlBuilder = memCtrlBuilder.WithAdditionalTracer(b.visTracer)
+	}
+
+	if b.globalStroage != nil {
+		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStroage)
 	}
 
 	return memCtrlBuilder
