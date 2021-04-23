@@ -6,11 +6,11 @@ import (
 	"gitlab.com/akita/mem/v2/idealmemcontroller"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/mgpusim/v2/rdma"
 	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
 	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
+	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v2/timing/rdma"
 	"gitlab.com/akita/util/v2/akitaext"
 	"gitlab.com/akita/util/v2/tracing"
 )

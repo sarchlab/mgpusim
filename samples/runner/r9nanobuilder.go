@@ -11,13 +11,13 @@ import (
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/mmu"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v2/rdma"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/rob"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
+	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v2/timing/rdma"
 	"gitlab.com/akita/util/v2/tracing"
 )
 

@@ -19,7 +19,7 @@ import (
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mgpusim/v2/benchmarks"
 	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/mgpusim/v2/rdma"
+	"gitlab.com/akita/mgpusim/v2/timing/rdma"
 	"gitlab.com/akita/util/v2/tracing"
 )
 
