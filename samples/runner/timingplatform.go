@@ -112,9 +112,16 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(engine)
 	}
 
+	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
+
 	mmuComponent, pageTable := b.createMMU(engine)
 
-	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
+	gpuDriver := driver.MakeBuilder().
+		WithEngine(engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(b.globalStorage).
+		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
 	// 	panic(err)
@@ -131,8 +138,6 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.createConnection(engine, gpuDriver, mmuComponent)
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
-
-	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
 
 	rdmaAddressTable := b.createRDMAAddrTable()
 	pmcAddressTable := b.createPMCPageTable()

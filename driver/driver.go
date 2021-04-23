@@ -22,8 +22,9 @@ import (
 type Driver struct {
 	*sim.TickingComponent
 
-	memAllocator internal.MemoryAllocator
-	distributor  distributor
+	memAllocator  internal.MemoryAllocator
+	distributor   distributor
+	globalStorage *mem.Storage
 
 	GPUs      []sim.Port
 	devices   []*internal.Device
@@ -621,18 +622,6 @@ func (d *Driver) findCommandByReq(req sim.Msg) (Command, *CommandQueue) {
 	panic("cannot find command")
 }
 
-func (d *Driver) createCPU() {
-	cpu := &internal.Device{
-		ID:       0,
-		Type:     internal.DeviceTypeCPU,
-		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
-	}
-	cpu.SetTotalMemSize(4 * mem.GB)
-
-	d.memAllocator.RegisterDevice(cpu)
-	d.devices = append(d.devices, cpu)
-}
-
 func (d *Driver) parseFromMMU(now sim.VTimeInSec) bool {
 	if d.isCurrentlyHandlingMigrationReq {
 		return false
@@ -932,38 +921,4 @@ func (d *Driver) sendToMMU(now sim.VTimeInSec) bool {
 	}
 
 	return false
-}
-
-// NewDriver creates a new driver
-func NewDriver(
-	engine sim.Engine,
-	pageTable vm.PageTable,
-	log2PageSize uint64,
-) *Driver {
-	driver := new(Driver)
-	driver.TickingComponent = sim.NewTickingComponent(
-		"driver", engine, 1*sim.GHz, driver)
-
-	driver.Log2PageSize = log2PageSize
-
-	memAllocatorImpl := internal.NewMemoryAllocator(pageTable, log2PageSize)
-	driver.memAllocator = memAllocatorImpl
-
-	distributorImpl := newDistributorImpl(memAllocatorImpl)
-	distributorImpl.pageSizeAsPowerOf2 = log2PageSize
-	driver.distributor = distributorImpl
-
-	driver.pageTable = pageTable
-
-	driver.gpuPort = sim.NewLimitNumMsgPort(driver, 40960000, "driver.ToGPUs")
-	driver.AddPort("GPU", driver.gpuPort)
-	driver.mmuPort = sim.NewLimitNumMsgPort(driver, 1, "driver.ToMMU")
-	driver.AddPort("MMU", driver.mmuPort)
-
-	driver.enqueueSignal = make(chan bool)
-	driver.driverStopped = make(chan bool)
-
-	driver.createCPU()
-
-	return driver
 }
