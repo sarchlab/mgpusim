@@ -14,9 +14,8 @@ import (
 var _ = ginkgo.Describe("Driver", func() {
 
 	var (
-		mockCtrl  *gomock.Controller
-		pageTable *MockPageTable
-
+		mockCtrl       *gomock.Controller
+		pageTable      *MockPageTable
 		driver         *Driver
 		engine         *MockEngine
 		toGPUs         *MockPort
@@ -25,6 +24,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		context        *Context
 		cmdQueue       *CommandQueue
 		memAllocator   *MockMemoryAllocator
+		log2PageSize   uint64
 	)
 
 	ginkgo.BeforeEach(func() {
@@ -35,8 +35,13 @@ var _ = ginkgo.Describe("Driver", func() {
 		toMMU = NewMockPort(mockCtrl)
 		memAllocator = NewMockMemoryAllocator(mockCtrl)
 		memAllocator.EXPECT().RegisterDevice(gomock.Any()).AnyTimes()
+		log2PageSize = 12
 
-		driver = NewDriver(engine, pageTable, 12)
+		driver = MakeBuilder().
+			WithEngine(engine).
+			WithLog2PageSize(log2PageSize).
+			WithPageTable(pageTable).
+			Build("Driver")
 		driver.gpuPort = toGPUs
 		driver.mmuPort = toMMU
 		driver.memAllocator = memAllocator
