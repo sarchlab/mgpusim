@@ -12,9 +12,9 @@ import (
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Input                           driver.GPUPtr
-	Mask                            driver.GPUPtr
-	Output                          driver.GPUPtr
+	Input                           driver.Ptr
+	Mask                            driver.Ptr
+	Output                          driver.Ptr
 	InputDimensions, MaskDimensions [2]uint32
 	NExWidth                        uint32
 	Padding                         uint32
@@ -37,9 +37,9 @@ type Benchmark struct {
 	hInputData  []uint32
 	hOutputData []uint32
 	hMask       []float32
-	dInputData  driver.GPUPtr
-	dOutputData driver.GPUPtr
-	dMasks      []driver.GPUPtr
+	dInputData  driver.Ptr
+	dOutputData driver.Ptr
+	dMasks      []driver.Ptr
 
 	useUnifiedMemory bool
 }
@@ -120,7 +120,7 @@ func (b *Benchmark) initMem() {
 			uint64(numInputData*4), b.gpus)
 	}
 
-	b.dMasks = make([]driver.GPUPtr, len(b.gpus))
+	b.dMasks = make([]driver.Ptr, len(b.gpus))
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		if b.useUnifiedMemory {

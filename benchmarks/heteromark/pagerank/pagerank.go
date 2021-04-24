@@ -16,13 +16,13 @@ import (
 type KernelArgs struct {
 	NumRows   uint32
 	Padding   uint32
-	RowOffset driver.GPUPtr
-	Col       driver.GPUPtr
-	Val       driver.GPUPtr
+	RowOffset driver.Ptr
+	Col       driver.Ptr
+	Val       driver.Ptr
 	Vals      driver.LocalPtr
 	Padding2  uint32
-	X         driver.GPUPtr
-	Y         driver.GPUPtr
+	X         driver.Ptr
+	Y         driver.Ptr
 }
 
 // Benchmark defines a benchmark
@@ -42,11 +42,11 @@ type Benchmark struct {
 	verPageRank     []float32
 	verPageRankTemp []float32
 
-	dPageRank      driver.GPUPtr
-	dPageRankTemp  driver.GPUPtr
-	dRowOffsets    driver.GPUPtr
-	dColumnNumbers driver.GPUPtr
-	dValues        driver.GPUPtr
+	dPageRank      driver.Ptr
+	dPageRankTemp  driver.Ptr
+	dRowOffsets    driver.Ptr
+	dColumnNumbers driver.Ptr
+	dValues        driver.Ptr
 	dLocalValues   driver.LocalPtr
 
 	useUnifiedMemory bool

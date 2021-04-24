@@ -68,7 +68,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		ginkgo.It("should send request", func() {
 			srcData := make([]byte, 0x2200)
 			cmd := &MemCopyH2DCommand{
-				Dst: GPUPtr(0x200000100),
+				Dst: Ptr(0x200000100),
 				Src: srcData,
 			}
 			cmdQueue.Enqueue(cmd)
@@ -145,7 +145,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			req2 := protocol.NewMemCopyH2DReq(9, toGPUs, nil,
 				make([]byte, 4), 0x100)
 			cmd := &MemCopyH2DCommand{
-				Dst:  GPUPtr(0x100),
+				Dst:  Ptr(0x100),
 				Src:  uint32(1),
 				Reqs: []sim.Msg{req, req2},
 			}
@@ -173,7 +173,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				toGPUs, nil,
 				make([]byte, 4), 0x100)
 			cmd := &MemCopyH2DCommand{
-				Dst:  GPUPtr(0x100),
+				Dst:  Ptr(0x100),
 				Src:  uint32(1),
 				Reqs: []sim.Msg{req},
 			}
@@ -202,7 +202,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			data := uint32(1)
 			cmd := &MemCopyD2HCommand{
 				Dst: &data,
-				Src: GPUPtr(0x2_0000_0100),
+				Src: Ptr(0x2_0000_0100),
 			}
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
@@ -243,7 +243,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				9, nil, toGPUs, 0x104, []byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
 				Dst:  &data,
-				Src:  GPUPtr(0x100),
+				Src:  Ptr(0x100),
 				Reqs: []sim.Msg{req, req2},
 			}
 			cmdQueue.Enqueue(cmd)
@@ -273,7 +273,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmd := &MemCopyD2HCommand{
 				Dst:     &data,
 				RawData: []byte{1, 0, 0, 0},
-				Src:     GPUPtr(0x100),
+				Src:     Ptr(0x100),
 				Reqs:    []sim.Msg{req},
 			}
 			cmdQueue.Enqueue(cmd)

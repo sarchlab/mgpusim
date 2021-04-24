@@ -17,7 +17,7 @@ type Float2 struct {
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Work                driver.GPUPtr
+	Work                driver.Ptr
 	Smem                driver.LocalPtr
 	Paddinng            int32
 	HiddenGlobalOffsetX int64
@@ -40,7 +40,7 @@ type Benchmark struct {
 	nFfts      int32
 	halfNCmplx int32
 	usedBytes  uint64
-	dSource    driver.GPUPtr
+	dSource    driver.Ptr
 	source     []Float2
 	result     []Float2
 }

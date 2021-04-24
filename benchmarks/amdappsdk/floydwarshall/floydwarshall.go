@@ -13,8 +13,8 @@ import (
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	OutputPathDistanceMatrix driver.GPUPtr
-	OutputPathMatrix         driver.GPUPtr
+	OutputPathDistanceMatrix driver.Ptr
+	OutputPathMatrix         driver.Ptr
 
 	NumNodes uint32
 	Pass     uint32
@@ -32,8 +32,8 @@ type Benchmark struct {
 	NumIterations             uint32
 	hOutputPathMatrix         []uint32
 	hOutputPathDistanceMatrix []uint32
-	dOutputPathMatrix         driver.GPUPtr
-	dOutputPathDistanceMatrix driver.GPUPtr
+	dOutputPathMatrix         driver.Ptr
+	dOutputPathDistanceMatrix driver.Ptr
 
 	hVerificationPathMatrix         []uint32
 	hVerificationPathDistanceMatrix []uint32

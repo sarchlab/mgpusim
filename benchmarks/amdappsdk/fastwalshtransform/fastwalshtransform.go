@@ -14,7 +14,7 @@ import (
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	TArray driver.GPUPtr
+	TArray driver.Ptr
 	Step   uint32
 }
 
@@ -29,7 +29,7 @@ type Benchmark struct {
 	Length         uint32
 	hInputArray    []float32
 	hVerInputArray []float32
-	dInputArray    driver.GPUPtr
+	dInputArray    driver.Ptr
 
 	useUnifiedMemory bool
 }

@@ -12,14 +12,14 @@ import (
 
 // KernelArg represents the arguments to pass to the kernel
 type KernelArg struct {
-	Levels       driver.GPUPtr
-	EdgeArray    driver.GPUPtr
-	EdgeArrayAux driver.GPUPtr
+	Levels       driver.Ptr
+	EdgeArray    driver.Ptr
+	EdgeArrayAux driver.Ptr
 	WSize        int32
 	ChunkSize    int32
 	NumNodes     uint32
 	Curr         int32
-	Flag         driver.GPUPtr
+	Flag         driver.Ptr
 }
 
 // Benchmark is the BFS benchmark
@@ -40,10 +40,10 @@ type Benchmark struct {
 	hFrontier     []uint32
 	hCost         []uint32
 	cpuCost       []uint32
-	dFrontier     driver.GPUPtr
-	dEdgeArray    driver.GPUPtr
-	dEdgeArrayAux driver.GPUPtr
-	dFlag         driver.GPUPtr
+	dFrontier     driver.Ptr
+	dEdgeArray    driver.Ptr
+	dEdgeArrayAux driver.Ptr
+	dFlag         driver.Ptr
 
 	useUnifiedMemory bool
 }

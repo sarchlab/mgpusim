@@ -307,7 +307,7 @@ func (o *GPUOperator) Slice(t tensor.Tensor, start int, end int) tensor.Tensor {
 		ctx:    o.ctx,
 
 		size: []int{end - start},
-		ptr: driver.GPUPtr(uint64(t.(*Tensor).ptr) +
+		ptr: driver.Ptr(uint64(t.(*Tensor).ptr) +
 			uint64(start*sizeOfFloat32)),
 	}
 
@@ -315,7 +315,7 @@ func (o *GPUOperator) Slice(t tensor.Tensor, start int, end int) tensor.Tensor {
 }
 
 type repeatArgs struct {
-	Output, Input             driver.GPUPtr
+	Output, Input             driver.Ptr
 	InputLength, OutputLength uint32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -376,8 +376,8 @@ func (o *GPUOperator) Reshape(t tensor.Tensor, newSize []int) tensor.Tensor {
 }
 
 type transposeKernelArgs struct {
-	In, Out, InSize, OutSize, Order driver.GPUPtr
-	InIndexBuf, OutIndexBuf         driver.GPUPtr
+	In, Out, InSize, OutSize, Order driver.Ptr
+	InIndexBuf, OutIndexBuf         driver.Ptr
 	Dim, Padding                    int32
 	OffsetX, OffsetY, OffsetZ       int64
 }
@@ -465,8 +465,8 @@ func (o *GPUOperator) verifyTranspose(
 }
 
 type rotateKernelArgs struct {
-	In, Out, InSize, OutSize  driver.GPUPtr
-	InIndexBuf, OutIndexBuf   driver.GPUPtr
+	In, Out, InSize, OutSize  driver.Ptr
+	InIndexBuf, OutIndexBuf   driver.Ptr
 	Dim, Padding              int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -525,9 +525,9 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 }
 
 type dilateKernelArgs struct {
-	In, Out, InSize, OutSize  driver.GPUPtr
-	Dilate                    driver.GPUPtr
-	InIndexBuf, OutIndexBuf   driver.GPUPtr
+	In, Out, InSize, OutSize  driver.Ptr
+	Dilate                    driver.Ptr
+	InIndexBuf, OutIndexBuf   driver.Ptr
 	Dim, Padding              int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -630,9 +630,9 @@ func (o *GPUOperator) axisMustBeIncreasing(axis []int) {
 }
 
 type sumOneAxisKernelArgs struct {
-	In, Out, InSize, OutSize  driver.GPUPtr
+	In, Out, InSize, OutSize  driver.Ptr
 	InDim, Axis               int32
-	InIndexBuf, OutIndexBuf   driver.GPUPtr
+	InIndexBuf, OutIndexBuf   driver.Ptr
 	OffsetX, OffsetY, OffsetZ int64
 }
 
@@ -699,7 +699,7 @@ type gemmKernArgs struct {
 	M, N, K                   int32
 	Alpha, Beta               float32
 	Padding                   int32
-	A, B, C, D                driver.GPUPtr
+	A, B, C, D                driver.Ptr
 	OffsetX, OffsetY, OffsetZ int32
 }
 
@@ -804,7 +804,7 @@ func (o *GPUOperator) gemmDimMustBeValid(a, b, c tensor.Tensor) {
 }
 
 type im2ColKernelArg struct {
-	Input, Output             driver.GPUPtr
+	Input, Output             driver.Ptr
 	InputDim, MaskDim         [2]uint32
 	Stride, Pad, Dilation     [2]uint32
 	Channel, Batch            uint32
@@ -873,13 +873,13 @@ func (o *GPUOperator) Im2Col(
 
 type maxPoolingForwardKernelArgs struct {
 	NThreads, Padding            int32
-	BottomData                   driver.GPUPtr
+	BottomData                   driver.Ptr
 	Num, Channels, Height, Width int32
 	PooledH, PooledW             int32
 	KernelH, KernelW             int32
 	StrideH, StrideW             int32
 	PadH, PadW                   int32
-	TopData, MaskData            driver.GPUPtr
+	TopData, MaskData            driver.Ptr
 	OffsetX, OffsetY, OffsetZ    int64
 }
 
@@ -933,13 +933,13 @@ func (o *GPUOperator) MaxPoolingForward(
 
 type maxPoolingBackwardKernelArgs struct {
 	NThreads, Padding            int32
-	TopDiff, TopMask             driver.GPUPtr
+	TopDiff, TopMask             driver.Ptr
 	Num, Channels, Height, Width int32
 	PooledHeight, PooledWidth    int32
 	KernelH, KernelW             int32
 	StrideH, StrideW             int32
 	PadH, PadW                   int32
-	BottomDiff                   driver.GPUPtr
+	BottomDiff                   driver.Ptr
 	OffsetX, OffsetY, OffsetZ    int64
 }
 
@@ -990,7 +990,7 @@ func (o *GPUOperator) MaxPoolingBackward(
 // AvgPoolingKernelArgsForward defines forward kernel arguments
 type AvgPoolingKernelArgsForward struct {
 	NumThreads uint64
-	Bottom     driver.GPUPtr
+	Bottom     driver.Ptr
 	N          int32
 	C          int32
 	H          int32
@@ -1003,7 +1003,7 @@ type AvgPoolingKernelArgsForward struct {
 	StrideW    int32
 	PadH       int32
 	PadW       int32
-	Top        driver.GPUPtr
+	Top        driver.Ptr
 
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -1059,7 +1059,7 @@ func (o *GPUOperator) AvgPoolingForward(
 // AvgPoolingKernelArgsBackward defines forward kernel arguments
 type AvgPoolingKernelArgsBackward struct {
 	NumThreads uint64
-	Top        driver.GPUPtr
+	Top        driver.Ptr
 	N          int32
 	C          int32
 	H          int32
@@ -1072,7 +1072,7 @@ type AvgPoolingKernelArgsBackward struct {
 	StrideW    int32
 	PadH       int32
 	PadW       int32
-	Bottom     driver.GPUPtr
+	Bottom     driver.Ptr
 
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
@@ -1130,25 +1130,25 @@ func (o *GPUOperator) AvgPoolingBackward(
 }
 
 type softmaxExpKernelArg struct {
-	Input                     driver.GPUPtr
-	Output                    driver.GPUPtr
+	Input                     driver.Ptr
+	Output                    driver.Ptr
 	N, Padding                int32
 	OffsetX, OffsetY, OffsetZ int64
 }
 
 type reductionSumKernelArg struct {
-	Data                      driver.GPUPtr
+	Data                      driver.Ptr
 	PartialSums               driver.LocalPtr
 	Padding                   int32
-	Output                    driver.GPUPtr
+	Output                    driver.Ptr
 	InputN, Padding2          int32
 	OffsetX, OffsetY, OffsetZ int64
 }
 
 type softmaxDivKernelArg struct {
-	ExpInput                  driver.GPUPtr
-	Output                    driver.GPUPtr
-	Denominator               driver.GPUPtr
+	ExpInput                  driver.Ptr
+	Output                    driver.Ptr
+	Denominator               driver.Ptr
 	NumElement, BatchSize     int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1239,7 +1239,7 @@ func (o *GPUOperator) CrossEntropy(t tensor.Tensor, label []int) float64 {
 }
 
 type crossEntropyDerivativeArgs struct {
-	Output, Input, Label      driver.GPUPtr
+	Output, Input, Label      driver.Ptr
 	BatchSize, NumPerImage    int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1323,7 +1323,7 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 }
 
 type elemWiseMulKernArg struct {
-	Out, In1, In2             driver.GPUPtr
+	Out, In1, In2             driver.Ptr
 	N, Padding                int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1362,7 +1362,7 @@ func (o *GPUOperator) ElementWiseMul(
 }
 
 type scaleAddKernArg struct {
-	Out, In1, In2             driver.GPUPtr
+	Out, In1, In2             driver.Ptr
 	Alpha, Beta               float32
 	N, Padding                int32
 	OffsetX, OffsetY, OffsetZ int64
@@ -1405,7 +1405,7 @@ func (o *GPUOperator) ScaleAdd(
 }
 
 type rmsPropKernArg struct {
-	Params, Gradients, SHistory driver.GPUPtr
+	Params, Gradients, SHistory driver.Ptr
 	SmoothFactor, LearningRate  float32
 	N, Padding                  int32
 	OffsetX, OffsetY, OffsetZ   int64
@@ -1437,7 +1437,7 @@ func (o *GPUOperator) RMSProp(
 }
 
 type adamKernArg struct {
-	Params, Gradients, SHistory, VHistory      driver.GPUPtr
+	Params, Gradients, SHistory, VHistory      driver.Ptr
 	SmoothFactor1, SmoothFactor2, LearningRate float32
 	N                                          int32
 	OffsetX, OffsetY, OffsetZ                  int64
@@ -1488,7 +1488,7 @@ func (o *GPUOperator) Adam(
 }
 
 type reluForwardKernelArgs struct {
-	In, Out                   driver.GPUPtr
+	In, Out                   driver.Ptr
 	Count, Padding            int32
 	OffsetX, OffsetY, OffsetZ int64
 }
@@ -1522,7 +1522,7 @@ func (o *GPUOperator) ReluForward(
 }
 
 type reluBackwardKernelArgs struct {
-	In, Backin, Out           driver.GPUPtr
+	In, Backin, Out           driver.Ptr
 	Count, Padding            int32
 	OffsetX, OffsetY, OffsetZ int64
 }

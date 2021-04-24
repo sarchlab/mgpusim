@@ -6,9 +6,9 @@ import "gitlab.com/akita/mgpusim/v2/driver"
 func AllReduceRing(
 	d *driver.Driver,
 	comms []*Communicator,
-	data []driver.GPUPtr,
+	data []driver.Ptr,
 	dataSize int,
-	bufs []driver.GPUPtr,
+	bufs []driver.Ptr,
 	sizePerBuf int,
 ) {
 	numGPU := len(comms)
@@ -81,16 +81,16 @@ func allReducePushToBuffer(
 	d *driver.Driver,
 	comms []*Communicator,
 	cmdQs []*driver.CommandQueue,
-	data, bufs []driver.GPUPtr,
+	data, bufs []driver.Ptr,
 	step, numGPU, numThread int,
 	currBufSize, pushSize, offset uint64,
 ) {
 	for i := 0; i < numGPU; i++ {
 		chunkIndex := uint64((i + numGPU - step) % numGPU)
 		src := data[i]
-		src += driver.GPUPtr(4 * (offset + chunkIndex*pushSize))
+		src += driver.Ptr(4 * (offset + chunkIndex*pushSize))
 		dst := bufs[(i+1)%numGPU]
-		dst += driver.GPUPtr(4 * chunkIndex * pushSize)
+		dst += driver.Ptr(4 * chunkIndex * pushSize)
 
 		sizeToPush := minUint64(pushSize, currBufSize-chunkIndex*pushSize)
 		if sizeToPush < 0 {
@@ -118,7 +118,7 @@ func allReduceReduce(
 	d *driver.Driver,
 	comms []*Communicator,
 	cmdQs []*driver.CommandQueue,
-	data, bufs []driver.GPUPtr,
+	data, bufs []driver.Ptr,
 	step, numGPU, numThread int,
 	currBufSize, pushSize, offset uint64,
 ) {
@@ -126,9 +126,9 @@ func allReduceReduce(
 		chunkIndex := uint64((i + numGPU - (step + 1)) % numGPU)
 
 		store := data[i]
-		store += driver.GPUPtr(4 * (offset + chunkIndex*pushSize))
+		store += driver.Ptr(4 * (offset + chunkIndex*pushSize))
 		buf := bufs[i]
-		buf += driver.GPUPtr(4 * (chunkIndex * pushSize))
+		buf += driver.Ptr(4 * (chunkIndex * pushSize))
 
 		sizeToPush := minUint64(pushSize, currBufSize-chunkIndex*pushSize)
 		if sizeToPush < 0 {
@@ -163,7 +163,7 @@ func allReducePushToGPU(
 	d *driver.Driver,
 	comms []*Communicator,
 	cmdQs []*driver.CommandQueue,
-	data []driver.GPUPtr,
+	data []driver.Ptr,
 	step, numGPU, numThread int,
 	currBufSize, pushSize, offset uint64,
 ) {
@@ -171,9 +171,9 @@ func allReducePushToGPU(
 		chunkIndex := uint64((i + 1 + numGPU - step) % numGPU)
 
 		src := data[i]
-		src += driver.GPUPtr(4 * (offset + chunkIndex*pushSize))
+		src += driver.Ptr(4 * (offset + chunkIndex*pushSize))
 		dst := data[(i+1)%numGPU]
-		dst += driver.GPUPtr(4 * (offset + chunkIndex*pushSize))
+		dst += driver.Ptr(4 * (offset + chunkIndex*pushSize))
 
 		sizeToPush := minUint64(pushSize, currBufSize-chunkIndex*pushSize)
 		if sizeToPush < 0 {

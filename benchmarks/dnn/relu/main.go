@@ -13,8 +13,8 @@ import (
 type KernelArgs struct {
 	Count               uint32
 	Padding             uint32
-	Input               driver.GPUPtr
-	Output              driver.GPUPtr
+	Input               driver.Ptr
+	Output              driver.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -30,8 +30,8 @@ type Benchmark struct {
 	Length      int
 	inputData   []float32
 	outputData  []float32
-	gInputData  driver.GPUPtr
-	gOutputData driver.GPUPtr
+	gInputData  driver.Ptr
+	gOutputData driver.Ptr
 
 	useUnifiedMemory bool
 }

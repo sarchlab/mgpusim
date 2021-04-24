@@ -24,7 +24,7 @@ func MakeBuilder() Builder {
 	}
 }
 
-// WithEngines sets the engine to use.
+// WithEngine sets the engine to use.
 func (b Builder) WithEngine(e sim.Engine) Builder {
 	b.engine = e
 	return b

@@ -13,17 +13,17 @@ import (
 
 // Kernel1Args list first set of kernel arguments
 type Kernel1Args struct {
-	A      driver.GPUPtr
-	P      driver.GPUPtr
-	Q      driver.GPUPtr
+	A      driver.Ptr
+	P      driver.Ptr
+	Q      driver.Ptr
 	NX, NY int32
 }
 
 // Kernel2Args list second set of kernel arguments
 type Kernel2Args struct {
-	A      driver.GPUPtr
-	R      driver.GPUPtr
-	S      driver.GPUPtr
+	A      driver.Ptr
+	R      driver.Ptr
+	S      driver.Ptr
 	NX, NY int32
 }
 
@@ -39,7 +39,7 @@ type Benchmark struct {
 	a, r, s, p, q      []float32
 	sOutput, qOutput   []float32
 	cpuS, cpuQ         []float32
-	dA, dR, dS, dP, dQ driver.GPUPtr
+	dA, dR, dS, dP, dQ driver.Ptr
 
 	useUnifiedMemory bool
 }

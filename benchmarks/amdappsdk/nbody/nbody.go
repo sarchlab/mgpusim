@@ -13,14 +13,14 @@ import (
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Pos                 driver.GPUPtr
-	Vel                 driver.GPUPtr
+	Pos                 driver.Ptr
+	Vel                 driver.Ptr
 	NumBodies           int32
 	DeltaTime           float32
 	EpsSqr              float32
 	LocalPos            driver.LocalPtr
-	NewPosition         driver.GPUPtr
-	NewVelocity         driver.GPUPtr
+	NewPosition         driver.Ptr
+	NewVelocity         driver.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -47,14 +47,14 @@ type Benchmark struct {
 	NumIterations    int32
 	exchange         bool
 	numBodies        int32
-	currPos          driver.GPUPtr
-	currVel          driver.GPUPtr
-	newPos           driver.GPUPtr
-	newVel           driver.GPUPtr
-	dPos             *driver.GPUPtr
-	dVel             *driver.GPUPtr
-	dNewPos          *driver.GPUPtr
-	dNewVel          *driver.GPUPtr
+	currPos          driver.Ptr
+	currVel          driver.Ptr
+	newPos           driver.Ptr
+	newVel           driver.Ptr
+	dPos             *driver.Ptr
+	dVel             *driver.Ptr
+	dNewPos          *driver.Ptr
+	dNewVel          *driver.Ptr
 }
 
 // NewBenchmark returns a benchmark

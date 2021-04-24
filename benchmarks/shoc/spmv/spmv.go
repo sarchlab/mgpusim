@@ -14,15 +14,15 @@ import (
 
 // KernelArgs sets up kernel arguments
 type KernelArgs struct {
-	Val           driver.GPUPtr
-	Vec           driver.GPUPtr
-	Cols          driver.GPUPtr
-	RowDelimiters driver.GPUPtr
+	Val           driver.Ptr
+	Vec           driver.Ptr
+	Cols          driver.Ptr
+	RowDelimiters driver.Ptr
 	Dim           int32
 	// VecWidth            int32
 	// PartialSums         driver.LocalPtr
 	Padding             int32
-	Out                 driver.GPUPtr
+	Out                 driver.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -39,11 +39,11 @@ type Benchmark struct {
 
 	Dim       int32
 	Sparsity  float64
-	dValData  driver.GPUPtr
-	dVecData  driver.GPUPtr
-	dColsData driver.GPUPtr
-	dRowDData driver.GPUPtr
-	dOutData  driver.GPUPtr
+	dValData  driver.Ptr
+	dVecData  driver.Ptr
+	dColsData driver.Ptr
+	dRowDData driver.Ptr
+	dOutData  driver.Ptr
 	nItems    int32
 	vec       []float32
 	out       []float32

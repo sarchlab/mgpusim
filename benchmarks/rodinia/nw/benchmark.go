@@ -13,9 +13,9 @@ import (
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Reference          driver.GPUPtr
-	InputItemSets      driver.GPUPtr
-	OutputItemSets     driver.GPUPtr
+	Reference          driver.Ptr
+	InputItemSets      driver.Ptr
+	OutputItemSets     driver.Ptr
 	LocalInputItemSets driver.LocalPtr
 	LocalReference     driver.LocalPtr
 	Cols               int32
@@ -71,9 +71,9 @@ type Benchmark struct {
 	inputItemSets     []int32
 	outputItemSets    []int32
 	cpuOutputItemSets []int32
-	dInputItemSets    driver.GPUPtr
-	dOutputItemSets   driver.GPUPtr
-	dReference        driver.GPUPtr
+	dInputItemSets    driver.Ptr
+	dOutputItemSets   driver.Ptr
+	dReference        driver.Ptr
 }
 
 // NewBenchmark creates a new benchmark
@@ -184,7 +184,7 @@ func (b *Benchmark) allocateGPUMem() {
 	b.dReference = b.allocate(uint64(b.col * b.row * 4))
 }
 
-func (b *Benchmark) allocate(byteSize uint64) driver.GPUPtr {
+func (b *Benchmark) allocate(byteSize uint64) driver.Ptr {
 	if b.useUnifiedMemory {
 		return b.driver.AllocateUnifiedMemory(b.context, byteSize)
 	}
