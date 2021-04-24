@@ -26,9 +26,10 @@ type Driver struct {
 	distributor   distributor
 	globalStorage *mem.Storage
 
-	GPUs      []sim.Port
-	devices   []*internal.Device
-	pageTable vm.PageTable
+	GPUs        []sim.Port
+	devices     []*internal.Device
+	pageTable   vm.PageTable
+	middlewares []Middleware
 
 	requestsToSend []sim.Msg
 
@@ -251,22 +252,35 @@ func (d *Driver) processOneCommand(
 	cmd := cmdQueue.Peek()
 
 	switch cmd := cmd.(type) {
-	case *MemCopyH2DCommand:
-		d.processMemCopyH2DCommand(now, cmd, cmdQueue)
-	case *MemCopyD2HCommand:
-		d.processMemCopyD2HCommand(now, cmd, cmdQueue)
 	case *LaunchKernelCommand:
-		d.processLaunchKernelCommand(now, cmd, cmdQueue)
+		d.logCmdStart(cmd, now)
+		return d.processLaunchKernelCommand(now, cmd, cmdQueue)
 	case *FlushCommand:
-		d.processFlushCommand(now, cmd, cmdQueue)
+		d.logCmdStart(cmd, now)
+		return d.processFlushCommand(now, cmd, cmdQueue)
 	case *NoopCommand:
-		d.processNoopCommand(now, cmd, cmdQueue)
+		d.logCmdStart(cmd, now)
+		return d.processNoopCommand(now, cmd, cmdQueue)
 	default:
-		log.Panicf("cannot process command of type %s", reflect.TypeOf(cmd))
+		return d.processCommandWithMiddleware(now, cmd, cmdQueue)
+	}
+}
+
+func (d *Driver) processCommandWithMiddleware(
+	now sim.VTimeInSec,
+	cmd Command,
+	cmdQueue *CommandQueue,
+) bool {
+	for _, m := range d.middlewares {
+		processed := m.ProcessCommand(now, cmd, cmdQueue)
+
+		if processed {
+			d.logCmdStart(cmd, now)
+			return true
+		}
 	}
 
-	d.logCmdStart(cmd, now)
-	return true
+	return false
 }
 
 func (d *Driver) logCmdStart(cmd Command, now sim.VTimeInSec) {
@@ -291,51 +305,6 @@ func (d *Driver) processNoopCommand(
 	queue *CommandQueue,
 ) bool {
 	queue.Dequeue()
-	return true
-}
-
-func (d *Driver) processMemCopyH2DCommand(
-	now sim.VTimeInSec,
-	cmd *MemCopyH2DCommand,
-	queue *CommandQueue,
-) bool {
-	buffer := bytes.NewBuffer(nil)
-	err := binary.Write(buffer, binary.LittleEndian, cmd.Src)
-	if err != nil {
-		panic(err)
-	}
-	rawBytes := buffer.Bytes()
-
-	offset := uint64(0)
-	addr := uint64(cmd.Dst)
-	sizeLeft := uint64(len(rawBytes))
-	for sizeLeft > 0 {
-		page, found := d.pageTable.Find(queue.Context.pid, addr)
-		if !found {
-			panic("page not found")
-		}
-		pAddr := page.PAddr + (addr - page.VAddr)
-		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
-		sizeToCopy := sizeLeftInPage
-		if sizeLeft < sizeLeftInPage {
-			sizeToCopy = sizeLeft
-		}
-
-		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.NewMemCopyH2DReq(now,
-			d.gpuPort, d.GPUs[gpuID-1],
-			rawBytes[offset:offset+sizeToCopy],
-			pAddr)
-		cmd.Reqs = append(cmd.Reqs, req)
-		d.requestsToSend = append(d.requestsToSend, req)
-
-		sizeLeft -= sizeToCopy
-		addr += sizeToCopy
-		offset += sizeToCopy
-
-		d.logTaskToGPUInitiate(now, cmd, req)
-	}
-	queue.IsRunning = true
 	return true
 }
 
@@ -378,46 +347,6 @@ func (d *Driver) processMemCopyH2DReturn(
 		d.logCmdComplete(cmd, now)
 	}
 
-	return true
-}
-
-func (d *Driver) processMemCopyD2HCommand(
-	now sim.VTimeInSec,
-	cmd *MemCopyD2HCommand,
-	queue *CommandQueue,
-) bool {
-	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
-
-	offset := uint64(0)
-	addr := uint64(cmd.Src)
-	sizeLeft := uint64(len(cmd.RawData))
-	for sizeLeft > 0 {
-		page, found := d.pageTable.Find(queue.Context.pid, addr)
-		if !found {
-			panic("page not found")
-		}
-		pAddr := page.PAddr + (addr - page.VAddr)
-		sizeLeftInPage := page.PageSize - (addr - page.VAddr)
-		sizeToCopy := sizeLeftInPage
-		if sizeLeft < sizeLeftInPage {
-			sizeToCopy = sizeLeft
-		}
-
-		gpuID := d.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.NewMemCopyD2HReq(now,
-			d.gpuPort, d.GPUs[gpuID-1],
-			pAddr, cmd.RawData[offset:offset+sizeToCopy])
-		cmd.Reqs = append(cmd.Reqs, req)
-		d.requestsToSend = append(d.requestsToSend, req)
-
-		sizeLeft -= sizeToCopy
-		addr += sizeToCopy
-		offset += sizeToCopy
-
-		d.logTaskToGPUInitiate(now, cmd, req)
-	}
-
-	queue.IsRunning = true
 	return true
 }
 
