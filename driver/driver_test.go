@@ -123,9 +123,7 @@ var _ = ginkgo.Describe("Driver", func() {
 				GetDeviceIDByPAddr(uint64(0x1_0000_2000)).
 				Return(1)
 
-			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
-				Return(nil)
+			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
 			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
 
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
@@ -152,6 +150,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
+			toGPUs.EXPECT().Peek().Return(req)
+			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
 				Return(req)
@@ -180,6 +180,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
+			toGPUs.EXPECT().Peek().Return(req)
+			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
 				Return(req)
@@ -218,9 +220,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			memAllocator.EXPECT().
 				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
 				Return(1)
-			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
-				Return(nil)
+
+			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
 			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
 
 			engine.EXPECT().Schedule(
@@ -249,6 +250,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
+			toGPUs.EXPECT().Peek().Return(req)
+			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
 				Return(req)
@@ -279,6 +282,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
+			toGPUs.EXPECT().Peek().Return(req)
+			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
 				Return(req)
@@ -306,9 +311,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
-				Return(nil)
+			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
 
 			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
 
@@ -333,6 +336,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		cmdQueue.Enqueue(cmd)
 		cmdQueue.IsRunning = true
 
+		toGPUs.EXPECT().Peek().Return(req).Times(2)
 		toGPUs.EXPECT().
 			Retrieve(sim.VTimeInSec(11)).
 			Return(req)
@@ -353,9 +357,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
-				Return(nil)
+			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
 			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
 
 			engine.EXPECT().Schedule(
@@ -378,6 +380,8 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		cmdQueue.IsRunning = true
 
+		toGPUs.EXPECT().Peek().Return(req)
+		toGPUs.EXPECT().Peek().Return(req)
 		toGPUs.EXPECT().
 			Retrieve(sim.VTimeInSec(11)).
 			Return(req)
@@ -428,6 +432,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		driver.currentPageMigrationReq = pageMigrationReq
 
+		toGPUs.EXPECT().Peek().Return(req)
 		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
 
 		madeProgress := driver.processReturnReq(10)
@@ -489,6 +494,8 @@ var _ = ginkgo.Describe("Driver", func() {
 		memAllocator.EXPECT().
 			AllocatePageWithGivenVAddr(ca.PID(0), 2, uint64(0x100), true).
 			Return(*page2)
+
+		toGPUs.EXPECT().Peek().Return(req)
 		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
 
 		driver.processReturnReq(10)
@@ -525,7 +532,9 @@ var _ = ginkgo.Describe("Driver", func() {
 	ginkgo.It("should process page migration rsp from CP", func() {
 		req := protocol.NewPageMigrationRspToDriver(10, nil, driver.gpuPort)
 
+		toGPUs.EXPECT().Peek().Return(req)
 		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+
 		driver.numPagesMigratingACK = 2
 		driver.processReturnReq(10)
 
@@ -536,6 +545,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.It("should process page migration rsp from CP and send restart reqs to GPU and reply to MMU", func() {
 		req := protocol.NewPageMigrationRspToDriver(10, nil, driver.gpuPort)
+		toGPUs.EXPECT().Peek().Return(req)
 		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
 
 		driver.numPagesMigratingACK = 1
@@ -565,6 +575,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.It("should process GPU restart rsp and send restart req to RDMAs", func() {
 		req := protocol.NewGPURestartRsp(10, nil, driver.gpuPort)
+		toGPUs.EXPECT().Peek().Return(req)
 		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
 
 		driver.numRestartACK = 1
@@ -588,6 +599,7 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.It("should handle rdma restart rsp", func() {
 		req := protocol.NewRDMARestartRspToDriver(10, nil, driver.gpuPort)
+		toGPUs.EXPECT().Peek().Return(req)
 		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
 
 		driver.numRDMARestartACK = 1

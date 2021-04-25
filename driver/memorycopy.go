@@ -121,5 +121,81 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 func (m *defaultMemoryCopyMiddleware) Tick(
 	now sim.VTimeInSec,
 ) (madeProgress bool) {
+	req := m.driver.gpuPort.Peek()
+	if req == nil {
+		return false
+	}
+
+	switch req := req.(type) {
+	case *protocol.MemCopyH2DReq:
+		return m.processMemCopyH2DReturn(now, req)
+	case *protocol.MemCopyD2HReq:
+		return m.processMemCopyD2HReturn(now, req)
+	}
+
 	return false
+}
+
+func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
+	now sim.VTimeInSec,
+	req *protocol.MemCopyH2DReq,
+) bool {
+	m.driver.gpuPort.Retrieve(now)
+
+	m.driver.logTaskToGPUClear(now, req)
+
+	cmd, cmdQueue := m.driver.findCommandByReq(req)
+
+	copyCmd := cmd.(*MemCopyH2DCommand)
+	newReqs := make([]sim.Msg, 0, len(copyCmd.Reqs)-1)
+	for _, r := range copyCmd.GetReqs() {
+		if r != req {
+			newReqs = append(newReqs, r)
+		}
+	}
+	copyCmd.Reqs = newReqs
+
+	if len(copyCmd.Reqs) == 0 {
+		cmdQueue.IsRunning = false
+		cmdQueue.Dequeue()
+
+		m.driver.logCmdComplete(cmd, now)
+	}
+
+	return true
+}
+
+func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
+	now sim.VTimeInSec,
+	req *protocol.MemCopyD2HReq,
+) bool {
+	m.driver.gpuPort.Retrieve(now)
+
+	m.driver.logTaskToGPUClear(now, req)
+
+	cmd, cmdQueue := m.driver.findCommandByReq(req)
+
+	copyCmd := cmd.(*MemCopyD2HCommand)
+	newReqs := make([]sim.Msg, 0, len(copyCmd.Reqs)-1)
+	for _, r := range copyCmd.GetReqs() {
+		if r != req {
+			newReqs = append(newReqs, r)
+		}
+	}
+	copyCmd.Reqs = newReqs
+
+	if len(copyCmd.Reqs) == 0 {
+		cmdQueue.IsRunning = false
+		buf := bytes.NewReader(copyCmd.RawData)
+		err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst)
+		if err != nil {
+			panic(err)
+		}
+
+		cmdQueue.Dequeue()
+
+		m.driver.logCmdComplete(copyCmd, now)
+	}
+
+	return true
 }

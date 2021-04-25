@@ -1,8 +1,6 @@
 package driver
 
 import (
-	"bytes"
-	"encoding/binary"
 	"log"
 	"reflect"
 	"sync"
@@ -148,6 +146,11 @@ func (d *Driver) Tick(now sim.VTimeInSec) bool {
 	madeProgress = d.sendToGPUs(now) || madeProgress
 	madeProgress = d.sendToMMU(now) || madeProgress
 	madeProgress = d.sendMigrationReqToCP(now) || madeProgress
+
+	for _, mw := range d.middlewares {
+		madeProgress = mw.Tick(now) || madeProgress
+	}
+
 	madeProgress = d.processReturnReq(now) || madeProgress
 	madeProgress = d.processNewCommand(now) || madeProgress
 	madeProgress = d.parseFromMMU(now) || madeProgress
@@ -173,35 +176,36 @@ func (d *Driver) sendToGPUs(now sim.VTimeInSec) bool {
 
 //nolint:gocyclo
 func (d *Driver) processReturnReq(now sim.VTimeInSec) bool {
-	req := d.gpuPort.Retrieve(now)
+	req := d.gpuPort.Peek()
 	if req == nil {
 		return false
 	}
 
 	switch req := req.(type) {
-	case *protocol.MemCopyH2DReq:
-		return d.processMemCopyH2DReturn(now, req)
-	case *protocol.MemCopyD2HReq:
-		return d.processMemCopyD2HReturn(now, req)
 	case *protocol.LaunchKernelReq:
+		d.gpuPort.Retrieve(now)
 		return d.processLaunchKernelReturn(now, req)
 	case *protocol.FlushCommand:
+		d.gpuPort.Retrieve(now)
 		return d.processFlushReturn(now, req)
 	case *protocol.RDMADrainRspToDriver:
+		d.gpuPort.Retrieve(now)
 		return d.processRDMADrainRsp(now, req)
 	case *protocol.ShootDownCompleteRsp:
+		d.gpuPort.Retrieve(now)
 		return d.processShootdownCompleteRsp(now, req)
 	case *protocol.PageMigrationRspToDriver:
+		d.gpuPort.Retrieve(now)
 		return d.processPageMigrationRspFromCP(now, req)
 	case *protocol.RDMARestartRspToDriver:
+		d.gpuPort.Retrieve(now)
 		return d.processRDMARestartRspToDriver(now, req)
 	case *protocol.GPURestartRsp:
+		d.gpuPort.Retrieve(now)
 		return d.handleGPURestartRsp(now, req)
-	default:
-		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
 
-	panic("never")
+	return false
 }
 
 func (d *Driver) processNewCommand(now sim.VTimeInSec) bool {
@@ -321,66 +325,6 @@ func (d *Driver) logTaskToGPUClear(
 	req sim.Msg,
 ) {
 	tracing.TraceReqFinalize(req, now, d)
-}
-
-func (d *Driver) processMemCopyH2DReturn(
-	now sim.VTimeInSec,
-	req *protocol.MemCopyH2DReq,
-) bool {
-	d.logTaskToGPUClear(now, req)
-
-	cmd, cmdQueue := d.findCommandByReq(req)
-
-	copyCmd := cmd.(*MemCopyH2DCommand)
-	newReqs := make([]sim.Msg, 0, len(copyCmd.Reqs)-1)
-	for _, r := range copyCmd.GetReqs() {
-		if r != req {
-			newReqs = append(newReqs, r)
-		}
-	}
-	copyCmd.Reqs = newReqs
-
-	if len(copyCmd.Reqs) == 0 {
-		cmdQueue.IsRunning = false
-		cmdQueue.Dequeue()
-
-		d.logCmdComplete(cmd, now)
-	}
-
-	return true
-}
-
-func (d *Driver) processMemCopyD2HReturn(
-	now sim.VTimeInSec,
-	req *protocol.MemCopyD2HReq,
-) bool {
-	d.logTaskToGPUClear(now, req)
-
-	cmd, cmdQueue := d.findCommandByReq(req)
-
-	copyCmd := cmd.(*MemCopyD2HCommand)
-	newReqs := make([]sim.Msg, 0, len(copyCmd.Reqs)-1)
-	for _, r := range copyCmd.GetReqs() {
-		if r != req {
-			newReqs = append(newReqs, r)
-		}
-	}
-	copyCmd.Reqs = newReqs
-
-	if len(copyCmd.Reqs) == 0 {
-		cmdQueue.IsRunning = false
-		buf := bytes.NewReader(copyCmd.RawData)
-		err := binary.Read(buf, binary.LittleEndian, copyCmd.Dst)
-		if err != nil {
-			panic(err)
-		}
-
-		cmdQueue.Dequeue()
-
-		d.logCmdComplete(copyCmd, now)
-	}
-
-	return true
 }
 
 func (d *Driver) processLaunchKernelCommand(
