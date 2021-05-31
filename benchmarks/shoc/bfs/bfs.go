@@ -2,6 +2,7 @@
 package bfs
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -35,8 +36,9 @@ type Benchmark struct {
 	Degree        int
 	MaxDepth      int
 	graph         graph
-	graphMode     string
 	sourceNode    int
+	hEdgeOffsets  []int32
+	hEdgeList     []int32
 	hFrontier     []uint32
 	hCost         []uint32
 	cpuCost       []uint32
@@ -94,12 +96,12 @@ func (b *Benchmark) Run() {
 func (b *Benchmark) initMem() {
 	if b.Path == "" {
 		b.graph.generate(b.NumNode, b.Degree)
-		b.graphMode = "auto"
 	} else {
-		b.NumNode, _, b.Degree = b.graph.generateFromText(b.Path)
-		b.graphMode = "textual"
+		b.graph.loadGraph(b.Path)
+		b.NumNode = len(b.graph.nodes)
 	}
 
+	b.hEdgeOffsets, b.hEdgeList = b.graph.asEdgeList()
 	b.hFrontier = make([]uint32, b.NumNode)
 	b.hCost = make([]uint32, b.NumNode)
 
@@ -117,25 +119,23 @@ func (b *Benchmark) initMem() {
 		b.dEdgeArray = b.driver.AllocateUnifiedMemory(b.context,
 			uint64((b.NumNode+1)*4))
 		b.dEdgeArrayAux = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(len(b.graph.edgeList)*4))
-		b.dFlag = b.driver.AllocateUnifiedMemory(b.context,
-			4)
+			uint64(len(b.hEdgeList)*4))
+		b.dFlag = b.driver.AllocateUnifiedMemory(b.context, 4)
 	} else {
 		b.dFrontier = b.driver.AllocateMemory(b.context,
 			uint64(b.NumNode*4))
 		b.dEdgeArray = b.driver.AllocateMemory(b.context,
 			uint64((b.NumNode+1)*4))
 		b.dEdgeArrayAux = b.driver.AllocateMemory(b.context,
-			uint64(len(b.graph.edgeList)*4))
-		b.dFlag = b.driver.AllocateMemory(b.context,
-			4)
+			uint64(len(b.hEdgeList)*4))
+		b.dFlag = b.driver.AllocateMemory(b.context, 4)
 	}
 }
 
 func (b *Benchmark) exec() {
 	b.driver.MemCopyH2D(b.context, b.dFrontier, b.hFrontier)
-	b.driver.MemCopyH2D(b.context, b.dEdgeArray, b.graph.edgeOffsets)
-	b.driver.MemCopyH2D(b.context, b.dEdgeArrayAux, b.graph.edgeList)
+	b.driver.MemCopyH2D(b.context, b.dEdgeArray, b.hEdgeOffsets)
+	b.driver.MemCopyH2D(b.context, b.dEdgeArrayAux, b.hEdgeList)
 	maxTheadsPerCore := 1024
 	globalSize := uint32(((b.NumNode-1)/maxTheadsPerCore + 1) * maxTheadsPerCore)
 	localSize := uint16(maxTheadsPerCore)
@@ -154,6 +154,8 @@ func (b *Benchmark) exec() {
 		flag := int32(0)
 		b.driver.MemCopyH2D(b.context, b.dFlag, flag)
 		args.Curr = int32(i)
+
+		fmt.Printf("Depth %d\n", i)
 
 		b.driver.LaunchKernel(b.context,
 			b.kernel,
@@ -181,6 +183,7 @@ func (b *Benchmark) Verify() {
 				i, b.cpuCost[i], b.hCost[i])
 		}
 	}
+
 	log.Printf("Passed!\n")
 }
 
@@ -197,8 +200,13 @@ func (b *Benchmark) cpuBFS() {
 	for len(queue) > 0 {
 		n := queue[0]
 		queue = queue[1:]
-		for i := b.graph.edgeOffsets[n]; i < b.graph.edgeOffsets[n+1]; i++ {
-			next := b.graph.edgeList[i]
+
+		if b.cpuCost[n] >= uint32(b.MaxDepth) {
+			break
+		}
+
+		for i := b.hEdgeOffsets[n]; i < b.hEdgeOffsets[n+1]; i++ {
+			next := b.hEdgeList[i]
 			if b.cpuCost[next] == math.MaxUint32 {
 				b.cpuCost[next] = b.cpuCost[n] + 1
 				queue = append(queue, int(next))

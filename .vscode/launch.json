@@ -4,8 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
-
         {
             "name": "Test gitlab.com/akita/gcn3/insts",
             "type": "go",
@@ -341,11 +339,8 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/bfs",
             "args": [
-                "-verify",
-                "-node=1024",
-                "-unified-gpus=1,2",
-                // "-debug-isa",
-                // "-timing",
+                "-load-graph=Slashdot0902.txt",
+                "-verify"
             ]
         },
         {
@@ -382,7 +377,6 @@
                 "--gpus=1,2"
             ]
         },
-
         {
             "name": "Lenet",
             "type": "go",

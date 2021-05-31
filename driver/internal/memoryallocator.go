@@ -101,6 +101,10 @@ func (a *memoryAllocatorImpl) Allocate(
 	byteSize uint64,
 	deviceID int,
 ) uint64 {
+	if byteSize == 0 {
+		panic("Allocating 0 bytes.")
+	}
+
 	a.Lock()
 	defer a.Unlock()
 
@@ -113,6 +117,10 @@ func (a *memoryAllocatorImpl) AllocateUnified(
 	pid ca.PID,
 	byteSize uint64,
 ) uint64 {
+	if byteSize == 0 {
+		panic("Allocating 0 bytes.")
+	}
+
 	a.Lock()
 	defer a.Unlock()
 
