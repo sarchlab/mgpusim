@@ -5,7 +5,7 @@ require (
 	github.com/fatih/color v1.10.0
 	github.com/golang/mock v1.5.0
 	github.com/gorilla/mux v1.8.0
-	github.com/onsi/ginkgo v1.15.2
+	github.com/onsi/ginkgo v1.16.3
 	github.com/onsi/gomega v1.11.0
 	github.com/rs/xid v1.2.1
 	github.com/tebeka/atexit v0.3.0
@@ -15,7 +15,9 @@ require (
 	gitlab.com/akita/noc/v2 v2.0.0
 	gitlab.com/akita/util/v2 v2.0.0
 	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670 // indirect
-	golang.org/x/sys v0.0.0-20210317225723-c4fcb01b228e // indirect
+	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sys v0.0.0-20210531080801-fdfd190a6549 // indirect
 	gonum.org/v1/gonum v0.9.0 // indirect
 )
 
