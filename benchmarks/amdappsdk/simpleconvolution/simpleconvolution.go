@@ -5,6 +5,9 @@ package simpleconvolution
 import (
 	"log"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -63,9 +66,10 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-func (b *Benchmark) loadProgram() {
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+//go:embed kernels.hsaco
+var hsacoBytes []byte
 
+func (b *Benchmark) loadProgram() {
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "simpleNonSeparableConvolution")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")

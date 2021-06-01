@@ -5,6 +5,9 @@ import (
 	"math"
 	"sync/atomic"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mgpusim/v2/driver/internal"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -231,6 +234,9 @@ func (d *Driver) EnqueueMemCopyD2H(
 	d.Enqueue(queue, cmd)
 }
 
+//go:embed memcopy.hsaco
+var kernelBytes []byte
+
 // EnqueueMemCopyD2D registers a MemCopyD2DCommand (LaunchKernelCommand) in the
 // queue.
 func (d *Driver) EnqueueMemCopyD2D(
@@ -239,7 +245,6 @@ func (d *Driver) EnqueueMemCopyD2D(
 	src GPUPtr,
 	num int,
 ) {
-	kernelBytes := _escFSMustByte(false, "/memcopy.hsaco")
 	co := kernels.LoadProgramFromMemory(
 		kernelBytes, "copyKernel")
 	if co == nil {

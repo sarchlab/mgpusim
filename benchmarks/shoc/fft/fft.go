@@ -5,6 +5,9 @@ import (
 	"log"
 	"math/rand"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -64,9 +67,10 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-func (b *Benchmark) loadProgram() {
-	hsacoBytes := _escFSMustByte(false, "/fft.hsaco")
+//go:embed fft.hsaco
+var hsacoBytes []byte
 
+func (b *Benchmark) loadProgram() {
 	b.fftKernel = kernels.LoadProgramFromMemory(hsacoBytes, "fft1D_512")
 	if b.fftKernel == nil {
 		log.Panic("Failed to load kernel binary")

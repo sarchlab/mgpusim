@@ -7,6 +7,9 @@ import (
 	"math"
 	"math/rand"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -78,9 +81,10 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
-func (b *Benchmark) loadKernels() {
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+//go:embed kernels.hsaco
+var hsacoBytes []byte
 
+func (b *Benchmark) loadKernels() {
 	b.computeKernel = kernels.LoadProgramFromMemory(
 		hsacoBytes, "kmeans_kernel_compute")
 	b.swapKernel = kernels.LoadProgramFromMemory(

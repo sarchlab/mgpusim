@@ -1,7 +1,4 @@
-all: bindata.go
-
-bindata.go: kernels.hsaco
-	esc -o $@ -pkg stencil2d -private $^
+all: kernels.disasm kernels.hsaco
 
 kernels.disasm: stencil2d.cl
 	clang-ocl -mcpu=fiji -S -o $@ stencil2d.cl

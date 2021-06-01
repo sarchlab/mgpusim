@@ -6,6 +6,9 @@ import (
 	"math"
 	"math/rand"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -88,9 +91,10 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-func (b *Benchmark) loadProgram() {
-	hsacoBytes := _escFSMustByte(false, "/nbody.hsaco")
+//go:embed nbody.hsaco
+var hsacoBytes []byte
 
+func (b *Benchmark) loadProgram() {
 	b.nbodyKernel = kernels.LoadProgramFromMemory(hsacoBytes, "nbody_sim")
 	if b.nbodyKernel == nil {
 		log.Panic("Failed to load kernel binary")

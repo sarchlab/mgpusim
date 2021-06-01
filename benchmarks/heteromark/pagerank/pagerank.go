@@ -6,6 +6,9 @@ import (
 	"log"
 	"math"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/benchmarks/matrix/csr"
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
@@ -71,9 +74,10 @@ func (b *Benchmark) SetUnifiedMemory() {
 	b.useUnifiedMemory = true
 }
 
-func (b *Benchmark) loadProgram() {
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+//go:embed kernels.hsaco
+var hsacoBytes []byte
 
+func (b *Benchmark) loadProgram() {
 	b.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "PageRankUpdateGpu")
 	if b.kernel == nil {
 		log.Panic("Failed to load kernel binary")
