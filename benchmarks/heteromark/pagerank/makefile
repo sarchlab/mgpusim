@@ -1,7 +1,4 @@
-all: esc.go
-
-esc.go: kernels.hsaco
-	esc -o $@ -pkg pagerank -private $^
+all: kernels.disasm kernels.hsaco
 
 kernels.disasm: kernels.hsaco
 	/opt/rocm/hcc/bin/llvm-objdump -mcpu=fiji -disassemble $^ > $@
