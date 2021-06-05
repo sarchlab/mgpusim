@@ -490,6 +490,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)
 		l2 := l2Builder.Build(cacheName)
 		b.l2Caches = append(b.l2Caches, l2)
+		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
 
 		if b.enableVisTracing {
 			tracing.CollectTrace(l2, b.visTracer)
@@ -521,6 +522,7 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 		// 	fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
 		// 	b.engine, 512*mem.MB)
 		b.drams = append(b.drams, dram)
+		b.gpu.MemControllers = append(b.gpu.MemControllers, dram)
 
 		if b.enableVisTracing {
 			tracing.CollectTrace(dram, b.visTracer)
@@ -610,8 +612,8 @@ func (b *R9NanoGPUBuilder) buildSA(
 
 func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 	for _, cu := range sa.cus {
-		b.gpu.CUs = append(b.gpu.CUs, cu)
 		b.cus = append(b.cus, cu)
+		b.gpu.CUs = append(b.gpu.CUs, cu)
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(cu)
@@ -642,6 +644,7 @@ func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 func (b *R9NanoGPUBuilder) populateL1Vs(sa *shaderArray) {
 	for _, l1v := range sa.l1vCaches {
 		b.l1vCaches = append(b.l1vCaches, l1v)
+		b.gpu.L1VCaches = append(b.gpu.L1VCaches, l1v)
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(l1v)
@@ -663,6 +666,7 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
 	b.l1sAddrTrans = append(b.l1sAddrTrans, sa.l1sAT)
 	b.l1sReorderBuffers = append(b.l1sReorderBuffers, sa.l1sROB)
 	b.l1sCaches = append(b.l1sCaches, sa.l1sCache)
+	b.gpu.L1SCaches = append(b.gpu.L1SCaches, sa.l1sCache)
 	b.l1sTLBs = append(b.l1sTLBs, sa.l1sTLB)
 }
 
@@ -670,6 +674,7 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 	b.l1iAddrTrans = append(b.l1iAddrTrans, sa.l1iAT)
 	b.l1iReorderBuffers = append(b.l1iReorderBuffers, sa.l1iROB)
 	b.l1iCaches = append(b.l1iCaches, sa.l1iCache)
+	b.gpu.L1ICaches = append(b.gpu.L1ICaches, sa.l1iCache)
 	b.l1iTLBs = append(b.l1iTLBs, sa.l1iTLB)
 }
 
