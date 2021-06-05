@@ -45,6 +45,8 @@ var cacheLatencyReportFlag = flag.Bool("report-cache-latency", false,
 	"Report the average cache latency.")
 var cacheHitRateReportFlag = flag.Bool("report-cache-hit-rate", false,
 	"Report the cache hit rate of each cache.")
+var tlbHitRateReportFlag = flag.Bool("report-tlb-hit-rate", false,
+	"Report the TLB hit rate of each TLB.")
 var rdmaTransactionCountReportFlag = flag.Bool("report-rdma-transaction-count",
 	false, "Report the number of transactions going through the RDMA engines.")
 var dramTransactionCountReportFlag = flag.Bool("report-dram-transaction-count",
@@ -81,6 +83,11 @@ type cacheHitRateTracer struct {
 	cache  TraceableComponent
 }
 
+type tlbHitRateTracer struct {
+	tracer *tracing.StepCountTracer
+	tlb    TraceableComponent
+}
+
 type dramTransactionCountTracer struct {
 	tracer *dramTracer
 	dram   TraceableComponent
@@ -101,6 +108,7 @@ type Runner struct {
 	instCountTracers        []instCountTracer
 	cacheLatencyTracers     []cacheLatencyTracer
 	cacheHitRateTracers     []cacheHitRateTracer
+	tlbHitRateTracers       []tlbHitRateTracer
 	rdmaTransactionCounters []rdmaTransactionCountTracer
 	dramTracers             []dramTransactionCountTracer
 	benchmarks              []benchmarks.Benchmark
@@ -113,6 +121,7 @@ type Runner struct {
 	ReportInstCount            bool
 	ReportCacheLatency         bool
 	ReportCacheHitRate         bool
+	ReportTLBHitRate           bool
 	ReportRDMATransactionCount bool
 	ReportDRAMTransactionCount bool
 	UseUnifiedMemory           bool
@@ -151,6 +160,10 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportCacheHitRate = true
 	}
 
+	if *tlbHitRateReportFlag {
+		r.ReportTLBHitRate = true
+	}
+
 	if *dramTransactionCountReportFlag {
 		r.ReportDRAMTransactionCount = true
 	}
@@ -163,6 +176,7 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportInstCount = true
 		r.ReportCacheLatency = true
 		r.ReportCacheHitRate = true
+		r.ReportTLBHitRate = true
 		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
 	}
@@ -211,6 +225,7 @@ func (r *Runner) defineMetrics() {
 	r.addInstCountTracer()
 	r.addCacheLatencyTracer()
 	r.addCacheHitRateTracer()
+	r.addTLBHitRateTracer()
 	r.addRDMAEngineTracer()
 	r.addDRAMTracer()
 
@@ -408,6 +423,46 @@ func (r *Runner) addCacheHitRateTracer() {
 	}
 }
 
+func (r *Runner) addTLBHitRateTracer() {
+	if !r.ReportTLBHitRate {
+		return
+	}
+
+	for _, gpu := range r.platform.GPUs {
+		for _, tlb := range gpu.L1VTLBs {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
+				tlbHitRateTracer{tracer: tracer, tlb: tlb})
+			tracing.CollectTrace(tlb, tracer)
+		}
+
+		for _, tlb := range gpu.L1STLBs {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
+				tlbHitRateTracer{tracer: tracer, tlb: tlb})
+			tracing.CollectTrace(tlb, tracer)
+		}
+
+		for _, tlb := range gpu.L1ITLBs {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
+				tlbHitRateTracer{tracer: tracer, tlb: tlb})
+			tracing.CollectTrace(tlb, tracer)
+		}
+
+		for _, tlb := range gpu.L2TLBs {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
+				tlbHitRateTracer{tracer: tracer, tlb: tlb})
+			tracing.CollectTrace(tlb, tracer)
+		}
+	}
+}
+
 func (r *Runner) addRDMAEngineTracer() {
 	if !r.ReportRDMATransactionCount {
 		return
@@ -569,6 +624,7 @@ func (r *Runner) reportStats() {
 	r.reportInstCount()
 	r.reportCacheLatency()
 	r.reportCacheHitRate()
+	r.reportTLBHitRate()
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
 	r.dumpMetrics()
@@ -640,6 +696,27 @@ func (r *Runner) reportCacheHitRate() {
 			tracer.cache.Name(), "write-miss", float64(writeMiss))
 		r.metricsCollector.Collect(
 			tracer.cache.Name(), "write-mshr-hit", float64(writeMSHRHit))
+	}
+}
+
+func (r *Runner) reportTLBHitRate() {
+	for _, tracer := range r.tlbHitRateTracers {
+		hit := tracer.tracer.GetStepCount("hit")
+		miss := tracer.tracer.GetStepCount("miss")
+		mshrHit := tracer.tracer.GetStepCount("mshr-miss")
+
+		totalTransaction := hit + miss + mshrHit
+
+		if totalTransaction == 0 {
+			continue
+		}
+
+		r.metricsCollector.Collect(
+			tracer.tlb.Name(), "hit", float64(hit))
+		r.metricsCollector.Collect(
+			tracer.tlb.Name(), "miss", float64(miss))
+		r.metricsCollector.Collect(
+			tracer.tlb.Name(), "mshr-hit", float64(mshrHit))
 	}
 }
 
