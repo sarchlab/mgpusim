@@ -33,5 +33,9 @@ type GPU struct {
 	L1SCaches        []TraceableComponent
 	L1ICaches        []TraceableComponent
 	L2Caches         []TraceableComponent
+	L1VTLBs          []TraceableComponent
+	L1STLBs          []TraceableComponent
+	L1ITLBs          []TraceableComponent
+	L2TLBs           []TraceableComponent
 	MemControllers   []TraceableComponent
 }
