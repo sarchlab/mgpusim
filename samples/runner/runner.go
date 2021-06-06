@@ -703,7 +703,7 @@ func (r *Runner) reportTLBHitRate() {
 	for _, tracer := range r.tlbHitRateTracers {
 		hit := tracer.tracer.GetStepCount("hit")
 		miss := tracer.tracer.GetStepCount("miss")
-		mshrHit := tracer.tracer.GetStepCount("mshr-miss")
+		mshrHit := tracer.tracer.GetStepCount("mshr-hit")
 
 		totalTransaction := hit + miss + mshrHit
 
