@@ -11,7 +11,7 @@ require (
 	github.com/tebeka/atexit v0.3.0
 	gitlab.com/akita/akita/v2 v2.0.1
 	gitlab.com/akita/dnn v0.5.2
-	gitlab.com/akita/mem/v2 v2.0.0
+	gitlab.com/akita/mem/v2 v2.1.0
 	gitlab.com/akita/noc/v2 v2.0.0
 	gitlab.com/akita/util/v2 v2.0.0
 	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670 // indirect

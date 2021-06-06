@@ -634,6 +634,7 @@ func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 	for _, tlb := range sa.l1vTLBs {
 		b.l1vTLBs = append(b.l1vTLBs, tlb)
+		b.gpu.L1VTLBs = append(b.gpu.L1VTLBs, tlb)
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(tlb)
@@ -668,6 +669,7 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
 	b.l1sCaches = append(b.l1sCaches, sa.l1sCache)
 	b.gpu.L1SCaches = append(b.gpu.L1SCaches, sa.l1sCache)
 	b.l1sTLBs = append(b.l1sTLBs, sa.l1sTLB)
+	b.gpu.L1STLBs = append(b.gpu.L1STLBs, sa.l1sTLB)
 }
 
 func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
@@ -676,6 +678,7 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 	b.l1iCaches = append(b.l1iCaches, sa.l1iCache)
 	b.gpu.L1ICaches = append(b.gpu.L1ICaches, sa.l1iCache)
 	b.l1iTLBs = append(b.l1iTLBs, sa.l1iTLB)
+	b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, sa.l1iTLB)
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
@@ -756,6 +759,7 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.l2TLBs = append(b.l2TLBs, l2TLB)
+	b.gpu.L2TLBs = append(b.gpu.L2TLBs, l2TLB)
 
 	if b.enableVisTracing {
 		tracing.CollectTrace(l2TLB, b.visTracer)
