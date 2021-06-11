@@ -61,7 +61,6 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 		sizeLeft -= sizeToCopy
 		addr += sizeToCopy
 		offset += sizeToCopy
-
 	}
 
 	queue.IsRunning = true
@@ -108,4 +107,3 @@ func (m *globalStorageMemoryCopyMiddleware) Tick(
 ) (madeProgress bool) {
 	return false
 }
-
