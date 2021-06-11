@@ -4,6 +4,9 @@ package relu
 import (
 	"log"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -36,15 +39,15 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+//go:embed kernels.hsaco
+var hsacoBytes []byte
+
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
 
 	b.driver = driver
 	b.context = driver.Init()
-
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
-
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "ReLUForward")
 
 	return b

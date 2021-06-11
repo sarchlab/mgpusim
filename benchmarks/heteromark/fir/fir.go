@@ -5,6 +5,9 @@ import (
 	"log"
 	"math"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -43,6 +46,9 @@ type Benchmark struct {
 	useUnifiedMemory bool
 }
 
+//go:embed kernels.hsaco
+var hsacoBytes []byte
+
 // NewBenchmark returns a benchmark
 func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b := new(Benchmark)
@@ -50,8 +56,6 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.driver = driver
 	b.context = b.driver.Init()
 	b.queue = driver.CreateCommandQueue(b.context)
-
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
 
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "FIR")
 
