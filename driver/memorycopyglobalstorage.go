@@ -92,11 +92,18 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 			sizeToCopy = sizeLeft
 		}
 
-		m.driver.globalStorage.Read(pAddr, sizeToCopy)
+		data, _ := m.driver.globalStorage.Read(pAddr, sizeToCopy)
+		copy(cmd.RawData[offset:], data)
 
 		sizeLeft -= sizeToCopy
 		addr += sizeToCopy
 		offset += sizeToCopy
+	}
+
+	buf := bytes.NewReader(cmd.RawData)
+	err := binary.Read(buf, binary.LittleEndian, cmd.Dst)
+	if err != nil {
+		panic(err)
 	}
 
 	queue.IsRunning = false
