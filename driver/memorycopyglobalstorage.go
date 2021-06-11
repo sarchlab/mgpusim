@@ -63,7 +63,8 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 		offset += sizeToCopy
 	}
 
-	queue.IsRunning = true
+	queue.IsRunning = false
+	queue.Dequeue()
 
 	return true
 }
@@ -98,7 +99,8 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 		offset += sizeToCopy
 	}
 
-	queue.IsRunning = true
+	queue.IsRunning = false
+	queue.Dequeue()
 	return true
 }
 
