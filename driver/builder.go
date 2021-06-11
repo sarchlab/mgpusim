@@ -73,10 +73,10 @@ func (b Builder) Build(name string) *Driver {
 	driver.pageTable = b.pageTable
 	driver.globalStorage = b.globalStorage
 
-	memCopyMiddleware := &defaultMemoryCopyMiddleware{
+	globalStorageMemoryCopyMiddleware := &globalStorageMemoryCopyMiddleware{
 		driver: driver,
 	}
-	driver.middlewares = append(driver.middlewares, memCopyMiddleware)
+	driver.middlewares = append(driver.middlewares, globalStorageMemoryCopyMiddleware)
 
 	driver.gpuPort = sim.NewLimitNumMsgPort(driver, 40960000, "driver.ToGPUs")
 	driver.AddPort("GPU", driver.gpuPort)
