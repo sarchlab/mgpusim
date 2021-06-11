@@ -19,14 +19,15 @@ import (
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
 type R9NanoPlatformBuilder struct {
-	useParallelEngine bool
-	debugISA          bool
-	traceVis          bool
-	visTraceStartTime sim.VTimeInSec
-	visTraceEndTime   sim.VTimeInSec
-	traceMem          bool
-	numGPU            int
-	log2PageSize      uint64
+	useParallelEngine  bool
+	debugISA           bool
+	traceVis           bool
+	visTraceStartTime  sim.VTimeInSec
+	visTraceEndTime    sim.VTimeInSec
+	traceMem           bool
+	numGPU             int
+	useMagicMemoryCopy bool
+	log2PageSize       uint64
 
 	monitor *monitoring.Monitor
 
@@ -105,6 +106,12 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
+// WithMagicMemoryCopy uses global storage as memory components
+func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
+	b.useMagicMemoryCopy = true
+	return b
+}
+
 // Build builds a platform with R9Nano GPUs.
 func (b R9NanoPlatformBuilder) Build() *Platform {
 	engine := b.createEngine()
@@ -116,7 +123,11 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 
 	mmuComponent, pageTable := b.createMMU(engine)
 
-	gpuDriver := driver.MakeBuilder().
+	gpuDriverBuilder := driver.MakeBuilder()
+	if b.useMagicMemoryCopy {
+		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
+	}
+	gpuDriver := gpuDriverBuilder.
 		WithEngine(engine).
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).

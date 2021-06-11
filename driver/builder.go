@@ -9,11 +9,12 @@ import (
 
 // A Builder can build a driver.
 type Builder struct {
-	engine        sim.Engine
-	freq          sim.Freq
-	log2PageSize  uint64
-	pageTable     vm.PageTable
-	globalStorage *mem.Storage
+	engine             sim.Engine
+	freq               sim.Freq
+	log2PageSize       uint64
+	pageTable          vm.PageTable
+	globalStorage      *mem.Storage
+	useMagicMemoryCopy bool
 }
 
 // MakeBuilder creates a driver builder with some default configuration
@@ -55,6 +56,12 @@ func (b Builder) WithGlobalStorage(storage *mem.Storage) Builder {
 	return b
 }
 
+// WithMagicMemoryCopyMiddleware uses global storage as memory components
+func (b Builder) WithMagicMemoryCopyMiddleware() Builder {
+	b.useMagicMemoryCopy = true
+	return b
+}
+
 // Build creates a driver.
 func (b Builder) Build(name string) *Driver {
 	driver := new(Driver)
@@ -73,10 +80,17 @@ func (b Builder) Build(name string) *Driver {
 	driver.pageTable = b.pageTable
 	driver.globalStorage = b.globalStorage
 
-	globalStorageMemoryCopyMiddleware := &globalStorageMemoryCopyMiddleware{
-		driver: driver,
+	if b.useMagicMemoryCopy {
+		globalStorageMemoryCopyMiddleware := &globalStorageMemoryCopyMiddleware{
+			driver: driver,
+		}
+		driver.middlewares = append(driver.middlewares, globalStorageMemoryCopyMiddleware)
+	} else {
+		defaultMemoryCopyMiddleware := &defaultMemoryCopyMiddleware{
+			driver: driver,
+		}
+		driver.middlewares = append(driver.middlewares, defaultMemoryCopyMiddleware)
 	}
-	driver.middlewares = append(driver.middlewares, globalStorageMemoryCopyMiddleware)
 
 	driver.gpuPort = sim.NewLimitNumMsgPort(driver, 40960000, "driver.ToGPUs")
 	driver.AddPort("GPU", driver.gpuPort)

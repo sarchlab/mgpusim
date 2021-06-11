@@ -61,6 +61,8 @@ var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
 var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
+var magicMemoryCopy = flag.Bool("magic-memory-copy", false,
+	"Copy data from CPU directly to global memory")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -252,6 +254,10 @@ func (r *Runner) buildEmuPlatform() {
 		b = b.WithMemTracing()
 	}
 
+	if *magicMemoryCopy {
+		b = b.WithMagicMemoryCopy()
+	}
+
 	r.platform = b.Build()
 }
 
@@ -280,6 +286,10 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.monitor = monitoring.NewMonitor()
 	b = b.WithMonitor(r.monitor)
+
+	if *magicMemoryCopy {
+		b = b.WithMagicMemoryCopy()
+	}
 
 	r.platform = b.Build()
 
