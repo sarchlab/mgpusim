@@ -5,6 +5,9 @@ package bitonicsort
 import (
 	"log"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -53,9 +56,10 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	return b
 }
 
-func (b *Benchmark) loadProgram() {
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+//go:embed kernels.hsaco
+var hsacoBytes []byte
 
+func (b *Benchmark) loadProgram() {
 	b.hsaco = kernels.LoadProgramFromMemory(hsacoBytes, "BitonicSort")
 	if b.hsaco == nil {
 		log.Panic("Failed to load kernel binary")

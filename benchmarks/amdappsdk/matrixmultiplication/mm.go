@@ -3,6 +3,9 @@ package matrixmultiplication
 import (
 	"log"
 
+	// embed hsaco files
+	_ "embed"
+
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
@@ -138,9 +141,10 @@ func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 	m.driver.MemCopyD2H(m.context, matrix.Data, gm)
 }
 
-func (m *GPUMatrixMultiplier) loadKernel() {
-	hsacoBytes := _escFSMustByte(false, "/kernels.hsaco")
+//go:embed kernels.hsaco
+var hsacoBytes []byte
 
+func (m *GPUMatrixMultiplier) loadKernel() {
 	m.kernel = kernels.LoadProgramFromMemory(hsacoBytes, "mmmKernel_local")
 	if m.kernel == nil {
 		log.Panic("Failed to load kernel binary")
