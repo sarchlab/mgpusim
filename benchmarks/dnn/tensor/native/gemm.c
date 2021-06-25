@@ -28,11 +28,11 @@ char *read_file(const char *filename) {
 // d = numpy.matmul(a, b) * alpha + beta * c
 
 int main(int argc, char *argv[]) {
-    m = 17;
-    n = 11;
-    k = 9;
-    alpha = 3.1;
-    beta = 4.2;
+    int m = 17;
+    int n = 11;
+    int k = 9;
+    float alpha = 3.1;
+    float beta = 4.2;
 
   float h_input_a[] = {
       0.19042209, 0.38606963, 0.56103939, 0.450782, 0.63485176,
@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
        10.4945828 ,  9.27160078,  8.15545052, 10.16968401,  9.00973549,
         5.97154347,  9.74251229,  8.93538183,  7.9576831 ,  6.27548056,
         7.69141932,  6.42801278
-    }
+    };
 
   // Device input buffers
   cl_mem d_input_a;
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
   localSize = 64;
 
   // Number of total work items
-  globalSize = num_element;
+  globalSize = m*n;
 
   // Bind to platform
   err = clGetPlatformIDs(1, &cpPlatform, NULL);
