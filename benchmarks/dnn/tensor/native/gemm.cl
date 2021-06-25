@@ -21,15 +21,15 @@ __kernel void gemm(int m, int n, int k, float alpha, float beta,
         if(curL < m * k && curR < n * k ){
             subTileM[ty][tx] = a[curL];
             subTileN[ty][tx] = b[curR];
-            barrier();
+            barrier(CLK_LOCAL_MEM_FENCE);
             for (int j = 0; j < TILE_SIZE; ++j){
-                Pvalue += alpha * subTileM[ty][k] * subTileN[k][tx];
-                barrier();
+                Pvalue += subTileM[ty][k] * subTileN[k][tx];
+                barrier(CLK_LOCAL_MEM_FENCE);
             }
         }
 
     }
-    d[Row * k + Col] = Pvalue + beta * c[Row * k + Col];
+    d[Row * k + Col] = alpha * Pvalue + beta * c[Row * k + Col];
 }
 
 // m = 17, n = 11, k = 9
