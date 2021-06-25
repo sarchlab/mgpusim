@@ -17,19 +17,21 @@ __kernel void gemm(int m, int n, int k, float alpha, float beta,
     float Pvalue = 0;
     for(int i = 0; i <= k/TILE_SIZE; i++){
         int curL = Row * k + i * TILE_SIZE + tx;
-        int curR = (i * TILE_SIZE +ty)*k + Col;
+        int curR = (i * TILE_SIZE +ty)*n + Col;
         if(curL < m * k && curR < n * k ){
             subTileM[ty][tx] = a[curL];
             subTileN[ty][tx] = b[curR];
-            barrier(CLK_LOCAL_MEM_FENCE);
-            for (int j = 0; j < TILE_SIZE; ++j){
-                Pvalue += subTileM[ty][k] * subTileN[k][tx];
-                barrier(CLK_LOCAL_MEM_FENCE);
-            }
         }
+	
+	barrier(CLK_LOCAL_MEM_FENCE);
+	for (int j = 0; j < TILE_SIZE; ++j){
+            if(j + ty *TILE_SIZE *i < m && j+ tx * TILE_SIZE *i < n)
+	    Pvalue += subTileM[ty][j] * subTileN[j][tx];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
 
     }
-    d[Row * k + Col] = alpha * Pvalue + beta * c[Row * k + Col];
+    d[Row * n + Col] = alpha * Pvalue + beta * c[Row * n + Col];
 }
 
 // m = 17, n = 11, k = 9
