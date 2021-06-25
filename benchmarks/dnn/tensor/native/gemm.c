@@ -239,14 +239,9 @@ int main(int argc, char *argv[]) {
   cl_program program;         // program
   cl_kernel kernel;           // kernel
 
-  size_t globalSize, localSize;
+  size_t globalSize[2] = {m, n}; 
+  size_t localSize[2] = {8, 8};
   cl_int err;
-
-  // Number of work items in each local work group
-  localSize = 64;
-
-  // Number of total work items
-  globalSize = m*n;
 
   // Bind to platform
   err = clGetPlatformIDs(1, &cpPlatform, NULL);
@@ -328,11 +323,11 @@ int main(int argc, char *argv[]) {
   float *h_out = malloc(m * n * sizeof(float));
 
   // Write our data set into the input array in device memory
-  err = clEnqueueWriteBuffer(queue, d_input_a, CL_TRUE, 0, m*k,
+  err = clEnqueueWriteBuffer(queue, d_input_a, CL_TRUE, 0, m*k*sizeof(float),
                              h_input_a, 0, NULL, NULL);
-  err = clEnqueueWriteBuffer(queue, d_input_b, CL_TRUE, 0, n*k,
+  err = clEnqueueWriteBuffer(queue, d_input_b, CL_TRUE, 0, n*k*sizeof(float),
                                h_input_b, 0, NULL, NULL);
-  err = clEnqueueWriteBuffer(queue, d_input_c, CL_TRUE, 0, m*n,
+  err = clEnqueueWriteBuffer(queue, d_input_c, CL_TRUE, 0, m*n*sizeof(float),
                                h_input_c, 0, NULL, NULL);
   if (err != CL_SUCCESS) {
     printf("fail to enqueue write buffer %d", err);
@@ -351,7 +346,7 @@ int main(int argc, char *argv[]) {
   err |= clSetKernelArg(kernel, 8, sizeof(cl_mem), &d_output);
 
   // Execute the kernel over the entire range of the data set
-  err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize,
+  err = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, globalSize, localSize,
                                0, NULL, NULL);
   if (err != CL_SUCCESS) {
     printf("fail to enqueue ND Range Kernel");
@@ -379,8 +374,8 @@ int main(int argc, char *argv[]) {
   for (int r = 0; r < m; r++) {
     printf("%d: ", r);
 
-    for (int c = 0; c < k; c++) {
-      printf("%f ", h_out[r * 9 + c]);
+    for (int c = 0; c < n; c++) {
+      printf("%f ", h_out[r * n + c]);
     }
 
     printf("\n");
@@ -390,8 +385,8 @@ int main(int argc, char *argv[]) {
   for (int r = 0; r < m; r++) {
     printf("%d: ", r);
 
-    for (int c = 0; c < k; c++) {
-      printf("%f ", h_out_d[r * 9 + c]);
+    for (int c = 0; c < n; c++) {
+      printf("%f ", h_out_d[r * n + c]);
     }
 
     printf("\n");
