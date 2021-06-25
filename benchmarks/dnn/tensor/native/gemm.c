@@ -265,13 +265,13 @@ int main(int argc, char *argv[]) {
 
   // Create the input and output arrays in device memory for our calculation
   d_input_a =
-      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(m*k), NULL, NULL);
+      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*m*n , NULL, NULL);
   d_input_b =
-      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(n*k), NULL, NULL);
+      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*n*k, NULL, NULL);
   d_input_c =
-      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(m*n), NULL, NULL);
+      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*m*n, NULL, NULL);
   d_output =
-      clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(m*n), NULL, NULL);
+      clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float)*m*n, NULL, NULL);
 
   float *h_out = malloc(m * n * sizeof(float));
 
