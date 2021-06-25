@@ -13,24 +13,37 @@ __kernel void gemm(int m, int n, int k, float alpha, float beta,
 
     int Row = by * TILE_SIZE + ty;
     int Col = bx * TILE_SIZE + tx;
-
+    d[Row * n + Col] = 0;
     float Pvalue = 0;
     for(int i = 0; i < ((k-1)/TILE_SIZE+1); i++){
+    //for(int i = 0; i < 1; i++){
         int curL = Row * k + i * TILE_SIZE + tx;
         int curR = (i * TILE_SIZE +ty)*n + Col;
-        if(curL < m * k && curR < n * k ){
-            subTileM[ty][tx] = a[curL];
+        if(i * TILE_SIZE + tx < k && Row < m){
+		subTileM[ty][tx] = a[curL];
+		printf("Read subTileM ty %d tx %d value %f Row %d Col %d\n", ty, tx, subTileM[ty][tx], Row, Col);
+	}
+	else{
+	        subTileM[ty][tx] = 0.0;
+	}
+	if(i * TILE_SIZE + ty < k && Col < n ){
             subTileN[ty][tx] = b[curR];
         }
+	else{
+		subTileN[ty][tx] = 0.0;
+	}
 	
 	barrier(CLK_LOCAL_MEM_FENCE);
-	for (int j = 0; j < TILE_SIZE; ++j){
-            if(j + ty *TILE_SIZE *i < m && j+ tx * TILE_SIZE *i < n)
-	    Pvalue += subTileM[ty][j] * subTileN[j][tx];
-        }
+	for (int j = 0; j < TILE_SIZE; j++){
+            if(j +  TILE_SIZE *i < m && j+  TILE_SIZE *i < n){
+	    Pvalue +=subTileM[ty][j] * subTileN[j][tx]; //subTileM[ty][j] * subTileN[j][tx];
+            printf("Row %d, Col %d ty %d j %d subTileM %f\n", Row, Col, ty, j, subTileM[ty][j]);
+	    }
+	}
         barrier(CLK_LOCAL_MEM_FENCE);
-
+        //Pvalue = i * TILE_SIZE + ty;
     }
+    if(Row < m && Col < n)
     d[Row * n + Col] = alpha * Pvalue + beta * c[Row * n + Col];
 }
 

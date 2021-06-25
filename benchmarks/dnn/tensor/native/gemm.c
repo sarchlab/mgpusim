@@ -29,9 +29,9 @@ char *read_file(const char *filename) {
 
 int main(int argc, char *argv[]) {
 
-    int m = 8;
-    int n = 8;
-    int k = 8;
+    int m = 9;
+    int n = 9;
+    int k = 9;
     float alpha = 1;
     float beta = 0;
 
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
   cl_program program;         // program
   cl_kernel kernel;           // kernel
 
-  size_t globalSize[2] = {m, n}; 
+  size_t globalSize[2] = {((m-1)/8 +1)*8, ((n-1)/8 +1)*8}; 
   size_t localSize[2] = {8, 8};
   cl_int err;
 
