@@ -257,9 +257,9 @@ int main(int argc, char *argv[]) {
   }
 
   // Create the compute kernel in the program we wish to run
-  kernel = clCreateKernel(program, "gemm_tensor", &err);
+  kernel = clCreateKernel(program, "gemm", &err);
   if (err != CL_SUCCESS) {
-    printf("fail to create kernel");
+    printf("fail to create kernel %d\n", err);
     exit(1);
   }
 
@@ -283,7 +283,7 @@ int main(int argc, char *argv[]) {
   err = clEnqueueWriteBuffer(queue, d_input_c, CL_TRUE, 0, m*n,
                                h_input_c, 0, NULL, NULL);
   if (err != CL_SUCCESS) {
-    printf("fail to enqueue write buffer");
+    printf("fail to enqueue write buffer %d", err);
     exit(1);
   }
 
