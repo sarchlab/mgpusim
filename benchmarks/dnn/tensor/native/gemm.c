@@ -44,11 +44,11 @@ char *read_file(const char *filename) {
 // d = numpy.matmul(a, b) * alpha + beta * c
 
 int main(int argc, char *argv[]) {
-  int m = 1024;
-  int n = 1024;
-  int k = 1024;
-  float alpha = 3.1;
-  float beta = 4.2;
+  int m = 777;
+  int n = 555;
+  int k = 432;
+  float alpha = 1;
+  float beta = 0;
   
   float *h_input_a;
   float *h_input_b;
@@ -63,15 +63,18 @@ int main(int argc, char *argv[]) {
   gpu_out = malloc(m * n * sizeof(float));
 
   for (int i = 0; i < m * k; i++) {
-    h_input_a[i] = (float)rand() / (float)RAND_MAX;
+    // h_input_a[i] = (float)rand() / (float)RAND_MAX;
+    h_input_a[i] = 1;
   }
 
   for (int i = 0; i < n * k; i++) {
-    h_input_b[i] = (float)rand() / (float)RAND_MAX;
+    // h_input_b[i] = (float)rand() / (float)RAND_MAX;
+    h_input_b[i] = 2;
   }
 
    for (int i = 0; i < m * n; i++) {
-    h_input_c[i] = (float)rand() / (float)RAND_MAX;
+    // h_input_c[i] = (float)rand() / (float)RAND_MAX;
+    h_input_c[i] = 3;
   }
 
   for (int x = 0; x < n; x++) {
@@ -179,7 +182,7 @@ int main(int argc, char *argv[]) {
 
   // Create the input and output arrays in device memory for our calculation
   d_input_a =
-      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*m*n , NULL, NULL);
+      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*m*k , NULL, NULL);
   d_input_b =
       clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*n*k, NULL, NULL);
   d_input_c =
@@ -241,7 +244,7 @@ int main(int argc, char *argv[]) {
 
   for (int y = 0; y < m; y++) {
     for (int x = 0; x < n; x++) {
-      if (f32abs(cpu_out[y*n + x]-gpu_out[y*n+x]) > 1) {
+      if (f32abs(cpu_out[y*n + x]-gpu_out[y*n+x]) > 1e-5 * cpu_out[y*n + x]) {
         printf("Error at (%d, %d), expedted %f, but get %f\n",
           x, y, cpu_out[y*n + x], gpu_out[y*n+x]);
       }
