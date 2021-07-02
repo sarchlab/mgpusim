@@ -61,5 +61,10 @@ __kernel void gemm_old(int m, int n, int k, float alpha, float beta,
     acc += alpha * a[y * k + z] * b[z * n + x];
   }
 
+<<<<<<< HEAD
   //   d[y * n + x] = acc + beta * c[y * n + x];
   // }
+=======
+  d[y * n + x] = acc + beta * c[y * n + x];
+}
+>>>>>>> 56cd9d1a29f29dca737be5436e605273e2feaaab
