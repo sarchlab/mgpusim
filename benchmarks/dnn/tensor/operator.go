@@ -163,7 +163,7 @@ func (o *GPUOperator) loadKernels() {
 	loadKernel(&o.maxPoolingBackwardKernel, maxPoolingKernelBytes, "MaxPoolBackward")
 	loadKernel(&o.avgPoolingForwardKernel, avgPoolingKernelBytes, "AvgPoolForward")
 	loadKernel(&o.avgPoolingBackwardKernel, avgPoolingKernelBytes, "AvgPoolBackward")
-	loadKernel(&o.gemmKernel, gemmKernelBytes, "gemm")
+	loadKernel(&o.gemmKernel, gemmKernelBytes, "gemm_old")
 	loadKernel(&o.crossEntropyDerivativeKernel, crossEntropyKernelBytes, "cross_entropy_derivative")
 	loadKernel(&o.softmaxCrossEntropyDerivativeKernel, crossEntropyKernelBytes, "softmax_cross_entropy_derivative")
 }
@@ -753,8 +753,8 @@ func (o *GPUOperator) matrixMultiplication(
 	k := b.Size()[0]
 
 	blockSize := 16
-	wiWidth := uint32(n)
-	wiHeight := uint32(m)
+	wiWidth := ((n-1)/blockSize + 1) * blockSize
+	wiHeight := ((m-1)/blockSize + 1) * blockSize
 
 	d := o.Create([]int{m, n})
 
@@ -773,7 +773,7 @@ func (o *GPUOperator) matrixMultiplication(
 	o.driver.LaunchKernel(
 		o.ctx,
 		o.gemmKernel,
-		[3]uint32{wiWidth, wiHeight, 1},
+		[3]uint32{uint32(wiWidth), uint32(wiHeight), 1},
 		[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 		&kernArg,
 	)
