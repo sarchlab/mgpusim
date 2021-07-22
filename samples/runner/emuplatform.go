@@ -11,14 +11,14 @@ import (
 
 // EmuBuilder can build a platform for emulation purposes.
 type EmuBuilder struct {
-	useParallelEngine bool
-	debugISA          bool
-	traceVis          bool
-	traceMem          bool
-	numGPU            int
-	log2PageSize      uint64
-
-	gpus []*GPU
+	useParallelEngine  bool
+	debugISA           bool
+	traceVis           bool
+	traceMem           bool
+	numGPU             int
+	log2PageSize       uint64
+	useMagicMemoryCopy bool
+	gpus               []*GPU
 }
 
 // MakeEmuBuilder creates a EmuBuilder with default parameters.
@@ -66,6 +66,12 @@ func (b EmuBuilder) WithLog2PageSize(n uint64) EmuBuilder {
 	return b
 }
 
+// WithMagicMemoryCopy uses global storage as memory components
+func (b EmuBuilder) WithMagicMemoryCopy() EmuBuilder {
+	b.useMagicMemoryCopy = true
+	return b
+}
+
 // Build builds a emulation platform.
 func (b EmuBuilder) Build() *Platform {
 	var engine sim.Engine
@@ -76,10 +82,20 @@ func (b EmuBuilder) Build() *Platform {
 	}
 	// engine.AcceptHook(sim.NewEventLogger(log.New(os.Stdout, "", 0)))
 
-	pageTable := vm.NewPageTable(b.log2PageSize)
-	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
-	connection := sim.NewDirectConnection("ExternalConn", engine, 1*sim.GHz)
 	storage := mem.NewStorage(uint64(b.numGPU+1) * 4 * mem.GB)
+	pageTable := vm.NewPageTable(b.log2PageSize)
+	gpuDriverBuilder := driver.MakeBuilder()
+
+	if b.useMagicMemoryCopy {
+		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
+	}
+	gpuDriver := gpuDriverBuilder.
+		WithEngine(engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(storage).
+		Build("Driver")
+	connection := sim.NewDirectConnection("ExternalConn", engine, 1*sim.GHz)
 
 	gpuBuilder := MakeEmuGPUBuilder().
 		WithEngine(engine).

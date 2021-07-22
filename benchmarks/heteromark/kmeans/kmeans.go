@@ -17,8 +17,8 @@ import (
 
 // SwapArgs defines arguments
 type SwapArgs struct {
-	Feature             driver.GPUPtr
-	FeatureSwap         driver.GPUPtr
+	Feature             driver.Ptr
+	FeatureSwap         driver.Ptr
 	NPoints             int32
 	NFeatures           int32
 	HiddenGlobalOffsetX int64
@@ -28,9 +28,9 @@ type SwapArgs struct {
 
 // ComputeArgs defines arguments
 type ComputeArgs struct {
-	Feature             driver.GPUPtr
-	Clusters            driver.GPUPtr
-	Membership          driver.GPUPtr
+	Feature             driver.Ptr
+	Clusters            driver.Ptr
+	Membership          driver.Ptr
 	NPoints             int32
 	NClusters           int32
 	NFeatures           int32
@@ -57,12 +57,12 @@ type Benchmark struct {
 	NumFeatures   int
 	MaxIter       int
 	hFeatures     []float32
-	dFeatures     driver.GPUPtr
-	dFeaturesSwap driver.GPUPtr
+	dFeatures     driver.Ptr
+	dFeaturesSwap driver.Ptr
 	hMembership   []int32
-	dMembership   driver.GPUPtr
+	dMembership   driver.Ptr
 	hClusters     []float32
-	dClusters     []driver.GPUPtr
+	dClusters     []driver.Ptr
 
 	gpuRMSE float64
 
@@ -140,7 +140,7 @@ func (b *Benchmark) initMem() {
 			uint64(b.NumPoints*4), b.gpus)
 	}
 
-	b.dClusters = make([]driver.GPUPtr, len(b.gpus))
+	b.dClusters = make([]driver.Ptr, len(b.gpus))
 	for i, gpu := range b.gpus {
 		b.driver.SelectGPU(b.context, gpu)
 		if b.useUnifiedMemory {

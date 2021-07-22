@@ -142,7 +142,7 @@ func (b *Benchmark) randomizeParams() {
 		}
 
 		params := make([]*tensor.Tensor, gpuNum)
-		datas := make([]driver.GPUPtr, gpuNum)
+		datas := make([]driver.Ptr, gpuNum)
 
 		for j := 0; j < gpuNum; j++ {
 			params[j] = b.networks[j].Layers[i].Parameters().(*tensor.Tensor)

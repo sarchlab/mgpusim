@@ -28,7 +28,12 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		log2PageSize := uint64(12)
 		engine = sim.NewSerialEngine()
 		pageTable = vm.NewPageTable(log2PageSize)
-		driver = NewDriver(engine, pageTable, log2PageSize)
+
+		driver = MakeBuilder().
+			WithEngine(engine).
+			WithLog2PageSize(log2PageSize).
+			WithPageTable(pageTable).
+			Build("Driver")
 		gpuDevice := &internal.Device{
 			ID:       1,
 			Type:     internal.DeviceTypeCPU,

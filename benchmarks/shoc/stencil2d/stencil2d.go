@@ -15,10 +15,10 @@ import (
 
 // CopyRectKernelArgs defines kernel arguments
 type CopyRectKernelArgs struct {
-	Dst                 driver.GPUPtr
+	Dst                 driver.Ptr
 	DOffset             int32
 	DPitch              int32
-	Src                 driver.GPUPtr
+	Src                 driver.Ptr
 	SOffset             int32
 	SPitch              int32
 	Width               int32
@@ -30,8 +30,8 @@ type CopyRectKernelArgs struct {
 
 // StencilKernelArgs defines kernel arguments
 type StencilKernelArgs struct {
-	Data                driver.GPUPtr
-	NewData             driver.GPUPtr
+	Data                driver.Ptr
+	NewData             driver.Ptr
 	Alignment           int32
 	WCenter             float32
 	WCardinal           float32
@@ -57,8 +57,8 @@ type Benchmark struct {
 	hInput, hOutput               []float32
 	NumIteration                  int
 	haloWidth                     int
-	dData1, dData2                driver.GPUPtr
-	currData, newData             *driver.GPUPtr
+	dData1, dData2                driver.Ptr
+	currData, newData             *driver.Ptr
 	NumRows, NumCols              int
 	dataSize                      int
 	numPaddedCols                 int

@@ -32,7 +32,7 @@ func (d *Driver) EnqueueLaunchKernel(
 func (d *Driver) allocateGPUMemory(
 	ctx *Context,
 	co *insts.HsaCo,
-) (dCoData, dKernArgData, dPacket GPUPtr) {
+) (dCoData, dKernArgData, dPacket Ptr) {
 	dCoData = d.AllocateMemory(ctx, uint64(len(co.Data)))
 	dKernArgData = d.AllocateMemory(ctx, co.KernargSegmentByteSize)
 
@@ -84,8 +84,8 @@ func (d *Driver) LaunchKernel(
 func (d *Driver) createAQLPacket(
 	gridSize [3]uint32,
 	wgSize [3]uint16,
-	dCoData GPUPtr,
-	dKernArgData GPUPtr,
+	dCoData Ptr,
+	dKernArgData Ptr,
 ) *kernels.HsaKernelDispatchPacket {
 	packet := new(kernels.HsaKernelDispatchPacket)
 	packet.GridSizeX = gridSize[0]
@@ -103,7 +103,7 @@ func (d *Driver) enqueueLaunchKernelCommand(
 	queue *CommandQueue,
 	co *insts.HsaCo,
 	packet *kernels.HsaKernelDispatchPacket,
-	dPacket GPUPtr,
+	dPacket Ptr,
 ) {
 	cmd := &LaunchKernelCommand{
 		ID:         sim.GetIDGenerator().Generate(),

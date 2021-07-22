@@ -67,9 +67,9 @@ var s []uint8 = []uint8{
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Input               driver.GPUPtr
-	ExpandedKey         driver.GPUPtr
-	S                   driver.GPUPtr
+	Input               driver.Ptr
+	ExpandedKey         driver.Ptr
+	S                   driver.Ptr
 	HiddenGlobalOffsetX int64
 	HiddenGlobalOffsetY int64
 	HiddenGlobalOffsetZ int64
@@ -87,9 +87,9 @@ type Benchmark struct {
 	key          []byte
 	expandedKey  []uint32
 	s            []byte
-	gInput       driver.GPUPtr
-	gExpandedKey []driver.GPUPtr
-	gS           []driver.GPUPtr
+	gInput       driver.Ptr
+	gExpandedKey []driver.Ptr
+	gS           []driver.Ptr
 
 	useUnifiedMemory bool
 }
@@ -106,8 +106,8 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 // SelectGPU select GPU
 func (b *Benchmark) SelectGPU(gpuIDs []int) {
 	b.gpus = gpuIDs
-	b.gExpandedKey = make([]driver.GPUPtr, len(gpuIDs))
-	b.gS = make([]driver.GPUPtr, len(gpuIDs))
+	b.gExpandedKey = make([]driver.Ptr, len(gpuIDs))
+	b.gS = make([]driver.Ptr, len(gpuIDs))
 }
 
 // SetUnifiedMemory uses Unified Memory

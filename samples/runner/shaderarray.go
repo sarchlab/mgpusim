@@ -2,11 +2,14 @@ package runner
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/tlb"
+	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/rob"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
@@ -43,8 +46,10 @@ type shaderArrayBuilder struct {
 	freq              sim.Freq
 	log2CacheLineSize uint64
 	log2PageSize      uint64
-	visTracer         tracing.Tracer
-	memTracer         tracing.Tracer
+
+	isaDebugging bool
+	visTracer    tracing.Tracer
+	memTracer    tracing.Tracer
 }
 
 func makeShaderArrayBuilder() shaderArrayBuilder {
@@ -90,6 +95,11 @@ func (b shaderArrayBuilder) withLog2PageSize(
 	log2Size uint64,
 ) shaderArrayBuilder {
 	b.log2PageSize = log2Size
+	return b
+}
+
+func (b shaderArrayBuilder) withIsaDebugging() shaderArrayBuilder {
+	b.isaDebugging = true
 	return b
 }
 
@@ -258,6 +268,16 @@ func (b *shaderArrayBuilder) buildCUs(sa *shaderArray) {
 		cuName := fmt.Sprintf("%s.CU_%02d", b.name, i)
 		cu := cuBuilder.Build(cuName)
 		sa.cus = append(sa.cus, cu)
+
+		if b.isaDebugging {
+			isaDebug, err := os.Create(
+				fmt.Sprintf("isa_%s.debug", cuName))
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			isaDebugger := emu.NewISADebugger(log.New(isaDebug, "", 0))
+			cu.AcceptHook(isaDebugger)
+		}
 
 		if b.visTracer != nil {
 			tracing.CollectTrace(cu, b.visTracer)

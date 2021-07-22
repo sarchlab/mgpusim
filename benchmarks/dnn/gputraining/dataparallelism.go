@@ -174,14 +174,14 @@ func (t DataParallelismMultiGPUTrainer) averageGradient() {
 
 		gpuNum := len(t.GPUs)
 
-		datas := make([]driver.GPUPtr, gpuNum)
+		datas := make([]driver.Ptr, gpuNum)
 		dataSizeArr := gradients[0].Size()
 		dataSize := 1
 		for i := 0; i < len(dataSizeArr); i++ {
 			dataSize *= dataSizeArr[i]
 		}
 
-		bufs := make([]driver.GPUPtr, gpuNum)
+		bufs := make([]driver.Ptr, gpuNum)
 		bufSize := 65536
 
 		for i := 0; i < gpuNum; i++ {

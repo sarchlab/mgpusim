@@ -19,15 +19,19 @@ import (
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
 type R9NanoPlatformBuilder struct {
-	useParallelEngine bool
-	debugISA          bool
-	traceVis          bool
-	visTraceStartTime sim.VTimeInSec
-	visTraceEndTime   sim.VTimeInSec
-	traceMem          bool
-	numGPU            int
-	log2PageSize      uint64
-	monitor           *monitoring.Monitor
+	useParallelEngine  bool
+	debugISA           bool
+	traceVis           bool
+	visTraceStartTime  sim.VTimeInSec
+	visTraceEndTime    sim.VTimeInSec
+	traceMem           bool
+	numGPU             int
+	useMagicMemoryCopy bool
+	log2PageSize       uint64
+
+	monitor *monitoring.Monitor
+
+	globalStorage *mem.Storage
 
 	gpus []*GPU
 }
@@ -102,6 +106,12 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
+// WithMagicMemoryCopy uses global storage as memory components
+func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
+	b.useMagicMemoryCopy = true
+	return b
+}
+
 // Build builds a platform with R9Nano GPUs.
 func (b R9NanoPlatformBuilder) Build() *Platform {
 	engine := b.createEngine()
@@ -109,9 +119,20 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(engine)
 	}
 
+	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
+
 	mmuComponent, pageTable := b.createMMU(engine)
 
-	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
+	gpuDriverBuilder := driver.MakeBuilder()
+	if b.useMagicMemoryCopy {
+		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
+	}
+	gpuDriver := gpuDriverBuilder.
+		WithEngine(engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(b.globalStorage).
+		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
 	// 	panic(err)
@@ -248,7 +269,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithNumShaderArray(16).
 		WithNumMemoryBank(16).
 		WithLog2MemoryBankInterleavingSize(7).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(b.globalStorage)
 
 	if b.monitor != nil {
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
