@@ -47,9 +47,9 @@ func (m *GPUMatrixMultiplier) SelectGPU(gpus []int) {
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	MatrixA             driver.GPUPtr
-	MatrixB             driver.GPUPtr
-	MatrixC             driver.GPUPtr
+	MatrixA             driver.Ptr
+	MatrixB             driver.Ptr
+	MatrixC             driver.Ptr
 	WidthA              uint32
 	BlockA              driver.LocalPtr
 	HiddenGlobalOffsetX int64
@@ -73,7 +73,7 @@ func (m *GPUMatrixMultiplier) Multiply(mA, mB *Matrix) *Matrix {
 }
 
 func (m *GPUMatrixMultiplier) launchKernel(
-	gA, gB, gC driver.GPUPtr,
+	gA, gB, gC driver.Ptr,
 	mA *Matrix,
 	mC *Matrix,
 ) {
@@ -110,7 +110,7 @@ func (m *GPUMatrixMultiplier) launchKernel(
 
 func (m *GPUMatrixMultiplier) initMemory(
 	mA, mB, mC *Matrix,
-) (driver.GPUPtr, driver.GPUPtr, driver.GPUPtr) {
+) (driver.Ptr, driver.Ptr, driver.Ptr) {
 	if m.useUnifiedMemory {
 		gA := m.driver.AllocateUnifiedMemory(m.context, uint64(mA.Width*mA.Height*4))
 		gB := m.driver.AllocateUnifiedMemory(m.context, uint64(mB.Width*mB.Height*4))
@@ -136,7 +136,7 @@ func (m *GPUMatrixMultiplier) initMemory(
 
 func (m *GPUMatrixMultiplier) copyDataBackFromGPU(
 	matrix *Matrix,
-	gm driver.GPUPtr,
+	gm driver.Ptr,
 ) {
 	m.driver.MemCopyD2H(m.context, matrix.Data, gm)
 }

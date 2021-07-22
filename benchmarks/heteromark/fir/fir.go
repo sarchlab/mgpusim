@@ -15,10 +15,10 @@ import (
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Output              driver.GPUPtr
-	Filter              driver.GPUPtr
-	Input               driver.GPUPtr
-	History             driver.GPUPtr
+	Output              driver.Ptr
+	Filter              driver.Ptr
+	Input               driver.Ptr
+	History             driver.Ptr
 	NumTaps             uint32
 	Padding             uint32
 	HiddenGlobalOffsetX int64
@@ -38,10 +38,10 @@ type Benchmark struct {
 	numTaps      int
 	inputData    []float32
 	filterData   []float32
-	gFilterData  []driver.GPUPtr
-	gHistoryData driver.GPUPtr
-	gInputData   driver.GPUPtr
-	gOutputData  driver.GPUPtr
+	gFilterData  []driver.Ptr
+	gHistoryData driver.Ptr
+	gInputData   driver.Ptr
+	gOutputData  driver.Ptr
 
 	useUnifiedMemory bool
 }
@@ -93,7 +93,7 @@ func (b *Benchmark) initMem() {
 	}
 
 	if b.useUnifiedMemory {
-		b.gFilterData = make([]driver.GPUPtr, len(b.gpus))
+		b.gFilterData = make([]driver.Ptr, len(b.gpus))
 		b.gHistoryData = b.driver.AllocateUnifiedMemory(
 			b.context, uint64(b.numTaps*4))
 		b.gInputData = b.driver.AllocateUnifiedMemory(
@@ -101,7 +101,7 @@ func (b *Benchmark) initMem() {
 		b.gOutputData = b.driver.AllocateUnifiedMemory(
 			b.context, uint64(b.Length*4))
 	} else {
-		b.gFilterData = make([]driver.GPUPtr, len(b.gpus))
+		b.gFilterData = make([]driver.Ptr, len(b.gpus))
 		b.gHistoryData = b.driver.AllocateMemory(
 			b.context, uint64(b.numTaps*4))
 		b.gInputData = b.driver.AllocateMemory(

@@ -11,13 +11,13 @@ import (
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/mmu"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v2/rdma"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/rob"
 	"gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
+	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v2/timing/rdma"
 	"gitlab.com/akita/util/v2/tracing"
 )
 
@@ -68,6 +68,7 @@ type R9NanoGPUBuilder struct {
 	dmaEngine               *cp.DMAEngine
 	rdmaEngine              *rdma.Engine
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
+	globalStorage           *mem.Storage
 
 	internalConn           *sim.DirectConnection
 	l1TLBToL2TLBConnection *sim.DirectConnection
@@ -193,6 +194,15 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 // split between memory banks.
 func (b R9NanoGPUBuilder) WithL2CacheSize(size uint64) R9NanoGPUBuilder {
 	b.l2CacheSize = size
+	return b
+}
+
+// WithGlobalStorage lets the GPU to build to use the externally provided
+// storage.
+func (b R9NanoGPUBuilder) WithGlobalStorage(
+	storage *mem.Storage,
+) R9NanoGPUBuilder {
+	b.globalStorage = storage
 	return b
 }
 
@@ -461,6 +471,10 @@ func (b *R9NanoGPUBuilder) buildSAs() {
 		withLog2PageSize(b.log2PageSize).
 		withNumCU(b.numCUPerShaderArray)
 
+	if b.enableISADebugging {
+		saBuilder = saBuilder.withIsaDebugging()
+	}
+
 	if b.enableVisTracing {
 		saBuilder = saBuilder.withVisTracer(b.visTracer)
 	}
@@ -512,11 +526,6 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM_%d", b.gpuName, i)
 		dram := memCtrlBuilder.
-			WithInterleavingAddrConversion(
-				1<<b.log2MemoryBankInterleavingSize,
-				b.numMemoryBank,
-				i, b.memAddrOffset, b.memAddrOffset+4*mem.GB,
-			).
 			Build(dramName)
 		// dram := idealmemcontroller.New(
 		// 	fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
@@ -590,6 +599,10 @@ func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
 
 	if b.visTracer != nil {
 		memCtrlBuilder = memCtrlBuilder.WithAdditionalTracer(b.visTracer)
+	}
+
+	if b.globalStorage != nil {
+		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
 	}
 
 	return memCtrlBuilder

@@ -17,7 +17,7 @@ type Command interface {
 // GPU when the command is processed
 type MemCopyH2DCommand struct {
 	ID   string
-	Dst  GPUPtr
+	Dst  Ptr
 	Src  interface{}
 	Reqs []sim.Msg
 }
@@ -43,7 +43,7 @@ func (c *MemCopyH2DCommand) RemoveReq(req sim.Msg) {
 type MemCopyD2HCommand struct {
 	ID      string
 	Dst     interface{}
-	Src     GPUPtr
+	Src     Ptr
 	RawData []byte
 	Reqs    []sim.Msg
 }
@@ -73,7 +73,7 @@ type LaunchKernelCommand struct {
 	WGSize     [3]uint16
 	KernelArgs interface{}
 	Packet     *kernels.HsaKernelDispatchPacket
-	DPacket    GPUPtr
+	DPacket    Ptr
 	Reqs       []sim.Msg
 }
 

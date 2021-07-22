@@ -9,7 +9,7 @@ type Tensor struct {
 	ctx    *driver.Context
 
 	size []int
-	ptr  driver.GPUPtr
+	ptr  driver.Ptr
 
 	descriptor string
 }
@@ -66,6 +66,6 @@ func (t *Tensor) Vector() []float64 {
 }
 
 // Ptr returns the GPU pointer of the tensor.
-func (t *Tensor) Ptr() driver.GPUPtr {
+func (t *Tensor) Ptr() driver.Ptr {
 	return t.ptr
 }

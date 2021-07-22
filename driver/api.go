@@ -133,19 +133,19 @@ func (d *Driver) DrainCommandQueue(q *CommandQueue) {
 func (d *Driver) AllocateMemory(
 	ctx *Context,
 	byteSize uint64,
-) GPUPtr {
+) Ptr {
 	ptr := d.memAllocator.Allocate(ctx.pid, byteSize, ctx.currentGPUID)
 
 	// log.Printf("Allocate %d\n", ptr)
-	return GPUPtr(ptr)
+	return Ptr(ptr)
 }
 
 //AllocateUnifiedMemory allocates a unified memory. Allocation is done on CPU
 func (d *Driver) AllocateUnifiedMemory(
 	ctx *Context,
 	byteSize uint64,
-) GPUPtr {
-	return GPUPtr(d.memAllocator.AllocateUnified(ctx.pid, byteSize))
+) Ptr {
+	return Ptr(d.memAllocator.AllocateUnified(ctx.pid, byteSize))
 }
 
 // Remap keeps the virtual address unchanged and moves the physical address to
@@ -159,7 +159,7 @@ func (d *Driver) Remap(ctx *Context, addr, size uint64, deviceID int) {
 // allocated to each GPU.
 func (d *Driver) Distribute(
 	ctx *Context,
-	addr GPUPtr,
+	addr Ptr,
 	byteSize uint64,
 	gpuIDs []int,
 ) []uint64 {
@@ -197,7 +197,7 @@ func unique(in []int) []int {
 // FreeMemory frees the memory pointed by ptr. The pointer must be allocated
 // with the function AllocateMemory earlier. Error will be returned if the ptr
 // provided is invalid.
-func (d *Driver) FreeMemory(ctx *Context, ptr GPUPtr) error {
+func (d *Driver) FreeMemory(ctx *Context, ptr Ptr) error {
 	// log.Printf("Free %d\n", ptr)
 	d.memAllocator.Free(uint64(ptr))
 	return nil
@@ -206,7 +206,7 @@ func (d *Driver) FreeMemory(ctx *Context, ptr GPUPtr) error {
 // EnqueueMemCopyH2D registers a MemCopyH2DCommand in the queue.
 func (d *Driver) EnqueueMemCopyH2D(
 	queue *CommandQueue,
-	dst GPUPtr,
+	dst Ptr,
 	src interface{},
 ) {
 	d.enqueueFlushBeforeMemCopy(queue)
@@ -223,7 +223,7 @@ func (d *Driver) EnqueueMemCopyH2D(
 func (d *Driver) EnqueueMemCopyD2H(
 	queue *CommandQueue,
 	dst interface{},
-	src GPUPtr,
+	src Ptr,
 ) {
 	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyD2HCommand{
@@ -241,8 +241,8 @@ var kernelBytes []byte
 // queue.
 func (d *Driver) EnqueueMemCopyD2D(
 	queue *CommandQueue,
-	dst GPUPtr,
-	src GPUPtr,
+	dst Ptr,
+	src Ptr,
 	num int,
 ) {
 	co := kernels.LoadProgramFromMemory(
@@ -285,14 +285,14 @@ func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
 }
 
 // MemCopyH2D copies a memory from the host to a GPU device.
-func (d *Driver) MemCopyH2D(ctx *Context, dst GPUPtr, src interface{}) {
+func (d *Driver) MemCopyH2D(ctx *Context, dst Ptr, src interface{}) {
 	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueMemCopyH2D(queue, dst, src)
 	d.DrainCommandQueue(queue)
 }
 
 // MemCopyD2H copies a memory from a GPU device to the host
-func (d *Driver) MemCopyD2H(ctx *Context, dst interface{}, src GPUPtr) {
+func (d *Driver) MemCopyD2H(ctx *Context, dst interface{}, src Ptr) {
 	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueMemCopyD2H(queue, dst, src)
 	d.DrainCommandQueue(queue)
@@ -300,7 +300,7 @@ func (d *Driver) MemCopyD2H(ctx *Context, dst interface{}, src GPUPtr) {
 
 // MemCopyD2D copies a memory from a GPU device to another GPU device. num is
 // the total number of bytes.
-func (d *Driver) MemCopyD2D(ctx *Context, dst GPUPtr, src GPUPtr, num int) {
+func (d *Driver) MemCopyD2D(ctx *Context, dst Ptr, src Ptr, num int) {
 	queue := d.CreateCommandQueue(ctx)
 	d.EnqueueMemCopyD2D(queue, dst, src, num)
 	d.DrainCommandQueue(queue)

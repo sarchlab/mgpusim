@@ -50,7 +50,7 @@ func handleFree(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = serverInstance.driver.FreeMemory(
-		serverInstance.ctx, driver.GPUPtr(ptr))
+		serverInstance.ctx, driver.Ptr(ptr))
 	if err != nil {
 		http.Error(w, "failed to free the memory", 400)
 	}
@@ -81,7 +81,7 @@ func handleMemcopyH2D(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serverInstance.driver.MemCopyH2D(serverInstance.ctx,
-		driver.GPUPtr(input.Ptr), rawData)
+		driver.Ptr(input.Ptr), rawData)
 
 	output := "{}"
 	w.Write([]byte(output))
@@ -109,7 +109,7 @@ func handleMemcopyD2H(w http.ResponseWriter, r *http.Request) {
 	rawData := make([]byte, dataJSON.Size)
 
 	serverInstance.driver.MemCopyD2H(serverInstance.ctx,
-		rawData, driver.GPUPtr(dataJSON.Ptr))
+		rawData, driver.Ptr(dataJSON.Ptr))
 
 	encodedData := base64.StdEncoding.EncodeToString(rawData)
 

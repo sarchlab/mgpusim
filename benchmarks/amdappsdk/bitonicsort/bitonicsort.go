@@ -17,7 +17,7 @@ var doPerPassVerify = false
 
 // BitonicKernelArgs defines kernel arguments
 type BitonicKernelArgs struct {
-	Input               driver.GPUPtr
+	Input               driver.Ptr
 	Stage               uint32
 	PassOfStage         uint32
 	Direction           uint32
@@ -40,7 +40,7 @@ type Benchmark struct {
 
 	inputData             []uint32
 	outputData            []uint32
-	gInputData            driver.GPUPtr
+	gInputData            driver.Ptr
 	perPassIn, perPassOut []uint32
 
 	useUnifiedMemory bool

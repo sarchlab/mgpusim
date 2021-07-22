@@ -217,7 +217,8 @@
             "program": "${workspaceFolder}/samples/relu",
             "args": [
                 "-verify",
-                "-length=32768",
+                "-timing",
+                "-length=64"
             ]
         },
         {

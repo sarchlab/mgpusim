@@ -15,8 +15,8 @@ import (
 
 // KernelArgs defines kernel arguments
 type KernelArgs struct {
-	Output              driver.GPUPtr
-	Input               driver.GPUPtr
+	Output              driver.Ptr
+	Input               driver.Ptr
 	Block               driver.LocalPtr
 	WIWidth             uint32
 	WIHeight            uint32
@@ -43,8 +43,8 @@ type Benchmark struct {
 
 	hInputData  []uint32
 	hOutputData []uint32
-	dInputData  driver.GPUPtr
-	dOutputData driver.GPUPtr
+	dInputData  driver.Ptr
+	dOutputData driver.Ptr
 
 	useUnifiedMemory bool
 }

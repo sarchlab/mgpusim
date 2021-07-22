@@ -10,7 +10,7 @@ func BroadcastRing(
 	d *driver.Driver,
 	comms []*Communicator,
 	root int,
-	data []driver.GPUPtr,
+	data []driver.Ptr,
 	dataSize int,
 ) {
 	numGPU := len(comms)
@@ -40,9 +40,9 @@ func BroadcastRing(
 			}
 
 			src := data[i]
-			src += driver.GPUPtr(4 * (srcChunkNum * chunkSize))
+			src += driver.Ptr(4 * (srcChunkNum * chunkSize))
 			dst := data[(i+1)%numGPU]
-			dst += driver.GPUPtr(4 * (srcChunkNum * chunkSize))
+			dst += driver.Ptr(4 * (srcChunkNum * chunkSize))
 			sizeToPush := min(chunkSize, dataSize-srcChunkNum*chunkSize)
 
 			numThread := 1024
