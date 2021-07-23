@@ -3,10 +3,13 @@ package tensor
 import (
 	"fmt"
 	"math"
+	"sync"
+	"time"
 
 	// embed hsaco files
 	_ "embed"
 
+	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/dnn/tensor"
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/insts"
@@ -21,6 +24,10 @@ type GPUOperator struct {
 	driver       *driver.Driver
 	ctx          *driver.Context
 	verification bool
+	timerMutex   sync.Mutex
+	reportTime   bool
+	vStart, vEnd sim.VTimeInSec
+	start, end   time.Time
 	cpuOperator  *tensor.CPUOperator
 
 	sumKernel                           *insts.HsaCo
@@ -67,6 +74,11 @@ func NewGPUOperator(
 func (o *GPUOperator) EnableVerification() {
 	o.verification = true
 	o.cpuOperator = &tensor.CPUOperator{}
+}
+
+// ReportTime lets the operator to report the execution time of each kernel.
+func (o *GPUOperator) ReportTime() {
+	o.reportTime = true
 }
 
 func (o *GPUOperator) gpuTensorToCPUTensor(
@@ -429,12 +441,15 @@ func (o *GPUOperator) Transpose(t tensor.Tensor, order []int) tensor.Tensor {
 		OutIndexBuf: dOutIndexBuf,
 		Dim:         int32(len(order)),
 	}
+
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx,
 		o.transposeKernel,
 		[3]uint32{uint32(t.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+	o.timerEnd("Transpose")
 
 	o.setTransposeOutputDescriptor(output, input, order)
 	o.verifyTranspose(output, input, order)
@@ -507,12 +522,15 @@ func (o *GPUOperator) Rotate180(t tensor.Tensor) tensor.Tensor {
 		OutIndexBuf: dOutIndexBuf,
 		Dim:         int32(len(t.Size())),
 	}
+
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx,
 		o.rotateKernel,
 		[3]uint32{uint32(t.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+	o.timerEnd("Rotate180")
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
@@ -532,7 +550,7 @@ type dilateKernelArgs struct {
 	OffsetX, OffsetY, OffsetZ int64
 }
 
-// Dilate addes 0s between rows and columns.
+// Dilate adds 0s between rows and columns.
 func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
 	dim := len(t.Size())
 	hDilate := []int32{int32(dilate[0]), int32(dilate[1])}
@@ -577,21 +595,28 @@ func (o *GPUOperator) Dilate(t tensor.Tensor, dilate []int) tensor.Tensor {
 		OutIndexBuf: dOutIndexBuf,
 		Dim:         int32(len(t.Size())),
 	}
+
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx,
 		o.dilateKernel,
 		[3]uint32{uint32(output.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+	o.timerEnd("Dilate")
 
+	o.verifyDilate(t, dilate, output)
+
+	return output
+}
+
+func (o *GPUOperator) verifyDilate(t tensor.Tensor, dilate []int, output *Tensor) {
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
 		cpuOut := o.cpuOperator.Dilate(cpuIn, dilate)
 		o.tensorMustMatch(cpuOut, output)
 		fmt.Println("Dilate verified.")
 	}
-
-	return output
 }
 
 // Sum reduces the number of axes by summing the numbers on given axes.
@@ -686,11 +711,13 @@ func (o *GPUOperator) sumOneAxis(t tensor.Tensor, axis int) tensor.Tensor {
 		OutIndexBuf: dOutIndexBuf,
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.sumKernel,
 		[3]uint32{uint32(globalSize), 1, 1},
 		[3]uint16{uint16(localSize), 1, 1},
 		&args,
 	)
+	o.timerEnd("Sum")
 
 	return out
 }
@@ -770,6 +797,7 @@ func (o *GPUOperator) matrixMultiplication(
 		D:     d.(*Tensor).ptr,
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(
 		o.ctx,
 		o.gemmKernel,
@@ -777,6 +805,7 @@ func (o *GPUOperator) matrixMultiplication(
 		[3]uint16{uint16(blockSize), uint16(blockSize), 1},
 		&kernArg,
 	)
+	o.timerEnd("Gemm")
 
 	return d
 }
@@ -850,7 +879,10 @@ func (o *GPUOperator) Im2Col(
 		Batch:    uint32(inputSize[0]),
 	}
 	gridSize := fieldWidth * fieldHeight * inputSize[0]
+	fmt.Printf("Im2Col Grid Size %d, output size (%d, %d)\n",
+		gridSize, outHeight, outWidth)
 
+	o.timerStart()
 	o.driver.LaunchKernel(
 		o.ctx,
 		o.im2ColKernel,
@@ -858,6 +890,7 @@ func (o *GPUOperator) Im2Col(
 		[3]uint16{uint16(64), 1, 1},
 		&kernArg,
 	)
+	o.timerEnd("Im2Col")
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
@@ -869,6 +902,27 @@ func (o *GPUOperator) Im2Col(
 	}
 
 	return output
+}
+
+func (o *GPUOperator) timerStart() {
+	if o.reportTime {
+		o.timerMutex.Lock()
+		o.vStart = o.driver.Engine.CurrentTime()
+		o.start = time.Now()
+	}
+}
+
+func (o *GPUOperator) timerEnd(
+	kernelName string,
+) {
+	if o.reportTime {
+		o.vEnd = o.driver.Engine.CurrentTime()
+		o.end = time.Now()
+
+		fmt.Printf("Kernel %s, Start %.10f, Virtual Time: %v, Real Time: %v\n",
+			kernelName, o.vStart, o.vEnd-o.vStart, o.end.Sub(o.start))
+		o.timerMutex.Unlock()
+	}
 }
 
 type maxPoolingForwardKernelArgs struct {
@@ -920,6 +974,7 @@ func (o *GPUOperator) MaxPoolingForward(
 		MaskData:   maskT.ptr,
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(
 		o.ctx,
 		o.maxPoolingForwardKernel,
@@ -927,6 +982,7 @@ func (o *GPUOperator) MaxPoolingForward(
 		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
+	o.timerEnd("MaxPoolingForward")
 
 	return outT, maskT
 }
@@ -978,11 +1034,13 @@ func (o *GPUOperator) MaxPoolingBackward(
 		BottomDiff:   out.(*Tensor).ptr,
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx,
 		o.maxPoolingBackwardKernel,
 		[3]uint32{uint32(n * c * hIn * wIn), 1, 1},
 		[3]uint16{64, 1, 1},
 		&kernArg)
+	o.timerEnd("MaxPoolingBackward")
 
 	return out
 }
@@ -1036,6 +1094,8 @@ func (o *GPUOperator) AvgPoolingForward(
 		output.ptr,
 		0, 0, 0,
 	}
+
+	o.timerStart()
 	o.driver.LaunchKernel(
 		o.ctx,
 		o.avgPoolingForwardKernel,
@@ -1043,6 +1103,7 @@ func (o *GPUOperator) AvgPoolingForward(
 		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
+	o.timerEnd("AvgPoolingForward")
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
@@ -1107,6 +1168,7 @@ func (o *GPUOperator) AvgPoolingBackward(
 		0, 0, 0,
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(
 		o.ctx,
 		o.avgPoolingBackwardKernel,
@@ -1114,6 +1176,7 @@ func (o *GPUOperator) AvgPoolingBackward(
 		[3]uint16{64, 1, 1},
 		&kernArg,
 	)
+	o.timerEnd("AvgPoolingBackward")
 
 	if o.verification {
 		cpuForwardIn := o.gpuTensorToCPUTensor(forwardIn)
@@ -1184,11 +1247,14 @@ func (o *GPUOperator) Softmax(t tensor.Tensor) tensor.Tensor {
 		NumElement:  int32(expInput.NumElement()),
 		BatchSize:   int32(t.Size()[0]),
 	}
+
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.softmaxDivKernel,
 		[3]uint32{uint32(expInput.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&divArgs,
 	)
+	o.timerEnd("Softmax")
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
@@ -1266,11 +1332,13 @@ func (o *GPUOperator) CrossEntropyDerivative(
 		NumPerImage: int32(t.Size()[1]),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.crossEntropyDerivativeKernel,
 		[3]uint32{uint32(t.Size()[0] * t.Size()[1]), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+	o.timerEnd("CrossEntropyDerivative")
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
@@ -1306,11 +1374,13 @@ func (o *GPUOperator) SoftmaxCrossEntropyDerivative(
 		NumPerImage: int32(t.Size()[1]),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.softmaxCrossEntropyDerivativeKernel,
 		[3]uint32{uint32(t.Size()[0] * t.Size()[1]), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+	o.timerEnd("SoftmaxCrossEntropyDerivative")
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(t)
@@ -1344,11 +1414,13 @@ func (o *GPUOperator) ElementWiseMul(
 		N:   int32(a.NumElement()),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.elemWiseMulKernel,
 		[3]uint32{uint32(a.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+	o.timerEnd("ElementWiseMul")
 
 	if o.verification {
 		cpuA := o.gpuTensorToCPUTensor(a)
@@ -1387,11 +1459,13 @@ func (o *GPUOperator) ScaleAdd(
 		N:     int32(a.NumElement()),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.scaleAddKernel,
 		[3]uint32{uint32(a.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args,
 	)
+	o.timerEnd("ScaleAdd")
 
 	if o.verification {
 		cpuA := o.gpuTensorToCPUTensor(a)
@@ -1430,10 +1504,12 @@ func (o *GPUOperator) RMSProp(
 		N:            int32(params.NumElement()),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.rmsPropKernel,
 		[3]uint32{uint32(params.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args)
+	o.timerEnd("RMSProp")
 }
 
 type adamKernArg struct {
@@ -1473,10 +1549,12 @@ func (o *GPUOperator) Adam(
 		N:             int32(params.NumElement()),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.adamKernel,
 		[3]uint32{uint32(params.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args)
+	o.timerEnd("Adam")
 
 	if o.verification {
 		o.cpuOperator.Adam(cpuParams, cpuGradient, cpuVHistory, cpuSHistory, smoothFactor1, smoothFactor2, learningRate)
@@ -1506,10 +1584,12 @@ func (o *GPUOperator) ReluForward(
 		Count: int32(in.NumElement()),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.reluForwardKernel,
 		[3]uint32{uint32(in.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args)
+	o.timerEnd("ReluForward")
 
 	if o.verification {
 		cpuIn := o.gpuTensorToCPUTensor(in)
@@ -1539,10 +1619,12 @@ func (o *GPUOperator) ReluBackward(
 		Count:  int32(forwardIn.NumElement()),
 	}
 
+	o.timerStart()
 	o.driver.LaunchKernel(o.ctx, o.reluBackwardKernel,
 		[3]uint32{uint32(forwardIn.NumElement()), 1, 1},
 		[3]uint16{64, 1, 1},
 		&args)
+	o.timerEnd("ReluBackward")
 
 	if o.verification {
 		cpuForwardIn := o.gpuTensorToCPUTensor(forwardIn)

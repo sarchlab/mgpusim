@@ -204,7 +204,7 @@ func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.BankedLowModuleFinder 
 func (b R9NanoPlatformBuilder) createConnection(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMUImpl,
+	mmuComponent *mmu.MMU,
 ) (*pcie.Connector, int) {
 	//connection := sim.NewDirectConnection(engine)
 	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
@@ -239,7 +239,7 @@ func (b R9NanoPlatformBuilder) createEngine() sim.Engine {
 
 func (b R9NanoPlatformBuilder) createMMU(
 	engine sim.Engine,
-) (*mmu.MMUImpl, vm.PageTable) {
+) (*mmu.MMU, vm.PageTable) {
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
@@ -260,7 +260,7 @@ func (b R9NanoPlatformBuilder) createMMU(
 func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMUImpl,
+	mmuComponent *mmu.MMU,
 ) R9NanoGPUBuilder {
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).

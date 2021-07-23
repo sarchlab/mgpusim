@@ -313,7 +313,7 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.currShootdownRequest = shootDwnCmd
 
 		for i := 0; i < 10; i++ {
-			tlbFlushReq := tlb.TLBFlushReqBuilder{}.Build()
+			tlbFlushReq := tlb.FlushReqBuilder{}.Build()
 			tlbFlushReq.SendTime = 10
 			tlbFlushReq.Src = commandProcessor.ToTLBs
 			tlbFlushReq.Dst = commandProcessor.TLBs[i]
@@ -328,7 +328,7 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a TLB flush rsp", func() {
-		req := tlb.TLBFlushRspBuilder{}.Build()
+		req := tlb.FlushRspBuilder{}.Build()
 		req.SendTime = 10
 		req.Dst = commandProcessor.ToTLBs
 
@@ -399,7 +399,7 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.numCacheACK = 1
 
 		for i := 0; i < 10; i++ {
-			tlbRestartReq := tlb.TLBRestartReqBuilder{}.Build()
+			tlbRestartReq := tlb.RestartReqBuilder{}.Build()
 			tlbRestartReq.SendTime = 10
 			tlbRestartReq.Src = commandProcessor.ToTLBs
 			tlbRestartReq.Dst = commandProcessor.TLBs[i]
@@ -414,7 +414,7 @@ var _ = Describe("CommandProcessor", func() {
 	})
 
 	It("should handle a TLB restart rsp", func() {
-		req := tlb.TLBRestartRspBuilder{}.Build()
+		req := tlb.RestartRspBuilder{}.Build()
 		req.SendTime = 10
 		req.Dst = commandProcessor.ToTLBs
 

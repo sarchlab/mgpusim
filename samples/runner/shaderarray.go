@@ -6,14 +6,14 @@ import (
 	"os"
 
 	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache/writearound"
+	"gitlab.com/akita/mem/v2/cache/writethrough"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/tlb"
 	"gitlab.com/akita/mgpusim/v2/emu"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/rob"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
+	"gitlab.com/akita/mgpusim/v2/timing/rob"
 	"gitlab.com/akita/util/v2/tracing"
 )
 
@@ -29,8 +29,8 @@ type shaderArray struct {
 	l1iAT  *addresstranslator.AddressTranslator
 
 	l1vCaches []*writearound.Cache
-	l1sCache  *l1v.Cache
-	l1iCache  *l1v.Cache
+	l1sCache  *writethrough.Cache
+	l1iCache  *writethrough.Cache
 
 	l1vTLBs []*tlb.TLB
 	l1sTLB  *tlb.TLB
@@ -348,7 +348,7 @@ func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
 		WithBankLatency(60).
 		WithNumBanks(1).
 		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssocitivity(4).
+		WithWayAssociativity(4).
 		WithNumMSHREntry(16).
 		WithTotalByteSize(16 * mem.KB)
 
@@ -418,13 +418,13 @@ func (b *shaderArrayBuilder) buildL1STLB(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1SCache(sa *shaderArray) {
-	builder := l1v.NewBuilder().
+	builder := writethrough.NewBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(1).
 		WithNumBanks(1).
 		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssocitivity(4).
+		WithWayAssociativity(4).
 		WithNumMSHREntry(16).
 		WithTotalByteSize(16 * mem.KB)
 
@@ -492,13 +492,13 @@ func (b *shaderArrayBuilder) buildL1ITLB(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1ICache(sa *shaderArray) {
-	builder := l1v.NewBuilder().
+	builder := writethrough.NewBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(1).
 		WithNumBanks(1).
 		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssocitivity(4).
+		WithWayAssociativity(4).
 		WithNumMSHREntry(16).
 		WithTotalByteSize(32 * mem.KB).
 		WithNumReqsPerCycle(4)
