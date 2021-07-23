@@ -3,7 +3,6 @@ package emu
 import (
 	"log"
 
-	"gitlab.com/akita/mem/v2/idealmemcontroller"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm"
 	"gitlab.com/akita/util/v2/ca"
@@ -11,7 +10,7 @@ import (
 
 type storageAccessor struct {
 	storage       *mem.Storage
-	addrConverter idealmemcontroller.AddressConverter
+	addrConverter mem.AddressConverter
 	pageTable     vm.PageTable
 	log2PageSize  uint64
 }
@@ -95,7 +94,7 @@ func newStorageAccessor(
 	storage *mem.Storage,
 	pageTable vm.PageTable,
 	log2PageSize uint64,
-	addrConverter idealmemcontroller.AddressConverter,
+	addrConverter mem.AddressConverter,
 ) *storageAccessor {
 	a := new(storageAccessor)
 	a.storage = storage

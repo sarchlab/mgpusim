@@ -266,9 +266,9 @@ func (p *CommandProcessor) processRspFromTLBs(now sim.VTimeInSec) bool {
 	}
 
 	switch req := msg.(type) {
-	case *tlb.TLBFlushRsp:
+	case *tlb.FlushRsp:
 		return p.processTLBFlushRsp(now, req)
-	case *tlb.TLBRestartRsp:
+	case *tlb.RestartRsp:
 		return p.processTLBRestartRsp(now, req)
 	}
 
@@ -493,7 +493,7 @@ func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
 ) bool {
 	for i := 0; i < len(p.TLBs); i++ {
 		shootDownCmd := p.currShootdownRequest
-		req := tlb.TLBFlushReqBuilder{}.
+		req := tlb.FlushReqBuilder{}.
 			WithSendTime(now).
 			WithSrc(p.ToTLBs).
 			WithDst(p.TLBs[i]).
@@ -511,7 +511,7 @@ func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
 
 func (p *CommandProcessor) processTLBFlushRsp(
 	now sim.VTimeInSec,
-	rsp *tlb.TLBFlushRsp,
+	rsp *tlb.FlushRsp,
 ) bool {
 	p.numTLBAck--
 
@@ -596,7 +596,7 @@ func (p *CommandProcessor) processCacheRestartRsp(
 		for i := 0; i < len(p.TLBs); i++ {
 			p.numTLBAck++
 
-			req := tlb.TLBRestartReqBuilder{}.
+			req := tlb.RestartReqBuilder{}.
 				WithSendTime(now).
 				WithSrc(p.ToTLBs).
 				WithDst(p.TLBs[i]).
@@ -612,7 +612,7 @@ func (p *CommandProcessor) processCacheRestartRsp(
 
 func (p *CommandProcessor) processTLBRestartRsp(
 	now sim.VTimeInSec,
-	rsp *tlb.TLBRestartRsp,
+	rsp *tlb.RestartRsp,
 ) bool {
 	p.numTLBAck--
 

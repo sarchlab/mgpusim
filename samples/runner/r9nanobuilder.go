@@ -3,17 +3,18 @@ package runner
 import (
 	"fmt"
 
+	rob2 "gitlab.com/akita/mgpusim/v2/timing/rob"
+
 	"gitlab.com/akita/akita/v2/monitoring"
 	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache/writearound"
 	"gitlab.com/akita/mem/v2/cache/writeback"
+	"gitlab.com/akita/mem/v2/cache/writethrough"
 	"gitlab.com/akita/mem/v2/dram"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/mmu"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/rob"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
 	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
@@ -26,10 +27,11 @@ type R9NanoGPUBuilder struct {
 	engine                         sim.Engine
 	freq                           sim.Freq
 	memAddrOffset                  uint64
-	mmu                            *mmu.MMUImpl
+	mmu                            *mmu.MMU
 	numShaderArray                 int
 	numCUPerShaderArray            int
 	numMemoryBank                  int
+	dramSize                       uint64
 	l2CacheSize                    uint64
 	log2PageSize                   uint64
 	log2CacheLineSize              uint64
@@ -47,12 +49,12 @@ type R9NanoGPUBuilder struct {
 	gpuID                   uint64
 	cp                      *cp.CommandProcessor
 	cus                     []*cu.ComputeUnit
-	l1vReorderBuffers       []*rob.ReorderBuffer
-	l1iReorderBuffers       []*rob.ReorderBuffer
-	l1sReorderBuffers       []*rob.ReorderBuffer
+	l1vReorderBuffers       []*rob2.ReorderBuffer
+	l1iReorderBuffers       []*rob2.ReorderBuffer
+	l1sReorderBuffers       []*rob2.ReorderBuffer
 	l1vCaches               []*writearound.Cache
-	l1sCaches               []*l1v.Cache
-	l1iCaches               []*l1v.Cache
+	l1sCaches               []*writethrough.Cache
+	l1iCaches               []*writethrough.Cache
 	l2Caches                []*writeback.Cache
 	l1vAddrTrans            []*addresstranslator.AddressTranslator
 	l1sAddrTrans            []*addresstranslator.AddressTranslator
@@ -87,6 +89,7 @@ func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,
 		l2CacheSize:                    2 * mem.MB,
+		dramSize:                       4 * mem.GB,
 	}
 	return b
 }
@@ -113,7 +116,7 @@ func (b R9NanoGPUBuilder) WithMemAddrOffset(
 
 // WithMMU sets the MMU component that provides the address translation service
 // for the GPU.
-func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.MMUImpl) R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.MMU) R9NanoGPUBuilder {
 	b.mmu = mmu
 	return b
 }
@@ -194,6 +197,12 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 // split between memory banks.
 func (b R9NanoGPUBuilder) WithL2CacheSize(size uint64) R9NanoGPUBuilder {
 	b.l2CacheSize = size
+	return b
+}
+
+// WithDRAMSize sets the size of DRAMs in the GPU.
+func (b R9NanoGPUBuilder) WithDRAMSize(size uint64) R9NanoGPUBuilder {
+	b.dramSize = size
 	return b
 }
 
@@ -502,7 +511,11 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)
-		l2 := l2Builder.Build(cacheName)
+		l2 := l2Builder.WithInterleaving(
+			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
+			b.numMemoryBank,
+			i,
+		).Build(cacheName)
 		b.l2Caches = append(b.l2Caches, l2)
 		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
 
@@ -760,11 +773,12 @@ func (b *R9NanoGPUBuilder) buildCP() {
 }
 
 func (b *R9NanoGPUBuilder) buildL2TLB() {
+	numWays := 64
 	builder := tlb.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithNumWays(64).
-		WithNumSets(64).
+		WithNumWays(numWays).
+		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1024).
 		WithPageSize(1 << b.log2PageSize).
