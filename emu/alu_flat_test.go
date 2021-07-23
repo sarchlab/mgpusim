@@ -4,7 +4,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mem/v2/idealmemcontroller"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm"
 	"gitlab.com/akita/mgpusim/v2/insts"
@@ -20,7 +19,7 @@ var _ = Describe("ALU", func() {
 		alu           *ALUImpl
 		state         *mockInstState
 		storage       *mem.Storage
-		addrConverter *idealmemcontroller.InterleavingConverter
+		addrConverter *mem.InterleavingConverter
 		sAccessor     *storageAccessor
 	)
 
@@ -29,7 +28,7 @@ var _ = Describe("ALU", func() {
 		pageTable = NewMockPageTable(mockCtrl)
 
 		storage = mem.NewStorage(1 * mem.GB)
-		addrConverter = &idealmemcontroller.InterleavingConverter{
+		addrConverter = &mem.InterleavingConverter{
 			InterleavingSize:    1 * mem.GB,
 			TotalNumOfElements:  1,
 			CurrentElementIndex: 0,

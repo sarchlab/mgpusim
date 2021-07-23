@@ -28,17 +28,6 @@ unit_test:
     - go tool cover -func=cover.out > coverage.out
     - tail coverage.out
 
-cache_aceptance_test:
-  stage: acceptance_test
-  script:
-    - cd timing/caches/l1v/acceptancetest/valuetest
-    - go build
-    - ./valuetest
-    - cd ../../../../../
-    - cd timing/caches/writearound/acceptancetest/valuetest
-    - go build
-    - ./valuetest
-
 single_gpu_test:
   stage: acceptance_test
   tags:
@@ -91,10 +80,6 @@ multi_unified_gpu_unified_memory_test:
 deterministic_test:
   stage: acceptance_test
   script:
-    - cd timing/caches/l1v/acceptancetest/deterministictest
-    - go build
-    - ./deterministictest
-    - cd ../../../../../
     - cd tests/deterministic/memcopy
     - go build
     - ./memcopy

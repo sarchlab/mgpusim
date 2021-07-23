@@ -10,10 +10,10 @@ require (
 	github.com/rs/xid v1.2.1
 	github.com/tebeka/atexit v0.3.0
 	gitlab.com/akita/akita/v2 v2.0.1
-	gitlab.com/akita/dnn v0.5.2
-	gitlab.com/akita/mem/v2 v2.1.0
+	gitlab.com/akita/dnn v0.5.3
+	gitlab.com/akita/mem/v2 v2.3.0
 	gitlab.com/akita/noc/v2 v2.0.0
-	gitlab.com/akita/util/v2 v2.0.0
+	gitlab.com/akita/util/v2 v2.0.1
 	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670 // indirect
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
@@ -29,7 +29,7 @@ require (
 
 // replace gitlab.com/akita/mem/v2 => ../mem
 
-// replace gitlab.com/akita/util => ../util
+// replace gitlab.com/akita/util/v2 => ../util
 
 // replace gitlab.com/akita/dnn => ../dnn
 

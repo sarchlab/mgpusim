@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 
 	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/idealmemcontroller"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm"
 	"gitlab.com/akita/mgpusim/v2/insts"
@@ -421,7 +420,7 @@ func BuildComputeUnit(
 	pageTable vm.PageTable,
 	log2PageSize uint64,
 	storage *mem.Storage,
-	addrConverter idealmemcontroller.AddressConverter,
+	addrConverter mem.AddressConverter,
 ) *ComputeUnit {
 	scratchpadPreparer := NewScratchpadPreparerImpl()
 	sAccessor := newStorageAccessor(
