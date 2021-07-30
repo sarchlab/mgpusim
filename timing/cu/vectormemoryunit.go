@@ -1,7 +1,6 @@
 package cu
 
 import (
-	"fmt"
 	"log"
 
 	"gitlab.com/akita/akita/v2/sim"
@@ -180,10 +179,6 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 		u.cu.InFlightVectorMemAccess = append(u.cu.InFlightVectorMemAccess, t)
 		if i != len(transactions)-1 {
 			t.Read.CanWaitForCoalesce = true
-		}
-
-		if t.Read.Address > 70000 {
-			fmt.Printf("%d %d %d\n", t.Read.Address, t.Read.Address>>8, t.Read.Address>>16)
 		}
 
 		lowModule := u.cu.VectorMemModules.Find(t.Read.Address)
