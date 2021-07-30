@@ -105,15 +105,7 @@ func (h *ISADebugger) logWholeWf(
 			output += ","
 		}
 
-		registerFile := h.cu.SRegFile
-		regRead := RegisterAccess{}
-		regRead.Reg = insts.SReg(i)
-		regRead.RegCount = 1
-		regRead.WaveOffset = wf.SRegOffset
-		regRead.Data = make([]byte, 4)
-		registerFile.Read(regRead)
-
-		regValue := binary.LittleEndian.Uint32(regRead.Data)
+		regValue := h.getSRegValue(wf, i)
 		output += fmt.Sprintf("%d", regValue)
 	}
 	output += "]"
@@ -130,16 +122,7 @@ func (h *ISADebugger) logWholeWf(
 				output += ","
 			}
 
-			registerFile := h.cu.VRegFile[wf.SIMDID]
-			regRead := RegisterAccess{}
-			regRead.Reg = insts.VReg(i)
-			regRead.RegCount = 1
-			regRead.LaneID = laneID
-			regRead.WaveOffset = wf.VRegOffset
-			regRead.Data = make([]byte, 4)
-			registerFile.Read(regRead)
-
-			regValue := binary.LittleEndian.Uint32(regRead.Data)
+			regValue := h.getVRegValue(wf, i, laneID)
 			output += fmt.Sprintf("%d", regValue)
 		}
 
@@ -154,4 +137,37 @@ func (h *ISADebugger) logWholeWf(
 	output += fmt.Sprintf("}")
 
 	h.Logger.Print(output)
+}
+
+func (h *ISADebugger) getVRegValue(
+	wf *wavefront.Wavefront,
+	regIndex, laneID int,
+) uint32 {
+	registerFile := h.cu.VRegFile[wf.SIMDID]
+	regRead := RegisterAccess{}
+	regRead.Reg = insts.VReg(regIndex)
+	regRead.RegCount = 1
+	regRead.LaneID = laneID
+	regRead.WaveOffset = wf.VRegOffset
+	regRead.Data = make([]byte, 4)
+	registerFile.Read(regRead)
+
+	regValue := binary.LittleEndian.Uint32(regRead.Data)
+	return regValue
+}
+
+func (h *ISADebugger) getSRegValue(
+	wf *wavefront.Wavefront,
+	regIndex int,
+) uint32 {
+	registerFile := h.cu.SRegFile
+	regRead := RegisterAccess{}
+	regRead.Reg = insts.SReg(regIndex)
+	regRead.RegCount = 1
+	regRead.WaveOffset = wf.SRegOffset
+	regRead.Data = make([]byte, 4)
+	registerFile.Read(regRead)
+
+	regValue := binary.LittleEndian.Uint32(regRead.Data)
+	return regValue
 }
