@@ -1,119 +1,157 @@
 package cu
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 
+	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 	"gitlab.com/akita/util/v2/tracing"
 )
 
-// ISADebugger is a logger hook that can dump the wavefront status after each
-// instruction execution
+// ISADebugger is a hook that hooks to a emulator computeunit for each intruction
 type ISADebugger struct {
 	sim.LogHookBase
-	inflightInst map[string]tracing.Task
+
+	isFirstEntry  bool
+	cu            *ComputeUnit
+	executingInst map[string]tracing.Task
+	// prevWf *Wavefront
 }
 
-// NewISADebugger creates a new ISADebugger.
-func NewISADebugger(logger *log.Logger) *ISADebugger {
-	d := new(ISADebugger)
-	d.Logger = logger
-	d.inflightInst = make(map[string]tracing.Task)
-	return d
+// NewISADebugger returns a new ISADebugger that keeps instruction log in logger
+func NewISADebugger(logger *log.Logger, cu *ComputeUnit) *ISADebugger {
+	h := new(ISADebugger)
+	h.Logger = logger
+	h.isFirstEntry = true
+	h.cu = cu
+	h.executingInst = make(map[string]tracing.Task)
+
+	h.Logger.Print("[")
+	atexit.Register(func() { h.Logger.Print("\n]") })
+
+	return h
 }
 
-// Func defines the action that the ISADebugger takes
-func (d *ISADebugger) Func(
-	ctx sim.HookCtx,
-) {
-	task, ok := ctx.Item.(tracing.Task)
-	if !ok {
+// StartTask marks the start of an instruction.
+func (h *ISADebugger) StartTask(task tracing.Task) {
+	if task.Kind != "inst" {
 		return
 	}
-
-	if ctx.Pos == tracing.HookPosTaskStart && task.Kind == "inst" {
-		d.inflightInst[task.ID] = task
-		return
-	}
-
-	if ctx.Pos == tracing.HookPosTaskStep {
-		return
-	}
-
-	oringinalTask, ok := d.inflightInst[task.ID]
-	if !ok {
-		return
-		// panic("inst is not inflight")
-	}
-	delete(d.inflightInst, task.ID)
-
-	detail := oringinalTask.Detail.(map[string]interface{})
-	cu := ctx.Domain.(*ComputeUnit)
-	wf := detail["wf"].(*wavefront.Wavefront)
-	inst := detail["inst"].(*wavefront.Inst)
 
 	// For debugging
-	//if wf.FirstWiFlatID != 0 {
-	//	return
-	//}
+	detail := task.Detail.(map[string]interface{})
+	wf := detail["wf"].(*wavefront.Wavefront)
+	if wf.FirstWiFlatID != 0 {
+		return
+	}
 
-	output := fmt.Sprintf("\n\twg - (%d, %d, %d), wf - %d\n",
+	h.executingInst[task.ID] = task
+}
+
+// StepTask does nothing as of now.
+func (h *ISADebugger) StepTask(task tracing.Task) {
+	// Do nothing.
+}
+
+// EndTask marks the end of an instruction.
+func (h *ISADebugger) EndTask(task tracing.Task) {
+	originalTask, found := h.executingInst[task.ID]
+
+	if !found {
+		return
+	}
+
+	detail := originalTask.Detail.(map[string]interface{})
+	wf := detail["wf"].(*wavefront.Wavefront)
+	inst := detail["inst"].(*wavefront.Inst).Inst
+
+	if wf.WG.IDX == 75 && wf.WG.IDY == 1 {
+		h.logWholeWf(inst, wf)
+	}
+
+	delete(h.executingInst, task.ID)
+}
+
+func (h *ISADebugger) logWholeWf(
+	inst *insts.Inst,
+	wf *wavefront.Wavefront,
+) {
+	output := ""
+	if h.isFirstEntry {
+		h.isFirstEntry = false
+	} else {
+		output += ","
+	}
+
+	output += fmt.Sprintf("{")
+	output += fmt.Sprintf(`"wg":[%d,%d,%d],"wf":%d,`,
 		wf.WG.IDX, wf.WG.IDY, wf.WG.IDZ, wf.FirstWiFlatID)
-	output += fmt.Sprintf("\tInst: %s\n", inst.String(nil))
-	output += fmt.Sprintf("\tPC: 0x%016x\n", wf.PC)
-	output += fmt.Sprintf("\tEXEC: 0x%016x\n", wf.EXEC)
-	output += fmt.Sprintf("\tSCC: 0x%02x\n", wf.SCC)
-	output += fmt.Sprintf("\tVCC: 0x%016x\n", wf.VCC)
+	output += fmt.Sprintf(`"Inst":"%s",`, inst.String(nil))
+	output += fmt.Sprintf(`"PCLo":%d,`, wf.PC&0xffffffff)
+	output += fmt.Sprintf(`"PCHi":%d,`, wf.PC>>32)
+	output += fmt.Sprintf(`"EXECLo":%d,`, wf.EXEC&0xffffffff)
+	output += fmt.Sprintf(`"EXECHi":%d,`, wf.EXEC>>32)
+	output += fmt.Sprintf(`"VCCLo":%d,`, wf.VCC&0xffffffff)
+	output += fmt.Sprintf(`"VCCHi":%d,`, wf.VCC>>32)
+	output += fmt.Sprintf(`"SCC":%d,`, wf.SCC)
 
-	output += d.dumpSRegs(wf, cu)
-	output += d.dumpVRegs(wf, cu)
-
-	d.Logger.Print(output)
-}
-
-func (d *ISADebugger) dumpSRegs(
-	wf *wavefront.Wavefront,
-	cu *ComputeUnit,
-) string {
-	data := make([]byte, 4)
-	access := RegisterAccess{}
-	access.Data = data
-	access.RegCount = 1
-	access.WaveOffset = wf.SRegOffset
-	output := "\tSGPRs:\n"
+	output += fmt.Sprintf(`"SGPRs":[`)
 	for i := 0; i < int(wf.CodeObject.WFSgprCount); i++ {
-		access.Reg = insts.SReg(i)
-		cu.SRegFile.Read(access)
-		regValue := insts.BytesToUint32(data)
-		output += fmt.Sprintf("\t\ts%d: 0x%08x\n", i, regValue)
-	}
-	return output
-}
-
-func (d *ISADebugger) dumpVRegs(
-	wf *wavefront.Wavefront,
-	cu *ComputeUnit,
-) string {
-	simdID := wf.SIMDID
-	data := make([]byte, 4)
-	access := RegisterAccess{}
-	access.Data = data
-	access.RegCount = 1
-	access.WaveOffset = wf.VRegOffset
-	output := "\tVGPRs: \n"
-	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
-		output += fmt.Sprintf("\t\tv%d: ", i)
-		access.Reg = insts.VReg(i)
-		for laneID := 0; laneID < 64; laneID++ {
-			access.LaneID = laneID
-			cu.VRegFile[simdID].Read(access)
-			regValue := insts.BytesToUint32(data)
-			output += fmt.Sprintf("0x%08x ", regValue)
+		if i > 0 {
+			output += ","
 		}
-		output += fmt.Sprintf("\n")
+
+		registerFile := h.cu.SRegFile
+		regRead := RegisterAccess{}
+		regRead.Reg = insts.SReg(i)
+		regRead.RegCount = 1
+		regRead.WaveOffset = wf.SRegOffset
+		regRead.Data = make([]byte, 4)
+		registerFile.Read(regRead)
+
+		regValue := binary.LittleEndian.Uint32(regRead.Data)
+		output += fmt.Sprintf("%d", regValue)
 	}
-	return output
+	output += "]"
+
+	output += `,"VGPRs":[`
+	for i := 0; i < int(wf.CodeObject.WIVgprCount); i++ {
+		if i > 0 {
+			output += ","
+		}
+		output += "["
+
+		for laneID := 0; laneID < 64; laneID++ {
+			if laneID > 0 {
+				output += ","
+			}
+
+			registerFile := h.cu.VRegFile[wf.SIMDID]
+			regRead := RegisterAccess{}
+			regRead.Reg = insts.VReg(i)
+			regRead.RegCount = 1
+			regRead.LaneID = laneID
+			regRead.WaveOffset = wf.VRegOffset
+			regRead.Data = make([]byte, 4)
+			registerFile.Read(regRead)
+
+			regValue := binary.LittleEndian.Uint32(regRead.Data)
+			output += fmt.Sprintf("%d", regValue)
+		}
+
+		output += "]"
+	}
+	output += "]"
+
+	output += `,"LDS":""`
+
+	// output += fmt.Sprintf(`"%s"`, base64.StdEncoding.EncodeToString())
+
+	output += fmt.Sprintf("}")
+
+	h.Logger.Print(output)
 }

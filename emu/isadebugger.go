@@ -37,12 +37,15 @@ func (h *ISADebugger) Func(ctx sim.HookCtx) {
 		return
 	}
 
+	if wf.WG.IDX == 75 && wf.WG.IDY == 1 {
+		h.logWholeWf(wf)
+	}
+
 	// For debugging
 	// if wf.FirstWiFlatID != 0 {
 	// 	return
 	// }
 
-	h.logWholeWf(wf)
 	// if h.prevWf == nil || h.prevWf.FirstWiFlatID != wf.FirstWiFlatID {
 	// 	h.logWholeWf(wf)
 	// } else {
