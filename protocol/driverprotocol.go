@@ -7,20 +7,20 @@ import (
 	"gitlab.com/akita/util/v2/ca"
 )
 
-// FlushCommand requests the GPU to flush all the cache to the main memory
-type FlushCommand struct {
+// FlushReq requests the GPU to flush all the cache to the main memory
+type FlushReq struct {
 	sim.MsgMeta
 }
 
 // Meta returns the meta data associated with the message.
-func (m *FlushCommand) Meta() *sim.MsgMeta {
+func (m *FlushReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// NewFlushCommand Creates a new flush command, setting the request send time
+// NewFlushReq Creates a new flush command, setting the request send time
 // with time and the source and destination.
-func NewFlushCommand(time sim.VTimeInSec, src, dst sim.Port) *FlushCommand {
-	cmd := new(FlushCommand)
+func NewFlushReq(time sim.VTimeInSec, src, dst sim.Port) *FlushReq {
+	cmd := new(FlushReq)
 	cmd.ID = sim.GetIDGenerator().Generate()
 	cmd.SendTime = time
 	cmd.Src = src

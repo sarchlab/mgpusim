@@ -136,6 +136,13 @@ func (d *Driver) AllocateMemory(
 ) Ptr {
 	ptr := d.memAllocator.Allocate(ctx.pid, byteSize, ctx.currentGPUID)
 
+	ctx.buffers = append(ctx.buffers, &buffer{
+		vAddr:   Ptr(ptr),
+		size:    byteSize,
+		freed:   false,
+		l2Dirty: false,
+	})
+
 	// log.Printf("Allocate %d\n", ptr)
 	return Ptr(ptr)
 }
@@ -145,7 +152,16 @@ func (d *Driver) AllocateUnifiedMemory(
 	ctx *Context,
 	byteSize uint64,
 ) Ptr {
-	return Ptr(d.memAllocator.AllocateUnified(ctx.pid, byteSize))
+	ptr := Ptr(d.memAllocator.AllocateUnified(ctx.pid, byteSize))
+
+	ctx.buffers = append(ctx.buffers, &buffer{
+		vAddr:   ptr,
+		size:    byteSize,
+		freed:   false,
+		l2Dirty: false,
+	})
+
+	return ptr
 }
 
 // Remap keeps the virtual address unchanged and moves the physical address to
@@ -200,6 +216,13 @@ func unique(in []int) []int {
 func (d *Driver) FreeMemory(ctx *Context, ptr Ptr) error {
 	// log.Printf("Free %d\n", ptr)
 	d.memAllocator.Free(uint64(ptr))
+
+	for i, buffer := range ctx.buffers {
+		if buffer.vAddr == ptr {
+			ctx.buffers[i].freed = true
+		}
+	}
+
 	return nil
 }
 
@@ -209,7 +232,6 @@ func (d *Driver) EnqueueMemCopyH2D(
 	dst Ptr,
 	src interface{},
 ) {
-	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyH2DCommand{
 		ID:  sim.GetIDGenerator().Generate(),
 		Dst: dst,
@@ -225,7 +247,6 @@ func (d *Driver) EnqueueMemCopyD2H(
 	dst interface{},
 	src Ptr,
 ) {
-	d.enqueueFlushBeforeMemCopy(queue)
 	cmd := &MemCopyD2HCommand{
 		ID:  sim.GetIDGenerator().Generate(),
 		Dst: dst,
@@ -257,31 +278,6 @@ func (d *Driver) EnqueueMemCopyD2D(
 	kernelArgs := KernelMemCopyArgs{src, dst, int64(num)}
 
 	d.EnqueueLaunchKernel(queue, co, gridSize, wgSize, &kernelArgs)
-}
-
-func (d *Driver) enqueueFlushBeforeMemCopy(queue *CommandQueue) {
-	dirty := queue.Context.l2Dirty
-	queue.commandsMutex.Lock()
-	for _, cmd := range queue.commands {
-		switch cmd.(type) {
-		case *LaunchKernelCommand:
-			dirty = true
-		case *FlushCommand:
-			dirty = false
-		}
-	}
-	queue.commandsMutex.Unlock()
-
-	if dirty {
-		d.enqueueFinalFlush(queue)
-	}
-}
-
-func (d *Driver) enqueueFinalFlush(queue *CommandQueue) {
-	cmd := &FlushCommand{
-		ID: sim.GetIDGenerator().Generate(),
-	}
-	d.Enqueue(queue, cmd)
 }
 
 // MemCopyH2D copies a memory from the host to a GPU device.
