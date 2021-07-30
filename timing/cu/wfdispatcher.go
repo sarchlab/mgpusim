@@ -53,7 +53,7 @@ func (d *WfDispatcherImpl) setWfInfo(
 	wf.VRegOffset = location.VGPROffset
 	wf.LDSOffset = location.LDSOffset
 	wf.PC = wf.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
-	wf.EXEC = 0xffffffffffffffff
+	wf.EXEC = wf.InitExecMask
 }
 
 //nolint:gocyclo,funlen
