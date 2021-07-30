@@ -185,9 +185,6 @@ func (d *Driver) processReturnReq(now sim.VTimeInSec) bool {
 	case *protocol.LaunchKernelReq:
 		d.gpuPort.Retrieve(now)
 		return d.processLaunchKernelReturn(now, req)
-	case *protocol.FlushCommand:
-		d.gpuPort.Retrieve(now)
-		return d.processFlushReturn(now, req)
 	case *protocol.RDMADrainRspToDriver:
 		d.gpuPort.Retrieve(now)
 		return d.processRDMADrainRsp(now, req)
@@ -259,9 +256,6 @@ func (d *Driver) processOneCommand(
 	case *LaunchKernelCommand:
 		d.logCmdStart(cmd, now)
 		return d.processLaunchKernelCommand(now, cmd, cmdQueue)
-	case *FlushCommand:
-		d.logCmdStart(cmd, now)
-		return d.processFlushCommand(now, cmd, cmdQueue)
 	case *NoopCommand:
 		d.logCmdStart(cmd, now)
 		return d.processNoopCommand(now, cmd, cmdQueue)
@@ -351,6 +345,7 @@ func (d *Driver) processLaunchKernelCommand(
 	d.requestsToSend = append(d.requestsToSend, req)
 
 	queue.Context.l2Dirty = true
+	queue.Context.markAllBuffersDirty()
 
 	d.logTaskToGPUInitiate(now, cmd, req)
 
@@ -399,6 +394,7 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 		d.requestsToSend = append(d.requestsToSend, req)
 
 		queue.Context.l2Dirty = true
+		queue.Context.markAllBuffersDirty()
 
 		d.logTaskToGPUInitiate(now, cmd, req)
 	}
@@ -421,51 +417,6 @@ func (d *Driver) processLaunchKernelReturn(
 
 		d.logCmdComplete(cmd, now)
 	}
-
-	return true
-}
-
-func (d *Driver) processFlushCommand(
-	now sim.VTimeInSec,
-	cmd *FlushCommand,
-	queue *CommandQueue,
-) bool {
-	for _, gpu := range d.GPUs {
-		req := protocol.NewFlushCommand(now,
-			d.gpuPort, gpu)
-		d.requestsToSend = append(d.requestsToSend, req)
-		cmd.Reqs = append(cmd.Reqs, req)
-		d.logTaskToGPUInitiate(now, cmd, req)
-	}
-
-	queue.IsRunning = true
-
-	d.logCmdStart(cmd, now)
-
-	return true
-}
-
-func (d *Driver) processFlushReturn(
-	now sim.VTimeInSec,
-	req *protocol.FlushCommand,
-) bool {
-	d.logTaskToGPUClear(now, req)
-
-	cmd, cmdQueue := d.findCommandByReq(req)
-	flushCmd := cmd.(*FlushCommand)
-
-	flushCmd.RemoveReq(req)
-
-	if len(flushCmd.Reqs) > 0 {
-		return true
-	}
-
-	cmdQueue.IsRunning = false
-	cmdQueue.Dequeue()
-
-	cmdQueue.Context.l2Dirty = false
-
-	d.logCmdComplete(cmd, now)
 
 	return true
 }

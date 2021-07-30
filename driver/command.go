@@ -10,6 +10,7 @@ import (
 type Command interface {
 	GetID() string
 	GetReqs() []sim.Msg
+	AddReq(req sim.Msg)
 	RemoveReq(req sim.Msg)
 }
 
@@ -30,6 +31,11 @@ func (c *MemCopyH2DCommand) GetID() string {
 // GetReqs returns the requests associated with the command
 func (c *MemCopyH2DCommand) GetReqs() []sim.Msg {
 	return c.Reqs
+}
+
+// AddReq adds a request to the request list associated with the command
+func (c *MemCopyH2DCommand) AddReq(req sim.Msg) {
+	c.Reqs = append(c.Reqs, req)
 }
 
 // RemoveReq removes a request from the request list associated with the
@@ -56,6 +62,11 @@ func (c *MemCopyD2HCommand) GetID() string {
 // GetReqs returns the request associated with the command
 func (c *MemCopyD2HCommand) GetReqs() []sim.Msg {
 	return c.Reqs
+}
+
+// AddReq adds a request to the request list associated with the command
+func (c *MemCopyD2HCommand) AddReq(req sim.Msg) {
+	c.Reqs = append(c.Reqs, req)
 }
 
 // RemoveReq removes a request from the request list associated with the
@@ -87,6 +98,11 @@ func (c *LaunchKernelCommand) GetReqs() []sim.Msg {
 	return c.Reqs
 }
 
+// AddReq adds a request to the request list associated with the command
+func (c *LaunchKernelCommand) AddReq(req sim.Msg) {
+	c.Reqs = append(c.Reqs, req)
+}
+
 // RemoveReq removes a request from the request list associated with the
 // command.
 func (c *LaunchKernelCommand) RemoveReq(req sim.Msg) {
@@ -107,6 +123,11 @@ func (c *FlushCommand) GetID() string {
 // GetReqs returns the request associated with the command
 func (c *FlushCommand) GetReqs() []sim.Msg {
 	return c.Reqs
+}
+
+// AddReq adds a request to the request list associated with the command
+func (c *FlushCommand) AddReq(req sim.Msg) {
+	c.Reqs = append(c.Reqs, req)
 }
 
 // RemoveReq removes a request from the request list associated with the
@@ -131,6 +152,11 @@ func (c *NoopCommand) GetReqs() []sim.Msg {
 	return nil
 }
 
+// AddReq adds a request to the request list associated with the command
+func (c *NoopCommand) AddReq(req sim.Msg) {
+	// No action
+}
+
 // RemoveReq removes a request from the request list associated with the
 // command.
 func (c *NoopCommand) RemoveReq(req sim.Msg) {
@@ -138,11 +164,11 @@ func (c *NoopCommand) RemoveReq(req sim.Msg) {
 }
 
 func removeMsgFromMsgList(msg sim.Msg, msgs []sim.Msg) []sim.Msg {
-	newMsgs := make([]sim.Msg, 0, len(msgs)-1)
-	for _, m := range msgs {
-		if m != msg {
-			newMsgs = append(newMsgs, m)
+	for i, m := range msgs {
+		if m == msg {
+			return append(msgs[:i], msgs[i+1:]...)
 		}
 	}
-	return newMsgs
+
+	panic("not found")
 }

@@ -3,6 +3,7 @@ package driver
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mgpusim/v2/protocol"
@@ -34,6 +35,10 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 	cmd *MemCopyH2DCommand,
 	queue *CommandQueue,
 ) bool {
+	if m.needFlushing(queue.Context, cmd.Dst, uint64(binary.Size(cmd.Src))) {
+		m.sendFlushRequest(now, cmd)
+	}
+
 	buffer := bytes.NewBuffer(nil)
 	err := binary.Write(buffer, binary.LittleEndian, cmd.Src)
 	if err != nil {
@@ -82,6 +87,11 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
 ) bool {
+	if m.needFlushing(queue.Context, cmd.Src, uint64(binary.Size(cmd.Dst))) {
+		m.sendFlushRequest(now, cmd)
+		queue.Context.removeFreedBuffers()
+	}
+
 	cmd.RawData = make([]byte, binary.Size(cmd.Dst))
 
 	offset := uint64(0)
@@ -118,6 +128,54 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 	return true
 }
 
+func (m *defaultMemoryCopyMiddleware) needFlushing(
+	ctx *Context,
+	vAddr Ptr,
+	size uint64,
+) bool {
+	startAddr := uint64(vAddr)
+	endAddr := uint64(vAddr) + size
+	for _, buf := range ctx.buffers {
+		bufStartAddr := uint64(buf.vAddr)
+		bufEndAddr := uint64(buf.vAddr) + buf.size
+		if memRangeOverlap(bufStartAddr, bufEndAddr, startAddr, endAddr) {
+			if buf.l2Dirty {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func memRangeOverlap(
+	start1, end1, start2, end2 uint64,
+) bool {
+	if start1 <= start2 && end1 >= start2 {
+		return true
+	}
+
+	if start1 <= end2 && end1 >= end2 {
+		return true
+	}
+
+	return false
+}
+
+func (m *defaultMemoryCopyMiddleware) sendFlushRequest(
+	now sim.VTimeInSec,
+	cmd Command,
+) {
+	fmt.Println("Flushed")
+	for _, gpu := range m.driver.GPUs {
+		req := protocol.NewFlushReq(now, m.driver.gpuPort, gpu)
+		m.driver.requestsToSend = append(m.driver.requestsToSend, req)
+		cmd.AddReq(req)
+
+		m.driver.logTaskToGPUInitiate(now, cmd, req)
+	}
+}
+
 func (m *defaultMemoryCopyMiddleware) Tick(
 	now sim.VTimeInSec,
 ) (madeProgress bool) {
@@ -127,6 +185,8 @@ func (m *defaultMemoryCopyMiddleware) Tick(
 	}
 
 	switch req := req.(type) {
+	case *protocol.FlushReq:
+		return m.processFlushReturn(now, req)
 	case *protocol.MemCopyH2DReq:
 		return m.processMemCopyH2DReturn(now, req)
 	case *protocol.MemCopyD2HReq:
@@ -176,13 +236,7 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
 	cmd, cmdQueue := m.driver.findCommandByReq(req)
 
 	copyCmd := cmd.(*MemCopyD2HCommand)
-	newReqs := make([]sim.Msg, 0, len(copyCmd.Reqs)-1)
-	for _, r := range copyCmd.GetReqs() {
-		if r != req {
-			newReqs = append(newReqs, r)
-		}
-	}
-	copyCmd.Reqs = newReqs
+	copyCmd.RemoveReq(req)
 
 	if len(copyCmd.Reqs) == 0 {
 		cmdQueue.IsRunning = false
@@ -196,6 +250,23 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
 
 		m.driver.logCmdComplete(copyCmd, now)
 	}
+
+	return true
+}
+
+func (m *defaultMemoryCopyMiddleware) processFlushReturn(
+	now sim.VTimeInSec,
+	req *protocol.FlushReq,
+) bool {
+	m.driver.gpuPort.Retrieve(now)
+
+	m.driver.logTaskToGPUClear(now, req)
+
+	cmd, _ := m.driver.findCommandByReq(req)
+
+	cmd.RemoveReq(req)
+
+	m.driver.logTaskToGPUClear(now, req)
 
 	return true
 }
