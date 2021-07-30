@@ -350,52 +350,6 @@ var _ = ginkgo.Describe("Driver", func() {
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.commands).To(HaveLen(0))
 	})
-
-	ginkgo.Context("process FlushCommand", func() {
-		ginkgo.It("should send request to GPU", func() {
-			cmd := &FlushCommand{}
-			cmdQueue.Enqueue(cmd)
-			cmdQueue.IsRunning = false
-
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
-
-			engine.EXPECT().Schedule(
-				gomock.AssignableToTypeOf(sim.TickEvent{}))
-
-			driver.Handle(sim.MakeTickEvent(11, nil))
-
-			Expect(cmdQueue.IsRunning).To(BeTrue())
-			Expect(cmd.Reqs).To(HaveLen(2))
-			Expect(driver.requestsToSend).To(HaveLen(2))
-		})
-	})
-
-	ginkgo.It("should process Flush return", func() {
-		req := protocol.NewFlushCommand(9, toGPUs, nil)
-		cmd := &FlushCommand{
-			Reqs: []sim.Msg{req},
-		}
-		cmdQueue.Enqueue(cmd)
-
-		cmdQueue.IsRunning = true
-
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().
-			Retrieve(sim.VTimeInSec(11)).
-			Return(req)
-
-		toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
-
-		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
-
-		driver.Handle(sim.MakeTickEvent(11, nil))
-
-		Expect(cmdQueue.IsRunning).To(BeFalse())
-		Expect(cmdQueue.commands).To(HaveLen(0))
-	})
-
 	ginkgo.It("should handle page migration req from MMU ", func() {
 		req := vm.NewPageMigrationReqToDriver(10, nil, driver.mmuPort)
 		toMMU.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)

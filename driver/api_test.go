@@ -66,10 +66,34 @@ var _ = ginkgo.Describe("Driver async API execution", func() {
 		Expect(q.commands).To(HaveLen(0))
 	})
 
-	ginkgo.Measure("Memory allocation", func(b ginkgo.Benchmarker) {
+	ginkgo.It("should allocate memory", func() {
 		context := driver.Init()
-		b.Time("runtime", func() {
-			driver.AllocateMemory(context, 400*mem.MB)
-		})
-	}, 10)
+
+		ptr := driver.AllocateMemory(context, 1*mem.MB)
+
+		Expect(context.buffers).To(HaveLen(1))
+		Expect(context.buffers[0].size).To(Equal(1 * mem.MB))
+		Expect(context.buffers[0].vAddr).To(Equal(ptr))
+		Expect(context.buffers[0].freed).To(BeFalse())
+		Expect(context.buffers[0].l2Dirty).To(BeFalse())
+	})
+
+	ginkgo.It("should allocate unified memory", func() {
+		context := driver.Init()
+
+		ptr := driver.AllocateUnifiedMemory(context, 1*mem.MB)
+
+		Expect(context.buffers).To(HaveLen(1))
+		Expect(context.buffers[0].size).To(Equal(1 * mem.MB))
+		Expect(context.buffers[0].vAddr).To(Equal(ptr))
+		Expect(context.buffers[0].freed).To(BeFalse())
+		Expect(context.buffers[0].l2Dirty).To(BeFalse())
+	})
+
+	// ginkgo.Measure("Memory allocation", func(b ginkgo.Benchmarker) {
+	// 	context := driver.Init()
+	// 	b.Time("runtime", func() {
+	// 		driver.AllocateMemory(context, 400*mem.MB)
+	// 	})
+	// }, 10)
 })

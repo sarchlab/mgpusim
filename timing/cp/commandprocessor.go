@@ -53,7 +53,7 @@ type CommandProcessor struct {
 	toPMCSender                akitaext.BufferedSender
 
 	currShootdownRequest *protocol.ShootDownCommand
-	currFlushRequest     *protocol.FlushCommand
+	currFlushRequest     *protocol.FlushReq
 
 	numTLBs                      uint64
 	numCUAck                     uint64
@@ -147,8 +147,8 @@ func (p *CommandProcessor) processReqFromDriver(now sim.VTimeInSec) bool {
 	switch req := msg.(type) {
 	case *protocol.LaunchKernelReq:
 		return p.processLaunchKernelReq(now, req)
-	case *protocol.FlushCommand:
-		return p.processFlushCommand(now, req)
+	case *protocol.FlushReq:
+		return p.processFlushReq(now, req)
 	case *protocol.MemCopyD2HReq, *protocol.MemCopyH2DReq:
 		return p.processMemCopyReq(now, req)
 	case *protocol.RDMADrainCmdFromDriver:
@@ -461,6 +461,8 @@ func (p *CommandProcessor) processCacheFlushRsp(
 	rsp *cache.FlushRsp,
 ) bool {
 	p.numCacheACK--
+	p.ToCaches.Retrieve(now)
+
 	if p.numCacheACK == 0 {
 		if p.shootDownInProcess {
 			return p.processCacheFlushCausedByTLBShootdown(now, rsp)
@@ -468,7 +470,6 @@ func (p *CommandProcessor) processCacheFlushRsp(
 		return p.processRegularCacheFlush(now, rsp)
 	}
 
-	p.ToCaches.Retrieve(now)
 	return true
 }
 
@@ -482,7 +483,8 @@ func (p *CommandProcessor) processRegularCacheFlush(
 
 	p.toDriverSender.Send(p.currFlushRequest)
 
-	p.ToCaches.Retrieve(now)
+	tracing.TraceReqComplete(p.currFlushRequest, now, p)
+	p.currFlushRequest = nil
 
 	return true
 }
@@ -491,6 +493,8 @@ func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
 	now sim.VTimeInSec,
 	flushRsp *cache.FlushRsp,
 ) bool {
+	p.currFlushRequest = nil
+
 	for i := 0; i < len(p.TLBs); i++ {
 		shootDownCmd := p.currShootdownRequest
 		req := tlb.FlushReqBuilder{}.
@@ -505,7 +509,6 @@ func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
 		p.numTLBAck++
 	}
 
-	p.ToCaches.Retrieve(now)
 	return true
 }
 
@@ -710,9 +713,9 @@ func (p *CommandProcessor) processPageMigrationRsp(
 	return true
 }
 
-func (p *CommandProcessor) processFlushCommand(
+func (p *CommandProcessor) processFlushReq(
 	now sim.VTimeInSec,
-	cmd *protocol.FlushCommand,
+	req *protocol.FlushReq,
 ) bool {
 	if p.numCacheACK > 0 {
 		return false
@@ -734,7 +737,7 @@ func (p *CommandProcessor) processFlushCommand(
 		p.flushCache(now, port)
 	}
 
-	p.currFlushRequest = cmd
+	p.currFlushRequest = req
 	if p.numCacheACK == 0 {
 		p.currFlushRequest.Src, p.currFlushRequest.Dst =
 			p.currFlushRequest.Dst, p.currFlushRequest.Src
@@ -743,6 +746,8 @@ func (p *CommandProcessor) processFlushCommand(
 	}
 
 	p.ToDriver.Retrieve(now)
+
+	tracing.TraceReqReceive(req, now, p)
 
 	return true
 }
@@ -779,6 +784,10 @@ func (p *CommandProcessor) processMemCopyReq(
 	now sim.VTimeInSec,
 	req sim.Msg,
 ) bool {
+	if p.numCacheACK > 0 {
+		return false
+	}
+
 	var cloned sim.Msg
 	switch req := req.(type) {
 	case *protocol.MemCopyH2DReq:
