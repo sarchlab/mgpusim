@@ -170,7 +170,7 @@ func (o *GPUOperator) loadKernels() {
 	loadKernel(&o.reluForwardKernel, operatorKernelBytes, "reluForward")
 	loadKernel(&o.reluBackwardKernel, operatorKernelBytes, "reluBackward")
 	loadKernel(&o.repeatKernel, repeatKernelBytes, "repeat")
-	loadKernel(&o.im2ColKernel, im2ColKernelBytes, "im2col")
+	loadKernel(&o.im2ColKernel, im2ColKernelBytes, "im2col_2d")
 	loadKernel(&o.maxPoolingForwardKernel, maxPoolingKernelBytes, "MaxPoolForward")
 	loadKernel(&o.maxPoolingBackwardKernel, maxPoolingKernelBytes, "MaxPoolBackward")
 	loadKernel(&o.avgPoolingForwardKernel, avgPoolingKernelBytes, "AvgPoolForward")
@@ -878,16 +878,13 @@ func (o *GPUOperator) Im2Col(
 		Channel:  uint32(inputSize[1]),
 		Batch:    uint32(inputSize[0]),
 	}
-	gridSize := fieldWidth * fieldHeight * inputSize[0]
-	fmt.Printf("Im2Col Grid Size %d, output size (%d, %d)\n",
-		gridSize, outHeight, outWidth)
 
 	o.timerStart()
 	o.driver.LaunchKernel(
 		o.ctx,
 		o.im2ColKernel,
-		[3]uint32{uint32(gridSize), 1, 1},
-		[3]uint16{uint16(64), 1, 1},
+		[3]uint32{uint32(outWidth), uint32(outHeight), 1},
+		[3]uint16{uint16(16), uint16(16), 1},
 		&kernArg,
 	)
 	o.timerEnd("Im2Col")
