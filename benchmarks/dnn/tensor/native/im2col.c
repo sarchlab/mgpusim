@@ -34,11 +34,11 @@ void print_matrix(float *m, int h, int w) {
 
 int main(int argc, char *argv[]) {
   // Dims
-  int batch = 1;
-  int input_channel = 1;
-  int input_height = 3;
-  int input_width = 3;
-  int output_channel = 1;
+  int batch = 128;
+  int input_channel = 16;
+  int input_height = 32;
+  int input_width = 32;
+  int output_channel = 64;
   int kernel_height = 3;
   int kernel_width = 3;
   int stride_x = 1;
@@ -108,14 +108,9 @@ int main(int argc, char *argv[]) {
   cl_program program;         // program
   cl_kernel kernel;           // kernel
 
-  size_t globalSize, localSize;
+  size_t globalSize[] = {im2col_size[1], im2col_size[0]};
+  size_t localSize[] = {16, 16};
   cl_int err;
-
-  // Number of work items in each local work group
-  localSize = 64;
-
-  // Number of total work items
-  globalSize = field_width * field_height * batch;
 
   // Bind to platform
   err = clGetPlatformIDs(1, &cpPlatform, NULL);
@@ -178,7 +173,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Create the compute kernel in the program we wish to run
-  kernel = clCreateKernel(program, "im2col", &err);
+  kernel = clCreateKernel(program, "im2col_2d", &err);
   if (err != CL_SUCCESS) {
     printf("fail to create kernel, %d\n", err);
     exit(1);
@@ -233,8 +228,8 @@ int main(int argc, char *argv[]) {
   err |= clSetKernelArg(kernel, 8, sizeof(cl_uint), &batch);
 
   // Execute the kernel over the entire range of the data set
-  err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize,
-                               0, NULL, NULL);
+  err = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, globalSize, localSize, 0,
+                               NULL, NULL);
   if (err != CL_SUCCESS) {
     printf("fail to enqueue ND Range Kernel");
     exit(1);
@@ -260,38 +255,24 @@ int main(int argc, char *argv[]) {
   // Run im2col on CPU
   float *im2col_cpu = malloc(im2col_size[0] * im2col_size[1] * sizeof(float));
   for (int i = 0; i < im2col_size[0] * im2col_size[1]; i++) {
-    printf("\ni=%d\n", i);
-
     int out_x = i % im2col_size[1];
     int out_y = i / im2col_size[1];
-
-    printf("\tout_y=%d, out_x=%d\n", out_y, out_x);
 
     int batch_id = out_x / (field_width * field_height);
     int block_id = out_x % (field_width * field_height);
     int block_x = block_id % field_width;
     int block_y = block_id / field_width;
 
-    printf("\tbatch_id=%d, block_id=%d, block_x=%d, block_y=%d\n", batch_id,
-           block_id, block_x, block_y);
-
     int channel_id = out_y / (kernel_height * kernel_width);
     int local_in_y = out_y % (kernel_height * kernel_width) / kernel_width;
     int local_in_x = out_y % (kernel_height * kernel_width) % kernel_width;
 
-    printf("\tchannel_id=%d, local_in_y=%d, local_in_x=%d\n", channel_id,
-           local_in_y, local_in_x);
-
     int in_y = block_y * stride_y - pad_y + dilate_y * local_in_y;
     int in_x = block_x * stride_x - pad_x + dilate_x * local_in_x;
-
-    printf("\tin_y=%d, in_x=%d\n", in_y, in_x);
 
     int in_index = batch_id * input_channel * input_height * input_width +
                    channel_id * input_height * input_width +
                    in_y * input_width + in_x;
-
-    printf("\tin_index=%d\n", in_index);
 
     if (in_y < 0 || in_y >= input_height || in_x < 0 || in_x >= input_width) {
       im2col_cpu[i] = 0;
@@ -301,10 +282,10 @@ int main(int argc, char *argv[]) {
   }
 
   // Dump CPU & GPU results
-  printf("CPU\n");
-  print_matrix(im2col_cpu, im2col_size[0], im2col_size[1]);
-  printf("\nGPU\n");
-  print_matrix(h_im2col, im2col_size[0], im2col_size[1]);
+  // printf("CPU\n");
+  // print_matrix(im2col_cpu, im2col_size[0], im2col_size[1]);
+  // printf("\nGPU\n");
+  // print_matrix(h_im2col, im2col_size[0], im2col_size[1]);
 
   // CPU GPU results must match
   for (int i = 0; i < im2col_size[0] * im2col_size[1]; i++) {
