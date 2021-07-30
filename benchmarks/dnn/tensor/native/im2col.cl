@@ -1,5 +1,5 @@
 
-__kernel void im2col(__global float* input, __global float* output,
+__kernel void im2col(__global float *input, __global float *output,
                      const uint2 inputDimensions, const uint2 maskDimensions,
                      const uint2 stride, const uint2 pad, const uint2 dilation,
                      const uint channel, const uint batch) {
@@ -29,7 +29,8 @@ __kernel void im2col(__global float* input, __global float* output,
   int block_x = block_id % fieldWidth;
   int block_y = block_id / fieldWidth;
 
-  if (batch_id >= batch) return;
+  if (batch_id >= batch)
+    return;
 
   for (int i = 0; i < outHeight; i++) {
     int channel_id = i / mask_size;

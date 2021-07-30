@@ -22,45 +22,80 @@ char *read_file(const char *filename) {
   return buffer;
 }
 
-int main(int argc, char *argv[]) {
-  // Length of vectors
-  unsigned int input_size[4] = {2, 3, 3, 3};
-  unsigned int kernel_size[4] = {1, 3, 3, 3};
-  unsigned int stride[2] = {1, 1};
-  unsigned int pad[2] = {1, 1};
-  unsigned int dilate[2] = {1, 1};
-  unsigned int channel = 3;
-  unsigned int batch = 2;
-  unsigned int num_kernel = 1;
+void print_matrix(float *m, int h, int w) {
+  int i, j;
+  for (i = 0; i < h; ++i) {
+    for (j = 0; j < w; ++j) {
+      printf("%f ", m[i * w + j]);
+    }
+    printf("\n");
+  }
+}
 
-  unsigned int input_width = input_size[3];
-  unsigned int input_height = input_size[2];
-  unsigned int kernel_width = kernel_size[3];
-  unsigned int kernel_height = kernel_size[2];
+int main(int argc, char *argv[]) {
+  // Dims
+  int batch = 1;
+  int input_channel = 1;
+  int input_height = 3;
+  int input_width = 3;
+  int output_channel = 1;
+  int kernel_height = 3;
+  int kernel_width = 3;
+  int stride_x = 1;
+  int stride_y = 1;
+  int pad_x = 1;
+  int pad_y = 1;
+  int dilate_x = 1;
+  int dilate_y = 1;
+
+  // Length of vectors
+  unsigned int input_size[4] = {batch, input_channel, input_height,
+                                input_width};
+  unsigned int input_element =
+      input_height * input_width * input_channel * batch;
+
+  unsigned int kernel_size[4] = {output_channel, input_channel, kernel_height,
+                                 kernel_width};
+  unsigned int kernel_element =
+      kernel_height * kernel_width * input_channel * output_channel;
+
+  unsigned int stride[2] = {stride_x, stride_y};
+  unsigned int pad[2] = {pad_x, pad_y};
+  unsigned int dilate[2] = {dilate_x, dilate_y};
 
   unsigned int eff_kernel_height = (kernel_height - 1) * dilate[0] + 1;
   unsigned int eff_kernel_width = (kernel_width - 1) * dilate[1] + 1;
 
   unsigned int field_height =
-      (input_height - eff_kernel_height + 2*pad[0]) / stride[0] + 1;
+      (input_height - eff_kernel_height + 2 * pad[0]) / stride[0] + 1;
   unsigned int field_width =
-      (input_width - eff_kernel_width + 2*pad[1]) / stride[1] + 1;
+      (input_width - eff_kernel_width + 2 * pad[1]) / stride[1] + 1;
 
-  unsigned int output_size[4] = {batch, num_kernel, field_height,
+  unsigned int output_size[4] = {batch, output_channel, field_height,
                                  field_width};
 
-  unsigned int im2col_size[2] = {kernel_width * kernel_height * channel,
+  unsigned int im2col_size[2] = {kernel_width * kernel_height * input_channel,
                                  field_width * field_height * batch};
 
-  float h_input[] = {
-      111, 111, 111, 112, 112, 122, 113, 113, 113, 121, 121, 121, 122, 122,
-      122, 123, 123, 123, 131, 131, 131, 132, 132, 132, 133, 133, 133, 211,
-      211, 211, 212, 212, 222, 213, 213, 213, 221, 221, 221, 222, 222, 222,
-      223, 223, 223, 231, 231, 231, 232, 232, 232, 233, 233, 233,
-  };
+  // Allocate input
+  float *h_input = (float *)malloc(input_element * sizeof(float));
+
+  // Random input
+  for (int i = 0; i < input_element; i++) {
+    // h_input[i] = (float)rand() / (float)RAND_MAX;
+    h_input[i] = i;
+  }
+
   float *h_im2col =
       (float *)malloc(im2col_size[0] * im2col_size[1] * sizeof(float));
-  float h_kernel[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+  // Allocate kernel
+  float *h_kernel = (float *)malloc(kernel_element * sizeof(float));
+
+  // Random kernel
+  for (int i = 0; i < kernel_element; i++) {
+    h_kernel[i] = (float)rand() / (float)RAND_MAX;
+  }
 
   // Device input buffers
   cl_mem d_input;
@@ -111,7 +146,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Create the compute program from the source buffer
-  char *kernelSource = read_file("operator.cl");
+  char *kernelSource = read_file("im2col.cl");
   program = clCreateProgramWithSource(context, 1, (const char **)&kernelSource,
                                       NULL, &err);
   if (err != CL_SUCCESS) {
@@ -145,20 +180,21 @@ int main(int argc, char *argv[]) {
   // Create the compute kernel in the program we wish to run
   kernel = clCreateKernel(program, "im2col", &err);
   if (err != CL_SUCCESS) {
-    printf("fail to create kernel");
+    printf("fail to create kernel, %d\n", err);
     exit(1);
   }
 
   // Create the input and output arrays in device memory for our calculation
-  d_input =
-      clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(h_input), NULL, NULL);
+  d_input = clCreateBuffer(context, CL_MEM_READ_ONLY,
+                           input_element * sizeof(float), NULL, NULL);
   d_im2col = clCreateBuffer(context, CL_MEM_READ_ONLY,
                             im2col_size[0] * im2col_size[1] * sizeof(float),
                             NULL, NULL);
 
   // Write our data set into the input array in device memory
-  err = clEnqueueWriteBuffer(queue, d_input, CL_TRUE, 0, sizeof(h_input),
-                             h_input, 0, NULL, NULL);
+  err = clEnqueueWriteBuffer(queue, d_input, CL_TRUE, 0,
+                             input_element * sizeof(float), h_input, 0, NULL,
+                             NULL);
   if (err != CL_SUCCESS) {
     printf("fail to enqueue write buffer");
     exit(1);
@@ -193,7 +229,7 @@ int main(int argc, char *argv[]) {
   dilate_dimensions.y = dilate[0];
   err |= clSetKernelArg(kernel, 6, sizeof(cl_uint2), &dilate_dimensions);
 
-  err |= clSetKernelArg(kernel, 7, sizeof(cl_uint), &channel);
+  err |= clSetKernelArg(kernel, 7, sizeof(cl_uint), &input_channel);
   err |= clSetKernelArg(kernel, 8, sizeof(cl_uint), &batch);
 
   // Execute the kernel over the entire range of the data set
@@ -221,12 +257,64 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  printf("\n\nim2col out:\n");
-  for (int r = 0; r < im2col_size[0]; r++) {
-    for (int c = 0; c < im2col_size[1]; c++) {
-      printf("%.2f ", h_im2col[r * im2col_size[1] + c]);
+  // Run im2col on CPU
+  float *im2col_cpu = malloc(im2col_size[0] * im2col_size[1] * sizeof(float));
+  for (int i = 0; i < im2col_size[0] * im2col_size[1]; i++) {
+    printf("\ni=%d\n", i);
+
+    int out_x = i % im2col_size[1];
+    int out_y = i / im2col_size[1];
+
+    printf("\tout_y=%d, out_x=%d\n", out_y, out_x);
+
+    int batch_id = out_x / (field_width * field_height);
+    int block_id = out_x % (field_width * field_height);
+    int block_x = block_id % field_width;
+    int block_y = block_id / field_width;
+
+    printf("\tbatch_id=%d, block_id=%d, block_x=%d, block_y=%d\n", batch_id,
+           block_id, block_x, block_y);
+
+    int channel_id = out_y / (kernel_height * kernel_width);
+    int local_in_y = out_y % (kernel_height * kernel_width) / kernel_width;
+    int local_in_x = out_y % (kernel_height * kernel_width) % kernel_width;
+
+    printf("\tchannel_id=%d, local_in_y=%d, local_in_x=%d\n", channel_id,
+           local_in_y, local_in_x);
+
+    int in_y = block_y * stride_y - pad_y + dilate_y * local_in_y;
+    int in_x = block_x * stride_x - pad_x + dilate_x * local_in_x;
+
+    printf("\tin_y=%d, in_x=%d\n", in_y, in_x);
+
+    int in_index = batch_id * input_channel * input_height * input_width +
+                   channel_id * input_height * input_width +
+                   in_y * input_width + in_x;
+
+    printf("\tin_index=%d\n", in_index);
+
+    if (in_y < 0 || in_y >= input_height || in_x < 0 || in_x >= input_width) {
+      im2col_cpu[i] = 0;
+    } else {
+      im2col_cpu[i] = h_input[in_index];
     }
-    printf("\n");
+  }
+
+  // Dump CPU & GPU results
+  printf("CPU\n");
+  print_matrix(im2col_cpu, im2col_size[0], im2col_size[1]);
+  printf("\nGPU\n");
+  print_matrix(h_im2col, im2col_size[0], im2col_size[1]);
+
+  // CPU GPU results must match
+  for (int i = 0; i < im2col_size[0] * im2col_size[1]; i++) {
+    if (fabs(h_im2col[i] - im2col_cpu[i]) > 1e-5) {
+      printf("im2col CPU - GPU mismatch\n");
+      printf("i: %d\n", i);
+      printf("GPU: %f\n", h_im2col[i]);
+      printf("CPU: %f\n", im2col_cpu[i]);
+      // exit(1);
+    }
   }
 
   // release OpenCL resources
@@ -239,6 +327,7 @@ int main(int argc, char *argv[]) {
 
   // release host memory
   free(h_im2col);
+  free(h_input);
 
   return 0;
 }
