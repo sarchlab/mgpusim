@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"fmt"
 	"log"
 
 	"gitlab.com/akita/akita/v2/sim"
@@ -142,6 +143,10 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now sim.VTimeInSec) bool {
 	for bytesLeft > 0 {
 		bytesLeftInCacheline := u.byteInCacheline(curr, bytesLeft)
 		bytesLeft -= bytesLeftInCacheline
+
+		if curr > 70000 {
+			fmt.Printf("curr: %d, bytesLeft: %d, bytesLeftInCacheline: %d\n", curr, bytesLeft, bytesLeftInCacheline)
+		}
 
 		req := mem.ReadReqBuilder{}.
 			WithSendTime(now).
