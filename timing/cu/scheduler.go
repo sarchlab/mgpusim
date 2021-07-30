@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"fmt"
 	"log"
 
 	"gitlab.com/akita/akita/v2/sim"
@@ -129,6 +130,9 @@ func (s *SchedulerImpl) DoFetch(now sim.VTimeInSec) bool {
 		}
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
+		if addr > 70000 {
+			fmt.Println("Fetching instruction at", addr)
+		}
 		req := mem.ReadReqBuilder{}.
 			WithSendTime(now).
 			WithSrc(s.cu.ToInstMem).
