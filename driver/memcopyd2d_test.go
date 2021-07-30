@@ -7,14 +7,13 @@ import (
 	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )
 
-var _ = ginkgo.Describe("Test Memory Copy D2", func() {
+var _ = ginkgo.Describe("Test Memory Copy D2D", func() {
 	var (
 		gpuDriver *driver.Driver
 		context   *driver.Context
 	)
 
 	ginkgo.BeforeEach(func() {
-
 		platform := runner.MakeEmuBuilder().
 			WithNumGPU(1).
 			Build()
