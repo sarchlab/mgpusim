@@ -879,6 +879,9 @@ func (o *GPUOperator) Im2Col(
 		Batch:    uint32(inputSize[0]),
 	}
 
+	fmt.Printf("Im2Col output size (%d, %d)\n",
+		outHeight, outWidth)
+
 	o.timerStart()
 	o.driver.LaunchKernel(
 		o.ctx,
