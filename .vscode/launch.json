@@ -156,6 +156,25 @@
             ]
         },
         {
+            "name": "Conv2d",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/conv2d",
+            "args": [
+                "-timing",
+                "-enable-backward=true",
+                "-report-all",
+                "-N=16",
+                "-C=1",
+                "-H=28",
+                "-W=28",
+                "-kernel-height=5",
+                "-kernel-width=5",
+                "-output-channel=6",
+            ]
+        },
+        {
             "name": "Concurrent Workload",
             "type": "go",
             "request": "launch",
