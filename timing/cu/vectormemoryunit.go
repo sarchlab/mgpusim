@@ -180,6 +180,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 		if i != len(transactions)-1 {
 			t.Read.CanWaitForCoalesce = true
 		}
+
 		lowModule := u.cu.VectorMemModules.Find(t.Read.Address)
 		t.Read.Dst = lowModule
 		t.Read.Src = u.cu.ToVectorMem
