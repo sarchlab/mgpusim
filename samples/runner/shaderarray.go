@@ -11,7 +11,6 @@ import (
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
 	"gitlab.com/akita/mgpusim/v2/timing/rob"
 	"gitlab.com/akita/util/v2/tracing"
@@ -266,8 +265,8 @@ func (b *shaderArrayBuilder) buildCUs(sa *shaderArray) {
 
 	for i := 0; i < b.numCU; i++ {
 		cuName := fmt.Sprintf("%s.CU_%02d", b.name, i)
-		cu := cuBuilder.Build(cuName)
-		sa.cus = append(sa.cus, cu)
+		computeUnit := cuBuilder.Build(cuName)
+		sa.cus = append(sa.cus, computeUnit)
 
 		if b.isaDebugging {
 			isaDebug, err := os.Create(
@@ -275,12 +274,14 @@ func (b *shaderArrayBuilder) buildCUs(sa *shaderArray) {
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			isaDebugger := emu.NewISADebugger(log.New(isaDebug, "", 0))
-			cu.AcceptHook(isaDebugger)
+			isaDebugger := cu.NewISADebugger(
+				log.New(isaDebug, "", 0), computeUnit)
+
+			tracing.CollectTrace(computeUnit, isaDebugger)
 		}
 
 		if b.visTracer != nil {
-			tracing.CollectTrace(cu, b.visTracer)
+			tracing.CollectTrace(computeUnit, b.visTracer)
 		}
 	}
 }

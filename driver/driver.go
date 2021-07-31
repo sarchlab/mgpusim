@@ -112,6 +112,12 @@ func (d *Driver) runAsync() {
 }
 
 func (d *Driver) runEngine() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Panic: %v", r)
+		}
+	}()
+
 	d.engineMutex.Lock()
 	defer d.engineMutex.Unlock()
 	err := d.Engine.Run()

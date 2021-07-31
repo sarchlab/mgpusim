@@ -134,7 +134,7 @@ func (b *EmuGPUBuilder) clear() {
 func (b *EmuGPUBuilder) buildComputeUnits() {
 	disassembler := insts.NewDisassembler()
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 64; i++ {
 		computeUnit := emu.BuildComputeUnit(
 			fmt.Sprintf("%s.CU%d", b.gpuName, i),
 			b.engine, disassembler, b.pageTable,
