@@ -507,7 +507,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		WithWayAssociativity(16).
 		WithByteSize(byteSize).
 		WithNumMSHREntry(64).
-		WithNumReqPerCycle(1)
+		WithNumReqPerCycle(16)
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)

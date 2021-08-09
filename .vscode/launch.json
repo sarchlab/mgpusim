@@ -182,13 +182,14 @@
             "program": "${workspaceFolder}/samples/im2col",
             "args": [
                 "-timing",
-                "-report-all",
-                "-N=2",
-                "-C=1",
-                "-H=28",
-                "-W=28",
-                "-kernel-height=3",
-                "-kernel-width=3",
+                "-N=64",
+                "-C=6",
+                "-H=24",
+                "-W=24",
+                "-kernel-height=5",
+                "-kernel-width=5",
+                "-pad-x=4",
+                "-pad-y=4",
             ]
         },
         {
