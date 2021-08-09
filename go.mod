@@ -11,14 +11,13 @@ require (
 	github.com/tebeka/atexit v0.3.0
 	gitlab.com/akita/akita/v2 v2.0.1
 	gitlab.com/akita/dnn v0.5.3
-	gitlab.com/akita/mem/v2 v2.3.0
+	gitlab.com/akita/mem/v2 v2.3.1
 	gitlab.com/akita/noc/v2 v2.0.0
 	gitlab.com/akita/util/v2 v2.0.1
 	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670 // indirect
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
-	golang.org/x/tools v0.1.5 // indirect
 	gonum.org/v1/gonum v0.9.0 // indirect
 )
 
