@@ -26,3 +26,5 @@ vendor
 .DS_Store
 *.json
 __debug_bin
+
+samples/**/metrics.csv
