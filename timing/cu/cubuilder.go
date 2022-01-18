@@ -81,6 +81,12 @@ func (b Builder) WithLog2CachelineSize(n uint64) Builder {
 	return b
 }
 
+// WithExternalDecoder allows caller to set the decoder to use.
+func (b Builder) WithExternalDecoder(d emu.Decoder) Builder {
+	b.decoder = d
+	return b
+}
+
 // WithVisTracer adds a tracer to the builder.
 func (b Builder) WithVisTracer(t tracing.Tracer) Builder {
 	b.enableVisTracing = true
@@ -94,7 +100,12 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	b.name = name
 	cu := NewComputeUnit(name, b.engine)
 	cu.Freq = b.freq
-	cu.Decoder = insts.NewDisassembler()
+
+	if b.decoder == nil {
+		b.decoder = insts.NewDisassembler()
+	}
+	cu.Decoder = b.decoder
+
 	cu.WfDispatcher = NewWfDispatcher(cu)
 	cu.InFlightVectorMemAccessLimit = 512
 
