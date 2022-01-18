@@ -119,7 +119,7 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	b.alu = emu.NewALU(nil)
 	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < b.simdCount; i++ {
 		cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
 	}
 
@@ -210,9 +210,11 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
 	sRegFile := NewSimpleRegisterFile(uint64(b.sgprCount*4), 0)
 	cu.SRegFile = sRegFile
+	cu.NumSReg = b.sgprCount
 
 	for i := 0; i < b.simdCount; i++ {
 		vRegFile := NewSimpleRegisterFile(uint64(b.vgprCount[i]*4), 1024)
 		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
+	cu.NumVReg = b.vgprCount
 }

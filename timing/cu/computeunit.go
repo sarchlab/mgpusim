@@ -24,6 +24,8 @@ type ComputeUnit struct {
 
 	WfDispatcher WfDispatcher
 	Decoder      emu.Decoder
+	NumVReg      []int
+	NumSReg      int
 	WfPools      []*WavefrontPool
 
 	InFlightInstFetch            []*InstFetchReqInfo
@@ -119,18 +121,24 @@ func (cu *ComputeUnit) DispatchingPort() sim.Port {
 // WfPoolSizes returns an array of the numbers of wavefronts that each SIMD unit
 // can execute.
 func (cu *ComputeUnit) WfPoolSizes() []int {
-	return []int{10, 10, 10, 10}
+	sizes := make([]int, len(cu.WfPools))
+
+	for i := range cu.WfPools {
+		sizes[i] = cu.WfPools[i].Capacity
+	}
+
+	return sizes
 }
 
 // VRegCounts returns an array of the numbers of vector regsiters in each SIMD
 // unit.
 func (cu *ComputeUnit) VRegCounts() []int {
-	return []int{16384, 16384, 16384, 16384}
+	return cu.NumVReg
 }
 
 // SRegCount returns the number of scalar register in the Compute Unit.
 func (cu *ComputeUnit) SRegCount() int {
-	return 3200
+	return cu.NumSReg
 }
 
 // LDSBytes returns the number of bytes in the LDS of the CU.
