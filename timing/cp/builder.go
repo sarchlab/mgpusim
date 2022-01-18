@@ -109,6 +109,7 @@ func (b *Builder) buildDispatchers(cp *CommandProcessor) {
 	cuResourcePool := resource.NewCUResourcePool()
 	builder := dispatching.MakeBuilder().
 		WithCP(cp).
+		WithAlg("round-robin").
 		WithCUResourcePool(cuResourcePool).
 		WithDispatchingPort(cp.ToCUs).
 		WithRespondingPort(cp.ToDriver).
