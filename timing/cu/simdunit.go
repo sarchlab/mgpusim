@@ -45,6 +45,25 @@ func NewSIMDUnit(
 	return u
 }
 
+// NewSIMDUnitWithLaneCount creates a new SIMDUnit with lane count.
+func NewSIMDUnitWithLaneCount(
+	cu *ComputeUnit,
+	name string,
+	scratchpadPreparer ScratchpadPreparer,
+	alu emu.ALU,
+	laneCount int,
+) *SIMDUnit {
+	u := new(SIMDUnit)
+	u.name = name
+	u.cu = cu
+	u.scratchpadPreparer = scratchpadPreparer
+	u.alu = alu
+
+	u.NumSinglePrecisionUnit = laneCount
+
+	return u
+}
+
 // CanAcceptWave checks if the buffer of the read stage is occupied or not
 func (u *SIMDUnit) CanAcceptWave() bool {
 	return u.toExec == nil

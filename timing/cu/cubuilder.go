@@ -19,6 +19,7 @@ type Builder struct {
 	simdCount         int
 	vgprCount         []int
 	sgprCount         int
+	simdWidth         int
 	log2CachelineSize uint64
 
 	decoder            emu.Decoder
@@ -72,6 +73,12 @@ func (b Builder) WithVGPRCount(counts []int) Builder {
 // WithSGPRCount equals the number of SGPRs in the Compute Unit.
 func (b Builder) WithSGPRCount(count int) Builder {
 	b.sgprCount = count
+	return b
+}
+
+// WithSIMDWidth sets the width of the SIMD unit.
+func (b Builder) WithSIMDWidth(w int) Builder {
+	b.simdWidth = w
 	return b
 }
 
