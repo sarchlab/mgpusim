@@ -374,7 +374,6 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 	now := evt.Time()
 	wf := evt.Wf
 	wg := wf.WG
-	wf.State = wavefront.WfCompleted
 
 	tracing.EndTask(wf.UID, now, cu)
 
