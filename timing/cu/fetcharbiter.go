@@ -30,6 +30,11 @@ func (a *FetchArbiter) Arbitrate(
 				continue
 			}
 
+			if wf.State == wavefront.WfCompleted {
+				wf.RUnlock()
+				continue
+			}
+
 			if len(wf.InstBuffer) >= a.InstBufByteSize {
 				wf.RUnlock()
 				continue

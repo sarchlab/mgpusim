@@ -3,7 +3,6 @@ package driver
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mgpusim/v2/protocol"
@@ -166,7 +165,6 @@ func (m *defaultMemoryCopyMiddleware) sendFlushRequest(
 	now sim.VTimeInSec,
 	cmd Command,
 ) {
-	fmt.Println("Flushed")
 	for _, gpu := range m.driver.GPUs {
 		req := protocol.NewFlushReq(now, m.driver.gpuPort, gpu)
 		m.driver.requestsToSend = append(m.driver.requestsToSend, req)

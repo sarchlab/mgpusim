@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/rs/xid"
+	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm"
@@ -115,6 +116,7 @@ func (d *Driver) runEngine() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Panic: %v", r)
+			atexit.Exit(1)
 		}
 	}()
 

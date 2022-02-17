@@ -265,10 +265,12 @@ func (s *SchedulerImpl) evalSEndPgm(
 	wf *wavefront.Wavefront,
 	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
-	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
+	if wf.OutstandingVectorMemAccess > 0 ||
+		wf.OutstandingScalarMemAccess > 0 {
 		return false, false
 	}
 
+	wf.State = wavefront.WfCompleted
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.Engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil

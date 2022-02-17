@@ -177,6 +177,10 @@ func (e *Engine) processReqFromL1(
 ) bool {
 	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
 
+	if dst == e.ToOutside {
+		panic("RDMA loop back detected")
+	}
+
 	cloned := e.cloneReq(req)
 	cloned.Meta().Src = e.ToOutside
 	cloned.Meta().Dst = dst
