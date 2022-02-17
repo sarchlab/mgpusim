@@ -75,7 +75,6 @@ func (b *Benchmark) Run() {
 
 	b.initMem()
 	b.exec()
-	b.Verify()
 }
 
 func (b *Benchmark) initMem() {
