@@ -16,8 +16,8 @@ import (
 	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
-var sizeOfFloat32 int = 4
-var sizeOfInt32 int = 4
+var sizeOfFloat32 = 4
+var sizeOfInt32 = 4
 
 // GPUOperator can perform operations on GPU tensors.
 type GPUOperator struct {
