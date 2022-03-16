@@ -7,7 +7,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	akita "gitlab.com/akita/akita/v2/sim"
+	akita "gitlab.com/akita/akita/v3/sim"
 )
 
 // MockPort is a mock of Port interface.

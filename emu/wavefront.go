@@ -5,14 +5,13 @@ import (
 
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/util/v2/ca"
 )
 
 // A Wavefront in the emu package is a wrapper for the kernels.Wavefront
 type Wavefront struct {
 	*kernels.Wavefront
 
-	pid ca.PID
+	pid vm.PID
 
 	Completed  bool
 	AtBarrier  bool
@@ -52,7 +51,7 @@ func (wf *Wavefront) Scratchpad() Scratchpad {
 }
 
 // PID returns pid
-func (wf *Wavefront) PID() ca.PID {
+func (wf *Wavefront) PID() vm.PID {
 	return wf.pid
 }
 

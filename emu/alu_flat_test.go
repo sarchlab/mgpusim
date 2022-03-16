@@ -4,10 +4,9 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/util/v2/ca"
 )
 
 var _ = Describe("ALU", func() {
@@ -47,7 +46,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run FLAT_LOAD_UBYTE", func() {
 		for i := 0; i < 64; i++ {
-			pageTable.EXPECT().Find(ca.PID(1), uint64(i*4)).
+			pageTable.EXPECT().Find(vm.PID(1), uint64(i*4)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -76,7 +75,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_USHORT", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*4)).
+				Find(vm.PID(1), uint64(i*4)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -103,7 +102,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_DWORD", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*4)).
+				Find(vm.PID(1), uint64(i*4)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -129,7 +128,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_DWORDX2", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*8)).
+				Find(vm.PID(1), uint64(i*8)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -157,7 +156,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_LOAD_DWORDX4", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*16)).
+				Find(vm.PID(1), uint64(i*16)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -189,7 +188,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_STORE_DWORD", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*4)).
+				Find(vm.PID(1), uint64(i*4)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -217,7 +216,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_STORE_DWORDX2", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*16)).
+				Find(vm.PID(1), uint64(i*16)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -246,7 +245,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_STORE_DWORDX3", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*16)).
+				Find(vm.PID(1), uint64(i*16)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)
@@ -278,7 +277,7 @@ var _ = Describe("ALU", func() {
 	It("should run FLAT_STORE_DWORDX4", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(i*16)).
+				Find(vm.PID(1), uint64(i*16)).
 				Return(vm.Page{
 					PAddr: uint64(0),
 				}, true)

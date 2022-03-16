@@ -1,7 +1,7 @@
 package mccl
 
 import (
-	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mgpusim/v2/driver"
 )
 

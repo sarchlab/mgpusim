@@ -4,10 +4,10 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A DMAEngine is responsible for accessing data that does not belongs to

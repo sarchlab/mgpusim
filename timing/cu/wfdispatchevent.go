@@ -1,7 +1,7 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mgpusim/v2/protocol"
 	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )

@@ -3,7 +3,7 @@ package cu
 import (
 	"math"
 
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
 )
 

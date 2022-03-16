@@ -3,11 +3,11 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // Scheduler does its job

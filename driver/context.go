@@ -2,8 +2,6 @@ package driver
 
 import (
 	"sync"
-
-	"gitlab.com/akita/util/v2/ca"
 )
 
 type buffer struct {
@@ -19,7 +17,7 @@ type buffer struct {
 
 // Context is an opaque struct that carries the information used by the driver.
 type Context struct {
-	pid           ca.PID
+	pid           vm.PID
 	currentGPUID  int
 	prevPageVAddr uint64
 	l2Dirty       bool

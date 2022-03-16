@@ -7,14 +7,13 @@ import (
 
 	"github.com/rs/xid"
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/driver/internal"
 	"gitlab.com/akita/mgpusim/v2/kernels"
 	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/util/v2/ca"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // Driver is an Akita component that controls the simulated GPUs
@@ -592,7 +591,7 @@ func (d *Driver) findRequestingGPUs(
 	return requestingGPUs
 }
 
-func (d *Driver) findContext(pid ca.PID) *Context {
+func (d *Driver) findContext(pid vm.PID) *Context {
 	context := &Context{}
 	for i := 0; i < len(d.contexts); i++ {
 		if d.contexts[i].pid == d.currentPageMigrationReq.PID {

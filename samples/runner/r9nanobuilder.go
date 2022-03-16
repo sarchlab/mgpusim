@@ -5,21 +5,21 @@ import (
 
 	rob2 "gitlab.com/akita/mgpusim/v2/timing/rob"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/cache/writearound"
-	"gitlab.com/akita/mem/v2/cache/writeback"
-	"gitlab.com/akita/mem/v2/cache/writethrough"
-	"gitlab.com/akita/mem/v2/dram"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm/addresstranslator"
-	"gitlab.com/akita/mem/v2/vm/mmu"
-	"gitlab.com/akita/mem/v2/vm/tlb"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/cache/writearound"
+	"gitlab.com/akita/mem/v3/cache/writeback"
+	"gitlab.com/akita/mem/v3/cache/writethrough"
+	"gitlab.com/akita/mem/v3/dram"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm/addresstranslator"
+	"gitlab.com/akita/mem/v3/vm/mmu"
+	"gitlab.com/akita/mem/v3/vm/tlb"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
 	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/v2/timing/rdma"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.

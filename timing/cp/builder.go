@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"math"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v2/protocol"
 	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
 	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
-	"gitlab.com/akita/util/v2/akitaext"
-	"gitlab.com/akita/util/v2/buffering"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // Builder can build Command Processors
@@ -64,30 +62,30 @@ func (b Builder) Build(name string) *CommandProcessor {
 
 	unlimited := math.MaxInt32
 	cp.ToDriver = sim.NewLimitNumMsgPort(cp, 1, name+".ToDriver")
-	cp.toDriverSender = akitaext.NewBufferedSender(
-		cp.ToDriver, buffering.NewBuffer(unlimited))
+	cp.toDriverSender = sim.NewBufferedSender(
+		cp.ToDriver, sim.NewBuffer(unlimited))
 	cp.ToDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToDispatcher")
-	cp.toDMASender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toDMASender = sim.NewBufferedSender(
+		cp.ToDMA, sim.NewBuffer(unlimited))
 	cp.ToCUs = sim.NewLimitNumMsgPort(cp, 1, name+".ToCUs")
-	cp.toCUsSender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toCUsSender = sim.NewBufferedSender(
+		cp.ToDMA, sim.NewBuffer(unlimited))
 	cp.ToTLBs = sim.NewLimitNumMsgPort(cp, 1, name+".ToTLBs")
-	cp.toTLBsSender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toTLBsSender = sim.NewBufferedSender(
+		cp.ToDMA, sim.NewBuffer(unlimited))
 	cp.ToRDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToRDMA")
-	cp.toRDMASender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toRDMASender = sim.NewBufferedSender(
+		cp.ToDMA, sim.NewBuffer(unlimited))
 	cp.ToPMC = sim.NewLimitNumMsgPort(cp, 1, name+".ToPMC")
-	cp.toPMCSender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toPMCSender = sim.NewBufferedSender(
+		cp.ToDMA, sim.NewBuffer(unlimited))
 	cp.ToAddressTranslators = sim.NewLimitNumMsgPort(cp, 1,
 		name+".ToAddressTranslators")
-	cp.toAddressTranslatorsSender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toAddressTranslatorsSender = sim.NewBufferedSender(
+		cp.ToDMA, sim.NewBuffer(unlimited))
 	cp.ToCaches = sim.NewLimitNumMsgPort(cp, 1, name+".ToCaches")
-	cp.toCachesSender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toCachesSender = sim.NewBufferedSender(
+		cp.ToDMA, sim.NewBuffer(unlimited))
 
 	cp.bottomKernelLaunchReqIDToTopReqMap =
 		make(map[string]*protocol.LaunchKernelReq)

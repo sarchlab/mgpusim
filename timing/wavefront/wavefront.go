@@ -3,11 +3,10 @@ package wavefront
 import (
 	"sync"
 
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/util/v2/ca"
 )
 
 // WfState marks what state that wavefront it in.
@@ -30,7 +29,7 @@ type Wavefront struct {
 
 	WG *WorkGroup
 
-	pid            ca.PID
+	pid            vm.PID
 	State          WfState
 	inst           *Inst          // The instruction that is being executed
 	scratchpad     emu.Scratchpad // A temp data buf that is shared by different stages
@@ -98,11 +97,11 @@ func (wf *Wavefront) Scratchpad() emu.Scratchpad {
 }
 
 // PID returns pid
-func (wf *Wavefront) PID() ca.PID {
+func (wf *Wavefront) PID() vm.PID {
 	return wf.pid
 }
 
 // SetPID sets pid
-func (wf *Wavefront) SetPID(pid ca.PID) {
+func (wf *Wavefront) SetPID(pid vm.PID) {
 	wf.pid = pid
 }

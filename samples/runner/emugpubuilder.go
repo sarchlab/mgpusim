@@ -5,16 +5,16 @@ import (
 	"log"
 	"os"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/idealmemcontroller"
-	"gitlab.com/akita/mem/v2/mem"
-	memtraces "gitlab.com/akita/mem/v2/trace"
-	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/idealmemcontroller"
+	"gitlab.com/akita/mem/v3/mem"
+	memtraces "gitlab.com/akita/mem/v3/trace"
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
