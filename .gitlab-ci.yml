@@ -21,7 +21,7 @@ unit_test:
   stage: test
   script:
     - go install github.com/onsi/ginkgo/v2/ginkgo@latest
-    - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress
+    - ginkgo -r --randomize-all --randomize-suites --fail-on-pending --cover --trace --race --progress
     - go test -coverprofile=cover.out ./...
     - go tool cover -func=cover.out > coverage.out
     - tail coverage.out
