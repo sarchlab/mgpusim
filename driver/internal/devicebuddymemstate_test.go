@@ -2,7 +2,7 @@ package internal
 
 import (
 	"container/list"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -56,18 +56,18 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 		Expect(bDMS.freeList[0].Len()).To(BeZero())
-		for i := len(bDMS.freeList)-1; i > 0; i-- {
+		for i := len(bDMS.freeList) - 1; i > 0; i-- {
 			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
 
 		buddyDMS.addSinglePAddr(addr2)
 		Expect(bDMS.freeList[0].Len()).To(Not(BeZero()))
-		for i := len(bDMS.freeList)-1; i > 0; i-- {
+		for i := len(bDMS.freeList) - 1; i > 0; i-- {
 			Expect(bDMS.freeList[i].Len()).To(BeZero())
 		}
 	})
 
-	It("should remove an value from the linked list", func () {
+	It("should remove an value from the linked list", func() {
 		l := list.New()
 		addr1 := uint64(0x1000)
 		addr2 := uint64(0x2000)
@@ -101,16 +101,16 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 
 		Expect(bDMS.freeList[0].Len()).To(BeZero())
-		for i := len(bDMS.freeList)-2; i > 0; i-- {
+		for i := len(bDMS.freeList) - 2; i > 0; i-- {
 			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
 		Expect(bDMS.freeList[len(bDMS.freeList)-1].Len()).To(BeZero())
 
-		for i := 1; i < len(bDMS.freeList) - 1; i++ {
-			ok := bDMS.blockOrBuddyIsAllocated(addr1,i)
+		for i := 1; i < len(bDMS.freeList)-1; i++ {
+			ok := bDMS.blockOrBuddyIsAllocated(addr1, i)
 			Expect(ok).To(BeTrue())
 		}
-		ok := bDMS.blockOrBuddyIsAllocated(addr1,len(bDMS.freeList) - 1)
+		ok := bDMS.blockOrBuddyIsAllocated(addr1, len(bDMS.freeList)-1)
 		Expect(ok).To(BeFalse())
 	})
 
@@ -126,7 +126,7 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 
 		Expect(bDMS.freeList[0].Len()).To(BeZero())
 
-		for i := len(bDMS.freeList)-3; i > 0; i-- {
+		for i := len(bDMS.freeList) - 3; i > 0; i-- {
 			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
 		Expect(bDMS.freeList[len(bDMS.freeList)-2].Len()).To(BeZero())
@@ -162,10 +162,10 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 		Expect(answer).To(Equal(bDMS.storageSize))
 
 		answer = bDMS.sizeOfLevel(1)
-		Expect(answer).To(Equal(bDMS.storageSize/2))
+		Expect(answer).To(Equal(bDMS.storageSize / 2))
 
 		answer = bDMS.sizeOfLevel(2)
-		Expect(answer).To(Equal(bDMS.storageSize/4))
+		Expect(answer).To(Equal(bDMS.storageSize / 4))
 	})
 
 	It("should find the index of a block in their level", func() {
@@ -225,13 +225,13 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 		listLen := len(bDMS.freeList)
 
 		level := bDMS.levelOfBlock(addr)
-		Expect(level).To(Equal(listLen-1))
+		Expect(level).To(Equal(listLen - 1))
 
 		addrs := buddyDMS.allocateMultiplePages(2)
 		level = bDMS.levelOfBlock(addrs[0])
-		Expect(level).To(Equal(listLen-2))
+		Expect(level).To(Equal(listLen - 2))
 		level = bDMS.levelOfBlock(addrs[1])
-		Expect(level).To(Equal(listLen-2))
+		Expect(level).To(Equal(listLen - 2))
 	})
 
 	It("should check if block has been split", func() {
@@ -240,10 +240,10 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 		bDMS := buddyDMS.(*deviceBuddyMemoryState)
 		listLen := len(bDMS.freeList)
 
-		answer := bDMS.blockHasBeenSplit(addr, listLen - 1)
+		answer := bDMS.blockHasBeenSplit(addr, listLen-1)
 		Expect(answer).To(BeFalse())
 
-		answer = bDMS.blockHasBeenSplit(addr, listLen - 2)
+		answer = bDMS.blockHasBeenSplit(addr, listLen-2)
 		Expect(answer).To(BeTrue())
 	})
 
@@ -279,7 +279,7 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 		bDMS.freeBlock(addr)
 
 		Expect(bDMS.freeList[0].Len()).To(Not(BeZero()))
-		for i := len(bDMS.freeList)-1; i > 0; i-- {
+		for i := len(bDMS.freeList) - 1; i > 0; i-- {
 			Expect(bDMS.freeList[i].Len()).To(BeZero())
 		}
 
@@ -299,7 +299,7 @@ var _ = Describe("Implementation of buddy allocation DeviceMemoryState", func() 
 		bDMS.freeBlock(addr1)
 
 		Expect(bDMS.freeList[0].Len()).To(BeZero())
-		for i := len(bDMS.freeList)-1; i > 0; i-- {
+		for i := len(bDMS.freeList) - 1; i > 0; i-- {
 			Expect(bDMS.freeList[i].Len()).To(Not(BeZero()))
 		}
 	})

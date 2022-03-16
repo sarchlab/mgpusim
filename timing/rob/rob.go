@@ -160,8 +160,8 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 	b.addTransaction(trans)
 	b.topPort.Retrieve(now)
 
-	tracing.TraceReqReceive(req, now, b)
-	tracing.TraceReqInitiate(trans.reqToBottom, now, b,
+	tracing.TraceReqReceive(req, b)
+	tracing.TraceReqInitiate(trans.reqToBottom, b,
 		tracing.MsgIDAtReceiver(req, b))
 
 	return true
@@ -181,7 +181,7 @@ func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 		trans := transElement.Value.(*transaction)
 		trans.rspFromBottom = rsp
 
-		tracing.TraceReqFinalize(trans.reqToBottom, now, b)
+		tracing.TraceReqFinalize(trans.reqToBottom, b)
 	}
 
 	b.bottomPort.Retrieve(now)
@@ -212,7 +212,7 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 
 	b.deleteTransaction(elem)
 
-	tracing.TraceReqComplete(trans.reqFromTop, now, b)
+	tracing.TraceReqComplete(trans.reqFromTop, b)
 
 	return true
 }
