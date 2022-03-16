@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 
 	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 // defaultMemoryCopyMiddleware handles memory copy commands and related

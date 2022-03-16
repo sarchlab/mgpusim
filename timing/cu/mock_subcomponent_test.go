@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	sim "gitlab.com/akita/akita/v3/sim"
-	wavefront "gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	wavefront "gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 // MockSubComponent is a mock of SubComponent interface.

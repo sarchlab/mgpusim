@@ -1,6 +1,6 @@
 package mccl
 
-import "gitlab.com/akita/mgpusim/v2/driver"
+import "gitlab.com/akita/mgpusim/v3/driver"
 
 // AllReduceRing performs AllReduce average operation.
 func AllReduceRing(

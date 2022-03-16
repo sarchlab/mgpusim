@@ -13,7 +13,7 @@ import (
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mem/v3/vm/mmu"
-	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v3/driver"
 	"gitlab.com/akita/noc/v3/networking/pcie"
 )
 

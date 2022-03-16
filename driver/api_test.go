@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v2/driver/internal"
+	"gitlab.com/akita/mgpusim/v3/driver/internal"
 )
 
 func enqueueNoopCommand(d *Driver, q *CommandQueue) {

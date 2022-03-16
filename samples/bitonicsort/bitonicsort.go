@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/bitonicsort"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/bitonicsort"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 var length = flag.Int("length", 1024, "The length of array to sort.")

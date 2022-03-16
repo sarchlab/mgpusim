@@ -18,9 +18,9 @@ import (
 	"gitlab.com/akita/akita/v3/monitoring"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v2/benchmarks"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/mgpusim/v2/timing/rdma"
+	"gitlab.com/akita/mgpusim/v3/benchmarks"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")

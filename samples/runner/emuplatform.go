@@ -6,7 +6,7 @@ import (
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // EmuBuilder can build a platform for emulation purposes.

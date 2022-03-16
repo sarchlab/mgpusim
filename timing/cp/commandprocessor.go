@@ -7,11 +7,11 @@ import (
 	"gitlab.com/akita/mem/v3/idealmemcontroller"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
-	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v2/timing/rdma"
+	"gitlab.com/akita/mgpusim/v3/protocol"
+	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
+	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
+	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 // CommandProcessor is an Akita component that is responsible for receiving

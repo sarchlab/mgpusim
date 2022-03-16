@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/im2col"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/im2col"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 var n = flag.Int("N", 1, "batch size")

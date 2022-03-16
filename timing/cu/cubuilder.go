@@ -6,8 +6,8 @@ import (
 	"gitlab.com/akita/akita/v3/pipelining"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v2/emu"
-	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v3/emu"
+	"gitlab.com/akita/mgpusim/v3/insts"
 )
 
 // A Builder can construct a fully functional Compute Unit.

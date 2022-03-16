@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 var _ = Describe("DMAEngine", func() {

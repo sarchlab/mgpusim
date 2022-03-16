@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v3/insts"
 )
 
 // ScratchpadPreparer is the unit that sets the instruction scratchpad

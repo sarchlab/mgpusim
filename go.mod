@@ -1,4 +1,4 @@
-module gitlab.com/akita/mgpusim/v2
+module gitlab.com/akita/mgpusim/v3
 
 require (
 	github.com/fatih/color v1.10.0
@@ -12,7 +12,6 @@ require (
 	gitlab.com/akita/dnn v0.5.3
 	gitlab.com/akita/mem/v3 v3.0.0-alpha.1
 	gitlab.com/akita/noc/v3 v3.0.0-alpha.1
-	gitlab.com/akita/util/v2 v2.0.1
 	gonum.org/v1/gonum v0.9.0 // indirect
 )
 

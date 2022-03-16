@@ -10,8 +10,8 @@ import (
 
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v2/driver/internal"
-	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v3/driver/internal"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 var nextPID uint64

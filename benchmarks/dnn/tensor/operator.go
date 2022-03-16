@@ -11,9 +11,9 @@ import (
 
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 var sizeOfFloat32 = 4

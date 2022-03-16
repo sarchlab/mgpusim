@@ -11,9 +11,9 @@ import (
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v2/driver/internal"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v3/driver/internal"
+	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 // Driver is an Akita component that controls the simulated GPUs

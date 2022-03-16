@@ -1,7 +1,7 @@
 package mccl
 
 import (
-	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // Communicator is a struct that helps gpu to communicate.

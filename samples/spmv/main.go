@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/shoc/spmv"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/shoc/spmv"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 // Dim is dimension

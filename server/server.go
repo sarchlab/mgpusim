@@ -7,7 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 type server struct {

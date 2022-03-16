@@ -2,7 +2,7 @@ package resource
 
 import (
 	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 // DispatchableCU handles dispatch resource

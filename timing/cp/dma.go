@@ -7,7 +7,7 @@ import (
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 // A DMAEngine is responsible for accessing data that does not belongs to
