@@ -77,7 +77,6 @@ func (d *Driver) logSimulationStart() {
 	tracing.StartTask(
 		d.simulationID,
 		"",
-		0,
 		d,
 		"Simulation", "Simulation",
 		nil,
@@ -85,7 +84,7 @@ func (d *Driver) logSimulationStart() {
 }
 
 func (d *Driver) logSimulationTerminate() {
-	tracing.EndTask(d.simulationID, d.Engine.CurrentTime(), d)
+	tracing.EndTask(d.simulationID, d)
 }
 
 func (d *Driver) runAsync() {
@@ -292,7 +291,6 @@ func (d *Driver) logCmdStart(cmd Command, now sim.VTimeInSec) {
 	tracing.StartTask(
 		cmd.GetID(),
 		d.simulationID,
-		now,
 		d,
 		"Driver Command",
 		reflect.TypeOf(cmd).String(),
@@ -301,7 +299,7 @@ func (d *Driver) logCmdStart(cmd Command, now sim.VTimeInSec) {
 }
 
 func (d *Driver) logCmdComplete(cmd Command, now sim.VTimeInSec) {
-	tracing.EndTask(cmd.GetID(), now, d)
+	tracing.EndTask(cmd.GetID(), d)
 }
 
 func (d *Driver) processNoopCommand(
@@ -318,14 +316,14 @@ func (d *Driver) logTaskToGPUInitiate(
 	cmd Command,
 	req sim.Msg,
 ) {
-	tracing.TraceReqInitiate(req, now, d, cmd.GetID())
+	tracing.TraceReqInitiate(req, d, cmd.GetID())
 }
 
 func (d *Driver) logTaskToGPUClear(
 	now sim.VTimeInSec,
 	req sim.Msg,
 ) {
-	tracing.TraceReqFinalize(req, now, d)
+	tracing.TraceReqFinalize(req, d)
 }
 
 func (d *Driver) processLaunchKernelCommand(

@@ -8,7 +8,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	vm "gitlab.com/akita/mem/v3/vm"
-	ca "gitlab.com/akita/util/v2/ca"
 )
 
 // MockPageTable is a mock of PageTable interface.

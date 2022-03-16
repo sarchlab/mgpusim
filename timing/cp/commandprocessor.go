@@ -301,7 +301,7 @@ func (p *CommandProcessor) processLaunchKernelReq(
 	d.StartDispatching(req)
 	p.ToDriver.Retrieve(now)
 
-	tracing.TraceReqReceive(req, now, p)
+	tracing.TraceReqReceive(req, p)
 	// tracing.TraceReqInitiate(&reqToBottom, now, p,
 	// 	tracing.MsgIDAtReceiver(req, p))
 
@@ -482,7 +482,7 @@ func (p *CommandProcessor) processRegularCacheFlush(
 
 	p.toDriverSender.Send(p.currFlushRequest)
 
-	tracing.TraceReqComplete(p.currFlushRequest, now, p)
+	tracing.TraceReqComplete(p.currFlushRequest, p)
 	p.currFlushRequest = nil
 
 	return true
@@ -746,7 +746,7 @@ func (p *CommandProcessor) processFlushReq(
 
 	p.ToDriver.Retrieve(now)
 
-	tracing.TraceReqReceive(req, now, p)
+	tracing.TraceReqReceive(req, p)
 
 	return true
 }
@@ -804,8 +804,8 @@ func (p *CommandProcessor) processMemCopyReq(
 	p.toDMASender.Send(cloned)
 	p.ToDriver.Retrieve(now)
 
-	tracing.TraceReqReceive(req, now, p)
-	tracing.TraceReqInitiate(cloned, now, p, tracing.MsgIDAtReceiver(req, p))
+	tracing.TraceReqReceive(req, p)
+	tracing.TraceReqInitiate(cloned, p, tracing.MsgIDAtReceiver(req, p))
 
 	return true
 }
@@ -838,8 +838,8 @@ func (p *CommandProcessor) processMemCopyRsp(
 	p.toDriverSender.Send(originalReq)
 	p.ToDMA.Retrieve(now)
 
-	tracing.TraceReqComplete(originalReq, now, p)
-	tracing.TraceReqFinalize(req, now, p)
+	tracing.TraceReqComplete(originalReq, p)
+	tracing.TraceReqFinalize(req, p)
 
 	return true
 }

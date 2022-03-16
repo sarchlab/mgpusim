@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
 )

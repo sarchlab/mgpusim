@@ -9,7 +9,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	vm "gitlab.com/akita/mem/v3/vm"
 	internal "gitlab.com/akita/mgpusim/v2/driver/internal"
-	ca "gitlab.com/akita/util/v2/ca"
 )
 
 // MockMemoryAllocator is a mock of MemoryAllocator interface.

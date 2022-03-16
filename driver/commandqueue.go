@@ -2,6 +2,8 @@ package driver
 
 import (
 	"sync"
+
+	"gitlab.com/akita/mem/v3/vm"
 )
 
 // A CommandQueue maintains a queue of command where the commands from the

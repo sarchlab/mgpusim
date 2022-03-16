@@ -77,7 +77,6 @@ type ComputeUnit struct {
 func (cu *ComputeUnit) Handle(evt sim.Event) error {
 	ctx := sim.HookCtx{
 		Domain: cu,
-		Now:    evt.Time(),
 		Pos:    sim.HookPosBeforeEvent,
 		Item:   evt,
 	}
@@ -344,7 +343,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 ) bool {
 	wg := cu.wrapWG(req.WorkGroup, req)
 
-	tracing.TraceReqReceive(req, now, cu)
+	tracing.TraceReqReceive(req, cu)
 
 	for i, wf := range wg.Wfs {
 		location := req.Wavefronts[i]
@@ -354,7 +353,6 @@ func (cu *ComputeUnit) handleMapWGReq(
 
 		tracing.StartTask(wf.UID,
 			tracing.MsgIDAtReceiver(req, cu),
-			now,
 			cu,
 			"wavefront",
 			"wavefront",
@@ -369,11 +367,10 @@ func (cu *ComputeUnit) handleMapWGReq(
 }
 
 func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
-	now := evt.Time()
 	wf := evt.Wf
 	wg := wf.WG
 
-	tracing.EndTask(wf.UID, now, cu)
+	tracing.EndTask(wf.UID, cu)
 
 	if cu.isAllWfInWGCompleted(wg) {
 		cu.isHandlingWfCompletionEvent = true
@@ -381,7 +378,7 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
 		ok := cu.sendWGCompletionMessage(evt, wg)
 		if ok {
 			cu.clearWGResource(wg)
-			tracing.TraceReqComplete(wg.MapReq, now, cu)
+			tracing.TraceReqComplete(wg.MapReq, cu)
 		}
 
 		if !cu.hasMoreWfsToRun() {
@@ -433,7 +430,7 @@ func (cu *ComputeUnit) sendWGCompletionMessage(
 		return false
 	}
 
-	tracing.TraceReqComplete(mapReq, now, cu)
+	tracing.TraceReqComplete(mapReq, cu)
 
 	cu.isHandlingWfCompletionEvent = false
 	return true
@@ -507,8 +504,8 @@ func (cu *ComputeUnit) handleFetchReturn(
 	wf.IsFetching = false
 	wf.LastFetchTime = now
 
-	tracing.TraceReqFinalize(info.Req, now, cu)
-	tracing.EndTask(info.Req.ID+"_fetch", now, cu)
+	tracing.TraceReqFinalize(info.Req, cu)
+	tracing.EndTask(info.Req.ID+"_fetch", cu)
 	return true
 }
 
@@ -554,7 +551,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	cu.logInstTask(now, wf, info.Inst, true)
-	tracing.TraceReqFinalize(req, now, cu)
+	tracing.TraceReqFinalize(req, cu)
 
 	if cu.isLastRead(req) {
 		wf.OutstandingScalarMemAccess--
@@ -604,7 +601,7 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 	}
 
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
-	tracing.TraceReqFinalize(info.Read, now, cu)
+	tracing.TraceReqFinalize(info.Read, cu)
 
 	wf := info.Wavefront
 	inst := info.Inst
@@ -655,7 +652,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 	}
 
 	cu.InFlightVectorMemAccess = cu.InFlightVectorMemAccess[1:]
-	tracing.TraceReqFinalize(info.Write, now, cu)
+	tracing.TraceReqFinalize(info.Write, cu)
 
 	wf := info.Wavefront
 	if !info.Write.CanWaitForCoalesce {
@@ -696,18 +693,13 @@ func (cu *ComputeUnit) logInstTask(
 	completed bool,
 ) {
 	if completed {
-		tracing.EndTask(
-			inst.ID,
-			now,
-			cu,
-		)
+		tracing.EndTask(inst.ID, cu)
 		return
 	}
 
 	tracing.StartTask(
 		inst.ID,
 		wf.UID,
-		now,
 		cu,
 		"inst",
 		cu.execUnitToString(inst.ExeUnit),
@@ -892,7 +884,7 @@ func NewComputeUnit(
 
 	cu.ToACE = sim.NewLimitNumMsgPort(cu, 4, name+".ToACE")
 	cu.toACESender = sim.NewBufferedSender(
-		cu.ToACE, sim.NewBuffer(40960000))
+		cu.ToACE, sim.NewBuffer(cu.Name()+".ToACESenderBuffer", 40960000))
 	cu.ToInstMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
 	cu.ToScalarMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
 	cu.ToVectorMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")

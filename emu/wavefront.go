@@ -3,6 +3,7 @@ package emu
 import (
 	"log"
 
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
 )

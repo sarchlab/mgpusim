@@ -105,7 +105,6 @@ func (u *SIMDUnit) logPipelineTask(
 	if completed {
 		tracing.EndTask(
 			inst.ID+"_simd_exec",
-			now,
 			u,
 		)
 		return
@@ -114,7 +113,6 @@ func (u *SIMDUnit) logPipelineTask(
 	tracing.StartTask(
 		inst.ID+"_simd_exec",
 		inst.ID,
-		now,
 		u,
 		"pipeline",
 		u.cu.execUnitToString(inst.ExeUnit),

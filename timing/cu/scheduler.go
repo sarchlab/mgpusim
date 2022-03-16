@@ -150,8 +150,8 @@ func (s *SchedulerImpl) DoFetch(now sim.VTimeInSec) bool {
 			madeProgress = true
 
 			tracing.StartTask(req.ID+"_fetch", wf.UID,
-				now, s.cu, "fetch", "fetch", nil)
-			tracing.TraceReqInitiate(req, now, s.cu, req.ID+"_fetch")
+				s.cu, "fetch", "fetch", nil)
+			tracing.TraceReqInitiate(req, s.cu, req.ID+"_fetch")
 		}
 	}
 
