@@ -696,6 +696,13 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
 	b.gpu.L1SCaches = append(b.gpu.L1SCaches, sa.l1sCache)
 	b.l1sTLBs = append(b.l1sTLBs, sa.l1sTLB)
 	b.gpu.L1STLBs = append(b.gpu.L1STLBs, sa.l1sTLB)
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(sa.l1sAT)
+		b.monitor.RegisterComponent(sa.l1sROB)
+		b.monitor.RegisterComponent(sa.l1sCache)
+		b.monitor.RegisterComponent(sa.l1sTLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
@@ -705,6 +712,13 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 	b.gpu.L1ICaches = append(b.gpu.L1ICaches, sa.l1iCache)
 	b.l1iTLBs = append(b.l1iTLBs, sa.l1iTLB)
 	b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, sa.l1iTLB)
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(sa.l1iAT)
+		b.monitor.RegisterComponent(sa.l1iROB)
+		b.monitor.RegisterComponent(sa.l1iCache)
+		b.monitor.RegisterComponent(sa.l1iTLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
