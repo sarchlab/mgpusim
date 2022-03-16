@@ -3,12 +3,11 @@ package cu
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/util/v2/buffering"
 	"gitlab.com/akita/util/v2/pipelining"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A Builder can construct a fully functional Compute Unit.
@@ -172,13 +171,13 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	vectorMemoryUnit := NewVectorMemoryUnit(cu, b.scratchpadPreparer, coalescer)
 	cu.VectorMemUnit = vectorMemoryUnit
 
-	vectorMemoryUnit.postInstructionPipelineBuffer = buffering.NewBuffer(8)
+	vectorMemoryUnit.postInstructionPipelineBuffer = sim.NewBuffer(8)
 	vectorMemoryUnit.instructionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.InstPipeline",
 		6, 1,
 		vectorMemoryUnit.postInstructionPipelineBuffer)
 
-	vectorMemoryUnit.postTransactionPipelineBuffer = buffering.NewBuffer(8)
+	vectorMemoryUnit.postTransactionPipelineBuffer = sim.NewBuffer(8)
 	vectorMemoryUnit.transactionPipeline = pipelining.NewPipeline(
 		cu.Name()+".VectorMemoryUnit.TransactionPipeline",
 		60, 1,

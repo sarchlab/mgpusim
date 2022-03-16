@@ -1,12 +1,12 @@
 package runner
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
 	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/v2/timing/rdma"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // TraceableComponent is a component that can accept traces

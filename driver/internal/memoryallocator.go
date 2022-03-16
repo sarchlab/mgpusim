@@ -4,21 +4,20 @@ package internal
 import (
 	"sync"
 
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/util/v2/ca"
+	"gitlab.com/akita/mem/v3/vm"
 )
 
 // A MemoryAllocator can allocate memory on the CPU and GPUs
 type MemoryAllocator interface {
 	RegisterDevice(device *Device)
 	GetDeviceIDByPAddr(pAddr uint64) int
-	Allocate(pid ca.PID, byteSize uint64, deviceID int) uint64
-	AllocateUnified(pid ca.PID, byteSize uint64) uint64
+	Allocate(pid vm.PID, byteSize uint64, deviceID int) uint64
+	AllocateUnified(pid vm.PID, byteSize uint64) uint64
 	Free(vAddr uint64)
-	Remap(pid ca.PID, pageVAddr, byteSize uint64, deviceID int)
+	Remap(pid vm.PID, pageVAddr, byteSize uint64, deviceID int)
 	RemovePage(vAddr uint64)
 	AllocatePageWithGivenVAddr(
-		pid ca.PID,
+		pid vm.PID,
 		deviceID int,
 		vAddr uint64,
 		unified bool,
@@ -34,7 +33,7 @@ func NewMemoryAllocator(
 		pageTable:            pageTable,
 		totalStorageByteSize: 1 << log2PageSize, // Starting with a page to avoid 0 address.
 		log2PageSize:         log2PageSize,
-		processMemoryStates:  make(map[ca.PID]*processMemoryState),
+		processMemoryStates:  make(map[vm.PID]*processMemoryState),
 		vAddrToPageMapping:   make(map[uint64]vm.Page),
 		devices:              make(map[int]*Device),
 	}
@@ -42,7 +41,7 @@ func NewMemoryAllocator(
 }
 
 type processMemoryState struct {
-	pid       ca.PID
+	pid       vm.PID
 	nextVAddr uint64
 }
 
@@ -53,7 +52,7 @@ type memoryAllocatorImpl struct {
 	pageTable            vm.PageTable
 	log2PageSize         uint64
 	vAddrToPageMapping   map[uint64]vm.Page
-	processMemoryStates  map[ca.PID]*processMemoryState
+	processMemoryStates  map[vm.PID]*processMemoryState
 	devices              map[int]*Device
 	totalStorageByteSize uint64
 }
@@ -97,7 +96,7 @@ func isPAddrOnDevice(
 }
 
 func (a *memoryAllocatorImpl) Allocate(
-	pid ca.PID,
+	pid vm.PID,
 	byteSize uint64,
 	deviceID int,
 ) uint64 {
@@ -114,7 +113,7 @@ func (a *memoryAllocatorImpl) Allocate(
 }
 
 func (a *memoryAllocatorImpl) AllocateUnified(
-	pid ca.PID,
+	pid vm.PID,
 	byteSize uint64,
 ) uint64 {
 	if byteSize == 0 {
@@ -131,7 +130,7 @@ func (a *memoryAllocatorImpl) AllocateUnified(
 
 func (a *memoryAllocatorImpl) allocatePages(
 	numPages int,
-	pid ca.PID,
+	pid vm.PID,
 	deviceID int,
 	unified bool,
 ) (firstPageVAddr uint64) {
@@ -172,7 +171,7 @@ func (a *memoryAllocatorImpl) allocatePages(
 }
 
 func (a *memoryAllocatorImpl) Remap(
-	pid ca.PID,
+	pid vm.PID,
 	pageVAddr, byteSize uint64,
 	deviceID int,
 ) {
@@ -212,7 +211,7 @@ func (a *memoryAllocatorImpl) removePage(vAddr uint64) {
 }
 
 func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
-	pid ca.PID,
+	pid vm.PID,
 	deviceID int,
 	vAddr uint64,
 	isUnified bool,
@@ -224,7 +223,7 @@ func (a *memoryAllocatorImpl) AllocatePageWithGivenVAddr(
 }
 
 func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
-	pid ca.PID,
+	pid vm.PID,
 	deviceID int,
 	vAddr uint64,
 	isUnified bool,
@@ -250,7 +249,7 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 }
 
 func (a *memoryAllocatorImpl) allocateMultiplePagesWithGivenVAddrs(
-	pid ca.PID,
+	pid vm.PID,
 	deviceID int,
 	vAddrs []uint64,
 	isUnified bool,

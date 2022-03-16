@@ -4,10 +4,9 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/util/v2/ca"
 )
 
 type mockInstState struct {
@@ -15,7 +14,7 @@ type mockInstState struct {
 	scratchpad Scratchpad
 }
 
-func (s *mockInstState) PID() ca.PID {
+func (s *mockInstState) PID() vm.PID {
 	return 1
 }
 
@@ -64,7 +63,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORD", func() {
 		pageTable.EXPECT().
-			Find(ca.PID(1), uint64(1040)).
+			Find(vm.PID(1), uint64(1040)).
 			Return(vm.Page{
 				PAddr: uint64(0),
 			}, true)
@@ -85,7 +84,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORDX2", func() {
 		pageTable.EXPECT().
-			Find(ca.PID(1), uint64(1040)).
+			Find(vm.PID(1), uint64(1040)).
 			Return(vm.Page{
 				PAddr: uint64(0),
 			}, true)
@@ -108,7 +107,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORDX4", func() {
 		pageTable.EXPECT().
-			Find(ca.PID(1), uint64(1040)).
+			Find(vm.PID(1), uint64(1040)).
 			Return(vm.Page{
 				PAddr: uint64(0),
 			}, true)
@@ -135,7 +134,7 @@ var _ = Describe("ALU", func() {
 
 	It("should run S_LOAD_DWORDX8", func() {
 		pageTable.EXPECT().
-			Find(ca.PID(1), uint64(1040)).
+			Find(vm.PID(1), uint64(1040)).
 			Return(vm.Page{
 				PAddr: uint64(0),
 			}, true)

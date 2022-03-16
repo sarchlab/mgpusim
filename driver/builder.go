@@ -1,9 +1,9 @@
 package driver
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/driver/internal"
 )
 

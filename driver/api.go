@@ -8,10 +8,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mgpusim/v2/driver/internal"
 	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/util/v2/ca"
 )
 
 var nextPID uint64
@@ -21,7 +20,7 @@ func (d *Driver) Init() *Context {
 	atomic.AddUint64(&nextPID, 1)
 
 	c := &Context{
-		pid:          ca.PID(nextPID),
+		pid:          vm.PID(nextPID),
 		currentGPUID: 1,
 	}
 

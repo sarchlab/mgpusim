@@ -7,7 +7,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	vm "gitlab.com/akita/mem/v2/vm"
+	vm "gitlab.com/akita/mem/v3/vm"
 	internal "gitlab.com/akita/mgpusim/v2/driver/internal"
 	ca "gitlab.com/akita/util/v2/ca"
 )
@@ -36,7 +36,7 @@ func (m *MockMemoryAllocator) EXPECT() *MockMemoryAllocatorMockRecorder {
 }
 
 // Allocate mocks base method.
-func (m *MockMemoryAllocator) Allocate(arg0 ca.PID, arg1 uint64, arg2 int) uint64 {
+func (m *MockMemoryAllocator) Allocate(arg0 vm.PID, arg1 uint64, arg2 int) uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Allocate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(uint64)
@@ -50,7 +50,7 @@ func (mr *MockMemoryAllocatorMockRecorder) Allocate(arg0, arg1, arg2 interface{}
 }
 
 // AllocatePageWithGivenVAddr mocks base method.
-func (m *MockMemoryAllocator) AllocatePageWithGivenVAddr(arg0 ca.PID, arg1 int, arg2 uint64, arg3 bool) vm.Page {
+func (m *MockMemoryAllocator) AllocatePageWithGivenVAddr(arg0 vm.PID, arg1 int, arg2 uint64, arg3 bool) vm.Page {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllocatePageWithGivenVAddr", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(vm.Page)
@@ -64,7 +64,7 @@ func (mr *MockMemoryAllocatorMockRecorder) AllocatePageWithGivenVAddr(arg0, arg1
 }
 
 // AllocateUnified mocks base method.
-func (m *MockMemoryAllocator) AllocateUnified(arg0 ca.PID, arg1 uint64) uint64 {
+func (m *MockMemoryAllocator) AllocateUnified(arg0 vm.PID, arg1 uint64) uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllocateUnified", arg0, arg1)
 	ret0, _ := ret[0].(uint64)
@@ -116,7 +116,7 @@ func (mr *MockMemoryAllocatorMockRecorder) RegisterDevice(arg0 interface{}) *gom
 }
 
 // Remap mocks base method.
-func (m *MockMemoryAllocator) Remap(arg0 ca.PID, arg1, arg2 uint64, arg3 int) {
+func (m *MockMemoryAllocator) Remap(arg0 vm.PID, arg1, arg2 uint64, arg3 int) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Remap", arg0, arg1, arg2, arg3)
 }

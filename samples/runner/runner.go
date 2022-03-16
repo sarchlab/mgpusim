@@ -15,12 +15,12 @@ import (
 	"sync"
 
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v2/benchmarks"
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/timing/rdma"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")

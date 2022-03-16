@@ -7,7 +7,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	sim "gitlab.com/akita/akita/v2/sim"
+	sim "gitlab.com/akita/akita/v3/sim"
 	protocol "gitlab.com/akita/mgpusim/v2/protocol"
 	resource "gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
 )

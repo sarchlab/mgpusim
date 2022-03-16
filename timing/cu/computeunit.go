@@ -5,16 +5,14 @@ import (
 	"reflect"
 
 	"github.com/rs/xid"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/insts"
 	"gitlab.com/akita/mgpusim/v2/kernels"
 	"gitlab.com/akita/mgpusim/v2/protocol"
 	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
-	"gitlab.com/akita/util/v2/akitaext"
-	"gitlab.com/akita/util/v2/buffering"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
@@ -55,7 +53,7 @@ type ComputeUnit struct {
 	VectorMemModules mem.LowModuleFinder
 
 	ToACE       sim.Port
-	toACESender akitaext.BufferedSender
+	toACESender sim.BufferedSender
 	ToInstMem   sim.Port
 	ToScalarMem sim.Port
 	ToVectorMem sim.Port
@@ -893,8 +891,8 @@ func NewComputeUnit(
 		name, engine, 1*sim.GHz, cu)
 
 	cu.ToACE = sim.NewLimitNumMsgPort(cu, 4, name+".ToACE")
-	cu.toACESender = akitaext.NewBufferedSender(
-		cu.ToACE, buffering.NewBuffer(40960000))
+	cu.toACESender = sim.NewBufferedSender(
+		cu.ToACE, sim.NewBuffer(40960000))
 	cu.ToInstMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
 	cu.ToScalarMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
 	cu.ToVectorMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")

@@ -5,7 +5,7 @@ import (
 	"log"
 	"math/rand"
 
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mgpusim/v2/driver"
 	"gitlab.com/akita/mgpusim/v2/samples/runner"
 )

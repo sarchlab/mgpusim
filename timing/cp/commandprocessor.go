@@ -1,18 +1,17 @@
 package cp
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/cache"
-	"gitlab.com/akita/mem/v2/idealmemcontroller"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm/tlb"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/cache"
+	"gitlab.com/akita/mem/v3/idealmemcontroller"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm/tlb"
 	"gitlab.com/akita/mgpusim/v2/protocol"
 	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
 	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
 	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/v2/timing/rdma"
-	"gitlab.com/akita/util/v2/akitaext"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // CommandProcessor is an Akita component that is responsible for receiving
@@ -36,21 +35,21 @@ type CommandProcessor struct {
 	DRAMControllers    []*idealmemcontroller.Comp
 
 	ToDriver                   sim.Port
-	toDriverSender             akitaext.BufferedSender
+	toDriverSender             sim.BufferedSender
 	ToDMA                      sim.Port
-	toDMASender                akitaext.BufferedSender
+	toDMASender                sim.BufferedSender
 	ToCUs                      sim.Port
-	toCUsSender                akitaext.BufferedSender
+	toCUsSender                sim.BufferedSender
 	ToTLBs                     sim.Port
-	toTLBsSender               akitaext.BufferedSender
+	toTLBsSender               sim.BufferedSender
 	ToAddressTranslators       sim.Port
-	toAddressTranslatorsSender akitaext.BufferedSender
+	toAddressTranslatorsSender sim.BufferedSender
 	ToCaches                   sim.Port
-	toCachesSender             akitaext.BufferedSender
+	toCachesSender             sim.BufferedSender
 	ToRDMA                     sim.Port
-	toRDMASender               akitaext.BufferedSender
+	toRDMASender               sim.BufferedSender
 	ToPMC                      sim.Port
-	toPMCSender                akitaext.BufferedSender
+	toPMCSender                sim.BufferedSender
 
 	currShootdownRequest *protocol.ShootDownCommand
 	currFlushRequest     *protocol.FlushReq
@@ -116,7 +115,7 @@ func (p *CommandProcessor) sendMsgsOut(now sim.VTimeInSec) bool {
 
 func (p *CommandProcessor) sendMsgsOutFromPort(
 	now sim.VTimeInSec,
-	sender akitaext.BufferedSender,
+	sender sim.BufferedSender,
 ) (madeProgress bool) {
 	for {
 		ok := sender.Tick(now)

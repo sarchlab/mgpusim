@@ -1,9 +1,8 @@
 package protocol
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/util/v2/ca"
 )
 
 //A CUPipelineRestartReq is a message from CP to ask the CU pipeline to resume after a flush/drain
@@ -204,7 +203,7 @@ type WfDispatchLocation struct {
 type MapWGReq struct {
 	sim.MsgMeta
 	WorkGroup  *kernels.WorkGroup
-	PID        ca.PID
+	PID        vm.PID
 	Wavefronts []WfDispatchLocation
 }
 
@@ -217,7 +216,7 @@ func (r *MapWGReq) Meta() *sim.MsgMeta {
 type MapWGReqBuilder struct {
 	sendTime sim.VTimeInSec
 	src, dst sim.Port
-	pid      ca.PID
+	pid      vm.PID
 	wg       *kernels.WorkGroup
 	wfs      []WfDispatchLocation
 }
@@ -247,7 +246,7 @@ func (b MapWGReqBuilder) WithWG(wg *kernels.WorkGroup) MapWGReqBuilder {
 }
 
 // WithPID sets the PID of the work-group.
-func (b MapWGReqBuilder) WithPID(pid ca.PID) MapWGReqBuilder {
+func (b MapWGReqBuilder) WithPID(pid vm.PID) MapWGReqBuilder {
 	b.pid = pid
 	return b
 }

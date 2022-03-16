@@ -1,10 +1,10 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
-	"gitlab.com/akita/util/v2/tracing"
 )
 
 // A SIMDUnit performs branch operations

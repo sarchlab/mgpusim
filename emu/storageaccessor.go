@@ -3,9 +3,8 @@ package emu
 import (
 	"log"
 
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/util/v2/ca"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
 )
 
 type storageAccessor struct {
@@ -15,7 +14,7 @@ type storageAccessor struct {
 	log2PageSize  uint64
 }
 
-func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
+func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 	data := make([]byte, byteSize)
 	sizeLeft := byteSize
 	offset := uint64(0)
@@ -54,7 +53,7 @@ func (a *storageAccessor) Read(pid ca.PID, vAddr, byteSize uint64) []byte {
 	return data
 }
 
-func (a *storageAccessor) Write(pid ca.PID, vAddr uint64, data []byte) {
+func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
 	sizeLeft := uint64(len(data))
 	offset := uint64(0)
 
