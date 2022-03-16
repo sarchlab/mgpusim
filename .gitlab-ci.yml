@@ -21,9 +21,8 @@ lint:
 unit_test:
   stage: test
   script:
-    - go get -u github.com/onsi/ginkgo/ginkgo
-    - go build ./...
-    - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --progress --skip="Stress"
+    - go install github.com/onsi/ginkgo/v2/ginkgo@latest
+    - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress
     - go test -coverprofile=cover.out ./...
     - go tool cover -func=cover.out > coverage.out
     - tail coverage.out

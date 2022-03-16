@@ -3,7 +3,7 @@ package mccl_test
 import (
 	"log"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/mgpusim/v2/benchmarks/mccl"
 	"gitlab.com/akita/mgpusim/v2/driver"
