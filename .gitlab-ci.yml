@@ -55,25 +55,25 @@ multi_unified_gpu_test:
     - ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
     - ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
 
-multi_discrete_gpu_unified_memory_test:
-  stage: acceptance_test
-  tags:
-    - multi_core
-  script:
-    - cd tests/acceptance
-    - go build
-    - ./acceptance -num-gpu=2 -no-unified-gpu -only-unified-memory
-    - ./acceptance -num-gpu=4 -no-unified-gpu -only-unified-memory
+# multi_discrete_gpu_unified_memory_test:
+#   stage: acceptance_test
+#   tags:
+#     - multi_core
+#   script:
+#     - cd tests/acceptance
+#     - go build
+#     - ./acceptance -num-gpu=2 -no-unified-gpu -only-unified-memory
+#     - ./acceptance -num-gpu=4 -no-unified-gpu -only-unified-memory
 
-multi_unified_gpu_unified_memory_test:
-  stage: acceptance_test
-  tags:
-    - multi_core
-  script:
-    - cd tests/acceptance
-    - go build
-    - ./acceptance -num-gpu=2 -only-unified-gpu -only-unified-memory
-    - ./acceptance -num-gpu=4 -only-unified-gpu -only-unified-memory
+# multi_unified_gpu_unified_memory_test:
+#   stage: acceptance_test
+#   tags:
+#     - multi_core
+#   script:
+#     - cd tests/acceptance
+#     - go build
+#     - ./acceptance -num-gpu=2 -only-unified-gpu -only-unified-memory
+#     - ./acceptance -num-gpu=4 -only-unified-gpu -only-unified-memory
 
 deterministic_test:
   stage: acceptance_test
