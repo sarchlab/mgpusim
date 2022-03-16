@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.18.1
 	github.com/rs/xid v1.3.0
 	github.com/tebeka/atexit v0.3.0
-	gitlab.com/akita/akita/v3 v3.0.0-alpha.6
+	gitlab.com/akita/akita/v3 v3.0.0-alpha.7
 	gitlab.com/akita/dnn v0.5.3
 	gitlab.com/akita/mem/v3 v3.0.0-alpha.1
 	gitlab.com/akita/noc/v3 v3.0.0-alpha.1
@@ -22,8 +22,6 @@ require (
 // replace gitlab.com/akita/noc => ../noc
 
 // replace gitlab.com/akita/mem/v3 => ../mem
-
-// replace gitlab.com/akita/util/v2 => ../util
 
 // replace gitlab.com/akita/dnn => ../dnn
 
