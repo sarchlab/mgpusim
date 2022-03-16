@@ -90,7 +90,7 @@ func (dma *DMAEngine) processDataReadyRsp(
 	rsp *mem.DataReadyRsp,
 ) {
 	req := dma.removeReqFromPendingReqList(rsp.RespondTo).(*mem.ReadReq)
-	tracing.TraceReqFinalize(req, now, dma)
+	tracing.TraceReqFinalize(req, dma)
 
 	processing := dma.processingReq.(*protocol.MemCopyD2HReq)
 
@@ -99,7 +99,7 @@ func (dma *DMAEngine) processDataReadyRsp(
 	// fmt.Printf("Dma DataReady %x, %v\n", req.Address, rsp.Data)
 
 	if len(dma.pendingReqs) == 0 {
-		tracing.TraceReqComplete(dma.processingReq, now, dma)
+		tracing.TraceReqComplete(dma.processingReq, dma)
 		dma.processingReq = nil
 		processing.Src, processing.Dst = processing.Dst, processing.Src
 		dma.toSendToCP = append(dma.toSendToCP, processing)
@@ -111,11 +111,11 @@ func (dma *DMAEngine) processDoneRsp(
 	rsp *mem.WriteDoneRsp,
 ) {
 	r := dma.removeReqFromPendingReqList(rsp.RespondTo)
-	tracing.TraceReqFinalize(r, now, dma)
+	tracing.TraceReqFinalize(r, dma)
 
 	processing := dma.processingReq.(*protocol.MemCopyH2DReq)
 	if len(dma.pendingReqs) == 0 {
-		tracing.TraceReqComplete(dma.processingReq, now, dma)
+		tracing.TraceReqComplete(dma.processingReq, dma)
 		dma.processingReq = nil
 		processing.Src, processing.Dst = processing.Dst, processing.Src
 		dma.toSendToCP = append(dma.toSendToCP, processing)
@@ -150,7 +150,7 @@ func (dma *DMAEngine) parseFromCP(now sim.VTimeInSec) bool {
 	if req == nil {
 		return false
 	}
-	tracing.TraceReqReceive(req, now, dma)
+	tracing.TraceReqReceive(req, dma)
 
 	dma.processingReq = req
 	switch req := req.(type) {
@@ -194,7 +194,7 @@ func (dma *DMAEngine) parseMemCopyH2D(
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
-		tracing.TraceReqInitiate(reqToBottom, now, dma,
+		tracing.TraceReqInitiate(reqToBottom, dma,
 			tracing.MsgIDAtReceiver(dma.processingReq, dma))
 
 		addr += length
@@ -232,7 +232,7 @@ func (dma *DMAEngine) parseMemCopyD2H(
 		dma.toSendToMem = append(dma.toSendToMem, reqToBottom)
 		dma.pendingReqs = append(dma.pendingReqs, reqToBottom)
 
-		tracing.TraceReqInitiate(reqToBottom, now, dma,
+		tracing.TraceReqInitiate(reqToBottom, dma,
 			tracing.MsgIDAtReceiver(dma.processingReq, dma))
 
 		addr += length

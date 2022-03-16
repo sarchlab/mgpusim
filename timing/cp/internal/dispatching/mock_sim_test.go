@@ -45,6 +45,20 @@ func (mr *MockPortMockRecorder) AcceptHook(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptHook", reflect.TypeOf((*MockPort)(nil).AcceptHook), arg0)
 }
 
+// CanSend mocks base method.
+func (m *MockPort) CanSend() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CanSend")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// CanSend indicates an expected call of CanSend.
+func (mr *MockPortMockRecorder) CanSend() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanSend", reflect.TypeOf((*MockPort)(nil).CanSend))
+}
+
 // Component mocks base method.
 func (m *MockPort) Component() sim.Component {
 	m.ctrl.T.Helper()

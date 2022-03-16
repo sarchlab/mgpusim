@@ -1,6 +1,7 @@
 package emu
 
 import (
+	"gitlab.com/akita/mem/v3/vm"
 	"gitlab.com/akita/mgpusim/v2/insts"
 )
 

@@ -136,7 +136,7 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 
 		originalReq := d.originalReqs[msg.RspTo]
 		delete(d.originalReqs, msg.RspTo)
-		tracing.TraceReqFinalize(originalReq, now, d)
+		tracing.TraceReqFinalize(originalReq, d)
 
 		if d.progressBar != nil {
 			d.progressBar.MoveInProgressToFinished(1)
@@ -179,7 +179,7 @@ func (d *DispatcherImpl) completeKernel(now sim.VTimeInSec) (
 			d.monitor.CompleteProgressBar(d.progressBar)
 		}
 
-		tracing.TraceReqComplete(req, now, d.cp)
+		tracing.TraceReqComplete(req, d.cp)
 
 		return true
 	}
@@ -227,7 +227,7 @@ func (d *DispatcherImpl) dispatchNextWG(
 			d.progressBar.IncrementInProgress(1)
 		}
 
-		tracing.TraceReqInitiate(req, now, d,
+		tracing.TraceReqInitiate(req, d,
 			tracing.MsgIDAtReceiver(d.dispatching, d.cp))
 
 		return true

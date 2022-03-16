@@ -1,11 +1,10 @@
 package emu
 
 import (
+	"encoding/binary"
 	"log"
 	"math"
 	"reflect"
-
-	"encoding/binary"
 
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mem/v3/mem"
@@ -341,7 +340,6 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
 	ctx := sim.HookCtx{
 		Domain: cu,
-		Now:    0,
 		Item:   wf,
 		Detail: inst,
 	}

@@ -165,7 +165,7 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now sim.VTimeInSec) bool {
 		u.cu.InFlightScalarMemAccess = append(
 			u.cu.InFlightScalarMemAccess, info)
 
-		tracing.TraceReqInitiate(req, now, u.cu, u.toExec.DynamicInst().ID)
+		tracing.TraceReqInitiate(req, u.cu, u.toExec.DynamicInst().ID)
 
 		curr += bytesLeftInCacheline
 	}

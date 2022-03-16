@@ -63,29 +63,45 @@ func (b Builder) Build(name string) *CommandProcessor {
 	unlimited := math.MaxInt32
 	cp.ToDriver = sim.NewLimitNumMsgPort(cp, 1, name+".ToDriver")
 	cp.toDriverSender = sim.NewBufferedSender(
-		cp.ToDriver, sim.NewBuffer(unlimited))
+		cp.ToDriver,
+		sim.NewBuffer(cp.Name()+".ToDriverSenderBuffer", unlimited),
+	)
 	cp.ToDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToDispatcher")
 	cp.toDMASender = sim.NewBufferedSender(
-		cp.ToDMA, sim.NewBuffer(unlimited))
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToDMASenderBuffer", unlimited),
+	)
 	cp.ToCUs = sim.NewLimitNumMsgPort(cp, 1, name+".ToCUs")
 	cp.toCUsSender = sim.NewBufferedSender(
-		cp.ToDMA, sim.NewBuffer(unlimited))
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToCUSenderBuffer", unlimited),
+	)
 	cp.ToTLBs = sim.NewLimitNumMsgPort(cp, 1, name+".ToTLBs")
 	cp.toTLBsSender = sim.NewBufferedSender(
-		cp.ToDMA, sim.NewBuffer(unlimited))
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToTLBSenderBuffer", unlimited),
+	)
 	cp.ToRDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToRDMA")
 	cp.toRDMASender = sim.NewBufferedSender(
-		cp.ToDMA, sim.NewBuffer(unlimited))
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToRDMASenderBuffer", unlimited),
+	)
 	cp.ToPMC = sim.NewLimitNumMsgPort(cp, 1, name+".ToPMC")
 	cp.toPMCSender = sim.NewBufferedSender(
-		cp.ToDMA, sim.NewBuffer(unlimited))
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToPMCSenderBuffer", unlimited),
+	)
 	cp.ToAddressTranslators = sim.NewLimitNumMsgPort(cp, 1,
 		name+".ToAddressTranslators")
 	cp.toAddressTranslatorsSender = sim.NewBufferedSender(
-		cp.ToDMA, sim.NewBuffer(unlimited))
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToAddressTranslatorsBuffer", unlimited),
+	)
 	cp.ToCaches = sim.NewLimitNumMsgPort(cp, 1, name+".ToCaches")
 	cp.toCachesSender = sim.NewBufferedSender(
-		cp.ToDMA, sim.NewBuffer(unlimited))
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToCachesBuffer", unlimited),
+	)
 
 	cp.bottomKernelLaunchReqIDToTopReqMap =
 		make(map[string]*protocol.LaunchKernelReq)
