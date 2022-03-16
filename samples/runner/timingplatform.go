@@ -29,6 +29,7 @@ type R9NanoPlatformBuilder struct {
 	useMagicMemoryCopy bool
 	log2PageSize       uint64
 
+	engine  sim.Engine
 	monitor *monitoring.Monitor
 
 	globalStorage *mem.Storage
@@ -114,21 +115,21 @@ func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 
 // Build builds a platform with R9Nano GPUs.
 func (b R9NanoPlatformBuilder) Build() *Platform {
-	engine := b.createEngine()
+	b.engine = b.createEngine()
 	if b.monitor != nil {
-		b.monitor.RegisterEngine(engine)
+		b.monitor.RegisterEngine(b.engine)
 	}
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
 
-	mmuComponent, pageTable := b.createMMU(engine)
+	mmuComponent, pageTable := b.createMMU(b.engine)
 
 	gpuDriverBuilder := driver.MakeBuilder()
 	if b.useMagicMemoryCopy {
 		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
 	}
 	gpuDriver := gpuDriverBuilder.
-		WithEngine(engine).
+		WithEngine(b.engine).
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
@@ -144,9 +145,9 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
-	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent)
+	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent)
 	pcieConnector, rootComplexID :=
-		b.createConnection(engine, gpuDriver, mmuComponent)
+		b.createConnection(b.engine, gpuDriver, mmuComponent)
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
 
@@ -161,7 +162,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	pcieConnector.EstablishRoute()
 
 	return &Platform{
-		Engine: engine,
+		Engine: b.engine,
 		Driver: gpuDriver,
 		GPUs:   b.gpus,
 	}
@@ -306,7 +307,7 @@ func (b *R9NanoPlatformBuilder) setMemTracer(
 		panic(err)
 	}
 	logger := log.New(file, "", 0)
-	memTracer := memtraces.NewTracer(logger)
+	memTracer := memtraces.NewTracer(logger, b.engine)
 	gpuBuilder = gpuBuilder.WithMemTracer(memTracer)
 	return gpuBuilder
 }
@@ -320,6 +321,7 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 	}
 
 	tracer := tracing.NewMySQLTracerWithTimeRange(
+		b.engine,
 		b.visTraceStartTime,
 		b.visTraceEndTime)
 	tracer.Init()

@@ -164,7 +164,7 @@ func (b *EmuGPUBuilder) buildMemory() {
 	if b.enableMemTracing {
 		file, _ := os.Create("mem.trace")
 		logger := log.New(file, "", 0)
-		memTracer := memtraces.NewTracer(logger)
+		memTracer := memtraces.NewTracer(logger, b.engine)
 		tracing.CollectTrace(b.gpuMem, memTracer)
 	}
 }

@@ -9,7 +9,7 @@ import (
 	"gitlab.com/akita/mgpusim/v2/kernels"
 )
 
-var lastUsedGroupID int = 0
+var lastUsedGroupID = 0
 
 //go:embed broadcast.hsaco
 var broadcastHsaCoFile []byte
