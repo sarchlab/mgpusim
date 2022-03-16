@@ -6,9 +6,9 @@ import (
 	"gitlab.com/akita/akita/v3/monitoring"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
+	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/protocol"
+	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
 )
 
 // A Dispatcher is a sub-component of a command processor that can dispatch

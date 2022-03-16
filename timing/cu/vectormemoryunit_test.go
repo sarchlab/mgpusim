@@ -6,9 +6,9 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 var _ = Describe("Vector Memory Unit", func() {

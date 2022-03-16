@@ -4,8 +4,8 @@ package conv2d
 import (
 	"gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/tensor"
-	gpuTensor "gitlab.com/akita/mgpusim/v2/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v2/driver"
+	gpuTensor "gitlab.com/akita/mgpusim/v3/benchmarks/dnn/tensor"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // A Benchmark is a benchmark for the Convolutional Layer.

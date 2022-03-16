@@ -3,7 +3,7 @@ package runner
 import (
 	"fmt"
 
-	rob2 "gitlab.com/akita/mgpusim/v2/timing/rob"
+	rob2 "gitlab.com/akita/mgpusim/v3/timing/rob"
 
 	"gitlab.com/akita/akita/v3/monitoring"
 	"gitlab.com/akita/akita/v3/sim"
@@ -16,10 +16,10 @@ import (
 	"gitlab.com/akita/mem/v3/vm/addresstranslator"
 	"gitlab.com/akita/mem/v3/vm/mmu"
 	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/timing/cp"
-	"gitlab.com/akita/mgpusim/v2/timing/cu"
-	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v2/timing/rdma"
+	"gitlab.com/akita/mgpusim/v3/timing/cp"
+	"gitlab.com/akita/mgpusim/v3/timing/cu"
+	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.

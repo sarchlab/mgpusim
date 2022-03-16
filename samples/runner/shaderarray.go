@@ -12,8 +12,8 @@ import (
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm/addresstranslator"
 	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/timing/cu"
-	"gitlab.com/akita/mgpusim/v2/timing/rob"
+	"gitlab.com/akita/mgpusim/v3/timing/cu"
+	"gitlab.com/akita/mgpusim/v3/timing/rob"
 )
 
 type shaderArray struct {

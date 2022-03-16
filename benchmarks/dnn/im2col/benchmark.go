@@ -5,8 +5,8 @@ import (
 	"math/rand"
 
 	"gitlab.com/akita/dnn/tensor"
-	gpuTensor "gitlab.com/akita/mgpusim/v2/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v2/driver"
+	gpuTensor "gitlab.com/akita/mgpusim/v3/benchmarks/dnn/tensor"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // A Benchmark is a benchmark for the im2col operation.

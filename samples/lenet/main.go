@@ -4,9 +4,9 @@ import (
 	"flag"
 	"math/rand"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/lenet"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/lenet"
 
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 var epochFlag = flag.Int("epoch", 1, "Number of epoch to run.")

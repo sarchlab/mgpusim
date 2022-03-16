@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"gitlab.com/akita/mgpusim/v2/driver/internal"
+	"gitlab.com/akita/mgpusim/v3/driver/internal"
 )
 
 // A distributor can distribute a virtually consecutive memory to multiple GPUs.

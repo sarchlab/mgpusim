@@ -16,8 +16,8 @@ package main
 import (
     "flag"
 
-    "gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/fir"
-    "gitlab.com/akita/mgpusim/v2/samples/runner"
+    "gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/fir"
+    "gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 func main() {

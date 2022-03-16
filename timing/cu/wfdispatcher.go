@@ -4,9 +4,9 @@ import (
 	"log"
 
 	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/protocol"
+	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 // A WfDispatcher initialize wavefronts
