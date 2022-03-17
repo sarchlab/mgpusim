@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/akita/akita/v3/monitoring"
 	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm"
@@ -29,8 +30,11 @@ type R9NanoPlatformBuilder struct {
 	useMagicMemoryCopy bool
 	log2PageSize       uint64
 
-	engine  sim.Engine
-	monitor *monitoring.Monitor
+	engine                sim.Engine
+	monitor               *monitoring.Monitor
+	bufferAnalyzingDir    string
+	bufferAnalyzingPeriod float64
+	bufferAnalyzer        *bottleneckanalysis.BufferAnalyzer
 
 	globalStorage *mem.Storage
 
@@ -107,6 +111,16 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
+// WithBufferAnalyzer sets the trace that dumps the buffer levers.
+func (b R9NanoPlatformBuilder) WithBufferAnalyzer(
+	traceDirName string,
+	tracePeriod float64,
+) R9NanoPlatformBuilder {
+	b.bufferAnalyzingDir = traceDirName
+	b.bufferAnalyzingPeriod = tracePeriod
+	return b
+}
+
 // WithMagicMemoryCopy uses global storage as memory components
 func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 	b.useMagicMemoryCopy = true
@@ -119,6 +133,8 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	if b.monitor != nil {
 		b.monitor.RegisterEngine(b.engine)
 	}
+
+	b.setupBufferLevelTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
 
@@ -145,6 +161,10 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
+	if b.bufferAnalyzer != nil {
+		b.bufferAnalyzer.AddComponent(gpuDriver)
+	}
+
 	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent)
 	pcieConnector, rootComplexID :=
 		b.createConnection(b.engine, gpuDriver, mmuComponent)
@@ -165,6 +185,16 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		Engine: b.engine,
 		Driver: gpuDriver,
 		GPUs:   b.gpus,
+	}
+}
+
+func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
+	if b.bufferAnalyzingDir != "" {
+		b.bufferAnalyzer = bottleneckanalysis.MakeBufferAnalyzerBuilder().
+			WithTimeTeller(b.engine).
+			WithPeriod(b.bufferAnalyzingPeriod).
+			WithDirectoryPath(b.bufferAnalyzingDir).
+			Build()
 	}
 }
 
@@ -275,6 +305,10 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 
 	if b.monitor != nil {
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
+	}
+
+	if b.bufferAnalyzer != nil {
+		gpuBuilder = gpuBuilder.WithBufferAnalyzer(b.bufferAnalyzer)
 	}
 
 	gpuBuilder = b.setVisTracer(gpuDriver, gpuBuilder)

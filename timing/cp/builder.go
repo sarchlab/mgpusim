@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/akita/akita/v3/monitoring"
 	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v3/protocol"
 	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
@@ -18,6 +19,7 @@ type Builder struct {
 	engine         sim.Engine
 	visTracer      tracing.Tracer
 	monitor        *monitoring.Monitor
+	bufferAnalyzer *bottleneckanalysis.BufferAnalyzer
 	numDispatchers int
 }
 
@@ -52,6 +54,15 @@ func (b Builder) WithFreq(freq sim.Freq) Builder {
 // WithMonitor sets the monitor used to show progress bars.
 func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	b.monitor = monitor
+	return b
+}
+
+// WithBufferAnalyzer sets the buffer analyzer used to analyze the
+// command processor's buffers.
+func (b Builder) WithBufferAnalyzer(
+	analyzer *bottleneckanalysis.BufferAnalyzer,
+) Builder {
+	b.bufferAnalyzer = analyzer
 	return b
 }
 
@@ -114,6 +125,10 @@ func (b Builder) Build(name string) *CommandProcessor {
 
 	if b.visTracer != nil {
 		tracing.CollectTrace(cp, b.visTracer)
+	}
+
+	if b.bufferAnalyzer != nil {
+		b.bufferAnalyzer.AddComponent(cp)
 	}
 
 	return cp

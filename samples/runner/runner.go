@@ -63,6 +63,10 @@ var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
 var magicMemoryCopy = flag.Bool("magic-memory-copy", false,
 	"Copy data from CPU directly to global memory")
+var bufferLevelTraceDirFlag = flag.String("buffer-level-trace-dir", "",
+	"The directory to dump the buffer level traces.")
+var bufferLevelTracePeriodFlag = flag.Float64("buffer-level-trace-period", 0.0,
+	"The period to dump the buffer level trace.")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -287,6 +291,8 @@ func (r *Runner) buildTimingPlatform() {
 	r.monitor = monitoring.NewMonitor()
 	b = b.WithMonitor(r.monitor)
 
+	b = r.setupBufferLevelTracing(b)
+
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()
 	}
@@ -294,6 +300,22 @@ func (r *Runner) buildTimingPlatform() {
 	r.platform = b.Build()
 
 	r.monitor.StartServer()
+}
+
+func (*Runner) setupBufferLevelTracing(
+	b R9NanoPlatformBuilder,
+) R9NanoPlatformBuilder {
+	if *bufferLevelTracePeriodFlag != 0 && *bufferLevelTraceDirFlag == "" {
+		panic("Buffer level trace directory is not specified")
+	}
+
+	if *bufferLevelTraceDirFlag != "" {
+		b = b.WithBufferAnalyzer(
+			*bufferLevelTraceDirFlag,
+			*bufferLevelTracePeriodFlag,
+		)
+	}
+	return b
 }
 
 func (r *Runner) addMaxInstStopper() {
