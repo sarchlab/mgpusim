@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/tebeka/atexit"
 	memtraces "gitlab.com/akita/mem/v3/trace"
 
 	"gitlab.com/akita/akita/v3/monitoring"
@@ -195,6 +196,8 @@ func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
 			WithPeriod(b.bufferAnalyzingPeriod).
 			WithDirectoryPath(b.bufferAnalyzingDir).
 			Build()
+
+		atexit.Register(b.bufferAnalyzer.Report)
 	}
 }
 
