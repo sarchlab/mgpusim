@@ -152,7 +152,8 @@
                 "-verify",
                 "-length=128000",
                 "-report-all",
-                "-max-inst=100"
+                "-buffer-level-trace-file=buffer_level",
+                "-buffer-level-trace-period=0.00000001",
             ]
         },
         {

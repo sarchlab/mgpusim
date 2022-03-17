@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/akita/akita/v3/monitoring"
 	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mem/v3/cache/writearound"
 	"gitlab.com/akita/mem/v3/cache/writeback"
@@ -43,6 +44,7 @@ type R9NanoGPUBuilder struct {
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
+	bufferAnalyzer     *bottleneckanalysis.BufferAnalyzer
 
 	gpuName                 string
 	gpu                     *GPU
@@ -190,6 +192,14 @@ func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder
 // WithMonitor sets the monitor to use.
 func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 	b.monitor = m
+	return b
+}
+
+// WithBufferAnalyzer sets the buffer analyzer to use.
+func (b R9NanoGPUBuilder) WithBufferAnalyzer(
+	a *bottleneckanalysis.BufferAnalyzer,
+) R9NanoGPUBuilder {
+	b.bufferAnalyzer = a
 	return b
 }
 
@@ -644,6 +654,10 @@ func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(cu)
 		}
+
+		if b.bufferAnalyzer != nil {
+			b.bufferAnalyzer.AddComponent(cu)
+		}
 	}
 }
 
@@ -653,6 +667,10 @@ func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(rob)
+		}
+
+		if b.bufferAnalyzer != nil {
+			b.bufferAnalyzer.AddComponent(rob)
 		}
 	}
 }
@@ -664,6 +682,10 @@ func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(tlb)
+		}
+
+		if b.bufferAnalyzer != nil {
+			b.bufferAnalyzer.AddComponent(tlb)
 		}
 	}
 }
@@ -768,7 +790,8 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	builder := cp.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithMonitor(b.monitor)
+		WithMonitor(b.monitor).
+		WithBufferAnalyzer(b.bufferAnalyzer)
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)
