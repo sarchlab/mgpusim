@@ -2,13 +2,13 @@ package cu
 
 import (
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 var _ = Describe("Vector Memory Unit", func() {
@@ -74,8 +74,8 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should run flat_load_dword", func() {
-		kWave := kernels.NewWavefront()
-		wave := wavefront.NewWavefront(kWave)
+		nativeWave := kernels.NewWavefront()
+		wave := wavefront.NewWavefront(nativeWave)
 		inst := wavefront.NewInst(insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 20
@@ -106,8 +106,8 @@ var _ = Describe("Vector Memory Unit", func() {
 	})
 
 	It("should run flat_store_dword", func() {
-		kWave := kernels.NewWavefront()
-		wave := wavefront.NewWavefront(kWave)
+		nativeWave := kernels.NewWavefront()
+		wave := wavefront.NewWavefront(nativeWave)
 		inst := wavefront.NewInst(insts.NewInst())
 		inst.Format = insts.FormatTable[insts.FLAT]
 		inst.Opcode = 28

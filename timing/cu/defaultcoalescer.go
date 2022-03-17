@@ -1,9 +1,9 @@
 package cu
 
 import (
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 type defaultCoalescer struct {

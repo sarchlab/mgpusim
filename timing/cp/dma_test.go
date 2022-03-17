@@ -2,11 +2,11 @@ package cp
 
 import (
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 var _ = Describe("DMAEngine", func() {

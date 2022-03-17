@@ -1,18 +1,17 @@
 package emu
 
 import (
+	"encoding/binary"
 	"log"
 	"math"
 	"reflect"
 
-	"encoding/binary"
-
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/mgpusim/v2/protocol"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 type emulationEvent struct {
@@ -341,7 +340,6 @@ func (cu *ComputeUnit) runWfUntilBarrier(wf *Wavefront) error {
 func (cu *ComputeUnit) logInst(wf *Wavefront, inst *insts.Inst) {
 	ctx := sim.HookCtx{
 		Domain: cu,
-		Now:    0,
 		Item:   wf,
 		Detail: inst,
 	}

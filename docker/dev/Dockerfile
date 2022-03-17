@@ -7,7 +7,7 @@ RUN ssh-keygen -A
 
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
-RUN go get github.com/onsi/ginkgo/ginkgo
+RUN go get github.com/onsi/ginkgo/v2/ginkgo
 RUN go get github.com/golang/mock/mockgen
 
 WORKDIR /root/dev/src/gitlab.com/akita

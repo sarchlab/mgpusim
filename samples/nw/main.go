@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/rodinia/nw"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/rodinia/nw"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 var length = flag.Int("length", 64, "The number bases in the gene sequence")

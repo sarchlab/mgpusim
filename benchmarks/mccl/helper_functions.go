@@ -5,11 +5,11 @@ import (
 	// For embedded HsaCo files.
 	_ "embed"
 
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
-var lastUsedGroupID int = 0
+var lastUsedGroupID = 0
 
 //go:embed broadcast.hsaco
 var broadcastHsaCoFile []byte

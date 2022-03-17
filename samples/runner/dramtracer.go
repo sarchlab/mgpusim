@@ -3,9 +3,9 @@ package runner
 import (
 	"sync"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
 )
 
 // dramTracer can trace DRAM activities.

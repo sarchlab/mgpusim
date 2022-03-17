@@ -3,11 +3,11 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 // Scheduler does its job
@@ -150,8 +150,8 @@ func (s *SchedulerImpl) DoFetch(now sim.VTimeInSec) bool {
 			madeProgress = true
 
 			tracing.StartTask(req.ID+"_fetch", wf.UID,
-				now, s.cu, "fetch", "fetch", nil)
-			tracing.TraceReqInitiate(req, now, s.cu, req.ID+"_fetch")
+				s.cu, "fetch", "fetch", nil)
+			tracing.TraceReqInitiate(req, s.cu, req.ID+"_fetch")
 		}
 	}
 
@@ -265,10 +265,12 @@ func (s *SchedulerImpl) evalSEndPgm(
 	wf *wavefront.Wavefront,
 	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
-	if wf.OutstandingVectorMemAccess > 0 || wf.OutstandingScalarMemAccess > 0 {
+	if wf.OutstandingVectorMemAccess > 0 ||
+		wf.OutstandingScalarMemAccess > 0 {
 		return false, false
 	}
 
+	wf.State = wavefront.WfCompleted
 	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
 	s.cu.Engine.Schedule(wfCompletionEvt)
 	s.internalExecuting = nil

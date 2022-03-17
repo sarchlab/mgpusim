@@ -2,9 +2,9 @@ package internal
 
 import (
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mem/v2/vm"
+	"gitlab.com/akita/mem/v3/vm"
 )
 
 var _ = Describe("MemoryAllocatorImpl", func() {

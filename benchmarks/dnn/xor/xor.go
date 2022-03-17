@@ -8,8 +8,8 @@ import (
 	"gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/training"
 	"gitlab.com/akita/dnn/training/optimization"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/tensor"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // Benchmark defines the XOR network training benchmark.

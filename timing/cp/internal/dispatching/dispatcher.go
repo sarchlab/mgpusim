@@ -3,12 +3,12 @@ package dispatching
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/protocol"
+	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
 )
 
 // A Dispatcher is a sub-component of a command processor that can dispatch
@@ -136,7 +136,7 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 
 		originalReq := d.originalReqs[msg.RspTo]
 		delete(d.originalReqs, msg.RspTo)
-		tracing.TraceReqFinalize(originalReq, now, d)
+		tracing.TraceReqFinalize(originalReq, d)
 
 		if d.progressBar != nil {
 			d.progressBar.MoveInProgressToFinished(1)
@@ -179,7 +179,7 @@ func (d *DispatcherImpl) completeKernel(now sim.VTimeInSec) (
 			d.monitor.CompleteProgressBar(d.progressBar)
 		}
 
-		tracing.TraceReqComplete(req, now, d.cp)
+		tracing.TraceReqComplete(req, d.cp)
 
 		return true
 	}
@@ -227,7 +227,7 @@ func (d *DispatcherImpl) dispatchNextWG(
 			d.progressBar.IncrementInProgress(1)
 		}
 
-		tracing.TraceReqInitiate(req, now, d,
+		tracing.TraceReqInitiate(req, d,
 			tracing.MsgIDAtReceiver(d.dispatching, d.cp))
 
 		return true

@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/polybench/bicg"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/polybench/bicg"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 var xFlag = flag.Int("x", 4096, "The width of the matrix.")

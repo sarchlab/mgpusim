@@ -3,7 +3,7 @@ package driver
 import (
 	"sync"
 
-	"gitlab.com/akita/util/v2/ca"
+	"gitlab.com/akita/mem/v3/vm"
 )
 
 // A CommandQueue maintains a queue of command where the commands from the
@@ -11,7 +11,7 @@ import (
 type CommandQueue struct {
 	IsRunning bool
 	GPUID     int
-	PID       ca.PID
+	PID       vm.PID
 	Context   *Context
 
 	commandsMutex sync.Mutex

@@ -1,10 +1,10 @@
 package protocol
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/util/v2/ca"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 // FlushReq requests the GPU to flush all the cache to the main memory
@@ -32,7 +32,7 @@ func NewFlushReq(time sim.VTimeInSec, src, dst sim.Port) *FlushReq {
 type LaunchKernelReq struct {
 	sim.MsgMeta
 
-	PID ca.PID
+	PID vm.PID
 
 	Packet        *kernels.HsaKernelDispatchPacket
 	PacketAddress uint64
@@ -126,7 +126,7 @@ type ShootDownCommand struct {
 	EndTime   sim.VTimeInSec
 
 	VAddr []uint64
-	PID   ca.PID
+	PID   vm.PID
 }
 
 // Meta returns the meta data associated with the message.
@@ -139,7 +139,7 @@ func NewShootdownCommand(
 	time sim.VTimeInSec,
 	src, dst sim.Port,
 	vAddr []uint64,
-	pID ca.PID,
+	pID vm.PID,
 ) *ShootDownCommand {
 	cmd := new(ShootDownCommand)
 	cmd.ID = sim.GetIDGenerator().Generate()

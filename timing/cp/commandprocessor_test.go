@@ -2,16 +2,16 @@ package cp
 
 import (
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/cache"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v2/timing/rdma"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/cache"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm/tlb"
+	"gitlab.com/akita/mgpusim/v3/protocol"
+	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
+	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 var _ = Describe("CommandProcessor", func() {

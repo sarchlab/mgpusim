@@ -4,8 +4,8 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/mem"
 )
 
 //PageMigrationController control page migration

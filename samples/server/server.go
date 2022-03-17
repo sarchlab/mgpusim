@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
-	"gitlab.com/akita/mgpusim/v2/server"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/server"
 )
 
 func main() {
