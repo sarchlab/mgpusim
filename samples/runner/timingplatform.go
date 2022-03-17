@@ -5,16 +5,18 @@ import (
 	"log"
 	"os"
 
-	memtraces "gitlab.com/akita/mem/v2/trace"
+	"github.com/tebeka/atexit"
+	memtraces "gitlab.com/akita/mem/v3/trace"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mem/v2/vm/mmu"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/noc/v2/networking/pcie"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mem/v3/vm/mmu"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/noc/v3/networking/pcie"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
@@ -29,7 +31,11 @@ type R9NanoPlatformBuilder struct {
 	useMagicMemoryCopy bool
 	log2PageSize       uint64
 
-	monitor *monitoring.Monitor
+	engine                sim.Engine
+	monitor               *monitoring.Monitor
+	bufferAnalyzingDir    string
+	bufferAnalyzingPeriod float64
+	bufferAnalyzer        *bottleneckanalysis.BufferAnalyzer
 
 	globalStorage *mem.Storage
 
@@ -106,6 +112,16 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
+// WithBufferAnalyzer sets the trace that dumps the buffer levers.
+func (b R9NanoPlatformBuilder) WithBufferAnalyzer(
+	traceDirName string,
+	tracePeriod float64,
+) R9NanoPlatformBuilder {
+	b.bufferAnalyzingDir = traceDirName
+	b.bufferAnalyzingPeriod = tracePeriod
+	return b
+}
+
 // WithMagicMemoryCopy uses global storage as memory components
 func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 	b.useMagicMemoryCopy = true
@@ -114,21 +130,23 @@ func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 
 // Build builds a platform with R9Nano GPUs.
 func (b R9NanoPlatformBuilder) Build() *Platform {
-	engine := b.createEngine()
+	b.engine = b.createEngine()
 	if b.monitor != nil {
-		b.monitor.RegisterEngine(engine)
+		b.monitor.RegisterEngine(b.engine)
 	}
+
+	b.setupBufferLevelTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
 
-	mmuComponent, pageTable := b.createMMU(engine)
+	mmuComponent, pageTable := b.createMMU(b.engine)
 
 	gpuDriverBuilder := driver.MakeBuilder()
 	if b.useMagicMemoryCopy {
 		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
 	}
 	gpuDriver := gpuDriverBuilder.
-		WithEngine(engine).
+		WithEngine(b.engine).
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
@@ -144,9 +162,13 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
-	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent)
+	if b.bufferAnalyzer != nil {
+		b.bufferAnalyzer.AddComponent(gpuDriver)
+	}
+
+	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent)
 	pcieConnector, rootComplexID :=
-		b.createConnection(engine, gpuDriver, mmuComponent)
+		b.createConnection(b.engine, gpuDriver, mmuComponent)
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
 
@@ -161,9 +183,21 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	pcieConnector.EstablishRoute()
 
 	return &Platform{
-		Engine: engine,
+		Engine: b.engine,
 		Driver: gpuDriver,
 		GPUs:   b.gpus,
+	}
+}
+
+func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
+	if b.bufferAnalyzingDir != "" {
+		b.bufferAnalyzer = bottleneckanalysis.MakeBufferAnalyzerBuilder().
+			WithTimeTeller(b.engine).
+			WithPeriod(b.bufferAnalyzingPeriod).
+			WithDirectoryPath(b.bufferAnalyzingDir).
+			Build()
+
+		atexit.Register(b.bufferAnalyzer.Report)
 	}
 }
 
@@ -276,6 +310,10 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
 	}
 
+	if b.bufferAnalyzer != nil {
+		gpuBuilder = gpuBuilder.WithBufferAnalyzer(b.bufferAnalyzer)
+	}
+
 	gpuBuilder = b.setVisTracer(gpuDriver, gpuBuilder)
 	gpuBuilder = b.setMemTracer(gpuBuilder)
 	gpuBuilder = b.setISADebugger(gpuBuilder)
@@ -306,7 +344,7 @@ func (b *R9NanoPlatformBuilder) setMemTracer(
 		panic(err)
 	}
 	logger := log.New(file, "", 0)
-	memTracer := memtraces.NewTracer(logger)
+	memTracer := memtraces.NewTracer(logger, b.engine)
 	gpuBuilder = gpuBuilder.WithMemTracer(memTracer)
 	return gpuBuilder
 }
@@ -320,6 +358,7 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 	}
 
 	tracer := tracing.NewMySQLTracerWithTimeRange(
+		b.engine,
 		b.visTraceStartTime,
 		b.visTraceEndTime)
 	tracer.Init()

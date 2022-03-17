@@ -3,8 +3,8 @@ package main_test
 import (
 	"testing"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/fir"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/fir"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 func BenchmarkFIR(t *testing.B) {

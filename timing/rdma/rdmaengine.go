@@ -5,9 +5,9 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
 )
 
 type transaction struct {
@@ -177,6 +177,10 @@ func (e *Engine) processReqFromL1(
 ) bool {
 	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
 
+	if dst == e.ToOutside {
+		panic("RDMA loop back detected")
+	}
+
 	cloned := e.cloneReq(req)
 	cloned.Meta().Src = e.ToOutside
 	cloned.Meta().Dst = dst
@@ -186,9 +190,8 @@ func (e *Engine) processReqFromL1(
 	if err == nil {
 		e.ToL1.Retrieve(now)
 
-		tracing.TraceReqReceive(req, now, e)
-		tracing.TraceReqInitiate(cloned, now, e,
-			tracing.MsgIDAtReceiver(req, e))
+		tracing.TraceReqReceive(req, e)
+		tracing.TraceReqInitiate(cloned, e, tracing.MsgIDAtReceiver(req, e))
 
 		//fmt.Printf("%s req inside %s -> outside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
@@ -220,9 +223,8 @@ func (e *Engine) processReqFromOutside(
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 
-		tracing.TraceReqReceive(req, now, e)
-		tracing.TraceReqInitiate(cloned, now, e,
-			tracing.MsgIDAtReceiver(req, e))
+		tracing.TraceReqReceive(req, e)
+		tracing.TraceReqInitiate(cloned, e, tracing.MsgIDAtReceiver(req, e))
 
 		//fmt.Printf("%s req outside %s -> inside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
@@ -258,8 +260,8 @@ func (e *Engine) processRspFromL2(
 		//fmt.Printf("%s rsp inside %s -> outside %s\n",
 		//e.Name(), rsp.GetID(), rspToOutside.GetID())
 
-		tracing.TraceReqFinalize(trans.toInside, now, e)
-		tracing.TraceReqComplete(trans.fromOutside, now, e)
+		tracing.TraceReqFinalize(trans.toInside, e)
+		tracing.TraceReqComplete(trans.fromOutside, e)
 
 		e.transactionsFromOutside =
 			append(e.transactionsFromOutside[:transactionIndex],
@@ -286,8 +288,8 @@ func (e *Engine) processRspFromOutside(
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 
-		tracing.TraceReqFinalize(trans.toOutside, now, e)
-		tracing.TraceReqComplete(trans.fromInside, now, e)
+		tracing.TraceReqFinalize(trans.toOutside, e)
+		tracing.TraceReqComplete(trans.fromInside, e)
 
 		//fmt.Printf("%s rsp outside %s -> inside %s\n",
 		//e.Name(), rsp.GetID(), rspToInside.GetID())

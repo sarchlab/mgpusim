@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/mgpusim/v3/insts"
 )
 
 type dim3 struct {

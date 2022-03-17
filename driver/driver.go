@@ -6,14 +6,14 @@ import (
 	"sync"
 
 	"github.com/rs/xid"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mgpusim/v2/driver/internal"
-	"gitlab.com/akita/mgpusim/v2/kernels"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/util/v2/ca"
-	"gitlab.com/akita/util/v2/tracing"
+	"github.com/tebeka/atexit"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mgpusim/v3/driver/internal"
+	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 // Driver is an Akita component that controls the simulated GPUs
@@ -77,7 +77,6 @@ func (d *Driver) logSimulationStart() {
 	tracing.StartTask(
 		d.simulationID,
 		"",
-		0,
 		d,
 		"Simulation", "Simulation",
 		nil,
@@ -85,7 +84,7 @@ func (d *Driver) logSimulationStart() {
 }
 
 func (d *Driver) logSimulationTerminate() {
-	tracing.EndTask(d.simulationID, d.Engine.CurrentTime(), d)
+	tracing.EndTask(d.simulationID, d)
 }
 
 func (d *Driver) runAsync() {
@@ -115,6 +114,7 @@ func (d *Driver) runEngine() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Panic: %v", r)
+			atexit.Exit(1)
 		}
 	}()
 
@@ -291,7 +291,6 @@ func (d *Driver) logCmdStart(cmd Command, now sim.VTimeInSec) {
 	tracing.StartTask(
 		cmd.GetID(),
 		d.simulationID,
-		now,
 		d,
 		"Driver Command",
 		reflect.TypeOf(cmd).String(),
@@ -300,7 +299,7 @@ func (d *Driver) logCmdStart(cmd Command, now sim.VTimeInSec) {
 }
 
 func (d *Driver) logCmdComplete(cmd Command, now sim.VTimeInSec) {
-	tracing.EndTask(cmd.GetID(), now, d)
+	tracing.EndTask(cmd.GetID(), d)
 }
 
 func (d *Driver) processNoopCommand(
@@ -317,14 +316,14 @@ func (d *Driver) logTaskToGPUInitiate(
 	cmd Command,
 	req sim.Msg,
 ) {
-	tracing.TraceReqInitiate(req, now, d, cmd.GetID())
+	tracing.TraceReqInitiate(req, d, cmd.GetID())
 }
 
 func (d *Driver) logTaskToGPUClear(
 	now sim.VTimeInSec,
 	req sim.Msg,
 ) {
-	tracing.TraceReqFinalize(req, now, d)
+	tracing.TraceReqFinalize(req, d)
 }
 
 func (d *Driver) processLaunchKernelCommand(
@@ -590,7 +589,7 @@ func (d *Driver) findRequestingGPUs(
 	return requestingGPUs
 }
 
-func (d *Driver) findContext(pid ca.PID) *Context {
+func (d *Driver) findContext(pid vm.PID) *Context {
 	context := &Context{}
 	for i := 0; i < len(d.contexts); i++ {
 		if d.contexts[i].pid == d.currentPageMigrationReq.PID {

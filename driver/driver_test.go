@@ -2,13 +2,12 @@ package driver
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/util/v2/ca"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 var _ = ginkgo.Describe("Driver", func() {
@@ -75,7 +74,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.IsRunning = false
 
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(0x200000100)).
+				Find(vm.PID(1), uint64(0x200000100)).
 				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200000000,
@@ -84,7 +83,7 @@ var _ = ginkgo.Describe("Driver", func() {
 					Valid:    true,
 				}, true)
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(0x200000800)).
+				Find(vm.PID(1), uint64(0x200000800)).
 				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200000800,
@@ -93,7 +92,7 @@ var _ = ginkgo.Describe("Driver", func() {
 					Valid:    true,
 				}, true)
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(0x200001000)).
+				Find(vm.PID(1), uint64(0x200001000)).
 				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200001000,
@@ -102,7 +101,7 @@ var _ = ginkgo.Describe("Driver", func() {
 					Valid:    true,
 				}, true)
 			pageTable.EXPECT().
-				Find(ca.PID(1), uint64(0x200002000)).
+				Find(vm.PID(1), uint64(0x200002000)).
 				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x200002000,
@@ -209,7 +208,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			pageTable.EXPECT().Find(ca.PID(1), uint64(0x2_0000_0100)).
+			pageTable.EXPECT().Find(vm.PID(1), uint64(0x2_0000_0100)).
 				Return(vm.Page{
 					PID:      1,
 					VAddr:    0x2_0000_0000,
@@ -323,7 +322,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
 			req := cmd.Reqs[0].(*protocol.LaunchKernelReq)
-			Expect(req.PID).To(Equal(ca.PID(1)))
+			Expect(req.PID).To(Equal(vm.PID(1)))
 			Expect(driver.requestsToSend).To(HaveLen(1))
 		})
 	})
@@ -425,7 +424,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		}
 
 		pageTable.EXPECT().
-			Find(ca.PID(0), uint64(0x100)).
+			Find(vm.PID(0), uint64(0x100)).
 			Return(vm.Page{
 				PID:      0,
 				VAddr:    0x100,
@@ -446,7 +445,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			IsMigrating: true,
 		})
 		memAllocator.EXPECT().
-			AllocatePageWithGivenVAddr(ca.PID(0), 2, uint64(0x100), true).
+			AllocatePageWithGivenVAddr(vm.PID(0), 2, uint64(0x100), true).
 			Return(*page2)
 
 		toGPUs.EXPECT().Peek().Return(req)

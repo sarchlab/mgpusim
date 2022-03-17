@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"math"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/protocol"
-	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/v2/timing/cp/internal/resource"
-	"gitlab.com/akita/util/v2/akitaext"
-	"gitlab.com/akita/util/v2/buffering"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mgpusim/v3/protocol"
+	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
+	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
 )
 
 // Builder can build Command Processors
@@ -20,6 +19,7 @@ type Builder struct {
 	engine         sim.Engine
 	visTracer      tracing.Tracer
 	monitor        *monitoring.Monitor
+	bufferAnalyzer *bottleneckanalysis.BufferAnalyzer
 	numDispatchers int
 }
 
@@ -57,6 +57,15 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
+// WithBufferAnalyzer sets the buffer analyzer used to analyze the
+// command processor's buffers.
+func (b Builder) WithBufferAnalyzer(
+	analyzer *bottleneckanalysis.BufferAnalyzer,
+) Builder {
+	b.bufferAnalyzer = analyzer
+	return b
+}
+
 // Build builds a new Command Processor
 func (b Builder) Build(name string) *CommandProcessor {
 	cp := new(CommandProcessor)
@@ -64,30 +73,46 @@ func (b Builder) Build(name string) *CommandProcessor {
 
 	unlimited := math.MaxInt32
 	cp.ToDriver = sim.NewLimitNumMsgPort(cp, 1, name+".ToDriver")
-	cp.toDriverSender = akitaext.NewBufferedSender(
-		cp.ToDriver, buffering.NewBuffer(unlimited))
+	cp.toDriverSender = sim.NewBufferedSender(
+		cp.ToDriver,
+		sim.NewBuffer(cp.Name()+".ToDriverSenderBuffer", unlimited),
+	)
 	cp.ToDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToDispatcher")
-	cp.toDMASender = akitaext.NewBufferedSender(
-		cp.ToDMA, buffering.NewBuffer(unlimited))
+	cp.toDMASender = sim.NewBufferedSender(
+		cp.ToDMA,
+		sim.NewBuffer(cp.Name()+".ToDMASenderBuffer", unlimited),
+	)
 	cp.ToCUs = sim.NewLimitNumMsgPort(cp, 1, name+".ToCUs")
-	cp.toCUsSender = akitaext.NewBufferedSender(
-		cp.ToCUs, buffering.NewBuffer(unlimited))
+	cp.toCUsSender = sim.NewBufferedSender(
+		cp.ToCUs,
+		sim.NewBuffer(cp.Name()+".ToCUSenderBuffer", unlimited),
+	)
 	cp.ToTLBs = sim.NewLimitNumMsgPort(cp, 1, name+".ToTLBs")
-	cp.toTLBsSender = akitaext.NewBufferedSender(
-		cp.ToTLBs, buffering.NewBuffer(unlimited))
+	cp.toTLBsSender = sim.NewBufferedSender(
+		cp.ToTLBs,
+		sim.NewBuffer(cp.Name()+".ToTLBSenderBuffer", unlimited),
+	)
 	cp.ToRDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToRDMA")
-	cp.toRDMASender = akitaext.NewBufferedSender(
-		cp.ToRDMA, buffering.NewBuffer(unlimited))
+	cp.toRDMASender = sim.NewBufferedSender(
+		cp.ToRDMA,
+		sim.NewBuffer(cp.Name()+".ToRDMASenderBuffer", unlimited),
+	)
 	cp.ToPMC = sim.NewLimitNumMsgPort(cp, 1, name+".ToPMC")
-	cp.toPMCSender = akitaext.NewBufferedSender(
-		cp.ToPMC, buffering.NewBuffer(unlimited))
+	cp.toPMCSender = sim.NewBufferedSender(
+		cp.ToPMC,
+		sim.NewBuffer(cp.Name()+".ToPMCSenderBuffer", unlimited),
+	)
 	cp.ToAddressTranslators = sim.NewLimitNumMsgPort(cp, 1,
 		name+".ToAddressTranslators")
-	cp.toAddressTranslatorsSender = akitaext.NewBufferedSender(
-		cp.ToAddressTranslators, buffering.NewBuffer(unlimited))
+	cp.toAddressTranslatorsSender = sim.NewBufferedSender(
+		cp.ToAddressTranslators,
+		sim.NewBuffer(cp.Name()+".ToAddressTranslatorsBuffer", unlimited),
+	)
 	cp.ToCaches = sim.NewLimitNumMsgPort(cp, 1, name+".ToCaches")
-	cp.toCachesSender = akitaext.NewBufferedSender(
-		cp.ToCaches, buffering.NewBuffer(unlimited))
+	cp.toCachesSender = sim.NewBufferedSender(
+		cp.ToCaches,
+		sim.NewBuffer(cp.Name()+".ToCachesBuffer", unlimited),
+	)
 
 	cp.bottomKernelLaunchReqIDToTopReqMap =
 		make(map[string]*protocol.LaunchKernelReq)
@@ -100,6 +125,10 @@ func (b Builder) Build(name string) *CommandProcessor {
 
 	if b.visTracer != nil {
 		tracing.CollectTrace(cp, b.visTracer)
+	}
+
+	if b.bufferAnalyzer != nil {
+		b.bufferAnalyzer.AddComponent(cp)
 	}
 
 	return cp

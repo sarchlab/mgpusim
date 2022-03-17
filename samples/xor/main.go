@@ -4,8 +4,8 @@ import (
 	"flag"
 	"math/rand"
 
-	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/xor"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/xor"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 func main() {

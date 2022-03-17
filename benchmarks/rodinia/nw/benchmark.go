@@ -9,9 +9,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 // KernelArgs defines kernel arguments
@@ -31,7 +31,7 @@ type KernelArgs struct {
 	OffsetC            int32
 }
 
-var blosum62 [][]int32 = [][]int32{
+var blosum62 = [][]int32{
 	{4, -1, -2, -2, 0, -1, -1, 0, -2, -1, -1, -1, -1, -2, -1, 1, 0, -3, -2, 0, -2, -1, 0, -4},
 	{-1, 5, 0, -2, -3, 1, 0, -2, 0, -3, -2, 2, -1, -3, -2, -1, -1, -3, -2, -3, -1, 0, -1, -4},
 	{-2, 0, 6, 1, -3, 0, 0, 0, 1, -3, -3, 0, -2, -3, -2, 1, 0, -4, -2, -3, 3, 0, -1, -4},

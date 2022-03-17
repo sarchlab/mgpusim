@@ -1,10 +1,10 @@
 package driver_test
 
 import (
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/mgpusim/v2/samples/runner"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/samples/runner"
 )
 
 var _ = ginkgo.Describe("Test Memory Copy D2D", func() {

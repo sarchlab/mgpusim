@@ -6,8 +6,8 @@ import (
 	"log"
 
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/insts"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mgpusim/v3/insts"
 )
 
 // ISADebugger is a hook that hooks to a emulator computeunit for each intruction

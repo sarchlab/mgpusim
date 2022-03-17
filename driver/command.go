@@ -1,9 +1,9 @@
 package driver
 
 import (
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 // A Command is a task to execute later

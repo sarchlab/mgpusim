@@ -1,10 +1,10 @@
 package cu
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/timing/wavefront"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 var _ = Describe("FetchArbiter", func() {

@@ -4,7 +4,6 @@ stages:
   - build
   - test
   - acceptance_test
-  - deploy
 
 go_build:
   stage: build
@@ -21,9 +20,8 @@ lint:
 unit_test:
   stage: test
   script:
-    - go get -u github.com/onsi/ginkgo/ginkgo
-    - go build ./...
-    - ginkgo -r --randomizeAllSpecs --randomizeSuites --failOnPending --cover --progress --skip="Stress"
+    - go install github.com/onsi/ginkgo/v2/ginkgo@latest
+    - ginkgo -r --randomize-all --randomize-suites --fail-on-pending --cover --trace --progress
     - go test -coverprofile=cover.out ./...
     - go tool cover -func=cover.out > coverage.out
     - tail coverage.out
@@ -57,25 +55,25 @@ multi_unified_gpu_test:
     - ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
     - ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
 
-multi_discrete_gpu_unified_memory_test:
-  stage: acceptance_test
-  tags:
-    - multi_core
-  script:
-    - cd tests/acceptance
-    - go build
-    - ./acceptance -num-gpu=2 -no-unified-gpu -only-unified-memory
-    - ./acceptance -num-gpu=4 -no-unified-gpu -only-unified-memory
+# multi_discrete_gpu_unified_memory_test:
+#   stage: acceptance_test
+#   tags:
+#     - multi_core
+#   script:
+#     - cd tests/acceptance
+#     - go build
+#     - ./acceptance -num-gpu=2 -no-unified-gpu -only-unified-memory
+#     - ./acceptance -num-gpu=4 -no-unified-gpu -only-unified-memory
 
-multi_unified_gpu_unified_memory_test:
-  stage: acceptance_test
-  tags:
-    - multi_core
-  script:
-    - cd tests/acceptance
-    - go build
-    - ./acceptance -num-gpu=2 -only-unified-gpu -only-unified-memory
-    - ./acceptance -num-gpu=4 -only-unified-gpu -only-unified-memory
+# multi_unified_gpu_unified_memory_test:
+#   stage: acceptance_test
+#   tags:
+#     - multi_core
+#   script:
+#     - cd tests/acceptance
+#     - go build
+#     - ./acceptance -num-gpu=2 -only-unified-gpu -only-unified-memory
+#     - ./acceptance -num-gpu=4 -only-unified-gpu -only-unified-memory
 
 deterministic_test:
   stage: acceptance_test
@@ -87,38 +85,3 @@ deterministic_test:
     - cd tests/deterministic/empty_kernel
     - go build
     - ./empty_kernel
-
-build_docker_image_master:
-  stage: deploy
-  image: docker:19.03.1-dind
-  services:
-    - docker:dind
-  only:
-    - master
-    - v2
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-  script:
-    - export IMAGE_NAME=$CI_REGISTRY_IMAGE/dev
-    - docker pull $IMAGE_NAME:latest || true
-    - docker build --cache-from $IMAGE_NAME:latest --tag $IMAGE_NAME:$CI_COMMIT_SHA --tag $IMAGE_NAME:latest ./docker/dev
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
-    - docker push $IMAGE_NAME:$CI_COMMIT_SHA
-    - docker push $IMAGE_NAME:latest
-
-build_docker_image_release:
-  stage: deploy
-  image: docker:19.03.1-dind
-  services:
-    - docker:dind
-  only:
-    - tags
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-  script:
-    - docker pull $CI_REGISTRY_IMAGE:latest || true
-    - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG --tag $CI_REGISTRY_IMAGE:latest ./docker/dev
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
-    - docker push $CI_REGISTRY_IMAGE:latest

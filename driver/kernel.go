@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/kernels"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 // EnqueueLaunchKernel schedules kernel to be launched later

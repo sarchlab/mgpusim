@@ -5,16 +5,16 @@ import (
 	"log"
 	"os"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/idealmemcontroller"
-	"gitlab.com/akita/mem/v2/mem"
-	memtraces "gitlab.com/akita/mem/v2/trace"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/mgpusim/v2/emu"
-	"gitlab.com/akita/mgpusim/v2/insts"
-	"gitlab.com/akita/mgpusim/v2/timing/cp"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/idealmemcontroller"
+	"gitlab.com/akita/mem/v3/mem"
+	memtraces "gitlab.com/akita/mem/v3/trace"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/emu"
+	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/timing/cp"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
@@ -164,7 +164,7 @@ func (b *EmuGPUBuilder) buildMemory() {
 	if b.enableMemTracing {
 		file, _ := os.Create("mem.trace")
 		logger := log.New(file, "", 0)
-		memTracer := memtraces.NewTracer(logger)
+		memTracer := memtraces.NewTracer(logger, b.engine)
 		tracing.CollectTrace(b.gpuMem, memTracer)
 	}
 }

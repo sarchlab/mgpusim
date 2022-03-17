@@ -3,23 +3,24 @@ package runner
 import (
 	"fmt"
 
-	rob2 "gitlab.com/akita/mgpusim/v2/timing/rob"
+	rob2 "gitlab.com/akita/mgpusim/v3/timing/rob"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/cache/writearound"
-	"gitlab.com/akita/mem/v2/cache/writeback"
-	"gitlab.com/akita/mem/v2/cache/writethrough"
-	"gitlab.com/akita/mem/v2/dram"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm/addresstranslator"
-	"gitlab.com/akita/mem/v2/vm/mmu"
-	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/timing/cp"
-	"gitlab.com/akita/mgpusim/v2/timing/cu"
-	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v2/timing/rdma"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/cache/writearound"
+	"gitlab.com/akita/mem/v3/cache/writeback"
+	"gitlab.com/akita/mem/v3/cache/writethrough"
+	"gitlab.com/akita/mem/v3/dram"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm/addresstranslator"
+	"gitlab.com/akita/mem/v3/vm/mmu"
+	"gitlab.com/akita/mem/v3/vm/tlb"
+	"gitlab.com/akita/mgpusim/v3/timing/cp"
+	"gitlab.com/akita/mgpusim/v3/timing/cu"
+	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -43,6 +44,7 @@ type R9NanoGPUBuilder struct {
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
+	bufferAnalyzer     *bottleneckanalysis.BufferAnalyzer
 
 	gpuName                 string
 	gpu                     *GPU
@@ -190,6 +192,14 @@ func (b R9NanoGPUBuilder) WithLog2PageSize(log2PageSize uint64) R9NanoGPUBuilder
 // WithMonitor sets the monitor to use.
 func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 	b.monitor = m
+	return b
+}
+
+// WithBufferAnalyzer sets the buffer analyzer to use.
+func (b R9NanoGPUBuilder) WithBufferAnalyzer(
+	a *bottleneckanalysis.BufferAnalyzer,
+) R9NanoGPUBuilder {
+	b.bufferAnalyzer = a
 	return b
 }
 
@@ -644,6 +654,10 @@ func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(cu)
 		}
+
+		if b.bufferAnalyzer != nil {
+			b.bufferAnalyzer.AddComponent(cu)
+		}
 	}
 }
 
@@ -653,6 +667,10 @@ func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(rob)
+		}
+
+		if b.bufferAnalyzer != nil {
+			b.bufferAnalyzer.AddComponent(rob)
 		}
 	}
 }
@@ -664,6 +682,10 @@ func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(tlb)
+		}
+
+		if b.bufferAnalyzer != nil {
+			b.bufferAnalyzer.AddComponent(tlb)
 		}
 	}
 }
@@ -696,6 +718,13 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
 	b.gpu.L1SCaches = append(b.gpu.L1SCaches, sa.l1sCache)
 	b.l1sTLBs = append(b.l1sTLBs, sa.l1sTLB)
 	b.gpu.L1STLBs = append(b.gpu.L1STLBs, sa.l1sTLB)
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(sa.l1sAT)
+		b.monitor.RegisterComponent(sa.l1sROB)
+		b.monitor.RegisterComponent(sa.l1sCache)
+		b.monitor.RegisterComponent(sa.l1sTLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
@@ -705,6 +734,13 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 	b.gpu.L1ICaches = append(b.gpu.L1ICaches, sa.l1iCache)
 	b.l1iTLBs = append(b.l1iTLBs, sa.l1iTLB)
 	b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, sa.l1iTLB)
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(sa.l1iAT)
+		b.monitor.RegisterComponent(sa.l1iROB)
+		b.monitor.RegisterComponent(sa.l1iCache)
+		b.monitor.RegisterComponent(sa.l1iTLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
@@ -754,7 +790,8 @@ func (b *R9NanoGPUBuilder) buildCP() {
 	builder := cp.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithMonitor(b.monitor)
+		WithMonitor(b.monitor).
+		WithBufferAnalyzer(b.bufferAnalyzer)
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)

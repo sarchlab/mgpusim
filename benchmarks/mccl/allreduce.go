@@ -1,6 +1,6 @@
 package mccl
 
-import "gitlab.com/akita/mgpusim/v2/driver"
+import "gitlab.com/akita/mgpusim/v3/driver"
 
 // AllReduceRing performs AllReduce average operation.
 func AllReduceRing(
@@ -134,7 +134,7 @@ func allReduceReduce(
 		if sizeToPush < 0 {
 			sizeToPush = 0
 		}
-		var lastReduce uint32 = 0
+		var lastReduce = uint32(0)
 		if step == numGPU-2 {
 			//last reduce
 			lastReduce = 1

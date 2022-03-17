@@ -11,22 +11,22 @@ import (
 	"github.com/fatih/color"
 )
 
-var benchmarkFilter *string = flag.String("benchmark", "",
+var benchmarkFilter = flag.String("benchmark", "",
 	`Regular expression for the benchmarks to run. Leaving it empty will run 
 all the benchmarks.`)
-var numGPU *int = flag.Int("num-gpu", 0,
+var numGPU = flag.Int("num-gpu", 0,
 	`Only run the benchmark cases with certain number of GPUs.`)
-var onlyParallel *bool = flag.Bool("only-parallel", false,
+var onlyParallel = flag.Bool("only-parallel", false,
 	`Only run the parallel benchmark cases.`)
-var noParallel *bool = flag.Bool("no-parallel", false,
+var noParallel = flag.Bool("no-parallel", false,
 	`Skip the parallel benchmark cases.`)
-var onlyUnifiedMemory *bool = flag.Bool("only-unified-memory", false,
+var onlyUnifiedMemory = flag.Bool("only-unified-memory", false,
 	`Only run the unified memory benchmark cases.`)
-var noUnifiedMemory *bool = flag.Bool("no-unified-memory", false,
+var noUnifiedMemory = flag.Bool("no-unified-memory", false,
 	`Skip the unified memory benchmark cases.`)
-var onlyUnifiedGPU *bool = flag.Bool("only-unified-gpu", false,
+var onlyUnifiedGPU = flag.Bool("only-unified-gpu", false,
 	`Only run the unified GPU benchmark cases.`)
-var noUnifiedGPU *bool = flag.Bool("no-unified-gpu", false,
+var noUnifiedGPU = flag.Bool("no-unified-gpu", false,
 	`Skip the unified GPU benchmark cases.`)
 
 type benchmark struct {

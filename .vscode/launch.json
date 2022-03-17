@@ -150,9 +150,10 @@
             "args": [
                 "-timing",
                 "-verify",
-                "-length=128000",
+                "-length=1024",
                 "-report-all",
-                "-max-inst=100"
+                "-buffer-level-trace-dir=buffer_level",
+                "-buffer-level-trace-period=0.00000001",
             ]
         },
         {
