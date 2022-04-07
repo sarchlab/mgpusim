@@ -28,6 +28,8 @@ type R9NanoPlatformBuilder struct {
 	visTraceEndTime    sim.VTimeInSec
 	traceMem           bool
 	numGPU             int
+	numSAPerGPU        int
+	numCUPerSA         int
 	useMagicMemoryCopy bool
 	log2PageSize       uint64
 
@@ -46,6 +48,8 @@ type R9NanoPlatformBuilder struct {
 func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 	b := R9NanoPlatformBuilder{
 		numGPU:            4,
+		numSAPerGPU:       16,
+		numCUPerSA:        4,
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
@@ -299,8 +303,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithMMU(mmuComponent).
-		WithNumCUPerShaderArray(4).
-		WithNumShaderArray(16).
+		WithNumCUPerShaderArray(b.numCUPerSA).
+		WithNumShaderArray(b.numSAPerGPU).
 		WithNumMemoryBank(16).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
@@ -382,8 +386,13 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	gpu := gpuBuilder.
 		WithMemAddrOffset(memAddrOffset).
 		Build(name, uint64(index))
-	gpuDriver.RegisterGPU(gpu.Domain.GetPortByName("CommandProcessor"),
-		4*mem.GB)
+	gpuDriver.RegisterGPU(
+		gpu.Domain.GetPortByName("CommandProcessor"),
+		driver.DeviceProperties{
+			CUCount:  b.numCUPerSA * b.numSAPerGPU,
+			DRAMSize: 4 * mem.GB,
+		},
+	)
 	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
 	b.configRDMAEngine(gpu, rdmaAddressTable)

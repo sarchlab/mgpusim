@@ -1,6 +1,6 @@
 package main
 
-var benchmarks []benchmark = []benchmark{
+var benchmarks = []benchmark{
 	{
 		benchmarkPath:  "../../benchmarks/polybench/atax",
 		executablePath: "../../samples/atax",

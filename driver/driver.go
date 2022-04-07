@@ -130,16 +130,29 @@ func (d *Driver) runEngine() {
 	d.engineRunningMutex.Unlock()
 }
 
+// DeviceProperties defines the properties of a device
+type DeviceProperties struct {
+	CUCount  int
+	DRAMSize uint64
+}
+
 // RegisterGPU tells the driver about the existence of a GPU
-func (d *Driver) RegisterGPU(commandProcessorPort sim.Port, dramSize uint64) {
+func (d *Driver) RegisterGPU(
+	commandProcessorPort sim.Port,
+	properties DeviceProperties,
+) {
 	d.GPUs = append(d.GPUs, commandProcessorPort)
 
 	gpuDevice := &internal.Device{
 		ID:       len(d.GPUs),
 		Type:     internal.DeviceTypeGPU,
 		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
+		Properties: internal.DeviceProperties{
+			CUCount:  properties.CUCount,
+			DRAMSize: properties.DRAMSize,
+		},
 	}
-	gpuDevice.SetTotalMemSize(dramSize)
+	gpuDevice.SetTotalMemSize(properties.DRAMSize)
 	d.memAllocator.RegisterDevice(gpuDevice)
 
 	d.devices = append(d.devices, gpuDevice)
@@ -362,9 +375,14 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	dev := d.devices[queue.GPUID]
+	wgDist := d.distributeWGToGPUs(queue, cmd)
 
+	dev := d.devices[queue.GPUID]
 	for i, gpuID := range dev.UnifiedGPUIDs {
+		if wgDist[i+1]-wgDist[i] == 0 {
+			continue
+		}
+
 		req := protocol.NewLaunchKernelReq(now,
 			d.gpuPort, d.GPUs[gpuID-1])
 		req.PID = queue.Context.pid
@@ -372,7 +390,6 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 		req.Packet = cmd.Packet
 		req.PacketAddress = uint64(cmd.DPacket)
 
-		numGPUs := len(dev.UnifiedGPUIDs)
 		currentGPUIndex := i
 		req.WGFilter = func(
 			pkt *kernels.HsaKernelDispatchPacket,
@@ -380,17 +397,18 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 		) bool {
 			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
 			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
-			numWGZ := (pkt.GridSizeZ-1)/uint32(pkt.WorkgroupSizeZ) + 1
-			numWG := int(numWGX * numWGY * numWGZ)
 
 			flattenedID :=
 				wg.IDZ*int(numWGX)*int(numWGY) +
 					wg.IDY*int(numWGX) +
 					wg.IDX
 
-			wgPerGPU := (numWG-1)/numGPUs + 1
+			if flattenedID >= wgDist[currentGPUIndex] &&
+				flattenedID < wgDist[currentGPUIndex+1] {
+				return true
+			}
 
-			return flattenedID/wgPerGPU == currentGPUIndex
+			return false
 		}
 
 		queue.IsRunning = true
@@ -405,6 +423,41 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	}
 
 	return true
+}
+
+func (d *Driver) distributeWGToGPUs(
+	queue *CommandQueue,
+	cmd *LaunchKernelCommand,
+) []int {
+	dev := d.devices[queue.GPUID]
+
+	actualGPUs := dev.UnifiedGPUIDs
+	wgAllocated := 0
+	wgDist := make([]int, len(actualGPUs)+1)
+
+	totalCUCount := 0
+	for _, devID := range actualGPUs {
+		totalCUCount += d.devices[devID].Properties.CUCount
+	}
+
+	numWGX := (cmd.Packet.GridSizeX-1)/uint32(cmd.Packet.WorkgroupSizeX) + 1
+	numWGY := (cmd.Packet.GridSizeY-1)/uint32(cmd.Packet.WorkgroupSizeY) + 1
+	numWGZ := (cmd.Packet.GridSizeZ-1)/uint32(cmd.Packet.WorkgroupSizeZ) + 1
+	totalWGCount := int(numWGX) * int(numWGY) * int(numWGZ)
+	wgPerCU := (totalWGCount-1)/totalCUCount + 1
+
+	for i, devID := range actualGPUs {
+		cuCount := d.devices[devID].Properties.CUCount
+		wgToAllocate := cuCount * wgPerCU
+		wgDist[i+1] = wgAllocated + wgToAllocate
+		wgAllocated += wgToAllocate
+	}
+
+	if wgAllocated < totalWGCount {
+		panic("not all wg allocated")
+	}
+
+	return wgDist
 }
 
 func (d *Driver) processLaunchKernelReturn(
