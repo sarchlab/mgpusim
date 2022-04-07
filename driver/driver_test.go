@@ -51,7 +51,11 @@ var _ = ginkgo.Describe("Driver", func() {
 			driver.RemotePMCPorts = append(driver.RemotePMCPorts,
 				sim.NewLimitNumMsgPort(driver, 1, ""))
 			driver.RemotePMCPorts[i] = remotePMCPorts[i]
-			driver.RegisterGPU(gpu, 4*mem.GB)
+			driver.RegisterGPU(gpu,
+				DeviceProperties{
+					CUCount:  4,
+					DRAMSize: 4 * mem.GB,
+				})
 		}
 
 		context = driver.Init()

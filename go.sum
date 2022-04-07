@@ -151,8 +151,8 @@ gitlab.com/akita/akita/v3 v3.0.0-alpha.9 h1:Sm7/pVc4w9VAPHiHg+RT6PcS0gYB12+UdfbP
 gitlab.com/akita/akita/v3 v3.0.0-alpha.9/go.mod h1:VI9rctuMLDfbUejP1Dtfl2vqW7ixUmQoWftLN193sgE=
 gitlab.com/akita/dnn v0.5.3 h1:jf4qT1xUCx7aemETEFh+sJFXLEdqofUXZk69dKXx/Ng=
 gitlab.com/akita/dnn v0.5.3/go.mod h1:9bR6UBdBPJc+t8j3mvX187F69LfiYbxtJIj3HhMuqlo=
-gitlab.com/akita/mem/v3 v3.0.0-alpha.1 h1:VkGBThf90W2KWMCmT8sldQv9mkrIM/rSUNDVIyUZ8Zk=
-gitlab.com/akita/mem/v3 v3.0.0-alpha.1/go.mod h1:qr7lq3jzOW0/asL7rArFomkJFCUcJOBTh3kNqaXNWLU=
+gitlab.com/akita/mem/v3 v3.0.0-alpha.3 h1:m3h6DUnBZEAqvkupQeg5oo6ldQuE1UF3if+uTHzzymE=
+gitlab.com/akita/mem/v3 v3.0.0-alpha.3/go.mod h1:qr7lq3jzOW0/asL7rArFomkJFCUcJOBTh3kNqaXNWLU=
 gitlab.com/akita/noc/v3 v3.0.0-alpha.1 h1:yxtcEuKBru7Ufv408B/f3ubEqv0vsqdJci80HTkT208=
 gitlab.com/akita/noc/v3 v3.0.0-alpha.1/go.mod h1:U19QBOMOMoXlbMws0xZiL8t5pTgc4P/mV7l8g89FU70=
 go.mongodb.org/mongo-driver v1.8.4 h1:NruvZPPL0PBcRJKmbswoWSrmHeUvzdxA3GCPfD/NEOA=

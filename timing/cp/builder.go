@@ -71,6 +71,29 @@ func (b Builder) Build(name string) *CommandProcessor {
 	cp := new(CommandProcessor)
 	cp.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, cp)
 
+	b.createPorts(cp, name)
+
+	cp.bottomKernelLaunchReqIDToTopReqMap =
+		make(map[string]*protocol.LaunchKernelReq)
+	cp.bottomMemCopyH2DReqIDToTopReqMap =
+		make(map[string]*protocol.MemCopyH2DReq)
+	cp.bottomMemCopyD2HReqIDToTopReqMap =
+		make(map[string]*protocol.MemCopyD2HReq)
+
+	b.buildDispatchers(cp)
+
+	if b.visTracer != nil {
+		tracing.CollectTrace(cp, b.visTracer)
+	}
+
+	if b.bufferAnalyzer != nil {
+		b.bufferAnalyzer.AddComponent(cp)
+	}
+
+	return cp
+}
+
+func (Builder) createPorts(cp *CommandProcessor, name string) {
 	unlimited := math.MaxInt32
 	cp.ToDriver = sim.NewLimitNumMsgPort(cp, 1, name+".ToDriver")
 	cp.toDriverSender = sim.NewBufferedSender(
@@ -113,25 +136,6 @@ func (b Builder) Build(name string) *CommandProcessor {
 		cp.ToDMA,
 		sim.NewBuffer(cp.Name()+".ToCachesBuffer", unlimited),
 	)
-
-	cp.bottomKernelLaunchReqIDToTopReqMap =
-		make(map[string]*protocol.LaunchKernelReq)
-	cp.bottomMemCopyH2DReqIDToTopReqMap =
-		make(map[string]*protocol.MemCopyH2DReq)
-	cp.bottomMemCopyD2HReqIDToTopReqMap =
-		make(map[string]*protocol.MemCopyD2HReq)
-
-	b.buildDispatchers(cp)
-
-	if b.visTracer != nil {
-		tracing.CollectTrace(cp, b.visTracer)
-	}
-
-	if b.bufferAnalyzer != nil {
-		b.bufferAnalyzer.AddComponent(cp)
-	}
-
-	return cp
 }
 
 func (b *Builder) buildDispatchers(cp *CommandProcessor) {
