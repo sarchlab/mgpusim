@@ -281,10 +281,10 @@ func (e *Engine) processRspFromOutside(
 
 	rspToInside := e.cloneRsp(rsp, trans.fromInside.Meta().ID)
 	rspToInside.Meta().SendTime = now
-	rspToInside.Meta().Src = e.ToL2
+	rspToInside.Meta().Src = e.ToL1
 	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
 
-	err := e.ToL2.Send(rspToInside)
+	err := e.ToL1.Send(rspToInside)
 	if err == nil {
 		e.ToOutside.Retrieve(now)
 

@@ -3,6 +3,7 @@ package driver
 import (
 	"log"
 	"reflect"
+	"runtime/debug"
 	"sync"
 
 	"github.com/rs/xid"
@@ -114,6 +115,7 @@ func (d *Driver) runEngine() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Panic: %v", r)
+			debug.PrintStack()
 			atexit.Exit(1)
 		}
 	}()
@@ -201,7 +203,7 @@ func (d *Driver) processReturnReq(now sim.VTimeInSec) bool {
 	}
 
 	switch req := req.(type) {
-	case *protocol.LaunchKernelReq:
+	case *protocol.LaunchKernelRsp:
 		d.gpuPort.Retrieve(now)
 		return d.processLaunchKernelReturn(now, req)
 	case *protocol.RDMADrainRspToDriver:
@@ -462,9 +464,9 @@ func (d *Driver) distributeWGToGPUs(
 
 func (d *Driver) processLaunchKernelReturn(
 	now sim.VTimeInSec,
-	req *protocol.LaunchKernelReq,
+	rsp *protocol.LaunchKernelRsp,
 ) bool {
-	cmd, cmdQueue := d.findCommandByReq(req)
+	req, cmd, cmdQueue := d.findCommandByReqID(rsp.RspTo)
 	cmd.RemoveReq(req)
 
 	d.logTaskToGPUClear(now, req)
@@ -501,6 +503,39 @@ func (d *Driver) findCommandByReq(req sim.Msg) (Command, *CommandQueue) {
 		}
 		ctx.queueMutex.Unlock()
 	}
+
+	panic("cannot find command")
+}
+
+func (d *Driver) findCommandByReqID(reqID string) (
+	sim.Msg,
+	Command,
+	*CommandQueue,
+) {
+	d.contextMutex.Lock()
+	defer d.contextMutex.Unlock()
+
+	for _, ctx := range d.contexts {
+		ctx.queueMutex.Lock()
+
+		for _, q := range ctx.queues {
+			cmd := q.Peek()
+			if cmd == nil {
+				continue
+			}
+
+			reqs := cmd.GetReqs()
+			for _, r := range reqs {
+				if r.Meta().ID == reqID {
+					ctx.queueMutex.Unlock()
+					return r, cmd, q
+				}
+			}
+		}
+
+		ctx.queueMutex.Unlock()
+	}
+
 	panic("cannot find command")
 }
 

@@ -178,7 +178,7 @@ var _ = Describe("Engine", func() {
 
 		It("should send rsp to inside", func() {
 			toOutside.EXPECT().Peek().Return(rsp)
-			toL2.EXPECT().
+			toL1.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
 				Return(nil)
 			toOutside.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(read)
@@ -190,7 +190,7 @@ var _ = Describe("Engine", func() {
 
 		It("should not send rsp to inside if busy", func() {
 			toOutside.EXPECT().Peek().Return(rsp)
-			toL2.EXPECT().
+			toL1.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
 				Return(sim.NewSendError())
 

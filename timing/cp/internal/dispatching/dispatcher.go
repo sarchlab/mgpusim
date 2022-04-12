@@ -168,10 +168,10 @@ func (d *DispatcherImpl) completeKernel(now sim.VTimeInSec) (
 	madeProgress bool,
 ) {
 	req := d.dispatching
-	req.Src, req.Dst = req.Dst, req.Src
-	req.SendTime = now
-	err := d.respondingPort.Send(req)
 
+	rsp := protocol.NewLaunchKernelRsp(now, req.Dst, req.Src, req.ID)
+
+	err := d.respondingPort.Send(rsp)
 	if err == nil {
 		d.dispatching = nil
 
@@ -184,7 +184,6 @@ func (d *DispatcherImpl) completeKernel(now sim.VTimeInSec) (
 		return true
 	}
 
-	req.Src, req.Dst = req.Dst, req.Src
 	return false
 }
 

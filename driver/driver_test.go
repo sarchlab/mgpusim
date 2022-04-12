@@ -332,17 +332,18 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should process LaunchKernel return", func() {
-		req := protocol.NewLaunchKernelReq(9, toGPUs, nil)
+		req := protocol.NewLaunchKernelReq(7, toGPUs, nil)
 		cmd := &LaunchKernelCommand{
 			Reqs: []sim.Msg{req},
 		}
 		cmdQueue.Enqueue(cmd)
 		cmdQueue.IsRunning = true
+		rsp := protocol.NewLaunchKernelRsp(9, nil, nil, req.ID)
 
-		toGPUs.EXPECT().Peek().Return(req).Times(2)
+		toGPUs.EXPECT().Peek().Return(rsp).Times(2)
 		toGPUs.EXPECT().
 			Retrieve(sim.VTimeInSec(11)).
-			Return(req)
+			Return(rsp)
 
 		toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
 
@@ -353,6 +354,7 @@ var _ = ginkgo.Describe("Driver", func() {
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.commands).To(HaveLen(0))
 	})
+
 	ginkgo.It("should handle page migration req from MMU ", func() {
 		req := vm.NewPageMigrationReqToDriver(10, nil, driver.mmuPort)
 		toMMU.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
