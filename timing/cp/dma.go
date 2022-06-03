@@ -101,8 +101,14 @@ func (dma *DMAEngine) processDataReadyRsp(
 	if len(dma.pendingReqs) == 0 {
 		tracing.TraceReqComplete(dma.processingReq, dma)
 		dma.processingReq = nil
-		processing.Src, processing.Dst = processing.Dst, processing.Src
-		dma.toSendToCP = append(dma.toSendToCP, processing)
+
+		rsp := sim.GeneralRspBuilder{}.
+			WithDst(processing.Src).
+			WithSrc(processing.Dst).
+			WithSendTime(now).
+			WithOriginalReq(processing).
+			Build()
+		dma.toSendToCP = append(dma.toSendToCP, rsp)
 	}
 }
 
@@ -117,8 +123,14 @@ func (dma *DMAEngine) processDoneRsp(
 	if len(dma.pendingReqs) == 0 {
 		tracing.TraceReqComplete(dma.processingReq, dma)
 		dma.processingReq = nil
-		processing.Src, processing.Dst = processing.Dst, processing.Src
-		dma.toSendToCP = append(dma.toSendToCP, processing)
+
+		rsp := sim.GeneralRspBuilder{}.
+			WithDst(processing.Src).
+			WithSrc(processing.Dst).
+			WithSendTime(now).
+			WithOriginalReq(processing).
+			Build()
+		dma.toSendToCP = append(dma.toSendToCP, rsp)
 	}
 }
 

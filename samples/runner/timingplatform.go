@@ -21,23 +21,23 @@ import (
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
 type R9NanoPlatformBuilder struct {
-	useParallelEngine  bool
-	debugISA           bool
-	traceVis           bool
-	visTraceStartTime  sim.VTimeInSec
-	visTraceEndTime    sim.VTimeInSec
-	traceMem           bool
-	numGPU             int
-	numSAPerGPU        int
-	numCUPerSA         int
-	useMagicMemoryCopy bool
-	log2PageSize       uint64
+	useParallelEngine                  bool
+	debugISA                           bool
+	traceVis                           bool
+	traceVisStartTime, traceVisEndTime sim.VTimeInSec
+	traceMem                           bool
+	numGPU                             int
+	numSAPerGPU                        int
+	numCUPerSA                         int
+	useMagicMemoryCopy                 bool
+	log2PageSize                       uint64
 
 	engine                sim.Engine
 	monitor               *monitoring.Monitor
 	bufferAnalyzingDir    string
 	bufferAnalyzingPeriod float64
 	bufferAnalyzer        *bottleneckanalysis.BufferAnalyzer
+	visTracer             tracing.Tracer
 
 	globalStorage *mem.Storage
 
@@ -51,8 +51,8 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		numSAPerGPU:       16,
 		numCUPerSA:        4,
 		log2PageSize:      12,
-		visTraceStartTime: -1,
-		visTraceEndTime:   -1,
+		traceVisStartTime: -1,
+		traceVisEndTime:   -1,
 	}
 	return b
 }
@@ -72,6 +72,7 @@ func (b R9NanoPlatformBuilder) WithISADebugging() R9NanoPlatformBuilder {
 // WithVisTracing lets the platform to record traces for visualization purposes.
 func (b R9NanoPlatformBuilder) WithVisTracing() R9NanoPlatformBuilder {
 	b.traceVis = true
+
 	return b
 }
 
@@ -82,8 +83,8 @@ func (b R9NanoPlatformBuilder) WithPartialVisTracing(
 	start, end sim.VTimeInSec,
 ) R9NanoPlatformBuilder {
 	b.traceVis = true
-	b.visTraceStartTime = start
-	b.visTraceEndTime = end
+	b.traceVisStartTime = start
+	b.traceVisEndTime = end
 
 	return b
 }
@@ -140,35 +141,13 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	}
 
 	b.setupBufferLevelTracing()
+	b.setupVisTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
 
 	mmuComponent, pageTable := b.createMMU(b.engine)
 
-	gpuDriverBuilder := driver.MakeBuilder()
-	if b.useMagicMemoryCopy {
-		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
-	}
-	gpuDriver := gpuDriverBuilder.
-		WithEngine(b.engine).
-		WithPageTable(pageTable).
-		WithLog2PageSize(b.log2PageSize).
-		WithGlobalStorage(b.globalStorage).
-		Build("Driver")
-	// file, err := os.Create("driver_comm.csv")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// gpuDriver.GetPortByName("GPU").AcceptHook(
-	// 	sim.NewPortMsgLogger(log.New(file, "", 0)))
-
-	if b.monitor != nil {
-		b.monitor.RegisterComponent(gpuDriver)
-	}
-
-	if b.bufferAnalyzer != nil {
-		b.bufferAnalyzer.AddComponent(gpuDriver)
-	}
+	gpuDriver := b.buildGPUDriver(pageTable)
 
 	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent)
 	pcieConnector, rootComplexID :=
@@ -191,6 +170,53 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		Driver: gpuDriver,
 		GPUs:   b.gpus,
 	}
+}
+
+func (b R9NanoPlatformBuilder) buildGPUDriver(
+	pageTable vm.PageTable,
+) *driver.Driver {
+	gpuDriverBuilder := driver.MakeBuilder()
+	if b.useMagicMemoryCopy {
+		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
+	}
+	gpuDriver := gpuDriverBuilder.
+		WithEngine(b.engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(b.globalStorage).
+		Build("Driver")
+	if b.visTracer != nil {
+		tracing.CollectTrace(gpuDriver, b.visTracer)
+	}
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(gpuDriver)
+	}
+
+	if b.bufferAnalyzer != nil {
+		b.bufferAnalyzer.AddComponent(gpuDriver)
+	}
+
+	// file, err := os.Create("driver_comm.csv")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// gpuDriver.GetPortByName("GPU").AcceptHook(
+	// 	sim.NewPortMsgLogger(log.New(file, "", 0)))
+
+	return gpuDriver
+}
+
+func (b *R9NanoPlatformBuilder) setupVisTracing() {
+	if !b.traceVis {
+		return
+	}
+
+	visTracer := tracing.NewMySQLTracerWithTimeRange(
+		b.engine, b.traceVisStartTime, b.traceVisEndTime)
+	visTracer.Init()
+
+	b.visTracer = visTracer
 }
 
 func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
@@ -251,6 +277,11 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithEngine(engine).
 		WithVersion(3, 16).
 		WithSwitchLatency(140)
+
+	if b.visTracer != nil {
+		pcieConnector = pcieConnector.WithVisTracer(b.visTracer)
+	}
+
 	pcieConnector.CreateNetwork("PCIe")
 	rootComplexID := pcieConnector.AddRootComplex(
 		[]sim.Port{
@@ -318,7 +349,10 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		gpuBuilder = gpuBuilder.WithBufferAnalyzer(b.bufferAnalyzer)
 	}
 
-	gpuBuilder = b.setVisTracer(gpuDriver, gpuBuilder)
+	if b.visTracer != nil {
+		gpuBuilder = gpuBuilder.WithVisTracer(b.visTracer)
+	}
+
 	gpuBuilder = b.setMemTracer(gpuBuilder)
 	gpuBuilder = b.setISADebugger(gpuBuilder)
 
@@ -350,25 +384,6 @@ func (b *R9NanoPlatformBuilder) setMemTracer(
 	logger := log.New(file, "", 0)
 	memTracer := memtraces.NewTracer(logger, b.engine)
 	gpuBuilder = gpuBuilder.WithMemTracer(memTracer)
-	return gpuBuilder
-}
-
-func (b *R9NanoPlatformBuilder) setVisTracer(
-	gpuDriver *driver.Driver,
-	gpuBuilder R9NanoGPUBuilder,
-) R9NanoGPUBuilder {
-	if !b.traceVis {
-		return gpuBuilder
-	}
-
-	tracer := tracing.NewMySQLTracerWithTimeRange(
-		b.engine,
-		b.visTraceStartTime,
-		b.visTraceEndTime)
-	tracer.Init()
-	tracing.CollectTrace(gpuDriver, tracer)
-
-	gpuBuilder = gpuBuilder.WithVisTracer(tracer)
 	return gpuBuilder
 }
 

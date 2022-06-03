@@ -183,12 +183,26 @@ func (m *defaultMemoryCopyMiddleware) Tick(
 	}
 
 	switch req := req.(type) {
+	case *sim.GeneralRsp:
+		return m.processGeneralRsp(now, req)
+	}
+
+	return false
+}
+
+func (m *defaultMemoryCopyMiddleware) processGeneralRsp(
+	now sim.VTimeInSec,
+	rsp *sim.GeneralRsp,
+) bool {
+	originalReq := rsp.OriginalReq
+
+	switch originalReq := originalReq.(type) {
 	case *protocol.FlushReq:
-		return m.processFlushReturn(now, req)
+		return m.processFlushReturn(now, originalReq)
 	case *protocol.MemCopyH2DReq:
-		return m.processMemCopyH2DReturn(now, req)
+		return m.processMemCopyH2DReturn(now, originalReq)
 	case *protocol.MemCopyD2HReq:
-		return m.processMemCopyD2HReturn(now, req)
+		return m.processMemCopyD2HReturn(now, originalReq)
 	}
 
 	return false
