@@ -239,7 +239,6 @@ var _ = Describe("ComputeUnit", func() {
 				Build()
 
 			dataReady.RecvTime = 10
-			dataReady.EventTime = 10
 			toInstMem.EXPECT().Retrieve(gomock.Any()).Return(dataReady)
 
 			info := new(InstFetchReqInfo)

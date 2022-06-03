@@ -153,7 +153,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			toGPUs.EXPECT().Peek().Return(req)
+			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
+			toGPUs.EXPECT().Peek().Return(rsp)
 			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
@@ -183,7 +184,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			toGPUs.EXPECT().Peek().Return(req)
+			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
+			toGPUs.EXPECT().Peek().Return(rsp)
 			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
@@ -253,7 +255,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			toGPUs.EXPECT().Peek().Return(req)
+			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
+			toGPUs.EXPECT().Peek().Return(rsp)
 			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
@@ -285,7 +288,8 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = true
 
-			toGPUs.EXPECT().Peek().Return(req)
+			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
+			toGPUs.EXPECT().Peek().Return(rsp)
 			toGPUs.EXPECT().Peek().Return(nil)
 			toGPUs.EXPECT().
 				Retrieve(sim.VTimeInSec(11)).
