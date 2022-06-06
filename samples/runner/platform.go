@@ -11,7 +11,7 @@ import (
 
 // TraceableComponent is a component that can accept traces
 type TraceableComponent interface {
-	sim.Component
+	//sim.Component
 	tracing.NamedHookable
 }
 
@@ -29,6 +29,7 @@ type GPU struct {
 	RDMAEngine       *rdma.Engine
 	PMC              *pagemigrationcontroller.PageMigrationController
 	CUs              []TraceableComponent
+	SIMDs            []TraceableComponent
 	L1VCaches        []TraceableComponent
 	L1SCaches        []TraceableComponent
 	L1ICaches        []TraceableComponent
