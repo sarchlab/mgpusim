@@ -659,6 +659,11 @@ func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 			b.bufferAnalyzer.AddComponent(cu)
 		}
 	}
+	for _, cu := range sa.cus {
+		for _, simd := range cu.SIMDUnit {
+			b.gpu.SIMDs = append(b.gpu.SIMDs, simd.(TraceableComponent))
+		}
+	}	
 }
 
 func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
