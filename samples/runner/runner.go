@@ -680,7 +680,6 @@ func (r *Runner) reportInstCount() {
 
 		r.metricsCollector.Collect(
 			t.cu.Name(), "CPI", 1/((float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(1000000000)))
-
 	}
 }
 
