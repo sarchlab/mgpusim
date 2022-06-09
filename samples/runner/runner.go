@@ -674,6 +674,13 @@ func (r *Runner) reportInstCount() {
 	for _, t := range r.instCountTracers {
 		r.metricsCollector.Collect(
 			t.cu.Name(), "inst_count", float64(t.tracer.count))
+
+		r.metricsCollector.Collect(
+			t.cu.Name(), "IPC", (float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(1000000000))
+
+		r.metricsCollector.Collect(
+			t.cu.Name(), "CPI", 1/((float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(1000000000)))
+
 	}
 }
 
