@@ -20,6 +20,7 @@ import (
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v3/benchmarks"
 	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/timing/cu"
 	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
@@ -709,15 +710,24 @@ func (r *Runner) reportStats() {
 
 func (r *Runner) reportInstCount() {
 	for _, t := range r.instCountTracers {
+		cu_freq := t.cu.(*cu.ComputeUnit).TickingComponent.TickScheduler.Freq
+
 		r.metricsCollector.Collect(
 			t.cu.Name(), "inst_count", float64(t.tracer.count))
 
 		r.metricsCollector.Collect(
-			t.cu.Name(), "IPC", (float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(1000000000))
+			t.cu.Name(), "IPC", (float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(cu_freq))
 
 		r.metricsCollector.Collect(
-			t.cu.Name(), "CPI", 1/((float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(1000000000)))
+			t.cu.Name(), "CPI", 1/((float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(cu_freq)))
 	}
+
+	// r.metricsCollector.Collect(
+	// 	"Aggregate SIMDs", "inst_count", (float64(r.instCountTracers[0].tracer.simdCount)))
+
+	// r.metricsCollector.Collect(
+	// 	"Aggregate SIMDs", "CPI", 1/((float64(r.instCountTracers[0].tracer.simdCount))/(float64(r.kernelTimeCounter.BusyTime())/float64()))
+	// )
 }
 
 func (r *Runner) reportSIMDBusyTime() {
@@ -726,6 +736,11 @@ func (r *Runner) reportSIMDBusyTime() {
 			t.simd.Name(), "busy_time", float64(t.tracer.BusyTime()))
 	}
 }
+
+// func (r *Runner) reportSIMDInstCountAndCPI() {
+// 	r.metricsCollector.Collect(
+// 		"SIMD Units", "inst_count", (float64(r.maxInstStopper.simdCount)))
+// }
 
 func (r *Runner) reportExecutionTime() {
 	if r.Timing {
