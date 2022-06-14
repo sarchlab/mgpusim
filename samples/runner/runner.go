@@ -710,7 +710,7 @@ func (r *Runner) reportStats() {
 
 func (r *Runner) reportInstCount() {
 	for _, t := range r.instCountTracers {
-		cu_freq := t.cu.(*cu.ComputeUnit).TickingComponent.TickScheduler.Freq
+		cuFreq := t.cu.(*cu.ComputeUnit).TickingComponent.TickScheduler.Freq
 
 		r.metricsCollector.Collect(
 			t.cu.Name(), "inst_count", float64(t.tracer.count))
@@ -722,12 +722,12 @@ func (r *Runner) reportInstCount() {
 			t.cu.Name(), "CPI", 1/((float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(cu_freq)))
 	}
 
-	// r.metricsCollector.Collect(
-	// 	"Aggregate SIMDs", "inst_count", (float64(r.instCountTracers[0].tracer.simdCount)))
+	 r.metricsCollector.Collect(
+	 	"Aggregate SIMDs", "inst_count", (float64(r.instCountTracers[0].tracer.simdCount)))
 
-	// r.metricsCollector.Collect(
-	// 	"Aggregate SIMDs", "CPI", 1/((float64(r.instCountTracers[0].tracer.simdCount))/(float64(r.kernelTimeCounter.BusyTime())/float64()))
-	// )
+	 r.metricsCollector.Collect(
+	 	"Aggregate SIMDs", "CPI", 1/((float64(r.instCountTracers[0].tracer.simdCount))/(float64(r.kernelTimeCounter.BusyTime())/float64()))
+	)
 }
 
 func (r *Runner) reportSIMDBusyTime() {
