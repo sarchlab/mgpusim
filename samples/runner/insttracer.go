@@ -7,8 +7,10 @@ import (
 
 // instTracer can trace the number of instruction completed.
 type instTracer struct {
-	count    uint64
-	maxCount uint64
+	count     uint64
+	simdInst  bool
+	simdCount uint64
+	maxCount  uint64
 
 	inflightInst map[string]tracing.Task
 }
@@ -36,6 +38,12 @@ func (t *instTracer) StartTask(task tracing.Task) {
 		return
 	}
 
+	if task.What == "VALU" {
+		t.simdInst = true
+	} else {
+		t.simdInst = false
+	}
+
 	t.inflightInst[task.ID] = task
 }
 
@@ -47,6 +55,10 @@ func (t *instTracer) EndTask(task tracing.Task) {
 	_, found := t.inflightInst[task.ID]
 	if !found {
 		return
+	}
+
+	if t.simdInst {
+		t.simdCount++
 	}
 
 	delete(t.inflightInst, task.ID)
