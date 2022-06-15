@@ -709,20 +709,22 @@ func (r *Runner) reportStats() {
 }
 
 func (r *Runner) reportInstCount() {
+	kernelTime := float64(r.kernelTimeCounter.BusyTime())
 	for _, t := range r.instCountTracers {
-		cuFreq := t.cu.(*cu.ComputeUnit).TickingComponent.TickScheduler.Freq
+		cuFreq := float64(t.cu.(*cu.ComputeUnit).Freq)
+		numCycle := kernelTime * cuFreq
 
 		r.metricsCollector.Collect(
 			t.cu.Name(), "cu_inst_count", float64(t.tracer.count))
 
 		r.metricsCollector.Collect(
-			t.cu.Name(), "cu_CPI", 1/((float64(t.tracer.count)/float64(r.kernelTimeCounter.BusyTime()))/float64(cuFreq)))
+			t.cu.Name(), "cu_CPI", numCycle/float64(t.tracer.count))
 
 		r.metricsCollector.Collect(
-			t.cu.Name(), "simd_inst_count", (float64(t.tracer.simdCount)))
+			t.cu.Name(), "simd_inst_count", float64(t.tracer.simdCount))
 
 		r.metricsCollector.Collect(
-			t.cu.Name(), "simd_CPI", 1/((float64(t.tracer.simdCount)/float64(r.kernelTimeCounter.BusyTime()))/float64(cuFreq)))
+			t.cu.Name(), "simd_CPI", numCycle/float64(t.tracer.simdCount))
 	}
 }
 
