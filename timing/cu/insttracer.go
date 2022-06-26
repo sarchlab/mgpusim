@@ -48,5 +48,5 @@ func (t *InstTracer) StepTask(task tracing.Task) {
 }
 
 func (t *InstTracer) EndTask(task tracing.Task) {
-
+	// Do nothing
 }
