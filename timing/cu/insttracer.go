@@ -13,7 +13,7 @@ type InstTracer struct {
 	totalVMemTime float64
 }
 
-func NewInstTracer(timeTeller sim.TimeTeller) *InstTracer { //should this be called to attach a tracer to each cu? yes; one tracer to 1 cu, or 1 tracer to all cu
+func NewInstTracer(timeTeller sim.TimeTeller) *InstTracer {
 	return &InstTracer{
 		timeTeller:    timeTeller,
 		startTime:     0,
