@@ -129,7 +129,6 @@ type Runner struct {
 	monitor                 *monitoring.Monitor
 	metricsCollector        *collector
 	simdBusyTimeTracers     []simdBusyTimeTracer
-	// cuCPIStackTracer        *cu.InstTracer
 
 	Timing                     bool
 	Verify                     bool
