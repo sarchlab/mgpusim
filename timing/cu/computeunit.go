@@ -73,34 +73,6 @@ type ComputeUnit struct {
 	currentRestartReq *protocol.CUPipelineRestartReq
 }
 
-// Handle processes that events that are scheduled on the ComputeUnit
-func (cu *ComputeUnit) Handle(evt sim.Event) error {
-	ctx := sim.HookCtx{
-		Domain: cu,
-		Pos:    sim.HookPosBeforeEvent,
-		Item:   evt,
-	}
-	cu.InvokeHook(ctx)
-
-	cu.Lock()
-	defer cu.Unlock()
-
-	switch evt := evt.(type) {
-	case sim.TickEvent:
-		cu.TickingComponent.Handle(evt)
-	case *WfCompletionEvent:
-		cu.handleWfCompletionEvent(evt)
-	default:
-		log.Panicf("Unable to process evevt of type %s",
-			reflect.TypeOf(evt))
-	}
-
-	ctx.Pos = sim.HookPosAfterEvent
-	cu.InvokeHook(ctx)
-
-	return nil
-}
-
 // ControlPort returns the port that can receive controlling messages from the
 // Command Processor.
 func (cu *ComputeUnit) ControlPort() sim.Port {
@@ -366,31 +338,6 @@ func (cu *ComputeUnit) handleMapWGReq(
 	return true
 }
 
-func (cu *ComputeUnit) handleWfCompletionEvent(evt *WfCompletionEvent) error {
-	wf := evt.Wf
-	wg := wf.WG
-
-	tracing.EndTask(wf.UID, cu)
-
-	if cu.isAllWfInWGCompleted(wg) {
-		cu.isHandlingWfCompletionEvent = true
-
-		ok := cu.sendWGCompletionMessage(evt, wg)
-		if ok {
-			cu.clearWGResource(wg)
-			tracing.TraceReqComplete(wg.MapReq, cu)
-		}
-
-		if !cu.hasMoreWfsToRun() {
-			cu.running = false
-		}
-	}
-
-	cu.TickLater(evt.Time())
-
-	return nil
-}
-
 func (cu *ComputeUnit) clearWGResource(wg *wavefront.WorkGroup) {
 	for _, wf := range wg.Wfs {
 		wfPool := cu.WfPools[wf.SIMDID]
@@ -404,35 +351,6 @@ func (cu *ComputeUnit) isAllWfInWGCompleted(wg *wavefront.WorkGroup) bool {
 			return false
 		}
 	}
-	return true
-}
-
-func (cu *ComputeUnit) sendWGCompletionMessage(
-	evt *WfCompletionEvent,
-	wg *wavefront.WorkGroup,
-) bool {
-	now := evt.Time()
-	mapReq := wg.MapReq
-	dispatcher := mapReq.Src
-
-	msg := protocol.WGCompletionMsgBuilder{}.
-		WithSendTime(now).
-		WithSrc(cu.ToACE).
-		WithDst(dispatcher).
-		WithRspTo(mapReq.ID).
-		Build()
-
-	err := cu.ToACE.Send(msg)
-	if err != nil {
-		newEvent := NewWfCompletionEvent(
-			cu.Freq.NextTick(now), cu, evt.Wf)
-		cu.Engine.Schedule(newEvent)
-		return false
-	}
-
-	tracing.TraceReqComplete(mapReq, cu)
-
-	cu.isHandlingWfCompletionEvent = false
 	return true
 }
 
