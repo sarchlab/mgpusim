@@ -147,12 +147,10 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fir",
-            "envFile": "${workspaceFolder}/../akita.env",
+            // "envFile": "${workspaceFolder}/../akita.env",
             "args": [
-                "-timing",
+                "-parallel",
                 "-verify",
-                "-length=128",
-                "-trace-vis",
             ]
         },
         {
