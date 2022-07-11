@@ -128,7 +128,9 @@ type Runner struct {
 	benchmarks              []benchmarks.Benchmark
 	monitor                 *monitoring.Monitor
 	metricsCollector        *collector
+	cuMetricsCollector      *collector
 	simdBusyTimeTracers     []simdBusyTimeTracer
+	cuCPITracer             *cu.InstTracer
 
 	Timing                     bool
 	Verify                     bool
@@ -247,6 +249,7 @@ func (r *Runner) Init() *Runner {
 
 func (r *Runner) defineMetrics() {
 	r.metricsCollector = &collector{}
+	r.cuMetricsCollector = &collector{}
 	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
 	r.addInstCountTracer()
@@ -397,10 +400,10 @@ func (r *Runner) addCUCPITracer() {
 		return
 	}
 
-	tracer := cu.NewInstTracer(r.platform.Engine)
+	r.cuCPITracer = cu.NewInstTracer(r.platform.Engine)
 	for _, gpu := range r.platform.GPUs {
 		for _, cu := range gpu.CUs {
-			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
+			tracing.CollectTrace(cu.(tracing.NamedHookable), r.cuCPITracer)
 		}
 	}
 }
@@ -720,6 +723,7 @@ func (r *Runner) Run() {
 func (r *Runner) reportStats() {
 	r.reportExecutionTime()
 	r.reportInstCount()
+	r.reportCPIStack()
 	r.reportSIMDBusyTime()
 	r.reportCacheLatency()
 	r.reportCacheHitRate()
@@ -749,12 +753,42 @@ func (r *Runner) reportInstCount() {
 	}
 }
 
+func (r *Runner) reportCPIStack() {
+	r.cuCPITracer.CalcSIMDCPIStack()
+	r.cuCPITracer.CalcTotalCPIStack()
+
+	r.cuMetricsCollector.CollectHeader("TIME")
+	r.cuMetricsCollector.Collect("all_inst", "time", r.cuCPITracer.TimeManager.TotalTime)
+	r.cuMetricsCollector.Collect("simd_unit", "time", r.cuCPITracer.TimeManager.TotalSIMDTime)
+	r.cuMetricsCollector.Collect("other_inst", "time", r.cuCPITracer.TimeManager.TotalOtherTime)
+
+	r.cuMetricsCollector.CollectHeader("INST_COUNT")
+	r.cuMetricsCollector.Collect("all_inst", "inst_count", float64(r.cuCPITracer.CountManager.TotalInstCount))
+	r.cuMetricsCollector.Collect("simd_unit", "inst_count", float64(r.cuCPITracer.CountManager.SIMDInstCount))
+	r.cuMetricsCollector.Collect("other_inst", "inst_count", float64(r.cuCPITracer.CountManager.OtherInstCount))
+
+	r.cuMetricsCollector.CollectHeader("SIMD_CPI_STACK")
+	r.cuMetricsCollector.Collect("simd_unit", "cpi", r.cuCPITracer.SIMDCPIStackValues.SIMDCPI)
+	r.cuMetricsCollector.Collect("branch_stack", "cpi_stack", r.cuCPITracer.SIMDCPIStackValues.BranchStack)
+	r.cuMetricsCollector.Collect("scalar_stack", "cpi_stack", r.cuCPITracer.SIMDCPIStackValues.ScalarStack)
+	r.cuMetricsCollector.Collect("lds_stack", "cpi_stack", r.cuCPITracer.SIMDCPIStackValues.LDSStack)
+	r.cuMetricsCollector.Collect("stack_base", "cpi_stack", r.cuCPITracer.SIMDCPIStackValues.StackBase)
+
+	r.cuMetricsCollector.CollectHeader("ALL_INST_CPI")
+	r.cuMetricsCollector.Collect("all_inst", "cpi", r.cuCPITracer.AllInstCPIStackValues.AllInstCPI)
+	r.cuMetricsCollector.Collect("branch_stack", "cpi_stack", r.cuCPITracer.AllInstCPIStackValues.BranchStack)
+	r.cuMetricsCollector.Collect("scalar_stack", "cpi_stack", r.cuCPITracer.AllInstCPIStackValues.ScalarStack)
+	r.cuMetricsCollector.Collect("lds_stack", "cpi_stack", r.cuCPITracer.AllInstCPIStackValues.LDSStack)
+	r.cuMetricsCollector.Collect("simd_stack", "cpi_stack", r.cuCPITracer.AllInstCPIStackValues.SIMDStack)
+}
+
 func (r *Runner) reportSIMDBusyTime() {
 	for _, t := range r.simdBusyTimeTracers {
 		r.metricsCollector.Collect(
 			t.simd.Name(), "busy_time", float64(t.tracer.BusyTime()))
 	}
 }
+
 func (r *Runner) reportExecutionTime() {
 	if r.Timing {
 		r.metricsCollector.Collect(
@@ -890,6 +924,7 @@ func (r *Runner) reportDRAMTransactionCount() {
 
 func (r *Runner) dumpMetrics() {
 	r.metricsCollector.Dump(*filenameFlag)
+	r.cuMetricsCollector.Dump("cu_metrics")
 }
 
 // Driver returns the GPU driver used by the current runner.
