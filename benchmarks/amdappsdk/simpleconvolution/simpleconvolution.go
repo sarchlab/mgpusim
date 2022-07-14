@@ -112,16 +112,16 @@ func (b *Benchmark) initMem() {
 		b.dInputData = b.driver.AllocateUnifiedMemory(b.context,
 			uint64(numInputData*4))
 		b.dOutputData = b.driver.AllocateUnifiedMemory(b.context,
-			uint64(numInputData*4))
+			uint64(numOutputData*4))
 	} else {
 		b.dInputData = b.driver.AllocateMemory(b.context,
 			uint64(numInputData*4))
 		b.driver.Distribute(b.context, b.dInputData,
 			uint64(numInputData*4), b.gpus)
 		b.dOutputData = b.driver.AllocateMemory(b.context,
-			uint64(numInputData*4))
-		b.driver.Distribute(b.context, b.dInputData,
-			uint64(numInputData*4), b.gpus)
+			uint64(numOutputData*4))
+		b.driver.Distribute(b.context, b.dOutputData,
+			uint64(numOutputData*4), b.gpus)
 	}
 
 	b.dMasks = make([]driver.Ptr, len(b.gpus))
