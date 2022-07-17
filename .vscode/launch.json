@@ -251,7 +251,6 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/relu",
             "args": [
-                "-verify",
                 "-timing",
                 "-length=64"
             ]
