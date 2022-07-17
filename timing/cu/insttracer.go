@@ -12,6 +12,7 @@ type InstTracer struct {
 	AllInstCPIStackValues AllInstCPIStack
 	TimeManager           InstTimeManagement
 	CountManager          InstCountManagement
+	ScalarInstTracer      *tracing.BusyTimeTracer
 	inflightInsts         map[string]tracing.Task
 }
 
@@ -40,7 +41,6 @@ type AllInstCPIStack struct {
 type InstTimeManagement struct {
 	TotalVMemTime    float64
 	TotalBranchTime  float64
-	TotalScalarTime  float64
 	TotalSpecialTime float64
 	TotalLDSTime     float64
 	TotalTime        float64
@@ -64,6 +64,7 @@ func NewInstTracer(timeTeller sim.TimeTeller) *InstTracer {
 		AllInstCPIStackValues: *newTotalCPIStack(),
 		TimeManager:           *newInstTimeManager(),
 		CountManager:          *newInstCountManager(),
+		ScalarInstTracer:      tracing.NewBusyTimeTracer(timeTeller, nil),
 		inflightInsts:         make(map[string]tracing.Task),
 	}
 }
@@ -94,6 +95,11 @@ func newInstCountManager() *InstCountManagement {
 func (t *InstTracer) StartTask(task tracing.Task) {
 	if task.Kind != "inst" {
 		return
+	}
+
+	if task.What == "Scalar" {
+		t.ScalarInstTracer.StartTask(task)
+
 	}
 
 	if t.CountManager.TotalInstCount == 0 {
@@ -136,7 +142,8 @@ func (t *InstTracer) EndTask(task tracing.Task) {
 		} else if orgTask.What == "Branch" {
 			t.TimeManager.TotalBranchTime += float64(timeDiff)
 		} else if orgTask.What == "Scalar" {
-			t.TimeManager.TotalScalarTime += float64(timeDiff)
+			t.ScalarInstTracer.EndTask(task)
+			// t.TimeManager.TotalScalarTime += float64(timeDiff)
 		} else if orgTask.What == "LDS" {
 			t.TimeManager.TotalLDSTime += float64(timeDiff)
 		}
@@ -166,7 +173,7 @@ func (t *InstTracer) CalcSIMDCPIStack() {
 	t.SIMDCPIStackValues.BranchStack =
 		(t.TimeManager.TotalBranchTime / t.TimeManager.TotalTime) * t.SIMDCPIStackValues.SIMDCPI
 	t.SIMDCPIStackValues.ScalarStack =
-		(t.TimeManager.TotalScalarTime / t.TimeManager.TotalTime) * t.SIMDCPIStackValues.SIMDCPI
+		(float64(t.ScalarInstTracer.BusyTime()) / t.TimeManager.TotalTime) * t.SIMDCPIStackValues.SIMDCPI
 	t.SIMDCPIStackValues.LDSStack =
 		(t.TimeManager.TotalLDSTime / t.TimeManager.TotalTime) * t.SIMDCPIStackValues.SIMDCPI
 }
@@ -180,7 +187,7 @@ func (t *InstTracer) CalcTotalCPIStack() {
 	t.AllInstCPIStackValues.BranchStack =
 		(t.TimeManager.TotalBranchTime / t.TimeManager.TotalTime) * t.AllInstCPIStackValues.AllInstCPI
 	t.AllInstCPIStackValues.ScalarStack =
-		(t.TimeManager.TotalScalarTime / t.TimeManager.TotalTime) * t.AllInstCPIStackValues.AllInstCPI
+		(float64(t.ScalarInstTracer.BusyTime()) / t.TimeManager.TotalTime) * t.AllInstCPIStackValues.AllInstCPI
 	t.AllInstCPIStackValues.LDSStack =
 		(t.TimeManager.TotalLDSTime / t.TimeManager.TotalTime) * t.AllInstCPIStackValues.AllInstCPI
 }
