@@ -104,7 +104,6 @@ func (h *CPIStackInstHook) Func(ctx sim.HookCtx) {
 	// // 	h.timeTeller.CurrentTime(), cu.Name(), ctx.Pos.Name)
 
 	// fmt.Printf("\tTask %s-%s starts\n", task.Kind, task.What)
-
 }
 
 func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {

@@ -99,7 +99,6 @@ func (t *InstTracer) StartTask(task tracing.Task) {
 
 	if task.What == "Scalar" {
 		t.ScalarInstTracer.StartTask(task)
-
 	}
 
 	if t.CountManager.TotalInstCount == 0 {
