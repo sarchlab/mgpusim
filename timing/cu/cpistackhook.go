@@ -192,7 +192,8 @@ func (h *CPIStackInstHook) addStackTime(state string, time float64) {
 }
 
 func (h *CPIStackInstHook) updateInFlightInst(beginning bool, task tracing.Task) {
-	if task.What != "*mem.ReadReq" && task.What != "*mem.WriteReq" && task.What != "*protocol.MapWGReq" && task.What != "wavefront" {
+	if task.What != "*mem.ReadReq" && task.What != "*mem.WriteReq" &&
+		task.What != "*protocol.MapWGReq" && task.What != "wavefront" {
 		if beginning {
 			h.inFlightInstBreakdown[task.What]++
 			h.totalInFlightInst++
