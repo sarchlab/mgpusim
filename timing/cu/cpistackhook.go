@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"fmt"
+
 	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/akita/v3/tracing"
@@ -26,6 +28,7 @@ type CPIStackInstHook struct {
 	cu         *ComputeUnit
 
 	state             string
+	inflightTasks     map[string]tracing.Task
 	inflightWfs       map[string]tracing.Task
 	firstWFStarted    bool
 	firstWFStart      float64
@@ -52,6 +55,7 @@ func NewCPIStackInstHook(cu *ComputeUnit, timeTeller sim.TimeTeller) *CPIStackIn
 		state:        "idle",
 		greatestTask: "idle",
 
+		inflightTasks:         make(map[string]tracing.Task),
 		inflightWfs:           make(map[string]tracing.Task),
 		timeStack:             make(map[string]float64),
 		inFlightInstBreakdown: map[string]uint64{},
@@ -110,10 +114,15 @@ func (h *CPIStackInstHook) Func(ctx sim.HookCtx) {
 	switch ctx.Pos {
 	case tracing.HookPosTaskStart:
 		task := ctx.Item.(tracing.Task)
+		h.inflightTasks[task.ID] = task
 		h.handleTaskStart(task)
 	case tracing.HookPosTaskEnd:
 		task := ctx.Item.(tracing.Task)
-		h.handleTaskEnd(task)
+		originalTask, found := h.inflightTasks[task.ID]
+		if found {
+			delete(h.inflightTasks, task.ID)
+			h.handleTaskEnd(originalTask)
+		}
 	default:
 		return
 	}
@@ -195,6 +204,9 @@ func (h *CPIStackInstHook) updateInFlightInst(beginning bool, task tracing.Task)
 }
 
 func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
+	fmt.Printf("%.10f, %s, Task End, %s-%s\n",
+		h.timeTeller.CurrentTime(), h.cu.Name(), task.Kind, task.What)
+
 	_, ok := h.inflightWfs[task.ID]
 
 	h.updateInFlightInst(false, task)
