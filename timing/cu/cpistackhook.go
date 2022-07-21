@@ -35,13 +35,12 @@ type CPIStackInstHook struct {
 	lastWFEnd         float64
 	timeStack         map[string]float64
 	lastTaskTime      float64
-	greatestTask      string
-	totalInFlightInst uint64
+	totalInFlightTask uint64
 
-	simdInstCount         uint64
-	allInstCount          uint64
-	inFlightInstBreakdown map[string]uint64
-	instChangeBreakdown   map[string]float64
+	simdInstCount   uint64
+	allInstCount    uint64
+	inFlightInstMap map[string]uint64
+	taskCaseMap     map[string]float64
 
 	taskHierarchy map[string]uint64
 }
@@ -52,22 +51,19 @@ func NewCPIStackInstHook(cu *ComputeUnit, timeTeller sim.TimeTeller) *CPIStackIn
 		timeTeller: timeTeller,
 		cu:         cu,
 
-		state:        "idle",
-		greatestTask: "idle",
+		state: "idle",
 
-		inflightTasks:         make(map[string]tracing.Task),
-		inflightWfs:           make(map[string]tracing.Task),
-		timeStack:             make(map[string]float64),
-		inFlightInstBreakdown: map[string]uint64{},
+		inflightTasks:   make(map[string]tracing.Task),
+		inflightWfs:     make(map[string]tracing.Task),
+		timeStack:       make(map[string]float64),
+		inFlightInstMap: make(map[string]uint64),
 
-		instChangeBreakdown: map[string]float64{
+		taskCaseMap: map[string]float64{
 			"case0": 0,
 			"case1": 0,
 			"case2": 0,
 			"case3": 0,
 			"case4": 0,
-			"case5": 0,
-			"case6": 0,
 		},
 		taskHierarchy: map[string]uint64{
 			"idle":    0,
@@ -146,7 +142,7 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 	// fmt.Printf("%.10f, %s, %s-%s\n",
 	// h.timeTeller.CurrentTime(), h.cu.Name(), task.Kind, task.What)
 
-	h.updateInFlightInst(true, task)
+	h.handleInFlightInst(task, true)
 
 	switch task.Kind {
 	case "wavefront":
@@ -160,6 +156,9 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 	case "fetch":
 		h.handleFetchStart(task)
 	}
+
+	h.handleCaseChange(task, true)
+	h.handleCurrentState(task)
 }
 
 func (h *CPIStackInstHook) handleInstStart(task tracing.Task) {
@@ -191,26 +190,56 @@ func (h *CPIStackInstHook) addStackTime(state string, time float64) {
 	h.timeStack[state] += time
 }
 
-func (h *CPIStackInstHook) updateInFlightInst(beginning bool, task tracing.Task) {
+func (h *CPIStackInstHook) handleInFlightInst(task tracing.Task, beginning bool) {
 	if task.What != "*mem.ReadReq" && task.What != "*mem.WriteReq" &&
 		task.What != "*protocol.MapWGReq" && task.What != "wavefront" {
 		if beginning {
-			h.inFlightInstBreakdown[task.What]++
-			h.totalInFlightInst++
+			h.inFlightInstMap[task.What]++
+			h.totalInFlightTask++
 		} else {
-			h.inFlightInstBreakdown[task.What]--
-			h.totalInFlightInst--
+			h.inFlightInstMap[task.What]--
+			h.totalInFlightTask--
+		}
+	}
+}
+
+func (h *CPIStackInstHook) handleCurrentState(task tracing.Task) {
+	h.state = "idle"
+
+	for k := range h.inFlightInstMap {
+		if h.taskHierarchy[h.state] < h.taskHierarchy[k] && h.inFlightInstMap[k] != 0 {
+			h.state = k
+		}
+		fmt.Printf("%s: %d\n", k, h.inFlightInstMap[k])
+	}
+
+	fmt.Printf("TOTAL INST COUNT: %d\nFINAL STATE: %s\n\n", h.totalInFlightTask, h.state)
+}
+
+func (h *CPIStackInstHook) handleCaseChange(task tracing.Task, beginning bool) {
+	if beginning {
+		if h.totalInFlightTask == 1 {
+			h.taskCaseMap["case0"] += h.timeDiff()
+		} else if h.taskHierarchy[task.What] > h.taskHierarchy[h.state] {
+			h.taskCaseMap["case1"] += h.timeDiff()
+		} else if h.taskHierarchy[task.What] < h.taskHierarchy[h.state] {
+			h.taskCaseMap["case2"] += h.timeDiff()
+		}
+	} else {
+		if h.taskHierarchy[h.state] == h.taskHierarchy[task.What] {
+			h.handleCurrentState(task)
+			h.taskCaseMap["case3"] += h.timeDiff()
+		} else {
+			h.taskCaseMap["case4"] += h.timeDiff()
 		}
 	}
 }
 
 func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
-	fmt.Printf("%.10f, %s, Task End, %s-%s\n",
-		h.timeTeller.CurrentTime(), h.cu.Name(), task.Kind, task.What)
-
 	_, ok := h.inflightWfs[task.ID]
 
-	h.updateInFlightInst(false, task)
+	h.handleInFlightInst(task, false)
+	h.handleCaseChange(task, false)
 
 	if ok {
 		delete(h.inflightWfs, task.ID)
