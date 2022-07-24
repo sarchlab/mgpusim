@@ -16,6 +16,7 @@ const (
 	taskTypeSpecial
 	taskTypeVMem
 	taskTypeLDS
+	taskTypeBranch
 	taskTypeScalar
 	taskTypeVALU
 	taskTypeCount
@@ -33,6 +34,8 @@ func (t taskType) ToString() string {
 		return "VMem"
 	case taskTypeLDS:
 		return "LDS"
+	case taskTypeBranch:
+		return "Branch"
 	case taskTypeScalar:
 		return "Scalar"
 	case taskTypeVALU:
@@ -54,6 +57,8 @@ func taskTypeFromString(s string) (t taskType) {
 		t = taskTypeVMem
 	case "LDS":
 		t = taskTypeLDS
+	case "Branch":
+		t = taskTypeBranch
 	case "Scalar":
 		t = taskTypeScalar
 	case "VALU":
@@ -84,17 +89,15 @@ type CPIStackInstHook struct {
 	timeTeller sim.TimeTeller
 	cu         *ComputeUnit
 
-	inflightTasks    map[string]tracing.Task
-	inflightWfs      map[string]tracing.Task
-	firstWFStarted   bool
-	firstWFStart     float64
-	lastWFEnded      bool
-	lastWFEnd        float64
-	timeStack        map[string]float64
-	lastRecordedTime float64
-
-	allTaskCount         uint64
+	inflightTasks        map[string]tracing.Task
+	firstWFStarted       bool
+	firstWFStart         float64
+	lastWFEnd            float64
+	timeStack            map[string]float64
+	lastRecordedTime     float64
 	inFlightTaskCountMap map[taskType]uint64
+	instCount            uint64
+	valuInstCount        uint64
 }
 
 // NewCPIStackInstHook creates a CPIStackInstHook object.
@@ -107,7 +110,6 @@ func NewCPIStackInstHook(
 		cu:         cu,
 
 		inflightTasks: make(map[string]tracing.Task),
-		inflightWfs:   make(map[string]tracing.Task),
 		timeStack:     make(map[string]float64),
 		inFlightTaskCountMap: map[taskType]uint64{
 			taskTypeIdle:    0,
@@ -115,6 +117,7 @@ func NewCPIStackInstHook(
 			taskTypeSpecial: 0,
 			taskTypeVMem:    0,
 			taskTypeLDS:     0,
+			taskTypeBranch:  0,
 			taskTypeScalar:  0,
 			taskTypeVALU:    0,
 		},
@@ -135,9 +138,19 @@ func (h *CPIStackInstHook) Report() {
 		return
 	}
 
+	cpi := totalTime * float64(h.cu.Freq) / float64(h.instCount)
+	simdCPI := totalTime * float64(h.cu.Freq) / float64(h.valuInstCount)
+	fmt.Printf("%s, CPI, %f\n", h.cu.Name(), cpi)
+	fmt.Printf("%s, SIMD CPI: %f\n", h.cu.Name(), simdCPI)
+
 	for taskType, duration := range h.timeStack {
+		cpi := duration * float64(h.cu.Freq) / float64(h.instCount)
+		simdCPI := duration * float64(h.cu.Freq) / float64(h.valuInstCount)
+
 		fmt.Printf("%s, %s, %.10f\n",
-			h.cu.Name(), taskType, duration*float64(h.cu.Freq))
+			h.cu.Name(), "CPIStack."+taskType, cpi)
+		fmt.Printf("%s, %s, %.10f\n",
+			h.cu.Name(), "SIMDCPIStack."+taskType, simdCPI)
 	}
 }
 
@@ -158,24 +171,11 @@ func (h *CPIStackInstHook) Func(ctx sim.HookCtx) {
 	default:
 		return
 	}
-
-	// cu := ctx.Domain.(*ComputeUnit)
-	// task := ctx.Item.(tracing.Task)
-
-	// switch task.Kind {
-
-	// }
-
-	// // fmt.Printf("%.10f, %s, %s\n",
-	// // 	h.timeTeller.CurrentTime(), cu.Name(), ctx.Pos.Name)
-
-	// fmt.Printf("\tTask %s-%s starts\n", task.Kind, task.What)
 }
 
 func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 	switch task.Kind {
 	case "wavefront":
-		h.inflightWfs[task.ID] = task
 		if !h.firstWFStarted {
 			h.firstWFStarted = true
 			h.firstWFStart = float64(h.timeTeller.CurrentTime())
@@ -187,35 +187,47 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 }
 
 func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
-	h.allTaskCount++
-
 	currentTaskType := taskTypeFromString(task.What)
 
 	highestTaskType := h.highestRunningTaskType()
 
-	h.timeStack[highestTaskType.ToString()] += h.timeDiff()
-	h.lastRecordedTime = float64(h.timeTeller.CurrentTime())
+	currentTime := h.timeTeller.CurrentTime()
+	duration := h.timeDiff()
+	h.timeStack[highestTaskType.ToString()] += duration
+	h.lastRecordedTime = float64(currentTime)
 
 	h.inFlightTaskCountMap[currentTaskType]++
 
-	fmt.Printf("Starting an instruction of type %s, highest task type is %s\n",
-		currentTaskType.ToString(), highestTaskType.ToString())
+	// fmt.Printf("%.10f, %s, start task, %s, %s, %.10f\n",
+	// 	currentTime, h.cu.Name(),
+	// 	currentTaskType.ToString(), highestTaskType.ToString(),
+	// 	duration)
 }
 
 func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
-	h.allTaskCount--
-
 	currentTaskType := taskTypeFromString(task.What)
 
+	currentTime := h.timeTeller.CurrentTime()
+	duration := h.timeDiff()
 	highestTaskType := h.highestRunningTaskType()
+	h.timeStack[highestTaskType.ToString()] += duration
+	h.lastRecordedTime = float64(currentTime)
 
-	h.timeStack[highestTaskType.ToString()] += h.timeDiff()
-	h.lastRecordedTime = float64(h.timeTeller.CurrentTime())
+	if currentTaskType == taskTypeLDS || currentTaskType == taskTypeVMem ||
+		currentTaskType == taskTypeBranch || currentTaskType == taskTypeScalar || currentTaskType == taskTypeVALU {
+		h.instCount++
+	}
+
+	if currentTaskType == taskTypeVALU {
+		h.valuInstCount++
+	}
 
 	h.inFlightTaskCountMap[currentTaskType]--
 
-	fmt.Printf("Ending an instruction of type %s, highest task type is %s\n",
-		currentTaskType.ToString(), highestTaskType.ToString())
+	// fmt.Printf("%.10f, %s, end task, %s, %s, %.10f\n",
+	// 	currentTime, h.cu.Name(),
+	// 	currentTaskType.ToString(), highestTaskType.ToString(),
+	// 	duration)
 }
 
 func (h *CPIStackInstHook) highestRunningTaskType() taskType {
@@ -242,12 +254,9 @@ func (h *CPIStackInstHook) addStackTime(state string, time float64) {
 }
 
 func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
-	_, ok := h.inflightWfs[task.ID]
-
 	switch task.Kind {
 	case "wavefront":
 		if h.firstWFStarted {
-			h.lastWFEnded = true
 			h.lastWFEnd = float64(h.timeTeller.CurrentTime())
 			h.lastRecordedTime = h.lastWFEnd
 		}
@@ -255,8 +264,6 @@ func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
 		h.handleRegularTaskEnd(task)
 	}
 
-	if ok {
-		delete(h.inflightWfs, task.ID)
-		h.lastWFEnd = float64(h.timeTeller.CurrentTime())
-	}
+	h.lastWFEnd = float64(h.timeTeller.CurrentTime())
+
 }
