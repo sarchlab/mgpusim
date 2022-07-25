@@ -6,6 +6,7 @@ import (
 	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
 type taskType int
@@ -183,6 +184,8 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 		}
 	case "inst", "fetch":
 		h.handleRegularTaskStart(task)
+	default:
+		fmt.Println("Unknown task kind:", task.Kind, task.What)
 	}
 }
 
@@ -197,6 +200,20 @@ func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
 	h.lastRecordedTime = float64(currentTime)
 
 	h.inFlightTaskCountMap[currentTaskType]++
+<<<<<<< HEAD
+=======
+
+	fmt.Printf("%.10f, %s, start task, %s, %s, %.10f\n",
+		currentTime, h.cu.Name(),
+		currentTaskType.ToString(), highestTaskType.ToString(),
+		duration)
+
+	if currentTaskType == taskTypeScalar {
+		detail := task.Detail.(map[string]interface{})
+		inst := detail["inst"].(*wavefront.Inst)
+		fmt.Println(inst.FormatName)
+	}
+>>>>>>> 0c4047b0dec842ea64f7eeac5f703dfe57d954f9
 }
 
 func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
