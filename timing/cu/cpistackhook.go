@@ -197,11 +197,6 @@ func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
 	h.lastRecordedTime = float64(currentTime)
 
 	h.inFlightTaskCountMap[currentTaskType]++
-
-	// fmt.Printf("%.10f, %s, start task, %s, %s, %.10f\n",
-	// 	currentTime, h.cu.Name(),
-	// 	currentTaskType.ToString(), highestTaskType.ToString(),
-	// 	duration)
 }
 
 func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
@@ -223,11 +218,6 @@ func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
 	}
 
 	h.inFlightTaskCountMap[currentTaskType]--
-
-	// fmt.Printf("%.10f, %s, end task, %s, %s, %.10f\n",
-	// 	currentTime, h.cu.Name(),
-	// 	currentTaskType.ToString(), highestTaskType.ToString(),
-	// 	duration)
 }
 
 func (h *CPIStackInstHook) highestRunningTaskType() taskType {
