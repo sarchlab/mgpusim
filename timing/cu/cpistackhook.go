@@ -15,10 +15,12 @@ const (
 	taskTypeIdle = iota
 	taskTypeFetch
 	taskTypeSpecial
+	taskTypeVMemInst
 	taskTypeVMem
 	taskTypeLDS
 	taskTypeBranch
-	taskTypeScalar
+	taskTypeScalarInst
+	taskTypeScalarMem
 	taskTypeVALU
 	taskTypeCount
 )
@@ -37,8 +39,10 @@ func (t taskType) ToString() string {
 		return "LDS"
 	case taskTypeBranch:
 		return "Branch"
-	case taskTypeScalar:
-		return "Scalar"
+	case taskTypeScalarInst:
+		return "ScalarInst"
+	case taskTypeScalarMem:
+		return "ScalarMem"
 	case taskTypeVALU:
 		return "VALU"
 	default:
@@ -46,8 +50,8 @@ func (t taskType) ToString() string {
 	}
 }
 
-func taskTypeFromString(s string) (t taskType) {
-	switch s {
+func taskTypeFromString(thisTask tracing.Task) (t taskType) {
+	switch thisTask.What {
 	case "idle":
 		t = taskTypeIdle
 	case "fetch":
@@ -61,14 +65,25 @@ func taskTypeFromString(s string) (t taskType) {
 	case "Branch":
 		t = taskTypeBranch
 	case "Scalar":
-		t = taskTypeScalar
+		t = separateScalarTask(thisTask)
 	case "VALU":
 		t = taskTypeVALU
 	default:
-		panic("unknown task type " + s)
+		panic("unknown task type " + thisTask.What)
 	}
 
 	return
+}
+
+func separateScalarTask(thisTask tracing.Task) (t taskType) {
+	detail := thisTask.Detail.(map[string]interface{})
+	inst := detail["inst"].(*wavefront.Inst)
+
+	if inst.FormatName == "smem" {
+		return taskTypeScalarMem
+	}
+
+	return taskTypeScalarInst
 }
 
 // A CPIStackInstHook is a hook to the CU that captures what instructions are
@@ -113,14 +128,16 @@ func NewCPIStackInstHook(
 		inflightTasks: make(map[string]tracing.Task),
 		timeStack:     make(map[string]float64),
 		inFlightTaskCountMap: map[taskType]uint64{
-			taskTypeIdle:    0,
-			taskTypeFetch:   0,
-			taskTypeSpecial: 0,
-			taskTypeVMem:    0,
-			taskTypeLDS:     0,
-			taskTypeBranch:  0,
-			taskTypeScalar:  0,
-			taskTypeVALU:    0,
+			taskTypeIdle:       0,
+			taskTypeFetch:      0,
+			taskTypeSpecial:    0,
+			taskTypeVMemInst:   0,
+			taskTypeVMem:       0,
+			taskTypeLDS:        0,
+			taskTypeBranch:     0,
+			taskTypeScalarInst: 0,
+			taskTypeScalarMem:  0,
+			taskTypeVALU:       0,
 		},
 	}
 
@@ -185,12 +202,12 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 	case "inst", "fetch":
 		h.handleRegularTaskStart(task)
 	default:
-		fmt.Println("Unknown task kind:", task.Kind, task.What)
+		fmt.Println("Unknown task kind:", task.Kind, task.What, task.ParentID)
 	}
 }
 
 func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
-	currentTaskType := taskTypeFromString(task.What)
+	currentTaskType := taskTypeFromString(task)
 
 	highestTaskType := h.highestRunningTaskType()
 
@@ -200,24 +217,15 @@ func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
 	h.lastRecordedTime = float64(currentTime)
 
 	h.inFlightTaskCountMap[currentTaskType]++
-<<<<<<< HEAD
-=======
 
-	fmt.Printf("%.10f, %s, start task, %s, %s, %.10f\n",
-		currentTime, h.cu.Name(),
-		currentTaskType.ToString(), highestTaskType.ToString(),
-		duration)
-
-	if currentTaskType == taskTypeScalar {
-		detail := task.Detail.(map[string]interface{})
-		inst := detail["inst"].(*wavefront.Inst)
-		fmt.Println(inst.FormatName)
-	}
->>>>>>> 0c4047b0dec842ea64f7eeac5f703dfe57d954f9
+	// fmt.Printf("%.10f, %s, start task, %s, %s, %.10f\n",
+	// 	currentTime, h.cu.Name(),
+	// 	currentTaskType.ToString(), highestTaskType.ToString(),
+	// 	duration)
 }
 
 func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
-	currentTaskType := taskTypeFromString(task.What)
+	currentTaskType := taskTypeFromString(task)
 
 	currentTime := h.timeTeller.CurrentTime()
 	duration := h.timeDiff()
@@ -225,8 +233,9 @@ func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
 	h.timeStack[highestTaskType.ToString()] += duration
 	h.lastRecordedTime = float64(currentTime)
 
-	if currentTaskType == taskTypeLDS || currentTaskType == taskTypeVMem ||
-		currentTaskType == taskTypeBranch || currentTaskType == taskTypeScalar || currentTaskType == taskTypeVALU {
+	if currentTaskType == taskTypeLDS || currentTaskType == taskTypeVMem || currentTaskType == taskTypeVMemInst ||
+		currentTaskType == taskTypeBranch || currentTaskType == taskTypeScalarInst ||
+		currentTaskType == taskTypeScalarMem || currentTaskType == taskTypeVALU {
 		h.instCount++
 	}
 
@@ -272,5 +281,4 @@ func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
 	}
 
 	h.lastWFEnd = float64(h.timeTeller.CurrentTime())
-
 }
