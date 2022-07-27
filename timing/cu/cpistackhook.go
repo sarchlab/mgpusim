@@ -25,6 +25,21 @@ const (
 	taskTypeCount
 )
 
+func (t taskType) isInst() bool {
+	switch t {
+	case taskTypeSpecial,
+		taskTypeVMemInst,
+		taskTypeScalarInst,
+		taskTypeScalarMem,
+		taskTypeLDS,
+		taskTypeBranch,
+		taskTypeVALU:
+		return true
+	}
+
+	return false
+}
+
 func (t taskType) ToString() string {
 	switch t {
 	case taskTypeIdle:
@@ -233,9 +248,7 @@ func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
 	h.timeStack[highestTaskType.ToString()] += duration
 	h.lastRecordedTime = float64(currentTime)
 
-	if currentTaskType == taskTypeLDS || currentTaskType == taskTypeVMem || currentTaskType == taskTypeVMemInst ||
-		currentTaskType == taskTypeBranch || currentTaskType == taskTypeScalarInst ||
-		currentTaskType == taskTypeScalarMem || currentTaskType == taskTypeVALU {
+	if currentTaskType.isInst() {
 		h.instCount++
 	}
 
