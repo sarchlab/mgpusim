@@ -12,6 +12,8 @@ require (
 	gitlab.com/akita/dnn v0.5.3
 	gitlab.com/akita/mem/v3 v3.0.0-alpha.4
 	gitlab.com/akita/noc/v3 v3.0.0-alpha.6
+	golang.org/x/sys v0.0.0-20220731174439-a90be440212d // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	gonum.org/v1/gonum v0.9.0 // indirect
 )
 
