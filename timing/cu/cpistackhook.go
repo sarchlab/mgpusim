@@ -218,11 +218,8 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 		h.handleRegularTaskStart(task)
 	case "req_out":
 		h.handleReqStart(task)
-		//Once we do know the parent task, how do we proceed from there?
-		//Do we find the time difference between the start of the parent task and the start of the read/write request?
 	default:
 		fmt.Println("Unknown task kind:", task.Kind, task.What)
-
 	}
 }
 
