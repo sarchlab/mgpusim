@@ -216,8 +216,13 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 		}
 	case "inst", "fetch":
 		h.handleRegularTaskStart(task)
+	case "req_out":
+		h.handleReqStart(task)
+		//Once we do know the parent task, how do we proceed from there?
+		//Do we find the time difference between the start of the parent task and the start of the read/write request?
 	default:
-		fmt.Println("Unknown task kind:", task.Kind, task.What, task.ParentID)
+		fmt.Println("Unknown task kind:", task.Kind, task.What)
+
 	}
 }
 
@@ -232,11 +237,25 @@ func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
 	h.lastRecordedTime = float64(currentTime)
 
 	h.inFlightTaskCountMap[currentTaskType]++
+}
 
-	// fmt.Printf("%.10f, %s, start task, %s, %s, %.10f\n",
-	// 	currentTime, h.cu.Name(),
-	// 	currentTaskType.ToString(), highestTaskType.ToString(),
-	// 	duration)
+func (h *CPIStackInstHook) handleReqStart(task tracing.Task) {
+	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
+		for _, v := range h.inflightTasks {
+			if v.ID == task.ParentID {
+				// fmt.Println("A", task.ParentID, "of type", task.What, "matches with", v.ID, "of", v.What)
+
+				currentTime := h.timeTeller.CurrentTime()
+				duration := h.timeDiff()
+
+				if v.What == "VMem" {
+					h.timeStack["VMemInst"] += duration
+					h.lastRecordedTime = float64(currentTime)
+					h.inFlightTaskCountMap[taskTypeVMemInst]++
+				}
+			}
+		}
+	}
 }
 
 func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
@@ -257,6 +276,25 @@ func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
 	}
 
 	h.inFlightTaskCountMap[currentTaskType]--
+}
+
+func (h *CPIStackInstHook) handleReqEnd(task tracing.Task) {
+	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
+		for _, v := range h.inflightTasks {
+			if v.ID == task.ParentID {
+				// fmt.Println("A", task.ParentID, "of type", task.What, "matches with", v.ID, "of", v.What)
+
+				currentTime := h.timeTeller.CurrentTime()
+				duration := h.timeDiff()
+
+				if v.What == "VMem" {
+					h.timeStack["VMem"] += duration
+					h.lastRecordedTime = float64(currentTime)
+					h.inFlightTaskCountMap[taskTypeVMem]++
+				}
+			}
+		}
+	}
 }
 
 func (h *CPIStackInstHook) highestRunningTaskType() taskType {
@@ -291,6 +329,8 @@ func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
 		}
 	case "inst", "fetch":
 		h.handleRegularTaskEnd(task)
+	case "req_out":
+		h.handleReqEnd(task)
 	}
 
 	h.lastWFEnd = float64(h.timeTeller.CurrentTime())
