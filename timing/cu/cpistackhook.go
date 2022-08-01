@@ -16,11 +16,12 @@ const (
 	taskTypeFetch
 	taskTypeSpecial
 	taskTypeVMemInst
+	taskTypeScalarMemInst
 	taskTypeVMem
+	taskTypeScalarMem
 	taskTypeLDS
 	taskTypeBranch
 	taskTypeScalarInst
-	taskTypeScalarMem
 	taskTypeVALU
 	taskTypeCount
 )
@@ -30,7 +31,7 @@ func (t taskType) isInst() bool {
 	case taskTypeSpecial,
 		taskTypeVMemInst,
 		taskTypeScalarInst,
-		taskTypeScalarMem,
+		taskTypeScalarMemInst,
 		taskTypeLDS,
 		taskTypeBranch,
 		taskTypeVALU:
@@ -40,24 +41,29 @@ func (t taskType) isInst() bool {
 	return false
 }
 
+//nolint:gocyclo
 func (t taskType) ToString() string {
 	switch t {
 	case taskTypeIdle:
-		return "idle"
+		return "Idle"
 	case taskTypeFetch:
-		return "fetch"
+		return "Fetch"
 	case taskTypeSpecial:
 		return "Special"
 	case taskTypeVMem:
 		return "VMem"
+	case taskTypeVMemInst:
+		return "VMemInst"
+	case taskTypeScalarMem:
+		return "ScalarMem"
+	case taskTypeScalarMemInst:
+		return "ScalarMemInst"
 	case taskTypeLDS:
 		return "LDS"
 	case taskTypeBranch:
 		return "Branch"
 	case taskTypeScalarInst:
 		return "ScalarInst"
-	case taskTypeScalarMem:
-		return "ScalarMem"
 	case taskTypeVALU:
 		return "VALU"
 	default:
@@ -65,6 +71,7 @@ func (t taskType) ToString() string {
 	}
 }
 
+//nolint:gocyclo
 func taskTypeFromString(thisTask tracing.Task) (t taskType) {
 	switch thisTask.What {
 	case "idle":
@@ -74,7 +81,7 @@ func taskTypeFromString(thisTask tracing.Task) (t taskType) {
 	case "Special":
 		t = taskTypeSpecial
 	case "VMem":
-		t = taskTypeVMem
+		t = taskTypeVMemInst
 	case "LDS":
 		t = taskTypeLDS
 	case "Branch":
@@ -83,6 +90,10 @@ func taskTypeFromString(thisTask tracing.Task) (t taskType) {
 		t = separateScalarTask(thisTask)
 	case "VALU":
 		t = taskTypeVALU
+	case "ScalarMemTransaction":
+		t = taskTypeScalarMem
+	case "VectorMemTransaction":
+		t = taskTypeVMem
 	default:
 		panic("unknown task type " + thisTask.What)
 	}
@@ -95,7 +106,7 @@ func separateScalarTask(thisTask tracing.Task) (t taskType) {
 	inst := detail["inst"].(*wavefront.Inst)
 
 	if inst.FormatName == "smem" {
-		return taskTypeScalarMem
+		return taskTypeScalarMemInst
 	}
 
 	return taskTypeScalarInst
@@ -143,16 +154,17 @@ func NewCPIStackInstHook(
 		inflightTasks: make(map[string]tracing.Task),
 		timeStack:     make(map[string]float64),
 		inFlightTaskCountMap: map[taskType]uint64{
-			taskTypeIdle:       0,
-			taskTypeFetch:      0,
-			taskTypeSpecial:    0,
-			taskTypeVMemInst:   0,
-			taskTypeVMem:       0,
-			taskTypeLDS:        0,
-			taskTypeBranch:     0,
-			taskTypeScalarInst: 0,
-			taskTypeScalarMem:  0,
-			taskTypeVALU:       0,
+			taskTypeIdle:          0,
+			taskTypeFetch:         0,
+			taskTypeSpecial:       0,
+			taskTypeVMemInst:      0,
+			taskTypeVMem:          0,
+			taskTypeLDS:           0,
+			taskTypeBranch:        0,
+			taskTypeScalarInst:    0,
+			taskTypeScalarMemInst: 0,
+			taskTypeScalarMem:     0,
+			taskTypeVALU:          0,
 		},
 	}
 
@@ -225,7 +237,6 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 
 func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
 	currentTaskType := taskTypeFromString(task)
-
 	highestTaskType := h.highestRunningTaskType()
 
 	currentTime := h.timeTeller.CurrentTime()
@@ -238,29 +249,29 @@ func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
 
 func (h *CPIStackInstHook) handleReqStart(task tracing.Task) {
 	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
-		for _, v := range h.inflightTasks {
-			if v.ID == task.ParentID {
-				// fmt.Println("A", task.ParentID, "of type", task.What, "matches with", v.ID, "of", v.What)
+		parentTask, found := h.inflightTasks[task.ParentID]
 
-				currentTime := h.timeTeller.CurrentTime()
-				duration := h.timeDiff()
+		if !found {
+			panic("Could not find parent task")
+		}
 
-				if v.What == "VMem" {
-					h.timeStack["VMemInst"] += duration
-					h.lastRecordedTime = float64(currentTime)
-					h.inFlightTaskCountMap[taskTypeVMemInst]++
-				}
-			}
+		if parentTask.What == "VMem" {
+			task.What = "VectorMemTransaction"
+			h.handleRegularTaskStart(task)
+		} else if parentTask.What == "Scalar" {
+			task.What = "ScalarMemTransaction"
+			h.handleRegularTaskStart(task)
 		}
 	}
 }
 
 func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
 	currentTaskType := taskTypeFromString(task)
+	highestTaskType := h.highestRunningTaskType()
 
 	currentTime := h.timeTeller.CurrentTime()
 	duration := h.timeDiff()
-	highestTaskType := h.highestRunningTaskType()
+
 	h.timeStack[highestTaskType.ToString()] += duration
 	h.lastRecordedTime = float64(currentTime)
 
@@ -277,19 +288,18 @@ func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
 
 func (h *CPIStackInstHook) handleReqEnd(task tracing.Task) {
 	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
-		for _, v := range h.inflightTasks {
-			if v.ID == task.ParentID {
-				// fmt.Println("A", task.ParentID, "of type", task.What, "matches with", v.ID, "of", v.What)
+		parentTask, found := h.inflightTasks[task.ParentID]
 
-				currentTime := h.timeTeller.CurrentTime()
-				duration := h.timeDiff()
+		if !found {
+			panic("Could not find parent task")
+		}
 
-				if v.What == "VMem" {
-					h.timeStack["VMem"] += duration
-					h.lastRecordedTime = float64(currentTime)
-					h.inFlightTaskCountMap[taskTypeVMem]++
-				}
-			}
+		if parentTask.What == "VMem" {
+			task.What = "VectorMemTransaction"
+			h.handleRegularTaskEnd(task)
+		} else if parentTask.What == "Scalar" {
+			task.What = "ScalarMemTransaction"
+			h.handleRegularTaskEnd(task)
 		}
 	}
 }

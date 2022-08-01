@@ -149,8 +149,7 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-timing",
-                "-report-all",
-                "-length=128",
+                "-length=64",
             ]
         },
         {
