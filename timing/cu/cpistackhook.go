@@ -140,6 +140,12 @@ type CPIStackInstHook struct {
 	inFlightTaskCountMap map[taskType]uint64
 	instCount            uint64
 	valuInstCount        uint64
+	FinalStackMetrics    finalMetrics
+}
+
+type finalMetrics struct {
+	SIMDCPIStack    map[string]float64
+	AllInstCPIStack map[string]float64
 }
 
 // NewCPIStackInstHook creates a CPIStackInstHook object.
@@ -166,6 +172,7 @@ func NewCPIStackInstHook(
 			taskTypeScalarMem:     0,
 			taskTypeVALU:          0,
 		},
+		FinalStackMetrics: *newFinalMetrics(),
 	}
 
 	atexit.Register(func() {
@@ -173,6 +180,13 @@ func NewCPIStackInstHook(
 	})
 
 	return h
+}
+
+func newFinalMetrics() *finalMetrics {
+	return &finalMetrics{
+		AllInstCPIStack: make(map[string]float64),
+		SIMDCPIStack:    make(map[string]float64),
+	}
 }
 
 // Report reports the data collected.
@@ -188,6 +202,9 @@ func (h *CPIStackInstHook) Report() {
 	fmt.Printf("%s, CPI, %f\n", h.cu.Name(), cpi)
 	fmt.Printf("%s, SIMD CPI: %f\n", h.cu.Name(), simdCPI)
 
+	h.FinalStackMetrics.AllInstCPIStack["totalCPI"] = cpi
+	h.FinalStackMetrics.SIMDCPIStack["totalSIMDCPI"] = simdCPI
+
 	for taskType, duration := range h.timeStack {
 		cpi := duration * float64(h.cu.Freq) / float64(h.instCount)
 		simdCPI := duration * float64(h.cu.Freq) / float64(h.valuInstCount)
@@ -196,6 +213,9 @@ func (h *CPIStackInstHook) Report() {
 			h.cu.Name(), "CPIStack."+taskType, cpi)
 		fmt.Printf("%s, %s, %.10f\n",
 			h.cu.Name(), "SIMDCPIStack."+taskType, simdCPI)
+
+		h.FinalStackMetrics.AllInstCPIStack[taskType+".stack"] = cpi
+		h.FinalStackMetrics.SIMDCPIStack[taskType+".stack"] = simdCPI
 	}
 }
 
@@ -230,6 +250,8 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 		h.handleRegularTaskStart(task)
 	case "req_out":
 		h.handleReqStart(task)
+	case "req_in":
+		return
 	default:
 		fmt.Println("Unknown task kind:", task.Kind, task.What)
 	}
