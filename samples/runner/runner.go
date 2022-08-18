@@ -399,16 +399,17 @@ func (r *Runner) addCUCPIHook() {
 	if !r.ReportCPIStack {
 		return
 	}
-	// count := 0
 
-	// for _, gpu := range r.platform.GPUs {
-	// 	for _, cuComp := range gpu.CUs {
-	// 		r.cuCPIHook[count] = cu.NewCPIStackInstHook(&cu.ComputeUnit{}, r.platform.Engine)
-	// 		cu.AcceptHook(r.cuCPIHook[count])
+	count := 0
+	for _, gpu := range r.platform.GPUs {
+		for _, cuComp := range gpu.CUs {
+			r.cuCPIHook[count] = cu.NewCPIStackInstHook(
+				cuComp.(*cu.ComputeUnit), r.platform.Engine)
+			cuComp.AcceptHook(r.cuCPIHook[count])
 
-	// 		count++
-	// 	}
-	// }
+			count++
+		}
+	}
 
 }
 
