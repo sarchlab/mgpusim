@@ -410,7 +410,6 @@ func (r *Runner) addCUCPIHook() {
 			count++
 		}
 	}
-
 }
 
 func (r *Runner) addCacheLatencyTracer() {
