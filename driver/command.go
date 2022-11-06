@@ -172,3 +172,36 @@ func removeMsgFromMsgList(msg sim.Msg, msgs []sim.Msg) []sim.Msg {
 
 	panic("not found")
 }
+
+//Creating a new command called
+type LaunchUnifiedMultiGPUKernelCommend struct {
+	ID           string
+	CodeObject   *insts.HsaCo
+	GridSize     [3]uint32
+	WGSize       [3]uint16
+	KernelArgs   interface{}
+	PacketArray  []*kernels.HsaKernelDispatchPacket
+	DPacketArray []Ptr
+	Reqs         []sim.Msg
+}
+
+// GetID returns the ID of the command
+func (c *LaunchUnifiedMultiGPUKernelCommend) GetID() string {
+	return c.ID
+}
+
+// GetReqs returns the request associated with the command
+func (c *LaunchUnifiedMultiGPUKernelCommend) GetReqs() []sim.Msg {
+	return c.Reqs
+}
+
+// AddReq adds a request to the request list associated with the command
+func (c *LaunchUnifiedMultiGPUKernelCommend) AddReq(req sim.Msg) {
+	c.Reqs = append(c.Reqs, req)
+}
+
+// RemoveReq removes a request from the request list associated with the
+// command.
+func (c *LaunchUnifiedMultiGPUKernelCommend) RemoveReq(req sim.Msg) {
+	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
+}
