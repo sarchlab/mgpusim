@@ -280,6 +280,9 @@ func (d *Driver) processOneCommand(
 	case *NoopCommand:
 		d.logCmdStart(cmd, now)
 		return d.processNoopCommand(now, cmd, cmdQueue)
+	case *LaunchUnifiedMultiGPUKernelCommand:
+		d.logCmdStart(cmd, now)
+		return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, cmdQueue)
 	default:
 		return d.processCommandWithMiddleware(now, cmd, cmdQueue)
 	}
@@ -346,11 +349,6 @@ func (d *Driver) processLaunchKernelCommand(
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	dev := d.devices[queue.GPUID]
-	if dev.Type == internal.DeviceTypeUnifiedGPU {
-		return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, queue)
-	}
-
 	req := protocol.NewLaunchKernelReq(now,
 		d.gpuPort, d.GPUs[queue.GPUID-1])
 	req.PID = queue.Context.pid
@@ -374,7 +372,7 @@ func (d *Driver) processLaunchKernelCommand(
 
 func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	now sim.VTimeInSec,
-	cmd *LaunchKernelCommand,
+	cmd *LaunchUnifiedMultiGPUKernelCommand,
 	queue *CommandQueue,
 ) bool {
 	wgDist := d.distributeWGToGPUs(queue, cmd)
@@ -385,12 +383,11 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 			continue
 		}
 
-		req := protocol.NewLaunchKernelReq(now,
-			d.gpuPort, d.GPUs[gpuID-1])
+		req := protocol.NewLaunchKernelReq(now, d.gpuPort, d.GPUs[gpuID-1])
 		req.PID = queue.Context.pid
 		req.HsaCo = cmd.CodeObject
-		req.Packet = cmd.Packet
-		req.PacketAddress = uint64(cmd.DPacket)
+		req.Packet = cmd.PacketArray[i]
+		req.PacketAddress = uint64(cmd.DPacketArray[i])
 
 		currentGPUIndex := i
 		req.WGFilter = func(
@@ -427,12 +424,75 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	return true
 }
 
+//Modified Function
+// func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
+// 	now sim.VTimeInSec,
+// 	cmd *LaunchKernelCommand,
+// 	queue *CommandQueue,
+// ) bool {
+// 	wgDist := d.distributeWGToGPUs(queue, cmd) //get distribution of the work group.
+
+// 	gpuOrder := []int{7, 2, 1, 6, 11, 12, // Group1
+// 		9, 8, 3, 4, 5, 10, // Group2
+// 		16, 17, 22, 21, 20, 15,
+// 		18, 13, 14, 19, 23, 24} // Group4
+
+// 	dev := d.devices[queue.GPUID] //Get info of GPU
+// 	for i, gpuID := range dev.UnifiedGPUIDs {
+// 		if wgDist[i+1]-wgDist[i] == 0 {
+// 			continue
+// 		}
+
+// 		req := protocol.NewLaunchKernelReq(now, //launch a new kernel.
+// 			// d.gpuPort, d.GPUs[gpuID-1])
+// 			d.gpuPort, d.GPUs[gpuOrder[gpuID-1]-1])
+// 		req.PID = queue.Context.pid
+// 		req.HsaCo = cmd.CodeObject
+// 		req.Packet = cmd.Packet
+// 		req.PacketAddress = uint64(cmd.DPacket)
+
+// 		fmt.Printf("The %v work group will be allocated to GPU %v \n", gpuID, gpuOrder[gpuID-1])
+
+// 		currentGPUIndex := i
+// 		req.WGFilter = func(
+// 			pkt *kernels.HsaKernelDispatchPacket,
+// 			wg *kernels.WorkGroup,
+// 		) bool {
+// 			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
+// 			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
+
+// 			flattenedID :=
+// 				wg.IDZ*int(numWGX)*int(numWGY) +
+// 					wg.IDY*int(numWGX) +
+// 					wg.IDX
+
+// 			if flattenedID >= wgDist[currentGPUIndex] &&
+// 				flattenedID < wgDist[currentGPUIndex+1] {
+// 				return true
+// 			}
+
+// 			return false
+// 		}
+
+// 		queue.IsRunning = true
+// 		cmd.Reqs = append(cmd.Reqs, req)
+
+// 		d.requestsToSend = append(d.requestsToSend, req)
+
+// 		queue.Context.l2Dirty = true
+// 		queue.Context.markAllBuffersDirty()
+
+// 		d.logTaskToGPUInitiate(now, cmd, req)
+// 	}
+
+// 	return true
+// }
+
 func (d *Driver) distributeWGToGPUs(
 	queue *CommandQueue,
-	cmd *LaunchKernelCommand,
+	cmd *LaunchUnifiedMultiGPUKernelCommand,
 ) []int {
 	dev := d.devices[queue.GPUID]
-
 	actualGPUs := dev.UnifiedGPUIDs
 	wgAllocated := 0
 	wgDist := make([]int, len(actualGPUs)+1)
@@ -442,10 +502,10 @@ func (d *Driver) distributeWGToGPUs(
 		totalCUCount += d.devices[devID].Properties.CUCount
 	}
 
-	numWGX := (cmd.Packet.GridSizeX-1)/uint32(cmd.Packet.WorkgroupSizeX) + 1
-	numWGY := (cmd.Packet.GridSizeY-1)/uint32(cmd.Packet.WorkgroupSizeY) + 1
-	numWGZ := (cmd.Packet.GridSizeZ-1)/uint32(cmd.Packet.WorkgroupSizeZ) + 1
-	totalWGCount := int(numWGX) * int(numWGY) * int(numWGZ)
+	numWGX := (cmd.PacketArray[0].GridSizeX-1)/uint32(cmd.PacketArray[0].WorkgroupSizeX) + 1
+	numWGY := (cmd.PacketArray[0].GridSizeY-1)/uint32(cmd.PacketArray[0].WorkgroupSizeY) + 1
+	numWGZ := (cmd.PacketArray[0].GridSizeZ-1)/uint32(cmd.PacketArray[0].WorkgroupSizeZ) + 1
+	totalWGCount := int(numWGX * numWGY * numWGZ)
 	wgPerCU := (totalWGCount-1)/totalCUCount + 1
 
 	for i, devID := range actualGPUs {

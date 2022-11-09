@@ -161,6 +161,8 @@ func (a *memoryAllocatorImpl) allocatePages(
 			DeviceID: uint64(a.deviceIDByPAddr(pAddr)),
 		}
 
+		// fmt.Printf("page.addr is %x piage Device ID is %d \n", page.PAddr, page.DeviceID)
+		// debug.PrintStack()
 		a.pageTable.Insert(page)
 		a.vAddrToPageMapping[page.VAddr] = page
 	}
