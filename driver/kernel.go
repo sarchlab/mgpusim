@@ -21,7 +21,7 @@ func (d *Driver) EnqueueLaunchKernel(
 	dev := d.devices[queue.GPUID]
 
 	if dev.Type == internal.DeviceTypeUnifiedGPU {
-		d.UnifiedEnqueueLanchKernel(queue, co, gridSize, wgSize, kernelArgs)
+		d.enqueueLaunchUnifiedKernel(queue, co, gridSize, wgSize, kernelArgs)
 	} else {
 		dCoData, dKernArgData, dPacket := d.allocateGPUMemory(queue.Context, co)
 
@@ -54,18 +54,18 @@ func (d *Driver) prepareLocalMemory(
 	kernelArgs interface{},
 	packet *kernels.HsaKernelDispatchPacket,
 ) {
-	ldsSize := co.WGGroupSegmentByteSize //load Segment Byte Size
+	ldsSize := co.WGGroupSegmentByteSize
 
-	if reflect.TypeOf(kernelArgs).Kind() == reflect.Slice { // Get type of kernel arguements
+	if reflect.TypeOf(kernelArgs).Kind() == reflect.Slice {
 		// From server, do nothing
 	} else {
-		kernArgStruct := reflect.ValueOf(kernelArgs).Elem() // load content of kernel arguement
-		for i := 0; i < kernArgStruct.NumField(); i++ {     // KernArgStruct.NumField() number of data structure in KernArgStruct
-			arg := kernArgStruct.Field(i).Interface() // return ith kernArgStruct value as an interface
+		kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
+		for i := 0; i < kernArgStruct.NumField(); i++ {
+			arg := kernArgStruct.Field(i).Interface()
 
-			switch ldsPtr := arg.(type) { // Get type of ldsPtr
-			case LocalPtr: // If ldsPtr is Local Pointer
-				kernArgStruct.Field(i).SetUint(uint64(ldsSize)) // Set value of KernArgStruct to ldsSize
+			switch ldsPtr := arg.(type) {
+			case LocalPtr:
+				kernArgStruct.Field(i).SetUint(uint64(ldsSize))
 				ldsSize += uint32(ldsPtr)
 			}
 		}
@@ -135,7 +135,7 @@ func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 	}
 	d.Enqueue(queue, cmd)
 }
-func (d *Driver) UnifiedEnqueueLanchKernel(
+func (d *Driver) enqueueLaunchUnifiedKernel(
 	queue *CommandQueue,
 	co *insts.HsaCo,
 	gridSize [3]uint32,
