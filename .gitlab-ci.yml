@@ -20,7 +20,7 @@ lint:
 unit_test:
   stage: test
   script:
-    - go install github.com/onsi/ginkgo/v2/ginkgo@latest
+    - go install github.com/onsi/ginkgo/v2/ginkgo@v2.4.0
     - ginkgo -r --randomize-all --randomize-suites --fail-on-pending --cover --trace --progress
     - go test -coverprofile=cover.out ./...
     - go tool cover -func=cover.out > coverage.out
