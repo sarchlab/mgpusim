@@ -280,7 +280,7 @@ func (d *Driver) processOneCommand(
 	case *NoopCommand:
 		d.logCmdStart(cmd, now)
 		return d.processNoopCommand(now, cmd, cmdQueue)
-	case *LaunchUnifiedMultiGPUKernelCommend:
+	case *LaunchUnifiedMultiGPUKernelCommand:
 		d.logCmdStart(cmd, now)
 		return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, cmdQueue)
 	default:
@@ -372,7 +372,7 @@ func (d *Driver) processLaunchKernelCommand(
 
 func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	now sim.VTimeInSec,
-	cmd *LaunchUnifiedMultiGPUKernelCommend,
+	cmd *LaunchUnifiedMultiGPUKernelCommand,
 	queue *CommandQueue,
 ) bool {
 	wgDist := d.distributeWGToGPUs(queue, cmd)
@@ -490,7 +490,7 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 
 func (d *Driver) distributeWGToGPUs(
 	queue *CommandQueue,
-	cmd *LaunchUnifiedMultiGPUKernelCommend,
+	cmd *LaunchUnifiedMultiGPUKernelCommand,
 ) []int {
 	dev := d.devices[queue.GPUID]
 	actualGPUs := dev.UnifiedGPUIDs

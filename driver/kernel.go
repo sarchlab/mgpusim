@@ -127,7 +127,7 @@ func (d *Driver) enqueueLaunchUnifiedKernelCommand(
 	packet []*kernels.HsaKernelDispatchPacket,
 	dPacket []Ptr,
 ) {
-	cmd := &LaunchUnifiedMultiGPUKernelCommend{
+	cmd := &LaunchUnifiedMultiGPUKernelCommand{
 		ID:           sim.GetIDGenerator().Generate(),
 		CodeObject:   co,
 		DPacketArray: dPacket,

@@ -173,9 +173,9 @@ func removeMsgFromMsgList(msg sim.Msg, msgs []sim.Msg) []sim.Msg {
 	panic("not found")
 }
 
-// A LaunchUnifiedMultiGPUKernelCommend is a command that launches a kernel
+// A LaunchUnifiedMultiGPUKernelCommand is a command that launches a kernel
 // on multiple unified GPUs.
-type LaunchUnifiedMultiGPUKernelCommend struct {
+type LaunchUnifiedMultiGPUKernelCommand struct {
 	ID           string
 	CodeObject   *insts.HsaCo
 	GridSize     [3]uint32
@@ -187,22 +187,22 @@ type LaunchUnifiedMultiGPUKernelCommend struct {
 }
 
 // GetID returns the ID of the command
-func (c *LaunchUnifiedMultiGPUKernelCommend) GetID() string {
+func (c *LaunchUnifiedMultiGPUKernelCommand) GetID() string {
 	return c.ID
 }
 
 // GetReqs returns the request associated with the command
-func (c *LaunchUnifiedMultiGPUKernelCommend) GetReqs() []sim.Msg {
+func (c *LaunchUnifiedMultiGPUKernelCommand) GetReqs() []sim.Msg {
 	return c.Reqs
 }
 
 // AddReq adds a request to the request list associated with the command
-func (c *LaunchUnifiedMultiGPUKernelCommend) AddReq(req sim.Msg) {
+func (c *LaunchUnifiedMultiGPUKernelCommand) AddReq(req sim.Msg) {
 	c.Reqs = append(c.Reqs, req)
 }
 
 // RemoveReq removes a request from the request list associated with the
 // command.
-func (c *LaunchUnifiedMultiGPUKernelCommend) RemoveReq(req sim.Msg) {
+func (c *LaunchUnifiedMultiGPUKernelCommand) RemoveReq(req sim.Msg) {
 	c.Reqs = removeMsgFromMsgList(req, c.Reqs)
 }
