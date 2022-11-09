@@ -173,7 +173,8 @@ func removeMsgFromMsgList(msg sim.Msg, msgs []sim.Msg) []sim.Msg {
 	panic("not found")
 }
 
-//Creating a new command called
+// A LaunchUnifiedMultiGPUKernelCommend is a command that launches a kernel
+// on multiple unified GPUs.
 type LaunchUnifiedMultiGPUKernelCommend struct {
 	ID           string
 	CodeObject   *insts.HsaCo

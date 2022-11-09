@@ -349,11 +349,6 @@ func (d *Driver) processLaunchKernelCommand(
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	// dev := d.devices[queue.GPUID]
-	// if dev.Type == internal.DeviceTypeUnifiedGPU {
-	// 	return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, queue)
-	// }
-
 	req := protocol.NewLaunchKernelReq(now,
 		d.gpuPort, d.GPUs[queue.GPUID-1])
 	req.PID = queue.Context.pid
@@ -380,16 +375,15 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	cmd *LaunchUnifiedMultiGPUKernelCommend,
 	queue *CommandQueue,
 ) bool {
-	wgDist := d.distributeWGToGPUs(queue, cmd) //get distribution of the work group.
+	wgDist := d.distributeWGToGPUs(queue, cmd)
 
-	dev := d.devices[queue.GPUID] //Get info of GPU
+	dev := d.devices[queue.GPUID]
 	for i, gpuID := range dev.UnifiedGPUIDs {
 		if wgDist[i+1]-wgDist[i] == 0 {
 			continue
 		}
 
-		req := protocol.NewLaunchKernelReq(now, //launch a new kernel.
-			d.gpuPort, d.GPUs[gpuID-1])
+		req := protocol.NewLaunchKernelReq(now, d.gpuPort, d.GPUs[gpuID-1])
 		req.PID = queue.Context.pid
 		req.HsaCo = cmd.CodeObject
 		req.Packet = cmd.PacketArray[i]
@@ -494,27 +488,24 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 // 	return true
 // }
 
-// Create a slice that contains how many GPUs work for it, and the number of work groups assigned for each GPU.
 func (d *Driver) distributeWGToGPUs(
 	queue *CommandQueue,
 	cmd *LaunchUnifiedMultiGPUKernelCommend,
 ) []int {
-	dev := d.devices[queue.GPUID] // find the device that execute the command
-
-	actualGPUs := dev.UnifiedGPUIDs //Ensure how many GPUs work for this command
+	dev := d.devices[queue.GPUID]
+	actualGPUs := dev.UnifiedGPUIDs
 	wgAllocated := 0
-	wgDist := make([]int, len(actualGPUs)+1) // Make a slice for group distribution.
+	wgDist := make([]int, len(actualGPUs)+1)
 
 	totalCUCount := 0
 	for _, devID := range actualGPUs {
 		totalCUCount += d.devices[devID].Properties.CUCount
-	} // Get total CUs that work for this command.
+	}
 
-	//Get the number of Work Group and how many Work Groups dispatched for a Compute Unit.
 	numWGX := (cmd.PacketArray[0].GridSizeX-1)/uint32(cmd.PacketArray[0].WorkgroupSizeX) + 1
 	numWGY := (cmd.PacketArray[0].GridSizeY-1)/uint32(cmd.PacketArray[0].WorkgroupSizeY) + 1
 	numWGZ := (cmd.PacketArray[0].GridSizeZ-1)/uint32(cmd.PacketArray[0].WorkgroupSizeZ) + 1
-	totalWGCount := int(numWGX) * int(numWGY) * int(numWGZ)
+	totalWGCount := int(numWGX * numWGY * numWGZ)
 	wgPerCU := (totalWGCount-1)/totalCUCount + 1
 
 	for i, devID := range actualGPUs {
