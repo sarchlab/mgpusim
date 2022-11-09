@@ -222,8 +222,6 @@ func (d *DispatcherImpl) dispatchNextWG(
 		d.originalReqs[req.ID] = req
 		d.cycleLeft = d.latencyTable[len(d.currWG.locations)]
 
-		// fmt.Printf("The workgroup %v %v %v is allocated the GPU%s CU %v \n", d.currWG.wg.IDX, d.currWG.wg.IDY, d.currWG.wg.IDZ, d.name, d.currWG.cuID)
-
 		if d.progressBar != nil {
 			d.progressBar.IncrementInProgress(1)
 		}
