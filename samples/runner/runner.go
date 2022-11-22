@@ -400,14 +400,13 @@ func (r *Runner) addCUCPIHook() {
 		return
 	}
 
-	count := 0
 	for _, gpu := range r.platform.GPUs {
 		for _, cuComp := range gpu.CUs {
-			r.cuCPIHook[count] = cu.NewCPIStackInstHook(
+			hook := cu.NewCPIStackInstHook(
 				cuComp.(*cu.ComputeUnit), r.platform.Engine)
-			cuComp.AcceptHook(r.cuCPIHook[count])
+			cuComp.AcceptHook(hook)
 
-			count++
+			r.cuCPIHook = append(r.cuCPIHook, hook)
 		}
 	}
 }
