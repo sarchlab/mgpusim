@@ -3,7 +3,6 @@ package cu
 import (
 	"fmt"
 
-	"github.com/tebeka/atexit"
 	"gitlab.com/akita/akita/v3/sim"
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
@@ -112,7 +111,7 @@ func separateScalarTask(thisTask tracing.Task) (t taskType) {
 	return taskTypeScalarInst
 }
 
-// A CPIStackInstHook is a hook to the CU that captures what instructions are
+// A CPIStackHook is a hook to the CU that captures what instructions are
 // issued in each cycle.
 //
 // The hook keep track of the state of the wavefronts. The state can be one of
@@ -127,33 +126,28 @@ func separateScalarTask(thisTask tracing.Task) (t taskType) {
 // to be ready
 // - "scalar": the wavefront is executing a scalar instruction
 // - "vector": the wavefront is executing a vector instruction
-type CPIStackInstHook struct {
+type CPIStackHook struct {
 	timeTeller sim.TimeTeller
 	cu         *ComputeUnit
 
 	inflightTasks        map[string]tracing.Task
 	firstWFStarted       bool
-	firstWFStart         float64
-	lastWFEnd            float64
+	firstWFStartTime     float64
+	lastWFEndTime        float64
 	timeStack            map[string]float64
 	lastRecordedTime     float64
 	inFlightTaskCountMap map[taskType]uint64
 	instCount            uint64
 	valuInstCount        uint64
-	FinalStackMetrics    finalMetrics
-}
-
-type finalMetrics struct {
-	SIMDCPIStack    map[string]float64
-	AllInstCPIStack map[string]float64
+	runningWFCount       uint64
 }
 
 // NewCPIStackInstHook creates a CPIStackInstHook object.
 func NewCPIStackInstHook(
 	cu *ComputeUnit,
 	timeTeller sim.TimeTeller,
-) *CPIStackInstHook {
-	h := &CPIStackInstHook{
+) *CPIStackHook {
+	h := &CPIStackHook{
 		timeTeller: timeTeller,
 		cu:         cu,
 
@@ -172,55 +166,89 @@ func NewCPIStackInstHook(
 			taskTypeScalarMem:     0,
 			taskTypeVALU:          0,
 		},
-		FinalStackMetrics: *newFinalMetrics(),
 	}
 
-	atexit.Register(func() {
-		h.Report()
-	})
+	// atexit.Register(func() {
+	// 	h.Report()
+	// })
 
 	return h
 }
 
-func newFinalMetrics() *finalMetrics {
-	return &finalMetrics{
-		AllInstCPIStack: make(map[string]float64),
-		SIMDCPIStack:    make(map[string]float64),
+func (h *CPIStackHook) totalCycle() float64 {
+	endTime := h.lastWFEndTime
+	if h.runningWFCount > 0 {
+		endTime = float64(h.timeTeller.CurrentTime())
 	}
+
+	totalTime := endTime - h.firstWFStartTime
+	totalCycle := totalTime * float64(h.cu.Freq)
+	return totalCycle
 }
 
-// Report reports the data collected.
-func (h *CPIStackInstHook) Report() {
-	totalTime := h.lastWFEnd - h.firstWFStart
+func (h *CPIStackHook) GetCPIStack() map[string]float64 {
+	totalCycle := h.totalCycle()
 
-	if totalTime == 0 {
-		return
-	}
+	stack := make(map[string]float64)
 
-	cpi := totalTime * float64(h.cu.Freq) / float64(h.instCount)
-	simdCPI := totalTime * float64(h.cu.Freq) / float64(h.valuInstCount)
-	fmt.Printf("%s, CPI, %f\n", h.cu.Name(), cpi)
-	fmt.Printf("%s, SIMD CPI: %f\n", h.cu.Name(), simdCPI)
-
-	h.FinalStackMetrics.AllInstCPIStack["totalCPI"] = cpi
-	h.FinalStackMetrics.SIMDCPIStack["totalSIMDCPI"] = simdCPI
+	stack["total"] = totalCycle / float64(h.instCount)
 
 	for taskType, duration := range h.timeStack {
-		cpi := duration * float64(h.cu.Freq) / float64(h.instCount)
-		simdCPI := duration * float64(h.cu.Freq) / float64(h.valuInstCount)
-
-		fmt.Printf("%s, %s, %.10f\n",
-			h.cu.Name(), "CPIStack."+taskType, cpi)
-		fmt.Printf("%s, %s, %.10f\n",
-			h.cu.Name(), "SIMDCPIStack."+taskType, simdCPI)
-
-		h.FinalStackMetrics.AllInstCPIStack[taskType+".stack"] = cpi
-		h.FinalStackMetrics.SIMDCPIStack[taskType+".stack"] = simdCPI
+		cycle := duration * float64(h.cu.Freq)
+		stack[taskType] = cycle / float64(h.instCount)
 	}
+
+	return stack
+
 }
 
+func (h *CPIStackHook) GetSIMDCPIStack() map[string]float64 {
+	totalCycle := h.totalCycle()
+
+	stack := make(map[string]float64)
+
+	stack["total"] = totalCycle / float64(h.valuInstCount)
+
+	for taskType, duration := range h.timeStack {
+		cycle := duration * float64(h.cu.Freq)
+		stack[taskType] = cycle / float64(h.valuInstCount)
+	}
+
+	return stack
+}
+
+// // Report reports the data collected.
+// func (h *CPIStackInstHook) Report() {
+// 	totalTime := h.lastWFEnd - h.firstWFStart
+
+// 	if totalTime == 0 {
+// 		return
+// 	}
+
+// 	cpi := totalTime * float64(h.cu.Freq) / float64(h.instCount)
+// 	simdCPI := totalTime * float64(h.cu.Freq) / float64(h.valuInstCount)
+// 	fmt.Printf("%s, CPI, %f\n", h.cu.Name(), cpi)
+// 	fmt.Printf("%s, SIMD CPI: %f\n", h.cu.Name(), simdCPI)
+
+// 	h.finalStackMetrics.AllInstCPIStack["totalCPI"] = cpi
+// 	h.finalStackMetrics.SIMDCPIStack["totalSIMDCPI"] = simdCPI
+
+// 	for taskType, duration := range h.timeStack {
+// 		cpi := duration * float64(h.cu.Freq) / float64(h.instCount)
+// 		simdCPI := duration * float64(h.cu.Freq) / float64(h.valuInstCount)
+
+// 		fmt.Printf("%s, %s, %.10f\n",
+// 			h.cu.Name(), "CPIStack."+taskType, cpi)
+// 		fmt.Printf("%s, %s, %.10f\n",
+// 			h.cu.Name(), "SIMDCPIStack."+taskType, simdCPI)
+
+// 		h.finalStackMetrics.AllInstCPIStack[taskType+".stack"] = cpi
+// 		h.finalStackMetrics.SIMDCPIStack[taskType+".stack"] = simdCPI
+// 	}
+// }
+
 // Func records issued instructions.
-func (h *CPIStackInstHook) Func(ctx sim.HookCtx) {
+func (h *CPIStackHook) Func(ctx sim.HookCtx) {
 	switch ctx.Pos {
 	case tracing.HookPosTaskStart:
 		task := ctx.Item.(tracing.Task)
@@ -238,13 +266,14 @@ func (h *CPIStackInstHook) Func(ctx sim.HookCtx) {
 	}
 }
 
-func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
+func (h *CPIStackHook) handleTaskStart(task tracing.Task) {
 	switch task.Kind {
 	case "wavefront":
 		if !h.firstWFStarted {
 			h.firstWFStarted = true
-			h.firstWFStart = float64(h.timeTeller.CurrentTime())
-			h.lastRecordedTime = h.firstWFStart
+			h.firstWFStartTime = float64(h.timeTeller.CurrentTime())
+			h.lastRecordedTime = h.firstWFStartTime
+			h.runningWFCount++
 		}
 	case "inst", "fetch":
 		h.handleRegularTaskStart(task)
@@ -257,7 +286,7 @@ func (h *CPIStackInstHook) handleTaskStart(task tracing.Task) {
 	}
 }
 
-func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
+func (h *CPIStackHook) handleRegularTaskStart(task tracing.Task) {
 	currentTaskType := taskTypeFromString(task)
 	highestTaskType := h.highestRunningTaskType()
 
@@ -269,7 +298,7 @@ func (h *CPIStackInstHook) handleRegularTaskStart(task tracing.Task) {
 	h.inFlightTaskCountMap[currentTaskType]++
 }
 
-func (h *CPIStackInstHook) handleReqStart(task tracing.Task) {
+func (h *CPIStackHook) handleReqStart(task tracing.Task) {
 	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
 		parentTask, found := h.inflightTasks[task.ParentID]
 
@@ -287,7 +316,7 @@ func (h *CPIStackInstHook) handleReqStart(task tracing.Task) {
 	}
 }
 
-func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
+func (h *CPIStackHook) handleRegularTaskEnd(task tracing.Task) {
 	currentTaskType := taskTypeFromString(task)
 	highestTaskType := h.highestRunningTaskType()
 
@@ -308,7 +337,7 @@ func (h *CPIStackInstHook) handleRegularTaskEnd(task tracing.Task) {
 	h.inFlightTaskCountMap[currentTaskType]--
 }
 
-func (h *CPIStackInstHook) handleReqEnd(task tracing.Task) {
+func (h *CPIStackHook) handleReqEnd(task tracing.Task) {
 	if task.What == "*mem.ReadReq" || task.What == "*mem.WriteReq" {
 		parentTask, found := h.inflightTasks[task.ParentID]
 
@@ -326,7 +355,7 @@ func (h *CPIStackInstHook) handleReqEnd(task tracing.Task) {
 	}
 }
 
-func (h *CPIStackInstHook) highestRunningTaskType() taskType {
+func (h *CPIStackHook) highestRunningTaskType() taskType {
 	for t := taskType(taskTypeCount) - 1; t > taskTypeIdle; t-- {
 		if h.inFlightTaskCountMap[t] > 0 {
 			return t
@@ -336,11 +365,11 @@ func (h *CPIStackInstHook) highestRunningTaskType() taskType {
 	return taskTypeIdle
 }
 
-func (h *CPIStackInstHook) timeDiff() float64 {
+func (h *CPIStackHook) timeDiff() float64 {
 	return float64(h.timeTeller.CurrentTime()) - h.lastRecordedTime
 }
 
-func (h *CPIStackInstHook) addStackTime(state string, time float64) {
+func (h *CPIStackHook) addStackTime(state string, time float64) {
 	_, ok := h.timeStack[state]
 	if !ok {
 		h.timeStack[state] = 0
@@ -349,12 +378,13 @@ func (h *CPIStackInstHook) addStackTime(state string, time float64) {
 	h.timeStack[state] += time
 }
 
-func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
+func (h *CPIStackHook) handleTaskEnd(task tracing.Task) {
 	switch task.Kind {
 	case "wavefront":
 		if h.firstWFStarted {
-			h.lastWFEnd = float64(h.timeTeller.CurrentTime())
-			h.lastRecordedTime = h.lastWFEnd
+			h.lastWFEndTime = float64(h.timeTeller.CurrentTime())
+			h.lastRecordedTime = h.lastWFEndTime
+			h.runningWFCount--
 		}
 	case "inst", "fetch":
 		h.handleRegularTaskEnd(task)
@@ -362,5 +392,5 @@ func (h *CPIStackInstHook) handleTaskEnd(task tracing.Task) {
 		h.handleReqEnd(task)
 	}
 
-	h.lastWFEnd = float64(h.timeTeller.CurrentTime())
+	h.lastWFEndTime = float64(h.timeTeller.CurrentTime())
 }

@@ -113,6 +113,11 @@ type simdBusyTimeTracer struct {
 	simd   TraceableComponent
 }
 
+type cuCPIStackHook struct {
+	cu   TraceableComponent
+	hook *cu.CPIStackHook
+}
+
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
 	platform                *Platform
@@ -130,7 +135,7 @@ type Runner struct {
 	metricsCollector        *collector
 	cuMetricsCollector      *collector
 	simdBusyTimeTracers     []simdBusyTimeTracer
-	cuCPIHook               []*cu.CPIStackInstHook
+	cuCPIHooks              []cuCPIStackHook
 
 	Timing                     bool
 	Verify                     bool
@@ -406,7 +411,11 @@ func (r *Runner) addCUCPIHook() {
 				cuComp.(*cu.ComputeUnit), r.platform.Engine)
 			cuComp.AcceptHook(hook)
 
-			r.cuCPIHook = append(r.cuCPIHook, hook)
+			r.cuCPIHooks = append(r.cuCPIHooks,
+				cuCPIStackHook{
+					hook: hook,
+					cu:   cuComp,
+				})
 		}
 	}
 }
@@ -718,8 +727,6 @@ func (r *Runner) Run() {
 	r.platform.Driver.Terminate()
 	r.platform.Engine.Finished()
 
-	//r.reportStats()
-
 	atexit.Exit(0)
 }
 
@@ -757,7 +764,20 @@ func (r *Runner) reportInstCount() {
 }
 
 func (r *Runner) reportCPIStack() {
+	for _, t := range r.cuCPIHooks {
+		cu := t.cu
+		hook := t.hook
 
+		cpiStack := hook.GetCPIStack()
+		for name, value := range cpiStack {
+			r.metricsCollector.Collect(cu.Name(), "CPIStack."+name, value)
+		}
+
+		simdCPIStack := hook.GetSIMDCPIStack()
+		for name, value := range simdCPIStack {
+			r.metricsCollector.Collect(cu.Name(), "SIMDCPIStack."+name, value)
+		}
+	}
 }
 
 func (r *Runner) reportSIMDBusyTime() {
