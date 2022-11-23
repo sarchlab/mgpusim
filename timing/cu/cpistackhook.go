@@ -168,10 +168,6 @@ func NewCPIStackInstHook(
 		},
 	}
 
-	// atexit.Register(func() {
-	// 	h.Report()
-	// })
-
 	return h
 }
 
@@ -199,7 +195,6 @@ func (h *CPIStackHook) GetCPIStack() map[string]float64 {
 	}
 
 	return stack
-
 }
 
 func (h *CPIStackHook) GetSIMDCPIStack() map[string]float64 {
@@ -216,36 +211,6 @@ func (h *CPIStackHook) GetSIMDCPIStack() map[string]float64 {
 
 	return stack
 }
-
-// // Report reports the data collected.
-// func (h *CPIStackInstHook) Report() {
-// 	totalTime := h.lastWFEnd - h.firstWFStart
-
-// 	if totalTime == 0 {
-// 		return
-// 	}
-
-// 	cpi := totalTime * float64(h.cu.Freq) / float64(h.instCount)
-// 	simdCPI := totalTime * float64(h.cu.Freq) / float64(h.valuInstCount)
-// 	fmt.Printf("%s, CPI, %f\n", h.cu.Name(), cpi)
-// 	fmt.Printf("%s, SIMD CPI: %f\n", h.cu.Name(), simdCPI)
-
-// 	h.finalStackMetrics.AllInstCPIStack["totalCPI"] = cpi
-// 	h.finalStackMetrics.SIMDCPIStack["totalSIMDCPI"] = simdCPI
-
-// 	for taskType, duration := range h.timeStack {
-// 		cpi := duration * float64(h.cu.Freq) / float64(h.instCount)
-// 		simdCPI := duration * float64(h.cu.Freq) / float64(h.valuInstCount)
-
-// 		fmt.Printf("%s, %s, %.10f\n",
-// 			h.cu.Name(), "CPIStack."+taskType, cpi)
-// 		fmt.Printf("%s, %s, %.10f\n",
-// 			h.cu.Name(), "SIMDCPIStack."+taskType, simdCPI)
-
-// 		h.finalStackMetrics.AllInstCPIStack[taskType+".stack"] = cpi
-// 		h.finalStackMetrics.SIMDCPIStack[taskType+".stack"] = simdCPI
-// 	}
-// }
 
 // Func records issued instructions.
 func (h *CPIStackHook) Func(ctx sim.HookCtx) {
