@@ -150,6 +150,7 @@
             "args": [
                 "-timing",
                 "-length=64",
+                "--report-all"
             ]
         },
         {
