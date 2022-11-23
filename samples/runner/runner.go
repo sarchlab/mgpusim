@@ -133,7 +133,6 @@ type Runner struct {
 	benchmarks              []benchmarks.Benchmark
 	monitor                 *monitoring.Monitor
 	metricsCollector        *collector
-	cuMetricsCollector      *collector
 	simdBusyTimeTracers     []simdBusyTimeTracer
 	cuCPIHooks              []cuCPIStackHook
 
@@ -254,7 +253,6 @@ func (r *Runner) Init() *Runner {
 
 func (r *Runner) defineMetrics() {
 	r.metricsCollector = &collector{}
-	r.cuMetricsCollector = &collector{}
 	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
 	r.addInstCountTracer()
@@ -922,7 +920,6 @@ func (r *Runner) reportDRAMTransactionCount() {
 
 func (r *Runner) dumpMetrics() {
 	r.metricsCollector.Dump(*filenameFlag)
-	r.cuMetricsCollector.Dump("cu_metrics")
 }
 
 // Driver returns the GPU driver used by the current runner.
