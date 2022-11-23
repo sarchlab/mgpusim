@@ -69,6 +69,7 @@ var bufferLevelTraceDirFlag = flag.String("buffer-level-trace-dir", "",
 var bufferLevelTracePeriodFlag = flag.Float64("buffer-level-trace-period", 0.0,
 	"The period to dump the buffer level trace.")
 var simdBusyTimeTracerFlag = flag.Bool("report-busy-time", false, "Report SIMD Unit's busy time")
+var reportCPIStackFlag = flag.Bool("report-cpi-stack", false, "Report CPI stack")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -112,6 +113,11 @@ type simdBusyTimeTracer struct {
 	simd   TraceableComponent
 }
 
+type cuCPIStackHook struct {
+	cu   TraceableComponent
+	hook *cu.CPIStackHook
+}
+
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
 	platform                *Platform
@@ -128,6 +134,7 @@ type Runner struct {
 	monitor                 *monitoring.Monitor
 	metricsCollector        *collector
 	simdBusyTimeTracers     []simdBusyTimeTracer
+	cuCPIHooks              []cuCPIStackHook
 
 	Timing                     bool
 	Verify                     bool
@@ -140,6 +147,7 @@ type Runner struct {
 	ReportDRAMTransactionCount bool
 	UseUnifiedMemory           bool
 	ReportSIMDBusyTime         bool
+	ReportCPIStack             bool
 
 	GPUIDs []int
 }
@@ -191,6 +199,10 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportSIMDBusyTime = true
 	}
 
+	if *reportCPIStackFlag {
+		r.ReportCPIStack = true
+	}
+
 	if *reportAll {
 		r.ReportInstCount = true
 		r.ReportCacheLatency = true
@@ -199,6 +211,7 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportSIMDBusyTime = true
 		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
+		r.ReportCPIStack = true
 	}
 
 	return r
@@ -243,6 +256,7 @@ func (r *Runner) defineMetrics() {
 	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
 	r.addInstCountTracer()
+	r.addCUCPIHook()
 	r.addCacheLatencyTracer()
 	r.addCacheHitRateTracer()
 	r.addTLBHitRateTracer()
@@ -380,6 +394,26 @@ func (r *Runner) addInstCountTracer() {
 					cu:     cu,
 				})
 			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
+		}
+	}
+}
+
+func (r *Runner) addCUCPIHook() {
+	if !r.ReportCPIStack {
+		return
+	}
+
+	for _, gpu := range r.platform.GPUs {
+		for _, cuComp := range gpu.CUs {
+			hook := cu.NewCPIStackInstHook(
+				cuComp.(*cu.ComputeUnit), r.platform.Engine)
+			cuComp.AcceptHook(hook)
+
+			r.cuCPIHooks = append(r.cuCPIHooks,
+				cuCPIStackHook{
+					hook: hook,
+					cu:   cuComp,
+				})
 		}
 	}
 }
@@ -691,14 +725,13 @@ func (r *Runner) Run() {
 	r.platform.Driver.Terminate()
 	r.platform.Engine.Finished()
 
-	//r.reportStats()
-
 	atexit.Exit(0)
 }
 
 func (r *Runner) reportStats() {
 	r.reportExecutionTime()
 	r.reportInstCount()
+	r.reportCPIStack()
 	r.reportSIMDBusyTime()
 	r.reportCacheLatency()
 	r.reportCacheHitRate()
@@ -728,17 +761,29 @@ func (r *Runner) reportInstCount() {
 	}
 }
 
+func (r *Runner) reportCPIStack() {
+	for _, t := range r.cuCPIHooks {
+		cu := t.cu
+		hook := t.hook
+
+		cpiStack := hook.GetCPIStack()
+		for name, value := range cpiStack {
+			r.metricsCollector.Collect(cu.Name(), "CPIStack."+name, value)
+		}
+
+		simdCPIStack := hook.GetSIMDCPIStack()
+		for name, value := range simdCPIStack {
+			r.metricsCollector.Collect(cu.Name(), "SIMDCPIStack."+name, value)
+		}
+	}
+}
+
 func (r *Runner) reportSIMDBusyTime() {
 	for _, t := range r.simdBusyTimeTracers {
 		r.metricsCollector.Collect(
 			t.simd.Name(), "busy_time", float64(t.tracer.BusyTime()))
 	}
 }
-
-// func (r *Runner) reportSIMDInstCountAndCPI() {
-// 	r.metricsCollector.Collect(
-// 		"SIMD Units", "inst_count", (float64(r.maxInstStopper.simdCount)))
-// }
 
 func (r *Runner) reportExecutionTime() {
 	if r.Timing {
