@@ -147,10 +147,10 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fir",
-            // "envFile": "${workspaceFolder}/../akita.env",
             "args": [
-                "-parallel",
-                "-verify",
+                "-timing",
+                "-length=64",
+                "--report-all"
             ]
         },
         {
@@ -251,7 +251,6 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/relu",
             "args": [
-                "-verify",
                 "-timing",
                 "-length=64"
             ]
