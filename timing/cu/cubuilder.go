@@ -111,9 +111,6 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	b.equipVectorMemoryUnit(cu)
 	b.equipRegisterFiles(cu)
 
-	cpiStackInstHook := NewCPIStackInstHook(cu, b.engine)
-	cu.AcceptHook(cpiStackInstHook)
-
 	return cu
 }
 
