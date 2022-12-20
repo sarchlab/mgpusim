@@ -113,9 +113,9 @@ type simdBusyTimeTracer struct {
 	simd   TraceableComponent
 }
 
-type cuCPIStackHook struct {
-	cu   TraceableComponent
-	hook *cu.CPIStackHook
+type cuCPIStackTracer struct {
+	cu     TraceableComponent
+	tracer *cu.CPIStackTracer
 }
 
 // Runner is a class that helps running the benchmarks in the official samples.
@@ -134,7 +134,7 @@ type Runner struct {
 	monitor                 *monitoring.Monitor
 	metricsCollector        *collector
 	simdBusyTimeTracers     []simdBusyTimeTracer
-	cuCPIHooks              []cuCPIStackHook
+	cuCPITraces             []cuCPIStackTracer
 
 	Timing                     bool
 	Verify                     bool
@@ -405,14 +405,14 @@ func (r *Runner) addCUCPIHook() {
 
 	for _, gpu := range r.platform.GPUs {
 		for _, cuComp := range gpu.CUs {
-			hook := cu.NewCPIStackInstHook(
+			tracer := cu.NewCPIStackInstHook(
 				cuComp.(*cu.ComputeUnit), r.platform.Engine)
-			cuComp.AcceptHook(hook)
+			tracing.CollectTrace(cuComp.(tracing.NamedHookable), tracer)
 
-			r.cuCPIHooks = append(r.cuCPIHooks,
-				cuCPIStackHook{
-					hook: hook,
-					cu:   cuComp,
+			r.cuCPITraces = append(r.cuCPITraces,
+				cuCPIStackTracer{
+					tracer: tracer,
+					cu:     cuComp,
 				})
 		}
 	}
@@ -762,9 +762,9 @@ func (r *Runner) reportInstCount() {
 }
 
 func (r *Runner) reportCPIStack() {
-	for _, t := range r.cuCPIHooks {
+	for _, t := range r.cuCPITraces {
 		cu := t.cu
-		hook := t.hook
+		hook := t.tracer
 
 		cpiStack := hook.GetCPIStack()
 		for name, value := range cpiStack {
