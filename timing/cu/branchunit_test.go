@@ -17,7 +17,7 @@ var _ = Describe("Branch Unit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("cu", nil)
+		cu = NewComputeUnit("CU", nil)
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
 		bu = NewBranchUnit(cu, sp, alu)

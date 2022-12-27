@@ -26,7 +26,7 @@ var _ = Describe("Reorder Buffer", func() {
 
 		rob = MakeBuilder().
 			WithBufferSize(10).
-			Build("rob")
+			Build("ROB")
 		rob.topPort = topPort
 		rob.bottomPort = bottomPort
 		rob.controlPort = ctrlPort

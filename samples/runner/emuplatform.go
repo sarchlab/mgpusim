@@ -92,7 +92,7 @@ func (b EmuBuilder) Build() *Platform {
 	for i := 0; i < b.numGPU; i++ {
 		gpu := gpuBuilder.
 			WithMemOffset(uint64(i+1) * 4 * mem.GB).
-			Build(fmt.Sprintf("GPU_%d", i+1))
+			Build(fmt.Sprintf("GPU[%d]", i+1))
 
 		cpPort := gpu.Domain.GetPortByName("CommandProcessor")
 		gpuDriver.RegisterGPU(cpPort, driver.DeviceProperties{
