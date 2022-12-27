@@ -102,7 +102,7 @@ var _ = Describe("ComputeUnit", func() {
 		simdUnit = NewMockSubComponent(mockCtrl)
 		ldsUnit = NewMockSubComponent(mockCtrl)
 
-		cu = NewComputeUnit("cu", engine)
+		cu = NewComputeUnit("CU", engine)
 		cu.WfDispatcher = wfDispatcher
 		cu.Decoder = decoder
 		cu.Freq = 1

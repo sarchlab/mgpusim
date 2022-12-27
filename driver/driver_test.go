@@ -49,7 +49,7 @@ var _ = ginkgo.Describe("Driver", func() {
 			gpu := NewMockPort(mockCtrl)
 			remotePMCPorts = append(remotePMCPorts, NewMockPort(mockCtrl))
 			driver.RemotePMCPorts = append(driver.RemotePMCPorts,
-				sim.NewLimitNumMsgPort(driver, 1, ""))
+				sim.NewLimitNumMsgPort(driver, 1, "RemotePMC"))
 			driver.RemotePMCPorts[i] = remotePMCPorts[i]
 			driver.RegisterGPU(gpu,
 				DeviceProperties{

@@ -99,6 +99,20 @@ func (mr *MockPortMockRecorder) NotifyAvailable(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyAvailable", reflect.TypeOf((*MockPort)(nil).NotifyAvailable), arg0)
 }
 
+// NumHooks mocks base method.
+func (m *MockPort) NumHooks() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumHooks")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumHooks indicates an expected call of NumHooks.
+func (mr *MockPortMockRecorder) NumHooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumHooks", reflect.TypeOf((*MockPort)(nil).NumHooks))
+}
+
 // Peek mocks base method.
 func (m *MockPort) Peek() sim.Msg {
 	m.ctrl.T.Helper()

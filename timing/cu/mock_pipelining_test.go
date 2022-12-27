@@ -110,6 +110,20 @@ func (mr *MockPipelineMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockPipeline)(nil).Name))
 }
 
+// NumHooks mocks base method.
+func (m *MockPipeline) NumHooks() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumHooks")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumHooks indicates an expected call of NumHooks.
+func (mr *MockPipelineMockRecorder) NumHooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumHooks", reflect.TypeOf((*MockPipeline)(nil).NumHooks))
+}
+
 // Tick mocks base method.
 func (m *MockPipeline) Tick(arg0 sim.VTimeInSec) bool {
 	m.ctrl.T.Helper()
