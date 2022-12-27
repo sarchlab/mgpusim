@@ -29,7 +29,7 @@ var _ = Describe("Vector Memory Unit", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		cu = NewComputeUnit("cu", nil)
+		cu = NewComputeUnit("CU", nil)
 		sp = new(mockScratchpadPreparer)
 		coalescer = NewMockcoalescer(mockCtrl)
 		vecMemUnit = NewVectorMemoryUnit(cu, sp, coalescer)

@@ -16,7 +16,7 @@ var _ = Describe("WfDispatcher", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("cu", nil)
+		cu = NewComputeUnit("CU", nil)
 		cu.Freq = 1
 
 		sRegFile := NewSimpleRegisterFile(uint64(3200*4), 0)

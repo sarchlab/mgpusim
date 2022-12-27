@@ -26,7 +26,7 @@ var _ = Describe("DMAEngine", func() {
 		toMem = NewMockPort(mockCtrl)
 
 		localModuleFinder = new(mem.SingleLowModuleFinder)
-		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
+		dmaEngine = NewDMAEngine("DMA", engine, localModuleFinder)
 		dmaEngine.ToCP = toCP
 		dmaEngine.ToMem = toMem
 	})

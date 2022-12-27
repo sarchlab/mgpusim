@@ -27,6 +27,7 @@ var _ = Describe("Dispatcher", func() {
 
 		cp = NewMockNamedHookable(ctrl)
 		cp.EXPECT().Name().Return("CP").AnyTimes()
+		cp.EXPECT().NumHooks().Return(0).AnyTimes()
 		cp.EXPECT().InvokeHook(gomock.Any()).AnyTimes()
 		alg = NewMockAlgorithm(ctrl)
 		dispatchingPort = NewMockPort(ctrl)
@@ -39,6 +40,7 @@ var _ = Describe("Dispatcher", func() {
 			Build("dispatcher").(*DispatcherImpl)
 
 		dispatcher.alg = alg
+
 	})
 
 	AfterEach(func() {
