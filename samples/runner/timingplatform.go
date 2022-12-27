@@ -396,7 +396,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	pcieConnector *pcie.Connector,
 	pcieSwitchID int,
 ) *GPU {
-	name := fmt.Sprintf("GPU%d", index)
+	name := fmt.Sprintf("GPU[%d]", index)
 	memAddrOffset := uint64(index) * 4 * mem.GB
 	gpu := gpuBuilder.
 		WithMemAddrOffset(memAddrOffset).

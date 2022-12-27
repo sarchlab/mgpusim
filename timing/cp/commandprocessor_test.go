@@ -104,34 +104,40 @@ var _ = Describe("CommandProcessor", func() {
 
 		for i := 0; i < int(10); i++ {
 			cus = append(cus, NewMockPort(mockCtrl))
-			commandProcessor.CUs = append(commandProcessor.CUs, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.CUs = append(commandProcessor.CUs,
+				sim.NewLimitNumMsgPort(commandProcessor, 1, "CUPort"))
 			commandProcessor.CUs[i] = cus[i]
 
 			tlbs = append(tlbs, NewMockPort(mockCtrl))
-			commandProcessor.TLBs = append(commandProcessor.TLBs, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.TLBs = append(commandProcessor.TLBs,
+				sim.NewLimitNumMsgPort(commandProcessor, 1, "TLBPort"))
 			commandProcessor.TLBs[i] = tlbs[i]
 
 			addressTranslators = append(addressTranslators,
 				NewMockPort(mockCtrl))
 			commandProcessor.AddressTranslators =
 				append(commandProcessor.AddressTranslators,
-					sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
+					sim.NewLimitNumMsgPort(commandProcessor, 1, "ATPort"))
 			commandProcessor.AddressTranslators[i] = addressTranslators[i]
 
 			l1ICaches = append(l1ICaches, NewMockPort(mockCtrl))
-			commandProcessor.L1ICaches = append(commandProcessor.L1ICaches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L1ICaches = append(commandProcessor.L1ICaches,
+				sim.NewLimitNumMsgPort(commandProcessor, 1, "L1ICachePort"))
 			commandProcessor.L1ICaches[i] = l1ICaches[i]
 
 			l1SCaches = append(l1SCaches, NewMockPort(mockCtrl))
-			commandProcessor.L1SCaches = append(commandProcessor.L1SCaches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L1SCaches = append(commandProcessor.L1SCaches,
+				sim.NewLimitNumMsgPort(commandProcessor, 1, "L1SCachePort"))
 			commandProcessor.L1SCaches[i] = l1SCaches[i]
 
 			l1VCaches = append(l1VCaches, NewMockPort(mockCtrl))
-			commandProcessor.L1VCaches = append(commandProcessor.L1VCaches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L1VCaches = append(commandProcessor.L1VCaches,
+				sim.NewLimitNumMsgPort(commandProcessor, 1, "L1VCachePort"))
 			commandProcessor.L1VCaches[i] = l1VCaches[i]
 
 			l2Caches = append(l2Caches, NewMockPort(mockCtrl))
-			commandProcessor.L2Caches = append(commandProcessor.L2Caches, sim.NewLimitNumMsgPort(commandProcessor, 1, ""))
+			commandProcessor.L2Caches = append(commandProcessor.L2Caches,
+				sim.NewLimitNumMsgPort(commandProcessor, 1, "L2CachePort"))
 			commandProcessor.L2Caches[i] = l2Caches[i]
 		}
 
@@ -159,7 +165,7 @@ var _ = Describe("CommandProcessor", func() {
 		Expect(madeProgress).To(BeTrue())
 	})
 
-	It("should wait if there is no dispacher available", func() {
+	It("should wait if there is no dispatcher available", func() {
 		req := protocol.NewLaunchKernelReq(10,
 			driver, commandProcessor.ToDriver)
 

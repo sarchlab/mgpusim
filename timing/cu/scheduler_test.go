@@ -79,7 +79,7 @@ var _ = Describe("Scheduler", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
 		engine = NewMockEngine(mockCtrl)
-		cu = NewComputeUnit("cu", engine)
+		cu = NewComputeUnit("CU", engine)
 		cu.Freq = 1
 		cu.WfPools = make([]*WavefrontPool, 1)
 		cu.WfPools[0] = NewWavefrontPool(10)
