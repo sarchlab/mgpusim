@@ -18,7 +18,6 @@ type Builder struct {
 	simdCount         int
 	vgprCount         []int
 	sgprCount         int
-	simdWidth         int
 	log2CachelineSize uint64
 
 	decoder            emu.Decoder
@@ -75,21 +74,9 @@ func (b Builder) WithSGPRCount(count int) Builder {
 	return b
 }
 
-// WithSIMDWidth sets the width of the SIMD unit.
-func (b Builder) WithSIMDWidth(w int) Builder {
-	b.simdWidth = w
-	return b
-}
-
 // WithLog2CachelineSize sets the cacheline size as a power of 2.
 func (b Builder) WithLog2CachelineSize(n uint64) Builder {
 	b.log2CachelineSize = n
-	return b
-}
-
-// WithExternalDecoder allows caller to set the decoder to use.
-func (b Builder) WithExternalDecoder(d emu.Decoder) Builder {
-	b.decoder = d
 	return b
 }
 
@@ -106,19 +93,14 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	b.name = name
 	cu := NewComputeUnit(name, b.engine)
 	cu.Freq = b.freq
-
-	if b.decoder == nil {
-		b.decoder = insts.NewDisassembler()
-	}
-	cu.Decoder = b.decoder
-
+	cu.Decoder = insts.NewDisassembler()
 	cu.WfDispatcher = NewWfDispatcher(cu)
 	cu.InFlightVectorMemAccessLimit = 512
 
 	b.alu = emu.NewALU(nil)
 	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
-	for i := 0; i < b.simdCount; i++ {
+	for i := 0; i < 4; i++ {
 		cu.WfPools = append(cu.WfPools, NewWavefrontPool(10))
 	}
 
@@ -214,11 +196,9 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
 	sRegFile := NewSimpleRegisterFile(uint64(b.sgprCount*4), 0)
 	cu.SRegFile = sRegFile
-	cu.NumSReg = b.sgprCount
 
 	for i := 0; i < b.simdCount; i++ {
 		vRegFile := NewSimpleRegisterFile(uint64(b.vgprCount[i]*4), 1024)
 		cu.VRegFile = append(cu.VRegFile, vRegFile)
 	}
-	cu.NumVReg = b.vgprCount
 }
