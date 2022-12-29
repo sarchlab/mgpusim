@@ -179,21 +179,11 @@ func (d *Driver) Distribute(
 	byteSize uint64,
 	gpuIDs []int,
 ) []uint64 {
-	physicalGPUIDs := make([]int, 0)
-
-	for _, gpuID := range gpuIDs {
-		switch d.devices[gpuID].Type {
-		case internal.DeviceTypeGPU:
-			physicalGPUIDs = append(physicalGPUIDs, gpuID)
-		case internal.DeviceTypeUnifiedGPU:
-			physicalGPUIDs = append(physicalGPUIDs,
-				d.devices[gpuID].UnifiedGPUIDs...)
-		}
+	if len(gpuIDs) == 1 {
+		return []uint64{byteSize}
 	}
 
-	physicalGPUIDs = unique(physicalGPUIDs)
-
-	return d.distributor.Distribute(ctx, uint64(addr), byteSize, physicalGPUIDs)
+	return d.distributor.Distribute(ctx, uint64(addr), byteSize, gpuIDs)
 }
 
 func unique(in []int) []int {

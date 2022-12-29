@@ -66,7 +66,7 @@ func (b Builder) WithMagicMemoryCopyMiddleware() Builder {
 func (b Builder) Build(name string) *Driver {
 	driver := new(Driver)
 	driver.TickingComponent = sim.NewTickingComponent(
-		"driver", b.engine, b.freq, driver)
+		"Driver", b.engine, b.freq, driver)
 
 	driver.Log2PageSize = b.log2PageSize
 
@@ -92,9 +92,9 @@ func (b Builder) Build(name string) *Driver {
 		driver.middlewares = append(driver.middlewares, defaultMemoryCopyMiddleware)
 	}
 
-	driver.gpuPort = sim.NewLimitNumMsgPort(driver, 40960000, "driver.ToGPUs")
+	driver.gpuPort = sim.NewLimitNumMsgPort(driver, 40960000, "Driver.ToGPUs")
 	driver.AddPort("GPU", driver.gpuPort)
-	driver.mmuPort = sim.NewLimitNumMsgPort(driver, 1, "driver.ToMMU")
+	driver.mmuPort = sim.NewLimitNumMsgPort(driver, 1, "Driver.ToMMU")
 	driver.AddPort("MMU", driver.mmuPort)
 
 	driver.enqueueSignal = make(chan bool)

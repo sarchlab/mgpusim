@@ -20,6 +20,7 @@ import (
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mgpusim/v3/benchmarks"
 	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/timing/cu"
 	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
@@ -67,6 +68,8 @@ var bufferLevelTraceDirFlag = flag.String("buffer-level-trace-dir", "",
 	"The directory to dump the buffer level traces.")
 var bufferLevelTracePeriodFlag = flag.Float64("buffer-level-trace-period", 0.0,
 	"The period to dump the buffer level trace.")
+var simdBusyTimeTracerFlag = flag.Bool("report-busy-time", false, "Report SIMD Unit's busy time")
+var reportCPIStackFlag = flag.Bool("report-cpi-stack", false, "Report CPI stack")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -105,6 +108,16 @@ type rdmaTransactionCountTracer struct {
 	rdmaEngine     *rdma.Engine
 }
 
+type simdBusyTimeTracer struct {
+	tracer *tracing.BusyTimeTracer
+	simd   TraceableComponent
+}
+
+type cuCPIStackHook struct {
+	cu   TraceableComponent
+	hook *cu.CPIStackHook
+}
+
 // Runner is a class that helps running the benchmarks in the official samples.
 type Runner struct {
 	platform                *Platform
@@ -120,6 +133,8 @@ type Runner struct {
 	benchmarks              []benchmarks.Benchmark
 	monitor                 *monitoring.Monitor
 	metricsCollector        *collector
+	simdBusyTimeTracers     []simdBusyTimeTracer
+	cuCPIHooks              []cuCPIStackHook
 
 	Timing                     bool
 	Verify                     bool
@@ -131,6 +146,8 @@ type Runner struct {
 	ReportRDMATransactionCount bool
 	ReportDRAMTransactionCount bool
 	UseUnifiedMemory           bool
+	ReportSIMDBusyTime         bool
+	ReportCPIStack             bool
 
 	GPUIDs []int
 }
@@ -178,13 +195,23 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportRDMATransactionCount = true
 	}
 
+	if *simdBusyTimeTracerFlag {
+		r.ReportSIMDBusyTime = true
+	}
+
+	if *reportCPIStackFlag {
+		r.ReportCPIStack = true
+	}
+
 	if *reportAll {
 		r.ReportInstCount = true
 		r.ReportCacheLatency = true
 		r.ReportCacheHitRate = true
 		r.ReportTLBHitRate = true
+		r.ReportSIMDBusyTime = true
 		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
+		r.ReportCPIStack = true
 	}
 
 	return r
@@ -229,11 +256,13 @@ func (r *Runner) defineMetrics() {
 	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
 	r.addInstCountTracer()
+	r.addCUCPIHook()
 	r.addCacheLatencyTracer()
 	r.addCacheHitRateTracer()
 	r.addTLBHitRateTracer()
 	r.addRDMAEngineTracer()
 	r.addDRAMTracer()
+	r.addSIMDBusyTimeTracer()
 
 	atexit.Register(func() { r.reportStats() })
 }
@@ -365,6 +394,26 @@ func (r *Runner) addInstCountTracer() {
 					cu:     cu,
 				})
 			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
+		}
+	}
+}
+
+func (r *Runner) addCUCPIHook() {
+	if !r.ReportCPIStack {
+		return
+	}
+
+	for _, gpu := range r.platform.GPUs {
+		for _, cuComp := range gpu.CUs {
+			hook := cu.NewCPIStackInstHook(
+				cuComp.(*cu.ComputeUnit), r.platform.Engine)
+			cuComp.AcceptHook(hook)
+
+			r.cuCPIHooks = append(r.cuCPIHooks,
+				cuCPIStackHook{
+					hook: hook,
+					cu:   cuComp,
+				})
 		}
 	}
 }
@@ -565,6 +614,28 @@ func (r *Runner) addDRAMTracer() {
 	}
 }
 
+func (r *Runner) addSIMDBusyTimeTracer() {
+	if !r.ReportSIMDBusyTime {
+		return
+	}
+
+	for _, gpu := range r.platform.GPUs {
+		for _, simd := range gpu.SIMDs {
+			perSIMDBusyTimeTracer := tracing.NewBusyTimeTracer(
+				r.platform.Engine,
+				func(task tracing.Task) bool {
+					return task.Kind == "pipeline"
+				})
+			r.simdBusyTimeTracers = append(r.simdBusyTimeTracers,
+				simdBusyTimeTracer{
+					tracer: perSIMDBusyTimeTracer,
+					simd:   simd,
+				})
+			tracing.CollectTrace(simd, perSIMDBusyTimeTracer)
+		}
+	}
+}
+
 func (r *Runner) parseGPUFlag() {
 	if *gpuFlag == "" && *unifiedGPUFlag == "" {
 		r.GPUIDs = []int{1}
@@ -654,14 +725,14 @@ func (r *Runner) Run() {
 	r.platform.Driver.Terminate()
 	r.platform.Engine.Finished()
 
-	//r.reportStats()
-
 	atexit.Exit(0)
 }
 
 func (r *Runner) reportStats() {
 	r.reportExecutionTime()
 	r.reportInstCount()
+	r.reportCPIStack()
+	r.reportSIMDBusyTime()
 	r.reportCacheLatency()
 	r.reportCacheHitRate()
 	r.reportTLBHitRate()
@@ -671,9 +742,46 @@ func (r *Runner) reportStats() {
 }
 
 func (r *Runner) reportInstCount() {
+	kernelTime := float64(r.kernelTimeCounter.BusyTime())
 	for _, t := range r.instCountTracers {
+		cuFreq := float64(t.cu.(*cu.ComputeUnit).Freq)
+		numCycle := kernelTime * cuFreq
+
 		r.metricsCollector.Collect(
-			t.cu.Name(), "inst_count", float64(t.tracer.count))
+			t.cu.Name(), "cu_inst_count", float64(t.tracer.count))
+
+		r.metricsCollector.Collect(
+			t.cu.Name(), "cu_CPI", numCycle/float64(t.tracer.count))
+
+		r.metricsCollector.Collect(
+			t.cu.Name(), "simd_inst_count", float64(t.tracer.simdCount))
+
+		r.metricsCollector.Collect(
+			t.cu.Name(), "simd_CPI", numCycle/float64(t.tracer.simdCount))
+	}
+}
+
+func (r *Runner) reportCPIStack() {
+	for _, t := range r.cuCPIHooks {
+		cu := t.cu
+		hook := t.hook
+
+		cpiStack := hook.GetCPIStack()
+		for name, value := range cpiStack {
+			r.metricsCollector.Collect(cu.Name(), "CPIStack."+name, value)
+		}
+
+		simdCPIStack := hook.GetSIMDCPIStack()
+		for name, value := range simdCPIStack {
+			r.metricsCollector.Collect(cu.Name(), "SIMDCPIStack."+name, value)
+		}
+	}
+}
+
+func (r *Runner) reportSIMDBusyTime() {
+	for _, t := range r.simdBusyTimeTracers {
+		r.metricsCollector.Collect(
+			t.simd.Name(), "busy_time", float64(t.tracer.BusyTime()))
 	}
 }
 

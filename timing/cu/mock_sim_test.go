@@ -99,6 +99,20 @@ func (mr *MockPortMockRecorder) NotifyAvailable(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyAvailable", reflect.TypeOf((*MockPort)(nil).NotifyAvailable), arg0)
 }
 
+// NumHooks mocks base method.
+func (m *MockPort) NumHooks() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumHooks")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumHooks indicates an expected call of NumHooks.
+func (mr *MockPortMockRecorder) NumHooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumHooks", reflect.TypeOf((*MockPort)(nil).NumHooks))
+}
+
 // Peek mocks base method.
 func (m *MockPort) Peek() sim.Msg {
 	m.ctrl.T.Helper()
@@ -240,6 +254,20 @@ func (mr *MockEngineMockRecorder) Finished() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finished", reflect.TypeOf((*MockEngine)(nil).Finished))
 }
 
+// NumHooks mocks base method.
+func (m *MockEngine) NumHooks() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumHooks")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumHooks indicates an expected call of NumHooks.
+func (mr *MockEngineMockRecorder) NumHooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumHooks", reflect.TypeOf((*MockEngine)(nil).NumHooks))
+}
+
 // Pause mocks base method.
 func (m *MockEngine) Pause() {
 	m.ctrl.T.Helper()
@@ -377,6 +405,20 @@ func (m *MockBuffer) Name() string {
 func (mr *MockBufferMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockBuffer)(nil).Name))
+}
+
+// NumHooks mocks base method.
+func (m *MockBuffer) NumHooks() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumHooks")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumHooks indicates an expected call of NumHooks.
+func (mr *MockBufferMockRecorder) NumHooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumHooks", reflect.TypeOf((*MockBuffer)(nil).NumHooks))
 }
 
 // Peek mocks base method.

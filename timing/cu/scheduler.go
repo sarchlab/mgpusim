@@ -7,6 +7,7 @@ import (
 	"gitlab.com/akita/akita/v3/tracing"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mgpusim/v3/insts"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
@@ -270,13 +271,113 @@ func (s *SchedulerImpl) evalSEndPgm(
 		return false, false
 	}
 
-	wf.State = wavefront.WfCompleted
-	wfCompletionEvt := NewWfCompletionEvent(s.cu.Freq.NextTick(now), s.cu, wf)
-	s.cu.Engine.Schedule(wfCompletionEvt)
-	s.internalExecuting = nil
+	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
+		done := s.sendWGCompletionMessage(now, wf.WG)
+		if !done {
+			return false, false
+		}
 
-	s.resetRegisterValue(wf)
-	return true, true
+		wf.State = wavefront.WfCompleted
+
+		s.resetRegisterValue(wf)
+		s.cu.clearWGResource(wf.WG)
+
+		s.cu.logInstTask(now, wf, wf.DynamicInst(), true)
+		tracing.EndTask(wf.UID, s.cu)
+		tracing.TraceReqComplete(wf.WG.MapReq, s.cu)
+
+		return true, true
+	}
+
+	if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
+		s.passBarrier(now, wf.WG)
+		s.resetRegisterValue(wf)
+
+		wf.State = wavefront.WfCompleted
+
+		tracing.EndTask(wf.UID, s.cu)
+
+		return true, true
+	}
+
+	if s.atLeaseOneWfIsExecuting(wf.WG) {
+		s.resetRegisterValue(wf)
+
+		wf.State = wavefront.WfCompleted
+
+		s.cu.logInstTask(now, wf, wf.DynamicInst(), true)
+		tracing.EndTask(wf.UID, s.cu)
+
+		return true, true
+	}
+
+	panic("never")
+}
+
+func (s *SchedulerImpl) areAllOtherWfsInWGCompleted(
+	wg *wavefront.WorkGroup,
+	currWf *wavefront.Wavefront,
+) bool {
+	for _, wf := range wg.Wfs {
+		if wf == currWf {
+			continue
+		}
+
+		if wf.State != wavefront.WfCompleted {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s *SchedulerImpl) atLeaseOneWfIsExecuting(
+	wg *wavefront.WorkGroup,
+) bool {
+	for _, wf := range wg.Wfs {
+		if wf.State == wavefront.WfRunning || wf.State == wavefront.WfReady {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *SchedulerImpl) sendWGCompletionMessage(
+	now sim.VTimeInSec,
+	wg *wavefront.WorkGroup,
+) (done bool) {
+	mapReq := wg.MapReq
+	dispatcher := mapReq.Src
+
+	msg := protocol.WGCompletionMsgBuilder{}.
+		WithSendTime(now).
+		WithSrc(s.cu.ToACE).
+		WithDst(dispatcher).
+		WithRspTo(mapReq.ID).
+		Build()
+
+	err := s.cu.ToACE.Send(msg)
+
+	return err == nil
+}
+
+func (s *SchedulerImpl) areAllOtherWfsInWGAtBarrier(
+	wg *wavefront.WorkGroup,
+	currWf *wavefront.Wavefront,
+) bool {
+	for _, wf := range wg.Wfs {
+		if wf == currWf {
+			continue
+		}
+
+		if wf.State != wavefront.WfAtBarrier &&
+			wf.State != wavefront.WfCompleted {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
@@ -309,7 +410,7 @@ func (s *SchedulerImpl) evalSBarrier(
 	allAtBarrier := s.areAllWfInWGAtBarrier(wg)
 
 	if allAtBarrier {
-		s.passBarrier(wg)
+		s.passBarrier(now, wg)
 		return true, true
 	}
 
@@ -330,13 +431,25 @@ func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *wavefront.WorkGroup) bool {
 	return true
 }
 
-func (s *SchedulerImpl) passBarrier(wg *wavefront.WorkGroup) {
+func (s *SchedulerImpl) passBarrier(
+	now sim.VTimeInSec,
+	wg *wavefront.WorkGroup,
+) {
 	s.removeAllWfFromBarrierBuffer(wg)
-	s.setAllWfStateToReady(wg)
+	s.setAllWfStateToReady(now, wg)
 }
 
-func (s *SchedulerImpl) setAllWfStateToReady(wg *wavefront.WorkGroup) {
+func (s *SchedulerImpl) setAllWfStateToReady(
+	now sim.VTimeInSec,
+	wg *wavefront.WorkGroup,
+) {
 	for _, wf := range wg.Wfs {
+		s.cu.logInstTask(now, wf, wf.DynamicInst(), true)
+
+		if wf.State == wavefront.WfCompleted {
+			continue
+		}
+
 		s.cu.UpdatePCAndSetReady(wf)
 	}
 }

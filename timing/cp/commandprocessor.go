@@ -186,7 +186,7 @@ func (p *CommandProcessor) processRspFromDMAs(now sim.VTimeInSec) bool {
 	}
 
 	switch req := msg.(type) {
-	case *protocol.MemCopyD2HReq, *protocol.MemCopyH2DReq:
+	case *sim.GeneralRsp:
 		return p.processMemCopyRsp(now, req)
 	}
 
@@ -476,11 +476,14 @@ func (p *CommandProcessor) processRegularCacheFlush(
 	now sim.VTimeInSec,
 	flushRsp *cache.FlushRsp,
 ) bool {
-	p.currFlushRequest.Src, p.currFlushRequest.Dst =
-		p.currFlushRequest.Dst, p.currFlushRequest.Src
-	p.currFlushRequest.SendTime = now
+	rsp := sim.GeneralRspBuilder{}.
+		WithSendTime(now).
+		WithSrc(p.ToDriver).
+		WithDst(p.Driver).
+		WithOriginalReq(p.currFlushRequest).
+		Build()
 
-	p.toDriverSender.Send(p.currFlushRequest)
+	p.toDriverSender.Send(rsp)
 
 	tracing.TraceReqComplete(p.currFlushRequest, p)
 	p.currFlushRequest = nil
@@ -738,10 +741,13 @@ func (p *CommandProcessor) processFlushReq(
 
 	p.currFlushRequest = req
 	if p.numCacheACK == 0 {
-		p.currFlushRequest.Src, p.currFlushRequest.Dst =
-			p.currFlushRequest.Dst, p.currFlushRequest.Src
-		p.currFlushRequest.SendTime = now
-		p.toDriverSender.Send(p.currFlushRequest)
+		rsp := sim.GeneralRspBuilder{}.
+			WithSendTime(now).
+			WithSrc(p.ToDriver).
+			WithDst(p.Driver).
+			WithOriginalReq(req).
+			Build()
+		p.toDriverSender.Send(rsp)
 	}
 
 	p.ToDriver.Retrieve(now)
@@ -811,31 +817,39 @@ func (p *CommandProcessor) processMemCopyReq(
 }
 
 func (p *CommandProcessor) findAndRemoveOriginalMemCopyRequest(
-	rsp sim.Msg,
+	rsp sim.Rsp,
 ) sim.Msg {
-	switch rsp := rsp.(type) {
-	case *protocol.MemCopyH2DReq:
-		origionalReq := p.bottomMemCopyH2DReqIDToTopReqMap[rsp.ID]
-		delete(p.bottomMemCopyH2DReqIDToTopReqMap, rsp.ID)
-		return origionalReq
-	case *protocol.MemCopyD2HReq:
-		originalReq := p.bottomMemCopyD2HReqIDToTopReqMap[rsp.ID]
-		delete(p.bottomMemCopyD2HReqIDToTopReqMap, rsp.ID)
-		return originalReq
-	default:
-		panic("unknown type")
+	rspTo := rsp.GetRspTo()
+
+	originalH2DReq, ok := p.bottomMemCopyH2DReqIDToTopReqMap[rspTo]
+	if ok {
+		delete(p.bottomMemCopyH2DReqIDToTopReqMap, rspTo)
+		return originalH2DReq
 	}
+
+	originalD2HReq, ok := p.bottomMemCopyD2HReqIDToTopReqMap[rspTo]
+	if ok {
+		delete(p.bottomMemCopyD2HReqIDToTopReqMap, rspTo)
+		return originalD2HReq
+	}
+
+	panic("never")
 }
 
 func (p *CommandProcessor) processMemCopyRsp(
 	now sim.VTimeInSec,
-	req sim.Msg,
+	req sim.Rsp,
 ) bool {
 	originalReq := p.findAndRemoveOriginalMemCopyRequest(req)
-	originalReq.Meta().Dst = p.Driver
-	originalReq.Meta().Src = p.ToDriver
-	originalReq.Meta().SendTime = now
-	p.toDriverSender.Send(originalReq)
+
+	rsp := sim.GeneralRspBuilder{}.
+		WithDst(p.Driver).
+		WithSrc(p.ToDriver).
+		WithSendTime(now).
+		WithOriginalReq(originalReq).
+		Build()
+
+	p.toDriverSender.Send(rsp)
 	p.ToDMA.Retrieve(now)
 
 	tracing.TraceReqComplete(originalReq, p)

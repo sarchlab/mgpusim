@@ -3,6 +3,7 @@ package driver
 import (
 	"log"
 	"reflect"
+	"runtime/debug"
 	"sync"
 
 	"github.com/rs/xid"
@@ -114,6 +115,7 @@ func (d *Driver) runEngine() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Panic: %v", r)
+			debug.PrintStack()
 			atexit.Exit(1)
 		}
 	}()
@@ -130,16 +132,29 @@ func (d *Driver) runEngine() {
 	d.engineRunningMutex.Unlock()
 }
 
+// DeviceProperties defines the properties of a device
+type DeviceProperties struct {
+	CUCount  int
+	DRAMSize uint64
+}
+
 // RegisterGPU tells the driver about the existence of a GPU
-func (d *Driver) RegisterGPU(commandProcessorPort sim.Port, dramSize uint64) {
+func (d *Driver) RegisterGPU(
+	commandProcessorPort sim.Port,
+	properties DeviceProperties,
+) {
 	d.GPUs = append(d.GPUs, commandProcessorPort)
 
 	gpuDevice := &internal.Device{
 		ID:       len(d.GPUs),
 		Type:     internal.DeviceTypeGPU,
 		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
+		Properties: internal.DeviceProperties{
+			CUCount:  properties.CUCount,
+			DRAMSize: properties.DRAMSize,
+		},
 	}
-	gpuDevice.SetTotalMemSize(dramSize)
+	gpuDevice.SetTotalMemSize(properties.DRAMSize)
 	d.memAllocator.RegisterDevice(gpuDevice)
 
 	d.devices = append(d.devices, gpuDevice)
@@ -188,7 +203,7 @@ func (d *Driver) processReturnReq(now sim.VTimeInSec) bool {
 	}
 
 	switch req := req.(type) {
-	case *protocol.LaunchKernelReq:
+	case *protocol.LaunchKernelRsp:
 		d.gpuPort.Retrieve(now)
 		return d.processLaunchKernelReturn(now, req)
 	case *protocol.RDMADrainRspToDriver:
@@ -265,6 +280,9 @@ func (d *Driver) processOneCommand(
 	case *NoopCommand:
 		d.logCmdStart(cmd, now)
 		return d.processNoopCommand(now, cmd, cmdQueue)
+	case *LaunchUnifiedMultiGPUKernelCommand:
+		d.logCmdStart(cmd, now)
+		return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, cmdQueue)
 	default:
 		return d.processCommandWithMiddleware(now, cmd, cmdQueue)
 	}
@@ -331,11 +349,6 @@ func (d *Driver) processLaunchKernelCommand(
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	dev := d.devices[queue.GPUID]
-	if dev.Type == internal.DeviceTypeUnifiedGPU {
-		return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, queue)
-	}
-
 	req := protocol.NewLaunchKernelReq(now,
 		d.gpuPort, d.GPUs[queue.GPUID-1])
 	req.PID = queue.Context.pid
@@ -359,20 +372,23 @@ func (d *Driver) processLaunchKernelCommand(
 
 func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	now sim.VTimeInSec,
-	cmd *LaunchKernelCommand,
+	cmd *LaunchUnifiedMultiGPUKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	dev := d.devices[queue.GPUID]
+	wgDist := d.distributeWGToGPUs(queue, cmd)
 
+	dev := d.devices[queue.GPUID]
 	for i, gpuID := range dev.UnifiedGPUIDs {
-		req := protocol.NewLaunchKernelReq(now,
-			d.gpuPort, d.GPUs[gpuID-1])
+		if wgDist[i+1]-wgDist[i] == 0 {
+			continue
+		}
+
+		req := protocol.NewLaunchKernelReq(now, d.gpuPort, d.GPUs[gpuID-1])
 		req.PID = queue.Context.pid
 		req.HsaCo = cmd.CodeObject
-		req.Packet = cmd.Packet
-		req.PacketAddress = uint64(cmd.DPacket)
+		req.Packet = cmd.PacketArray[i]
+		req.PacketAddress = uint64(cmd.DPacketArray[i])
 
-		numGPUs := len(dev.UnifiedGPUIDs)
 		currentGPUIndex := i
 		req.WGFilter = func(
 			pkt *kernels.HsaKernelDispatchPacket,
@@ -380,17 +396,18 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 		) bool {
 			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
 			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
-			numWGZ := (pkt.GridSizeZ-1)/uint32(pkt.WorkgroupSizeZ) + 1
-			numWG := int(numWGX * numWGY * numWGZ)
 
 			flattenedID :=
 				wg.IDZ*int(numWGX)*int(numWGY) +
 					wg.IDY*int(numWGX) +
 					wg.IDX
 
-			wgPerGPU := (numWG-1)/numGPUs + 1
+			if flattenedID >= wgDist[currentGPUIndex] &&
+				flattenedID < wgDist[currentGPUIndex+1] {
+				return true
+			}
 
-			return flattenedID/wgPerGPU == currentGPUIndex
+			return false
 		}
 
 		queue.IsRunning = true
@@ -407,11 +424,109 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 	return true
 }
 
+//Modified Function
+// func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
+// 	now sim.VTimeInSec,
+// 	cmd *LaunchKernelCommand,
+// 	queue *CommandQueue,
+// ) bool {
+// 	wgDist := d.distributeWGToGPUs(queue, cmd) //get distribution of the work group.
+
+// 	gpuOrder := []int{7, 2, 1, 6, 11, 12, // Group1
+// 		9, 8, 3, 4, 5, 10, // Group2
+// 		16, 17, 22, 21, 20, 15,
+// 		18, 13, 14, 19, 23, 24} // Group4
+
+// 	dev := d.devices[queue.GPUID] //Get info of GPU
+// 	for i, gpuID := range dev.UnifiedGPUIDs {
+// 		if wgDist[i+1]-wgDist[i] == 0 {
+// 			continue
+// 		}
+
+// 		req := protocol.NewLaunchKernelReq(now, //launch a new kernel.
+// 			// d.gpuPort, d.GPUs[gpuID-1])
+// 			d.gpuPort, d.GPUs[gpuOrder[gpuID-1]-1])
+// 		req.PID = queue.Context.pid
+// 		req.HsaCo = cmd.CodeObject
+// 		req.Packet = cmd.Packet
+// 		req.PacketAddress = uint64(cmd.DPacket)
+
+// 		fmt.Printf("The %v work group will be allocated to GPU %v \n", gpuID, gpuOrder[gpuID-1])
+
+// 		currentGPUIndex := i
+// 		req.WGFilter = func(
+// 			pkt *kernels.HsaKernelDispatchPacket,
+// 			wg *kernels.WorkGroup,
+// 		) bool {
+// 			numWGX := (pkt.GridSizeX-1)/uint32(pkt.WorkgroupSizeX) + 1
+// 			numWGY := (pkt.GridSizeY-1)/uint32(pkt.WorkgroupSizeY) + 1
+
+// 			flattenedID :=
+// 				wg.IDZ*int(numWGX)*int(numWGY) +
+// 					wg.IDY*int(numWGX) +
+// 					wg.IDX
+
+// 			if flattenedID >= wgDist[currentGPUIndex] &&
+// 				flattenedID < wgDist[currentGPUIndex+1] {
+// 				return true
+// 			}
+
+// 			return false
+// 		}
+
+// 		queue.IsRunning = true
+// 		cmd.Reqs = append(cmd.Reqs, req)
+
+// 		d.requestsToSend = append(d.requestsToSend, req)
+
+// 		queue.Context.l2Dirty = true
+// 		queue.Context.markAllBuffersDirty()
+
+// 		d.logTaskToGPUInitiate(now, cmd, req)
+// 	}
+
+// 	return true
+// }
+
+func (d *Driver) distributeWGToGPUs(
+	queue *CommandQueue,
+	cmd *LaunchUnifiedMultiGPUKernelCommand,
+) []int {
+	dev := d.devices[queue.GPUID]
+	actualGPUs := dev.UnifiedGPUIDs
+	wgAllocated := 0
+	wgDist := make([]int, len(actualGPUs)+1)
+
+	totalCUCount := 0
+	for _, devID := range actualGPUs {
+		totalCUCount += d.devices[devID].Properties.CUCount
+	}
+
+	numWGX := (cmd.PacketArray[0].GridSizeX-1)/uint32(cmd.PacketArray[0].WorkgroupSizeX) + 1
+	numWGY := (cmd.PacketArray[0].GridSizeY-1)/uint32(cmd.PacketArray[0].WorkgroupSizeY) + 1
+	numWGZ := (cmd.PacketArray[0].GridSizeZ-1)/uint32(cmd.PacketArray[0].WorkgroupSizeZ) + 1
+	totalWGCount := int(numWGX * numWGY * numWGZ)
+	wgPerCU := (totalWGCount-1)/totalCUCount + 1
+
+	for i, devID := range actualGPUs {
+		cuCount := d.devices[devID].Properties.CUCount
+		wgToAllocate := cuCount * wgPerCU
+		wgDist[i+1] = wgAllocated + wgToAllocate
+		wgAllocated += wgToAllocate
+	}
+
+	if wgAllocated < totalWGCount {
+		panic("not all wg allocated")
+	}
+
+	return wgDist
+}
+
 func (d *Driver) processLaunchKernelReturn(
 	now sim.VTimeInSec,
-	req *protocol.LaunchKernelReq,
+	rsp *protocol.LaunchKernelRsp,
 ) bool {
-	cmd, cmdQueue := d.findCommandByReq(req)
+	req, cmd, cmdQueue := d.findCommandByReqID(rsp.RspTo)
 	cmd.RemoveReq(req)
 
 	d.logTaskToGPUClear(now, req)
@@ -448,6 +563,39 @@ func (d *Driver) findCommandByReq(req sim.Msg) (Command, *CommandQueue) {
 		}
 		ctx.queueMutex.Unlock()
 	}
+
+	panic("cannot find command")
+}
+
+func (d *Driver) findCommandByReqID(reqID string) (
+	sim.Msg,
+	Command,
+	*CommandQueue,
+) {
+	d.contextMutex.Lock()
+	defer d.contextMutex.Unlock()
+
+	for _, ctx := range d.contexts {
+		ctx.queueMutex.Lock()
+
+		for _, q := range ctx.queues {
+			cmd := q.Peek()
+			if cmd == nil {
+				continue
+			}
+
+			reqs := cmd.GetReqs()
+			for _, r := range reqs {
+				if r.Meta().ID == reqID {
+					ctx.queueMutex.Unlock()
+					return r, cmd, q
+				}
+			}
+		}
+
+		ctx.queueMutex.Unlock()
+	}
+
 	panic("cannot find command")
 }
 

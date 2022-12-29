@@ -17,7 +17,7 @@ var _ = Describe("LDS Unit", func() {
 	)
 
 	BeforeEach(func() {
-		cu = NewComputeUnit("cu", nil)
+		cu = NewComputeUnit("CU", nil)
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
 		bu = NewLDSUnit(cu, sp, alu)

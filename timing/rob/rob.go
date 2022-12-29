@@ -174,7 +174,7 @@ func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 	}
 
 	rsp := item.(mem.AccessRsp)
-	rspTo := rsp.GetRespondTo()
+	rspTo := rsp.GetRspTo()
 	transElement, found := b.toBottomReqIDToTransactionTable[rspTo]
 
 	if found {

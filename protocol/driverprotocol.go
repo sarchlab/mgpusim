@@ -48,12 +48,43 @@ func (m *LaunchKernelReq) Meta() *sim.MsgMeta {
 // NewLaunchKernelReq returns a new LaunchKernelReq
 func NewLaunchKernelReq(
 	time sim.VTimeInSec,
-	src, dst sim.Port) *LaunchKernelReq {
+	src, dst sim.Port,
+) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
 	r.ID = sim.GetIDGenerator().Generate()
 	r.SendTime = time
 	r.Src = src
 	r.Dst = dst
+	return r
+}
+
+// LaunchKernelRsp is the response that is send by the GPU to the driver when
+// the kernel completes execution.
+type LaunchKernelRsp struct {
+	sim.MsgMeta
+
+	RspTo string
+}
+
+// Meta returns the meta data associated with the message.
+func (m *LaunchKernelRsp) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+// NewLaunchKernelRsp returns a new LaunchKernelRsp.
+func NewLaunchKernelRsp(
+	time sim.VTimeInSec,
+	src, dst sim.Port,
+	rspTo string,
+) *LaunchKernelRsp {
+	r := new(LaunchKernelRsp)
+	r.ID = sim.GetIDGenerator().Generate()
+	r.SendTime = time
+	r.Src = src
+	r.Dst = dst
+
+	r.RspTo = rspTo
+
 	return r
 }
 

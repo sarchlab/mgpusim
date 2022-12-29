@@ -84,19 +84,41 @@ func (b EmuBuilder) Build() *Platform {
 
 	storage := mem.NewStorage(uint64(b.numGPU+1) * 4 * mem.GB)
 	pageTable := vm.NewPageTable(b.log2PageSize)
-	gpuDriverBuilder := driver.MakeBuilder()
-
-	if b.useMagicMemoryCopy {
-		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
-	}
-	gpuDriver := gpuDriverBuilder.
-		WithEngine(engine).
-		WithPageTable(pageTable).
-		WithLog2PageSize(b.log2PageSize).
-		WithGlobalStorage(storage).
-		Build("Driver")
+	gpuDriver := b.buildGPUDriver(engine, pageTable, storage)
 	connection := sim.NewDirectConnection("ExternalConn", engine, 1*sim.GHz)
 
+	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, pageTable, storage)
+
+	for i := 0; i < b.numGPU; i++ {
+		gpu := gpuBuilder.
+			WithMemOffset(uint64(i+1) * 4 * mem.GB).
+			Build(fmt.Sprintf("GPU[%d]", i+1))
+
+		cpPort := gpu.Domain.GetPortByName("CommandProcessor")
+		gpuDriver.RegisterGPU(cpPort, driver.DeviceProperties{
+			DRAMSize: 4 * mem.GB,
+			CUCount:  64,
+		})
+		connection.PlugIn(cpPort, 64)
+
+		b.gpus = append(b.gpus, gpu)
+	}
+
+	connection.PlugIn(gpuDriver.GetPortByName("GPU"), 4)
+
+	return &Platform{
+		Engine: engine,
+		Driver: gpuDriver,
+		GPUs:   b.gpus,
+	}
+}
+
+func (b *EmuBuilder) createGPUBuilder(
+	engine sim.Engine,
+	gpuDriver *driver.Driver,
+	pageTable vm.PageTable,
+	storage *mem.Storage,
+) EmuGPUBuilder {
 	gpuBuilder := MakeEmuGPUBuilder().
 		WithEngine(engine).
 		WithDriver(gpuDriver).
@@ -112,24 +134,26 @@ func (b EmuBuilder) Build() *Platform {
 	if b.traceMem {
 		gpuBuilder = gpuBuilder.WithMemTracing()
 	}
+	return gpuBuilder
+}
 
-	for i := 0; i < b.numGPU; i++ {
-		gpu := gpuBuilder.
-			WithMemOffset(uint64(i+1) * 4 * mem.GB).
-			Build(fmt.Sprintf("GPU_%d", i+1))
+func (b *EmuBuilder) buildGPUDriver(
+	engine sim.Engine,
+	pageTable vm.PageTable,
+	storage *mem.Storage,
+) *driver.Driver {
+	gpuDriverBuilder := driver.MakeBuilder()
 
-		cpPort := gpu.Domain.GetPortByName("CommandProcessor")
-		gpuDriver.RegisterGPU(cpPort, 4*mem.GB)
-		connection.PlugIn(cpPort, 64)
-
-		b.gpus = append(b.gpus, gpu)
+	if b.useMagicMemoryCopy {
+		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
 	}
 
-	connection.PlugIn(gpuDriver.GetPortByName("GPU"), 4)
+	gpuDriver := gpuDriverBuilder.
+		WithEngine(engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(storage).
+		Build("Driver")
 
-	return &Platform{
-		Engine: engine,
-		Driver: gpuDriver,
-		GPUs:   b.gpus,
-	}
+	return gpuDriver
 }
