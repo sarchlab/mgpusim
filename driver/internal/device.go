@@ -23,6 +23,12 @@ const (
 // MemoryAllocatorType global flag variable for setting the allocator type
 var MemoryAllocatorType = AllocatorTypeDefault
 
+// DeviceProperties defines the properties of a device
+type DeviceProperties struct {
+	CUCount  int
+	DRAMSize uint64
+}
+
 // Device is a CPU or GPU managed by the driver.
 type Device struct {
 	ID                 int
@@ -31,6 +37,7 @@ type Device struct {
 	ActualGPUs         []*Device
 	nextActualGPUIndex int
 	MemState           DeviceMemoryState
+	Properties         DeviceProperties
 }
 
 // SetTotalMemSize sets total memory size
@@ -53,6 +60,7 @@ func (d *Device) allocateMultiplePages(numPages int) (pAddrs []uint64) {
 	if d.Type == DeviceTypeUnifiedGPU {
 		return d.allocateMultipleUnifiedGPUPages(numPages)
 	}
+
 	d.mustHaveSpaceLeft()
 	pAddrs = d.MemState.allocateMultiplePages(numPages)
 
@@ -66,8 +74,25 @@ func (d *Device) mustHaveSpaceLeft() {
 }
 
 func (d *Device) allocateUnifiedGPUPage() (pAddr uint64) {
-	dev := d.ActualGPUs[d.nextActualGPUIndex]
-	pAddr = dev.allocatePage()
+	var devSelected *Device
+
+	devSelected = nil
+	for i := 0; i < len(d.ActualGPUs); i++ {
+		devIndex := (d.nextActualGPUIndex + i) % len(d.ActualGPUs)
+		dev := d.ActualGPUs[devIndex]
+
+		if dev.MemState.noAvailablePAddrs() {
+			continue
+		}
+
+		devSelected = dev
+	}
+
+	if devSelected == nil {
+		panic("out of memory")
+	}
+
+	pAddr = devSelected.allocatePage()
 	d.nextActualGPUIndex = (d.nextActualGPUIndex + 1) % len(d.ActualGPUs)
 	return pAddr
 }

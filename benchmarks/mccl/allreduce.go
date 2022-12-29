@@ -134,7 +134,8 @@ func allReduceReduce(
 		if sizeToPush < 0 {
 			sizeToPush = 0
 		}
-		var lastReduce = uint32(0)
+
+		var lastReduce uint32
 		if step == numGPU-2 {
 			//last reduce
 			lastReduce = 1

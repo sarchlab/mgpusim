@@ -49,6 +49,8 @@ type shaderArrayBuilder struct {
 	isaDebugging bool
 	visTracer    tracing.Tracer
 	memTracer    tracing.Tracer
+
+	connectionCount int
 }
 
 func makeShaderArrayBuilder() shaderArrayBuilder {
@@ -248,11 +250,14 @@ func (b *shaderArrayBuilder) connectWithDirectConnection(
 	port1, port2 sim.Port,
 	bufferSize int,
 ) {
-	name := fmt.Sprintf("%s-%s", port1.Name(), port2.Name())
+	name := fmt.Sprintf("%s.Conn[%d]", b.name, b.connectionCount)
+	b.connectionCount++
+
 	conn := sim.NewDirectConnection(
 		name,
 		b.engine, b.freq,
 	)
+
 	conn.PlugIn(port1, bufferSize)
 	conn.PlugIn(port2, bufferSize)
 }
@@ -264,7 +269,7 @@ func (b *shaderArrayBuilder) buildCUs(sa *shaderArray) {
 		WithLog2CachelineSize(b.log2CacheLineSize)
 
 	for i := 0; i < b.numCU; i++ {
-		cuName := fmt.Sprintf("%s.CU_%02d", b.name, i)
+		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
 		computeUnit := cuBuilder.Build(cuName)
 		sa.cus = append(sa.cus, computeUnit)
 
@@ -294,7 +299,7 @@ func (b *shaderArrayBuilder) buildL1VReorderBuffers(sa *shaderArray) {
 		WithNumReqPerCycle(4)
 
 	for i := 0; i < b.numCU; i++ {
-		name := fmt.Sprintf("%s.L1VROB_%02d", b.name, i)
+		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
 		rob := builder.Build(name)
 		sa.l1vROBs = append(sa.l1vROBs, rob)
 
@@ -312,7 +317,7 @@ func (b *shaderArrayBuilder) buildL1VAddressTranslators(sa *shaderArray) {
 		WithLog2PageSize(b.log2PageSize)
 
 	for i := 0; i < b.numCU; i++ {
-		name := fmt.Sprintf("%s.L1VAddrTrans_%02d", b.name, i)
+		name := fmt.Sprintf("%s.L1VAddrTrans[%d]", b.name, i)
 		at := builder.Build(name)
 		sa.l1vATs = append(sa.l1vATs, at)
 
@@ -332,7 +337,7 @@ func (b *shaderArrayBuilder) buildL1VTLBs(sa *shaderArray) {
 		WithNumReqPerCycle(4)
 
 	for i := 0; i < b.numCU; i++ {
-		name := fmt.Sprintf("%s.L1VTLB_%02d", b.name, i)
+		name := fmt.Sprintf("%s.L1VTLB[%d]", b.name, i)
 		tlb := builder.Build(name)
 		sa.l1vTLBs = append(sa.l1vTLBs, tlb)
 
@@ -358,7 +363,7 @@ func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
 	}
 
 	for i := 0; i < b.numCU; i++ {
-		name := fmt.Sprintf("%s.L1VCache_%02d", b.name, i)
+		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
 		cache := builder.Build(name)
 		sa.l1vCaches = append(sa.l1vCaches, cache)
 

@@ -8,6 +8,7 @@ import (
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mgpusim/v3/insts"
 	"gitlab.com/akita/mgpusim/v3/kernels"
+	"gitlab.com/akita/mgpusim/v3/protocol"
 	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
 )
 
@@ -71,14 +72,17 @@ var _ = Describe("Scheduler", func() {
 		issueArbitor     *mockWfArbitor
 		instMem          *MockPort
 		toInstMem        *MockPort
+		toACE            *MockPort
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
 		engine = NewMockEngine(mockCtrl)
-		cu = NewComputeUnit("cu", engine)
+		cu = NewComputeUnit("CU", engine)
 		cu.Freq = 1
+		cu.WfPools = make([]*WavefrontPool, 1)
+		cu.WfPools[0] = NewWavefrontPool(10)
 
 		vectorDecoder = new(mockCUComponent)
 		cu.VectorDecoder = vectorDecoder
@@ -101,6 +105,9 @@ var _ = Describe("Scheduler", func() {
 
 		toInstMem = NewMockPort(mockCtrl)
 		cu.ToInstMem = toInstMem
+
+		toACE = NewMockPort(mockCtrl)
+		cu.ToACE = toACE
 
 		fetchArbitor = newMockWfArbitor()
 		issueArbitor = newMockWfArbitor()
@@ -225,22 +232,6 @@ var _ = Describe("Scheduler", func() {
 		Expect(wf.InstToIssue).To(BeNil())
 	})
 
-	It("should evaluate internal executing insts", func() {
-		wf := new(wavefront.Wavefront)
-		wf.Wavefront = new(kernels.Wavefront)
-		wf.CodeObject = insts.NewHsaCo()
-		wf.SIMDID = 0
-		wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
-		wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-		wf.DynamicInst().Opcode = 1 // S_ENDPGM
-
-		engine.EXPECT().
-			Schedule(gomock.AssignableToTypeOf(&WfCompletionEvent{}))
-
-		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
-	})
-
 	It("should wait for memory access when running wait_cnt", func() {
 		wf := new(wavefront.Wavefront)
 		wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
@@ -291,19 +282,175 @@ var _ = Describe("Scheduler", func() {
 		Expect(wf.State).To(Equal(wavefront.WfReady))
 	})
 
-	It("should not terminate wavefront if there are pending memory requests", func() {
-		wf := new(wavefront.Wavefront)
-		wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
-		wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-		wf.DynamicInst().Opcode = 1 // WAIT_CNT
-		wf.State = wavefront.WfRunning
-		wf.OutstandingScalarMemAccess = 1
-		wf.OutstandingVectorMemAccess = 1
+	Context("when running END_PGM", func() {
+		It("should not terminate wavefront if there are pending memory requests", func() {
+			wf := new(wavefront.Wavefront)
+			wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+			wf.DynamicInst().Opcode = 1 // S_ENDPGM
+			wf.State = wavefront.WfRunning
+			wf.OutstandingScalarMemAccess = 1
+			wf.OutstandingVectorMemAccess = 1
 
-		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
+			scheduler.internalExecuting = []*wavefront.Wavefront{wf}
+			scheduler.EvaluateInternalInst(10)
 
-		Expect(scheduler.internalExecuting).NotTo(BeNil())
+			Expect(scheduler.internalExecuting).NotTo(BeNil())
+		})
+
+		It("should be marked completed if other wfs are still "+
+			"running", func() {
+			wg := new(wavefront.WorkGroup)
+			co := new(insts.HsaCo)
+			co.HsaCoHeader = new(insts.HsaCoHeader)
+			for i := 0; i < 3; i++ {
+				wf := wavefront.NewWavefront(kernels.NewWavefront())
+				wf.CodeObject = co
+				wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+				wf.DynamicInst().Opcode = 10
+				wf.State = wavefront.WfRunning
+				wf.WG = wg
+				wg.Wfs = append(wg.Wfs, wf)
+				scheduler.barrierBuffer = append(
+					scheduler.barrierBuffer, wf)
+			}
+
+			wf := wavefront.NewWavefront(kernels.NewWavefront())
+			wf.CodeObject = co
+			wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+			wf.DynamicInst().Opcode = 1 // S_ENDPGM
+			wf.WG = wg
+			wf.State = wavefront.WfRunning
+			wf.OutstandingScalarMemAccess = 0
+			wf.OutstandingVectorMemAccess = 0
+			wg.Wfs = append(wg.Wfs, wf)
+
+			scheduler.internalExecuting = []*wavefront.Wavefront{wf}
+			scheduler.EvaluateInternalInst(10)
+
+			Expect(scheduler.internalExecuting).To(HaveLen(0))
+			for i := 0; i < 3; i++ {
+				wf := wg.Wfs[i]
+				Expect(wf.State).To(Equal(wavefront.WfRunning))
+			}
+			Expect(wg.Wfs[3].State).To(Equal(wavefront.WfCompleted))
+		})
+
+		Context("all other wavefronts are at barrier", func() {
+			It("should pass barrier", func() {
+				wg := new(wavefront.WorkGroup)
+				co := new(insts.HsaCo)
+				co.HsaCoHeader = new(insts.HsaCoHeader)
+				for i := 0; i < 3; i++ {
+					wf := wavefront.NewWavefront(kernels.NewWavefront())
+					wf.CodeObject = co
+					wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+					wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+					wf.DynamicInst().Opcode = 10
+					wf.State = wavefront.WfAtBarrier
+					wf.WG = wg
+					wg.Wfs = append(wg.Wfs, wf)
+					scheduler.barrierBuffer = append(
+						scheduler.barrierBuffer, wf)
+				}
+
+				wf := wavefront.NewWavefront(kernels.NewWavefront())
+				wf.CodeObject = co
+				wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+				wf.DynamicInst().Opcode = 1 // S_ENDPGM
+				wf.WG = wg
+				wf.State = wavefront.WfRunning
+				wf.OutstandingScalarMemAccess = 0
+				wf.OutstandingVectorMemAccess = 0
+				wg.Wfs = append(wg.Wfs, wf)
+
+				scheduler.internalExecuting = []*wavefront.Wavefront{wf}
+				scheduler.EvaluateInternalInst(10)
+
+				Expect(scheduler.internalExecuting).To(HaveLen(0))
+				for i := 0; i < 3; i++ {
+					wf := wg.Wfs[i]
+					Expect(wf.State).To(Equal(wavefront.WfReady))
+				}
+				Expect(wg.Wfs[3].State).To(Equal(wavefront.WfCompleted))
+			})
+		})
+
+		Context("all other wavefronts completed", func() {
+			It("should wait if cannot send msg", func() {
+				toACE.EXPECT().Send(gomock.Any()).Return(sim.NewSendError())
+
+				wg := new(wavefront.WorkGroup)
+				mapReq := protocol.MapWGReqBuilder{}.Build()
+				wg.MapReq = mapReq
+				co := new(insts.HsaCo)
+				co.HsaCoHeader = new(insts.HsaCoHeader)
+				for i := 0; i < 3; i++ {
+					wf := wavefront.NewWavefront(kernels.NewWavefront())
+					wf.CodeObject = co
+					wf.State = wavefront.WfCompleted
+					wg.Wfs = append(wg.Wfs, wf)
+				}
+
+				wf := wavefront.NewWavefront(kernels.NewWavefront())
+				wf.CodeObject = co
+				wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+				wf.DynamicInst().Opcode = 1 // S_ENDPGM
+				wf.WG = wg
+				wf.State = wavefront.WfRunning
+				wf.OutstandingScalarMemAccess = 0
+				wf.OutstandingVectorMemAccess = 0
+				wg.Wfs = append(wg.Wfs, wf)
+
+				scheduler.internalExecuting = []*wavefront.Wavefront{wf}
+				scheduler.EvaluateInternalInst(10)
+
+				Expect(scheduler.internalExecuting).To(ContainElement(wf))
+				for i := 0; i < 3; i++ {
+					wf := wg.Wfs[i]
+					Expect(wf.State).To(Equal(wavefront.WfCompleted))
+				}
+			})
+
+			It("should clear resources", func() {
+				toACE.EXPECT().Send(gomock.Any()).Return(nil)
+
+				wg := new(wavefront.WorkGroup)
+				mapReq := protocol.MapWGReqBuilder{}.Build()
+				wg.MapReq = mapReq
+				co := new(insts.HsaCo)
+				co.HsaCoHeader = new(insts.HsaCoHeader)
+				for i := 0; i < 3; i++ {
+					wf := wavefront.NewWavefront(kernels.NewWavefront())
+					wf.CodeObject = co
+					wf.State = wavefront.WfCompleted
+					wg.Wfs = append(wg.Wfs, wf)
+					cu.WfPools[0].wfs = append(cu.WfPools[0].wfs, wf)
+				}
+
+				wf := wavefront.NewWavefront(kernels.NewWavefront())
+				wf.CodeObject = co
+				wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
+				wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
+				wf.DynamicInst().Opcode = 1 // S_ENDPGM
+				wf.WG = wg
+				wf.State = wavefront.WfRunning
+				wf.OutstandingScalarMemAccess = 0
+				wf.OutstandingVectorMemAccess = 0
+				wg.Wfs = append(wg.Wfs, wf)
+				cu.WfPools[0].wfs = append(cu.WfPools[0].wfs, wf)
+
+				scheduler.internalExecuting = []*wavefront.Wavefront{wf}
+				scheduler.EvaluateInternalInst(10)
+
+				Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
+				Expect(cu.WfPools[0].wfs).To(HaveLen(0))
+			})
+		})
 	})
 
 	It("should put wavefront in barrier buffer", func() {
@@ -317,6 +464,7 @@ var _ = Describe("Scheduler", func() {
 			wf.WG = wg
 			wg.Wfs = append(wg.Wfs, wf)
 		}
+
 		wf := wg.Wfs[0]
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
@@ -326,34 +474,6 @@ var _ = Describe("Scheduler", func() {
 		Expect(len(scheduler.barrierBuffer)).To(Equal(1))
 		Expect(scheduler.barrierBuffer[0]).To(BeIdenticalTo(wf))
 		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
-	})
-
-	It("should wait if barrier buffer is full", func() {
-		wg := new(wavefront.WorkGroup)
-		for i := 0; i < 4; i++ {
-			wf := wavefront.NewWavefront(kernels.NewWavefront())
-			wf.State = wavefront.WfRunning
-			wf.SetDynamicInst(wavefront.NewInst(insts.NewInst()))
-			wf.DynamicInst().Format = insts.FormatTable[insts.SOPP]
-			wf.DynamicInst().Opcode = 10
-			wf.WG = wg
-			wg.Wfs = append(wg.Wfs, wf)
-		}
-		wf := wg.Wfs[0]
-
-		scheduler.barrierBuffer = make([]*wavefront.Wavefront, 0, scheduler.barrierBufferSize)
-		for i := 0; i < 16; i++ {
-			wave := wavefront.NewWavefront(kernels.NewWavefront())
-			wave.State = wavefront.WfAtBarrier
-			scheduler.barrierBuffer = append(scheduler.barrierBuffer, wave)
-		}
-		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
-
-		//Expect(wf.State).To(Equal(WfRunning))
-		Expect(len(scheduler.barrierBuffer)).
-			To(Equal(scheduler.barrierBufferSize))
-		Expect(scheduler.internalExecuting).NotTo(BeNil())
 	})
 
 	It("should continue execution if all wavefronts from a workgroup hits barrier", func() {

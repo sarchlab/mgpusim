@@ -87,6 +87,20 @@ func (mr *MockDispatcherMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockDispatcher)(nil).Name))
 }
 
+// NumHooks mocks base method.
+func (m *MockDispatcher) NumHooks() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NumHooks")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// NumHooks indicates an expected call of NumHooks.
+func (mr *MockDispatcherMockRecorder) NumHooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumHooks", reflect.TypeOf((*MockDispatcher)(nil).NumHooks))
+}
+
 // RegisterCU mocks base method.
 func (m *MockDispatcher) RegisterCU(arg0 resource.DispatchableCU) {
 	m.ctrl.T.Helper()

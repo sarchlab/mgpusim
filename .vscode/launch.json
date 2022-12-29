@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/insts"
         },
         {
-            "name": "Test gitlab.com/akita/gcn3/driver",
+            "name": "Test gitlab.com/akita/mgpusim/driver",
             "type": "go",
             "request": "launch",
             "mode": "test",
@@ -149,11 +149,8 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-timing",
-                "-verify",
-                "-length=1024",
-                "-report-all",
-                "-buffer-level-trace-dir=buffer_level",
-                "-buffer-level-trace-period=0.00000001",
+                "-length=64",
+                "--report-all"
             ]
         },
         {
@@ -254,7 +251,6 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/relu",
             "args": [
-                "-verify",
                 "-timing",
                 "-length=64"
             ]

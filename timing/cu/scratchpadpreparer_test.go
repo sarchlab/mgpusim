@@ -25,7 +25,7 @@ var _ = Describe("ScratchpadPreparer", func() {
 		sRegFile = NewSimpleRegisterFile(3200*4, 0)
 		vRegFile0 = NewSimpleRegisterFile(256*64*4, 1024)
 
-		cu = NewComputeUnit("cu", nil)
+		cu = NewComputeUnit("CU", nil)
 		cu.SRegFile = sRegFile
 		cu.VRegFile = append(cu.VRegFile, vRegFile0)
 

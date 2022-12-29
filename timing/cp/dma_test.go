@@ -26,7 +26,7 @@ var _ = Describe("DMAEngine", func() {
 		toMem = NewMockPort(mockCtrl)
 
 		localModuleFinder = new(mem.SingleLowModuleFinder)
-		dmaEngine = NewDMAEngine("dma", engine, localModuleFinder)
+		dmaEngine = NewDMAEngine("DMA", engine, localModuleFinder)
 		dmaEngine.ToCP = toCP
 		dmaEngine.ToMem = toMem
 	})
@@ -175,7 +175,8 @@ var _ = Describe("DMAEngine", func() {
 		Expect(dmaEngine.processingReq).To(BeNil())
 		Expect(dmaEngine.pendingReqs).NotTo(ContainElement(reqToBottom2))
 		Expect(dstBuf[44:108]).To(Equal(dataReady.Data))
-		Expect(dmaEngine.toSendToCP).To(ContainElement(req))
+		Expect(dmaEngine.toSendToCP[0].(*sim.GeneralRsp).OriginalReq).
+			To(BeIdenticalTo(req))
 	})
 
 	It("should parse Done from mem", func() {
@@ -245,6 +246,7 @@ var _ = Describe("DMAEngine", func() {
 		Expect(madeProgress).To(BeTrue())
 		Expect(dmaEngine.processingReq).To(BeNil())
 		Expect(dmaEngine.pendingReqs).NotTo(ContainElement(reqToBottom2))
-		Expect(dmaEngine.toSendToCP).To(ContainElement(req))
+		Expect(dmaEngine.toSendToCP[0].(*sim.GeneralRsp).OriginalReq).
+			To(BeIdenticalTo(req))
 	})
 })

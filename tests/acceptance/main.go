@@ -110,7 +110,10 @@ func (b benchmark) runCase(c benchmarkCase) error {
 }
 
 func (b benchmark) populateArgs(c benchmarkCase) []string {
-	args := append([]string{b.executable, "-verify"}, b.sizeArgs...)
+	args := append(
+		[]string{b.executable, "-verify", "--report-all"},
+		b.sizeArgs...,
+	)
 
 	gpuArg := b.populateGPUArgs(c)
 	args = append(args, gpuArg)

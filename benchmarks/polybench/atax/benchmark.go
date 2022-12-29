@@ -97,7 +97,7 @@ func (b *Benchmark) Run() {
 func (b *Benchmark) initMem() {
 	rand.Seed(1)
 	b.a = make([]float32, b.NX*b.NY)
-	b.x = make([]float32, b.NY)
+	b.x = make([]float32, b.NX)
 	b.y = make([]float32, b.NY)
 	b.yOutput = make([]float32, b.NY)
 	b.tmp = make([]float32, b.NX)

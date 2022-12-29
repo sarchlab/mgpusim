@@ -59,7 +59,7 @@ var _ = Describe("Scalar Unit", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		cu = NewComputeUnit("cu", nil)
+		cu = NewComputeUnit("CU", nil)
 		sp = new(mockScratchpadPreparer)
 		alu = new(mockALU)
 		bu = NewScalarUnit(cu, sp, alu)
