@@ -70,6 +70,8 @@ var bufferLevelTracePeriodFlag = flag.Float64("buffer-level-trace-period", 0.0,
 	"The period to dump the buffer level trace.")
 var simdBusyTimeTracerFlag = flag.Bool("report-busy-time", false, "Report SIMD Unit's busy time")
 var reportCPIStackFlag = flag.Bool("report-cpi-stack", false, "Report CPI stack")
+var customPortForAkitaRTM = flag.Int("akitartm-port", 0, "Custom port to host AkitaRTM (4 digits min.)")
+var enableProfiling = flag.Bool("profiling", false, "Enable profiling server.")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -148,6 +150,7 @@ type Runner struct {
 	UseUnifiedMemory           bool
 	ReportSIMDBusyTime         bool
 	ReportCPIStack             bool
+	EnableProfiling			   bool
 
 	GPUIDs []int
 }
@@ -203,6 +206,10 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportCPIStack = true
 	}
 
+	if *enableProfiling {
+		r.EnableProfiling = true
+	}
+
 	if *reportAll {
 		r.ReportInstCount = true
 		r.ReportCacheLatency = true
@@ -231,7 +238,9 @@ func (r *Runner) startProfilingServer() {
 
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
-	go r.startProfilingServer()
+	if r.EnableProfiling {
+		go r.startProfilingServer()
+	}
 
 	r.ParseFlag()
 	r.parseGPUFlag()
@@ -328,7 +337,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer()
+	r.monitor.StartServer(customPortForAkitaRTM)
 }
 
 func (*Runner) setupBufferLevelTracing(
