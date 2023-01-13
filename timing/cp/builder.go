@@ -107,33 +107,33 @@ func (Builder) createPorts(cp *CommandProcessor, name string) {
 	)
 	cp.ToCUs = sim.NewLimitNumMsgPort(cp, 1, name+".ToCUs")
 	cp.toCUsSender = sim.NewBufferedSender(
-		cp.ToDMA,
+		cp.ToCUs,
 		sim.NewBuffer(cp.Name()+".ToCUSenderBuffer", unlimited),
 	)
 	cp.ToTLBs = sim.NewLimitNumMsgPort(cp, 1, name+".ToTLBs")
 	cp.toTLBsSender = sim.NewBufferedSender(
-		cp.ToDMA,
+		cp.ToTLBs,
 		sim.NewBuffer(cp.Name()+".ToTLBSenderBuffer", unlimited),
 	)
 	cp.ToRDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToRDMA")
 	cp.toRDMASender = sim.NewBufferedSender(
-		cp.ToDMA,
+		cp.ToRDMA,
 		sim.NewBuffer(cp.Name()+".ToRDMASenderBuffer", unlimited),
 	)
 	cp.ToPMC = sim.NewLimitNumMsgPort(cp, 1, name+".ToPMC")
 	cp.toPMCSender = sim.NewBufferedSender(
-		cp.ToDMA,
+		cp.ToPMC,
 		sim.NewBuffer(cp.Name()+".ToPMCSenderBuffer", unlimited),
 	)
 	cp.ToAddressTranslators = sim.NewLimitNumMsgPort(cp, 1,
 		name+".ToAddressTranslators")
 	cp.toAddressTranslatorsSender = sim.NewBufferedSender(
-		cp.ToDMA,
+		cp.ToAddressTranslators,
 		sim.NewBuffer(cp.Name()+".ToAddressTranslatorsBuffer", unlimited),
 	)
 	cp.ToCaches = sim.NewLimitNumMsgPort(cp, 1, name+".ToCaches")
 	cp.toCachesSender = sim.NewBufferedSender(
-		cp.ToDMA,
+		cp.ToCaches,
 		sim.NewBuffer(cp.Name()+".ToCachesBuffer", unlimited),
 	)
 }
@@ -142,6 +142,7 @@ func (b *Builder) buildDispatchers(cp *CommandProcessor) {
 	cuResourcePool := resource.NewCUResourcePool()
 	builder := dispatching.MakeBuilder().
 		WithCP(cp).
+		WithAlg("round-robin").
 		WithCUResourcePool(cuResourcePool).
 		WithDispatchingPort(cp.ToCUs).
 		WithRespondingPort(cp.ToDriver).
