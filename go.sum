@@ -162,8 +162,9 @@ github.com/yuin/goldmark v1.4.1/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 github.com/yusufpapurcu/wmi v1.2.2 h1:KBNDSne4vP5mbSWnJbO+51IMOXJB67QiYCSBrubbPRg=
 github.com/yusufpapurcu/wmi v1.2.2/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-gitlab.com/akita/akita/v3 v3.0.0-alpha.18 h1:e0T0sgVqmNTHtpKlmycBpiIfaXKLoHnkHJQhSAijKiU=
 gitlab.com/akita/akita/v3 v3.0.0-alpha.18/go.mod h1:MkEhzdJOJKVGsryM5eWpcfhJ2ib4snmpRPY3Yh94sL8=
+gitlab.com/akita/akita/v3 v3.0.0-alpha.19 h1:xv6+aX7gGP0fTXjwCz3rz6YArs/fAHtf+d6Qo/s1X9g=
+gitlab.com/akita/akita/v3 v3.0.0-alpha.19/go.mod h1:MkEhzdJOJKVGsryM5eWpcfhJ2ib4snmpRPY3Yh94sL8=
 gitlab.com/akita/dnn v0.5.3 h1:jf4qT1xUCx7aemETEFh+sJFXLEdqofUXZk69dKXx/Ng=
 gitlab.com/akita/dnn v0.5.3/go.mod h1:9bR6UBdBPJc+t8j3mvX187F69LfiYbxtJIj3HhMuqlo=
 gitlab.com/akita/mem/v3 v3.0.0-alpha.8 h1:UZIxq66AkRz+8A/9NvIy+M5RTHde4C998IRGsntZFW0=
