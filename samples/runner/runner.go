@@ -3,10 +3,7 @@ package runner
 
 import (
 	"flag"
-	"fmt"
 	"log"
-	"net"
-	"net/http"
 
 	// Enable profiling
 	_ "net/http/pprof"
@@ -70,6 +67,10 @@ var bufferLevelTracePeriodFlag = flag.Float64("buffer-level-trace-period", 0.0,
 	"The period to dump the buffer level trace.")
 var simdBusyTimeTracerFlag = flag.Bool("report-busy-time", false, "Report SIMD Unit's busy time")
 var reportCPIStackFlag = flag.Bool("report-cpi-stack", false, "Report CPI stack")
+var customPortForAkitaRTM = flag.Int("akitartm-port", 0,
+	`Custom port to host AkitaRTM. A 4-digit or 5-digit port number is required. If 
+this number is not given or a invalid number is given number, a random port 
+will be used.`)
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -217,22 +218,8 @@ func (r *Runner) ParseFlag() *Runner {
 	return r
 }
 
-func (r *Runner) startProfilingServer() {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Profiling server running on:",
-		listener.Addr().(*net.TCPAddr).Port)
-
-	panic(http.Serve(listener, nil))
-}
-
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
-	go r.startProfilingServer()
-
 	r.ParseFlag()
 	r.parseGPUFlag()
 
@@ -328,7 +315,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer()
+	r.monitor.StartServer(*customPortForAkitaRTM)
 }
 
 func (*Runner) setupBufferLevelTracing(
