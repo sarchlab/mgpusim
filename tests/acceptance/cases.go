@@ -341,7 +341,7 @@ var benchmarks = []benchmark{
 		benchmarkPath:  "../../benchmarks/amdappsdk/matrixtranspose",
 		executablePath: "../../samples/matrixtranspose",
 		executable:     "matrixtranspose",
-		sizeArgs:       []string{"-width=256"},
+		sizeArgs:       []string{"-width=1024"},
 		cases: []benchmarkCase{
 			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
 			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
