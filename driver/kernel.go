@@ -26,10 +26,10 @@ func (d *Driver) EnqueueLaunchKernel(
 		dCoData, dKernArgData, dPacket := d.allocateGPUMemory(queue.Context, co)
 
 		packet := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
-		d.prepareLocalMemory(co, kernelArgs, packet)
+		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, packet)
 
 		d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
-		d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
+		d.EnqueueMemCopyH2D(queue, dKernArgData, newKernelArgs)
 		d.EnqueueMemCopyH2D(queue, dPacket, packet)
 
 		d.enqueueLaunchKernelCommand(queue, co, packet, dPacket)
@@ -53,13 +53,17 @@ func (d *Driver) prepareLocalMemory(
 	co *insts.HsaCo,
 	kernelArgs interface{},
 	packet *kernels.HsaKernelDispatchPacket,
-) {
+) (newKernelArgs interface{}) {
+	newKernelArgs = reflect.New(reflect.TypeOf(kernelArgs).Elem()).Interface()
+	reflect.ValueOf(newKernelArgs).Elem().
+		Set(reflect.ValueOf(kernelArgs).Elem())
+
 	ldsSize := co.WGGroupSegmentByteSize
 
-	if reflect.TypeOf(kernelArgs).Kind() == reflect.Slice {
+	if reflect.TypeOf(newKernelArgs).Kind() == reflect.Slice {
 		// From server, do nothing
 	} else {
-		kernArgStruct := reflect.ValueOf(kernelArgs).Elem()
+		kernArgStruct := reflect.ValueOf(newKernelArgs).Elem()
 		for i := 0; i < kernArgStruct.NumField(); i++ {
 			arg := kernArgStruct.Field(i).Interface()
 
@@ -72,6 +76,8 @@ func (d *Driver) prepareLocalMemory(
 	}
 
 	packet.GroupSegmentSize = ldsSize
+
+	return newKernelArgs
 }
 
 // LaunchKernel is an easy way to run a kernel on the GCN3 simulator. It
@@ -157,10 +163,10 @@ func (d *Driver) enqueueLaunchUnifiedKernel(
 		dCoData, dKernArgData, dPacket := d.allocateGPUMemory(queue.Context, co)
 
 		packet := d.createAQLPacket(gridSize, wgSize, dCoData, dKernArgData)
-		d.prepareLocalMemory(co, kernelArgs, packet)
+		newKernelArgs := d.prepareLocalMemory(co, kernelArgs, packet)
 
 		d.EnqueueMemCopyH2D(queue, dCoData, co.Data)
-		d.EnqueueMemCopyH2D(queue, dKernArgData, kernelArgs)
+		d.EnqueueMemCopyH2D(queue, dKernArgData, newKernelArgs)
 		d.EnqueueMemCopyH2D(queue, dPacket, packet)
 
 		dCoDataArray[i] = dCoData

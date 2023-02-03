@@ -275,12 +275,10 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/matrixtranspose",
             "args": [
-                "-width=256",
-                "-verify",
-                "-gpus=1,2,3,4",
+                "-width=1024",
+                "-unified-gpus=1,2,3,4",
                 "-timing",
-                "-use-unified-memory",
-                "-no-progress-bar",
+                "-magic-memory-copy",
             ]
         },
         {
