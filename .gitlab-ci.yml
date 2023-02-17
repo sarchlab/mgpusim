@@ -34,8 +34,8 @@ single_gpu_test:
     - cd tests/acceptance
     - go build
     - ./acceptance -num-gpu=1
-  
-multi_discrete_gpu_test:
+
+two_discrete_gpu_test:
   stage: acceptance_test
   tags:
     - multi_core
@@ -43,9 +43,17 @@ multi_discrete_gpu_test:
     - cd tests/acceptance
     - go build
     - ./acceptance -num-gpu=2 -no-unified-gpu -no-unified-memory
+
+four_discrete_gpu_test:
+  stage: acceptance_test
+  tags:
+    - multi_core
+  script:
+    - cd tests/acceptance
+    - go build
     - ./acceptance -num-gpu=4 -no-unified-gpu -no-unified-memory
 
-multi_unified_gpu_test:
+two_unified_gpu_test:
   stage: acceptance_test
   tags:
     - multi_core
@@ -53,6 +61,14 @@ multi_unified_gpu_test:
     - cd tests/acceptance
     - go build
     - ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
+
+four_unified_gpu_test:
+  stage: acceptance_test
+  tags:
+    - multi_core
+  script:
+    - cd tests/acceptance
+    - go build
     - ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
 
 # multi_discrete_gpu_unified_memory_test:
