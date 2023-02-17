@@ -305,6 +305,10 @@ func (r *Runner) buildTimingPlatform() {
 	}
 
 	r.monitor = monitoring.NewMonitor()
+	if *customPortForAkitaRTM != 0 {
+		r.monitor = r.monitor.WithPortNumber(*customPortForAkitaRTM)
+	}
+
 	b = b.WithMonitor(r.monitor)
 
 	b = r.setupBufferLevelTracing(b)
@@ -315,7 +319,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer(*customPortForAkitaRTM)
+	r.monitor.StartServer()
 }
 
 func (*Runner) setupBufferLevelTracing(

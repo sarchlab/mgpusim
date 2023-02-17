@@ -323,11 +323,12 @@ func (cu *ComputeUnit) handleMapWGReq(
 		cu.WfDispatcher.DispatchWf(now, wf, req.Wavefronts[i])
 		wf.State = wavefront.WfReady
 
-		tracing.StartTask(wf.UID,
+		tracing.StartTaskWithSpecificLocation(wf.UID,
 			tracing.MsgIDAtReceiver(req, cu),
 			cu,
 			"wavefront",
 			"wavefront",
+			cu.Name()+".WFPool",
 			nil,
 		)
 	}
@@ -615,12 +616,13 @@ func (cu *ComputeUnit) logInstTask(
 		return
 	}
 
-	tracing.StartTask(
+	tracing.StartTaskWithSpecificLocation(
 		inst.ID,
 		wf.UID,
 		cu,
 		"inst",
 		cu.execUnitToString(inst.ExeUnit),
+		cu.Name()+"."+cu.execUnitToString(inst.ExeUnit),
 		// inst.InstName,
 		map[string]interface{}{
 			"inst": inst,
