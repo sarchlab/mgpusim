@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.26.0
 	github.com/rs/xid v1.4.0
 	github.com/tebeka/atexit v0.3.0
-	gitlab.com/akita/akita/v3 v3.0.0-alpha.20
+	gitlab.com/akita/akita/v3 v3.0.0-alpha.21
 	gitlab.com/akita/dnn v0.5.3
 	gitlab.com/akita/mem/v3 v3.0.0-alpha.9
 	gitlab.com/akita/noc/v3 v3.0.0-alpha.9
