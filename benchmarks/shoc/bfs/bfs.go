@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 
 	// embed hsaco files
 	_ "embed"
@@ -159,7 +160,7 @@ func (b *Benchmark) exec() {
 		b.driver.MemCopyH2D(b.context, b.dFlag, flag)
 		args.Curr = int32(i)
 
-		fmt.Printf("Depth %d\n", i)
+		fmt.Fprintf(os.Stderr, "Depth %d\n", i)
 
 		b.driver.LaunchKernel(b.context,
 			b.kernel,

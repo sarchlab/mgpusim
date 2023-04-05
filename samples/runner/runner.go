@@ -154,6 +154,7 @@ type Runner struct {
 }
 
 // ParseFlag applies the runner flag to runner object
+//
 //nolint:gocyclo
 func (r *Runner) ParseFlag() *Runner {
 	if *parallelFlag {
@@ -547,6 +548,10 @@ func (r *Runner) addRDMAEngineTracer() {
 	}
 
 	for _, gpu := range r.platform.GPUs {
+		if gpu.RDMAEngine == nil {
+			continue
+		}
+
 		t := rdmaTransactionCountTracer{}
 		t.rdmaEngine = gpu.RDMAEngine
 		t.incomingTracer = tracing.NewAverageTimeTracer(
