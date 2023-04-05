@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/pagerank"
 	"gitlab.com/akita/mgpusim/v3/samples/runner"
@@ -27,7 +28,8 @@ func main() {
 	if numConn < *numNode {
 		numConn = *numNode
 	}
-	fmt.Printf("Number node %d, number connection %d\n", *numNode, numConn)
+	fmt.Fprintf(os.Stderr,
+		"Number node %d, number connection %d\n", *numNode, numConn)
 
 	benchmark.NumConnections = uint32(numConn)
 	benchmark.MaxIterations = uint32(*maxIterations)

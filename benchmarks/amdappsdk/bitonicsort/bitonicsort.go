@@ -3,7 +3,10 @@
 package bitonicsort
 
 import (
+	"fmt"
 	"log"
+	"math/rand"
+	"os"
 
 	// embed hsaco files
 	_ "embed"
@@ -87,8 +90,8 @@ func (b *Benchmark) initMem() {
 	b.inputData = make([]uint32, b.Length)
 	b.outputData = make([]uint32, b.Length)
 	for i := 0; i < b.Length; i++ {
-		// b.inputData[i] = rand.Uint32()
-		b.inputData[i] = uint32(i)
+		b.inputData[i] = rand.Uint32()
+		// b.inputData[i] = uint32(i)
 	}
 
 	if doPerPassVerify {
@@ -144,7 +147,7 @@ func (b *Benchmark) runPass(
 	wiPerQueue := totalWIs / len(queues)
 	remainder := totalWIs % len(queues)
 
-	log.Printf("Stage %d, pass %d\n", stage, passOfStage)
+	fmt.Fprintf(os.Stderr, "Stage %d, pass %d\n", stage, passOfStage)
 
 	if doPerPassVerify {
 		b.driver.MemCopyD2H(b.context, b.perPassIn, b.gInputData)
@@ -236,9 +239,9 @@ func (b *Benchmark) verifyPass(in, out []uint32, stage, pass int) {
 
 // Verify checks if the array is sorted
 func (b *Benchmark) Verify() {
-	//for i := 0; i < b.Length; i++ {
-	//	fmt.Printf("[%d]: %d\n", i, b.outputData[i])
-	//}
+	// for i := 0; i < b.Length; i++ {
+	// 	fmt.Printf("[%d]: %d\n", i, b.outputData[i])
+	// }
 
 	for i := 0; i < b.Length-1; i++ {
 		if b.OrderAscending {

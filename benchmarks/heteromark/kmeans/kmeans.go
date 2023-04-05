@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"os"
 
 	// embed hsaco files
 	_ "embed"
@@ -226,7 +227,7 @@ func (b *Benchmark) kmeansClustering() {
 		b.updateCentroids()
 	}
 
-	fmt.Printf("GPU iterated %d times\n", numIterations)
+	fmt.Fprintf(os.Stderr, "GPU iterated %d times\n", numIterations)
 }
 
 func (b *Benchmark) initializeClusters() {
@@ -343,7 +344,7 @@ func (b *Benchmark) Verify() {
 
 	cpuRMSE := b.calculateRMSE()
 	if math.Abs(cpuRMSE-b.gpuRMSE) < 1e-12 {
-		fmt.Printf("Passsed, RMSE %f\n", cpuRMSE)
+		fmt.Fprintf(os.Stderr, "Passsed, RMSE %f\n", cpuRMSE)
 	} else {
 		log.Fatal("error")
 	}
@@ -362,7 +363,7 @@ func (b *Benchmark) cpuKMeans() {
 		b.updateCentroids()
 	}
 
-	fmt.Printf("CPU iterated %d times\n", numIterations)
+	fmt.Fprintf(os.Stderr, "CPU iterated %d times\n", numIterations)
 }
 
 func (b *Benchmark) updateMembershipCPU() float64 {
