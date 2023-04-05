@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 
 	// embed hsaco files
 	_ "embed"
@@ -98,7 +99,7 @@ func (b *Benchmark) Run() {
 
 func (b *Benchmark) initMem() {
 	b.nItems = int32(float64(b.Dim) * float64(b.Dim) * b.Sparsity)
-	fmt.Printf("Number of non-zero elements %d\n", b.nItems)
+	fmt.Fprintf(os.Stderr, "Number of non-zero elements %d\n", b.nItems)
 
 	b.matrix = csr.
 		MakeMatrixGenerator(uint32(b.Dim), uint32(b.nItems)).

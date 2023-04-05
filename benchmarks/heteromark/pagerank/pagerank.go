@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 
 	// embed hsaco files
 	_ "embed"
@@ -218,5 +219,5 @@ func (b *Benchmark) Verify() {
 		}
 	}
 
-	log.Printf("Passed!\n")
+	fmt.Fprintf(os.Stderr, "Passed!\n")
 }
