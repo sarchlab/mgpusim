@@ -71,11 +71,17 @@ func (b benchmark) compile() error {
 }
 
 func (b benchmark) runCase(c benchmarkCase) error {
-	out, err := os.Create(b.executablePath + "/out.debug")
+	stdout, err := os.Create(b.executablePath + "/stdout.debug")
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer stdout.Close()
+
+	stderr, err := os.Create(b.executablePath + "/stderr.debug")
+	if err != nil {
+		return err
+	}
+	defer stdout.Close()
 
 	args := b.populateArgs(c)
 
@@ -83,26 +89,30 @@ func (b benchmark) runCase(c benchmarkCase) error {
 		Path:   b.executable,
 		Dir:    b.executablePath,
 		Args:   args,
-		Stdout: out,
-		Stderr: out,
+		Stdout: stdout,
+		Stderr: stderr,
 	}
 
 	fmt.Print(cmd.String())
 
-	if err := cmd.Run(); err != nil {
+	if execErr := cmd.Run(); execErr != nil {
 		color.Red("\tFailed\n")
 
-		output, err := io.ReadAll(out)
-		if err != nil {
-			panic(err)
-		}
+		fmt.Printf("\nError: %v\n", execErr)
 
-		_, err = os.Stdout.Write(output)
-		if err != nil {
-			panic(err)
-		}
+		return execErr
+	}
 
+	// stdout content must be empty
+	stdout.Seek(0, io.SeekStart)
+	stdoutContent, err := io.ReadAll(stdout)
+	if err != nil {
 		return err
+	}
+
+	if len(stdoutContent) != 0 {
+		color.Red("\tFailed, stdout is not empty\n")
+		return fmt.Errorf("stdout is not empty")
 	}
 
 	color.Green("\tSucceed\n")
