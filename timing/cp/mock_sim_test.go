@@ -83,6 +83,20 @@ func (mr *MockEngineMockRecorder) Finished() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finished", reflect.TypeOf((*MockEngine)(nil).Finished))
 }
 
+// Hooks mocks base method.
+func (m *MockEngine) Hooks() []sim.Hook {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Hooks")
+	ret0, _ := ret[0].([]sim.Hook)
+	return ret0
+}
+
+// Hooks indicates an expected call of Hooks.
+func (mr *MockEngineMockRecorder) Hooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Hooks", reflect.TypeOf((*MockEngine)(nil).Hooks))
+}
+
 // NumHooks mocks base method.
 func (m *MockEngine) NumHooks() int {
 	m.ctrl.T.Helper()
@@ -208,6 +222,20 @@ func (m *MockPort) Component() sim.Component {
 func (mr *MockPortMockRecorder) Component() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Component", reflect.TypeOf((*MockPort)(nil).Component))
+}
+
+// Hooks mocks base method.
+func (m *MockPort) Hooks() []sim.Hook {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Hooks")
+	ret0, _ := ret[0].([]sim.Hook)
+	return ret0
+}
+
+// Hooks indicates an expected call of Hooks.
+func (mr *MockPortMockRecorder) Hooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Hooks", reflect.TypeOf((*MockPort)(nil).Hooks))
 }
 
 // Name mocks base method.

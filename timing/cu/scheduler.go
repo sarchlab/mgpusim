@@ -78,7 +78,7 @@ func (s *SchedulerImpl) Run(now sim.VTimeInSec) bool {
 	return true
 }
 
-//DecodeNextInst checks
+// DecodeNextInst checks
 func (s *SchedulerImpl) DecodeNextInst(now sim.VTimeInSec) bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
@@ -282,7 +282,6 @@ func (s *SchedulerImpl) evalSEndPgm(
 		s.resetRegisterValue(wf)
 		s.cu.clearWGResource(wf.WG)
 
-		s.cu.logInstTask(now, wf, wf.DynamicInst(), true)
 		tracing.EndTask(wf.UID, s.cu)
 		tracing.TraceReqComplete(wf.WG.MapReq, s.cu)
 

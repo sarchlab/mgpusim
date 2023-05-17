@@ -69,6 +69,7 @@ func (b *Benchmark) defineNetwork(gpuID int) {
 	network := training.Network{
 		Layers: []layers.Layer{
 			layers.NewConv2D(
+				0,
 				to,
 				[]int{1, 28, 28},
 				[]int{6, 1, 5, 5},
@@ -82,7 +83,9 @@ func (b *Benchmark) defineNetwork(gpuID int) {
 				[]int{0, 0},
 				[]int{2, 2},
 			),
-			layers.NewConv2D(to,
+			layers.NewConv2D(
+				3,
+				to,
 				[]int{6, 14, 14},
 				[]int{16, 6, 5, 5},
 				[]int{1, 1},
@@ -92,11 +95,11 @@ func (b *Benchmark) defineNetwork(gpuID int) {
 				[]int{2, 2},
 				[]int{0, 0},
 				[]int{2, 2}),
-			layers.NewFullyConnectedLayer(to, 400, 120),
+			layers.NewFullyConnectedLayer(6, to, 400, 120),
 			layers.NewReluLayer(to),
-			layers.NewFullyConnectedLayer(to, 120, 84),
+			layers.NewFullyConnectedLayer(8, to, 120, 84),
 			layers.NewReluLayer(to),
-			layers.NewFullyConnectedLayer(to, 84, 10),
+			layers.NewFullyConnectedLayer(10, to, 84, 10),
 		},
 	}
 
