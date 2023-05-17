@@ -76,6 +76,7 @@ func (b *Benchmark) calculateOutputSize() {
 
 func (b *Benchmark) initMem() {
 	b.layer = layers.NewConv2D(
+		0,
 		b.operator,
 		[]int{b.C, b.H, b.W},
 		[]int{b.KernelChannel, b.C, b.KernelHeight, b.KernelWidth},
