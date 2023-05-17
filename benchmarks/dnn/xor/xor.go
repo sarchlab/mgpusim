@@ -36,11 +36,13 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	b.network = training.Network{
 		Layers: []layers.Layer{
 			layers.NewFullyConnectedLayer(
+				0,
 				b.to,
 				2, 4,
 			),
 			layers.NewReluLayer(b.to),
 			layers.NewFullyConnectedLayer(
+				2,
 				b.to,
 				4, 2,
 			),
