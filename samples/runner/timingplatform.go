@@ -212,9 +212,28 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 		return
 	}
 
-	visTracer := tracing.NewMySQLTracerWithTimeRange(
-		b.engine, b.traceVisStartTime, b.traceVisEndTime)
-	visTracer.Init()
+	var backend tracing.TracerBackend
+	switch *visTracerDB {
+	case "sqlite":
+		be := tracing.NewSQLiteTraceWriter(*visTracerDBFileName)
+		be.Init()
+		backend = be
+	case "csv":
+		be := tracing.NewCSVTraceWriter(*visTracerDBFileName)
+		be.Init()
+		backend = be
+	case "mysql":
+		be := tracing.NewMySQLTraceWriter()
+		be.Init()
+		backend = be
+	default:
+		panic(fmt.Sprintf(
+			"Tracer database type must be [sqlite|csv|mysql]. "+
+				"Provided value %s is not supported.",
+			*visTracerDB))
+	}
+
+	visTracer := tracing.NewDBTracer(b.engine, backend)
 
 	b.visTracer = visTracer
 }

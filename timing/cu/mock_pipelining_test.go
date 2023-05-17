@@ -84,6 +84,20 @@ func (mr *MockPipelineMockRecorder) Clear() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*MockPipeline)(nil).Clear))
 }
 
+// Hooks mocks base method.
+func (m *MockPipeline) Hooks() []sim.Hook {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Hooks")
+	ret0, _ := ret[0].([]sim.Hook)
+	return ret0
+}
+
+// Hooks indicates an expected call of Hooks.
+func (mr *MockPipelineMockRecorder) Hooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Hooks", reflect.TypeOf((*MockPipeline)(nil).Hooks))
+}
+
 // InvokeHook mocks base method.
 func (m *MockPipeline) InvokeHook(arg0 sim.HookCtx) {
 	m.ctrl.T.Helper()

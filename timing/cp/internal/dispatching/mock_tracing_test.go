@@ -45,6 +45,20 @@ func (mr *MockNamedHookableMockRecorder) AcceptHook(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptHook", reflect.TypeOf((*MockNamedHookable)(nil).AcceptHook), arg0)
 }
 
+// Hooks mocks base method.
+func (m *MockNamedHookable) Hooks() []sim.Hook {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Hooks")
+	ret0, _ := ret[0].([]sim.Hook)
+	return ret0
+}
+
+// Hooks indicates an expected call of Hooks.
+func (mr *MockNamedHookableMockRecorder) Hooks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Hooks", reflect.TypeOf((*MockNamedHookable)(nil).Hooks))
+}
+
 // InvokeHook mocks base method.
 func (m *MockNamedHookable) InvokeHook(arg0 sim.HookCtx) {
 	m.ctrl.T.Helper()

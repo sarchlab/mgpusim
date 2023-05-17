@@ -556,10 +556,6 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 		b.drams = append(b.drams, dram)
 		b.gpu.MemControllers = append(b.gpu.MemControllers, dram)
 
-		if b.enableVisTracing {
-			tracing.CollectTrace(dram, b.visTracer)
-		}
-
 		if b.enableMemTracing {
 			tracing.CollectTrace(dram, b.memTracer)
 		}
