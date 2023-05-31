@@ -1,10 +1,10 @@
 package protocol
 
 import (
+	"github.com/sarchlab/akita/v3/mem/vm"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/insts"
 	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
 // FlushReq requests the GPU to flush all the cache to the main memory

@@ -3,9 +3,9 @@ package runner
 import (
 	"sync"
 
+	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/mem/mem"
 )
 
 // dramTracer can trace DRAM activities.

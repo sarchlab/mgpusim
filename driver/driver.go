@@ -7,12 +7,12 @@ import (
 	"sync"
 
 	"github.com/rs/xid"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/sarchlab/mgpusim/v3/driver/internal"
 	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/mem/mem"
-	"github.com/sarchlab/mgpusim/v3/mem/vm"
 	"github.com/sarchlab/mgpusim/v3/protocol"
 	"github.com/tebeka/atexit"
 )
