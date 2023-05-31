@@ -1,6 +1,6 @@
 package kernels
 
-import "gitlab.com/akita/mgpusim/v3/insts"
+import "github.com/sarchlab/mgpusim/v3/insts"
 
 // WGFilterFunc is a filter
 type WGFilterFunc func(

@@ -1,7 +1,7 @@
 // Package tensor provides GPU tensor and tensor operation implementations.
 package tensor
 
-import "gitlab.com/akita/mgpusim/v3/driver"
+import "github.com/sarchlab/mgpusim/v3/driver"
 
 // A Tensor is a multi-dementional array.
 type Tensor struct {

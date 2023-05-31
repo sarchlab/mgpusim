@@ -1,8 +1,8 @@
 package runner
 
 import (
+	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v3/tracing"
 )
 
 // instTracer can trace the number of instruction completed.

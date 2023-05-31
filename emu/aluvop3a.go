@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"gitlab.com/akita/mgpusim/v3/bitops"
+	"github.com/sarchlab/mgpusim/v3/bitops"
 )
 
 //nolint:gocyclo,funlen

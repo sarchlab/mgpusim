@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"gitlab.com/akita/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/driver"
 )
 
 type mallocInput struct {

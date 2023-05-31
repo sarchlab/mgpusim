@@ -4,14 +4,14 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/cache"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v3/protocol"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/mem/cache"
+	"github.com/sarchlab/mgpusim/v3/mem/mem"
+	"github.com/sarchlab/mgpusim/v3/mem/vm/tlb"
+	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
 )
 
 var _ = Describe("CommandProcessor", func() {

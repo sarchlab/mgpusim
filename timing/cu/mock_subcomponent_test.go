@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	sim "gitlab.com/akita/akita/v3/sim"
-	wavefront "gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	sim "github.com/sarchlab/akita/v3/sim"
+	wavefront "github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
 // MockSubComponent is a mock of SubComponent interface.
