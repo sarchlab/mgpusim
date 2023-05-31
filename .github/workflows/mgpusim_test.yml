@@ -48,9 +48,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: 'stable'
+        
+      - name: Install Ginkgo
+        run: go install github.com/onsi/ginkgo/ginkgo
 
       - name: Unit Test
-        run: go test ./...
+        run: ginkgo -r
 
   noc_acceptance_test:
     name: NoC Acceptance Test
