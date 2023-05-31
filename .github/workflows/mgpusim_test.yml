@@ -67,16 +67,17 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: 'stable'
-
-      - name: Compile
-        run: go build ./...
         
       - name: Run Deterministicity Test - Memory Copy
-        run: ./memcopy
+        run: |
+          go build
+          ./memcopy
         working-directory: ./tests/deterministicity/memcopy
 
       - name: Run Deterministicity Test - Empty Kernel
-        run: ./empty_kernel
+        run: |
+          go build
+          ./empty_kernel
         working-directory: ./tests/deterministicity/empty_kernel
 
   single_gpu_acceptance_test:
@@ -91,10 +92,9 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: 'stable'
-
-      - name: Compile
-        run: go build ./...
         
       - name: Run Single GPU Acceptance Test
-        run: ./acceptance -num-gpu=1
+        run: |
+          go build
+          ./acceptance -num-gpu=1
         working-directory: ./tests/acceptance/
