@@ -50,7 +50,7 @@ jobs:
           go-version: 'stable'
 
       - name: Unit Test
-        run: go test ./... -v
+        run: go test ./...
 
   noc_acceptance_test:
     name: NoC Acceptance Test
