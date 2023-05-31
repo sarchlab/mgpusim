@@ -7,10 +7,10 @@ import (
 
 	"encoding/binary"
 
-	"gitlab.com/akita/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/insts"
 )
 
-//ALU does its jobs
+// ALU does its jobs
 type ALU interface {
 	Run(state InstEmuState)
 
@@ -36,12 +36,13 @@ func (u *ALUImpl) SetLDS(lds []byte) {
 	u.lds = lds
 }
 
-//LDS returns lds
+// LDS returns lds
 func (u *ALUImpl) LDS() []byte {
 	return u.lds
 }
 
 // Run executes the instruction in the scatchpad of the InstEmuState
+//
 //nolint:gocyclo
 func (u *ALUImpl) Run(state InstEmuState) {
 	inst := state.Inst()

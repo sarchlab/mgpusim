@@ -1,6 +1,6 @@
 package driver
 
-import "gitlab.com/akita/akita/v3/sim"
+import "github.com/sarchlab/akita/v3/sim"
 
 // A Middleware is a pluggable element of the driver that can take care of the
 // handling of certain types of commands and parts of the driver-GPU

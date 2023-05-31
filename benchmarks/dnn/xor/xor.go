@@ -5,11 +5,11 @@ package xor
 import (
 	"fmt"
 
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/driver"
 	"gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/training"
 	"gitlab.com/akita/dnn/training/optimization"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // Benchmark defines the XOR network training benchmark.

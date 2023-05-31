@@ -1,10 +1,10 @@
 package protocol
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
 // FlushReq requests the GPU to flush all the cache to the main memory
@@ -148,7 +148,7 @@ func NewMemCopyD2HReq(
 	return req
 }
 
-//ShootDownCommand requests the GPU to perform a TLB shootdown and invalidate
+// ShootDownCommand requests the GPU to perform a TLB shootdown and invalidate
 // the corresponding PTE's
 type ShootDownCommand struct {
 	sim.MsgMeta
@@ -165,7 +165,7 @@ func (m *ShootDownCommand) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-//NewShootdownCommand tells the CP to drain all CU and invalidate PTE's in TLB and Page Tables
+// NewShootdownCommand tells the CP to drain all CU and invalidate PTE's in TLB and Page Tables
 func NewShootdownCommand(
 	time sim.VTimeInSec,
 	src, dst sim.Port,
@@ -208,7 +208,7 @@ func NewShootdownCompleteRsp(
 	return cmd
 }
 
-//RDMADrainCmdFromDriver is driver asking CP to drain local RDMA
+// RDMADrainCmdFromDriver is driver asking CP to drain local RDMA
 type RDMADrainCmdFromDriver struct {
 	sim.MsgMeta
 
@@ -234,7 +234,7 @@ func NewRDMADrainCmdFromDriver(
 	return cmd
 }
 
-//RDMADrainRspToDriver is  a rsp to driver indicating completion of RDMA drain
+// RDMADrainRspToDriver is  a rsp to driver indicating completion of RDMA drain
 type RDMADrainRspToDriver struct {
 	sim.MsgMeta
 
@@ -247,7 +247,7 @@ func (m *RDMADrainRspToDriver) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-//NewRDMADrainRspToDriver creates a new RDMADrainRspToDriver
+// NewRDMADrainRspToDriver creates a new RDMADrainRspToDriver
 func NewRDMADrainRspToDriver(
 	time sim.VTimeInSec,
 	src, dst sim.Port,
@@ -260,7 +260,7 @@ func NewRDMADrainRspToDriver(
 	return cmd
 }
 
-//RDMARestartCmdFromDriver is  a cmd to unpause the RDMA
+// RDMARestartCmdFromDriver is  a cmd to unpause the RDMA
 type RDMARestartCmdFromDriver struct {
 	sim.MsgMeta
 
@@ -286,7 +286,7 @@ func NewRDMARestartCmdFromDriver(
 	return cmd
 }
 
-//GPURestartReq is  a req to GPU to start the pipeline and unpause all paused components
+// GPURestartReq is  a req to GPU to start the pipeline and unpause all paused components
 type GPURestartReq struct {
 	sim.MsgMeta
 
@@ -312,7 +312,7 @@ func NewGPURestartReq(
 	return cmd
 }
 
-//GPURestartRsp is  a rsp indicating the restart is complete
+// GPURestartRsp is  a rsp indicating the restart is complete
 type GPURestartRsp struct {
 	sim.MsgMeta
 
@@ -338,7 +338,7 @@ func NewGPURestartRsp(
 	return cmd
 }
 
-//PageMigrationReqToCP is a request to CP to start the page migration process
+// PageMigrationReqToCP is a request to CP to start the page migration process
 type PageMigrationReqToCP struct {
 	sim.MsgMeta
 
@@ -369,7 +369,7 @@ func NewPageMigrationReqToCP(
 	return cmd
 }
 
-//PageMigrationRspToDriver is a rsp to driver indicating completion of Page Migration requests
+// PageMigrationRspToDriver is a rsp to driver indicating completion of Page Migration requests
 type PageMigrationRspToDriver struct {
 	sim.MsgMeta
 

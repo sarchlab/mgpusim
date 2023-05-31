@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/akita/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/insts"
 )
 
 func main() {

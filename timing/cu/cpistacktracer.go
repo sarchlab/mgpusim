@@ -3,9 +3,9 @@ package cu
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
 type taskType int
@@ -116,11 +116,12 @@ func separateScalarTask(thisTask tracing.Task) (t taskType) {
 //
 // The hook keep track of the state of the wavefronts. The state can be one of
 // the following:
-// - "idle": the wavefront is not doing anything
-// - "fetch": the wavefront is fetching an instruction
-// - "scalar-mem": the wavefront is fetching an instruction and is waiting for
-//  the scalar memory to be ready
-// - "vector-mem": the wavefront is fetching an instruction and is waiting for
+//   - "idle": the wavefront is not doing anything
+//   - "fetch": the wavefront is fetching an instruction
+//   - "scalar-mem": the wavefront is fetching an instruction and is waiting for
+//     the scalar memory to be ready
+//   - "vector-mem": the wavefront is fetching an instruction and is waiting for
+//
 // the vector memory to be ready
 // - "lds": the wavefront is fetching an instruction and is waiting for the LDS
 // to be ready

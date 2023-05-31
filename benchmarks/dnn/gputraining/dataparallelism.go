@@ -5,10 +5,10 @@ import (
 	"math"
 	"sync"
 
-	"gitlab.com/akita/mgpusim/v3/benchmarks/mccl"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/mccl"
 
-	gpuTensor "gitlab.com/akita/mgpusim/v3/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v3/driver"
+	gpuTensor "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/driver"
 
 	"gitlab.com/akita/dnn/tensor"
 	"gitlab.com/akita/dnn/training"

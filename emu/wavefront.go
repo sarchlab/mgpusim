@@ -3,9 +3,9 @@ package emu
 import (
 	"log"
 
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
 // A Wavefront in the emu package is a wrapper for the kernels.Wavefront
@@ -68,6 +68,7 @@ func (wf *Wavefront) VRegValue(lane int, i int) uint32 {
 }
 
 // ReadReg returns the raw register value
+//
 //nolint:gocyclo
 func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 	numBytes := reg.ByteSize
@@ -107,6 +108,7 @@ func (wf *Wavefront) ReadReg(reg *insts.Reg, regCount int, laneID int) []byte {
 }
 
 // WriteReg returns the raw register value
+//
 //nolint:gocyclo
 func (wf *Wavefront) WriteReg(
 	reg *insts.Reg,

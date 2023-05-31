@@ -3,11 +3,11 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita/v3/pipelining"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v3/pipelining"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
 type vectorMemInst struct {

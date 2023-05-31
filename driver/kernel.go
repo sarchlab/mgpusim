@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"reflect"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v3/driver/internal"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/driver/internal"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
 )
 
 // EnqueueLaunchKernel schedules kernel to be launched later

@@ -10,10 +10,10 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"gitlab.com/akita/mgpusim/v3/benchmarks/matrix/csr"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/matrix/csr"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
 )
 
 // KernelArgs sets up kernel arguments
@@ -32,7 +32,7 @@ type KernelArgs struct {
 	HiddenGlobalOffsetZ int64
 }
 
-//Benchmark set up test parameters
+// Benchmark set up test parameters
 type Benchmark struct {
 	driver           *driver.Driver
 	context          *driver.Context

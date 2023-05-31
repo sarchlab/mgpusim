@@ -3,8 +3,8 @@ package resource
 import (
 	"sync"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/kernels"
 )
 
 // CUResourceImpl implements CUResource

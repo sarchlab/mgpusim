@@ -1,16 +1,15 @@
 # MGPUSIM
 
-[![Go Report Card](https://goreportcard.com/badge/gitlab.com/akita/mgpusim)](https://goreportcard.com/report/gitlab.com/akita/mgpusim)
-[![Test](https://gitlab.com/akita/mgpusim/badges/master/pipeline.svg)](https://gitlab.com/akita/mgpusim/commits/master)
-[![Coverage](https://gitlab.com/akita/mgpusim/badges/master/coverage.svg)](https://gitlab.com/akita/mgpusim/commits/master)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sarchlab/mgpusim.svg)](https://pkg.go.dev/github.com/sarchlab/mgpusim)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/ab/mgpusim)](https://goreportcard.com/repogithub.com/sarchlab/chlab/mgpusim)
+
 
 MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It models GPUs that run the AMD GCN3 instruction sets. One main feature of MGPUSim is the support for multi-GPU simulation (you can still use it for single-GPU architecture research).
 
 ## Communication
 
-Slack: [![Slack](https://whispering-taiga-44824.herokuapp.com/badge.svg)](https://join.slack.com/t/projectakita/shared_invite/enQtODEzMDcyNzMyNDUyLWQyMWQyODI2NzIxN2Y5YzYzMTZkZDE3MDk4MzM5MDI2OTY0Yzc4OWFkNjlmZmU3MWJjZmEyNjA0YmNjNTY4Mjk)
-
-Discord: [![Discord Chat](https://img.shields.io/discord/526419346537447424.svg)](https://discord.gg/dQGWq7H)
+[<img src="https://img.shields.io/badge/slack-Akita-blue.svg?logo=slack">](https://join.slack.com/t/projectakita/shared_invite/zt-adiqifj8-0h0oJnIX~cYxbdFwmDOQJg) 
+[<img src="https://img.shields.io/badge/reddit-MGPUSim-blue.svg?logo=redit">](https://www.reddit.com/r/mgpusim/) 
 
 ## Getting Started
 
@@ -55,10 +54,9 @@ You can run a simulation with the `--report-all` argument to enable all the perf
 
 ## Contributing
 
-- If you find any bug related to the simulator (e.g., simulator is not accurately modeling some behavior or the simulator is not getting the correct emulation result), please raise an issue in the issue tab MGPUSim.
+- If you find any bug related to the simulator (e.g., simulator is not accurately modeling some behavior or the simulator is not getting the correct emulation result), please raise an issue in the issue tab.
 - If you want a new feature (e.g., you need to implement some new instructions or you want to model some new components), please also raise an issue.
-- If you want to add a feature or fix a bug, create a merge request using the "Create merge request" button in the corresponding issue. Gitlab will create a branch for you and you can develop your code there. Feel free to commit often and push often as you do not need to be responsible for the coding quality of every commit.
-- When you are done with developing, click the "Mark as ready" button in the merge request. Someone will review your code and see if the code can be merged. If nobody responds you in 2 days, please notify us on Slack.
+- If you want to add a feature or fix a bug, create a pull request.
 - There is no particular style requirement other than the default Go style requirement. Please run `gofmt`, `goimports`, or `goreturns` before making your merge request ready. Also, running `golangci-lint run` in the root directory will point you out most of the styling errors.
 
 ## Citation

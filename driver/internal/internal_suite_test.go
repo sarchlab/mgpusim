@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-//go:generate mockgen -destination "mock_vm_test.go" -package $GOPACKAGE -write_package_comment=false gitlab.com/akita/mem/v3/vm PageTable
+//go:generate mockgen -destination "mock_vm_test.go" -package $GOPACKAGE -write_package_comment=false github.com/sarchlab/mgpusim/v3/mem/vm PageTable
 func TestInternal(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Internal Suite")

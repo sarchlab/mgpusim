@@ -5,7 +5,7 @@ import (
 	"debug/elf"
 	"log"
 
-	"gitlab.com/akita/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/insts"
 )
 
 // LoadProgram loads program

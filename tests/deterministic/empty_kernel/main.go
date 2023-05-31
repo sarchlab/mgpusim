@@ -4,11 +4,11 @@ import (
 	"flag"
 	"log"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
-	"gitlab.com/akita/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
 // KernelArgs defines kernel arguments
