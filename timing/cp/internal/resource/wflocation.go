@@ -1,6 +1,6 @@
 package resource
 
-import "gitlab.com/akita/mgpusim/v3/kernels"
+import "github.com/sarchlab/mgpusim/v3/kernels"
 
 // WfLocation defines where the wavefront should be placed.
 type WfLocation struct {

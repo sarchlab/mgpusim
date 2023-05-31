@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/insts"
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v3/insts"
 )
 
 // ISADebugger is a hook that hooks to a emulator computeunit for each intruction

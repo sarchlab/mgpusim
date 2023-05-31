@@ -1,9 +1,9 @@
 package cu
 
 import (
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/mem/mem"
+	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
 type vectorMemAccessLaneInfo struct {

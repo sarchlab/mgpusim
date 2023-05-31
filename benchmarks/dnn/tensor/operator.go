@@ -9,11 +9,11 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"gitlab.com/akita/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
 	"gitlab.com/akita/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
 )
 
 var sizeOfFloat32 = 4
@@ -1520,7 +1520,7 @@ type adamKernArg struct {
 	OffsetX, OffsetY, OffsetZ                  int64
 }
 
-//Adam uses the Adam algorithm to update the parameters
+// Adam uses the Adam algorithm to update the parameters
 func (o *GPUOperator) Adam(
 	params, gradient, vHistory, sHistory tensor.Tensor,
 	smoothFactor1, smoothFactor2, learningRate float64,

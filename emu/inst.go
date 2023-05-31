@@ -1,8 +1,8 @@
 package emu
 
 import (
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
 // InstEmuState is the interface used by the emulator to track the instruction

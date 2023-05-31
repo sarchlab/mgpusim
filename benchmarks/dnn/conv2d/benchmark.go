@@ -2,10 +2,10 @@
 package conv2d
 
 import (
+	gpuTensor "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/driver"
 	"gitlab.com/akita/dnn/layers"
 	"gitlab.com/akita/dnn/tensor"
-	gpuTensor "gitlab.com/akita/mgpusim/v3/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // A Benchmark is a benchmark for the Convolutional Layer.

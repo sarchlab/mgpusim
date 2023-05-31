@@ -1,8 +1,8 @@
 package cu
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
 )
 
 // InstTracer is a tracer that traces the time that VALU instructions take and VMem instructions take

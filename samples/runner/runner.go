@@ -10,12 +10,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/benchmarks"
+	"github.com/sarchlab/mgpusim/v3/driver"
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/benchmarks"
-	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 type verificationPreEnablingBenchmark interface {

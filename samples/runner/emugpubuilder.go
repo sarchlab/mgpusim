@@ -5,16 +5,16 @@ import (
 	"log"
 	"os"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/idealmemcontroller"
-	"gitlab.com/akita/mem/v3/mem"
-	memtraces "gitlab.com/akita/mem/v3/trace"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/emu"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/timing/cp"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/emu"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/mem/idealmemcontroller"
+	"github.com/sarchlab/mgpusim/v3/mem/mem"
+	memtraces "github.com/sarchlab/mgpusim/v3/mem/trace"
+	"github.com/sarchlab/mgpusim/v3/mem/vm"
+	"github.com/sarchlab/mgpusim/v3/timing/cp"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs

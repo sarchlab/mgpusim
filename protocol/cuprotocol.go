@@ -1,12 +1,12 @@
 package protocol
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
-//A CUPipelineRestartReq is a message from CP to ask the CU pipeline to resume after a flush/drain
+// A CUPipelineRestartReq is a message from CP to ask the CU pipeline to resume after a flush/drain
 type CUPipelineRestartReq struct {
 	sim.MsgMeta
 }
@@ -52,7 +52,7 @@ func (b CUPipelineRestartReqBuilder) Build() *CUPipelineRestartReq {
 	return r
 }
 
-//A CUPipelineRestartRsp is a message from CU indicating the restart is complete
+// A CUPipelineRestartRsp is a message from CU indicating the restart is complete
 type CUPipelineRestartRsp struct {
 	sim.MsgMeta
 }
@@ -98,7 +98,7 @@ func (b CUPipelineRestartRspBuilder) Build() *CUPipelineRestartRsp {
 	return r
 }
 
-//A CUPipelineFlushReq is a message from CP to ask the CU pipeline to flush
+// A CUPipelineFlushReq is a message from CP to ask the CU pipeline to flush
 type CUPipelineFlushReq struct {
 	sim.MsgMeta
 }
@@ -144,7 +144,7 @@ func (b CUPipelineFlushReqBuilder) Build() *CUPipelineFlushReq {
 	return r
 }
 
-//A CUPipelineFlushRsp is a message from CU to CP indicating flush is complete
+// A CUPipelineFlushRsp is a message from CU to CP indicating flush is complete
 type CUPipelineFlushRsp struct {
 	sim.MsgMeta
 }

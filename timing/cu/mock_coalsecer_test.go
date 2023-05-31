@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	wavefront "gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	wavefront "github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
 // Mockcoalescer is a mock of coalescer interface.

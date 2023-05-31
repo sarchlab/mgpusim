@@ -6,9 +6,9 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
 )
 
 // A MatrixMultiplier is a service type that can calculate the result of matrix
