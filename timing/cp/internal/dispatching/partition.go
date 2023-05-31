@@ -1,9 +1,9 @@
 package dispatching
 
 import (
-	"gitlab.com/akita/mgpusim/v3/kernels"
-	"gitlab.com/akita/mgpusim/v3/protocol"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
 )
 
 type partition struct {

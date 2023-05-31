@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"gitlab.com/akita/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/sim"
 )
 
 // defaultMemoryCopyMiddleware handles memory copy commands and related

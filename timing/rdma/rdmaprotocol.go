@@ -1,7 +1,7 @@
 package rdma
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/sim"
 )
 
 // DrainReq asks the rdma to stop processing requests from L1 while allowing pending requests to L2 to complete
@@ -96,7 +96,7 @@ func (b RestartReqBuilder) Build() *RestartReq {
 	return r
 }
 
-//DrainRsp is a drain complete response to a RDMA Drain Req
+// DrainRsp is a drain complete response to a RDMA Drain Req
 type DrainRsp struct {
 	sim.MsgMeta
 }
@@ -142,7 +142,7 @@ func (b DrainRspBuilder) Build() *DrainRsp {
 	return r
 }
 
-//RestartRsp is a drain complete response to a RDMA Drain Req
+// RestartRsp is a drain complete response to a RDMA Drain Req
 type RestartRsp struct {
 	sim.MsgMeta
 }
@@ -152,7 +152,7 @@ func (r *RestartRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-//RestartRspBuilder can build RDMA drain responses
+// RestartRspBuilder can build RDMA drain responses
 type RestartRspBuilder struct {
 	sendTime sim.VTimeInSec
 	src, dst sim.Port

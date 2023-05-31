@@ -3,7 +3,7 @@ package driver
 import (
 	"sync"
 
-	"gitlab.com/akita/mem/v3/vm"
+	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
 type buffer struct {

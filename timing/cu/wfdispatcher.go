@@ -3,10 +3,10 @@ package cu
 import (
 	"log"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/protocol"
-	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
 // A WfDispatcher initialize wavefronts

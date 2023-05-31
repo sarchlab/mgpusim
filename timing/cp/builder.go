@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"math"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/protocol"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/sim/bottleneckanalysis"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
 )
 
 // Builder can build Command Processors
