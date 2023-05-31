@@ -50,7 +50,7 @@ jobs:
           go-version: 'stable'
         
       - name: Install Ginkgo
-        run: go install github.com/onsi/ginkgo/ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo
 
       - name: Unit Test
         run: ginkgo -r
