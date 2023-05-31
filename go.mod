@@ -3,7 +3,6 @@ module github.com/sarchlab/mgpusim/v3
 require (
 	github.com/fatih/color v1.15.0
 	github.com/golang/mock v1.6.0
-	github.com/google/btree v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.7
@@ -19,6 +18,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -43,7 +43,7 @@ require (
 
 // replace github.com/syifan/goseth => ../goseth
 
-replace github.com/sarchlab/akita/v3 => ../akita
+// replace github.com/sarchlab/akita/v3 => ../akita
 
 // replace github.com/sarchlab/mgpusim/v3/noc/ => ../noc
 
