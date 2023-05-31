@@ -1,5 +1,7 @@
 # MGPUSIM
 
+[![MGPUSim Test](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml/badge.svg)](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml)
+
 [![Go Reference](https://pkg.go.dev/badge/github.com/sarchlab/mgpusim.svg)](https://pkg.go.dev/github.com/sarchlab/mgpusim)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/ab/mgpusim)](https://goreportcard.com/repogithub.com/sarchlab/chlab/mgpusim)
 
