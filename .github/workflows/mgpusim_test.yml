@@ -13,7 +13,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: "stable"
+          go-version: 'stable'
 
       - name: Build
         run: go build ./...
@@ -28,7 +28,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: "stable"
+          go-version: 'stable'
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
@@ -47,7 +47,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: "stable"
+          go-version: 'stable'
 
       - name: Unit Test
         run: go test ./... -v
