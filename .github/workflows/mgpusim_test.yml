@@ -78,7 +78,7 @@ jobs:
         run: |
           go build
           ./empty_kernel
-        working-directory: ./tests/deterministicity/empty_kernel
+        working-directory: tests/deterministicity/empty_kernel
 
   single_gpu_acceptance_test:
     name: Single GPU Acceptance Test
@@ -97,4 +97,4 @@ jobs:
         run: |
           go build
           ./acceptance -num-gpu=1
-        working-directory: ./tests/acceptance/
+        working-directory: tests/acceptance/
