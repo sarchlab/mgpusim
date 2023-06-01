@@ -72,7 +72,7 @@ jobs:
         run: |
           go build
           ./memcopy
-        working-directory: ./tests/deterministicity/memcopy
+        working-directory: tests/deterministicity/memcopy
 
       - name: Run Deterministicity Test - Empty Kernel
         timeout-minutes: 10
