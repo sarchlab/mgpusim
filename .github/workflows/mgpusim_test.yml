@@ -5,7 +5,7 @@ on: push
 jobs:
   compile:
     name: Compile
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -20,7 +20,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -38,7 +38,7 @@ jobs:
 
   unit_test:
     name: Unit Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [compile, lint]
     steps:
       - name: Checkout
@@ -55,10 +55,10 @@ jobs:
       - name: Unit Test
         run: ginkgo -r
 
-  noc_acceptance_test:
-    name: NoC Acceptance Test
-    runs-on: ubuntu-latest
-    needs: unit_test
+  deterministicity_test:
+    name: Deterministicity Test
+    runs-on: self-hosted
+    needs: [unit_test]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -67,20 +67,24 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: 'stable'
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
         
-      - name: Run Acceptance Test
-        working-directory: ./noc/acceptance
-        run: python acceptance_test.py
+      - name: Run Deterministicity Test - Memory Copy
+        run: |
+          go build
+          ./memcopy
+        working-directory: tests/deterministic/memcopy
 
-  mem_acceptance_test:
-    name: Mem Acceptance Test
-    runs-on: ubuntu-latest
-    needs: unit_test
+      - name: Run Deterministicity Test - Empty Kernel
+        timeout-minutes: 10
+        run: |
+          go build
+          ./empty_kernel
+        working-directory: tests/deterministic/empty_kernel
+
+  single_gpu_acceptance_test:
+    name: Single GPU Acceptance Test
+    runs-on: self-hosted
+    needs: [unit_test]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -89,13 +93,10 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: 'stable'
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
         
-      - name: Run Acceptance Test
-        working-directory: ./mem/
-        run: python acceptance_test.py
-
+      - name: Run Single GPU Acceptance Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=1
+        working-directory: tests/acceptance/

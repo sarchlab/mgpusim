@@ -5,13 +5,13 @@ import (
 	"log"
 	"os"
 
+	"github.com/sarchlab/akita/v3/mem/cache/writearound"
+	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v3/mem/vm/tlb"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/mem/cache/writearound"
-	"github.com/sarchlab/mgpusim/v3/mem/cache/writethrough"
-	"github.com/sarchlab/mgpusim/v3/mem/mem"
-	"github.com/sarchlab/mgpusim/v3/mem/vm/addresstranslator"
-	"github.com/sarchlab/mgpusim/v3/mem/vm/tlb"
 	"github.com/sarchlab/mgpusim/v3/timing/cu"
 	"github.com/sarchlab/mgpusim/v3/timing/rob"
 )

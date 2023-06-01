@@ -3,10 +3,10 @@ package runner
 import (
 	"fmt"
 
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/driver"
-	"github.com/sarchlab/mgpusim/v3/mem/mem"
-	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
 // EmuBuilder can build a platform for emulation purposes.

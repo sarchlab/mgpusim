@@ -15,15 +15,6 @@ run:
   # include test files or not, default is true
   tests: true
 
-  # list of build tags, all linters use it. Default is empty list.
-  build-tags:
-
-  # which dirs to skip: issues from them won't be reported;
-  # can use regexp here: generated.*, regexp is applied on full path;
-  # default value is empty list, but default dirs are skipped independently
-  # from this option's value (see skip-dirs-use-default).
-  skip-dirs:
-
   # default is true. Enables skipping of directories:
   #   vendor$, third_party$, testdata$, examples$, Godeps$, builtin$
   skip-dirs-use-default: true
@@ -45,7 +36,6 @@ run:
   # the dependency descriptions in go.mod.
   # modules-download-mode: release
 
-
 # output configuration options
 output:
   # colored-line-number|line-number|json|tab|checkstyle|code-climate, default is "colored-line-number"
@@ -56,7 +46,6 @@ output:
 
   # print linter name in the end of issue text, default is true
   print-linter-name: true
-
 
 # all available settings of specific linters
 linters-settings:
@@ -176,12 +165,6 @@ linters-settings:
     for-loops: false # Report preallocation suggestions on for loops, false by default
 
   gocritic:
-    # Which checks should be enabled; can't be combined with 'disabled-checks';
-    # See https://go-critic.github.io/overview#checks-overview
-    # To check which checks are enabled run `GL_DEBUG=gocritic golangci-lint run`
-    # By default list of stable checks is used.
-    enabled-checks:
-
     # Which checks should be disabled; can't be combined with 'enabled-checks'; default is empty
     disabled-checks:
       - regexpMust
@@ -209,11 +192,11 @@ linters-settings:
     max-blank-identifiers: 2
 
   whitespace:
-    multi-if: false   # Enforces newlines (or comments) after every multi-line if statement
+    multi-if: false # Enforces newlines (or comments) after every multi-line if statement
     multi-func: false # Enforces newlines (or comments) after every multi-line function signature
 
   revive:
-    confidence : 0.8 # Do not complain if there is no package comment in main packages.
+    confidence: 0.8 # Do not complain if there is no package comment in main packages.
 
   wsl:
     # If true append is only allowed to be cuddled if appending value is
@@ -246,7 +229,6 @@ linters:
     - unconvert
     - whitespace
   fast: false
-
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.

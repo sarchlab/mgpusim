@@ -8,10 +8,10 @@ import (
 	// embed hsaco files
 	_ "embed"
 
+	"github.com/sarchlab/akita/v3/mem/vm"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/driver/internal"
 	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/mem/vm"
 )
 
 var nextPID uint64

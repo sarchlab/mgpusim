@@ -1,8 +1,8 @@
 package cu
 
 import (
+	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/mem/mem"
 	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
