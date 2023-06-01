@@ -5,18 +5,18 @@ import (
 	"log"
 	"os"
 
-	memtraces "github.com/sarchlab/mgpusim/v3/mem/trace"
+	memtraces "github.com/sarchlab/akita/v3/mem/trace"
 	"github.com/tebeka/atexit"
 
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/mem/vm/mmu"
 	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/noc/networking/pcie"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/sim/bottleneckanalysis"
 	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/sarchlab/mgpusim/v3/driver"
-	"github.com/sarchlab/mgpusim/v3/mem/mem"
-	"github.com/sarchlab/mgpusim/v3/mem/vm"
-	"github.com/sarchlab/mgpusim/v3/mem/vm/mmu"
-	"github.com/sarchlab/mgpusim/v3/noc/networking/pcie"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.

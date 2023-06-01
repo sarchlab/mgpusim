@@ -3,8 +3,8 @@ package emu
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v3/mem/mem"
-	"github.com/sarchlab/mgpusim/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
 )
 
 type storageAccessor struct {
