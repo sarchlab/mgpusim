@@ -75,6 +75,7 @@ jobs:
         working-directory: ./tests/deterministicity/memcopy
 
       - name: Run Deterministicity Test - Empty Kernel
+        timeout-minutes: 10
         run: |
           go build
           ./empty_kernel
@@ -94,6 +95,7 @@ jobs:
           go-version: 'stable'
         
       - name: Run Single GPU Acceptance Test
+        timeout-minutes: 60
         run: |
           go build
           ./acceptance -num-gpu=1
