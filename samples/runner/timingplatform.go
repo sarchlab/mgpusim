@@ -239,7 +239,7 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 
 func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
 	// name := fmt.Sprintf("test.csv")
-	// period := float64(1e-5)
+	// period := float64(1e-6)
 	// b.perfAnalysisFileName = name
 	// b.perfAnalyzingPeriod = period
 
