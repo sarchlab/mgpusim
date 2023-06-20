@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/sarchlab/akita/v3/analysis"
 	memtraces "github.com/sarchlab/akita/v3/mem/trace"
 
+	"github.com/sarchlab/akita/v3/analysis"
 	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/mem/vm"
 	"github.com/sarchlab/akita/v3/mem/vm/mmu"
@@ -31,12 +31,12 @@ type R9NanoPlatformBuilder struct {
 	useMagicMemoryCopy                 bool
 	log2PageSize                       uint64
 
-	engine  sim.Engine
-	monitor *monitoring.Monitor
-	// perfAnalyzingDir    string
-	perfAnalyzingPeriod float64
-	perfAnalyzer        *analysis.PerfAnalyzer
-	visTracer           tracing.Tracer
+	engine               sim.Engine
+	monitor              *monitoring.Monitor
+	perfAnalysisFileName string
+	perfAnalyzingPeriod  float64
+	perfAnalyzer         *analysis.PerfAnalyzer
+	visTracer            tracing.Tracer
 
 	globalStorage *mem.Storage
 
@@ -116,14 +116,13 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
-// WithPerfAnalyzer sets the trace that dumps the WithPerfAnalyzer levers.
-func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
-	traceDirName string,
-	tracePeriod float64,
+// WithBufferAnalyzer sets the trace that dumps the buffer levers.
+func (b R9NanoPlatformBuilder) WithBufferAnalyzer(
+	Name string,
+	Period float64,
 ) R9NanoPlatformBuilder {
-
-	// b.perfAnalyzingDir = traceDirName
-	b.perfAnalyzingPeriod = tracePeriod
+	b.perfAnalysisFileName = Name
+	b.perfAnalyzingPeriod = Period
 	return b
 }
 
@@ -140,7 +139,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
-	b.setupPerformanceAnalyzer()
+	b.setupBufferLevelTracing()
 	b.setupVisTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
@@ -238,14 +237,19 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 	b.visTracer = visTracer
 }
 
-func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
-	period := sim.VTimeInSec(0.000001)
-	filename := fmt.Sprintf("perf_%d.csv", b.numGPU)
-	b.perfAnalyzer = analysis.NewPerfAnalyzer(
-		filename,
-		period,
-		b.engine,
-	)
+func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
+	// name := fmt.Sprintf("test.csv")
+	// period := float64(1e-5)
+	// b.perfAnalysisFileName = name
+	// b.perfAnalyzingPeriod = period
+
+	if b.perfAnalysisFileName != "" {
+		b.perfAnalyzer = analysis.NewPerfAnalyzer(
+			b.perfAnalysisFileName,
+			sim.VTimeInSec(b.perfAnalyzingPeriod),
+			b.engine,
+		)
+	}
 }
 
 func (b *R9NanoPlatformBuilder) createGPUs(
