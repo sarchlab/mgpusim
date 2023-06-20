@@ -5,6 +5,7 @@ import (
 
 	rob2 "github.com/sarchlab/mgpusim/v3/timing/rob"
 
+	"github.com/sarchlab/akita/v3/analysis"
 	"github.com/sarchlab/akita/v3/mem/cache/writearound"
 	"github.com/sarchlab/akita/v3/mem/cache/writeback"
 	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
@@ -15,7 +16,6 @@ import (
 	"github.com/sarchlab/akita/v3/mem/vm/tlb"
 	"github.com/sarchlab/akita/v3/monitoring"
 	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/sim/bottleneckanalysis"
 	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/sarchlab/mgpusim/v3/timing/cp"
 	"github.com/sarchlab/mgpusim/v3/timing/cu"
@@ -44,7 +44,7 @@ type R9NanoGPUBuilder struct {
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
-	bufferAnalyzer     *bottleneckanalysis.BufferAnalyzer
+	perfAnalyzer       *analysis.PerfAnalyzer
 
 	gpuName                 string
 	gpu                     *GPU
@@ -196,10 +196,10 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 }
 
 // WithBufferAnalyzer sets the buffer analyzer to use.
-func (b R9NanoGPUBuilder) WithBufferAnalyzer(
-	a *bottleneckanalysis.BufferAnalyzer,
+func (b R9NanoGPUBuilder) WithPerfAnalyzer(
+	a *analysis.PerfAnalyzer,
 ) R9NanoGPUBuilder {
-	b.bufferAnalyzer = a
+	b.perfAnalyzer = a
 	return b
 }
 
@@ -651,8 +651,8 @@ func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 			b.monitor.RegisterComponent(cu)
 		}
 
-		if b.bufferAnalyzer != nil {
-			b.bufferAnalyzer.AddComponent(cu)
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(cu)
 		}
 	}
 	for _, cu := range sa.cus {
@@ -670,8 +670,8 @@ func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 			b.monitor.RegisterComponent(rob)
 		}
 
-		if b.bufferAnalyzer != nil {
-			b.bufferAnalyzer.AddComponent(rob)
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(rob)
 		}
 	}
 }
@@ -685,8 +685,8 @@ func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 			b.monitor.RegisterComponent(tlb)
 		}
 
-		if b.bufferAnalyzer != nil {
-			b.bufferAnalyzer.AddComponent(tlb)
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(tlb)
 		}
 	}
 }
@@ -792,7 +792,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithMonitor(b.monitor).
-		WithBufferAnalyzer(b.bufferAnalyzer)
+		WithBufferAnalyzer(b.perfAnalyzer)
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)

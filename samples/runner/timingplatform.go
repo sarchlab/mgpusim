@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/sarchlab/akita/v3/analysis"
 	memtraces "github.com/sarchlab/akita/v3/mem/trace"
-	"github.com/tebeka/atexit"
 
 	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/mem/vm"
@@ -14,7 +14,6 @@ import (
 	"github.com/sarchlab/akita/v3/monitoring"
 	"github.com/sarchlab/akita/v3/noc/networking/pcie"
 	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/sim/bottleneckanalysis"
 	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/sarchlab/mgpusim/v3/driver"
 )
@@ -32,12 +31,12 @@ type R9NanoPlatformBuilder struct {
 	useMagicMemoryCopy                 bool
 	log2PageSize                       uint64
 
-	engine                sim.Engine
-	monitor               *monitoring.Monitor
-	bufferAnalyzingDir    string
-	bufferAnalyzingPeriod float64
-	bufferAnalyzer        *bottleneckanalysis.BufferAnalyzer
-	visTracer             tracing.Tracer
+	engine  sim.Engine
+	monitor *monitoring.Monitor
+	// perfAnalyzingDir    string
+	perfAnalyzingPeriod float64
+	perfAnalyzer        *analysis.PerfAnalyzer
+	visTracer           tracing.Tracer
 
 	globalStorage *mem.Storage
 
@@ -117,13 +116,14 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
-// WithBufferAnalyzer sets the trace that dumps the buffer levers.
-func (b R9NanoPlatformBuilder) WithBufferAnalyzer(
+// WithPerfAnalyzer sets the trace that dumps the WithPerfAnalyzer levers.
+func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
 	traceDirName string,
 	tracePeriod float64,
 ) R9NanoPlatformBuilder {
-	b.bufferAnalyzingDir = traceDirName
-	b.bufferAnalyzingPeriod = tracePeriod
+
+	// b.perfAnalyzingDir = traceDirName
+	b.perfAnalyzingPeriod = tracePeriod
 	return b
 }
 
@@ -140,7 +140,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
-	b.setupBufferLevelTracing()
+	b.setupPerformanceAnalyzer()
 	b.setupVisTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
@@ -193,8 +193,8 @@ func (b R9NanoPlatformBuilder) buildGPUDriver(
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
-	if b.bufferAnalyzer != nil {
-		b.bufferAnalyzer.AddComponent(gpuDriver)
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(gpuDriver)
 	}
 
 	// file, err := os.Create("driver_comm.csv")
@@ -238,16 +238,14 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 	b.visTracer = visTracer
 }
 
-func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
-	if b.bufferAnalyzingDir != "" {
-		b.bufferAnalyzer = bottleneckanalysis.MakeBufferAnalyzerBuilder().
-			WithTimeTeller(b.engine).
-			WithPeriod(b.bufferAnalyzingPeriod).
-			WithDirectoryPath(b.bufferAnalyzingDir).
-			Build()
-
-		atexit.Register(b.bufferAnalyzer.Report)
-	}
+func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
+	period := sim.VTimeInSec(0.000001)
+	filename := fmt.Sprintf("perf_%d.csv", b.numGPU)
+	b.perfAnalyzer = analysis.NewPerfAnalyzer(
+		filename,
+		period,
+		b.engine,
+	)
 }
 
 func (b *R9NanoPlatformBuilder) createGPUs(
@@ -364,8 +362,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
 	}
 
-	if b.bufferAnalyzer != nil {
-		gpuBuilder = gpuBuilder.WithBufferAnalyzer(b.bufferAnalyzer)
+	if b.perfAnalyzer != nil {
+		gpuBuilder = gpuBuilder.WithPerfAnalyzer(b.perfAnalyzer)
 	}
 
 	if b.visTracer != nil {

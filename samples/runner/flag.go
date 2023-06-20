@@ -35,7 +35,7 @@ var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
 var magicMemoryCopy = flag.Bool("magic-memory-copy", false,
 	"Copy data from CPU directly to global memory")
-var bufferLevelTraceDirFlag = flag.String("buffer-level-trace-dir", "",
+var perfAnalyzerDirFlag = flag.String("buffer-level-trace-dir", "",
 	"The directory to dump the buffer level traces.")
 var bufferLevelTracePeriodFlag = flag.Float64("buffer-level-trace-period", 0.0,
 	"The period to dump the buffer level trace.")

@@ -135,7 +135,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	b = b.WithMonitor(r.monitor)
 
-	b = r.setupBufferLevelTracing(b)
+	b = r.setPerfAnalyzer(b)
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()
@@ -146,16 +146,16 @@ func (r *Runner) buildTimingPlatform() {
 	r.monitor.StartServer()
 }
 
-func (*Runner) setupBufferLevelTracing(
+func (*Runner) setPerfAnalyzer(
 	b R9NanoPlatformBuilder,
 ) R9NanoPlatformBuilder {
-	if *bufferLevelTracePeriodFlag != 0 && *bufferLevelTraceDirFlag == "" {
+	if *bufferLevelTracePeriodFlag != 0 && *perfAnalyzerDirFlag == "" {
 		panic("Buffer level trace directory is not specified")
 	}
 
-	if *bufferLevelTraceDirFlag != "" {
-		b = b.WithBufferAnalyzer(
-			*bufferLevelTraceDirFlag,
+	if *perfAnalyzerDirFlag != "" {
+		b = b.WithPerfAnalyzer(
+			*perfAnalyzerDirFlag,
 			*bufferLevelTracePeriodFlag,
 		)
 	}
