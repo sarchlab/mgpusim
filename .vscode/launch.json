@@ -156,12 +156,16 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${workspaceFolder}/samples/fir",
+            // "program": "${workspaceFolder}/samples/fir",
+            "program": "/Users/daoxuanxu/GPU_simulator/src/mgpusim/samples/fir",
             "args": [
                 "-timing",
                 "-length=64",
                 "-trace-vis",
-            ]
+                "-analyzer-Name=port.csv",
+                "-analyzer-period=1e-6"
+            ],
+            // "dlvFlags": ["--check-go-version=false"] 
         },
         {
             "name": "Conv2d",

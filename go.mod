@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.7
 	github.com/rs/xid v1.5.0
-	github.com/sarchlab/akita/v3 v3.0.0-alpha.27
+	github.com/sarchlab/akita/v3 v3.0.0-alpha.28.0.20230616154900-5e2fda40a106
 	github.com/tebeka/atexit v0.3.0
 	gitlab.com/akita/dnn v0.5.4
 )
@@ -21,7 +21,7 @@ require (
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3 // indirect
-	github.com/kr/text v0.2.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/image v0.7.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	gonum.org/v1/gonum v0.13.0 // indirect
@@ -43,7 +43,7 @@ require (
 
 // replace github.com/syifan/goseth => ../goseth
 
-// replace github.com/sarchlab/akita/v3 => ../akita
+replace github.com/sarchlab/akita/v3 => ../akita
 
 // replace github.com/sarchlab/mgpusim/v3/noc/ => ../noc
 
@@ -51,4 +51,4 @@ require (
 
 // replace gitlab.com/akita/dnn => ../dnn
 
-go 1.20
+go 1.19

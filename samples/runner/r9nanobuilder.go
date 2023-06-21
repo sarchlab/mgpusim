@@ -792,7 +792,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithMonitor(b.monitor).
-		WithBufferAnalyzer(b.perfAnalyzer)
+		WithPerfAnalyzer(b.perfAnalyzer)
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)
