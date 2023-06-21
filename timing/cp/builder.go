@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/sarchlab/akita/v3/analysis"
 	"github.com/sarchlab/akita/v3/monitoring"
 	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/sim/bottleneckanalysis"
 	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/sarchlab/mgpusim/v3/protocol"
 	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
@@ -19,7 +19,7 @@ type Builder struct {
 	engine         sim.Engine
 	visTracer      tracing.Tracer
 	monitor        *monitoring.Monitor
-	bufferAnalyzer *bottleneckanalysis.BufferAnalyzer
+	perfAnalyzer   *analysis.PerfAnalyzer
 	numDispatchers int
 }
 
@@ -59,10 +59,10 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 
 // WithBufferAnalyzer sets the buffer analyzer used to analyze the
 // command processor's buffers.
-func (b Builder) WithBufferAnalyzer(
-	analyzer *bottleneckanalysis.BufferAnalyzer,
+func (b Builder) WithPerfAnalyzer(
+	analyzer *analysis.PerfAnalyzer,
 ) Builder {
-	b.bufferAnalyzer = analyzer
+	b.perfAnalyzer = analyzer
 	return b
 }
 
@@ -86,8 +86,8 @@ func (b Builder) Build(name string) *CommandProcessor {
 		tracing.CollectTrace(cp, b.visTracer)
 	}
 
-	if b.bufferAnalyzer != nil {
-		b.bufferAnalyzer.AddComponent(cp)
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(cp)
 	}
 
 	return cp
