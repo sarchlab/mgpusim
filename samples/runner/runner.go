@@ -154,7 +154,7 @@ func (*Runner) setAnalyszer(
 	}
 
 	if *analyszerNameFlag != "" {
-		b = b.WithBufferAnalyzer(
+		b = b.WithPerfAnalyzer(
 			*analyszerNameFlag,
 			*analyszerPeriodFlag,
 		)
