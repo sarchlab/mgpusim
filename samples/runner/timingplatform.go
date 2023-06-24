@@ -31,9 +31,9 @@ type R9NanoPlatformBuilder struct {
 	useMagicMemoryCopy                 bool
 	log2PageSize                       uint64
 
-	engine  sim.Engine
-	monitor *monitoring.Monitor
-	// perfAnalyzingDir    string
+	engine              sim.Engine
+	monitor             *monitoring.Monitor
+	perfDBFilename      string
 	perfAnalyzingPeriod float64
 	perfAnalyzer        *analysis.PerfAnalyzer
 	visTracer           tracing.Tracer
@@ -52,6 +52,7 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		log2PageSize:      12,
 		traceVisStartTime: -1,
 		traceVisEndTime:   -1,
+		perfDBFilename:    "perf",
 	}
 	return b
 }
@@ -116,14 +117,13 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
-// WithPerfAnalyzer sets the trace that dumps the WithPerfAnalyzer levers.
+// WithPerfAnalyzer sets the performance analyzer that is used to analyze the
 func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
-	traceDirName string,
-	tracePeriod float64,
+	dbFileName string,
+	recordPeriod float64,
 ) R9NanoPlatformBuilder {
-
-	// b.perfAnalyzingDir = traceDirName
-	b.perfAnalyzingPeriod = tracePeriod
+	b.perfDBFilename = dbFileName
+	b.perfAnalyzingPeriod = recordPeriod
 	return b
 }
 
@@ -140,7 +140,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
-	b.setupPerformanceAnalyzer()
+	b.setupPerfAnalyzer()
 	b.setupVisTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
@@ -238,14 +238,15 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 	b.visTracer = visTracer
 }
 
-func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
-	period := sim.VTimeInSec(0.000001)
-	filename := fmt.Sprintf("perf_%d.csv", b.numGPU)
-	b.perfAnalyzer = analysis.NewPerfAnalyzer(
-		filename,
-		period,
-		b.engine,
-	)
+func (b *R9NanoPlatformBuilder) setupPerfAnalyzer() {
+	period := sim.VTimeInSec(1e-4)
+	b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+		WithPeriod(period).
+		WithSQLiteBackend().
+		WithDBFilename(b.perfDBFilename).
+		Build()
+
+	b.perfAnalyzer.RegisterEngine(b.engine)
 }
 
 func (b *R9NanoPlatformBuilder) createGPUs(

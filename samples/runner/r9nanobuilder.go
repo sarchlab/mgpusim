@@ -195,7 +195,8 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 	return b
 }
 
-// WithBufferAnalyzer sets the buffer analyzer to use.
+// WithPerfAnalyzer sets the performance analyzer to apply to all the internal
+// components of the GPU.
 func (b R9NanoGPUBuilder) WithPerfAnalyzer(
 	a *analysis.PerfAnalyzer,
 ) R9NanoGPUBuilder {
