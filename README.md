@@ -1,17 +1,15 @@
 # MGPUSIM
 
+![GitHub Discussions](https://img.shields.io/github/discussions/sarchlab/mgpusim)
+
+
 [![MGPUSim Test](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml/badge.svg)](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/sarchlab/mgpusim.svg)](https://pkg.go.dev/github.com/sarchlab/mgpusim)
-[![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/ab/mgpusim)](https://goreportcard.com/repogithub.com/sarchlab/chlab/mgpusim)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/mgpusim/v3)](https://goreportcard.com/report/github.com/sarchlab/mgpusim/v3)
 
 
 MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It models GPUs that run the AMD GCN3 instruction sets. One main feature of MGPUSim is the support for multi-GPU simulation (you can still use it for single-GPU architecture research).
-
-## Communication
-
-[<img src="https://img.shields.io/badge/slack-Akita-blue.svg?logo=slack">](https://join.slack.com/t/projectakita/shared_invite/zt-adiqifj8-0h0oJnIX~cYxbdFwmDOQJg) 
-[<img src="https://img.shields.io/badge/reddit-MGPUSim-blue.svg?logo=redit">](https://www.reddit.com/r/mgpusim/) 
 
 ## Getting Started
 

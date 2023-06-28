@@ -160,7 +160,6 @@
             "args": [
                 "-timing",
                 "-length=64",
-                "-trace-vis",
             ]
         },
         {
