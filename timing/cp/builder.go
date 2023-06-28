@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/sarchlab/akita/v3/analysis"
 	"github.com/sarchlab/akita/v3/monitoring"
 	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/sim/bottleneckanalysis"
 	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/sarchlab/mgpusim/v3/protocol"
 	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
@@ -19,7 +19,7 @@ type Builder struct {
 	engine         sim.Engine
 	visTracer      tracing.Tracer
 	monitor        *monitoring.Monitor
-	bufferAnalyzer *bottleneckanalysis.BufferAnalyzer
+	bufferAnalyzer *analysis.PerfAnalyzer
 	numDispatchers int
 }
 
@@ -32,7 +32,7 @@ func MakeBuilder() Builder {
 	return b
 }
 
-// WithVisTracer enables tracing for visualzation on the command processor and
+// WithVisTracer enables tracing for visualization on the command processor and
 // the dispatchers.
 func (b Builder) WithVisTracer(tracer tracing.Tracer) Builder {
 	b.visTracer = tracer
@@ -60,7 +60,7 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 // WithBufferAnalyzer sets the buffer analyzer used to analyze the
 // command processor's buffers.
 func (b Builder) WithBufferAnalyzer(
-	analyzer *bottleneckanalysis.BufferAnalyzer,
+	analyzer *analysis.PerfAnalyzer,
 ) Builder {
 	b.bufferAnalyzer = analyzer
 	return b
@@ -87,7 +87,7 @@ func (b Builder) Build(name string) *CommandProcessor {
 	}
 
 	if b.bufferAnalyzer != nil {
-		b.bufferAnalyzer.AddComponent(cp)
+		b.bufferAnalyzer.RegisterComponent(cp)
 	}
 
 	return cp
