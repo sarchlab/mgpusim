@@ -233,6 +233,7 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 	}
 
 	visTracer := tracing.NewDBTracer(b.engine, backend)
+	visTracer.SetTimeRange(b.traceVisStartTime, b.traceVisEndTime)
 
 	b.visTracer = visTracer
 }
@@ -244,11 +245,11 @@ func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
 	// b.perfAnalyzingPeriod = period
 
 	if b.perfAnalysisFileName != "" {
-		b.perfAnalyzer = analysis.NewPerfAnalyzer(
-			b.perfAnalysisFileName,
-			sim.VTimeInSec(b.perfAnalyzingPeriod),
-			b.engine,
-		)
+		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
+			WithDBFilename(b.perfAnalysisFileName).
+			WithEngine(b.engine).
+			Build()
 	}
 }
 
