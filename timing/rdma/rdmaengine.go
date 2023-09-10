@@ -126,48 +126,67 @@ func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 		return false
 	}
 
-	req := e.ToL1.Peek()
-	if req == nil {
-		return false
-	}
+	for {
+		req := e.ToL1.Peek()
+		if req == nil {
+			return false
+		}
 
-	switch req := req.(type) {
-	case mem.AccessReq:
-		return e.processReqFromL1(now, req)
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-		return false
+		switch req := req.(type) {
+		case mem.AccessReq:
+			flag := e.processReqFromL1(now, req)
+			if !flag {
+				return false
+			}
+		default:
+			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+			return false
+		}
 	}
 }
 
 func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
-	req := e.ToL2.Peek()
-	if req == nil {
-		return false
-	}
 
-	switch req := req.(type) {
-	case mem.AccessRsp:
-		return e.processRspFromL2(now, req)
-	default:
-		panic("unknown req type")
+	for {
+		req := e.ToL2.Peek()
+		if req == nil {
+			return false
+		}
+
+		switch req := req.(type) {
+		case mem.AccessRsp:
+			flag := e.processRspFromL2(now, req)
+			if !flag {
+				return false
+			}
+		default:
+			panic("unknown req type")
+		}
 	}
 }
 
 func (e *Engine) processFromOutside(now sim.VTimeInSec) bool {
-	req := e.ToOutside.Peek()
-	if req == nil {
-		return false
-	}
+	for {
+		req := e.ToOutside.Peek()
+		if req == nil {
+			return false
+		}
 
-	switch req := req.(type) {
-	case mem.AccessReq:
-		return e.processReqFromOutside(now, req)
-	case mem.AccessRsp:
-		return e.processRspFromOutside(now, req)
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-		return false
+		switch req := req.(type) {
+		case mem.AccessReq:
+			flag := e.processReqFromOutside(now, req)
+			if !flag {
+				return false
+			}
+		case mem.AccessRsp:
+			flag := e.processRspFromOutside(now, req)
+			if !flag {
+				return false
+			}
+		default:
+			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+			return false
+		}
 	}
 }
 
