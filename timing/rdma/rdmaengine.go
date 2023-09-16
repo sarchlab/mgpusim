@@ -180,7 +180,6 @@ func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
 		if req == nil {
 			return true
 		}
-
 		switch req := req.(type) {
 		case mem.AccessRsp:
 			flag := e.processRspFromL2(now, req)
@@ -459,10 +458,10 @@ func NewEngine(
 	e.localModules = localModules
 	e.RemoteRDMAAddressTable = remoteModules
 
-	e.ToL1 = sim.NewLimitNumMsgPort(e, 1, name+".ToL1")
-	e.ToL2 = sim.NewLimitNumMsgPort(e, 1, name+".ToL2")
-	e.CtrlPort = sim.NewLimitNumMsgPort(e, 1, name+".CtrlPort")
-	e.ToOutside = sim.NewLimitNumMsgPort(e, 1, name+".ToOutside")
+	e.ToL1 = sim.NewLimitNumMsgPort(e, 64, name+".ToL1")
+	e.ToL2 = sim.NewLimitNumMsgPort(e, 64, name+".ToL2")
+	e.CtrlPort = sim.NewLimitNumMsgPort(e, 64, name+".CtrlPort")
+	e.ToOutside = sim.NewLimitNumMsgPort(e, 64, name+".ToOutside")
 
 	return e
 }
