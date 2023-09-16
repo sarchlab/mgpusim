@@ -125,13 +125,11 @@ func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 	if e.pauseIncomingReqsFromL1 {
 		return false
 	}
-
 	for {
 		req := e.ToL1.Peek()
 		if req == nil {
 			return false
 		}
-
 		switch req := req.(type) {
 		case mem.AccessReq:
 			flag := e.processReqFromL1(now, req)
@@ -146,7 +144,6 @@ func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 }
 
 func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
-
 	for {
 		req := e.ToL2.Peek()
 		if req == nil {
@@ -171,7 +168,6 @@ func (e *Engine) processFromOutside(now sim.VTimeInSec) bool {
 		if req == nil {
 			return false
 		}
-
 		switch req := req.(type) {
 		case mem.AccessReq:
 			flag := e.processReqFromOutside(now, req)

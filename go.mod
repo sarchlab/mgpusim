@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.7
 	github.com/rs/xid v1.5.0
-	github.com/sarchlab/akita/v3 v3.0.0-alpha.28.0.20230616154900-5e2fda40a106
+	github.com/sarchlab/akita/v3 v3.0.0-alpha.29
 	github.com/tebeka/atexit v0.3.0
 	gitlab.com/akita/dnn v0.5.4
 )
@@ -43,7 +43,7 @@ require (
 
 // replace github.com/syifan/goseth => ../goseth
 
-replace github.com/sarchlab/akita/v3 => ../akita
+// replace github.com/sarchlab/akita/v3 => ../akita
 
 // replace github.com/sarchlab/mgpusim/v3/noc/ => ../noc
 
@@ -51,4 +51,4 @@ replace github.com/sarchlab/akita/v3 => ../akita
 
 // replace gitlab.com/akita/dnn => ../dnn
 
-go 1.19
+go 1.20
