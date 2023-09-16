@@ -57,7 +57,7 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
-// WithBufferAnalyzer sets the buffer analyzer used to analyze the
+// WithPerfAnalyzer sets the buffer analyzer used to analyze the
 // command processor's buffers.
 func (b Builder) WithPerfAnalyzer(
 	analyzer *analysis.PerfAnalyzer,
