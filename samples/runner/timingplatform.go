@@ -248,7 +248,6 @@ func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
 		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
 			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
 			WithDBFilename(b.perfAnalysisFileName).
-			WithEngine(b.engine).
 			Build()
 	}
 }
