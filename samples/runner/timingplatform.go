@@ -116,7 +116,7 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
-// WithBufferAnalyzer sets the trace that dumps the buffer levers.
+// WithPerfAnalyzer sets the trace that dumps the buffer levers.
 func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
 	Name string,
 	Period float64,
