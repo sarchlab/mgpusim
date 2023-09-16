@@ -125,16 +125,32 @@ func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 	if e.pauseIncomingReqsFromL1 {
 		return false
 	}
+
+	req := e.ToL1.Peek()
+	if req == nil {
+		return false
+	}
+	switch req := req.(type) {
+	case mem.AccessReq:
+		flag0 := e.processReqFromL1(now, req)
+		if !flag0 {
+			return false
+		}
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
+	}
+
 	for {
 		req := e.ToL1.Peek()
 		if req == nil {
-			return false
+			return true
 		}
 		switch req := req.(type) {
 		case mem.AccessReq:
-			flag := e.processReqFromL1(now, req)
-			if !flag {
-				return false
+			flag1 := e.processReqFromL1(now, req)
+			if !flag1 {
+				return true
 			}
 		default:
 			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
@@ -144,17 +160,32 @@ func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 }
 
 func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
+	req := e.ToL2.Peek()
+	if req == nil {
+		return false
+	}
+
+	switch req := req.(type) {
+	case mem.AccessRsp:
+		flag := e.processRspFromL2(now, req)
+		if !flag {
+			return false
+		}
+	default:
+		panic("unknown req type")
+	}
+
 	for {
 		req := e.ToL2.Peek()
 		if req == nil {
-			return false
+			return true
 		}
 
 		switch req := req.(type) {
 		case mem.AccessRsp:
 			flag := e.processRspFromL2(now, req)
 			if !flag {
-				return false
+				return true
 			}
 		default:
 			panic("unknown req type")
@@ -163,21 +194,41 @@ func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
 }
 
 func (e *Engine) processFromOutside(now sim.VTimeInSec) bool {
+	req := e.ToOutside.Peek()
+	if req == nil {
+		return false
+	}
+	switch req := req.(type) {
+	case mem.AccessReq:
+		flag := e.processReqFromOutside(now, req)
+		if !flag {
+			return false
+		}
+	case mem.AccessRsp:
+		flag := e.processRspFromOutside(now, req)
+		if !flag {
+			return false
+		}
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
+	}
+
 	for {
 		req := e.ToOutside.Peek()
 		if req == nil {
-			return false
+			return true
 		}
 		switch req := req.(type) {
 		case mem.AccessReq:
 			flag := e.processReqFromOutside(now, req)
 			if !flag {
-				return false
+				return true
 			}
 		case mem.AccessRsp:
 			flag := e.processRspFromOutside(now, req)
 			if !flag {
-				return false
+				return true
 			}
 		default:
 			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
