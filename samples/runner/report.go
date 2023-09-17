@@ -38,7 +38,7 @@ type dramTransactionCountTracer struct {
 type rdmaTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	rdmaEngine     *rdma.Engine
+	rdmaEngine     *rdma.Comp
 }
 
 type simdBusyTimeTracer struct {

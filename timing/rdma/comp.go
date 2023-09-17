@@ -19,7 +19,7 @@ type transaction struct {
 
 // An Engine is a component that helps one GPU to access the memory on
 // another GPU
-type Engine struct {
+type Comp struct {
 	*sim.TickingComponent
 
 	ToOutside sim.Port
@@ -41,98 +41,98 @@ type Engine struct {
 }
 
 // SetLocalModuleFinder sets the table to lookup for local data.
-func (e *Engine) SetLocalModuleFinder(lmf mem.LowModuleFinder) {
-	e.localModules = lmf
+func (c *Comp) SetLocalModuleFinder(lmf mem.LowModuleFinder) {
+	c.localModules = lmf
 }
 
 // Tick checks if make progress
-func (e *Engine) Tick(now sim.VTimeInSec) bool {
+func (c *Comp) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
-	madeProgress = e.processFromCtrlPort(now) || madeProgress
-	if e.isDraining {
-		madeProgress = e.drainRDMA(now) || madeProgress
+	madeProgress = c.processFromCtrlPort(now) || madeProgress
+	if c.isDraining {
+		madeProgress = c.drainRDMA(now) || madeProgress
 	}
-	madeProgress = e.processFromL1(now) || madeProgress
-	madeProgress = e.processFromL2(now) || madeProgress
-	madeProgress = e.processFromOutside(now) || madeProgress
+	madeProgress = c.processFromL1(now) || madeProgress
+	madeProgress = c.processFromL2(now) || madeProgress
+	madeProgress = c.processFromOutside(now) || madeProgress
 
 	return madeProgress
 }
 
-func (e *Engine) processFromCtrlPort(now sim.VTimeInSec) bool {
-	req := e.CtrlPort.Peek()
+func (c *Comp) processFromCtrlPort(now sim.VTimeInSec) bool {
+	req := c.CtrlPort.Peek()
 	if req == nil {
 		return false
 	}
 
-	req = e.CtrlPort.Retrieve(now)
+	req = c.CtrlPort.Retrieve(now)
 	switch req := req.(type) {
 	case *DrainReq:
-		e.currentDrainReq = req
-		e.isDraining = true
-		e.pauseIncomingReqsFromL1 = true
+		c.currentDrainReq = req
+		c.isDraining = true
+		c.pauseIncomingReqsFromL1 = true
 		return true
 	case *RestartReq:
-		return e.processRDMARestartReq(now)
+		return c.processRDMARestartReq(now)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 		return false
 	}
 }
 
-func (e *Engine) processRDMARestartReq(now sim.VTimeInSec) bool {
+func (c *Comp) processRDMARestartReq(now sim.VTimeInSec) bool {
 	restartCompleteRsp := RestartRspBuilder{}.
 		WithSendTime(now).
-		WithSrc(e.CtrlPort).
-		WithDst(e.currentDrainReq.Src).
+		WithSrc(c.CtrlPort).
+		WithDst(c.currentDrainReq.Src).
 		Build()
-	err := e.CtrlPort.Send(restartCompleteRsp)
+	err := c.CtrlPort.Send(restartCompleteRsp)
 
 	if err != nil {
 		return false
 	}
-	e.currentDrainReq = nil
-	e.pauseIncomingReqsFromL1 = false
+	c.currentDrainReq = nil
+	c.pauseIncomingReqsFromL1 = false
 
 	return true
 }
 
-func (e *Engine) drainRDMA(now sim.VTimeInSec) bool {
-	if e.fullyDrained() {
+func (c *Comp) drainRDMA(now sim.VTimeInSec) bool {
+	if c.fullyDrained() {
 		drainCompleteRsp := DrainRspBuilder{}.
 			WithSendTime(now).
-			WithSrc(e.CtrlPort).
-			WithDst(e.currentDrainReq.Src).
+			WithSrc(c.CtrlPort).
+			WithDst(c.currentDrainReq.Src).
 			Build()
 
-		err := e.CtrlPort.Send(drainCompleteRsp)
+		err := c.CtrlPort.Send(drainCompleteRsp)
 		if err != nil {
 			return false
 		}
-		e.isDraining = false
+		c.isDraining = false
 		return true
 	}
 	return false
 }
 
-func (e *Engine) fullyDrained() bool {
-	return len(e.transactionsFromOutside) == 0 &&
-		len(e.transactionsFromInside) == 0
+func (c *Comp) fullyDrained() bool {
+	return len(c.transactionsFromOutside) == 0 &&
+		len(c.transactionsFromInside) == 0
 }
 
-func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
-	if e.pauseIncomingReqsFromL1 {
+func (c *Comp) processFromL1(now sim.VTimeInSec) bool {
+	if c.pauseIncomingReqsFromL1 {
 		return false
 	}
 
-	req := e.ToL1.Peek()
+	req := c.ToL1.Peek()
 	if req == nil {
 		return false
 	}
 	switch req := req.(type) {
 	case mem.AccessReq:
-		flag0 := e.processReqFromL1(now, req)
+		flag0 := c.processReqFromL1(now, req)
 		if !flag0 {
 			return false
 		}
@@ -142,13 +142,13 @@ func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 	}
 
 	for {
-		req := e.ToL1.Peek()
+		req := c.ToL1.Peek()
 		if req == nil {
 			return true
 		}
 		switch req := req.(type) {
 		case mem.AccessReq:
-			flag1 := e.processReqFromL1(now, req)
+			flag1 := c.processReqFromL1(now, req)
 			if !flag1 {
 				return true
 			}
@@ -159,15 +159,15 @@ func (e *Engine) processFromL1(now sim.VTimeInSec) bool {
 	}
 }
 
-func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
-	req := e.ToL2.Peek()
+func (c *Comp) processFromL2(now sim.VTimeInSec) bool {
+	req := c.ToL2.Peek()
 	if req == nil {
 		return false
 	}
 
 	switch req := req.(type) {
 	case mem.AccessRsp:
-		flag := e.processRspFromL2(now, req)
+		flag := c.processRspFromL2(now, req)
 		if !flag {
 			return false
 		}
@@ -176,13 +176,13 @@ func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
 	}
 
 	for {
-		req := e.ToL2.Peek()
+		req := c.ToL2.Peek()
 		if req == nil {
 			return true
 		}
 		switch req := req.(type) {
 		case mem.AccessRsp:
-			flag := e.processRspFromL2(now, req)
+			flag := c.processRspFromL2(now, req)
 			if !flag {
 				return true
 			}
@@ -192,19 +192,19 @@ func (e *Engine) processFromL2(now sim.VTimeInSec) bool {
 	}
 }
 
-func (e *Engine) processFromOutside(now sim.VTimeInSec) bool {
-	req := e.ToOutside.Peek()
+func (c *Comp) processFromOutside(now sim.VTimeInSec) bool {
+	req := c.ToOutside.Peek()
 	if req == nil {
 		return false
 	}
 	switch req := req.(type) {
 	case mem.AccessReq:
-		flag := e.processReqFromOutside(now, req)
+		flag := c.processReqFromOutside(now, req)
 		if !flag {
 			return false
 		}
 	case mem.AccessRsp:
-		flag := e.processRspFromOutside(now, req)
+		flag := c.processRspFromOutside(now, req)
 		if !flag {
 			return false
 		}
@@ -214,18 +214,18 @@ func (e *Engine) processFromOutside(now sim.VTimeInSec) bool {
 	}
 
 	for {
-		req := e.ToOutside.Peek()
+		req := c.ToOutside.Peek()
 		if req == nil {
 			return true
 		}
 		switch req := req.(type) {
 		case mem.AccessReq:
-			flag := e.processReqFromOutside(now, req)
+			flag := c.processReqFromOutside(now, req)
 			if !flag {
 				return true
 			}
 		case mem.AccessRsp:
-			flag := e.processRspFromOutside(now, req)
+			flag := c.processRspFromOutside(now, req)
 			if !flag {
 				return true
 			}
@@ -236,27 +236,27 @@ func (e *Engine) processFromOutside(now sim.VTimeInSec) bool {
 	}
 }
 
-func (e *Engine) processReqFromL1(
+func (c *Comp) processReqFromL1(
 	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
-	dst := e.RemoteRDMAAddressTable.Find(req.GetAddress())
+	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
 
-	if dst == e.ToOutside {
+	if dst == c.ToOutside {
 		panic("RDMA loop back detected")
 	}
 
-	cloned := e.cloneReq(req)
-	cloned.Meta().Src = e.ToOutside
+	cloned := c.cloneReq(req)
+	cloned.Meta().Src = c.ToOutside
 	cloned.Meta().Dst = dst
 	cloned.Meta().SendTime = now
 
-	err := e.ToOutside.Send(cloned)
+	err := c.ToOutside.Send(cloned)
 	if err == nil {
-		e.ToL1.Retrieve(now)
+		c.ToL1.Retrieve(now)
 
-		tracing.TraceReqReceive(req, e)
-		tracing.TraceReqInitiate(cloned, e, tracing.MsgIDAtReceiver(req, e))
+		tracing.TraceReqReceive(req, c)
+		tracing.TraceReqInitiate(cloned, c, tracing.MsgIDAtReceiver(req, c))
 
 		//fmt.Printf("%s req inside %s -> outside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
@@ -265,7 +265,7 @@ func (e *Engine) processReqFromL1(
 			fromInside: req,
 			toOutside:  cloned,
 		}
-		e.transactionsFromInside = append(e.transactionsFromInside, trans)
+		c.transactionsFromInside = append(c.transactionsFromInside, trans)
 
 		return true
 	}
@@ -273,23 +273,23 @@ func (e *Engine) processReqFromL1(
 	return false
 }
 
-func (e *Engine) processReqFromOutside(
+func (c *Comp) processReqFromOutside(
 	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
-	dst := e.localModules.Find(req.GetAddress())
+	dst := c.localModules.Find(req.GetAddress())
 
-	cloned := e.cloneReq(req)
-	cloned.Meta().Src = e.ToL2
+	cloned := c.cloneReq(req)
+	cloned.Meta().Src = c.ToL2
 	cloned.Meta().Dst = dst
 	cloned.Meta().SendTime = now
 
-	err := e.ToL2.Send(cloned)
+	err := c.ToL2.Send(cloned)
 	if err == nil {
-		e.ToOutside.Retrieve(now)
+		c.ToOutside.Retrieve(now)
 
-		tracing.TraceReqReceive(req, e)
-		tracing.TraceReqInitiate(cloned, e, tracing.MsgIDAtReceiver(req, e))
+		tracing.TraceReqReceive(req, c)
+		tracing.TraceReqInitiate(cloned, c, tracing.MsgIDAtReceiver(req, c))
 
 		//fmt.Printf("%s req outside %s -> inside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
@@ -298,70 +298,70 @@ func (e *Engine) processReqFromOutside(
 			fromOutside: req,
 			toInside:    cloned,
 		}
-		e.transactionsFromOutside =
-			append(e.transactionsFromOutside, trans)
+		c.transactionsFromOutside =
+			append(c.transactionsFromOutside, trans)
 		return true
 	}
 	return false
 }
 
-func (e *Engine) processRspFromL2(
+func (c *Comp) processRspFromL2(
 	now sim.VTimeInSec,
 	rsp mem.AccessRsp,
 ) bool {
-	transactionIndex := e.findTransactionByRspToID(
-		rsp.GetRspTo(), e.transactionsFromOutside)
-	trans := e.transactionsFromOutside[transactionIndex]
+	transactionIndex := c.findTransactionByRspToID(
+		rsp.GetRspTo(), c.transactionsFromOutside)
+	trans := c.transactionsFromOutside[transactionIndex]
 
-	rspToOutside := e.cloneRsp(rsp, trans.fromOutside.Meta().ID)
+	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
 	rspToOutside.Meta().SendTime = now
-	rspToOutside.Meta().Src = e.ToOutside
+	rspToOutside.Meta().Src = c.ToOutside
 	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
 
-	err := e.ToOutside.Send(rspToOutside)
+	err := c.ToOutside.Send(rspToOutside)
 	if err == nil {
-		e.ToL2.Retrieve(now)
+		c.ToL2.Retrieve(now)
 
 		//fmt.Printf("%s rsp inside %s -> outside %s\n",
 		//e.Name(), rsp.GetID(), rspToOutside.GetID())
 
-		tracing.TraceReqFinalize(trans.toInside, e)
-		tracing.TraceReqComplete(trans.fromOutside, e)
+		tracing.TraceReqFinalize(trans.toInside, c)
+		tracing.TraceReqComplete(trans.fromOutside, c)
 
-		e.transactionsFromOutside =
-			append(e.transactionsFromOutside[:transactionIndex],
-				e.transactionsFromOutside[transactionIndex+1:]...)
+		c.transactionsFromOutside =
+			append(c.transactionsFromOutside[:transactionIndex],
+				c.transactionsFromOutside[transactionIndex+1:]...)
 		return true
 	}
 	return false
 }
 
-func (e *Engine) processRspFromOutside(
+func (c *Comp) processRspFromOutside(
 	now sim.VTimeInSec,
 	rsp mem.AccessRsp,
 ) bool {
-	transactionIndex := e.findTransactionByRspToID(
-		rsp.GetRspTo(), e.transactionsFromInside)
-	trans := e.transactionsFromInside[transactionIndex]
+	transactionIndex := c.findTransactionByRspToID(
+		rsp.GetRspTo(), c.transactionsFromInside)
+	trans := c.transactionsFromInside[transactionIndex]
 
-	rspToInside := e.cloneRsp(rsp, trans.fromInside.Meta().ID)
+	rspToInside := c.cloneRsp(rsp, trans.fromInside.Meta().ID)
 	rspToInside.Meta().SendTime = now
-	rspToInside.Meta().Src = e.ToL1
+	rspToInside.Meta().Src = c.ToL1
 	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
 
-	err := e.ToL1.Send(rspToInside)
+	err := c.ToL1.Send(rspToInside)
 	if err == nil {
-		e.ToOutside.Retrieve(now)
+		c.ToOutside.Retrieve(now)
 
-		tracing.TraceReqFinalize(trans.toOutside, e)
-		tracing.TraceReqComplete(trans.fromInside, e)
+		tracing.TraceReqFinalize(trans.toOutside, c)
+		tracing.TraceReqComplete(trans.fromInside, c)
 
 		//fmt.Printf("%s rsp outside %s -> inside %s\n",
 		//e.Name(), rsp.GetID(), rspToInside.GetID())
 
-		e.transactionsFromInside =
-			append(e.transactionsFromInside[:transactionIndex],
-				e.transactionsFromInside[transactionIndex+1:]...)
+		c.transactionsFromInside =
+			append(c.transactionsFromInside[:transactionIndex],
+				c.transactionsFromInside[transactionIndex+1:]...)
 
 		return true
 	}
@@ -369,7 +369,7 @@ func (e *Engine) processRspFromOutside(
 	return false
 }
 
-func (e *Engine) findTransactionByRspToID(
+func (c *Comp) findTransactionByRspToID(
 	rspTo string,
 	transactions []transaction,
 ) int {
@@ -387,7 +387,7 @@ func (e *Engine) findTransactionByRspToID(
 	return 0
 }
 
-func (e *Engine) cloneReq(origin mem.AccessReq) mem.AccessReq {
+func (c *Comp) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	switch origin := origin.(type) {
 	case *mem.ReadReq:
 		read := mem.ReadReqBuilder{}.
@@ -415,7 +415,7 @@ func (e *Engine) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	return nil
 }
 
-func (e *Engine) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
+func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 	switch origin := origin.(type) {
 	case *mem.DataReadyRsp:
 		rsp := mem.DataReadyRspBuilder{}.
@@ -442,26 +442,26 @@ func (e *Engine) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 }
 
 // SetFreq sets freq
-func (e *Engine) SetFreq(freq sim.Freq) {
-	e.TickingComponent.Freq = freq
+func (c *Comp) SetFreq(freq sim.Freq) {
+	c.TickingComponent.Freq = freq
 }
 
-// NewEngine creates new engine
-func NewEngine(
-	name string,
-	engine sim.Engine,
-	localModules mem.LowModuleFinder,
-	remoteModules mem.LowModuleFinder,
-) *Engine {
-	e := new(Engine)
-	e.TickingComponent = sim.NewTickingComponent(name, engine, 1*sim.GHz, e)
-	e.localModules = localModules
-	e.RemoteRDMAAddressTable = remoteModules
+// // NewEngine creates new engine
+// func NewEngine(
+// 	name string,
+// 	engine sim.Engine,
+// 	localModules mem.LowModuleFinder,
+// 	remoteModules mem.LowModuleFinder,
+// ) *Comp {
+// 	c := new(Comp)
+// 	c.TickingComponent = sim.NewTickingComponent(name, engine, 1*sim.GHz, c)
+// 	c.localModules = localModules
+// 	c.RemoteRDMAAddressTable = remoteModules
 
-	e.ToL1 = sim.NewLimitNumMsgPort(e, 64, name+".ToL1")
-	e.ToL2 = sim.NewLimitNumMsgPort(e, 64, name+".ToL2")
-	e.CtrlPort = sim.NewLimitNumMsgPort(e, 64, name+".CtrlPort")
-	e.ToOutside = sim.NewLimitNumMsgPort(e, 64, name+".ToOutside")
+// 	c.ToL1 = sim.NewLimitNumMsgPort(c, 64, name+".ToL1")
+// 	c.ToL2 = sim.NewLimitNumMsgPort(c, 64, name+".ToL2")
+// 	c.CtrlPort = sim.NewLimitNumMsgPort(c, 64, name+".CtrlPort")
+// 	c.ToOutside = sim.NewLimitNumMsgPort(c, 64, name+".ToOutside")
 
-	return e
-}
+// 	return c
+// }
