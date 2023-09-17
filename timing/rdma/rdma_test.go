@@ -24,7 +24,7 @@ var _ = Describe("Engine", func() {
 		mockCtrl *gomock.Controller
 
 		engine               *MockEngine
-		rdmaEngine           *Engine
+		rdmaEngine           *Comp
 		toL1                 *MockPort
 		toL2                 *MockPort
 		ctrlPort             *MockPort
@@ -48,7 +48,12 @@ var _ = Describe("Engine", func() {
 		remoteModules = new(mem.SingleLowModuleFinder)
 		remoteModules.LowModule = remoteGPU
 
-		rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
+		// rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
+		rdmaEngine = MakeBuilder().
+			WithEngine(engine).
+			WithLocalModules(localModules).
+			WithRemoteModules(remoteModules).
+			Build("RDMAEngine")
 
 		toL1 = NewMockPort(mockCtrl)
 		toL2 = NewMockPort(mockCtrl)
