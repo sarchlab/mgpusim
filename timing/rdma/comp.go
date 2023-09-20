@@ -17,7 +17,7 @@ type transaction struct {
 	toOutside   sim.Msg
 }
 
-// An Engine is a component that helps one GPU to access the memory on
+// An Comp is a component that helps one GPU to access the memory on
 // another GPU
 type Comp struct {
 	*sim.TickingComponent
