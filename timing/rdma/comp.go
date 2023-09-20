@@ -164,7 +164,6 @@ func (c *Comp) processFromL2(now sim.VTimeInSec) bool {
 			madeProgress = true
 		default:
 			panic("unknown req type")
-			return false
 		}
 	}
 }
