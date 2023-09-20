@@ -126,32 +126,21 @@ func (c *Comp) processFromL1(now sim.VTimeInSec) bool {
 		return false
 	}
 
-	req := c.ToL1.Peek()
-	if req == nil {
-		return false
-	}
-	switch req := req.(type) {
-	case mem.AccessReq:
-		flag0 := c.processReqFromL1(now, req)
-		if !flag0 {
-			return false
-		}
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-		return false
-	}
-
+	madeProgress := false
 	for {
 		req := c.ToL1.Peek()
 		if req == nil {
-			return true
+			return madeProgress
 		}
+
 		switch req := req.(type) {
 		case mem.AccessReq:
-			flag1 := c.processReqFromL1(now, req)
-			if !flag1 {
-				return true
+			ret := c.processReqFromL1(now, req)
+			if !ret {
+				return madeProgress
 			}
+
+			madeProgress = true
 		default:
 			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 			return false
@@ -160,75 +149,46 @@ func (c *Comp) processFromL1(now sim.VTimeInSec) bool {
 }
 
 func (c *Comp) processFromL2(now sim.VTimeInSec) bool {
-	req := c.ToL2.Peek()
-	if req == nil {
-		return false
-	}
-
-	switch req := req.(type) {
-	case mem.AccessRsp:
-		flag := c.processRspFromL2(now, req)
-		if !flag {
-			return false
-		}
-	default:
-		panic("unknown req type")
-	}
-
+	madeProgress := false
 	for {
 		req := c.ToL2.Peek()
 		if req == nil {
-			return true
+			return madeProgress
 		}
 		switch req := req.(type) {
 		case mem.AccessRsp:
-			flag := c.processRspFromL2(now, req)
-			if !flag {
-				return true
+			ret := c.processRspFromL2(now, req)
+			if !ret {
+				return madeProgress
 			}
+			madeProgress = true
 		default:
 			panic("unknown req type")
+			return false
 		}
 	}
 }
 
 func (c *Comp) processFromOutside(now sim.VTimeInSec) bool {
-	req := c.ToOutside.Peek()
-	if req == nil {
-		return false
-	}
-	switch req := req.(type) {
-	case mem.AccessReq:
-		flag := c.processReqFromOutside(now, req)
-		if !flag {
-			return false
-		}
-	case mem.AccessRsp:
-		flag := c.processRspFromOutside(now, req)
-		if !flag {
-			return false
-		}
-	default:
-		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-		return false
-	}
-
+	madeProgress := false
 	for {
 		req := c.ToOutside.Peek()
 		if req == nil {
-			return true
+			return madeProgress
 		}
 		switch req := req.(type) {
 		case mem.AccessReq:
-			flag := c.processReqFromOutside(now, req)
-			if !flag {
-				return true
+			ret := c.processReqFromOutside(now, req)
+			if !ret {
+				return madeProgress
 			}
+			madeProgress = true
 		case mem.AccessRsp:
-			flag := c.processRspFromOutside(now, req)
-			if !flag {
-				return true
+			ret := c.processRspFromOutside(now, req)
+			if !ret {
+				return madeProgress
 			}
+			madeProgress = true
 		default:
 			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 			return false
@@ -445,23 +405,3 @@ func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 func (c *Comp) SetFreq(freq sim.Freq) {
 	c.TickingComponent.Freq = freq
 }
-
-// // NewEngine creates new engine
-// func NewEngine(
-// 	name string,
-// 	engine sim.Engine,
-// 	localModules mem.LowModuleFinder,
-// 	remoteModules mem.LowModuleFinder,
-// ) *Comp {
-// 	c := new(Comp)
-// 	c.TickingComponent = sim.NewTickingComponent(name, engine, 1*sim.GHz, c)
-// 	c.localModules = localModules
-// 	c.RemoteRDMAAddressTable = remoteModules
-
-// 	c.ToL1 = sim.NewLimitNumMsgPort(c, 64, name+".ToL1")
-// 	c.ToL2 = sim.NewLimitNumMsgPort(c, 64, name+".ToL2")
-// 	c.CtrlPort = sim.NewLimitNumMsgPort(c, 64, name+".CtrlPort")
-// 	c.ToOutside = sim.NewLimitNumMsgPort(c, 64, name+".ToOutside")
-
-// 	return c
-// }
