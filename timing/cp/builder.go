@@ -32,7 +32,7 @@ func MakeBuilder() Builder {
 	return b
 }
 
-// WithVisTracer enables tracing for visualzation on the command processor and
+// WithVisTracer enables tracing for visualization on the command processor and
 // the dispatchers.
 func (b Builder) WithVisTracer(tracer tracing.Tracer) Builder {
 	b.visTracer = tracer

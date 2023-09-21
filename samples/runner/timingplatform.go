@@ -116,13 +116,14 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
-// WithPerfAnalyzer sets the trace that dumps the buffer levers.
+// WithPerfAnalyzer sets the trace that dumps the WithPerfAnalyzer levers.
 func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
-	Name string,
-	Period float64,
+	traceDirName string,
+	tracePeriod float64,
 ) R9NanoPlatformBuilder {
-	b.perfAnalysisFileName = Name
-	b.perfAnalyzingPeriod = Period
+
+	b.perfAnalysisFileName = traceDirName
+	b.perfAnalyzingPeriod = tracePeriod
 	return b
 }
 
@@ -139,7 +140,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
-	b.setupBufferLevelTracing()
+	b.setupPerformanceAnalyzer()
 	b.setupVisTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
@@ -238,12 +239,7 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 	b.visTracer = visTracer
 }
 
-func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
-	// name := fmt.Sprintf("test.csv")
-	// period := float64(1e-6)
-	// b.perfAnalysisFileName = name
-	// b.perfAnalyzingPeriod = period
-
+func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
 	if b.perfAnalysisFileName != "" {
 		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
 			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
