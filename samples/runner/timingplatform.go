@@ -121,7 +121,6 @@ func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
 	traceDirName string,
 	tracePeriod float64,
 ) R9NanoPlatformBuilder {
-
 	b.perfAnalysisFileName = traceDirName
 	b.perfAnalyzingPeriod = tracePeriod
 	return b
