@@ -20,13 +20,8 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-<<<<<<< HEAD
-	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
-=======
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
 	github.com/kr/text v0.2.0 // indirect
->>>>>>> a4c4159dfeef26022d3c97e9ac583fabf5c1d2bd
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
@@ -36,19 +31,11 @@ require (
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
-<<<<<<< HEAD
-	golang.org/x/image v0.7.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
-	golang.org/x/tools v0.9.1 // indirect
-=======
 	golang.org/x/image v0.8.0 // indirect
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
 	golang.org/x/tools v0.10.0 // indirect
->>>>>>> a4c4159dfeef26022d3c97e9ac583fabf5c1d2bd
 	gonum.org/v1/gonum v0.13.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
