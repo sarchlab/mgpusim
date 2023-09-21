@@ -24,7 +24,7 @@ var _ = Describe("Engine", func() {
 		mockCtrl *gomock.Controller
 
 		engine               *MockEngine
-		rdmaEngine           *Engine
+		rdmaEngine           *Comp
 		toL1                 *MockPort
 		toL2                 *MockPort
 		ctrlPort             *MockPort
@@ -48,7 +48,12 @@ var _ = Describe("Engine", func() {
 		remoteModules = new(mem.SingleLowModuleFinder)
 		remoteModules.LowModule = remoteGPU
 
-		rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
+		// rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
+		rdmaEngine = MakeBuilder().
+			WithEngine(engine).
+			WithLocalModules(localModules).
+			WithRemoteModules(remoteModules).
+			Build("RDMAEngine")
 
 		toL1 = NewMockPort(mockCtrl)
 		toL2 = NewMockPort(mockCtrl)
@@ -84,6 +89,7 @@ var _ = Describe("Engine", func() {
 				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
 				Return(nil)
 			toL1.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(read)
+			toL1.EXPECT().Peek().Return(nil)
 
 			rdmaEngine.processFromL1(10)
 
@@ -117,6 +123,7 @@ var _ = Describe("Engine", func() {
 
 		It("should send read to outside", func() {
 			toOutside.EXPECT().Peek().Return(read)
+			toOutside.EXPECT().Peek().Return(nil)
 			toL2.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.ReadReq{})).
 				Return(nil)
@@ -178,6 +185,7 @@ var _ = Describe("Engine", func() {
 
 		It("should send rsp to inside", func() {
 			toOutside.EXPECT().Peek().Return(rsp)
+			toOutside.EXPECT().Peek().Return(nil)
 			toL1.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
 				Return(nil)
@@ -238,6 +246,7 @@ var _ = Describe("Engine", func() {
 
 		It("should send rsp to outside", func() {
 			toL2.EXPECT().Peek().Return(rsp)
+			toL2.EXPECT().Peek().Return(nil)
 			toOutside.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
 				Return(nil)

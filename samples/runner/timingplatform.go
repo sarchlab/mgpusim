@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/sarchlab/akita/v3/analysis"
 	memtraces "github.com/sarchlab/akita/v3/mem/trace"
 
+	"github.com/sarchlab/akita/v3/analysis"
 	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/mem/vm"
 	"github.com/sarchlab/akita/v3/mem/vm/mmu"
@@ -31,12 +31,12 @@ type R9NanoPlatformBuilder struct {
 	useMagicMemoryCopy                 bool
 	log2PageSize                       uint64
 
-	engine              sim.Engine
-	monitor             *monitoring.Monitor
-	perfDBFilename      string
-	perfAnalyzingPeriod float64
-	perfAnalyzer        *analysis.PerfAnalyzer
-	visTracer           tracing.Tracer
+	engine               sim.Engine
+	monitor              *monitoring.Monitor
+	perfAnalysisFileName string
+	perfAnalyzingPeriod  float64
+	perfAnalyzer         *analysis.PerfAnalyzer
+	visTracer            tracing.Tracer
 
 	globalStorage *mem.Storage
 
@@ -52,7 +52,6 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		log2PageSize:      12,
 		traceVisStartTime: -1,
 		traceVisEndTime:   -1,
-		perfDBFilename:    "perf",
 	}
 	return b
 }
@@ -117,13 +116,13 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
-// WithPerfAnalyzer sets the performance analyzer that is used to analyze the
+// WithPerfAnalyzer sets the trace that dumps the WithPerfAnalyzer levers.
 func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
-	dbFileName string,
-	recordPeriod float64,
+	traceDirName string,
+	tracePeriod float64,
 ) R9NanoPlatformBuilder {
-	b.perfDBFilename = dbFileName
-	b.perfAnalyzingPeriod = recordPeriod
+	b.perfAnalysisFileName = traceDirName
+	b.perfAnalyzingPeriod = tracePeriod
 	return b
 }
 
@@ -140,7 +139,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
-	b.setupPerfAnalyzer()
+	b.setupPerformanceAnalyzer()
 	b.setupVisTracing()
 
 	b.globalStorage = mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
@@ -234,19 +233,18 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 	}
 
 	visTracer := tracing.NewDBTracer(b.engine, backend)
+	visTracer.SetTimeRange(b.traceVisStartTime, b.traceVisEndTime)
 
 	b.visTracer = visTracer
 }
 
-func (b *R9NanoPlatformBuilder) setupPerfAnalyzer() {
-	period := sim.VTimeInSec(1e-4)
-	b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
-		WithPeriod(period).
-		WithSQLiteBackend().
-		WithDBFilename(b.perfDBFilename).
-		Build()
-
-	b.perfAnalyzer.RegisterEngine(b.engine)
+func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
+	if b.perfAnalysisFileName != "" {
+		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
+			WithDBFilename(b.perfAnalysisFileName).
+			Build()
+	}
 }
 
 func (b *R9NanoPlatformBuilder) createGPUs(

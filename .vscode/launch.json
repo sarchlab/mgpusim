@@ -160,7 +160,12 @@
             "args": [
                 "-timing",
                 "-length=64",
+<<<<<<< HEAD
+                "-report-all",
+            ],
+=======
             ]
+>>>>>>> a4c4159dfeef26022d3c97e9ac583fabf5c1d2bd
         },
         {
             "name": "Conv2d",

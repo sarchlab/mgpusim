@@ -26,7 +26,7 @@ type Platform struct {
 type GPU struct {
 	Domain           *sim.Domain
 	CommandProcessor *cp.CommandProcessor
-	RDMAEngine       *rdma.Engine
+	RDMAEngine       *rdma.Comp
 	PMC              *pagemigrationcontroller.PageMigrationController
 	CUs              []TraceableComponent
 	SIMDs            []TraceableComponent
