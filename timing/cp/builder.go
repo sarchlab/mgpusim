@@ -19,7 +19,7 @@ type Builder struct {
 	engine         sim.Engine
 	visTracer      tracing.Tracer
 	monitor        *monitoring.Monitor
-	bufferAnalyzer *analysis.PerfAnalyzer
+	perfAnalyzer   *analysis.PerfAnalyzer
 	numDispatchers int
 }
 
@@ -57,12 +57,12 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
-// WithBufferAnalyzer sets the buffer analyzer used to analyze the
+// WithPerfAnalyzer sets the buffer analyzer used to analyze the
 // command processor's buffers.
-func (b Builder) WithBufferAnalyzer(
+func (b Builder) WithPerfAnalyzer(
 	analyzer *analysis.PerfAnalyzer,
 ) Builder {
-	b.bufferAnalyzer = analyzer
+	b.perfAnalyzer = analyzer
 	return b
 }
 
@@ -86,8 +86,8 @@ func (b Builder) Build(name string) *CommandProcessor {
 		tracing.CollectTrace(cp, b.visTracer)
 	}
 
-	if b.bufferAnalyzer != nil {
-		b.bufferAnalyzer.RegisterComponent(cp)
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(cp)
 	}
 
 	return cp

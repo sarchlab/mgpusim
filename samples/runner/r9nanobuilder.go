@@ -70,7 +70,7 @@ type R9NanoGPUBuilder struct {
 	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
 	dmaEngine               *cp.DMAEngine
-	rdmaEngine              *rdma.Engine
+	rdmaEngine              *rdma.Comp
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
 
@@ -195,8 +195,7 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 	return b
 }
 
-// WithPerfAnalyzer sets the performance analyzer to apply to all the internal
-// components of the GPU.
+// WithPerfAnalyzer sets the buffer analyzer to use.
 func (b R9NanoGPUBuilder) WithPerfAnalyzer(
 	a *analysis.PerfAnalyzer,
 ) R9NanoGPUBuilder {
@@ -746,12 +745,18 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
-	b.rdmaEngine = rdma.NewEngine(
-		fmt.Sprintf("%s.RDMA", b.gpuName),
-		b.engine,
-		b.lowModuleFinderForL1,
-		nil,
-	)
+	// b.rdmaEngine = rdma.NewEngine(
+	// 	fmt.Sprintf("%s.RDMA", b.gpuName),
+	// 	b.engine,
+	// 	b.lowModuleFinderForL1,
+	// 	nil,
+	// )
+	name := fmt.Sprintf("%s.RDMA", b.gpuName)
+	b.rdmaEngine = rdma.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(1 * sim.GHz).
+		WithLocalModules(b.lowModuleFinderForL1).
+		Build(name)
 	b.gpu.RDMAEngine = b.rdmaEngine
 
 	if b.monitor != nil {
@@ -793,7 +798,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithMonitor(b.monitor).
-		WithBufferAnalyzer(b.perfAnalyzer)
+		WithPerfAnalyzer(b.perfAnalyzer)
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)
