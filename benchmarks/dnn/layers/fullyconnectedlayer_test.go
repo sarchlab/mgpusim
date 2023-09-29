@@ -1,7 +1,7 @@
 package layers
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 )
