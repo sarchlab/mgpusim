@@ -48,7 +48,7 @@ You can run a simulation with the `--report-all` argument to enable all the perf
 ## How to Prepare Your Own Experiment
 
 - Create a new repository repo. Typically we create one repo for each project, which may contain multiple experiments.
-- Create a folder in your repo for each experiment. Run `go init [git repo path]/[directory_name]` to initialize the folder as a new go module. For example, if your git repository is hosted at `https://gitlab.com/syifan/fancy_project` and your experiment folder is named as `exp1`, your module path should be `gitlab.com/syifan/fancy_project/exp1`.
+- Create a folder in your repo for each experiment. Run `go init [git repo path]/[directory_name]` to initialize the folder as a new go module. For example, if your git repository is hosted at `https://github.com/syifan/fancy_project` and your experiment folder is named as `exp1`, your module path should be `github.com/syifan/fancy_project/exp1`.
 - Copy all the files under the directory `samples/experiment` to your experiment folder. In the `main.go` file, change the benchmark and the problem size to run. Or you can use an argument to select which benchmark to run. The file `runner.go`, `platform.go`, `r9nano.go`, and `shaderarray.go` serve as configuration files. So you need to change them according to your need.
 - It is also possible to modify an existing component or adding a new component. You should copy the folder that includes the component you want to modify to your repo first. Then, modify the configuration scripts to link the system with your new component. You can try to add some print commands to see if your local component is used. Finally, you can start to modify the component code.
 
