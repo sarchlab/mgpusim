@@ -2,10 +2,10 @@
 package conv2d
 
 import (
-	gpuTensor "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v3/driver"
-	"gitlab.com/akita/dnn/layers"
-	"gitlab.com/akita/dnn/tensor"
 )
 
 // A Benchmark is a benchmark for the Convolutional Layer.
@@ -23,7 +23,7 @@ type Benchmark struct {
 	EnableBackward                           bool
 
 	layer    *layers.Conv2D
-	operator *gpuTensor.GPUOperator
+	operator *gputensor.GPUOperator
 
 	forwardIn  tensor.Tensor
 	backwardIn tensor.Tensor
@@ -36,7 +36,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	}
 
 	b.context = b.driver.Init()
-	b.operator = gpuTensor.NewGPUOperator(b.driver, b.context)
+	b.operator = gputensor.NewGPUOperator(b.driver, b.context)
 	b.operator.ReportTime()
 
 	return b

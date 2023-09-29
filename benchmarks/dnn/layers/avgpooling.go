@@ -1,6 +1,6 @@
 package layers
 
-import "gitlab.com/akita/dnn/tensor"
+import "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 
 // AvgPoolingLayer can perform avgpooling forward and backward propagation
 // operations.

@@ -4,9 +4,9 @@ package im2col
 import (
 	"math/rand"
 
-	gpuTensor "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v3/driver"
-	"gitlab.com/akita/dnn/tensor"
 )
 
 // A Benchmark is a benchmark for the im2col operation.
@@ -23,7 +23,7 @@ type Benchmark struct {
 	StrideX, StrideY          int
 	DilateX, DilateY          int
 
-	operator *gpuTensor.GPUOperator
+	operator *gputensor.GPUOperator
 
 	Input tensor.Tensor
 }
@@ -36,7 +36,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 	}
 
 	b.context = b.driver.Init()
-	b.operator = gpuTensor.NewGPUOperator(b.driver, b.context)
+	b.operator = gputensor.NewGPUOperator(b.driver, b.context)
 	b.operator.ReportTime()
 
 	return b

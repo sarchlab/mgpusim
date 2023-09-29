@@ -3,7 +3,7 @@ package layers
 import (
 	"math/rand"
 
-	"gitlab.com/akita/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 )
 
 // Conv2D is a regular convolutional layer.

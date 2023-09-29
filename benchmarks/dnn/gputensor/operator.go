@@ -1,4 +1,4 @@
-package tensor
+package gputensor
 
 import (
 	"fmt"
@@ -10,10 +10,10 @@ import (
 	_ "embed"
 
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 	"github.com/sarchlab/mgpusim/v3/driver"
 	"github.com/sarchlab/mgpusim/v3/insts"
 	"github.com/sarchlab/mgpusim/v3/kernels"
-	"gitlab.com/akita/dnn/tensor"
 )
 
 var sizeOfFloat32 = 4
@@ -37,7 +37,6 @@ type GPUOperator struct {
 	dilateKernel                        *insts.HsaCo
 	im2ColKernel                        *insts.HsaCo
 	softmaxExpKernel                    *insts.HsaCo
-	reductionSumKernel                  *insts.HsaCo
 	softmaxDivKernel                    *insts.HsaCo
 	scaleAddKernel                      *insts.HsaCo
 	elemWiseMulKernel                   *insts.HsaCo

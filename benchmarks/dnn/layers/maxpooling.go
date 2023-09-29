@@ -1,6 +1,6 @@
 package layers
 
-import "gitlab.com/akita/dnn/tensor"
+import "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 
 // MaxPoolingLayer can perform maxpooling forward and backward propagation
 // operations.

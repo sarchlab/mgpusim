@@ -1,5 +1,5 @@
-// Package tensor provides GPU tensor and tensor operation implementations.
-package tensor
+// Package gputensor provides GPU tensor and tensor operation implementations.
+package gputensor
 
 import "github.com/sarchlab/mgpusim/v3/driver"
 

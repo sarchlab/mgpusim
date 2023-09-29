@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/im2col"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layer_benchmarks/im2col"
 	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
