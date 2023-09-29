@@ -5,7 +5,8 @@ on: [push, pull_request]
 jobs:
   compile:
     name: Compile
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Marin
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -20,7 +21,8 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Marin
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -38,7 +40,8 @@ jobs:
 
   unit_test:
     name: Unit Test
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Marin
     needs: [compile, lint]
     steps:
       - name: Checkout
@@ -57,7 +60,8 @@ jobs:
 
   deterministicity_test:
     name: Deterministicity Test
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Marin
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -83,7 +87,8 @@ jobs:
 
   single_gpu_acceptance_test:
     name: Single GPU Acceptance Test
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Marin
     needs: [unit_test]
     steps:
       - name: Checkout
