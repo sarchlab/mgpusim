@@ -5,18 +5,18 @@ package xor
 import (
 	"fmt"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training/optimization"
 	"github.com/sarchlab/mgpusim/v3/driver"
-	"gitlab.com/akita/dnn/layers"
-	"gitlab.com/akita/dnn/training"
-	"gitlab.com/akita/dnn/training/optimization"
 )
 
 // Benchmark defines the XOR network training benchmark.
 type Benchmark struct {
 	driver  *driver.Driver
 	context *driver.Context
-	to      *tensor.GPUOperator
+	to      *gputensor.GPUOperator
 
 	gpus []int
 
@@ -30,7 +30,7 @@ func NewBenchmark(driver *driver.Driver) *Benchmark {
 
 	b.driver = driver
 	b.context = b.driver.Init()
-	b.to = tensor.NewGPUOperator(b.driver, b.context)
+	b.to = gputensor.NewGPUOperator(b.driver, b.context)
 	b.to.EnableVerification()
 
 	b.network = training.Network{

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gitlab.com/akita/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 )
 
 // DataSource generate XOR data.

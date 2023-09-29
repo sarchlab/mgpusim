@@ -5,13 +5,13 @@ import (
 	"math"
 	"math/rand"
 
-	"gitlab.com/akita/dnn/tensor"
-	"gitlab.com/akita/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training/optimization"
 
-	"gitlab.com/akita/dnn/dataset/imagenet"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/dataset/imagenet"
 
-	"gitlab.com/akita/dnn/layers"
-	"gitlab.com/akita/dnn/training"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training"
 )
 
 func main() {

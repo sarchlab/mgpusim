@@ -1,6 +1,6 @@
 package training
 
-import "gitlab.com/akita/dnn/tensor"
+import "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 
 // Tester runs a forward propagation and tests the overall accuracy.
 type Tester struct {

@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/minerva"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training_benchmarks/minerva"
 	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 

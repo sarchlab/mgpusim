@@ -4,21 +4,21 @@ package vgg16
 import (
 	"math"
 
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/dataset/imagenet"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
 	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputraining"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training/optimization"
 	"github.com/sarchlab/mgpusim/v3/benchmarks/mccl"
 	"github.com/sarchlab/mgpusim/v3/driver"
-	"gitlab.com/akita/dnn/dataset/imagenet"
-	"gitlab.com/akita/dnn/layers"
-	"gitlab.com/akita/dnn/training"
-	"gitlab.com/akita/dnn/training/optimization"
 )
 
 // Benchmark defines the VGG16 network training benchmark.
 type Benchmark struct {
 	driver   *driver.Driver
 	ctx      *driver.Context
-	to       []*tensor.GPUOperator
+	to       []*gputensor.GPUOperator
 	gpus     []int
 	contexts []*driver.Context
 
@@ -59,7 +59,7 @@ func (b *Benchmark) init() {
 func (b *Benchmark) defineNetwork(gpuID int) {
 	context := b.driver.InitWithExistingPID(b.ctx)
 	b.driver.SelectGPU(context, gpuID)
-	to := tensor.NewGPUOperator(b.driver, context)
+	to := gputensor.NewGPUOperator(b.driver, context)
 
 	if b.EnableVerification {
 		to.EnableVerification()
@@ -166,11 +166,11 @@ func (b *Benchmark) randomizeParams() {
 			continue
 		}
 
-		params := make([]*tensor.Tensor, gpuNum)
+		params := make([]*gputensor.Tensor, gpuNum)
 		datas := make([]driver.Ptr, gpuNum)
 
 		for j := 0; j < gpuNum; j++ {
-			params[j] = b.networks[j].Layers[i].Parameters().(*tensor.Tensor)
+			params[j] = b.networks[j].Layers[i].Parameters().(*gputensor.Tensor)
 		}
 
 		dataSizeArr := params[0].Size()

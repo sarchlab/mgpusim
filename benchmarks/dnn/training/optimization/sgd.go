@@ -1,7 +1,7 @@
 package optimization
 
 import (
-	"gitlab.com/akita/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 )
 
 // SGD is an optimizer that runs SGD algorithm

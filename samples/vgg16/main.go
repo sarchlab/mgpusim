@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/vgg16"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training_benchmarks/vgg16"
 	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 

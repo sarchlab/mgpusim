@@ -3,8 +3,8 @@ package training_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/dnn/tensor"
-	"gitlab.com/akita/dnn/training"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training"
 )
 
 var _ = Describe("Cross Entropy", func() {

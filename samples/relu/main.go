@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/relu"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layer_benchmarks/relu"
 	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 

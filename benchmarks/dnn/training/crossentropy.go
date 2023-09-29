@@ -1,7 +1,7 @@
 package training
 
 import (
-	"gitlab.com/akita/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 )
 
 // CrossEntropy calculates cross entropy loss function.

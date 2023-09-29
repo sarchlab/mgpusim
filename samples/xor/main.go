@@ -4,7 +4,7 @@ import (
 	"flag"
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/xor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training_benchmarks/xor"
 	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 

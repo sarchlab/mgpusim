@@ -4,10 +4,10 @@ import (
 	"log"
 	"math"
 
-	"gitlab.com/akita/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training/optimization"
 
-	"gitlab.com/akita/dnn/layers"
-	"gitlab.com/akita/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
 )
 
 // A Network represents a group of layers and how they are connected.
