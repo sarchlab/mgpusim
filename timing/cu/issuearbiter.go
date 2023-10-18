@@ -23,36 +23,36 @@ func (a *IssueArbiter) Arbitrate(
 		return []*wavefront.Wavefront{}
 	}
 
-    originalSIMDID := a.lastSIMDID
+	originalSIMDID := a.lastSIMDID
 
 	list := make([]*wavefront.Wavefront, 0)
-    for len(list) == 0  {
-	    a.moveToNextSIMD(wfPools)
-	    for len(wfPools[a.lastSIMDID].wfs) == 0 {
-	        a.moveToNextSIMD(wfPools)
-            if a.lastSIMDID == originalSIMDID {
-                break
-            }
-	    }
-        if len(wfPools[a.lastSIMDID].wfs) != 0 {
+	for len(list) == 0  {
+		a.moveToNextSIMD(wfPools)
+		for len(wfPools[a.lastSIMDID].wfs) == 0 {
+			a.moveToNextSIMD(wfPools)
+			if a.lastSIMDID == originalSIMDID {
+				break
+			}
+		}
+		if len(wfPools[a.lastSIMDID].wfs) != 0 {
 
-	        typeMask := make([]bool, 7)
-	        wfPool := wfPools[a.lastSIMDID]
-	        for _, wf := range wfPool.wfs {
-                if wf.State != wavefront.WfReady || wf.InstToIssue == nil {
-                    continue
-                }
+			typeMask := make([]bool, 7)
+			wfPool := wfPools[a.lastSIMDID]
+			for _, wf := range wfPool.wfs {
+				if wf.State != wavefront.WfReady || wf.InstToIssue == nil {
+					continue
+				}
 
-                if typeMask[wf.InstToIssue.ExeUnit] == false {
-                    list = append(list, wf)
-                    typeMask[wf.InstToIssue.ExeUnit] = true
-                }
-	        }
-        }
-        if a.lastSIMDID == originalSIMDID {
-            break
-        }
-    }
+				if typeMask[wf.InstToIssue.ExeUnit] == false {
+					list = append(list, wf)
+					typeMask[wf.InstToIssue.ExeUnit] = true
+				}
+			}
+		}
+		if a.lastSIMDID == originalSIMDID {
+			break
+		}
+	}
 	return list
 }
 
