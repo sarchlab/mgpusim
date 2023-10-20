@@ -29,10 +29,10 @@ func (a *IssueArbiter) Arbitrate(
 	for len(list) == 0  {
 		a.moveToNextSIMD(wfPools)
 		for len(wfPools[a.lastSIMDID].wfs) == 0 {
-			a.moveToNextSIMD(wfPools)
 			if a.lastSIMDID == originalSIMDID {
 				break
 			}
+			a.moveToNextSIMD(wfPools)
 		}
 		if len(wfPools[a.lastSIMDID].wfs) != 0 {
 
