@@ -72,18 +72,9 @@ jobs:
         with:
           go-version: "stable"
 
-      - name: Run Deterministicity Test - Memory Copy
-        run: |
-          go build
-          ./memcopy
-        working-directory: tests/deterministic/memcopy
-
-      - name: Run Deterministicity Test - Empty Kernel
-        timeout-minutes: 10
-        run: |
-          go build
-          ./empty_kernel
-        working-directory: tests/deterministic/empty_kernel
+      - name: Run Deterministicity Test
+        run: pythone test.py
+        working-directory: tests/deterministic/
 
   single_gpu_acceptance_test:
     name: Single GPU Acceptance Test
