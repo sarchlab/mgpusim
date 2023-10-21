@@ -73,7 +73,7 @@ jobs:
           go-version: "stable"
 
       - name: Run Deterministicity Test
-        run: pythone test.py
+        run: python test.py
         working-directory: tests/deterministic/
 
   single_gpu_acceptance_test:
