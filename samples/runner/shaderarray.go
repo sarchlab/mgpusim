@@ -340,7 +340,6 @@ func (b *shaderArrayBuilder) buildL1VTLBs(sa *shaderArray) {
 		name := fmt.Sprintf("%s.L1VTLB[%d]", b.name, i)
 		tlb := builder.Build(name)
 		sa.l1vTLBs = append(sa.l1vTLBs, tlb)
-
 		if b.visTracer != nil {
 			tracing.CollectTrace(tlb, b.visTracer)
 		}
