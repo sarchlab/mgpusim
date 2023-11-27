@@ -109,8 +109,9 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline(
 }
 
 func (u *VectorMemoryUnit) execute(now sim.VTimeInSec) (madeProgress bool) {
-	item := u.postInstructionPipelineBuffer.Pop()
+	item := u.postInstructionPipelineBuffer.Peek()
 	if item == nil {
+		u.postInstructionPipelineBuffer.Pop()
 		return false
 	}
 
@@ -126,6 +127,7 @@ func (u *VectorMemoryUnit) execute(now sim.VTimeInSec) (madeProgress bool) {
 		log.Panicf("running inst %s in vector memory unit is not supported", inst.String(nil))
 	}
 
+	u.postInstructionPipelineBuffer.Pop()
 	u.cu.UpdatePCAndSetReady(wave)
 	u.numInstInFlight--
 
