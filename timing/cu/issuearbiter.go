@@ -34,8 +34,8 @@ func (a *IssueArbiter) Arbitrate(
 			}
 			a.moveToNextSIMD(wfPools)
 		}
-		if len(wfPools[a.lastSIMDID].wfs) != 0 {
 
+		if len(wfPools[a.lastSIMDID].wfs) != 0 {
 			typeMask := make([]bool, 7)
 			wfPool := wfPools[a.lastSIMDID]
 			for _, wf := range wfPool.wfs {
@@ -49,6 +49,7 @@ func (a *IssueArbiter) Arbitrate(
 				}
 			}
 		}
+
 		if a.lastSIMDID == originalSIMDID {
 			break
 		}

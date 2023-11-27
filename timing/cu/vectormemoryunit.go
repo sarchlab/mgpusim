@@ -111,7 +111,6 @@ func (u *VectorMemoryUnit) insertTransactionToPipeline(
 func (u *VectorMemoryUnit) execute(now sim.VTimeInSec) (madeProgress bool) {
 	item := u.postInstructionPipelineBuffer.Peek()
 	if item == nil {
-		u.postInstructionPipelineBuffer.Pop()
 		return false
 	}
 
