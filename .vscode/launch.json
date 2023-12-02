@@ -159,8 +159,10 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-timing",
-                "-length=64",
+                "-length=8192",
                 "-report-all",
+                "-gpus=1,2",
+                "-use-unified-memory=false",
             ],
         },
         {
