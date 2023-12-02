@@ -214,8 +214,7 @@ func (c *Comp) processReqFromL1(
 	if err == nil {
 		c.ToL1.Retrieve(now)
 
-		tracing.TraceReqReceive(req, c)
-		tracing.TraceReqInitiate(cloned, c, tracing.MsgIDAtReceiver(req, c))
+		c.traceInsideOutStart(req, cloned)
 
 		//fmt.Printf("%s req inside %s -> outside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
@@ -247,8 +246,7 @@ func (c *Comp) processReqFromOutside(
 	if err == nil {
 		c.ToOutside.Retrieve(now)
 
-		tracing.TraceReqReceive(req, c)
-		tracing.TraceReqInitiate(cloned, c, tracing.MsgIDAtReceiver(req, c))
+		c.traceOutsideInStart(req, cloned)
 
 		//fmt.Printf("%s req outside %s -> inside %s\n",
 		//e.Name(), req.GetID(), cloned.GetID())
@@ -284,8 +282,7 @@ func (c *Comp) processRspFromL2(
 		//fmt.Printf("%s rsp inside %s -> outside %s\n",
 		//e.Name(), rsp.GetID(), rspToOutside.GetID())
 
-		tracing.TraceReqFinalize(trans.toInside, c)
-		tracing.TraceReqComplete(trans.fromOutside, c)
+		c.traceOutsideInEnd(trans)
 
 		c.transactionsFromOutside =
 			append(c.transactionsFromOutside[:transactionIndex],
@@ -312,8 +309,7 @@ func (c *Comp) processRspFromOutside(
 	if err == nil {
 		c.ToOutside.Retrieve(now)
 
-		tracing.TraceReqFinalize(trans.toOutside, c)
-		tracing.TraceReqComplete(trans.fromInside, c)
+		c.traceInsideOutEnd(trans)
 
 		//fmt.Printf("%s rsp outside %s -> inside %s\n",
 		//e.Name(), rsp.GetID(), rspToInside.GetID())
@@ -403,4 +399,70 @@ func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 // SetFreq sets freq
 func (c *Comp) SetFreq(freq sim.Freq) {
 	c.TickingComponent.Freq = freq
+}
+
+func (c *Comp) traceInsideOutStart(req mem.AccessReq, cloned mem.AccessReq) {
+	if len(c.Hooks()) == 0 {
+		return
+	}
+
+	tracing.StartTaskWithSpecificLocation(
+		tracing.MsgIDAtReceiver(req, c),
+		req.Meta().ID+"_req_out",
+		c,
+		"req_in",
+		reflect.TypeOf(req).String(),
+		c.Name()+".InsideOut",
+		nil,
+	)
+
+	tracing.StartTaskWithSpecificLocation(
+		cloned.Meta().ID+"_req_out",
+		tracing.MsgIDAtReceiver(req, c),
+		c,
+		"req_out",
+		reflect.TypeOf(req).String(),
+		c.Name()+".InsideOut",
+		nil,
+	)
+}
+
+func (c *Comp) traceOutsideInStart(req mem.AccessReq, cloned mem.AccessReq) {
+	if len(c.Hooks()) == 0 {
+		return
+	}
+
+	tracing.StartTaskWithSpecificLocation(
+		tracing.MsgIDAtReceiver(req, c),
+		req.Meta().ID+"_req_out",
+		c,
+		"req_in",
+		reflect.TypeOf(req).String(),
+		c.Name()+".OutsideIn",
+		nil,
+	)
+
+	tracing.StartTaskWithSpecificLocation(
+		cloned.Meta().ID+"_req_out",
+		tracing.MsgIDAtReceiver(req, c),
+		c,
+		"req_out",
+		reflect.TypeOf(req).String(),
+		c.Name()+".OutsideIn",
+		nil,
+	)
+}
+
+func (c *Comp) traceInsideOutEnd(trans transaction) {
+	if len(c.Hooks()) == 0 {
+		return
+	}
+
+	tracing.TraceReqFinalize(trans.toOutside, c)
+	tracing.TraceReqComplete(trans.fromInside, c)
+}
+
+func (c *Comp) traceOutsideInEnd(trans transaction) {
+	tracing.TraceReqFinalize(trans.toInside, c)
+	tracing.TraceReqComplete(trans.fromOutside, c)
 }
