@@ -413,7 +413,7 @@ func (c *Comp) traceInsideOutStart(req mem.AccessReq, cloned mem.AccessReq) {
 		"req_in",
 		reflect.TypeOf(req).String(),
 		c.Name()+".InsideOut",
-		nil,
+		req,
 	)
 
 	tracing.StartTaskWithSpecificLocation(
@@ -423,7 +423,7 @@ func (c *Comp) traceInsideOutStart(req mem.AccessReq, cloned mem.AccessReq) {
 		"req_out",
 		reflect.TypeOf(req).String(),
 		c.Name()+".InsideOut",
-		nil,
+		cloned,
 	)
 }
 
@@ -439,7 +439,7 @@ func (c *Comp) traceOutsideInStart(req mem.AccessReq, cloned mem.AccessReq) {
 		"req_in",
 		reflect.TypeOf(req).String(),
 		c.Name()+".OutsideIn",
-		nil,
+		req,
 	)
 
 	tracing.StartTaskWithSpecificLocation(
@@ -449,7 +449,7 @@ func (c *Comp) traceOutsideInStart(req mem.AccessReq, cloned mem.AccessReq) {
 		"req_out",
 		reflect.TypeOf(req).String(),
 		c.Name()+".OutsideIn",
-		nil,
+		cloned,
 	)
 }
 
