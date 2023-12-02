@@ -745,12 +745,6 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
-	// b.rdmaEngine = rdma.NewEngine(
-	// 	fmt.Sprintf("%s.RDMA", b.gpuName),
-	// 	b.engine,
-	// 	b.lowModuleFinderForL1,
-	// 	nil,
-	// )
 	name := fmt.Sprintf("%s.RDMA", b.gpuName)
 	b.rdmaEngine = rdma.MakeBuilder().
 		WithEngine(b.engine).
@@ -761,6 +755,10 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.rdmaEngine)
+	}
+
+	if b.enableVisTracing {
+		tracing.CollectTrace(b.rdmaEngine, b.visTracer)
 	}
 }
 
