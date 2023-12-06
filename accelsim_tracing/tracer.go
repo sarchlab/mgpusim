@@ -35,11 +35,19 @@ func getInputArguments() *inputArguments {
 }
 
 func buildAmpereGPU() *gpu.GPU {
-	gpu := gpu.NewGPU().WithGPUStrategy("default").
-		WithGPCNum(8).WithGPCStrategy("default").WithL2CacheSize(4*1024*1024*nvidia.BYTE).
-		WithSMNum(16).WithSMStrategy("default").WithL1CacheSize(192*1024*nvidia.BYTE).
-		WithSMUnitNum(4).WithSMUnitStrategy("default").WithL0CacheSize(16*1024*nvidia.BYTE).
-		WithRegisterFileSize(256*1024*nvidia.BYTE).WithLaneSize(4*nvidia.BYTE).
+	gpu := gpu.NewGPU().
+		WithGPUStrategy("default").
+		WithGPCNum(8).
+		WithSMNum(16).
+		WithSMUnitNum(4).
+		WithGPCStrategy("default").
+		WithSMStrategy("default").
+		WithSMUnitStrategy("default").
+		WithL2CacheSize(4*1024*1024*nvidia.BYTE).
+		WithL1CacheSize(192*1024*nvidia.BYTE).
+		WithL0CacheSize(16*1024*nvidia.BYTE).
+		WithRegisterFileSize(256*1024*nvidia.BYTE).
+		WithLaneSize(4*nvidia.BYTE).
 		WithALU("int32", 16)
 	gpu.Build()
 	return gpu

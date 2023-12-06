@@ -118,10 +118,14 @@ func (g *GPC) Build() {
 	g.buildDispatcher()
 	g.sms = make([]*sm.SM, g.meta.smNum)
 	for i := 0; i < int(g.meta.smNum); i++ {
-		g.sms[i] = sm.NewSM().WithSMStrategy(g.meta.smStrategy).
-			WithSMUnitNum(g.meta.smUnitNum).WithSMUnitStrategy(g.meta.smUnitStrategy).
-			WithL1CacheSize(g.meta.l1CacheSize).WithL0CacheSize(g.meta.l0CacheSize).
-			WithRegisterFileSize(g.meta.registerFileSize).WithLaneSize(g.meta.laneSize)
+		g.sms[i] = sm.NewSM().
+		WithSMStrategy(g.meta.smStrategy).
+			WithSMUnitNum(g.meta.smUnitNum).
+			WithSMUnitStrategy(g.meta.smUnitStrategy).
+			WithL1CacheSize(g.meta.l1CacheSize).
+			WithL0CacheSize(g.meta.l0CacheSize).
+			WithRegisterFileSize(g.meta.registerFileSize).
+			WithLaneSize(g.meta.laneSize)
 		for _, alu := range g.meta.alus {
 			g.sms[i].WithALU(alu.aluType, alu.aluNum)
 		}

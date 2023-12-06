@@ -2,7 +2,7 @@ package nvidia
 
 import "log"
 
-// [todo] how to construct these?
+// VariableType [todo] how to construct these?
 type VariableType int32
 
 const (
@@ -18,7 +18,7 @@ type OpCodeType int32
 const (
 	OpCodeDefault OpCodeType = iota
 	OpCodeError
-	IMAD_MOV_U32
+	IMADMOVU32
 )
 
 type Opcode struct {
@@ -53,5 +53,5 @@ var opcodeTable map[string]Opcode
 func init() {
 	opcodeTable = make(map[string]Opcode)
 
-	opcodeTable["IMAD.MOV.U32"] = Opcode{"IMAD.MOV.U32", IMAD_MOV_U32, VariableINT32}
+	opcodeTable["IMAD.MOV.U32"] = Opcode{"IMAD.MOV.U32", IMADMOVU32, VariableINT32}
 }

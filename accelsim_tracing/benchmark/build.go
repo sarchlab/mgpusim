@@ -29,7 +29,7 @@ func (bm *BenchMark) WithTraceDirPath(path string) *BenchMark {
 
 func (bm *BenchMark) Build() error {
 	if bm.fromTrace == false {
-		return errors.New("No trace dir path specified")
+		return errors.New("no trace dir path specified")
 	}
 	bm.trace = trace.NewTrace().WithTraceDirPath(bm.traceDirPath)
 	bm.trace.Build()

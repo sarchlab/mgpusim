@@ -132,11 +132,17 @@ func (g *GPU) Build() {
 	g.buildDispatcher()
 	g.gpcs = make([]*gpc.GPC, g.meta.gpcNum)
 	for i := 0; i < int(g.meta.gpcNum); i++ {
-		g.gpcs[i] = gpc.NewGPC().WithSMNum(g.meta.smNum).WithSMUnitNum(g.meta.smUnitNum).
-			WithGPCStrategy(g.meta.gpcStrategy).WithSMStrategy(g.meta.smStrategy).
-			WithSMUnitStrategy(g.meta.smUnitStrategy).WithL2CacheSize(g.meta.l2CacheSize).
-			WithL1CacheSize(g.meta.l1CacheSize).WithL0CacheSize(g.meta.l0CacheSize).
-			WithRegisterFileSize(g.meta.registerFileSize).WithLaneSize(g.meta.laneSize)
+		g.gpcs[i] = gpc.NewGPC().
+			WithSMNum(g.meta.smNum).
+			WithSMUnitNum(g.meta.smUnitNum).
+			WithGPCStrategy(g.meta.gpcStrategy).
+			WithSMStrategy(g.meta.smStrategy).
+			WithSMUnitStrategy(g.meta.smUnitStrategy).
+			WithL2CacheSize(g.meta.l2CacheSize).
+			WithL1CacheSize(g.meta.l1CacheSize).
+			WithL0CacheSize(g.meta.l0CacheSize).
+			WithRegisterFileSize(g.meta.registerFileSize).
+			WithLaneSize(g.meta.laneSize)
 		for _, alu := range g.meta.alus {
 			g.gpcs[i].WithALU(alu.aluType, alu.aluNum)
 		}

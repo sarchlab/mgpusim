@@ -16,6 +16,6 @@ func (r *RegisterFile) Write(offset int32, width int32) {
 func (s *SMUnit) buildRegisterFile(size int32, sizePerLane int32) {
 	s.registerFile = &RegisterFile{
 		buf:             make([]byte, size),
-		byteSizePerLane: int32(sizePerLane),
+		byteSizePerLane: sizePerLane,
 	}
 }

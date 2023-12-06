@@ -98,9 +98,11 @@ func (s *SM) Build() {
 	s.buildDispatcher()
 	s.smUnits = make([]*smunit.SMUnit, s.meta.smUnitNum)
 	for i := 0; i < int(s.meta.smUnitNum); i++ {
-		s.smUnits[i] = smunit.NewSMUnit().WithSMUnitStrategy(s.meta.smUnitStrategy).
+		s.smUnits[i] = smunit.NewSMUnit().
+		WithSMUnitStrategy(s.meta.smUnitStrategy).
 			WithL0CacheSize(s.meta.l0CacheSize).
-			WithRegisterFileSize(s.meta.registerFileSize).WithLaneSize(s.meta.laneSize)
+			WithRegisterFileSize(s.meta.registerFileSize).
+			WithLaneSize(s.meta.laneSize)
 		for _, alu := range s.meta.alus {
 			s.smUnits[i].WithALU(alu.aluType, alu.aluNum)
 		}

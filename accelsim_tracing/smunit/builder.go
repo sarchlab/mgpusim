@@ -77,7 +77,9 @@ func (s *SMUnit) Build() {
 	s.buildRegisterFile(s.meta.registerFileSize, s.meta.laneSize)
 	s.aluGroup = make([]*alu.ALUGroup, len(s.meta.alus))
 	for i, a := range s.meta.alus {
-		s.aluGroup[i] = alu.NewALUGroup().WithALUType(a.aluType).WithALUNum(a.aluNum)
+		s.aluGroup[i] = alu.NewALUGroup().
+			WithALUType(a.aluType).
+			WithALUNum(a.aluNum)
 		s.aluGroup[i].Build()
 	}
 }
