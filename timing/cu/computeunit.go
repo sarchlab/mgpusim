@@ -46,7 +46,6 @@ type ComputeUnit struct {
 	LDSUnit          SubComponent
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
-	// VectorDecoder    SubComponent
 
 	InstMem          sim.Port
 	ScalarMem        sim.Port
