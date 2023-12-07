@@ -173,7 +173,7 @@ func (s *SchedulerImpl) DoIssue(now sim.VTimeInSec) bool {
 				continue
 			}
 
-			unit := s.getUnitToIssueTo(wf.InstToIssue.ExeUnit)
+			unit := s.getUnitToIssueTo(wf.InstToIssue.ExeUnit, wf.SIMDID)
 			if unit.CanAcceptWave() {
 				wf.SetDynamicInst(wf.InstToIssue)
 				wf.InstToIssue = nil
@@ -182,7 +182,6 @@ func (s *SchedulerImpl) DoIssue(now sim.VTimeInSec) bool {
 
 				unit.AcceptWave(wf, now)
 				wf.State = wavefront.WfRunning
-				//s.removeStaleInstBuffer(wf)
 
 				madeProgress = true
 			}
@@ -196,21 +195,23 @@ func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now sim.VTimeIn
 	wf.InstToIssue = nil
 	s.internalExecuting = append(s.internalExecuting, wf)
 	wf.State = wavefront.WfRunning
-	//s.removeStaleInstBuffer(wf)
 
 	s.cu.logInstTask(now, wf, wf.DynamicInst(), false)
 
 	return true
 }
 
-func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) SubComponent {
+func (s *SchedulerImpl) getUnitToIssueTo(
+	u insts.ExeUnit,
+	SIMDID int,
+) SubComponent {
 	switch u {
 	case insts.ExeUnitBranch:
 		return s.cu.BranchUnit
 	case insts.ExeUnitLDS:
 		return s.cu.LDSDecoder
 	case insts.ExeUnitVALU:
-		return s.cu.VectorDecoder
+		return s.cu.SIMDUnit[SIMDID]
 	case insts.ExeUnitVMem:
 		return s.cu.VectorMemDecoder
 	case insts.ExeUnitScalar:

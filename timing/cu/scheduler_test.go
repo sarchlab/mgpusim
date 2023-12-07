@@ -65,7 +65,6 @@ var _ = Describe("Scheduler", func() {
 		branchUnit       *mockCUComponent
 		ldsDecoder       *mockCUComponent
 		vectorMemDecoder *mockCUComponent
-		vectorDecoder    *mockCUComponent
 		scalarDecoder    *mockCUComponent
 		scheduler        *SchedulerImpl
 		fetchArbitor     *mockWfArbitor
@@ -84,8 +83,6 @@ var _ = Describe("Scheduler", func() {
 		cu.WfPools = make([]*WavefrontPool, 1)
 		cu.WfPools[0] = NewWavefrontPool(10)
 
-		vectorDecoder = new(mockCUComponent)
-		cu.VectorDecoder = vectorDecoder
 		scalarDecoder = new(mockCUComponent)
 		cu.ScalarDecoder = scalarDecoder
 		branchUnit = new(mockCUComponent)
@@ -169,7 +166,6 @@ var _ = Describe("Scheduler", func() {
 		}
 		branchUnit.canAccept = true
 		ldsDecoder.canAccept = true
-		vectorDecoder.canAccept = true
 		vectorMemDecoder.canAccept = true
 		scalarDecoder.canAccept = false
 
@@ -192,7 +188,6 @@ var _ = Describe("Scheduler", func() {
 
 		Expect(len(branchUnit.acceptedWave)).To(Equal(1))
 		Expect(len(ldsDecoder.acceptedWave)).To(Equal(1))
-		Expect(len(vectorDecoder.acceptedWave)).To(Equal(1))
 		Expect(len(vectorMemDecoder.acceptedWave)).To(Equal(1))
 		Expect(len(scalarDecoder.acceptedWave)).To(Equal(0))
 

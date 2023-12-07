@@ -136,15 +136,12 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 }
 
 func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
-	vectorDecoder := NewDecodeUnit(cu)
-	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.simdCount; i++ {
 		name := fmt.Sprintf(b.name+".SIMD%d", i)
 		simdUnit := NewSIMDUnit(cu, name, b.scratchpadPreparer, b.alu)
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
-		vectorDecoder.AddExecutionUnit(simdUnit)
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
 	}
 }

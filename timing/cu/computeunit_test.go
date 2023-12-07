@@ -73,7 +73,6 @@ var _ = Describe("ComputeUnit", func() {
 		vectorMemDecoder *MockSubComponent
 		vectorMemUnit    *MockSubComponent
 		scalarDecoder    *MockSubComponent
-		vectorDecoder    *MockSubComponent
 		ldsDecoder       *MockSubComponent
 		scalarUnit       *MockSubComponent
 		simdUnit         *MockSubComponent
@@ -96,7 +95,6 @@ var _ = Describe("ComputeUnit", func() {
 		vectorMemDecoder = NewMockSubComponent(mockCtrl)
 		vectorMemUnit = NewMockSubComponent(mockCtrl)
 		scalarDecoder = NewMockSubComponent(mockCtrl)
-		vectorDecoder = NewMockSubComponent(mockCtrl)
 		ldsDecoder = NewMockSubComponent(mockCtrl)
 		scalarUnit = NewMockSubComponent(mockCtrl)
 		simdUnit = NewMockSubComponent(mockCtrl)
@@ -114,7 +112,6 @@ var _ = Describe("ComputeUnit", func() {
 		cu.VectorMemDecoder = vectorMemDecoder
 		cu.VectorMemUnit = vectorMemUnit
 		cu.ScalarDecoder = scalarDecoder
-		cu.VectorDecoder = vectorDecoder
 		cu.LDSDecoder = ldsDecoder
 		cu.ScalarUnit = scalarUnit
 		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
@@ -530,7 +527,6 @@ var _ = Describe("ComputeUnit", func() {
 			scalarUnit.EXPECT().Flush()
 			scalarDecoder.EXPECT().Flush()
 			simdUnit.EXPECT().Flush()
-			vectorDecoder.EXPECT().Flush()
 			ldsUnit.EXPECT().Flush()
 			ldsDecoder.EXPECT().Flush()
 			vectorMemDecoder.EXPECT().Flush()
