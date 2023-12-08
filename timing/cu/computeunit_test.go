@@ -114,7 +114,7 @@ var _ = Describe("ComputeUnit", func() {
 		cu.ScalarDecoder = scalarDecoder
 		cu.LDSDecoder = ldsDecoder
 		cu.ScalarUnit = scalarUnit
-		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+		cu.SIMDUnits = append(cu.SIMDUnits, simdUnit)
 
 		cu.LDSUnit = ldsUnit
 

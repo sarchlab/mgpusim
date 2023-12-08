@@ -42,7 +42,7 @@ type ComputeUnit struct {
 	ScalarDecoder    SubComponent
 	LDSDecoder       SubComponent
 	ScalarUnit       SubComponent
-	SIMDUnit         []SubComponent
+	SIMDUnits        []SubComponent
 	LDSUnit          SubComponent
 	SRegFile         RegisterFile
 	VRegFile         []RegisterFile
@@ -130,7 +130,7 @@ func (cu *ComputeUnit) runPipeline(now sim.VTimeInSec) bool {
 		madeProgress = cu.BranchUnit.Run(now) || madeProgress
 		madeProgress = cu.ScalarUnit.Run(now) || madeProgress
 		madeProgress = cu.ScalarDecoder.Run(now) || madeProgress
-		for _, simdUnit := range cu.SIMDUnit {
+		for _, simdUnit := range cu.SIMDUnits {
 			madeProgress = simdUnit.Run(now) || madeProgress
 		}
 		madeProgress = cu.LDSUnit.Run(now) || madeProgress
@@ -282,7 +282,7 @@ func (cu *ComputeUnit) flushInternalComponents() {
 	cu.ScalarUnit.Flush()
 	cu.ScalarDecoder.Flush()
 
-	for _, simdUnit := range cu.SIMDUnit {
+	for _, simdUnit := range cu.SIMDUnits {
 		simdUnit.Flush()
 	}
 

@@ -211,7 +211,7 @@ func (s *SchedulerImpl) getUnitToIssueTo(
 	case insts.ExeUnitLDS:
 		return s.cu.LDSDecoder
 	case insts.ExeUnitVALU:
-		return s.cu.SIMDUnit[SIMDID]
+		return s.cu.SIMDUnits[SIMDID]
 	case insts.ExeUnitVMem:
 		return s.cu.VectorMemDecoder
 	case insts.ExeUnitScalar:

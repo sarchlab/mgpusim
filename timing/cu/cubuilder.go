@@ -142,7 +142,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 		if b.enableVisTracing {
 			tracing.CollectTrace(simdUnit, b.visTracer)
 		}
-		cu.SIMDUnit = append(cu.SIMDUnit, simdUnit)
+		cu.SIMDUnits = append(cu.SIMDUnits, simdUnit)
 	}
 }
 

@@ -71,6 +71,13 @@
             "program": "${workspaceFolder}/timing"
         },
         {
+            "name": "Test gitlab.com/akita/gcn3/timing/cu",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing/cu"
+        },
+        {
             "name": "Test gitlab.com/akita/gcn3/timing/caches/l1v",
             "type": "go",
             "request": "launch",
