@@ -4,11 +4,11 @@ import (
 	"log"
 	"reflect"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/mem"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/sim"
 )
 
-//PageMigrationController control page migration
+// PageMigrationController control page migration
 type PageMigrationController struct {
 	*sim.TickingComponent
 
@@ -47,6 +47,7 @@ type PageMigrationController struct {
 }
 
 // Tick updates the status of a PageMigrationController.
+//
 //nolint:gocyclo
 func (e *PageMigrationController) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false

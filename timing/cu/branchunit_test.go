@@ -3,8 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
 var _ = Describe("Branch Unit", func() {

@@ -1,0 +1,191 @@
+name: MGPUSim Test
+
+on: [push, pull_request]
+
+jobs:
+  compile:
+    name: Compile
+    runs-on:
+      group: Marin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Build
+        run: go build ./...
+
+  lint:
+    name: Lint
+    runs-on:
+      group: Marin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: "latest"
+          args: --timeout=10m
+
+  unit_test:
+    name: Unit Test
+    runs-on:
+      group: Marin
+    needs: [compile, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Install Ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo
+
+      - name: Unit Test
+        run: ginkgo -r
+
+  deterministicity_test:
+    name: Deterministicity Test
+    runs-on:
+      group: Marin
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Run Deterministicity Test - Memory Copy
+        run: |
+          go build
+          ./memcopy
+        working-directory: tests/deterministic/memcopy
+
+      - name: Run Deterministicity Test - Empty Kernel
+        timeout-minutes: 10
+        run: |
+          go build
+          ./empty_kernel
+        working-directory: tests/deterministic/empty_kernel
+
+  single_gpu_acceptance_test:
+    name: Single GPU Acceptance Test
+    runs-on:
+      group: Marin
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Run Single GPU Acceptance Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=1
+        working-directory: tests/acceptance/
+
+  two_discrete_gpu_test:
+    name: Two Discrete GPU Test
+    runs-on:
+      group: Marin
+    needs: [single_gpu_acceptance_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Run Two Discrete GPU Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=2 -no-unified-gpu -no-unified-memory
+        working-directory: tests/acceptance/
+
+  four_discrete_gpu_test:
+    name: Four Discrete GPU Test
+    runs-on:
+      group: Marin
+    needs: [single_gpu_acceptance_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Run Four Discrete GPU Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=4 -no-unified-gpu -no-unified-memory
+        working-directory: tests/acceptance/
+
+  two_unified_gpu_test:
+    name: Two Unified GPU Test
+    runs-on:
+      group: Marin
+    needs: [single_gpu_acceptance_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Run Two Unified GPU Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
+        working-directory: tests/acceptance/
+
+  four_unified_gpu_test:
+    name: Four Unified GPU Test
+    runs-on:
+      group: Marin
+    needs: [single_gpu_acceptance_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Run Four Unified GPU Test
+        timeout-minutes: 60
+        run: |
+          go build
+          ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
+        working-directory: tests/acceptance/

@@ -4,10 +4,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/protocol"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/protocol"
 )
 
 var _ = ginkgo.Describe("Driver", func() {

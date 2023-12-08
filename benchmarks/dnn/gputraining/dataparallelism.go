@@ -5,20 +5,20 @@ import (
 	"math"
 	"sync"
 
-	"gitlab.com/akita/mgpusim/v3/benchmarks/mccl"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/mccl"
 
-	gpuTensor "gitlab.com/akita/mgpusim/v3/benchmarks/dnn/tensor"
-	"gitlab.com/akita/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/driver"
 
-	"gitlab.com/akita/dnn/tensor"
-	"gitlab.com/akita/dnn/training"
-	"gitlab.com/akita/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training/optimization"
 )
 
 // DataParallelismMultiGPUTrainer can use multiple GPUs to train the DNN model
 // in the data parallelism style.
 type DataParallelismMultiGPUTrainer struct {
-	TensorOperators  []*gpuTensor.GPUOperator
+	TensorOperators  []*gputensor.GPUOperator
 	Networks         []training.Network
 	DataSource       []training.DataSource
 	LossFunc         []training.LossFunction
@@ -166,10 +166,10 @@ func (t DataParallelismMultiGPUTrainer) averageGradient() {
 			continue
 		}
 
-		var gradients []*gpuTensor.Tensor
+		var gradients []*gputensor.Tensor
 		for _, n := range t.Networks {
 			gradients = append(gradients,
-				n.Layers[l].Gradients().(*gpuTensor.Tensor))
+				n.Layers[l].Gradients().(*gputensor.Tensor))
 		}
 
 		gpuNum := len(t.GPUs)

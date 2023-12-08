@@ -3,24 +3,24 @@ package runner
 import (
 	"fmt"
 
-	rob2 "gitlab.com/akita/mgpusim/v3/timing/rob"
+	rob2 "github.com/sarchlab/mgpusim/v3/timing/rob"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/cache/writearound"
-	"gitlab.com/akita/mem/v3/cache/writeback"
-	"gitlab.com/akita/mem/v3/cache/writethrough"
-	"gitlab.com/akita/mem/v3/dram"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm/addresstranslator"
-	"gitlab.com/akita/mem/v3/vm/mmu"
-	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v3/timing/cp"
-	"gitlab.com/akita/mgpusim/v3/timing/cu"
-	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v3/analysis"
+	"github.com/sarchlab/akita/v3/mem/cache/writearound"
+	"github.com/sarchlab/akita/v3/mem/cache/writeback"
+	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v3/mem/dram"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v3/mem/vm/mmu"
+	"github.com/sarchlab/akita/v3/mem/vm/tlb"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/timing/cp"
+	"github.com/sarchlab/mgpusim/v3/timing/cu"
+	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -44,7 +44,7 @@ type R9NanoGPUBuilder struct {
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
-	bufferAnalyzer     *bottleneckanalysis.BufferAnalyzer
+	perfAnalyzer       *analysis.PerfAnalyzer
 
 	gpuName                 string
 	gpu                     *GPU
@@ -70,7 +70,7 @@ type R9NanoGPUBuilder struct {
 	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
 	dmaEngine               *cp.DMAEngine
-	rdmaEngine              *rdma.Engine
+	rdmaEngine              *rdma.Comp
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
 
@@ -195,11 +195,11 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 	return b
 }
 
-// WithBufferAnalyzer sets the buffer analyzer to use.
-func (b R9NanoGPUBuilder) WithBufferAnalyzer(
-	a *bottleneckanalysis.BufferAnalyzer,
+// WithPerfAnalyzer sets the buffer analyzer to use.
+func (b R9NanoGPUBuilder) WithPerfAnalyzer(
+	a *analysis.PerfAnalyzer,
 ) R9NanoGPUBuilder {
-	b.bufferAnalyzer = a
+	b.perfAnalyzer = a
 	return b
 }
 
@@ -651,8 +651,8 @@ func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 			b.monitor.RegisterComponent(cu)
 		}
 
-		if b.bufferAnalyzer != nil {
-			b.bufferAnalyzer.AddComponent(cu)
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(cu)
 		}
 	}
 	for _, cu := range sa.cus {
@@ -670,8 +670,8 @@ func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 			b.monitor.RegisterComponent(rob)
 		}
 
-		if b.bufferAnalyzer != nil {
-			b.bufferAnalyzer.AddComponent(rob)
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(rob)
 		}
 	}
 }
@@ -685,8 +685,8 @@ func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 			b.monitor.RegisterComponent(tlb)
 		}
 
-		if b.bufferAnalyzer != nil {
-			b.bufferAnalyzer.AddComponent(tlb)
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(tlb)
 		}
 	}
 }
@@ -745,16 +745,20 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
-	b.rdmaEngine = rdma.NewEngine(
-		fmt.Sprintf("%s.RDMA", b.gpuName),
-		b.engine,
-		b.lowModuleFinderForL1,
-		nil,
-	)
+	name := fmt.Sprintf("%s.RDMA", b.gpuName)
+	b.rdmaEngine = rdma.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(1 * sim.GHz).
+		WithLocalModules(b.lowModuleFinderForL1).
+		Build(name)
 	b.gpu.RDMAEngine = b.rdmaEngine
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.rdmaEngine)
+	}
+
+	if b.enableVisTracing {
+		tracing.CollectTrace(b.rdmaEngine, b.visTracer)
 	}
 }
 
@@ -792,7 +796,7 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithMonitor(b.monitor).
-		WithBufferAnalyzer(b.bufferAnalyzer)
+		WithPerfAnalyzer(b.perfAnalyzer)
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)

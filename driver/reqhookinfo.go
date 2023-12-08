@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/sim"
 )
 
 // ReqHookInfo is the information that the driver send to the request hooks

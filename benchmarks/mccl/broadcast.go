@@ -1,8 +1,8 @@
 package mccl
 
 import (
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mgpusim/v3/driver"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/mgpusim/v3/driver"
 )
 
 // BroadcastRing broadcast data from the root to other GPUs.

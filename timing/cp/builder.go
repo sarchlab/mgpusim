@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"math"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/sim/bottleneckanalysis"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/protocol"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
+	"github.com/sarchlab/akita/v3/analysis"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
 )
 
 // Builder can build Command Processors
@@ -19,7 +19,7 @@ type Builder struct {
 	engine         sim.Engine
 	visTracer      tracing.Tracer
 	monitor        *monitoring.Monitor
-	bufferAnalyzer *bottleneckanalysis.BufferAnalyzer
+	perfAnalyzer   *analysis.PerfAnalyzer
 	numDispatchers int
 }
 
@@ -32,7 +32,7 @@ func MakeBuilder() Builder {
 	return b
 }
 
-// WithVisTracer enables tracing for visualzation on the command processor and
+// WithVisTracer enables tracing for visualization on the command processor and
 // the dispatchers.
 func (b Builder) WithVisTracer(tracer tracing.Tracer) Builder {
 	b.visTracer = tracer
@@ -57,12 +57,12 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
-// WithBufferAnalyzer sets the buffer analyzer used to analyze the
+// WithPerfAnalyzer sets the buffer analyzer used to analyze the
 // command processor's buffers.
-func (b Builder) WithBufferAnalyzer(
-	analyzer *bottleneckanalysis.BufferAnalyzer,
+func (b Builder) WithPerfAnalyzer(
+	analyzer *analysis.PerfAnalyzer,
 ) Builder {
-	b.bufferAnalyzer = analyzer
+	b.perfAnalyzer = analyzer
 	return b
 }
 
@@ -86,8 +86,8 @@ func (b Builder) Build(name string) *CommandProcessor {
 		tracing.CollectTrace(cp, b.visTracer)
 	}
 
-	if b.bufferAnalyzer != nil {
-		b.bufferAnalyzer.AddComponent(cp)
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(cp)
 	}
 
 	return cp

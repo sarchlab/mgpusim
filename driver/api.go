@@ -8,10 +8,10 @@ import (
 	// embed hsaco files
 	_ "embed"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/driver/internal"
-	"gitlab.com/akita/mgpusim/v3/kernels"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/driver/internal"
+	"github.com/sarchlab/mgpusim/v3/kernels"
 )
 
 var nextPID uint64
@@ -147,7 +147,7 @@ func (d *Driver) AllocateMemory(
 	return Ptr(ptr)
 }
 
-//AllocateUnifiedMemory allocates a unified memory. Allocation is done on CPU
+// AllocateUnifiedMemory allocates a unified memory. Allocation is done on CPU
 func (d *Driver) AllocateUnifiedMemory(
 	ctx *Context,
 	byteSize uint64,

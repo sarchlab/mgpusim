@@ -4,9 +4,9 @@ package rob
 import (
 	"container/list"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/mem"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
 )
 
 type transaction struct {

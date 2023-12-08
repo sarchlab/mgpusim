@@ -3,14 +3,15 @@ package runner
 import (
 	"sync"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/mem"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
 )
 
 // dramTracer can trace DRAM activities.
 type dramTracer struct {
 	sync.Mutex
+	sim.TimeTeller
 
 	inflightTasks map[string]tracing.Task
 
@@ -22,8 +23,9 @@ type dramTracer struct {
 	writeSize       uint64
 }
 
-func newDramTracer() *dramTracer {
+func newDramTracer(timeTeller sim.TimeTeller) *dramTracer {
 	return &dramTracer{
+		TimeTeller:    timeTeller,
 		inflightTasks: make(map[string]tracing.Task),
 	}
 }
@@ -32,6 +34,8 @@ func newDramTracer() *dramTracer {
 func (t *dramTracer) StartTask(task tracing.Task) {
 	t.Lock()
 	defer t.Unlock()
+
+	task.StartTime = t.TimeTeller.CurrentTime()
 
 	t.inflightTasks[task.ID] = task
 }
@@ -51,6 +55,7 @@ func (t *dramTracer) EndTask(task tracing.Task) {
 		return
 	}
 
+	task.EndTime = t.TimeTeller.CurrentTime()
 	taskTime := task.EndTime - originalTask.StartTime
 
 	switch originalTask.What {

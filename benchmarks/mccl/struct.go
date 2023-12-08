@@ -1,6 +1,6 @@
 package mccl
 
-import "gitlab.com/akita/mgpusim/v3/driver"
+import "github.com/sarchlab/mgpusim/v3/driver"
 
 type pushKernelArgs struct {
 	Src                       driver.Ptr

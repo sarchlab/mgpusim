@@ -166,9 +166,11 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-timing",
-                "-length=64",
-                "-trace-vis",
-            ]
+                "-length=8192",
+                "-report-all",
+                "-gpus=1,2",
+                "-use-unified-memory=false",
+            ],
         },
         {
             "name": "Conv2d",

@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/matrixtranspose"
-	"gitlab.com/akita/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/matrixtranspose"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
 var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")

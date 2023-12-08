@@ -7,14 +7,14 @@ import (
 	"sync"
 
 	"github.com/rs/xid"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/driver/internal"
+	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/protocol"
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/driver/internal"
-	"gitlab.com/akita/mgpusim/v3/kernels"
-	"gitlab.com/akita/mgpusim/v3/protocol"
 )
 
 // Driver is an Akita component that controls the simulated GPUs

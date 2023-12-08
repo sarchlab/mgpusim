@@ -5,9 +5,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/mccl"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/mccl"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
 var _ = Describe("MCCL", func() {

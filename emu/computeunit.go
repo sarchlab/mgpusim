@@ -6,12 +6,12 @@ import (
 	"math"
 	"reflect"
 
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/insts"
-	"gitlab.com/akita/mgpusim/v3/kernels"
-	"gitlab.com/akita/mgpusim/v3/protocol"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v3/protocol"
 )
 
 type emulationEvent struct {
@@ -21,8 +21,7 @@ type emulationEvent struct {
 // A ComputeUnit in the emu package is a component that omit the pipeline design
 // but can still run the GCN3 instructions.
 //
-//     ToDispatcher <=> The port that connect the CU with the dispatcher
-//
+//	ToDispatcher <=> The port that connect the CU with the dispatcher
 type ComputeUnit struct {
 	*sim.TickingComponent
 

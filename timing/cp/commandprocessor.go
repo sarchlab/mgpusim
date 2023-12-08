@@ -1,17 +1,17 @@
 package cp
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/cache"
-	"gitlab.com/akita/mem/v3/idealmemcontroller"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v3/protocol"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/dispatching"
-	"gitlab.com/akita/mgpusim/v3/timing/cp/internal/resource"
-	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v3/mem/cache"
+	"github.com/sarchlab/akita/v3/mem/idealmemcontroller"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm/tlb"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
 )
 
 // CommandProcessor is an Akita component that is responsible for receiving
@@ -85,7 +85,7 @@ func (p *CommandProcessor) RegisterCU(cu CUInterfaceForCP) {
 	}
 }
 
-//Tick ticks
+// Tick ticks
 func (p *CommandProcessor) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 

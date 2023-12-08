@@ -1,10 +1,10 @@
 package driver
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mgpusim/v3/driver/internal"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/driver/internal"
 )
 
 // A Builder can build a driver.

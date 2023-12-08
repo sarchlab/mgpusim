@@ -1,12 +1,12 @@
 package runner
 
 import (
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/timing/cp"
-	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/timing/cp"
+	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
 )
 
 // TraceableComponent is a component that can accept traces
@@ -26,7 +26,7 @@ type Platform struct {
 type GPU struct {
 	Domain           *sim.Domain
 	CommandProcessor *cp.CommandProcessor
-	RDMAEngine       *rdma.Engine
+	RDMAEngine       *rdma.Comp
 	PMC              *pagemigrationcontroller.PageMigrationController
 	CUs              []TraceableComponent
 	SIMDs            []TraceableComponent

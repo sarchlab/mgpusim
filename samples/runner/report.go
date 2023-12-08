@@ -3,11 +3,11 @@ package runner
 import (
 	"strings"
 
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/timing/cu"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/timing/cu"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 type instCountTracer struct {
@@ -38,7 +38,7 @@ type dramTransactionCountTracer struct {
 type rdmaTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	rdmaEngine     *rdma.Engine
+	rdmaEngine     *rdma.Comp
 }
 
 type simdBusyTimeTracer struct {
@@ -316,7 +316,7 @@ func (r *Runner) addDRAMTracer() {
 		for _, dram := range gpu.MemControllers {
 			t := dramTransactionCountTracer{}
 			t.dram = dram.(TraceableComponent)
-			t.tracer = newDramTracer()
+			t.tracer = newDramTracer(r.platform.Engine)
 
 			tracing.CollectTrace(t.dram, t.tracer)
 

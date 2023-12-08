@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/relu"
-	"gitlab.com/akita/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layer_benchmarks/relu"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
