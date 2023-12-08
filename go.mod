@@ -8,7 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/rs/xid v1.5.0
-	github.com/sarchlab/akita/v3 v3.0.0-alpha.30
+	github.com/sarchlab/akita/v3 v3.0.0-alpha.31
 	github.com/tebeka/atexit v0.3.0
 	gonum.org/v1/gonum v0.14.0
 )

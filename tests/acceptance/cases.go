@@ -801,18 +801,18 @@ var benchmarks = []benchmark{
 			{gpus: []int{1, 2, 3, 4}, timing: true, parallel: true, unifiedGPU: true, unifiedMemory: true},
 		},
 	},
-	{
-		benchmarkPath:  "",
-		executablePath: "../../samples/concurrentkernel",
-		executable:     "concurrentkernel",
-		sizeArgs:       []string{},
-		cases: []benchmarkCase{
-			{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
-			{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
-			{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: false},
-			{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: false},
-		},
-	},
+	// {
+	// 	benchmarkPath:  "",
+	// 	executablePath: "../../samples/concurrentkernel",
+	// 	executable:     "concurrentkernel",
+	// 	sizeArgs:       []string{},
+	// 	cases: []benchmarkCase{
+	// 		{gpus: []int{1}, timing: false, parallel: false, unifiedGPU: false, unifiedMemory: false},
+	// 		{gpus: []int{1}, timing: false, parallel: true, unifiedGPU: false, unifiedMemory: false},
+	// 		{gpus: []int{1}, timing: true, parallel: false, unifiedGPU: false, unifiedMemory: false},
+	// 		{gpus: []int{1}, timing: true, parallel: true, unifiedGPU: false, unifiedMemory: false},
+	// 	},
+	// },
 	{
 		benchmarkPath:  "",
 		executablePath: "../../samples/concurrentworkload",

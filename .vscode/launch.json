@@ -227,6 +227,7 @@
             "program": "${workspaceFolder}/samples/concurrentkernel",
             "args": [
                 "-timing",
+                "-verify"
             ]
         },
         {
