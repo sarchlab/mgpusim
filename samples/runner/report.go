@@ -10,6 +10,11 @@ import (
 	"github.com/tebeka/atexit"
 )
 
+type wavefrontCountTracer struct {
+	tracer *wavefrontCountTracer
+	cu     TraceableComponent
+}
+
 type instCountTracer struct {
 	tracer *instTracer
 	cu     TraceableComponent
@@ -63,6 +68,7 @@ func (r *Runner) defineMetrics() {
 	r.addRDMAEngineTracer()
 	r.addDRAMTracer()
 	r.addSIMDBusyTimeTracer()
+	r.addWavefrontCountTracer()
 
 	atexit.Register(func() { r.reportStats() })
 }
@@ -97,6 +103,23 @@ func (r *Runner) addInstCountTracer() {
 			tracer := newInstTracer()
 			r.instCountTracers = append(r.instCountTracers,
 				instCountTracer{
+					tracer: tracer,
+					cu:     cu,
+				})
+			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
+		}
+	}
+}
+
+func (r *Runner) addWavefrontCountTracer() {
+	if !r.ReportWavefrontCount {
+		return
+	}
+	for _, gpu := range r.platform.GPUs {
+		for cu := range gpu.CUs {
+			tracer := NewWavefrontCountTracer()
+			r.wavefrontCountTracers = append(r.wavefrontCountTracers,
+				wavefrontCountTracer{
 					tracer: tracer,
 					cu:     cu,
 				})
@@ -358,6 +381,15 @@ func (r *Runner) reportStats() {
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
 	r.dumpMetrics()
+	r.reportWavefrontCount()
+
+}
+
+func (r *Runner) reportWavefrontCount() {
+	for _, t := range r.wavefrontCountTracers {
+		r.metricsCollector.Collect(
+			t.cu.Name(), "wavefront_count", float64(t.tracer.GetCount()))
+	}
 }
 
 func (r *Runner) reportInstCount() {

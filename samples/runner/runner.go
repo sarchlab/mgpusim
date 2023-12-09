@@ -31,6 +31,7 @@ type Runner struct {
 	kernelTimeCounter       *tracing.BusyTimeTracer
 	perGPUKernelTimeCounter []*tracing.BusyTimeTracer
 	instCountTracers        []instCountTracer
+	wavefrontCountTracers   []wavefrontCountTracer
 	cacheLatencyTracers     []cacheLatencyTracer
 	cacheHitRateTracers     []cacheHitRateTracer
 	tlbHitRateTracers       []tlbHitRateTracer
@@ -54,6 +55,7 @@ type Runner struct {
 	UseUnifiedMemory           bool
 	ReportSIMDBusyTime         bool
 	ReportCPIStack             bool
+	ReportWavefrontCount       bool
 
 	GPUIDs []int
 }

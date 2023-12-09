@@ -5,6 +5,7 @@ import "flag"
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
 var maxInstCount = flag.Uint64("max-inst", 0,
 	"Terminate the simulation after the given number of instructions is retired.")
+var wavefrontCount = flag.Uint64("wf-count", 0, "Count the number of wavefront")
 var parallelFlag = flag.Bool("parallel", false,
 	"Run the simulation in parallel.")
 var isaDebug = flag.Bool("debug-isa", false, "Generate the ISA debugging file.")
@@ -121,7 +122,9 @@ func (r *Runner) ParseFlag() *Runner {
 	if *reportCPIStackFlag {
 		r.ReportCPIStack = true
 	}
-
+	if *wavefrontCount {
+		r.ReportWavefrontCount = true
+	}
 	if *reportAll {
 		r.ReportInstCount = true
 		r.ReportCacheLatency = true
@@ -131,6 +134,7 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
 		r.ReportCPIStack = true
+		r.ReportWavefrontCount = true
 	}
 
 	return r
