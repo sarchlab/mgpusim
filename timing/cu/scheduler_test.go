@@ -65,7 +65,7 @@ var _ = Describe("Scheduler", func() {
 		branchUnit       *mockCUComponent
 		ldsDecoder       *mockCUComponent
 		vectorMemDecoder *mockCUComponent
-		vectorDecoder    *mockCUComponent
+		simdUnit         *mockCUComponent
 		scalarDecoder    *mockCUComponent
 		scheduler        *SchedulerImpl
 		fetchArbitor     *mockWfArbitor
@@ -84,8 +84,6 @@ var _ = Describe("Scheduler", func() {
 		cu.WfPools = make([]*WavefrontPool, 1)
 		cu.WfPools[0] = NewWavefrontPool(10)
 
-		vectorDecoder = new(mockCUComponent)
-		cu.VectorDecoder = vectorDecoder
 		scalarDecoder = new(mockCUComponent)
 		cu.ScalarDecoder = scalarDecoder
 		branchUnit = new(mockCUComponent)
@@ -93,6 +91,8 @@ var _ = Describe("Scheduler", func() {
 		vectorMemDecoder = new(mockCUComponent)
 		cu.VectorMemDecoder = vectorMemDecoder
 		ldsDecoder = new(mockCUComponent)
+		simdUnit = new(mockCUComponent)
+		cu.SIMDUnits = []SubComponent{simdUnit}
 		cu.LDSDecoder = ldsDecoder
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
 		cu.VRegFile = append(cu.VRegFile, NewSimpleRegisterFile(16384, 1024))
@@ -154,7 +154,6 @@ var _ = Describe("Scheduler", func() {
 
 		scheduler.DoFetch(10)
 
-		//Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		Expect(wf.IsFetching).To(BeFalse())
 	})
 
@@ -169,8 +168,8 @@ var _ = Describe("Scheduler", func() {
 		}
 		branchUnit.canAccept = true
 		ldsDecoder.canAccept = true
-		vectorDecoder.canAccept = true
 		vectorMemDecoder.canAccept = true
+		simdUnit.canAccept = true
 		scalarDecoder.canAccept = false
 
 		for i := 0; i < 5; i++ {
@@ -192,7 +191,6 @@ var _ = Describe("Scheduler", func() {
 
 		Expect(len(branchUnit.acceptedWave)).To(Equal(1))
 		Expect(len(ldsDecoder.acceptedWave)).To(Equal(1))
-		Expect(len(vectorDecoder.acceptedWave)).To(Equal(1))
 		Expect(len(vectorMemDecoder.acceptedWave)).To(Equal(1))
 		Expect(len(scalarDecoder.acceptedWave)).To(Equal(0))
 
