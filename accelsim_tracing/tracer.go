@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/driver"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
@@ -56,7 +56,11 @@ func buildAmpereGPU() *gpu.GPU {
 func main() {
 	args := getInputArguments()
 	gpu := buildAmpereGPU()
-	benchmark := benchmark.NewBenchMark().WithTraceDirPath(args.inputTraceDir)
+
+	benchmark := driver.NewBenchmark().WithTraceDirPath(args.inputTraceDir)
 	benchmark.Build()
-	benchmark.Exec(gpu)
+
+	driver := driver.NewDriver().WithBenchmark(benchmark).WithGPU(gpu)
+	driver.Build()
+	driver.Exec()
 }
