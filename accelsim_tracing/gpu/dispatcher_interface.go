@@ -6,5 +6,5 @@ import (
 )
 
 type GPUDispatcher interface {
-	dispatch([]*gpc.GPC, *nvidia.ThreadBlock)
+	Dispatch([]*gpc.GPC, *nvidia.ThreadBlock)
 }
