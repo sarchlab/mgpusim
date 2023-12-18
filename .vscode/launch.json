@@ -159,13 +159,11 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-timing",
-                "-length=64",
-<<<<<<< HEAD
+                "-length=8192",
                 "-report-all",
+                "-gpus=1,2",
+                "-use-unified-memory=false",
             ],
-=======
-            ]
->>>>>>> a4c4159dfeef26022d3c97e9ac583fabf5c1d2bd
         },
         {
             "name": "Conv2d",

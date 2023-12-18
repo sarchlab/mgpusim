@@ -10,7 +10,7 @@ type IssueArbiter struct {
 // NewIssueArbiter returns a newly created IssueArbiter
 func NewIssueArbiter() *IssueArbiter {
 	a := new(IssueArbiter)
-	a.lastSIMDID = -1
+	a.lastSIMDID = 0
 	return a
 }
 
@@ -23,25 +23,30 @@ func (a *IssueArbiter) Arbitrate(
 		return []*wavefront.Wavefront{}
 	}
 
-	a.moveToNextSIMD(wfPools)
-	for len(wfPools[a.lastSIMDID].wfs) == 0 {
-		a.moveToNextSIMD(wfPools)
-	}
+	wfToIssue := make([]*wavefront.Wavefront, 0)
+	for i := 0; i < len(wfPools); i++ {
+		simdID := (a.lastSIMDID + i) % len(wfPools)
 
-	typeMask := make([]bool, 7)
-	wfPool := wfPools[a.lastSIMDID]
-	list := make([]*wavefront.Wavefront, 0)
-	for _, wf := range wfPool.wfs {
-		if wf.State != wavefront.WfReady || wf.InstToIssue == nil {
-			continue
+		typeMask := make([]bool, 7)
+		wfPool := wfPools[simdID]
+		for _, wf := range wfPool.wfs {
+			if wf.State != wavefront.WfReady || wf.InstToIssue == nil {
+				continue
+			}
+
+			if typeMask[wf.InstToIssue.ExeUnit] == false {
+				wfToIssue = append(wfToIssue, wf)
+				typeMask[wf.InstToIssue.ExeUnit] = true
+			}
 		}
 
-		if typeMask[wf.InstToIssue.ExeUnit] == false {
-			list = append(list, wf)
-			typeMask[wf.InstToIssue.ExeUnit] = true
+		if len(wfToIssue) != 0 {
+			a.lastSIMDID = simdID
+			break
 		}
 	}
-	return list
+
+	return wfToIssue
 }
 
 func (a *IssueArbiter) moveToNextSIMD(wfPools []*WavefrontPool) {

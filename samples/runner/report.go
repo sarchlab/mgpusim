@@ -317,7 +317,7 @@ func (r *Runner) addDRAMTracer() {
 		for _, dram := range gpu.MemControllers {
 			t := dramTransactionCountTracer{}
 			t.dram = dram.(TraceableComponent)
-			t.tracer = newDramTracer()
+			t.tracer = newDramTracer(r.platform.Engine)
 
 			tracing.CollectTrace(t.dram, t.tracer)
 
