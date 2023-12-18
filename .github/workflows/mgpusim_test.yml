@@ -5,8 +5,7 @@ on: [push, pull_request]
 jobs:
   compile:
     name: Compile
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -21,8 +20,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -40,8 +38,7 @@ jobs:
 
   unit_test:
     name: Unit Test
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     needs: [compile, lint]
     steps:
       - name: Checkout
@@ -60,8 +57,7 @@ jobs:
 
   deterministicity_test:
     name: Deterministicity Test
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -72,14 +68,18 @@ jobs:
         with:
           go-version: "stable"
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Run Deterministicity Test
         run: python test.py
         working-directory: tests/deterministic/
 
   single_gpu_acceptance_test:
     name: Single GPU Acceptance Test
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     needs: [unit_test]
     steps:
       - name: Checkout
@@ -99,8 +99,7 @@ jobs:
 
   two_discrete_gpu_test:
     name: Two Discrete GPU Test
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     needs: [single_gpu_acceptance_test]
     steps:
       - name: Checkout
@@ -120,8 +119,7 @@ jobs:
 
   four_discrete_gpu_test:
     name: Four Discrete GPU Test
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     needs: [single_gpu_acceptance_test]
     steps:
       - name: Checkout
@@ -141,8 +139,7 @@ jobs:
 
   two_unified_gpu_test:
     name: Two Unified GPU Test
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     needs: [single_gpu_acceptance_test]
     steps:
       - name: Checkout
@@ -162,8 +159,7 @@ jobs:
 
   four_unified_gpu_test:
     name: Four Unified GPU Test
-    runs-on:
-      group: Marin
+    runs-on: Github-Large-1
     needs: [single_gpu_acceptance_test]
     steps:
       - name: Checkout
