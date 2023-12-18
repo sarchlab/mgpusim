@@ -2,6 +2,7 @@ package insts
 
 import (
 	"bytes"
+	"debug/elf"
 	"encoding/binary"
 	"fmt"
 )
@@ -9,7 +10,8 @@ import (
 // An HsaCo is the kernel code to be executed on an AMD GPU
 type HsaCo struct {
 	*HsaCoHeader
-	Data []byte
+	Symbol *elf.Symbol
+	Data   []byte
 }
 
 // HsaCoHeader contains the header information of an HSACO
@@ -99,7 +101,7 @@ func (h *HsaCoHeader) UserSgprCount() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 1, 5)
 }
 
-//EnableSgprWorkGroupIDX enable idx
+// EnableSgprWorkGroupIDX enable idx
 func (h *HsaCoHeader) EnableSgprWorkGroupIDX() bool {
 	return extractBits(h.ComputePgmRsrc2, 7, 7) != 0
 }
@@ -124,12 +126,12 @@ func (h *HsaCoHeader) EnableVgprWorkItemID() uint32 {
 	return extractBits(h.ComputePgmRsrc2, 11, 12)
 }
 
-//EnableExceptionAddressWatch enable exception address watch
+// EnableExceptionAddressWatch enable exception address watch
 func (h *HsaCoHeader) EnableExceptionAddressWatch() bool {
 	return extractBits(h.ComputePgmRsrc2, 13, 13) != 0
 }
 
-//EnableExceptionMemoryViolation enable exception memory violation
+// EnableExceptionMemoryViolation enable exception memory violation
 func (h *HsaCoHeader) EnableExceptionMemoryViolation() bool {
 	return extractBits(h.ComputePgmRsrc2, 14, 14) != 0
 }
@@ -140,7 +142,7 @@ func (h *HsaCoHeader) EnableSgprPrivateSegmentBuffer() bool {
 	return extractBits(h.Flags, 0, 0) != 0
 }
 
-//EnableSgprDispatchPtr enables dispatch ptr
+// EnableSgprDispatchPtr enables dispatch ptr
 func (h *HsaCoHeader) EnableSgprDispatchPtr() bool {
 	return extractBits(h.Flags, 1, 1) != 0
 }
@@ -150,17 +152,17 @@ func (h *HsaCoHeader) EnableSgprQueuePtr() bool {
 	return extractBits(h.Flags, 2, 2) != 0
 }
 
-//EnableSgprKernelArgSegmentPtr enables
+// EnableSgprKernelArgSegmentPtr enables
 func (h *HsaCoHeader) EnableSgprKernelArgSegmentPtr() bool {
 	return extractBits(h.Flags, 3, 3) != 0
 }
 
-//EnableSgprDispatchID enables dispatch ID
+// EnableSgprDispatchID enables dispatch ID
 func (h *HsaCoHeader) EnableSgprDispatchID() bool {
 	return extractBits(h.Flags, 4, 4) != 0
 }
 
-//EnableSgprFlatScratchInit enables init
+// EnableSgprFlatScratchInit enables init
 func (h *HsaCoHeader) EnableSgprFlatScratchInit() bool {
 	return extractBits(h.Flags, 5, 5) != 0
 }
@@ -175,7 +177,7 @@ func (h *HsaCoHeader) EnableSgprGridWorkGroupCountX() bool {
 	return extractBits(h.Flags, 7, 7) != 0
 }
 
-//EnableSgprGridWorkGroupCountY enables wg county
+// EnableSgprGridWorkGroupCountY enables wg county
 func (h *HsaCoHeader) EnableSgprGridWorkGroupCountY() bool {
 	return extractBits(h.Flags, 8, 8) != 0
 }

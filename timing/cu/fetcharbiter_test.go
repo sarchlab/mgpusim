@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/kernels"
 	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
@@ -34,6 +35,7 @@ var _ = Describe("FetchArbiter", func() {
 
 		for i := 0; i < len(wfState); i++ {
 			wf := new(wavefront.Wavefront)
+			wf.Wavefront = new(kernels.Wavefront)
 			wf.LastFetchTime = wfLastFetchTime[i]
 			wf.State = wfState[i]
 			wfPools[i%4].AddWf(wf)
