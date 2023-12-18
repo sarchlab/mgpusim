@@ -61,9 +61,9 @@ func (a *FetchArbiter) canFetchFromWF(wf *wavefront.Wavefront) bool {
 			wf.WG.Packet.KernelObject
 		lastPCInInstBuffer := wf.InstBufferStartPC +
 			uint64(len(wf.InstBuffer))
-		// fmt.Printf("lastInstPCInBinary: %d, lastPCInInstBuffer: %d\n",
-		// 	lastInstPCInBinary, lastPCInInstBuffer)
 		if lastPCInInstBuffer >= lastPCInBinary {
+			// fmt.Printf("lastInstPCInBinary: %016X, lastPCInInstBuffer: %016X, PC: %016X\n",
+			// 	lastPCInBinary, lastPCInInstBuffer, wf.PC)
 			return false
 		}
 	}
