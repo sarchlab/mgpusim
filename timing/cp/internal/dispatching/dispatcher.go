@@ -143,6 +143,8 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 		}
 
 		return true
+	case *protocol.EmuAllWGCompletionMsg:
+		return true
 	}
 
 	return false

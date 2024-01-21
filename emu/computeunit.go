@@ -367,8 +367,11 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	delete(cu.wfs, evt.Req.WorkGroup)
 
-	req := protocol.WGCompletionMsgBuilder{}.
-		WithRspTo(evt.Req.ID).
+	if len(cu.wfs) != 0 {
+		return nil
+	}
+
+	req := protocol.EmuAllWGCompletionMsgBuilder{}.
 		WithSrc(cu.ToDispatcher).
 		WithDst(evt.Req.Src).
 		WithSendTime(evt.Time()).
