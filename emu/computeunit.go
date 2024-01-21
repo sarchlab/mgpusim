@@ -380,6 +380,7 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 		WithSendTime(evt.Time()).
 		WithNumWGs(cu.numCompletedWGs).
 		Build()
+
 	err := cu.ToDispatcher.Send(req)
 	if err != nil {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
