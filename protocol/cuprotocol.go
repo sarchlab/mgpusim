@@ -337,6 +337,7 @@ func (b WGCompletionMsgBuilder) Build() *WGCompletionMsg {
 // execution
 type EmuAllWGCompletionMsg struct {
 	sim.MsgMeta
+	NumWGs int
 }
 
 // Meta returns the meta data associated with the EmuAllWGCompletionMsg.
@@ -348,6 +349,7 @@ func (r *EmuAllWGCompletionMsg) Meta() *sim.MsgMeta {
 type EmuAllWGCompletionMsgBuilder struct {
 	sendTime sim.VTimeInSec
 	src, dst sim.Port
+	numWGs   int
 }
 
 // WithSendTime sets the send time.
@@ -374,6 +376,14 @@ func (b EmuAllWGCompletionMsgBuilder) WithDst(
 	return b
 }
 
+// WithNumWGs sets the send time.
+func (b EmuAllWGCompletionMsgBuilder) WithNumWGs(
+	n int,
+) EmuAllWGCompletionMsgBuilder {
+	b.numWGs = n
+	return b
+}
+
 // Build builds WGCompletionMsg
 func (b EmuAllWGCompletionMsgBuilder) Build() *EmuAllWGCompletionMsg {
 	msg := &EmuAllWGCompletionMsg{}
@@ -381,5 +391,6 @@ func (b EmuAllWGCompletionMsgBuilder) Build() *EmuAllWGCompletionMsg {
 	msg.Meta().SendTime = b.sendTime
 	msg.Meta().Src = b.src
 	msg.Meta().Dst = b.dst
+	msg.NumWGs = b.numWGs
 	return msg
 }

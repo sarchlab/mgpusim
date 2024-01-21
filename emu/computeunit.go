@@ -38,6 +38,8 @@ type ComputeUnit struct {
 	GlobalMemStorage *mem.Storage
 
 	ToDispatcher sim.Port
+
+	numCompletedWGs int
 }
 
 // ControlPort returns the port that can receive controlling messages from the
@@ -145,6 +147,7 @@ func (cu *ComputeUnit) runWG(
 		cu.resolveBarrier(wg)
 	}
 
+	cu.numCompletedWGs++
 	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu, req)
 	cu.Engine.Schedule(evt)
 
@@ -375,6 +378,7 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 		WithSrc(cu.ToDispatcher).
 		WithDst(evt.Req.Src).
 		WithSendTime(evt.Time()).
+		WithNumWGs(cu.numCompletedWGs).
 		Build()
 	err := cu.ToDispatcher.Send(req)
 	if err != nil {
