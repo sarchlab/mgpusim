@@ -145,6 +145,7 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 		return true
 	case *protocol.EmuAllWGCompletionMsg:
 		d.numCompletedWGs += msg.NumWGs
+		d.dispatchingPort.Retrieve(now)
 		return true
 	}
 
