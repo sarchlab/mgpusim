@@ -34,8 +34,21 @@ func getInputArguments() *inputArguments {
 	return i
 }
 
+func main() {
+	args := getInputArguments()
+
+	benchmarkBuilder := driver.NewBenchmarkBuilder().WithTraceDirPath(args.inputTraceDir)
+	myBenchmark, _ := benchmarkBuilder.Build()
+
+	myGPU := buildAmpereGPU()
+
+	driverBuilder := driver.NewDriverBuilder().WithBenchmark(myBenchmark).WithGPU(myGPU)
+	myDriver, _ := driverBuilder.Build()
+	myDriver.Exec()
+}
+
 func buildAmpereGPU() *gpu.GPU {
-	gpu := gpu.NewGPUBuilder().
+	gpuBuilder := gpu.NewGPUBuilder().
 		WithGPCCnt(8).
 		WithSMCnt(16).
 		WithSMUnitCnt(4).
@@ -45,19 +58,7 @@ func buildAmpereGPU() *gpu.GPU {
 		WithL1CacheConfig(192*1024*nvidia.BYTE).
 		WithL0CacheConfig(16*1024*nvidia.BYTE).
 		WithRegisterFileConfig(256*1024*nvidia.BYTE, 4*nvidia.BYTE).
-		WithALUConfig("int32", 16).
-		Build()
-	return gpu
-}
-
-func main() {
-	args := getInputArguments()
-	gpu := buildAmpereGPU()
-
-	benchmark := driver.NewBenchmark().WithTraceDirPath(args.inputTraceDir)
-	benchmark.Build()
-
-	driver := driver.NewDriver().WithBenchmark(benchmark).WithGPU(gpu)
-	driver.Build()
-	driver.Exec()
+		WithALUConfig("int32", 16)
+	myGPU, _ := gpuBuilder.Build()
+	return myGPU
 }

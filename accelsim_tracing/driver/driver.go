@@ -11,27 +11,6 @@ type Driver struct {
 	gpu       *gpu.GPU
 }
 
-func NewDriver() *Driver {
-	return &Driver{
-		benchmark: nil,
-		gpu:       nil,
-	}
-}
-
-func (d *Driver) WithBenchmark(b *Benchmark) *Driver {
-	d.benchmark = b
-	return d
-}
-
-func (d *Driver) WithGPU(g *gpu.GPU) *Driver {
-	d.gpu = g
-	return d
-}
-
-func (d *Driver) Build() error {
-	return nil
-}
-
 func (d *Driver) Exec() error {
 	if d.benchmark == nil {
 		return errors.New("no trace parser specified")

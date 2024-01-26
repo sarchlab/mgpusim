@@ -96,7 +96,7 @@ func (g *GPUBuilder) WithALUConfig(aluType string, num int32) *GPUBuilder {
 	return g
 }
 
-func (g *GPUBuilder) Build() *GPU {
+func (g *GPUBuilder) Build() (*GPU, error) {
 	gpu := new(GPU)
 	gpu.dispatcher = g.buildDispatcher()
 	gpu.gpcs = make([]*gpc.GPC, g.gpcCnt)
@@ -112,7 +112,7 @@ func (g *GPUBuilder) Build() *GPU {
 			WithALUConfig("int32", g.aluInt32CntPerSMUnit).
 			Build()
 	}
-	return gpu
+	return gpu, nil
 }
 
 func (g *GPUBuilder) buildDispatcher() GPUDispatcher {
