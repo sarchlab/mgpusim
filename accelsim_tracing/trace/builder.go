@@ -7,8 +7,6 @@ import (
 	"os"
 	"path"
 	"strings"
-
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
 )
 
 type TraceParser struct {
@@ -18,7 +16,7 @@ type TraceParser struct {
 
 type TraceExecs interface {
 	Type() string
-	Exec(*gpu.GPU) error
+	File() string
 }
 
 func NewTraceParser(path string) *TraceParser {
@@ -77,7 +75,7 @@ func parseListToTraceExecs(rawText string, trace *TraceParser) TraceExecs {
 			format  : kernel name
 			example : kernel_0
 		*/
-		k := &kernel{
+		k := &Kernel{
 			rawText:  rawText,
 			fileName: rawText,
 			filePath: path.Join(trace.traceDirPath, rawText),

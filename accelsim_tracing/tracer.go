@@ -42,9 +42,9 @@ func main() {
 
 	myGPU := buildAmpereGPU()
 
-	driverBuilder := driver.NewDriverBuilder().WithBenchmark(myBenchmark).WithGPU(myGPU)
+	driverBuilder := driver.NewDriverBuilder().WithGPU(myGPU)
 	myDriver, _ := driverBuilder.Build()
-	myDriver.Exec()
+	myDriver.Exec(myBenchmark)
 }
 
 func buildAmpereGPU() *gpu.GPU {

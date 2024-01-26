@@ -2,7 +2,7 @@ package trace
 
 import "github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 
-func (tb *threadBlock) generateNVThreadBlock() *nvidia.ThreadBlock {
+func (tb *ThreadBlock) GenerateNVThreadBlock() *nvidia.ThreadBlock {
 	nvtb := &nvidia.ThreadBlock{
 		WarpNum: len(tb.warps),
 	}

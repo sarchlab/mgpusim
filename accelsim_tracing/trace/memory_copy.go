@@ -1,7 +1,5 @@
 package trace
 
-import "github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
-
 type memCopy struct { // trace execs interface
 	rawText   string
 	h2d       bool
@@ -15,9 +13,4 @@ func (te *memCopy) Type() string {
 
 func (te *memCopy) File() string {
 	return ""
-}
-
-func (te *memCopy) Exec(g *gpu.GPU) error {
-	// [todo] implement
-	return nil
 }

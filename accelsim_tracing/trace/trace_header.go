@@ -9,7 +9,7 @@ import (
 )
 
 type traceHeader struct {
-	parent     *traceGroup
+	parent     *traceGroupReader
 	rawContext struct {
 		kernelName            string
 		kernelID              string

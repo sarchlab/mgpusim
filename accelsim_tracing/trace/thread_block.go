@@ -8,8 +8,8 @@ import (
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
-type threadBlock struct {
-	parent     *traceGroup
+type ThreadBlock struct {
+	parent     *traceGroupReader
 	rawContext struct {
 		blockDim string
 	}
@@ -18,8 +18,8 @@ type threadBlock struct {
 	warps          []*warp
 }
 
-func parseThreadBlocks(lines []string) *threadBlock {
-	tb := &threadBlock{}
+func parseThreadBlocks(lines []string) *ThreadBlock {
+	tb := &ThreadBlock{}
 	dim := parseThreadBlockDim(lines)
 	tb.threadBlockDim = *dim
 	for i, line := range lines {

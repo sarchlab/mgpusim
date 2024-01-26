@@ -10,7 +10,7 @@ import (
 )
 
 type warp struct {
-	parent     *threadBlock
+	parent     *ThreadBlock
 	rawContext struct {
 		warpID     string
 		instsCount string
