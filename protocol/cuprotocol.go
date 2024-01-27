@@ -275,7 +275,7 @@ func (b MapWGReqBuilder) Build() *MapWGReq {
 // execution
 type WGCompletionMsg struct {
 	sim.MsgMeta
-	RspTo string
+	RspTo []string
 }
 
 // Meta returns the meta data associated with the MapWGReq.
@@ -287,7 +287,7 @@ func (r *WGCompletionMsg) Meta() *sim.MsgMeta {
 type WGCompletionMsgBuilder struct {
 	sendTime sim.VTimeInSec
 	src, dst sim.Port
-	rspTo    string
+	rspTo    []string
 }
 
 // WithSendTime sets the send time.
@@ -316,7 +316,7 @@ func (b WGCompletionMsgBuilder) WithDst(
 
 // WithRspTo sets rspTo
 func (b WGCompletionMsgBuilder) WithRspTo(
-	rspTo string,
+	rspTo []string,
 ) WGCompletionMsgBuilder {
 	b.rspTo = rspTo
 	return b
@@ -335,62 +335,62 @@ func (b WGCompletionMsgBuilder) Build() *WGCompletionMsg {
 
 // EmuAllWGCompletionMsg notifies the dispatcher that all work-groups are completed
 // execution
-type EmuAllWGCompletionMsg struct {
-	sim.MsgMeta
-	NumWGs int
-}
+// type EmuAllWGCompletionMsg struct {
+// 	sim.MsgMeta
+// 	NumWGs int
+// }
 
-// Meta returns the meta data associated with the EmuAllWGCompletionMsg.
-func (r *EmuAllWGCompletionMsg) Meta() *sim.MsgMeta {
-	return &r.MsgMeta
-}
+// // Meta returns the meta data associated with the EmuAllWGCompletionMsg.
+// func (r *EmuAllWGCompletionMsg) Meta() *sim.MsgMeta {
+// 	return &r.MsgMeta
+// }
 
-// EmuAllWGCompletionMsgBuilder can build EmuAllWGCompletionMsg.
-type EmuAllWGCompletionMsgBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
-	numWGs   int
-}
+// // EmuAllWGCompletionMsgBuilder can build EmuAllWGCompletionMsg.
+// type EmuAllWGCompletionMsgBuilder struct {
+// 	sendTime sim.VTimeInSec
+// 	src, dst sim.Port
+// 	numWGs   int
+// }
 
-// WithSendTime sets the send time.
-func (b EmuAllWGCompletionMsgBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) EmuAllWGCompletionMsgBuilder {
-	b.sendTime = t
-	return b
-}
+// // WithSendTime sets the send time.
+// func (b EmuAllWGCompletionMsgBuilder) WithSendTime(
+// 	t sim.VTimeInSec,
+// ) EmuAllWGCompletionMsgBuilder {
+// 	b.sendTime = t
+// 	return b
+// }
 
-// WithSrc sets the source of the message.
-func (b EmuAllWGCompletionMsgBuilder) WithSrc(
-	src sim.Port,
-) EmuAllWGCompletionMsgBuilder {
-	b.src = src
-	return b
-}
+// // WithSrc sets the source of the message.
+// func (b EmuAllWGCompletionMsgBuilder) WithSrc(
+// 	src sim.Port,
+// ) EmuAllWGCompletionMsgBuilder {
+// 	b.src = src
+// 	return b
+// }
 
-// WithDst sets the destination of the message.
-func (b EmuAllWGCompletionMsgBuilder) WithDst(
-	dst sim.Port,
-) EmuAllWGCompletionMsgBuilder {
-	b.dst = dst
-	return b
-}
+// // WithDst sets the destination of the message.
+// func (b EmuAllWGCompletionMsgBuilder) WithDst(
+// 	dst sim.Port,
+// ) EmuAllWGCompletionMsgBuilder {
+// 	b.dst = dst
+// 	return b
+// }
 
-// WithNumWGs sets the send time.
-func (b EmuAllWGCompletionMsgBuilder) WithNumWGs(
-	n int,
-) EmuAllWGCompletionMsgBuilder {
-	b.numWGs = n
-	return b
-}
+// // WithNumWGs sets the send time.
+// func (b EmuAllWGCompletionMsgBuilder) WithNumWGs(
+// 	n int,
+// ) EmuAllWGCompletionMsgBuilder {
+// 	b.numWGs = n
+// 	return b
+// }
 
-// Build builds WGCompletionMsg
-func (b EmuAllWGCompletionMsgBuilder) Build() *EmuAllWGCompletionMsg {
-	msg := &EmuAllWGCompletionMsg{}
-	msg.Meta().ID = sim.GetIDGenerator().Generate()
-	msg.Meta().SendTime = b.sendTime
-	msg.Meta().Src = b.src
-	msg.Meta().Dst = b.dst
-	msg.NumWGs = b.numWGs
-	return msg
-}
+// // Build builds WGCompletionMsg
+// func (b EmuAllWGCompletionMsgBuilder) Build() *EmuAllWGCompletionMsg {
+// 	msg := &EmuAllWGCompletionMsg{}
+// 	msg.Meta().ID = sim.GetIDGenerator().Generate()
+// 	msg.Meta().SendTime = b.sendTime
+// 	msg.Meta().Src = b.src
+// 	msg.Meta().Dst = b.dst
+// 	msg.NumWGs = b.numWGs
+// 	return msg
+// }
