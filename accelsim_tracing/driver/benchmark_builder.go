@@ -28,10 +28,12 @@ func (b *BenchmarkBuilder) Build() (*Benchmark, error) {
 	if !b.fromTrace {
 		return nil, errors.New("no trace dir path specified")
 	}
+
 	bm := &Benchmark{
 		traceParser: trace.NewTraceParser(b.traceDirPath),
 		TraceExecs:  nil,
 	}
+	
 	bm.TraceExecs = bm.traceParser.BuildTraceExecutions()
 	return bm, nil
 }

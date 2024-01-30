@@ -15,6 +15,7 @@ func (d *Driver) Exec(bm *Benchmark) error {
 	if bm == nil {
 		return errors.New("no trace parser specified")
 	}
+	
 	if d.gpu == nil {
 		return errors.New("no gpu specified")
 	}
@@ -34,6 +35,6 @@ func (d *Driver) Exec(bm *Benchmark) error {
 			tgReader.File.Close()
 		}
 	}
-	
+
 	return nil
 }

@@ -29,6 +29,7 @@ func parseThreadBlocks(lines []string) *ThreadBlock {
 			tb.warps = append(tb.warps, wp)
 		}
 	}
+
 	return tb
 }
 
@@ -40,14 +41,17 @@ func parseThreadBlockDim(lines []string) *nvidia.Dim3 {
 			if len(elems) != 2 {
 				log.Panicf("Invalid thread block dim line: %s", line)
 			}
+
 			value := strings.TrimSpace(elems[1])
 			_, err := fmt.Sscanf(value, "%d,%d,%d", &d[0], &d[1], &d[2])
 			if err != nil {
 				log.Panicf("Invalid thread block dim value: %s", value)
 			}
+			
 			return d
 		}
 	}
+
 	log.Panic("Cannot find thread block dim")
 	return nil
 }

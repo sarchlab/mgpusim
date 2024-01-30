@@ -46,6 +46,7 @@ func parseWarp(lines []string) *warp {
 	if len(elems0) != 2 || len(elems1) != 2 {
 		log.Panicf("Invalid warp header: %s, %s", lines[0], lines[1])
 	}
+
 	wp.rawContext.warpID = lines[0]
 	wp.rawContext.instsCount = lines[1]
 	_, err0 := fmt.Sscanf(strings.TrimSpace(elems0[1]), "%d", &wp.warpID)
@@ -53,11 +54,13 @@ func parseWarp(lines []string) *warp {
 	if err0 != nil || err1 != nil {
 		log.Panicf("Invalid warp header: %s, %s", lines[0], lines[1])
 	}
+
 	for i := 2; i < 2+int(wp.instsCount); i++ {
 		inst := parseInst(lines[i])
 		inst.parent = wp
 		wp.instructions = append(wp.instructions, inst)
 	}
+
 	return wp
 }
 
@@ -68,10 +71,12 @@ func parseInst(line string) instruction {
 	for i := 0; i < int(inst.SrcNum); i++ {
 		inst.SrcRegs = append(inst.SrcRegs, nvidia.NewRegister(elems[3+i]))
 	}
+
 	fmt.Sscanf(elems[3+int(inst.SrcNum)], "%d", &inst.DestNum)
 	for i := 0; i < int(inst.DestNum); i++ {
 		inst.DestRegs = append(inst.DestRegs, nvidia.NewRegister(elems[4+int(inst.SrcNum)+i]))
 	}
+
 	inst.parseMemory(elems[4+int(inst.SrcNum)+int(inst.DestNum):])
 	return *inst
 }
@@ -82,6 +87,7 @@ func (inst *instruction) parseMemory(elems []string) {
 	if inst.MemWidth == 0 {
 		return
 	}
+	
 	fmt.Sscanf(elems[1]+elems[2], "%d0x%x", &inst.AddressCompress, &inst.MemAddress)
 	switch inst.AddressCompress {
 	case 1:

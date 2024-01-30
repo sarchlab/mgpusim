@@ -63,6 +63,7 @@ func (s *SMBuiler) WithALUConfig(aluType string, aluCnt int32) *SMBuiler {
 	default:
 		panic("ALU type is not supported")
 	}
+	
 	return s
 }
 

@@ -47,11 +47,13 @@ func parseHeaderParam(lines []string) *traceHeader {
 		if len(elems) != 2 {
 			log.Panicf("Invalid trace header line: %s", line)
 		}
+
 		key := strings.TrimSpace(elems[0])
 		value := strings.TrimSpace(elems[1])
 
 		th.updateParam(key[1:], value, line)
 	}
+
 	return th
 }
 
@@ -100,6 +102,7 @@ func (th *traceHeader) updateParam(key string, value string, rawText string) {
 	default:
 		log.Printf("Unknown trace header key: %s", key)
 	}
+	
 	if err != nil {
 		log.Panicf("Invalid trace header value for [%s]: %s", key, value)
 	}

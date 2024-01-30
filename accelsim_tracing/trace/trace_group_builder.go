@@ -34,6 +34,7 @@ func (tg *traceGroupReaderBuilder) buildFileScanner(tgReader *traceGroupReader) 
 	if err != nil {
 		log.Panic(err)
 	}
+	
 	tgReader.File = file // [note] close after exec
 	tgReader.scanner = bufio.NewScanner(file)
 }

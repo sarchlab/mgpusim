@@ -112,6 +112,7 @@ func (g *GPUBuilder) Build() (*GPU, error) {
 			WithALUConfig("int32", g.aluInt32CntPerSMUnit).
 			Build()
 	}
+	
 	return gpu, nil
 }
 

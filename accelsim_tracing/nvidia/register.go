@@ -17,6 +17,7 @@ func NewRegister(rawText string) *Register {
 		reg = Register{rawText, -1, false}
 		log.Panic("Unknown register: ", rawText)
 	}
+
 	return &reg
 }
 
@@ -40,5 +41,6 @@ func init() {
 	for i := 0; i < 32; i++ {
 		registerTable[fmt.Sprintf("R%d", i)] = Register{fmt.Sprintf("R%d", i), int32(i), false}
 	}
+	
 	registerTable["R255"] = Register{"R255", 255, true}
 }

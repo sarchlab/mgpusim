@@ -38,6 +38,7 @@ func (s *SMUnitBuilder) WithALUConfig(aluType string, cntPerSMUnit int32) *SMUni
 	default:
 		panic("ALU type is not supported")
 	}
+
 	return s
 }
 
@@ -50,6 +51,7 @@ func (s *SMUnitBuilder) Build() *SMUnit {
 			WithALUType("int32").
 			Build()
 	}
+	
 	return smu
 }
 

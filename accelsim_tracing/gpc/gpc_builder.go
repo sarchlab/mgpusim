@@ -78,6 +78,7 @@ func (g *GPCBuilder) WithALUConfig(aluType string, cnt int32) *GPCBuilder {
 	default:
 		panic("ALU type is not supported")
 	}
+
 	return g
 }
 
@@ -94,5 +95,6 @@ func (g *GPCBuilder) Build() *GPC {
 			WithALUConfig("int32", g.aluInt32CntPerSMUnit).
 			Build()
 	}
+	
 	return gpc
 }

@@ -43,6 +43,7 @@ func readKernelsList(dirPath string) []string {
 	if err != nil {
 		log.Panic(err)
 	}
+
 	defer file.Close()
 
 	var lines []string
@@ -67,10 +68,12 @@ func parseListToTraceExecs(rawText string, trace *TraceParser) TraceExecs {
 			rawText: rawText,
 			h2d:     strings.Contains(res[0], "HtoD"),
 		}
+
 		fmt.Sscanf(res[1], "%v", &m.startAddr)
 		fmt.Sscanf(res[2], "%v", &m.length)
 		return m
 	}
+
 	if strings.HasPrefix(rawText, "kernel") {
 		/*
 			format  : kernel name
@@ -81,8 +84,10 @@ func parseListToTraceExecs(rawText string, trace *TraceParser) TraceExecs {
 			fileName: rawText,
 			filePath: path.Join(trace.traceDirPath, rawText),
 		}
+
 		return k
 	}
+	
 	log.Panicf("Unknown trace group rawText: %s", rawText)
 	return nil
 }

@@ -32,6 +32,7 @@ func (tg *traceGroupReader) ParseThreadBlocks() {
 					tg.ThreadBlockQueue.PushBack(tb)
 					break
 				}
+				
 				threadBlocklines = append(threadBlocklines, tg.scanner.Text())
 			}
 		}
