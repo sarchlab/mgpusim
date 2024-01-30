@@ -39,7 +39,7 @@ type ComputeUnit struct {
 
 	ToDispatcher sim.Port
 
-	numCompletedWGs int
+	finishedMapWGReqs []string
 }
 
 // ControlPort returns the port that can receive controlling messages from the
@@ -121,6 +121,7 @@ func (cu *ComputeUnit) processMapWGReq(now sim.VTimeInSec) {
 
 	cu.queueingWGs = append(cu.queueingWGs, req)
 	cu.wfs[req.WorkGroup] = make([]*Wavefront, 0, 64)
+	// fmt.Printf("I'm CU %s, num of mapWGReq %d\n", cu.Name(), len(cu.queueingWGs))
 }
 
 func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
@@ -147,7 +148,6 @@ func (cu *ComputeUnit) runWG(
 		cu.resolveBarrier(wg)
 	}
 
-	cu.numCompletedWGs++
 	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu, req)
 	cu.Engine.Schedule(evt)
 
@@ -369,20 +369,32 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	delete(cu.wfs, evt.Req.WorkGroup)
+	found := false
+	for _, r := range cu.finishedMapWGReqs {
+		if r == evt.Req.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		cu.finishedMapWGReqs = append(cu.finishedMapWGReqs, evt.Req.ID)
+	}
 
 	if len(cu.wfs) != 0 {
 		return nil
 	}
 
-	req := protocol.EmuAllWGCompletionMsgBuilder{}.
+	req := protocol.WGCompletionMsgBuilder{}.
 		WithSrc(cu.ToDispatcher).
 		WithDst(evt.Req.Src).
 		WithSendTime(evt.Time()).
-		WithNumWGs(cu.numCompletedWGs).
+		WithRspTo(cu.finishedMapWGReqs).
 		Build()
 
 	err := cu.ToDispatcher.Send(req)
-	if err != nil {
+	if err == nil {
+		cu.finishedMapWGReqs = nil
+	} else {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
 			cu, evt.Req)
 		cu.Engine.Schedule(newEvent)

@@ -177,12 +177,12 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/kmeans",
             "args": [
-                "-timing",
+                // "-timing",
                 "-points=1024",
                 "-features=32",
                 "-clusters=5",
-                "-max-iter=5",
-                "-report-all",
+                "-max-iter=4",
+                // "-report-all",
             ],
         },
         {
