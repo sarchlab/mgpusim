@@ -167,7 +167,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.inflightWGs[mapWGReq.ID] = location
 		dispatcher.originalReqs[mapWGReq.ID] = mapWGReq
 
-		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: mapWGReq.ID}
+		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []string{mapWGReq.ID}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 48
@@ -197,7 +197,7 @@ var _ = Describe("Dispatcher", func() {
 		dispatcher.inflightWGs[mapWGReq.ID] = location
 		dispatcher.originalReqs[mapWGReq.ID] = mapWGReq
 
-		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: mapWGReq.ID}
+		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []string{mapWGReq.ID}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 63
@@ -227,7 +227,7 @@ var _ = Describe("Dispatcher", func() {
 		mapWGReq := protocol.MapWGReqBuilder{}.Build()
 		// dispatcher.inflightWGs[mapWGReq.ID] = location
 
-		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: mapWGReq.ID}
+		wgCompletionMsg := &protocol.WGCompletionMsg{RspTo: []string{mapWGReq.ID}}
 
 		dispatcher.numDispatchedWGs = 64
 		dispatcher.numCompletedWGs = 48

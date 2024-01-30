@@ -275,7 +275,7 @@ func (b MapWGReqBuilder) Build() *MapWGReq {
 // execution
 type WGCompletionMsg struct {
 	sim.MsgMeta
-	RspTo string
+	RspTo []string
 }
 
 // Meta returns the meta data associated with the MapWGReq.
@@ -287,7 +287,7 @@ func (r *WGCompletionMsg) Meta() *sim.MsgMeta {
 type WGCompletionMsgBuilder struct {
 	sendTime sim.VTimeInSec
 	src, dst sim.Port
-	rspTo    string
+	rspTo    []string
 }
 
 // WithSendTime sets the send time.
@@ -316,7 +316,7 @@ func (b WGCompletionMsgBuilder) WithDst(
 
 // WithRspTo sets rspTo
 func (b WGCompletionMsgBuilder) WithRspTo(
-	rspTo string,
+	rspTo []string,
 ) WGCompletionMsgBuilder {
 	b.rspTo = rspTo
 	return b
