@@ -34,5 +34,6 @@ func (d *Driver) Exec(bm *Benchmark) error {
 			tgReader.File.Close()
 		}
 	}
+	
 	return nil
 }
