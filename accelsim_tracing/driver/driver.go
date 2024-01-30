@@ -14,7 +14,8 @@ type Driver struct {
 func (d *Driver) Exec(bm *Benchmark) error {
 	if bm == nil {
 		return errors.New("no trace parser specified")
-	} else if d.gpu == nil {
+	}
+	if d.gpu == nil {
 		return errors.New("no gpu specified")
 	}
 

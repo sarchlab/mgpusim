@@ -70,7 +70,8 @@ func parseListToTraceExecs(rawText string, trace *TraceParser) TraceExecs {
 		fmt.Sscanf(res[1], "%v", &m.startAddr)
 		fmt.Sscanf(res[2], "%v", &m.length)
 		return m
-	} else if strings.HasPrefix(rawText, "kernel") {
+	}
+	if strings.HasPrefix(rawText, "kernel") {
 		/*
 			format  : kernel name
 			example : kernel_0
