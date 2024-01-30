@@ -353,7 +353,7 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 		WithSendTime(now).
 		WithSrc(s.cu.ToACE).
 		WithDst(dispatcher).
-		WithRspTo(mapReq.ID).
+		WithRspTo([]string{mapReq.ID}).
 		Build()
 
 	err := s.cu.ToACE.Send(msg)
