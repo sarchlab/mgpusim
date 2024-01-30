@@ -228,13 +228,6 @@ func (d *DispatcherImpl) dispatchNextWG(
 	// fmt.Printf("%.10f, %d, %d\n", now, d.currWG.wg.IDX, d.currWG.cuID)
 
 	if err == nil {
-		// if req.ID == "13168" {
-		// 	fmt.Printf("MapWGReq to cu %s\n", d.currWG.cu.Name())
-		// }
-		// if req.ID == "29683" {
-		// 	fmt.Printf("MapWGReq to cu %s\n", d.currWG.cu.Name())
-		// }
-
 		d.currWG.valid = false
 		d.numDispatchedWGs++
 		d.inflightWGs[req.ID] = d.currWG

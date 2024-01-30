@@ -121,7 +121,6 @@ func (cu *ComputeUnit) processMapWGReq(now sim.VTimeInSec) {
 
 	cu.queueingWGs = append(cu.queueingWGs, req)
 	cu.wfs[req.WorkGroup] = make([]*Wavefront, 0, 64)
-	// fmt.Printf("I'm CU %s, num of mapWGReq %d\n", cu.Name(), len(cu.queueingWGs))
 }
 
 func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
