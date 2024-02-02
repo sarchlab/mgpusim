@@ -8,6 +8,11 @@ import (
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
+type traceGroup struct {
+	header       *traceGroupHeader
+	threadBlocks []*threadBlock
+}
+
 type traceGroupHeader struct {
 	parent     *traceGroupReader
 	rawContext struct {
@@ -102,7 +107,7 @@ func (th *traceGroupHeader) updateParam(key string, value string, rawText string
 	default:
 		log.Printf("Unknown trace header key: %s", key)
 	}
-	
+
 	if err != nil {
 		log.Panicf("Invalid trace header value for [%s]: %s", key, value)
 	}

@@ -17,11 +17,6 @@ type traceGroupReader struct {
 	traceGroup       *traceGroup
 }
 
-type traceGroup struct {
-	header       *traceGroupHeader
-	threadBlocks []*threadBlock
-}
-
 func NewTGReader(filePath string) *traceGroupReader {
 	file, err := os.Open(filePath)
 	if err != nil {
