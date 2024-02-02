@@ -8,7 +8,7 @@ import (
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
-type ThreadBlock struct {
+type threadBlock struct {
 	parent     *traceGroupReader
 	rawContext struct {
 		blockDim string
@@ -18,8 +18,8 @@ type ThreadBlock struct {
 	warps          []*warp
 }
 
-func parseThreadBlocks(lines []string) *ThreadBlock {
-	tb := &ThreadBlock{}
+func parseThreadBlocks(lines []string) *threadBlock {
+	tb := &threadBlock{}
 	dim := parseThreadBlockDim(lines)
 	tb.threadBlockDim = *dim
 	for i, line := range lines {
@@ -47,7 +47,7 @@ func parseThreadBlockDim(lines []string) *nvidia.Dim3 {
 			if err != nil {
 				log.Panicf("Invalid thread block dim value: %s", value)
 			}
-			
+
 			return d
 		}
 	}

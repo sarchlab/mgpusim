@@ -8,7 +8,7 @@ import (
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
-type traceHeader struct {
+type traceGroupHeader struct {
 	parent     *traceGroupReader
 	rawContext struct {
 		kernelName            string
@@ -39,8 +39,8 @@ type traceHeader struct {
 	accelsimTracerVersion string
 }
 
-func parseHeaderParam(lines []string) *traceHeader {
-	th := &traceHeader{}
+func parseHeaderParam(lines []string) *traceGroupHeader {
+	th := &traceGroupHeader{}
 
 	for _, line := range lines {
 		elems := strings.Split(line, "=")
@@ -60,7 +60,7 @@ func parseHeaderParam(lines []string) *traceHeader {
 // Shaoyu: Maybe we can parse the attrs in order and avoid using swicth-case here
 //
 //nolint:funlen,gocyclo
-func (th *traceHeader) updateParam(key string, value string, rawText string) {
+func (th *traceGroupHeader) updateParam(key string, value string, rawText string) {
 	err := error(nil)
 	switch key {
 	case "kernel name":

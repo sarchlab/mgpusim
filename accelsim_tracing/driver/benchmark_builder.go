@@ -3,11 +3,12 @@ package driver
 import (
 	"errors"
 
-	trace "github.com/sarchlab/mgpusim/v3/accelsim_tracing/trace"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/trace"
 )
 
 type BenchmarkBuilder struct {
-	fromTrace    bool
+	fromTrace    bool // [not] from other ?
 	traceDirPath string
 }
 
@@ -24,16 +25,13 @@ func (b *BenchmarkBuilder) WithTraceDirPath(path string) *BenchmarkBuilder {
 	return b
 }
 
-func (b *BenchmarkBuilder) Build() (*Benchmark, error) {
+func (b *BenchmarkBuilder) Build() (*nvidia.KernelList, error) {
 	if !b.fromTrace {
 		return nil, errors.New("no trace dir path specified")
 	}
 
-	bm := &Benchmark{
-		traceParser: trace.NewTraceParser(b.traceDirPath),
-		TraceExecs:  nil,
-	}
-	
-	bm.TraceExecs = bm.traceParser.BuildTraceExecutions()
-	return bm, nil
+	klReader := trace.NewKLReader(b.traceDirPath)
+	kl := klReader.Read()
+
+	return kl, nil
 }

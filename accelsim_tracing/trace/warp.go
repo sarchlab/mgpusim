@@ -10,7 +10,7 @@ import (
 )
 
 type warp struct {
-	parent     *ThreadBlock
+	parent     *threadBlock
 	rawContext struct {
 		warpID     string
 		instsCount string
@@ -87,7 +87,7 @@ func (inst *instruction) parseMemory(elems []string) {
 	if inst.MemWidth == 0 {
 		return
 	}
-	
+
 	fmt.Sscanf(elems[1]+elems[2], "%d0x%x", &inst.AddressCompress, &inst.MemAddress)
 	switch inst.AddressCompress {
 	case 1:

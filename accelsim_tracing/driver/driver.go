@@ -4,35 +4,35 @@ import (
 	"errors"
 
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
-	trace "github.com/sarchlab/mgpusim/v3/accelsim_tracing/trace"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/trace"
 )
 
 type Driver struct {
 	gpu *gpu.GPU
 }
 
-func (d *Driver) Exec(bm *Benchmark) error {
-	if bm == nil {
-		return errors.New("no trace parser specified")
+func (d *Driver) Exec(kl *nvidia.KernelList) error {
+	if kl == nil {
+		return errors.New("no trace specified")
 	}
-	
+
 	if d.gpu == nil {
 		return errors.New("no gpu specified")
 	}
 
-	for _, e := range *bm.TraceExecs {
-		if e.Type() == "memcopy" {
+	for _, e := range kl.TraceExecs {
+		if e.Type == "memcopy" {
 			// [todo] implement
-		} else if e.Type() == "kernel" {
-			builder := trace.NewTraceGroupReaderBuilder().WithFilePath(e.File())
-			tgReader := builder.Build()
+		} else if e.Type == "kernel" {
+			tgReader := trace.NewTGReader(e.FilePath)
 
-			tgReader.ParseThreadBlocks()
-			for it := tgReader.ThreadBlockQueue.Front(); it != nil; it = it.Next() {
-				d.gpu.RunThreadBlock(it.Value.(*trace.ThreadBlock).GenerateNVThreadBlock())
+			tg := tgReader.ReadAll()
+			for _, tb := range tg.ThreadBlocks {
+				d.gpu.RunThreadBlock(tb)
 			}
 
-			tgReader.File.Close()
+			tgReader.CloseFile()
 		}
 	}
 
