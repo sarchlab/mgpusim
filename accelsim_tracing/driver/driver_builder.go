@@ -16,8 +16,8 @@ func (d *DriverBuilder) WithGPU(g *gpu.GPU) *DriverBuilder {
 	return d
 }
 
-func (d *DriverBuilder) Build() (*Driver, error) {
-	return &Driver{
+func (d *DriverBuilder) Build() (*driver, error) {
+	return &driver{
 		gpu: d.gpu,
 	}, nil
 }

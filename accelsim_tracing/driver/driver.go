@@ -8,17 +8,13 @@ import (
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/trace"
 )
 
-type Driver struct {
+type driver struct {
 	gpu *gpu.GPU
 }
 
-func (d *Driver) Exec(kl *nvidia.KernelList) error {
+func (d *driver) Exec(kl *nvidia.KernelList) error {
 	if kl == nil {
 		return errors.New("no trace specified")
-	}
-
-	if d.gpu == nil {
-		return errors.New("no gpu specified")
 	}
 
 	for _, e := range kl.TraceExecs {
