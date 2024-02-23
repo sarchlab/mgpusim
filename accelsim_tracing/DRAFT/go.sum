@@ -1,0 +1,4 @@
+github.com/rs/xid v1.5.0 h1:mKX4bl4iPYJtEIxp6CYiUuLQ/8DYMoz0PUdtGgMFRVc=
+github.com/rs/xid v1.5.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
+github.com/sarchlab/akita/v3 v3.0.0-alpha.31 h1:nBGOQbZEm1E89O8ajFHIKj7xzHEDJvPPFwpV0y7XhdQ=
+github.com/sarchlab/akita/v3 v3.0.0-alpha.31/go.mod h1:p74MfNeElTYFy9H/gwsPzZQXPfw/e87/6HiIYCZexWc=

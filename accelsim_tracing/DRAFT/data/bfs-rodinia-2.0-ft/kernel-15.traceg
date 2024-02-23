@@ -1,0 +1,2085 @@
+-kernel name = _Z6KernelP4NodePiPbS2_S2_S1_i
+-kernel id = 15
+-grid dim = (8,1,1)
+-block dim = (512,1,1)
+-shmem = 0
+-nregs = 21
+-binary version = 80
+-cuda stream id = 0
+-shmem base_addr = 0x00007fc867000000
+-local mem base_addr = 0x00007fc865000000
+-nvbit version = 1.5.3
+-accelsim tracer version = 3
+
+#traces format = threadblock_x threadblock_y threadblock_z warpid_tb PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses]
+
+
+
+#BEGIN_TB
+
+thread block = 0,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520000 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520020 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520040 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520060 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520080 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415200a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415200c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415200e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520100 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520120 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520140 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520160 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520180 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415201a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415201c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415201e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 1,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520200 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520220 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520240 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520260 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520280 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415202a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415202c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415202e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520300 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520320 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520340 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520360 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520380 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415203a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415203c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415203e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 2,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520400 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520420 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520440 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520460 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520480 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415204a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415204c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415204e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520500 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520520 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520540 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520560 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520580 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415205a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415205c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415205e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 3,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520600 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520620 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520640 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520660 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520680 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415206a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415206c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415206e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520700 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520720 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520740 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520760 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520780 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415207a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415207c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415207e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 4,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520800 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520820 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520840 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520860 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520880 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415208a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415208c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415208e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520900 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 50
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520920 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 fffffbff 0 EXIT 0 0 
+00c0 00000400 1 R3 IMAD.MOV.U32 2 R255 R255 0 
+00d0 00000400 0 STG.E.U8 2 R4 R255 1 2 0x7fc84152092a 
+00e0 00000400 1 R2 IMAD.WIDE 2 R6 R3 0 
+00f0 00000400 1 R8 LDG.E 1 R2 4 2 0x7fc841504954 
+0100 00000400 0 ISETP.GE.AND 1 R8 0 
+0110 00000000 0 EXIT 0 0 
+0120 00000400 1 R0 LDG.E 1 R2 4 2 0x7fc841504950 
+0130 00000400 1 R5 IMAD.MOV.U32 2 R255 R255 0 
+0140 00000400 1 R10 IMAD.WIDE 2 R0 R5 0 
+0150 00000400 1 R17 IMAD.MOV.U32 3 R255 R255 R11 0 
+0160 00000400 1 R4 IMAD.WIDE 2 R6 R5 0 
+0170 00000400 1 R9 IMAD.MOV.U32 3 R255 R255 R0 0 
+0180 00000400 1 R11 IMAD.MOV.U32 3 R255 R255 R17 0 
+0190 00000400 1 R12 LDG.E 1 R10 4 2 0x7fc841515bf0 
+01a0 00000400 1 R16 SHF.R.S32.HI 2 R255 R12 0 
+01b0 00000400 1 R14 IADD3 2 R12 R255 0 
+01c0 00000400 1 R15 IADD3.X 2 R16 R255 0 
+01d0 00000400 1 R14 LDG.E.U8 1 R14 1 2 0x7fc841522671 
+01e0 00000400 0 ISETP.NE.AND 2 R14 R255 0 
+01f0 00000000 1 R7 LDG.E 1 R4 4 1 0x0 0 
+0200 00000000 1 R13 IMAD.MOV.U32 2 R255 R255 0 
+0210 00000000 1 R6 IADD3 2 R12 R255 0 
+0220 00000400 1 R18 IMAD.MOV.U32 2 R255 R255 0 
+0230 00000000 1 R12 IMAD.WIDE 2 R12 R13 0 
+0240 00000000 1 R11 IADD3 2 R7 R255 0 
+0250 00000000 1 R7 IADD3.X 2 R16 R255 0 
+0260 00000000 1 R16 PRMT 2 R18 R16 0 
+0270 00000000 0 STG.E 2 R12 R11 4 1 0x0 0 
+0280 00000000 0 STG.E.U8 2 R6 R16 1 1 0x0 0 
+0290 00000000 1 R8 LDG.E 1 R2 4 1 0x0 0 
+02a0 00000000 1 R9 LDG.E 1 R2 4 1 0x0 0 
+02b0 00000400 1 R0 IADD3 2 R0 R255 0 
+02c0 00000400 1 R10 IADD3 2 R10 R255 0 
+02d0 00000400 1 R17 IMAD.X 3 R255 R255 R17 0 
+02e0 00000400 1 R15 IMAD.IADD 2 R8 R9 0 
+02f0 00000400 0 ISETP.GE.AND 2 R0 R15 0 
+0300 00000000 0 BRA 0 0 
+0310 00000400 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520940 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520960 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520980 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415209a0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415209c0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc8415209e0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 5,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520a00 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520a20 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520a40 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520a60 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520a80 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520aa0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 75
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ac0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 efffffff 0 EXIT 0 0 
+00c0 10000000 1 R3 IMAD.MOV.U32 2 R255 R255 0 
+00d0 10000000 0 STG.E.U8 2 R4 R255 1 2 0x7fc841520adc 
+00e0 10000000 1 R2 IMAD.WIDE 2 R6 R3 0 
+00f0 10000000 1 R8 LDG.E 1 R2 4 2 0x7fc8415056e4 
+0100 10000000 0 ISETP.GE.AND 1 R8 0 
+0110 00000000 0 EXIT 0 0 
+0120 10000000 1 R0 LDG.E 1 R2 4 2 0x7fc8415056e0 
+0130 10000000 1 R5 IMAD.MOV.U32 2 R255 R255 0 
+0140 10000000 1 R10 IMAD.WIDE 2 R0 R5 0 
+0150 10000000 1 R17 IMAD.MOV.U32 3 R255 R255 R11 0 
+0160 10000000 1 R4 IMAD.WIDE 2 R6 R5 0 
+0170 10000000 1 R9 IMAD.MOV.U32 3 R255 R255 R0 0 
+0180 10000000 1 R11 IMAD.MOV.U32 3 R255 R255 R17 0 
+0190 10000000 1 R12 LDG.E 1 R10 4 2 0x7fc841518428 
+01a0 10000000 1 R16 SHF.R.S32.HI 2 R255 R12 0 
+01b0 10000000 1 R14 IADD3 2 R12 R255 0 
+01c0 10000000 1 R15 IADD3.X 2 R16 R255 0 
+01d0 10000000 1 R14 LDG.E.U8 1 R14 1 2 0x7fc841522b19 
+01e0 10000000 0 ISETP.NE.AND 2 R14 R255 0 
+01f0 00000000 1 R7 LDG.E 1 R4 4 1 0x0 0 
+0200 00000000 1 R13 IMAD.MOV.U32 2 R255 R255 0 
+0210 00000000 1 R6 IADD3 2 R12 R255 0 
+0220 10000000 1 R18 IMAD.MOV.U32 2 R255 R255 0 
+0230 00000000 1 R12 IMAD.WIDE 2 R12 R13 0 
+0240 00000000 1 R11 IADD3 2 R7 R255 0 
+0250 00000000 1 R7 IADD3.X 2 R16 R255 0 
+0260 00000000 1 R16 PRMT 2 R18 R16 0 
+0270 00000000 0 STG.E 2 R12 R11 4 1 0x0 0 
+0280 00000000 0 STG.E.U8 2 R6 R16 1 1 0x0 0 
+0290 00000000 1 R8 LDG.E 1 R2 4 1 0x0 0 
+02a0 00000000 1 R9 LDG.E 1 R2 4 1 0x0 0 
+02b0 10000000 1 R0 IADD3 2 R0 R255 0 
+02c0 10000000 1 R10 IADD3 2 R10 R255 0 
+02d0 10000000 1 R17 IMAD.X 3 R255 R255 R17 0 
+02e0 10000000 1 R15 IMAD.IADD 2 R8 R9 0 
+02f0 10000000 0 ISETP.GE.AND 2 R0 R15 0 
+0300 10000000 0 BRA 0 0 
+0180 10000000 1 R11 IMAD.MOV.U32 3 R255 R255 R17 0 
+0190 10000000 1 R12 LDG.E 1 R10 4 2 0x7fc84151842c 
+01a0 10000000 1 R16 SHF.R.S32.HI 2 R255 R12 0 
+01b0 10000000 1 R14 IADD3 2 R12 R255 0 
+01c0 10000000 1 R15 IADD3.X 2 R16 R255 0 
+01d0 10000000 1 R14 LDG.E.U8 1 R14 1 2 0x7fc841522ce4 
+01e0 10000000 0 ISETP.NE.AND 2 R14 R255 0 
+01f0 00000000 1 R7 LDG.E 1 R4 4 1 0x0 0 
+0200 00000000 1 R13 IMAD.MOV.U32 2 R255 R255 0 
+0210 00000000 1 R6 IADD3 2 R12 R255 0 
+0220 10000000 1 R18 IMAD.MOV.U32 2 R255 R255 0 
+0230 00000000 1 R12 IMAD.WIDE 2 R12 R13 0 
+0240 00000000 1 R11 IADD3 2 R7 R255 0 
+0250 00000000 1 R7 IADD3.X 2 R16 R255 0 
+0260 00000000 1 R16 PRMT 2 R18 R16 0 
+0270 00000000 0 STG.E 2 R12 R11 4 1 0x0 0 
+0280 00000000 0 STG.E.U8 2 R6 R16 1 1 0x0 0 
+0290 00000000 1 R8 LDG.E 1 R2 4 1 0x0 0 
+02a0 00000000 1 R9 LDG.E 1 R2 4 1 0x0 0 
+02b0 10000000 1 R0 IADD3 2 R0 R255 0 
+02c0 10000000 1 R10 IADD3 2 R10 R255 0 
+02d0 10000000 1 R17 IMAD.X 3 R255 R255 R17 0 
+02e0 10000000 1 R15 IMAD.IADD 2 R8 R9 0 
+02f0 10000000 0 ISETP.GE.AND 2 R0 R15 0 
+0300 00000000 0 BRA 0 0 
+0310 10000000 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ae0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520b00 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520b20 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520b40 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520b60 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520b80 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ba0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520bc0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520be0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 6,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520c00 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520c20 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520c40 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520c60 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520c80 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ca0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520cc0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ce0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520d00 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520d20 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520d40 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520d60 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520d80 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520da0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520dc0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520de0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
+
+#BEGIN_TB
+
+thread block = 7,0,0
+
+warp = 0
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520e00 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 1
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520e20 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 2
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520e40 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 3
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520e60 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 4
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520e80 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 5
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ea0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 6
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ec0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 7
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520ee0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 8
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520f00 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 9
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520f20 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 10
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520f40 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 11
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520f60 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 12
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520f80 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 13
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520fa0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 14
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520fc0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+warp = 15
+insts = 12
+0000 ffffffff 1 R1 IMAD.MOV.U32 2 R255 R255 0 
+0010 ffffffff 1 R6 S2R 0 0 
+0020 ffffffff 1 R3 S2R 0 0 
+0030 ffffffff 1 R6 IMAD 2 R6 R3 0 
+0040 ffffffff 0 ISETP.GE.AND 1 R6 0 
+0050 00000000 0 EXIT 0 0 
+0060 ffffffff 1 R4 IADD3 2 R6 R255 0 
+0070 ffffffff 0 ULDC.64 0 0 
+0080 ffffffff 1 R5 LEA.HI.X.SX32 1 R6 0 
+0090 ffffffff 1 R0 LDG.E.U8 1 R4 1 1 0x7fc841520fe0 1 
+00a0 ffffffff 0 ISETP.NE.AND 2 R0 R255 0 
+00b0 ffffffff 0 EXIT 0 0 
+
+#END_TB
