@@ -11,7 +11,8 @@ import (
 )
 
 type inputArguments struct {
-	inputTraceDir string
+	inputTraceDir       string
+	instCountReportFlag bool
 	// deparse        bool
 	// outputTraceDir string
 }
@@ -31,6 +32,8 @@ func getInputArguments() *inputArguments {
 	}
 
 	i.inputTraceDir = flag.Arg(0)
+	i.instCountReportFlag = *flag.Bool("inst-count-report", false, "Report the number of instructions executed")
+
 	return i
 }
 
@@ -43,6 +46,10 @@ func main() {
 	myGPU := buildAmpereGPU()
 
 	driverBuilder := driver.NewDriverBuilder().WithGPU(myGPU)
+	if args.instCountReportFlag {
+		driverBuilder = driverBuilder.WithInstCountReport()
+	}
+
 	myDriver, _ := driverBuilder.Build()
 	myDriver.Exec(myBenchmark)
 }
@@ -59,6 +66,8 @@ func buildAmpereGPU() *gpu.GPU {
 		WithL0CacheConfig(16*1024*nvidia.BYTE).
 		WithRegisterFileConfig(256*1024*nvidia.BYTE, 4*nvidia.BYTE).
 		WithALUConfig("int32", 16)
+
 	myGPU, _ := gpuBuilder.Build()
+
 	return myGPU
 }

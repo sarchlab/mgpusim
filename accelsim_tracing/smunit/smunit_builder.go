@@ -1,13 +1,23 @@
 package smunit
 
 import (
+	"fmt"
+
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/alu"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
+	"gitlab.com/akita/akita"
 )
 
 type SMUnitBuilder struct {
-	l0CacheSize          int32
-	registerFileSize     int32
-	laneSize             int32
+	parentNameString string
+	counter          int32
+
+	l0CacheSize int32
+
+	registerFileSize int32
+	laneSize         int32
+
 	aluInt32CntPerSMUnit int32
 }
 
@@ -18,6 +28,11 @@ func NewSMUnitBuilder() *SMUnitBuilder {
 		laneSize:             0,
 		aluInt32CntPerSMUnit: 0,
 	}
+}
+
+func (s *SMUnitBuilder) WithParentNameString(parentNameString string) *SMUnitBuilder {
+	s.parentNameString = parentNameString
+	return s
 }
 
 func (s *SMUnitBuilder) WithL0CacheConfig(size int32) *SMUnitBuilder {
@@ -42,22 +57,26 @@ func (s *SMUnitBuilder) WithALUConfig(aluType string, cntPerSMUnit int32) *SMUni
 	return s
 }
 
-func (s *SMUnitBuilder) Build() *SMUnit {
-	smu := new(SMUnit)
-	smu.registerFile = s.buildRegisterFile()
-	smu.aluInt32 = make([]alu.ALU, s.aluInt32CntPerSMUnit)
-	for i := range smu.aluInt32 {
-		smu.aluInt32[i] = alu.NewALUBuilder().
-			WithALUType("int32").
-			Build()
+func (s *SMUnitBuilder) Build() runner.TraceableComponent {
+	smu := &SMUnit{
+		parentNameString: s.parentNameString,
+		nameID:           fmt.Sprintf("%d", s.counter),
 	}
-	
-	return smu
-}
 
-func (s *SMUnitBuilder) buildRegisterFile() *RegisterFile {
-	rf := new(RegisterFile)
-	rf.buf = make([]byte, s.registerFileSize)
-	rf.byteSizePerLane = s.laneSize
-	return rf
+	rfBuiler := NewRegisterFileBuilder().
+		WithLaneSize(s.laneSize).
+		WithSize(s.registerFileSize).
+		WithParentNameString(smu.Name())
+	smu.RegisterFile = rfBuiler.Build()
+
+	smu.ALUInt32 = make([]runner.TraceableComponent, s.aluInt32CntPerSMUnit)
+	aluBuilder := alu.NewALUBuilder().
+		WithParentNameString(smu.Name())
+	for i := range smu.ALUInt32 {
+		smu.ALUInt32[i] = aluBuilder.Build(nvidia.ALUINT32)
+		smu.ALUInt32Conn[i] = akita.NewDirectConnection("conn", )
+	}
+
+	s.counter++
+	return smu
 }

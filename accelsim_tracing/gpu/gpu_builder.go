@@ -1,10 +1,16 @@
 package gpu
 
 import (
+	"fmt"
+
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpc"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
 type GPUBuilder struct {
+	parentNameString string
+	counter          int32
+
 	//gpu
 	gpuDispatchStrategy string
 	gpcCnt              int32
@@ -27,6 +33,9 @@ type GPUBuilder struct {
 
 func NewGPUBuilder() *GPUBuilder {
 	return &GPUBuilder{
+		parentNameString: "",
+		counter:          0,
+
 		gpuDispatchStrategy:  "",
 		l2CacheSize:          0,
 		smCntPerGPC:          0,
@@ -38,6 +47,11 @@ func NewGPUBuilder() *GPUBuilder {
 		laneSize:             0,
 		aluInt32CntPerSMUnit: 0,
 	}
+}
+
+func (g *GPUBuilder) WithParentNameString(parentNameString string) *GPUBuilder {
+	g.parentNameString = parentNameString
+	return g
 }
 
 func (g *GPUBuilder) WithGPCCnt(cnt int32) *GPUBuilder {
@@ -97,30 +111,27 @@ func (g *GPUBuilder) WithALUConfig(aluType string, num int32) *GPUBuilder {
 }
 
 func (g *GPUBuilder) Build() (*GPU, error) {
-	gpu := new(GPU)
+	gpu := &GPU{
+		parentNameString: g.parentNameString,
+		nameID:           fmt.Sprintf("%d", g.counter),
+	}
 	gpu.dispatcher = g.buildDispatcher()
-	gpu.gpcs = make([]*gpc.GPC, g.gpcCnt)
-	for i := range gpu.gpcs {
-		gpu.gpcs[i] = gpc.NewGPCBuilder().
-			WithSMCnt(g.smCntPerGPC).
-			WithSMUnitCnt(g.smUnitCntPerSM).
-			WithSMStrategy(g.smDispatchStrategy).
-			WithL2CacheSizeConfig(g.l2CacheSize).
-			WithL1CacheSizeConfig(g.l1CacheSize).
-			WithL0CacheConfig(g.l0CacheSize).
-			WithRegisterFileConfig(g.registerFileSize, g.laneSize).
-			WithALUConfig("int32", g.aluInt32CntPerSMUnit).
-			Build()
-	}
-	
-	return gpu, nil
-}
 
-func (g *GPUBuilder) buildDispatcher() GPUDispatcher {
-	switch g.gpuDispatchStrategy {
-	case "round-robin":
-		return newDispatcherRoundRobin()
-	default:
-		panic("GPU strategy is not supported")
+	gpu.GPCs = make([]runner.TraceableComponent, g.gpcCnt)
+	gpcBuilder := gpc.NewGPCBuilder().
+		WithSMCnt(g.smCntPerGPC).
+		WithSMUnitCnt(g.smUnitCntPerSM).
+		WithSMStrategy(g.smDispatchStrategy).
+		WithL2CacheSizeConfig(g.l2CacheSize).
+		WithL1CacheSizeConfig(g.l1CacheSize).
+		WithL0CacheConfig(g.l0CacheSize).
+		WithRegisterFileConfig(g.registerFileSize, g.laneSize).
+		WithALUConfig("int32", g.aluInt32CntPerSMUnit).
+		WithParentNameString(gpu.Name())
+	for i := range gpu.GPCs {
+		gpu.GPCs[i] = gpcBuilder.Build()
 	}
+
+	g.counter++
+	return gpu, nil
 }

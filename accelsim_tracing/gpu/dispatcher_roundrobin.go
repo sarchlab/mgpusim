@@ -8,21 +8,18 @@ import (
 type dispatcherRoundRobin struct {
 }
 
-func newDispatcherRoundRobin() *dispatcherRoundRobin {
-	return &dispatcherRoundRobin{}
-}
-
-func (d *dispatcherRoundRobin) Dispatch(gpcs []*gpc.GPC, tb *nvidia.ThreadBlock) {
+func (d *dispatcherRoundRobin) Dispatch(gpu *GPU, tb *nvidia.ThreadBlock) {
 	for {
 		flag := false
-		for _, gpc := range gpcs {
+		for _, i := range gpu.GPCs {
+			gpc := i.(*gpc.GPC)
 			if gpc.IsFree() {
 				gpc.Execute(tb)
 				flag = true
 				break
 			}
 		}
-		
+
 		if flag {
 			break
 		}

@@ -1,10 +1,16 @@
 package sm
 
 import (
+	"fmt"
+
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/smunit"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
 type SMBuiler struct {
+	parentNameString string
+	counter          int32
+
 	//sm
 	l1CacheSize        int32
 	smDispatchStrategy string
@@ -19,6 +25,9 @@ type SMBuiler struct {
 
 func NewSMBuilder() *SMBuiler {
 	return &SMBuiler{
+		parentNameString: "",
+		counter:          0,
+
 		l1CacheSize:        0,
 		smDispatchStrategy: "",
 		smUnitCntPerSM:     0,
@@ -28,6 +37,11 @@ func NewSMBuilder() *SMBuiler {
 		laneSize:             0,
 		aluInt32CntPerSMUnit: 0,
 	}
+}
+
+func (s *SMBuiler) WithParentNameString(parentNameString string) *SMBuiler {
+	s.parentNameString = parentNameString
+	return s
 }
 
 func (s *SMBuiler) WithSMUnitCnt(cnt int32) *SMBuiler {
@@ -63,31 +77,27 @@ func (s *SMBuiler) WithALUConfig(aluType string, aluCnt int32) *SMBuiler {
 	default:
 		panic("ALU type is not supported")
 	}
-	
+
 	return s
 }
 
 func (s *SMBuiler) Build() *SM {
-	sm := new(SM)
+	sm := &SM{
+		parentNameString: s.parentNameString,
+		nameID:           fmt.Sprintf("%d", s.counter),
+	}
 	sm.dispatcher = s.buildDispatcher()
-	sm.smUnits = make([]*smunit.SMUnit, s.smUnitCntPerSM)
 
+	sm.SMUnits = make([]runner.TraceableComponent, s.smUnitCntPerSM)
+	smuBuilder := smunit.NewSMUnitBuilder().
+		WithL0CacheConfig(s.l0CacheSize).
+		WithRegisterFileConfig(s.registerFileSize, s.laneSize).
+		WithALUConfig("int32", s.aluInt32CntPerSMUnit).
+		WithParentNameString(sm.Name())
 	for i := 0; i < int(s.smUnitCntPerSM); i++ {
-		sm.smUnits[i] = smunit.NewSMUnitBuilder().
-			WithL0CacheConfig(s.l0CacheSize).
-			WithRegisterFileConfig(s.registerFileSize, s.laneSize).
-			WithALUConfig("int32", s.aluInt32CntPerSMUnit).
-			Build()
+		sm.SMUnits[i] = smuBuilder.Build()
 	}
 
+	s.counter++
 	return sm
-}
-
-func (s *SMBuiler) buildDispatcher() SMDispatcher {
-	switch s.smDispatchStrategy {
-	case "round-robin":
-		return newDispatcherRoundRobin()
-	default:
-		panic("Unknown dispatch strategy")
-	}
 }

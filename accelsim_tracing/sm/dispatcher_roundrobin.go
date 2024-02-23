@@ -8,22 +8,19 @@ import (
 type dispatcherRoundRobin struct {
 }
 
-func newDispatcherRoundRobin() *dispatcherRoundRobin {
-	return &dispatcherRoundRobin{}
-}
-
-func (d *dispatcherRoundRobin) Dispatch(smunits []*smunit.SMUnit, tb *nvidia.ThreadBlock) {
+func (d *dispatcherRoundRobin) Dispatch(sm *SM, tb *nvidia.ThreadBlock) {
 	for _, warp := range tb.Warps {
 		for {
 			flag := false
-			for _, smu := range smunits {
+			for _, i := range sm.SMUnits {
+				smu := i.(*smunit.SMUnit)
 				if smu.IsFree() {
 					smu.Execute(warp)
 					flag = true
 					break
 				}
 			}
-			
+
 			if flag {
 				break
 			}

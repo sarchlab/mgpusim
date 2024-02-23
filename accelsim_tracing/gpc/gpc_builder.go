@@ -1,10 +1,16 @@
 package gpc
 
 import (
+	"fmt"
+
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/sm"
+	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
 
 type GPCBuilder struct {
+	parentNameString string
+	counter          int32
+
 	//gpc
 	l2CacheSize int32
 	smCntPerGPC int32
@@ -23,6 +29,9 @@ type GPCBuilder struct {
 
 func NewGPCBuilder() *GPCBuilder {
 	return &GPCBuilder{
+		parentNameString: "",
+		counter:          0,
+
 		l2CacheSize:          0,
 		smCntPerGPC:          0,
 		l1CacheSize:          0,
@@ -33,6 +42,11 @@ func NewGPCBuilder() *GPCBuilder {
 		laneSize:             0,
 		aluInt32CntPerSMUnit: 0,
 	}
+}
+
+func (g *GPCBuilder) WithParentNameString(parentNameString string) *GPCBuilder {
+	g.parentNameString = parentNameString
+	return g
 }
 
 func (g *GPCBuilder) WithSMCnt(cnt int32) *GPCBuilder {
@@ -83,18 +97,24 @@ func (g *GPCBuilder) WithALUConfig(aluType string, cnt int32) *GPCBuilder {
 }
 
 func (g *GPCBuilder) Build() *GPC {
-	gpc := new(GPC)
-	gpc.sms = make([]*sm.SM, g.smCntPerGPC)
-	for i := range gpc.sms {
-		gpc.sms[i] = sm.NewSMBuilder().
-			WithSMUnitCnt(g.smUnitCntPerSM).
-			WithSMStrategy(g.smDispatchStrategy).
-			WithL1CacheConfig(g.l1CacheSize).
-			WithL0CacheConfig(g.l0CacheSize).
-			WithRegisterFileConfig(g.registerFileSize, g.laneSize).
-			WithALUConfig("int32", g.aluInt32CntPerSMUnit).
-			Build()
+	gpc := &GPC{
+		parentNameString: g.parentNameString,
+		nameID:           fmt.Sprintf("%d", g.counter),
 	}
-	
+
+	gpc.SMs = make([]runner.TraceableComponent, g.smCntPerGPC)
+	smBuilder := sm.NewSMBuilder().
+		WithSMUnitCnt(g.smUnitCntPerSM).
+		WithSMStrategy(g.smDispatchStrategy).
+		WithL1CacheConfig(g.l1CacheSize).
+		WithL0CacheConfig(g.l0CacheSize).
+		WithRegisterFileConfig(g.registerFileSize, g.laneSize).
+		WithALUConfig("int32", g.aluInt32CntPerSMUnit).
+		WithParentNameString(gpc.Name())
+	for i := range gpc.SMs {
+		gpc.SMs[i] = smBuilder.Build()
+	}
+
+	g.counter++
 	return gpc
 }
