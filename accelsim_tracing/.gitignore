@@ -1,3 +1,5 @@
 accelsim_tracing
 output/
-example/
+data/
+logs/
+v1/

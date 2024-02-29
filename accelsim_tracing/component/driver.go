@@ -9,7 +9,8 @@ import (
 type Driver struct {
 	*sim.TickingComponent
 
-	status []*StatusRecord
+	status    []*StatusRecord
+	tickCount int64
 
 	// gpu
 	deviceCount             int64
@@ -87,18 +88,25 @@ func (d *Driver) RunKernel(kernel Kernel) {
 	d.waitingKernel = append(d.waitingKernel, d.kernelCount)
 	d.kernels = append(d.kernels, *newKernel)
 	d.kernelCount++
-
-	println("[Driver: RunKernel]")
 }
 
 func (d *Driver) Tick(now sim.VTimeInSec) bool {
-	println("[Driver: Tick]")
+	if d.tickCount%1000 == 0 {
+		fmt.Printf("Driver tick:%7d\n", d.tickCount)
+		fmt.Printf("  Waiting kernel: %d/%d\n", len(d.waitingKernel), d.kernelCount)
+		fmt.Printf("  Kernel finished: %d/%d\n", len(d.freeDeviceIndex), d.deviceCount)
+	}
+	d.tickCount++
+	if d.tickCount == 20000 {
+		return false
+	}
 
 	madeProgress := false
 
 	madeProgress = d.applyKernelToDevices(now) || madeProgress
 	madeProgress = d.addThreadBlocksToDevices(now) || madeProgress
 	madeProgress = d.processInput(now) || madeProgress
+	madeProgress = d.divicesUnfinished(now) || madeProgress
 
 	return madeProgress
 }
@@ -191,6 +199,10 @@ func (d *Driver) applyKernelToDevices(now sim.VTimeInSec) bool {
 		return false
 	}
 
+	// d.Engine.Pause()
+	// device.device.TickLater(d.Engine.CurrentTime())
+	// d.Engine.Continue()
+
 	kernel.nextThreadblockToRun = 0
 	kernel.finishedTBCount = 0
 	kernel.startTime = now
@@ -236,7 +248,12 @@ func (d *Driver) addThreadBlocksToDevices(now sim.VTimeInSec) bool {
 	return true
 }
 
+func (d *Driver) divicesUnfinished(now sim.VTimeInSec) bool {
+	return len(d.freeDeviceIndex) != int(d.deviceCount)
+}
+
 func (d *Driver) ReportStatus(property ReportProperties) {
+	fmt.Printf("TickCount: %d\n", d.tickCount)
 	for _, status := range d.status {
 		if status.property == property {
 			fmt.Printf("[%s # %s] : %s\n",

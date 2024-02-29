@@ -1,6 +1,9 @@
 package component
 
-import "flag"
+import (
+	"flag"
+	"fmt"
+)
 
 var instCountReportFlag = flag.Bool("report-inst-count", false,
 	"Report the number of instructions executed in each compute unit.")
@@ -31,19 +34,28 @@ func (r *Runner) ParseFlags() {
 }
 
 func (r *Runner) Run() {
-	r.platform.gpu.TickLater(0)
-	r.platform.Engine().Run()
-
 	for _, benchmark := range r.benchmarks {
 		kernelCount := benchmark.KernelsCount()
 		for i := int64(0); i < kernelCount; i++ {
 			kernel := benchmark.Kernel(i)
 			r.platform.Driver().RunKernel(*kernel)
 		}
-		r.reportStatus()
+		// r.reportStatus()
 	}
 
+	fmt.Println("[Start Running]")
+
+	r.platform.Engine().Pause()
+	r.platform.Driver().TickLater(r.platform.Engine().CurrentTime())
+	r.platform.Engine().Continue()
+
+	r.platform.Engine().Run()
+
+	fmt.Println("[End Running]")
+
 	r.platform.Engine().Finished()
+
+	r.reportStatus()
 }
 
 type ReportProperties string

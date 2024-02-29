@@ -1,6 +1,6 @@
 package main
 
-import "draft/component"
+import "github.com/sarchlab/accelsimtracing/component"
 
 func main() {
 	// benchmark := component.BuildBenchmarkFromTrace("data/bfs-rodinia-2.0-ft")

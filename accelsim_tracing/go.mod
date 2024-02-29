@@ -1,4 +1,4 @@
-module draft
+module "github.com/sarchlab/accelsimtracing"
 
 go 1.20
 

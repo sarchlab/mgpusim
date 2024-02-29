@@ -11,6 +11,8 @@ const threadblockStackSize = 4
 type GPU struct {
 	*sim.TickingComponent
 
+	tickCount int64
+
 	// meta
 	toDriverSrc sim.Port
 	toDriverDst sim.Port
@@ -74,6 +76,11 @@ func NewGPU(
 }
 
 func (g *GPU) Tick(now sim.VTimeInSec) bool {
+	if g.tickCount%1000 == 0 {
+		fmt.Printf("    Subcore free: %d/%d\n", len(g.freeSubcores), g.subcoreCount)
+	}
+	g.tickCount++
+
 	madeProgress := false
 
 	madeProgress = g.reportFinishedThreadblocks(now) || madeProgress
