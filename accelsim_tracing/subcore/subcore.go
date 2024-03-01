@@ -1,36 +1,22 @@
-package component
+package subcore
 
-import "github.com/sarchlab/akita/v3/sim"
+import (
+	"github.com/sarchlab/accelsimtracing/benchmark"
+	"github.com/sarchlab/accelsimtracing/message"
+	"github.com/sarchlab/akita/v3/sim"
+)
 
 type Subcore struct {
 	*sim.TickingComponent
 
 	// meta
-	toGPUSrc sim.Port
-	toGPUDst sim.Port
+	toGPU       sim.Port
+	toGPURemote sim.Port
 
-	warp          Warp
+	warp          benchmark.Warp
 	nextInstToRun int64
 
 	needMoreWarps bool
-}
-
-func NewSubcore(
-	name string,
-	engine sim.Engine,
-	freq sim.Freq,
-	toGPUDst sim.Port,
-) *Subcore {
-	s := &Subcore{
-		toGPUDst: toGPUDst,
-	}
-	s.TickingComponent = sim.NewTickingComponent(name, engine, freq, s)
-	s.toGPUSrc = sim.NewLimitNumMsgPort(s, 4, "ToGPU")
-
-	conn := sim.NewDirectConnection("Conn", engine, freq)
-	conn.PlugIn(s.toGPUSrc, 1)
-	conn.PlugIn(toGPUDst, 1)
-	return s
 }
 
 func (s *Subcore) Tick(now sim.VTimeInSec) bool {
@@ -44,13 +30,13 @@ func (s *Subcore) Tick(now sim.VTimeInSec) bool {
 }
 
 func (s *Subcore) processInput(now sim.VTimeInSec) bool {
-	msg := s.toGPUSrc.Peek()
+	msg := s.toGPU.Peek()
 	if msg == nil {
 		return false
 	}
 
 	switch msg := msg.(type) {
-	case *DeviceToSubcoreMsg:
+	case *message.DeviceToSubcoreMsg:
 		s.processDeviceMsg(msg, now)
 	default:
 		panic("Unrecognized message")
@@ -59,21 +45,21 @@ func (s *Subcore) processInput(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (s *Subcore) processDeviceMsg(msg *DeviceToSubcoreMsg, now sim.VTimeInSec) {
-	s.warp = msg.warp
+func (s *Subcore) processDeviceMsg(msg *message.DeviceToSubcoreMsg, now sim.VTimeInSec) {
+	s.warp = msg.Warp
 
 	s.nextInstToRun = 0
 
-	s.toGPUSrc.Retrieve(now)
+	s.toGPU.Retrieve(now)
 }
 
 func (s *Subcore) runWarp() bool {
-	if s.nextInstToRun == s.warp.InstructionsCount() {
+	if s.nextInstToRun == s.warp.InstructionsCount {
 		return false
 	}
 
 	s.nextInstToRun++
-	if s.nextInstToRun == s.warp.InstructionsCount() {
+	if s.nextInstToRun == s.warp.InstructionsCount {
 		s.needMoreWarps = true
 	}
 
@@ -85,12 +71,12 @@ func (s *Subcore) requestMoreWarp(now sim.VTimeInSec) bool {
 		return false
 	}
 
-	msg := &SubcoreToDeviceMsg{}
-	msg.Src = s.toGPUSrc
-	msg.Dst = s.toGPUDst
+	msg := &message.SubcoreToDeviceMsg{}
+	msg.Src = s.toGPU
+	msg.Dst = s.toGPURemote
 	msg.SendTime = now
 
-	err := s.toGPUSrc.Send(msg)
+	err := s.toGPURemote.Send(msg)
 	if err != nil {
 		return false
 	}

@@ -1,12 +1,11 @@
-package component
+package gpu
 
 import (
-	"fmt"
-
+	"github.com/sarchlab/accelsimtracing/benchmark"
+	"github.com/sarchlab/accelsimtracing/message"
+	"github.com/sarchlab/accelsimtracing/subcore"
 	"github.com/sarchlab/akita/v3/sim"
 )
-
-const threadblockStackSize = 4
 
 type GPU struct {
 	*sim.TickingComponent
@@ -14,8 +13,11 @@ type GPU struct {
 	tickCount int64
 
 	// meta
-	toDriverSrc sim.Port
-	toDriverDst sim.Port
+	toDriver       sim.Port
+	toDriverRemote sim.Port
+
+	toSubcores             sim.Port
+	connectionWithSubcores sim.Connection
 
 	subcoreCount int64
 	subcores     []*SubCoreInfo
@@ -28,7 +30,7 @@ type GPU struct {
 }
 
 type ThreadblockInfo struct {
-	threadblock Threadblock
+	threadblock benchmark.Threadblock
 	finished    bool
 
 	nextWarpToRun     int64
@@ -36,51 +38,14 @@ type ThreadblockInfo struct {
 }
 
 type SubCoreInfo struct {
-	device *Subcore
+	device *subcore.Subcore
 
-	toSubcoreSrc sim.Port
-	toSubcoreDst sim.Port
+	toSubcoreRemote sim.Port
 
 	threadblockID int64
 }
 
-func NewGPU(
-	name string,
-	engine sim.Engine,
-	freq sim.Freq,
-	subcoreCount int64,
-) *GPU {
-	g := &GPU{
-		subcoreCount: subcoreCount,
-		subcores:     make([]*SubCoreInfo, subcoreCount),
-	}
-
-	g.TickingComponent = sim.NewTickingComponent(name, engine, freq, g)
-	g.toDriverSrc = sim.NewLimitNumMsgPort(g, 4, "ToDriver")
-
-	for i := int64(0); i < g.subcoreCount; i++ {
-		p := sim.NewLimitNumMsgPort(g, 4, "ToSubcore")
-		subcore := NewSubcore(fmt.Sprintf("Subcore(%d)", i), engine, freq, p)
-
-		subcoreInfo := &SubCoreInfo{
-			device:       subcore,
-			toSubcoreSrc: p,
-			toSubcoreDst: subcore.toGPUSrc,
-		}
-
-		g.subcores[i] = subcoreInfo
-		g.freeSubcores = append(g.freeSubcores, i)
-	}
-
-	return g
-}
-
 func (g *GPU) Tick(now sim.VTimeInSec) bool {
-	if g.tickCount%1000 == 0 {
-		fmt.Printf("    Subcore free: %d/%d\n", len(g.freeSubcores), g.subcoreCount)
-	}
-	g.tickCount++
-
 	madeProgress := false
 
 	madeProgress = g.reportFinishedThreadblocks(now) || madeProgress
@@ -92,36 +57,14 @@ func (g *GPU) Tick(now sim.VTimeInSec) bool {
 	return madeProgress
 }
 
-// DeviceToSubcoreMsg: apply a warp to a subcore
-type DeviceToSubcoreMsg struct {
-	sim.MsgMeta
-
-	warp Warp
-}
-
-func (m *DeviceToSubcoreMsg) Meta() *sim.MsgMeta {
-	return &m.MsgMeta
-}
-
-// SubcoreToDeviceMsg: report a finished warp
-type SubcoreToDeviceMsg struct {
-	sim.MsgMeta
-
-	subcoreID int64
-}
-
-func (m *SubcoreToDeviceMsg) Meta() *sim.MsgMeta {
-	return &m.MsgMeta
-}
-
 func (g *GPU) processUpInput(now sim.VTimeInSec) bool {
-	msg := g.toDriverSrc.Peek()
+	msg := g.toDriver.Peek()
 	if msg == nil {
 		return false
 	}
 
 	switch msg := msg.(type) {
-	case *DriverToDeviceMsg:
+	case *message.DriverToDeviceMsg:
 		g.processDriverMsg(msg, now)
 	default:
 		panic("Unhandled message type")
@@ -139,7 +82,7 @@ func (g *GPU) processDownInput(now sim.VTimeInSec) bool {
 		}
 
 		switch msg := msg.(type) {
-		case *SubcoreToDeviceMsg:
+		case *message.SubcoreToDeviceMsg:
 			g.processSubcoreMsg(msg, now, i)
 			return true
 		default:
@@ -150,16 +93,18 @@ func (g *GPU) processDownInput(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (g *GPU) processDriverMsg(msg *DriverToDeviceMsg, now sim.VTimeInSec) {
-	if msg.newKernel {
+const stackSize = 4
+
+func (g *GPU) processDriverMsg(msg *message.DriverToDeviceMsg, now sim.VTimeInSec) {
+	if msg.NewKernel {
 		g.threadblocksCount = 0
-		g.toDriverSrc.Retrieve(now)
+		g.toDriver.Retrieve(now)
 		return
 	}
 
 	var threadblockID int64
 
-	if g.threadblocksCount < threadblockStackSize {
+	if g.threadblocksCount < stackSize {
 		threadblockID = g.threadblocksCount
 		g.threadblocksCount++
 
@@ -173,7 +118,7 @@ func (g *GPU) processDriverMsg(msg *DriverToDeviceMsg, now sim.VTimeInSec) {
 	}
 
 	threadblockInfo := &ThreadblockInfo{
-		threadblock: msg.threadblock,
+		threadblock: msg.Threadblock,
 		finished:    false,
 
 		nextWarpToRun:     0,
@@ -182,16 +127,16 @@ func (g *GPU) processDriverMsg(msg *DriverToDeviceMsg, now sim.VTimeInSec) {
 
 	g.threadblocks[threadblockID] = threadblockInfo
 
-	g.toDriverSrc.Retrieve(now)
+	g.toDriver.Retrieve(now)
 }
 
-func (g *GPU) processSubcoreMsg(msg *SubcoreToDeviceMsg, now sim.VTimeInSec, subcoreID int64) {
+func (g *GPU) processSubcoreMsg(msg *message.SubcoreToDeviceMsg, now sim.VTimeInSec, subcoreID int64) {
 	threadblockID := g.subcores[subcoreID].threadblockID
 	threadblock := g.threadblocks[threadblockID]
 	threadblock.finishedWarpCount++
-	g.freeSubcores = append(g.freeSubcores, msg.subcoreID)
+	g.freeSubcores = append(g.freeSubcores, msg.SubcoreID)
 
-	if threadblock.finishedWarpCount == threadblock.threadblock.WarpsCount() {
+	if threadblock.finishedWarpCount == threadblock.threadblock.WarpsCount {
 		threadblock.finished = true
 		g.finishedThreadblocksToReport = append(g.finishedThreadblocksToReport, threadblockID)
 		g.needMoreThreadblocks++
@@ -205,14 +150,14 @@ func (g *GPU) reportFinishedThreadblocks(now sim.VTimeInSec) bool {
 		return false
 	}
 
-	msg := &DeviceToDriverMsg{
-		threadBlockFinished: true,
+	msg := &message.DeviceToDriverMsg{
+		ThreadblockFinished: true,
 	}
-	msg.Src = g.toDriverSrc
-	msg.Dst = g.toDriverDst
+	msg.Src = g.toDriver
+	msg.Dst = g.toDriverRemote
 	msg.SendTime = now
 
-	err := g.toDriverSrc.Send(msg)
+	err := g.toDriver.Send(msg)
 	if err != nil {
 		return false
 	}
@@ -227,14 +172,14 @@ func (g *GPU) requestMoreThreadblocks(now sim.VTimeInSec) bool {
 		return false
 	}
 
-	msg := &DeviceToDriverMsg{
-		requestMore: true,
+	msg := &message.DeviceToDriverMsg{
+		RequestMore: true,
 	}
-	msg.Src = g.toDriverSrc
-	msg.Dst = g.toDriverDst
+	msg.Src = g.toDriver
+	msg.Dst = g.toDriverRemote
 	msg.SendTime = now
 
-	err := g.toDriverSrc.Send(msg)
+	err := g.toDriver.Send(msg)
 	if err != nil {
 		return false
 	}
@@ -256,13 +201,13 @@ func (g *GPU) applyWarpToSubcores(now sim.VTimeInSec) bool {
 		if threadblock.finished {
 			continue
 		}
-		warp := *threadblock.threadblock.Warp(threadblock.nextWarpToRun)
+		warp := threadblock.threadblock.Warps[threadblock.nextWarpToRun]
 
-		msg := &DeviceToSubcoreMsg{
-			warp: warp,
+		msg := &message.DeviceToSubcoreMsg{
+			Warp: warp,
 		}
 		msg.Src = subcore.toSubcoreSrc
-		msg.Dst = subcore.toSubcoreDst
+		msg.Dst = subcore.toSubcoreRemote
 		msg.SendTime = now
 
 		err := subcore.toSubcoreSrc.Send(msg)
