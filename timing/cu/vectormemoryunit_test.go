@@ -91,6 +91,7 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactions[i].Read = read
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
+		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
 		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
 
 		madeProgress := vecMemUnit.instToTransaction(10)
@@ -122,6 +123,7 @@ var _ = Describe("Vector Memory Unit", func() {
 			transactions[i].Write = write
 		}
 		coalescer.EXPECT().generateMemTransactions(wave).Return(transactions)
+		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
 		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
 
 		madeProgress := vecMemUnit.instToTransaction(10)

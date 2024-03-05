@@ -24,19 +24,7 @@ func (a *FetchArbiter) Arbitrate(
 	for _, wfPool := range wfPools {
 		for _, wf := range wfPool.wfs {
 			wf.RLock()
-
-			if wf.IsFetching {
-				wf.RUnlock()
-				continue
-			}
-
-			if wf.State == wavefront.WfCompleted {
-				wf.RUnlock()
-				continue
-			}
-
-			if len(wf.InstBuffer) >= a.InstBufByteSize {
-				wf.RUnlock()
+			if !a.canFetchFromWF(wf) {
 				continue
 			}
 
@@ -53,4 +41,32 @@ func (a *FetchArbiter) Arbitrate(
 	}
 
 	return list
+}
+
+func (a *FetchArbiter) canFetchFromWF(wf *wavefront.Wavefront) bool {
+	if wf.IsFetching {
+		return false
+	}
+
+	if wf.State == wavefront.WfCompleted {
+		return false
+	}
+
+	if len(wf.InstBuffer) >= a.InstBufByteSize {
+		return false
+	}
+
+	if wf.CodeObject != nil && wf.CodeObject.Symbol != nil {
+		lastPCInBinary := wf.CodeObject.Symbol.Size +
+			wf.WG.Packet.KernelObject
+		lastPCInInstBuffer := wf.InstBufferStartPC +
+			uint64(len(wf.InstBuffer))
+		if lastPCInInstBuffer >= lastPCInBinary {
+			// fmt.Printf("lastInstPCInBinary: %016X, lastPCInInstBuffer: %016X, PC: %016X\n",
+			// 	lastPCInBinary, lastPCInInstBuffer, wf.PC)
+			return false
+		}
+	}
+
+	return true
 }

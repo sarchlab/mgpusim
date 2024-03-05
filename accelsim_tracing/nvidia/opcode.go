@@ -33,7 +33,6 @@ func NewOpcode(rawText string) *Opcode {
 		op = Opcode{rawText, OpCodeError, VariableError}
 		log.Panic("Unknown opcode: ", rawText)
 	}
-
 	return &op
 }
 

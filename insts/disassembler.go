@@ -332,6 +332,10 @@ func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 		inst.Imm = true
 		inst.ByteSize += 4
 		inst.Src2 = &Operand{0, LiteralConstant, nil, 0, 0, 0, 0}
+		if len(buf) < 8 {
+			return errors.New("no enough bytes")
+		}
+
 		inst.Src2.LiteralConstant = BytesToUint32(buf[4:8])
 	}
 
@@ -694,6 +698,7 @@ func (d *Disassembler) combineDSOffsets(inst *Inst) {
 }
 
 // Decode parses the head of the buffer and returns the next instruction
+//
 //nolint:gocyclo,funlen
 func (d *Disassembler) Decode(buf []byte) (*Inst, error) {
 	format, err := d.matchFormat(binary.LittleEndian.Uint32(buf[:4]))

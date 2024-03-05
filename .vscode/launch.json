@@ -1,0 +1,480 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Acceptance Test",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/tests/acceptance",
+            "args": [
+                "benchmark=fir"
+            ]
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/insts",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/insts"
+        },
+        {
+            "name": "Test gitlab.com/akita/mgpusim/driver",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/driver"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/driver/internal",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/driver/internal"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/kernels",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/kernels"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/bitops",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/bitops"
+        },
+        {
+            "name": "Test gitlab.com/akita/mgpusim/dispatching",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing/cp/internal/dispatching"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/emu",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/emu"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/timing",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing"
+        },
+        {
+            "name": "Test github.com/sarchlab/mgpusim/timing/cu",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing/cu"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/timing/caches/l1v",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing/caches/l1v"
+        },
+        {
+            "name": "Test gitlab.com/akita/gcn3/timing/caches/writearound",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing/caches/writearound"
+        },
+        {
+            "name": "Test gitlab.com/akita/mgpusim/benchmarks/dnn/layers",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/benchmarks/dnn/layers"
+        },
+        {
+            "name": "Test gitlab.com/akita/mgpusim/benchmarks/dnn/tensor",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/benchmarks/dnn/tensor"
+        },
+        {
+            "name": "Test gitlab.com/akita/mgpusim/benchmarks/mccl",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/benchmarks/mccl"
+        },
+        {
+            "name": "L1V acceptance test",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/timing/newcaches/l1v/acceptancetest"
+        },
+        {
+            "name": "AES",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/aes",
+            "args": [
+                "-verify",
+                "-length=16384",
+                "-unified-gpus=1,2",
+                "-use-unified-memory",
+                "-timing",
+                "-no-progress-bar"
+            ]
+        },
+        {
+            "name": "ATAX",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/atax",
+            "args": [
+                "-verify",
+                "-x=256",
+                "-y=256",
+                "-timing",
+            ]
+        },
+        {
+            "name": "NW",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/nw",
+            "args": [
+                "-length=8",
+                "-verify"
+            ]
+        },
+        {
+            "name": "FIR",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/fir",
+            "args": [
+                "-timing",
+                "-length=8192",
+                "-report-all",
+            ],
+        },
+        {
+            "name": "KMeans",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/kmeans",
+            "args": [
+                // "-timing",
+                "-points=1024",
+                "-features=32",
+                "-clusters=5",
+                "-max-iter=4",
+                // "-report-all",
+            ],
+        },
+        {
+            "name": "Conv2d",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/conv2d",
+            "args": [
+                "-timing",
+                "-enable-backward=true",
+                "-report-all",
+                "-N=16",
+                "-C=1",
+                "-H=28",
+                "-W=28",
+                "-kernel-height=5",
+                "-kernel-width=5",
+                "-output-channel=6",
+            ]
+        },
+        {
+            "name": "Im2Col",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/im2col",
+            "args": [
+                "-timing",
+                "-N=64",
+                "-C=6",
+                "-H=24",
+                "-W=24",
+                "-kernel-height=5",
+                "-kernel-width=5",
+                "-pad-x=4",
+                "-pad-y=4",
+            ]
+        },
+        {
+            "name": "Concurrent Workload",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/concurrentworkload",
+            "args": [
+                "-timing",
+            ]
+        },
+        {
+            "name": "Concurrent Kernel",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/concurrentkernel",
+            "args": [
+                "-timing",
+            ]
+        },
+        {
+            "name": "SPMV",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/spmv",
+            "args": [
+                "-verify",
+                "-timing",
+                "-dim=1048576",
+                "-sparsity=0.0000001",
+            ]
+        },
+        {
+            "name": "FFT",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/fft",
+            "args": [
+                "-timing",
+            ]
+        },
+        {
+            "name": "NBody",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/nbody",
+            "args": [
+                "-verify",
+                "-timing",
+            ]
+        },
+        {
+            "name": "Relu",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/relu",
+            "args": [
+                "-timing",
+                "-length=64"
+            ]
+        },
+        {
+            "name": "Matrix Multiplication",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/matrixmultiplication",
+            "args": [
+                "-timing",
+                "-x=1024",
+                "-y=1024",
+                "-z=1024"
+            ]
+        },
+        {
+            "name": "Matrix Transpose",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/matrixtranspose",
+            "args": [
+                "-width=1024",
+                "-unified-gpus=1,2,3,4",
+                "-timing",
+                "-magic-memory-copy",
+            ]
+        },
+        {
+            "name": "Bitonic Sort",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/bitonicsort",
+            "args": [
+                "-verify",
+                "-length=128",
+                "-timing",
+                "-gpus=1,2"
+            ]
+        },
+        {
+            "name": "MaxPooling",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/maxpooling",
+            "args": [
+                "-verify-while-executing",
+                "-h=4",
+                "-w=4",
+                "-pad-h=0",
+                "-pad-w=0",
+                "-stride-h=1",
+                "-stride-w=1",
+                "-kernel-h=3",
+                "-kernel-w=3",
+            ]
+        },
+        {
+            "name": "Floyd Warshall",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/floydwarshall",
+            "args": [
+                "-iter=1",
+                "-node=512",
+                "-timing",
+                "-verify",
+            ]
+        },
+        {
+            "name": "Stencil 2d",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/stencil2d",
+            "args": [
+                "-verify",
+                // "-debug-isa"
+            ]
+        },
+        {
+            "name": "Simple Convolution",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/simpleconvolution",
+            "args": [
+                "-verify",
+                "-unified-gpus=1,2",
+                "-timing",
+                "-use-unified-memory",
+                "-no-progress-bar",
+                // "-debug-isa"
+            ]
+        },
+        {
+            "name": "Page Rank",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/pagerank",
+            "args": [
+                "-verify",
+                "-node=64",
+                "-sparsity=1",
+                "-iterations=2",
+                "-debug-isa"
+            ]
+        },
+        {
+            "name": "BFS",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/bfs",
+            "args": [
+                "-load-graph=Slashdot0902.txt",
+                "-verify"
+            ]
+        },
+        {
+            "name": "XOR",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/xor",
+            "args": [
+                "-timing",
+                "-no-progress-bar"
+            ]
+        },
+        {
+            "name": "Minerva",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/minerva",
+            "args": [
+                // "-timing",
+                "-mnist-data-folder=/home/yifan/dev/src/gitlab.com/akita/dnn/dataset/mnist/data/"
+            ]
+        },
+        {
+            "name": "Minerva Multi-GPU",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/minervamultigpu",
+            "args": [
+                // "-timing",
+                "-mnist-data-folder=/home/yifan/dev/src/gitlab.com/akita/dnn/dataset/mnist/data/",
+                "--gpus=1,2"
+            ]
+        },
+        {
+            "name": "Lenet",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/lenet",
+            "args": [
+                "-timing",
+                "-mnist-data-folder=/home/yifan/dev/src/gitlab.com/akita/dnn/dataset/mnist/data/"
+            ]
+        },
+        {
+            "name": "Concurrent workload",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/concurrentworkload",
+            "args": [
+                "-verify",
+                "-gpus=1,2,3,4",
+                "-timing=true",
+                "-use-unified-memory=true"
+                // "-debug-isa",
+                // "-timing",
+            ]
+        },
+        {
+            "name": "Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/server",
+            "args": []
+        }
+    ]
+}
