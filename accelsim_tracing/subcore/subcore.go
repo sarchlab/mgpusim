@@ -34,8 +34,6 @@ func (s *Subcore) Tick(now sim.VTimeInSec) bool {
 	madeProgress = s.processSMInput(now) || madeProgress
 	// warps can be switched, but ignore now
 
-	// fmt.Println("Subcore tick, time is:", now, "madeProgress:", madeProgress, "unfinishedInstsCount:", s.unfinishedInstsCount, "finishedWarpsCount:", s.finishedWarpsCount)
-
 	return madeProgress
 }
 

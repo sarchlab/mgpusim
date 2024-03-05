@@ -1,2 +1,2 @@
-// The nvidia package contains some basic types.
+// Package nvidia contains some basic types.
 package nvidia

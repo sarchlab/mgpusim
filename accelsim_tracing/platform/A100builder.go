@@ -42,8 +42,8 @@ func (b *A100PlatformBuilder) Build() *Platform {
 	return p
 }
 
-func (p *A100PlatformBuilder) freqMustBeSet() {
-	if p.freq == 0 {
+func (b *A100PlatformBuilder) freqMustBeSet() {
+	if b.freq == 0 {
 		panic("Frequency must be set")
 	}
 }

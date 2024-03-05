@@ -1,2 +1,2 @@
-// The sm package implements the SM ticking component.
+// Package sm implements the SM ticking component.
 package sm

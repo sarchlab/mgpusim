@@ -1,2 +1,2 @@
-// The gpu package implements the gpu ticking component .
+// Package gpu implements the gpu ticking component .
 package gpu
