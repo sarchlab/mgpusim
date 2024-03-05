@@ -1,2 +1,2 @@
-// Package benchmark contains traces information
+// The benchmark package can load trace information and run simulation.
 package benchmark

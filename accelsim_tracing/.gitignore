@@ -3,3 +3,4 @@ output/
 data/
 logs/
 v1/
+*.log
