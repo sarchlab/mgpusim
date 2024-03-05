@@ -9,7 +9,8 @@ import (
 
 func TestBenchmarkBuild(t *testing.T) {
 	benchmark := new(benchmark.BenchmarkBuilder).
-		WithTraceDirectory("../data/bfs-rodinia-2.0-ft").
+		// WithTraceDirectory("../data/bfs-rodinia-2.0-ft").
+		WithTraceDirectory("../data/simple-trace-example").
 		Build()
 
 	kernelCount := 0
@@ -25,10 +26,17 @@ func TestBenchmarkBuild(t *testing.T) {
 		}
 	}
 
-	if kernelCount != 16 {
-		t.Errorf("Expected 16 kernel, got %d", kernelCount)
+	// if kernelCount != 16 {
+	// 	t.Errorf("Expected 16 kernel, got %d", kernelCount)
+	// }
+	// if memcpyCount != 14 {
+	// 	t.Errorf("Expected 14 memcpy, got %d", memcpyCount)
+	// }
+
+	if kernelCount != 3 {
+		t.Errorf("Expected 3 kernel, got %d", kernelCount)
 	}
-	if memcpyCount != 14 {
-		t.Errorf("Expected 14 memcpy, got %d", memcpyCount)
+	if memcpyCount != 3 {
+		t.Errorf("Expected 3 memcpy, got %d", memcpyCount)
 	}
 }

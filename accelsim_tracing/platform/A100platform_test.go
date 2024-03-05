@@ -18,7 +18,8 @@ func TestA100PlatformWithActualData(t *testing.T) {
 	setTestLogFile()
 
 	benchmark := new(benchmark.BenchmarkBuilder).
-		WithTraceDirectory("../data/bfs-rodinia-2.0-ft").
+		// WithTraceDirectory("../data/bfs-rodinia-2.0-ft").
+		WithTraceDirectory("../data/simple-trace-example").
 		Build()
 	platform := new(platform.A100PlatformBuilder).
 		WithFreq(1 * sim.Hz).
