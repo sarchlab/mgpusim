@@ -29,7 +29,7 @@ func (b *SubcoreBuilder) Build(name string) *Subcore {
 	s.toSM = sim.NewLimitNumMsgPort(s, 4, "ToSM")
 	s.AddPort("ToSM", s.toSM)
 
-	atexit.Register(s.LogInstsCount)
+	atexit.Register(s.LogStatus)
 
 	return s
 }

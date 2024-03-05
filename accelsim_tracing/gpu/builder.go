@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/accelsimtracing/sm"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/tebeka/atexit"
 )
 
 type GPUBuilder struct {
@@ -38,13 +39,15 @@ func (b *GPUBuilder) WithSubcoresCountPerSM(count int64) *GPUBuilder {
 func (b *GPUBuilder) Build(name string) *GPU {
 	g := &GPU{
 		ID:  sim.GetIDGenerator().Generate(),
-		sms: make(map[string]*sm.SM),
+		SMs: make(map[string]*sm.SM),
 	}
 
 	g.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, g)
 	b.buildPortsForGPU(g)
 	sms := b.buildSMs(name)
 	b.connectGPUWithSMs(g, sms)
+
+	atexit.Register(g.LogStatus)
 
 	return g
 }
@@ -79,7 +82,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPU, sms []*sm.SM) {
 		sm := sms[i]
 
 		gpu.freeSMs = append(gpu.freeSMs, sm)
-		gpu.sms[sm.ID] = sm
+		gpu.SMs[sm.ID] = sm
 
 		sm.SetGPURemotePort(gpu.toSMs)
 		conn.PlugIn(sm.GetPortByName("ToGPU"), 4)

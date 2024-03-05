@@ -17,7 +17,7 @@ type GPU struct {
 	toDriverRemote sim.Port
 
 	toSMs   sim.Port
-	sms     map[string]*sm.SM
+	SMs     map[string]*sm.SM
 	freeSMs []*sm.SM
 
 	undispatchedThreadblocks    []*nvidia.Threadblock
@@ -75,8 +75,8 @@ func (g *GPU) processSMsInput(now sim.VTimeInSec) bool {
 }
 
 func (g *GPU) processDriverMsg(msg *message.DriverToDeviceMsg, now sim.VTimeInSec) {
-	for _, threadblock := range msg.Kernel.Threadblocks {
-		g.undispatchedThreadblocks = append(g.undispatchedThreadblocks, &threadblock)
+	for i := range msg.Kernel.Threadblocks {
+		g.undispatchedThreadblocks = append(g.undispatchedThreadblocks, &msg.Kernel.Threadblocks[i])
 		g.unfinishedThreadblocksCount++
 	}
 
@@ -85,7 +85,7 @@ func (g *GPU) processDriverMsg(msg *message.DriverToDeviceMsg, now sim.VTimeInSe
 
 func (g *GPU) processSMsMsg(msg *message.SMToDeviceMsg, now sim.VTimeInSec) {
 	if msg.ThreadblockFinished {
-		g.freeSMs = append(g.freeSMs, g.sms[msg.SMID])
+		g.freeSMs = append(g.freeSMs, g.SMs[msg.SMID])
 		g.unfinishedThreadblocksCount--
 		if g.unfinishedThreadblocksCount == 0 {
 			g.finishedKernelsCount++
@@ -142,4 +142,7 @@ func (g *GPU) dispatchThreadblocksToSMs(now sim.VTimeInSec) bool {
 	g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
 
 	return false
+}
+
+func (g *GPU) LogStatus() {
 }

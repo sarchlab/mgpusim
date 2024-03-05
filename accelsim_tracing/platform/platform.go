@@ -9,5 +9,5 @@ import (
 type Platform struct {
 	Engine  sim.Engine
 	Driver  *driver.Driver
-	devices []*gpu.GPU
+	Devices []*gpu.GPU
 }

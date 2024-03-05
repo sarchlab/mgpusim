@@ -27,14 +27,14 @@ type KernelFileHeader struct {
 }
 
 type ThreadblockTrace struct {
-	threadblockDim nvidia.Dim3
-	warps          []WarpTrace
+	ThreadblockDim nvidia.Dim3
+	Warps          []WarpTrace
 }
 
 type WarpTrace struct {
-	warpID       int32
-	instsCount   int32
-	instructions []Instruction
+	WarpID       int32
+	InstsCount   int32
+	Instructions []Instruction
 }
 
 type Instruction struct {
@@ -104,13 +104,13 @@ func (k *KernelTrace) Threadblock(id int64) *ThreadblockTrace {
 }
 
 func (tb *ThreadblockTrace) WarpsCount() int64 {
-	return int64(len(tb.warps))
+	return int64(len(tb.Warps))
 }
 
 func (tb *ThreadblockTrace) Warp(id int64) *WarpTrace {
-	return &tb.warps[id]
+	return &tb.Warps[id]
 }
 
 func (w *WarpTrace) InstructionsCount() int64 {
-	return int64(len(w.instructions))
+	return int64(len(w.Instructions))
 }

@@ -93,7 +93,7 @@ func readThreadblocks(scanner *bufio.Scanner) []ThreadblockTrace {
 			lines := make([]string, 0)
 			for scanner.Scan() {
 				if strings.TrimSpace(scanner.Text()) == threadblockEnd {
-					tb := buildThreadblock(lines)
+					tb := BuildThreadblock(lines)
 					threadblockTraces = append(threadblockTraces, tb)
 					break
 				}
@@ -107,19 +107,19 @@ func readThreadblocks(scanner *bufio.Scanner) []ThreadblockTrace {
 
 const warpPrefix = "warp"
 
-func buildThreadblock(lines []string) ThreadblockTrace {
+func BuildThreadblock(lines []string) ThreadblockTrace {
 	tb := ThreadblockTrace{}
-	tb.threadblockDim = buildThreadblockDim(lines)
+	tb.ThreadblockDim = buildThreadblockDim(lines)
 
 	for i, line := range lines {
 		if strings.HasPrefix(line, warpPrefix) {
 			wp := buildWarpHeader(lines[i], lines[i+1])
-			for j := 0; j < int(wp.instsCount); j++ {
+			for j := 0; j < int(wp.InstsCount); j++ {
 				inst := buildInst(lines[i+2+j])
-				wp.instructions = append(wp.instructions, inst)
+				wp.Instructions = append(wp.Instructions, inst)
 			}
 
-			tb.warps = append(tb.warps, wp)
+			tb.Warps = append(tb.Warps, wp)
 		}
 	}
 
@@ -158,8 +158,8 @@ func buildWarpHeader(warpText string, instsText string) WarpTrace {
 		log.Panicf("Invalid warp header: %s, %s", warpText, instsText)
 	}
 
-	_, err0 := fmt.Sscanf(strings.TrimSpace(elems0[1]), "%d", &wp.warpID)
-	_, err1 := fmt.Sscanf(strings.TrimSpace(elems1[1]), "%d", &wp.instsCount)
+	_, err0 := fmt.Sscanf(strings.TrimSpace(elems0[1]), "%d", &wp.WarpID)
+	_, err1 := fmt.Sscanf(strings.TrimSpace(elems1[1]), "%d", &wp.InstsCount)
 	if err0 != nil || err1 != nil {
 		log.Panicf("Invalid warp header: %s, %s", warpText, instsText)
 	}

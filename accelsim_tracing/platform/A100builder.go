@@ -36,7 +36,7 @@ func (b *A100PlatformBuilder) Build() *Platform {
 	for i := 0; i < gpuCount; i++ {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))
 		p.Driver.RegisterGPU(gpu)
-		p.devices = append(p.devices, gpu)
+		p.Devices = append(p.Devices, gpu)
 	}
 
 	return p

@@ -1,7 +1,7 @@
 package subcore
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/sarchlab/accelsimtracing/message"
 	"github.com/sarchlab/akita/v3/sim"
@@ -57,6 +57,7 @@ func (s *Subcore) processSMInput(now sim.VTimeInSec) bool {
 
 func (s *Subcore) processSMMsg(msg *message.SMToSubcoreMsg, now sim.VTimeInSec) {
 	s.unfinishedInstsCount = msg.Warp.InstructionsCount
+	s.instsCount += msg.Warp.InstructionsCount
 
 	s.toSM.Retrieve(now)
 }
@@ -66,7 +67,6 @@ func (s *Subcore) run() bool {
 		return false
 	}
 
-	s.instsCount++
 	s.unfinishedInstsCount--
 	if s.unfinishedInstsCount == 0 {
 		s.finishedWarpsCount++
@@ -98,6 +98,10 @@ func (s *Subcore) reportFinishedWarps(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (s *Subcore) LogInstsCount() {
-	fmt.Printf("[subcore#%s] insts_count=%d\n", s.ID, s.instsCount)
+func (s *Subcore) GetTotalInstsCount() int64 {
+	return s.instsCount
+}
+
+func (s *Subcore) LogStatus() {
+	log.Printf("[subcore#%s] total_insts_count=%d\n", s.ID, s.instsCount)
 }

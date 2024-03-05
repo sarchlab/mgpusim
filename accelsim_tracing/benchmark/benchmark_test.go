@@ -1,13 +1,14 @@
-package benchmark
+package benchmark_test
 
 import (
 	"testing"
 
+	"github.com/sarchlab/accelsimtracing/benchmark"
 	"github.com/sarchlab/accelsimtracing/nvidia"
 )
 
 func TestBenchmarkBuild(t *testing.T) {
-	benchmark := new(BenchmarkBuilder).
+	benchmark := new(benchmark.BenchmarkBuilder).
 		WithTraceDirectory("../data/bfs-rodinia-2.0-ft").
 		Build()
 

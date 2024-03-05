@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/accelsimtracing/subcore"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/tebeka/atexit"
 )
 
 type SMBuilder struct {
@@ -32,13 +33,15 @@ func (b *SMBuilder) WithSubcoresCount(count int64) *SMBuilder {
 func (b *SMBuilder) Build(name string) *SM {
 	s := &SM{
 		ID:       sim.GetIDGenerator().Generate(),
-		subcores: make(map[string]*subcore.Subcore),
+		Subcores: make(map[string]*subcore.Subcore),
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
 	b.buildPortsForSM(s)
 	subcores := b.buildSubcores(name)
 	b.connectSMwithSubcores(s, subcores)
+
+	atexit.Register(s.LogStatus)
 
 	return s
 }
@@ -71,7 +74,7 @@ func (b *SMBuilder) connectSMwithSubcores(sm *SM, subcores []*subcore.Subcore) {
 		subcore := subcores[i]
 
 		sm.freeSubcores = append(sm.freeSubcores, subcore)
-		sm.subcores[subcore.ID] = subcore
+		sm.Subcores[subcore.ID] = subcore
 
 		subcore.SetSMRemotePort(sm.toSubcores)
 		conn.PlugIn(subcore.GetPortByName("ToSM"), 4)

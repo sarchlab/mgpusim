@@ -1,18 +1,19 @@
-package tracereader
+package tracereader_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/sarchlab/accelsimtracing/nvidia"
+	tracereader "github.com/sarchlab/accelsimtracing/traceReader"
 )
 
 func TestBuildExecFromText(t *testing.T) {
-	reader := new(TraceReader)
+	reader := new(tracereader.TraceReader)
 
 	// format:  H2D or D2H, start, length
 	t.Run("h2d", func(t *testing.T) {
-		e := reader.buildExecFromText("MemcpyHtoD,0x00007fc841500000,32768")
+		e := reader.BuildExecFromText("MemcpyHtoD,0x00007fc841500000,32768")
 		if e.Direction != nvidia.H2D {
 			t.Errorf("Expected H2D, got %v", e.Direction)
 		}
@@ -61,21 +62,21 @@ insts = 2
 
 func TestBuildThreadblock(t *testing.T) {
 	lines := strings.Split(threadblockExample, "\n")
-	tb := buildThreadblock(lines)
+	tb := tracereader.BuildThreadblock(lines)
 
-	if len(tb.warps) != 2 {
-		t.Errorf("Expected 2 warps, got %v", len(tb.warps))
+	if len(tb.Warps) != 2 {
+		t.Errorf("Expected 2 warps, got %v", len(tb.Warps))
 	}
-	if tb.threadblockDim != [3](int){1, 0, 0} {
-		t.Errorf("Expected (1,0,0), got %v", tb.threadblockDim)
+	if tb.ThreadblockDim != [3](int){1, 0, 0} {
+		t.Errorf("Expected (1,0,0), got %v", tb.ThreadblockDim)
 	}
-	if tb.warps[0].instsCount != 12 || len(tb.warps[0].instructions) != 12 {
-		t.Errorf("Expected 12 instructions, got %v", len(tb.warps[0].instructions))
+	if tb.Warps[0].InstsCount != 12 || len(tb.Warps[0].Instructions) != 12 {
+		t.Errorf("Expected 12 instructions, got %v", len(tb.Warps[0].Instructions))
 	}
-	if tb.warps[1].instsCount != 2 || len(tb.warps[1].instructions) != 2 {
-		t.Errorf("Expected 2 instructions, got %v", len(tb.warps[1].instructions))
+	if tb.Warps[1].InstsCount != 2 || len(tb.Warps[1].Instructions) != 2 {
+		t.Errorf("Expected 2 instructions, got %v", len(tb.Warps[1].Instructions))
 	}
-	if tb.warps[0].warpID != 0 || tb.warps[1].warpID != 1 {
-		t.Errorf("Expected 0 and 1, got %v and %v", tb.warps[0].warpID, tb.warps[1].warpID)
+	if tb.Warps[0].WarpID != 0 || tb.Warps[1].WarpID != 1 {
+		t.Errorf("Expected 0 and 1, got %v and %v", tb.Warps[0].WarpID, tb.Warps[1].WarpID)
 	}
 }

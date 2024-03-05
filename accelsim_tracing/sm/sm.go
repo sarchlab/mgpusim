@@ -1,6 +1,8 @@
 package sm
 
 import (
+	"log"
+
 	"github.com/sarchlab/accelsimtracing/message"
 	"github.com/sarchlab/accelsimtracing/nvidia"
 	"github.com/sarchlab/accelsimtracing/subcore"
@@ -10,14 +12,16 @@ import (
 type SM struct {
 	*sim.TickingComponent
 
-	ID string
+	ID         string
+	warpsCount int64
+	instsCount int64
 
 	// meta
 	toGPU       sim.Port
 	toGPURemote sim.Port
 
 	toSubcores   sim.Port
-	subcores     map[string]*subcore.Subcore
+	Subcores     map[string]*subcore.Subcore
 	freeSubcores []*subcore.Subcore
 
 	undispatchedWarps    []*nvidia.Warp
@@ -75,9 +79,10 @@ func (s *SM) processSubcoresInput(now sim.VTimeInSec) bool {
 }
 
 func (s *SM) processSMMsg(msg *message.DeviceToSMMsg, now sim.VTimeInSec) {
-	for _, warp := range msg.Threadblock.Warps {
-		s.undispatchedWarps = append(s.undispatchedWarps, &warp)
+	for i := range msg.Threadblock.Warps {
+		s.undispatchedWarps = append(s.undispatchedWarps, &msg.Threadblock.Warps[i])
 		s.unfinishedWarpsCount++
+		s.warpsCount++
 	}
 
 	s.toGPU.Retrieve(now)
@@ -85,7 +90,7 @@ func (s *SM) processSMMsg(msg *message.DeviceToSMMsg, now sim.VTimeInSec) {
 
 func (s *SM) processSubcoreSubcoresg(msg *message.SubcoreToSMMsg, now sim.VTimeInSec) {
 	if msg.WarpFinished {
-		s.freeSubcores = append(s.freeSubcores, s.subcores[msg.SubcoreID])
+		s.freeSubcores = append(s.freeSubcores, s.Subcores[msg.SubcoreID])
 		s.unfinishedWarpsCount--
 		if s.unfinishedWarpsCount == 0 {
 			s.finishedThreadblocksCount++
@@ -142,4 +147,16 @@ func (s *SM) dispatchThreadblocksToSubcores(now sim.VTimeInSec) bool {
 	s.undispatchedWarps = s.undispatchedWarps[1:]
 
 	return false
+}
+
+func (s *SM) GetTotalWarpsCount() int64 {
+	return s.warpsCount
+}
+
+func (s *SM) GetTotalInstsCount() int64 {
+	return s.instsCount
+}
+
+func (s *SM) LogStatus() {
+	log.Printf("[sm#%s] total_warps_count=%d\n", s.ID, s.warpsCount)
 }

@@ -47,7 +47,7 @@ func (r *TraceReader) generateExcutions() {
 
 	for scanner.Scan() {
 		if scanner.Text() != "" {
-			te := r.buildExecFromText(scanner.Text())
+			te := r.BuildExecFromText(scanner.Text())
 			r.execMetas = append(r.execMetas, te)
 		}
 	}
@@ -56,7 +56,7 @@ func (r *TraceReader) generateExcutions() {
 const execMemcpyPrefix = "Memcpy"
 const execKernelPrefix = "kernel"
 
-func (r *TraceReader) buildExecFromText(text string) TraceExecMeta {
+func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 	m := TraceExecMeta{}
 
 	if strings.HasPrefix(text, execMemcpyPrefix) {

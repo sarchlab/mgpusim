@@ -38,3 +38,11 @@ func (e *ExecMemcpy) Run(d *driver.Driver) {
 func (e *ExecKernel) Run(d *driver.Driver) {
 	d.RunKernel(&e.kernel)
 }
+
+func (e *ExecKernel) SetKernel(kernel nvidia.Kernel) {
+	e.kernel = kernel
+}
+
+func (e *ExecKernel) GetKernel() *nvidia.Kernel {
+	return &e.kernel
+}
