@@ -3,10 +3,10 @@ package driver
 import (
 	"fmt"
 
-	"github.com/sarchlab/accelsimtracing/gpu"
-	"github.com/sarchlab/accelsimtracing/message"
-	"github.com/sarchlab/accelsimtracing/nvidia"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/message"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
 type Driver struct {

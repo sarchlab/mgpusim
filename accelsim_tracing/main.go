@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/sarchlab/accelsimtracing/benchmark"
-	"github.com/sarchlab/accelsimtracing/platform"
-	"github.com/sarchlab/accelsimtracing/runner"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/platform"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/runner"
 	"github.com/tebeka/atexit"
 )
 

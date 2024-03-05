@@ -1,8 +1,8 @@
 package benchmark
 
 import (
-	"github.com/sarchlab/accelsimtracing/nvidia"
-	tracereader "github.com/sarchlab/accelsimtracing/traceReader"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	tracereader "github.com/sarchlab/mgpusim/v3/accelsim_tracing/traceReader"
 )
 
 type BenchmarkBuilder struct {

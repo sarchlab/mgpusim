@@ -5,11 +5,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sarchlab/accelsimtracing/benchmark"
-	"github.com/sarchlab/accelsimtracing/nvidia"
-	"github.com/sarchlab/accelsimtracing/platform"
-	"github.com/sarchlab/accelsimtracing/runner"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/platform"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/runner"
 )
 
 var logFile = "testA100.log"

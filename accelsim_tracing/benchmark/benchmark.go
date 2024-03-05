@@ -1,8 +1,8 @@
 package benchmark
 
 import (
-	"github.com/sarchlab/accelsimtracing/driver"
-	"github.com/sarchlab/accelsimtracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/driver"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
 type TraceExec interface {

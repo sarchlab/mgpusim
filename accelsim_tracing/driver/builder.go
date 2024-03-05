@@ -1,8 +1,8 @@
 package driver
 
 import (
-	"github.com/sarchlab/accelsimtracing/gpu"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
 )
 
 type DriverBuilder struct {

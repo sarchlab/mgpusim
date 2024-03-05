@@ -1,10 +1,10 @@
 package runner
 
 import (
-	"github.com/sarchlab/accelsimtracing/benchmark"
-	"github.com/sarchlab/accelsimtracing/driver"
-	"github.com/sarchlab/accelsimtracing/platform"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/driver"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/platform"
 )
 
 type Runner struct {

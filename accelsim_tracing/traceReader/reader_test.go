@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sarchlab/accelsimtracing/nvidia"
-	tracereader "github.com/sarchlab/accelsimtracing/traceReader"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	tracereader "github.com/sarchlab/mgpusim/v3/accelsim_tracing/traceReader"
 )
 
 func TestBuildExecFromText(t *testing.T) {

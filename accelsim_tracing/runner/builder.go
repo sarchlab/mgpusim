@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"github.com/sarchlab/accelsimtracing/platform"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/platform"
 )
 
 type RunnerBuilder struct {

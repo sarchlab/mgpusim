@@ -3,7 +3,7 @@ package tracereader
 import (
 	"fmt"
 
-	"github.com/sarchlab/accelsimtracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
 type KernelTrace struct {

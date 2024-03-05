@@ -1,4 +1,4 @@
-module github.com/sarchlab/accelsimtracing
+module github.com/sarchlab/mgpusim/v3/accelsim_tracing
 
 go 1.20
 

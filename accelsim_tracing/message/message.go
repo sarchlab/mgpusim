@@ -1,8 +1,8 @@
 package message
 
 import (
-	"github.com/sarchlab/accelsimtracing/nvidia"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
 type DriverToDeviceMsg struct {

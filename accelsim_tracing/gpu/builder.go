@@ -3,8 +3,8 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/sarchlab/accelsimtracing/sm"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/sm"
 	"github.com/tebeka/atexit"
 )
 

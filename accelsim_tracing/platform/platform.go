@@ -1,9 +1,9 @@
 package platform
 
 import (
-	"github.com/sarchlab/accelsimtracing/driver"
-	"github.com/sarchlab/accelsimtracing/gpu"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/driver"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
 )
 
 type Platform struct {

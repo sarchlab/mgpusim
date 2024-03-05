@@ -3,8 +3,8 @@ package benchmark_test
 import (
 	"testing"
 
-	"github.com/sarchlab/accelsimtracing/benchmark"
-	"github.com/sarchlab/accelsimtracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
 func TestBenchmarkBuild(t *testing.T) {

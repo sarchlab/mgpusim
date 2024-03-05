@@ -3,8 +3,8 @@ package sm
 import (
 	"fmt"
 
-	"github.com/sarchlab/accelsimtracing/subcore"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/subcore"
 	"github.com/tebeka/atexit"
 )
 

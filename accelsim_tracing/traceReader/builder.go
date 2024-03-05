@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/sarchlab/accelsimtracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
 
 type TraceReaderBuilder struct {

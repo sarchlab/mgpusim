@@ -3,10 +3,10 @@ package sm
 import (
 	"log"
 
-	"github.com/sarchlab/accelsimtracing/message"
-	"github.com/sarchlab/accelsimtracing/nvidia"
-	"github.com/sarchlab/accelsimtracing/subcore"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/message"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/subcore"
 )
 
 type SM struct {
