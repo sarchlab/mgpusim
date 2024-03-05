@@ -1,63 +1,49 @@
 package gpu
 
 import (
-	"github.com/sarchlab/accelsimtracing/benchmark"
 	"github.com/sarchlab/accelsimtracing/message"
-	"github.com/sarchlab/accelsimtracing/subcore"
+	"github.com/sarchlab/accelsimtracing/nvidia"
+	"github.com/sarchlab/accelsimtracing/sm"
 	"github.com/sarchlab/akita/v3/sim"
 )
 
 type GPU struct {
 	*sim.TickingComponent
 
-	tickCount int64
+	ID string
 
 	// meta
 	toDriver       sim.Port
 	toDriverRemote sim.Port
 
-	toSubcores             sim.Port
-	connectionWithSubcores sim.Connection
+	toSMs   sim.Port
+	sms     map[string]*sm.SM
+	freeSMs []*sm.SM
 
-	subcoreCount int64
-	subcores     []*SubCoreInfo
-	freeSubcores []int64
+	undispatchedThreadblocks    []*nvidia.Threadblock
+	unfinishedThreadblocksCount int64
 
-	threadblocksCount            int64
-	threadblocks                 []*ThreadblockInfo
-	finishedThreadblocksToReport []int64
-	needMoreThreadblocks         int64
+	finishedKernelsCount int64
 }
 
-type ThreadblockInfo struct {
-	threadblock benchmark.Threadblock
-	finished    bool
-
-	nextWarpToRun     int64
-	finishedWarpCount int64
-}
-
-type SubCoreInfo struct {
-	device *subcore.Subcore
-
-	toSubcoreRemote sim.Port
-
-	threadblockID int64
+func (g *GPU) SetDriverRemotePort(remote sim.Port) {
+	g.toDriverRemote = remote
 }
 
 func (g *GPU) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
-	madeProgress = g.reportFinishedThreadblocks(now) || madeProgress
-	madeProgress = g.requestMoreThreadblocks(now) || madeProgress
-	madeProgress = g.applyWarpToSubcores(now) || madeProgress
-	madeProgress = g.processUpInput(now) || madeProgress
-	madeProgress = g.processDownInput(now) || madeProgress
+	madeProgress = g.reportFinishedKernels(now) || madeProgress
+	madeProgress = g.dispatchThreadblocksToSMs(now) || madeProgress
+	madeProgress = g.processDriverInput(now) || madeProgress
+	madeProgress = g.processSMsInput(now) || madeProgress
+
+	// fmt.Println("GPU tick, madeProgress:", madeProgress)
 
 	return madeProgress
 }
 
-func (g *GPU) processUpInput(now sim.VTimeInSec) bool {
+func (g *GPU) processDriverInput(now sim.VTimeInSec) bool {
 	msg := g.toDriver.Peek()
 	if msg == nil {
 		return false
@@ -73,85 +59,50 @@ func (g *GPU) processUpInput(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (g *GPU) processDownInput(now sim.VTimeInSec) bool {
-	for i := int64(0); i < g.subcoreCount; i++ {
-		subcore := g.subcores[i]
-		msg := subcore.toSubcoreSrc.Peek()
-		if msg == nil {
-			continue
-		}
-
-		switch msg := msg.(type) {
-		case *message.SubcoreToDeviceMsg:
-			g.processSubcoreMsg(msg, now, i)
-			return true
-		default:
-			panic("Unhandled message type")
-		}
+func (g *GPU) processSMsInput(now sim.VTimeInSec) bool {
+	msg := g.toSMs.Peek()
+	if msg == nil {
+		return false
 	}
 
-	return false
+	switch msg := msg.(type) {
+	case *message.SMToDeviceMsg:
+		g.processSMsMsg(msg, now)
+		return true
+	default:
+		panic("Unhandled message type")
+	}
 }
 
-const stackSize = 4
-
 func (g *GPU) processDriverMsg(msg *message.DriverToDeviceMsg, now sim.VTimeInSec) {
-	if msg.NewKernel {
-		g.threadblocksCount = 0
-		g.toDriver.Retrieve(now)
-		return
+	for _, threadblock := range msg.Kernel.Threadblocks {
+		g.undispatchedThreadblocks = append(g.undispatchedThreadblocks, &threadblock)
+		g.unfinishedThreadblocksCount++
 	}
-
-	var threadblockID int64
-
-	if g.threadblocksCount < stackSize {
-		threadblockID = g.threadblocksCount
-		g.threadblocksCount++
-
-	} else {
-		for i := int64(0); i < g.threadblocksCount; i++ {
-			if g.threadblocks[i].finished {
-				threadblockID = i
-				break
-			}
-		}
-	}
-
-	threadblockInfo := &ThreadblockInfo{
-		threadblock: msg.Threadblock,
-		finished:    false,
-
-		nextWarpToRun:     0,
-		finishedWarpCount: 0,
-	}
-
-	g.threadblocks[threadblockID] = threadblockInfo
 
 	g.toDriver.Retrieve(now)
 }
 
-func (g *GPU) processSubcoreMsg(msg *message.SubcoreToDeviceMsg, now sim.VTimeInSec, subcoreID int64) {
-	threadblockID := g.subcores[subcoreID].threadblockID
-	threadblock := g.threadblocks[threadblockID]
-	threadblock.finishedWarpCount++
-	g.freeSubcores = append(g.freeSubcores, msg.SubcoreID)
-
-	if threadblock.finishedWarpCount == threadblock.threadblock.WarpsCount {
-		threadblock.finished = true
-		g.finishedThreadblocksToReport = append(g.finishedThreadblocksToReport, threadblockID)
-		g.needMoreThreadblocks++
+func (g *GPU) processSMsMsg(msg *message.SMToDeviceMsg, now sim.VTimeInSec) {
+	if msg.ThreadblockFinished {
+		g.freeSMs = append(g.freeSMs, g.sms[msg.SMID])
+		g.unfinishedThreadblocksCount--
+		if g.unfinishedThreadblocksCount == 0 {
+			g.finishedKernelsCount++
+		}
 	}
 
-	g.subcores[subcoreID].toSubcoreSrc.Retrieve(now)
+	g.toSMs.Retrieve(now)
 }
 
-func (g *GPU) reportFinishedThreadblocks(now sim.VTimeInSec) bool {
-	if len(g.finishedThreadblocksToReport) == 0 {
+func (g *GPU) reportFinishedKernels(now sim.VTimeInSec) bool {
+	if g.finishedKernelsCount == 0 {
 		return false
 	}
 
 	msg := &message.DeviceToDriverMsg{
-		ThreadblockFinished: true,
+		KernelFinished: true,
+		DeviceID:       g.ID,
 	}
 	msg.Src = g.toDriver
 	msg.Dst = g.toDriverRemote
@@ -162,64 +113,33 @@ func (g *GPU) reportFinishedThreadblocks(now sim.VTimeInSec) bool {
 		return false
 	}
 
-	g.finishedThreadblocksToReport = g.finishedThreadblocksToReport[1:]
+	g.finishedKernelsCount--
 
 	return true
 }
 
-func (g *GPU) requestMoreThreadblocks(now sim.VTimeInSec) bool {
-	if g.needMoreThreadblocks == 0 {
+func (g *GPU) dispatchThreadblocksToSMs(now sim.VTimeInSec) bool {
+	if len(g.freeSMs) == 0 || len(g.undispatchedThreadblocks) == 0 {
 		return false
 	}
 
-	msg := &message.DeviceToDriverMsg{
-		RequestMore: true,
+	sm := g.freeSMs[0]
+	threadblock := g.undispatchedThreadblocks[0]
+
+	msg := &message.DeviceToSMMsg{
+		Threadblock: *threadblock,
 	}
-	msg.Src = g.toDriver
-	msg.Dst = g.toDriverRemote
+	msg.Src = g.toSMs
+	msg.Dst = sm.GetPortByName("ToGPU")
 	msg.SendTime = now
 
-	err := g.toDriver.Send(msg)
+	err := g.toSMs.Send(msg)
 	if err != nil {
 		return false
 	}
 
-	g.needMoreThreadblocks--
-	return true
-}
-
-func (g *GPU) applyWarpToSubcores(now sim.VTimeInSec) bool {
-	if len(g.freeSubcores) == 0 {
-		return false
-	}
-
-	subcoreID := g.freeSubcores[0]
-	subcore := g.subcores[subcoreID]
-
-	for i := int64(0); i < g.threadblocksCount; i++ {
-		threadblock := g.threadblocks[i]
-		if threadblock.finished {
-			continue
-		}
-		warp := threadblock.threadblock.Warps[threadblock.nextWarpToRun]
-
-		msg := &message.DeviceToSubcoreMsg{
-			Warp: warp,
-		}
-		msg.Src = subcore.toSubcoreSrc
-		msg.Dst = subcore.toSubcoreRemote
-		msg.SendTime = now
-
-		err := subcore.toSubcoreSrc.Send(msg)
-		if err != nil {
-			continue
-		}
-
-		threadblock.nextWarpToRun++
-		g.freeSubcores = g.freeSubcores[1:]
-
-		return true
-	}
+	g.freeSMs = g.freeSMs[1:]
+	g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
 
 	return false
 }

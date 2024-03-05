@@ -1,7 +1,8 @@
 package subcore
 
 import (
-	"github.com/sarchlab/accelsimtracing/benchmark"
+	"fmt"
+
 	"github.com/sarchlab/accelsimtracing/message"
 	"github.com/sarchlab/akita/v3/sim"
 )
@@ -9,35 +10,44 @@ import (
 type Subcore struct {
 	*sim.TickingComponent
 
+	ID         string
+	instsCount int64
+
 	// meta
-	toGPU       sim.Port
-	toGPURemote sim.Port
+	toSM       sim.Port
+	toSMRemote sim.Port
 
-	warp          benchmark.Warp
-	nextInstToRun int64
+	unfinishedInstsCount int64
 
-	needMoreWarps bool
+	finishedWarpsCount int64
+}
+
+func (s *Subcore) SetSMRemotePort(remote sim.Port) {
+	s.toSMRemote = remote
 }
 
 func (s *Subcore) Tick(now sim.VTimeInSec) bool {
 	madeProgress := false
 
-	madeProgress = s.requestMoreWarp(now) || madeProgress
-	madeProgress = s.runWarp() || madeProgress
-	madeProgress = s.processInput(now) || madeProgress
+	madeProgress = s.reportFinishedWarps(now) || madeProgress
+	madeProgress = s.run() || madeProgress
+	madeProgress = s.processSMInput(now) || madeProgress
+	// warps can be switched, but ignore now
+
+	// fmt.Println("Subcore tick, time is:", now, "madeProgress:", madeProgress, "unfinishedInstsCount:", s.unfinishedInstsCount, "finishedWarpsCount:", s.finishedWarpsCount)
 
 	return madeProgress
 }
 
-func (s *Subcore) processInput(now sim.VTimeInSec) bool {
-	msg := s.toGPU.Peek()
+func (s *Subcore) processSMInput(now sim.VTimeInSec) bool {
+	msg := s.toSM.Peek()
 	if msg == nil {
 		return false
 	}
 
 	switch msg := msg.(type) {
-	case *message.DeviceToSubcoreMsg:
-		s.processDeviceMsg(msg, now)
+	case *message.SMToSubcoreMsg:
+		s.processSMMsg(msg, now)
 	default:
 		panic("Unrecognized message")
 	}
@@ -45,42 +55,49 @@ func (s *Subcore) processInput(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (s *Subcore) processDeviceMsg(msg *message.DeviceToSubcoreMsg, now sim.VTimeInSec) {
-	s.warp = msg.Warp
+func (s *Subcore) processSMMsg(msg *message.SMToSubcoreMsg, now sim.VTimeInSec) {
+	s.unfinishedInstsCount = msg.Warp.InstructionsCount
 
-	s.nextInstToRun = 0
-
-	s.toGPU.Retrieve(now)
+	s.toSM.Retrieve(now)
 }
 
-func (s *Subcore) runWarp() bool {
-	if s.nextInstToRun == s.warp.InstructionsCount {
+func (s *Subcore) run() bool {
+	if s.unfinishedInstsCount == 0 {
 		return false
 	}
 
-	s.nextInstToRun++
-	if s.nextInstToRun == s.warp.InstructionsCount {
-		s.needMoreWarps = true
+	s.instsCount++
+	s.unfinishedInstsCount--
+	if s.unfinishedInstsCount == 0 {
+		s.finishedWarpsCount++
 	}
 
 	return true
 }
 
-func (s *Subcore) requestMoreWarp(now sim.VTimeInSec) bool {
-	if !s.needMoreWarps {
+func (s *Subcore) reportFinishedWarps(now sim.VTimeInSec) bool {
+	if s.finishedWarpsCount == 0 {
 		return false
 	}
 
-	msg := &message.SubcoreToDeviceMsg{}
-	msg.Src = s.toGPU
-	msg.Dst = s.toGPURemote
+	msg := &message.SubcoreToSMMsg{
+		WarpFinished: true,
+		SubcoreID:    s.ID,
+	}
+	msg.Src = s.toSM
+	msg.Dst = s.toSMRemote
 	msg.SendTime = now
 
-	err := s.toGPURemote.Send(msg)
+	err := s.toSM.Send(msg)
 	if err != nil {
 		return false
 	}
 
-	s.needMoreWarps = false
+	s.finishedWarpsCount--
+
 	return true
+}
+
+func (s *Subcore) LogInstsCount() {
+	fmt.Printf("[subcore#%s] insts_count=%d\n", s.ID, s.instsCount)
 }

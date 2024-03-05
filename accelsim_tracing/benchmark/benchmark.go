@@ -1,18 +1,17 @@
 package benchmark
 
-import "github.com/sarchlab/accelsimtracing/nvidia"
-
-type Benchmark struct {
-	traceExecs []TraceExec
-}
-
-func (b *Benchmark) TraceExecs() []TraceExec {
-	return b.traceExecs
-}
+import (
+	"github.com/sarchlab/accelsimtracing/driver"
+	"github.com/sarchlab/accelsimtracing/nvidia"
+)
 
 type TraceExec interface {
 	ExecType() nvidia.ExecType
-	Run()
+	Run(*driver.Driver)
+}
+
+type Benchmark struct {
+	TraceExecs []TraceExec
 }
 
 type ExecMemcpy struct {
@@ -22,7 +21,7 @@ type ExecMemcpy struct {
 }
 
 type ExecKernel struct {
-	kernel Kernel
+	kernel nvidia.Kernel
 }
 
 func (e *ExecMemcpy) ExecType() nvidia.ExecType {
@@ -33,8 +32,9 @@ func (e *ExecKernel) ExecType() nvidia.ExecType {
 	return nvidia.ExecKernel
 }
 
-func (e *ExecMemcpy) Run() {
+func (e *ExecMemcpy) Run(d *driver.Driver) {
 }
 
-func (e *ExecKernel) Run() {
+func (e *ExecKernel) Run(d *driver.Driver) {
+	d.RunKernel(&e.kernel)
 }

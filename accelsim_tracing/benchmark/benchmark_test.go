@@ -14,7 +14,7 @@ func TestBenchmarkBuild(t *testing.T) {
 	kernelCount := 0
 	memcpyCount := 0
 
-	for _, exec := range benchmark.TraceExecs() {
+	for _, exec := range benchmark.TraceExecs {
 		if exec.ExecType() == nvidia.ExecKernel {
 			kernelCount++
 		} else if exec.ExecType() == nvidia.ExecMemcpy {

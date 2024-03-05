@@ -1,53 +1,69 @@
-package msg
+package message
 
 import (
-	"github.com/sarchlab/accelsimtracing/benchmark"
+	"github.com/sarchlab/accelsimtracing/nvidia"
 	"github.com/sarchlab/akita/v3/sim"
 )
 
-// DriverToDeviceMsg: apply a new kernel to a device or answer a device request for more threadblocks
 type DriverToDeviceMsg struct {
 	sim.MsgMeta
 
-	NewKernel   bool
-	Threadblock benchmark.Threadblock
+	Kernel nvidia.Kernel
+}
+
+type DeviceToDriverMsg struct {
+	sim.MsgMeta
+
+	KernelFinished bool
+	DeviceID       string
+}
+
+type DeviceToSMMsg struct {
+	sim.MsgMeta
+
+	Threadblock nvidia.Threadblock
+}
+
+type SMToDeviceMsg struct {
+	sim.MsgMeta
+
+	ThreadblockFinished bool
+	SMID                string
+}
+
+type SMToSubcoreMsg struct {
+	sim.MsgMeta
+
+	Warp nvidia.Warp
+}
+
+type SubcoreToSMMsg struct {
+	sim.MsgMeta
+
+	WarpFinished bool
+	SubcoreID    string
 }
 
 func (m *DriverToDeviceMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// DeviceToDriverMsg: report a finished threadblock or request more threadblocks
-type DeviceToDriverMsg struct {
-	sim.MsgMeta
-
-	DeviceID            int64
-	RequestMore         bool
-	ThreadblockFinished bool
-}
-
 func (m *DeviceToDriverMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// DeviceToSubcoreMsg: apply a warp to a subcore
-type DeviceToSubcoreMsg struct {
-	sim.MsgMeta
-
-	Warp benchmark.Warp
-}
-
-func (m *DeviceToSubcoreMsg) Meta() *sim.MsgMeta {
+func (m *DeviceToSMMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// SubcoreToDeviceMsg: report a finished warp
-type SubcoreToDeviceMsg struct {
-	sim.MsgMeta
-
-	SubcoreID int64
+func (m *SMToDeviceMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
 }
 
-func (m *SubcoreToDeviceMsg) Meta() *sim.MsgMeta {
+func (m *SMToSubcoreMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+func (m *SubcoreToSMMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }

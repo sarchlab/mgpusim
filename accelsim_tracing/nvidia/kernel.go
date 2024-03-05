@@ -1,4 +1,4 @@
-package benchmark
+package nvidia
 
 type Kernel struct {
 	ThreadblocksCount int64

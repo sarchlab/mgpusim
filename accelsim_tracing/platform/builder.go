@@ -3,55 +3,46 @@ package platform
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita/v3/sim"
+	"github.com/sarchlab/accelsimtracing/driver"
+	"github.com/sarchlab/accelsimtracing/gpu"
+	"github.com/sarchlab/akita/v3/sim"
 )
 
-type PlatformBuilder struct {
-	gpuCount int16
-	smPerGPU int16
-	freq     sim.Freq
+type A100PlatformBuilder struct {
+	freq sim.Freq
 }
 
-func (b *PlatformBuilder) WithGPUCount(count int16) *PlatformBuilder {
-	b.gpuCount = count
-	return b
-}
-
-func (b *PlatformBuilder) WithSMPerGPU(smPerGPU int16) *PlatformBuilder {
-	b.smPerGPU = smPerGPU
-	return b
-}
-
-func (b *PlatformBuilder) WithFreq(freq sim.Freq) *PlatformBuilder {
+func (b *A100PlatformBuilder) WithFreq(freq sim.Freq) *A100PlatformBuilder {
 	b.freq = freq
 	return b
 }
 
-func (b *PlatformBuilder) Build() *Platform {
-	b.gpuFreqMustBeSet()
+func (b *A100PlatformBuilder) Build() *Platform {
 	b.freqMustBeSet()
 
 	p := new(Platform)
-	p.engine = sim.NewSerialEngine()
-	p.driver = NewDriver("Driver", p.engine, b.freq)
+	p.Engine = sim.NewSerialEngine()
+	p.Driver = new(driver.DriverBuilder).
+		WithEngine(p.Engine).
+		WithFreq(b.freq).
+		Build("Driver")
 
-	for i := int16(0); i < b.gpuCount; i++ {
-		gpuName := fmt.Sprintf("GPU%d", i)
-		p.gpu = NewGPU(gpuName, p.engine, b.freq, b.smPerCount)
+	gpuDriver := new(gpu.GPUBuilder).
+		WithEngine(p.Engine).
+		WithFreq(b.freq).
+		WithSMsCount(128).
+		WithSubcoresCountPerSM(4)
+	gpuCount := 1
+	for i := 0; i < gpuCount; i++ {
+		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))
+		p.Driver.RegisterGPU(gpu)
+		p.devices = append(p.devices, gpu)
 	}
-
-	p.driver.RegisterGPU(p.gpu)
 
 	return p
 }
 
-func (p *PlatformBuilder) gpuFreqMustBeSet() {
-	if p.freq == 0 {
-		panic("GPU frequency must be set")
-	}
-}
-
-func (p *PlatformBuilder) freqMustBeSet() {
+func (p *A100PlatformBuilder) freqMustBeSet() {
 	if p.freq == 0 {
 		panic("Frequency must be set")
 	}

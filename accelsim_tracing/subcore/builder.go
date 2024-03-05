@@ -1,6 +1,9 @@
 package subcore
 
-import "github.com/sarchlab/akita/v3/sim"
+import (
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/tebeka/atexit"
+)
 
 type SubcoreBuilder struct {
 	engine sim.Engine
@@ -18,8 +21,15 @@ func (b *SubcoreBuilder) WithFreq(freq sim.Freq) *SubcoreBuilder {
 }
 
 func (b *SubcoreBuilder) Build(name string) *Subcore {
-	s := &Subcore{}
+	s := &Subcore{
+		ID: sim.GetIDGenerator().Generate(),
+	}
+
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
-	s.toGPU = sim.NewLimitNumMsgPort(s, 4, "ToGPU")
+	s.toSM = sim.NewLimitNumMsgPort(s, 4, "ToSM")
+	s.AddPort("ToSM", s.toSM)
+
+	atexit.Register(s.LogInstsCount)
+
 	return s
 }

@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"github.com/sarchlab/accelsimtracing/gpu"
 	"github.com/sarchlab/akita/v3/sim"
 )
 
@@ -20,10 +21,20 @@ func (b *DriverBuilder) WithFreq(freq sim.Freq) *DriverBuilder {
 }
 
 func (b *DriverBuilder) Build(name string) *Driver {
-	d := &Driver{}
+	d := &Driver{
+		devices: make(map[string]*gpu.GPU),
+	}
+
 	d.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, d)
-	d.toDevices = sim.NewLimitNumMsgPort(d, 4, "ToDevice")
+	b.buildPortsForDriver(d)
+
 	d.connectionWithDevices = sim.NewDirectConnection("ConnWithDevices", b.engine, b.freq)
 	d.connectionWithDevices.PlugIn(d.toDevices, 1)
+
 	return d
+}
+
+func (b *DriverBuilder) buildPortsForDriver(d *Driver) {
+	d.toDevices = sim.NewLimitNumMsgPort(d, 4, "ToDevice")
+	d.AddPort("ToDevice", d.toDevices)
 }

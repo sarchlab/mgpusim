@@ -5,6 +5,7 @@ import (
 	"github.com/sarchlab/accelsimtracing/platform"
 	"github.com/sarchlab/accelsimtracing/runner"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/tebeka/atexit"
 )
 
 func main() {
@@ -12,9 +13,7 @@ func main() {
 		WithTraceDirectory("data/bfs-rodinia-2.0-ft").
 		Build()
 
-	platform := new(platform.PlatformBuilder).
-		WithGPUCount(1).
-		WithSMPerGPU(16).
+	platform := new(platform.A100PlatformBuilder).
 		WithFreq(1 * sim.Hz).
 		Build()
 
@@ -24,4 +23,6 @@ func main() {
 	runner.AddBenchmark(benchmark)
 
 	runner.Run()
+
+	atexit.Exit(0)
 }
