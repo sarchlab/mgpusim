@@ -110,6 +110,7 @@ func NewMemCopyH2DReq(
 ) *MemCopyH2DReq {
 	req := new(MemCopyH2DReq)
 	req.ID = sim.GetIDGenerator().Generate()
+	req.MsgMeta.TrafficBytes = len(srcBuffer)
 	req.SendTime = time
 	req.Src = src
 	req.Dst = dst
@@ -131,7 +132,7 @@ func (m *MemCopyD2HReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// NewMemCopyD2HReq created a new MemCopyH2DReq
+// NewMemCopyD2HReq created a new MemCopyD2HReq
 func NewMemCopyD2HReq(
 	time sim.VTimeInSec,
 	src, dst sim.Port,
@@ -140,6 +141,7 @@ func NewMemCopyD2HReq(
 ) *MemCopyD2HReq {
 	req := new(MemCopyD2HReq)
 	req.ID = sim.GetIDGenerator().Generate()
+	req.MsgMeta.TrafficBytes = len(dstBuffer)
 	req.SendTime = time
 	req.Src = src
 	req.Dst = dst
