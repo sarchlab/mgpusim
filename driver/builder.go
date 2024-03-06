@@ -87,7 +87,9 @@ func (b Builder) Build(name string) *Driver {
 		driver.middlewares = append(driver.middlewares, globalStorageMemoryCopyMiddleware)
 	} else {
 		defaultMemoryCopyMiddleware := &defaultMemoryCopyMiddleware{
-			driver: driver,
+			driver:       driver,
+			cyclesPerD2H: 8500,
+			cyclesPerH2D: 14500,
 		}
 		driver.middlewares = append(driver.middlewares, defaultMemoryCopyMiddleware)
 	}
