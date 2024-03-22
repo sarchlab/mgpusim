@@ -9,12 +9,14 @@ import (
 
 // A Builder can build a driver.
 type Builder struct {
-	engine             sim.Engine
-	freq               sim.Freq
-	log2PageSize       uint64
-	pageTable          vm.PageTable
-	globalStorage      *mem.Storage
-	useMagicMemoryCopy bool
+	engine              sim.Engine
+	freq                sim.Freq
+	log2PageSize        uint64
+	pageTable           vm.PageTable
+	globalStorage       *mem.Storage
+	useMagicMemoryCopy  bool
+	middlewareD2HCycles int
+	middlewareH2DCycles int
 }
 
 // MakeBuilder creates a driver builder with some default configuration
@@ -62,6 +64,16 @@ func (b Builder) WithMagicMemoryCopyMiddleware() Builder {
 	return b
 }
 
+func (b Builder) WithD2HCycles(d2hCycles int) Builder {
+	b.middlewareD2HCycles = d2hCycles
+	return b
+}
+
+func (b Builder) WithH2DCycles(h2dCycles int) Builder {
+	b.middlewareH2DCycles = h2dCycles
+	return b
+}
+
 // Build creates a driver.
 func (b Builder) Build(name string) *Driver {
 	driver := new(Driver)
@@ -88,8 +100,8 @@ func (b Builder) Build(name string) *Driver {
 	} else {
 		defaultMemoryCopyMiddleware := &defaultMemoryCopyMiddleware{
 			driver:       driver,
-			cyclesPerD2H: 8500,
-			cyclesPerH2D: 14500,
+			cyclesPerD2H: b.middlewareD2HCycles,
+			cyclesPerH2D: b.middlewareH2DCycles,
 		}
 		driver.middlewares = append(driver.middlewares, defaultMemoryCopyMiddleware)
 	}
