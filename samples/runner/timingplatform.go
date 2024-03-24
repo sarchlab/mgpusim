@@ -243,6 +243,7 @@ func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
 		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
 			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
 			WithDBFilename(b.perfAnalysisFileName).
+			WithEngine(b.engine).
 			Build()
 	}
 }
