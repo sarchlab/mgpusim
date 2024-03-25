@@ -12,6 +12,12 @@ import (
 // communication.
 type defaultMemoryCopyMiddleware struct {
 	driver *Driver
+
+	cyclesPerH2D int
+	cyclesPerD2H int
+	cyclesLeft   int
+
+	awaitingReqs []sim.Msg
 }
 
 func (m *defaultMemoryCopyMiddleware) ProcessCommand(
@@ -67,7 +73,8 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
 		cmd.Reqs = append(cmd.Reqs, req)
-		m.driver.requestsToSend = append(m.driver.requestsToSend, req)
+		m.awaitingReqs = append(m.awaitingReqs, req)
+		// m.driver.requestsToSend = append(m.driver.requestsToSend, req)
 
 		sizeLeft -= sizeToCopy
 		addr += sizeToCopy
@@ -75,6 +82,8 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 
 		m.driver.logTaskToGPUInitiate(now, cmd, req)
 	}
+
+	m.cyclesLeft = m.cyclesPerH2D
 
 	queue.IsRunning = true
 
@@ -114,7 +123,8 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 			m.driver.gpuPort, m.driver.GPUs[gpuID-1],
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
-		m.driver.requestsToSend = append(m.driver.requestsToSend, req)
+		m.awaitingReqs = append(m.awaitingReqs, req)
+		// m.driver.requestsToSend = append(m.driver.requestsToSend, req)
 
 		sizeLeft -= sizeToCopy
 		addr += sizeToCopy
@@ -122,6 +132,8 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 
 		m.driver.logTaskToGPUInitiate(now, cmd, req)
 	}
+
+	m.cyclesLeft = m.cyclesPerD2H
 
 	queue.IsRunning = true
 	return true
@@ -177,17 +189,29 @@ func (m *defaultMemoryCopyMiddleware) sendFlushRequest(
 func (m *defaultMemoryCopyMiddleware) Tick(
 	now sim.VTimeInSec,
 ) (madeProgress bool) {
+	madeProgress = false
+
+	if m.cyclesLeft > 0 {
+		m.cyclesLeft--
+		madeProgress = true
+	} else if m.cyclesLeft == 0 {
+		m.driver.requestsToSend = append(m.driver.requestsToSend, m.awaitingReqs...)
+		m.awaitingReqs = nil
+		m.cyclesLeft = -1
+		madeProgress = true
+	}
+
 	req := m.driver.gpuPort.Peek()
 	if req == nil {
-		return false
+		return madeProgress
 	}
 
 	switch req := req.(type) {
 	case *sim.GeneralRsp:
-		return m.processGeneralRsp(now, req)
+		madeProgress = m.processGeneralRsp(now, req)
 	}
 
-	return false
+	return madeProgress
 }
 
 func (m *defaultMemoryCopyMiddleware) processGeneralRsp(

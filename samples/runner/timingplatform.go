@@ -183,6 +183,8 @@ func (b R9NanoPlatformBuilder) buildGPUDriver(
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
+		WithD2HCycles(8500).
+		WithH2DCycles(14500).
 		Build("Driver")
 	if b.visTracer != nil {
 		tracing.CollectTrace(gpuDriver, b.visTracer)
@@ -291,7 +293,7 @@ func (b R9NanoPlatformBuilder) createConnection(
 	// connection.SrcBufferCapacity = 40960000
 	pcieConnector := pcie.NewConnector().
 		WithEngine(engine).
-		WithVersion(3, 16).
+		WithVersion(4, 16).
 		WithSwitchLatency(140)
 
 	if b.visTracer != nil {
