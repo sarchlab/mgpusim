@@ -49,7 +49,7 @@ will be used.`)
 var analyzerNameFlag = flag.String("analyzer-name", "",
 	"The name of the analyzer to use.")
 
-var analyzerPeriodFlag = flag.Float64("analyzer-period", 0.0,
+var analyzerPeriodFlag = flag.Float64("analyzer-period", 0.0000001,
 	"The period to dump the analyzer results.")
 
 var visTracing = flag.Bool("trace-vis", false,

@@ -159,6 +159,7 @@ func (*Runner) setAnalyzer(
 			*analyzerPeriodFlag,
 		)
 	}
+
 	return b
 }
 
