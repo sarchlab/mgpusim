@@ -149,11 +149,11 @@ func (r *Runner) buildTimingPlatform() {
 func (*Runner) setAnalyszer(
 	b R9NanoPlatformBuilder,
 ) R9NanoPlatformBuilder {
-	if *analyszerPeriodFlag != 0 && *analyszerNameFlag == "" {
-		panic("must specify -analyszer-name when using -analyszer-period")
+	if *analyszerPeriodFlag == 0 && *analyszerNameFlag != "" {
+		panic("must specify -analyszer-period when using -analyszer-name")
 	}
 
-	if *analyszerNameFlag != "" {
+	if *analyszerPeriodFlag != 0 {
 		b = b.WithPerfAnalyzer(
 			*analyszerNameFlag,
 			*analyszerPeriodFlag,

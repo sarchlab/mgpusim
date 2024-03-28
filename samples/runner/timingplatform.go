@@ -241,13 +241,11 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 }
 
 func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
-	if b.perfAnalysisFileName != "" {
-		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
-			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
-			WithDBFilename(b.perfAnalysisFileName).
-			WithEngine(b.engine).
-			Build()
-	}
+	b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+		WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
+		WithDBFilename(b.perfAnalysisFileName).
+		WithEngine(b.engine).
+		Build()
 
 	if b.monitor != nil {
 		b.monitor.RegisterPerfAnalyzer(b.perfAnalyzer)
