@@ -248,6 +248,10 @@ func (b *R9NanoPlatformBuilder) setupPerformanceAnalyzer() {
 			WithEngine(b.engine).
 			Build()
 	}
+
+	if b.monitor != nil {
+		b.monitor.RegisterPerfAnalyzer(b.perfAnalyzer)
+	}
 }
 
 func (b *R9NanoPlatformBuilder) createGPUs(
