@@ -72,6 +72,34 @@ var _ = Describe("ALU", func() {
 		}
 	})
 
+	It("should run FLAT_LOAD_SBYTE", func() {
+		for i := 0; i < 64; i++ {
+			pageTable.EXPECT().Find(vm.PID(1), uint64(i*4)).
+				Return(vm.Page{
+					PAddr: uint64(0),
+				}, true)
+		}
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.FLAT
+		state.inst.Opcode = 17
+
+		layout := state.Scratchpad().AsFlat()
+		for i := 0; i < 64; i++ {
+			layout.ADDR[i] = uint64(i * 4)
+			storage.Write(uint64(i*4), insts.Uint32ToBytes(uint32(i)))
+		}
+		layout.EXEC = 0xffffffffffffffff
+
+		alu.Run(state)
+
+		for i := 0; i < 64; i++ {
+			Expect(layout.DST[i*4]).To(Equal(uint32(i)))
+			Expect(layout.DST[i*4+1]).To(Equal(uint32(0)))
+			Expect(layout.DST[i*4+2]).To(Equal(uint32(0)))
+			Expect(layout.DST[i*4+3]).To(Equal(uint32(0)))
+		}
+	})
+
 	It("should run FLAT_LOAD_USHORT", func() {
 		for i := 0; i < 64; i++ {
 			pageTable.EXPECT().
