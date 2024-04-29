@@ -534,6 +534,9 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 		access.LaneID = laneInfo.laneID
 		if inst.FormatType == insts.FLAT && inst.Opcode == 16 { // FLAT_LOAD_UBYTE
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
+		} else if inst.FormatType == insts.FLAT && inst.Opcode == 17 { // FLAT_LOAD_SBYTE
+			signedB := int32(int8(rsp.Data[offset]))
+			access.Data = insts.Uint32ToBytes(uint32(signedB))
 		} else if inst.FormatType == insts.FLAT && inst.Opcode == 18 {
 			access.Data = insts.Uint32ToBytes(uint32(rsp.Data[offset]))
 		} else {
