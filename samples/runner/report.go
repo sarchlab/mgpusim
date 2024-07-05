@@ -69,12 +69,21 @@ func (r *Runner) defineMetrics() {
 }
 
 func (r *Runner) addKernelTimeTracer() {
-	r.kernelTimeCounter = tracing.NewBusyTimeTracer(
-		r.platform.Engine,
-		func(task tracing.Task) bool {
-			return task.What == "*driver.LaunchKernelCommand"
-		})
-	tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+	if *unifiedGPUFlag != "" {
+		r.kernelTimeCounter = tracing.NewBusyTimeTracer(
+			r.platform.Engine,
+			func(task tracing.Task) bool {
+				return task.What == "*driver.LaunchUnifiedMultiGPUKernelCommand"
+			})
+		tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+	} else {
+		r.kernelTimeCounter = tracing.NewBusyTimeTracer(
+			r.platform.Engine,
+			func(task tracing.Task) bool {
+				return task.What == "*driver.LaunchKernelCommand"
+			})
+		tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+	}
 
 	for _, gpu := range r.platform.GPUs {
 		gpuKernelTimeCounter := tracing.NewBusyTimeTracer(
