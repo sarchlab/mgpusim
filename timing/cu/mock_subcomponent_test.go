@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	sim "github.com/sarchlab/akita/v3/sim"
+	sim "github.com/sarchlab/akita/v4/sim"
 	wavefront "github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 

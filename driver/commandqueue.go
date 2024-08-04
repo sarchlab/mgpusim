@@ -3,7 +3,7 @@ package driver
 import (
 	"sync"
 
-	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v4/mem/vm"
 )
 
 // A CommandQueue maintains a queue of command where the commands from the
