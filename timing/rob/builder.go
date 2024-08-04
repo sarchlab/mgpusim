@@ -3,7 +3,7 @@ package rob
 import (
 	"container/list"
 
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // A Builder can build ReorderBuffers.

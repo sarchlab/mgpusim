@@ -1,7 +1,7 @@
 package resource
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v3/kernels"
 )
 

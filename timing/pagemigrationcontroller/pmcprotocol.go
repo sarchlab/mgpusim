@@ -1,7 +1,7 @@
 package pagemigrationcontroller
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // A PageMigrationReqToPMC asks the local GPU PMC to transfer a given page from another GPU PMC
