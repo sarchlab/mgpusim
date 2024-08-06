@@ -3,7 +3,7 @@ package emu
 import (
 	"log"
 
-	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v4/insts"
 )
 
 //nolint:gocyclo

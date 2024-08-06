@@ -1,6 +1,6 @@
 package trace
 
-import "github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
+import "github.com/sarchlab/mgpusim/v4/accelsim_tracing/gpu"
 
 type memCopy struct { // trace execs interface
 	parent *Trace

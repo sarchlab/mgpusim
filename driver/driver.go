@@ -11,9 +11,9 @@ import (
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v3/driver/internal"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v4/driver/internal"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
 	"github.com/tebeka/atexit"
 )
 

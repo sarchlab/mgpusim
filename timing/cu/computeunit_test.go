@@ -6,10 +6,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 type mockScheduler struct {

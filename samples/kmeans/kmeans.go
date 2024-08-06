@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/kmeans"
-	"github.com/sarchlab/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/heteromark/kmeans"
+	"github.com/sarchlab/mgpusim/v4/samples/runner"
 )
 
 var points = flag.Int("points", 1024, "The number of points.")

@@ -3,7 +3,7 @@ package protocol
 import (
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v4/kernels"
 )
 
 // A CUPipelineRestartReq is a message from CP to ask the CU pipeline to resume after a flush/drain

@@ -3,8 +3,8 @@ package benchmark
 import (
 	"errors"
 
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/trace"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/gpu"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/trace"
 )
 
 type BenchMark struct {

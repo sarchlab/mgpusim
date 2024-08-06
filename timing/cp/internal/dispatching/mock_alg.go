@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	kernels "github.com/sarchlab/mgpusim/v3/kernels"
-	resource "github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
+	kernels "github.com/sarchlab/mgpusim/v4/kernels"
+	resource "github.com/sarchlab/mgpusim/v4/timing/cp/internal/resource"
 )
 
 // MockAlgorithm is a mock of algorithm interface.

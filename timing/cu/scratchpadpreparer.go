@@ -4,9 +4,9 @@ import (
 	"log"
 	"math"
 
-	"github.com/sarchlab/mgpusim/v3/emu"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/emu"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // ScratchpadPreparer does its jobs

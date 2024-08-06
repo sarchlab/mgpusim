@@ -7,9 +7,9 @@ import (
 	"github.com/sarchlab/akita/v4/monitoring"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/resource"
 )
 
 // A Dispatcher is a sub-component of a command processor that can dispatch

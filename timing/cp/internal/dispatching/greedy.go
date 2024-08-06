@@ -1,9 +1,9 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/resource"
 )
 
 // greedyAlgorithm fills a CU before moving to another GPU.

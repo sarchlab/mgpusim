@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/sarchlab/mgpusim/v3/samples/runner"
-	"github.com/sarchlab/mgpusim/v3/server"
+	"github.com/sarchlab/mgpusim/v4/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/server"
 )
 
 func main() {

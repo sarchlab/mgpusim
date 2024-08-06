@@ -1,7 +1,7 @@
 package mccl
 
 import (
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // Communicator is a struct that helps gpu to communicate.

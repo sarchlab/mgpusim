@@ -1,7 +1,7 @@
 package training
 
 import (
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
 )
 
 // LossFunction defines how loss is calculated.
