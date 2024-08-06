@@ -2,8 +2,8 @@ package cu
 
 import (
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // WfDispatchEvent is the event that the dispatcher dispatches a wavefront

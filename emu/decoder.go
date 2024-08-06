@@ -1,6 +1,6 @@
 package emu
 
-import "github.com/sarchlab/mgpusim/v3/insts"
+import "github.com/sarchlab/mgpusim/v4/insts"
 
 // Decoder defines the interface that can convert instruction bytes to
 // instructions

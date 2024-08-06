@@ -7,11 +7,11 @@ import (
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
-	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
-	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/resource"
+	"github.com/sarchlab/mgpusim/v4/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v4/timing/rdma"
 )
 
 // CommandProcessor is an Akita component that is responsible for receiving

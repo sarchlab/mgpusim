@@ -7,7 +7,7 @@ import (
 
 	"encoding/binary"
 
-	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v4/insts"
 )
 
 // ALU does its jobs

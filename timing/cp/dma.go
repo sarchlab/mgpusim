@@ -7,7 +7,7 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v4/protocol"
 )
 
 // A RequestCollection contains a single MemCopy Msg and the IDs of the Read/Write

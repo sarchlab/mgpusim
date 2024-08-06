@@ -1,8 +1,8 @@
 package gpc
 
 import (
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/sm"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/sm"
 )
 
 type GPC struct {

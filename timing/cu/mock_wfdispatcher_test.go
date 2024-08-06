@@ -9,8 +9,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	sim "github.com/sarchlab/akita/v4/sim"
-	protocol "github.com/sarchlab/mgpusim/v3/protocol"
-	wavefront "github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	protocol "github.com/sarchlab/mgpusim/v4/protocol"
+	wavefront "github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // MockWfDispatcher is a mock of WfDispatcher interface.

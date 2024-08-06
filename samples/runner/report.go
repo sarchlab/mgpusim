@@ -6,8 +6,8 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v3/timing/cu"
-	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/mgpusim/v4/timing/cu"
+	"github.com/sarchlab/mgpusim/v4/timing/rdma"
 	"github.com/tebeka/atexit"
 )
 

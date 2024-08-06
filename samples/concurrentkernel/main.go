@@ -5,9 +5,9 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/bitonicsort"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/fir"
-	"github.com/sarchlab/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/amdappsdk/bitonicsort"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/heteromark/fir"
+	"github.com/sarchlab/mgpusim/v4/samples/runner"
 )
 
 func main() {

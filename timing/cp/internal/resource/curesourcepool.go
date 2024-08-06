@@ -2,7 +2,7 @@ package resource
 
 import (
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v4/kernels"
 )
 
 // DispatchableCU handles dispatch resource

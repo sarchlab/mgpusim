@@ -7,7 +7,7 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v3/driver/internal"
+	"github.com/sarchlab/mgpusim/v4/driver/internal"
 )
 
 func enqueueNoopCommand(d *Driver, q *CommandQueue) {

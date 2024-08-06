@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/fir"
-	"github.com/sarchlab/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/heteromark/fir"
+	"github.com/sarchlab/mgpusim/v4/samples/runner"
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")

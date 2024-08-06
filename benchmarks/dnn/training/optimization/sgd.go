@@ -1,7 +1,7 @@
 package optimization
 
 import (
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
 )
 
 // SGD is an optimizer that runs SGD algorithm

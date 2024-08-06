@@ -3,7 +3,7 @@ package wavefront
 
 import (
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v4/insts"
 )
 
 // Inst in the timing package is a wrapper of the insts.Inst.

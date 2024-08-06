@@ -1,7 +1,7 @@
 package imagenet
 
 import (
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
 )
 
 // A DataSource provides convenient solution to feed data to neural networks.

@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
 )
 
 type traceHeader struct {

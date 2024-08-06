@@ -15,7 +15,7 @@ import (
 	"github.com/sarchlab/akita/v4/noc/networking/pcie"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.

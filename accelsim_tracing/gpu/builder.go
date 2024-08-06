@@ -1,8 +1,8 @@
 package gpu
 
 import (
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpc"
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/gpc"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
 )
 
 type GPU struct {

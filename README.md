@@ -6,7 +6,7 @@
 [![MGPUSim Test](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml/badge.svg)](https://github.com/sarchlab/mgpusim/actions/workflows/mgpusim_test.yml)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/sarchlab/mgpusim.svg)](https://pkg.go.dev/github.com/sarchlab/mgpusim)
-[![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/mgpusim/v3)](https://goreportcard.com/report/github.com/sarchlab/mgpusim/v3)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sarchlab/mgpusim/v4)](https://goreportcard.com/report/github.com/sarchlab/mgpusim/v4)
 
 
 MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It models GPUs that run the AMD GCN3 instruction sets. One main feature of MGPUSim is the support for multi-GPU simulation (you can still use it for single-GPU architecture research).

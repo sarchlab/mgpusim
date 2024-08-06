@@ -1,7 +1,7 @@
 package optimization
 
 import (
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
 )
 
 // Momentum runs a exponentially weighted averaging over gradients.

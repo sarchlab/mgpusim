@@ -8,10 +8,10 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/dispatching"
-	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/dispatching"
+	"github.com/sarchlab/mgpusim/v4/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v4/timing/rdma"
 )
 
 var _ = Describe("CommandProcessor", func() {
