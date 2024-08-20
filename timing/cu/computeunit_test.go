@@ -15,7 +15,7 @@ import (
 type mockScheduler struct {
 }
 
-func (m *mockScheduler) Run(now sim.VTimeInSec) bool {
+func (m *mockScheduler) Run() bool {
 	return true
 }
 

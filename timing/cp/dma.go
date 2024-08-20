@@ -87,19 +87,18 @@ func (dma *DMAEngine) SetLocalDataSource(s mem.LowModuleFinder) {
 }
 
 // Tick ticks
-func (dma *DMAEngine) Tick(now sim.VTimeInSec) bool {
+func (dma *DMAEngine) Tick() bool {
 	madeProgress := false
 
-	madeProgress = dma.send(now, dma.ToCP, &dma.toSendToCP) || madeProgress
-	madeProgress = dma.send(now, dma.ToMem, &dma.toSendToMem) || madeProgress
-	madeProgress = dma.parseFromMem(now) || madeProgress
-	madeProgress = dma.parseFromCP(now) || madeProgress
+	madeProgress = dma.send(dma.ToCP, &dma.toSendToCP) || madeProgress
+	madeProgress = dma.send(dma.ToMem, &dma.toSendToMem) || madeProgress
+	madeProgress = dma.parseFromMem() || madeProgress
+	madeProgress = dma.parseFromCP() || madeProgress
 
 	return madeProgress
 }
 
 func (dma *DMAEngine) send(
-	now sim.VTimeInSec,
 	port sim.Port,
 	reqs *[]sim.Msg,
 ) bool {
@@ -108,7 +107,6 @@ func (dma *DMAEngine) send(
 	}
 
 	req := (*reqs)[0]
-	req.Meta().SendTime = now
 	err := port.Send(req)
 	if err == nil {
 		*reqs = (*reqs)[1:]
@@ -118,17 +116,17 @@ func (dma *DMAEngine) send(
 	return false
 }
 
-func (dma *DMAEngine) parseFromMem(now sim.VTimeInSec) bool {
-	req := dma.ToMem.Retrieve(now)
+func (dma *DMAEngine) parseFromMem() bool {
+	req := dma.ToMem.RetrieveIncoming()
 	if req == nil {
 		return false
 	}
 
 	switch req := req.(type) {
 	case *mem.DataReadyRsp:
-		dma.processDataReadyRsp(now, req)
+		dma.processDataReadyRsp(req)
 	case *mem.WriteDoneRsp:
-		dma.processDoneRsp(now, req)
+		dma.processDoneRsp(req)
 	default:
 		log.Panicf("cannot handle request of type %s", reflect.TypeOf(req))
 	}
@@ -137,7 +135,6 @@ func (dma *DMAEngine) parseFromMem(now sim.VTimeInSec) bool {
 }
 
 func (dma *DMAEngine) processDataReadyRsp(
-	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
 	req := dma.removeReqFromPendingReqList(rsp.RespondTo).(*mem.ReadReq)
@@ -169,7 +166,6 @@ func (dma *DMAEngine) processDataReadyRsp(
 		rsp := sim.GeneralRspBuilder{}.
 			WithDst(processing.Src).
 			WithSrc(processing.Dst).
-			WithSendTime(now).
 			WithOriginalReq(processing).
 			Build()
 		dma.toSendToCP = append(dma.toSendToCP, rsp)
@@ -177,7 +173,6 @@ func (dma *DMAEngine) processDataReadyRsp(
 }
 
 func (dma *DMAEngine) processDoneRsp(
-	now sim.VTimeInSec,
 	rsp *mem.WriteDoneRsp,
 ) {
 	r := dma.removeReqFromPendingReqList(rsp.RespondTo)
@@ -204,7 +199,6 @@ func (dma *DMAEngine) processDoneRsp(
 		rsp := sim.GeneralRspBuilder{}.
 			WithDst(processing.Src).
 			WithSrc(processing.Dst).
-			WithSendTime(now).
 			WithOriginalReq(processing).
 			Build()
 		dma.toSendToCP = append(dma.toSendToCP, rsp)
@@ -247,12 +241,12 @@ func (dma *DMAEngine) removeReqFromProcessingReqList(id string) {
 	}
 }
 
-func (dma *DMAEngine) parseFromCP(now sim.VTimeInSec) bool {
+func (dma *DMAEngine) parseFromCP() bool {
 	if uint64(len(dma.processingReqs)) >= dma.maxRequestCount {
 		return false
 	}
 
-	req := dma.ToCP.Retrieve(now)
+	req := dma.ToCP.RetrieveIncoming()
 	if req == nil {
 		return false
 	}
@@ -263,9 +257,9 @@ func (dma *DMAEngine) parseFromCP(now sim.VTimeInSec) bool {
 	dma.processingReqs = append(dma.processingReqs, rqC)
 	switch req := req.(type) {
 	case *protocol.MemCopyH2DReq:
-		dma.parseMemCopyH2D(now, req, rqC)
+		dma.parseMemCopyH2D(req, rqC)
 	case *protocol.MemCopyD2HReq:
-		dma.parseMemCopyD2H(now, req, rqC)
+		dma.parseMemCopyD2H(req, rqC)
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 	}
@@ -274,7 +268,6 @@ func (dma *DMAEngine) parseFromCP(now sim.VTimeInSec) bool {
 }
 
 func (dma *DMAEngine) parseMemCopyH2D(
-	now sim.VTimeInSec,
 	req *protocol.MemCopyH2DReq,
 	rqC *RequestCollection,
 ) {
@@ -294,7 +287,6 @@ func (dma *DMAEngine) parseMemCopyH2D(
 
 		module := dma.localDataSource.Find(addr)
 		reqToBottom := mem.WriteReqBuilder{}.
-			WithSendTime(now).
 			WithSrc(dma.ToMem).
 			WithDst(module).
 			WithAddress(addr).
@@ -314,7 +306,6 @@ func (dma *DMAEngine) parseMemCopyH2D(
 }
 
 func (dma *DMAEngine) parseMemCopyD2H(
-	now sim.VTimeInSec,
 	req *protocol.MemCopyD2HReq,
 	rqC *RequestCollection,
 ) {
@@ -334,7 +325,6 @@ func (dma *DMAEngine) parseMemCopyD2H(
 
 		module := dma.localDataSource.Find(addr)
 		reqToBottom := mem.ReadReqBuilder{}.
-			WithSendTime(now).
 			WithSrc(dma.ToMem).
 			WithDst(module).
 			WithAddress(addr).

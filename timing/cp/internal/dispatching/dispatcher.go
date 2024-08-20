@@ -19,7 +19,7 @@ type Dispatcher interface {
 	RegisterCU(cu resource.DispatchableCU)
 	IsDispatching() bool
 	StartDispatching(req *protocol.LaunchKernelReq)
-	Tick(now sim.VTimeInSec) (madeProgress bool)
+	Tick() (madeProgress bool)
 }
 
 // A DispatcherImpl is a ticking component that can dispatch work-groups.
@@ -94,7 +94,7 @@ func (d *DispatcherImpl) mustNotBeDispatchingAnotherKernel() {
 }
 
 // Tick updates the state of the dispatcher.
-func (d *DispatcherImpl) Tick(now sim.VTimeInSec) (madeProgress bool) {
+func (d *DispatcherImpl) Tick() (madeProgress bool) {
 	if d.cycleLeft > 0 {
 		d.cycleLeft--
 		return true
@@ -102,19 +102,19 @@ func (d *DispatcherImpl) Tick(now sim.VTimeInSec) (madeProgress bool) {
 
 	if d.dispatching != nil {
 		if d.kernelCompleted() {
-			madeProgress = d.completeKernel(now) || madeProgress
+			madeProgress = d.completeKernel() || madeProgress
 		} else {
-			madeProgress = d.dispatchNextWG(now) || madeProgress
+			madeProgress = d.dispatchNextWG() || madeProgress
 		}
 	}
 
-	madeProgress = d.processMessagesFromCU(now) || madeProgress
+	madeProgress = d.processMessagesFromCU() || madeProgress
 
 	return madeProgress
 }
 
-func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
-	msg := d.dispatchingPort.Peek()
+func (d *DispatcherImpl) processMessagesFromCU() bool {
+	msg := d.dispatchingPort.PeekIncoming()
 	if msg == nil {
 		return false
 	}
@@ -153,7 +153,7 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 			}
 		}
 
-		d.dispatchingPort.Retrieve(now)
+		d.dispatchingPort.RetrieveIncoming()
 		return true
 	}
 
@@ -176,12 +176,12 @@ func (d *DispatcherImpl) kernelCompleted() bool {
 	return true
 }
 
-func (d *DispatcherImpl) completeKernel(now sim.VTimeInSec) (
+func (d *DispatcherImpl) completeKernel() (
 	madeProgress bool,
 ) {
 	req := d.dispatching
 
-	rsp := protocol.NewLaunchKernelRsp(now, req.Dst, req.Src, req.ID)
+	rsp := protocol.NewLaunchKernelRsp(req.Dst, req.Src, req.ID)
 
 	err := d.respondingPort.Send(rsp)
 	if err == nil {
@@ -199,9 +199,7 @@ func (d *DispatcherImpl) completeKernel(now sim.VTimeInSec) (
 	return false
 }
 
-func (d *DispatcherImpl) dispatchNextWG(
-	now sim.VTimeInSec,
-) (madeProgress bool) {
+func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 	if !d.currWG.valid {
 		if !d.alg.HasNext() {
 			return false
@@ -216,7 +214,6 @@ func (d *DispatcherImpl) dispatchNextWG(
 	reqBuilder := protocol.MapWGReqBuilder{}.
 		WithSrc(d.dispatchingPort).
 		WithDst(d.currWG.cu).
-		WithSendTime(now).
 		WithPID(d.dispatching.PID).
 		WithWG(d.currWG.wg)
 	for _, l := range d.currWG.locations {

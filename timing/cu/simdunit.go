@@ -57,20 +57,20 @@ func (u *SIMDUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the branch unit
-func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
+func (u *SIMDUnit) AcceptWave(wave *wavefront.Wavefront) {
 	u.toExec = wave
 
 	u.cycleLeft = 64 / u.NumSinglePrecisionUnit
-	u.logPipelineTask(now, u.toExec.DynamicInst(), false)
+	u.logPipelineTask(u.toExec.DynamicInst(), false)
 }
 
 // Run executes three pipeline stages that are controlled by the SIMDUnit
-func (u *SIMDUnit) Run(now sim.VTimeInSec) bool {
-	madeProgress := u.runExecStage(now)
+func (u *SIMDUnit) Run() bool {
+	madeProgress := u.runExecStage()
 	return madeProgress
 }
 
-func (u *SIMDUnit) runExecStage(now sim.VTimeInSec) bool {
+func (u *SIMDUnit) runExecStage() bool {
 	if u.toExec == nil {
 		return false
 	}
@@ -85,8 +85,8 @@ func (u *SIMDUnit) runExecStage(now sim.VTimeInSec) bool {
 	u.scratchpadPreparer.Commit(u.toExec, u.toExec)
 	u.cu.UpdatePCAndSetReady(u.toExec)
 
-	u.logPipelineTask(now, u.toExec.DynamicInst(), true)
-	u.cu.logInstTask(now, u.toExec, u.toExec.DynamicInst(), true)
+	u.logPipelineTask(u.toExec.DynamicInst(), true)
+	u.cu.logInstTask(u.toExec, u.toExec.DynamicInst(), true)
 
 	u.toExec = nil
 	return true
@@ -98,7 +98,6 @@ func (u *SIMDUnit) Flush() {
 }
 
 func (u *SIMDUnit) logPipelineTask(
-	now sim.VTimeInSec,
 	inst *wavefront.Inst,
 	completed bool,
 ) {

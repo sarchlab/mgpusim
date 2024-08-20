@@ -10,6 +10,7 @@ import (
 	memtraces "github.com/sarchlab/akita/v4/mem/trace"
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/driver"
 	"github.com/sarchlab/mgpusim/v4/emu"
@@ -188,8 +189,10 @@ func (b *EmuGPUBuilder) buildGPU() {
 }
 
 func (b *EmuGPUBuilder) connectInternalComponents() {
-	connection := sim.NewDirectConnection(
-		"InterGPUConn", b.engine, 1*sim.GHz)
+	connection := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(1*sim.GHz).
+		Build("InterGPUConn")
 
 	connection.PlugIn(b.commandProcessor.ToDriver, 1)
 	connection.PlugIn(b.commandProcessor.ToDMA, 1)

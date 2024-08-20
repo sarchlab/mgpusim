@@ -262,7 +262,6 @@ func (r *Runner) Run() {
 	wg.Wait()
 
 	r.platform.Driver.Terminate()
-	r.platform.Engine.Finished()
 
 	atexit.Exit(0)
 }
