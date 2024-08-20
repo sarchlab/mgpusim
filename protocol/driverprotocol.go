@@ -17,12 +17,19 @@ func (m *FlushReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the FlushReq with diffrent ID.
+func (m *FlushReq) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewFlushReq Creates a new flush command, setting the request send time
 // with time and the source and destination.
-func NewFlushReq(time sim.VTimeInSec, src, dst sim.Port) *FlushReq {
+func NewFlushReq(src, dst sim.Port) *FlushReq {
 	cmd := new(FlushReq)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -45,14 +52,20 @@ func (m *LaunchKernelReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the LaunchKernelReq with diffrent ID.
+func (m *LaunchKernelReq) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewLaunchKernelReq returns a new LaunchKernelReq
 func NewLaunchKernelReq(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
 	r.ID = sim.GetIDGenerator().Generate()
-	r.SendTime = time
 	r.Src = src
 	r.Dst = dst
 	return r
@@ -71,15 +84,21 @@ func (m *LaunchKernelRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the LaunchKernelRsp with diffrent ID.
+func (m *LaunchKernelRsp) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewLaunchKernelRsp returns a new LaunchKernelRsp.
 func NewLaunchKernelRsp(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 	rspTo string,
 ) *LaunchKernelRsp {
 	r := new(LaunchKernelRsp)
 	r.ID = sim.GetIDGenerator().Generate()
-	r.SendTime = time
 	r.Src = src
 	r.Dst = dst
 
@@ -101,9 +120,16 @@ func (m *MemCopyH2DReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the MemCopyH2DReq with diffrent ID.
+func (m *MemCopyH2DReq) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewMemCopyH2DReq created a new MemCopyH2DReq
 func NewMemCopyH2DReq(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 	srcBuffer []byte,
 	dstAddress uint64,
@@ -111,7 +137,6 @@ func NewMemCopyH2DReq(
 	req := new(MemCopyH2DReq)
 	req.ID = sim.GetIDGenerator().Generate()
 	req.MsgMeta.TrafficBytes = len(srcBuffer)
-	req.SendTime = time
 	req.Src = src
 	req.Dst = dst
 	req.SrcBuffer = srcBuffer
@@ -132,9 +157,16 @@ func (m *MemCopyD2HReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the MemCopyD2HReq with diffrent ID.
+func (m *MemCopyD2HReq) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewMemCopyD2HReq created a new MemCopyD2HReq
 func NewMemCopyD2HReq(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 	srcAddress uint64,
 	dstBuffer []byte,
@@ -142,7 +174,6 @@ func NewMemCopyD2HReq(
 	req := new(MemCopyD2HReq)
 	req.ID = sim.GetIDGenerator().Generate()
 	req.MsgMeta.TrafficBytes = len(dstBuffer)
-	req.SendTime = time
 	req.Src = src
 	req.Dst = dst
 	req.SrcAddress = srcAddress
@@ -167,16 +198,22 @@ func (m *ShootDownCommand) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the ShootDownCommand with diffrent ID.
+func (m *ShootDownCommand) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewShootdownCommand tells the CP to drain all CU and invalidate PTE's in TLB and Page Tables
 func NewShootdownCommand(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 	vAddr []uint64,
 	pID vm.PID,
 ) *ShootDownCommand {
 	cmd := new(ShootDownCommand)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	cmd.VAddr = vAddr
@@ -197,14 +234,20 @@ func (m *ShootDownCompleteRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the ShootDownCompleteRsp with diffrent ID.
+func (m *ShootDownCompleteRsp) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewShootdownCompleteRsp creates a new respond
 func NewShootdownCompleteRsp(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *ShootDownCompleteRsp {
 	cmd := new(ShootDownCompleteRsp)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -223,14 +266,20 @@ func (m *RDMADrainCmdFromDriver) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the RDMADrainCmdFromDriver with diffrent ID.
+func (m *RDMADrainCmdFromDriver) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewRDMADrainCmdFromDriver creates a new RDMADrainCmdFromDriver
 func NewRDMADrainCmdFromDriver(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *RDMADrainCmdFromDriver {
 	cmd := new(RDMADrainCmdFromDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -249,14 +298,20 @@ func (m *RDMADrainRspToDriver) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the RDMADrainRspToDriver with diffrent ID.
+func (m *RDMADrainRspToDriver) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewRDMADrainRspToDriver creates a new RDMADrainRspToDriver
 func NewRDMADrainRspToDriver(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *RDMADrainRspToDriver {
 	cmd := new(RDMADrainRspToDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -275,14 +330,20 @@ func (m *RDMARestartCmdFromDriver) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the RDMARestartCmdFromDriver with diffrent ID.
+func (m *RDMARestartCmdFromDriver) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewRDMARestartCmdFromDriver creates a new RDMARestartCmdFromDriver
 func NewRDMARestartCmdFromDriver(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *RDMARestartCmdFromDriver {
 	cmd := new(RDMARestartCmdFromDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -301,14 +362,20 @@ func (m *GPURestartReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the GPURestartReq with diffrent ID.
+func (m *GPURestartReq) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewGPURestartReq creates a GPURestart request
 func NewGPURestartReq(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *GPURestartReq {
 	cmd := new(GPURestartReq)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -327,14 +394,20 @@ func (m *GPURestartRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the GPURestartRsp with diffrent ID.
+func (m *GPURestartRsp) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewGPURestartRsp creates a GPURestart respond
 func NewGPURestartRsp(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *GPURestartRsp {
 	cmd := new(GPURestartRsp)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -358,14 +431,20 @@ func (m *PageMigrationReqToCP) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the PageMigrationReqToCP with diffrent ID.
+func (m *PageMigrationReqToCP) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewPageMigrationReqToCP creates a PageMigrationReqToCP
 func NewPageMigrationReqToCP(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *PageMigrationReqToCP {
 	cmd := new(PageMigrationReqToCP)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -384,14 +463,20 @@ func (m *PageMigrationRspToDriver) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the PageMigrationRspToDriver with diffrent ID.
+func (m *PageMigrationRspToDriver) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewPageMigrationRspToDriver creates a PageMigrationRspToCP
 func NewPageMigrationRspToDriver(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *PageMigrationRspToDriver {
 	cmd := new(PageMigrationRspToDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd
@@ -410,13 +495,19 @@ func (m *RDMARestartRspToDriver) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
+// Clone returns a clone of the RDMARestartRspToDriver with diffrent ID.
+func (m *RDMARestartRspToDriver) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // NewRDMARestartRspToDriver creates a RDMARestartRspToDriver
 func NewRDMARestartRspToDriver(
-	time sim.VTimeInSec,
 	src, dst sim.Port,
 ) *RDMARestartRspToDriver {
 	cmd := new(RDMARestartRspToDriver)
-	cmd.SendTime = time
 	cmd.Src = src
 	cmd.Dst = dst
 	return cmd

@@ -21,27 +21,25 @@ type defaultMemoryCopyMiddleware struct {
 }
 
 func (m *defaultMemoryCopyMiddleware) ProcessCommand(
-	now sim.VTimeInSec,
 	cmd Command,
 	queue *CommandQueue,
 ) (processed bool) {
 	switch cmd := cmd.(type) {
 	case *MemCopyH2DCommand:
-		return m.processMemCopyH2DCommand(now, cmd, queue)
+		return m.processMemCopyH2DCommand(cmd, queue)
 	case *MemCopyD2HCommand:
-		return m.processMemCopyD2HCommand(now, cmd, queue)
+		return m.processMemCopyD2HCommand(cmd, queue)
 	}
 
 	return false
 }
 
 func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
-	now sim.VTimeInSec,
 	cmd *MemCopyH2DCommand,
 	queue *CommandQueue,
 ) bool {
 	if m.needFlushing(queue.Context, cmd.Dst, uint64(binary.Size(cmd.Src))) {
-		m.sendFlushRequest(now, cmd)
+		m.sendFlushRequest(cmd)
 	}
 
 	buffer := bytes.NewBuffer(nil)
@@ -68,7 +66,7 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 		}
 
 		gpuID := m.driver.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.NewMemCopyH2DReq(now,
+		req := protocol.NewMemCopyH2DReq(
 			m.driver.gpuPort, m.driver.GPUs[gpuID-1],
 			rawBytes[offset:offset+sizeToCopy],
 			pAddr)
@@ -80,7 +78,7 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 		addr += sizeToCopy
 		offset += sizeToCopy
 
-		m.driver.logTaskToGPUInitiate(now, cmd, req)
+		m.driver.logTaskToGPUInitiate(cmd, req)
 	}
 
 	m.cyclesLeft = m.cyclesPerH2D
@@ -91,12 +89,11 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DCommand(
 }
 
 func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
-	now sim.VTimeInSec,
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
 ) bool {
 	if m.needFlushing(queue.Context, cmd.Src, uint64(binary.Size(cmd.Dst))) {
-		m.sendFlushRequest(now, cmd)
+		m.sendFlushRequest(cmd)
 		queue.Context.removeFreedBuffers()
 	}
 
@@ -119,7 +116,7 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 		}
 
 		gpuID := m.driver.memAllocator.GetDeviceIDByPAddr(pAddr)
-		req := protocol.NewMemCopyD2HReq(now,
+		req := protocol.NewMemCopyD2HReq(
 			m.driver.gpuPort, m.driver.GPUs[gpuID-1],
 			pAddr, cmd.RawData[offset:offset+sizeToCopy])
 		cmd.Reqs = append(cmd.Reqs, req)
@@ -130,7 +127,7 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HCommand(
 		addr += sizeToCopy
 		offset += sizeToCopy
 
-		m.driver.logTaskToGPUInitiate(now, cmd, req)
+		m.driver.logTaskToGPUInitiate(cmd, req)
 	}
 
 	m.cyclesLeft = m.cyclesPerD2H
@@ -174,21 +171,18 @@ func memRangeOverlap(
 }
 
 func (m *defaultMemoryCopyMiddleware) sendFlushRequest(
-	now sim.VTimeInSec,
 	cmd Command,
 ) {
 	for _, gpu := range m.driver.GPUs {
-		req := protocol.NewFlushReq(now, m.driver.gpuPort, gpu)
+		req := protocol.NewFlushReq(m.driver.gpuPort, gpu)
 		m.driver.requestsToSend = append(m.driver.requestsToSend, req)
 		cmd.AddReq(req)
 
-		m.driver.logTaskToGPUInitiate(now, cmd, req)
+		m.driver.logTaskToGPUInitiate(cmd, req)
 	}
 }
 
-func (m *defaultMemoryCopyMiddleware) Tick(
-	now sim.VTimeInSec,
-) (madeProgress bool) {
+func (m *defaultMemoryCopyMiddleware) Tick() (madeProgress bool) {
 	madeProgress = false
 
 	if m.cyclesLeft > 0 {
@@ -201,44 +195,42 @@ func (m *defaultMemoryCopyMiddleware) Tick(
 		madeProgress = true
 	}
 
-	req := m.driver.gpuPort.Peek()
+	req := m.driver.gpuPort.PeekIncoming()
 	if req == nil {
 		return madeProgress
 	}
 
 	switch req := req.(type) {
 	case *sim.GeneralRsp:
-		madeProgress = m.processGeneralRsp(now, req)
+		madeProgress = m.processGeneralRsp(req)
 	}
 
 	return madeProgress
 }
 
 func (m *defaultMemoryCopyMiddleware) processGeneralRsp(
-	now sim.VTimeInSec,
 	rsp *sim.GeneralRsp,
 ) bool {
 	originalReq := rsp.OriginalReq
 
 	switch originalReq := originalReq.(type) {
 	case *protocol.FlushReq:
-		return m.processFlushReturn(now, originalReq)
+		return m.processFlushReturn(originalReq)
 	case *protocol.MemCopyH2DReq:
-		return m.processMemCopyH2DReturn(now, originalReq)
+		return m.processMemCopyH2DReturn(originalReq)
 	case *protocol.MemCopyD2HReq:
-		return m.processMemCopyD2HReturn(now, originalReq)
+		return m.processMemCopyD2HReturn(originalReq)
 	}
 
 	return false
 }
 
 func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
-	now sim.VTimeInSec,
 	req *protocol.MemCopyH2DReq,
 ) bool {
-	m.driver.gpuPort.Retrieve(now)
+	m.driver.gpuPort.RetrieveIncoming()
 
-	m.driver.logTaskToGPUClear(now, req)
+	m.driver.logTaskToGPUClear(req)
 
 	cmd, cmdQueue := m.driver.findCommandByReq(req)
 
@@ -255,19 +247,18 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
 		cmdQueue.IsRunning = false
 		cmdQueue.Dequeue()
 
-		m.driver.logCmdComplete(cmd, now)
+		m.driver.logCmdComplete(cmd)
 	}
 
 	return true
 }
 
 func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
-	now sim.VTimeInSec,
 	req *protocol.MemCopyD2HReq,
 ) bool {
-	m.driver.gpuPort.Retrieve(now)
+	m.driver.gpuPort.RetrieveIncoming()
 
-	m.driver.logTaskToGPUClear(now, req)
+	m.driver.logTaskToGPUClear(req)
 
 	cmd, cmdQueue := m.driver.findCommandByReq(req)
 
@@ -284,25 +275,24 @@ func (m *defaultMemoryCopyMiddleware) processMemCopyD2HReturn(
 
 		cmdQueue.Dequeue()
 
-		m.driver.logCmdComplete(copyCmd, now)
+		m.driver.logCmdComplete(copyCmd)
 	}
 
 	return true
 }
 
 func (m *defaultMemoryCopyMiddleware) processFlushReturn(
-	now sim.VTimeInSec,
 	req *protocol.FlushReq,
 ) bool {
-	m.driver.gpuPort.Retrieve(now)
+	m.driver.gpuPort.RetrieveIncoming()
 
-	m.driver.logTaskToGPUClear(now, req)
+	m.driver.logTaskToGPUClear(req)
 
 	cmd, _ := m.driver.findCommandByReq(req)
 
 	cmd.RemoveReq(req)
 
-	m.driver.logTaskToGPUClear(now, req)
+	m.driver.logTaskToGPUClear(req)
 
 	return true
 }

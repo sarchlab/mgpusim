@@ -1,7 +1,6 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/emu"
 	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
@@ -48,21 +47,20 @@ func (u *BranchUnit) IsIdle() bool {
 // AcceptWave moves one wavefront into the read buffer of the branch unit
 func (u *BranchUnit) AcceptWave(
 	wave *wavefront.Wavefront,
-	now sim.VTimeInSec,
 ) {
 	u.toRead = wave
 }
 
 // Run executes three pipeline stages that are controlled by the BranchUnit
-func (u *BranchUnit) Run(now sim.VTimeInSec) bool {
+func (u *BranchUnit) Run() bool {
 	madeProgress := false
-	madeProgress = u.runWriteStage(now) || madeProgress
-	madeProgress = u.runExecStage(now) || madeProgress
-	madeProgress = u.runReadStage(now) || madeProgress
+	madeProgress = u.runWriteStage() || madeProgress
+	madeProgress = u.runExecStage() || madeProgress
+	madeProgress = u.runReadStage() || madeProgress
 	return madeProgress
 }
 
-func (u *BranchUnit) runReadStage(now sim.VTimeInSec) bool {
+func (u *BranchUnit) runReadStage() bool {
 	if u.toRead == nil {
 		return false
 	}
@@ -78,7 +76,7 @@ func (u *BranchUnit) runReadStage(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (u *BranchUnit) runExecStage(now sim.VTimeInSec) bool {
+func (u *BranchUnit) runExecStage() bool {
 	if u.toExec == nil {
 		return false
 	}
@@ -93,14 +91,14 @@ func (u *BranchUnit) runExecStage(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (u *BranchUnit) runWriteStage(now sim.VTimeInSec) bool {
+func (u *BranchUnit) runWriteStage() bool {
 	if u.toWrite == nil {
 		return false
 	}
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.logInstTask(now, u.toWrite, u.toWrite.DynamicInst(), true)
+	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.toWrite.InstBuffer = nil
 	u.cu.UpdatePCAndSetReady(u.toWrite)

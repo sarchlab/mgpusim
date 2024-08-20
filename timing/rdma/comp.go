@@ -46,27 +46,27 @@ func (c *Comp) SetLocalModuleFinder(lmf mem.LowModuleFinder) {
 }
 
 // Tick checks if make progress
-func (c *Comp) Tick(now sim.VTimeInSec) bool {
+func (c *Comp) Tick() bool {
 	madeProgress := false
 
-	madeProgress = c.processFromCtrlPort(now) || madeProgress
+	madeProgress = c.processFromCtrlPort() || madeProgress
 	if c.isDraining {
-		madeProgress = c.drainRDMA(now) || madeProgress
+		madeProgress = c.drainRDMA() || madeProgress
 	}
-	madeProgress = c.processFromL1(now) || madeProgress
-	madeProgress = c.processFromL2(now) || madeProgress
-	madeProgress = c.processFromOutside(now) || madeProgress
+	madeProgress = c.processFromL1() || madeProgress
+	madeProgress = c.processFromL2() || madeProgress
+	madeProgress = c.processFromOutside() || madeProgress
 
 	return madeProgress
 }
 
-func (c *Comp) processFromCtrlPort(now sim.VTimeInSec) bool {
-	req := c.CtrlPort.Peek()
+func (c *Comp) processFromCtrlPort() bool {
+	req := c.CtrlPort.PeekIncoming()
 	if req == nil {
 		return false
 	}
 
-	req = c.CtrlPort.Retrieve(now)
+	req = c.CtrlPort.RetrieveIncoming()
 	switch req := req.(type) {
 	case *DrainReq:
 		c.currentDrainReq = req
@@ -74,16 +74,15 @@ func (c *Comp) processFromCtrlPort(now sim.VTimeInSec) bool {
 		c.pauseIncomingReqsFromL1 = true
 		return true
 	case *RestartReq:
-		return c.processRDMARestartReq(now)
+		return c.processRDMARestartReq()
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 		return false
 	}
 }
 
-func (c *Comp) processRDMARestartReq(now sim.VTimeInSec) bool {
+func (c *Comp) processRDMARestartReq() bool {
 	restartCompleteRsp := RestartRspBuilder{}.
-		WithSendTime(now).
 		WithSrc(c.CtrlPort).
 		WithDst(c.currentDrainReq.Src).
 		Build()
@@ -98,10 +97,9 @@ func (c *Comp) processRDMARestartReq(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (c *Comp) drainRDMA(now sim.VTimeInSec) bool {
+func (c *Comp) drainRDMA() bool {
 	if c.fullyDrained() {
 		drainCompleteRsp := DrainRspBuilder{}.
-			WithSendTime(now).
 			WithSrc(c.CtrlPort).
 			WithDst(c.currentDrainReq.Src).
 			Build()
@@ -121,21 +119,21 @@ func (c *Comp) fullyDrained() bool {
 		len(c.transactionsFromInside) == 0
 }
 
-func (c *Comp) processFromL1(now sim.VTimeInSec) bool {
+func (c *Comp) processFromL1() bool {
 	if c.pauseIncomingReqsFromL1 {
 		return false
 	}
 
 	madeProgress := false
 	for {
-		req := c.ToL1.Peek()
+		req := c.ToL1.PeekIncoming()
 		if req == nil {
 			return madeProgress
 		}
 
 		switch req := req.(type) {
 		case mem.AccessReq:
-			ret := c.processReqFromL1(now, req)
+			ret := c.processReqFromL1(req)
 			if !ret {
 				return madeProgress
 			}
@@ -148,16 +146,16 @@ func (c *Comp) processFromL1(now sim.VTimeInSec) bool {
 	}
 }
 
-func (c *Comp) processFromL2(now sim.VTimeInSec) bool {
+func (c *Comp) processFromL2() bool {
 	madeProgress := false
 	for {
-		req := c.ToL2.Peek()
+		req := c.ToL2.PeekIncoming()
 		if req == nil {
 			return madeProgress
 		}
 		switch req := req.(type) {
 		case mem.AccessRsp:
-			ret := c.processRspFromL2(now, req)
+			ret := c.processRspFromL2(req)
 			if !ret {
 				return madeProgress
 			}
@@ -168,22 +166,22 @@ func (c *Comp) processFromL2(now sim.VTimeInSec) bool {
 	}
 }
 
-func (c *Comp) processFromOutside(now sim.VTimeInSec) bool {
+func (c *Comp) processFromOutside() bool {
 	madeProgress := false
 	for {
-		req := c.ToOutside.Peek()
+		req := c.ToOutside.PeekIncoming()
 		if req == nil {
 			return madeProgress
 		}
 		switch req := req.(type) {
 		case mem.AccessReq:
-			ret := c.processReqFromOutside(now, req)
+			ret := c.processReqFromOutside(req)
 			if !ret {
 				return madeProgress
 			}
 			madeProgress = true
 		case mem.AccessRsp:
-			ret := c.processRspFromOutside(now, req)
+			ret := c.processRspFromOutside(req)
 			if !ret {
 				return madeProgress
 			}
@@ -196,7 +194,6 @@ func (c *Comp) processFromOutside(now sim.VTimeInSec) bool {
 }
 
 func (c *Comp) processReqFromL1(
-	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
@@ -208,11 +205,10 @@ func (c *Comp) processReqFromL1(
 	cloned := c.cloneReq(req)
 	cloned.Meta().Src = c.ToOutside
 	cloned.Meta().Dst = dst
-	cloned.Meta().SendTime = now
 
 	err := c.ToOutside.Send(cloned)
 	if err == nil {
-		c.ToL1.Retrieve(now)
+		c.ToL1.RetrieveIncoming()
 
 		c.traceInsideOutStart(req, cloned)
 
@@ -232,7 +228,6 @@ func (c *Comp) processReqFromL1(
 }
 
 func (c *Comp) processReqFromOutside(
-	now sim.VTimeInSec,
 	req mem.AccessReq,
 ) bool {
 	dst := c.localModules.Find(req.GetAddress())
@@ -240,11 +235,10 @@ func (c *Comp) processReqFromOutside(
 	cloned := c.cloneReq(req)
 	cloned.Meta().Src = c.ToL2
 	cloned.Meta().Dst = dst
-	cloned.Meta().SendTime = now
 
 	err := c.ToL2.Send(cloned)
 	if err == nil {
-		c.ToOutside.Retrieve(now)
+		c.ToOutside.RetrieveIncoming()
 
 		c.traceOutsideInStart(req, cloned)
 
@@ -263,7 +257,6 @@ func (c *Comp) processReqFromOutside(
 }
 
 func (c *Comp) processRspFromL2(
-	now sim.VTimeInSec,
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := c.findTransactionByRspToID(
@@ -271,13 +264,12 @@ func (c *Comp) processRspFromL2(
 	trans := c.transactionsFromOutside[transactionIndex]
 
 	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
-	rspToOutside.Meta().SendTime = now
 	rspToOutside.Meta().Src = c.ToOutside
 	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
 
 	err := c.ToOutside.Send(rspToOutside)
 	if err == nil {
-		c.ToL2.Retrieve(now)
+		c.ToL2.RetrieveIncoming()
 
 		//fmt.Printf("%s rsp inside %s -> outside %s\n",
 		//e.Name(), rsp.GetID(), rspToOutside.GetID())
@@ -293,7 +285,6 @@ func (c *Comp) processRspFromL2(
 }
 
 func (c *Comp) processRspFromOutside(
-	now sim.VTimeInSec,
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := c.findTransactionByRspToID(
@@ -301,13 +292,12 @@ func (c *Comp) processRspFromOutside(
 	trans := c.transactionsFromInside[transactionIndex]
 
 	rspToInside := c.cloneRsp(rsp, trans.fromInside.Meta().ID)
-	rspToInside.Meta().SendTime = now
 	rspToInside.Meta().Src = c.ToL1
 	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
 
 	err := c.ToL1.Send(rspToInside)
 	if err == nil {
-		c.ToOutside.Retrieve(now)
+		c.ToOutside.RetrieveIncoming()
 
 		c.traceInsideOutEnd(trans)
 
@@ -346,7 +336,6 @@ func (c *Comp) cloneReq(origin mem.AccessReq) mem.AccessReq {
 	switch origin := origin.(type) {
 	case *mem.ReadReq:
 		read := mem.ReadReqBuilder{}.
-			WithSendTime(origin.SendTime).
 			WithSrc(origin.Src).
 			WithDst(origin.Dst).
 			WithAddress(origin.Address).
@@ -355,7 +344,6 @@ func (c *Comp) cloneReq(origin mem.AccessReq) mem.AccessReq {
 		return read
 	case *mem.WriteReq:
 		write := mem.WriteReqBuilder{}.
-			WithSendTime(origin.SendTime).
 			WithSrc(origin.Src).
 			WithDst(origin.Dst).
 			WithAddress(origin.Address).
@@ -374,7 +362,6 @@ func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 	switch origin := origin.(type) {
 	case *mem.DataReadyRsp:
 		rsp := mem.DataReadyRspBuilder{}.
-			WithSendTime(origin.SendTime).
 			WithSrc(origin.Src).
 			WithDst(origin.Dst).
 			WithRspTo(rspTo).
@@ -383,7 +370,6 @@ func (c *Comp) cloneRsp(origin mem.AccessRsp, rspTo string) mem.AccessRsp {
 		return rsp
 	case *mem.WriteDoneRsp:
 		rsp := mem.WriteDoneRspBuilder{}.
-			WithSendTime(origin.SendTime).
 			WithSrc(origin.Src).
 			WithDst(origin.Dst).
 			WithRspTo(rspTo).

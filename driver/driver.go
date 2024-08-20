@@ -95,7 +95,7 @@ func (d *Driver) runAsync() {
 			return
 		case <-d.enqueueSignal:
 			d.Engine.Pause()
-			d.TickLater(d.Engine.CurrentTime())
+			d.TickLater()
 			d.Engine.Continue()
 
 			d.engineRunningMutex.Lock()
@@ -161,31 +161,30 @@ func (d *Driver) RegisterGPU(
 }
 
 // Tick ticks
-func (d *Driver) Tick(now sim.VTimeInSec) bool {
+func (d *Driver) Tick() bool {
 	madeProgress := false
 
-	madeProgress = d.sendToGPUs(now) || madeProgress
-	madeProgress = d.sendToMMU(now) || madeProgress
-	madeProgress = d.sendMigrationReqToCP(now) || madeProgress
+	madeProgress = d.sendToGPUs() || madeProgress
+	madeProgress = d.sendToMMU() || madeProgress
+	madeProgress = d.sendMigrationReqToCP() || madeProgress
 
 	for _, mw := range d.middlewares {
-		madeProgress = mw.Tick(now) || madeProgress
+		madeProgress = mw.Tick() || madeProgress
 	}
 
-	madeProgress = d.processReturnReq(now) || madeProgress
-	madeProgress = d.processNewCommand(now) || madeProgress
-	madeProgress = d.parseFromMMU(now) || madeProgress
+	madeProgress = d.processReturnReq() || madeProgress
+	madeProgress = d.processNewCommand() || madeProgress
+	madeProgress = d.parseFromMMU() || madeProgress
 
 	return madeProgress
 }
 
-func (d *Driver) sendToGPUs(now sim.VTimeInSec) bool {
+func (d *Driver) sendToGPUs() bool {
 	if len(d.requestsToSend) == 0 {
 		return false
 	}
 
 	req := d.requestsToSend[0]
-	req.Meta().SendTime = now
 	err := d.gpuPort.Send(req)
 	if err == nil {
 		d.requestsToSend = d.requestsToSend[1:]
@@ -196,42 +195,42 @@ func (d *Driver) sendToGPUs(now sim.VTimeInSec) bool {
 }
 
 //nolint:gocyclo
-func (d *Driver) processReturnReq(now sim.VTimeInSec) bool {
-	req := d.gpuPort.Peek()
+func (d *Driver) processReturnReq() bool {
+	req := d.gpuPort.PeekIncoming()
 	if req == nil {
 		return false
 	}
 
 	switch req := req.(type) {
 	case *protocol.LaunchKernelRsp:
-		d.gpuPort.Retrieve(now)
-		return d.processLaunchKernelReturn(now, req)
+		d.gpuPort.RetrieveIncoming()
+		return d.processLaunchKernelReturn(req)
 	case *protocol.RDMADrainRspToDriver:
-		d.gpuPort.Retrieve(now)
-		return d.processRDMADrainRsp(now, req)
+		d.gpuPort.RetrieveIncoming()
+		return d.processRDMADrainRsp(req)
 	case *protocol.ShootDownCompleteRsp:
-		d.gpuPort.Retrieve(now)
-		return d.processShootdownCompleteRsp(now, req)
+		d.gpuPort.RetrieveIncoming()
+		return d.processShootdownCompleteRsp(req)
 	case *protocol.PageMigrationRspToDriver:
-		d.gpuPort.Retrieve(now)
-		return d.processPageMigrationRspFromCP(now, req)
+		d.gpuPort.RetrieveIncoming()
+		return d.processPageMigrationRspFromCP(req)
 	case *protocol.RDMARestartRspToDriver:
-		d.gpuPort.Retrieve(now)
-		return d.processRDMARestartRspToDriver(now, req)
+		d.gpuPort.RetrieveIncoming()
+		return d.processRDMARestartRspToDriver(req)
 	case *protocol.GPURestartRsp:
-		d.gpuPort.Retrieve(now)
-		return d.handleGPURestartRsp(now, req)
+		d.gpuPort.RetrieveIncoming()
+		return d.handleGPURestartRsp(req)
 	}
 
 	return false
 }
 
-func (d *Driver) processNewCommand(now sim.VTimeInSec) bool {
+func (d *Driver) processNewCommand() bool {
 	madeProgress := false
 
 	d.contextMutex.Lock()
 	for _, ctx := range d.contexts {
-		madeProgress = d.processNewCommandFromContext(now, ctx) || madeProgress
+		madeProgress = d.processNewCommandFromContext(ctx) || madeProgress
 	}
 	d.contextMutex.Unlock()
 
@@ -239,13 +238,12 @@ func (d *Driver) processNewCommand(now sim.VTimeInSec) bool {
 }
 
 func (d *Driver) processNewCommandFromContext(
-	now sim.VTimeInSec,
 	ctx *Context,
 ) bool {
 	madeProgress := false
 	ctx.queueMutex.Lock()
 	for _, q := range ctx.queues {
-		madeProgress = d.processNewCommandFromCmdQueue(now, q) || madeProgress
+		madeProgress = d.processNewCommandFromCmdQueue(q) || madeProgress
 	}
 	ctx.queueMutex.Unlock()
 
@@ -253,7 +251,6 @@ func (d *Driver) processNewCommandFromContext(
 }
 
 func (d *Driver) processNewCommandFromCmdQueue(
-	now sim.VTimeInSec,
 	q *CommandQueue,
 ) bool {
 	if q.NumCommand() == 0 {
@@ -264,40 +261,38 @@ func (d *Driver) processNewCommandFromCmdQueue(
 		return false
 	}
 
-	return d.processOneCommand(now, q)
+	return d.processOneCommand(q)
 }
 
 func (d *Driver) processOneCommand(
-	now sim.VTimeInSec,
 	cmdQueue *CommandQueue,
 ) bool {
 	cmd := cmdQueue.Peek()
 
 	switch cmd := cmd.(type) {
 	case *LaunchKernelCommand:
-		d.logCmdStart(cmd, now)
-		return d.processLaunchKernelCommand(now, cmd, cmdQueue)
+		d.logCmdStart(cmd)
+		return d.processLaunchKernelCommand(cmd, cmdQueue)
 	case *NoopCommand:
-		d.logCmdStart(cmd, now)
-		return d.processNoopCommand(now, cmd, cmdQueue)
+		d.logCmdStart(cmd)
+		return d.processNoopCommand(cmd, cmdQueue)
 	case *LaunchUnifiedMultiGPUKernelCommand:
-		d.logCmdStart(cmd, now)
-		return d.processUnifiedMultiGPULaunchKernelCommand(now, cmd, cmdQueue)
+		d.logCmdStart(cmd)
+		return d.processUnifiedMultiGPULaunchKernelCommand(cmd, cmdQueue)
 	default:
-		return d.processCommandWithMiddleware(now, cmd, cmdQueue)
+		return d.processCommandWithMiddleware(cmd, cmdQueue)
 	}
 }
 
 func (d *Driver) processCommandWithMiddleware(
-	now sim.VTimeInSec,
 	cmd Command,
 	cmdQueue *CommandQueue,
 ) bool {
 	for _, m := range d.middlewares {
-		processed := m.ProcessCommand(now, cmd, cmdQueue)
+		processed := m.ProcessCommand(cmd, cmdQueue)
 
 		if processed {
-			d.logCmdStart(cmd, now)
+			d.logCmdStart(cmd)
 			return true
 		}
 	}
@@ -305,7 +300,7 @@ func (d *Driver) processCommandWithMiddleware(
 	return false
 }
 
-func (d *Driver) logCmdStart(cmd Command, now sim.VTimeInSec) {
+func (d *Driver) logCmdStart(cmd Command) {
 	tracing.StartTask(
 		cmd.GetID(),
 		d.simulationID,
@@ -316,12 +311,11 @@ func (d *Driver) logCmdStart(cmd Command, now sim.VTimeInSec) {
 	)
 }
 
-func (d *Driver) logCmdComplete(cmd Command, now sim.VTimeInSec) {
+func (d *Driver) logCmdComplete(cmd Command) {
 	tracing.EndTask(cmd.GetID(), d)
 }
 
 func (d *Driver) processNoopCommand(
-	now sim.VTimeInSec,
 	cmd *NoopCommand,
 	queue *CommandQueue,
 ) bool {
@@ -330,7 +324,6 @@ func (d *Driver) processNoopCommand(
 }
 
 func (d *Driver) logTaskToGPUInitiate(
-	now sim.VTimeInSec,
 	cmd Command,
 	req sim.Msg,
 ) {
@@ -338,19 +331,17 @@ func (d *Driver) logTaskToGPUInitiate(
 }
 
 func (d *Driver) logTaskToGPUClear(
-	now sim.VTimeInSec,
 	req sim.Msg,
 ) {
 	tracing.TraceReqFinalize(req, d)
 }
 
 func (d *Driver) processLaunchKernelCommand(
-	now sim.VTimeInSec,
 	cmd *LaunchKernelCommand,
 	queue *CommandQueue,
 ) bool {
-	req := protocol.NewLaunchKernelReq(now,
-		d.gpuPort, d.GPUs[queue.GPUID-1])
+	req := protocol.NewLaunchKernelReq(d.gpuPort,
+		d.GPUs[queue.GPUID-1])
 	req.PID = queue.Context.pid
 	req.HsaCo = cmd.CodeObject
 
@@ -365,13 +356,12 @@ func (d *Driver) processLaunchKernelCommand(
 	queue.Context.l2Dirty = true
 	queue.Context.markAllBuffersDirty()
 
-	d.logTaskToGPUInitiate(now, cmd, req)
+	d.logTaskToGPUInitiate(cmd, req)
 
 	return true
 }
 
 func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
-	now sim.VTimeInSec,
 	cmd *LaunchUnifiedMultiGPUKernelCommand,
 	queue *CommandQueue,
 ) bool {
@@ -383,7 +373,7 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 			continue
 		}
 
-		req := protocol.NewLaunchKernelReq(now, d.gpuPort, d.GPUs[gpuID-1])
+		req := protocol.NewLaunchKernelReq(d.gpuPort, d.GPUs[gpuID-1])
 		req.PID = queue.Context.pid
 		req.HsaCo = cmd.CodeObject
 		req.Packet = cmd.PacketArray[i]
@@ -418,7 +408,7 @@ func (d *Driver) processUnifiedMultiGPULaunchKernelCommand(
 		queue.Context.l2Dirty = true
 		queue.Context.markAllBuffersDirty()
 
-		d.logTaskToGPUInitiate(now, cmd, req)
+		d.logTaskToGPUInitiate(cmd, req)
 	}
 
 	return true
@@ -459,19 +449,18 @@ func (d *Driver) distributeWGToGPUs(
 }
 
 func (d *Driver) processLaunchKernelReturn(
-	now sim.VTimeInSec,
 	rsp *protocol.LaunchKernelRsp,
 ) bool {
 	req, cmd, cmdQueue := d.findCommandByReqID(rsp.RspTo)
 	cmd.RemoveReq(req)
 
-	d.logTaskToGPUClear(now, req)
+	d.logTaskToGPUClear(req)
 
 	if len(cmd.GetReqs()) == 0 {
 		cmdQueue.IsRunning = false
 		cmdQueue.Dequeue()
 
-		d.logCmdComplete(cmd, now)
+		d.logCmdComplete(cmd)
 	}
 
 	return true
@@ -535,12 +524,12 @@ func (d *Driver) findCommandByReqID(reqID string) (
 	panic("cannot find command")
 }
 
-func (d *Driver) parseFromMMU(now sim.VTimeInSec) bool {
+func (d *Driver) parseFromMMU() bool {
 	if d.isCurrentlyHandlingMigrationReq {
 		return false
 	}
 
-	req := d.mmuPort.Retrieve(now)
+	req := d.mmuPort.RetrieveIncoming()
 	if req == nil {
 		return false
 	}
@@ -549,7 +538,7 @@ func (d *Driver) parseFromMMU(now sim.VTimeInSec) bool {
 	case *vm.PageMigrationReqToDriver:
 		d.currentPageMigrationReq = req
 		d.isCurrentlyHandlingMigrationReq = true
-		d.initiateRDMADrain(now)
+		d.initiateRDMADrain()
 	default:
 		log.Panicf("Driver cannot handle request of type %s",
 			reflect.TypeOf(req))
@@ -558,9 +547,9 @@ func (d *Driver) parseFromMMU(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (d *Driver) initiateRDMADrain(now sim.VTimeInSec) bool {
+func (d *Driver) initiateRDMADrain() bool {
 	for i := 0; i < len(d.GPUs); i++ {
-		req := protocol.NewRDMADrainCmdFromDriver(now, d.gpuPort,
+		req := protocol.NewRDMADrainCmdFromDriver(d.gpuPort,
 			d.GPUs[i])
 		d.requestsToSend = append(d.requestsToSend, req)
 		d.numRDMADrainACK++
@@ -570,19 +559,18 @@ func (d *Driver) initiateRDMADrain(now sim.VTimeInSec) bool {
 }
 
 func (d *Driver) processRDMADrainRsp(
-	now sim.VTimeInSec,
 	req *protocol.RDMADrainRspToDriver,
 ) bool {
 	d.numRDMADrainACK--
 
 	if d.numRDMADrainACK == 0 {
-		d.sendShootDownReqs(now)
+		d.sendShootDownReqs()
 	}
 
 	return true
 }
 
-func (d *Driver) sendShootDownReqs(now sim.VTimeInSec) bool {
+func (d *Driver) sendShootDownReqs() bool {
 	vAddr := make([]uint64, 0)
 	migrationInfo := d.currentPageMigrationReq.MigrationInfo
 
@@ -605,7 +593,6 @@ func (d *Driver) sendShootDownReqs(now sim.VTimeInSec) bool {
 	for i := 0; i < len(accessingGPUs); i++ {
 		toShootdownGPU := accessingGPUs[i] - 1
 		shootDownReq := protocol.NewShootdownCommand(
-			now,
 			d.gpuPort, d.GPUs[toShootdownGPU],
 			vAddr, pid)
 		d.requestsToSend = append(d.requestsToSend, shootDownReq)
@@ -615,7 +602,6 @@ func (d *Driver) sendShootDownReqs(now sim.VTimeInSec) bool {
 }
 
 func (d *Driver) processShootdownCompleteRsp(
-	now sim.VTimeInSec,
 	req *protocol.ShootDownCompleteRsp,
 ) bool {
 	d.numShootDownACK--
@@ -642,7 +628,7 @@ func (d *Driver) processShootdownCompleteRsp(
 				page, oldPAddr :=
 					d.preparePageForMigration(vAddr, context, gpuID)
 
-				req := protocol.NewPageMigrationReqToCP(now, d.gpuPort,
+				req := protocol.NewPageMigrationReqToCP(d.gpuPort,
 					d.GPUs[gpuID])
 				req.DestinationPMCPort = toRequestFromPMCPort
 				req.ToReadFromPhysicalAddress = oldPAddr
@@ -707,7 +693,7 @@ func (d *Driver) preparePageForMigration(
 	return &newPage, oldPAddr
 }
 
-func (d *Driver) sendMigrationReqToCP(now sim.VTimeInSec) bool {
+func (d *Driver) sendMigrationReqToCP() bool {
 	if len(d.migrationReqToSendToCP) == 0 {
 		return false
 	}
@@ -717,7 +703,6 @@ func (d *Driver) sendMigrationReqToCP(now sim.VTimeInSec) bool {
 	}
 
 	req := d.migrationReqToSendToCP[0]
-	req.SendTime = now
 
 	err := d.gpuPort.Send(req)
 	if err == nil {
@@ -730,27 +715,25 @@ func (d *Driver) sendMigrationReqToCP(now sim.VTimeInSec) bool {
 }
 
 func (d *Driver) processPageMigrationRspFromCP(
-	now sim.VTimeInSec,
 	rsp *protocol.PageMigrationRspToDriver,
 ) bool {
 	d.numPagesMigratingACK--
 	d.isCurrentlyMigratingOnePage = false
 
 	if d.numPagesMigratingACK == 0 {
-		d.prepareGPURestartReqs(now)
-		d.preparePageMigrationRspToMMU(now)
+		d.prepareGPURestartReqs()
+		d.preparePageMigrationRspToMMU()
 	}
 
 	return true
 }
 
-func (d *Driver) prepareGPURestartReqs(now sim.VTimeInSec) {
+func (d *Driver) prepareGPURestartReqs() {
 	accessingGPUs := d.currentPageMigrationReq.CurrAccessingGPUs
 
 	for i := 0; i < len(accessingGPUs); i++ {
 		restartGPUID := accessingGPUs[i] - 1
 		restartReq := protocol.NewGPURestartReq(
-			now,
 			d.gpuPort,
 			d.GPUs[restartGPUID])
 		d.requestsToSend = append(d.requestsToSend, restartReq)
@@ -758,7 +741,7 @@ func (d *Driver) prepareGPURestartReqs(now sim.VTimeInSec) {
 	}
 }
 
-func (d *Driver) preparePageMigrationRspToMMU(now sim.VTimeInSec) {
+func (d *Driver) preparePageMigrationRspToMMU() {
 	requestingGPUs := make([]uint64, 0)
 
 	migrationInfo := d.currentPageMigrationReq.MigrationInfo
@@ -776,8 +759,8 @@ func (d *Driver) preparePageMigrationRspToMMU(now sim.VTimeInSec) {
 		pageVaddrs[requestingGPUs[i]] = migrationInfo.GPUReqToVAddrMap[requestingGPUs[i]+1]
 	}
 
-	req := vm.NewPageMigrationRspFromDriver(now, d.mmuPort,
-		d.currentPageMigrationReq.Src)
+	req := vm.NewPageMigrationRspFromDriver(d.mmuPort,
+		d.currentPageMigrationReq.Src, d.currentPageMigrationReq)
 
 	for _, vAddrs := range pageVaddrs {
 		for j := 0; j < len(vAddrs); j++ {
@@ -789,27 +772,24 @@ func (d *Driver) preparePageMigrationRspToMMU(now sim.VTimeInSec) {
 }
 
 func (d *Driver) handleGPURestartRsp(
-	now sim.VTimeInSec,
 	req *protocol.GPURestartRsp,
 ) bool {
 	d.numRestartACK--
 	if d.numRestartACK == 0 {
-		d.prepareRDMARestartReqs(now)
+		d.prepareRDMARestartReqs()
 	}
 	return true
 }
 
-func (d *Driver) prepareRDMARestartReqs(now sim.VTimeInSec) {
+func (d *Driver) prepareRDMARestartReqs() {
 	for i := 0; i < len(d.GPUs); i++ {
-		req := protocol.NewRDMARestartCmdFromDriver(now,
-			d.gpuPort, d.GPUs[i])
+		req := protocol.NewRDMARestartCmdFromDriver(d.gpuPort, d.GPUs[i])
 		d.requestsToSend = append(d.requestsToSend, req)
 		d.numRDMARestartACK++
 	}
 }
 
 func (d *Driver) processRDMARestartRspToDriver(
-	now sim.VTimeInSec,
 	rsp *protocol.RDMARestartRspToDriver) bool {
 	d.numRDMARestartACK--
 
@@ -821,12 +801,11 @@ func (d *Driver) processRDMARestartRspToDriver(
 	return true
 }
 
-func (d *Driver) sendToMMU(now sim.VTimeInSec) bool {
+func (d *Driver) sendToMMU() bool {
 	if d.toSendToMMU == nil {
 		return false
 	}
 	req := d.toSendToMMU
-	req.SendTime = now
 	err := d.mmuPort.Send(req)
 	if err == nil {
 		d.toSendToMMU = nil

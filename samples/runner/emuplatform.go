@@ -6,6 +6,7 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
@@ -85,7 +86,10 @@ func (b EmuBuilder) Build() *Platform {
 	storage := mem.NewStorage(uint64(b.numGPU+1) * 4 * mem.GB)
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	gpuDriver := b.buildGPUDriver(engine, pageTable, storage)
-	connection := sim.NewDirectConnection("ExternalConn", engine, 1*sim.GHz)
+	connection := directconnection.MakeBuilder().
+		WithEngine(engine).
+		WithFreq(1*sim.GHz).
+		Build("ExternalConn")
 
 	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, pageTable, storage)
 

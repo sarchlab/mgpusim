@@ -3,7 +3,6 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
@@ -48,7 +47,6 @@ func (du *DecodeUnit) IsIdle() bool {
 // AcceptWave takes a wavefront and decode the instruction in the next cycle
 func (du *DecodeUnit) AcceptWave(
 	wave *wavefront.Wavefront,
-	now sim.VTimeInSec,
 ) {
 	if du.toDecode != nil {
 		log.Panicf("Decode unit busy, please run CanAcceptWave before accepting a wave")
@@ -60,13 +58,13 @@ func (du *DecodeUnit) AcceptWave(
 
 // Run decodes the instruction and sends the instruction to the next pipeline
 // stage
-func (du *DecodeUnit) Run(now sim.VTimeInSec) bool {
+func (du *DecodeUnit) Run() bool {
 	if du.toDecode != nil {
 		simdID := du.toDecode.SIMDID
 		execUnit := du.ExecUnits[simdID]
 
 		if execUnit.CanAcceptWave() {
-			execUnit.AcceptWave(du.toDecode, now)
+			execUnit.AcceptWave(du.toDecode)
 			du.toDecode = nil
 			return true
 		}
