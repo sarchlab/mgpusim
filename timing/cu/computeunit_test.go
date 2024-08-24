@@ -174,28 +174,25 @@ var _ = Describe("ComputeUnit", func() {
 			}
 
 			builder := protocol.MapWGReqBuilder{}.
-				WithSendTime(6).
 				WithSrc(nil).
 				WithDst(cu.ToACE).
 				WithWG(wg).
 				AddWf(location1).
 				AddWf(location2)
 			req = builder.Build()
-			req.RecvTime = 10
 
-			toACE.EXPECT().Retrieve(gomock.Any()).Return(req)
+			toACE.EXPECT().RetrieveIncoming().Return(req)
 		})
 
 		It("should dispatch wavefront", func() {
 			wfDispatcher.EXPECT().
-				DispatchWf(sim.VTimeInSec(11),
-					gomock.Any(), req.Wavefronts[0])
+				DispatchWf(gomock.Any(), req.Wavefronts[0])
 			wfDispatcher.EXPECT().
-				DispatchWf(sim.VTimeInSec(11),
-					gomock.Any(), req.Wavefronts[1])
+				DispatchWf(gomock.Any(), req.Wavefronts[1])
 			engine.EXPECT().Schedule(gomock.Any())
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
 
-			cu.processInputFromACE(11)
+			cu.processInputFromACE()
 
 			Expect(cu.WfPools[1].wfs).To(HaveLen(1))
 			Expect(cu.WfPools[2].wfs).To(HaveLen(1))
@@ -214,7 +211,6 @@ var _ = Describe("ComputeUnit", func() {
 			wf.PC = 0x1000
 
 			req := mem.ReadReqBuilder{}.
-				WithSendTime(8).
 				WithSrc(cu.ToInstMem).
 				WithDst(instMem).
 				WithAddress(0x100).
@@ -222,7 +218,6 @@ var _ = Describe("ComputeUnit", func() {
 				Build()
 
 			dataReady = mem.DataReadyRspBuilder{}.
-				WithSendTime(10).
 				WithSrc(instMem).
 				WithDst(cu.ToInstMem).
 				WithRspTo(req.ID).
@@ -238,8 +233,7 @@ var _ = Describe("ComputeUnit", func() {
 				}).
 				Build()
 
-			dataReady.RecvTime = 10
-			toInstMem.EXPECT().Retrieve(gomock.Any()).Return(dataReady)
+			toInstMem.EXPECT().RetrieveIncoming().Return(dataReady)
 
 			info := new(InstFetchReqInfo)
 			info.Wavefront = wf
@@ -248,7 +242,9 @@ var _ = Describe("ComputeUnit", func() {
 		})
 
 		It("should handle fetch return", func() {
-			madeProgress := cu.processInputFromInstMem(10)
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(10))
+
+			madeProgress := cu.processInputFromInstMem()
 
 			//Expect(wf.State).To(Equal(WfFetched))
 			Expect(wf.LastFetchTime).To(BeNumerically("~", 10))
@@ -273,7 +269,6 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle scalar data load return", func() {
 			read := mem.ReadReqBuilder{}.
-				WithSendTime(8).
 				WithSrc(cu.ToScalarMem).
 				WithAddress(0x100).
 				WithByteSize(64).
@@ -287,14 +282,12 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightScalarMemAccess = append(cu.InFlightScalarMemAccess, info)
 
 			rsp := mem.DataReadyRspBuilder{}.
-				WithSendTime(10).
 				WithRspTo(read.ID).
 				WithData(insts.Uint32ToBytes(32)).
 				Build()
-			rsp.RecvTime = 10
-			toScalarMem.EXPECT().Retrieve(gomock.Any()).Return(rsp)
+			toScalarMem.EXPECT().RetrieveIncoming().Return(rsp)
 
-			cu.processInputFromScalarMem(10)
+			cu.processInputFromScalarMem()
 
 			access := RegisterAccess{
 				Reg:        insts.SReg(0),
@@ -330,7 +323,6 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingScalarMemAccess = 1
 
 			read = mem.ReadReqBuilder{}.
-				WithSendTime(8).
 				WithAddress(0x100).
 				WithByteSize(16).
 				CanWaitForCoalesce().
@@ -350,18 +342,17 @@ var _ = Describe("ComputeUnit", func() {
 				cu.InFlightVectorMemAccess, info)
 
 			dataReady := mem.DataReadyRspBuilder{}.
-				WithSendTime(10).
 				WithRspTo(read.ID).
 				WithData(make([]byte, 16)).
 				Build()
 			for i := 0; i < 4; i++ {
 				copy(dataReady.Data[i*4:i*4+4], insts.Uint32ToBytes(uint32(i)))
 			}
-			toVectorMem.EXPECT().Retrieve(gomock.Any()).Return(dataReady)
+			toVectorMem.EXPECT().RetrieveIncoming().Return(dataReady)
 		})
 
 		It("should handle vector data load return, and the return is not the last one for an instruction", func() {
-			cu.processInputFromVectorMem(10)
+			cu.processInputFromVectorMem()
 
 			for i := 0; i < 4; i++ {
 				access := RegisterAccess{}
@@ -382,7 +373,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should handle vector data load return, and the return is the last one for an instruction", func() {
 			read.CanWaitForCoalesce = false
 
-			cu.processInputFromVectorMem(10)
+			cu.processInputFromVectorMem()
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
@@ -421,7 +412,6 @@ var _ = Describe("ComputeUnit", func() {
 			wf.OutstandingScalarMemAccess = 1
 
 			writeReq = mem.WriteReqBuilder{}.
-				WithSendTime(8).
 				WithAddress(0x100).
 				CanWaitForCoalesce().
 				Build()
@@ -433,14 +423,13 @@ var _ = Describe("ComputeUnit", func() {
 			cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
 
 			doneRsp = mem.WriteDoneRspBuilder{}.
-				WithSendTime(10).
 				WithRspTo(writeReq.ID).
 				Build()
-			toVectorMem.EXPECT().Retrieve(gomock.Any()).Return(doneRsp)
+			toVectorMem.EXPECT().RetrieveIncoming().Return(doneRsp)
 		})
 
 		It("should handle vector data store return and the return is not the last one from an instruction", func() {
-			madeProgress := cu.processInputFromVectorMem(10)
+			madeProgress := cu.processInputFromVectorMem()
 
 			Expect(cu.InFlightVectorMemAccess).To(HaveLen(0))
 			Expect(madeProgress).To(BeTrue())
@@ -449,7 +438,7 @@ var _ = Describe("ComputeUnit", func() {
 		It("should handle vector data store return and the return is the last one from an instruction", func() {
 			writeReq.CanWaitForCoalesce = false
 
-			cu.processInputFromVectorMem(10)
+			cu.processInputFromVectorMem()
 
 			Expect(wf.OutstandingVectorMemAccess).To(Equal(0))
 			Expect(wf.OutstandingScalarMemAccess).To(Equal(0))
@@ -462,12 +451,11 @@ var _ = Describe("ComputeUnit", func() {
 			req := protocol.CUPipelineFlushReqBuilder{}.
 				WithSrc(nil).
 				WithDst(cu.ToCP).
-				WithSendTime(10).
 				Build()
 
-			toCP.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(req)
+			toCP.EXPECT().RetrieveIncoming().Return(req)
 
-			cu.processInputFromCP(11)
+			cu.processInputFromCP()
 
 			Expect(cu.inCPRequestProcessingStage).To(BeIdenticalTo(req))
 			Expect(cu.isFlushing).To(BeTrue())
@@ -495,15 +483,14 @@ var _ = Describe("ComputeUnit", func() {
 			cu.isPaused = true
 
 			req := protocol.CUPipelineRestartReqBuilder{}.
-				WithSendTime(10).
 				WithSrc(nil).
 				WithDst(cu.ToCP).
 				Build()
 
-			toCP.EXPECT().Retrieve(gomock.Any()).Return(req)
+			toCP.EXPECT().RetrieveIncoming().Return(req)
 			toCP.EXPECT().Send(gomock.Any())
 
-			cu.processInputFromCP(11)
+			cu.processInputFromCP()
 			Expect(cu.isPaused).To(BeTrue())
 			Expect(cu.isSendingOutShadowBufferReqs).To(BeTrue())
 		})
@@ -512,7 +499,6 @@ var _ = Describe("ComputeUnit", func() {
 			req := protocol.CUPipelineFlushReqBuilder{}.
 				WithSrc(nil).
 				WithDst(cu.ToCP).
-				WithSendTime(10).
 				Build()
 
 			cu.currentFlushReq = req
@@ -536,7 +522,7 @@ var _ = Describe("ComputeUnit", func() {
 			vectorMemDecoder.EXPECT().Flush()
 			vectorMemUnit.EXPECT().Flush()
 
-			cu.flushPipeline(10)
+			cu.flushPipeline()
 
 			Expect(cu.InFlightInstFetch).To(BeNil())
 			Expect(cu.InFlightVectorMemAccess).To(BeNil())
@@ -554,7 +540,6 @@ var _ = Describe("ComputeUnit", func() {
 		It("should not restart a CU where there are shadow buffer reqs pending", func() {
 			info := new(InstFetchReqInfo)
 			req := mem.ReadReqBuilder{}.
-				WithSendTime(8).
 				WithSrc(cu.ToInstMem).
 				WithDst(instMem).
 				WithAddress(0x100).
@@ -576,7 +561,7 @@ var _ = Describe("ComputeUnit", func() {
 			toVectorMem.EXPECT().Send(gomock.Any())
 			toScalarMem.EXPECT().Send(gomock.Any())
 
-			cu.checkShadowBuffers(11)
+			cu.checkShadowBuffers()
 		})
 
 		It("should restart a CU where there are  no shadow buffer reqs pending", func() {
@@ -584,7 +569,7 @@ var _ = Describe("ComputeUnit", func() {
 			cu.shadowInFlightScalarMemAccess = nil
 			cu.shadowInFlightVectorMemAccess = nil
 
-			cu.checkShadowBuffers(11)
+			cu.checkShadowBuffers()
 
 			Expect(cu.isPaused).To(BeFalse())
 		})

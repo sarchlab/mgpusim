@@ -16,9 +16,9 @@ func (m *CUPipelineRestartReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// Clone returns a clone of the CUPipelineRestartReq with diffrent ID.
-func (r *CUPipelineRestartReq) Clone() sim.Msg {
-	cloneMsg := *r
+// Clone returns a clone of the CUPipelineRestartReq with different ID.
+func (m *CUPipelineRestartReq) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 
 	return &cloneMsg
@@ -60,9 +60,9 @@ func (m *CUPipelineRestartRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// Clone returns a clone of the CUPipelineRestartRsp with diffrent ID.
-func (r *CUPipelineRestartRsp) Clone() sim.Msg {
-	cloneMsg := *r
+// Clone returns a clone of the CUPipelineRestartRsp with different ID.
+func (m *CUPipelineRestartRsp) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 
 	return &cloneMsg
@@ -104,9 +104,9 @@ func (m *CUPipelineFlushReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// Clone returns a clone of the CUPipelineFlushReq with diffrent ID.
-func (r *CUPipelineFlushReq) Clone() sim.Msg {
-	cloneMsg := *r
+// Clone returns a clone of the CUPipelineFlushReq with different ID.
+func (m *CUPipelineFlushReq) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 
 	return &cloneMsg
@@ -148,9 +148,9 @@ func (m *CUPipelineFlushRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// Clone returns a clone of the CUPipelineFlushRsp with diffrent ID.
-func (r *CUPipelineFlushRsp) Clone() sim.Msg {
-	cloneMsg := *r
+// Clone returns a clone of the CUPipelineFlushRsp with different ID.
+func (m *CUPipelineFlushRsp) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 
 	return &cloneMsg
@@ -205,7 +205,7 @@ func (r *MapWGReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the MapWGReq with diffrent ID.
+// Clone returns a clone of the MapWGReq with different ID.
 func (r *MapWGReq) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
@@ -275,7 +275,7 @@ func (r *WGCompletionMsg) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the WGCompletionMsg with diffrent ID.
+// Clone returns a clone of the WGCompletionMsg with different ID.
 func (r *WGCompletionMsg) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()

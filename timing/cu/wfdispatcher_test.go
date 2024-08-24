@@ -56,7 +56,7 @@ var _ = Describe("WfDispatcher", func() {
 		wf.CodeObject = co
 		wf.Packet = packet
 		//req := mgpusim.NewDispatchWfReq(nil, cu.ToACE, 10, nil)
-		wfDispatcher.DispatchWf(10, wf, wfDispatchInfo)
+		wfDispatcher.DispatchWf(wf, wfDispatchInfo)
 
 		//Expect(len(engine.ScheduledEvent)).To(Equal(1))
 		Expect(wf.SIMDID).To(Equal(1))

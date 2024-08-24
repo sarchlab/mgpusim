@@ -14,7 +14,7 @@ func (r *DrainReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the DrainReq with diffrent ID.
+// Clone returns a clone of the DrainReq with different ID.
 func (r *DrainReq) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
@@ -58,7 +58,7 @@ func (r *RestartReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the RestartReq with diffrent ID.
+// Clone returns a clone of the RestartReq with different ID.
 func (r *RestartReq) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
@@ -102,7 +102,7 @@ func (r *DrainRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the DrainRsp with diffrent ID.
+// Clone returns a clone of the DrainRsp with different ID.
 func (r *DrainRsp) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
@@ -146,7 +146,7 @@ func (r *RestartRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the RestartRsp with diffrent ID.
+// Clone returns a clone of the RestartRsp with different ID.
 func (r *RestartRsp) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
