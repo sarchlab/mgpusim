@@ -71,18 +71,6 @@ func (mr *MockEngineMockRecorder) CurrentTime() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentTime", reflect.TypeOf((*MockEngine)(nil).CurrentTime))
 }
 
-// Finished mocks base method.
-func (m *MockEngine) Finished() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Finished")
-}
-
-// Finished indicates an expected call of Finished.
-func (mr *MockEngineMockRecorder) Finished() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finished", reflect.TypeOf((*MockEngine)(nil).Finished))
-}
-
 // Hooks mocks base method.
 func (m *MockEngine) Hooks() []sim.Hook {
 	m.ctrl.T.Helper()
@@ -121,18 +109,6 @@ func (m *MockEngine) Pause() {
 func (mr *MockEngineMockRecorder) Pause() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockEngine)(nil).Pause))
-}
-
-// RegisterSimulationEndHandler mocks base method.
-func (m *MockEngine) RegisterSimulationEndHandler(arg0 sim.SimulationEndHandler) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterSimulationEndHandler", arg0)
-}
-
-// RegisterSimulationEndHandler indicates an expected call of RegisterSimulationEndHandler.
-func (mr *MockEngineMockRecorder) RegisterSimulationEndHandler(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterSimulationEndHandler", reflect.TypeOf((*MockEngine)(nil).RegisterSimulationEndHandler), arg0)
 }
 
 // Run mocks base method.
@@ -224,6 +200,20 @@ func (mr *MockPortMockRecorder) Component() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Component", reflect.TypeOf((*MockPort)(nil).Component))
 }
 
+// Deliver mocks base method.
+func (m *MockPort) Deliver(arg0 sim.Msg) *sim.SendError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Deliver", arg0)
+	ret0, _ := ret[0].(*sim.SendError)
+	return ret0
+}
+
+// Deliver indicates an expected call of Deliver.
+func (mr *MockPortMockRecorder) Deliver(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deliver", reflect.TypeOf((*MockPort)(nil).Deliver), arg0)
+}
+
 // Hooks mocks base method.
 func (m *MockPort) Hooks() []sim.Hook {
 	m.ctrl.T.Helper()
@@ -253,15 +243,15 @@ func (mr *MockPortMockRecorder) Name() *gomock.Call {
 }
 
 // NotifyAvailable mocks base method.
-func (m *MockPort) NotifyAvailable(arg0 sim.VTimeInSec) {
+func (m *MockPort) NotifyAvailable() {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "NotifyAvailable", arg0)
+	m.ctrl.Call(m, "NotifyAvailable")
 }
 
 // NotifyAvailable indicates an expected call of NotifyAvailable.
-func (mr *MockPortMockRecorder) NotifyAvailable(arg0 interface{}) *gomock.Call {
+func (mr *MockPortMockRecorder) NotifyAvailable() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyAvailable", reflect.TypeOf((*MockPort)(nil).NotifyAvailable), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyAvailable", reflect.TypeOf((*MockPort)(nil).NotifyAvailable))
 }
 
 // NumHooks mocks base method.
@@ -278,46 +268,60 @@ func (mr *MockPortMockRecorder) NumHooks() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumHooks", reflect.TypeOf((*MockPort)(nil).NumHooks))
 }
 
-// Peek mocks base method.
-func (m *MockPort) Peek() sim.Msg {
+// PeekIncoming mocks base method.
+func (m *MockPort) PeekIncoming() sim.Msg {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Peek")
+	ret := m.ctrl.Call(m, "PeekIncoming")
 	ret0, _ := ret[0].(sim.Msg)
 	return ret0
 }
 
-// Peek indicates an expected call of Peek.
-func (mr *MockPortMockRecorder) Peek() *gomock.Call {
+// PeekIncoming indicates an expected call of PeekIncoming.
+func (mr *MockPortMockRecorder) PeekIncoming() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Peek", reflect.TypeOf((*MockPort)(nil).Peek))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PeekIncoming", reflect.TypeOf((*MockPort)(nil).PeekIncoming))
 }
 
-// Recv mocks base method.
-func (m *MockPort) Recv(arg0 sim.Msg) *sim.SendError {
+// PeekOutgoing mocks base method.
+func (m *MockPort) PeekOutgoing() sim.Msg {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Recv", arg0)
-	ret0, _ := ret[0].(*sim.SendError)
-	return ret0
-}
-
-// Recv indicates an expected call of Recv.
-func (mr *MockPortMockRecorder) Recv(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recv", reflect.TypeOf((*MockPort)(nil).Recv), arg0)
-}
-
-// Retrieve mocks base method.
-func (m *MockPort) Retrieve(arg0 sim.VTimeInSec) sim.Msg {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Retrieve", arg0)
+	ret := m.ctrl.Call(m, "PeekOutgoing")
 	ret0, _ := ret[0].(sim.Msg)
 	return ret0
 }
 
-// Retrieve indicates an expected call of Retrieve.
-func (mr *MockPortMockRecorder) Retrieve(arg0 interface{}) *gomock.Call {
+// PeekOutgoing indicates an expected call of PeekOutgoing.
+func (mr *MockPortMockRecorder) PeekOutgoing() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockPort)(nil).Retrieve), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PeekOutgoing", reflect.TypeOf((*MockPort)(nil).PeekOutgoing))
+}
+
+// RetrieveIncoming mocks base method.
+func (m *MockPort) RetrieveIncoming() sim.Msg {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RetrieveIncoming")
+	ret0, _ := ret[0].(sim.Msg)
+	return ret0
+}
+
+// RetrieveIncoming indicates an expected call of RetrieveIncoming.
+func (mr *MockPortMockRecorder) RetrieveIncoming() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RetrieveIncoming", reflect.TypeOf((*MockPort)(nil).RetrieveIncoming))
+}
+
+// RetrieveOutgoing mocks base method.
+func (m *MockPort) RetrieveOutgoing() sim.Msg {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RetrieveOutgoing")
+	ret0, _ := ret[0].(sim.Msg)
+	return ret0
+}
+
+// RetrieveOutgoing indicates an expected call of RetrieveOutgoing.
+func (mr *MockPortMockRecorder) RetrieveOutgoing() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RetrieveOutgoing", reflect.TypeOf((*MockPort)(nil).RetrieveOutgoing))
 }
 
 // Send mocks base method.
@@ -408,15 +412,15 @@ func (mr *MockBufferedSenderMockRecorder) Send(arg0 interface{}) *gomock.Call {
 }
 
 // Tick mocks base method.
-func (m *MockBufferedSender) Tick(arg0 sim.VTimeInSec) bool {
+func (m *MockBufferedSender) Tick() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tick", arg0)
+	ret := m.ctrl.Call(m, "Tick")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // Tick indicates an expected call of Tick.
-func (mr *MockBufferedSenderMockRecorder) Tick(arg0 interface{}) *gomock.Call {
+func (mr *MockBufferedSenderMockRecorder) Tick() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tick", reflect.TypeOf((*MockBufferedSender)(nil).Tick), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tick", reflect.TypeOf((*MockBufferedSender)(nil).Tick))
 }

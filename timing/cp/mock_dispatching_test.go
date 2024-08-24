@@ -140,15 +140,15 @@ func (mr *MockDispatcherMockRecorder) StartDispatching(arg0 interface{}) *gomock
 }
 
 // Tick mocks base method.
-func (m *MockDispatcher) Tick(arg0 sim.VTimeInSec) bool {
+func (m *MockDispatcher) Tick() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tick", arg0)
+	ret := m.ctrl.Call(m, "Tick")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // Tick indicates an expected call of Tick.
-func (mr *MockDispatcherMockRecorder) Tick(arg0 interface{}) *gomock.Call {
+func (mr *MockDispatcherMockRecorder) Tick() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tick", reflect.TypeOf((*MockDispatcher)(nil).Tick), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tick", reflect.TypeOf((*MockDispatcher)(nil).Tick))
 }

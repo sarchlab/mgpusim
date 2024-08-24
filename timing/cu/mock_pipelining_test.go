@@ -35,15 +35,15 @@ func (m *MockPipeline) EXPECT() *MockPipelineMockRecorder {
 }
 
 // Accept mocks base method.
-func (m *MockPipeline) Accept(arg0 sim.VTimeInSec, arg1 pipelining.PipelineItem) {
+func (m *MockPipeline) Accept(arg0 pipelining.PipelineItem) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Accept", arg0, arg1)
+	m.ctrl.Call(m, "Accept", arg0)
 }
 
 // Accept indicates an expected call of Accept.
-func (mr *MockPipelineMockRecorder) Accept(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockPipelineMockRecorder) Accept(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockPipeline)(nil).Accept), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockPipeline)(nil).Accept), arg0)
 }
 
 // AcceptHook mocks base method.
@@ -139,15 +139,15 @@ func (mr *MockPipelineMockRecorder) NumHooks() *gomock.Call {
 }
 
 // Tick mocks base method.
-func (m *MockPipeline) Tick(arg0 sim.VTimeInSec) bool {
+func (m *MockPipeline) Tick() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tick", arg0)
+	ret := m.ctrl.Call(m, "Tick")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // Tick indicates an expected call of Tick.
-func (mr *MockPipelineMockRecorder) Tick(arg0 interface{}) *gomock.Call {
+func (mr *MockPipelineMockRecorder) Tick() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tick", reflect.TypeOf((*MockPipeline)(nil).Tick), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tick", reflect.TypeOf((*MockPipeline)(nil).Tick))
 }

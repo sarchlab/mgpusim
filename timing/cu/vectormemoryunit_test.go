@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/mem"
-	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/insts"
 	"github.com/sarchlab/mgpusim/v4/kernels"
 	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
@@ -66,9 +65,9 @@ var _ = Describe("Vector Memory Unit", func() {
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
 
-		instPipeline.EXPECT().Accept(sim.VTimeInSec(10), gomock.Any())
+		instPipeline.EXPECT().Accept(gomock.Any())
 
-		vecMemUnit.AcceptWave(wave, 10)
+		vecMemUnit.AcceptWave(wave)
 
 		Expect(vecMemUnit.numInstInFlight).To(Equal(uint64(1)))
 	})
@@ -94,7 +93,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
 		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
 
-		madeProgress := vecMemUnit.instToTransaction(10)
+		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(wave.State).To(Equal(wavefront.WfReady))
@@ -126,7 +125,7 @@ var _ = Describe("Vector Memory Unit", func() {
 		instBuffer.EXPECT().Peek().Return(vectorMemInst{wavefront: wave})
 		instBuffer.EXPECT().Pop().Return(vectorMemInst{wavefront: wave})
 
-		madeProgress := vecMemUnit.instToTransaction(10)
+		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(wave.State).To(Equal(wavefront.WfReady))
@@ -149,9 +148,9 @@ var _ = Describe("Vector Memory Unit", func() {
 		vecMemUnit.transactionsWaiting = transactions
 
 		transactionPipeline.EXPECT().CanAccept().Return(true)
-		transactionPipeline.EXPECT().Accept(sim.VTimeInSec(10), gomock.Any())
+		transactionPipeline.EXPECT().Accept(gomock.Any())
 
-		madeProgress := vecMemUnit.instToTransaction(10)
+		madeProgress := vecMemUnit.instToTransaction()
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(vecMemUnit.transactionsWaiting).To(HaveLen(3))
@@ -160,13 +159,11 @@ var _ = Describe("Vector Memory Unit", func() {
 	It("should send memory access requests", func() {
 		inst := wavefront.NewInst(nil)
 		loadReq := mem.ReadReqBuilder{}.
-			WithSendTime(8).
 			WithSrc(cu.ToVectorMem).
 			WithDst(vectorMem).
 			WithAddress(0).
 			WithByteSize(4).
 			Build()
-		loadReq.RecvTime = 10
 		trans := VectorMemAccessInfo{
 			Read: loadReq,
 			Inst: inst,
@@ -177,9 +174,8 @@ var _ = Describe("Vector Memory Unit", func() {
 		transactionBuffer.EXPECT().Pop()
 		toVectorMem.EXPECT().Send(loadReq)
 
-		vecMemUnit.sendRequest(10)
+		vecMemUnit.sendRequest()
 
-		Expect(loadReq.SendTime).To(Equal(sim.VTimeInSec(10)))
 		Expect(vecMemUnit.numTransactionInFlight).To(Equal(uint64(0)))
 	})
 

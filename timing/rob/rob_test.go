@@ -53,43 +53,42 @@ var _ = Describe("Reorder Buffer", func() {
 				rob.addTransaction(trans)
 			}
 
-			madeProgress := rob.topDown(10)
+			madeProgress := rob.topDown()
 
 			Expect(madeProgress).To(BeFalse())
 		})
 
 		It("should do nothing if no message arriving", func() {
-			topPort.EXPECT().Peek().Return(nil)
+			topPort.EXPECT().PeekIncoming().Return(nil)
 
-			madeProgress := rob.topDown(10)
+			madeProgress := rob.topDown()
 
 			Expect(madeProgress).To(BeFalse())
 		})
 
 		It("should not receive request if bottom port is busy", func() {
-			topPort.EXPECT().Peek().Return(read)
+			topPort.EXPECT().PeekIncoming().Return(read)
 			bottomPort.EXPECT().
 				Send(gomock.Any()).
 				Return(sim.NewSendError())
 
-			madeProgress := rob.topDown(10)
+			madeProgress := rob.topDown()
 
 			Expect(madeProgress).To(BeFalse())
 		})
 
 		It("should accept request from top and forward to bottom", func() {
-			topPort.EXPECT().Peek().Return(read)
-			topPort.EXPECT().Retrieve(sim.VTimeInSec(10))
+			topPort.EXPECT().PeekIncoming().Return(read)
+			topPort.EXPECT().RetrieveIncoming()
 			bottomPort.EXPECT().
 				Send(gomock.Any()).
 				Do(func(req *mem.ReadReq) {
 					Expect(req.Src).To(BeIdenticalTo(rob.bottomPort))
 					Expect(req.Dst).To(BeIdenticalTo(rob.BottomUnit))
-					Expect(req.SendTime).To(Equal(sim.VTimeInSec(10)))
 				}).
 				Return(nil)
 
-			madeProgress := rob.topDown(10)
+			madeProgress := rob.topDown()
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(rob.transactions.Len()).To(Equal(1))
@@ -110,9 +109,9 @@ var _ = Describe("Reorder Buffer", func() {
 		})
 
 		It("should do nothing if no response in the Bottom Port", func() {
-			bottomPort.EXPECT().Peek().Return(nil)
+			bottomPort.EXPECT().PeekIncoming().Return(nil)
 
-			madeProgress := rob.parseBottom(10)
+			madeProgress := rob.parseBottom()
 
 			Expect(madeProgress).To(BeFalse())
 		})
@@ -122,10 +121,10 @@ var _ = Describe("Reorder Buffer", func() {
 				WithRspTo(transaction.reqToBottom.Meta().ID).
 				Build()
 
-			bottomPort.EXPECT().Peek().Return(rsp)
-			bottomPort.EXPECT().Retrieve(sim.VTimeInSec(10))
+			bottomPort.EXPECT().PeekIncoming().Return(rsp)
+			bottomPort.EXPECT().RetrieveIncoming()
 
-			madeProgress := rob.parseBottom(10)
+			madeProgress := rob.parseBottom()
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(transaction.rspFromBottom).To(BeIdenticalTo(rsp))
@@ -156,7 +155,7 @@ var _ = Describe("Reorder Buffer", func() {
 		It("should do nothing if there is no transaction", func() {
 			rob.transactions.Remove(rob.transactions.Front())
 
-			madeProgress := rob.bottomUp(10)
+			madeProgress := rob.bottomUp()
 
 			Expect(madeProgress).To(BeFalse())
 		})
@@ -164,7 +163,7 @@ var _ = Describe("Reorder Buffer", func() {
 		It("should do nothing if the transaction is not ready", func() {
 			transaction.rspFromBottom = nil
 
-			madeProgress := rob.bottomUp(10)
+			madeProgress := rob.bottomUp()
 
 			Expect(madeProgress).To(BeFalse())
 		})
@@ -172,7 +171,7 @@ var _ = Describe("Reorder Buffer", func() {
 		It("should stall if TopPort is busy", func() {
 			topPort.EXPECT().Send(gomock.Any()).Return(sim.NewSendError())
 
-			madeProgress := rob.bottomUp(10)
+			madeProgress := rob.bottomUp()
 
 			Expect(madeProgress).To(BeFalse())
 			Expect(rob.transactions.Len()).To(Equal(1))
@@ -185,12 +184,11 @@ var _ = Describe("Reorder Buffer", func() {
 				Do(func(rsp *mem.WriteDoneRsp) {
 					Expect(rsp.Dst).To(BeIdenticalTo(topModule))
 					Expect(rsp.Src).To(BeIdenticalTo(topPort))
-					Expect(rsp.SendTime).To(Equal(sim.VTimeInSec(10)))
 					Expect(rsp.RespondTo).To(Equal(writeFromTop.ID))
 				}).
 				Return(nil)
 
-			madeProgress := rob.bottomUp(10)
+			madeProgress := rob.bottomUp()
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(rob.transactions.Len()).To(Equal(0))
@@ -204,11 +202,11 @@ var _ = Describe("Reorder Buffer", func() {
 				ToDiscardTransactions().
 				Build()
 
-			ctrlPort.EXPECT().Peek().Return(flush)
-			ctrlPort.EXPECT().Retrieve(sim.VTimeInSec(10))
+			ctrlPort.EXPECT().PeekIncoming().Return(flush)
+			ctrlPort.EXPECT().RetrieveIncoming()
 			ctrlPort.EXPECT().Send(gomock.Any()).Return(nil)
 
-			madeProgress := rob.processControlMsg(10)
+			madeProgress := rob.processControlMsg()
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(rob.isFlushing).To(BeTrue())
@@ -219,13 +217,13 @@ var _ = Describe("Reorder Buffer", func() {
 				ToRestart().
 				Build()
 
-			ctrlPort.EXPECT().Peek().Return(restart)
-			ctrlPort.EXPECT().Retrieve(sim.VTimeInSec(10))
+			ctrlPort.EXPECT().PeekIncoming().Return(restart)
+			ctrlPort.EXPECT().RetrieveIncoming()
 			ctrlPort.EXPECT().Send(gomock.Any()).Return(nil)
-			topPort.EXPECT().Retrieve(sim.VTimeInSec(10)).AnyTimes()
-			bottomPort.EXPECT().Retrieve(sim.VTimeInSec(10)).AnyTimes()
+			topPort.EXPECT().RetrieveIncoming().AnyTimes()
+			bottomPort.EXPECT().RetrieveIncoming().AnyTimes()
 
-			madeProgress := rob.processControlMsg(10)
+			madeProgress := rob.processControlMsg()
 
 			Expect(madeProgress).To(BeTrue())
 			Expect(rob.isFlushing).To(BeFalse())

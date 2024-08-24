@@ -36,7 +36,7 @@ var _ = Describe("Branch Unit", func() {
 
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
-		bu.AcceptWave(wave, 10)
+		bu.AcceptWave(wave)
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
@@ -58,7 +58,7 @@ var _ = Describe("Branch Unit", func() {
 		bu.toExec = wave2
 		bu.toWrite = wave3
 
-		bu.Run(10)
+		bu.Run()
 
 		Expect(wave3.State).To(Equal(wavefront.WfReady))
 		Expect(wave3.PC).To(Equal(uint64(0x140)))

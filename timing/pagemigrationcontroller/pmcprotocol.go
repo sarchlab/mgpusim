@@ -18,7 +18,7 @@ func (r *PageMigrationReqToPMC) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the PageMigrationReqToPMC with diffrent ID.
+// Clone returns a clone of the PageMigrationReqToPMC with different ID.
 func (r *PageMigrationReqToPMC) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
@@ -96,7 +96,7 @@ func (r *PageMigrationRspFromPMC) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the PageMigrationRspFromPMC with diffrent ID.
+// Clone returns a clone of the PageMigrationRspFromPMC with different ID.
 func (r *PageMigrationRspFromPMC) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
@@ -143,7 +143,7 @@ func (r *DataPullReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the DataPullReq with diffrent ID.
+// Clone returns a clone of the DataPullReq with different ID.
 func (r *DataPullReq) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
@@ -206,7 +206,7 @@ func (r *DataPullRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// Clone returns a clone of the DataPullRsp with diffrent ID.
+// Clone returns a clone of the DataPullRsp with different ID.
 func (r *DataPullRsp) Clone() sim.Msg {
 	cloneMsg := *r
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
