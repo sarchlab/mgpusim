@@ -143,7 +143,9 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer()
+	if !*disableAkitaRTM {
+		r.monitor.StartServer()
+	}
 }
 
 func (*Runner) setAnalyszer(
