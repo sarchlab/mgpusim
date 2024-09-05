@@ -211,18 +211,19 @@ func (m *defaultMemoryCopyMiddleware) Tick() (madeProgress bool) {
 func (m *defaultMemoryCopyMiddleware) processGeneralRsp(
 	rsp *sim.GeneralRsp,
 ) bool {
+	madeProgress := false
 	originalReq := rsp.OriginalReq
 
 	switch originalReq := originalReq.(type) {
 	case *protocol.FlushReq:
-		return m.processFlushReturn(originalReq)
+		madeProgress = m.processFlushReturn(originalReq)
 	case *protocol.MemCopyH2DReq:
-		return m.processMemCopyH2DReturn(originalReq)
+		madeProgress = m.processMemCopyH2DReturn(originalReq)
 	case *protocol.MemCopyD2HReq:
-		return m.processMemCopyD2HReturn(originalReq)
+		madeProgress = m.processMemCopyD2HReturn(originalReq)
 	}
 
-	return false
+	return madeProgress
 }
 
 func (m *defaultMemoryCopyMiddleware) processMemCopyH2DReturn(
