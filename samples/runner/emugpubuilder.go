@@ -191,13 +191,11 @@ func (b *EmuGPUBuilder) buildGPU() {
 func (b *EmuGPUBuilder) connectInternalComponents() {
 	connection := directconnection.MakeBuilder().
 		WithEngine(b.engine).
-		WithFreq(1*sim.GHz).
-		Build("InterGPUConn")
+		WithFreq(1 * sim.GHz).
+		Build("IntraGPUConn")
 
-	connection.PlugIn(b.commandProcessor.ToDriver, 1)
 	connection.PlugIn(b.commandProcessor.ToDMA, 1)
 	connection.PlugIn(b.commandProcessor.ToCUs, 1)
-	connection.PlugIn(b.driver.GetPortByName("GPU"), 1)
 	connection.PlugIn(b.gpuMem.GetPortByName("Top"), 1)
 	connection.PlugIn(b.dmaEngine.ToCP, 1)
 	connection.PlugIn(b.dmaEngine.ToMem, 1)

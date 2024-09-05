@@ -5,10 +5,10 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/onsi/ginkgo/v2 v2.20.1
-	github.com/onsi/gomega v1.34.1
-	github.com/rs/xid v1.5.0
-	github.com/sarchlab/akita/v4 v4.0.0-alpha.3 // v3.0.0
+	github.com/onsi/ginkgo/v2 v2.20.2
+	github.com/onsi/gomega v1.34.2
+	github.com/rs/xid v1.6.0
+	github.com/sarchlab/akita/v4 v4.0.0-alpha.5 // v3.0.0
 	github.com/tebeka/atexit v0.3.0
 	gonum.org/v1/gonum v0.15.1
 )
@@ -20,7 +20,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
+	github.com/google/pprof v0.0.0-20240829160300-da1f7e9f2b25 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

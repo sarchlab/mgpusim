@@ -165,9 +165,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fir",
             "args": [
-                "-timing",
-                "-length=8192",
-                "-report-all",
+                "-parallel",
             ],
         },
         {
