@@ -269,9 +269,8 @@ func (b *R9NanoGPUBuilder) connectCP() {
 	b.internalConn = directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		Build(b.gpuName+".InternalConn")
+		Build(b.gpuName + ".InternalConn")
 
-	b.internalConn.PlugIn(b.cp.ToDriver, 1)
 	b.internalConn.PlugIn(b.cp.ToDMA, 128)
 	b.internalConn.PlugIn(b.cp.ToCaches, 128)
 	b.internalConn.PlugIn(b.cp.ToCUs, 128)
@@ -303,11 +302,11 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 	lowModuleFinder.UseAddressSpaceLimitation = true
 	lowModuleFinder.LowAddress = b.memAddrOffset
 	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
-	
+
 	l1ToL2Conn := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		Build(b.gpuName+".L1ToL2")
+		Build(b.gpuName + ".L1ToL2")
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
 	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 64)
@@ -339,7 +338,7 @@ func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
 	b.l2ToDramConnection = directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		Build(b.gpuName+".L2ToDRAM")
+		Build(b.gpuName + ".L2ToDRAM")
 
 	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
 		1 << b.log2MemoryBankInterleavingSize)
@@ -369,7 +368,7 @@ func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
 	tlbConn := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		Build(b.gpuName+".L1TLBToL2TLB")
+		Build(b.gpuName + ".L1TLBToL2TLB")
 
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64)
 
@@ -859,7 +858,7 @@ func (b *R9NanoGPUBuilder) connectWithDirectConnection(
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		Build(port1.Name()+"-"+port2.Name())
+		Build(port1.Name() + "-" + port2.Name())
 	conn.PlugIn(port1, bufferSize)
 	conn.PlugIn(port2, bufferSize)
 }
