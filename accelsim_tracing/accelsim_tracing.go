@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/platform"
@@ -8,10 +10,26 @@ import (
 	"github.com/tebeka/atexit"
 )
 
+type Params struct {
+	TraceDir *string
+}
+
+// get trace directory from parameter
+func parseFlags() *Params {
+	params := &Params{
+		TraceDir: flag.String("trace-dir", "data/simple-trace-example", "The directory that contains the trace files"),
+	}
+
+	flag.Parse()
+
+	return params
+}
+
 func main() {
+	params := parseFlags()
+
 	benchmark := new(benchmark.BenchmarkBuilder).
-		// WithTraceDirectory("data/bfs-rodinia-2.0-ft").
-		WithTraceDirectory("data/simple-trace-example").
+		WithTraceDirectory(*params.TraceDir).
 		Build()
 
 	platform := new(platform.A100PlatformBuilder).

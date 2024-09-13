@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
@@ -70,10 +71,11 @@ func (d *Driver) processDevicesInput(now sim.VTimeInSec) bool {
 	switch msg := msg.(type) {
 	case *message.DeviceToDriverMsg:
 		d.processDeviceMsg(msg, now)
-		return true
 	default:
-		panic("Unknown message type")
+		log.Panic("Unknown message type")
 	}
+
+	return true
 }
 
 func (d *Driver) processDeviceMsg(msg *message.DeviceToDriverMsg, now sim.VTimeInSec) {

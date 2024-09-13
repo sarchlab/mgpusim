@@ -47,7 +47,7 @@ func (s *Subcore) processSMInput(now sim.VTimeInSec) bool {
 	case *message.SMToSubcoreMsg:
 		s.processSMMsg(msg, now)
 	default:
-		panic("Unrecognized message")
+		log.Panic("Unrecognized message")
 	}
 
 	return true

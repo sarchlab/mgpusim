@@ -1,6 +1,8 @@
 package benchmark
 
 import (
+	"log"
+
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/tracereader"
 )
@@ -72,6 +74,6 @@ func (b *BenchmarkBuilder) generateMemcpyTrace(meta tracereader.TraceExecMeta) *
 
 func (b *BenchmarkBuilder) traceDirectoryMustBeSet() {
 	if b.traceDirectory == "" {
-		panic("Trace directory must be set")
+		log.Panic("Trace directory must be set")
 	}
 }

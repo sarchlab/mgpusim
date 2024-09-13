@@ -84,15 +84,15 @@ func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 		m.execType = nvidia.ExecKernel
 		m.filename = text
 		m.filepath = path.Join(r.directoryPath, text)
-
-		return m
+	} else {
+		log.Panic("Unknown execution type")
 	}
 
-	panic("never")
+	return m
 }
 
 func (b *TraceReaderBuilder) traceDirectoryMustBeSet() {
 	if b.traceDirPath == "" {
-		panic("traceDirPath must be set")
+		log.Panic("traceDirPath must be set")
 	}
 }

@@ -1,6 +1,8 @@
 package runner
 
 import (
+	"log"
+
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/platform"
 )
 
@@ -29,6 +31,6 @@ func (r *RunnerBuilder) Build() *Runner {
 
 func (r *RunnerBuilder) platformMustBeSet() {
 	if r.platform == nil {
-		panic("Platform must be set")
+		log.Panic("Platform must be set")
 	}
 }

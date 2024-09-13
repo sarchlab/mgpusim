@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/driver"
@@ -44,6 +45,6 @@ func (b *A100PlatformBuilder) Build() *Platform {
 
 func (b *A100PlatformBuilder) freqMustBeSet() {
 	if b.freq == 0 {
-		panic("Frequency must be set")
+		log.Panic("Frequency must be set")
 	}
 }

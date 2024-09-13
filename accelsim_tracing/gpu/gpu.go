@@ -1,6 +1,8 @@
 package gpu
 
 import (
+	"log"
+
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/message"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
@@ -53,7 +55,7 @@ func (g *GPU) processDriverInput(now sim.VTimeInSec) bool {
 	case *message.DriverToDeviceMsg:
 		g.processDriverMsg(msg, now)
 	default:
-		panic("Unhandled message type")
+		log.Panic("Unhandled message type")
 	}
 
 	return true
@@ -68,10 +70,11 @@ func (g *GPU) processSMsInput(now sim.VTimeInSec) bool {
 	switch msg := msg.(type) {
 	case *message.SMToDeviceMsg:
 		g.processSMsMsg(msg, now)
-		return true
 	default:
-		panic("Unhandled message type")
+		log.Panic("Unhandled message type")
 	}
+
+	return true
 }
 
 func (g *GPU) processDriverMsg(msg *message.DriverToDeviceMsg, now sim.VTimeInSec) {

@@ -2,6 +2,7 @@ package tracereader
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
@@ -87,11 +88,11 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 	case "accelsim tracer version":
 		th.accelsimTracerVersion = value
 	default:
-		panic("never")
+		log.Panic("never")
 	}
 
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 

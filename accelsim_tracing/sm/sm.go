@@ -57,7 +57,7 @@ func (s *SM) processGPUInput(now sim.VTimeInSec) bool {
 	case *message.DeviceToSMMsg:
 		s.processSMMsg(msg, now)
 	default:
-		panic("Unhandled message type")
+		log.Panic("Unhandled message type")
 	}
 
 	return true
@@ -72,10 +72,11 @@ func (s *SM) processSubcoresInput(now sim.VTimeInSec) bool {
 	switch msg := msg.(type) {
 	case *message.SubcoreToSMMsg:
 		s.processSubcoreSubcoresg(msg, now)
-		return true
 	default:
-		panic("Unhandled message type")
+		log.Panic("Unhandled message type")
 	}
+
+	return true
 }
 
 func (s *SM) processSMMsg(msg *message.DeviceToSMMsg, now sim.VTimeInSec) {
