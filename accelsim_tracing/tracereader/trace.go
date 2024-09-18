@@ -8,38 +8,46 @@ import (
 )
 
 type KernelTrace struct {
-	fileHeader   KernelFileHeader
-	threadblocks []ThreadblockTrace
+	FileHeader  KernelFileHeader
+	tbIDToIndex map[nvidia.Dim3]int32
+
+	threadblocks []*ThreadblockTrace
 }
 
 type KernelFileHeader struct {
-	kernelName            string
-	kernelID              int32
-	gridDim               nvidia.Dim3
-	blockDim              nvidia.Dim3
-	shmem                 int32
-	nregs                 int32
-	binaryVersion         int32
-	cudaStreamID          int32
-	shmemBaseAddr         int64
-	localMemBaseAddr      int64
-	nvbitVersion          string
-	accelsimTracerVersion string
+	KernelName            string      `title:"kernel name"`
+	KernelID              int32       `title:"kernel id"`
+	GridDim               nvidia.Dim3 `title:"grid dim"`
+	BlockDim              nvidia.Dim3 `title:"block dim"`
+	Shmem                 int32       `title:"shmem"`
+	Nregs                 int32       `title:"nregs"`
+	BinaryVersion         int32       `title:"binary version"`
+	CudaStreamID          int32       `title:"cuda stream id"`
+	ShmemBaseAddr         int64       `title:"shmem base_addr"`
+	LocalMemBaseAddr      int64       `title:"local mem base_addr"`
+	NvbitVersion          string      `title:"nvbit version"`
+	AccelsimTracerVersion string      `title:"accelsim tracer version"`
+	EnableLineinfo        bool        `title:"enable lineinfo"`
 }
 
 type ThreadblockTrace struct {
-	ThreadblockDim nvidia.Dim3
-	Warps          []WarpTrace
+	id            nvidia.Dim3
+	warpIDToIndex map[int32]int32
+
+	Warps []*WarpTrace
 }
 
 type WarpTrace struct {
-	WarpID       int32
+	id int32
+
 	InstsCount   int32
 	Instructions []Instruction
 }
 
 type Instruction struct {
-	rawtext           string
+	threadblockID nvidia.Dim3
+	warpID        int32
+
 	PC                int32
 	Mask              int64
 	DestNum           int32
@@ -52,6 +60,7 @@ type Instruction struct {
 	MemAddress        int64
 	MemAddressSuffix1 int32
 	MemAddressSuffix2 []int32
+	Immediate         int64
 }
 
 // Shaoyu: Maybe we can parse the attrs in order and avoid using swicth-case here
@@ -64,29 +73,31 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 
 	switch key {
 	case "kernel name":
-		th.kernelName = value
+		th.KernelName = value
 	case "kernel id":
-		_, err = fmt.Sscanf(value, "%d", &th.kernelID)
+		_, err = fmt.Sscanf(value, "%d", &th.KernelID)
 	case "grid dim":
-		_, err = fmt.Sscanf(value, "(%d,%d,%d)", &th.gridDim[0], &th.gridDim[1], &th.gridDim[2])
+		_, err = fmt.Sscanf(value, "(%d,%d,%d)", &th.GridDim[0], &th.GridDim[1], &th.GridDim[2])
 	case "block dim":
-		_, err = fmt.Sscanf(value, "(%d,%d,%d)", &th.blockDim[0], &th.blockDim[1], &th.blockDim[2])
+		_, err = fmt.Sscanf(value, "(%d,%d,%d)", &th.BlockDim[0], &th.BlockDim[1], &th.BlockDim[2])
 	case "shmem":
-		_, err = fmt.Sscanf(value, "%d", &th.shmem)
+		_, err = fmt.Sscanf(value, "%d", &th.Shmem)
 	case "nregs":
-		_, err = fmt.Sscanf(value, "%d", &th.nregs)
+		_, err = fmt.Sscanf(value, "%d", &th.Nregs)
 	case "binary version":
-		_, err = fmt.Sscanf(value, "%d", &th.binaryVersion)
+		_, err = fmt.Sscanf(value, "%d", &th.BinaryVersion)
 	case "cuda stream id":
-		_, err = fmt.Sscanf(value, "%d", &th.cudaStreamID)
+		_, err = fmt.Sscanf(value, "%d", &th.CudaStreamID)
 	case "shmem base_addr":
-		_, err = fmt.Sscanf(value, "%v", &th.shmemBaseAddr)
+		_, err = fmt.Sscanf(value, "%v", &th.ShmemBaseAddr)
 	case "local mem base_addr":
-		_, err = fmt.Sscanf(value, "%v", &th.localMemBaseAddr)
+		_, err = fmt.Sscanf(value, "%v", &th.LocalMemBaseAddr)
 	case "nvbit version":
-		th.nvbitVersion = value
+		th.NvbitVersion = value
 	case "accelsim tracer version":
-		th.accelsimTracerVersion = value
+		th.AccelsimTracerVersion = value
+	case "enable lineinfo":
+		th.EnableLineinfo = value == "1"
 	default:
 		log.Panic("never")
 	}
@@ -100,16 +111,16 @@ func (k *KernelTrace) ThreadblocksCount() int64 {
 	return int64(len(k.threadblocks))
 }
 
-func (k *KernelTrace) Threadblock(id int64) *ThreadblockTrace {
-	return &k.threadblocks[id]
+func (k *KernelTrace) Threadblock(index int64) *ThreadblockTrace {
+	return k.threadblocks[index]
 }
 
 func (tb *ThreadblockTrace) WarpsCount() int64 {
 	return int64(len(tb.Warps))
 }
 
-func (tb *ThreadblockTrace) Warp(id int64) *WarpTrace {
-	return &tb.Warps[id]
+func (tb *ThreadblockTrace) Warp(index int64) *WarpTrace {
+	return tb.Warps[index]
 }
 
 func (w *WarpTrace) InstructionsCount() int64 {

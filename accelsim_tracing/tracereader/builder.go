@@ -32,7 +32,7 @@ func (b *TraceReaderBuilder) Build() *TraceReader {
 	return tdr
 }
 
-const kernelsListFileName = "kernelslist.g"
+const kernelsListFileName = "kernelslist"
 
 func (r *TraceReader) generateExcutions() {
 	filepath := path.Join(r.directoryPath, kernelsListFileName)

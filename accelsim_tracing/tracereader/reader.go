@@ -52,15 +52,13 @@ func ReadTrace(meta TraceExecMeta) KernelTrace {
 	scanner := bufio.NewScanner(file)
 	trace := KernelTrace{}
 
-	trace.fileHeader = readTraceHeader(scanner)
-	trace.threadblocks = readThreadblocks(scanner)
+	trace.readTraceHeader(scanner)
+	trace.readThreadblocks(scanner)
 
 	return trace
 }
 
-func readTraceHeader(scanner *bufio.Scanner) KernelFileHeader {
-	header := KernelFileHeader{}
-
+func (t *KernelTrace) readTraceHeader(scanner *bufio.Scanner) {
 	for scanner.Scan() {
 		if strings.HasPrefix(scanner.Text(), "-") {
 			text := scanner.Text()
@@ -71,134 +69,102 @@ func readTraceHeader(scanner *bufio.Scanner) KernelFileHeader {
 			key := strings.TrimSpace(elems[0])
 			value := strings.TrimSpace(elems[1])
 
-			header.updateTraceHeaderParam(key[1:], value)
+			t.FileHeader.updateTraceHeaderParam(key[1:], value)
 		} else if scanner.Text() != "" {
-			break
+			if strings.HasPrefix(scanner.Text(), "#traces format") {
+				break
+			}
+			log.Panic("extract failed due to missing #traces format line")
 		}
 	}
-
-	return header
 }
 
-const (
-	threadblockBegin = "#BEGIN_TB"
-	threadblockEnd   = "#END_TB"
-)
-
-func readThreadblocks(scanner *bufio.Scanner) []ThreadblockTrace {
-	threadblockTraces := make([]ThreadblockTrace, 0)
+func (t *KernelTrace) readThreadblocks(scanner *bufio.Scanner) {
+	t.tbIDToIndex = make(map[nvidia.Dim3]int32)
+	t.threadblocks = make([]*ThreadblockTrace, 0)
 
 	for scanner.Scan() {
-		if strings.TrimSpace(scanner.Text()) == threadblockBegin {
-			lines := make([]string, 0)
-			for scanner.Scan() {
-				if strings.TrimSpace(scanner.Text()) == threadblockEnd {
-					tb := BuildThreadblock(lines)
-					threadblockTraces = append(threadblockTraces, tb)
-					break
-				}
-				lines = append(lines, scanner.Text())
+		if scanner.Text() == "" {
+			continue
+		}
+
+		inst := extractInst(scanner.Text())
+		if tbIndex, exists := t.tbIDToIndex[inst.threadblockID]; exists {
+			t.threadblocks[tbIndex].updateInstruction(inst)
+		} else {
+			tb := &ThreadblockTrace{
+				id:            inst.threadblockID,
+				Warps:         make([]*WarpTrace, 0),
+				warpIDToIndex: make(map[int32]int32),
 			}
+
+			tb.updateInstruction(inst)
+			t.threadblocks = append(t.threadblocks, tb)
+			t.tbIDToIndex[inst.threadblockID] = int32(t.ThreadblocksCount() - 1)
 		}
 	}
-
-	return threadblockTraces
 }
 
-const warpPrefix = "warp"
-
-func BuildThreadblock(lines []string) ThreadblockTrace {
-	tb := ThreadblockTrace{}
-	tb.ThreadblockDim = buildThreadblockDim(lines)
-
-	for i, line := range lines {
-		if strings.HasPrefix(line, warpPrefix) {
-			wp := buildWarpHeader(lines[i], lines[i+1])
-			for j := 0; j < int(wp.InstsCount); j++ {
-				inst := buildInst(lines[i+2+j])
-				wp.Instructions = append(wp.Instructions, inst)
-			}
-
-			tb.Warps = append(tb.Warps, wp)
+func (tb *ThreadblockTrace) updateInstruction(inst Instruction) {
+	if warpIndex, exists := tb.warpIDToIndex[inst.warpID]; exists {
+		tb.Warps[warpIndex].updateInstruction(inst)
+	} else {
+		warp := &WarpTrace{
+			id:           inst.warpID,
+			InstsCount:   0,
+			Instructions: make([]Instruction, 0),
 		}
-	}
 
-	return tb
+		warp.updateInstruction(inst)
+		tb.Warps = append(tb.Warps, warp)
+		tb.warpIDToIndex[inst.warpID] = int32(tb.WarpsCount() - 1)
+	}
 }
 
-const threadblockDimPrefix = "thread block"
-
-func buildThreadblockDim(lines []string) nvidia.Dim3 {
-	for _, line := range lines {
-		if strings.HasPrefix(line, threadblockDimPrefix) {
-			d := nvidia.Dim3{}
-			elems := strings.Split(line, "=")
-			if len(elems) != 2 {
-				log.Panicf("Invalid thread block dim line: %s", line)
-			}
-
-			value := strings.TrimSpace(elems[1])
-			_, err := fmt.Sscanf(value, "%d,%d,%d", &d[0], &d[1], &d[2])
-			if err != nil {
-				log.Panicf("Invalid thread block dim value: %s", value)
-			}
-
-			return d
-		}
-	}
-	return nvidia.Dim3{}
+func (wp *WarpTrace) updateInstruction(inst Instruction) {
+	wp.Instructions = append(wp.Instructions, inst)
+	wp.InstsCount++
 }
 
-func buildWarpHeader(warpText string, instsText string) WarpTrace {
-	wp := WarpTrace{}
-
-	elems0 := strings.Split(warpText, "=")
-	elems1 := strings.Split(instsText, "=")
-	if len(elems0) != 2 || len(elems1) != 2 {
-		log.Panicf("Invalid warp header: %s, %s", warpText, instsText)
-	}
-
-	_, err0 := fmt.Sscanf(strings.TrimSpace(elems0[1]), "%d", &wp.WarpID)
-	_, err1 := fmt.Sscanf(strings.TrimSpace(elems1[1]), "%d", &wp.InstsCount)
-	if err0 != nil || err1 != nil {
-		log.Panicf("Invalid warp header: %s, %s", warpText, instsText)
-	}
-
-	return wp
-}
-
-func buildInst(line string) Instruction {
+// #traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses] immediate
+func extractInst(line string) Instruction {
 	inst := Instruction{}
 	elems := strings.Fields(line)
-	fmt.Sscanf(elems[0]+elems[1]+elems[2], "%x%x%d", &inst.PC, &inst.Mask, &inst.SrcNum)
+
+	fmt.Sscanf(elems[0]+elems[1]+elems[2], "%d%d%d", &inst.threadblockID[0], &inst.threadblockID[1], &inst.threadblockID[2])
+	fmt.Sscanf(elems[3], "%d", &inst.warpID)
+
+	fmt.Sscanf(elems[4]+elems[5]+elems[6], "%x%x%d", &inst.PC, &inst.Mask, &inst.SrcNum)
 	for i := 0; i < int(inst.SrcNum); i++ {
-		inst.SrcRegs = append(inst.SrcRegs, nvidia.NewRegister(elems[3+i]))
+		inst.SrcRegs = append(inst.SrcRegs, nvidia.NewRegister(elems[6+i]))
 	}
 
-	fmt.Sscanf(elems[3+int(inst.SrcNum)], "%d", &inst.DestNum)
+	// inst.OpCode = nvidia.NewOpcode(elems[6+int(inst.SrcNum)])
+
+	fmt.Sscanf(elems[7+int(inst.SrcNum)], "%d", &inst.DestNum)
 	for i := 0; i < int(inst.DestNum); i++ {
-		inst.DestRegs = append(inst.DestRegs, nvidia.NewRegister(elems[4+int(inst.SrcNum)+i]))
+		inst.DestRegs = append(inst.DestRegs, nvidia.NewRegister(elems[7+int(inst.SrcNum)+i]))
 	}
 
-	updateInstMemoryPart(&inst, elems[4+int(inst.SrcNum)+int(inst.DestNum):])
+	updateInstMemoryPart(&inst, elems[7+int(inst.SrcNum)+int(inst.DestNum):])
 	return inst
 }
 
 // [todo]: understand memory format
 func updateInstMemoryPart(inst *Instruction, elems []string) {
 	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
-	if inst.MemWidth == 0 {
-		return
-	}
-
-	fmt.Sscanf(elems[1]+elems[2], "%d0x%x", &inst.AddressCompress, &inst.MemAddress)
-	switch inst.AddressCompress {
-	case 1:
-		fmt.Sscanf(elems[2], "%d", &inst.MemAddressSuffix1)
-	case 2:
-		for _, s := range elems[2:] {
-			s32, _ := strconv.Atoi(s)
-			inst.MemAddressSuffix2 = append(inst.MemAddressSuffix2, int32(s32))
+	if inst.MemWidth != 0 {
+		fmt.Sscanf(elems[1]+elems[2], "%d0x%x", &inst.AddressCompress, &inst.MemAddress)
+		switch inst.AddressCompress {
+		case 1:
+			fmt.Sscanf(elems[2], "%d", &inst.MemAddressSuffix1)
+		case 2:
+			for _, s := range elems[2 : len(elems)-1] {
+				s32, _ := strconv.Atoi(s)
+				inst.MemAddressSuffix2 = append(inst.MemAddressSuffix2, int32(s32))
+			}
 		}
 	}
+	imm, _ := strconv.Atoi(elems[len(elems)-1])
+	inst.Immediate = int64(imm)
 }
