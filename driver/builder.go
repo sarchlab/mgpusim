@@ -17,6 +17,7 @@ type Builder struct {
 	useMagicMemoryCopy  bool
 	middlewareD2HCycles int
 	middlewareH2DCycles int
+	memorySize          uint64
 }
 
 // MakeBuilder creates a driver builder with some default configuration
@@ -74,6 +75,12 @@ func (b Builder) WithH2DCycles(h2dCycles int) Builder {
 	return b
 }
 
+// WithMemorySize sets the memory size of the CPU.
+func (b Builder) WithMemorySize(memorySize uint64) Builder {
+	b.memorySize = memorySize
+	return b
+}
+
 // Build creates a driver.
 func (b Builder) Build(name string) *Driver {
 	driver := new(Driver)
@@ -125,7 +132,7 @@ func (b *Builder) createCPU(d *Driver) {
 		Type:     internal.DeviceTypeCPU,
 		MemState: internal.NewDeviceMemoryState(d.Log2PageSize),
 	}
-	cpu.SetTotalMemSize(4 * mem.GB)
+	cpu.SetTotalMemSize(b.memorySize)
 
 	d.memAllocator.RegisterDevice(cpu)
 	d.devices = append(d.devices, cpu)

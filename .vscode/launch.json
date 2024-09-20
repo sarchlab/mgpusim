@@ -166,7 +166,7 @@
             "program": "${workspaceFolder}/samples/fir",
             "args": [
                 "-timing",
-                "-length=8192",
+                "-length=81920",
                 "-report-all",
             ],
         },
