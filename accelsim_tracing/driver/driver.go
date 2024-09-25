@@ -83,7 +83,8 @@ func (d *Driver) processDeviceMsg(msg *message.DeviceToDriverMsg, now sim.VTimeI
 		d.freeDevices = append(d.freeDevices, d.devices[msg.DeviceID])
 		d.unfinishedKernelsCount--
 		if d.unfinishedKernelsCount == 0 {
-			fmt.Println("All kernels finished, time is:", now)
+			fmt.Println(now)
+			// fmt.Println("All kernels finished, time is:", now)
 		}
 	}
 

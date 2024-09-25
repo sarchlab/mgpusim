@@ -38,6 +38,8 @@ func (m *TraceExecMeta) ExecType() nvidia.ExecType {
 	return m.execType
 }
 
+var scanner *bufio.Scanner
+
 func ReadTrace(meta TraceExecMeta) KernelTrace {
 	if meta.execType != nvidia.ExecKernel {
 		log.Panicf("Invalid exec type: %d", meta.ExecType())
@@ -49,122 +51,134 @@ func ReadTrace(meta TraceExecMeta) KernelTrace {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	scanner = bufio.NewScanner(file)
 	trace := KernelTrace{}
 
-	trace.readTraceHeader(scanner)
-	trace.readThreadblocks(scanner)
+	trace.readTraceHeader()
+	trace.readThreadblocks()
 
 	return trace
 }
 
-func (t *KernelTrace) readTraceHeader(scanner *bufio.Scanner) {
+func moveScannerToNextLine() bool {
 	for scanner.Scan() {
-		if strings.HasPrefix(scanner.Text(), "-") {
-			text := scanner.Text()
-			elems := strings.Split(text, "=")
-			if len(elems) != 2 {
-				log.Panicf("Invalid trace header line: %s", text)
-			}
-			key := strings.TrimSpace(elems[0])
-			value := strings.TrimSpace(elems[1])
+		if scanner.Text() != "" {
+			return true
+		}
+	}
+	return false
+}
+func goToNextlineWithPrefixIncludingNow(prefix string) bool {
+	line := scanner.Text()
+	if strings.HasPrefix(line, prefix) {
+		return true
+	}
+	for moveScannerToNextLine() {
+		line = scanner.Text()
+		if strings.HasPrefix(line, prefix) {
+			return true
+		}
+	}
+	return false
+}
 
-			t.FileHeader.updateTraceHeaderParam(key[1:], value)
-		} else if scanner.Text() != "" {
-			if strings.HasPrefix(scanner.Text(), "#traces format") {
-				break
-			}
-			log.Panic("extract failed due to missing #traces format line")
+func (t *KernelTrace) readTraceHeader() {
+	for moveScannerToNextLine() {
+		text := scanner.Text()
+		if strings.HasPrefix(text, "-") {
+			elems := strings.Split(text, "=")
+			key := strings.TrimSpace(elems[0])[1:]
+			value := strings.TrimSpace(elems[1])
+			t.FileHeader.updateTraceHeaderParam(key, value)
+		} else {
+			break
 		}
 	}
 }
 
-func (t *KernelTrace) readThreadblocks(scanner *bufio.Scanner) {
+func (t *KernelTrace) readThreadblocks() {
 	t.tbIDToIndex = make(map[nvidia.Dim3]int32)
 	t.threadblocks = make([]*ThreadblockTrace, 0)
 
-	for scanner.Scan() {
-		if scanner.Text() == "" {
-			continue
-		}
+	for goToNextlineWithPrefixIncludingNow("thread block") {
+		tb := &ThreadblockTrace{}
+		fmt.Sscanf(scanner.Text(), "thread block = %d,%d,%d", &tb.id[0], &tb.id[1], &tb.id[2])
 
-		inst := extractInst(scanner.Text())
-		if tbIndex, exists := t.tbIDToIndex[inst.threadblockID]; exists {
-			t.threadblocks[tbIndex].updateInstruction(inst)
-		} else {
-			tb := &ThreadblockTrace{
-				id:            inst.threadblockID,
-				Warps:         make([]*WarpTrace, 0),
-				warpIDToIndex: make(map[int32]int32),
+		for moveScannerToNextLine() {
+			if strings.HasPrefix(scanner.Text(), "warp") {
+				wp := &WarpTrace{}
+				fmt.Sscanf(scanner.Text(), "warp = %d", &wp.id)
+
+				if !goToNextlineWithPrefixIncludingNow("insts") {
+					log.Panic("Cannot find insts line")
+				}
+				fmt.Sscanf(scanner.Text(), "insts = %d", &wp.InstsCount)
+
+				for j := 0; j < int(wp.InstsCount); j++ {
+					moveScannerToNextLine()
+					inst := extractInst(scanner.Text())
+					inst.threadblockID = tb.id
+					inst.warpID = wp.id
+
+					wp.Instructions = append(wp.Instructions, inst)
+				}
+
+				tb.Warps = append(tb.Warps, wp)
+			} else {
+				break
 			}
-
-			tb.updateInstruction(inst)
-			t.threadblocks = append(t.threadblocks, tb)
-			t.tbIDToIndex[inst.threadblockID] = int32(t.ThreadblocksCount() - 1)
-		}
-	}
-}
-
-func (tb *ThreadblockTrace) updateInstruction(inst Instruction) {
-	if warpIndex, exists := tb.warpIDToIndex[inst.warpID]; exists {
-		tb.Warps[warpIndex].updateInstruction(inst)
-	} else {
-		warp := &WarpTrace{
-			id:           inst.warpID,
-			InstsCount:   0,
-			Instructions: make([]Instruction, 0),
 		}
 
-		warp.updateInstruction(inst)
-		tb.Warps = append(tb.Warps, warp)
-		tb.warpIDToIndex[inst.warpID] = int32(tb.WarpsCount() - 1)
+		t.threadblocks = append(t.threadblocks, tb)
+		t.tbIDToIndex[tb.id] = int32(t.ThreadblocksCount() - 1)
 	}
 }
 
-func (wp *WarpTrace) updateInstruction(inst Instruction) {
-	wp.Instructions = append(wp.Instructions, inst)
-	wp.InstsCount++
-}
+/*
+	 #traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses] immediate
+								  0	 1		2					3		4					5		6									7
+*/
+func extractInst(text string) *Instruction {
+	inst := &Instruction{}
+	elems := strings.Fields(text)
 
-// #traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses] immediate
-func extractInst(line string) Instruction {
-	inst := Instruction{}
-	elems := strings.Fields(line)
+	fmt.Sscanf(elems[0], "%x", &inst.PC)
+	fmt.Sscanf(elems[1], "%x", &inst.Mask)
 
-	fmt.Sscanf(elems[0]+elems[1]+elems[2], "%d%d%d", &inst.threadblockID[0], &inst.threadblockID[1], &inst.threadblockID[2])
-	fmt.Sscanf(elems[3], "%d", &inst.warpID)
-
-	fmt.Sscanf(elems[4]+elems[5]+elems[6], "%x%x%d", &inst.PC, &inst.Mask, &inst.SrcNum)
-	for i := 0; i < int(inst.SrcNum); i++ {
-		inst.SrcRegs = append(inst.SrcRegs, nvidia.NewRegister(elems[6+i]))
-	}
-
-	// inst.OpCode = nvidia.NewOpcode(elems[6+int(inst.SrcNum)])
-
-	fmt.Sscanf(elems[7+int(inst.SrcNum)], "%d", &inst.DestNum)
+	fmt.Sscanf(elems[2], "%d", &inst.DestNum)
 	for i := 0; i < int(inst.DestNum); i++ {
-		inst.DestRegs = append(inst.DestRegs, nvidia.NewRegister(elems[7+int(inst.SrcNum)+i]))
+		inst.DestRegs = append(inst.DestRegs, nvidia.NewRegister(elems[2+i+1]))
 	}
 
-	updateInstMemoryPart(&inst, elems[7+int(inst.SrcNum)+int(inst.DestNum):])
+	// inst.OpCode = nvidia.NewOpcode(elems[3+int(inst.DestNum)])
+
+	fmt.Sscanf(elems[4+int(inst.DestNum)], "%d", &inst.SrcNum)
+	for i := 0; i < int(inst.SrcNum); i++ {
+		inst.SrcRegs = append(inst.SrcRegs, nvidia.NewRegister(elems[4+int(inst.DestNum)+i+1]))
+	}
+
+	updateInstMemoryPart(inst, elems[5+int(inst.DestNum)+int(inst.SrcNum):])
 	return inst
 }
 
 // [todo]: understand memory format
 func updateInstMemoryPart(inst *Instruction, elems []string) {
 	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
+
 	if inst.MemWidth != 0 {
-		fmt.Sscanf(elems[1]+elems[2], "%d0x%x", &inst.AddressCompress, &inst.MemAddress)
-		switch inst.AddressCompress {
-		case 1:
-			fmt.Sscanf(elems[2], "%d", &inst.MemAddressSuffix1)
-		case 2:
-			for _, s := range elems[2 : len(elems)-1] {
+		fmt.Scanf(elems[1], "%d", &inst.AddressCompress)
+		fmt.Scanf(elems[2], "0x%x", &inst.MemAddress)
+
+		if inst.AddressCompress == 1 {
+			fmt.Sscanf(elems[3], "%d", &inst.MemAddressSuffix1)
+		} else if inst.AddressCompress == 2 {
+			for _, s := range elems[3 : len(elems)-1] {
 				s32, _ := strconv.Atoi(s)
 				inst.MemAddressSuffix2 = append(inst.MemAddressSuffix2, int32(s32))
 			}
 		}
 	}
+
 	imm, _ := strconv.Atoi(elems[len(elems)-1])
 	inst.Immediate = int64(imm)
 }

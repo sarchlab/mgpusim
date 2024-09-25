@@ -10,7 +10,7 @@ import (
 )
 
 var _ = Describe("Read Traces from VectorAdd Traces Version 5.0", func() {
-	var traceDir = "../data/cuda-samples/0_Introduction/vectorAdd"
+	var traceDir = "../data/simple-trace-example"
 	var trace tracereader.KernelTrace
 	var once sync.Once
 

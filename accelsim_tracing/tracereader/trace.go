@@ -31,8 +31,7 @@ type KernelFileHeader struct {
 }
 
 type ThreadblockTrace struct {
-	id            nvidia.Dim3
-	warpIDToIndex map[int32]int32
+	id nvidia.Dim3
 
 	Warps []*WarpTrace
 }
@@ -41,7 +40,7 @@ type WarpTrace struct {
 	id int32
 
 	InstsCount   int32
-	Instructions []Instruction
+	Instructions []*Instruction
 }
 
 type Instruction struct {
