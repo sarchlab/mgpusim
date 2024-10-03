@@ -35,6 +35,8 @@ var _ = Describe("Reorder Buffer", func() {
 
 	AfterEach(func() {
 		mockCtrl.Finish()
+		err := rob.ExportMilestonesToCSV("milestones.csv")
+		Expect(err).ToNot(HaveOccurred(), "Failed to export milestones")
 	})
 
 	Context("top-down", func() {
@@ -56,6 +58,8 @@ var _ = Describe("Reorder Buffer", func() {
 			madeProgress := rob.topDown(10)
 
 			Expect(madeProgress).To(BeFalse())
+			err := rob.ExportMilestonesToCSV("milestones.csv")
+			Expect(err).ToNot(HaveOccurred(), "Failed to export milestones")
 		})
 
 		It("should do nothing if no message arriving", func() {

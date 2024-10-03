@@ -3,10 +3,13 @@ package rob
 
 import (
 	"container/list"
-
 	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/tracing"
+	"fmt"
+	"encoding/csv"
+	"sync"
+    "os"
 )
 
 type transaction struct {
@@ -33,6 +36,71 @@ type ReorderBuffer struct {
 	isFlushing                      bool
 }
 
+type Milestone struct {
+	ID string
+	TaskID string
+	BlockingCategory string
+	BlockingReason string
+	BlockingLocation string
+	Timestamp  sim.VTimeInSec
+}
+
+func (m *MilestoneManager) AddMilestone(
+	taskID           string,
+    blockingCategory string,
+    blockingReason   string,
+    blockingLocation string,
+    timestamp        sim.VTimeInSec,
+) {
+	m.mutex.Lock()
+    defer m.mutex.Unlock()
+	milestone := Milestone {
+		ID:               fmt.Sprintf("milestone_%d", len(m.milestones)+1),
+        TaskID:           taskID,
+        BlockingCategory: blockingCategory,
+        BlockingReason:   blockingReason,
+        BlockingLocation: blockingLocation,
+        Timestamp:        timestamp,
+	}
+	m.milestones = append(m.milestones, milestone)
+	fmt.Printf("Added milestone: %+v\n", milestone)
+}
+
+type MilestoneManager struct {
+    milestones []Milestone
+    mutex      sync.Mutex
+}
+
+var GlobalMilestoneManager = &MilestoneManager{
+	milestones: make([]Milestone, 0),
+}
+
+func (m *MilestoneManager) GetMilestones() []Milestone {
+    m.mutex.Lock()
+    defer m.mutex.Unlock()
+
+    return m.milestones
+}
+
+func (b *ReorderBuffer) getTaskID() string {
+    if b.transactions.Len() == 0 {
+        return ""
+    }
+
+    trans := b.transactions.Front().Value.(*transaction)
+
+    if trans.reqFromTop != nil {
+        return trans.reqFromTop.Meta().ID
+    }
+
+    if trans.reqToBottom != nil {
+        return trans.reqFromTop.Meta().ID
+    }
+
+    return ""
+}
+
+
 // Tick updates the status of the ReorderBuffer.
 func (b *ReorderBuffer) Tick(now sim.VTimeInSec) (madeProgress bool) {
 	madeProgress = b.processControlMsg(now) || madeProgress
@@ -40,7 +108,7 @@ func (b *ReorderBuffer) Tick(now sim.VTimeInSec) (madeProgress bool) {
 	if !b.isFlushing {
 		madeProgress = b.runPipeline(now) || madeProgress
 	}
-
+	// b.ExportMilestonesToCSV("../samples/fir/milestones.csv")
 	return madeProgress
 }
 
@@ -138,9 +206,16 @@ func (b *ReorderBuffer) runPipeline(now sim.VTimeInSec) (madeProgress bool) {
 }
 
 func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
-	if b.isFull() {
-		return false
-	}
+    if b.isFull() {
+		GlobalMilestoneManager.AddMilestone(
+			b.getTaskID(),
+			"Hardware Occupancy",
+			"buffer full",
+			"topDown",
+			now,
+		)
+        return false
+    }
 
 	item := b.topPort.Peek()
 	if item == nil {
@@ -152,11 +227,18 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 
 	trans.reqToBottom.Meta().Src = b.bottomPort
 	trans.reqToBottom.Meta().SendTime = now
-	err := b.bottomPort.Send(trans.reqToBottom)
-	if err != nil {
-		return false
-	}
-
+	sendErr := b.bottomPort.Send(trans.reqToBottom)
+    if sendErr != nil {
+        GlobalMilestoneManager.AddMilestone(
+            b.getTaskID(),
+            "Network Error",
+            "Unable to send request to bottom port",
+            "topDown",
+            now,
+        )
+        return false
+    }
+	
 	b.addTransaction(trans)
 	b.topPort.Retrieve(now)
 
@@ -169,9 +251,17 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 
 func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 	item := b.bottomPort.Peek()
-	if item == nil {
-		return false
-	}
+    if item == nil {
+        GlobalMilestoneManager.AddMilestone(
+            b.getTaskID(),
+            "dependency",
+            "waiting for bottom response",
+            "parseBottom",
+            now,
+        )
+        return false
+    }
+
 
 	rsp := item.(mem.AccessRsp)
 	rspTo := rsp.GetRspTo()
@@ -191,12 +281,26 @@ func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 
 func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	elem := b.transactions.Front()
-	if elem == nil {
-		return false
-	}
+    if elem == nil {
+        GlobalMilestoneManager.AddMilestone(
+            b.getTaskID(),
+            "dependency",
+            "no transactions to process",
+            "bottomUp",
+            now,
+        )
+        return false
+    }
 
 	trans := elem.Value.(*transaction)
 	if trans.rspFromBottom == nil {
+		GlobalMilestoneManager.AddMilestone(
+            b.getTaskID(),
+            "dependency",
+            "waiting for bottom response",
+            "bottomUp",
+            now,
+        )
 		return false
 	}
 
@@ -205,10 +309,17 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	rsp.Meta().Src = b.topPort
 	rsp.Meta().SendTime = now
 
-	err := b.topPort.Send(rsp)
-	if err != nil {
-		return false
-	}
+	sendErr := b.bottomPort.Send(trans.reqToBottom)
+    if sendErr != nil {
+        GlobalMilestoneManager.AddMilestone(
+            b.getTaskID(),
+            "Network Error",
+            "Unable to send request to bottom port",
+            "bottomUp",
+            now,
+        )
+        return false
+    }
 
 	b.deleteTransaction(elem)
 
@@ -300,4 +411,44 @@ func (b *ReorderBuffer) duplicateWriteDoneRsp(
 	return mem.WriteDoneRspBuilder{}.
 		WithRspTo(rspTo).
 		Build()
+}
+
+func (m *MilestoneManager) ExportMilestonesToCSV(filename string) error {
+    m.mutex.Lock()
+    defer m.mutex.Unlock()
+
+    for _, milestone := range m.milestones {
+        fmt.Printf("ID: %s, TaskID: %s, BlockingCategory: %s, BlockingReason: %s, BlockingLocation: %s, Timestamp: %v\n",
+            milestone.ID, milestone.TaskID, milestone.BlockingCategory, milestone.BlockingReason, milestone.BlockingLocation, milestone.Timestamp)
+    }
+
+    file, err := os.Create(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
+    writer := csv.NewWriter(file)
+    defer writer.Flush()
+
+    headers := []string{"ID", "TaskID", "BlockingCategory", "BlockingReason", "BlockingLocation", "Timestamp"}
+    if err := writer.Write(headers); err != nil {
+        return err
+    }
+
+    for _, m := range m.milestones {
+        record := []string{
+            m.ID,
+            m.TaskID,
+            m.BlockingCategory,
+            m.BlockingReason,
+            m.BlockingLocation,
+            fmt.Sprintf("%v", m.Timestamp),
+        }
+        if err := writer.Write(record); err != nil {
+            return err
+        }
+    }
+
+    return nil
 }

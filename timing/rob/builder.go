@@ -2,8 +2,7 @@ package rob
 
 import (
 	"container/list"
-
-	"github.com/sarchlab/akita/v3/sim"
+    "github.com/sarchlab/akita/v3/sim"
 )
 
 // A Builder can build ReorderBuffers.
@@ -12,6 +11,7 @@ type Builder struct {
 	freq           sim.Freq
 	numReqPerCycle int
 	bufferSize     int
+	bottomUnit      sim.Port
 }
 
 // MakeBuilder creates a builder with default parameters.
@@ -51,7 +51,6 @@ func (b Builder) WithBufferSize(n int) Builder {
 // Build creates a ReorderBuffer with the given parameters.
 func (b Builder) Build(name string) *ReorderBuffer {
 	rb := &ReorderBuffer{}
-
 	rb.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, rb)
 
 	rb.transactions = list.New()
@@ -62,7 +61,7 @@ func (b Builder) Build(name string) *ReorderBuffer {
 	rb.numReqPerCycle = b.numReqPerCycle
 
 	b.createPorts(name, rb)
-
+    rb.isFlushing = false
 	return rb
 }
 
