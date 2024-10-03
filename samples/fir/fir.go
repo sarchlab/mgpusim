@@ -2,7 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"log"
 
+	"github.com/sarchlab/mgpusim/v3/timing/rob"
 	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/fir"
 	"github.com/sarchlab/mgpusim/v3/samples/runner"
 )
@@ -20,4 +23,9 @@ func main() {
 	runner.AddBenchmark(benchmark)
 
 	runner.Run()
+	err := rob.GlobalMilestoneManager.ExportMilestonesToCSV("../samples/fir/milestones.csv")
+    if err != nil {
+        log.Fatalf("Error exporting milestones: %v", err)
+    }
+    fmt.Println("Milestones exported successfully")
 }
