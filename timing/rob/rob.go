@@ -210,7 +210,7 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 		GlobalMilestoneManager.AddMilestone(
 			b.getTaskID(),
 			"Hardware Occupancy",
-			"buffer full",
+			"Buffer full",
 			"topDown",
 			now,
 		)
@@ -254,8 +254,8 @@ func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
     if item == nil {
         GlobalMilestoneManager.AddMilestone(
             b.getTaskID(),
-            "dependency",
-            "waiting for bottom response",
+            "Dependency",
+            "Waiting for bottom response",
             "parseBottom",
             now,
         )
@@ -284,8 +284,8 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
     if elem == nil {
         GlobalMilestoneManager.AddMilestone(
             b.getTaskID(),
-            "dependency",
-            "no transactions to process",
+            "Dependency",
+            "No transactions to process",
             "bottomUp",
             now,
         )
@@ -296,8 +296,8 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	if trans.rspFromBottom == nil {
 		GlobalMilestoneManager.AddMilestone(
             b.getTaskID(),
-            "dependency",
-            "waiting for bottom response",
+            "Dependency",
+            "Waiting for bottom response",
             "bottomUp",
             now,
         )
