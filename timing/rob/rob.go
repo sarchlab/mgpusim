@@ -227,8 +227,8 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 
 	trans.reqToBottom.Meta().Src = b.bottomPort
 	trans.reqToBottom.Meta().SendTime = now
-	sendErr := b.bottomPort.Send(trans.reqToBottom)
-    if sendErr != nil {
+	err := b.bottomPort.Send(trans.reqToBottom)
+    if err != nil {
         GlobalMilestoneManager.AddMilestone(
             b.getTaskID(),
             "Network Error",
@@ -309,8 +309,8 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	rsp.Meta().Src = b.topPort
 	rsp.Meta().SendTime = now
 
-	sendErr := b.bottomPort.Send(trans.reqToBottom)
-    if sendErr != nil {
+	err := b.topPort.Send(rsp)
+    if err != nil {
         GlobalMilestoneManager.AddMilestone(
             b.getTaskID(),
             "Network Error",
