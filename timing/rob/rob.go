@@ -83,20 +83,6 @@ func (m *MilestoneManager) GetMilestones() []Milestone {
 }
 
 func (b *ReorderBuffer) getTaskID() string {
-    if b.transactions.Len() == 0 {
-        return ""
-    }
-
-    trans := b.transactions.Front().Value.(*transaction)
-
-    if trans.reqFromTop != nil {
-        return trans.reqFromTop.Meta().ID
-    }
-
-    if trans.reqToBottom != nil {
-        return trans.reqFromTop.Meta().ID
-    }
-
     return ""
 }
 
