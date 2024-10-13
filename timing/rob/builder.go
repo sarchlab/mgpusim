@@ -11,7 +11,7 @@ type Builder struct {
 	freq           sim.Freq
 	numReqPerCycle int
 	bufferSize     int
-	bottomUnit      sim.Port
+	bottomUnit     sim.Port
 }
 
 // MakeBuilder creates a builder with default parameters.
@@ -56,7 +56,7 @@ func (b Builder) Build(name string) *ReorderBuffer {
 	rb.transactions = list.New()
 	rb.transactions.Init()
 	rb.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
-
+	rb.BottomUnit = b.bottomUnit
 	rb.bufferSize = b.bufferSize
 	rb.numReqPerCycle = b.numReqPerCycle
 

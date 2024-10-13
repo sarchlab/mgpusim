@@ -4,11 +4,11 @@ package rob
 import (
 	"container/list"
 	"github.com/sarchlab/akita/v3/mem/mem"
+	// "github.com/sarchlab/akita/v3/mem/cache"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/tracing"
 	"fmt"
 	"encoding/csv"
-	"sync"
     "os"
 )
 
@@ -52,8 +52,6 @@ func (m *MilestoneManager) AddMilestone(
     blockingLocation string,
     timestamp        sim.VTimeInSec,
 ) {
-	m.mutex.Lock()
-    defer m.mutex.Unlock()
 	milestone := Milestone {
 		ID:               fmt.Sprintf("milestone_%d", len(m.milestones)+1),
         TaskID:           taskID,
@@ -68,7 +66,6 @@ func (m *MilestoneManager) AddMilestone(
 
 type MilestoneManager struct {
     milestones []Milestone
-    mutex      sync.Mutex
 }
 
 var GlobalMilestoneManager = &MilestoneManager{
@@ -76,16 +73,23 @@ var GlobalMilestoneManager = &MilestoneManager{
 }
 
 func (m *MilestoneManager) GetMilestones() []Milestone {
-    m.mutex.Lock()
-    defer m.mutex.Unlock()
-
     return m.milestones
 }
 
 func (b *ReorderBuffer) getTaskID() string {
+    if b.transactions.Len() > 0 {
+        trans := b.transactions.Front().Value.(*transaction)
+        return tracing.MsgIDAtReceiver(trans.reqFromTop, b)
+    }
     return ""
 }
 
+// func (b *ReorderBuffer) canCacheAcceptRequest() bool {
+//     if *cache != nil {
+//         return !*cache.isFull()
+//     }
+//     return true
+// }
 
 // Tick updates the status of the ReorderBuffer.
 func (b *ReorderBuffer) Tick(now sim.VTimeInSec) (madeProgress bool) {
@@ -202,6 +206,17 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 		)
         return false
     }
+
+	// if !b.canCacheAcceptRequest() {
+    //     GlobalMilestoneManager.AddMilestone(
+    //         b.getTaskID(),
+    //         "Hardware Occupancy",
+    //         "Cache full",
+    //         "topDown",
+    //         now,
+    //     )
+    //     return false
+    // }
 
 	item := b.topPort.Peek()
 	if item == nil {
@@ -400,9 +415,6 @@ func (b *ReorderBuffer) duplicateWriteDoneRsp(
 }
 
 func (m *MilestoneManager) ExportMilestonesToCSV(filename string) error {
-    m.mutex.Lock()
-    defer m.mutex.Unlock()
-
     for _, milestone := range m.milestones {
         fmt.Printf("ID: %s, TaskID: %s, BlockingCategory: %s, BlockingReason: %s, BlockingLocation: %s, Timestamp: %v\n",
             milestone.ID, milestone.TaskID, milestone.BlockingCategory, milestone.BlockingReason, milestone.BlockingLocation, milestone.Timestamp)
