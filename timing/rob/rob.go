@@ -34,47 +34,9 @@ type ReorderBuffer struct {
 	toBottomReqIDToTransactionTable map[string]*list.Element
 	transactions                    *list.List
 	isFlushing                      bool
+	hooks map[*sim.HookPos][]sim.Hook
 }
 
-type Milestone struct {
-	ID string
-	TaskID string
-	BlockingCategory string
-	BlockingReason string
-	BlockingLocation string
-	Timestamp  sim.VTimeInSec
-}
-
-func (m *MilestoneManager) AddMilestone(
-	taskID           string,
-    blockingCategory string,
-    blockingReason   string,
-    blockingLocation string,
-    timestamp        sim.VTimeInSec,
-) {
-	milestone := Milestone {
-		ID:               fmt.Sprintf("milestone_%d", len(m.milestones)+1),
-        TaskID:           taskID,
-        BlockingCategory: blockingCategory,
-        BlockingReason:   blockingReason,
-        BlockingLocation: blockingLocation,
-        Timestamp:        timestamp,
-	}
-	m.milestones = append(m.milestones, milestone)
-	fmt.Printf("Added milestone: %+v\n", milestone)
-}
-
-type MilestoneManager struct {
-    milestones []Milestone
-}
-
-var GlobalMilestoneManager = &MilestoneManager{
-	milestones: make([]Milestone, 0),
-}
-
-func (m *MilestoneManager) GetMilestones() []Milestone {
-    return m.milestones
-}
 
 func (b *ReorderBuffer) getTaskID() string {
     if b.transactions.Len() > 0 {
@@ -84,12 +46,12 @@ func (b *ReorderBuffer) getTaskID() string {
     return ""
 }
 
-// func (b *ReorderBuffer) canCacheAcceptRequest() bool {
-//     if *cache != nil {
-//         return !*cache.isFull()
-//     }
-//     return true
-// }
+func (b *ReorderBuffer) AddHook(pos *sim.HookPos, hook sim.Hook) {
+	if b.hooks == nil {
+		b.hooks = make(map[*sim.HookPos][]sim.Hook)
+	}
+	b.hooks[pos] = append(b.hooks[pos], hook)
+}
 
 // Tick updates the status of the ReorderBuffer.
 func (b *ReorderBuffer) Tick(now sim.VTimeInSec) (madeProgress bool) {
@@ -197,7 +159,7 @@ func (b *ReorderBuffer) runPipeline(now sim.VTimeInSec) (madeProgress bool) {
 
 func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
     if b.isFull() {
-		GlobalMilestoneManager.AddMilestone(
+		tracing.AddMilestone(
 			b.getTaskID(),
 			"Hardware Occupancy",
 			"Buffer full",
@@ -206,18 +168,6 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 		)
         return false
     }
-
-	// if !b.canCacheAcceptRequest() {
-    //     GlobalMilestoneManager.AddMilestone(
-    //         b.getTaskID(),
-    //         "Hardware Occupancy",
-    //         "Cache full",
-    //         "topDown",
-    //         now,
-    //     )
-    //     return false
-    // }
-
 	item := b.topPort.Peek()
 	if item == nil {
 		return false
@@ -230,7 +180,7 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 	trans.reqToBottom.Meta().SendTime = now
 	err := b.bottomPort.Send(trans.reqToBottom)
     if err != nil {
-        GlobalMilestoneManager.AddMilestone(
+        tracing.AddMilestone(
             b.getTaskID(),
             "Network Error",
             "Unable to send request to bottom port",
@@ -253,7 +203,7 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 	item := b.bottomPort.Peek()
     if item == nil {
-        GlobalMilestoneManager.AddMilestone(
+        tracing.AddMilestone(
             b.getTaskID(),
             "Dependency",
             "Waiting for bottom response",
@@ -283,7 +233,7 @@ func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	elem := b.transactions.Front()
     if elem == nil {
-        GlobalMilestoneManager.AddMilestone(
+        tracing.AddMilestone(
             b.getTaskID(),
             "Dependency",
             "No transactions to process",
@@ -295,7 +245,7 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 
 	trans := elem.Value.(*transaction)
 	if trans.rspFromBottom == nil {
-		GlobalMilestoneManager.AddMilestone(
+		tracing.AddMilestone(
             b.getTaskID(),
             "Dependency",
             "Waiting for bottom response",
@@ -312,7 +262,7 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 
 	err := b.topPort.Send(rsp)
     if err != nil {
-        GlobalMilestoneManager.AddMilestone(
+        tracing.AddMilestone(
             b.getTaskID(),
             "Network Error",
             "Unable to send request to bottom port",
@@ -414,11 +364,8 @@ func (b *ReorderBuffer) duplicateWriteDoneRsp(
 		Build()
 }
 
-func (m *MilestoneManager) ExportMilestonesToCSV(filename string) error {
-    for _, milestone := range m.milestones {
-        fmt.Printf("ID: %s, TaskID: %s, BlockingCategory: %s, BlockingReason: %s, BlockingLocation: %s, Timestamp: %v\n",
-            milestone.ID, milestone.TaskID, milestone.BlockingCategory, milestone.BlockingReason, milestone.BlockingLocation, milestone.Timestamp)
-    }
+func ExportMilestonesToCSV(filename string) error {
+    milestones := tracing.GetAllMilestones()
 
     file, err := os.Create(filename)
     if err != nil {
@@ -434,7 +381,7 @@ func (m *MilestoneManager) ExportMilestonesToCSV(filename string) error {
         return err
     }
 
-    for _, m := range m.milestones {
+    for _, m := range milestones {
         record := []string{
             m.ID,
             m.TaskID,

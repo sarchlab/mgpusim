@@ -12,6 +12,7 @@ type Builder struct {
 	numReqPerCycle int
 	bufferSize     int
 	bottomUnit     sim.Port
+	hooks map[*sim.HookPos][]sim.Hook
 }
 
 // MakeBuilder creates a builder with default parameters.
@@ -48,6 +49,14 @@ func (b Builder) WithBufferSize(n int) Builder {
 	return b
 }
 
+func (b Builder) WithHook(pos *sim.HookPos, hook sim.Hook) Builder {
+    if b.hooks == nil {
+        b.hooks = make(map[*sim.HookPos][]sim.Hook)
+    }
+    b.hooks[pos] = append(b.hooks[pos], hook)
+    return b
+}
+
 // Build creates a ReorderBuffer with the given parameters.
 func (b Builder) Build(name string) *ReorderBuffer {
 	rb := &ReorderBuffer{}
@@ -62,6 +71,11 @@ func (b Builder) Build(name string) *ReorderBuffer {
 
 	b.createPorts(name, rb)
     rb.isFlushing = false
+	for pos, hooks := range b.hooks {
+        for _, hook := range hooks {
+            rb.AddHook(pos, hook)
+        }
+    }
 	return rb
 }
 
