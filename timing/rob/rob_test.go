@@ -1,12 +1,22 @@
 package rob
 
 import (
+	"fmt"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
 )
+
+type myHook struct {
+    f func(ctx sim.HookCtx)
+}
+
+func (h *myHook) Func(ctx sim.HookCtx) {
+    h.f(ctx)
+}
 
 var _ = Describe("Reorder Buffer", func() {
 	var (
@@ -31,6 +41,14 @@ var _ = Describe("Reorder Buffer", func() {
 		rob.bottomPort = bottomPort
 		rob.controlPort = ctrlPort
 		rob.BottomUnit = NewMockPort(mockCtrl)
+		rob.AddHook(tracing.HookPosMilestone, &myHook{
+			f: func(ctx sim.HookCtx) {
+				milestone := ctx.Item.(tracing.Milestone)
+				fmt.Printf("Milestone in test: ID=%s, TaskID=%s, Category=%s, Reason=%s, Location=%s, Timestamp=%v\n",
+					milestone.ID, milestone.TaskID, milestone.BlockingCategory, milestone.BlockingReason, milestone.BlockingLocation, milestone.Timestamp)
+			},
+		})
+		
 	})
 
 	AfterEach(func() {

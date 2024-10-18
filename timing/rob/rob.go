@@ -7,6 +7,9 @@ import (
 	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/tracing"
+	"encoding/csv"
+    "fmt"          
+    "os" 
 )
 
 type transaction struct {
@@ -31,6 +34,23 @@ type ReorderBuffer struct {
 	toBottomReqIDToTransactionTable map[string]*list.Element
 	transactions                    *list.List
 	isFlushing                      bool
+	hooks map[*sim.HookPos][]sim.Hook
+}
+
+
+func (b *ReorderBuffer) getTaskID() string {
+    if b.transactions.Len() > 0 {
+        trans := b.transactions.Front().Value.(*transaction)
+        return tracing.MsgIDAtReceiver(trans.reqFromTop, b)
+    }
+    return ""
+}
+
+func (b *ReorderBuffer) AddHook(pos *sim.HookPos, hook sim.Hook) {
+	if b.hooks == nil {
+		b.hooks = make(map[*sim.HookPos][]sim.Hook)
+	}
+	b.hooks[pos] = append(b.hooks[pos], hook)
 }
 
 // Tick updates the status of the ReorderBuffer.
@@ -40,7 +60,7 @@ func (b *ReorderBuffer) Tick(now sim.VTimeInSec) (madeProgress bool) {
 	if !b.isFlushing {
 		madeProgress = b.runPipeline(now) || madeProgress
 	}
-
+	// b.ExportMilestonesToCSV("../samples/fir/milestones.csv")
 	return madeProgress
 }
 
@@ -138,10 +158,17 @@ func (b *ReorderBuffer) runPipeline(now sim.VTimeInSec) (madeProgress bool) {
 }
 
 func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
-	if b.isFull() {
-		return false
-	}
-
+    if b.isFull() {
+		tracing.AddMilestone(
+			b.getTaskID(),
+			"Hardware Occupancy",
+			"Buffer full",
+			"topDown",
+			now,
+			b,
+		)
+        return false
+    }
 	item := b.topPort.Peek()
 	if item == nil {
 		return false
@@ -153,10 +180,18 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 	trans.reqToBottom.Meta().Src = b.bottomPort
 	trans.reqToBottom.Meta().SendTime = now
 	err := b.bottomPort.Send(trans.reqToBottom)
-	if err != nil {
-		return false
-	}
-
+    if err != nil {
+        tracing.AddMilestone(
+            b.getTaskID(),
+            "Network Error",
+            "Unable to send request to bottom port",
+            "topDown",
+            now,
+			b,
+        )
+        return false
+    }
+	
 	b.addTransaction(trans)
 	b.topPort.Retrieve(now)
 
@@ -169,9 +204,18 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 
 func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 	item := b.bottomPort.Peek()
-	if item == nil {
-		return false
-	}
+    if item == nil {
+        tracing.AddMilestone(
+            b.getTaskID(),
+            "Dependency",
+            "Waiting for bottom response",
+            "parseBottom",
+            now,
+			b,
+        )
+        return false
+    }
+
 
 	rsp := item.(mem.AccessRsp)
 	rspTo := rsp.GetRspTo()
@@ -191,12 +235,28 @@ func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 
 func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	elem := b.transactions.Front()
-	if elem == nil {
-		return false
-	}
+    if elem == nil {
+        tracing.AddMilestone(
+            b.getTaskID(),
+            "Dependency",
+            "No transactions to process",
+            "bottomUp",
+            now,
+			b,
+        )
+        return false
+    }
 
 	trans := elem.Value.(*transaction)
 	if trans.rspFromBottom == nil {
+		tracing.AddMilestone(
+            b.getTaskID(),
+            "Dependency",
+            "Waiting for bottom response",
+            "bottomUp",
+            now,
+			b,
+        )
 		return false
 	}
 
@@ -206,9 +266,17 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 	rsp.Meta().SendTime = now
 
 	err := b.topPort.Send(rsp)
-	if err != nil {
-		return false
-	}
+    if err != nil {
+        tracing.AddMilestone(
+            b.getTaskID(),
+            "Network Error",
+            "Unable to send request to bottom port",
+            "bottomUp",
+            now,
+			b,
+        )
+        return false
+    }
 
 	b.deleteTransaction(elem)
 
@@ -301,3 +369,40 @@ func (b *ReorderBuffer) duplicateWriteDoneRsp(
 		WithRspTo(rspTo).
 		Build()
 }
+
+func ExportMilestonesToCSV(filename string) error {
+    milestones := tracing.GetAllMilestones()
+
+    file, err := os.Create(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
+    writer := csv.NewWriter(file)
+    defer writer.Flush()
+
+    headers := []string{"ID", "TaskID", "BlockingCategory", "BlockingReason", "BlockingLocation", "Timestamp"}
+    if err := writer.Write(headers); err != nil {
+        return err
+    }
+
+    for _, m := range milestones {
+        fmt.Printf("ID: %s, TaskID: %s, Category: %s, Reason: %s, Location: %s, Timestamp: %v\n",
+            m.ID, m.TaskID, m.BlockingCategory, m.BlockingReason, m.BlockingLocation, m.Timestamp)
+        record := []string{
+            m.ID,
+            m.TaskID,
+            m.BlockingCategory,
+            m.BlockingReason,
+            m.BlockingLocation,
+            fmt.Sprintf("%v", m.Timestamp),
+        }
+        if err := writer.Write(record); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
