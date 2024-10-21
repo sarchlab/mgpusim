@@ -16,9 +16,19 @@ MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It
 - Install the most recent version of Go from golang.org.
 - Clone this repository, assuming the path is `[mgpusim_home]`.
 - Change your current directory to `[mgpusim_home]/samples/fir`.
-- Compile the simulator with the benchmark with `go build`. The compiler will generate an executed called `fir` (on Linux or Mac OS) or `fir.exe` (on Windows) for you.
+- Compile the simulator with the benchmark with `go build`. The compiler will generate an executable file called `fir` (on Linux or Mac OS) or `fir.exe` (on Windows) for you.
 - Run the simulation with `./fir -timing --report-all` to run the simulation.
 - Check the generated `metrics.csv` file for high-level metrics output.
+
+## Develop with Modified Version of Akita (or other depending libraries)
+
+If a modification to Akita is required, you can clone Akita next to the MGPUSim directory in your system. Then, you can modify the `go.mod` file to include the following line. 
+
+```
+replace github.com/sarchlab/akita/v4 => ../akita
+```
+
+This line will direct the go compiler to use your local version of Akita rather than the official release of Akita. 
 
 ## Benchmark Support
 
