@@ -20,6 +20,16 @@ MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It
 - Run the simulation with `./fir -timing --report-all` to run the simulation.
 - Check the generated `metrics.csv` file for high-level metrics output.
 
+## Develop with Modified Version of Akita (or other depending libraries)
+
+If a modification to Akita is required, you can clone Akita next to the MGPUSim directory in your system. Then, you can modify the `go.mod` file to include the following line. 
+
+```
+replace github.com/sarchlab/akita/v3 => ../akita
+```
+
+This line will direct the go compiler to use your local version of Akita rather than the official release of Akita. 
+
 ## Benchmark Support
 
 | AMD APP SDK           | DNN Mark   | HeteroMark | Polybench | Rodinia          | SHOC      |
