@@ -2,12 +2,13 @@ package driver
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/message"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Driver struct {
@@ -57,8 +58,6 @@ func (d *Driver) Tick(now sim.VTimeInSec) bool {
 	madeProgress = d.dispatchKernelsToDevices(now) || madeProgress
 	madeProgress = d.processDevicesInput(now) || madeProgress
 
-	// fmt.Println("Driver tick, madeProgress:", madeProgress)
-
 	return madeProgress
 }
 
@@ -72,7 +71,7 @@ func (d *Driver) processDevicesInput(now sim.VTimeInSec) bool {
 	case *message.DeviceToDriverMsg:
 		d.processDeviceMsg(msg, now)
 	default:
-		log.Panic("Unknown message type")
+		log.WithField("function", "processDevicesInput").Panic("Unknown message type")
 	}
 
 	return true
@@ -83,8 +82,8 @@ func (d *Driver) processDeviceMsg(msg *message.DeviceToDriverMsg, now sim.VTimeI
 		d.freeDevices = append(d.freeDevices, d.devices[msg.DeviceID])
 		d.unfinishedKernelsCount--
 		if d.unfinishedKernelsCount == 0 {
+			log.WithField("time", now).Info("All kernels finished")
 			fmt.Println(now)
-			// fmt.Println("All kernels finished, time is:", now)
 		}
 	}
 

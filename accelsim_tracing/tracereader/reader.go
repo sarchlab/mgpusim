@@ -3,12 +3,12 @@ package tracereader
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	log "github.com/sirupsen/logrus"
 )
 
 type TraceReader struct {
@@ -38,20 +38,20 @@ func (m *TraceExecMeta) ExecType() nvidia.ExecType {
 	return m.execType
 }
 
-var scanner *bufio.Scanner
+var kernelScanner *bufio.Scanner
 
 func ReadTrace(meta TraceExecMeta) KernelTrace {
 	if meta.execType != nvidia.ExecKernel {
-		log.Panicf("Invalid exec type: %d", meta.ExecType())
+		log.WithField("execType", meta.ExecType()).Panic("Invalid exec type")
 	}
 
 	file, err := os.Open(meta.filepath)
 	if err != nil {
-		log.Panic(err)
+		log.WithError(err).WithField("filepath", meta.filepath).Error("Failed to open file")
 	}
 	defer file.Close()
 
-	scanner = bufio.NewScanner(file)
+	kernelScanner = bufio.NewScanner(file)
 	trace := KernelTrace{}
 
 	trace.readTraceHeader()
@@ -61,20 +61,20 @@ func ReadTrace(meta TraceExecMeta) KernelTrace {
 }
 
 func moveScannerToNextLine() bool {
-	for scanner.Scan() {
-		if scanner.Text() != "" {
+	for kernelScanner.Scan() {
+		if kernelScanner.Text() != "" {
 			return true
 		}
 	}
 	return false
 }
 func goToNextlineWithPrefixIncludingNow(prefix string) bool {
-	line := scanner.Text()
+	line := kernelScanner.Text()
 	if strings.HasPrefix(line, prefix) {
 		return true
 	}
 	for moveScannerToNextLine() {
-		line = scanner.Text()
+		line = kernelScanner.Text()
 		if strings.HasPrefix(line, prefix) {
 			return true
 		}
@@ -84,7 +84,7 @@ func goToNextlineWithPrefixIncludingNow(prefix string) bool {
 
 func (t *KernelTrace) readTraceHeader() {
 	for moveScannerToNextLine() {
-		text := scanner.Text()
+		text := kernelScanner.Text()
 		if strings.HasPrefix(text, "-") {
 			elems := strings.Split(text, "=")
 			key := strings.TrimSpace(elems[0])[1:]
@@ -102,21 +102,21 @@ func (t *KernelTrace) readThreadblocks() {
 
 	for goToNextlineWithPrefixIncludingNow("thread block") {
 		tb := &ThreadblockTrace{}
-		fmt.Sscanf(scanner.Text(), "thread block = %d,%d,%d", &tb.id[0], &tb.id[1], &tb.id[2])
+		fmt.Sscanf(kernelScanner.Text(), "thread block = %d,%d,%d", &tb.id[0], &tb.id[1], &tb.id[2])
 
 		for moveScannerToNextLine() {
-			if strings.HasPrefix(scanner.Text(), "warp") {
+			if strings.HasPrefix(kernelScanner.Text(), "warp") {
 				wp := &WarpTrace{}
-				fmt.Sscanf(scanner.Text(), "warp = %d", &wp.id)
+				fmt.Sscanf(kernelScanner.Text(), "warp = %d", &wp.id)
 
 				if !goToNextlineWithPrefixIncludingNow("insts") {
-					log.Panic("Cannot find insts line")
+					log.WithField("line", kernelScanner.Text()).Panic("Cannot find insts line")
 				}
-				fmt.Sscanf(scanner.Text(), "insts = %d", &wp.InstsCount)
+				fmt.Sscanf(kernelScanner.Text(), "insts = %d", &wp.InstsCount)
 
 				for j := 0; j < int(wp.InstsCount); j++ {
 					moveScannerToNextLine()
-					inst := extractInst(scanner.Text())
+					inst := extractInst(kernelScanner.Text())
 					inst.threadblockID = tb.id
 					inst.warpID = wp.id
 
@@ -150,7 +150,7 @@ func extractInst(text string) *Instruction {
 		inst.DestRegs = append(inst.DestRegs, nvidia.NewRegister(elems[2+i+1]))
 	}
 
-	// inst.OpCode = nvidia.NewOpcode(elems[3+int(inst.DestNum)])
+	//inst.OpCode = nvidia.NewOpcode(elems[3+int(inst.DestNum)])
 
 	fmt.Sscanf(elems[4+int(inst.DestNum)], "%d", &inst.SrcNum)
 	for i := 0; i < int(inst.SrcNum); i++ {
@@ -166,8 +166,8 @@ func updateInstMemoryPart(inst *Instruction, elems []string) {
 	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
 
 	if inst.MemWidth != 0 {
-		fmt.Scanf(elems[1], "%d", &inst.AddressCompress)
-		fmt.Scanf(elems[2], "0x%x", &inst.MemAddress)
+		fmt.Sscanf(elems[1], "%d", &inst.AddressCompress)
+		fmt.Sscanf(elems[2], "%x", &inst.MemAddress)
 
 		if inst.AddressCompress == 1 {
 			fmt.Sscanf(elems[3], "%d", &inst.MemAddressSuffix1)

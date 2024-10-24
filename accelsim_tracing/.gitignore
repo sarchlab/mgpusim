@@ -3,3 +3,4 @@ data/*
 *.log
 
 !data/simple-trace-example/
+etc/secret-local.yaml

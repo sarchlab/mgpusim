@@ -3,12 +3,12 @@ package tracereader
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	log "github.com/sirupsen/logrus"
 )
 
 type TraceReaderBuilder struct {
@@ -38,7 +38,7 @@ func (r *TraceReader) generateExcutions() {
 	filepath := path.Join(r.directoryPath, kernelsListFileName)
 	file, err := os.Open(filepath)
 	if err != nil {
-		log.Panic(err)
+		log.WithError(err).WithField("filepath", filepath).Error("Failed to open file")
 	}
 
 	defer file.Close()
@@ -67,7 +67,7 @@ func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 
 		_, err := fmt.Sscanf(textSplited[1], "%v,%v", &m.Address, &m.Length)
 		if err != nil {
-			log.Panic(err)
+			log.WithError(err).WithField("text", text).Panic("Failed to parse text")
 		}
 
 		switch directionStr {
@@ -85,7 +85,7 @@ func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 		m.filename = text
 		m.filepath = path.Join(r.directoryPath, text)
 	} else {
-		log.Panic("Unknown execution type")
+		log.WithField("text", text).Panic("Unknown execution type")
 	}
 
 	return m

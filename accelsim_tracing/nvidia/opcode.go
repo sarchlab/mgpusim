@@ -1,6 +1,6 @@
 package nvidia
 
-import "log"
+import log "github.com/sirupsen/logrus"
 
 // VariableType [todo] how to construct these?
 type VariableType int32
@@ -31,7 +31,7 @@ func NewOpcode(rawText string) *Opcode {
 	op, ok := opcodeTable[rawText]
 	if !ok {
 		op = Opcode{rawText, OpCodeError, VariableError}
-		log.Panic("Unknown opcode: ", rawText)
+		log.WithField("opcode", rawText).Panic("Unknown opcode")
 	}
 	return &op
 }

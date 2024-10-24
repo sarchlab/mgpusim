@@ -2,7 +2,8 @@ package nvidia
 
 import (
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Register struct {
@@ -15,7 +16,7 @@ func NewRegister(rawText string) *Register {
 	reg, ok := registerTable[rawText]
 	if !ok {
 		reg = Register{rawText, -1, false}
-		log.Panic("Unknown register: ", rawText)
+		log.WithField("register", rawText).Panic("Unknown register")
 	}
 	return &reg
 }

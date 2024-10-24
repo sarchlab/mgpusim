@@ -1,9 +1,11 @@
 package platform_test
 
 import (
-	"log"
+	"io"
 	"os"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
@@ -97,13 +99,14 @@ func generateMockBenchmark() *benchmark.Benchmark {
 }
 
 func setTestLogFile() {
-	file, err := os.Create(logFile)
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to open log file:", err)
 	}
-	defer file.Close()
-	log.SetOutput(file)
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	multiWriter := io.MultiWriter(file, os.Stdout)
+
+	log.SetOutput(multiWriter)
+	log.SetLevel(log.DebugLevel)
 }
 
 func calcTheoreticalTotalInsts(bm *benchmark.Benchmark) int64 {
@@ -112,7 +115,7 @@ func calcTheoreticalTotalInsts(bm *benchmark.Benchmark) int64 {
 		if exec.ExecType() == nvidia.ExecKernel {
 			r, ok := exec.(*benchmark.ExecKernel)
 			if !ok {
-				log.Printf("cannot cast to ExecKernel")
+				log.Error("cannot cast to ExecKernel")
 				return 0
 			}
 			kernel := r.GetKernel()
@@ -132,7 +135,7 @@ func calcTheoreticalTotalWarps(bm *benchmark.Benchmark) int64 {
 		if exec.ExecType() == nvidia.ExecKernel {
 			r, ok := exec.(*benchmark.ExecKernel)
 			if !ok {
-				log.Printf("cannot cast to ExecKernel")
+				log.Error("cannot cast to ExecKernel")
 				return 0
 			}
 			kernel := r.GetKernel()
@@ -161,16 +164,12 @@ func calcActualTotalInsts(pf *platform.Platform) int64 {
 
 func calcActualTotalWarps(pf *platform.Platform) int64 {
 	totalWarpsCount := int64(0)
-	// totalSubcoresCount := 0
 
 	for _, gpu := range pf.Devices {
 		for _, sm := range gpu.SMs {
 			totalWarpsCount += sm.GetTotalWarpsCount()
-			// totalSubcoresCount += len(sm.Subcores)
 		}
 	}
-
-	// fmt.Println("totalSubcoresCount: ", totalSubcoresCount)
 
 	return totalWarpsCount
 }

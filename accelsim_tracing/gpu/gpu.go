@@ -1,7 +1,7 @@
 package gpu
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/message"
@@ -40,8 +40,6 @@ func (g *GPU) Tick(now sim.VTimeInSec) bool {
 	madeProgress = g.processDriverInput(now) || madeProgress
 	madeProgress = g.processSMsInput(now) || madeProgress
 
-	// fmt.Println("GPU tick, madeProgress:", madeProgress)
-
 	return madeProgress
 }
 
@@ -55,7 +53,7 @@ func (g *GPU) processDriverInput(now sim.VTimeInSec) bool {
 	case *message.DriverToDeviceMsg:
 		g.processDriverMsg(msg, now)
 	default:
-		log.Panic("Unhandled message type")
+		log.WithField("function", "processDriverInput").Panic("Unhandled message type")
 	}
 
 	return true
@@ -71,7 +69,7 @@ func (g *GPU) processSMsInput(now sim.VTimeInSec) bool {
 	case *message.SMToDeviceMsg:
 		g.processSMsMsg(msg, now)
 	default:
-		log.Panic("Unhandled message type")
+		log.WithField("function", "processSMsInput").Panic("Unhandled message type")
 	}
 
 	return true

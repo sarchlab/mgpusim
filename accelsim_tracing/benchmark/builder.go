@@ -1,7 +1,7 @@
 package benchmark
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/tracereader"

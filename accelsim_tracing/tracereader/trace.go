@@ -2,7 +2,8 @@ package tracereader
 
 import (
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
 )
@@ -98,11 +99,11 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 	case "enable lineinfo":
 		th.EnableLineinfo = value == "1"
 	default:
-		log.Panic("never")
+		log.WithField("key", key).Panic("Unknown key")
 	}
 
 	if err != nil {
-		log.Panic(err)
+		log.WithError(err).Panic("Failed to parse value")
 	}
 }
 

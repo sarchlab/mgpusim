@@ -1,7 +1,7 @@
 package sm
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/message"
@@ -42,8 +42,6 @@ func (s *SM) Tick(now sim.VTimeInSec) bool {
 	madeProgress = s.processGPUInput(now) || madeProgress
 	madeProgress = s.processSubcoresInput(now) || madeProgress
 
-	// fmt.Println("SM tick, madeProgress:", madeProgress)
-
 	return madeProgress
 }
 
@@ -57,7 +55,7 @@ func (s *SM) processGPUInput(now sim.VTimeInSec) bool {
 	case *message.DeviceToSMMsg:
 		s.processSMMsg(msg, now)
 	default:
-		log.Panic("Unhandled message type")
+		log.WithField("function", "processGPUInput").Panic("Unhandled message type")
 	}
 
 	return true
@@ -73,7 +71,7 @@ func (s *SM) processSubcoresInput(now sim.VTimeInSec) bool {
 	case *message.SubcoreToSMMsg:
 		s.processSubcoreSubcoresg(msg, now)
 	default:
-		log.Panic("Unhandled message type")
+		log.WithField("function", "processSubcoresInput").Panic("Unhandled message type")
 	}
 
 	return true
@@ -159,5 +157,8 @@ func (s *SM) GetTotalInstsCount() int64 {
 }
 
 func (s *SM) LogStatus() {
-	log.Printf("[sm#%s] total_warps_count=%d\n", s.ID, s.warpsCount)
+	log.WithFields(log.Fields{
+		"sm_id":             s.ID,
+		"total_warps_count": s.warpsCount,
+	}).Info("SM status")
 }

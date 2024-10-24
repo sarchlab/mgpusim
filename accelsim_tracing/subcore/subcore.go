@@ -1,7 +1,7 @@
 package subcore
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/message"
@@ -47,7 +47,7 @@ func (s *Subcore) processSMInput(now sim.VTimeInSec) bool {
 	case *message.SMToSubcoreMsg:
 		s.processSMMsg(msg, now)
 	default:
-		log.Panic("Unrecognized message")
+		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 	}
 
 	return true
@@ -101,5 +101,8 @@ func (s *Subcore) GetTotalInstsCount() int64 {
 }
 
 func (s *Subcore) LogStatus() {
-	log.Printf("[subcore#%s] total_insts_count=%d\n", s.ID, s.instsCount)
+	log.WithFields(log.Fields{
+		"subcore_id":        s.ID,
+		"total_insts_count": s.instsCount,
+	}).Info("Subcore status")
 }
