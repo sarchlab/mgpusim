@@ -3,8 +3,8 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/insts"
 )
 
 // A RegisterAccess is an incidence of reading or writing the register

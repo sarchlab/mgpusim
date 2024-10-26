@@ -6,12 +6,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/kernels"
 )
 
-//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_sim_test.go github.com/sarchlab/akita/v3/sim Port,Engine,Buffer
-//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_pipelining_test.go github.com/sarchlab/akita/v3/pipelining Pipeline
+//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_sim_test.go github.com/sarchlab/akita/v4/sim Port,Engine,Buffer
+//go:generate mockgen -write_package_comment=false -package=$GOPACKAGE -destination=mock_pipelining_test.go github.com/sarchlab/akita/v4/pipelining Pipeline
 //go:generate mockgen -source subcomponent.go -destination mock_subcomponent_test.go -package $GOPACKAGE
 //go:generate mockgen -source wfdispatcher.go -destination mock_wfdispatcher_test.go -package $GOPACKAGE
 //go:generate mockgen -source coalescer.go -destination mock_coalsecer_test.go -package $GOPACKAGE

@@ -1,8 +1,8 @@
 package smunit
 
 import (
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/alu"
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/alu"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
 )
 
 type SMUnit struct {

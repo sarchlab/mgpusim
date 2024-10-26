@@ -5,17 +5,17 @@ import (
 	"log"
 	"os"
 
-	memtraces "github.com/sarchlab/akita/v3/mem/trace"
+	memtraces "github.com/sarchlab/akita/v4/mem/trace"
 
-	"github.com/sarchlab/akita/v3/analysis"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/mem/vm/mmu"
-	"github.com/sarchlab/akita/v3/monitoring"
-	"github.com/sarchlab/akita/v3/noc/networking/pcie"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/akita/v4/analysis"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/mem/vm/mmu"
+	"github.com/sarchlab/akita/v4/monitoring"
+	"github.com/sarchlab/akita/v4/noc/networking/pcie"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
@@ -287,7 +287,7 @@ func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.BankedLowModuleFinder 
 func (b R9NanoPlatformBuilder) createConnection(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMU,
+	mmuComponent *mmu.Comp,
 ) (*pcie.Connector, int) {
 	//connection := sim.NewDirectConnection(engine)
 	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
@@ -327,7 +327,7 @@ func (b R9NanoPlatformBuilder) createEngine() sim.Engine {
 
 func (b R9NanoPlatformBuilder) createMMU(
 	engine sim.Engine,
-) (*mmu.MMU, vm.PageTable) {
+) (*mmu.Comp, vm.PageTable) {
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
@@ -348,7 +348,7 @@ func (b R9NanoPlatformBuilder) createMMU(
 func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMU,
+	mmuComponent *mmu.Comp,
 ) R9NanoGPUBuilder {
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).

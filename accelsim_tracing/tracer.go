@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/benchmark"
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/benchmark"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/gpu"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
 )
 
 type inputArguments struct {

@@ -1,6 +1,6 @@
 package gpc
 
-import "github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+import "github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
 
 type gpcDispatcher interface {
 	withParent(gpc *GPC) gpcDispatcher

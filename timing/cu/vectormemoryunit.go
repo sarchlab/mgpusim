@@ -3,11 +3,11 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v3/pipelining"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/pipelining"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 type vectorMemInst struct {
@@ -62,9 +62,8 @@ func (u *VectorMemoryUnit) CanAcceptWave() bool {
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
 func (u *VectorMemoryUnit) AcceptWave(
 	wave *wavefront.Wavefront,
-	now sim.VTimeInSec,
 ) {
-	u.instructionPipeline.Accept(now, vectorMemInst{wavefront: wave})
+	u.instructionPipeline.Accept(vectorMemInst{wavefront: wave})
 	u.numInstInFlight++
 }
 
@@ -76,39 +75,36 @@ func (u *VectorMemoryUnit) IsIdle() bool {
 
 // Run executes three pipeline stages that are controlled by the
 // VectorMemoryUnit
-func (u *VectorMemoryUnit) Run(now sim.VTimeInSec) bool {
+func (u *VectorMemoryUnit) Run() bool {
 	madeProgress := false
-	madeProgress = u.sendRequest(now) || madeProgress
-	madeProgress = u.transactionPipeline.Tick(now) || madeProgress
-	madeProgress = u.instToTransaction(now) || madeProgress
-	madeProgress = u.instructionPipeline.Tick(now) || madeProgress
+	madeProgress = u.sendRequest() || madeProgress
+	madeProgress = u.transactionPipeline.Tick() || madeProgress
+	madeProgress = u.instToTransaction() || madeProgress
+	madeProgress = u.instructionPipeline.Tick() || madeProgress
 	return madeProgress
 }
 
 func (u *VectorMemoryUnit) instToTransaction(
-	now sim.VTimeInSec,
 ) bool {
 	if len(u.transactionsWaiting) > 0 {
-		return u.insertTransactionToPipeline(now)
+		return u.insertTransactionToPipeline()
 	}
 
-	return u.execute(now)
+	return u.execute()
 }
 
-func (u *VectorMemoryUnit) insertTransactionToPipeline(
-	now sim.VTimeInSec,
-) bool {
+func (u *VectorMemoryUnit) insertTransactionToPipeline() bool {
 	if !u.transactionPipeline.CanAccept() {
 		return false
 	}
 
-	u.transactionPipeline.Accept(now, u.transactionsWaiting[0])
+	u.transactionPipeline.Accept(u.transactionsWaiting[0])
 	u.transactionsWaiting = u.transactionsWaiting[1:]
 
 	return true
 }
 
-func (u *VectorMemoryUnit) execute(now sim.VTimeInSec) (madeProgress bool) {
+func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 	item := u.postInstructionPipelineBuffer.Peek()
 	if item == nil {
 		return false
@@ -118,7 +114,7 @@ func (u *VectorMemoryUnit) execute(now sim.VTimeInSec) (madeProgress bool) {
 	inst := wave.Inst()
 	switch inst.FormatType {
 	case insts.FLAT:
-		ok := u.executeFlatInsts(now, wave)
+		ok := u.executeFlatInsts(wave)
 		if !ok {
 			return false
 		}
@@ -134,15 +130,14 @@ func (u *VectorMemoryUnit) execute(now sim.VTimeInSec) (madeProgress bool) {
 }
 
 func (u *VectorMemoryUnit) executeFlatInsts(
-	now sim.VTimeInSec,
 	wavefront *wavefront.Wavefront,
 ) bool {
 	inst := wavefront.DynamicInst()
 	switch inst.Opcode {
 	case 16, 17, 18, 19, 20, 21, 22, 23: // FLAT_LOAD_BYTE
-		return u.executeFlatLoad(now, wavefront)
+		return u.executeFlatLoad(wavefront)
 	case 24, 25, 26, 27, 28, 29, 30, 31:
-		return u.executeFlatStore(now, wavefront)
+		return u.executeFlatStore(wavefront)
 	default:
 		log.Panicf("Opcode %d for format FLAT is not supported.", inst.Opcode)
 	}
@@ -151,7 +146,6 @@ func (u *VectorMemoryUnit) executeFlatInsts(
 }
 
 func (u *VectorMemoryUnit) executeFlatLoad(
-	now sim.VTimeInSec,
 	wave *wavefront.Wavefront,
 ) bool {
 	u.scratchpadPreparer.Prepare(wave, wave)
@@ -159,7 +153,6 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 
 	if len(transactions) == 0 {
 		u.cu.logInstTask(
-			now,
 			wave,
 			wave.DynamicInst(),
 			true,
@@ -192,7 +185,6 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 }
 
 func (u *VectorMemoryUnit) executeFlatStore(
-	now sim.VTimeInSec,
 	wave *wavefront.Wavefront,
 ) bool {
 	u.scratchpadPreparer.Prepare(wave, wave)
@@ -200,7 +192,6 @@ func (u *VectorMemoryUnit) executeFlatStore(
 
 	if len(transactions) == 0 {
 		u.cu.logInstTask(
-			now,
 			wave,
 			wave.DynamicInst(),
 			true,
@@ -231,7 +222,7 @@ func (u *VectorMemoryUnit) executeFlatStore(
 	return true
 }
 
-func (u *VectorMemoryUnit) sendRequest(now sim.VTimeInSec) bool {
+func (u *VectorMemoryUnit) sendRequest() bool {
 	item := u.postTransactionPipelineBuffer.Peek()
 	if item == nil {
 		return false
@@ -245,7 +236,6 @@ func (u *VectorMemoryUnit) sendRequest(now sim.VTimeInSec) bool {
 		req = info.Write
 	}
 
-	req.Meta().SendTime = now
 	err := u.cu.ToVectorMem.Send(req)
 	if err == nil {
 		u.postTransactionPipelineBuffer.Pop()

@@ -3,7 +3,7 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 var _ = Describe("DecodeUnit", func() {
@@ -37,7 +37,7 @@ var _ = Describe("DecodeUnit", func() {
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
 		du.toDecode = nil
-		du.AcceptWave(wave, 10)
+		du.AcceptWave(wave)
 		Expect(du.toDecode).To(BeIdenticalTo(wave))
 	})
 
@@ -46,7 +46,7 @@ var _ = Describe("DecodeUnit", func() {
 		wave2 := new(wavefront.Wavefront)
 		du.toDecode = wave
 
-		Expect(func() { du.AcceptWave(wave2, 10) }).Should(Panic())
+		Expect(func() { du.AcceptWave(wave2) }).Should(Panic())
 		Expect(du.toDecode).To(BeIdenticalTo(wave))
 	})
 
@@ -55,7 +55,7 @@ var _ = Describe("DecodeUnit", func() {
 		wave.SIMDID = 1
 		du.toDecode = wave
 
-		du.Run(10)
+		du.Run()
 
 		Expect(len(execUnits[0].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[1].acceptedWave)).To(Equal(1))
@@ -70,7 +70,7 @@ var _ = Describe("DecodeUnit", func() {
 		du.toDecode = wave
 		execUnits[1].canAccept = false
 
-		du.Run(10)
+		du.Run()
 
 		Expect(len(execUnits[0].acceptedWave)).To(Equal(0))
 		Expect(len(execUnits[1].acceptedWave)).To(Equal(0))

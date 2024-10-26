@@ -1,7 +1,7 @@
 package training
 
 import (
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
 )
 
 // SoftmaxCrossEntropy can calculate the softmax and cross entropy together.

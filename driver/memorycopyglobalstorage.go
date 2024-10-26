@@ -3,8 +3,6 @@ package driver
 import (
 	"bytes"
 	"encoding/binary"
-
-	"github.com/sarchlab/akita/v3/sim"
 )
 
 // defaultMemoryCopyMiddleware handles memory copy commands and related
@@ -14,22 +12,20 @@ type globalStorageMemoryCopyMiddleware struct {
 }
 
 func (m *globalStorageMemoryCopyMiddleware) ProcessCommand(
-	now sim.VTimeInSec,
 	cmd Command,
 	queue *CommandQueue,
 ) (processed bool) {
 	switch cmd := cmd.(type) {
 	case *MemCopyH2DCommand:
-		return m.processMemCopyH2DCommand(now, cmd, queue)
+		return m.processMemCopyH2DCommand(cmd, queue)
 	case *MemCopyD2HCommand:
-		return m.processMemCopyD2HCommand(now, cmd, queue)
+		return m.processMemCopyD2HCommand(cmd, queue)
 	}
 
 	return false
 }
 
 func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
-	now sim.VTimeInSec,
 	cmd *MemCopyH2DCommand,
 	queue *CommandQueue,
 ) bool {
@@ -70,7 +66,6 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyH2DCommand(
 }
 
 func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
-	now sim.VTimeInSec,
 	cmd *MemCopyD2HCommand,
 	queue *CommandQueue,
 ) bool {
@@ -111,8 +106,6 @@ func (m *globalStorageMemoryCopyMiddleware) processMemCopyD2HCommand(
 	return true
 }
 
-func (m *globalStorageMemoryCopyMiddleware) Tick(
-	now sim.VTimeInSec,
-) (madeProgress bool) {
+func (m *globalStorageMemoryCopyMiddleware) Tick() (madeProgress bool) {
 	return false
 }

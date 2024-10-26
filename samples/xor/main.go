@@ -4,8 +4,8 @@ import (
 	"flag"
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training_benchmarks/xor"
-	"github.com/sarchlab/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/training_benchmarks/xor"
+	"github.com/sarchlab/mgpusim/v4/samples/runner"
 )
 
 func main() {

@@ -3,10 +3,10 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 var _ = Describe("WfDispatcher", func() {
@@ -56,7 +56,7 @@ var _ = Describe("WfDispatcher", func() {
 		wf.CodeObject = co
 		wf.Packet = packet
 		//req := mgpusim.NewDispatchWfReq(nil, cu.ToACE, 10, nil)
-		wfDispatcher.DispatchWf(10, wf, wfDispatchInfo)
+		wfDispatcher.DispatchWf(wf, wfDispatchInfo)
 
 		//Expect(len(engine.ScheduledEvent)).To(Equal(1))
 		Expect(wf.SIMDID).To(Equal(1))

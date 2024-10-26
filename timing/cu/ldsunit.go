@@ -1,9 +1,8 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/emu"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/emu"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // A LDSUnit performs Scalar operations
@@ -46,20 +45,20 @@ func (u *LDSUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
+func (u *LDSUnit) AcceptWave(wave *wavefront.Wavefront) {
 	u.toRead = wave
 }
 
 // Run executes three pipeline stages that are controlled by the LDSUnit
-func (u *LDSUnit) Run(now sim.VTimeInSec) bool {
+func (u *LDSUnit) Run() bool {
 	madeProgress := false
-	madeProgress = u.runWriteStage(now) || madeProgress
-	madeProgress = u.runExecStage(now) || madeProgress
-	madeProgress = u.runReadStage(now) || madeProgress
+	madeProgress = u.runWriteStage() || madeProgress
+	madeProgress = u.runExecStage() || madeProgress
+	madeProgress = u.runReadStage() || madeProgress
 	return madeProgress
 }
 
-func (u *LDSUnit) runReadStage(now sim.VTimeInSec) bool {
+func (u *LDSUnit) runReadStage() bool {
 	if u.toRead == nil {
 		return false
 	}
@@ -74,7 +73,7 @@ func (u *LDSUnit) runReadStage(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (u *LDSUnit) runExecStage(now sim.VTimeInSec) bool {
+func (u *LDSUnit) runExecStage() bool {
 	if u.toExec == nil {
 		return false
 	}
@@ -90,14 +89,14 @@ func (u *LDSUnit) runExecStage(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (u *LDSUnit) runWriteStage(now sim.VTimeInSec) bool {
+func (u *LDSUnit) runWriteStage() bool {
 	if u.toWrite == nil {
 		return false
 	}
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.logInstTask(now, u.toWrite, u.toWrite.DynamicInst(), true)
+	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)
 

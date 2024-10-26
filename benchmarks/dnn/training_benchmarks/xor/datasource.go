@@ -1,6 +1,6 @@
 package xor
 
-import "github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+import "github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
 
 // DataSource defines the training dataset for the xor operation.
 type DataSource struct {

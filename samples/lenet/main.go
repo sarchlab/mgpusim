@@ -4,9 +4,9 @@ import (
 	"flag"
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training_benchmarks/lenet"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/training_benchmarks/lenet"
 
-	"github.com/sarchlab/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/samples/runner"
 )
 
 var epochFlag = flag.Int("epoch", 1, "Number of epoch to run.")

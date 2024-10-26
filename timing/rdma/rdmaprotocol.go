@@ -1,7 +1,7 @@
 package rdma
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // DrainReq asks the rdma to stop processing requests from L1 while allowing pending requests to L2 to complete
@@ -14,18 +14,17 @@ func (r *DrainReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// DrainReqBuilder can build RDMA drain requests
-type DrainReqBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the DrainReq with different ID.
+func (r *DrainReq) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b DrainReqBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) DrainReqBuilder {
-	b.sendTime = t
-	return b
+// DrainReqBuilder can build RDMA drain requests
+type DrainReqBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -46,7 +45,6 @@ func (b DrainReqBuilder) Build() *DrainReq {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }
 
@@ -60,18 +58,17 @@ func (r *RestartReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// RestartReqBuilder can build RDMA restart req
-type RestartReqBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the RestartReq with different ID.
+func (r *RestartReq) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build
-func (b RestartReqBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) RestartReqBuilder {
-	b.sendTime = t
-	return b
+// RestartReqBuilder can build RDMA restart req
+type RestartReqBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -92,7 +89,6 @@ func (b RestartReqBuilder) Build() *RestartReq {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }
 
@@ -106,18 +102,17 @@ func (r *DrainRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// DrainRspBuilder can build RDMA drain responses
-type DrainRspBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the DrainRsp with different ID.
+func (r *DrainRsp) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build
-func (b DrainRspBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) DrainRspBuilder {
-	b.sendTime = t
-	return b
+// DrainRspBuilder can build RDMA drain responses
+type DrainRspBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -138,7 +133,6 @@ func (b DrainRspBuilder) Build() *DrainRsp {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }
 
@@ -152,18 +146,17 @@ func (r *RestartRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// RestartRspBuilder can build RDMA drain responses
-type RestartRspBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the RestartRsp with different ID.
+func (r *RestartRsp) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build
-func (b RestartRspBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) RestartRspBuilder {
-	b.sendTime = t
-	return b
+// RestartRspBuilder can build RDMA drain responses
+type RestartRspBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -184,6 +177,5 @@ func (b RestartRspBuilder) Build() *RestartRsp {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }

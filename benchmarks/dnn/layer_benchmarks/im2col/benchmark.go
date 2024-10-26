@@ -4,9 +4,9 @@ package im2col
 import (
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // A Benchmark is a benchmark for the im2col operation.

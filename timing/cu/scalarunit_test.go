@@ -4,11 +4,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/emu"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/emu"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 type mockScratchpadPreparer struct {
@@ -89,7 +89,7 @@ var _ = Describe("Scalar Unit", func() {
 
 	It("should accept wave", func() {
 		wave := new(wavefront.Wavefront)
-		bu.AcceptWave(wave, 10)
+		bu.AcceptWave(wave)
 		Expect(bu.toRead).To(BeIdenticalTo(wave))
 	})
 
@@ -107,7 +107,7 @@ var _ = Describe("Scalar Unit", func() {
 		bu.toExec = wave2
 		bu.toWrite = wave3
 
-		bu.Run(10)
+		bu.Run()
 
 		Expect(wave3.State).To(Equal(wavefront.WfReady))
 		Expect(bu.toWrite).To(BeIdenticalTo(wave2))
@@ -136,7 +136,7 @@ var _ = Describe("Scalar Unit", func() {
 		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 4)
 		//conn.ExpectSend(expectedReq, nil)
 
-		bu.Run(10)
+		bu.Run()
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
@@ -162,7 +162,7 @@ var _ = Describe("Scalar Unit", func() {
 		//expectedReq := mem.NewReadReq(10, cu, scalarMem, 0x1024, 8)
 		//conn.ExpectSend(expectedReq, nil)
 
-		bu.Run(10)
+		bu.Run()
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
@@ -185,7 +185,7 @@ var _ = Describe("Scalar Unit", func() {
 		sp.Base = 0x1000
 		sp.Offset = 56
 		start := sp.Base + sp.Offset
-		bu.Run(10)
+		bu.Run()
 		Expect(bu.numCacheline(start, uint64(16))).To(Equal(2))
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.OutstandingScalarMemAccess).To(Equal(1))
@@ -200,7 +200,6 @@ var _ = Describe("Scalar Unit", func() {
 
 	It("should send request out", func() {
 		req := mem.ReadReqBuilder{}.
-			WithSendTime(10).
 			WithSrc(cu.ToScalarMem).
 			WithDst(scalarMem).
 			WithAddress(1024).
@@ -216,14 +215,13 @@ var _ = Describe("Scalar Unit", func() {
 			Expect(req.AccessByteSize).To(Equal(uint64(4)))
 		})
 
-		bu.Run(11)
+		bu.Run()
 
 		Expect(bu.readBuf).To(HaveLen(0))
 	})
 
 	It("should retry if send request failed", func() {
 		req := mem.ReadReqBuilder{}.
-			WithSendTime(10).
 			WithSrc(cu.ToScalarMem).
 			WithDst(scalarMem).
 			WithAddress(1024).
@@ -239,7 +237,7 @@ var _ = Describe("Scalar Unit", func() {
 			Expect(req.AccessByteSize).To(Equal(uint64(4)))
 		}).Return(&sim.SendError{})
 
-		bu.Run(11)
+		bu.Run()
 
 		Expect(bu.readBuf).To(HaveLen(1))
 	})

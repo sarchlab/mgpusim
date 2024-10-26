@@ -8,8 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	sim "github.com/sarchlab/akita/v3/sim"
-	wavefront "github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	wavefront "github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // MockSubComponent is a mock of SubComponent interface.
@@ -36,15 +35,15 @@ func (m *MockSubComponent) EXPECT() *MockSubComponentMockRecorder {
 }
 
 // AcceptWave mocks base method.
-func (m *MockSubComponent) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
+func (m *MockSubComponent) AcceptWave(wave *wavefront.Wavefront) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AcceptWave", wave, now)
+	m.ctrl.Call(m, "AcceptWave", wave)
 }
 
 // AcceptWave indicates an expected call of AcceptWave.
-func (mr *MockSubComponentMockRecorder) AcceptWave(wave, now interface{}) *gomock.Call {
+func (mr *MockSubComponentMockRecorder) AcceptWave(wave interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptWave", reflect.TypeOf((*MockSubComponent)(nil).AcceptWave), wave, now)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptWave", reflect.TypeOf((*MockSubComponent)(nil).AcceptWave), wave)
 }
 
 // CanAcceptWave mocks base method.
@@ -88,15 +87,15 @@ func (mr *MockSubComponentMockRecorder) IsIdle() *gomock.Call {
 }
 
 // Run mocks base method.
-func (m *MockSubComponent) Run(now sim.VTimeInSec) bool {
+func (m *MockSubComponent) Run() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", now)
+	ret := m.ctrl.Call(m, "Run")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // Run indicates an expected call of Run.
-func (mr *MockSubComponentMockRecorder) Run(now interface{}) *gomock.Call {
+func (mr *MockSubComponentMockRecorder) Run() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockSubComponent)(nil).Run), now)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockSubComponent)(nil).Run))
 }

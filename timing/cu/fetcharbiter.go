@@ -3,8 +3,8 @@ package cu
 import (
 	"math"
 
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // A FetchArbiter can decide which wavefront in a scheduler can fetch

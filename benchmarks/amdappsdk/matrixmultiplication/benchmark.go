@@ -7,7 +7,7 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // Benchmark defines a benchmark

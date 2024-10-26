@@ -1,9 +1,9 @@
 package protocol
 
 import (
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/kernels"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/kernels"
 )
 
 // A CUPipelineRestartReq is a message from CP to ask the CU pipeline to resume after a flush/drain
@@ -16,18 +16,17 @@ func (m *CUPipelineRestartReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// CUPipelineRestartReqBuilder can build new CU restart reqs
-type CUPipelineRestartReqBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the CUPipelineRestartReq with different ID.
+func (m *CUPipelineRestartReq) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b CUPipelineRestartReqBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) CUPipelineRestartReqBuilder {
-	b.sendTime = t
-	return b
+// CUPipelineRestartReqBuilder can build new CU restart reqs
+type CUPipelineRestartReqBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -48,7 +47,6 @@ func (b CUPipelineRestartReqBuilder) Build() *CUPipelineRestartReq {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }
 
@@ -62,18 +60,17 @@ func (m *CUPipelineRestartRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// CUPipelineRestartRspBuilder can build new CU restart reqs
-type CUPipelineRestartRspBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the CUPipelineRestartRsp with different ID.
+func (m *CUPipelineRestartRsp) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b CUPipelineRestartRspBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) CUPipelineRestartRspBuilder {
-	b.sendTime = t
-	return b
+// CUPipelineRestartRspBuilder can build new CU restart reqs
+type CUPipelineRestartRspBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -94,7 +91,6 @@ func (b CUPipelineRestartRspBuilder) Build() *CUPipelineRestartRsp {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }
 
@@ -108,18 +104,17 @@ func (m *CUPipelineFlushReq) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// CUPipelineFlushReqBuilder can build new CU flush reqs
-type CUPipelineFlushReqBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the CUPipelineFlushReq with different ID.
+func (m *CUPipelineFlushReq) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b CUPipelineFlushReqBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) CUPipelineFlushReqBuilder {
-	b.sendTime = t
-	return b
+// CUPipelineFlushReqBuilder can build new CU flush reqs
+type CUPipelineFlushReqBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -140,7 +135,6 @@ func (b CUPipelineFlushReqBuilder) Build() *CUPipelineFlushReq {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }
 
@@ -154,18 +148,17 @@ func (m *CUPipelineFlushRsp) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-// CUPipelineFlushRspBuilder can build new CU flush rsps
-type CUPipelineFlushRspBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the CUPipelineFlushRsp with different ID.
+func (m *CUPipelineFlushRsp) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b CUPipelineFlushRspBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) CUPipelineFlushRspBuilder {
-	b.sendTime = t
-	return b
+// CUPipelineFlushRspBuilder can build new CU flush rsps
+type CUPipelineFlushRspBuilder struct {
+	src, dst sim.Port
 }
 
 // WithSrc sets the source of the request to build.
@@ -186,7 +179,6 @@ func (b CUPipelineFlushRspBuilder) Build() *CUPipelineFlushRsp {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	return r
 }
 
@@ -213,19 +205,20 @@ func (r *MapWGReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
+// Clone returns a clone of the MapWGReq with different ID.
+func (r *MapWGReq) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // MapWGReqBuilder can build MapWGReqs.
 type MapWGReqBuilder struct {
-	sendTime sim.VTimeInSec
 	src, dst sim.Port
 	pid      vm.PID
 	wg       *kernels.WorkGroup
 	wfs      []WfDispatchLocation
-}
-
-// WithSendTime sets the send time.
-func (b MapWGReqBuilder) WithSendTime(t sim.VTimeInSec) MapWGReqBuilder {
-	b.sendTime = t
-	return b
 }
 
 // WithSrc sets the source of the message.
@@ -262,7 +255,6 @@ func (b MapWGReqBuilder) AddWf(wf WfDispatchLocation) MapWGReqBuilder {
 func (b MapWGReqBuilder) Build() *MapWGReq {
 	r := &MapWGReq{}
 	r.Meta().ID = sim.GetIDGenerator().Generate()
-	r.Meta().SendTime = b.sendTime
 	r.Meta().Src = b.src
 	r.Meta().Dst = b.dst
 	r.PID = b.pid
@@ -283,19 +275,18 @@ func (r *WGCompletionMsg) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// WGCompletionMsgBuilder can build MapWGReqs.
-type WGCompletionMsgBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
-	rspTo    []string
+// Clone returns a clone of the WGCompletionMsg with different ID.
+func (r *WGCompletionMsg) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time.
-func (b WGCompletionMsgBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) WGCompletionMsgBuilder {
-	b.sendTime = t
-	return b
+// WGCompletionMsgBuilder can build MapWGReqs.
+type WGCompletionMsgBuilder struct {
+	src, dst sim.Port
+	rspTo    []string
 }
 
 // WithSrc sets the source of the message.
@@ -326,7 +317,6 @@ func (b WGCompletionMsgBuilder) WithRspTo(
 func (b WGCompletionMsgBuilder) Build() *WGCompletionMsg {
 	msg := &WGCompletionMsg{}
 	msg.Meta().ID = sim.GetIDGenerator().Generate()
-	msg.Meta().SendTime = b.sendTime
 	msg.Meta().Src = b.src
 	msg.Meta().Dst = b.dst
 	msg.RspTo = b.rspTo
