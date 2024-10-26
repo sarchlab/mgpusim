@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 )
 
 type myHook struct {
@@ -43,8 +44,8 @@ var _ = Describe("Reorder Buffer", func() {
 		rob.AddHook(tracing.HookPosMilestone, &myHook{
 			f: func(ctx sim.HookCtx) {
 				milestone := ctx.Item.(tracing.Milestone)
-				fmt.Printf("Milestone in test: ID=%s, TaskID=%s, Category=%s, Reason=%s, Location=%s, Timestamp=%v\n",
-					milestone.ID, milestone.TaskID, milestone.BlockingCategory, milestone.BlockingReason, milestone.BlockingLocation, milestone.Timestamp)
+				fmt.Printf("Milestone in test: ID=%s, TaskID=%s, Category=%s, Reason=%s, Location=%s\n",
+					milestone.ID, milestone.TaskID, milestone.BlockingCategory, milestone.BlockingReason, milestone.BlockingLocation)
 			},
 		})
 		
