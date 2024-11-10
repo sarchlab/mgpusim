@@ -164,6 +164,10 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 
 	pcieConnector.EstablishRoute()
 
+	for _, gpu := range b.gpus {
+		gpu.MMUEngine = mmuComponent
+	}
+
 	return &Platform{
 		Engine: b.engine,
 		Driver: gpuDriver,
@@ -340,6 +344,14 @@ func (b R9NanoPlatformBuilder) createMMU(
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(mmuComponent)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(mmuComponent)
+	}
+
+	if b.visTracer != nil {
+		tracing.CollectTrace(mmuComponent, b.visTracer)
 	}
 
 	return mmuComponent, pageTable

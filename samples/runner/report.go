@@ -366,7 +366,13 @@ func (r *Runner) reportStats() {
 	r.reportCacheHitRate()
 	r.reportTLBHitRate()
 	r.reportRDMATransactionCount()
+	r.reportGMMUTransactionCount()
+	r.reportMMUTransactionCount()
 	r.reportDRAMTransactionCount()
+	r.reportGMMUCacheHitRate()
+	r.reportGMMUCacheLatency()
+	r.reportMMULatency()
+	r.reportGMMULatency()
 	r.dumpMetrics()
 }
 
@@ -569,4 +575,96 @@ func (r *Runner) reportDRAMTransactionCount() {
 
 func (r *Runner) dumpMetrics() {
 	r.metricsCollector.Dump(*filenameFlag)
+}
+
+func (r *Runner) reportGMMUTransactionCount() {
+	for _, t := range r.gmmuTransactionCounters {
+		r.metricsCollector.Collect(
+			t.gmmuEngine.Name(),
+			"outgoing_trans_count",
+			float64(t.outgoingTracer.TotalCount()),
+		)
+		r.metricsCollector.Collect(
+			t.gmmuEngine.Name(),
+			"incoming_trans_count",
+			float64(t.incomingTracer.TotalCount()),
+		)
+	}
+}
+
+func (r *Runner) reportMMUTransactionCount() {
+	for _, t := range r.mmuTransactionCounters {
+		r.metricsCollector.Collect(
+			t.mmuEngine.Name(),
+			"outgoing_trans_count",
+			float64(t.outgoingTracer.TotalCount()),
+		)
+		r.metricsCollector.Collect(
+			t.mmuEngine.Name(),
+			"incoming_trans_count",
+			float64(t.incomingTracer.TotalCount()),
+		)
+	}
+}
+
+func (r *Runner) reportGMMUCacheHitRate() {
+	for _, tracer := range r.gmmuCacheHitRateTracers {
+		hit := tracer.tracer.GetStepCount("hit")
+		miss := tracer.tracer.GetStepCount("miss")
+		mshrHit := tracer.tracer.GetStepCount("mshr-hit")
+
+		totalTransaction := hit + miss + mshrHit
+
+		if totalTransaction == 0 {
+			continue
+		}
+
+		r.metricsCollector.Collect(
+			tracer.gmmuCache.Name(), "hit", float64(hit))
+		r.metricsCollector.Collect(
+			tracer.gmmuCache.Name(), "miss", float64(miss))
+		r.metricsCollector.Collect(
+			tracer.gmmuCache.Name(), "mshr-hit", float64(mshrHit))
+	}
+}
+
+func (r *Runner) reportGMMUCacheLatency() {
+	for _, tracer := range r.gmmuCacheLatencyTracers {
+		if tracer.tracer.AverageTime() == 0 {
+			continue
+		}
+
+		r.metricsCollector.Collect(
+			tracer.gmmuCache.Name(),
+			"req_average_latency",
+			float64(tracer.tracer.AverageTime()),
+		)
+	}
+}
+
+func (r *Runner) reportGMMULatency() {
+	for _, tracer := range r.gmmuLatencyTracers {
+		if tracer.tracer.AverageTime() == 0 {
+			continue
+		}
+
+		r.metricsCollector.Collect(
+			tracer.gmmu.Name(),
+			"req_average_latency",
+			float64(tracer.tracer.AverageTime()),
+		)
+	}
+}
+func (r *Runner) reportMMULatency() {
+	for _, tracer := range r.mmuLatencyTracers {
+		if tracer.tracer.AverageTime() == 0 {
+			continue
+		}
+
+		r.metricsCollector.Collect(
+			"MMU",
+			"req_average_latency",
+			float64(tracer.tracer.AverageTime()),
+		)
+	}
 }

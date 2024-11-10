@@ -131,6 +131,13 @@ func (r *Runner) ParseFlag() *Runner {
 		r.ReportSIMDBusyTime = true
 		r.ReportDRAMTransactionCount = true
 		r.ReportRDMATransactionCount = true
+		r.ReportGMMULatency = true
+		r.ReportMMULatency = true
+		r.ReportGMMUTransactionCount = true
+		r.ReportMMUTransactionCount = true
+		r.ReportSIMDBusyTime = true
+		r.ReportGMMUCacheHitRate = true
+		r.ReportGMMUCacheLatency = true
 		r.ReportCPIStack = true
 	}
 

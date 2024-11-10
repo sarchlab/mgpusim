@@ -5,6 +5,7 @@ import (
 	"log"
 
 	// Enable profiling
+
 	_ "net/http/pprof"
 	"strconv"
 	"strings"
@@ -35,12 +36,19 @@ type Runner struct {
 	cacheHitRateTracers     []cacheHitRateTracer
 	tlbHitRateTracers       []tlbHitRateTracer
 	rdmaTransactionCounters []rdmaTransactionCountTracer
-	dramTracers             []dramTransactionCountTracer
-	benchmarks              []benchmarks.Benchmark
-	monitor                 *monitoring.Monitor
-	metricsCollector        *collector
-	simdBusyTimeTracers     []simdBusyTimeTracer
-	cuCPITraces             []cuCPIStackTracer
+	gmmuCacheLatencyTracers []gmmuCacheLatencyTracer
+	gmmuCacheHitRateTracers []gmmuCacheHitRateTracer
+	mmuTransactionCounters  []mmuTransactionCountTracer
+	mmuLatencyTracers       []mmuLatencyTracer
+	gmmuTransactionCounters []gmmuTransactionCountTracer
+	gmmuLatencyTracers      []gmmuLatencyTracer
+
+	dramTracers         []dramTransactionCountTracer
+	benchmarks          []benchmarks.Benchmark
+	monitor             *monitoring.Monitor
+	metricsCollector    *collector
+	simdBusyTimeTracers []simdBusyTimeTracer
+	cuCPITraces         []cuCPIStackTracer
 
 	Timing                     bool
 	Verify                     bool
@@ -50,10 +58,17 @@ type Runner struct {
 	ReportCacheHitRate         bool
 	ReportTLBHitRate           bool
 	ReportRDMATransactionCount bool
+	ReportGMMULatency          bool
+	ReportMMULatency           bool
+	ReportGMMUTransactionCount bool
+	ReportMMUTransactionCount  bool
+
 	ReportDRAMTransactionCount bool
 	UseUnifiedMemory           bool
 	ReportSIMDBusyTime         bool
 	ReportCPIStack             bool
+	ReportGMMUCacheLatency     bool
+	ReportGMMUCacheHitRate     bool
 
 	GPUIDs []int
 }
