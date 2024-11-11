@@ -42,6 +42,10 @@ func (b *ReorderBuffer) getTaskID() string {
     return ""
 }
 
+func (rob *ReorderBuffer) CurrentTime() sim.VTimeInSec {
+    return rob.Engine.CurrentTime()
+}
+
 func (b *ReorderBuffer) AddHook(pos *sim.HookPos, hook sim.Hook) {
 	if b.hooks == nil {
 		b.hooks = make(map[*sim.HookPos][]sim.Hook)

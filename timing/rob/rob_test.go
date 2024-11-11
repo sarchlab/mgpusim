@@ -8,6 +8,7 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v4/datarecording"
 )
 
 type myHook struct {
@@ -16,6 +17,22 @@ type myHook struct {
 
 func (h *myHook) Func(ctx sim.HookCtx) {
     h.f(ctx)
+}
+
+type sqliteTracerBackend struct {
+    backend *datarecording.SQLiteWriter
+}
+
+func (b *sqliteTracerBackend) Write(task tracing.Task) {
+    b.backend.InsertData("tasks", task)
+}
+
+func (b *sqliteTracerBackend) WriteMilestone(milestone tracing.Milestone) {
+    b.backend.InsertData("milestones", milestone)
+}
+
+func (b *sqliteTracerBackend) Flush() {
+    b.backend.Flush()
 }
 
 var _ = Describe("Reorder Buffer", func() {
@@ -33,9 +50,10 @@ var _ = Describe("Reorder Buffer", func() {
 		topPort = NewMockPort(mockCtrl)
 		bottomPort = NewMockPort(mockCtrl)
 		ctrlPort = NewMockPort(mockCtrl)
-
+		engine := sim.NewSerialEngine()
 		rob = MakeBuilder().
 			WithBufferSize(10).
+			WithEngine(engine).
 			Build("ROB")
 		rob.topPort = topPort
 		rob.bottomPort = bottomPort
@@ -44,11 +62,16 @@ var _ = Describe("Reorder Buffer", func() {
 		rob.AddHook(tracing.HookPosMilestone, &myHook{
 			f: func(ctx sim.HookCtx) {
 				milestone := ctx.Item.(tracing.Milestone)
-				fmt.Printf("Milestone in test: ID=%s, TaskID=%s, Category=%s, Reason=%s, Location=%s\n",
-					milestone.ID, milestone.TaskID, milestone.BlockingCategory, milestone.BlockingReason, milestone.BlockingLocation)
+				fmt.Printf("Milestone in test: ID=%s, TaskID=%s, Category=%s, Reason=%s, Location=%s, Time=%f\n",
+					milestone.ID, 
+					milestone.TaskID, 
+					milestone.BlockingCategory, 
+					milestone.BlockingReason, 
+					milestone.BlockingLocation,
+					milestone.Time)
 			},
 		})
-		
+		rob.TickLater()
 	})
 
 	AfterEach(func() {
