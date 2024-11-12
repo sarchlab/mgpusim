@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 	"runtime/debug"
@@ -461,9 +460,6 @@ func (d *Driver) distributeWGToGPUs(
 	if wgAllocated < totalWGCount {
 		panic("not all wg allocated")
 	}
-
-	// fmt.Sprintln("total WG: %d WG Per CU %d\n", totalWGCount, wgPerCU)
-	fmt.Printf("total WG: %d WG Per CU %d\n", totalWGCount, wgPerCU)
 
 	return wgDist
 }

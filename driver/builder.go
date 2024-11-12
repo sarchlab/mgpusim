@@ -17,7 +17,7 @@ type Builder struct {
 	useMagicMemoryCopy  bool
 	middlewareD2HCycles int
 	middlewareH2DCycles int
-	memorySize          uint64
+	cpuMemorySize       uint64
 }
 
 // MakeBuilder creates a driver builder with some default configuration
@@ -76,7 +76,7 @@ func (b Builder) WithH2DCycles(h2dCycles int) Builder {
 }
 
 // WithMemorySize sets the memory size of the CPU.
-func (b Builder) WithMemorySize(memorySize uint64) Builder {
+func (b Builder) WithCPUMemorySize(memorySize uint64) Builder {
 	b.memorySize = memorySize
 	return b
 }

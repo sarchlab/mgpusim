@@ -65,9 +65,7 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 
 	state := device.MemState
 	state.setInitialAddress(a.totalStorageByteSize)
-
 	a.totalStorageByteSize += state.getStorageSize()
-
 	a.devices[device.ID] = device
 }
 

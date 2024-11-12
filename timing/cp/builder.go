@@ -86,9 +86,9 @@ func (b Builder) Build(name string) *CommandProcessor {
 		tracing.CollectTrace(cp, b.visTracer)
 	}
 
-	// if b.perfAnalyzer != nil {
-	// 	b.perfAnalyzer.RegisterComponent(cp)
-	// }
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(cp)
+	}
 
 	return cp
 }
