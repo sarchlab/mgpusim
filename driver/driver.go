@@ -142,6 +142,7 @@ type DeviceProperties struct {
 func (d *Driver) RegisterGPU(
 	commandProcessorPort sim.Port,
 	properties DeviceProperties,
+	gmmuPageTable vm.PageTable,
 ) {
 	d.GPUs = append(d.GPUs, commandProcessorPort)
 
@@ -156,8 +157,13 @@ func (d *Driver) RegisterGPU(
 	}
 	gpuDevice.SetTotalMemSize(properties.DRAMSize)
 	d.memAllocator.RegisterDevice(gpuDevice)
-
 	d.devices = append(d.devices, gpuDevice)
+
+	for _, page := range d.memAllocator.GetVAddrToPageMapping() {
+		if page.DeviceID == uint64(gpuDevice.ID) {
+			gmmuPageTable.Insert(page)
+		}
+	}
 }
 
 // Tick ticks

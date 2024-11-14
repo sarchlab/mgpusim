@@ -22,6 +22,7 @@ type MemoryAllocator interface {
 		vAddr uint64,
 		unified bool,
 	) vm.Page
+	GetVAddrToPageMapping() map[uint64]vm.Page
 }
 
 // NewMemoryAllocator creates a new memory allocator.
@@ -63,9 +64,7 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 
 	state := device.MemState
 	state.setInitialAddress(a.totalStorageByteSize)
-
 	a.totalStorageByteSize += state.getStorageSize()
-
 	a.devices[device.ID] = device
 }
 
@@ -284,4 +283,14 @@ func (a *memoryAllocatorImpl) Free(ptr uint64) {
 	defer a.Unlock()
 
 	a.removePage(ptr)
+}
+
+func (a *memoryAllocatorImpl) GetVAddrToPageMapping() map[uint64]vm.Page {
+	a.Lock()
+	defer a.Unlock()
+	copy := make(map[uint64]vm.Page, len(a.vAddrToPageMapping))
+	for vAddr, page := range a.vAddrToPageMapping {
+		copy[vAddr] = page
+	}
+	return copy
 }
