@@ -11,6 +11,8 @@ import (
 	"github.com/sarchlab/akita/v4/datarecording"
 )
 
+var dataRecorder *datarecording.SQLiteWriter
+
 type myHook struct {
     f func(ctx sim.HookCtx)
 }
@@ -34,6 +36,19 @@ func (b *sqliteTracerBackend) WriteMilestone(milestone tracing.Milestone) {
 func (b *sqliteTracerBackend) Flush() {
     b.backend.Flush()
 }
+
+var _ = BeforeSuite(func() {
+    dataRecorder = datarecording.NewSQLiteWriter("test_database")
+    dataRecorder.Init()
+    dataRecorder.CreateTable("milestones", tracing.Milestone{})
+    tracing.SetDataRecorder(dataRecorder)
+})
+
+var _ = AfterSuite(func() {
+    dataRecorder.Flush()
+    dataRecorder.DB.Close()
+    // os.Remove("test_database.sqlite3")
+})
 
 var _ = Describe("Reorder Buffer", func() {
 	var (
