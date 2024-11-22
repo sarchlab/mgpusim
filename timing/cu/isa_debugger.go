@@ -76,6 +76,21 @@ func (h *ISADebugger) EndTask(task tracing.Task) {
 	delete(h.executingInst, task.ID)
 }
 
+// DelayTask does nothing
+func (t *ISADebugger) DelayTask(delayEvent tracing.DelayEvent) {
+	// Do nothing
+}
+
+// ProgressTask does nothing
+func (t *ISADebugger) ProgressTask(progressEvent tracing.ProgressEvent) {
+	// Do nothing
+}
+
+// DependencyTask does nothing
+func (t *ISADebugger) DependencyTask(event tracing.DependencyEvent) {
+	// Do nothing
+}
+
 func (h *ISADebugger) logWholeWf(
 	inst *insts.Inst,
 	wf *wavefront.Wavefront,

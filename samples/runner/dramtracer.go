@@ -75,3 +75,16 @@ func (t *dramTracer) EndTask(task tracing.Task) {
 
 	delete(t.inflightTasks, task.ID)
 }
+
+// DelayTask does nothing
+func (t *dramTracer) DelayTask(delayEvent tracing.DelayEvent) {
+	// Do nothing
+}
+// ProgressTask does nothing
+func (t *dramTracer) ProgressTask(progressEvent tracing.ProgressEvent) {
+	// Do nothing
+}
+// DependencyTask does nothing
+func (t *dramTracer) DependencyTask(event tracing.DependencyEvent) {
+	// Do nothing
+}

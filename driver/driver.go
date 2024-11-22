@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"sync"
+	"fmt"
 
 	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v3/mem/mem"
@@ -85,6 +86,7 @@ func (d *Driver) logSimulationStart() {
 }
 
 func (d *Driver) logSimulationTerminate() {
+	fmt.Printf("logSimulationTerminate 3333\n")
 	tracing.EndTask(d.simulationID, d)
 }
 

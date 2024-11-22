@@ -155,6 +155,21 @@ func (t *InstTracer) EndTask(task tracing.Task) {
 	delete(t.inflightInsts, task.ID)
 }
 
+// DelayTask does nothing
+func (t *InstTracer) DelayTask(delayEvent tracing.DelayEvent) {
+	// Do nothing
+}
+
+// ProgressTask does nothing
+func (t *InstTracer) ProgressTask(progressEvent tracing.ProgressEvent) {
+	// Do nothing
+}
+
+// DependencyTask does nothing
+func (t *InstTracer) DependencyTask(event tracing.DependencyEvent) {
+	// Do nothing
+}
+
 // calcTotalTime calculates the total time for the instructions to execute
 func (t *InstTracer) calcTotalTime(currentEndTime float64) {
 	t.TimeManager.TotalTime = currentEndTime - t.TimeManager.firstInstStart

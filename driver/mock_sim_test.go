@@ -59,6 +59,20 @@ func (mr *MockPortMockRecorder) CanSend() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanSend", reflect.TypeOf((*MockPort)(nil).CanSend))
 }
 
+// GetBuffer mocks base method.
+func (m *MockPort) GetBuffer() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBuffer")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetBuffer indicates an expected call of GetBuffer.
+func (mr *MockPortMockRecorder) GetBuffer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBuffer", reflect.TypeOf((*MockPort)(nil).GetBuffer))
+}
+
 // Component mocks base method.
 func (m *MockPort) Component() sim.Component {
 	m.ctrl.T.Helper()

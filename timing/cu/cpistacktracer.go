@@ -233,6 +233,18 @@ func (h *CPIStackTracer) EndTask(task tracing.Task) {
 	}
 }
 
+// DelayTask does nothing
+func (t *CPIStackTracer) DelayTask(delayEvent tracing.DelayEvent) {
+	// Do nothing
+}
+// ProgressTask does nothing
+func (t *CPIStackTracer) ProgressTask(progressEvent tracing.ProgressEvent) {
+	// Do nothing
+}
+// DependencyTask does nothing
+func (t *CPIStackTracer) DependencyTask(event tracing.DependencyEvent) {
+	// Do nothing
+}
 func (h *CPIStackTracer) handleTaskStart(task tracing.Task) {
 	switch task.Kind {
 	case "wavefront":

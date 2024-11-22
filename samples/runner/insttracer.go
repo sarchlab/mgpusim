@@ -69,3 +69,16 @@ func (t *instTracer) EndTask(task tracing.Task) {
 		atexit.Exit(0)
 	}
 }
+
+// DelayTask does nothing
+func (t *instTracer) DelayTask(delayEvent tracing.DelayEvent) {
+	// Do nothing
+}
+// ProgressTask does nothing
+func (t *instTracer) ProgressTask(progressEvent tracing.ProgressEvent) {
+	// Do nothing
+}
+// DependencyTask does nothing
+func (t *instTracer) DependencyTask(event tracing.DependencyEvent) {
+	// Do nothing
+}
