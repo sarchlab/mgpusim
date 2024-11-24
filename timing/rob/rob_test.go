@@ -1,42 +1,42 @@
 package rob
 
 import (
-	"os"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v4/datarecording"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/akita/v4/datarecording"
 )
 
 var dataRecorder *datarecording.SQLiteWriter
-var dbFile = "test_database.sqlite3"
+
+// var dbFile = "test_database.sqlite3"
 var engine sim.Engine
 
 type myHook struct {
-    f func(ctx sim.HookCtx)
+	f func(ctx sim.HookCtx)
 }
 
 func (h *myHook) Func(ctx sim.HookCtx) {
-    h.f(ctx)
+	h.f(ctx)
 }
 
 var _ = BeforeSuite(func() {
-	os.Remove(dbFile)
-    dataRecorder = datarecording.NewSQLiteWriter("test_database")
-    dataRecorder.Init()
-    engine = sim.NewSerialEngine()
-    tracer := tracing.NewDBTracer(engine, dataRecorder)
-    tracing.SetTracer(tracer)
+	// os.Remove(dbFile)
+	dataRecorder = datarecording.NewSQLiteWriter("")
+	dataRecorder.Init()
+	engine = sim.NewSerialEngine()
+	tracer := tracing.NewDBTracer(engine, dataRecorder)
+	tracing.SetTracer(tracer)
 })
 
 var _ = AfterSuite(func() {
-    if dataRecorder != nil {
+	if dataRecorder != nil {
 		dataRecorder.Flush()
-        dataRecorder.Close() 
-    }
+		dataRecorder.Close()
+	}
 })
 
 var _ = Describe("Reorder Buffer", func() {
