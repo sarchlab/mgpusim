@@ -24,6 +24,11 @@ type SIMDUnit struct {
 	NumSinglePrecisionUnit int
 
 	isIdle bool
+	timeTeller sim.TimeTeller
+}
+
+func (u *SIMDUnit) CurrentTime() sim.VTimeInSec {
+    return u.timeTeller.CurrentTime()
 }
 
 // NewSIMDUnit creates a new branch unit, injecting the dependency of
@@ -39,7 +44,7 @@ func NewSIMDUnit(
 	u.cu = cu
 	u.scratchpadPreparer = scratchpadPreparer
 	u.alu = alu
-
+	u.timeTeller = cu.Engine
 	u.NumSinglePrecisionUnit = 16
 
 	return u

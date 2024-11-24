@@ -1,7 +1,7 @@
 package rob
 
 import (
-	"fmt"
+	"os"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +12,8 @@ import (
 )
 
 var dataRecorder *datarecording.SQLiteWriter
+var dbFile = "test_database.sqlite3"
+var engine sim.Engine
 
 type myHook struct {
     f func(ctx sim.HookCtx)
@@ -21,33 +23,20 @@ func (h *myHook) Func(ctx sim.HookCtx) {
     h.f(ctx)
 }
 
-type sqliteTracerBackend struct {
-    backend *datarecording.SQLiteWriter
-}
-
-func (b *sqliteTracerBackend) Write(task tracing.Task) {
-    b.backend.InsertData("tasks", task)
-}
-
-func (b *sqliteTracerBackend) WriteMilestone(milestone tracing.Milestone) {
-    b.backend.InsertData("milestones", milestone)
-}
-
-func (b *sqliteTracerBackend) Flush() {
-    b.backend.Flush()
-}
-
 var _ = BeforeSuite(func() {
+	os.Remove(dbFile)
     dataRecorder = datarecording.NewSQLiteWriter("test_database")
     dataRecorder.Init()
-    dataRecorder.CreateTable("milestones", tracing.Milestone{})
-    tracing.SetDataRecorder(dataRecorder)
+    engine = sim.NewSerialEngine()
+    tracer := tracing.NewDBTracer(engine, dataRecorder)
+    tracing.SetTracer(tracer)
 })
 
 var _ = AfterSuite(func() {
-    dataRecorder.Flush()
-    dataRecorder.DB.Close()
-    // os.Remove("test_database.sqlite3")
+    if dataRecorder != nil {
+		dataRecorder.Flush()
+        dataRecorder.Close() 
+    }
 })
 
 var _ = Describe("Reorder Buffer", func() {
@@ -65,7 +54,6 @@ var _ = Describe("Reorder Buffer", func() {
 		topPort = NewMockPort(mockCtrl)
 		bottomPort = NewMockPort(mockCtrl)
 		ctrlPort = NewMockPort(mockCtrl)
-		engine := sim.NewSerialEngine()
 		rob = MakeBuilder().
 			WithBufferSize(10).
 			WithEngine(engine).
@@ -74,18 +62,6 @@ var _ = Describe("Reorder Buffer", func() {
 		rob.bottomPort = bottomPort
 		rob.controlPort = ctrlPort
 		rob.BottomUnit = NewMockPort(mockCtrl)
-		rob.AddHook(tracing.HookPosMilestone, &myHook{
-			f: func(ctx sim.HookCtx) {
-				milestone := ctx.Item.(tracing.Milestone)
-				fmt.Printf("Milestone in test: ID=%s, TaskID=%s, Category=%s, Reason=%s, Location=%s, Time=%f\n",
-					milestone.ID, 
-					milestone.TaskID, 
-					milestone.BlockingCategory, 
-					milestone.BlockingReason, 
-					milestone.BlockingLocation,
-					milestone.Time)
-			},
-		})
 		rob.TickLater()
 	})
 

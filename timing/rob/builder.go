@@ -57,7 +57,6 @@ func (b Builder) Build(name string) *ReorderBuffer {
 	rb.transactions = list.New()
 	rb.transactions.Init()
 	rb.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
-	rb.hooks = make(map[*sim.HookPos][]sim.Hook)
 	rb.bufferSize = b.bufferSize
 	rb.numReqPerCycle = b.numReqPerCycle
 

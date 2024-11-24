@@ -15,6 +15,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
@@ -42,7 +43,7 @@ require (
 
 // replace github.com/syifan/goseth => ../goseth
 
-// replace github.com/sarchlab/akita/v4 => ../akita
+replace github.com/sarchlab/akita/v4 => ../akita
 
 go 1.22.0
 

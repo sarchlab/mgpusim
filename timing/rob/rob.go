@@ -31,7 +31,6 @@ type ReorderBuffer struct {
 	toBottomReqIDToTransactionTable map[string]*list.Element
 	transactions                    *list.List
 	isFlushing                      bool
-	hooks map[*sim.HookPos][]sim.Hook
 }
 
 func (b *ReorderBuffer) getTaskID() string {
@@ -44,13 +43,6 @@ func (b *ReorderBuffer) getTaskID() string {
 
 func (rob *ReorderBuffer) CurrentTime() sim.VTimeInSec {
     return rob.Engine.CurrentTime()
-}
-
-func (b *ReorderBuffer) AddHook(pos *sim.HookPos, hook sim.Hook) {
-	if b.hooks == nil {
-		b.hooks = make(map[*sim.HookPos][]sim.Hook)
-	}
-	b.hooks[pos] = append(b.hooks[pos], hook)
 }
 
 // Tick updates the status of the ReorderBuffer.

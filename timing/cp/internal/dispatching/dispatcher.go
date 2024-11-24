@@ -43,6 +43,11 @@ type DispatcherImpl struct {
 
 	monitor     *monitoring.Monitor
 	progressBar *monitoring.ProgressBar
+	timeTeller sim.TimeTeller
+}
+
+func (d *DispatcherImpl) CurrentTime() sim.VTimeInSec {
+    return d.timeTeller.CurrentTime()
 }
 
 // Name returns the name of the dispatcher

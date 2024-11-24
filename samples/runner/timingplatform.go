@@ -15,6 +15,7 @@ import (
 	"github.com/sarchlab/akita/v4/noc/networking/pcie"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v4/datarecording"
 	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
@@ -213,28 +214,30 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 		return
 	}
 
-	var backend tracing.TracerBackend
-	switch *visTracerDB {
-	case "sqlite":
-		be := tracing.NewSQLiteTraceWriter(*visTracerDBFileName)
-		be.Init()
-		backend = be
-	case "csv":
-		be := tracing.NewCSVTraceWriter(*visTracerDBFileName)
-		be.Init()
-		backend = be
-	case "mysql":
-		be := tracing.NewMySQLTraceWriter()
-		be.Init()
-		backend = be
-	default:
-		panic(fmt.Sprintf(
-			"Tracer database type must be [sqlite|csv|mysql]. "+
-				"Provided value %s is not supported.",
-			*visTracerDB))
-	}
+	be := datarecording.NewSQLiteWriter(*visTracerDBFileName)
+	be.Init()
+	// switch *visTracerDB {
+	// case "sqlite":
+	// 	be := tracing.NewSQLiteTraceWriter(*visTracerDBFileName)
+	// 	be.Init()
+	// 	backend = be
+	// case "csv":
+	// 	be := tracing.NewCSVTraceWriter(*visTracerDBFileName)
+	// 	be.Init()
+	// 	backend = be
+	// case "mysql":
+	// 	be := tracing.NewMySQLTraceWriter()
+	// 	be.Init()
+	// 	backend = be
+	// default:
+	// 	panic(fmt.Sprintf(
+	// 		"Tracer database type must be [sqlite|csv|mysql]. "+
+	// 			"Provided value %s is not supported.",
+	// 		*visTracerDB))
+	// }
 
-	visTracer := tracing.NewDBTracer(b.engine, backend)
+	visTracer := tracing.NewDBTracer(b.engine, be)
+	tracing.SetTracer(visTracer) 
 	visTracer.SetTimeRange(b.traceVisStartTime, b.traceVisEndTime)
 
 	b.visTracer = visTracer
