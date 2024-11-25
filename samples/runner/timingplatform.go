@@ -8,6 +8,7 @@ import (
 	memtraces "github.com/sarchlab/akita/v4/mem/trace"
 
 	"github.com/sarchlab/akita/v4/analysis"
+	"github.com/sarchlab/akita/v4/datarecording"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/mem/vm/mmu"
@@ -15,7 +16,6 @@ import (
 	"github.com/sarchlab/akita/v4/noc/networking/pcie"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
-	"github.com/sarchlab/akita/v4/datarecording"
 	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
@@ -237,7 +237,6 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 	// }
 
 	visTracer := tracing.NewDBTracer(b.engine, be)
-	tracing.SetTracer(visTracer) 
 	visTracer.SetTimeRange(b.traceVisStartTime, b.traceVisEndTime)
 
 	b.visTracer = visTracer

@@ -224,6 +224,11 @@ func (h *CPIStackTracer) StepTask(task tracing.Task) {
 	// Do nothing
 }
 
+// AddMilestone does nothing.
+func (h *CPIStackTracer) AddMilestone(milestone tracing.Milestone) {
+	// Do nothing
+}
+
 // EndTask is called when a task is ended.
 func (h *CPIStackTracer) EndTask(task tracing.Task) {
 	originalTask, found := h.inflightTasks[task.ID]

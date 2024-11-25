@@ -7,7 +7,6 @@ import (
 	"github.com/sarchlab/akita/v4/datarecording"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/tracing"
 )
 
 var dataRecorder *datarecording.SQLiteWriter
@@ -28,8 +27,6 @@ var _ = BeforeSuite(func() {
 	dataRecorder = datarecording.NewSQLiteWriter("")
 	dataRecorder.Init()
 	engine = sim.NewSerialEngine()
-	tracer := tracing.NewDBTracer(engine, dataRecorder)
-	tracing.SetTracer(tracer)
 })
 
 var _ = AfterSuite(func() {

@@ -57,6 +57,10 @@ func (h *ISADebugger) StepTask(task tracing.Task) {
 	// Do nothing.
 }
 
+func (h *ISADebugger) AddMilestone(milestone tracing.Milestone) {
+	// Do nothing.
+}
+
 // EndTask marks the end of an instruction.
 func (h *ISADebugger) EndTask(task tracing.Task) {
 	originalTask, found := h.executingInst[task.ID]
