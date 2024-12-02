@@ -42,6 +42,6 @@ type GPU struct {
 	L2TLBs           []TraceableComponent
 	MemControllers   []TraceableComponent
 	MMUEngine        *mmu.MMU
-	GMMUEngine       *gmmu.GMMU
+	GMMUEngine       *gmmu.Comp
 	GMMUCache        []TraceableComponent
 }

@@ -429,7 +429,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 		driver.DeviceProperties{
 			CUCount:  b.numCUPerSA * b.numSAPerGPU,
 			DRAMSize: 4 * mem.GB,
-		}, gpuBuilder.pageTable)
+		})
 
 	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
