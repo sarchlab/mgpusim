@@ -153,7 +153,7 @@ func (d *Driver) RegisterGPU(
 			CUCount:  properties.CUCount,
 			DRAMSize: properties.DRAMSize,
 		},
-		pageTable: vm.PageTable,
+		PageTable: vm.NewPageTable(d.Log2PageSize),
 	}
 	gpuDevice.SetTotalMemSize(properties.DRAMSize)
 	d.memAllocator.RegisterDevice(gpuDevice)
