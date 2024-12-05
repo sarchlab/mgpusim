@@ -82,7 +82,7 @@ type R9NanoGPUBuilder struct {
 	l2ToDramConnection     *sim.DirectConnection
 
 	gmmuCache *tlb.TLB
-	gmmu      *gmmu.GMMU
+	gmmu      *gmmu.Comp
 	pageTable vm.PageTable
 }
 
