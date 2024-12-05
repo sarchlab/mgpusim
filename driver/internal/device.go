@@ -40,7 +40,7 @@ type Device struct {
 	nextActualGPUIndex int
 	MemState           DeviceMemoryState
 	Properties         DeviceProperties
-	pageTable          vm.PageTable
+	PageTable          vm.PageTable
 }
 
 // SetTotalMemSize sets total memory size
