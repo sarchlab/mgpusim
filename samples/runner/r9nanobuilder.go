@@ -238,9 +238,9 @@ func (b R9NanoGPUBuilder) Build(name string, id uint64) *GPU {
 	b.buildL2Caches()
 	b.buildDRAMControllers()
 	b.buildCP()
-	b.buildL2TLB()
 	b.buildGMMU()
 	b.buildGMMUCache()
+	b.buildL2TLB()
 
 	b.connectCP()
 	b.connectL2AndDRAM()
@@ -259,11 +259,6 @@ func (b *R9NanoGPUBuilder) populateExternalPorts() {
 	b.gpu.Domain.AddPort("RDMA", b.rdmaEngine.ToOutside)
 	b.gpu.Domain.AddPort("PageMigrationController",
 		b.pageMigrationController.GetPortByName("Remote"))
-
-	for i, l2TLB := range b.l2TLBs {
-		name := fmt.Sprintf("Translation_%02d", i)
-		b.gpu.Domain.AddPort(name, l2TLB.GetPortByName("Bottom"))
-	}
 	b.gpu.Domain.AddPort("GMMU", b.gmmu.GetPortByName("Bottom"))
 }
 

@@ -31,7 +31,7 @@ func NewMemoryAllocator(
 ) MemoryAllocator {
 	a := &memoryAllocatorImpl{
 		pageTable:            pageTable,
-		totalStorageByteSize: 1 << log2PageSize, // Starting with a page to avoid 0 address.
+		totalStorageByteSize: 0,
 		log2PageSize:         log2PageSize,
 		processMemoryStates:  make(map[vm.PID]*processMemoryState),
 		vAddrToPageMapping:   make(map[uint64]vm.Page),
@@ -160,9 +160,10 @@ func (a *memoryAllocatorImpl) allocatePages(
 			DeviceID: uint64(a.deviceIDByPAddr(pAddr)),
 		}
 
-		// fmt.Printf("page.addr is %x piage Device ID is %d \n", page.PAddr, page.DeviceID)
+		// fmt.Printf("page.addr is %x page Device ID is %d \n", page.PAddr, page.DeviceID)
 		// debug.PrintStack()
 		device.PageTable.Insert(page)
+		a.pageTable.Insert(page)
 		a.vAddrToPageMapping[page.VAddr] = page
 	}
 

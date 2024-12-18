@@ -189,6 +189,7 @@ func (b R9NanoPlatformBuilder) buildGPUDriver(
 		WithGlobalStorage(b.globalStorage).
 		WithD2HCycles(8500).
 		WithH2DCycles(14500).
+		WithCPUMemorySize(4 * mem.GB).
 		Build("Driver")
 	if b.visTracer != nil {
 		tracing.CollectTrace(gpuDriver, b.visTracer)
