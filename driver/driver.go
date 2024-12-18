@@ -153,10 +153,10 @@ func (d *Driver) RegisterGPU(
 			CUCount:  properties.CUCount,
 			DRAMSize: properties.DRAMSize,
 		},
+		PageTable: vm.NewPageTable(d.Log2PageSize),
 	}
 	gpuDevice.SetTotalMemSize(properties.DRAMSize)
 	d.memAllocator.RegisterDevice(gpuDevice)
-
 	d.devices = append(d.devices, gpuDevice)
 }
 

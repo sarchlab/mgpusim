@@ -63,9 +63,8 @@ func (a *memoryAllocatorImpl) RegisterDevice(device *Device) {
 
 	state := device.MemState
 	state.setInitialAddress(a.totalStorageByteSize)
-
 	a.totalStorageByteSize += state.getStorageSize()
-
+	device.PageTable = vm.NewPageTable(a.log2PageSize)
 	a.devices[device.ID] = device
 }
 
@@ -163,7 +162,7 @@ func (a *memoryAllocatorImpl) allocatePages(
 
 		// fmt.Printf("page.addr is %x piage Device ID is %d \n", page.PAddr, page.DeviceID)
 		// debug.PrintStack()
-		a.pageTable.Insert(page)
+		device.PageTable.Insert(page)
 		a.vAddrToPageMapping[page.VAddr] = page
 	}
 
@@ -187,8 +186,11 @@ func (a *memoryAllocatorImpl) Remap(
 		vAddrs = append(vAddrs, addr)
 		addr += pageSize
 	}
-
-	a.allocateMultiplePagesWithGivenVAddrs(pid, deviceID, vAddrs, false)
+	device := a.devices[deviceID]
+	pages := a.allocateMultiplePagesWithGivenVAddrs(pid, deviceID, vAddrs, false)
+	for _, page := range pages {
+		device.PageTable.Insert(page)
+	}
 }
 
 func (a *memoryAllocatorImpl) RemovePage(vAddr uint64) {
@@ -244,8 +246,8 @@ func (a *memoryAllocatorImpl) allocatePageWithGivenVAddr(
 		DeviceID: uint64(deviceID),
 		Unified:  isUnified,
 	}
+	device.PageTable.Insert(page)
 	a.vAddrToPageMapping[page.VAddr] = page
-	a.pageTable.Update(page)
 
 	return page
 }
