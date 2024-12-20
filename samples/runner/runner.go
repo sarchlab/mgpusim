@@ -15,6 +15,7 @@ import (
 	"github.com/sarchlab/akita/v3/tracing"
 	"github.com/sarchlab/mgpusim/v3/benchmarks"
 	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/samplinglib"
 	"github.com/tebeka/atexit"
 )
 
@@ -64,7 +65,7 @@ func (r *Runner) Init() *Runner {
 	r.parseGPUFlag()
 
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
-
+	samplinglib.InitSampledEngine()
 	if r.Timing {
 		r.buildTimingPlatform()
 	} else {

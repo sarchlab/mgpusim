@@ -12,6 +12,7 @@ import (
 	"github.com/sarchlab/mgpusim/v3/insts"
 	"github.com/sarchlab/mgpusim/v3/kernels"
 	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/mgpusim/v3/samplinglib"
 	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
 )
 
@@ -71,6 +72,8 @@ type ComputeUnit struct {
 
 	currentFlushReq   *protocol.CUPipelineFlushReq
 	currentRestartReq *protocol.CUPipelineRestartReq
+	//for sampling
+	wftime map[string]sim.VTimeInSec
 }
 
 // ControlPort returns the port that can receive controlling messages from the
@@ -308,7 +311,55 @@ func (cu *ComputeUnit) processInputFromACE(now sim.VTimeInSec) bool {
 		panic("unknown req type")
 	}
 }
+func (cu *ComputeUnit) Handle(evt sim.Event) error {
+	ctx := sim.HookCtx{
+		Domain: cu,
+		Pos:    sim.HookPosBeforeEvent,
+		Item:   evt,
+	}
+	cu.InvokeHook(ctx)
 
+	cu.Lock()
+
+	defer cu.Unlock()
+
+	switch evt := evt.(type) {
+	case *wavefront.WfCompletionEvent:
+		cu.handleWfCompletionEvent(evt)
+	default:
+		log.Panicf("Unable to process evevt of type %s",
+			reflect.TypeOf(evt))
+	}
+
+	ctx.Pos = sim.HookPosAfterEvent
+	cu.InvokeHook(ctx)
+
+	return nil
+}
+func (cu *ComputeUnit) handleWfCompletionEvent(evt *wavefront.WfCompletionEvent) error {
+	wf := evt.Wf
+	wf.State = wavefront.WfCompleted
+	s_ := cu.Scheduler
+	s := s_.(*SchedulerImpl)
+	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
+		now := evt.Time()
+
+		done := s.sendWGCompletionMessage(now, wf.WG)
+		if !done {
+			newEvent := wavefront.NewWfCompletionEvent(cu.Freq.NextTick(now), cu, wf)
+			cu.Engine.Schedule(newEvent)
+			return nil
+		}
+
+		s.resetRegisterValue(wf)
+		cu.clearWGResource(wf.WG)
+		tracing.EndTask(wf.UID, cu)
+		tracing.TraceReqComplete(wf.WG.MapReq, cu)
+
+		return nil
+	}
+	return nil
+}
 func (cu *ComputeUnit) handleMapWGReq(
 	now sim.VTimeInSec,
 	req *protocol.MapWGReq,
@@ -317,20 +368,49 @@ func (cu *ComputeUnit) handleMapWGReq(
 
 	tracing.TraceReqReceive(req, cu)
 
-	for i, wf := range wg.Wfs {
-		location := req.Wavefronts[i]
-		cu.WfPools[location.SIMDID].AddWf(wf)
-		cu.WfDispatcher.DispatchWf(now, wf, req.Wavefronts[i])
-		wf.State = wavefront.WfReady
+	//sampling
+	skip_simulate := false
+	if *samplinglib.SampledRunnerFlag {
+		for _, wf := range wg.Wfs {
+			cu.wftime[wf.UID] = now
+		}
+		wfpredicttime, wfsampled := samplinglib.Sampledengine.Predict()
+		predtime := wfpredicttime
+		skip_simulate = wfsampled
+		for _, wf := range wg.Wfs {
 
-		tracing.StartTaskWithSpecificLocation(wf.UID,
-			tracing.MsgIDAtReceiver(req, cu),
-			cu,
-			"wavefront",
-			"wavefront",
-			cu.Name()+".WFPool",
-			nil,
-		)
+			if skip_simulate {
+				predicted_time := predtime + now
+				wf.State = wavefront.WfSampledCompleted
+				newEvent := wavefront.NewWfCompletionEvent(predicted_time, cu, wf)
+				cu.Engine.Schedule(newEvent)
+				tracing.StartTask(wf.UID,
+					tracing.MsgIDAtReceiver(req, cu),
+					cu,
+					"wavefront",
+					"wavefront",
+					nil,
+				)
+			}
+		}
+
+	}
+	if !skip_simulate {
+		for i, wf := range wg.Wfs {
+			location := req.Wavefronts[i]
+			cu.WfPools[location.SIMDID].AddWf(wf)
+			cu.WfDispatcher.DispatchWf(now, wf, req.Wavefronts[i])
+			wf.State = wavefront.WfReady
+
+			tracing.StartTaskWithSpecificLocation(wf.UID,
+				tracing.MsgIDAtReceiver(req, cu),
+				cu,
+				"wavefront",
+				"wavefront",
+				cu.Name()+".WFPool",
+				nil,
+			)
+		}
 	}
 
 	cu.running = true
@@ -809,6 +889,6 @@ func NewComputeUnit(
 	cu.ToScalarMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
 	cu.ToVectorMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")
 	cu.ToCP = sim.NewLimitNumMsgPort(cu, 4, name+".ToCP")
-
+	cu.wftime = make(map[string]sim.VTimeInSec)
 	return cu
 }
