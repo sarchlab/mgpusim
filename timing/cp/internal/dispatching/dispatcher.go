@@ -136,11 +136,10 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 			location, ok := d.inflightWGs[rspToID]
 			if ok {
 				count += 1
-			}
-			///sampling
-			if ok {
+				///sampling
 				d.collectSamplingData(location.locations)
 			}
+
 		}
 
 		if count == 0 {
