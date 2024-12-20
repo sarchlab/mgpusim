@@ -114,6 +114,15 @@ func (d *DispatcherImpl) Tick(now sim.VTimeInSec) (madeProgress bool) {
 	return madeProgress
 }
 
+func (d *DispatcherImpl) collectSamplingData(locations []protocol.WfDispatchLocation) {
+	if *samplinglib.SampledRunnerFlag {
+		for _, l := range locations {
+			wavefront := l.Wavefront
+			samplinglib.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
+		}
+	}
+}
+
 func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 	msg := d.dispatchingPort.Peek()
 	if msg == nil {
@@ -129,11 +138,8 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 				count += 1
 			}
 			///sampling
-			if ok && (*samplinglib.SampledRunnerFlag) {
-				for _, l := range location.locations {
-					wavefront := l.Wavefront
-					samplinglib.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
-				}
+			if ok {
+				d.collectSamplingData(location.locations)
 			}
 		}
 
