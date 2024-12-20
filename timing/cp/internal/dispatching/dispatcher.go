@@ -127,14 +127,12 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 			location, ok := d.inflightWGs[rspToID]
 			if ok {
 				count += 1
-				///sampling
-				if *samplinglib.SampledRunnerFlag {
-
-					for _, l := range location.locations {
-						wavefront := l.Wavefront
-						samplinglib.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
-
-					}
+			}
+			///sampling
+			if ok && (*samplinglib.SampledRunnerFlag) {
+				for _, l := range location.locations {
+					wavefront := l.Wavefront
+					samplinglib.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
 				}
 			}
 		}

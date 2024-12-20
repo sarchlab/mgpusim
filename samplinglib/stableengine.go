@@ -1,3 +1,4 @@
+// Package samplinglib provides tools for performing sampling simulation
 package samplinglib
 
 import (
