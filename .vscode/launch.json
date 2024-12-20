@@ -71,6 +71,13 @@
             "program": "${workspaceFolder}/timing"
         },
         {
+            "name": "Test github.com/sarchlab/mgpusim/timing/cu",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/timing/cu"
+        },
+        {
             "name": "Test gitlab.com/akita/gcn3/timing/caches/l1v",
             "type": "go",
             "request": "launch",
@@ -161,8 +168,21 @@
                 "-timing",
                 "-length=8192",
                 "-report-all",
-                "-gpus=1,2",
-                "-use-unified-memory=false",
+            ],
+        },
+        {
+            "name": "KMeans",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/samples/kmeans",
+            "args": [
+                // "-timing",
+                "-points=1024",
+                "-features=32",
+                "-clusters=5",
+                "-max-iter=4",
+                // "-report-all",
             ],
         },
         {

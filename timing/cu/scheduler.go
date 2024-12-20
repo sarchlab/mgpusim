@@ -96,7 +96,7 @@ func (s *SchedulerImpl) DecodeNextInst(now sim.VTimeInSec) bool {
 				continue
 			}
 
-			if !s.wfHasAtLeast8BytesInInstBuffer(wf) {
+			if !s.wfHasAtLeast4BytesInInstBuffer(wf) {
 				continue
 			}
 
@@ -112,8 +112,8 @@ func (s *SchedulerImpl) DecodeNextInst(now sim.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *SchedulerImpl) wfHasAtLeast8BytesInInstBuffer(wf *wavefront.Wavefront) bool {
-	return len(wf.InstBuffer[wf.PC-wf.InstBufferStartPC:]) >= 8
+func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) bool {
+	return len(wf.InstBuffer[wf.PC-wf.InstBufferStartPC:]) >= 4
 }
 
 // DoFetch function of the scheduler will fetch instructions from the
@@ -353,7 +353,7 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 		WithSendTime(now).
 		WithSrc(s.cu.ToACE).
 		WithDst(dispatcher).
-		WithRspTo(mapReq.ID).
+		WithRspTo([]string{mapReq.ID}).
 		Build()
 
 	err := s.cu.ToACE.Send(msg)

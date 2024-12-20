@@ -38,6 +38,8 @@ type ComputeUnit struct {
 	GlobalMemStorage *mem.Storage
 
 	ToDispatcher sim.Port
+
+	finishedMapWGReqs []string
 }
 
 // ControlPort returns the port that can receive controlling messages from the
@@ -366,15 +368,32 @@ func (cu *ComputeUnit) resolveBarrier(wg *kernels.WorkGroup) {
 
 func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	delete(cu.wfs, evt.Req.WorkGroup)
+	found := false
+	for _, r := range cu.finishedMapWGReqs {
+		if r == evt.Req.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		cu.finishedMapWGReqs = append(cu.finishedMapWGReqs, evt.Req.ID)
+	}
+
+	if len(cu.wfs) != 0 {
+		return nil
+	}
 
 	req := protocol.WGCompletionMsgBuilder{}.
-		WithRspTo(evt.Req.ID).
 		WithSrc(cu.ToDispatcher).
 		WithDst(evt.Req.Src).
 		WithSendTime(evt.Time()).
+		WithRspTo(cu.finishedMapWGReqs).
 		Build()
+
 	err := cu.ToDispatcher.Send(req)
-	if err != nil {
+	if err == nil {
+		cu.finishedMapWGReqs = nil
+	} else {
 		newEvent := NewWGCompleteEvent(cu.Freq.NextTick(evt.Time()),
 			cu, evt.Req)
 		cu.Engine.Schedule(newEvent)

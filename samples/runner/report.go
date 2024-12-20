@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/sarchlab/akita/v3/sim"
@@ -68,12 +69,21 @@ func (r *Runner) defineMetrics() {
 }
 
 func (r *Runner) addKernelTimeTracer() {
-	r.kernelTimeCounter = tracing.NewBusyTimeTracer(
-		r.platform.Engine,
-		func(task tracing.Task) bool {
-			return task.What == "*driver.LaunchKernelCommand"
-		})
-	tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+	if *unifiedGPUFlag != "" {
+		r.kernelTimeCounter = tracing.NewBusyTimeTracer(
+			r.platform.Engine,
+			func(task tracing.Task) bool {
+				return task.What == "*driver.LaunchUnifiedMultiGPUKernelCommand"
+			})
+		tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+	} else {
+		r.kernelTimeCounter = tracing.NewBusyTimeTracer(
+			r.platform.Engine,
+			func(task tracing.Task) bool {
+				return task.What == "*driver.LaunchKernelCommand"
+			})
+		tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+	}
 
 	for _, gpu := range r.platform.GPUs {
 		gpuKernelTimeCounter := tracing.NewBusyTimeTracer(
@@ -385,15 +395,35 @@ func (r *Runner) reportCPIStack() {
 		cu := t.cu
 		hook := t.tracer
 
-		cpiStack := hook.GetCPIStack()
-		for name, value := range cpiStack {
-			r.metricsCollector.Collect(cu.Name(), "CPIStack."+name, value)
-		}
+		r.reportCPIStackEntries(hook, cu, false)
+		r.reportCPIStackEntries(hook, cu, true)
+	}
+}
 
-		simdCPIStack := hook.GetSIMDCPIStack()
-		for name, value := range simdCPIStack {
-			r.metricsCollector.Collect(cu.Name(), "SIMDCPIStack."+name, value)
-		}
+func (r *Runner) reportCPIStackEntries(
+	hook *cu.CPIStackTracer,
+	cu TraceableComponent,
+	simdStack bool,
+) {
+	cpiStack := hook.GetCPIStack()
+	if simdStack {
+		cpiStack = hook.GetSIMDCPIStack()
+	}
+
+	keys := make([]string, 0, len(cpiStack))
+	for k := range cpiStack {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	stackTypeName := "CPIStack"
+	if simdStack {
+		stackTypeName = "SIMDCPIStack"
+	}
+
+	for _, name := range keys {
+		value := cpiStack[name]
+		r.metricsCollector.Collect(cu.Name(), stackTypeName+"."+name, value)
 	}
 }
 
@@ -439,10 +469,10 @@ func (r *Runner) reportCacheHitRate() {
 	for _, tracer := range r.cacheHitRateTracers {
 		readHit := tracer.tracer.GetStepCount("read-hit")
 		readMiss := tracer.tracer.GetStepCount("read-miss")
-		readMSHRHit := tracer.tracer.GetStepCount("read-mshr-miss")
+		readMSHRHit := tracer.tracer.GetStepCount("read-mshr-hit")
 		writeHit := tracer.tracer.GetStepCount("write-hit")
 		writeMiss := tracer.tracer.GetStepCount("write-miss")
-		writeMSHRHit := tracer.tracer.GetStepCount("write-mshr-miss")
+		writeMSHRHit := tracer.tracer.GetStepCount("write-mshr-hit")
 
 		totalTransaction := readHit + readMiss + readMSHRHit +
 			writeHit + writeMiss + writeMSHRHit

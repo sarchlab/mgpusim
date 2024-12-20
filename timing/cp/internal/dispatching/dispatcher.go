@@ -2,6 +2,7 @@ package dispatching
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/sarchlab/akita/v3/monitoring"
 	"github.com/sarchlab/akita/v3/sim"
@@ -120,28 +121,39 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 
 	switch msg := msg.(type) {
 	case *protocol.WGCompletionMsg:
-		location, ok := d.inflightWGs[msg.RspTo]
-		if !ok {
-			return false
+		count := 0
+		for _, rspToID := range msg.RspTo {
+			_, ok := d.inflightWGs[rspToID]
+			if ok {
+				count += 1
+			}
 		}
 
-		d.alg.FreeResources(location)
-		delete(d.inflightWGs, msg.RspTo)
-		d.numCompletedWGs++
-		if d.numCompletedWGs == d.alg.NumWG() {
-			d.cycleLeft = d.constantKernelOverhead
+		if count == 0 {
+			return false
+		} else if count < len(msg.RspTo) {
+			log.Panic("In emulation all finished WGs from more than one dispatcher")
+		}
+
+		for _, rspToID := range msg.RspTo {
+			location := d.inflightWGs[rspToID]
+			d.alg.FreeResources(location)
+			delete(d.inflightWGs, rspToID)
+			d.numCompletedWGs++
+			if d.numCompletedWGs == d.alg.NumWG() {
+				d.cycleLeft = d.constantKernelOverhead
+			}
+
+			originalReq := d.originalReqs[rspToID]
+			delete(d.originalReqs, rspToID)
+			tracing.TraceReqFinalize(originalReq, d)
+
+			if d.progressBar != nil {
+				d.progressBar.MoveInProgressToFinished(1)
+			}
 		}
 
 		d.dispatchingPort.Retrieve(now)
-
-		originalReq := d.originalReqs[msg.RspTo]
-		delete(d.originalReqs, msg.RspTo)
-		tracing.TraceReqFinalize(originalReq, d)
-
-		if d.progressBar != nil {
-			d.progressBar.MoveInProgressToFinished(1)
-		}
-
 		return true
 	}
 
