@@ -311,6 +311,8 @@ func (cu *ComputeUnit) processInputFromACE(now sim.VTimeInSec) bool {
 		panic("unknown req type")
 	}
 }
+
+// Handle the wavefront completion events
 func (cu *ComputeUnit) Handle(evt sim.Event) error {
 	ctx := sim.HookCtx{
 		Domain: cu,
@@ -339,8 +341,8 @@ func (cu *ComputeUnit) Handle(evt sim.Event) error {
 func (cu *ComputeUnit) handleWfCompletionEvent(evt *wavefront.WfCompletionEvent) error {
 	wf := evt.Wf
 	wf.State = wavefront.WfCompleted
-	s_ := cu.Scheduler
-	s := s_.(*SchedulerImpl)
+	sTmp := cu.Scheduler
+	s := sTmp.(*SchedulerImpl)
 	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
 		now := evt.Time()
 
@@ -369,20 +371,19 @@ func (cu *ComputeUnit) handleMapWGReq(
 	tracing.TraceReqReceive(req, cu)
 
 	//sampling
-	skip_simulate := false
+	skipSimulate := false
 	if *samplinglib.SampledRunnerFlag {
 		for _, wf := range wg.Wfs {
 			cu.wftime[wf.UID] = now
 		}
 		wfpredicttime, wfsampled := samplinglib.Sampledengine.Predict()
 		predtime := wfpredicttime
-		skip_simulate = wfsampled
+		skipSimulate = wfsampled
 		for _, wf := range wg.Wfs {
-
-			if skip_simulate {
-				predicted_time := predtime + now
+			if skipSimulate {
+				predictedTime := predtime + now
 				wf.State = wavefront.WfSampledCompleted
-				newEvent := wavefront.NewWfCompletionEvent(predicted_time, cu, wf)
+				newEvent := wavefront.NewWfCompletionEvent(predictedTime, cu, wf)
 				cu.Engine.Schedule(newEvent)
 				tracing.StartTask(wf.UID,
 					tracing.MsgIDAtReceiver(req, cu),
@@ -393,9 +394,8 @@ func (cu *ComputeUnit) handleMapWGReq(
 				)
 			}
 		}
-
 	}
-	if !skip_simulate {
+	if !skipSimulate {
 		for i, wf := range wg.Wfs {
 			location := req.Wavefronts[i]
 			cu.WfPools[location.SIMDID].AddWf(wf)
