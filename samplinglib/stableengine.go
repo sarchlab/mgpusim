@@ -27,56 +27,56 @@ type StableEngine struct {
 }
 
 // Analysis the data
-func (stable_engine *StableEngine) Analysis() {
-	rateBottom := sim.VTimeInSec(stable_engine.granulary)*stable_engine.issuetimeSquareSum - stable_engine.issuetimeSum*stable_engine.issuetimeSum
-	rateTop := sim.VTimeInSec(stable_engine.granulary)*stable_engine.mixSum - stable_engine.issuetimeSum*stable_engine.finishtimeSum
+func (se *StableEngine) Analysis() {
+	rateBottom := sim.VTimeInSec(se.granulary)*se.issuetimeSquareSum - se.issuetimeSum*se.issuetimeSum
+	rateTop := sim.VTimeInSec(se.granulary)*se.mixSum - se.issuetimeSum*se.finishtimeSum
 	rate := float64(rateTop / rateBottom)
-	stable_engine.rate = rate
-	boundary := stable_engine.boundary
-	stable_engine.predTime = stable_engine.intervaltimeSum / sim.VTimeInSec(stable_engine.granulary)
+	se.rate = rate
+	boundary := se.boundary
+	se.predTime = se.intervaltimeSum / sim.VTimeInSec(se.granulary)
 	if rate >= (1-boundary) && rate <= (1+boundary) {
-		stable_engine.enableSampled = true
+		se.enableSampled = true
 	} else {
-		stable_engine.enableSampled = false
+		se.enableSampled = false
 	}
 }
 
 // Reset all information
-func (stable_engine *StableEngine) Reset() {
-	stable_engine.Wffeatures = nil
-	stable_engine.issuetimeSum = 0
-	stable_engine.finishtimeSum = 0
-	stable_engine.intervaltimeSum = 0
-	stable_engine.mixSum = 0
-	stable_engine.issuetimeSquareSum = 0
-	stable_engine.predTime = 0
-	stable_engine.enableSampled = false
+func (se *StableEngine) Reset() {
+	se.Wffeatures = nil
+	se.issuetimeSum = 0
+	se.finishtimeSum = 0
+	se.intervaltimeSum = 0
+	se.mixSum = 0
+	se.issuetimeSquareSum = 0
+	se.predTime = 0
+	se.enableSampled = false
 }
 
 // Collect data
-func (stable_engine *StableEngine) Collect(issuetime, finishtime sim.VTimeInSec) {
+func (se *StableEngine) Collect(issuetime, finishtime sim.VTimeInSec) {
 	wffeature := WFFeature{
 		Issuetime:  issuetime,
 		Finishtime: finishtime,
 	}
 
-	stable_engine.Wffeatures = append(stable_engine.Wffeatures, wffeature)
-	stable_engine.issuetimeSum += issuetime
-	stable_engine.finishtimeSum += finishtime
-	stable_engine.mixSum += finishtime * issuetime
-	stable_engine.issuetimeSquareSum += issuetime * issuetime
-	stable_engine.intervaltimeSum += (finishtime - issuetime)
-	if len(stable_engine.Wffeatures) == stable_engine.granulary {
-		stable_engine.Analysis()
+	se.Wffeatures = append(se.Wffeatures, wffeature)
+	se.issuetimeSum += issuetime
+	se.finishtimeSum += finishtime
+	se.mixSum += finishtime * issuetime
+	se.issuetimeSquareSum += issuetime * issuetime
+	se.intervaltimeSum += (finishtime - issuetime)
+	if len(se.Wffeatures) == se.granulary {
+		se.Analysis()
 		///delete old data
-		wffeature2 := stable_engine.Wffeatures[0]
-		stable_engine.Wffeatures = stable_engine.Wffeatures[1:]
+		wffeature2 := se.Wffeatures[0]
+		se.Wffeatures = se.Wffeatures[1:]
 		issuetime = wffeature2.Issuetime
 		finishtime = wffeature2.Finishtime
-		stable_engine.issuetimeSum -= issuetime
-		stable_engine.finishtimeSum -= finishtime
-		stable_engine.mixSum -= finishtime * issuetime
-		stable_engine.issuetimeSquareSum -= issuetime * issuetime
-		stable_engine.intervaltimeSum -= (finishtime - issuetime)
+		se.issuetimeSum -= issuetime
+		se.finishtimeSum -= finishtime
+		se.mixSum -= finishtime * issuetime
+		se.issuetimeSquareSum -= issuetime * issuetime
+		se.intervaltimeSum -= (finishtime - issuetime)
 	}
 }
