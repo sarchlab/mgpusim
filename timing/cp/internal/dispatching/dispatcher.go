@@ -139,7 +139,6 @@ func (d *DispatcherImpl) processMessagesFromCU(now sim.VTimeInSec) bool {
 				///sampling
 				d.collectSamplingData(location.locations)
 			}
-
 		}
 
 		if count == 0 {
