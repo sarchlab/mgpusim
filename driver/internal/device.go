@@ -89,6 +89,8 @@ func (d *Device) allocateUnifiedGPUPage() (pAddr uint64) {
 		}
 
 		devSelected = dev
+
+		break
 	}
 
 	if devSelected == nil {
