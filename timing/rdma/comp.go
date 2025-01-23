@@ -201,6 +201,10 @@ func (c *Comp) processReqFromL1(
 ) bool {
 	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
 
+	if dst == nil {
+		panic("RDMA address not found")
+	}
+
 	if dst == c.ToOutside {
 		panic("RDMA loop back detected")
 	}
