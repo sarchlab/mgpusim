@@ -65,7 +65,7 @@ type DMAEngine struct {
 
 	Log2AccessSize uint64
 
-	localDataSource mem.LowModuleFinder
+	localDataSource mem.AddressToPortMapper
 
 	processingReqs []*RequestCollection
 
@@ -82,7 +82,7 @@ type DMAEngine struct {
 
 // SetLocalDataSource sets the table that maps from addresses to port that can
 // provide the data.
-func (dma *DMAEngine) SetLocalDataSource(s mem.LowModuleFinder) {
+func (dma *DMAEngine) SetLocalDataSource(s mem.AddressToPortMapper) {
 	dma.localDataSource = s
 }
 
@@ -287,7 +287,7 @@ func (dma *DMAEngine) parseMemCopyH2D(
 
 		module := dma.localDataSource.Find(addr)
 		reqToBottom := mem.WriteReqBuilder{}.
-			WithSrc(dma.ToMem).
+			WithSrc(dma.ToMem.AsRemote()).
 			WithDst(module).
 			WithAddress(addr).
 			WithData(req.SrcBuffer[offset : offset+length]).
@@ -325,7 +325,7 @@ func (dma *DMAEngine) parseMemCopyD2H(
 
 		module := dma.localDataSource.Find(addr)
 		reqToBottom := mem.ReadReqBuilder{}.
-			WithSrc(dma.ToMem).
+			WithSrc(dma.ToMem.AsRemote()).
 			WithDst(module).
 			WithAddress(addr).
 			WithByteSize(length).
@@ -348,7 +348,7 @@ func (dma *DMAEngine) parseMemCopyD2H(
 func NewDMAEngine(
 	name string,
 	engine sim.Engine,
-	localDataSource mem.LowModuleFinder,
+	localDataSource mem.AddressToPortMapper,
 ) *DMAEngine {
 	dma := new(DMAEngine)
 	dma.TickingComponent = sim.NewTickingComponent(
@@ -359,8 +359,8 @@ func NewDMAEngine(
 
 	dma.maxRequestCount = 4
 
-	dma.ToCP = sim.NewLimitNumMsgPort(dma, 40960000, name+".ToCP")
-	dma.ToMem = sim.NewLimitNumMsgPort(dma, 64, name+".ToMem")
+	dma.ToCP = sim.NewPort(dma, 40960000, 40960000, name+".ToCP")
+	dma.ToMem = sim.NewPort(dma, 64, 64, name+".ToMem")
 
 	return dma
 }

@@ -50,10 +50,10 @@ type ComputeUnit struct {
 
 	InstMem          sim.Port
 	ScalarMem        sim.Port
-	VectorMemModules mem.LowModuleFinder
+	VectorMemModules mem.AddressToPortMapper
 
-	ToACE       sim.Port
-	toACESender sim.BufferedSender
+	ToACE sim.Port
+	// toACESender sim.BufferedSender
 	ToInstMem   sim.Port
 	ToScalarMem sim.Port
 	ToVectorMem sim.Port
@@ -115,7 +115,7 @@ func (cu *ComputeUnit) Tick() bool {
 	madeProgress := false
 
 	madeProgress = cu.runPipeline() || madeProgress
-	madeProgress = cu.sendToACE() || madeProgress
+	// madeProgress = cu.sendToACE() || madeProgress
 	madeProgress = cu.sendToCP() || madeProgress
 	madeProgress = cu.processInput() || madeProgress
 	madeProgress = cu.doFlush() || madeProgress
@@ -212,7 +212,7 @@ func (cu *ComputeUnit) handlePipelineResume(
 	cu.currentRestartReq = req
 
 	rsp := protocol.CUPipelineRestartRspBuilder{}.
-		WithSrc(cu.ToCP).
+		WithSrc(cu.ToCP.AsRemote()).
 		WithDst(cu.currentRestartReq.Src).
 		Build()
 	err := cu.ToCP.Send(rsp)
@@ -238,8 +238,13 @@ func (cu *ComputeUnit) sendToCP() bool {
 	return false
 }
 
-func (cu *ComputeUnit) sendToACE() bool {
-	return cu.toACESender.Tick()
+func (cu *ComputeUnit) sendToACE(msg sim.Msg) bool {
+	err := cu.ToACE.Send(msg)
+	if err != nil {
+		log.Panicf("Unable to send to ACE")
+	}
+
+	return true
 }
 
 func (cu *ComputeUnit) flushPipeline() bool {
@@ -263,7 +268,7 @@ func (cu *ComputeUnit) flushPipeline() bool {
 	cu.isPaused = true
 
 	respondToCP := protocol.CUPipelineFlushRspBuilder{}.
-		WithSrc(cu.ToCP).
+		WithSrc(cu.ToCP.AsRemote()).
 		WithDst(cu.currentFlushReq.Src).
 		Build()
 	cu.toSendToCP = respondToCP
@@ -781,13 +786,11 @@ func NewComputeUnit(
 	cu.TickingComponent = sim.NewTickingComponent(
 		name, engine, 1*sim.GHz, cu)
 
-	cu.ToACE = sim.NewLimitNumMsgPort(cu, 4, name+".ToACE")
-	cu.toACESender = sim.NewBufferedSender(
-		cu.ToACE, sim.NewBuffer(cu.Name()+".ToACESenderBuffer", 40960000))
-	cu.ToInstMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
-	cu.ToScalarMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
-	cu.ToVectorMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")
-	cu.ToCP = sim.NewLimitNumMsgPort(cu, 4, name+".ToCP")
+	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
+	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
+	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
+	cu.ToVectorMem = sim.NewPort(cu, 4, 4, name+".ToVectorMem")
+	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
 
 	return cu
 }

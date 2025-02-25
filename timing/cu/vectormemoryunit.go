@@ -84,8 +84,7 @@ func (u *VectorMemoryUnit) Run() bool {
 	return madeProgress
 }
 
-func (u *VectorMemoryUnit) instToTransaction(
-) bool {
+func (u *VectorMemoryUnit) instToTransaction() bool {
 	if len(u.transactionsWaiting) > 0 {
 		return u.insertTransactionToPipeline()
 	}
@@ -176,7 +175,7 @@ func (u *VectorMemoryUnit) executeFlatLoad(
 
 		lowModule := u.cu.VectorMemModules.Find(t.Read.Address)
 		t.Read.Dst = lowModule
-		t.Read.Src = u.cu.ToVectorMem
+		t.Read.Src = u.cu.ToVectorMem.AsRemote()
 		t.Read.PID = wave.PID()
 		u.transactionsWaiting = append(u.transactionsWaiting, t)
 	}
@@ -214,7 +213,7 @@ func (u *VectorMemoryUnit) executeFlatStore(
 		}
 		lowModule := u.cu.VectorMemModules.Find(t.Write.Address)
 		t.Write.Dst = lowModule
-		t.Write.Src = u.cu.ToVectorMem
+		t.Write.Src = u.cu.ToVectorMem.AsRemote()
 		t.Write.PID = wave.PID()
 		u.transactionsWaiting = append(u.transactionsWaiting, t)
 	}

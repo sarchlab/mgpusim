@@ -45,6 +45,20 @@ func (mr *MockPortMockRecorder) AcceptHook(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptHook", reflect.TypeOf((*MockPort)(nil).AcceptHook), arg0)
 }
 
+// AsRemote mocks base method.
+func (m *MockPort) AsRemote() sim.RemotePort {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AsRemote")
+	ret0, _ := ret[0].(sim.RemotePort)
+	return ret0
+}
+
+// AsRemote indicates an expected call of AsRemote.
+func (mr *MockPortMockRecorder) AsRemote() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AsRemote", reflect.TypeOf((*MockPort)(nil).AsRemote))
+}
+
 // CanSend mocks base method.
 func (m *MockPort) CanSend() bool {
 	m.ctrl.T.Helper()

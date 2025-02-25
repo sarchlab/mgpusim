@@ -9,8 +9,8 @@ type Builder struct {
 	name                   string
 	engine                 sim.Engine
 	freq                   sim.Freq
-	localModules           mem.LowModuleFinder
-	RemoteRDMAAddressTable mem.LowModuleFinder
+	localModules           mem.AddressToPortMapper
+	RemoteRDMAAddressTable mem.AddressToPortMapper
 	bufferSize             int
 }
 
@@ -41,13 +41,13 @@ func (b Builder) WithBufferSize(n int) Builder {
 }
 
 // WithLocalModules sets the local modules.
-func (b Builder) WithLocalModules(m mem.LowModuleFinder) Builder {
+func (b Builder) WithLocalModules(m mem.AddressToPortMapper) Builder {
 	b.localModules = m
 	return b
 }
 
 // WithRemoteModules sets the remote modules.
-func (b Builder) WithRemoteModules(m mem.LowModuleFinder) Builder {
+func (b Builder) WithRemoteModules(m mem.AddressToPortMapper) Builder {
 	b.RemoteRDMAAddressTable = m
 	return b
 }
@@ -62,10 +62,10 @@ func (b Builder) Build(name string) *Comp {
 	rdma.RemoteRDMAAddressTable = b.RemoteRDMAAddressTable
 	// rdma.SetFreq(b.freq)
 
-	rdma.ToL1 = sim.NewLimitNumMsgPort(rdma, b.bufferSize, name+".ToL1")
-	rdma.ToL2 = sim.NewLimitNumMsgPort(rdma, b.bufferSize, name+".ToL2")
-	rdma.CtrlPort = sim.NewLimitNumMsgPort(rdma, b.bufferSize, name+".CtrlPort")
-	rdma.ToOutside = sim.NewLimitNumMsgPort(rdma, b.bufferSize, name+".ToOutside")
+	rdma.ToL1 = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".ToL1")
+	rdma.ToL2 = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".ToL2")
+	rdma.CtrlPort = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".CtrlPort")
+	rdma.ToOutside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".ToOutside")
 
 	rdma.AddPort("ToL1", rdma.ToL1)
 	rdma.AddPort("ToL2", rdma.ToL2)

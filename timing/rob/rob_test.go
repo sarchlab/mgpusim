@@ -10,11 +10,12 @@ import (
 
 var _ = Describe("Reorder Buffer", func() {
 	var (
-		mockCtrl   *gomock.Controller
-		rob        *ReorderBuffer
-		topPort    *MockPort
-		bottomPort *MockPort
-		ctrlPort   *MockPort
+		mockCtrl       *gomock.Controller
+		rob            *ReorderBuffer
+		topPort        *MockPort
+		bottomPort     *MockPort
+		ctrlPort       *MockPort
+		bottomUnitPort *MockPort
 	)
 
 	BeforeEach(func() {
@@ -24,13 +25,19 @@ var _ = Describe("Reorder Buffer", func() {
 		bottomPort = NewMockPort(mockCtrl)
 		ctrlPort = NewMockPort(mockCtrl)
 
+		topPort.EXPECT().AsRemote().AnyTimes()
+		bottomPort.EXPECT().AsRemote().AnyTimes()
+		ctrlPort.EXPECT().AsRemote().AnyTimes()
+
 		rob = MakeBuilder().
 			WithBufferSize(10).
 			Build("ROB")
 		rob.topPort = topPort
 		rob.bottomPort = bottomPort
 		rob.controlPort = ctrlPort
-		rob.BottomUnit = NewMockPort(mockCtrl)
+		bottomUnitPort = NewMockPort(mockCtrl)
+		bottomUnitPort.EXPECT().AsRemote().AnyTimes()
+		rob.BottomUnit = bottomUnitPort
 	})
 
 	AfterEach(func() {
@@ -83,8 +90,8 @@ var _ = Describe("Reorder Buffer", func() {
 			bottomPort.EXPECT().
 				Send(gomock.Any()).
 				Do(func(req *mem.ReadReq) {
-					Expect(req.Src).To(BeIdenticalTo(rob.bottomPort))
-					Expect(req.Dst).To(BeIdenticalTo(rob.BottomUnit))
+					Expect(req.Src).To(BeIdenticalTo(rob.bottomPort.AsRemote()))
+					Expect(req.Dst).To(BeIdenticalTo(rob.BottomUnit.AsRemote()))
 				}).
 				Return(nil)
 
@@ -133,7 +140,7 @@ var _ = Describe("Reorder Buffer", func() {
 
 	Context("bottom up", func() {
 		var (
-			topModule     sim.Port
+			topModule     *MockPort
 			writeFromTop  *mem.WriteReq
 			rspFromBottom *mem.WriteDoneRsp
 			transaction   *transaction
@@ -141,8 +148,9 @@ var _ = Describe("Reorder Buffer", func() {
 
 		BeforeEach(func() {
 			topModule = NewMockPort(mockCtrl)
+			topModule.EXPECT().AsRemote().AnyTimes()
 			writeFromTop = mem.WriteReqBuilder{}.
-				WithSrc(topModule).
+				WithSrc(topModule.AsRemote()).
 				Build()
 			rspFromBottom = mem.WriteDoneRspBuilder{}.
 				WithRspTo(writeFromTop.ID).
@@ -182,8 +190,8 @@ var _ = Describe("Reorder Buffer", func() {
 			topPort.EXPECT().
 				Send(gomock.Any()).
 				Do(func(rsp *mem.WriteDoneRsp) {
-					Expect(rsp.Dst).To(BeIdenticalTo(topModule))
-					Expect(rsp.Src).To(BeIdenticalTo(topPort))
+					Expect(rsp.Dst).To(BeIdenticalTo(topModule.AsRemote()))
+					Expect(rsp.Src).To(BeIdenticalTo(topPort.AsRemote()))
 					Expect(rsp.RespondTo).To(Equal(writeFromTop.ID))
 				}).
 				Return(nil)

@@ -70,6 +70,9 @@ var _ = Describe("Scalar Unit", func() {
 
 		toScalarMem = NewMockPort(mockCtrl)
 		cu.ToScalarMem = toScalarMem
+
+		scalarMem.EXPECT().AsRemote().AnyTimes()
+		toScalarMem.EXPECT().AsRemote().AnyTimes()
 	})
 
 	AfterEach(func() {
@@ -200,8 +203,8 @@ var _ = Describe("Scalar Unit", func() {
 
 	It("should send request out", func() {
 		req := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToScalarMem).
-			WithDst(scalarMem).
+			WithSrc(cu.ToScalarMem.AsRemote()).
+			WithDst(scalarMem.AsRemote()).
 			WithAddress(1024).
 			WithByteSize(4).
 			Build()
@@ -209,8 +212,8 @@ var _ = Describe("Scalar Unit", func() {
 
 		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem))
-			Expect(req.Dst).To(BeIdenticalTo(scalarMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
+			Expect(req.Dst).To(BeIdenticalTo(scalarMem.AsRemote()))
 			Expect(req.Address).To(Equal(uint64(1024)))
 			Expect(req.AccessByteSize).To(Equal(uint64(4)))
 		})
@@ -222,8 +225,8 @@ var _ = Describe("Scalar Unit", func() {
 
 	It("should retry if send request failed", func() {
 		req := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToScalarMem).
-			WithDst(scalarMem).
+			WithSrc(cu.ToScalarMem.AsRemote()).
+			WithDst(scalarMem.AsRemote()).
 			WithAddress(1024).
 			WithByteSize(4).
 			Build()
@@ -231,8 +234,8 @@ var _ = Describe("Scalar Unit", func() {
 
 		toScalarMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem))
-			Expect(req.Dst).To(BeIdenticalTo(scalarMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToScalarMem.AsRemote()))
+			Expect(req.Dst).To(BeIdenticalTo(scalarMem.AsRemote()))
 			Expect(req.Address).To(Equal(uint64(1024)))
 			Expect(req.AccessByteSize).To(Equal(uint64(4)))
 		}).Return(&sim.SendError{})

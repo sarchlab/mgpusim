@@ -287,7 +287,7 @@ func (r *Runner) addRDMAEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
+					string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
 				if !isFromOutside {
 					return false
 				}
@@ -302,7 +302,7 @@ func (r *Runner) addRDMAEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
+					string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
 				if isFromOutside {
 					return false
 				}

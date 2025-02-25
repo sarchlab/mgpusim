@@ -16,7 +16,7 @@ type PageMigrationController struct {
 	ctrlPort     sim.Port
 	localMemPort sim.Port
 
-	RemotePMCAddressTable mem.LowModuleFinder
+	RemotePMCAddressTable mem.AddressToPortMapper
 
 	currentMigrationRequest      *PageMigrationReqToPMC
 	currentPullReqFromAnotherPMC []*DataPullReq
@@ -32,12 +32,12 @@ type PageMigrationController struct {
 
 	onDemandPagingDataTransferSize uint64
 
-	requestingPMCtrlPort sim.Port
+	requestingPMCtrlPort sim.RemotePort
 
 	numDataRspPendingForPageMigration int
 	reqIDToWriteAddressMap            map[string]uint64
 
-	MemCtrlFinder mem.LowModuleFinder
+	MemCtrlFinder mem.AddressToPortMapper
 
 	DataTransferStartTime sim.VTimeInSec
 	DataTransferEndTime   sim.VTimeInSec
@@ -136,7 +136,7 @@ func (e *PageMigrationController) processPageMigrationReqFromCtrlPort() bool {
 
 	for i := 0; i < int(numDataTransfersForPage); i++ {
 		req := DataPullReqBuilder{}.
-			WithSrc(e.remotePort).
+			WithSrc(e.remotePort.AsRemote()).
 			WithDst(destination).
 			WithDataTransferSize(e.onDemandPagingDataTransferSize).
 			WithReadFromPhyAddress(startingPhysicalAddress).
@@ -193,7 +193,7 @@ func (e *PageMigrationController) processReadPageReqFromAnotherPMC() bool {
 		address := e.currentPullReqFromAnotherPMC[i].ToReadFromPhyAddress
 		dataTransferSize := e.currentPullReqFromAnotherPMC[i].DataTransferSize
 		req := mem.ReadReqBuilder{}.
-			WithSrc(e.localMemPort).
+			WithSrc(e.localMemPort.AsRemote()).
 			WithDst(e.MemCtrlFinder.Find(address)).
 			WithAddress(address).
 			WithByteSize(dataTransferSize).
@@ -262,7 +262,7 @@ func (e *PageMigrationController) processDataReadyRspFromMemCtrl() bool {
 	for i := 0; i < len(e.dataReadyRspFromMemCtrl); i++ {
 		data := e.dataReadyRspFromMemCtrl[i].Data
 		rsp := DataPullRspBuilder{}.
-			WithSrc(e.remotePort).
+			WithSrc(e.remotePort.AsRemote()).
 			WithDst(e.requestingPMCtrlPort).
 			WithData(data).
 			Build()
@@ -317,7 +317,7 @@ func (e *PageMigrationController) processDataPullRsp() bool {
 			log.Panicf("We do not know where the mem controller should write")
 		}
 		req := mem.WriteReqBuilder{}.
-			WithSrc(e.localMemPort).
+			WithSrc(e.localMemPort.AsRemote()).
 			WithDst(e.MemCtrlFinder.Find(address)).
 			WithData(data).
 			WithAddress(address).
@@ -374,7 +374,7 @@ func (e *PageMigrationController) processWriteDoneRspFromMemCtrl() bool {
 	if e.numDataRspPendingForPageMigration == 0 {
 		//log.Printf("Sending migration complete rsp to CtrlPort \n")
 		rsp := PageMigrationRspFromPMCBuilder{}.
-			WithSrc(e.ctrlPort).
+			WithSrc(e.ctrlPort.AsRemote()).
 			WithDst(e.currentMigrationRequest.Src).
 			Build()
 
@@ -414,20 +414,20 @@ func (e *PageMigrationController) SetFreq(freq sim.Freq) {
 func NewPageMigrationController(
 	name string,
 	engine sim.Engine,
-	memCtrlFinder mem.LowModuleFinder,
-	remoteModules mem.LowModuleFinder,
+	memCtrlFinder mem.AddressToPortMapper,
+	remoteModules mem.AddressToPortMapper,
 ) *PageMigrationController {
 	e := new(PageMigrationController)
 	e.TickingComponent = sim.NewTickingComponent(name, engine, 1*sim.GHz, e)
 	e.MemCtrlFinder = memCtrlFinder
 
-	e.remotePort = sim.NewLimitNumMsgPort(e, 1, name+".RemotePort")
+	e.remotePort = sim.NewPort(e, 1, 1, name+".RemotePort")
 	e.AddPort("Remote", e.remotePort)
 
-	e.localMemPort = sim.NewLimitNumMsgPort(e, 1, name+"LocalMemPort")
+	e.localMemPort = sim.NewPort(e, 1, 1, name+"LocalMemPort")
 	e.AddPort("LocalMem", e.localMemPort)
 
-	e.ctrlPort = sim.NewLimitNumMsgPort(e, 1, name+"CtrlPort")
+	e.ctrlPort = sim.NewPort(e, 1, 1, name+"CtrlPort")
 	e.AddPort("Control", e.ctrlPort)
 
 	e.RemotePMCAddressTable = remoteModules

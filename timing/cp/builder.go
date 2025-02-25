@@ -2,7 +2,6 @@ package cp
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/sarchlab/akita/v4/analysis"
 	"github.com/sarchlab/akita/v4/monitoring"
@@ -94,48 +93,15 @@ func (b Builder) Build(name string) *CommandProcessor {
 }
 
 func (Builder) createPorts(cp *CommandProcessor, name string) {
-	unlimited := math.MaxInt32
-	cp.ToDriver = sim.NewLimitNumMsgPort(cp, 1, name+".ToDriver")
-	cp.toDriverSender = sim.NewBufferedSender(
-		cp.ToDriver,
-		sim.NewBuffer(cp.Name()+".ToDriverSenderBuffer", unlimited),
-	)
-	cp.ToDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToDispatcher")
-	cp.toDMASender = sim.NewBufferedSender(
-		cp.ToDMA,
-		sim.NewBuffer(cp.Name()+".ToDMASenderBuffer", unlimited),
-	)
-	cp.ToCUs = sim.NewLimitNumMsgPort(cp, 1, name+".ToCUs")
-	cp.toCUsSender = sim.NewBufferedSender(
-		cp.ToCUs,
-		sim.NewBuffer(cp.Name()+".ToCUSenderBuffer", unlimited),
-	)
-	cp.ToTLBs = sim.NewLimitNumMsgPort(cp, 1, name+".ToTLBs")
-	cp.toTLBsSender = sim.NewBufferedSender(
-		cp.ToTLBs,
-		sim.NewBuffer(cp.Name()+".ToTLBSenderBuffer", unlimited),
-	)
-	cp.ToRDMA = sim.NewLimitNumMsgPort(cp, 1, name+".ToRDMA")
-	cp.toRDMASender = sim.NewBufferedSender(
-		cp.ToRDMA,
-		sim.NewBuffer(cp.Name()+".ToRDMASenderBuffer", unlimited),
-	)
-	cp.ToPMC = sim.NewLimitNumMsgPort(cp, 1, name+".ToPMC")
-	cp.toPMCSender = sim.NewBufferedSender(
-		cp.ToPMC,
-		sim.NewBuffer(cp.Name()+".ToPMCSenderBuffer", unlimited),
-	)
-	cp.ToAddressTranslators = sim.NewLimitNumMsgPort(cp, 1,
+	cp.ToDriver = sim.NewPort(cp, 1, 1, name+".ToDriver")
+	cp.ToDMA = sim.NewPort(cp, 1, 1, name+".ToDispatcher")
+	cp.ToCUs = sim.NewPort(cp, 1, 1, name+".ToCUs")
+	cp.ToTLBs = sim.NewPort(cp, 1, 1, name+".ToTLBs")
+	cp.ToRDMA = sim.NewPort(cp, 1, 1, name+".ToRDMA")
+	cp.ToPMC = sim.NewPort(cp, 1, 1, name+".ToPMC")
+	cp.ToAddressTranslators = sim.NewPort(cp, 1, 1,
 		name+".ToAddressTranslators")
-	cp.toAddressTranslatorsSender = sim.NewBufferedSender(
-		cp.ToAddressTranslators,
-		sim.NewBuffer(cp.Name()+".ToAddressTranslatorsBuffer", unlimited),
-	)
-	cp.ToCaches = sim.NewLimitNumMsgPort(cp, 1, name+".ToCaches")
-	cp.toCachesSender = sim.NewBufferedSender(
-		cp.ToCaches,
-		sim.NewBuffer(cp.Name()+".ToCachesBuffer", unlimited),
-	)
+	cp.ToCaches = sim.NewPort(cp, 1, 1, name+".ToCaches")
 }
 
 func (b *Builder) buildDispatchers(cp *CommandProcessor) {

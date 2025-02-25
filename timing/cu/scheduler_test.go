@@ -109,6 +109,10 @@ var _ = Describe("Scheduler", func() {
 		toACE = NewMockPort(mockCtrl)
 		cu.ToACE = toACE
 
+		instMem.EXPECT().AsRemote().AnyTimes()
+		toInstMem.EXPECT().AsRemote().AnyTimes()
+		toACE.EXPECT().AsRemote().AnyTimes()
+
 		fetchArbitor = newMockWfArbitor()
 		issueArbitor = newMockWfArbitor()
 		scheduler = NewScheduler(cu, fetchArbitor, issueArbitor)
@@ -125,8 +129,8 @@ var _ = Describe("Scheduler", func() {
 
 		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
-			Expect(req.Dst).To(BeIdenticalTo(instMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem.AsRemote()))
+			Expect(req.Dst).To(BeIdenticalTo(instMem.AsRemote()))
 			Expect(req.Address).To(Equal(uint64(0x180)))
 			Expect(req.AccessByteSize).To(Equal(uint64(64)))
 		})
@@ -146,8 +150,8 @@ var _ = Describe("Scheduler", func() {
 
 		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
-			Expect(req.Dst).To(BeIdenticalTo(instMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem.AsRemote()))
+			Expect(req.Dst).To(BeIdenticalTo(instMem.AsRemote()))
 			Expect(req.Address).To(Equal(uint64(0x180)))
 			Expect(req.AccessByteSize).To(Equal(uint64(64)))
 		}).Return(&sim.SendError{})
