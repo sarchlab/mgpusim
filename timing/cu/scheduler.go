@@ -275,8 +275,8 @@ func (s *SchedulerImpl) evalSEndPgm(
 		issuetime, found := s.cu.wftime[wf.UID]
 		if found {
 			finishtime := now
-			wf.Finishtime = finishtime
-			wf.Issuetime = issuetime
+			wf.FinishTime = finishtime
+			wf.IssueTime = issuetime
 			delete(s.cu.wftime, wf.UID)
 		}
 	}

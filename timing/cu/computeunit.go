@@ -379,9 +379,11 @@ func (cu *ComputeUnit) handleMapWGReq(
 		for _, wf := range wg.Wfs {
 			cu.wftime[wf.UID] = now
 		}
-		wfpredicttime, wfsampled := sampling.Sampledengine.Predict()
+
+		wfpredicttime, wfsampled := sampling.SampledEngineInstance.Predict()
 		predtime := wfpredicttime
 		skipSimulate = wfsampled
+
 		for _, wf := range wg.Wfs {
 			if skipSimulate {
 				predictedTime := predtime + now

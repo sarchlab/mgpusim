@@ -258,7 +258,7 @@ func (p *CommandProcessor) processLaunchKernelReq(
 	}
 
 	if *sampling.SampledRunnerFlag {
-		sampling.Sampledengine.Reset()
+		sampling.SampledEngineInstance.Reset()
 	}
 	d.StartDispatching(req)
 	p.ToDriver.RetrieveIncoming()

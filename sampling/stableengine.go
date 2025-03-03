@@ -7,20 +7,20 @@ import (
 
 // WFFeature is used for recording the runtime info
 type WFFeature struct {
-	Issuetime  sim.VTimeInSec
-	Finishtime sim.VTimeInSec
+	IssueTime  sim.VTimeInSec
+	FinishTime sim.VTimeInSec
 }
 
 // StableEngine is used to detect if the feature detecting is stable or not
 type StableEngine struct {
-	issuetimeSum       sim.VTimeInSec
-	finishtimeSum      sim.VTimeInSec
-	intervaltimeSum    sim.VTimeInSec
+	issueTimeSum       sim.VTimeInSec
+	finishTimeSum      sim.VTimeInSec
+	intervalTimeSum    sim.VTimeInSec
 	mixSum             sim.VTimeInSec
-	issuetimeSquareSum sim.VTimeInSec
+	issueTimeSquareSum sim.VTimeInSec
 	rate               float64
-	granulary          int
-	Wffeatures         []WFFeature
+	granularity        int
+	WfFeatures         []WFFeature
 	boundary           float64
 	enableSampled      bool
 	predTime           sim.VTimeInSec
@@ -28,12 +28,16 @@ type StableEngine struct {
 
 // Analysis the data
 func (se *StableEngine) Analysis() {
-	rateBottom := sim.VTimeInSec(se.granulary)*se.issuetimeSquareSum - se.issuetimeSum*se.issuetimeSum
-	rateTop := sim.VTimeInSec(se.granulary)*se.mixSum - se.issuetimeSum*se.finishtimeSum
+	rateBottom := sim.VTimeInSec(se.granularity)*se.issueTimeSquareSum -
+		se.issueTimeSum*se.issueTimeSum
+	rateTop := sim.VTimeInSec(se.granularity)*se.mixSum -
+		se.issueTimeSum*se.finishTimeSum
 	rate := float64(rateTop / rateBottom)
+
 	se.rate = rate
 	boundary := se.boundary
-	se.predTime = se.intervaltimeSum / sim.VTimeInSec(se.granulary)
+	se.predTime = se.intervalTimeSum / sim.VTimeInSec(se.granularity)
+
 	if rate >= (1-boundary) && rate <= (1+boundary) {
 		se.enableSampled = true
 	} else {
@@ -43,40 +47,41 @@ func (se *StableEngine) Analysis() {
 
 // Reset all information
 func (se *StableEngine) Reset() {
-	se.Wffeatures = nil
-	se.issuetimeSum = 0
-	se.finishtimeSum = 0
-	se.intervaltimeSum = 0
+	se.WfFeatures = nil
+	se.issueTimeSum = 0
+	se.finishTimeSum = 0
+	se.intervalTimeSum = 0
 	se.mixSum = 0
-	se.issuetimeSquareSum = 0
+	se.issueTimeSquareSum = 0
 	se.predTime = 0
 	se.enableSampled = false
 }
 
 // Collect data
-func (se *StableEngine) Collect(issuetime, finishtime sim.VTimeInSec) {
+func (se *StableEngine) Collect(issueTime, finishTime sim.VTimeInSec) {
 	wffeature := WFFeature{
-		Issuetime:  issuetime,
-		Finishtime: finishtime,
+		IssueTime:  issueTime,
+		FinishTime: finishTime,
 	}
 
-	se.Wffeatures = append(se.Wffeatures, wffeature)
-	se.issuetimeSum += issuetime
-	se.finishtimeSum += finishtime
-	se.mixSum += finishtime * issuetime
-	se.issuetimeSquareSum += issuetime * issuetime
-	se.intervaltimeSum += (finishtime - issuetime)
-	if len(se.Wffeatures) == se.granulary {
+	se.WfFeatures = append(se.WfFeatures, wffeature)
+	se.issueTimeSum += issueTime
+	se.finishTimeSum += finishTime
+	se.mixSum += finishTime * issueTime
+	se.issueTimeSquareSum += issueTime * issueTime
+
+	se.intervalTimeSum += (finishTime - issueTime)
+	if len(se.WfFeatures) == se.granularity {
 		se.Analysis()
 		///delete old data
-		wffeature2 := se.Wffeatures[0]
-		se.Wffeatures = se.Wffeatures[1:]
-		issuetime = wffeature2.Issuetime
-		finishtime = wffeature2.Finishtime
-		se.issuetimeSum -= issuetime
-		se.finishtimeSum -= finishtime
-		se.mixSum -= finishtime * issuetime
-		se.issuetimeSquareSum -= issuetime * issuetime
-		se.intervaltimeSum -= (finishtime - issuetime)
+		wfFeature2 := se.WfFeatures[0]
+		se.WfFeatures = se.WfFeatures[1:]
+		issueTime = wfFeature2.IssueTime
+		finishTime = wfFeature2.FinishTime
+		se.issueTimeSum -= issueTime
+		se.finishTimeSum -= finishTime
+		se.mixSum -= finishTime * issueTime
+		se.issueTimeSquareSum -= issueTime * issueTime
+		se.intervalTimeSum -= (finishTime - issueTime)
 	}
 }

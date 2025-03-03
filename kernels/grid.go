@@ -58,8 +58,8 @@ type Wavefront struct {
 
 	WorkItems []*WorkItem
 	//for sampling
-	Finishtime sim.VTimeInSec
-	Issuetime  sim.VTimeInSec
+	FinishTime sim.VTimeInSec
+	IssueTime  sim.VTimeInSec
 }
 
 // NewWavefront returns a new Wavefront.

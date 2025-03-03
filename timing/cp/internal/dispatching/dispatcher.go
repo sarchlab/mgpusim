@@ -118,7 +118,8 @@ func (d *DispatcherImpl) collectSamplingData(locations []protocol.WfDispatchLoca
 	if *sampling.SampledRunnerFlag {
 		for _, l := range locations {
 			wavefront := l.Wavefront
-			sampling.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
+			sampling.SampledEngineInstance.Collect(
+				wavefront.IssueTime, wavefront.FinishTime)
 		}
 	}
 }

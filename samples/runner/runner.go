@@ -67,6 +67,7 @@ func (r *Runner) Init() *Runner {
 
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 	sampling.InitSampledEngine()
+
 	if r.Timing {
 		r.buildTimingPlatform()
 	} else {
