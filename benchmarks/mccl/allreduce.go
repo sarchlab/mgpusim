@@ -1,6 +1,6 @@
 package mccl
 
-import "github.com/sarchlab/mgpusim/v3/driver"
+import "github.com/sarchlab/mgpusim/v4/driver"
 
 // AllReduceRing performs AllReduce average operation.
 func AllReduceRing(

@@ -1,8 +1,8 @@
 package sm
 
 import (
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/smunit"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/smunit"
 )
 
 type SM struct {

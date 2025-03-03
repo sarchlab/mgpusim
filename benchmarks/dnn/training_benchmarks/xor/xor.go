@@ -5,11 +5,11 @@ package xor
 import (
 	"fmt"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training/optimization"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // Benchmark defines the XOR network training benchmark.

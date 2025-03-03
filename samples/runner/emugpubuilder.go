@@ -5,16 +5,17 @@ import (
 	"log"
 	"os"
 
-	"github.com/sarchlab/akita/v3/mem/idealmemcontroller"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	memtraces "github.com/sarchlab/akita/v3/mem/trace"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/driver"
-	"github.com/sarchlab/mgpusim/v3/emu"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/timing/cp"
+	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	memtraces "github.com/sarchlab/akita/v4/mem/trace"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/driver"
+	"github.com/sarchlab/mgpusim/v4/emu"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/timing/cp"
 )
 
 // EmuGPUBuilder provide services to assemble usable GPUs
@@ -180,27 +181,27 @@ func (b *EmuGPUBuilder) buildGPU() {
 	b.gpu = sim.NewDomain(b.gpuName)
 	b.commandProcessor.Driver = b.driver.GetPortByName("GPU")
 
-	localDataSource := new(mem.SingleLowModuleFinder)
-	localDataSource.LowModule = b.gpuMem.GetPortByName("Top")
+	localDataSource := new(mem.SinglePortMapper)
+	localDataSource.Port = b.gpuMem.GetPortByName("Top").AsRemote()
 	b.dmaEngine = cp.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.gpuName), b.engine, localDataSource)
 	b.commandProcessor.DMAEngine = b.dmaEngine.ToCP
 }
 
 func (b *EmuGPUBuilder) connectInternalComponents() {
-	connection := sim.NewDirectConnection(
-		"InterGPUConn", b.engine, 1*sim.GHz)
+	connection := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(1 * sim.GHz).
+		Build("IntraGPUConn")
 
-	connection.PlugIn(b.commandProcessor.ToDriver, 1)
-	connection.PlugIn(b.commandProcessor.ToDMA, 1)
-	connection.PlugIn(b.commandProcessor.ToCUs, 1)
-	connection.PlugIn(b.driver.GetPortByName("GPU"), 1)
-	connection.PlugIn(b.gpuMem.GetPortByName("Top"), 1)
-	connection.PlugIn(b.dmaEngine.ToCP, 1)
-	connection.PlugIn(b.dmaEngine.ToMem, 1)
+	connection.PlugIn(b.commandProcessor.ToDMA)
+	connection.PlugIn(b.commandProcessor.ToCUs)
+	connection.PlugIn(b.gpuMem.GetPortByName("Top"))
+	connection.PlugIn(b.dmaEngine.ToCP)
+	connection.PlugIn(b.dmaEngine.ToMem)
 
 	for _, cu := range b.computeUnits {
 		b.commandProcessor.RegisterCU(cu)
-		connection.PlugIn(cu.ToDispatcher, 4)
+		connection.PlugIn(cu.ToDispatcher)
 	}
 }

@@ -3,18 +3,16 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/samplinglib"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // Scheduler does its job
 type Scheduler interface {
-	Run(now sim.VTimeInSec) bool
+	Run() bool
 	Pause()
 	Resume()
 	Flush()
@@ -59,13 +57,13 @@ func NewScheduler(
 }
 
 // Run runs scheduler
-func (s *SchedulerImpl) Run(now sim.VTimeInSec) bool {
+func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
 	if s.isPaused == false {
-		madeProgress = s.EvaluateInternalInst(now) || madeProgress
-		madeProgress = s.DecodeNextInst(now) || madeProgress
-		madeProgress = s.DoIssue(now) || madeProgress
-		madeProgress = s.DoFetch(now) || madeProgress
+		madeProgress = s.EvaluateInternalInst() || madeProgress
+		madeProgress = s.DecodeNextInst() || madeProgress
+		madeProgress = s.DoIssue() || madeProgress
+		madeProgress = s.DoFetch() || madeProgress
 	}
 	if !madeProgress {
 		s.cyclesNoProgress++
@@ -80,7 +78,7 @@ func (s *SchedulerImpl) Run(now sim.VTimeInSec) bool {
 }
 
 // DecodeNextInst checks
-func (s *SchedulerImpl) DecodeNextInst(now sim.VTimeInSec) bool {
+func (s *SchedulerImpl) DecodeNextInst() bool {
 	madeProgress := false
 	for _, wfPool := range s.cu.WfPools {
 		for _, wf := range wfPool.wfs {
@@ -119,7 +117,7 @@ func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) 
 
 // DoFetch function of the scheduler will fetch instructions from the
 // instruction memory
-func (s *SchedulerImpl) DoFetch(now sim.VTimeInSec) bool {
+func (s *SchedulerImpl) DoFetch() bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
@@ -132,9 +130,8 @@ func (s *SchedulerImpl) DoFetch(now sim.VTimeInSec) bool {
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
 		req := mem.ReadReqBuilder{}.
-			WithSendTime(now).
-			WithSrc(s.cu.ToInstMem).
-			WithDst(s.cu.InstMem).
+			WithSrc(s.cu.ToInstMem.AsRemote()).
+			WithDst(s.cu.InstMem.AsRemote()).
 			WithAddress(addr).
 			WithPID(wf.PID()).
 			WithByteSize(64).
@@ -162,14 +159,14 @@ func (s *SchedulerImpl) DoFetch(now sim.VTimeInSec) bool {
 
 // DoIssue function of the scheduler issues fetched instruction to the decoding
 // units
-func (s *SchedulerImpl) DoIssue(now sim.VTimeInSec) bool {
+func (s *SchedulerImpl) DoIssue() bool {
 	madeProgress := false
 
 	if s.isPaused == false {
 		wfs := s.issueArbiter.Arbitrate(s.cu.WfPools)
 		for _, wf := range wfs {
 			if wf.InstToIssue.ExeUnit == insts.ExeUnitSpecial {
-				madeProgress = s.issueToInternal(wf, now) || madeProgress
+				madeProgress = s.issueToInternal(wf) || madeProgress
 
 				continue
 			}
@@ -179,9 +176,9 @@ func (s *SchedulerImpl) DoIssue(now sim.VTimeInSec) bool {
 				wf.SetDynamicInst(wf.InstToIssue)
 				wf.InstToIssue = nil
 
-				s.cu.logInstTask(now, wf, wf.DynamicInst(), false)
+				s.cu.logInstTask(wf, wf.DynamicInst(), false)
 
-				unit.AcceptWave(wf, now)
+				unit.AcceptWave(wf)
 				wf.State = wavefront.WfRunning
 				//s.removeStaleInstBuffer(wf)
 
@@ -192,14 +189,14 @@ func (s *SchedulerImpl) DoIssue(now sim.VTimeInSec) bool {
 	return madeProgress
 }
 
-func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront, now sim.VTimeInSec) bool {
+func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront) bool {
 	wf.SetDynamicInst(wf.InstToIssue)
 	wf.InstToIssue = nil
 	s.internalExecuting = append(s.internalExecuting, wf)
 	wf.State = wavefront.WfRunning
 	//s.removeStaleInstBuffer(wf)
 
-	s.cu.logInstTask(now, wf, wf.DynamicInst(), false)
+	s.cu.logInstTask(wf, wf.DynamicInst(), false)
 
 	return true
 }
@@ -224,7 +221,7 @@ func (s *SchedulerImpl) getUnitToIssueTo(u insts.ExeUnit) SubComponent {
 
 // EvaluateInternalInst updates the status of the instruction being executed
 // in the scheduler.
-func (s *SchedulerImpl) EvaluateInternalInst(now sim.VTimeInSec) bool {
+func (s *SchedulerImpl) EvaluateInternalInst() bool {
 	if s.internalExecuting == nil {
 		return false
 	}
@@ -238,11 +235,11 @@ func (s *SchedulerImpl) EvaluateInternalInst(now sim.VTimeInSec) bool {
 
 		switch executing.Inst().Opcode {
 		case 1: // S_ENDPGM
-			instProgress, instCompleted = s.evalSEndPgm(executing, now)
+			instProgress, instCompleted = s.evalSEndPgm(executing)
 		case 10: // S_BARRIER
-			instProgress, instCompleted = s.evalSBarrier(executing, now)
+			instProgress, instCompleted = s.evalSBarrier(executing)
 		case 12: // S_WAITCNT
-			instProgress, instCompleted = s.evalSWaitCnt(executing, now)
+			instProgress, instCompleted = s.evalSWaitCnt(executing)
 		default:
 			// The program has to make progress
 			executing.State = wavefront.WfReady
@@ -252,7 +249,7 @@ func (s *SchedulerImpl) EvaluateInternalInst(now sim.VTimeInSec) bool {
 		madeProgress = instProgress || madeProgress
 
 		if instCompleted {
-			s.cu.logInstTask(now, executing, executing.DynamicInst(), true)
+			s.cu.logInstTask(executing, executing.DynamicInst(), true)
 		} else {
 			newExecuting = append(newExecuting, executing)
 		}
@@ -265,7 +262,6 @@ func (s *SchedulerImpl) EvaluateInternalInst(now sim.VTimeInSec) bool {
 
 func (s *SchedulerImpl) evalSEndPgm(
 	wf *wavefront.Wavefront,
-	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
 	if wf.OutstandingVectorMemAccess > 0 ||
 		wf.OutstandingScalarMemAccess > 0 {
@@ -282,7 +278,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 		}
 	}
 	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
-		done := s.sendWGCompletionMessage(now, wf.WG)
+		done := s.sendWGCompletionMessage(wf.WG)
 		if !done {
 			return false, false
 		}
@@ -299,7 +295,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 	}
 
 	if s.areAllOtherWfsInWGAtBarrier(wf.WG, wf) {
-		s.passBarrier(now, wf.WG)
+		s.passBarrier(wf.WG)
 		s.resetRegisterValue(wf)
 
 		wf.State = wavefront.WfCompleted
@@ -314,7 +310,7 @@ func (s *SchedulerImpl) evalSEndPgm(
 
 		wf.State = wavefront.WfCompleted
 
-		s.cu.logInstTask(now, wf, wf.DynamicInst(), true)
+		s.cu.logInstTask(wf, wf.DynamicInst(), true)
 		tracing.EndTask(wf.UID, s.cu)
 
 		return true, true
@@ -353,15 +349,13 @@ func (s *SchedulerImpl) atLeaseOneWfIsExecuting(
 }
 
 func (s *SchedulerImpl) sendWGCompletionMessage(
-	now sim.VTimeInSec,
 	wg *wavefront.WorkGroup,
 ) (done bool) {
 	mapReq := wg.MapReq
 	dispatcher := mapReq.Src
 
 	msg := protocol.WGCompletionMsgBuilder{}.
-		WithSendTime(now).
-		WithSrc(s.cu.ToACE).
+		WithSrc(s.cu.ToACE.AsRemote()).
 		WithDst(dispatcher).
 		WithRspTo([]string{mapReq.ID}).
 		Build()
@@ -411,7 +405,6 @@ func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
 
 func (s *SchedulerImpl) evalSBarrier(
 	wf *wavefront.Wavefront,
-	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
 	wf.State = wavefront.WfAtBarrier
 
@@ -419,7 +412,7 @@ func (s *SchedulerImpl) evalSBarrier(
 	allAtBarrier := s.areAllWfInWGAtBarrier(wg)
 
 	if allAtBarrier {
-		s.passBarrier(now, wg)
+		s.passBarrier(wg)
 		return true, true
 	}
 
@@ -441,19 +434,17 @@ func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *wavefront.WorkGroup) bool {
 }
 
 func (s *SchedulerImpl) passBarrier(
-	now sim.VTimeInSec,
 	wg *wavefront.WorkGroup,
 ) {
 	s.removeAllWfFromBarrierBuffer(wg)
-	s.setAllWfStateToReady(now, wg)
+	s.setAllWfStateToReady(wg)
 }
 
 func (s *SchedulerImpl) setAllWfStateToReady(
-	now sim.VTimeInSec,
 	wg *wavefront.WorkGroup,
 ) {
 	for _, wf := range wg.Wfs {
-		s.cu.logInstTask(now, wf, wf.DynamicInst(), true)
+		s.cu.logInstTask(wf, wf.DynamicInst(), true)
 
 		if wf.State == wavefront.WfCompleted {
 			continue
@@ -475,7 +466,6 @@ func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *wavefront.WorkGroup) {
 
 func (s *SchedulerImpl) evalSWaitCnt(
 	wf *wavefront.Wavefront,
-	now sim.VTimeInSec,
 ) (madeProgress bool, instCompleted bool) {
 	done := true
 	inst := wf.Inst()

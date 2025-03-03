@@ -6,12 +6,12 @@ import (
 	"math"
 	"reflect"
 
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
 )
 
 type emulationEvent struct {
@@ -97,19 +97,20 @@ func (cu *ComputeUnit) Handle(evt sim.Event) error {
 }
 
 // Tick ticks
-func (cu *ComputeUnit) Tick(now sim.VTimeInSec) bool {
-	cu.processMapWGReq(now)
+func (cu *ComputeUnit) Tick() bool {
+	cu.processMapWGReq()
 	return false
 }
 
-func (cu *ComputeUnit) processMapWGReq(now sim.VTimeInSec) {
-	msg := cu.ToDispatcher.Retrieve(now)
+func (cu *ComputeUnit) processMapWGReq() {
+	msg := cu.ToDispatcher.RetrieveIncoming()
 	if msg == nil {
 		return
 	}
 
 	req := msg.(*protocol.MapWGReq)
 
+	now := cu.TickingComponent.TickScheduler.CurrentTime()
 	if cu.nextTick <= now {
 		cu.nextTick = sim.VTimeInSec(math.Ceil(float64(now)))
 		//cu.nextTick = cu.Freq.NextTick(req.RecvTime())
@@ -127,14 +128,13 @@ func (cu *ComputeUnit) runEmulation(evt *emulationEvent) error {
 	for len(cu.queueingWGs) > 0 {
 		wg := cu.queueingWGs[0]
 		cu.queueingWGs = cu.queueingWGs[1:]
-		cu.runWG(wg, evt.Time())
+		cu.runWG(wg)
 	}
 	return nil
 }
 
 func (cu *ComputeUnit) runWG(
 	req *protocol.MapWGReq,
-	now sim.VTimeInSec,
 ) error {
 	wg := req.WorkGroup
 	cu.initWfs(wg, req)
@@ -147,6 +147,7 @@ func (cu *ComputeUnit) runWG(
 		cu.resolveBarrier(wg)
 	}
 
+	now := cu.TickingComponent.TickScheduler.CurrentTime()
 	evt := NewWGCompleteEvent(cu.Freq.NextTick(now), cu, req)
 	cu.Engine.Schedule(evt)
 
@@ -384,9 +385,8 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	}
 
 	req := protocol.WGCompletionMsgBuilder{}.
-		WithSrc(cu.ToDispatcher).
+		WithSrc(cu.ToDispatcher.AsRemote()).
 		WithDst(evt.Req.Src).
-		WithSendTime(evt.Time()).
 		WithRspTo(cu.finishedMapWGReqs).
 		Build()
 
@@ -423,7 +423,7 @@ func NewComputeUnit(
 	cu.queueingWGs = make([]*protocol.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
-	cu.ToDispatcher = sim.NewLimitNumMsgPort(cu, 1, name+".ToDispatcher")
+	cu.ToDispatcher = sim.NewPort(cu, 1, 1, name+".ToDispatcher")
 
 	return cu
 }

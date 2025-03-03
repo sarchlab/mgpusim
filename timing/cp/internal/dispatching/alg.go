@@ -1,10 +1,10 @@
 package dispatching
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/cp/internal/resource"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/resource"
 )
 
 type dispatchLocation struct {

@@ -1,6 +1,6 @@
 package cu
 
-import "github.com/sarchlab/mgpusim/v3/timing/wavefront"
+import "github.com/sarchlab/mgpusim/v4/timing/wavefront"
 
 // An WfArbiter can decide which wavefront can take action,
 // in a list of wavefront pools

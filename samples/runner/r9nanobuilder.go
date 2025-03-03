@@ -3,24 +3,25 @@ package runner
 import (
 	"fmt"
 
-	rob2 "github.com/sarchlab/mgpusim/v3/timing/rob"
+	rob2 "github.com/sarchlab/mgpusim/v4/timing/rob"
 
-	"github.com/sarchlab/akita/v3/analysis"
-	"github.com/sarchlab/akita/v3/mem/cache/writearound"
-	"github.com/sarchlab/akita/v3/mem/cache/writeback"
-	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
-	"github.com/sarchlab/akita/v3/mem/dram"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
-	"github.com/sarchlab/akita/v3/mem/vm/mmu"
-	"github.com/sarchlab/akita/v3/mem/vm/tlb"
-	"github.com/sarchlab/akita/v3/monitoring"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/timing/cp"
-	"github.com/sarchlab/mgpusim/v3/timing/cu"
-	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v4/analysis"
+	"github.com/sarchlab/akita/v4/mem/cache/writearound"
+	"github.com/sarchlab/akita/v4/mem/cache/writeback"
+	"github.com/sarchlab/akita/v4/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v4/mem/dram"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v4/mem/vm/mmu"
+	"github.com/sarchlab/akita/v4/mem/vm/tlb"
+	"github.com/sarchlab/akita/v4/monitoring"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/timing/cp"
+	"github.com/sarchlab/mgpusim/v4/timing/cu"
+	"github.com/sarchlab/mgpusim/v4/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v4/timing/rdma"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -28,7 +29,7 @@ type R9NanoGPUBuilder struct {
 	engine                         sim.Engine
 	freq                           sim.Freq
 	memAddrOffset                  uint64
-	mmu                            *mmu.MMU
+	mmu                            *mmu.Comp
 	numShaderArray                 int
 	numCUPerShaderArray            int
 	numMemoryBank                  int
@@ -54,30 +55,30 @@ type R9NanoGPUBuilder struct {
 	l1vReorderBuffers       []*rob2.ReorderBuffer
 	l1iReorderBuffers       []*rob2.ReorderBuffer
 	l1sReorderBuffers       []*rob2.ReorderBuffer
-	l1vCaches               []*writearound.Cache
-	l1sCaches               []*writethrough.Cache
-	l1iCaches               []*writethrough.Cache
-	l2Caches                []*writeback.Cache
-	l1vAddrTrans            []*addresstranslator.AddressTranslator
-	l1sAddrTrans            []*addresstranslator.AddressTranslator
-	l1iAddrTrans            []*addresstranslator.AddressTranslator
-	l1vTLBs                 []*tlb.TLB
-	l1sTLBs                 []*tlb.TLB
-	l1iTLBs                 []*tlb.TLB
-	l2TLBs                  []*tlb.TLB
-	drams                   []*dram.MemController
-	lowModuleFinderForL1    *mem.InterleavedLowModuleFinder
-	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
-	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
+	l1vCaches               []*writearound.Comp
+	l1sCaches               []*writethrough.Comp
+	l1iCaches               []*writethrough.Comp
+	l2Caches                []*writeback.Comp
+	l1vAddrTrans            []*addresstranslator.Comp
+	l1sAddrTrans            []*addresstranslator.Comp
+	l1iAddrTrans            []*addresstranslator.Comp
+	l1vTLBs                 []*tlb.Comp
+	l1sTLBs                 []*tlb.Comp
+	l1iTLBs                 []*tlb.Comp
+	l2TLBs                  []*tlb.Comp
+	drams                   []*dram.Comp
+	lowModuleFinderForL1    *mem.InterleavedAddressPortMapper
+	lowModuleFinderForL2    *mem.InterleavedAddressPortMapper
+	lowModuleFinderForPMC   *mem.InterleavedAddressPortMapper
 	dmaEngine               *cp.DMAEngine
 	rdmaEngine              *rdma.Comp
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
 
-	internalConn           *sim.DirectConnection
-	l1TLBToL2TLBConnection *sim.DirectConnection
-	l1ToL2Connection       *sim.DirectConnection
-	l2ToDramConnection     *sim.DirectConnection
+	internalConn           *directconnection.Comp
+	l1TLBToL2TLBConnection *directconnection.Comp
+	l1ToL2Connection       *directconnection.Comp
+	l2ToDramConnection     *directconnection.Comp
 }
 
 // MakeR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.
@@ -118,7 +119,7 @@ func (b R9NanoGPUBuilder) WithMemAddrOffset(
 
 // WithMMU sets the MMU component that provides the address translation service
 // for the GPU.
-func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.MMU) R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.Comp) R9NanoGPUBuilder {
 	b.mmu = mmu
 	return b
 }
@@ -265,27 +266,28 @@ func (b *R9NanoGPUBuilder) createGPU(name string, id uint64) {
 }
 
 func (b *R9NanoGPUBuilder) connectCP() {
-	b.internalConn = sim.NewDirectConnection(
-		b.gpuName+".InternalConn", b.engine, b.freq)
+	b.internalConn = directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.gpuName + ".InternalConn")
 
-	b.internalConn.PlugIn(b.cp.ToDriver, 1)
-	b.internalConn.PlugIn(b.cp.ToDMA, 128)
-	b.internalConn.PlugIn(b.cp.ToCaches, 128)
-	b.internalConn.PlugIn(b.cp.ToCUs, 128)
-	b.internalConn.PlugIn(b.cp.ToTLBs, 128)
-	b.internalConn.PlugIn(b.cp.ToAddressTranslators, 128)
-	b.internalConn.PlugIn(b.cp.ToRDMA, 4)
-	b.internalConn.PlugIn(b.cp.ToPMC, 4)
+	b.internalConn.PlugIn(b.cp.ToDMA)
+	b.internalConn.PlugIn(b.cp.ToCaches)
+	b.internalConn.PlugIn(b.cp.ToCUs)
+	b.internalConn.PlugIn(b.cp.ToTLBs)
+	b.internalConn.PlugIn(b.cp.ToAddressTranslators)
+	b.internalConn.PlugIn(b.cp.ToRDMA)
+	b.internalConn.PlugIn(b.cp.ToPMC)
 
 	b.cp.RDMA = b.rdmaEngine.CtrlPort
-	b.internalConn.PlugIn(b.cp.RDMA, 1)
+	b.internalConn.PlugIn(b.cp.RDMA)
 
 	b.cp.DMAEngine = b.dmaEngine.ToCP
-	b.internalConn.PlugIn(b.dmaEngine.ToCP, 1)
+	b.internalConn.PlugIn(b.dmaEngine.ToCP)
 
 	pmcControlPort := b.pageMigrationController.GetPortByName("Control")
 	b.cp.PMC = pmcControlPort
-	b.internalConn.PlugIn(pmcControlPort, 1)
+	b.internalConn.PlugIn(pmcControlPort)
 
 	b.connectCPWithCUs()
 	b.connectCPWithAddressTranslators()
@@ -294,97 +296,103 @@ func (b *R9NanoGPUBuilder) connectCP() {
 }
 
 func (b *R9NanoGPUBuilder) connectL1ToL2() {
-	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
+	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
 		1 << b.log2MemoryBankInterleavingSize)
-	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
+	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1.AsRemote()
 	lowModuleFinder.UseAddressSpaceLimitation = true
 	lowModuleFinder.LowAddress = b.memAddrOffset
 	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
 
-	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1ToL2",
-		b.engine, b.freq)
+	l1ToL2Conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.gpuName + ".L1ToL2")
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 64)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 64)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2)
 
 	for _, l2 := range b.l2Caches {
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
-			l2.GetPortByName("Top"))
-		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"), 64)
+			l2.GetPortByName("Top").AsRemote())
+		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
 	}
 
 	for _, l1v := range b.l1vCaches {
-		l1v.SetLowModuleFinder(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1v.GetPortByName("Bottom"), 16)
+		l1v.SetAddressToPortMapper(lowModuleFinder)
+		l1ToL2Conn.PlugIn(l1v.GetPortByName("Bottom"))
 	}
 
 	for _, l1s := range b.l1sCaches {
-		l1s.SetLowModuleFinder(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1s.GetPortByName("Bottom"), 16)
+		l1s.SetAddressToPortMapper(lowModuleFinder)
+		l1ToL2Conn.PlugIn(l1s.GetPortByName("Bottom"))
 	}
 
 	for _, l1iAT := range b.l1iAddrTrans {
-		l1iAT.SetLowModuleFinder(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1iAT.GetPortByName("Bottom"), 16)
+		l1iAT.SetAddressToPortMapper(lowModuleFinder)
+		l1ToL2Conn.PlugIn(l1iAT.GetPortByName("Bottom"))
 	}
 }
 
 func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
-	b.l2ToDramConnection = sim.NewDirectConnection(
-		b.gpuName+".L2ToDRAM", b.engine, b.freq)
+	b.l2ToDramConnection = directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.gpuName + ".L2ToDRAM")
 
-	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
+	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
 		1 << b.log2MemoryBankInterleavingSize)
 
 	for i, l2 := range b.l2Caches {
-		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"), 64)
-		l2.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-			LowModule: b.drams[i].GetPortByName("Top"),
+		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"))
+		l2.SetAddressToPortMapper(&mem.SinglePortMapper{
+			Port: b.drams[i].GetPortByName("Top").AsRemote(),
 		})
 	}
 
 	for _, dram := range b.drams {
-		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"), 64)
+		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"))
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
-			dram.GetPortByName("Top"))
+			dram.GetPortByName("Top").AsRemote())
 	}
 
 	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
-	b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem, 64)
+	b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem)
 
 	b.pageMigrationController.MemCtrlFinder = lowModuleFinder
 	b.l2ToDramConnection.PlugIn(
-		b.pageMigrationController.GetPortByName("LocalMem"), 16)
+		b.pageMigrationController.GetPortByName("LocalMem"))
 }
 
 func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
-	tlbConn := sim.NewDirectConnection(b.gpuName+".L1TLBToL2TLB",
-		b.engine, b.freq)
+	tlbConn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.gpuName + ".L1TLBToL2TLB")
 
-	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64)
+	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"))
 
 	for _, l1vTLB := range b.l1vTLBs {
-		l1vTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"), 16)
+		l1vTLB.LowModule = b.l2TLBs[0].GetPortByName("Top").AsRemote()
+		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"))
 	}
 
 	for _, l1iTLB := range b.l1iTLBs {
-		l1iTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-		tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"), 16)
+		l1iTLB.LowModule = b.l2TLBs[0].GetPortByName("Top").AsRemote()
+		tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"))
 	}
 
 	for _, l1sTLB := range b.l1sTLBs {
-		l1sTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-		tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"), 16)
+		l1sTLB.LowModule = b.l2TLBs[0].GetPortByName("Top").AsRemote()
+		tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"))
 	}
 }
 
 func (b *R9NanoGPUBuilder) connectCPWithCUs() {
 	for _, cu := range b.cus {
 		b.cp.RegisterCU(cu)
-		b.internalConn.PlugIn(cu.ToACE, 1)
-		b.internalConn.PlugIn(cu.ToCP, 1)
+		b.internalConn.PlugIn(cu.ToACE)
+		b.internalConn.PlugIn(cu.ToCP)
 	}
 }
 
@@ -392,40 +400,40 @@ func (b *R9NanoGPUBuilder) connectCPWithAddressTranslators() {
 	for _, at := range b.l1vAddrTrans {
 		ctrlPort := at.GetPortByName("Control")
 		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, at := range b.l1sAddrTrans {
 		ctrlPort := at.GetPortByName("Control")
 		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, at := range b.l1iAddrTrans {
 		ctrlPort := at.GetPortByName("Control")
 		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, rob := range b.l1vReorderBuffers {
 		ctrlPort := rob.GetPortByName("Control")
 		b.cp.AddressTranslators = append(
 			b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, rob := range b.l1iReorderBuffers {
 		ctrlPort := rob.GetPortByName("Control")
 		b.cp.AddressTranslators = append(
 			b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, rob := range b.l1sReorderBuffers {
 		ctrlPort := rob.GetPortByName("Control")
 		b.cp.AddressTranslators = append(
 			b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 }
 
@@ -433,25 +441,25 @@ func (b *R9NanoGPUBuilder) connectCPWithTLBs() {
 	for _, tlb := range b.l2TLBs {
 		ctrlPort := tlb.GetPortByName("Control")
 		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, tlb := range b.l1vTLBs {
 		ctrlPort := tlb.GetPortByName("Control")
 		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, tlb := range b.l1sTLBs {
 		ctrlPort := tlb.GetPortByName("Control")
 		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, tlb := range b.l1iTLBs {
 		ctrlPort := tlb.GetPortByName("Control")
 		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 }
 
@@ -459,25 +467,25 @@ func (b *R9NanoGPUBuilder) connectCPWithCaches() {
 	for _, c := range b.l1iCaches {
 		ctrlPort := c.GetPortByName("Control")
 		b.cp.L1ICaches = append(b.cp.L1ICaches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, c := range b.l1vCaches {
 		ctrlPort := c.GetPortByName("Control")
 		b.cp.L1VCaches = append(b.cp.L1VCaches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, c := range b.l1sCaches {
 		ctrlPort := c.GetPortByName("Control")
 		b.cp.L1SCaches = append(b.cp.L1SCaches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 
 	for _, c := range b.l2Caches {
 		ctrlPort := c.GetPortByName("Control")
 		b.cp.L2Caches = append(b.cp.L2Caches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort, 1)
+		b.internalConn.PlugIn(ctrlPort)
 	}
 }
 
@@ -824,7 +832,7 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1024).
 		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.mmu.GetPortByName("Top"))
+		WithLowModule(b.mmu.GetPortByName("Top").AsRemote())
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.l2TLBs = append(b.l2TLBs, l2TLB)
@@ -847,10 +855,10 @@ func (b *R9NanoGPUBuilder) connectWithDirectConnection(
 	port1, port2 sim.Port,
 	bufferSize int,
 ) {
-	conn := sim.NewDirectConnection(
-		port1.Name()+"-"+port2.Name(),
-		b.engine, b.freq,
-	)
-	conn.PlugIn(port1, bufferSize)
-	conn.PlugIn(port2, bufferSize)
+	conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(port1.Name() + "-" + port2.Name())
+	conn.PlugIn(port1)
+	conn.PlugIn(port2)
 }

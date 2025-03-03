@@ -1,10 +1,10 @@
 package driver
 
 import (
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/driver/internal"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/driver/internal"
 )
 
 // A Builder can build a driver.
@@ -106,9 +106,9 @@ func (b Builder) Build(name string) *Driver {
 		driver.middlewares = append(driver.middlewares, defaultMemoryCopyMiddleware)
 	}
 
-	driver.gpuPort = sim.NewLimitNumMsgPort(driver, 40960000, "Driver.ToGPUs")
+	driver.gpuPort = sim.NewPort(driver, 40960000, 40960000, "Driver.ToGPUs")
 	driver.AddPort("GPU", driver.gpuPort)
-	driver.mmuPort = sim.NewLimitNumMsgPort(driver, 1, "Driver.ToMMU")
+	driver.mmuPort = sim.NewPort(driver, 1, 1, "Driver.ToMMU")
 	driver.AddPort("MMU", driver.mmuPort)
 
 	driver.enqueueSignal = make(chan bool)

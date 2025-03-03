@@ -4,12 +4,12 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 type mockWfArbitor struct {
@@ -41,11 +41,11 @@ func (c *mockCUComponent) CanAcceptWave() bool {
 	return c.canAccept
 }
 
-func (c *mockCUComponent) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
+func (c *mockCUComponent) AcceptWave(wave *wavefront.Wavefront) {
 	c.acceptedWave = append(c.acceptedWave, wave)
 }
 
-func (c *mockCUComponent) Run(now sim.VTimeInSec) bool {
+func (c *mockCUComponent) Run() bool {
 	return true
 }
 
@@ -109,6 +109,10 @@ var _ = Describe("Scheduler", func() {
 		toACE = NewMockPort(mockCtrl)
 		cu.ToACE = toACE
 
+		instMem.EXPECT().AsRemote().AnyTimes()
+		toInstMem.EXPECT().AsRemote().AnyTimes()
+		toACE.EXPECT().AsRemote().AnyTimes()
+
 		fetchArbitor = newMockWfArbitor()
 		issueArbitor = newMockWfArbitor()
 		scheduler = NewScheduler(cu, fetchArbitor, issueArbitor)
@@ -125,13 +129,13 @@ var _ = Describe("Scheduler", func() {
 
 		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
-			Expect(req.Dst).To(BeIdenticalTo(instMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem.AsRemote()))
+			Expect(req.Dst).To(BeIdenticalTo(instMem.AsRemote()))
 			Expect(req.Address).To(Equal(uint64(0x180)))
 			Expect(req.AccessByteSize).To(Equal(uint64(64)))
 		})
 
-		scheduler.DoFetch(10)
+		scheduler.DoFetch()
 
 		Expect(cu.InFlightInstFetch).To(HaveLen(1))
 		Expect(wf.IsFetching).To(BeTrue())
@@ -146,13 +150,13 @@ var _ = Describe("Scheduler", func() {
 
 		toInstMem.EXPECT().Send(gomock.Any()).Do(func(r sim.Msg) {
 			req := r.(*mem.ReadReq)
-			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem))
-			Expect(req.Dst).To(BeIdenticalTo(instMem))
+			Expect(req.Src).To(BeIdenticalTo(cu.ToInstMem.AsRemote()))
+			Expect(req.Dst).To(BeIdenticalTo(instMem.AsRemote()))
 			Expect(req.Address).To(Equal(uint64(0x180)))
 			Expect(req.AccessByteSize).To(Equal(uint64(64)))
 		}).Return(&sim.SendError{})
 
-		scheduler.DoFetch(10)
+		scheduler.DoFetch()
 
 		//Expect(cu.inFlightMemAccess).To(HaveLen(0))
 		Expect(wf.IsFetching).To(BeFalse())
@@ -188,7 +192,7 @@ var _ = Describe("Scheduler", func() {
 		wfs[0].PC = 0x13C
 		issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
 
-		scheduler.DoIssue(10)
+		scheduler.DoIssue()
 
 		Expect(len(branchUnit.acceptedWave)).To(Equal(1))
 		Expect(len(ldsDecoder.acceptedWave)).To(Equal(1))
@@ -224,7 +228,7 @@ var _ = Describe("Scheduler", func() {
 		issueArbitor.wfsToReturn = append(issueArbitor.wfsToReturn, wfs)
 		scheduler.internalExecuting = nil
 
-		scheduler.DoIssue(10)
+		scheduler.DoIssue()
 
 		Expect(scheduler.internalExecuting).To(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfRunning))
@@ -242,7 +246,7 @@ var _ = Describe("Scheduler", func() {
 		wf.OutstandingScalarMemAccess = 1
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
+		scheduler.EvaluateInternalInst()
 
 		Expect(scheduler.internalExecuting).To(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfRunning))
@@ -258,7 +262,7 @@ var _ = Describe("Scheduler", func() {
 		wf.OutstandingVectorMemAccess = 1
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
+		scheduler.EvaluateInternalInst()
 
 		Expect(scheduler.internalExecuting).To(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfRunning))
@@ -276,7 +280,7 @@ var _ = Describe("Scheduler", func() {
 		wf.OutstandingVectorMemAccess = 0
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
+		scheduler.EvaluateInternalInst()
 
 		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 		Expect(wf.State).To(Equal(wavefront.WfReady))
@@ -293,7 +297,7 @@ var _ = Describe("Scheduler", func() {
 			wf.OutstandingVectorMemAccess = 1
 
 			scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-			scheduler.EvaluateInternalInst(10)
+			scheduler.EvaluateInternalInst()
 
 			Expect(scheduler.internalExecuting).NotTo(BeNil())
 		})
@@ -328,7 +332,7 @@ var _ = Describe("Scheduler", func() {
 			wg.Wfs = append(wg.Wfs, wf)
 
 			scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-			scheduler.EvaluateInternalInst(10)
+			scheduler.EvaluateInternalInst()
 
 			Expect(scheduler.internalExecuting).To(HaveLen(0))
 			for i := 0; i < 3; i++ {
@@ -368,7 +372,7 @@ var _ = Describe("Scheduler", func() {
 				wg.Wfs = append(wg.Wfs, wf)
 
 				scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-				scheduler.EvaluateInternalInst(10)
+				scheduler.EvaluateInternalInst()
 
 				Expect(scheduler.internalExecuting).To(HaveLen(0))
 				for i := 0; i < 3; i++ {
@@ -407,7 +411,7 @@ var _ = Describe("Scheduler", func() {
 				wg.Wfs = append(wg.Wfs, wf)
 
 				scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-				scheduler.EvaluateInternalInst(10)
+				scheduler.EvaluateInternalInst()
 
 				Expect(scheduler.internalExecuting).To(ContainElement(wf))
 				for i := 0; i < 3; i++ {
@@ -445,7 +449,7 @@ var _ = Describe("Scheduler", func() {
 				cu.WfPools[0].wfs = append(cu.WfPools[0].wfs, wf)
 
 				scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-				scheduler.EvaluateInternalInst(10)
+				scheduler.EvaluateInternalInst()
 
 				Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 				Expect(cu.WfPools[0].wfs).To(HaveLen(0))
@@ -468,7 +472,7 @@ var _ = Describe("Scheduler", func() {
 		wf := wg.Wfs[0]
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
+		scheduler.EvaluateInternalInst()
 
 		Expect(wf.State).To(Equal(wavefront.WfAtBarrier))
 		Expect(len(scheduler.barrierBuffer)).To(Equal(1))
@@ -497,7 +501,7 @@ var _ = Describe("Scheduler", func() {
 		wg.Wfs = append(wg.Wfs, wf)
 
 		scheduler.internalExecuting = []*wavefront.Wavefront{wf}
-		scheduler.EvaluateInternalInst(10)
+		scheduler.EvaluateInternalInst()
 
 		Expect(scheduler.internalExecuting).NotTo(ContainElement(wf))
 		Expect(len(scheduler.barrierBuffer)).To(Equal(0))

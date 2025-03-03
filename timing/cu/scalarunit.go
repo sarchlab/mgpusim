@@ -3,12 +3,11 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/emu"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/emu"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // A ScalarUnit performs Scalar operations
@@ -58,21 +57,21 @@ func (u *ScalarUnit) IsIdle() bool {
 }
 
 // AcceptWave moves one wavefront into the read buffer of the Scalar unit
-func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec) {
+func (u *ScalarUnit) AcceptWave(wave *wavefront.Wavefront) {
 	u.toRead = wave
 }
 
 // Run executes three pipeline stages that are controlled by the ScalarUnit
-func (u *ScalarUnit) Run(now sim.VTimeInSec) bool {
+func (u *ScalarUnit) Run() bool {
 	madeProgress := false
-	madeProgress = u.sendRequest(now) || madeProgress
-	madeProgress = u.runWriteStage(now) || madeProgress
-	madeProgress = u.runExecStage(now) || madeProgress
-	madeProgress = u.runReadStage(now) || madeProgress
+	madeProgress = u.sendRequest() || madeProgress
+	madeProgress = u.runWriteStage() || madeProgress
+	madeProgress = u.runExecStage() || madeProgress
+	madeProgress = u.runReadStage() || madeProgress
 	return madeProgress
 }
 
-func (u *ScalarUnit) runReadStage(now sim.VTimeInSec) bool {
+func (u *ScalarUnit) runReadStage() bool {
 	if u.toRead == nil {
 		return false
 	}
@@ -87,13 +86,13 @@ func (u *ScalarUnit) runReadStage(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (u *ScalarUnit) runExecStage(now sim.VTimeInSec) bool {
+func (u *ScalarUnit) runExecStage() bool {
 	if u.toExec == nil {
 		return false
 	}
 	if u.toWrite == nil {
 		if u.toExec.Inst().FormatType == insts.SMEM {
-			u.executeSMEMInst(now)
+			u.executeSMEMInst()
 			return true
 		}
 
@@ -107,17 +106,17 @@ func (u *ScalarUnit) runExecStage(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (u *ScalarUnit) executeSMEMInst(now sim.VTimeInSec) bool {
+func (u *ScalarUnit) executeSMEMInst() bool {
 	inst := u.toExec.Inst()
 	switch inst.Opcode {
 	case 0:
-		return u.executeSMEMLoad(4, now)
+		return u.executeSMEMLoad(4)
 	case 1:
-		return u.executeSMEMLoad(8, now)
+		return u.executeSMEMLoad(8)
 	case 2:
-		return u.executeSMEMLoad(16, now)
+		return u.executeSMEMLoad(16)
 	case 3:
-		return u.executeSMEMLoad(32, now)
+		return u.executeSMEMLoad(32)
 	default:
 		log.Panicf("opcode %d is not supported.", inst.Opcode)
 	}
@@ -125,7 +124,7 @@ func (u *ScalarUnit) executeSMEMInst(now sim.VTimeInSec) bool {
 	panic("never")
 }
 
-func (u *ScalarUnit) executeSMEMLoad(byteSize int, now sim.VTimeInSec) bool {
+func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 	inst := u.toExec.DynamicInst()
 	sp := u.toExec.Scratchpad().AsSMEM()
 
@@ -144,9 +143,8 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int, now sim.VTimeInSec) bool {
 		bytesLeft -= bytesLeftInCacheline
 
 		req := mem.ReadReqBuilder{}.
-			WithSendTime(now).
-			WithSrc(u.cu.ToScalarMem).
-			WithDst(u.cu.ScalarMem).
+			WithSrc(u.cu.ToScalarMem.AsRemote()).
+			WithDst(u.cu.ScalarMem.AsRemote()).
 			WithAddress(curr).
 			WithPID(u.toExec.PID()).
 			WithByteSize(bytesLeftInCacheline).
@@ -211,14 +209,14 @@ func (u ScalarUnit) byteInCacheline(curr, bytesLeft uint64) uint64 {
 	return bytesLeft
 }
 
-func (u *ScalarUnit) runWriteStage(now sim.VTimeInSec) bool {
+func (u *ScalarUnit) runWriteStage() bool {
 	if u.toWrite == nil {
 		return false
 	}
 
 	u.scratchpadPreparer.Commit(u.toWrite, u.toWrite)
 
-	u.cu.logInstTask(now, u.toWrite, u.toWrite.DynamicInst(), true)
+	u.cu.logInstTask(u.toWrite, u.toWrite.DynamicInst(), true)
 
 	u.cu.UpdatePCAndSetReady(u.toWrite)
 
@@ -226,10 +224,9 @@ func (u *ScalarUnit) runWriteStage(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (u *ScalarUnit) sendRequest(now sim.VTimeInSec) bool {
+func (u *ScalarUnit) sendRequest() bool {
 	if len(u.readBuf) > 0 {
 		req := u.readBuf[0]
-		req.SendTime = now
 		err := u.cu.ToScalarMem.Send(req)
 		if err == nil {
 			u.readBuf = u.readBuf[1:]

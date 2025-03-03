@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/simpleconvolution"
-	"github.com/sarchlab/mgpusim/v3/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/amdappsdk/simpleconvolution"
+	"github.com/sarchlab/mgpusim/v4/samples/runner"
 )
 
 var widthFlag = flag.Uint("width", 254, "The width of the input matrix.")

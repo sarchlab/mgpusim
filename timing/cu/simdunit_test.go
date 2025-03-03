@@ -3,8 +3,8 @@ package cu
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 var _ = Describe("SIMD Unit", func() {
@@ -41,7 +41,7 @@ var _ = Describe("SIMD Unit", func() {
 		wave := new(wavefront.Wavefront)
 		inst := wavefront.NewInst(insts.NewInst())
 		wave.SetDynamicInst(inst)
-		bu.AcceptWave(wave, 10)
+		bu.AcceptWave(wave)
 		Expect(bu.toExec).To(BeIdenticalTo(wave))
 		Expect(bu.cycleLeft).To(Equal(4))
 	})
@@ -64,7 +64,7 @@ var _ = Describe("SIMD Unit", func() {
 		bu.toExec = wave
 		bu.cycleLeft = 1
 
-		bu.Run(10)
+		bu.Run()
 
 		Expect(wave.State).To(Equal(wavefront.WfReady))
 		Expect(wave.PC).To(Equal(uint64(0x140)))

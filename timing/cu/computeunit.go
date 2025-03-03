@@ -5,15 +5,14 @@ import (
 	"reflect"
 
 	"github.com/rs/xid"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/emu"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/kernels"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/samplinglib"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/emu"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/kernels"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // A ComputeUnit in the timing package provides a detailed and accurate
@@ -51,10 +50,10 @@ type ComputeUnit struct {
 
 	InstMem          sim.Port
 	ScalarMem        sim.Port
-	VectorMemModules mem.LowModuleFinder
+	VectorMemModules mem.AddressToPortMapper
 
-	ToACE       sim.Port
-	toACESender sim.BufferedSender
+	ToACE sim.Port
+	// toACESender sim.BufferedSender
 	ToInstMem   sim.Port
 	ToScalarMem sim.Port
 	ToVectorMem sim.Port
@@ -111,77 +110,77 @@ func (cu *ComputeUnit) LDSBytes() int {
 }
 
 // Tick ticks
-func (cu *ComputeUnit) Tick(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) Tick() bool {
 	cu.Lock()
 	defer cu.Unlock()
 
 	madeProgress := false
 
-	madeProgress = cu.runPipeline(now) || madeProgress
-	madeProgress = cu.sendToACE(now) || madeProgress
-	madeProgress = cu.sendToCP(now) || madeProgress
-	madeProgress = cu.processInput(now) || madeProgress
-	madeProgress = cu.doFlush(now) || madeProgress
+	madeProgress = cu.runPipeline() || madeProgress
+	// madeProgress = cu.sendToACE() || madeProgress
+	madeProgress = cu.sendToCP() || madeProgress
+	madeProgress = cu.processInput() || madeProgress
+	madeProgress = cu.doFlush() || madeProgress
 
 	return madeProgress
 }
 
 //nolint:gocyclo
-func (cu *ComputeUnit) runPipeline(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) runPipeline() bool {
 	madeProgress := false
 
 	if !cu.isPaused {
-		madeProgress = cu.BranchUnit.Run(now) || madeProgress
-		madeProgress = cu.ScalarUnit.Run(now) || madeProgress
-		madeProgress = cu.ScalarDecoder.Run(now) || madeProgress
+		madeProgress = cu.BranchUnit.Run() || madeProgress
+		madeProgress = cu.ScalarUnit.Run() || madeProgress
+		madeProgress = cu.ScalarDecoder.Run() || madeProgress
 		for _, simdUnit := range cu.SIMDUnit {
-			madeProgress = simdUnit.Run(now) || madeProgress
+			madeProgress = simdUnit.Run() || madeProgress
 		}
-		madeProgress = cu.VectorDecoder.Run(now) || madeProgress
-		madeProgress = cu.LDSUnit.Run(now) || madeProgress
-		madeProgress = cu.LDSDecoder.Run(now) || madeProgress
-		madeProgress = cu.VectorMemUnit.Run(now) || madeProgress
-		madeProgress = cu.VectorMemDecoder.Run(now) || madeProgress
-		madeProgress = cu.Scheduler.Run(now) || madeProgress
+		madeProgress = cu.VectorDecoder.Run() || madeProgress
+		madeProgress = cu.LDSUnit.Run() || madeProgress
+		madeProgress = cu.LDSDecoder.Run() || madeProgress
+		madeProgress = cu.VectorMemUnit.Run() || madeProgress
+		madeProgress = cu.VectorMemDecoder.Run() || madeProgress
+		madeProgress = cu.Scheduler.Run() || madeProgress
 	}
 
 	return madeProgress
 }
 
-func (cu *ComputeUnit) doFlush(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) doFlush() bool {
 	madeProgress := false
 	if cu.isFlushing {
 		//If a flush request arrives before the shadow buffer requests have been sent out
 		if cu.isSendingOutShadowBufferReqs {
 			madeProgress = cu.reInsertShadowBufferReqsToOriginalBuffers() || madeProgress
 		}
-		madeProgress = cu.flushPipeline(now) || madeProgress
+		madeProgress = cu.flushPipeline() || madeProgress
 	}
 
 	if cu.isSendingOutShadowBufferReqs {
-		madeProgress = cu.checkShadowBuffers(now) || madeProgress
+		madeProgress = cu.checkShadowBuffers() || madeProgress
 	}
 
 	return madeProgress
 }
 
-func (cu *ComputeUnit) processInput(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) processInput() bool {
 	madeProgress := false
 
 	if !cu.isPaused || cu.isSendingOutShadowBufferReqs {
-		madeProgress = cu.processInputFromACE(now) || madeProgress
-		madeProgress = cu.processInputFromInstMem(now) || madeProgress
-		madeProgress = cu.processInputFromScalarMem(now) || madeProgress
-		madeProgress = cu.processInputFromVectorMem(now) || madeProgress
+		madeProgress = cu.processInputFromACE() || madeProgress
+		madeProgress = cu.processInputFromInstMem() || madeProgress
+		madeProgress = cu.processInputFromScalarMem() || madeProgress
+		madeProgress = cu.processInputFromVectorMem() || madeProgress
 	}
 
-	madeProgress = cu.processInputFromCP(now) || madeProgress
+	madeProgress = cu.processInputFromCP() || madeProgress
 
 	return madeProgress
 }
 
-func (cu *ComputeUnit) processInputFromCP(now sim.VTimeInSec) bool {
-	req := cu.ToCP.Retrieve(now)
+func (cu *ComputeUnit) processInputFromCP() bool {
+	req := cu.ToCP.RetrieveIncoming()
 	if req == nil {
 		return false
 	}
@@ -189,9 +188,9 @@ func (cu *ComputeUnit) processInputFromCP(now sim.VTimeInSec) bool {
 	cu.inCPRequestProcessingStage = req
 	switch req := req.(type) {
 	case *protocol.CUPipelineRestartReq:
-		cu.handlePipelineResume(now, req)
+		cu.handlePipelineResume(req)
 	case *protocol.CUPipelineFlushReq:
-		cu.handlePipelineFlushReq(now, req)
+		cu.handlePipelineFlushReq(req)
 	default:
 		panic("unknown msg type")
 	}
@@ -200,7 +199,6 @@ func (cu *ComputeUnit) processInputFromCP(now sim.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) handlePipelineFlushReq(
-	now sim.VTimeInSec,
 	req *protocol.CUPipelineFlushReq,
 ) error {
 	cu.isFlushing = true
@@ -210,16 +208,14 @@ func (cu *ComputeUnit) handlePipelineFlushReq(
 }
 
 func (cu *ComputeUnit) handlePipelineResume(
-	now sim.VTimeInSec,
 	req *protocol.CUPipelineRestartReq,
 ) error {
 	cu.isSendingOutShadowBufferReqs = true
 	cu.currentRestartReq = req
 
 	rsp := protocol.CUPipelineRestartRspBuilder{}.
-		WithSrc(cu.ToCP).
+		WithSrc(cu.ToCP.AsRemote()).
 		WithDst(cu.currentRestartReq.Src).
-		WithSendTime(now).
 		Build()
 	err := cu.ToCP.Send(rsp)
 
@@ -230,12 +226,11 @@ func (cu *ComputeUnit) handlePipelineResume(
 	return nil
 }
 
-func (cu *ComputeUnit) sendToCP(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) sendToCP() bool {
 	if cu.toSendToCP == nil {
 		return false
 	}
 
-	cu.toSendToCP.Meta().SendTime = now
 	sendErr := cu.ToCP.Send(cu.toSendToCP)
 	if sendErr == nil {
 		cu.toSendToCP = nil
@@ -245,11 +240,16 @@ func (cu *ComputeUnit) sendToCP(now sim.VTimeInSec) bool {
 	return false
 }
 
-func (cu *ComputeUnit) sendToACE(now sim.VTimeInSec) bool {
-	return cu.toACESender.Tick(now)
+func (cu *ComputeUnit) sendToACE(msg sim.Msg) bool {
+	err := cu.ToACE.Send(msg)
+	if err != nil {
+		log.Panicf("Unable to send to ACE")
+	}
+
+	return true
 }
 
-func (cu *ComputeUnit) flushPipeline(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) flushPipeline() bool {
 	if cu.currentFlushReq == nil {
 		return false
 	}
@@ -270,8 +270,7 @@ func (cu *ComputeUnit) flushPipeline(now sim.VTimeInSec) bool {
 	cu.isPaused = true
 
 	respondToCP := protocol.CUPipelineFlushRspBuilder{}.
-		WithSendTime(now).
-		WithSrc(cu.ToCP).
+		WithSrc(cu.ToCP.AsRemote()).
 		WithDst(cu.currentFlushReq.Src).
 		Build()
 	cu.toSendToCP = respondToCP
@@ -298,15 +297,15 @@ func (cu *ComputeUnit) flushInternalComponents() {
 	cu.VectorMemUnit.Flush()
 }
 
-func (cu *ComputeUnit) processInputFromACE(now sim.VTimeInSec) bool {
-	req := cu.ToACE.Retrieve(now)
+func (cu *ComputeUnit) processInputFromACE() bool {
+	req := cu.ToACE.RetrieveIncoming()
 	if req == nil {
 		return false
 	}
 
 	switch req := req.(type) {
 	case *protocol.MapWGReq:
-		return cu.handleMapWGReq(now, req)
+		return cu.handleMapWGReq(req)
 	default:
 		panic("unknown req type")
 	}
@@ -363,7 +362,6 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *wavefront.WfCompletionEvent)
 	return nil
 }
 func (cu *ComputeUnit) handleMapWGReq(
-	now sim.VTimeInSec,
 	req *protocol.MapWGReq,
 ) bool {
 	wg := cu.wrapWG(req.WorkGroup, req)
@@ -395,6 +393,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 			}
 		}
 	}
+  
 	if !skipSimulate {
 		for i, wf := range wg.Wfs {
 			location := req.Wavefronts[i]
@@ -414,7 +413,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 	}
 
 	cu.running = true
-	cu.TickLater(now)
+	cu.TickLater()
 
 	return true
 }
@@ -463,15 +462,15 @@ func (cu *ComputeUnit) wrapWG(
 	return wg
 }
 
-func (cu *ComputeUnit) processInputFromInstMem(now sim.VTimeInSec) bool {
-	rsp := cu.ToInstMem.Retrieve(now)
+func (cu *ComputeUnit) processInputFromInstMem() bool {
+	rsp := cu.ToInstMem.RetrieveIncoming()
 	if rsp == nil {
 		return false
 	}
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
-		cu.handleFetchReturn(now, rsp)
+		cu.handleFetchReturn(rsp)
 	default:
 		log.Panicf("cannot handle request of type %s from ToInstMem port",
 			reflect.TypeOf(rsp))
@@ -480,7 +479,6 @@ func (cu *ComputeUnit) processInputFromInstMem(now sim.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) handleFetchReturn(
-	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) bool {
 	if len(cu.InFlightInstFetch) == 0 {
@@ -501,22 +499,22 @@ func (cu *ComputeUnit) handleFetchReturn(
 	}
 
 	wf.IsFetching = false
-	wf.LastFetchTime = now
+	wf.LastFetchTime = cu.TickingComponent.TickScheduler.CurrentTime()
 
 	tracing.TraceReqFinalize(info.Req, cu)
 	tracing.EndTask(info.Req.ID+"_fetch", cu)
 	return true
 }
 
-func (cu *ComputeUnit) processInputFromScalarMem(now sim.VTimeInSec) bool {
-	rsp := cu.ToScalarMem.Retrieve(now)
+func (cu *ComputeUnit) processInputFromScalarMem() bool {
+	rsp := cu.ToScalarMem.RetrieveIncoming()
 	if rsp == nil {
 		return false
 	}
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
-		cu.handleScalarDataLoadReturn(now, rsp)
+		cu.handleScalarDataLoadReturn(rsp)
 	default:
 		log.Panicf("cannot handle request of type %s from ToInstMem port",
 			reflect.TypeOf(rsp))
@@ -525,7 +523,6 @@ func (cu *ComputeUnit) processInputFromScalarMem(now sim.VTimeInSec) bool {
 }
 
 func (cu *ComputeUnit) handleScalarDataLoadReturn(
-	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
 	if len(cu.InFlightScalarMemAccess) == 0 {
@@ -550,7 +547,7 @@ func (cu *ComputeUnit) handleScalarDataLoadReturn(
 	cu.InFlightScalarMemAccess = cu.InFlightScalarMemAccess[1:]
 
 	tracing.TraceReqFinalize(req, cu)
-	cu.logInstTask(now, wf, info.Inst, true)
+	cu.logInstTask(wf, info.Inst, true)
 
 	if cu.isLastRead(req) {
 		wf.OutstandingScalarMemAccess--
@@ -561,17 +558,17 @@ func (cu *ComputeUnit) isLastRead(req *mem.ReadReq) bool {
 	return !req.CanWaitForCoalesce
 }
 
-func (cu *ComputeUnit) processInputFromVectorMem(now sim.VTimeInSec) bool {
-	rsp := cu.ToVectorMem.Retrieve(now)
+func (cu *ComputeUnit) processInputFromVectorMem() bool {
+	rsp := cu.ToVectorMem.RetrieveIncoming()
 	if rsp == nil {
 		return false
 	}
 
 	switch rsp := rsp.(type) {
 	case *mem.DataReadyRsp:
-		cu.handleVectorDataLoadReturn(now, rsp)
+		cu.handleVectorDataLoadReturn(rsp)
 	case *mem.WriteDoneRsp:
-		cu.handleVectorDataStoreRsp(now, rsp)
+		cu.handleVectorDataStoreRsp(rsp)
 	default:
 		log.Panicf("cannot handle request of type %s from ToInstMem port",
 			reflect.TypeOf(rsp))
@@ -582,7 +579,6 @@ func (cu *ComputeUnit) processInputFromVectorMem(now sim.VTimeInSec) bool {
 
 //nolint:gocyclo
 func (cu *ComputeUnit) handleVectorDataLoadReturn(
-	now sim.VTimeInSec,
 	rsp *mem.DataReadyRsp,
 ) {
 	if len(cu.InFlightVectorMemAccess) == 0 {
@@ -628,12 +624,11 @@ func (cu *ComputeUnit) handleVectorDataLoadReturn(
 			wf.OutstandingScalarMemAccess--
 		}
 
-		cu.logInstTask(now, wf, info.Inst, true)
+		cu.logInstTask(wf, info.Inst, true)
 	}
 }
 
 func (cu *ComputeUnit) handleVectorDataStoreRsp(
-	now sim.VTimeInSec,
 	rsp *mem.WriteDoneRsp,
 ) {
 	if len(cu.InFlightVectorMemAccess) == 0 {
@@ -659,7 +654,7 @@ func (cu *ComputeUnit) handleVectorDataStoreRsp(
 		if info.Inst.FormatType == insts.FLAT {
 			wf.OutstandingScalarMemAccess--
 		}
-		cu.logInstTask(now, wf, info.Inst, true)
+		cu.logInstTask(wf, info.Inst, true)
 	}
 }
 
@@ -686,7 +681,6 @@ func (cu *ComputeUnit) flushCUBuffers() {
 }
 
 func (cu *ComputeUnit) logInstTask(
-	now sim.VTimeInSec,
 	wf *wavefront.Wavefront,
 	inst *wavefront.Inst,
 	completed bool,
@@ -748,7 +742,7 @@ func (cu *ComputeUnit) reInsertShadowBufferReqsToOriginalBuffers() bool {
 	return true
 }
 
-func (cu *ComputeUnit) checkShadowBuffers(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) checkShadowBuffers() bool {
 	numReqsPendingToSend :=
 		len(cu.shadowInFlightScalarMemAccess) +
 			len(cu.shadowInFlightVectorMemAccess) +
@@ -761,28 +755,25 @@ func (cu *ComputeUnit) checkShadowBuffers(now sim.VTimeInSec) bool {
 		return true
 	}
 
-	return cu.sendOutShadowBufferReqs(now)
+	return cu.sendOutShadowBufferReqs()
 }
 
-func (cu *ComputeUnit) sendOutShadowBufferReqs(now sim.VTimeInSec) bool {
+func (cu *ComputeUnit) sendOutShadowBufferReqs() bool {
 	madeProgress := false
 
-	madeProgress = cu.sendScalarShadowBufferAccesses(now) || madeProgress
-	madeProgress = cu.sendVectorShadowBufferAccesses(now) || madeProgress
-	madeProgress = cu.sendInstFetchShadowBufferAccesses(now) || madeProgress
+	madeProgress = cu.sendScalarShadowBufferAccesses() || madeProgress
+	madeProgress = cu.sendVectorShadowBufferAccesses() || madeProgress
+	madeProgress = cu.sendInstFetchShadowBufferAccesses() || madeProgress
 
 	return madeProgress
 }
 
-func (cu *ComputeUnit) sendScalarShadowBufferAccesses(
-	now sim.VTimeInSec,
-) bool {
+func (cu *ComputeUnit) sendScalarShadowBufferAccesses() bool {
 	if len(cu.shadowInFlightScalarMemAccess) > 0 {
 		info := cu.shadowInFlightScalarMemAccess[0]
 
 		req := info.Req
 		req.ID = xid.New().String()
-		req.SendTime = now
 		err := cu.ToScalarMem.Send(req)
 		if err == nil {
 			cu.InFlightScalarMemAccess =
@@ -796,15 +787,12 @@ func (cu *ComputeUnit) sendScalarShadowBufferAccesses(
 	return false
 }
 
-func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
-	now sim.VTimeInSec,
-) bool {
+func (cu *ComputeUnit) sendVectorShadowBufferAccesses() bool {
 	if len(cu.shadowInFlightVectorMemAccess) > 0 {
 		info := cu.shadowInFlightVectorMemAccess[0]
 		if info.Read != nil {
 			req := info.Read
 			req.ID = sim.GetIDGenerator().Generate()
-			req.SendTime = now
 			err := cu.ToVectorMem.Send(req)
 			if err == nil {
 				cu.InFlightVectorMemAccess = append(
@@ -815,7 +803,6 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
 		} else if info.Write != nil {
 			req := info.Write
 			req.ID = sim.GetIDGenerator().Generate()
-			req.SendTime = now
 			err := cu.ToVectorMem.Send(req)
 			if err == nil {
 				cu.InFlightVectorMemAccess = append(cu.InFlightVectorMemAccess, info)
@@ -827,14 +814,11 @@ func (cu *ComputeUnit) sendVectorShadowBufferAccesses(
 	return false
 }
 
-func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses(
-	now sim.VTimeInSec,
-) bool {
+func (cu *ComputeUnit) sendInstFetchShadowBufferAccesses() bool {
 	if len(cu.shadowInFlightInstFetch) > 0 {
 		info := cu.shadowInFlightInstFetch[0]
 		req := info.Req
 		req.ID = xid.New().String()
-		req.SendTime = now
 		err := cu.ToInstMem.Send(req)
 		if err == nil {
 			cu.InFlightInstFetch = append(cu.InFlightInstFetch, info)
@@ -881,14 +865,13 @@ func NewComputeUnit(
 	cu := new(ComputeUnit)
 	cu.TickingComponent = sim.NewTickingComponent(
 		name, engine, 1*sim.GHz, cu)
-
-	cu.ToACE = sim.NewLimitNumMsgPort(cu, 4, name+".ToACE")
-	cu.toACESender = sim.NewBufferedSender(
-		cu.ToACE, sim.NewBuffer(cu.Name()+".ToACESenderBuffer", 40960000))
-	cu.ToInstMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToInstMem")
-	cu.ToScalarMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToScalarMem")
-	cu.ToVectorMem = sim.NewLimitNumMsgPort(cu, 4, name+".ToVectorMem")
-	cu.ToCP = sim.NewLimitNumMsgPort(cu, 4, name+".ToCP")
-	cu.wftime = make(map[string]sim.VTimeInSec)
+	
+	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
+	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
+	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
+	cu.ToVectorMem = sim.NewPort(cu, 4, 4, name+".ToVectorMem")
+	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
+  cu.wftime = make(map[string]sim.VTimeInSec)
+  
 	return cu
 }

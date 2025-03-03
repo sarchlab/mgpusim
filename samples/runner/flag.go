@@ -47,10 +47,10 @@ this number is not given or a invalid number is given number, a random port
 will be used.`)
 var disableAkitaRTM = flag.Bool("disable-rtm", false, "Disable the AkitaRTM monitoring portal")
 
-var analyszerNameFlag = flag.String("analyzer-name", "",
+var analyzerNameFlag = flag.String("analyzer-name", "",
 	"The name of the analyzer to use.")
 
-var analyszerPeriodFlag = flag.Float64("analyzer-period", 0.0,
+var analyzerPeriodFlag = flag.Float64("analyzer-period", 0.0,
 	"The period to dump the analyzer results.")
 
 var visTracing = flag.Bool("trace-vis", false,

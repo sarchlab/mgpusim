@@ -4,15 +4,15 @@ package minerva
 import (
 	"math"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputensor"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/mccl"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/gputensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/mccl"
 
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/dataset/mnist"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/gputraining"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/training/optimization"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/dataset/mnist"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/gputraining"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/training"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/training/optimization"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // Benchmark defines the Mineva network training benchmark.

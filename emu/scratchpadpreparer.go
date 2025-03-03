@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 
-	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/mgpusim/v4/insts"
 )
 
 // ScratchpadPreparer is the unit that sets the instruction scratchpad

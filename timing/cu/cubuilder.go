@@ -3,11 +3,11 @@ package cu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v3/pipelining"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/emu"
-	"github.com/sarchlab/mgpusim/v3/insts"
+	"github.com/sarchlab/akita/v4/pipelining"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/emu"
+	"github.com/sarchlab/mgpusim/v4/insts"
 )
 
 // A Builder can construct a fully functional Compute Unit.

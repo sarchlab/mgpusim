@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/tebeka/atexit"
 )
 

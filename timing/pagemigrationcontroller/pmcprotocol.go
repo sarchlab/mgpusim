@@ -1,7 +1,7 @@
 package pagemigrationcontroller
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // A PageMigrationReqToPMC asks the local GPU PMC to transfer a given page from another GPU PMC
@@ -9,7 +9,7 @@ type PageMigrationReqToPMC struct {
 	sim.MsgMeta
 	ToReadFromPhysicalAddress uint64
 	ToWriteToPhysicalAddress  uint64
-	PMCPortOfRemoteGPU        sim.Port
+	PMCPortOfRemoteGPU        sim.RemotePort
 	PageSize                  uint64
 }
 
@@ -18,32 +18,31 @@ func (r *PageMigrationReqToPMC) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
+// Clone returns a clone of the PageMigrationReqToPMC with different ID.
+func (r *PageMigrationReqToPMC) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // PageMigrationReqToPMCBuilder can build new PMC mgiration requests
 type PageMigrationReqToPMCBuilder struct {
-	sendTime             sim.VTimeInSec
-	src, dst             sim.Port
+	src, dst             sim.RemotePort
 	ToReadFromPhyAddress uint64
 	ToWriteToPhyAddress  uint64
-	PMCPortOfRemoteGPU   sim.Port
+	PMCPortOfRemoteGPU   sim.RemotePort
 	PageSize             uint64
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b PageMigrationReqToPMCBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) PageMigrationReqToPMCBuilder {
-	b.sendTime = t
-	return b
-}
-
 // WithSrc sets the source of the request to build.
-func (b PageMigrationReqToPMCBuilder) WithSrc(src sim.Port) PageMigrationReqToPMCBuilder {
+func (b PageMigrationReqToPMCBuilder) WithSrc(src sim.RemotePort) PageMigrationReqToPMCBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b PageMigrationReqToPMCBuilder) WithDst(dst sim.Port) PageMigrationReqToPMCBuilder {
+func (b PageMigrationReqToPMCBuilder) WithDst(dst sim.RemotePort) PageMigrationReqToPMCBuilder {
 	b.dst = dst
 	return b
 }
@@ -68,7 +67,7 @@ func (b PageMigrationReqToPMCBuilder) WithPageSize(pageSize uint64) PageMigratio
 
 // WithPMCPortOfRemoteGPU sets the page size.
 func (b PageMigrationReqToPMCBuilder) WithPMCPortOfRemoteGPU(
-	pmcPortOfRemoteGPU sim.Port,
+	pmcPortOfRemoteGPU sim.RemotePort,
 ) PageMigrationReqToPMCBuilder {
 	b.PMCPortOfRemoteGPU = pmcPortOfRemoteGPU
 	return b
@@ -80,7 +79,6 @@ func (b PageMigrationReqToPMCBuilder) Build() *PageMigrationReqToPMC {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	r.ToReadFromPhysicalAddress = b.ToReadFromPhyAddress
 	r.ToWriteToPhysicalAddress = b.ToWriteToPhyAddress
 	r.PageSize = b.PageSize
@@ -98,28 +96,27 @@ func (r *PageMigrationRspFromPMC) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
-// PageMigrationRspFromPMCBuilder can build new PMC migration responses
-type PageMigrationRspFromPMCBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+// Clone returns a clone of the PageMigrationRspFromPMC with different ID.
+func (r *PageMigrationRspFromPMC) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b PageMigrationRspFromPMCBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) PageMigrationRspFromPMCBuilder {
-	b.sendTime = t
-	return b
+// PageMigrationRspFromPMCBuilder can build new PMC migration responses
+type PageMigrationRspFromPMCBuilder struct {
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b PageMigrationRspFromPMCBuilder) WithSrc(src sim.Port) PageMigrationRspFromPMCBuilder {
+func (b PageMigrationRspFromPMCBuilder) WithSrc(src sim.RemotePort) PageMigrationRspFromPMCBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b PageMigrationRspFromPMCBuilder) WithDst(dst sim.Port) PageMigrationRspFromPMCBuilder {
+func (b PageMigrationRspFromPMCBuilder) WithDst(dst sim.RemotePort) PageMigrationRspFromPMCBuilder {
 	b.dst = dst
 	return b
 }
@@ -130,7 +127,6 @@ func (b PageMigrationRspFromPMCBuilder) Build() *PageMigrationRspFromPMC {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 
 	return r
 }
@@ -147,30 +143,29 @@ func (r *DataPullReq) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
+// Clone returns a clone of the DataPullReq with different ID.
+func (r *DataPullReq) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // DataPullReqBuilder can build new Data pull reqs
 type DataPullReqBuilder struct {
-	sendTime             sim.VTimeInSec
-	src, dst             sim.Port
+	src, dst             sim.RemotePort
 	ToReadFromPhyAddress uint64
 	DataTransferSize     uint64
 }
 
-// WithSendTime sets the send time of the request to build.:w
-func (b DataPullReqBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) DataPullReqBuilder {
-	b.sendTime = t
-	return b
-}
-
 // WithSrc sets the source of the request to build.
-func (b DataPullReqBuilder) WithSrc(src sim.Port) DataPullReqBuilder {
+func (b DataPullReqBuilder) WithSrc(src sim.RemotePort) DataPullReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullReqBuilder) WithDst(dst sim.Port) DataPullReqBuilder {
+func (b DataPullReqBuilder) WithDst(dst sim.RemotePort) DataPullReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -193,7 +188,6 @@ func (b DataPullReqBuilder) Build() *DataPullReq {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	r.ToReadFromPhyAddress = b.ToReadFromPhyAddress
 	r.DataTransferSize = b.DataTransferSize
 	r.TrafficBytes = 12
@@ -212,29 +206,28 @@ func (r *DataPullRsp) Meta() *sim.MsgMeta {
 	return &r.MsgMeta
 }
 
+// Clone returns a clone of the DataPullRsp with different ID.
+func (r *DataPullRsp) Clone() sim.Msg {
+	cloneMsg := *r
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+
+	return &cloneMsg
+}
+
 // DataPullRspBuilder can build new Data pull rsps
 type DataPullRspBuilder struct {
-	sendTime sim.VTimeInSec
-	src, dst sim.Port
+	src, dst sim.RemotePort
 	Data     []byte
 }
 
-// WithSendTime sets the send time of the request to build
-func (b DataPullRspBuilder) WithSendTime(
-	t sim.VTimeInSec,
-) DataPullRspBuilder {
-	b.sendTime = t
-	return b
-}
-
 // WithSrc sets the source of the request to build.
-func (b DataPullRspBuilder) WithSrc(src sim.Port) DataPullRspBuilder {
+func (b DataPullRspBuilder) WithSrc(src sim.RemotePort) DataPullRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullRspBuilder) WithDst(dst sim.Port) DataPullRspBuilder {
+func (b DataPullRspBuilder) WithDst(dst sim.RemotePort) DataPullRspBuilder {
 	b.dst = dst
 	return b
 }
@@ -251,7 +244,6 @@ func (b DataPullRspBuilder) Build() *DataPullRsp {
 	r.ID = sim.GetIDGenerator().Generate()
 	r.Src = b.src
 	r.Dst = b.dst
-	r.SendTime = b.sendTime
 	r.Data = b.Data
 	r.TrafficBytes = len(r.Data) + 12
 

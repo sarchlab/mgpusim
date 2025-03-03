@@ -1,6 +1,6 @@
 package alu
 
-import "github.com/sarchlab/mgpusim/v3/accelsim_tracing/nvidia"
+import "github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
 
 type ALU interface {
 	withParent(aluGroup *ALUGroup) ALU

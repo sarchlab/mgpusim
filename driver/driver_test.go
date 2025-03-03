@@ -4,10 +4,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/protocol"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/protocol"
 )
 
 var _ = ginkgo.Describe("Driver", func() {
@@ -36,6 +36,12 @@ var _ = ginkgo.Describe("Driver", func() {
 		memAllocator.EXPECT().RegisterDevice(gomock.Any()).AnyTimes()
 		log2PageSize = 12
 
+		toGPUs.EXPECT().AsRemote().AnyTimes()
+		toMMU.EXPECT().AsRemote().AnyTimes()
+		for _, mockPort := range remotePMCPorts {
+			mockPort.EXPECT().AsRemote().AnyTimes()
+		}
+
 		driver = MakeBuilder().
 			WithEngine(engine).
 			WithLog2PageSize(log2PageSize).
@@ -49,9 +55,10 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		for i := 0; i < 2; i++ {
 			gpu := NewMockPort(mockCtrl)
+			gpu.EXPECT().AsRemote().AnyTimes()
 			remotePMCPorts = append(remotePMCPorts, NewMockPort(mockCtrl))
 			driver.RemotePMCPorts = append(driver.RemotePMCPorts,
-				sim.NewLimitNumMsgPort(driver, 1, "RemotePMC"))
+				sim.NewPort(driver, 1, 1, "RemotePMC"))
 			driver.RemotePMCPorts[i] = remotePMCPorts[i]
 			driver.RegisterGPU(gpu,
 				DeviceProperties{
@@ -128,20 +135,24 @@ var _ = ginkgo.Describe("Driver", func() {
 				GetDeviceIDByPAddr(uint64(0x1_0000_2000)).
 				Return(1)
 
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(12)).Return(nil)
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(13)).Return(nil)
+			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
+			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
+			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-			driver.Handle(sim.MakeTickEvent(11, nil))
-			driver.Handle(sim.MakeTickEvent(12, nil))
-			driver.Handle(sim.MakeTickEvent(13, nil))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(12))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(13))
+
+			driver.Handle(sim.MakeTickEvent(nil, 11))
+			driver.Handle(sim.MakeTickEvent(nil, 12))
+			driver.Handle(sim.MakeTickEvent(nil, 13))
 
 			Expect(driver.requestsToSend).To(HaveLen(4))
 			Expect(cmdQueue.IsRunning).To(BeTrue())
@@ -151,9 +162,12 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.Context("process MemCopyH2D return", func() {
 		ginkgo.It("should remove one request", func() {
-			req := protocol.NewMemCopyH2DReq(9, toGPUs, nil,
+			nilPort := NewMockPort(mockCtrl)
+			nilPort.EXPECT().AsRemote().AnyTimes()
+
+			req := protocol.NewMemCopyH2DReq(toGPUs, nilPort,
 				make([]byte, 4), 0x104)
-			req2 := protocol.NewMemCopyH2DReq(9, toGPUs, nil,
+			req2 := protocol.NewMemCopyH2DReq(toGPUs, nilPort,
 				make([]byte, 4), 0x100)
 			cmd := &MemCopyH2DCommand{
 				Dst:  Ptr(0x100),
@@ -164,17 +178,19 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.IsRunning = true
 
 			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().Peek().Return(rsp)
-			toGPUs.EXPECT().Peek().Return(nil)
+			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
+				RetrieveIncoming().
 				Return(req)
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 			engine.EXPECT().
 				Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-			driver.Handle(sim.MakeTickEvent(11, nil))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+
+			driver.Handle(sim.MakeTickEvent(nil, 11))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -183,8 +199,10 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 
 		ginkgo.It("should remove command from queue if no more pending request", func() {
-			req := protocol.NewMemCopyH2DReq(9,
-				toGPUs, nil,
+			nilPort := NewMockPort(mockCtrl)
+			nilPort.EXPECT().AsRemote().AnyTimes()
+
+			req := protocol.NewMemCopyH2DReq(toGPUs, nilPort,
 				make([]byte, 4), 0x100)
 			cmd := &MemCopyH2DCommand{
 				Dst:  Ptr(0x100),
@@ -195,18 +213,20 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.IsRunning = true
 
 			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().Peek().Return(rsp)
-			toGPUs.EXPECT().Peek().Return(nil)
+			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
+				RetrieveIncoming().
 				Return(req)
 
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-			driver.Handle(sim.MakeTickEvent(11, nil))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+
+			driver.Handle(sim.MakeTickEvent(nil, 11))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
 			Expect(cmdQueue.NumCommand()).To(Equal(0))
@@ -236,12 +256,12 @@ var _ = ginkgo.Describe("Driver", func() {
 				GetDeviceIDByPAddr(uint64(0x1_0000_0100)).
 				Return(1)
 
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(12)).Return(nil)
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(13)).Return(nil)
+			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
+			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
+			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(sim.TickEvent{}))
@@ -250,9 +270,13 @@ var _ = ginkgo.Describe("Driver", func() {
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-			driver.Handle(sim.MakeTickEvent(11, nil))
-			driver.Handle(sim.MakeTickEvent(12, nil))
-			driver.Handle(sim.MakeTickEvent(13, nil))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(12))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(13))
+
+			driver.Handle(sim.MakeTickEvent(nil, 11))
+			driver.Handle(sim.MakeTickEvent(nil, 12))
+			driver.Handle(sim.MakeTickEvent(nil, 13))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
@@ -262,11 +286,14 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.Context("process MemCopyD2H return", func() {
 		ginkgo.It("should remove request", func() {
+			nilPort := NewMockPort(mockCtrl)
+			nilPort.EXPECT().AsRemote().AnyTimes()
+
 			data := uint64(0)
 			req := protocol.NewMemCopyD2HReq(
-				9, nil, toGPUs, 0x100, []byte{1, 0, 0, 0})
+				nilPort, toGPUs, 0x100, []byte{1, 0, 0, 0})
 			req2 := protocol.NewMemCopyD2HReq(
-				9, nil, toGPUs, 0x104, []byte{1, 0, 0, 0})
+				nilPort, toGPUs, 0x104, []byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
 				Dst:  &data,
 				Src:  Ptr(0x100),
@@ -276,17 +303,19 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.IsRunning = true
 
 			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().Peek().Return(rsp)
-			toGPUs.EXPECT().Peek().Return(nil)
+			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
+				RetrieveIncoming().
 				Return(req)
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-			driver.Handle(sim.MakeTickEvent(11, nil))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+
+			driver.Handle(sim.MakeTickEvent(nil, 11))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmdQueue.commands).To(HaveLen(1))
@@ -295,8 +324,11 @@ var _ = ginkgo.Describe("Driver", func() {
 		})
 
 		ginkgo.It("should continue queue", func() {
+			nilPort := NewMockPort(mockCtrl)
+			nilPort.EXPECT().AsRemote().AnyTimes()
+
 			data := uint32(0)
-			req := protocol.NewMemCopyD2HReq(9, nil, toGPUs,
+			req := protocol.NewMemCopyD2HReq(nilPort, toGPUs,
 				0x100,
 				[]byte{1, 0, 0, 0})
 			cmd := &MemCopyD2HCommand{
@@ -309,16 +341,18 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.IsRunning = true
 
 			rsp := sim.GeneralRspBuilder{}.WithOriginalReq(req).Build()
-			toGPUs.EXPECT().Peek().Return(rsp)
-			toGPUs.EXPECT().Peek().Return(nil)
+			toGPUs.EXPECT().PeekIncoming().Return(rsp)
+			toGPUs.EXPECT().PeekIncoming().Return(nil)
 			toGPUs.EXPECT().
-				Retrieve(sim.VTimeInSec(11)).
+				RetrieveIncoming().
 				Return(req)
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 			engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-			driver.Handle(sim.MakeTickEvent(11, nil))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+
+			driver.Handle(sim.MakeTickEvent(nil, 11))
 
 			Expect(cmdQueue.IsRunning).To(BeFalse())
 			Expect(cmdQueue.commands).To(HaveLen(0))
@@ -338,14 +372,16 @@ var _ = ginkgo.Describe("Driver", func() {
 			cmdQueue.Enqueue(cmd)
 			cmdQueue.IsRunning = false
 
-			toGPUs.EXPECT().Peek().Return(nil).AnyTimes()
+			toGPUs.EXPECT().PeekIncoming().Return(nil).AnyTimes()
 
-			toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
+			toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 			engine.EXPECT().Schedule(
 				gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-			driver.Handle(sim.MakeTickEvent(11, nil))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+
+			driver.Handle(sim.MakeTickEvent(nil, 11))
 
 			Expect(cmdQueue.IsRunning).To(BeTrue())
 			Expect(cmd.Reqs).To(HaveLen(1))
@@ -356,41 +392,46 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should process LaunchKernel return", func() {
-		req := protocol.NewLaunchKernelReq(7, toGPUs, nil)
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(toGPUs, nilPort)
 		cmd := &LaunchKernelCommand{
 			Reqs: []sim.Msg{req},
 		}
 		cmdQueue.Enqueue(cmd)
 		cmdQueue.IsRunning = true
-		rsp := protocol.NewLaunchKernelRsp(9, nil, nil, req.ID)
+		rsp := protocol.NewLaunchKernelRsp("", "", req.ID)
 
-		toGPUs.EXPECT().Peek().Return(rsp).Times(2)
+		toGPUs.EXPECT().PeekIncoming().Return(rsp).Times(2)
 		toGPUs.EXPECT().
-			Retrieve(sim.VTimeInSec(11)).
+			RetrieveIncoming().
 			Return(rsp)
 
-		toMMU.EXPECT().Retrieve(sim.VTimeInSec(11)).Return(nil)
+		toMMU.EXPECT().RetrieveIncoming().Return(nil)
 
 		engine.EXPECT().Schedule(gomock.AssignableToTypeOf(sim.TickEvent{}))
 
-		driver.Handle(sim.MakeTickEvent(11, nil))
+		engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+
+		driver.Handle(sim.MakeTickEvent(nil, 11))
 
 		Expect(cmdQueue.IsRunning).To(BeFalse())
 		Expect(cmdQueue.commands).To(HaveLen(0))
 	})
 
 	ginkgo.It("should handle page migration req from MMU ", func() {
-		req := vm.NewPageMigrationReqToDriver(10, nil, driver.mmuPort)
-		toMMU.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+		req := vm.NewPageMigrationReqToDriver("", driver.mmuPort.AsRemote())
+		toMMU.EXPECT().RetrieveIncoming().Return(req)
 		driver.isCurrentlyHandlingMigrationReq = false
 
 		for i := 0; i < 2; i++ {
-			rdmaDrainReq := protocol.NewRDMADrainCmdFromDriver(10, driver.gpuPort, driver.GPUs[i])
+			rdmaDrainReq := protocol.NewRDMADrainCmdFromDriver(driver.gpuPort, driver.GPUs[i])
 			driver.requestsToSend = append(driver.requestsToSend, rdmaDrainReq)
 
 		}
 
-		driver.parseFromMMU(10)
+		driver.parseFromMMU()
 
 		Expect(driver.currentPageMigrationReq).To(Equal(req))
 		Expect(driver.isCurrentlyHandlingMigrationReq).To(BeTrue())
@@ -398,11 +439,14 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should handle RDMA Drain RSP ", func() {
-		req := protocol.NewRDMADrainRspToDriver(10, nil, driver.gpuPort)
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewRDMADrainRspToDriver(nilPort, driver.gpuPort)
 		driver.numRDMADrainACK = 1
 
 		pageMigrationReq := vm.NewPageMigrationReqToDriver(
-			10, nil, driver.mmuPort)
+			"", driver.mmuPort.AsRemote())
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurrPageHostGPU = 1
 		pageMigrationReq.CurrAccessingGPUs = append(
@@ -415,10 +459,10 @@ var _ = ginkgo.Describe("Driver", func() {
 
 		driver.currentPageMigrationReq = pageMigrationReq
 
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+		toGPUs.EXPECT().PeekIncoming().Return(req)
+		toGPUs.EXPECT().RetrieveIncoming().Return(req)
 
-		madeProgress := driver.processReturnReq(10)
+		madeProgress := driver.processReturnReq()
 
 		Expect(driver.numShootDownACK).To(Equal(uint64(1)))
 		Expect(madeProgress).To(BeTrue())
@@ -427,10 +471,13 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should handle shootdown complete rsp", func() {
-		req := protocol.NewShootdownCompleteRsp(10, nil, driver.gpuPort)
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewShootdownCompleteRsp(nilPort, driver.gpuPort)
 
 		pageMigrationReq := vm.NewPageMigrationReqToDriver(
-			10, nil, driver.mmuPort)
+			"", driver.mmuPort.AsRemote())
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurrPageHostGPU = 1
 		pageMigrationReq.CurrAccessingGPUs =
@@ -478,15 +525,15 @@ var _ = ginkgo.Describe("Driver", func() {
 			AllocatePageWithGivenVAddr(vm.PID(0), 2, uint64(0x100), true).
 			Return(*page2)
 
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+		toGPUs.EXPECT().PeekIncoming().Return(req)
+		toGPUs.EXPECT().RetrieveIncoming().Return(req)
 
-		driver.processReturnReq(10)
+		driver.processReturnReq()
 
 		Expect(driver.numPagesMigratingACK).
 			To(Equal(uint64(1)))
 		Expect(driver.migrationReqToSendToCP[0].Dst).
-			To(Equal(driver.GPUs[1]))
+			To(Equal(driver.GPUs[1].AsRemote()))
 		Expect(driver.migrationReqToSendToCP[0].DestinationPMCPort).
 			To(Equal(driver.RemotePMCPorts[0]))
 		Expect(driver.migrationReqToSendToCP[0].ToReadFromPhysicalAddress).
@@ -500,26 +547,29 @@ var _ = ginkgo.Describe("Driver", func() {
 
 	ginkgo.It("should send migration req to CP", func() {
 		migrationReqToCP :=
-			protocol.NewPageMigrationReqToCP(10, driver.gpuPort,
+			protocol.NewPageMigrationReqToCP(driver.gpuPort,
 				driver.GPUs[1])
 		driver.migrationReqToSendToCP = append(driver.migrationReqToSendToCP, migrationReqToCP)
 
 		toGPUs.EXPECT().Send(migrationReqToCP)
 
-		madeProgress := driver.sendMigrationReqToCP(10)
+		madeProgress := driver.sendMigrationReqToCP()
 
 		Expect(driver.isCurrentlyMigratingOnePage).To(BeTrue())
 		Expect(madeProgress).To(BeTrue())
 	})
 
 	ginkgo.It("should process page migration rsp from CP", func() {
-		req := protocol.NewPageMigrationRspToDriver(10, nil, driver.gpuPort)
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
 
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+		req := protocol.NewPageMigrationRspToDriver(nilPort, driver.gpuPort)
+
+		toGPUs.EXPECT().PeekIncoming().Return(req)
+		toGPUs.EXPECT().RetrieveIncoming().Return(req)
 
 		driver.numPagesMigratingACK = 2
-		driver.processReturnReq(10)
+		driver.processReturnReq()
 
 		Expect(driver.numPagesMigratingACK).To(Equal(uint64(1)))
 		Expect(driver.isCurrentlyMigratingOnePage).To(BeFalse())
@@ -527,13 +577,16 @@ var _ = ginkgo.Describe("Driver", func() {
 	})
 
 	ginkgo.It("should process page migration rsp from CP and send restart reqs to GPU and reply to MMU", func() {
-		req := protocol.NewPageMigrationRspToDriver(10, nil, driver.gpuPort)
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewPageMigrationRspToDriver(nilPort, driver.gpuPort)
+		toGPUs.EXPECT().PeekIncoming().Return(req)
+		toGPUs.EXPECT().RetrieveIncoming().Return(req)
 
 		driver.numPagesMigratingACK = 1
 
-		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.mmuPort)
+		pageMigrationReq := vm.NewPageMigrationReqToDriver("", driver.mmuPort.AsRemote())
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurrPageHostGPU = 1
 		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
@@ -545,25 +598,27 @@ var _ = ginkgo.Describe("Driver", func() {
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
-		reqToMMU := vm.NewPageMigrationRspFromDriver(10,
-			driver.mmuPort, pageMigrationReq.Src)
+		reqToMMU := vm.NewPageMigrationRspFromDriver(driver.mmuPort.AsRemote(), pageMigrationReq.Src, pageMigrationReq)
 		reqToMMU.VAddr = append(reqToMMU.VAddr, 0x100)
 		reqToMMU.RspToTop = true
 
-		driver.processReturnReq(10)
+		driver.processReturnReq()
 
 		Expect(driver.toSendToMMU).To(BeEquivalentTo(reqToMMU))
 		Expect(driver.requestsToSend).To(HaveLen(1))
 	})
 
 	ginkgo.It("should process GPU restart rsp and send restart req to RDMAs", func() {
-		req := protocol.NewGPURestartRsp(10, nil, driver.gpuPort)
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewGPURestartRsp(nilPort, driver.gpuPort)
+		toGPUs.EXPECT().PeekIncoming().Return(req)
+		toGPUs.EXPECT().RetrieveIncoming().Return(req)
 
 		driver.numRestartACK = 1
 
-		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.mmuPort)
+		pageMigrationReq := vm.NewPageMigrationReqToDriver("", driver.mmuPort.AsRemote())
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurrPageHostGPU = 1
 		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
@@ -575,19 +630,22 @@ var _ = ginkgo.Describe("Driver", func() {
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
-		driver.processReturnReq(10)
+		driver.processReturnReq()
 
 		Expect(driver.requestsToSend).To(HaveLen(2))
 	})
 
 	ginkgo.It("should handle rdma restart rsp", func() {
-		req := protocol.NewRDMARestartRspToDriver(10, nil, driver.gpuPort)
-		toGPUs.EXPECT().Peek().Return(req)
-		toGPUs.EXPECT().Retrieve(sim.VTimeInSec(10)).Return(req)
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewRDMARestartRspToDriver(nilPort, driver.gpuPort)
+		toGPUs.EXPECT().PeekIncoming().Return(req)
+		toGPUs.EXPECT().RetrieveIncoming().Return(req)
 
 		driver.numRDMARestartACK = 1
 
-		pageMigrationReq := vm.NewPageMigrationReqToDriver(10, nil, driver.mmuPort)
+		pageMigrationReq := vm.NewPageMigrationReqToDriver("", driver.mmuPort.AsRemote())
 		pageMigrationReq.PageSize = 4 * mem.KB
 		pageMigrationReq.CurrPageHostGPU = 1
 		pageMigrationReq.CurrAccessingGPUs = append(pageMigrationReq.CurrAccessingGPUs, 1)
@@ -599,19 +657,19 @@ var _ = ginkgo.Describe("Driver", func() {
 		pageMigrationReq.MigrationInfo = migrationInfo
 		driver.currentPageMigrationReq = pageMigrationReq
 
-		driver.processReturnReq(10)
+		driver.processReturnReq()
 
 		Expect(driver.currentPageMigrationReq).To(BeNil())
 		Expect(driver.isCurrentlyHandlingMigrationReq).To(BeFalse())
 	})
 
 	ginkgo.It("should send to MMU", func() {
-		reqToMMU := vm.NewPageMigrationRspFromDriver(10, driver.mmuPort, nil)
+		reqToMMU := vm.NewPageMigrationRspFromDriver(driver.mmuPort.AsRemote(), "", nil)
 		driver.toSendToMMU = reqToMMU
 
 		toMMU.EXPECT().Send(reqToMMU)
 
-		madeProgress := driver.sendToMMU(10)
+		madeProgress := driver.sendToMMU()
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(driver.toSendToMMU).To(BeNil())

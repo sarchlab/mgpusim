@@ -1,15 +1,14 @@
 package cu
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // A SubComponent is an element installed in the compute unit
 type SubComponent interface {
 	CanAcceptWave() bool
-	AcceptWave(wave *wavefront.Wavefront, now sim.VTimeInSec)
-	Run(now sim.VTimeInSec) bool
+	AcceptWave(wave *wavefront.Wavefront)
+	Run() bool
 	IsIdle() bool
 	Flush()
 }

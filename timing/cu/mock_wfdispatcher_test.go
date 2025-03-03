@@ -8,9 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	sim "github.com/sarchlab/akita/v3/sim"
-	protocol "github.com/sarchlab/mgpusim/v3/protocol"
-	wavefront "github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	protocol "github.com/sarchlab/mgpusim/v4/protocol"
+	wavefront "github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // MockWfDispatcher is a mock of WfDispatcher interface.
@@ -37,13 +36,13 @@ func (m *MockWfDispatcher) EXPECT() *MockWfDispatcherMockRecorder {
 }
 
 // DispatchWf mocks base method.
-func (m *MockWfDispatcher) DispatchWf(now sim.VTimeInSec, wf *wavefront.Wavefront, location protocol.WfDispatchLocation) {
+func (m *MockWfDispatcher) DispatchWf(wf *wavefront.Wavefront, location protocol.WfDispatchLocation) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "DispatchWf", now, wf, location)
+	m.ctrl.Call(m, "DispatchWf", wf, location)
 }
 
 // DispatchWf indicates an expected call of DispatchWf.
-func (mr *MockWfDispatcherMockRecorder) DispatchWf(now, wf, location interface{}) *gomock.Call {
+func (mr *MockWfDispatcherMockRecorder) DispatchWf(wf, location interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DispatchWf", reflect.TypeOf((*MockWfDispatcher)(nil).DispatchWf), now, wf, location)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DispatchWf", reflect.TypeOf((*MockWfDispatcher)(nil).DispatchWf), wf, location)
 }

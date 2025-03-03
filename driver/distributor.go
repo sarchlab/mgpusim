@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"github.com/sarchlab/mgpusim/v3/driver/internal"
+	"github.com/sarchlab/mgpusim/v4/driver/internal"
 )
 
 // A distributor can distribute a virtually consecutive memory to multiple GPUs.

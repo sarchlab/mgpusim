@@ -4,9 +4,9 @@ package rob
 import (
 	"container/list"
 
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 )
 
 type transaction struct {
@@ -34,42 +34,38 @@ type ReorderBuffer struct {
 }
 
 // Tick updates the status of the ReorderBuffer.
-func (b *ReorderBuffer) Tick(now sim.VTimeInSec) (madeProgress bool) {
-	madeProgress = b.processControlMsg(now) || madeProgress
+func (b *ReorderBuffer) Tick() (madeProgress bool) {
+	madeProgress = b.processControlMsg() || madeProgress
 
 	if !b.isFlushing {
-		madeProgress = b.runPipeline(now) || madeProgress
+		madeProgress = b.runPipeline() || madeProgress
 	}
 
 	return madeProgress
 }
 
-func (b *ReorderBuffer) processControlMsg(
-	now sim.VTimeInSec,
-) (madeProgress bool) {
-	item := b.controlPort.Peek()
+func (b *ReorderBuffer) processControlMsg() (madeProgress bool) {
+	item := b.controlPort.PeekIncoming()
 	if item == nil {
 		return false
 	}
 
 	msg := item.(*mem.ControlMsg)
 	if msg.DiscardTransations {
-		return b.discardTransactions(now, msg)
+		return b.discardTransactions(msg)
 	} else if msg.Restart {
-		return b.restart(now, msg)
+		return b.restart(msg)
 	}
 
 	panic("never")
 }
 
 func (b *ReorderBuffer) discardTransactions(
-	now sim.VTimeInSec,
 	msg *mem.ControlMsg,
 ) (madeProgress bool) {
 	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.controlPort).
+		WithSrc(b.controlPort.AsRemote()).
 		WithDst(msg.Src).
-		WithSendTime(now).
 		ToNotifyDone().
 		Build()
 
@@ -81,7 +77,7 @@ func (b *ReorderBuffer) discardTransactions(
 	b.isFlushing = true
 	b.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
 	b.transactions.Init()
-	b.controlPort.Retrieve(now)
+	b.controlPort.RetrieveIncoming()
 
 	// fmt.Printf("%.10f, %s, rob flushed\n", now, b.Name())
 
@@ -89,13 +85,11 @@ func (b *ReorderBuffer) discardTransactions(
 }
 
 func (b *ReorderBuffer) restart(
-	now sim.VTimeInSec,
 	msg *mem.ControlMsg,
 ) (madeProgress bool) {
 	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.controlPort).
+		WithSrc(b.controlPort.AsRemote()).
 		WithDst(msg.Src).
-		WithSendTime(now).
 		ToNotifyDone().
 		Build()
 
@@ -108,41 +102,41 @@ func (b *ReorderBuffer) restart(
 	b.toBottomReqIDToTransactionTable = make(map[string]*list.Element)
 	b.transactions.Init()
 
-	for b.topPort.Retrieve(now) != nil {
+	for b.topPort.RetrieveIncoming() != nil {
 	}
 
-	for b.bottomPort.Retrieve(now) != nil {
+	for b.bottomPort.RetrieveIncoming() != nil {
 	}
 
-	b.controlPort.Retrieve(now)
+	b.controlPort.RetrieveIncoming()
 
 	// fmt.Printf("%.10f, %s, rob restarted\n", now, b.Name())
 
 	return true
 }
 
-func (b *ReorderBuffer) runPipeline(now sim.VTimeInSec) (madeProgress bool) {
+func (b *ReorderBuffer) runPipeline() (madeProgress bool) {
 	for i := 0; i < b.numReqPerCycle; i++ {
-		madeProgress = b.bottomUp(now) || madeProgress
+		madeProgress = b.bottomUp() || madeProgress
 	}
 
 	for i := 0; i < b.numReqPerCycle; i++ {
-		madeProgress = b.parseBottom(now) || madeProgress
+		madeProgress = b.parseBottom() || madeProgress
 	}
 
 	for i := 0; i < b.numReqPerCycle; i++ {
-		madeProgress = b.topDown(now) || madeProgress
+		madeProgress = b.topDown() || madeProgress
 	}
 
 	return madeProgress
 }
 
-func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
+func (b *ReorderBuffer) topDown() bool {
 	if b.isFull() {
 		return false
 	}
 
-	item := b.topPort.Peek()
+	item := b.topPort.PeekIncoming()
 	if item == nil {
 		return false
 	}
@@ -150,15 +144,14 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 	req := item.(mem.AccessReq)
 	trans := b.createTransaction(req)
 
-	trans.reqToBottom.Meta().Src = b.bottomPort
-	trans.reqToBottom.Meta().SendTime = now
+	trans.reqToBottom.Meta().Src = b.bottomPort.AsRemote()
 	err := b.bottomPort.Send(trans.reqToBottom)
 	if err != nil {
 		return false
 	}
 
 	b.addTransaction(trans)
-	b.topPort.Retrieve(now)
+	b.topPort.RetrieveIncoming()
 
 	tracing.TraceReqReceive(req, b)
 	tracing.TraceReqInitiate(trans.reqToBottom, b,
@@ -167,8 +160,8 @@ func (b *ReorderBuffer) topDown(now sim.VTimeInSec) bool {
 	return true
 }
 
-func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
-	item := b.bottomPort.Peek()
+func (b *ReorderBuffer) parseBottom() bool {
+	item := b.bottomPort.PeekIncoming()
 	if item == nil {
 		return false
 	}
@@ -184,12 +177,12 @@ func (b *ReorderBuffer) parseBottom(now sim.VTimeInSec) bool {
 		tracing.TraceReqFinalize(trans.reqToBottom, b)
 	}
 
-	b.bottomPort.Retrieve(now)
+	b.bottomPort.RetrieveIncoming()
 
 	return true
 }
 
-func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
+func (b *ReorderBuffer) bottomUp() bool {
 	elem := b.transactions.Front()
 	if elem == nil {
 		return false
@@ -202,8 +195,7 @@ func (b *ReorderBuffer) bottomUp(now sim.VTimeInSec) bool {
 
 	rsp := b.duplicateRsp(trans.rspFromBottom, trans.reqFromTop.Meta().ID)
 	rsp.Meta().Dst = trans.reqFromTop.Meta().Src
-	rsp.Meta().Src = b.topPort
-	rsp.Meta().SendTime = now
+	rsp.Meta().Src = b.topPort.AsRemote()
 
 	err := b.topPort.Send(rsp)
 	if err != nil {
@@ -255,7 +247,7 @@ func (b *ReorderBuffer) duplicateReadReq(req *mem.ReadReq) *mem.ReadReq {
 		WithAddress(req.Address).
 		WithByteSize(req.AccessByteSize).
 		WithPID(req.PID).
-		WithDst(b.BottomUnit).
+		WithDst(b.BottomUnit.AsRemote()).
 		Build()
 }
 
@@ -265,7 +257,7 @@ func (b *ReorderBuffer) duplicateWriteReq(req *mem.WriteReq) *mem.WriteReq {
 		WithPID(req.PID).
 		WithData(req.Data).
 		WithDirtyMask(req.DirtyMask).
-		WithDst(b.BottomUnit).
+		WithDst(b.BottomUnit.AsRemote()).
 		Build()
 }
 

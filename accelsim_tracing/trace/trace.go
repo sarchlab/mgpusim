@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/sarchlab/mgpusim/v3/accelsim_tracing/gpu"
+	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/gpu"
 )
 
 type Trace struct {

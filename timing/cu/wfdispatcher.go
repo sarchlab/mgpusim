@@ -3,16 +3,14 @@ package cu
 import (
 	"log"
 
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/insts"
-	"github.com/sarchlab/mgpusim/v3/protocol"
-	"github.com/sarchlab/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/mgpusim/v4/insts"
+	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
 // A WfDispatcher initialize wavefronts
 type WfDispatcher interface {
 	DispatchWf(
-		now sim.VTimeInSec,
 		wf *wavefront.Wavefront,
 		location protocol.WfDispatchLocation,
 	)
@@ -36,7 +34,6 @@ func NewWfDispatcher(cu *ComputeUnit) *WfDispatcherImpl {
 
 // DispatchWf starts or continues a wavefront dispatching process.
 func (d *WfDispatcherImpl) DispatchWf(
-	now sim.VTimeInSec,
 	wf *wavefront.Wavefront,
 	location protocol.WfDispatchLocation,
 ) {

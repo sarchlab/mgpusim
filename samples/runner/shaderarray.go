@@ -5,15 +5,16 @@ import (
 	"log"
 	"os"
 
-	"github.com/sarchlab/akita/v3/mem/cache/writearound"
-	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
-	"github.com/sarchlab/akita/v3/mem/vm/tlb"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/timing/cu"
-	"github.com/sarchlab/mgpusim/v3/timing/rob"
+	"github.com/sarchlab/akita/v4/mem/cache/writearound"
+	"github.com/sarchlab/akita/v4/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v4/mem/vm/tlb"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/timing/cu"
+	"github.com/sarchlab/mgpusim/v4/timing/rob"
 )
 
 type shaderArray struct {
@@ -23,17 +24,17 @@ type shaderArray struct {
 	l1sROB  *rob.ReorderBuffer
 	l1iROB  *rob.ReorderBuffer
 
-	l1vATs []*addresstranslator.AddressTranslator
-	l1sAT  *addresstranslator.AddressTranslator
-	l1iAT  *addresstranslator.AddressTranslator
+	l1vATs []*addresstranslator.Comp
+	l1sAT  *addresstranslator.Comp
+	l1iAT  *addresstranslator.Comp
 
-	l1vCaches []*writearound.Cache
-	l1sCache  *writethrough.Cache
-	l1iCache  *writethrough.Cache
+	l1vCaches []*writearound.Comp
+	l1sCache  *writethrough.Comp
+	l1iCache  *writethrough.Comp
 
-	l1vTLBs []*tlb.TLB
-	l1sTLB  *tlb.TLB
-	l1iTLB  *tlb.TLB
+	l1vTLBs []*tlb.Comp
+	l1sTLB  *tlb.Comp
+	l1iTLB  *tlb.Comp
 }
 
 type shaderArrayBuilder struct {
@@ -161,8 +162,8 @@ func (b *shaderArrayBuilder) connectVectorMem(sa *shaderArray) {
 		l1v := sa.l1vCaches[i]
 		tlb := sa.l1vTLBs[i]
 
-		cu.VectorMemModules = &mem.SingleLowModuleFinder{
-			LowModule: rob.GetPortByName("Top"),
+		cu.VectorMemModules = &mem.SinglePortMapper{
+			Port: rob.GetPortByName("Top").AsRemote(),
 		}
 		b.connectWithDirectConnection(cu.ToVectorMem,
 			rob.GetPortByName("Top"), 8)
@@ -173,12 +174,12 @@ func (b *shaderArrayBuilder) connectVectorMem(sa *shaderArray) {
 			rob.GetPortByName("Bottom"), atTopPort, 8)
 
 		tlbTopPort := tlb.GetPortByName("Top")
-		at.SetTranslationProvider(tlbTopPort)
+		at.SetTranslationProvider(tlbTopPort.AsRemote())
 		b.connectWithDirectConnection(
 			at.GetPortByName("Translation"), tlbTopPort, 8)
 
-		at.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-			LowModule: l1v.GetPortByName("Top"),
+		at.SetAddressToPortMapper(&mem.SinglePortMapper{
+			Port: l1v.GetPortByName("Top").AsRemote(),
 		})
 		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
 			at.GetPortByName("Bottom"), 8)
@@ -196,22 +197,25 @@ func (b *shaderArrayBuilder) connectScalarMem(sa *shaderArray) {
 	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
 
 	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort)
+	at.SetTranslationProvider(tlbTopPort.AsRemote())
 	b.connectWithDirectConnection(
 		at.GetPortByName("Translation"), tlbTopPort, 8)
 
-	at.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-		LowModule: l1s.GetPortByName("Top"),
+	at.SetAddressToPortMapper(&mem.SinglePortMapper{
+		Port: l1s.GetPortByName("Top").AsRemote(),
 	})
 	b.connectWithDirectConnection(
 		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 8)
 
-	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
-	conn.PlugIn(rob.GetPortByName("Top"), 8)
+	conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.name)
+	conn.PlugIn(rob.GetPortByName("Top"))
 	for i := 0; i < b.numCU; i++ {
 		cu := sa.cus[i]
 		cu.ScalarMem = rob.GetPortByName("Top")
-		conn.PlugIn(cu.ToScalarMem, 8)
+		conn.PlugIn(cu.ToScalarMem)
 	}
 }
 
@@ -226,23 +230,26 @@ func (b *shaderArrayBuilder) connectInstMem(sa *shaderArray) {
 	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort, 8)
 
 	atTopPort := at.GetPortByName("Top")
-	l1i.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-		LowModule: atTopPort,
+	l1i.SetAddressToPortMapper(&mem.SinglePortMapper{
+		Port: atTopPort.AsRemote(),
 	})
 	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
 
 	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort)
+	at.SetTranslationProvider(tlbTopPort.AsRemote())
 	b.connectWithDirectConnection(
 		at.GetPortByName("Translation"), tlbTopPort, 8)
 
 	robTopPort := rob.GetPortByName("Top")
-	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
-	conn.PlugIn(robTopPort, 8)
+	conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.name)
+	conn.PlugIn(robTopPort)
 	for i := 0; i < b.numCU; i++ {
 		cu := sa.cus[i]
 		cu.InstMem = rob.GetPortByName("Top")
-		conn.PlugIn(cu.ToInstMem, 8)
+		conn.PlugIn(cu.ToInstMem)
 	}
 }
 
@@ -253,13 +260,13 @@ func (b *shaderArrayBuilder) connectWithDirectConnection(
 	name := fmt.Sprintf("%s.Conn[%d]", b.name, b.connectionCount)
 	b.connectionCount++
 
-	conn := sim.NewDirectConnection(
-		name,
-		b.engine, b.freq,
-	)
+	conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(name)
 
-	conn.PlugIn(port1, bufferSize)
-	conn.PlugIn(port2, bufferSize)
+	conn.PlugIn(port1)
+	conn.PlugIn(port2)
 }
 
 func (b *shaderArrayBuilder) buildCUs(sa *shaderArray) {

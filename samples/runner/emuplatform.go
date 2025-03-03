@@ -3,10 +3,11 @@ package runner
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/mgpusim/v4/driver"
 )
 
 // EmuBuilder can build a platform for emulation purposes.
@@ -85,7 +86,10 @@ func (b EmuBuilder) Build() *Platform {
 	storage := mem.NewStorage(uint64(b.numGPU+1) * 4 * mem.GB)
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	gpuDriver := b.buildGPUDriver(engine, pageTable, storage)
-	connection := sim.NewDirectConnection("ExternalConn", engine, 1*sim.GHz)
+	connection := directconnection.MakeBuilder().
+		WithEngine(engine).
+		WithFreq(1 * sim.GHz).
+		Build("ExternalConn")
 
 	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, pageTable, storage)
 
@@ -99,12 +103,12 @@ func (b EmuBuilder) Build() *Platform {
 			DRAMSize: 4 * mem.GB,
 			CUCount:  64,
 		})
-		connection.PlugIn(cpPort, 64)
+		connection.PlugIn(cpPort)
 
 		b.gpus = append(b.gpus, gpu)
 	}
 
-	connection.PlugIn(gpuDriver.GetPortByName("GPU"), 4)
+	connection.PlugIn(gpuDriver.GetPortByName("GPU"))
 
 	return &Platform{
 		Engine: engine,

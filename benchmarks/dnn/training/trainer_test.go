@@ -3,8 +3,8 @@ package training
 import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/layers"
-	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/tensor"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/layers"
+	"github.com/sarchlab/mgpusim/v4/benchmarks/dnn/tensor"
 )
 
 var _ = Describe("Trainer", func() {
