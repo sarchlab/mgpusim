@@ -267,7 +267,16 @@ func (s *SchedulerImpl) evalSEndPgm(
 		wf.OutstandingScalarMemAccess > 0 {
 		return false, false
 	}
-
+	////sampling
+	if *samplinglib.SampledRunnerFlag {
+		issuetime, found := s.cu.wftime[wf.UID]
+		if found {
+			finishtime := now
+			wf.Finishtime = finishtime
+			wf.Issuetime = issuetime
+			delete(s.cu.wftime, wf.UID)
+		}
+	}
 	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
 		done := s.sendWGCompletionMessage(wf.WG)
 		if !done {

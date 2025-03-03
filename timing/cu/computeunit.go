@@ -71,6 +71,8 @@ type ComputeUnit struct {
 
 	currentFlushReq   *protocol.CUPipelineFlushReq
 	currentRestartReq *protocol.CUPipelineRestartReq
+	//for sampling
+	wftime map[string]sim.VTimeInSec
 }
 
 // ControlPort returns the port that can receive controlling messages from the
@@ -309,6 +311,56 @@ func (cu *ComputeUnit) processInputFromACE() bool {
 	}
 }
 
+// Handle the wavefront completion events
+func (cu *ComputeUnit) Handle(evt sim.Event) error {
+	ctx := sim.HookCtx{
+		Domain: cu,
+		Pos:    sim.HookPosBeforeEvent,
+		Item:   evt,
+	}
+	cu.InvokeHook(ctx)
+
+	cu.Lock()
+
+	defer cu.Unlock()
+
+	switch evt := evt.(type) {
+	case *wavefront.WfCompletionEvent:
+		cu.handleWfCompletionEvent(evt)
+	default:
+		log.Panicf("Unable to process evevt of type %s",
+			reflect.TypeOf(evt))
+	}
+
+	ctx.Pos = sim.HookPosAfterEvent
+	cu.InvokeHook(ctx)
+
+	return nil
+}
+func (cu *ComputeUnit) handleWfCompletionEvent(evt *wavefront.WfCompletionEvent) error {
+	wf := evt.Wf
+	wf.State = wavefront.WfCompleted
+	sTmp := cu.Scheduler
+	s := sTmp.(*SchedulerImpl)
+	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
+		now := evt.Time()
+
+		done := s.sendWGCompletionMessage(now, wf.WG)
+		if !done {
+			newEvent := wavefront.NewWfCompletionEvent(cu.Freq.NextTick(now), cu, wf)
+			cu.Engine.Schedule(newEvent)
+			return nil
+		}
+
+		s.resetRegisterValue(wf)
+		cu.clearWGResource(wf.WG)
+		tracing.EndTask(wf.UID, cu)
+		tracing.TraceReqComplete(wf.WG.MapReq, cu)
+
+		return nil
+	}
+	return nil
+}
 func (cu *ComputeUnit) handleMapWGReq(
 	req *protocol.MapWGReq,
 ) bool {
@@ -316,20 +368,48 @@ func (cu *ComputeUnit) handleMapWGReq(
 
 	tracing.TraceReqReceive(req, cu)
 
-	for i, wf := range wg.Wfs {
-		location := req.Wavefronts[i]
-		cu.WfPools[location.SIMDID].AddWf(wf)
-		cu.WfDispatcher.DispatchWf(wf, req.Wavefronts[i])
-		wf.State = wavefront.WfReady
+	//sampling
+	skipSimulate := false
+	if *samplinglib.SampledRunnerFlag {
+		for _, wf := range wg.Wfs {
+			cu.wftime[wf.UID] = now
+		}
+		wfpredicttime, wfsampled := samplinglib.Sampledengine.Predict()
+		predtime := wfpredicttime
+		skipSimulate = wfsampled
+		for _, wf := range wg.Wfs {
+			if skipSimulate {
+				predictedTime := predtime + now
+				wf.State = wavefront.WfSampledCompleted
+				newEvent := wavefront.NewWfCompletionEvent(predictedTime, cu, wf)
+				cu.Engine.Schedule(newEvent)
+				tracing.StartTask(wf.UID,
+					tracing.MsgIDAtReceiver(req, cu),
+					cu,
+					"wavefront",
+					"wavefront",
+					nil,
+				)
+			}
+		}
+	}
+  
+	if !skipSimulate {
+		for i, wf := range wg.Wfs {
+			location := req.Wavefronts[i]
+			cu.WfPools[location.SIMDID].AddWf(wf)
+			cu.WfDispatcher.DispatchWf(now, wf, req.Wavefronts[i])
+			wf.State = wavefront.WfReady
 
-		tracing.StartTaskWithSpecificLocation(wf.UID,
-			tracing.MsgIDAtReceiver(req, cu),
-			cu,
-			"wavefront",
-			"wavefront",
-			cu.Name()+".WFPool",
-			nil,
-		)
+			tracing.StartTaskWithSpecificLocation(wf.UID,
+				tracing.MsgIDAtReceiver(req, cu),
+				cu,
+				"wavefront",
+				"wavefront",
+				cu.Name()+".WFPool",
+				nil,
+			)
+		}
 	}
 
 	cu.running = true
@@ -785,12 +865,13 @@ func NewComputeUnit(
 	cu := new(ComputeUnit)
 	cu.TickingComponent = sim.NewTickingComponent(
 		name, engine, 1*sim.GHz, cu)
-
+	
 	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
 	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
 	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
 	cu.ToVectorMem = sim.NewPort(cu, 4, 4, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
-
+  cu.wftime = make(map[string]sim.VTimeInSec)
+  
 	return cu
 }

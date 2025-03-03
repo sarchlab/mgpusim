@@ -113,6 +113,16 @@ func (d *DispatcherImpl) Tick() (madeProgress bool) {
 	return madeProgress
 }
 
+
+func (d *DispatcherImpl) collectSamplingData(locations []protocol.WfDispatchLocation) {
+	if *samplinglib.SampledRunnerFlag {
+		for _, l := range locations {
+			wavefront := l.Wavefront
+			samplinglib.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
+		}
+	}
+}
+
 func (d *DispatcherImpl) processMessagesFromCU() bool {
 	msg := d.dispatchingPort.PeekIncoming()
 	if msg == nil {
@@ -123,9 +133,11 @@ func (d *DispatcherImpl) processMessagesFromCU() bool {
 	case *protocol.WGCompletionMsg:
 		count := 0
 		for _, rspToID := range msg.RspTo {
-			_, ok := d.inflightWGs[rspToID]
+			location, ok := d.inflightWGs[rspToID]
 			if ok {
 				count += 1
+				///sampling
+				d.collectSamplingData(location.locations)
 			}
 		}
 

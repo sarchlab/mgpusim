@@ -469,10 +469,10 @@ func (r *Runner) reportCacheHitRate() {
 	for _, tracer := range r.cacheHitRateTracers {
 		readHit := tracer.tracer.GetStepCount("read-hit")
 		readMiss := tracer.tracer.GetStepCount("read-miss")
-		readMSHRHit := tracer.tracer.GetStepCount("read-mshr-miss")
+		readMSHRHit := tracer.tracer.GetStepCount("read-mshr-hit")
 		writeHit := tracer.tracer.GetStepCount("write-hit")
 		writeMiss := tracer.tracer.GetStepCount("write-miss")
-		writeMSHRHit := tracer.tracer.GetStepCount("write-mshr-miss")
+		writeMSHRHit := tracer.tracer.GetStepCount("write-mshr-hit")
 
 		totalTransaction := readHit + readMiss + readMSHRHit +
 			writeHit + writeMiss + writeMSHRHit
