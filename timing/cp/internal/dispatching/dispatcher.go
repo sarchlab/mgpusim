@@ -204,7 +204,6 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 		if !d.alg.HasNext() {
 			return false
 		}
-
 		d.currWG = d.alg.Next()
 		if !d.currWG.valid {
 			return false
@@ -212,8 +211,8 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 	}
 
 	reqBuilder := protocol.MapWGReqBuilder{}.
-		WithSrc(d.dispatchingPort).
-		WithDst(d.currWG.cu).
+		WithSrc(d.dispatchingPort.AsRemote()).
+		WithDst(d.currWG.cu.AsRemote()).
 		WithPID(d.dispatching.PID).
 		WithWG(d.currWG.wg)
 	for _, l := range d.currWG.locations {

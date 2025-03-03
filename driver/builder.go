@@ -106,9 +106,9 @@ func (b Builder) Build(name string) *Driver {
 		driver.middlewares = append(driver.middlewares, defaultMemoryCopyMiddleware)
 	}
 
-	driver.gpuPort = sim.NewLimitNumMsgPort(driver, 40960000, "Driver.ToGPUs")
+	driver.gpuPort = sim.NewPort(driver, 40960000, 40960000, "Driver.ToGPUs")
 	driver.AddPort("GPU", driver.gpuPort)
-	driver.mmuPort = sim.NewLimitNumMsgPort(driver, 1, "Driver.ToMMU")
+	driver.mmuPort = sim.NewPort(driver, 1, 1, "Driver.ToMMU")
 	driver.AddPort("MMU", driver.mmuPort)
 
 	driver.enqueueSignal = make(chan bool)

@@ -32,20 +32,23 @@ var _ = Describe("Vector Memory Unit", func() {
 		sp = new(mockScratchpadPreparer)
 		coalescer = NewMockcoalescer(mockCtrl)
 		vecMemUnit = NewVectorMemoryUnit(cu, sp, coalescer)
-		//vectorMem = NewMockPort(mockCtrl)
 		toVectorMem = NewMockPort(mockCtrl)
 		instPipeline = NewMockPipeline(mockCtrl)
 		instBuffer = NewMockBuffer(mockCtrl)
 		transactionPipeline = NewMockPipeline(mockCtrl)
 		transactionBuffer = NewMockBuffer(mockCtrl)
 		cu.ToVectorMem = toVectorMem
-		cu.VectorMemModules = new(mem.SingleLowModuleFinder)
+		cu.VectorMemModules = new(mem.SinglePortMapper)
 		cu.InFlightVectorMemAccessLimit = 128
+		vectorMem = NewMockPort(mockCtrl)
 
 		vecMemUnit.instructionPipeline = instPipeline
 		vecMemUnit.postInstructionPipelineBuffer = instBuffer
 		vecMemUnit.transactionPipeline = transactionPipeline
 		vecMemUnit.postTransactionPipelineBuffer = transactionBuffer
+
+		toVectorMem.EXPECT().AsRemote().AnyTimes()
+		vectorMem.EXPECT().AsRemote().AnyTimes()
 	})
 
 	AfterEach(func() {
@@ -159,8 +162,8 @@ var _ = Describe("Vector Memory Unit", func() {
 	It("should send memory access requests", func() {
 		inst := wavefront.NewInst(nil)
 		loadReq := mem.ReadReqBuilder{}.
-			WithSrc(cu.ToVectorMem).
-			WithDst(vectorMem).
+			WithSrc(cu.ToVectorMem.AsRemote()).
+			WithDst(vectorMem.AsRemote()).
 			WithAddress(0).
 			WithByteSize(4).
 			Build()

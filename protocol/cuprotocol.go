@@ -26,17 +26,17 @@ func (m *CUPipelineRestartReq) Clone() sim.Msg {
 
 // CUPipelineRestartReqBuilder can build new CU restart reqs
 type CUPipelineRestartReqBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineRestartReqBuilder) WithSrc(src sim.Port) CUPipelineRestartReqBuilder {
+func (b CUPipelineRestartReqBuilder) WithSrc(src sim.RemotePort) CUPipelineRestartReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineRestartReqBuilder) WithDst(dst sim.Port) CUPipelineRestartReqBuilder {
+func (b CUPipelineRestartReqBuilder) WithDst(dst sim.RemotePort) CUPipelineRestartReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -70,17 +70,17 @@ func (m *CUPipelineRestartRsp) Clone() sim.Msg {
 
 // CUPipelineRestartRspBuilder can build new CU restart reqs
 type CUPipelineRestartRspBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineRestartRspBuilder) WithSrc(src sim.Port) CUPipelineRestartRspBuilder {
+func (b CUPipelineRestartRspBuilder) WithSrc(src sim.RemotePort) CUPipelineRestartRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineRestartRspBuilder) WithDst(dst sim.Port) CUPipelineRestartRspBuilder {
+func (b CUPipelineRestartRspBuilder) WithDst(dst sim.RemotePort) CUPipelineRestartRspBuilder {
 	b.dst = dst
 	return b
 }
@@ -114,17 +114,17 @@ func (m *CUPipelineFlushReq) Clone() sim.Msg {
 
 // CUPipelineFlushReqBuilder can build new CU flush reqs
 type CUPipelineFlushReqBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineFlushReqBuilder) WithSrc(src sim.Port) CUPipelineFlushReqBuilder {
+func (b CUPipelineFlushReqBuilder) WithSrc(src sim.RemotePort) CUPipelineFlushReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineFlushReqBuilder) WithDst(dst sim.Port) CUPipelineFlushReqBuilder {
+func (b CUPipelineFlushReqBuilder) WithDst(dst sim.RemotePort) CUPipelineFlushReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -158,17 +158,17 @@ func (m *CUPipelineFlushRsp) Clone() sim.Msg {
 
 // CUPipelineFlushRspBuilder can build new CU flush rsps
 type CUPipelineFlushRspBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b CUPipelineFlushRspBuilder) WithSrc(src sim.Port) CUPipelineFlushRspBuilder {
+func (b CUPipelineFlushRspBuilder) WithSrc(src sim.RemotePort) CUPipelineFlushRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b CUPipelineFlushRspBuilder) WithDst(dst sim.Port) CUPipelineFlushRspBuilder {
+func (b CUPipelineFlushRspBuilder) WithDst(dst sim.RemotePort) CUPipelineFlushRspBuilder {
 	b.dst = dst
 	return b
 }
@@ -215,20 +215,20 @@ func (r *MapWGReq) Clone() sim.Msg {
 
 // MapWGReqBuilder can build MapWGReqs.
 type MapWGReqBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 	pid      vm.PID
 	wg       *kernels.WorkGroup
 	wfs      []WfDispatchLocation
 }
 
 // WithSrc sets the source of the message.
-func (b MapWGReqBuilder) WithSrc(src sim.Port) MapWGReqBuilder {
+func (b MapWGReqBuilder) WithSrc(src sim.RemotePort) MapWGReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the message.
-func (b MapWGReqBuilder) WithDst(dst sim.Port) MapWGReqBuilder {
+func (b MapWGReqBuilder) WithDst(dst sim.RemotePort) MapWGReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -285,13 +285,13 @@ func (r *WGCompletionMsg) Clone() sim.Msg {
 
 // WGCompletionMsgBuilder can build MapWGReqs.
 type WGCompletionMsgBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 	rspTo    []string
 }
 
 // WithSrc sets the source of the message.
 func (b WGCompletionMsgBuilder) WithSrc(
-	src sim.Port,
+	src sim.RemotePort,
 ) WGCompletionMsgBuilder {
 	b.src = src
 	return b
@@ -299,7 +299,7 @@ func (b WGCompletionMsgBuilder) WithSrc(
 
 // WithDst sets the destination of the message.
 func (b WGCompletionMsgBuilder) WithDst(
-	dst sim.Port,
+	dst sim.RemotePort,
 ) WGCompletionMsgBuilder {
 	b.dst = dst
 	return b

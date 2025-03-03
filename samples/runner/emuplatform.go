@@ -88,7 +88,7 @@ func (b EmuBuilder) Build() *Platform {
 	gpuDriver := b.buildGPUDriver(engine, pageTable, storage)
 	connection := directconnection.MakeBuilder().
 		WithEngine(engine).
-		WithFreq(1*sim.GHz).
+		WithFreq(1 * sim.GHz).
 		Build("ExternalConn")
 
 	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, pageTable, storage)
@@ -103,12 +103,12 @@ func (b EmuBuilder) Build() *Platform {
 			DRAMSize: 4 * mem.GB,
 			CUCount:  64,
 		})
-		connection.PlugIn(cpPort, 64)
+		connection.PlugIn(cpPort)
 
 		b.gpus = append(b.gpus, gpu)
 	}
 
-	connection.PlugIn(gpuDriver.GetPortByName("GPU"), 4)
+	connection.PlugIn(gpuDriver.GetPortByName("GPU"))
 
 	return &Platform{
 		Engine: engine,

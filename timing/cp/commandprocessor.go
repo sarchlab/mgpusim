@@ -34,22 +34,14 @@ type CommandProcessor struct {
 	L2Caches           []sim.Port
 	DRAMControllers    []*idealmemcontroller.Comp
 
-	ToDriver                   sim.Port
-	toDriverSender             sim.BufferedSender
-	ToDMA                      sim.Port
-	toDMASender                sim.BufferedSender
-	ToCUs                      sim.Port
-	toCUsSender                sim.BufferedSender
-	ToTLBs                     sim.Port
-	toTLBsSender               sim.BufferedSender
-	ToAddressTranslators       sim.Port
-	toAddressTranslatorsSender sim.BufferedSender
-	ToCaches                   sim.Port
-	toCachesSender             sim.BufferedSender
-	ToRDMA                     sim.Port
-	toRDMASender               sim.BufferedSender
-	ToPMC                      sim.Port
-	toPMCSender                sim.BufferedSender
+	ToDriver             sim.Port
+	ToDMA                sim.Port
+	ToCUs                sim.Port
+	ToTLBs               sim.Port
+	ToAddressTranslators sim.Port
+	ToCaches             sim.Port
+	ToRDMA               sim.Port
+	ToPMC                sim.Port
 
 	currShootdownRequest *protocol.ShootDownCommand
 	currFlushRequest     *protocol.FlushReq
@@ -89,7 +81,6 @@ func (p *CommandProcessor) RegisterCU(cu CUInterfaceForCP) {
 func (p *CommandProcessor) Tick() bool {
 	madeProgress := false
 
-	madeProgress = p.sendMsgsOut() || madeProgress
 	madeProgress = p.tickDispatchers() || madeProgress
 	madeProgress = p.processReqFromDriver() || madeProgress
 	madeProgress = p.processRspFromInternal() || madeProgress
@@ -97,36 +88,7 @@ func (p *CommandProcessor) Tick() bool {
 	return madeProgress
 }
 
-func (p *CommandProcessor) sendMsgsOut() bool {
-	madeProgress := false
-
-	madeProgress = p.sendMsgsOutFromPort(p.toDriverSender) || madeProgress
-	madeProgress = p.sendMsgsOutFromPort(p.toDMASender) || madeProgress
-	madeProgress = p.sendMsgsOutFromPort(p.toCUsSender) || madeProgress
-	madeProgress = p.sendMsgsOutFromPort(p.toTLBsSender) || madeProgress
-	madeProgress = p.sendMsgsOutFromPort(p.toAddressTranslatorsSender) || madeProgress
-	madeProgress = p.sendMsgsOutFromPort(p.toCachesSender) || madeProgress
-	madeProgress = p.sendMsgsOutFromPort(p.toRDMASender) || madeProgress
-	madeProgress = p.sendMsgsOutFromPort(p.toPMCSender) || madeProgress
-
-	return madeProgress
-}
-
-func (p *CommandProcessor) sendMsgsOutFromPort(
-	sender sim.BufferedSender,
-) (madeProgress bool) {
-	for {
-		ok := sender.Tick()
-		if ok {
-			madeProgress = true
-		} else {
-			return madeProgress
-		}
-	}
-}
-
-func (p *CommandProcessor) tickDispatchers(
-) (madeProgress bool) {
+func (p *CommandProcessor) tickDispatchers() (madeProgress bool) {
 	for _, d := range p.Dispatchers {
 		madeProgress = d.Tick() || madeProgress
 	}
@@ -317,11 +279,15 @@ func (p *CommandProcessor) processRDMADrainCmd(
 	cmd *protocol.RDMADrainCmdFromDriver,
 ) bool {
 	req := rdma.DrainReqBuilder{}.
-		WithSrc(p.ToRDMA).
-		WithDst(p.RDMA).
+		WithSrc(p.ToRDMA.AsRemote()).
+		WithDst(p.RDMA.AsRemote()).
 		Build()
 
-	p.toRDMASender.Send(req)
+	err := p.ToRDMA.Send(req)
+	if err != nil {
+		panic(err)
+	}
+
 	p.ToDriver.RetrieveIncoming()
 
 	return true
@@ -332,7 +298,11 @@ func (p *CommandProcessor) processRDMADrainRsp(
 ) bool {
 	req := protocol.NewRDMADrainRspToDriver(p.ToDriver, p.Driver)
 
-	p.toDriverSender.Send(req)
+	err := p.ToDriver.Send(req)
+	if err != nil {
+		panic(err)
+	}
+
 	p.ToRDMA.RetrieveIncoming()
 
 	return true
@@ -351,10 +321,10 @@ func (p *CommandProcessor) processShootdownCommand(
 	for i := 0; i < len(p.CUs); i++ {
 		p.numCUAck++
 		req := protocol.CUPipelineFlushReqBuilder{}.
-			WithSrc(p.ToCUs).
-			WithDst(p.CUs[i]).
+			WithSrc(p.ToCUs.AsRemote()).
+			WithDst(p.CUs[i].AsRemote()).
 			Build()
-		p.toCUsSender.Send(req)
+		p.ToCUs.Send(req)
 	}
 
 	p.ToDriver.RetrieveIncoming()
@@ -370,11 +340,11 @@ func (p *CommandProcessor) processCUPipelineFlushRsp(
 	if p.numCUAck == 0 {
 		for i := 0; i < len(p.AddressTranslators); i++ {
 			req := mem.ControlMsgBuilder{}.
-				WithSrc(p.ToAddressTranslators).
-				WithDst(p.AddressTranslators[i]).
+				WithSrc(p.ToAddressTranslators.AsRemote()).
+				WithDst(p.AddressTranslators[i].AsRemote()).
 				ToDiscardTransactions().
 				Build()
-			p.toAddressTranslatorsSender.Send(req)
+			p.ToAddressTranslators.Send(req)
 			p.numAddrTranslationFlushAck++
 		}
 	}
@@ -416,27 +386,27 @@ func (p *CommandProcessor) flushAndResetL1Cache(
 	port sim.Port,
 ) {
 	req := cache.FlushReqBuilder{}.
-		WithSrc(p.ToCaches).
-		WithDst(port).
+		WithSrc(p.ToCaches.AsRemote()).
+		WithDst(port.AsRemote()).
 		PauseAfterFlushing().
 		DiscardInflight().
 		InvalidateAllCacheLines().
 		Build()
 
-	p.toCachesSender.Send(req)
+	p.ToCaches.Send(req)
 	p.numCacheACK++
 }
 
 func (p *CommandProcessor) flushAndResetL2Cache(port sim.Port) {
 	req := cache.FlushReqBuilder{}.
-		WithSrc(p.ToCaches).
-		WithDst(port).
+		WithSrc(p.ToCaches.AsRemote()).
+		WithDst(port.AsRemote()).
 		PauseAfterFlushing().
 		DiscardInflight().
 		InvalidateAllCacheLines().
 		Build()
 
-	p.toCachesSender.Send(req)
+	p.ToCaches.Send(req)
 	p.numCacheACK++
 }
 
@@ -460,12 +430,12 @@ func (p *CommandProcessor) processRegularCacheFlush(
 	flushRsp *cache.FlushRsp,
 ) bool {
 	rsp := sim.GeneralRspBuilder{}.
-		WithSrc(p.ToDriver).
-		WithDst(p.Driver).
+		WithSrc(p.ToDriver.AsRemote()).
+		WithDst(p.Driver.AsRemote()).
 		WithOriginalReq(p.currFlushRequest).
 		Build()
 
-	p.toDriverSender.Send(rsp)
+	p.ToDriver.Send(rsp)
 
 	tracing.TraceReqComplete(p.currFlushRequest, p)
 	p.currFlushRequest = nil
@@ -481,13 +451,13 @@ func (p *CommandProcessor) processCacheFlushCausedByTLBShootdown(
 	for i := 0; i < len(p.TLBs); i++ {
 		shootDownCmd := p.currShootdownRequest
 		req := tlb.FlushReqBuilder{}.
-			WithSrc(p.ToTLBs).
-			WithDst(p.TLBs[i]).
+			WithSrc(p.ToTLBs.AsRemote()).
+			WithDst(p.TLBs[i].AsRemote()).
 			WithPID(shootDownCmd.PID).
 			WithVAddrs(shootDownCmd.VAddr).
 			Build()
 
-		p.toTLBsSender.Send(req)
+		p.ToTLBs.Send(req)
 		p.numTLBAck++
 	}
 
@@ -501,7 +471,7 @@ func (p *CommandProcessor) processTLBFlushRsp(
 
 	if p.numTLBAck == 0 {
 		req := protocol.NewShootdownCompleteRsp(p.ToDriver, p.Driver)
-		p.toDriverSender.Send(req)
+		p.ToDriver.Send(req)
 
 		p.shootDownInProcess = false
 	}
@@ -515,11 +485,11 @@ func (p *CommandProcessor) processRDMARestartCommand(
 	cmd *protocol.RDMARestartCmdFromDriver,
 ) bool {
 	req := rdma.RestartReqBuilder{}.
-		WithSrc(p.ToRDMA).
-		WithDst(p.RDMA).
+		WithSrc(p.ToRDMA.AsRemote()).
+		WithDst(p.RDMA.AsRemote()).
 		Build()
 
-	p.toRDMASender.Send(req)
+	p.ToRDMA.Send(req)
 
 	p.ToDriver.RetrieveIncoming()
 
@@ -528,7 +498,7 @@ func (p *CommandProcessor) processRDMARestartCommand(
 
 func (p *CommandProcessor) processRDMARestartRsp(rsp *rdma.RestartRsp) bool {
 	req := protocol.NewRDMARestartRspToDriver(p.ToDriver, p.Driver)
-	p.toDriverSender.Send(req)
+	p.ToDriver.Send(req)
 	p.ToRDMA.RetrieveIncoming()
 
 	return true
@@ -558,11 +528,14 @@ func (p *CommandProcessor) processGPURestartReq(
 
 func (p *CommandProcessor) restartCache(port sim.Port) {
 	req := cache.RestartReqBuilder{}.
-		WithSrc(p.ToCaches).
-		WithDst(port).
+		WithSrc(p.ToCaches.AsRemote()).
+		WithDst(port.AsRemote()).
 		Build()
 
-	p.toCachesSender.Send(req)
+	err := p.ToCaches.Send(req)
+	if err != nil {
+		panic(err)
+	}
 
 	p.numCacheACK++
 }
@@ -576,10 +549,10 @@ func (p *CommandProcessor) processCacheRestartRsp(
 			p.numTLBAck++
 
 			req := tlb.RestartReqBuilder{}.
-				WithSrc(p.ToTLBs).
-				WithDst(p.TLBs[i]).
+				WithSrc(p.ToTLBs.AsRemote()).
+				WithDst(p.TLBs[i].AsRemote()).
 				Build()
-			p.toTLBsSender.Send(req)
+			p.ToTLBs.Send(req)
 		}
 	}
 
@@ -596,11 +569,11 @@ func (p *CommandProcessor) processTLBRestartRsp(
 	if p.numTLBAck == 0 {
 		for i := 0; i < len(p.AddressTranslators); i++ {
 			req := mem.ControlMsgBuilder{}.
-				WithSrc(p.ToAddressTranslators).
-				WithDst(p.AddressTranslators[i]).
+				WithSrc(p.ToAddressTranslators.AsRemote()).
+				WithDst(p.AddressTranslators[i].AsRemote()).
 				ToRestart().
 				Build()
-			p.toAddressTranslatorsSender.Send(req)
+			p.ToAddressTranslators.Send(req)
 
 			// fmt.Printf("Restarting %s\n", p.AddressTranslators[i].Name())
 
@@ -621,10 +594,10 @@ func (p *CommandProcessor) processAddressTranslatorRestartRsp(
 	if p.numAddrTranslationRestartAck == 0 {
 		for i := 0; i < len(p.CUs); i++ {
 			req := protocol.CUPipelineRestartReqBuilder{}.
-				WithSrc(p.ToCUs).
-				WithDst(p.CUs[i]).
+				WithSrc(p.ToCUs.AsRemote()).
+				WithDst(p.CUs[i].AsRemote()).
 				Build()
-			p.toCUsSender.Send(req)
+			p.ToCUs.Send(req)
 
 			p.numCUAck++
 		}
@@ -642,7 +615,7 @@ func (p *CommandProcessor) processCUPipelineRestartRsp(
 
 	if p.numCUAck == 0 {
 		rsp := protocol.NewGPURestartRsp(p.ToDriver, p.Driver)
-		p.toDriverSender.Send(rsp)
+		p.ToDriver.Send(rsp)
 	}
 
 	p.ToCUs.RetrieveIncoming()
@@ -654,14 +627,18 @@ func (p *CommandProcessor) processPageMigrationReq(
 	cmd *protocol.PageMigrationReqToCP,
 ) bool {
 	req := pagemigrationcontroller.PageMigrationReqToPMCBuilder{}.
-		WithSrc(p.ToPMC).
-		WithDst(p.PMC).
+		WithSrc(p.ToPMC.AsRemote()).
+		WithDst(p.PMC.AsRemote()).
 		WithPageSize(cmd.PageSize).
-		WithPMCPortOfRemoteGPU(cmd.DestinationPMCPort).
+		WithPMCPortOfRemoteGPU(cmd.DestinationPMCPort.AsRemote()).
 		WithReadFrom(cmd.ToReadFromPhysicalAddress).
 		WithWriteTo(cmd.ToWriteToPhysicalAddress).
 		Build()
-	p.toPMCSender.Send(req)
+
+	err := p.ToPMC.Send(req)
+	if err != nil {
+		panic(err)
+	}
 
 	p.ToDriver.RetrieveIncoming()
 
@@ -673,7 +650,10 @@ func (p *CommandProcessor) processPageMigrationRsp(
 ) bool {
 	req := protocol.NewPageMigrationRspToDriver(p.ToDriver, p.Driver)
 
-	p.toDriverSender.Send(req)
+	err := p.ToDriver.Send(req)
+	if err != nil {
+		panic(err)
+	}
 
 	p.ToPMC.RetrieveIncoming()
 
@@ -706,11 +686,11 @@ func (p *CommandProcessor) processFlushReq(
 	p.currFlushRequest = req
 	if p.numCacheACK == 0 {
 		rsp := sim.GeneralRspBuilder{}.
-			WithSrc(p.ToDriver).
-			WithDst(p.Driver).
+			WithSrc(p.ToDriver.AsRemote()).
+			WithDst(p.Driver.AsRemote()).
 			WithOriginalReq(req).
 			Build()
-		p.toDriverSender.Send(rsp)
+		p.ToDriver.Send(rsp)
 	}
 
 	p.ToDriver.RetrieveIncoming()
@@ -722,10 +702,15 @@ func (p *CommandProcessor) processFlushReq(
 
 func (p *CommandProcessor) flushCache(port sim.Port) {
 	flushReq := cache.FlushReqBuilder{}.
-		WithSrc(p.ToCaches).
-		WithDst(port).
+		WithSrc(p.ToCaches.AsRemote()).
+		WithDst(port.AsRemote()).
 		Build()
-	p.toCachesSender.Send(flushReq)
+
+	err := p.ToCaches.Send(flushReq)
+	if err != nil {
+		panic(err)
+	}
+
 	p.numCacheACK++
 }
 
@@ -764,10 +749,10 @@ func (p *CommandProcessor) processMemCopyReq(
 		panic("unknown type")
 	}
 
-	cloned.Meta().Dst = p.DMAEngine
-	cloned.Meta().Src = p.ToDMA
+	cloned.Meta().Dst = p.DMAEngine.AsRemote()
+	cloned.Meta().Src = p.ToDMA.AsRemote()
 
-	p.toDMASender.Send(cloned)
+	p.ToDMA.Send(cloned)
 	p.ToDriver.RetrieveIncoming()
 
 	tracing.TraceReqReceive(req, p)
@@ -802,12 +787,12 @@ func (p *CommandProcessor) processMemCopyRsp(
 	originalReq := p.findAndRemoveOriginalMemCopyRequest(req)
 
 	rsp := sim.GeneralRspBuilder{}.
-		WithDst(p.Driver).
-		WithSrc(p.ToDriver).
+		WithDst(p.Driver.AsRemote()).
+		WithSrc(p.ToDriver.AsRemote()).
 		WithOriginalReq(originalReq).
 		Build()
 
-	p.toDriverSender.Send(rsp)
+	p.ToDriver.Send(rsp)
 	p.ToDMA.RetrieveIncoming()
 
 	tracing.TraceReqComplete(originalReq, p)

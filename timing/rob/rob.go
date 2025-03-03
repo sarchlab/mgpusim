@@ -64,7 +64,7 @@ func (b *ReorderBuffer) discardTransactions(
 	msg *mem.ControlMsg,
 ) (madeProgress bool) {
 	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.controlPort).
+		WithSrc(b.controlPort.AsRemote()).
 		WithDst(msg.Src).
 		ToNotifyDone().
 		Build()
@@ -88,7 +88,7 @@ func (b *ReorderBuffer) restart(
 	msg *mem.ControlMsg,
 ) (madeProgress bool) {
 	rsp := mem.ControlMsgBuilder{}.
-		WithSrc(b.controlPort).
+		WithSrc(b.controlPort.AsRemote()).
 		WithDst(msg.Src).
 		ToNotifyDone().
 		Build()
@@ -144,7 +144,7 @@ func (b *ReorderBuffer) topDown() bool {
 	req := item.(mem.AccessReq)
 	trans := b.createTransaction(req)
 
-	trans.reqToBottom.Meta().Src = b.bottomPort
+	trans.reqToBottom.Meta().Src = b.bottomPort.AsRemote()
 	err := b.bottomPort.Send(trans.reqToBottom)
 	if err != nil {
 		return false
@@ -195,7 +195,7 @@ func (b *ReorderBuffer) bottomUp() bool {
 
 	rsp := b.duplicateRsp(trans.rspFromBottom, trans.reqFromTop.Meta().ID)
 	rsp.Meta().Dst = trans.reqFromTop.Meta().Src
-	rsp.Meta().Src = b.topPort
+	rsp.Meta().Src = b.topPort.AsRemote()
 
 	err := b.topPort.Send(rsp)
 	if err != nil {
@@ -247,7 +247,7 @@ func (b *ReorderBuffer) duplicateReadReq(req *mem.ReadReq) *mem.ReadReq {
 		WithAddress(req.Address).
 		WithByteSize(req.AccessByteSize).
 		WithPID(req.PID).
-		WithDst(b.BottomUnit).
+		WithDst(b.BottomUnit.AsRemote()).
 		Build()
 }
 
@@ -257,7 +257,7 @@ func (b *ReorderBuffer) duplicateWriteReq(req *mem.WriteReq) *mem.WriteReq {
 		WithPID(req.PID).
 		WithData(req.Data).
 		WithDirtyMask(req.DirtyMask).
-		WithDst(b.BottomUnit).
+		WithDst(b.BottomUnit.AsRemote()).
 		Build()
 }
 

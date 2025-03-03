@@ -67,22 +67,25 @@ func (b Builder) Build(name string) *ReorderBuffer {
 }
 
 func (b *Builder) createPorts(name string, rb *ReorderBuffer) {
-	rb.topPort = sim.NewLimitNumMsgPort(
+	rb.topPort = sim.NewPort(
 		rb,
+		2*b.numReqPerCycle,
 		2*b.numReqPerCycle,
 		name+".TopPort",
 	)
 	rb.AddPort("Top", rb.topPort)
 
-	rb.bottomPort = sim.NewLimitNumMsgPort(
+	rb.bottomPort = sim.NewPort(
 		rb,
+		2*b.numReqPerCycle,
 		2*b.numReqPerCycle,
 		name+".BottomPort",
 	)
 	rb.AddPort("Bottom", rb.bottomPort)
 
-	rb.controlPort = sim.NewLimitNumMsgPort(
+	rb.controlPort = sim.NewPort(
 		rb,
+		1,
 		1,
 		name+".ControlPort",
 	)

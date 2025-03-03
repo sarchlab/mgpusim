@@ -385,7 +385,7 @@ func (cu *ComputeUnit) handleWGCompleteEvent(evt *WGCompleteEvent) error {
 	}
 
 	req := protocol.WGCompletionMsgBuilder{}.
-		WithSrc(cu.ToDispatcher).
+		WithSrc(cu.ToDispatcher.AsRemote()).
 		WithDst(evt.Req.Src).
 		WithRspTo(cu.finishedMapWGReqs).
 		Build()
@@ -423,7 +423,7 @@ func NewComputeUnit(
 	cu.queueingWGs = make([]*protocol.MapWGReq, 0)
 	cu.wfs = make(map[*kernels.WorkGroup][]*Wavefront)
 
-	cu.ToDispatcher = sim.NewLimitNumMsgPort(cu, 1, name+".ToDispatcher")
+	cu.ToDispatcher = sim.NewPort(cu, 1, 1, name+".ToDispatcher")
 
 	return cu
 }

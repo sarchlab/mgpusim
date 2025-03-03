@@ -759,7 +759,7 @@ func (d *Driver) preparePageMigrationRspToMMU() {
 		pageVaddrs[requestingGPUs[i]] = migrationInfo.GPUReqToVAddrMap[requestingGPUs[i]+1]
 	}
 
-	req := vm.NewPageMigrationRspFromDriver(d.mmuPort,
+	req := vm.NewPageMigrationRspFromDriver(d.mmuPort.AsRemote(),
 		d.currentPageMigrationReq.Src, d.currentPageMigrationReq)
 
 	for _, vAddrs := range pageVaddrs {

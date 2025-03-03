@@ -130,8 +130,8 @@ func (s *SchedulerImpl) DoFetch() bool {
 		addr := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
 		addr = addr & 0xffffffffffffffc0
 		req := mem.ReadReqBuilder{}.
-			WithSrc(s.cu.ToInstMem).
-			WithDst(s.cu.InstMem).
+			WithSrc(s.cu.ToInstMem.AsRemote()).
+			WithDst(s.cu.InstMem.AsRemote()).
 			WithAddress(addr).
 			WithPID(wf.PID()).
 			WithByteSize(64).
@@ -346,7 +346,7 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 	dispatcher := mapReq.Src
 
 	msg := protocol.WGCompletionMsgBuilder{}.
-		WithSrc(s.cu.ToACE).
+		WithSrc(s.cu.ToACE.AsRemote()).
 		WithDst(dispatcher).
 		WithRspTo([]string{mapReq.ID}).
 		Build()

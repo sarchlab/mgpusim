@@ -30,8 +30,8 @@ func (m *FlushReq) Clone() sim.Msg {
 func NewFlushReq(src, dst sim.Port) *FlushReq {
 	cmd := new(FlushReq)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -66,8 +66,8 @@ func NewLaunchKernelReq(
 ) *LaunchKernelReq {
 	r := new(LaunchKernelReq)
 	r.ID = sim.GetIDGenerator().Generate()
-	r.Src = src
-	r.Dst = dst
+	r.Src = src.AsRemote()
+	r.Dst = dst.AsRemote()
 	return r
 }
 
@@ -94,7 +94,7 @@ func (m *LaunchKernelRsp) Clone() sim.Msg {
 
 // NewLaunchKernelRsp returns a new LaunchKernelRsp.
 func NewLaunchKernelRsp(
-	src, dst sim.Port,
+	src, dst sim.RemotePort,
 	rspTo string,
 ) *LaunchKernelRsp {
 	r := new(LaunchKernelRsp)
@@ -137,8 +137,8 @@ func NewMemCopyH2DReq(
 	req := new(MemCopyH2DReq)
 	req.ID = sim.GetIDGenerator().Generate()
 	req.MsgMeta.TrafficBytes = len(srcBuffer)
-	req.Src = src
-	req.Dst = dst
+	req.Src = src.AsRemote()
+	req.Dst = dst.AsRemote()
 	req.SrcBuffer = srcBuffer
 	req.DstAddress = dstAddress
 	return req
@@ -174,8 +174,8 @@ func NewMemCopyD2HReq(
 	req := new(MemCopyD2HReq)
 	req.ID = sim.GetIDGenerator().Generate()
 	req.MsgMeta.TrafficBytes = len(dstBuffer)
-	req.Src = src
-	req.Dst = dst
+	req.Src = src.AsRemote()
+	req.Dst = dst.AsRemote()
 	req.SrcAddress = srcAddress
 	req.DstBuffer = dstBuffer
 	return req
@@ -214,8 +214,8 @@ func NewShootdownCommand(
 ) *ShootDownCommand {
 	cmd := new(ShootDownCommand)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	cmd.VAddr = vAddr
 	cmd.PID = pID
 	return cmd
@@ -248,8 +248,8 @@ func NewShootdownCompleteRsp(
 ) *ShootDownCompleteRsp {
 	cmd := new(ShootDownCompleteRsp)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -280,8 +280,8 @@ func NewRDMADrainCmdFromDriver(
 ) *RDMADrainCmdFromDriver {
 	cmd := new(RDMADrainCmdFromDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -312,8 +312,8 @@ func NewRDMADrainRspToDriver(
 ) *RDMADrainRspToDriver {
 	cmd := new(RDMADrainRspToDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -344,8 +344,8 @@ func NewRDMARestartCmdFromDriver(
 ) *RDMARestartCmdFromDriver {
 	cmd := new(RDMARestartCmdFromDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -376,8 +376,8 @@ func NewGPURestartReq(
 ) *GPURestartReq {
 	cmd := new(GPURestartReq)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -408,8 +408,8 @@ func NewGPURestartRsp(
 ) *GPURestartRsp {
 	cmd := new(GPURestartRsp)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -445,8 +445,8 @@ func NewPageMigrationReqToCP(
 ) *PageMigrationReqToCP {
 	cmd := new(PageMigrationReqToCP)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -477,8 +477,8 @@ func NewPageMigrationRspToDriver(
 ) *PageMigrationRspToDriver {
 	cmd := new(PageMigrationRspToDriver)
 	cmd.ID = sim.GetIDGenerator().Generate()
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }
 
@@ -508,7 +508,7 @@ func NewRDMARestartRspToDriver(
 	src, dst sim.Port,
 ) *RDMARestartRspToDriver {
 	cmd := new(RDMARestartRspToDriver)
-	cmd.Src = src
-	cmd.Dst = dst
+	cmd.Src = src.AsRemote()
+	cmd.Dst = dst.AsRemote()
 	return cmd
 }

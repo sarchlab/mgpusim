@@ -142,6 +142,13 @@ var _ = Describe("ComputeUnit", func() {
 		cu.ToCP = toCP
 
 		grid = exampleGrid()
+
+		toInstMem.EXPECT().AsRemote().AnyTimes()
+		toACE.EXPECT().AsRemote().AnyTimes()
+		toScalarMem.EXPECT().AsRemote().AnyTimes()
+		toVectorMem.EXPECT().AsRemote().AnyTimes()
+		instMem.EXPECT().AsRemote().AnyTimes()
+		toCP.EXPECT().AsRemote().AnyTimes()
 	})
 
 	AfterEach(func() {
@@ -174,8 +181,8 @@ var _ = Describe("ComputeUnit", func() {
 			}
 
 			builder := protocol.MapWGReqBuilder{}.
-				WithSrc(nil).
-				WithDst(cu.ToACE).
+				WithSrc("").
+				WithDst(cu.ToACE.AsRemote()).
 				WithWG(wg).
 				AddWf(location1).
 				AddWf(location2)
@@ -211,15 +218,15 @@ var _ = Describe("ComputeUnit", func() {
 			wf.PC = 0x1000
 
 			req := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToInstMem).
-				WithDst(instMem).
+				WithSrc(cu.ToInstMem.AsRemote()).
+				WithDst(instMem.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
 
 			dataReady = mem.DataReadyRspBuilder{}.
-				WithSrc(instMem).
-				WithDst(cu.ToInstMem).
+				WithSrc(instMem.AsRemote()).
+				WithDst(cu.ToInstMem.AsRemote()).
 				WithRspTo(req.ID).
 				WithData([]byte{
 					1, 2, 3, 4, 5, 6, 7, 8,
@@ -269,7 +276,7 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should handle scalar data load return", func() {
 			read := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToScalarMem).
+				WithSrc(cu.ToScalarMem.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
@@ -449,8 +456,8 @@ var _ = Describe("ComputeUnit", func() {
 	Context("should handle flush request", func() {
 		It("should handle a pipeline flush request from CU", func() {
 			req := protocol.CUPipelineFlushReqBuilder{}.
-				WithSrc(nil).
-				WithDst(cu.ToCP).
+				WithSrc("").
+				WithDst(cu.ToCP.AsRemote()).
 				Build()
 
 			toCP.EXPECT().RetrieveIncoming().Return(req)
@@ -483,8 +490,8 @@ var _ = Describe("ComputeUnit", func() {
 			cu.isPaused = true
 
 			req := protocol.CUPipelineRestartReqBuilder{}.
-				WithSrc(nil).
-				WithDst(cu.ToCP).
+				WithSrc("").
+				WithDst(cu.ToCP.AsRemote()).
 				Build()
 
 			toCP.EXPECT().RetrieveIncoming().Return(req)
@@ -497,8 +504,8 @@ var _ = Describe("ComputeUnit", func() {
 
 		It("should flush the full CU", func() {
 			req := protocol.CUPipelineFlushReqBuilder{}.
-				WithSrc(nil).
-				WithDst(cu.ToCP).
+				WithSrc("").
+				WithDst(cu.ToCP.AsRemote()).
 				Build()
 
 			cu.currentFlushReq = req
@@ -540,8 +547,8 @@ var _ = Describe("ComputeUnit", func() {
 		It("should not restart a CU where there are shadow buffer reqs pending", func() {
 			info := new(InstFetchReqInfo)
 			req := mem.ReadReqBuilder{}.
-				WithSrc(cu.ToInstMem).
-				WithDst(instMem).
+				WithSrc(cu.ToInstMem.AsRemote()).
+				WithDst(instMem.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
