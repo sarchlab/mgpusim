@@ -93,15 +93,15 @@ func (b Builder) Build(name string) *CommandProcessor {
 }
 
 func (Builder) createPorts(cp *CommandProcessor, name string) {
-	cp.ToDriver = sim.NewPort(cp, 1, 1, name+".ToDriver")
-	cp.ToDMA = sim.NewPort(cp, 1, 1, name+".ToDispatcher")
-	cp.ToCUs = sim.NewPort(cp, 1, 1, name+".ToCUs")
-	cp.ToTLBs = sim.NewPort(cp, 1, 1, name+".ToTLBs")
-	cp.ToRDMA = sim.NewPort(cp, 1, 1, name+".ToRDMA")
-	cp.ToPMC = sim.NewPort(cp, 1, 1, name+".ToPMC")
-	cp.ToAddressTranslators = sim.NewPort(cp, 1, 1,
+	cp.ToDriver = sim.NewPort(cp, 4096, 4096, name+".ToDriver")
+	cp.ToDMA = sim.NewPort(cp, 4096, 4096, name+".ToDispatcher")
+	cp.ToCUs = sim.NewPort(cp, 4096, 4096, name+".ToCUs")
+	cp.ToTLBs = sim.NewPort(cp, 4096, 4096, name+".ToTLBs")
+	cp.ToRDMA = sim.NewPort(cp, 4096, 4096, name+".ToRDMA")
+	cp.ToPMC = sim.NewPort(cp, 4096, 4096, name+".ToPMC")
+	cp.ToAddressTranslators = sim.NewPort(cp, 4096, 4096,
 		name+".ToAddressTranslators")
-	cp.ToCaches = sim.NewPort(cp, 1, 1, name+".ToCaches")
+	cp.ToCaches = sim.NewPort(cp, 4096, 4096, name+".ToCaches")
 }
 
 func (b *Builder) buildDispatchers(cp *CommandProcessor) {

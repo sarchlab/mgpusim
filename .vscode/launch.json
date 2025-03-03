@@ -106,7 +106,7 @@
             "program": "${workspaceFolder}/benchmarks/dnn/tensor"
         },
         {
-            "name": "Test gitlab.com/akita/mgpusim/benchmarks/mccl",
+            "name": "Test github.com/sarchlab/mgpusim/benchmarks/mccl",
             "type": "go",
             "request": "launch",
             "mode": "test",
@@ -165,7 +165,8 @@
             "mode": "debug",
             "program": "${workspaceFolder}/samples/fir",
             "args": [
-                "-parallel",
+                "-timing",
+                "-verify",
             ],
         },
         {

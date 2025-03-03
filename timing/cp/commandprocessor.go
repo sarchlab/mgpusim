@@ -283,7 +283,11 @@ func (p *CommandProcessor) processRDMADrainCmd(
 		WithDst(p.RDMA.AsRemote()).
 		Build()
 
-	p.ToRDMA.Send(req)
+	err := p.ToRDMA.Send(req)
+	if err != nil {
+		panic(err)
+	}
+
 	p.ToDriver.RetrieveIncoming()
 
 	return true
@@ -294,7 +298,11 @@ func (p *CommandProcessor) processRDMADrainRsp(
 ) bool {
 	req := protocol.NewRDMADrainRspToDriver(p.ToDriver, p.Driver)
 
-	p.ToDriver.Send(req)
+	err := p.ToDriver.Send(req)
+	if err != nil {
+		panic(err)
+	}
+
 	p.ToRDMA.RetrieveIncoming()
 
 	return true
@@ -524,7 +532,10 @@ func (p *CommandProcessor) restartCache(port sim.Port) {
 		WithDst(port.AsRemote()).
 		Build()
 
-	p.ToCaches.Send(req)
+	err := p.ToCaches.Send(req)
+	if err != nil {
+		panic(err)
+	}
 
 	p.numCacheACK++
 }
@@ -623,7 +634,11 @@ func (p *CommandProcessor) processPageMigrationReq(
 		WithReadFrom(cmd.ToReadFromPhysicalAddress).
 		WithWriteTo(cmd.ToWriteToPhysicalAddress).
 		Build()
-	p.ToPMC.Send(req)
+
+	err := p.ToPMC.Send(req)
+	if err != nil {
+		panic(err)
+	}
 
 	p.ToDriver.RetrieveIncoming()
 
@@ -635,7 +650,10 @@ func (p *CommandProcessor) processPageMigrationRsp(
 ) bool {
 	req := protocol.NewPageMigrationRspToDriver(p.ToDriver, p.Driver)
 
-	p.ToDriver.Send(req)
+	err := p.ToDriver.Send(req)
+	if err != nil {
+		panic(err)
+	}
 
 	p.ToPMC.RetrieveIncoming()
 
@@ -687,7 +705,12 @@ func (p *CommandProcessor) flushCache(port sim.Port) {
 		WithSrc(p.ToCaches.AsRemote()).
 		WithDst(port.AsRemote()).
 		Build()
-	p.ToCaches.Send(flushReq)
+
+	err := p.ToCaches.Send(flushReq)
+	if err != nil {
+		panic(err)
+	}
+
 	p.numCacheACK++
 }
 

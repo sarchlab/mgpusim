@@ -31,7 +31,7 @@ var _ = Describe("MCCL", func() {
 		gpuDriver.Terminate()
 	})
 
-	It("Broadcast Test", func() {
+	FIt("Broadcast Test", func() {
 		gpuNum := 4
 		dataSize := 1024
 		root := 1
