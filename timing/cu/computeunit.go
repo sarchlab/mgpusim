@@ -12,6 +12,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/insts"
 	"github.com/sarchlab/mgpusim/v4/kernels"
 	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/samplinglib"
 	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
@@ -393,7 +394,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 			}
 		}
 	}
-  
+
 	if !skipSimulate {
 		for i, wf := range wg.Wfs {
 			location := req.Wavefronts[i]
@@ -865,13 +866,13 @@ func NewComputeUnit(
 	cu := new(ComputeUnit)
 	cu.TickingComponent = sim.NewTickingComponent(
 		name, engine, 1*sim.GHz, cu)
-	
+
 	cu.ToACE = sim.NewPort(cu, 4, 4, name+".ToACE")
 	cu.ToInstMem = sim.NewPort(cu, 4, 4, name+".ToInstMem")
 	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
 	cu.ToVectorMem = sim.NewPort(cu, 4, 4, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
-  cu.wftime = make(map[string]sim.VTimeInSec)
-  
+	cu.wftime = make(map[string]sim.VTimeInSec)
+
 	return cu
 }
