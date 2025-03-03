@@ -74,7 +74,7 @@ func NewSampledEngine(
 	return ret
 }
 
-// sampledEngine is used to monitor wavefront sampling
+// SampledEngineInstance is used to monitor wavefront sampling
 var SampledEngineInstance *SampledEngine
 
 // InitSampledEngine is used to initial all status and data structure
