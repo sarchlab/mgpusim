@@ -79,6 +79,12 @@ var _ = Describe("Scheduler", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 
 		engine = NewMockEngine(mockCtrl)
+		engine.EXPECT().
+			CurrentTime().
+			AnyTimes().
+			Return(sim.VTimeInSec(0)).
+			AnyTimes()
+
 		cu = NewComputeUnit("CU", engine)
 		cu.Freq = 1
 		cu.WfPools = make([]*WavefrontPool, 1)
@@ -211,7 +217,6 @@ var _ = Describe("Scheduler", func() {
 		Expect(wfs[2].InstToIssue).To(BeNil())
 		Expect(wfs[3].InstToIssue).To(BeNil())
 		Expect(wfs[4].InstToIssue).NotTo(BeNil())
-
 	})
 
 	It("should issue internal instruction", func() {

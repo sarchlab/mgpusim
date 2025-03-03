@@ -197,7 +197,7 @@ var _ = Describe("ComputeUnit", func() {
 			wfDispatcher.EXPECT().
 				DispatchWf(gomock.Any(), req.Wavefronts[1])
 			engine.EXPECT().Schedule(gomock.Any())
-			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11))
+			engine.EXPECT().CurrentTime().Return(sim.VTimeInSec(11)).AnyTimes()
 
 			cu.processInputFromACE()
 
