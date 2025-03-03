@@ -15,11 +15,12 @@ type WfState int
 
 // A list of all possible WfState
 const (
-	WfDispatching WfState = iota // Dispatching in progress, not ready to run
-	WfReady                      // Allow the scheduler to schedule instruction
-	WfRunning                    // Instruction in fight
-	WfCompleted                  // Wavefront completed
-	WfAtBarrier                  // Wavefront at barrier
+	WfDispatching      WfState = iota // Dispatching in progress, not ready to run
+	WfReady                           // Allow the scheduler to schedule instruction
+	WfRunning                         // Instruction in fight
+	WfCompleted                       // Wavefront completed
+	WfAtBarrier                       // Wavefront at barrier
+	WfSampledCompleted                // Wavefront completed at Sampling
 )
 
 // A Wavefront in the timing package contains the information of the progress
