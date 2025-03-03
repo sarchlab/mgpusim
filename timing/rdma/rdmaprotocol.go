@@ -24,17 +24,17 @@ func (r *DrainReq) Clone() sim.Msg {
 
 // DrainReqBuilder can build RDMA drain requests
 type DrainReqBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b DrainReqBuilder) WithSrc(src sim.Port) DrainReqBuilder {
+func (b DrainReqBuilder) WithSrc(src sim.RemotePort) DrainReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DrainReqBuilder) WithDst(dst sim.Port) DrainReqBuilder {
+func (b DrainReqBuilder) WithDst(dst sim.RemotePort) DrainReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -68,17 +68,17 @@ func (r *RestartReq) Clone() sim.Msg {
 
 // RestartReqBuilder can build RDMA restart req
 type RestartReqBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b RestartReqBuilder) WithSrc(src sim.Port) RestartReqBuilder {
+func (b RestartReqBuilder) WithSrc(src sim.RemotePort) RestartReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b RestartReqBuilder) WithDst(dst sim.Port) RestartReqBuilder {
+func (b RestartReqBuilder) WithDst(dst sim.RemotePort) RestartReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -112,17 +112,17 @@ func (r *DrainRsp) Clone() sim.Msg {
 
 // DrainRspBuilder can build RDMA drain responses
 type DrainRspBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b DrainRspBuilder) WithSrc(src sim.Port) DrainRspBuilder {
+func (b DrainRspBuilder) WithSrc(src sim.RemotePort) DrainRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DrainRspBuilder) WithDst(dst sim.Port) DrainRspBuilder {
+func (b DrainRspBuilder) WithDst(dst sim.RemotePort) DrainRspBuilder {
 	b.dst = dst
 	return b
 }
@@ -156,17 +156,17 @@ func (r *RestartRsp) Clone() sim.Msg {
 
 // RestartRspBuilder can build RDMA drain responses
 type RestartRspBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b RestartRspBuilder) WithSrc(src sim.Port) RestartRspBuilder {
+func (b RestartRspBuilder) WithSrc(src sim.RemotePort) RestartRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b RestartRspBuilder) WithDst(dst sim.Port) RestartRspBuilder {
+func (b RestartRspBuilder) WithDst(dst sim.RemotePort) RestartRspBuilder {
 	b.dst = dst
 	return b
 }

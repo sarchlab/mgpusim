@@ -9,7 +9,7 @@ type PageMigrationReqToPMC struct {
 	sim.MsgMeta
 	ToReadFromPhysicalAddress uint64
 	ToWriteToPhysicalAddress  uint64
-	PMCPortOfRemoteGPU        sim.Port
+	PMCPortOfRemoteGPU        sim.RemotePort
 	PageSize                  uint64
 }
 
@@ -28,21 +28,21 @@ func (r *PageMigrationReqToPMC) Clone() sim.Msg {
 
 // PageMigrationReqToPMCBuilder can build new PMC mgiration requests
 type PageMigrationReqToPMCBuilder struct {
-	src, dst             sim.Port
+	src, dst             sim.RemotePort
 	ToReadFromPhyAddress uint64
 	ToWriteToPhyAddress  uint64
-	PMCPortOfRemoteGPU   sim.Port
+	PMCPortOfRemoteGPU   sim.RemotePort
 	PageSize             uint64
 }
 
 // WithSrc sets the source of the request to build.
-func (b PageMigrationReqToPMCBuilder) WithSrc(src sim.Port) PageMigrationReqToPMCBuilder {
+func (b PageMigrationReqToPMCBuilder) WithSrc(src sim.RemotePort) PageMigrationReqToPMCBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b PageMigrationReqToPMCBuilder) WithDst(dst sim.Port) PageMigrationReqToPMCBuilder {
+func (b PageMigrationReqToPMCBuilder) WithDst(dst sim.RemotePort) PageMigrationReqToPMCBuilder {
 	b.dst = dst
 	return b
 }
@@ -67,7 +67,7 @@ func (b PageMigrationReqToPMCBuilder) WithPageSize(pageSize uint64) PageMigratio
 
 // WithPMCPortOfRemoteGPU sets the page size.
 func (b PageMigrationReqToPMCBuilder) WithPMCPortOfRemoteGPU(
-	pmcPortOfRemoteGPU sim.Port,
+	pmcPortOfRemoteGPU sim.RemotePort,
 ) PageMigrationReqToPMCBuilder {
 	b.PMCPortOfRemoteGPU = pmcPortOfRemoteGPU
 	return b
@@ -106,17 +106,17 @@ func (r *PageMigrationRspFromPMC) Clone() sim.Msg {
 
 // PageMigrationRspFromPMCBuilder can build new PMC migration responses
 type PageMigrationRspFromPMCBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 }
 
 // WithSrc sets the source of the request to build.
-func (b PageMigrationRspFromPMCBuilder) WithSrc(src sim.Port) PageMigrationRspFromPMCBuilder {
+func (b PageMigrationRspFromPMCBuilder) WithSrc(src sim.RemotePort) PageMigrationRspFromPMCBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b PageMigrationRspFromPMCBuilder) WithDst(dst sim.Port) PageMigrationRspFromPMCBuilder {
+func (b PageMigrationRspFromPMCBuilder) WithDst(dst sim.RemotePort) PageMigrationRspFromPMCBuilder {
 	b.dst = dst
 	return b
 }
@@ -153,19 +153,19 @@ func (r *DataPullReq) Clone() sim.Msg {
 
 // DataPullReqBuilder can build new Data pull reqs
 type DataPullReqBuilder struct {
-	src, dst             sim.Port
+	src, dst             sim.RemotePort
 	ToReadFromPhyAddress uint64
 	DataTransferSize     uint64
 }
 
 // WithSrc sets the source of the request to build.
-func (b DataPullReqBuilder) WithSrc(src sim.Port) DataPullReqBuilder {
+func (b DataPullReqBuilder) WithSrc(src sim.RemotePort) DataPullReqBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullReqBuilder) WithDst(dst sim.Port) DataPullReqBuilder {
+func (b DataPullReqBuilder) WithDst(dst sim.RemotePort) DataPullReqBuilder {
 	b.dst = dst
 	return b
 }
@@ -216,18 +216,18 @@ func (r *DataPullRsp) Clone() sim.Msg {
 
 // DataPullRspBuilder can build new Data pull rsps
 type DataPullRspBuilder struct {
-	src, dst sim.Port
+	src, dst sim.RemotePort
 	Data     []byte
 }
 
 // WithSrc sets the source of the request to build.
-func (b DataPullRspBuilder) WithSrc(src sim.Port) DataPullRspBuilder {
+func (b DataPullRspBuilder) WithSrc(src sim.RemotePort) DataPullRspBuilder {
 	b.src = src
 	return b
 }
 
 // WithDst sets the destination of the request to build.
-func (b DataPullRspBuilder) WithDst(dst sim.Port) DataPullRspBuilder {
+func (b DataPullRspBuilder) WithDst(dst sim.RemotePort) DataPullRspBuilder {
 	b.dst = dst
 	return b
 }

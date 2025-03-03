@@ -181,8 +181,8 @@ func (b *EmuGPUBuilder) buildGPU() {
 	b.gpu = sim.NewDomain(b.gpuName)
 	b.commandProcessor.Driver = b.driver.GetPortByName("GPU")
 
-	localDataSource := new(mem.SingleLowModuleFinder)
-	localDataSource.LowModule = b.gpuMem.GetPortByName("Top")
+	localDataSource := new(mem.SinglePortMapper)
+	localDataSource.Port = b.gpuMem.GetPortByName("Top").AsRemote()
 	b.dmaEngine = cp.NewDMAEngine(
 		fmt.Sprintf("%s.DMA", b.gpuName), b.engine, localDataSource)
 	b.commandProcessor.DMAEngine = b.dmaEngine.ToCP
@@ -194,14 +194,14 @@ func (b *EmuGPUBuilder) connectInternalComponents() {
 		WithFreq(1 * sim.GHz).
 		Build("IntraGPUConn")
 
-	connection.PlugIn(b.commandProcessor.ToDMA, 1)
-	connection.PlugIn(b.commandProcessor.ToCUs, 1)
-	connection.PlugIn(b.gpuMem.GetPortByName("Top"), 1)
-	connection.PlugIn(b.dmaEngine.ToCP, 1)
-	connection.PlugIn(b.dmaEngine.ToMem, 1)
+	connection.PlugIn(b.commandProcessor.ToDMA)
+	connection.PlugIn(b.commandProcessor.ToCUs)
+	connection.PlugIn(b.gpuMem.GetPortByName("Top"))
+	connection.PlugIn(b.dmaEngine.ToCP)
+	connection.PlugIn(b.dmaEngine.ToMem)
 
 	for _, cu := range b.computeUnits {
 		b.commandProcessor.RegisterCU(cu)
-		connection.PlugIn(cu.ToDispatcher, 4)
+		connection.PlugIn(cu.ToDispatcher)
 	}
 }

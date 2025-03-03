@@ -15,7 +15,7 @@ var _ = Describe("DMAEngine", func() {
 		engine            *MockEngine
 		toCP              *MockPort
 		toMem             *MockPort
-		localModuleFinder *mem.SingleLowModuleFinder
+		localModuleFinder *mem.SinglePortMapper
 		dmaEngine         *DMAEngine
 	)
 
@@ -25,7 +25,10 @@ var _ = Describe("DMAEngine", func() {
 		toCP = NewMockPort(mockCtrl)
 		toMem = NewMockPort(mockCtrl)
 
-		localModuleFinder = new(mem.SingleLowModuleFinder)
+		toCP.EXPECT().AsRemote().AnyTimes()
+		toMem.EXPECT().AsRemote().AnyTimes()
+
+		localModuleFinder = new(mem.SinglePortMapper)
 		dmaEngine = NewDMAEngine("DMA", engine, localModuleFinder)
 		dmaEngine.ToCP = toCP
 		dmaEngine.ToMem = toMem
@@ -36,9 +39,12 @@ var _ = Describe("DMAEngine", func() {
 	})
 
 	It("should stall if dma is processing max request number", func() {
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
 		for i := 0; i < int(dmaEngine.maxRequestCount); i++ {
 			srcBuf := make([]byte, 128)
-			req := protocol.NewMemCopyH2DReq(nil, toCP, srcBuf, uint64(20+128*i))
+			req := protocol.NewMemCopyH2DReq(nilPort, toCP, srcBuf, uint64(20+128*i))
 			rqC := NewRequestCollection(req)
 
 			dmaEngine.processingReqs = append(dmaEngine.processingReqs, rqC)
@@ -51,8 +57,11 @@ var _ = Describe("DMAEngine", func() {
 	})
 
 	It("should parse MemCopyH2D from CP", func() {
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
 		srcBuf := make([]byte, 128)
-		req := protocol.NewMemCopyH2DReq(nil, toCP, srcBuf, 20)
+		req := protocol.NewMemCopyH2DReq(nilPort, toCP, srcBuf, 20)
 
 		toCP.EXPECT().RetrieveIncoming().Return(req)
 
@@ -71,8 +80,11 @@ var _ = Describe("DMAEngine", func() {
 	})
 
 	It("should parse MemCopyD2H from CP", func() {
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
 		dstBuf := make([]byte, 128)
-		req := protocol.NewMemCopyD2HReq(nil, toCP, 20, dstBuf)
+		req := protocol.NewMemCopyD2HReq(nilPort, toCP, 20, dstBuf)
 
 		toCP.EXPECT().RetrieveIncoming().Return(req)
 
@@ -91,23 +103,26 @@ var _ = Describe("DMAEngine", func() {
 	})
 
 	It("should parse DataReady from mem", func() {
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
 		dstBuf := make([]byte, 128)
-		req := protocol.NewMemCopyD2HReq(nil, toCP, 20, dstBuf)
+		req := protocol.NewMemCopyD2HReq(nilPort, toCP, 20, dstBuf)
 		rqC := NewRequestCollection(req)
 		dmaEngine.processingReqs = append(dmaEngine.processingReqs, rqC)
 
 		reqToBottom1 := mem.ReadReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(20).
 			WithByteSize(64).
 			Build()
 		reqToBottom2 := mem.ReadReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(64).
 			WithByteSize(64).
 			Build()
 		reqToBottom3 := mem.ReadReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(128).
 			WithByteSize(64).
 			Build()
@@ -119,7 +134,7 @@ var _ = Describe("DMAEngine", func() {
 		rqC.appendSubordinateID(reqToBottom3.Meta().ID)
 
 		dataReady := mem.DataReadyRspBuilder{}.
-			WithDst(toMem).
+			WithDst(toMem.AsRemote()).
 			WithRspTo(reqToBottom2.ID).
 			WithData([]byte{
 				1, 2, 3, 4, 5, 6, 7, 8,
@@ -145,13 +160,16 @@ var _ = Describe("DMAEngine", func() {
 	})
 
 	It("should respond MemCopyD2H", func() {
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
 		dstBuf := make([]byte, 128)
-		req := protocol.NewMemCopyD2HReq(nil, toCP, 20, dstBuf)
+		req := protocol.NewMemCopyD2HReq(nilPort, toCP, 20, dstBuf)
 		rqC := NewRequestCollection(req)
 		dmaEngine.processingReqs = append(dmaEngine.processingReqs, rqC)
 
 		reqToBottom2 := mem.ReadReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(64).
 			WithByteSize(64).
 			Build()
@@ -159,7 +177,7 @@ var _ = Describe("DMAEngine", func() {
 		rqC.appendSubordinateID(reqToBottom2.Meta().ID)
 
 		dataReady := mem.DataReadyRspBuilder{}.
-			WithDst(toMem).
+			WithDst(toMem.AsRemote()).
 			WithRspTo(reqToBottom2.ID).
 			WithData([]byte{
 				1, 2, 3, 4, 5, 6, 7, 8,
@@ -185,21 +203,24 @@ var _ = Describe("DMAEngine", func() {
 	})
 
 	It("should parse Done from mem", func() {
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
 		srcBuf := make([]byte, 128)
-		req := protocol.NewMemCopyH2DReq(nil, toCP, srcBuf, 20)
+		req := protocol.NewMemCopyH2DReq(nilPort, toCP, srcBuf, 20)
 		rqC := NewRequestCollection(req)
 		dmaEngine.processingReqs = append(dmaEngine.processingReqs, rqC)
 
 		reqToBottom1 := mem.WriteReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(20).
 			Build()
 		reqToBottom2 := mem.WriteReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(64).
 			Build()
 		reqToBottom3 := mem.WriteReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(128).
 			Build()
 
@@ -211,7 +232,7 @@ var _ = Describe("DMAEngine", func() {
 		rqC.appendSubordinateID(reqToBottom3.Meta().ID)
 
 		done := mem.WriteDoneRspBuilder{}.
-			WithDst(toMem).
+			WithDst(toMem.AsRemote()).
 			WithRspTo(reqToBottom2.ID).
 			Build()
 
@@ -228,20 +249,23 @@ var _ = Describe("DMAEngine", func() {
 	})
 
 	It("should send MemCopyH2D to top", func() {
+		nilPort := NewMockPort(mockCtrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
 		srcBuf := make([]byte, 128)
-		req := protocol.NewMemCopyH2DReq(nil, toCP, srcBuf, 20)
+		req := protocol.NewMemCopyH2DReq(nilPort, toCP, srcBuf, 20)
 		rqC := NewRequestCollection(req)
 		dmaEngine.processingReqs = append(dmaEngine.processingReqs, rqC)
 
 		reqToBottom2 := mem.WriteReqBuilder{}.
-			WithSrc(toMem).
+			WithSrc(toMem.AsRemote()).
 			WithAddress(64).
 			Build()
 		dmaEngine.pendingReqs = append(dmaEngine.pendingReqs, reqToBottom2)
 		rqC.appendSubordinateID(reqToBottom2.Meta().ID)
 
 		done := mem.WriteDoneRspBuilder{}.
-			WithDst(toMem).
+			WithDst(toMem.AsRemote()).
 			WithRspTo(reqToBottom2.ID).
 			Build()
 

@@ -33,6 +33,9 @@ var _ = Describe("Dispatcher", func() {
 		dispatchingPort = NewMockPort(ctrl)
 		respondingPort = NewMockPort(ctrl)
 
+		dispatchingPort.EXPECT().AsRemote().AnyTimes()
+		respondingPort.EXPECT().AsRemote().AnyTimes()
+
 		dispatcher = MakeBuilder().
 			WithCP(cp).
 			WithDispatchingPort(dispatchingPort).
@@ -52,7 +55,10 @@ var _ = Describe("Dispatcher", func() {
 		packet := &kernels.HsaKernelDispatchPacket{}
 		packetAddr := uint64(0x40)
 
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		req.HsaCo = hsaco
 		req.Packet = packet
 		req.PacketAddress = packetAddr
@@ -69,19 +75,26 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should panic if the dispatcher is dispatching another kernel", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		Expect(func() { dispatcher.StartDispatching(req) }).To(Panic())
 	})
 
 	It("should dispatch work-groups", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: true,
+			cu:    nilPort,
 		})
 		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
 		dispatchingPort.EXPECT().Send(gomock.Any()).Return(nil)
@@ -96,7 +109,10 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should wait until cycle left becomes 0", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 		dispatcher.cycleLeft = 3
 
@@ -107,13 +123,17 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should pause if no work-group can be executed", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: false,
+			cu:    nilPort,
 		})
 
 		madeProgress := dispatcher.Tick()
@@ -124,13 +144,17 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should pause if send to CU failed", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: true,
+			cu:    nilPort,
 		})
 		dispatchingPort.EXPECT().
 			Send(gomock.Any()).
@@ -144,7 +168,10 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should do nothing if all work-groups dispatched", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		dispatcher.numDispatchedWGs = 64
@@ -159,7 +186,10 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should receive work-group complete message", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		mapWGReq := protocol.MapWGReqBuilder{}.Build()
@@ -189,7 +219,10 @@ var _ = Describe("Dispatcher", func() {
 
 	It(`should add kernel overhead after completing the last 
 	Work-Group`, func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		mapWGReq := protocol.MapWGReqBuilder{}.Build()
@@ -221,7 +254,10 @@ var _ = Describe("Dispatcher", func() {
 
 	It(`should ignore response if the request is not sent by the 
 	dispatcher`, func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		mapWGReq := protocol.MapWGReqBuilder{}.Build()
@@ -243,7 +279,10 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should send response when a kernel is completed", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		dispatcher.numDispatchedWGs = 64
@@ -262,7 +301,10 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	It("should wait if response is failed to send", func() {
-		req := protocol.NewLaunchKernelReq(nil, respondingPort)
+		nilPort := NewMockPort(ctrl)
+		nilPort.EXPECT().AsRemote().AnyTimes()
+
+		req := protocol.NewLaunchKernelReq(nilPort, respondingPort)
 		dispatcher.dispatching = req
 
 		dispatcher.numDispatchedWGs = 64

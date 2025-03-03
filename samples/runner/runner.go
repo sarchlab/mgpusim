@@ -135,7 +135,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	b = b.WithMonitor(r.monitor)
 
-	b = r.setAnalyszer(b)
+	b = r.setAnalyzer(b)
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()
@@ -146,17 +146,17 @@ func (r *Runner) buildTimingPlatform() {
 	r.monitor.StartServer()
 }
 
-func (*Runner) setAnalyszer(
+func (*Runner) setAnalyzer(
 	b R9NanoPlatformBuilder,
 ) R9NanoPlatformBuilder {
-	if *analyszerPeriodFlag != 0 && *analyszerNameFlag == "" {
-		panic("must specify -analyszer-name when using -analyszer-period")
+	if *analyzerPeriodFlag != 0 && *analyzerNameFlag == "" {
+		panic("must specify -analyzer-name when using -analyzer-period")
 	}
 
-	if *analyszerNameFlag != "" {
+	if *analyzerNameFlag != "" {
 		b = b.WithPerfAnalyzer(
-			*analyszerNameFlag,
-			*analyszerPeriodFlag,
+			*analyzerNameFlag,
+			*analyzerPeriodFlag,
 		)
 	}
 	return b

@@ -29,8 +29,8 @@ var _ = Describe("Engine", func() {
 		toL2                 *MockPort
 		ctrlPort             *MockPort
 		toOutside            *MockPort
-		localModules         *mem.SingleLowModuleFinder
-		remoteModules        *mem.SingleLowModuleFinder
+		localModules         *mem.SinglePortMapper
+		remoteModules        *mem.SinglePortMapper
 		localCache           *MockPort
 		remoteGPU            *MockPort
 		controllingComponent *MockPort
@@ -43,10 +43,13 @@ var _ = Describe("Engine", func() {
 		localCache = NewMockPort(mockCtrl)
 		controllingComponent = NewMockPort(mockCtrl)
 		remoteGPU = NewMockPort(mockCtrl)
-		localModules = new(mem.SingleLowModuleFinder)
-		localModules.LowModule = localCache
-		remoteModules = new(mem.SingleLowModuleFinder)
-		remoteModules.LowModule = remoteGPU
+		localCache.EXPECT().AsRemote().AnyTimes()
+		controllingComponent.EXPECT().AsRemote().AnyTimes()
+		remoteGPU.EXPECT().AsRemote().AnyTimes()
+		localModules = new(mem.SinglePortMapper)
+		localModules.Port = localCache.AsRemote()
+		remoteModules = new(mem.SinglePortMapper)
+		remoteModules.Port = remoteGPU.AsRemote()
 
 		// rdmaEngine = NewEngine("RDMAEngine", engine, localModules, remoteModules)
 		rdmaEngine = MakeBuilder().
@@ -62,6 +65,10 @@ var _ = Describe("Engine", func() {
 		rdmaEngine.ToL1 = toL1
 		rdmaEngine.ToL2 = toL2
 		rdmaEngine.CtrlPort = ctrlPort
+		toL1.EXPECT().AsRemote().AnyTimes()
+		toL2.EXPECT().AsRemote().AnyTimes()
+		ctrlPort.EXPECT().AsRemote().AnyTimes()
+		toOutside.EXPECT().AsRemote().AnyTimes()
 
 		rdmaEngine.ToOutside = toOutside
 	})
@@ -75,8 +82,8 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache).
-				WithDst(rdmaEngine.ToOutside).
+				WithSrc(localCache.AsRemote()).
+				WithDst(rdmaEngine.ToOutside.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
@@ -112,8 +119,8 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache).
-				WithDst(rdmaEngine.ToOutside).
+				WithSrc(localCache.AsRemote()).
+				WithDst(rdmaEngine.ToOutside.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
@@ -153,20 +160,20 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			readFromInside = mem.ReadReqBuilder{}.
-				WithSrc(localCache).
-				WithDst(rdmaEngine.ToL1).
+				WithSrc(localCache.AsRemote()).
+				WithDst(rdmaEngine.ToL1.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
 			read = mem.ReadReqBuilder{}.
-				WithSrc(rdmaEngine.ToOutside).
-				WithDst(remoteGPU).
+				WithSrc(rdmaEngine.ToOutside.AsRemote()).
+				WithDst(remoteGPU.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
 			rsp = mem.DataReadyRspBuilder{}.
-				WithSrc(remoteGPU).
-				WithDst(rdmaEngine.ToOutside).
+				WithSrc(remoteGPU.AsRemote()).
+				WithDst(rdmaEngine.ToOutside.AsRemote()).
 				WithRspTo(read.ID).
 				Build()
 
@@ -212,20 +219,20 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			readFromOutside = mem.ReadReqBuilder{}.
-				WithSrc(localCache).
-				WithDst(rdmaEngine.ToL2).
+				WithSrc(localCache.AsRemote()).
+				WithDst(rdmaEngine.ToL2.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
 			read = mem.ReadReqBuilder{}.
-				WithSrc(rdmaEngine.ToOutside).
-				WithDst(remoteGPU).
+				WithSrc(rdmaEngine.ToOutside.AsRemote()).
+				WithDst(remoteGPU.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
 			rsp = mem.DataReadyRspBuilder{}.
-				WithSrc(remoteGPU).
-				WithDst(rdmaEngine.ToOutside).
+				WithSrc(remoteGPU.AsRemote()).
+				WithDst(rdmaEngine.ToOutside.AsRemote()).
 				WithRspTo(read.ID).
 				Build()
 			rdmaEngine.transactionsFromOutside = append(
@@ -270,17 +277,17 @@ var _ = Describe("Engine", func() {
 
 		BeforeEach(func() {
 			read = mem.ReadReqBuilder{}.
-				WithSrc(localCache).
-				WithDst(rdmaEngine.ToOutside).
+				WithSrc(localCache.AsRemote()).
+				WithDst(rdmaEngine.ToOutside.AsRemote()).
 				WithAddress(0x100).
 				WithByteSize(64).
 				Build()
 			drainReq = DrainReqBuilder{}.
-				WithSrc(controllingComponent).
-				WithDst(rdmaEngine.CtrlPort).Build()
+				WithSrc(controllingComponent.AsRemote()).
+				WithDst(rdmaEngine.CtrlPort.AsRemote()).Build()
 			restartReq = RestartReqBuilder{}.
-				WithSrc(controllingComponent).
-				WithDst(rdmaEngine.CtrlPort).Build()
+				WithSrc(controllingComponent.AsRemote()).
+				WithDst(rdmaEngine.CtrlPort.AsRemote()).Build()
 
 		})
 

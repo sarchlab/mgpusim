@@ -143,8 +143,8 @@ func (u *ScalarUnit) executeSMEMLoad(byteSize int) bool {
 		bytesLeft -= bytesLeftInCacheline
 
 		req := mem.ReadReqBuilder{}.
-			WithSrc(u.cu.ToScalarMem).
-			WithDst(u.cu.ScalarMem).
+			WithSrc(u.cu.ToScalarMem.AsRemote()).
+			WithDst(u.cu.ScalarMem.AsRemote()).
 			WithAddress(curr).
 			WithPID(u.toExec.PID()).
 			WithByteSize(bytesLeftInCacheline).

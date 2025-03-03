@@ -33,15 +33,15 @@ type Comp struct {
 	pauseIncomingReqsFromL1 bool
 	currentDrainReq         *DrainReq
 
-	localModules           mem.LowModuleFinder
-	RemoteRDMAAddressTable mem.LowModuleFinder
+	localModules           mem.AddressToPortMapper
+	RemoteRDMAAddressTable mem.AddressToPortMapper
 
 	transactionsFromOutside []transaction
 	transactionsFromInside  []transaction
 }
 
 // SetLocalModuleFinder sets the table to lookup for local data.
-func (c *Comp) SetLocalModuleFinder(lmf mem.LowModuleFinder) {
+func (c *Comp) SetLocalModuleFinder(lmf mem.AddressToPortMapper) {
 	c.localModules = lmf
 }
 
@@ -83,7 +83,7 @@ func (c *Comp) processFromCtrlPort() bool {
 
 func (c *Comp) processRDMARestartReq() bool {
 	restartCompleteRsp := RestartRspBuilder{}.
-		WithSrc(c.CtrlPort).
+		WithSrc(c.CtrlPort.AsRemote()).
 		WithDst(c.currentDrainReq.Src).
 		Build()
 	err := c.CtrlPort.Send(restartCompleteRsp)
@@ -100,7 +100,7 @@ func (c *Comp) processRDMARestartReq() bool {
 func (c *Comp) drainRDMA() bool {
 	if c.fullyDrained() {
 		drainCompleteRsp := DrainRspBuilder{}.
-			WithSrc(c.CtrlPort).
+			WithSrc(c.CtrlPort.AsRemote()).
 			WithDst(c.currentDrainReq.Src).
 			Build()
 
@@ -198,12 +198,12 @@ func (c *Comp) processReqFromL1(
 ) bool {
 	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
 
-	if dst == c.ToOutside {
-		panic("RDMA loop back detected")
-	}
+	// if dst == c.ToOutside.AsRemote() {
+	// 	panic("RDMA loop back detected")
+	// }
 
 	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.ToOutside
+	cloned.Meta().Src = c.ToOutside.AsRemote()
 	cloned.Meta().Dst = dst
 
 	err := c.ToOutside.Send(cloned)
@@ -233,7 +233,7 @@ func (c *Comp) processReqFromOutside(
 	dst := c.localModules.Find(req.GetAddress())
 
 	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.ToL2
+	cloned.Meta().Src = c.ToL2.AsRemote()
 	cloned.Meta().Dst = dst
 
 	err := c.ToL2.Send(cloned)
@@ -264,7 +264,7 @@ func (c *Comp) processRspFromL2(
 	trans := c.transactionsFromOutside[transactionIndex]
 
 	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
-	rspToOutside.Meta().Src = c.ToOutside
+	rspToOutside.Meta().Src = c.ToOutside.AsRemote()
 	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
 
 	err := c.ToOutside.Send(rspToOutside)
@@ -292,7 +292,7 @@ func (c *Comp) processRspFromOutside(
 	trans := c.transactionsFromInside[transactionIndex]
 
 	rspToInside := c.cloneRsp(rsp, trans.fromInside.Meta().ID)
-	rspToInside.Meta().Src = c.ToL1
+	rspToInside.Meta().Src = c.ToL1.AsRemote()
 	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
 
 	err := c.ToL1.Send(rspToInside)
