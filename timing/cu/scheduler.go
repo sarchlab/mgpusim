@@ -7,6 +7,7 @@ import (
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/insts"
 	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/sampling"
 	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
@@ -268,6 +269,17 @@ func (s *SchedulerImpl) evalSEndPgm(
 		return false, false
 	}
 
+	////sampling
+	now := s.cu.CurrentTime()
+	if *sampling.SampledRunnerFlag {
+		issuetime, found := s.cu.wftime[wf.UID]
+		if found {
+			finishtime := now
+			wf.FinishTime = finishtime
+			wf.IssueTime = issuetime
+			delete(s.cu.wftime, wf.UID)
+		}
+	}
 	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
 		done := s.sendWGCompletionMessage(wf.WG)
 		if !done {

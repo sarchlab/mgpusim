@@ -57,6 +57,9 @@ type Wavefront struct {
 	InitExecMask  uint64
 
 	WorkItems []*WorkItem
+	//for sampling
+	FinishTime sim.VTimeInSec
+	IssueTime  sim.VTimeInSec
 }
 
 // NewWavefront returns a new Wavefront.

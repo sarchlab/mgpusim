@@ -8,6 +8,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/sampling"
 	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/resource"
 	"github.com/sarchlab/mgpusim/v4/timing/pagemigrationcontroller"
@@ -256,6 +257,9 @@ func (p *CommandProcessor) processLaunchKernelReq(
 		return false
 	}
 
+	if *sampling.SampledRunnerFlag {
+		sampling.SampledEngineInstance.Reset()
+	}
 	d.StartDispatching(req)
 	p.ToDriver.RetrieveIncoming()
 

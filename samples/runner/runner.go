@@ -15,6 +15,8 @@ import (
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/benchmarks"
 	"github.com/sarchlab/mgpusim/v4/driver"
+	"github.com/sarchlab/mgpusim/v4/sampling"
+
 	"github.com/tebeka/atexit"
 )
 
@@ -64,6 +66,7 @@ func (r *Runner) Init() *Runner {
 	r.parseGPUFlag()
 
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
+	sampling.InitSampledEngine()
 
 	if r.Timing {
 		r.buildTimingPlatform()
@@ -143,7 +146,9 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer()
+	if !*disableAkitaRTM {
+		r.monitor.StartServer()
+	}
 }
 
 func (*Runner) setAnalyzer(
