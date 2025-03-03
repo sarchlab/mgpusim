@@ -1,8 +1,7 @@
 package wavefront
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
-	// "gitlab.com/akita/mgpusim/v3/timing/wavefront"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // A WfCompletionEvent marks the completion of a wavefront

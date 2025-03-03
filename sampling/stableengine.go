@@ -1,8 +1,8 @@
-// Package samplinglib provides tools for performing sampling simulation
-package samplinglib
+// Package sampling provides tools for performing sampling simulation
+package sampling
 
 import (
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // WFFeature is used for recording the runtime info

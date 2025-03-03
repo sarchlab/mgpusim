@@ -9,6 +9,7 @@ import (
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/kernels"
 	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/sampling"
 	"github.com/sarchlab/mgpusim/v4/timing/cp/internal/resource"
 )
 
@@ -113,12 +114,11 @@ func (d *DispatcherImpl) Tick() (madeProgress bool) {
 	return madeProgress
 }
 
-
 func (d *DispatcherImpl) collectSamplingData(locations []protocol.WfDispatchLocation) {
-	if *samplinglib.SampledRunnerFlag {
+	if *sampling.SampledRunnerFlag {
 		for _, l := range locations {
 			wavefront := l.Wavefront
-			samplinglib.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
+			sampling.Sampledengine.Collect(wavefront.Issuetime, wavefront.Finishtime)
 		}
 	}
 }

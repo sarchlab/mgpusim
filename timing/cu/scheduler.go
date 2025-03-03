@@ -7,6 +7,7 @@ import (
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/insts"
 	"github.com/sarchlab/mgpusim/v4/protocol"
+	"github.com/sarchlab/mgpusim/v4/sampling"
 	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
@@ -267,8 +268,10 @@ func (s *SchedulerImpl) evalSEndPgm(
 		wf.OutstandingScalarMemAccess > 0 {
 		return false, false
 	}
+
 	////sampling
-	if *samplinglib.SampledRunnerFlag {
+	now := s.cu.CurrentTime()
+	if *sampling.SampledRunnerFlag {
 		issuetime, found := s.cu.wftime[wf.UID]
 		if found {
 			finishtime := now

@@ -12,7 +12,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/insts"
 	"github.com/sarchlab/mgpusim/v4/kernels"
 	"github.com/sarchlab/mgpusim/v4/protocol"
-	"github.com/sarchlab/mgpusim/v4/samplinglib"
+	"github.com/sarchlab/mgpusim/v4/sampling"
 	"github.com/sarchlab/mgpusim/v4/timing/wavefront"
 )
 
@@ -338,7 +338,9 @@ func (cu *ComputeUnit) Handle(evt sim.Event) error {
 
 	return nil
 }
-func (cu *ComputeUnit) handleWfCompletionEvent(evt *wavefront.WfCompletionEvent) error {
+func (cu *ComputeUnit) handleWfCompletionEvent(
+	evt *wavefront.WfCompletionEvent,
+) error {
 	wf := evt.Wf
 	wf.State = wavefront.WfCompleted
 	sTmp := cu.Scheduler
@@ -346,7 +348,7 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *wavefront.WfCompletionEvent)
 	if s.areAllOtherWfsInWGCompleted(wf.WG, wf) {
 		now := evt.Time()
 
-		done := s.sendWGCompletionMessage(now, wf.WG)
+		done := s.sendWGCompletionMessage(wf.WG)
 		if !done {
 			newEvent := wavefront.NewWfCompletionEvent(cu.Freq.NextTick(now), cu, wf)
 			cu.Engine.Schedule(newEvent)
@@ -365,24 +367,27 @@ func (cu *ComputeUnit) handleWfCompletionEvent(evt *wavefront.WfCompletionEvent)
 func (cu *ComputeUnit) handleMapWGReq(
 	req *protocol.MapWGReq,
 ) bool {
+	now := cu.CurrentTime()
+
 	wg := cu.wrapWG(req.WorkGroup, req)
 
 	tracing.TraceReqReceive(req, cu)
 
 	//sampling
 	skipSimulate := false
-	if *samplinglib.SampledRunnerFlag {
+	if *sampling.SampledRunnerFlag {
 		for _, wf := range wg.Wfs {
 			cu.wftime[wf.UID] = now
 		}
-		wfpredicttime, wfsampled := samplinglib.Sampledengine.Predict()
+		wfpredicttime, wfsampled := sampling.Sampledengine.Predict()
 		predtime := wfpredicttime
 		skipSimulate = wfsampled
 		for _, wf := range wg.Wfs {
 			if skipSimulate {
 				predictedTime := predtime + now
 				wf.State = wavefront.WfSampledCompleted
-				newEvent := wavefront.NewWfCompletionEvent(predictedTime, cu, wf)
+				newEvent := wavefront.NewWfCompletionEvent(
+					predictedTime, cu, wf)
 				cu.Engine.Schedule(newEvent)
 				tracing.StartTask(wf.UID,
 					tracing.MsgIDAtReceiver(req, cu),
@@ -399,7 +404,7 @@ func (cu *ComputeUnit) handleMapWGReq(
 		for i, wf := range wg.Wfs {
 			location := req.Wavefronts[i]
 			cu.WfPools[location.SIMDID].AddWf(wf)
-			cu.WfDispatcher.DispatchWf(now, wf, req.Wavefronts[i])
+			cu.WfDispatcher.DispatchWf(wf, req.Wavefronts[i])
 			wf.State = wavefront.WfReady
 
 			tracing.StartTaskWithSpecificLocation(wf.UID,

@@ -1,11 +1,11 @@
-package samplinglib
+package sampling
 
 import (
 	"flag"
 	"log"
 	"time"
 
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // SampledRunnerFlag is used to enable wf sampling
