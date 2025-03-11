@@ -1,2 +1,2 @@
-// Package nvidia includes basic const, types and structs for nvidia tracing
+// Package nvidia contains some basic types.
 package nvidia

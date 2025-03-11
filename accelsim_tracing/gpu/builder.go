@@ -1,157 +1,101 @@
 package gpu
 
 import (
-	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/gpc"
-	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
+	"fmt"
+
+	"github.com/sarchlab/akita/v4/sim"
+    "github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/mgpusim/nvidia_v4/accelsim_tracing/sm"
+	"github.com/tebeka/atexit"
 )
 
-type GPU struct {
-	meta       *gpuMetaData
-	dispatcher gpuDispatcher
-	gpcs       []*gpc.GPC
+type GPUBuilder struct {
+	engine sim.Engine
+	freq   sim.Freq
+
+	smsCount           int64
+	subcoresCountPerSM int64
 }
 
-type gpuMetaData struct {
-	gpcNum    int32
-	smNum     int32
-	smUnitNum int32
+func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
+	b.engine = engine
+	return b
+}
 
-	gpuStrategy    string
-	gpcStrategy    string
-	smStrategy     string
-	smUnitStrategy string
+func (b *GPUBuilder) WithFreq(freq sim.Freq) *GPUBuilder {
+	b.freq = freq
+	return b
+}
 
-	l2CacheSize int32
-	l1CacheSize int32
-	l0CacheSize int32
+func (b *GPUBuilder) WithSMsCount(count int64) *GPUBuilder {
+	b.smsCount = count
+	return b
+}
 
-	registerFileSize int32
-	laneSize         int32
+func (b *GPUBuilder) WithSubcoresCountPerSM(count int64) *GPUBuilder {
+	b.subcoresCountPerSM = count
+	return b
+}
 
-	alus []struct {
-		aluType string
-		aluNum  int32
+func (b *GPUBuilder) Build(name string) *GPU {
+	g := &GPU{
+		ID:  sim.GetIDGenerator().Generate(),
+		SMs: make(map[string]*sm.SM),
 	}
+
+	g.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, g)
+	b.buildPortsForGPU(g)
+	sms := b.buildSMs(name)
+	b.connectGPUWithSMs(g, sms)
+
+	atexit.Register(g.LogStatus)
+
+	return g
 }
 
-func NewGPU() *GPU {
-	return &GPU{
-		meta: &gpuMetaData{
-			gpcNum:    0,
-			smNum:     0,
-			smUnitNum: 0,
+func (b *GPUBuilder) buildPortsForGPU(g *GPU) {
+    // v3
+    // g.toDriver = sim.NewLimitNumMsgPort(g, 4, "ToDriver")
+    // g.toSMs = sim.NewLimitNumMsgPort(g, 4, "ToSMs")
+	g.toDriver = sim.NewPort(g, 4, 4, "ToDriver")
+	g.toSMs = sim.NewPort(g, 4, 4, "ToSMs")
+	g.AddPort("ToDriver", g.toDriver)
+	g.AddPort("ToSMs", g.toSMs)
+}
 
-			gpuStrategy:    "default",
-			gpcStrategy:    "default",
-			smStrategy:     "default",
-			smUnitStrategy: "default",
+func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SM {
+	smBuilder := new(sm.SMBuilder).
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithSubcoresCount(b.subcoresCountPerSM)
 
-			l2CacheSize: 0,
-			l1CacheSize: 0,
-			l0CacheSize: 0,
-
-			registerFileSize: 0,
-			laneSize:         0,
-
-			alus: nil,
-		},
-		dispatcher: nil,
-		gpcs:       nil,
+	sms := []*sm.SM{}
+	for i := int64(0); i < b.smsCount; i++ {
+		sm := smBuilder.Build(fmt.Sprintf("%s.SM(%d)", gpuName, i))
+		sms = append(sms, sm)
 	}
+
+	return sms
 }
 
-func (g *GPU) WithGPCNum(num int32) *GPU {
-	g.meta.gpcNum = num
-	return g
-}
+func (b *GPUBuilder) connectGPUWithSMs(gpu *GPU, sms []*sm.SM) {
+    // 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
+    // conn.PlugIn(gpu.toSMs, 4)
+    conn := directconnection.MakeBuilder().
+       WithEngine(b.engine).
+       WithFreq(1*sim.GHz).
+       Build("GPUToSMs")
+    conn.PlugIn(gpu.toSMs)
 
-func (g *GPU) WithSMNum(num int32) *GPU {
-	g.meta.smNum = num
-	return g
-}
+	for i := range sms {
+		sm := sms[i]
 
-func (g *GPU) WithSMUnitNum(num int32) *GPU {
-	g.meta.smUnitNum = num
-	return g
-}
+		gpu.freeSMs = append(gpu.freeSMs, sm)
+		gpu.SMs[sm.ID] = sm
 
-func (g *GPU) WithGPUStrategy(strategy string) *GPU {
-	g.meta.gpuStrategy = strategy
-	return g
-}
-
-func (g *GPU) WithGPCStrategy(strategy string) *GPU {
-	g.meta.gpcStrategy = strategy
-	return g
-}
-
-func (g *GPU) WithSMStrategy(strategy string) *GPU {
-	g.meta.smStrategy = strategy
-	return g
-}
-
-func (g *GPU) WithSMUnitStrategy(strategy string) *GPU {
-	g.meta.smUnitStrategy = strategy
-	return g
-}
-
-func (g *GPU) WithL2CacheSize(size int32) *GPU {
-	g.meta.l2CacheSize = size
-	return g
-}
-
-func (g *GPU) WithL1CacheSize(size int32) *GPU {
-	g.meta.l1CacheSize = size
-	return g
-}
-
-func (g *GPU) WithL0CacheSize(size int32) *GPU {
-	g.meta.l0CacheSize = size
-	return g
-}
-
-func (g *GPU) WithRegisterFileSize(size int32) *GPU {
-	g.meta.registerFileSize = size
-	return g
-}
-
-func (g *GPU) WithLaneSize(size int32) *GPU {
-	g.meta.laneSize = size
-	return g
-}
-
-func (g *GPU) WithALU(aluType string, num int32) *GPU {
-	g.meta.alus = append(g.meta.alus, struct {
-		aluType string
-		aluNum  int32
-	}{aluType: aluType, aluNum: num})
-	return g
-}
-
-func (g *GPU) Build() {
-	g.buildDispatcher()
-	g.gpcs = make([]*gpc.GPC, g.meta.gpcNum)
-	for i := 0; i < int(g.meta.gpcNum); i++ {
-		g.gpcs[i] = gpc.NewGPC().
-			WithSMNum(g.meta.smNum).
-			WithSMUnitNum(g.meta.smUnitNum).
-			WithGPCStrategy(g.meta.gpcStrategy).
-			WithSMStrategy(g.meta.smStrategy).
-			WithSMUnitStrategy(g.meta.smUnitStrategy).
-			WithL2CacheSize(g.meta.l2CacheSize).
-			WithL1CacheSize(g.meta.l1CacheSize).
-			WithL0CacheSize(g.meta.l0CacheSize).
-			WithRegisterFileSize(g.meta.registerFileSize).
-			WithLaneSize(g.meta.laneSize)
-		for _, alu := range g.meta.alus {
-			g.gpcs[i].WithALU(alu.aluType, alu.aluNum)
-		}
-		g.gpcs[i].Build()
+		sm.SetGPURemotePort(gpu.toSMs)
+		// v3
+		// conn.PlugIn(sm.GetPortByName("ToGPU"), 4)
+		conn.PlugIn(sm.GetPortByName("ToGPU"))
 	}
-}
-
-// RunThreadBlock runs a threadblock on the GPU
-// [todo] how to handle the relationship between trace.threadblock and truethreadblock
-func (g *GPU) RunThreadBlock(tb *nvidia.ThreadBlock) {
-	g.dispatcher.dispatch(tb)
 }

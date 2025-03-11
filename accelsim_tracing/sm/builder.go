@@ -1,119 +1,96 @@
 package sm
 
 import (
-	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/nvidia"
-	"github.com/sarchlab/mgpusim/v4/accelsim_tracing/smunit"
+	"fmt"
+
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/mgpusim/nvidia_v4/accelsim_tracing/subcore"
+	"github.com/tebeka/atexit"
 )
 
-type SM struct {
-	meta       *smMetaData
-	dispatcher smDispatcher
-	smUnits    []*smunit.SMUnit
+type SMBuilder struct {
+	engine sim.Engine
+	freq   sim.Freq
+
+	subcoresCount int64
 }
 
-type smMetaData struct {
-	smUnitNum int32
+func (b *SMBuilder) WithEngine(engine sim.Engine) *SMBuilder {
+	b.engine = engine
+	return b
+}
 
-	smStrategy     string
-	smUnitStrategy string
+func (b *SMBuilder) WithFreq(freq sim.Freq) *SMBuilder {
+	b.freq = freq
+	return b
+}
 
-	l2CacheSize int32
-	l1CacheSize int32
-	l0CacheSize int32
+func (b *SMBuilder) WithSubcoresCount(count int64) *SMBuilder {
+	b.subcoresCount = count
+	return b
+}
 
-	registerFileSize int32
-	laneSize         int32
-
-	alus []struct {
-		aluType string
-		aluNum  int32
+func (b *SMBuilder) Build(name string) *SM {
+	s := &SM{
+		ID:       sim.GetIDGenerator().Generate(),
+		Subcores: make(map[string]*subcore.Subcore),
 	}
+
+	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
+	b.buildPortsForSM(s)
+	subcores := b.buildSubcores(name)
+	b.connectSMwithSubcores(s, subcores)
+
+	atexit.Register(s.LogStatus)
+
+	return s
 }
 
-func NewSM() *SM {
-	return &SM{
-		meta: &smMetaData{
-			smUnitNum: 0,
+func (b *SMBuilder) buildPortsForSM(sm *SM) {
+    // v3
+    // sm.toGPU = sim.NewLimitNumMsgPort(sm, 4, "ToGPU")
+    // sm.toSubcores = sim.NewLimitNumMsgPort(sm, 4, "ToSubcores")
+	sm.toGPU = sim.NewPort(sm, 4, 4, "ToGPU")
+	sm.toSubcores = sim.NewPort(sm, 4, 4, "ToSubcores")
+	sm.AddPort("ToGPU", sm.toGPU)
+	sm.AddPort("ToSubcores", sm.toSubcores)
+}
 
-			smStrategy:     "default",
-			smUnitStrategy: "default",
-
-			l1CacheSize: 0,
-			l0CacheSize: 0,
-
-			registerFileSize: 0,
-			laneSize:         0,
-
-			alus: nil,
-		},
-		dispatcher: nil,
-		smUnits:    nil,
+func (b *SMBuilder) buildSubcores(smName string) []*subcore.Subcore {
+	subcoreBuilder := new(subcore.SubcoreBuilder).
+		WithEngine(b.engine).
+		WithFreq(b.freq)
+	subcores := []*subcore.Subcore{}
+	for i := int64(0); i < b.subcoresCount; i++ {
+		subcore := subcoreBuilder.Build(fmt.Sprintf("%s.Subcore(%d)", smName, i))
+		subcores = append(subcores, subcore)
 	}
+
+	return subcores
 }
 
-func (s *SM) WithSMStrategy(strategy string) *SM {
-	s.meta.smStrategy = strategy
-	return s
-}
+func (b *SMBuilder) connectSMwithSubcores(sm *SM, subcores []*subcore.Subcore) {
+	// v3
+	// conn := sim.NewDirectConnection("SMToSubcores", b.engine, 1*sim.GHz)
+	conn := directconnection.MakeBuilder().
+        WithEngine(b.engine).
+        WithFreq(1*sim.GHz).
+        Build("SMToSubcores")
 
-func (s *SM) WithSMUnitNum(num int32) *SM {
-	s.meta.smUnitNum = num
-	return s
-}
+    // v3
+    // conn.PlugIn(sm.toSubcores, 4)
+	conn.PlugIn(sm.toSubcores)
 
-func (s *SM) WithSMUnitStrategy(strategy string) *SM {
-	s.meta.smUnitStrategy = strategy
-	return s
-}
+	for i := range subcores {
+		subcore := subcores[i]
 
-func (s *SM) WithL1CacheSize(size int32) *SM {
-	s.meta.l1CacheSize = size
-	return s
-}
+		sm.freeSubcores = append(sm.freeSubcores, subcore)
+		sm.Subcores[subcore.ID] = subcore
 
-func (s *SM) WithL0CacheSize(size int32) *SM {
-	s.meta.l0CacheSize = size
-	return s
-}
-
-func (s *SM) WithRegisterFileSize(size int32) *SM {
-	s.meta.registerFileSize = size
-	return s
-}
-
-func (s *SM) WithLaneSize(size int32) *SM {
-	s.meta.laneSize = size
-	return s
-}
-
-func (s *SM) WithALU(aluType string, aluNum int32) *SM {
-	s.meta.alus = append(s.meta.alus, struct {
-		aluType string
-		aluNum  int32
-	}{aluType: aluType, aluNum: aluNum})
-	return s
-}
-
-func (s *SM) Build() {
-	s.buildDispatcher()
-	s.smUnits = make([]*smunit.SMUnit, s.meta.smUnitNum)
-	for i := 0; i < int(s.meta.smUnitNum); i++ {
-		s.smUnits[i] = smunit.NewSMUnit().
-		WithSMUnitStrategy(s.meta.smUnitStrategy).
-			WithL0CacheSize(s.meta.l0CacheSize).
-			WithRegisterFileSize(s.meta.registerFileSize).
-			WithLaneSize(s.meta.laneSize)
-		for _, alu := range s.meta.alus {
-			s.smUnits[i].WithALU(alu.aluType, alu.aluNum)
-		}
-		s.smUnits[i].Build()
+		subcore.SetSMRemotePort(sm.toSubcores)
+		// v3
+		// conn.PlugIn(subcore.GetPortByName("ToSM"), 4)
+		conn.PlugIn(subcore.GetPortByName("ToSM"))
 	}
-}
-
-func (s *SM) IsFree() bool {
-	return true
-}
-
-func (s *SM) Execute(tb *nvidia.ThreadBlock) {
-	s.dispatcher.dispatch(tb)
 }

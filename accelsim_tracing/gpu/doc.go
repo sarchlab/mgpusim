@@ -1,2 +1,2 @@
-// Package gpu implements the simulation components for the GPU level.
+// Package gpu implements the gpu ticking component .
 package gpu

@@ -1,2 +1,2 @@
-// Package sm implements the simulation components for the SM level.
+// Package sm implements the SM ticking component.
 package sm
