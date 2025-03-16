@@ -68,38 +68,38 @@ func (m *SubcoreToSMMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (s *DriverToDeviceMsg) Clone() sim.Msg {
-	cloneMsg := *s
+func (m *DriverToDeviceMsg) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (s *DeviceToDriverMsg) Clone() sim.Msg {
-	cloneMsg := *s
+func (m *DeviceToDriverMsg) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (s *DeviceToSMMsg) Clone() sim.Msg {
-	cloneMsg := *s
+func (m *DeviceToSMMsg) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (s *SMToDeviceMsg) Clone() sim.Msg {
-	cloneMsg := *s
+func (m *SMToDeviceMsg) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (s *SMToSubcoreMsg) Clone() sim.Msg {
-	cloneMsg := *s
+func (m *SMToSubcoreMsg) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (s *SubcoreToSMMsg) Clone() sim.Msg {
-	cloneMsg := *s
+func (m *SubcoreToSMMsg) Clone() sim.Msg {
+	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }

@@ -135,8 +135,13 @@ func (t *KernelTrace) readThreadblocks() {
 }
 
 /*
-	 #traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?] [mem_addresses] immediate
-								  0	 1		2					3		4					5		6									7
+#traces format = [line_num] PC mask dest_num [reg_dests] opcode src_num [reg_srcs] mem_width [adrrescompress?]
+
+	0	 1		2					3		4					5		6
+
+[mem_addresses] immediate
+
+	7
 */
 func extractInst(text string) *Instruction {
 	inst := &Instruction{}

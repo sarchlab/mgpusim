@@ -107,12 +107,12 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 	}
 }
 
-func (k *KernelTrace) ThreadblocksCount() int64 {
-	return int64(len(k.threadblocks))
+func (t *KernelTrace) ThreadblocksCount() int64 {
+	return int64(len(t.threadblocks))
 }
 
-func (k *KernelTrace) Threadblock(index int64) *ThreadblockTrace {
-	return k.threadblocks[index]
+func (t *KernelTrace) Threadblock(index int64) *ThreadblockTrace {
+	return t.threadblocks[index]
 }
 
 func (tb *ThreadblockTrace) WarpsCount() int64 {
