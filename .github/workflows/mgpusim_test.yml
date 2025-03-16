@@ -62,7 +62,10 @@ jobs:
     needs: [unit_test]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -73,7 +76,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          skip-cache: true
 
       - name: Run Deterministicity Test
         run: python test.py
@@ -87,11 +89,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: List Directory Contents
+        run: ls -R
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
-          skip-cache: true
 
       - name: Run Single GPU Acceptance Test
         timeout-minutes: 60
@@ -112,7 +116,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
-          skip-cache: true
 
       - name: Run Two Discrete GPU Test
         timeout-minutes: 60
@@ -133,7 +136,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
-          skip-cache: true
 
       - name: Run Four Discrete GPU Test
         timeout-minutes: 60
@@ -154,7 +156,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
-          skip-cache: true
 
       - name: Run Two Unified GPU Test
         timeout-minutes: 60
@@ -175,7 +176,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
-          skip-cache: true
 
       - name: Run Four Unified GPU Test
         timeout-minutes: 60
