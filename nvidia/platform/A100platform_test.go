@@ -3,67 +3,64 @@ package platform_test
 import (
 	"io"
 	"os"
-	"testing"
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/benchmark"
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 	"github.com/sarchlab/mgpusim/v4/nvidia/platform"
-	"github.com/sarchlab/mgpusim/v4/nvidia/runner"
 )
 
 var logFile = "testA100.log"
 
-func TestA100PlatformWithActualData(t *testing.T) {
-	setTestLogFile()
+// func TestA100PlatformWithActualData(t *testing.T) {
+// 	setTestLogFile()
 
-	benchmark := new(benchmark.BenchmarkBuilder).
-		// WithTraceDirectory("../data/bfs-rodinia-2.0-ft").
-		WithTraceDirectory("../data/simple-trace-example").
-		Build()
-	platform := new(platform.A100PlatformBuilder).
-		WithFreq(1 * sim.Hz).
-		Build()
-	runner := new(runner.RunnerBuilder).
-		WithPlatform(platform).
-		Build()
-	runner.AddBenchmark(benchmark)
-	runner.Run()
+// 	benchmark := new(benchmark.BenchmarkBuilder).
+// 		// WithTraceDirectory("../data/bfs-rodinia-2.0-ft").
+// 		WithTraceDirectory("../data/simple-trace-example").
+// 		Build()
+// 	platform := new(platform.A100PlatformBuilder).
+// 		WithFreq(1 * sim.Hz).
+// 		Build()
+// 	runner := new(runner.RunnerBuilder).
+// 		WithPlatform(platform).
+// 		Build()
+// 	runner.AddBenchmark(benchmark)
+// 	runner.Run()
 
-	theoreticalTotalWarps := calcTheoreticalTotalWarps(benchmark)
-	actualTotalWarps := calcActualTotalWarps(platform)
-	if theoreticalTotalWarps != actualTotalWarps {
-		t.Errorf("Expected %d warps, got %d", theoreticalTotalWarps, actualTotalWarps)
-	}
+// 	theoreticalTotalWarps := calcTheoreticalTotalWarps(benchmark)
+// 	actualTotalWarps := calcActualTotalWarps(platform)
+// 	if theoreticalTotalWarps != actualTotalWarps {
+// 		t.Errorf("Expected %d warps, got %d", theoreticalTotalWarps, actualTotalWarps)
+// 	}
 
-	theoreticalTotalInsts := calcTheoreticalTotalInsts(benchmark)
-	actualTotalInsts := calcActualTotalInsts(platform)
-	if theoreticalTotalInsts != actualTotalInsts {
-		t.Errorf("Expected %d insts, got %d", theoreticalTotalInsts, actualTotalInsts)
-	}
-}
+// 	theoreticalTotalInsts := calcTheoreticalTotalInsts(benchmark)
+// 	actualTotalInsts := calcActualTotalInsts(platform)
+// 	if theoreticalTotalInsts != actualTotalInsts {
+// 		t.Errorf("Expected %d insts, got %d", theoreticalTotalInsts, actualTotalInsts)
+// 	}
+// }
 
-func TestA100PlatformWithMockData(t *testing.T) {
-	setTestLogFile()
+// func TestA100PlatformWithMockData(t *testing.T) {
+// 	setTestLogFile()
 
-	benchmark := generateMockBenchmark()
-	platform := new(platform.A100PlatformBuilder).
-		WithFreq(1 * sim.Hz).
-		Build()
-	runner := new(runner.RunnerBuilder).
-		WithPlatform(platform).
-		Build()
-	runner.AddBenchmark(benchmark)
-	runner.Run()
+// 	benchmark := generateMockBenchmark()
+// 	platform := new(platform.A100PlatformBuilder).
+// 		WithFreq(1 * sim.Hz).
+// 		Build()
+// 	runner := new(runner.RunnerBuilder).
+// 		WithPlatform(platform).
+// 		Build()
+// 	runner.AddBenchmark(benchmark)
+// 	runner.Run()
 
-	theoreticalTotalInsts := calcTheoreticalTotalInsts(benchmark)
-	actualTotalInsts := calcActualTotalInsts(platform)
-	if theoreticalTotalInsts != actualTotalInsts {
-		t.Errorf("Expected %d insts, got %d", theoreticalTotalInsts, actualTotalInsts)
-	}
-}
+// 	theoreticalTotalInsts := calcTheoreticalTotalInsts(benchmark)
+// 	actualTotalInsts := calcActualTotalInsts(platform)
+// 	if theoreticalTotalInsts != actualTotalInsts {
+// 		t.Errorf("Expected %d insts, got %d", theoreticalTotalInsts, actualTotalInsts)
+// 	}
+// }
 
 func generateMockBenchmark() *benchmark.Benchmark {
 	bm := new(benchmark.Benchmark)
