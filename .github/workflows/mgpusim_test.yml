@@ -62,7 +62,7 @@ jobs:
     needs: [unit_test]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
       - name: List Directory Contents
         run: ls -R
@@ -112,6 +112,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: List Directory Contents
+        run: ls -R
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -131,6 +134,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -151,6 +157,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -171,6 +180,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4

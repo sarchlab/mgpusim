@@ -1,0 +1,6 @@
+transpose
+rotate
+dilate
+im2col
+sum_one_axis
+gemm
