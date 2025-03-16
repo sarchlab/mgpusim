@@ -35,6 +35,7 @@ jobs:
         with:
           version: "latest"
           args: --timeout=10m
+          skip-cache: true
 
   unit_test:
     name: Unit Test
