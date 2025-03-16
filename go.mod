@@ -1,4 +1,4 @@
-module github.com/sarchlab/mgpusim/nvidia_v4
+module github.com/sarchlab/mgpusim/v4
 
 require (
 	github.com/disintegration/imaging v1.6.2
@@ -13,10 +13,7 @@ require (
 	gonum.org/v1/gonum v0.15.1
 )
 
-require (
-	github.com/sarchlab/mgpusim/v4 v4.0.0-20250303185301-6dd17109fac5
-	github.com/sirupsen/logrus v1.9.3
-)
+require github.com/sirupsen/logrus v1.9.3
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
