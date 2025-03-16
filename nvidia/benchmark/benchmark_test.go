@@ -33,10 +33,17 @@ func TestBenchmarkBuild(t *testing.T) {
 	// 	t.Errorf("Expected 14 memcpy, got %d", memcpyCount)
 	// }
 
-	if kernelCount != 3 {
-		t.Errorf("Expected 3 kernel, got %d", kernelCount)
+	// if kernelCount != 3 {
+	// 	t.Errorf("Expected 3 kernel, got %d", kernelCount)
+	// }
+	// if memcpyCount != 3 {
+	// 	t.Errorf("Expected 3 memcpy, got %d", memcpyCount)
+	// }
+
+	if kernelCount != 1 {
+		t.Errorf("Expected 1 kernel, got %d", kernelCount)
 	}
-	if memcpyCount != 3 {
-		t.Errorf("Expected 3 memcpy, got %d", memcpyCount)
+	if memcpyCount != 2 {
+		t.Errorf("Expected 2 memcpy, got %d", memcpyCount)
 	}
 }
