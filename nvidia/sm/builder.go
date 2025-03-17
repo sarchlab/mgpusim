@@ -38,7 +38,7 @@ func (b *SMBuilder) Build(name string) *SM {
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
-	b.buildPortsForSM(s)
+	b.buildPortsForSM(s, name)
 	subcores := b.buildSubcores(name)
 	b.connectSMwithSubcores(s, subcores)
 
@@ -47,11 +47,11 @@ func (b *SMBuilder) Build(name string) *SM {
 	return s
 }
 
-func (b *SMBuilder) buildPortsForSM(sm *SM) {
-	sm.toGPU = sim.NewPort(sm, 4, 4, "ToGPU")
-	sm.toSubcores = sim.NewPort(sm, 4, 4, "ToSubcores")
-	sm.AddPort("ToGPU", sm.toGPU)
-	sm.AddPort("ToSubcores", sm.toSubcores)
+func (b *SMBuilder) buildPortsForSM(sm *SM, name string) {
+	sm.toGPU = sim.NewPort(sm, 4, 4, fmt.Sprintf("%s.ToGPU", name))
+	sm.toSubcores = sim.NewPort(sm, 4, 4, fmt.Sprintf("%s.ToSubcores", name))
+	sm.AddPort(fmt.Sprintf("%s.ToGPU", name), sm.toGPU)
+	sm.AddPort(fmt.Sprintf("%s.ToSubcores", name), sm.toSubcores)
 }
 
 func (b *SMBuilder) buildSubcores(smName string) []*subcore.Subcore {
@@ -82,6 +82,6 @@ func (b *SMBuilder) connectSMwithSubcores(sm *SM, subcores []*subcore.Subcore) {
 		sm.Subcores[subcore.ID] = subcore
 
 		subcore.SetSMRemotePort(sm.toSubcores)
-		conn.PlugIn(subcore.GetPortByName("ToSM"))
+		conn.PlugIn(subcore.GetPortByName(fmt.Sprintf("%s.ToSM", subcore.Name())))
 	}
 }

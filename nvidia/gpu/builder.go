@@ -44,7 +44,7 @@ func (b *GPUBuilder) Build(name string) *GPU {
 	}
 
 	g.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, g)
-	b.buildPortsForGPU(g)
+	b.buildPortsForGPU(g, name)
 	sms := b.buildSMs(name)
 	b.connectGPUWithSMs(g, sms)
 
@@ -53,11 +53,11 @@ func (b *GPUBuilder) Build(name string) *GPU {
 	return g
 }
 
-func (b *GPUBuilder) buildPortsForGPU(g *GPU) {
-	g.toDriver = sim.NewPort(g, 4, 4, "ToDriver")
-	g.toSMs = sim.NewPort(g, 4, 4, "ToSMs")
-	g.AddPort("ToDriver", g.toDriver)
-	g.AddPort("ToSMs", g.toSMs)
+func (b *GPUBuilder) buildPortsForGPU(g *GPU, name string) {
+	g.toDriver = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToDriver", name))
+	g.toSMs = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToSMs", name))
+	g.AddPort(fmt.Sprintf("%s.ToDriver", name), g.toDriver)
+	g.AddPort(fmt.Sprintf("%s.ToSMs", name), g.toSMs)
 }
 
 func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SM {
@@ -91,6 +91,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPU, sms []*sm.SM) {
 		gpu.SMs[sm.ID] = sm
 
 		sm.SetGPURemotePort(gpu.toSMs)
-		conn.PlugIn(sm.GetPortByName("ToGPU"))
+
+		conn.PlugIn(sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sms[i].Name())))
 	}
 }

@@ -32,8 +32,8 @@ type Driver struct {
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 	d := &Driver{}
 	d.TickingComponent = sim.NewTickingComponent(name, engine, freq, d)
-	d.toDevices = sim.NewPort(d, 4, 4, "ToDevice")
-	d.AddPort("ToDevice", d.toDevices)
+	d.toDevices = sim.NewPort(d, 4, 4, fmt.Sprintf("%s.ToDevice", name))
+	d.AddPort(fmt.Sprintf("%s.ToDevice", name), d.toDevices)
 
 	d.connectionWithDevices = directconnection.MakeBuilder().
 		WithEngine(d.Engine).
@@ -46,7 +46,7 @@ func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 
 func (d *Driver) RegisterGPU(gpu *gpu.GPU) {
 	gpu.SetDriverRemotePort(d.toDevices)
-	remote := gpu.GetPortByName("ToDriver")
+	remote := gpu.GetPortByName(fmt.Sprintf("%s.ToDriver", gpu.Name()))
 	d.connectionWithDevices.PlugIn(remote)
 
 	d.devices[gpu.ID] = gpu
@@ -107,7 +107,7 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 		Kernel: *kernel,
 	}
 	msg.Src = d.toDevices.AsRemote()
-	msg.Dst = device.GetPortByName("ToDriver").AsRemote()
+	msg.Dst = device.GetPortByName(fmt.Sprintf("%s.ToDriver", device.Name())).AsRemote()
 
 	err := d.toDevices.Send(msg)
 	if err != nil {

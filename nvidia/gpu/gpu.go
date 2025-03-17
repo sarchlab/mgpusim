@@ -1,6 +1,8 @@
 package gpu
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v4/sim"
@@ -127,7 +129,7 @@ func (g *GPU) dispatchThreadblocksToSMs() bool {
 		Threadblock: *threadblock,
 	}
 	msg.Src = g.toSMs.AsRemote()
-	msg.Dst = sm.GetPortByName("ToGPU").AsRemote()
+	msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
 
 	err := g.toSMs.Send(msg)
 	if err != nil {

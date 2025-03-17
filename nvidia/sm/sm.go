@@ -1,6 +1,8 @@
 package sm
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v4/sim"
@@ -130,7 +132,7 @@ func (s *SM) dispatchThreadblocksToSubcores() bool {
 		Warp: *warp,
 	}
 	msg.Src = s.toSubcores.AsRemote()
-	msg.Dst = subcore.GetPortByName("ToSM").AsRemote()
+	msg.Dst = subcore.GetPortByName(fmt.Sprintf("%s.ToSM", subcore.Name())).AsRemote()
 
 	err := s.toSubcores.Send(msg)
 	if err != nil {
