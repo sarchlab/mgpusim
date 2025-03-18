@@ -31,17 +31,17 @@ type SMToDeviceMsg struct {
 	SMID                string
 }
 
-type SMToSubcoreMsg struct {
+type SMToSMSPMsg struct {
 	sim.MsgMeta
 
 	Warp nvidiaconfig.Warp
 }
 
-type SubcoreToSMMsg struct {
+type SMSPToSMMsg struct {
 	sim.MsgMeta
 
 	WarpFinished bool
-	SubcoreID    string
+	SMSPID       string
 }
 
 func (m *DriverToDeviceMsg) Meta() *sim.MsgMeta {
@@ -60,11 +60,11 @@ func (m *SMToDeviceMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *SMToSubcoreMsg) Meta() *sim.MsgMeta {
+func (m *SMToSMSPMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *SubcoreToSMMsg) Meta() *sim.MsgMeta {
+func (m *SMSPToSMMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
@@ -92,13 +92,13 @@ func (m *SMToDeviceMsg) Clone() sim.Msg {
 	return &cloneMsg
 }
 
-func (m *SMToSubcoreMsg) Clone() sim.Msg {
+func (m *SMToSMSPMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (m *SubcoreToSMMsg) Clone() sim.Msg {
+func (m *SMSPToSMMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg

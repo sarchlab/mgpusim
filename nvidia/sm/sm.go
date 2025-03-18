@@ -8,28 +8,28 @@ import (
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
-	"github.com/sarchlab/mgpusim/v4/nvidia/subcore"
+	"github.com/sarchlab/mgpusim/v4/nvidia/smsp"
 )
 
 type SM struct {
 	*sim.TickingComponent
 
 	ID         string
-	warpsCount int64
-	instsCount int64
+	warpsCount uint64
+	instsCount uint64
 
 	// meta
 	toGPU       sim.Port
 	toGPURemote sim.Port
 
-	toSubcores   sim.Port
-	Subcores     map[string]*subcore.Subcore
-	freeSubcores []*subcore.Subcore
+	toSMSPs   sim.Port
+	SMSPs     map[string]*smsp.SMSP
+	freeSMSPs []*smsp.SMSP
 
 	undispatchedWarps    []*nvidiaconfig.Warp
-	unfinishedWarpsCount int64
+	unfinishedWarpsCount uint64
 
-	finishedThreadblocksCount int64
+	finishedThreadblocksCount uint64
 }
 
 func (s *SM) SetGPURemotePort(remote sim.Port) {
@@ -39,9 +39,9 @@ func (s *SM) SetGPURemotePort(remote sim.Port) {
 func (s *SM) Tick() bool {
 	madeProgress := false
 	madeProgress = s.reportFinishedKernels() || madeProgress
-	madeProgress = s.dispatchThreadblocksToSubcores() || madeProgress
+	madeProgress = s.dispatchThreadblocksToSMSPs() || madeProgress
 	madeProgress = s.processGPUInput() || madeProgress
-	madeProgress = s.processSubcoresInput() || madeProgress
+	madeProgress = s.processSMSPsInput() || madeProgress
 
 	return madeProgress
 }
@@ -62,17 +62,17 @@ func (s *SM) processGPUInput() bool {
 	return true
 }
 
-func (s *SM) processSubcoresInput() bool {
-	msg := s.toSubcores.PeekIncoming()
+func (s *SM) processSMSPsInput() bool {
+	msg := s.toSMSPs.PeekIncoming()
 	if msg == nil {
 		return false
 	}
 
 	switch msg := msg.(type) {
-	case *message.SubcoreToSMMsg:
-		s.processSubcoreSubcoresg(msg)
+	case *message.SMSPToSMMsg:
+		s.processSMSPSMSPsg(msg)
 	default:
-		log.WithField("function", "processSubcoresInput").Panic("Unhandled message type")
+		log.WithField("function", "processSMSPsInput").Panic("Unhandled message type")
 	}
 
 	return true
@@ -87,15 +87,15 @@ func (s *SM) processSMMsg(msg *message.DeviceToSMMsg) {
 	s.toGPU.RetrieveIncoming()
 }
 
-func (s *SM) processSubcoreSubcoresg(msg *message.SubcoreToSMMsg) {
+func (s *SM) processSMSPSMSPsg(msg *message.SMSPToSMMsg) {
 	if msg.WarpFinished {
-		s.freeSubcores = append(s.freeSubcores, s.Subcores[msg.SubcoreID])
+		s.freeSMSPs = append(s.freeSMSPs, s.SMSPs[msg.SMSPID])
 		s.unfinishedWarpsCount--
 		if s.unfinishedWarpsCount == 0 {
 			s.finishedThreadblocksCount++
 		}
 	}
-	s.toSubcores.RetrieveIncoming()
+	s.toSMSPs.RetrieveIncoming()
 }
 
 func (s *SM) reportFinishedKernels() bool {
@@ -120,36 +120,36 @@ func (s *SM) reportFinishedKernels() bool {
 	return true
 }
 
-func (s *SM) dispatchThreadblocksToSubcores() bool {
-	if len(s.freeSubcores) == 0 || len(s.undispatchedWarps) == 0 {
+func (s *SM) dispatchThreadblocksToSMSPs() bool {
+	if len(s.freeSMSPs) == 0 || len(s.undispatchedWarps) == 0 {
 		return false
 	}
 
-	subcore := s.freeSubcores[0]
+	smsp := s.freeSMSPs[0]
 	warp := s.undispatchedWarps[0]
 
-	msg := &message.SMToSubcoreMsg{
+	msg := &message.SMToSMSPMsg{
 		Warp: *warp,
 	}
-	msg.Src = s.toSubcores.AsRemote()
-	msg.Dst = subcore.GetPortByName(fmt.Sprintf("%s.ToSM", subcore.Name())).AsRemote()
+	msg.Src = s.toSMSPs.AsRemote()
+	msg.Dst = smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())).AsRemote()
 
-	err := s.toSubcores.Send(msg)
+	err := s.toSMSPs.Send(msg)
 	if err != nil {
 		return false
 	}
 
-	s.freeSubcores = s.freeSubcores[1:]
+	s.freeSMSPs = s.freeSMSPs[1:]
 	s.undispatchedWarps = s.undispatchedWarps[1:]
 
 	return false
 }
 
-func (s *SM) GetTotalWarpsCount() int64 {
+func (s *SM) GetTotalWarpsCount() uint64 {
 	return s.warpsCount
 }
 
-func (s *SM) GetTotalInstsCount() int64 {
+func (s *SM) GetTotalInstsCount() uint64 {
 	return s.instsCount
 }
 

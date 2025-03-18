@@ -1,4 +1,4 @@
-package subcore
+package smsp
 
 import (
 	"fmt"
@@ -7,23 +7,23 @@ import (
 	"github.com/tebeka/atexit"
 )
 
-type SubcoreBuilder struct {
+type SMSPBuilder struct {
 	engine sim.Engine
 	freq   sim.Freq
 }
 
-func (b *SubcoreBuilder) WithEngine(engine sim.Engine) *SubcoreBuilder {
+func (b *SMSPBuilder) WithEngine(engine sim.Engine) *SMSPBuilder {
 	b.engine = engine
 	return b
 }
 
-func (b *SubcoreBuilder) WithFreq(freq sim.Freq) *SubcoreBuilder {
+func (b *SMSPBuilder) WithFreq(freq sim.Freq) *SMSPBuilder {
 	b.freq = freq
 	return b
 }
 
-func (b *SubcoreBuilder) Build(name string) *Subcore {
-	s := &Subcore{
+func (b *SMSPBuilder) Build(name string) *SMSP {
+	s := &SMSP{
 		ID: sim.GetIDGenerator().Generate(),
 	}
 

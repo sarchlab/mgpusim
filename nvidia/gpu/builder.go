@@ -13,8 +13,8 @@ type GPUBuilder struct {
 	engine sim.Engine
 	freq   sim.Freq
 
-	smsCount           int64
-	subcoresCountPerSM int64
+	smsCount        uint64
+	smspsCountPerSM uint64
 }
 
 func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
@@ -27,13 +27,13 @@ func (b *GPUBuilder) WithFreq(freq sim.Freq) *GPUBuilder {
 	return b
 }
 
-func (b *GPUBuilder) WithSMsCount(count int64) *GPUBuilder {
+func (b *GPUBuilder) WithSMsCount(count uint64) *GPUBuilder {
 	b.smsCount = count
 	return b
 }
 
-func (b *GPUBuilder) WithSubcoresCountPerSM(count int64) *GPUBuilder {
-	b.subcoresCountPerSM = count
+func (b *GPUBuilder) WithSMSPsCountPerSM(count uint64) *GPUBuilder {
+	b.smspsCountPerSM = count
 	return b
 }
 
@@ -64,10 +64,10 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SM {
 	smBuilder := new(sm.SMBuilder).
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithSubcoresCount(b.subcoresCountPerSM)
+		WithSMSPsCount(b.smspsCountPerSM)
 
 	sms := []*sm.SM{}
-	for i := int64(0); i < b.smsCount; i++ {
+	for i := uint64(0); i < b.smsCount; i++ {
 		sm := smBuilder.Build(fmt.Sprintf("%s.SM(%d)", gpuName, i))
 		sms = append(sms, sm)
 	}

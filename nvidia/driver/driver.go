@@ -26,7 +26,7 @@ type Driver struct {
 
 	// trace kernel
 	undispatchedKernels    []*nvidiaconfig.Kernel
-	unfinishedKernelsCount int64
+	unfinishedKernelsCount uint64
 }
 
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {

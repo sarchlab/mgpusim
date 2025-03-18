@@ -25,9 +25,9 @@ type GPU struct {
 	freeSMs []*sm.SM
 
 	undispatchedThreadblocks    []*nvidiaconfig.Threadblock
-	unfinishedThreadblocksCount int64
+	unfinishedThreadblocksCount uint64
 
-	finishedKernelsCount int64
+	finishedKernelsCount uint64
 }
 
 func (g *GPU) SetDriverRemotePort(remote sim.Port) {

@@ -185,5 +185,5 @@ func updateInstMemoryPart(inst *Instruction, elems []string) {
 	}
 
 	imm, _ := strconv.Atoi(elems[len(elems)-1])
-	inst.Immediate = int64(imm)
+	inst.Immediate = uint64(imm)
 }

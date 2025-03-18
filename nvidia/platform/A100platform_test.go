@@ -110,8 +110,8 @@ func setTestLogFile() {
 	log.SetLevel(log.DebugLevel)
 }
 
-func calcTheoreticalTotalInsts(bm *benchmark.Benchmark) int64 {
-	totalInstsCount := int64(0)
+func calcTheoreticalTotalInsts(bm *benchmark.Benchmark) uint64 {
+	totalInstsCount := uint64(0)
 	for _, exec := range bm.TraceExecs {
 		if exec.ExecType() == nvidiaconfig.ExecKernel {
 			r, ok := exec.(*benchmark.ExecKernel)
@@ -130,8 +130,8 @@ func calcTheoreticalTotalInsts(bm *benchmark.Benchmark) int64 {
 	return totalInstsCount
 }
 
-func calcTheoreticalTotalWarps(bm *benchmark.Benchmark) int64 {
-	totalWarpsCount := int64(0)
+func calcTheoreticalTotalWarps(bm *benchmark.Benchmark) uint64 {
+	totalWarpsCount := uint64(0)
 	for _, exec := range bm.TraceExecs {
 		if exec.ExecType() == nvidiaconfig.ExecKernel {
 			r, ok := exec.(*benchmark.ExecKernel)
@@ -148,13 +148,13 @@ func calcTheoreticalTotalWarps(bm *benchmark.Benchmark) int64 {
 	return totalWarpsCount
 }
 
-func calcActualTotalInsts(pf *platform.Platform) int64 {
-	totalInstsCount := int64(0)
-	fmt.Println("totalInstsCount := int64(0)")
+func calcActualTotalInsts(pf *platform.Platform) uint64 {
+	totalInstsCount := uint64(0)
+	fmt.Println("totalInstsCount := uint64(0)")
 	for _, gpu := range pf.Devices {
 		for _, sm := range gpu.SMs {
-			for _, subcore := range sm.Subcores {
-				totalInstsCount += subcore.GetTotalInstsCount()
+			for _, smsp := range sm.SMSPs {
+				totalInstsCount += smsp.GetTotalInstsCount()
 			}
 			// totalInstsCount += sm.GetTotalInstsCount()
 		}
@@ -163,8 +163,8 @@ func calcActualTotalInsts(pf *platform.Platform) int64 {
 	return totalInstsCount
 }
 
-func calcActualTotalWarps(pf *platform.Platform) int64 {
-	totalWarpsCount := int64(0)
+func calcActualTotalWarps(pf *platform.Platform) uint64 {
+	totalWarpsCount := uint64(0)
 
 	for _, gpu := range pf.Devices {
 		for _, sm := range gpu.SMs {

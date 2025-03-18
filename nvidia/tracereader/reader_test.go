@@ -36,16 +36,16 @@ var _ = Describe("Read Traces from VectorAdd Traces Version 5.0", func() {
 
 	Describe("Blocks Count", func() {
 		It("should contain 196 block", func() {
-			Expect(trace.ThreadblocksCount()).To(Equal(int64(196)))
+			Expect(trace.ThreadblocksCount()).To(Equal(uint64(196)))
 		})
 	})
 
 	Describe("Insts Count", func() {
 		It("should count 26601 instructions", func() {
 			instCount := 0
-			for i := int64(0); i < trace.ThreadblocksCount(); i++ {
+			for i := uint64(0); i < trace.ThreadblocksCount(); i++ {
 				tb := trace.Threadblock(i)
-				for j := int64(0); j < tb.WarpsCount(); j++ {
+				for j := uint64(0); j < tb.WarpsCount(); j++ {
 					instCount += int(tb.Warp(j).InstructionsCount())
 				}
 			}
