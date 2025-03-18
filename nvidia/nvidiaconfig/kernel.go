@@ -1,17 +1,17 @@
 package nvidiaconfig
 
 type Kernel struct {
-	ThreadblocksCount int64
+	ThreadblocksCount uint64
 	Threadblocks      []Threadblock
 }
 
 type Threadblock struct {
-	WarpsCount int64
+	WarpsCount uint64
 	Warps      []Warp
 }
 
 type Warp struct {
-	InstructionsCount int64
+	InstructionsCount uint64
 	Instructions      []Instruction
 }
 

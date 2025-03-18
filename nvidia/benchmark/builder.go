@@ -48,10 +48,10 @@ func (b *BenchmarkBuilder) generateKernelTrace(meta tracereader.TraceExecMeta) *
 	kernel := nvidiaconfig.Kernel{}
 
 	kernel.ThreadblocksCount = kernelTrace.ThreadblocksCount()
-	for i := int64(0); i < kernel.ThreadblocksCount; i++ {
+	for i := uint64(0); i < kernel.ThreadblocksCount; i++ {
 		tb := nvidiaconfig.Threadblock{}
 		tb.WarpsCount = kernelTrace.Threadblock(i).WarpsCount()
-		for j := int64(0); j < tb.WarpsCount; j++ {
+		for j := uint64(0); j < tb.WarpsCount; j++ {
 			warp := nvidiaconfig.Warp{}
 			warp.InstructionsCount = kernelTrace.Threadblock(i).Warp(j).InstructionsCount()
 			tb.Warps = append(tb.Warps, warp)

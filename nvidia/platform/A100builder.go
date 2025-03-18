@@ -33,7 +33,7 @@ func (b *A100PlatformBuilder) Build() *Platform {
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
 		WithSMsCount(108).
-		WithSubcoresCountPerSM(4)
+		WithSMSPsCountPerSM(4)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))

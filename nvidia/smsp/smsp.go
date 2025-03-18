@@ -1,4 +1,4 @@
-package subcore
+package smsp
 
 import (
 	log "github.com/sirupsen/logrus"
@@ -7,26 +7,26 @@ import (
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 )
 
-type Subcore struct {
+type SMSP struct {
 	*sim.TickingComponent
 
 	ID         string
-	instsCount int64
+	instsCount uint64
 
 	// meta
 	toSM       sim.Port
 	toSMRemote sim.Port
 
-	unfinishedInstsCount int64
+	unfinishedInstsCount uint64
 
-	finishedWarpsCount int64
+	finishedWarpsCount uint64
 }
 
-func (s *Subcore) SetSMRemotePort(remote sim.Port) {
+func (s *SMSP) SetSMRemotePort(remote sim.Port) {
 	s.toSMRemote = remote
 }
 
-func (s *Subcore) Tick() bool {
+func (s *SMSP) Tick() bool {
 	madeProgress := false
 	madeProgress = s.reportFinishedWarps() || madeProgress
 	madeProgress = s.run() || madeProgress
@@ -36,14 +36,14 @@ func (s *Subcore) Tick() bool {
 	return madeProgress
 }
 
-func (s *Subcore) processSMInput() bool {
+func (s *SMSP) processSMInput() bool {
 	msg := s.toSM.PeekIncoming()
 	if msg == nil {
 		return false
 	}
 
 	switch msg := msg.(type) {
-	case *message.SMToSubcoreMsg:
+	case *message.SMToSMSPMsg:
 		s.processSMMsg(msg)
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
@@ -52,13 +52,13 @@ func (s *Subcore) processSMInput() bool {
 	return true
 }
 
-func (s *Subcore) processSMMsg(msg *message.SMToSubcoreMsg) {
+func (s *SMSP) processSMMsg(msg *message.SMToSMSPMsg) {
 	s.unfinishedInstsCount = msg.Warp.InstructionsCount
 	s.instsCount += msg.Warp.InstructionsCount
 	s.toSM.RetrieveIncoming()
 }
 
-func (s *Subcore) run() bool {
+func (s *SMSP) run() bool {
 	if s.unfinishedInstsCount == 0 {
 		return false
 	}
@@ -71,14 +71,14 @@ func (s *Subcore) run() bool {
 	return true
 }
 
-func (s *Subcore) reportFinishedWarps() bool {
+func (s *SMSP) reportFinishedWarps() bool {
 	if s.finishedWarpsCount == 0 {
 		return false
 	}
 
-	msg := &message.SubcoreToSMMsg{
+	msg := &message.SMSPToSMMsg{
 		WarpFinished: true,
-		SubcoreID:    s.ID,
+		SMSPID:       s.ID,
 	}
 	msg.Src = s.toSM.AsRemote()
 	msg.Dst = s.toSMRemote.AsRemote()
@@ -93,13 +93,13 @@ func (s *Subcore) reportFinishedWarps() bool {
 	return true
 }
 
-func (s *Subcore) GetTotalInstsCount() int64 {
+func (s *SMSP) GetTotalInstsCount() uint64 {
 	return s.instsCount
 }
 
-func (s *Subcore) LogStatus() {
+func (s *SMSP) LogStatus() {
 	log.WithFields(log.Fields{
-		"subcore_id":        s.ID,
+		"smsp_id":           s.ID,
 		"total_insts_count": s.instsCount,
-	}).Info("Subcore status")
+	}).Info("SMSP status")
 }

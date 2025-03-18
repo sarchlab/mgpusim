@@ -24,8 +24,8 @@ type KernelFileHeader struct {
 	Nregs                 int32             `title:"nregs"`
 	BinaryVersion         int32             `title:"binary version"`
 	CudaStreamID          int32             `title:"cuda stream id"`
-	ShmemBaseAddr         int64             `title:"shmem base_addr"`
-	LocalMemBaseAddr      int64             `title:"local mem base_addr"`
+	ShmemBaseAddr         uint64            `title:"shmem base_addr"`
+	LocalMemBaseAddr      uint64            `title:"local mem base_addr"`
 	NvbitVersion          string            `title:"nvbit version"`
 	AccelsimTracerVersion string            `title:"accelsim tracer version"`
 	EnableLineinfo        bool              `title:"enable lineinfo"`
@@ -49,7 +49,7 @@ type Instruction struct {
 	warpID        int32
 
 	PC                int32
-	Mask              int64
+	Mask              uint64
 	DestNum           int32
 	DestRegs          []*nvidiaconfig.Register
 	OpCode            *nvidiaconfig.Opcode
@@ -57,10 +57,10 @@ type Instruction struct {
 	SrcRegs           []*nvidiaconfig.Register
 	MemWidth          int32
 	AddressCompress   int32
-	MemAddress        int64
+	MemAddress        uint64
 	MemAddressSuffix1 int32
 	MemAddressSuffix2 []int32
-	Immediate         int64
+	Immediate         uint64
 }
 
 // Shaoyu: Maybe we can parse the attrs in order and avoid using swicth-case here
@@ -107,22 +107,22 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 	}
 }
 
-func (t *KernelTrace) ThreadblocksCount() int64 {
-	return int64(len(t.threadblocks))
+func (t *KernelTrace) ThreadblocksCount() uint64 {
+	return uint64(len(t.threadblocks))
 }
 
-func (t *KernelTrace) Threadblock(index int64) *ThreadblockTrace {
+func (t *KernelTrace) Threadblock(index uint64) *ThreadblockTrace {
 	return t.threadblocks[index]
 }
 
-func (tb *ThreadblockTrace) WarpsCount() int64 {
-	return int64(len(tb.Warps))
+func (tb *ThreadblockTrace) WarpsCount() uint64 {
+	return uint64(len(tb.Warps))
 }
 
-func (tb *ThreadblockTrace) Warp(index int64) *WarpTrace {
+func (tb *ThreadblockTrace) Warp(index uint64) *WarpTrace {
 	return tb.Warps[index]
 }
 
-func (w *WarpTrace) InstructionsCount() int64 {
-	return int64(len(w.Instructions))
+func (w *WarpTrace) InstructionsCount() uint64 {
+	return uint64(len(w.Instructions))
 }
