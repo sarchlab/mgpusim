@@ -35,6 +35,7 @@ jobs:
         with:
           version: "latest"
           args: --timeout=10m
+          skip-cache: true
 
   unit_test:
     name: Unit Test
@@ -63,6 +64,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: List Directory Contents
+        run: ls -R
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -75,7 +79,7 @@ jobs:
 
       - name: Run Deterministicity Test
         run: python test.py
-        working-directory: tests/deterministic/
+        working-directory: amd/tests/deterministic/
 
   single_gpu_acceptance_test:
     name: Single GPU Acceptance Test
@@ -84,6 +88,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -95,7 +102,7 @@ jobs:
         run: |
           go build
           ./acceptance -num-gpu=1
-        working-directory: tests/acceptance/
+        working-directory: amd/tests/acceptance/
 
   two_discrete_gpu_test:
     name: Two Discrete GPU Test
@@ -104,6 +111,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -115,7 +125,7 @@ jobs:
         run: |
           go build
           ./acceptance -num-gpu=2 -no-unified-gpu -no-unified-memory
-        working-directory: tests/acceptance/
+        working-directory: amd/tests/acceptance/
 
   four_discrete_gpu_test:
     name: Four Discrete GPU Test
@@ -124,6 +134,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -135,7 +148,7 @@ jobs:
         run: |
           go build
           ./acceptance -num-gpu=4 -no-unified-gpu -no-unified-memory
-        working-directory: tests/acceptance/
+        working-directory: amd/tests/acceptance/
 
   two_unified_gpu_test:
     name: Two Unified GPU Test
@@ -144,6 +157,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -155,7 +171,7 @@ jobs:
         run: |
           go build
           ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
-        working-directory: tests/acceptance/
+        working-directory: amd/tests/acceptance/
 
   four_unified_gpu_test:
     name: Four Unified GPU Test
@@ -164,6 +180,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -175,4 +194,4 @@ jobs:
         run: |
           go build
           ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
-        working-directory: tests/acceptance/
+        working-directory: amd/tests/acceptance/

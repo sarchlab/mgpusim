@@ -1,5 +1,7 @@
 # MGPUSIM
 
+
+
 ![GitHub Discussions](https://img.shields.io/github/discussions/sarchlab/mgpusim)
 
 
@@ -10,6 +12,10 @@
 
 
 MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It models GPUs that run the AMD GCN3 instruction sets. One main feature of MGPUSim is the support for multi-GPU simulation (you can still use it for single-GPU architecture research).
+
+## <span style="color:red">⚠️ Important Note on NVIDIA Simulation</span>
+
+<span style="color:red">**Warning**: NVIDIA GPU simulation is under ongoing development and is not ready for use. Currently, only AMD GCN3-based GPU simulation is stable and supported.</span>
 
 ## Getting Started
 
