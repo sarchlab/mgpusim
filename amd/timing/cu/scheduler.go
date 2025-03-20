@@ -233,12 +233,18 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 	for _, executing := range s.internalExecuting {
 		instProgress := false
 		instCompleted := false
+		passBarrier := false
 
 		switch executing.Inst().Opcode {
 		case 1: // S_ENDPGM
 			instProgress, instCompleted = s.evalSEndPgm(executing)
 		case 10: // S_BARRIER
-			instProgress, instCompleted = s.evalSBarrier(executing)
+			instProgress, instCompleted, passBarrier = s.evalSBarrier(executing)
+
+			if passBarrier {
+				s.removeAllWfFromInternalExecuting(executing.WG, &newExecuting)
+				s.removeAllWfFromInternalExecuting(executing.WG, &s.internalExecuting)
+			}
 		case 12: // S_WAITCNT
 			instProgress, instCompleted = s.evalSWaitCnt(executing)
 		default:
@@ -408,7 +414,7 @@ func (s *SchedulerImpl) resetRegisterValue(wf *wavefront.Wavefront) {
 
 func (s *SchedulerImpl) evalSBarrier(
 	wf *wavefront.Wavefront,
-) (madeProgress bool, instCompleted bool) {
+) (madeProgress bool, instCompleted bool, passBarrier bool) {
 	wf.State = wavefront.WfAtBarrier
 
 	wg := wf.WG
@@ -416,15 +422,15 @@ func (s *SchedulerImpl) evalSBarrier(
 
 	if allAtBarrier {
 		s.passBarrier(wg)
-		return true, true
+		return true, true, true
 	}
 
 	if len(s.barrierBuffer) < s.barrierBufferSize {
 		s.barrierBuffer = append(s.barrierBuffer, wf)
-		return true, true
+		return true, true, false
 	}
 
-	return false, false
+	return false, false, false
 }
 
 func (s *SchedulerImpl) areAllWfInWGAtBarrier(wg *wavefront.WorkGroup) bool {
@@ -465,6 +471,19 @@ func (s *SchedulerImpl) removeAllWfFromBarrierBuffer(wg *wavefront.WorkGroup) {
 		}
 	}
 	s.barrierBuffer = newBarrierBuffer
+}
+
+func (s *SchedulerImpl) removeAllWfFromInternalExecuting(
+	wg *wavefront.WorkGroup,
+	internalExecuting *[]*wavefront.Wavefront,
+) {
+	newInternalExecuting := make([]*wavefront.Wavefront, 0)
+	for _, wavefront := range *internalExecuting {
+		if wavefront.WG != wg {
+			newInternalExecuting = append(newInternalExecuting, wavefront)
+		}
+	}
+	*internalExecuting = newInternalExecuting
 }
 
 func (s *SchedulerImpl) evalSWaitCnt(
