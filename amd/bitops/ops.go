@@ -1,5 +1,7 @@
 package bitops
 
+import "encoding/binary"
+
 // ExtractBitsFromU64 will get the bits from loInclude to hiInclude.
 func ExtractBitsFromU64(num uint64, loInclude, hiInclude int) uint64 {
 	var mask uint64
@@ -16,6 +18,11 @@ func ExtractBitsFromU32(num uint32, loInclude, hiInclude int) uint32 {
 	mask = ((1 << (hiInclude - loInclude + 1)) - 1) << loInclude
 	extracted = (num & mask) >> loInclude
 	return extracted
+}
+
+// ExtractBit extracts a single bit from a uint32 number.
+func ExtractBit(number uint32, bitPosition int) uint32 {
+	return (number >> bitPosition) & 1
 }
 
 // SignExt updates all the bits beyond the signBit to be the same as the sign
@@ -36,4 +43,14 @@ func SignExt(in uint64, signBit int) (out uint64) {
 	}
 
 	return out
+}
+
+// BytesToU32 decode a uint32 number from bytes
+func BytesToU32(data []byte) uint32 {
+	return binary.LittleEndian.Uint32(data)
+}
+
+// BytesToU64 decode a uint64 number from bytes
+func BytesToU64(data []byte) uint64 {
+	return binary.LittleEndian.Uint64(data)
 }

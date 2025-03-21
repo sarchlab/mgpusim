@@ -15,6 +15,8 @@ require (
 
 require github.com/sirupsen/logrus v1.9.3
 
+require github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
@@ -35,6 +37,7 @@ require (
 	github.com/syifan/goseth v0.1.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
 	github.com/tklauser/numcpus v0.9.0 // indirect
+	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/image v0.24.0 // indirect
 	golang.org/x/net v0.37.0 // indirect
