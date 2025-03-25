@@ -1,0 +1,31 @@
+Questions:
+
+1. Only cares about LDG and STG
+
+2. What are the diffs between []*writearound.Comp / []*writethrough.Comp / []*writeback.Comp?
+Shall we utilize it for implementing the L1 and L2 cache?
+
+3. Do we need to separate v/s/i cache & addressing for L1 and L2?
+
+l1vCaches               []*writearound.Comp
+l1sCaches               []*writethrough.Comp
+l1iCaches               []*writethrough.Comp
+l2Caches                []*writeback.Comp
+
+4. L2 has num mem bank
+
+
+
+
+
+
+###########################################
+
+MOV: Moves data between registers
+IMAD: Integer Multiply-Add, a commonly used operation in vector processing.
+LDG: Load global memory (this is where cache effects are important).
+FADD: Floating-point addition
+
+L1: Fast. Each SM has its own L1 cache.
+L2: Larger but slower. L2 cache is shared across all SMs
+Global Mem: A L2 cache miss leads to access to the much slower global memory.

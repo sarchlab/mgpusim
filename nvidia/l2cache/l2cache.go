@@ -1,4 +1,4 @@
-package cache
+package l2cache
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/sarchlab/akita/v4/tracing"
 )
 
-type L1Cache struct {
+type L2Cache struct {
 	Name      string
 	engine    sim.Engine
 	freq      int
@@ -20,7 +20,7 @@ type L1Cache struct {
 }
 
 func NewL1Cache(name string, engine sim.Engine, freq int, log2Block int, wayAssoc int, totalSize int, numBanks int) *L1Cache {
-	return &L1Cache{
+	return &L2Cache{
 		Name:      name,
 		engine:    engine,
 		freq:      freq,
@@ -31,7 +31,7 @@ func NewL1Cache(name string, engine sim.Engine, freq int, log2Block int, wayAsso
 	}
 }
 
-func (c *L1Cache) Build() {
+func (c *L2Cache) Build() {
 	fmt.Printf("Building L1 Cache: %s\n", c.Name)
 	// Add logic to initialize cache components
 }
