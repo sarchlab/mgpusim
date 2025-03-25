@@ -14,7 +14,7 @@ var numIter = flag.Int("iter", 5, "The number of iterations to run.")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := stencil2d.NewBenchmark(runner.Driver())
 	benchmark.NumIteration = *numIter
