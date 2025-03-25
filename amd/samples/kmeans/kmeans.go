@@ -17,7 +17,7 @@ var maxIter = flag.Int("max-iter", 5,
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := kmeans.NewBenchmark(runner.Driver())
 	benchmark.NumPoints = *points

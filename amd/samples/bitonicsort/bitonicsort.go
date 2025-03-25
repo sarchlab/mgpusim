@@ -13,7 +13,7 @@ var orderAscending = flag.Bool("order-asc", true, "Sorting in ascending order.")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := bitonicsort.NewBenchmark(runner.Driver())
 	benchmark.Length = *length

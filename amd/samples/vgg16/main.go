@@ -22,7 +22,7 @@ GPU-to-CPU memory copies.`)
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := vgg16.NewBenchmark(runner.Driver())
 	benchmark.Epoch = *epochFlag
