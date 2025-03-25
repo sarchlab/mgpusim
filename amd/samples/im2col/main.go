@@ -23,7 +23,7 @@ var dilateY = flag.Int("dilate-y", 1, "dilation on the y axis")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := im2col.NewBenchmark(runner.Driver())
 	benchmark.N = *n

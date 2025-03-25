@@ -74,7 +74,7 @@ func (b *Benchmark) Verify() {
 }
 
 func run() sim.VTimeInSec {
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := NewBenchmark(runner.Driver())
 	benchmark.ByteSize = 1048576

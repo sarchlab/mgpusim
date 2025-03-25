@@ -13,7 +13,7 @@ var passes = flag.Int("passes", 2, "number of passes")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := fft.NewBenchmark(runner.Driver())
 	benchmark.Bytes = int32(*mb)

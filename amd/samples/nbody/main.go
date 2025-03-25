@@ -13,7 +13,7 @@ var particles = flag.Int("particles", 1024, "The number of particles in the body
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := nbody.NewBenchmark(runner.Driver())
 	benchmark.NumIterations = int32(*numIter)

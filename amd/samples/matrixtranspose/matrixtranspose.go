@@ -12,7 +12,7 @@ var dataWidth = flag.Int("width", 256, "The dimension of the square matrix.")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := matrixtranspose.NewBenchmark(runner.Driver())
 	benchmark.Width = *dataWidth

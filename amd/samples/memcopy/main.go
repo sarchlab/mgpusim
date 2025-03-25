@@ -77,7 +77,7 @@ func (b *Benchmark) Verify() {
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := NewBenchmark(runner.Driver())
 	benchmark.ByteSize = 1048576

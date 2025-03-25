@@ -13,7 +13,7 @@ func main() {
 
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := xor.NewBenchmark(runner.Driver())
 

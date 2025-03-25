@@ -13,7 +13,7 @@ var yFlag = flag.Int("y", 4096, "The height of the matrix.")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := bicg.NewBenchmark(runner.Driver())
 	benchmark.NX = *xFlag
