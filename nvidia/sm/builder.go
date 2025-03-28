@@ -5,7 +5,7 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/mgpusim/v4/nvidia/l1cache"
+
 	"github.com/sarchlab/mgpusim/v4/nvidia/smsp"
 	"github.com/tebeka/atexit"
 )
@@ -15,7 +15,6 @@ type SMBuilder struct {
 	freq   sim.Freq
 
 	smspsCount uint64
-	l1Cache    l1cache.L1Cache
 }
 
 func (b *SMBuilder) WithEngine(engine sim.Engine) *SMBuilder {
@@ -30,11 +29,6 @@ func (b *SMBuilder) WithFreq(freq sim.Freq) *SMBuilder {
 
 func (b *SMBuilder) WithSMSPsCount(count uint64) *SMBuilder {
 	b.smspsCount = count
-	return b
-}
-
-func (b *SMBuilder) WithL1Cache(l1Cache l1cache.L1Cache) *SMBuilder {
-	b.l1Cache = l1Cache
 	return b
 }
 

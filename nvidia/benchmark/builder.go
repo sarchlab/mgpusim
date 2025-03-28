@@ -1,6 +1,8 @@
 package benchmark
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
@@ -29,6 +31,7 @@ func (b *BenchmarkBuilder) Build() *Benchmark {
 	execCount := len(execMetas)
 	for i := 0; i < execCount; i++ {
 		meta := execMetas[i]
+		// fmt.Println("meta.execType: ", meta.ExecType())
 		if meta.ExecType() == nvidiaconfig.ExecKernel {
 			kernel := b.generateKernelTrace(meta)
 			traceExecs = append(traceExecs, kernel)
@@ -36,6 +39,9 @@ func (b *BenchmarkBuilder) Build() *Benchmark {
 			memcpy := b.generateMemcpyTrace(meta)
 			traceExecs = append(traceExecs, memcpy)
 		}
+	}
+	for j := 0; j < execCount; j++ {
+		fmt.Println("Print TraceExec: ", execMetas[j].ExecType())
 	}
 
 	return &Benchmark{
@@ -54,6 +60,8 @@ func (b *BenchmarkBuilder) generateKernelTrace(meta tracereader.TraceExecMeta) *
 		for j := uint64(0); j < tb.WarpsCount; j++ {
 			warp := nvidiaconfig.Warp{}
 			warp.InstructionsCount = kernelTrace.Threadblock(i).Warp(j).InstructionsCount()
+			// instruction := nvidiaconfig.Instruction{}
+			// warp.Instructions = append(warp.Instructions)
 			tb.Warps = append(tb.Warps, warp)
 		}
 		kernel.Threadblocks = append(kernel.Threadblocks, tb)

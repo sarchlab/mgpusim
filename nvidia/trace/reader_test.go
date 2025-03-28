@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 	"github.com/sarchlab/mgpusim/v4/nvidia/tracereader"
 )
 
@@ -21,7 +20,7 @@ var _ = Describe("Read Traces from VectorAdd Traces Version 5.0", func() {
 				Build()
 			execs := tracerder.GetExecMetas()
 			for _, exec := range execs {
-				if exec.ExecType() == nvidiaconfig.ExecKernel {
+				if exec.ExecType() == ExecKernel {
 					trace = tracereader.ReadTrace(exec)
 				}
 			}
