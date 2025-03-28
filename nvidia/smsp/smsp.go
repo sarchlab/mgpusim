@@ -1,10 +1,13 @@
 package smsp
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
+	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 )
 
 type SMSP struct {
@@ -20,6 +23,7 @@ type SMSP struct {
 	unfinishedInstsCount uint64
 
 	finishedWarpsCount uint64
+	currentWarp        nvidiaconfig.Warp
 }
 
 func (s *SMSP) SetSMRemotePort(remote sim.Port) {
@@ -54,6 +58,7 @@ func (s *SMSP) processSMInput() bool {
 
 func (s *SMSP) processSMMsg(msg *message.SMToSMSPMsg) {
 	s.unfinishedInstsCount = msg.Warp.InstructionsCount
+	s.currentWarp = msg.Warp
 	s.instsCount += msg.Warp.InstructionsCount
 	s.toSM.RetrieveIncoming()
 }
@@ -67,6 +72,9 @@ func (s *SMSP) run() bool {
 	if s.unfinishedInstsCount == 0 {
 		s.finishedWarpsCount++
 	}
+	fmt.Printf("%.10f, %s, SMSP, %v\n",
+		s.Engine.CurrentTime(), s.Name(),
+		s.currentWarp.Instructions[s.currentWarp.InstructionsCount-s.unfinishedInstsCount-1])
 
 	return true
 }

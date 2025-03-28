@@ -24,7 +24,12 @@ l2Caches                []*writeback.Comp
 MOV: Moves data between registers
 IMAD: Integer Multiply-Add, a commonly used operation in vector processing.
 LDG: Load global memory (this is where cache effects are important).
+ULDC.64: Loads a 64-bit constant into a register.
 FADD: Floating-point addition
+S2R: Reads a special register (e.g., thread ID, warp ID, etc.) into a general-purpose register.
+HFMA2.MMA: Performs a fused multiply-add operation on half-precision floating-point numbers using matrix multiply-accumulate (MMA) hardware.
+STG.E: Stores data from a register into global memory.
+
 
 L1: Fast. Each SM has its own L1 cache.
 L2: Larger but slower. L2 cache is shared across all SMs
