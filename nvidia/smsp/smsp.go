@@ -7,7 +7,7 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
 type SMSP struct {
@@ -23,7 +23,7 @@ type SMSP struct {
 	unfinishedInstsCount uint64
 
 	finishedWarpsCount uint64
-	currentWarp        nvidiaconfig.Warp
+	currentWarp        trace.WarpTrace
 }
 
 func (s *SMSP) SetSMRemotePort(remote sim.Port) {
@@ -41,6 +41,7 @@ func (s *SMSP) Tick() bool {
 }
 
 func (s *SMSP) processSMInput() bool {
+	// fmt.Println("Called processSMInput")
 	msg := s.toSM.PeekIncoming()
 	if msg == nil {
 		return false
@@ -57,9 +58,13 @@ func (s *SMSP) processSMInput() bool {
 }
 
 func (s *SMSP) processSMMsg(msg *message.SMToSMSPMsg) {
-	s.unfinishedInstsCount = msg.Warp.InstructionsCount
+	fmt.Println("Called processSMMsg")
+	s.unfinishedInstsCount = msg.Warp.InstructionsCount()
 	s.currentWarp = msg.Warp
-	s.instsCount += msg.Warp.InstructionsCount
+	s.instsCount += msg.Warp.InstructionsCount()
+	log.WithFields(log.Fields{
+		"msg.Warp id":     msg.Warp.ID,
+		"unit instsCount": msg.Warp.InstructionsCount()}).Info("SMSP received warp")
 	s.toSM.RetrieveIncoming()
 }
 
@@ -74,7 +79,7 @@ func (s *SMSP) run() bool {
 	}
 	fmt.Printf("%.10f, %s, SMSP, %v\n",
 		s.Engine.CurrentTime(), s.Name(),
-		s.currentWarp.Instructions[s.currentWarp.InstructionsCount-s.unfinishedInstsCount-1])
+		s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1])
 
 	return true
 }

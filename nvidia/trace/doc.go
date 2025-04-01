@@ -1,2 +1,2 @@
-// Package tracereader provides reader that load benchmarks from trace flie
-package tracereader
+// Package trace provides reader that load benchmarks from trace flie
+package trace

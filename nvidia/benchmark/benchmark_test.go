@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/sarchlab/mgpusim/v4/nvidia/benchmark"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
 func TestBenchmarkBuild(t *testing.T) {
@@ -17,9 +17,9 @@ func TestBenchmarkBuild(t *testing.T) {
 	memcpyCount := 0
 
 	for _, exec := range benchmark.TraceExecs {
-		if exec.ExecType() == nvidiaconfig.ExecKernel {
+		if exec.ExecType() == trace.ExecKernel {
 			kernelCount++
-		} else if exec.ExecType() == nvidiaconfig.ExecMemcpy {
+		} else if exec.ExecType() == trace.ExecMemcpy {
 			memcpyCount++
 		} else {
 			t.Errorf("Unknown exec type")

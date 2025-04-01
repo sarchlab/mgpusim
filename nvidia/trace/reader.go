@@ -1,4 +1,4 @@
-package tracereader
+package trace
 
 import (
 	"bufio"
@@ -10,19 +10,28 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Redefine necessary types from nvidiaconfig
+// ExecType : Redefine necessary types from trace package
 type ExecType int
 
 const (
-	ExecKernel ExecType = iota
+	ExecUndefined ExecType = iota
+	ExecKernel
 	ExecMemcpy
 )
 
-type ExecMemcpyDirection int
+// type ExecMemcpyDirection int
+
+// const (
+// 	MemcpyHostToDevice ExecMemcpyDirection = iota
+// 	MemcpyDeviceToHost
+// )
+
+type ExecMemcpyDirection string
 
 const (
-	MemcpyHostToDevice ExecMemcpyDirection = iota
-	MemcpyDeviceToHost
+	ExecMemcpyDirectionUndefined ExecMemcpyDirection = ""
+	H2D                          ExecMemcpyDirection = "MemcpyHtoD"
+	D2H                          ExecMemcpyDirection = "MemcpyDtoH"
 )
 
 type Dim3 [3]int32
@@ -65,7 +74,6 @@ func (m *TraceExecMeta) ExecType() ExecType {
 var kernelScanner *bufio.Scanner
 
 func ReadTrace(meta TraceExecMeta) KernelTrace {
-	fmt.Println("meta.execType: ", meta.execType)
 	if meta.execType != ExecKernel {
 		log.WithField("execType", meta.ExecType()).Panic("Invalid exec type")
 	}
@@ -124,29 +132,33 @@ func (t *KernelTrace) readTraceHeader() {
 
 func (t *KernelTrace) readThreadblocks() {
 	t.tbIDToIndex = make(map[Dim3]int32)
-	t.threadblocks = make([]*ThreadblockTrace, 0)
+	t.Threadblocks = make([]*ThreadblockTrace, 0)
 
 	for goToNextlineWithPrefixIncludingNow("thread block") {
 		tb := &ThreadblockTrace{}
-		fmt.Sscanf(kernelScanner.Text(), "thread block = %d,%d,%d", &tb.id[0], &tb.id[1], &tb.id[2])
+		fmt.Sscanf(kernelScanner.Text(), "thread block = %d,%d,%d", &tb.ID[0], &tb.ID[1], &tb.ID[2])
 
 		for moveScannerToNextLine() {
+			// fmt.Println("kernelScanner.Text():", kernelScanner.Text())
 			if strings.HasPrefix(kernelScanner.Text(), "warp") {
+				// fmt.Println("This is visited")
 				wp := &WarpTrace{}
-				fmt.Sscanf(kernelScanner.Text(), "warp = %d", &wp.id)
+				fmt.Sscanf(kernelScanner.Text(), "warp = %d", &wp.ID)
 
 				if !goToNextlineWithPrefixIncludingNow("insts") {
 					log.WithField("line", kernelScanner.Text()).Panic("Cannot find insts line")
 				}
-				fmt.Sscanf(kernelScanner.Text(), "insts = %d", &wp.InstsCount)
+				fmt.Sscanf(kernelScanner.Text(), "insts = %d", &wp.instsCount)
 
-				for j := 0; j < int(wp.InstsCount); j++ {
+				for j := 0; j < int(wp.instsCount); j++ {
 					moveScannerToNextLine()
 					inst := extractInst(kernelScanner.Text())
-					inst.threadblockID = tb.id
-					inst.warpID = wp.id
+					inst.threadblockID = tb.ID
+					inst.warpID = wp.ID
 
 					wp.Instructions = append(wp.Instructions, inst)
+					// fmt.Printf("tb cnt: %d, warp cnt: %d, inst cnt: %d\n",
+					// 	len(t.Threadblocks), len(tb.Warps), len(wp.Instructions))
 				}
 
 				tb.Warps = append(tb.Warps, wp)
@@ -155,8 +167,8 @@ func (t *KernelTrace) readThreadblocks() {
 			}
 		}
 
-		t.threadblocks = append(t.threadblocks, tb)
-		t.tbIDToIndex[tb.id] = int32(t.ThreadblocksCount() - 1)
+		t.Threadblocks = append(t.Threadblocks, tb)
+		t.tbIDToIndex[tb.ID] = int32(t.ThreadblocksCount() - 1)
 	}
 }
 
@@ -169,31 +181,31 @@ func (t *KernelTrace) readThreadblocks() {
 
 	7
 */
-func extractInst(text string) *Instruction {
-	inst := &Instruction{}
+func extractInst(text string) *InstructionTrace {
+	inst := &InstructionTrace{}
 	elems := strings.Fields(text)
 
 	fmt.Sscanf(elems[0], "%x", &inst.PC)
 	fmt.Sscanf(elems[1], "%x", &inst.Mask)
 
 	fmt.Sscanf(elems[2], "%d", &inst.DestNum)
-	for i := 0; i < int(inst.DestNum); i++ {
+	for i := 0; i < inst.DestNum; i++ {
 		inst.DestRegs = append(inst.DestRegs, NewRegister(elems[2+i+1]))
 	}
 
 	//inst.OpCode = nvidia.NewOpcode(elems[3+int(inst.DestNum)])
 
-	fmt.Sscanf(elems[4+int(inst.DestNum)], "%d", &inst.SrcNum)
-	for i := 0; i < int(inst.SrcNum); i++ {
-		inst.SrcRegs = append(inst.SrcRegs, NewRegister(elems[4+int(inst.DestNum)+i+1]))
+	fmt.Sscanf(elems[4+inst.DestNum], "%d", &inst.SrcNum)
+	for i := 0; i < inst.SrcNum; i++ {
+		inst.SrcRegs = append(inst.SrcRegs, NewRegister(elems[4+inst.DestNum+i+1]))
 	}
 
-	updateInstMemoryPart(inst, elems[5+int(inst.DestNum)+int(inst.SrcNum):])
+	updateInstMemoryPart(inst, elems[5+inst.DestNum+inst.SrcNum:])
 	return inst
 }
 
 // [todo]: understand memory format
-func updateInstMemoryPart(inst *Instruction, elems []string) {
+func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
 	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
 
 	if inst.MemWidth != 0 {

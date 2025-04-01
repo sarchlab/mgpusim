@@ -7,8 +7,8 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
 type GPU struct {
@@ -24,7 +24,7 @@ type GPU struct {
 	SMs     map[string]*sm.SM
 	freeSMs []*sm.SM
 
-	undispatchedThreadblocks    []*nvidiaconfig.Threadblock
+	undispatchedThreadblocks    []*trace.ThreadblockTrace
 	unfinishedThreadblocksCount uint64
 
 	finishedKernelsCount uint64
@@ -78,7 +78,7 @@ func (g *GPU) processSMsInput() bool {
 
 func (g *GPU) processDriverMsg(msg *message.DriverToDeviceMsg) {
 	for i := range msg.Kernel.Threadblocks {
-		g.undispatchedThreadblocks = append(g.undispatchedThreadblocks, &msg.Kernel.Threadblocks[i])
+		g.undispatchedThreadblocks = append(g.undispatchedThreadblocks, msg.Kernel.Threadblocks[i])
 		g.unfinishedThreadblocksCount++
 	}
 	g.toDriver.RetrieveIncoming()

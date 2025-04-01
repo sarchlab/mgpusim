@@ -7,8 +7,8 @@ import (
 
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 	"github.com/sarchlab/mgpusim/v4/nvidia/smsp"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
 type SM struct {
@@ -16,7 +16,7 @@ type SM struct {
 
 	ID         string
 	warpsCount uint64
-	instsCount uint64
+	// instsCount uint64
 
 	// meta
 	toGPU       sim.Port
@@ -26,7 +26,7 @@ type SM struct {
 	SMSPs     map[string]*smsp.SMSP
 	freeSMSPs []*smsp.SMSP
 
-	undispatchedWarps    []*nvidiaconfig.Warp
+	undispatchedWarps    []*trace.WarpTrace
 	unfinishedWarpsCount uint64
 
 	finishedThreadblocksCount uint64
@@ -80,7 +80,7 @@ func (s *SM) processSMSPsInput() bool {
 
 func (s *SM) processSMMsg(msg *message.DeviceToSMMsg) {
 	for i := range msg.Threadblock.Warps {
-		s.undispatchedWarps = append(s.undispatchedWarps, &msg.Threadblock.Warps[i])
+		s.undispatchedWarps = append(s.undispatchedWarps, msg.Threadblock.Warps[i])
 		s.unfinishedWarpsCount++
 		s.warpsCount++
 	}
@@ -149,9 +149,9 @@ func (s *SM) GetTotalWarpsCount() uint64 {
 	return s.warpsCount
 }
 
-func (s *SM) GetTotalInstsCount() uint64 {
-	return s.instsCount
-}
+// func (s *SM) GetTotalInstsCount() uint64 {
+// 	return s.instsCount
+// }
 
 func (s *SM) LogStatus() {
 	log.WithFields(log.Fields{
