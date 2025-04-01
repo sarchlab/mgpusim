@@ -2,13 +2,13 @@ package message
 
 import (
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
 type DriverToDeviceMsg struct {
 	sim.MsgMeta
 
-	Kernel nvidiaconfig.Kernel
+	Kernel trace.KernelTrace
 }
 
 type DeviceToDriverMsg struct {
@@ -21,7 +21,7 @@ type DeviceToDriverMsg struct {
 type DeviceToSMMsg struct {
 	sim.MsgMeta
 
-	Threadblock nvidiaconfig.Threadblock
+	Threadblock trace.ThreadblockTrace
 }
 
 type SMToDeviceMsg struct {
@@ -34,7 +34,7 @@ type SMToDeviceMsg struct {
 type SMToSMSPMsg struct {
 	sim.MsgMeta
 
-	Warp nvidiaconfig.Warp
+	Warp trace.WarpTrace
 }
 
 type SMSPToSMMsg struct {

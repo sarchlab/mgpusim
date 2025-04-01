@@ -1,4 +1,4 @@
-package tracereader
+package trace
 
 import (
 	"bufio"
@@ -7,7 +7,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -60,7 +59,7 @@ func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 	m := TraceExecMeta{}
 	fmt.Println("BuildExecFromText text: ", text)
 	if strings.HasPrefix(text, execMemcpyPrefix) {
-		m.execType = nvidiaconfig.ExecMemcpy
+		m.execType = ExecMemcpy
 
 		textSplited := strings.SplitN(text, ",", 2)
 		directionStr := textSplited[0]
@@ -71,17 +70,17 @@ func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 		}
 
 		switch directionStr {
-		case string(nvidiaconfig.H2D):
-			m.Direction = nvidiaconfig.H2D
-		case string(nvidiaconfig.D2H):
-			m.Direction = nvidiaconfig.H2D
+		case string(H2D):
+			m.Direction = H2D
+		case string(D2H):
+			m.Direction = H2D
 		}
 
 		return m
 	}
 
 	if strings.HasPrefix(text, execKernelPrefix) {
-		m.execType = nvidiaconfig.ExecKernel
+		m.execType = ExecKernel
 		m.filename = text
 		m.filepath = path.Join(r.directoryPath, text)
 	} else {

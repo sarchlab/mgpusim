@@ -9,7 +9,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -25,7 +25,7 @@ type Driver struct {
 	freeDevices []*gpu.GPU
 
 	// trace kernel
-	undispatchedKernels    []*nvidiaconfig.Kernel
+	undispatchedKernels    []*trace.KernelTrace
 	unfinishedKernelsCount uint64
 }
 
@@ -53,7 +53,7 @@ func (d *Driver) RegisterGPU(gpu *gpu.GPU) {
 	d.freeDevices = append(d.freeDevices, gpu)
 }
 
-func (d *Driver) RunKernel(kernel *nvidiaconfig.Kernel) {
+func (d *Driver) RunKernel(kernel *trace.KernelTrace) {
 	d.undispatchedKernels = append(d.undispatchedKernels, kernel)
 	d.unfinishedKernelsCount++
 }

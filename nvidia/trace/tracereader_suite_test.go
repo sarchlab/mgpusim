@@ -1,4 +1,4 @@
-package tracereader_test
+package trace_test
 
 import (
 	"testing"

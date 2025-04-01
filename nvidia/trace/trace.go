@@ -1,4 +1,4 @@
-package tracereader
+package trace
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Define Opcode type that was previously from nvidiaconfig
+// Opcode type was previously from trace package
 type Opcode struct {
 	Name string
 }
@@ -18,7 +18,7 @@ func NewOpcode(name string) *Opcode {
 type KernelTrace struct {
 	FileHeader   KernelFileHeader
 	tbIDToIndex  map[Dim3]int32
-	threadblocks []*ThreadblockTrace
+	Threadblocks []*ThreadblockTrace
 }
 
 type KernelFileHeader struct {
@@ -38,17 +38,17 @@ type KernelFileHeader struct {
 }
 
 type ThreadblockTrace struct {
-	id    Dim3
+	ID    Dim3
 	Warps []*WarpTrace
 }
 
 type WarpTrace struct {
-	id           int
-	InstsCount   int
-	Instructions []*Instruction
+	ID           int
+	instsCount   uint64
+	Instructions []*InstructionTrace
 }
 
-type Instruction struct {
+type InstructionTrace struct {
 	threadblockID     Dim3
 	warpID            int
 	PC                uint64
@@ -111,11 +111,11 @@ func (th *KernelFileHeader) updateTraceHeaderParam(key string, value string) {
 }
 
 func (t *KernelTrace) ThreadblocksCount() uint64 {
-	return uint64(len(t.threadblocks))
+	return uint64(len(t.Threadblocks))
 }
 
 func (t *KernelTrace) Threadblock(index uint64) *ThreadblockTrace {
-	return t.threadblocks[index]
+	return t.Threadblocks[index]
 }
 
 func (tb *ThreadblockTrace) WarpsCount() uint64 {
