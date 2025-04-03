@@ -58,13 +58,13 @@ func (s *SMSP) processSMInput() bool {
 }
 
 func (s *SMSP) processSMMsg(msg *message.SMToSMSPMsg) {
-	fmt.Println("Called processSMMsg")
+	// fmt.Println("Called processSMMsg")
 	s.unfinishedInstsCount = msg.Warp.InstructionsCount()
 	s.currentWarp = msg.Warp
 	s.instsCount += msg.Warp.InstructionsCount()
-	log.WithFields(log.Fields{
-		"msg.Warp id":     msg.Warp.ID,
-		"unit instsCount": msg.Warp.InstructionsCount()}).Info("SMSP received warp")
+	// log.WithFields(log.Fields{
+	// 	"msg.Warp id":     msg.Warp.ID,
+	// 	"unit instsCount": msg.Warp.InstructionsCount()}).Info("SMSP received warp")
 	s.toSM.RetrieveIncoming()
 }
 
@@ -77,10 +77,12 @@ func (s *SMSP) run() bool {
 	if s.unfinishedInstsCount == 0 {
 		s.finishedWarpsCount++
 	}
-	fmt.Printf("%.10f, %s, SMSP, %v\n",
-		s.Engine.CurrentTime(), s.Name(),
-		s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1])
-
+	currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
+	if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
+		fmt.Printf("%.10f, %s, SMSP, insts id = %d, %s, %v\n",
+			s.Engine.CurrentTime(), s.Name(), s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1, currentInstruction.OpCode,
+			currentInstruction)
+	}
 	return true
 }
 

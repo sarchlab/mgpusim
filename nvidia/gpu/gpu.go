@@ -9,6 +9,8 @@ import (
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
+
+	"github.com/sarchlab/akita/v4/mem/cache/writeback"
 )
 
 type GPU struct {
@@ -23,6 +25,8 @@ type GPU struct {
 	toSMs   sim.Port
 	SMs     map[string]*sm.SM
 	freeSMs []*sm.SM
+
+	l2Caches []*writeback.Comp
 
 	undispatchedThreadblocks    []*trace.ThreadblockTrace
 	unfinishedThreadblocksCount uint64
