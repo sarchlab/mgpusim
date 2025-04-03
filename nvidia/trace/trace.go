@@ -7,13 +7,13 @@ import (
 )
 
 // Opcode type was previously from trace package
-type Opcode struct {
-	Name string
-}
+// type Opcode struct {
+// 	Name string
+// }
 
-func NewOpcode(name string) *Opcode {
-	return &Opcode{Name: name}
-}
+// func NewOpcode(name string) *Opcode {
+// 	return &Opcode{Name: name}
+// }
 
 type KernelTrace struct {
 	FileHeader   KernelFileHeader

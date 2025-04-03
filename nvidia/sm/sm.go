@@ -5,6 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/sarchlab/akita/v4/mem/cache/writethrough"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/smsp"
@@ -30,6 +31,7 @@ type SM struct {
 	unfinishedWarpsCount uint64
 
 	finishedThreadblocksCount uint64
+	l1Caches                  []*writethrough.Comp
 }
 
 func (s *SM) SetGPURemotePort(remote sim.Port) {
