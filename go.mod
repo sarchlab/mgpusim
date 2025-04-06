@@ -8,7 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/rs/xid v1.6.0
-	github.com/sarchlab/akita/v4 v4.0.0 // v3.0.0
+	github.com/sarchlab/akita/v4 v4.1.0 // v3.0.0
 	github.com/tebeka/atexit v0.3.0
 	gonum.org/v1/gonum v0.15.1
 )
@@ -17,11 +17,10 @@ require github.com/sirupsen/logrus v1.9.3
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sql-driver/mysql v1.9.0 // indirect
-	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20250208200701-d0013a598941 // indirect
@@ -29,8 +28,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.24 // indirect
-	github.com/nxadm/tail v1.4.11 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/syifan/goseth v0.1.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
@@ -41,7 +38,6 @@ require (
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

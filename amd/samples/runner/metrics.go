@@ -1,8 +1,7 @@
 package runner
 
 import (
-	"fmt"
-	"os"
+	"github.com/sarchlab/akita/v4/datarecording"
 )
 
 type metric struct {
@@ -14,7 +13,8 @@ type metric struct {
 }
 
 type collector struct {
-	metrics []metric
+	metrics  []metric
+	recorder datarecording.DataRecorder
 }
 
 func (c *collector) Collect(where, what string, value float64) {
@@ -34,19 +34,12 @@ func (c *collector) CollectHeader(header string) {
 }
 
 func (c *collector) Dump(name string) {
-	f, err := os.Create(name + ".csv")
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
+	c.recorder = datarecording.NewDataRecorder(name)
+	c.recorder.CreateTable(name, metric{})
 
-	fmt.Fprintf(f, ", where, what, value\n")
-	for i, m := range c.metrics {
-		if m.metricType == "data" {
-			fmt.Fprintf(f, "%d, %s, %s, %.12f\n",
-				i, m.where, m.what, m.value)
-		} else if m.metricType == "header" {
-			fmt.Fprintf(f, "%d, -, %s, -\n", i, m.header)
-		}
+	for _, m := range c.metrics {
+		c.recorder.InsertData(name, m)
 	}
+
+	c.recorder.Flush()
 }
