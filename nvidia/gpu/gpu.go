@@ -5,7 +5,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/sarchlab/akita/v4/mem/dram"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
@@ -16,7 +18,8 @@ import (
 type GPU struct {
 	*sim.TickingComponent
 
-	ID string
+	ID      string
+	gpuName string
 
 	// meta
 	toDriver       sim.Port
@@ -26,7 +29,12 @@ type GPU struct {
 	SMs     map[string]*sm.SM
 	freeSMs []*sm.SM
 
-	l2Caches []*writeback.Comp
+	L2Caches    []*writeback.Comp
+	L2CacheSize uint64
+	Drams       []*dram.Comp
+	DramSize    uint64
+
+	RDMAEngine *rdma.Comp
 
 	undispatchedThreadblocks    []*trace.ThreadblockTrace
 	unfinishedThreadblocksCount uint64

@@ -5,6 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/driver"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
@@ -33,7 +34,11 @@ func (b *A100PlatformBuilder) Build() *Platform {
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
 		WithSMsCount(108).
-		WithSMSPsCountPerSM(4)
+		WithSMSPsCountPerSM(4).
+		WithL2CacheSize(2 * mem.MB).
+		WithDRAMSize(4 * mem.GB).
+		WithLog2CacheLineSize(6).
+		WithNumMemoryBank(4)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))
