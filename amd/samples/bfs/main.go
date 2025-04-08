@@ -20,7 +20,7 @@ var maxDepth = flag.Int("depth", 0, "The max depth to search, 0 means unlimited"
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := bfs.NewBenchmark(runner.Driver())
 	benchmark.Path = *path
