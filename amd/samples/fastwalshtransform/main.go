@@ -12,7 +12,7 @@ var length = flag.Int("length", 1024, "The length of the array that will be tran
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := fastwalshtransform.NewBenchmark(runner.Driver())
 	benchmark.Length = uint32(*length)
