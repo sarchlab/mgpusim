@@ -193,7 +193,7 @@ func extractInst(text string) *InstructionTrace {
 		inst.DestRegs = append(inst.DestRegs, NewRegister(elems[2+i+1]))
 	}
 
-	inst.OpCode = NewOpcode(elems[3+int(inst.DestNum)])
+	inst.OpCode = NewOpcode(elems[3+inst.DestNum])
 
 	fmt.Sscanf(elems[4+inst.DestNum], "%d", &inst.SrcNum)
 	for i := 0; i < inst.SrcNum; i++ {

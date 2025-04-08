@@ -65,5 +65,4 @@ func init() {
 	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeMemory, VariableDefault}
 	opcodeTable["FADD"] = Opcode{"FADD", OpCodeDefault, VariableDefault}
 	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeMemory, VariableDefault}
-
 }

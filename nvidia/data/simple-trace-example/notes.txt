@@ -63,3 +63,11 @@ Questions:
 idealmemcontroller
 2. How does connectL1ToL2 work in amd/? (in r9nanogpubuilder.go: func (b *R9NanoGPUBuilder) connectL1ToL2() )
 in the builder; set up the env for the simu.
+
+
+#########################
+
+Cheat Sheet
+
+$(go env GOPATH)/bin/golangci-lint run ./...
+$(go env GOPATH)/bin/ginkgo -r
