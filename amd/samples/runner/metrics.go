@@ -34,7 +34,6 @@ func (c *collector) CollectHeader(header string) {
 }
 
 func (c *collector) Dump(name string) {
-	c.recorder = datarecording.NewDataRecorder(name)
 	c.recorder.CreateTable(name, metric{})
 
 	for _, m := range c.metrics {
@@ -42,4 +41,13 @@ func (c *collector) Dump(name string) {
 	}
 
 	c.recorder.Flush()
+}
+
+func newCollector(
+	passedRecorder datarecording.DataRecorder,
+) *collector {
+	collector := &collector{}
+	collector.recorder = passedRecorder
+
+	return collector
 }
