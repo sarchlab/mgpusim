@@ -84,6 +84,7 @@ func (s *SMSP) run() bool {
 			s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1,
 			currentInstruction.OpCode,
 			currentInstruction)
+		// send message to this SMSP's SM's L1
 	}
 	return true
 }
