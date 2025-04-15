@@ -64,6 +64,16 @@ func (s *SM) processGPUInput() bool {
 	return true
 }
 
+func (s *SM) processMemMsg(msg *message.MemMsg) {
+	fmt.Printf("%.10f, %s, \tSM %s received mem msg: %s -> %s [%d %d]\n",
+		s.Engine.CurrentTime(), s.Name(),
+		s.ID, msg.Src, msg.Dst,
+		msg.MemAddress.MemBaseAddr,
+		msg.MemAddress.MemOffset)
+	// TODO: deal with the mem msg
+	s.toSMSPs.RetrieveIncoming()
+}
+
 func (s *SM) processSMSPsInput() bool {
 	msg := s.toSMSPs.PeekIncoming()
 	if msg == nil {
@@ -72,7 +82,9 @@ func (s *SM) processSMSPsInput() bool {
 
 	switch msg := msg.(type) {
 	case *message.SMSPToSMMsg:
-		s.processSMSPSMSPsg(msg)
+		s.processSMSPSMsg(msg)
+	case *message.MemMsg:
+		s.processMemMsg(msg)
 	default:
 		log.WithField("function", "processSMSPsInput").Panic("Unhandled message type")
 	}
@@ -89,7 +101,7 @@ func (s *SM) processSMMsg(msg *message.DeviceToSMMsg) {
 	s.toGPU.RetrieveIncoming()
 }
 
-func (s *SM) processSMSPSMSPsg(msg *message.SMSPToSMMsg) {
+func (s *SM) processSMSPSMsg(msg *message.SMSPToSMMsg) {
 	if msg.WarpFinished {
 		s.freeSMSPs = append(s.freeSMSPs, s.SMSPs[msg.SMSPID])
 		s.unfinishedWarpsCount--

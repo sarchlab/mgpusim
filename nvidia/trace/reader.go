@@ -199,18 +199,23 @@ func extractInst(text string) *InstructionTrace {
 	for i := 0; i < inst.SrcNum; i++ {
 		inst.SrcRegs = append(inst.SrcRegs, NewRegister(elems[4+inst.DestNum+i+1]))
 	}
-
-	updateInstMemoryPart(inst, elems[5+inst.DestNum+inst.SrcNum:])
+	if inst.OpCode.OpcodeType() == OpCodeMemory {
+		updateInstMemoryPart(inst, elems[5+inst.DestNum+inst.SrcNum:])
+	}
 	return inst
 }
 
 // [todo]: understand memory format
 func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
+	// fmt.Printf("elems: %v\n", elems)
 	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
 
 	if inst.MemWidth != 0 {
 		fmt.Sscanf(elems[1], "%d", &inst.AddressCompress)
-		fmt.Sscanf(elems[2], "%x", &inst.MemAddress)
+		// fmt.Sscanf(elems[2], "%x", &inst.MemAddress)
+		hexValue := strings.TrimPrefix(elems[2], "0x")
+		// fmt.Printf("Raw elems[2]: '%s', Trimmed: '%s'\n", elems[2], hexValue) // Debugging output
+		fmt.Sscanf(hexValue, "%x", &inst.MemAddress)
 
 		if inst.AddressCompress == 1 {
 			fmt.Sscanf(elems[3], "%d", &inst.MemAddressSuffix1)
@@ -221,7 +226,7 @@ func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
 			}
 		}
 	}
-
+	// fmt.Printf("MemAddress: %d\n", inst.MemAddress)
 	imm, _ := strconv.Atoi(elems[len(elems)-1])
 	inst.Immediate = uint64(imm)
 }

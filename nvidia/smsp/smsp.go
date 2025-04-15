@@ -79,12 +79,34 @@ func (s *SMSP) run() bool {
 	}
 	currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
 	if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
-		fmt.Printf("%.10f, %s, SMSP, insts id = %d, %s, %v\n",
-			s.Engine.CurrentTime(), s.Name(),
+		fmt.Printf("%.10f, %s, SMSP %s is dealing with the OpCodeMemory type operation, insts id = %d, %s, %v\n", // %v
+			s.Engine.CurrentTime(), s.Name(), s.Name(),
 			s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1,
 			currentInstruction.OpCode,
 			currentInstruction)
+		s.sendMemMsg(s.toSM, *currentInstruction)
+	}
+	return true
+}
 
+func (s *SMSP) sendMemMsg(port sim.Port, inst trace.InstructionTrace) bool {
+	msg := message.MemMsgBuilder{}.
+		WithSrc(s.toSM.AsRemote()).
+		WithDst(s.toSMRemote.AsRemote()).
+		WithMemAddress(message.MemAddress{
+			MemBaseAddr: inst.MemAddress,
+			MemOffset:   uint64(inst.MemWidth),
+		}).
+		Build()
+	err := port.Send(msg)
+	fmt.Printf("%.10f, %s, SMSP %s sent mem msg: %s -> %s [%d %d]\n",
+		s.Engine.CurrentTime(), s.Name(),
+		s.ID, msg.Src, msg.Dst,
+		msg.MemAddress.MemBaseAddr,
+		msg.MemAddress.MemOffset)
+	if err != nil {
+		log.WithField("function", "sendMemMsg").Panic("Failed to send mem message")
+		return false
 	}
 	return true
 }

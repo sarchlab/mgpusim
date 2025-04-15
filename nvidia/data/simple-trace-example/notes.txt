@@ -64,6 +64,44 @@ idealmemcontroller
 2. How does connectL1ToL2 work in amd/? (in r9nanogpubuilder.go: func (b *R9NanoGPUBuilder) connectL1ToL2() )
 in the builder; set up the env for the simu.
 
+#########################
+20250415
+
+MGPUSim Nvidia
+Update:
+1. Still working on the cache-related msgs
+- Now SMSP can send msg to fetch mem and SM can receive it
+
+TODO:
+1. switch the whole architecture of nvidia
+- GPU -> CommandProcessor
+- GPUBuilder
+
+1279.0000000000, GPU(0).SM(83).SMSP(3), SMSP 421 sent mem msg: GPU(0).SM(83).SMSP(3).ToSM -> GPU(0).SM(83).ToSMSPs [140398123621248 4]
+1279.0000000000, GPU(0).SM(86),         SM 432 received mem msg: GPU(0).SM(86).SMSP(1).ToSM -> GPU(0).SM(86).ToSMSPs [140398123624064 4]
+1279.0000000000, GPU(0).SM(85).SMSP(2), SMSP GPU(0).SM(85).SMSP(2) is dealing with the OpCodeMemory type operation, insts id = 15, STG.E, &{[193 0 0] 6 240 4294967295 0 [] STG.E 2 [{R6} {R9}] 4 1 140398123623168 4 [] 0}
+1279.0000000000, GPU(0).SM(85).SMSP(2), SMSP 430 sent mem msg: GPU(0).SM(85).SMSP(2).ToSM -> GPU(0).SM(85).ToSMSPs [140398123623168 4]
+1279.0000000000, GPU(0).SM(85),         SM 427 received mem msg: GPU(0).SM(85).SMSP(3).ToSM -> GPU(0).SM(85).ToSMSPs [140398123222912 4]
+1280.0000000000, GPU(0).SM(84).SMSP(3), SMSP GPU(0).SM(84).SMSP(3) is dealing with the OpCodeMemory type operation, insts id = 15, STG.E, &{[192 0 0] 7 240 4294967295 0 [] STG.E 2 [{R6} {R9}] 4 1 140398123622272 4 [] 0}
+1280.0000000000, GPU(0).SM(84).SMSP(3), SMSP 426 sent mem msg: GPU(0).SM(84).SMSP(3).ToSM -> GPU(0).SM(84).ToSMSPs [140398123622272 4]
+1280.0000000000, GPU(0).SM(86).SMSP(2), SMSP GPU(0).SM(86).SMSP(2) is dealing with the OpCodeMemory type operation, insts id = 15, STG.E, &{[194 0 0] 6 240 4294967295 0 [] STG.E 2 [{R6} {R9}] 4 1 140398123624192 4 [] 0}
+1280.0000000000, GPU(0).SM(86).SMSP(2), SMSP 435 sent mem msg: GPU(0).SM(86).SMSP(2).ToSM -> GPU(0).SM(86).ToSMSPs [140398123624192 4]
+1280.0000000000, GPU(0).SM(84),         SM 422 received mem msg: GPU(0).SM(84).SMSP(2).ToSM -> GPU(0).SM(84).ToSMSPs [140398123622144 4]
+1280.0000000000, GPU(0).SM(82),         SM 412 received mem msg: GPU(0).SM(82).SMSP(3).ToSM -> GPU(0).SM(82).ToSMSPs [140398123620224 4]
+1280.0000000000, GPU(0).SM(86),         SM 432 received mem msg: GPU(0).SM(86).SMSP(3).ToSM -> GPU(0).SM(86).ToSMSPs [140398123223936 4]
+1281.0000000000, GPU(0).SM(83),         SM 417 received mem msg: GPU(0).SM(83).SMSP(3).ToSM -> GPU(0).SM(83).ToSMSPs [140398123621248 4]
+1281.0000000000, GPU(0).SM(85),         SM 427 received mem msg: GPU(0).SM(85).SMSP(2).ToSM -> GPU(0).SM(85).ToSMSPs [140398123623168 4]
+1281.0000000000, GPU(0).SM(85).SMSP(3), SMSP GPU(0).SM(85).SMSP(3) is dealing with the OpCodeMemory type operation, insts id = 15, STG.E, &{[193 0 0] 7 240 4294967295 0 [] STG.E 2 [{R6} {R9}] 4 1 140398123623296 4 [] 0}
+1281.0000000000, GPU(0).SM(85).SMSP(3), SMSP 431 sent mem msg: GPU(0).SM(85).SMSP(3).ToSM -> GPU(0).SM(85).ToSMSPs [140398123623296 4]
+1282.0000000000, GPU(0).SM(84),         SM 422 received mem msg: GPU(0).SM(84).SMSP(3).ToSM -> GPU(0).SM(84).ToSMSPs [140398123622272 4]
+1282.0000000000, GPU(0).SM(86).SMSP(3), SMSP GPU(0).SM(86).SMSP(3) is dealing with the OpCodeMemory type operation, insts id = 15, STG.E, &{[194 0 0] 7 240 4294967295 0 [] STG.E 2 [{R6} {R9}] 4 1 140398123624320 4 [] 0}
+1282.0000000000, GPU(0).SM(86).SMSP(3), SMSP 436 sent mem msg: GPU(0).SM(86).SMSP(3).ToSM -> GPU(0).SM(86).ToSMSPs [140398123624320 4]
+1282.0000000000, GPU(0).SM(86),         SM 432 received mem msg: GPU(0).SM(86).SMSP(2).ToSM -> GPU(0).SM(86).ToSMSPs [140398123624192 4]
+1283.0000000000, GPU(0).SM(85),         SM 427 received mem msg: GPU(0).SM(85).SMSP(3).ToSM -> GPU(0).SM(85).ToSMSPs [140398123623296 4]
+1284.0000000000, GPU(0).SM(86),         SM 432 received mem msg: GPU(0).SM(86).SMSP(3).ToSM -> GPU(0).SM(86).ToSMSPs [140398123624320 4]
+1289
+...
+
 
 #########################
 
