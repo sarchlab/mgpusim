@@ -49,6 +49,8 @@ github.com/sarchlab/akita/v4 v4.0.0 h1:LPDqmjKZ6TauDGtxDpd9YjdST0BtpZFmrHd24pABh
 github.com/sarchlab/akita/v4 v4.0.0/go.mod h1:GAEse/nsn+/yj1svoyxNxQz6pGtnLwNQJhnMa1XRC9M=
 github.com/sarchlab/akita/v4 v4.1.0 h1:nRbDveyf7ypIsLux5U9i5DSPVV+fg4j+PDOAliMNm3I=
 github.com/sarchlab/akita/v4 v4.1.0/go.mod h1:V99vik5vtae0+M/GqCCneg+U24fhY/RohmcoX0gk6pI=
+github.com/sarchlab/akita/v4 v4.1.1 h1:AzWlmSniPjy/ZPM0j2KX55kIC9VQOvUa275DqeiRwgc=
+github.com/sarchlab/akita/v4 v4.1.1/go.mod h1:V99vik5vtae0+M/GqCCneg+U24fhY/RohmcoX0gk6pI=
 github.com/shirou/gopsutil v3.21.11+incompatible h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=
 github.com/shirou/gopsutil v3.21.11+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
