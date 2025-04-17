@@ -110,7 +110,7 @@ func (r *Runner) buildEmuPlatform() {
 }
 
 func (r *Runner) buildDataRecorder() datarecording.DataRecorder {
-	dataRecorder := datarecording.NewDataRecorder("Simulation")
+	dataRecorder := datarecording.NewDataRecorder("simulation")
 
 	return dataRecorder
 }
