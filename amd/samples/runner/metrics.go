@@ -44,10 +44,10 @@ func (c *collector) Dump(name string) {
 }
 
 func newCollector(
-	passedRecorder datarecording.DataRecorder,
+	recorder datarecording.DataRecorder,
 ) *collector {
 	collector := &collector{}
-	collector.recorder = passedRecorder
+	collector.recorder = recorder
 
 	return collector
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sarchlab/akita/v4/datarecording"
 	"github.com/sarchlab/akita/v4/monitoring"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
@@ -106,6 +107,12 @@ func (r *Runner) buildEmuPlatform() {
 	}
 
 	r.platform = b.Build()
+}
+
+func (r *Runner) buildDataRecorder() datarecording.DataRecorder {
+	dataRecorder := datarecording.NewDataRecorder("Simulation")
+
+	return dataRecorder
 }
 
 func (r *Runner) buildTimingPlatform() {

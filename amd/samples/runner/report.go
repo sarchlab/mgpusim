@@ -53,7 +53,8 @@ type cuCPIStackTracer struct {
 }
 
 func (r *Runner) defineMetrics() {
-	r.metricsCollector = &collector{}
+	recorder := r.buildDataRecorder()
+	r.metricsCollector = newCollector(recorder)
 	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
 	r.addInstCountTracer()
