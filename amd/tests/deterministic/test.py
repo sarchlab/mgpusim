@@ -28,6 +28,12 @@ def run(test_case, run_index):
         [f"./{test_case.executable} -timing -report-all {test_case.arguments}"],
         shell=True,
     )
+
+    subprocess.check_call(
+        [f"sqlite3 -header -csv simulation.sqlite \"SELECT * FROM metrics;\" > metrics.csv"],
+        shell=True
+    )
+    
     subprocess.check_call(
         [f"mv metrics.csv deterministic_metrics_{run_index}.csv"], shell=True
     )
