@@ -33,6 +33,7 @@ def run(test_case, run_index):
         [f"sqlite3 -header -csv simulation.sqlite3 \"SELECT * FROM metrics;\" > metrics.csv"],
         shell=True,
     )
+    os.remove("simulation.sqlite3")
     
     subprocess.check_call(
         [f"mv metrics.csv deterministic_metrics_{run_index}.csv"], shell=True
