@@ -5,7 +5,7 @@ import (
 )
 
 type metric struct {
-	where      string
+	location   string
 	what       string
 	value      float64
 	header     string
@@ -19,7 +19,7 @@ type collector struct {
 
 func (c *collector) Collect(where, what string, value float64) {
 	c.metrics = append(c.metrics, metric{
-		where:      where,
+		location:   where,
 		what:       what,
 		value:      value,
 		metricType: "data",
