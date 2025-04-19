@@ -31,7 +31,7 @@ def run(test_case, run_index):
 
     subprocess.check_call(
         [f"sqlite3 -header -csv simulation.sqlite \"SELECT * FROM metrics;\" > metrics.csv"],
-        shell=True
+        shell=True,
     )
     
     subprocess.check_call(

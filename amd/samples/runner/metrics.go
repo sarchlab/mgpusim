@@ -39,8 +39,6 @@ func (c *collector) Dump(name string) {
 	for _, m := range c.metrics {
 		c.recorder.InsertData(name, m)
 	}
-
-	c.recorder.Flush()
 }
 
 func newCollector(
