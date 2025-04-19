@@ -1,8 +1,6 @@
 package runner
 
 import (
-	"fmt"
-
 	"github.com/sarchlab/akita/v4/datarecording"
 )
 
@@ -36,9 +34,7 @@ func (c *collector) CollectHeader(header string) {
 }
 
 func (c *collector) Dump(name string) {
-	fmt.Println("Starting to create table")
 	c.recorder.CreateTable(name, metric{})
-	fmt.Println("successfully created table")
 
 	for _, m := range c.metrics {
 		c.recorder.InsertData(name, m)
