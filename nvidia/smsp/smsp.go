@@ -1,7 +1,7 @@
 package smsp
 
 import (
-	"fmt"
+	// "fmt"
 
 	log "github.com/sirupsen/logrus"
 
@@ -79,11 +79,11 @@ func (s *SMSP) run() bool {
 	}
 	currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
 	if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
-		fmt.Printf("%.10f, %s, SMSP, insts id = %d, %s, %v\n",
-			s.Engine.CurrentTime(), s.Name(),
-			s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1,
-			currentInstruction.OpCode,
-			currentInstruction)
+		// fmt.Printf("%.10f, %s, SMSP, insts id = %d, %s, %v\n",
+		// 	s.Engine.CurrentTime(), s.Name(),
+		// 	s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1,
+		// 	currentInstruction.OpCode,
+		// 	currentInstruction)
 	}
 	return true
 }

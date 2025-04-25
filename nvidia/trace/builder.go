@@ -57,7 +57,7 @@ const execKernelPrefix = "kernel"
 
 func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 	m := TraceExecMeta{}
-	fmt.Println("BuildExecFromText text: ", text)
+	// fmt.Println("BuildExecFromText text: ", text)
 	if strings.HasPrefix(text, execMemcpyPrefix) {
 		m.execType = ExecMemcpy
 
