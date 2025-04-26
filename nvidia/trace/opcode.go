@@ -30,8 +30,10 @@ type Opcode struct {
 func NewOpcode(rawText string) *Opcode {
 	op, ok := opcodeTable[rawText]
 	if !ok {
-		op = Opcode{rawText, OpCodeError, VariableError}
-		log.WithField("opcode", rawText).Panic("Unknown opcode")
+		// op = Opcode{rawText, OpCodeError, VariableError}
+		// log.WithField("opcode", rawText).Panic("Unknown opcode")
+		log.WithField("opcode", rawText).Warn("Unknown opcode")
+		op = Opcode{rawText, OpCodeDefault, VariableDefault}
 	}
 	return &op
 }
