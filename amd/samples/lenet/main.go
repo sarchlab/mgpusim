@@ -25,7 +25,7 @@ func main() {
 	rand.Seed(1)
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := lenet.NewBenchmark(runner.Driver())
 	benchmark.Epoch = *epochFlag

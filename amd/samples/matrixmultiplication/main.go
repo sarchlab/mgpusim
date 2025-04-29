@@ -16,7 +16,7 @@ var zFlag = flag.Uint("z", 64, "The width of the second matrix.")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := matrixmultiplication.NewBenchmark(runner.Driver())
 	benchmark.X = uint32(*xFlag)

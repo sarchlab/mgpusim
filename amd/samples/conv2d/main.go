@@ -23,7 +23,7 @@ var enableBackward = flag.Bool("enable-backward", false, "enable backward")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := conv2d.NewBenchmark(runner.Driver())
 	benchmark.N = *n

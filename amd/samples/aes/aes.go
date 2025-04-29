@@ -12,7 +12,7 @@ var lenInput = flag.Int("length", 65536, "The length of array to sort.")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := aes.NewBenchmark(runner.Driver())
 	benchmark.Length = *lenInput

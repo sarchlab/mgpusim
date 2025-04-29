@@ -17,7 +17,7 @@ var Sparsity = flag.Float64("sparsity", 0.01,
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := spmv.NewBenchmark(runner.Driver())
 	benchmark.Dim = int32(*Dim)

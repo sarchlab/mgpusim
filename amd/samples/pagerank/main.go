@@ -16,7 +16,7 @@ var maxIterations = flag.Int("iterations", 16, "The number of iterations")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := pagerank.NewBenchmark(runner.Driver())
 	benchmark.NumNodes = uint32(*numNode)
