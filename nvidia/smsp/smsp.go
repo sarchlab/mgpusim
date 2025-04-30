@@ -115,8 +115,8 @@ func (s *SMSP) GetTotalInstsCount() uint64 {
 }
 
 func (s *SMSP) LogStatus() {
-	log.WithFields(log.Fields{
-		"smsp_id":           s.ID,
-		"total_insts_count": s.instsCount,
-	}).Info("SMSP status")
+	// log.WithFields(log.Fields{
+	// 	"smsp_id":           s.ID,
+	// 	"total_insts_count": s.instsCount,
+	// }).Info("SMSP status")
 }

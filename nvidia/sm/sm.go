@@ -156,8 +156,8 @@ func (s *SM) GetTotalWarpsCount() uint64 {
 // }
 
 func (s *SM) LogStatus() {
-	log.WithFields(log.Fields{
-		"sm_id":             s.ID,
-		"total_warps_count": s.warpsCount,
-	}).Info("SM status")
+	// log.WithFields(log.Fields{
+	// 	"sm_id":             s.ID,
+	// 	"total_warps_count": s.warpsCount,
+	// }).Info("SM status")
 }
