@@ -43,8 +43,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rs/xid v1.6.0 h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
-github.com/sarchlab/akita/v4 v4.0.0 h1:LPDqmjKZ6TauDGtxDpd9YjdST0BtpZFmrHd24pABhCY=
-github.com/sarchlab/akita/v4 v4.0.0/go.mod h1:GAEse/nsn+/yj1svoyxNxQz6pGtnLwNQJhnMa1XRC9M=
+github.com/sarchlab/akita/v4 v4.1.2 h1:m2f5b9wFYgi4/zGsSfoRXn8B+JPex5m7IV+QG+T622E=
+github.com/sarchlab/akita/v4 v4.1.2/go.mod h1:J3GClW2/Dapd6QHOQM43RFHYHzyM9H5BG3/Tb7ZWPaM=
 github.com/shirou/gopsutil v3.21.11+incompatible h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=
 github.com/shirou/gopsutil v3.21.11+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
