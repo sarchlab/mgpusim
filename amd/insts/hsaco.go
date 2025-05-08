@@ -5,6 +5,9 @@ import (
 	"debug/elf"
 	"encoding/binary"
 	"fmt"
+	"log"
+
+	"github.com/sarchlab/mgpusim/v4/amd/bitops"
 )
 
 // An HsaCo is the kernel code to be executed on an AMD GPU
@@ -69,6 +72,27 @@ func NewHsaCoFromData(data []byte) *HsaCo {
 	o.HsaCoHeader = header
 
 	return o
+}
+
+// NewHsaCoFromHeader creates an HsaCo with the provided data and header
+func NewHsaCoFromHeader(data []byte, header *HsaCoHeader) *HsaCo {
+	o := new(HsaCo)
+	o.Data = data
+	o.HsaCoHeader = header
+	return o
+}
+
+// NewHsacoHeader creates a HsaCoHeader object
+func NewHsacoHeader(
+	kernelName string,
+	data []byte,
+	metadata map[string]interface{},
+) *HsaCoHeader {
+	header := new(HsaCoHeader)
+
+	header.initHeaderFromCodeObjectV4(kernelName, data, metadata)
+
+	return header
 }
 
 // InstructionData returns the instruction binaries in the HsaCo
@@ -224,4 +248,80 @@ func (h *HsaCoHeader) Info() string {
 	s += fmt.Sprintf("\t\tEnable VGPR Work-Item ID Z: %t\n", h.EnableVgprWorkItemID() > 1)
 
 	return s
+}
+
+func (h *HsaCoHeader) initHeaderFromCodeObjectV4(
+	kernelName string,
+	data []byte,
+	metadata map[string]interface{},
+) {
+	h.WGGroupSegmentByteSize = bitops.BytesToU32(data[0:4])
+	h.WIPrivateSegmentByteSize = bitops.BytesToU32(data[4:8])
+	h.KernargSegmentByteSize = uint64(bitops.BytesToU32(data[8:12]))
+
+	if bitops.BytesToU32(data[12:16]) != 0 {
+		panic(fmt.Sprintf("Unsupported: Reserved, must be 0. (%v)", bitops.BytesToU32(data[12:16])))
+	}
+
+	h.KernelCodeEntryByteOffset = bitops.BytesToU64(data[16:24])
+
+	if bitops.BytesToU64(data[24:32]) != 0 || bitops.BytesToU64(data[32:40]) != 0 || bitops.BytesToU32(data[40:44]) != 0 {
+		panic("Unsupported: Reserved, must be 0.")
+	}
+
+	if bitops.BytesToU32(data[44:48]) != 0 {
+		panic("Unsupported: COMPUTE_PGM_RSRC3 must be 0 for GFX6~GFX9.")
+	}
+
+	h.ComputePgmRsrc1 = bitops.BytesToU32(data[48:52])
+	h.ComputePgmRsrc2 = bitops.BytesToU32(data[52:56])
+
+	h.Flags = bitops.ExtractBitsFromU32(bitops.BytesToU32(data[56:60]), 0, 6)
+
+	if bitops.ExtractBitsFromU32(bitops.BytesToU32(data[56:60]), 7, 9) != 0 {
+		panic("Unsupported: Reserved, must be 0.")
+	}
+
+	// Seems have a bug here. The behavior is different from the docs.
+	// https://llvm.org/docs/AMDGPUUsage.html#amdgpu-amdhsa-kernel-descriptor
+	if bitops.ExtractBit(bitops.BytesToU32(data[56:60]), 10) != 0 {
+		log.Print("Unsupported: ENABLE_WAVEFRONT_SIZE32 Reserved, must be 0 for GFX6~GFX9.")
+	}
+
+	if bitops.ExtractBit(bitops.BytesToU32(data[56:60]), 11) != 0 {
+		log.Println("Unsupported: Indicates if the generated machine code is using a dynamically sized stack. ",
+			"This is only set in code object v5 and later.")
+	}
+
+	if bitops.ExtractBitsFromU32(bitops.BytesToU32(data[56:60]), 12, 15) != 0 {
+		panic("Unsupported: Reserved, must be 0.")
+	}
+
+	if bitops.ExtractBitsFromU32(bitops.BytesToU32(data[56:60]), 16, 22) != 0 {
+		panic("Unsupported: KERNARG_PRELOAD_SPEC_LENGTH Reserved, must be 0 for GFX6~GFX9.")
+	}
+
+	if bitops.ExtractBitsFromU32(bitops.BytesToU32(data[56:60]), 23, 31) != 0 {
+		panic("Unsupported: KERNARG_PRELOAD_SPEC_OFFSET Reserved, must be 0 for GFX6~GFX9.")
+	}
+
+	if bitops.BytesToU32(data[60:64]) != 0 {
+		panic("Unsupported: Reserved, must be 0.")
+	}
+
+	findKernel := false
+	for _, v := range metadata["amdhsa.kernels"].([]interface{}) {
+		if v.(map[string]interface{})[".name"].(string) == kernelName {
+			findKernel = true
+
+			h.WIVgprCount = uint16(v.(map[string]interface{})[".vgpr_count"].(int8))
+			h.WFSgprCount = uint16(v.(map[string]interface{})[".sgpr_count"].(int8))
+
+			break
+		}
+	}
+
+	if !findKernel {
+		panic(fmt.Sprintf("Kernel %s not found in metadata", kernelName))
+	}
 }
