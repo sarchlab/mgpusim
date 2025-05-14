@@ -355,7 +355,7 @@ func (b *shaderArrayBuilder) buildL1VTLBs(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
-	builder := writearound.NewBuilder().
+	builder := writearound.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(60).
@@ -431,7 +431,7 @@ func (b *shaderArrayBuilder) buildL1STLB(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1SCache(sa *shaderArray) {
-	builder := writethrough.NewBuilder().
+	builder := writethrough.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(1).
@@ -505,7 +505,7 @@ func (b *shaderArrayBuilder) buildL1ITLB(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1ICache(sa *shaderArray) {
-	builder := writethrough.NewBuilder().
+	builder := writethrough.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(1).
