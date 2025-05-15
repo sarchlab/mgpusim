@@ -12,7 +12,7 @@ import (
 	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emugpusystem"
+	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
 )
 
 type verificationPreEnablingBenchmark interface {
@@ -73,7 +73,7 @@ func (r *Runner) initSimulation() {
 }
 
 func (r *Runner) buildEmuPlatform() {
-	b := emugpusystem.MakeBuilder().
+	b := emusystem.MakeBuilder().
 		WithSimulation(r.simulation).
 		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
 

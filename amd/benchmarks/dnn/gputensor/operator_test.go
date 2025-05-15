@@ -5,26 +5,38 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
 )
 
 var _ = Describe("Operator", func() {
 	var (
+		s         *simulation.Simulation
 		gpuDriver *driver.Driver
 		ctx       *driver.Context
 		to        *GPUOperator
 	)
 
 	BeforeEach(func() {
-		platform := runner.MakeEmuBuilder().
+		s = simulation.MakeBuilder().Build()
+
+		emusystem.MakeBuilder().
+			WithSimulation(s).
 			// WithISADebugging().
 			Build()
-		gpuDriver = platform.Driver
+
+		gpuDriver = s.GetComponentByName("Driver").(*driver.Driver)
 		gpuDriver.Run()
+
 		ctx = gpuDriver.Init()
 
 		to = NewGPUOperator(gpuDriver, ctx)
+	})
+
+	AfterEach(func() {
+		gpuDriver.Terminate()
+		s.Terminate()
 	})
 
 	It("should do repeat", func() {

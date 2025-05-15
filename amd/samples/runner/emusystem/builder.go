@@ -1,5 +1,5 @@
-// Package emugpusystem contains the configuration for emulation.
-package emugpusystem
+// Package emusystem contains the configuration for emulation.
+package emusystem
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emugpusystem/emugpu"
+	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem/emugpu"
 )
 
 // Builder builds a hardware platform for emulation.

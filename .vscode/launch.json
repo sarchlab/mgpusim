@@ -106,6 +106,13 @@
             "program": "${workspaceFolder}/benchmarks/dnn/tensor"
         },
         {
+            "name": "Test gitlab.com/akita/mgpusim/amd/benchmarks/dnn/gputensor",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/amd/benchmarks/dnn/gputensor"
+        },
+        {
             "name": "Test github.com/sarchlab/mgpusim/benchmarks/mccl",
             "type": "go",
             "request": "launch",

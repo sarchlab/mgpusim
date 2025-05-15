@@ -158,7 +158,7 @@ func (b *Builder) connectInternalComponents() {
 	connection := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		Build("IntraGPUConn")
+		Build(b.gpuName + ".IntraGPUConn")
 
 	b.simulation.RegisterComponent(connection)
 
