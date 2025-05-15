@@ -58,19 +58,23 @@ func NewSampledEngine(
 		granularity: granularity,
 		boundary:    boundary,
 	}
+
 	shortStableEngine := &StableEngine{
 		granularity: granularity / 2,
 		boundary:    boundary,
 	}
+
 	ret := &SampledEngine{
 		stableEngine:      stableEngine,
 		shortStableEngine: shortStableEngine,
 		granularity:       granularity / 2,
 	}
 	ret.Reset()
+
 	if control {
 		ret.disableEngine = false
 	}
+
 	return ret
 }
 
