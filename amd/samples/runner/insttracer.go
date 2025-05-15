@@ -51,6 +51,10 @@ func (t *instTracer) StepTask(task tracing.Task) {
 	// Do nothing
 }
 
+func (t *instTracer) AddMilestone(milestone tracing.Milestone) {
+	// Do nothing
+}
+
 func (t *instTracer) EndTask(task tracing.Task) {
 	_, found := t.inflightInst[task.ID]
 	if !found {
