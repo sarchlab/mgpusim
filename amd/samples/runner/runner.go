@@ -13,8 +13,6 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emugpusystem"
-
-	"github.com/tebeka/atexit"
 )
 
 type verificationPreEnablingBenchmark interface {
@@ -144,8 +142,7 @@ func (r *Runner) Run() {
 	wg.Wait()
 
 	r.Driver().Terminate()
-
-	atexit.Exit(0)
+	r.simulation.Terminate()
 }
 
 // Driver returns the GPU driver used by the current runner.
