@@ -3,6 +3,8 @@ package rob
 
 import (
 	"container/list"
+	"fmt"
+	"strconv"
 
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
@@ -31,18 +33,42 @@ type ReorderBuffer struct {
 	toBottomReqIDToTransactionTable map[string]*list.Element
 	transactions                    *list.List
 	isFlushing                      bool
+	visTracer                       *ROBVisTracer
 }
 
-func (b *ReorderBuffer) getTaskID() string {
-    if b.transactions.Len() > 0 {
-        trans := b.transactions.Front().Value.(*transaction)
-        return tracing.MsgIDAtReceiver(trans.reqFromTop, b)
-    }
-    return ""
+func (b *ReorderBuffer) InitVisTracer(
+	engine sim.Engine,
+	backend tracing.Tracer,
+) {
+	fmt.Println("Initializing ROB Visual Tracer...")
+	b.visTracer = NewROBVisTracer(b, backend, b)
+	tracing.CollectTrace(b, b.visTracer)
+}
+
+func (b *ReorderBuffer) getTaskID(currentReq mem.AccessReq) string {
+	// Use the request passed in as the current request.
+	if currentReq != nil {
+		return tracing.MsgIDAtReceiver(currentReq, b)
+	}
+
+	// Use the request at the front of the buffer as the current request.
+	if b.transactions.Len() > 0 {
+		trans := b.transactions.Front().Value.(*transaction)
+		return tracing.MsgIDAtReceiver(trans.reqFromTop, b)
+	}
+
+	// Use the request at the top of the buffer as the current request.
+	if item := b.topPort.PeekIncoming(); item != nil {
+		if req, ok := item.(mem.AccessReq); ok {
+			return tracing.MsgIDAtReceiver(req, b)
+		}
+	}
+
+	return ""
 }
 
 func (rob *ReorderBuffer) CurrentTime() sim.VTimeInSec {
-    return rob.Engine.CurrentTime()
+	return rob.Engine.CurrentTime()
 }
 
 // Tick updates the status of the ReorderBuffer.
@@ -144,42 +170,47 @@ func (b *ReorderBuffer) runPipeline() (madeProgress bool) {
 }
 
 func (b *ReorderBuffer) topDown() bool {
-    if b.isFull() {
-		tracing.AddMilestone(
-			b.getTaskID(),
-			"Hardware Occupancy",
-			"Buffer full",
-			"topDown",
-			b,
-		)
-        return false
-    }
+	if b.isFull() {
+		return false
+	}
+
 	item := b.topPort.PeekIncoming()
 	if item == nil {
 		return false
 	}
 
+	if b.visTracer != nil {
+		b.visTracer.OnPortUpdate(b.topPort, item)
+	}
+
 	req := item.(mem.AccessReq)
 	trans := b.createTransaction(req)
+	tracing.AddMilestone(
+		strconv.FormatUint(tracing.GenerateMilestoneID(), 10),
+		b.getTaskID(req),
+		"Hardware",
+		"Buffer full",
+		"topDown",
+		b,
+	)
 
 	trans.reqToBottom.Meta().Src = b.bottomPort
 	err := b.bottomPort.Send(trans.reqToBottom)
 	if err != nil {
 		return false
 	}
-    if err != nil {
-        tracing.AddMilestone(
-            b.getTaskID(),
-            "Network Error",
-            "Unable to send request to bottom port",
-            "topDown",
-			b,
-        )
-        return false
-    }
+
 	b.addTransaction(trans)
 	b.topPort.RetrieveIncoming()
 
+	tracing.AddMilestone(
+		strconv.FormatUint(tracing.GenerateMilestoneID(), 10),
+		b.getTaskID(req),
+		"Network",
+		"Unable to send request to bottom port",
+		"topDown",
+		b,
+	)
 	tracing.TraceReqReceive(req, b)
 	tracing.TraceReqInitiate(trans.reqToBottom, b,
 		tracing.MsgIDAtReceiver(req, b))
@@ -189,17 +220,31 @@ func (b *ReorderBuffer) topDown() bool {
 
 func (b *ReorderBuffer) parseBottom() bool {
 	item := b.bottomPort.PeekIncoming()
-    if item == nil {
-        tracing.AddMilestone(
-            b.getTaskID(),
-            "Dependency",
-            "Waiting for bottom response",
-            "parseBottom",
-			b,
-        )
-        return false
-    }
+	var currentReq mem.AccessReq
+	if frontElem := b.transactions.Front(); frontElem != nil {
+		trans := frontElem.Value.(*transaction)
+		currentReq = trans.reqFromTop
+	}
 
+	if currentReq == nil {
+		return false
+	}
+
+	if b.visTracer != nil {
+		b.visTracer.OnPortUpdate(b.topPort, item)
+	}
+
+	if item == nil {
+		return false
+	}
+	tracing.AddMilestone(
+		strconv.FormatUint(tracing.GenerateMilestoneID(), 10),
+		b.getTaskID(currentReq),
+		"Data",
+		"Waiting for bottom response",
+		"parseBottom",
+		b,
+	)
 	rsp := item.(mem.AccessRsp)
 	rspTo := rsp.GetRspTo()
 	transElement, found := b.toBottomReqIDToTransactionTable[rspTo]
@@ -219,27 +264,21 @@ func (b *ReorderBuffer) parseBottom() bool {
 func (b *ReorderBuffer) bottomUp() bool {
 	elem := b.transactions.Front()
 	if elem == nil {
-        tracing.AddMilestone(
-            b.getTaskID(),
-            "Dependency",
-            "No transactions to process",
-            "bottomUp",
-			b,
-        )
-        return false
-    }
+		return false
+	}
 
 	trans := elem.Value.(*transaction)
 	if trans.rspFromBottom == nil {
-		tracing.AddMilestone(
-            b.getTaskID(),
-            "Dependency",
-            "Waiting for bottom response",
-            "bottomUp",
-			b,
-        )
 		return false
 	}
+	tracing.AddMilestone(
+		strconv.FormatUint(tracing.GenerateMilestoneID(), 10),
+		b.getTaskID(trans.reqFromTop),
+		"Dependency",
+		"Waiting for bottom response",
+		"bottomUp",
+		b,
+	)
 
 	rsp := b.duplicateRsp(trans.rspFromBottom, trans.reqFromTop.Meta().ID)
 	rsp.Meta().Dst = trans.reqFromTop.Meta().Src

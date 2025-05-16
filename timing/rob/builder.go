@@ -2,8 +2,10 @@ package rob
 
 import (
 	"container/list"
+	"fmt"
 
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 )
 
 // A Builder can build ReorderBuffers.
@@ -12,6 +14,7 @@ type Builder struct {
 	freq           sim.Freq
 	numReqPerCycle int
 	bufferSize     int
+	tracer         tracing.Tracer
 }
 
 // MakeBuilder creates a builder with default parameters.
@@ -48,6 +51,12 @@ func (b Builder) WithBufferSize(n int) Builder {
 	return b
 }
 
+// WithTracer sets the tracer to be used by the ROB
+func (b Builder) WithTracer(tracer tracing.Tracer) Builder {
+	b.tracer = tracer
+	return b
+}
+
 // Build creates a ReorderBuffer with the given parameters.
 func (b Builder) Build(name string) *ReorderBuffer {
 	rb := &ReorderBuffer{}
@@ -61,6 +70,13 @@ func (b Builder) Build(name string) *ReorderBuffer {
 	rb.numReqPerCycle = b.numReqPerCycle
 
 	b.createPorts(name, rb)
+
+	if b.tracer != nil {
+		fmt.Printf("Initializing tracer for ROB: %s\n", name)
+		rb.InitVisTracer(b.engine, b.tracer)
+	} else {
+		fmt.Printf("No tracer provided for ROB: %s\n", name)
+	}
 
 	return rb
 }

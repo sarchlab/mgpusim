@@ -305,6 +305,10 @@ func (b *shaderArrayBuilder) buildL1VReorderBuffers(sa *shaderArray) {
 		WithBufferSize(128).
 		WithNumReqPerCycle(4)
 
+	if b.visTracer != nil {
+		builder = builder.WithTracer(b.visTracer)
+	}
+
 	for i := 0; i < b.numCU; i++ {
 		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
 		rob := builder.Build(name)
@@ -321,7 +325,8 @@ func (b *shaderArrayBuilder) buildL1VAddressTranslators(sa *shaderArray) {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithVisTracer(b.visTracer)
 
 	for i := 0; i < b.numCU; i++ {
 		name := fmt.Sprintf("%s.L1VAddrTrans[%d]", b.name, i)
@@ -385,8 +390,8 @@ func (b *shaderArrayBuilder) buildL1SReorderBuffer(sa *shaderArray) {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBufferSize(128).
-		WithNumReqPerCycle(4)
-
+		WithNumReqPerCycle(4).
+		WithTracer(b.visTracer)
 	name := fmt.Sprintf("%s.L1SROB", b.name)
 	rob := builder.Build(name)
 	sa.l1sROB = rob
@@ -401,7 +406,8 @@ func (b *shaderArrayBuilder) buildL1SAddressTranslator(sa *shaderArray) {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithVisTracer(b.visTracer)
 
 	name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
 	at := builder.Build(name)
@@ -459,7 +465,8 @@ func (b *shaderArrayBuilder) buildL1IReorderBuffer(sa *shaderArray) {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBufferSize(128).
-		WithNumReqPerCycle(4)
+		WithNumReqPerCycle(4).
+		WithTracer(b.visTracer)
 
 	name := fmt.Sprintf("%s.L1IROB", b.name)
 	rob := builder.Build(name)
@@ -475,7 +482,8 @@ func (b *shaderArrayBuilder) buildL1IAddressTranslator(sa *shaderArray) {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithVisTracer(b.visTracer)
 
 	name := fmt.Sprintf("%s.L1IAddrTrans", b.name)
 	at := builder.Build(name)
