@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/mccl"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
@@ -12,6 +13,7 @@ import (
 
 var _ = Describe("MCCL", func() {
 	var (
+		s         *simulation.Simulation
 		gpuDriver *driver.Driver
 		context   *driver.Context
 		gpuIDs    []int
