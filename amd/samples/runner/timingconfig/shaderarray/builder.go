@@ -147,25 +147,34 @@ func (b *Builder) populateExternalPorts() {
 
 		b.sa.AddPort(fmt.Sprintf("CU[%d]", i), cu.GetPortByName("Top"))
 		b.sa.AddPort(fmt.Sprintf("CUCtrl[%d]", i), cu.GetPortByName("Ctrl"))
-		b.sa.AddPort(fmt.Sprintf("L1VROB[%d]Ctrl", i), b.l1vROBs[i].
+		b.sa.AddPort(fmt.Sprintf("L1VROBCtrl[%d]", i), b.l1vROBs[i].
 			GetPortByName("Control"))
-		b.sa.AddPort(fmt.Sprintf("L1VAddrTrans[%d]Ctrl", i),
+		b.sa.AddPort(fmt.Sprintf("L1VAddrTransCtrl[%d]", i),
 			b.l1vATs[i].GetPortByName("Control"))
-		b.sa.AddPort(fmt.Sprintf("L1VTLB[%d]Ctrl", i),
+		b.sa.AddPort(fmt.Sprintf("L1VTLBCtrl[%d]", i),
 			b.l1vTLBs[i].GetPortByName("Control"))
-		b.sa.AddPort(fmt.Sprintf("L1VCache[%d]Ctrl", i),
+		b.sa.AddPort(fmt.Sprintf("L1VCacheCtrl[%d]", i),
 			b.l1vCaches[i].GetPortByName("Control"))
+		b.sa.AddPort(fmt.Sprintf("L1VCacheBottom[%d]", i),
+			b.l1vCaches[i].GetPortByName("Bottom"))
+		b.sa.AddPort(fmt.Sprintf("L1VTLBBottom[%d]", i),
+			b.l1vTLBs[i].GetPortByName("Bottom"))
 	}
 
 	b.sa.AddPort("L1SROBCtrl", b.l1sROB.GetPortByName("Control"))
 	b.sa.AddPort("L1SAddrTransCtrl", b.l1sAT.GetPortByName("Control"))
 	b.sa.AddPort("L1STLBCtrl", b.l1sTLB.GetPortByName("Control"))
 	b.sa.AddPort("L1SCacheCtrl", b.l1sCache.GetPortByName("Control"))
+	b.sa.AddPort("L1SCacheBottom", b.l1sCache.GetPortByName("Bottom"))
+	b.sa.AddPort("L1STLBBottom", b.l1sTLB.GetPortByName("Bottom"))
 
 	b.sa.AddPort("L1IROBCtrl", b.l1iROB.GetPortByName("Control"))
 	b.sa.AddPort("L1IAddrTransCtrl", b.l1iAT.GetPortByName("Control"))
 	b.sa.AddPort("L1ITLBCtrl", b.l1iTLB.GetPortByName("Control"))
 	b.sa.AddPort("L1ICacheCtrl", b.l1iCache.GetPortByName("Control"))
+	b.sa.AddPort("L1ICacheBottom", b.l1iAT.GetPortByName("Bottom"))
+	b.sa.AddPort("L1ITLBBottom", b.l1iTLB.GetPortByName("Bottom"))
+
 }
 
 func (b *Builder) connectComponents() {

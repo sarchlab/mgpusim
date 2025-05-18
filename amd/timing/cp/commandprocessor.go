@@ -791,7 +791,7 @@ func (p *CommandProcessor) processMemCopyRsp(
 	originalReq := p.findAndRemoveOriginalMemCopyRequest(req)
 
 	rsp := sim.GeneralRspBuilder{}.
-		WithDst(p.Driver.AsRemote()).
+		WithDst(originalReq.Meta().Src).
 		WithSrc(p.ToDriver.AsRemote()).
 		WithOriginalReq(originalReq).
 		Build()

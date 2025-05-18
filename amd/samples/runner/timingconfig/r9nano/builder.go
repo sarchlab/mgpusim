@@ -57,6 +57,7 @@ type Builder struct {
 // MakeBuilder creates a new builder.
 func MakeBuilder() Builder {
 	return Builder{
+		freq:                           1 * sim.GHz,
 		numCUPerShaderArray:            4,
 		numShaderArray:                 16,
 		l2CacheSize:                    2 * mem.MB,
@@ -250,11 +251,12 @@ func (b *Builder) connectL1ToL2() {
 
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
-			l1ToL2Conn.PlugIn(sa.GetPortByName(fmt.Sprintf("L1VCache[%d]", i)))
+			l1ToL2Conn.PlugIn(
+				sa.GetPortByName(fmt.Sprintf("L1VCacheBottom[%d]", i)))
 		}
 
-		l1ToL2Conn.PlugIn(sa.GetPortByName("L1SCache"))
-		l1ToL2Conn.PlugIn(sa.GetPortByName("L1IAddrTrans"))
+		l1ToL2Conn.PlugIn(sa.GetPortByName("L1SCacheBottom"))
+		l1ToL2Conn.PlugIn(sa.GetPortByName("L1ICacheBottom"))
 	}
 }
 
@@ -298,11 +300,12 @@ func (b *Builder) connectL1TLBToL2TLB() {
 
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
-			tlbConn.PlugIn(sa.GetPortByName(fmt.Sprintf("L1VTLB[%d]", i)))
+			tlbConn.PlugIn(
+				sa.GetPortByName(fmt.Sprintf("L1VTLBBottom[%d]", i)))
 		}
 
-		tlbConn.PlugIn(sa.GetPortByName("L1STLB"))
-		tlbConn.PlugIn(sa.GetPortByName("L1ITLB"))
+		tlbConn.PlugIn(sa.GetPortByName("L1STLBBottom"))
+		tlbConn.PlugIn(sa.GetPortByName("L1ITLBBottom"))
 	}
 }
 
@@ -345,7 +348,7 @@ func (b *Builder) connectCPWithCUs() {
 			cuDispatchingPort := sa.GetPortByName(
 				fmt.Sprintf("CU[%d]", i)).AsRemote()
 			cuCtrlPort := sa.GetPortByName(
-				fmt.Sprintf("CU[%d]Ctrl", i)).AsRemote()
+				fmt.Sprintf("CUCtrl[%d]", i)).AsRemote()
 			cu := cuInterfaceForCP{
 				ctrlPort:        cuCtrlPort,
 				dispatchingPort: cuDispatchingPort,
@@ -363,11 +366,11 @@ func (b *Builder) connectCPWithCUs() {
 func (b *Builder) connectCPWithAddressTranslators() {
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
-			at := sa.GetPortByName(fmt.Sprintf("L1VAddrTrans[%d]Ctrl", i))
+			at := sa.GetPortByName(fmt.Sprintf("L1VAddrTransCtrl[%d]", i))
 			b.cp.AddressTranslators = append(b.cp.AddressTranslators, at)
 			b.internalConn.PlugIn(at)
 
-			rob := sa.GetPortByName(fmt.Sprintf("L1VROB[%d]Ctrl", i))
+			rob := sa.GetPortByName(fmt.Sprintf("L1VROBCtrl[%d]", i))
 			b.cp.L1VCaches = append(b.cp.L1VCaches, rob)
 			b.internalConn.PlugIn(rob)
 		}
@@ -393,7 +396,7 @@ func (b *Builder) connectCPWithAddressTranslators() {
 func (b *Builder) connectCPWithTLBs() {
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
-			tlb := sa.GetPortByName(fmt.Sprintf("L1VTLB[%d]Ctrl", i))
+			tlb := sa.GetPortByName(fmt.Sprintf("L1VTLBCtrl[%d]", i))
 			b.cp.TLBs = append(b.cp.TLBs, tlb)
 			b.internalConn.PlugIn(tlb)
 		}
@@ -417,7 +420,7 @@ func (b *Builder) connectCPWithTLBs() {
 func (b *Builder) connectCPWithCaches() {
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
-			cache := sa.GetPortByName(fmt.Sprintf("L1VCache[%d]Ctrl", i))
+			cache := sa.GetPortByName(fmt.Sprintf("L1VCacheCtrl[%d]", i))
 			b.cp.L1VCaches = append(b.cp.L1VCaches, cache)
 			b.internalConn.PlugIn(cache)
 		}
@@ -458,7 +461,9 @@ func (b *Builder) buildSAs() {
 
 	for i := 0; i < b.numShaderArray; i++ {
 		saName := fmt.Sprintf("%s.SA[%d]", b.name, i)
-		saBuilder.Build(saName)
+		sa := saBuilder.Build(saName)
+
+		b.sas = append(b.sas, sa)
 	}
 }
 
@@ -602,6 +607,7 @@ func (b *Builder) buildCP() {
 	b.cp = cp.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
+		WithMonitor(b.simulation.GetMonitor()).
 		Build(b.name + ".CommandProcessor")
 
 	b.simulation.RegisterComponent(b.cp)

@@ -134,6 +134,7 @@ func (b *Builder) createGPUBuilder(
 	mmuComponent *mmu.Comp,
 ) r9nano.Builder {
 	gpuBuilder := r9nano.MakeBuilder().
+		WithFreq(1 * sim.GHz).
 		WithSimulation(b.simulation).
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(b.numCUPerSA).
