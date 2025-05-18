@@ -50,8 +50,8 @@ type Builder struct {
 	internalConn       *directconnection.Comp
 	l2ToDramConnection *directconnection.Comp
 	l1AddressMapper    *mem.InterleavedAddressPortMapper
-	l1TLBAddressMapper *mem.InterleavedAddressPortMapper
-	pmcAddressMapper   *mem.InterleavedAddressPortMapper
+	l1TLBAddressMapper *mem.SinglePortMapper
+	pmcAddressMapper   mem.AddressToPortMapper
 }
 
 // MakeBuilder creates a new builder.
@@ -156,10 +156,24 @@ func (b Builder) WithGlobalStorage(
 	return b
 }
 
+func (b Builder) WithDRAMSize(size uint64) Builder {
+	b.dramSize = size
+	return b
+}
+
 // Build builds the hardware platform.
 func (b Builder) Build(name string) *sim.Domain {
 	b.name = name
-	b.gpu = &sim.Domain{}
+	b.gpu = sim.NewDomain(name)
+
+	b.l1AddressMapper = mem.NewInterleavedAddressPortMapper(
+		1 << b.log2MemoryBankInterleavingSize,
+	)
+	b.l1AddressMapper.LowAddress = b.memAddrOffset
+	b.l1AddressMapper.HighAddress = b.memAddrOffset + b.dramSize
+	b.l1AddressMapper.UseAddressSpaceLimitation = true
+
+	b.l1TLBAddressMapper = &mem.SinglePortMapper{}
 
 	b.buildSAs()
 	b.buildL2Caches()
@@ -220,25 +234,17 @@ func (b *Builder) connectCP() {
 }
 
 func (b *Builder) connectL1ToL2() {
-	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
-		1 << b.log2MemoryBankInterleavingSize)
-	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1.AsRemote()
-	lowModuleFinder.UseAddressSpaceLimitation = true
-	lowModuleFinder.LowAddress = b.memAddrOffset
-	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
-
 	l1ToL2Conn := directconnection.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		Build(b.name + ".L1ToL2")
 
-	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
+	b.rdmaEngine.SetLocalModuleFinder(b.l1AddressMapper)
+	b.l1AddressMapper.ModuleForOtherAddresses = b.rdmaEngine.ToL1.AsRemote()
 	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1)
 	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2)
 
 	for _, l2 := range b.l2Caches {
-		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
-			l2.GetPortByName("Top").AsRemote())
 		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
 	}
 
@@ -475,6 +481,8 @@ func (b *Builder) buildL2Caches() {
 			i,
 		).Build(cacheName)
 
+		b.simulation.RegisterComponent(l2)
+
 		b.l1AddressMapper.LowModules = append(
 			b.l1AddressMapper.LowModules,
 			l2.GetPortByName("Top").AsRemote(),
@@ -496,6 +504,7 @@ func (b *Builder) buildDRAMControllers() {
 		// dram := idealmemcontroller.New(
 		// 	fmt.Sprintf("%s.DRAM_%d", b.name, i),
 		// 	b.simulation.GetEngine(), 512*mem.MB)
+		b.simulation.RegisterComponent(dram)
 		b.drams = append(b.drams, dram)
 
 		// if b.enableMemTracing {
@@ -568,6 +577,8 @@ func (b *Builder) buildRDMAEngine() {
 		WithFreq(1 * sim.GHz).
 		WithLocalModules(b.l1AddressMapper).
 		Build(name)
+
+	b.simulation.RegisterComponent(b.rdmaEngine)
 }
 
 func (b *Builder) buildPageMigrationController() {
@@ -577,6 +588,7 @@ func (b *Builder) buildPageMigrationController() {
 		b.pmcAddressMapper,
 		nil)
 
+	b.simulation.RegisterComponent(b.pmc)
 }
 
 func (b *Builder) buildDMAEngine() {
@@ -591,6 +603,8 @@ func (b *Builder) buildCP() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		Build(b.name + ".CommandProcessor")
+
+	b.simulation.RegisterComponent(b.cp)
 
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
@@ -610,21 +624,13 @@ func (b *Builder) buildL2TLB() {
 		WithLowModule(b.mmu.GetPortByName("Top").AsRemote())
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
+
+	b.simulation.RegisterComponent(l2TLB)
 	b.l2TLBs = append(b.l2TLBs, l2TLB)
+
+	b.l1TLBAddressMapper.Port = l2TLB.GetPortByName("Top").AsRemote()
 }
 
 func (b *Builder) numCU() int {
 	return b.numCUPerShaderArray * b.numShaderArray
-}
-
-func (b *Builder) connectWithDirectConnection(
-	port1, port2 sim.Port,
-	bufferSize int,
-) {
-	conn := directconnection.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		Build(port1.Name() + "-" + port2.Name())
-	conn.PlugIn(port1)
-	conn.PlugIn(port2)
 }

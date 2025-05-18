@@ -172,6 +172,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}/amd/samples/fir",
             "args": [
+                "-timing",
                 "-verify",
             ],
         },

@@ -34,8 +34,8 @@ type Builder struct {
 func MakeBuilder() Builder {
 	return Builder{
 		numGPUs:            1,
-		numCUPerSA:         16,
-		numSAPerGPU:        4,
+		numCUPerSA:         4,
+		numSAPerGPU:        16,
 		cpuMemSize:         4 * mem.GB,
 		gpuMemSize:         4 * mem.GB,
 		log2PageSize:       12,
@@ -101,6 +101,8 @@ func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
 
 	mmuComponent := mmuBuilder.Build("MMU")
 
+	b.simulation.RegisterComponent(mmuComponent)
+
 	return mmuComponent, pageTable
 }
 
@@ -121,6 +123,8 @@ func (b *Builder) buildGPUDriver(
 		WithD2HCycles(8500).
 		WithH2DCycles(14500).
 		Build("Driver")
+
+	b.simulation.RegisterComponent(gpuDriver)
 
 	return gpuDriver
 }
@@ -183,7 +187,7 @@ func (b *Builder) createConnection(
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.Comp,
 ) (*pcie.Connector, int) {
-	//connection := sim.NewDirectConnection(engine)
+	// connection := sim.NewDirectConnection(engine)
 	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
 	// connection.SrcBufferCapacity = 40960000
 	pcieConnector := pcie.NewConnector().
