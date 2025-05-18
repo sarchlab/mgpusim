@@ -1,3 +1,4 @@
+// Package shaderarray provides a builder for a shader array.
 package shaderarray
 
 import (
