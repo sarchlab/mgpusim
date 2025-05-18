@@ -19,13 +19,14 @@ import (
 type Builder struct {
 	simulation *simulation.Simulation
 
-	gpuID             uint64
-	name              string
-	numCUs            int
-	freq              sim.Freq
-	log2CacheLineSize uint64
-	log2PageSize      uint64
-	l1AddressMapper   mem.AddressToPortMapper
+	gpuID              uint64
+	name               string
+	numCUs             int
+	freq               sim.Freq
+	log2CacheLineSize  uint64
+	log2PageSize       uint64
+	l1AddressMapper    mem.AddressToPortMapper
+	l1TLBAddressMapper *mem.InterleavedAddressPortMapper
 
 	sa        *sim.Domain
 	cus       []*cu.ComputeUnit
@@ -99,6 +100,14 @@ func (b Builder) WithL1AddressMapper(
 	return b
 }
 
+// WithL1TLBAddressMapper sets the L1 TLB address mapper to use.
+func (b Builder) WithL1TLBAddressMapper(
+	l1TLBAddressMapper *mem.InterleavedAddressPortMapper,
+) Builder {
+	b.l1TLBAddressMapper = l1TLBAddressMapper
+	return b
+}
+
 // Build builds the shader array.
 func (b Builder) Build(name string) *sim.Domain {
 	b.name = name
@@ -127,6 +136,37 @@ func (b *Builder) buildComponents() {
 	b.buildL1IAddressTranslator()
 	b.buildL1IReorderBuffer()
 	b.buildL1ICache()
+
+	b.populateExternalPorts()
+}
+
+func (b *Builder) populateExternalPorts() {
+	for i := 0; i < b.numCUs; i++ {
+		cu := b.cus[i]
+
+		b.sa.AddPort(
+			fmt.Sprintf("CU[%d]", i), cu.GetPortByName("Top"))
+		b.sa.AddPort(
+			fmt.Sprintf("CUCtrl[%d]", i), cu.GetPortByName("Ctrl"))
+		b.sa.AddPort(
+			fmt.Sprintf("L1VROB[%d]Ctrl", i), cu.GetPortByName("Ctrl"))
+		b.sa.AddPort(
+			fmt.Sprintf("L1VAddrTrans[%d]Ctrl", i), cu.GetPortByName("Ctrl"))
+		b.sa.AddPort(
+			fmt.Sprintf("L1VTLB[%d]Ctrl", i), cu.GetPortByName("Ctrl"))
+		b.sa.AddPort(
+			fmt.Sprintf("L1VCache[%d]Ctrl", i), cu.GetPortByName("Ctrl"))
+	}
+
+	b.sa.AddPort("L1SROBCtrl", b.l1sROB.GetPortByName("Ctrl"))
+	b.sa.AddPort("L1SAddrTransCtrl", b.l1sAT.GetPortByName("Ctrl"))
+	b.sa.AddPort("L1STLBCtrl", b.l1sTLB.GetPortByName("Ctrl"))
+	b.sa.AddPort("L1SCacheCtrl", b.l1sCache.GetPortByName("Ctrl"))
+
+	b.sa.AddPort("L1IROBCtrl", b.l1iROB.GetPortByName("Ctrl"))
+	b.sa.AddPort("L1IAddrTransCtrl", b.l1iAT.GetPortByName("Ctrl"))
+	b.sa.AddPort("L1ITLBCtrl", b.l1iTLB.GetPortByName("Ctrl"))
+	b.sa.AddPort("L1ICacheCtrl", b.l1iCache.GetPortByName("Ctrl"))
 }
 
 func (b *Builder) connectComponents() {
@@ -260,6 +300,7 @@ func (b *Builder) buildCUs() {
 		cuName := fmt.Sprintf("%s.CU[%d]", b.name, i)
 		computeUnit := cuBuilder.Build(cuName)
 		b.cus = append(b.cus, computeUnit)
+		b.simulation.RegisterComponent(computeUnit)
 
 		// if b.isaDebugging {
 		// 	isaDebug, err := os.Create(
@@ -271,10 +312,6 @@ func (b *Builder) buildCUs() {
 		// 		log.New(isaDebug, "", 0), computeUnit)
 
 		// 	tracing.CollectTrace(computeUnit, isaDebugger)
-		// }
-
-		// if b.visTracer != nil {
-		// 	tracing.CollectTrace(computeUnit, b.visTracer)
 		// }
 	}
 }
@@ -290,6 +327,7 @@ func (b *Builder) buildL1VReorderBuffers() {
 		name := fmt.Sprintf("%s.L1VROB[%d]", b.name, i)
 		rob := builder.Build(name)
 		b.l1vROBs = append(b.l1vROBs, rob)
+		b.simulation.RegisterComponent(rob)
 
 		// if b.visTracer != nil {
 		// 	tracing.CollectTrace(rob, b.visTracer)
@@ -308,10 +346,7 @@ func (b *Builder) buildL1VAddressTranslators() {
 		name := fmt.Sprintf("%s.L1VAddrTrans[%d]", b.name, i)
 		at := builder.Build(name)
 		b.l1vATs = append(b.l1vATs, at)
-
-		// if b.visTracer != nil {
-		// 	tracing.CollectTrace(at, b.visTracer)
-		// }
+		b.simulation.RegisterComponent(at)
 	}
 }
 
@@ -322,16 +357,14 @@ func (b *Builder) buildL1VTLBs() {
 		WithNumMSHREntry(4).
 		WithNumSets(1).
 		WithNumWays(64).
-		WithNumReqPerCycle(4)
+		WithNumReqPerCycle(4).
+		WithAddressMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VTLB[%d]", b.name, i)
 		tlb := builder.Build(name)
 		b.l1vTLBs = append(b.l1vTLBs, tlb)
-
-		// if b.visTracer != nil {
-		// 	tracing.CollectTrace(tlb, b.visTracer)
-		// }
+		b.simulation.RegisterComponent(tlb)
 	}
 }
 
@@ -344,16 +377,14 @@ func (b *Builder) buildL1VCaches() {
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
 		WithNumMSHREntry(16).
-		WithTotalByteSize(16 * mem.KB)
-
-	// if b.visTracer != nil {
-	// 	builder = builder.WithVisTracer(b.visTracer)
-	// }
+		WithTotalByteSize(16 * mem.KB).
+		WithAddressToPortMapper(b.l1AddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
 		cache := builder.Build(name)
 		b.l1vCaches = append(b.l1vCaches, cache)
+		b.simulation.RegisterComponent(cache)
 
 		// if b.memTracer != nil {
 		// 	tracing.CollectTrace(cache, b.memTracer)
@@ -371,10 +402,7 @@ func (b *Builder) buildL1SReorderBuffer() {
 	name := fmt.Sprintf("%s.L1SROB", b.name)
 	rob := builder.Build(name)
 	b.l1sROB = rob
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(rob, b.visTracer)
-	// }
+	b.simulation.RegisterComponent(rob)
 }
 
 func (b *Builder) buildL1SAddressTranslator() {
@@ -387,10 +415,7 @@ func (b *Builder) buildL1SAddressTranslator() {
 	name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
 	at := builder.Build(name)
 	b.l1sAT = at
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(at, b.visTracer)
-	// }
+	b.simulation.RegisterComponent(at)
 }
 
 func (b *Builder) buildL1STLB() {
@@ -400,15 +425,13 @@ func (b *Builder) buildL1STLB() {
 		WithNumMSHREntry(4).
 		WithNumSets(1).
 		WithNumWays(64).
-		WithNumReqPerCycle(4)
+		WithNumReqPerCycle(4).
+		WithAddressMapper(b.l1TLBAddressMapper)
 
 	name := fmt.Sprintf("%s.L1STLB", b.name)
 	tlb := builder.Build(name)
 	b.l1sTLB = tlb
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(tlb, b.visTracer)
-	// }
+	b.simulation.RegisterComponent(tlb)
 }
 
 func (b *Builder) buildL1SCache() {
@@ -420,14 +443,12 @@ func (b *Builder) buildL1SCache() {
 		WithLog2BlockSize(b.log2CacheLineSize).
 		WithWayAssociativity(4).
 		WithNumMSHREntry(16).
-		WithTotalByteSize(16 * mem.KB)
+		WithTotalByteSize(16 * mem.KB).
+		WithAddressToPortMapper(b.l1AddressMapper)
 
 	name := fmt.Sprintf("%s.L1SCache", b.name)
 	cache := builder.Build(name)
 	b.l1sCache = cache
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(cache, b.visTracer
 
 	// if b.memTracer != nil {
 	// 	tracing.CollectTrace(cache, b.memTracer)
@@ -444,10 +465,7 @@ func (b *Builder) buildL1IReorderBuffer() {
 	name := fmt.Sprintf("%s.L1IROB", b.name)
 	rob := builder.Build(name)
 	b.l1iROB = rob
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(rob, b.visTracer)
-	// }
+	b.simulation.RegisterComponent(rob)
 }
 
 func (b *Builder) buildL1IAddressTranslator() {
@@ -455,15 +473,13 @@ func (b *Builder) buildL1IAddressTranslator() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithAddressToPortMapper(b.l1AddressMapper)
 
 	name := fmt.Sprintf("%s.L1IAddrTrans", b.name)
 	at := builder.Build(name)
 	b.l1iAT = at
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(at, b.visTracer)
-	// }
+	b.simulation.RegisterComponent(at)
 }
 
 func (b *Builder) buildL1ITLB() {
@@ -473,15 +489,13 @@ func (b *Builder) buildL1ITLB() {
 		WithNumMSHREntry(4).
 		WithNumSets(1).
 		WithNumWays(64).
-		WithNumReqPerCycle(4)
+		WithNumReqPerCycle(4).
+		WithAddressMapper(b.l1TLBAddressMapper)
 
 	name := fmt.Sprintf("%s.L1ITLB", b.name)
 	tlb := builder.Build(name)
 	b.l1iTLB = tlb
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(tlb, b.visTracer)
-	// }
+	b.simulation.RegisterComponent(tlb)
 }
 
 func (b *Builder) buildL1ICache() {
@@ -499,11 +513,7 @@ func (b *Builder) buildL1ICache() {
 	name := fmt.Sprintf("%s.L1ICache", b.name)
 	cache := builder.Build(name)
 	b.l1iCache = cache
-
-	// if b.visTracer != nil {
-	// 	tracing.CollectTrace(cache, b.visTracer)
-	// }
-
+	b.simulation.RegisterComponent(cache)
 	// if b.memTracer != nil {
 	// 	tracing.CollectTrace(cache, b.memTracer)
 	// }

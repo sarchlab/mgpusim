@@ -8,7 +8,7 @@ import (
 // DispatchableCU handles dispatch resource
 type DispatchableCU interface {
 	// DispatchingPort returns the port that the dispatcher can dispatch workgroups to.
-	DispatchingPort() sim.Port
+	DispatchingPort() sim.RemotePort
 
 	// WfPoolSizes returns an array of how many wavefront each wavefront pool
 	// can hold. -1 is unlimited.

@@ -10,7 +10,7 @@ import (
 type dispatchLocation struct {
 	valid     bool
 	cuID      int
-	cu        sim.Port
+	cu        sim.RemotePort
 	wg        *kernels.WorkGroup
 	locations []protocol.WfDispatchLocation
 }

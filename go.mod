@@ -3,7 +3,6 @@ module github.com/sarchlab/mgpusim/v4
 require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/fatih/color v1.18.0
-	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
@@ -13,7 +12,10 @@ require (
 	gonum.org/v1/gonum v0.15.1
 )
 
-require github.com/sirupsen/logrus v1.9.3
+require (
+	github.com/sirupsen/logrus v1.9.3
+	go.uber.org/mock v0.5.2
+)
 
 require (
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -40,7 +42,7 @@ require (
 
 // replace github.com/syifan/goseth => ../goseth
 
-// replace github.com/sarchlab/akita/v4 => ../akita
+replace github.com/sarchlab/akita/v4 => ../akita
 
 go 1.23.0
 

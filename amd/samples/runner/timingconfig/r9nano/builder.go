@@ -15,7 +15,6 @@ import (
 	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig/shaderarray"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
 )
@@ -36,6 +35,7 @@ type Builder struct {
 	log2MemoryBankInterleavingSize uint64
 	memAddrOffset                  uint64
 	dramSize                       uint64
+	globalStorage                  *mem.Storage
 	mmu                            *mmu.Comp
 
 	gpu                *sim.Domain
@@ -43,7 +43,6 @@ type Builder struct {
 	rdmaEngine         *rdma.Comp
 	pmc                *pagemigrationcontroller.PageMigrationController
 	dmaEngine          *cp.DMAEngine
-	cus                []*cu.ComputeUnit
 	sas                []*sim.Domain
 	l2Caches           []*writeback.Comp
 	l2TLBs             []*tlb.Comp
@@ -51,6 +50,7 @@ type Builder struct {
 	internalConn       *directconnection.Comp
 	l2ToDramConnection *directconnection.Comp
 	l1AddressMapper    *mem.InterleavedAddressPortMapper
+	l1TLBAddressMapper *mem.InterleavedAddressPortMapper
 }
 
 // MakeBuilder creates a new builder.
@@ -147,6 +147,14 @@ func (b Builder) WithMMU(mmu *mmu.Comp) Builder {
 	return b
 }
 
+// WithGlobalStorage sets the global storage that can provide the ultimate address translation.
+func (b Builder) WithGlobalStorage(
+	globalStorage *mem.Storage,
+) Builder {
+	b.globalStorage = globalStorage
+	return b
+}
+
 // Build builds the hardware platform.
 func (b Builder) Build(name string) *sim.Domain {
 	b.name = name
@@ -233,19 +241,13 @@ func (b *Builder) connectL1ToL2() {
 		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
 	}
 
-	for _, l1v := range b.l1vCaches {
-		l1v.SetAddressToPortMapper(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1v.GetPortByName("Bottom"))
-	}
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			l1ToL2Conn.PlugIn(sa.GetPortByName(fmt.Sprintf("L1VCache[%d]", i)))
+		}
 
-	for _, l1s := range b.l1sCaches {
-		l1s.SetAddressToPortMapper(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1s.GetPortByName("Bottom"))
-	}
-
-	for _, l1iAT := range b.l1iAddrTrans {
-		l1iAT.SetAddressToPortMapper(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1iAT.GetPortByName("Bottom"))
+		l1ToL2Conn.PlugIn(sa.GetPortByName("L1SCache"))
+		l1ToL2Conn.PlugIn(sa.GetPortByName("L1IAddrTrans"))
 	}
 }
 
@@ -287,91 +289,118 @@ func (b *Builder) connectL1TLBToL2TLB() {
 
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"))
 
-	for _, l1vTLB := range b.l1vTLBs {
-		l1vTLB.LowModule = b.l2TLBs[0].GetPortByName("Top").AsRemote()
-		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"))
-	}
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			tlbConn.PlugIn(sa.GetPortByName(fmt.Sprintf("L1VTLB[%d]", i)))
+		}
 
-	for _, l1iTLB := range b.l1iTLBs {
-		l1iTLB.LowModule = b.l2TLBs[0].GetPortByName("Top").AsRemote()
-		tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"))
-	}
-
-	for _, l1sTLB := range b.l1sTLBs {
-		l1sTLB.LowModule = b.l2TLBs[0].GetPortByName("Top").AsRemote()
-		tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"))
+		tlbConn.PlugIn(sa.GetPortByName("L1STLB"))
+		tlbConn.PlugIn(sa.GetPortByName("L1ITLB"))
 	}
 }
 
+type cuInterfaceForCP struct {
+	ctrlPort        sim.RemotePort
+	dispatchingPort sim.RemotePort
+	wfPoolSizes     []int
+	vRegCounts      []int
+	sRegCount       int
+	ldsBytes        int
+}
+
+func (cu cuInterfaceForCP) ControlPort() sim.RemotePort {
+	return cu.ctrlPort
+}
+
+func (cu cuInterfaceForCP) DispatchingPort() sim.RemotePort {
+	return cu.dispatchingPort
+}
+
+func (cu cuInterfaceForCP) WfPoolSizes() []int {
+	return cu.wfPoolSizes
+}
+
+func (cu cuInterfaceForCP) VRegCounts() []int {
+	return cu.vRegCounts
+}
+
+func (cu cuInterfaceForCP) SRegCount() int {
+	return cu.sRegCount
+}
+
+func (cu cuInterfaceForCP) LDSBytes() int {
+	return cu.ldsBytes
+}
+
 func (b *Builder) connectCPWithCUs() {
-	for _, cu := range b.cus {
-		b.cp.RegisterCU(cu)
-		b.internalConn.PlugIn(cu.ToACE)
-		b.internalConn.PlugIn(cu.ToCP)
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			cuDispatchingPort := sa.GetPortByName(
+				fmt.Sprintf("CU[%d]", i)).AsRemote()
+			cuCtrlPort := sa.GetPortByName(
+				fmt.Sprintf("CU[%d]Ctrl", i)).AsRemote()
+			cu := cuInterfaceForCP{
+				ctrlPort:        cuCtrlPort,
+				dispatchingPort: cuDispatchingPort,
+				wfPoolSizes:     []int{10, 10, 10, 10},
+				vRegCounts:      []int{16384, 16384, 16384, 16384},
+				sRegCount:       3200,
+				ldsBytes:        64 * 1024,
+			}
+
+			b.cp.RegisterCU(cu)
+		}
 	}
 }
 
 func (b *Builder) connectCPWithAddressTranslators() {
-	for _, at := range b.l1vAddrTrans {
-		ctrlPort := at.GetPortByName("Control")
-		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			at := sa.GetPortByName(fmt.Sprintf("L1VAddrTrans[%d]Ctrl", i))
+			b.cp.AddressTranslators = append(b.cp.AddressTranslators, at)
+			b.internalConn.PlugIn(at)
 
-	for _, at := range b.l1sAddrTrans {
-		ctrlPort := at.GetPortByName("Control")
-		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
+			rob := sa.GetPortByName(fmt.Sprintf("L1VROB[%d]Ctrl", i))
+			b.cp.L1VCaches = append(b.cp.L1VCaches, rob)
+			b.internalConn.PlugIn(rob)
+		}
 
-	for _, at := range b.l1iAddrTrans {
-		ctrlPort := at.GetPortByName("Control")
-		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
+		l1sAT := sa.GetPortByName("L1SAddrTransCtrl")
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1sAT)
+		b.internalConn.PlugIn(l1sAT)
 
-	for _, rob := range b.l1vReorderBuffers {
-		ctrlPort := rob.GetPortByName("Control")
-		b.cp.AddressTranslators = append(
-			b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
+		l1iAT := sa.GetPortByName("L1IAddrTransCtrl")
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1iAT)
+		b.internalConn.PlugIn(l1iAT)
 
-	for _, rob := range b.l1iReorderBuffers {
-		ctrlPort := rob.GetPortByName("Control")
-		b.cp.AddressTranslators = append(
-			b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
+		l1sRob := sa.GetPortByName("L1SROBCtrl")
+		b.cp.L1SCaches = append(b.cp.L1SCaches, l1sRob)
+		b.internalConn.PlugIn(l1sRob)
 
-	for _, rob := range b.l1sReorderBuffers {
-		ctrlPort := rob.GetPortByName("Control")
-		b.cp.AddressTranslators = append(
-			b.cp.AddressTranslators, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
+		l1iRob := sa.GetPortByName("L1IROBCtrl")
+		b.cp.L1ICaches = append(b.cp.L1ICaches, l1iRob)
+		b.internalConn.PlugIn(l1iRob)
 	}
 }
 
 func (b *Builder) connectCPWithTLBs() {
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			tlb := sa.GetPortByName(fmt.Sprintf("L1VTLB[%d]Ctrl", i))
+			b.cp.TLBs = append(b.cp.TLBs, tlb)
+			b.internalConn.PlugIn(tlb)
+		}
+
+		l1sTLB := sa.GetPortByName("L1STLBCtrl")
+		b.cp.TLBs = append(b.cp.TLBs, l1sTLB)
+		b.internalConn.PlugIn(l1sTLB)
+
+		l1iTLB := sa.GetPortByName("L1ITLBCtrl")
+		b.cp.TLBs = append(b.cp.TLBs, l1iTLB)
+		b.internalConn.PlugIn(l1iTLB)
+	}
+
 	for _, tlb := range b.l2TLBs {
-		ctrlPort := tlb.GetPortByName("Control")
-		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
-
-	for _, tlb := range b.l1vTLBs {
-		ctrlPort := tlb.GetPortByName("Control")
-		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
-
-	for _, tlb := range b.l1sTLBs {
-		ctrlPort := tlb.GetPortByName("Control")
-		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
-
-	for _, tlb := range b.l1iTLBs {
 		ctrlPort := tlb.GetPortByName("Control")
 		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
 		b.internalConn.PlugIn(ctrlPort)
@@ -379,22 +408,20 @@ func (b *Builder) connectCPWithTLBs() {
 }
 
 func (b *Builder) connectCPWithCaches() {
-	for _, c := range b.l1iCaches {
-		ctrlPort := c.GetPortByName("Control")
-		b.cp.L1ICaches = append(b.cp.L1ICaches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
+	for _, sa := range b.sas {
+		for i := range b.numCUPerShaderArray {
+			cache := sa.GetPortByName(fmt.Sprintf("L1VCache[%d]Ctrl", i))
+			b.cp.L1VCaches = append(b.cp.L1VCaches, cache)
+			b.internalConn.PlugIn(cache)
+		}
 
-	for _, c := range b.l1vCaches {
-		ctrlPort := c.GetPortByName("Control")
-		b.cp.L1VCaches = append(b.cp.L1VCaches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
-	}
+		l1sCache := sa.GetPortByName("L1SCacheCtrl")
+		b.cp.L1SCaches = append(b.cp.L1SCaches, l1sCache)
+		b.internalConn.PlugIn(l1sCache)
 
-	for _, c := range b.l1sCaches {
-		ctrlPort := c.GetPortByName("Control")
-		b.cp.L1SCaches = append(b.cp.L1SCaches, ctrlPort)
-		b.internalConn.PlugIn(ctrlPort)
+		l1iCache := sa.GetPortByName("L1ICacheCtrl")
+		b.cp.L1ICaches = append(b.cp.L1ICaches, l1iCache)
+		b.internalConn.PlugIn(l1iCache)
 	}
 
 	for _, c := range b.l2Caches {
@@ -416,10 +443,6 @@ func (b *Builder) buildSAs() {
 
 	// if b.enableISADebugging {
 	// 	saBuilder = saBuilder.withIsaDebugging()
-	// }
-
-	// if b.enableVisTracing {
-	// 	saBuilder = saBuilder.withVisTracer(b.visTracer)
 	// }
 
 	// if b.enableMemTracing {
@@ -450,7 +473,11 @@ func (b *Builder) buildL2Caches() {
 			b.numMemoryBank,
 			i,
 		).Build(cacheName)
-		b.l2Caches = append(b.l2Caches, l2)
+
+		b.l1AddressMapper.LowModules = append(
+			b.l1AddressMapper.LowModules,
+			l2.GetPortByName("Top").AsRemote(),
+		)
 
 		// if b.enableMemTracing {
 		// 	tracing.CollectTrace(l2, b.memTracer)
@@ -526,13 +553,9 @@ func (b *Builder) createDramControllerBuilder() dram.Builder {
 		WithTRTP(3).
 		WithTPPD(2)
 
-	// if b.visTracer != nil {
-	// 	memCtrlBuilder = memCtrlBuilder.WithAdditionalTracer(b.visTracer)
-	// }
-
-	// if b.globalStorage != nil {
-	// 	memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
-	// }
+	if b.globalStorage != nil {
+		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
+	}
 
 	return memCtrlBuilder
 }
