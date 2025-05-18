@@ -51,6 +51,7 @@ type Builder struct {
 	l2ToDramConnection *directconnection.Comp
 	l1AddressMapper    *mem.InterleavedAddressPortMapper
 	l1TLBAddressMapper *mem.InterleavedAddressPortMapper
+	pmcAddressMapper   *mem.InterleavedAddressPortMapper
 }
 
 // MakeBuilder creates a new builder.
@@ -573,7 +574,7 @@ func (b *Builder) buildPageMigrationController() {
 	b.pmc = pagemigrationcontroller.NewPageMigrationController(
 		fmt.Sprintf("%s.PMC", b.name),
 		b.simulation.GetEngine(),
-		b.lowModuleFinderForPMC,
+		b.pmcAddressMapper,
 		nil)
 
 }
