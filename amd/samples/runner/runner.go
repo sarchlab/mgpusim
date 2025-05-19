@@ -14,6 +14,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/emusystem"
 	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig"
+	"github.com/sarchlab/mgpusim/v4/amd/sampling"
 )
 
 type verificationPreEnablingBenchmark interface {
@@ -79,6 +80,8 @@ func (r *Runner) buildEmuPlatform() {
 }
 
 func (r *Runner) buildTimingPlatform() {
+	sampling.InitSampledEngine()
+
 	b := timingconfig.MakeBuilder().
 		WithSimulation(r.simulation).
 		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
