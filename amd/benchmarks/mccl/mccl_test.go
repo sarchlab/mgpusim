@@ -21,7 +21,7 @@ var _ = Describe("MCCL", func() {
 	)
 
 	BeforeEach(func() {
-		s = simulation.MakeBuilder().Build()
+		s = simulation.MakeBuilder().WithoutMonitoring().Build()
 		timingconfig.MakeBuilder().
 			WithSimulation(s).
 			WithNumGPUs(4).
@@ -32,7 +32,7 @@ var _ = Describe("MCCL", func() {
 	})
 
 	AfterEach(func() {
-		gpuDriver.Terminate()
+		s.Terminate()
 	})
 
 	It("Broadcast Test", func() {
