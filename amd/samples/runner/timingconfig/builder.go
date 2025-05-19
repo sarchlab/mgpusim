@@ -26,8 +26,9 @@ type Builder struct {
 	log2PageSize       uint64
 	useMagicMemoryCopy bool
 
-	platform      *sim.Domain
-	globalStorage *mem.Storage
+	platform          *sim.Domain
+	globalStorage     *mem.Storage
+	rdmaAddressMapper *mem.BankedAddressPortMapper
 }
 
 // MakeBuilder creates a new Builder with default parameters.
@@ -63,6 +64,8 @@ func (b Builder) WithMagicMemoryCopy() Builder {
 
 // Build builds the hardware platform.
 func (b Builder) Build() *sim.Domain {
+	b.cpuGPUMemSizeMustEqual()
+
 	b.platform = &sim.Domain{}
 
 	b.globalStorage = mem.NewStorage(
@@ -77,17 +80,23 @@ func (b Builder) Build() *sim.Domain {
 
 	mmuComp.MigrationServiceProvider = gpuDriver.GetPortByName("MMU").AsRemote()
 
-	rdmaAddressTable := b.createRDMAAddrTable()
+	b.createRDMAAddrTable()
 	pmcAddressTable := b.createPMCPageTable()
 
 	b.createGPUs(
 		rootComplexID, pcieConnector,
 		gpuBuilder, gpuDriver,
-		rdmaAddressTable, pmcAddressTable)
+		pmcAddressTable)
 
 	pcieConnector.EstablishRoute()
 
 	return b.platform
+}
+
+func (b *Builder) cpuGPUMemSizeMustEqual() {
+	if b.cpuMemSize != b.gpuMemSize {
+		panic("currently only support cpuMemSize == gpuMemSize")
+	}
 }
 
 func (b *Builder) createMMU() (*mmu.Comp, vm.PageTable) {
@@ -144,6 +153,8 @@ func (b *Builder) createGPUBuilder(
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage)
 
+	b.createRDMAAddressMapper()
+
 	// gpuBuilder = b.setMemTracer(gpuBuilder)
 	// gpuBuilder = b.setISADebugger(gpuBuilder)
 
@@ -155,7 +166,6 @@ func (b *Builder) createGPUs(
 	pcieConnector *pcie.Connector,
 	gpuBuilder r9nano.Builder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *mem.BankedAddressPortMapper,
 	pmcAddressTable *mem.BankedAddressPortMapper,
 ) {
 	lastSwitchID := rootComplexID
@@ -164,8 +174,7 @@ func (b *Builder) createGPUs(
 			lastSwitchID = pcieConnector.AddSwitch(rootComplexID)
 		}
 
-		b.createGPU(i, gpuBuilder, gpuDriver,
-			rdmaAddressTable, pmcAddressTable,
+		b.createGPU(i, gpuBuilder, gpuDriver, pmcAddressTable,
 			pcieConnector, lastSwitchID)
 	}
 }
@@ -208,11 +217,17 @@ func (b *Builder) createConnection(
 	return pcieConnector, rootComplexID
 }
 
+func (b *Builder) createRDMAAddressMapper() {
+	b.rdmaAddressMapper = new(mem.BankedAddressPortMapper)
+	b.rdmaAddressMapper.BankSize = b.gpuMemSize
+	b.rdmaAddressMapper.LowModules = append(b.rdmaAddressMapper.LowModules,
+		sim.RemotePort("CPU"))
+}
+
 func (b *Builder) createGPU(
 	index int,
 	gpuBuilder r9nano.Builder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *mem.BankedAddressPortMapper,
 	pmcAddressTable *mem.BankedAddressPortMapper,
 	pcieConnector *pcie.Connector,
 	pcieSwitchID int,
@@ -222,6 +237,7 @@ func (b *Builder) createGPU(
 	gpu := gpuBuilder.
 		WithGPUID(uint64(index)).
 		WithMemAddrOffset(memAddrOffset).
+		WithRDMAAddressMapper(b.rdmaAddressMapper).
 		Build(name)
 
 	gpuDriver.RegisterGPU(
@@ -233,7 +249,7 @@ func (b *Builder) createGPU(
 	)
 	// gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
-	// b.configRDMAEngine(gpu, rdmaAddressTable)
+	b.configRDMAEngine(gpu)
 	// b.configPMC(gpu, gpuDriver, pmcAddressTable)
 
 	pcieConnector.PlugInDevice(pcieSwitchID, gpu.Ports())
@@ -243,15 +259,13 @@ func (b *Builder) createGPU(
 	return gpu
 }
 
-// func (b *Builder) configRDMAEngine(
-// 	gpu *GPU,
-// 	addrTable *mem.BankedAddressPortMapper,
-// ) {
-// 	gpu.RDMAEngine.RemoteRDMAAddressTable = addrTable
-// 	addrTable.LowModules = append(
-// 		addrTable.LowModules,
-// 		gpu.RDMAEngine.ToOutside.AsRemote())
-// }
+func (b *Builder) configRDMAEngine(
+	gpu *sim.Domain,
+) {
+	b.rdmaAddressMapper.LowModules = append(
+		b.rdmaAddressMapper.LowModules,
+		gpu.GetPortByName("RDMA").AsRemote())
+}
 
 // func (b *Builder) configPMC(
 // 	gpu *GPU,

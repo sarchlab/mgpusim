@@ -38,6 +38,7 @@ type Builder struct {
 	dramSize                       uint64
 	globalStorage                  *mem.Storage
 	mmu                            *mmu.Comp
+	rdmaAddressMapper              mem.AddressToPortMapper
 
 	gpu                *sim.Domain
 	cp                 *cp.CommandProcessor
@@ -158,8 +159,15 @@ func (b Builder) WithGlobalStorage(
 	return b
 }
 
+// WithDRAMSize sets the size of the DRAM.
 func (b Builder) WithDRAMSize(size uint64) Builder {
 	b.dramSize = size
+	return b
+}
+
+// WithRDMAAddressMapper sets the RDMA address mapper.
+func (b Builder) WithRDMAAddressMapper(mapper mem.AddressToPortMapper) Builder {
+	b.rdmaAddressMapper = mapper
 	return b
 }
 
@@ -577,6 +585,8 @@ func (b *Builder) buildRDMAEngine() {
 		WithFreq(1 * sim.GHz).
 		WithLocalModules(b.l1AddressMapper).
 		Build(name)
+
+	b.rdmaEngine.RemoteRDMAAddressTable = b.rdmaAddressMapper
 
 	b.simulation.RegisterComponent(b.rdmaEngine)
 }

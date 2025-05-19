@@ -1,6 +1,8 @@
 package cp
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/cache"
@@ -87,10 +89,11 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.ToCaches = toCaches
 
 		for i := 0; i < int(10); i++ {
-			cus = append(cus, NewMockPort(mockCtrl))
-			commandProcessor.CUs = append(commandProcessor.CUs,
-				sim.RemotePort("CUPort"))
-			commandProcessor.CUs[i] = cus[i].AsRemote()
+			cu := NewMockPort(mockCtrl)
+			cus = append(cus, cu)
+			cu.EXPECT().AsRemote().
+				Return(sim.RemotePort("CUPort" + strconv.Itoa(i))).AnyTimes()
+			commandProcessor.CUs = append(commandProcessor.CUs, cu.AsRemote())
 			for _, mockPort := range cus {
 				mockPort.EXPECT().AsRemote().AnyTimes()
 			}

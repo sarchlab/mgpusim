@@ -8,7 +8,7 @@ import (
 	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/mccl"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
-	"github.com/sarchlab/mgpusim/v4/amd/samples/runner"
+	"github.com/sarchlab/mgpusim/v4/amd/samples/runner/timingconfig"
 )
 
 var _ = Describe("MCCL", func() {
@@ -21,10 +21,12 @@ var _ = Describe("MCCL", func() {
 	)
 
 	BeforeEach(func() {
-		platform := runner.MakeR9NanoBuilder().
-			WithNumGPU(4).
+		s = simulation.MakeBuilder().Build()
+		timingconfig.MakeBuilder().
+			WithSimulation(s).
+			WithNumGPUs(4).
 			Build()
-		gpuDriver = platform.Driver
+		gpuDriver = s.GetComponentByName("Driver").(*driver.Driver)
 		gpuDriver.Run()
 		context = gpuDriver.Init()
 	})
