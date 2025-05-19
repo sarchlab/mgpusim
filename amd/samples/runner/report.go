@@ -172,7 +172,7 @@ func (r *reporter) injectInstCountTracer(s *simulation.Simulation) {
 	}
 
 	for _, comp := range s.Components() {
-		if strings.Contains(comp.Name(), "ComputeUnit") {
+		if strings.Contains(comp.Name(), "CU") {
 			tracer := newInstTracer()
 			r.instCountTracers = append(r.instCountTracers,
 				&instCountTracer{
@@ -190,7 +190,7 @@ func (r *reporter) injectCUCPIHook(s *simulation.Simulation) {
 	}
 
 	for _, comp := range s.Components() {
-		if strings.Contains(comp.Name(), "ComputeUnit") {
+		if strings.Contains(comp.Name(), "CU") {
 			tracer := cu.NewCPIStackInstHook(
 				comp.(*cu.ComputeUnit), s.GetEngine())
 			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
@@ -318,7 +318,7 @@ func (r *reporter) injectDRAMTracer(s *simulation.Simulation) {
 	}
 
 	for _, comp := range s.Components() {
-		if strings.Contains(comp.Name(), "MemController") {
+		if strings.Contains(comp.Name(), "DRAM") {
 			t := &dramTransactionCountTracer{}
 			t.dram = comp.(tracing.NamedHookable)
 			t.tracer = newDramTracer(s.GetEngine())
