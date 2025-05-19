@@ -27,7 +27,7 @@ type Builder struct {
 	log2CacheLineSize  uint64
 	log2PageSize       uint64
 	l1AddressMapper    mem.AddressToPortMapper
-	l1TLBAddressMapper *mem.InterleavedAddressPortMapper
+	l1TLBAddressMapper mem.AddressToPortMapper
 
 	sa        *sim.Domain
 	cus       []*cu.ComputeUnit
@@ -103,7 +103,7 @@ func (b Builder) WithL1AddressMapper(
 
 // WithL1TLBAddressMapper sets the L1 TLB address mapper to use.
 func (b Builder) WithL1TLBAddressMapper(
-	l1TLBAddressMapper *mem.InterleavedAddressPortMapper,
+	l1TLBAddressMapper mem.AddressToPortMapper,
 ) Builder {
 	b.l1TLBAddressMapper = l1TLBAddressMapper
 	return b
@@ -142,7 +142,7 @@ func (b *Builder) buildComponents() {
 }
 
 func (b *Builder) populateExternalPorts() {
-	for i := 0; i < b.numCUs; i++ {
+	for i := range b.numCUs {
 		cu := b.cus[i]
 
 		b.sa.AddPort(fmt.Sprintf("CU[%d]", i), cu.GetPortByName("Top"))
@@ -174,7 +174,6 @@ func (b *Builder) populateExternalPorts() {
 	b.sa.AddPort("L1ICacheCtrl", b.l1iCache.GetPortByName("Control"))
 	b.sa.AddPort("L1ICacheBottom", b.l1iAT.GetPortByName("Bottom"))
 	b.sa.AddPort("L1ITLBBottom", b.l1iTLB.GetPortByName("Bottom"))
-
 }
 
 func (b *Builder) connectComponents() {
@@ -184,7 +183,7 @@ func (b *Builder) connectComponents() {
 }
 
 func (b *Builder) connectVectorMem() {
-	for i := 0; i < b.numCUs; i++ {
+	for i := range b.numCUs {
 		cu := b.cus[i]
 		rob := b.l1vROBs[i]
 		at := b.l1vATs[i]
@@ -241,7 +240,7 @@ func (b *Builder) connectScalarMem() {
 		WithFreq(b.freq).
 		Build(b.name)
 	conn.PlugIn(rob.GetPortByName("Top"))
-	for i := 0; i < b.numCUs; i++ {
+	for i := range b.numCUs {
 		cu := b.cus[i]
 		cu.ScalarMem = rob.GetPortByName("Top")
 		conn.PlugIn(cu.ToScalarMem)
@@ -275,7 +274,7 @@ func (b *Builder) connectInstMem() {
 		WithFreq(b.freq).
 		Build(b.name)
 	conn.PlugIn(robTopPort)
-	for i := 0; i < b.numCUs; i++ {
+	for i := range b.numCUs {
 		cu := b.cus[i]
 		cu.InstMem = rob.GetPortByName("Top")
 		conn.PlugIn(cu.ToInstMem)

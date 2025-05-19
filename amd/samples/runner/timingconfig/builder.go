@@ -34,8 +34,8 @@ type Builder struct {
 func MakeBuilder() Builder {
 	return Builder{
 		numGPUs:            1,
-		numCUPerSA:         4,
-		numSAPerGPU:        16,
+		numCUPerSA:         1,
+		numSAPerGPU:        1,
 		cpuMemSize:         4 * mem.GB,
 		gpuMemSize:         4 * mem.GB,
 		log2PageSize:       12,
@@ -55,8 +55,8 @@ func (b Builder) WithNumGPUs(numGPUs int) Builder {
 	return b
 }
 
-// WithUseMagicMemoryCopy sets whether to use the magic memory copy middleware.
-func (b Builder) WithUseMagicMemoryCopy() Builder {
+// WithMagicMemoryCopy sets whether to use the magic memory copy middleware.
+func (b Builder) WithMagicMemoryCopy() Builder {
 	b.useMagicMemoryCopy = true
 	return b
 }

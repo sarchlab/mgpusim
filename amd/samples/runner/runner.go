@@ -90,6 +90,10 @@ func (r *Runner) buildTimingPlatform() {
 		WithSimulation(r.simulation).
 		WithNumGPUs(r.GPUIDs[len(r.GPUIDs)-1])
 
+	if *magicMemoryCopy {
+		b = b.WithMagicMemoryCopy()
+	}
+
 	r.platform = b.Build()
 }
 

@@ -346,12 +346,12 @@ func (b *Builder) connectCPWithCUs() {
 	for _, sa := range b.sas {
 		for i := range b.numCUPerShaderArray {
 			cuDispatchingPort := sa.GetPortByName(
-				fmt.Sprintf("CU[%d]", i)).AsRemote()
+				fmt.Sprintf("CU[%d]", i))
 			cuCtrlPort := sa.GetPortByName(
-				fmt.Sprintf("CUCtrl[%d]", i)).AsRemote()
+				fmt.Sprintf("CUCtrl[%d]", i))
 			cu := cuInterfaceForCP{
-				ctrlPort:        cuCtrlPort,
-				dispatchingPort: cuDispatchingPort,
+				ctrlPort:        cuCtrlPort.AsRemote(),
+				dispatchingPort: cuDispatchingPort.AsRemote(),
 				wfPoolSizes:     []int{10, 10, 10, 10},
 				vRegCounts:      []int{16384, 16384, 16384, 16384},
 				sRegCount:       3200,
@@ -359,6 +359,9 @@ func (b *Builder) connectCPWithCUs() {
 			}
 
 			b.cp.RegisterCU(cu)
+
+			b.internalConn.PlugIn(cuDispatchingPort)
+			b.internalConn.PlugIn(cuCtrlPort)
 		}
 	}
 }
@@ -449,7 +452,8 @@ func (b *Builder) buildSAs() {
 		WithNumCUs(b.numCUPerShaderArray).
 		WithLog2CacheLineSize(b.log2CacheLineSize).
 		WithLog2PageSize(b.log2PageSize).
-		WithL1AddressMapper(b.l1AddressMapper)
+		WithL1AddressMapper(b.l1AddressMapper).
+		WithL1TLBAddressMapper(b.l1TLBAddressMapper)
 
 	// if b.enableISADebugging {
 	// 	saBuilder = saBuilder.withIsaDebugging()
@@ -487,6 +491,7 @@ func (b *Builder) buildL2Caches() {
 		).Build(cacheName)
 
 		b.simulation.RegisterComponent(l2)
+		b.l2Caches = append(b.l2Caches, l2)
 
 		b.l1AddressMapper.LowModules = append(
 			b.l1AddressMapper.LowModules,
@@ -627,7 +632,10 @@ func (b *Builder) buildL2TLB() {
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1024).
 		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.mmu.GetPortByName("Top").AsRemote())
+		WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
+		WithAddressMapper(&mem.SinglePortMapper{
+			Port: b.mmu.GetPortByName("Top").AsRemote(),
+		})
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
 
