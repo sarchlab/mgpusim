@@ -19,7 +19,7 @@ var _ = Describe("Operator", func() {
 	)
 
 	BeforeEach(func() {
-		s = simulation.MakeBuilder().Build()
+		s = simulation.MakeBuilder().WithoutMonitoring().Build()
 
 		emusystem.MakeBuilder().
 			WithSimulation(s).
