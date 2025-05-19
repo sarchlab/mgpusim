@@ -531,60 +531,42 @@ func (r *reporter) reportCacheHitRate() {
 			continue
 		}
 
-		r.dataRecorder.InsertData(
-			tableName,
-			metric{
-				Location: tracer.cache.Name(),
-				What:     "read-hit",
-				Value:    float64(readHit),
-				Unit:     "count",
-			},
-		)
-		r.dataRecorder.InsertData(
-			tableName,
-			metric{
-				Location: tracer.cache.Name(),
-				What:     "read-miss",
-				Value:    float64(readMiss),
-				Unit:     "count",
-			},
-		)
-		r.dataRecorder.InsertData(
-			tableName,
-			metric{
-				Location: tracer.cache.Name(),
-				What:     "read-mshr-hit",
-				Value:    float64(readMSHRHit),
-				Unit:     "count",
-			},
-		)
-		r.dataRecorder.InsertData(
-			tableName,
-			metric{
-				Location: tracer.cache.Name(),
-				What:     "write-hit",
-				Value:    float64(writeHit),
-				Unit:     "count",
-			},
-		)
-		r.dataRecorder.InsertData(
-			tableName,
-			metric{
-				Location: tracer.cache.Name(),
-				What:     "write-miss",
-				Value:    float64(writeMiss),
-				Unit:     "count",
-			},
-		)
-		r.dataRecorder.InsertData(
-			tableName,
-			metric{
-				Location: tracer.cache.Name(),
-				What:     "write-mshr-hit",
-				Value:    float64(writeMSHRHit),
-				Unit:     "count",
-			},
-		)
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "read-hit",
+			Value:    float64(readHit),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "read-miss",
+			Value:    float64(readMiss),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "read-mshr-hit",
+			Value:    float64(readMSHRHit),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "write-hit",
+			Value:    float64(writeHit),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "write-miss",
+			Value:    float64(writeMiss),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "write-mshr-hit",
+			Value:    float64(writeMSHRHit),
+			Unit:     "count",
+		})
 	}
 }
 
