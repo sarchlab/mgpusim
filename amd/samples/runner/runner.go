@@ -26,6 +26,7 @@ type verificationPreEnablingBenchmark interface {
 type Runner struct {
 	simulation *simulation.Simulation
 	platform   *sim.Domain
+	reporter   *reporter
 
 	Timing                     bool
 	Verify                     bool
@@ -95,6 +96,7 @@ func (r *Runner) buildTimingPlatform() {
 	}
 
 	r.platform = b.Build()
+	r.reporter = newReporter(r.simulation)
 }
 
 func (r *Runner) createUnifiedGPUs() {
@@ -123,6 +125,7 @@ func (r *Runner) AddBenchmarkWithoutSettingGPUsToUse(b benchmarks.Benchmark) {
 	if r.UseUnifiedMemory {
 		b.SetUnifiedMemory()
 	}
+
 	r.benchmarks = append(r.benchmarks, b)
 }
 
@@ -149,6 +152,10 @@ func (r *Runner) Run() {
 		}(b, &wg)
 	}
 	wg.Wait()
+
+	if r.reporter != nil {
+		r.reporter.report()
+	}
 
 	r.Driver().Terminate()
 	r.simulation.Terminate()
