@@ -5,11 +5,11 @@ import (
 )
 
 type metric struct {
-	location   string
-	what       string
-	value      float64
-	header     string
-	metricType string
+	Location   string
+	What       string
+	Value      float64
+	Header     string
+	MetricType string
 }
 
 type collector struct {
@@ -19,17 +19,17 @@ type collector struct {
 
 func (c *collector) Collect(where, what string, value float64) {
 	c.metrics = append(c.metrics, metric{
-		location:   where,
-		what:       what,
-		value:      value,
-		metricType: "data",
+		Location:   where,
+		What:       what,
+		Value:      value,
+		MetricType: "data",
 	})
 }
 
 func (c *collector) CollectHeader(header string) {
 	c.metrics = append(c.metrics, metric{
-		header:     header,
-		metricType: "header",
+		Header:     header,
+		MetricType: "header",
 	})
 }
 

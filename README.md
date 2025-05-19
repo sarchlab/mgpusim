@@ -31,7 +31,7 @@ MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It
 If a modification to Akita is required, you can clone Akita next to the MGPUSim directory in your system. Then, you can modify the `go.mod` file to include the following line. 
 
 ```
-replace github.com/sarchlab/akita/v4 => ../akita
+replace github.com/sarchlab/akita/v3 => ../akita
 ```
 
 This line will direct the go compiler to use your local version of Akita rather than the official release of Akita. 
