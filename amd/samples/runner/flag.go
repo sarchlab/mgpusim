@@ -78,7 +78,6 @@ var visTraceEndTime = flag.Float64("trace-vis-end", -1,
 // parseFlag applies the runner flag to runner object
 func (r *Runner) parseFlag() *Runner {
 	r.parseSimulationFlags()
-	r.parseReportFlags()
 	r.parseGPUFlag()
 
 	return r
@@ -99,51 +98,6 @@ func (r *Runner) parseSimulationFlags() {
 
 	if *useUnifiedMemoryFlag {
 		r.UseUnifiedMemory = true
-	}
-}
-
-func (r *Runner) parseReportFlags() {
-	if *instCountReportFlag {
-		r.ReportInstCount = true
-	}
-
-	if *cacheLatencyReportFlag {
-		r.ReportCacheLatency = true
-	}
-
-	if *cacheHitRateReportFlag {
-		r.ReportCacheHitRate = true
-	}
-
-	if *tlbHitRateReportFlag {
-		r.ReportTLBHitRate = true
-	}
-
-	if *dramTransactionCountReportFlag {
-		r.ReportDRAMTransactionCount = true
-	}
-
-	if *rdmaTransactionCountReportFlag {
-		r.ReportRDMATransactionCount = true
-	}
-
-	if *simdBusyTimeTracerFlag {
-		r.ReportSIMDBusyTime = true
-	}
-
-	if *reportCPIStackFlag {
-		r.ReportCPIStack = true
-	}
-
-	if *reportAll {
-		r.ReportInstCount = true
-		r.ReportCacheLatency = true
-		r.ReportCacheHitRate = true
-		r.ReportTLBHitRate = true
-		r.ReportSIMDBusyTime = true
-		r.ReportDRAMTransactionCount = true
-		r.ReportRDMATransactionCount = true
-		r.ReportCPIStack = true
 	}
 }
 

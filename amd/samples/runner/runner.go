@@ -28,18 +28,10 @@ type Runner struct {
 	platform   *sim.Domain
 	reporter   *reporter
 
-	Timing                     bool
-	Verify                     bool
-	Parallel                   bool
-	ReportInstCount            bool
-	ReportCacheLatency         bool
-	ReportCacheHitRate         bool
-	ReportTLBHitRate           bool
-	ReportRDMATransactionCount bool
-	ReportDRAMTransactionCount bool
-	UseUnifiedMemory           bool
-	ReportSIMDBusyTime         bool
-	ReportCPIStack             bool
+	Timing           bool
+	Verify           bool
+	Parallel         bool
+	UseUnifiedMemory bool
 
 	GPUIDs     []int
 	benchmarks []benchmarks.Benchmark

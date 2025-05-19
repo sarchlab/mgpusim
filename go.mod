@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/rs/xid v1.6.0
-	github.com/sarchlab/akita/v4 v4.3.0
+	github.com/sarchlab/akita/v4 v4.3.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tebeka/atexit v0.3.0
 	go.uber.org/mock v0.5.2
