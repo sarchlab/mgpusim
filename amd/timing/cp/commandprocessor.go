@@ -435,7 +435,7 @@ func (p *CommandProcessor) processRegularCacheFlush(
 ) bool {
 	rsp := sim.GeneralRspBuilder{}.
 		WithSrc(p.ToDriver.AsRemote()).
-		WithDst(p.Driver.AsRemote()).
+		WithDst(p.currFlushRequest.Src).
 		WithOriginalReq(p.currFlushRequest).
 		Build()
 

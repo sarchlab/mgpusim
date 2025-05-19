@@ -34,8 +34,8 @@ type Builder struct {
 func MakeBuilder() Builder {
 	return Builder{
 		numGPUs:            1,
-		numCUPerSA:         1,
-		numSAPerGPU:        1,
+		numCUPerSA:         4,
+		numSAPerGPU:        16,
 		cpuMemSize:         4 * mem.GB,
 		gpuMemSize:         4 * mem.GB,
 		log2PageSize:       12,

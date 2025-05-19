@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/cache/writeback"
 	"github.com/sarchlab/akita/v4/mem/dram"
+	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/mem/vm/mmu"
 	"github.com/sarchlab/akita/v4/mem/vm/tlb"
@@ -46,7 +47,7 @@ type Builder struct {
 	sas                []*sim.Domain
 	l2Caches           []*writeback.Comp
 	l2TLBs             []*tlb.Comp
-	drams              []*dram.Comp
+	drams              []sim.Component
 	internalConn       *directconnection.Comp
 	l2ToDramConnection *directconnection.Comp
 	l1AddressMapper    *mem.InterleavedAddressPortMapper
@@ -372,10 +373,6 @@ func (b *Builder) connectCPWithAddressTranslators() {
 			at := sa.GetPortByName(fmt.Sprintf("L1VAddrTransCtrl[%d]", i))
 			b.cp.AddressTranslators = append(b.cp.AddressTranslators, at)
 			b.internalConn.PlugIn(at)
-
-			rob := sa.GetPortByName(fmt.Sprintf("L1VROBCtrl[%d]", i))
-			b.cp.L1VCaches = append(b.cp.L1VCaches, rob)
-			b.internalConn.PlugIn(rob)
 		}
 
 		l1sAT := sa.GetPortByName("L1SAddrTransCtrl")
@@ -385,14 +382,6 @@ func (b *Builder) connectCPWithAddressTranslators() {
 		l1iAT := sa.GetPortByName("L1IAddrTransCtrl")
 		b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1iAT)
 		b.internalConn.PlugIn(l1iAT)
-
-		l1sRob := sa.GetPortByName("L1SROBCtrl")
-		b.cp.L1SCaches = append(b.cp.L1SCaches, l1sRob)
-		b.internalConn.PlugIn(l1sRob)
-
-		l1iRob := sa.GetPortByName("L1IROBCtrl")
-		b.cp.L1ICaches = append(b.cp.L1ICaches, l1iRob)
-		b.internalConn.PlugIn(l1iRob)
 	}
 }
 
@@ -505,15 +494,16 @@ func (b *Builder) buildL2Caches() {
 }
 
 func (b *Builder) buildDRAMControllers() {
-	memCtrlBuilder := b.createDramControllerBuilder()
+	// memCtrlBuilder := b.createDramControllerBuilder()
 
 	for i := 0; i < b.numMemoryBank; i++ {
 		dramName := fmt.Sprintf("%s.DRAM[%d]", b.name, i)
-		dram := memCtrlBuilder.
+		dram := idealmemcontroller.MakeBuilder().
+			WithEngine(b.simulation.GetEngine()).
+			WithFreq(b.freq).
+			WithLatency(100).
+			WithStorage(b.globalStorage).
 			Build(dramName)
-		// dram := idealmemcontroller.New(
-		// 	fmt.Sprintf("%s.DRAM_%d", b.name, i),
-		// 	b.simulation.GetEngine(), 512*mem.MB)
 		b.simulation.RegisterComponent(dram)
 		b.drams = append(b.drams, dram)
 
