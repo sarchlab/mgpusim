@@ -1,6 +1,10 @@
 package runner
 
-import "flag"
+import (
+	"flag"
+	"strconv"
+	"strings"
+)
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
 var maxInstCount = flag.Uint64("max-inst", 0,
@@ -71,10 +75,15 @@ var visTraceEndTime = flag.Float64("trace-vis-end", -1,
 	"The end time of collecting visualization traces. A negative number"+
 		"means that the trace will be collected to the end of the simulation.")
 
-// ParseFlag applies the runner flag to runner object
-//
-//nolint:gocyclo
-func (r *Runner) ParseFlag() *Runner {
+// parseFlag applies the runner flag to runner object
+func (r *Runner) parseFlag() *Runner {
+	r.parseSimulationFlags()
+	r.parseGPUFlag()
+
+	return r
+}
+
+func (r *Runner) parseSimulationFlags() {
 	if *parallelFlag {
 		r.Parallel = true
 	}
@@ -90,49 +99,39 @@ func (r *Runner) ParseFlag() *Runner {
 	if *useUnifiedMemoryFlag {
 		r.UseUnifiedMemory = true
 	}
+}
 
-	if *instCountReportFlag {
-		r.ReportInstCount = true
+func (r *Runner) parseGPUFlag() {
+	if *gpuFlag == "" && *unifiedGPUFlag == "" {
+		r.GPUIDs = []int{1}
+		return
 	}
 
-	if *cacheLatencyReportFlag {
-		r.ReportCacheLatency = true
+	if *gpuFlag != "" && *unifiedGPUFlag != "" {
+		panic("cannot use -gpus and -unified-gpus together")
 	}
 
-	if *cacheHitRateReportFlag {
-		r.ReportCacheHitRate = true
+	var gpuIDs []int
+	if *gpuFlag != "" {
+		gpuIDs = r.gpuIDStringToList(*gpuFlag)
+	} else if *unifiedGPUFlag != "" {
+		gpuIDs = r.gpuIDStringToList(*unifiedGPUFlag)
 	}
 
-	if *tlbHitRateReportFlag {
-		r.ReportTLBHitRate = true
+	r.GPUIDs = gpuIDs
+}
+
+func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
+	gpuIDs := make([]int, 0)
+	gpuIDTokens := strings.Split(gpuIDsString, ",")
+
+	for _, t := range gpuIDTokens {
+		gpuID, err := strconv.Atoi(t)
+		if err != nil {
+			panic(err)
+		}
+		gpuIDs = append(gpuIDs, gpuID)
 	}
 
-	if *dramTransactionCountReportFlag {
-		r.ReportDRAMTransactionCount = true
-	}
-
-	if *rdmaTransactionCountReportFlag {
-		r.ReportRDMATransactionCount = true
-	}
-
-	if *simdBusyTimeTracerFlag {
-		r.ReportSIMDBusyTime = true
-	}
-
-	if *reportCPIStackFlag {
-		r.ReportCPIStack = true
-	}
-
-	if *reportAll {
-		r.ReportInstCount = true
-		r.ReportCacheLatency = true
-		r.ReportCacheHitRate = true
-		r.ReportTLBHitRate = true
-		r.ReportSIMDBusyTime = true
-		r.ReportDRAMTransactionCount = true
-		r.ReportRDMATransactionCount = true
-		r.ReportCPIStack = true
-	}
-
-	return r
+	return gpuIDs
 }

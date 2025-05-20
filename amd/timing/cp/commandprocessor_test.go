@@ -1,7 +1,8 @@
 package cp
 
 import (
-	"github.com/golang/mock/gomock"
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/cache"
@@ -12,6 +13,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/dispatching"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
+	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("CommandProcessor", func() {
@@ -87,10 +89,11 @@ var _ = Describe("CommandProcessor", func() {
 		commandProcessor.ToCaches = toCaches
 
 		for i := 0; i < int(10); i++ {
-			cus = append(cus, NewMockPort(mockCtrl))
-			commandProcessor.CUs = append(commandProcessor.CUs,
-				sim.NewPort(commandProcessor, 1, 1, "CUPort"))
-			commandProcessor.CUs[i] = cus[i]
+			cu := NewMockPort(mockCtrl)
+			cus = append(cus, cu)
+			cu.EXPECT().AsRemote().
+				Return(sim.RemotePort("CUPort" + strconv.Itoa(i))).AnyTimes()
+			commandProcessor.CUs = append(commandProcessor.CUs, cu.AsRemote())
 			for _, mockPort := range cus {
 				mockPort.EXPECT().AsRemote().AnyTimes()
 			}
@@ -222,7 +225,7 @@ var _ = Describe("CommandProcessor", func() {
 		for i := 0; i < 10; i++ {
 			cuFlushReq := protocol.CUPipelineFlushReqBuilder{}.Build()
 			cuFlushReq.Src = commandProcessor.ToCUs.AsRemote()
-			cuFlushReq.Dst = commandProcessor.CUs[i].AsRemote()
+			cuFlushReq.Dst = commandProcessor.CUs[i]
 			// toCUsSender.EXPECT().Send(gomock.AssignableToTypeOf(cuFlushReq))
 			toCU.EXPECT().Send(gomock.AssignableToTypeOf(cuFlushReq))
 		}
@@ -448,7 +451,7 @@ var _ = Describe("CommandProcessor", func() {
 		for i := 0; i < 10; i++ {
 			cuRestartReq := protocol.CUPipelineRestartReqBuilder{}.Build()
 			cuRestartReq.Src = commandProcessor.ToCUs.AsRemote()
-			cuRestartReq.Dst = commandProcessor.CUs[i].AsRemote()
+			cuRestartReq.Dst = commandProcessor.CUs[i]
 			toCU.EXPECT().Send(gomock.AssignableToTypeOf(cuRestartReq))
 		}
 		toAddressTranslator.EXPECT().RetrieveIncoming()

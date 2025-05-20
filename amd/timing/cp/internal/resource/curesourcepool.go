@@ -8,7 +8,7 @@ import (
 // DispatchableCU handles dispatch resource
 type DispatchableCU interface {
 	// DispatchingPort returns the port that the dispatcher can dispatch workgroups to.
-	DispatchingPort() sim.Port
+	DispatchingPort() sim.RemotePort
 
 	// WfPoolSizes returns an array of how many wavefront each wavefront pool
 	// can hold. -1 is unlimited.
@@ -36,14 +36,14 @@ type CUResourcePool interface {
 
 // CUResourcePoolImpl centralizes the resources of CUs.
 type CUResourcePoolImpl struct {
-	registeredCUs map[DispatchableCU]bool
+	registeredCUs map[sim.RemotePort]bool
 	cus           []CUResource
 }
 
 // NewCUResourcePool returns a CUResourcePoll
 func NewCUResourcePool() *CUResourcePoolImpl {
 	p := &CUResourcePoolImpl{
-		registeredCUs: make(map[DispatchableCU]bool),
+		registeredCUs: make(map[sim.RemotePort]bool),
 	}
 	return p
 }
@@ -60,7 +60,7 @@ func (p *CUResourcePoolImpl) GetCU(i int) CUResource {
 
 // RegisterCU puts the CU's resources into the resource pool.
 func (p *CUResourcePoolImpl) RegisterCU(cu DispatchableCU) {
-	if _, found := p.registeredCUs[cu]; found {
+	if _, found := p.registeredCUs[cu.DispatchingPort()]; found {
 		return
 	}
 
@@ -75,7 +75,7 @@ func (p *CUResourcePoolImpl) RegisterCU(cu DispatchableCU) {
 	p.createLDSMask(r, cu)
 
 	p.cus = append(p.cus, r)
-	p.registeredCUs[cu] = true
+	p.registeredCUs[cu.DispatchingPort()] = true
 }
 
 func (p *CUResourcePoolImpl) createSRegMask(

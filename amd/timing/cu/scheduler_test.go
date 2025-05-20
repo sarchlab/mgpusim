@@ -1,7 +1,6 @@
 package cu
 
 import (
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/mem/mem"
@@ -10,6 +9,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
+	"go.uber.org/mock/gomock"
 )
 
 type mockWfArbitor struct {
