@@ -1,8 +1,8 @@
 package optimization
 
 import (
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
+	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("SGD", func() {

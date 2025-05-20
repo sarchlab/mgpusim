@@ -12,5 +12,5 @@ type CUResource interface {
 		ok bool,
 	)
 	FreeResourcesForWG(wg *kernels.WorkGroup)
-	DispatchingPort() sim.Port
+	DispatchingPort() sim.RemotePort
 }

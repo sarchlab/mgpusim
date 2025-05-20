@@ -11,7 +11,7 @@ import (
 type CUResourceImpl struct {
 	sync.Mutex
 
-	port sim.Port
+	port sim.RemotePort
 
 	wfPoolFreeCount []int
 
@@ -32,7 +32,7 @@ type CUResourceImpl struct {
 }
 
 // DispatchingPort returns the port that the dispatcher send message to.
-func (r *CUResourceImpl) DispatchingPort() sim.Port {
+func (r *CUResourceImpl) DispatchingPort() sim.RemotePort {
 	return r.port
 }
 
