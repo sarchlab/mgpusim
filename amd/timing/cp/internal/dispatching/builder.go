@@ -19,7 +19,7 @@ type Builder struct {
 	monitor         *monitoring.Monitor
 }
 
-// MakeBuilder creates a builder with default dispatching configureations.
+// MakeBuilder creates a builder with default dispatching configurations.
 func MakeBuilder() Builder {
 	b := Builder{
 		alg: "partition",
