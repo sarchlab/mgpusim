@@ -3,6 +3,8 @@ package runner
 
 import (
 	"log"
+	"strconv"
+	"strings"
 
 	// Enable profiling
 	_ "net/http/pprof"
@@ -40,7 +42,8 @@ type Runner struct {
 
 // Init initializes the platform simulate
 func (r *Runner) Init() *Runner {
-	r.parseFlag()
+	ParseAllFlags() // Parses all flag sets
+	r.populateRunnerFieldsFromFlags()
 
 	log.SetFlags(log.Llongfile | log.Ldate | log.Ltime)
 
@@ -57,10 +60,55 @@ func (r *Runner) Init() *Runner {
 	return r
 }
 
+// populateRunnerFieldsFromFlags populates the Runner struct fields based on parsed flags.
+func (r *Runner) populateRunnerFieldsFromFlags() {
+	r.Timing = *timingFlag
+	r.Verify = *verifyFlag
+	r.Parallel = *parallelFlag
+	r.UseUnifiedMemory = *useUnifiedMemoryFlag
+
+	r.parseGPUFlag()
+}
+
+func (r *Runner) parseGPUFlag() {
+	if *gpuFlag == "" && *unifiedGPUFlag == "" {
+		r.GPUIDs = []int{1}
+		return
+	}
+
+	if *gpuFlag != "" && *unifiedGPUFlag != "" {
+		panic("cannot use -gpus and -unified-gpus together")
+	}
+
+	var gpuIDs []int
+	if *gpuFlag != "" {
+		gpuIDs = r.gpuIDStringToList(*gpuFlag)
+	} else if *unifiedGPUFlag != "" {
+		gpuIDs = r.gpuIDStringToList(*unifiedGPUFlag)
+	}
+
+	r.GPUIDs = gpuIDs
+}
+
+func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {
+	gpuIDs := make([]int, 0)
+	gpuIDTokens := strings.Split(gpuIDsString, ",")
+
+	for _, t := range gpuIDTokens {
+		gpuID, err := strconv.Atoi(t)
+		if err != nil {
+			panic(err)
+		}
+		gpuIDs = append(gpuIDs, gpuID)
+	}
+
+	return gpuIDs
+}
+
 func (r *Runner) initSimulation() {
 	builder := simulation.MakeBuilder()
 
-	if *parallelFlag {
+	if r.Parallel { // Use the struct field
 		builder = builder.WithParallelEngine()
 	}
 
