@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -115,23 +114,49 @@ func ParseAllFlags() {
 
 	// Collect all arguments for each flag set
 	var simArgs, hwArgs, reportArgs, benchmarkArgs, globalArgs []string
-	currentArgs := &globalArgs
+	
+	// Distribute arguments to their respective slices
+	// This logic assumes that flags for a specific category are somewhat predictable by prefix.
+	// Benchmark flags are treated as "everything else".
+	for i := 0; i < len(os.Args[1:]); i++ {
+		arg := os.Args[1+i] // Correctly get argument from os.Args
 
-	for _, arg := range os.Args[1:] {
+		isGlobalHelp := false
+		if arg == "-h" || arg == "-help" {
+			isGlobalHelp = true
+		}
+
+		// Check if the argument is a value for a preceding flag
+		// This simple check assumes values don't start with '-'
+		// More sophisticated parsing might be needed for flags that take negative numbers as values
+		isValue := !strings.HasPrefix(arg, "-")
+
+		// Determine which slice the current argument (and potentially its value) belongs to
+		// The logic for `currentArgs` in the original code was problematic.
+		// This revised logic attempts to categorize based on prefixes.
+		// It's still not perfect, as a benchmark flag could coincidentally share a prefix.
+		// However, it's an improvement. The most robust way is for benchmarks to register
+		// their flags with a specific prefix or for this function to know all flags.
+		
+		// Default to benchmarkArgs for unknown flags
+		var currentTargetSlice *[]string = &benchmarkArgs 
+
 		switch {
+		case isGlobalHelp:
+			currentTargetSlice = &globalArgs
 		case strings.HasPrefix(arg, "-timing"),
 			strings.HasPrefix(arg, "-max-inst"),
 			strings.HasPrefix(arg, "-parallel"),
 			strings.HasPrefix(arg, "-verify"),
 			strings.HasPrefix(arg, "-akitartm-port"),
 			strings.HasPrefix(arg, "-disable-rtm"):
-			currentArgs = &simArgs
+			currentTargetSlice = &simArgs
 		case strings.HasPrefix(arg, "-debug-isa"),
 			strings.HasPrefix(arg, "-gpus"),
 			strings.HasPrefix(arg, "-unified-gpus"),
 			strings.HasPrefix(arg, "-use-unified-memory"),
 			strings.HasPrefix(arg, "-magic-memory-copy"):
-			currentArgs = &hwArgs
+			currentTargetSlice = &hwArgs
 		case strings.HasPrefix(arg, "-trace-mem"),
 			strings.HasPrefix(arg, "-report-inst-count"),
 			strings.HasPrefix(arg, "-report-cache-latency"),
@@ -152,62 +177,96 @@ func ParseAllFlags() {
 			strings.HasPrefix(arg, "-trace-vis-db-file"),
 			strings.HasPrefix(arg, "-trace-vis-start"),
 			strings.HasPrefix(arg, "-trace-vis-end"):
-			currentArgs = &reportArgs
-		// This case is tricky as benchmark flags are not predefined here.
-		// A more robust solution might involve a prefix for benchmark flags,
-		// or benchmarks registering their flags with BenchmarkFlags.
-		// For now, we'll assume benchmark flags don't overlap with others
-		// or they are handled by the benchmark itself.
-		// We can add a placeholder here if needed.
-		// else if isBenchmarkFlag(arg) {
-		// 	currentArgs = &benchmarkArgs
-		// }
-		default:
-			// If it's a value for a preceding flag, it should stay with currentArgs.
-			// Otherwise, it could be a global flag or a benchmark flag not caught above.
-			if !strings.HasPrefix(arg, "-") && len(*currentArgs) > 0 {
-				// This is likely a value for the previous flag
-			} else {
-				// This could be a global flag or a new benchmark flag
-				// For simplicity, let's assign unknown flags to global or benchmark
-				// This part needs refinement based on how benchmark flags are handled.
-				// For now, let's put them to globalArgs to be safe.
-				currentArgs = &globalArgs
+			currentTargetSlice = &reportArgs
+		}
+		
+		*currentTargetSlice = append(*currentTargetSlice, arg)
+		
+		// If this arg is a flag (not a value itself) and the next arg exists and is a value,
+		// append the value to the same slice.
+		if strings.HasPrefix(arg, "-") && (i+1 < len(os.Args[1:])) {
+			nextArg := os.Args[1+i+1]
+			if !strings.HasPrefix(nextArg, "-") {
+				// Check if the flag type expects an argument.
+				// This is a simplification; BoolFlags don't consume the next argument.
+				// The standard library flag parsing handles this correctly.
+				// For this distribution logic, we assume if a -flag is followed by a non -flag, it's its value.
+				// This might misclassify a positional argument if it follows a boolean flag.
+				// However, the flag.*.Parse methods will ultimately validate this.
+				definedFlag := SimulationFlags.Lookup(strings.TrimPrefix(arg, "-")) != nil ||
+				               HardwareFlags.Lookup(strings.TrimPrefix(arg, "-")) != nil ||
+				               ReportFlags.Lookup(strings.TrimPrefix(arg, "-")) != nil ||
+				               BenchmarkFlags.Lookup(strings.TrimPrefix(arg, "-")) != nil || // Check benchmark flags too
+				               flag.CommandLine.Lookup(strings.TrimPrefix(arg, "-")) != nil // Check global -h, -help
+				
+				isBool := false
+				if definedFlagInstance := SimulationFlags.Lookup(strings.TrimPrefix(arg, "-")); definedFlagInstance != nil {
+					if _, ok := definedFlagInstance.Value.(flag.Getter).Get().(bool); ok { isBool = true }
+				} else if definedFlagInstance := HardwareFlags.Lookup(strings.TrimPrefix(arg, "-")); definedFlagInstance != nil {
+					if _, ok := definedFlagInstance.Value.(flag.Getter).Get().(bool); ok { isBool = true }
+				} else if definedFlagInstance := ReportFlags.Lookup(strings.TrimPrefix(arg, "-")); definedFlagInstance != nil {
+					if _, ok := definedFlagInstance.Value.(flag.Getter).Get().(bool); ok { isBool = true }
+				} // Add similar checks for BenchmarkFlags and flag.CommandLine if needed for precision here.
+
+				if definedFlag && !isBool { // Only append nextArg if current flag is defined and not boolean
+					*currentTargetSlice = append(*currentTargetSlice, nextArg)
+					i++ // Increment i because we've consumed the next argument as a value
+				}
 			}
 		}
-		*currentArgs = append(*currentArgs, arg)
 	}
 
-	// It's important to parse global flags first, especially the help flag.
-	flag.Parse(globalArgs)
-	if *help {
+	// Parse global flags first (this should only be -h or -help).
+	// Use flag.CommandLine to parse these.
+	// The `help` variable is defined using `flag.Bool` which registers on flag.CommandLine.
+	if err := flag.CommandLine.Parse(globalArgs); err != nil && err != flag.ErrHelp {
+		// This error should ideally not happen if globalArgs only contains -h/-help
+		// or if other global flags were explicitly defined on flag.CommandLine
+		fmt.Fprintf(os.Stderr, "Error parsing global flags: %v\n", err)
+		flag.Usage() // Show combined usage
+		os.Exit(1)
+	}
+
+	if *help { // Check if the global -h or -help flag was parsed
 		flag.Usage()
 		os.Exit(0)
 	}
 
-	// Parse each flag set with its collected arguments
-	// ExitOnError will cause the program to exit if parsing fails.
-	if err := SimulationFlags.Parse(simArgs); err != nil && err != flag.ErrHelp {
-		// Allow ErrHelp to be handled by the global help flag if not parsed by specific set
+	// Parse each categorized flag set with its collected arguments.
+	// Note: flag.ErrHelp is returned by FlagSet.Parse if -h or -help is in args
+	// and the FlagSet is configured with ContinueOnError or ExitOnError.
+	// We want our global help to take precedence.
+	if err := SimulationFlags.Parse(simArgs); err != nil && err.Error() != "flag: help requested" {
 		fmt.Fprintf(os.Stderr, "Error parsing simulation flags: %v\n", err)
-		flag.Usage()
+		flag.Usage() // Show combined usage
 		os.Exit(1)
 	}
-	if err := HardwareFlags.Parse(hwArgs); err != nil && err != flag.ErrHelp {
+	if err := HardwareFlags.Parse(hwArgs); err != nil && err.Error() != "flag: help requested" {
 		fmt.Fprintf(os.Stderr, "Error parsing hardware flags: %v\n", err)
 		flag.Usage()
 		os.Exit(1)
 	}
-	if err := ReportFlags.Parse(reportArgs); err != nil && err != flag.ErrHelp {
+	if err := ReportFlags.Parse(reportArgs); err != nil && err.Error() != "flag: help requested" {
 		fmt.Fprintf(os.Stderr, "Error parsing report flags: %v\n", err)
 		flag.Usage()
 		os.Exit(1)
 	}
-	if err := BenchmarkFlags.Parse(benchmarkArgs); err != nil && err != flag.ErrHelp {
-		// BenchmarkFlags might be empty if no benchmark-specific flags are passed
-		// or defined yet. This is not necessarily an error.
-		// However, if parsing fails for other reasons, it's an error.
-		if len(benchmarkArgs) > 0 || (err != nil && err.Error() != "flag provided but not defined: -h") { // A bit hacky check for -h
+	if err := BenchmarkFlags.Parse(benchmarkArgs); err != nil && err.Error() != "flag: help requested" {
+		// This check is to prevent exiting if benchmarkArgs is empty and Parse is called.
+		// An error like "flag provided but not defined: -h" might occur if -h was miscategorized.
+		// The main global help should catch -h before this.
+		isNonHelpError := true
+		if err != nil {
+			// Check if the error is simply because no arguments were passed to BenchmarkFlags.Parse
+			// or if it's a genuine parsing error other than help.
+			// An empty benchmarkArgs list will not cause Parse to error unless args contains something undefined.
+			if len(benchmarkArgs) == 0 && err.Error() == "flag: help requested" { // Should not happen if global help works
+				isNonHelpError = false 
+			}
+			// If benchmarkArgs has items, or the error is not about "help requested", then it's a real error.
+		}
+
+		if isNonHelpError && err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing benchmark flags: %v\n", err)
 			flag.Usage()
 			os.Exit(1)
