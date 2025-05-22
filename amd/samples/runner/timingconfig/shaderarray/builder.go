@@ -238,7 +238,9 @@ func (b *Builder) connectScalarMem() {
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		Build(b.name)
+		Build(b.name + ".ScalarMemConn")
+	b.simulation.RegisterComponent(conn)
+
 	conn.PlugIn(rob.GetPortByName("Top"))
 	for i := range b.numCUs {
 		cu := b.cus[i]
@@ -272,7 +274,9 @@ func (b *Builder) connectInstMem() {
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
-		Build(b.name)
+		Build(b.name + ".InstMemConn")
+	b.simulation.RegisterComponent(conn)
+
 	conn.PlugIn(robTopPort)
 	for i := range b.numCUs {
 		cu := b.cus[i]
@@ -292,6 +296,8 @@ func (b *Builder) connectWithDirectConnection(
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		Build(name)
+
+	b.simulation.RegisterComponent(conn)
 
 	conn.PlugIn(port1)
 	conn.PlugIn(port2)
@@ -456,6 +462,7 @@ func (b *Builder) buildL1SCache() {
 	name := fmt.Sprintf("%s.L1SCache", b.name)
 	cache := builder.Build(name)
 	b.l1sCache = cache
+	b.simulation.RegisterComponent(cache)
 
 	// if b.memTracer != nil {
 	// 	tracing.CollectTrace(cache, b.memTracer)
