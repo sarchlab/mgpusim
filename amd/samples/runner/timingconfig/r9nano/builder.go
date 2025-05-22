@@ -218,6 +218,7 @@ func (b *Builder) connectCP() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		Build(b.name + ".InternalConn")
+	b.simulation.RegisterComponent(b.internalConn)
 
 	b.internalConn.PlugIn(b.cp.ToDMA)
 	b.internalConn.PlugIn(b.cp.ToCaches)
@@ -274,6 +275,7 @@ func (b *Builder) connectL2AndDRAM() {
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		Build(b.name + ".L2ToDRAM")
+	b.simulation.RegisterComponent(b.l2ToDramConnection)
 
 	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
 		1 << b.log2MemoryBankInterleavingSize)
@@ -606,11 +608,14 @@ func (b *Builder) buildDMAEngine() {
 		fmt.Sprintf("%s.DMA", b.name),
 		b.simulation.GetEngine(),
 		nil)
+
+	b.simulation.RegisterComponent(b.dmaEngine)
 }
 
 func (b *Builder) buildCP() {
 	b.cp = cp.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
+		WithVisTracer(b.simulation.GetVisTracer()).
 		WithFreq(b.freq).
 		WithMonitor(b.simulation.GetMonitor()).
 		Build(b.name + ".CommandProcessor")
