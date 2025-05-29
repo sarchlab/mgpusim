@@ -65,10 +65,10 @@ jobs:
 
       - name: Format and append evaluation result
         run: |
-          SHORT_SHA="${{ steps.commit_info.outputs.sha:0:7 }}"
+          SHA="${{ steps.commit_info.outputs.sha }}"
+          SHORT_SHA="${SHA:0:7}"
           MSG="${{ steps.commit_info.outputs.message }}"
           SCORE="${{ steps.eval.outputs.score }}"
-          SHA="${{ steps.commit_info.outputs.sha }}"
           AUTHOR="${{ steps.commit_info.outputs.author }}"
 
           # Extract commit_type and version

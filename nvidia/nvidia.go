@@ -37,6 +37,7 @@ func main() {
 		WithTraceDirectory(*params.TraceDir).
 		Build()
 
+	// A100
 	platform := new(platform.A100PlatformBuilder).
 		WithFreq(1 * sim.Hz).
 		Build()
