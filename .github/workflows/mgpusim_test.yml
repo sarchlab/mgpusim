@@ -51,6 +51,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Get Commit Info
         id: commit_info
