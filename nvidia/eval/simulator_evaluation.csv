@@ -1,3 +1,3 @@
-Short SHA,Type,Version,Score,Commit Message,SHA,Author
-2f839b7,dev,,1.00,"Perfect! It works! Please do remember to restore the changed mgpusim_test.yml when finally merging back to v4",2f839b78fe5ed82631e8583a5a77b887b2de53f7,EnzeXu
-636cf60,release,v0.0,1.00,"reformat the simulator evaluation results",636cf60db8134001eb6037731e97639aa858d089,EnzeXu
+Short SHA,Type,Version,Error Score,Commit Message,SHA,Author
+2f839b7,dev,,99999,"Perfect! It works! Please do remember to restore the changed mgpusim_test.yml when finally merging back to v4",2f839b78fe5ed82631e8583a5a77b887b2de53f7,EnzeXu
+636cf60,release,v0.0,99999,"reformat the simulator evaluation results",636cf60db8134001eb6037731e97639aa858d089,EnzeXu
