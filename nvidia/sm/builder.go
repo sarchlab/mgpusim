@@ -3,8 +3,6 @@ package sm
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/cache/writearound"
-	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 
@@ -49,7 +47,7 @@ func (b *SMBuilder) Build(name string) *SM {
 	smsps := b.buildSMSPs(name)
 	b.connectSMwithSMSPs(s, smsps)
 
-	b.buildL1Caches(s)
+	// b.buildL1Caches(s)
 
 	atexit.Register(s.LogStatus)
 
@@ -95,37 +93,37 @@ func (b *SMBuilder) connectSMwithSMSPs(sm *SM, smsps []*smsp.SMSP) {
 	}
 }
 
-func (b *SMBuilder) buildL1Caches(sm *SM) {
-	builder := writearound.NewBuilder().
-		WithEngine(b.engine).
-		WithFreq(b.freq).
-		WithBankLatency(60).
-		WithNumBanks(1).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(4).
-		WithNumMSHREntry(16).
-		WithTotalByteSize(16 * mem.KB)
+// func (b *SMBuilder) buildL1Caches(sm *SM) {
+// 	builder := writearound.NewBuilder().
+// 		WithEngine(b.engine).
+// 		WithFreq(b.freq).
+// 		WithBankLatency(60).
+// 		WithNumBanks(1).
+// 		WithLog2BlockSize(b.log2CacheLineSize).
+// 		WithWayAssociativity(4).
+// 		WithNumMSHREntry(16).
+// 		WithTotalByteSize(16 * mem.KB)
 
-	// if b.visTracer != nil {
-	// 	builder = builder.WithVisTracer(b.visTracer)
-	// }
+// 	// if b.visTracer != nil {
+// 	// 	builder = builder.WithVisTracer(b.visTracer)
+// 	// }
 
-	// for i := 0; i < b.numCU; i++ {
-	// 	name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
-	// 	cache := builder.Build(name)
-	// 	sa.l1vCaches = append(sa.l1vCaches, cache)
+// 	// for i := 0; i < b.numCU; i++ {
+// 	// 	name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
+// 	// 	cache := builder.Build(name)
+// 	// 	sa.l1vCaches = append(sa.l1vCaches, cache)
 
-	// 	if b.memTracer != nil {
-	// 		tracing.CollectTrace(cache, b.memTracer)
-	// 	}
-	// }
-	for i := 0; i < int(b.smspsCount); i++ {
-		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
-		cache := builder.Build(name)
-		sm.l1Caches = append(sm.l1Caches, cache)
+// 	// 	if b.memTracer != nil {
+// 	// 		tracing.CollectTrace(cache, b.memTracer)
+// 	// 	}
+// 	// }
+// 	for i := 0; i < int(b.smspsCount); i++ {
+// 		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
+// 		cache := builder.Build(name)
+// 		sm.l1Caches = append(sm.l1Caches, cache)
 
-		// if b.memTracer != nil {
-		// 	tracing.CollectTrace(cache, b.memTracer)
-		// }
-	}
-}
+// 		// if b.memTracer != nil {
+// 		// 	tracing.CollectTrace(cache, b.memTracer)
+// 		// }
+// 	}
+// }
