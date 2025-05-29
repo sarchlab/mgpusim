@@ -879,6 +879,13 @@ func NewComputeUnit(
 	cu.ToScalarMem = sim.NewPort(cu, 4, 4, name+".ToScalarMem")
 	cu.ToVectorMem = sim.NewPort(cu, 4, 4, name+".ToVectorMem")
 	cu.ToCP = sim.NewPort(cu, 4, 4, name+".ToCP")
+
+	cu.AddPort("Top", cu.ToACE)
+	cu.AddPort("Ctrl", cu.ToCP)
+	cu.AddPort("InstMem", cu.ToInstMem)
+	cu.AddPort("ScalarMem", cu.ToScalarMem)
+	cu.AddPort("VectorMem", cu.ToVectorMem)
+
 	cu.wftime = make(map[string]sim.VTimeInSec)
 
 	return cu

@@ -25,7 +25,7 @@ type CommandProcessor struct {
 	DMAEngine          sim.Port
 	Driver             sim.Port
 	TLBs               []sim.Port
-	CUs                []sim.Port
+	CUs                []sim.RemotePort
 	AddressTranslators []sim.Port
 	RDMA               sim.Port
 	PMC                sim.Port
@@ -67,7 +67,7 @@ type CUInterfaceForCP interface {
 
 	// ControlPort returns a port on the CU that the CP can send controlling
 	// messages to.
-	ControlPort() sim.Port
+	ControlPort() sim.RemotePort
 }
 
 // RegisterCU allows the Command Processor to control the CU.
@@ -326,7 +326,7 @@ func (p *CommandProcessor) processShootdownCommand(
 		p.numCUAck++
 		req := protocol.CUPipelineFlushReqBuilder{}.
 			WithSrc(p.ToCUs.AsRemote()).
-			WithDst(p.CUs[i].AsRemote()).
+			WithDst(p.CUs[i]).
 			Build()
 		p.ToCUs.Send(req)
 	}
@@ -435,7 +435,7 @@ func (p *CommandProcessor) processRegularCacheFlush(
 ) bool {
 	rsp := sim.GeneralRspBuilder{}.
 		WithSrc(p.ToDriver.AsRemote()).
-		WithDst(p.Driver.AsRemote()).
+		WithDst(p.currFlushRequest.Src).
 		WithOriginalReq(p.currFlushRequest).
 		Build()
 
@@ -599,7 +599,7 @@ func (p *CommandProcessor) processAddressTranslatorRestartRsp(
 		for i := 0; i < len(p.CUs); i++ {
 			req := protocol.CUPipelineRestartReqBuilder{}.
 				WithSrc(p.ToCUs.AsRemote()).
-				WithDst(p.CUs[i].AsRemote()).
+				WithDst(p.CUs[i]).
 				Build()
 			p.ToCUs.Send(req)
 
@@ -791,7 +791,7 @@ func (p *CommandProcessor) processMemCopyRsp(
 	originalReq := p.findAndRemoveOriginalMemCopyRequest(req)
 
 	rsp := sim.GeneralRspBuilder{}.
-		WithDst(p.Driver.AsRemote()).
+		WithDst(originalReq.Meta().Src).
 		WithSrc(p.ToDriver.AsRemote()).
 		WithOriginalReq(originalReq).
 		Build()
