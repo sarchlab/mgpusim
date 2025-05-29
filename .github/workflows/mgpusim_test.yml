@@ -17,9 +17,6 @@ jobs:
 
       - name: Build
         run: go build ./...
-      
-      - name: Build Nvidia Eval
-        run: go build -o nvidia/eval/eval nvidia/eval/eval.go
 
   lint:
     name: Lint
@@ -54,6 +51,11 @@ jobs:
 
       - name: List Directory Contents
         run: ls -R
+      
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
 
       - name: Get Commit Info
         id: commit_info
@@ -65,6 +67,7 @@ jobs:
       - name: Run Evaluation Script
         id: eval
         run: |
+          go build -o nvidia/eval/eval nvidia/eval/eval.go
           # SCORE=99999 # Simulated score
           SCORE=$(./nvidia/eval/eval)
           echo "score=$SCORE" >> $GITHUB_OUTPUT
