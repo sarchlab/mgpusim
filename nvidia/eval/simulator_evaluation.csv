@@ -1,4 +1,3 @@
-906d6c5428ebc89b596c3f845a857c545dcd4208,"release .csv",EnzeXu,1.00
-a797966e8919eb54231266bed05a2db927f458e9,"Merge branch 'nvidia_cache' of https://github.com/sarchlab/mgpusim into nvidia_cache",EnzeXu,1.00
-2f839b78fe5ed82631e8583a5a77b887b2de53f7,"Perfect! It works! Please do remember to restore the changed mgpusim_test.yml when finally merging back to v4",EnzeXu,1.00
-636cf60,release,0.0,1.00,"reformat the simulator evaluation results",636cf60db8134001eb6037731e97639aa858d089,EnzeXu
+Short SHA,Type,Version,Score,Commit Message,SHA,Author
+2f839b7,dev,,1.00,"Perfect! It works! Please do remember to restore the changed mgpusim_test.yml when finally merging back to v4",2f839b78fe5ed82631e8583a5a77b887b2de53f7,EnzeXu
+636cf60,release,v0.0,1.00,"reformat the simulator evaluation results",636cf60db8134001eb6037731e97639aa858d089,EnzeXu
