@@ -71,8 +71,8 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          git add evaluation_results.csv
-          git commit -m "Add evaluation result for ${{ steps.commit_info.outputs.sha }}"
+          git add nvidia/eval/simulator_evaluation.csv
+          git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
