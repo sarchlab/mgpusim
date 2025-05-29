@@ -63,9 +63,27 @@ jobs:
           SCORE=1.00 # Simulated score
           echo "score=$SCORE" >> $GITHUB_OUTPUT
 
-      - name: Append to results file
+      - name: Format and append evaluation result
         run: |
-          echo "${{ steps.commit_info.outputs.sha }},\"${{ steps.commit_info.outputs.message }}\",${{ steps.commit_info.outputs.author }},${{ steps.eval.outputs.score }}" >> nvidia/eval/simulator_evaluation.csv
+          SHORT_SHA="${{ steps.commit_info.outputs.sha:0:7 }}"
+          MSG="${{ steps.commit_info.outputs.message }}"
+          SCORE="${{ steps.eval.outputs.score }}"
+          SHA="${{ steps.commit_info.outputs.sha }}"
+          AUTHOR="${{ steps.commit_info.outputs.author }}"
+
+          # Extract commit_type and version
+          if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+            COMMIT_TYPE="release"
+            VERSION="${BASH_REMATCH[1]}"
+            # Remove the [release vX.X.X] part from message
+            MSG="${MSG#*\] }"
+          else
+            COMMIT_TYPE="dev"
+            VERSION=""
+          fi
+
+          # Compose the CSV line
+          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
 
       - name: Commit results
         run: |
