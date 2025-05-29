@@ -1,10 +1,10 @@
 package training
 
 import (
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/layers"
 	"github.com/sarchlab/mgpusim/v4/amd/benchmarks/dnn/tensor"
+	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("Trainer", func() {

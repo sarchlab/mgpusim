@@ -45,6 +45,11 @@ func (t *dramTracer) StepTask(task tracing.Task) {
 	// Do nothing
 }
 
+// AddMilestone does nothing
+func (t *dramTracer) AddMilestone(milestone tracing.Milestone) {
+	// Do nothing
+}
+
 // EndTask records the end of the task
 func (t *dramTracer) EndTask(task tracing.Task) {
 	t.Lock()

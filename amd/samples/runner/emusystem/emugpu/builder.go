@@ -1,4 +1,5 @@
-package runner
+// Package emugpu contains the configuration for the emulation of a GPU.
+package emugpu
 
 import (
 	"fmt"
@@ -7,139 +8,108 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/mem/mem"
-	memtraces "github.com/sarchlab/akita/v4/mem/trace"
 	"github.com/sarchlab/akita/v4/mem/vm"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
 )
 
-// EmuGPUBuilder provide services to assemble usable GPUs
-type EmuGPUBuilder struct {
-	engine           sim.Engine
+// Builder builds a GPU for emulation.
+type Builder struct {
+	simulation       *simulation.Simulation
 	freq             sim.Freq
-	driver           *driver.Driver
-	pageTable        vm.PageTable
 	log2PageSize     uint64
-	memOffset        uint64
-	memCapacity      uint64
+	enableISADebug   bool
 	gpuName          string
 	gpu              *sim.Domain
-	storage          *mem.Storage
-	commandProcessor *cp.CommandProcessor
+	engine           sim.Engine
+	pageTable        vm.PageTable
 	gpuMem           *idealmemcontroller.Comp
-	dmaEngine        *cp.DMAEngine
 	computeUnits     []*emu.ComputeUnit
-
-	enableISADebug   bool
-	enableMemTracing bool
+	commandProcessor *cp.CommandProcessor
+	dmaEngine        *cp.DMAEngine
+	driver           *driver.Driver
+	storage          *mem.Storage
 }
 
-// MakeEmuGPUBuilder creates a new EmuGPUBuilder
-func MakeEmuGPUBuilder() EmuGPUBuilder {
-	b := EmuGPUBuilder{}
+// MakeBuilder creates a new Builder with default parameters.
+func MakeBuilder() Builder {
+	b := Builder{}
+
 	b.freq = 1 * sim.GHz
 	b.log2PageSize = 12
-
 	b.enableISADebug = false
+
 	return b
 }
 
-// WithEngine sets the engine that the emulator GPUs to use
-func (b EmuGPUBuilder) WithEngine(e sim.Engine) EmuGPUBuilder {
-	b.engine = e
+// WithSimulation sets the simulation to use.
+func (b Builder) WithSimulation(sim *simulation.Simulation) Builder {
+	b.simulation = sim
+	b.engine = sim.GetEngine()
+
 	return b
 }
 
 // WithDriver sets the GPU driver that the GPUs connect to.
-func (b EmuGPUBuilder) WithDriver(d *driver.Driver) EmuGPUBuilder {
+func (b Builder) WithDriver(d *driver.Driver) Builder {
 	b.driver = d
 	return b
 }
 
 // WithPageTable sets the page table that provides the address translation
-func (b EmuGPUBuilder) WithPageTable(pageTable vm.PageTable) EmuGPUBuilder {
+func (b Builder) WithPageTable(pageTable vm.PageTable) Builder {
 	b.pageTable = pageTable
 	return b
 }
 
 // WithLog2PageSize sets the page size of the GPU, as a power of 2.
-func (b EmuGPUBuilder) WithLog2PageSize(n uint64) EmuGPUBuilder {
+func (b Builder) WithLog2PageSize(n uint64) Builder {
 	b.log2PageSize = n
 	return b
 }
 
-// WithMemCapacity sets the capacity of the GPU memory
-func (b EmuGPUBuilder) WithMemCapacity(c uint64) EmuGPUBuilder {
-	b.memCapacity = c
-	return b
-}
-
-// WithMemOffset sets the first byte address of the GPU memory
-func (b EmuGPUBuilder) WithMemOffset(offset uint64) EmuGPUBuilder {
-	b.memOffset = offset
-	return b
-}
-
 // WithStorage sets the global memory storage that is shared by multiple GPUs
-func (b EmuGPUBuilder) WithStorage(s *mem.Storage) EmuGPUBuilder {
+func (b Builder) WithStorage(s *mem.Storage) Builder {
 	b.storage = s
 	return b
 }
 
 // WithISADebugging enables the simulation to dump instruction execution
 // information.
-func (b EmuGPUBuilder) WithISADebugging() EmuGPUBuilder {
+func (b Builder) WithISADebugging() Builder {
 	b.enableISADebug = true
 	return b
 }
 
-// WithMemTracing enables the simulation to dump memory transaction information.
-func (b EmuGPUBuilder) WithMemTracing() EmuGPUBuilder {
-	b.enableMemTracing = true
-	return b
-}
-
-// Build creates a very simple GPU for emulation purposes
-func (b EmuGPUBuilder) Build(name string) *GPU {
-	b.clear()
+// Build builds the GPU.
+func (b Builder) Build(name string) *sim.Domain {
 	b.gpuName = name
+
+	b.gpu = sim.NewDomain(name)
+
 	b.buildMemory()
 	b.buildComputeUnits()
 	b.buildGPU()
 	b.connectInternalComponents()
 	b.populateExternalPorts()
 
-	return &GPU{
-		Domain:           b.gpu,
-		CommandProcessor: b.commandProcessor,
-	}
+	return b.gpu
 }
 
-func (b *EmuGPUBuilder) populateExternalPorts() {
-	b.gpu.AddPort("CommandProcessor", b.commandProcessor.ToDriver)
-}
-
-func (b *EmuGPUBuilder) clear() {
-	b.commandProcessor = nil
-	b.computeUnits = nil
-	b.gpuMem = nil
-	b.dmaEngine = nil
-	b.gpu = nil
-}
-
-func (b *EmuGPUBuilder) buildComputeUnits() {
+func (b *Builder) buildComputeUnits() {
 	disassembler := insts.NewDisassembler()
 
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		computeUnit := emu.BuildComputeUnit(
 			fmt.Sprintf("%s.CU%d", b.gpuName, i),
 			b.engine, disassembler, b.pageTable,
 			b.log2PageSize, b.gpuMem.Storage, nil)
+		b.simulation.RegisterComponent(computeUnit)
 
 		b.computeUnits = append(b.computeUnits, computeUnit)
 
@@ -155,30 +125,26 @@ func (b *EmuGPUBuilder) buildComputeUnits() {
 	}
 }
 
-func (b *EmuGPUBuilder) buildMemory() {
+func (b *Builder) buildMemory() {
 	b.gpuMem = idealmemcontroller.
 		MakeBuilder().
 		WithStorage(b.storage).
 		WithEngine(b.engine).
-		WithFreq(1 * sim.GHz).
+		WithFreq(b.freq).
 		WithLatency(1).
 		Build(b.gpuName + ".GlobalMem")
 
-	if b.enableMemTracing {
-		file, _ := os.Create("mem.trace")
-		logger := log.New(file, "", 0)
-		memTracer := memtraces.NewTracer(logger, b.engine)
-		tracing.CollectTrace(b.gpuMem, memTracer)
-	}
+	b.simulation.RegisterComponent(b.gpuMem)
 }
 
-func (b *EmuGPUBuilder) buildGPU() {
+func (b *Builder) buildGPU() {
 	b.commandProcessor = cp.MakeBuilder().
 		WithEngine(b.engine).
-		WithFreq(1 * sim.GHz).
+		WithFreq(b.freq).
 		Build(b.gpuName + ".CommandProcessor")
 
-	b.gpu = sim.NewDomain(b.gpuName)
+	b.simulation.RegisterComponent(b.commandProcessor)
+
 	b.commandProcessor.Driver = b.driver.GetPortByName("GPU")
 
 	localDataSource := new(mem.SinglePortMapper)
@@ -188,11 +154,13 @@ func (b *EmuGPUBuilder) buildGPU() {
 	b.commandProcessor.DMAEngine = b.dmaEngine.ToCP
 }
 
-func (b *EmuGPUBuilder) connectInternalComponents() {
+func (b *Builder) connectInternalComponents() {
 	connection := directconnection.MakeBuilder().
 		WithEngine(b.engine).
-		WithFreq(1 * sim.GHz).
-		Build("IntraGPUConn")
+		WithFreq(b.freq).
+		Build(b.gpuName + ".IntraGPUConn")
+
+	b.simulation.RegisterComponent(connection)
 
 	connection.PlugIn(b.commandProcessor.ToDMA)
 	connection.PlugIn(b.commandProcessor.ToCUs)
@@ -204,4 +172,8 @@ func (b *EmuGPUBuilder) connectInternalComponents() {
 		b.commandProcessor.RegisterCU(cu)
 		connection.PlugIn(cu.ToDispatcher)
 	}
+}
+
+func (b *Builder) populateExternalPorts() {
+	b.gpu.AddPort("CommandProcessor", b.commandProcessor.ToDriver)
 }
