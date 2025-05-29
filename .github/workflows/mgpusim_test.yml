@@ -17,6 +17,9 @@ jobs:
 
       - name: Build
         run: go build ./...
+      
+      - name: Build Nvidia Eval
+        run: go build -o nvidia/eval/eval nvidia/eval/eval.go
 
   lint:
     name: Lint
@@ -40,7 +43,7 @@ jobs:
   evaluate_commit:
     name: Nvidia Simulator Evaluation
     runs-on: Github-Large-1
-    needs: [lint]
+    needs: [lint, compile]
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - name: Checkout
@@ -59,8 +62,8 @@ jobs:
       - name: Run Evaluation Script
         id: eval
         run: |
-          # Replace this with your actual evaluation script
-          SCORE=1.00 # Simulated score
+          # SCORE=99999 # Simulated score
+          SCORE=$(nvidia/eval/eval)
           echo "score=$SCORE" >> $GITHUB_OUTPUT
 
       - name: Format and append evaluation result
