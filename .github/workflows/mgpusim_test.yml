@@ -59,12 +59,12 @@ jobs:
       
       - name: Clone mnt-backend
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN  }}@github.com/EnzeXu/mnt-backend-personal.git
+          git clone https://github.com/EnzeXu/mnt-backend-personal.git
           # main branch is default, no checkout needed
       
       - name: Clone mnt-collector and checkout branch and build
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN  }}@github.com/EnzeXu/mnt-collector.git
+          git clone https://github.com/EnzeXu/mnt-collector.git
           cd mnt-collector
           git checkout github_workflow
           go build
