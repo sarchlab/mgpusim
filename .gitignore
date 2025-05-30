@@ -26,10 +26,12 @@ __pycache__
 .idea
 vendor
 .DS_Store
-*.json
+# *.json
 __debug_bin
 
 samples/**/metrics.csv
 
 test
 
+mnt-collector
+mnt-backend

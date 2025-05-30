@@ -43,19 +43,31 @@ jobs:
     needs: [lint, compile]
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
-      - name: Checkout
+      - name: Checkout mgpusim
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-
-      - name: List Directory Contents
-        run: ls -R
       
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+      
+      - name: Clone mnt-collector and checkout branch and build
+        run: |
+          git clone https://github.com/sarchlab/mnt-collector.git
+          cd mnt-collector
+          git checkout github_workflow
+          go build
+
+      - name: Clone mnt-backend
+        run: |
+          git clone https://github.com/sarchlab/mnt-backend.git
+          # main branch is default, no checkout needed
+
+      - name: List Directory Contents
+        run: ls -R
 
       - name: Get Commit Info
         id: commit_info
