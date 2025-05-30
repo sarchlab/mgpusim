@@ -49,7 +49,7 @@ jobs:
       - name: Checkout mgpusim
         uses: actions/checkout@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.github_workflow }}
           fetch-depth: 0
       
       - name: Setup Go
@@ -59,7 +59,7 @@ jobs:
       
       - name: Clone mnt-collector and checkout branch and build
         run: |
-          git clone https://x-access-token:${{ secrets.github_workflow  }}@github.com/EnzeXu/mnt-collector-personal.git
+          git clone https://x-access-token:${{ secrets.github_workflow  }}@github.com/sarchlab/mnt-collector.git
           cd mnt-collector
           git checkout github_workflow
           go build
