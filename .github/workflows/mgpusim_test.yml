@@ -57,17 +57,17 @@ jobs:
         with:
           go-version: "stable"
       
+      - name: Clone mnt-backend
+        run: |
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN  }}@github.com/EnzeXu/mnt-backend-personal.git
+          # main branch is default, no checkout needed
+      
       - name: Clone mnt-collector and checkout branch and build
         run: |
           git clone https://x-access-token:${{ secrets.GITHUB_TOKEN  }}@github.com/EnzeXu/mnt-collector-personal.git
           cd mnt-collector-personal
           git checkout github_workflow
           go build
-
-      - name: Clone mnt-backend
-        run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN  }}@github.com/EnzeXu/mnt-backend-personal.git
-          # main branch is default, no checkout needed
 
       - name: List Directory Contents
         run: ls -R
