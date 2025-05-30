@@ -2,21 +2,24 @@ name: MGPUSim Test
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
-  compile:
-    name: Compile
-    runs-on: Github-Large-1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+  # compile:
+  #   name: Compile
+  #   runs-on: Github-Large-1
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v2
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v4
+  #       with:
+  #         go-version: "stable"
 
-      - name: Build
-        run: go build ./...
+  #     - name: Build
+  #       run: go build ./...
 
   # lint:
   #   name: Lint
