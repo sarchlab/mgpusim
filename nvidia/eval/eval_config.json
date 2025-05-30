@@ -1,0 +1,43 @@
+{
+    "script_path": "./mnt-collector",
+    "benchmarks": [
+        {
+            "id": 0,
+            "title": "2mm",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 32,
+                    "trace-id": "682e34d6b541e8df7bd618da",
+                    "truth": {
+                        "cycles": 6951.75
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682e34d8b541e8df7bd618db",
+                    "truth": {
+                        "cycles": 9111.68
+                    }
+                }
+            ]
+        },
+        {
+            "id": 1,
+            "title": "3mm",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 32,
+                    "trace-id": "682eea8fb541e8df7bd61988",
+                    "truth": {
+                        "cycles": 10204.87
+                    }
+                }
+            ]
+        }
+    ]
+}
