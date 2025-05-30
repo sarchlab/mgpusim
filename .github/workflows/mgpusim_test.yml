@@ -58,8 +58,6 @@ jobs:
           go-version: "stable"
       
       - name: Clone mnt-collector and checkout branch and build
-        with:
-          token: ${{ secrets.github_workflow }}
         run: |
           git clone https://x-access-token:${{ secrets.github_workflow  }}@github.com/sarchlab/mnt-collector.git
           cd mnt-collector
@@ -67,8 +65,6 @@ jobs:
           go build
 
       - name: Clone mnt-backend
-        with:
-          token: ${{ secrets.github_workflow }}
         run: |
           git clone https://x-access-token:${{ secrets.github_workflow  }}@github.com/sarchlab/mnt-backend.git
           # main branch is default, no checkout needed
