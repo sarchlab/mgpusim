@@ -64,8 +64,8 @@ jobs:
       
       - name: Clone mnt-collector and checkout branch and build
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN  }}@github.com/EnzeXu/mnt-collector-personal.git
-          cd mnt-collector-personal
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN  }}@github.com/EnzeXu/mnt-collector.git
+          cd mnt-collector
           git checkout github_workflow
           go build
 
