@@ -43,7 +43,7 @@ jobs:
   evaluate_commit:
     name: Nvidia Simulator Evaluation
     runs-on: Github-Large-1
-    needs: [compile]
+    # needs: [compile]
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - name: Checkout mgpusim
