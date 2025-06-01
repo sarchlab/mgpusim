@@ -6,20 +6,20 @@ permissions:
   contents: read
 
 jobs:
-  compile:
-    name: Compile
-    runs-on: Github-Large-1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+  # compile:
+  #   name: Compile
+  #   runs-on: Github-Large-1
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v2
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v4
+  #       with:
+  #         go-version: "stable"
 
-      - name: Build
-        run: go build ./...
+  #     - name: Build
+  #       run: go build ./...
 
   # lint:
   #   name: Lint
@@ -57,17 +57,17 @@ jobs:
         with:
           go-version: "stable"
       
-      - name: Clone mnt-backend
-        run: |
-          git clone https://github.com/EnzeXu/mnt-backend-personal.git
-          # main branch is default, no checkout needed
+      # - name: Clone mnt-backend
+      #   run: |
+      #     git clone https://github.com/EnzeXu/mnt-backend-personal.git
+      #     # main branch is default, no checkout needed
       
-      - name: Clone mnt-collector and checkout branch and build
-        run: |
-          git clone https://github.com/EnzeXu/mnt-collector.git
-          cd mnt-collector
-          git checkout github_workflow
-          go build
+      # - name: Clone mnt-collector and checkout branch and build
+      #   run: |
+      #     git clone https://github.com/EnzeXu/mnt-collector.git
+      #     cd mnt-collector
+      #     git checkout github_workflow
+      #     go build
 
       - name: List Directory Contents
         run: ls -R
