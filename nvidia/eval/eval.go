@@ -11,7 +11,7 @@ import (
 	"regexp"
 )
 
-// Structures for JSON parsing
+// EvalConfig is for JSON parsing
 type EvalConfig struct {
 	ScriptPath string      `json:"script_path"`
 	Benchmarks []Benchmark `json:"benchmarks"`
@@ -27,121 +27,187 @@ type Benchmark struct {
 type ArgConfig map[string]interface{}
 
 func main() {
-	// Step 1: Read eval_config.json
-	configFile, err := os.Open("nvidia/eval/eval_config.json")
+	config := mustReadConfig("nvidia/eval/eval_config.json")
+	avgSEs := processBenchmarks(config)
+	printAvgSEs(avgSEs)
+}
+
+func mustReadConfig(path string) EvalConfig {
+	configFile, err := os.Open(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open nvidia/eval/eval_config.json: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to open %s: %v\n", path, err)
 		os.Exit(1)
 	}
 	defer configFile.Close()
 
 	var config EvalConfig
 	if err := json.NewDecoder(configFile).Decode(&config); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to decode nvidia/eval/eval_config.json: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to decode %s: %v\n", path, err)
 		os.Exit(1)
 	}
-
-	avgSEs := []float64{}
-
-	// Step 2: For each benchmark and each arg setting
-	for _, bench := range config.Benchmarks {
-		seList := []float64{}
-		for _, arg := range bench.Args {
-			traceID, ok := arg["trace-id"].(string)
-			if !ok {
-				fmt.Fprintf(os.Stderr, "trace-id missing or not a string\n")
-				continue
-			}
-			truthCycles := 0.0
-			if truth, ok := arg["truth"].(map[string]interface{}); ok {
-				if cycles, ok := truth["cycles"].(float64); ok {
-					truthCycles = cycles
-				}
-			}
-
-			// Step 2.1: Create eval/tmp.yaml
-			tmpYamlPath := filepath.Join("nvidia/eval/", "tmp.yaml")
-			err := writeTmpYaml(tmpYamlPath, traceID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to write nvidia/eval/tmp.yaml: %v\n", err)
-				continue
-			}
-
-			// Step 2.2: Run the external script
-			cmd := exec.Command(
-				"./mnt-collector", //config.ScriptPath, // "./mnt-collector"
-				"simulations", "--collect", "../nvidia/eval/tmp.yaml",
-			)
-			cmd.Dir = "mnt-collector" // run from eval directory
-			stdout, err := cmd.StdoutPipe()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to get stdout: %v\n", err)
-				continue
-			}
-			cmd.Stderr = os.Stderr
-			if err := cmd.Start(); err != nil {
-				fmt.Println(stdout)
-				fmt.Fprintf(os.Stderr, "Failed to start command: %v\n", err)
-				continue
-			}
-
-			// Step 2.3: Parse the last float from the output
-			simResult := parseLastFloat(stdout)
-			cmd.Wait()
-
-			// Check for invalid simResult
-			if simResult == 0 || simResult == 1 {
-				fmt.Fprintf(os.Stderr, "Error: simResult is %v (likely due to process exit code, not a valid simulation result)\n", simResult)
-				continue
-			}
-
-			// // Step 2.4: Print the result
-			// argsStr := buildArgsString(arg)
-			// fmt.Printf("(%v, %v) suite: '%s', title: '%s', args: %s\n",
-			// 	truthCycles, simResult, bench.Suite, bench.Title, argsStr)
-
-			// Step 2.5: Calculate symmetric error for this arg
-			minVal := simResult
-			if truthCycles < simResult {
-				minVal = truthCycles
-			}
-			se := 999999.0
-			if minVal > 0 {
-				se = abs(simResult-truthCycles) / minVal
-			}
-			seList = append(seList, se)
-		}
-		// Average SE for this benchmark
-		if len(seList) > 0 {
-			sum := 0.0
-			for _, v := range seList {
-				sum += v
-			}
-			avg := sum / float64(len(seList))
-			avgSEs = append(avgSEs, avg)
-		}
-	}
-	// // Print the list of avg SEs
-	// fmt.Print("[")
-	// for i, v := range avgSEs {
-	// 	if i > 0 {
-	// 		fmt.Print(",")
-	// 	}
-	// 	fmt.Printf("%.6f", v)
-	// }
-	// fmt.Println("]")
-
-	// Print the overall average
-	if len(avgSEs) > 0 {
-		sum := 0.0
-		for _, v := range avgSEs {
-			sum += v
-		}
-		fmt.Printf("%.6f\n", sum/float64(len(avgSEs)))
-	}
-	// println(99999)
-	// os.Exit(0)
+	return config
 }
+
+func processBenchmarks(config EvalConfig) []float64 {
+	var avgSEs []float64
+	for _, bench := range config.Benchmarks {
+		seList := processArgs(bench, config.ScriptPath)
+		if len(seList) > 0 {
+			avgSEs = append(avgSEs, average(seList))
+		}
+	}
+	return avgSEs
+}
+
+func processArgs(bench Benchmark, scriptPath string) []float64 {
+	seList := make([]float64, 0, len(bench.Args)) // pre-allocate
+	for _, arg := range bench.Args {
+		traceID, ok := arg["trace-id"].(string)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "trace-id missing or not a string\n")
+			continue
+		}
+		truthCycles := getTruthCycles(arg)
+		tmpYamlPath := filepath.Join("nvidia/eval/", "tmp.yaml")
+		if err := writeTmpYaml(tmpYamlPath, traceID); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to write nvidia/eval/tmp.yaml: %v\n", err)
+			continue
+		}
+		simResult := runSimulation(scriptPath, tmpYamlPath)
+		if simResult == 0 || simResult == 1 {
+			fmt.Fprintf(os.Stderr, "Error: simResult is %v (likely due to process exit code)\n", simResult)
+			continue
+		}
+		seList = append(seList, symmetricError(truthCycles, simResult))
+	}
+	return seList
+}
+
+func getTruthCycles(arg ArgConfig) float64 {
+	if truth, ok := arg["truth"].(map[string]interface{}); ok {
+		if cycles, ok := truth["cycles"].(float64); ok {
+			return cycles
+		}
+	}
+	return 0.0
+}
+
+// func main() {
+// 	// Step 1: Read eval_config.json
+// 	configFile, err := os.Open("nvidia/eval/eval_config.json")
+// 	if err != nil {
+// 		fmt.Fprintf(os.Stderr, "Failed to open nvidia/eval/eval_config.json: %v\n", err)
+// 		os.Exit(1)
+// 	}
+// 	defer configFile.Close()
+
+// 	var config EvalConfig
+// 	if err := json.NewDecoder(configFile).Decode(&config); err != nil {
+// 		fmt.Fprintf(os.Stderr, "Failed to decode nvidia/eval/eval_config.json: %v\n", err)
+// 		os.Exit(1)
+// 	}
+
+// 	avgSEs := []float64{}
+
+// 	// Step 2: For each benchmark and each arg setting
+// 	for _, bench := range config.Benchmarks {
+// 		seList := []float64{}
+// 		for _, arg := range bench.Args {
+// 			traceID, ok := arg["trace-id"].(string)
+// 			if !ok {
+// 				fmt.Fprintf(os.Stderr, "trace-id missing or not a string\n")
+// 				continue
+// 			}
+// 			truthCycles := 0.0
+// 			if truth, ok := arg["truth"].(map[string]interface{}); ok {
+// 				if cycles, ok := truth["cycles"].(float64); ok {
+// 					truthCycles = cycles
+// 				}
+// 			}
+
+// 			// Step 2.1: Create eval/tmp.yaml
+// 			tmpYamlPath := filepath.Join("nvidia/eval/", "tmp.yaml")
+// 			err := writeTmpYaml(tmpYamlPath, traceID)
+// 			if err != nil {
+// 				fmt.Fprintf(os.Stderr, "Failed to write nvidia/eval/tmp.yaml: %v\n", err)
+// 				continue
+// 			}
+
+// 			// Step 2.2: Run the external script
+// 			cmd := exec.Command(
+// 				"./mnt-collector", //config.ScriptPath, // "./mnt-collector"
+// 				"simulations", "--collect", "../nvidia/eval/tmp.yaml",
+// 			)
+// 			cmd.Dir = "mnt-collector" // run from eval directory
+// 			stdout, err := cmd.StdoutPipe()
+// 			if err != nil {
+// 				fmt.Fprintf(os.Stderr, "Failed to get stdout: %v\n", err)
+// 				continue
+// 			}
+// 			cmd.Stderr = os.Stderr
+// 			if err := cmd.Start(); err != nil {
+// 				fmt.Println(stdout)
+// 				fmt.Fprintf(os.Stderr, "Failed to start command: %v\n", err)
+// 				continue
+// 			}
+
+// 			// Step 2.3: Parse the last float from the output
+// 			simResult := parseLastFloat(stdout)
+// 			cmd.Wait()
+
+// 			// Check for invalid simResult
+// 			if simResult == 0 || simResult == 1 {
+// 				fmt.Fprintf(os.Stderr, "Error: simResult is %v (likely due to process exit code)\n", simResult)
+// 				continue
+// 			}
+
+// 			// // Step 2.4: Print the result
+// 			// argsStr := buildArgsString(arg)
+// 			// fmt.Printf("(%v, %v) suite: '%s', title: '%s', args: %s\n",
+// 			// 	truthCycles, simResult, bench.Suite, bench.Title, argsStr)
+
+// 			// Step 2.5: Calculate symmetric error for this arg
+// 			minVal := simResult
+// 			if truthCycles < simResult {
+// 				minVal = truthCycles
+// 			}
+// 			se := 999999.0
+// 			if minVal > 0 {
+// 				se = abs(simResult-truthCycles) / minVal
+// 			}
+// 			seList = append(seList, se)
+// 		}
+// 		// Average SE for this benchmark
+// 		if len(seList) > 0 {
+// 			sum := 0.0
+// 			for _, v := range seList {
+// 				sum += v
+// 			}
+// 			avg := sum / float64(len(seList))
+// 			avgSEs = append(avgSEs, avg)
+// 		}
+// 	}
+// 	// // Print the list of avg SEs
+// 	// fmt.Print("[")
+// 	// for i, v := range avgSEs {
+// 	// 	if i > 0 {
+// 	// 		fmt.Print(",")
+// 	// 	}
+// 	// 	fmt.Printf("%.6f", v)
+// 	// }
+// 	// fmt.Println("]")
+
+// 	// Print the overall average
+// 	if len(avgSEs) > 0 {
+// 		sum := 0.0
+// 		for _, v := range avgSEs {
+// 			sum += v
+// 		}
+// 		fmt.Printf("%.6f\n", sum/float64(len(avgSEs)))
+// 	}
+// 	// println(99999)
+// 	// os.Exit(0)
+// }
 
 // Write tmp.yaml based on the example, but with the correct trace-id
 func writeTmpYaml(path, traceID string) error {
@@ -155,6 +221,27 @@ trace-id:
 - %s
 `
 	return os.WriteFile(path, []byte(fmt.Sprintf(content, traceID)), 0644)
+}
+
+func runSimulation(scriptPath, tmpYamlPath string) float64 {
+	cmd := exec.Command(
+		"./mnt-collector",
+		"simulations", "--collect", "../nvidia/eval/tmp.yaml",
+	)
+	cmd.Dir = "mnt-collector"
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to get stdout: %v\n", err)
+		return 0
+	}
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to start command: %v\n", err)
+		return 0
+	}
+	result := parseLastFloat(stdout)
+	cmd.Wait()
+	return result
 }
 
 // Parse the last float from the command output
@@ -209,6 +296,42 @@ func parseLastFloat(r io.Reader) float64 {
 // }
 
 // Add this helper function:
+
+func symmetricError(truth, sim float64) float64 {
+	minVal := sim
+	if truth < sim {
+		minVal = truth
+	}
+	if minVal > 0 {
+		return abs(sim-truth) / minVal
+	}
+	return 999999.0
+}
+
+func average(list []float64) float64 {
+	sum := 0.0
+	for _, v := range list {
+		sum += v
+	}
+	return sum / float64(len(list))
+}
+
+func printAvgSEs(avgSEs []float64) {
+	// Print the list of avg SEs
+	fmt.Print("[")
+	for i, v := range avgSEs {
+		if i > 0 {
+			fmt.Print(",")
+		}
+		fmt.Printf("%.6f", v)
+	}
+	fmt.Println("]")
+	// Print the overall average
+	if len(avgSEs) > 0 {
+		fmt.Printf("%.6f\n", average(avgSEs))
+	}
+}
+
 func abs(x float64) float64 {
 	if x < 0 {
 		return -x
