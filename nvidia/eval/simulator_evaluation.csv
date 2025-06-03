@@ -4,3 +4,4 @@ Short SHA,Type,Version,Error Score,Commit Message,SHA,Author
 636cf60,release,v0.0,99999,"reformat the simulator evaluation results",636cf60db8134001eb6037731e97639aa858d089,EnzeXu
 7f85efe,dev,,99999,"test if the format is finalized",7f85efe4fb8f7deb21f612998019259d52f377ca,EnzeXu
 ba52273,dev,,99999,"fix bug and re-test",ba5227374a487016fbd310ce7860ea52a0f25bc0,EnzeXu
+4f57422,dev,,1.00,"retry",4f57422b052a990815da25a87f97d09de7f8ee52,EnzeXu
