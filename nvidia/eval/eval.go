@@ -28,6 +28,7 @@ type ArgConfig map[string]interface{}
 
 func main() {
 	config := mustReadConfig("nvidia/eval/eval_config.json")
+	printEvalStats(config.Benchmarks)
 	avgSEs := processBenchmarks(config)
 	printAvgSEs(avgSEs)
 }
@@ -81,6 +82,25 @@ func processArgs(bench Benchmark, scriptPath string) []float64 {
 		seList = append(seList, symmetricError(truthCycles, simResult))
 	}
 	return seList
+}
+
+func printEvalStats(benchmarks []Benchmark) {
+	suiteSet := make(map[string]struct{})
+	numBenchmark := len(benchmarks)
+	numTrace := 0
+
+	for _, bench := range benchmarks {
+		suiteSet[bench.Suite] = struct{}{}
+		numTrace += len(bench.Args)
+	}
+
+	// fmt.Printf("num_suite: %d\n", len(suiteSet))
+	// fmt.Printf("num_benchmark: %d\n", numBenchmark)
+	// fmt.Printf("num_trace: %d\n", numTrace)
+
+	fmt.Printf("%d\n", len(suiteSet))
+	fmt.Printf("%d\n", numBenchmark)
+	fmt.Printf("%d\n", numTrace)
 }
 
 func getTruthCycles(arg ArgConfig) float64 {
@@ -231,16 +251,16 @@ func runSimulation(scriptPath, tmpYamlPath string) float64 {
 	cmd.Dir = "mnt-collector"
 
 	// Print the full command for debugging
-	fmt.Printf("[mnt-collector] full command: '%s'\n", cmd.String())
+	// fmt.Printf("[mnt-collector] full command: '%s'\n", cmd.String())
 
 	// Print the content of tmp.yaml for debugging
-	fmt.Printf("[mnt-collector] cat the tmp.yaml:\n")
-	content, err := os.ReadFile(tmpYamlPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to read %s: %v\n", tmpYamlPath, err)
-	} else {
-		fmt.Println(string(content))
-	}
+	// fmt.Printf("[mnt-collector] cat the tmp.yaml:\n")
+	// content, err := os.ReadFile(tmpYamlPath)
+	// if err != nil {
+	// 	fmt.Fprintf(os.Stderr, "Failed to read %s: %v\n", tmpYamlPath, err)
+	// } else {
+	// 	fmt.Println(string(content))
+	// }
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -316,7 +336,7 @@ func symmetricError(truth, sim float64) float64 {
 		minVal = truth
 	}
 	if minVal > 0 {
-		return abs(sim-truth) / minVal
+		return (sim - truth) / minVal
 	}
 	return 999999.0
 }
