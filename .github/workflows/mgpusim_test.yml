@@ -93,6 +93,12 @@ jobs:
             access-key-id: ${S3_ACCESS_KEY_ID}
             secret-access-key: ${S3_SECRET_ACCESS_KEY}
           EOF
+      
+      - name: Build nvidia executable
+        run: |
+          cd nvidia
+          go build
+          cd ..
 
       - name: List Directory Contents
         run: ls -R
