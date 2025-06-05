@@ -77,7 +77,8 @@ jobs:
       
       - name: Create secrets.yaml from GitHub secrets
         run: |
-          echo "mnt-backend:
+          tee mnt-collector/etc/secrets.yaml > /dev/null <<EOF
+mnt-backend:
   host: ${MNT_BACKEND_HOST}
   port: ${MNT_BACKEND_PORT}
   base: /v1
@@ -87,7 +88,8 @@ s3:
   bucket: ${S3_BUCKET}
   region: ${S3_REGION}
   access-key-id: ${S3_ACCESS_KEY_ID}
-  secret-access-key: ${S3_SECRET_ACCESS_KEY}" > mnt-collector/etc/secrets.yaml
+  secret-access-key: ${S3_SECRET_ACCESS_KEY}
+EOF
 
       - name: List Directory Contents
         run: ls -R
