@@ -48,13 +48,13 @@ jobs:
 
     env:
       TEST_ENV: 1
-      MNT_BACKEND_HOST: ${{ secrets.MNT_BACKEND_HOST }}
-      MNT_BACKEND_PORT: ${{ secrets.MNT_BACKEND_PORT }}
-      MNT_BACKEND_TOKEN: ${{ secrets.MNT_BACKEND_TOKEN }}
-      S3_BUCKET: ${{ secrets.S3_BUCKET }}
-      S3_REGION: ${{ secrets.S3_REGION }}
-      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
-      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      MNT_BACKEND_HOST: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_HOST }}
+      MNT_BACKEND_PORT: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_PORT }}
+      MNT_BACKEND_TOKEN: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_TOKEN }}
+      S3_BUCKET: ${{ secrets.MNT_COLLECTOR_S3_BUCKET }}
+      S3_REGION: ${{ secrets.MNT_COLLECTOR_S3_REGION }}
+      S3_ACCESS_KEY_ID: ${{ secrets.MNT_COLLECTOR_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.MNT_COLLECTOR_S3_SECRET_ACCESS_KEY }}
 
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
@@ -81,7 +81,7 @@ jobs:
           echo "Creating secrets.yaml in mnt-collector/etc"
           mkdir -p mnt-collector/etc
           echo "TEST_ENV: ${TEST_ENV}"
-          echo "[Not important] MNT_BACKEND_PORT: ${MNT_BACKEND_PORT}"
+          # echo "[Not important] MNT_BACKEND_PORT: ${MNT_BACKEND_PORT}"
           cat << EOF > mnt-collector/etc/secrets.yaml
           mnt-backend:
             host: ${MNT_BACKEND_HOST}
