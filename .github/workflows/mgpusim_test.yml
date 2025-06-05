@@ -111,10 +111,10 @@ jobs:
         run: |
           go build -o nvidia/eval/eval nvidia/eval/eval.go
           # SCORE=99999 # Simulated score
-          EVAL_START=$(date +%s)
+          EVAL_START=$(date +%s.%N)
           OUTPUT=$(./nvidia/eval/eval)
-          EVAL_END=$(date +%s)
-          EVAL_ELAPSED=$(echo "scale=2; $EVAL_END - $EVAL_START" | bc)
+          EVAL_END=$(date +%s.%N)
+          EVAL_ELAPSED=$(echo "$EVAL_END - $EVAL_START" | bc)
           NUM_SUITE=$(echo "$OUTPUT" | tail -5 | head -1)
           NUM_BENCHMARK=$(echo "$OUTPUT" | tail -4 | head -1)
           NUM_TRACE=$(echo "$OUTPUT" | tail -3 | head -1)
@@ -155,7 +155,7 @@ jobs:
           fi
 
           # Compose the CSV line
-          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$DISTRIBUTION,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
+          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$DISTRIBUTION\",$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
 
       - name: Remove cloned repo
         run: |
