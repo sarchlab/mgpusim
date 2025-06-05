@@ -144,6 +144,10 @@ jobs:
           # Compose the CSV line
           echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
 
+      - name: Remove cloned repo
+        run: |
+          rm -rf mnt-collector
+
       - name: Commit results
         run: |
           git config --global user.name "github-actions"
@@ -153,161 +157,102 @@ jobs:
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  # unit_test:
-  #   name: Unit Test
-  #   runs-on: Github-Large-1
-  #   needs: [compile, lint]
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
 
-  #     - name: Install Ginkgo
-  #       run: go install github.com/onsi/ginkgo/v2/ginkgo
 
-  #     - name: Unit Test
-  #       run: ginkgo -r
+# name: MGPUSim Test
 
-  # deterministicity_test:
-  #   name: Deterministicity Test
-  #   runs-on: Github-Large-1
-  #   needs: [unit_test]
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
+# on: [push, pull_request]
 
-  #     - name: List Directory Contents
-  #       run: ls -R
+# jobs:
+#   compile:
+#     name: Compile
+#     runs-on: Github-Large-1
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v2
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
+#       - name: Setup Go
+#         uses: actions/setup-go@v4
+#         with:
+#           go-version: "stable"
 
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.11"
+#       - name: Build
+#         run: go build ./...
 
-  #     - name: Run Deterministicity Test
-  #       run: python test.py
-  #       working-directory: amd/tests/deterministic/
+#   lint:
+#     name: Lint
+#     runs-on: Github-Large-1
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v2
 
-  # single_gpu_acceptance_test:
-  #   name: Single GPU Acceptance Test
-  #   runs-on: Github-Large-1
-  #   needs: [unit_test]
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
+#       - name: Setup Go
+#         uses: actions/setup-go@v4
+#         with:
+#           go-version: "stable"
 
-  #     - name: List Directory Contents
-  #       run: ls -R
+#       - name: golangci-lint
+#         uses: golangci/golangci-lint-action@v3
+#         with:
+#           version: "latest"
+#           args: --timeout=10m
+#           skip-cache: true
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
+#   evaluate_commit:
+#     name: Nvidia Simulator Evaluation
+#     runs-on: Github-Large-1
+#     needs: [lint]
+#     if: github.event_name == 'push' || github.event_name == 'pull_request'
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v2
+#         with:
+#           token: ${{ secrets.GITHUB_TOKEN }}
+#           fetch-depth: 0
 
-  #     - name: Run Single GPU Acceptance Test
-  #       timeout-minutes: 60
-  #       run: |
-  #         go build
-  #         ./acceptance -num-gpu=1
-  #       working-directory: amd/tests/acceptance/
+#       - name: Get Commit Info
+#         id: commit_info
+#         run: |
+#           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+#           echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+#           echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
 
-  # two_discrete_gpu_test:
-  #   name: Two Discrete GPU Test
-  #   runs-on: Github-Large-1
-  #   needs: [single_gpu_acceptance_test]
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
+#       - name: Run Evaluation Script
+#         id: eval
+#         run: |
+#           # Replace this with your actual evaluation script
+#           SCORE=1.00 # Simulated score
+#           echo "score=$SCORE" >> $GITHUB_OUTPUT
 
-  #     - name: List Directory Contents
-  #       run: ls -R
+#       - name: Format and append evaluation result
+#         run: |
+#           SHA="${{ steps.commit_info.outputs.sha }}"
+#           SHORT_SHA="${SHA:0:7}"
+#           MSG="${{ steps.commit_info.outputs.message }}"
+#           SCORE="${{ steps.eval.outputs.score }}"
+#           AUTHOR="${{ steps.commit_info.outputs.author }}"
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
+#           # Extract commit_type and version
+#           if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+#             COMMIT_TYPE="release"
+#             VERSION="v${BASH_REMATCH[1]}"
+#             # Remove the [release vX.X.X] part from message
+#             MSG="${MSG#*\] }"
+#           else
+#             COMMIT_TYPE="dev"
+#             VERSION=""
+#           fi
 
-  #     - name: Run Two Discrete GPU Test
-  #       timeout-minutes: 60
-  #       run: |
-  #         go build
-  #         ./acceptance -num-gpu=2 -no-unified-gpu -no-unified-memory
-  #       working-directory: amd/tests/acceptance/
+#           # Compose the CSV line
+#           echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
 
-  # four_discrete_gpu_test:
-  #   name: Four Discrete GPU Test
-  #   runs-on: Github-Large-1
-  #   needs: [single_gpu_acceptance_test]
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
-      
-  #     - name: List Directory Contents
-  #       run: ls -R
-
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
-
-  #     - name: Run Four Discrete GPU Test
-  #       timeout-minutes: 60
-  #       run: |
-  #         go build
-  #         ./acceptance -num-gpu=4 -no-unified-gpu -no-unified-memory
-  #       working-directory: amd/tests/acceptance/
-
-  # two_unified_gpu_test:
-  #   name: Two Unified GPU Test
-  #   runs-on: Github-Large-1
-  #   needs: [single_gpu_acceptance_test]
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
-      
-  #     - name: List Directory Contents
-  #       run: ls -R
-
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
-
-  #     - name: Run Two Unified GPU Test
-  #       timeout-minutes: 60
-  #       run: |
-  #         go build
-  #         ./acceptance -num-gpu=2 -only-unified-gpu -no-unified-memory
-  #       working-directory: amd/tests/acceptance/
-
-  # four_unified_gpu_test:
-  #   name: Four Unified GPU Test
-  #   runs-on: Github-Large-1
-  #   needs: [single_gpu_acceptance_test]
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
-      
-  #     - name: List Directory Contents
-  #       run: ls -R
-
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
-
-  #     - name: Run Four Unified GPU Test
-  #       timeout-minutes: 60
-  #       run: |
-  #         go build
-  #         ./acceptance -num-gpu=4 -only-unified-gpu -no-unified-memory
-  #       working-directory: amd/tests/acceptance/
+#       - name: Commit results
+#         run: |
+#           git config --global user.name "github-actions"
+#           git config --global user.email "github-actions@github.com"
+#           git add nvidia/eval/simulator_evaluation.csv
+#           git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
+#           git push
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
