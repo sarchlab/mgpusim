@@ -1,168 +1,10 @@
 
-name: MGPUSim Test
-
-on: [push, pull_request]
-
-permissions:
-  contents: read
-
-jobs:
-  compile:
-    name: Compile
-    runs-on: Github-Large-1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: Build
-        run: go build ./...
-
-  lint:
-    name: Lint
-    runs-on: Github-Large-1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: "latest"
-          args: --timeout=10m
-          skip-cache: true
-
-  evaluate_commit:
-    name: Nvidia Simulator Evaluation
-    runs-on: Github-Large-1
-    # needs: [compile]
-
-    env:
-      # TEST_ENV: 1
-      MNT_BACKEND_HOST: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_HOST }}
-      MNT_BACKEND_PORT: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_PORT }}
-      MNT_BACKEND_TOKEN: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_TOKEN }}
-      S3_BUCKET: ${{ secrets.MNT_COLLECTOR_S3_BUCKET }}
-      S3_REGION: ${{ secrets.MNT_COLLECTOR_S3_REGION }}
-      S3_ACCESS_KEY_ID: ${{ secrets.MNT_COLLECTOR_S3_ACCESS_KEY_ID }}
-      S3_SECRET_ACCESS_KEY: ${{ secrets.MNT_COLLECTOR_S3_SECRET_ACCESS_KEY }}
-
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-    steps:
-      - name: Checkout mgpusim
-        uses: actions/checkout@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-      
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "stable"
-      
-      - name: Clone mnt-collector and checkout branch and build
-        run: |
-          git clone https://github.com/sarchlab/mnt-collector.git
-          cd mnt-collector
-          go build
-      
-      - name: Create secrets.yaml from GitHub secrets
-        run: |
-          echo "Creating secrets.yaml in mnt-collector/etc"
-          mkdir -p mnt-collector/etc
-          # echo "TEST_ENV: ${TEST_ENV}"
-          cat << EOF > mnt-collector/etc/secrets.yaml
-          mnt-backend:
-            host: ${MNT_BACKEND_HOST}
-            port: ${MNT_BACKEND_PORT}
-            base: /v1
-            token: ${MNT_BACKEND_TOKEN}
-          s3:
-            bucket: ${S3_BUCKET}
-            region: ${S3_REGION}
-            access-key-id: ${S3_ACCESS_KEY_ID}
-            secret-access-key: ${S3_SECRET_ACCESS_KEY}
-          EOF
-      
-      - name: Build nvidia executable
-        run: |
-          cd nvidia
-          go build
-          cd ..
-
-      - name: List Directory Contents
-        run: ls -R
-
-      - name: Get Commit Info
-        id: commit_info
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-          echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
-          echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
-
-      - name: Run Evaluation Script
-        id: eval
-        run: |
-          go build -o nvidia/eval/eval nvidia/eval/eval.go
-          # SCORE=99999 # Simulated score
-          OUTPUT=$(./nvidia/eval/eval)
-          DIST_LINE=$(echo "$OUTPUT" | tail -2 | head -1)
-          SCORE=$(echo "$OUTPUT" | tail -1)
-          echo "[GitHub Workflow] score distribution read from eval: $DIST_LINE"
-          echo "[GitHub Workflow] score: $SCORE"
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
-          echo "distribution=$DIST_LINE" >> $GITHUB_OUTPUT
-
-      - name: Format and append evaluation result
-        run: |
-          SHA="${{ steps.commit_info.outputs.sha }}"
-          SHORT_SHA="${SHA:0:7}"
-          MSG="${{ steps.commit_info.outputs.message }}"
-          SCORE="${{ steps.eval.outputs.score }}"
-          AUTHOR="${{ steps.commit_info.outputs.author }}"
-
-          # Extract commit_type and version
-          if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-            COMMIT_TYPE="release"
-            VERSION="v${BASH_REMATCH[1]}"
-            # Remove the [release vX.X.X] part from message
-            MSG="${MSG#*\] }"
-          else
-            COMMIT_TYPE="dev"
-            VERSION=""
-          fi
-
-          # Compose the CSV line
-          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
-
-      - name: Remove cloned repo
-        run: |
-          rm -rf mnt-collector
-
-      - name: Commit results
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add nvidia/eval/simulator_evaluation.csv
-          git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
 # name: MGPUSim Test
 
 # on: [push, pull_request]
+
+# permissions:
+#   contents: read
 
 # jobs:
 #   compile:
@@ -202,14 +44,63 @@ jobs:
 #   evaluate_commit:
 #     name: Nvidia Simulator Evaluation
 #     runs-on: Github-Large-1
-#     needs: [lint]
+#     # needs: [compile]
+
+#     env:
+#       # TEST_ENV: 1
+#       MNT_BACKEND_HOST: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_HOST }}
+#       MNT_BACKEND_PORT: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_PORT }}
+#       MNT_BACKEND_TOKEN: ${{ secrets.MNT_COLLECTOR_MNT_BACKEND_TOKEN }}
+#       S3_BUCKET: ${{ secrets.MNT_COLLECTOR_S3_BUCKET }}
+#       S3_REGION: ${{ secrets.MNT_COLLECTOR_S3_REGION }}
+#       S3_ACCESS_KEY_ID: ${{ secrets.MNT_COLLECTOR_S3_ACCESS_KEY_ID }}
+#       S3_SECRET_ACCESS_KEY: ${{ secrets.MNT_COLLECTOR_S3_SECRET_ACCESS_KEY }}
+
 #     if: github.event_name == 'push' || github.event_name == 'pull_request'
 #     steps:
-#       - name: Checkout
+#       - name: Checkout mgpusim
 #         uses: actions/checkout@v2
 #         with:
 #           token: ${{ secrets.GITHUB_TOKEN }}
 #           fetch-depth: 0
+      
+#       - name: Setup Go
+#         uses: actions/setup-go@v4
+#         with:
+#           go-version: "stable"
+      
+#       - name: Clone mnt-collector and checkout branch and build
+#         run: |
+#           git clone https://github.com/sarchlab/mnt-collector.git
+#           cd mnt-collector
+#           go build
+      
+#       - name: Create secrets.yaml from GitHub secrets
+#         run: |
+#           echo "Creating secrets.yaml in mnt-collector/etc"
+#           mkdir -p mnt-collector/etc
+#           # echo "TEST_ENV: ${TEST_ENV}"
+#           cat << EOF > mnt-collector/etc/secrets.yaml
+#           mnt-backend:
+#             host: ${MNT_BACKEND_HOST}
+#             port: ${MNT_BACKEND_PORT}
+#             base: /v1
+#             token: ${MNT_BACKEND_TOKEN}
+#           s3:
+#             bucket: ${S3_BUCKET}
+#             region: ${S3_REGION}
+#             access-key-id: ${S3_ACCESS_KEY_ID}
+#             secret-access-key: ${S3_SECRET_ACCESS_KEY}
+#           EOF
+      
+#       - name: Build nvidia executable
+#         run: |
+#           cd nvidia
+#           go build
+#           cd ..
+
+#       - name: List Directory Contents
+#         run: ls -R
 
 #       - name: Get Commit Info
 #         id: commit_info
@@ -221,9 +112,15 @@ jobs:
 #       - name: Run Evaluation Script
 #         id: eval
 #         run: |
-#           # Replace this with your actual evaluation script
-#           SCORE=1.00 # Simulated score
+#           go build -o nvidia/eval/eval nvidia/eval/eval.go
+#           # SCORE=99999 # Simulated score
+#           OUTPUT=$(./nvidia/eval/eval)
+#           DIST_LINE=$(echo "$OUTPUT" | tail -2 | head -1)
+#           SCORE=$(echo "$OUTPUT" | tail -1)
+#           echo "[GitHub Workflow] score distribution read from eval: $DIST_LINE"
+#           echo "[GitHub Workflow] score: $SCORE"
 #           echo "score=$SCORE" >> $GITHUB_OUTPUT
+#           echo "distribution=$DIST_LINE" >> $GITHUB_OUTPUT
 
 #       - name: Format and append evaluation result
 #         run: |
@@ -247,6 +144,10 @@ jobs:
 #           # Compose the CSV line
 #           echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
 
+#       - name: Remove cloned repo
+#         run: |
+#           rm -rf mnt-collector
+
 #       - name: Commit results
 #         run: |
 #           git config --global user.name "github-actions"
@@ -256,3 +157,102 @@ jobs:
 #           git push
 #         env:
 #           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+name: MGPUSim Test
+
+on: [push, pull_request]
+
+jobs:
+  compile:
+    name: Compile
+    runs-on: Github-Large-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: Build
+        run: go build ./...
+
+  lint:
+    name: Lint
+    runs-on: Github-Large-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: "latest"
+          args: --timeout=10m
+          skip-cache: true
+
+  evaluate_commit:
+    name: Nvidia Simulator Evaluation
+    runs-on: Github-Large-1
+    needs: [lint]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Get Commit Info
+        id: commit_info
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+          echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
+
+      - name: Run Evaluation Script
+        id: eval
+        run: |
+          # Replace this with your actual evaluation script
+          SCORE=1.00 # Simulated score
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+
+      - name: Format and append evaluation result
+        run: |
+          SHA="${{ steps.commit_info.outputs.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          MSG="${{ steps.commit_info.outputs.message }}"
+          SCORE="${{ steps.eval.outputs.score }}"
+          AUTHOR="${{ steps.commit_info.outputs.author }}"
+
+          # Extract commit_type and version
+          if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+            COMMIT_TYPE="release"
+            VERSION="v${BASH_REMATCH[1]}"
+            # Remove the [release vX.X.X] part from message
+            MSG="${MSG#*\] }"
+          else
+            COMMIT_TYPE="dev"
+            VERSION=""
+          fi
+
+          # Compose the CSV line
+          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
+
+      - name: Commit results
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add nvidia/eval/simulator_evaluation.csv
+          git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
