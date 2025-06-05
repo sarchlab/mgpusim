@@ -7,39 +7,39 @@ permissions:
   contents: read
 
 jobs:
-  # compile:
-  #   name: Compile
-  #   runs-on: Github-Large-1
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
+  compile:
+    name: Compile
+    runs-on: Github-Large-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
 
-  #     - name: Build
-  #       run: go build ./...
+      - name: Build
+        run: go build ./...
 
-  # lint:
-  #   name: Lint
-  #   runs-on: Github-Large-1
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
+  lint:
+    name: Lint
+    runs-on: Github-Large-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: "stable"
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
 
-  #     - name: golangci-lint
-  #       uses: golangci/golangci-lint-action@v3
-  #       with:
-  #         version: "latest"
-  #         args: --timeout=10m
-  #         skip-cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: "latest"
+          args: --timeout=10m
+          skip-cache: true
 
   evaluate_commit:
     name: Nvidia Simulator Evaluation
