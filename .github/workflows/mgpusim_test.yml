@@ -47,6 +47,7 @@ jobs:
     # needs: [compile]
 
     env:
+      TEST_ENV: 1
       MNT_BACKEND_HOST: ${{ secrets.MNT_BACKEND_HOST }}
       MNT_BACKEND_PORT: ${{ secrets.MNT_BACKEND_PORT }}
       MNT_BACKEND_TOKEN: ${{ secrets.MNT_BACKEND_TOKEN }}
@@ -77,6 +78,10 @@ jobs:
       
       - name: Create secrets.yaml from GitHub secrets
         run: |
+          echo "Creating secrets.yaml in mnt-collector/etc"
+          mkdir -p mnt-collector/etc
+          echo "TEST_ENV: ${TEST_ENV}"
+          echo "[Not important] MNT_BACKEND_PORT: ${MNT_BACKEND_PORT}"
           cat << EOF > mnt-collector/etc/secrets.yaml
           mnt-backend:
             host: ${MNT_BACKEND_HOST}
