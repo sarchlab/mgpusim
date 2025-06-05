@@ -229,6 +229,19 @@ func runSimulation(scriptPath, tmpYamlPath string) float64 {
 		"simulations", "--collect", "../nvidia/eval/tmp.yaml",
 	)
 	cmd.Dir = "mnt-collector"
+
+	// Print the full command for debugging
+	fmt.Printf("[mnt-collector] full command: '%s'\n", cmd.String())
+
+	// Print the content of tmp.yaml for debugging
+	fmt.Printf("[mnt-collector] cat the tmp.yaml:\n")
+	content, err := os.ReadFile(tmpYamlPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to read %s: %v\n", tmpYamlPath, err)
+	} else {
+		fmt.Println(string(content))
+	}
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get stdout: %v\n", err)
@@ -318,14 +331,14 @@ func average(list []float64) float64 {
 
 func printAvgSEs(avgSEs []float64) {
 	// Print the list of avg SEs
-	// fmt.Print("[")
-	// for i, v := range avgSEs {
-	// 	if i > 0 {
-	// 		fmt.Print(",")
-	// 	}
-	// 	fmt.Printf("%.6f", v)
-	// }
-	// fmt.Println("]")
+	fmt.Print("[")
+	for i, v := range avgSEs {
+		if i > 0 {
+			fmt.Print(",")
+		}
+		fmt.Printf("%.6f", v)
+	}
+	fmt.Println("]")
 	// Print the overall average
 	if len(avgSEs) > 0 {
 		fmt.Printf("%.6f\n", average(avgSEs))

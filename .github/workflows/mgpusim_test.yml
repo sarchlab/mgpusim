@@ -109,8 +109,13 @@ jobs:
         run: |
           go build -o nvidia/eval/eval nvidia/eval/eval.go
           # SCORE=99999 # Simulated score
-          SCORE=$(./nvidia/eval/eval)
+          OUTPUT=$(./nvidia/eval/eval)
+          DIST_LINE=$(echo "$OUTPUT" | tail -2 | head -1)
+          SCORE=$(echo "$OUTPUT" | tail -1)
+          echo "[GitHub Workflow] score distribution read from eval: $DIST_LINE"
+          echo "[GitHub Workflow] score: $SCORE"
           echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "distribution=$DIST_LINE" >> $GITHUB_OUTPUT
 
       - name: Format and append evaluation result
         run: |
