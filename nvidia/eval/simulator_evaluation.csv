@@ -8,3 +8,4 @@ ba52273,dev,,99999,,,,,,"fix bug and re-test",ba5227374a487016fbd310ce7860ea52a0
 d0f5e54,dev,,1.00,,,,,,"go back to the first version and see whether the commit works",d0f5e546d5d1e5382d054f7c2f434668d359a813,EnzeXu
 59d9ca4,dev,,2.714492,,,,,,"Merge branch 'nvidia_cache' of https://github.com/sarchlab/mgpusim into nvidia_cache",59d9ca4a3048d99509678e6490c4d05698007c61,EnzeXu
 0b9d902,dev,,-2.660039,"[-5.069940,-0.250137]",3,1,2,3,"dev: add more details",0b9d90202d496b0f898163a6eedb4960d1d631eb,EnzeXu
+a5f8503,dev,,-2.660039,"[-5.069940,-0.250137]",4.190091836,1,2,3,"dev: report nano second",a5f850300b35c05bc1a5b66ddca1166b38698440,EnzeXu
