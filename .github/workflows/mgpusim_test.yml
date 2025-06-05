@@ -73,7 +73,6 @@ jobs:
         run: |
           git clone https://github.com/sarchlab/mnt-collector.git
           cd mnt-collector
-          git checkout github_workflow
           go build
       
       - name: Create secrets.yaml from GitHub secrets
