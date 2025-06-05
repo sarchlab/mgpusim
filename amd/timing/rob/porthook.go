@@ -16,7 +16,7 @@ func (h *portHook) Func(ctx sim.HookCtx) {
 	switch ctx.Pos {
 	case sim.HookPosPortMsgRecvd:
 		h.recordMsgRecvd(ctx)
-	case sim.HookPosPortMsgRetrieve:
+	case sim.HookPosPortMsgRetrieveIncoming:
 		h.recordMsgRetrieved(ctx)
 	}
 }
@@ -47,7 +47,7 @@ func (h *portHook) recordMsgRetrieved(ctx sim.HookCtx) {
 	tracing.AddMilestone(
 		tracing.MsgIDAtReceiver(head, comp),
 		tracing.MilestoneKindQueue,
-		"",
+		"head",
 		port.Name(),
 		comp,
 	)

@@ -160,7 +160,7 @@ func (b *ReorderBuffer) topDown() bool {
 
 	tracing.AddMilestone(
 		tracing.MsgIDAtReceiver(item, b),
-		tracing.MilestoneKindHardwareRecourse,
+		tracing.MilestoneKindNetworkBusy,
 		b.bottomPort.Name(),
 		b.Name(),
 		b,
