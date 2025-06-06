@@ -33,6 +33,8 @@ type GroundTruthEntry struct {
 	Line      int
 }
 
+const nSkipRelease = 8
+
 func main() {
 	// Example usage:
 	folder := "../../../mnt-collector/etc/"
@@ -90,19 +92,35 @@ func main() {
 		}
 	}
 
-	// Write eval_release.json as before
+	// Write eval_release.json, skipping the greatest nSkipRelease
+	releaseBenchmarks := []Benchmark{}
+	for _, bench := range benchmarks {
+		releaseArgs := selectArgsSorted(bench.Args, nSkipRelease, 0)
+		releaseBenchmarks = append(releaseBenchmarks, Benchmark{
+			Title: bench.Title,
+			Suite: bench.Suite,
+			Args:  releaseArgs,
+		})
+	}
 	releaseConfig := EvalConfig{
 		ScriptPath: "./mnt-collector",
-		Benchmarks: benchmarks,
+		Benchmarks: releaseBenchmarks,
 	}
-	releaseCount := countArgs(benchmarks)                                      // updated
+	releaseCount := countArgs(releaseBenchmarks)
+
+	// // Write eval_release.json as before
+	// releaseConfig := EvalConfig{
+	// 	ScriptPath: "./mnt-collector",
+	// 	Benchmarks: benchmarks,
+	// }
+	// releaseCount := countArgs(benchmarks)                                      // updated
 	writeEvalConfig(outputPathRelease, releaseConfig)                          // updated
 	fmt.Printf("Wrote %s: %d arg settings\n", outputPathRelease, releaseCount) // updated
 
 	// Generate eval_dev.json (keep only 3 greatest arg settings per benchmark)
 	devBenchmarks := []Benchmark{}     // updated
 	for _, bench := range benchmarks { // updated
-		devArgs := selectMiddleArgsForDev(bench.Args) // updated
+		devArgs := selectArgsSorted(bench.Args, 0, 3)
 		devBenchmarks = append(devBenchmarks, Benchmark{
 			Title: bench.Title,
 			Suite: bench.Suite,
@@ -339,9 +357,9 @@ func sortStrings(a []string) {
 	}
 }
 
-// Select the 3 "middle" arg settings for dev set, with "size" as highest priority if present // updated
-func selectMiddleArgsForDev(args []ArgConfig) []ArgConfig { // updated
-	if len(args) <= 3 {
+// Generalized selection function
+func selectArgsSorted(args []ArgConfig, skipGreatestN int, nMiddle int) []ArgConfig {
+	if len(args) <= nMiddle || (skipGreatestN > 0 && len(args) <= skipGreatestN) {
 		return args
 	}
 	// Build sort keys: "size" first (if present), then other numeric keys alphabetically
@@ -393,21 +411,98 @@ func selectMiddleArgsForDev(args []ArgConfig) []ArgConfig { // updated
 		}
 		return len(a) < len(b)
 	})
-	// Select the middle 3
-	start := (len(argList) - 3) / 2
-	if start < 0 {
-		start = 0
+
+	// For release: skip the greatest n (from the end)
+	if skipGreatestN > 0 {
+		if len(argList) <= skipGreatestN {
+			return []ArgConfig{}
+		}
+		argList = argList[:len(argList)-skipGreatestN]
 	}
-	end := start + 3
-	if end > len(argList) {
-		end = len(argList)
+
+	// For dev: select the middle nMiddle
+	if nMiddle > 0 && len(argList) > nMiddle {
+		start := (len(argList) - nMiddle) / 2
+		end := start + nMiddle
+		argList = argList[start:end]
 	}
+
 	var result []ArgConfig
-	for i := start; i < end; i++ {
-		result = append(result, argList[i].Arg)
+	for _, a := range argList {
+		result = append(result, a.Arg)
 	}
 	return result
 }
+
+// // Select the 3 "middle" arg settings for dev set, with "size" as highest priority if present // updated
+// func selectMiddleArgsForDev(args []ArgConfig) []ArgConfig { // updated
+// 	if len(args) <= 3 {
+// 		return args
+// 	}
+// 	// Build sort keys: "size" first (if present), then other numeric keys alphabetically
+// 	type argWithSort struct {
+// 		Arg      ArgConfig
+// 		SortKeys []float64
+// 	}
+// 	var argList []argWithSort
+// 	for _, arg := range args {
+// 		var keys []string
+// 		hasSize := false
+// 		for k := range arg {
+// 			if k == "trace-id" || k == "truth" {
+// 				continue
+// 			}
+// 			if k == "size" {
+// 				hasSize = true
+// 			} else {
+// 				keys = append(keys, k)
+// 			}
+// 		}
+// 		sort.Strings(keys)
+// 		finalKeys := []string{}
+// 		if hasSize {
+// 			finalKeys = append(finalKeys, "size")
+// 		}
+// 		finalKeys = append(finalKeys, keys...)
+
+// 		var sortVec []float64
+// 		for _, k := range finalKeys {
+// 			switch v := arg[k].(type) {
+// 			case int:
+// 				sortVec = append(sortVec, float64(v))
+// 			case float64:
+// 				sortVec = append(sortVec, v)
+// 			default:
+// 				// ignore non-numeric
+// 			}
+// 		}
+// 		argList = append(argList, argWithSort{Arg: arg, SortKeys: sortVec})
+// 	}
+// 	// Sort: lexicographically by sortVec
+// 	sort.Slice(argList, func(i, j int) bool {
+// 		a, b := argList[i].SortKeys, argList[j].SortKeys
+// 		for x := 0; x < len(a) && x < len(b); x++ {
+// 			if a[x] != b[x] {
+// 				return a[x] < b[x] // ascending for middle selection
+// 			}
+// 		}
+// 		return len(a) < len(b)
+// 	})
+// 	// Select the middle 3
+// 	start := (len(argList) - 3) / 2
+// 	if start < 0 {
+// 		start = 0
+// 	}
+// 	end := start + 3
+// 	if end > len(argList) {
+// 		end = len(argList)
+// 	}
+// 	var result []ArgConfig
+// 	for i := start; i < end; i++ {
+// 		result = append(result, argList[i].Arg)
+// 	}
+// 	return result
+// }
 
 // Strategy explanation (for you): // updated
 // For each arg setting, extract all numeric fields (excluding "trace-id" and "truth"), sort keys alphabetically, and build a vector.

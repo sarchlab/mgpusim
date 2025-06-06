@@ -14,171 +14,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682d171ab541e8df7bd61847",
-                    "truth": {
-                        "cycles": 3276.59
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682d171bb541e8df7bd61848",
-                    "truth": {
-                        "cycles": 3350.88
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682d171db541e8df7bd61849",
-                    "truth": {
-                        "cycles": 3594.24
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682d171eb541e8df7bd6184a",
-                    "truth": {
-                        "cycles": 3650.4
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682d171fb541e8df7bd6184b",
-                    "truth": {
-                        "cycles": 4118.4
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682d1721b541e8df7bd6184c",
-                    "truth": {
-                        "cycles": 4530.24
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682d1723b541e8df7bd6184d",
-                    "truth": {
-                        "cycles": 6027.84
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682d1725b541e8df7bd6184e",
-                    "truth": {
-                        "cycles": 8218.66
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 768,
-                    "trace-id": "682d172ab541e8df7bd6184f",
-                    "truth": {
-                        "cycles": 14208.48
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 1024,
-                    "trace-id": "682d1730b541e8df7bd61850",
-                    "truth": {
-                        "cycles": 22445.28
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682d1732b541e8df7bd61851",
                     "truth": {
                         "cycles": 3200.54
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682d1733b541e8df7bd61852",
-                    "truth": {
-                        "cycles": 3201.12
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682d1734b541e8df7bd61853",
-                    "truth": {
-                        "cycles": 3294.72
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682d1735b541e8df7bd61854",
-                    "truth": {
-                        "cycles": 3370.19
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682d1737b541e8df7bd61855",
-                    "truth": {
-                        "cycles": 3575.52
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682d1738b541e8df7bd61856",
-                    "truth": {
-                        "cycles": 3613.55
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682d173ab541e8df7bd61857",
-                    "truth": {
-                        "cycles": 3875.04
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682d173cb541e8df7bd61858",
-                    "truth": {
-                        "cycles": 4605.71
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682d173eb541e8df7bd61859",
-                    "truth": {
-                        "cycles": 5691.47
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 768,
-                    "trace-id": "682d1742b541e8df7bd6185a",
-                    "truth": {
-                        "cycles": 8666.77
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 1024,
-                    "trace-id": "682d1749b541e8df7bd6185b",
-                    "truth": {
-                        "cycles": 12767.04
                     }
                 },
                 {
@@ -190,11 +30,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682d171ab541e8df7bd61847",
+                    "truth": {
+                        "cycles": 3276.59
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682d1733b541e8df7bd61852",
+                    "truth": {
+                        "cycles": 3201.12
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682d174cb541e8df7bd6185d",
                     "truth": {
                         "cycles": 3238.56
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682d171bb541e8df7bd61848",
+                    "truth": {
+                        "cycles": 3350.88
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682d1734b541e8df7bd61853",
+                    "truth": {
+                        "cycles": 3294.72
                     }
                 },
                 {
@@ -206,11 +78,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682d171db541e8df7bd61849",
+                    "truth": {
+                        "cycles": 3594.24
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682d1735b541e8df7bd61854",
+                    "truth": {
+                        "cycles": 3370.19
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682d174eb541e8df7bd6185f",
                     "truth": {
                         "cycles": 3313.44
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682d171eb541e8df7bd6184a",
+                    "truth": {
+                        "cycles": 3650.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682d1737b541e8df7bd61855",
+                    "truth": {
+                        "cycles": 3575.52
                     }
                 },
                 {
@@ -222,11 +126,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682d171fb541e8df7bd6184b",
+                    "truth": {
+                        "cycles": 4118.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682d1738b541e8df7bd61856",
+                    "truth": {
+                        "cycles": 3613.55
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682d1751b541e8df7bd61861",
                     "truth": {
                         "cycles": 3556.22
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 256,
+                    "trace-id": "682d1721b541e8df7bd6184c",
+                    "truth": {
+                        "cycles": 4530.24
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 256,
+                    "trace-id": "682d173ab541e8df7bd61857",
+                    "truth": {
+                        "cycles": 3875.04
                     }
                 },
                 {
@@ -238,6 +174,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 384,
+                    "trace-id": "682d1723b541e8df7bd6184d",
+                    "truth": {
+                        "cycles": 6027.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 384,
+                    "trace-id": "682d173cb541e8df7bd61858",
+                    "truth": {
+                        "cycles": 4605.71
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 384,
                     "trace-id": "682d1754b541e8df7bd61863",
@@ -246,27 +198,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 512,
-                    "trace-id": "682d1756b541e8df7bd61864",
+                    "trace-id": "682d1725b541e8df7bd6184e",
                     "truth": {
-                        "cycles": 4586.4
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 768,
-                    "trace-id": "682d175ab541e8df7bd61865",
-                    "truth": {
-                        "cycles": 6794.78
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 1024,
-                    "trace-id": "682d1760b541e8df7bd61866",
-                    "truth": {
-                        "cycles": 9678.24
+                        "cycles": 8218.66
                     }
                 }
             ]
@@ -284,171 +220,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682e34d8b541e8df7bd618db",
-                    "truth": {
-                        "cycles": 9111.68
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682e34dab541e8df7bd618dc",
-                    "truth": {
-                        "cycles": 10661.08
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682e34ddb541e8df7bd618dd",
-                    "truth": {
-                        "cycles": 15783.52
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682e34e2b541e8df7bd618de",
-                    "truth": {
-                        "cycles": 20409.4
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682e34f0b541e8df7bd618df",
-                    "truth": {
-                        "cycles": 30168.99
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682e350fb541e8df7bd618e0",
-                    "truth": {
-                        "cycles": 40881.35
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682e357eb541e8df7bd618e1",
-                    "truth": {
-                        "cycles": 100335.66
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682e3680b541e8df7bd618e2",
-                    "truth": {
-                        "cycles": 224003.32
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 768,
-                    "trace-id": "682e398bb541e8df7bd618e3",
-                    "truth": {
-                        "cycles": 675284.71
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 1024,
-                    "trace-id": "682e413eb541e8df7bd618e4",
-                    "truth": {
-                        "cycles": 1515618.35
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682e4140b541e8df7bd618e5",
                     "truth": {
                         "cycles": 6981.08
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682e4142b541e8df7bd618e6",
-                    "truth": {
-                        "cycles": 9328.8
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682e4144b541e8df7bd618e7",
-                    "truth": {
-                        "cycles": 11073.01
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682e4147b541e8df7bd618e8",
-                    "truth": {
-                        "cycles": 16136.68
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682e414db541e8df7bd618e9",
-                    "truth": {
-                        "cycles": 20832.6
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682e415db541e8df7bd618ea",
-                    "truth": {
-                        "cycles": 30551.48
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682e417db541e8df7bd618eb",
-                    "truth": {
-                        "cycles": 40988.07
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682e41deb541e8df7bd618ec",
-                    "truth": {
-                        "cycles": 75186.65
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682e42c8b541e8df7bd618ed",
-                    "truth": {
-                        "cycles": 177322.07
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 768,
-                    "trace-id": "682e45dab541e8df7bd618ee",
-                    "truth": {
-                        "cycles": 476706.51
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 1024,
-                    "trace-id": "682e4d29b541e8df7bd618ef",
-                    "truth": {
-                        "cycles": 1022733.64
                     }
                 },
                 {
@@ -460,11 +236,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682e34d8b541e8df7bd618db",
+                    "truth": {
+                        "cycles": 9111.68
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682e4142b541e8df7bd618e6",
+                    "truth": {
+                        "cycles": 9328.8
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682e4d2db541e8df7bd618f1",
                     "truth": {
                         "cycles": 9619.64
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682e34dab541e8df7bd618dc",
+                    "truth": {
+                        "cycles": 10661.08
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682e4144b541e8df7bd618e7",
+                    "truth": {
+                        "cycles": 11073.01
                     }
                 },
                 {
@@ -476,11 +284,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682e34ddb541e8df7bd618dd",
+                    "truth": {
+                        "cycles": 15783.52
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682e4147b541e8df7bd618e8",
+                    "truth": {
+                        "cycles": 16136.68
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682e4d31b541e8df7bd618f3",
                     "truth": {
                         "cycles": 17240.69
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682e34e2b541e8df7bd618de",
+                    "truth": {
+                        "cycles": 20409.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682e414db541e8df7bd618e9",
+                    "truth": {
+                        "cycles": 20832.6
                     }
                 },
                 {
@@ -492,11 +332,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682e34f0b541e8df7bd618df",
+                    "truth": {
+                        "cycles": 30168.99
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682e415db541e8df7bd618ea",
+                    "truth": {
+                        "cycles": 30551.48
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682e4d3fb541e8df7bd618f5",
                     "truth": {
                         "cycles": 32652.76
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 256,
+                    "trace-id": "682e350fb541e8df7bd618e0",
+                    "truth": {
+                        "cycles": 40881.35
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 256,
+                    "trace-id": "682e417db541e8df7bd618eb",
+                    "truth": {
+                        "cycles": 40988.07
                     }
                 },
                 {
@@ -508,6 +380,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 384,
+                    "trace-id": "682e357eb541e8df7bd618e1",
+                    "truth": {
+                        "cycles": 100335.66
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 384,
+                    "trace-id": "682e41deb541e8df7bd618ec",
+                    "truth": {
+                        "cycles": 75186.65
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 384,
                     "trace-id": "682e4d91b541e8df7bd618f7",
@@ -516,27 +404,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 512,
-                    "trace-id": "682e4e21b541e8df7bd618f8",
+                    "trace-id": "682e3680b541e8df7bd618e2",
                     "truth": {
-                        "cycles": 163654.43
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 768,
-                    "trace-id": "682e5017b541e8df7bd618f9",
-                    "truth": {
-                        "cycles": 454714.95
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 1024,
-                    "trace-id": "682e54cab541e8df7bd618fa",
-                    "truth": {
-                        "cycles": 972129.73
+                        "cycles": 224003.32
                     }
                 }
             ]
@@ -554,139 +426,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682e8efbb541e8df7bd61938",
-                    "truth": {
-                        "cycles": 27806.2
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682e8f05b541e8df7bd61939",
-                    "truth": {
-                        "cycles": 38401.26
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682e8f1ab541e8df7bd6193a",
-                    "truth": {
-                        "cycles": 61557.2
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682e8f36b541e8df7bd6193b",
-                    "truth": {
-                        "cycles": 89193.54
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682e8f88b541e8df7bd6193c",
-                    "truth": {
-                        "cycles": 160981.49
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682e903ab541e8df7bd6193d",
-                    "truth": {
-                        "cycles": 243981.47
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682e9247b541e8df7bd6193e",
-                    "truth": {
-                        "cycles": 481418.29
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682ea0b9b541e8df7bd6193f",
-                    "truth": {
-                        "cycles": 879304.95
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682ea0bcb541e8df7bd61940",
                     "truth": {
                         "cycles": 17814.88
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682ea0c3b541e8df7bd61941",
-                    "truth": {
-                        "cycles": 27559.75
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682ea0cdb541e8df7bd61942",
-                    "truth": {
-                        "cycles": 37573.61
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682ea0e0b541e8df7bd61943",
-                    "truth": {
-                        "cycles": 59115.18
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682ea0fbb541e8df7bd61944",
-                    "truth": {
-                        "cycles": 83831.67
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682ea14cb541e8df7bd61945",
-                    "truth": {
-                        "cycles": 151279.63
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682ea1f9b541e8df7bd61946",
-                    "truth": {
-                        "cycles": 218765.65
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682ea43eb541e8df7bd61947",
-                    "truth": {
-                        "cycles": 391448.27
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682ea933b541e8df7bd61948",
-                    "truth": {
-                        "cycles": 657352.42
                     }
                 },
                 {
@@ -698,11 +442,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682e8efbb541e8df7bd61938",
+                    "truth": {
+                        "cycles": 27806.2
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682ea0c3b541e8df7bd61941",
+                    "truth": {
+                        "cycles": 27559.75
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682ea93db541e8df7bd6194a",
                     "truth": {
                         "cycles": 28104.51
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682e8f05b541e8df7bd61939",
+                    "truth": {
+                        "cycles": 38401.26
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682ea0cdb541e8df7bd61942",
+                    "truth": {
+                        "cycles": 37573.61
                     }
                 },
                 {
@@ -714,11 +490,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682e8f1ab541e8df7bd6193a",
+                    "truth": {
+                        "cycles": 61557.2
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682ea0e0b541e8df7bd61943",
+                    "truth": {
+                        "cycles": 59115.18
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682ea959b541e8df7bd6194c",
                     "truth": {
                         "cycles": 58368.71
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682e8f36b541e8df7bd6193b",
+                    "truth": {
+                        "cycles": 89193.54
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682ea0fbb541e8df7bd61944",
+                    "truth": {
+                        "cycles": 83831.67
                     }
                 },
                 {
@@ -730,6 +538,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682e8f88b541e8df7bd6193c",
+                    "truth": {
+                        "cycles": 160981.49
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682ea14cb541e8df7bd61945",
+                    "truth": {
+                        "cycles": 151279.63
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682ea9c1b541e8df7bd6194e",
@@ -738,27 +562,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682eaa58b541e8df7bd6194f",
+                    "trace-id": "682e903ab541e8df7bd6193d",
                     "truth": {
-                        "cycles": 216492.68
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682eac26b541e8df7bd61950",
-                    "truth": {
-                        "cycles": 379050.92
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682eb062b541e8df7bd61951",
-                    "truth": {
-                        "cycles": 657427.52
+                        "cycles": 243981.47
                     }
                 }
             ]
@@ -776,139 +584,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682eea92b541e8df7bd61989",
-                    "truth": {
-                        "cycles": 12924.16
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682eea94b541e8df7bd6198a",
-                    "truth": {
-                        "cycles": 15769.03
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682eea99b541e8df7bd6198b",
-                    "truth": {
-                        "cycles": 22922.72
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682eeaa0b541e8df7bd6198c",
-                    "truth": {
-                        "cycles": 29936.92
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682eeab4b541e8df7bd6198d",
-                    "truth": {
-                        "cycles": 44344.23
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682eeae5b541e8df7bd6198e",
-                    "truth": {
-                        "cycles": 59800.35
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682eeb7eb541e8df7bd6198f",
-                    "truth": {
-                        "cycles": 142174.04
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682eecf3b541e8df7bd61990",
-                    "truth": {
-                        "cycles": 337819.06
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682eecf5b541e8df7bd61991",
                     "truth": {
                         "cycles": 10326.08
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682eecf8b541e8df7bd61992",
-                    "truth": {
-                        "cycles": 13270.08
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682eecfab541e8df7bd61993",
-                    "truth": {
-                        "cycles": 16239.96
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682eecffb541e8df7bd61994",
-                    "truth": {
-                        "cycles": 23585.47
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682eed06b541e8df7bd61995",
-                    "truth": {
-                        "cycles": 30547.91
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682eed1cb541e8df7bd61996",
-                    "truth": {
-                        "cycles": 44638.75
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682eed48b541e8df7bd61997",
-                    "truth": {
-                        "cycles": 59881.53
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682eede1b541e8df7bd61998",
-                    "truth": {
-                        "cycles": 107202.77
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682eef4bb541e8df7bd61999",
-                    "truth": {
-                        "cycles": 261841.32
                     }
                 },
                 {
@@ -920,11 +600,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682eea92b541e8df7bd61989",
+                    "truth": {
+                        "cycles": 12924.16
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682eecf8b541e8df7bd61992",
+                    "truth": {
+                        "cycles": 13270.08
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682eef50b541e8df7bd6199b",
                     "truth": {
                         "cycles": 13697.08
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682eea94b541e8df7bd6198a",
+                    "truth": {
+                        "cycles": 15769.03
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682eecfab541e8df7bd61993",
+                    "truth": {
+                        "cycles": 16239.96
                     }
                 },
                 {
@@ -936,11 +648,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682eea99b541e8df7bd6198b",
+                    "truth": {
+                        "cycles": 22922.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682eecffb541e8df7bd61994",
+                    "truth": {
+                        "cycles": 23585.47
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682eef56b541e8df7bd6199d",
                     "truth": {
                         "cycles": 25193.28
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682eeaa0b541e8df7bd6198c",
+                    "truth": {
+                        "cycles": 29936.92
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682eed06b541e8df7bd61995",
+                    "truth": {
+                        "cycles": 30547.91
                     }
                 },
                 {
@@ -952,6 +696,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682eeab4b541e8df7bd6198d",
+                    "truth": {
+                        "cycles": 44344.23
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682eed1cb541e8df7bd61996",
+                    "truth": {
+                        "cycles": 44638.75
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682eef6ab541e8df7bd6199f",
@@ -960,27 +720,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682eef87b541e8df7bd619a0",
+                    "trace-id": "682eeae5b541e8df7bd6198e",
                     "truth": {
-                        "cycles": 62718.47
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682ef006b541e8df7bd619a1",
-                    "truth": {
-                        "cycles": 97082.65
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682ef0f9b541e8df7bd619a2",
-                    "truth": {
-                        "cycles": 243930.64
+                        "cycles": 59800.35
                     }
                 }
             ]
@@ -998,139 +742,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682efc5ab541e8df7bd619da",
-                    "truth": {
-                        "cycles": 5350.72
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682efc5cb541e8df7bd619db",
-                    "truth": {
-                        "cycles": 6572.6
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682efc5db541e8df7bd619dc",
-                    "truth": {
-                        "cycles": 9453.92
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682efc5fb541e8df7bd619dd",
-                    "truth": {
-                        "cycles": 12545.24
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682efc61b541e8df7bd619de",
-                    "truth": {
-                        "cycles": 18569.4
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682efc63b541e8df7bd619df",
-                    "truth": {
-                        "cycles": 23508.07
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682efc65b541e8df7bd619e0",
-                    "truth": {
-                        "cycles": 35475.43
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682efc67b541e8df7bd619e1",
-                    "truth": {
-                        "cycles": 47005.1
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682efc69b541e8df7bd619e2",
                     "truth": {
                         "cycles": 4228.44
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682efc6ab541e8df7bd619e3",
-                    "truth": {
-                        "cycles": 5328.64
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682efc6cb541e8df7bd619e4",
-                    "truth": {
-                        "cycles": 6778.45
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682efc6db541e8df7bd619e5",
-                    "truth": {
-                        "cycles": 10005.92
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682efc6fb541e8df7bd619e6",
-                    "truth": {
-                        "cycles": 13119.43
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682efc70b541e8df7bd619e7",
-                    "truth": {
-                        "cycles": 18996.39
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682efc72b541e8df7bd619e8",
-                    "truth": {
-                        "cycles": 24869.67
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682efc74b541e8df7bd619e9",
-                    "truth": {
-                        "cycles": 37893.31
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682efc76b541e8df7bd619ea",
-                    "truth": {
-                        "cycles": 49948.99
                     }
                 },
                 {
@@ -1142,11 +758,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682efc5ab541e8df7bd619da",
+                    "truth": {
+                        "cycles": 5350.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682efc6ab541e8df7bd619e3",
+                    "truth": {
+                        "cycles": 5328.64
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682efc79b541e8df7bd619ec",
                     "truth": {
                         "cycles": 5612
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682efc5cb541e8df7bd619db",
+                    "truth": {
+                        "cycles": 6572.6
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682efc6cb541e8df7bd619e4",
+                    "truth": {
+                        "cycles": 6778.45
                     }
                 },
                 {
@@ -1158,11 +806,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682efc5db541e8df7bd619dc",
+                    "truth": {
+                        "cycles": 9453.92
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682efc6db541e8df7bd619e5",
+                    "truth": {
+                        "cycles": 10005.92
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682efc7cb541e8df7bd619ee",
                     "truth": {
                         "cycles": 11021.83
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682efc5fb541e8df7bd619dd",
+                    "truth": {
+                        "cycles": 12545.24
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682efc6fb541e8df7bd619e6",
+                    "truth": {
+                        "cycles": 13119.43
                     }
                 },
                 {
@@ -1174,6 +854,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682efc61b541e8df7bd619de",
+                    "truth": {
+                        "cycles": 18569.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682efc70b541e8df7bd619e7",
+                    "truth": {
+                        "cycles": 18996.39
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682efc7fb541e8df7bd619f0",
@@ -1182,27 +878,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682efc80b541e8df7bd619f1",
+                    "trace-id": "682efc63b541e8df7bd619df",
                     "truth": {
-                        "cycles": 27408.76
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682efc82b541e8df7bd619f2",
-                    "truth": {
-                        "cycles": 40211.82
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682efc84b541e8df7bd619f3",
-                    "truth": {
-                        "cycles": 53783.78
+                        "cycles": 23508.07
                     }
                 }
             ]
@@ -1220,139 +900,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682efdcbb541e8df7bd61a2b",
-                    "truth": {
-                        "cycles": 5755.41
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682efdcdb541e8df7bd61a2c",
-                    "truth": {
-                        "cycles": 7209.23
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682efdceb541e8df7bd61a2d",
-                    "truth": {
-                        "cycles": 10510.19
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682efdd0b541e8df7bd61a2e",
-                    "truth": {
-                        "cycles": 13295.84
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682efdd2b541e8df7bd61a2f",
-                    "truth": {
-                        "cycles": 19570.35
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682efdd4b541e8df7bd61a30",
-                    "truth": {
-                        "cycles": 25042.75
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682efdd6b541e8df7bd61a31",
-                    "truth": {
-                        "cycles": 37510.58
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682efdd9b541e8df7bd61a32",
-                    "truth": {
-                        "cycles": 50048.35
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682efddab541e8df7bd61a33",
                     "truth": {
                         "cycles": 4835.64
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682efddbb541e8df7bd61a34",
-                    "truth": {
-                        "cycles": 5939.64
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682efdddb541e8df7bd61a35",
-                    "truth": {
-                        "cycles": 7279.04
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682efddeb541e8df7bd61a36",
-                    "truth": {
-                        "cycles": 10686.72
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682efde0b541e8df7bd61a37",
-                    "truth": {
-                        "cycles": 13781.83
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682efde2b541e8df7bd61a38",
-                    "truth": {
-                        "cycles": 20218.03
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682efde3b541e8df7bd61a39",
-                    "truth": {
-                        "cycles": 26356.39
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682efde5b541e8df7bd61a3a",
-                    "truth": {
-                        "cycles": 40097.4
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682efde7b541e8df7bd61a3b",
-                    "truth": {
-                        "cycles": 52996.03
                     }
                 },
                 {
@@ -1364,11 +916,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682efdcbb541e8df7bd61a2b",
+                    "truth": {
+                        "cycles": 5755.41
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682efddbb541e8df7bd61a34",
+                    "truth": {
+                        "cycles": 5939.64
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682efdeab541e8df7bd61a3d",
                     "truth": {
                         "cycles": 6046.36
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682efdcdb541e8df7bd61a2c",
+                    "truth": {
+                        "cycles": 7209.23
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682efdddb541e8df7bd61a35",
+                    "truth": {
+                        "cycles": 7279.04
                     }
                 },
                 {
@@ -1380,11 +964,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682efdceb541e8df7bd61a2d",
+                    "truth": {
+                        "cycles": 10510.19
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682efddeb541e8df7bd61a36",
+                    "truth": {
+                        "cycles": 10686.72
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682efdedb541e8df7bd61a3f",
                     "truth": {
                         "cycles": 11448.48
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682efdd0b541e8df7bd61a2e",
+                    "truth": {
+                        "cycles": 13295.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682efde0b541e8df7bd61a37",
+                    "truth": {
+                        "cycles": 13781.83
                     }
                 },
                 {
@@ -1396,6 +1012,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682efdd2b541e8df7bd61a2f",
+                    "truth": {
+                        "cycles": 19570.35
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682efde2b541e8df7bd61a38",
+                    "truth": {
+                        "cycles": 20218.03
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682efdf0b541e8df7bd61a41",
@@ -1404,27 +1036,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682efdf2b541e8df7bd61a42",
+                    "trace-id": "682efdd4b541e8df7bd61a30",
                     "truth": {
-                        "cycles": 28428.46
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682efdf3b541e8df7bd61a43",
-                    "truth": {
-                        "cycles": 42478.47
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682efdf5b541e8df7bd61a44",
-                    "truth": {
-                        "cycles": 56742.38
+                        "cycles": 25042.75
                     }
                 }
             ]
@@ -1442,139 +1058,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682eff3db541e8df7bd61a7c",
-                    "truth": {
-                        "cycles": 4474.88
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682eff3fb541e8df7bd61a7d",
-                    "truth": {
-                        "cycles": 5420.53
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682eff41b541e8df7bd61a7e",
-                    "truth": {
-                        "cycles": 8051.84
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682eff44b541e8df7bd61a7f",
-                    "truth": {
-                        "cycles": 10300.32
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682eff4bb541e8df7bd61a80",
-                    "truth": {
-                        "cycles": 15161.72
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682eff5cb541e8df7bd61a81",
-                    "truth": {
-                        "cycles": 20744.39
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682eff95b541e8df7bd61a82",
-                    "truth": {
-                        "cycles": 52594.9
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682f001eb541e8df7bd61a83",
-                    "truth": {
-                        "cycles": 110331
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682f001fb541e8df7bd61a84",
                     "truth": {
                         "cycles": 3643.2
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682f0020b541e8df7bd61a85",
-                    "truth": {
-                        "cycles": 4600
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682f0021b541e8df7bd61a86",
-                    "truth": {
-                        "cycles": 5641.44
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682f0023b541e8df7bd61a87",
-                    "truth": {
-                        "cycles": 8206.52
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682f0027b541e8df7bd61a88",
-                    "truth": {
-                        "cycles": 10517.44
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682f002eb541e8df7bd61a89",
-                    "truth": {
-                        "cycles": 15312.71
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682f003fb541e8df7bd61a8a",
-                    "truth": {
-                        "cycles": 20821.56
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682f0077b541e8df7bd61a8b",
-                    "truth": {
-                        "cycles": 42357.15
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682f00fbb541e8df7bd61a8c",
-                    "truth": {
-                        "cycles": 87768.69
                     }
                 },
                 {
@@ -1586,11 +1074,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682eff3db541e8df7bd61a7c",
+                    "truth": {
+                        "cycles": 4474.88
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682f0020b541e8df7bd61a85",
+                    "truth": {
+                        "cycles": 4600
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682f00fdb541e8df7bd61a8e",
                     "truth": {
                         "cycles": 4758.47
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682eff3fb541e8df7bd61a7d",
+                    "truth": {
+                        "cycles": 5420.53
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682f0021b541e8df7bd61a86",
+                    "truth": {
+                        "cycles": 5641.44
                     }
                 },
                 {
@@ -1602,11 +1122,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682eff41b541e8df7bd61a7e",
+                    "truth": {
+                        "cycles": 8051.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682f0023b541e8df7bd61a87",
+                    "truth": {
+                        "cycles": 8206.52
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682f0100b541e8df7bd61a90",
                     "truth": {
                         "cycles": 8773.12
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682eff44b541e8df7bd61a7f",
+                    "truth": {
+                        "cycles": 10300.32
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f0027b541e8df7bd61a88",
+                    "truth": {
+                        "cycles": 10517.44
                     }
                 },
                 {
@@ -1618,6 +1170,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682eff4bb541e8df7bd61a80",
+                    "truth": {
+                        "cycles": 15161.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682f002eb541e8df7bd61a89",
+                    "truth": {
+                        "cycles": 15312.71
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682f0109b541e8df7bd61a92",
@@ -1626,27 +1194,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682f0116b541e8df7bd61a93",
+                    "trace-id": "682eff5cb541e8df7bd61a81",
                     "truth": {
-                        "cycles": 22061.83
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682f013eb541e8df7bd61a94",
-                    "truth": {
-                        "cycles": 33948.35
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682f0198b541e8df7bd61a95",
-                    "truth": {
-                        "cycles": 82738.02
+                        "cycles": 20744.39
                     }
                 }
             ]
@@ -1664,139 +1216,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682f0735b541e8df7bd61acd",
-                    "truth": {
-                        "cycles": 2403.04
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682f0736b541e8df7bd61ace",
-                    "truth": {
-                        "cycles": 3278.76
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682f0737b541e8df7bd61acf",
-                    "truth": {
-                        "cycles": 4706.72
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682f0739b541e8df7bd61ad0",
-                    "truth": {
-                        "cycles": 5751.84
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682f073ab541e8df7bd61ad1",
-                    "truth": {
-                        "cycles": 9027.04
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682f073bb541e8df7bd61ad2",
-                    "truth": {
-                        "cycles": 11588.32
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682f073db541e8df7bd61ad3",
-                    "truth": {
-                        "cycles": 17686.19
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682f0740b541e8df7bd61ad4",
-                    "truth": {
-                        "cycles": 23169.51
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682f0741b541e8df7bd61ad5",
                     "truth": {
                         "cycles": 2075.52
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682f0742b541e8df7bd61ad6",
-                    "truth": {
-                        "cycles": 2631.2
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682f0743b541e8df7bd61ad7",
-                    "truth": {
-                        "cycles": 3665.4
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682f0744b541e8df7bd61ad8",
-                    "truth": {
-                        "cycles": 5372.91
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682f0745b541e8df7bd61ad9",
-                    "truth": {
-                        "cycles": 6830.2
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682f0747b541e8df7bd61ada",
-                    "truth": {
-                        "cycles": 10186.24
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682f0748b541e8df7bd61adb",
-                    "truth": {
-                        "cycles": 13200.27
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682f0749b541e8df7bd61adc",
-                    "truth": {
-                        "cycles": 20280.6
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682f074bb541e8df7bd61add",
-                    "truth": {
-                        "cycles": 26540.27
                     }
                 },
                 {
@@ -1808,11 +1232,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682f0735b541e8df7bd61acd",
+                    "truth": {
+                        "cycles": 2403.04
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682f0742b541e8df7bd61ad6",
+                    "truth": {
+                        "cycles": 2631.2
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682f074db541e8df7bd61adf",
                     "truth": {
                         "cycles": 3072.92
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682f0736b541e8df7bd61ace",
+                    "truth": {
+                        "cycles": 3278.76
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682f0743b541e8df7bd61ad7",
+                    "truth": {
+                        "cycles": 3665.4
                     }
                 },
                 {
@@ -1824,11 +1280,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682f0737b541e8df7bd61acf",
+                    "truth": {
+                        "cycles": 4706.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682f0744b541e8df7bd61ad8",
+                    "truth": {
+                        "cycles": 5372.91
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682f074fb541e8df7bd61ae1",
                     "truth": {
                         "cycles": 6690.24
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682f0739b541e8df7bd61ad0",
+                    "truth": {
+                        "cycles": 5751.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f0745b541e8df7bd61ad9",
+                    "truth": {
+                        "cycles": 6830.2
                     }
                 },
                 {
@@ -1840,6 +1328,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682f073ab541e8df7bd61ad1",
+                    "truth": {
+                        "cycles": 9027.04
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682f0747b541e8df7bd61ada",
+                    "truth": {
+                        "cycles": 10186.24
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682f0752b541e8df7bd61ae3",
@@ -1848,27 +1352,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682f0753b541e8df7bd61ae4",
+                    "trace-id": "682f073bb541e8df7bd61ad2",
                     "truth": {
-                        "cycles": 16652.12
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682f0754b541e8df7bd61ae5",
-                    "truth": {
-                        "cycles": 25340.6
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682f0756b541e8df7bd61ae6",
-                    "truth": {
-                        "cycles": 33006.26
+                        "cycles": 11588.32
                     }
                 }
             ]
@@ -1886,139 +1374,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682f08a1b541e8df7bd61b1e",
-                    "truth": {
-                        "cycles": 5302.88
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682f08a2b541e8df7bd61b1f",
-                    "truth": {
-                        "cycles": 6576.16
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682f08a4b541e8df7bd61b20",
-                    "truth": {
-                        "cycles": 9479.57
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682f08a5b541e8df7bd61b21",
-                    "truth": {
-                        "cycles": 12526.72
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682f08a7b541e8df7bd61b22",
-                    "truth": {
-                        "cycles": 18344.8
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682f08a9b541e8df7bd61b23",
-                    "truth": {
-                        "cycles": 23508.3
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682f08abb541e8df7bd61b24",
-                    "truth": {
-                        "cycles": 35306.15
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682f08aeb541e8df7bd61b25",
-                    "truth": {
-                        "cycles": 46762.22
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682f08afb541e8df7bd61b26",
                     "truth": {
                         "cycles": 4228.2
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682f08b1b541e8df7bd61b27",
-                    "truth": {
-                        "cycles": 5384.07
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682f08b2b541e8df7bd61b28",
-                    "truth": {
-                        "cycles": 6826.28
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682f08b3b541e8df7bd61b29",
-                    "truth": {
-                        "cycles": 10142.31
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682f08b5b541e8df7bd61b2a",
-                    "truth": {
-                        "cycles": 13237.08
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682f08b7b541e8df7bd61b2b",
-                    "truth": {
-                        "cycles": 18882.08
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682f08b9b541e8df7bd61b2c",
-                    "truth": {
-                        "cycles": 24906.24
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682f08bab541e8df7bd61b2d",
-                    "truth": {
-                        "cycles": 37900.67
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682f08bcb541e8df7bd61b2e",
-                    "truth": {
-                        "cycles": 49864.57
                     }
                 },
                 {
@@ -2030,11 +1390,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682f08a1b541e8df7bd61b1e",
+                    "truth": {
+                        "cycles": 5302.88
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682f08b1b541e8df7bd61b27",
+                    "truth": {
+                        "cycles": 5384.07
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682f08bfb541e8df7bd61b30",
                     "truth": {
                         "cycles": 5667.2
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682f08a2b541e8df7bd61b1f",
+                    "truth": {
+                        "cycles": 6576.16
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682f08b2b541e8df7bd61b28",
+                    "truth": {
+                        "cycles": 6826.28
                     }
                 },
                 {
@@ -2046,11 +1438,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682f08a4b541e8df7bd61b20",
+                    "truth": {
+                        "cycles": 9479.57
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682f08b3b541e8df7bd61b29",
+                    "truth": {
+                        "cycles": 10142.31
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682f08c2b541e8df7bd61b32",
                     "truth": {
                         "cycles": 11091.64
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682f08a5b541e8df7bd61b21",
+                    "truth": {
+                        "cycles": 12526.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f08b5b541e8df7bd61b2a",
+                    "truth": {
+                        "cycles": 13237.08
                     }
                 },
                 {
@@ -2062,6 +1486,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682f08a7b541e8df7bd61b22",
+                    "truth": {
+                        "cycles": 18344.8
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682f08b7b541e8df7bd61b2b",
+                    "truth": {
+                        "cycles": 18882.08
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682f08c5b541e8df7bd61b34",
@@ -2070,27 +1510,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682f08c7b541e8df7bd61b35",
+                    "trace-id": "682f08a9b541e8df7bd61b23",
                     "truth": {
-                        "cycles": 27294.91
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682f08c9b541e8df7bd61b36",
-                    "truth": {
-                        "cycles": 40075.43
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682f08cab541e8df7bd61b37",
-                    "truth": {
-                        "cycles": 53323.43
+                        "cycles": 23508.3
                     }
                 }
             ]
@@ -2108,139 +1532,11 @@
                     }
                 },
                 {
-                    "blockDimX": 8,
-                    "size": 48,
-                    "trace-id": "682f0a13b541e8df7bd61b6f",
-                    "truth": {
-                        "cycles": 1663.36
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 64,
-                    "trace-id": "682f0a14b541e8df7bd61b70",
-                    "truth": {
-                        "cycles": 2171.2
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 96,
-                    "trace-id": "682f0a16b541e8df7bd61b71",
-                    "truth": {
-                        "cycles": 3069.12
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 128,
-                    "trace-id": "682f0a19b541e8df7bd61b72",
-                    "truth": {
-                        "cycles": 4217.4
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 192,
-                    "trace-id": "682f0a21b541e8df7bd61b73",
-                    "truth": {
-                        "cycles": 9811
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 256,
-                    "trace-id": "682f0a32b541e8df7bd61b74",
-                    "truth": {
-                        "cycles": 17020.11
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 384,
-                    "trace-id": "682f0a69b541e8df7bd61b75",
-                    "truth": {
-                        "cycles": 58254.86
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "size": 512,
-                    "trace-id": "682f0aebb541e8df7bd61b76",
-                    "truth": {
-                        "cycles": 135218.84
-                    }
-                },
-                {
                     "blockDimX": 16,
                     "size": 32,
                     "trace-id": "682f0aecb541e8df7bd61b77",
                     "truth": {
                         "cycles": 1508.8
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 48,
-                    "trace-id": "682f0aedb541e8df7bd61b78",
-                    "truth": {
-                        "cycles": 1751.8
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 64,
-                    "trace-id": "682f0aeeb541e8df7bd61b79",
-                    "truth": {
-                        "cycles": 2307.36
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 96,
-                    "trace-id": "682f0af1b541e8df7bd61b7a",
-                    "truth": {
-                        "cycles": 3183.2
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 128,
-                    "trace-id": "682f0af4b541e8df7bd61b7b",
-                    "truth": {
-                        "cycles": 5487
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 192,
-                    "trace-id": "682f0afcb541e8df7bd61b7c",
-                    "truth": {
-                        "cycles": 10646.24
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 256,
-                    "trace-id": "682f0b0eb541e8df7bd61b7d",
-                    "truth": {
-                        "cycles": 22665.47
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 384,
-                    "trace-id": "682f0b47b541e8df7bd61b7e",
-                    "truth": {
-                        "cycles": 73015.57
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "size": 512,
-                    "trace-id": "682f0bceb541e8df7bd61b7f",
-                    "truth": {
-                        "cycles": 170948.54
                     }
                 },
                 {
@@ -2252,11 +1548,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 48,
+                    "trace-id": "682f0a13b541e8df7bd61b6f",
+                    "truth": {
+                        "cycles": 1663.36
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 48,
+                    "trace-id": "682f0aedb541e8df7bd61b78",
+                    "truth": {
+                        "cycles": 1751.8
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 48,
                     "trace-id": "682f0bd0b541e8df7bd61b81",
                     "truth": {
                         "cycles": 2535.64
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 64,
+                    "trace-id": "682f0a14b541e8df7bd61b70",
+                    "truth": {
+                        "cycles": 2171.2
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 64,
+                    "trace-id": "682f0aeeb541e8df7bd61b79",
+                    "truth": {
+                        "cycles": 2307.36
                     }
                 },
                 {
@@ -2268,11 +1596,43 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 96,
+                    "trace-id": "682f0a16b541e8df7bd61b71",
+                    "truth": {
+                        "cycles": 3069.12
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 96,
+                    "trace-id": "682f0af1b541e8df7bd61b7a",
+                    "truth": {
+                        "cycles": 3183.2
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 96,
                     "trace-id": "682f0bd3b541e8df7bd61b83",
                     "truth": {
                         "cycles": 6329.6
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682f0a19b541e8df7bd61b72",
+                    "truth": {
+                        "cycles": 4217.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f0af4b541e8df7bd61b7b",
+                    "truth": {
+                        "cycles": 5487
                     }
                 },
                 {
@@ -2284,6 +1644,22 @@
                     }
                 },
                 {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682f0a21b541e8df7bd61b73",
+                    "truth": {
+                        "cycles": 9811
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682f0afcb541e8df7bd61b7c",
+                    "truth": {
+                        "cycles": 10646.24
+                    }
+                },
+                {
                     "blockDimX": 32,
                     "size": 192,
                     "trace-id": "682f0bdbb541e8df7bd61b85",
@@ -2292,27 +1668,11 @@
                     }
                 },
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 8,
                     "size": 256,
-                    "trace-id": "682f0be5b541e8df7bd61b86",
+                    "trace-id": "682f0a32b541e8df7bd61b74",
                     "truth": {
-                        "cycles": 45253.08
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 384,
-                    "trace-id": "682f0c06b541e8df7bd61b87",
-                    "truth": {
-                        "cycles": 134420.4
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "size": 512,
-                    "trace-id": "682f0c52b541e8df7bd61b88",
-                    "truth": {
-                        "cycles": 260704.43
+                        "cycles": 17020.11
                     }
                 }
             ]
@@ -2376,70 +1736,6 @@
                     "truth": {
                         "cycles": 9582.61
                     }
-                },
-                {
-                    "log2data": 16,
-                    "log2kernel": 14,
-                    "trace-id": "68302754c0844e6a8339bf56",
-                    "truth": {
-                        "cycles": 9579.27
-                    }
-                },
-                {
-                    "log2data": 16,
-                    "log2kernel": 16,
-                    "trace-id": "6830275cc0844e6a8339bf57",
-                    "truth": {
-                        "cycles": 9604.8
-                    }
-                },
-                {
-                    "log2data": 17,
-                    "log2kernel": 12,
-                    "trace-id": "6830276ac0844e6a8339bf58",
-                    "truth": {
-                        "cycles": 10863.25
-                    }
-                },
-                {
-                    "log2data": 17,
-                    "log2kernel": 14,
-                    "trace-id": "68302778c0844e6a8339bf59",
-                    "truth": {
-                        "cycles": 10889.12
-                    }
-                },
-                {
-                    "log2data": 17,
-                    "log2kernel": 16,
-                    "trace-id": "68302786c0844e6a8339bf5a",
-                    "truth": {
-                        "cycles": 10933.05
-                    }
-                },
-                {
-                    "log2data": 18,
-                    "log2kernel": 12,
-                    "trace-id": "6830279dc0844e6a8339bf5b",
-                    "truth": {
-                        "cycles": 14046.45
-                    }
-                },
-                {
-                    "log2data": 18,
-                    "log2kernel": 14,
-                    "trace-id": "683027b4c0844e6a8339bf5c",
-                    "truth": {
-                        "cycles": 14043
-                    }
-                },
-                {
-                    "log2data": 18,
-                    "log2kernel": 16,
-                    "trace-id": "683027cfc0844e6a8339bf5d",
-                    "truth": {
-                        "cycles": 14039.66
-                    }
                 }
             ]
         },
@@ -2467,62 +1763,6 @@
                     "truth": {
                         "cycles": 12438.86
                     }
-                },
-                {
-                    "size": 8192,
-                    "trace-id": "6830293bc0844e6a8339bf78",
-                    "truth": {
-                        "cycles": 17803.84
-                    }
-                },
-                {
-                    "size": 16384,
-                    "trace-id": "68302946c0844e6a8339bf79",
-                    "truth": {
-                        "cycles": 23883.09
-                    }
-                },
-                {
-                    "size": 32768,
-                    "trace-id": "68302956c0844e6a8339bf7a",
-                    "truth": {
-                        "cycles": 30111.03
-                    }
-                },
-                {
-                    "size": 65536,
-                    "trace-id": "68302972c0844e6a8339bf7b",
-                    "truth": {
-                        "cycles": 37448.49
-                    }
-                },
-                {
-                    "size": 81920,
-                    "trace-id": "68302995c0844e6a8339bf7c",
-                    "truth": {
-                        "cycles": 44509.72
-                    }
-                },
-                {
-                    "size": 98304,
-                    "trace-id": "683029c6c0844e6a8339bf7d",
-                    "truth": {
-                        "cycles": 45455.59
-                    }
-                },
-                {
-                    "size": 114688,
-                    "trace-id": "68302a02c0844e6a8339bf7e",
-                    "truth": {
-                        "cycles": 46272.55
-                    }
-                },
-                {
-                    "size": 131072,
-                    "trace-id": "68302a43c0844e6a8339bf7f",
-                    "truth": {
-                        "cycles": 48093.92
-                    }
                 }
             ]
         },
@@ -2539,76 +1779,12 @@
                     "vectorN": 32
                 },
                 {
-                    "elementN": 4096,
-                    "trace-id": "68302c7cc0844e6a8339bf93",
-                    "truth": {
-                        "cycles": 1556.53
-                    },
-                    "vectorN": 32
-                },
-                {
                     "elementN": 2048,
                     "trace-id": "68302c7ec0844e6a8339bf94",
                     "truth": {
                         "cycles": 1821.6
                     },
                     "vectorN": 64
-                },
-                {
-                    "elementN": 4096,
-                    "trace-id": "68302c81c0844e6a8339bf95",
-                    "truth": {
-                        "cycles": 1619.32
-                    },
-                    "vectorN": 64
-                },
-                {
-                    "elementN": 2048,
-                    "trace-id": "68302c85c0844e6a8339bf96",
-                    "truth": {
-                        "cycles": 1733.4
-                    },
-                    "vectorN": 128
-                },
-                {
-                    "elementN": 4096,
-                    "trace-id": "68302c89c0844e6a8339bf97",
-                    "truth": {
-                        "cycles": 1681.76
-                    },
-                    "vectorN": 128
-                },
-                {
-                    "elementN": 2048,
-                    "trace-id": "68302c8fc0844e6a8339bf98",
-                    "truth": {
-                        "cycles": 3083.73
-                    },
-                    "vectorN": 256
-                },
-                {
-                    "elementN": 4096,
-                    "trace-id": "68302c98c0844e6a8339bf99",
-                    "truth": {
-                        "cycles": 2748.96
-                    },
-                    "vectorN": 256
-                },
-                {
-                    "elementN": 2048,
-                    "trace-id": "68302ca1c0844e6a8339bf9a",
-                    "truth": {
-                        "cycles": 5358.2
-                    },
-                    "vectorN": 512
-                },
-                {
-                    "elementN": 4096,
-                    "trace-id": "68302cacc0844e6a8339bf9b",
-                    "truth": {
-                        "cycles": 4931.2
-                    },
-                    "vectorN": 512
                 }
             ]
         },
@@ -2625,59 +1801,19 @@
                     }
                 },
                 {
-                    "arrayLength": 2048,
-                    "size": 8192,
-                    "trace-id": "68302d97c0844e6a8339bfb2",
-                    "truth": {
-                        "cycles": 2126.93
-                    }
-                },
-                {
-                    "arrayLength": 2048,
-                    "size": 16384,
-                    "trace-id": "68302d9ac0844e6a8339bfb3",
-                    "truth": {
-                        "cycles": 2127.16
-                    }
-                },
-                {
-                    "arrayLength": 2048,
-                    "size": 32768,
-                    "trace-id": "68302d9dc0844e6a8339bfb4",
-                    "truth": {
-                        "cycles": 2112.32
-                    }
-                },
-                {
-                    "arrayLength": 2048,
-                    "size": 65536,
-                    "trace-id": "68302da0c0844e6a8339bfb5",
-                    "truth": {
-                        "cycles": 2197.07
-                    }
-                },
-                {
-                    "arrayLength": 2048,
-                    "size": 131072,
-                    "trace-id": "68302da4c0844e6a8339bfb6",
-                    "truth": {
-                        "cycles": 2292.64
-                    }
-                },
-                {
-                    "arrayLength": 2048,
-                    "size": 262144,
-                    "trace-id": "68302da9c0844e6a8339bfb7",
-                    "truth": {
-                        "cycles": 2524.48
-                    }
-                },
-                {
                     "arrayLength": 4096,
                     "size": 4096,
                     "trace-id": "68302dabc0844e6a8339bfb8",
                     "truth": {
                         "cycles": 2101.4
+                    }
+                },
+                {
+                    "arrayLength": 2048,
+                    "size": 8192,
+                    "trace-id": "68302d97c0844e6a8339bfb2",
+                    "truth": {
+                        "cycles": 2126.93
                     }
                 },
                 {
@@ -2689,43 +1825,19 @@
                     }
                 },
                 {
+                    "arrayLength": 2048,
+                    "size": 16384,
+                    "trace-id": "68302d9ac0844e6a8339bfb3",
+                    "truth": {
+                        "cycles": 2127.16
+                    }
+                },
+                {
                     "arrayLength": 4096,
                     "size": 16384,
                     "trace-id": "68302db0c0844e6a8339bfba",
                     "truth": {
                         "cycles": 2130.72
-                    }
-                },
-                {
-                    "arrayLength": 4096,
-                    "size": 32768,
-                    "trace-id": "68302db2c0844e6a8339bfbb",
-                    "truth": {
-                        "cycles": 2134.63
-                    }
-                },
-                {
-                    "arrayLength": 4096,
-                    "size": 65536,
-                    "trace-id": "68302db5c0844e6a8339bfbc",
-                    "truth": {
-                        "cycles": 2204.32
-                    }
-                },
-                {
-                    "arrayLength": 4096,
-                    "size": 131072,
-                    "trace-id": "68302db9c0844e6a8339bfbd",
-                    "truth": {
-                        "cycles": 2311.16
-                    }
-                },
-                {
-                    "arrayLength": 4096,
-                    "size": 262144,
-                    "trace-id": "68302dbec0844e6a8339bfbe",
-                    "truth": {
-                        "cycles": 2561.16
                     }
                 }
             ]
@@ -2735,19 +1847,19 @@
             "suite": "cuda-sdk",
             "args": [
                 {
-                    "arrayLength": 1024,
-                    "size": 4096,
-                    "trace-id": "68302390c0844e6a8339bf34",
-                    "truth": {
-                        "cycles": 780.16
-                    }
-                },
-                {
                     "arrayLength": 512,
                     "size": 4096,
                     "trace-id": "68302e7ac0844e6a8339bfd9",
                     "truth": {
                         "cycles": 757.97
+                    }
+                },
+                {
+                    "arrayLength": 1024,
+                    "size": 4096,
+                    "trace-id": "68302390c0844e6a8339bf34",
+                    "truth": {
+                        "cycles": 780.16
                     }
                 },
                 {
@@ -2759,46 +1871,6 @@
                     }
                 },
                 {
-                    "arrayLength": 512,
-                    "size": 16384,
-                    "trace-id": "68302e7dc0844e6a8339bfdb",
-                    "truth": {
-                        "cycles": 776.48
-                    }
-                },
-                {
-                    "arrayLength": 512,
-                    "size": 32768,
-                    "trace-id": "68302e7ec0844e6a8339bfdc",
-                    "truth": {
-                        "cycles": 783.96
-                    }
-                },
-                {
-                    "arrayLength": 512,
-                    "size": 65536,
-                    "trace-id": "68302e80c0844e6a8339bfdd",
-                    "truth": {
-                        "cycles": 802.13
-                    }
-                },
-                {
-                    "arrayLength": 512,
-                    "size": 131072,
-                    "trace-id": "68302e83c0844e6a8339bfde",
-                    "truth": {
-                        "cycles": 875.84
-                    }
-                },
-                {
-                    "arrayLength": 512,
-                    "size": 262144,
-                    "trace-id": "68302e86c0844e6a8339bfdf",
-                    "truth": {
-                        "cycles": 990.04
-                    }
-                },
-                {
                     "arrayLength": 1024,
                     "size": 8192,
                     "trace-id": "68302e88c0844e6a8339bfe0",
@@ -2807,43 +1879,19 @@
                     }
                 },
                 {
+                    "arrayLength": 512,
+                    "size": 16384,
+                    "trace-id": "68302e7dc0844e6a8339bfdb",
+                    "truth": {
+                        "cycles": 776.48
+                    }
+                },
+                {
                     "arrayLength": 1024,
                     "size": 16384,
                     "trace-id": "68302e8ac0844e6a8339bfe1",
                     "truth": {
                         "cycles": 794.88
-                    }
-                },
-                {
-                    "arrayLength": 1024,
-                    "size": 32768,
-                    "trace-id": "68302e8bc0844e6a8339bfe2",
-                    "truth": {
-                        "cycles": 802.24
-                    }
-                },
-                {
-                    "arrayLength": 1024,
-                    "size": 65536,
-                    "trace-id": "68302e8dc0844e6a8339bfe3",
-                    "truth": {
-                        "cycles": 831.68
-                    }
-                },
-                {
-                    "arrayLength": 1024,
-                    "size": 131072,
-                    "trace-id": "68302e8fc0844e6a8339bfe4",
-                    "truth": {
-                        "cycles": 875.84
-                    }
-                },
-                {
-                    "arrayLength": 1024,
-                    "size": 262144,
-                    "trace-id": "68302e92c0844e6a8339bfe5",
-                    "truth": {
-                        "cycles": 1008.32
                     }
                 }
             ]
@@ -2899,70 +1947,6 @@
                     "truth": {
                         "cycles": 2219.16
                     }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 32768,
-                    "trace-id": "68302f5ac0844e6a8339c005",
-                    "truth": {
-                        "cycles": 1880.48
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 32768,
-                    "trace-id": "68302f60c0844e6a8339c006",
-                    "truth": {
-                        "cycles": 2248.48
-                    }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 65536,
-                    "trace-id": "68302f67c0844e6a8339c007",
-                    "truth": {
-                        "cycles": 1917.28
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 65536,
-                    "trace-id": "68302f6fc0844e6a8339c008",
-                    "truth": {
-                        "cycles": 2281.49
-                    }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 131072,
-                    "trace-id": "68302f7bc0844e6a8339c009",
-                    "truth": {
-                        "cycles": 2907.2
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 131072,
-                    "trace-id": "68302f8dc0844e6a8339c00a",
-                    "truth": {
-                        "cycles": 3543.84
-                    }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 262144,
-                    "trace-id": "68302fa3c0844e6a8339c00b",
-                    "truth": {
-                        "cycles": 4070.2
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 262144,
-                    "trace-id": "68302fbbc0844e6a8339c00c",
-                    "truth": {
-                        "cycles": 5019.64
-                    }
                 }
             ]
         },
@@ -3016,70 +2000,6 @@
                     "trace-id": "68303110c0844e6a8339c02b",
                     "truth": {
                         "cycles": 2509.76
-                    }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 32768,
-                    "trace-id": "68303115c0844e6a8339c02c",
-                    "truth": {
-                        "cycles": 2101.28
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 32768,
-                    "trace-id": "6830311ac0844e6a8339c02d",
-                    "truth": {
-                        "cycles": 2513.44
-                    }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 65536,
-                    "trace-id": "68303120c0844e6a8339c02e",
-                    "truth": {
-                        "cycles": 2127.04
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 65536,
-                    "trace-id": "68303127c0844e6a8339c02f",
-                    "truth": {
-                        "cycles": 2561.28
-                    }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 131072,
-                    "trace-id": "68303131c0844e6a8339c030",
-                    "truth": {
-                        "cycles": 2984.48
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 131072,
-                    "trace-id": "6830313fc0844e6a8339c031",
-                    "truth": {
-                        "cycles": 3617.44
-                    }
-                },
-                {
-                    "arrayLength": 64,
-                    "size": 262144,
-                    "trace-id": "68303155c0844e6a8339c032",
-                    "truth": {
-                        "cycles": 4143.68
-                    }
-                },
-                {
-                    "arrayLength": 128,
-                    "size": 262144,
-                    "trace-id": "6830316cc0844e6a8339c033",
-                    "truth": {
-                        "cycles": 5045.4
                     }
                 }
             ]
@@ -3176,62 +2096,6 @@
                     "trace-id": "6830332fc0844e6a8339c04f",
                     "truth": {
                         "cycles": 783.84
-                    }
-                },
-                {
-                    "size": 131072,
-                    "trace-id": "68303330c0844e6a8339c050",
-                    "truth": {
-                        "cycles": 886.88
-                    }
-                },
-                {
-                    "size": 262144,
-                    "trace-id": "68303333c0844e6a8339c051",
-                    "truth": {
-                        "cycles": 1012
-                    }
-                },
-                {
-                    "size": 524288,
-                    "trace-id": "68303336c0844e6a8339c052",
-                    "truth": {
-                        "cycles": 1343.2
-                    }
-                },
-                {
-                    "size": 1048576,
-                    "trace-id": "6830333bc0844e6a8339c053",
-                    "truth": {
-                        "cycles": 1946.72
-                    }
-                },
-                {
-                    "size": 2097152,
-                    "trace-id": "68303343c0844e6a8339c054",
-                    "truth": {
-                        "cycles": 3326.72
-                    }
-                },
-                {
-                    "size": 4194304,
-                    "trace-id": "68303356c0844e6a8339c055",
-                    "truth": {
-                        "cycles": 7510.88
-                    }
-                },
-                {
-                    "size": 8388608,
-                    "trace-id": "68303379c0844e6a8339c056",
-                    "truth": {
-                        "cycles": 17575.8
-                    }
-                },
-                {
-                    "size": 16777216,
-                    "trace-id": "683033c7c0844e6a8339c057",
-                    "truth": {
-                        "cycles": 37377.99
                     }
                 }
             ]
