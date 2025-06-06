@@ -29,23 +29,23 @@ type ArgConfig map[string]interface{}
 
 func main() {
 	var configType string
-	flag.StringVar(&configType, "config", "dev", "config type: dev, test or release") // updated
-	flag.Parse()                                                                      // updated
+	flag.StringVar(&configType, "config", "dev", "config type: dev, test or release")
+	flag.Parse()
 
-	var configPath string // updated
-	switch configType {   // updated
-	case "release": // updated
+	var configPath string
+	switch configType {
+	case "release":
 		configPath = "nvidia/eval/eval_config_release.json"
-	case "test": // updated
+	case "test":
 		configPath = "nvidia/eval/eval_config_test.json"
-	default: // updated
+	default:
 		configPath = "nvidia/eval/eval_config_dev.json"
-	} // updated
+	}
 
 	config := mustReadConfig(configPath)
+	avgSEs, names := processBenchmarks(config)
 	printEvalStats(config.Benchmarks)
-	avgSEs, names := processBenchmarks(config) // updated
-	printAvgSEs(avgSEs, names)                 // updated
+	printAvgSEs(avgSEs, names)
 }
 
 func mustReadConfig(path string) EvalConfig {
@@ -64,17 +64,17 @@ func mustReadConfig(path string) EvalConfig {
 	return config
 }
 
-func processBenchmarks(config EvalConfig) ([]float64, []string) { // updated
+func processBenchmarks(config EvalConfig) ([]float64, []string) {
 	var avgSEs []float64
-	var names []string // updated
+	var names []string
 	for _, bench := range config.Benchmarks {
 		seList := processArgs(bench, config.ScriptPath)
 		if len(seList) > 0 {
 			avgSEs = append(avgSEs, average(seList))
-			names = append(names, fmt.Sprintf("%s/%s", bench.Suite, bench.Title)) // updated
+			names = append(names, fmt.Sprintf("%s/%s", bench.Suite, bench.Title))
 		}
 	}
-	return avgSEs, names // updated
+	return avgSEs, names
 }
 
 func processArgs(bench Benchmark, scriptPath string) []float64 {
@@ -85,6 +85,22 @@ func processArgs(bench Benchmark, scriptPath string) []float64 {
 			fmt.Fprintf(os.Stderr, "trace-id missing or not a string\n")
 			continue
 		}
+		// Build arg setting string (excluding "trace-id" and "truth")
+		argStr := "{"
+		first := true
+		for k, v := range arg {
+			if k == "trace-id" || k == "truth" {
+				continue
+			}
+			if !first {
+				argStr += ", "
+			}
+			first = false
+			argStr += fmt.Sprintf("\"%s\": %v", k, v)
+		}
+		argStr += "}"
+		fmt.Printf("trace-id: %s, suite: %s, benchmark: %s, arg setting: %s\n", traceID, bench.Suite, bench.Title, argStr)
+
 		truthCycles := getTruthCycles(arg)
 		tmpYamlPath := filepath.Join("nvidia/eval/", "tmp.yaml")
 		if err := writeTmpYaml(tmpYamlPath, traceID); err != nil {
@@ -248,6 +264,7 @@ func getTruthCycles(arg ArgConfig) float64 {
 
 // Write tmp.yaml based on the example, but with the correct trace-id
 func writeTmpYaml(path, traceID string) error {
+	// fmt.Printf("trace-id: %s\n", traceID)
 	content := `upload-to-server: true
 experiment:
   version: "1.0"
@@ -366,7 +383,7 @@ func average(list []float64) float64 {
 	return sum / float64(len(list))
 }
 
-func printAvgSEs(avgSEs []float64, names []string) { // updated
+func printAvgSEs(avgSEs []float64, names []string) {
 	// // Print the list of avg SEs
 	// fmt.Print("[")
 	// for i, v := range avgSEs {
@@ -377,14 +394,14 @@ func printAvgSEs(avgSEs []float64, names []string) { // updated
 	// }
 	// fmt.Println("]")
 	// Print the mapping from suite/benchmark to SE
-	fmt.Print("{")             // updated
-	for i, v := range avgSEs { // updated
+	fmt.Print("{")
+	for i, v := range avgSEs {
 		if i > 0 {
 			fmt.Print(", ")
 		}
 		fmt.Printf("\"%s\": %.6f", names[i], v)
 	}
-	fmt.Println("}") // updated
+	fmt.Println("}")
 	// Print the overall average
 	if len(avgSEs) > 0 {
 		fmt.Printf("%.6f\n", average(avgSEs))
