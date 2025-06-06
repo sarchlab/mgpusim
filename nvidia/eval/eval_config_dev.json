@@ -1,0 +1,572 @@
+{
+    "script_path": "./mnt-collector",
+    "benchmarks": [
+        {
+            "title": "2dconv",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682d171fb541e8df7bd6184b",
+                    "truth": {
+                        "cycles": 4118.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682d1738b541e8df7bd61856",
+                    "truth": {
+                        "cycles": 3613.55
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 192,
+                    "trace-id": "682d1751b541e8df7bd61861",
+                    "truth": {
+                        "cycles": 3556.22
+                    }
+                }
+            ]
+        },
+        {
+            "title": "2mm",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 192,
+                    "trace-id": "682e34f0b541e8df7bd618df",
+                    "truth": {
+                        "cycles": 30168.99
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 192,
+                    "trace-id": "682e415db541e8df7bd618ea",
+                    "truth": {
+                        "cycles": 30551.48
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 192,
+                    "trace-id": "682e4d3fb541e8df7bd618f5",
+                    "truth": {
+                        "cycles": 32652.76
+                    }
+                }
+            ]
+        },
+        {
+            "title": "3dconv",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682e8f36b541e8df7bd6193b",
+                    "truth": {
+                        "cycles": 89193.54
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682ea0fbb541e8df7bd61944",
+                    "truth": {
+                        "cycles": 83831.67
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682ea978b541e8df7bd6194d",
+                    "truth": {
+                        "cycles": 79023.63
+                    }
+                }
+            ]
+        },
+        {
+            "title": "3mm",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682eeaa0b541e8df7bd6198c",
+                    "truth": {
+                        "cycles": 29936.92
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682eed06b541e8df7bd61995",
+                    "truth": {
+                        "cycles": 30547.91
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682eef5cb541e8df7bd6199e",
+                    "truth": {
+                        "cycles": 32708.07
+                    }
+                }
+            ]
+        },
+        {
+            "title": "atax",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682efc5fb541e8df7bd619dd",
+                    "truth": {
+                        "cycles": 12545.24
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682efc6fb541e8df7bd619e6",
+                    "truth": {
+                        "cycles": 13119.43
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682efc7db541e8df7bd619ef",
+                    "truth": {
+                        "cycles": 13770.79
+                    }
+                }
+            ]
+        },
+        {
+            "title": "bicg",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682efdd0b541e8df7bd61a2e",
+                    "truth": {
+                        "cycles": 13295.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682efde0b541e8df7bd61a37",
+                    "truth": {
+                        "cycles": 13781.83
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682efdeeb541e8df7bd61a40",
+                    "truth": {
+                        "cycles": 14837.99
+                    }
+                }
+            ]
+        },
+        {
+            "title": "gemm",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682eff44b541e8df7bd61a7f",
+                    "truth": {
+                        "cycles": 10300.32
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f0027b541e8df7bd61a88",
+                    "truth": {
+                        "cycles": 10517.44
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682f0103b541e8df7bd61a91",
+                    "truth": {
+                        "cycles": 11319.68
+                    }
+                }
+            ]
+        },
+        {
+            "title": "gesummv",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682f0739b541e8df7bd61ad0",
+                    "truth": {
+                        "cycles": 5751.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f0745b541e8df7bd61ad9",
+                    "truth": {
+                        "cycles": 6830.2
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682f0750b541e8df7bd61ae2",
+                    "truth": {
+                        "cycles": 8581.88
+                    }
+                }
+            ]
+        },
+        {
+            "title": "mvt",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682f08a5b541e8df7bd61b21",
+                    "truth": {
+                        "cycles": 12526.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f08b5b541e8df7bd61b2a",
+                    "truth": {
+                        "cycles": 13237.08
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682f08c4b541e8df7bd61b33",
+                    "truth": {
+                        "cycles": 13862.79
+                    }
+                }
+            ]
+        },
+        {
+            "title": "syrk",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "size": 128,
+                    "trace-id": "682f0a19b541e8df7bd61b72",
+                    "truth": {
+                        "cycles": 4217.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "size": 128,
+                    "trace-id": "682f0af4b541e8df7bd61b7b",
+                    "truth": {
+                        "cycles": 5487
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "size": 128,
+                    "trace-id": "682f0bd6b541e8df7bd61b84",
+                    "truth": {
+                        "cycles": 8118.2
+                    }
+                }
+            ]
+        },
+        {
+            "title": "fastwalshtransform",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "log2data": 16,
+                    "log2kernel": 12,
+                    "trace-id": "6830274bc0844e6a8339bf55",
+                    "truth": {
+                        "cycles": 9582.61
+                    }
+                },
+                {
+                    "log2data": 16,
+                    "log2kernel": 14,
+                    "trace-id": "68302754c0844e6a8339bf56",
+                    "truth": {
+                        "cycles": 9579.27
+                    }
+                },
+                {
+                    "log2data": 16,
+                    "log2kernel": 16,
+                    "trace-id": "6830275cc0844e6a8339bf57",
+                    "truth": {
+                        "cycles": 9604.8
+                    }
+                }
+            ]
+        },
+        {
+            "title": "mergesort",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "size": 16384,
+                    "trace-id": "68302946c0844e6a8339bf79",
+                    "truth": {
+                        "cycles": 23883.09
+                    }
+                },
+                {
+                    "size": 32768,
+                    "trace-id": "68302956c0844e6a8339bf7a",
+                    "truth": {
+                        "cycles": 30111.03
+                    }
+                },
+                {
+                    "size": 65536,
+                    "trace-id": "68302972c0844e6a8339bf7b",
+                    "truth": {
+                        "cycles": 37448.49
+                    }
+                }
+            ]
+        },
+        {
+            "title": "scalarprod",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "elementN": 2048,
+                    "trace-id": "68302c8fc0844e6a8339bf98",
+                    "truth": {
+                        "cycles": 3083.73
+                    },
+                    "vectorN": 256
+                },
+                {
+                    "elementN": 2048,
+                    "trace-id": "68302ca1c0844e6a8339bf9a",
+                    "truth": {
+                        "cycles": 5358.2
+                    },
+                    "vectorN": 512
+                },
+                {
+                    "elementN": 4096,
+                    "trace-id": "68302c7cc0844e6a8339bf93",
+                    "truth": {
+                        "cycles": 1556.53
+                    },
+                    "vectorN": 32
+                }
+            ]
+        },
+        {
+            "title": "scan-long",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "arrayLength": 4096,
+                    "size": 16384,
+                    "trace-id": "68302db0c0844e6a8339bfba",
+                    "truth": {
+                        "cycles": 2130.72
+                    }
+                },
+                {
+                    "arrayLength": 2048,
+                    "size": 32768,
+                    "trace-id": "68302d9dc0844e6a8339bfb4",
+                    "truth": {
+                        "cycles": 2112.32
+                    }
+                },
+                {
+                    "arrayLength": 4096,
+                    "size": 32768,
+                    "trace-id": "68302db2c0844e6a8339bfbb",
+                    "truth": {
+                        "cycles": 2134.63
+                    }
+                }
+            ]
+        },
+        {
+            "title": "scan-short",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "arrayLength": 1024,
+                    "size": 16384,
+                    "trace-id": "68302e8ac0844e6a8339bfe1",
+                    "truth": {
+                        "cycles": 794.88
+                    }
+                },
+                {
+                    "arrayLength": 512,
+                    "size": 32768,
+                    "trace-id": "68302e7ec0844e6a8339bfdc",
+                    "truth": {
+                        "cycles": 783.96
+                    }
+                },
+                {
+                    "arrayLength": 1024,
+                    "size": 32768,
+                    "trace-id": "68302e8bc0844e6a8339bfe2",
+                    "truth": {
+                        "cycles": 802.24
+                    }
+                }
+            ]
+        },
+        {
+            "title": "sortingnetworks-bitonic",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "arrayLength": 128,
+                    "size": 16384,
+                    "trace-id": "68302f56c0844e6a8339c004",
+                    "truth": {
+                        "cycles": 2219.16
+                    }
+                },
+                {
+                    "arrayLength": 64,
+                    "size": 32768,
+                    "trace-id": "68302f5ac0844e6a8339c005",
+                    "truth": {
+                        "cycles": 1880.48
+                    }
+                },
+                {
+                    "arrayLength": 128,
+                    "size": 32768,
+                    "trace-id": "68302f60c0844e6a8339c006",
+                    "truth": {
+                        "cycles": 2248.48
+                    }
+                }
+            ]
+        },
+        {
+            "title": "sortingnetworks-oddeven",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "arrayLength": 128,
+                    "size": 16384,
+                    "trace-id": "68303110c0844e6a8339c02b",
+                    "truth": {
+                        "cycles": 2509.76
+                    }
+                },
+                {
+                    "arrayLength": 64,
+                    "size": 32768,
+                    "trace-id": "68303115c0844e6a8339c02c",
+                    "truth": {
+                        "cycles": 2101.28
+                    }
+                },
+                {
+                    "arrayLength": 128,
+                    "size": 32768,
+                    "trace-id": "6830311ac0844e6a8339c02d",
+                    "truth": {
+                        "cycles": 2513.44
+                    }
+                }
+            ]
+        },
+        {
+            "title": "transpose",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "dimX": 2048,
+                    "dimY": 2048,
+                    "kernelID": 1,
+                    "trace-id": "68303289c0844e6a8339c042",
+                    "truth": {
+                        "cycles": 6256
+                    }
+                },
+                {
+                    "dimX": 3072,
+                    "dimY": 3072,
+                    "kernelID": 1,
+                    "trace-id": "68305b55c0844e6a8339c069",
+                    "truth": {
+                        "cycles": 16928
+                    }
+                },
+                {
+                    "dimX": 4096,
+                    "dimY": 4096,
+                    "kernelID": 1,
+                    "trace-id": "68305b80c0844e6a8339c06a",
+                    "truth": {
+                        "cycles": 30915.91
+                    }
+                }
+            ]
+        },
+        {
+            "title": "vectoradd",
+            "suite": "cuda-sdk",
+            "args": [
+                {
+                    "size": 262144,
+                    "trace-id": "68303333c0844e6a8339c051",
+                    "truth": {
+                        "cycles": 1012
+                    }
+                },
+                {
+                    "size": 524288,
+                    "trace-id": "68303336c0844e6a8339c052",
+                    "truth": {
+                        "cycles": 1343.2
+                    }
+                },
+                {
+                    "size": 1048576,
+                    "trace-id": "6830333bc0844e6a8339c053",
+                    "truth": {
+                        "cycles": 1946.72
+                    }
+                }
+            ]
+        }
+    ]
+}

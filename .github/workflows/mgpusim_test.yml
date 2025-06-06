@@ -105,6 +105,26 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
           echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
+      
+      - name: Determine Commit Type and Version
+        id: commit_type
+        run: |
+          MSG="${{ steps.commit_info.outputs.message }}"
+          if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+            echo "type=release" >> $GITHUB_OUTPUT
+            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            # # Remove the [release vX.X.X] part from message
+            # MSG="${MSG#*\] }"
+            echo "msg=$MSG" >> $GITHUB_OUTPUT
+          elif [[ "$MSG" =~ ^test ]]; then
+            echo "type=test" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "msg=$MSG" >> $GITHUB_OUTPUT
+          else
+            echo "type=dev" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "msg=$MSG" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run Evaluation Script
         id: eval
@@ -112,7 +132,13 @@ jobs:
           go build -o nvidia/eval/eval nvidia/eval/eval.go
           # SCORE=99999 # Simulated score
           EVAL_START=$(date +%s.%N)
-          OUTPUT=$(./nvidia/eval/eval)
+          if [[ "${{ steps.commit_type.outputs.type }}" == "release" ]]; then
+            OUTPUT=$(./nvidia/eval/eval --config release)
+          elif [[ "${{ steps.commit_type.outputs.type }}" == "test" ]]; then
+            OUTPUT=$(./nvidia/eval/eval --config test)
+          else
+            OUTPUT=$(./nvidia/eval/eval --config dev)
+          fi
           EVAL_END=$(date +%s.%N)
           EVAL_ELAPSED=$(echo "$EVAL_END - $EVAL_START" | bc)
           NUM_SUITE=$(echo "$OUTPUT" | tail -5 | head -1)
@@ -142,17 +168,19 @@ jobs:
           NUM_SUITE="${{ steps.eval.outputs.num_suite }}"
           NUM_BENCHMARK="${{ steps.eval.outputs.num_benchmark }}"
           NUM_TRACE="${{ steps.eval.outputs.num_trace }}"
+          COMMIT_TYPE="${{ steps.commit_type.outputs.type }}"
+          VERSION="${{ steps.commit_type.outputs.version }}"
 
-          # Extract commit_type and version
-          if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-            COMMIT_TYPE="release"
-            VERSION="v${BASH_REMATCH[1]}"
-            # Remove the [release vX.X.X] part from message
-            MSG="${MSG#*\] }"
-          else
-            COMMIT_TYPE="dev"
-            VERSION=""
-          fi
+          # # Extract commit_type and version
+          # if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+          #   COMMIT_TYPE="release"
+          #   VERSION="v${BASH_REMATCH[1]}"
+          #   # Remove the [release vX.X.X] part from message
+          #   MSG="${MSG#*\] }"
+          # else
+          #   COMMIT_TYPE="dev"
+          #   VERSION=""
+          # fi
 
           # Compose the CSV line
           echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$DISTRIBUTION\",$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv

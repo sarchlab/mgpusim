@@ -2,7 +2,6 @@
     "script_path": "./mnt-collector",
     "benchmarks": [
         {
-            "id": 0,
             "title": "2mm",
             "suite": "polybench",
             "args": [
@@ -25,7 +24,6 @@
             ]
         },
         {
-            "id": 1,
             "title": "3mm",
             "suite": "polybench",
             "args": [
