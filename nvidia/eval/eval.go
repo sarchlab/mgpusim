@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -18,7 +19,7 @@ type EvalConfig struct {
 }
 
 type Benchmark struct {
-	ID    int         `json:"id"`
+	// ID    int         `json:"id"`
 	Title string      `json:"title"`
 	Suite string      `json:"suite"`
 	Args  []ArgConfig `json:"args"`
@@ -27,10 +28,24 @@ type Benchmark struct {
 type ArgConfig map[string]interface{}
 
 func main() {
-	config := mustReadConfig("nvidia/eval/eval_config.json")
+	var configType string
+	flag.StringVar(&configType, "config", "dev", "config type: dev, test or release") // updated
+	flag.Parse()                                                                      // updated
+
+	var configPath string // updated
+	switch configType {   // updated
+	case "release": // updated
+		configPath = "nvidia/eval/eval_config_release.json"
+	case "test": // updated
+		configPath = "nvidia/eval/eval_config_test.json"
+	default: // updated
+		configPath = "nvidia/eval/eval_config_dev.json"
+	} // updated
+
+	config := mustReadConfig(configPath)
 	printEvalStats(config.Benchmarks)
-	avgSEs := processBenchmarks(config)
-	printAvgSEs(avgSEs)
+	avgSEs, names := processBenchmarks(config) // updated
+	printAvgSEs(avgSEs, names)                 // updated
 }
 
 func mustReadConfig(path string) EvalConfig {
@@ -49,15 +64,17 @@ func mustReadConfig(path string) EvalConfig {
 	return config
 }
 
-func processBenchmarks(config EvalConfig) []float64 {
+func processBenchmarks(config EvalConfig) ([]float64, []string) { // updated
 	var avgSEs []float64
+	var names []string // updated
 	for _, bench := range config.Benchmarks {
 		seList := processArgs(bench, config.ScriptPath)
 		if len(seList) > 0 {
 			avgSEs = append(avgSEs, average(seList))
+			names = append(names, fmt.Sprintf("%s/%s", bench.Suite, bench.Title)) // updated
 		}
 	}
-	return avgSEs
+	return avgSEs, names // updated
 }
 
 func processArgs(bench Benchmark, scriptPath string) []float64 {
@@ -349,16 +366,25 @@ func average(list []float64) float64 {
 	return sum / float64(len(list))
 }
 
-func printAvgSEs(avgSEs []float64) {
-	// Print the list of avg SEs
-	fmt.Print("[")
-	for i, v := range avgSEs {
+func printAvgSEs(avgSEs []float64, names []string) { // updated
+	// // Print the list of avg SEs
+	// fmt.Print("[")
+	// for i, v := range avgSEs {
+	// 	if i > 0 {
+	// 		fmt.Print(",")
+	// 	}
+	// 	fmt.Printf("%.6f", v)
+	// }
+	// fmt.Println("]")
+	// Print the mapping from suite/benchmark to SE
+	fmt.Print("{")             // updated
+	for i, v := range avgSEs { // updated
 		if i > 0 {
-			fmt.Print(",")
+			fmt.Print(", ")
 		}
-		fmt.Printf("%.6f", v)
+		fmt.Printf("\"%s\": %.6f", names[i], v)
 	}
-	fmt.Println("]")
+	fmt.Println("}") // updated
 	// Print the overall average
 	if len(avgSEs) > 0 {
 		fmt.Printf("%.6f\n", average(avgSEs))

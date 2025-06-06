@@ -1,0 +1,410 @@
+suite=polybench, benchmark=2dconv, size=1024, blockDimX=16, cycles=12767.04
+suite=polybench, benchmark=2dconv, size=32, blockDimX=16, cycles=3200.54
+suite=polybench, benchmark=2dconv, size=96, blockDimX=32, cycles=3313.44
+suite=polybench, benchmark=2dconv, size=48, blockDimX=16, cycles=3201.12
+suite=polybench, benchmark=2dconv, size=64, blockDimX=32, cycles=3238.56
+suite=polybench, benchmark=2dconv, size=128, blockDimX=16, cycles=3575.52
+suite=polybench, benchmark=2dconv, size=384, blockDimX=16, cycles=4605.71
+suite=polybench, benchmark=2dconv, size=256, blockDimX=16, cycles=3875.04
+suite=polybench, benchmark=2dconv, size=128, blockDimX=32, cycles=3369.60
+suite=polybench, benchmark=2dconv, size=512, blockDimX=16, cycles=5691.47
+suite=polybench, benchmark=2dconv, size=384, blockDimX=8, cycles=6027.84
+suite=polybench, benchmark=2dconv, size=96, blockDimX=16, cycles=3370.19
+suite=polybench, benchmark=2dconv, size=128, blockDimX=8, cycles=3650.40
+suite=polybench, benchmark=2dconv, size=768, blockDimX=16, cycles=8666.77
+suite=polybench, benchmark=2dconv, size=768, blockDimX=32, cycles=6794.78
+suite=polybench, benchmark=2dconv, size=512, blockDimX=32, cycles=4586.40
+suite=polybench, benchmark=2dconv, size=256, blockDimX=8, cycles=4530.24
+suite=polybench, benchmark=2dconv, size=192, blockDimX=16, cycles=3613.55
+suite=polybench, benchmark=2dconv, size=192, blockDimX=8, cycles=4118.40
+suite=polybench, benchmark=2dconv, size=64, blockDimX=16, cycles=3294.72
+suite=polybench, benchmark=2dconv, size=768, blockDimX=8, cycles=14208.48
+suite=polybench, benchmark=2dconv, size=96, blockDimX=8, cycles=3594.24
+suite=polybench, benchmark=2dconv, size=256, blockDimX=32, cycles=3594.24
+suite=polybench, benchmark=2dconv, size=64, blockDimX=8, cycles=3350.88
+suite=polybench, benchmark=2dconv, size=32, blockDimX=8, cycles=3313.44
+suite=polybench, benchmark=2dconv, size=32, blockDimX=32, cycles=3219.84
+suite=polybench, benchmark=2dconv, size=48, blockDimX=32, cycles=3238.56
+suite=polybench, benchmark=2dconv, size=48, blockDimX=8, cycles=3276.59
+suite=polybench, benchmark=2dconv, size=192, blockDimX=32, cycles=3556.22
+suite=polybench, benchmark=2dconv, size=384, blockDimX=32, cycles=4005.50
+suite=polybench, benchmark=2dconv, size=512, blockDimX=8, cycles=8218.66
+suite=polybench, benchmark=2dconv, size=1024, blockDimX=8, cycles=22445.28
+suite=polybench, benchmark=2dconv, size=1024, blockDimX=32, cycles=9678.24
+
+suite=polybench, benchmark=2mm, size=48, blockDimX=16, cycles=9328.80
+suite=polybench, benchmark=2mm, size=1024, blockDimX=32, cycles=972129.73
+suite=polybench, benchmark=2mm, size=96, blockDimX=8, cycles=15783.52
+suite=polybench, benchmark=2mm, size=256, blockDimX=8, cycles=40881.35
+suite=polybench, benchmark=2mm, size=192, blockDimX=16, cycles=30551.48
+suite=polybench, benchmark=2mm, size=384, blockDimX=8, cycles=100335.66
+suite=polybench, benchmark=2mm, size=512, blockDimX=16, cycles=177322.07
+suite=polybench, benchmark=2mm, size=256, blockDimX=16, cycles=40988.07
+suite=polybench, benchmark=2mm, size=384, blockDimX=16, cycles=75186.65
+suite=polybench, benchmark=2mm, size=128, blockDimX=32, cycles=22319.31
+suite=polybench, benchmark=2mm, size=384, blockDimX=32, cycles=66361.90
+suite=polybench, benchmark=2mm, size=48, blockDimX=8, cycles=9111.68
+suite=polybench, benchmark=2mm, size=96, blockDimX=32, cycles=17240.69
+suite=polybench, benchmark=2mm, size=256, blockDimX=32, cycles=42942.15
+suite=polybench, benchmark=2mm, size=192, blockDimX=32, cycles=32652.76
+suite=polybench, benchmark=2mm, size=1024, blockDimX=8, cycles=1515618.35
+suite=polybench, benchmark=2mm, size=768, blockDimX=32, cycles=454714.95
+suite=polybench, benchmark=2mm, size=96, blockDimX=16, cycles=16136.68
+suite=polybench, benchmark=2mm, size=512, blockDimX=8, cycles=224003.32
+suite=polybench, benchmark=2mm, size=64, blockDimX=32, cycles=11555.32
+suite=polybench, benchmark=2mm, size=64, blockDimX=8, cycles=10661.08
+suite=polybench, benchmark=2mm, size=512, blockDimX=32, cycles=163654.43
+suite=polybench, benchmark=2mm, size=48, blockDimX=32, cycles=9619.64
+suite=polybench, benchmark=2mm, size=32, blockDimX=32, cycles=7477.99
+suite=polybench, benchmark=2mm, size=192, blockDimX=8, cycles=30168.99
+suite=polybench, benchmark=2mm, size=128, blockDimX=8, cycles=20409.40
+suite=polybench, benchmark=2mm, size=32, blockDimX=8, cycles=6951.75
+suite=polybench, benchmark=2mm, size=768, blockDimX=8, cycles=675284.71
+suite=polybench, benchmark=2mm, size=1024, blockDimX=16, cycles=1022733.64
+suite=polybench, benchmark=2mm, size=64, blockDimX=16, cycles=11073.01
+suite=polybench, benchmark=2mm, size=32, blockDimX=16, cycles=6981.08
+suite=polybench, benchmark=2mm, size=128, blockDimX=16, cycles=20832.60
+suite=polybench, benchmark=2mm, size=768, blockDimX=16, cycles=476706.51
+
+suite=polybench, benchmark=3dconv, size=256, blockDimX=32, cycles=216492.68
+suite=polybench, benchmark=3dconv, size=48, blockDimX=32, cycles=28104.51
+suite=polybench, benchmark=3dconv, size=128, blockDimX=16, cycles=83831.67
+suite=polybench, benchmark=3dconv, size=128, blockDimX=32, cycles=79023.63
+suite=polybench, benchmark=3dconv, size=192, blockDimX=16, cycles=151279.63
+suite=polybench, benchmark=3dconv, size=96, blockDimX=8, cycles=61557.20
+suite=polybench, benchmark=3dconv, size=512, blockDimX=16, cycles=657352.42
+suite=polybench, benchmark=3dconv, size=48, blockDimX=8, cycles=27806.20
+suite=polybench, benchmark=3dconv, size=256, blockDimX=8, cycles=243981.47
+suite=polybench, benchmark=3dconv, size=48, blockDimX=16, cycles=27559.75
+suite=polybench, benchmark=3dconv, size=96, blockDimX=16, cycles=59115.18
+suite=polybench, benchmark=3dconv, size=192, blockDimX=32, cycles=150726.48
+suite=polybench, benchmark=3dconv, size=384, blockDimX=8, cycles=481418.29
+suite=polybench, benchmark=3dconv, size=192, blockDimX=8, cycles=160981.49
+suite=polybench, benchmark=3dconv, size=32, blockDimX=8, cycles=18046.83
+suite=polybench, benchmark=3dconv, size=512, blockDimX=32, cycles=657427.52
+suite=polybench, benchmark=3dconv, size=128, blockDimX=8, cycles=89193.54
+suite=polybench, benchmark=3dconv, size=96, blockDimX=32, cycles=58368.71
+suite=polybench, benchmark=3dconv, size=64, blockDimX=8, cycles=38401.26
+suite=polybench, benchmark=3dconv, size=384, blockDimX=32, cycles=379050.92
+suite=polybench, benchmark=3dconv, size=512, blockDimX=8, cycles=879304.95
+suite=polybench, benchmark=3dconv, size=384, blockDimX=16, cycles=391448.27
+suite=polybench, benchmark=3dconv, size=64, blockDimX=16, cycles=37573.61
+suite=polybench, benchmark=3dconv, size=64, blockDimX=32, cycles=37874.56
+suite=polybench, benchmark=3dconv, size=32, blockDimX=16, cycles=17814.88
+suite=polybench, benchmark=3dconv, size=32, blockDimX=32, cycles=18036.26
+suite=polybench, benchmark=3dconv, size=256, blockDimX=16, cycles=218765.65
+
+suite=polybench, benchmark=3mm, size=256, blockDimX=8, cycles=59800.35
+suite=polybench, benchmark=3mm, size=256, blockDimX=16, cycles=59881.53
+suite=polybench, benchmark=3mm, size=32, blockDimX=16, cycles=10326.08
+suite=polybench, benchmark=3mm, size=48, blockDimX=8, cycles=12924.16
+suite=polybench, benchmark=3mm, size=512, blockDimX=16, cycles=261841.32
+suite=polybench, benchmark=3mm, size=256, blockDimX=32, cycles=62718.47
+suite=polybench, benchmark=3mm, size=64, blockDimX=32, cycles=16692.60
+suite=polybench, benchmark=3mm, size=384, blockDimX=8, cycles=142174.04
+suite=polybench, benchmark=3mm, size=96, blockDimX=16, cycles=23585.47
+suite=polybench, benchmark=3mm, size=96, blockDimX=8, cycles=22922.72
+suite=polybench, benchmark=3mm, size=512, blockDimX=8, cycles=337819.06
+suite=polybench, benchmark=3mm, size=192, blockDimX=16, cycles=44638.75
+suite=polybench, benchmark=3mm, size=384, blockDimX=32, cycles=97082.65
+suite=polybench, benchmark=3mm, size=64, blockDimX=16, cycles=16239.96
+suite=polybench, benchmark=3mm, size=512, blockDimX=32, cycles=243930.64
+suite=polybench, benchmark=3mm, size=48, blockDimX=32, cycles=13697.08
+suite=polybench, benchmark=3mm, size=128, blockDimX=32, cycles=32708.07
+suite=polybench, benchmark=3mm, size=48, blockDimX=16, cycles=13270.08
+suite=polybench, benchmark=3mm, size=192, blockDimX=8, cycles=44344.23
+suite=polybench, benchmark=3mm, size=96, blockDimX=32, cycles=25193.28
+suite=polybench, benchmark=3mm, size=32, blockDimX=32, cycles=10708.68
+suite=polybench, benchmark=3mm, size=384, blockDimX=16, cycles=107202.77
+suite=polybench, benchmark=3mm, size=64, blockDimX=8, cycles=15769.03
+suite=polybench, benchmark=3mm, size=128, blockDimX=16, cycles=30547.91
+suite=polybench, benchmark=3mm, size=128, blockDimX=8, cycles=29936.92
+suite=polybench, benchmark=3mm, size=192, blockDimX=32, cycles=48094.38
+suite=polybench, benchmark=3mm, size=32, blockDimX=8, cycles=10204.87
+
+suite=polybench, benchmark=atax, size=64, blockDimX=16, cycles=6778.45
+suite=polybench, benchmark=atax, size=512, blockDimX=16, cycles=49948.99
+suite=polybench, benchmark=atax, size=256, blockDimX=8, cycles=23508.07
+suite=polybench, benchmark=atax, size=48, blockDimX=8, cycles=5350.72
+suite=polybench, benchmark=atax, size=384, blockDimX=16, cycles=37893.31
+suite=polybench, benchmark=atax, size=96, blockDimX=32, cycles=11021.83
+suite=polybench, benchmark=atax, size=96, blockDimX=16, cycles=10005.92
+suite=polybench, benchmark=atax, size=384, blockDimX=8, cycles=35475.43
+suite=polybench, benchmark=atax, size=64, blockDimX=8, cycles=6572.60
+suite=polybench, benchmark=atax, size=32, blockDimX=16, cycles=4228.44
+suite=polybench, benchmark=atax, size=128, blockDimX=16, cycles=13119.43
+suite=polybench, benchmark=atax, size=256, blockDimX=16, cycles=24869.67
+suite=polybench, benchmark=atax, size=32, blockDimX=32, cycles=4000.16
+suite=polybench, benchmark=atax, size=192, blockDimX=8, cycles=18569.40
+suite=polybench, benchmark=atax, size=256, blockDimX=32, cycles=27408.76
+suite=polybench, benchmark=atax, size=48, blockDimX=16, cycles=5328.64
+suite=polybench, benchmark=atax, size=512, blockDimX=32, cycles=53783.78
+suite=polybench, benchmark=atax, size=512, blockDimX=8, cycles=47005.10
+suite=polybench, benchmark=atax, size=192, blockDimX=16, cycles=18996.39
+suite=polybench, benchmark=atax, size=128, blockDimX=8, cycles=12545.24
+suite=polybench, benchmark=atax, size=96, blockDimX=8, cycles=9453.92
+suite=polybench, benchmark=atax, size=192, blockDimX=32, cycles=20744.28
+suite=polybench, benchmark=atax, size=48, blockDimX=32, cycles=5612.00
+suite=polybench, benchmark=atax, size=128, blockDimX=32, cycles=13770.79
+suite=polybench, benchmark=atax, size=32, blockDimX=8, cycles=3989.12
+suite=polybench, benchmark=atax, size=64, blockDimX=32, cycles=7422.56
+suite=polybench, benchmark=atax, size=384, blockDimX=32, cycles=40211.82
+
+suite=polybench, benchmark=bicg, size=64, blockDimX=8, cycles=7209.23
+suite=polybench, benchmark=bicg, size=64, blockDimX=32, cycles=7934.08
+suite=polybench, benchmark=bicg, size=192, blockDimX=32, cycles=21896.23
+suite=polybench, benchmark=bicg, size=64, blockDimX=16, cycles=7279.04
+suite=polybench, benchmark=bicg, size=48, blockDimX=16, cycles=5939.64
+suite=polybench, benchmark=bicg, size=96, blockDimX=8, cycles=10510.19
+suite=polybench, benchmark=bicg, size=512, blockDimX=16, cycles=52996.03
+suite=polybench, benchmark=bicg, size=128, blockDimX=32, cycles=14837.99
+suite=polybench, benchmark=bicg, size=512, blockDimX=32, cycles=56742.38
+suite=polybench, benchmark=bicg, size=128, blockDimX=16, cycles=13781.83
+suite=polybench, benchmark=bicg, size=384, blockDimX=16, cycles=40097.40
+suite=polybench, benchmark=bicg, size=48, blockDimX=8, cycles=5755.41
+suite=polybench, benchmark=bicg, size=128, blockDimX=8, cycles=13295.84
+suite=polybench, benchmark=bicg, size=96, blockDimX=16, cycles=10686.72
+suite=polybench, benchmark=bicg, size=256, blockDimX=32, cycles=28428.46
+suite=polybench, benchmark=bicg, size=32, blockDimX=16, cycles=4835.64
+suite=polybench, benchmark=bicg, size=32, blockDimX=32, cycles=5096.69
+suite=polybench, benchmark=bicg, size=256, blockDimX=8, cycles=25042.75
+suite=polybench, benchmark=bicg, size=384, blockDimX=8, cycles=37510.58
+suite=polybench, benchmark=bicg, size=512, blockDimX=8, cycles=50048.35
+suite=polybench, benchmark=bicg, size=32, blockDimX=8, cycles=4629.44
+suite=polybench, benchmark=bicg, size=384, blockDimX=32, cycles=42478.47
+suite=polybench, benchmark=bicg, size=48, blockDimX=32, cycles=6046.36
+suite=polybench, benchmark=bicg, size=192, blockDimX=8, cycles=19570.35
+suite=polybench, benchmark=bicg, size=192, blockDimX=16, cycles=20218.03
+suite=polybench, benchmark=bicg, size=256, blockDimX=16, cycles=26356.39
+suite=polybench, benchmark=bicg, size=96, blockDimX=32, cycles=11448.48
+
+suite=polybench, benchmark=gemm, size=32, blockDimX=16, cycles=3643.20
+suite=polybench, benchmark=gemm, size=384, blockDimX=8, cycles=52594.90
+suite=polybench, benchmark=gemm, size=384, blockDimX=32, cycles=33948.35
+suite=polybench, benchmark=gemm, size=64, blockDimX=8, cycles=5420.53
+suite=polybench, benchmark=gemm, size=128, blockDimX=32, cycles=11319.68
+suite=polybench, benchmark=gemm, size=192, blockDimX=16, cycles=15312.71
+suite=polybench, benchmark=gemm, size=32, blockDimX=32, cycles=3864.12
+suite=polybench, benchmark=gemm, size=96, blockDimX=32, cycles=8773.12
+suite=polybench, benchmark=gemm, size=64, blockDimX=32, cycles=5865.92
+suite=polybench, benchmark=gemm, size=192, blockDimX=8, cycles=15161.72
+suite=polybench, benchmark=gemm, size=512, blockDimX=32, cycles=82738.02
+suite=polybench, benchmark=gemm, size=96, blockDimX=16, cycles=8206.52
+suite=polybench, benchmark=gemm, size=384, blockDimX=16, cycles=42357.15
+suite=polybench, benchmark=gemm, size=128, blockDimX=8, cycles=10300.32
+suite=polybench, benchmark=gemm, size=64, blockDimX=16, cycles=5641.44
+suite=polybench, benchmark=gemm, size=32, blockDimX=8, cycles=3624.92
+suite=polybench, benchmark=gemm, size=48, blockDimX=32, cycles=4758.47
+suite=polybench, benchmark=gemm, size=48, blockDimX=8, cycles=4474.88
+suite=polybench, benchmark=gemm, size=96, blockDimX=8, cycles=8051.84
+suite=polybench, benchmark=gemm, size=192, blockDimX=32, cycles=16582.20
+suite=polybench, benchmark=gemm, size=128, blockDimX=16, cycles=10517.44
+suite=polybench, benchmark=gemm, size=512, blockDimX=8, cycles=110331.00
+suite=polybench, benchmark=gemm, size=256, blockDimX=16, cycles=20821.56
+suite=polybench, benchmark=gemm, size=256, blockDimX=32, cycles=22061.83
+suite=polybench, benchmark=gemm, size=48, blockDimX=16, cycles=4600.00
+suite=polybench, benchmark=gemm, size=256, blockDimX=8, cycles=20744.39
+suite=polybench, benchmark=gemm, size=512, blockDimX=16, cycles=87768.69
+
+suite=polybench, benchmark=gesummv, size=256, blockDimX=32, cycles=16652.12
+suite=polybench, benchmark=gesummv, size=256, blockDimX=16, cycles=13200.27
+suite=polybench, benchmark=gesummv, size=64, blockDimX=16, cycles=3665.40
+suite=polybench, benchmark=gesummv, size=96, blockDimX=8, cycles=4706.72
+suite=polybench, benchmark=gesummv, size=32, blockDimX=8, cycles=1854.72
+suite=polybench, benchmark=gesummv, size=48, blockDimX=32, cycles=3072.92
+suite=polybench, benchmark=gesummv, size=48, blockDimX=8, cycles=2403.04
+suite=polybench, benchmark=gesummv, size=512, blockDimX=8, cycles=23169.51
+suite=polybench, benchmark=gesummv, size=128, blockDimX=8, cycles=5751.84
+suite=polybench, benchmark=gesummv, size=64, blockDimX=8, cycles=3278.76
+suite=polybench, benchmark=gesummv, size=384, blockDimX=8, cycles=17686.19
+suite=polybench, benchmark=gesummv, size=192, blockDimX=16, cycles=10186.24
+suite=polybench, benchmark=gesummv, size=64, blockDimX=32, cycles=4555.84
+suite=polybench, benchmark=gesummv, size=32, blockDimX=16, cycles=2075.52
+suite=polybench, benchmark=gesummv, size=192, blockDimX=32, cycles=12887.48
+suite=polybench, benchmark=gesummv, size=192, blockDimX=8, cycles=9027.04
+suite=polybench, benchmark=gesummv, size=256, blockDimX=8, cycles=11588.32
+suite=polybench, benchmark=gesummv, size=128, blockDimX=32, cycles=8581.88
+suite=polybench, benchmark=gesummv, size=48, blockDimX=16, cycles=2631.20
+suite=polybench, benchmark=gesummv, size=128, blockDimX=16, cycles=6830.20
+suite=polybench, benchmark=gesummv, size=32, blockDimX=32, cycles=2572.32
+suite=polybench, benchmark=gesummv, size=384, blockDimX=16, cycles=20280.60
+suite=polybench, benchmark=gesummv, size=384, blockDimX=32, cycles=25340.60
+suite=polybench, benchmark=gesummv, size=96, blockDimX=32, cycles=6690.24
+suite=polybench, benchmark=gesummv, size=96, blockDimX=16, cycles=5372.91
+suite=polybench, benchmark=gesummv, size=512, blockDimX=32, cycles=33006.26
+suite=polybench, benchmark=gesummv, size=512, blockDimX=16, cycles=26540.27
+
+suite=polybench, benchmark=mvt, size=384, blockDimX=8, cycles=35306.15
+suite=polybench, benchmark=mvt, size=512, blockDimX=16, cycles=49864.57
+suite=polybench, benchmark=mvt, size=192, blockDimX=8, cycles=18344.80
+suite=polybench, benchmark=mvt, size=32, blockDimX=8, cycles=3981.76
+suite=polybench, benchmark=mvt, size=384, blockDimX=32, cycles=40075.43
+suite=polybench, benchmark=mvt, size=64, blockDimX=8, cycles=6576.16
+suite=polybench, benchmark=mvt, size=64, blockDimX=16, cycles=6826.28
+suite=polybench, benchmark=mvt, size=192, blockDimX=32, cycles=20935.52
+suite=polybench, benchmark=mvt, size=48, blockDimX=32, cycles=5667.20
+suite=polybench, benchmark=mvt, size=32, blockDimX=16, cycles=4228.20
+suite=polybench, benchmark=mvt, size=256, blockDimX=16, cycles=24906.24
+suite=polybench, benchmark=mvt, size=48, blockDimX=16, cycles=5384.07
+suite=polybench, benchmark=mvt, size=48, blockDimX=8, cycles=5302.88
+suite=polybench, benchmark=mvt, size=64, blockDimX=32, cycles=7470.40
+suite=polybench, benchmark=mvt, size=512, blockDimX=32, cycles=53323.43
+suite=polybench, benchmark=mvt, size=128, blockDimX=8, cycles=12526.72
+suite=polybench, benchmark=mvt, size=32, blockDimX=32, cycles=4040.64
+suite=polybench, benchmark=mvt, size=96, blockDimX=32, cycles=11091.64
+suite=polybench, benchmark=mvt, size=128, blockDimX=32, cycles=13862.79
+suite=polybench, benchmark=mvt, size=96, blockDimX=8, cycles=9479.57
+suite=polybench, benchmark=mvt, size=256, blockDimX=8, cycles=23508.30
+suite=polybench, benchmark=mvt, size=512, blockDimX=8, cycles=46762.22
+suite=polybench, benchmark=mvt, size=96, blockDimX=16, cycles=10142.31
+suite=polybench, benchmark=mvt, size=256, blockDimX=32, cycles=27294.91
+suite=polybench, benchmark=mvt, size=384, blockDimX=16, cycles=37900.67
+suite=polybench, benchmark=mvt, size=128, blockDimX=16, cycles=13237.08
+suite=polybench, benchmark=mvt, size=192, blockDimX=16, cycles=18882.08
+
+suite=polybench, benchmark=syrk, size=64, blockDimX=8, cycles=2171.20
+suite=polybench, benchmark=syrk, size=512, blockDimX=16, cycles=170948.54
+suite=polybench, benchmark=syrk, size=128, blockDimX=8, cycles=4217.40
+suite=polybench, benchmark=syrk, size=384, blockDimX=32, cycles=134420.40
+suite=polybench, benchmark=syrk, size=256, blockDimX=32, cycles=45253.08
+suite=polybench, benchmark=syrk, size=32, blockDimX=8, cycles=1446.24
+suite=polybench, benchmark=syrk, size=96, blockDimX=8, cycles=3069.12
+suite=polybench, benchmark=syrk, size=48, blockDimX=32, cycles=2535.64
+suite=polybench, benchmark=syrk, size=192, blockDimX=16, cycles=10646.24
+suite=polybench, benchmark=syrk, size=64, blockDimX=16, cycles=2307.36
+suite=polybench, benchmark=syrk, size=128, blockDimX=32, cycles=8118.20
+suite=polybench, benchmark=syrk, size=32, blockDimX=32, cycles=2609.12
+suite=polybench, benchmark=syrk, size=48, blockDimX=8, cycles=1663.36
+suite=polybench, benchmark=syrk, size=384, blockDimX=16, cycles=73015.57
+suite=polybench, benchmark=syrk, size=512, blockDimX=32, cycles=260704.43
+suite=polybench, benchmark=syrk, size=192, blockDimX=32, cycles=23651.59
+suite=polybench, benchmark=syrk, size=512, blockDimX=8, cycles=135218.84
+suite=polybench, benchmark=syrk, size=128, blockDimX=16, cycles=5487.00
+suite=polybench, benchmark=syrk, size=32, blockDimX=16, cycles=1508.80
+suite=polybench, benchmark=syrk, size=256, blockDimX=16, cycles=22665.47
+suite=polybench, benchmark=syrk, size=256, blockDimX=8, cycles=17020.11
+suite=polybench, benchmark=syrk, size=48, blockDimX=16, cycles=1751.80
+suite=polybench, benchmark=syrk, size=192, blockDimX=8, cycles=9811.00
+suite=polybench, benchmark=syrk, size=384, blockDimX=8, cycles=58254.86
+suite=polybench, benchmark=syrk, size=96, blockDimX=32, cycles=6329.60
+suite=polybench, benchmark=syrk, size=96, blockDimX=16, cycles=3183.20
+suite=polybench, benchmark=syrk, size=64, blockDimX=32, cycles=4416.00
+
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=16, log2kernel=14, cycles=9579.27
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=16, log2kernel=12, cycles=9582.61
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=18, log2kernel=14, cycles=14043.00
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=14, log2kernel=12, cycles=7529.05
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=13, log2kernel=12, cycles=6278.31
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=18, log2kernel=12, cycles=14046.45
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=18, log2kernel=16, cycles=14039.66
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=17, log2kernel=12, cycles=10863.25
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=15, log2kernel=14, cycles=8203.18
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=17, log2kernel=16, cycles=10933.05
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=17, log2kernel=14, cycles=10889.12
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=15, log2kernel=12, cycles=8199.04
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=14, log2kernel=14, cycles=7544.12
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=12, log2kernel=12, cycles=5700.55
+suite=cuda-sdk, benchmark=fastwalshtransform, log2data=16, log2kernel=16, cycles=9604.80
+
+suite=cuda-sdk, benchmark=mergesort, size=4096, cycles=12438.86
+suite=cuda-sdk, benchmark=mergesort, size=2048, cycles=7172.32
+suite=cuda-sdk, benchmark=mergesort, size=32768, cycles=30111.03
+suite=cuda-sdk, benchmark=mergesort, size=16384, cycles=23883.09
+suite=cuda-sdk, benchmark=mergesort, size=131072, cycles=48093.92
+suite=cuda-sdk, benchmark=mergesort, size=98304, cycles=45455.59
+suite=cuda-sdk, benchmark=mergesort, size=65536, cycles=37448.49
+suite=cuda-sdk, benchmark=mergesort, size=114688, cycles=46272.55
+suite=cuda-sdk, benchmark=mergesort, size=1024, cycles=2848.32
+suite=cuda-sdk, benchmark=mergesort, size=8192, cycles=17803.84
+suite=cuda-sdk, benchmark=mergesort, size=81920, cycles=44509.72
+
+suite=cuda-sdk, benchmark=scalarprod, vectorN=512, elementN=2048, cycles=5358.20
+suite=cuda-sdk, benchmark=scalarprod, vectorN=64, elementN=2048, cycles=1821.60
+suite=cuda-sdk, benchmark=scalarprod, vectorN=32, elementN=2048, cycles=1685.33
+suite=cuda-sdk, benchmark=scalarprod, vectorN=256, elementN=4096, cycles=2748.96
+suite=cuda-sdk, benchmark=scalarprod, vectorN=256, elementN=2048, cycles=3083.73
+suite=cuda-sdk, benchmark=scalarprod, vectorN=512, elementN=4096, cycles=4931.20
+suite=cuda-sdk, benchmark=scalarprod, vectorN=128, elementN=4096, cycles=1681.76
+suite=cuda-sdk, benchmark=scalarprod, vectorN=64, elementN=4096, cycles=1619.32
+suite=cuda-sdk, benchmark=scalarprod, vectorN=32, elementN=4096, cycles=1556.53
+suite=cuda-sdk, benchmark=scalarprod, vectorN=128, elementN=2048, cycles=1733.40
+
+suite=cuda-sdk, benchmark=scan-long, size=8192, arrayLength=2048, cycles=2126.93
+suite=cuda-sdk, benchmark=scan-long, size=16384, arrayLength=2048, cycles=2127.16
+suite=cuda-sdk, benchmark=scan-long, size=131072, arrayLength=2048, cycles=2292.64
+suite=cuda-sdk, benchmark=scan-long, size=8192, arrayLength=4096, cycles=2134.40
+suite=cuda-sdk, benchmark=scan-long, size=16384, arrayLength=4096, cycles=2130.72
+suite=cuda-sdk, benchmark=scan-long, size=32768, arrayLength=4096, cycles=2134.63
+suite=cuda-sdk, benchmark=scan-long, size=65536, arrayLength=2048, cycles=2197.07
+suite=cuda-sdk, benchmark=scan-long, size=32768, arrayLength=2048, cycles=2112.32
+suite=cuda-sdk, benchmark=scan-long, size=4096, arrayLength=2048, cycles=2079.32
+suite=cuda-sdk, benchmark=scan-long, size=65536, arrayLength=4096, cycles=2204.32
+suite=cuda-sdk, benchmark=scan-long, size=131072, arrayLength=4096, cycles=2311.16
+suite=cuda-sdk, benchmark=scan-long, size=262144, arrayLength=2048, cycles=2524.48
+suite=cuda-sdk, benchmark=scan-long, size=262144, arrayLength=4096, cycles=2561.16
+suite=cuda-sdk, benchmark=scan-long, size=4096, arrayLength=4096, cycles=2101.40
+
+suite=cuda-sdk, benchmark=scan-short, size=262144, arrayLength=512, cycles=990.04
+suite=cuda-sdk, benchmark=scan-short, size=8192, arrayLength=1024, cycles=787.41
+suite=cuda-sdk, benchmark=scan-short, size=8192, arrayLength=512, cycles=769.12
+suite=cuda-sdk, benchmark=scan-short, size=262144, arrayLength=1024, cycles=1008.32
+suite=cuda-sdk, benchmark=scan-short, size=4096, arrayLength=512, cycles=757.97
+suite=cuda-sdk, benchmark=scan-short, size=32768, arrayLength=1024, cycles=802.24
+suite=cuda-sdk, benchmark=scan-short, size=16384, arrayLength=1024, cycles=794.88
+suite=cuda-sdk, benchmark=scan-short, size=4096, arrayLength=1024, cycles=780.16
+suite=cuda-sdk, benchmark=scan-short, size=65536, arrayLength=512, cycles=802.13
+suite=cuda-sdk, benchmark=scan-short, size=131072, arrayLength=1024, cycles=875.84
+suite=cuda-sdk, benchmark=scan-short, size=65536, arrayLength=1024, cycles=831.68
+suite=cuda-sdk, benchmark=scan-short, size=32768, arrayLength=512, cycles=783.96
+suite=cuda-sdk, benchmark=scan-short, size=131072, arrayLength=512, cycles=875.84
+suite=cuda-sdk, benchmark=scan-short, size=16384, arrayLength=512, cycles=776.48
+
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=131072, arrayLength=64, cycles=2907.20
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=65536, arrayLength=64, cycles=1917.28
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=8192, arrayLength=64, cycles=1851.04
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=4096, arrayLength=64, cycles=1847.36
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=131072, arrayLength=128, cycles=3543.84
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=32768, arrayLength=64, cycles=1880.48
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=16384, arrayLength=128, cycles=2219.16
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=262144, arrayLength=128, cycles=5019.64
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=262144, arrayLength=64, cycles=4070.20
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=65536, arrayLength=128, cycles=2281.49
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=8192, arrayLength=128, cycles=2219.04
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=32768, arrayLength=128, cycles=2248.48
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=16384, arrayLength=64, cycles=1865.76
+suite=cuda-sdk, benchmark=sortingnetworks-bitonic, size=4096, arrayLength=128, cycles=2211.68
+
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=8192, arrayLength=64, cycles=2075.52
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=131072, arrayLength=128, cycles=3617.44
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=8192, arrayLength=128, cycles=2495.04
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=262144, arrayLength=128, cycles=5045.40
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=65536, arrayLength=64, cycles=2127.04
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=131072, arrayLength=64, cycles=2984.48
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=4096, arrayLength=128, cycles=2480.32
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=262144, arrayLength=64, cycles=4143.68
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=16384, arrayLength=64, cycles=2071.84
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=16384, arrayLength=128, cycles=2509.76
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=32768, arrayLength=64, cycles=2101.28
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=65536, arrayLength=128, cycles=2561.28
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=32768, arrayLength=128, cycles=2513.44
+suite=cuda-sdk, benchmark=sortingnetworks-oddeven, size=4096, arrayLength=64, cycles=2060.68
+
+suite=cuda-sdk, benchmark=transpose, dimX=2048, dimY=2048, kernelID=1, cycles=6256.00
+suite=cuda-sdk, benchmark=transpose, dimX=1536, dimY=1536, kernelID=1, cycles=3488.76
+suite=cuda-sdk, benchmark=transpose, dimX=6144, dimY=6144, kernelID=1, cycles=70881.06
+suite=cuda-sdk, benchmark=transpose, dimX=8192, dimY=8192, kernelID=1, cycles=126500.92
+suite=cuda-sdk, benchmark=transpose, dimX=3072, dimY=3072, kernelID=1, cycles=16928.00
+suite=cuda-sdk, benchmark=transpose, dimX=4096, dimY=4096, kernelID=1, cycles=30915.91
+suite=cuda-sdk, benchmark=transpose, dimX=1024, dimY=1024, kernelID=1, cycles=1814.24
+
+suite=cuda-sdk, benchmark=vectoradd, size=8388608, cycles=17575.80
+suite=cuda-sdk, benchmark=vectoradd, size=524288, cycles=1343.20
+suite=cuda-sdk, benchmark=vectoradd, size=1048576, cycles=1946.72
+suite=cuda-sdk, benchmark=vectoradd, size=16777216, cycles=37377.99
+suite=cuda-sdk, benchmark=vectoradd, size=262144, cycles=1012.00
+suite=cuda-sdk, benchmark=vectoradd, size=65536, cycles=783.84
+suite=cuda-sdk, benchmark=vectoradd, size=2097152, cycles=3326.72
+suite=cuda-sdk, benchmark=vectoradd, size=32768, cycles=761.88
+suite=cuda-sdk, benchmark=vectoradd, size=131072, cycles=886.88
+suite=cuda-sdk, benchmark=vectoradd, size=16384, cycles=724.96
+suite=cuda-sdk, benchmark=vectoradd, size=4194304, cycles=7510.88
