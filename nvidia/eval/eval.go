@@ -114,6 +114,15 @@ func processArgs(bench Benchmark, scriptPath string) []float64 {
 				fmt.Fprintf(os.Stderr, "Failed to remove %s: %v\n", tmpDir, err)
 			}
 		}
+		matches, err := filepath.Glob("mnt-collector/logfile*")
+		if err == nil {
+			for _, f := range matches {
+				err := os.Remove(f)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to remove %s: %v\n", f, err)
+				}
+			}
+		}
 		simResult := runSimulation(scriptPath, tmpYamlPath)
 		if simResult == 0 || simResult == 1 {
 			fmt.Fprintf(os.Stderr, "Error: simResult is %v (likely due to process exit code)\n", simResult)

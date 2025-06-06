@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -33,7 +34,7 @@ type GroundTruthEntry struct {
 	Line      int
 }
 
-const nSkipRelease = 8
+const ratioSkipRelease = 0.4
 
 func main() {
 	// Example usage:
@@ -95,7 +96,8 @@ func main() {
 	// Write eval_release.json, skipping the greatest nSkipRelease
 	releaseBenchmarks := []Benchmark{}
 	for _, bench := range benchmarks {
-		releaseArgs := selectArgsSorted(bench.Args, nSkipRelease, 0)
+		skipN := int(math.Ceil(ratioSkipRelease * float64(len(bench.Args))))
+		releaseArgs := selectArgsSorted(bench.Args, skipN, 0)
 		releaseBenchmarks = append(releaseBenchmarks, Benchmark{
 			Title: bench.Title,
 			Suite: bench.Suite,
