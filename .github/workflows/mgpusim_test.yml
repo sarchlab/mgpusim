@@ -182,7 +182,7 @@ jobs:
           # fi
 
           # Compose the CSV line
-          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$DISTRIBUTION\",$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
+          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\"" >> nvidia/eval/simulator_evaluation.csv
 
       - name: Remove cloned repo
         run: |
