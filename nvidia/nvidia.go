@@ -16,12 +16,14 @@ import (
 
 type Params struct {
 	TraceDir *string
+	Device   *string
 }
 
 // get trace directory from parameter
 func parseFlags() *Params {
 	params := &Params{
 		TraceDir: flag.String("trace-dir", "data/simple-trace-example", "The directory that contains the trace files"),
+		Device:   flag.String("device", "H100", "Device type: H100 or A100 (required)"),
 	}
 
 	flag.Parse()
@@ -38,12 +40,26 @@ func main() {
 		Build()
 
 	// A100
-	platform := new(platform.A100PlatformBuilder).
-		WithFreq(1 * sim.Hz).
-		Build()
+	// platform := new(platform.A100PlatformBuilder).
+	// 	WithFreq(1065 * sim.MHz).
+	// 	Build()
+	var plat *platform.Platform // <-- declare outside if/else
+
+	if *params.Device == "A100" {
+		plat = (&platform.A100PlatformBuilder{}).
+			WithFreq(1 * sim.Hz).
+			Build()
+	} else if *params.Device == "H100" {
+		plat = (&platform.H100PlatformBuilder{}).
+			WithFreq(1 * sim.Hz).
+			Build()
+	} else {
+		log.Fatal("Invalid device type. Please specify 'A100' or 'H100'.")
+		return
+	}
 
 	runner := new(runner.RunnerBuilder).
-		WithPlatform(platform).
+		WithPlatform(plat).
 		Build()
 	runner.AddBenchmark(benchmark)
 
