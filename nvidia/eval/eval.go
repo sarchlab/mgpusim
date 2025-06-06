@@ -107,6 +107,13 @@ func processArgs(bench Benchmark, scriptPath string) []float64 {
 			fmt.Fprintf(os.Stderr, "Failed to write nvidia/eval/tmp.yaml: %v\n", err)
 			continue
 		}
+		tmpDir := "mnt-collector/tmp"
+		if _, err := os.Stat(tmpDir); err == nil {
+			err := os.RemoveAll(tmpDir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to remove %s: %v\n", tmpDir, err)
+			}
+		}
 		simResult := runSimulation(scriptPath, tmpYamlPath)
 		if simResult == 0 || simResult == 1 {
 			fmt.Fprintf(os.Stderr, "Error: simResult is %v (likely due to process exit code)\n", simResult)
