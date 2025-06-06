@@ -9,3 +9,4 @@ d0f5e54,dev,,1.00,,,,,,"go back to the first version and see whether the commit 
 59d9ca4,dev,,2.714492,,,,,,"Merge branch 'nvidia_cache' of https://github.com/sarchlab/mgpusim into nvidia_cache",59d9ca4a3048d99509678e6490c4d05698007c61,EnzeXu
 0b9d902,dev,,-2.660039,"[-5.069940,-0.250137]",3,1,2,3,"dev: add more details",0b9d90202d496b0f898163a6eedb4960d1d631eb,EnzeXu
 a5f8503,dev,,-2.660039,"[-5.069940,-0.250137]",4.190091836,1,2,3,"dev: report nano second",a5f850300b35c05bc1a5b66ddca1166b38698440,EnzeXu
+a9482f0,test,,-2.660039,"{polybench/2mm: -5.069940, polybench/3mm: -0.250137}",4.243333151,1,2,3,"test: comment out lint and compile",a9482f0f3c5bff2cb70c89fdb11925d26ca10b26,EnzeXu
