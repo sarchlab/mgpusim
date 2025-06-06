@@ -265,7 +265,7 @@ func getTruthCycles(arg ArgConfig) float64 {
 // Write tmp.yaml based on the example, but with the correct trace-id
 func writeTmpYaml(path, traceID string) error {
 	// fmt.Printf("trace-id: %s\n", traceID)
-	content := `upload-to-server: true
+	content := `upload-to-server: false
 experiment:
   version: "1.0"
   message: "base model"
