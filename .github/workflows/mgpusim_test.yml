@@ -31,7 +31,7 @@ jobs:
           go-version: "stable"
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v8
         with:
           version: "latest"
           args: --timeout=10m
@@ -134,7 +134,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      
+
       - name: List Directory Contents
         run: ls -R
 
@@ -157,7 +157,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      
+
       - name: List Directory Contents
         run: ls -R
 
@@ -180,7 +180,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      
+
       - name: List Directory Contents
         run: ls -R
 
