@@ -12,7 +12,7 @@ import (
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	server.MakeBuilder().WithDriver(runner.Driver()).Build()
 	server.RegisterHandlers()

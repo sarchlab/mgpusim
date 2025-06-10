@@ -13,7 +13,7 @@ import (
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	firBenchmark := fir.NewBenchmark(runner.Driver())
 	firBenchmark.Length = 10240

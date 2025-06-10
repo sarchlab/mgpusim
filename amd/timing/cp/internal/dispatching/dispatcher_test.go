@@ -1,13 +1,13 @@
 package dispatching
 
 import (
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/insts"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
+	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("Dispatcher", func() {
@@ -94,7 +94,7 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: true,
-			cu:    nilPort,
+			cu:    nilPort.AsRemote(),
 		})
 		dispatchingPort.EXPECT().PeekIncoming().Return(nil)
 		dispatchingPort.EXPECT().Send(gomock.Any()).Return(nil)
@@ -133,7 +133,7 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: false,
-			cu:    nilPort,
+			cu:    nilPort.AsRemote(),
 		})
 
 		madeProgress := dispatcher.Tick()
@@ -154,7 +154,7 @@ var _ = Describe("Dispatcher", func() {
 		alg.EXPECT().HasNext().Return(true).AnyTimes()
 		alg.EXPECT().Next().Return(dispatchLocation{
 			valid: true,
-			cu:    nilPort,
+			cu:    nilPort.AsRemote(),
 		})
 		dispatchingPort.EXPECT().
 			Send(gomock.Any()).

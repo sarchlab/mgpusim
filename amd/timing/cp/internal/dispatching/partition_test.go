@@ -1,11 +1,14 @@
 package dispatching
 
 import (
-	"github.com/golang/mock/gomock"
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/kernels"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cp/internal/resource"
+	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("Partition Algorithm", func() {
@@ -26,7 +29,9 @@ var _ = Describe("Partition Algorithm", func() {
 		cus = make([]*MockCUResource, 2)
 		for i := 0; i < 2; i++ {
 			cus[i] = NewMockCUResource(ctrl)
-			cus[i].EXPECT().DispatchingPort().Return(nil).AnyTimes()
+			cus[i].EXPECT().DispatchingPort().
+				Return(sim.RemotePort("CUPort" + strconv.Itoa(i))).
+				AnyTimes()
 		}
 
 		pool = NewMockCUResourcePool(ctrl)

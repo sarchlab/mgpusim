@@ -4,36 +4,53 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sarchlab/akita/v4/datarecording"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
-	"github.com/tebeka/atexit"
 )
+
+const (
+	tableName = "mgpusim_metrics"
+)
+
+type metric struct {
+	Location string
+	What     string
+	Value    float64
+	Unit     string
+}
+
+type kernelTimeTracer struct {
+	tracer *tracing.BusyTimeTracer
+	comp   tracing.NamedHookable
+}
 
 type instCountTracer struct {
 	tracer *instTracer
-	cu     TraceableComponent
+	cu     tracing.NamedHookable
 }
 
 type cacheLatencyTracer struct {
 	tracer *tracing.AverageTimeTracer
-	cache  TraceableComponent
+	cache  tracing.NamedHookable
 }
 
 type cacheHitRateTracer struct {
 	tracer *tracing.StepCountTracer
-	cache  TraceableComponent
+	cache  tracing.NamedHookable
 }
 
 type tlbHitRateTracer struct {
 	tracer *tracing.StepCountTracer
-	tlb    TraceableComponent
+	tlb    tracing.NamedHookable
 }
 
 type dramTransactionCountTracer struct {
 	tracer *dramTracer
-	dram   TraceableComponent
+	dram   tracing.NamedHookable
 }
 
 type rdmaTransactionCountTracer struct {
@@ -44,289 +61,267 @@ type rdmaTransactionCountTracer struct {
 
 type simdBusyTimeTracer struct {
 	tracer *tracing.BusyTimeTracer
-	simd   TraceableComponent
+	simd   tracing.NamedHookable
 }
 
 type cuCPIStackTracer struct {
-	cu     TraceableComponent
+	cu     tracing.NamedHookable
 	tracer *cu.CPIStackTracer
 }
 
-func (r *Runner) defineMetrics() {
-	r.metricsCollector = &collector{}
-	r.addMaxInstStopper()
-	r.addKernelTimeTracer()
-	r.addInstCountTracer()
-	r.addCUCPIHook()
-	r.addCacheLatencyTracer()
-	r.addCacheHitRateTracer()
-	r.addTLBHitRateTracer()
-	r.addRDMAEngineTracer()
-	r.addDRAMTracer()
-	r.addSIMDBusyTimeTracer()
+type reporter struct {
+	dataRecorder datarecording.DataRecorder
 
-	atexit.Register(func() { r.reportStats() })
+	kernelTimeTracer        *kernelTimeTracer
+	perGPUKernelTimeTracers []*kernelTimeTracer
+	instCountTracers        []*instCountTracer
+	cacheLatencyTracers     []*cacheLatencyTracer
+	cacheHitRateTracers     []*cacheHitRateTracer
+	tlbHitRateTracers       []*tlbHitRateTracer
+	dramTracers             []*dramTransactionCountTracer
+	rdmaTransactionCounters []*rdmaTransactionCountTracer
+	simdBusyTimeTracers     []*simdBusyTimeTracer
+	cuCPITraces             []*cuCPIStackTracer
+
+	ReportInstCount            bool
+	ReportCacheLatency         bool
+	ReportCacheHitRate         bool
+	ReportTLBHitRate           bool
+	ReportRDMATransactionCount bool
+	ReportDRAMTransactionCount bool
+	ReportSIMDBusyTime         bool
+	ReportCPIStack             bool
 }
 
-func (r *Runner) addKernelTimeTracer() {
+func newReporter(s *simulation.Simulation) *reporter {
+	r := &reporter{
+		dataRecorder: s.GetDataRecorder(),
+	}
+
+	r.injectTracers(s)
+
+	r.dataRecorder.CreateTable(tableName, metric{})
+
+	return r
+}
+
+func (r *reporter) injectTracers(s *simulation.Simulation) {
+	r.injectKernelTimeTracer(s)
+	r.injectInstCountTracer(s)
+	r.injectCUCPIHook(s)
+	r.injectCacheLatencyTracer(s)
+	r.injectCacheHitRateTracer(s)
+	r.injectTLBHitRateTracer(s)
+	r.injectRDMAEngineTracer(s)
+	r.injectDRAMTracer(s)
+	r.injectSIMDBusyTimeTracer(s)
+}
+
+func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
 	if *unifiedGPUFlag != "" {
-		r.kernelTimeCounter = tracing.NewBusyTimeTracer(
-			r.platform.Engine,
+		tracer := tracing.NewBusyTimeTracer(
+			s.GetEngine(),
 			func(task tracing.Task) bool {
 				return task.What == "*driver.LaunchUnifiedMultiGPUKernelCommand"
 			})
-		tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+		tracing.CollectTrace(
+			s.GetComponentByName("Driver").(tracing.NamedHookable),
+			tracer)
+		r.kernelTimeTracer = &kernelTimeTracer{
+			tracer: tracer,
+			comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
+		}
 	} else {
-		r.kernelTimeCounter = tracing.NewBusyTimeTracer(
-			r.platform.Engine,
+		tracer := tracing.NewBusyTimeTracer(
+			s.GetEngine(),
 			func(task tracing.Task) bool {
 				return task.What == "*driver.LaunchKernelCommand"
 			})
-		tracing.CollectTrace(r.platform.Driver, r.kernelTimeCounter)
+		tracing.CollectTrace(
+			s.GetComponentByName("Driver").(tracing.NamedHookable),
+			tracer)
+		r.kernelTimeTracer = &kernelTimeTracer{
+			tracer: tracer,
+			comp:   s.GetComponentByName("Driver").(tracing.NamedHookable),
+		}
 	}
 
-	for _, gpu := range r.platform.GPUs {
-		gpuKernelTimeCounter := tracing.NewBusyTimeTracer(
-			r.platform.Engine,
-			func(task tracing.Task) bool {
-				return task.What == "*protocol.LaunchKernelReq"
-			})
-		r.perGPUKernelTimeCounter = append(
-			r.perGPUKernelTimeCounter, gpuKernelTimeCounter)
-		tracing.CollectTrace(gpu.CommandProcessor, gpuKernelTimeCounter)
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "CommandProcessor") {
+			tracer := tracing.NewBusyTimeTracer(
+				s.GetEngine(),
+				func(task tracing.Task) bool {
+					return task.What == "*protocol.LaunchKernelReq"
+				})
+			tracing.CollectTrace(
+				comp.(tracing.NamedHookable),
+				tracer)
+			r.perGPUKernelTimeTracers = append(
+				r.perGPUKernelTimeTracers,
+				&kernelTimeTracer{
+					tracer: tracer,
+					comp:   comp.(tracing.NamedHookable),
+				})
+		}
 	}
 }
 
-func (r *Runner) addInstCountTracer() {
-	if !r.ReportInstCount {
+func (r *reporter) injectInstCountTracer(s *simulation.Simulation) {
+	if !*reportAll && !*instCountReportFlag {
 		return
 	}
 
-	for _, gpu := range r.platform.GPUs {
-		for _, cu := range gpu.CUs {
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "CU") {
 			tracer := newInstTracer()
 			r.instCountTracers = append(r.instCountTracers,
-				instCountTracer{
+				&instCountTracer{
 					tracer: tracer,
-					cu:     cu,
+					cu:     comp.(tracing.NamedHookable),
 				})
-			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
+			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
 		}
 	}
 }
 
-func (r *Runner) addCUCPIHook() {
-	if !r.ReportCPIStack {
+func (r *reporter) injectCUCPIHook(s *simulation.Simulation) {
+	if !*reportAll && !*reportCPIStackFlag {
 		return
 	}
 
-	for _, gpu := range r.platform.GPUs {
-		for _, cuComp := range gpu.CUs {
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "CU") {
 			tracer := cu.NewCPIStackInstHook(
-				cuComp.(*cu.ComputeUnit), r.platform.Engine)
-			tracing.CollectTrace(cuComp.(tracing.NamedHookable), tracer)
+				comp.(*cu.ComputeUnit), s.GetEngine())
+			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
 
 			r.cuCPITraces = append(r.cuCPITraces,
-				cuCPIStackTracer{
+				&cuCPIStackTracer{
 					tracer: tracer,
-					cu:     cuComp,
+					cu:     comp.(tracing.NamedHookable),
 				})
 		}
 	}
 }
 
-func (r *Runner) addCacheLatencyTracer() {
-	if !r.ReportCacheLatency {
+func (r *reporter) injectCacheLatencyTracer(s *simulation.Simulation) {
+	if !*reportAll && !*cacheLatencyReportFlag {
 		return
 	}
 
-	for _, gpu := range r.platform.GPUs {
-		for _, cache := range gpu.L1ICaches {
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "Cache") {
 			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
+				s.GetEngine(),
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
 			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-
-		for _, cache := range gpu.L1SCaches {
-			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
-				func(task tracing.Task) bool {
-					return task.Kind == "req_in"
+				&cacheLatencyTracer{
+					tracer: tracer,
+					cache:  comp.(tracing.NamedHookable),
 				})
-			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
+			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
 		}
+	}
+}
 
-		for _, cache := range gpu.L1VCaches {
-			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
-				func(task tracing.Task) bool {
-					return task.Kind == "req_in"
+func (r *reporter) injectCacheHitRateTracer(s *simulation.Simulation) {
+	if !*reportAll && !*cacheLatencyReportFlag {
+		return
+	}
+
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "Cache") {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
+				&cacheHitRateTracer{
+					tracer: tracer,
+					cache:  comp.(tracing.NamedHookable),
 				})
-			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
+			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
 		}
+	}
+}
 
-		for _, cache := range gpu.L2Caches {
-			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
-				func(task tracing.Task) bool {
-					return task.Kind == "req_in"
+func (r *reporter) injectTLBHitRateTracer(s *simulation.Simulation) {
+	if !*reportAll && !*tlbHitRateReportFlag {
+		return
+	}
+
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "TLB") {
+			tracer := tracing.NewStepCountTracer(
+				func(task tracing.Task) bool { return true })
+			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
+				&tlbHitRateTracer{
+					tracer: tracer,
+					tlb:    comp.(tracing.NamedHookable),
 				})
-			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
+			tracing.CollectTrace(comp.(tracing.NamedHookable), tracer)
 		}
 	}
 }
 
-func (r *Runner) addCacheHitRateTracer() {
-	if !r.ReportCacheHitRate {
+func (r *reporter) injectRDMAEngineTracer(s *simulation.Simulation) {
+	if !*reportAll && !*rdmaTransactionCountReportFlag {
 		return
 	}
 
-	for _, gpu := range r.platform.GPUs {
-		for _, cache := range gpu.L1VCaches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "RDMA") {
+			t := &rdmaTransactionCountTracer{}
+			t.rdmaEngine = comp.(*rdma.Comp)
+			t.incomingTracer = tracing.NewAverageTimeTracer(
+				s.GetEngine(),
+				func(task tracing.Task) bool {
+					if task.Kind != "req_in" {
+						return false
+					}
 
-		for _, cache := range gpu.L1SCaches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
+					isFromOutside := strings.Contains(
+						string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
+					if !isFromOutside {
+						return false
+					}
 
-		for _, cache := range gpu.L1ICaches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
+					return true
+				})
+			t.outgoingTracer = tracing.NewAverageTimeTracer(
+				s.GetEngine(),
+				func(task tracing.Task) bool {
+					if task.Kind != "req_in" {
+						return false
+					}
 
-		for _, cache := range gpu.L2Caches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
+					isFromOutside := strings.Contains(
+						string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
+					if isFromOutside {
+						return false
+					}
+
+					return true
+				})
+
+			tracing.CollectTrace(t.rdmaEngine, t.incomingTracer)
+			tracing.CollectTrace(t.rdmaEngine, t.outgoingTracer)
+
+			r.rdmaTransactionCounters = append(r.rdmaTransactionCounters, t)
 		}
 	}
 }
 
-func (r *Runner) addTLBHitRateTracer() {
-	if !r.ReportTLBHitRate {
+func (r *reporter) injectDRAMTracer(s *simulation.Simulation) {
+	if !*reportAll && !*dramTransactionCountReportFlag {
 		return
 	}
 
-	for _, gpu := range r.platform.GPUs {
-		for _, tlb := range gpu.L1VTLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
-
-		for _, tlb := range gpu.L1STLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
-
-		for _, tlb := range gpu.L1ITLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
-
-		for _, tlb := range gpu.L2TLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
-	}
-}
-
-func (r *Runner) addRDMAEngineTracer() {
-	if !r.ReportRDMATransactionCount {
-		return
-	}
-
-	for _, gpu := range r.platform.GPUs {
-		if gpu.RDMAEngine == nil {
-			continue
-		}
-
-		t := rdmaTransactionCountTracer{}
-		t.rdmaEngine = gpu.RDMAEngine
-		t.incomingTracer = tracing.NewAverageTimeTracer(
-			r.platform.Engine,
-			func(task tracing.Task) bool {
-				if task.Kind != "req_in" {
-					return false
-				}
-
-				isFromOutside := strings.Contains(
-					string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
-				if !isFromOutside {
-					return false
-				}
-
-				return true
-			})
-		t.outgoingTracer = tracing.NewAverageTimeTracer(
-			r.platform.Engine,
-			func(task tracing.Task) bool {
-				if task.Kind != "req_in" {
-					return false
-				}
-
-				isFromOutside := strings.Contains(
-					string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
-				if isFromOutside {
-					return false
-				}
-
-				return true
-			})
-
-		tracing.CollectTrace(t.rdmaEngine, t.incomingTracer)
-		tracing.CollectTrace(t.rdmaEngine, t.outgoingTracer)
-
-		r.rdmaTransactionCounters = append(r.rdmaTransactionCounters, t)
-	}
-}
-
-func (r *Runner) addDRAMTracer() {
-	if !r.ReportDRAMTransactionCount {
-		return
-	}
-
-	for _, gpu := range r.platform.GPUs {
-		for _, dram := range gpu.MemControllers {
-			t := dramTransactionCountTracer{}
-			t.dram = dram.(TraceableComponent)
-			t.tracer = newDramTracer(r.platform.Engine)
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "DRAM") {
+			t := &dramTransactionCountTracer{}
+			t.dram = comp.(tracing.NamedHookable)
+			t.tracer = newDramTracer(s.GetEngine())
 
 			tracing.CollectTrace(t.dram, t.tracer)
 
@@ -335,30 +330,30 @@ func (r *Runner) addDRAMTracer() {
 	}
 }
 
-func (r *Runner) addSIMDBusyTimeTracer() {
-	if !r.ReportSIMDBusyTime {
+func (r *reporter) injectSIMDBusyTimeTracer(s *simulation.Simulation) {
+	if !*reportAll && !*simdBusyTimeTracerFlag {
 		return
 	}
 
-	for _, gpu := range r.platform.GPUs {
-		for _, simd := range gpu.SIMDs {
+	for _, comp := range s.Components() {
+		if strings.Contains(comp.Name(), "SIMD") {
 			perSIMDBusyTimeTracer := tracing.NewBusyTimeTracer(
-				r.platform.Engine,
+				s.GetEngine(),
 				func(task tracing.Task) bool {
 					return task.Kind == "pipeline"
 				})
 			r.simdBusyTimeTracers = append(r.simdBusyTimeTracers,
-				simdBusyTimeTracer{
+				&simdBusyTimeTracer{
 					tracer: perSIMDBusyTimeTracer,
-					simd:   simd,
+					simd:   comp.(tracing.NamedHookable),
 				})
-			tracing.CollectTrace(simd, perSIMDBusyTimeTracer)
+			tracing.CollectTrace(comp.(tracing.NamedHookable), perSIMDBusyTimeTracer)
 		}
 	}
 }
 
-func (r *Runner) reportStats() {
-	r.reportExecutionTime()
+func (r *reporter) report() {
+	r.reportKernelTime()
 	r.reportInstCount()
 	r.reportCPIStack()
 	r.reportSIMDBusyTime()
@@ -367,30 +362,83 @@ func (r *Runner) reportStats() {
 	r.reportTLBHitRate()
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
-	r.dumpMetrics()
 }
 
-func (r *Runner) reportInstCount() {
-	kernelTime := float64(r.kernelTimeCounter.BusyTime())
+func (r *reporter) reportKernelTime() {
+	kernelTime := float64(r.kernelTimeTracer.tracer.BusyTime())
+	r.dataRecorder.InsertData(
+		tableName,
+		metric{
+			Location: r.kernelTimeTracer.comp.Name(),
+			What:     "kernel_time",
+			Value:    kernelTime,
+			Unit:     "second",
+		},
+	)
+
+	for _, t := range r.perGPUKernelTimeTracers {
+		kernelTime := float64(t.tracer.BusyTime())
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "kernel_time",
+				Value:    kernelTime,
+				Unit:     "second",
+			},
+		)
+	}
+}
+
+func (r *reporter) reportInstCount() {
+	kernelTime := float64(r.kernelTimeTracer.tracer.BusyTime())
 	for _, t := range r.instCountTracers {
 		cuFreq := float64(t.cu.(*cu.ComputeUnit).Freq)
 		numCycle := kernelTime * cuFreq
 
-		r.metricsCollector.Collect(
-			t.cu.Name(), "cu_inst_count", float64(t.tracer.count))
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.cu.Name(),
+				What:     "cu_inst_count",
+				Value:    float64(t.tracer.count),
+				Unit:     "count",
+			},
+		)
 
-		r.metricsCollector.Collect(
-			t.cu.Name(), "cu_CPI", numCycle/float64(t.tracer.count))
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.cu.Name(),
+				What:     "cu_CPI",
+				Value:    numCycle / float64(t.tracer.count),
+				Unit:     "cycles/inst",
+			},
+		)
 
-		r.metricsCollector.Collect(
-			t.cu.Name(), "simd_inst_count", float64(t.tracer.simdCount))
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.cu.Name(),
+				What:     "simd_inst_count",
+				Value:    float64(t.tracer.simdCount),
+				Unit:     "count",
+			},
+		)
 
-		r.metricsCollector.Collect(
-			t.cu.Name(), "simd_CPI", numCycle/float64(t.tracer.simdCount))
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.cu.Name(),
+				What:     "simd_CPI",
+				Value:    numCycle / float64(t.tracer.simdCount),
+				Unit:     "cycles/inst",
+			},
+		)
 	}
 }
 
-func (r *Runner) reportCPIStack() {
+func (r *reporter) reportCPIStack() {
 	for _, t := range r.cuCPITraces {
 		cu := t.cu
 		hook := t.tracer
@@ -400,9 +448,9 @@ func (r *Runner) reportCPIStack() {
 	}
 }
 
-func (r *Runner) reportCPIStackEntries(
+func (r *reporter) reportCPIStackEntries(
 	hook *cu.CPIStackTracer,
-	cu TraceableComponent,
+	cu tracing.NamedHookable,
 	simdStack bool,
 ) {
 	cpiStack := hook.GetCPIStack()
@@ -423,49 +471,51 @@ func (r *Runner) reportCPIStackEntries(
 
 	for _, name := range keys {
 		value := cpiStack[name]
-		r.metricsCollector.Collect(cu.Name(), stackTypeName+"."+name, value)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: cu.Name(),
+				What:     stackTypeName + "." + name,
+				Value:    value,
+				Unit:     "cycles/inst",
+			},
+		)
 	}
 }
 
-func (r *Runner) reportSIMDBusyTime() {
+func (r *reporter) reportSIMDBusyTime() {
 	for _, t := range r.simdBusyTimeTracers {
-		r.metricsCollector.Collect(
-			t.simd.Name(), "busy_time", float64(t.tracer.BusyTime()))
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.simd.Name(),
+				What:     "busy_time",
+				Value:    float64(t.tracer.BusyTime()),
+				Unit:     "second",
+			},
+		)
 	}
 }
 
-func (r *Runner) reportExecutionTime() {
-	if r.Timing {
-		r.metricsCollector.Collect(
-			r.platform.Driver.Name(),
-			"kernel_time", float64(r.kernelTimeCounter.BusyTime()))
-		r.metricsCollector.Collect(
-			r.platform.Driver.Name(),
-			"total_time", float64(r.platform.Engine.CurrentTime()))
-
-		for i, c := range r.perGPUKernelTimeCounter {
-			r.metricsCollector.Collect(
-				r.platform.GPUs[i].CommandProcessor.Name(),
-				"kernel_time", float64(c.BusyTime()))
-		}
-	}
-}
-
-func (r *Runner) reportCacheLatency() {
+func (r *reporter) reportCacheLatency() {
 	for _, tracer := range r.cacheLatencyTracers {
 		if tracer.tracer.AverageTime() == 0 {
 			continue
 		}
 
-		r.metricsCollector.Collect(
-			tracer.cache.Name(),
-			"req_average_latency",
-			float64(tracer.tracer.AverageTime()),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: tracer.cache.Name(),
+				What:     "req_average_latency",
+				Value:    float64(tracer.tracer.AverageTime()),
+				Unit:     "second",
+			},
 		)
 	}
 }
 
-func (r *Runner) reportCacheHitRate() {
+func (r *reporter) reportCacheHitRate() {
 	for _, tracer := range r.cacheHitRateTracers {
 		readHit := tracer.tracer.GetStepCount("read-hit")
 		readMiss := tracer.tracer.GetStepCount("read-miss")
@@ -481,22 +531,46 @@ func (r *Runner) reportCacheHitRate() {
 			continue
 		}
 
-		r.metricsCollector.Collect(
-			tracer.cache.Name(), "read-hit", float64(readHit))
-		r.metricsCollector.Collect(
-			tracer.cache.Name(), "read-miss", float64(readMiss))
-		r.metricsCollector.Collect(
-			tracer.cache.Name(), "read-mshr-hit", float64(readMSHRHit))
-		r.metricsCollector.Collect(
-			tracer.cache.Name(), "write-hit", float64(writeHit))
-		r.metricsCollector.Collect(
-			tracer.cache.Name(), "write-miss", float64(writeMiss))
-		r.metricsCollector.Collect(
-			tracer.cache.Name(), "write-mshr-hit", float64(writeMSHRHit))
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "read-hit",
+			Value:    float64(readHit),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "read-miss",
+			Value:    float64(readMiss),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "read-mshr-hit",
+			Value:    float64(readMSHRHit),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "write-hit",
+			Value:    float64(writeHit),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "write-miss",
+			Value:    float64(writeMiss),
+			Unit:     "count",
+		})
+		r.dataRecorder.InsertData(tableName, metric{
+			Location: tracer.cache.Name(),
+			What:     "write-mshr-hit",
+			Value:    float64(writeMSHRHit),
+			Unit:     "count",
+		})
 	}
 }
 
-func (r *Runner) reportTLBHitRate() {
+func (r *reporter) reportTLBHitRate() {
 	for _, tracer := range r.tlbHitRateTracers {
 		hit := tracer.tracer.GetStepCount("hit")
 		miss := tracer.tracer.GetStepCount("miss")
@@ -508,65 +582,114 @@ func (r *Runner) reportTLBHitRate() {
 			continue
 		}
 
-		r.metricsCollector.Collect(
-			tracer.tlb.Name(), "hit", float64(hit))
-		r.metricsCollector.Collect(
-			tracer.tlb.Name(), "miss", float64(miss))
-		r.metricsCollector.Collect(
-			tracer.tlb.Name(), "mshr-hit", float64(mshrHit))
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: tracer.tlb.Name(),
+				What:     "hit",
+				Value:    float64(hit),
+				Unit:     "count",
+			},
+		)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: tracer.tlb.Name(),
+				What:     "miss",
+				Value:    float64(miss),
+				Unit:     "count",
+			},
+		)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: tracer.tlb.Name(),
+				What:     "mshr-hit",
+				Value:    float64(mshrHit),
+				Unit:     "count",
+			},
+		)
 	}
 }
 
-func (r *Runner) reportRDMATransactionCount() {
+func (r *reporter) reportRDMATransactionCount() {
 	for _, t := range r.rdmaTransactionCounters {
-		r.metricsCollector.Collect(
-			t.rdmaEngine.Name(),
-			"outgoing_trans_count",
-			float64(t.outgoingTracer.TotalCount()),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.rdmaEngine.Name(),
+				What:     "outgoing_trans_count",
+				Value:    float64(t.outgoingTracer.TotalCount()),
+				Unit:     "count",
+			},
 		)
-		r.metricsCollector.Collect(
-			t.rdmaEngine.Name(),
-			"incoming_trans_count",
-			float64(t.incomingTracer.TotalCount()),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.rdmaEngine.Name(),
+				What:     "incoming_trans_count",
+				Value:    float64(t.incomingTracer.TotalCount()),
+				Unit:     "count",
+			},
 		)
 	}
 }
 
-func (r *Runner) reportDRAMTransactionCount() {
+func (r *reporter) reportDRAMTransactionCount() {
 	for _, t := range r.dramTracers {
-		r.metricsCollector.Collect(
-			t.dram.Name(),
-			"read_trans_count",
-			float64(t.tracer.readCount),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.dram.Name(),
+				What:     "read_trans_count",
+				Value:    float64(t.tracer.readCount),
+				Unit:     "count",
+			},
 		)
-		r.metricsCollector.Collect(
-			t.dram.Name(),
-			"write_trans_count",
-			float64(t.tracer.writeCount),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.dram.Name(),
+				What:     "write_trans_count",
+				Value:    float64(t.tracer.writeCount),
+				Unit:     "count",
+			},
 		)
-		r.metricsCollector.Collect(
-			t.dram.Name(),
-			"read_avg_latency",
-			float64(t.tracer.readAvgLatency),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.dram.Name(),
+				What:     "read_avg_latency",
+				Value:    float64(t.tracer.readAvgLatency),
+				Unit:     "second",
+			},
 		)
-		r.metricsCollector.Collect(
-			t.dram.Name(),
-			"write_avg_latency",
-			float64(t.tracer.writeAvgLatency),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.dram.Name(),
+				What:     "write_avg_latency",
+				Value:    float64(t.tracer.writeAvgLatency),
+				Unit:     "second",
+			},
 		)
-		r.metricsCollector.Collect(
-			t.dram.Name(),
-			"read_size",
-			float64(t.tracer.readSize),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.dram.Name(),
+				What:     "read_size",
+				Value:    float64(t.tracer.readSize),
+				Unit:     "bytes",
+			},
 		)
-		r.metricsCollector.Collect(
-			t.dram.Name(),
-			"write_size",
-			float64(t.tracer.writeSize),
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.dram.Name(),
+				What:     "write_size",
+				Value:    float64(t.tracer.writeSize),
+				Unit:     "bytes",
+			},
 		)
 	}
-}
-
-func (r *Runner) dumpMetrics() {
-	r.metricsCollector.Dump(*filenameFlag)
 }

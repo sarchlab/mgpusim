@@ -225,7 +225,7 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 
 	reqBuilder := protocol.MapWGReqBuilder{}.
 		WithSrc(d.dispatchingPort.AsRemote()).
-		WithDst(d.currWG.cu.AsRemote()).
+		WithDst(d.currWG.cu).
 		WithPID(d.dispatching.PID).
 		WithWG(d.currWG.wg)
 	for _, l := range d.currWG.locations {

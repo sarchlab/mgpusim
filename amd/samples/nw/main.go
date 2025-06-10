@@ -12,7 +12,7 @@ var length = flag.Int("length", 64, "The number bases in the gene sequence")
 func main() {
 	flag.Parse()
 
-	runner := new(runner.Runner).ParseFlag().Init()
+	runner := new(runner.Runner).Init()
 
 	benchmark := nw.NewBenchmark(runner.Driver())
 	benchmark.SetLength(*length)
