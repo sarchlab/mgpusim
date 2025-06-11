@@ -522,7 +522,9 @@ func (b *Builder) buildL1ICache() {
 		WithWayAssociativity(4).
 		WithNumMSHREntry(16).
 		WithTotalByteSize(32 * mem.KB).
-		WithNumReqsPerCycle(4)
+		WithNumReqsPerCycle(4).
+		WithAddressMapperType("single").
+		WithRemotePorts(b.l1iAT.GetPortByName("Top").AsRemote())
 
 	name := fmt.Sprintf("%s.L1ICache", b.name)
 	cache := builder.Build(name)

@@ -174,7 +174,7 @@
             "args": [
                 "-timing",
                 "-verify",
-                "-magic-memory-copy",
+                "-trace-vis",
             ],
         },
         {

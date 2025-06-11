@@ -26,8 +26,11 @@ var _ = Describe("Reorder Buffer", func() {
 		ctrlPort = NewMockPort(mockCtrl)
 
 		topPort.EXPECT().AsRemote().AnyTimes()
+		topPort.EXPECT().Name().AnyTimes()
 		bottomPort.EXPECT().AsRemote().AnyTimes()
+		bottomPort.EXPECT().Name().AnyTimes()
 		ctrlPort.EXPECT().AsRemote().AnyTimes()
+		ctrlPort.EXPECT().Name().AnyTimes()
 
 		rob = MakeBuilder().
 			WithBufferSize(10).
@@ -54,6 +57,8 @@ var _ = Describe("Reorder Buffer", func() {
 		})
 
 		It("should do nothing if buffer is full", func() {
+			topPort.EXPECT().PeekIncoming().Return(read)
+
 			for i := 0; i < 10; i++ {
 				req := mem.ReadReqBuilder{}.Build()
 				trans := rob.createTransaction(req)

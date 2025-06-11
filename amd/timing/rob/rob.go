@@ -132,14 +132,22 @@ func (b *ReorderBuffer) runPipeline() (madeProgress bool) {
 }
 
 func (b *ReorderBuffer) topDown() bool {
-	if b.isFull() {
-		return false
-	}
-
 	item := b.topPort.PeekIncoming()
 	if item == nil {
 		return false
 	}
+
+	if b.isFull() {
+		return false
+	}
+
+	tracing.AddMilestone(
+		tracing.MsgIDAtReceiver(item, b),
+		tracing.MilestoneKindHardwareResource,
+		b.Name()+".Buffer",
+		b.Name(),
+		b,
+	)
 
 	req := item.(mem.AccessReq)
 	trans := b.createTransaction(req)
@@ -149,6 +157,14 @@ func (b *ReorderBuffer) topDown() bool {
 	if err != nil {
 		return false
 	}
+
+	tracing.AddMilestone(
+		tracing.MsgIDAtReceiver(item, b),
+		tracing.MilestoneKindNetworkBusy,
+		b.bottomPort.Name(),
+		b.Name(),
+		b,
+	)
 
 	b.addTransaction(trans)
 	b.topPort.RetrieveIncoming()
@@ -193,6 +209,14 @@ func (b *ReorderBuffer) bottomUp() bool {
 		return false
 	}
 
+	tracing.AddMilestone(
+		tracing.MsgIDAtReceiver(trans.reqFromTop, b),
+		tracing.MilestoneKindData,
+		"data",
+		b.Name(),
+		b,
+	)
+
 	rsp := b.duplicateRsp(trans.rspFromBottom, trans.reqFromTop.Meta().ID)
 	rsp.Meta().Dst = trans.reqFromTop.Meta().Src
 	rsp.Meta().Src = b.topPort.AsRemote()
@@ -201,6 +225,14 @@ func (b *ReorderBuffer) bottomUp() bool {
 	if err != nil {
 		return false
 	}
+
+	tracing.AddMilestone(
+		tracing.MsgIDAtReceiver(trans.reqFromTop, b),
+		tracing.MilestoneKindNetworkBusy,
+		b.topPort.Name(),
+		b.Name(),
+		b,
+	)
 
 	b.deleteTransaction(elem)
 

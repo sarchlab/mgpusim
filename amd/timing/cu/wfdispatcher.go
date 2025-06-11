@@ -186,17 +186,17 @@ func (d *WfDispatcherImpl) initRegisters(wf *wavefront.Wavefront) {
 		})
 
 		// fmt.Printf("s%d WorkGroupIdZ\n", SGPRPtr/4)
-		SGPRPtr += 4
+		// SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupInfo() {
 		log.Printf("EnableSgprPrivateSegmentSize is not supported")
-		SGPRPtr += 4
+		// SGPRPtr += 4
 	}
 
 	if co.EnableSgprPrivateSegmentWaveByteOffset() {
 		log.Printf("EnableSgprPrivateSegentWaveByteOffset is not supported")
-		SGPRPtr += 4
+		// SGPRPtr += 4
 	}
 
 	var x, y, z int
