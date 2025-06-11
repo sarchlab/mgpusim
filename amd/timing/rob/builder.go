@@ -75,6 +75,8 @@ func (b *Builder) createPorts(name string, rb *ReorderBuffer) {
 	)
 	rb.AddPort("Top", rb.topPort)
 
+	rb.topPort.AcceptHook(&portHook{})
+
 	rb.bottomPort = sim.NewPort(
 		rb,
 		2*b.numReqPerCycle,

@@ -186,8 +186,8 @@ func (b Builder) Build(name string) *sim.Domain {
 	b.l1TLBAddressMapper = &mem.SinglePortMapper{}
 
 	b.buildSAs()
-	b.buildL2Caches()
 	b.buildDRAMControllers()
+	b.buildL2Caches()
 	b.buildCP()
 	b.buildL2TLB()
 
@@ -486,8 +486,10 @@ func (b *Builder) buildL2Caches() {
 		l2 := l2Builder.WithInterleaving(
 			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
 			b.numMemoryBank,
-			i,
-		).Build(cacheName)
+			i).
+			WithAddressMapperType("single").
+			WithRemotePorts(b.drams[i].GetPortByName("Top").AsRemote()).
+			Build(cacheName)
 
 		b.simulation.RegisterComponent(l2)
 		b.l2Caches = append(b.l2Caches, l2)

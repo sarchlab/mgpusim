@@ -270,17 +270,17 @@ func (cu *ComputeUnit) initWfRegs(wf *Wavefront) {
 		binary.LittleEndian.PutUint32(wf.SRegFile[SGPRPtr:SGPRPtr+4],
 			uint32(wf.WG.IDZ))
 		//fmt.Printf("s%d WorkGroupIdZ\n", SGPRPtr/4)
-		SGPRPtr += 4
+		// SGPRPtr += 4
 	}
 
 	if co.EnableSgprWorkGroupInfo() {
 		log.Printf("EnableSgprPrivateSegmentSize is not supported")
-		SGPRPtr += 4
+		// SGPRPtr += 4
 	}
 
 	if co.EnableSgprPrivateSegmentWaveByteOffset() {
 		log.Printf("EnableSgprPrivateSegentWaveByteOffset is not supported")
-		SGPRPtr += 4
+		// SGPRPtr += 4
 	}
 
 	var x, y, z int

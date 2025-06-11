@@ -10,14 +10,16 @@ import (
 )
 
 type dim3 struct {
-	X, Y, Z int
+	X int `json:"x"`
+	Y int `json:"y"`
+	Z int `json:"z"`
 }
 
 type launchKernelInput struct {
 	CodeObject     string `json:"code_object,omitempty"`
 	Args           string `json:"args,omitempty"`
-	NumBlocks      dim3   `json:"num_blocks,omitempty"`
-	DimBlocks      dim3   `json:"dim_blocks,omitempty"`
+	NumBlocks      dim3   `json:"num_blocks"`
+	DimBlocks      dim3   `json:"dim_blocks"`
 	SharedMemBytes int    `json:"shared_mem_bytes,omitempty"`
 }
 
