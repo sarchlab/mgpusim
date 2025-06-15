@@ -173,8 +173,7 @@
             "program": "${workspaceFolder}/amd/samples/fir",
             "args": [
                 "-timing",
-                "-verify",
-                "-trace-vis",
+                "-report-all",
             ],
         },
         {
