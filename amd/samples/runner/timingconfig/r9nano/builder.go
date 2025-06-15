@@ -482,7 +482,7 @@ func (b *Builder) buildL2Caches() {
 		WithNumReqPerCycle(16)
 
 	for i := 0; i < b.numMemoryBank; i++ {
-		cacheName := fmt.Sprintf("%s.L2[%d]", b.name, i)
+		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.name, i)
 		l2 := l2Builder.WithInterleaving(
 			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
 			b.numMemoryBank,
