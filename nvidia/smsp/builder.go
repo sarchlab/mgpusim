@@ -22,14 +22,18 @@ func (b *SMSPBuilder) WithFreq(freq sim.Freq) *SMSPBuilder {
 	return b
 }
 
-func (b *SMSPBuilder) Build(name string) *SMSP {
-	s := &SMSP{
+func (b *SMSPBuilder) Build(name string) *SMSPController {
+	s := &SMSPController{
 		ID: sim.GetIDGenerator().Generate(),
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
 	s.toSM = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToSM", name))
 	s.AddPort(fmt.Sprintf("%s.ToSM", name), s.toSM)
+
+	// cache updates
+	// s.toSMMem = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToSMMem", name))
+	// s.AddPort(fmt.Sprintf("%s.ToSMMem", name), s.toSMMem)
 
 	atexit.Register(s.LogStatus)
 

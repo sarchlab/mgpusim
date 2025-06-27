@@ -17,7 +17,8 @@ type OpCodeType int32
 const (
 	OpCodeDefault OpCodeType = iota
 	OpCodeError
-	OpCodeMemory
+	OpCodeMemRead
+	OpCodeMemWrite
 	IMADMOVU32
 )
 
@@ -64,7 +65,7 @@ func init() {
 	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCodeDefault, VariableDefault}
 	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCodeDefault, VariableDefault}
 	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCodeDefault, VariableDefault}
-	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeMemory, VariableDefault}
+	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeMemRead, VariableDefault}
 	opcodeTable["FADD"] = Opcode{"FADD", OpCodeDefault, VariableDefault}
-	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeMemory, VariableDefault}
+	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeMemWrite, VariableDefault}
 }

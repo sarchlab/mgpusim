@@ -35,9 +35,9 @@ func (b *A100PlatformBuilder) Build() *Platform {
 		WithFreq(b.freq).
 		WithSMsCount(108).
 		WithSMSPsCountPerSM(4).
-		WithL2CacheSize(40 * mem.MB). // WithL2CacheSize(2 * mem.MB).
-		WithDRAMSize(80 * mem.GB).    // WithDRAMSize(4 * mem.GB).
-		WithLog2CacheLineSize(7).     // WithLog2CacheLineSize(6).
+		// WithL2CacheSize(40 * mem.MB). // WithL2CacheSize(2 * mem.MB).
+		WithDRAMSize(80 * mem.GB). // WithDRAMSize(4 * mem.GB).
+		WithLog2CacheLineSize(7).  // WithLog2CacheLineSize(6).
 		WithNumMemoryBank(4)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {

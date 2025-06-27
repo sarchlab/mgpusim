@@ -21,8 +21,8 @@ type Driver struct {
 	connectionWithDevices sim.Connection
 
 	// gpu
-	devices     map[string]*gpu.GPU
-	freeDevices []*gpu.GPU
+	devices     map[string]*gpu.GPUController
+	freeDevices []*gpu.GPUController
 
 	// trace kernel
 	undispatchedKernels    []*trace.KernelTrace
@@ -44,7 +44,7 @@ func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 	return d
 }
 
-func (d *Driver) RegisterGPU(gpu *gpu.GPU) {
+func (d *Driver) RegisterGPU(gpu *gpu.GPUController) {
 	gpu.SetDriverRemotePort(d.toDevices)
 	remote := gpu.GetPortByName(fmt.Sprintf("%s.ToDriver", gpu.Name()))
 	d.connectionWithDevices.PlugIn(remote)
