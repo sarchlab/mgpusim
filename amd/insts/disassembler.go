@@ -181,7 +181,7 @@ func (d *Disassembler) decodeVOP1(inst *Inst, buf []byte) error {
 	return nil
 }
 
-//nolint:gocyclo,funlen
+//nolint:gocyclo,funlen,gocognit
 func (d *Disassembler) decodeVOP2(inst *Inst, buf []byte) error {
 	bytes := binary.LittleEndian.Uint32(buf)
 

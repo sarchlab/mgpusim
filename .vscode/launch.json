@@ -173,8 +173,7 @@
             "program": "${workspaceFolder}/amd/samples/fir",
             "args": [
                 "-timing",
-                "-verify",
-                "-magic-memory-copy",
+                "-report-all",
             ],
         },
         {

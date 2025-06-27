@@ -12,7 +12,7 @@ import (
 )
 
 type mallocInput struct {
-	Size uint64
+	Size uint64 `json:"size"`
 }
 
 type mallocOutput struct {
@@ -59,8 +59,8 @@ func handleFree(w http.ResponseWriter, r *http.Request) {
 }
 
 type memcopyH2DInput struct {
-	Ptr  uint64
-	Data string
+	Ptr  uint64 `json:"ptr"`
+	Data string `json:"data"`
 }
 
 func handleMemcopyH2D(w http.ResponseWriter, r *http.Request) {
@@ -88,8 +88,8 @@ func handleMemcopyH2D(w http.ResponseWriter, r *http.Request) {
 }
 
 type memcopyD2HInput struct {
-	Ptr  uint64
-	Size uint64
+	Ptr  uint64 `json:"ptr"`
+	Size uint64 `json:"size"`
 }
 
 type memcopyD2HOutput struct {
