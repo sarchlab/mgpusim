@@ -23,7 +23,7 @@ func (b *DriverBuilder) WithFreq(freq sim.Freq) *DriverBuilder {
 
 func (b *DriverBuilder) Build(name string) *Driver {
 	d := &Driver{
-		devices: make(map[string]*gpu.GPU),
+		devices: make(map[string]*gpu.GPUController),
 	}
 
 	d.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, d)

@@ -35,10 +35,10 @@ func (b *SMBuilder) WithSMSPsCount(count uint64) *SMBuilder {
 	return b
 }
 
-func (b *SMBuilder) Build(name string) *SM {
-	s := &SM{
+func (b *SMBuilder) Build(name string) *SMController {
+	s := &SMController{
 		ID:    sim.GetIDGenerator().Generate(),
-		SMSPs: make(map[string]*smsp.SMSP),
+		SMSPs: make(map[string]*smsp.SMSPController),
 	}
 	b.name = name
 
@@ -47,6 +47,9 @@ func (b *SMBuilder) Build(name string) *SM {
 	smsps := b.buildSMSPs(name)
 	b.connectSMwithSMSPs(s, smsps)
 
+	// s.PendingWriteReq = make(map[string]*message.SMSPToSMMemWriteMsg)
+	// s.PendingReadReq = make(map[string]*message.SMSPToSMMemReadMsg)
+
 	// b.buildL1Caches(s)
 
 	atexit.Register(s.LogStatus)
@@ -54,33 +57,41 @@ func (b *SMBuilder) Build(name string) *SM {
 	return s
 }
 
-func (b *SMBuilder) buildPortsForSM(sm *SM, name string) {
+func (b *SMBuilder) buildPortsForSM(sm *SMController, name string) {
 	sm.toGPU = sim.NewPort(sm, 4, 4, fmt.Sprintf("%s.ToGPU", name))
 	sm.toSMSPs = sim.NewPort(sm, 4, 4, fmt.Sprintf("%s.ToSMSPs", name))
 	sm.AddPort(fmt.Sprintf("%s.ToGPU", name), sm.toGPU)
 	sm.AddPort(fmt.Sprintf("%s.ToSMSPs", name), sm.toSMSPs)
+
+	// cache updates
+	// sm.toGPUMem = sim.NewPort(sm, 4, 4, fmt.Sprintf("%s.ToGPUMem", name))
+	// sm.toSMSPMem = sim.NewPort(sm, 4, 4, fmt.Sprintf("%s.ToSMSPMem", name))
+	// sm.AddPort(fmt.Sprintf("%s.ToGPUMem", name), sm.toGPUMem)
+	// sm.AddPort(fmt.Sprintf("%s.ToSMSPMem", name), sm.toSMSPMem)
 }
 
-func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSP {
+func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
 	smspBuilder := new(smsp.SMSPBuilder).
 		WithEngine(b.engine).
 		WithFreq(b.freq)
-	smsps := []*smsp.SMSP{}
+	smsps := []*smsp.SMSPController{}
 	for i := uint64(0); i < b.smspsCount; i++ {
-		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP(%d)", smName, i))
+		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSPController(%d)", smName, i))
+
 		smsps = append(smsps, smsp)
 	}
 
 	return smsps
 }
 
-func (b *SMBuilder) connectSMwithSMSPs(sm *SM, smsps []*smsp.SMSP) {
+func (b *SMBuilder) connectSMwithSMSPs(sm *SMController, smsps []*smsp.SMSPController) {
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(1 * sim.GHz).
 		Build("SMToSMSPs")
 
 	conn.PlugIn(sm.toSMSPs)
+	// conn.PlugIn(sm.toSMSPMem)
 
 	for i := range smsps {
 		smsp := smsps[i]
@@ -90,10 +101,13 @@ func (b *SMBuilder) connectSMwithSMSPs(sm *SM, smsps []*smsp.SMSP) {
 
 		smsp.SetSMRemotePort(sm.toSMSPs)
 		conn.PlugIn(smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())))
+
+		// smsp.SetSMMemRemotePort(sm.toSMSPMem)
+		// conn.PlugIn(smsp.GetPortByName(fmt.Sprintf("%s.ToSMMem", smsp.Name())))
 	}
 }
 
-// func (b *SMBuilder) buildL1Caches(sm *SM) {
+// func (b *SMBuilder) buildL1Caches(sm *SMController) {
 // 	builder := writearound.NewBuilder().
 // 		WithEngine(b.engine).
 // 		WithFreq(b.freq).

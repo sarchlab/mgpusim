@@ -1,6 +1,7 @@
 package message
 
 import (
+	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
@@ -44,6 +45,48 @@ type SMSPToSMMsg struct {
 	SMSPID       string
 }
 
+type SMSPToSMMemReadMsg struct {
+	sim.MsgMeta
+
+	Address uint64
+}
+
+type SMSPToSMMemWriteMsg struct {
+	sim.MsgMeta
+
+	Address uint64
+	Data    uint32
+}
+
+type SMToGPUMemReadMsg struct {
+	sim.MsgMeta
+
+	Address uint64
+}
+
+type SMToGPUMemWriteMsg struct {
+	sim.MsgMeta
+
+	Address uint64
+	Data    uint32
+}
+
+type GPUtoSMMemReadMsg struct {
+	sim.MsgMeta
+
+	Address           uint64
+	Rsp               mem.DataReadyRsp
+	OriginalSMtoGPUID string
+}
+
+type GPUtoSMMemWriteMsg struct {
+	sim.MsgMeta
+
+	Address           uint64
+	Rsp               mem.WriteDoneRsp
+	OriginalSMtoGPUID string
+}
+
 func (m *DriverToDeviceMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
@@ -65,6 +108,30 @@ func (m *SMToSMSPMsg) Meta() *sim.MsgMeta {
 }
 
 func (m *SMSPToSMMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+func (m *SMSPToSMMemReadMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+func (m *SMSPToSMMemWriteMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+func (m *SMToGPUMemReadMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+func (m *SMToGPUMemWriteMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+func (m *GPUtoSMMemReadMsg) Meta() *sim.MsgMeta {
+	return &m.MsgMeta
+}
+
+func (m *GPUtoSMMemWriteMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
@@ -99,6 +166,42 @@ func (m *SMToSMSPMsg) Clone() sim.Msg {
 }
 
 func (m *SMSPToSMMsg) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+	return &cloneMsg
+}
+
+func (m *SMSPToSMMemReadMsg) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+	return &cloneMsg
+}
+
+func (m *SMSPToSMMemWriteMsg) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+	return &cloneMsg
+}
+
+func (m *SMToGPUMemReadMsg) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+	return &cloneMsg
+}
+
+func (m *SMToGPUMemWriteMsg) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+	return &cloneMsg
+}
+
+func (m *GPUtoSMMemReadMsg) Clone() sim.Msg {
+	cloneMsg := *m
+	cloneMsg.ID = sim.GetIDGenerator().Generate()
+	return &cloneMsg
+}
+
+func (m *GPUtoSMMemWriteMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg

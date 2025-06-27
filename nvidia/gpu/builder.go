@@ -3,20 +3,16 @@ package gpu
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v4/mem/cache/writeback"
 	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/akita/v4/sim/directconnection"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma" //
+	"github.com/sarchlab/akita/v4/sim/directconnection" //
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
 	"github.com/tebeka/atexit"
 )
 
 type GPUBuilder struct {
 	gpuName string
-	gpu     *GPU
+	gpu     *GPUController
 
 	engine sim.Engine
 	freq   sim.Freq
@@ -24,19 +20,19 @@ type GPUBuilder struct {
 	smsCount        uint64
 	smspsCountPerSM uint64
 
-	L2Caches                       []*writeback.Comp
-	L2CacheSize                    uint64
-	Drams                          []*idealmemcontroller.Comp //[]*dram.Comp
+	// L2Caches                       []*writeback.Comp
+	// L2CacheSize                    uint64
+	Dram                           *idealmemcontroller.Comp
 	DramSize                       uint64
 	log2CacheLineSize              uint64
 	numMemoryBank                  int
 	log2MemoryBankInterleavingSize uint64
 
-	l1ToL2Connection        *directconnection.Comp
-	l2ToDramConnection      *directconnection.Comp
-	rdmaEngine              *rdma.Comp
-	dmaEngine               *cp.DMAEngine
-	pageMigrationController *pagemigrationcontroller.PageMigrationController
+	// l1ToL2Connection        *directconnection.Comp
+	// l2ToDramConnection      *directconnection.Comp
+	// rdmaEngine              *rdma.Comp
+	// dmaEngine               *cp.DMAEngine
+	// pageMigrationController *pagemigrationcontroller.PageMigrationController
 }
 
 func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
@@ -61,10 +57,10 @@ func (b *GPUBuilder) WithSMSPsCountPerSM(count uint64) *GPUBuilder {
 
 // WithL2CacheSize set the total L2 cache size. The size of the L2 cache is
 // split between memory banks.
-func (b GPUBuilder) WithL2CacheSize(size uint64) GPUBuilder {
-	b.L2CacheSize = size
-	return b
-}
+// func (b GPUBuilder) WithL2CacheSize(size uint64) GPUBuilder {
+// 	b.L2CacheSize = size
+// 	return b
+// }
 
 // WithDRAMSize sets the size of DRAMs in the GPU.
 func (b GPUBuilder) WithDRAMSize(size uint64) GPUBuilder {
@@ -87,10 +83,10 @@ func (b GPUBuilder) WithNumMemoryBank(n int) GPUBuilder {
 	return b
 }
 
-func (b *GPUBuilder) Build(name string) *GPU {
-	// g := &GPU{
+func (b *GPUBuilder) Build(name string) *GPUController {
+	// g := &GPUController{
 	// 	ID:  sim.GetIDGenerator().Generate(),
-	// 	SMs: make(map[string]*sm.SM),
+	// 	SMs: make(map[string]*sm.SMController),
 	// }
 	b.createGPU(name)
 
@@ -99,10 +95,18 @@ func (b *GPUBuilder) Build(name string) *GPU {
 	sms := b.buildSMs(name)
 	b.connectGPUWithSMs(b.gpu, sms)
 
-	b.buildL2Caches()
-	b.buildDRAMControllers()
+	b.buildDRAM()
+	// b.connectGPUWithDRAM(b.gpu, b.Dram)
 
-	b.buildDMAEngine()
+	// b.gpu.PendingWriteReq = make(map[string]*mem.WriteReq)
+	// b.gpu.PendingReadReq = make(map[string]*mem.ReadReq)
+	// b.gpu.PendingSMtoGPUMemWriteReq = make(map[string]*message.SMToGPUMemWriteMsg)
+	// b.gpu.PendingSMtoGPUMemReadReq = make(map[string]*message.SMToGPUMemReadMsg)
+
+	// b.buildL2Caches()
+	// b.buildDRAMControllers()
+
+	// b.buildDMAEngine()
 	// b.buildRDMAEngine()
 	// b.buildPageMigrationController()
 
@@ -117,29 +121,36 @@ func (b *GPUBuilder) Build(name string) *GPU {
 func (b *GPUBuilder) createGPU(name string) {
 	b.gpuName = name
 
-	b.gpu = &GPU{
+	b.gpu = &GPUController{
 		gpuName: name,
 		ID:      sim.GetIDGenerator().Generate(),
-		SMs:     make(map[string]*sm.SM),
+		SMs:     make(map[string]*sm.SMController),
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
 	// b.gpuID = id
 }
 
-func (b *GPUBuilder) buildPortsForGPU(g *GPU, name string) {
+func (b *GPUBuilder) buildPortsForGPU(g *GPUController, name string) {
 	g.toDriver = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToDriver", name))
 	g.toSMs = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToSMs", name))
 	g.AddPort(fmt.Sprintf("%s.ToDriver", name), g.toDriver)
 	g.AddPort(fmt.Sprintf("%s.ToSMs", name), g.toSMs)
+
+	// cache updates
+	// 	g.toSMMem = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToSMMem", name))
+	// 	g.AddPort(fmt.Sprintf("%s.ToSMMem", name), g.toSMMem)
+
+	// g.toDRAM = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToDRAM", name))
+	// g.AddPort(fmt.Sprintf("%s.ToDRAM", name), g.toDRAM)
 }
 
-func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SM {
+func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 	smBuilder := new(sm.SMBuilder).
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithSMSPsCount(b.smspsCountPerSM)
 
-	sms := []*sm.SM{}
+	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {
 		sm := smBuilder.Build(fmt.Sprintf("%s.SM(%d)", gpuName, i))
 		sms = append(sms, sm)
@@ -148,7 +159,7 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SM {
 	return sms
 }
 
-func (b *GPUBuilder) connectGPUWithSMs(gpu *GPU, sms []*sm.SM) {
+func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMController) {
 	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
 	// conn.PlugIn(gpu.toSMs, 4)
 	conn := directconnection.MakeBuilder().
@@ -156,6 +167,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPU, sms []*sm.SM) {
 		WithFreq(1 * sim.GHz).
 		Build("GPUToSMs")
 	conn.PlugIn(gpu.toSMs)
+	// conn.PlugIn(gpu.toSMMem)
 
 	for i := range sms {
 		sm := sms[i]
@@ -164,68 +176,93 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPU, sms []*sm.SM) {
 		gpu.SMs[sm.ID] = sm
 
 		sm.SetGPURemotePort(gpu.toSMs)
+		// sm.SetGPUMemRemotePort(gpu.toSMMem)
 
 		conn.PlugIn(sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sms[i].Name())))
+		// conn.PlugIn(sm.GetPortByName(fmt.Sprintf("%s.ToGPUMem", sms[i].Name())))
 	}
 }
 
-func (b *GPUBuilder) buildL2Caches() {
-	byteSize := b.L2CacheSize / uint64(b.numMemoryBank)
-	l2Builder := writeback.MakeBuilder().
+// func (b *GPUBuilder) connectGPUWithDRAM(gpu *GPUController, d *idealmemcontroller.Comp) {
+// 	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
+// 	// conn.PlugIn(gpu.toSMs, 4)
+// 	conn := directconnection.MakeBuilder().
+// 		WithEngine(b.engine).
+// 		WithFreq(1 * sim.GHz).
+// 		Build("GPUToDRAM")
+// 	conn.PlugIn(gpu.toDRAM)
+
+// 	gpu.toDRAMRemote = d.GetPortByName("Top")
+// 	conn.PlugIn(gpu.toDRAMRemote)
+// }
+
+// func (b *GPUBuilder) buildL2Caches() {
+// 	byteSize := b.L2CacheSize / uint64(b.numMemoryBank)
+// 	l2Builder := writeback.MakeBuilder().
+// 		WithEngine(b.engine).
+// 		WithFreq(b.freq).
+// 		WithLog2BlockSize(b.log2CacheLineSize).
+// 		WithWayAssociativity(16).
+// 		WithByteSize(byteSize).
+// 		WithNumMSHREntry(64).
+// 		WithNumReqPerCycle(16)
+
+// 	for i := 0; i < b.numMemoryBank; i++ {
+// 		cacheName := fmt.Sprintf("%s.L2[%d]", b.gpuName, i)
+// 		l2 := l2Builder.WithInterleaving(
+// 			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
+// 			b.numMemoryBank,
+// 			i,
+// 		).Build(cacheName)
+// 		b.L2Caches = append(b.L2Caches, l2)
+// 		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
+
+// 		// if b.enableVisTracing {
+// 		// 	tracing.CollectTrace(l2, b.visTracer)
+// 		// }
+
+// 		// if b.enableMemTracing {
+// 		// 	tracing.CollectTrace(l2, b.memTracer)
+// 		// }
+
+// 		// if b.monitor != nil {
+// 		// 	b.monitor.RegisterComponent(l2)
+// 		// }
+// 	}
+// }
+
+// cache updates
+
+func (b *GPUBuilder) buildDRAM() {
+	b.Dram = idealmemcontroller.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(16).
-		WithByteSize(byteSize).
-		WithNumMSHREntry(64).
-		WithNumReqPerCycle(16)
+		Build(fmt.Sprintf("%s.DRAM", b.gpuName))
 
-	for i := 0; i < b.numMemoryBank; i++ {
-		cacheName := fmt.Sprintf("%s.L2[%d]", b.gpuName, i)
-		l2 := l2Builder.WithInterleaving(
-			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
-			b.numMemoryBank,
-			i,
-		).Build(cacheName)
-		b.L2Caches = append(b.L2Caches, l2)
-		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
-
-		// if b.enableVisTracing {
-		// 	tracing.CollectTrace(l2, b.visTracer)
-		// }
-
-		// if b.enableMemTracing {
-		// 	tracing.CollectTrace(l2, b.memTracer)
-		// }
-
-		// if b.monitor != nil {
-		// 	b.monitor.RegisterComponent(l2)
-		// }
-	}
 }
 
-func (b *GPUBuilder) buildDRAMControllers() {
-	// memCtrlBuilder := b.createDramControllerBuilder()
+// func (b *GPUBuilder) buildDRAMControllers() {
+// 	// memCtrlBuilder := b.createDramControllerBuilder()
 
-	for i := 0; i < b.numMemoryBank; i++ {
-		// dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
-		// dram := memCtrlBuilder.
-		// 	Build(dramName)
-		// 	fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
-		idealmemcontrollerbuilder := idealmemcontroller.MakeBuilder()
-		dram := idealmemcontrollerbuilder.Build("IMC")
-		b.Drams = append(b.Drams, dram)
-		// b.gpu.MemControllers = append(b.gpu.MemControllers, dram)
+// 	for i := 0; i < b.numMemoryBank; i++ {
+// 		// dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
+// 		// dram := memCtrlBuilder.
+// 		// 	Build(dramName)
+// 		// 	fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
+// 		idealmemcontrollerbuilder := idealmemcontroller.MakeBuilder()
+// 		dram := idealmemcontrollerbuilder.Build("IMC")
+// 		b.Drams = append(b.Drams, dram)
+// 		// b.gpu.MemControllers = append(b.gpu.MemControllers, dram)
 
-		// if b.enableMemTracing {
-		// 	tracing.CollectTrace(dram, b.memTracer)
-		// }
+// 		// if b.enableMemTracing {
+// 		// 	tracing.CollectTrace(dram, b.memTracer)
+// 		// }
 
-		// if b.monitor != nil {
-		// 	b.monitor.RegisterComponent(dram)
-		// }
-	}
-}
+// 		// if b.monitor != nil {
+// 		// 	b.monitor.RegisterComponent(dram)
+// 		// }
+// 	}
+// }
 
 // func (b *GPUBuilder) buildPageMigrationController() {
 // 	b.pageMigrationController =
@@ -241,20 +278,20 @@ func (b *GPUBuilder) buildDRAMControllers() {
 // 	// }
 // }
 
-func (b *GPUBuilder) buildDMAEngine() {
-	b.dmaEngine = cp.NewDMAEngine(
-		fmt.Sprintf("%s.DMA", b.gpuName),
-		b.engine,
-		nil)
+// func (b *GPUBuilder) buildDMAEngine() {
+// 	b.dmaEngine = cp.NewDMAEngine(
+// 		fmt.Sprintf("%s.DMA", b.gpuName),
+// 		b.engine,
+// 		nil)
 
-	// if b.enableVisTracing {
-	// 	tracing.CollectTrace(b.dmaEngine, b.visTracer)
-	// }
+// 	// if b.enableVisTracing {
+// 	// 	tracing.CollectTrace(b.dmaEngine, b.visTracer)
+// 	// }
 
-	// if b.monitor != nil {
-	// 	b.monitor.RegisterComponent(b.dmaEngine)
-	// }
-}
+// 	// if b.monitor != nil {
+// 	// 	b.monitor.RegisterComponent(b.dmaEngine)
+// 	// }
+// }
 
 // func (b *GPUBuilder) buildRDMAEngine() {
 // 	name := fmt.Sprintf("%s.RDMA", b.gpuName)
