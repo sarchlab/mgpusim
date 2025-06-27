@@ -45,47 +45,75 @@ type SMSPToSMMsg struct {
 	SMSPID       string
 }
 
-type SMSPToSMMemReadMsg struct {
+type SMSPToGPUControllerMemReadMsg struct {
 	sim.MsgMeta
 
 	Address uint64
 }
 
-type SMSPToSMMemWriteMsg struct {
-	sim.MsgMeta
-
-	Address uint64
-	Data    uint32
-}
-
-type SMToGPUMemReadMsg struct {
-	sim.MsgMeta
-
-	Address uint64
-}
-
-type SMToGPUMemWriteMsg struct {
+type SMSPToGPUControllerMemWriteMsg struct {
 	sim.MsgMeta
 
 	Address uint64
 	Data    uint32
 }
 
-type GPUtoSMMemReadMsg struct {
+type GPUControllerToCachesMemReadMsg struct {
 	sim.MsgMeta
 
-	Address           uint64
-	Rsp               mem.DataReadyRsp
-	OriginalSMtoGPUID string
+	OriginalSMSPtoGPUControllerID string
+	Msg                           mem.ReadReq
 }
 
-type GPUtoSMMemWriteMsg struct {
+type GPUControllerToCachesMemWriteMsg struct {
 	sim.MsgMeta
 
-	Address           uint64
-	Rsp               mem.WriteDoneRsp
-	OriginalSMtoGPUID string
+	OriginalSMSPtoGPUControllerID string
+	Msg                           mem.WriteReq
 }
+
+type CachesToSMSPMemWriteRspMsg struct {
+	sim.MsgMeta
+
+	OriginalSMSPtoGPUControllerID string
+	Msg                           mem.WriteDoneRsp
+}
+
+type CachesToSMSPMemReadRspMsg struct {
+	sim.MsgMeta
+
+	OriginalSMSPtoGPUControllerID string
+	Msg                           mem.DataReadyRsp
+}
+
+// type SMToGPUMemReadMsg struct {
+// 	sim.MsgMeta
+
+// 	Address uint64
+// }
+
+// type SMToGPUMemWriteMsg struct {
+// 	sim.MsgMeta
+
+// 	Address uint64
+// 	Data    uint32
+// }
+
+// type GPUtoSMMemReadMsg struct {
+// 	sim.MsgMeta
+
+// 	Address           uint64
+// 	Rsp               mem.DataReadyRsp
+// 	OriginalSMtoGPUID string
+// }
+
+// type GPUtoSMMemWriteMsg struct {
+// 	sim.MsgMeta
+
+// 	Address           uint64
+// 	Rsp               mem.WriteDoneRsp
+// 	OriginalSMtoGPUID string
+// }
 
 func (m *DriverToDeviceMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
@@ -111,29 +139,45 @@ func (m *SMSPToSMMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *SMSPToSMMemReadMsg) Meta() *sim.MsgMeta {
+func (m *SMSPToGPUControllerMemReadMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *SMSPToSMMemWriteMsg) Meta() *sim.MsgMeta {
+func (m *SMSPToGPUControllerMemWriteMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *SMToGPUMemReadMsg) Meta() *sim.MsgMeta {
+func (m *GPUControllerToCachesMemReadMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *SMToGPUMemWriteMsg) Meta() *sim.MsgMeta {
+func (m *GPUControllerToCachesMemWriteMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *GPUtoSMMemReadMsg) Meta() *sim.MsgMeta {
+func (m *CachesToSMSPMemReadRspMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
 
-func (m *GPUtoSMMemWriteMsg) Meta() *sim.MsgMeta {
+func (m *CachesToSMSPMemWriteRspMsg) Meta() *sim.MsgMeta {
 	return &m.MsgMeta
 }
+
+// func (m *SMToGPUMemReadMsg) Meta() *sim.MsgMeta {
+// 	return &m.MsgMeta
+// }
+
+// func (m *SMToGPUMemWriteMsg) Meta() *sim.MsgMeta {
+// 	return &m.MsgMeta
+// }
+
+// func (m *GPUtoSMMemReadMsg) Meta() *sim.MsgMeta {
+// 	return &m.MsgMeta
+// }
+
+// func (m *GPUtoSMMemWriteMsg) Meta() *sim.MsgMeta {
+// 	return &m.MsgMeta
+// }
 
 func (m *DriverToDeviceMsg) Clone() sim.Msg {
 	cloneMsg := *m
@@ -171,38 +215,62 @@ func (m *SMSPToSMMsg) Clone() sim.Msg {
 	return &cloneMsg
 }
 
-func (m *SMSPToSMMemReadMsg) Clone() sim.Msg {
+func (m *SMSPToGPUControllerMemReadMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (m *SMSPToSMMemWriteMsg) Clone() sim.Msg {
+func (m *SMSPToGPUControllerMemWriteMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (m *SMToGPUMemReadMsg) Clone() sim.Msg {
+func (m *GPUControllerToCachesMemReadMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (m *SMToGPUMemWriteMsg) Clone() sim.Msg {
+func (m *GPUControllerToCachesMemWriteMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (m *GPUtoSMMemReadMsg) Clone() sim.Msg {
+func (m *CachesToSMSPMemReadRspMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
 
-func (m *GPUtoSMMemWriteMsg) Clone() sim.Msg {
+func (m *CachesToSMSPMemWriteRspMsg) Clone() sim.Msg {
 	cloneMsg := *m
 	cloneMsg.ID = sim.GetIDGenerator().Generate()
 	return &cloneMsg
 }
+
+// func (m *SMToGPUMemReadMsg) Clone() sim.Msg {
+// 	cloneMsg := *m
+// 	cloneMsg.ID = sim.GetIDGenerator().Generate()
+// 	return &cloneMsg
+// }
+
+// func (m *SMToGPUMemWriteMsg) Clone() sim.Msg {
+// 	cloneMsg := *m
+// 	cloneMsg.ID = sim.GetIDGenerator().Generate()
+// 	return &cloneMsg
+// }
+
+// func (m *GPUtoSMMemReadMsg) Clone() sim.Msg {
+// 	cloneMsg := *m
+// 	cloneMsg.ID = sim.GetIDGenerator().Generate()
+// 	return &cloneMsg
+// }
+
+// func (m *GPUtoSMMemWriteMsg) Clone() sim.Msg {
+// 	cloneMsg := *m
+// 	cloneMsg.ID = sim.GetIDGenerator().Generate()
+// 	return &cloneMsg
+// }

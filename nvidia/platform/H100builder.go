@@ -35,7 +35,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithFreq(b.freq).
 		WithSMsCount(112).
 		WithSMSPsCountPerSM(4).
-		// WithL2CacheSize(50 * mem.MB).
+		WithL2CacheSize(50 * mem.MB).
 		WithDRAMSize(80 * mem.GB).
 		WithLog2CacheLineSize(7).
 		WithNumMemoryBank(4)

@@ -32,8 +32,8 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s.AddPort(fmt.Sprintf("%s.ToSM", name), s.toSM)
 
 	// cache updates
-	// s.toSMMem = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToSMMem", name))
-	// s.AddPort(fmt.Sprintf("%s.ToSMMem", name), s.toSMMem)
+	s.ToGPUControllerMem = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToGPUControllerMem", name))
+	s.AddPort(fmt.Sprintf("%s.ToGPUControllerMem", name), s.ToGPUControllerMem)
 
 	atexit.Register(s.LogStatus)
 
