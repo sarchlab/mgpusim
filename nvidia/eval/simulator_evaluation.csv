@@ -17,3 +17,4 @@ beb16ac,test,,-2.660039,2.722457164,1,2,3,"test: now nvidia supports --device",b
 f32684d,test,,-2.660039,4.144343036,1,2,3,"test: move the distribution col to the last",f32684d42f8e36ee636611e6c2e4fa0858efa01b,EnzeXu,"{polybench/2mm: -5.069940, polybench/3mm: -0.250137}"
 1445051,test,,-2.660039,4.164249063,1,2,3,"test: move the distribution col to the last",14450512b95b56c71a5c2a5927d73298ffec88c7,EnzeXu,"{polybench/2mm: -5.069940, polybench/3mm: -0.250137}"
 fa4d9b7,test,,-2.660039,4.540895509,1,2,3,"test: comment back",fa4d9b7457daa79dddff5821e6cf0b4b1b0203a2,EnzeXu,"{polybench/2mm: -5.069940, polybench/3mm: -0.250137}"
+fde77d0,test,,-2.660039,4.105747546,1,2,3,"test: Merge branch 'nvidia_cache' of https://github.com/sarchlab/mgpusim into nvidia_cache",fde77d03571bade26d01fd4dcc563a251bb84f81,EnzeXu,"{polybench/2mm: -5.069940, polybench/3mm: -0.250137}"
