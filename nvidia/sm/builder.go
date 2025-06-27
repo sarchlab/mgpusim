@@ -3,6 +3,8 @@ package sm
 import (
 	"fmt"
 
+	"github.com/sarchlab/akita/v4/mem/cache/writearound"
+	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
 
@@ -18,6 +20,9 @@ type SMBuilder struct {
 
 	smspsCount        uint64
 	log2CacheLineSize uint64
+
+	// cache updates
+	l1Cache *writearound.Comp
 }
 
 func (b *SMBuilder) WithEngine(engine sim.Engine) *SMBuilder {
@@ -37,8 +42,9 @@ func (b *SMBuilder) WithSMSPsCount(count uint64) *SMBuilder {
 
 func (b *SMBuilder) Build(name string) *SMController {
 	s := &SMController{
-		ID:    sim.GetIDGenerator().Generate(),
-		SMSPs: make(map[string]*smsp.SMSPController),
+		ID:       sim.GetIDGenerator().Generate(),
+		SMSPs:    make(map[string]*smsp.SMSPController),
+		SMSPsIDs: []string{},
 	}
 	b.name = name
 
@@ -50,12 +56,18 @@ func (b *SMBuilder) Build(name string) *SMController {
 	// s.PendingWriteReq = make(map[string]*message.SMSPToSMMemWriteMsg)
 	// s.PendingReadReq = make(map[string]*message.SMSPToSMMemReadMsg)
 
-	// b.buildL1Caches(s)
+	b.buildL1Caches()
+
+	// b.populateExternalPorts(s)
 
 	atexit.Register(s.LogStatus)
 
 	return s
 }
+
+// func (b *SMBuilder) populateExternalPorts(sm *SMController) {
+// 	sm.AddPort("L1CacheBottom", b.l1Cache.GetPortByName("Bottom"))
+// }
 
 func (b *SMBuilder) buildPortsForSM(sm *SMController, name string) {
 	sm.toGPU = sim.NewPort(sm, 4, 4, fmt.Sprintf("%s.ToGPU", name))
@@ -98,13 +110,41 @@ func (b *SMBuilder) connectSMwithSMSPs(sm *SMController, smsps []*smsp.SMSPContr
 
 		sm.freeSMSPs = append(sm.freeSMSPs, smsp)
 		sm.SMSPs[smsp.ID] = smsp
+		sm.SMSPsIDs = append(sm.SMSPsIDs, smsp.ID)
 
 		smsp.SetSMRemotePort(sm.toSMSPs)
+		// smsp.SetGPUControllerMemRemote(sm.toGPUControllerCaches)
 		conn.PlugIn(smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())))
 
 		// smsp.SetSMMemRemotePort(sm.toSMSPMem)
 		// conn.PlugIn(smsp.GetPortByName(fmt.Sprintf("%s.ToSMMem", smsp.Name())))
 	}
+}
+
+func (b *SMBuilder) buildL1Caches() {
+	builder := writearound.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithBankLatency(60).
+		WithNumBanks(1).
+		WithLog2BlockSize(b.log2CacheLineSize).
+		WithWayAssociativity(4).
+		WithNumMSHREntry(16).
+		WithTotalByteSize(16 * mem.KB)
+
+	// for i := 0; i < b.numCUs; i++ {
+	// 	name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
+	// 	cache := builder.Build(name)
+	// 	b.l1vCaches = append(b.l1vCaches, cache)
+	// 	b.simulation.RegisterComponent(cache)
+
+	// 	// if b.memTracer != nil {
+	// 	// 	tracing.CollectTrace(cache, b.memTracer)
+	// 	// }
+	// }
+	name := fmt.Sprintf("%s.L1Cache", b.name)
+	cache := builder.Build(name)
+	b.l1Cache = cache
 }
 
 // func (b *SMBuilder) buildL1Caches(sm *SMController) {

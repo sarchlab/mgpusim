@@ -29,11 +29,13 @@ type SMController struct {
 	// toGPUMemRemote  sim.Port
 	// toSMSPMem       sim.Port
 	// toSMSPMemRemote sim.Port
+	toGPUControllerCaches sim.Port
 
 	// PendingReadReq  map[string]*message.SMSPToSMMemReadMsg
 	// PendingWriteReq map[string]*message.SMSPToSMMemWriteMsg
 
 	SMSPs     map[string]*smsp.SMSPController
+	SMSPsIDs  []string
 	freeSMSPs []*smsp.SMSPController
 
 	undispatchedWarps    []*trace.WarpTrace
@@ -45,6 +47,16 @@ type SMController struct {
 
 func (s *SMController) SetGPURemotePort(remote sim.Port) {
 	s.toGPURemote = remote
+}
+
+func (s *SMController) SetGPUControllerCachesPort(remote sim.Port) {
+	s.toGPUControllerCaches = remote
+	// for i := range len(s.SMSPs) {
+	// 	smsp := s.SMSPs[i]
+
+	// 	sm.freeSMSPs = append(sm.freeSMSPs, smsp)
+	// 	sm.SMSPs[smsp.ID] = smsp
+	// }
 }
 
 // func (s *SMController) SetGPUMemRemotePort(remote sim.Port) {
