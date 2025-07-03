@@ -56,7 +56,6 @@ func main() {
 	default:
 		configPath = "nvidia/eval/eval_config_dev.json"
 	}
-
 	config := mustReadConfig(configPath)
 	var allRecords []Record
 	avgSEs, names, records := processBenchmarks(config)
