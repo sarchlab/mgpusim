@@ -1,0 +1,47 @@
+[
+  {
+    "suite": "polybench",
+    "benchmark": "2mm",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682e34d6b541e8df7bd618da",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 6962.79,
+    "has_sim": true,
+    "predict_cycle": 618
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "2mm",
+    "param": {
+      "blockDimX": "8",
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "682e34d8b541e8df7bd618db",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9111.68,
+    "has_sim": true,
+    "predict_cycle": 61967
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3mm",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682eea8fb541e8df7bd61988",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 10204.87,
+    "has_sim": true,
+    "predict_cycle": 62301
+  }
+]
