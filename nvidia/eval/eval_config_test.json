@@ -7,14 +7,16 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682e34d6b541e8df7bd618da",
                     "truth": {
-                        "cycles": 6951.75
+                        "cycles": 6962.79
                     }
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682e34d8b541e8df7bd618db",
                     "truth": {
@@ -29,6 +31,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682eea8fb541e8df7bd61988",
                     "truth": {

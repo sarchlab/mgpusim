@@ -27,9 +27,24 @@ type Benchmark struct {
 
 type ArgConfig map[string]interface{}
 
+type Record struct {
+	Suite        string            `json:"suite"`
+	Benchmark    string            `json:"benchmark"`
+	Param        map[string]string `json:"param"`
+	HasTrace     bool              `json:"has_trace"`
+	TraceID      string            `json:"trace_id"`
+	HasProfile   bool              `json:"has_profile"`
+	Frequency    interface{}       `json:"frequency"`
+	AvgNanoSec   interface{}       `json:"avg_nano_sec"`
+	HasSim       bool              `json:"has_sim"`
+	PredictCycle float64           `json:"predict_cycle"`
+}
+
 func main() {
 	var configType string
+	var sha string
 	flag.StringVar(&configType, "config", "dev", "config type: dev, test or release")
+	flag.StringVar(&sha, "sha", "unknownSHA", "git commit SHA")
 	flag.Parse()
 
 	var configPath string
@@ -43,9 +58,32 @@ func main() {
 	}
 
 	config := mustReadConfig(configPath)
-	avgSEs, names := processBenchmarks(config)
+	var allRecords []Record
+	avgSEs, names, records := processBenchmarks(config)
+	allRecords = append(allRecords, records...)
 	printEvalStats(config.Benchmarks)
 	printAvgSEs(avgSEs, names)
+
+	// Save records as JSON
+	outDir := "nvidia/eval/records"
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create output dir: %v\n", err)
+		os.Exit(1)
+	}
+	outPath := filepath.Join(outDir, sha+".json")
+	f, err := os.Create(outPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create %s: %v\n", outPath, err)
+		os.Exit(1)
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(allRecords); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write JSON: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Saved records to %s\n", outPath)
 }
 
 func mustReadConfig(path string) EvalConfig {
@@ -64,21 +102,24 @@ func mustReadConfig(path string) EvalConfig {
 	return config
 }
 
-func processBenchmarks(config EvalConfig) ([]float64, []string) {
+func processBenchmarks(config EvalConfig) ([]float64, []string, []Record) {
 	var avgSEs []float64
 	var names []string
+	var allRecords []Record
 	for _, bench := range config.Benchmarks {
-		seList := processArgs(bench, config.ScriptPath)
+		seList, records := processArgs(bench, config.ScriptPath)
+		allRecords = append(allRecords, records...)
 		if len(seList) > 0 {
 			avgSEs = append(avgSEs, average(seList))
 			names = append(names, fmt.Sprintf("%s/%s", bench.Suite, bench.Title))
 		}
 	}
-	return avgSEs, names
+	return avgSEs, names, allRecords
 }
 
-func processArgs(bench Benchmark, scriptPath string) []float64 {
+func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 	seList := make([]float64, 0, len(bench.Args)) // pre-allocate
+	records := make([]Record, 0, len(bench.Args))
 	for _, arg := range bench.Args {
 		traceID, ok := arg["trace-id"].(string)
 		if !ok {
@@ -86,10 +127,11 @@ func processArgs(bench Benchmark, scriptPath string) []float64 {
 			continue
 		}
 		// Build arg setting string (excluding "trace-id" and "truth")
+		param := make(map[string]string)
 		argStr := "{"
 		first := true
 		for k, v := range arg {
-			if k == "trace-id" || k == "truth" {
+			if k == "trace-id" || k == "truth" || k == "frequency" {
 				continue
 			}
 			if !first {
@@ -97,9 +139,11 @@ func processArgs(bench Benchmark, scriptPath string) []float64 {
 			}
 			first = false
 			argStr += fmt.Sprintf("\"%s\": %v", k, v)
+			param[k] = fmt.Sprintf("%v", v)
 		}
 		argStr += "}"
-		fmt.Printf("trace-id: %s, suite: %s, benchmark: %s, arg setting: %s\n", traceID, bench.Suite, bench.Title, argStr)
+		frequency := arg["frequency"]
+		fmt.Printf("trace-id: %s, suite: %s, frequency: %v, benchmark: %s, arg setting: %s\n", traceID, bench.Suite, frequency, bench.Title, argStr)
 
 		truthCycles := getTruthCycles(arg)
 		tmpYamlPath := filepath.Join("nvidia/eval/", "tmp.yaml")
@@ -129,8 +173,22 @@ func processArgs(bench Benchmark, scriptPath string) []float64 {
 			continue
 		}
 		seList = append(seList, symmetricError(truthCycles, simResult))
+
+		rec := Record{
+			Suite:        bench.Suite,
+			Benchmark:    bench.Title,
+			Param:        param,
+			HasTrace:     true,
+			TraceID:      traceID,
+			HasProfile:   true,
+			Frequency:    frequency,
+			AvgNanoSec:   truthCycles,
+			HasSim:       true,
+			PredictCycle: simResult,
+		}
+		records = append(records, rec)
 	}
-	return seList
+	return seList, records
 }
 
 func printEvalStats(benchmarks []Benchmark) {
@@ -349,36 +407,6 @@ func parseLastFloat(r io.Reader) float64 {
 	}
 	return lastFloat
 }
-
-// // Build args string, excluding "trace-id" and "truth"
-// func buildArgsString(arg ArgConfig) string {
-// 	var sb strings.Builder
-// 	sb.WriteString("{")
-// 	first := true
-// 	for k, v := range arg {
-// 		if k == "trace-id" || k == "truth" {
-// 			continue
-// 		}
-// 		if !first {
-// 			sb.WriteString(", ")
-// 		}
-// 		first = false
-// 		switch val := v.(type) {
-// 		case float64:
-// 			if val == float64(int(val)) {
-// 				fmt.Fprintf(&sb, "'%s': %d", k, int(val))
-// 			} else {
-// 				fmt.Fprintf(&sb, "'%s': %v", k, val)
-// 			}
-// 		default:
-// 			fmt.Fprintf(&sb, "'%s': %v", k, val)
-// 		}
-// 	}
-// 	sb.WriteString("}")
-// 	return sb.String()
-// }
-
-// Add this helper function:
 
 func symmetricError(truth, sim float64) float64 {
 	minVal := sim

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -29,6 +30,7 @@ type ArgConfig map[string]interface{}
 type GroundTruthEntry struct {
 	Suite     string
 	Benchmark string
+	Frequency float64
 	Args      map[string]string
 	Cycles    float64
 	Line      int
@@ -237,6 +239,7 @@ func parseSimYaml(path, suite, benchmark string, gt map[string]GroundTruthEntry)
 		arg["trace-id"] = t.TraceID
 		if ok {
 			arg["truth"] = map[string]interface{}{"cycles": entry.Cycles}
+			arg["frequency"] = entry.Frequency
 		}
 		args = append(args, arg)
 	}
@@ -300,8 +303,13 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 		}
 		suite := strings.TrimSpace(strings.Split(parts[0], "=")[1])
 		benchmark := strings.TrimSpace(strings.Split(parts[1], "=")[1])
+		frequency, err := strconv.ParseFloat(strings.TrimSpace(strings.Split(parts[2], "=")[1]), 64)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse frequency at line %d: %v\n", lineNum, err)
+			frequency = -1.0 // default invalid frequency
+		}
 		args := make(map[string]string)
-		for _, p := range parts[2 : len(parts)-1] {
+		for _, p := range parts[3 : len(parts)-1] {
 			kv := strings.SplitN(p, "=", 2)
 			if len(kv) == 2 {
 				args[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
@@ -317,6 +325,7 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 		gt[key] = GroundTruthEntry{
 			Suite:     suite,
 			Benchmark: benchmark,
+			Frequency: frequency,
 			Args:      args,
 			Cycles:    cycles,
 			Line:      lineNum,
