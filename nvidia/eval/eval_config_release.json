@@ -7,6 +7,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 1755,
                     "size": 32,
                     "trace-id": "682d15a5b541e8df7bd61825",
                     "truth": {
@@ -15,6 +16,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 1755,
                     "size": 32,
                     "trace-id": "682d1732b541e8df7bd61851",
                     "truth": {
@@ -23,6 +25,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 1755,
                     "size": 32,
                     "trace-id": "682d174ab541e8df7bd6185c",
                     "truth": {
@@ -31,6 +34,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 1755,
                     "size": 48,
                     "trace-id": "682d171ab541e8df7bd61847",
                     "truth": {
@@ -39,6 +43,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 1755,
                     "size": 48,
                     "trace-id": "682d1733b541e8df7bd61852",
                     "truth": {
@@ -47,6 +52,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 1755,
                     "size": 48,
                     "trace-id": "682d174cb541e8df7bd6185d",
                     "truth": {
@@ -55,6 +61,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 1755,
                     "size": 64,
                     "trace-id": "682d171bb541e8df7bd61848",
                     "truth": {
@@ -63,6 +70,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 1755,
                     "size": 64,
                     "trace-id": "682d1734b541e8df7bd61853",
                     "truth": {
@@ -71,6 +79,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 1755,
                     "size": 64,
                     "trace-id": "682d174db541e8df7bd6185e",
                     "truth": {
@@ -79,6 +88,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 1755,
                     "size": 96,
                     "trace-id": "682d171db541e8df7bd61849",
                     "truth": {
@@ -87,6 +97,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 1755,
                     "size": 96,
                     "trace-id": "682d1735b541e8df7bd61854",
                     "truth": {
@@ -95,6 +106,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 1755,
                     "size": 96,
                     "trace-id": "682d174eb541e8df7bd6185f",
                     "truth": {
@@ -103,6 +115,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 1755,
                     "size": 128,
                     "trace-id": "682d171eb541e8df7bd6184a",
                     "truth": {
@@ -111,6 +124,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 1755,
                     "size": 128,
                     "trace-id": "682d1737b541e8df7bd61855",
                     "truth": {
@@ -119,6 +133,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 1755,
                     "size": 128,
                     "trace-id": "682d174fb541e8df7bd61860",
                     "truth": {
@@ -127,6 +142,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 1755,
                     "size": 192,
                     "trace-id": "682d171fb541e8df7bd6184b",
                     "truth": {
@@ -135,6 +151,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 1755,
                     "size": 192,
                     "trace-id": "682d1738b541e8df7bd61856",
                     "truth": {
@@ -143,6 +160,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 1755,
                     "size": 192,
                     "trace-id": "682d1751b541e8df7bd61861",
                     "truth": {
@@ -151,6 +169,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 1755,
                     "size": 256,
                     "trace-id": "682d1721b541e8df7bd6184c",
                     "truth": {
@@ -165,14 +184,16 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682e34d6b541e8df7bd618da",
                     "truth": {
-                        "cycles": 6951.75
+                        "cycles": 6962.79
                     }
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682e4140b541e8df7bd618e5",
                     "truth": {
@@ -181,6 +202,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682e4d2bb541e8df7bd618f0",
                     "truth": {
@@ -189,6 +211,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682e34d8b541e8df7bd618db",
                     "truth": {
@@ -197,6 +220,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682e4142b541e8df7bd618e6",
                     "truth": {
@@ -205,6 +229,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682e4d2db541e8df7bd618f1",
                     "truth": {
@@ -213,6 +238,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682e34dab541e8df7bd618dc",
                     "truth": {
@@ -221,6 +247,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682e4144b541e8df7bd618e7",
                     "truth": {
@@ -229,6 +256,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682e4d2fb541e8df7bd618f2",
                     "truth": {
@@ -237,6 +265,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682e34ddb541e8df7bd618dd",
                     "truth": {
@@ -245,6 +274,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682e4147b541e8df7bd618e8",
                     "truth": {
@@ -253,6 +283,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682e4d31b541e8df7bd618f3",
                     "truth": {
@@ -261,6 +292,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682e34e2b541e8df7bd618de",
                     "truth": {
@@ -269,6 +301,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682e414db541e8df7bd618e9",
                     "truth": {
@@ -277,6 +310,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682e4d35b541e8df7bd618f4",
                     "truth": {
@@ -285,6 +319,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682e34f0b541e8df7bd618df",
                     "truth": {
@@ -293,6 +328,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682e415db541e8df7bd618ea",
                     "truth": {
@@ -301,6 +337,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682e4d3fb541e8df7bd618f5",
                     "truth": {
@@ -309,6 +346,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 256,
                     "trace-id": "682e350fb541e8df7bd618e0",
                     "truth": {
@@ -323,6 +361,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682e8ef4b541e8df7bd61937",
                     "truth": {
@@ -331,6 +370,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682ea0bcb541e8df7bd61940",
                     "truth": {
@@ -339,6 +379,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682ea936b541e8df7bd61949",
                     "truth": {
@@ -347,6 +388,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682e8efbb541e8df7bd61938",
                     "truth": {
@@ -355,6 +397,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682ea0c3b541e8df7bd61941",
                     "truth": {
@@ -363,6 +406,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682ea93db541e8df7bd6194a",
                     "truth": {
@@ -371,6 +415,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682e8f05b541e8df7bd61939",
                     "truth": {
@@ -379,6 +424,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682ea0cdb541e8df7bd61942",
                     "truth": {
@@ -387,6 +433,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682ea946b541e8df7bd6194b",
                     "truth": {
@@ -395,6 +442,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682e8f1ab541e8df7bd6193a",
                     "truth": {
@@ -403,6 +451,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682ea0e0b541e8df7bd61943",
                     "truth": {
@@ -411,6 +460,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682ea959b541e8df7bd6194c",
                     "truth": {
@@ -419,6 +469,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682e8f36b541e8df7bd6193b",
                     "truth": {
@@ -427,6 +478,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682ea0fbb541e8df7bd61944",
                     "truth": {
@@ -435,6 +487,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682ea978b541e8df7bd6194d",
                     "truth": {
@@ -443,6 +496,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682e8f88b541e8df7bd6193c",
                     "truth": {
@@ -457,6 +511,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682eea8fb541e8df7bd61988",
                     "truth": {
@@ -465,6 +520,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682eecf5b541e8df7bd61991",
                     "truth": {
@@ -473,6 +529,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682eef4db541e8df7bd6199a",
                     "truth": {
@@ -481,6 +538,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682eea92b541e8df7bd61989",
                     "truth": {
@@ -489,6 +547,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682eecf8b541e8df7bd61992",
                     "truth": {
@@ -497,6 +556,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682eef50b541e8df7bd6199b",
                     "truth": {
@@ -505,6 +565,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682eea94b541e8df7bd6198a",
                     "truth": {
@@ -513,6 +574,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682eecfab541e8df7bd61993",
                     "truth": {
@@ -521,6 +583,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682eef52b541e8df7bd6199c",
                     "truth": {
@@ -529,6 +592,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682eea99b541e8df7bd6198b",
                     "truth": {
@@ -537,6 +601,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682eecffb541e8df7bd61994",
                     "truth": {
@@ -545,6 +610,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682eef56b541e8df7bd6199d",
                     "truth": {
@@ -553,6 +619,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682eeaa0b541e8df7bd6198c",
                     "truth": {
@@ -561,6 +628,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682eed06b541e8df7bd61995",
                     "truth": {
@@ -569,6 +637,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682eef5cb541e8df7bd6199e",
                     "truth": {
@@ -577,6 +646,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682eeab4b541e8df7bd6198d",
                     "truth": {
@@ -591,6 +661,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682efc59b541e8df7bd619d9",
                     "truth": {
@@ -599,6 +670,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682efc69b541e8df7bd619e2",
                     "truth": {
@@ -607,6 +679,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682efc77b541e8df7bd619eb",
                     "truth": {
@@ -615,6 +688,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682efc5ab541e8df7bd619da",
                     "truth": {
@@ -623,6 +697,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682efc6ab541e8df7bd619e3",
                     "truth": {
@@ -631,6 +706,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682efc79b541e8df7bd619ec",
                     "truth": {
@@ -639,6 +715,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682efc5cb541e8df7bd619db",
                     "truth": {
@@ -647,6 +724,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682efc6cb541e8df7bd619e4",
                     "truth": {
@@ -655,6 +733,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682efc7ab541e8df7bd619ed",
                     "truth": {
@@ -663,6 +742,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682efc5db541e8df7bd619dc",
                     "truth": {
@@ -671,6 +751,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682efc6db541e8df7bd619e5",
                     "truth": {
@@ -679,6 +760,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682efc7cb541e8df7bd619ee",
                     "truth": {
@@ -687,6 +769,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682efc5fb541e8df7bd619dd",
                     "truth": {
@@ -695,6 +778,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682efc6fb541e8df7bd619e6",
                     "truth": {
@@ -703,6 +787,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682efc7db541e8df7bd619ef",
                     "truth": {
@@ -711,6 +796,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682efc61b541e8df7bd619de",
                     "truth": {
@@ -725,6 +811,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682efdcab541e8df7bd61a2a",
                     "truth": {
@@ -733,6 +820,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682efddab541e8df7bd61a33",
                     "truth": {
@@ -741,6 +829,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682efde9b541e8df7bd61a3c",
                     "truth": {
@@ -749,6 +838,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682efdcbb541e8df7bd61a2b",
                     "truth": {
@@ -757,6 +847,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682efddbb541e8df7bd61a34",
                     "truth": {
@@ -765,6 +856,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682efdeab541e8df7bd61a3d",
                     "truth": {
@@ -773,6 +865,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682efdcdb541e8df7bd61a2c",
                     "truth": {
@@ -781,6 +874,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682efdddb541e8df7bd61a35",
                     "truth": {
@@ -789,6 +883,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682efdebb541e8df7bd61a3e",
                     "truth": {
@@ -797,6 +892,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682efdceb541e8df7bd61a2d",
                     "truth": {
@@ -805,6 +901,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682efddeb541e8df7bd61a36",
                     "truth": {
@@ -813,6 +910,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682efdedb541e8df7bd61a3f",
                     "truth": {
@@ -821,6 +919,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682efdd0b541e8df7bd61a2e",
                     "truth": {
@@ -829,6 +928,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682efde0b541e8df7bd61a37",
                     "truth": {
@@ -837,6 +937,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682efdeeb541e8df7bd61a40",
                     "truth": {
@@ -845,6 +946,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682efdd2b541e8df7bd61a2f",
                     "truth": {
@@ -859,6 +961,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682eff3cb541e8df7bd61a7b",
                     "truth": {
@@ -867,6 +970,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f001fb541e8df7bd61a84",
                     "truth": {
@@ -875,6 +979,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f00fcb541e8df7bd61a8d",
                     "truth": {
@@ -883,6 +988,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682eff3db541e8df7bd61a7c",
                     "truth": {
@@ -891,6 +997,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f0020b541e8df7bd61a85",
                     "truth": {
@@ -899,6 +1006,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f00fdb541e8df7bd61a8e",
                     "truth": {
@@ -907,6 +1015,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682eff3fb541e8df7bd61a7d",
                     "truth": {
@@ -915,6 +1024,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f0021b541e8df7bd61a86",
                     "truth": {
@@ -923,6 +1033,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f00ffb541e8df7bd61a8f",
                     "truth": {
@@ -931,6 +1042,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682eff41b541e8df7bd61a7e",
                     "truth": {
@@ -939,6 +1051,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f0023b541e8df7bd61a87",
                     "truth": {
@@ -947,6 +1060,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f0100b541e8df7bd61a90",
                     "truth": {
@@ -955,6 +1069,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682eff44b541e8df7bd61a7f",
                     "truth": {
@@ -963,6 +1078,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0027b541e8df7bd61a88",
                     "truth": {
@@ -971,6 +1087,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0103b541e8df7bd61a91",
                     "truth": {
@@ -979,6 +1096,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682eff4bb541e8df7bd61a80",
                     "truth": {
@@ -993,6 +1111,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f0734b541e8df7bd61acc",
                     "truth": {
@@ -1001,6 +1120,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f0741b541e8df7bd61ad5",
                     "truth": {
@@ -1009,6 +1129,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f074cb541e8df7bd61ade",
                     "truth": {
@@ -1017,6 +1138,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f0735b541e8df7bd61acd",
                     "truth": {
@@ -1025,6 +1147,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f0742b541e8df7bd61ad6",
                     "truth": {
@@ -1033,6 +1156,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f074db541e8df7bd61adf",
                     "truth": {
@@ -1041,6 +1165,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f0736b541e8df7bd61ace",
                     "truth": {
@@ -1049,6 +1174,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f0743b541e8df7bd61ad7",
                     "truth": {
@@ -1057,6 +1183,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f074eb541e8df7bd61ae0",
                     "truth": {
@@ -1065,6 +1192,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f0737b541e8df7bd61acf",
                     "truth": {
@@ -1073,6 +1201,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f0744b541e8df7bd61ad8",
                     "truth": {
@@ -1081,6 +1210,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f074fb541e8df7bd61ae1",
                     "truth": {
@@ -1089,6 +1219,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0739b541e8df7bd61ad0",
                     "truth": {
@@ -1097,6 +1228,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0745b541e8df7bd61ad9",
                     "truth": {
@@ -1105,6 +1237,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0750b541e8df7bd61ae2",
                     "truth": {
@@ -1113,6 +1246,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682f073ab541e8df7bd61ad1",
                     "truth": {
@@ -1127,6 +1261,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f089fb541e8df7bd61b1d",
                     "truth": {
@@ -1135,6 +1270,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f08afb541e8df7bd61b26",
                     "truth": {
@@ -1143,6 +1279,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f08beb541e8df7bd61b2f",
                     "truth": {
@@ -1151,6 +1288,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f08a1b541e8df7bd61b1e",
                     "truth": {
@@ -1159,6 +1297,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f08b1b541e8df7bd61b27",
                     "truth": {
@@ -1167,6 +1306,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f08bfb541e8df7bd61b30",
                     "truth": {
@@ -1175,6 +1315,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f08a2b541e8df7bd61b1f",
                     "truth": {
@@ -1183,6 +1324,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f08b2b541e8df7bd61b28",
                     "truth": {
@@ -1191,6 +1333,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f08c1b541e8df7bd61b31",
                     "truth": {
@@ -1199,6 +1342,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f08a4b541e8df7bd61b20",
                     "truth": {
@@ -1207,6 +1351,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f08b3b541e8df7bd61b29",
                     "truth": {
@@ -1215,6 +1360,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f08c2b541e8df7bd61b32",
                     "truth": {
@@ -1223,6 +1369,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f08a5b541e8df7bd61b21",
                     "truth": {
@@ -1231,6 +1378,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f08b5b541e8df7bd61b2a",
                     "truth": {
@@ -1239,6 +1387,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f08c4b541e8df7bd61b33",
                     "truth": {
@@ -1247,6 +1396,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682f08a7b541e8df7bd61b22",
                     "truth": {
@@ -1261,6 +1411,7 @@
             "args": [
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f0a12b541e8df7bd61b6e",
                     "truth": {
@@ -1269,6 +1420,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f0aecb541e8df7bd61b77",
                     "truth": {
@@ -1277,6 +1429,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 32,
                     "trace-id": "682f0bcfb541e8df7bd61b80",
                     "truth": {
@@ -1285,6 +1438,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f0a13b541e8df7bd61b6f",
                     "truth": {
@@ -1293,6 +1447,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f0aedb541e8df7bd61b78",
                     "truth": {
@@ -1301,6 +1456,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 48,
                     "trace-id": "682f0bd0b541e8df7bd61b81",
                     "truth": {
@@ -1309,6 +1465,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f0a14b541e8df7bd61b70",
                     "truth": {
@@ -1317,6 +1474,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f0aeeb541e8df7bd61b79",
                     "truth": {
@@ -1325,6 +1483,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 64,
                     "trace-id": "682f0bd2b541e8df7bd61b82",
                     "truth": {
@@ -1333,6 +1492,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f0a16b541e8df7bd61b71",
                     "truth": {
@@ -1341,6 +1501,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f0af1b541e8df7bd61b7a",
                     "truth": {
@@ -1349,6 +1510,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 96,
                     "trace-id": "682f0bd3b541e8df7bd61b83",
                     "truth": {
@@ -1357,6 +1519,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0a19b541e8df7bd61b72",
                     "truth": {
@@ -1365,6 +1528,7 @@
                 },
                 {
                     "blockDimX": 16,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0af4b541e8df7bd61b7b",
                     "truth": {
@@ -1373,6 +1537,7 @@
                 },
                 {
                     "blockDimX": 32,
+                    "frequency": 345,
                     "size": 128,
                     "trace-id": "682f0bd6b541e8df7bd61b84",
                     "truth": {
@@ -1381,6 +1546,7 @@
                 },
                 {
                     "blockDimX": 8,
+                    "frequency": 345,
                     "size": 192,
                     "trace-id": "682f0a21b541e8df7bd61b73",
                     "truth": {
@@ -1394,6 +1560,7 @@
             "suite": "cuda-sdk",
             "args": [
                 {
+                    "frequency": 345,
                     "log2data": 12,
                     "log2kernel": 12,
                     "trace-id": "68302352c0844e6a8339bf28",
@@ -1402,6 +1569,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 13,
                     "log2kernel": 12,
                     "trace-id": "6830272bc0844e6a8339bf50",
@@ -1410,6 +1578,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 14,
                     "log2kernel": 12,
                     "trace-id": "68302730c0844e6a8339bf51",
@@ -1418,6 +1587,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 14,
                     "log2kernel": 14,
                     "trace-id": "68302734c0844e6a8339bf52",
@@ -1426,6 +1596,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 15,
                     "log2kernel": 12,
                     "trace-id": "6830273bc0844e6a8339bf53",
@@ -1434,6 +1605,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 15,
                     "log2kernel": 14,
                     "trace-id": "68302741c0844e6a8339bf54",
@@ -1442,6 +1614,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 16,
                     "log2kernel": 12,
                     "trace-id": "6830274bc0844e6a8339bf55",
@@ -1450,6 +1623,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 16,
                     "log2kernel": 14,
                     "trace-id": "68302754c0844e6a8339bf56",
@@ -1458,6 +1632,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "log2data": 16,
                     "log2kernel": 16,
                     "trace-id": "6830275cc0844e6a8339bf57",
@@ -1472,6 +1647,7 @@
             "suite": "cuda-sdk",
             "args": [
                 {
+                    "frequency": 345,
                     "size": 1024,
                     "trace-id": "68302362c0844e6a8339bf2b",
                     "truth": {
@@ -1479,6 +1655,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 2048,
                     "trace-id": "68302930c0844e6a8339bf76",
                     "truth": {
@@ -1486,6 +1663,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "68302933c0844e6a8339bf77",
                     "truth": {
@@ -1493,6 +1671,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "6830293bc0844e6a8339bf78",
                     "truth": {
@@ -1500,6 +1679,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68302946c0844e6a8339bf79",
                     "truth": {
@@ -1507,6 +1687,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302956c0844e6a8339bf7a",
                     "truth": {
@@ -1521,6 +1702,7 @@
             "args": [
                 {
                     "elementN": 2048,
+                    "frequency": 345,
                     "trace-id": "68302371c0844e6a8339bf2e",
                     "truth": {
                         "cycles": 1685.33
@@ -1529,6 +1711,7 @@
                 },
                 {
                     "elementN": 2048,
+                    "frequency": 345,
                     "trace-id": "68302c7ec0844e6a8339bf94",
                     "truth": {
                         "cycles": 1821.6
@@ -1537,6 +1720,7 @@
                 },
                 {
                     "elementN": 2048,
+                    "frequency": 345,
                     "trace-id": "68302c85c0844e6a8339bf96",
                     "truth": {
                         "cycles": 1733.4
@@ -1545,6 +1729,7 @@
                 },
                 {
                     "elementN": 2048,
+                    "frequency": 345,
                     "trace-id": "68302c8fc0844e6a8339bf98",
                     "truth": {
                         "cycles": 3083.73
@@ -1553,6 +1738,7 @@
                 },
                 {
                     "elementN": 2048,
+                    "frequency": 345,
                     "trace-id": "68302ca1c0844e6a8339bf9a",
                     "truth": {
                         "cycles": 5358.2
@@ -1561,6 +1747,7 @@
                 },
                 {
                     "elementN": 4096,
+                    "frequency": 345,
                     "trace-id": "68302c7cc0844e6a8339bf93",
                     "truth": {
                         "cycles": 1556.53
@@ -1575,6 +1762,7 @@
             "args": [
                 {
                     "arrayLength": 2048,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "68302382c0844e6a8339bf31",
                     "truth": {
@@ -1583,6 +1771,7 @@
                 },
                 {
                     "arrayLength": 4096,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "68302dabc0844e6a8339bfb8",
                     "truth": {
@@ -1591,6 +1780,7 @@
                 },
                 {
                     "arrayLength": 2048,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "68302d97c0844e6a8339bfb2",
                     "truth": {
@@ -1599,6 +1789,7 @@
                 },
                 {
                     "arrayLength": 4096,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "68302dadc0844e6a8339bfb9",
                     "truth": {
@@ -1607,6 +1798,7 @@
                 },
                 {
                     "arrayLength": 2048,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68302d9ac0844e6a8339bfb3",
                     "truth": {
@@ -1615,6 +1807,7 @@
                 },
                 {
                     "arrayLength": 4096,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68302db0c0844e6a8339bfba",
                     "truth": {
@@ -1623,6 +1816,7 @@
                 },
                 {
                     "arrayLength": 2048,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302d9dc0844e6a8339bfb4",
                     "truth": {
@@ -1631,6 +1825,7 @@
                 },
                 {
                     "arrayLength": 4096,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302db2c0844e6a8339bfbb",
                     "truth": {
@@ -1645,6 +1840,7 @@
             "args": [
                 {
                     "arrayLength": 512,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "68302e7ac0844e6a8339bfd9",
                     "truth": {
@@ -1653,6 +1849,7 @@
                 },
                 {
                     "arrayLength": 1024,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "68302390c0844e6a8339bf34",
                     "truth": {
@@ -1661,6 +1858,7 @@
                 },
                 {
                     "arrayLength": 512,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "68302e7bc0844e6a8339bfda",
                     "truth": {
@@ -1669,6 +1867,7 @@
                 },
                 {
                     "arrayLength": 1024,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "68302e88c0844e6a8339bfe0",
                     "truth": {
@@ -1677,6 +1876,7 @@
                 },
                 {
                     "arrayLength": 512,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68302e7dc0844e6a8339bfdb",
                     "truth": {
@@ -1685,6 +1885,7 @@
                 },
                 {
                     "arrayLength": 1024,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68302e8ac0844e6a8339bfe1",
                     "truth": {
@@ -1693,6 +1894,7 @@
                 },
                 {
                     "arrayLength": 512,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302e7ec0844e6a8339bfdc",
                     "truth": {
@@ -1701,6 +1903,7 @@
                 },
                 {
                     "arrayLength": 1024,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302e8bc0844e6a8339bfe2",
                     "truth": {
@@ -1715,6 +1918,7 @@
             "args": [
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "6830239fc0844e6a8339bf37",
                     "truth": {
@@ -1723,6 +1927,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "68302f4cc0844e6a8339c000",
                     "truth": {
@@ -1731,6 +1936,7 @@
                 },
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "68302f4ec0844e6a8339c001",
                     "truth": {
@@ -1739,6 +1945,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "68302f50c0844e6a8339c002",
                     "truth": {
@@ -1747,6 +1954,7 @@
                 },
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68302f53c0844e6a8339c003",
                     "truth": {
@@ -1755,6 +1963,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68302f56c0844e6a8339c004",
                     "truth": {
@@ -1763,6 +1972,7 @@
                 },
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302f5ac0844e6a8339c005",
                     "truth": {
@@ -1771,6 +1981,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302f60c0844e6a8339c006",
                     "truth": {
@@ -1785,6 +1996,7 @@
             "args": [
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "683023aec0844e6a8339bf3a",
                     "truth": {
@@ -1793,6 +2005,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 4096,
                     "trace-id": "68303106c0844e6a8339c027",
                     "truth": {
@@ -1801,6 +2014,7 @@
                 },
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "68303108c0844e6a8339c028",
                     "truth": {
@@ -1809,6 +2023,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 8192,
                     "trace-id": "6830310ac0844e6a8339c029",
                     "truth": {
@@ -1817,6 +2032,7 @@
                 },
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "6830310dc0844e6a8339c02a",
                     "truth": {
@@ -1825,6 +2041,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "68303110c0844e6a8339c02b",
                     "truth": {
@@ -1833,6 +2050,7 @@
                 },
                 {
                     "arrayLength": 64,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68303115c0844e6a8339c02c",
                     "truth": {
@@ -1841,6 +2059,7 @@
                 },
                 {
                     "arrayLength": 128,
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "6830311ac0844e6a8339c02d",
                     "truth": {
@@ -1856,6 +2075,7 @@
                 {
                     "dimX": 1024,
                     "dimY": 1024,
+                    "frequency": 345,
                     "kernelID": 1,
                     "trace-id": "683023c0c0844e6a8339bf3d",
                     "truth": {
@@ -1865,6 +2085,7 @@
                 {
                     "dimX": 1536,
                     "dimY": 1536,
+                    "frequency": 345,
                     "kernelID": 1,
                     "trace-id": "683059b9c0844e6a8339c063",
                     "truth": {
@@ -1874,6 +2095,7 @@
                 {
                     "dimX": 2048,
                     "dimY": 2048,
+                    "frequency": 345,
                     "kernelID": 1,
                     "trace-id": "68303289c0844e6a8339c042",
                     "truth": {
@@ -1883,6 +2105,7 @@
                 {
                     "dimX": 3072,
                     "dimY": 3072,
+                    "frequency": 345,
                     "kernelID": 1,
                     "trace-id": "68305b55c0844e6a8339c069",
                     "truth": {
@@ -1896,6 +2119,7 @@
             "suite": "cuda-sdk",
             "args": [
                 {
+                    "frequency": 345,
                     "size": 16384,
                     "trace-id": "683023d8c0844e6a8339bf40",
                     "truth": {
@@ -1903,6 +2127,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "6830332dc0844e6a8339c04e",
                     "truth": {
@@ -1910,6 +2135,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 65536,
                     "trace-id": "6830332fc0844e6a8339c04f",
                     "truth": {
@@ -1917,6 +2143,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 131072,
                     "trace-id": "68303330c0844e6a8339c050",
                     "truth": {
@@ -1924,6 +2151,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 262144,
                     "trace-id": "68303333c0844e6a8339c051",
                     "truth": {
@@ -1931,6 +2159,7 @@
                     }
                 },
                 {
+                    "frequency": 345,
                     "size": 524288,
                     "trace-id": "68303336c0844e6a8339c052",
                     "truth": {
