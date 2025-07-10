@@ -82,7 +82,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to write JSON: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Saved records to %s\n", outPath)
+	// fmt.Printf("Saved records to %s\n", outPath)
 }
 
 func mustReadConfig(path string) EvalConfig {
