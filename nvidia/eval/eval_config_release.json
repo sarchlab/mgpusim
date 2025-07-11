@@ -194,6 +194,106 @@
                         "beforeTurning": 1,
                         "cycles": 4530.24
                     }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 1755,
+                    "size": 256,
+                    "trace-id": "682d173ab541e8df7bd61857",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 3875.04
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 1755,
+                    "size": 256,
+                    "trace-id": "682d1752b541e8df7bd61862",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 3594.24
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 1755,
+                    "size": 384,
+                    "trace-id": "682d1723b541e8df7bd6184d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6027.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 1755,
+                    "size": 384,
+                    "trace-id": "682d173cb541e8df7bd61858",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4605.71
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 1755,
+                    "size": 384,
+                    "trace-id": "682d1754b541e8df7bd61863",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4005.5
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 1755,
+                    "size": 512,
+                    "trace-id": "682d1725b541e8df7bd6184e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8218.66
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 1755,
+                    "size": 512,
+                    "trace-id": "682d173eb541e8df7bd61859",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5691.47
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 1755,
+                    "size": 512,
+                    "trace-id": "682d1756b541e8df7bd61864",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4586.4
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 1755,
+                    "size": 768,
+                    "trace-id": "682d172ab541e8df7bd6184f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 14208.48
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 1755,
+                    "size": 768,
+                    "trace-id": "682d1742b541e8df7bd6185a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8666.77
+                    }
                 }
             ]
         },
@@ -390,6 +490,106 @@
                         "beforeTurning": 1,
                         "cycles": 40881.35
                     }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682e417db541e8df7bd618eb",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 40988.07
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682e4d53b541e8df7bd618f6",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 42942.15
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682e357eb541e8df7bd618e1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 100335.66
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682e41deb541e8df7bd618ec",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 75186.65
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682e4d91b541e8df7bd618f7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 66361.9
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 512,
+                    "trace-id": "682e3680b541e8df7bd618e2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 224003.32
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 512,
+                    "trace-id": "682e42c8b541e8df7bd618ed",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 177322.07
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 512,
+                    "trace-id": "682e4e21b541e8df7bd618f8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 163654.43
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 768,
+                    "trace-id": "682e398bb541e8df7bd618e3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 675284.71
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 768,
+                    "trace-id": "682e45dab541e8df7bd618ee",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 476706.51
+                    }
                 }
             ]
         },
@@ -555,6 +755,86 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 160981.49
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682ea14cb541e8df7bd61945",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 151279.63
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682ea9c1b541e8df7bd6194e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 150726.48
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682e903ab541e8df7bd6193d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 243981.47
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682ea1f9b541e8df7bd61946",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 218765.65
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682eaa58b541e8df7bd6194f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 216492.68
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682e9247b541e8df7bd6193e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 481418.29
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682ea43eb541e8df7bd61947",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 391448.27
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682eac26b541e8df7bd61950",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 379050.92
                     }
                 }
             ]
@@ -722,6 +1002,86 @@
                         "beforeTurning": 0,
                         "cycles": 44344.23
                     }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682eed1cb541e8df7bd61996",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 44638.75
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682eef6ab541e8df7bd6199f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 48094.38
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682eeae5b541e8df7bd6198e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 59800.35
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682eed48b541e8df7bd61997",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 59881.53
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682eef87b541e8df7bd619a0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 62718.47
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682eeb7eb541e8df7bd6198f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 142174.04
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682eede1b541e8df7bd61998",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 107202.77
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682ef006b541e8df7bd619a1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 97082.65
+                    }
                 }
             ]
         },
@@ -887,6 +1247,86 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 18569.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efc70b541e8df7bd619e7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18996.39
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efc7fb541e8df7bd619f0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20744.28
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682efc63b541e8df7bd619df",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23508.07
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682efc72b541e8df7bd619e8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24869.67
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682efc80b541e8df7bd619f1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 27408.76
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682efc65b541e8df7bd619e0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 35475.43
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682efc74b541e8df7bd619e9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 37893.31
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682efc82b541e8df7bd619f2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 40211.82
                     }
                 }
             ]
@@ -1054,6 +1494,86 @@
                         "beforeTurning": 0,
                         "cycles": 19570.35
                     }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efde2b541e8df7bd61a38",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20218.03
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efdf0b541e8df7bd61a41",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 21896.23
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682efdd4b541e8df7bd61a30",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 25042.75
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682efde3b541e8df7bd61a39",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 26356.39
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682efdf2b541e8df7bd61a42",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 28428.46
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682efdd6b541e8df7bd61a31",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 37510.58
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682efde5b541e8df7bd61a3a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 40097.4
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682efdf3b541e8df7bd61a43",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 42478.47
+                    }
                 }
             ]
         },
@@ -1219,6 +1739,86 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 15161.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f002eb541e8df7bd61a89",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 15312.71
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0109b541e8df7bd61a92",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 16582.2
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682eff5cb541e8df7bd61a81",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20744.39
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f003fb541e8df7bd61a8a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20821.56
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f0116b541e8df7bd61a93",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 22061.83
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682eff95b541e8df7bd61a82",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 52594.9
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f0077b541e8df7bd61a8b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 42357.15
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f013eb541e8df7bd61a94",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 33948.35
                     }
                 }
             ]
@@ -1386,6 +1986,86 @@
                         "beforeTurning": 0,
                         "cycles": 9027.04
                     }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0747b541e8df7bd61ada",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10186.24
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0752b541e8df7bd61ae3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12887.48
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f073bb541e8df7bd61ad2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11588.32
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f0748b541e8df7bd61adb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13200.27
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f0753b541e8df7bd61ae4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 16652.12
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f073db541e8df7bd61ad3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 17686.19
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f0749b541e8df7bd61adc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20280.6
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f0754b541e8df7bd61ae5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 25340.6
+                    }
                 }
             ]
         },
@@ -1551,6 +2231,86 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 18344.8
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f08b7b541e8df7bd61b2b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18882.08
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f08c5b541e8df7bd61b34",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20935.52
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f08a9b541e8df7bd61b23",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23508.3
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f08b9b541e8df7bd61b2c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24906.24
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f08c7b541e8df7bd61b35",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 27294.91
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f08abb541e8df7bd61b24",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 35306.15
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f08bab541e8df7bd61b2d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 37900.67
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f08c9b541e8df7bd61b36",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 40075.43
                     }
                 }
             ]
@@ -1718,6 +2478,86 @@
                         "beforeTurning": 0,
                         "cycles": 9811
                     }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0afcb541e8df7bd61b7c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10646.24
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0bdbb541e8df7bd61b85",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23651.59
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f0a32b541e8df7bd61b74",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 17020.11
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f0b0eb541e8df7bd61b7d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 22665.47
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682f0be5b541e8df7bd61b86",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 45253.08
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f0a69b541e8df7bd61b75",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 58254.86
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f0b47b541e8df7bd61b7e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 73015.57
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682f0c06b541e8df7bd61b87",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 134420.4
+                    }
                 }
             ]
         },
@@ -1814,6 +2654,46 @@
                         "beforeTurning": 0,
                         "cycles": 9604.8
                     }
+                },
+                {
+                    "frequency": 345,
+                    "log2data": 17,
+                    "log2kernel": 12,
+                    "trace-id": "6830276ac0844e6a8339bf58",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10863.25
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "log2data": 17,
+                    "log2kernel": 14,
+                    "trace-id": "68302778c0844e6a8339bf59",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10889.12
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "log2data": 17,
+                    "log2kernel": 16,
+                    "trace-id": "68302786c0844e6a8339bf5a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10933.05
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "log2data": 18,
+                    "log2kernel": 12,
+                    "trace-id": "6830279dc0844e6a8339bf5b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 14046.45
+                    }
                 }
             ]
         },
@@ -1873,6 +2753,33 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 30111.03
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302972c0844e6a8339bf7b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 37448.49
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 81920,
+                    "trace-id": "68302995c0844e6a8339bf7c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 44509.72
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 98304,
+                    "trace-id": "683029c6c0844e6a8339bf7d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 45455.59
                     }
                 }
             ]
@@ -1940,6 +2847,36 @@
                         "cycles": 1556.53
                     },
                     "vectorN": 32
+                },
+                {
+                    "elementN": 4096,
+                    "frequency": 345,
+                    "trace-id": "68302c81c0844e6a8339bf95",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 1619.32
+                    },
+                    "vectorN": 64
+                },
+                {
+                    "elementN": 4096,
+                    "frequency": 345,
+                    "trace-id": "68302c89c0844e6a8339bf97",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 1681.76
+                    },
+                    "vectorN": 128
+                },
+                {
+                    "elementN": 4096,
+                    "frequency": 345,
+                    "trace-id": "68302c98c0844e6a8339bf99",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2748.96
+                    },
+                    "vectorN": 256
                 }
             ]
         },
@@ -2025,6 +2962,46 @@
                     "truth": {
                         "beforeTurning": 1,
                         "cycles": 2134.63
+                    }
+                },
+                {
+                    "arrayLength": 2048,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302da0c0844e6a8339bfb5",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 2197.07
+                    }
+                },
+                {
+                    "arrayLength": 4096,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302db5c0844e6a8339bfbc",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 2204.32
+                    }
+                },
+                {
+                    "arrayLength": 2048,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "68302da4c0844e6a8339bfb6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2292.64
+                    }
+                },
+                {
+                    "arrayLength": 4096,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "68302db9c0844e6a8339bfbd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2311.16
                     }
                 }
             ]
@@ -2112,6 +3089,46 @@
                         "beforeTurning": 1,
                         "cycles": 802.24
                     }
+                },
+                {
+                    "arrayLength": 512,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302e80c0844e6a8339bfdd",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 802.13
+                    }
+                },
+                {
+                    "arrayLength": 1024,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302e8dc0844e6a8339bfe3",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 831.68
+                    }
+                },
+                {
+                    "arrayLength": 512,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "68302e83c0844e6a8339bfde",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 875.84
+                    }
+                },
+                {
+                    "arrayLength": 1024,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "68302e8fc0844e6a8339bfe4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 875.84
+                    }
                 }
             ]
         },
@@ -2197,6 +3214,46 @@
                     "truth": {
                         "beforeTurning": 1,
                         "cycles": 2248.48
+                    }
+                },
+                {
+                    "arrayLength": 64,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302f67c0844e6a8339c007",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 1917.28
+                    }
+                },
+                {
+                    "arrayLength": 128,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302f6fc0844e6a8339c008",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 2281.49
+                    }
+                },
+                {
+                    "arrayLength": 64,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "68302f7bc0844e6a8339c009",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2907.2
+                    }
+                },
+                {
+                    "arrayLength": 128,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "68302f8dc0844e6a8339c00a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3543.84
                     }
                 }
             ]
@@ -2284,6 +3341,46 @@
                         "beforeTurning": 1,
                         "cycles": 2513.44
                     }
+                },
+                {
+                    "arrayLength": 64,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68303120c0844e6a8339c02e",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 2127.04
+                    }
+                },
+                {
+                    "arrayLength": 128,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68303127c0844e6a8339c02f",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 2561.28
+                    }
+                },
+                {
+                    "arrayLength": 64,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "68303131c0844e6a8339c030",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2984.48
+                    }
+                },
+                {
+                    "arrayLength": 128,
+                    "frequency": 345,
+                    "size": 131072,
+                    "trace-id": "6830313fc0844e6a8339c031",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3617.44
+                    }
                 }
             ]
         },
@@ -2333,6 +3430,28 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 16928
+                    }
+                },
+                {
+                    "dimX": 4096,
+                    "dimY": 4096,
+                    "frequency": 345,
+                    "kernelID": 1,
+                    "trace-id": "68305b80c0844e6a8339c06a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 30915.91
+                    }
+                },
+                {
+                    "dimX": 6144,
+                    "dimY": 6144,
+                    "frequency": 345,
+                    "kernelID": 1,
+                    "trace-id": "68305bddc0844e6a8339c06b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 70881.06
                     }
                 }
             ]
@@ -2393,6 +3512,33 @@
                     "truth": {
                         "beforeTurning": 1,
                         "cycles": 1343.2
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 1048576,
+                    "trace-id": "6830333bc0844e6a8339c053",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 1946.72
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 2097152,
+                    "trace-id": "68303343c0844e6a8339c054",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 3326.72
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 4194304,
+                    "trace-id": "68303356c0844e6a8339c055",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 7510.88
                     }
                 }
             ]

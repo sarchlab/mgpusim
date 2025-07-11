@@ -90,7 +90,7 @@ func main() {
 	if sha != "unknownSHA" && len(sha) >= 7 {
 		shortSha = sha[:7]
 	}
-	title := fmt.Sprintf("Correlation Results of Commit %s: R²=%.6f, Pearson r=%.6f, Spearman ρ=%.6f", shortSha, r2, pearson, spearman)
+	title := fmt.Sprintf("Evaluation Metrics of Commit %s (%d Pts)\n Coefficient of Determination R²=%.6f\nPearson Correlation Coefficient r=%.6f\nSpearman Rank Correlation Coefficient ρ=%.6f", shortSha, len(truths), r2, pearson, spearman)
 	plotCorrelation(truths, preds, filepath.Join(rsqDir, sha+".png"), plotutil.Color(2), title)
 
 	// Save records as JSON
@@ -156,8 +156,8 @@ func plotCorrelation(truths, preds []float64, outPath string, scatterColor color
 	p := plot.New()
 	p.Title.Text = fmt.Sprintf("%s", title)
 	// fmt.Printf("%s=%.6f\n", coeffName, coeff)
-	p.X.Label.Text = "Truth (avg_nano_sec)"
-	p.Y.Label.Text = "Prediction (predict_cycle)"
+	p.X.Label.Text = "Truth Cycles (avg_nano_sec)"
+	p.Y.Label.Text = "Prediction Cycles (predict_cycle)"
 	p.X.Min = 0
 	p.Y.Min = 0
 
@@ -171,7 +171,10 @@ func plotCorrelation(truths, preds []float64, outPath string, scatterColor color
 		fmt.Fprintf(os.Stderr, "Failed to create scatter: %v\n", err)
 		return
 	}
-	scatter.Color = scatterColor
+	r, g, b, a := scatterColor.RGBA()
+	scatterColorAlpha := color.NRGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 9)}
+	// scatterColorAlpha := color.RGBA{R: 0, G: 0, B: 255, A: uint8(128)}
+	scatter.Color = scatterColorAlpha
 	scatter.Radius = vg.Points(5)
 	scatter.Shape = draw.CircleGlyph{}
 	p.Add(scatter)
@@ -179,17 +182,11 @@ func plotCorrelation(truths, preds []float64, outPath string, scatterColor color
 	// Add dashed y=x line
 	minVal, maxVal := 0.0, 0.0
 	for i, v := range truths {
-		if i == 0 || v < minVal {
-			minVal = v
-		}
 		if i == 0 || v > maxVal {
 			maxVal = v
 		}
 	}
 	for _, v := range preds {
-		if v < minVal {
-			minVal = v
-		}
 		if v > maxVal {
 			maxVal = v
 		}
