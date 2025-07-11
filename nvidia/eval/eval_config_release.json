@@ -11,6 +11,7 @@
                     "size": 32,
                     "trace-id": "682d15a5b541e8df7bd61825",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3313.44
                     }
                 },
@@ -20,6 +21,7 @@
                     "size": 32,
                     "trace-id": "682d1732b541e8df7bd61851",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3200.54
                     }
                 },
@@ -29,6 +31,7 @@
                     "size": 32,
                     "trace-id": "682d174ab541e8df7bd6185c",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3219.84
                     }
                 },
@@ -38,6 +41,7 @@
                     "size": 48,
                     "trace-id": "682d171ab541e8df7bd61847",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3276.59
                     }
                 },
@@ -47,6 +51,7 @@
                     "size": 48,
                     "trace-id": "682d1733b541e8df7bd61852",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3201.12
                     }
                 },
@@ -56,6 +61,7 @@
                     "size": 48,
                     "trace-id": "682d174cb541e8df7bd6185d",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3238.56
                     }
                 },
@@ -65,6 +71,7 @@
                     "size": 64,
                     "trace-id": "682d171bb541e8df7bd61848",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3350.88
                     }
                 },
@@ -74,6 +81,7 @@
                     "size": 64,
                     "trace-id": "682d1734b541e8df7bd61853",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3294.72
                     }
                 },
@@ -83,6 +91,7 @@
                     "size": 64,
                     "trace-id": "682d174db541e8df7bd6185e",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3238.56
                     }
                 },
@@ -92,6 +101,7 @@
                     "size": 96,
                     "trace-id": "682d171db541e8df7bd61849",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3594.24
                     }
                 },
@@ -101,6 +111,7 @@
                     "size": 96,
                     "trace-id": "682d1735b541e8df7bd61854",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3370.19
                     }
                 },
@@ -110,6 +121,7 @@
                     "size": 96,
                     "trace-id": "682d174eb541e8df7bd6185f",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3313.44
                     }
                 },
@@ -119,6 +131,7 @@
                     "size": 128,
                     "trace-id": "682d171eb541e8df7bd6184a",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3650.4
                     }
                 },
@@ -128,6 +141,7 @@
                     "size": 128,
                     "trace-id": "682d1737b541e8df7bd61855",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3575.52
                     }
                 },
@@ -137,6 +151,7 @@
                     "size": 128,
                     "trace-id": "682d174fb541e8df7bd61860",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3369.6
                     }
                 },
@@ -146,6 +161,7 @@
                     "size": 192,
                     "trace-id": "682d171fb541e8df7bd6184b",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 4118.4
                     }
                 },
@@ -155,6 +171,7 @@
                     "size": 192,
                     "trace-id": "682d1738b541e8df7bd61856",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3613.55
                     }
                 },
@@ -164,6 +181,7 @@
                     "size": 192,
                     "trace-id": "682d1751b541e8df7bd61861",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3556.22
                     }
                 },
@@ -173,7 +191,48 @@
                     "size": 256,
                     "trace-id": "682d1721b541e8df7bd6184c",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 4530.24
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 1755,
+                    "size": 256,
+                    "trace-id": "682d173ab541e8df7bd61857",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 3875.04
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 1755,
+                    "size": 256,
+                    "trace-id": "682d1752b541e8df7bd61862",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 3594.24
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 1755,
+                    "size": 384,
+                    "trace-id": "682d1723b541e8df7bd6184d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6027.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 1755,
+                    "size": 384,
+                    "trace-id": "682d173cb541e8df7bd61858",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4605.71
                     }
                 }
             ]
@@ -188,6 +247,7 @@
                     "size": 32,
                     "trace-id": "682e34d6b541e8df7bd618da",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 6962.79
                     }
                 },
@@ -197,6 +257,7 @@
                     "size": 32,
                     "trace-id": "682e4140b541e8df7bd618e5",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 6981.08
                     }
                 },
@@ -206,6 +267,7 @@
                     "size": 32,
                     "trace-id": "682e4d2bb541e8df7bd618f0",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 7477.99
                     }
                 },
@@ -215,6 +277,7 @@
                     "size": 48,
                     "trace-id": "682e34d8b541e8df7bd618db",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 9111.68
                     }
                 },
@@ -224,6 +287,7 @@
                     "size": 48,
                     "trace-id": "682e4142b541e8df7bd618e6",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 9328.8
                     }
                 },
@@ -233,6 +297,7 @@
                     "size": 48,
                     "trace-id": "682e4d2db541e8df7bd618f1",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 9619.64
                     }
                 },
@@ -242,6 +307,7 @@
                     "size": 64,
                     "trace-id": "682e34dab541e8df7bd618dc",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 10661.08
                     }
                 },
@@ -251,6 +317,7 @@
                     "size": 64,
                     "trace-id": "682e4144b541e8df7bd618e7",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 11073.01
                     }
                 },
@@ -260,6 +327,7 @@
                     "size": 64,
                     "trace-id": "682e4d2fb541e8df7bd618f2",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 11555.32
                     }
                 },
@@ -269,6 +337,7 @@
                     "size": 96,
                     "trace-id": "682e34ddb541e8df7bd618dd",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 15783.52
                     }
                 },
@@ -278,6 +347,7 @@
                     "size": 96,
                     "trace-id": "682e4147b541e8df7bd618e8",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 16136.68
                     }
                 },
@@ -287,6 +357,7 @@
                     "size": 96,
                     "trace-id": "682e4d31b541e8df7bd618f3",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 17240.69
                     }
                 },
@@ -296,6 +367,7 @@
                     "size": 128,
                     "trace-id": "682e34e2b541e8df7bd618de",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 20409.4
                     }
                 },
@@ -305,6 +377,7 @@
                     "size": 128,
                     "trace-id": "682e414db541e8df7bd618e9",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 20832.6
                     }
                 },
@@ -314,6 +387,7 @@
                     "size": 128,
                     "trace-id": "682e4d35b541e8df7bd618f4",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 22319.31
                     }
                 },
@@ -323,6 +397,7 @@
                     "size": 192,
                     "trace-id": "682e34f0b541e8df7bd618df",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 30168.99
                     }
                 },
@@ -332,6 +407,7 @@
                     "size": 192,
                     "trace-id": "682e415db541e8df7bd618ea",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 30551.48
                     }
                 },
@@ -341,6 +417,7 @@
                     "size": 192,
                     "trace-id": "682e4d3fb541e8df7bd618f5",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 32652.76
                     }
                 },
@@ -350,7 +427,48 @@
                     "size": 256,
                     "trace-id": "682e350fb541e8df7bd618e0",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 40881.35
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682e417db541e8df7bd618eb",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 40988.07
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 256,
+                    "trace-id": "682e4d53b541e8df7bd618f6",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 42942.15
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682e357eb541e8df7bd618e1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 100335.66
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682e41deb541e8df7bd618ec",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 75186.65
                     }
                 }
             ]
@@ -365,6 +483,7 @@
                     "size": 32,
                     "trace-id": "682e8ef4b541e8df7bd61937",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 18046.83
                     }
                 },
@@ -374,6 +493,7 @@
                     "size": 32,
                     "trace-id": "682ea0bcb541e8df7bd61940",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 17814.88
                     }
                 },
@@ -383,6 +503,7 @@
                     "size": 32,
                     "trace-id": "682ea936b541e8df7bd61949",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 18036.26
                     }
                 },
@@ -392,6 +513,7 @@
                     "size": 48,
                     "trace-id": "682e8efbb541e8df7bd61938",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 27806.2
                     }
                 },
@@ -401,6 +523,7 @@
                     "size": 48,
                     "trace-id": "682ea0c3b541e8df7bd61941",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 27559.75
                     }
                 },
@@ -410,6 +533,7 @@
                     "size": 48,
                     "trace-id": "682ea93db541e8df7bd6194a",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 28104.51
                     }
                 },
@@ -419,6 +543,7 @@
                     "size": 64,
                     "trace-id": "682e8f05b541e8df7bd61939",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 38401.26
                     }
                 },
@@ -428,6 +553,7 @@
                     "size": 64,
                     "trace-id": "682ea0cdb541e8df7bd61942",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 37573.61
                     }
                 },
@@ -437,6 +563,7 @@
                     "size": 64,
                     "trace-id": "682ea946b541e8df7bd6194b",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 37874.56
                     }
                 },
@@ -446,6 +573,7 @@
                     "size": 96,
                     "trace-id": "682e8f1ab541e8df7bd6193a",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 61557.2
                     }
                 },
@@ -455,6 +583,7 @@
                     "size": 96,
                     "trace-id": "682ea0e0b541e8df7bd61943",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 59115.18
                     }
                 },
@@ -464,6 +593,7 @@
                     "size": 96,
                     "trace-id": "682ea959b541e8df7bd6194c",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 58368.71
                     }
                 },
@@ -473,6 +603,7 @@
                     "size": 128,
                     "trace-id": "682e8f36b541e8df7bd6193b",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 89193.54
                     }
                 },
@@ -482,6 +613,7 @@
                     "size": 128,
                     "trace-id": "682ea0fbb541e8df7bd61944",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 83831.67
                     }
                 },
@@ -491,6 +623,7 @@
                     "size": 128,
                     "trace-id": "682ea978b541e8df7bd6194d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 79023.63
                     }
                 },
@@ -500,7 +633,28 @@
                     "size": 192,
                     "trace-id": "682e8f88b541e8df7bd6193c",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 160981.49
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682ea14cb541e8df7bd61945",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 151279.63
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682ea9c1b541e8df7bd6194e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 150726.48
                     }
                 }
             ]
@@ -515,6 +669,7 @@
                     "size": 32,
                     "trace-id": "682eea8fb541e8df7bd61988",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 10204.87
                     }
                 },
@@ -524,6 +679,7 @@
                     "size": 32,
                     "trace-id": "682eecf5b541e8df7bd61991",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 10326.08
                     }
                 },
@@ -533,6 +689,7 @@
                     "size": 32,
                     "trace-id": "682eef4db541e8df7bd6199a",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 10708.68
                     }
                 },
@@ -542,6 +699,7 @@
                     "size": 48,
                     "trace-id": "682eea92b541e8df7bd61989",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 12924.16
                     }
                 },
@@ -551,6 +709,7 @@
                     "size": 48,
                     "trace-id": "682eecf8b541e8df7bd61992",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13270.08
                     }
                 },
@@ -560,6 +719,7 @@
                     "size": 48,
                     "trace-id": "682eef50b541e8df7bd6199b",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13697.08
                     }
                 },
@@ -569,6 +729,7 @@
                     "size": 64,
                     "trace-id": "682eea94b541e8df7bd6198a",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 15769.03
                     }
                 },
@@ -578,6 +739,7 @@
                     "size": 64,
                     "trace-id": "682eecfab541e8df7bd61993",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 16239.96
                     }
                 },
@@ -587,6 +749,7 @@
                     "size": 64,
                     "trace-id": "682eef52b541e8df7bd6199c",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 16692.6
                     }
                 },
@@ -596,6 +759,7 @@
                     "size": 96,
                     "trace-id": "682eea99b541e8df7bd6198b",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 22922.72
                     }
                 },
@@ -605,6 +769,7 @@
                     "size": 96,
                     "trace-id": "682eecffb541e8df7bd61994",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 23585.47
                     }
                 },
@@ -614,6 +779,7 @@
                     "size": 96,
                     "trace-id": "682eef56b541e8df7bd6199d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 25193.28
                     }
                 },
@@ -623,6 +789,7 @@
                     "size": 128,
                     "trace-id": "682eeaa0b541e8df7bd6198c",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 29936.92
                     }
                 },
@@ -632,6 +799,7 @@
                     "size": 128,
                     "trace-id": "682eed06b541e8df7bd61995",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 30547.91
                     }
                 },
@@ -641,6 +809,7 @@
                     "size": 128,
                     "trace-id": "682eef5cb541e8df7bd6199e",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 32708.07
                     }
                 },
@@ -650,7 +819,28 @@
                     "size": 192,
                     "trace-id": "682eeab4b541e8df7bd6198d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 44344.23
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682eed1cb541e8df7bd61996",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 44638.75
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682eef6ab541e8df7bd6199f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 48094.38
                     }
                 }
             ]
@@ -665,6 +855,7 @@
                     "size": 32,
                     "trace-id": "682efc59b541e8df7bd619d9",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3989.12
                     }
                 },
@@ -674,6 +865,7 @@
                     "size": 32,
                     "trace-id": "682efc69b541e8df7bd619e2",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4228.44
                     }
                 },
@@ -683,6 +875,7 @@
                     "size": 32,
                     "trace-id": "682efc77b541e8df7bd619eb",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4000.16
                     }
                 },
@@ -692,6 +885,7 @@
                     "size": 48,
                     "trace-id": "682efc5ab541e8df7bd619da",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5350.72
                     }
                 },
@@ -701,6 +895,7 @@
                     "size": 48,
                     "trace-id": "682efc6ab541e8df7bd619e3",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5328.64
                     }
                 },
@@ -710,6 +905,7 @@
                     "size": 48,
                     "trace-id": "682efc79b541e8df7bd619ec",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5612
                     }
                 },
@@ -719,6 +915,7 @@
                     "size": 64,
                     "trace-id": "682efc5cb541e8df7bd619db",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6572.6
                     }
                 },
@@ -728,6 +925,7 @@
                     "size": 64,
                     "trace-id": "682efc6cb541e8df7bd619e4",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6778.45
                     }
                 },
@@ -737,6 +935,7 @@
                     "size": 64,
                     "trace-id": "682efc7ab541e8df7bd619ed",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 7422.56
                     }
                 },
@@ -746,6 +945,7 @@
                     "size": 96,
                     "trace-id": "682efc5db541e8df7bd619dc",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 9453.92
                     }
                 },
@@ -755,6 +955,7 @@
                     "size": 96,
                     "trace-id": "682efc6db541e8df7bd619e5",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 10005.92
                     }
                 },
@@ -764,6 +965,7 @@
                     "size": 96,
                     "trace-id": "682efc7cb541e8df7bd619ee",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 11021.83
                     }
                 },
@@ -773,6 +975,7 @@
                     "size": 128,
                     "trace-id": "682efc5fb541e8df7bd619dd",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 12545.24
                     }
                 },
@@ -782,6 +985,7 @@
                     "size": 128,
                     "trace-id": "682efc6fb541e8df7bd619e6",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13119.43
                     }
                 },
@@ -791,6 +995,7 @@
                     "size": 128,
                     "trace-id": "682efc7db541e8df7bd619ef",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13770.79
                     }
                 },
@@ -800,7 +1005,28 @@
                     "size": 192,
                     "trace-id": "682efc61b541e8df7bd619de",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 18569.4
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efc70b541e8df7bd619e7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18996.39
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efc7fb541e8df7bd619f0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20744.28
                     }
                 }
             ]
@@ -815,6 +1041,7 @@
                     "size": 32,
                     "trace-id": "682efdcab541e8df7bd61a2a",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4629.44
                     }
                 },
@@ -824,6 +1051,7 @@
                     "size": 32,
                     "trace-id": "682efddab541e8df7bd61a33",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4835.64
                     }
                 },
@@ -833,6 +1061,7 @@
                     "size": 32,
                     "trace-id": "682efde9b541e8df7bd61a3c",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5096.69
                     }
                 },
@@ -842,6 +1071,7 @@
                     "size": 48,
                     "trace-id": "682efdcbb541e8df7bd61a2b",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5755.41
                     }
                 },
@@ -851,6 +1081,7 @@
                     "size": 48,
                     "trace-id": "682efddbb541e8df7bd61a34",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5939.64
                     }
                 },
@@ -860,6 +1091,7 @@
                     "size": 48,
                     "trace-id": "682efdeab541e8df7bd61a3d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6046.36
                     }
                 },
@@ -869,6 +1101,7 @@
                     "size": 64,
                     "trace-id": "682efdcdb541e8df7bd61a2c",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 7209.23
                     }
                 },
@@ -878,6 +1111,7 @@
                     "size": 64,
                     "trace-id": "682efdddb541e8df7bd61a35",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 7279.04
                     }
                 },
@@ -887,6 +1121,7 @@
                     "size": 64,
                     "trace-id": "682efdebb541e8df7bd61a3e",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 7934.08
                     }
                 },
@@ -896,6 +1131,7 @@
                     "size": 96,
                     "trace-id": "682efdceb541e8df7bd61a2d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 10510.19
                     }
                 },
@@ -905,6 +1141,7 @@
                     "size": 96,
                     "trace-id": "682efddeb541e8df7bd61a36",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 10686.72
                     }
                 },
@@ -914,6 +1151,7 @@
                     "size": 96,
                     "trace-id": "682efdedb541e8df7bd61a3f",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 11448.48
                     }
                 },
@@ -923,6 +1161,7 @@
                     "size": 128,
                     "trace-id": "682efdd0b541e8df7bd61a2e",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13295.84
                     }
                 },
@@ -932,6 +1171,7 @@
                     "size": 128,
                     "trace-id": "682efde0b541e8df7bd61a37",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13781.83
                     }
                 },
@@ -941,6 +1181,7 @@
                     "size": 128,
                     "trace-id": "682efdeeb541e8df7bd61a40",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 14837.99
                     }
                 },
@@ -950,7 +1191,28 @@
                     "size": 192,
                     "trace-id": "682efdd2b541e8df7bd61a2f",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 19570.35
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efde2b541e8df7bd61a38",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20218.03
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682efdf0b541e8df7bd61a41",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 21896.23
                     }
                 }
             ]
@@ -965,6 +1227,7 @@
                     "size": 32,
                     "trace-id": "682eff3cb541e8df7bd61a7b",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3624.92
                     }
                 },
@@ -974,6 +1237,7 @@
                     "size": 32,
                     "trace-id": "682f001fb541e8df7bd61a84",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3643.2
                     }
                 },
@@ -983,6 +1247,7 @@
                     "size": 32,
                     "trace-id": "682f00fcb541e8df7bd61a8d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3864.12
                     }
                 },
@@ -992,6 +1257,7 @@
                     "size": 48,
                     "trace-id": "682eff3db541e8df7bd61a7c",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 4474.88
                     }
                 },
@@ -1001,6 +1267,7 @@
                     "size": 48,
                     "trace-id": "682f0020b541e8df7bd61a85",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 4600
                     }
                 },
@@ -1010,6 +1277,7 @@
                     "size": 48,
                     "trace-id": "682f00fdb541e8df7bd61a8e",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4758.47
                     }
                 },
@@ -1019,6 +1287,7 @@
                     "size": 64,
                     "trace-id": "682eff3fb541e8df7bd61a7d",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 5420.53
                     }
                 },
@@ -1028,6 +1297,7 @@
                     "size": 64,
                     "trace-id": "682f0021b541e8df7bd61a86",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 5641.44
                     }
                 },
@@ -1037,6 +1307,7 @@
                     "size": 64,
                     "trace-id": "682f00ffb541e8df7bd61a8f",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5865.92
                     }
                 },
@@ -1046,6 +1317,7 @@
                     "size": 96,
                     "trace-id": "682eff41b541e8df7bd61a7e",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 8051.84
                     }
                 },
@@ -1055,6 +1327,7 @@
                     "size": 96,
                     "trace-id": "682f0023b541e8df7bd61a87",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 8206.52
                     }
                 },
@@ -1064,6 +1337,7 @@
                     "size": 96,
                     "trace-id": "682f0100b541e8df7bd61a90",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 8773.12
                     }
                 },
@@ -1073,6 +1347,7 @@
                     "size": 128,
                     "trace-id": "682eff44b541e8df7bd61a7f",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 10300.32
                     }
                 },
@@ -1082,6 +1357,7 @@
                     "size": 128,
                     "trace-id": "682f0027b541e8df7bd61a88",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 10517.44
                     }
                 },
@@ -1091,6 +1367,7 @@
                     "size": 128,
                     "trace-id": "682f0103b541e8df7bd61a91",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 11319.68
                     }
                 },
@@ -1100,7 +1377,28 @@
                     "size": 192,
                     "trace-id": "682eff4bb541e8df7bd61a80",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 15161.72
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f002eb541e8df7bd61a89",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 15312.71
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0109b541e8df7bd61a92",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 16582.2
                     }
                 }
             ]
@@ -1115,6 +1413,7 @@
                     "size": 32,
                     "trace-id": "682f0734b541e8df7bd61acc",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 1854.72
                     }
                 },
@@ -1124,6 +1423,7 @@
                     "size": 32,
                     "trace-id": "682f0741b541e8df7bd61ad5",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 2075.52
                     }
                 },
@@ -1133,6 +1433,7 @@
                     "size": 32,
                     "trace-id": "682f074cb541e8df7bd61ade",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 2572.32
                     }
                 },
@@ -1142,6 +1443,7 @@
                     "size": 48,
                     "trace-id": "682f0735b541e8df7bd61acd",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 2403.04
                     }
                 },
@@ -1151,6 +1453,7 @@
                     "size": 48,
                     "trace-id": "682f0742b541e8df7bd61ad6",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 2631.2
                     }
                 },
@@ -1160,6 +1463,7 @@
                     "size": 48,
                     "trace-id": "682f074db541e8df7bd61adf",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3072.92
                     }
                 },
@@ -1169,6 +1473,7 @@
                     "size": 64,
                     "trace-id": "682f0736b541e8df7bd61ace",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3278.76
                     }
                 },
@@ -1178,6 +1483,7 @@
                     "size": 64,
                     "trace-id": "682f0743b541e8df7bd61ad7",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3665.4
                     }
                 },
@@ -1187,6 +1493,7 @@
                     "size": 64,
                     "trace-id": "682f074eb541e8df7bd61ae0",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4555.84
                     }
                 },
@@ -1196,6 +1503,7 @@
                     "size": 96,
                     "trace-id": "682f0737b541e8df7bd61acf",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4706.72
                     }
                 },
@@ -1205,6 +1513,7 @@
                     "size": 96,
                     "trace-id": "682f0744b541e8df7bd61ad8",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5372.91
                     }
                 },
@@ -1214,6 +1523,7 @@
                     "size": 96,
                     "trace-id": "682f074fb541e8df7bd61ae1",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6690.24
                     }
                 },
@@ -1223,6 +1533,7 @@
                     "size": 128,
                     "trace-id": "682f0739b541e8df7bd61ad0",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5751.84
                     }
                 },
@@ -1232,6 +1543,7 @@
                     "size": 128,
                     "trace-id": "682f0745b541e8df7bd61ad9",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6830.2
                     }
                 },
@@ -1241,6 +1553,7 @@
                     "size": 128,
                     "trace-id": "682f0750b541e8df7bd61ae2",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 8581.88
                     }
                 },
@@ -1250,7 +1563,28 @@
                     "size": 192,
                     "trace-id": "682f073ab541e8df7bd61ad1",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 9027.04
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0747b541e8df7bd61ada",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10186.24
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0752b541e8df7bd61ae3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12887.48
                     }
                 }
             ]
@@ -1265,6 +1599,7 @@
                     "size": 32,
                     "trace-id": "682f089fb541e8df7bd61b1d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3981.76
                     }
                 },
@@ -1274,6 +1609,7 @@
                     "size": 32,
                     "trace-id": "682f08afb541e8df7bd61b26",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4228.2
                     }
                 },
@@ -1283,6 +1619,7 @@
                     "size": 32,
                     "trace-id": "682f08beb541e8df7bd61b2f",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 4040.64
                     }
                 },
@@ -1292,6 +1629,7 @@
                     "size": 48,
                     "trace-id": "682f08a1b541e8df7bd61b1e",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5302.88
                     }
                 },
@@ -1301,6 +1639,7 @@
                     "size": 48,
                     "trace-id": "682f08b1b541e8df7bd61b27",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5384.07
                     }
                 },
@@ -1310,6 +1649,7 @@
                     "size": 48,
                     "trace-id": "682f08bfb541e8df7bd61b30",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5667.2
                     }
                 },
@@ -1319,6 +1659,7 @@
                     "size": 64,
                     "trace-id": "682f08a2b541e8df7bd61b1f",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6576.16
                     }
                 },
@@ -1328,6 +1669,7 @@
                     "size": 64,
                     "trace-id": "682f08b2b541e8df7bd61b28",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6826.28
                     }
                 },
@@ -1337,6 +1679,7 @@
                     "size": 64,
                     "trace-id": "682f08c1b541e8df7bd61b31",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 7470.4
                     }
                 },
@@ -1346,6 +1689,7 @@
                     "size": 96,
                     "trace-id": "682f08a4b541e8df7bd61b20",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 9479.57
                     }
                 },
@@ -1355,6 +1699,7 @@
                     "size": 96,
                     "trace-id": "682f08b3b541e8df7bd61b29",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 10142.31
                     }
                 },
@@ -1364,6 +1709,7 @@
                     "size": 96,
                     "trace-id": "682f08c2b541e8df7bd61b32",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 11091.64
                     }
                 },
@@ -1373,6 +1719,7 @@
                     "size": 128,
                     "trace-id": "682f08a5b541e8df7bd61b21",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 12526.72
                     }
                 },
@@ -1382,6 +1729,7 @@
                     "size": 128,
                     "trace-id": "682f08b5b541e8df7bd61b2a",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13237.08
                     }
                 },
@@ -1391,6 +1739,7 @@
                     "size": 128,
                     "trace-id": "682f08c4b541e8df7bd61b33",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 13862.79
                     }
                 },
@@ -1400,7 +1749,28 @@
                     "size": 192,
                     "trace-id": "682f08a7b541e8df7bd61b22",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 18344.8
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f08b7b541e8df7bd61b2b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18882.08
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f08c5b541e8df7bd61b34",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20935.52
                     }
                 }
             ]
@@ -1415,6 +1785,7 @@
                     "size": 32,
                     "trace-id": "682f0a12b541e8df7bd61b6e",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1446.24
                     }
                 },
@@ -1424,6 +1795,7 @@
                     "size": 32,
                     "trace-id": "682f0aecb541e8df7bd61b77",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1508.8
                     }
                 },
@@ -1433,6 +1805,7 @@
                     "size": 32,
                     "trace-id": "682f0bcfb541e8df7bd61b80",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2609.12
                     }
                 },
@@ -1442,6 +1815,7 @@
                     "size": 48,
                     "trace-id": "682f0a13b541e8df7bd61b6f",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1663.36
                     }
                 },
@@ -1451,6 +1825,7 @@
                     "size": 48,
                     "trace-id": "682f0aedb541e8df7bd61b78",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1751.8
                     }
                 },
@@ -1460,6 +1835,7 @@
                     "size": 48,
                     "trace-id": "682f0bd0b541e8df7bd61b81",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2535.64
                     }
                 },
@@ -1469,6 +1845,7 @@
                     "size": 64,
                     "trace-id": "682f0a14b541e8df7bd61b70",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2171.2
                     }
                 },
@@ -1478,6 +1855,7 @@
                     "size": 64,
                     "trace-id": "682f0aeeb541e8df7bd61b79",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2307.36
                     }
                 },
@@ -1487,6 +1865,7 @@
                     "size": 64,
                     "trace-id": "682f0bd2b541e8df7bd61b82",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 4416
                     }
                 },
@@ -1496,6 +1875,7 @@
                     "size": 96,
                     "trace-id": "682f0a16b541e8df7bd61b71",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3069.12
                     }
                 },
@@ -1505,6 +1885,7 @@
                     "size": 96,
                     "trace-id": "682f0af1b541e8df7bd61b7a",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 3183.2
                     }
                 },
@@ -1514,6 +1895,7 @@
                     "size": 96,
                     "trace-id": "682f0bd3b541e8df7bd61b83",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 6329.6
                     }
                 },
@@ -1523,6 +1905,7 @@
                     "size": 128,
                     "trace-id": "682f0a19b541e8df7bd61b72",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 4217.4
                     }
                 },
@@ -1532,6 +1915,7 @@
                     "size": 128,
                     "trace-id": "682f0af4b541e8df7bd61b7b",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 5487
                     }
                 },
@@ -1541,6 +1925,7 @@
                     "size": 128,
                     "trace-id": "682f0bd6b541e8df7bd61b84",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 8118.2
                     }
                 },
@@ -1550,7 +1935,28 @@
                     "size": 192,
                     "trace-id": "682f0a21b541e8df7bd61b73",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 9811
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0afcb541e8df7bd61b7c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10646.24
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0bdbb541e8df7bd61b85",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23651.59
                     }
                 }
             ]
@@ -1565,6 +1971,7 @@
                     "log2kernel": 12,
                     "trace-id": "68302352c0844e6a8339bf28",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5700.55
                     }
                 },
@@ -1574,6 +1981,7 @@
                     "log2kernel": 12,
                     "trace-id": "6830272bc0844e6a8339bf50",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6278.31
                     }
                 },
@@ -1583,6 +1991,7 @@
                     "log2kernel": 12,
                     "trace-id": "68302730c0844e6a8339bf51",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 7529.05
                     }
                 },
@@ -1592,6 +2001,7 @@
                     "log2kernel": 14,
                     "trace-id": "68302734c0844e6a8339bf52",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 7544.12
                     }
                 },
@@ -1601,6 +2011,7 @@
                     "log2kernel": 12,
                     "trace-id": "6830273bc0844e6a8339bf53",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 8199.04
                     }
                 },
@@ -1610,6 +2021,7 @@
                     "log2kernel": 14,
                     "trace-id": "68302741c0844e6a8339bf54",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 8203.18
                     }
                 },
@@ -1619,6 +2031,7 @@
                     "log2kernel": 12,
                     "trace-id": "6830274bc0844e6a8339bf55",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 9582.61
                     }
                 },
@@ -1628,6 +2041,7 @@
                     "log2kernel": 14,
                     "trace-id": "68302754c0844e6a8339bf56",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 9579.27
                     }
                 },
@@ -1637,7 +2051,18 @@
                     "log2kernel": 16,
                     "trace-id": "6830275cc0844e6a8339bf57",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 9604.8
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "log2data": 17,
+                    "log2kernel": 12,
+                    "trace-id": "6830276ac0844e6a8339bf58",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10863.25
                     }
                 }
             ]
@@ -1651,6 +2076,7 @@
                     "size": 1024,
                     "trace-id": "68302362c0844e6a8339bf2b",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2848.32
                     }
                 },
@@ -1659,6 +2085,7 @@
                     "size": 2048,
                     "trace-id": "68302930c0844e6a8339bf76",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 7172.32
                     }
                 },
@@ -1667,6 +2094,7 @@
                     "size": 4096,
                     "trace-id": "68302933c0844e6a8339bf77",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 12438.86
                     }
                 },
@@ -1675,6 +2103,7 @@
                     "size": 8192,
                     "trace-id": "6830293bc0844e6a8339bf78",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 17803.84
                     }
                 },
@@ -1683,6 +2112,7 @@
                     "size": 16384,
                     "trace-id": "68302946c0844e6a8339bf79",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 23883.09
                     }
                 },
@@ -1691,7 +2121,17 @@
                     "size": 32768,
                     "trace-id": "68302956c0844e6a8339bf7a",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 30111.03
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302972c0844e6a8339bf7b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 37448.49
                     }
                 }
             ]
@@ -1705,6 +2145,7 @@
                     "frequency": 345,
                     "trace-id": "68302371c0844e6a8339bf2e",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 1685.33
                     },
                     "vectorN": 32
@@ -1714,6 +2155,7 @@
                     "frequency": 345,
                     "trace-id": "68302c7ec0844e6a8339bf94",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 1821.6
                     },
                     "vectorN": 64
@@ -1723,6 +2165,7 @@
                     "frequency": 345,
                     "trace-id": "68302c85c0844e6a8339bf96",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 1733.4
                     },
                     "vectorN": 128
@@ -1732,6 +2175,7 @@
                     "frequency": 345,
                     "trace-id": "68302c8fc0844e6a8339bf98",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3083.73
                     },
                     "vectorN": 256
@@ -1741,6 +2185,7 @@
                     "frequency": 345,
                     "trace-id": "68302ca1c0844e6a8339bf9a",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 5358.2
                     },
                     "vectorN": 512
@@ -1750,9 +2195,20 @@
                     "frequency": 345,
                     "trace-id": "68302c7cc0844e6a8339bf93",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 1556.53
                     },
                     "vectorN": 32
+                },
+                {
+                    "elementN": 4096,
+                    "frequency": 345,
+                    "trace-id": "68302c81c0844e6a8339bf95",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 1619.32
+                    },
+                    "vectorN": 64
                 }
             ]
         },
@@ -1766,6 +2222,7 @@
                     "size": 4096,
                     "trace-id": "68302382c0844e6a8339bf31",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2079.32
                     }
                 },
@@ -1775,6 +2232,7 @@
                     "size": 4096,
                     "trace-id": "68302dabc0844e6a8339bfb8",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2101.4
                     }
                 },
@@ -1784,6 +2242,7 @@
                     "size": 8192,
                     "trace-id": "68302d97c0844e6a8339bfb2",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2126.93
                     }
                 },
@@ -1793,6 +2252,7 @@
                     "size": 8192,
                     "trace-id": "68302dadc0844e6a8339bfb9",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2134.4
                     }
                 },
@@ -1802,6 +2262,7 @@
                     "size": 16384,
                     "trace-id": "68302d9ac0844e6a8339bfb3",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2127.16
                     }
                 },
@@ -1811,6 +2272,7 @@
                     "size": 16384,
                     "trace-id": "68302db0c0844e6a8339bfba",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2130.72
                     }
                 },
@@ -1820,6 +2282,7 @@
                     "size": 32768,
                     "trace-id": "68302d9dc0844e6a8339bfb4",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2112.32
                     }
                 },
@@ -1829,7 +2292,18 @@
                     "size": 32768,
                     "trace-id": "68302db2c0844e6a8339bfbb",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2134.63
+                    }
+                },
+                {
+                    "arrayLength": 2048,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302da0c0844e6a8339bfb5",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 2197.07
                     }
                 }
             ]
@@ -1844,6 +2318,7 @@
                     "size": 4096,
                     "trace-id": "68302e7ac0844e6a8339bfd9",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 757.97
                     }
                 },
@@ -1853,6 +2328,7 @@
                     "size": 4096,
                     "trace-id": "68302390c0844e6a8339bf34",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 780.16
                     }
                 },
@@ -1862,6 +2338,7 @@
                     "size": 8192,
                     "trace-id": "68302e7bc0844e6a8339bfda",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 769.12
                     }
                 },
@@ -1871,6 +2348,7 @@
                     "size": 8192,
                     "trace-id": "68302e88c0844e6a8339bfe0",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 787.41
                     }
                 },
@@ -1880,6 +2358,7 @@
                     "size": 16384,
                     "trace-id": "68302e7dc0844e6a8339bfdb",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 776.48
                     }
                 },
@@ -1889,6 +2368,7 @@
                     "size": 16384,
                     "trace-id": "68302e8ac0844e6a8339bfe1",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 794.88
                     }
                 },
@@ -1898,6 +2378,7 @@
                     "size": 32768,
                     "trace-id": "68302e7ec0844e6a8339bfdc",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 783.96
                     }
                 },
@@ -1907,7 +2388,18 @@
                     "size": 32768,
                     "trace-id": "68302e8bc0844e6a8339bfe2",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 802.24
+                    }
+                },
+                {
+                    "arrayLength": 512,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302e80c0844e6a8339bfdd",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 802.13
                     }
                 }
             ]
@@ -1922,6 +2414,7 @@
                     "size": 4096,
                     "trace-id": "6830239fc0844e6a8339bf37",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1847.36
                     }
                 },
@@ -1931,6 +2424,7 @@
                     "size": 4096,
                     "trace-id": "68302f4cc0844e6a8339c000",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2211.68
                     }
                 },
@@ -1940,6 +2434,7 @@
                     "size": 8192,
                     "trace-id": "68302f4ec0844e6a8339c001",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1851.04
                     }
                 },
@@ -1949,6 +2444,7 @@
                     "size": 8192,
                     "trace-id": "68302f50c0844e6a8339c002",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2219.04
                     }
                 },
@@ -1958,6 +2454,7 @@
                     "size": 16384,
                     "trace-id": "68302f53c0844e6a8339c003",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1865.76
                     }
                 },
@@ -1967,6 +2464,7 @@
                     "size": 16384,
                     "trace-id": "68302f56c0844e6a8339c004",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2219.16
                     }
                 },
@@ -1976,6 +2474,7 @@
                     "size": 32768,
                     "trace-id": "68302f5ac0844e6a8339c005",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1880.48
                     }
                 },
@@ -1985,7 +2484,18 @@
                     "size": 32768,
                     "trace-id": "68302f60c0844e6a8339c006",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2248.48
+                    }
+                },
+                {
+                    "arrayLength": 64,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68302f67c0844e6a8339c007",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 1917.28
                     }
                 }
             ]
@@ -2000,6 +2510,7 @@
                     "size": 4096,
                     "trace-id": "683023aec0844e6a8339bf3a",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2060.68
                     }
                 },
@@ -2009,6 +2520,7 @@
                     "size": 4096,
                     "trace-id": "68303106c0844e6a8339c027",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2480.32
                     }
                 },
@@ -2018,6 +2530,7 @@
                     "size": 8192,
                     "trace-id": "68303108c0844e6a8339c028",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2075.52
                     }
                 },
@@ -2027,6 +2540,7 @@
                     "size": 8192,
                     "trace-id": "6830310ac0844e6a8339c029",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2495.04
                     }
                 },
@@ -2036,6 +2550,7 @@
                     "size": 16384,
                     "trace-id": "6830310dc0844e6a8339c02a",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2071.84
                     }
                 },
@@ -2045,6 +2560,7 @@
                     "size": 16384,
                     "trace-id": "68303110c0844e6a8339c02b",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2509.76
                     }
                 },
@@ -2054,6 +2570,7 @@
                     "size": 32768,
                     "trace-id": "68303115c0844e6a8339c02c",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2101.28
                     }
                 },
@@ -2063,7 +2580,18 @@
                     "size": 32768,
                     "trace-id": "6830311ac0844e6a8339c02d",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 2513.44
+                    }
+                },
+                {
+                    "arrayLength": 64,
+                    "frequency": 345,
+                    "size": 65536,
+                    "trace-id": "68303120c0844e6a8339c02e",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 2127.04
                     }
                 }
             ]
@@ -2079,6 +2607,7 @@
                     "kernelID": 1,
                     "trace-id": "683023c0c0844e6a8339bf3d",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 1814.24
                     }
                 },
@@ -2089,6 +2618,7 @@
                     "kernelID": 1,
                     "trace-id": "683059b9c0844e6a8339c063",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 3488.76
                     }
                 },
@@ -2099,6 +2629,7 @@
                     "kernelID": 1,
                     "trace-id": "68303289c0844e6a8339c042",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 6256
                     }
                 },
@@ -2109,6 +2640,7 @@
                     "kernelID": 1,
                     "trace-id": "68305b55c0844e6a8339c069",
                     "truth": {
+                        "beforeTurning": 0,
                         "cycles": 16928
                     }
                 }
@@ -2123,6 +2655,7 @@
                     "size": 16384,
                     "trace-id": "683023d8c0844e6a8339bf40",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 724.96
                     }
                 },
@@ -2131,6 +2664,7 @@
                     "size": 32768,
                     "trace-id": "6830332dc0844e6a8339c04e",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 761.88
                     }
                 },
@@ -2139,6 +2673,7 @@
                     "size": 65536,
                     "trace-id": "6830332fc0844e6a8339c04f",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 783.84
                     }
                 },
@@ -2147,6 +2682,7 @@
                     "size": 131072,
                     "trace-id": "68303330c0844e6a8339c050",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 886.88
                     }
                 },
@@ -2155,6 +2691,7 @@
                     "size": 262144,
                     "trace-id": "68303333c0844e6a8339c051",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1012
                     }
                 },
@@ -2163,7 +2700,17 @@
                     "size": 524288,
                     "trace-id": "68303336c0844e6a8339c052",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 1343.2
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 1048576,
+                    "trace-id": "6830333bc0844e6a8339c053",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 1946.72
                     }
                 }
             ]

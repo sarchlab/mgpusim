@@ -56,7 +56,7 @@ func main() {
 	default:
 		configPath = "nvidia/eval/eval_config_dev.json"
 	}
-	config := mustReadConfig(configPath)
+	config := mustReadConfigAndAfterTurning(configPath)
 	var allRecords []Record
 	avgSEs, names, records := processBenchmarks(config)
 	allRecords = append(allRecords, records...)
@@ -85,7 +85,7 @@ func main() {
 	// fmt.Printf("Saved records to %s\n", outPath)
 }
 
-func mustReadConfig(path string) EvalConfig {
+func mustReadConfigAndAfterTurning(path string) EvalConfig {
 	configFile, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open %s: %v\n", path, err)
@@ -97,6 +97,29 @@ func mustReadConfig(path string) EvalConfig {
 	if err := json.NewDecoder(configFile).Decode(&config); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to decode %s: %v\n", path, err)
 		os.Exit(1)
+	}
+
+	// Filter args for each benchmark: keep only beforeTurning == 0 if available
+	for bi, bench := range config.Benchmarks {
+		var zeroArgs []ArgConfig
+		for _, arg := range bench.Args {
+			if truth, ok := arg["truth"].(map[string]interface{}); ok {
+				// Accept int or float
+				if v, ok := truth["beforeTurning"]; ok {
+					switch vv := v.(type) {
+					case int:
+						if vv == 0 {
+							zeroArgs = append(zeroArgs, arg)
+						}
+					case float64:
+						if int(vv) == 0 {
+							zeroArgs = append(zeroArgs, arg)
+						}
+					}
+				}
+			}
+		}
+		config.Benchmarks[bi].Args = zeroArgs
 	}
 	return config
 }
