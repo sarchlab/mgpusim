@@ -7,7 +7,6 @@ import (
 	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection" //
-	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
 	"github.com/tebeka/atexit"
 )
@@ -97,24 +96,25 @@ func (b *GPUBuilder) Build(name string) *GPUController {
 	b.gpu.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, b.gpu)
 	b.buildPortsForGPU(b.gpu, name)
 	sms := b.buildSMs(name)
-	b.connectGPUWithSMs(b.gpu, sms)
-
 	b.buildDRAMControllers()
+
+	b.connectGPUWithSMs(b.gpu, sms, b.DRAM)
+
 	// b.buildL2Caches()
 
 	// b.connectL2AndDRAM()
 	// b.connectL1ToL2()
 
 	// b.connectGPUWithDRAM(b.gpu, b.Dram)
-	b.connectGPUControllerToDRAM(b.gpu, b.DRAM)
-	b.connectGPUControllerToSMSPs(b.gpu, sms)
+	// b.connectGPUControllerToDRAM(b.gpu, b.DRAM)
+	b.connectGPUControllerToSMSPs(b.gpu, sms, b.DRAM)
 
 	// b.gpu.PendingWriteReq = make(map[string]*mem.WriteReq)
 	// b.gpu.PendingReadReq = make(map[string]*mem.ReadReq)
-	b.gpu.PendingSMSPtoGPUControllerMemReadReq = make(map[string]*message.SMSPToGPUControllerMemReadMsg)
-	b.gpu.PendingSMSPtoGPUControllerMemWriteReq = make(map[string]*message.SMSPToGPUControllerMemWriteMsg)
-	b.gpu.PendingCacheReadReq = make(map[string]*message.GPUControllerToCachesMemReadMsg)
-	b.gpu.PendingCacheWriteReq = make(map[string]*message.GPUControllerToCachesMemWriteMsg)
+	// b.gpu.PendingSMSPtoGPUControllerMemReadReq = make(map[string]*message.SMSPToGPUControllerMemReadMsg)
+	// b.gpu.PendingSMSPtoGPUControllerMemWriteReq = make(map[string]*message.SMSPToGPUControllerMemWriteMsg)
+	// b.gpu.PendingCacheReadReq = make(map[string]*message.GPUControllerToCachesMemReadMsg)
+	// b.gpu.PendingCacheWriteReq = make(map[string]*message.GPUControllerToCachesMemWriteMsg)
 
 	// b.connectL1ToL2()
 
@@ -166,7 +166,7 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 	return sms
 }
 
-func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMController) {
+func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMController, d *idealmemcontroller.Comp) {
 	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
 	// conn.PlugIn(gpu.toSMs, 4)
 	conn := directconnection.MakeBuilder().
@@ -187,7 +187,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 		sm.SetGPUControllerCachesPort(gpu.ToSMSPsMem)
 		// sm.SetGPUMemRemotePort(gpu.toSMMem)
 		for _, smspID := range sm.SMSPsIDs {
-			sm.SMSPs[smspID].SetGPUControllerMemRemote(b.gpu.ToSMSPsMem)
+			sm.SMSPs[smspID].SetMemRemote(d.GetPortByName("Top"))
 		}
 
 		conn.PlugIn(sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sms[i].Name())))
@@ -209,33 +209,40 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 // }
 
 // For DRAM-only version
-func (b *GPUBuilder) connectGPUControllerToDRAM(gpu *GPUController, d *idealmemcontroller.Comp) {
+// func (b *GPUBuilder) connectGPUControllerToDRAM(gpu *GPUController, d *idealmemcontroller.Comp) {
+// 	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
+// 	// conn.PlugIn(gpu.toSMs, 4)
+// 	conn := directconnection.MakeBuilder().
+// 		WithEngine(b.engine).
+// 		WithFreq(1 * sim.GHz).
+// 		Build("GPUControllerToDRAM")
+// 	conn.PlugIn(gpu.ToCaches)
+
+// 	gpu.ToDRAM = d.GetPortByName("Top")
+// 	conn.PlugIn(gpu.ToDRAM)
+// }
+
+func (b *GPUBuilder) connectGPUControllerToSMSPs(gpu *GPUController, sms []*sm.SMController, d *idealmemcontroller.Comp) {
 	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
 	// conn.PlugIn(gpu.toSMs, 4)
+	// conn := directconnection.MakeBuilder().
+	// 	WithEngine(b.engine).
+	// 	WithFreq(1 * sim.GHz).
+	// 	Build("GPUControllerToSMSPs")
+	// conn.PlugIn(gpu.ToSMSPsMem)
+
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(1 * sim.GHz).
-		Build("GPUControllerToDRAM")
-	conn.PlugIn(gpu.ToCaches)
+		Build("SMSPsToMem")
+	conn.PlugIn(d.GetPortByName("Top"))
 
-	gpu.ToDRAM = d.GetPortByName("Top")
-	conn.PlugIn(gpu.ToDRAM)
-}
-
-func (b *GPUBuilder) connectGPUControllerToSMSPs(gpu *GPUController, sms []*sm.SMController) {
-	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
-	// conn.PlugIn(gpu.toSMs, 4)
-	conn := directconnection.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(1 * sim.GHz).
-		Build("GPUControllerToSMSPs")
-	conn.PlugIn(gpu.ToSMSPsMem)
 	for i := range sms {
 		sm := sms[i]
 		for j := uint64(0); j < b.smspsCountPerSM; j++ {
 			smspID := sm.SMSPsIDs[j]
 			smsp := sm.SMSPs[smspID]
-			conn.PlugIn(smsp.ToGPUControllerMem)
+			conn.PlugIn(smsp.ToMem)
 		}
 	}
 }
@@ -298,7 +305,7 @@ func (b *GPUBuilder) buildDRAMControllers() {
 	dram := idealmemcontroller.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithLatency(100).
+		WithLatency(1).
 		// WithStorage(b.globalStorage).
 		Build(dramName)
 	b.DRAM = dram

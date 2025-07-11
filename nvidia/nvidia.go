@@ -58,6 +58,9 @@ func main() {
 		return
 	}
 
+	// tracingBackend := tracing.NewDBTracer("")
+	// tracingBackend.Init()
+
 	runner := new(runner.RunnerBuilder).
 		WithPlatform(plat).
 		Build()

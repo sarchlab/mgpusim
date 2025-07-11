@@ -3,10 +3,13 @@ package smsp
 import (
 	// "fmt"
 
+	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
@@ -25,10 +28,14 @@ type SMSPController struct {
 	// cache updates
 	// toSMMem       sim.Port
 	// toSMMemRemote sim.Port
-	ToGPUControllerMem       sim.Port
-	ToGPUControllerMemRemote sim.Port
-	// How to block?
+	// ToGPUControllerMem       sim.Port
+	// ToGPUControllerMemRemote sim.Port
+	ToMem            sim.Port
+	ToMemRemote      sim.Port
 	waitingForMemRsp bool
+
+	PendingSMSPtoMemReadReq  map[string]*mem.ReadReq
+	PendingSMSPtoMemWriteReq map[string]*mem.WriteReq
 
 	unfinishedInstsCount uint64
 
@@ -40,8 +47,8 @@ func (s *SMSPController) SetSMRemotePort(remote sim.Port) {
 	s.toSMRemote = remote
 }
 
-func (s *SMSPController) SetGPUControllerMemRemote(remote sim.Port) {
-	s.ToGPUControllerMemRemote = remote
+func (s *SMSPController) SetMemRemote(remote sim.Port) {
+	s.ToMemRemote = remote
 	// fmt.Printf("SMSPController %s set GPUControllerMemRemote to %s\n", s.ID, remote.Name())
 }
 
@@ -54,11 +61,67 @@ func (s *SMSPController) Tick() bool {
 	madeProgress = s.reportFinishedWarps() || madeProgress
 	madeProgress = s.run() || madeProgress
 	madeProgress = s.processSMInput() || madeProgress
-	madeProgress = s.processCachesRsp() || madeProgress
+	madeProgress = s.processMemRsp() || madeProgress
 	// warps can be switched, but ignore now
 
 	return madeProgress
 }
+
+// func (s *SMSPController) processSMSPsRequestMem() bool {
+// 	msg := s.ToSMSPsMem.PeekIncoming()
+// 	if msg == nil {
+// 		return false
+// 	}
+
+// 	switch msg := msg.(type) {
+// 	case *message.SMSPToGPUControllerMemReadMsg:
+// 		g.processSMSPToGPUControllerMemReadMsg(msg)
+// 	case *message.SMSPToGPUControllerMemWriteMsg:
+// 		g.processSMSPToGPUControllerMemWriteMsg(msg)
+// 	default:
+// 		log.WithField("function", "processSMSPsRequestMem").Panic("Unhandled message type")
+// 	}
+
+// 	return true
+// }
+
+// func (s *SMSPController) processMemRsp() bool {
+// 	msg := s.ToMem.PeekIncoming()
+// 	if msg == nil {
+// 		return false
+// 	}
+// 	// fmt.Printf("%T\n", msg)
+// 	switch msg := msg.(type) {
+// 	case *mem.WriteDoneRsp:
+// 		write := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
+// 		// fmt.Printf("%.10f, GPUController received msg from Caches, original ID = %s write complete\n",
+// 		// 	g.CurrentTime(), write.OriginalSMSPtoGPUControllerID)
+
+// 		s.processMemWriteRspMsg(msg)
+// 		// delete(g.PendingCacheWriteReq, msg.RespondTo)
+// 		s.ToMem.RetrieveIncoming()
+
+// 		return true
+// 	case *mem.DataReadyRsp:
+// 		read := s.PendingSMSPtoMemReadReq[msg.RespondTo]
+// 		// delete(g.PendingReadReq, msg.RespondTo)
+
+// 		// fmt.Printf("%.10f, GPUController received msg from Caches, original ID = %s read complete, %v\n",
+// 		// 	g.CurrentTime(), read.OriginalSMSPtoGPUControllerID, msg.Data)
+
+// 		s.processMemReadRspMsg(msg)
+// 		// delete(g.PendingCacheReadReq, msg.RespondTo)
+// 		s.ToMem.RetrieveIncoming()
+
+// 		// g.toDRAM.RetrieveIncoming()
+
+// 		return true
+// 	default:
+// 		log.Panicf("cannot process message of type %s", reflect.TypeOf(msg))
+// 	}
+
+// 	return false
+// }
 
 func (s *SMSPController) processSMInput() bool {
 	// fmt.Println("Called processSMInput")
@@ -77,27 +140,116 @@ func (s *SMSPController) processSMInput() bool {
 	return true
 }
 
-func (s *SMSPController) processCachesRsp() bool {
-	msg := s.ToGPUControllerMem.PeekIncoming()
+func (s *SMSPController) processMemRsp() bool {
+	msg := s.ToMem.PeekIncoming()
 	if msg == nil {
 		return false
 	}
 
 	switch msg.(type) { // switch msg := msg.(type) {
-	case *message.CachesToSMSPMemReadRspMsg:
-		// fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), original msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.OriginalSMSPtoGPUControllerID)
+	case *mem.DataReadyRsp:
+		fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
-	case *message.CachesToSMSPMemWriteRspMsg:
-		// fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), original msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.OriginalSMSPtoGPUControllerID)
+	case *mem.WriteDoneRsp:
+		fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
-		s.ToGPUControllerMem.RetrieveIncoming()
+		s.ToMem.RetrieveIncoming()
 		return false
 	}
-	s.ToGPUControllerMem.RetrieveIncoming()
+	s.ToMem.RetrieveIncoming()
 	return true
 }
+
+// func (s *SMSPController) processSMSPToGPUControllerMemReadMsg(msg *message.SMSPToGPUControllerMemReadMsg) bool {
+// 	// fmt.Printf("%.10f, %s, GPUController receives SMSPToGPUControllerMemReadMsg, read from address = %d\n", g.Engine.CurrentTime(), g.Name(), msg.Address)
+// 	readReq := mem.ReadReqBuilder{}.
+// 		WithSrc(g.ToCaches.AsRemote()).
+// 		WithDst(g.ToDRAM.AsRemote()).
+// 		WithAddress(msg.Address).
+// 		WithPID(1).
+// 		Build()
+// 	err := g.ToCaches.Send(readReq)
+// 	if err != nil {
+// 		fmt.Printf("GPUController failed to send read mem request: %v\n", err)
+// 		g.ToSMSPsMem.RetrieveIncoming()
+// 		return false
+// 	}
+// 	// fmt.Printf("%.10f, GPUController, read request sent to DRAM, address = %d, ID = %s\n",
+// 	// 	g.Engine.CurrentTime(), msg.Address, readReq.ID)
+// 	g.PendingSMSPtoGPUControllerMemReadReq[msg.ID] = msg
+// 	g.PendingCacheReadReq[readReq.ID] = &message.GPUControllerToCachesMemReadMsg{
+// 		OriginalSMSPtoGPUControllerID: msg.ID,
+// 		Msg:                           *readReq,
+// 	}
+// 	// fmt.Printf("%.10f, GPUController, read request sent to DRAM, address = %d, ID = %s\n", g.CurrentTime(), msg.Address, readReq.ID)
+// 	g.ToSMSPsMem.RetrieveIncoming()
+// 	return true
+// }
+
+// func (s *SMSPController) processSMSPToGPUControllerMemWriteMsg(msg *message.SMSPToGPUControllerMemWriteMsg) bool {
+// 	// fmt.Printf("%.10f, %s, GPUController receives SMSPToGPUControllerMemWriteMsg, write to address = %d, data = %d\n", g.Engine.CurrentTime(), g.Name(), msg.Address, msg.Data)
+// 	writeReq := mem.WriteReqBuilder{}.
+// 		WithSrc(g.ToCaches.AsRemote()).
+// 		WithDst(g.ToDRAM.AsRemote()).
+// 		WithAddress(msg.Address).
+// 		WithPID(1).
+// 		WithData(uint32ToBytes(msg.Data)).
+// 		Build()
+
+// 	err := g.ToCaches.Send(writeReq)
+// 	if err != nil {
+// 		fmt.Printf("GPUController failed to send write mem request: %v\n", err)
+// 		g.ToSMSPsMem.RetrieveIncoming()
+// 		return false
+// 	}
+// 	g.PendingSMSPtoGPUControllerMemWriteReq[msg.ID] = msg
+// 	g.PendingCacheWriteReq[writeReq.ID] = &message.GPUControllerToCachesMemWriteMsg{
+// 		OriginalSMSPtoGPUControllerID: msg.ID,
+// 		Msg:                           *writeReq,
+// 	}
+
+// 	// fmt.Printf("%.10f, GPUController, write request sent to DRAM, address = %d, ID = %s\n", g.CurrentTime(), msg.Address, writeReq.ID)
+// 	g.ToSMSPsMem.RetrieveIncoming()
+// 	return true
+// }
+
+// func (s *SMSPController) processMemReadRspMsg(rspMsg *mem.DataReadyRsp) bool {
+// 	// fmt.Printf("%.10f, %s, GPUController is sending read rsp back to SMSP\n", g.Engine.CurrentTime(), g.Name())
+// 	originalSMSPToGPUControllerReq := g.PendingSMSPtoGPUControllerMemReadReq[originalID]
+// 	msg := &message.CachesToSMSPMemReadRspMsg{
+// 		OriginalSMSPtoGPUControllerID: originalID,
+// 		Msg:                           *rspMsg,
+// 	}
+// 	msg.Src = g.ToSMSPsMem.AsRemote()
+// 	msg.Dst = originalSMSPToGPUControllerReq.Src
+// 	msg.ID = sim.GetIDGenerator().Generate()
+// 	err := g.ToSMSPsMem.Send(msg)
+// 	if err != nil {
+// 		fmt.Printf("GPUController failed to send read rsp back to SMSP: %v\n", err)
+// 		return false
+// 	}
+// 	return true
+// }
+
+// func (s *SMSPController) processMemWriteRspMsg(rspMsg *mem.WriteDoneRsp) bool {
+// 	// fmt.Printf("%.10f, %s, GPUController is sending write rsp back to SMSP\n", g.Engine.CurrentTime(), g.Name())
+// 	originalSMSPToGPUControllerReq := g.PendingSMSPtoGPUControllerMemWriteReq[originalID]
+// 	msg := &message.CachesToSMSPMemWriteRspMsg{
+// 		OriginalSMSPtoGPUControllerID: originalID,
+// 		Msg:                           *rspMsg,
+// 	}
+// 	msg.Src = g.ToSMSPsMem.AsRemote()
+// 	msg.Dst = originalSMSPToGPUControllerReq.Src
+// 	msg.ID = sim.GetIDGenerator().Generate()
+// 	err := g.ToSMSPsMem.Send(msg)
+// 	if err != nil {
+// 		fmt.Printf("GPUController failed to send write rsp back to SMSP: %v\n", err)
+// 		return false
+// 	}
+// 	return true
+// }
 
 func (s *SMSPController) processSMMsg(msg *message.SMToSMSPMsg) {
 	// fmt.Println("Called processSMMsg")
@@ -167,15 +319,17 @@ func (s *SMSPController) reportFinishedWarps() bool {
 }
 
 func (s *SMSPController) doRead(addr *uint64) bool {
-
-	msg := &message.SMSPToGPUControllerMemReadMsg{
-		Address: *addr,
-	}
-	msg.Src = s.ToGPUControllerMem.AsRemote()
-	msg.Dst = s.ToGPUControllerMemRemote.AsRemote()
+	msg := mem.ReadReqBuilder{}.
+		WithSrc(s.ToMem.AsRemote()).
+		WithDst(s.ToMemRemote.AsRemote()).
+		WithAddress(*addr).
+		WithPID(1).
+		Build()
+	msg.Src = s.ToMem.AsRemote()
+	msg.Dst = s.ToMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
-	// fmt.Printf("%.10f, %s, SMSPController %s sent read req to GPUController, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
-	err := s.ToGPUControllerMem.Send(msg)
+	fmt.Printf("%.10f, %s, SMSPController %s sent read req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
+	err := s.ToMem.Send(msg)
 	if err != nil {
 		return false
 	}
@@ -184,16 +338,18 @@ func (s *SMSPController) doRead(addr *uint64) bool {
 }
 
 func (s *SMSPController) doWrite(addr *uint64, d *uint32) bool {
-
-	msg := &message.SMSPToGPUControllerMemWriteMsg{
-		Address: *addr,
-		Data:    *d,
-	}
-	msg.Src = s.ToGPUControllerMem.AsRemote()
-	msg.Dst = s.ToGPUControllerMemRemote.AsRemote()
+	msg := mem.WriteReqBuilder{}.
+		WithSrc(s.ToMem.AsRemote()).
+		WithDst(s.ToMemRemote.AsRemote()).
+		WithAddress(*addr).
+		WithPID(1).
+		WithData(uint32ToBytes(*d)).
+		Build()
+	msg.Src = s.ToMem.AsRemote()
+	msg.Dst = s.ToMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
-	// fmt.Printf("%.10f, %s, SMSPController %s sent write req to GPUController, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
-	err := s.ToGPUControllerMem.Send(msg)
+	fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
+	err := s.ToMem.Send(msg)
 	if err != nil {
 		return false
 	}
@@ -210,4 +366,11 @@ func (s *SMSPController) LogStatus() {
 	// 	"smsp_id":           s.ID,
 	// 	"total_insts_count": s.instsCount,
 	// }).Info("SMSPController status")
+}
+
+func uint32ToBytes(data uint32) []byte {
+	bytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bytes, data)
+
+	return bytes
 }
