@@ -214,26 +214,6 @@
                         "beforeTurning": 1,
                         "cycles": 3594.24
                     }
-                },
-                {
-                    "blockDimX": 8,
-                    "frequency": 1755,
-                    "size": 384,
-                    "trace-id": "682d1723b541e8df7bd6184d",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 6027.84
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "frequency": 1755,
-                    "size": 384,
-                    "trace-id": "682d173cb541e8df7bd61858",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 4605.71
-                    }
                 }
             ]
         },
@@ -450,26 +430,6 @@
                         "beforeTurning": 1,
                         "cycles": 42942.15
                     }
-                },
-                {
-                    "blockDimX": 8,
-                    "frequency": 345,
-                    "size": 384,
-                    "trace-id": "682e357eb541e8df7bd618e1",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 100335.66
-                    }
-                },
-                {
-                    "blockDimX": 16,
-                    "frequency": 345,
-                    "size": 384,
-                    "trace-id": "682e41deb541e8df7bd618ec",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 75186.65
-                    }
                 }
             ]
         },
@@ -645,16 +605,6 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 151279.63
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682ea9c1b541e8df7bd6194e",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 150726.48
                     }
                 }
             ]
@@ -832,16 +782,6 @@
                         "beforeTurning": 0,
                         "cycles": 44638.75
                     }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682eef6ab541e8df7bd6199f",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 48094.38
-                    }
                 }
             ]
         },
@@ -1017,16 +957,6 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 18996.39
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682efc7fb541e8df7bd619f0",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 20744.28
                     }
                 }
             ]
@@ -1204,16 +1134,6 @@
                         "beforeTurning": 0,
                         "cycles": 20218.03
                     }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682efdf0b541e8df7bd61a41",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 21896.23
-                    }
                 }
             ]
         },
@@ -1389,16 +1309,6 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 15312.71
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f0109b541e8df7bd61a92",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 16582.2
                     }
                 }
             ]
@@ -1576,16 +1486,6 @@
                         "beforeTurning": 0,
                         "cycles": 10186.24
                     }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f0752b541e8df7bd61ae3",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 12887.48
-                    }
                 }
             ]
         },
@@ -1761,16 +1661,6 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 18882.08
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f08c5b541e8df7bd61b34",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 20935.52
                     }
                 }
             ]
@@ -1948,16 +1838,6 @@
                         "beforeTurning": 0,
                         "cycles": 10646.24
                     }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f0bdbb541e8df7bd61b85",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 23651.59
-                    }
                 }
             ]
         },
@@ -2053,16 +1933,6 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 9604.8
-                    }
-                },
-                {
-                    "frequency": 345,
-                    "log2data": 17,
-                    "log2kernel": 12,
-                    "trace-id": "6830276ac0844e6a8339bf58",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 10863.25
                     }
                 }
             ]
@@ -2199,16 +2069,6 @@
                         "cycles": 1556.53
                     },
                     "vectorN": 32
-                },
-                {
-                    "elementN": 4096,
-                    "frequency": 345,
-                    "trace-id": "68302c81c0844e6a8339bf95",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 1619.32
-                    },
-                    "vectorN": 64
                 }
             ]
         },
