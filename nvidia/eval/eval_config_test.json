@@ -42,6 +42,22 @@
                     }
                 }
             ]
+        },
+        {
+            "title": "3dconv",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "682e8ef4b541e8df7bd61937",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18046.83
+                    }
+                }
+            ]
         }
     ]
 }
