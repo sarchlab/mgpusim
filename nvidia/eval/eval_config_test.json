@@ -11,16 +11,8 @@
                     "size": 32,
                     "trace-id": "682e34d6b541e8df7bd618da",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 6962.79
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "frequency": 345,
-                    "size": 48,
-                    "trace-id": "682e34d8b541e8df7bd618db",
-                    "truth": {
-                        "cycles": 9111.68
                     }
                 }
             ]
@@ -35,7 +27,18 @@
                     "size": 32,
                     "trace-id": "682eea8fb541e8df7bd61988",
                     "truth": {
+                        "beforeTurning": 1,
                         "cycles": 10204.87
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "682eecf5b541e8df7bd61991",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10326.08
                     }
                 }
             ]

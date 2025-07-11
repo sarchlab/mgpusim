@@ -28,15 +28,16 @@ type Benchmark struct {
 type ArgConfig map[string]interface{}
 
 type GroundTruthEntry struct {
-	Suite     string
-	Benchmark string
-	Frequency float64
-	Args      map[string]string
-	Cycles    float64
-	Line      int
+	Suite         string
+	Benchmark     string
+	Frequency     float64
+	BeforeTurning int64
+	Args          map[string]string
+	Cycles        float64
+	Line          int
 }
 
-const ratioSkipRelease = 0.4
+const ratioSkipRelease = 0.3
 
 func main() {
 	// Example usage:
@@ -112,14 +113,16 @@ func main() {
 	}
 	releaseCount := countArgs(releaseBenchmarks)
 
+	releaseBeforeTurningCount := countBeforeTurning(releaseBenchmarks)
+
 	// // Write eval_release.json as before
 	// releaseConfig := EvalConfig{
 	// 	ScriptPath: "./mnt-collector",
 	// 	Benchmarks: benchmarks,
 	// }
 	// releaseCount := countArgs(benchmarks)                                      // updated
-	writeEvalConfig(outputPathRelease, releaseConfig)                          // updated
-	fmt.Printf("Wrote %s: %d arg settings\n", outputPathRelease, releaseCount) // updated
+	writeEvalConfig(outputPathRelease, releaseConfig) // updated
+	fmt.Printf("Wrote %s: %d arg settings (%d/%d beforeTurning)\n", outputPathRelease, releaseCount, releaseBeforeTurningCount, releaseCount)
 
 	// Generate eval_dev.json (keep only 3 greatest arg settings per benchmark)
 	devBenchmarks := []Benchmark{}     // updated
@@ -135,9 +138,38 @@ func main() {
 		ScriptPath: "./mnt-collector",
 		Benchmarks: devBenchmarks,
 	}
-	devCount := countArgs(devBenchmarks)                               // updated
-	writeEvalConfig(outputPathDev, devConfig)                          // updated
-	fmt.Printf("Wrote %s: %d arg settings\n", outputPathDev, devCount) // updated
+	devCount := countArgs(devBenchmarks)                                                                                      // updated
+	devBeforeTurningCount := countBeforeTurning(devBenchmarks)                                                                // updated
+	writeEvalConfig(outputPathDev, devConfig)                                                                                 // updated
+	fmt.Printf("Wrote %s: %d arg settings (%d/%d beforeTurning)\n", outputPathDev, devCount, devBeforeTurningCount, devCount) // updated
+}
+
+func countBeforeTurning(benchmarks []Benchmark) int {
+	beforeTurningCount := 0
+	for _, bench := range benchmarks {
+		for _, arg := range bench.Args {
+			if truth, ok := arg["truth"].(map[string]interface{}); ok {
+				if v, ok := truth["beforeTurning"]; ok {
+					// Accept int or float
+					switch vv := v.(type) {
+					case int:
+						if vv == 1 {
+							beforeTurningCount++
+						}
+					case int64:
+						if vv == 1 {
+							beforeTurningCount++
+						}
+					case float64:
+						if int(vv) == 1 {
+							beforeTurningCount++
+						}
+					}
+				}
+			}
+		}
+	}
+	return beforeTurningCount
 }
 
 // --- Helper functions ---
@@ -238,7 +270,7 @@ func parseSimYaml(path, suite, benchmark string, gt map[string]GroundTruthEntry)
 		}
 		arg["trace-id"] = t.TraceID
 		if ok {
-			arg["truth"] = map[string]interface{}{"cycles": entry.Cycles}
+			arg["truth"] = map[string]interface{}{"cycles": entry.Cycles, "beforeTurning": entry.BeforeTurning}
 			arg["frequency"] = entry.Frequency
 		}
 		args = append(args, arg)
@@ -309,13 +341,18 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 			frequency = -1.0 // default invalid frequency
 		}
 		args := make(map[string]string)
-		for _, p := range parts[3 : len(parts)-1] {
+		for _, p := range parts[3 : len(parts)-2] {
 			kv := strings.SplitN(p, "=", 2)
 			if len(kv) == 2 {
 				args[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 			}
 		}
-		cyclesStr := strings.TrimSpace(strings.Split(parts[len(parts)-1], "=")[1])
+		cyclesStr := strings.TrimSpace(strings.Split(parts[len(parts)-2], "=")[1])
+		beforeTurning, err := strconv.ParseInt(strings.TrimSpace(strings.Split(parts[len(parts)-1], "=")[1]), 10, 64)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse beforeTurning at line %d: %v\n", lineNum, err)
+			beforeTurning = -1 // default invalid beforeTurning
+		}
 		var cycles float64
 		fmt.Sscanf(cyclesStr, "%f", &cycles)
 		key := groundTruthKey(suite, benchmark, args)
@@ -323,12 +360,13 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 			conflicts = append(conflicts, fmt.Sprintf("Duplicate at line %d: %s", lineNum, line))
 		}
 		gt[key] = GroundTruthEntry{
-			Suite:     suite,
-			Benchmark: benchmark,
-			Frequency: frequency,
-			Args:      args,
-			Cycles:    cycles,
-			Line:      lineNum,
+			Suite:         suite,
+			Benchmark:     benchmark,
+			Frequency:     frequency,
+			BeforeTurning: beforeTurning,
+			Args:          args,
+			Cycles:        cycles,
+			Line:          lineNum,
 		}
 	}
 	if len(conflicts) > 0 {
@@ -373,6 +411,21 @@ func selectArgsSorted(args []ArgConfig, skipGreatestN int, nMiddle int) []ArgCon
 	if len(args) <= nMiddle || (skipGreatestN > 0 && len(args) <= skipGreatestN) {
 		return args
 	}
+
+	var zeroList []ArgConfig
+	if nMiddle > 0 {
+		// Filter out beforeTurning=1 points
+		for _, a := range args {
+			if truth, ok := a["truth"].(map[string]interface{}); ok {
+				// fmt.Printf("Checking arg: %v\n", truth)
+				if v, ok := truth["beforeTurning"]; ok && v == int64(0) {
+					zeroList = append(zeroList, a)
+				}
+			}
+		}
+		args = zeroList
+	}
+
 	// Build sort keys: "size" first (if present), then other numeric keys alphabetically
 	type argWithSort struct {
 		Arg      ArgConfig
@@ -432,10 +485,16 @@ func selectArgsSorted(args []ArgConfig, skipGreatestN int, nMiddle int) []ArgCon
 	}
 
 	// For dev: select the middle nMiddle
-	if nMiddle > 0 && len(argList) > nMiddle {
-		start := (len(argList) - nMiddle) / 2
-		end := start + nMiddle
-		argList = argList[start:end]
+	if nMiddle > 0 {
+		// fmt.Printf("Selecting %d middle args from %d total\n", nMiddle, len(argList))
+		if len(argList) > nMiddle {
+			start := (len(argList) - nMiddle) / 2
+			end := start + nMiddle
+			argList = argList[start:end]
+		} else {
+			// If not enough args, just return all
+			argList = argList[:]
+		}
 	}
 
 	var result []ArgConfig
