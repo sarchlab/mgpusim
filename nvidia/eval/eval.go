@@ -5,16 +5,21 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image/color"
 	"io"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 
+	"gonum.org/v1/gonum/stat"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/plotutil"
 	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
 )
 
 // EvalConfig is for JSON parsing
@@ -68,7 +73,25 @@ func main() {
 	printEvalStats(config.Benchmarks)
 	printAvgSEs(avgSEs, names)
 
-	handleRsquaredAndPlot(allRecords, sha)
+	rsqDir := "nvidia/eval/metrics"
+	if err := os.MkdirAll(rsqDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create metrics dir: %v\n", err)
+		return
+	}
+	truths, preds := extractCorrelationData(allRecords)
+	r2 := handleCoefficientOfDetermination(truths, preds)
+	pearson := handlePearsonCorrelationCoefficient(truths, preds)
+	spearman := handleSpearmanRankCorrelation(truths, preds)
+
+	fmt.Printf("%.6f\n", r2)
+	fmt.Printf("%.6f\n", pearson)
+	fmt.Printf("%.6f\n", spearman)
+	shortSha := sha
+	if sha != "unknownSHA" && len(sha) >= 7 {
+		shortSha = sha[:7]
+	}
+	title := fmt.Sprintf("Correlation Results of Commit %s: R²=%.6f, Pearson r=%.6f, Spearman ρ=%.6f", shortSha, r2, pearson, spearman)
+	plotCorrelation(truths, preds, filepath.Join(rsqDir, sha+".png"), plotutil.Color(2), title)
 
 	// Save records as JSON
 	outDir := "nvidia/eval/records"
@@ -92,9 +115,7 @@ func main() {
 	// fmt.Printf("Saved records to %s\n", outPath)
 }
 
-// Call this after saving allRecords
-func handleRsquaredAndPlot(allRecords []Record, sha string) {
-	var truths, preds []float64
+func extractCorrelationData(allRecords []Record) (truths, preds []float64) {
 	for _, rec := range allRecords {
 		truth, ok := rec.AvgNanoSec.(float64)
 		if !ok {
@@ -108,29 +129,37 @@ func handleRsquaredAndPlot(allRecords []Record, sha string) {
 		truths = append(truths, truth)
 		preds = append(preds, pred)
 	}
-	r2 := rsquared(truths, preds)
-
-	// Create folder
-	rsqDir := "nvidia/eval/rsquared"
-	if err := os.MkdirAll(rsqDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create rsquared dir: %v\n", err)
-		return
-	}
-	// Plot
-	plotPredTruth(truths, preds, sha, r2, filepath.Join(rsqDir, sha+".png"))
+	return truths, preds
 }
 
-// Plot pred vs truth
-func plotPredTruth(truths, preds []float64, sha string, r2 float64, outPath string) {
+func handleCoefficientOfDetermination(truths, preds []float64) (coeff float64) {
+	r2 := rsquared(truths, preds)
+	return r2
+	// plotCorrelation(truths, preds, sha, r2, filepath.Join(rsqDir, sha+"_CoD.png"), plotutil.Color(2), "R²")
+}
+
+// Call this after saving allRecords
+func handlePearsonCorrelationCoefficient(truths, preds []float64) (coeff float64) {
+	pearson := stat.Correlation(truths, preds, nil)
+	return pearson
+	// plotCorrelation(truths, preds, sha, pearson, filepath.Join(rsqDir, sha+"_PCC.png"), plotutil.Color(3), "Pearson r")
+}
+
+func handleSpearmanRankCorrelation(truths, preds []float64) (coeff float64) {
+	spearman := spearmanRank(truths, preds)
+	return spearman
+	// plotCorrelation(truths, preds, sha, spearman, filepath.Join(rsqDir, sha+"_SRC.png"), plotutil.Color(4), "Spearman ρ")
+}
+
+// Helper for plotting correlation
+func plotCorrelation(truths, preds []float64, outPath string, scatterColor color.Color, title string) {
 	p := plot.New()
-	shortSha := sha
-	if sha != "unknownSHA" && len(sha) >= 7 {
-		shortSha = sha[:7]
-	}
-	p.Title.Text = fmt.Sprintf("%s: R²=%.6f", shortSha, r2)
-	fmt.Printf("%.6f\n", r2)
+	p.Title.Text = fmt.Sprintf("%s", title)
+	// fmt.Printf("%s=%.6f\n", coeffName, coeff)
 	p.X.Label.Text = "Truth (avg_nano_sec)"
 	p.Y.Label.Text = "Prediction (predict_cycle)"
+	p.X.Min = 0
+	p.Y.Min = 0
 
 	pts := make(plotter.XYs, len(truths))
 	for i := range truths {
@@ -142,8 +171,42 @@ func plotPredTruth(truths, preds []float64, sha string, r2 float64, outPath stri
 		fmt.Fprintf(os.Stderr, "Failed to create scatter: %v\n", err)
 		return
 	}
+	scatter.Color = scatterColor
+	scatter.Radius = vg.Points(5)
+	scatter.Shape = draw.CircleGlyph{}
 	p.Add(scatter)
-	if err := p.Save(6*vg.Inch, 6*vg.Inch, outPath); err != nil {
+
+	// Add dashed y=x line
+	minVal, maxVal := 0.0, 0.0
+	for i, v := range truths {
+		if i == 0 || v < minVal {
+			minVal = v
+		}
+		if i == 0 || v > maxVal {
+			maxVal = v
+		}
+	}
+	for _, v := range preds {
+		if v < minVal {
+			minVal = v
+		}
+		if v > maxVal {
+			maxVal = v
+		}
+	}
+	linePts := plotter.XYs{
+		{X: minVal, Y: minVal},
+		{X: maxVal, Y: maxVal},
+	}
+	line, err := plotter.NewLine(linePts)
+	if err == nil {
+		line.LineStyle.Dashes = []vg.Length{vg.Points(5), vg.Points(5)}
+		line.LineStyle.Width = vg.Points(1)
+		line.LineStyle.Color = plotter.DefaultLineStyle.Color
+		p.Add(line)
+	}
+
+	if err := p.Save(10*vg.Inch, 10*vg.Inch, outPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to save plot: %v\n", err)
 	}
 }
@@ -168,6 +231,34 @@ func rsquared(truths, preds []float64) float64 {
 		return math.NaN()
 	}
 	return 1 - ssRes/ssTot
+}
+
+// Spearman rank correlation calculation
+func spearmanRank(x, y []float64) float64 {
+	if len(x) != len(y) || len(x) == 0 {
+		return math.NaN()
+	}
+	rx := rank(x)
+	ry := rank(y)
+	return stat.Correlation(rx, ry, nil)
+}
+
+func rank(data []float64) []float64 {
+	type kv struct {
+		Value float64
+		Index int
+	}
+	n := len(data)
+	sorted := make([]kv, n)
+	for i, v := range data {
+		sorted[i] = kv{v, i}
+	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Value < sorted[j].Value })
+	ranks := make([]float64, n)
+	for rank, kv := range sorted {
+		ranks[kv.Index] = float64(rank + 1)
+	}
+	return ranks
 }
 
 func mustReadConfigAndAfterTurning(path string) EvalConfig {
@@ -311,7 +402,7 @@ func printEvalStats(benchmarks []Benchmark) {
 	// fmt.Printf("num_suite: %d\n", len(suiteSet))
 	// fmt.Printf("num_benchmark: %d\n", numBenchmark)
 	// fmt.Printf("num_trace: %d\n", numTrace)
-	fmt.Printf("The following lines mean: (1) #suite; (2) #benchmark; (3) #trace; (4) SE distribution (5) avgSEs (6) Coefficient of determination R²\n")
+	fmt.Printf("The following lines mean: (1) #suite; (2) #benchmark; (3) #trace; (4) SE distribution (5) avgSEs (6) Coefficient of Determination R² (7) Pearson r (8) Spearman ρ\n")
 
 	fmt.Printf("%d\n", len(suiteSet))
 	fmt.Printf("%d\n", numBenchmark)

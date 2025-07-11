@@ -3,6 +3,7 @@ package smsp
 import (
 	"fmt"
 
+	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/tebeka/atexit"
 )
@@ -32,8 +33,11 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s.AddPort(fmt.Sprintf("%s.ToSM", name), s.toSM)
 
 	// cache updates
-	s.ToGPUControllerMem = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToGPUControllerMem", name))
-	s.AddPort(fmt.Sprintf("%s.ToGPUControllerMem", name), s.ToGPUControllerMem)
+	s.ToMem = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToMem", name))
+	s.AddPort(fmt.Sprintf("%s.ToMem", name), s.ToMem)
+
+	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
+	s.PendingSMSPtoMemWriteReq = make(map[string]*mem.WriteReq)
 
 	atexit.Register(s.LogStatus)
 

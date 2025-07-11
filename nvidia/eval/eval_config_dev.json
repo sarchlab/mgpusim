@@ -6,33 +6,33 @@
             "suite": "polybench",
             "args": [
                 {
-                    "blockDimX": 16,
+                    "blockDimX": 8,
                     "frequency": 1755,
-                    "size": 512,
-                    "trace-id": "682d173eb541e8df7bd61859",
+                    "size": 384,
+                    "trace-id": "682d1723b541e8df7bd6184d",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 5691.47
+                        "cycles": 6027.84
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 1755,
+                    "size": 384,
+                    "trace-id": "682d173cb541e8df7bd61858",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4605.71
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 1755,
-                    "size": 512,
-                    "trace-id": "682d1756b541e8df7bd61864",
+                    "size": 384,
+                    "trace-id": "682d1754b541e8df7bd61863",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 4586.4
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "frequency": 1755,
-                    "size": 768,
-                    "trace-id": "682d172ab541e8df7bd6184f",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 14208.48
+                        "cycles": 4005.5
                     }
                 }
             ]
@@ -42,33 +42,33 @@
             "suite": "polybench",
             "args": [
                 {
-                    "blockDimX": 16,
+                    "blockDimX": 8,
                     "frequency": 345,
-                    "size": 512,
-                    "trace-id": "682e42c8b541e8df7bd618ed",
+                    "size": 384,
+                    "trace-id": "682e357eb541e8df7bd618e1",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 177322.07
+                        "cycles": 100335.66
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 384,
+                    "trace-id": "682e41deb541e8df7bd618ec",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 75186.65
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 512,
-                    "trace-id": "682e4e21b541e8df7bd618f8",
+                    "size": 384,
+                    "trace-id": "682e4d91b541e8df7bd618f7",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 163654.43
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "frequency": 345,
-                    "size": 768,
-                    "trace-id": "682e398bb541e8df7bd618e3",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 675284.71
+                        "cycles": 66361.9
                     }
                 }
             ]
@@ -80,31 +80,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682e8f36b541e8df7bd6193b",
+                    "size": 32,
+                    "trace-id": "682e8ef4b541e8df7bd61937",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 89193.54
+                        "cycles": 18046.83
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682ea0fbb541e8df7bd61944",
+                    "size": 32,
+                    "trace-id": "682ea0bcb541e8df7bd61940",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 83831.67
+                        "cycles": 17814.88
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682ea978b541e8df7bd6194d",
+                    "size": 32,
+                    "trace-id": "682ea936b541e8df7bd61949",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 79023.63
+                        "cycles": 18036.26
                     }
                 }
             ]
@@ -114,33 +114,33 @@
             "suite": "polybench",
             "args": [
                 {
-                    "blockDimX": 32,
+                    "blockDimX": 16,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682eef5cb541e8df7bd6199e",
+                    "size": 32,
+                    "trace-id": "682eecf5b541e8df7bd61991",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 32708.07
+                        "cycles": 10326.08
                     }
                 },
                 {
-                    "blockDimX": 8,
+                    "blockDimX": 32,
                     "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682eeab4b541e8df7bd6198d",
+                    "size": 32,
+                    "trace-id": "682eef4db541e8df7bd6199a",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 44344.23
+                        "cycles": 10708.68
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682eed1cb541e8df7bd61996",
+                    "size": 48,
+                    "trace-id": "682eecf8b541e8df7bd61992",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 44638.75
+                        "cycles": 13270.08
                     }
                 }
             ]
@@ -152,31 +152,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682efc5fb541e8df7bd619dd",
+                    "size": 32,
+                    "trace-id": "682efc59b541e8df7bd619d9",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 12545.24
+                        "cycles": 3989.12
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682efc6fb541e8df7bd619e6",
+                    "size": 32,
+                    "trace-id": "682efc69b541e8df7bd619e2",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 13119.43
+                        "cycles": 4228.44
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682efc7db541e8df7bd619ef",
+                    "size": 32,
+                    "trace-id": "682efc77b541e8df7bd619eb",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 13770.79
+                        "cycles": 4000.16
                     }
                 }
             ]
@@ -188,31 +188,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682efdd0b541e8df7bd61a2e",
+                    "size": 32,
+                    "trace-id": "682efdcab541e8df7bd61a2a",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 13295.84
+                        "cycles": 4629.44
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682efde0b541e8df7bd61a37",
+                    "size": 32,
+                    "trace-id": "682efddab541e8df7bd61a33",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 13781.83
+                        "cycles": 4835.64
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682efdeeb541e8df7bd61a40",
+                    "size": 32,
+                    "trace-id": "682efde9b541e8df7bd61a3c",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 14837.99
+                        "cycles": 5096.69
                     }
                 }
             ]
@@ -224,31 +224,31 @@
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f0109b541e8df7bd61a92",
+                    "size": 32,
+                    "trace-id": "682f00fcb541e8df7bd61a8d",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 16582.2
+                        "cycles": 3864.12
                     }
                 },
                 {
-                    "blockDimX": 8,
+                    "blockDimX": 32,
                     "frequency": 345,
-                    "size": 256,
-                    "trace-id": "682eff5cb541e8df7bd61a81",
+                    "size": 48,
+                    "trace-id": "682f00fdb541e8df7bd61a8e",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 20744.39
+                        "cycles": 4758.47
                     }
                 },
                 {
-                    "blockDimX": 16,
+                    "blockDimX": 32,
                     "frequency": 345,
-                    "size": 256,
-                    "trace-id": "682f003fb541e8df7bd61a8a",
+                    "size": 64,
+                    "trace-id": "682f00ffb541e8df7bd61a8f",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 20821.56
+                        "cycles": 5865.92
                     }
                 }
             ]
@@ -260,31 +260,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682f0739b541e8df7bd61ad0",
+                    "size": 32,
+                    "trace-id": "682f0734b541e8df7bd61acc",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 5751.84
+                        "cycles": 1854.72
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682f0745b541e8df7bd61ad9",
+                    "size": 32,
+                    "trace-id": "682f0741b541e8df7bd61ad5",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 6830.2
+                        "cycles": 2075.52
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682f0750b541e8df7bd61ae2",
+                    "size": 32,
+                    "trace-id": "682f074cb541e8df7bd61ade",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 8581.88
+                        "cycles": 2572.32
                     }
                 }
             ]
@@ -296,31 +296,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682f08a5b541e8df7bd61b21",
+                    "size": 32,
+                    "trace-id": "682f089fb541e8df7bd61b1d",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 12526.72
+                        "cycles": 3981.76
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682f08b5b541e8df7bd61b2a",
+                    "size": 32,
+                    "trace-id": "682f08afb541e8df7bd61b26",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 13237.08
+                        "cycles": 4228.2
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 128,
-                    "trace-id": "682f08c4b541e8df7bd61b33",
+                    "size": 32,
+                    "trace-id": "682f08beb541e8df7bd61b2f",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 13862.79
+                        "cycles": 4040.64
                     }
                 }
             ]
@@ -330,33 +330,33 @@
             "suite": "polybench",
             "args": [
                 {
-                    "blockDimX": 16,
+                    "blockDimX": 8,
                     "frequency": 345,
-                    "size": 256,
-                    "trace-id": "682f0b0eb541e8df7bd61b7d",
+                    "size": 192,
+                    "trace-id": "682f0a21b541e8df7bd61b73",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 22665.47
+                        "cycles": 9811
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 192,
+                    "trace-id": "682f0afcb541e8df7bd61b7c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10646.24
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 256,
-                    "trace-id": "682f0be5b541e8df7bd61b86",
+                    "size": 192,
+                    "trace-id": "682f0bdbb541e8df7bd61b85",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 45253.08
-                    }
-                },
-                {
-                    "blockDimX": 8,
-                    "frequency": 345,
-                    "size": 384,
-                    "trace-id": "682f0a69b541e8df7bd61b75",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 58254.86
+                        "cycles": 23651.59
                     }
                 }
             ]
@@ -367,32 +367,32 @@
             "args": [
                 {
                     "frequency": 345,
-                    "log2data": 16,
+                    "log2data": 12,
                     "log2kernel": 12,
-                    "trace-id": "6830274bc0844e6a8339bf55",
+                    "trace-id": "68302352c0844e6a8339bf28",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 9582.61
+                        "cycles": 5700.55
                     }
                 },
                 {
                     "frequency": 345,
-                    "log2data": 16,
-                    "log2kernel": 14,
-                    "trace-id": "68302754c0844e6a8339bf56",
+                    "log2data": 13,
+                    "log2kernel": 12,
+                    "trace-id": "6830272bc0844e6a8339bf50",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 9579.27
+                        "cycles": 6278.31
                     }
                 },
                 {
                     "frequency": 345,
-                    "log2data": 16,
-                    "log2kernel": 16,
-                    "trace-id": "6830275cc0844e6a8339bf57",
+                    "log2data": 14,
+                    "log2kernel": 12,
+                    "trace-id": "68302730c0844e6a8339bf51",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 9604.8
+                        "cycles": 7529.05
                     }
                 }
             ]
@@ -401,6 +401,15 @@
             "title": "mergesort",
             "suite": "cuda-sdk",
             "args": [
+                {
+                    "frequency": 345,
+                    "size": 32768,
+                    "trace-id": "68302956c0844e6a8339bf7a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 30111.03
+                    }
+                },
                 {
                     "frequency": 345,
                     "size": 65536,
@@ -418,15 +427,6 @@
                         "beforeTurning": 0,
                         "cycles": 44509.72
                     }
-                },
-                {
-                    "frequency": 345,
-                    "size": 98304,
-                    "trace-id": "683029c6c0844e6a8339bf7d",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 45455.59
-                    }
                 }
             ]
         },
@@ -437,32 +437,32 @@
                 {
                     "elementN": 2048,
                     "frequency": 345,
-                    "trace-id": "68302c8fc0844e6a8339bf98",
+                    "trace-id": "68302371c0844e6a8339bf2e",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 3083.73
+                        "cycles": 1685.33
                     },
-                    "vectorN": 256
+                    "vectorN": 32
                 },
                 {
                     "elementN": 2048,
                     "frequency": 345,
-                    "trace-id": "68302ca1c0844e6a8339bf9a",
+                    "trace-id": "68302c7ec0844e6a8339bf94",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 5358.2
+                        "cycles": 1821.6
                     },
-                    "vectorN": 512
+                    "vectorN": 64
                 },
                 {
-                    "elementN": 4096,
+                    "elementN": 2048,
                     "frequency": 345,
-                    "trace-id": "68302c7cc0844e6a8339bf93",
+                    "trace-id": "68302c85c0844e6a8339bf96",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 1556.53
+                        "cycles": 1733.4
                     },
-                    "vectorN": 32
+                    "vectorN": 128
                 }
             ]
         },
@@ -615,6 +615,28 @@
             "suite": "cuda-sdk",
             "args": [
                 {
+                    "dimX": 1024,
+                    "dimY": 1024,
+                    "frequency": 345,
+                    "kernelID": 1,
+                    "trace-id": "683023c0c0844e6a8339bf3d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 1814.24
+                    }
+                },
+                {
+                    "dimX": 1536,
+                    "dimY": 1536,
+                    "frequency": 345,
+                    "kernelID": 1,
+                    "trace-id": "683059b9c0844e6a8339c063",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3488.76
+                    }
+                },
+                {
                     "dimX": 2048,
                     "dimY": 2048,
                     "frequency": 345,
@@ -623,28 +645,6 @@
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 6256
-                    }
-                },
-                {
-                    "dimX": 3072,
-                    "dimY": 3072,
-                    "frequency": 345,
-                    "kernelID": 1,
-                    "trace-id": "68305b55c0844e6a8339c069",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 16928
-                    }
-                },
-                {
-                    "dimX": 4096,
-                    "dimY": 4096,
-                    "frequency": 345,
-                    "kernelID": 1,
-                    "trace-id": "68305b80c0844e6a8339c06a",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 30915.91
                     }
                 }
             ]

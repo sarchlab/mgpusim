@@ -120,9 +120,9 @@ func main() {
 	// 	ScriptPath: "./mnt-collector",
 	// 	Benchmarks: benchmarks,
 	// }
-	// releaseCount := countArgs(benchmarks)                                      // updated
-	writeEvalConfig(outputPathRelease, releaseConfig) // updated
-	fmt.Printf("Wrote %s: %d arg settings (%d/%d beforeTurning)\n", outputPathRelease, releaseCount, releaseBeforeTurningCount, releaseCount)
+	// releaseCount := countArgs(benchmarks)
+	writeEvalConfig(outputPathRelease, releaseConfig)
+	fmt.Printf("Wrote %s: %d arg settings (%d/%d kept, %d/%d beforeTurning)\n", outputPathRelease, releaseCount, releaseCount-releaseBeforeTurningCount, releaseCount, releaseBeforeTurningCount, releaseCount)
 
 	// Generate eval_dev.json (keep only 3 greatest arg settings per benchmark)
 	devBenchmarks := []Benchmark{}     // updated
@@ -138,10 +138,10 @@ func main() {
 		ScriptPath: "./mnt-collector",
 		Benchmarks: devBenchmarks,
 	}
-	devCount := countArgs(devBenchmarks)                                                                                      // updated
-	devBeforeTurningCount := countBeforeTurning(devBenchmarks)                                                                // updated
-	writeEvalConfig(outputPathDev, devConfig)                                                                                 // updated
-	fmt.Printf("Wrote %s: %d arg settings (%d/%d beforeTurning)\n", outputPathDev, devCount, devBeforeTurningCount, devCount) // updated
+	devCount := countArgs(devBenchmarks)
+	devBeforeTurningCount := countBeforeTurning(devBenchmarks)
+	writeEvalConfig(outputPathDev, devConfig)
+	fmt.Printf("Wrote %s: %d arg settings (%d/%d kept, %d/%d beforeTurning)\n", outputPathDev, devCount, devCount-devBeforeTurningCount, devCount, devBeforeTurningCount, devCount)
 }
 
 func countBeforeTurning(benchmarks []Benchmark) int {
@@ -407,13 +407,13 @@ func sortStrings(a []string) {
 }
 
 // Generalized selection function
-func selectArgsSorted(args []ArgConfig, skipGreatestN int, nMiddle int) []ArgConfig {
-	if len(args) <= nMiddle || (skipGreatestN > 0 && len(args) <= skipGreatestN) {
+func selectArgsSorted(args []ArgConfig, skipGreatestN int, nSmall int) []ArgConfig {
+	if len(args) <= nSmall || (skipGreatestN > 0 && len(args) <= skipGreatestN) {
 		return args
 	}
 
 	var zeroList []ArgConfig
-	if nMiddle > 0 {
+	if nSmall > 0 {
 		// Filter out beforeTurning=1 points
 		for _, a := range args {
 			if truth, ok := a["truth"].(map[string]interface{}); ok {
@@ -484,17 +484,23 @@ func selectArgsSorted(args []ArgConfig, skipGreatestN int, nMiddle int) []ArgCon
 		argList = argList[:len(argList)-skipGreatestN]
 	}
 
-	// For dev: select the middle nMiddle
-	if nMiddle > 0 {
-		// fmt.Printf("Selecting %d middle args from %d total\n", nMiddle, len(argList))
-		if len(argList) > nMiddle {
-			start := (len(argList) - nMiddle) / 2
-			end := start + nMiddle
-			argList = argList[start:end]
+	// For dev: select the middle nSmall
+	if nSmall > 0 {
+		if len(argList) >= nSmall {
+			argList = argList[:nSmall]
 		} else {
 			// If not enough args, just return all
 			argList = argList[:]
 		}
+		// // fmt.Printf("Selecting %d middle args from %d total\n", nSmall, len(argList))
+		// if len(argList) > nSmall {
+		// 	start := (len(argList) - nSmall) / 2
+		// 	end := start + nSmall
+		// 	argList = argList[start:end]
+		// } else {
+		// 	// If not enough args, just return all
+		// 	argList = argList[:]
+		// }
 	}
 
 	var result []ArgConfig
