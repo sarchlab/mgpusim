@@ -140,14 +140,16 @@ jobs:
           fi
           EVAL_END=$(date +%s.%N)
           EVAL_ELAPSED=$(echo "$EVAL_END - $EVAL_START" | bc)
-          NUM_SUITE=$(echo "$OUTPUT" | tail -5 | head -1)
-          NUM_BENCHMARK=$(echo "$OUTPUT" | tail -4 | head -1)
-          NUM_TRACE=$(echo "$OUTPUT" | tail -3 | head -1)
-          DIST_LINE=$(echo "$OUTPUT" | tail -2 | head -1)
-          SCORE=$(echo "$OUTPUT" | tail -1)
+          NUM_SUITE=$(echo "$OUTPUT" | tail -6 | head -1)
+          NUM_BENCHMARK=$(echo "$OUTPUT" | tail -5 | head -1)
+          NUM_TRACE=$(echo "$OUTPUT" | tail -4 | head -1)
+          DIST_LINE=$(echo "$OUTPUT" | tail -3 | head -1)
+          SCORE=$(echo "$OUTPUT" | tail -2 | head -1)
+          RSQUARED=$(echo "$OUTPUT" | tail -1)
           echo "[GitHub Workflow] score distribution read from eval: $DIST_LINE"
           echo "[GitHub Workflow] score: $SCORE"
           echo "[GitHub Workflow] eval elapsed: ${EVAL_ELAPSED}s"
+          echo "rsquared=$RSQUARED" >> $GITHUB_OUTPUT
           echo "score=$SCORE" >> $GITHUB_OUTPUT
           echo "distribution=$DIST_LINE" >> $GITHUB_OUTPUT
           echo "eval_time=$EVAL_ELAPSED" >> $GITHUB_OUTPUT
@@ -160,6 +162,7 @@ jobs:
           SHA="${{ steps.commit_info.outputs.sha }}"
           SHORT_SHA="${SHA:0:7}"
           MSG="${{ steps.commit_info.outputs.message }}"
+          RSQUARED="${{ steps.eval.outputs.rsquared }}"
           SCORE="${{ steps.eval.outputs.score }}"
           DISTRIBUTION="${{ steps.eval.outputs.distribution }}"
           AUTHOR="${{ steps.commit_info.outputs.author }}"
@@ -182,7 +185,7 @@ jobs:
           # fi
 
           # Compose the CSV line
-          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\"" >> nvidia/eval/simulator_evaluation.csv
+          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$RSQUARED,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\"" >> nvidia/eval/simulator_evaluation.csv
 
       - name: Remove cloned repo
         run: |
@@ -194,6 +197,7 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git add nvidia/eval/simulator_evaluation.csv
           git add nvidia/eval/records/
+          git add nvidia/eval/rsquared/
           git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
           git push
         env:

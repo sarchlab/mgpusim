@@ -6,10 +6,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 )
 
 // EvalConfig is for JSON parsing
@@ -63,6 +68,8 @@ func main() {
 	printEvalStats(config.Benchmarks)
 	printAvgSEs(avgSEs, names)
 
+	handleRsquaredAndPlot(allRecords, sha)
+
 	// Save records as JSON
 	outDir := "nvidia/eval/records"
 	if err := os.MkdirAll(outDir, 0755); err != nil {
@@ -83,6 +90,84 @@ func main() {
 		os.Exit(1)
 	}
 	// fmt.Printf("Saved records to %s\n", outPath)
+}
+
+// Call this after saving allRecords
+func handleRsquaredAndPlot(allRecords []Record, sha string) {
+	var truths, preds []float64
+	for _, rec := range allRecords {
+		truth, ok := rec.AvgNanoSec.(float64)
+		if !ok {
+			if tInt, ok := rec.AvgNanoSec.(int); ok {
+				truth = float64(tInt)
+			} else {
+				continue
+			}
+		}
+		pred := rec.PredictCycle
+		truths = append(truths, truth)
+		preds = append(preds, pred)
+	}
+	r2 := rsquared(truths, preds)
+
+	// Create folder
+	rsqDir := "nvidia/eval/rsquared"
+	if err := os.MkdirAll(rsqDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create rsquared dir: %v\n", err)
+		return
+	}
+	// Plot
+	plotPredTruth(truths, preds, sha, r2, filepath.Join(rsqDir, sha+".png"))
+}
+
+// Plot pred vs truth
+func plotPredTruth(truths, preds []float64, sha string, r2 float64, outPath string) {
+	p := plot.New()
+	shortSha := sha
+	if sha != "unknownSHA" && len(sha) >= 7 {
+		shortSha = sha[:7]
+	}
+	p.Title.Text = fmt.Sprintf("%s: R²=%.6f", shortSha, r2)
+	fmt.Printf("%.6f\n", r2)
+	p.X.Label.Text = "Truth (avg_nano_sec)"
+	p.Y.Label.Text = "Prediction (predict_cycle)"
+
+	pts := make(plotter.XYs, len(truths))
+	for i := range truths {
+		pts[i].X = truths[i]
+		pts[i].Y = preds[i]
+	}
+	scatter, err := plotter.NewScatter(pts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create scatter: %v\n", err)
+		return
+	}
+	p.Add(scatter)
+	if err := p.Save(6*vg.Inch, 6*vg.Inch, outPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to save plot: %v\n", err)
+	}
+}
+
+// R² calculation
+func rsquared(truths, preds []float64) float64 {
+	if len(truths) == 0 || len(truths) != len(preds) {
+		return math.NaN()
+	}
+	mean := 0.0
+	for _, t := range truths {
+		mean += t
+	}
+	mean /= float64(len(truths))
+	ssTot := 0.0
+	ssRes := 0.0
+	for i := range truths {
+		ssTot += (truths[i] - mean) * (truths[i] - mean)
+		ssRes += (truths[i] - preds[i]) * (truths[i] - preds[i])
+	}
+	if ssTot == 0 {
+		return math.NaN()
+	}
+	return 1 - ssRes/ssTot
 }
 
 func mustReadConfigAndAfterTurning(path string) EvalConfig {
@@ -226,6 +311,7 @@ func printEvalStats(benchmarks []Benchmark) {
 	// fmt.Printf("num_suite: %d\n", len(suiteSet))
 	// fmt.Printf("num_benchmark: %d\n", numBenchmark)
 	// fmt.Printf("num_trace: %d\n", numTrace)
+	fmt.Printf("The following lines mean: (1) #suite; (2) #benchmark; (3) #trace; (4) SE distribution (5) avgSEs (6) Coefficient of determination R²\n")
 
 	fmt.Printf("%d\n", len(suiteSet))
 	fmt.Printf("%d\n", numBenchmark)
@@ -450,16 +536,6 @@ func average(list []float64) float64 {
 }
 
 func printAvgSEs(avgSEs []float64, names []string) {
-	// // Print the list of avg SEs
-	// fmt.Print("[")
-	// for i, v := range avgSEs {
-	// 	if i > 0 {
-	// 		fmt.Print(",")
-	// 	}
-	// 	fmt.Printf("%.6f", v)
-	// }
-	// fmt.Println("]")
-	// Print the mapping from suite/benchmark to SE
 	fmt.Print("{")
 	for i, v := range avgSEs {
 		if i > 0 {
