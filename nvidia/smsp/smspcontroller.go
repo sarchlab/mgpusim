@@ -4,7 +4,6 @@ import (
 	// "fmt"
 
 	"encoding/binary"
-	"fmt"
 	"math/rand/v2"
 
 	log "github.com/sirupsen/logrus"
@@ -148,10 +147,10 @@ func (s *SMSPController) processMemRsp() bool {
 
 	switch msg.(type) { // switch msg := msg.(type) {
 	case *mem.DataReadyRsp:
-		fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
+		// fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
 	case *mem.WriteDoneRsp:
-		fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
+		// fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
@@ -328,7 +327,7 @@ func (s *SMSPController) doRead(addr *uint64) bool {
 	msg.Src = s.ToMem.AsRemote()
 	msg.Dst = s.ToMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
-	fmt.Printf("%.10f, %s, SMSPController %s sent read req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
+	// fmt.Printf("%.10f, %s, SMSPController %s sent read req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
 	err := s.ToMem.Send(msg)
 	if err != nil {
 		return false
@@ -348,7 +347,7 @@ func (s *SMSPController) doWrite(addr *uint64, d *uint32) bool {
 	msg.Src = s.ToMem.AsRemote()
 	msg.Dst = s.ToMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
-	fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
+	// fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
 	err := s.ToMem.Send(msg)
 	if err != nil {
 		return false
