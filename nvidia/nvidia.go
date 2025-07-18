@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/nvidia/benchmark"
 	"github.com/sarchlab/mgpusim/v4/nvidia/platform"
 	"github.com/sarchlab/mgpusim/v4/nvidia/runner"
@@ -60,9 +61,12 @@ func main() {
 
 	// tracingBackend := tracing.NewDBTracer("")
 	// tracingBackend.Init()
+	b := simulation.MakeBuilder()
+	simulation := b.Build()
 
 	runner := new(runner.RunnerBuilder).
 		WithPlatform(plat).
+		WithSimulation(simulation).
 		Build()
 	runner.AddBenchmark(benchmark)
 

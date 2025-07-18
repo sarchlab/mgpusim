@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rs/xid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -86,7 +87,7 @@ func ReadTrace(meta TraceExecMeta) KernelTrace {
 
 	kernelScanner = bufio.NewScanner(file)
 	trace := KernelTrace{}
-
+	trace.ID = xid.New().String()
 	trace.readTraceHeader()
 	trace.readThreadblocks()
 

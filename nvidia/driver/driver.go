@@ -5,8 +5,10 @@ import (
 
 	"fmt"
 
+	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
@@ -27,6 +29,8 @@ type Driver struct {
 	// trace kernel
 	undispatchedKernels    []*trace.KernelTrace
 	unfinishedKernelsCount uint64
+
+	simulationID string
 }
 
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
@@ -101,6 +105,8 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 	}
 
 	kernel := d.undispatchedKernels[0]
+	// fmt.Printf("Dispatching kernel %s to device %s at time %.10f\n",
+	// 	kernel.ID, d.freeDevices[0].ID, d.Engine.CurrentTime())
 	device := d.freeDevices[0]
 
 	msg := &message.DriverToDeviceMsg{
@@ -119,3 +125,31 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 
 	return true
 }
+
+func (d *Driver) LogSimulationStart() {
+	d.simulationID = xid.New().String()
+	tracing.StartTask(
+		d.simulationID,
+		"",
+		d,
+		"Simulation", "Simulation",
+		nil,
+	)
+}
+
+func (d *Driver) LogSimulationTerminate() {
+	tracing.EndTask(d.simulationID, d)
+}
+
+// func (d *Driver) logTaskToGPUInitiate(
+// 	cmd Command,
+// 	req sim.Msg,
+// ) {
+// 	tracing.TraceReqInitiate(req, d, cmd.GetID())
+// }
+
+// func (d *Driver) logTaskToGPUClear(
+// 	req sim.Msg,
+// ) {
+// 	tracing.TraceReqFinalize(req, d)
+// }

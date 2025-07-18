@@ -16,6 +16,7 @@ import (
 // }
 
 type KernelTrace struct {
+	ID           string
 	FileHeader   KernelFileHeader
 	tbIDToIndex  map[Dim3]int32
 	Threadblocks []*ThreadblockTrace
