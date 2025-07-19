@@ -13,6 +13,8 @@ func (u *ALUImpl) runFlat(state InstEmuState) {
 	switch inst.Opcode {
 	case 16:
 		u.runFlatLoadUByte(state)
+	case 17:
+		u.runFlatLoadSByte(state)
 	case 18:
 		u.runFlatLoadUShort(state)
 	case 20:
@@ -48,6 +50,20 @@ func (u *ALUImpl) runFlatLoadUByte(state InstEmuState) {
 		buf[3] = 0
 
 		sp.DST[i*4] = insts.BytesToUint32(buf)
+	}
+}
+
+func (u *ALUImpl) runFlatLoadSByte(state InstEmuState) {
+	sp := state.Scratchpad().AsFlat()
+	pid := state.PID()
+	for i := uint(0); i < 64; i++ {
+		if !laneMasked(sp.EXEC, i) {
+			continue
+		}
+		buf := u.storageAccessor.Read(pid, sp.ADDR[i], uint64(4))
+		signedByte := int8(buf[0])
+		extendedValue := int32(signedByte)
+		sp.DST[i*4] = uint32(extendedValue)
 	}
 }
 

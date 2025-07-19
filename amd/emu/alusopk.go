@@ -9,6 +9,10 @@ func (u *ALUImpl) runSOPK(state InstEmuState) {
 	switch inst.Opcode {
 	case 0:
 		u.runSMOVKI32(state)
+	case 1:
+		u.runSCMOVKI32(state)
+	case 2:
+		u.runSCMPKEQI32(state)
 	case 3:
 		u.runSCMPKLGI32(state)
 	case 15:
@@ -22,6 +26,24 @@ func (u *ALUImpl) runSMOVKI32(state InstEmuState) {
 	sp := state.Scratchpad().AsSOPK()
 	imm := asInt16(uint16(sp.IMM & 0xffff))
 	sp.DST = uint64(imm)
+}
+
+func (u *ALUImpl) runSCMOVKI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPK()
+	if sp.SCC == 1 {
+		imm := asInt16(uint16(sp.IMM & 0xffff))
+		sp.DST = uint64(imm)
+	}
+}
+
+func (u *ALUImpl) runSCMPKEQI32(state InstEmuState) {
+	sp := state.Scratchpad().AsSOPK()
+	imm := asInt16(uint16(sp.IMM & 0xffff))
+	if asInt16(uint16(sp.DST)) == imm {
+		sp.SCC = 1
+	} else {
+		sp.SCC = 0
+	}
 }
 
 func (u *ALUImpl) runSCMPKLGI32(state InstEmuState) {

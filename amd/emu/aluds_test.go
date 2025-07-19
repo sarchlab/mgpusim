@@ -58,6 +58,23 @@ var _ = Describe("ALU", func() {
 		Expect(insts.BytesToUint32(lds[116:])).To(Equal(uint32(2)))
 	})
 
+	It("should run DS_WRITE_B8", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.DS
+		state.inst.Opcode = 30
+		state.inst.Offset0 = 0
+
+		sp := state.scratchpad.AsDS()
+		sp.EXEC = 0x01
+		sp.ADDR[0] = 201
+		sp.DATA[0] = 0x12345678
+
+		alu.Run(state)
+
+		lds := alu.LDS()
+		Expect(lds[201]).To(Equal(uint8(0x78)))
+	})
+
 	It("should run DS_READ_B32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.DS

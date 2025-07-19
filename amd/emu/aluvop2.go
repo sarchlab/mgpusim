@@ -67,6 +67,8 @@ func (u *ALUImpl) runVOP2(state InstEmuState) {
 		u.runVSUBBU32(state)
 	case 30:
 		u.runVSUBBREVU32(state)
+	case 42:
+		u.runVLSHLREVB16(state)
 	default:
 		log.Panicf("Opcode %d for VOP2 format (%s) is not implemented",
 			inst.Opcode, inst.String(nil))
@@ -725,5 +727,24 @@ func (u *ALUImpl) runVSUBBREVU32(state InstEmuState) {
 		sp.VCC = newVCC
 	} else {
 		log.Panicf("SDWA for VOP2 instruction opcode  %d not implemented \n", inst.Opcode)
+	}
+}
+
+func (u *ALUImpl) runVLSHLREVB16(state InstEmuState) {
+	sp := state.Scratchpad().AsVOP2()
+	inst := state.Inst()
+	if inst.IsSdwa == false {
+		var i uint
+		for i = 0; i < 64; i++ {
+			if !laneMasked(sp.EXEC, i) {
+				continue
+			}
+			src0 := uint16(sp.SRC0[i])
+			src1 := uint16(sp.SRC1[i])
+			dst := src1 << (src0 & 0xF)
+			sp.DST[i] = uint64(dst)
+		}
+	} else {
+		log.Panicf("SDWA for VOP2 instruction opcode %d not implemented\n", inst.Opcode)
 	}
 }
