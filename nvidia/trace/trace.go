@@ -130,3 +130,7 @@ func (tb *ThreadblockTrace) Warp(index uint64) *WarpTrace {
 func (w *WarpTrace) InstructionsCount() uint64 {
 	return uint64(len(w.Instructions))
 }
+
+func (i *InstructionTrace) InstructionsParentID() string {
+	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID)
+}

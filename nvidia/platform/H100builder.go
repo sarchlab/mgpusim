@@ -7,12 +7,14 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/nvidia/driver"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 )
 
 type H100PlatformBuilder struct {
-	freq sim.Freq
+	freq       sim.Freq
+	simulation *simulation.Simulation
 }
 
 func (b *H100PlatformBuilder) WithFreq(freq sim.Freq) *H100PlatformBuilder {
@@ -20,11 +22,18 @@ func (b *H100PlatformBuilder) WithFreq(freq sim.Freq) *H100PlatformBuilder {
 	return b
 }
 
+// WithSimulation sets the simulation to use.
+func (b *H100PlatformBuilder) WithSimulation(sim *simulation.Simulation) *H100PlatformBuilder {
+	b.simulation = sim
+	return b
+}
+
 func (b *H100PlatformBuilder) Build() *Platform {
 	b.freqMustBeSet()
 
 	p := new(Platform)
-	p.Engine = sim.NewSerialEngine()
+	// p.Engine = sim.NewSerialEngine()
+	p.Engine = b.simulation.GetEngine()
 	p.Driver = new(driver.DriverBuilder).
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
@@ -33,6 +42,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 	gpuDriver := new(gpu.GPUBuilder).
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
+		WithSimulation(b.simulation).
 		WithSMsCount(112).
 		WithSMSPsCountPerSM(4).
 		WithL2CacheSize(50 * mem.MB).

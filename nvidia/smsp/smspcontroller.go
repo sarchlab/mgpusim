@@ -10,6 +10,7 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
@@ -32,6 +33,7 @@ type SMSPController struct {
 	ToMem            sim.Port
 	ToMemRemote      sim.Port
 	waitingForMemRsp bool
+	waitingCycle     uint64
 
 	PendingSMSPtoMemReadReq  map[string]*mem.ReadReq
 	PendingSMSPtoMemWriteReq map[string]*mem.WriteReq
@@ -145,11 +147,17 @@ func (s *SMSPController) processMemRsp() bool {
 		return false
 	}
 
-	switch msg.(type) { // switch msg := msg.(type) {
+	switch msg := msg.(type) { // switch msg := msg.(type) {
 	case *mem.DataReadyRsp:
+		originalReqMsg := s.PendingSMSPtoMemReadReq[msg.RespondTo]
+		// fmt.Printf("DataReadyRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
+		tracing.TraceReqFinalize(originalReqMsg, s)
 		// fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
 	case *mem.WriteDoneRsp:
+		originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
+		// fmt.Printf("WriteDoneRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
+		tracing.TraceReqFinalize(originalReqMsg, s)
 		// fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
 	default:
@@ -265,6 +273,11 @@ func (s *SMSPController) run() bool {
 	if s.unfinishedInstsCount == 0 || s.waitingForMemRsp {
 		return false
 	}
+	if s.waitingCycle > 0 {
+		s.waitingCycle--
+		return true
+	}
+	//  || s.waitingForMemRsp
 
 	s.unfinishedInstsCount--
 	if s.unfinishedInstsCount == 0 {
@@ -272,15 +285,27 @@ func (s *SMSPController) run() bool {
 	}
 	currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
 	currentInstructionType := currentInstruction.OpCode.OpcodeType()
+	reqParentID := currentInstruction.InstructionsParentID()
 	// fmt.Printf("%v\n", currentInstructionType == trace.OpCodeMemRead)
 	switch currentInstructionType {
 	case trace.OpCodeMemRead:
 		address := rand.Uint64() % (1048576 / 4) * 4
-		s.doRead(&address)
+		s.doRead(reqParentID, &address)
 	case trace.OpCodeMemWrite:
 		address := rand.Uint64() % (1048576 / 4) * 4
 		data := rand.Uint32()
-		s.doWrite(&address, &data)
+		s.doWrite(reqParentID, &address, &data)
+	case trace.OpCodeExit:
+		s.unfinishedInstsCount = 0
+		s.finishedWarpsCount++
+	case trace.OpCode4:
+		s.waitingCycle = 3
+	case trace.OpCode6:
+		s.waitingCycle = 5
+	case trace.OpCode8:
+		s.waitingCycle = 7
+	case trace.OpCode10:
+		s.waitingCycle = 9
 	}
 
 	// if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
@@ -317,7 +342,7 @@ func (s *SMSPController) reportFinishedWarps() bool {
 	return true
 }
 
-func (s *SMSPController) doRead(addr *uint64) bool {
+func (s *SMSPController) doRead(reqParentID string, addr *uint64) bool {
 	msg := mem.ReadReqBuilder{}.
 		WithSrc(s.ToMem.AsRemote()).
 		WithDst(s.ToMemRemote.AsRemote()).
@@ -327,6 +352,8 @@ func (s *SMSPController) doRead(addr *uint64) bool {
 	msg.Src = s.ToMem.AsRemote()
 	msg.Dst = s.ToMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
+	tracing.TraceReqInitiate(msg, s, reqParentID)
+	s.PendingSMSPtoMemReadReq[msg.ID] = msg
 	// fmt.Printf("%.10f, %s, SMSPController %s sent read req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
 	err := s.ToMem.Send(msg)
 	if err != nil {
@@ -336,7 +363,7 @@ func (s *SMSPController) doRead(addr *uint64) bool {
 	return true
 }
 
-func (s *SMSPController) doWrite(addr *uint64, d *uint32) bool {
+func (s *SMSPController) doWrite(reqParentID string, addr *uint64, d *uint32) bool {
 	msg := mem.WriteReqBuilder{}.
 		WithSrc(s.ToMem.AsRemote()).
 		WithDst(s.ToMemRemote.AsRemote()).
@@ -347,6 +374,8 @@ func (s *SMSPController) doWrite(addr *uint64, d *uint32) bool {
 	msg.Src = s.ToMem.AsRemote()
 	msg.Dst = s.ToMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
+	tracing.TraceReqInitiate(msg, s, reqParentID)
+	s.PendingSMSPtoMemWriteReq[msg.ID] = msg
 	// fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
 	err := s.ToMem.Send(msg)
 	if err != nil {

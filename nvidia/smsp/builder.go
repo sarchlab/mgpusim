@@ -5,12 +5,14 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/tebeka/atexit"
 )
 
 type SMSPBuilder struct {
-	engine sim.Engine
-	freq   sim.Freq
+	simulation *simulation.Simulation
+	engine     sim.Engine
+	freq       sim.Freq
 }
 
 func (b *SMSPBuilder) WithEngine(engine sim.Engine) *SMSPBuilder {
@@ -23,18 +25,25 @@ func (b *SMSPBuilder) WithFreq(freq sim.Freq) *SMSPBuilder {
 	return b
 }
 
+func (b *SMSPBuilder) WithSimulation(sim *simulation.Simulation) *SMSPBuilder {
+	b.simulation = sim
+	return b
+}
+
 func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s := &SMSPController{
 		ID: sim.GetIDGenerator().Generate(),
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
-	s.toSM = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToSM", name))
+	s.toSM = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToSM", name))
 	s.AddPort(fmt.Sprintf("%s.ToSM", name), s.toSM)
 
 	// cache updates
-	s.ToMem = sim.NewPort(s, 4, 4, fmt.Sprintf("%s.ToMem", name))
+	s.ToMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToMem", name))
 	s.AddPort(fmt.Sprintf("%s.ToMem", name), s.ToMem)
+
+	s.waitingCycle = 0
 
 	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
 	s.PendingSMSPtoMemWriteReq = make(map[string]*mem.WriteReq)

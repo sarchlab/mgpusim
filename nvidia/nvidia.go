@@ -46,13 +46,18 @@ func main() {
 	// 	Build()
 	var plat *platform.Platform // <-- declare outside if/else
 
+	b := simulation.MakeBuilder()
+	simulation := b.WithoutMonitoring().Build()
+
 	if *params.Device == "A100" {
 		plat = (&platform.A100PlatformBuilder{}).
 			WithFreq(1 * sim.Hz).
+			WithSimulation(simulation).
 			Build()
 	} else if *params.Device == "H100" {
 		plat = (&platform.H100PlatformBuilder{}).
 			WithFreq(1 * sim.Hz).
+			WithSimulation(simulation).
 			Build()
 	} else {
 		log.Fatal("Invalid device type. Please specify 'A100' or 'H100'.")
@@ -61,13 +66,14 @@ func main() {
 
 	// tracingBackend := tracing.NewDBTracer("")
 	// tracingBackend.Init()
-	b := simulation.MakeBuilder()
-	simulation := b.Build()
+	// b := simulation.MakeBuilder()
+	// simulation := b.Build()
 
 	runner := new(runner.RunnerBuilder).
 		WithPlatform(plat).
 		WithSimulation(simulation).
 		Build()
+	// runner.Init()
 	runner.AddBenchmark(benchmark)
 
 	runner.Run()

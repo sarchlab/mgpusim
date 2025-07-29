@@ -19,6 +19,11 @@ const (
 	OpCodeError
 	OpCodeMemRead
 	OpCodeMemWrite
+	OpCodeExit
+	OpCode4
+	OpCode6
+	OpCode8
+	OpCode10
 	IMADMOVU32
 )
 
@@ -56,16 +61,21 @@ var opcodeTable map[string]Opcode
 func init() {
 	opcodeTable = make(map[string]Opcode)
 
-	opcodeTable["IMAD.MOV.U32"] = Opcode{"IMAD.MOV.U32", IMADMOVU32, VariableINT32}
+	// opcodeTable["IMAD.MOV.U32"] = Opcode{"IMAD.MOV.U32", IMADMOVU32, VariableINT32}
+	opcodeTable["EXIT"] = Opcode{"EXIT", OpCodeExit, VariableDefault}
+
 	opcodeTable["MOV"] = Opcode{"MOV", OpCodeDefault, VariableDefault}
-	opcodeTable["S2R"] = Opcode{"S2R", OpCodeDefault, VariableDefault}
-	opcodeTable["IMAD"] = Opcode{"IMAD", OpCodeDefault, VariableDefault}
 	opcodeTable["ISETP.GE.AND"] = Opcode{"ISETP.GE.AND", OpCodeDefault, VariableDefault}
-	opcodeTable["EXIT"] = Opcode{"EXIT", OpCodeDefault, VariableDefault}
-	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCodeDefault, VariableDefault}
-	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCodeDefault, VariableDefault}
-	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCodeDefault, VariableDefault}
+
+	opcodeTable["IMAD"] = Opcode{"IMAD", OpCode4, VariableDefault}
+	opcodeTable["FADD"] = Opcode{"FADD", OpCode4, VariableDefault}
+	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCode4, VariableDefault}
+
+	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCode6, VariableDefault}
+
+	opcodeTable["S2R"] = Opcode{"S2R", OpCode8, VariableDefault}
+	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCode8, VariableDefault}
+
 	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeMemRead, VariableDefault}
-	opcodeTable["FADD"] = Opcode{"FADD", OpCodeDefault, VariableDefault}
 	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeMemWrite, VariableDefault}
 }
