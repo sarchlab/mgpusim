@@ -316,7 +316,7 @@ func (b *GPUBuilder) buildDRAMControllers() {
 	dram := idealmemcontroller.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithLatency(1).
+		WithLatency(100).
 		// WithStorage(b.globalStorage).
 		Build(dramName)
 	b.simulation.RegisterComponent(dram)
