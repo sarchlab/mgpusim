@@ -36,7 +36,7 @@ type Driver struct {
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 	d := &Driver{}
 	d.TickingComponent = sim.NewTickingComponent(name, engine, freq, d)
-	d.toDevices = sim.NewPort(d, 4, 4, fmt.Sprintf("%s.ToDevice", name))
+	d.toDevices = sim.NewPort(d, 4096, 4096, fmt.Sprintf("%s.ToDevice", name))
 	d.AddPort(fmt.Sprintf("%s.ToDevice", name), d.toDevices)
 
 	d.connectionWithDevices = directconnection.MakeBuilder().
@@ -128,16 +128,12 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 
 func (d *Driver) LogSimulationStart() {
 	d.simulationID = xid.New().String()
-	tracing.StartTask(
-		d.simulationID,
-		"",
-		d,
-		"Simulation", "Simulation",
-		nil,
-	)
+	// fmt.Printf("tracing.StartTask: Simulation ID: %s\n", d.simulationID)
+	tracing.StartTask(d.simulationID, "", d, "Simulation", "Simulation", nil)
 }
 
 func (d *Driver) LogSimulationTerminate() {
+	// fmt.Printf("tracing.EndTask: Simulation ID: %s\n", d.simulationID)
 	tracing.EndTask(d.simulationID, d)
 }
 

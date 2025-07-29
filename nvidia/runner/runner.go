@@ -19,10 +19,22 @@ func (r *Runner) AddBenchmark(benchmark *benchmark.Benchmark) {
 	r.benchmarks = append(r.benchmarks, benchmark)
 }
 
+// func (r *Runner) Init() *Runner {
+// 	r.initSimulation()
+// 	return r
+// }
+
+// func (r *Runner) initSimulation() {
+// 	builder := simulation.MakeBuilder()
+// 	r.simulation = builder.Build()
+// }
+
 func (r *Runner) Run() {
 	// simulationBuilder := simulation.MakeBuilder()
 	// r.simulation = simulationBuilder.Build()
 	// tracing.StartTask(r.simulation.ID(), "", )
+	// r.Driver().Run()
+	// r.simulation.GetComponentByName("Driver").(*driver.Driver)
 
 	for _, benchmark := range r.benchmarks {
 		execs := benchmark.TraceExecs
@@ -30,13 +42,26 @@ func (r *Runner) Run() {
 			exec.Run(r.Driver())
 		}
 	}
+	// updated for tracing
 	r.configureVisTracing()
-	r.Driver().LogSimulationStart()
+	r.simulation.RegisterComponent(r.platform.Driver)
+	// for _, oneComp := range r.simulation.Components() {
+	// 	fmt.Printf("Registered component: %v\n", oneComp.Name())
+	// }
+
+	// r.platform.Driver.LogSimulationStart()
+	r.simulation.GetComponentByName("Driver").(*driver.Driver).LogSimulationStart()
+
 	r.Driver().TickLater()
 	r.Engine().Run()
-	r.Driver().LogSimulationTerminate()
+
+	// updated for tracing
+	// r.platform.Driver.LogSimulationTerminate()
+	// r.simulation.GetComponentByName("Driver").driverStopped
+	r.simulation.GetComponentByName("Driver").(*driver.Driver).LogSimulationTerminate()
 	r.simulation.Terminate()
-	// 	r.Engine().Finished()
+
+	// r.Engine().Finished()
 }
 
 func (r *Runner) Driver() *driver.Driver {
@@ -50,6 +75,7 @@ func (r *Runner) Engine() sim.Engine {
 func (r *Runner) configureVisTracing() {
 	visTracer := r.simulation.GetVisTracer()
 	for _, comp := range r.simulation.Components() {
+		// fmt.Printf("Registering %s for tracing\n", comp.Name())
 		tracing.CollectTrace(comp.(tracing.NamedHookable), visTracer)
 	}
 }

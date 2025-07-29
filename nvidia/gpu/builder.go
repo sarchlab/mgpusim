@@ -7,13 +7,15 @@ import (
 	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection" //
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
 	"github.com/tebeka/atexit"
 )
 
 type GPUBuilder struct {
-	gpuName string
-	gpu     *GPUController
+	simulation *simulation.Simulation
+	gpuName    string
+	gpu        *GPUController
 
 	engine sim.Engine
 	freq   sim.Freq
@@ -46,6 +48,11 @@ func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
 
 func (b *GPUBuilder) WithFreq(freq sim.Freq) *GPUBuilder {
 	b.freq = freq
+	return b
+}
+
+func (b *GPUBuilder) WithSimulation(sim *simulation.Simulation) *GPUBuilder {
+	b.simulation = sim
 	return b
 }
 
@@ -136,18 +143,18 @@ func (b *GPUBuilder) createGPU(name string) {
 }
 
 func (b *GPUBuilder) buildPortsForGPU(g *GPUController, name string) {
-	g.toDriver = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToDriver", name))
-	g.toSMs = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToSMs", name))
+	g.toDriver = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToDriver", name))
+	g.toSMs = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToSMs", name))
 	g.AddPort(fmt.Sprintf("%s.ToDriver", name), g.toDriver)
 	g.AddPort(fmt.Sprintf("%s.ToSMs", name), g.toSMs)
 
 	// cache updates
-	// 	g.toSMMem = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToSMMem", name))
+	// 	g.toSMMem = sim.NewPort(g,4096, 4096, fmt.Sprintf("%s.ToSMMem", name))
 	// 	g.AddPort(fmt.Sprintf("%s.ToSMMem", name), g.toSMMem)
 
-	g.ToCaches = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToCaches", name))
+	g.ToCaches = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToCaches", name))
 	g.AddPort(fmt.Sprintf("%s.ToCaches", name), g.ToCaches)
-	g.ToSMSPsMem = sim.NewPort(g, 4, 4, fmt.Sprintf("%s.ToSMSPsMem", name))
+	g.ToSMSPsMem = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToSMSPsMem", name))
 	g.AddPort(fmt.Sprintf("%s.ToSMSPsMem", name), g.ToSMSPsMem)
 }
 
@@ -155,11 +162,13 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 	smBuilder := new(sm.SMBuilder).
 		WithEngine(b.engine).
 		WithFreq(b.freq).
+		WithSimulation(b.simulation).
 		WithSMSPsCount(b.smspsCountPerSM)
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {
 		sm := smBuilder.Build(fmt.Sprintf("%s.SM(%d)", gpuName, i))
+		b.simulation.RegisterComponent(sm)
 		sms = append(sms, sm)
 	}
 
@@ -174,6 +183,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 		WithFreq(1 * sim.GHz).
 		Build("GPUToSMs")
 	conn.PlugIn(gpu.toSMs)
+	b.simulation.RegisterComponent(conn)
 	// conn.PlugIn(gpu.toSMMem)
 
 	for i := range sms {
@@ -236,6 +246,7 @@ func (b *GPUBuilder) connectGPUControllerToSMSPs(gpu *GPUController, sms []*sm.S
 		WithFreq(1 * sim.GHz).
 		Build("SMSPsToMem")
 	conn.PlugIn(d.GetPortByName("Top"))
+	b.simulation.RegisterComponent(conn)
 
 	for i := range sms {
 		sm := sms[i]
@@ -308,6 +319,7 @@ func (b *GPUBuilder) buildDRAMControllers() {
 		WithLatency(1).
 		// WithStorage(b.globalStorage).
 		Build(dramName)
+	b.simulation.RegisterComponent(dram)
 	b.DRAM = dram
 }
 

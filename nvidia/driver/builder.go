@@ -39,6 +39,6 @@ func (b *DriverBuilder) Build(name string) *Driver {
 }
 
 func (b *DriverBuilder) buildPortsForDriver(d *Driver) {
-	d.toDevices = sim.NewPort(d, 4, 4, "ToDevice")
+	d.toDevices = sim.NewPort(d, 4096, 4096, "ToDevice")
 	d.AddPort("ToDevice", d.toDevices)
 }
