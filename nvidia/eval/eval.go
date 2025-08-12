@@ -380,7 +380,12 @@ func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 				}
 			}
 		}
-		simResult := runSimulation(scriptPath, tmpYamlPath)
+		simResult, err := runSimulation(scriptPath, tmpYamlPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error during simulation: %v\n", err)
+			fmt.Printf("Skipping trace-id %s due to error\n", traceID)
+			continue // Skip this iteration if an error occurs
+		}
 		if simResult == 0 || simResult == 1 {
 			fmt.Fprintf(os.Stderr, "Error: simResult is %v (likely due to process exit code)\n", simResult)
 			continue
@@ -565,7 +570,7 @@ trace-id:
 	return os.WriteFile(path, []byte(fmt.Sprintf(content, traceID)), 0644)
 }
 
-func runSimulation(scriptPath, tmpYamlPath string) float64 {
+func runSimulation(scriptPath, tmpYamlPath string) (float64, error) {
 	cmd := exec.Command(
 		"./mnt-collector",
 		"simulations", "--collect", "../nvidia/eval/tmp.yaml",
@@ -587,16 +592,16 @@ func runSimulation(scriptPath, tmpYamlPath string) float64 {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get stdout: %v\n", err)
-		return 0
+		return 0, fmt.Errorf("failed to get stdout: %v", err)
 	}
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start command: %v\n", err)
-		return 0
+		return 0, fmt.Errorf("failed to start command: %v", err)
 	}
 	result := parseLastFloat(stdout)
 	cmd.Wait()
-	return result
+	return result, nil
 }
 
 // Parse the last float from the command output
