@@ -16,7 +16,6 @@ func (m *ctrlMiddleware) Tick() bool {
 	madeProgress := false
 	madeProgress = m.Handle() || madeProgress
 	return madeProgress
-
 }
 
 func (m *ctrlMiddleware) Handle() bool {
