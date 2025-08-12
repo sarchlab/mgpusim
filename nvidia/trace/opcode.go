@@ -1,6 +1,12 @@
 package trace
 
-import log "github.com/sirupsen/logrus"
+import (
+	"bufio"
+	"os"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
+)
 
 type VariableType int32
 
@@ -40,8 +46,36 @@ func NewOpcode(rawText string) *Opcode {
 		// log.WithField("opcode", rawText).Panic("Unknown opcode")
 		log.WithField("opcode", rawText).Warn("Unknown opcode")
 		op = Opcode{rawText, OpCodeDefault, VariableDefault}
+
+		filePath := "unknownopcode.log"
+		appendToFileIfNotExists(filePath, rawText)
 	}
 	return &op
+}
+
+// Helper function to append a line to a file if it doesn't already exist
+func appendToFileIfNotExists(filePath, line string) {
+	// Open the file (create if not exists)
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		log.WithField("error", err).Error("Failed to open unknownopcode.log")
+		return
+	}
+	defer file.Close()
+
+	// Check if the line already exists
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == line {
+			return // Line already exists, skip
+		}
+	}
+
+	// Append the line to the file
+	_, err = file.WriteString(line + "\n")
+	if err != nil {
+		log.WithField("error", err).Error("Failed to write to unknownopcode.log")
+	}
 }
 
 func (op *Opcode) String() string {
