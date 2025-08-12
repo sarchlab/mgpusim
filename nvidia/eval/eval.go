@@ -117,15 +117,33 @@ func main() {
 
 func extractCorrelationData(allRecords []Record) (truths, preds []float64) {
 	for _, rec := range allRecords {
-		truth, ok := rec.AvgNanoSec.(float64)
+		// Extract AvgNanoSec and convert to float64
+		avgNanoSec, ok := rec.AvgNanoSec.(float64)
 		if !ok {
 			if tInt, ok := rec.AvgNanoSec.(int); ok {
-				truth = float64(tInt)
+				avgNanoSec = float64(tInt)
 			} else {
 				continue
 			}
 		}
+
+		// Extract Frequency and convert to float64
+		frequency, ok := rec.Frequency.(float64)
+		if !ok {
+			if fInt, ok := rec.Frequency.(int); ok {
+				frequency = float64(fInt)
+			} else {
+				continue
+			}
+		}
+
+		// Calculate truth as (AvgNanoSec * 1e-3) * Frequency
+		truth := (avgNanoSec * 1e-3) * frequency
+
+		// Extract PredictCycle
 		pred := rec.PredictCycle
+
+		// Append to results
 		truths = append(truths, truth)
 		preds = append(preds, pred)
 	}
@@ -156,7 +174,7 @@ func plotCorrelation(truths, preds []float64, outPath string, scatterColor color
 	p := plot.New()
 	p.Title.Text = fmt.Sprintf("%s", title)
 	// fmt.Printf("%s=%.6f\n", coeffName, coeff)
-	p.X.Label.Text = "Truth Cycles (avg_nano_sec)"
+	p.X.Label.Text = "Truth Cycles (avg_nano_sec * frequency_nano)"
 	p.Y.Label.Text = "Prediction Cycles (predict_cycle)"
 	p.X.Min = 0
 	p.Y.Min = 0
