@@ -37,7 +37,7 @@ type GroundTruthEntry struct {
 	Line          int
 }
 
-const ratioSkipRelease = 0 // 0.35
+const ratioSkipRelease = 0.35
 
 func main() {
 	// Example usage:
