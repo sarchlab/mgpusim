@@ -170,7 +170,7 @@ var _ = Describe("CommandProcessor", func() {
 		dispatcher.EXPECT().StartDispatching(req)
 		toDriver.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processLaunchKernelReq(req)
+		madeProgress := commandProcessor.middleware.processLaunchKernelReq(req)
 
 		Expect(madeProgress).To(BeTrue())
 	})
@@ -180,7 +180,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		dispatcher.EXPECT().IsDispatching().Return(true)
 
-		madeProgress := commandProcessor.processLaunchKernelReq(req)
+		madeProgress := commandProcessor.middleware.processLaunchKernelReq(req)
 
 		Expect(madeProgress).To(BeFalse())
 	})
@@ -195,7 +195,7 @@ var _ = Describe("CommandProcessor", func() {
 		toRDMA.EXPECT().Send(gomock.AssignableToTypeOf(drainReq))
 		toDriver.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processRDMADrainCmd(cmd)
+		madeProgress := commandProcessor.ctrlMiddleware.processRDMADrainCmd(cmd)
 
 		Expect(madeProgress).To(BeTrue())
 	})
@@ -231,7 +231,7 @@ var _ = Describe("CommandProcessor", func() {
 		}
 		toDriver.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processShootdownCommand(cmd)
+		madeProgress := commandProcessor.ctrlMiddleware.processShootdownCommand(cmd)
 
 		Expect(commandProcessor.numCUAck).To(Equal(uint64(10)))
 		Expect(madeProgress).To(BeTrue())
@@ -396,7 +396,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		toDriver.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processGPURestartReq(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processGPURestartReq(req)
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(commandProcessor.numCacheACK).To(Equal(uint64(40)))
@@ -502,7 +502,7 @@ var _ = Describe("CommandProcessor", func() {
 		toDriver.EXPECT().RetrieveIncoming()
 
 		madeProgress :=
-			commandProcessor.processPageMigrationReq(req)
+			commandProcessor.ctrlMiddleware.processPageMigrationReq(req)
 
 		Expect(madeProgress).To(BeTrue())
 
