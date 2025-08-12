@@ -383,7 +383,7 @@ func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 		simResult, err := runSimulation(scriptPath, tmpYamlPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error during simulation: %v\n", err)
-			fmt.Printf("Skipping trace-id %s due to error\n", traceID)
+			// fmt.Printf("Skipping trace-id %s due to error\n", traceID)
 			continue // Skip this iteration if an error occurs
 		}
 		if simResult == 0 || simResult == 1 {
