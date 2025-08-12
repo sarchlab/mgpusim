@@ -300,14 +300,14 @@ func (s *SMSPController) run() bool {
 			s.unfinishedInstsCount = 0
 			s.finishedWarpsCount++
 		}
-	case trace.OpCode4:
-		s.waitingCycle = 3
-	case trace.OpCode6:
-		s.waitingCycle = 5
-	case trace.OpCode8:
-		s.waitingCycle = 7
-	case trace.OpCode10:
-		s.waitingCycle = 9
+		// case trace.OpCode4:
+		// 	s.waitingCycle = 3
+		// case trace.OpCode6:
+		// 	s.waitingCycle = 5
+		// case trace.OpCode8:
+		// 	s.waitingCycle = 7
+		// case trace.OpCode10:
+		// 	s.waitingCycle = 9
 	}
 
 	// if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
