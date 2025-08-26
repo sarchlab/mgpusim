@@ -81,6 +81,11 @@ func (b Builder) Build(name string) *CommandProcessor {
 
 	b.buildDispatchers(cp)
 
+	cp.middleware = &cpMiddleware{cp}
+	cp.ctrlMiddleware = &ctrlMiddleware{cp}
+
+	//cp.middlewares = []Middleware{cpMiddleware, ctrlMiddleware}
+
 	if b.perfAnalyzer != nil {
 		b.perfAnalyzer.RegisterComponent(cp)
 	}
