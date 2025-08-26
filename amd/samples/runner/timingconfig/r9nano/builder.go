@@ -640,7 +640,7 @@ func (b *Builder) buildL2TLB() {
 		WithNumReqPerCycle(1024).
 		WithPageSize(1 << b.log2PageSize).
 		WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
-		WithAddressMapper(&mem.SinglePortMapper{
+		WithTranslationProviderMapper(&mem.SinglePortMapper{
 			Port: b.mmu.GetPortByName("Top").AsRemote(),
 		})
 
