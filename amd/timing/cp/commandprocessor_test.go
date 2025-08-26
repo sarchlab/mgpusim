@@ -208,7 +208,7 @@ var _ = Describe("CommandProcessor", func() {
 		toDriver.EXPECT().Send(gomock.AssignableToTypeOf(drainRsp))
 		toRDMA.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processRDMADrainRsp(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processRDMADrainRsp(req)
 
 		Expect(madeProgress).To(BeTrue())
 	})
@@ -247,7 +247,7 @@ var _ = Describe("CommandProcessor", func() {
 		}
 		toCU.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processCUPipelineFlushRsp(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processCUPipelineFlushRsp(req)
 
 		Expect(commandProcessor.numAddrTranslationFlushAck).
 			To(Equal(uint64(10)))
@@ -307,7 +307,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		toAddressTranslator.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processAddressTranslatorFlushRsp(
+		madeProgress := commandProcessor.ctrlMiddleware.processAddressTranslatorFlushRsp(
 			req)
 
 		Expect(commandProcessor.numCacheACK).To(Equal(uint64(40)))
@@ -336,7 +336,7 @@ var _ = Describe("CommandProcessor", func() {
 
 		toCaches.EXPECT().RetrieveIncoming()
 
-		commandProcessor.processCacheFlushRsp(req)
+		commandProcessor.ctrlMiddleware.processCacheFlushRsp(req)
 
 		Expect(commandProcessor.numTLBAck).To(Equal(uint64(10)))
 	})
@@ -351,7 +351,7 @@ var _ = Describe("CommandProcessor", func() {
 		toDriver.EXPECT().Send(gomock.AssignableToTypeOf(rsp))
 		toTLB.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processTLBFlushRsp(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processTLBFlushRsp(req)
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(commandProcessor.shootDownInProcess).To(BeFalse())
@@ -416,7 +416,7 @@ var _ = Describe("CommandProcessor", func() {
 		}
 		toCaches.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processCacheRestartRsp(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processCacheRestartRsp(req)
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(commandProcessor.numTLBAck).To(Equal(uint64(10)))
@@ -434,7 +434,7 @@ var _ = Describe("CommandProcessor", func() {
 		}
 		toTLB.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processTLBRestartRsp(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processTLBRestartRsp(req)
 
 		Expect(madeProgress).To(BeTrue())
 		Expect(commandProcessor.numAddrTranslationRestartAck).
@@ -457,7 +457,7 @@ var _ = Describe("CommandProcessor", func() {
 		toAddressTranslator.EXPECT().RetrieveIncoming()
 
 		madeProgress :=
-			commandProcessor.processAddressTranslatorRestartRsp(req)
+			commandProcessor.ctrlMiddleware.processAddressTranslatorRestartRsp(req)
 
 		Expect(commandProcessor.numCUAck).To(Equal(uint64(10)))
 		Expect(madeProgress).To(BeTrue())
@@ -474,7 +474,7 @@ var _ = Describe("CommandProcessor", func() {
 		toDriver.EXPECT().Send(gomock.AssignableToTypeOf(gpuRestartRsp))
 		toCU.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processCUPipelineRestartRsp(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processCUPipelineRestartRsp(req)
 
 		Expect(madeProgress).To(BeTrue())
 	})
@@ -518,7 +518,7 @@ var _ = Describe("CommandProcessor", func() {
 		toDriver.EXPECT().Send(gomock.AssignableToTypeOf(rsp))
 		toPMC.EXPECT().RetrieveIncoming()
 
-		madeProgress := commandProcessor.processPageMigrationRsp(req)
+		madeProgress := commandProcessor.ctrlMiddleware.processPageMigrationRsp(req)
 
 		Expect(madeProgress).To(BeTrue())
 	})

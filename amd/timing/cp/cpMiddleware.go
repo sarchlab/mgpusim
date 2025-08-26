@@ -16,6 +16,7 @@ type cpMiddleware struct {
 func (m *cpMiddleware) Tick() bool {
 	madeProgress := false
 	madeProgress = m.Handle() || madeProgress
+	madeProgress = m.HandleInternal() || madeProgress
 	return madeProgress
 }
 
@@ -31,6 +32,66 @@ func (m *cpMiddleware) Handle() bool {
 		return m.processMemCopyReq(req)
 	}
 	return false
+}
+
+func (m *cpMiddleware) HandleInternal() bool {
+	madeProgress := false
+	madeProgress = m.processRspFromDMAs() || madeProgress
+	return madeProgress
+}
+
+func (m *cpMiddleware) processRspFromDMAs() bool {
+	msg := m.ToDMA.PeekIncoming()
+	if msg == nil {
+		return false
+	}
+
+	switch req := msg.(type) {
+	case *sim.GeneralRsp:
+		return m.processMemCopyRsp(req) //cp
+	}
+
+	panic("never")
+}
+
+func (m *cpMiddleware) processMemCopyRsp(
+	req sim.Rsp,
+) bool {
+	originalReq := m.findAndRemoveOriginalMemCopyRequest(req)
+
+	rsp := sim.GeneralRspBuilder{}.
+		WithDst(originalReq.Meta().Src).
+		WithSrc(m.ToDriver.AsRemote()).
+		WithOriginalReq(originalReq).
+		Build()
+
+	m.ToDriver.Send(rsp)
+	m.ToDMA.RetrieveIncoming()
+
+	tracing.TraceReqComplete(originalReq, m.CommandProcessor)
+	tracing.TraceReqFinalize(req, m.CommandProcessor)
+
+	return true
+}
+
+func (m *cpMiddleware) findAndRemoveOriginalMemCopyRequest(
+	rsp sim.Rsp,
+) sim.Msg {
+	rspTo := rsp.GetRspTo()
+
+	originalH2DReq, ok := m.bottomMemCopyH2DReqIDToTopReqMap[rspTo]
+	if ok {
+		delete(m.bottomMemCopyH2DReqIDToTopReqMap, rspTo)
+		return originalH2DReq
+	}
+
+	originalD2HReq, ok := m.bottomMemCopyD2HReqIDToTopReqMap[rspTo]
+	if ok {
+		delete(m.bottomMemCopyD2HReqIDToTopReqMap, rspTo)
+		return originalD2HReq
+	}
+
+	panic("never")
 }
 
 func (m *cpMiddleware) processLaunchKernelReq(

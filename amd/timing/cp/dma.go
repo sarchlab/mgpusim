@@ -69,7 +69,7 @@ type DMAEngine struct {
 
 	processingReqs []*RequestCollection
 
-	processingReq   sim.Msg
+	//processingReq   sim.Msg
 	maxRequestCount uint64
 
 	toSendToMem []sim.Msg
