@@ -299,6 +299,22 @@ var _ = Describe("ALU", func() {
 
 	})
 
+	It("should run V_LSHLREV_B16", func() {
+		state.inst = insts.NewInst()
+		state.inst.FormatType = insts.VOP2
+		state.inst.Opcode = 42
+
+		sp := state.Scratchpad().AsVOP2()
+		sp.SRC0[0] = 0x64
+		sp.SRC1[0] = 0x04
+		sp.EXEC = 1
+
+		alu.Run(state)
+
+		Expect(uint16(sp.DST[0])).To(Equal(uint16(0x40)))
+
+	})
+
 	It("should run V_AND_B32", func() {
 		state.inst = insts.NewInst()
 		state.inst.FormatType = insts.VOP2
