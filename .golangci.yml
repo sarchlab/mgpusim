@@ -8,6 +8,7 @@ linters:
     - depguard
     - dupl
     - dupword
+    - embeddedstructfieldcheck
     - err113
     - exhaustive
     - exhaustruct
@@ -31,6 +32,7 @@ linters:
     - mnd
     - nestif
     - nlreturn
+    - noinlineerr
     - nolintlint
     - nonamedreturns
     - paralleltest
@@ -49,6 +51,7 @@ linters:
     - wastedassign
     - wrapcheck
     - wsl
+    - wsl_v5
     - errcheck
     - errorlint
     - usestdlibvars

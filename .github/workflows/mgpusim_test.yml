@@ -13,7 +13,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Build
         run: go build ./...
@@ -28,12 +28,12 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: "v2.1.5"
+          version: "v2.4.0"
           args: --timeout=10m
           skip-cache: true
 
@@ -48,10 +48,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Install Ginkgo
-        run: go install github.com/onsi/ginkgo/v2/ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.25.1
 
       - name: Unit Test
         run: ginkgo -r
@@ -70,7 +70,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -95,7 +95,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Run Single GPU Acceptance Test
         timeout-minutes: 60
@@ -118,7 +118,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Run Two Discrete GPU Test
         timeout-minutes: 60
@@ -141,7 +141,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Run Four Discrete GPU Test
         timeout-minutes: 60
@@ -164,7 +164,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Run Two Unified GPU Test
         timeout-minutes: 60
@@ -187,7 +187,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "stable"
+          go-version: "1.25"
 
       - name: Run Four Unified GPU Test
         timeout-minutes: 60

@@ -123,20 +123,23 @@ func (b Builder) Build(name string) *sim.Domain {
 func (b *Builder) buildComponents() {
 	b.buildCUs()
 
+	// Build L1V components in dependency order: Caches → TLBs → AddressTranslators → ReorderBuffers
+	b.buildL1VCaches()
 	b.buildL1VTLBs()
 	b.buildL1VAddressTranslators()
 	b.buildL1VReorderBuffers()
-	b.buildL1VCaches()
 
+	// Build L1S components in dependency order: Cache → TLB → AddressTranslator → ReorderBuffer
+	b.buildL1SCache()
 	b.buildL1STLB()
 	b.buildL1SAddressTranslator()
 	b.buildL1SReorderBuffer()
-	b.buildL1SCache()
 
+	// Build L1I components in dependency order: TLB → AddressTranslator → Cache → ReorderBuffer
 	b.buildL1ITLB()
 	b.buildL1IAddressTranslator()
-	b.buildL1IReorderBuffer()
 	b.buildL1ICache()
+	b.buildL1IReorderBuffer()
 
 	b.populateExternalPorts()
 }
@@ -202,13 +205,9 @@ func (b *Builder) connectVectorMem() {
 			rob.GetPortByName("Bottom"), atTopPort, 8)
 
 		tlbTopPort := tlb.GetPortByName("Top")
-		at.SetTranslationProvider(tlbTopPort.AsRemote())
 		b.connectWithDirectConnection(
 			at.GetPortByName("Translation"), tlbTopPort, 8)
 
-		at.SetAddressToPortMapper(&mem.SinglePortMapper{
-			Port: l1v.GetPortByName("Top").AsRemote(),
-		})
 		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
 			at.GetPortByName("Bottom"), 8)
 	}
@@ -225,13 +224,9 @@ func (b *Builder) connectScalarMem() {
 	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
 
 	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort.AsRemote())
 	b.connectWithDirectConnection(
 		at.GetPortByName("Translation"), tlbTopPort, 8)
 
-	at.SetAddressToPortMapper(&mem.SinglePortMapper{
-		Port: l1s.GetPortByName("Top").AsRemote(),
-	})
 	b.connectWithDirectConnection(
 		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 8)
 
@@ -260,13 +255,9 @@ func (b *Builder) connectInstMem() {
 	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort, 8)
 
 	atTopPort := at.GetPortByName("Top")
-	l1i.SetAddressToPortMapper(&mem.SinglePortMapper{
-		Port: atTopPort.AsRemote(),
-	})
 	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
 
 	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort.AsRemote())
 	b.connectWithDirectConnection(
 		at.GetPortByName("Translation"), tlbTopPort, 8)
 
@@ -349,15 +340,18 @@ func (b *Builder) buildL1VReorderBuffers() {
 }
 
 func (b *Builder) buildL1VAddressTranslators() {
-	builder := addresstranslator.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
-
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VAddrTrans[%d]", b.name, i)
-		at := builder.Build(name)
+		at := addresstranslator.MakeBuilder().
+			WithEngine(b.simulation.GetEngine()).
+			WithFreq(b.freq).
+			WithDeviceID(b.gpuID).
+			WithLog2PageSize(b.log2PageSize).
+			WithTranslationProvider(b.l1vTLBs[i].GetPortByName("Top").AsRemote()).
+			WithAddressToPortMapper(&mem.SinglePortMapper{
+				Port: b.l1vCaches[i].GetPortByName("Top").AsRemote(),
+			}).
+			Build(name)
 		b.l1vATs = append(b.l1vATs, at)
 		b.simulation.RegisterComponent(at)
 	}
@@ -371,7 +365,7 @@ func (b *Builder) buildL1VTLBs() {
 		WithNumSets(1).
 		WithNumWays(64).
 		WithNumReqPerCycle(4).
-		WithAddressMapper(b.l1TLBAddressMapper)
+		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VTLB[%d]", b.name, i)
@@ -419,14 +413,17 @@ func (b *Builder) buildL1SReorderBuffer() {
 }
 
 func (b *Builder) buildL1SAddressTranslator() {
-	builder := addresstranslator.MakeBuilder().
+	name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
+	at := addresstranslator.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
-		WithLog2PageSize(b.log2PageSize)
-
-	name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
-	at := builder.Build(name)
+		WithLog2PageSize(b.log2PageSize).
+		WithTranslationProvider(b.l1sTLB.GetPortByName("Top").AsRemote()).
+		WithAddressToPortMapper(&mem.SinglePortMapper{
+			Port: b.l1sCache.GetPortByName("Top").AsRemote(),
+		}).
+		Build(name)
 	b.l1sAT = at
 	b.simulation.RegisterComponent(at)
 }
@@ -439,7 +436,7 @@ func (b *Builder) buildL1STLB() {
 		WithNumSets(1).
 		WithNumWays(64).
 		WithNumReqPerCycle(4).
-		WithAddressMapper(b.l1TLBAddressMapper)
+		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	name := fmt.Sprintf("%s.L1STLB", b.name)
 	tlb := builder.Build(name)
@@ -483,15 +480,15 @@ func (b *Builder) buildL1IReorderBuffer() {
 }
 
 func (b *Builder) buildL1IAddressTranslator() {
-	builder := addresstranslator.MakeBuilder().
+	name := fmt.Sprintf("%s.L1IAddrTrans", b.name)
+	at := addresstranslator.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
 		WithFreq(b.freq).
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize).
-		WithAddressToPortMapper(b.l1AddressMapper)
-
-	name := fmt.Sprintf("%s.L1IAddrTrans", b.name)
-	at := builder.Build(name)
+		WithTranslationProvider(b.l1iTLB.GetPortByName("Top").AsRemote()).
+		WithAddressToPortMapper(b.l1AddressMapper).
+		Build(name)
 	b.l1iAT = at
 	b.simulation.RegisterComponent(at)
 }
@@ -504,7 +501,7 @@ func (b *Builder) buildL1ITLB() {
 		WithNumSets(1).
 		WithNumWays(64).
 		WithNumReqPerCycle(4).
-		WithAddressMapper(b.l1TLBAddressMapper)
+		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	name := fmt.Sprintf("%s.L1ITLB", b.name)
 	tlb := builder.Build(name)
