@@ -280,11 +280,8 @@ func (b *Builder) connectL2AndDRAM() {
 	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
 		1 << b.log2MemoryBankInterleavingSize)
 
-	for i, l2 := range b.l2Caches {
+	for _, l2 := range b.l2Caches {
 		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"))
-		l2.SetAddressToPortMapper(&mem.SinglePortMapper{
-			Port: b.drams[i].GetPortByName("Top").AsRemote(),
-		})
 	}
 
 	for _, dram := range b.drams {
