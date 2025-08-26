@@ -1,8 +1,6 @@
 package cp
 
 import (
-	"log"
-
 	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
@@ -135,7 +133,7 @@ func (p *CommandProcessor) processReqFromDriver() bool {
 	madeProgress = p.ctrlMiddleware.Tick() || madeProgress
 
 	if !madeProgress {
-		log.Panicf("Unhandled message in Command Processor: %v", msg)
+		return false
 	}
 	return madeProgress
 }
