@@ -26,7 +26,7 @@ MGPUSim is a high-flexibility, high-performance, high-accuracy GPU simulator. It
 - Change your current directory to `[mgpusim_home]/samples/fir`.
 - Compile the simulator with the benchmark with `go build`. The compiler will generate an executable file called `fir` (on Linux or Mac OS) or `fir.exe` (on Windows) for you.
 - Run the simulation with `./fir -timing --report-all` to run the simulation.
-- Check the generated `metrics.csv` file for high-level metrics output.
+- Check the generated `.sqlite3` file for high-level metrics output. The metrics are stored in the `mgpusim_metrics` table.
 
 ## Develop with Modified Version of Akita (or other depending libraries)
 
@@ -62,6 +62,16 @@ You can run a simulation with the `--report-all` argument to enable all the perf
 - Number of read-misses, read-mshr-hits, read-hits, write-misses, write-mshr-hits, and write hits on all the cache components
 - Number of incoming transactions and outgoing transactions on all the RDMA components.
 - Number of transactions on each DRAM controller.
+
+The metrics are stored in a SQLite database file (`.sqlite3`) in the `mgpusim_metrics` table. You can access the data using any SQLite tool or query it directly:
+
+```bash
+# View all metrics
+sqlite3 your_simulation_file.sqlite3 "SELECT * FROM mgpusim_metrics;"
+
+# View specific metrics for a component
+sqlite3 your_simulation_file.sqlite3 "SELECT * FROM mgpusim_metrics WHERE Location LIKE '%CU%';"
+```
 
 ## How to Prepare Your Own Experiment
 

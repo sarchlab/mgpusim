@@ -34,9 +34,9 @@ var unifiedGPUFlag = flag.String("unified-gpus", "",
 Use a format like 1,2,3,4. Cannot coexist with -gpus.`)
 var useUnifiedMemoryFlag = flag.Bool("use-unified-memory", false,
 	"Run benchmark with Unified Memory or not")
-var reportAll = flag.Bool("report-all", false, "Report all metrics to .csv file.")
+var reportAll = flag.Bool("report-all", false, "Report all metrics to .sqlite3 file.")
 var filenameFlag = flag.String("metric-file-name", "metrics",
-	"Modify the name of the output csv file.")
+	"Modify the name of the output sqlite3 file.")
 var magicMemoryCopy = flag.Bool("magic-memory-copy", false,
 	"Copy data from CPU directly to global memory")
 var bufferLevelTraceDirFlag = flag.String("buffer-level-trace-dir", "",
