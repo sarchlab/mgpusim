@@ -1,12 +1,12 @@
 package driver
 
 import (
-	// 	"fmt"
-
 	"fmt"
 
+	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
@@ -27,6 +27,9 @@ type Driver struct {
 	// trace kernel
 	undispatchedKernels    []*nvidiaconfig.Kernel
 	unfinishedKernelsCount int64
+
+	// simulation tracing
+	simulationID string
 }
 
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
@@ -41,6 +44,8 @@ func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 		Build("DriverToDevice")
 	d.connectionWithDevices.PlugIn(d.toDevices)
 
+	d.devices = make(map[string]*gpu.GPU)
+
 	return d
 }
 
@@ -51,6 +56,31 @@ func (d *Driver) RegisterGPU(gpu *gpu.GPU) {
 
 	d.devices[gpu.ID] = gpu
 	d.freeDevices = append(d.freeDevices, gpu)
+}
+
+// Run starts the driver and logs simulation start
+func (d *Driver) Run() {
+	d.logSimulationStart()
+}
+
+// Terminate stops the driver and logs simulation termination
+func (d *Driver) Terminate() {
+	d.logSimulationTerminate()
+}
+
+func (d *Driver) logSimulationStart() {
+	d.simulationID = xid.New().String()
+	tracing.StartTask(
+		d.simulationID,
+		"",
+		d,
+		"Simulation", "Simulation",
+		nil,
+	)
+}
+
+func (d *Driver) logSimulationTerminate() {
+	tracing.EndTask(d.simulationID, d)
 }
 
 func (d *Driver) RunKernel(kernel *nvidiaconfig.Kernel) {

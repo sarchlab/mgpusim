@@ -17,6 +17,8 @@ func (r *Runner) AddBenchmark(benchmark *benchmark.Benchmark) {
 }
 
 func (r *Runner) Run() {
+	r.Driver().Run()
+
 	for _, benchmark := range r.benchmarks {
 		execs := benchmark.TraceExecs
 		for _, exec := range execs {
@@ -26,7 +28,9 @@ func (r *Runner) Run() {
 
 	r.Driver().TickLater()
 	r.Engine().Run()
-	// 	r.Engine().Finished()
+
+	r.Driver().Terminate()
+	r.platform.Simulation.Terminate()
 }
 
 func (r *Runner) Driver() *driver.Driver {
