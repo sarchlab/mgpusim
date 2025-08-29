@@ -42,6 +42,8 @@ type SMSPController struct {
 
 	finishedWarpsCount uint64
 	currentWarp        trace.WarpTrace
+
+	ToVectorMem sim.Port
 }
 
 func (s *SMSPController) SetSMRemotePort(remote sim.Port) {

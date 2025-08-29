@@ -43,6 +43,9 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s.ToMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToMem", name))
 	s.AddPort(fmt.Sprintf("%s.ToMem", name), s.ToMem)
 
+	s.ToVectorMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToVectorMem", name))
+	s.AddPort(fmt.Sprintf("%s.ToVectorMem", name), s.ToVectorMem)
+
 	s.waitingCycle = 0
 
 	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
