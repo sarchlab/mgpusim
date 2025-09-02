@@ -38,6 +38,11 @@ type Comp struct {
 
 	transactionsFromOutside []transaction
 	transactionsFromInside  []transaction
+
+	incomingReqPerCycle int
+	incomingRspPerCycle int
+	outgoingReqPerCycle int
+	outgoingRspPerCycle int
 }
 
 // SetLocalModuleFinder sets the table to lookup for local data.
@@ -53,9 +58,18 @@ func (c *Comp) Tick() bool {
 	if c.isDraining {
 		madeProgress = c.drainRDMA() || madeProgress
 	}
-	madeProgress = c.processFromL1() || madeProgress
-	madeProgress = c.processFromL2() || madeProgress
-	madeProgress = c.processFromOutside() || madeProgress
+
+	for i := 0; i < c.outgoingReqPerCycle; i++ {
+		madeProgress = c.processFromL1() || madeProgress
+	}
+
+	for i := 0; i < c.incomingRspPerCycle; i++ {
+		madeProgress = c.processFromL2() || madeProgress
+	}
+
+	for i := 0; i < c.outgoingRspPerCycle+c.incomingReqPerCycle; i++ {
+		madeProgress = c.processFromOutside() || madeProgress
+	}
 
 	return madeProgress
 }
