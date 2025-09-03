@@ -44,8 +44,34 @@ func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 		WithFreq(1 * sim.GHz).
 		Build("DriverToDevice")
 	d.connectionWithDevices.PlugIn(d.toDevices)
+	d.devices = make(map[string]*gpu.GPUController)
 
 	return d
+}
+
+// Run starts the driver and logs simulation start
+func (d *Driver) Run() {
+	d.logSimulationStart()
+}
+
+// Terminate stops the driver and logs simulation termination
+func (d *Driver) Terminate() {
+	d.logSimulationTerminate()
+}
+
+func (d *Driver) logSimulationStart() {
+	d.simulationID = xid.New().String()
+	tracing.StartTask(
+		d.simulationID,
+		"",
+		d,
+		"Simulation", "Simulation",
+		nil,
+	)
+}
+
+func (d *Driver) logSimulationTerminate() {
+	tracing.EndTask(d.simulationID, d)
 }
 
 func (d *Driver) RegisterGPU(gpu *gpu.GPUController) {
@@ -126,16 +152,16 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 	return true
 }
 
-func (d *Driver) LogSimulationStart() {
-	d.simulationID = xid.New().String()
-	// fmt.Printf("tracing.StartTask: Simulation ID: %s\n", d.simulationID)
-	tracing.StartTask(d.simulationID, "", d, "Simulation", "Simulation", nil)
-}
+// func (d *Driver) LogSimulationStart() {
+// 	d.simulationID = xid.New().String()
+// 	// fmt.Printf("tracing.StartTask: Simulation ID: %s\n", d.simulationID)
+// 	tracing.StartTask(d.simulationID, "", d, "Simulation", "Simulation", nil)
+// }
 
-func (d *Driver) LogSimulationTerminate() {
-	// fmt.Printf("tracing.EndTask: Simulation ID: %s\n", d.simulationID)
-	tracing.EndTask(d.simulationID, d)
-}
+// func (d *Driver) LogSimulationTerminate() {
+// 	// fmt.Printf("tracing.EndTask: Simulation ID: %s\n", d.simulationID)
+// 	tracing.EndTask(d.simulationID, d)
+// }
 
 // func (d *Driver) logTaskToGPUInitiate(
 // 	cmd Command,

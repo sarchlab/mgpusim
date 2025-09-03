@@ -8,13 +8,14 @@ import (
 	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/simulation"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/nvidia/driver"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 )
 
 type A100PlatformBuilder struct {
 	freq       sim.Freq
-	simulation *simulation.Simulation
+	Simulation *simulation.Simulation
 }
 
 func (b *A100PlatformBuilder) WithFreq(freq sim.Freq) *A100PlatformBuilder {
@@ -24,7 +25,7 @@ func (b *A100PlatformBuilder) WithFreq(freq sim.Freq) *A100PlatformBuilder {
 
 // WithSimulation sets the simulation to use.
 func (b *A100PlatformBuilder) WithSimulation(sim *simulation.Simulation) *A100PlatformBuilder {
-	b.simulation = sim
+	b.Simulation = sim
 	return b
 }
 
@@ -33,16 +34,19 @@ func (b *A100PlatformBuilder) Build() *Platform {
 
 	p := new(Platform)
 	// p.Engine = sim.NewSerialEngine()
-	p.Engine = b.simulation.GetEngine()
+
+	p.Simulation = simulation.MakeBuilder().Build()
+	p.Engine = b.Simulation.GetEngine()
 	p.Driver = new(driver.DriverBuilder).
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
 		Build("Driver")
+	p.Simulation.RegisterComponent(p.Driver)
 
 	gpuDriver := new(gpu.GPUBuilder).
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
-		WithSimulation(b.simulation).
+		WithSimulation(b.Simulation).
 		WithSMsCount(108).
 		WithSMSPsCountPerSM(4).
 		WithL2CacheSize(40 * mem.MB). // WithL2CacheSize(2 * mem.MB).
@@ -54,6 +58,14 @@ func (b *A100PlatformBuilder) Build() *Platform {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))
 		p.Driver.RegisterGPU(gpu)
 		p.Devices = append(p.Devices, gpu)
+
+		p.Simulation.RegisterComponent(gpu)
+	}
+
+	// Enable tracing for all components
+	visTracer := p.Simulation.GetVisTracer()
+	for _, comp := range p.Simulation.Components() {
+		tracing.CollectTrace(comp.(tracing.NamedHookable), visTracer)
 	}
 
 	return p

@@ -35,6 +35,7 @@ func (r *Runner) Run() {
 	// tracing.StartTask(r.simulation.ID(), "", )
 	// r.Driver().Run()
 	// r.simulation.GetComponentByName("Driver").(*driver.Driver)
+	r.Driver().Run()
 
 	for _, benchmark := range r.benchmarks {
 		execs := benchmark.TraceExecs
@@ -43,14 +44,14 @@ func (r *Runner) Run() {
 		}
 	}
 	// updated for tracing
-	r.configureVisTracing()
-	r.simulation.RegisterComponent(r.platform.Driver)
+	// r.configureVisTracing()
+	// r.simulation.RegisterComponent(r.platform.Driver)
 	// for _, oneComp := range r.simulation.Components() {
 	// 	fmt.Printf("Registered component: %v\n", oneComp.Name())
 	// }
 
 	// r.platform.Driver.LogSimulationStart()
-	r.simulation.GetComponentByName("Driver").(*driver.Driver).LogSimulationStart()
+	// r.simulation.GetComponentByName("Driver").(*driver.Driver).LogSimulationStart()
 
 	r.Driver().TickLater()
 	r.Engine().Run()
@@ -58,8 +59,11 @@ func (r *Runner) Run() {
 	// updated for tracing
 	// r.platform.Driver.LogSimulationTerminate()
 	// r.simulation.GetComponentByName("Driver").driverStopped
-	r.simulation.GetComponentByName("Driver").(*driver.Driver).LogSimulationTerminate()
-	r.simulation.Terminate()
+	// r.simulation.GetComponentByName("Driver").(*driver.Driver).LogSimulationTerminate()
+	// r.simulation.Terminate()
+
+	// r.Driver().Terminate()
+	r.platform.Simulation.Terminate()
 
 	// r.Engine().Finished()
 }
