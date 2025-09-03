@@ -207,11 +207,29 @@ func extractInst(text string) *InstructionTrace {
 
 // [todo]: understand memory format
 func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
+	if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
+		fmt.Printf("elems: %v\n", elems)
+	}
 	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
 
 	if inst.MemWidth != 0 {
 		fmt.Sscanf(elems[1], "%d", &inst.AddressCompress)
-		fmt.Sscanf(elems[2], "%x", &inst.MemAddress)
+		memAddressStr := elems[2]
+		if strings.HasPrefix(memAddressStr, "0x") {
+			memAddressStr = memAddressStr[2:] // Remove the "0x" prefix
+		}
+		memAddress, err := strconv.ParseUint(memAddressStr, 16, 64)
+		// fmt.Sscanf(elems[2], "%x", &inst.MemAddress)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse MemAddress: %v\n", err)
+			inst.MemAddress = 0 // Default to 0 if parsing fails
+		} else {
+			inst.MemAddress = memAddress
+		}
+		if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
+			fmt.Printf("AddressCompress: %d\n", inst.AddressCompress)
+			fmt.Printf("MemAddress: %x\n", inst.MemAddress)
+		}
 
 		if inst.AddressCompress == 1 {
 			fmt.Sscanf(elems[3], "%d", &inst.MemAddressSuffix1)

@@ -4,6 +4,7 @@ import (
 	// "fmt"
 
 	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
 
 	log "github.com/sirupsen/logrus"
@@ -30,10 +31,10 @@ type SMSPController struct {
 	// toSMMemRemote sim.Port
 	// ToGPUControllerMem       sim.Port
 	// ToGPUControllerMemRemote sim.Port
-	ToMem            sim.Port
-	ToMemRemote      sim.Port
-	waitingForMemRsp bool
-	waitingCycle     uint64
+	// ToMem            sim.Port
+	ToVectorMemRemote sim.Port
+	waitingForMemRsp  bool
+	waitingCycle      uint64
 
 	PendingSMSPtoMemReadReq  map[string]*mem.ReadReq
 	PendingSMSPtoMemWriteReq map[string]*mem.WriteReq
@@ -50,8 +51,8 @@ func (s *SMSPController) SetSMRemotePort(remote sim.Port) {
 	s.toSMRemote = remote
 }
 
-func (s *SMSPController) SetMemRemote(remote sim.Port) {
-	s.ToMemRemote = remote
+func (s *SMSPController) SetVectorMemRemote(remote sim.Port) {
+	s.ToVectorMemRemote = remote
 	// fmt.Printf("SMSPController %s set GPUControllerMemRemote to %s\n", s.ID, remote.Name())
 }
 
@@ -144,7 +145,7 @@ func (s *SMSPController) processSMInput() bool {
 }
 
 func (s *SMSPController) processMemRsp() bool {
-	msg := s.ToMem.PeekIncoming()
+	msg := s.ToVectorMem.PeekIncoming()
 	if msg == nil {
 		return false
 	}
@@ -164,10 +165,10 @@ func (s *SMSPController) processMemRsp() bool {
 		s.waitingForMemRsp = false
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
-		s.ToMem.RetrieveIncoming()
+		s.ToVectorMem.RetrieveIncoming()
 		return false
 	}
-	s.ToMem.RetrieveIncoming()
+	s.ToVectorMem.RetrieveIncoming()
 	return true
 }
 
@@ -291,12 +292,14 @@ func (s *SMSPController) run() bool {
 	// fmt.Printf("%v\n", currentInstructionType == trace.OpCodeMemRead)
 	switch currentInstructionType {
 	case trace.OpCodeMemRead:
-		address := rand.Uint64() % (1048576 / 4) * 4
-		s.doRead(reqParentID, &address)
+		// address := rand.Uint64() % (1048576 / 4) * 4
+		address := currentInstruction.MemAddress
+		s.doRead(reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
 	case trace.OpCodeMemWrite:
-		address := rand.Uint64() % (1048576 / 4) * 4
+		// address := rand.Uint64() % (1048576 / 4) * 4
+		address := currentInstruction.MemAddress
 		data := rand.Uint32()
-		s.doWrite(reqParentID, &address, &data)
+		s.doWrite(reqParentID, address, &data)
 	case trace.OpCodeExit:
 		if currentInstruction.Mask != 0 {
 			s.unfinishedInstsCount = 0
@@ -346,20 +349,27 @@ func (s *SMSPController) reportFinishedWarps() bool {
 	return true
 }
 
-func (s *SMSPController) doRead(reqParentID string, addr *uint64) bool {
+func (s *SMSPController) doRead(reqParentID string, addr uint64, byteSize uint64) bool {
+	fmt.Printf("SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
 	msg := mem.ReadReqBuilder{}.
-		WithSrc(s.ToMem.AsRemote()).
-		WithDst(s.ToMemRemote.AsRemote()).
-		WithAddress(*addr).
+		WithSrc(s.ToVectorMem.AsRemote()).
+		WithDst(s.ToVectorMemRemote.AsRemote()).
+		WithAddress(addr).
+		WithByteSize(byteSize).
 		WithPID(1).
 		Build()
-	msg.Src = s.ToMem.AsRemote()
-	msg.Dst = s.ToMemRemote.AsRemote()
+	if s.ToVectorMem == nil {
+		log.Panic("s.ToVectorMem is nil")
+	}
+	if s.ToVectorMemRemote == nil {
+		log.Panic("s.ToVectorMemRemote is nil")
+	}
+	msg.Src = s.ToVectorMem.AsRemote()
+	msg.Dst = s.ToVectorMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
 	tracing.TraceReqInitiate(msg, s, reqParentID)
 	s.PendingSMSPtoMemReadReq[msg.ID] = msg
-	// fmt.Printf("%.10f, %s, SMSPController %s sent read req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
-	err := s.ToMem.Send(msg)
+	err := s.ToVectorMem.Send(msg)
 	if err != nil {
 		return false
 	}
@@ -367,21 +377,21 @@ func (s *SMSPController) doRead(reqParentID string, addr *uint64) bool {
 	return true
 }
 
-func (s *SMSPController) doWrite(reqParentID string, addr *uint64, d *uint32) bool {
+func (s *SMSPController) doWrite(reqParentID string, addr uint64, d *uint32) bool {
 	msg := mem.WriteReqBuilder{}.
-		WithSrc(s.ToMem.AsRemote()).
-		WithDst(s.ToMemRemote.AsRemote()).
-		WithAddress(*addr).
+		WithSrc(s.ToVectorMem.AsRemote()).
+		WithDst(s.ToVectorMemRemote.AsRemote()).
+		WithAddress(addr).
 		WithPID(1).
 		WithData(uint32ToBytes(*d)).
 		Build()
-	msg.Src = s.ToMem.AsRemote()
-	msg.Dst = s.ToMemRemote.AsRemote()
+	msg.Src = s.ToVectorMem.AsRemote()
+	msg.Dst = s.ToVectorMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
 	tracing.TraceReqInitiate(msg, s, reqParentID)
 	s.PendingSMSPtoMemWriteReq[msg.ID] = msg
 	// fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
-	err := s.ToMem.Send(msg)
+	err := s.ToVectorMem.Send(msg)
 	if err != nil {
 		return false
 	}

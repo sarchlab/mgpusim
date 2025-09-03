@@ -163,10 +163,10 @@ func (b *GPUBuilder) buildPortsForGPU(g *GPUController, name string) {
 	// 	g.toSMMem = sim.NewPort(g,4096, 4096, fmt.Sprintf("%s.ToSMMem", name))
 	// 	g.AddPort(fmt.Sprintf("%s.ToSMMem", name), g.toSMMem)
 
-	g.ToCaches = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToCaches", name))
-	g.AddPort(fmt.Sprintf("%s.ToCaches", name), g.ToCaches)
-	g.ToSMSPsMem = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToSMSPsMem", name))
-	g.AddPort(fmt.Sprintf("%s.ToSMSPsMem", name), g.ToSMSPsMem)
+	// g.ToCaches = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToCaches", name))
+	// g.AddPort(fmt.Sprintf("%s.ToCaches", name), g.ToCaches)
+	// g.ToSMSPsMem = sim.NewPort(g, 4096, 4096, fmt.Sprintf("%s.ToSMSPsMem", name))
+	// g.AddPort(fmt.Sprintf("%s.ToSMSPsMem", name), g.ToSMSPsMem)
 }
 
 func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
@@ -206,7 +206,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 
 		sm.SetGPURemotePort(gpu.toSMs)
 		// fmt.Printf("GPU %s set ToSMSPsMem to %s\n", gpu.Name(), gpu.ToSMSPsMem.Name())
-		sm.SetGPUControllerCachesPort(gpu.ToSMSPsMem)
+		// sm.SetGPUControllerCachesPort(gpu.ToSMSPsMem)
 		// sm.SetGPUMemRemotePort(gpu.toSMMem)
 		// for _, smspID := range sm.SMSPsIDs {
 		// 	// sm.SMSPs[smspID].SetMemRemote(d.GetPortByName("Top"))
@@ -244,31 +244,31 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 // 	conn.PlugIn(gpu.ToDRAM)
 // }
 
-func (b *GPUBuilder) connectGPUControllerToSMSPs(gpu *GPUController, sms []*sm.SMController, d *idealmemcontroller.Comp) {
-	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
-	// conn.PlugIn(gpu.toSMs, 4)
-	// conn := directconnection.MakeBuilder().
-	// 	WithEngine(b.engine).
-	// 	WithFreq(1 * sim.GHz).
-	// 	Build("GPUControllerToSMSPs")
-	// conn.PlugIn(gpu.ToSMSPsMem)
+// func (b *GPUBuilder) connectGPUControllerToSMSPs(gpu *GPUController, sms []*sm.SMController, d *idealmemcontroller.Comp) {
+// 	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
+// 	// conn.PlugIn(gpu.toSMs, 4)
+// 	// conn := directconnection.MakeBuilder().
+// 	// 	WithEngine(b.engine).
+// 	// 	WithFreq(1 * sim.GHz).
+// 	// 	Build("GPUControllerToSMSPs")
+// 	// conn.PlugIn(gpu.ToSMSPsMem)
 
-	conn := directconnection.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(1 * sim.GHz).
-		Build("SMSPsToMem")
-	conn.PlugIn(d.GetPortByName("Top"))
-	b.simulation.RegisterComponent(conn)
+// 	conn := directconnection.MakeBuilder().
+// 		WithEngine(b.engine).
+// 		WithFreq(1 * sim.GHz).
+// 		Build("SMSPsToMem")
+// 	conn.PlugIn(d.GetPortByName("Top"))
+// 	b.simulation.RegisterComponent(conn)
 
-	for i := range sms {
-		sm := sms[i]
-		for j := uint64(0); j < b.smspsCountPerSM; j++ {
-			smspID := sm.SMSPsIDs[j]
-			smsp := sm.SMSPs[smspID]
-			conn.PlugIn(smsp.ToMem)
-		}
-	}
-}
+// 	for i := range sms {
+// 		sm := sms[i]
+// 		for j := uint64(0); j < b.smspsCountPerSM; j++ {
+// 			smspID := sm.SMSPsIDs[j]
+// 			smsp := sm.SMSPs[smspID]
+// 			conn.PlugIn(smsp.ToMem)
+// 		}
+// 	}
+// }
 
 // func (b *GPUBuilder) buildL2Caches() {
 // 	byteSize := b.L2CacheSize / uint64(b.numMemoryBank)

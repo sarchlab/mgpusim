@@ -29,10 +29,10 @@ type GPUController struct {
 	ToSMSPs sim.Port
 
 	// cache updates
-	ToCaches sim.Port // used to send cache reqs
-	ToDRAM   sim.Port // remote DRAM's port
+	// ToCaches sim.Port // used to send cache reqs
+	ToDRAM sim.Port // remote DRAM's port
 
-	ToSMSPsMem sim.Port // used to receive and send mem reqs to SMSPs
+	// ToSMSPsMem sim.Port // used to receive and send mem reqs to SMSPs
 
 	// toSMMem       sim.Port
 	// toSMMemRemote sim.Port
