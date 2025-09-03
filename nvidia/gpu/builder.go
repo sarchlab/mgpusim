@@ -5,6 +5,7 @@ import (
 
 	"github.com/sarchlab/akita/v4/mem/cache/writeback"
 	"github.com/sarchlab/akita/v4/mem/idealmemcontroller"
+	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection" //
 	"github.com/sarchlab/akita/v4/simulation"
@@ -30,9 +31,11 @@ type GPUBuilder struct {
 
 	// cache updates
 	// drams       []sim.Component // *idealmemcontroller.Comp
-	DRAM        *idealmemcontroller.Comp
-	l2Caches    []*writeback.Comp
-	l2CacheSize uint64
+	DRAMs           []*idealmemcontroller.Comp
+	l2Caches        []*writeback.Comp
+	l2CacheSize     uint64
+	l1AddressMapper *mem.InterleavedAddressPortMapper
+	memAddrOffset   uint64
 
 	// l1ToL2Connection        *directconnection.Comp
 	l2ToDramConnection *directconnection.Comp
@@ -100,21 +103,29 @@ func (b *GPUBuilder) Build(name string) *GPUController {
 	// }
 	b.createGPU(name)
 
+	b.l1AddressMapper = mem.NewInterleavedAddressPortMapper(
+		1 << b.log2MemoryBankInterleavingSize,
+	)
+	b.memAddrOffset = uint64(0)
+	b.l1AddressMapper.LowAddress = b.memAddrOffset
+	b.l1AddressMapper.HighAddress = b.memAddrOffset + b.DramSize
+	b.l1AddressMapper.UseAddressSpaceLimitation = true
+
 	b.gpu.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, b.gpu)
 	b.buildPortsForGPU(b.gpu, name)
 	sms := b.buildSMs(name)
 	b.buildDRAMControllers()
 
-	b.connectGPUWithSMs(b.gpu, sms, b.DRAM)
+	b.connectGPUWithSMs(b.gpu, sms)
 
-	// b.buildL2Caches()
+	b.buildL2Caches()
 
-	// b.connectL2AndDRAM()
-	// b.connectL1ToL2()
+	b.connectL2AndDRAM()
+	b.connectL1ToL2()
 
 	// b.connectGPUWithDRAM(b.gpu, b.Dram)
 	// b.connectGPUControllerToDRAM(b.gpu, b.DRAM)
-	b.connectGPUControllerToSMSPs(b.gpu, sms, b.DRAM)
+	// b.connectGPUControllerToSMSPs(b.gpu, sms, b.DRAM)
 
 	// b.gpu.PendingWriteReq = make(map[string]*mem.WriteReq)
 	// b.gpu.PendingReadReq = make(map[string]*mem.ReadReq)
@@ -163,19 +174,20 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithSimulation(b.simulation).
-		WithSMSPsCount(b.smspsCountPerSM)
+		WithSMSPsCount(b.smspsCountPerSM).
+		WithL1AddressMapper(b.l1AddressMapper)
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {
 		sm := smBuilder.Build(fmt.Sprintf("%s.SM(%d)", gpuName, i))
-		b.simulation.RegisterComponent(sm)
+		// b.simulation.RegisterComponent(sm)
 		sms = append(sms, sm)
 	}
 
 	return sms
 }
 
-func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMController, d *idealmemcontroller.Comp) {
+func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMController) {
 	// 	conn := sim.NewDirectConnection("GPUToSMs", b.engine, 1*sim.GHz)
 	// conn.PlugIn(gpu.toSMs, 4)
 	conn := directconnection.MakeBuilder().
@@ -196,9 +208,9 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 		// fmt.Printf("GPU %s set ToSMSPsMem to %s\n", gpu.Name(), gpu.ToSMSPsMem.Name())
 		sm.SetGPUControllerCachesPort(gpu.ToSMSPsMem)
 		// sm.SetGPUMemRemotePort(gpu.toSMMem)
-		for _, smspID := range sm.SMSPsIDs {
-			sm.SMSPs[smspID].SetMemRemote(d.GetPortByName("Top"))
-		}
+		// for _, smspID := range sm.SMSPsIDs {
+		// 	// sm.SMSPs[smspID].SetMemRemote(d.GetPortByName("Top"))
+		// }
 
 		conn.PlugIn(sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sms[i].Name())))
 		// conn.PlugIn(sm.GetPortByName(fmt.Sprintf("%s.ToGPUMem", sms[i].Name())))
@@ -312,93 +324,96 @@ func (b *GPUBuilder) buildDRAMControllers() {
 	// 	// 	tracing.CollectTrace(dram, b.memTracer)
 	// 	// }
 	// }
-	dramName := fmt.Sprintf("%s.DRAM", b.gpuName)
-	dram := idealmemcontroller.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(b.freq).
-		WithLatency(100).
-		// WithStorage(b.globalStorage).
-		Build(dramName)
-	b.simulation.RegisterComponent(dram)
-	b.DRAM = dram
+	for i := 0; i < b.numMemoryBank; i++ {
+		dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
+		dram := idealmemcontroller.MakeBuilder().
+			WithEngine(b.engine).
+			WithFreq(b.freq).
+			WithLatency(100).
+			// WithStorage(b.globalStorage).
+			Build(dramName)
+		b.simulation.RegisterComponent(dram)
+		b.DRAMs = append(b.DRAMs, dram)
+	}
 }
 
-// func (b *GPUBuilder) buildL2Caches() {
-// 	byteSize := b.l2CacheSize / uint64(b.numMemoryBank)
-// 	l2Builder := writeback.MakeBuilder().
-// 		WithEngine(b.engine).
-// 		WithFreq(b.freq).
-// 		WithLog2BlockSize(b.log2CacheLineSize).
-// 		WithWayAssociativity(16).
-// 		WithByteSize(byteSize).
-// 		WithNumMSHREntry(64).
-// 		WithNumReqPerCycle(16)
+func (b *GPUBuilder) buildL2Caches() {
+	byteSize := b.l2CacheSize / uint64(b.numMemoryBank)
+	l2Builder := writeback.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithLog2BlockSize(b.log2CacheLineSize).
+		WithWayAssociativity(16).
+		WithByteSize(byteSize).
+		WithNumMSHREntry(64).
+		WithNumReqPerCycle(16)
 
-// 	for i := 0; i < b.numMemoryBank; i++ {
-// 		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.gpuName, i)
-// 		l2 := l2Builder.WithInterleaving(
-// 			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
-// 			b.numMemoryBank,
-// 			i).
-// 			WithAddressMapperType("single").
-// 			WithRemotePorts(b.drams[i].GetPortByName("Top").AsRemote()).
-// 			Build(cacheName)
+	for i := 0; i < b.numMemoryBank; i++ {
+		cacheName := fmt.Sprintf("%s.L2Cache[%d]", b.gpuName, i)
+		l2 := l2Builder.WithInterleaving(
+			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
+			b.numMemoryBank,
+			i).
+			WithAddressMapperType("single").
+			WithRemotePorts(b.DRAMs[i].GetPortByName("Top").AsRemote()).
+			Build(cacheName)
+		b.simulation.RegisterComponent(l2)
+		b.l2Caches = append(b.l2Caches, l2)
+	}
+}
 
-// 		b.l2Caches = append(b.l2Caches, l2)
-// 	}
-// }
+func (b *GPUBuilder) connectL2AndDRAM() {
+	b.l2ToDramConnection = directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.gpuName + ".L2ToDRAM")
+	b.simulation.RegisterComponent(b.l2ToDramConnection)
 
-// func (b *GPUBuilder) connectL2AndDRAM() {
-// 	b.l2ToDramConnection = directconnection.MakeBuilder().
-// 		WithEngine(b.engine).
-// 		WithFreq(b.freq).
-// 		Build(b.gpuName + ".L2ToDRAM")
+	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
+		1 << b.log2MemoryBankInterleavingSize)
 
-// 	lowModuleFinder := mem.NewInterleavedAddressPortMapper(
-// 		1 << b.log2MemoryBankInterleavingSize)
+	for i, l2 := range b.l2Caches {
+		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"))
+		l2.SetAddressToPortMapper(&mem.SinglePortMapper{
+			Port: b.DRAMs[i].GetPortByName("Top").AsRemote(),
+		})
+	}
 
-// 	for _, l2 := range b.l2Caches {
-// 		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"))
-// 		// l2.SetAddressToPortMapper(&mem.SinglePortMapper{
-// 		// 	Port: b.drams[i].GetPortByName("Top").AsRemote(),
-// 		// })
-// 	}
+	for _, dram := range b.DRAMs {
+		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"))
+		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
+			dram.GetPortByName("Top").AsRemote())
+	}
 
-// 	for _, dram := range b.drams {
-// 		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"))
-// 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
-// 			dram.GetPortByName("Top").AsRemote())
-// 	}
+	// 	// b.dmaEngine.SetLocalDataSource(lowModuleFinder)
+	// 	// b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem)
 
-// 	// b.dmaEngine.SetLocalDataSource(lowModuleFinder)
-// 	// b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem)
+	// // b.pmc.MemCtrlFinder = lowModuleFinder
+	// // b.l2ToDramConnection.PlugIn(
+	// // 	b.pmc.GetPortByName("LocalMem"))
+}
 
-// 	// b.pmc.MemCtrlFinder = lowModuleFinder
-// 	// b.l2ToDramConnection.PlugIn(
-// 	// 	b.pmc.GetPortByName("LocalMem"))
-// }
+func (b *GPUBuilder) connectL1ToL2() {
+	l1ToL2Conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.gpuName + ".L1ToL2")
 
-// func (b *GPUBuilder) connectL1ToL2() {
-// 	l1ToL2Conn := directconnection.MakeBuilder().
-// 		WithEngine(b.engine).
-// 		WithFreq(b.freq).
-// 		Build(b.gpuName + ".L1ToL2")
+	for _, l2 := range b.l2Caches {
+		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
+	}
 
-// 	for _, l2 := range b.l2Caches {
-// 		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
-// 	}
+	for _, sm := range b.gpu.SMs {
+		for i := range b.smspsCountPerSM {
+			l1ToL2Conn.PlugIn(
+				sm.GetPortByName(fmt.Sprintf("L1VCacheBottom[%d]", i)))
+		}
+		// l1ToL2Conn.PlugIn(sm.GetPortByName("L1CacheBottom"))
 
-// 	for _, sm := range b.gpu.SMs {
-// 		// for i := range b.smspsCountPerSM {
-// 		// 	l1ToL2Conn.PlugIn(
-// 		// 		sm.GetPortByName(fmt.Sprintf("L1VCacheBottom[%d]", i)))
-// 		// }
-// 		l1ToL2Conn.PlugIn(sm.GetPortByName("L1CacheBottom"))
-
-// 		// l1ToL2Conn.PlugIn(sm.GetPortByName("L1SCacheBottom"))
-// 		// l1ToL2Conn.PlugIn(sm.GetPortByName("L1ICacheBottom"))
-// 	}
-// }
+		// l1ToL2Conn.PlugIn(sm.GetPortByName("L1SCacheBottom"))
+		// l1ToL2Conn.PlugIn(sm.GetPortByName("L1ICacheBottom"))
+	}
+}
 
 // func (b *GPUBuilder) buildDRAMControllers() {
 // 	// memCtrlBuilder := b.createDramControllerBuilder()
