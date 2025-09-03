@@ -118,16 +118,18 @@ func (b *SMBuilder) buildPortsForSM(sm *SMController, name string) {
 }
 
 func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
-	smspBuilder := new(smsp.SMSPBuilder).
-		WithEngine(b.engine).
-		WithFreq(b.freq).
-		WithSimulation(b.simulation)
+
 	b.smsps = []*smsp.SMSPController{}
 	for i := uint64(0); i < b.smspsCount; i++ {
+		smspBuilder := new(smsp.SMSPBuilder).
+			WithEngine(b.engine).
+			WithFreq(b.freq).
+			WithSimulation(b.simulation)
+
 		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP(%d)", smName, i))
 		b.simulation.RegisterComponent(smsp)
 		b.smsps = append(b.smsps, smsp)
-		smsp.SetMemRemote(b.l1vCaches[i].GetPortByName("Top"))
+		smsp.SetVectorMemRemote(b.l1vCaches[i].GetPortByName("Top"))
 	}
 
 	return b.smsps
@@ -162,18 +164,18 @@ func (b *SMBuilder) connectSMwithSMSPs(sm *SMController, smsps []*smsp.SMSPContr
 }
 
 func (b *SMBuilder) buildL1VCaches() {
-	builder := writearound.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(b.freq).
-		WithBankLatency(60).
-		WithNumBanks(1).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(4).
-		WithNumMSHREntry(16).
-		WithTotalByteSize(16 * mem.KB).
-		WithAddressToPortMapper(b.l1AddressMapper)
-
 	for i := 0; i < int(b.smspsCount); i++ {
+		builder := writearound.MakeBuilder().
+			WithEngine(b.engine).
+			WithFreq(b.freq).
+			WithBankLatency(60).
+			WithNumBanks(1).
+			WithLog2BlockSize(b.log2CacheLineSize).
+			WithWayAssociativity(4).
+			WithNumMSHREntry(16).
+			WithTotalByteSize(16 * mem.KB).
+			WithAddressToPortMapper(b.l1AddressMapper)
+
 		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
 		fmt.Printf("b.name: %s, cache name: %s\n", b.name, name)
 		cache := builder.Build(name)

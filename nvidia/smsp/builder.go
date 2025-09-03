@@ -40,8 +40,8 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s.AddPort(fmt.Sprintf("%s.ToSM", name), s.toSM)
 
 	// cache updates
-	s.ToMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToMem", name))
-	s.AddPort(fmt.Sprintf("%s.ToMem", name), s.ToMem)
+	// s.ToMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToMem", name))
+	// s.AddPort(fmt.Sprintf("%s.ToMem", name), s.ToMem)
 
 	s.ToVectorMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToVectorMem", name))
 	s.AddPort(fmt.Sprintf("%s.ToVectorMem", name), s.ToVectorMem)
