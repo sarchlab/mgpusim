@@ -147,9 +147,12 @@ func (b *GPUBuilder) createGPU(name string) {
 	b.gpuName = name
 
 	b.gpu = &GPUController{
-		gpuName: name,
-		ID:      sim.GetIDGenerator().Generate(),
-		SMs:     make(map[string]*sm.SMController),
+		gpuName:        name,
+		ID:             sim.GetIDGenerator().Generate(),
+		SMs:            make(map[string]*sm.SMController),
+		SMIssueIndex:   0,
+		smsCount:       b.smsCount,
+		SMAssignedList: make(map[string]bool),
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
 	// b.gpuID = id
@@ -203,7 +206,8 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 	for i := range sms {
 		sm := sms[i]
 
-		gpu.freeSMs = append(gpu.freeSMs, sm)
+		// gpu.freeSMs = append(gpu.freeSMs, sm)
+		gpu.SMList = append(gpu.SMList, sm)
 		gpu.SMs[sm.ID] = sm
 
 		sm.SetGPURemotePort(gpu.toSMs)

@@ -46,10 +46,11 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s.ToVectorMem = sim.NewPort(s, 4096, 4096, fmt.Sprintf("%s.ToVectorMem", name))
 	s.AddPort(fmt.Sprintf("%s.ToVectorMem", name), s.ToVectorMem)
 
-	s.waitingCycle = 0
+	// s.waitingCycle = 0
 
 	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
 	s.PendingSMSPtoMemWriteReq = make(map[string]*mem.WriteReq)
+	s.PendingSMSPMemMsgID2Warp = make(map[string]*SMSPWarpUnit)
 
 	atexit.Register(s.LogStatus)
 

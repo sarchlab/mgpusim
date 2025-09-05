@@ -4,6 +4,7 @@ import (
 	// "fmt"
 
 	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
 
 	log "github.com/sirupsen/logrus"
@@ -32,16 +33,18 @@ type SMSPController struct {
 	// ToGPUControllerMemRemote sim.Port
 	// ToMem            sim.Port
 	ToVectorMemRemote sim.Port
-	waitingForMemRsp  bool
-	waitingCycle      uint64
+	// waitingForMemRsp  bool
+	// waitingCycle      uint64
 
 	PendingSMSPtoMemReadReq  map[string]*mem.ReadReq
 	PendingSMSPtoMemWriteReq map[string]*mem.WriteReq
+	PendingSMSPMemMsgID2Warp map[string]*SMSPWarpUnit
 
-	unfinishedInstsCount uint64
+	// unfinishedInstsCount uint64
+	scheduler SMSPSWarpScheduler
 
 	finishedWarpsCount uint64
-	currentWarp        trace.WarpTrace
+	// currentWarp        trace.WarpTrace
 
 	ToVectorMem sim.Port
 }
@@ -157,13 +160,47 @@ func (s *SMSPController) processMemRsp() bool {
 		// fmt.Printf("[received] DataReadyRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
 		tracing.TraceReqFinalize(originalReqMsg, s)
 		// fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
-		s.waitingForMemRsp = false
+		// s.waitingForMemRsp = false
+		warpUnit := s.PendingSMSPMemMsgID2Warp[originalReqMsg.ID]
+		if warpUnit == nil {
+			log.Panic("In processing read req, warpUnit not found")
+		}
+		if warpUnit.status != WarpStatusWaiting {
+			fmt.Printf("warpUnit.status = %d\n", warpUnit.status)
+			log.Panic("In processing read req, the corresponding warpUnit status is not waiting")
+		}
+		delete(s.PendingSMSPtoMemReadReq, originalReqMsg.ID)
+		if warpUnit.unfinishedInstsCount == 1 {
+			s.scheduler.removeFinishedWarps(warpUnit)
+			s.finishedWarpsCount++
+			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
+		} else {
+			warpUnit.status = WarpStatusRunning
+			warpUnit.unfinishedInstsCount--
+		}
+
 	case *mem.WriteDoneRsp:
 		originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
 		// fmt.Printf("[received] WriteDoneRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
 		tracing.TraceReqFinalize(originalReqMsg, s)
 		// fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
-		s.waitingForMemRsp = false
+		// s.waitingForMemRsp = false
+		warpUnit := s.PendingSMSPMemMsgID2Warp[originalReqMsg.ID]
+		if warpUnit == nil {
+			log.Panic("In processing write req, warpUnit not found")
+		}
+		if warpUnit.status != WarpStatusWaiting {
+			log.Panic("In processing write req, the corresponding warpUnit status is not waiting")
+		}
+		delete(s.PendingSMSPtoMemWriteReq, originalReqMsg.ID)
+		if warpUnit.unfinishedInstsCount == 1 {
+			s.scheduler.removeFinishedWarps(warpUnit)
+			s.finishedWarpsCount++
+			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
+		} else {
+			warpUnit.status = WarpStatusRunning
+			warpUnit.unfinishedInstsCount--
+		}
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 		s.ToVectorMem.RetrieveIncoming()
@@ -263,10 +300,12 @@ func (s *SMSPController) processMemRsp() bool {
 // }
 
 func (s *SMSPController) processSMMsg(msg *message.SMToSMSPMsg) {
-	// fmt.Println("Called processSMMsg")
-	s.unfinishedInstsCount = msg.Warp.InstructionsCount()
-	s.currentWarp = msg.Warp
-	s.instsCount += msg.Warp.InstructionsCount()
+	// s.unfinishedInstsCount = msg.Warp.InstructionsCount()
+	// s.currentWarp = msg.Warp
+	// s.instsCount += msg.Warp.InstructionsCount()
+
+	s.scheduler.insertWarps(msg.WarpList)
+
 	// log.WithFields(log.Fields{
 	// 	"msg.Warp id":     msg.Warp.ID,
 	// 	"unit instsCount": msg.Warp.InstructionsCount()}).Info("SMSPController received warp")
@@ -274,39 +313,84 @@ func (s *SMSPController) processSMMsg(msg *message.SMToSMSPMsg) {
 }
 
 func (s *SMSPController) run() bool {
-	if s.unfinishedInstsCount == 0 || s.waitingForMemRsp {
+	// if s.unfinishedInstsCount == 0 || s.waitingForMemRsp {
+	// 	return false
+	// }
+	if s.scheduler.isEmpty() {
 		return false
 	}
-	if s.waitingCycle > 0 {
-		s.waitingCycle--
-		return true
-	}
+	// if s.waitingCycle > 0 {
+	// 	s.waitingCycle--
+	// 	return true
+	// }
 	//  || s.waitingForMemRsp
+	// currentWarpUnitIndex, currentWarpUnit := s.scheduler.issueWarp()
 
-	s.unfinishedInstsCount--
-	if s.unfinishedInstsCount == 0 {
-		s.finishedWarpsCount++
+	currentWarpUnitList := s.scheduler.issueWarps()
+
+	runProgress := false
+	for _, warpUnit := range currentWarpUnitList {
+		runProgress = s.runWarp(warpUnit) || runProgress
 	}
-	currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
+	return runProgress
+}
+
+func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
+	if warpUnit == nil {
+		// fmt.Printf("No warp is issued in SMSPController %s\n", s.ID)
+		return false
+	}
+
+	// fmt.Printf("SMSPController %s issued warp unit index = %d, warp id = %d\n", s.ID, currentWarpUnitIndex, currentWarpUnit.warp.ID)
+
+	// s.unfinishedInstsCount--
+	// if s.unfinishedInstsCount == 0 {
+	// 	s.finishedWarpsCount++
+	// }
+
+	lastInstructionFlag := false
+
+	if warpUnit.unfinishedInstsCount == 1 {
+		lastInstructionFlag = true
+	}
+
+	// currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
+	currentInstruction := warpUnit.warp.Instructions[warpUnit.warp.InstructionsCount()-warpUnit.unfinishedInstsCount]
+
 	currentInstructionType := currentInstruction.OpCode.OpcodeType()
 	reqParentID := currentInstruction.InstructionsParentID()
 	// fmt.Printf("%v\n", currentInstructionType == trace.OpCodeMemRead)
 	switch currentInstructionType {
 	case trace.OpCodeMemRead:
 		// address := rand.Uint64() % (1048576 / 4) * 4
+		// fmt.Printf("In branch trace.OpCodeMemRead\n")
+		warpUnit.status = WarpStatusWaiting
 		address := currentInstruction.MemAddress
 		address = 0
-		s.doRead(reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
+		s.doRead(warpUnit, reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
 	case trace.OpCodeMemWrite:
 		// address := rand.Uint64() % (1048576 / 4) * 4
+		// fmt.Printf("In branch trace.OpCodeMemWrite\n")
+		warpUnit.status = WarpStatusWaiting
 		address := currentInstruction.MemAddress
 		address = 0
 		data := rand.Uint32()
-		s.doWrite(reqParentID, address, &data)
+		s.doWrite(warpUnit, reqParentID, address, &data)
 	case trace.OpCodeExit:
+		// fmt.Printf("In branch trace.OpCodeExit\n")
 		if currentInstruction.Mask != 0 {
-			s.unfinishedInstsCount = 0
+			s.scheduler.removeFinishedWarps(warpUnit)
+			// s.unfinishedInstsCount = 0
 			s.finishedWarpsCount++
+			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, currentWarpUnit.warp.ID, s.finishedWarpsCount)
+		} else {
+			if lastInstructionFlag {
+				s.scheduler.removeFinishedWarps(warpUnit)
+				s.finishedWarpsCount++
+			} else {
+				warpUnit.status = WarpStatusRunning
+				warpUnit.unfinishedInstsCount--
+			}
 		}
 		// case trace.OpCode4:
 		// 	s.waitingCycle = 3
@@ -316,6 +400,15 @@ func (s *SMSPController) run() bool {
 		// 	s.waitingCycle = 7
 		// case trace.OpCode10:
 		// 	s.waitingCycle = 9
+	default:
+		// fmt.Printf("In branch default\n")
+		if lastInstructionFlag {
+			s.scheduler.removeFinishedWarps(warpUnit)
+			s.finishedWarpsCount++
+		} else {
+			warpUnit.status = WarpStatusRunning
+			warpUnit.unfinishedInstsCount--
+		}
 	}
 
 	// if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
@@ -352,7 +445,7 @@ func (s *SMSPController) reportFinishedWarps() bool {
 	return true
 }
 
-func (s *SMSPController) doRead(reqParentID string, addr uint64, byteSize uint64) bool {
+func (s *SMSPController) doRead(warpUnit *SMSPWarpUnit, reqParentID string, addr uint64, byteSize uint64) bool {
 	// fmt.Printf("[start] SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
 	msg := mem.ReadReqBuilder{}.
 		WithSrc(s.ToVectorMem.AsRemote()).
@@ -372,17 +465,18 @@ func (s *SMSPController) doRead(reqParentID string, addr uint64, byteSize uint64
 	msg.ID = sim.GetIDGenerator().Generate()
 	tracing.TraceReqInitiate(msg, s, reqParentID)
 	s.PendingSMSPtoMemReadReq[msg.ID] = msg
+	s.PendingSMSPMemMsgID2Warp[msg.ID] = warpUnit
 	err := s.ToVectorMem.Send(msg)
 	if err != nil {
 		return false
 	}
-	s.waitingForMemRsp = true
+	// s.waitingForMemRsp = true
 	// fmt.Printf("[finished] SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
 
 	return true
 }
 
-func (s *SMSPController) doWrite(reqParentID string, addr uint64, d *uint32) bool {
+func (s *SMSPController) doWrite(warpUnit *SMSPWarpUnit, reqParentID string, addr uint64, d *uint32) bool {
 	// fmt.Printf("[start] SMSPController %s doRead from address %x\n", s.ID, addr)
 	msg := mem.WriteReqBuilder{}.
 		WithSrc(s.ToVectorMem.AsRemote()).
@@ -396,12 +490,13 @@ func (s *SMSPController) doWrite(reqParentID string, addr uint64, d *uint32) boo
 	msg.ID = sim.GetIDGenerator().Generate()
 	tracing.TraceReqInitiate(msg, s, reqParentID)
 	s.PendingSMSPtoMemWriteReq[msg.ID] = msg
+	s.PendingSMSPMemMsgID2Warp[msg.ID] = warpUnit
 	// fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)
 	err := s.ToVectorMem.Send(msg)
 	if err != nil {
 		return false
 	}
-	s.waitingForMemRsp = true
+	// s.waitingForMemRsp = true
 	// fmt.Printf("[finished] SMSPController %s doRead from address %x\n", s.ID, addr)
 	return true
 }

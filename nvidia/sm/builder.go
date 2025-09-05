@@ -74,9 +74,11 @@ func (b SMBuilder) WithLog2CacheLineSize(size uint64) SMBuilder {
 
 func (b SMBuilder) Build(name string) *SMController {
 	s := &SMController{
-		ID:       sim.GetIDGenerator().Generate(),
-		SMSPs:    make(map[string]*smsp.SMSPController),
-		SMSPsIDs: []string{},
+		ID:             sim.GetIDGenerator().Generate(),
+		SMSPs:          make(map[string]*smsp.SMSPController),
+		SMSPsIDs:       []string{},
+		smspsCount:     b.smspsCount,
+		smspIssueIndex: 0,
 	}
 	b.name = name
 	b.connectionCount = 0
@@ -162,7 +164,7 @@ func (b *SMBuilder) connectSMwithSMSPs(sm *SMController, smsps []*smsp.SMSPContr
 	for i := range smsps {
 		smsp := smsps[i]
 
-		sm.freeSMSPs = append(sm.freeSMSPs, smsp)
+		sm.SMSPList = append(sm.SMSPList, smsp)
 		sm.SMSPs[smsp.ID] = smsp
 		sm.SMSPsIDs = append(sm.SMSPsIDs, smsp.ID)
 

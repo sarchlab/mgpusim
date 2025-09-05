@@ -34,15 +34,19 @@ type SMController struct {
 	// PendingReadReq  map[string]*message.SMSPToSMMemReadMsg
 	// PendingWriteReq map[string]*message.SMSPToSMMemWriteMsg
 
-	SMSPs     map[string]*smsp.SMSPController
-	SMSPsIDs  []string
-	freeSMSPs []*smsp.SMSPController
+	SMSPs    map[string]*smsp.SMSPController
+	SMSPsIDs []string
+	// freeSMSPs []*smsp.SMSPController
+	SMSPList []*smsp.SMSPController
 
 	undispatchedWarps    []*trace.WarpTrace
 	unfinishedWarpsCount uint64
 
 	finishedThreadblocksCount uint64
 	// l1Caches                  []*writearound.Comp
+
+	smspsCount     uint64
+	smspIssueIndex uint64
 }
 
 func (s *SMController) SetGPURemotePort(remote sim.Port) {
@@ -69,10 +73,15 @@ func (s *SMController) Tick() bool {
 	madeProgress = s.dispatchThreadblocksToSMSPs() || madeProgress
 	madeProgress = s.processGPUInput() || madeProgress
 	madeProgress = s.processSMSPsInput() || madeProgress
+	madeProgress = s.checkAnyWarpNotFinished() || madeProgress
 	// madeProgress = s.processSMSPsInputMem() || madeProgress
 	// madeProgress = s.processGPUMemRsp() || madeProgress
 
 	return madeProgress
+}
+
+func (s *SMController) checkAnyWarpNotFinished() bool {
+	return s.unfinishedWarpsCount > 0 || len(s.undispatchedWarps) > 0
 }
 
 func (s *SMController) processGPUInput() bool {
@@ -191,8 +200,9 @@ func (s *SMController) processSMMsg(msg *message.DeviceToSMMsg) {
 
 func (s *SMController) processSMSPSMsg(msg *message.SMSPToSMMsg) {
 	if msg.WarpFinished {
-		s.freeSMSPs = append(s.freeSMSPs, s.SMSPs[msg.SMSPID])
+		// s.freeSMSPs = append(s.freeSMSPs, s.SMSPs[msg.SMSPID])
 		s.unfinishedWarpsCount--
+		// fmt.Printf("%.10f, %s, SMController, received a msg from smsp for a warp finished, unfinished warps count = %d->%d\n", s.Engine.CurrentTime(), s.Name(), s.unfinishedWarpsCount+1, s.unfinishedWarpsCount)
 		if s.unfinishedWarpsCount == 0 {
 			s.finishedThreadblocksCount++
 		}
@@ -258,26 +268,69 @@ func (s *SMController) reportFinishedKernels() bool {
 }
 
 func (s *SMController) dispatchThreadblocksToSMSPs() bool {
-	if len(s.freeSMSPs) == 0 || len(s.undispatchedWarps) == 0 {
+	if len(s.SMSPList) == 0 || len(s.undispatchedWarps) == 0 {
 		return false
 	}
 
-	smsp := s.freeSMSPs[0]
-	warp := s.undispatchedWarps[0]
-
-	msg := &message.SMToSMSPMsg{
-		Warp: *warp,
-	}
-	msg.Src = s.toSMSPs.AsRemote()
-	msg.Dst = smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())).AsRemote()
-
-	err := s.toSMSPs.Send(msg)
-	if err != nil {
-		return false
+	if s.smspsCount == 0 {
+		log.Panic("SMSP count is 0")
 	}
 
-	s.freeSMSPs = s.freeSMSPs[1:]
-	s.undispatchedWarps = s.undispatchedWarps[1:]
+	nUndispatchedWarps := len(s.undispatchedWarps)
+	msgList := make([]message.SMToSMSPMsg, s.smspsCount)
+	for i, smsp := range s.SMSPList {
+		// fmt.Printf("i: %d, smsp id: %s, s.toSMSPs.AsRemote(): %s\n", i, smsp.ID, s.toSMSPs.AsRemote())
+		msgList[i].Src = s.toSMSPs.AsRemote()
+		msgList[i].Dst = smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())).AsRemote()
+		// msgList[i].Warp = nil
+		msgList[i].WarpList = []*trace.WarpTrace{}
+	}
+
+	for i := 0; i < nUndispatchedWarps; i++ {
+		// smsp := s.SMSPList[s.smspIssueIndex]
+		warp := s.undispatchedWarps[0]
+
+		msgList[s.smspIssueIndex].WarpList = append(msgList[s.smspIssueIndex].WarpList, warp)
+
+		// msg := &message.SMToSMSPMsg{
+		// 	Warp: warp,
+		// }
+		// msg.Src = s.toSMSPs.AsRemote()
+		// msg.Dst = smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())).AsRemote()
+
+		// err := s.toSMSPs.Send(msg)
+		// if err != nil {
+		// 	return false
+		// }
+		s.smspIssueIndex = (s.smspIssueIndex + 1) % s.smspsCount
+		s.undispatchedWarps = s.undispatchedWarps[1:]
+	}
+
+	for i := range msgList {
+		if len(msgList[i].WarpList) > 0 {
+			err := s.toSMSPs.Send(&msgList[i])
+			if err != nil {
+				return false
+			}
+		}
+	}
+
+	// smsp := s.SMSPList[s.smspIssueIndex]
+	// warp := s.undispatchedWarps[0]
+
+	// msg := &message.SMToSMSPMsg{
+	// 	Warp: warp,
+	// }
+	// msg.Src = s.toSMSPs.AsRemote()
+	// msg.Dst = smsp.GetPortByName(fmt.Sprintf("%s.ToSM", smsp.Name())).AsRemote()
+
+	// err := s.toSMSPs.Send(msg)
+	// if err != nil {
+	// 	return false
+	// }
+
+	// s.smspIssueIndex = (s.smspIssueIndex + 1) % s.smspsCount
+	// s.undispatchedWarps = s.undispatchedWarps[1:]
 
 	return false
 }

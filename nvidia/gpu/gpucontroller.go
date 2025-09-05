@@ -6,7 +6,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v4/sim"
-	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/sm"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
@@ -22,9 +21,11 @@ type GPUController struct {
 	toDriver       sim.Port
 	toDriverRemote sim.Port
 
-	toSMs   sim.Port
-	SMs     map[string]*sm.SMController
-	freeSMs []*sm.SMController
+	toSMs sim.Port
+	SMs   map[string]*sm.SMController
+	// freeSMs []*sm.SMController
+	SMList         []*sm.SMController
+	SMAssignedList map[string]bool
 
 	ToSMSPs sim.Port
 
@@ -54,12 +55,15 @@ type GPUController struct {
 	// PendingCacheReadReq  map[string]*message.GPUControllerToCachesMemReadMsg
 	// PendingCacheWriteReq map[string]*message.GPUControllerToCachesMemWriteMsg
 
-	RDMAEngine *rdma.Comp
+	// RDMAEngine *rdma.Comp
 
 	undispatchedThreadblocks    []*trace.ThreadblockTrace
 	unfinishedThreadblocksCount uint64
 
 	finishedKernelsCount uint64
+
+	SMIssueIndex uint64
+	smsCount     uint64
 }
 
 func (g *GPUController) SetDriverRemotePort(remote sim.Port) {
@@ -72,11 +76,21 @@ func (g *GPUController) Tick() bool {
 	madeProgress = g.dispatchThreadblocksToSMs() || madeProgress
 	madeProgress = g.processDriverInput() || madeProgress
 	madeProgress = g.processSMsInput() || madeProgress
+	madeProgress = g.checkAnySMAssigned() || madeProgress
 	// madeProgress = g.processCaches() || madeProgress
 	// madeProgress = g.processSMsInputMem() || madeProgress
 	// madeProgress = g.processDRAMRsp() || madeProgress
 
 	return madeProgress
+}
+
+func (g *GPUController) checkAnySMAssigned() bool {
+	for _, assigned := range g.SMAssignedList {
+		if assigned {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *GPUController) processDriverInput() bool {
@@ -115,17 +129,20 @@ func (g *GPUController) processDriverMsg(msg *message.DriverToDeviceMsg) {
 	for i := range msg.Kernel.Threadblocks {
 		g.undispatchedThreadblocks = append(g.undispatchedThreadblocks, msg.Kernel.Threadblocks[i])
 		g.unfinishedThreadblocksCount++
+		// fmt.Printf("%.10f, %s, GPUController, received a msg from driver for a kernel with %d threadblocks, unfinished threadblocks count = %d->%d\n", g.Engine.CurrentTime(), g.Name(), len(msg.Kernel.Threadblocks), g.unfinishedThreadblocksCount-1, g.unfinishedThreadblocksCount)
 	}
 	g.toDriver.RetrieveIncoming()
 }
 
 func (g *GPUController) processSMsMsg(msg *message.SMToDeviceMsg) {
 	if msg.ThreadblockFinished {
-		g.freeSMs = append(g.freeSMs, g.SMs[msg.SMID])
+		// g.freeSMs = append(g.freeSMs, g.SMs[msg.SMID])
 		g.unfinishedThreadblocksCount--
+		// fmt.Printf("%.10f, %s, GPUController, received a msg from sm for a threadblock finished, unfinished threadblocks count = %d->%d\n", g.Engine.CurrentTime(), g.Name(), g.unfinishedThreadblocksCount+1, g.unfinishedThreadblocksCount)
 		if g.unfinishedThreadblocksCount == 0 {
 			g.finishedKernelsCount++
 		}
+		g.SMAssignedList[msg.SMID] = false
 	}
 	g.toSMs.RetrieveIncoming()
 }
@@ -170,12 +187,33 @@ func (g *GPUController) reportFinishedKernels() bool {
 	return true
 }
 
+func (g *GPUController) issueSMIndex() int {
+	for i := 0; i < int(g.smsCount); i++ {
+		index := (int(g.SMIssueIndex) + i) % int(g.smsCount)
+		sm := g.SMList[index]
+		if !g.SMAssignedList[sm.ID] {
+			g.SMAssignedList[sm.ID] = true
+			g.SMIssueIndex = uint64((index + 1) % int(g.smsCount))
+			return index
+		}
+	}
+	return -1
+}
+
 func (g *GPUController) dispatchThreadblocksToSMs() bool {
-	if len(g.freeSMs) == 0 || len(g.undispatchedThreadblocks) == 0 {
+	if len(g.SMList) == 0 || len(g.undispatchedThreadblocks) == 0 {
 		return false
 	}
+	if g.smsCount == 0 {
+		log.Panic("SM count is 0")
+	}
+	smIndex := g.issueSMIndex()
+	if smIndex == -1 {
+		// All sms already has a threadblock to do
+		return true
+	}
+	sm := g.SMList[smIndex]
 
-	sm := g.freeSMs[0]
 	threadblock := g.undispatchedThreadblocks[0]
 
 	msg := &message.DeviceToSMMsg{
@@ -189,7 +227,9 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 		return false
 	}
 
-	g.freeSMs = g.freeSMs[1:]
+	// g.freeSMs = g.freeSMs[1:]
+	g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
+
 	g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
 
 	return false
