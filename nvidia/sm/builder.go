@@ -33,6 +33,13 @@ type SMBuilder struct {
 	connectionCount int
 }
 
+func MakeBuilder() SMBuilder {
+	return SMBuilder{
+		freq:              1 * sim.GHz,
+		log2CacheLineSize: 7,
+	}
+}
+
 func (b SMBuilder) WithEngine(engine sim.Engine) SMBuilder {
 	b.engine = engine
 	return b
@@ -57,6 +64,11 @@ func (b SMBuilder) WithL1AddressMapper(
 	l1AddressMapper mem.AddressToPortMapper,
 ) SMBuilder {
 	b.l1AddressMapper = l1AddressMapper
+	return b
+}
+
+func (b SMBuilder) WithLog2CacheLineSize(size uint64) SMBuilder {
+	b.log2CacheLineSize = size
 	return b
 }
 
@@ -177,7 +189,7 @@ func (b *SMBuilder) buildL1VCaches() {
 			WithAddressToPortMapper(b.l1AddressMapper)
 
 		name := fmt.Sprintf("%s.L1VCache[%d]", b.name, i)
-		fmt.Printf("b.name: %s, cache name: %s\n", b.name, name)
+		// fmt.Printf("b.name: %s, cache name: %s\n", b.name, name)
 		cache := builder.Build(name)
 		b.l1vCaches = append(b.l1vCaches, cache)
 		b.simulation.RegisterComponent(cache)
@@ -222,16 +234,16 @@ func (b *SMBuilder) connectVectorMem() {
 		// b.connectWithDirectConnection(l1v.GetPortByName("Top"),
 		// 	at.GetPortByName("Bottom"), 8)
 
-		b.connectWithDirectConnection(smsp.ToVectorMem, l1v.GetPortByName("Top"), 8)
+		b.connectWithDirectConnection(smsp.ToVectorMem, l1v.GetPortByName("Top"))
 	}
 }
 
 func (b *SMBuilder) connectWithDirectConnection(
 	port1, port2 sim.Port,
-	bufferSize int,
+	// bufferSize int,
 ) {
 	name := fmt.Sprintf("%s.Conn[%d]", b.name, b.connectionCount)
-	fmt.Printf("Connecting %s with %s through %s\n", port1.Name(), port2.Name(), name)
+	// fmt.Printf("Connecting %s with %s through %s\n", port1.Name(), port2.Name(), name)
 	b.connectionCount++
 
 	conn := directconnection.MakeBuilder().

@@ -101,15 +101,17 @@ func (b *GPUBuilder) Build(name string) *GPUController {
 	// 	ID:  sim.GetIDGenerator().Generate(),
 	// 	SMs: make(map[string]*sm.SMController),
 	// }
+	b.log2MemoryBankInterleavingSize = 7
+
 	b.createGPU(name)
 
 	b.l1AddressMapper = mem.NewInterleavedAddressPortMapper(
 		1 << b.log2MemoryBankInterleavingSize,
 	)
 	b.memAddrOffset = uint64(0)
-	b.l1AddressMapper.LowAddress = b.memAddrOffset
-	b.l1AddressMapper.HighAddress = b.memAddrOffset + b.DramSize
-	b.l1AddressMapper.UseAddressSpaceLimitation = true
+	// b.l1AddressMapper.LowAddress = b.memAddrOffset
+	// b.l1AddressMapper.HighAddress = b.memAddrOffset + b.DramSize
+	b.l1AddressMapper.UseAddressSpaceLimitation = false
 
 	b.gpu.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, b.gpu)
 	b.buildPortsForGPU(b.gpu, name)
@@ -170,7 +172,7 @@ func (b *GPUBuilder) buildPortsForGPU(g *GPUController, name string) {
 }
 
 func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
-	smBuilder := new(sm.SMBuilder).
+	smBuilder := sm.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithSimulation(b.simulation).
@@ -401,6 +403,9 @@ func (b *GPUBuilder) connectL1ToL2() {
 
 	for _, l2 := range b.l2Caches {
 		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
+		b.l1AddressMapper.LowModules = append(
+			b.l1AddressMapper.LowModules,
+			l2.GetPortByName("Top").AsRemote())
 	}
 
 	for _, sm := range b.gpu.SMs {

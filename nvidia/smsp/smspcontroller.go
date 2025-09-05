@@ -4,7 +4,6 @@ import (
 	// "fmt"
 
 	"encoding/binary"
-	"fmt"
 	"math/rand/v2"
 
 	log "github.com/sirupsen/logrus"
@@ -145,21 +144,23 @@ func (s *SMSPController) processSMInput() bool {
 }
 
 func (s *SMSPController) processMemRsp() bool {
+	// fmt.Printf("[waiting] SMSPController %s is waiting in processMemRsp\n", s.ID)
 	msg := s.ToVectorMem.PeekIncoming()
 	if msg == nil {
+		// fmt.Printf("[waiting] nothing is received in processMemRsp\n")
 		return false
 	}
 
 	switch msg := msg.(type) { // switch msg := msg.(type) {
 	case *mem.DataReadyRsp:
 		originalReqMsg := s.PendingSMSPtoMemReadReq[msg.RespondTo]
-		// fmt.Printf("DataReadyRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
+		// fmt.Printf("[received] DataReadyRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
 		tracing.TraceReqFinalize(originalReqMsg, s)
 		// fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
 	case *mem.WriteDoneRsp:
 		originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
-		// fmt.Printf("WriteDoneRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
+		// fmt.Printf("[received] WriteDoneRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
 		tracing.TraceReqFinalize(originalReqMsg, s)
 		// fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		s.waitingForMemRsp = false
@@ -294,10 +295,12 @@ func (s *SMSPController) run() bool {
 	case trace.OpCodeMemRead:
 		// address := rand.Uint64() % (1048576 / 4) * 4
 		address := currentInstruction.MemAddress
+		address = 0
 		s.doRead(reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
 	case trace.OpCodeMemWrite:
 		// address := rand.Uint64() % (1048576 / 4) * 4
 		address := currentInstruction.MemAddress
+		address = 0
 		data := rand.Uint32()
 		s.doWrite(reqParentID, address, &data)
 	case trace.OpCodeExit:
@@ -350,7 +353,7 @@ func (s *SMSPController) reportFinishedWarps() bool {
 }
 
 func (s *SMSPController) doRead(reqParentID string, addr uint64, byteSize uint64) bool {
-	fmt.Printf("SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
+	// fmt.Printf("[start] SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
 	msg := mem.ReadReqBuilder{}.
 		WithSrc(s.ToVectorMem.AsRemote()).
 		WithDst(s.ToVectorMemRemote.AsRemote()).
@@ -374,10 +377,13 @@ func (s *SMSPController) doRead(reqParentID string, addr uint64, byteSize uint64
 		return false
 	}
 	s.waitingForMemRsp = true
+	// fmt.Printf("[finished] SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
+
 	return true
 }
 
 func (s *SMSPController) doWrite(reqParentID string, addr uint64, d *uint32) bool {
+	// fmt.Printf("[start] SMSPController %s doRead from address %x\n", s.ID, addr)
 	msg := mem.WriteReqBuilder{}.
 		WithSrc(s.ToVectorMem.AsRemote()).
 		WithDst(s.ToVectorMemRemote.AsRemote()).
@@ -396,6 +402,7 @@ func (s *SMSPController) doWrite(reqParentID string, addr uint64, d *uint32) boo
 		return false
 	}
 	s.waitingForMemRsp = true
+	// fmt.Printf("[finished] SMSPController %s doRead from address %x\n", s.ID, addr)
 	return true
 }
 

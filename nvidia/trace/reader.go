@@ -207,9 +207,9 @@ func extractInst(text string) *InstructionTrace {
 
 // [todo]: understand memory format
 func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
-	if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
-		fmt.Printf("elems: %v\n", elems)
-	}
+	// if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
+	// 	fmt.Printf("elems: %v\n", elems)
+	// }
 	fmt.Sscanf(elems[0], "%d", &inst.MemWidth)
 
 	if inst.MemWidth != 0 {
@@ -227,8 +227,8 @@ func updateInstMemoryPart(inst *InstructionTrace, elems []string) {
 			inst.MemAddress = memAddress
 		}
 		if inst.OpCode.OpcodeType() == OpCodeMemRead || inst.OpCode.OpcodeType() == OpCodeMemWrite {
-			fmt.Printf("AddressCompress: %d\n", inst.AddressCompress)
-			fmt.Printf("MemAddress: %x\n", inst.MemAddress)
+			// fmt.Printf("AddressCompress: %d\n", inst.AddressCompress)
+			// fmt.Printf("MemAddress: %x\n", inst.MemAddress)
 		}
 
 		if inst.AddressCompress == 1 {
