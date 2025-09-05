@@ -34,7 +34,8 @@ type SMToDeviceMsg struct {
 type SMToSMSPMsg struct {
 	sim.MsgMeta
 
-	Warp trace.WarpTrace
+	// Warp *trace.WarpTrace
+	WarpList []*trace.WarpTrace
 }
 
 type SMSPToSMMsg struct {
