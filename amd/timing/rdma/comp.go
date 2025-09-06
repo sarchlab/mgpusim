@@ -22,10 +22,11 @@ type transaction struct {
 type Comp struct {
 	*sim.TickingComponent
 
-	ToOutside sim.Port
+	RDMARequestInside  sim.Port
+	RDMARequestOutside sim.Port
 
-	ToL1 sim.Port
-	ToL2 sim.Port
+	RDMADataInside  sim.Port
+	RDMADataOutside sim.Port
 
 	CtrlPort sim.Port
 
@@ -38,6 +39,11 @@ type Comp struct {
 
 	transactionsFromOutside []transaction
 	transactionsFromInside  []transaction
+
+	incomingReqPerCycle int
+	incomingRspPerCycle int
+	outgoingReqPerCycle int
+	outgoingRspPerCycle int
 }
 
 // SetLocalModuleFinder sets the table to lookup for local data.
@@ -53,9 +59,22 @@ func (c *Comp) Tick() bool {
 	if c.isDraining {
 		madeProgress = c.drainRDMA() || madeProgress
 	}
-	madeProgress = c.processFromL1() || madeProgress
-	madeProgress = c.processFromL2() || madeProgress
-	madeProgress = c.processFromOutside() || madeProgress
+
+	for i := 0; i < c.outgoingReqPerCycle; i++ {
+		madeProgress = c.processFromL1() || madeProgress
+	}
+
+	for i := 0; i < c.outgoingRspPerCycle; i++ {
+		madeProgress = c.processFromL2() || madeProgress
+	}
+
+	for i := 0; i < c.incomingReqPerCycle; i++ {
+		madeProgress = c.processIncomingReq() || madeProgress
+	}
+
+	for i := 0; i < c.incomingRspPerCycle; i++ {
+		madeProgress = c.processIncomingRsp() || madeProgress
+	}
 
 	return madeProgress
 }
@@ -126,7 +145,7 @@ func (c *Comp) processFromL1() bool {
 
 	madeProgress := false
 	for {
-		req := c.ToL1.PeekIncoming()
+		req := c.RDMARequestInside.PeekIncoming()
 		if req == nil {
 			return madeProgress
 		}
@@ -146,74 +165,20 @@ func (c *Comp) processFromL1() bool {
 	}
 }
 
-func (c *Comp) processFromL2() bool {
-	madeProgress := false
-	for {
-		req := c.ToL2.PeekIncoming()
-		if req == nil {
-			return madeProgress
-		}
-		switch req := req.(type) {
-		case mem.AccessRsp:
-			ret := c.processRspFromL2(req)
-			if !ret {
-				return madeProgress
-			}
-			madeProgress = true
-		default:
-			panic("unknown req type")
-		}
-	}
-}
-
-func (c *Comp) processFromOutside() bool {
-	madeProgress := false
-	for {
-		req := c.ToOutside.PeekIncoming()
-		if req == nil {
-			return madeProgress
-		}
-		switch req := req.(type) {
-		case mem.AccessReq:
-			ret := c.processReqFromOutside(req)
-			if !ret {
-				return madeProgress
-			}
-			madeProgress = true
-		case mem.AccessRsp:
-			ret := c.processRspFromOutside(req)
-			if !ret {
-				return madeProgress
-			}
-			madeProgress = true
-		default:
-			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-			return false
-		}
-	}
-}
-
 func (c *Comp) processReqFromL1(
 	req mem.AccessReq,
 ) bool {
 	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
 
-	// if dst == c.ToOutside.AsRemote() {
-	// 	panic("RDMA loop back detected")
-	// }
-
 	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.ToOutside.AsRemote()
+	cloned.Meta().Src = c.RDMARequestOutside.AsRemote()
 	cloned.Meta().Dst = dst
 
-	err := c.ToOutside.Send(cloned)
+	err := c.RDMARequestOutside.Send(cloned)
 	if err == nil {
-		c.ToL1.RetrieveIncoming()
+		c.RDMARequestInside.RetrieveIncoming()
 
 		c.traceInsideOutStart(req, cloned)
-
-		//fmt.Printf("%s req inside %s -> outside %s\n",
-		//e.Name(), req.GetID(), cloned.GetID())
 
 		trans := transaction{
 			fromInside: req,
@@ -227,33 +192,23 @@ func (c *Comp) processReqFromL1(
 	return false
 }
 
-func (c *Comp) processReqFromOutside(
-	req mem.AccessReq,
-) bool {
-	dst := c.localModules.Find(req.GetAddress())
-
-	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.ToL2.AsRemote()
-	cloned.Meta().Dst = dst
-
-	err := c.ToL2.Send(cloned)
-	if err == nil {
-		c.ToOutside.RetrieveIncoming()
-
-		c.traceOutsideInStart(req, cloned)
-
-		//fmt.Printf("%s req outside %s -> inside %s\n",
-		//e.Name(), req.GetID(), cloned.GetID())
-
-		trans := transaction{
-			fromOutside: req,
-			toInside:    cloned,
+func (c *Comp) processFromL2() bool {
+	for {
+		req := c.RDMADataInside.PeekIncoming()
+		if req == nil {
+			return false
 		}
-		c.transactionsFromOutside =
-			append(c.transactionsFromOutside, trans)
-		return true
+		switch req := req.(type) {
+		case mem.AccessRsp:
+			ret := c.processRspFromL2(req)
+			if !ret {
+				return false
+			}
+			return true
+		default:
+			panic("unknown req type")
+		}
 	}
-	return false
 }
 
 func (c *Comp) processRspFromL2(
@@ -264,15 +219,12 @@ func (c *Comp) processRspFromL2(
 	trans := c.transactionsFromOutside[transactionIndex]
 
 	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
-	rspToOutside.Meta().Src = c.ToOutside.AsRemote()
+	rspToOutside.Meta().Src = c.RDMADataOutside.AsRemote()
 	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
 
-	err := c.ToOutside.Send(rspToOutside)
+	err := c.RDMADataOutside.Send(rspToOutside)
 	if err == nil {
-		c.ToL2.RetrieveIncoming()
-
-		//fmt.Printf("%s rsp inside %s -> outside %s\n",
-		//e.Name(), rsp.GetID(), rspToOutside.GetID())
+		c.RDMADataInside.RetrieveIncoming()
 
 		c.traceOutsideInEnd(trans)
 
@@ -284,7 +236,30 @@ func (c *Comp) processRspFromL2(
 	return false
 }
 
-func (c *Comp) processRspFromOutside(
+func (c *Comp) processIncomingRsp() bool {
+	madeProgress := false
+
+	req := c.RDMARequestOutside.PeekIncoming()
+	if req == nil {
+		return madeProgress
+	}
+
+	switch req := req.(type) {
+	case mem.AccessRsp:
+		ret := c.processRspFromRDMARequestOutside(req)
+		if !ret {
+			return madeProgress
+		}
+		madeProgress = true
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
+	}
+
+	return madeProgress
+}
+
+func (c *Comp) processRspFromRDMARequestOutside(
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := c.findTransactionByRspToID(
@@ -292,17 +267,14 @@ func (c *Comp) processRspFromOutside(
 	trans := c.transactionsFromInside[transactionIndex]
 
 	rspToInside := c.cloneRsp(rsp, trans.fromInside.Meta().ID)
-	rspToInside.Meta().Src = c.ToL1.AsRemote()
+	rspToInside.Meta().Src = c.RDMARequestInside.AsRemote()
 	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
 
-	err := c.ToL1.Send(rspToInside)
+	err := c.RDMARequestInside.Send(rspToInside)
 	if err == nil {
-		c.ToOutside.RetrieveIncoming()
+		c.RDMARequestOutside.RetrieveIncoming()
 
 		c.traceInsideOutEnd(trans)
-
-		//fmt.Printf("%s rsp outside %s -> inside %s\n",
-		//e.Name(), rsp.GetID(), rspToInside.GetID())
 
 		c.transactionsFromInside =
 			append(c.transactionsFromInside[:transactionIndex],
@@ -311,6 +283,52 @@ func (c *Comp) processRspFromOutside(
 		return true
 	}
 
+	return false
+}
+
+func (c *Comp) processIncomingReq() bool {
+	req := c.RDMADataOutside.PeekIncoming()
+	if req == nil {
+		return false
+	}
+
+	switch req := req.(type) {
+	case mem.AccessReq:
+		ret := c.processReqFromRDMADataOutside(req)
+		if !ret {
+			return false
+		}
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
+	}
+
+	return true
+}
+
+func (c *Comp) processReqFromRDMADataOutside(
+	req mem.AccessReq,
+) bool {
+	dst := c.localModules.Find(req.GetAddress())
+
+	cloned := c.cloneReq(req)
+	cloned.Meta().Src = c.RDMADataInside.AsRemote()
+	cloned.Meta().Dst = dst
+
+	err := c.RDMADataInside.Send(cloned)
+	if err == nil {
+		c.RDMADataOutside.RetrieveIncoming()
+
+		c.traceOutsideInStart(req, cloned)
+
+		trans := transaction{
+			fromOutside: req,
+			toInside:    cloned,
+		}
+		c.transactionsFromOutside =
+			append(c.transactionsFromOutside, trans)
+		return true
+	}
 	return false
 }
 
