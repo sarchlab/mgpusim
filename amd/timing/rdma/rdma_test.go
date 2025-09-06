@@ -247,7 +247,6 @@ var _ = Describe("Engine", func() {
 
 		It("should send rsp to outside", func() {
 			RDMADataInside.EXPECT().PeekIncoming().Return(rsp)
-			RDMADataInside.EXPECT().PeekIncoming().Return(nil)
 			RDMADataOutside.EXPECT().
 				Send(gomock.AssignableToTypeOf(&mem.DataReadyRsp{})).
 				Return(nil)
