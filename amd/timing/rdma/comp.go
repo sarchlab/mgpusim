@@ -22,10 +22,13 @@ type transaction struct {
 type Comp struct {
 	*sim.TickingComponent
 
-	ToOutside sim.Port
+	// ToOutside sim.Port
 
-	ToL1 sim.Port
-	ToL2 sim.Port
+	ToL1      sim.Port
+	L1Outside sim.Port
+
+	ToL2      sim.Port
+	L2Outside sim.Port
 
 	CtrlPort sim.Port
 
@@ -67,8 +70,12 @@ func (c *Comp) Tick() bool {
 		madeProgress = c.processFromL2() || madeProgress
 	}
 
-	for i := 0; i < c.outgoingRspPerCycle+c.incomingReqPerCycle; i++ {
-		madeProgress = c.processFromOutside() || madeProgress
+	for i := 0; i < c.incomingReqPerCycle; i++ {
+		madeProgress = c.processIncomingReq() || madeProgress
+	}
+
+	for i := 0; i < c.outgoingRspPerCycle; i++ {
+		madeProgress = c.processIncomingRsp() || madeProgress
 	}
 
 	return madeProgress
@@ -160,6 +167,33 @@ func (c *Comp) processFromL1() bool {
 	}
 }
 
+func (c *Comp) processReqFromL1(
+	req mem.AccessReq,
+) bool {
+	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
+
+	cloned := c.cloneReq(req)
+	cloned.Meta().Src = c.L1Outside.AsRemote()
+	cloned.Meta().Dst = dst
+
+	err := c.L1Outside.Send(cloned)
+	if err == nil {
+		c.ToL1.RetrieveIncoming()
+
+		c.traceInsideOutStart(req, cloned)
+
+		trans := transaction{
+			fromInside: req,
+			toOutside:  cloned,
+		}
+		c.transactionsFromInside = append(c.transactionsFromInside, trans)
+
+		return true
+	}
+
+	return false
+}
+
 func (c *Comp) processFromL2() bool {
 	madeProgress := false
 	for {
@@ -180,96 +214,6 @@ func (c *Comp) processFromL2() bool {
 	}
 }
 
-func (c *Comp) processFromOutside() bool {
-	madeProgress := false
-	for {
-		req := c.ToOutside.PeekIncoming()
-		if req == nil {
-			return madeProgress
-		}
-		switch req := req.(type) {
-		case mem.AccessReq:
-			ret := c.processReqFromOutside(req)
-			if !ret {
-				return madeProgress
-			}
-			madeProgress = true
-		case mem.AccessRsp:
-			ret := c.processRspFromOutside(req)
-			if !ret {
-				return madeProgress
-			}
-			madeProgress = true
-		default:
-			log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
-			return false
-		}
-	}
-}
-
-func (c *Comp) processReqFromL1(
-	req mem.AccessReq,
-) bool {
-	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
-
-	// if dst == c.ToOutside.AsRemote() {
-	// 	panic("RDMA loop back detected")
-	// }
-
-	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.ToOutside.AsRemote()
-	cloned.Meta().Dst = dst
-
-	err := c.ToOutside.Send(cloned)
-	if err == nil {
-		c.ToL1.RetrieveIncoming()
-
-		c.traceInsideOutStart(req, cloned)
-
-		//fmt.Printf("%s req inside %s -> outside %s\n",
-		//e.Name(), req.GetID(), cloned.GetID())
-
-		trans := transaction{
-			fromInside: req,
-			toOutside:  cloned,
-		}
-		c.transactionsFromInside = append(c.transactionsFromInside, trans)
-
-		return true
-	}
-
-	return false
-}
-
-func (c *Comp) processReqFromOutside(
-	req mem.AccessReq,
-) bool {
-	dst := c.localModules.Find(req.GetAddress())
-
-	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.ToL2.AsRemote()
-	cloned.Meta().Dst = dst
-
-	err := c.ToL2.Send(cloned)
-	if err == nil {
-		c.ToOutside.RetrieveIncoming()
-
-		c.traceOutsideInStart(req, cloned)
-
-		//fmt.Printf("%s req outside %s -> inside %s\n",
-		//e.Name(), req.GetID(), cloned.GetID())
-
-		trans := transaction{
-			fromOutside: req,
-			toInside:    cloned,
-		}
-		c.transactionsFromOutside =
-			append(c.transactionsFromOutside, trans)
-		return true
-	}
-	return false
-}
-
 func (c *Comp) processRspFromL2(
 	rsp mem.AccessRsp,
 ) bool {
@@ -278,15 +222,12 @@ func (c *Comp) processRspFromL2(
 	trans := c.transactionsFromOutside[transactionIndex]
 
 	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
-	rspToOutside.Meta().Src = c.ToOutside.AsRemote()
+	rspToOutside.Meta().Src = c.L2Outside.AsRemote()
 	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
 
-	err := c.ToOutside.Send(rspToOutside)
+	err := c.L2Outside.Send(rspToOutside)
 	if err == nil {
 		c.ToL2.RetrieveIncoming()
-
-		//fmt.Printf("%s rsp inside %s -> outside %s\n",
-		//e.Name(), rsp.GetID(), rspToOutside.GetID())
 
 		c.traceOutsideInEnd(trans)
 
@@ -298,7 +239,30 @@ func (c *Comp) processRspFromL2(
 	return false
 }
 
-func (c *Comp) processRspFromOutside(
+func (c *Comp) processIncomingRsp() bool {
+	madeProgress := false
+
+	req := c.L1Outside.PeekIncoming()
+	if req == nil {
+		return madeProgress
+	}
+
+	switch req := req.(type) {
+	case mem.AccessRsp:
+		ret := c.processRspFromL1Outside(req)
+		if !ret {
+			return madeProgress
+		}
+		madeProgress = true
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
+	}
+
+	return madeProgress
+}
+
+func (c *Comp) processRspFromL1Outside(
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := c.findTransactionByRspToID(
@@ -311,12 +275,9 @@ func (c *Comp) processRspFromOutside(
 
 	err := c.ToL1.Send(rspToInside)
 	if err == nil {
-		c.ToOutside.RetrieveIncoming()
+		c.L1Outside.RetrieveIncoming()
 
 		c.traceInsideOutEnd(trans)
-
-		//fmt.Printf("%s rsp outside %s -> inside %s\n",
-		//e.Name(), rsp.GetID(), rspToInside.GetID())
 
 		c.transactionsFromInside =
 			append(c.transactionsFromInside[:transactionIndex],
@@ -325,6 +286,55 @@ func (c *Comp) processRspFromOutside(
 		return true
 	}
 
+	return false
+}
+
+func (c *Comp) processIncomingReq() bool {
+	madeProgress := false
+
+	req := c.L2Outside.PeekIncoming()
+	if req == nil {
+		return madeProgress
+	}
+
+	switch req := req.(type) {
+	case mem.AccessReq:
+		ret := c.processReqFromL2Outside(req)
+		if !ret {
+			return madeProgress
+		}
+		madeProgress = true
+	default:
+		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
+		return false
+	}
+
+	return madeProgress
+}
+
+func (c *Comp) processReqFromL2Outside(
+	req mem.AccessReq,
+) bool {
+	dst := c.localModules.Find(req.GetAddress())
+
+	cloned := c.cloneReq(req)
+	cloned.Meta().Src = c.ToL2.AsRemote()
+	cloned.Meta().Dst = dst
+
+	err := c.ToL2.Send(cloned)
+	if err == nil {
+		c.L2Outside.RetrieveIncoming()
+
+		c.traceOutsideInStart(req, cloned)
+
+		trans := transaction{
+			fromOutside: req,
+			toInside:    cloned,
+		}
+		c.transactionsFromOutside =
+			append(c.transactionsFromOutside, trans)
+		return true
+	}
 	return false
 }
 

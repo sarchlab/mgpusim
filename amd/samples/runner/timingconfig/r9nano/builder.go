@@ -203,7 +203,9 @@ func (b Builder) Build(name string) *sim.Domain {
 
 func (b *Builder) populateExternalPorts() {
 	b.gpu.AddPort("CommandProcessor", b.cp.ToDriver)
-	b.gpu.AddPort("RDMA", b.rdmaEngine.ToOutside)
+	b.gpu.AddPort("RDMAtoL1", b.rdmaEngine.L1Outside)
+	b.gpu.AddPort("RDMAtoL2", b.rdmaEngine.L2Outside)
+
 	b.gpu.AddPort("PageMigrationController",
 		b.pmc.GetPortByName("Remote"))
 
