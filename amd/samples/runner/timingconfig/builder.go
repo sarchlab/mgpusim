@@ -264,7 +264,7 @@ func (b *Builder) configRDMAEngine(
 ) {
 	b.rdmaAddressMapper.LowModules = append(
 		b.rdmaAddressMapper.LowModules,
-		gpu.GetPortByName("RDMAtoL2").AsRemote())
+		gpu.GetPortByName("RDMAData").AsRemote())
 }
 
 // func (b *Builder) configPMC(

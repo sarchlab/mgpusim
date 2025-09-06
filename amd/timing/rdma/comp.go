@@ -22,13 +22,11 @@ type transaction struct {
 type Comp struct {
 	*sim.TickingComponent
 
-	// ToOutside sim.Port
+	RDMARequestInside  sim.Port
+	RDMARequestOutside sim.Port
 
-	ToL1      sim.Port
-	L1Outside sim.Port
-
-	ToL2      sim.Port
-	L2Outside sim.Port
+	RDMADataInside  sim.Port
+	RDMADataOutside sim.Port
 
 	CtrlPort sim.Port
 
@@ -66,7 +64,7 @@ func (c *Comp) Tick() bool {
 		madeProgress = c.processFromL1() || madeProgress
 	}
 
-	for i := 0; i < c.incomingRspPerCycle; i++ {
+	for i := 0; i < c.outgoingRspPerCycle; i++ {
 		madeProgress = c.processFromL2() || madeProgress
 	}
 
@@ -74,7 +72,7 @@ func (c *Comp) Tick() bool {
 		madeProgress = c.processIncomingReq() || madeProgress
 	}
 
-	for i := 0; i < c.outgoingRspPerCycle; i++ {
+	for i := 0; i < c.incomingRspPerCycle; i++ {
 		madeProgress = c.processIncomingRsp() || madeProgress
 	}
 
@@ -147,7 +145,7 @@ func (c *Comp) processFromL1() bool {
 
 	madeProgress := false
 	for {
-		req := c.ToL1.PeekIncoming()
+		req := c.RDMARequestInside.PeekIncoming()
 		if req == nil {
 			return madeProgress
 		}
@@ -173,12 +171,12 @@ func (c *Comp) processReqFromL1(
 	dst := c.RemoteRDMAAddressTable.Find(req.GetAddress())
 
 	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.L1Outside.AsRemote()
+	cloned.Meta().Src = c.RDMARequestOutside.AsRemote()
 	cloned.Meta().Dst = dst
 
-	err := c.L1Outside.Send(cloned)
+	err := c.RDMARequestOutside.Send(cloned)
 	if err == nil {
-		c.ToL1.RetrieveIncoming()
+		c.RDMARequestInside.RetrieveIncoming()
 
 		c.traceInsideOutStart(req, cloned)
 
@@ -195,19 +193,18 @@ func (c *Comp) processReqFromL1(
 }
 
 func (c *Comp) processFromL2() bool {
-	madeProgress := false
 	for {
-		req := c.ToL2.PeekIncoming()
+		req := c.RDMADataInside.PeekIncoming()
 		if req == nil {
-			return madeProgress
+			return false
 		}
 		switch req := req.(type) {
 		case mem.AccessRsp:
 			ret := c.processRspFromL2(req)
 			if !ret {
-				return madeProgress
+				return false
 			}
-			madeProgress = true
+			return true
 		default:
 			panic("unknown req type")
 		}
@@ -222,12 +219,12 @@ func (c *Comp) processRspFromL2(
 	trans := c.transactionsFromOutside[transactionIndex]
 
 	rspToOutside := c.cloneRsp(rsp, trans.fromOutside.Meta().ID)
-	rspToOutside.Meta().Src = c.L2Outside.AsRemote()
+	rspToOutside.Meta().Src = c.RDMADataOutside.AsRemote()
 	rspToOutside.Meta().Dst = trans.fromOutside.Meta().Src
 
-	err := c.L2Outside.Send(rspToOutside)
+	err := c.RDMADataOutside.Send(rspToOutside)
 	if err == nil {
-		c.ToL2.RetrieveIncoming()
+		c.RDMADataInside.RetrieveIncoming()
 
 		c.traceOutsideInEnd(trans)
 
@@ -242,14 +239,14 @@ func (c *Comp) processRspFromL2(
 func (c *Comp) processIncomingRsp() bool {
 	madeProgress := false
 
-	req := c.L1Outside.PeekIncoming()
+	req := c.RDMARequestOutside.PeekIncoming()
 	if req == nil {
 		return madeProgress
 	}
 
 	switch req := req.(type) {
 	case mem.AccessRsp:
-		ret := c.processRspFromL1Outside(req)
+		ret := c.processRspFromRDMARequestOutside(req)
 		if !ret {
 			return madeProgress
 		}
@@ -262,7 +259,7 @@ func (c *Comp) processIncomingRsp() bool {
 	return madeProgress
 }
 
-func (c *Comp) processRspFromL1Outside(
+func (c *Comp) processRspFromRDMARequestOutside(
 	rsp mem.AccessRsp,
 ) bool {
 	transactionIndex := c.findTransactionByRspToID(
@@ -270,12 +267,12 @@ func (c *Comp) processRspFromL1Outside(
 	trans := c.transactionsFromInside[transactionIndex]
 
 	rspToInside := c.cloneRsp(rsp, trans.fromInside.Meta().ID)
-	rspToInside.Meta().Src = c.ToL1.AsRemote()
+	rspToInside.Meta().Src = c.RDMARequestInside.AsRemote()
 	rspToInside.Meta().Dst = trans.fromInside.Meta().Src
 
-	err := c.ToL1.Send(rspToInside)
+	err := c.RDMARequestInside.Send(rspToInside)
 	if err == nil {
-		c.L1Outside.RetrieveIncoming()
+		c.RDMARequestOutside.RetrieveIncoming()
 
 		c.traceInsideOutEnd(trans)
 
@@ -290,40 +287,37 @@ func (c *Comp) processRspFromL1Outside(
 }
 
 func (c *Comp) processIncomingReq() bool {
-	madeProgress := false
-
-	req := c.L2Outside.PeekIncoming()
+	req := c.RDMADataOutside.PeekIncoming()
 	if req == nil {
-		return madeProgress
+		return false
 	}
 
 	switch req := req.(type) {
 	case mem.AccessReq:
-		ret := c.processReqFromL2Outside(req)
+		ret := c.processReqFromRDMADataOutside(req)
 		if !ret {
-			return madeProgress
+			return false
 		}
-		madeProgress = true
 	default:
 		log.Panicf("cannot process request of type %s", reflect.TypeOf(req))
 		return false
 	}
 
-	return madeProgress
+	return true
 }
 
-func (c *Comp) processReqFromL2Outside(
+func (c *Comp) processReqFromRDMADataOutside(
 	req mem.AccessReq,
 ) bool {
 	dst := c.localModules.Find(req.GetAddress())
 
 	cloned := c.cloneReq(req)
-	cloned.Meta().Src = c.ToL2.AsRemote()
+	cloned.Meta().Src = c.RDMADataInside.AsRemote()
 	cloned.Meta().Dst = dst
 
-	err := c.ToL2.Send(cloned)
+	err := c.RDMADataInside.Send(cloned)
 	if err == nil {
-		c.L2Outside.RetrieveIncoming()
+		c.RDMADataOutside.RetrieveIncoming()
 
 		c.traceOutsideInStart(req, cloned)
 
