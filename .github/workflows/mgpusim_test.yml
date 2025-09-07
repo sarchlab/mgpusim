@@ -34,6 +34,9 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: "v2.1.5"
+          # Build golangci-lint with the configured Go toolchain to avoid
+          # Go version mismatch (linter built with older Go than target).
+          install-mode: goinstall
           args: --timeout=10m
           skip-cache: true
 
