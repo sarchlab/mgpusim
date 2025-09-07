@@ -630,19 +630,19 @@ func (b *Builder) buildCP() {
 }
 
 func (b *Builder) buildL2TLB() {
-	numWays := 64
-	builder := tlb.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithNumWays(numWays).
-		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
-		WithNumMSHREntry(64).
-		WithNumReqPerCycle(1024).
-		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
-		WithAddressMapper(&mem.SinglePortMapper{
-			Port: b.mmu.GetPortByName("Top").AsRemote(),
-		})
+    numWays := 64
+    builder := tlb.MakeBuilder().
+        WithEngine(b.simulation.GetEngine()).
+        WithFreq(b.freq).
+        WithNumWays(numWays).
+        WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+        WithNumMSHREntry(64).
+        WithNumReqPerCycle(1024).
+        WithPageSize(1 << b.log2PageSize).
+        WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
+        WithTranslationProviderMapper(&mem.SinglePortMapper{
+            Port: b.mmu.GetPortByName("Top").AsRemote(),
+        })
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
 
