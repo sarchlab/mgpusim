@@ -136,19 +136,17 @@ func (b Builder) Build(name string) *sim.Domain {
 func (b *Builder) buildComponents() {
     b.buildCUs()
 
-    // Vector path (build left -> root): ROB -> AT -> L1 Cache -> L1 TLB
+    // Build in dataflow order
     b.buildL1VReorderBuffers()
     b.buildL1VAddressTranslators()
     b.buildL1VCaches()
     b.buildL1VTLBs()
 
-    // Scalar path (build left -> root): ROB -> AT -> L1 Cache -> L1 TLB
     b.buildL1SReorderBuffer()
     b.buildL1SAddressTranslator()
     b.buildL1SCache()
     b.buildL1STLB()
 
-    // Instruction path (build left -> root): ROB -> L1 Cache -> AT -> L1 TLB
     b.buildL1IReorderBuffer()
     b.buildL1ICache()
     b.buildL1IAddressTranslator()
@@ -292,7 +290,6 @@ func (b *Builder) connectInstMem() {
 	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort, 8)
 
     atTopPort := at.GetPortByName("Top")
-    // L1I cache receives responses from AT
     b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
 
     tlbTopPort := tlb.GetPortByName("Top")
