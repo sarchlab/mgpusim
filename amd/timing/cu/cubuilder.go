@@ -33,7 +33,7 @@ type Builder struct {
 }
 
 // MakeBuilder returns a default builder object
-func MakeBuilder() *Builder {
+func MakeBuilder() Builder {
 	var b Builder
 	b.freq = 1000 * sim.MHz
 	b.simdCount = 4
@@ -41,29 +41,29 @@ func MakeBuilder() *Builder {
 	b.vgprCount = []int{16384, 16384, 16384, 16384}
 	b.log2CachelineSize = 6
 
-	return &b
+	return b
 }
 
 // WithEngine sets the engine to use.
-func (b *Builder) WithEngine(engine sim.Engine) *Builder {
+func (b Builder) WithEngine(engine sim.Engine) Builder {
 	b.engine = engine
 	return b
 }
 
 // WithFreq sets the frequency.
-func (b *Builder) WithFreq(f sim.Freq) *Builder {
+func (b Builder) WithFreq(f sim.Freq) Builder {
 	b.freq = f
 	return b
 }
 
 // WithSIMDCount sets the number of SIMD unit in the ComputeUnit.
-func (b *Builder) WithSIMDCount(n int) *Builder {
+func (b Builder) WithSIMDCount(n int) Builder {
 	b.simdCount = n
 	return b
 }
 
 // WithVGPRCount sets the number of VGPRs associated with each SIMD Unit.
-func (b *Builder) WithVGPRCount(counts []int) *Builder {
+func (b Builder) WithVGPRCount(counts []int) Builder {
 	if len(counts) != b.simdCount {
 		panic("counts must have a length that equals to the SIMD count")
 	}
@@ -73,26 +73,26 @@ func (b *Builder) WithVGPRCount(counts []int) *Builder {
 }
 
 // WithSGPRCount equals the number of SGPRs in the Compute Unit.
-func (b *Builder) WithSGPRCount(count int) *Builder {
+func (b Builder) WithSGPRCount(count int) Builder {
 	b.sgprCount = count
 	return b
 }
 
 // WithLog2CachelineSize sets the cacheline size as a power of 2.
-func (b *Builder) WithLog2CachelineSize(n uint64) *Builder {
+func (b Builder) WithLog2CachelineSize(n uint64) Builder {
 	b.log2CachelineSize = n
 	return b
 }
 
 // WithVisTracer adds a tracer to the builder.
-func (b *Builder) WithVisTracer(t tracing.Tracer) *Builder {
+func (b Builder) WithVisTracer(t tracing.Tracer) Builder {
 	b.enableVisTracing = true
 	b.visTracer = t
 	return b
 }
 
 // WithInstMem sets the instruction memory port for the compute unit.
-func (b *Builder) WithInstMem(instMem sim.Port) *Builder {
+func (b Builder) WithInstMem(instMem sim.Port) Builder {
 	b.instMem = instMem
 	b.hasInstMem = true
 	return b
@@ -100,28 +100,28 @@ func (b *Builder) WithInstMem(instMem sim.Port) *Builder {
 
 // WithStorageAccessor sets a storage accessor for the ALU to enable memory access.
 // This is required for simple GPU simulations where the ALU needs to read/write memory.
-func (b *Builder) WithStorageAccessor(storageAccessor *emu.StorageAccessor) *Builder {
+func (b Builder) WithStorageAccessor(storageAccessor *emu.StorageAccessor) Builder {
 	b.storageAccessor = storageAccessor
 	return b
 }
 
 // WithALU sets a custom ALU implementation.
 // This allows using a completely custom ALU instead of the default one.
-func (b *Builder) WithALU(alu emu.ALU) *Builder {
+func (b Builder) WithALU(alu emu.ALU) Builder {
 	b.alu = alu
 	return b
 }
 
 // WithCPIntegration enables CP integration by creating the necessary ports
 // and internal components for command processor communication.
-func (b *Builder) WithCPIntegration() *Builder {
+func (b Builder) WithCPIntegration() Builder {
 	b.enableCPIntegration = true
 	return b
 }
 
 // Build returns a newly constructed compute unit according to the
 // configuration.
-func (b *Builder) Build(name string) *ComputeUnit {
+func (b Builder) Build(name string) *ComputeUnit {
 	b.name = name
 	cu := NewComputeUnit(name, b.engine)
 	cu.Freq = b.freq
@@ -163,7 +163,7 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	return cu
 }
 
-func (b *Builder) equipScheduler(cu *ComputeUnit) {
+func (b Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = 256
 	issueArbitor := new(IssueArbiter)
@@ -171,7 +171,7 @@ func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	cu.Scheduler = scheduler
 }
 
-func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
+func (b Builder) equipScalarUnits(cu *ComputeUnit) {
 	cu.BranchUnit = NewBranchUnit(cu, b.scratchpadPreparer, b.alu)
 
 	scalarDecoder := NewDecodeUnit(cu)
@@ -184,7 +184,7 @@ func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 	}
 }
 
-func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
+func (b Builder) equipSIMDUnits(cu *ComputeUnit) {
 	vectorDecoder := NewDecodeUnit(cu)
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.simdCount; i++ {
@@ -198,7 +198,7 @@ func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	}
 }
 
-func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
+func (b Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
@@ -210,7 +210,7 @@ func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	}
 }
 
-func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
+func (b Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	vectorMemDecoder := NewDecodeUnit(cu)
 	cu.VectorMemDecoder = vectorMemDecoder
 
@@ -239,7 +239,7 @@ func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	}
 }
 
-func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
+func (b Builder) equipRegisterFiles(cu *ComputeUnit) {
 	sRegFile := NewSimpleRegisterFile(uint64(b.sgprCount*4), 0)
 	cu.SRegFile = sRegFile
 
