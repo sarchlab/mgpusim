@@ -188,7 +188,8 @@ func (b *Builder) populateExternalPorts() {
 	b.sa.AddPort("L1IAddrTransCtrl", b.l1iAT.GetPortByName("Control"))
 	b.sa.AddPort("L1ITLBCtrl", b.l1iTLB.GetPortByName("Control"))
 	b.sa.AddPort("L1ICacheCtrl", b.l1iCache.GetPortByName("Control"))
-	b.sa.AddPort("L1ICacheBottom", b.l1iAT.GetPortByName("Bottom"))
+    // Expose instruction memory egress to L2 via AT bottom
+    b.sa.AddPort("L1ICacheBottom", b.l1iAT.GetPortByName("Bottom"))
 	b.sa.AddPort("L1ITLBBottom", b.l1iTLB.GetPortByName("Bottom"))
 }
 
