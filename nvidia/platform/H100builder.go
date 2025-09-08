@@ -46,7 +46,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithSMsCount(112).
 		WithSMSPsCountPerSM(4).
 		WithL2CacheSize(50 * mem.MB).
-		WithDRAMSize(65536 * mem.GB).
+		WithDRAMSize(65536 * mem.TB).
 		WithLog2CacheLineSize(7).
 		WithNumMemoryBank(4)
 	gpuCount := 1

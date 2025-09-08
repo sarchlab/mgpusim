@@ -366,13 +366,13 @@ func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
 		// fmt.Printf("In branch trace.OpCodeMemRead\n")
 		warpUnit.status = WarpStatusWaiting
 		address := currentInstruction.MemAddress
-		address = 0
+		// address = 0
 		s.doRead(warpUnit, reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
 	case trace.OpCodeMemWrite:
-		address := rand.Uint64() % (1048576 / 4) * 4
+		// address := rand.Uint64() % (1048576 / 4) * 4
 		// fmt.Printf("In branch trace.OpCodeMemWrite\n")
 		warpUnit.status = WarpStatusWaiting
-		// address := currentInstruction.MemAddress
+		address := currentInstruction.MemAddress
 		// address = 0
 		data := rand.Uint32()
 		s.doWrite(warpUnit, reqParentID, address, &data)

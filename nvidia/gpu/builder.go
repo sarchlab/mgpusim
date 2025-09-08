@@ -117,11 +117,9 @@ func (b *GPUBuilder) Build(name string) *GPUController {
 	b.buildPortsForGPU(b.gpu, name)
 	sms := b.buildSMs(name)
 	b.buildDRAMControllers()
-
-	b.connectGPUWithSMs(b.gpu, sms)
-
 	b.buildL2Caches()
 
+	b.connectGPUWithSMs(b.gpu, sms)
 	b.connectL2AndDRAM()
 	b.connectL1ToL2()
 
@@ -336,7 +334,7 @@ func (b *GPUBuilder) buildDRAMControllers() {
 			WithEngine(b.engine).
 			WithFreq(b.freq).
 			WithLatency(100).
-			// WithStorage(b.globalStorage).
+			WithStorage(mem.NewStorage(b.DramSize / uint64(b.numMemoryBank))).
 			Build(dramName)
 		b.simulation.RegisterComponent(dram)
 		b.DRAMs = append(b.DRAMs, dram)
