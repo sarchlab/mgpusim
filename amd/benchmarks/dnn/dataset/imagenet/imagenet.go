@@ -14,6 +14,9 @@ import (
 	"github.com/disintegration/imaging"
 )
 
+// The DataSet can provide imagenet data.
+const imageInputSize = 224
+
 var imagenetDataFolder = flag.String("imagenet-data-folder", "",
 	"Specifies where the imagenet data is located at.")
 
@@ -92,7 +95,7 @@ func (d *DataSet) HasNext() bool {
 // in the dataset.
 func (d *DataSet) Next() (imageData []byte, labelData byte) {
 	var err error
-	var imageArray [224 * 224 * 3]byte
+	var imageArray [imageInputSize * imageInputSize * 3]byte
 	var label byte
 	var imagePath string
 	var className string
@@ -111,14 +114,15 @@ func (d *DataSet) Next() (imageData []byte, labelData byte) {
 	defer f.Close()
 
 	img, _, err := image.Decode(f)
-	img224 := imaging.Resize(img, 224, 224, imaging.Lanczos)
+	imgResized := imaging.Resize(img, imageInputSize, imageInputSize, imaging.Lanczos)
 	dieOnErr(err)
-	for i := 0; i < 224; i++ {
-		for j := 0; j < 224; j++ {
-			r, g, b, _ := img224.At(i, j).RGBA()
-			imageArray[i*j] = uint8(r >> 8)
-			imageArray[i*j+224*224] = uint8(g >> 8)
-			imageArray[i*j+224*224*2] = uint8(b >> 8)
+	for i := 0; i < imageInputSize; i++ {
+		for j := 0; j < imageInputSize; j++ {
+			r, g, b, _ := imgResized.At(i, j).RGBA()
+			idx := i*imageInputSize + j
+			imageArray[idx] = uint8(r >> 8)
+			imageArray[idx+imageInputSize*imageInputSize] = uint8(g >> 8)
+			imageArray[idx+imageInputSize*imageInputSize*2] = uint8(b >> 8)
 		}
 	}
 

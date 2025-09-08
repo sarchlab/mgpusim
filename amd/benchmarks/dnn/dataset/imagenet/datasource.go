@@ -59,7 +59,7 @@ func (ds *DataSource) NextBatch(batchSize int) (
 		}
 	}
 
-	data = ds.to.CreateWithData(rawData, []int{count, 3, 224, 224}, "NCHW")
+	data = ds.to.CreateWithData(rawData, []int{count, 3, imageInputSize, imageInputSize}, "NCHW")
 
 	ds.currPtr += count
 

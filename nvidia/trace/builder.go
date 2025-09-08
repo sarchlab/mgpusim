@@ -73,7 +73,7 @@ func (r *TraceReader) BuildExecFromText(text string) TraceExecMeta {
 		case string(H2D):
 			m.Direction = H2D
 		case string(D2H):
-			m.Direction = H2D
+			m.Direction = D2H
 		}
 
 		return m

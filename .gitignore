@@ -35,3 +35,5 @@ test
 
 mnt-collector
 mnt-backend
+# Generated mocks (created via go:generate mockgen)
+**/mock_*_test.go
