@@ -36,7 +36,7 @@ var _ = Describe("ALU", func() {
 		state         *mockInstState
 		storage       *mem.Storage
 		addrConverter *mem.InterleavingConverter
-		sAccessor     *storageAccessor
+		sAccessor     *StorageAccessor
 	)
 
 	BeforeEach(func() {

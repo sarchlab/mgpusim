@@ -23,9 +23,13 @@ type Builder struct {
 	decoder            emu.Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                emu.ALU
+	storageAccessor    *emu.StorageAccessor
 
-	visTracer        tracing.Tracer
-	enableVisTracing bool
+	visTracer           tracing.Tracer
+	enableVisTracing    bool
+	enableCPIntegration bool
+	instMem             sim.Port
+	hasInstMem          bool
 }
 
 // MakeBuilder returns a default builder object
@@ -87,6 +91,34 @@ func (b *Builder) WithVisTracer(t tracing.Tracer) *Builder {
 	return b
 }
 
+// WithInstMem sets the instruction memory port for the compute unit.
+func (b *Builder) WithInstMem(instMem sim.Port) *Builder {
+	b.instMem = instMem
+	b.hasInstMem = true
+	return b
+}
+
+// WithStorageAccessor sets a storage accessor for the ALU to enable memory access.
+// This is required for simple GPU simulations where the ALU needs to read/write memory.
+func (b *Builder) WithStorageAccessor(storageAccessor *emu.StorageAccessor) *Builder {
+	b.storageAccessor = storageAccessor
+	return b
+}
+
+// WithALU sets a custom ALU implementation.
+// This allows using a completely custom ALU instead of the default one.
+func (b *Builder) WithALU(alu emu.ALU) *Builder {
+	b.alu = alu
+	return b
+}
+
+// WithCPIntegration enables CP integration by creating the necessary ports
+// and internal components for command processor communication.
+func (b *Builder) WithCPIntegration() *Builder {
+	b.enableCPIntegration = true
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
 func (b *Builder) Build(name string) *ComputeUnit {
@@ -97,7 +129,14 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	cu.WfDispatcher = NewWfDispatcher(cu)
 	cu.InFlightVectorMemAccessLimit = 512
 
-	b.alu = emu.NewALU(nil)
+	// Configure ALU with storage accessor if provided
+	if b.alu == nil {
+		if b.storageAccessor != nil {
+			b.alu = emu.NewALU(b.storageAccessor)
+		} else {
+			b.alu = emu.NewALU(nil) // Default behavior for complex simulations
+		}
+	}
 	b.scratchpadPreparer = NewScratchpadPreparerImpl(cu)
 
 	for i := 0; i < 4; i++ {
@@ -110,6 +149,16 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	b.equipLDSUnit(cu)
 	b.equipVectorMemoryUnit(cu)
 	b.equipRegisterFiles(cu)
+
+	// Set the instruction memory port if provided
+	if b.hasInstMem {
+		cu.InstMem = b.instMem
+	}
+
+	// Handle CP integration if enabled
+	if b.enableCPIntegration {
+		cu.enableCPIntegration()
+	}
 
 	return cu
 }

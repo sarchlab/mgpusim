@@ -7,14 +7,15 @@ import (
 	"github.com/sarchlab/akita/v4/mem/vm"
 )
 
-type storageAccessor struct {
+// StorageAccessor provides memory access functionality for the ALU
+type StorageAccessor struct {
 	storage       *mem.Storage
 	addrConverter mem.AddressConverter
 	pageTable     vm.PageTable
 	log2PageSize  uint64
 }
 
-func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
+func (a *StorageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 	data := make([]byte, byteSize)
 	sizeLeft := byteSize
 	offset := uint64(0)
@@ -53,7 +54,7 @@ func (a *storageAccessor) Read(pid vm.PID, vAddr, byteSize uint64) []byte {
 	return data
 }
 
-func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
+func (a *StorageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
 	sizeLeft := uint64(len(data))
 	offset := uint64(0)
 
@@ -87,15 +88,26 @@ func (a *storageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
 	}
 }
 
-// NewStorageAccessor creates a storageAccessor, injecting dependencies
+// NewStorageAccessor creates a storageAccessor, injecting dependencies.
+// This is the public interface for creating storage accessors.
+func NewStorageAccessor(
+	storage *mem.Storage,
+	pageTable vm.PageTable,
+	log2PageSize uint64,
+	addrConverter mem.AddressConverter,
+) *StorageAccessor {
+	return newStorageAccessor(storage, pageTable, log2PageSize, addrConverter)
+}
+
+// newStorageAccessor creates a storageAccessor, injecting dependencies
 // of the storage and mmu.
 func newStorageAccessor(
 	storage *mem.Storage,
 	pageTable vm.PageTable,
 	log2PageSize uint64,
 	addrConverter mem.AddressConverter,
-) *storageAccessor {
-	a := new(storageAccessor)
+) *StorageAccessor {
+	a := new(StorageAccessor)
 	a.storage = storage
 	a.addrConverter = addrConverter
 	a.pageTable = pageTable

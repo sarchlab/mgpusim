@@ -64,6 +64,7 @@ func (du *DecodeUnit) Run() bool {
 		execUnit := du.ExecUnits[simdID]
 
 		if execUnit.CanAcceptWave() {
+			// removed verbose decode logging
 			execUnit.AcceptWave(du.toDecode)
 			du.toDecode = nil
 			return true

@@ -56,6 +56,12 @@ func (b Builder) WithMonitor(monitor *monitoring.Monitor) Builder {
 	return b
 }
 
+// WithNumDispatchers sets the number of dispatchers to create.
+func (b Builder) WithNumDispatchers(num int) Builder {
+	b.numDispatchers = num
+	return b
+}
+
 // WithPerfAnalyzer sets the buffer analyzer used to analyze the
 // command processor's buffers.
 func (b Builder) WithPerfAnalyzer(
@@ -100,11 +106,11 @@ func (Builder) createPorts(cp *CommandProcessor, name string) {
 	cp.ToCaches = sim.NewPort(cp, 4096, 4096, name+".ToCaches")
 
 	cp.AddPort("ToDriver", cp.ToDriver)
-	// cp.AddPort("ToDispatcher", cp.ToDMA)
+	cp.AddPort("ToDispatcher", cp.ToDMA)
 	cp.AddPort("ToCUs", cp.ToCUs)
 	cp.AddPort("ToTLBs", cp.ToTLBs)
-	// cp.AddPort("ToRDMA", cp.ToRDMA)
-	// cp.AddPort("ToPMC", cp.ToPMC)
+	cp.AddPort("ToRDMA", cp.ToRDMA)
+	cp.AddPort("ToPMC", cp.ToPMC)
 	cp.AddPort("ToAddressTranslators", cp.ToAddressTranslators)
 	cp.AddPort("ToCaches", cp.ToCaches)
 }

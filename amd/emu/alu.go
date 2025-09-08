@@ -20,12 +20,12 @@ type ALU interface {
 
 // ALUImpl is where the instructions get executed.
 type ALUImpl struct {
-	storageAccessor *storageAccessor
+	storageAccessor *StorageAccessor
 	lds             []byte
 }
 
 // NewALU creates a new ALU with a storage as a dependency.
-func NewALU(storageAccessor *storageAccessor) *ALUImpl {
+func NewALU(storageAccessor *StorageAccessor) *ALUImpl {
 	alu := new(ALUImpl)
 	alu.storageAccessor = storageAccessor
 	return alu

@@ -65,6 +65,8 @@ func (d *DispatcherImpl) IsDispatching() bool {
 func (d *DispatcherImpl) StartDispatching(req *protocol.LaunchKernelReq) {
 	d.mustNotBeDispatchingAnotherKernel()
 
+	// removed verbose debug logging
+
 	d.alg.StartNewKernel(kernels.KernelLaunchInfo{
 		CodeObject: req.HsaCo,
 		Packet:     req.Packet,
@@ -233,6 +235,9 @@ func (d *DispatcherImpl) dispatchNextWG() (madeProgress bool) {
 	}
 	req := reqBuilder.Build()
 	err := d.dispatchingPort.Send(req)
+	if err != nil {
+		return false
+	}
 
 	// fmt.Printf("%.10f, %d, %d\n", now, d.currWG.wg.IDX, d.currWG.cuID)
 

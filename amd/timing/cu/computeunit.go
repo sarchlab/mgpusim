@@ -78,14 +78,14 @@ type ComputeUnit struct {
 
 // ControlPort returns the port that can receive controlling messages from the
 // Command Processor.
-func (cu *ComputeUnit) ControlPort() sim.Port {
-	return cu.ToCP
+func (cu *ComputeUnit) ControlPort() sim.RemotePort {
+	return cu.ToCP.AsRemote()
 }
 
 // DispatchingPort returns the port that the dispatcher can use to dispatch
 // work-groups to the CU.
-func (cu *ComputeUnit) DispatchingPort() sim.Port {
-	return cu.ToACE
+func (cu *ComputeUnit) DispatchingPort() sim.RemotePort {
+	return cu.ToACE.AsRemote()
 }
 
 // WfPoolSizes returns an array of the numbers of wavefronts that each SIMD unit
@@ -140,9 +140,14 @@ func (cu *ComputeUnit) runPipeline() bool {
 		madeProgress = cu.VectorDecoder.Run() || madeProgress
 		madeProgress = cu.LDSUnit.Run() || madeProgress
 		madeProgress = cu.LDSDecoder.Run() || madeProgress
-		madeProgress = cu.VectorMemUnit.Run() || madeProgress
-		madeProgress = cu.VectorMemDecoder.Run() || madeProgress
-		madeProgress = cu.Scheduler.Run() || madeProgress
+		vectorMemProgress := cu.VectorMemUnit.Run()
+		vectorMemDecodeProgress := cu.VectorMemDecoder.Run()
+
+		madeProgress = vectorMemProgress || madeProgress
+		madeProgress = vectorMemDecodeProgress || madeProgress
+		schedulerProgress := cu.Scheduler.Run()
+		// removed verbose debug logging
+		madeProgress = schedulerProgress || madeProgress
 	}
 
 	return madeProgress
@@ -192,6 +197,8 @@ func (cu *ComputeUnit) processInputFromCP() bool {
 		cu.handlePipelineResume(req)
 	case *protocol.CUPipelineFlushReq:
 		cu.handlePipelineFlushReq(req)
+	case *protocol.MapWGReq:
+		return cu.handleMapWGReq(req)
 	default:
 		panic("unknown msg type")
 	}
@@ -889,4 +896,12 @@ func NewComputeUnit(
 	cu.wftime = make(map[string]sim.VTimeInSec)
 
 	return cu
+}
+
+// enableCPIntegration sets up the compute unit for command processor integration
+func (cu *ComputeUnit) enableCPIntegration() {
+	// The CU already has the necessary ports for CP integration:
+	// - "Ctrl" port for command processor communication (ToCP)
+	// - "ToDispatcher" port for instruction dispatching (ToACE)
+	// No additional setup needed as the ports are already created in the constructor
 }

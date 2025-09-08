@@ -89,9 +89,11 @@ func (b *Benchmark) initMem() {
 	b.outputData = make([]float32, b.Length)
 	for i := 0; i < b.Length; i++ {
 		b.inputData[i] = float32(i) - 0.5
+		b.outputData[i] = 0.0
 	}
 
 	b.driver.MemCopyH2D(b.context, b.gInputData, b.inputData)
+	b.driver.MemCopyH2D(b.context, b.gOutputData, b.outputData) // Initialize output buffer on GPU
 }
 
 func (b *Benchmark) exec() {
@@ -107,7 +109,7 @@ func (b *Benchmark) exec() {
 		kernArg := KernelArgs{
 			uint32(b.Length), 0,
 			b.gInputData, b.gOutputData,
-			int64(numWI * i), 0, 0,
+			0, 0, 0, // Set all HiddenGlobalOffset to 0 like other benchmarks
 		}
 
 		b.driver.EnqueueLaunchKernel(

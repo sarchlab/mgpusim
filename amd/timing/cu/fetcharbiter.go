@@ -1,6 +1,7 @@
 package cu
 
 import (
+	"log"
 	"math"
 
 	"github.com/sarchlab/akita/v4/sim"
@@ -58,12 +59,17 @@ func (a *FetchArbiter) canFetchFromWF(wf *wavefront.Wavefront) bool {
 
 	if wf.CodeObject != nil && wf.CodeObject.Symbol != nil {
 		lastPCInBinary := wf.CodeObject.Symbol.Size +
-			wf.WG.Packet.KernelObject
+			wf.WG.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
 		lastPCInInstBuffer := wf.InstBufferStartPC +
 			uint64(len(wf.InstBuffer))
+
+		// Debug logging for fetch arbiter
+		if wf.PC >= 12600 {
+			log.Printf("FetchArbiter: wf.PC=%d, lastPCInBinary=%d, lastPCInInstBuffer=%d, canFetch=%v",
+				wf.PC, lastPCInBinary, lastPCInInstBuffer, lastPCInInstBuffer < lastPCInBinary)
+		}
+
 		if lastPCInInstBuffer >= lastPCInBinary {
-			// fmt.Printf("lastInstPCInBinary: %016X, lastPCInInstBuffer: %016X, PC: %016X\n",
-			// 	lastPCInBinary, lastPCInInstBuffer, wf.PC)
 			return false
 		}
 	}

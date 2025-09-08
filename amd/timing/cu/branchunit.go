@@ -1,6 +1,8 @@
 package cu
 
 import (
+	"log"
+
 	"github.com/sarchlab/mgpusim/v4/amd/emu"
 	"github.com/sarchlab/mgpusim/v4/amd/timing/wavefront"
 )
@@ -82,6 +84,12 @@ func (u *BranchUnit) runExecStage() bool {
 	}
 
 	if u.toWrite == nil {
+		// Log branch instruction execution
+		if u.toExec.DynamicInst() != nil {
+			inst := u.toExec.DynamicInst()
+			log.Printf("BranchUnit %s: Executing branch instruction: %s",
+				u.cu.Name(), inst.String(nil))
+		}
 		u.alu.Run(u.toExec)
 
 		u.toWrite = u.toExec

@@ -77,10 +77,16 @@ func (u *VectorMemoryUnit) IsIdle() bool {
 // VectorMemoryUnit
 func (u *VectorMemoryUnit) Run() bool {
 	madeProgress := false
-	madeProgress = u.sendRequest() || madeProgress
-	madeProgress = u.transactionPipeline.Tick() || madeProgress
-	madeProgress = u.instToTransaction() || madeProgress
-	madeProgress = u.instructionPipeline.Tick() || madeProgress
+
+	sendProgress := u.sendRequest()
+	transPipelineProgress := u.transactionPipeline.Tick()
+	instToTransProgress := u.instToTransaction()
+	instPipelineProgress := u.instructionPipeline.Tick()
+
+	madeProgress = sendProgress || madeProgress
+	madeProgress = transPipelineProgress || madeProgress
+	madeProgress = instToTransProgress || madeProgress
+	madeProgress = instPipelineProgress || madeProgress
 	return madeProgress
 }
 
@@ -111,6 +117,7 @@ func (u *VectorMemoryUnit) execute() (madeProgress bool) {
 
 	wave := item.(vectorMemInst).wavefront
 	inst := wave.Inst()
+
 	switch inst.FormatType {
 	case insts.FLAT:
 		ok := u.executeFlatInsts(wave)

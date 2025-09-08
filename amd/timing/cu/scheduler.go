@@ -61,9 +61,21 @@ func NewScheduler(
 func (s *SchedulerImpl) Run() bool {
 	madeProgress := false
 	if s.isPaused == false {
-		madeProgress = s.EvaluateInternalInst() || madeProgress
-		madeProgress = s.DecodeNextInst() || madeProgress
-		madeProgress = s.DoIssue() || madeProgress
+		if s.EvaluateInternalInst() {
+			madeProgress = true
+		}
+		if s.DecodeNextInst() {
+			madeProgress = true
+		}
+		if s.DoIssue() {
+			madeProgress = true
+		}
+
+		// Inject S_ENDPGM for all wavefronts that have reached the end of the kernel binary
+		if s.injectSEndPgmForCompletedWavefronts() {
+			madeProgress = true
+		}
+
 		madeProgress = s.DoFetch() || madeProgress
 	}
 	if !madeProgress {
@@ -96,6 +108,21 @@ func (s *SchedulerImpl) DecodeNextInst() bool {
 				continue
 			}
 
+			// Check if this wavefront has reached the end of the kernel binary
+			if wf.PC >= wf.InstBufferStartPC+uint64(len(wf.InstBuffer)) {
+				// Create a fake S_ENDPGM instruction
+				fakeInst := &insts.Inst{
+					InstType: &insts.InstType{
+						Opcode:  1, // S_ENDPGM opcode
+						Format:  &insts.Format{FormatType: insts.SOPP},
+						ExeUnit: insts.ExeUnitSpecial,
+					},
+				}
+				wf.InstToIssue = wavefront.NewInst(fakeInst)
+				madeProgress = true
+				continue
+			}
+
 			if !s.wfHasAtLeast4BytesInInstBuffer(wf) {
 				continue
 			}
@@ -121,6 +148,15 @@ func (s *SchedulerImpl) wfHasAtLeast4BytesInInstBuffer(wf *wavefront.Wavefront) 
 func (s *SchedulerImpl) DoFetch() bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
+
+	// Debug: Check if there are any wavefronts in the pools
+	totalWfs := 0
+	for _, pool := range s.cu.WfPools {
+		totalWfs += len(pool.wfs)
+	}
+	if totalWfs > 0 && len(wfs) == 0 {
+		// No wavefronts available for fetch
+	}
 
 	if len(wfs) > 0 {
 		wf := wfs[0]
@@ -235,7 +271,8 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 		instCompleted := false
 		passBarrier := false
 
-		switch executing.Inst().Opcode {
+		opcode := executing.Inst().Opcode
+		switch opcode {
 		case 1: // S_ENDPGM
 			instProgress, instCompleted = s.evalSEndPgm(executing)
 		case 10: // S_BARRIER
@@ -256,7 +293,9 @@ func (s *SchedulerImpl) EvaluateInternalInst() bool {
 		madeProgress = instProgress || madeProgress
 
 		if instCompleted {
-			s.cu.logInstTask(executing, executing.DynamicInst(), true)
+			if executing.DynamicInst() != nil {
+				s.cu.logInstTask(executing, executing.DynamicInst(), true)
+			}
 		} else {
 			newExecuting = append(newExecuting, executing)
 		}
@@ -364,12 +403,12 @@ func (s *SchedulerImpl) sendWGCompletionMessage(
 	dispatcher := mapReq.Src
 
 	msg := protocol.WGCompletionMsgBuilder{}.
-		WithSrc(s.cu.ToACE.AsRemote()).
+		WithSrc(s.cu.ToCP.AsRemote()).
 		WithDst(dispatcher).
 		WithRspTo([]string{mapReq.ID}).
 		Build()
 
-	err := s.cu.ToACE.Send(msg)
+	err := s.cu.ToCP.Send(msg)
 
 	return err == nil
 }
@@ -522,4 +561,40 @@ func (s *SchedulerImpl) Resume() {
 func (s *SchedulerImpl) Flush() {
 	s.barrierBuffer = nil
 	s.internalExecuting = nil
+}
+
+// injectSEndPgmForCompletedWavefronts injects S_ENDPGM for all wavefronts that have reached the end of the kernel binary
+func (s *SchedulerImpl) injectSEndPgmForCompletedWavefronts() bool {
+	madeProgress := false
+
+	// Check all wavefront pools
+	for _, pool := range s.cu.WfPools {
+		for _, wf := range pool.wfs {
+			// Skip if wavefront is already completed or has an instruction to issue
+			if wf.State == wavefront.WfCompleted || wf.InstToIssue != nil {
+				continue
+			}
+
+			// Check if wavefront has reached the end of the kernel binary
+			if wf.CodeObject != nil && wf.CodeObject.Symbol != nil {
+				lastPCInBinary := wf.CodeObject.Symbol.Size + wf.WG.Packet.KernelObject + wf.CodeObject.KernelCodeEntryByteOffset
+				lastPCInInstBuffer := wf.InstBufferStartPC + uint64(len(wf.InstBuffer))
+
+				if lastPCInInstBuffer >= lastPCInBinary {
+					// Create a fake S_ENDPGM instruction
+					fakeInst := &insts.Inst{
+						InstType: &insts.InstType{
+							Opcode:  1, // S_ENDPGM opcode
+							Format:  &insts.Format{FormatType: insts.SOPP},
+							ExeUnit: insts.ExeUnitSpecial,
+						},
+					}
+					wf.InstToIssue = wavefront.NewInst(fakeInst)
+					madeProgress = true
+				}
+			}
+		}
+	}
+
+	return madeProgress
 }

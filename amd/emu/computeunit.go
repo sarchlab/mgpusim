@@ -28,7 +28,7 @@ type ComputeUnit struct {
 	decoder            Decoder
 	scratchpadPreparer ScratchpadPreparer
 	alu                ALU
-	storageAccessor    *storageAccessor
+	storageAccessor    *StorageAccessor
 
 	nextTick    sim.VTimeInSec
 	queueingWGs []*protocol.MapWGReq
@@ -409,7 +409,7 @@ func NewComputeUnit(
 	decoder Decoder,
 	scratchpadPreparer ScratchpadPreparer,
 	alu ALU,
-	sAccessor *storageAccessor,
+	sAccessor *StorageAccessor,
 ) *ComputeUnit {
 	cu := new(ComputeUnit)
 	cu.TickingComponent = sim.NewTickingComponent(name,

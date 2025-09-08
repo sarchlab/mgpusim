@@ -325,6 +325,13 @@ func (u *ALUImpl) runVCmpGtI32(state InstEmuState) {
 
 		src0 := asInt32(uint32(sp.SRC0[i]))
 		src1 := asInt32(uint32(sp.SRC1[i]))
+
+		// Debug logging for conditional branch in ReLU kernel
+		if i == 0 { // Only log for first lane to avoid spam
+			log.Printf("ALU: v_cmp_gt_i32 - src0=%d, src1=%d, result=%v",
+				src0, src1, src0 > src1)
+		}
+
 		if src0 > src1 {
 			sp.VCC = sp.VCC | (1 << i)
 		}
