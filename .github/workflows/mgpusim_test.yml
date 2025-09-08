@@ -30,6 +30,12 @@ jobs:
         with:
           go-version: "stable"
 
+      - name: Install mockgen
+        run: go install go.uber.org/mock/mockgen@v0.6.0
+
+      - name: Generate mocks
+        run: go generate ./...
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
