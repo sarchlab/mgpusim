@@ -439,7 +439,7 @@ func BuildComputeUnit(
 	addrConverter mem.AddressConverter,
 ) *ComputeUnit {
 	scratchpadPreparer := NewScratchpadPreparerImpl()
-	sAccessor := newStorageAccessor(
+	sAccessor := NewStorageAccessor(
 		storage, pageTable, log2PageSize, addrConverter)
 	alu := NewALU(sAccessor)
 	cu := NewComputeUnit(name, engine, decoder,

@@ -1,7 +1,6 @@
 package cu
 
 import (
-	"log"
 	"math"
 
 	"github.com/sarchlab/akita/v4/sim"
