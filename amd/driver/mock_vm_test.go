@@ -78,6 +78,21 @@ func (mr *MockPageTableMockRecorder) Remove(pid, vAddr any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockPageTable)(nil).Remove), pid, vAddr)
 }
 
+// ReverseLookup mocks base method.
+func (m *MockPageTable) ReverseLookup(pAddr uint64) (vm.Page, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReverseLookup", pAddr)
+	ret0, _ := ret[0].(vm.Page)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// ReverseLookup indicates an expected call of ReverseLookup.
+func (mr *MockPageTableMockRecorder) ReverseLookup(pAddr any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReverseLookup", reflect.TypeOf((*MockPageTable)(nil).ReverseLookup), pAddr)
+}
+
 // Update mocks base method.
 func (m *MockPageTable) Update(page vm.Page) {
 	m.ctrl.T.Helper()
@@ -86,21 +101,6 @@ func (m *MockPageTable) Update(page vm.Page) {
 
 // Update indicates an expected call of Update.
 func (mr *MockPageTableMockRecorder) Update(page any) *gomock.Call {
-    mr.mock.ctrl.T.Helper()
-    return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockPageTable)(nil).Update), page)
-}
-
-// ReverseLookup mocks base method.
-func (m *MockPageTable) ReverseLookup(pAddr uint64) (vm.Page, bool) {
-    m.ctrl.T.Helper()
-    ret := m.ctrl.Call(m, "ReverseLookup", pAddr)
-    ret0, _ := ret[0].(vm.Page)
-    ret1, _ := ret[1].(bool)
-    return ret0, ret1
-}
-
-// ReverseLookup indicates an expected call of ReverseLookup.
-func (mr *MockPageTableMockRecorder) ReverseLookup(pAddr any) *gomock.Call {
-    mr.mock.ctrl.T.Helper()
-    return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReverseLookup", reflect.TypeOf((*MockPageTable)(nil).ReverseLookup), pAddr)
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockPageTable)(nil).Update), page)
 }
