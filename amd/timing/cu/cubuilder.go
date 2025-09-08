@@ -121,7 +121,7 @@ func (b Builder) WithCPIntegration() Builder {
 
 // Build returns a newly constructed compute unit according to the
 // configuration.
-func (b Builder) Build(name string) *ComputeUnit {
+func (b *Builder) Build(name string) *ComputeUnit {
 	b.name = name
 	cu := NewComputeUnit(name, b.engine)
 	cu.Freq = b.freq
@@ -155,15 +155,10 @@ func (b Builder) Build(name string) *ComputeUnit {
 		cu.InstMem = b.instMem
 	}
 
-	// Handle CP integration if enabled
-	if b.enableCPIntegration {
-		cu.enableCPIntegration()
-	}
-
 	return cu
 }
 
-func (b Builder) equipScheduler(cu *ComputeUnit) {
+func (b *Builder) equipScheduler(cu *ComputeUnit) {
 	fetchArbitor := new(FetchArbiter)
 	fetchArbitor.InstBufByteSize = 256
 	issueArbitor := new(IssueArbiter)
@@ -171,7 +166,7 @@ func (b Builder) equipScheduler(cu *ComputeUnit) {
 	cu.Scheduler = scheduler
 }
 
-func (b Builder) equipScalarUnits(cu *ComputeUnit) {
+func (b *Builder) equipScalarUnits(cu *ComputeUnit) {
 	cu.BranchUnit = NewBranchUnit(cu, b.scratchpadPreparer, b.alu)
 
 	scalarDecoder := NewDecodeUnit(cu)
@@ -184,7 +179,7 @@ func (b Builder) equipScalarUnits(cu *ComputeUnit) {
 	}
 }
 
-func (b Builder) equipSIMDUnits(cu *ComputeUnit) {
+func (b *Builder) equipSIMDUnits(cu *ComputeUnit) {
 	vectorDecoder := NewDecodeUnit(cu)
 	cu.VectorDecoder = vectorDecoder
 	for i := 0; i < b.simdCount; i++ {
@@ -198,7 +193,7 @@ func (b Builder) equipSIMDUnits(cu *ComputeUnit) {
 	}
 }
 
-func (b Builder) equipLDSUnit(cu *ComputeUnit) {
+func (b *Builder) equipLDSUnit(cu *ComputeUnit) {
 	ldsDecoder := NewDecodeUnit(cu)
 	cu.LDSDecoder = ldsDecoder
 
@@ -210,7 +205,7 @@ func (b Builder) equipLDSUnit(cu *ComputeUnit) {
 	}
 }
 
-func (b Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
+func (b *Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	vectorMemDecoder := NewDecodeUnit(cu)
 	cu.VectorMemDecoder = vectorMemDecoder
 
@@ -239,7 +234,7 @@ func (b Builder) equipVectorMemoryUnit(cu *ComputeUnit) {
 	}
 }
 
-func (b Builder) equipRegisterFiles(cu *ComputeUnit) {
+func (b *Builder) equipRegisterFiles(cu *ComputeUnit) {
 	sRegFile := NewSimpleRegisterFile(uint64(b.sgprCount*4), 0)
 	cu.SRegFile = sRegFile
 

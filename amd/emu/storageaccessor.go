@@ -88,20 +88,9 @@ func (a *StorageAccessor) Write(pid vm.PID, vAddr uint64, data []byte) {
 	}
 }
 
-// NewStorageAccessor creates a storageAccessor, injecting dependencies.
-// This is the public interface for creating storage accessors.
-func NewStorageAccessor(
-	storage *mem.Storage,
-	pageTable vm.PageTable,
-	log2PageSize uint64,
-	addrConverter mem.AddressConverter,
-) *StorageAccessor {
-	return newStorageAccessor(storage, pageTable, log2PageSize, addrConverter)
-}
-
-// newStorageAccessor creates a storageAccessor, injecting dependencies
+// NewStorageAccessor creates a storageAccessor, injecting dependencies
 // of the storage and mmu.
-func newStorageAccessor(
+func NewStorageAccessor(
 	storage *mem.Storage,
 	pageTable vm.PageTable,
 	log2PageSize uint64,

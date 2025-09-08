@@ -149,13 +149,10 @@ func (s *SchedulerImpl) DoFetch() bool {
 	madeProgress := false
 	wfs := s.fetchArbiter.Arbitrate(s.cu.WfPools)
 
-	// Debug: Check if there are any wavefronts in the pools
+	// Check if there are any wavefronts in the pools
 	totalWfs := 0
 	for _, pool := range s.cu.WfPools {
 		totalWfs += len(pool.wfs)
-	}
-	if totalWfs > 0 && len(wfs) == 0 {
-		// No wavefronts available for fetch
 	}
 
 	if len(wfs) > 0 {
@@ -217,7 +214,6 @@ func (s *SchedulerImpl) DoIssue() bool {
 
 				unit.AcceptWave(wf)
 				wf.State = wavefront.WfRunning
-				//s.removeStaleInstBuffer(wf)
 
 				madeProgress = true
 			}
@@ -231,7 +227,6 @@ func (s *SchedulerImpl) issueToInternal(wf *wavefront.Wavefront) bool {
 	wf.InstToIssue = nil
 	s.internalExecuting = append(s.internalExecuting, wf)
 	wf.State = wavefront.WfRunning
-	//s.removeStaleInstBuffer(wf)
 
 	s.cu.logInstTask(wf, wf.DynamicInst(), false)
 

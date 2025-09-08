@@ -146,7 +146,6 @@ func (cu *ComputeUnit) runPipeline() bool {
 		madeProgress = vectorMemProgress || madeProgress
 		madeProgress = vectorMemDecodeProgress || madeProgress
 		schedulerProgress := cu.Scheduler.Run()
-		// removed verbose debug logging
 		madeProgress = schedulerProgress || madeProgress
 	}
 
@@ -896,12 +895,4 @@ func NewComputeUnit(
 	cu.wftime = make(map[string]sim.VTimeInSec)
 
 	return cu
-}
-
-// enableCPIntegration sets up the compute unit for command processor integration
-func (cu *ComputeUnit) enableCPIntegration() {
-	// The CU already has the necessary ports for CP integration:
-	// - "Ctrl" port for command processor communication (ToCP)
-	// - "ToDispatcher" port for instruction dispatching (ToACE)
-	// No additional setup needed as the ports are already created in the constructor
 }
