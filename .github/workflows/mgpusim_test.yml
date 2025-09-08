@@ -30,10 +30,19 @@ jobs:
         with:
           go-version: "stable"
 
+      - name: Install mockgen
+        run: go install go.uber.org/mock/mockgen@v0.6.0
+
+      - name: Generate mocks
+        run: go generate ./...
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
           version: "v2.1.5"
+          # Build golangci-lint with the configured Go toolchain to avoid
+          # Go version mismatch (linter built with older Go than target).
+          install-mode: goinstall
           args: --timeout=10m
           skip-cache: true
 
@@ -49,6 +58,12 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "stable"
+
+      - name: Install mockgen
+        run: go install go.uber.org/mock/mockgen@v0.6.0
+
+      - name: Generate mocks
+        run: go generate ./...
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo

@@ -12,13 +12,22 @@ type Builder struct {
 	localModules           mem.AddressToPortMapper
 	RemoteRDMAAddressTable mem.AddressToPortMapper
 	bufferSize             int
+
+	incomingReqPerCycle int
+	incomingRspPerCycle int
+	outgoingReqPerCycle int
+	outgoingRspPerCycle int
 }
 
 // MakeBuilder creates a new builder with default configuration values.
 func MakeBuilder() Builder {
 	return Builder{
-		freq:       1 * sim.GHz,
-		bufferSize: 128,
+		freq:                1 * sim.GHz,
+		bufferSize:          128,
+		incomingReqPerCycle: 1,
+		incomingRspPerCycle: 1,
+		outgoingReqPerCycle: 1,
+		outgoingRspPerCycle: 1,
 	}
 }
 
@@ -52,6 +61,26 @@ func (b Builder) WithRemoteModules(m mem.AddressToPortMapper) Builder {
 	return b
 }
 
+func (b Builder) WithIncomingReqPerCycle(n int) Builder {
+	b.incomingReqPerCycle = n
+	return b
+}
+
+func (b Builder) WithIncomingRspPerCycle(n int) Builder {
+	b.incomingRspPerCycle = n
+	return b
+}
+
+func (b Builder) WithOutgoingReqPerCycle(n int) Builder {
+	b.outgoingReqPerCycle = n
+	return b
+}
+
+func (b Builder) WithOutgoingRspPerCycle(n int) Builder {
+	b.outgoingRspPerCycle = n
+	return b
+}
+
 // Build creates a RDMA with the given parameters.
 func (b Builder) Build(name string) *Comp {
 	rdma := &Comp{}
@@ -60,17 +89,22 @@ func (b Builder) Build(name string) *Comp {
 
 	rdma.localModules = b.localModules
 	rdma.RemoteRDMAAddressTable = b.RemoteRDMAAddressTable
-	// rdma.SetFreq(b.freq)
+	rdma.incomingReqPerCycle = b.incomingReqPerCycle
+	rdma.incomingRspPerCycle = b.incomingRspPerCycle
+	rdma.outgoingReqPerCycle = b.outgoingReqPerCycle
+	rdma.outgoingRspPerCycle = b.outgoingRspPerCycle
 
-	rdma.ToL1 = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".ToL1")
-	rdma.ToL2 = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".ToL2")
+	rdma.RDMARequestInside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMARequestInside")
+	rdma.RDMARequestOutside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMARequestOutside")
+	rdma.RDMADataInside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMADataInside")
+	rdma.RDMADataOutside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".RDMADataOutside")
 	rdma.CtrlPort = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".CtrlPort")
-	rdma.ToOutside = sim.NewPort(rdma, b.bufferSize, b.bufferSize, name+".ToOutside")
 
-	rdma.AddPort("ToL1", rdma.ToL1)
-	rdma.AddPort("ToL2", rdma.ToL2)
+	rdma.AddPort("RDMARequestInside", rdma.RDMARequestInside)
+	rdma.AddPort("RDMARequestOutside", rdma.RDMARequestOutside)
+	rdma.AddPort("RDMADataOutside", rdma.RDMADataOutside)
+	rdma.AddPort("RDMADataInside", rdma.RDMADataInside)
 	rdma.AddPort("CtrlPort", rdma.CtrlPort)
-	rdma.AddPort("ToOutside", rdma.ToOutside)
 
 	return rdma
 }
