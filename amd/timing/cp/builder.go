@@ -20,6 +20,8 @@ type Builder struct {
 	monitor        *monitoring.Monitor
 	perfAnalyzer   *analysis.PerfAnalyzer
 	numDispatchers int
+	driver         sim.Port
+	cus            []CUInterfaceForCP
 }
 
 // MakeBuilder creates a new builder with default configuration values.
@@ -65,6 +67,18 @@ func (b Builder) WithPerfAnalyzer(
 	return b
 }
 
+// WithDriver sets the driver port for the command processor.
+func (b Builder) WithDriver(driver sim.Port) Builder {
+	b.driver = driver
+	return b
+}
+
+// WithCU adds a compute unit to the command processor.
+func (b Builder) WithCU(cu CUInterfaceForCP) Builder {
+	b.cus = append(b.cus, cu)
+	return b
+}
+
 // Build builds a new Command Processor
 func (b Builder) Build(name string) *CommandProcessor {
 	cp := new(CommandProcessor)
@@ -80,6 +94,13 @@ func (b Builder) Build(name string) *CommandProcessor {
 		make(map[string]*protocol.MemCopyD2HReq)
 
 	b.buildDispatchers(cp)
+
+	if b.driver != nil {
+		cp.Driver = b.driver
+	}
+	for _, cu := range b.cus {
+		cp.RegisterCU(cu)
+	}
 
 	if b.perfAnalyzer != nil {
 		b.perfAnalyzer.RegisterComponent(cp)
