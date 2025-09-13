@@ -1,0 +1,840 @@
+[
+  {
+    "suite": "polybench",
+    "benchmark": "2dconv",
+    "param": {
+      "blockDimX": "8",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "682d1723b541e8df7bd6184d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6027.84,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "2dconv",
+    "param": {
+      "blockDimX": "16",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "682d173cb541e8df7bd61858",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4605.71,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "2dconv",
+    "param": {
+      "blockDimX": "32",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "682d1754b541e8df7bd61863",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4005.5,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "2mm",
+    "param": {
+      "blockDimX": "8",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "682e357eb541e8df7bd618e1",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 100335.66,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "2mm",
+    "param": {
+      "blockDimX": "16",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "682e41deb541e8df7bd618ec",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 75186.65,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "2mm",
+    "param": {
+      "blockDimX": "32",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "682e4d91b541e8df7bd618f7",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 66361.9,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3dconv",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682e8ef4b541e8df7bd61937",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 18046.83,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3dconv",
+    "param": {
+      "blockDimX": "16",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682ea0bcb541e8df7bd61940",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 17814.88,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3dconv",
+    "param": {
+      "blockDimX": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682ea936b541e8df7bd61949",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 18036.26,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3mm",
+    "param": {
+      "blockDimX": "16",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682eecf5b541e8df7bd61991",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 10326.08,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3mm",
+    "param": {
+      "blockDimX": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682eef4db541e8df7bd6199a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 10708.68,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3mm",
+    "param": {
+      "blockDimX": "16",
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "682eecf8b541e8df7bd61992",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 13270.08,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "atax",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682efc59b541e8df7bd619d9",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 3989.12,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "atax",
+    "param": {
+      "blockDimX": "16",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682efc69b541e8df7bd619e2",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4228.44,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "atax",
+    "param": {
+      "blockDimX": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682efc77b541e8df7bd619eb",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4000.16,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "bicg",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682efdcab541e8df7bd61a2a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4629.44,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "bicg",
+    "param": {
+      "blockDimX": "16",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682efddab541e8df7bd61a33",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4835.64,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "bicg",
+    "param": {
+      "blockDimX": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682efde9b541e8df7bd61a3c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 5096.69,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "gemm",
+    "param": {
+      "blockDimX": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682f00fcb541e8df7bd61a8d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 3864.12,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "gemm",
+    "param": {
+      "blockDimX": "32",
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "682f00fdb541e8df7bd61a8e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4758.47,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "gemm",
+    "param": {
+      "blockDimX": "32",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "682f00ffb541e8df7bd61a8f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 5865.92,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "gesummv",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682f0734b541e8df7bd61acc",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 1854.72,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "gesummv",
+    "param": {
+      "blockDimX": "16",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682f0741b541e8df7bd61ad5",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 2075.52,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "gesummv",
+    "param": {
+      "blockDimX": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682f074cb541e8df7bd61ade",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 2572.32,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "mvt",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682f089fb541e8df7bd61b1d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 3981.76,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "mvt",
+    "param": {
+      "blockDimX": "16",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682f08afb541e8df7bd61b26",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4228.2,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "mvt",
+    "param": {
+      "blockDimX": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682f08beb541e8df7bd61b2f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4040.64,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "syrk",
+    "param": {
+      "blockDimX": "8",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "682f0a21b541e8df7bd61b73",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9811,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "syrk",
+    "param": {
+      "blockDimX": "16",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "682f0afcb541e8df7bd61b7c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 10646.24,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "syrk",
+    "param": {
+      "blockDimX": "32",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "682f0bdbb541e8df7bd61b85",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 23651.59,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "fastwalshtransform",
+    "param": {
+      "log2data": "12",
+      "log2kernel": "12"
+    },
+    "has_trace": true,
+    "trace_id": "68302352c0844e6a8339bf28",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 5700.55,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "fastwalshtransform",
+    "param": {
+      "log2data": "13",
+      "log2kernel": "12"
+    },
+    "has_trace": true,
+    "trace_id": "6830272bc0844e6a8339bf50",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 6278.31,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "fastwalshtransform",
+    "param": {
+      "log2data": "14",
+      "log2kernel": "12"
+    },
+    "has_trace": true,
+    "trace_id": "68302730c0844e6a8339bf51",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 7529.05,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "mergesort",
+    "param": {
+      "size": "32768"
+    },
+    "has_trace": true,
+    "trace_id": "68302956c0844e6a8339bf7a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 30111.03,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "mergesort",
+    "param": {
+      "size": "65536"
+    },
+    "has_trace": true,
+    "trace_id": "68302972c0844e6a8339bf7b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 37448.49,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "mergesort",
+    "param": {
+      "size": "81920"
+    },
+    "has_trace": true,
+    "trace_id": "68302995c0844e6a8339bf7c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 44509.72,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scalarprod",
+    "param": {
+      "elementN": "2048",
+      "vectorN": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68302371c0844e6a8339bf2e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 1685.33,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scalarprod",
+    "param": {
+      "elementN": "2048",
+      "vectorN": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68302c7ec0844e6a8339bf94",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 1821.6,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scalarprod",
+    "param": {
+      "elementN": "2048",
+      "vectorN": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68302c85c0844e6a8339bf96",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 1733.4,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scan-long",
+    "param": {
+      "arrayLength": "2048",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "68302da4c0844e6a8339bfb6",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 2292.64,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scan-long",
+    "param": {
+      "arrayLength": "4096",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "68302db9c0844e6a8339bfbd",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 2311.16,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scan-long",
+    "param": {
+      "arrayLength": "2048",
+      "size": "262144"
+    },
+    "has_trace": true,
+    "trace_id": "68302da9c0844e6a8339bfb7",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 2524.48,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scan-short",
+    "param": {
+      "arrayLength": "512",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "68302e83c0844e6a8339bfde",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 875.84,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scan-short",
+    "param": {
+      "arrayLength": "1024",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "68302e8fc0844e6a8339bfe4",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 875.84,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "scan-short",
+    "param": {
+      "arrayLength": "512",
+      "size": "262144"
+    },
+    "has_trace": true,
+    "trace_id": "68302e86c0844e6a8339bfdf",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 990.04,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "sortingnetworks-bitonic",
+    "param": {
+      "arrayLength": "64",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "68302f7bc0844e6a8339c009",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 2907.2,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "sortingnetworks-bitonic",
+    "param": {
+      "arrayLength": "128",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "68302f8dc0844e6a8339c00a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 3543.84,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "sortingnetworks-bitonic",
+    "param": {
+      "arrayLength": "64",
+      "size": "262144"
+    },
+    "has_trace": true,
+    "trace_id": "68302fa3c0844e6a8339c00b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4070.2,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "sortingnetworks-oddeven",
+    "param": {
+      "arrayLength": "64",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "68303131c0844e6a8339c030",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 2984.48,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "sortingnetworks-oddeven",
+    "param": {
+      "arrayLength": "128",
+      "size": "131072"
+    },
+    "has_trace": true,
+    "trace_id": "6830313fc0844e6a8339c031",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 3617.44,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "sortingnetworks-oddeven",
+    "param": {
+      "arrayLength": "64",
+      "size": "262144"
+    },
+    "has_trace": true,
+    "trace_id": "68303155c0844e6a8339c032",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 4143.68,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "transpose",
+    "param": {
+      "dimX": "1024",
+      "dimY": "1024",
+      "kernelID": "1"
+    },
+    "has_trace": true,
+    "trace_id": "683023c0c0844e6a8339bf3d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 1814.24,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "transpose",
+    "param": {
+      "dimX": "1536",
+      "dimY": "1536",
+      "kernelID": "1"
+    },
+    "has_trace": true,
+    "trace_id": "683059b9c0844e6a8339c063",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 3488.76,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "transpose",
+    "param": {
+      "dimX": "2048",
+      "dimY": "2048",
+      "kernelID": "1"
+    },
+    "has_trace": true,
+    "trace_id": "68303289c0844e6a8339c042",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 6256,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "vectoradd",
+    "param": {
+      "size": "8.388608e+06"
+    },
+    "has_trace": true,
+    "trace_id": "68303379c0844e6a8339c056",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 17575.8,
+    "has_sim": true,
+    "predict_cycle": 10018
+  },
+  {
+    "suite": "cuda-sdk",
+    "benchmark": "vectoradd",
+    "param": {
+      "size": "1.6777216e+07"
+    },
+    "has_trace": true,
+    "trace_id": "683033c7c0844e6a8339c057",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 37377.99,
+    "has_sim": true,
+    "predict_cycle": 10018
+  }
+]
