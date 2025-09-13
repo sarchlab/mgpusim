@@ -42,9 +42,9 @@ func (r *Runner) Run() {
 			exec.Run(r.Driver())
 		}
 	}
-	// updated for tracing
-	r.configureVisTracing()
+	// updated for tracing - register driver first, then configure tracing
 	r.simulation.RegisterComponent(r.platform.Driver)
+	r.configureVisTracing()
 	// for _, oneComp := range r.simulation.Components() {
 	// 	fmt.Printf("Registered component: %v\n", oneComp.Name())
 	// }
