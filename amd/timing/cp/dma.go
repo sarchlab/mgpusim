@@ -10,16 +10,17 @@ import (
 	"github.com/sarchlab/mgpusim/v4/amd/protocol"
 )
 
-// A RequestCollection contains a single MemCopy Msg and the IDs of the Read/Write
-// requests that correspond to it, as well as the number of remaining requests
+// A RequestCollection contains a single MemCopy Msg and the IDs of the
+// Read/Write requests that correspond to it, as well as the number of remaining
+// requests
 type RequestCollection struct {
 	superiorRequest       sim.Msg
 	subordinateRequestIDs []string
 	subordinateCount      int
 }
 
-// removeIDIfExists reduces the subordinate count if a specific ID is present in the list
-// of subordinate IDs, returning true if it was and false if it was not
+// removeIDIfExists reduces the subordinate count if a specific ID is present in
+// the list of subordinate IDs, returning true if it was and false if it was not
 func (rqC *RequestCollection) decrementCountIfExists(id string) bool {
 	for _, str := range rqC.subordinateRequestIDs {
 		if id == str {
@@ -27,6 +28,7 @@ func (rqC *RequestCollection) decrementCountIfExists(id string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -69,7 +71,6 @@ type DMAEngine struct {
 
 	processingReqs []*RequestCollection
 
-	//processingReq   sim.Msg
 	maxRequestCount uint64
 
 	toSendToMem []sim.Msg
