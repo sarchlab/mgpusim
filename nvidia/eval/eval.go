@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"time"
 
 	"gonum.org/v1/gonum/stat"
 	"gonum.org/v1/plot"
@@ -53,9 +54,21 @@ type Record struct {
 func main() {
 	var configType string
 	var sha string
+	var version string
 	flag.StringVar(&configType, "config", "dev", "config type: dev, test or release")
 	flag.StringVar(&sha, "sha", "unknownSHA", "git commit SHA")
+	flag.StringVar(&version, "version", "", "version string")
 	flag.Parse()
+
+	// Generate timestamp string in EST
+	timestamp := getCurrentTimestampEST()
+
+	// Compose file name prefix
+	filePrefix := timestamp
+	if version != "" {
+		filePrefix += "_" + version
+	}
+	filePrefix += "_" + sha
 
 	var configPath string
 	switch configType {
@@ -91,7 +104,7 @@ func main() {
 		shortSha = sha[:7]
 	}
 	title := fmt.Sprintf("Evaluation Metrics of Commit %s (%d Pts)\n Coefficient of Determination R²=%.6f\nPearson Correlation Coefficient r=%.6f\nSpearman Rank Correlation Coefficient ρ=%.6f", shortSha, len(truths), r2, pearson, spearman)
-	plotCorrelation(truths, preds, filepath.Join(rsqDir, sha+".png"), plotutil.Color(2), title)
+	plotCorrelation(truths, preds, filepath.Join(rsqDir, filePrefix+".png"), plotutil.Color(2), title)
 
 	// Save records as JSON
 	outDir := "nvidia/eval/records"
@@ -99,7 +112,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to create output dir: %v\n", err)
 		os.Exit(1)
 	}
-	outPath := filepath.Join(outDir, sha+".json")
+	outPath := filepath.Join(outDir, filePrefix+".json")
 	f, err := os.Create(outPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create %s: %v\n", outPath, err)
@@ -113,6 +126,16 @@ func main() {
 		os.Exit(1)
 	}
 	// fmt.Printf("Saved records to %s\n", outPath)
+}
+
+// Generate current timestamp string in EST, format: "20250917_153755_126237"
+func getCurrentTimestampEST() string {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		loc = time.FixedZone("EST", -5*60*60)
+	}
+	now := time.Now().In(loc)
+	return now.Format("20250917_000000_000000")[:20] // "YYYYMMDD_HHMMSS_microsec"
 }
 
 func extractCorrelationData(allRecords []Record) (truths, preds []float64) {
