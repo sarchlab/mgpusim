@@ -135,7 +135,7 @@ func getCurrentTimestampEST() string {
 		loc = time.FixedZone("EST", -5*60*60)
 	}
 	now := time.Now().In(loc)
-	return now.Format("20060102_150405_000000")[:20] // "YYYYMMDD_HHMMSS_microsec"
+	return now.Format("20060102_150405")[:20] // "YYYYMMDD_HHMMSS_microsec"
 }
 
 func extractCorrelationData(allRecords []Record) (truths, preds []float64) {
