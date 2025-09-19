@@ -611,7 +611,6 @@ func runSimulation(scriptPath, tmpYamlPath string) (float64, error) {
 	// } else {
 	// 	fmt.Println(string(content))
 	// }
-
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get stdout: %v\n", err)
