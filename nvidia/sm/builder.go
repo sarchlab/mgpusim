@@ -33,6 +33,7 @@ type SMBuilder struct {
 	connectionCount int
 
 	threadBlockAllocationLatency uint64
+	warpIssueLatency             uint64
 }
 
 func MakeBuilder() SMBuilder {
@@ -76,6 +77,11 @@ func (b SMBuilder) WithLog2CacheLineSize(size uint64) SMBuilder {
 
 func (b SMBuilder) WithThreadBlockAllocationLatency(latency uint64) SMBuilder {
 	b.threadBlockAllocationLatency = latency
+	return b
+}
+
+func (b SMBuilder) WithWarpIssueLatency(latency uint64) SMBuilder {
+	b.warpIssueLatency = latency
 	return b
 }
 
@@ -147,7 +153,8 @@ func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
 		smspBuilder := new(smsp.SMSPBuilder).
 			WithEngine(b.engine).
 			WithFreq(b.freq).
-			WithSimulation(b.simulation)
+			WithSimulation(b.simulation).
+			WithWarpIssueLatency(b.warpIssueLatency)
 
 		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP(%d)", smName, i))
 		b.simulation.RegisterComponent(smsp)

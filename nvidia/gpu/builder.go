@@ -44,6 +44,7 @@ type GPUBuilder struct {
 	// pageMigrationController *pagemigrationcontroller.PageMigrationController
 	launchOverheadLatency        uint64
 	threadBlockAllocationLatency uint64
+	warpIssueLatency             uint64
 }
 
 func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
@@ -105,6 +106,11 @@ func (b GPUBuilder) WithLaunchOverheadLatency(l uint64) GPUBuilder {
 
 func (b GPUBuilder) WithThreadBlockAllocationLatency(l uint64) GPUBuilder {
 	b.threadBlockAllocationLatency = l
+	return b
+}
+
+func (b GPUBuilder) WithWarpIssueLatency(l uint64) GPUBuilder {
+	b.warpIssueLatency = l
 	return b
 }
 
@@ -194,7 +200,8 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 		WithSimulation(b.simulation).
 		WithSMSPsCount(b.smspsCountPerSM).
 		WithL1AddressMapper(b.l1AddressMapper).
-		WithThreadBlockAllocationLatency(b.threadBlockAllocationLatency)
+		WithThreadBlockAllocationLatency(b.threadBlockAllocationLatency).
+		WithWarpIssueLatency(b.warpIssueLatency)
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {

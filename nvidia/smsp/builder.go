@@ -10,9 +10,10 @@ import (
 )
 
 type SMSPBuilder struct {
-	simulation *simulation.Simulation
-	engine     sim.Engine
-	freq       sim.Freq
+	simulation       *simulation.Simulation
+	engine           sim.Engine
+	freq             sim.Freq
+	warpIssueLatency uint64
 }
 
 func (b *SMSPBuilder) WithEngine(engine sim.Engine) *SMSPBuilder {
@@ -30,9 +31,16 @@ func (b *SMSPBuilder) WithSimulation(sim *simulation.Simulation) *SMSPBuilder {
 	return b
 }
 
+func (b *SMSPBuilder) WithWarpIssueLatency(latency uint64) *SMSPBuilder {
+	b.warpIssueLatency = latency
+	return b
+}
+
 func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s := &SMSPController{
-		ID: sim.GetIDGenerator().Generate(),
+		ID:                        sim.GetIDGenerator().Generate(),
+		warpIssueLatency:          b.warpIssueLatency,
+		warpIssueLatencyRemaining: b.warpIssueLatency,
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
