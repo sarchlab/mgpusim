@@ -384,6 +384,21 @@ func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 		fmt.Printf("trace-id: %s, suite: %s, frequency: %v, benchmark: %s, arg setting: %s\n", traceID, bench.Suite, frequency, bench.Title, argStr)
 
 		truthCycles := getTruthCycles(arg)
+
+		// Calculate AvgNanoSec as truthCycles / (frequency / 1000)
+		var avgNanoSec interface{}
+		freqFloat, ok := frequency.(float64)
+		if !ok {
+			if fInt, ok := frequency.(int); ok {
+				freqFloat = float64(fInt)
+			}
+		}
+		if freqFloat > 0 {
+			avgNanoSec = truthCycles / (freqFloat / 1000.0)
+		} else {
+			avgNanoSec = 0.0
+		}
+
 		tmpYamlPath := filepath.Join("nvidia/eval/", "tmp.yaml")
 		if err := writeTmpYaml(tmpYamlPath, traceID); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to write nvidia/eval/tmp.yaml: %v\n", err)
@@ -425,7 +440,7 @@ func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 			TraceID:      traceID,
 			HasProfile:   true,
 			Frequency:    frequency,
-			AvgNanoSec:   truthCycles,
+			AvgNanoSec:   avgNanoSec, //truthCycles,
 			HasSim:       true,
 			PredictCycle: simResult,
 		}
