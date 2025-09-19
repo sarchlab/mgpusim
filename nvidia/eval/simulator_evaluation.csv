@@ -49,3 +49,4 @@ cb36763,test,,-0.416097,-14.800134,NaN,1.000000,.609548305,1,3,2,"test: extended
 82dafd0,test,,-0.416097,-14.800134,NaN,1.000000,1.166308299,1,3,2,"test: fix yml",82dafd0e8ddb295a8c3e1af0e5e33d7b0bdfff1b,EnzeXu,"{polybench/3mm: -0.030753, polybench/3dconv: -0.801440}"
 b01fbec,test,,3.717679,-1836.213925,-1.000000,-1.000000,2.063430944,1,3,2,"test: fix yml bug",b01fbecba97e8136ed4bdab80bdbcbbdccee6231,EnzeXu,"{polybench/3mm: 5.003343, polybench/3dconv: 2.432015}"
 9513447,release-emptykernel,v3.0.0,-28.657384,0.329646,0.914364,0.970447,2220.615435130,1,1,561,"[release-emptykernel v3.0.0] empty baseline",9513447c7d8e47a74204fd56770ce03d2ac95438,EnzeXu,"{simtune/emptykernel: -28.657384}"
+8e707fd,release-emptykernel,v3.0.1,0.018101,0.648795,0.914326,0.970447,2502.041480310,1,1,561,"[release-emptykernel v3.0.1] set launchOverheadLatency to 2000 and threadBlockAllocationLatency to 200",8e707fd589f47724b1794f076de8561858525053,EnzeXu,"{simtune/emptykernel: 0.018101}"
