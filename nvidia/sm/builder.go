@@ -31,6 +31,8 @@ type SMBuilder struct {
 	smsps []*smsp.SMSPController
 
 	connectionCount int
+
+	threadBlockAllocationLatency uint64
 }
 
 func MakeBuilder() SMBuilder {
@@ -72,13 +74,20 @@ func (b SMBuilder) WithLog2CacheLineSize(size uint64) SMBuilder {
 	return b
 }
 
+func (b SMBuilder) WithThreadBlockAllocationLatency(latency uint64) SMBuilder {
+	b.threadBlockAllocationLatency = latency
+	return b
+}
+
 func (b SMBuilder) Build(name string) *SMController {
 	s := &SMController{
-		ID:             sim.GetIDGenerator().Generate(),
-		SMSPs:          make(map[string]*smsp.SMSPController),
-		SMSPsIDs:       []string{},
-		smspsCount:     b.smspsCount,
-		smspIssueIndex: 0,
+		ID:                                    sim.GetIDGenerator().Generate(),
+		SMSPs:                                 make(map[string]*smsp.SMSPController),
+		SMSPsIDs:                              []string{},
+		smspsCount:                            b.smspsCount,
+		smspIssueIndex:                        0,
+		threadBlockAllocationLatency:          b.threadBlockAllocationLatency,
+		threadBlockAllocationLatencyRemaining: b.threadBlockAllocationLatency,
 	}
 	b.name = name
 	b.connectionCount = 0

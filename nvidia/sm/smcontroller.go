@@ -47,6 +47,9 @@ type SMController struct {
 
 	smspsCount     uint64
 	smspIssueIndex uint64
+
+	threadBlockAllocationLatency          uint64
+	threadBlockAllocationLatencyRemaining uint64
 }
 
 func (s *SMController) SetGPURemotePort(remote sim.Port) {
@@ -85,6 +88,10 @@ func (s *SMController) checkAnyWarpNotFinished() bool {
 }
 
 func (s *SMController) processGPUInput() bool {
+	if s.threadBlockAllocationLatencyRemaining > 0 {
+		s.threadBlockAllocationLatencyRemaining--
+		return true
+	}
 	msg := s.toGPU.PeekIncoming()
 	if msg == nil {
 		return false
@@ -96,6 +103,7 @@ func (s *SMController) processGPUInput() bool {
 	default:
 		log.WithField("function", "processGPUInput").Panic("Unhandled message type")
 	}
+	s.threadBlockAllocationLatencyRemaining = s.threadBlockAllocationLatency
 
 	return true
 }

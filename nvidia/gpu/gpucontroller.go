@@ -64,6 +64,11 @@ type GPUController struct {
 
 	SMIssueIndex uint64
 	smsCount     uint64
+
+	launchOverheadLatency          uint64
+	launchOverheadLatencyRemaining uint64
+	// threadBlockAllocationLatency          uint64
+	// threadBlockAllocationLatencyRemaining uint64
 }
 
 func (g *GPUController) SetDriverRemotePort(remote sim.Port) {
@@ -94,6 +99,10 @@ func (g *GPUController) checkAnySMAssigned() bool {
 }
 
 func (g *GPUController) processDriverInput() bool {
+	if g.launchOverheadLatencyRemaining > 0 {
+		g.launchOverheadLatencyRemaining--
+		return true
+	}
 	msg := g.toDriver.PeekIncoming()
 	if msg == nil {
 		return false
@@ -105,6 +114,7 @@ func (g *GPUController) processDriverInput() bool {
 	default:
 		log.WithField("function", "processDriverInput").Panic("Unhandled message type")
 	}
+	g.launchOverheadLatencyRemaining = g.launchOverheadLatency
 
 	return true
 }

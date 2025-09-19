@@ -42,6 +42,8 @@ type GPUBuilder struct {
 	// rdmaEngine              *rdma.Comp
 	// dmaEngine               *cp.DMAEngine
 	// pageMigrationController *pagemigrationcontroller.PageMigrationController
+	launchOverheadLatency        uint64
+	threadBlockAllocationLatency uint64
 }
 
 func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
@@ -96,6 +98,16 @@ func (b GPUBuilder) WithNumMemoryBank(n int) GPUBuilder {
 	return b
 }
 
+func (b GPUBuilder) WithLaunchOverheadLatency(l uint64) GPUBuilder {
+	b.launchOverheadLatency = l
+	return b
+}
+
+func (b GPUBuilder) WithThreadBlockAllocationLatency(l uint64) GPUBuilder {
+	b.threadBlockAllocationLatency = l
+	return b
+}
+
 func (b *GPUBuilder) Build(name string) *GPUController {
 	// g := &GPUController{
 	// 	ID:  sim.GetIDGenerator().Generate(),
@@ -145,12 +157,15 @@ func (b *GPUBuilder) createGPU(name string) {
 	b.gpuName = name
 
 	b.gpu = &GPUController{
-		gpuName:        name,
-		ID:             sim.GetIDGenerator().Generate(),
-		SMs:            make(map[string]*sm.SMController),
-		SMIssueIndex:   0,
-		smsCount:       b.smsCount,
-		SMAssignedList: make(map[string]bool),
+		gpuName:                        name,
+		ID:                             sim.GetIDGenerator().Generate(),
+		SMs:                            make(map[string]*sm.SMController),
+		SMIssueIndex:                   0,
+		smsCount:                       b.smsCount,
+		SMAssignedList:                 make(map[string]bool),
+		launchOverheadLatency:          b.launchOverheadLatency,
+		launchOverheadLatencyRemaining: b.launchOverheadLatency,
+		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
 	// b.gpuID = id
@@ -178,7 +193,8 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 		WithFreq(b.freq).
 		WithSimulation(b.simulation).
 		WithSMSPsCount(b.smspsCountPerSM).
-		WithL1AddressMapper(b.l1AddressMapper)
+		WithL1AddressMapper(b.l1AddressMapper).
+		WithThreadBlockAllocationLatency(b.threadBlockAllocationLatency)
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {
