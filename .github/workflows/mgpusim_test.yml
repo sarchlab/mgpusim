@@ -133,11 +133,11 @@ jobs:
           # SCORE=99999 # Simulated score
           EVAL_START=$(date +%s.%N)
           if [[ "${{ steps.commit_type.outputs.type }}" == "release" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }})
+            OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }})
           elif [[ "${{ steps.commit_type.outputs.type }}" == "test" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config test --sha ${{ steps.commit_info.outputs.sha }})
+            OUTPUT=$(./nvidia/eval/eval --config test --sha ${{ steps.commit_info.outputs.sha }} --version "test")
           else
-            OUTPUT=$(./nvidia/eval/eval --config dev --sha ${{ steps.commit_info.outputs.sha }})
+            OUTPUT=$(./nvidia/eval/eval --config dev --sha ${{ steps.commit_info.outputs.sha }} --version "dev")
           fi
           EVAL_END=$(date +%s.%N)
           EVAL_ELAPSED=$(echo "$EVAL_END - $EVAL_START" | bc)
