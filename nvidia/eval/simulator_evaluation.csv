@@ -47,3 +47,4 @@ dd02a3a,release,v2.0.2,-992.597777,-4.431540,0.381770,0.425196,208.493285756,2,1
 4065fcb,test,,-0.416097,-14.800134,NaN,1.000000,1.137862995,1,3,2,"test: extended record name with prefix",4065fcbb328ad802288cfa44e77596e214cc79dc,EnzeXu,"{polybench/3mm: -0.030753, polybench/3dconv: -0.801440}"
 cb36763,test,,-0.416097,-14.800134,NaN,1.000000,.609548305,1,3,2,"test: extended record name with prefix",cb36763a79ff39354308dcf0ae75a12449198304,EnzeXu,"{polybench/3mm: -0.030753, polybench/3dconv: -0.801440}"
 82dafd0,test,,-0.416097,-14.800134,NaN,1.000000,1.166308299,1,3,2,"test: fix yml",82dafd0e8ddb295a8c3e1af0e5e33d7b0bdfff1b,EnzeXu,"{polybench/3mm: -0.030753, polybench/3dconv: -0.801440}"
+b01fbec,test,,3.717679,-1836.213925,-1.000000,-1.000000,2.063430944,1,3,2,"test: fix yml bug",b01fbecba97e8136ed4bdab80bdbcbbdccee6231,EnzeXu,"{polybench/3mm: 5.003343, polybench/3dconv: 2.432015}"
