@@ -1,0 +1,8417 @@
+[
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c4355ee4ef555c786a2c15",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2470.46,
+    "has_sim": true,
+    "predict_cycle": 14
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c4355fe4ef555c786a2c16",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 15
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43560e4ef555c786a2c17",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 17
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43561e4ef555c786a2c18",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 21
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43562e4ef555c786a2c19",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.75,
+    "has_sim": true,
+    "predict_cycle": 29
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43563e4ef555c786a2c1a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 45
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43564e4ef555c786a2c1b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 77
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43565e4ef555c786a2c1c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2507.89,
+    "has_sim": true,
+    "predict_cycle": 141
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43566e4ef555c786a2c1d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2564.64,
+    "has_sim": true,
+    "predict_cycle": 269
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43567e4ef555c786a2c1e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2789.87,
+    "has_sim": true,
+    "predict_cycle": 525
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43568e4ef555c786a2c1f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3164.27,
+    "has_sim": true,
+    "predict_cycle": 1037
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43569e4ef555c786a2c20",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4193.28,
+    "has_sim": true,
+    "predict_cycle": 2061
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c4356be4ef555c786a2c21",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6608.16,
+    "has_sim": true,
+    "predict_cycle": 4109
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c4356ce4ef555c786a2c22",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11325.6,
+    "has_sim": true,
+    "predict_cycle": 8205
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c4356de4ef555c786a2c23",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20798.51,
+    "has_sim": true,
+    "predict_cycle": 16397
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c4356fe4ef555c786a2c24",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39630.24,
+    "has_sim": true,
+    "predict_cycle": 32781
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68c43570e4ef555c786a2c25",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77370.35,
+    "has_sim": true,
+    "predict_cycle": 65549
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43571e4ef555c786a2c26",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.91,
+    "has_sim": true,
+    "predict_cycle": 14
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43572e4ef555c786a2c27",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.91,
+    "has_sim": true,
+    "predict_cycle": 15
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43573e4ef555c786a2c28",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 17
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43574e4ef555c786a2c29",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2397.33,
+    "has_sim": true,
+    "predict_cycle": 21
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43575e4ef555c786a2c2a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2376.86,
+    "has_sim": true,
+    "predict_cycle": 29
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43576e4ef555c786a2c2b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 45
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43577e4ef555c786a2c2c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 77
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43578e4ef555c786a2c2d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2489.76,
+    "has_sim": true,
+    "predict_cycle": 141
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43579e4ef555c786a2c2e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2583.36,
+    "has_sim": true,
+    "predict_cycle": 269
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c4357ae4ef555c786a2c2f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2770.56,
+    "has_sim": true,
+    "predict_cycle": 525
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c4357ce4ef555c786a2c30",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3164.27,
+    "has_sim": true,
+    "predict_cycle": 1037
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c4357de4ef555c786a2c31",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4212,
+    "has_sim": true,
+    "predict_cycle": 2061
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c4357ee4ef555c786a2c32",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6608.16,
+    "has_sim": true,
+    "predict_cycle": 4109
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c4357fe4ef555c786a2c33",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11364.21,
+    "has_sim": true,
+    "predict_cycle": 8205
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43581e4ef555c786a2c34",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20760.48,
+    "has_sim": true,
+    "predict_cycle": 16397
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43582e4ef555c786a2c35",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39574.67,
+    "has_sim": true,
+    "predict_cycle": 32781
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68c43584e4ef555c786a2c36",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77277.33,
+    "has_sim": true,
+    "predict_cycle": 65549
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43585e4ef555c786a2c37",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 15
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43586e4ef555c786a2c38",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 16
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43587e4ef555c786a2c39",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 18
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43588e4ef555c786a2c3a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2395.58,
+    "has_sim": true,
+    "predict_cycle": 22
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43589e4ef555c786a2c3b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 30
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c4358ae4ef555c786a2c3c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 46
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c4358be4ef555c786a2c3d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 78
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c4358ce4ef555c786a2c3e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2508.48,
+    "has_sim": true,
+    "predict_cycle": 142
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c4358de4ef555c786a2c3f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2602.08,
+    "has_sim": true,
+    "predict_cycle": 270
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c4358ee4ef555c786a2c40",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2751.84,
+    "has_sim": true,
+    "predict_cycle": 526
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43590e4ef555c786a2c41",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3164.27,
+    "has_sim": true,
+    "predict_cycle": 1038
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43591e4ef555c786a2c42",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4230.72,
+    "has_sim": true,
+    "predict_cycle": 2062
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43592e4ef555c786a2c43",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6628.64,
+    "has_sim": true,
+    "predict_cycle": 4110
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43593e4ef555c786a2c44",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11381.76,
+    "has_sim": true,
+    "predict_cycle": 8206
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43595e4ef555c786a2c45",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20835.36,
+    "has_sim": true,
+    "predict_cycle": 16398
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43596e4ef555c786a2c46",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39667.68,
+    "has_sim": true,
+    "predict_cycle": 32782
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68c43598e4ef555c786a2c47",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77444.64,
+    "has_sim": true,
+    "predict_cycle": 65550
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c43599e4ef555c786a2c48",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 17
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c4359ae4ef555c786a2c49",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 18
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c4359be4ef555c786a2c4a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 20
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c4359ce4ef555c786a2c4b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 24
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c4359de4ef555c786a2c4c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 32
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c4359ee4ef555c786a2c4d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2378.03,
+    "has_sim": true,
+    "predict_cycle": 48
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c4359fe4ef555c786a2c4e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2415.46,
+    "has_sim": true,
+    "predict_cycle": 80
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a0e4ef555c786a2c4f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2489.76,
+    "has_sim": true,
+    "predict_cycle": 144
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a2e4ef555c786a2c50",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2546.51,
+    "has_sim": true,
+    "predict_cycle": 272
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a3e4ef555c786a2c51",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2733.12,
+    "has_sim": true,
+    "predict_cycle": 528
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a4e4ef555c786a2c52",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3107.52,
+    "has_sim": true,
+    "predict_cycle": 1040
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a5e4ef555c786a2c53",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4230.72,
+    "has_sim": true,
+    "predict_cycle": 2064
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a6e4ef555c786a2c54",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6645.6,
+    "has_sim": true,
+    "predict_cycle": 4112
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a8e4ef555c786a2c55",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11362.45,
+    "has_sim": true,
+    "predict_cycle": 8208
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435a9e4ef555c786a2c56",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20760.48,
+    "has_sim": true,
+    "predict_cycle": 16400
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435abe4ef555c786a2c57",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39667.68,
+    "has_sim": true,
+    "predict_cycle": 32784
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68c435aee4ef555c786a2c58",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77388.48,
+    "has_sim": true,
+    "predict_cycle": 65552
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435afe4ef555c786a2c59",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 21
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b0e4ef555c786a2c5a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 22
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b1e4ef555c786a2c5b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2302.56,
+    "has_sim": true,
+    "predict_cycle": 24
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b2e4ef555c786a2c5c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 28
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b3e4ef555c786a2c5d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 36
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b4e4ef555c786a2c5e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2378.03,
+    "has_sim": true,
+    "predict_cycle": 52
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b5e4ef555c786a2c5f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 84
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b6e4ef555c786a2c60",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.63,
+    "has_sim": true,
+    "predict_cycle": 148
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b8e4ef555c786a2c61",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2583.94,
+    "has_sim": true,
+    "predict_cycle": 276
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435b9e4ef555c786a2c62",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2769.97,
+    "has_sim": true,
+    "predict_cycle": 532
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435bae4ef555c786a2c63",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3107.52,
+    "has_sim": true,
+    "predict_cycle": 1044
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435bbe4ef555c786a2c64",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4306.18,
+    "has_sim": true,
+    "predict_cycle": 2068
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435bde4ef555c786a2c65",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6664.32,
+    "has_sim": true,
+    "predict_cycle": 4116
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435bee4ef555c786a2c66",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11363.04,
+    "has_sim": true,
+    "predict_cycle": 8212
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435c0e4ef555c786a2c67",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20761.06,
+    "has_sim": true,
+    "predict_cycle": 16404
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435c3e4ef555c786a2c68",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39592.8,
+    "has_sim": true,
+    "predict_cycle": 32788
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68c435c7e4ef555c786a2c69",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77221.17,
+    "has_sim": true,
+    "predict_cycle": 65556
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435c8e4ef555c786a2c6a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 29
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435c9e4ef555c786a2c6b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 30
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435cae4ef555c786a2c6c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 32
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435cbe4ef555c786a2c6d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 36
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435cce4ef555c786a2c6e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 44
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435cde4ef555c786a2c6f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 60
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435cee4ef555c786a2c70",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 92
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435cfe4ef555c786a2c71",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2489.76,
+    "has_sim": true,
+    "predict_cycle": 156
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435d1e4ef555c786a2c72",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2620.8,
+    "has_sim": true,
+    "predict_cycle": 284
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435d2e4ef555c786a2c73",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2789.28,
+    "has_sim": true,
+    "predict_cycle": 540
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435d3e4ef555c786a2c74",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3481.92,
+    "has_sim": true,
+    "predict_cycle": 1052
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435d5e4ef555c786a2c75",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4754.88,
+    "has_sim": true,
+    "predict_cycle": 2076
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435d6e4ef555c786a2c76",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7300.8,
+    "has_sim": true,
+    "predict_cycle": 4124
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435d8e4ef555c786a2c77",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 12355.78,
+    "has_sim": true,
+    "predict_cycle": 8220
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435dbe4ef555c786a2c78",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 22389.12,
+    "has_sim": true,
+    "predict_cycle": 16412
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435dfe4ef555c786a2c79",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 42551.73,
+    "has_sim": true,
+    "predict_cycle": 32796
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68c435e6e4ef555c786a2c7a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 82986.35,
+    "has_sim": true,
+    "predict_cycle": 65564
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435e7e4ef555c786a2c7b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.63,
+    "has_sim": true,
+    "predict_cycle": 45
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435e8e4ef555c786a2c7c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.91,
+    "has_sim": true,
+    "predict_cycle": 46
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435e9e4ef555c786a2c7d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 48
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435eae4ef555c786a2c7e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 52
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435ebe4ef555c786a2c7f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 60
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435ece4ef555c786a2c80",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 76
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435ede4ef555c786a2c81",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2489.76,
+    "has_sim": true,
+    "predict_cycle": 108
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435eee4ef555c786a2c82",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2564.64,
+    "has_sim": true,
+    "predict_cycle": 172
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435f0e4ef555c786a2c83",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2658.24,
+    "has_sim": true,
+    "predict_cycle": 300
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435f1e4ef555c786a2c84",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3501.22,
+    "has_sim": true,
+    "predict_cycle": 556
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435f2e4ef555c786a2c85",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5054.4,
+    "has_sim": true,
+    "predict_cycle": 1068
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435f4e4ef555c786a2c86",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 8068.91,
+    "has_sim": true,
+    "predict_cycle": 2092
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435f6e4ef555c786a2c87",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13927.1,
+    "has_sim": true,
+    "predict_cycle": 4140
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435f8e4ef555c786a2c88",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 25664.53,
+    "has_sim": true,
+    "predict_cycle": 8236
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c435fce4ef555c786a2c89",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 49178.03,
+    "has_sim": true,
+    "predict_cycle": 16428
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c43602e4ef555c786a2c8a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 96258.24,
+    "has_sim": true,
+    "predict_cycle": 32812
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68c4360ee4ef555c786a2c8b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 190532.16,
+    "has_sim": true,
+    "predict_cycle": 65580
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86f6e4ef555c786a2ebd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 16
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86f7e4ef555c786a2ebe",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 17
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86f8e4ef555c786a2ebf",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 19
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86f9e4ef555c786a2ec0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 23
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86fae4ef555c786a2ec1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 31
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86fbe4ef555c786a2ec2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2378.03,
+    "has_sim": true,
+    "predict_cycle": 47
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86fce4ef555c786a2ec3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 79
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86fde4ef555c786a2ec4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2470.46,
+    "has_sim": true,
+    "predict_cycle": 143
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86fee4ef555c786a2ec5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2583.94,
+    "has_sim": true,
+    "predict_cycle": 271
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb86ffe4ef555c786a2ec6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2714.99,
+    "has_sim": true,
+    "predict_cycle": 527
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8700e4ef555c786a2ec7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3088.8,
+    "has_sim": true,
+    "predict_cycle": 1039
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8702e4ef555c786a2ec8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4212,
+    "has_sim": true,
+    "predict_cycle": 2063
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8703e4ef555c786a2ec9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6663.74,
+    "has_sim": true,
+    "predict_cycle": 4111
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8704e4ef555c786a2eca",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11381.76,
+    "has_sim": true,
+    "predict_cycle": 8207
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8706e4ef555c786a2ecb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20779.2,
+    "has_sim": true,
+    "predict_cycle": 16399
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8708e4ef555c786a2ecc",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39648.96,
+    "has_sim": true,
+    "predict_cycle": 32783
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68cb870ae4ef555c786a2ecd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77351.63,
+    "has_sim": true,
+    "predict_cycle": 65551
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8721e4ef555c786a2ece",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 18
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8722e4ef555c786a2ecf",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 19
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8723e4ef555c786a2ed0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2302.56,
+    "has_sim": true,
+    "predict_cycle": 21
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8724e4ef555c786a2ed1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 25
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8725e4ef555c786a2ed2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 33
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8726e4ef555c786a2ed3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 49
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8727e4ef555c786a2ed4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 81
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8728e4ef555c786a2ed5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 145
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8729e4ef555c786a2ed6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2545.92,
+    "has_sim": true,
+    "predict_cycle": 273
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb872be4ef555c786a2ed7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2733.12,
+    "has_sim": true,
+    "predict_cycle": 529
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb872ce4ef555c786a2ed8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3088.8,
+    "has_sim": true,
+    "predict_cycle": 1041
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb872de4ef555c786a2ed9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4288.05,
+    "has_sim": true,
+    "predict_cycle": 2065
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb872ee4ef555c786a2eda",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6664.32,
+    "has_sim": true,
+    "predict_cycle": 4113
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8730e4ef555c786a2edb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11325.6,
+    "has_sim": true,
+    "predict_cycle": 8209
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8732e4ef555c786a2edc",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20779.2,
+    "has_sim": true,
+    "predict_cycle": 16401
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8734e4ef555c786a2edd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39649.54,
+    "has_sim": true,
+    "predict_cycle": 32785
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "160"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8737e4ef555c786a2ede",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77482.08,
+    "has_sim": true,
+    "predict_cycle": 65553
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8738e4ef555c786a2edf",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2302.56,
+    "has_sim": true,
+    "predict_cycle": 19
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8739e4ef555c786a2ee0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 20
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb873ae4ef555c786a2ee1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2301.98,
+    "has_sim": true,
+    "predict_cycle": 22
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb873be4ef555c786a2ee2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 26
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb873ce4ef555c786a2ee3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 34
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb873de4ef555c786a2ee4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340.59,
+    "has_sim": true,
+    "predict_cycle": 50
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb873ee4ef555c786a2ee5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.75,
+    "has_sim": true,
+    "predict_cycle": 82
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb873fe4ef555c786a2ee6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 146
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8740e4ef555c786a2ee7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2527.2,
+    "has_sim": true,
+    "predict_cycle": 274
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8741e4ef555c786a2ee8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2733.12,
+    "has_sim": true,
+    "predict_cycle": 530
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8743e4ef555c786a2ee9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3126.83,
+    "has_sim": true,
+    "predict_cycle": 1042
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8744e4ef555c786a2eea",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4249.44,
+    "has_sim": true,
+    "predict_cycle": 2066
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8745e4ef555c786a2eeb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6645.02,
+    "has_sim": true,
+    "predict_cycle": 4114
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8747e4ef555c786a2eec",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11363.63,
+    "has_sim": true,
+    "predict_cycle": 8210
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8749e4ef555c786a2eed",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20779.2,
+    "has_sim": true,
+    "predict_cycle": 16402
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb874be4ef555c786a2eee",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39648.96,
+    "has_sim": true,
+    "predict_cycle": 32786
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68cb874ee4ef555c786a2eef",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77296.05,
+    "has_sim": true,
+    "predict_cycle": 65554
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb874fe4ef555c786a2ef0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2341.17,
+    "has_sim": true,
+    "predict_cycle": 20
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8750e4ef555c786a2ef1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 21
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8751e4ef555c786a2ef2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2321.28,
+    "has_sim": true,
+    "predict_cycle": 23
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8752e4ef555c786a2ef3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340.59,
+    "has_sim": true,
+    "predict_cycle": 27
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8753e4ef555c786a2ef4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 35
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8754e4ef555c786a2ef5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 51
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8756e4ef555c786a2ef6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2376.86,
+    "has_sim": true,
+    "predict_cycle": 83
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8757e4ef555c786a2ef7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 147
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8758e4ef555c786a2ef8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2564.64,
+    "has_sim": true,
+    "predict_cycle": 275
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8759e4ef555c786a2ef9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2751.84,
+    "has_sim": true,
+    "predict_cycle": 531
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb875ae4ef555c786a2efa",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3126.24,
+    "has_sim": true,
+    "predict_cycle": 1043
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb875be4ef555c786a2efb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4288.05,
+    "has_sim": true,
+    "predict_cycle": 2067
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb875de4ef555c786a2efc",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6627.47,
+    "has_sim": true,
+    "predict_cycle": 4115
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb875ee4ef555c786a2efd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11363.04,
+    "has_sim": true,
+    "predict_cycle": 8211
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8760e4ef555c786a2efe",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20741.76,
+    "has_sim": true,
+    "predict_cycle": 16403
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8763e4ef555c786a2eff",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39555.95,
+    "has_sim": true,
+    "predict_cycle": 32787
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "224"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8766e4ef555c786a2f00",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77388.48,
+    "has_sim": true,
+    "predict_cycle": 65555
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8781e4ef555c786a2f01",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 22
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8782e4ef555c786a2f02",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2321.28,
+    "has_sim": true,
+    "predict_cycle": 23
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8783e4ef555c786a2f03",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2283.84,
+    "has_sim": true,
+    "predict_cycle": 25
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8784e4ef555c786a2f04",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2339.41,
+    "has_sim": true,
+    "predict_cycle": 29
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8785e4ef555c786a2f05",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 37
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8786e4ef555c786a2f06",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 53
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8787e4ef555c786a2f07",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 85
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8788e4ef555c786a2f08",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2451.74,
+    "has_sim": true,
+    "predict_cycle": 149
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb878ae4ef555c786a2f09",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2583.94,
+    "has_sim": true,
+    "predict_cycle": 277
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb878be4ef555c786a2f0a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2751.84,
+    "has_sim": true,
+    "predict_cycle": 533
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb878ce4ef555c786a2f0b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3182.4,
+    "has_sim": true,
+    "predict_cycle": 1045
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb878de4ef555c786a2f0c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4361.76,
+    "has_sim": true,
+    "predict_cycle": 2069
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb878fe4ef555c786a2f0d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6739.2,
+    "has_sim": true,
+    "predict_cycle": 4117
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8790e4ef555c786a2f0e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11418.61,
+    "has_sim": true,
+    "predict_cycle": 8213
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8792e4ef555c786a2f0f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20873.39,
+    "has_sim": true,
+    "predict_cycle": 16405
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8795e4ef555c786a2f10",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39705.12,
+    "has_sim": true,
+    "predict_cycle": 32789
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "288"
+    },
+    "has_trace": true,
+    "trace_id": "68cb879ae4ef555c786a2f11",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77294.88,
+    "has_sim": true,
+    "predict_cycle": 65557
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb879be4ef555c786a2f12",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2321.28,
+    "has_sim": true,
+    "predict_cycle": 23
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb879ce4ef555c786a2f13",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340.59,
+    "has_sim": true,
+    "predict_cycle": 24
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb879de4ef555c786a2f14",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2321.28,
+    "has_sim": true,
+    "predict_cycle": 26
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb879ee4ef555c786a2f15",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 30
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb879fe4ef555c786a2f16",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 38
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a0e4ef555c786a2f17",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 54
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a1e4ef555c786a2f18",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 86
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a2e4ef555c786a2f19",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 150
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a3e4ef555c786a2f1a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2583.36,
+    "has_sim": true,
+    "predict_cycle": 278
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a5e4ef555c786a2f1b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2751.84,
+    "has_sim": true,
+    "predict_cycle": 534
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a6e4ef555c786a2f1c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3238.56,
+    "has_sim": true,
+    "predict_cycle": 1046
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a7e4ef555c786a2f1d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4437.23,
+    "has_sim": true,
+    "predict_cycle": 2070
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87a9e4ef555c786a2f1e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6795.36,
+    "has_sim": true,
+    "predict_cycle": 4118
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87aae4ef555c786a2f1f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11512.8,
+    "has_sim": true,
+    "predict_cycle": 8214
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87ace4ef555c786a2f20",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20966.4,
+    "has_sim": true,
+    "predict_cycle": 16406
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87afe4ef555c786a2f21",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39798.72,
+    "has_sim": true,
+    "predict_cycle": 32790
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "320"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87b5e4ef555c786a2f22",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77577.43,
+    "has_sim": true,
+    "predict_cycle": 65558
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87b6e4ef555c786a2f23",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 24
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87b7e4ef555c786a2f24",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 25
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87b8e4ef555c786a2f25",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2339.41,
+    "has_sim": true,
+    "predict_cycle": 27
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87b9e4ef555c786a2f26",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 31
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87bae4ef555c786a2f27",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 39
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87bbe4ef555c786a2f28",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 55
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87bce4ef555c786a2f29",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 87
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87bde4ef555c786a2f2a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 151
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87bee4ef555c786a2f2b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2564.64,
+    "has_sim": true,
+    "predict_cycle": 279
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87c0e4ef555c786a2f2c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2788.7,
+    "has_sim": true,
+    "predict_cycle": 535
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87c1e4ef555c786a2f2d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3312.86,
+    "has_sim": true,
+    "predict_cycle": 1047
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87c2e4ef555c786a2f2e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4511.52,
+    "has_sim": true,
+    "predict_cycle": 2071
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87c4e4ef555c786a2f2f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6869.65,
+    "has_sim": true,
+    "predict_cycle": 4119
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87c6e4ef555c786a2f30",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11587.68,
+    "has_sim": true,
+    "predict_cycle": 8215
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87c8e4ef555c786a2f31",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20985.12,
+    "has_sim": true,
+    "predict_cycle": 16407
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87cbe4ef555c786a2f32",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39930.93,
+    "has_sim": true,
+    "predict_cycle": 32791
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "352"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d0e4ef555c786a2f33",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77445.81,
+    "has_sim": true,
+    "predict_cycle": 65559
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d1e4ef555c786a2f34",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 25
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d2e4ef555c786a2f35",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 26
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d3e4ef555c786a2f36",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2302.56,
+    "has_sim": true,
+    "predict_cycle": 28
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d4e4ef555c786a2f37",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 32
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d5e4ef555c786a2f38",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 40
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d6e4ef555c786a2f39",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 56
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d7e4ef555c786a2f3a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 88
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87d9e4ef555c786a2f3b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 152
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87dae4ef555c786a2f3c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2582.19,
+    "has_sim": true,
+    "predict_cycle": 280
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87dbe4ef555c786a2f3d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2789.28,
+    "has_sim": true,
+    "predict_cycle": 536
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87dce4ef555c786a2f3e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3350.88,
+    "has_sim": true,
+    "predict_cycle": 1048
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87dee4ef555c786a2f3f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4492.8,
+    "has_sim": true,
+    "predict_cycle": 2072
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87dfe4ef555c786a2f40",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6870.24,
+    "has_sim": true,
+    "predict_cycle": 4120
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87e1e4ef555c786a2f41",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11568.96,
+    "has_sim": true,
+    "predict_cycle": 8216
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87e3e4ef555c786a2f42",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 20985.12,
+    "has_sim": true,
+    "predict_cycle": 16408
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87e6e4ef555c786a2f43",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 39854.88,
+    "has_sim": true,
+    "predict_cycle": 32792
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87ece4ef555c786a2f44",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77652.32,
+    "has_sim": true,
+    "predict_cycle": 65560
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87ede4ef555c786a2f45",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2321.28,
+    "has_sim": true,
+    "predict_cycle": 26
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87eee4ef555c786a2f46",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 27
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87efe4ef555c786a2f47",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2303.14,
+    "has_sim": true,
+    "predict_cycle": 29
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f0e4ef555c786a2f48",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 33
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f1e4ef555c786a2f49",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 41
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f2e4ef555c786a2f4a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 57
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f3e4ef555c786a2f4b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2376.86,
+    "has_sim": true,
+    "predict_cycle": 89
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f5e4ef555c786a2f4c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2434.18,
+    "has_sim": true,
+    "predict_cycle": 153
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f6e4ef555c786a2f4d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2582.78,
+    "has_sim": true,
+    "predict_cycle": 281
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f7e4ef555c786a2f4e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2733.71,
+    "has_sim": true,
+    "predict_cycle": 537
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87f8e4ef555c786a2f4f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3369.6,
+    "has_sim": true,
+    "predict_cycle": 1049
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87fae4ef555c786a2f50",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4623.84,
+    "has_sim": true,
+    "predict_cycle": 2073
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87fbe4ef555c786a2f51",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 6963.84,
+    "has_sim": true,
+    "predict_cycle": 4121
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb87fde4ef555c786a2f52",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11719.31,
+    "has_sim": true,
+    "predict_cycle": 8217
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8800e4ef555c786a2f53",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 21155.36,
+    "has_sim": true,
+    "predict_cycle": 16409
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8803e4ef555c786a2f54",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 40024.53,
+    "has_sim": true,
+    "predict_cycle": 32793
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "416"
+    },
+    "has_trace": true,
+    "trace_id": "68cb880ae4ef555c786a2f55",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77893.92,
+    "has_sim": true,
+    "predict_cycle": 65561
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb880be4ef555c786a2f56",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 27
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb880ce4ef555c786a2f57",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 28
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb880de4ef555c786a2f58",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2301.98,
+    "has_sim": true,
+    "predict_cycle": 30
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb880ee4ef555c786a2f59",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 34
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb880fe4ef555c786a2f5a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 42
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8810e4ef555c786a2f5b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 58
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8811e4ef555c786a2f5c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2378.03,
+    "has_sim": true,
+    "predict_cycle": 90
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8812e4ef555c786a2f5d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 154
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8813e4ef555c786a2f5e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2582.78,
+    "has_sim": true,
+    "predict_cycle": 282
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8814e4ef555c786a2f5f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2751.84,
+    "has_sim": true,
+    "predict_cycle": 538
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8816e4ef555c786a2f60",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3388.91,
+    "has_sim": true,
+    "predict_cycle": 1050
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8817e4ef555c786a2f61",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4642.56,
+    "has_sim": true,
+    "predict_cycle": 2074
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8819e4ef555c786a2f62",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7020.59,
+    "has_sim": true,
+    "predict_cycle": 4122
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb881be4ef555c786a2f63",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 11831.04,
+    "has_sim": true,
+    "predict_cycle": 8218
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb881de4ef555c786a2f64",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 21359.52,
+    "has_sim": true,
+    "predict_cycle": 16410
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8823e4ef555c786a2f65",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 40397.76,
+    "has_sim": true,
+    "predict_cycle": 32794
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "448"
+    },
+    "has_trace": true,
+    "trace_id": "68cb882fe4ef555c786a2f66",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 78774.35,
+    "has_sim": true,
+    "predict_cycle": 65562
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8830e4ef555c786a2f67",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 28
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8831e4ef555c786a2f68",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 29
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8832e4ef555c786a2f69",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 31
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8833e4ef555c786a2f6a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 35
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8834e4ef555c786a2f6b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 43
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8835e4ef555c786a2f6c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 59
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8836e4ef555c786a2f6d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2378.03,
+    "has_sim": true,
+    "predict_cycle": 91
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8838e4ef555c786a2f6e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2451.74,
+    "has_sim": true,
+    "predict_cycle": 155
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8839e4ef555c786a2f6f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2545.92,
+    "has_sim": true,
+    "predict_cycle": 283
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb883ae4ef555c786a2f70",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2752.42,
+    "has_sim": true,
+    "predict_cycle": 539
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb883be4ef555c786a2f71",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3425.76,
+    "has_sim": true,
+    "predict_cycle": 1051
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb883de4ef555c786a2f72",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4698.72,
+    "has_sim": true,
+    "predict_cycle": 2075
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb883ee4ef555c786a2f73",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7169.76,
+    "has_sim": true,
+    "predict_cycle": 4123
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8840e4ef555c786a2f74",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 12093.71,
+    "has_sim": true,
+    "predict_cycle": 8219
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8843e4ef555c786a2f75",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 21921.12,
+    "has_sim": true,
+    "predict_cycle": 16411
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8847e4ef555c786a2f76",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 41652.59,
+    "has_sim": true,
+    "predict_cycle": 32795
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "480"
+    },
+    "has_trace": true,
+    "trace_id": "68cb884ee4ef555c786a2f77",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 80907.84,
+    "has_sim": true,
+    "predict_cycle": 65563
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb886de4ef555c786a2f78",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 30
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb886ee4ef555c786a2f79",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 31
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb886fe4ef555c786a2f7a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 33
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8870e4ef555c786a2f7b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 37
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8871e4ef555c786a2f7c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 45
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8872e4ef555c786a2f7d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 61
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8873e4ef555c786a2f7e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2416.05,
+    "has_sim": true,
+    "predict_cycle": 93
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8875e4ef555c786a2f7f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.63,
+    "has_sim": true,
+    "predict_cycle": 157
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8876e4ef555c786a2f80",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2602.08,
+    "has_sim": true,
+    "predict_cycle": 285
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8877e4ef555c786a2f81",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3032.06,
+    "has_sim": true,
+    "predict_cycle": 541
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8878e4ef555c786a2f82",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3800.16,
+    "has_sim": true,
+    "predict_cycle": 1053
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb887ae4ef555c786a2f83",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5446.93,
+    "has_sim": true,
+    "predict_cycle": 2077
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb887be4ef555c786a2f84",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 8649.23,
+    "has_sim": true,
+    "predict_cycle": 4125
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb887de4ef555c786a2f85",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 15070.77,
+    "has_sim": true,
+    "predict_cycle": 8221
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8880e4ef555c786a2f86",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 27929.66,
+    "has_sim": true,
+    "predict_cycle": 16413
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8884e4ef555c786a2f87",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 53783.15,
+    "has_sim": true,
+    "predict_cycle": 32797
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "544"
+    },
+    "has_trace": true,
+    "trace_id": "68cb888be4ef555c786a2f88",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 105357.33,
+    "has_sim": true,
+    "predict_cycle": 65565
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb888ce4ef555c786a2f89",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 31
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb888de4ef555c786a2f8a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 32
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb888ee4ef555c786a2f8b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2321.28,
+    "has_sim": true,
+    "predict_cycle": 34
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb888fe4ef555c786a2f8c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 38
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8890e4ef555c786a2f8d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.3,
+    "has_sim": true,
+    "predict_cycle": 46
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8891e4ef555c786a2f8e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 62
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8892e4ef555c786a2f8f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 94
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8894e4ef555c786a2f90",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2508.48,
+    "has_sim": true,
+    "predict_cycle": 158
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8895e4ef555c786a2f91",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2583.36,
+    "has_sim": true,
+    "predict_cycle": 286
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8896e4ef555c786a2f92",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3032.64,
+    "has_sim": true,
+    "predict_cycle": 542
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8897e4ef555c786a2f93",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3837.6,
+    "has_sim": true,
+    "predict_cycle": 1054
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8899e4ef555c786a2f94",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5484.96,
+    "has_sim": true,
+    "predict_cycle": 2078
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb889ae4ef555c786a2f95",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 8760.96,
+    "has_sim": true,
+    "predict_cycle": 4126
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb889ce4ef555c786a2f96",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 15425.28,
+    "has_sim": true,
+    "predict_cycle": 8222
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb889fe4ef555c786a2f97",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 28605.33,
+    "has_sim": true,
+    "predict_cycle": 16414
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88a4e4ef555c786a2f98",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 55019.25,
+    "has_sim": true,
+    "predict_cycle": 32798
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "576"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88abe4ef555c786a2f99",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 107660.48,
+    "has_sim": true,
+    "predict_cycle": 65566
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88ace4ef555c786a2f9a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 32
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88ade4ef555c786a2f9b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 33
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88aee4ef555c786a2f9c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340.59,
+    "has_sim": true,
+    "predict_cycle": 35
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88afe4ef555c786a2f9d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.89,
+    "has_sim": true,
+    "predict_cycle": 39
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b0e4ef555c786a2f9e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2359.31,
+    "has_sim": true,
+    "predict_cycle": 47
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b1e4ef555c786a2f9f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 63
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b2e4ef555c786a2fa0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 95
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b4e4ef555c786a2fa1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2489.76,
+    "has_sim": true,
+    "predict_cycle": 159
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b5e4ef555c786a2fa2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2620.22,
+    "has_sim": true,
+    "predict_cycle": 287
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b6e4ef555c786a2fa3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3050.78,
+    "has_sim": true,
+    "predict_cycle": 543
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b7e4ef555c786a2fa4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3837.6,
+    "has_sim": true,
+    "predict_cycle": 1055
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88b9e4ef555c786a2fa5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5541.12,
+    "has_sim": true,
+    "predict_cycle": 2079
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88bae4ef555c786a2fa6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 8910.72,
+    "has_sim": true,
+    "predict_cycle": 4127
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88bce4ef555c786a2fa7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 15687.36,
+    "has_sim": true,
+    "predict_cycle": 8223
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88bfe4ef555c786a2fa8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 29372.27,
+    "has_sim": true,
+    "predict_cycle": 16415
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88c4e4ef555c786a2fa9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 56628,
+    "has_sim": true,
+    "predict_cycle": 32799
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "608"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88cce4ef555c786a2faa",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 111048.8,
+    "has_sim": true,
+    "predict_cycle": 65567
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88cde4ef555c786a2fab",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 33
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88cee4ef555c786a2fac",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 34
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88cfe4ef555c786a2fad",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 36
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d0e4ef555c786a2fae",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2378.03,
+    "has_sim": true,
+    "predict_cycle": 40
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d1e4ef555c786a2faf",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 48
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d2e4ef555c786a2fb0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.75,
+    "has_sim": true,
+    "predict_cycle": 64
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d3e4ef555c786a2fb1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 96
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d4e4ef555c786a2fb2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2490.35,
+    "has_sim": true,
+    "predict_cycle": 160
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d6e4ef555c786a2fb3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2621.97,
+    "has_sim": true,
+    "predict_cycle": 288
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d7e4ef555c786a2fb4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3051.36,
+    "has_sim": true,
+    "predict_cycle": 544
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88d8e4ef555c786a2fb5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3931.2,
+    "has_sim": true,
+    "predict_cycle": 1056
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88dae4ef555c786a2fb6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5634.72,
+    "has_sim": true,
+    "predict_cycle": 2080
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88dbe4ef555c786a2fb7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 9116.64,
+    "has_sim": true,
+    "predict_cycle": 4128
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88dde4ef555c786a2fb8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 16099.2,
+    "has_sim": true,
+    "predict_cycle": 8224
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88e0e4ef555c786a2fb9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 29990.03,
+    "has_sim": true,
+    "predict_cycle": 16416
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88e5e4ef555c786a2fba",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 57957.71,
+    "has_sim": true,
+    "predict_cycle": 32800
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88ede4ef555c786a2fbb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 114416.64,
+    "has_sim": true,
+    "predict_cycle": 65568
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88eee4ef555c786a2fbc",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 34
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88efe4ef555c786a2fbd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 35
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f0e4ef555c786a2fbe",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 37
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f1e4ef555c786a2fbf",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 41
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f2e4ef555c786a2fc0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.75,
+    "has_sim": true,
+    "predict_cycle": 49
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f3e4ef555c786a2fc1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 65
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f5e4ef555c786a2fc2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 97
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f6e4ef555c786a2fc3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2508.48,
+    "has_sim": true,
+    "predict_cycle": 161
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f7e4ef555c786a2fc4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2620.8,
+    "has_sim": true,
+    "predict_cycle": 289
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88f8e4ef555c786a2fc5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3088.8,
+    "has_sim": true,
+    "predict_cycle": 545
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88fae4ef555c786a2fc6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3949.92,
+    "has_sim": true,
+    "predict_cycle": 1057
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88fbe4ef555c786a2fc7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5689.71,
+    "has_sim": true,
+    "predict_cycle": 2081
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88fde4ef555c786a2fc8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 9322.56,
+    "has_sim": true,
+    "predict_cycle": 4129
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb88ffe4ef555c786a2fc9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 16511.04,
+    "has_sim": true,
+    "predict_cycle": 8225
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8902e4ef555c786a2fca",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 30793.81,
+    "has_sim": true,
+    "predict_cycle": 16417
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8907e4ef555c786a2fcb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 59417.28,
+    "has_sim": true,
+    "predict_cycle": 32801
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "672"
+    },
+    "has_trace": true,
+    "trace_id": "68cb890fe4ef555c786a2fcc",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 116644.32,
+    "has_sim": true,
+    "predict_cycle": 65569
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8910e4ef555c786a2fcd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 35
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8911e4ef555c786a2fce",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2376.86,
+    "has_sim": true,
+    "predict_cycle": 36
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8912e4ef555c786a2fcf",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2339.41,
+    "has_sim": true,
+    "predict_cycle": 38
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8913e4ef555c786a2fd0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 42
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8914e4ef555c786a2fd1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 50
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8915e4ef555c786a2fd2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 66
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8916e4ef555c786a2fd3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 98
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8918e4ef555c786a2fd4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2489.76,
+    "has_sim": true,
+    "predict_cycle": 162
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8919e4ef555c786a2fd5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2601.49,
+    "has_sim": true,
+    "predict_cycle": 290
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb891ae4ef555c786a2fd6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3294.72,
+    "has_sim": true,
+    "predict_cycle": 546
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb891be4ef555c786a2fd7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4829.18,
+    "has_sim": true,
+    "predict_cycle": 1058
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb891de4ef555c786a2fd8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7562.88,
+    "has_sim": true,
+    "predict_cycle": 2082
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb891ee4ef555c786a2fd9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 12897.5,
+    "has_sim": true,
+    "predict_cycle": 4130
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8920e4ef555c786a2fda",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 23755.68,
+    "has_sim": true,
+    "predict_cycle": 8226
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8923e4ef555c786a2fdb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 45414.72,
+    "has_sim": true,
+    "predict_cycle": 16418
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8929e4ef555c786a2fdc",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 88994.88,
+    "has_sim": true,
+    "predict_cycle": 32802
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "704"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8931e4ef555c786a2fdd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 175780.8,
+    "has_sim": true,
+    "predict_cycle": 65570
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8933e4ef555c786a2fde",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 36
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8934e4ef555c786a2fdf",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2340,
+    "has_sim": true,
+    "predict_cycle": 37
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8935e4ef555c786a2fe0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.72,
+    "has_sim": true,
+    "predict_cycle": 39
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8936e4ef555c786a2fe1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2358.14,
+    "has_sim": true,
+    "predict_cycle": 43
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8937e4ef555c786a2fe2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 51
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8938e4ef555c786a2fe3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2395.58,
+    "has_sim": true,
+    "predict_cycle": 67
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8939e4ef555c786a2fe4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.3,
+    "has_sim": true,
+    "predict_cycle": 99
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb893ae4ef555c786a2fe5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 163
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb893be4ef555c786a2fe6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2620.22,
+    "has_sim": true,
+    "predict_cycle": 291
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb893de4ef555c786a2fe7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3295.89,
+    "has_sim": true,
+    "predict_cycle": 547
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb893ee4ef555c786a2fe8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4680.59,
+    "has_sim": true,
+    "predict_cycle": 1059
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb893fe4ef555c786a2fe9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7356.96,
+    "has_sim": true,
+    "predict_cycle": 2083
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8941e4ef555c786a2fea",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 12748.32,
+    "has_sim": true,
+    "predict_cycle": 4131
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8943e4ef555c786a2feb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 23436.86,
+    "has_sim": true,
+    "predict_cycle": 8227
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8946e4ef555c786a2fec",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 44685.23,
+    "has_sim": true,
+    "predict_cycle": 16419
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb894ce4ef555c786a2fed",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 87272.06,
+    "has_sim": true,
+    "predict_cycle": 32803
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "736"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8955e4ef555c786a2fee",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 172692,
+    "has_sim": true,
+    "predict_cycle": 65571
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8956e4ef555c786a2fef",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 37
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8957e4ef555c786a2ff0",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 38
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8958e4ef555c786a2ff1",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2395.58,
+    "has_sim": true,
+    "predict_cycle": 40
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8959e4ef555c786a2ff2",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 44
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb895ae4ef555c786a2ff3",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.01,
+    "has_sim": true,
+    "predict_cycle": 52
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb895be4ef555c786a2ff4",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 68
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb895ce4ef555c786a2ff5",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 100
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb895ee4ef555c786a2ff6",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2527.2,
+    "has_sim": true,
+    "predict_cycle": 164
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb895fe4ef555c786a2ff7",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2620.8,
+    "has_sim": true,
+    "predict_cycle": 292
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8960e4ef555c786a2ff8",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3332.16,
+    "has_sim": true,
+    "predict_cycle": 548
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8962e4ef555c786a2ff9",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4754.3,
+    "has_sim": true,
+    "predict_cycle": 1060
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8963e4ef555c786a2ffa",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7469.28,
+    "has_sim": true,
+    "predict_cycle": 2084
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8965e4ef555c786a2ffb",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 12841.92,
+    "has_sim": true,
+    "predict_cycle": 4132
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8967e4ef555c786a2ffc",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 23400.59,
+    "has_sim": true,
+    "predict_cycle": 8228
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb896ae4ef555c786a2ffd",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 44591.04,
+    "has_sim": true,
+    "predict_cycle": 16420
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8970e4ef555c786a2ffe",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 86917.54,
+    "has_sim": true,
+    "predict_cycle": 32804
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68cb897ae4ef555c786a2fff",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 171213.71,
+    "has_sim": true,
+    "predict_cycle": 65572
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb897be4ef555c786a3000",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 38
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb897ce4ef555c786a3001",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 39
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb897de4ef555c786a3002",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2376.86,
+    "has_sim": true,
+    "predict_cycle": 41
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb897ee4ef555c786a3003",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 45
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb897fe4ef555c786a3004",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 53
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8980e4ef555c786a3005",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.3,
+    "has_sim": true,
+    "predict_cycle": 69
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8981e4ef555c786a3006",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 101
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8982e4ef555c786a3007",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.63,
+    "has_sim": true,
+    "predict_cycle": 165
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8984e4ef555c786a3008",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2621.39,
+    "has_sim": true,
+    "predict_cycle": 293
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8985e4ef555c786a3009",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3369.6,
+    "has_sim": true,
+    "predict_cycle": 549
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8986e4ef555c786a300a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4736.75,
+    "has_sim": true,
+    "predict_cycle": 1061
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8988e4ef555c786a300b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7544.16,
+    "has_sim": true,
+    "predict_cycle": 2085
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8989e4ef555c786a300c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 12916.22,
+    "has_sim": true,
+    "predict_cycle": 4133
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb898ce4ef555c786a300d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 23699.52,
+    "has_sim": true,
+    "predict_cycle": 8229
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb898fe4ef555c786a300e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 45264.38,
+    "has_sim": true,
+    "predict_cycle": 16421
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8996e4ef555c786a300f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 88452,
+    "has_sim": true,
+    "predict_cycle": 32805
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "800"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a0e4ef555c786a3010",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 174713.76,
+    "has_sim": true,
+    "predict_cycle": 65573
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a1e4ef555c786a3011",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 39
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a2e4ef555c786a3012",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 40
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a3e4ef555c786a3013",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 42
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a4e4ef555c786a3014",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 46
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a5e4ef555c786a3015",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 54
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a6e4ef555c786a3016",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2434.18,
+    "has_sim": true,
+    "predict_cycle": 70
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a7e4ef555c786a3017",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 102
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a8e4ef555c786a3018",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2489.76,
+    "has_sim": true,
+    "predict_cycle": 166
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89a9e4ef555c786a3019",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2640.11,
+    "has_sim": true,
+    "predict_cycle": 294
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89abe4ef555c786a301a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3406.46,
+    "has_sim": true,
+    "predict_cycle": 550
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89ace4ef555c786a301b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4811.04,
+    "has_sim": true,
+    "predict_cycle": 1062
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89ade4ef555c786a301c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7600.32,
+    "has_sim": true,
+    "predict_cycle": 2086
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89afe4ef555c786a301d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13067.15,
+    "has_sim": true,
+    "predict_cycle": 4134
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89b2e4ef555c786a301e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 23961.6,
+    "has_sim": true,
+    "predict_cycle": 8230
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89b5e4ef555c786a301f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 45808.43,
+    "has_sim": true,
+    "predict_cycle": 16422
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89bbe4ef555c786a3020",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 89407.31,
+    "has_sim": true,
+    "predict_cycle": 32806
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "832"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89c5e4ef555c786a3021",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 176342.99,
+    "has_sim": true,
+    "predict_cycle": 65574
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89c6e4ef555c786a3022",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 40
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89c7e4ef555c786a3023",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 41
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89c8e4ef555c786a3024",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2377.44,
+    "has_sim": true,
+    "predict_cycle": 43
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89c9e4ef555c786a3025",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2395.58,
+    "has_sim": true,
+    "predict_cycle": 47
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89cae4ef555c786a3026",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.3,
+    "has_sim": true,
+    "predict_cycle": 55
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89cbe4ef555c786a3027",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 71
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89cce4ef555c786a3028",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2434.18,
+    "has_sim": true,
+    "predict_cycle": 103
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89cde4ef555c786a3029",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2508.48,
+    "has_sim": true,
+    "predict_cycle": 167
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89cfe4ef555c786a302a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2658.24,
+    "has_sim": true,
+    "predict_cycle": 295
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89d0e4ef555c786a302b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3407.04,
+    "has_sim": true,
+    "predict_cycle": 551
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89d1e4ef555c786a302c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4829.76,
+    "has_sim": true,
+    "predict_cycle": 1063
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89d3e4ef555c786a302d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7675.79,
+    "has_sim": true,
+    "predict_cycle": 2087
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89d4e4ef555c786a302e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13178.88,
+    "has_sim": true,
+    "predict_cycle": 4135
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89d7e4ef555c786a302f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 24261.71,
+    "has_sim": true,
+    "predict_cycle": 8231
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89dae4ef555c786a3030",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 46257.71,
+    "has_sim": true,
+    "predict_cycle": 16423
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89e0e4ef555c786a3031",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 90137.97,
+    "has_sim": true,
+    "predict_cycle": 32807
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "864"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89ebe4ef555c786a3032",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 177503.63,
+    "has_sim": true,
+    "predict_cycle": 65575
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89ece4ef555c786a3033",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2434.18,
+    "has_sim": true,
+    "predict_cycle": 41
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89ede4ef555c786a3034",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2415.46,
+    "has_sim": true,
+    "predict_cycle": 42
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89eee4ef555c786a3035",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.75,
+    "has_sim": true,
+    "predict_cycle": 44
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89efe4ef555c786a3036",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.01,
+    "has_sim": true,
+    "predict_cycle": 48
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f0e4ef555c786a3037",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 56
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f1e4ef555c786a3038",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 72
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f2e4ef555c786a3039",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 104
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f4e4ef555c786a303a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2527.2,
+    "has_sim": true,
+    "predict_cycle": 168
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f5e4ef555c786a303b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2621.39,
+    "has_sim": true,
+    "predict_cycle": 296
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f6e4ef555c786a303c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3425.76,
+    "has_sim": true,
+    "predict_cycle": 552
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f7e4ef555c786a303d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4904.06,
+    "has_sim": true,
+    "predict_cycle": 1064
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89f9e4ef555c786a303e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7768.8,
+    "has_sim": true,
+    "predict_cycle": 2088
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89fbe4ef555c786a303f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13309.92,
+    "has_sim": true,
+    "predict_cycle": 4136
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb89fde4ef555c786a3040",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 24505.07,
+    "has_sim": true,
+    "predict_cycle": 8232
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a01e4ef555c786a3041",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 46856.16,
+    "has_sim": true,
+    "predict_cycle": 16424
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a07e4ef555c786a3042",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 91522.66,
+    "has_sim": true,
+    "predict_cycle": 32808
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a12e4ef555c786a3043",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 180798.35,
+    "has_sim": true,
+    "predict_cycle": 65576
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a13e4ef555c786a3044",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 42
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a14e4ef555c786a3045",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 43
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a15e4ef555c786a3046",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 45
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a16e4ef555c786a3047",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 49
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a17e4ef555c786a3048",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 57
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a18e4ef555c786a3049",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 73
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a19e4ef555c786a304a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.63,
+    "has_sim": true,
+    "predict_cycle": 105
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a1ae4ef555c786a304b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2545.92,
+    "has_sim": true,
+    "predict_cycle": 169
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a1ce4ef555c786a304c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2639.52,
+    "has_sim": true,
+    "predict_cycle": 297
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a1de4ef555c786a304d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3444.48,
+    "has_sim": true,
+    "predict_cycle": 553
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a1ee4ef555c786a304e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4942.67,
+    "has_sim": true,
+    "predict_cycle": 1065
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a20e4ef555c786a304f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7805.66,
+    "has_sim": true,
+    "predict_cycle": 2089
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a22e4ef555c786a3050",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13440.96,
+    "has_sim": true,
+    "predict_cycle": 4137
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a24e4ef555c786a3051",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 24767.15,
+    "has_sim": true,
+    "predict_cycle": 8233
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a28e4ef555c786a3052",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 47399.04,
+    "has_sim": true,
+    "predict_cycle": 16425
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a2ee4ef555c786a3053",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 92607.84,
+    "has_sim": true,
+    "predict_cycle": 32809
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "928"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a39e4ef555c786a3054",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 182950.56,
+    "has_sim": true,
+    "predict_cycle": 65577
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a3ae4ef555c786a3055",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 43
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a3be4ef555c786a3056",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 44
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a3ce4ef555c786a3057",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2396.16,
+    "has_sim": true,
+    "predict_cycle": 46
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a3de4ef555c786a3058",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2433.6,
+    "has_sim": true,
+    "predict_cycle": 50
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a3ee4ef555c786a3059",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 58
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a3fe4ef555c786a305a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 74
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a41e4ef555c786a305b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.63,
+    "has_sim": true,
+    "predict_cycle": 106
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a42e4ef555c786a305c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2508.48,
+    "has_sim": true,
+    "predict_cycle": 170
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a43e4ef555c786a305d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2658.24,
+    "has_sim": true,
+    "predict_cycle": 298
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a44e4ef555c786a305e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3445.07,
+    "has_sim": true,
+    "predict_cycle": 554
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a46e4ef555c786a305f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5016.96,
+    "has_sim": true,
+    "predict_cycle": 1066
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a47e4ef555c786a3060",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7919.15,
+    "has_sim": true,
+    "predict_cycle": 2090
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a49e4ef555c786a3061",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13684.32,
+    "has_sim": true,
+    "predict_cycle": 4138
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a4be4ef555c786a3062",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 25272,
+    "has_sim": true,
+    "predict_cycle": 8234
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a4fe4ef555c786a3063",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 48484.8,
+    "has_sim": true,
+    "predict_cycle": 16426
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a56e4ef555c786a3064",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 94648.9,
+    "has_sim": true,
+    "predict_cycle": 32810
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "960"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a61e4ef555c786a3065",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 187051.41,
+    "has_sim": true,
+    "predict_cycle": 65578
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a62e4ef555c786a3066",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2452.32,
+    "has_sim": true,
+    "predict_cycle": 44
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a63e4ef555c786a3067",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2413.71,
+    "has_sim": true,
+    "predict_cycle": 45
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a64e4ef555c786a3068",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 47
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a65e4ef555c786a3069",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2414.88,
+    "has_sim": true,
+    "predict_cycle": 51
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a67e4ef555c786a306a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 59
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a68e4ef555c786a306b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2451.74,
+    "has_sim": true,
+    "predict_cycle": 75
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "64",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a69e4ef555c786a306c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2471.04,
+    "has_sim": true,
+    "predict_cycle": 107
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "128",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a6ae4ef555c786a306d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2527.2,
+    "has_sim": true,
+    "predict_cycle": 171
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "256",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a6be4ef555c786a306e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 2639.52,
+    "has_sim": true,
+    "predict_cycle": 299
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "512",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a6de4ef555c786a306f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 3481.92,
+    "has_sim": true,
+    "predict_cycle": 555
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "1024",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a6ee4ef555c786a3070",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 5110.56,
+    "has_sim": true,
+    "predict_cycle": 1067
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "2048",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a6fe4ef555c786a3071",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7974.72,
+    "has_sim": true,
+    "predict_cycle": 2091
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "4096",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a71e4ef555c786a3072",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13870.93,
+    "has_sim": true,
+    "predict_cycle": 4139
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "8192",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a74e4ef555c786a3073",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 25534.67,
+    "has_sim": true,
+    "predict_cycle": 8235
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "16384",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a78e4ef555c786a3074",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 48916.53,
+    "has_sim": true,
+    "predict_cycle": 16427
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "32768",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a7ee4ef555c786a3075",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 95659.2,
+    "has_sim": true,
+    "predict_cycle": 32811
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "emptykernel",
+    "param": {
+      "block": "65536",
+      "thread": "992"
+    },
+    "has_trace": true,
+    "trace_id": "68cb8a8ae4ef555c786a3076",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 189054.45,
+    "has_sim": true,
+    "predict_cycle": 65579
+  }
+]
