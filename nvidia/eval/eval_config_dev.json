@@ -8,31 +8,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 1755,
-                    "size": 384,
-                    "trace-id": "682d1723b541e8df7bd6184d",
+                    "size": 192,
+                    "trace-id": "682d171fb541e8df7bd6184b",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 6027.84
+                        "cycles": 4118.4
+                    }
+                },
+                {
+                    "blockDimX": 8,
+                    "frequency": 1755,
+                    "size": 256,
+                    "trace-id": "682d1721b541e8df7bd6184c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4530.24
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 1755,
-                    "size": 384,
-                    "trace-id": "682d173cb541e8df7bd61858",
+                    "size": 256,
+                    "trace-id": "682d173ab541e8df7bd61857",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 4605.71
-                    }
-                },
-                {
-                    "blockDimX": 32,
-                    "frequency": 1755,
-                    "size": 384,
-                    "trace-id": "682d1754b541e8df7bd61863",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 4005.5
+                        "cycles": 3875.04
                     }
                 }
             ]
@@ -44,31 +44,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
-                    "size": 384,
-                    "trace-id": "682e357eb541e8df7bd618e1",
+                    "size": 192,
+                    "trace-id": "682e34f0b541e8df7bd618df",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 100335.66
+                        "cycles": 30168.99
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 384,
-                    "trace-id": "682e41deb541e8df7bd618ec",
+                    "size": 192,
+                    "trace-id": "682e415db541e8df7bd618ea",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 75186.65
+                        "cycles": 30551.48
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 384,
-                    "trace-id": "682e4d91b541e8df7bd618f7",
+                    "size": 192,
+                    "trace-id": "682e4d3fb541e8df7bd618f5",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 66361.9
+                        "cycles": 32652.76
                     }
                 }
             ]
@@ -114,16 +114,6 @@
             "suite": "polybench",
             "args": [
                 {
-                    "blockDimX": 16,
-                    "frequency": 345,
-                    "size": 32,
-                    "trace-id": "682eecf5b541e8df7bd61991",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 10326.08
-                    }
-                },
-                {
                     "blockDimX": 32,
                     "frequency": 345,
                     "size": 32,
@@ -134,13 +124,23 @@
                     }
                 },
                 {
-                    "blockDimX": 16,
+                    "blockDimX": 32,
                     "frequency": 345,
                     "size": 48,
-                    "trace-id": "682eecf8b541e8df7bd61992",
+                    "trace-id": "682eef50b541e8df7bd6199b",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 13270.08
+                        "cycles": 13697.08
+                    }
+                },
+                {
+                    "blockDimX": 32,
+                    "frequency": 345,
+                    "size": 64,
+                    "trace-id": "682eef52b541e8df7bd6199c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 16692.6
                     }
                 }
             ]
@@ -332,31 +332,31 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f0a21b541e8df7bd61b73",
+                    "size": 96,
+                    "trace-id": "682f0a16b541e8df7bd61b71",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 9811
+                        "cycles": 3069.12
                     }
                 },
                 {
                     "blockDimX": 16,
                     "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f0afcb541e8df7bd61b7c",
+                    "size": 96,
+                    "trace-id": "682f0af1b541e8df7bd61b7a",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 10646.24
+                        "cycles": 3183.2
                     }
                 },
                 {
                     "blockDimX": 32,
                     "frequency": 345,
-                    "size": 192,
-                    "trace-id": "682f0bdbb541e8df7bd61b85",
+                    "size": 96,
+                    "trace-id": "682f0bd3b541e8df7bd61b83",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 23651.59
+                        "cycles": 6329.6
                     }
                 }
             ]
@@ -403,29 +403,29 @@
             "args": [
                 {
                     "frequency": 345,
+                    "size": 8192,
+                    "trace-id": "6830293bc0844e6a8339bf78",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 17803.84
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 16384,
+                    "trace-id": "68302946c0844e6a8339bf79",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23883.09
+                    }
+                },
+                {
+                    "frequency": 345,
                     "size": 32768,
                     "trace-id": "68302956c0844e6a8339bf7a",
                     "truth": {
                         "beforeTurning": 0,
                         "cycles": 30111.03
-                    }
-                },
-                {
-                    "frequency": 345,
-                    "size": 65536,
-                    "trace-id": "68302972c0844e6a8339bf7b",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 37448.49
-                    }
-                },
-                {
-                    "frequency": 345,
-                    "size": 81920,
-                    "trace-id": "68302995c0844e6a8339bf7c",
-                    "truth": {
-                        "beforeTurning": 0,
-                        "cycles": 44509.72
                     }
                 }
             ]
@@ -473,31 +473,31 @@
                 {
                     "arrayLength": 2048,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "68302da4c0844e6a8339bfb6",
+                    "size": 32768,
+                    "trace-id": "68302d9dc0844e6a8339bfb4",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 2292.64
+                        "cycles": 2112.32
                     }
                 },
                 {
                     "arrayLength": 4096,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "68302db9c0844e6a8339bfbd",
+                    "size": 32768,
+                    "trace-id": "68302db2c0844e6a8339bfbb",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 2311.16
+                        "cycles": 2134.63
                     }
                 },
                 {
                     "arrayLength": 2048,
                     "frequency": 345,
-                    "size": 262144,
-                    "trace-id": "68302da9c0844e6a8339bfb7",
+                    "size": 65536,
+                    "trace-id": "68302da0c0844e6a8339bfb5",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 2524.48
+                        "cycles": 2197.07
                     }
                 }
             ]
@@ -509,31 +509,31 @@
                 {
                     "arrayLength": 512,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "68302e83c0844e6a8339bfde",
+                    "size": 32768,
+                    "trace-id": "68302e7ec0844e6a8339bfdc",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 875.84
+                        "cycles": 783.96
                     }
                 },
                 {
                     "arrayLength": 1024,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "68302e8fc0844e6a8339bfe4",
+                    "size": 32768,
+                    "trace-id": "68302e8bc0844e6a8339bfe2",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 875.84
+                        "cycles": 802.24
                     }
                 },
                 {
                     "arrayLength": 512,
                     "frequency": 345,
-                    "size": 262144,
-                    "trace-id": "68302e86c0844e6a8339bfdf",
+                    "size": 65536,
+                    "trace-id": "68302e80c0844e6a8339bfdd",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 990.04
+                        "cycles": 802.13
                     }
                 }
             ]
@@ -545,31 +545,31 @@
                 {
                     "arrayLength": 64,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "68302f7bc0844e6a8339c009",
+                    "size": 32768,
+                    "trace-id": "68302f5ac0844e6a8339c005",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 2907.2
+                        "cycles": 1880.48
                     }
                 },
                 {
                     "arrayLength": 128,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "68302f8dc0844e6a8339c00a",
+                    "size": 32768,
+                    "trace-id": "68302f60c0844e6a8339c006",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 3543.84
+                        "cycles": 2248.48
                     }
                 },
                 {
                     "arrayLength": 64,
                     "frequency": 345,
-                    "size": 262144,
-                    "trace-id": "68302fa3c0844e6a8339c00b",
+                    "size": 65536,
+                    "trace-id": "68302f67c0844e6a8339c007",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 4070.2
+                        "cycles": 1917.28
                     }
                 }
             ]
@@ -581,31 +581,31 @@
                 {
                     "arrayLength": 64,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "68303131c0844e6a8339c030",
+                    "size": 32768,
+                    "trace-id": "68303115c0844e6a8339c02c",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 2984.48
+                        "cycles": 2101.28
                     }
                 },
                 {
                     "arrayLength": 128,
                     "frequency": 345,
-                    "size": 131072,
-                    "trace-id": "6830313fc0844e6a8339c031",
+                    "size": 32768,
+                    "trace-id": "6830311ac0844e6a8339c02d",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 3617.44
+                        "cycles": 2513.44
                     }
                 },
                 {
                     "arrayLength": 64,
                     "frequency": 345,
-                    "size": 262144,
-                    "trace-id": "68303155c0844e6a8339c032",
+                    "size": 65536,
+                    "trace-id": "68303120c0844e6a8339c02e",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 4143.68
+                        "cycles": 2127.04
                     }
                 }
             ]
@@ -655,20 +655,29 @@
             "args": [
                 {
                     "frequency": 345,
-                    "size": 8388608,
-                    "trace-id": "68303379c0844e6a8339c056",
+                    "size": 524288,
+                    "trace-id": "68303336c0844e6a8339c052",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 17575.8
+                        "cycles": 1343.2
                     }
                 },
                 {
                     "frequency": 345,
-                    "size": 16777216,
-                    "trace-id": "683033c7c0844e6a8339c057",
+                    "size": 1048576,
+                    "trace-id": "6830333bc0844e6a8339c053",
                     "truth": {
                         "beforeTurning": 0,
-                        "cycles": 37377.99
+                        "cycles": 1946.72
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 2097152,
+                    "trace-id": "68303343c0844e6a8339c054",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3326.72
                     }
                 }
             ]

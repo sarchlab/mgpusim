@@ -64,13 +64,24 @@ func main() {
 		"cuda-sdk/vectoradd-simulations.yaml",
 		// "rodinia/b+tree-simulations.yaml",
 	}
-	groundTruthPath := "./ground_truth.txt"
+	filesEmptyKernel := []string{
+		"simtune/emptykernel-simulations.yaml",
+	}
+	groundTruthPath := "./ground_truth_release.txt"
+	groundTruthEmptyKernelPath := "./ground_truth_release-emptykernel.txt"
 	outputPathRelease := "../eval_config_release.json"
+	outputPathReleaseEmptyKernel := "../eval_config_release-emptykernel.json"
 	outputPathDev := "../eval_config_dev.json"
 
 	groundTruth, err := parseGroundTruth(groundTruthPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing ground truth: %v\n", err)
+		os.Exit(1)
+	}
+
+	groundTruthEmptyKernel, err := parseGroundTruth(groundTruthEmptyKernelPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing ground truth (empty kernel): %v\n", err)
 		os.Exit(1)
 	}
 
@@ -80,7 +91,7 @@ func main() {
 	for _, relPath := range files {
 		fullPath := filepath.Join(folder, relPath)
 		suite, benchmark := parseSuiteBenchmark(relPath)
-		args, missing := parseSimYaml(fullPath, suite, benchmark, groundTruth)
+		args, missing := parseSimYaml(fullPath, suite, benchmark, groundTruth, false)
 		benchmarks = append(benchmarks, Benchmark{
 			Title: benchmark,
 			Suite: suite,
@@ -115,14 +126,45 @@ func main() {
 
 	releaseBeforeTurningCount := countBeforeTurning(releaseBenchmarks)
 
-	// // Write eval_release.json as before
-	// releaseConfig := EvalConfig{
-	// 	ScriptPath: "./mnt-collector",
-	// 	Benchmarks: benchmarks,
-	// }
-	// releaseCount := countArgs(benchmarks)
 	writeEvalConfig(outputPathRelease, releaseConfig)
 	fmt.Printf("Wrote %s: %d arg settings (%d/%d kept, %d/%d beforeTurning)\n", outputPathRelease, releaseCount, releaseCount-releaseBeforeTurningCount, releaseCount, releaseBeforeTurningCount, releaseCount)
+
+	// For emptykernel only
+	benchmarksEmptyKernel := []Benchmark{}
+	missingTruthEmptyKernel := []string{}
+
+	for _, relPath := range filesEmptyKernel {
+		fullPath := filepath.Join(folder, relPath)
+		suite, benchmark := parseSuiteBenchmark(relPath)
+		args, missing := parseSimYaml(fullPath, suite, benchmark, groundTruthEmptyKernel, true)
+		benchmarksEmptyKernel = append(benchmarksEmptyKernel, Benchmark{
+			Title: benchmark,
+			Suite: suite,
+			Args:  args,
+		})
+		missingTruthEmptyKernel = append(missingTruthEmptyKernel, missing...)
+	}
+
+	if len(missingTruthEmptyKernel) > 0 {
+		fmt.Println("Missing ground truth entries for (empty kernel):")
+		for _, m := range missingTruthEmptyKernel {
+			fmt.Println(m)
+		}
+	}
+
+	// Write eval_release-emptykernel.json, keep all args
+	releaseBenchmarksEmptyKernel := benchmarksEmptyKernel // no filtering
+	releaseConfigEmptyKernel := EvalConfig{
+		ScriptPath: "./mnt-collector",
+		Benchmarks: releaseBenchmarksEmptyKernel,
+	}
+	releaseCountEmptyKernel := countArgs(releaseBenchmarksEmptyKernel)
+	releaseBeforeTurningCountEmptyKernel := countBeforeTurning(releaseBenchmarksEmptyKernel)
+
+	writeEvalConfig(outputPathReleaseEmptyKernel, releaseConfigEmptyKernel)
+	fmt.Printf("Wrote %s: %d arg settings (all kept, %d/%d beforeTurning)\n",
+		outputPathReleaseEmptyKernel, releaseCountEmptyKernel,
+		releaseBeforeTurningCountEmptyKernel, releaseCountEmptyKernel)
 
 	// Generate eval_dev.json (keep only 3 greatest arg settings per benchmark)
 	devBenchmarks := []Benchmark{}     // updated
@@ -210,7 +252,7 @@ func parseSuiteBenchmark(path string) (suite, benchmark string) {
 	return suite, benchmark
 }
 
-func parseSimYaml(path, suite, benchmark string, gt map[string]GroundTruthEntry) ([]ArgConfig, []string) {
+func parseSimYaml(path, suite, benchmark string, gt map[string]GroundTruthEntry, forceBeforeTurningIsZero bool) ([]ArgConfig, []string) {
 	f, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open %s: %v\n", path, err)
@@ -270,7 +312,17 @@ func parseSimYaml(path, suite, benchmark string, gt map[string]GroundTruthEntry)
 		}
 		arg["trace-id"] = t.TraceID
 		if ok {
-			arg["truth"] = map[string]interface{}{"cycles": entry.Cycles, "beforeTurning": entry.BeforeTurning}
+			var beforeTurningVal interface{}
+			if forceBeforeTurningIsZero {
+				beforeTurningVal = 0
+			} else {
+				beforeTurningVal = entry.BeforeTurning
+			}
+			arg["truth"] = map[string]interface{}{
+				"cycles":        entry.Cycles,
+				"beforeTurning": beforeTurningVal,
+			}
+			// arg["truth"] = map[string]interface{}{"cycles": entry.Cycles, "beforeTurning": 0 if forceBeforeTurningIsZero else entry.BeforeTurning}
 			arg["frequency"] = entry.Frequency
 		}
 		args = append(args, arg)

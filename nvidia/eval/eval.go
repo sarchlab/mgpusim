@@ -74,6 +74,8 @@ func main() {
 	switch configType {
 	case "release":
 		configPath = "nvidia/eval/eval_config_release.json"
+	case "release-emptykernel":
+		configPath = "nvidia/eval/eval_config_release-emptykernel.json"
 	case "test":
 		configPath = "nvidia/eval/eval_config_test.json"
 	default:

@@ -1,0 +1,5621 @@
+{
+    "script_path": "./mnt-collector",
+    "benchmarks": [
+        {
+            "title": "emptykernel",
+            "suite": "simtune",
+            "args": [
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c4355ee4ef555c786a2c15",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2470.46
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c4355fe4ef555c786a2c16",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43560e4ef555c786a2c17",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43561e4ef555c786a2c18",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43562e4ef555c786a2c19",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.75
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43563e4ef555c786a2c1a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43564e4ef555c786a2c1b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43565e4ef555c786a2c1c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2507.89
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43566e4ef555c786a2c1d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2564.64
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43567e4ef555c786a2c1e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2789.87
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43568e4ef555c786a2c1f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3164.27
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43569e4ef555c786a2c20",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4193.28
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c4356be4ef555c786a2c21",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6608.16
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c4356ce4ef555c786a2c22",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11325.6
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c4356de4ef555c786a2c23",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20798.51
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c4356fe4ef555c786a2c24",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39630.24
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 16,
+                    "trace-id": "68c43570e4ef555c786a2c25",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77370.35
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43571e4ef555c786a2c26",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.91
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43572e4ef555c786a2c27",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.91
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43573e4ef555c786a2c28",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43574e4ef555c786a2c29",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2397.33
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43575e4ef555c786a2c2a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2376.86
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43576e4ef555c786a2c2b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43577e4ef555c786a2c2c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43578e4ef555c786a2c2d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2489.76
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43579e4ef555c786a2c2e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2583.36
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c4357ae4ef555c786a2c2f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2770.56
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c4357ce4ef555c786a2c30",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3164.27
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c4357de4ef555c786a2c31",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4212
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c4357ee4ef555c786a2c32",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6608.16
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c4357fe4ef555c786a2c33",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11364.21
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43581e4ef555c786a2c34",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20760.48
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43582e4ef555c786a2c35",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39574.67
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 32,
+                    "trace-id": "68c43584e4ef555c786a2c36",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77277.33
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43585e4ef555c786a2c37",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43586e4ef555c786a2c38",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43587e4ef555c786a2c39",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43588e4ef555c786a2c3a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2395.58
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43589e4ef555c786a2c3b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c4358ae4ef555c786a2c3c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c4358be4ef555c786a2c3d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c4358ce4ef555c786a2c3e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2508.48
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c4358de4ef555c786a2c3f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2602.08
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c4358ee4ef555c786a2c40",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2751.84
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43590e4ef555c786a2c41",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3164.27
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43591e4ef555c786a2c42",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4230.72
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43592e4ef555c786a2c43",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6628.64
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43593e4ef555c786a2c44",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11381.76
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43595e4ef555c786a2c45",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20835.36
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43596e4ef555c786a2c46",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39667.68
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 64,
+                    "trace-id": "68c43598e4ef555c786a2c47",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77444.64
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c43599e4ef555c786a2c48",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c4359ae4ef555c786a2c49",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c4359be4ef555c786a2c4a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c4359ce4ef555c786a2c4b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c4359de4ef555c786a2c4c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c4359ee4ef555c786a2c4d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2378.03
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c4359fe4ef555c786a2c4e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2415.46
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a0e4ef555c786a2c4f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2489.76
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a2e4ef555c786a2c50",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2546.51
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a3e4ef555c786a2c51",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2733.12
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a4e4ef555c786a2c52",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3107.52
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a5e4ef555c786a2c53",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4230.72
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a6e4ef555c786a2c54",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6645.6
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a8e4ef555c786a2c55",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11362.45
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435a9e4ef555c786a2c56",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20760.48
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435abe4ef555c786a2c57",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39667.68
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 128,
+                    "trace-id": "68c435aee4ef555c786a2c58",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77388.48
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435afe4ef555c786a2c59",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b0e4ef555c786a2c5a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b1e4ef555c786a2c5b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2302.56
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b2e4ef555c786a2c5c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b3e4ef555c786a2c5d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b4e4ef555c786a2c5e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2378.03
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b5e4ef555c786a2c5f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b6e4ef555c786a2c60",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.63
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b8e4ef555c786a2c61",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2583.94
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435b9e4ef555c786a2c62",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2769.97
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435bae4ef555c786a2c63",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3107.52
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435bbe4ef555c786a2c64",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4306.18
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435bde4ef555c786a2c65",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6664.32
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435bee4ef555c786a2c66",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11363.04
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435c0e4ef555c786a2c67",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20761.06
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435c3e4ef555c786a2c68",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39592.8
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 256,
+                    "trace-id": "68c435c7e4ef555c786a2c69",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77221.17
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435c8e4ef555c786a2c6a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435c9e4ef555c786a2c6b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435cae4ef555c786a2c6c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435cbe4ef555c786a2c6d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435cce4ef555c786a2c6e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435cde4ef555c786a2c6f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435cee4ef555c786a2c70",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435cfe4ef555c786a2c71",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2489.76
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435d1e4ef555c786a2c72",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2620.8
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435d2e4ef555c786a2c73",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2789.28
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435d3e4ef555c786a2c74",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3481.92
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435d5e4ef555c786a2c75",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4754.88
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435d6e4ef555c786a2c76",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7300.8
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435d8e4ef555c786a2c77",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12355.78
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435dbe4ef555c786a2c78",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 22389.12
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435dfe4ef555c786a2c79",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 42551.73
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 512,
+                    "trace-id": "68c435e6e4ef555c786a2c7a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 82986.35
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435e7e4ef555c786a2c7b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.63
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435e8e4ef555c786a2c7c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.91
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435e9e4ef555c786a2c7d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435eae4ef555c786a2c7e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435ebe4ef555c786a2c7f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435ece4ef555c786a2c80",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435ede4ef555c786a2c81",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2489.76
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435eee4ef555c786a2c82",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2564.64
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435f0e4ef555c786a2c83",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2658.24
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435f1e4ef555c786a2c84",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3501.22
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435f2e4ef555c786a2c85",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5054.4
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435f4e4ef555c786a2c86",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8068.91
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435f6e4ef555c786a2c87",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13927.1
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435f8e4ef555c786a2c88",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 25664.53
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c435fce4ef555c786a2c89",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 49178.03
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c43602e4ef555c786a2c8a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 96258.24
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 1024,
+                    "trace-id": "68c4360ee4ef555c786a2c8b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 190532.16
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86f6e4ef555c786a2ebd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86f7e4ef555c786a2ebe",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86f8e4ef555c786a2ebf",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86f9e4ef555c786a2ec0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86fae4ef555c786a2ec1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86fbe4ef555c786a2ec2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2378.03
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86fce4ef555c786a2ec3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86fde4ef555c786a2ec4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2470.46
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86fee4ef555c786a2ec5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2583.94
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb86ffe4ef555c786a2ec6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2714.99
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb8700e4ef555c786a2ec7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3088.8
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb8702e4ef555c786a2ec8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4212
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb8703e4ef555c786a2ec9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6663.74
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb8704e4ef555c786a2eca",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11381.76
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb8706e4ef555c786a2ecb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20779.2
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb8708e4ef555c786a2ecc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39648.96
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 96,
+                    "trace-id": "68cb870ae4ef555c786a2ecd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77351.63
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8721e4ef555c786a2ece",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8722e4ef555c786a2ecf",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8723e4ef555c786a2ed0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2302.56
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8724e4ef555c786a2ed1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8725e4ef555c786a2ed2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8726e4ef555c786a2ed3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8727e4ef555c786a2ed4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8728e4ef555c786a2ed5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8729e4ef555c786a2ed6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2545.92
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb872be4ef555c786a2ed7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2733.12
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb872ce4ef555c786a2ed8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3088.8
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb872de4ef555c786a2ed9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4288.05
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb872ee4ef555c786a2eda",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6664.32
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8730e4ef555c786a2edb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11325.6
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8732e4ef555c786a2edc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20779.2
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8734e4ef555c786a2edd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39649.54
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 160,
+                    "trace-id": "68cb8737e4ef555c786a2ede",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77482.08
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8738e4ef555c786a2edf",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2302.56
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8739e4ef555c786a2ee0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb873ae4ef555c786a2ee1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2301.98
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb873be4ef555c786a2ee2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb873ce4ef555c786a2ee3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb873de4ef555c786a2ee4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340.59
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb873ee4ef555c786a2ee5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.75
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb873fe4ef555c786a2ee6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8740e4ef555c786a2ee7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2527.2
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8741e4ef555c786a2ee8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2733.12
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8743e4ef555c786a2ee9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3126.83
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8744e4ef555c786a2eea",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4249.44
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8745e4ef555c786a2eeb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6645.02
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8747e4ef555c786a2eec",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11363.63
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb8749e4ef555c786a2eed",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20779.2
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb874be4ef555c786a2eee",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39648.96
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 192,
+                    "trace-id": "68cb874ee4ef555c786a2eef",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77296.05
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb874fe4ef555c786a2ef0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2341.17
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8750e4ef555c786a2ef1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8751e4ef555c786a2ef2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2321.28
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8752e4ef555c786a2ef3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340.59
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8753e4ef555c786a2ef4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8754e4ef555c786a2ef5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8756e4ef555c786a2ef6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2376.86
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8757e4ef555c786a2ef7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8758e4ef555c786a2ef8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2564.64
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8759e4ef555c786a2ef9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2751.84
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb875ae4ef555c786a2efa",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3126.24
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb875be4ef555c786a2efb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4288.05
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb875de4ef555c786a2efc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6627.47
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb875ee4ef555c786a2efd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11363.04
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8760e4ef555c786a2efe",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20741.76
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8763e4ef555c786a2eff",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39555.95
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 224,
+                    "trace-id": "68cb8766e4ef555c786a2f00",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77388.48
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8781e4ef555c786a2f01",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8782e4ef555c786a2f02",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2321.28
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8783e4ef555c786a2f03",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2283.84
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8784e4ef555c786a2f04",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2339.41
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8785e4ef555c786a2f05",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8786e4ef555c786a2f06",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8787e4ef555c786a2f07",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8788e4ef555c786a2f08",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2451.74
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb878ae4ef555c786a2f09",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2583.94
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb878be4ef555c786a2f0a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2751.84
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb878ce4ef555c786a2f0b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3182.4
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb878de4ef555c786a2f0c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4361.76
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb878fe4ef555c786a2f0d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6739.2
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8790e4ef555c786a2f0e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11418.61
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8792e4ef555c786a2f0f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20873.39
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb8795e4ef555c786a2f10",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39705.12
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 288,
+                    "trace-id": "68cb879ae4ef555c786a2f11",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77294.88
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb879be4ef555c786a2f12",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2321.28
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb879ce4ef555c786a2f13",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340.59
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb879de4ef555c786a2f14",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2321.28
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb879ee4ef555c786a2f15",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb879fe4ef555c786a2f16",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a0e4ef555c786a2f17",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a1e4ef555c786a2f18",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a2e4ef555c786a2f19",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a3e4ef555c786a2f1a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2583.36
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a5e4ef555c786a2f1b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2751.84
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a6e4ef555c786a2f1c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3238.56
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a7e4ef555c786a2f1d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4437.23
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87a9e4ef555c786a2f1e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6795.36
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87aae4ef555c786a2f1f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11512.8
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87ace4ef555c786a2f20",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20966.4
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87afe4ef555c786a2f21",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39798.72
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 320,
+                    "trace-id": "68cb87b5e4ef555c786a2f22",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77577.43
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87b6e4ef555c786a2f23",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87b7e4ef555c786a2f24",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87b8e4ef555c786a2f25",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2339.41
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87b9e4ef555c786a2f26",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87bae4ef555c786a2f27",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87bbe4ef555c786a2f28",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87bce4ef555c786a2f29",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87bde4ef555c786a2f2a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87bee4ef555c786a2f2b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2564.64
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87c0e4ef555c786a2f2c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2788.7
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87c1e4ef555c786a2f2d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3312.86
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87c2e4ef555c786a2f2e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4511.52
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87c4e4ef555c786a2f2f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6869.65
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87c6e4ef555c786a2f30",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11587.68
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87c8e4ef555c786a2f31",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20985.12
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87cbe4ef555c786a2f32",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39930.93
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 352,
+                    "trace-id": "68cb87d0e4ef555c786a2f33",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77445.81
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d1e4ef555c786a2f34",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d2e4ef555c786a2f35",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d3e4ef555c786a2f36",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2302.56
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d4e4ef555c786a2f37",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d5e4ef555c786a2f38",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d6e4ef555c786a2f39",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d7e4ef555c786a2f3a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87d9e4ef555c786a2f3b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87dae4ef555c786a2f3c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2582.19
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87dbe4ef555c786a2f3d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2789.28
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87dce4ef555c786a2f3e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3350.88
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87dee4ef555c786a2f3f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4492.8
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87dfe4ef555c786a2f40",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6870.24
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87e1e4ef555c786a2f41",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11568.96
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87e3e4ef555c786a2f42",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20985.12
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87e6e4ef555c786a2f43",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39854.88
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 384,
+                    "trace-id": "68cb87ece4ef555c786a2f44",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77652.32
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87ede4ef555c786a2f45",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2321.28
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87eee4ef555c786a2f46",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87efe4ef555c786a2f47",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2303.14
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f0e4ef555c786a2f48",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f1e4ef555c786a2f49",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f2e4ef555c786a2f4a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f3e4ef555c786a2f4b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2376.86
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f5e4ef555c786a2f4c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2434.18
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f6e4ef555c786a2f4d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2582.78
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f7e4ef555c786a2f4e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2733.71
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87f8e4ef555c786a2f4f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3369.6
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87fae4ef555c786a2f50",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4623.84
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87fbe4ef555c786a2f51",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6963.84
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb87fde4ef555c786a2f52",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11719.31
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb8800e4ef555c786a2f53",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 21155.36
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb8803e4ef555c786a2f54",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 40024.53
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 416,
+                    "trace-id": "68cb880ae4ef555c786a2f55",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 77893.92
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb880be4ef555c786a2f56",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb880ce4ef555c786a2f57",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb880de4ef555c786a2f58",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2301.98
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb880ee4ef555c786a2f59",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb880fe4ef555c786a2f5a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8810e4ef555c786a2f5b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8811e4ef555c786a2f5c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2378.03
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8812e4ef555c786a2f5d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8813e4ef555c786a2f5e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2582.78
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8814e4ef555c786a2f5f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2751.84
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8816e4ef555c786a2f60",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3388.91
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8817e4ef555c786a2f61",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4642.56
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8819e4ef555c786a2f62",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7020.59
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb881be4ef555c786a2f63",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11831.04
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb881de4ef555c786a2f64",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 21359.52
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb8823e4ef555c786a2f65",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 40397.76
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 448,
+                    "trace-id": "68cb882fe4ef555c786a2f66",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 78774.35
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8830e4ef555c786a2f67",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8831e4ef555c786a2f68",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8832e4ef555c786a2f69",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8833e4ef555c786a2f6a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8834e4ef555c786a2f6b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8835e4ef555c786a2f6c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8836e4ef555c786a2f6d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2378.03
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8838e4ef555c786a2f6e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2451.74
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8839e4ef555c786a2f6f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2545.92
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb883ae4ef555c786a2f70",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2752.42
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb883be4ef555c786a2f71",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3425.76
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb883de4ef555c786a2f72",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4698.72
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb883ee4ef555c786a2f73",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7169.76
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8840e4ef555c786a2f74",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12093.71
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8843e4ef555c786a2f75",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 21921.12
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb8847e4ef555c786a2f76",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 41652.59
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 480,
+                    "trace-id": "68cb884ee4ef555c786a2f77",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 80907.84
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb886de4ef555c786a2f78",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb886ee4ef555c786a2f79",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb886fe4ef555c786a2f7a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8870e4ef555c786a2f7b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8871e4ef555c786a2f7c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8872e4ef555c786a2f7d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8873e4ef555c786a2f7e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2416.05
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8875e4ef555c786a2f7f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.63
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8876e4ef555c786a2f80",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2602.08
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8877e4ef555c786a2f81",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3032.06
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8878e4ef555c786a2f82",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3800.16
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb887ae4ef555c786a2f83",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5446.93
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb887be4ef555c786a2f84",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8649.23
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb887de4ef555c786a2f85",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 15070.77
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8880e4ef555c786a2f86",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 27929.66
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb8884e4ef555c786a2f87",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 53783.15
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 544,
+                    "trace-id": "68cb888be4ef555c786a2f88",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 105357.33
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb888ce4ef555c786a2f89",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb888de4ef555c786a2f8a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb888ee4ef555c786a2f8b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2321.28
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb888fe4ef555c786a2f8c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8890e4ef555c786a2f8d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.3
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8891e4ef555c786a2f8e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8892e4ef555c786a2f8f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8894e4ef555c786a2f90",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2508.48
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8895e4ef555c786a2f91",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2583.36
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8896e4ef555c786a2f92",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3032.64
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8897e4ef555c786a2f93",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3837.6
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb8899e4ef555c786a2f94",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5484.96
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb889ae4ef555c786a2f95",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8760.96
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb889ce4ef555c786a2f96",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 15425.28
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb889fe4ef555c786a2f97",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 28605.33
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb88a4e4ef555c786a2f98",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 55019.25
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 576,
+                    "trace-id": "68cb88abe4ef555c786a2f99",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 107660.48
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88ace4ef555c786a2f9a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88ade4ef555c786a2f9b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88aee4ef555c786a2f9c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340.59
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88afe4ef555c786a2f9d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.89
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b0e4ef555c786a2f9e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2359.31
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b1e4ef555c786a2f9f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b2e4ef555c786a2fa0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b4e4ef555c786a2fa1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2489.76
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b5e4ef555c786a2fa2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2620.22
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b6e4ef555c786a2fa3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3050.78
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b7e4ef555c786a2fa4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3837.6
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88b9e4ef555c786a2fa5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5541.12
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88bae4ef555c786a2fa6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8910.72
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88bce4ef555c786a2fa7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 15687.36
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88bfe4ef555c786a2fa8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 29372.27
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88c4e4ef555c786a2fa9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 56628
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 608,
+                    "trace-id": "68cb88cce4ef555c786a2faa",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 111048.8
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88cde4ef555c786a2fab",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88cee4ef555c786a2fac",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88cfe4ef555c786a2fad",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d0e4ef555c786a2fae",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2378.03
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d1e4ef555c786a2faf",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d2e4ef555c786a2fb0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.75
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d3e4ef555c786a2fb1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d4e4ef555c786a2fb2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2490.35
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d6e4ef555c786a2fb3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2621.97
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d7e4ef555c786a2fb4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3051.36
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88d8e4ef555c786a2fb5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3931.2
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88dae4ef555c786a2fb6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5634.72
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88dbe4ef555c786a2fb7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 9116.64
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88dde4ef555c786a2fb8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 16099.2
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88e0e4ef555c786a2fb9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 29990.03
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88e5e4ef555c786a2fba",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 57957.71
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 640,
+                    "trace-id": "68cb88ede4ef555c786a2fbb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 114416.64
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88eee4ef555c786a2fbc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88efe4ef555c786a2fbd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f0e4ef555c786a2fbe",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f1e4ef555c786a2fbf",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f2e4ef555c786a2fc0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.75
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f3e4ef555c786a2fc1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f5e4ef555c786a2fc2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f6e4ef555c786a2fc3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2508.48
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f7e4ef555c786a2fc4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2620.8
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88f8e4ef555c786a2fc5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3088.8
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88fae4ef555c786a2fc6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3949.92
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88fbe4ef555c786a2fc7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5689.71
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88fde4ef555c786a2fc8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 9322.56
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb88ffe4ef555c786a2fc9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 16511.04
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb8902e4ef555c786a2fca",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 30793.81
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb8907e4ef555c786a2fcb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 59417.28
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 672,
+                    "trace-id": "68cb890fe4ef555c786a2fcc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 116644.32
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8910e4ef555c786a2fcd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8911e4ef555c786a2fce",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2376.86
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8912e4ef555c786a2fcf",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2339.41
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8913e4ef555c786a2fd0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8914e4ef555c786a2fd1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8915e4ef555c786a2fd2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8916e4ef555c786a2fd3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8918e4ef555c786a2fd4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2489.76
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8919e4ef555c786a2fd5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2601.49
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb891ae4ef555c786a2fd6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3294.72
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb891be4ef555c786a2fd7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4829.18
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb891de4ef555c786a2fd8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7562.88
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb891ee4ef555c786a2fd9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12897.5
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8920e4ef555c786a2fda",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23755.68
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8923e4ef555c786a2fdb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 45414.72
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8929e4ef555c786a2fdc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 88994.88
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 704,
+                    "trace-id": "68cb8931e4ef555c786a2fdd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 175780.8
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8933e4ef555c786a2fde",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8934e4ef555c786a2fdf",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2340
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8935e4ef555c786a2fe0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.72
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8936e4ef555c786a2fe1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2358.14
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8937e4ef555c786a2fe2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8938e4ef555c786a2fe3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2395.58
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8939e4ef555c786a2fe4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.3
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb893ae4ef555c786a2fe5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb893be4ef555c786a2fe6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2620.22
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb893de4ef555c786a2fe7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3295.89
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb893ee4ef555c786a2fe8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4680.59
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb893fe4ef555c786a2fe9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7356.96
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8941e4ef555c786a2fea",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12748.32
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8943e4ef555c786a2feb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23436.86
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8946e4ef555c786a2fec",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 44685.23
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb894ce4ef555c786a2fed",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 87272.06
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 736,
+                    "trace-id": "68cb8955e4ef555c786a2fee",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 172692
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8956e4ef555c786a2fef",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8957e4ef555c786a2ff0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8958e4ef555c786a2ff1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2395.58
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8959e4ef555c786a2ff2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb895ae4ef555c786a2ff3",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.01
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb895be4ef555c786a2ff4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb895ce4ef555c786a2ff5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb895ee4ef555c786a2ff6",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2527.2
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb895fe4ef555c786a2ff7",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2620.8
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8960e4ef555c786a2ff8",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3332.16
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8962e4ef555c786a2ff9",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4754.3
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8963e4ef555c786a2ffa",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7469.28
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8965e4ef555c786a2ffb",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12841.92
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8967e4ef555c786a2ffc",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23400.59
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb896ae4ef555c786a2ffd",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 44591.04
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb8970e4ef555c786a2ffe",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 86917.54
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 768,
+                    "trace-id": "68cb897ae4ef555c786a2fff",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 171213.71
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb897be4ef555c786a3000",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb897ce4ef555c786a3001",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb897de4ef555c786a3002",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2376.86
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb897ee4ef555c786a3003",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb897fe4ef555c786a3004",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8980e4ef555c786a3005",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.3
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8981e4ef555c786a3006",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8982e4ef555c786a3007",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.63
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8984e4ef555c786a3008",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2621.39
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8985e4ef555c786a3009",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3369.6
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8986e4ef555c786a300a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4736.75
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8988e4ef555c786a300b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7544.16
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8989e4ef555c786a300c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12916.22
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb898ce4ef555c786a300d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23699.52
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb898fe4ef555c786a300e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 45264.38
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb8996e4ef555c786a300f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 88452
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 800,
+                    "trace-id": "68cb89a0e4ef555c786a3010",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 174713.76
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a1e4ef555c786a3011",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a2e4ef555c786a3012",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a3e4ef555c786a3013",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a4e4ef555c786a3014",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a5e4ef555c786a3015",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a6e4ef555c786a3016",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2434.18
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a7e4ef555c786a3017",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a8e4ef555c786a3018",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2489.76
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89a9e4ef555c786a3019",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2640.11
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89abe4ef555c786a301a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3406.46
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89ace4ef555c786a301b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4811.04
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89ade4ef555c786a301c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7600.32
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89afe4ef555c786a301d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13067.15
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89b2e4ef555c786a301e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23961.6
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89b5e4ef555c786a301f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 45808.43
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89bbe4ef555c786a3020",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 89407.31
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 832,
+                    "trace-id": "68cb89c5e4ef555c786a3021",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 176342.99
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89c6e4ef555c786a3022",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89c7e4ef555c786a3023",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89c8e4ef555c786a3024",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2377.44
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89c9e4ef555c786a3025",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2395.58
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89cae4ef555c786a3026",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.3
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89cbe4ef555c786a3027",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89cce4ef555c786a3028",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2434.18
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89cde4ef555c786a3029",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2508.48
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89cfe4ef555c786a302a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2658.24
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89d0e4ef555c786a302b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3407.04
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89d1e4ef555c786a302c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4829.76
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89d3e4ef555c786a302d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7675.79
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89d4e4ef555c786a302e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13178.88
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89d7e4ef555c786a302f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24261.71
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89dae4ef555c786a3030",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 46257.71
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89e0e4ef555c786a3031",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 90137.97
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 864,
+                    "trace-id": "68cb89ebe4ef555c786a3032",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 177503.63
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89ece4ef555c786a3033",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2434.18
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89ede4ef555c786a3034",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2415.46
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89eee4ef555c786a3035",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.75
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89efe4ef555c786a3036",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.01
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f0e4ef555c786a3037",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f1e4ef555c786a3038",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f2e4ef555c786a3039",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f4e4ef555c786a303a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2527.2
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f5e4ef555c786a303b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2621.39
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f6e4ef555c786a303c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3425.76
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f7e4ef555c786a303d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4904.06
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89f9e4ef555c786a303e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7768.8
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89fbe4ef555c786a303f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13309.92
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb89fde4ef555c786a3040",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24505.07
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb8a01e4ef555c786a3041",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 46856.16
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb8a07e4ef555c786a3042",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 91522.66
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 896,
+                    "trace-id": "68cb8a12e4ef555c786a3043",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 180798.35
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a13e4ef555c786a3044",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a14e4ef555c786a3045",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a15e4ef555c786a3046",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a16e4ef555c786a3047",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a17e4ef555c786a3048",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a18e4ef555c786a3049",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a19e4ef555c786a304a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.63
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a1ae4ef555c786a304b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2545.92
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a1ce4ef555c786a304c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2639.52
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a1de4ef555c786a304d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3444.48
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a1ee4ef555c786a304e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 4942.67
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a20e4ef555c786a304f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7805.66
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a22e4ef555c786a3050",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13440.96
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a24e4ef555c786a3051",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24767.15
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a28e4ef555c786a3052",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 47399.04
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a2ee4ef555c786a3053",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 92607.84
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 928,
+                    "trace-id": "68cb8a39e4ef555c786a3054",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 182950.56
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a3ae4ef555c786a3055",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a3be4ef555c786a3056",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a3ce4ef555c786a3057",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2396.16
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a3de4ef555c786a3058",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2433.6
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a3ee4ef555c786a3059",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a3fe4ef555c786a305a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a41e4ef555c786a305b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.63
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a42e4ef555c786a305c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2508.48
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a43e4ef555c786a305d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2658.24
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a44e4ef555c786a305e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3445.07
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a46e4ef555c786a305f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5016.96
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a47e4ef555c786a3060",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7919.15
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a49e4ef555c786a3061",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13684.32
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a4be4ef555c786a3062",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 25272
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a4fe4ef555c786a3063",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 48484.8
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a56e4ef555c786a3064",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 94648.9
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 960,
+                    "trace-id": "68cb8a61e4ef555c786a3065",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 187051.41
+                    }
+                },
+                {
+                    "block": 1,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a62e4ef555c786a3066",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2452.32
+                    }
+                },
+                {
+                    "block": 2,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a63e4ef555c786a3067",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2413.71
+                    }
+                },
+                {
+                    "block": 4,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a64e4ef555c786a3068",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 8,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a65e4ef555c786a3069",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2414.88
+                    }
+                },
+                {
+                    "block": 16,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a67e4ef555c786a306a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a68e4ef555c786a306b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2451.74
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a69e4ef555c786a306c",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2471.04
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a6ae4ef555c786a306d",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2527.2
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a6be4ef555c786a306e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2639.52
+                    }
+                },
+                {
+                    "block": 512,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a6de4ef555c786a306f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3481.92
+                    }
+                },
+                {
+                    "block": 1024,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a6ee4ef555c786a3070",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5110.56
+                    }
+                },
+                {
+                    "block": 2048,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a6fe4ef555c786a3071",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 7974.72
+                    }
+                },
+                {
+                    "block": 4096,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a71e4ef555c786a3072",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13870.93
+                    }
+                },
+                {
+                    "block": 8192,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a74e4ef555c786a3073",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 25534.67
+                    }
+                },
+                {
+                    "block": 16384,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a78e4ef555c786a3074",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 48916.53
+                    }
+                },
+                {
+                    "block": 32768,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a7ee4ef555c786a3075",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 95659.2
+                    }
+                },
+                {
+                    "block": 65536,
+                    "frequency": 1755,
+                    "thread": 992,
+                    "trace-id": "68cb8a8ae4ef555c786a3076",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 189054.45
+                    }
+                }
+            ]
+        }
+    ]
+}

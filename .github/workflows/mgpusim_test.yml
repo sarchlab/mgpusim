@@ -110,7 +110,13 @@ jobs:
         id: commit_type
         run: |
           MSG="${{ steps.commit_info.outputs.message }}"
-          if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+          if [[ "$MSG" =~ ^\[release-emptykernel\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+            echo "type=release-emptykernel" >> $GITHUB_OUTPUT
+            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            # # Remove the [release-emptykernel vX.X.X] part from message
+            # MSG="${MSG#*\] }"
+            echo "msg=$MSG" >> $GITHUB_OUTPUT
+          elif [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
             echo "type=release" >> $GITHUB_OUTPUT
             echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
             # # Remove the [release vX.X.X] part from message
@@ -134,6 +140,8 @@ jobs:
           EVAL_START=$(date +%s.%N)
           if [[ "${{ steps.commit_type.outputs.type }}" == "release" ]]; then
             OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
+          elif [[ "${{ steps.commit_type.outputs.type }}" == "release-emptykernel" ]]; then
+            OUTPUT=$(./nvidia/eval/eval --config release-emptykernel --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
           elif [[ "${{ steps.commit_type.outputs.type }}" == "test" ]]; then
             OUTPUT=$(./nvidia/eval/eval --config test --sha ${{ steps.commit_info.outputs.sha }} --version "test")
           else
