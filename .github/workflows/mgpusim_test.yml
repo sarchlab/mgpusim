@@ -126,7 +126,6 @@ jobs:
             echo "msg=$MSG" >> $GITHUB_OUTPUT
           fi
 
-
       - name: Run Evaluation Script
         id: eval
         run: |
@@ -134,7 +133,7 @@ jobs:
           # SCORE=99999 # Simulated score
           EVAL_START=$(date +%s.%N)
           if [[ "${{ steps.commit_type.outputs.type }}" == "release" ]]; then
-            OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }})
+            OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
           elif [[ "${{ steps.commit_type.outputs.type }}" == "test" ]]; then
             OUTPUT=$(./nvidia/eval/eval --config test --sha ${{ steps.commit_info.outputs.sha }} --version "test")
           else
