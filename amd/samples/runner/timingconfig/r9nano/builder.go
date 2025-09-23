@@ -203,7 +203,9 @@ func (b Builder) Build(name string) *sim.Domain {
 
 func (b *Builder) populateExternalPorts() {
 	b.gpu.AddPort("CommandProcessor", b.cp.ToDriver)
-	b.gpu.AddPort("RDMA", b.rdmaEngine.ToOutside)
+	b.gpu.AddPort("RDMARequest", b.rdmaEngine.RDMARequestOutside)
+	b.gpu.AddPort("RDMAData", b.rdmaEngine.RDMADataOutside)
+
 	b.gpu.AddPort("PageMigrationController",
 		b.pmc.GetPortByName("Remote"))
 
@@ -251,9 +253,9 @@ func (b *Builder) connectL1ToL2() {
 		Build(b.name + ".L1ToL2")
 
 	b.rdmaEngine.SetLocalModuleFinder(b.l1AddressMapper)
-	b.l1AddressMapper.ModuleForOtherAddresses = b.rdmaEngine.ToL1.AsRemote()
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2)
+	b.l1AddressMapper.ModuleForOtherAddresses = b.rdmaEngine.RDMARequestInside.AsRemote()
+	l1ToL2Conn.PlugIn(b.rdmaEngine.RDMARequestInside)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.RDMADataInside)
 
 	for _, l2 := range b.l2Caches {
 		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"))
@@ -630,19 +632,19 @@ func (b *Builder) buildCP() {
 }
 
 func (b *Builder) buildL2TLB() {
-	numWays := 64
-	builder := tlb.MakeBuilder().
-		WithEngine(b.simulation.GetEngine()).
-		WithFreq(b.freq).
-		WithNumWays(numWays).
-		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
-		WithNumMSHREntry(64).
-		WithNumReqPerCycle(1024).
-		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
-		WithAddressMapper(&mem.SinglePortMapper{
-			Port: b.mmu.GetPortByName("Top").AsRemote(),
-		})
+    numWays := 64
+    builder := tlb.MakeBuilder().
+        WithEngine(b.simulation.GetEngine()).
+        WithFreq(b.freq).
+        WithNumWays(numWays).
+        WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+        WithNumMSHREntry(64).
+        WithNumReqPerCycle(1024).
+        WithPageSize(1 << b.log2PageSize).
+        WithLowModule(b.mmu.GetPortByName("Top").AsRemote()).
+        WithTranslationProviderMapper(&mem.SinglePortMapper{
+            Port: b.mmu.GetPortByName("Top").AsRemote(),
+        })
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.name))
 
