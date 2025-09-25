@@ -37,6 +37,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 	p.Driver = new(driver.DriverBuilder).
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
+		WithDriver2GPUOverheadLatency(2000).
 		Build("Driver")
 
 	gpuDriver := new(gpu.GPUBuilder).
@@ -49,9 +50,8 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithDRAMSize(65536 * mem.TB).
 		WithLog2CacheLineSize(7).
 		WithNumMemoryBank(4).
-		WithLaunchOverheadLatency(2000).
-		WithThreadBlockAllocationLatency(100).
-		WithWarpIssueLatency(10)
+		WithGPU2SMThreadBlockAllocationLatency(1).
+		WithSM2SMSPWarpIssueLatency(1)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))

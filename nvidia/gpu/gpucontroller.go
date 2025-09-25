@@ -65,12 +65,12 @@ type GPUController struct {
 	SMIssueIndex uint64
 	smsCount     uint64
 
-	launchOverheadLatency          uint64
-	launchOverheadLatencyRemaining uint64
+	// launchOverheadLatency          uint64
+	// launchOverheadLatencyRemaining uint64
 
-	SMThreadCapacity uint64
-	// threadBlockAllocationLatency          uint64
-	// threadBlockAllocationLatencyRemaining uint64
+	SMThreadCapacity                            uint64
+	GPU2SMThreadBlockAllocationLatency          uint64
+	GPU2SMThreadBlockAllocationLatencyRemaining uint64
 }
 
 func (g *GPUController) SetDriverRemotePort(remote sim.Port) {
@@ -101,10 +101,6 @@ func (g *GPUController) checkAnySMAssigned() bool {
 }
 
 func (g *GPUController) processDriverInput() bool {
-	if g.launchOverheadLatencyRemaining > 0 {
-		g.launchOverheadLatencyRemaining--
-		return true
-	}
 	msg := g.toDriver.PeekIncoming()
 	if msg == nil {
 		return false
@@ -116,8 +112,6 @@ func (g *GPUController) processDriverInput() bool {
 	default:
 		log.WithField("function", "processDriverInput").Panic("Unhandled message type")
 	}
-	g.launchOverheadLatencyRemaining = g.launchOverheadLatency
-
 	return true
 }
 
@@ -222,6 +216,10 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 	if g.smsCount == 0 {
 		log.Panic("SM count is 0")
 	}
+	if g.GPU2SMThreadBlockAllocationLatencyRemaining > 0 {
+		g.GPU2SMThreadBlockAllocationLatencyRemaining--
+		return true
+	}
 
 	threadblock := g.undispatchedThreadblocks[0]
 	nThreadToBeAssigned := threadblock.WarpsCount() * 32
@@ -248,6 +246,8 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 	g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
 
 	g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
+
+	g.GPU2SMThreadBlockAllocationLatencyRemaining = g.GPU2SMThreadBlockAllocationLatency
 
 	return false
 }

@@ -31,6 +31,9 @@ type Driver struct {
 	unfinishedKernelsCount uint64
 
 	simulationID string
+
+	driver2GPUOverheadLatency          uint64
+	driver2GPUOverheadLatencyRemaining uint64
 }
 
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
@@ -104,6 +107,11 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 		return false
 	}
 
+	if d.driver2GPUOverheadLatencyRemaining > 0 {
+		d.driver2GPUOverheadLatencyRemaining--
+		return true
+	}
+
 	kernel := d.undispatchedKernels[0]
 	// fmt.Printf("Dispatching kernel %s to device %s at time %.10f\n",
 	// 	kernel.ID, d.freeDevices[0].ID, d.Engine.CurrentTime())
@@ -122,6 +130,8 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 
 	d.undispatchedKernels = d.undispatchedKernels[1:]
 	d.freeDevices = d.freeDevices[1:]
+
+	d.driver2GPUOverheadLatencyRemaining = d.driver2GPUOverheadLatency
 
 	return true
 }

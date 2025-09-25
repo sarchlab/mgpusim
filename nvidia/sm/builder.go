@@ -33,8 +33,7 @@ type SMBuilder struct {
 
 	connectionCount int
 
-	threadBlockAllocationLatency uint64
-	warpIssueLatency             uint64
+	SM2SMSPWarpIssueLatency uint64
 }
 
 func MakeBuilder() SMBuilder {
@@ -76,27 +75,22 @@ func (b SMBuilder) WithLog2CacheLineSize(size uint64) SMBuilder {
 	return b
 }
 
-func (b SMBuilder) WithThreadBlockAllocationLatency(latency uint64) SMBuilder {
-	b.threadBlockAllocationLatency = latency
-	return b
-}
-
-func (b SMBuilder) WithWarpIssueLatency(latency uint64) SMBuilder {
-	b.warpIssueLatency = latency
+func (b SMBuilder) WithSM2SMSPWarpIssueLatency(l uint64) SMBuilder {
+	b.SM2SMSPWarpIssueLatency = l
 	return b
 }
 
 func (b SMBuilder) Build(name string) *SMController {
 	s := &SMController{
-		ID:                                    sim.GetIDGenerator().Generate(),
-		SMSPs:                                 make(map[string]*smsp.SMSPController),
-		SMSPsIDs:                              []string{},
-		smspsCount:                            b.smspsCount,
-		smspIssueIndex:                        0,
-		threadBlockAllocationLatency:          b.threadBlockAllocationLatency,
-		threadBlockAllocationLatencyRemaining: b.threadBlockAllocationLatency,
-		threadblockWarpCountTable:             make(map[trace.Dim3]uint64),
-		threadblockWarpCountTableOrigin:       make(map[trace.Dim3]uint64),
+		ID:                               sim.GetIDGenerator().Generate(),
+		SMSPs:                            make(map[string]*smsp.SMSPController),
+		SMSPsIDs:                         []string{},
+		smspsCount:                       b.smspsCount,
+		smspIssueIndex:                   0,
+		SM2SMSPWarpIssueLatency:          b.SM2SMSPWarpIssueLatency,
+		SM2SMSPWarpIssueLatencyRemaining: b.SM2SMSPWarpIssueLatency,
+		threadblockWarpCountTable:        make(map[trace.Dim3]uint64),
+		threadblockWarpCountTableOrigin:  make(map[trace.Dim3]uint64),
 	}
 
 	b.name = name
@@ -156,8 +150,7 @@ func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
 		smspBuilder := new(smsp.SMSPBuilder).
 			WithEngine(b.engine).
 			WithFreq(b.freq).
-			WithSimulation(b.simulation).
-			WithWarpIssueLatency(b.warpIssueLatency)
+			WithSimulation(b.simulation)
 
 		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP(%d)", smName, i))
 		b.simulation.RegisterComponent(smsp)

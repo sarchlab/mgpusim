@@ -48,8 +48,8 @@ type SMController struct {
 	smspsCount     uint64
 	smspIssueIndex uint64
 
-	threadBlockAllocationLatency          uint64
-	threadBlockAllocationLatencyRemaining uint64
+	SM2SMSPWarpIssueLatency          uint64
+	SM2SMSPWarpIssueLatencyRemaining uint64
 
 	threadblockWarpCountTable       map[trace.Dim3]uint64
 	threadblockWarpCountTableOrigin map[trace.Dim3]uint64
@@ -100,10 +100,6 @@ func (s *SMController) checkAnyWarpNotFinished() bool {
 }
 
 func (s *SMController) processGPUInput() bool {
-	if s.threadBlockAllocationLatencyRemaining > 0 {
-		s.threadBlockAllocationLatencyRemaining--
-		return true
-	}
 	msg := s.toGPU.PeekIncoming()
 	if msg == nil {
 		return false
@@ -115,7 +111,6 @@ func (s *SMController) processGPUInput() bool {
 	default:
 		log.WithField("function", "processGPUInput").Panic("Unhandled message type")
 	}
-	s.threadBlockAllocationLatencyRemaining = s.threadBlockAllocationLatency
 
 	return true
 }
@@ -316,6 +311,11 @@ func (s *SMController) dispatchThreadblocksToSMSPs() bool {
 		return false
 	}
 
+	if s.SM2SMSPWarpIssueLatencyRemaining > 0 {
+		s.SM2SMSPWarpIssueLatencyRemaining--
+		return true
+	}
+
 	if s.smspsCount == 0 {
 		log.Panic("SMSP count is 0")
 	}
@@ -358,6 +358,8 @@ func (s *SMController) dispatchThreadblocksToSMSPs() bool {
 			}
 		}
 	}
+
+	s.SM2SMSPWarpIssueLatencyRemaining = s.SM2SMSPWarpIssueLatency
 
 	// smsp := s.SMSPList[s.smspIssueIndex]
 	// warp := s.undispatchedWarps[0]

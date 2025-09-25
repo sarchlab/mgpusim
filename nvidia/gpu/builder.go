@@ -42,9 +42,8 @@ type GPUBuilder struct {
 	// rdmaEngine              *rdma.Comp
 	// dmaEngine               *cp.DMAEngine
 	// pageMigrationController *pagemigrationcontroller.PageMigrationController
-	launchOverheadLatency        uint64
-	threadBlockAllocationLatency uint64
-	warpIssueLatency             uint64
+	GPU2SMThreadBlockAllocationLatency uint64
+	SM2SMSPWarpIssueLatency            uint64
 }
 
 func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
@@ -99,18 +98,13 @@ func (b GPUBuilder) WithNumMemoryBank(n int) GPUBuilder {
 	return b
 }
 
-func (b GPUBuilder) WithLaunchOverheadLatency(l uint64) GPUBuilder {
-	b.launchOverheadLatency = l
+func (b GPUBuilder) WithGPU2SMThreadBlockAllocationLatency(l uint64) GPUBuilder {
+	b.GPU2SMThreadBlockAllocationLatency = l
 	return b
 }
 
-func (b GPUBuilder) WithThreadBlockAllocationLatency(l uint64) GPUBuilder {
-	b.threadBlockAllocationLatency = l
-	return b
-}
-
-func (b GPUBuilder) WithWarpIssueLatency(l uint64) GPUBuilder {
-	b.warpIssueLatency = l
+func (b GPUBuilder) WithSM2SMSPWarpIssueLatency(l uint64) GPUBuilder {
+	b.SM2SMSPWarpIssueLatency = l
 	return b
 }
 
@@ -168,15 +162,15 @@ func (b *GPUBuilder) createGPU(name string) {
 	b.gpuName = name
 
 	b.gpu = &GPUController{
-		gpuName:                        name,
-		ID:                             sim.GetIDGenerator().Generate(),
-		SMs:                            make(map[string]*sm.SMController),
-		SMIssueIndex:                   0,
-		smsCount:                       b.smsCount,
-		SMAssignedList:                 make(map[string]uint64),
-		launchOverheadLatency:          b.launchOverheadLatency,
-		launchOverheadLatencyRemaining: b.launchOverheadLatency,
-		SMThreadCapacity:               2048,
+		gpuName:                            name,
+		ID:                                 sim.GetIDGenerator().Generate(),
+		SMs:                                make(map[string]*sm.SMController),
+		SMIssueIndex:                       0,
+		smsCount:                           b.smsCount,
+		SMAssignedList:                     make(map[string]uint64),
+		SMThreadCapacity:                   2048,
+		GPU2SMThreadBlockAllocationLatency: b.GPU2SMThreadBlockAllocationLatency,
+		GPU2SMThreadBlockAllocationLatencyRemaining: b.GPU2SMThreadBlockAllocationLatency,
 		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
@@ -206,8 +200,7 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 		WithSimulation(b.simulation).
 		WithSMSPsCount(b.smspsCountPerSM).
 		WithL1AddressMapper(b.l1AddressMapper).
-		WithThreadBlockAllocationLatency(b.threadBlockAllocationLatency).
-		WithWarpIssueLatency(b.warpIssueLatency)
+		WithSM2SMSPWarpIssueLatency(b.SM2SMSPWarpIssueLatency)
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {

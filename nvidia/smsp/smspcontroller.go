@@ -48,9 +48,6 @@ type SMSPController struct {
 	// currentWarp        trace.WarpTrace
 
 	ToVectorMem sim.Port
-
-	warpIssueLatency          uint64
-	warpIssueLatencyRemaining uint64
 }
 
 func (s *SMSPController) SetSMRemotePort(remote sim.Port) {
@@ -135,11 +132,6 @@ func (s *SMSPController) Tick() bool {
 
 func (s *SMSPController) processSMInput() bool {
 	// fmt.Println("Called processSMInput")
-	if s.warpIssueLatencyRemaining > 0 {
-		// fmt.Printf("s.warpIssueLatencyRemaining = %d\n", s.warpIssueLatencyRemaining)
-		s.warpIssueLatencyRemaining--
-		return true
-	}
 	msg := s.toSM.PeekIncoming()
 	if msg == nil {
 		return false
@@ -151,8 +143,6 @@ func (s *SMSPController) processSMInput() bool {
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 	}
-
-	s.warpIssueLatencyRemaining = s.warpIssueLatency
 
 	return true
 }
