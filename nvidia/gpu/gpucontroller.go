@@ -25,7 +25,7 @@ type GPUController struct {
 	SMs   map[string]*sm.SMController
 	// freeSMs []*sm.SMController
 	SMList         []*sm.SMController
-	SMAssignedList map[string]bool
+	SMAssignedList map[string]uint64
 
 	ToSMSPs sim.Port
 
@@ -67,6 +67,8 @@ type GPUController struct {
 
 	launchOverheadLatency          uint64
 	launchOverheadLatencyRemaining uint64
+
+	SMThreadCapacity uint64
 	// threadBlockAllocationLatency          uint64
 	// threadBlockAllocationLatencyRemaining uint64
 }
@@ -91,7 +93,7 @@ func (g *GPUController) Tick() bool {
 
 func (g *GPUController) checkAnySMAssigned() bool {
 	for _, assigned := range g.SMAssignedList {
-		if assigned {
+		if assigned > 0 {
 			return true
 		}
 	}
@@ -145,14 +147,17 @@ func (g *GPUController) processDriverMsg(msg *message.DriverToDeviceMsg) {
 }
 
 func (g *GPUController) processSMsMsg(msg *message.SMToDeviceMsg) {
-	if msg.ThreadblockFinished {
+	if msg.NumThreadFinished > 0 {
 		// g.freeSMs = append(g.freeSMs, g.SMs[msg.SMID])
 		g.unfinishedThreadblocksCount--
 		// fmt.Printf("%.10f, %s, GPUController, received a msg from sm for a threadblock finished, unfinished threadblocks count = %d->%d\n", g.Engine.CurrentTime(), g.Name(), g.unfinishedThreadblocksCount+1, g.unfinishedThreadblocksCount)
 		if g.unfinishedThreadblocksCount == 0 {
 			g.finishedKernelsCount++
 		}
-		g.SMAssignedList[msg.SMID] = false
+		g.SMAssignedList[msg.SMID] -= msg.NumThreadFinished
+		if g.SMAssignedList[msg.SMID] < 0 {
+			log.Panic(fmt.Sprintf("SMAssignedList[%s] < 0", msg.SMID))
+		}
 	}
 	g.toSMs.RetrieveIncoming()
 }
@@ -197,12 +202,12 @@ func (g *GPUController) reportFinishedKernels() bool {
 	return true
 }
 
-func (g *GPUController) issueSMIndex() int {
+func (g *GPUController) issueSMIndex(nThreadToBeAssigned uint64) int {
 	for i := 0; i < int(g.smsCount); i++ {
 		index := (int(g.SMIssueIndex) + i) % int(g.smsCount)
 		sm := g.SMList[index]
-		if !g.SMAssignedList[sm.ID] {
-			g.SMAssignedList[sm.ID] = true
+		if g.SMAssignedList[sm.ID]+nThreadToBeAssigned <= g.SMThreadCapacity {
+			g.SMAssignedList[sm.ID] += nThreadToBeAssigned
 			g.SMIssueIndex = uint64((index + 1) % int(g.smsCount))
 			return index
 		}
@@ -217,14 +222,16 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 	if g.smsCount == 0 {
 		log.Panic("SM count is 0")
 	}
-	smIndex := g.issueSMIndex()
+
+	threadblock := g.undispatchedThreadblocks[0]
+	nThreadToBeAssigned := threadblock.WarpsCount() * 32
+
+	smIndex := g.issueSMIndex(nThreadToBeAssigned)
 	if smIndex == -1 {
 		// All sms already has a threadblock to do
 		return true
 	}
 	sm := g.SMList[smIndex]
-
-	threadblock := g.undispatchedThreadblocks[0]
 
 	msg := &message.DeviceToSMMsg{
 		Threadblock: *threadblock,

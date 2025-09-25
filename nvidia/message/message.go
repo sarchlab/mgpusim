@@ -27,8 +27,8 @@ type DeviceToSMMsg struct {
 type SMToDeviceMsg struct {
 	sim.MsgMeta
 
-	ThreadblockFinished bool
-	SMID                string
+	NumThreadFinished uint64
+	SMID              string
 }
 
 type SMToSMSPMsg struct {
@@ -42,6 +42,7 @@ type SMSPToSMMsg struct {
 	sim.MsgMeta
 
 	WarpFinished bool
+	Warp         *trace.WarpTrace
 	SMSPID       string
 }
 

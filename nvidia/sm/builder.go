@@ -10,6 +10,7 @@ import (
 	"github.com/sarchlab/akita/v4/simulation"
 
 	"github.com/sarchlab/mgpusim/v4/nvidia/smsp"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 	"github.com/tebeka/atexit"
 )
 
@@ -94,10 +95,12 @@ func (b SMBuilder) Build(name string) *SMController {
 		smspIssueIndex:                        0,
 		threadBlockAllocationLatency:          b.threadBlockAllocationLatency,
 		threadBlockAllocationLatencyRemaining: b.threadBlockAllocationLatency,
+		threadblockWarpCountTable:             make(map[trace.Dim3]uint64),
+		threadblockWarpCountTableOrigin:       make(map[trace.Dim3]uint64),
 	}
+
 	b.name = name
 	b.connectionCount = 0
-
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
 	b.buildL1VCaches()
 	b.buildPortsForSM(s, name)

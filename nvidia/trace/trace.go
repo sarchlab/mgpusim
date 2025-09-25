@@ -44,9 +44,10 @@ type ThreadblockTrace struct {
 }
 
 type WarpTrace struct {
-	ID           int
-	instsCount   uint64
-	Instructions []*InstructionTrace
+	ID             int
+	FatherThreadID Dim3
+	instsCount     uint64
+	Instructions   []*InstructionTrace
 }
 
 type InstructionTrace struct {

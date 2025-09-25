@@ -43,7 +43,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
 		WithSimulation(b.simulation).
-		WithSMsCount(112).
+		WithSMsCount(114).
 		WithSMSPsCountPerSM(4).
 		WithL2CacheSize(50 * mem.MB).
 		WithDRAMSize(65536 * mem.TB).

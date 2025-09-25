@@ -144,6 +144,7 @@ func (t *KernelTrace) readThreadblocks() {
 			if strings.HasPrefix(kernelScanner.Text(), "warp") {
 				// fmt.Println("This is visited")
 				wp := &WarpTrace{}
+				wp.FatherThreadID = tb.ID
 				fmt.Sscanf(kernelScanner.Text(), "warp = %d", &wp.ID)
 
 				if !goToNextlineWithPrefixIncludingNow("insts") {

@@ -44,6 +44,7 @@ type SMSPController struct {
 	scheduler SMSPSWarpScheduler
 
 	finishedWarpsCount uint64
+	finishedWarpsList  []*trace.WarpTrace
 	// currentWarp        trace.WarpTrace
 
 	ToVectorMem sim.Port
@@ -183,6 +184,7 @@ func (s *SMSPController) processMemRsp() bool {
 		if warpUnit.unfinishedInstsCount == 1 {
 			s.scheduler.removeFinishedWarps(warpUnit)
 			s.finishedWarpsCount++
+			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
 			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
 		} else {
 			warpUnit.status = WarpStatusRunning
@@ -206,6 +208,7 @@ func (s *SMSPController) processMemRsp() bool {
 		if warpUnit.unfinishedInstsCount == 1 {
 			s.scheduler.removeFinishedWarps(warpUnit)
 			s.finishedWarpsCount++
+			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
 			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, warpUnit.warp.ID, s.finishedWarpsCount)
 		} else {
 			warpUnit.status = WarpStatusRunning
@@ -392,11 +395,13 @@ func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
 			s.scheduler.removeFinishedWarps(warpUnit)
 			// s.unfinishedInstsCount = 0
 			s.finishedWarpsCount++
+			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
 			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, currentWarpUnit.warp.ID, s.finishedWarpsCount)
 		} else {
 			if lastInstructionFlag {
 				s.scheduler.removeFinishedWarps(warpUnit)
 				s.finishedWarpsCount++
+				s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
 			} else {
 				warpUnit.status = WarpStatusRunning
 				warpUnit.unfinishedInstsCount--
@@ -415,6 +420,7 @@ func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
 		if lastInstructionFlag {
 			s.scheduler.removeFinishedWarps(warpUnit)
 			s.finishedWarpsCount++
+			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
 		} else {
 			warpUnit.status = WarpStatusRunning
 			warpUnit.unfinishedInstsCount--
@@ -441,6 +447,7 @@ func (s *SMSPController) reportFinishedWarps() bool {
 	msg := &message.SMSPToSMMsg{
 		WarpFinished: true,
 		SMSPID:       s.ID,
+		Warp:         s.finishedWarpsList[0],
 	}
 	msg.Src = s.toSM.AsRemote()
 	msg.Dst = s.toSMRemote.AsRemote()
@@ -451,6 +458,7 @@ func (s *SMSPController) reportFinishedWarps() bool {
 	}
 
 	s.finishedWarpsCount--
+	s.finishedWarpsList = s.finishedWarpsList[1:]
 
 	return true
 }

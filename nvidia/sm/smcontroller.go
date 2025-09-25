@@ -39,10 +39,10 @@ type SMController struct {
 	// freeSMSPs []*smsp.SMSPController
 	SMSPList []*smsp.SMSPController
 
-	undispatchedWarps    []*trace.WarpTrace
-	unfinishedWarpsCount uint64
+	undispatchedWarps []*trace.WarpTrace
+	// unfinishedWarpsCount uint64
 
-	finishedThreadblocksCount uint64
+	// finishedThreadblocksCount uint64
 	// l1Caches                  []*writearound.Comp
 
 	smspsCount     uint64
@@ -50,6 +50,9 @@ type SMController struct {
 
 	threadBlockAllocationLatency          uint64
 	threadBlockAllocationLatencyRemaining uint64
+
+	threadblockWarpCountTable       map[trace.Dim3]uint64
+	threadblockWarpCountTableOrigin map[trace.Dim3]uint64
 }
 
 func (s *SMController) SetGPURemotePort(remote sim.Port) {
@@ -84,7 +87,16 @@ func (s *SMController) Tick() bool {
 }
 
 func (s *SMController) checkAnyWarpNotFinished() bool {
-	return s.unfinishedWarpsCount > 0 || len(s.undispatchedWarps) > 0
+	if len(s.undispatchedWarps) > 0 {
+		return true
+	}
+	for _, count := range s.threadblockWarpCountTable {
+		if count > 0 {
+			return true
+		}
+	}
+	return false
+	// return s.unfinishedWarpsCount > 0 || len(s.undispatchedWarps) > 0
 }
 
 func (s *SMController) processGPUInput() bool {
@@ -198,22 +210,29 @@ func (s *SMController) processSMSPsInput() bool {
 // }
 
 func (s *SMController) processSMMsg(msg *message.DeviceToSMMsg) {
+	s.threadblockWarpCountTable[msg.Threadblock.ID] = msg.Threadblock.WarpsCount()
+	s.threadblockWarpCountTableOrigin[msg.Threadblock.ID] = msg.Threadblock.WarpsCount()
 	for i := range msg.Threadblock.Warps {
 		s.undispatchedWarps = append(s.undispatchedWarps, msg.Threadblock.Warps[i])
-		s.unfinishedWarpsCount++
+		// s.unfinishedWarpsCount++
 		s.warpsCount++
 	}
 	s.toGPU.RetrieveIncoming()
 }
 
 func (s *SMController) processSMSPSMsg(msg *message.SMSPToSMMsg) {
+	warpFatherThreadID := msg.Warp.FatherThreadID
 	if msg.WarpFinished {
 		// s.freeSMSPs = append(s.freeSMSPs, s.SMSPs[msg.SMSPID])
-		s.unfinishedWarpsCount--
-		// fmt.Printf("%.10f, %s, SMController, received a msg from smsp for a warp finished, unfinished warps count = %d->%d\n", s.Engine.CurrentTime(), s.Name(), s.unfinishedWarpsCount+1, s.unfinishedWarpsCount)
-		if s.unfinishedWarpsCount == 0 {
-			s.finishedThreadblocksCount++
+		// s.unfinishedWarpsCount--
+		s.threadblockWarpCountTable[warpFatherThreadID]--
+		if s.threadblockWarpCountTable[warpFatherThreadID] < 0 {
+			log.Panic("In processing SMSP message, threadblock warp count is negative")
 		}
+		// fmt.Printf("%.10f, %s, SMController, received a msg from smsp for a warp finished, unfinished warps count = %d->%d\n", s.Engine.CurrentTime(), s.Name(), s.unfinishedWarpsCount+1, s.unfinishedWarpsCount)
+		// if s.unfinishedWarpsCount == 0 {
+		// 	s.finishedThreadblocksCount++
+		// }
 	}
 	s.toSMSPs.RetrieveIncoming()
 }
@@ -253,14 +272,31 @@ func (s *SMController) processSMSPSMsg(msg *message.SMSPToSMMsg) {
 // 	return true
 // }
 
+func (s *SMController) findFirstFinishedThreadblock() trace.Dim3 {
+	for threadblockID, warpsCount := range s.threadblockWarpCountTable {
+		if warpsCount == 0 {
+			delete(s.threadblockWarpCountTable, threadblockID)
+			return threadblockID
+
+			// fmt.Printf("find a finished threadblock %v\n", threadblockID)
+		}
+	}
+	return trace.Dim3{-1, -1, -1}
+}
+
 func (s *SMController) reportFinishedKernels() bool {
-	if s.finishedThreadblocksCount == 0 {
+	// if s.finishedThreadblocksCount == 0 {
+	// 	return false
+	// }
+	firstFinishedThreadblock := s.findFirstFinishedThreadblock()
+	if firstFinishedThreadblock == (trace.Dim3{-1, -1, -1}) {
 		return false
 	}
+	numThreadFinished := s.threadblockWarpCountTableOrigin[firstFinishedThreadblock] * 32
 
 	msg := &message.SMToDeviceMsg{
-		ThreadblockFinished: true,
-		SMID:                s.ID,
+		NumThreadFinished: numThreadFinished,
+		SMID:              s.ID,
 	}
 	msg.Src = s.toGPU.AsRemote()
 	msg.Dst = s.toGPURemote.AsRemote()
@@ -270,7 +306,7 @@ func (s *SMController) reportFinishedKernels() bool {
 		return false
 	}
 
-	s.finishedThreadblocksCount--
+	// s.finishedThreadblocksCount--
 
 	return true
 }

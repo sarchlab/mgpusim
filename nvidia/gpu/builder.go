@@ -141,6 +141,11 @@ func (b *GPUBuilder) Build(name string) *GPUController {
 	b.connectL2AndDRAM()
 	b.connectL1ToL2()
 
+	for i := uint64(0); i < b.smsCount; i++ {
+		smID := b.gpu.SMList[i].ID
+		b.gpu.SMAssignedList[smID] = 0
+	}
+
 	// b.connectGPUWithDRAM(b.gpu, b.Dram)
 	// b.connectGPUControllerToDRAM(b.gpu, b.DRAM)
 	// b.connectGPUControllerToSMSPs(b.gpu, sms, b.DRAM)
@@ -168,9 +173,10 @@ func (b *GPUBuilder) createGPU(name string) {
 		SMs:                            make(map[string]*sm.SMController),
 		SMIssueIndex:                   0,
 		smsCount:                       b.smsCount,
-		SMAssignedList:                 make(map[string]bool),
+		SMAssignedList:                 make(map[string]uint64),
 		launchOverheadLatency:          b.launchOverheadLatency,
 		launchOverheadLatencyRemaining: b.launchOverheadLatency,
+		SMThreadCapacity:               2048,
 		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
