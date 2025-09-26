@@ -31,6 +31,8 @@ const (
 	OpCode6
 	OpCode8
 	OpCode10
+	OpCode20
+	OpCode100
 	IMADMOVU32
 )
 
@@ -103,6 +105,10 @@ func (op *Opcode) GetInstructionCycles() uint64 {
 		return 8
 	case OpCode10:
 		return 10
+	case OpCode20:
+		return 20
+	case OpCode100:
+		return 100
 	case OpCodeExit:
 		return 1
 	case OpCodeMemRead:
@@ -127,7 +133,7 @@ func init() {
 	opcodeTable["IMAD"] = Opcode{"IMAD", OpCode4, VariableDefault}
 	opcodeTable["FADD"] = Opcode{"FADD", OpCode4, VariableDefault}
 	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCode4, VariableDefault}
-	opcodeTable["LDC"] = Opcode{"LDC", OpCode2, VariableDefault}
+	opcodeTable["LDC"] = Opcode{"LDC", OpCode20, VariableDefault}
 
 	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCode6, VariableDefault}
 

@@ -2,10 +2,12 @@ package sm
 
 import (
 	"fmt"
+	"math"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
 	"github.com/sarchlab/mgpusim/v4/nvidia/smsp"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
@@ -56,6 +58,8 @@ type SMController struct {
 
 	SMReceiveGPULatency          uint64
 	SMReceiveGPULatencyRemaining uint64
+
+	CWDAdmissionPathCostLatencyRemaining uint64
 }
 
 func (s *SMController) SetGPURemotePort(remote sim.Port) {
@@ -215,6 +219,21 @@ func (s *SMController) processSMSPsInput() bool {
 // }
 
 func (s *SMController) processSMMsg(msg *message.DeviceToSMMsg) {
+	// A new CTA arrives
+	if s.CWDAdmissionPathCostLatencyRemaining == 0 {
+		nSMSPToUse := uint64(math.Ceil(float64(msg.Threadblock.WarpsCount()) / 16))
+		s.CWDAdmissionPathCostLatencyRemaining = (1 + (nSMSPToUse - 1) + nSMSPToUse) - 1
+		// fmt.Printf("msg.Threadblock.WarpsCount()=%d CWDAdmissionPathCostLatencyRemaining set to %d\n", msg.Threadblock.WarpsCount(), s.CWDAdmissionPathCostLatencyRemaining)
+		return
+	}
+	// Wait for the latency to be 0
+	if s.CWDAdmissionPathCostLatencyRemaining > 1 {
+		s.CWDAdmissionPathCostLatencyRemaining--
+		return
+	}
+	// The latency is 1, process the msg and reset the latency counter
+	s.CWDAdmissionPathCostLatencyRemaining = 0
+
 	s.threadblockWarpCountTable[msg.Threadblock.ID] = msg.Threadblock.WarpsCount()
 	s.threadblockWarpCountTableOrigin[msg.Threadblock.ID] = msg.Threadblock.WarpsCount()
 	for i := range msg.Threadblock.Warps {
@@ -222,11 +241,22 @@ func (s *SMController) processSMMsg(msg *message.DeviceToSMMsg) {
 		// s.unfinishedWarpsCount++
 		s.warpsCount++
 	}
+	tracing.StartTask(
+		msg.Threadblock.ThreadblockFullID(),
+		// fmt.Sprintf("kernel[%s]", msg.Threadblock.FatherKernelID),
+		s.ID,
+		s,
+		"SM Command",
+		"process threadblock",
+		nil,
+	)
+	// fmt.Printf("tracing.StartTask: %s\n", msg.Threadblock.ThreadblockFullID())
+
 	s.toGPU.RetrieveIncoming()
 }
 
 func (s *SMController) processSMSPSMsg(msg *message.SMSPToSMMsg) {
-	warpFatherThreadID := msg.Warp.FatherThreadID
+	warpFatherThreadID := msg.Warp.FatherThreadblockID
 	if msg.WarpFinished {
 		// s.freeSMSPs = append(s.freeSMSPs, s.SMSPs[msg.SMSPID])
 		// s.unfinishedWarpsCount--
@@ -310,6 +340,12 @@ func (s *SMController) reportFinishedKernels() bool {
 	if err != nil {
 		return false
 	}
+	threadblockFullID := fmt.Sprintf("threadblock[%d,%d,%d]", firstFinishedThreadblock[0], firstFinishedThreadblock[1], firstFinishedThreadblock[2])
+	tracing.EndTask(
+		threadblockFullID,
+		s,
+	)
+	// fmt.Printf("tracing.EndTask: %s\n", threadblockFullID)
 
 	// s.finishedThreadblocksCount--
 

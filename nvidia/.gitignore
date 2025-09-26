@@ -3,4 +3,5 @@ data/*
 *.log
 
 !data/simple-trace-example/
+!data/simtune*/
 etc/secret-local.yaml

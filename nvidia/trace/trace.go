@@ -39,20 +39,22 @@ type KernelFileHeader struct {
 }
 
 type ThreadblockTrace struct {
-	ID    Dim3
-	Warps []*WarpTrace
+	ID             Dim3
+	FatherKernelID string
+	Warps          []*WarpTrace
 }
 
 type WarpTrace struct {
-	ID             int
-	FatherThreadID Dim3
-	instsCount     uint64
-	Instructions   []*InstructionTrace
+	ID                  int
+	FatherThreadblockID Dim3
+	instsCount          uint64
+	Instructions        []*InstructionTrace
 }
 
 type InstructionTrace struct {
 	threadblockID     Dim3
 	warpID            int
+	instIndexInWarp   uint64
 	PC                uint64
 	Mask              uint64
 	DestNum           int
@@ -120,6 +122,10 @@ func (t *KernelTrace) Threadblock(index uint64) *ThreadblockTrace {
 	return t.Threadblocks[index]
 }
 
+func (t *KernelTrace) KernelFullID(index uint64) string {
+	return fmt.Sprintf("kernel[%s]", t.ID)
+}
+
 func (tb *ThreadblockTrace) WarpsCount() uint64 {
 	return uint64(len(tb.Warps))
 }
@@ -128,10 +134,22 @@ func (tb *ThreadblockTrace) Warp(index uint64) *WarpTrace {
 	return tb.Warps[index]
 }
 
+func (tb *ThreadblockTrace) ThreadblockFullID() string {
+	return fmt.Sprintf("threadblock[%d,%d,%d]", tb.ID[0], tb.ID[1], tb.ID[2])
+}
+
 func (w *WarpTrace) InstructionsCount() uint64 {
 	return uint64(len(w.Instructions))
 }
 
+func (w *WarpTrace) WarpFullID() string {
+	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]", w.FatherThreadblockID[0], w.FatherThreadblockID[1], w.FatherThreadblockID[2], w.ID)
+}
+
 func (i *InstructionTrace) InstructionsParentID() string {
 	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID)
+}
+
+func (i *InstructionTrace) InstructionsFullID() string {
+	return fmt.Sprintf("threadblock[%d,%d,%d]@warp[%d]@inst[%d]@%s", i.threadblockID[0], i.threadblockID[1], i.threadblockID[2], i.warpID, i.instIndexInWarp, i.OpCode.rawText)
 }

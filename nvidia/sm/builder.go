@@ -88,23 +88,26 @@ func (b SMBuilder) WithSMReceiveGPULatency(l uint64) SMBuilder {
 
 func (b SMBuilder) Build(name string) *SMController {
 	s := &SMController{
-		ID:                               sim.GetIDGenerator().Generate(),
-		SMSPs:                            make(map[string]*smsp.SMSPController),
-		SMSPsIDs:                         []string{},
-		smspsCount:                       b.smspsCount,
-		smspIssueIndex:                   0,
-		SM2SMSPWarpIssueLatency:          b.SM2SMSPWarpIssueLatency,
-		SM2SMSPWarpIssueLatencyRemaining: b.SM2SMSPWarpIssueLatency,
-		threadblockWarpCountTable:        make(map[trace.Dim3]uint64),
-		threadblockWarpCountTableOrigin:  make(map[trace.Dim3]uint64),
-		SMReceiveGPULatency:              b.SMReceiveGPULatency,
-		SMReceiveGPULatencyRemaining:     b.SMReceiveGPULatency,
+		ID:                                   sim.GetIDGenerator().Generate(),
+		SMSPs:                                make(map[string]*smsp.SMSPController),
+		SMSPsIDs:                             []string{},
+		smspsCount:                           b.smspsCount,
+		smspIssueIndex:                       0,
+		SM2SMSPWarpIssueLatency:              b.SM2SMSPWarpIssueLatency,
+		SM2SMSPWarpIssueLatencyRemaining:     b.SM2SMSPWarpIssueLatency,
+		threadblockWarpCountTable:            make(map[trace.Dim3]uint64),
+		threadblockWarpCountTableOrigin:      make(map[trace.Dim3]uint64),
+		SMReceiveGPULatency:                  b.SMReceiveGPULatency,
+		SMReceiveGPULatencyRemaining:         b.SMReceiveGPULatency,
+		CWDAdmissionPathCostLatencyRemaining: 0,
 	}
 
 	b.name = name
 	b.connectionCount = 0
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)
 	b.buildL1VCaches()
+
+	b.simulation.RegisterComponent(s)
 	b.buildPortsForSM(s, name)
 	b.buildSMSPs(name)
 	b.connectSMwithSMSPs(s, b.smsps)
@@ -150,6 +153,14 @@ func (b *SMBuilder) buildPortsForSM(sm *SMController, name string) {
 	// sm.AddPort(fmt.Sprintf("%s.ToGPUMem", name), sm.toGPUMem)
 	// sm.AddPort(fmt.Sprintf("%s.ToSMSPMem", name), sm.toSMSPMem)
 }
+
+// func (b *SMBuilder) BuildL1VCachesBottomPorts(sm *SMController) {
+// 	for i := range b.smspsCount {
+// 		// smsp := b.smsps[i]
+// 		sm.AddPort(fmt.Sprintf("L1VCacheBottom[%d]", i),
+// 			b.l1vCaches[i].GetPortByName("Bottom"))
+// 	}
+// }
 
 func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
 

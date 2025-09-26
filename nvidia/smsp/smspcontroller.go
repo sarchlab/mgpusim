@@ -65,8 +65,9 @@ func (s *SMSPController) SetVectorMemRemote(remote sim.Port) {
 func (s *SMSPController) Tick() bool {
 	madeProgress := false
 	madeProgress = s.reportFinishedWarps() || madeProgress
-	madeProgress = s.run() || madeProgress
+	// madeProgress = s.run() || madeProgress
 	madeProgress = s.processSMInput() || madeProgress
+	madeProgress = s.run() || madeProgress // avoid huge cost from warp setup
 	madeProgress = s.processMemRsp() || madeProgress
 	// warps can be switched, but ignore now
 
@@ -360,7 +361,7 @@ func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
 	currentInstruction := warpUnit.warp.Instructions[warpUnit.warp.InstructionsCount()-warpUnit.unfinishedInstsCount]
 
 	currentInstructionType := currentInstruction.OpCode.OpcodeType()
-	reqParentID := currentInstruction.InstructionsParentID()
+	reqParentID := currentInstruction.InstructionsFullID()
 	// fmt.Printf("%v\n", currentInstructionType == trace.OpCodeMemRead)
 	switch currentInstructionType {
 	case trace.OpCodeMemRead:

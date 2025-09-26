@@ -136,7 +136,9 @@ func (t *KernelTrace) readThreadblocks() {
 	t.Threadblocks = make([]*ThreadblockTrace, 0)
 
 	for goToNextlineWithPrefixIncludingNow("thread block") {
-		tb := &ThreadblockTrace{}
+		tb := &ThreadblockTrace{
+			FatherKernelID: t.ID,
+		}
 		fmt.Sscanf(kernelScanner.Text(), "thread block = %d,%d,%d", &tb.ID[0], &tb.ID[1], &tb.ID[2])
 
 		for moveScannerToNextLine() {
@@ -144,7 +146,7 @@ func (t *KernelTrace) readThreadblocks() {
 			if strings.HasPrefix(kernelScanner.Text(), "warp") {
 				// fmt.Println("This is visited")
 				wp := &WarpTrace{}
-				wp.FatherThreadID = tb.ID
+				wp.FatherThreadblockID = tb.ID
 				fmt.Sscanf(kernelScanner.Text(), "warp = %d", &wp.ID)
 
 				if !goToNextlineWithPrefixIncludingNow("insts") {
@@ -154,7 +156,7 @@ func (t *KernelTrace) readThreadblocks() {
 
 				for j := 0; j < int(wp.instsCount); j++ {
 					moveScannerToNextLine()
-					inst := extractInst(kernelScanner.Text())
+					inst := extractInst(kernelScanner.Text(), uint64(j))
 					inst.threadblockID = tb.ID
 					inst.warpID = wp.ID
 
@@ -183,8 +185,10 @@ func (t *KernelTrace) readThreadblocks() {
 
 	7
 */
-func extractInst(text string) *InstructionTrace {
-	inst := &InstructionTrace{}
+func extractInst(text string, instIndexInWarp uint64) *InstructionTrace {
+	inst := &InstructionTrace{
+		instIndexInWarp: instIndexInWarp,
+	}
 	elems := strings.Fields(text)
 
 	fmt.Sscanf(elems[0], "%x", &inst.PC)

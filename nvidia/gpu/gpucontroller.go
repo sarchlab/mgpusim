@@ -75,6 +75,8 @@ type GPUController struct {
 
 	GPUReceiveSMLatency          uint64
 	GPUReceiveSMLatencyRemaining uint64
+
+	CWDIssueWidth uint64
 }
 
 func (g *GPUController) SetDriverRemotePort(remote sim.Port) {
@@ -238,34 +240,39 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 		return true
 	}
 
-	threadblock := g.undispatchedThreadblocks[0]
-	nThreadToBeAssigned := threadblock.WarpsCount() * 32
+	for i := uint64(0); i < g.CWDIssueWidth; i++ {
+		if len(g.undispatchedThreadblocks) == 0 {
+			break
+		}
 
-	smIndex := g.issueSMIndex(nThreadToBeAssigned)
-	if smIndex == -1 {
-		// All sms already has a threadblock to do
-		return true
+		threadblock := g.undispatchedThreadblocks[0]
+		nThreadToBeAssigned := threadblock.WarpsCount() * 32
+
+		smIndex := g.issueSMIndex(nThreadToBeAssigned)
+		if smIndex == -1 {
+			// All sms already has a threadblock to do
+			return true
+		}
+		sm := g.SMList[smIndex]
+
+		msg := &message.DeviceToSMMsg{
+			Threadblock: *threadblock,
+		}
+		msg.Src = g.toSMs.AsRemote()
+		msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
+
+		err := g.toSMs.Send(msg)
+		if err != nil {
+			return false
+		}
+
+		// g.freeSMs = g.freeSMs[1:]
+		g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
+
+		g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
+
+		g.GPU2SMThreadBlockAllocationLatencyRemaining = g.GPU2SMThreadBlockAllocationLatency
 	}
-	sm := g.SMList[smIndex]
-
-	msg := &message.DeviceToSMMsg{
-		Threadblock: *threadblock,
-	}
-	msg.Src = g.toSMs.AsRemote()
-	msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
-
-	err := g.toSMs.Send(msg)
-	if err != nil {
-		return false
-	}
-
-	// g.freeSMs = g.freeSMs[1:]
-	g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
-
-	g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
-
-	g.GPU2SMThreadBlockAllocationLatencyRemaining = g.GPU2SMThreadBlockAllocationLatency
-
 	return false
 }
 
