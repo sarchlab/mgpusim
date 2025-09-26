@@ -26,6 +26,7 @@ const (
 	OpCodeMemRead
 	OpCodeMemWrite
 	OpCodeExit
+	OpCode2
 	OpCode4
 	OpCode6
 	OpCode8
@@ -90,6 +91,28 @@ func (op *Opcode) VariableType() VariableType {
 	return op.varType
 }
 
+func (op *Opcode) GetInstructionCycles() uint64 {
+	switch op.opType {
+	case OpCode2:
+		return 2
+	case OpCode4:
+		return 4
+	case OpCode6:
+		return 6
+	case OpCode8:
+		return 8
+	case OpCode10:
+		return 10
+	case OpCodeExit:
+		return 1
+	case OpCodeMemRead:
+		return 0
+	case OpCodeMemWrite:
+		return 0
+	}
+	return 1
+}
+
 var opcodeTable map[string]Opcode
 
 func init() {
@@ -104,6 +127,7 @@ func init() {
 	opcodeTable["IMAD"] = Opcode{"IMAD", OpCode4, VariableDefault}
 	opcodeTable["FADD"] = Opcode{"FADD", OpCode4, VariableDefault}
 	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCode4, VariableDefault}
+	opcodeTable["LDC"] = Opcode{"LDC", OpCode2, VariableDefault}
 
 	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCode6, VariableDefault}
 

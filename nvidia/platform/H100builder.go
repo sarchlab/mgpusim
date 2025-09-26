@@ -50,8 +50,10 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithDRAMSize(65536 * mem.TB).
 		WithLog2CacheLineSize(7).
 		WithNumMemoryBank(4).
-		WithGPU2SMThreadBlockAllocationLatency(1).
-		WithSM2SMSPWarpIssueLatency(1)
+		WithGPU2SMThreadBlockAllocationLatency(0).
+		WithSMReceiveGPULatency(0).
+		WithSM2SMSPWarpIssueLatency(0).
+		WithGPUReceiveSMLatency(1)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))

@@ -44,6 +44,8 @@ type GPUBuilder struct {
 	// pageMigrationController *pagemigrationcontroller.PageMigrationController
 	GPU2SMThreadBlockAllocationLatency uint64
 	SM2SMSPWarpIssueLatency            uint64
+	SMReceiveGPULatency                uint64
+	GPUReceiveSMLatency                uint64
 }
 
 func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
@@ -108,6 +110,16 @@ func (b GPUBuilder) WithSM2SMSPWarpIssueLatency(l uint64) GPUBuilder {
 	return b
 }
 
+func (b GPUBuilder) WithSMReceiveGPULatency(l uint64) GPUBuilder {
+	b.SMReceiveGPULatency = l
+	return b
+}
+
+func (b GPUBuilder) WithGPUReceiveSMLatency(l uint64) GPUBuilder {
+	b.GPUReceiveSMLatency = l
+	return b
+}
+
 func (b *GPUBuilder) Build(name string) *GPUController {
 	// g := &GPUController{
 	// 	ID:  sim.GetIDGenerator().Generate(),
@@ -137,7 +149,8 @@ func (b *GPUBuilder) Build(name string) *GPUController {
 
 	for i := uint64(0); i < b.smsCount; i++ {
 		smID := b.gpu.SMList[i].ID
-		b.gpu.SMAssignedList[smID] = 0
+		b.gpu.SMAssignedThreadTable[smID] = 0
+		b.gpu.SMAssignedCTACountTable[smID] = 0
 	}
 
 	// b.connectGPUWithDRAM(b.gpu, b.Dram)
@@ -162,15 +175,19 @@ func (b *GPUBuilder) createGPU(name string) {
 	b.gpuName = name
 
 	b.gpu = &GPUController{
-		gpuName:                            name,
-		ID:                                 sim.GetIDGenerator().Generate(),
-		SMs:                                make(map[string]*sm.SMController),
-		SMIssueIndex:                       0,
-		smsCount:                           b.smsCount,
-		SMAssignedList:                     make(map[string]uint64),
-		SMThreadCapacity:                   2048,
-		GPU2SMThreadBlockAllocationLatency: b.GPU2SMThreadBlockAllocationLatency,
+		gpuName:                 name,
+		ID:                      sim.GetIDGenerator().Generate(),
+		SMs:                     make(map[string]*sm.SMController),
+		SMIssueIndex:            0,
+		smsCount:                b.smsCount,
+		SMAssignedThreadTable:   make(map[string]uint64),
+		SMAssignedCTACountTable: make(map[string]uint64),
+		SMThreadCapacity:        2048,
+
+		GPU2SMThreadBlockAllocationLatency:          b.GPU2SMThreadBlockAllocationLatency,
 		GPU2SMThreadBlockAllocationLatencyRemaining: b.GPU2SMThreadBlockAllocationLatency,
+		GPUReceiveSMLatency:                         b.GPUReceiveSMLatency,
+		GPUReceiveSMLatencyRemaining:                b.GPUReceiveSMLatency,
 		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
@@ -200,7 +217,8 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 		WithSimulation(b.simulation).
 		WithSMSPsCount(b.smspsCountPerSM).
 		WithL1AddressMapper(b.l1AddressMapper).
-		WithSM2SMSPWarpIssueLatency(b.SM2SMSPWarpIssueLatency)
+		WithSM2SMSPWarpIssueLatency(b.SM2SMSPWarpIssueLatency).
+		WithSMReceiveGPULatency(b.SMReceiveGPULatency)
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {

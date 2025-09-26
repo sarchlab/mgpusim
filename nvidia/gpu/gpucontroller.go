@@ -24,8 +24,9 @@ type GPUController struct {
 	toSMs sim.Port
 	SMs   map[string]*sm.SMController
 	// freeSMs []*sm.SMController
-	SMList         []*sm.SMController
-	SMAssignedList map[string]uint64
+	SMList                  []*sm.SMController
+	SMAssignedThreadTable   map[string]uint64
+	SMAssignedCTACountTable map[string]uint64
 
 	ToSMSPs sim.Port
 
@@ -71,6 +72,9 @@ type GPUController struct {
 	SMThreadCapacity                            uint64
 	GPU2SMThreadBlockAllocationLatency          uint64
 	GPU2SMThreadBlockAllocationLatencyRemaining uint64
+
+	GPUReceiveSMLatency          uint64
+	GPUReceiveSMLatencyRemaining uint64
 }
 
 func (g *GPUController) SetDriverRemotePort(remote sim.Port) {
@@ -92,7 +96,7 @@ func (g *GPUController) Tick() bool {
 }
 
 func (g *GPUController) checkAnySMAssigned() bool {
-	for _, assigned := range g.SMAssignedList {
+	for _, assigned := range g.SMAssignedThreadTable {
 		if assigned > 0 {
 			return true
 		}
@@ -121,12 +125,19 @@ func (g *GPUController) processSMsInput() bool {
 		return false
 	}
 
+	if g.GPUReceiveSMLatencyRemaining > 0 {
+		g.GPUReceiveSMLatencyRemaining--
+		return true
+	}
+
 	switch msg := msg.(type) {
 	case *message.SMToDeviceMsg:
 		g.processSMsMsg(msg)
 	default:
 		log.WithField("function", "processSMsInput").Panic("Unhandled message type")
 	}
+
+	g.GPUReceiveSMLatencyRemaining = g.GPUReceiveSMLatency
 
 	return true
 }
@@ -148,9 +159,11 @@ func (g *GPUController) processSMsMsg(msg *message.SMToDeviceMsg) {
 		if g.unfinishedThreadblocksCount == 0 {
 			g.finishedKernelsCount++
 		}
-		g.SMAssignedList[msg.SMID] -= msg.NumThreadFinished
-		if g.SMAssignedList[msg.SMID] < 0 {
-			log.Panic(fmt.Sprintf("SMAssignedList[%s] < 0", msg.SMID))
+		// fmt.Printf("g.SMAssignedThreadTable[%s] = %d, msg.NumThreadFinished = %d, g.SMAssignedThreadTable[%s]-=msg.NumThreadFinished=%d\n", msg.SMID, g.SMAssignedThreadTable[msg.SMID], msg.NumThreadFinished, msg.SMID, g.SMAssignedThreadTable[msg.SMID]-msg.NumThreadFinished)
+		g.SMAssignedThreadTable[msg.SMID] -= msg.NumThreadFinished
+		g.SMAssignedCTACountTable[msg.SMID] -= 1
+		if g.SMAssignedThreadTable[msg.SMID] < 0 || g.SMAssignedCTACountTable[msg.SMID] < 0 {
+			log.Panic(fmt.Sprintf("SMAssignedThreadTable[%s] < 0 || SMAssignedCTACountTable[%s] < 0", msg.SMID, msg.SMID))
 		}
 	}
 	g.toSMs.RetrieveIncoming()
@@ -200,12 +213,16 @@ func (g *GPUController) issueSMIndex(nThreadToBeAssigned uint64) int {
 	for i := 0; i < int(g.smsCount); i++ {
 		index := (int(g.SMIssueIndex) + i) % int(g.smsCount)
 		sm := g.SMList[index]
-		if g.SMAssignedList[sm.ID]+nThreadToBeAssigned <= g.SMThreadCapacity {
-			g.SMAssignedList[sm.ID] += nThreadToBeAssigned
+		if g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned <= g.SMThreadCapacity && g.SMAssignedCTACountTable[sm.ID] < 4 {
+			g.SMAssignedThreadTable[sm.ID] += nThreadToBeAssigned
+			g.SMAssignedCTACountTable[sm.ID] += 1
+			// fmt.Printf("g.SMAssignedThreadTable[%s] = %d, nThreadToBeAssigned = %d, g.SMAssignedThreadTable[%s]+=nThreadToBeAssigned=%d\n", sm.ID, g.SMAssignedThreadTable[sm.ID], nThreadToBeAssigned, sm.ID, g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned)
 			g.SMIssueIndex = uint64((index + 1) % int(g.smsCount))
 			return index
 		}
+		// fmt.Printf("sm %s cannot take %d threads now, current assigned threads = %d, current assigned CTAs = %d\n", sm.ID, nThreadToBeAssigned, g.SMAssignedThreadTable[sm.ID], g.SMAssignedCTACountTable[sm.ID])
 	}
+	// fmt.Printf("All sms already has full threadblocks to do\n")
 	return -1
 }
 

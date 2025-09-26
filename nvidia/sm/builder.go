@@ -34,6 +34,7 @@ type SMBuilder struct {
 	connectionCount int
 
 	SM2SMSPWarpIssueLatency uint64
+	SMReceiveGPULatency     uint64
 }
 
 func MakeBuilder() SMBuilder {
@@ -80,6 +81,11 @@ func (b SMBuilder) WithSM2SMSPWarpIssueLatency(l uint64) SMBuilder {
 	return b
 }
 
+func (b SMBuilder) WithSMReceiveGPULatency(l uint64) SMBuilder {
+	b.SMReceiveGPULatency = l
+	return b
+}
+
 func (b SMBuilder) Build(name string) *SMController {
 	s := &SMController{
 		ID:                               sim.GetIDGenerator().Generate(),
@@ -91,6 +97,8 @@ func (b SMBuilder) Build(name string) *SMController {
 		SM2SMSPWarpIssueLatencyRemaining: b.SM2SMSPWarpIssueLatency,
 		threadblockWarpCountTable:        make(map[trace.Dim3]uint64),
 		threadblockWarpCountTableOrigin:  make(map[trace.Dim3]uint64),
+		SMReceiveGPULatency:              b.SMReceiveGPULatency,
+		SMReceiveGPULatencyRemaining:     b.SMReceiveGPULatency,
 	}
 
 	b.name = name

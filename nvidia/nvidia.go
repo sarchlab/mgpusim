@@ -23,7 +23,7 @@ type Params struct {
 // get trace directory from parameter
 func parseFlags() *Params {
 	params := &Params{
-		TraceDir: flag.String("trace-dir", "data/simple-trace-example", "The directory that contains the trace files"),
+		TraceDir: flag.String("trace-dir", "data/simtune-example-2", "The directory that contains the trace files"),
 		Device:   flag.String("device", "H100", "Device type: H100 or A100 (required)"),
 	}
 

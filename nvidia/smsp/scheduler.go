@@ -10,7 +10,7 @@ import (
 
 type WarpStatus int
 
-const SMSPSchedulerIssueSpeed = 2
+const SMSPSchedulerIssueSpeed = 1
 
 const (
 	WarpStatusReady WarpStatus = iota
@@ -32,9 +32,10 @@ type SMSPWarpUnit struct {
 		"Selected" means "the warp issued an instruction this cycle";
 		"Not Selected" means "warp was eligible, but another warp was chosen to issue this cycle";
 	*/
-	warp                 *trace.WarpTrace
-	status               WarpStatus
-	unfinishedInstsCount uint64
+	warp                              *trace.WarpTrace
+	status                            WarpStatus
+	unfinishedInstsCount              uint64
+	currentInstructionRemainingCycles uint64
 }
 
 type SMSPSWarpScheduler struct {
@@ -78,9 +79,10 @@ func (s *SMSPSWarpScheduler) issueWarps() []*SMSPWarpUnit {
 
 func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
 	newWarpUnit := &SMSPWarpUnit{
-		warp:                 warp,
-		status:               WarpStatusReady,
-		unfinishedInstsCount: warp.InstructionsCount(),
+		warp:                              warp,
+		status:                            WarpStatusReady,
+		unfinishedInstsCount:              warp.InstructionsCount(),
+		currentInstructionRemainingCycles: 0,
 	}
 	s.warpUnitList = append(s.warpUnitList, newWarpUnit)
 	return true

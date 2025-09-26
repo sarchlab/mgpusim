@@ -53,6 +53,9 @@ type SMController struct {
 
 	threadblockWarpCountTable       map[trace.Dim3]uint64
 	threadblockWarpCountTableOrigin map[trace.Dim3]uint64
+
+	SMReceiveGPULatency          uint64
+	SMReceiveGPULatencyRemaining uint64
 }
 
 func (s *SMController) SetGPURemotePort(remote sim.Port) {
@@ -105,12 +108,19 @@ func (s *SMController) processGPUInput() bool {
 		return false
 	}
 
+	if s.SMReceiveGPULatencyRemaining > 0 {
+		s.SMReceiveGPULatencyRemaining--
+		return true
+	}
+
 	switch msg := msg.(type) {
 	case *message.DeviceToSMMsg:
 		s.processSMMsg(msg)
 	default:
 		log.WithField("function", "processGPUInput").Panic("Unhandled message type")
 	}
+
+	s.SMReceiveGPULatencyRemaining = s.SMReceiveGPULatency
 
 	return true
 }
