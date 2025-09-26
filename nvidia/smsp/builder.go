@@ -32,7 +32,9 @@ func (b *SMSPBuilder) WithSimulation(sim *simulation.Simulation) *SMSPBuilder {
 
 func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s := &SMSPController{
-		ID: sim.GetIDGenerator().Generate(),
+		ID:                            sim.GetIDGenerator().Generate(),
+		SMSPReceiveSMLatency:          10000,
+		SMSPReceiveSMLatencyRemaining: 10000,
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)

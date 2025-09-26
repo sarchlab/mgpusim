@@ -47,6 +47,9 @@ type SMSPController struct {
 	// currentWarp        trace.WarpTrace
 
 	ToVectorMem sim.Port
+
+	SMSPReceiveSMLatency          uint64
+	SMSPReceiveSMLatencyRemaining uint64
 }
 
 func (s *SMSPController) SetSMRemotePort(remote sim.Port) {
@@ -132,6 +135,11 @@ func (s *SMSPController) Tick() bool {
 
 func (s *SMSPController) processSMInput() bool {
 	// fmt.Println("Called processSMInput")
+	// if s.SMSPReceiveSMLatencyRemaining > 0 {
+	// 	s.SMSPReceiveSMLatencyRemaining--
+	// 	// fmt.Printf("s.SMSPReceiveSMLatencyRemaining: %d->%d\n", s.SMSPReceiveSMLatencyRemaining+1, s.SMSPReceiveSMLatencyRemaining)
+	// 	return true
+	// }
 	msg := s.toSM.PeekIncoming()
 	if msg == nil {
 		return false
@@ -143,6 +151,7 @@ func (s *SMSPController) processSMInput() bool {
 	default:
 		log.WithField("function", "processSMInput").Panic("Unhandled message type")
 	}
+	// s.SMSPReceiveSMLatencyRemaining = s.SMSPReceiveSMLatency
 
 	return true
 }
@@ -442,7 +451,7 @@ func (s *SMSPController) handleNormalInstruction(lastInstructionFlag bool, warpU
 	}
 
 	// First time loading this instruction
-	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1
+	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1 + 500
 	if warpUnit.currentInstructionRemainingCycles == 0 {
 		s.handleNormalInstructionEnd(lastInstructionFlag, warpUnit)
 	}
