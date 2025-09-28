@@ -28,7 +28,7 @@ func parseFlags() *Params {
 		TraceDir:        flag.String("trace-dir", "data/simtune-example-2", "The directory that contains the trace files"),
 		Device:          flag.String("device", "H100", "Device type: H100 or A100 (required)"),
 		VisTracing:      flag.Bool("trace-vis", false, "Generate trace for visualization purposes."),
-		DisableAkitaRTM: flag.Bool("disable-rtm", false, "Disable the AkitaRTM monitoring portal"),
+		DisableAkitaRTM: flag.Bool("disable-rtm", true, "Disable the AkitaRTM monitoring portal"),
 	}
 
 	flag.Parse()
