@@ -15,6 +15,7 @@ import (
 type A100PlatformBuilder struct {
 	freq       sim.Freq
 	simulation *simulation.Simulation
+	VisTracing bool
 }
 
 func (b *A100PlatformBuilder) WithFreq(freq sim.Freq) *A100PlatformBuilder {
@@ -25,6 +26,11 @@ func (b *A100PlatformBuilder) WithFreq(freq sim.Freq) *A100PlatformBuilder {
 // WithSimulation sets the simulation to use.
 func (b *A100PlatformBuilder) WithSimulation(sim *simulation.Simulation) *A100PlatformBuilder {
 	b.simulation = sim
+	return b
+}
+
+func (b *A100PlatformBuilder) WithVisTracing(vt bool) *A100PlatformBuilder {
+	b.VisTracing = vt
 	return b
 }
 
@@ -48,7 +54,8 @@ func (b *A100PlatformBuilder) Build() *Platform {
 		WithL2CacheSize(40 * mem.MB). // WithL2CacheSize(2 * mem.MB).
 		WithDRAMSize(80 * mem.GB).    // WithDRAMSize(4 * mem.GB).
 		WithLog2CacheLineSize(7).     // WithLog2CacheLineSize(6).
-		WithNumMemoryBank(4)
+		WithNumMemoryBank(4).
+		WithVisTracing(b.VisTracing)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))

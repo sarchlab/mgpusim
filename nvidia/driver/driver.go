@@ -34,6 +34,8 @@ type Driver struct {
 
 	driver2GPUOverheadLatency          uint64
 	driver2GPUOverheadLatencyRemaining uint64
+
+	VisTracing bool
 }
 
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
@@ -139,12 +141,18 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 func (d *Driver) LogSimulationStart() {
 	d.simulationID = xid.New().String()
 	// fmt.Printf("tracing.StartTask: Simulation ID: %s\n", d.simulationID)
-	tracing.StartTask(d.simulationID, "", d, "Simulation", "Simulation", nil)
+	// fmt.Printf("cp 1 d.VisTracing = %v\n", d.VisTracing)
+	if d.VisTracing {
+		tracing.StartTask(d.simulationID, "", d, "Simulation", "Simulation", nil)
+	}
 }
 
 func (d *Driver) LogSimulationTerminate() {
 	// fmt.Printf("tracing.EndTask: Simulation ID: %s\n", d.simulationID)
-	tracing.EndTask(d.simulationID, d)
+	// fmt.Printf("cp 2 d.VisTracing = %v\n", d.VisTracing)
+	if d.VisTracing {
+		tracing.EndTask(d.simulationID, d)
+	}
 }
 
 // func (d *Driver) logTaskToGPUInitiate(

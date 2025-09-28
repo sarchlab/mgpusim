@@ -10,6 +10,7 @@ type DriverBuilder struct {
 	engine                    sim.Engine
 	freq                      sim.Freq
 	driver2GPUOverheadLatency uint64
+	VisTracing                bool
 }
 
 func (b *DriverBuilder) WithEngine(engine sim.Engine) *DriverBuilder {
@@ -27,11 +28,17 @@ func (b *DriverBuilder) WithDriver2GPUOverheadLatency(latency uint64) *DriverBui
 	return b
 }
 
+func (b *DriverBuilder) WithVisTracing(vt bool) *DriverBuilder {
+	b.VisTracing = vt
+	return b
+}
+
 func (b *DriverBuilder) Build(name string) *Driver {
 	d := &Driver{
 		devices:                            make(map[string]*gpu.GPUController),
 		driver2GPUOverheadLatency:          b.driver2GPUOverheadLatency,
 		driver2GPUOverheadLatencyRemaining: b.driver2GPUOverheadLatency,
+		VisTracing:                         b.VisTracing,
 	}
 
 	d.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, d)

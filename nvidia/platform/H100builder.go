@@ -15,6 +15,7 @@ import (
 type H100PlatformBuilder struct {
 	freq       sim.Freq
 	simulation *simulation.Simulation
+	VisTracing bool
 }
 
 func (b *H100PlatformBuilder) WithFreq(freq sim.Freq) *H100PlatformBuilder {
@@ -28,6 +29,12 @@ func (b *H100PlatformBuilder) WithSimulation(sim *simulation.Simulation) *H100Pl
 	return b
 }
 
+func (b *H100PlatformBuilder) WithVisTracing(vt bool) *H100PlatformBuilder {
+	b.VisTracing = vt
+	// fmt.Printf("cp 0.0 d.VisTracing = %v\n", b.VisTracing)
+	return b
+}
+
 func (b *H100PlatformBuilder) Build() *Platform {
 	b.freqMustBeSet()
 
@@ -38,6 +45,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
 		WithDriver2GPUOverheadLatency(2000).
+		WithVisTracing(b.VisTracing).
 		Build("Driver")
 
 	gpuDriver := new(gpu.GPUBuilder).
@@ -53,7 +61,8 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithGPU2SMThreadBlockAllocationLatency(0).
 		WithSMReceiveGPULatency(0).
 		WithSM2SMSPWarpIssueLatency(0).
-		WithGPUReceiveSMLatency(1)
+		WithGPUReceiveSMLatency(1).
+		WithVisTracing(b.VisTracing)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
 		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))

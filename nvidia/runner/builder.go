@@ -10,6 +10,7 @@ import (
 type RunnerBuilder struct {
 	platform   *platform.Platform
 	simulation *simulation.Simulation
+	VisTracing bool
 }
 
 func (r *RunnerBuilder) WithPlatform(platform *platform.Platform) *RunnerBuilder {
@@ -19,6 +20,11 @@ func (r *RunnerBuilder) WithPlatform(platform *platform.Platform) *RunnerBuilder
 
 func (r *RunnerBuilder) WithSimulation(simulation *simulation.Simulation) *RunnerBuilder {
 	r.simulation = simulation
+	return r
+}
+
+func (r *RunnerBuilder) WithVisTracing(vt bool) *RunnerBuilder {
+	r.VisTracing = vt
 	return r
 }
 
@@ -34,6 +40,7 @@ func (r *RunnerBuilder) Build() *Runner {
 	return &Runner{
 		platform:   r.platform,
 		simulation: r.simulation,
+		VisTracing: r.VisTracing,
 	}
 }
 

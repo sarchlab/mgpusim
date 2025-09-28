@@ -35,6 +35,8 @@ type SMBuilder struct {
 
 	SM2SMSPWarpIssueLatency uint64
 	SMReceiveGPULatency     uint64
+
+	VisTracing bool
 }
 
 func MakeBuilder() SMBuilder {
@@ -86,6 +88,11 @@ func (b SMBuilder) WithSMReceiveGPULatency(l uint64) SMBuilder {
 	return b
 }
 
+func (b SMBuilder) WithVisTracing(vt bool) SMBuilder {
+	b.VisTracing = vt
+	return b
+}
+
 func (b SMBuilder) Build(name string) *SMController {
 	s := &SMController{
 		ID:                                   sim.GetIDGenerator().Generate(),
@@ -100,6 +107,7 @@ func (b SMBuilder) Build(name string) *SMController {
 		SMReceiveGPULatency:                  b.SMReceiveGPULatency,
 		SMReceiveGPULatencyRemaining:         b.SMReceiveGPULatency,
 		CWDAdmissionPathCostLatencyRemaining: 0,
+		VisTracing:                           b.VisTracing,
 	}
 
 	b.name = name
@@ -169,7 +177,8 @@ func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
 		smspBuilder := new(smsp.SMSPBuilder).
 			WithEngine(b.engine).
 			WithFreq(b.freq).
-			WithSimulation(b.simulation)
+			WithSimulation(b.simulation).
+			WithVisTracing(b.VisTracing)
 
 		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP(%d)", smName, i))
 		b.simulation.RegisterComponent(smsp)

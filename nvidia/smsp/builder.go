@@ -13,6 +13,7 @@ type SMSPBuilder struct {
 	simulation *simulation.Simulation
 	engine     sim.Engine
 	freq       sim.Freq
+	VisTracing bool
 }
 
 func (b *SMSPBuilder) WithEngine(engine sim.Engine) *SMSPBuilder {
@@ -30,11 +31,17 @@ func (b *SMSPBuilder) WithSimulation(sim *simulation.Simulation) *SMSPBuilder {
 	return b
 }
 
+func (b *SMSPBuilder) WithVisTracing(vt bool) *SMSPBuilder {
+	b.VisTracing = vt
+	return b
+}
+
 func (b *SMSPBuilder) Build(name string) *SMSPController {
 	s := &SMSPController{
 		ID:                            sim.GetIDGenerator().Generate(),
 		SMSPReceiveSMLatency:          10000,
 		SMSPReceiveSMLatencyRemaining: 10000,
+		VisTracing:                    b.VisTracing,
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)

@@ -46,6 +46,8 @@ type GPUBuilder struct {
 	SM2SMSPWarpIssueLatency            uint64
 	SMReceiveGPULatency                uint64
 	GPUReceiveSMLatency                uint64
+
+	VisTracing bool
 }
 
 func (b *GPUBuilder) WithEngine(engine sim.Engine) *GPUBuilder {
@@ -117,6 +119,11 @@ func (b GPUBuilder) WithSMReceiveGPULatency(l uint64) GPUBuilder {
 
 func (b GPUBuilder) WithGPUReceiveSMLatency(l uint64) GPUBuilder {
 	b.GPUReceiveSMLatency = l
+	return b
+}
+
+func (b GPUBuilder) WithVisTracing(vt bool) GPUBuilder {
+	b.VisTracing = vt
 	return b
 }
 
@@ -219,7 +226,8 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 		WithSMSPsCount(b.smspsCountPerSM).
 		WithL1AddressMapper(b.l1AddressMapper).
 		WithSM2SMSPWarpIssueLatency(b.SM2SMSPWarpIssueLatency).
-		WithSMReceiveGPULatency(b.SMReceiveGPULatency)
+		WithSMReceiveGPULatency(b.SMReceiveGPULatency).
+		WithVisTracing(b.VisTracing)
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {
@@ -239,6 +247,7 @@ func (b *GPUBuilder) connectGPUWithSMs(gpu *GPUController, sms []*sm.SMControlle
 		WithFreq(1 * sim.GHz).
 		Build("GPUToSMs")
 	conn.PlugIn(gpu.toSMs)
+
 	b.simulation.RegisterComponent(conn)
 	// conn.PlugIn(gpu.toSMMem)
 

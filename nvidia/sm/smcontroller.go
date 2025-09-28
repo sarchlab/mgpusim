@@ -60,6 +60,8 @@ type SMController struct {
 	SMReceiveGPULatencyRemaining uint64
 
 	CWDAdmissionPathCostLatencyRemaining uint64
+
+	VisTracing bool
 }
 
 func (s *SMController) SetGPURemotePort(remote sim.Port) {
@@ -241,15 +243,19 @@ func (s *SMController) processSMMsg(msg *message.DeviceToSMMsg) {
 		// s.unfinishedWarpsCount++
 		s.warpsCount++
 	}
-	tracing.StartTask(
-		msg.Threadblock.ThreadblockFullID(),
-		// fmt.Sprintf("kernel[%s]", msg.Threadblock.FatherKernelID),
-		s.ID,
-		s,
-		"SM Command",
-		"process threadblock",
-		nil,
-	)
+	// fmt.Printf("cp 4 d.VisTracing = %v\n", s.VisTracing)
+	if s.VisTracing {
+		tracing.StartTask(
+			msg.Threadblock.ThreadblockFullID(),
+			// fmt.Sprintf("kernel[%s]", msg.Threadblock.FatherKernelID),
+			s.ID,
+			s,
+			"SM Command",
+			"process threadblock",
+			nil,
+		)
+	}
+
 	// fmt.Printf("tracing.StartTask: %s\n", msg.Threadblock.ThreadblockFullID())
 
 	s.toGPU.RetrieveIncoming()
@@ -341,10 +347,13 @@ func (s *SMController) reportFinishedKernels() bool {
 		return false
 	}
 	threadblockFullID := fmt.Sprintf("threadblock[%d,%d,%d]", firstFinishedThreadblock[0], firstFinishedThreadblock[1], firstFinishedThreadblock[2])
-	tracing.EndTask(
-		threadblockFullID,
-		s,
-	)
+	// fmt.Printf("cp 5 d.VisTracing = %v\n", s.VisTracing)
+	if s.VisTracing {
+		tracing.EndTask(
+			threadblockFullID,
+			s,
+		)
+	}
 	// fmt.Printf("tracing.EndTask: %s\n", threadblockFullID)
 
 	// s.finishedThreadblocksCount--

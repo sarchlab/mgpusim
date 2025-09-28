@@ -50,6 +50,8 @@ type SMSPController struct {
 
 	SMSPReceiveSMLatency          uint64
 	SMSPReceiveSMLatencyRemaining uint64
+
+	VisTracing bool
 }
 
 func (s *SMSPController) SetSMRemotePort(remote sim.Port) {
@@ -168,7 +170,9 @@ func (s *SMSPController) processMemRsp() bool {
 	case *mem.DataReadyRsp:
 		originalReqMsg := s.PendingSMSPtoMemReadReq[msg.RespondTo]
 		// fmt.Printf("[received] DataReadyRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
-		tracing.TraceReqFinalize(originalReqMsg, s)
+		if s.VisTracing {
+			tracing.TraceReqFinalize(originalReqMsg, s)
+		}
 		// fmt.Printf("%.10f, %s, SMSPController %s received data ready response (read), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		// s.waitingForMemRsp = false
 		warpUnit := s.PendingSMSPMemMsgID2Warp[originalReqMsg.ID]
@@ -193,7 +197,9 @@ func (s *SMSPController) processMemRsp() bool {
 	case *mem.WriteDoneRsp:
 		originalReqMsg := s.PendingSMSPtoMemWriteReq[msg.RespondTo]
 		// fmt.Printf("[received] WriteDoneRsp (%s): %v\n", originalReqMsg.ID, originalReqMsg)
-		tracing.TraceReqFinalize(originalReqMsg, s)
+		if s.VisTracing {
+			tracing.TraceReqFinalize(originalReqMsg, s)
+		}
 		// fmt.Printf("%.10f, %s, SMSPController %s received write done response (write), msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, msg.Meta().ID)
 		// s.waitingForMemRsp = false
 		warpUnit := s.PendingSMSPMemMsgID2Warp[originalReqMsg.ID]
@@ -451,7 +457,7 @@ func (s *SMSPController) handleNormalInstruction(lastInstructionFlag bool, warpU
 	}
 
 	// First time loading this instruction
-	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1 + 500
+	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1 + 100
 	if warpUnit.currentInstructionRemainingCycles == 0 {
 		s.handleNormalInstructionEnd(lastInstructionFlag, warpUnit)
 	}
@@ -511,7 +517,9 @@ func (s *SMSPController) doRead(warpUnit *SMSPWarpUnit, reqParentID string, addr
 	msg.Src = s.ToVectorMem.AsRemote()
 	msg.Dst = s.ToVectorMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
-	tracing.TraceReqInitiate(msg, s, reqParentID)
+	if s.VisTracing {
+		tracing.TraceReqInitiate(msg, s, reqParentID)
+	}
 	s.PendingSMSPtoMemReadReq[msg.ID] = msg
 	s.PendingSMSPMemMsgID2Warp[msg.ID] = warpUnit
 	err := s.ToVectorMem.Send(msg)
@@ -536,7 +544,9 @@ func (s *SMSPController) doWrite(warpUnit *SMSPWarpUnit, reqParentID string, add
 	msg.Src = s.ToVectorMem.AsRemote()
 	msg.Dst = s.ToVectorMemRemote.AsRemote()
 	msg.ID = sim.GetIDGenerator().Generate()
-	tracing.TraceReqInitiate(msg, s, reqParentID)
+	if s.VisTracing {
+		tracing.TraceReqInitiate(msg, s, reqParentID)
+	}
 	s.PendingSMSPtoMemWriteReq[msg.ID] = msg
 	s.PendingSMSPMemMsgID2Warp[msg.ID] = warpUnit
 	// fmt.Printf("%.10f, %s, SMSPController %s sent write req to Mem, Address = %d, msg ID = %s\n", s.Engine.CurrentTime(), s.Name(), s.ID, *addr, msg.ID)

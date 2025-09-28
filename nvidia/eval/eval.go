@@ -602,7 +602,7 @@ func writeTmpYaml(path, traceID string) error {
 experiment:
   version: "1.0"
   message: "base model"
-  runfile: ../nvidia/nvidia
+  runfile: ../nvidia/nvidia -disable-rtm
 
 trace-id:
 - %s

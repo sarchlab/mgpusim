@@ -13,6 +13,7 @@ type Runner struct {
 	platform   *platform.Platform
 	benchmarks []*benchmark.Benchmark
 	simulation *simulation.Simulation
+	VisTracing bool
 }
 
 func (r *Runner) AddBenchmark(benchmark *benchmark.Benchmark) {
@@ -44,7 +45,9 @@ func (r *Runner) Run() {
 	}
 	// updated for tracing - register driver first, then configure tracing
 	r.simulation.RegisterComponent(r.platform.Driver)
-	r.configureVisTracing()
+	if true {
+		r.configureVisTracing()
+	}
 	// for _, oneComp := range r.simulation.Components() {
 	// 	fmt.Printf("Registered component: %v\n", oneComp.Name())
 	// }
@@ -73,9 +76,12 @@ func (r *Runner) Engine() sim.Engine {
 }
 
 func (r *Runner) configureVisTracing() {
-	visTracer := r.simulation.GetVisTracer()
-	for _, comp := range r.simulation.Components() {
-		// fmt.Printf("Registering %s for tracing\n", comp.Name())
-		tracing.CollectTrace(comp.(tracing.NamedHookable), visTracer)
+	// fmt.Printf("cp 3 d.VisTracing = %v\n", r.VisTracing)
+	if r.VisTracing {
+		visTracer := r.simulation.GetVisTracer()
+		for _, comp := range r.simulation.Components() {
+			// fmt.Printf("Registering %s for tracing\n", comp.Name())
+			tracing.CollectTrace(comp.(tracing.NamedHookable), visTracer)
+		}
 	}
 }
