@@ -196,7 +196,7 @@ func (b *GPUBuilder) createGPU(name string) {
 		GPUReceiveSMLatency:                         b.GPUReceiveSMLatency,
 		GPUReceiveSMLatencyRemaining:                b.GPUReceiveSMLatency,
 		CWDIssueWidth:                               4,
-		SMResponseHandleWidth:                       10,
+		SMResponseHandleWidth:                       1,
 		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)
@@ -232,7 +232,7 @@ func (b *GPUBuilder) buildSMs(gpuName string) []*sm.SMController {
 
 	sms := []*sm.SMController{}
 	for i := uint64(0); i < b.smsCount; i++ {
-		sm := smBuilder.Build(fmt.Sprintf("%s.SM(%d)", gpuName, i))
+		sm := smBuilder.Build(fmt.Sprintf("%s.SM[%d]", gpuName, i))
 		// b.simulation.RegisterComponent(sm)
 		sms = append(sms, sm)
 	}

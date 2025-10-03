@@ -180,7 +180,7 @@ func (b *SMBuilder) buildSMSPs(smName string) []*smsp.SMSPController {
 			WithSimulation(b.simulation).
 			WithVisTracing(b.VisTracing)
 
-		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP(%d)", smName, i))
+		smsp := smspBuilder.Build(fmt.Sprintf("%s.SMSP[%d]", smName, i))
 		b.simulation.RegisterComponent(smsp)
 		b.smsps = append(b.smsps, smsp)
 		smsp.SetVectorMemRemote(b.l1vCaches[i].GetPortByName("Top"))

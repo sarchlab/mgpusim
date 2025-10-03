@@ -221,13 +221,13 @@ func (g *GPUController) reportFinishedKernels() bool {
 	return true
 }
 
-func (g *GPUController) issueSMIndex(nThreadToBeAssigned uint64) int {
+func (g *GPUController) issueSMIndex(nThreadToBeAssigned uint64, nCTAToBeAssigned uint64) int {
 	for i := 0; i < int(g.smsCount); i++ {
 		index := (int(g.SMIssueIndex) + i) % int(g.smsCount)
 		sm := g.SMList[index]
-		if g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned <= g.SMThreadCapacity && g.SMAssignedCTACountTable[sm.ID] < 4 {
+		if g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned <= g.SMThreadCapacity && g.SMAssignedCTACountTable[sm.ID]+nCTAToBeAssigned <= 4 {
 			g.SMAssignedThreadTable[sm.ID] += nThreadToBeAssigned
-			g.SMAssignedCTACountTable[sm.ID] += 1
+			g.SMAssignedCTACountTable[sm.ID] += nCTAToBeAssigned
 			// fmt.Printf("g.SMAssignedThreadTable[%s] = %d, nThreadToBeAssigned = %d, g.SMAssignedThreadTable[%s]+=nThreadToBeAssigned=%d\n", sm.ID, g.SMAssignedThreadTable[sm.ID], nThreadToBeAssigned, sm.ID, g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned)
 			g.SMIssueIndex = uint64((index + 1) % int(g.smsCount))
 			return index
@@ -245,6 +245,7 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 	if g.smsCount == 0 {
 		log.Panic("SM count is 0")
 	}
+	// fmt.Printf("g.GPU2SMThreadBlockAllocationLatencyRemaining = %d\n", g.GPU2SMThreadBlockAllocationLatencyRemaining)
 	if g.GPU2SMThreadBlockAllocationLatencyRemaining > 0 {
 		g.GPU2SMThreadBlockAllocationLatencyRemaining--
 		return true
@@ -254,32 +255,50 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 	// if len(g.undispatchedThreadblocks) == 0 {
 	// 	break
 	// }
+	var threadblockList []*trace.ThreadblockTrace
+	warpCount := uint64(0)
+	for i := uint64(0); i < g.CWDIssueWidth; i++ {
+		if i >= uint64(len(g.undispatchedThreadblocks)) || (warpCount+g.undispatchedThreadblocks[i].WarpsCount())*32 > g.SMThreadCapacity {
+			break
+		}
+		warpCount += g.undispatchedThreadblocks[i].WarpsCount()
+		threadblockList = append(threadblockList, g.undispatchedThreadblocks[i])
+	}
 
-	threadblock := g.undispatchedThreadblocks[0]
-	nThreadToBeAssigned := threadblock.WarpsCount() * 32 * g.CWDIssueWidth
+	// threadblock_0 := g.undispatchedThreadblocks[0]
+	nThreadToBeAssigned := warpCount * 32
 
-	smIndex := g.issueSMIndex(nThreadToBeAssigned)
+	smIndex := g.issueSMIndex(nThreadToBeAssigned, uint64(len(threadblockList)))
+	// fmt.Printf("smIndex: %d\n", smIndex)
 	if smIndex == -1 {
 		// All sms already has a threadblock to do
-		return false
+		return true
 	}
-	sm := g.SMList[smIndex]
 
-	msg := &message.DeviceToSMMsg{
-		Threadblock: *threadblock,
-	}
-	msg.Src = g.toSMs.AsRemote()
-	msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
+	for i := 0; i < len(threadblockList); i++ {
+		threadblock := threadblockList[i]
+		if len(g.undispatchedThreadblocks) == 0 {
+			break
+		}
+		sm := g.SMList[smIndex]
 
-	err := g.toSMs.Send(msg)
-	if err != nil {
-		return false
+		msg := &message.DeviceToSMMsg{
+			Threadblock: *threadblock,
+		}
+		msg.Src = g.toSMs.AsRemote()
+		msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
+
+		err := g.toSMs.Send(msg)
+		if err != nil {
+			return false
+		}
 	}
 
 	// g.freeSMs = g.freeSMs[1:]
+	// fmt.Printf("Issued %d threadblocks\n", len(threadblockList))
 	g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
 
-	g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
+	g.undispatchedThreadblocks = g.undispatchedThreadblocks[len(threadblockList):]
 
 	g.GPU2SMThreadBlockAllocationLatencyRemaining = g.GPU2SMThreadBlockAllocationLatency
 	// }

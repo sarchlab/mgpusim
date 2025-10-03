@@ -58,14 +58,14 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithDRAMSize(65536 * mem.TB).
 		WithLog2CacheLineSize(7).
 		WithNumMemoryBank(4).
-		WithGPU2SMThreadBlockAllocationLatency(0).
+		WithGPU2SMThreadBlockAllocationLatency(3).
 		WithSMReceiveGPULatency(0).
 		WithSM2SMSPWarpIssueLatency(0).
 		WithGPUReceiveSMLatency(0).
 		WithVisTracing(b.VisTracing)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
-		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))
+		gpu := gpuDriver.Build(fmt.Sprintf("GPU[%d]", i))
 		p.Driver.RegisterGPU(gpu)
 		p.Devices = append(p.Devices, gpu)
 	}

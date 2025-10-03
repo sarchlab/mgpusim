@@ -58,7 +58,7 @@ func (b *A100PlatformBuilder) Build() *Platform {
 		WithVisTracing(b.VisTracing)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
-		gpu := gpuDriver.Build(fmt.Sprintf("GPU(%d)", i))
+		gpu := gpuDriver.Build(fmt.Sprintf("GPU[%d]", i))
 		p.Driver.RegisterGPU(gpu)
 		p.Devices = append(p.Devices, gpu)
 	}

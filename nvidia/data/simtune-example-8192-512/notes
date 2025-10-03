@@ -1,0 +1,1 @@
+simtune-example-8192-512: block=8192, thread_per_block=512, ground truth=12355.78
