@@ -196,6 +196,7 @@ func (b *GPUBuilder) createGPU(name string) {
 		GPUReceiveSMLatency:                         b.GPUReceiveSMLatency,
 		GPUReceiveSMLatencyRemaining:                b.GPUReceiveSMLatency,
 		CWDIssueWidth:                               4,
+		SMResponseHandleWidth:                       10,
 		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,
 	}
 	// b.gpu.Domain = sim.NewDomain(b.gpuName)

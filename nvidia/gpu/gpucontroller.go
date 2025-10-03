@@ -76,7 +76,8 @@ type GPUController struct {
 	GPUReceiveSMLatency          uint64
 	GPUReceiveSMLatencyRemaining uint64
 
-	CWDIssueWidth uint64
+	CWDIssueWidth         uint64
+	SMResponseHandleWidth uint64
 }
 
 func (g *GPUController) SetDriverRemotePort(remote sim.Port) {
@@ -122,24 +123,33 @@ func (g *GPUController) processDriverInput() bool {
 }
 
 func (g *GPUController) processSMsInput() bool {
-	msg := g.toSMs.PeekIncoming()
-	if msg == nil {
-		return false
-	}
-
 	if g.GPUReceiveSMLatencyRemaining > 0 {
 		g.GPUReceiveSMLatencyRemaining--
 		return true
 	}
 
-	switch msg := msg.(type) {
-	case *message.SMToDeviceMsg:
-		g.processSMsMsg(msg)
-	default:
-		log.WithField("function", "processSMsInput").Panic("Unhandled message type")
+	msg := g.toSMs.PeekIncoming()
+	if msg == nil {
+		return false
 	}
 
 	g.GPUReceiveSMLatencyRemaining = g.GPUReceiveSMLatency
+
+	for i := 0; i < int(g.SMResponseHandleWidth); i++ {
+		// fmt.Printf("i=%d\n", i)
+		msg := g.toSMs.PeekIncoming()
+		if msg == nil {
+			return true
+		}
+
+		switch msg := msg.(type) {
+		case *message.SMToDeviceMsg:
+			g.processSMsMsg(msg)
+		default:
+			log.WithField("function", "processSMsInput").Panic("Unhandled message type")
+		}
+
+	}
 
 	return true
 }
