@@ -46,6 +46,7 @@ type GPUBuilder struct {
 	SM2SMSPWarpIssueLatency            uint64
 	SMReceiveGPULatency                uint64
 	GPUReceiveSMLatency                uint64
+	GPUReceiveCTALatencyUnit           float64
 
 	VisTracing bool
 }
@@ -122,6 +123,11 @@ func (b GPUBuilder) WithGPUReceiveSMLatency(l uint64) GPUBuilder {
 	return b
 }
 
+func (b GPUBuilder) WithGPUReceiveCTALatencyUnit(l float64) GPUBuilder {
+	b.GPUReceiveCTALatencyUnit = l
+	return b
+}
+
 func (b GPUBuilder) WithVisTracing(vt bool) GPUBuilder {
 	b.VisTracing = vt
 	return b
@@ -195,6 +201,8 @@ func (b *GPUBuilder) createGPU(name string) {
 		GPU2SMThreadBlockAllocationLatencyRemaining: b.GPU2SMThreadBlockAllocationLatency,
 		GPUReceiveSMLatency:                         b.GPUReceiveSMLatency,
 		GPUReceiveSMLatencyRemaining:                b.GPUReceiveSMLatency,
+		GPUReceiveCTALatencyUnit:                    b.GPUReceiveCTALatencyUnit,
+		GPUReceiveCTALatencyRemaining:               0,
 		CWDIssueWidth:                               4,
 		SMResponseHandleWidth:                       1,
 		// threadBlockAllocationLatency:   b.threadBlockAllocationLatency,

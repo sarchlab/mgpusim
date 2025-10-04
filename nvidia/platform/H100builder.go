@@ -59,9 +59,10 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithLog2CacheLineSize(7).
 		WithNumMemoryBank(4).
 		WithGPU2SMThreadBlockAllocationLatency(3).
-		WithSMReceiveGPULatency(0).
+		WithSMReceiveGPULatency(5).
 		WithSM2SMSPWarpIssueLatency(0).
 		WithGPUReceiveSMLatency(0).
+		WithGPUReceiveCTALatencyUnit(0.10).
 		WithVisTracing(b.VisTracing)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {

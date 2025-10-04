@@ -73,6 +73,9 @@ type GPUController struct {
 	GPU2SMThreadBlockAllocationLatency          uint64
 	GPU2SMThreadBlockAllocationLatencyRemaining uint64
 
+	GPUReceiveCTALatencyUnit      float64
+	GPUReceiveCTALatencyRemaining uint64
+
 	GPUReceiveSMLatency          uint64
 	GPUReceiveSMLatencyRemaining uint64
 
@@ -155,6 +158,22 @@ func (g *GPUController) processSMsInput() bool {
 }
 
 func (g *GPUController) processDriverMsg(msg *message.DriverToDeviceMsg) {
+	nKernelThreadblocks := len(msg.Kernel.Threadblocks)
+	// fmt.Printf("g.GPUReceiveCTALatencyRemaining = %d, nKernelThreadblocks = %d\n", g.GPUReceiveCTALatencyRemaining, nKernelThreadblocks)
+	if g.GPUReceiveCTALatencyRemaining == 1 {
+		g.GPUReceiveCTALatencyRemaining = 0
+	} else if g.GPUReceiveCTALatencyRemaining > 0 {
+		g.GPUReceiveCTALatencyRemaining--
+		return
+	} else {
+
+		g.GPUReceiveCTALatencyRemaining = uint64(g.GPUReceiveCTALatencyUnit * float64(nKernelThreadblocks)) // -1
+		if g.GPUReceiveCTALatencyRemaining > 1 {
+			g.GPUReceiveCTALatencyRemaining--
+			return
+		}
+		g.GPUReceiveCTALatencyRemaining = 0
+	}
 	for i := range msg.Kernel.Threadblocks {
 		g.undispatchedThreadblocks = append(g.undispatchedThreadblocks, msg.Kernel.Threadblocks[i])
 		g.unfinishedThreadblocksCount++
@@ -180,24 +199,6 @@ func (g *GPUController) processSMsMsg(msg *message.SMToDeviceMsg) {
 	}
 	g.toSMs.RetrieveIncoming()
 }
-
-// func (g *GPUController) processDRAMWriteRspMsg(rspMsg *mem.WriteDoneRsp) bool {
-// 	fmt.Printf("%.10f, %s, GPUController\n", g.Engine.CurrentTime(), g.Name())
-// 	msg := &message.GPUtoSMMemWriteMsg{
-// 		Address: g.PendingReadReq[rspMsg.RespondTo].Address,
-// 		Rsp:     *rspMsg,
-// 	}
-// 	msg.Src = g.toSMMem.AsRemote()
-// 	msg.Dst = g.PendingReadReq[rspMsg.RespondTo].Src
-// 	// err := g.toSMMem.Send(msg)
-// 	// if err != nil {
-// 	// 	fmt.Printf("GPUController failed to send write rsp to SMController: %v\n", err)
-// 	// 	g.toDRAM.RetrieveIncoming()
-// 	// 	return false
-// 	// }
-// 	g.toDRAM.RetrieveIncoming()
-// 	return true
-// }
 
 func (g *GPUController) reportFinishedKernels() bool {
 	if g.finishedKernelsCount == 0 {
