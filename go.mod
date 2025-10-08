@@ -40,5 +40,6 @@ require (
 )
 
 // replace github.com/syifan/goseth => ../goseth
+replace github.com/sarchlab/akita/v4 v4.7.0 => ../akita
 
 go 1.25
