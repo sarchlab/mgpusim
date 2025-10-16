@@ -1,0 +1,1 @@
+cd92f67,test,,3.977564,-323.214743,1.000000,1.000000,8.421375248,1,3,2,"test: debug",cd92f67b8f2a29314daa3c9647c22cd783a1c402,EnzeXu,"{polybench/3mm: 2.738301, polybench/3dconv: 5.216826}"
