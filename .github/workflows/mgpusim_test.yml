@@ -284,6 +284,14 @@ jobs:
         with:
           name: mgpusim_nvidia_evaluation_summary
           path: summary_table.csv
+      
+      - name: Display summary in workflow UI
+        run: |
+          echo "## 🧾 Nvidia Simulator Evaluation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Type | Version | Score | R² | Pearson | Spearman | Time(s) |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------|--------|----|----------|-----------|----------|" >> $GITHUB_STEP_SUMMARY
+          tail -n 1 summary_table.csv | awk -F',' '{printf "| %s | %s | %s | %s | %s | %s | %s |\n", $2, $3, $4, $5, $6, $7, $8}' >> $GITHUB_STEP_SUMMARY
 
 
 
