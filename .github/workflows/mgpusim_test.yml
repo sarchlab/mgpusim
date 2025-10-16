@@ -278,7 +278,7 @@ jobs:
           done < sorted_txt_list.txt
       
       - name: Upload summary table artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mgpusim_nvidia_evaluation_summary
           path: summary_table.csv
