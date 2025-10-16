@@ -277,6 +277,7 @@ jobs:
             cat nvidia/eval/simulator_evaluation/$fname >> summary_table.csv
           done < sorted_txt_list.txt
       
+      
       - name: Upload summary table artifact
         uses: actions/upload-artifact@v4
         with:
