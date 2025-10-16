@@ -285,13 +285,21 @@ jobs:
           name: mgpusim_nvidia_evaluation_summary
           path: summary_table.csv
       
-      - name: Display summary in workflow UI
+            - name: Display complete summary in workflow UI
         run: |
           echo "## 🧾 Nvidia Simulator Evaluation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Type | Version | Score | R² | Pearson | Spearman | Time(s) |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|----------|--------|----|----------|-----------|----------|" >> $GITHUB_STEP_SUMMARY
-          tail -n 1 summary_table.csv | awk -F',' '{printf "| %s | %s | %s | %s | %s | %s | %s |\n", $2, $3, $4, $5, $6, $7, $8}' >> $GITHUB_STEP_SUMMARY
+          echo "The following table includes all evaluation records currently in **summary_table.csv**." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '<details><summary>📊 Click to expand full results</summary>' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Short SHA | Type | Version | Error Average Score | R² | Pearson | Spearman | Eval Time(s) | Suite Count | Benchmark Count | Trace Count | Commit Message | SHA | Author | Error Benchmark-level Distribution |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|------|----------|----------------------|----|----------|-----------|---------------|--------------|------------------|--------------|----------------|-----|---------|-------------------------------------|" >> $GITHUB_STEP_SUMMARY
+          tail -n +2 summary_table.csv | while IFS=',' read -r short_sha type version score rsquared pearson spearman time suite bench trace msg sha author dist; do
+            printf "| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" \
+              "$short_sha" "$type" "$version" "$score" "$rsquared" "$pearson" "$spearman" "$time" "$suite" "$bench" "$trace" "$msg" "$sha" "$author" "$dist" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
 
 
 
