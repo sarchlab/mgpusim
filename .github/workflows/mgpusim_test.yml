@@ -202,6 +202,7 @@ jobs:
             FNAME="${COMMIT_TYPE}_${TIME}_${SHA}.txt"
           fi
           LINE="$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$RSQUARED,$PEARSON,$SPEARMAN,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\""
+          echo "$LINE"
           echo "$LINE" > nvidia/eval/simulator_evaluation/$FNAME
 
       # - name: Format and append evaluation result
@@ -255,7 +256,7 @@ jobs:
       - name: Generate summary table artifact
         run: |
           # Collect all txt files
-          ls nvidia/eval/simulator_evaluation/*.txt > txt_list.txt
+          find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" -printf "%f\n" > txt_list.txt
           # Sort by type order and filename
           awk -F'/' '{print $2}' txt_list.txt | \
             sort -t_ -k1,1 \
@@ -277,7 +278,7 @@ jobs:
             cat nvidia/eval/simulator_evaluation/$fname >> summary_table.csv
           done < sorted_txt_list.txt
       
-      
+
       - name: Upload summary table artifact
         uses: actions/upload-artifact@v4
         with:
