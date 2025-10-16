@@ -255,7 +255,7 @@ jobs:
       - name: Generate summary table artifact
         run: |
           # Collect all txt files
-          ls simulator_evaluation/*.txt > txt_list.txt
+          ls nvidia/eval/simulator_evaluation/*.txt > txt_list.txt
           # Sort by type order and filename
           awk -F'/' '{print $2}' txt_list.txt | \
             sort -t_ -k1,1 \
@@ -274,7 +274,7 @@ jobs:
 
           # Concatenate all lines in sorted order
           while read fname; do
-            cat simulator_evaluation/$fname >> summary_table.csv
+            cat nvidia/eval/simulator_evaluation/$fname >> summary_table.csv
           done < sorted_txt_list.txt
       
       - name: Upload summary table artifact
