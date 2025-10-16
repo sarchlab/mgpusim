@@ -1,0 +1,1 @@
+f394ff7,test,,5.868125,-380.054317,,,7.737280369,1,3,2,test: r2 available,f394ff7e6d416195340b054e2a435b979979fbab,EnzeXu,{polybench/3mm: 8.018524, polybench/3dconv: 3.717726}

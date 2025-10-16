@@ -132,6 +132,11 @@ jobs:
             echo "version=" >> $GITHUB_OUTPUT
             echo "msg=$MSG" >> $GITHUB_OUTPUT
           fi
+      
+      - name: Generate timestamp
+        id: timestamp
+        run: |
+          echo "timestamp=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
 
 
       - name: Run Evaluation Script
@@ -171,8 +176,8 @@ jobs:
           echo "num_suite=$NUM_SUITE" >> $GITHUB_OUTPUT
           echo "num_benchmark=$NUM_BENCHMARK" >> $GITHUB_OUTPUT
           echo "num_trace=$NUM_TRACE" >> $GITHUB_OUTPUT
-
-      - name: Format and append evaluation result
+      
+      - name: Write evaluation txt record
         run: |
           SHA="${{ steps.commit_info.outputs.sha }}"
           SHORT_SHA="${SHA:0:7}"
@@ -189,20 +194,47 @@ jobs:
           NUM_TRACE="${{ steps.eval.outputs.num_trace }}"
           COMMIT_TYPE="${{ steps.commit_type.outputs.type }}"
           VERSION="${{ steps.commit_type.outputs.version }}"
+          TIME="${{ steps.timestamp.outputs.timestamp }}"
+          # Compose filename
+          if [[ "$COMMIT_TYPE" == "release" || "$COMMIT_TYPE" == "release-emptykernel" ]]; then
+            FNAME="${COMMIT_TYPE}_${VERSION}_${TIME}_${SHA}.txt"
+          else
+            FNAME="${COMMIT_TYPE}_${TIME}_${SHA}.txt"
+          fi
+          LINE="$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$RSQUARED,$PEARSON,$SPEARMAN,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\""
+          echo "$LINE" > nvidia/eval/simulator_evaluation/$FNAME
 
-          # # Extract commit_type and version
-          # if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-          #   COMMIT_TYPE="release"
-          #   VERSION="v${BASH_REMATCH[1]}"
-          #   # Remove the [release vX.X.X] part from message
-          #   MSG="${MSG#*\] }"
-          # else
-          #   COMMIT_TYPE="dev"
-          #   VERSION=""
-          # fi
+      # - name: Format and append evaluation result
+      #   run: |
+      #     SHA="${{ steps.commit_info.outputs.sha }}"
+      #     SHORT_SHA="${SHA:0:7}"
+      #     MSG="${{ steps.commit_info.outputs.message }}"
+      #     SPEARMAN="${{ steps.eval.outputs.spearman }}"
+      #     PEARSON="${{ steps.eval.outputs.pearson }}"
+      #     RSQUARED="${{ steps.eval.outputs.rsquared }}"
+      #     SCORE="${{ steps.eval.outputs.score }}"
+      #     DISTRIBUTION="${{ steps.eval.outputs.distribution }}"
+      #     AUTHOR="${{ steps.commit_info.outputs.author }}"
+      #     EVAL_TIME="${{ steps.eval.outputs.eval_time }}"
+      #     NUM_SUITE="${{ steps.eval.outputs.num_suite }}"
+      #     NUM_BENCHMARK="${{ steps.eval.outputs.num_benchmark }}"
+      #     NUM_TRACE="${{ steps.eval.outputs.num_trace }}"
+      #     COMMIT_TYPE="${{ steps.commit_type.outputs.type }}"
+      #     VERSION="${{ steps.commit_type.outputs.version }}"
 
-          # Compose the CSV line
-          echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$RSQUARED,$PEARSON,$SPEARMAN,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\"" >> nvidia/eval/simulator_evaluation.csv
+      #     # # Extract commit_type and version
+      #     # if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+      #     #   COMMIT_TYPE="release"
+      #     #   VERSION="v${BASH_REMATCH[1]}"
+      #     #   # Remove the [release vX.X.X] part from message
+      #     #   MSG="${MSG#*\] }"
+      #     # else
+      #     #   COMMIT_TYPE="dev"
+      #     #   VERSION=""
+      #     # fi
+
+      #     # Compose the CSV line
+      #     echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,$RSQUARED,$PEARSON,$SPEARMAN,$EVAL_TIME,$NUM_SUITE,$NUM_BENCHMARK,$NUM_TRACE,\"$MSG\",$SHA,$AUTHOR,\"$DISTRIBUTION\"" >> nvidia/eval/simulator_evaluation.csv
 
       - name: Remove cloned repo
         run: |
@@ -212,13 +244,44 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          git add nvidia/eval/simulator_evaluation.csv
+          git add nvidia/eval/simulator_evaluation/
           git add nvidia/eval/records/
           git add nvidia/eval/metrics/
           git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Generate summary table artifact
+        run: |
+          # Collect all txt files
+          ls simulator_evaluation/*.txt > txt_list.txt
+          # Sort by type order and filename
+          awk -F'/' '{print $2}' txt_list.txt | \
+            sort -t_ -k1,1 \
+            | awk '
+              BEGIN {
+                order["test"]=1; order["dev"]=2; order["release-emptykernel"]=3; order["release"]=4;
+              }
+              {
+                type=gensub(/_.*/, "", "g", $0);
+                print order[type] "_" $0;
+              }
+            ' | sort -t_ -k1,1n -k2 | cut -d_ -f2- > sorted_txt_list.txt
+
+          # Print header
+          echo "Short SHA,Type,Version,Error Average Score,Coefficient of Determination R²,Pearson Correlation Coefficient,Spearman Rank Correlation,Eval Time(s),Suite Count,Benchmark Count,Trace Count,Commit Message,SHA,Author,Error Benchmark-level Distribution" > summary_table.csv
+
+          # Concatenate all lines in sorted order
+          while read fname; do
+            cat simulator_evaluation/$fname >> summary_table.csv
+          done < sorted_txt_list.txt
+      
+      - name: Upload summary table artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: mgpusim_nvidia_evaluation_summary
+          path: summary_table.csv
 
 
 
