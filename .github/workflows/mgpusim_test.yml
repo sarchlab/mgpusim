@@ -256,9 +256,10 @@ jobs:
       - name: Generate summary table artifact
         run: |
           # Collect all txt files
-          find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" -printf "%f\n" > txt_list.txt
+          find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" > txt_list.txt
+
           # Sort by type order and filename
-          awk -F'/' '{print $2}' txt_list.txt | \
+          awk -F'/' '{print $NF}' txt_list.txt | \
             sort -t_ -k1,1 \
             | awk '
               BEGIN {
