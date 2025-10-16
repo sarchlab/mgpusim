@@ -258,23 +258,23 @@ jobs:
           # Collect all txt files
           find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" > txt_list.txt
 
-          # Sort by type order and filename
+          # Sort by type order (reverse) and filename (reverse)
           awk -F'/' '{print $NF}' txt_list.txt | \
-            sort -t_ -k1,1 \
+            sort -t_ -k1,1r \
             | awk '
               BEGIN {
-                order["test"]=1; order["dev"]=2; order["release-emptykernel"]=3; order["release"]=4;
+                order["release"]=1; order["release-emptykernel"]=2; order["dev"]=3; order["test"]=4;
               }
               {
                 type=gensub(/_.*/, "", "g", $0);
                 print order[type] "_" $0;
               }
-            ' | sort -t_ -k1,1n -k2 | cut -d_ -f2- > sorted_txt_list.txt
+            ' | sort -t_ -k1,1n -k2r | cut -d_ -f2- > sorted_txt_list.txt
 
           # Print header
           echo "Short SHA,Type,Version,Error Average Score,Coefficient of Determination R²,Pearson Correlation Coefficient,Spearman Rank Correlation,Eval Time(s),Suite Count,Benchmark Count,Trace Count,Commit Message,SHA,Author,Error Benchmark-level Distribution" > summary_table.csv
 
-          # Concatenate all lines in sorted order
+          # Concatenate all lines in reverse-sorted order
           while read fname; do
             cat nvidia/eval/simulator_evaluation/$fname >> summary_table.csv
           done < sorted_txt_list.txt
