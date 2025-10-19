@@ -151,7 +151,8 @@ func (b *Builder) createGPUBuilder(
 		WithNumMemoryBank(16).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
-		WithGlobalStorage(b.globalStorage)
+		WithGlobalStorage(b.globalStorage).
+		WithGPUDriver(gpuDriver)
 
 	b.createRDMAAddressMapper()
 
@@ -250,7 +251,7 @@ func (b *Builder) createGPU(
 	// gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
 	b.configRDMAEngine(gpu)
-	// b.configPMC(gpu, gpuDriver, pmcAddressTable)
+	b.configPMC(gpu, gpuDriver)
 
 	pcieConnector.PlugInDevice(pcieSwitchID, gpu.Ports())
 
@@ -267,15 +268,10 @@ func (b *Builder) configRDMAEngine(
 		gpu.GetPortByName("RDMAData").AsRemote())
 }
 
-// func (b *Builder) configPMC(
-// 	gpu *GPU,
-// 	gpuDriver *driver.Driver,
-// 	addrTable *mem.BankedAddressPortMapper,
-// ) {
-// 	gpu.PMC.RemotePMCAddressTable = addrTable
-// 	addrTable.LowModules = append(
-// 		addrTable.LowModules,
-// 		gpu.PMC.GetPortByName("Remote").AsRemote())
-// 	gpuDriver.RemotePMCPorts = append(
-// 		gpuDriver.RemotePMCPorts, gpu.PMC.GetPortByName("Remote"))
-// }
+func (b *Builder) configPMC(
+	gpu *sim.Domain,
+	gpuDriver *driver.Driver,
+) {
+	gpuDriver.RemotePMCPorts = append(
+		gpuDriver.RemotePMCPorts, gpu.GetPortByName("PageMigrationController"))
+}
