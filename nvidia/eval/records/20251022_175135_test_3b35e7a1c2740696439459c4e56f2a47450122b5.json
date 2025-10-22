@@ -1,0 +1,32 @@
+[
+  {
+    "suite": "polybench",
+    "benchmark": "3mm",
+    "param": {
+      "blockDimX": "16",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682eecf5b541e8df7bd61991",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 29930.666666666668,
+    "has_sim": true,
+    "predict_cycle": 31885
+  },
+  {
+    "suite": "polybench",
+    "benchmark": "3dconv",
+    "param": {
+      "blockDimX": "8",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "682e8ef4b541e8df7bd61937",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 52309.652173913055,
+    "has_sim": true,
+    "predict_cycle": 104095
+  }
+]
