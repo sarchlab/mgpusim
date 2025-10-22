@@ -501,6 +501,13 @@ func (s *SMSPController) reportFinishedWarps() bool {
 
 func (s *SMSPController) doRead(warpUnit *SMSPWarpUnit, reqParentID string, addr uint64, byteSize uint64) bool {
 	// fmt.Printf("[start] SMSPController %s doRead from address %x with byteSize %d\n", s.ID, addr, byteSize)
+	const cacheBlockSize = 512
+	blockOffset := addr % cacheBlockSize
+
+	if blockOffset+byteSize > cacheBlockSize {
+		byteSize = cacheBlockSize - blockOffset
+		// Log warning for debugging
+	}
 	msg := mem.ReadReqBuilder{}.
 		WithSrc(s.ToVectorMem.AsRemote()).
 		WithDst(s.ToVectorMemRemote.AsRemote()).
