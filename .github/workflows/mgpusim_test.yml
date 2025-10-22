@@ -302,7 +302,6 @@ jobs:
           echo "</details>" >> $GITHUB_STEP_SUMMARY
 
 
-
 # name: MGPUSim Test
 
 # on: [push, pull_request]
