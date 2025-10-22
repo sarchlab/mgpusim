@@ -25,10 +25,13 @@ This indicates that your cache block size is too small for the memory transactio
 - Change `WithLog2BlockSize(7)` to `WithLog2BlockSize(9)` or higher
 - This increases block size from 128 bytes to 512+ bytes
 
-For detailed instructions, see [docs/CACHE_CONFIGURATION.md](docs/CACHE_CONFIGURATION.md)
+**Detailed Solutions:**
+- [Step-by-step fix guide](docs/FIXING_SLICE_BOUNDS_ERROR.md) - Complete walkthrough with examples
+- [Cache configuration guide](docs/CACHE_CONFIGURATION.md) - Detailed cache setup and troubleshooting
 
 ## Documentation
 
+- [Fixing Slice Bounds Error](docs/FIXING_SLICE_BOUNDS_ERROR.md) - Complete fix for the cache block size issue
 - [Cache Configuration Guide](docs/CACHE_CONFIGURATION.md) - Detailed cache setup and troubleshooting
 
 ## Directory Structure
