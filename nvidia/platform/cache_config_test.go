@@ -88,9 +88,11 @@ func TestValidateCacheConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := platform.ValidateCacheConfig(tt.config, tt.maxTransactionSize)
+
 			if tt.expectError && err == nil {
 				t.Errorf("ValidateCacheConfig() expected error but got none")
 			}
+
 			if !tt.expectError && err != nil {
 				t.Errorf("ValidateCacheConfig() unexpected error: %v", err)
 			}
@@ -101,12 +103,14 @@ func TestValidateCacheConfig(t *testing.T) {
 func TestDefaultConfigs(t *testing.T) {
 	// Test that default configs are valid for typical transaction sizes
 	l1Config := platform.DefaultL1CacheConfig()
-	if err := platform.ValidateCacheConfig(l1Config, 512); err != nil {
+	err := platform.ValidateCacheConfig(l1Config, 512)
+	if err != nil {
 		t.Errorf("DefaultL1CacheConfig() is invalid for 512-byte transactions: %v", err)
 	}
 
 	l2Config := platform.DefaultL2CacheConfig()
-	if err := platform.ValidateCacheConfig(l2Config, 512); err != nil {
+	err = platform.ValidateCacheConfig(l2Config, 512)
+	if err != nil {
 		t.Errorf("DefaultL2CacheConfig() is invalid for 512-byte transactions: %v", err)
 	}
 }
