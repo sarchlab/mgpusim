@@ -138,7 +138,7 @@ func (b *GPUBuilder) Build(name string) *GPUController {
 	// 	ID:  sim.GetIDGenerator().Generate(),
 	// 	SMs: make(map[string]*sm.SMController),
 	// }
-	b.log2MemoryBankInterleavingSize = 7
+	b.log2MemoryBankInterleavingSize = 9 // Changed from 7 to 9 to match cache line size
 
 	b.createGPU(name)
 

@@ -56,7 +56,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithSMSPsCountPerSM(4).
 		WithL2CacheSize(50 * mem.MB).
 		WithDRAMSize(65536 * mem.TB).
-		WithLog2CacheLineSize(7).
+		WithLog2CacheLineSize(9). // Changed from 7 to 9 to support 512-byte memory accesses
 		WithNumMemoryBank(4).
 		WithGPU2SMThreadBlockAllocationLatency(3).
 		WithSMReceiveGPULatency(5).

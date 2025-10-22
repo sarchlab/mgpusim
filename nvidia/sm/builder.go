@@ -42,7 +42,7 @@ type SMBuilder struct {
 func MakeBuilder() SMBuilder {
 	return SMBuilder{
 		freq:              1 * sim.GHz,
-		log2CacheLineSize: 7,
+		log2CacheLineSize: 9, // 7
 	}
 }
 
