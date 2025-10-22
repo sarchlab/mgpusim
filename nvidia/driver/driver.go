@@ -5,11 +5,13 @@ import (
 
 	"fmt"
 
+	"github.com/rs/xid"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/sim/directconnection"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/mgpusim/v4/nvidia/gpu"
 	"github.com/sarchlab/mgpusim/v4/nvidia/message"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -21,18 +23,25 @@ type Driver struct {
 	connectionWithDevices sim.Connection
 
 	// gpu
-	devices     map[string]*gpu.GPU
-	freeDevices []*gpu.GPU
+	devices     map[string]*gpu.GPUController
+	freeDevices []*gpu.GPUController
 
 	// trace kernel
-	undispatchedKernels    []*nvidiaconfig.Kernel
-	unfinishedKernelsCount int64
+	undispatchedKernels    []*trace.KernelTrace
+	unfinishedKernelsCount uint64
+
+	simulationID string
+
+	driver2GPUOverheadLatency          uint64
+	driver2GPUOverheadLatencyRemaining uint64
+
+	VisTracing bool
 }
 
 func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 	d := &Driver{}
 	d.TickingComponent = sim.NewTickingComponent(name, engine, freq, d)
-	d.toDevices = sim.NewPort(d, 4, 4, fmt.Sprintf("%s.ToDevice", name))
+	d.toDevices = sim.NewPort(d, 4096, 4096, fmt.Sprintf("%s.ToDevice", name))
 	d.AddPort(fmt.Sprintf("%s.ToDevice", name), d.toDevices)
 
 	d.connectionWithDevices = directconnection.MakeBuilder().
@@ -44,7 +53,7 @@ func NewDriver(name string, engine sim.Engine, freq sim.Freq) *Driver {
 	return d
 }
 
-func (d *Driver) RegisterGPU(gpu *gpu.GPU) {
+func (d *Driver) RegisterGPU(gpu *gpu.GPUController) {
 	gpu.SetDriverRemotePort(d.toDevices)
 	remote := gpu.GetPortByName(fmt.Sprintf("%s.ToDriver", gpu.Name()))
 	d.connectionWithDevices.PlugIn(remote)
@@ -53,7 +62,7 @@ func (d *Driver) RegisterGPU(gpu *gpu.GPU) {
 	d.freeDevices = append(d.freeDevices, gpu)
 }
 
-func (d *Driver) RunKernel(kernel *nvidiaconfig.Kernel) {
+func (d *Driver) RunKernel(kernel *trace.KernelTrace) {
 	d.undispatchedKernels = append(d.undispatchedKernels, kernel)
 	d.unfinishedKernelsCount++
 }
@@ -100,7 +109,14 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 		return false
 	}
 
+	if d.driver2GPUOverheadLatencyRemaining > 0 {
+		d.driver2GPUOverheadLatencyRemaining--
+		return true
+	}
+
 	kernel := d.undispatchedKernels[0]
+	// fmt.Printf("Dispatching kernel %s to device %s at time %.10f\n",
+	// 	kernel.ID, d.freeDevices[0].ID, d.Engine.CurrentTime())
 	device := d.freeDevices[0]
 
 	msg := &message.DriverToDeviceMsg{
@@ -117,5 +133,37 @@ func (d *Driver) dispatchKernelsToDevices() bool {
 	d.undispatchedKernels = d.undispatchedKernels[1:]
 	d.freeDevices = d.freeDevices[1:]
 
+	d.driver2GPUOverheadLatencyRemaining = d.driver2GPUOverheadLatency
+
 	return true
 }
+
+func (d *Driver) LogSimulationStart() {
+	d.simulationID = xid.New().String()
+	// fmt.Printf("tracing.StartTask: Simulation ID: %s\n", d.simulationID)
+	// fmt.Printf("cp 1 d.VisTracing = %v\n", d.VisTracing)
+	if d.VisTracing {
+		tracing.StartTask(d.simulationID, "", d, "Simulation", "Simulation", nil)
+	}
+}
+
+func (d *Driver) LogSimulationTerminate() {
+	// fmt.Printf("tracing.EndTask: Simulation ID: %s\n", d.simulationID)
+	// fmt.Printf("cp 2 d.VisTracing = %v\n", d.VisTracing)
+	if d.VisTracing {
+		tracing.EndTask(d.simulationID, d)
+	}
+}
+
+// func (d *Driver) logTaskToGPUInitiate(
+// 	cmd Command,
+// 	req sim.Msg,
+// ) {
+// 	tracing.TraceReqInitiate(req, d, cmd.GetID())
+// }
+
+// func (d *Driver) logTaskToGPUClear(
+// 	req sim.Msg,
+// ) {
+// 	tracing.TraceReqFinalize(req, d)
+// }

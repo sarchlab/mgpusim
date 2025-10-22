@@ -1,0 +1,63 @@
+{
+    "script_path": "./mnt-collector",
+    "benchmarks": [
+        {
+            "title": "2mm",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "682e34d6b541e8df7bd618da",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 6962.79
+                    }
+                }
+            ]
+        },
+        {
+            "title": "3mm",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "682eea8fb541e8df7bd61988",
+                    "truth": {
+                        "beforeTurning": 1,
+                        "cycles": 10204.87
+                    }
+                },
+                {
+                    "blockDimX": 16,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "682eecf5b541e8df7bd61991",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 10326.08
+                    }
+                }
+            ]
+        },
+        {
+            "title": "3dconv",
+            "suite": "polybench",
+            "args": [
+                {
+                    "blockDimX": 8,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "682e8ef4b541e8df7bd61937",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18046.83
+                    }
+                }
+            ]
+        }
+    ]
+}

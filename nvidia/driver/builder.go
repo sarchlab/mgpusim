@@ -7,8 +7,10 @@ import (
 )
 
 type DriverBuilder struct {
-	engine sim.Engine
-	freq   sim.Freq
+	engine                    sim.Engine
+	freq                      sim.Freq
+	driver2GPUOverheadLatency uint64
+	VisTracing                bool
 }
 
 func (b *DriverBuilder) WithEngine(engine sim.Engine) *DriverBuilder {
@@ -21,9 +23,22 @@ func (b *DriverBuilder) WithFreq(freq sim.Freq) *DriverBuilder {
 	return b
 }
 
+func (b *DriverBuilder) WithDriver2GPUOverheadLatency(latency uint64) *DriverBuilder {
+	b.driver2GPUOverheadLatency = latency
+	return b
+}
+
+func (b *DriverBuilder) WithVisTracing(vt bool) *DriverBuilder {
+	b.VisTracing = vt
+	return b
+}
+
 func (b *DriverBuilder) Build(name string) *Driver {
 	d := &Driver{
-		devices: make(map[string]*gpu.GPU),
+		devices:                            make(map[string]*gpu.GPUController),
+		driver2GPUOverheadLatency:          b.driver2GPUOverheadLatency,
+		driver2GPUOverheadLatencyRemaining: b.driver2GPUOverheadLatency,
+		VisTracing:                         b.VisTracing,
 	}
 
 	d.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, d)
@@ -39,6 +54,6 @@ func (b *DriverBuilder) Build(name string) *Driver {
 }
 
 func (b *DriverBuilder) buildPortsForDriver(d *Driver) {
-	d.toDevices = sim.NewPort(d, 4, 4, "ToDevice")
+	d.toDevices = sim.NewPort(d, 4096, 4096, "ToDevice")
 	d.AddPort("ToDevice", d.toDevices)
 }

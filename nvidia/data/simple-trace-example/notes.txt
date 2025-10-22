@@ -1,0 +1,73 @@
+20250325
+
+Questions:
+
+1. Only cares about LDG and STG
+
+2. What are the diffs between []*writearound.Comp / []*writethrough.Comp / []*writeback.Comp?
+Shall we utilize it for implementing the L1 and L2 cache?
+
+3. Do we need to separate v/s/i cache & addressing for L1 and L2?
+
+l1vCaches               []*writearound.Comp
+l1sCaches               []*writethrough.Comp
+l1iCaches               []*writethrough.Comp
+l2Caches                []*writeback.Comp
+
+4. L2 has num mem bank
+
+MOV: Moves data between registers
+IMAD: Integer Multiply-Add, a commonly used operation in vector processing.
+LDG: Load global memory (this is where cache effects are important).
+ULDC.64: Loads a 64-bit constant into a register.
+FADD: Floating-point addition
+S2R: Reads a special register (e.g., thread ID, warp ID, etc.) into a general-purpose register.
+HFMA2.MMA: Performs a fused multiply-add operation on half-precision floating-point numbers using matrix multiply-accumulate (MMA) hardware.
+STG.E: Stores data from a register into global memory.
+
+L1: Fast. Each SM has its own L1 cache.
+L2: Larger but slower. L2 cache is shared across all SMs
+Global Mem: A L2 cache miss leads to access to the much slower global memory.
+
+
+################################################################################################
+
+20250401
+
+MGPUSim Nvidia
+
+Update:
+1. Updated the structure of type definitions in nvidia:
+- Removed nvidiaconfig folder
+- Merged class definition xxx with xxxTrace (e.g. ThreadblockTrace & Threadblock)
+- No xxxCount attributes. Used xxCount() method instead.
+- Renamed tracereader to trace
+
+2. Push the current clean commit to the nvidia_cache branch. Corresponding changes.  (passed)
+
+3. Developed Opcode class
+
+4. smsp's runner can now identify OpCodeMemory opcodetype's operations (like LDG.E and STG.E)
+0.0000016970, GPU(0).SM(82).SMSP(2), SMSP, insts id = 15, STG.E, &{[190 0 0] 6 240 4294967295 0 [] STG.E 2 [{R6} {R9}] 4 1 0 4 [] 0}
+0.0000016970, GPU(0).SM(86).SMSP(3), SMSP, insts id = 10, LDG.E, &{[194 0 0] 7 160 4294967295 1 [{R4}] LDG.E 1 [{R4}] 4 1 0 4 [] 0}
+
+5. Mounted L2caches to GPU class and L1caches to SM class. Corresponding build functions.
+l2Caches []*writeback.Comp
+l1Caches []*writethrough.Comp
+
+On-going:
+1. Add logics of cache miss/hit (add latency when miss)
+
+Questions:
+1. Do we also need a DRAM?
+idealmemcontroller
+2. How does connectL1ToL2 work in amd/? (in r9nanogpubuilder.go: func (b *R9NanoGPUBuilder) connectL1ToL2() )
+in the builder; set up the env for the simu.
+
+
+#########################
+
+Cheat Sheet
+
+$(go env GOPATH)/bin/golangci-lint run ./...
+$(go env GOPATH)/bin/ginkgo -r

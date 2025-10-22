@@ -2,11 +2,11 @@ package benchmark
 
 import (
 	"github.com/sarchlab/mgpusim/v4/nvidia/driver"
-	"github.com/sarchlab/mgpusim/v4/nvidia/nvidiaconfig"
+	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
 type TraceExec interface {
-	ExecType() nvidiaconfig.ExecType
+	ExecType() trace.ExecType
 	Run(*driver.Driver)
 }
 
@@ -15,21 +15,21 @@ type Benchmark struct {
 }
 
 type ExecMemcpy struct {
-	direction nvidiaconfig.ExecMemcpyDirection
+	direction trace.ExecMemcpyDirection
 	address   uint64
 	length    uint64
 }
 
 type ExecKernel struct {
-	kernel nvidiaconfig.Kernel
+	kernel trace.KernelTrace
 }
 
-func (e *ExecMemcpy) ExecType() nvidiaconfig.ExecType {
-	return nvidiaconfig.ExecMemcpy
+func (e *ExecMemcpy) ExecType() trace.ExecType {
+	return trace.ExecMemcpy
 }
 
-func (e *ExecKernel) ExecType() nvidiaconfig.ExecType {
-	return nvidiaconfig.ExecKernel
+func (e *ExecKernel) ExecType() trace.ExecType {
+	return trace.ExecKernel
 }
 
 func (e *ExecMemcpy) Run(d *driver.Driver) {
@@ -39,10 +39,10 @@ func (e *ExecKernel) Run(d *driver.Driver) {
 	d.RunKernel(&e.kernel)
 }
 
-func (e *ExecKernel) SetKernel(kernel nvidiaconfig.Kernel) {
+func (e *ExecKernel) SetKernel(kernel trace.KernelTrace) {
 	e.kernel = kernel
 }
 
-func (e *ExecKernel) GetKernel() *nvidiaconfig.Kernel {
+func (e *ExecKernel) GetKernel() *trace.KernelTrace {
 	return &e.kernel
 }

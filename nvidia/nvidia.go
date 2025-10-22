@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/simulation"
 	"github.com/sarchlab/mgpusim/v4/nvidia/benchmark"
 	"github.com/sarchlab/mgpusim/v4/nvidia/platform"
 	"github.com/sarchlab/mgpusim/v4/nvidia/runner"
@@ -15,13 +16,19 @@ import (
 )
 
 type Params struct {
-	TraceDir *string
+	TraceDir        *string
+	Device          *string
+	VisTracing      *bool
+	DisableAkitaRTM *bool
 }
 
 // get trace directory from parameter
 func parseFlags() *Params {
 	params := &Params{
-		TraceDir: flag.String("trace-dir", "data/simple-trace-example", "The directory that contains the trace files"),
+		TraceDir:        flag.String("trace-dir", "data/simtune-example-2", "The directory that contains the trace files"),
+		Device:          flag.String("device", "H100", "Device type: H100 or A100 (required)"),
+		VisTracing:      flag.Bool("trace-vis", false, "Generate trace for visualization purposes."),
+		DisableAkitaRTM: flag.Bool("disable-rtm", true, "Disable the AkitaRTM monitoring portal"),
 	}
 
 	flag.Parse()
@@ -38,13 +45,52 @@ func main() {
 		Build()
 
 	// A100
-	platform := new(platform.A100PlatformBuilder).
-		WithFreq(1 * sim.Hz).
-		Build()
+	// platform := new(platform.A100PlatformBuilder).
+	// 	WithFreq(1065 * sim.MHz).
+	// 	Build()
+	var plat *platform.Platform // <-- declare outside if/else
+	b := simulation.MakeBuilder()
+	var simulation *simulation.Simulation
+
+	// fmt.Printf("simulation.id: %s\n", simulation.ID())
+	// if simulation == nil {
+	// 	fmt.Printf("Failed to create simulation")
+	// }
+
+	if *params.DisableAkitaRTM {
+		simulation = b.WithoutMonitoring().Build()
+	} else {
+		simulation = b.Build()
+	}
+
+	if *params.Device == "A100" {
+		plat = (&platform.A100PlatformBuilder{}).
+			WithFreq(1 * sim.Hz).
+			WithSimulation(simulation).
+			WithVisTracing(*params.VisTracing).
+			Build()
+	} else if *params.Device == "H100" {
+		plat = (&platform.H100PlatformBuilder{}).
+			WithFreq(1 * sim.Hz).
+			WithSimulation(simulation).
+			WithVisTracing(*params.VisTracing).
+			Build()
+	} else {
+		log.Fatal("Invalid device type. Please specify 'A100' or 'H100'.")
+		return
+	}
+
+	// tracingBackend := tracing.NewDBTracer("")
+	// tracingBackend.Init()
+	// b := simulation.MakeBuilder()
+	// simulation := b.Build()
 
 	runner := new(runner.RunnerBuilder).
-		WithPlatform(platform).
+		WithPlatform(plat).
+		WithSimulation(simulation).
+		WithVisTracing(*params.VisTracing).
 		Build()
+	// runner.Init()
 	runner.AddBenchmark(benchmark)
 
 	runner.Run()
