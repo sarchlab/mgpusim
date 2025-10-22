@@ -2,6 +2,7 @@ package cu
 
 import (
 	"log"
+	"reflect"
 
 	"github.com/sarchlab/akita/v4/pipelining"
 	"github.com/sarchlab/akita/v4/sim"
@@ -240,7 +241,15 @@ func (u *VectorMemoryUnit) sendRequest() bool {
 		u.postTransactionPipelineBuffer.Pop()
 		u.numTransactionInFlight--
 
-		tracing.TraceReqInitiate(req, u.cu, info.Inst.ID)
+		tracing.StartTaskWithSpecificLocation(
+			req.Meta().ID+"_req_out",
+			info.Inst.ID,
+			u.cu,
+			"req_out",
+			reflect.TypeOf(req).String(),
+			u.cu.Name()+".VectorMemUnit",
+			req,
+		)
 
 		return true
 	}
