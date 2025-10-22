@@ -1,0 +1,8 @@
+Title: backprop
+Suite: rodinia
+Command: /home/enze/workspace/GPU_Benchmarks/rodinia/backprop/backprop.exe
+Params: -size 128 -block 32 
+DeviceID: 0
+HostName: yss2
+DeviceName: NVIDIA H100 PCIe
+CudaVersion: release 12.5

@@ -4,6 +4,7 @@ data/*
 
 !data/simple-trace-example/
 !data/simtune*/
+!data/dataset_debug/
 etc/secret-local.yaml
 count.py
 test-v*
