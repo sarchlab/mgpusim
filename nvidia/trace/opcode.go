@@ -27,11 +27,14 @@ const (
 	OpCodeMemWrite
 	OpCodeExit
 	OpCode2
+	OpCode3
 	OpCode4
+	OpCode5
 	OpCode6
 	OpCode8
 	OpCode10
 	OpCode20
+	OpCode40
 	OpCode100
 	IMADMOVU32
 )
@@ -97,8 +100,12 @@ func (op *Opcode) GetInstructionCycles() uint64 {
 	switch op.opType {
 	case OpCode2:
 		return 2
+	case OpCode3:
+		return 3
 	case OpCode4:
 		return 4
+	case OpCode5:
+		return 5
 	case OpCode6:
 		return 6
 	case OpCode8:
@@ -107,6 +114,8 @@ func (op *Opcode) GetInstructionCycles() uint64 {
 		return 10
 	case OpCode20:
 		return 20
+	case OpCode40:
+		return 40
 	case OpCode100:
 		return 100
 	case OpCodeExit:
@@ -124,22 +133,74 @@ var opcodeTable map[string]Opcode
 func init() {
 	opcodeTable = make(map[string]Opcode)
 
-	// opcodeTable["IMAD.MOV.U32"] = Opcode{"IMAD.MOV.U32", IMADMOVU32, VariableINT32}
 	opcodeTable["EXIT"] = Opcode{"EXIT", OpCodeExit, VariableDefault}
 
+	// OpCodeMemRead
+	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeMemRead, VariableDefault}
+
+	// OpCodeMemWrite
+	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeMemWrite, VariableDefault}
+
+	// OpCodeDefault (1)
 	opcodeTable["MOV"] = Opcode{"MOV", OpCodeDefault, VariableDefault}
 	opcodeTable["ISETP.GE.AND"] = Opcode{"ISETP.GE.AND", OpCodeDefault, VariableDefault}
 
+	// OpCode2
+	opcodeTable["UMOV"] = Opcode{"UMOV", OpCode2, VariableDefault}
+
+	// OpCode3
+	opcodeTable["LEA"] = Opcode{"LEA", OpCode3, VariableDefault}
+	opcodeTable["S2R"] = Opcode{"S2R", OpCode3, VariableDefault}
+
+	// OpCode4
+	opcodeTable["ULDC"] = Opcode{"ULDC", OpCode4, VariableDefault}
+	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCode4, VariableDefault}
+	opcodeTable["LDC"] = Opcode{"LDC", OpCode4, VariableDefault}
+	opcodeTable["SHF.R.S32.HI"] = Opcode{"SHF.R.S32.HI", OpCode4, VariableDefault}
+	opcodeTable["ISETP.GE.U32.AND"] = Opcode{"ISETP.GE.U32.AND", OpCode4, VariableDefault}
+	opcodeTable["IMAD.MOV.U32"] = Opcode{"IMAD.MOV.U32", OpCode4, VariableDefault}
+	opcodeTable["ISETP.GT.AND"] = Opcode{"ISETP.GT.AND", OpCode4, VariableDefault}
+	opcodeTable["FFMA"] = Opcode{"FFMA", OpCode4, VariableDefault}
+	opcodeTable["VIADD"] = Opcode{"VIADD", OpCode4, VariableDefault}
+	opcodeTable["ISETP.NE.OR"] = Opcode{"ISETP.NE.OR", OpCode4, VariableDefault}
+	opcodeTable["ISETP.NE.AND"] = Opcode{"ISETP.NE.AND", OpCode4, VariableDefault}
+	opcodeTable["S2UR"] = Opcode{"S2UR", OpCode4, VariableDefault}
+	opcodeTable["IMAD.U32"] = Opcode{"IMAD.U32", OpCode4, VariableDefault}
+	opcodeTable["ISETP.LT.U32.AND"] = Opcode{"ISETP.LT.U32.AND", OpCode4, VariableDefault}
+	opcodeTable["ISETP.NE.U32.AND"] = Opcode{"ISETP.NE.U32.AND", OpCode4, VariableDefault}
+	opcodeTable["IMAD.MOV"] = Opcode{"IMAD.MOV", OpCode4, VariableDefault}
+	opcodeTable["SHF.L.U32"] = Opcode{"SHF.L.U32", OpCode4, VariableDefault}
+	opcodeTable["SHF.R.U32.HI"] = Opcode{"SHF.R.U32.HI", OpCode4, VariableDefault}
+	opcodeTable["FMUL"] = Opcode{"FMUL", OpCode4, VariableDefault}
 	opcodeTable["IMAD"] = Opcode{"IMAD", OpCode4, VariableDefault}
 	opcodeTable["FADD"] = Opcode{"FADD", OpCode4, VariableDefault}
-	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCode4, VariableDefault}
-	opcodeTable["LDC"] = Opcode{"LDC", OpCode20, VariableDefault}
 
+	// OpCode5 (rounded mean for ranges)
+	opcodeTable["ISETP.GT.U32.AND.EX"] = Opcode{"ISETP.GT.U32.AND.EX", OpCode5, VariableDefault}
+	opcodeTable["LEA.HI.X.SX32"] = Opcode{"LEA.HI.X.SX32", OpCode5, VariableDefault}
+
+	// OpCode6
+	opcodeTable["BRA"] = Opcode{"BRA", OpCode6, VariableDefault}
+	opcodeTable["IADD3"] = Opcode{"IADD3", OpCode6, VariableDefault}
+	opcodeTable["LOP3.LUT"] = Opcode{"LOP3.LUT", OpCode6, VariableDefault}
+	opcodeTable["IMAD.WIDE.U32"] = Opcode{"IMAD.WIDE.U32", OpCode6, VariableDefault}
+	opcodeTable["IMAD.IADD"] = Opcode{"IMAD.IADD", OpCode6, VariableDefault}
 	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCode6, VariableDefault}
+	opcodeTable["LEA.HI.X"] = Opcode{"LEA.HI.X", OpCode6, VariableDefault}
+	opcodeTable["IADD3.X"] = Opcode{"IADD3.X", OpCode6, VariableDefault}
+	opcodeTable["PLOP3.LUT"] = Opcode{"PLOP3.LUT", OpCode6, VariableDefault}
+	opcodeTable["UIADD3"] = Opcode{"UIADD3", OpCode6, VariableDefault}
+	opcodeTable["UIMAD.WIDE"] = Opcode{"UIMAD.WIDE", OpCode6, VariableDefault}
+	opcodeTable["I2F.U32.RP"] = Opcode{"I2F.U32.RP", OpCode6, VariableDefault}
+	opcodeTable["IMAD.HI.U32"] = Opcode{"IMAD.HI.U32", OpCode6, VariableDefault}
+	opcodeTable["SHF.R.S64"] = Opcode{"SHF.R.S64", OpCode6, VariableDefault}
 
-	opcodeTable["S2R"] = Opcode{"S2R", OpCode8, VariableDefault}
-	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCode8, VariableDefault}
+	// OpCode8
+	opcodeTable["F2I.FTZ.U32.TRUNC.NTZ"] = Opcode{"F2I.FTZ.U32.TRUNC.NTZ", OpCode8, VariableDefault}
 
-	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeMemRead, VariableDefault}
-	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeMemWrite, VariableDefault}
+	// OpCode10
+	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCode10, VariableDefault}
+
+	// OpCode40
+	opcodeTable["MUFU.RCP"] = Opcode{"MUFU.RCP", OpCode40, VariableDefault}
 }
