@@ -457,7 +457,7 @@ func (s *SMSPController) handleNormalInstruction(lastInstructionFlag bool, warpU
 	}
 
 	// First time loading this instruction
-	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1 + 3
+	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1 + 0
 	if warpUnit.currentInstructionRemainingCycles == 0 {
 		s.handleNormalInstructionEnd(lastInstructionFlag, warpUnit)
 	}
