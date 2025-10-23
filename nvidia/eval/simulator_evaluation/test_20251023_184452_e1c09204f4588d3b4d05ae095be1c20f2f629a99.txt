@@ -1,0 +1,1 @@
+e1c0920,test,,2.935429,-203.885455,1.000000,1.000000,6.759633915,1,3,2,"test: latency +0 instead",e1c09204f4588d3b4d05ae095be1c20f2f629a99,EnzeXu,"{polybench/3mm: 1.644179, polybench/3dconv: 4.226680}"
