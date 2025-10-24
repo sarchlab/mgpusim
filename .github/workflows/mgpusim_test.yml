@@ -117,6 +117,12 @@ jobs:
             # # Remove the [release-emptykernel vX.X.X] part from message
             # MSG="${MSG#*\] }"
             echo "msg=$MSG" >> $GITHUB_OUTPUT
+          elif [[ "$MSG" =~ ^\[release-rodinia\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+            echo "type=release-rodinia" >> $GITHUB_OUTPUT
+            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            # # Remove the [release-rodinia vX.X.X] part from message
+            # MSG="${MSG#*\] }"
+            echo "msg=$MSG" >> $GITHUB_OUTPUT
           elif [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
             echo "type=release" >> $GITHUB_OUTPUT
             echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
@@ -149,6 +155,8 @@ jobs:
             OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
           elif [[ "${{ steps.commit_type.outputs.type }}" == "release-emptykernel" ]]; then
             OUTPUT=$(./nvidia/eval/eval --config release-emptykernel --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
+          elif [[ "${{ steps.commit_type.outputs.type }}" == "release-rodinia" ]]; then
+            OUTPUT=$(./nvidia/eval/eval --config release-rodinia --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
           elif [[ "${{ steps.commit_type.outputs.type }}" == "test" ]]; then
             OUTPUT=$(./nvidia/eval/eval --config test --sha ${{ steps.commit_info.outputs.sha }} --version "test")
           else
@@ -196,7 +204,7 @@ jobs:
           VERSION="${{ steps.commit_type.outputs.version }}"
           TIME="${{ steps.timestamp.outputs.timestamp }}"
           # Compose filename
-          if [[ "$COMMIT_TYPE" == "release" || "$COMMIT_TYPE" == "release-emptykernel" ]]; then
+          if [[ "$COMMIT_TYPE" == "release" || "$COMMIT_TYPE" == "release-emptykernel" || "$COMMIT_TYPE" == "release-rodinia" ]]; then
             FNAME="${COMMIT_TYPE}_${VERSION}_${TIME}_${SHA}.txt"
           else
             FNAME="${COMMIT_TYPE}_${TIME}_${SHA}.txt"
@@ -263,7 +271,7 @@ jobs:
             sort -t_ -k1,1r \
             | awk '
               BEGIN {
-                order["release"]=1; order["release-emptykernel"]=2; order["dev"]=3; order["test"]=4;
+                order["release"]=1; order["release-rodinia"]=2; order["release-emptykernel"]=3; order["dev"]=4; order["test"]=5;
               }
               {
                 type=gensub(/_.*/, "", "g", $0);
