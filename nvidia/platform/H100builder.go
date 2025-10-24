@@ -44,7 +44,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 	p.Driver = new(driver.DriverBuilder).
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
-		WithDriver2GPUOverheadLatency(2000).
+		WithDriver2GPUOverheadLatency(1000). // 2000
 		WithVisTracing(b.VisTracing).
 		Build("Driver")
 
