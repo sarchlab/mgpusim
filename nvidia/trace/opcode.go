@@ -97,35 +97,37 @@ func (op *Opcode) VariableType() VariableType {
 }
 
 func (op *Opcode) GetInstructionCycles() uint64 {
+	offset := uint64(1)
+	cycle := uint64(0)
 	switch op.opType {
 	case OpCode2:
-		return 2
+		cycle = 2
 	case OpCode3:
-		return 3
+		cycle = 3
 	case OpCode4:
-		return 4
+		cycle = 4
 	case OpCode5:
-		return 5
+		cycle = 5
 	case OpCode6:
-		return 6
+		cycle = 6
 	case OpCode8:
-		return 8
+		cycle = 8
 	case OpCode10:
-		return 10
+		cycle = 10
 	case OpCode20:
-		return 20
+		cycle = 20
 	case OpCode40:
-		return 40
+		cycle = 40
 	case OpCode100:
-		return 100
+		cycle = 100
 	case OpCodeExit:
-		return 1
+		cycle = 1
 	case OpCodeMemRead:
-		return 0
+		cycle = 0
 	case OpCodeMemWrite:
-		return 0
+		cycle = 0
 	}
-	return 1
+	return max(cycle-offset, 0)
 }
 
 var opcodeTable map[string]Opcode
@@ -199,7 +201,7 @@ func init() {
 	opcodeTable["F2I.FTZ.U32.TRUNC.NTZ"] = Opcode{"F2I.FTZ.U32.TRUNC.NTZ", OpCode8, VariableDefault}
 
 	// OpCode10
-	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCode10, VariableDefault}
+	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCode4, VariableDefault}
 
 	// OpCode40
 	opcodeTable["MUFU.RCP"] = Opcode{"MUFU.RCP", OpCode40, VariableDefault}
