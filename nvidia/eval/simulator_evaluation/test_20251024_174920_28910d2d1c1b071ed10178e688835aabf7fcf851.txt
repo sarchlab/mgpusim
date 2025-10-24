@@ -1,0 +1,1 @@
+28910d2,test,,0.991530,-12.032465,1.000000,1.000000,5.744565005,1,3,2,"test: update release -rodinia",28910d2d1c1b071ed10178e688835aabf7fcf851,Enze Xu,"{polybench/3mm: 1.084334, polybench/3dconv: 0.898727}"
