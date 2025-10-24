@@ -201,7 +201,7 @@ func init() {
 	opcodeTable["F2I.FTZ.U32.TRUNC.NTZ"] = Opcode{"F2I.FTZ.U32.TRUNC.NTZ", OpCode8, VariableDefault}
 
 	// OpCode10
-	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCode4, VariableDefault}
+	opcodeTable["HFMA2.MMA"] = Opcode{"HFMA2.MMA", OpCode2, VariableDefault}
 
 	// OpCode40
 	opcodeTable["MUFU.RCP"] = Opcode{"MUFU.RCP", OpCode40, VariableDefault}
