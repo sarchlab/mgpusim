@@ -100,6 +100,8 @@ func (op *Opcode) GetInstructionCycles() uint64 {
 	offset := uint64(1)
 	cycle := uint64(0)
 	switch op.opType {
+	case OpCodeDefault:
+		cycle = 1
 	case OpCode2:
 		cycle = 2
 	case OpCode3:
@@ -127,7 +129,7 @@ func (op *Opcode) GetInstructionCycles() uint64 {
 	case OpCodeMemWrite:
 		cycle = 0
 	}
-	return max(cycle-offset, 0)
+	return max(cycle-offset, 1)
 }
 
 var opcodeTable map[string]Opcode
