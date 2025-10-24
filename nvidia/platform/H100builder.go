@@ -44,7 +44,7 @@ func (b *H100PlatformBuilder) Build() *Platform {
 	p.Driver = new(driver.DriverBuilder).
 		WithEngine(p.Engine).
 		WithFreq(b.freq).
-		WithDriver2GPUOverheadLatency(1000). // 2000
+		WithDriver2GPUOverheadLatency(500). // 2000
 		WithVisTracing(b.VisTracing).
 		Build("Driver")
 
@@ -59,10 +59,10 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithLog2CacheLineSize(9). // Changed from 7 to 9 to support 512-byte memory accesses
 		WithNumMemoryBank(4).
 		WithGPU2SMThreadBlockAllocationLatency(3).
-		WithSMReceiveGPULatency(5).
+		WithSMReceiveGPULatency(0). // 5
 		WithSM2SMSPWarpIssueLatency(0).
 		WithGPUReceiveSMLatency(0).
-		WithGPUReceiveCTALatencyUnit(0.10).
+		WithGPUReceiveCTALatencyUnit(0.0). // 0.10
 		WithVisTracing(b.VisTracing)
 	gpuCount := 1
 	for i := 0; i < gpuCount; i++ {
