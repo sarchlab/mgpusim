@@ -87,10 +87,27 @@ func main() {
 
 		"simtune/emptykernel-simulations.yaml",
 	}
+	// Rodinia benchmarks: backprop pathfinder lud gaussian heartwall cfd nn kmeans bfs lavaMD "b+tree"
+	filesRodinia := []string{
+		"rodinia/backprop-simulations.yaml",
+		"rodinia/pathfinder-simulations.yaml",
+		"rodinia/lud-simulations.yaml",
+		"rodinia/gaussian-simulations.yaml",
+		"rodinia/heartwall-simulations.yaml",
+		"rodinia/cfd-simulations.yaml",
+		"rodinia/nn-simulations.yaml",
+		"rodinia/kmeans-simulations.yaml",
+		"rodinia/bfs-simulations.yaml",
+		"rodinia/lavaMD-simulations.yaml",
+		"rodinia/b+tree-simulations.yaml",
+	}
+
 	groundTruthPath := "./ground_truth_release.txt"
 	groundTruthEmptyKernelPath := "./ground_truth_release-emptykernel.txt"
+	groundTruthRodiniaPath := "./ground_truth_release-rodinia.txt"
 	outputPathRelease := "../eval_config_release.json"
 	outputPathReleaseEmptyKernel := "../eval_config_release-emptykernel.json"
+	outputPathReleaseRodinia := "../eval_config_release-rodinia.json"
 	outputPathDev := "../eval_config_dev.json"
 
 	groundTruth, err := parseGroundTruth(groundTruthPath)
@@ -102,6 +119,12 @@ func main() {
 	groundTruthEmptyKernel, err := parseGroundTruth(groundTruthEmptyKernelPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing ground truth (empty kernel): %v\n", err)
+		os.Exit(1)
+	}
+
+	groundTruthRodinia, err := parseGroundTruth(groundTruthRodiniaPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing ground truth (Rodinia): %v\n", err)
 		os.Exit(1)
 	}
 
@@ -185,6 +208,43 @@ func main() {
 	fmt.Printf("Wrote %s: %d arg settings (all kept, %d/%d beforeTurning)\n",
 		outputPathReleaseEmptyKernel, releaseCountEmptyKernel,
 		releaseBeforeTurningCountEmptyKernel, releaseCountEmptyKernel)
+
+	// For rodinia only
+	benchmarksRodinia := []Benchmark{}
+	missingTruthRodinia := []string{}
+
+	for _, relPath := range filesRodinia {
+		fullPath := filepath.Join(folder, relPath)
+		suite, benchmark := parseSuiteBenchmark(relPath)
+		args, missing := parseSimYaml(fullPath, suite, benchmark, groundTruthRodinia, true)
+		benchmarksRodinia = append(benchmarksRodinia, Benchmark{
+			Title: benchmark,
+			Suite: suite,
+			Args:  args,
+		})
+		missingTruthRodinia = append(missingTruthRodinia, missing...)
+	}
+
+	if len(missingTruthRodinia) > 0 {
+		fmt.Println("Missing ground truth entries for (Rodinia):")
+		for _, m := range missingTruthRodinia {
+			fmt.Println(m)
+		}
+	}
+
+	// Write eval_release-rodinia.json, keep all args
+	releaseBenchmarksRodinia := benchmarksRodinia // no filtering
+	releaseConfigRodinia := EvalConfig{
+		ScriptPath: "./mnt-collector",
+		Benchmarks: releaseBenchmarksRodinia,
+	}
+	releaseCountRodinia := countArgs(releaseBenchmarksRodinia)
+	releaseBeforeTurningCountRodinia := countBeforeTurning(releaseBenchmarksRodinia)
+
+	writeEvalConfig(outputPathReleaseRodinia, releaseConfigRodinia)
+	fmt.Printf("Wrote %s: %d arg settings (all kept, %d/%d beforeTurning)\n",
+		outputPathReleaseRodinia, releaseCountRodinia,
+		releaseBeforeTurningCountRodinia, releaseCountRodinia)
 
 	// Generate eval_dev.json (keep only 3 greatest arg settings per benchmark)
 	devBenchmarks := []Benchmark{}     // updated

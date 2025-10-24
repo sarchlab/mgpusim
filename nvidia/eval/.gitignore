@@ -4,6 +4,7 @@ example.yaml
 eval_config.json
 eval_config_release-emptykernel-only.json
 config/config
+config/ground_truth_release-rodinia_backup.txt
 simulator_evaluation_backup.csv
 ground_truth_old.txt
 ground_truth_release-old.txt
