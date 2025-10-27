@@ -10,7 +10,7 @@ import (
 
 type WarpStatus int
 
-const SMSPSchedulerIssueSpeed = 1
+const SMSPSchedulerIssueSpeed = 2
 
 const (
 	WarpStatusReady WarpStatus = iota
