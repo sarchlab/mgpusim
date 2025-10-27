@@ -332,43 +332,30 @@ jobs:
 
       - name: Display complete summary in workflow UI
         run: |
-          echo "## 🧾 Nvidia Simulator Evaluation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Nvidia Simulator Evaluation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The following table includes all evaluation records currently in **summary_table.csv**." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '<details><summary>📊 Click to expand full results</summary>' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Use Python CSV reader to correctly handle quoted fields and skip the last "Distribution" column
-          python3 - <<'PY' >> $GITHUB_STEP_SUMMARY
-import csv
-import sys
-try:
-    with open('summary_table.csv', newline='', encoding='utf-8') as f:
-        reader = csv.reader(f)
-        try:
-            header = next(reader)
-        except StopIteration:
-            header = []
-        if header:
-            # drop last column (Distribution)
-            header = header[:-1]
-            # output markdown table header
-            print("| " + " | ".join(header) + " |")
-            print("| " + " | ".join(["---"] * len(header)) + " |")
-            for row in reader:
-                # ensure row has at least as many columns as header (pad if necessary)
-                if len(row) < len(header) + 1:
-                    # if Distribution missing for some reason, still handle gracefully
-                    row = row + [""] * (len(header) + 1 - len(row))
-                # drop last column
-                row = row[:-1]
-                # escape pipes in cell content for markdown safety
-                row = [c.replace("|", r"\|") for c in row]
-                print("| " + " | ".join(row) + " |")
-except FileNotFoundError:
-    print("_No summary_table.csv found._")
-PY
+          if [ -f summary_table.csv ]; then
+            # Read CSV line by line
+            while IFS=',' read -r col1 col2 col3 col4 col5 col6 col7 col8 col9 col10 col11 col12 col13 col14 col15 col16; do
+              # Drop last column (assuming it's the Distribution column)
+              row=("$col1" "$col2" "$col3" "$col4" "$col5" "$col6" "$col7" "$col8" "$col9" "$col10" "$col11" "$col12" "$col13" "$col14" "$col15")
+              # Replace empty values with space
+              for i in "${!row[@]}"; do
+                [ -z "${row[i]}" ] && row[i]=" "
+                # Escape pipe for markdown
+                row[i]="${row[i]//|/\\|}"
+              done
+              # Print markdown row
+              echo "| ${row[*]// / | } |" >> $GITHUB_STEP_SUMMARY
+            done < summary_table.csv
+          else
+            echo "_No summary_table.csv found._" >> $GITHUB_STEP_SUMMARY
+          fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "</details>" >> $GITHUB_STEP_SUMMARY
