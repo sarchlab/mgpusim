@@ -289,6 +289,9 @@ jobs:
             touch sorted1.txt
           fi
 
+          echo "sorted1.txt:"
+          cat sorted1.txt
+
           # sort other rows by type order (asc) then time desc
           if [ -f other_rows.txt ]; then
             sort -t$'\t' -k1,1n -k2,2r other_rows.txt | cut -f3 > sorted2.txt
@@ -327,12 +330,28 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '<details><summary>📊 Click to expand full results</summary>' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Short SHA | Type | Version | Error Average Score | R² | Pearson | Spearman | Eval Time(s) | Suite Count | Benchmark Count | Trace Count | Commit Message | SHA | Author |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|------|----------|----------------------|----|----------|-----------|---------------|--------------|------------------|--------------|----------------|-----|---------|" >> $GITHUB_STEP_SUMMARY
-          tail -n +2 summary_table.csv | while IFS=',' read -r short_sha type version score rsquared pearson spearman time suite bench trace msg sha author; do
-            printf "| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" \
-              "$short_sha" "$type" "$version" "$score" "$rsquared" "$pearson" "$spearman" "$time" "$suite" "$bench" "$trace" "$msg" "$sha" "$author" >> $GITHUB_STEP_SUMMARY
-          done
+
+          # Use Python CSV reader to correctly handle quoted fields and skip the last "Distribution" column
+          python3 - <<'PY' >> $GITHUB_STEP_SUMMARY
+import csv
+with open('summary_table.csv', newline='', encoding='utf-8') as f:
+  reader = csv.reader(f)
+  try:
+      header = next(reader)
+  except StopIteration:
+      header = []
+  if header:
+      header = header[:-1]  # drop last column (Distribution)
+      # write markdown header and separator
+      print("| " + " | ".join(header) + " |")
+      print("| " + " | ".join(["---"] * len(header)) + " |")
+      for row in reader:
+          row = row[:-1]  # drop last column
+          # escape pipes in cell content
+          row = [c.replace("|", r"\|") for c in row]
+          print("| " + " | ".join(row) + " |")
+PY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "</details>" >> $GITHUB_STEP_SUMMARY
 
 # name: MGPUSim Test
