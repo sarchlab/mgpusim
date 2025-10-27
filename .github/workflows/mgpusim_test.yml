@@ -293,11 +293,12 @@ jobs:
           echo "sorted1.txt:"
           cat sorted1.txt || true
 
-          # sort other rows by type order (asc) then time desc
-          if [ -s other_rows.txt ]; then
-            sort -t$'\t' -k1,1n -k2,2r other_rows.txt | cut -f3 > sorted2.txt
+          # sort versioned rows by semantic version descending (latest first)
+          if [ -s version_rows.txt ]; then
+            # strip 'v', sort by version, reverse, then extract original filename
+            sort -t$'\t' -k1,1Vr version_rows.txt | cut -f2 > sorted1.txt
           else
-            : > sorted2.txt
+            : > sorted1.txt
           fi
 
           cat sorted1.txt sorted2.txt > sorted_txt_list.txt
@@ -339,7 +340,7 @@ jobs:
           df = df.drop(columns=["Error Benchmark-level Distribution"])
           md = df.to_markdown(index=False)
           with open("${GITHUB_STEP_SUMMARY}", "a") as f:
-              f.write("## Evaluation Summary\n")
+              f.write("## 📊 Evaluation Summary\n")
               f.write(md)
           EOF
 
