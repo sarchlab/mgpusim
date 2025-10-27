@@ -1,0 +1,1 @@
+f34dfae,test,,0.965674,-11.640814,1.000000,1.000000,6.546069181,1,3,2,"test: rewrite the result table",f34dfae600730871d5709eb97bc774714c348971,EnzeXu,"{polybench/3mm: 1.032620, polybench/3dconv: 0.898727}"
