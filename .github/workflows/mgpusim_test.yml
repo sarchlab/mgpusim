@@ -332,7 +332,13 @@ jobs:
 
       - name: Display complete summary in workflow UI
         run: |
-          echo "## Evaluation Summary" >> $GITHUB_STEP_SUMMARY
-          # Convert CSV to Markdown table (skip the long column)
-          csvcut -C "Error Benchmark-level Distribution" summary_table.csv | csv2md >> $GITHUB_STEP_SUMMARY
+          python - <<EOF
+          import pandas as pd
+          df = pd.read_csv("summary_table.csv")
+          df = df.drop(columns=["Error Benchmark-level Distribution"])
+          md = df.to_markdown(index=False)
+          with open("${GITHUB_STEP_SUMMARY}", "a") as f:
+              f.write("## Evaluation Summary\n")
+              f.write(md)
+          EOF
 
