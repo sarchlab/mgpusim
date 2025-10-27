@@ -263,10 +263,11 @@ jobs:
       
       - name: Generate summary table artifact
         run: |
-          # list basenames
+          set -euo pipefail
+          # list basenames (handle spaces/newlines safely)
           find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" -print0 | xargs -0 -n1 basename > txt_list.txt
 
-          rm -f version_rows.txt other_rows.txt sorted1.txt sorted2.txt sorted_txt_list.txt
+          rm -f version_rows.txt other_rows.txt sorted1.txt sorted2.txt sorted_txt_list.txt || true
 
           # separate versioned files (second field starts with 'v') and others
           awk -F'_' '{
@@ -283,37 +284,44 @@ jobs:
           }' txt_list.txt
 
           # sort versioned rows by semantic version desc (GNU sort -V)
-          if [ -f version_rows.txt ]; then
+          if [ -s version_rows.txt ]; then
             sort -t$'\t' -k1,1V -r version_rows.txt | cut -f2 > sorted1.txt
           else
-            touch sorted1.txt
+            : > sorted1.txt
           fi
 
           echo "sorted1.txt:"
-          cat sorted1.txt
+          cat sorted1.txt || true
 
           # sort other rows by type order (asc) then time desc
-          if [ -f other_rows.txt ]; then
+          if [ -s other_rows.txt ]; then
             sort -t$'\t' -k1,1n -k2,2r other_rows.txt | cut -f3 > sorted2.txt
           else
-            touch sorted2.txt
+            : > sorted2.txt
           fi
 
           cat sorted1.txt sorted2.txt > sorted_txt_list.txt
 
-          # header with Time String as first column
+          # header (keep Distribution as last column; we'll drop it in the UI render)
           echo "Time String,Short SHA,Type,Version,Error Average Score,Coefficient of Determination R²,Pearson Correlation Coefficient,Spearman Rank Correlation,Eval Time(s),Suite Count,Benchmark Count,Trace Count,Commit Message,SHA,Author,Error Benchmark-level Distribution" > summary_table.csv
 
           # prepend timestring extracted from filename and append the file content
           while IFS= read -r fname; do
-            IFS='_' read -r p1 p2 p3 p4 _ <<< "$fname"
-            if [[ "$p2" =~ ^v ]]; then
-              timestr="${p3}_${p4}"
+            # robust split on '_' into array to avoid problems with variable number of underscores
+            IFS='_' read -ra parts <<< "$fname"
+            # parts[0] -> first field before first '_', parts[1] -> second, etc.
+            if [[ "${parts[1]:-}" =~ ^v ]]; then
+              # make sure we have at least parts[2] and parts[3]
+              timestr="${parts[2]:-}_${parts[3]:-}"
             else
-              timestr="${p2}_${p3}"
+              timestr="${parts[1]:-}_${parts[2]:-}"
             fi
-            line=$(cat "nvidia/eval/simulator_evaluation/$fname")
-            echo "${timestr},${line}" >> summary_table.csv
+            # read the whole CSV line from the file (it is guaranteed to be a well-formed CSV line)
+            if ! line=$(<"nvidia/eval/simulator_evaluation/$fname"); then
+              line=""
+            fi
+            # use printf to preserve all characters (commas, quotes) exactly in the second field
+            printf '%s,%s\n' "$timestr" "$line" >> summary_table.csv
           done < sorted_txt_list.txt
 
       - name: Upload summary table artifact
@@ -321,7 +329,7 @@ jobs:
         with:
           name: mgpusim_nvidia_evaluation_summary
           path: summary_table.csv
-      
+
       - name: Display complete summary in workflow UI
         run: |
           echo "## 🧾 Nvidia Simulator Evaluation Summary" >> $GITHUB_STEP_SUMMARY
@@ -334,120 +342,33 @@ jobs:
           # Use Python CSV reader to correctly handle quoted fields and skip the last "Distribution" column
           python3 - <<'PY' >> $GITHUB_STEP_SUMMARY
 import csv
-with open('summary_table.csv', newline='', encoding='utf-8') as f:
-  reader = csv.reader(f)
-  try:
-      header = next(reader)
-  except StopIteration:
-      header = []
-  if header:
-      header = header[:-1]  # drop last column (Distribution)
-      # write markdown header and separator
-      print("| " + " | ".join(header) + " |")
-      print("| " + " | ".join(["---"] * len(header)) + " |")
-      for row in reader:
-          row = row[:-1]  # drop last column
-          # escape pipes in cell content
-          row = [c.replace("|", r"\|") for c in row]
-          print("| " + " | ".join(row) + " |")
+import sys
+try:
+    with open('summary_table.csv', newline='', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        try:
+            header = next(reader)
+        except StopIteration:
+            header = []
+        if header:
+            # drop last column (Distribution)
+            header = header[:-1]
+            # output markdown table header
+            print("| " + " | ".join(header) + " |")
+            print("| " + " | ".join(["---"] * len(header)) + " |")
+            for row in reader:
+                # ensure row has at least as many columns as header (pad if necessary)
+                if len(row) < len(header) + 1:
+                    # if Distribution missing for some reason, still handle gracefully
+                    row = row + [""] * (len(header) + 1 - len(row))
+                # drop last column
+                row = row[:-1]
+                # escape pipes in cell content for markdown safety
+                row = [c.replace("|", r"\|") for c in row]
+                print("| " + " | ".join(row) + " |")
+except FileNotFoundError:
+    print("_No summary_table.csv found._")
 PY
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "</details>" >> $GITHUB_STEP_SUMMARY
-
-# name: MGPUSim Test
-
-
-# on: [push, pull_request]
-
-# jobs:
-#   compile:
-#     name: Compile
-#     runs-on: Github-Large-1
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v2
-
-#       - name: Setup Go
-#         uses: actions/setup-go@v4
-#         with:
-#           go-version: "stable"
-
-#       - name: Build
-#         run: go build ./...
-
-#   lint:
-#     name: Lint
-#     runs-on: Github-Large-1
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v2
-
-#       - name: Setup Go
-#         uses: actions/setup-go@v4
-#         with:
-#           go-version: "stable"
-
-#       - name: golangci-lint
-#         uses: golangci/golangci-lint-action@v3
-#         with:
-#           version: "latest"
-#           args: --timeout=10m
-#           skip-cache: true
-
-#   evaluate_commit:
-#     name: Nvidia Simulator Evaluation
-#     runs-on: Github-Large-1
-#     needs: [lint]
-#     if: github.event_name == 'push' || github.event_name == 'pull_request'
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v2
-#         with:
-#           token: ${{ secrets.GITHUB_TOKEN }}
-#           fetch-depth: 0
-
-#       - name: Get Commit Info
-#         id: commit_info
-#         run: |
-#           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-#           echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
-#           echo "author=$(git log -1 --pretty=%an)" >> $GITHUB_OUTPUT
-
-#       - name: Run Evaluation Script
-#         id: eval
-#         run: |
-#           # Replace this with your actual evaluation script
-#           SCORE=1.00 # Simulated score
-#           echo "score=$SCORE" >> $GITHUB_OUTPUT
-
-#       - name: Format and append evaluation result
-#         run: |
-#           SHA="${{ steps.commit_info.outputs.sha }}"
-#           SHORT_SHA="${SHA:0:7}"
-#           MSG="${{ steps.commit_info.outputs.message }}"
-#           SCORE="${{ steps.eval.outputs.score }}"
-#           AUTHOR="${{ steps.commit_info.outputs.author }}"
-
-#           # Extract commit_type and version
-#           if [[ "$MSG" =~ ^\[release\ v([0-9]+(\.[0-9]+)*)\] ]]; then
-#             COMMIT_TYPE="release"
-#             VERSION="v${BASH_REMATCH[1]}"
-#             # Remove the [release vX.X.X] part from message
-#             MSG="${MSG#*\] }"
-#           else
-#             COMMIT_TYPE="dev"
-#             VERSION=""
-#           fi
-
-#           # Compose the CSV line
-#           echo "$SHORT_SHA,$COMMIT_TYPE,$VERSION,$SCORE,\"$MSG\",$SHA,$AUTHOR" >> nvidia/eval/simulator_evaluation.csv
-
-#       - name: Commit results
-#         run: |
-#           git config --global user.name "github-actions"
-#           git config --global user.email "github-actions@github.com"
-#           git add nvidia/eval/simulator_evaluation.csv
-#           git commit -m "Add evaluation result for commit '${{ steps.commit_info.outputs.message }}' (${{ steps.commit_info.outputs.sha }})"
-#           git push
-#         env:
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

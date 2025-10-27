@@ -1,1 +1,1 @@
-4065fcb,test,,-0.416097,-14.800134,NaN,1.000000,1.137862995,1,3,2,test: extended record name with prefix,4065fcbb328ad802288cfa44e77596e214cc79dc,EnzeXu,{polybench/3mm: -0.030753, polybench/3dconv: -0.801440}
+"4065fcb","test","","-0.416097","-14.800134","NaN","1.000000","1.137862995","1","3","2","test: extended record name with prefix","4065fcbb328ad802288cfa44e77596e214cc79dc","EnzeXu","{polybench/3mm: -0.030753, polybench/3dconv: -0.801440}"

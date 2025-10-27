@@ -10,3 +10,4 @@ ground_truth_old.txt
 ground_truth_release-old.txt
 split_into_folder.py
 simulator_evaluation.csv
+simulator_evaluation_old
