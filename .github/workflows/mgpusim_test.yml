@@ -283,9 +283,10 @@ jobs:
             }
           }' txt_list.txt
 
-          # sort versioned rows by semantic version desc (GNU sort -V)
+          # sort versioned rows by semantic version descending (latest first)
           if [ -s version_rows.txt ]; then
-            sort -t$'\t' -k1,1V -r version_rows.txt | cut -f2 > sorted1.txt
+            # strip 'v', sort by version, reverse, then extract original filename
+            sort -t$'\t' -k1,1Vr version_rows.txt | cut -f2 > sorted1.txt
           else
             : > sorted1.txt
           fi
@@ -293,12 +294,11 @@ jobs:
           echo "sorted1.txt:"
           cat sorted1.txt || true
 
-          # sort versioned rows by semantic version descending (latest first)
-          if [ -s version_rows.txt ]; then
-            # strip 'v', sort by version, reverse, then extract original filename
-            sort -t$'\t' -k1,1Vr version_rows.txt | cut -f2 > sorted1.txt
+          # sort other rows by type order (asc) then time desc
+          if [ -s other_rows.txt ]; then
+            sort -t$'\t' -k1,1n -k2,2r other_rows.txt | cut -f3 > sorted2.txt
           else
-            : > sorted1.txt
+            : > sorted2.txt
           fi
 
           cat sorted1.txt sorted2.txt > sorted_txt_list.txt
