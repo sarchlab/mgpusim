@@ -332,34 +332,7 @@ jobs:
 
       - name: Display complete summary in workflow UI
         run: |
-          echo "## Nvidia Simulator Evaluation Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The following table includes all evaluation records currently in **summary_table.csv**." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '<details><summary>📊 Click to expand full results</summary>' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ -f summary_table.csv ]; then
-            # Print header manually (without final Distribution column)
-            echo "| Time String | Short SHA | Type | Version | Error Average Score | Coefficient of Determination R² | Pearson Correlation Coefficient | Spearman Rank Correlation | Eval Time(s) | Suite Count | Benchmark Count | Trace Count | Commit Message | SHA | Author | Error Benchmark-level |" >> $GITHUB_STEP_SUMMARY
-            echo "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-
-            # Read CSV line by line
-            while IFS=',' read -r col1 col2 col3 col4 col5 col6 col7 col8 col9 col10 col11 col12 col13 col14 col15 col16; do
-              # Drop last column (Distribution)
-              row=("$col1" "$col2" "$col3" "$col4" "$col5" "$col6" "$col7" "$col8" "$col9" "$col10" "$col11" "$col12" "$col13" "$col14" "$col15")
-              # Replace empty values with space and escape pipes
-              for i in "${!row[@]}"; do
-                [ -z "${row[i]}" ] && row[i]=" "
-                row[i]="${row[i]//|/\\|}"
-              done
-              # Print markdown row
-              echo "| ${row[*]// / | } |" >> $GITHUB_STEP_SUMMARY
-            done < summary_table.csv
-          else
-            echo "_No summary_table.csv found._" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          echo "## Evaluation Summary" >> $GITHUB_STEP_SUMMARY
+          # Convert CSV to Markdown table (skip the long column)
+          csvcut -C "Error Benchmark-level Distribution" summary_table.csv | csv2md >> $GITHUB_STEP_SUMMARY
 
