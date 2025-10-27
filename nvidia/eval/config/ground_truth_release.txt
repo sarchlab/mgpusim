@@ -429,3 +429,251 @@ suite=cuda-sdk, benchmark=transpose, frequency=345, dimX=3072, dimY=3072, kernel
 suite=cuda-sdk, benchmark=transpose, frequency=345, dimX=2048, dimY=2048, kernelID=1, cycles=6256.00, beforeTurning=0
 suite=cuda-sdk, benchmark=transpose, frequency=345, dimX=1024, dimY=1024, kernelID=1, cycles=1814.24, beforeTurning=0
 suite=cuda-sdk, benchmark=transpose, frequency=345, dimX=1536, dimY=1536, kernelID=1, cycles=3488.76, beforeTurning=0
+
+suite=rodinia, benchmark=cfd, frequency=345, size=128, block=128, cycles=18940.73, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=896, block=128, cycles=21263.04, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=768, block=128, cycles=21336.41, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=256, block=128, cycles=21090.08, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=640, block=128, cycles=21266.84, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=1024, block=128, cycles=21373.56, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=384, block=128, cycles=21138.03, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=64, block=128, cycles=18970.40, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=512, block=128, cycles=21186.11, beforeTurning=0
+
+suite=rodinia, benchmark=cfd, frequency=345, size=640, block=256, cycles=21542.61, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=64, block=256, cycles=19217.19, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=896, block=256, cycles=21348.03, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=1024, block=256, cycles=21344.23, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=384, block=256, cycles=21281.56, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=512, block=256, cycles=21417.37, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=128, block=256, cycles=19180.05, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=256, block=256, cycles=19353.24, beforeTurning=0
+suite=rodinia, benchmark=cfd, frequency=345, size=768, block=256, cycles=21605.28, beforeTurning=0
+
+suite=rodinia, benchmark=heartwall, frequency=345, size=32, block=128, cycles=9821.92, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=512, block=128, cycles=26433.44, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=768, block=128, cycles=28509.31, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=256, block=128, cycles=26334.43, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=64, block=128, cycles=14381.67, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=1024, block=128, cycles=34025.51, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=192, block=128, cycles=25819.00, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=384, block=128, cycles=26301.42, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=128, block=128, cycles=15021.76, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=96, block=128, cycles=15065.58, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=48, block=128, cycles=13060.32, beforeTurning=0
+
+suite=rodinia, benchmark=heartwall, frequency=345, size=192, block=256, cycles=48278.15, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=48, block=256, cycles=22731.01, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=128, block=256, cycles=27128.96, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=256, block=256, cycles=49636.42, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=512, block=256, cycles=51060.35, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=32, block=256, cycles=16744.11, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=768, block=256, cycles=54479.18, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=96, block=256, cycles=27445.67, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=64, block=256, cycles=26183.43, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=384, block=256, cycles=49499.91, beforeTurning=0
+suite=rodinia, benchmark=heartwall, frequency=345, size=1024, block=256, cycles=67340.90, beforeTurning=0
+
+
+suite=rodinia, benchmark=backprop, frequency=1755, size=8, block=32, cycles=105614.73, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=64, block=32, cycles=140236.20, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=16, block=32, cycles=107529.43, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=512, block=32, cycles=579707.51, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=128, block=32, cycles=205116.21, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=1024, block=32, cycles=1096884.94, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=32, block=32, cycles=114415.47, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=256, block=32, cycles=328725.54, beforeTurning=0
+
+suite=rodinia, benchmark=backprop, frequency=1755, size=64, block=64, cycles=138006.76, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=32, block=64, cycles=110691.95, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=8, block=64, cycles=101291.58, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=128, block=64, cycles=201187.94, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=16, block=64, cycles=104083.79, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=1024, block=64, cycles=1363625.06, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=256, block=64, cycles=382980.78, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=512, block=64, cycles=696538.44, beforeTurning=0
+
+suite=rodinia, benchmark=backprop, frequency=1755, size=64, block=128, cycles=135851.04, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=32, block=128, cycles=110745.77, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=16, block=128, cycles=103578.35, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=128, block=128, cycles=209644.70, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=256, block=128, cycles=375225.43, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=8, block=128, cycles=100729.40, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=1024, block=128, cycles=1904475.10, beforeTurning=0
+suite=rodinia, benchmark=backprop, frequency=1755, size=512, block=128, cycles=944917.74, beforeTurning=0
+
+
+suite=rodinia, benchmark=bfs, frequency=345, size=1024, degree=3, cycles=15342.15, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=256, degree=3, cycles=15448.53, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=128, degree=3, cycles=15838.38, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=32, degree=3, cycles=16058.94, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=512, degree=3, cycles=15264.41, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=16, degree=3, cycles=9700.48, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=64, degree=3, cycles=15901.40, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=8, degree=3, cycles=6749.47, beforeTurning=0
+
+suite=rodinia, benchmark=bfs, frequency=345, size=512, degree=4, cycles=15062.70, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=32, degree=4, cycles=14163.86, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=128, degree=4, cycles=15592.39, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=1024, degree=4, cycles=15146.76, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=256, degree=4, cycles=15456.58, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=16, degree=4, cycles=8155.46, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=8, degree=4, cycles=5037.69, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=64, degree=4, cycles=15736.03, beforeTurning=0
+
+suite=rodinia, benchmark=bfs, frequency=345, size=128, degree=5, cycles=16088.96, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=64, degree=5, cycles=17963.00, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=8, degree=5, cycles=5350.95, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=1024, degree=5, cycles=17774.86, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=32, degree=5, cycles=12640.57, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=256, degree=5, cycles=16129.56, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=512, degree=5, cycles=15923.59, beforeTurning=0
+suite=rodinia, benchmark=bfs, frequency=345, size=16, degree=5, cycles=6958.99, beforeTurning=0
+
+
+suite=rodinia, benchmark=gaussian, frequency=345, size=256, block=64, cycles=13895.80, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=64, block=64, cycles=12556.27, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=128, block=64, cycles=13108.28, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=16, block=64, cycles=12217.49, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=8, block=64, cycles=11069.67, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=1024, block=64, cycles=48908.24, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=512, block=64, cycles=21083.07, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=32, block=64, cycles=12703.36, beforeTurning=0
+
+suite=rodinia, benchmark=gaussian, frequency=345, size=8, block=128, cycles=11010.68, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=16, block=128, cycles=11942.17, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=128, block=128, cycles=13078.38, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=64, block=128, cycles=12527.07, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=512, block=128, cycles=16722.03, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=256, block=128, cycles=13929.03, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=32, block=128, cycles=12486.36, beforeTurning=0
+suite=rodinia, benchmark=gaussian, frequency=345, size=1024, block=128, cycles=30716.96, beforeTurning=0
+
+
+suite=rodinia, benchmark=kmeans, frequency=345, size=8192, clusters=16, cycles=26448.39, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=384, clusters=16, cycles=27780.32, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=6144, clusters=16, cycles=26727.73, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=256, clusters=16, cycles=26382.38, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=1536, clusters=16, cycles=26547.17, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=512, clusters=16, cycles=26117.19, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=128, clusters=16, cycles=24071.11, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=4096, clusters=16, cycles=26404.34, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=1024, clusters=16, cycles=26448.74, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=2048, clusters=16, cycles=26271.64, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=192, clusters=16, cycles=26915.52, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=768, clusters=16, cycles=26404.34, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=3072, clusters=16, cycles=26186.99, beforeTurning=0
+
+suite=rodinia, benchmark=kmeans, frequency=345, size=4096, clusters=24, cycles=35960.96, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=256, clusters=24, cycles=36568.51, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=3072, clusters=24, cycles=35361.47, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=384, clusters=24, cycles=37875.02, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=2048, clusters=24, cycles=35427.71, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=6144, clusters=24, cycles=36483.75, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=192, clusters=24, cycles=36428.90, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=768, clusters=24, cycles=35843.55, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=1536, clusters=24, cycles=36071.71, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=128, clusters=24, cycles=32402.98, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=8192, clusters=24, cycles=36008.92, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=1024, clusters=24, cycles=36057.10, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=512, clusters=24, cycles=35567.66, beforeTurning=0
+
+suite=rodinia, benchmark=kmeans, frequency=345, size=1024, clusters=32, cycles=45709.40, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=512, clusters=32, cycles=46721.40, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=8192, clusters=32, cycles=45381.99, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=128, clusters=32, cycles=40734.26, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=3072, clusters=32, cycles=45091.73, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=384, clusters=32, cycles=45790.70, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=4096, clusters=32, cycles=45591.98, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=1536, clusters=32, cycles=45691.11, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=192, clusters=32, cycles=46725.19, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=2048, clusters=32, cycles=45249.74, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=256, clusters=32, cycles=45617.63, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=768, clusters=32, cycles=46703.34, beforeTurning=0
+suite=rodinia, benchmark=kmeans, frequency=345, size=6144, clusters=32, cycles=46199.18, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=16, block=128, cycles=10024.32, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=56, block=128, cycles=34845.46, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=8, block=128, cycles=5218.24, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=4, block=128, cycles=2730.33, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=64, block=128, cycles=39084.94, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=24, block=128, cycles=14716.20, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=32, block=128, cycles=19405.22, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=40, block=128, cycles=24744.21, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=48, block=128, cycles=29652.98, beforeTurning=0
+
+suite=rodinia, benchmark=pathfinder, frequency=345, size=64, block=256, cycles=39979.98, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=24, block=256, cycles=14914.69, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=4, block=256, cycles=2712.05, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=16, block=256, cycles=10152.77, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=8, block=256, cycles=5291.84, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=40, block=256, cycles=25229.97, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=32, block=256, cycles=19710.20, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=48, block=256, cycles=30482.02, beforeTurning=0
+suite=rodinia, benchmark=pathfinder, frequency=345, size=56, block=256, cycles=35629.88, beforeTurning=0
+
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=9, cycles=138079.89, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=4, cycles=125874.45, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=8, cycles=130966.88, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=1, cycles=8218.08, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=2, cycles=39050.51, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=3, cycles=123366.56, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=5, cycles=125051.35, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=6, cycles=126361.17, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=7, cycles=127989.23, beforeTurning=0
+suite=rodinia, benchmark=lavaMD, frequency=1755, boxes1d=10, cycles=143320.90, beforeTurning=0
+
+suite=rodinia, benchmark=lud, frequency=345, size=112, cycles=55686.22, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=16, cycles=3238.40, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=96, cycles=47538.01, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=48, cycles=21123.32, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=8, cycles=3234.72, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=128, cycles=64455.89, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=80, cycles=38430.36, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=64, cycles=30054.45, beforeTurning=0
+suite=rodinia, benchmark=lud, frequency=345, size=32, cycles=12773.40, beforeTurning=0
+
+
+suite=rodinia, benchmark=nn, frequency=345, size=30000, block=64, cycles=3010.24, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=15000, block=64, cycles=2903.40, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=160000, block=64, cycles=4725.24, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=10000, block=64, cycles=2789.56, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=80000, block=64, cycles=3646.65, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=40000, block=64, cycles=3113.16, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=120000, block=64, cycles=4176.80, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=20000, block=64, cycles=2903.40, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=60000, block=64, cycles=3374.56, beforeTurning=0
+
+suite=rodinia, benchmark=nn, frequency=345, size=120000, block=128, cycles=3429.64, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=15000, block=128, cycles=2793.24, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=80000, block=128, cycles=3138.81, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=160000, block=128, cycles=3680.00, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=30000, block=128, cycles=2866.72, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=20000, block=128, cycles=2815.32, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=60000, block=128, cycles=2995.52, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=10000, block=128, cycles=2708.71, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=40000, block=128, cycles=2874.20, beforeTurning=0
+
+suite=rodinia, benchmark=nn, frequency=345, size=160000, block=256, cycles=3286.24, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=120000, block=256, cycles=3132.03, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=30000, block=256, cycles=2829.92, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=10000, block=256, cycles=2686.29, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=60000, block=256, cycles=2944.00, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=80000, block=256, cycles=2965.97, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=15000, block=256, cycles=2689.85, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=40000, block=256, cycles=2851.89, beforeTurning=0
+suite=rodinia, benchmark=nn, frequency=345, size=20000, block=256, cycles=2760.12, beforeTurning=0
+
+
+suite=rodinia, benchmark=b+tree, frequency=345, size=2000, block=128, cycles=6476.92, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=1000, block=128, cycles=6244.96, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=3000, block=128, cycles=6517.51, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=4000, block=128, cycles=7109.88, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=6000, block=128, cycles=7352.76, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=5000, block=128, cycles=7242.24, beforeTurning=0
+
+suite=rodinia, benchmark=b+tree, frequency=345, size=2000, block=256, cycles=9306.61, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=1000, block=256, cycles=8743.68, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=3000, block=256, cycles=9516.48, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=5000, block=256, cycles=10749.51, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=6000, block=256, cycles=10907.52, beforeTurning=0
+suite=rodinia, benchmark=b+tree, frequency=345, size=4000, block=256, cycles=10580.12, beforeTurning=0

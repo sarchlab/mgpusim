@@ -263,28 +263,54 @@ jobs:
       
       - name: Generate summary table artifact
         run: |
-          # Collect all txt files
-          find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" > txt_list.txt
+          # list basenames
+          find nvidia/eval/simulator_evaluation/ -type f -name "*.txt" -print0 | xargs -0 -n1 basename > txt_list.txt
 
-          # Sort by type order (reverse) and filename (reverse)
-          awk -F'/' '{print $NF}' txt_list.txt | \
-            sort -t_ -k1,1r \
-            | awk '
-              BEGIN {
-                order["release"]=1; order["release-rodinia"]=2; order["release-emptykernel"]=3; order["dev"]=4; order["test"]=5;
-              }
-              {
-                type=gensub(/_.*/, "", "g", $0);
-                print order[type] "_" $0;
-              }
-            ' | sort -t_ -k1,1n -k2r | cut -d_ -f2- > sorted_txt_list.txt
+          rm -f version_rows.txt other_rows.txt sorted1.txt sorted2.txt sorted_txt_list.txt
 
-          # Print header
-          echo "Short SHA,Type,Version,Error Average Score,Coefficient of Determination R²,Pearson Correlation Coefficient,Spearman Rank Correlation,Eval Time(s),Suite Count,Benchmark Count,Trace Count,Commit Message,SHA,Author,Error Benchmark-level Distribution" > summary_table.csv
+          # separate versioned files (second field starts with 'v') and others
+          awk -F'_' '{
+            n=split($0,a,"_");
+            if (a[2] ~ /^v/) {
+              version=a[2];
+              print version "\t" $0 >> "version_rows.txt"
+            } else {
+              type=a[1];
+              timestr=a[2] "_" a[3];
+              ord = (type=="release"?1:(type=="release-rodinia"?2:(type=="release-emptykernel"?3:(type=="dev"?4:5))));
+              print ord "\t" timestr "\t" $0 >> "other_rows.txt"
+            }
+          }' txt_list.txt
 
-          # Concatenate all lines in reverse-sorted order
-          while read fname; do
-            cat nvidia/eval/simulator_evaluation/$fname >> summary_table.csv
+          # sort versioned rows by semantic version desc (GNU sort -V)
+          if [ -f version_rows.txt ]; then
+            sort -t$'\t' -k1,1V -r version_rows.txt | cut -f2 > sorted1.txt
+          else
+            touch sorted1.txt
+          fi
+
+          # sort other rows by type order (asc) then time desc
+          if [ -f other_rows.txt ]; then
+            sort -t$'\t' -k1,1n -k2,2r other_rows.txt | cut -f3 > sorted2.txt
+          else
+            touch sorted2.txt
+          fi
+
+          cat sorted1.txt sorted2.txt > sorted_txt_list.txt
+
+          # header with Time String as first column
+          echo "Time String,Short SHA,Type,Version,Error Average Score,Coefficient of Determination R²,Pearson Correlation Coefficient,Spearman Rank Correlation,Eval Time(s),Suite Count,Benchmark Count,Trace Count,Commit Message,SHA,Author,Error Benchmark-level Distribution" > summary_table.csv
+
+          # prepend timestring extracted from filename and append the file content
+          while IFS= read -r fname; do
+            IFS='_' read -r p1 p2 p3 p4 _ <<< "$fname"
+            if [[ "$p2" =~ ^v ]]; then
+              timestr="${p3}_${p4}"
+            else
+              timestr="${p2}_${p3}"
+            fi
+            line=$(cat "nvidia/eval/simulator_evaluation/$fname")
+            echo "${timestr},${line}" >> summary_table.csv
           done < sorted_txt_list.txt
 
       - name: Upload summary table artifact
@@ -301,11 +327,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '<details><summary>📊 Click to expand full results</summary>' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Short SHA | Type | Version | Error Average Score | R² | Pearson | Spearman | Eval Time(s) | Suite Count | Benchmark Count | Trace Count | Commit Message | SHA | Author | Error Benchmark-level Distribution |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|------|----------|----------------------|----|----------|-----------|---------------|--------------|------------------|--------------|----------------|-----|---------|-------------------------------------|" >> $GITHUB_STEP_SUMMARY
-          tail -n +2 summary_table.csv | while IFS=',' read -r short_sha type version score rsquared pearson spearman time suite bench trace msg sha author dist; do
-            printf "| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" \
-              "$short_sha" "$type" "$version" "$score" "$rsquared" "$pearson" "$spearman" "$time" "$suite" "$bench" "$trace" "$msg" "$sha" "$author" "$dist" >> $GITHUB_STEP_SUMMARY
+          echo "| Short SHA | Type | Version | Error Average Score | R² | Pearson | Spearman | Eval Time(s) | Suite Count | Benchmark Count | Trace Count | Commit Message | SHA | Author |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|------|----------|----------------------|----|----------|-----------|---------------|--------------|------------------|--------------|----------------|-----|---------|" >> $GITHUB_STEP_SUMMARY
+          tail -n +2 summary_table.csv | while IFS=',' read -r short_sha type version score rsquared pearson spearman time suite bench trace msg sha author; do
+            printf "| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" \
+              "$short_sha" "$type" "$version" "$score" "$rsquared" "$pearson" "$spearman" "$time" "$suite" "$bench" "$trace" "$msg" "$sha" "$author" >> $GITHUB_STEP_SUMMARY
           done
           echo "</details>" >> $GITHUB_STEP_SUMMARY
 
