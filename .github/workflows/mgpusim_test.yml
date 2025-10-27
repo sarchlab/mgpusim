@@ -332,7 +332,7 @@ jobs:
 
       - name: Display complete summary in workflow UI
         run: |
-          python -m pip install pandas
+          python -m pip install pandas tabulate
           python - <<EOF
           import pandas as pd
           df = pd.read_csv("summary_table.csv")
