@@ -6,7 +6,7 @@ run_8192:
 		sim=$$(./nvidia -trace-dir data/simtune-example-8192-$$t); \
 		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
 	done
-	@rm akita_sim_d3*
+	@rm akita_sim_d*
 
 run_8192_small:
 	@printf "thread\ttruth\tsimulation\n"
@@ -16,7 +16,7 @@ run_8192_small:
 		sim=$$(./nvidia -trace-dir data/simtune-example-8192-$$t); \
 		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
 	done
-	@rm akita_sim_d3*
+	@rm akita_sim_d*
 
 run_8192_large:
 	@printf "thread\ttruth\tsimulation\n"
@@ -26,4 +26,4 @@ run_8192_large:
 		sim=$$(./nvidia -trace-dir data/simtune-example-8192-$$t); \
 		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
 	done
-	@rm akita_sim_d3*
+	@rm akita_sim_d*
