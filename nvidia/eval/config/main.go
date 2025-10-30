@@ -62,6 +62,17 @@ func main() {
 		"cuda-sdk/sortingnetworks-oddeven-simulations.yaml",
 		"cuda-sdk/transpose-simulations.yaml",
 		"cuda-sdk/vectoradd-simulations.yaml",
+		"rodinia/backprop-simulations.yaml",
+		"rodinia/pathfinder-simulations.yaml",
+		"rodinia/lud-simulations.yaml",
+		"rodinia/gaussian-simulations.yaml",
+		"rodinia/heartwall-simulations.yaml",
+		"rodinia/cfd-simulations.yaml",
+		"rodinia/nn-simulations.yaml",
+		"rodinia/kmeans-simulations.yaml",
+		"rodinia/bfs-simulations.yaml",
+		"rodinia/lavaMD-simulations.yaml",
+		"rodinia/b+tree-simulations.yaml",
 		// "rodinia/b+tree-simulations.yaml",
 	}
 	filesEmptyKernel := []string{
