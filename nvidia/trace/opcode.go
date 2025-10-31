@@ -159,12 +159,12 @@ func init() {
 	// OpCode4
 	opcodeTable["ULDC"] = Opcode{"ULDC", OpCode4, VariableDefault}
 	opcodeTable["ULDC.64"] = Opcode{"ULDC.64", OpCode4, VariableDefault}
-	opcodeTable["LDC"] = Opcode{"LDC", OpCode4, VariableDefault}
+	opcodeTable["LDC"] = Opcode{"LDC", OpCodeDefault, VariableDefault} // OpCode4
 	opcodeTable["SHF.R.S32.HI"] = Opcode{"SHF.R.S32.HI", OpCode4, VariableDefault}
 	opcodeTable["ISETP.GE.U32.AND"] = Opcode{"ISETP.GE.U32.AND", OpCode4, VariableDefault}
 	opcodeTable["IMAD.MOV.U32"] = Opcode{"IMAD.MOV.U32", OpCode4, VariableDefault}
 	opcodeTable["ISETP.GT.AND"] = Opcode{"ISETP.GT.AND", OpCode4, VariableDefault}
-	opcodeTable["FFMA"] = Opcode{"FFMA", OpCode4, VariableDefault}
+	opcodeTable["FFMA"] = Opcode{"FFMA", OpCodeDefault, VariableDefault} // OpCode4
 	opcodeTable["VIADD"] = Opcode{"VIADD", OpCode4, VariableDefault}
 	opcodeTable["ISETP.NE.OR"] = Opcode{"ISETP.NE.OR", OpCode4, VariableDefault}
 	opcodeTable["ISETP.NE.AND"] = Opcode{"ISETP.NE.AND", OpCode4, VariableDefault}
@@ -177,19 +177,19 @@ func init() {
 	opcodeTable["SHF.R.U32.HI"] = Opcode{"SHF.R.U32.HI", OpCode4, VariableDefault}
 	opcodeTable["FMUL"] = Opcode{"FMUL", OpCode4, VariableDefault}
 	opcodeTable["IMAD"] = Opcode{"IMAD", OpCode4, VariableDefault}
-	opcodeTable["FADD"] = Opcode{"FADD", OpCode4, VariableDefault}
+	opcodeTable["FADD"] = Opcode{"FADD", OpCodeDefault, VariableDefault} // OpCode4
 
 	// OpCode5 (rounded mean for ranges)
 	opcodeTable["ISETP.GT.U32.AND.EX"] = Opcode{"ISETP.GT.U32.AND.EX", OpCode5, VariableDefault}
 	opcodeTable["LEA.HI.X.SX32"] = Opcode{"LEA.HI.X.SX32", OpCode5, VariableDefault}
 
 	// OpCode6
-	opcodeTable["BRA"] = Opcode{"BRA", OpCode6, VariableDefault}
-	opcodeTable["IADD3"] = Opcode{"IADD3", OpCode6, VariableDefault}
+	opcodeTable["BRA"] = Opcode{"BRA", OpCodeDefault, VariableDefault}     // OpCode6
+	opcodeTable["IADD3"] = Opcode{"IADD3", OpCodeDefault, VariableDefault} // OpCode6
 	opcodeTable["LOP3.LUT"] = Opcode{"LOP3.LUT", OpCode6, VariableDefault}
 	opcodeTable["IMAD.WIDE.U32"] = Opcode{"IMAD.WIDE.U32", OpCode6, VariableDefault}
 	opcodeTable["IMAD.IADD"] = Opcode{"IMAD.IADD", OpCode6, VariableDefault}
-	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCode6, VariableDefault}
+	opcodeTable["IMAD.WIDE"] = Opcode{"IMAD.WIDE", OpCodeDefault, VariableDefault} // OpCode6
 	opcodeTable["LEA.HI.X"] = Opcode{"LEA.HI.X", OpCode6, VariableDefault}
 	opcodeTable["IADD3.X"] = Opcode{"IADD3.X", OpCode6, VariableDefault}
 	opcodeTable["PLOP3.LUT"] = Opcode{"PLOP3.LUT", OpCode6, VariableDefault}
