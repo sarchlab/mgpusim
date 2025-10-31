@@ -140,10 +140,10 @@ func init() {
 	opcodeTable["EXIT"] = Opcode{"EXIT", OpCodeExit, VariableDefault}
 
 	// OpCodeMemRead
-	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeMemRead, VariableDefault}
+	opcodeTable["LDG.E"] = Opcode{"LDG.E", OpCodeDefault, VariableDefault}
 
 	// OpCodeMemWrite
-	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeMemWrite, VariableDefault}
+	opcodeTable["STG.E"] = Opcode{"STG.E", OpCodeDefault, VariableDefault}
 
 	// OpCodeDefault (1)
 	opcodeTable["MOV"] = Opcode{"MOV", OpCodeDefault, VariableDefault}

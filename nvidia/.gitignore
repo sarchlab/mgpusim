@@ -8,3 +8,4 @@ data/*
 etc/secret-local.yaml
 count.py
 test-v*
+reports

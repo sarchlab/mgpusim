@@ -27,3 +27,13 @@ run_8192_large:
 		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
 	done
 	@rm akita_sim_d*
+
+run_rodinia_b+tree:
+	@printf "thread\ttruth\tsimulation\n"
+	@for t in 1000 3000 5000; do \
+		gt_file="data/rodinia-b+tree-128-$$t/gt"; \
+		truth=$$(cat $$gt_file); \
+		sim=$$(./nvidia -trace-dir data/rodinia-b+tree-128-$$t); \
+		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
+	done
+	@rm akita_sim_d*

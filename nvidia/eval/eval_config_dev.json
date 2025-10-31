@@ -681,6 +681,396 @@
                     }
                 }
             ]
+        },
+        {
+            "title": "backprop",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "block": 32,
+                    "frequency": 1755,
+                    "size": 8,
+                    "trace-id": "68f9236ce4ef555c786a3469",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 105614.73
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 1755,
+                    "size": 8,
+                    "trace-id": "68f92dc8e4ef555c786a3471",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 101291.58
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 1755,
+                    "size": 8,
+                    "trace-id": "68f92dfbe4ef555c786a3479",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 100729.4
+                    }
+                }
+            ]
+        },
+        {
+            "title": "pathfinder",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 4,
+                    "trace-id": "68facd296fdb101cc455ff1a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2730.33
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 345,
+                    "size": 4,
+                    "trace-id": "68facd436fdb101cc455ff23",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2712.05
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 8,
+                    "trace-id": "68facd2a6fdb101cc455ff1b",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5218.24
+                    }
+                }
+            ]
+        },
+        {
+            "title": "lud",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "frequency": 345,
+                    "size": 8,
+                    "trace-id": "68fad03e6fdb101cc455ff48",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3234.72
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 16,
+                    "trace-id": "68fad03f6fdb101cc455ff49",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 3238.4
+                    }
+                },
+                {
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "68fad0416fdb101cc455ff4a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12773.4
+                    }
+                }
+            ]
+        },
+        {
+            "title": "gaussian",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "block": 64,
+                    "frequency": 345,
+                    "size": 8,
+                    "trace-id": "68fa898a6fdb101cc455fdf0",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11069.67
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 8,
+                    "trace-id": "68fa89cb6fdb101cc455fdfe",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 11010.68
+                    }
+                },
+                {
+                    "block": 64,
+                    "frequency": 345,
+                    "size": 16,
+                    "trace-id": "68fa898c6fdb101cc455fdf2",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 12217.49
+                    }
+                }
+            ]
+        },
+        {
+            "title": "heartwall",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "68faba7c6fdb101cc455fea4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 9821.92
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 345,
+                    "size": 32,
+                    "trace-id": "68faba9e6fdb101cc455feae",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 16744.11
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 48,
+                    "trace-id": "68faba7e6fdb101cc455fea5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 13060.32
+                    }
+                }
+            ]
+        },
+        {
+            "title": "cfd",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 64,
+                    "trace-id": "68fac9c46fdb101cc455fee4",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18970.4
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 345,
+                    "size": 64,
+                    "trace-id": "68fac9e76fdb101cc455feec",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 19217.19
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 128,
+                    "trace-id": "68fac9c76fdb101cc455fee5",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18940.73
+                    }
+                }
+            ]
+        },
+        {
+            "title": "nn",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "block": 64,
+                    "frequency": 345,
+                    "size": 10000,
+                    "trace-id": "68fa6b246fdb101cc455fd07",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2789.56
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 10000,
+                    "trace-id": "68fa69916fdb101cc455fce1",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2708.71
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 345,
+                    "size": 10000,
+                    "trace-id": "68fa6b486fdb101cc455fd18",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 2686.29
+                    }
+                }
+            ]
+        },
+        {
+            "title": "kmeans",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "clusters": 16,
+                    "frequency": 345,
+                    "size": 128,
+                    "trace-id": "68fa5f326fdb101cc455fc78",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24071.11
+                    }
+                },
+                {
+                    "clusters": 24,
+                    "frequency": 345,
+                    "size": 128,
+                    "trace-id": "68fa5f736fdb101cc455fc8a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 32402.98
+                    }
+                },
+                {
+                    "clusters": 32,
+                    "frequency": 345,
+                    "size": 128,
+                    "trace-id": "68fa5fc66fdb101cc455fc9a",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 40734.26
+                    }
+                }
+            ]
+        },
+        {
+            "title": "bfs",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "degree": 3,
+                    "frequency": 345,
+                    "size": 8,
+                    "trace-id": "68fa89e26fdb101cc455fe07",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6749.47
+                    }
+                },
+                {
+                    "degree": 4,
+                    "frequency": 345,
+                    "size": 8,
+                    "trace-id": "68fa89f46fdb101cc455fe10",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5037.69
+                    }
+                },
+                {
+                    "degree": 5,
+                    "frequency": 345,
+                    "size": 8,
+                    "trace-id": "68fa8a076fdb101cc455fe18",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 5350.95
+                    }
+                }
+            ]
+        },
+        {
+            "title": "lavaMD",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "boxes1d": 1,
+                    "frequency": 1755,
+                    "trace-id": "68fb029b6fdb101cc455ff92",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8218.08
+                    }
+                },
+                {
+                    "boxes1d": 2,
+                    "frequency": 1755,
+                    "trace-id": "68fb029d6fdb101cc455ff93",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 39050.51
+                    }
+                },
+                {
+                    "boxes1d": 3,
+                    "frequency": 1755,
+                    "trace-id": "68fb029f6fdb101cc455ff94",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 123366.56
+                    }
+                }
+            ]
+        },
+        {
+            "title": "b+tree",
+            "suite": "rodinia",
+            "args": [
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 1000,
+                    "trace-id": "68faa41e6fdb101cc455fe73",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6244.96
+                    }
+                },
+                {
+                    "block": 256,
+                    "frequency": 345,
+                    "size": 1000,
+                    "trace-id": "68faa4296fdb101cc455fe79",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 8743.68
+                    }
+                },
+                {
+                    "block": 128,
+                    "frequency": 345,
+                    "size": 2000,
+                    "trace-id": "68faa41f6fdb101cc455fe74",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 6476.92
+                    }
+                }
+            ]
         }
     ]
 }
