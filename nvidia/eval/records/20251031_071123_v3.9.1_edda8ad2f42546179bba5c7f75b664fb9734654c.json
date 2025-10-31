@@ -1,0 +1,3268 @@
+[
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68f9236ce4ef555c786a3469",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 60179.333333333336,
+    "has_sim": true,
+    "predict_cycle": 69566
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68f92370e4ef555c786a346a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 61270.33048433049,
+    "has_sim": true,
+    "predict_cycle": 69662
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68f92374e4ef555c786a346b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 65194.00000000001,
+    "has_sim": true,
+    "predict_cycle": 71678
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68f92377e4ef555c786a346c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 79906.66666666667,
+    "has_sim": true,
+    "predict_cycle": 72174
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68f9237ce4ef555c786a346d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 116875.33333333334,
+    "has_sim": true,
+    "predict_cycle": 80868
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68f92381e4ef555c786a346e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 187308,
+    "has_sim": true,
+    "predict_cycle": 94960
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68f92db2e4ef555c786a346f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 330317.6695156695,
+    "has_sim": true,
+    "predict_cycle": 124904
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "32",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dc4e4ef555c786a3470",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 625005.6638176638,
+    "has_sim": true,
+    "predict_cycle": 214828
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dc8e4ef555c786a3471",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 57716.00000000001,
+    "has_sim": true,
+    "predict_cycle": 69591
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dcce4ef555c786a3472",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 59307.00284900285,
+    "has_sim": true,
+    "predict_cycle": 69599
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dd0e4ef555c786a3473",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 63072.336182336185,
+    "has_sim": true,
+    "predict_cycle": 71671
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dd4e4ef555c786a3474",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 78636.3304843305,
+    "has_sim": true,
+    "predict_cycle": 71871
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dd8e4ef555c786a3475",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 114637.00284900286,
+    "has_sim": true,
+    "predict_cycle": 80268
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68f92ddde4ef555c786a3476",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 218222.6666666667,
+    "has_sim": true,
+    "predict_cycle": 92341
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68f92de6e4ef555c786a3477",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 396888,
+    "has_sim": true,
+    "predict_cycle": 114489
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "64",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68f92df8e4ef555c786a3478",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 776994.3361823362,
+    "has_sim": true,
+    "predict_cycle": 174081
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dfbe4ef555c786a3479",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 57395.66951566951,
+    "has_sim": true,
+    "predict_cycle": 69641
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68f92dffe4ef555c786a347a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 59019.002849002856,
+    "has_sim": true,
+    "predict_cycle": 69649
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68f92e02e4ef555c786a347b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 63103.002849002856,
+    "has_sim": true,
+    "predict_cycle": 71529
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68f92e06e4ef555c786a347c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 77408.00000000001,
+    "has_sim": true,
+    "predict_cycle": 73673
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68f92e0be4ef555c786a347d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 119455.66951566954,
+    "has_sim": true,
+    "predict_cycle": 83796
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68f92e10e4ef555c786a347e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 213803.66381766382,
+    "has_sim": true,
+    "predict_cycle": 94893
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68f9347fe4ef555c786a347f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 538414.6666666667,
+    "has_sim": true,
+    "predict_cycle": 113961
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "backprop",
+    "param": {
+      "block": "128",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68f93490e4ef555c786a3480",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 1085170.9971509972,
+    "has_sim": true,
+    "predict_cycle": 160571
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "4"
+    },
+    "has_trace": true,
+    "trace_id": "68facd296fdb101cc455ff1a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 7914,
+    "has_sim": true,
+    "predict_cycle": 8912
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68facd2a6fdb101cc455ff1b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 15125.333333333334,
+    "has_sim": true,
+    "predict_cycle": 17824
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68facd2c6fdb101cc455ff1c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 29056,
+    "has_sim": true,
+    "predict_cycle": 35648
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "24"
+    },
+    "has_trace": true,
+    "trace_id": "68facd2e6fdb101cc455ff1d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 42655.65217391305,
+    "has_sim": true,
+    "predict_cycle": 53472
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68facd316fdb101cc455ff1e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 56247.01449275363,
+    "has_sim": true,
+    "predict_cycle": 71328
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "40"
+    },
+    "has_trace": true,
+    "trace_id": "68facd356fdb101cc455ff1f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 71722.34782608696,
+    "has_sim": true,
+    "predict_cycle": 89160
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "68facd396fdb101cc455ff20",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 85950.66666666667,
+    "has_sim": true,
+    "predict_cycle": 106992
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "56"
+    },
+    "has_trace": true,
+    "trace_id": "68facd3d6fdb101cc455ff21",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 101001.33333333334,
+    "has_sim": true,
+    "predict_cycle": 124824
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "128",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68facd426fdb101cc455ff22",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 113289.6811594203,
+    "has_sim": true,
+    "predict_cycle": 142848
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "4"
+    },
+    "has_trace": true,
+    "trace_id": "68facd436fdb101cc455ff23",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 7861.014492753624,
+    "has_sim": true,
+    "predict_cycle": 8912
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68facd446fdb101cc455ff24",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 15338.666666666668,
+    "has_sim": true,
+    "predict_cycle": 17824
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68facd466fdb101cc455ff25",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 29428.318840579715,
+    "has_sim": true,
+    "predict_cycle": 35648
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "24"
+    },
+    "has_trace": true,
+    "trace_id": "68facd486fdb101cc455ff26",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 43230.98550724638,
+    "has_sim": true,
+    "predict_cycle": 53472
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68facd4b6fdb101cc455ff27",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 57131.01449275363,
+    "has_sim": true,
+    "predict_cycle": 71328
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "40"
+    },
+    "has_trace": true,
+    "trace_id": "68facd4f6fdb101cc455ff28",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 73130.34782608696,
+    "has_sim": true,
+    "predict_cycle": 89160
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "68facd536fdb101cc455ff29",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 88353.6811594203,
+    "has_sim": true,
+    "predict_cycle": 106992
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "56"
+    },
+    "has_trace": true,
+    "trace_id": "68facd576fdb101cc455ff2a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 103275.01449275362,
+    "has_sim": true,
+    "predict_cycle": 124824
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "pathfinder",
+    "param": {
+      "block": "256",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68facd5d6fdb101cc455ff2b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 115884.00000000001,
+    "has_sim": true,
+    "predict_cycle": 142848
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68fad03e6fdb101cc455ff48",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9376,
+    "has_sim": true,
+    "predict_cycle": 7987
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68fad03f6fdb101cc455ff49",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9386.666666666668,
+    "has_sim": true,
+    "predict_cycle": 7987
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68fad0416fdb101cc455ff4a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 37024.34782608696,
+    "has_sim": true,
+    "predict_cycle": 30312
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "68fad0436fdb101cc455ff4b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61227.014492753624,
+    "has_sim": true,
+    "predict_cycle": 51685
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fad0466fdb101cc455ff4c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 87114.34782608696,
+    "has_sim": true,
+    "predict_cycle": 74060
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "80"
+    },
+    "has_trace": true,
+    "trace_id": "68fad04a6fdb101cc455ff4d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 111392.34782608696,
+    "has_sim": true,
+    "predict_cycle": 95627
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68fad04d6fdb101cc455ff4e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 137791.33333333334,
+    "has_sim": true,
+    "predict_cycle": 118369
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "112"
+    },
+    "has_trace": true,
+    "trace_id": "68fad0526fdb101cc455ff4f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 161409.33333333334,
+    "has_sim": true,
+    "predict_cycle": 139890
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lud",
+    "param": {
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fad0576fdb101cc455ff50",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 186828.6666666667,
+    "has_sim": true,
+    "predict_cycle": 162106
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68fa898a6fdb101cc455fdf0",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 32086.000000000004,
+    "has_sim": true,
+    "predict_cycle": 41530
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68fa898c6fdb101cc455fdf2",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 35413.014492753624,
+    "has_sim": true,
+    "predict_cycle": 41570
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68fa898f6fdb101cc455fdf3",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 36821.333333333336,
+    "has_sim": true,
+    "predict_cycle": 41683
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89926fdb101cc455fdf4",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 36394.98550724638,
+    "has_sim": true,
+    "predict_cycle": 43049
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89966fdb101cc455fdf5",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 37995.01449275363,
+    "has_sim": true,
+    "predict_cycle": 45255
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa899b6fdb101cc455fdf7",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 40277.68115942029,
+    "has_sim": true,
+    "predict_cycle": 53981
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89a56fdb101cc455fdf9",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61110.34782608696,
+    "has_sim": true,
+    "predict_cycle": 87816
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "64",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89c86fdb101cc455fdfd",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 141763.01449275363,
+    "has_sim": true,
+    "predict_cycle": 223075
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89cb6fdb101cc455fdfe",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 31915.014492753628,
+    "has_sim": true,
+    "predict_cycle": 41330
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89cd6fdb101cc455fe00",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 34614.985507246376,
+    "has_sim": true,
+    "predict_cycle": 41700
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89d06fdb101cc455fe01",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 36192.34782608696,
+    "has_sim": true,
+    "predict_cycle": 41807
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89d36fdb101cc455fe02",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 36310.34782608696,
+    "has_sim": true,
+    "predict_cycle": 43017
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89d66fdb101cc455fe04",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 37908.34782608696,
+    "has_sim": true,
+    "predict_cycle": 44267
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89dc6fdb101cc455fe05",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 40374.00000000001,
+    "has_sim": true,
+    "predict_cycle": 48649
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89e76fdb101cc455fe0a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 48469.65217391304,
+    "has_sim": true,
+    "predict_cycle": 66449
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "gaussian",
+    "param": {
+      "block": "128",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a086fdb101cc455fe19",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 89034.66666666667,
+    "has_sim": true,
+    "predict_cycle": 134006
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fab9456fdb101cc455fe8d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 98624.66666666669,
+    "has_sim": true,
+    "predict_cycle": 22786
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68faba7c6fdb101cc455fea4",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 28469.333333333336,
+    "has_sim": true,
+    "predict_cycle": 14085
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "68faba7e6fdb101cc455fea5",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 37856,
+    "has_sim": true,
+    "predict_cycle": 14170
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68faba806fdb101cc455fea6",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 41686,
+    "has_sim": true,
+    "predict_cycle": 14260
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68faba826fdb101cc455fea7",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 43668.34782608696,
+    "has_sim": true,
+    "predict_cycle": 14435
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68faba846fdb101cc455fea8",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 43541.333333333336,
+    "has_sim": true,
+    "predict_cycle": 14610
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68faba876fdb101cc455fea9",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 74837.6811594203,
+    "has_sim": true,
+    "predict_cycle": 14965
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68faba896fdb101cc455feaa",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76331.6811594203,
+    "has_sim": true,
+    "predict_cycle": 15315
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68faba8d6fdb101cc455feab",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76236,
+    "has_sim": true,
+    "predict_cycle": 16020
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68faba916fdb101cc455feac",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76618.66666666667,
+    "has_sim": true,
+    "predict_cycle": 18347
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "128",
+      "size": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68faba966fdb101cc455fead",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 82635.6811594203,
+    "has_sim": true,
+    "predict_cycle": 19755
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68faba9e6fdb101cc455feae",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 48533.65217391305,
+    "has_sim": true,
+    "predict_cycle": 16895
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "48"
+    },
+    "has_trace": true,
+    "trace_id": "68faba9f6fdb101cc455feaf",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 65886.98550724638,
+    "has_sim": true,
+    "predict_cycle": 16980
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fabaa16fdb101cc455feb0",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 75894,
+    "has_sim": true,
+    "predict_cycle": 17070
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "96"
+    },
+    "has_trace": true,
+    "trace_id": "68fabaa36fdb101cc455feb1",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 79552.66666666667,
+    "has_sim": true,
+    "predict_cycle": 17245
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fabaa66fdb101cc455feb2",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 78634.66666666667,
+    "has_sim": true,
+    "predict_cycle": 17420
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68fabaa96fdb101cc455feb3",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 139936.6666666667,
+    "has_sim": true,
+    "predict_cycle": 17775
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fabaac6fdb101cc455feb4",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 143873.6811594203,
+    "has_sim": true,
+    "predict_cycle": 18125
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68fabab06fdb101cc455feb5",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 143478.00000000003,
+    "has_sim": true,
+    "predict_cycle": 18830
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fabab56fdb101cc455feb6",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 148001.01449275363,
+    "has_sim": true,
+    "predict_cycle": 23965
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68fababc6fdb101cc455feb7",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 157910.6666666667,
+    "has_sim": true,
+    "predict_cycle": 25370
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "heartwall",
+    "param": {
+      "block": "256",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fabac46fdb101cc455feb8",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 195191.01449275363,
+    "has_sim": true,
+    "predict_cycle": 31210
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9c46fdb101cc455fee4",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 54986.66666666667,
+    "has_sim": true,
+    "predict_cycle": 47446
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9c76fdb101cc455fee5",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 54900.66666666667,
+    "has_sim": true,
+    "predict_cycle": 47446
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9cb6fdb101cc455fee6",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61130.66666666668,
+    "has_sim": true,
+    "predict_cycle": 47578
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9cf6fdb101cc455fee7",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61269.65217391305,
+    "has_sim": true,
+    "predict_cycle": 59978
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9d26fdb101cc455fee8",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61409.01449275363,
+    "has_sim": true,
+    "predict_cycle": 60302
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9d76fdb101cc455fee9",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61643.01449275363,
+    "has_sim": true,
+    "predict_cycle": 60302
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9db6fdb101cc455feea",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61844.66666666667,
+    "has_sim": true,
+    "predict_cycle": 60302
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9df6fdb101cc455feeb",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61632.00000000001,
+    "has_sim": true,
+    "predict_cycle": 60302
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "128",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fac8516fdb101cc455fed1",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61952.34782608697,
+    "has_sim": true,
+    "predict_cycle": 60346
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9e76fdb101cc455feec",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 55702,
+    "has_sim": true,
+    "predict_cycle": 47490
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9eb6fdb101cc455feed",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 55594.34782608696,
+    "has_sim": true,
+    "predict_cycle": 47490
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9ef6fdb101cc455feee",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 56096.34782608697,
+    "has_sim": true,
+    "predict_cycle": 47490
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9f36fdb101cc455feef",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61685.681159420295,
+    "has_sim": true,
+    "predict_cycle": 60010
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9f76fdb101cc455fef0",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 62079.333333333336,
+    "has_sim": true,
+    "predict_cycle": 60214
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "640"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9fb6fdb101cc455fef1",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 62442.34782608696,
+    "has_sim": true,
+    "predict_cycle": 72734
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68fac9ff6fdb101cc455fef2",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 62624,
+    "has_sim": true,
+    "predict_cycle": 72938
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "896"
+    },
+    "has_trace": true,
+    "trace_id": "68faca046fdb101cc455fef3",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61878.34782608696,
+    "has_sim": true,
+    "predict_cycle": 85458
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "cfd",
+    "param": {
+      "block": "256",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68faca086fdb101cc455fef4",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 61867.333333333336,
+    "has_sim": true,
+    "predict_cycle": 85662
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "10000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa69916fdb101cc455fce1",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 7851.333333333334,
+    "has_sim": true,
+    "predict_cycle": 8920
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "10000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b246fdb101cc455fd07",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8085.68115942029,
+    "has_sim": true,
+    "predict_cycle": 9136
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "15000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b256fdb101cc455fd08",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8415.652173913044,
+    "has_sim": true,
+    "predict_cycle": 9472
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "20000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b266fdb101cc455fd09",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8415.652173913044,
+    "has_sim": true,
+    "predict_cycle": 9824
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "30000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b286fdb101cc455fd0a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8725.333333333334,
+    "has_sim": true,
+    "predict_cycle": 10508
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "40000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b2a6fdb101cc455fd0b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9023.652173913044,
+    "has_sim": true,
+    "predict_cycle": 11196
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "60000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b2c6fdb101cc455fd0c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9781.333333333334,
+    "has_sim": true,
+    "predict_cycle": 12568
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "80000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b2e6fdb101cc455fd0d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 10570.000000000002,
+    "has_sim": true,
+    "predict_cycle": 13944
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "120000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b316fdb101cc455fd0e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 12106.666666666668,
+    "has_sim": true,
+    "predict_cycle": 16688
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "64",
+      "size": "160000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b346fdb101cc455fd0f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 13696.347826086956,
+    "has_sim": true,
+    "predict_cycle": 19452
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "15000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b376fdb101cc455fd10",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8096.347826086957,
+    "has_sim": true,
+    "predict_cycle": 9096
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "20000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b396fdb101cc455fd11",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8160.347826086958,
+    "has_sim": true,
+    "predict_cycle": 9272
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "30000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b3a6fdb101cc455fd12",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8309.333333333334,
+    "has_sim": true,
+    "predict_cycle": 9608
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "40000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b3c6fdb101cc455fd13",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8331.014492753624,
+    "has_sim": true,
+    "predict_cycle": 9960
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "60000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b3e6fdb101cc455fd14",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8682.666666666668,
+    "has_sim": true,
+    "predict_cycle": 10644
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "80000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b416fdb101cc455fd15",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9098,
+    "has_sim": true,
+    "predict_cycle": 11332
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "120000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b436fdb101cc455fd16",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9940.985507246378,
+    "has_sim": true,
+    "predict_cycle": 12704
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "128",
+      "size": "160000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b476fdb101cc455fd17",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 10666.666666666668,
+    "has_sim": true,
+    "predict_cycle": 14080
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "10000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b486fdb101cc455fd18",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 7786.347826086957,
+    "has_sim": true,
+    "predict_cycle": 9164
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "15000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b496fdb101cc455fd19",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 7796.666666666667,
+    "has_sim": true,
+    "predict_cycle": 9248
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "20000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b4b6fdb101cc455fd1a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8000.347826086957,
+    "has_sim": true,
+    "predict_cycle": 9336
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "30000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b4d6fdb101cc455fd1b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8202.666666666668,
+    "has_sim": true,
+    "predict_cycle": 9512
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "40000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b4e6fdb101cc455fd1c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8266.347826086956,
+    "has_sim": true,
+    "predict_cycle": 9688
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "60000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b506fdb101cc455fd1d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8533.333333333334,
+    "has_sim": true,
+    "predict_cycle": 10024
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "80000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b536fdb101cc455fd1e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 8597.014492753624,
+    "has_sim": true,
+    "predict_cycle": 10376
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "120000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b566fdb101cc455fd1f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9078.347826086958,
+    "has_sim": true,
+    "predict_cycle": 11060
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "nn",
+    "param": {
+      "block": "256",
+      "size": "160000"
+    },
+    "has_trace": true,
+    "trace_id": "68fa6b5a6fdb101cc455fd20",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 9525.333333333334,
+    "has_sim": true,
+    "predict_cycle": 11748
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f326fdb101cc455fc78",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 69771.33333333334,
+    "has_sim": true,
+    "predict_cycle": 44546
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f356fdb101cc455fc79",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 78016.00000000001,
+    "has_sim": true,
+    "predict_cycle": 44656
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f386fdb101cc455fc7a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76470.66666666667,
+    "has_sim": true,
+    "predict_cycle": 44678
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f3b6fdb101cc455fc7b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 80522.66666666667,
+    "has_sim": true,
+    "predict_cycle": 66784
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f3f6fdb101cc455fc7d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 75702,
+    "has_sim": true,
+    "predict_cycle": 66916
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f426fdb101cc455fc7e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76534.31884057971,
+    "has_sim": true,
+    "predict_cycle": 66916
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f466fdb101cc455fc7f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76663.01449275363,
+    "has_sim": true,
+    "predict_cycle": 66960
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "1536"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f4a6fdb101cc455fc81",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76948.31884057971,
+    "has_sim": true,
+    "predict_cycle": 67004
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "2048"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f4f6fdb101cc455fc82",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76149.68115942029,
+    "has_sim": true,
+    "predict_cycle": 67048
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "3072"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f556fdb101cc455fc84",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 75904.31884057973,
+    "has_sim": true,
+    "predict_cycle": 67147
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "4096"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f5c6fdb101cc455fc85",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76534.31884057971,
+    "has_sim": true,
+    "predict_cycle": 67246
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "6144"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f656fdb101cc455fc87",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 77471.68115942029,
+    "has_sim": true,
+    "predict_cycle": 67433
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "16",
+      "size": "8192"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f706fdb101cc455fc89",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 76662,
+    "has_sim": true,
+    "predict_cycle": 67631
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f736fdb101cc455fc8a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 93921.6811594203,
+    "has_sim": true,
+    "predict_cycle": 55186
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f766fdb101cc455fc8b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 105591.01449275363,
+    "has_sim": true,
+    "predict_cycle": 55296
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f796fdb101cc455fc8c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 105995.6811594203,
+    "has_sim": true,
+    "predict_cycle": 55318
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f7d6fdb101cc455fc8d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 109782.66666666667,
+    "has_sim": true,
+    "predict_cycle": 88064
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f806fdb101cc455fc8f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 103094.66666666669,
+    "has_sim": true,
+    "predict_cycle": 88196
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f846fdb101cc455fc90",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 103894.34782608697,
+    "has_sim": true,
+    "predict_cycle": 88196
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f886fdb101cc455fc91",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 104513.33333333334,
+    "has_sim": true,
+    "predict_cycle": 88240
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "1536"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f8d6fdb101cc455fc92",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 104555.68115942029,
+    "has_sim": true,
+    "predict_cycle": 88284
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "2048"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f966fdb101cc455fc93",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 102689.01449275363,
+    "has_sim": true,
+    "predict_cycle": 88328
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "3072"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5f9e6fdb101cc455fc95",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 102497.01449275363,
+    "has_sim": true,
+    "predict_cycle": 88427
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "4096"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fa76fdb101cc455fc96",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 104234.66666666667,
+    "has_sim": true,
+    "predict_cycle": 88526
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "6144"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fb36fdb101cc455fc97",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 105750.00000000001,
+    "has_sim": true,
+    "predict_cycle": 88713
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "24",
+      "size": "8192"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fc36fdb101cc455fc99",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 104373.68115942029,
+    "has_sim": true,
+    "predict_cycle": 88911
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fc66fdb101cc455fc9a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 118070.31884057973,
+    "has_sim": true,
+    "predict_cycle": 65826
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "192"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fc96fdb101cc455fc9b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 135435.33333333334,
+    "has_sim": true,
+    "predict_cycle": 65936
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fcc6fdb101cc455fc9c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 132225.01449275363,
+    "has_sim": true,
+    "predict_cycle": 65958
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "384"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fd06fdb101cc455fc9d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 132726.66666666666,
+    "has_sim": true,
+    "predict_cycle": 109344
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fd46fdb101cc455fc9e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 135424.34782608697,
+    "has_sim": true,
+    "predict_cycle": 109476
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "768"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fd86fdb101cc455fc9f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 135372,
+    "has_sim": true,
+    "predict_cycle": 109476
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fdc6fdb101cc455fca0",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 132491.01449275363,
+    "has_sim": true,
+    "predict_cycle": 109520
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "1536"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fe26fdb101cc455fca1",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 132438,
+    "has_sim": true,
+    "predict_cycle": 109564
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "2048"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5fe96fdb101cc455fca3",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 131158.66666666666,
+    "has_sim": true,
+    "predict_cycle": 109608
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "3072"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5ff26fdb101cc455fca4",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 130700.66666666669,
+    "has_sim": true,
+    "predict_cycle": 109707
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "4096"
+    },
+    "has_trace": true,
+    "trace_id": "68fa5ffd6fdb101cc455fca5",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 132150.6666666667,
+    "has_sim": true,
+    "predict_cycle": 109806
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "6144"
+    },
+    "has_trace": true,
+    "trace_id": "68fa600c6fdb101cc455fca6",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 133910.6666666667,
+    "has_sim": true,
+    "predict_cycle": 109993
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "kmeans",
+    "param": {
+      "clusters": "32",
+      "size": "8192"
+    },
+    "has_trace": true,
+    "trace_id": "68fa60216fdb101cc455fca7",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 131542,
+    "has_sim": true,
+    "predict_cycle": 110191
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89e26fdb101cc455fe07",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 19563.68115942029,
+    "has_sim": true,
+    "predict_cycle": 16392
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89e46fdb101cc455fe08",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 28117.333333333336,
+    "has_sim": true,
+    "predict_cycle": 24588
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89e66fdb101cc455fe09",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 46547.65217391305,
+    "has_sim": true,
+    "predict_cycle": 41420
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89e96fdb101cc455fe0b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 46091.014492753624,
+    "has_sim": true,
+    "predict_cycle": 41440
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89eb6fdb101cc455fe0c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 45908.34782608696,
+    "has_sim": true,
+    "predict_cycle": 41480
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89ee6fdb101cc455fe0d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 44778.34782608696,
+    "has_sim": true,
+    "predict_cycle": 41720
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89f06fdb101cc455fe0e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 44244.66666666667,
+    "has_sim": true,
+    "predict_cycle": 42640
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "3",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89f36fdb101cc455fe0f",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 44470,
+    "has_sim": true,
+    "predict_cycle": 42720
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89f46fdb101cc455fe10",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 14602,
+    "has_sim": true,
+    "predict_cycle": 12294
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89f66fdb101cc455fe11",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 23639.014492753624,
+    "has_sim": true,
+    "predict_cycle": 20490
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89f96fdb101cc455fe12",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 41054.66666666667,
+    "has_sim": true,
+    "predict_cycle": 37278
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89fb6fdb101cc455fe13",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 45611.681159420295,
+    "has_sim": true,
+    "predict_cycle": 41440
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa89fe6fdb101cc455fe14",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 45195.333333333336,
+    "has_sim": true,
+    "predict_cycle": 41480
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a006fdb101cc455fe15",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 44801.681159420295,
+    "has_sim": true,
+    "predict_cycle": 41720
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a036fdb101cc455fe16",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 43660.00000000001,
+    "has_sim": true,
+    "predict_cycle": 42640
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "4",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a056fdb101cc455fe17",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 43903.65217391305,
+    "has_sim": true,
+    "predict_cycle": 42720
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a076fdb101cc455fe18",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 15510,
+    "has_sim": true,
+    "predict_cycle": 12294
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "16"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a096fdb101cc455fe1a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 20170.985507246376,
+    "has_sim": true,
+    "predict_cycle": 16392
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "32"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a0b6fdb101cc455fe1c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 36639.333333333336,
+    "has_sim": true,
+    "predict_cycle": 33136
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "64"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a0d6fdb101cc455fe1e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 52066.66666666667,
+    "has_sim": true,
+    "predict_cycle": 41440
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "128"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a106fdb101cc455fe20",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 46634.666666666664,
+    "has_sim": true,
+    "predict_cycle": 41480
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "256"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a126fdb101cc455fe22",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 46752.34782608696,
+    "has_sim": true,
+    "predict_cycle": 41720
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "512"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a156fdb101cc455fe23",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 46155.333333333336,
+    "has_sim": true,
+    "predict_cycle": 42640
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "bfs",
+    "param": {
+      "degree": "5",
+      "size": "1024"
+    },
+    "has_trace": true,
+    "trace_id": "68fa8a176fdb101cc455fe24",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 51521.333333333336,
+    "has_sim": true,
+    "predict_cycle": 42720
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "1"
+    },
+    "has_trace": true,
+    "trace_id": "68fb029b6fdb101cc455ff92",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4682.666666666667,
+    "has_sim": true,
+    "predict_cycle": 3584
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "2"
+    },
+    "has_trace": true,
+    "trace_id": "68fb029d6fdb101cc455ff93",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 22251.002849002853,
+    "has_sim": true,
+    "predict_cycle": 25837
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "3"
+    },
+    "has_trace": true,
+    "trace_id": "68fb029f6fdb101cc455ff94",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 70294.33618233619,
+    "has_sim": true,
+    "predict_cycle": 59817
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "4"
+    },
+    "has_trace": true,
+    "trace_id": "68fb02a36fdb101cc455ff95",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 71723.33333333334,
+    "has_sim": true,
+    "predict_cycle": 68711
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "5"
+    },
+    "has_trace": true,
+    "trace_id": "68fb02aa6fdb101cc455ff96",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 71254.3304843305,
+    "has_sim": true,
+    "predict_cycle": 82050
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "6"
+    },
+    "has_trace": true,
+    "trace_id": "68fb02b56fdb101cc455ff97",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 72000.66666666667,
+    "has_sim": true,
+    "predict_cycle": 82147
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "7"
+    },
+    "has_trace": true,
+    "trace_id": "68fb02c76fdb101cc455ff98",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 72928.33618233618,
+    "has_sim": true,
+    "predict_cycle": 82272
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "8"
+    },
+    "has_trace": true,
+    "trace_id": "68fb02e26fdb101cc455ff99",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 74625.00284900285,
+    "has_sim": true,
+    "predict_cycle": 108809
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "9"
+    },
+    "has_trace": true,
+    "trace_id": "68fb030a6fdb101cc455ff9a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 78678.00000000001,
+    "has_sim": true,
+    "predict_cycle": 148893
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "lavaMD",
+    "param": {
+      "boxes1d": "10"
+    },
+    "has_trace": true,
+    "trace_id": "68fb03466fdb101cc455ff9b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 81664.33048433048,
+    "has_sim": true,
+    "predict_cycle": 179924
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "128",
+      "size": "1000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa41e6fdb101cc455fe73",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 18101.333333333336,
+    "has_sim": true,
+    "predict_cycle": 7926
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "128",
+      "size": "2000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa41f6fdb101cc455fe74",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 18773.68115942029,
+    "has_sim": true,
+    "predict_cycle": 8086
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "128",
+      "size": "3000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa4216fdb101cc455fe75",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 18891.333333333336,
+    "has_sim": true,
+    "predict_cycle": 8204
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "128",
+      "size": "4000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa4236fdb101cc455fe76",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 20608.34782608696,
+    "has_sim": true,
+    "predict_cycle": 8820
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "128",
+      "size": "5000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa4266fdb101cc455fe77",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 20992,
+    "has_sim": true,
+    "predict_cycle": 8904
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "128",
+      "size": "6000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa4286fdb101cc455fe78",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 21312.34782608696,
+    "has_sim": true,
+    "predict_cycle": 8860
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "256",
+      "size": "1000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa4296fdb101cc455fe79",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 25344.000000000004,
+    "has_sim": true,
+    "predict_cycle": 11742
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "256",
+      "size": "2000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa42b6fdb101cc455fe7a",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 26975.681159420295,
+    "has_sim": true,
+    "predict_cycle": 12026
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "256",
+      "size": "3000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa42d6fdb101cc455fe7b",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 27584,
+    "has_sim": true,
+    "predict_cycle": 12228
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "256",
+      "size": "4000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa42f6fdb101cc455fe7c",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 30667.014492753628,
+    "has_sim": true,
+    "predict_cycle": 13466
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "256",
+      "size": "5000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa4316fdb101cc455fe7d",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 31158.000000000004,
+    "has_sim": true,
+    "predict_cycle": 13516
+  },
+  {
+    "suite": "rodinia",
+    "benchmark": "b+tree",
+    "param": {
+      "block": "256",
+      "size": "6000"
+    },
+    "has_trace": true,
+    "trace_id": "68faa4346fdb101cc455fe7e",
+    "has_profile": true,
+    "frequency": 345,
+    "avg_nano_sec": 31616.000000000004,
+    "has_sim": true,
+    "predict_cycle": 13428
+  }
+]
