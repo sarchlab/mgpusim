@@ -1,4 +1,0 @@
-MemcpyHtoD,0x00007f0c0bc00000,216480
-MemcpyHtoD,0x00007f0c0bc34e00,20000
-kernel-1-ctx_0x55bf35a94840.traceg
-kernel-2-ctx_0x55bf35a94840.traceg

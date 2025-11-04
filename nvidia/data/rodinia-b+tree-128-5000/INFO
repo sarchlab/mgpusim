@@ -1,8 +1,0 @@
-Title: b+tree
-Suite: rodinia
-Command: /home/enze/workspace/GPU_Benchmarks/rodinia/b+tree/b+tree.exe
-Params: -size 5000 -block 128 
-DeviceID: 0
-HostName: yss2
-DeviceName: NVIDIA H100 PCIe
-CudaVersion: release 12.5
