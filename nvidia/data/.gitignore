@@ -1,0 +1,7 @@
+
+data/simtune-ffmakernel-4096-512/
+data/simtune-ffmakernel-4096-768/
+data/simtune-ffmakernel-4096-1024/
+
+data/rodinia*/
+data/dataset_debug/
