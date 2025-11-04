@@ -1,0 +1,8 @@
+Title: ffmakernel
+Suite: simtune
+Command: /home/enze/workspace/GPU_Benchmarks/simtune/ffmakernel/ffmakernel.exe
+Params: -thread 256 -block 4096 
+DeviceID: 0
+HostName: yss2
+DeviceName: NVIDIA H100 PCIe
+CudaVersion: release 12.5

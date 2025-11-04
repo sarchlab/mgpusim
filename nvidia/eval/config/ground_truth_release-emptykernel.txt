@@ -591,3 +591,116 @@ suite=simtune, benchmark=emptykernel, frequency=1755, thread=1024, block=32, cyc
 suite=simtune, benchmark=emptykernel, frequency=1755, thread=1024, block=4, cycles=2433.60, beforeTurning=1
 suite=simtune, benchmark=emptykernel, frequency=1755, thread=1024, block=32768, cycles=96258.24, beforeTurning=0
 suite=simtune, benchmark=emptykernel, frequency=1755, thread=1024, block=2, cycles=2452.91, beforeTurning=1
+
+
+
+
+
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=1, cycles=2471.04, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=1, cycles=2470.46, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=1, cycles=2340.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=1, cycles=2358.72, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=1, cycles=2358.14, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=1, cycles=2358.72, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=1, cycles=2433.60, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=1, cycles=2377.44, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=1, cycles=2396.16, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=1, cycles=2413.71, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=1, cycles=2358.14, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=4, cycles=2358.72, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=4, cycles=2321.28, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=4, cycles=2340.59, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=4, cycles=2358.72, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=4, cycles=2358.14, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=4, cycles=2452.91, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=4, cycles=2358.72, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=4, cycles=2340.00, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=4, cycles=2414.88, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=4, cycles=2303.14, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=4, cycles=2340.00, beforeTurning=1
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=16, cycles=2358.14, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=16, cycles=2376.86, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=16, cycles=2451.74, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=16, cycles=2358.72, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=16, cycles=2414.88, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=16, cycles=2396.16, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=16, cycles=2377.44, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=16, cycles=2471.04, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=16, cycles=2396.16, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=16, cycles=2358.72, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=16, cycles=2414.88, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=64, cycles=2396.75, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=64, cycles=2415.46, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=64, cycles=2377.44, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=64, cycles=2414.88, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=64, cycles=2508.48, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=64, cycles=2414.88, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=64, cycles=2377.44, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=64, cycles=2452.32, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=64, cycles=2433.60, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=64, cycles=2396.16, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=64, cycles=2396.16, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=256, cycles=2696.27, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=256, cycles=2640.11, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=256, cycles=2564.64, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=256, cycles=2583.36, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=256, cycles=2602.08, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=256, cycles=2564.64, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=256, cycles=2620.22, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=256, cycles=2583.94, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=256, cycles=2808.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=256, cycles=2639.52, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=256, cycles=2564.64, beforeTurning=1
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=1024, cycles=3126.24, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=1024, cycles=5634.72, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=1024, cycles=5184.86, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=1024, cycles=5447.52, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=1024, cycles=3350.88, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=1024, cycles=3182.99, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=1024, cycles=3145.55, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=1024, cycles=4193.28, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=1024, cycles=3706.56, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=1024, cycles=3145.55, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=1024, cycles=3163.68, beforeTurning=1
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=4096, cycles=6983.15, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=4096, cycles=10408.32, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=4096, cycles=6645.60, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=4096, cycles=6682.45, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=4096, cycles=6739.20, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=4096, cycles=6626.88, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=4096, cycles=15200.64, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=4096, cycles=14302.08, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=4096, cycles=6608.16, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=4096, cycles=15912.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=4096, cycles=8704.80, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=16384, cycles=50618.88, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=16384, cycles=20797.34, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=16384, cycles=29053.44, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=16384, cycles=20816.64, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=16384, cycles=54044.64, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=16384, cycles=20778.61, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=16384, cycles=20797.92, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=16384, cycles=20872.80, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=16384, cycles=57283.20, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=16384, cycles=35025.12, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=16384, cycles=21639.74, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=768, block=65536, cycles=197573.22, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=256, block=65536, cycles=77332.32, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=32, block=65536, cycles=77238.72, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=384, block=65536, cycles=81021.33, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=128, block=65536, cycles=77407.79, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=512, block=65536, cycles=113201.01, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=640, block=65536, cycles=135739.30, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=64, block=65536, cycles=77538.24, beforeTurning=1
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=1024, block=65536, cycles=226944.32, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=896, block=65536, cycles=211574.61, beforeTurning=0
+suite=simtune, benchmark=ffmakernel, frequency=1755, thread=16, block=65536, cycles=77351.04, beforeTurning=1

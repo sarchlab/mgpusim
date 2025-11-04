@@ -222,7 +222,7 @@ func (b *SMBuilder) buildL1VCaches() {
 		builder := writearound.MakeBuilder().
 			WithEngine(b.engine).
 			WithFreq(b.freq).
-			WithBankLatency(60).
+			WithBankLatency(60). // cycle
 			WithNumBanks(1).
 			WithLog2BlockSize(b.log2CacheLineSize).
 			WithWayAssociativity(4).

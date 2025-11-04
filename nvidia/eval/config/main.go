@@ -97,6 +97,7 @@ func main() {
 		// "cuda-sdk/vectoradd-simulations.yaml",
 
 		"simtune/emptykernel-simulations.yaml",
+		"simtune/ffmakernel-simulations.yaml",
 	}
 	// Rodinia benchmarks: backprop pathfinder lud gaussian heartwall cfd nn kmeans bfs lavaMD "b+tree"
 	filesRodinia := []string{
