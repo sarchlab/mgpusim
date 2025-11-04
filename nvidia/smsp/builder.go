@@ -57,6 +57,8 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 
 	// s.waitingCycle = 0
 
+	s.ResourcePool = NewH100SMSPResourcePool()
+
 	s.PendingSMSPtoMemReadReq = make(map[string]*mem.ReadReq)
 	s.PendingSMSPtoMemWriteReq = make(map[string]*mem.WriteReq)
 	s.PendingSMSPMemMsgID2Warp = make(map[string]*SMSPWarpUnit)

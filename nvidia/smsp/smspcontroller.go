@@ -51,6 +51,8 @@ type SMSPController struct {
 	SMSPReceiveSMLatency          uint64
 	SMSPReceiveSMLatencyRemaining uint64
 
+	ResourcePool *ResourcePool
+
 	VisTracing bool
 }
 
@@ -354,7 +356,7 @@ func (s *SMSPController) run() bool {
 }
 
 func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
-	if warpUnit == nil {
+	if warpUnit == nil || warpUnit.status == WarpStatusWaiting {
 		// fmt.Printf("No warp is issued in SMSPController %s\n", s.ID)
 		return false
 	}
@@ -366,73 +368,113 @@ func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
 	// 	s.finishedWarpsCount++
 	// }
 
-	lastInstructionFlag := false
+	// lastInstructionFlag := false
 
-	if warpUnit.unfinishedInstsCount == 1 {
-		lastInstructionFlag = true
-	}
+	// if warpUnit.unfinishedInstsCount == 1 {
+	// 	lastInstructionFlag = true
+	// }
 
 	// currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
-	currentInstruction := warpUnit.warp.Instructions[warpUnit.warp.InstructionsCount()-warpUnit.unfinishedInstsCount]
+	// currentInstruction := warpUnit.warp.Instructions[warpUnit.warp.InstructionsCount()-warpUnit.unfinishedInstsCount]
 
-	currentInstructionType := currentInstruction.OpCode.OpcodeType()
-	reqParentID := currentInstruction.InstructionsFullID()
-	// fmt.Printf("%v\n", currentInstructionType == trace.OpCodeMemRead)
-	switch currentInstructionType {
+	instIdx := warpUnit.warp.InstructionsCount() - warpUnit.unfinishedInstsCount
+	inst := warpUnit.warp.Instructions[instIdx]
+
+	// Memory ops still handled separately
+	switch inst.OpCode.OpcodeType() {
 	case trace.OpCodeMemRead:
-		// address := rand.Uint64() % (1048576 / 4) * 4
-		// fmt.Printf("In branch trace.OpCodeMemRead\n")
 		warpUnit.status = WarpStatusWaiting
-		address := currentInstruction.MemAddress
-		// address = 0
-		s.doRead(warpUnit, reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
+		s.doRead(warpUnit, inst.InstructionsFullID(), inst.MemAddress, uint64(inst.MemAddressSuffix1))
+		return true
 	case trace.OpCodeMemWrite:
-		// address := rand.Uint64() % (1048576 / 4) * 4
-		// fmt.Printf("In branch trace.OpCodeMemWrite\n")
 		warpUnit.status = WarpStatusWaiting
-		address := currentInstruction.MemAddress
-		// address = 0
 		data := rand.Uint32()
-		s.doWrite(warpUnit, reqParentID, address, &data)
-	case trace.OpCodeExit:
-		// fmt.Printf("In branch trace.OpCodeExit\n")
-		if currentInstruction.Mask != 0 {
+		s.doWrite(warpUnit, inst.InstructionsFullID(), inst.MemAddress, &data)
+		return true
+	}
+
+	// If no pipeline yet, launch one
+	if warpUnit.Pipeline == nil {
+		warpUnit.Pipeline = NewPipelineInstance(inst, warpUnit)
+	}
+
+	progressed := warpUnit.Pipeline.Tick(s.ResourcePool)
+
+	if warpUnit.Pipeline.Done {
+		warpUnit.Pipeline = nil
+		warpUnit.unfinishedInstsCount--
+
+		if warpUnit.unfinishedInstsCount == 0 {
 			s.scheduler.removeFinishedWarps(warpUnit)
-			// s.unfinishedInstsCount = 0
 			s.finishedWarpsCount++
 			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-			// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, currentWarpUnit.warp.ID, s.finishedWarpsCount)
 		} else {
-			// if lastInstructionFlag {
-			// 	s.scheduler.removeFinishedWarps(warpUnit)
-			// 	s.finishedWarpsCount++
-			// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-			// } else {
-			// 	warpUnit.status = WarpStatusRunning
-			// 	warpUnit.unfinishedInstsCount--
-			// }
-			s.handleNormalInstruction(lastInstructionFlag, warpUnit, currentInstruction)
+			warpUnit.status = WarpStatusRunning
 		}
-	// case trace.OpCode4:
-	// 	s.waitingCycle = 3
-	// case trace.OpCode6:
-	// 	s.waitingCycle = 5
-	// case trace.OpCode8:
-	// 	s.waitingCycle = 7
-	// case trace.OpCode10:
-	// 	s.waitingCycle = 9
-	default:
-		// fmt.Printf("In branch default\n")
-		// if lastInstructionFlag {
-		// 	s.scheduler.removeFinishedWarps(warpUnit)
-		// 	s.finishedWarpsCount++
-		// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-		// } else {
-		// 	warpUnit.status = WarpStatusRunning
-		// 	warpUnit.unfinishedInstsCount--
-		// }
-		s.handleNormalInstruction(lastInstructionFlag, warpUnit, currentInstruction)
+
+		return true
 	}
+
+	return progressed
+
+	// currentInstructionType := currentInstruction.OpCode.OpcodeType()
+	// reqParentID := currentInstruction.InstructionsFullID()
+	// // fmt.Printf("%v\n", currentInstructionType == trace.OpCodeMemRead)
+	// switch currentInstructionType {
+	// case trace.OpCodeMemRead:
+	// 	// address := rand.Uint64() % (1048576 / 4) * 4
+	// 	// fmt.Printf("In branch trace.OpCodeMemRead\n")
+	// 	warpUnit.status = WarpStatusWaiting
+	// 	address := currentInstruction.MemAddress
+	// 	// address = 0
+	// 	s.doRead(warpUnit, reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
+	// case trace.OpCodeMemWrite:
+	// 	// address := rand.Uint64() % (1048576 / 4) * 4
+	// 	// fmt.Printf("In branch trace.OpCodeMemWrite\n")
+	// 	warpUnit.status = WarpStatusWaiting
+	// 	address := currentInstruction.MemAddress
+	// 	// address = 0
+	// 	data := rand.Uint32()
+	// 	s.doWrite(warpUnit, reqParentID, address, &data)
+	// case trace.OpCodeExit:
+	// 	// fmt.Printf("In branch trace.OpCodeExit\n")
+	// 	if currentInstruction.Mask != 0 {
+	// 		s.scheduler.removeFinishedWarps(warpUnit)
+	// 		// s.unfinishedInstsCount = 0
+	// 		s.finishedWarpsCount++
+	// 		s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
+	// 		// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, currentWarpUnit.warp.ID, s.finishedWarpsCount)
+	// 	} else {
+	// 		// if lastInstructionFlag {
+	// 		// 	s.scheduler.removeFinishedWarps(warpUnit)
+	// 		// 	s.finishedWarpsCount++
+	// 		// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
+	// 		// } else {
+	// 		// 	warpUnit.status = WarpStatusRunning
+	// 		// 	warpUnit.unfinishedInstsCount--
+	// 		// }
+	// 		s.handleNormalInstruction(lastInstructionFlag, warpUnit, currentInstruction)
+	// 	}
+	// // case trace.OpCode4:
+	// // 	s.waitingCycle = 3
+	// // case trace.OpCode6:
+	// // 	s.waitingCycle = 5
+	// // case trace.OpCode8:
+	// // 	s.waitingCycle = 7
+	// // case trace.OpCode10:
+	// // 	s.waitingCycle = 9
+	// default:
+	// 	// fmt.Printf("In branch default\n")
+	// 	// if lastInstructionFlag {
+	// 	// 	s.scheduler.removeFinishedWarps(warpUnit)
+	// 	// 	s.finishedWarpsCount++
+	// 	// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
+	// 	// } else {
+	// 	// 	warpUnit.status = WarpStatusRunning
+	// 	// 	warpUnit.unfinishedInstsCount--
+	// 	// }
+	// 	s.handleNormalInstruction(lastInstructionFlag, warpUnit, currentInstruction)
+	// }
 
 	// if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
 	// 	// fmt.Printf("%.10f, %s, SMSPController, insts id = %d, %s, %v\n",
@@ -443,37 +485,37 @@ func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
 	// 	// address := rand.Uint64() % (1048576 / 4) * 4
 	// 	// s.doRead(&address)
 	// }
-	return true
+	// return true
 }
 
-func (s *SMSPController) handleNormalInstruction(lastInstructionFlag bool, warpUnit *SMSPWarpUnit, currentInstruction *trace.InstructionTrace) {
-	if warpUnit.currentInstructionRemainingCycles > 0 {
-		// fmt.Printf("warpUnit.currentInstructionRemainingCycles: %d->%d\n", warpUnit.currentInstructionRemainingCycles, warpUnit.currentInstructionRemainingCycles-1)
-		warpUnit.currentInstructionRemainingCycles--
-		if warpUnit.currentInstructionRemainingCycles == 0 {
-			s.handleNormalInstructionEnd(lastInstructionFlag, warpUnit)
-		}
-		return
-	}
+// func (s *SMSPController) handleNormalInstruction(lastInstructionFlag bool, warpUnit *SMSPWarpUnit, currentInstruction *trace.InstructionTrace) {
+// 	if warpUnit.currentInstructionRemainingCycles > 0 {
+// 		// fmt.Printf("warpUnit.currentInstructionRemainingCycles: %d->%d\n", warpUnit.currentInstructionRemainingCycles, warpUnit.currentInstructionRemainingCycles-1)
+// 		warpUnit.currentInstructionRemainingCycles--
+// 		if warpUnit.currentInstructionRemainingCycles == 0 {
+// 			s.handleNormalInstructionEnd(lastInstructionFlag, warpUnit)
+// 		}
+// 		return
+// 	}
 
-	// First time loading this instruction
-	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1 + 0
-	if warpUnit.currentInstructionRemainingCycles == 0 {
-		s.handleNormalInstructionEnd(lastInstructionFlag, warpUnit)
-	}
-	return
-}
+// 	// First time loading this instruction
+// 	warpUnit.currentInstructionRemainingCycles = currentInstruction.OpCode.GetInstructionCycles() - 1 + 0
+// 	if warpUnit.currentInstructionRemainingCycles == 0 {
+// 		s.handleNormalInstructionEnd(lastInstructionFlag, warpUnit)
+// 	}
+// 	return
+// }
 
-func (s *SMSPController) handleNormalInstructionEnd(lastInstructionFlag bool, warpUnit *SMSPWarpUnit) {
-	if lastInstructionFlag {
-		s.scheduler.removeFinishedWarps(warpUnit)
-		s.finishedWarpsCount++
-		s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-	} else {
-		warpUnit.status = WarpStatusRunning
-		warpUnit.unfinishedInstsCount--
-	}
-}
+// func (s *SMSPController) handleNormalInstructionEnd(lastInstructionFlag bool, warpUnit *SMSPWarpUnit) {
+// 	if lastInstructionFlag {
+// 		s.scheduler.removeFinishedWarps(warpUnit)
+// 		s.finishedWarpsCount++
+// 		s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
+// 	} else {
+// 		warpUnit.status = WarpStatusRunning
+// 		warpUnit.unfinishedInstsCount--
+// 	}
+// }
 
 func (s *SMSPController) reportFinishedWarps() bool {
 	if s.finishedWarpsCount == 0 {
