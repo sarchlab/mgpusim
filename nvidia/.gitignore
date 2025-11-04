@@ -4,6 +4,9 @@ data/*
 
 !data/simple-trace-example/
 !data/simtune*/
+data/simtune-ffmakernel-4096-512/
+data/simtune-ffmakernel-4096-768/
+data/simtune-ffmakernel-4096-1024/
 !data/dataset_debug/
 etc/secret-local.yaml
 count.py
