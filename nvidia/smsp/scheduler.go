@@ -10,7 +10,7 @@ import (
 
 type WarpStatus int
 
-const SMSPSchedulerIssueSpeed = 1
+const SMSPSchedulerIssueSpeed = 4
 
 const (
 	WarpStatusReady WarpStatus = iota
@@ -41,42 +41,82 @@ type SMSPWarpUnit struct {
 }
 
 type SMSPSWarpScheduler struct {
-	warpUnitList []*SMSPWarpUnit
+	warpUnitList   []*SMSPWarpUnit
+	nextIssueIndex int
 }
 
-func (s *SMSPSWarpScheduler) issueWarp(startIndex int) (warpUnitIndex int, warpUnit *SMSPWarpUnit) {
-	if startIndex >= len(s.warpUnitList) {
-		return -1, nil
+func NewSMSPScheduler() *SMSPSWarpScheduler {
+	return &SMSPSWarpScheduler{
+		warpUnitList:   []*SMSPWarpUnit{},
+		nextIssueIndex: 0,
 	}
-	for i := startIndex; i < len(s.warpUnitList); i++ {
-		warpUnit := s.warpUnitList[i]
-		if warpUnit.status == WarpStatusReady || warpUnit.status == WarpStatusRunning {
-			warpUnit.status = WarpStatusRunning
-			return i, warpUnit
-		}
-	}
-	return -1, nil
 }
 
-func (s *SMSPSWarpScheduler) issueWarps() []*SMSPWarpUnit {
-	issuedWarps := []*SMSPWarpUnit{}
-	startIndex := 0
-	for i := 0; i < SMSPSchedulerIssueSpeed; i++ {
-		var warpUnit *SMSPWarpUnit
-		startIndex, warpUnit = s.issueWarp(startIndex)
-		if warpUnit != nil {
-			issuedWarps = append(issuedWarps, warpUnit)
-			startIndex++ // Move to the next warp
-		} else {
-			break
+// func (s *SMSPSWarpScheduler) issueWarp(startIndex int) (warpUnitIndex int, warpUnit *SMSPWarpUnit) {
+// 	if startIndex >= len(s.warpUnitList) {
+// 		return -1, nil
+// 	}
+// 	for i := startIndex; i < len(s.warpUnitList); i++ {
+// 		warpUnit := s.warpUnitList[i]
+// 		if warpUnit.status == WarpStatusReady { // || warpUnit.status == WarpStatusRunning
+// 			warpUnit.status = WarpStatusRunning
+// 			return i, warpUnit
+// 		}
+// 	}
+// 	return -1, nil
+// }
+
+func isExecuteStage(stageName string) bool {
+	// fmt.Printf("Checking if stage %s is an execute stage\n", stageName)
+	return stageName == "Execute" || stageName == "MemoryPipe"
+}
+
+func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpUnit {
+	issued := []*SMSPWarpUnit{}
+	startIndex := s.nextIssueIndex
+	totalWarps := len(s.warpUnitList)
+	checked := 0
+
+	for len(issued) < SMSPSchedulerIssueSpeed && checked < totalWarps {
+		idx := (startIndex + checked) % totalWarps
+		wu := s.warpUnitList[idx]
+
+		if (wu.status == WarpStatusReady || wu.status == WarpStatusRunning) && wu.unfinishedInstsCount > 0 {
+			// instIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
+			stageName := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name
+
+			if isExecuteStage(stageName) {
+				unitType := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Unit
+				if !resourcePool.Reserve(unitType) {
+					checked++
+					continue // resource conflict → skip
+				}
+			}
+
+			wu.status = WarpStatusRunning
+			issued = append(issued, wu)
 		}
+
+		checked++
 	}
-	// fmt.Printf("issuedWarps count = %d\n", len(issuedWarps))
-	// for _, warpUnit := range issuedWarps {
-	// 	fmt.Printf("issued warp id = %d, unfinishedInstsCount = %d\n", warpUnit.warp.ID, warpUnit.unfinishedInstsCount)
+
+	s.nextIssueIndex = (startIndex + checked) % totalWarps
+	return issued
+
+	// issuedWarps := []*SMSPWarpUnit{}
+	// startIndex := 0
+	// for i := 0; i < SMSPSchedulerIssueSpeed; i++ {
+	// 	var warpUnit *SMSPWarpUnit
+	// 	startIndex, warpUnit = s.issueWarp(startIndex)
+	// 	if warpUnit != nil {
+	// 		issuedWarps = append(issuedWarps, warpUnit)
+	// 		startIndex++ // Move to the next warp
+	// 	} else {
+	// 		break
+	// 	}
 	// }
 
-	return issuedWarps
+	// return issuedWarps
 }
 
 func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
@@ -86,6 +126,13 @@ func (s *SMSPSWarpScheduler) insertWarp(warp *trace.WarpTrace) bool {
 		unfinishedInstsCount: warp.InstructionsCount(),
 		Pipeline:             nil,
 	}
+	if len(warp.Instructions) == 0 {
+		log.Panic("warp has no instructions")
+	}
+	inst := warp.Instructions[0]
+
+	newWarpUnit.Pipeline = NewPipelineInstance(inst, newWarpUnit)
+
 	s.warpUnitList = append(s.warpUnitList, newWarpUnit)
 	return true
 }

@@ -4,7 +4,6 @@ import (
 	// "fmt"
 
 	"encoding/binary"
-	"math/rand/v2"
 
 	log "github.com/sirupsen/logrus"
 
@@ -33,14 +32,14 @@ type SMSPController struct {
 	// ToMem            sim.Port
 	ToVectorMemRemote sim.Port
 	// waitingForMemRsp  bool
-	waitingCycle uint64
+	// waitingCycle uint64
 
 	PendingSMSPtoMemReadReq  map[string]*mem.ReadReq
 	PendingSMSPtoMemWriteReq map[string]*mem.WriteReq
 	PendingSMSPMemMsgID2Warp map[string]*SMSPWarpUnit
 
 	// unfinishedInstsCount uint64
-	scheduler SMSPSWarpScheduler
+	scheduler *SMSPSWarpScheduler
 
 	finishedWarpsCount uint64
 	finishedWarpsList  []*trace.WarpTrace
@@ -71,12 +70,16 @@ func (s *SMSPController) SetVectorMemRemote(remote sim.Port) {
 
 func (s *SMSPController) Tick() bool {
 	madeProgress := false
+
+	s.ResourcePool = NewH100SMSPResourcePool()
+	// fmt.Printf("SMSPController %s Tick\n", s.ID)
 	madeProgress = s.reportFinishedWarps() || madeProgress
 	// madeProgress = s.run() || madeProgress
 	madeProgress = s.processSMInput() || madeProgress
 	madeProgress = s.run() || madeProgress // avoid huge cost from warp setup
 	madeProgress = s.processMemRsp() || madeProgress
 	// warps can be switched, but ignore now
+	// fmt.Printf("SMSPController %s Tick end, madeProgress: %v\n", s.ID, madeProgress)
 
 	return madeProgress
 }
@@ -333,159 +336,173 @@ func (s *SMSPController) processSMMsg(msg *message.SMToSMSPMsg) {
 }
 
 func (s *SMSPController) run() bool {
-	// if s.unfinishedInstsCount == 0 || s.waitingForMemRsp {
-	// 	return false
-	// }
 	if s.scheduler.isEmpty() {
 		return false
 	}
-	if s.waitingCycle > 0 {
-		s.waitingCycle--
-		return true
+
+	madeProgress := true
+
+	// 1) Scheduler issues up to SMSPSchedulerIssueSpeed warps (or as configured)
+	issued := s.scheduler.issueWarps(s.ResourcePool)
+	if len(issued) == 0 {
+		madeProgress = false
 	}
-	//  || s.waitingForMemRsp
-	// currentWarpUnitIndex, currentWarpUnit := s.scheduler.issueWarp()
+	// fmt.Printf("SMSPController %s issued %d warps\n", s.Name(), len(issued))
 
-	currentWarpUnitList := s.scheduler.issueWarps()
-
-	runProgress := false
-	for _, warpUnit := range currentWarpUnitList {
-		runProgress = s.runWarp(warpUnit) || runProgress
-	}
-	return runProgress
-}
-
-func (s *SMSPController) runWarp(warpUnit *SMSPWarpUnit) bool {
-	if warpUnit == nil || warpUnit.status == WarpStatusWaiting {
-		// fmt.Printf("No warp is issued in SMSPController %s\n", s.ID)
-		return false
-	}
-
-	// fmt.Printf("SMSPController %s issued warp unit index = %d, warp id = %d\n", s.ID, currentWarpUnitIndex, currentWarpUnit.warp.ID)
-
-	// s.unfinishedInstsCount--
-	// if s.unfinishedInstsCount == 0 {
-	// 	s.finishedWarpsCount++
-	// }
-
-	// lastInstructionFlag := false
-
-	// if warpUnit.unfinishedInstsCount == 1 {
-	// 	lastInstructionFlag = true
-	// }
-
-	// currentInstruction := s.currentWarp.Instructions[s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1]
-	// currentInstruction := warpUnit.warp.Instructions[warpUnit.warp.InstructionsCount()-warpUnit.unfinishedInstsCount]
-
-	instIdx := warpUnit.warp.InstructionsCount() - warpUnit.unfinishedInstsCount
-	inst := warpUnit.warp.Instructions[instIdx]
-
-	// Memory ops still handled separately
-	switch inst.OpCode.OpcodeType() {
-	case trace.OpCodeMemRead:
-		warpUnit.status = WarpStatusWaiting
-		s.doRead(warpUnit, inst.InstructionsFullID(), inst.MemAddress, uint64(inst.MemAddressSuffix1))
-		return true
-	case trace.OpCodeMemWrite:
-		warpUnit.status = WarpStatusWaiting
-		data := rand.Uint32()
-		s.doWrite(warpUnit, inst.InstructionsFullID(), inst.MemAddress, &data)
-		return true
-	}
-
-	// If no pipeline yet, launch one
-	if warpUnit.Pipeline == nil {
-		warpUnit.Pipeline = NewPipelineInstance(inst, warpUnit)
-	}
-
-	progressed := warpUnit.Pipeline.Tick(s.ResourcePool)
-
-	if warpUnit.Pipeline.Done {
-		warpUnit.Pipeline = nil
-		warpUnit.unfinishedInstsCount--
-
-		if warpUnit.unfinishedInstsCount == 0 {
-			s.scheduler.removeFinishedWarps(warpUnit)
-			s.finishedWarpsCount++
-			s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-		} else {
-			warpUnit.status = WarpStatusRunning
+	// 2) For each newly issued warp, either start memory request (special) or
+	//    create/attach a pipeline and add it to runningWarps.
+	for _, wu := range issued {
+		// stageNameString := fmt.Sprintf("%s(%s)", wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name, wu.Pipeline.Stages[wu.Pipeline.PC].Def.Unit.String())
+		// fmt.Printf("one warpunit: warp id = %d, unfinishedInstsCount = %d, status = %d. This warp's pipeline is at stage %d(name: %s), left cycles: %d\n", wu.warp.ID, wu.unfinishedInstsCount, wu.status, wu.Pipeline.PC, stageNameString, wu.Pipeline.Stages[wu.Pipeline.PC].Left)
+		// If warp is waiting for mem somehow, skip (shouldn't normally happen)
+		if wu.status == WarpStatusWaiting {
+			log.Panic("warp in waiting status should not be issued")
 		}
 
-		return true
+		// Determine next instruction index
+		if wu.unfinishedInstsCount == 0 {
+			// nothing to do
+			log.Panic("issued warp has no unfinished instructions")
+		}
+
+		progressed := wu.Pipeline.Tick()
+
+		if !progressed {
+			log.Panic("issued warp's pipeline should not be stalled")
+		}
+
+		if wu.Pipeline.Done {
+			wu.Pipeline = nil
+			wu.unfinishedInstsCount--
+
+			if wu.unfinishedInstsCount == 0 {
+				// Warp completely finished
+				s.scheduler.removeFinishedWarps(wu)
+				s.finishedWarpsCount++
+				s.finishedWarpsList = append(s.finishedWarpsList, wu.warp)
+				continue
+			}
+
+			// Prepare next instruction immediately
+			nextIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
+			nextInst := wu.warp.Instructions[nextIdx]
+
+			// switch nextInst.OpCode.OpcodeType() {
+			// case trace.OpCodeMemRead:
+			// 	wu.status = WarpStatusWaiting
+			// 	s.doRead(wu, nextInst.InstructionsFullID(), nextInst.MemAddress, uint64(nextInst.MemAddressSuffix1))
+			// 	// remove from running list temporarily
+			// 	s.runningWarps = append(s.runningWarps[:i], s.runningWarps[i+1:]...)
+			// 	continue
+			// case trace.OpCodeMemWrite:
+			// 	wu.status = WarpStatusWaiting
+			// 	data := uint32(0)
+			// 	s.doWrite(wu, nextInst.InstructionsFullID(), nextInst.MemAddress, &data)
+			// 	s.runningWarps = append(s.runningWarps[:i], s.runningWarps[i+1:]...)
+			// 	continue
+			// default:
+			// 	// Non-memory instruction: start the next pipeline immediately
+			// 	wu.Pipeline = NewPipelineInstance(nextInst, wu)
+			// 	wu.status = WarpStatusRunning
+			// }
+
+			wu.Pipeline = NewPipelineInstance(nextInst, wu)
+			wu.status = WarpStatusReady
+
+			// stay in runningWarps for next tick
+			continue
+		}
+
+		// instIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
+		// inst := wu.warp.Instructions[instIdx]
+
+		// Memory ops are special: we send mem request and mark waiting (do not create pipeline)
+		// switch inst.OpCode.OpcodeType() {
+		// case trace.OpCodeMemRead:
+		// 	wu.status = WarpStatusWaiting
+		// 	s.doRead(wu, inst.InstructionsFullID(), inst.MemAddress, uint64(inst.MemAddressSuffix1))
+		// 	madeProgress = true
+		// 	continue
+		// case trace.OpCodeMemWrite:
+		// 	wu.status = WarpStatusWaiting
+		// 	data := uint32(0) // or rand.Uint32() if you want nondeterministic
+		// 	s.doWrite(wu, inst.InstructionsFullID(), inst.MemAddress, &data)
+		// 	madeProgress = true
+		// 	continue
+		// }
 	}
 
-	return progressed
-
-	// currentInstructionType := currentInstruction.OpCode.OpcodeType()
-	// reqParentID := currentInstruction.InstructionsFullID()
-	// // fmt.Printf("%v\n", currentInstructionType == trace.OpCodeMemRead)
-	// switch currentInstructionType {
-	// case trace.OpCodeMemRead:
-	// 	// address := rand.Uint64() % (1048576 / 4) * 4
-	// 	// fmt.Printf("In branch trace.OpCodeMemRead\n")
-	// 	warpUnit.status = WarpStatusWaiting
-	// 	address := currentInstruction.MemAddress
-	// 	// address = 0
-	// 	s.doRead(warpUnit, reqParentID, address, uint64(currentInstruction.MemAddressSuffix1))
-	// case trace.OpCodeMemWrite:
-	// 	// address := rand.Uint64() % (1048576 / 4) * 4
-	// 	// fmt.Printf("In branch trace.OpCodeMemWrite\n")
-	// 	warpUnit.status = WarpStatusWaiting
-	// 	address := currentInstruction.MemAddress
-	// 	// address = 0
-	// 	data := rand.Uint32()
-	// 	s.doWrite(warpUnit, reqParentID, address, &data)
-	// case trace.OpCodeExit:
-	// 	// fmt.Printf("In branch trace.OpCodeExit\n")
-	// 	if currentInstruction.Mask != 0 {
-	// 		s.scheduler.removeFinishedWarps(warpUnit)
-	// 		// s.unfinishedInstsCount = 0
-	// 		s.finishedWarpsCount++
-	// 		s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-	// 		// fmt.Printf("SMSPController %s finished a warp %d, finishedWarpsCount = %d\n", s.ID, currentWarpUnit.warp.ID, s.finishedWarpsCount)
-	// 	} else {
-	// 		// if lastInstructionFlag {
-	// 		// 	s.scheduler.removeFinishedWarps(warpUnit)
-	// 		// 	s.finishedWarpsCount++
-	// 		// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-	// 		// } else {
-	// 		// 	warpUnit.status = WarpStatusRunning
-	// 		// 	warpUnit.unfinishedInstsCount--
-	// 		// }
-	// 		s.handleNormalInstruction(lastInstructionFlag, warpUnit, currentInstruction)
+	// // 3) Tick all running pipelines once (use index loop because we will remove completed)
+	// i := 0
+	// // numTicked := 0
+	// // numTickedAll := len(s.runningWarps)
+	// for i < len(s.runningWarps) {
+	// 	wu := s.runningWarps[i]
+	// 	// fmt.Printf("One warpunit in runningWarps: warp id = %d, unfinishedInstsCount = %d, status = %d. This warp's pipeline is at stage %d(name: %s), left cycles: %d\n", wu.warp.ID, wu.unfinishedInstsCount, wu.status, wu.Pipeline.PC, wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name, wu.Pipeline.Stages[wu.Pipeline.PC].Left)
+	// 	// Safety: skip waiting warps (they should not be in runningWarps normally)
+	// 	if wu == nil || wu.Pipeline == nil {
+	// 		// remove from running list if no pipeline (defensive)
+	// 		s.runningWarps = append(s.runningWarps[:i], s.runningWarps[i+1:]...)
+	// 		continue
 	// 	}
-	// // case trace.OpCode4:
-	// // 	s.waitingCycle = 3
-	// // case trace.OpCode6:
-	// // 	s.waitingCycle = 5
-	// // case trace.OpCode8:
-	// // 	s.waitingCycle = 7
-	// // case trace.OpCode10:
-	// // 	s.waitingCycle = 9
-	// default:
-	// 	// fmt.Printf("In branch default\n")
-	// 	// if lastInstructionFlag {
-	// 	// 	s.scheduler.removeFinishedWarps(warpUnit)
-	// 	// 	s.finishedWarpsCount++
-	// 	// 	s.finishedWarpsList = append(s.finishedWarpsList, warpUnit.warp)
-	// 	// } else {
-	// 	// 	warpUnit.status = WarpStatusRunning
-	// 	// 	warpUnit.unfinishedInstsCount--
-	// 	// }
-	// 	s.handleNormalInstruction(lastInstructionFlag, warpUnit, currentInstruction)
-	// }
 
-	// if currentInstruction.OpCode.OpcodeType() == trace.OpCodeMemory {
-	// 	// fmt.Printf("%.10f, %s, SMSPController, insts id = %d, %s, %v\n",
-	// 	// 	s.Engine.CurrentTime(), s.Name(),
-	// 	// 	s.currentWarp.InstructionsCount()-s.unfinishedInstsCount-1,
-	// 	// 	currentInstruction.OpCode,
-	// 	// 	currentInstruction)
-	// 	// address := rand.Uint64() % (1048576 / 4) * 4
-	// 	// s.doRead(&address)
+	// 	// Tick the pipeline. Tick returns true if progressed; false if stalled due to resources.
+	// 	progressed := wu.Pipeline.Tick(s.ResourcePool)
+	// 	// if progressed {
+	// 	// 	numTicked++
+	// 	// }
+	// 	if progressed {
+	// 		madeProgress = true
+	// 	}
+
+	// 	if wu.Pipeline.Done {
+	// 		wu.Pipeline = nil
+	// 		wu.unfinishedInstsCount--
+
+	// 		if wu.unfinishedInstsCount == 0 {
+	// 			// Warp completely finished
+	// 			s.scheduler.removeFinishedWarps(wu)
+	// 			s.finishedWarpsCount++
+	// 			s.finishedWarpsList = append(s.finishedWarpsList, wu.warp)
+	// 			// Remove from running list
+	// 			s.runningWarps = append(s.runningWarps[:i], s.runningWarps[i+1:]...)
+	// 			continue
+	// 		}
+
+	// 		// Prepare next instruction immediately
+	// 		nextIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
+	// 		nextInst := wu.warp.Instructions[nextIdx]
+
+	// 		switch nextInst.OpCode.OpcodeType() {
+	// 		case trace.OpCodeMemRead:
+	// 			wu.status = WarpStatusWaiting
+	// 			s.doRead(wu, nextInst.InstructionsFullID(), nextInst.MemAddress, uint64(nextInst.MemAddressSuffix1))
+	// 			// remove from running list temporarily
+	// 			s.runningWarps = append(s.runningWarps[:i], s.runningWarps[i+1:]...)
+	// 			continue
+	// 		case trace.OpCodeMemWrite:
+	// 			wu.status = WarpStatusWaiting
+	// 			data := uint32(0)
+	// 			s.doWrite(wu, nextInst.InstructionsFullID(), nextInst.MemAddress, &data)
+	// 			s.runningWarps = append(s.runningWarps[:i], s.runningWarps[i+1:]...)
+	// 			continue
+	// 		default:
+	// 			// Non-memory instruction: start the next pipeline immediately
+	// 			wu.Pipeline = NewPipelineInstance(nextInst, wu)
+	// 			wu.status = WarpStatusRunning
+	// 		}
+
+	// 		// stay in runningWarps for next tick
+	// 		i++
+	// 		continue
+	// 	}
+
+	// 	// not finished -> advance index
+	// 	i++
 	// }
-	// return true
+	// fmt.Printf("SMSPController %s ticked %d/%d pipelines this cycle, runningWarps len = %d\n", s.ID, numTicked, numTickedAll, len(s.runningWarps))
+
+	return madeProgress
 }
 
 // func (s *SMSPController) handleNormalInstruction(lastInstructionFlag bool, warpUnit *SMSPWarpUnit, currentInstruction *trace.InstructionTrace) {
@@ -625,3 +642,13 @@ func uint32ToBytes(data uint32) []byte {
 
 	return bytes
 }
+
+// // add this helper to check existence before append
+// func (s *SMSPController) appendToRunningIfNotPresent(wu *SMSPWarpUnit) {
+// 	for _, w := range s.runningWarps {
+// 		if w == wu {
+// 			return
+// 		}
+// 	}
+// 	s.runningWarps = append(s.runningWarps, wu)
+// }

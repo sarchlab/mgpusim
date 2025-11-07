@@ -42,6 +42,7 @@ func (b *SMSPBuilder) Build(name string) *SMSPController {
 		SMSPReceiveSMLatency:          10000,
 		SMSPReceiveSMLatencyRemaining: 10000,
 		VisTracing:                    b.VisTracing,
+		scheduler:                     NewSMSPScheduler(),
 	}
 
 	s.TickingComponent = sim.NewTickingComponent(name, b.engine, b.freq, s)

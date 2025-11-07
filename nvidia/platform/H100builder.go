@@ -58,8 +58,8 @@ func (b *H100PlatformBuilder) Build() *Platform {
 		WithDRAMSize(65536 * mem.TB).
 		WithLog2CacheLineSize(9). // Changed from 7 to 9 to support 512-byte memory accesses
 		WithNumMemoryBank(4).
-		WithGPU2SMThreadBlockAllocationLatency(3).
-		WithSMReceiveGPULatency(5). // 5
+		WithGPU2SMThreadBlockAllocationLatency(3). // 3
+		WithSMReceiveGPULatency(5).                // 5
 		WithSM2SMSPWarpIssueLatency(0).
 		WithGPUReceiveSMLatency(0).
 		WithGPUReceiveCTALatencyUnit(0.10). // 0.10
