@@ -18,10 +18,11 @@ type PipelineInstance struct {
 }
 
 func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *PipelineInstance {
-	tpl, ok := PipelineTable[inst.OpCode.String()]
-	if !ok {
-		tpl = defaultStages(inst.OpCode.String())
-	}
+	tpl := getPipelineStages(inst.OpCode.String())
+	// tpl, ok := PipelineTable[inst.OpCode.String()]
+	// if !ok {
+	// 	tpl = defaultStages(inst.OpCode.String())
+	// }
 
 	stages := make([]Stage, len(tpl.Stages))
 	for i, s := range tpl.Stages {
