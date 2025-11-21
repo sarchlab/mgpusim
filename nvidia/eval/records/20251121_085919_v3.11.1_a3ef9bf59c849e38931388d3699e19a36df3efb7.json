@@ -1,0 +1,21 @@
+[
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel",
+    "param": {
+      "block": "1",
+      "iters": "10",
+      "profile_type": "nsys",
+      "thread": "32"
+    },
+    "has_trace": true,
+    "trace_id": "691664df2b5794513472b83a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4608,
+    "has_sim": true,
+    "predict_cycle": 7229,
+    "profile_type": "nsys",
+    "profile_cycle": 8087.04
+  }
+]
