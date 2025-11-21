@@ -49,6 +49,9 @@ type Record struct {
 	AvgNanoSec   interface{}       `json:"avg_nano_sec"`
 	HasSim       bool              `json:"has_sim"`
 	PredictCycle float64           `json:"predict_cycle"`
+
+	ProfileType  string  `json:"profile_type"`
+	ProfileCycle float64 `json:"profile_cycle,omitempty"`
 }
 
 func main() {
@@ -76,6 +79,8 @@ func main() {
 		configPath = "nvidia/eval/eval_config_release.json"
 	case "release-emptykernel":
 		configPath = "nvidia/eval/eval_config_release-emptykernel.json"
+	case "release-ffmakernel":
+		configPath = "nvidia/eval/eval_config_release-ffmakernel.json"
 	case "release-rodinia":
 		configPath = "nvidia/eval/eval_config_release-rodinia.json"
 	case "test":
@@ -383,9 +388,22 @@ func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 		}
 		argStr += "}"
 		frequency := arg["frequency"]
-		fmt.Printf("trace-id: %s, suite: %s, frequency: %v, benchmark: %s, arg setting: %s\n", traceID, bench.Suite, frequency, bench.Title, argStr)
+		var profileType string
 
+		if pt, ok := arg["profile_type"].(string); ok {
+			profileType = pt
+		}
+
+		// var profileCycle float64
+		// if pc, ok := arg["profile_cycle"].(float64); ok {
+		// 	profileCycle = pc
+		// } else if pcInt, ok := arg["profile_cycle"].(int); ok {
+		// 	profileCycle = float64(pcInt)
+		// }
+		// profileCycle := arg["profile_cycle"]
 		truthCycles := getTruthCycles(arg)
+
+		fmt.Printf("trace-id: %s, suite: %s, frequency: %v, profileType: %s, profileCycle: %v, benchmark: %s, arg setting: %s\n", traceID, bench.Suite, frequency, profileType, truthCycles, bench.Title, argStr)
 
 		// Calculate AvgNanoSec as truthCycles / (frequency / 1000)
 		var avgNanoSec interface{}
@@ -445,6 +463,8 @@ func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 			AvgNanoSec:   avgNanoSec, //truthCycles,
 			HasSim:       true,
 			PredictCycle: simResult,
+			ProfileType:  profileType,
+			ProfileCycle: truthCycles, // profileCycle,
 		}
 		records = append(records, rec)
 	}

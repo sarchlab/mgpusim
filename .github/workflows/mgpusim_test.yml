@@ -116,6 +116,12 @@ jobs:
             # # Remove the [release-emptykernel vX.X.X] part from message
             # MSG="${MSG#*\] }"
             echo "msg=$MSG" >> $GITHUB_OUTPUT
+          elif [[ "$MSG" =~ ^\[release-ffmakernel\ v([0-9]+(\.[0-9]+)*)\] ]]; then
+            echo "type=release-ffmakernel" >> $GITHUB_OUTPUT
+            echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            # # Remove the [release-ffmakernel vX.X.X] part from message
+            # MSG="${MSG#*\] }"
+            echo "msg=$MSG" >> $GITHUB_OUTPUT
           elif [[ "$MSG" =~ ^\[release-rodinia\ v([0-9]+(\.[0-9]+)*)\] ]]; then
             echo "type=release-rodinia" >> $GITHUB_OUTPUT
             echo "version=v${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
@@ -154,6 +160,8 @@ jobs:
             OUTPUT=$(./nvidia/eval/eval --config release --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
           elif [[ "${{ steps.commit_type.outputs.type }}" == "release-emptykernel" ]]; then
             OUTPUT=$(./nvidia/eval/eval --config release-emptykernel --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
+          elif [[ "${{ steps.commit_type.outputs.type }}" == "release-ffmakernel" ]]; then
+            OUTPUT=$(./nvidia/eval/eval --config release-ffmakernel --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
           elif [[ "${{ steps.commit_type.outputs.type }}" == "release-rodinia" ]]; then
             OUTPUT=$(./nvidia/eval/eval --config release-rodinia --sha ${{ steps.commit_info.outputs.sha }} --version "${{ steps.commit_type.outputs.version }}")
           elif [[ "${{ steps.commit_type.outputs.type }}" == "test" ]]; then
@@ -203,7 +211,7 @@ jobs:
           VERSION="${{ steps.commit_type.outputs.version }}"
           TIME="${{ steps.timestamp.outputs.timestamp }}"
           # Compose filename
-          if [[ "$COMMIT_TYPE" == "release" || "$COMMIT_TYPE" == "release-emptykernel" || "$COMMIT_TYPE" == "release-rodinia" ]]; then
+          if [[ "$COMMIT_TYPE" == "release" || "$COMMIT_TYPE" == "release-emptykernel" || "$COMMIT_TYPE" == "release-ffmakernel" || "$COMMIT_TYPE" == "release-rodinia" ]]; then
             FNAME="${COMMIT_TYPE}_${VERSION}_${TIME}_${SHA}.txt"
           else
             FNAME="${COMMIT_TYPE}_${TIME}_${SHA}.txt"
@@ -277,7 +285,7 @@ jobs:
             } else {
               type=a[1];
               timestr=a[2] "_" a[3];
-              ord = (type=="release"?1:(type=="release-rodinia"?2:(type=="release-emptykernel"?3:(type=="dev"?4:5))));
+              ord = (type=="release"?1:(type=="release-rodinia"?2:(type=="release-emptykernel"?3:(type=="release-ffmakernel"?4:(type=="dev"?5:6)))));
               print ord "\t" timestr "\t" $0 >> "other_rows.txt"
             }
           }' txt_list.txt

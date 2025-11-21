@@ -8,6 +8,7 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
+                    "profile_type": "nsys",
                     "size": 32,
                     "trace-id": "682e34d6b541e8df7bd618da",
                     "truth": {
@@ -24,6 +25,7 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
+                    "profile_type": "nsys",
                     "size": 32,
                     "trace-id": "682eea8fb541e8df7bd61988",
                     "truth": {
@@ -34,6 +36,7 @@
                 {
                     "blockDimX": 16,
                     "frequency": 345,
+                    "profile_type": "nsys",
                     "size": 32,
                     "trace-id": "682eecf5b541e8df7bd61991",
                     "truth": {
@@ -50,6 +53,7 @@
                 {
                     "blockDimX": 8,
                     "frequency": 345,
+                    "profile_type": "nsys",
                     "size": 32,
                     "trace-id": "682e8ef4b541e8df7bd61937",
                     "truth": {

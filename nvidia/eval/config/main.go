@@ -35,6 +35,7 @@ type GroundTruthEntry struct {
 	Args          map[string]string
 	Cycles        float64
 	Line          int
+	ProfileType   string
 }
 
 const ratioSkipRelease = 0.35
@@ -97,8 +98,13 @@ func main() {
 		// "cuda-sdk/vectoradd-simulations.yaml",
 
 		"simtune/emptykernel-simulations.yaml",
-		"simtune/ffmakernel-simulations.yaml",
+		// "simtune/ffmakernel-simulations.yaml",
 	}
+	filesffmaKernel := []string{
+		"simtune/ffmakernel-simulations.yaml",
+		"simtune/ffmakernel-large-simulations.yaml",
+	}
+
 	// Rodinia benchmarks: backprop pathfinder lud gaussian heartwall cfd nn kmeans bfs lavaMD "b+tree"
 	filesRodinia := []string{
 		"rodinia/backprop-simulations.yaml",
@@ -116,9 +122,11 @@ func main() {
 
 	groundTruthPath := "./ground_truth_release.txt"
 	groundTruthEmptyKernelPath := "./ground_truth_release-emptykernel.txt"
+	groundTruthffmaKernelPath := "./ground_truth_release-ffmakernel.txt"
 	groundTruthRodiniaPath := "./ground_truth_release-rodinia.txt"
 	outputPathRelease := "../eval_config_release.json"
 	outputPathReleaseEmptyKernel := "../eval_config_release-emptykernel.json"
+	outputPathReleaseffmaKernel := "../eval_config_release-ffmakernel.json"
 	outputPathReleaseRodinia := "../eval_config_release-rodinia.json"
 	outputPathDev := "../eval_config_dev.json"
 
@@ -131,6 +139,12 @@ func main() {
 	groundTruthEmptyKernel, err := parseGroundTruth(groundTruthEmptyKernelPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing ground truth (empty kernel): %v\n", err)
+		os.Exit(1)
+	}
+
+	groundTruthffmaKernel, err := parseGroundTruth(groundTruthffmaKernelPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing ground truth (ffma kernel): %v\n", err)
 		os.Exit(1)
 	}
 
@@ -220,6 +234,43 @@ func main() {
 	fmt.Printf("Wrote %s: %d arg settings (all kept, %d/%d beforeTurning)\n",
 		outputPathReleaseEmptyKernel, releaseCountEmptyKernel,
 		releaseBeforeTurningCountEmptyKernel, releaseCountEmptyKernel)
+
+	// For ffmaKernel only
+	benchmarksffmaKernel := []Benchmark{}
+	missingTruthffmaKernel := []string{}
+
+	for _, relPath := range filesffmaKernel {
+		fullPath := filepath.Join(folder, relPath)
+		suite, benchmark := parseSuiteBenchmark(relPath)
+		args, missing := parseSimYaml(fullPath, suite, benchmark, groundTruthffmaKernel, true)
+		benchmarksffmaKernel = append(benchmarksffmaKernel, Benchmark{
+			Title: benchmark,
+			Suite: suite,
+			Args:  args,
+		})
+		missingTruthffmaKernel = append(missingTruthffmaKernel, missing...)
+	}
+
+	if len(missingTruthffmaKernel) > 0 {
+		fmt.Println("Missing ground truth entries for (ffma kernel):")
+		for _, m := range missingTruthffmaKernel {
+			fmt.Println(m)
+		}
+	}
+
+	// Write eval_release-ffmaKernel.json, keep all args
+	releaseBenchmarksffmaKernel := benchmarksffmaKernel // no filtering
+	releaseConfigffmaKernel := EvalConfig{
+		ScriptPath: "./mnt-collector",
+		Benchmarks: releaseBenchmarksffmaKernel,
+	}
+	releaseCountffmaKernel := countArgs(releaseBenchmarksffmaKernel)
+	releaseBeforeTurningCountffmaKernel := countBeforeTurning(releaseBenchmarksffmaKernel)
+
+	writeEvalConfig(outputPathReleaseffmaKernel, releaseConfigffmaKernel)
+	fmt.Printf("Wrote %s: %d arg settings (all kept, %d/%d beforeTurning)\n",
+		outputPathReleaseffmaKernel, releaseCountffmaKernel,
+		releaseBeforeTurningCountffmaKernel, releaseCountffmaKernel)
 
 	// For rodinia only
 	benchmarksRodinia := []Benchmark{}
@@ -386,38 +437,44 @@ func parseSimYaml(path, suite, benchmark string, gt map[string]GroundTruthEntry,
 
 	var args []ArgConfig
 	var missing []string
+	profile_type_list := []string{"nsys", "ncu"}
 	for _, t := range traces {
-		argMap := parseArgsFromComment(t.Comment)
-		gtKey := groundTruthKey(suite, benchmark, argMap)
-		entry, ok := gt[gtKey]
-		if !ok {
-			missing = append(missing, fmt.Sprintf("%s/%s %v", suite, benchmark, argMap))
-		}
-		arg := ArgConfig{}
-		for k, v := range argMap {
-			// try to convert to int if possible
-			if ival, err := parseMaybeInt(v); err == nil {
-				arg[k] = ival
-			} else {
-				arg[k] = v
+		for _, profile_type := range profile_type_list {
+			argMap := parseArgsFromComment(t.Comment)
+			gtKey := groundTruthKey(suite, benchmark, profile_type, argMap)
+			entry, ok := gt[gtKey]
+			if !ok {
+				if profile_type == "nsys" {
+					missing = append(missing, fmt.Sprintf("%s/%s %v", suite, benchmark, argMap))
+				}
+				continue
 			}
-		}
-		arg["trace-id"] = t.TraceID
-		if ok {
-			var beforeTurningVal interface{}
-			if forceBeforeTurningIsZero {
-				beforeTurningVal = 0
-			} else {
-				beforeTurningVal = entry.BeforeTurning
+			arg := ArgConfig{}
+			for k, v := range argMap {
+				// try to convert to int if possible
+				if ival, err := parseMaybeInt(v); err == nil {
+					arg[k] = ival
+				} else {
+					arg[k] = v
+				}
 			}
-			arg["truth"] = map[string]interface{}{
-				"cycles":        entry.Cycles,
-				"beforeTurning": beforeTurningVal,
+			arg["trace-id"] = t.TraceID
+			if ok {
+				var beforeTurningVal interface{}
+				if forceBeforeTurningIsZero {
+					beforeTurningVal = 0
+				} else {
+					beforeTurningVal = entry.BeforeTurning
+				}
+				arg["truth"] = map[string]interface{}{
+					"cycles":        entry.Cycles,
+					"beforeTurning": beforeTurningVal,
+				}
+				// arg["truth"] = map[string]interface{}{"cycles": entry.Cycles, "beforeTurning": 0 if forceBeforeTurningIsZero else entry.BeforeTurning}
+				arg["frequency"] = entry.Frequency
 			}
-			// arg["truth"] = map[string]interface{}{"cycles": entry.Cycles, "beforeTurning": 0 if forceBeforeTurningIsZero else entry.BeforeTurning}
-			arg["frequency"] = entry.Frequency
+			args = append(args, arg)
 		}
-		args = append(args, arg)
 	}
 	return args, missing
 }
@@ -477,6 +534,7 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 		if len(parts) < 4 {
 			continue
 		}
+		// suite=val benchmark=val frequency=val profile_type=val, k1=v1 k2=v2 ... cycles=val beforeTurning=val
 		suite := strings.TrimSpace(strings.Split(parts[0], "=")[1])
 		benchmark := strings.TrimSpace(strings.Split(parts[1], "=")[1])
 		frequency, err := strconv.ParseFloat(strings.TrimSpace(strings.Split(parts[2], "=")[1]), 64)
@@ -484,8 +542,9 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 			fmt.Fprintf(os.Stderr, "Failed to parse frequency at line %d: %v\n", lineNum, err)
 			frequency = -1.0 // default invalid frequency
 		}
+		profile_type := strings.TrimSpace(strings.Split(parts[3], "=")[1])
 		args := make(map[string]string)
-		for _, p := range parts[3 : len(parts)-2] {
+		for _, p := range parts[4 : len(parts)-2] {
 			kv := strings.SplitN(p, "=", 2)
 			if len(kv) == 2 {
 				args[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
@@ -499,7 +558,7 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 		}
 		var cycles float64
 		fmt.Sscanf(cyclesStr, "%f", &cycles)
-		key := groundTruthKey(suite, benchmark, args)
+		key := groundTruthKey(suite, benchmark, profile_type, args)
 		if _, exists := gt[key]; exists {
 			conflicts = append(conflicts, fmt.Sprintf("Duplicate at line %d: %s", lineNum, line))
 		}
@@ -511,6 +570,7 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 			Args:          args,
 			Cycles:        cycles,
 			Line:          lineNum,
+			ProfileType:   profile_type,
 		}
 	}
 	if len(conflicts) > 0 {
@@ -519,7 +579,7 @@ func parseGroundTruth(path string) (map[string]GroundTruthEntry, error) {
 	return gt, scanner.Err()
 }
 
-func groundTruthKey(suite, benchmark string, args map[string]string) string {
+func groundTruthKey(suite, benchmark string, profileType string, args map[string]string) string {
 	// Key: suite|benchmark|k1=v1|k2=v2|... (sorted by key)
 	keys := []string{}
 	for k := range args {
@@ -531,6 +591,8 @@ func groundTruthKey(suite, benchmark string, args map[string]string) string {
 	sb.WriteString(suite)
 	sb.WriteString("|")
 	sb.WriteString(benchmark)
+	sb.WriteString("|")
+	sb.WriteString(profileType)
 	for _, k := range keys {
 		sb.WriteString("|")
 		sb.WriteString(k)
