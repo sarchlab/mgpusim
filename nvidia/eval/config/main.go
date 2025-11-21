@@ -472,6 +472,7 @@ func parseSimYaml(path, suite, benchmark string, gt map[string]GroundTruthEntry,
 				}
 				// arg["truth"] = map[string]interface{}{"cycles": entry.Cycles, "beforeTurning": 0 if forceBeforeTurningIsZero else entry.BeforeTurning}
 				arg["frequency"] = entry.Frequency
+				arg["profile_type"] = profile_type
 			}
 			args = append(args, arg)
 		}
