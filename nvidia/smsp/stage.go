@@ -74,9 +74,9 @@ func s(name string, cycles int, unit ExecUnitKind) StageDef {
 	return StageDef{Name: name, Cycles: cycles, Unit: unit}
 }
 
-func stDecode() StageDef { return s("Decode", 1, UnitNone) }
-func stIssue() StageDef  { return s("Issue", 1, UnitNone) }
-func stWB() StageDef     { return s("Writeback", 1, UnitNone) }
+func stDecode() StageDef { return s("Decode", 0, UnitNone) }
+func stIssue() StageDef  { return s("Issue", 0, UnitNone) }
+func stWB() StageDef     { return s("Writeback", 0, UnitNone) }
 
 // =======================
 // Default Fallback Entry

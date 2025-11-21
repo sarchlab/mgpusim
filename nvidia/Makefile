@@ -40,10 +40,10 @@ run_rodinia_b+tree:
 
 run_simtune_ffmakernel:
 	@printf "thread\ttruth\tsimulation\n"
-	@for t in 16 64 256 512 768 1024; do \
-		gt_file="data/simtune-ffmakernel-4096-$$t/gt"; \
+	@for t in 10 20 30 40; do \
+		gt_file="data/simtune-ffmakernel-1-32-$$t/gt"; \
 		truth=$$(cat $$gt_file); \
-		sim=$$(./nvidia -trace-dir data/simtune-ffmakernel-4096-$$t); \
+		sim=$$(./nvidia -trace-dir data/simtune-ffmakernel-1-32-$$t); \
 		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
 	done
 	@rm akita_sim_d*

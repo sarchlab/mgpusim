@@ -3,14 +3,18 @@ package smsp
 import (
 	// "fmt"
 
+	"fmt"
 	"log"
 
+	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
 type WarpStatus int
 
-const SMSPSchedulerIssueSpeed = 4
+const SMSPSchedulerIssueSpeed = 999
+
+const SMSPSchedulerIssuepolicy = "FCFS" // "ROUND_ROBIN" or "FCFS"
 
 const (
 	WarpStatusReady WarpStatus = iota
@@ -71,7 +75,24 @@ func isExecuteStage(stageName string) bool {
 	return stageName == "Execute" || stageName == "MemoryPipe"
 }
 
+func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime sim.VTimeInSec) {
+	fmt.Printf("%.10f, %s's Scheduler has %d Warps:", engineCurrentTime, smspName, len(s.warpUnitList))
+	for i, wu := range s.warpUnitList {
+		fmt.Printf(" [wu %d/%d: inst %d/%d '%s' @ '%s' stage (%d/%d)]",
+			i+1,
+			len(s.warpUnitList),
+			wu.warp.InstructionsCount()-wu.unfinishedInstsCount+1,
+			wu.warp.InstructionsCount(),
+			wu.Pipeline.InstructionOpcode,
+			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name,
+			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles-wu.Pipeline.Stages[wu.Pipeline.PC].Left+1,
+			wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles)
+	}
+	fmt.Println()
+}
+
 func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpUnit {
+
 	issued := []*SMSPWarpUnit{}
 	startIndex := s.nextIssueIndex
 	totalWarps := len(s.warpUnitList)
@@ -99,8 +120,14 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 
 		checked++
 	}
+	if SMSPSchedulerIssuepolicy == "ROUND_ROBIN" {
+		s.nextIssueIndex = (startIndex + checked) % totalWarps
+	} else if SMSPSchedulerIssuepolicy == "FCFS" {
+		s.nextIssueIndex = 0
+	} else {
+		log.Panic("unsupported issue policy")
+	}
 
-	s.nextIssueIndex = (startIndex + checked) % totalWarps
 	return issued
 
 	// issuedWarps := []*SMSPWarpUnit{}

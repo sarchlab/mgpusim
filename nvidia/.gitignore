@@ -4,4 +4,5 @@ etc/secret-local.yaml
 count.py
 test-v*
 reports
+test*
 __debug*

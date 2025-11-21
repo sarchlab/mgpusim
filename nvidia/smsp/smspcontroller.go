@@ -343,17 +343,19 @@ func (s *SMSPController) run() bool {
 	madeProgress := true
 
 	// 1) Scheduler issues up to SMSPSchedulerIssueSpeed warps (or as configured)
+	// s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
 	issued := s.scheduler.issueWarps(s.ResourcePool)
 	if len(issued) == 0 {
 		madeProgress = false
 	}
-	// fmt.Printf("SMSPController %s issued %d warps\n", s.Name(), len(issued))
+	// fmt.Printf("%.10f, SMSPController %s issued %d warps:\n", s.Engine.CurrentTime(), s.Name(), len(issued))
 
 	// 2) For each newly issued warp, either start memory request (special) or
 	//    create/attach a pipeline and add it to runningWarps.
 	for _, wu := range issued {
 		// stageNameString := fmt.Sprintf("%s(%s)", wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name, wu.Pipeline.Stages[wu.Pipeline.PC].Def.Unit.String())
-		// fmt.Printf("one warpunit: warp id = %d, unfinishedInstsCount = %d, status = %d. This warp's pipeline is at stage %d(name: %s), left cycles: %d\n", wu.warp.ID, wu.unfinishedInstsCount, wu.status, wu.Pipeline.PC, stageNameString, wu.Pipeline.Stages[wu.Pipeline.PC].Left)
+		// currentInst := wu.warp.Instructions[wu.warp.InstructionsCount()-wu.unfinishedInstsCount].OpCode.String()
+		// fmt.Printf("one warpunit: warp id = %d, unfinishedInstsCount = %d, status = %d. This warp's current instruction: %s, its pipeline is at stage %d(name: %s), left cycles: %d\n", wu.warp.ID, wu.unfinishedInstsCount, wu.status, currentInst, wu.Pipeline.PC, stageNameString, wu.Pipeline.Stages[wu.Pipeline.PC].Left)
 		// If warp is waiting for mem somehow, skip (shouldn't normally happen)
 		if wu.status == WarpStatusWaiting {
 			log.Panic("warp in waiting status should not be issued")
@@ -386,6 +388,47 @@ func (s *SMSPController) run() bool {
 			// Prepare next instruction immediately
 			nextIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
 			nextInst := wu.warp.Instructions[nextIdx]
+
+			// Skip masked branches/exits (BRA or EXIT) immediately if Mask == 0.
+			// Repeat until we reach a non-skipped instruction or the warp finishes.
+			for {
+				if nextInst == nil {
+					break
+				}
+
+				// If the mask is zero and the opcode is BRA or EXIT, treat it as executed
+				// and move to the next instruction.
+				// fmt.Printf("nextInst.Mask: %08b, %v\n", nextInst.Mask, nextInst.Mask == 0)
+				if nextInst.Mask == 0 {
+					opcodeStr := nextInst.OpCode.String()
+					// fmt.Printf("opcodeStr: %s\n", opcodeStr)
+					if opcodeStr == "BRA" || opcodeStr == "EXIT" {
+						// consume this instruction
+						wu.unfinishedInstsCount--
+						// fmt.Printf("SMSPController %s: warp %d finished while skipping BRA/EXIT\n", s.ID, wu.warp.ID)
+						if wu.unfinishedInstsCount == 0 {
+							// Warp completely finished
+							s.scheduler.removeFinishedWarps(wu)
+							s.finishedWarpsCount++
+							s.finishedWarpsList = append(s.finishedWarpsList, wu.warp)
+							nextInst = nil
+							break
+						}
+						// advance to next instruction
+						nextIdx = wu.warp.InstructionsCount() - wu.unfinishedInstsCount
+						nextInst = wu.warp.Instructions[nextIdx]
+						// repeat the check for the new instruction
+						continue
+					}
+				}
+				// not skippable -> stop skipping loop
+				break
+			}
+
+			// If warp finished while skipping, continue outer loop.
+			if nextInst == nil {
+				continue
+			}
 
 			// switch nextInst.OpCode.OpcodeType() {
 			// case trace.OpCodeMemRead:

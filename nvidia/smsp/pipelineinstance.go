@@ -11,10 +11,11 @@ type Stage struct {
 
 // Running pipeline instance
 type PipelineInstance struct {
-	Warp   *SMSPWarpUnit
-	Stages []Stage
-	PC     int // current stage index
-	Done   bool
+	Warp              *SMSPWarpUnit
+	Stages            []Stage
+	InstructionOpcode string
+	PC                int // current stage index
+	Done              bool
 }
 
 func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *PipelineInstance {
@@ -28,7 +29,7 @@ func NewPipelineInstance(inst *trace.InstructionTrace, warp *SMSPWarpUnit) *Pipe
 	for i, s := range tpl.Stages {
 		stages[i] = Stage{Def: s, Left: s.Cycles}
 	}
-	return &PipelineInstance{Warp: warp, Stages: stages, PC: 0, Done: false}
+	return &PipelineInstance{Warp: warp, Stages: stages, InstructionOpcode: tpl.Opcode, PC: 0, Done: false}
 }
 
 // Progress pipeline by one cycle
@@ -44,6 +45,20 @@ func (p *PipelineInstance) Tick() bool {
 	}
 
 	stage := &p.Stages[p.PC]
+
+	for stage.Left == 0 {
+		// release resources
+		// if stage.Def.Unit != UnitNone {
+		// 	rsrc.Release(stage.Def.Unit) // stage.Def.UnitsUsed
+		// }
+
+		p.PC++
+		if p.PC >= len(p.Stages) {
+			p.Done = true
+			return true
+		}
+		stage = &p.Stages[p.PC]
+	}
 	// if stage.Def.Name == "MemoryPipe" {
 	// 	log.Panic("MemoryPipe stage should not be handled in PipelineInstance.Tick")
 	// 	return false
@@ -60,17 +75,18 @@ func (p *PipelineInstance) Tick() bool {
 	stage.Left--
 
 	// Stage finished
-	if stage.Left == 0 {
+	for stage.Left == 0 {
 		// release resources
 		// if stage.Def.Unit != UnitNone {
 		// 	rsrc.Release(stage.Def.Unit) // stage.Def.UnitsUsed
 		// }
 
 		p.PC++
-		if p.PC == len(p.Stages) {
+		if p.PC >= len(p.Stages) {
 			p.Done = true
 			return true
 		}
+		stage = &p.Stages[p.PC]
 	}
 	return true
 }
