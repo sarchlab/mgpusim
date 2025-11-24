@@ -69,6 +69,11 @@ type cuCPIStackTracer struct {
 	tracer *cu.CPIStackTracer
 }
 
+type memUtilizationTracer struct {
+	tracer *memUtilTracer
+	comp   tracing.NamedHookable
+}
+
 type reporter struct {
 	dataRecorder datarecording.DataRecorder
 
@@ -82,6 +87,7 @@ type reporter struct {
 	rdmaTransactionCounters []*rdmaTransactionCountTracer
 	simdBusyTimeTracers     []*simdBusyTimeTracer
 	cuCPITraces             []*cuCPIStackTracer
+	memUtilTracers          []*memUtilizationTracer
 
 	ReportInstCount            bool
 	ReportCacheLatency         bool
@@ -91,6 +97,7 @@ type reporter struct {
 	ReportDRAMTransactionCount bool
 	ReportSIMDBusyTime         bool
 	ReportCPIStack             bool
+	ReportMemUtil              bool
 }
 
 func newReporter(s *simulation.Simulation) *reporter {
@@ -115,6 +122,7 @@ func (r *reporter) injectTracers(s *simulation.Simulation) {
 	r.injectRDMAEngineTracer(s)
 	r.injectDRAMTracer(s)
 	r.injectSIMDBusyTimeTracer(s)
+	r.injectMemUtilTracer(s)
 }
 
 func (r *reporter) injectKernelTimeTracer(s *simulation.Simulation) {
@@ -352,6 +360,27 @@ func (r *reporter) injectSIMDBusyTimeTracer(s *simulation.Simulation) {
 	}
 }
 
+func (r *reporter) injectMemUtilTracer(s *simulation.Simulation) {
+	if !*reportAll && !*memUtilReportFlag {
+		return
+	}
+
+	for _, comp := range s.Components() {
+		// Track memory utilization for DRAM, L2 caches, and L1 caches
+		if strings.Contains(comp.Name(), "DRAM") ||
+			strings.Contains(comp.Name(), "L2") ||
+			strings.Contains(comp.Name(), "Cache") {
+			t := &memUtilizationTracer{}
+			t.comp = comp.(tracing.NamedHookable)
+			t.tracer = newMemUtilTracer(s.GetEngine())
+
+			tracing.CollectTrace(t.comp, t.tracer)
+
+			r.memUtilTracers = append(r.memUtilTracers, t)
+		}
+	}
+}
+
 func (r *reporter) report() {
 	r.reportKernelTime()
 	r.reportInstCount()
@@ -362,6 +391,7 @@ func (r *reporter) report() {
 	r.reportTLBHitRate()
 	r.reportRDMATransactionCount()
 	r.reportDRAMTransactionCount()
+	r.reportMemUtil()
 }
 
 func (r *reporter) reportKernelTime() {
@@ -689,6 +719,104 @@ func (r *reporter) reportDRAMTransactionCount() {
 				What:     "write_size",
 				Value:    float64(t.tracer.writeSize),
 				Unit:     "bytes",
+			},
+		)
+	}
+}
+
+func (r *reporter) reportMemUtil() {
+	for _, t := range r.memUtilTracers {
+		// Skip components with no activity
+		if t.tracer.GetReadCount() == 0 && t.tracer.GetWriteCount() == 0 {
+			continue
+		}
+
+		// Report bandwidth metrics
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "read_bandwidth",
+				Value:    t.tracer.GetReadBandwidth(),
+				Unit:     "bytes/second",
+			},
+		)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "write_bandwidth",
+				Value:    t.tracer.GetWriteBandwidth(),
+				Unit:     "bytes/second",
+			},
+		)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "total_bandwidth",
+				Value:    t.tracer.GetTotalBandwidth(),
+				Unit:     "bytes/second",
+			},
+		)
+
+		// Report request counts
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "read_request_count",
+				Value:    float64(t.tracer.GetReadCount()),
+				Unit:     "count",
+			},
+		)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "write_request_count",
+				Value:    float64(t.tracer.GetWriteCount()),
+				Unit:     "count",
+			},
+		)
+
+		// Report data volume
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "total_read_bytes",
+				Value:    float64(t.tracer.GetReadBytes()),
+				Unit:     "bytes",
+			},
+		)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "total_write_bytes",
+				Value:    float64(t.tracer.GetWriteBytes()),
+				Unit:     "bytes",
+			},
+		)
+
+		// Report outstanding request metrics
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "avg_outstanding_requests",
+				Value:    t.tracer.GetAverageOutstanding(),
+				Unit:     "count",
+			},
+		)
+		r.dataRecorder.InsertData(
+			tableName,
+			metric{
+				Location: t.comp.Name(),
+				What:     "max_outstanding_requests",
+				Value:    float64(t.tracer.GetMaxOutstanding()),
+				Unit:     "count",
 			},
 		)
 	}

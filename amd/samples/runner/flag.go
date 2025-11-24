@@ -27,6 +27,8 @@ var rdmaTransactionCountReportFlag = flag.Bool("report-rdma-transaction-count",
 	false, "Report the number of transactions going through the RDMA engines.")
 var dramTransactionCountReportFlag = flag.Bool("report-dram-transaction-count",
 	false, "Report the number of transactions accessing the DRAMs.")
+var memUtilReportFlag = flag.Bool("report-mem-util", false,
+	"Report memory utilization metrics including bandwidth, request counts, and outstanding requests.")
 var gpuFlag = flag.String("gpus", "",
 	"The GPUs to use, use a format like 1,2,3,4. By default, GPU 1 is used.")
 var unifiedGPUFlag = flag.String("unified-gpus", "",
