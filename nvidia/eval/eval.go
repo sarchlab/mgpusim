@@ -376,7 +376,7 @@ func processArgs(bench Benchmark, scriptPath string) ([]float64, []Record) {
 		argStr := "{"
 		first := true
 		for k, v := range arg {
-			if k == "trace-id" || k == "truth" || k == "frequency" {
+			if k == "trace-id" || k == "truth" || k == "frequency" || k == "profile_type" {
 				continue
 			}
 			if !first {
