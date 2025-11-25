@@ -4,5 +4,7 @@ simtune-ffmakernel-4096-768/
 simtune-ffmakernel-4096-1024/
 simtune-ffmakernel-256-8192-80/
 
+simtune-ffmakernel-large*
+
 rodinia*/
 dataset_debug/

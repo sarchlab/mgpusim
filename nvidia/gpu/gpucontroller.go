@@ -230,7 +230,7 @@ func (g *GPUController) issueSMIndex(nThreadToBeAssigned uint64, nCTAToBeAssigne
 			g.SMAssignedThreadTable[sm.ID] += nThreadToBeAssigned
 			g.SMAssignedCTACountTable[sm.ID] += nCTAToBeAssigned
 			// fmt.Printf("g.SMAssignedThreadTable[%s] = %d, nThreadToBeAssigned = %d, g.SMAssignedThreadTable[%s]+=nThreadToBeAssigned=%d\n", sm.ID, g.SMAssignedThreadTable[sm.ID], nThreadToBeAssigned, sm.ID, g.SMAssignedThreadTable[sm.ID]+nThreadToBeAssigned)
-			g.SMIssueIndex = uint64((index + 1) % int(g.smsCount))
+			g.SMIssueIndex = uint64((index) % int(g.smsCount))
 			return index
 		}
 		// fmt.Printf("sm %s cannot take %d threads now, current assigned threads = %d, current assigned CTAs = %d\n", sm.ID, nThreadToBeAssigned, g.SMAssignedThreadTable[sm.ID], g.SMAssignedCTACountTable[sm.ID])

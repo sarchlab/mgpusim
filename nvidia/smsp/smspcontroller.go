@@ -343,6 +343,9 @@ func (s *SMSPController) run() bool {
 	madeProgress := true
 
 	// 1) Scheduler issues up to SMSPSchedulerIssueSpeed warps (or as configured)
+	// if strings.Contains(s.Name(), "GPU[0].SM[76]") {
+	// 	s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
+	// }
 	// s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
 	issued := s.scheduler.issueWarps(s.ResourcePool)
 	if len(issued) == 0 {
