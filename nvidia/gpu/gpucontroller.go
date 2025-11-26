@@ -241,13 +241,13 @@ func (g *GPUController) issueSMIndexBestOneStrategy(nThreadToBeAssigned uint64, 
 	return -1
 }
 
-func (g *GPUController) getAverageAssignedThread(SMAssignedThreadTable map[string]uint64) float64 {
-	totalThreads := uint64(0)
-	for _, assigned := range SMAssignedThreadTable {
-		totalThreads += assigned
-	}
-	return float64(totalThreads) / float64(len(SMAssignedThreadTable))
-}
+// func (g *GPUController) getAverageAssignedThread(SMAssignedThreadTable map[string]uint64) float64 {
+// 	totalThreads := uint64(0)
+// 	for _, assigned := range SMAssignedThreadTable {
+// 		totalThreads += assigned
+// 	}
+// 	return float64(totalThreads) / float64(len(SMAssignedThreadTable))
+// }
 
 func (g *GPUController) issueSMIndexDictAverageStrategy(nCTACandidates int) (uint64, int, map[int]int) {
 	// returns: nThreadToBeAssigned, nCTAToBeAssigned, map[threadIndex]SMIndex
@@ -397,7 +397,7 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 		g.undispatchedThreadblocks = g.undispatchedThreadblocks[len(threadblockList):]
 	} else if DispatchThreadblocksToSMsStrategy == "Average" {
 		// collect up to CWDIssueWidth CTAs as candidates
-		maxCandidates := 99999 // int(g.CWDIssueWidth)
+		maxCandidates := 40 // int(g.CWDIssueWidth)
 		availableCTAs := len(g.undispatchedThreadblocks)
 		if maxCandidates > availableCTAs {
 			maxCandidates = availableCTAs
