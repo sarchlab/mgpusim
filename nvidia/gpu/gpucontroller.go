@@ -11,6 +11,8 @@ import (
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
+const DispatchThreadblocksToSMsStrategy = "Average" // "BestOne" or "Average"
+
 type GPUController struct {
 	*sim.TickingComponent
 
@@ -222,7 +224,7 @@ func (g *GPUController) reportFinishedKernels() bool {
 	return true
 }
 
-func (g *GPUController) issueSMIndex(nThreadToBeAssigned uint64, nCTAToBeAssigned uint64) int {
+func (g *GPUController) issueSMIndexBestOneStrategy(nThreadToBeAssigned uint64, nCTAToBeAssigned uint64) int {
 	for i := 0; i < int(g.smsCount); i++ {
 		index := (int(g.SMIssueIndex) + i) % int(g.smsCount)
 		sm := g.SMList[index]
@@ -237,6 +239,98 @@ func (g *GPUController) issueSMIndex(nThreadToBeAssigned uint64, nCTAToBeAssigne
 	}
 	// fmt.Printf("All sms already has full threadblocks to do\n")
 	return -1
+}
+
+func (g *GPUController) getAverageAssignedThread(SMAssignedThreadTable map[string]uint64) float64 {
+	totalThreads := uint64(0)
+	for _, assigned := range SMAssignedThreadTable {
+		totalThreads += assigned
+	}
+	return float64(totalThreads) / float64(len(SMAssignedThreadTable))
+}
+
+func (g *GPUController) issueSMIndexDictAverageStrategy(nCTACandidates int) (uint64, int, map[int]int) {
+	// returns: nThreadToBeAssigned, nCTAToBeAssigned, map[threadIndex]SMIndex
+	assignMap := make(map[int]int)
+	nThreadToBeAssigned := uint64(0)
+	nCTAToBeAssigned := 0
+
+	if g.smsCount == 0 || nCTACandidates == 0 {
+		return nThreadToBeAssigned, nCTAToBeAssigned, assignMap
+	}
+
+	// compute total threads in the candidate CTAs
+	totalCandidateThreads := uint64(0)
+	for i := 0; i < nCTACandidates && i < len(g.undispatchedThreadblocks); i++ {
+		totalCandidateThreads += uint64(g.undispatchedThreadblocks[i].WarpsCount()) * 32
+	}
+
+	// current assigned threads
+	nThreadCurrentlyAssigned := uint64(0)
+	for i := 0; i < int(g.smsCount); i++ {
+		sm := g.SMList[i]
+		nThreadCurrentlyAssigned += g.SMAssignedThreadTable[sm.ID]
+	}
+
+	targetAvg := float64(nThreadCurrentlyAssigned+totalCandidateThreads) / float64(g.smsCount)
+	if targetAvg > float64(g.SMThreadCapacity) {
+		targetAvg = float64(g.SMThreadCapacity)
+	}
+	targetAvgUInt := uint64(targetAvg + 0.000001) // floor-ish but safe for comparison
+
+	// Try to assign each CTA (in order) to a SM starting from rotating SMIssueIndex+i.
+	// First pass: prefer SMs whose assigned threads < targetAvg and that have CTA slot and capacity.
+	// Second pass: relax targetAvg requirement and assign to any SM with capacity & CTA slot.
+	for pass := 1; pass <= 2; pass++ {
+		for cIdx := 0; cIdx < nCTACandidates && cIdx < len(g.undispatchedThreadblocks); cIdx++ {
+			// already assigned this CTA in previous pass?
+			if cIdx < nCTAToBeAssigned {
+				// already assigned (we keep CTAs contiguous from start), skip
+				continue
+			}
+
+			cta := g.undispatchedThreadblocks[cIdx]
+			ctaThreads := uint64(cta.WarpsCount()) * 32
+
+			start := (int(g.SMIssueIndex) + cIdx) % int(g.smsCount)
+			assigned := false
+			for s := 0; s < int(g.smsCount); s++ {
+				idx := (start + s) % int(g.smsCount)
+				sm := g.SMList[idx]
+				assignedThreads := g.SMAssignedThreadTable[sm.ID]
+				assignedCTAs := g.SMAssignedCTACountTable[sm.ID]
+
+				// capacity and CTA slot check
+				if assignedThreads+ctaThreads > g.SMThreadCapacity || assignedCTAs >= 4 {
+					continue
+				}
+
+				// pass 1: prefer below-target SMs
+				if pass == 1 {
+					if assignedThreads >= targetAvgUInt {
+						continue
+					}
+				}
+
+				// assign CTA to this SM
+				g.SMAssignedThreadTable[sm.ID] += ctaThreads
+				g.SMAssignedCTACountTable[sm.ID] += 1
+
+				assignMap[nCTAToBeAssigned] = idx
+				nThreadToBeAssigned += ctaThreads
+				nCTAToBeAssigned++
+				assigned = true
+				break
+			}
+			if !assigned && pass == 2 {
+				// cannot assign this CTA at all (all SMs full or CTA slots full) -> stop trying further CTAs
+				break
+			}
+		}
+		// if we already assigned some CTAs in first pass, second pass may fill more. Continue.
+	}
+
+	return nThreadToBeAssigned, nCTAToBeAssigned, assignMap
 }
 
 func (g *GPUController) dispatchThreadblocksToSMs() bool {
@@ -258,48 +352,93 @@ func (g *GPUController) dispatchThreadblocksToSMs() bool {
 	// }
 	var threadblockList []*trace.ThreadblockTrace
 	warpCount := uint64(0)
-	for i := uint64(0); i < g.CWDIssueWidth; i++ {
-		if i >= uint64(len(g.undispatchedThreadblocks)) || (warpCount+g.undispatchedThreadblocks[i].WarpsCount())*32 > g.SMThreadCapacity {
-			break
+	if DispatchThreadblocksToSMsStrategy == "BestOne" {
+		for i := uint64(0); i < g.CWDIssueWidth; i++ {
+			if i >= uint64(len(g.undispatchedThreadblocks)) || (warpCount+g.undispatchedThreadblocks[i].WarpsCount())*32 > g.SMThreadCapacity {
+				break
+			}
+			warpCount += g.undispatchedThreadblocks[i].WarpsCount()
+			threadblockList = append(threadblockList, g.undispatchedThreadblocks[i])
 		}
-		warpCount += g.undispatchedThreadblocks[i].WarpsCount()
-		threadblockList = append(threadblockList, g.undispatchedThreadblocks[i])
+
+		// threadblock_0 := g.undispatchedThreadblocks[0]
+		nThreadToBeAssigned := warpCount * 32
+
+		smIndex := g.issueSMIndexBestOneStrategy(nThreadToBeAssigned, uint64(len(threadblockList)))
+		// fmt.Printf("smIndex: %d\n", smIndex)
+		if smIndex == -1 {
+			// All sms already has a threadblock to do
+			return true
+		}
+
+		for i := 0; i < len(threadblockList); i++ {
+			threadblock := threadblockList[i]
+			if len(g.undispatchedThreadblocks) == 0 {
+				break
+			}
+			sm := g.SMList[smIndex]
+
+			msg := &message.DeviceToSMMsg{
+				Threadblock: *threadblock,
+			}
+			msg.Src = g.toSMs.AsRemote()
+			msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
+
+			err := g.toSMs.Send(msg)
+			if err != nil {
+				return false
+			}
+		}
+
+		// g.freeSMs = g.freeSMs[1:]
+		// fmt.Printf("Issued %d threadblocks\n", len(threadblockList))
+		g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
+
+		g.undispatchedThreadblocks = g.undispatchedThreadblocks[len(threadblockList):]
+	} else if DispatchThreadblocksToSMsStrategy == "Average" {
+		// collect up to CWDIssueWidth CTAs as candidates
+		maxCandidates := 99999 // int(g.CWDIssueWidth)
+		availableCTAs := len(g.undispatchedThreadblocks)
+		if maxCandidates > availableCTAs {
+			maxCandidates = availableCTAs
+		}
+		if maxCandidates == 0 {
+			// nothing to do
+		} else {
+			_, nCTAToBeAssigned, assignMap := g.issueSMIndexDictAverageStrategy(maxCandidates)
+			// fmt.Printf("%.10f, AverageThread: %.2f, nCTAToBeAssigned: %d/%d, assignMap: %v\n", g.CurrentTime(), g.getAverageAssignedThread(g.SMAssignedThreadTable), nCTAToBeAssigned, maxCandidates, assignMap)
+			if nCTAToBeAssigned == 0 {
+				// couldn't assign any CTA now
+				return true
+			}
+
+			// send assigned CTAs
+			for tIdx := 0; tIdx < nCTAToBeAssigned; tIdx++ {
+				if len(g.undispatchedThreadblocks) == 0 {
+					break
+				}
+				smIndex := assignMap[tIdx]
+				sm := g.SMList[smIndex]
+
+				threadblock := g.undispatchedThreadblocks[0]
+				msg := &message.DeviceToSMMsg{
+					Threadblock: *threadblock,
+				}
+				msg.Src = g.toSMs.AsRemote()
+				msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
+
+				err := g.toSMs.Send(msg)
+				if err != nil {
+					return false
+				}
+				// remove the head CTA (we always take from front)
+				g.undispatchedThreadblocks = g.undispatchedThreadblocks[1:]
+			}
+
+			// advance issue index a bit to rotate start point
+			g.SMIssueIndex = (g.SMIssueIndex + uint64(nCTAToBeAssigned)) % g.smsCount // g.SMIssueIndex = (g.SMIssueIndex + uint64(nCTAToBeAssigned)) % g.smsCount
+		}
 	}
-
-	// threadblock_0 := g.undispatchedThreadblocks[0]
-	nThreadToBeAssigned := warpCount * 32
-
-	smIndex := g.issueSMIndex(nThreadToBeAssigned, uint64(len(threadblockList)))
-	// fmt.Printf("smIndex: %d\n", smIndex)
-	if smIndex == -1 {
-		// All sms already has a threadblock to do
-		return true
-	}
-
-	for i := 0; i < len(threadblockList); i++ {
-		threadblock := threadblockList[i]
-		if len(g.undispatchedThreadblocks) == 0 {
-			break
-		}
-		sm := g.SMList[smIndex]
-
-		msg := &message.DeviceToSMMsg{
-			Threadblock: *threadblock,
-		}
-		msg.Src = g.toSMs.AsRemote()
-		msg.Dst = sm.GetPortByName(fmt.Sprintf("%s.ToGPU", sm.Name())).AsRemote()
-
-		err := g.toSMs.Send(msg)
-		if err != nil {
-			return false
-		}
-	}
-
-	// g.freeSMs = g.freeSMs[1:]
-	// fmt.Printf("Issued %d threadblocks\n", len(threadblockList))
-	g.SMIssueIndex = (g.SMIssueIndex + 1) % g.smsCount
-
-	g.undispatchedThreadblocks = g.undispatchedThreadblocks[len(threadblockList):]
 
 	g.GPU2SMThreadBlockAllocationLatencyRemaining = g.GPU2SMThreadBlockAllocationLatency
 	// }

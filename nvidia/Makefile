@@ -47,3 +47,13 @@ run_simtune_ffmakernel:
 		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
 	done
 	@rm akita_sim_d*
+
+run_simtune_ffmakernel-large-large:
+	@printf "thread\ttruth\tsimulation\n"
+	@for t in 600 1000 1400; do \
+		gt_file="data/simtune-ffmakernel-large-large-$$t-128-10/gt"; \
+		truth=$$(cat $$gt_file); \
+		sim=$$(./nvidia -trace-dir data/simtune-ffmakernel-large-large-$$t-128-10); \
+		printf "%s\t%s\t%s\n" "$$t" "$$truth" "$$sim"; \
+	done
+	@rm akita_sim_d*
