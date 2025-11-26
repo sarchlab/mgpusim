@@ -1,0 +1,1 @@
+faa76bd,release-ffmakernel,v3.14.0,-2192.331698,-0.630963,-0.085646,0.045818,191.891488237,1,4,422,"[release-ffmakernel v3.14.0] average GPU->SM dispatching strategy is applied",faa76bd01d504a15c5c4fa7b7505dc659c92a7cc,EnzeXu,"{simtune/ffmakernel: -0.119024, simtune/emptykernel: -4384.544373}"
