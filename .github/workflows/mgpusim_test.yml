@@ -143,7 +143,8 @@ jobs:
             echo "version=" >> $GITHUB_OUTPUT
             echo "msg=$MSG" >> $GITHUB_OUTPUT
           fi
-      
+    
+    
       - name: Generate timestamp
         id: timestamp
         run: |

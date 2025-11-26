@@ -103,6 +103,8 @@ func main() {
 	filesffmaKernel := []string{
 		"simtune/ffmakernel-simulations.yaml",
 		"simtune/ffmakernel-large-simulations.yaml",
+		"simtune/ffmakernel-large-large-simulations.yaml",
+		"simtune/emptykernel-simulations.yaml",
 	}
 
 	// Rodinia benchmarks: backprop pathfinder lud gaussian heartwall cfd nn kmeans bfs lavaMD "b+tree"
