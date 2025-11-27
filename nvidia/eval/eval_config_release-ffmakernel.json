@@ -254,6 +254,246 @@
                         "beforeTurning": 0,
                         "cycles": 35033
                     }
+                },
+                {
+                    "block": 1200,
+                    "frequency": 1755,
+                    "iters": 10,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "6925231c2b5794513472c40e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 18869.76
+                    }
+                },
+                {
+                    "block": 1200,
+                    "frequency": 1088,
+                    "iters": 10,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "6925231c2b5794513472c40e",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 20488
+                    }
+                },
+                {
+                    "block": 1200,
+                    "frequency": 1755,
+                    "iters": 20,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "692523392b5794513472c40f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 34931.52
+                    }
+                },
+                {
+                    "block": 1200,
+                    "frequency": 1091,
+                    "iters": 20,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "692523392b5794513472c40f",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 36636
+                    }
+                },
+                {
+                    "block": 1400,
+                    "frequency": 1755,
+                    "iters": 10,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "6925234b2b5794513472c410",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 23194.08
+                    }
+                },
+                {
+                    "block": 1400,
+                    "frequency": 1109,
+                    "iters": 10,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "6925234b2b5794513472c410",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24775
+                    }
+                },
+                {
+                    "block": 1400,
+                    "frequency": 1755,
+                    "iters": 20,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "6925236e2b5794513472c411",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 43580.16
+                    }
+                },
+                {
+                    "block": 1400,
+                    "frequency": 1108,
+                    "iters": 20,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "6925236e2b5794513472c411",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 45094
+                    }
+                },
+                {
+                    "block": 1600,
+                    "frequency": 1755,
+                    "iters": 10,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "692523822b5794513472c412",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24375.19
+                    }
+                },
+                {
+                    "block": 1600,
+                    "frequency": 1108,
+                    "iters": 10,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "692523822b5794513472c412",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 25848
+                    }
+                },
+                {
+                    "block": 1600,
+                    "frequency": 1755,
+                    "iters": 20,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "692523aa2b5794513472c413",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 45938.88
+                    }
+                },
+                {
+                    "block": 1600,
+                    "frequency": 1109,
+                    "iters": 20,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "692523aa2b5794513472c413",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 47265
+                    }
+                },
+                {
+                    "block": 1800,
+                    "frequency": 1755,
+                    "iters": 10,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "692523c02b5794513472c414",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 24766.56
+                    }
+                },
+                {
+                    "block": 1800,
+                    "frequency": 1107,
+                    "iters": 10,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "692523c02b5794513472c414",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 26233
+                    }
+                },
+                {
+                    "block": 1800,
+                    "frequency": 1755,
+                    "iters": 20,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "692523ec2b5794513472c415",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 46670.71
+                    }
+                },
+                {
+                    "block": 1800,
+                    "frequency": 1109,
+                    "iters": 20,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "692523ec2b5794513472c415",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 48058
+                    }
+                },
+                {
+                    "block": 2000,
+                    "frequency": 1755,
+                    "iters": 10,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "692524052b5794513472c416",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 29820.96
+                    }
+                },
+                {
+                    "block": 2000,
+                    "frequency": 1107,
+                    "iters": 10,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "692524052b5794513472c416",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 31478
+                    }
+                },
+                {
+                    "block": 2000,
+                    "frequency": 1755,
+                    "iters": 20,
+                    "profile_type": "nsys",
+                    "thread": 128,
+                    "trace-id": "692524372b5794513472c417",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 57002.4
+                    }
+                },
+                {
+                    "block": 2000,
+                    "frequency": 1109,
+                    "iters": 20,
+                    "profile_type": "ncu",
+                    "thread": 128,
+                    "trace-id": "692524372b5794513472c417",
+                    "truth": {
+                        "beforeTurning": 0,
+                        "cycles": 57902
+                    }
                 }
             ]
         },
