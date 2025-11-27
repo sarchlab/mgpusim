@@ -1,0 +1,1 @@
+3657523,release-ffmakernel,v4.0.1,1.227869,-9.085700,0.988221,0.984991,2189.387460045,1,4,40,"[release-ffmakernel v4.0.1] comparison: Average strategy",36575231077e7b8ac2644ba6610fceaf88740111,EnzeXu,"{simtune/ffmakernel-large-large: 1.227869}"
