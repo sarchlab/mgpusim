@@ -11,7 +11,7 @@ import (
 	"github.com/sarchlab/mgpusim/v4/nvidia/trace"
 )
 
-const DispatchThreadblocksToSMsStrategy = "BestOne" // "BestOne" or "Average"
+const DispatchThreadblocksToSMsStrategy = "Average" // "BestOne" or "Average"
 
 type GPUController struct {
 	*sim.TickingComponent
