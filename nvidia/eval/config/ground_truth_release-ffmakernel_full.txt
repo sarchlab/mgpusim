@@ -167,127 +167,155 @@ suite=simtune, benchmark=ffmakernel-large, frequency=1107, profile_type=ncu, thr
 
 
 
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1600, iters=10, cycles=24375.19, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3000, iters=10, cycles=41865.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3600, iters=10, cycles=46614.56, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3200, iters=10, cycles=43804.80, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=5800, iters=10, cycles=74145.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1092, profile_type=ncu, thread=128, block=5400, iters=10, cycles=69466.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1107, profile_type=ncu, thread=128, block=1800, iters=10, cycles=26233.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1107, profile_type=ncu, thread=128, block=2000, iters=10, cycles=31478.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1200, iters=10, cycles=18869.76, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2400, iters=10, cycles=34371.68, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3600, iters=10, cycles=47953.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4600, iters=10, cycles=59585.76, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3400, iters=10, cycles=46909.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=4200, iters=10, cycles=55950.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=600, iters=10, cycles=13197.60, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1800, iters=10, cycles=24766.56, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=1400, iters=10, cycles=24775.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=600, iters=10, cycles=15070.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=800, iters=10, cycles=13590.72, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3000, iters=10, cycles=40491.36, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=6000, iters=10, cycles=75480.79, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4400, iters=10, cycles=56833.92, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2600, iters=10, cycles=36965.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5000, iters=10, cycles=63069.43, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2200, iters=10, cycles=30326.40, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1000, iters=10, cycles=18081.77, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=4000, iters=10, cycles=53221.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1088, profile_type=ncu, thread=128, block=1000, iters=10, cycles=19672.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5400, iters=10, cycles=69076.80, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1092, profile_type=ncu, thread=128, block=5200, iters=10, cycles=67906.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2000, iters=10, cycles=29820.96, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4800, iters=10, cycles=61888.32, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1400, iters=10, cycles=23194.08, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4200, iters=10, cycles=54701.60, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4400, iters=10, cycles=58224.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1086, profile_type=ncu, thread=128, block=200, iters=10, cycles=9593.00, beforeTurning=1
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2200, iters=10, cycles=31649.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=4600, iters=10, cycles=61069.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=400, iters=10, cycles=8087.04, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3400, iters=10, cycles=45716.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1086, profile_type=ncu, thread=128, block=400, iters=10, cycles=9805.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4000, iters=10, cycles=51891.84, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2800, iters=10, cycles=38860.97, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3800, iters=10, cycles=51865.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3800, iters=10, cycles=50207.04, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=1600, iters=10, cycles=25848.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=200, iters=20, cycles=13197.60, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1086, profile_type=ncu, thread=128, block=200, iters=10, cycles=9593.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1088, profile_type=ncu, thread=128, block=200, iters=20, cycles=14867.00, beforeTurning=0
 suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=200, iters=10, cycles=7918.56, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2400, iters=10, cycles=35930.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3200, iters=10, cycles=45198.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5200, iters=10, cycles=66832.15, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5600, iters=10, cycles=71154.72, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2800, iters=10, cycles=40312.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1092, profile_type=ncu, thread=128, block=4800, iters=10, cycles=63233.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1088, profile_type=ncu, thread=128, block=1200, iters=10, cycles=20488.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=5600, iters=10, cycles=73006.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5800, iters=10, cycles=73795.99, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=6000, iters=10, cycles=76959.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1091, profile_type=ncu, thread=128, block=5000, iters=10, cycles=64320.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2600, iters=10, cycles=35605.44, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=400, iters=10, cycles=8087.04, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1086, profile_type=ncu, thread=128, block=400, iters=10, cycles=9805.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=400, iters=20, cycles=13646.88, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=400, iters=20, cycles=15244.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1089, profile_type=ncu, thread=128, block=600, iters=20, cycles=25456.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=600, iters=10, cycles=15070.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=600, iters=20, cycles=23868.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=600, iters=10, cycles=13197.60, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=800, iters=20, cycles=24485.76, beforeTurning=0
 suite=simtune, benchmark=ffmakernel-large-large, frequency=1089, profile_type=ncu, thread=128, block=800, iters=10, cycles=15236.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=800, iters=10, cycles=13590.72, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=800, iters=20, cycles=26207.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=1000, iters=20, cycles=35033.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1088, profile_type=ncu, thread=128, block=1000, iters=10, cycles=19672.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1000, iters=20, cycles=33527.52, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1000, iters=10, cycles=18081.77, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1088, profile_type=ncu, thread=128, block=1200, iters=10, cycles=20488.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1200, iters=10, cycles=18869.76, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1200, iters=20, cycles=34931.52, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1091, profile_type=ncu, thread=128, block=1200, iters=20, cycles=36636.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=1400, iters=20, cycles=45094.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1400, iters=10, cycles=23194.08, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=1400, iters=10, cycles=24775.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1400, iters=20, cycles=43580.16, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=1600, iters=20, cycles=47265.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1600, iters=10, cycles=24375.19, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1600, iters=20, cycles=45938.88, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=1600, iters=10, cycles=25848.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1107, profile_type=ncu, thread=128, block=1800, iters=10, cycles=26233.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1800, iters=10, cycles=24766.56, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=1800, iters=20, cycles=48058.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1800, iters=20, cycles=46670.71, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2000, iters=10, cycles=29820.96, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2000, iters=20, cycles=57902.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1107, profile_type=ncu, thread=128, block=2000, iters=10, cycles=31478.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2000, iters=20, cycles=57002.40, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2200, iters=20, cycles=57451.68, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2200, iters=10, cycles=30326.40, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2200, iters=10, cycles=31649.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2200, iters=20, cycles=58761.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2400, iters=10, cycles=35930.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2400, iters=20, cycles=65875.68, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2400, iters=20, cycles=67583.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2400, iters=10, cycles=34371.68, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2600, iters=20, cycles=68751.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2600, iters=10, cycles=35605.44, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2600, iters=10, cycles=36965.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2600, iters=20, cycles=68404.63, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2800, iters=10, cycles=38860.97, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=2800, iters=10, cycles=40312.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2800, iters=20, cycles=75143.84, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2800, iters=20, cycles=75966.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3000, iters=10, cycles=41865.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3000, iters=20, cycles=77837.76, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3000, iters=10, cycles=40491.36, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3000, iters=20, cycles=79390.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3200, iters=10, cycles=45198.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3200, iters=20, cycles=86106.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3200, iters=20, cycles=85138.56, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3200, iters=10, cycles=43804.80, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3400, iters=10, cycles=45716.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3400, iters=10, cycles=46909.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3400, iters=20, cycles=88975.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3400, iters=20, cycles=89350.56, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3600, iters=10, cycles=46614.56, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3600, iters=20, cycles=91091.52, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3600, iters=10, cycles=47953.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3600, iters=20, cycles=91356.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3800, iters=20, cycles=99283.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3800, iters=20, cycles=98618.71, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3800, iters=10, cycles=50207.04, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=3800, iters=10, cycles=51865.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4000, iters=20, cycles=101932.15, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4000, iters=20, cycles=101902.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4000, iters=10, cycles=51891.84, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=4000, iters=10, cycles=53221.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4200, iters=20, cycles=107148.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4200, iters=20, cycles=107155.04, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=4200, iters=10, cycles=55950.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4200, iters=10, cycles=54701.60, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4400, iters=10, cycles=56833.92, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4400, iters=20, cycles=111551.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4400, iters=10, cycles=58224.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4400, iters=20, cycles=111591.68, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4600, iters=20, cycles=117427.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4600, iters=10, cycles=59585.76, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=4600, iters=10, cycles=61069.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4600, iters=20, cycles=117655.20, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4800, iters=20, cycles=121979.52, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1092, profile_type=ncu, thread=128, block=4800, iters=10, cycles=63233.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4800, iters=10, cycles=61888.32, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1093, profile_type=ncu, thread=128, block=4800, iters=20, cycles=121904.00, beforeTurning=0
 
 suite=simtune, benchmark=ffmakernel-large-large, frequency=1093, profile_type=ncu, thread=128, block=5000, iters=20, cycles=123944.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3800, iters=20, cycles=99283.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4200, iters=20, cycles=107155.04, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=600, iters=20, cycles=23868.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2400, iters=20, cycles=65875.68, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1091, profile_type=ncu, thread=128, block=1200, iters=20, cycles=36636.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1600, iters=20, cycles=45938.88, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=400, iters=20, cycles=13646.88, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3600, iters=20, cycles=91356.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4600, iters=20, cycles=117655.20, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=1800, iters=20, cycles=48058.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=800, iters=20, cycles=26207.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5400, iters=20, cycles=135514.08, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5800, iters=20, cycles=144275.04, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5200, iters=20, cycles=132649.92, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4000, iters=20, cycles=101932.15, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2800, iters=20, cycles=75966.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1400, iters=20, cycles=43580.16, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1200, iters=20, cycles=34931.52, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2000, iters=20, cycles=57902.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1089, profile_type=ncu, thread=128, block=600, iters=20, cycles=25456.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4200, iters=20, cycles=107148.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2400, iters=20, cycles=67583.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2800, iters=20, cycles=75143.84, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4400, iters=20, cycles=111591.68, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=400, iters=20, cycles=15244.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1090, profile_type=ncu, thread=128, block=1000, iters=20, cycles=35033.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3000, iters=20, cycles=79390.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=5800, iters=20, cycles=143489.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3200, iters=20, cycles=85138.56, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=800, iters=20, cycles=24485.76, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4600, iters=20, cycles=117427.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1093, profile_type=ncu, thread=128, block=5200, iters=20, cycles=131299.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1093, profile_type=ncu, thread=128, block=5400, iters=20, cycles=134355.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4400, iters=20, cycles=111551.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=200, iters=20, cycles=13197.60, beforeTurning=1
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2000, iters=20, cycles=57002.40, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1091, profile_type=ncu, thread=128, block=5000, iters=10, cycles=64320.00, beforeTurning=0
 suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5000, iters=20, cycles=125573.76, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3000, iters=20, cycles=77837.76, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3800, iters=20, cycles=98618.71, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=1600, iters=20, cycles=47265.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3600, iters=20, cycles=91091.52, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1093, profile_type=ncu, thread=128, block=4800, iters=20, cycles=121904.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1000, iters=20, cycles=33527.52, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=4800, iters=20, cycles=121979.52, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2200, iters=20, cycles=58761.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1108, profile_type=ncu, thread=128, block=1400, iters=20, cycles=45094.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2200, iters=20, cycles=57451.68, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3400, iters=20, cycles=88975.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=4000, iters=20, cycles=101902.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1094, profile_type=ncu, thread=128, block=6000, iters=20, cycles=149248.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=3400, iters=20, cycles=89350.56, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=1800, iters=20, cycles=46670.71, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1088, profile_type=ncu, thread=128, block=200, iters=20, cycles=14867.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=3200, iters=20, cycles=86106.00, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=6000, iters=20, cycles=150452.64, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5600, iters=20, cycles=142253.28, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=2600, iters=20, cycles=68404.63, beforeTurning=0
-suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=2600, iters=20, cycles=68751.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5000, iters=10, cycles=63069.43, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5200, iters=20, cycles=132649.92, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1092, profile_type=ncu, thread=128, block=5200, iters=10, cycles=67906.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5200, iters=10, cycles=66832.15, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1093, profile_type=ncu, thread=128, block=5200, iters=20, cycles=131299.00, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5400, iters=20, cycles=135514.08, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5400, iters=10, cycles=69076.80, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1093, profile_type=ncu, thread=128, block=5400, iters=20, cycles=134355.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1092, profile_type=ncu, thread=128, block=5400, iters=10, cycles=69466.00, beforeTurning=0
+
 suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=5600, iters=20, cycles=141364.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5600, iters=20, cycles=142253.28, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=5600, iters=10, cycles=73006.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5600, iters=10, cycles=71154.72, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=5800, iters=20, cycles=143489.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=5800, iters=10, cycles=74145.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5800, iters=10, cycles=73795.99, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=5800, iters=20, cycles=144275.04, beforeTurning=0
+
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1094, profile_type=ncu, thread=128, block=6000, iters=20, cycles=149248.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=6000, iters=20, cycles=150452.64, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1109, profile_type=ncu, thread=128, block=6000, iters=10, cycles=76959.00, beforeTurning=0
+suite=simtune, benchmark=ffmakernel-large-large, frequency=1755, profile_type=nsys, thread=128, block=6000, iters=10, cycles=75480.79, beforeTurning=0
 
 
 
