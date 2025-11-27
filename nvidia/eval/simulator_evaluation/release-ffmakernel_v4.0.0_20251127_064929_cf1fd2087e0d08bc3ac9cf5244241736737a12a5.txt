@@ -1,0 +1,1 @@
+cf1fd20,release-ffmakernel,v4.0.0,1.525852,-17.609275,0.993064,0.950376,547.058893281,1,4,20,"[release-ffmakernel v4.0.0] comparison: BestOne strategy",cf1fd2087e0d08bc3ac9cf5244241736737a12a5,EnzeXu,"{simtune/ffmakernel-large-large: 1.525852}"

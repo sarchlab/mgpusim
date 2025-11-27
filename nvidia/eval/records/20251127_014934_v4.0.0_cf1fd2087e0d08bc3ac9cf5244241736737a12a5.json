@@ -1,0 +1,362 @@
+[
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925229a2b5794513472c404",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4512.000000000001,
+    "has_sim": true,
+    "predict_cycle": 18629,
+    "profile_type": "nsys",
+    "profile_cycle": 7918.56
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925229a2b5794513472c404",
+    "has_profile": true,
+    "frequency": 1086,
+    "avg_nano_sec": 8833.333333333332,
+    "has_sim": true,
+    "predict_cycle": 18629,
+    "profile_type": "ncu",
+    "profile_cycle": 9593
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a02b5794513472c405",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7520.000000000001,
+    "has_sim": true,
+    "predict_cycle": 34991,
+    "profile_type": "nsys",
+    "profile_cycle": 13197.6
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a02b5794513472c405",
+    "has_profile": true,
+    "frequency": 1088,
+    "avg_nano_sec": 13664.522058823528,
+    "has_sim": true,
+    "predict_cycle": 34991,
+    "profile_type": "ncu",
+    "profile_cycle": 14867
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a62b5794513472c406",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4608,
+    "has_sim": true,
+    "predict_cycle": 18849,
+    "profile_type": "nsys",
+    "profile_cycle": 8087.04
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a62b5794513472c406",
+    "has_profile": true,
+    "frequency": 1086,
+    "avg_nano_sec": 9028.54511970534,
+    "has_sim": true,
+    "predict_cycle": 18849,
+    "profile_type": "ncu",
+    "profile_cycle": 9805
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b02b5794513472c407",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7776,
+    "has_sim": true,
+    "predict_cycle": 35211,
+    "profile_type": "nsys",
+    "profile_cycle": 13646.88
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b02b5794513472c407",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 13985.32110091743,
+    "has_sim": true,
+    "predict_cycle": 35211,
+    "profile_type": "ncu",
+    "profile_cycle": 15244
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b82b5794513472c408",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7520.000000000001,
+    "has_sim": true,
+    "predict_cycle": 35020,
+    "profile_type": "nsys",
+    "profile_cycle": 13197.6
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b82b5794513472c408",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 13825.688073394494,
+    "has_sim": true,
+    "predict_cycle": 35020,
+    "profile_type": "ncu",
+    "profile_cycle": 15070
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522c82b5794513472c409",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13600,
+    "has_sim": true,
+    "predict_cycle": 67744,
+    "profile_type": "nsys",
+    "profile_cycle": 23868
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522c82b5794513472c409",
+    "has_profile": true,
+    "frequency": 1089,
+    "avg_nano_sec": 23375.573921028466,
+    "has_sim": true,
+    "predict_cycle": 67744,
+    "profile_type": "ncu",
+    "profile_cycle": 25456
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522d32b5794513472c40a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7744,
+    "has_sim": true,
+    "predict_cycle": 35240,
+    "profile_type": "nsys",
+    "profile_cycle": 13590.72
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522d32b5794513472c40a",
+    "has_profile": true,
+    "frequency": 1089,
+    "avg_nano_sec": 13990.817263544537,
+    "has_sim": true,
+    "predict_cycle": 35240,
+    "profile_type": "ncu",
+    "profile_cycle": 15236
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522e62b5794513472c40b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13952,
+    "has_sim": true,
+    "predict_cycle": 67964,
+    "profile_type": "nsys",
+    "profile_cycle": 24485.76
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522e62b5794513472c40b",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 24043.119266055044,
+    "has_sim": true,
+    "predict_cycle": 67964,
+    "profile_type": "ncu",
+    "profile_cycle": 26207
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522f42b5794513472c40c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 10303.00284900285,
+    "has_sim": true,
+    "predict_cycle": 51411,
+    "profile_type": "nsys",
+    "profile_cycle": 18081.77
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522f42b5794513472c40c",
+    "has_profile": true,
+    "frequency": 1088,
+    "avg_nano_sec": 18080.882352941175,
+    "has_sim": true,
+    "predict_cycle": 51411,
+    "profile_type": "ncu",
+    "profile_cycle": 19672
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925230c2b5794513472c40d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 19104,
+    "has_sim": true,
+    "predict_cycle": 100497,
+    "profile_type": "nsys",
+    "profile_cycle": 33527.52
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925230c2b5794513472c40d",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 32140.366972477063,
+    "has_sim": true,
+    "predict_cycle": 100497,
+    "profile_type": "ncu",
+    "profile_cycle": 35033
+  }
+]
