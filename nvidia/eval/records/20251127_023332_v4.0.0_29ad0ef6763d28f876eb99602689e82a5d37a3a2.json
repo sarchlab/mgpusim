@@ -1,0 +1,722 @@
+[
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925229a2b5794513472c404",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4512.000000000001,
+    "has_sim": true,
+    "predict_cycle": 18629,
+    "profile_type": "nsys",
+    "profile_cycle": 7918.56
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925229a2b5794513472c404",
+    "has_profile": true,
+    "frequency": 1086,
+    "avg_nano_sec": 8833.333333333332,
+    "has_sim": true,
+    "predict_cycle": 18629,
+    "profile_type": "ncu",
+    "profile_cycle": 9593
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a02b5794513472c405",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7520.000000000001,
+    "has_sim": true,
+    "predict_cycle": 34991,
+    "profile_type": "nsys",
+    "profile_cycle": 13197.6
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "200",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a02b5794513472c405",
+    "has_profile": true,
+    "frequency": 1088,
+    "avg_nano_sec": 13664.522058823528,
+    "has_sim": true,
+    "predict_cycle": 34991,
+    "profile_type": "ncu",
+    "profile_cycle": 14867
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a62b5794513472c406",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 4608,
+    "has_sim": true,
+    "predict_cycle": 18849,
+    "profile_type": "nsys",
+    "profile_cycle": 8087.04
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522a62b5794513472c406",
+    "has_profile": true,
+    "frequency": 1086,
+    "avg_nano_sec": 9028.54511970534,
+    "has_sim": true,
+    "predict_cycle": 18849,
+    "profile_type": "ncu",
+    "profile_cycle": 9805
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b02b5794513472c407",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7776,
+    "has_sim": true,
+    "predict_cycle": 35211,
+    "profile_type": "nsys",
+    "profile_cycle": 13646.88
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "400",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b02b5794513472c407",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 13985.32110091743,
+    "has_sim": true,
+    "predict_cycle": 35211,
+    "profile_type": "ncu",
+    "profile_cycle": 15244
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b82b5794513472c408",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7520.000000000001,
+    "has_sim": true,
+    "predict_cycle": 35020,
+    "profile_type": "nsys",
+    "profile_cycle": 13197.6
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522b82b5794513472c408",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 13825.688073394494,
+    "has_sim": true,
+    "predict_cycle": 35020,
+    "profile_type": "ncu",
+    "profile_cycle": 15070
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522c82b5794513472c409",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13600,
+    "has_sim": true,
+    "predict_cycle": 67744,
+    "profile_type": "nsys",
+    "profile_cycle": 23868
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "600",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522c82b5794513472c409",
+    "has_profile": true,
+    "frequency": 1089,
+    "avg_nano_sec": 23375.573921028466,
+    "has_sim": true,
+    "predict_cycle": 67744,
+    "profile_type": "ncu",
+    "profile_cycle": 25456
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522d32b5794513472c40a",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 7744,
+    "has_sim": true,
+    "predict_cycle": 35240,
+    "profile_type": "nsys",
+    "profile_cycle": 13590.72
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522d32b5794513472c40a",
+    "has_profile": true,
+    "frequency": 1089,
+    "avg_nano_sec": 13990.817263544537,
+    "has_sim": true,
+    "predict_cycle": 35240,
+    "profile_type": "ncu",
+    "profile_cycle": 15236
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522e62b5794513472c40b",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13952,
+    "has_sim": true,
+    "predict_cycle": 67964,
+    "profile_type": "nsys",
+    "profile_cycle": 24485.76
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "800",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522e62b5794513472c40b",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 24043.119266055044,
+    "has_sim": true,
+    "predict_cycle": 67964,
+    "profile_type": "ncu",
+    "profile_cycle": 26207
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522f42b5794513472c40c",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 10303.00284900285,
+    "has_sim": true,
+    "predict_cycle": 51411,
+    "profile_type": "nsys",
+    "profile_cycle": 18081.77
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692522f42b5794513472c40c",
+    "has_profile": true,
+    "frequency": 1088,
+    "avg_nano_sec": 18080.882352941175,
+    "has_sim": true,
+    "predict_cycle": 51411,
+    "profile_type": "ncu",
+    "profile_cycle": 19672
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925230c2b5794513472c40d",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 19104,
+    "has_sim": true,
+    "predict_cycle": 100497,
+    "profile_type": "nsys",
+    "profile_cycle": 33527.52
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1000",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925230c2b5794513472c40d",
+    "has_profile": true,
+    "frequency": 1090,
+    "avg_nano_sec": 32140.366972477063,
+    "has_sim": true,
+    "predict_cycle": 100497,
+    "profile_type": "ncu",
+    "profile_cycle": 35033
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1200",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925231c2b5794513472c40e",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 10752,
+    "has_sim": true,
+    "predict_cycle": 51631,
+    "profile_type": "nsys",
+    "profile_cycle": 18869.76
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1200",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925231c2b5794513472c40e",
+    "has_profile": true,
+    "frequency": 1088,
+    "avg_nano_sec": 18830.882352941175,
+    "has_sim": true,
+    "predict_cycle": 51631,
+    "profile_type": "ncu",
+    "profile_cycle": 20488
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1200",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523392b5794513472c40f",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 19904,
+    "has_sim": true,
+    "predict_cycle": 100717,
+    "profile_type": "nsys",
+    "profile_cycle": 34931.52
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1200",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523392b5794513472c40f",
+    "has_profile": true,
+    "frequency": 1091,
+    "avg_nano_sec": 33580.20164986251,
+    "has_sim": true,
+    "predict_cycle": 100717,
+    "profile_type": "ncu",
+    "profile_cycle": 36636
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1400",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925234b2b5794513472c410",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13216.000000000002,
+    "has_sim": true,
+    "predict_cycle": 67802,
+    "profile_type": "nsys",
+    "profile_cycle": 23194.08
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1400",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925234b2b5794513472c410",
+    "has_profile": true,
+    "frequency": 1109,
+    "avg_nano_sec": 22339.94589720469,
+    "has_sim": true,
+    "predict_cycle": 67802,
+    "profile_type": "ncu",
+    "profile_cycle": 24775
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1400",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925236e2b5794513472c411",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 24832.000000000004,
+    "has_sim": true,
+    "predict_cycle": 133250,
+    "profile_type": "nsys",
+    "profile_cycle": 43580.16
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1400",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "6925236e2b5794513472c411",
+    "has_profile": true,
+    "frequency": 1108,
+    "avg_nano_sec": 40698.5559566787,
+    "has_sim": true,
+    "predict_cycle": 133250,
+    "profile_type": "ncu",
+    "profile_cycle": 45094
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1600",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523822b5794513472c412",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 13888.997150997151,
+    "has_sim": true,
+    "predict_cycle": 68022,
+    "profile_type": "nsys",
+    "profile_cycle": 24375.19
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1600",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523822b5794513472c412",
+    "has_profile": true,
+    "frequency": 1108,
+    "avg_nano_sec": 23328.519855595667,
+    "has_sim": true,
+    "predict_cycle": 68022,
+    "profile_type": "ncu",
+    "profile_cycle": 25848
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1600",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523aa2b5794513472c413",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 26176,
+    "has_sim": true,
+    "predict_cycle": 133470,
+    "profile_type": "nsys",
+    "profile_cycle": 45938.88
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1600",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523aa2b5794513472c413",
+    "has_profile": true,
+    "frequency": 1109,
+    "avg_nano_sec": 42619.477006311994,
+    "has_sim": true,
+    "predict_cycle": 133470,
+    "profile_type": "ncu",
+    "profile_cycle": 47265
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1800",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523c02b5794513472c414",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 14112.000000000002,
+    "has_sim": true,
+    "predict_cycle": 68242,
+    "profile_type": "nsys",
+    "profile_cycle": 24766.56
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1800",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523c02b5794513472c414",
+    "has_profile": true,
+    "frequency": 1107,
+    "avg_nano_sec": 23697.380307136405,
+    "has_sim": true,
+    "predict_cycle": 68242,
+    "profile_type": "ncu",
+    "profile_cycle": 26233
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1800",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523ec2b5794513472c415",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 26592.99715099715,
+    "has_sim": true,
+    "predict_cycle": 133690,
+    "profile_type": "nsys",
+    "profile_cycle": 46670.71
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "1800",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692523ec2b5794513472c415",
+    "has_profile": true,
+    "frequency": 1109,
+    "avg_nano_sec": 43334.53561767358,
+    "has_sim": true,
+    "predict_cycle": 133690,
+    "profile_type": "ncu",
+    "profile_cycle": 48058
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "2000",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692524052b5794513472c416",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 16992,
+    "has_sim": true,
+    "predict_cycle": 84413,
+    "profile_type": "nsys",
+    "profile_cycle": 29820.96
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "2000",
+      "iters": "10",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692524052b5794513472c416",
+    "has_profile": true,
+    "frequency": 1107,
+    "avg_nano_sec": 28435.411020776875,
+    "has_sim": true,
+    "predict_cycle": 84413,
+    "profile_type": "ncu",
+    "profile_cycle": 31478
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "2000",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692524372b5794513472c417",
+    "has_profile": true,
+    "frequency": 1755,
+    "avg_nano_sec": 32480.000000000004,
+    "has_sim": true,
+    "predict_cycle": 166223,
+    "profile_type": "nsys",
+    "profile_cycle": 57002.4
+  },
+  {
+    "suite": "simtune",
+    "benchmark": "ffmakernel-large-large",
+    "param": {
+      "block": "2000",
+      "iters": "20",
+      "thread": "128"
+    },
+    "has_trace": true,
+    "trace_id": "692524372b5794513472c417",
+    "has_profile": true,
+    "frequency": 1109,
+    "avg_nano_sec": 52211.000901713254,
+    "has_sim": true,
+    "predict_cycle": 166223,
+    "profile_type": "ncu",
+    "profile_cycle": 57902
+  }
+]
