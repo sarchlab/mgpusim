@@ -49,7 +49,7 @@ run_simtune_ffmakernel:
 	@rm akita_sim_d*
 
 run_simtune_ffmakernel-large-large:
-	@printf "thread\ttruth\tsimulation\n"
+	@printf "#threadblock\ttruth\tsimulation\n"
 	@for t in 600 1000 1400; do \
 		gt_file="data/simtune-ffmakernel-large-large-$$t-128-10/gt"; \
 		truth=$$(cat $$gt_file); \

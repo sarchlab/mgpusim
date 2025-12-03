@@ -70,9 +70,9 @@ func NewSMSPScheduler() *SMSPSWarpScheduler {
 // 	return -1, nil
 // }
 
-func isExecuteStage(stageName string) bool {
+func isExecuteIssueOrMemoryPipeStage(stageName string) bool {
 	// fmt.Printf("Checking if stage %s is an execute stage\n", stageName)
-	return stageName == "Execute" || stageName == "MemoryPipe"
+	return stageName == "Execute-Issue" || stageName == "MemoryPipe"
 }
 
 func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime sim.VTimeInSec) {
@@ -106,7 +106,7 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 			// instIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
 			stageName := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name
 
-			if isExecuteStage(stageName) {
+			if isExecuteIssueOrMemoryPipeStage(stageName) {
 				unitType := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Unit
 				if !resourcePool.Reserve(unitType) {
 					checked++
