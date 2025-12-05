@@ -343,11 +343,11 @@ func (s *SMSPController) run() bool {
 	madeProgress := true
 
 	// 1) Scheduler issues up to SMSPSchedulerIssueSpeed warps (or as configured)
-	// if strings.Contains(s.Name(), "GPU[0].SM[76]") {
+	// if strings.Contains(s.Name(), "GPU[0].SM[0].SMSP[0]") {
 	// 	s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
 	// }
 	// s.scheduler.logWarpUnitList(s.Name(), s.Engine.CurrentTime())
-	issued := s.scheduler.issueWarps(s.ResourcePool)
+	issued := s.scheduler.issueWarps(s.ResourcePool) //  s.Name()
 	if len(issued) == 0 {
 		madeProgress = false
 	}
@@ -396,6 +396,7 @@ func (s *SMSPController) run() bool {
 			// Repeat until we reach a non-skipped instruction or the warp finishes.
 			for {
 				if nextInst == nil {
+					log.Panic("nextInst is nil unexpectedly")
 					break
 				}
 
@@ -430,6 +431,7 @@ func (s *SMSPController) run() bool {
 
 			// If warp finished while skipping, continue outer loop.
 			if nextInst == nil {
+				log.Panic("nextInst is nil unexpectedly")
 				continue
 			}
 

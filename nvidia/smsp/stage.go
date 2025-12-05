@@ -75,7 +75,7 @@ func s(name string, cycles int, unit ExecUnitKind) StageDef {
 }
 
 func stDecode() StageDef { return s("Decode", 0, UnitNone) }
-func stIssue() StageDef  { return s("Issue", 0, UnitNone) }
+func stIssue() StageDef  { return s("Issue", 1, UnitNone) }
 func stWB() StageDef     { return s("Writeback", 0, UnitNone) }
 
 // =======================
@@ -174,103 +174,103 @@ var PipelineTable = map[string]InstructionPipelineTemplate{
 	"RET.REL.NODEC": {Opcode: "RET.REL.NODEC", Stages: []StageDef{stDecode(), s("BranchResolve", 2, UnitNone), stWB()}}, // added
 
 	// --- Synchronization / Barriers ---
-	"BAR.SYNC.DEFER_BLOCKING": {Opcode: "BAR.SYNC.DEFER_BLOCKING", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 7, UnitSpecial), stWB()}}, // added
-	"BSSY":                    {Opcode: "BSSY", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},                    // added
-	"BSYNC":                   {Opcode: "BSYNC", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 7, UnitSpecial), stWB()}},                   // added
+	"BAR.SYNC.DEFER_BLOCKING": {Opcode: "BAR.SYNC.DEFER_BLOCKING", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 7, UnitSpecial), stWB()}}, // added
+	"BSSY":                    {Opcode: "BSSY", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},                    // added
+	"BSYNC":                   {Opcode: "BSYNC", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 7, UnitSpecial), stWB()}},                   // added
 
 	// --- Type Conversion ---
-	"F2I.FTZ.U32.TRUNC.NTZ": {Opcode: "F2I...", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
-	"I2F.U32.RP":            {Opcode: "I2F...", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"I2F.RP":                {Opcode: "I2F.RP", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},       // added
-	"I2FP.F32.S32":          {Opcode: "I2FP.F32.S32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
+	"F2I.FTZ.U32.TRUNC.NTZ": {Opcode: "F2I...", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
+	"I2F.U32.RP":            {Opcode: "I2F...", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 4, UnitInt), stWB()}},
+	"I2F.RP":                {Opcode: "I2F.RP", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}},       // added
+	"I2FP.F32.S32":          {Opcode: "I2FP.F32.S32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}}, // added
 
 	// --- FP32 Arithmetic ---
-	"FADD":     {Opcode: "FADD", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
-	"FADD.FTZ": {Opcode: "FADD.FTZ", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}}, // added
-	"FFMA":     {Opcode: "FFMA", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
-	"FFMA.SAT": {Opcode: "FFMA.SAT", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}}, // added
-	"FFMA.RM":  {Opcode: "FFMA.RM", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},  // added
-	"FMUL":     {Opcode: "FMUL", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
-	"FMUL.FTZ": {Opcode: "FMUL.FTZ", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}}, // added
-	"FMUL.D2":  {Opcode: "FMUL.D2", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},  // added
+	"FADD":     {Opcode: "FADD", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
+	"FADD.FTZ": {Opcode: "FADD.FTZ", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}}, // added
+	"FFMA":     {Opcode: "FFMA", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
+	"FFMA.SAT": {Opcode: "FFMA.SAT", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}}, // added
+	"FFMA.RM":  {Opcode: "FFMA.RM", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},  // added
+	"FMUL":     {Opcode: "FMUL", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},
+	"FMUL.FTZ": {Opcode: "FMUL.FTZ", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}}, // added
+	"FMUL.D2":  {Opcode: "FMUL.D2", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 3, UnitFP32), stWB()}},  // added
 
 	// --- FP32 Predicates & Special ---
-	"FSETP.GEU.AND":     {Opcode: "FSETP.GEU.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},     // added
-	"FSETP.GTU.FTZ.AND": {Opcode: "FSETP.GTU.FTZ.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}}, // added
-	"FSETP.NEU.AND":     {Opcode: "FSETP.NEU.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},     // added
-	"FSETP.NEU.FTZ.AND": {Opcode: "FSETP.NEU.FTZ.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}}, // added
-	"FSEL":              {Opcode: "FSEL", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},              // added
-	"FCHK":              {Opcode: "FCHK", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},              // added
+	"FSETP.GEU.AND":     {Opcode: "FSETP.GEU.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},     // added
+	"FSETP.GTU.FTZ.AND": {Opcode: "FSETP.GTU.FTZ.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}}, // added
+	"FSETP.NEU.AND":     {Opcode: "FSETP.NEU.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},     // added
+	"FSETP.NEU.FTZ.AND": {Opcode: "FSETP.NEU.FTZ.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}}, // added
+	"FSEL":              {Opcode: "FSEL", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},              // added
+	"FCHK":              {Opcode: "FCHK", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP32), s("Execute", 1, UnitFP32), stWB()}},              // added
 
 	// --- FP64 Arithmetic ---
-	"DFMA": {Opcode: "DFMA", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP64), s("Execute", 7, UnitFP64), stWB()}}, // added
-	"DMUL": {Opcode: "DMUL", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP64), s("Execute", 7, UnitFP64), stWB()}}, // added
+	"DFMA": {Opcode: "DFMA", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP64), s("Execute", 7, UnitFP64), stWB()}}, // added
+	"DMUL": {Opcode: "DMUL", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP64), s("Execute", 7, UnitFP64), stWB()}}, // added
 
 	// --- FP64 Predicates ---
-	"DSETP.NEU.AND": {Opcode: "DSETP.NEU.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitFP64), s("Execute", 1, UnitFP64), stWB()}}, // added
+	"DSETP.NEU.AND": {Opcode: "DSETP.NEU.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitFP64), s("Execute", 1, UnitFP64), stWB()}}, // added
 
 	// --- Tensor / Half ---
-	"HFMA2.MMA": {Opcode: "HFMA2.MMA", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitTensor), s("Execute", 7, UnitTensor), stWB()}},
+	"HFMA2.MMA": {Opcode: "HFMA2.MMA", Stages: []StageDef{stDecode(), s("Issue", 1, UnitTensor), s("Execute", 7, UnitTensor), stWB()}},
 
 	// --- INT ALU ---
-	"IADD3":    {Opcode: "IADD3", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
-	"IADD3.X":  {Opcode: "IADD3.X", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
-	"UIADD3":   {Opcode: "UIADD3", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
-	"UIADD3.X": {Opcode: "UIADD3.X", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
-	"VIADD":    {Opcode: "VIADD", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
-	"IABS":     {Opcode: "IABS", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
+	"IADD3":    {Opcode: "IADD3", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
+	"IADD3.X":  {Opcode: "IADD3.X", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
+	"UIADD3":   {Opcode: "UIADD3", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
+	"UIADD3.X": {Opcode: "UIADD3.X", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
+	"VIADD":    {Opcode: "VIADD", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
+	"IABS":     {Opcode: "IABS", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
 
 	// --- INT Multiply-Add ---
-	"IMAD":           {Opcode: "IMAD", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"IMAD.HI.U32":    {Opcode: "IMAD.HI.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"IMAD.IADD":      {Opcode: "IMAD.IADD", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"IMAD.MOV":       {Opcode: "IMAD.MOV", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
-	"IMAD.MOV.U32":   {Opcode: "IMAD.MOV.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
-	"IMAD.U32":       {Opcode: "IMAD.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"IMAD.WIDE":      {Opcode: "IMAD.WIDE", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}},
-	"IMAD.WIDE.U32":  {Opcode: "IMAD.WIDE.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}},
-	"IMAD.X":         {Opcode: "IMAD.X", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},       // added
-	"IMAD.SHL.U32":   {Opcode: "IMAD.SHL.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
-	"UIMAD":          {Opcode: "UIMAD", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},        // added
-	"UIMAD.WIDE":     {Opcode: "UIMAD.WIDE", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}},
-	"UIMAD.WIDE.U32": {Opcode: "UIMAD.WIDE.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}}, // added
+	"IMAD":           {Opcode: "IMAD", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
+	"IMAD.HI.U32":    {Opcode: "IMAD.HI.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
+	"IMAD.IADD":      {Opcode: "IMAD.IADD", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
+	"IMAD.MOV":       {Opcode: "IMAD.MOV", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
+	"IMAD.MOV.U32":   {Opcode: "IMAD.MOV.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
+	"IMAD.U32":       {Opcode: "IMAD.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
+	"IMAD.WIDE":      {Opcode: "IMAD.WIDE", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}},
+	"IMAD.WIDE.U32":  {Opcode: "IMAD.WIDE.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}},
+	"IMAD.X":         {Opcode: "IMAD.X", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},       // added
+	"IMAD.SHL.U32":   {Opcode: "IMAD.SHL.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
+	"UIMAD":          {Opcode: "UIMAD", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},        // added
+	"UIMAD.WIDE":     {Opcode: "UIMAD.WIDE", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}},
+	"UIMAD.WIDE.U32": {Opcode: "UIMAD.WIDE.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 3, UnitInt), stWB()}}, // added
 
 	// --- LEA (Load Effective Address) ---
-	"LEA":           {Opcode: "LEA", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"LEA.HI":        {Opcode: "LEA.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
-	"LEA.HI.X":      {Opcode: "LEA.HI.X", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"LEA.HI.X.SX32": {Opcode: "LEA.HI.X.SX32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
-	"ULEA":          {Opcode: "ULEA", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},    // added
-	"ULEA.HI":       {Opcode: "ULEA.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
+	"LEA":           {Opcode: "LEA", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
+	"LEA.HI":        {Opcode: "LEA.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
+	"LEA.HI.X":      {Opcode: "LEA.HI.X", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
+	"LEA.HI.X.SX32": {Opcode: "LEA.HI.X.SX32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},
+	"ULEA":          {Opcode: "ULEA", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},    // added
+	"ULEA.HI":       {Opcode: "ULEA.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
 
 	// --- Vector INT Operations ---
-	"VIADDMNMX":     {Opcode: "VIADDMNMX", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},     // added
-	"VIADDMNMX.U32": {Opcode: "VIADDMNMX.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
-	"VIMNMX":        {Opcode: "VIMNMX", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},        // added
-	"VIMNMX.U32":    {Opcode: "VIMNMX.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},    // added
-	"VIMNMX3":       {Opcode: "VIMNMX3", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},       // added
+	"VIADDMNMX":     {Opcode: "VIADDMNMX", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},     // added
+	"VIADDMNMX.U32": {Opcode: "VIADDMNMX.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}}, // added
+	"VIMNMX":        {Opcode: "VIMNMX", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},        // added
+	"VIMNMX.U32":    {Opcode: "VIMNMX.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},    // added
+	"VIMNMX3":       {Opcode: "VIMNMX3", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 2, UnitInt), stWB()}},       // added
 
 	// --- Integer Predicates / Compare ---
-	"ISETP.EQ.OR":         {Opcode: "ISETP.EQ.OR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"ISETP.GE.AND":        {Opcode: "ISETP.GE.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"ISETP.GE.OR":         {Opcode: "ISETP.GE.OR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"ISETP.GE.U32.AND":    {Opcode: "ISETP.GE.U32.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"ISETP.GE.U32.AND.EX": {Opcode: "ISETP.GE.U32.AND.EX", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"ISETP.GT.AND":        {Opcode: "ISETP.GT.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"ISETP.GT.AND.EX":     {Opcode: "ISETP.GT.AND.EX", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},  // added
-	"ISETP.GT.U32.AND":    {Opcode: "ISETP.GT.U32.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"ISETP.GT.U32.AND.EX": {Opcode: "ISETP.GT.U32.AND.EX", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"ISETP.GT.U32.OR":     {Opcode: "ISETP.GT.U32.OR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},  // added
-	"ISETP.LE.AND":        {Opcode: "ISETP.LE.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},     // added
-	"ISETP.LE.OR":         {Opcode: "ISETP.LE.OR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},      // added
-	"ISETP.LE.U32.AND":    {Opcode: "ISETP.LE.U32.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"ISETP.LT.OR":         {Opcode: "ISETP.LT.OR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},      // added
-	"ISETP.LT.U32.AND":    {Opcode: "ISETP.LT.U32.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"ISETP.NE.AND":        {Opcode: "ISETP.NE.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"ISETP.NE.OR":         {Opcode: "ISETP.NE.OR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"ISETP.NE.U32.AND":    {Opcode: "ISETP.NE.U32.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"UISETP.GE.AND":       {Opcode: "UISETP.GE.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"UISETP.GT.AND":       {Opcode: "UISETP.GT.AND", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"ISETP.EQ.OR":         {Opcode: "ISETP.EQ.OR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"ISETP.GE.AND":        {Opcode: "ISETP.GE.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ISETP.GE.OR":         {Opcode: "ISETP.GE.OR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"ISETP.GE.U32.AND":    {Opcode: "ISETP.GE.U32.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ISETP.GE.U32.AND.EX": {Opcode: "ISETP.GE.U32.AND.EX", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"ISETP.GT.AND":        {Opcode: "ISETP.GT.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ISETP.GT.AND.EX":     {Opcode: "ISETP.GT.AND.EX", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},  // added
+	"ISETP.GT.U32.AND":    {Opcode: "ISETP.GT.U32.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"ISETP.GT.U32.AND.EX": {Opcode: "ISETP.GT.U32.AND.EX", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ISETP.GT.U32.OR":     {Opcode: "ISETP.GT.U32.OR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},  // added
+	"ISETP.LE.AND":        {Opcode: "ISETP.LE.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},     // added
+	"ISETP.LE.OR":         {Opcode: "ISETP.LE.OR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},      // added
+	"ISETP.LE.U32.AND":    {Opcode: "ISETP.LE.U32.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"ISETP.LT.OR":         {Opcode: "ISETP.LT.OR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},      // added
+	"ISETP.LT.U32.AND":    {Opcode: "ISETP.LT.U32.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ISETP.NE.AND":        {Opcode: "ISETP.NE.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ISETP.NE.OR":         {Opcode: "ISETP.NE.OR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"ISETP.NE.U32.AND":    {Opcode: "ISETP.NE.U32.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"UISETP.GE.AND":       {Opcode: "UISETP.GE.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"UISETP.GT.AND":       {Opcode: "UISETP.GT.AND", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
 
 	// --- Load / Store (Constant Cache) ---
 	"LDC":     {Opcode: "LDC", Stages: []StageDef{stDecode(), s("MemoryPipe", 1, UnitLdSt), stWB()}},
@@ -306,41 +306,41 @@ var PipelineTable = map[string]InstructionPipelineTemplate{
 	"REDG.E.ADD.F32.FTZ.RN.STRONG.GPU": {Opcode: "REDG.E.ADD.F32.FTZ.RN.STRONG.GPU", Stages: []StageDef{stDecode(), s("MemoryPipe", 4, UnitLdSt), stWB()}}, // added
 
 	// --- Logic / Bit ---
-	"LOP3.LUT":  {Opcode: "LOP3.LUT", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
-	"ULOP3.LUT": {Opcode: "ULOP3.LUT", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
-	"PLOP3.LUT": {Opcode: "PLOP3.LUT", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"LOP3.LUT":  {Opcode: "LOP3.LUT", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}},
+	"ULOP3.LUT": {Opcode: "ULOP3.LUT", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
+	"PLOP3.LUT": {Opcode: "PLOP3.LUT", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
 
 	// --- Move & Special ---
-	"MOV":  {Opcode: "MOV", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitNone), stWB()}},
-	"UMOV": {Opcode: "UMOV", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitNone), stWB()}},
-	"SEL":  {Opcode: "SEL", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), stWB()}},                            // added
-	"PRMT": {Opcode: "PRMT", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
+	"MOV":  {Opcode: "MOV", Stages: []StageDef{stDecode(), s("Issue", 1, UnitNone), stWB()}},
+	"UMOV": {Opcode: "UMOV", Stages: []StageDef{stDecode(), s("Issue", 1, UnitNone), stWB()}},
+	"SEL":  {Opcode: "SEL", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), stWB()}},                            // added
+	"PRMT": {Opcode: "PRMT", Stages: []StageDef{stDecode(), s("Issue", 1, UnitInt), s("Execute", 1, UnitInt), stWB()}}, // added
 
 	// --- Special Register Access ---
-	"S2R":  {Opcode: "S2R", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"S2UR": {Opcode: "S2UR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"R2UR": {Opcode: "R2UR", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"CS2R": {Opcode: "CS2R", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"S2R":  {Opcode: "S2R", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"S2UR": {Opcode: "S2UR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"R2UR": {Opcode: "R2UR", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"CS2R": {Opcode: "CS2R", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
 
 	// --- Multi-Function Special Unit (MUFU) ---
-	"MUFU.RCP": {Opcode: "MUFU.RCP", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 11, UnitSpecial), stWB()}},
-	"MUFU.RSQ": {Opcode: "MUFU.RSQ", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 11, UnitSpecial), stWB()}}, // added
-	"MUFU.EX2": {Opcode: "MUFU.EX2", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 11, UnitSpecial), stWB()}}, // added
+	"MUFU.RCP": {Opcode: "MUFU.RCP", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 11, UnitSpecial), stWB()}},
+	"MUFU.RSQ": {Opcode: "MUFU.RSQ", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 11, UnitSpecial), stWB()}}, // added
+	"MUFU.EX2": {Opcode: "MUFU.EX2", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 11, UnitSpecial), stWB()}}, // added
 
 	// --- Shift / Bitfield ---
-	"SHF.L.U32":     {Opcode: "SHF.L.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"SHF.L.U64.HI":  {Opcode: "SHF.L.U64.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}}, // added
-	"SHF.R.S32.HI":  {Opcode: "SHF.R.S32.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"SHF.R.S64":     {Opcode: "SHF.R.S64", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}},
-	"SHF.R.U32.HI":  {Opcode: "SHF.R.U32.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
-	"USHF.L.U32":    {Opcode: "USHF.L.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},    // added
-	"USHF.L.U64.HI": {Opcode: "USHF.L.U64.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}}, // added
-	"USHF.R.S32.HI": {Opcode: "USHF.R.S32.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
-	"USHF.R.U32.HI": {Opcode: "USHF.R.U32.HI", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"SHF.L.U32":     {Opcode: "SHF.L.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"SHF.L.U64.HI":  {Opcode: "SHF.L.U64.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}}, // added
+	"SHF.R.S32.HI":  {Opcode: "SHF.R.S32.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"SHF.R.S64":     {Opcode: "SHF.R.S64", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}},
+	"SHF.R.U32.HI":  {Opcode: "SHF.R.U32.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},
+	"USHF.L.U32":    {Opcode: "USHF.L.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}},    // added
+	"USHF.L.U64.HI": {Opcode: "USHF.L.U64.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}}, // added
+	"USHF.R.S32.HI": {Opcode: "USHF.R.S32.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
+	"USHF.R.U32.HI": {Opcode: "USHF.R.U32.HI", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 1, UnitSpecial), stWB()}}, // added
 
 	// --- Bit Scan / Count ---
-	"FLO.U32":  {Opcode: "FLO.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}},  // added
-	"UFLO.U32": {Opcode: "UFLO.U32", Stages: []StageDef{stDecode(), s("Execute-Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}}, // added
+	"FLO.U32":  {Opcode: "FLO.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}},  // added
+	"UFLO.U32": {Opcode: "UFLO.U32", Stages: []StageDef{stDecode(), s("Issue", 1, UnitSpecial), s("Execute", 2, UnitSpecial), stWB()}}, // added
 }
 
 // levenshteinDistance returns the Levenshtein edit distance between a and b.

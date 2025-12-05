@@ -74,7 +74,28 @@ func (p *PipelineInstance) Tick() bool {
 	// p.Warp.warp.ID, stage.Def.Name, stage.Left, stage.Left-1)
 	stage.Left--
 
+	// take a peek to see if all following stages are zero-cycle, including the current one
+	// if so, skip them
+	// if stage.Left == 0 {
+	// 	tmpPC := p.PC
+	// 	for i := p.PC + 1; i < len(p.Stages); i++ {
+	// 		if p.Stages[i].Left != 0 {
+	// 			break
+	// 		}
+	// 		tmpPC++
+	// 	}
+	// 	if tmpPC >= len(p.Stages) {
+	// 		// fmt.Printf("end detected\n")
+	// 		p.Done = true
+	// 		return true
+	// 	}
+	// 	p.PC = tmpPC
+	// 	stage = &p.Stages[p.PC]
+	// }
 	// Stage finished
+	if stage.Def.Name == "Issue" {
+		return true
+	}
 	for stage.Left == 0 {
 		// release resources
 		// if stage.Def.Unit != UnitNone {

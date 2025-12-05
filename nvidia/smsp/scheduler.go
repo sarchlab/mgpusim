@@ -72,7 +72,7 @@ func NewSMSPScheduler() *SMSPSWarpScheduler {
 
 func isExecuteIssueOrMemoryPipeStage(stageName string) bool {
 	// fmt.Printf("Checking if stage %s is an execute stage\n", stageName)
-	return stageName == "Execute-Issue" || stageName == "MemoryPipe"
+	return stageName == "Issue" || stageName == "MemoryPipe"
 }
 
 func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime sim.VTimeInSec) {
@@ -91,7 +91,7 @@ func (s *SMSPSWarpScheduler) logWarpUnitList(smspName string, engineCurrentTime 
 	fmt.Println()
 }
 
-func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpUnit {
+func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpUnit { // debugName string
 
 	issued := []*SMSPWarpUnit{}
 	startIndex := s.nextIssueIndex
@@ -105,15 +105,32 @@ func (s *SMSPSWarpScheduler) issueWarps(resourcePool *ResourcePool) []*SMSPWarpU
 		if (wu.status == WarpStatusReady || wu.status == WarpStatusRunning) && wu.unfinishedInstsCount > 0 {
 			// instIdx := wu.warp.InstructionsCount() - wu.unfinishedInstsCount
 			stageName := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name
-
+			// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
+			// 	fmt.Printf("debug: stageName = %s\n", stageName)
+			// }
 			if isExecuteIssueOrMemoryPipeStage(stageName) {
+				// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
+				// 	fmt.Printf("debug: isExecuteIssueOrMemoryPipeStage")
+				// }
 				unitType := wu.Pipeline.Stages[wu.Pipeline.PC].Def.Unit
 				if !resourcePool.Reserve(unitType) {
 					checked++
+					// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
+					// 	fmt.Printf("debug: conflict")
+					// }
 					continue // resource conflict → skip
 				}
 			}
-
+			// if strings.Contains(debugName, "GPU[0].SM[0].SMSP[0]") {
+			// 	fmt.Printf("Issuing warp %d of SM's Scheduler: inst %d/%d '%s' @ '%s' stage (%d/%d)\n",
+			// 		wu.warp.ID,
+			// 		wu.warp.InstructionsCount()-wu.unfinishedInstsCount+1,
+			// 		wu.warp.InstructionsCount(),
+			// 		wu.Pipeline.InstructionOpcode,
+			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Name,
+			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles-wu.Pipeline.Stages[wu.Pipeline.PC].Left+1,
+			// 		wu.Pipeline.Stages[wu.Pipeline.PC].Def.Cycles)
+			// }
 			wu.status = WarpStatusRunning
 			issued = append(issued, wu)
 		}
