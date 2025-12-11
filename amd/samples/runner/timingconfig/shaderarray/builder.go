@@ -40,24 +40,24 @@ type Builder struct {
 	l1vCaches []*writearound.Comp
 	l1sCache  *writethrough.Comp
 	l1iCache  *writethrough.Comp
-    l1vTLBs   []*tlb.Comp
-    l1sTLB    *tlb.Comp
-    l1iTLB    *tlb.Comp
+	l1vTLBs   []*tlb.Comp
+	l1sTLB    *tlb.Comp
+	l1iTLB    *tlb.Comp
 
-    // Mapper pointers to allow left-to-right component build order
-    // Vector path: ROB -> AT -(mem)-> L1V Cache, AT -(xlate)-> L1V TLB
-    l1vMemMappers   []*mem.SinglePortMapper
-    l1vTransMappers []*mem.SinglePortMapper
+	// Mapper pointers to allow left-to-right component build order
+	// Vector path: ROB -> AT -(mem)-> L1V Cache, AT -(xlate)-> L1V TLB
+	l1vMemMappers   []*mem.SinglePortMapper
+	l1vTransMappers []*mem.SinglePortMapper
 
-    // Scalar path: ROB -> AT -(mem)-> L1S Cache, AT -(xlate)-> L1S TLB
-    l1sMemMapper   *mem.SinglePortMapper
-    l1sTransMapper *mem.SinglePortMapper
+	// Scalar path: ROB -> AT -(mem)-> L1S Cache, AT -(xlate)-> L1S TLB
+	l1sMemMapper   *mem.SinglePortMapper
+	l1sTransMapper *mem.SinglePortMapper
 
-    // Instruction path: ROB -> L1I Cache -(mem)-> AT -(xlate)-> L1I TLB
-    l1iCacheMapper *mem.SinglePortMapper
-    l1iTransMapper *mem.SinglePortMapper
+	// Instruction path: ROB -> L1I Cache -(mem)-> AT -(xlate)-> L1I TLB
+	l1iCacheMapper *mem.SinglePortMapper
+	l1iTransMapper *mem.SinglePortMapper
 
-    connectionCount int
+	connectionCount int
 }
 
 // MakeBuilder creates a new builder.
@@ -134,23 +134,23 @@ func (b Builder) Build(name string) *sim.Domain {
 }
 
 func (b *Builder) buildComponents() {
-    b.buildCUs()
+	b.buildCUs()
 
-    // Build in dataflow order
-    b.buildL1VReorderBuffers()
-    b.buildL1VAddressTranslators()
-    b.buildL1VCaches()
-    b.buildL1VTLBs()
+	// Build in dataflow order
+	b.buildL1VReorderBuffers()
+	b.buildL1VAddressTranslators()
+	b.buildL1VCaches()
+	b.buildL1VTLBs()
 
-    b.buildL1SReorderBuffer()
-    b.buildL1SAddressTranslator()
-    b.buildL1SCache()
-    b.buildL1STLB()
+	b.buildL1SReorderBuffer()
+	b.buildL1SAddressTranslator()
+	b.buildL1SCache()
+	b.buildL1STLB()
 
-    b.buildL1IReorderBuffer()
-    b.buildL1ICache()
-    b.buildL1IAddressTranslator()
-    b.buildL1ITLB()
+	b.buildL1IReorderBuffer()
+	b.buildL1ICache()
+	b.buildL1IAddressTranslator()
+	b.buildL1ITLB()
 
 	b.populateExternalPorts()
 }
@@ -186,8 +186,8 @@ func (b *Builder) populateExternalPorts() {
 	b.sa.AddPort("L1IAddrTransCtrl", b.l1iAT.GetPortByName("Control"))
 	b.sa.AddPort("L1ITLBCtrl", b.l1iTLB.GetPortByName("Control"))
 	b.sa.AddPort("L1ICacheCtrl", b.l1iCache.GetPortByName("Control"))
-    // Expose instruction memory egress to L2 via AT bottom
-    b.sa.AddPort("L1ICacheBottom", b.l1iAT.GetPortByName("Bottom"))
+	// Expose instruction memory egress to L2 via AT bottom
+	b.sa.AddPort("L1ICacheBottom", b.l1iAT.GetPortByName("Bottom"))
 	b.sa.AddPort("L1ITLBBottom", b.l1iTLB.GetPortByName("Bottom"))
 }
 
@@ -198,20 +198,20 @@ func (b *Builder) connectComponents() {
 }
 
 func (b *Builder) connectVectorMem() {
-    for i := range b.numCUs {
-        cu := b.cus[i]
-        rob := b.l1vROBs[i]
-        at := b.l1vATs[i]
-        l1v := b.l1vCaches[i]
-        tlb := b.l1vTLBs[i]
+	for i := range b.numCUs {
+		cu := b.cus[i]
+		rob := b.l1vROBs[i]
+		at := b.l1vATs[i]
+		l1v := b.l1vCaches[i]
+		tlb := b.l1vTLBs[i]
 
-        // Set mapper targets now that cache/TLB are built
-        if b.l1vMemMappers != nil && i < len(b.l1vMemMappers) && b.l1vMemMappers[i] != nil {
-            b.l1vMemMappers[i].Port = l1v.GetPortByName("Top").AsRemote()
-        }
-        if b.l1vTransMappers != nil && i < len(b.l1vTransMappers) && b.l1vTransMappers[i] != nil {
-            b.l1vTransMappers[i].Port = tlb.GetPortByName("Top").AsRemote()
-        }
+		// Set mapper targets now that cache/TLB are built
+		if b.l1vMemMappers != nil && i < len(b.l1vMemMappers) && b.l1vMemMappers[i] != nil {
+			b.l1vMemMappers[i].Port = l1v.GetPortByName("Top").AsRemote()
+		}
+		if b.l1vTransMappers != nil && i < len(b.l1vTransMappers) && b.l1vTransMappers[i] != nil {
+			b.l1vTransMappers[i].Port = tlb.GetPortByName("Top").AsRemote()
+		}
 
 		cu.VectorMemModules = &mem.SinglePortMapper{
 			Port: rob.GetPortByName("Top").AsRemote(),
@@ -220,42 +220,42 @@ func (b *Builder) connectVectorMem() {
 			rob.GetPortByName("Top"), 8)
 
 		atTopPort := at.GetPortByName("Top")
-		rob.BottomUnit = atTopPort
+		rob.BottomUnit = atTopPort.AsRemote()
 		b.connectWithDirectConnection(
 			rob.GetPortByName("Bottom"), atTopPort, 8)
 
-        tlbTopPort := tlb.GetPortByName("Top")
-        b.connectWithDirectConnection(
-            at.GetPortByName("Translation"), tlbTopPort, 8)
+		tlbTopPort := tlb.GetPortByName("Top")
+		b.connectWithDirectConnection(
+			at.GetPortByName("Translation"), tlbTopPort, 8)
 
-        b.connectWithDirectConnection(l1v.GetPortByName("Top"),
-            at.GetPortByName("Bottom"), 8)
-    }
+		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
+			at.GetPortByName("Bottom"), 8)
+	}
 }
 
 func (b *Builder) connectScalarMem() {
-    rob := b.l1sROB
-    at := b.l1sAT
-    tlb := b.l1sTLB
-    l1s := b.l1sCache
+	rob := b.l1sROB
+	at := b.l1sAT
+	tlb := b.l1sTLB
+	l1s := b.l1sCache
 
-    // Set mapper targets now that cache/TLB are built
-    if b.l1sMemMapper != nil {
-        b.l1sMemMapper.Port = l1s.GetPortByName("Top").AsRemote()
-    }
-    if b.l1sTransMapper != nil {
-        b.l1sTransMapper.Port = tlb.GetPortByName("Top").AsRemote()
-    }
+	// Set mapper targets now that cache/TLB are built
+	if b.l1sMemMapper != nil {
+		b.l1sMemMapper.Port = l1s.GetPortByName("Top").AsRemote()
+	}
+	if b.l1sTransMapper != nil {
+		b.l1sTransMapper.Port = tlb.GetPortByName("Top").AsRemote()
+	}
 
 	atTopPort := at.GetPortByName("Top")
-	rob.BottomUnit = atTopPort
+	rob.BottomUnit = atTopPort.AsRemote()
 	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
 
-    tlbTopPort := tlb.GetPortByName("Top")
-    b.connectWithDirectConnection(
-        at.GetPortByName("Translation"), tlbTopPort, 8)
-    b.connectWithDirectConnection(
-        l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 8)
+	tlbTopPort := tlb.GetPortByName("Top")
+	b.connectWithDirectConnection(
+		at.GetPortByName("Translation"), tlbTopPort, 8)
+	b.connectWithDirectConnection(
+		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 8)
 
 	conn := directconnection.MakeBuilder().
 		WithEngine(b.simulation.GetEngine()).
@@ -272,29 +272,29 @@ func (b *Builder) connectScalarMem() {
 }
 
 func (b *Builder) connectInstMem() {
-    rob := b.l1iROB
-    at := b.l1iAT
-    tlb := b.l1iTLB
-    l1i := b.l1iCache
+	rob := b.l1iROB
+	at := b.l1iAT
+	tlb := b.l1iTLB
+	l1i := b.l1iCache
 
-    // Set mapper targets now that AT/TLB are built
-    if b.l1iCacheMapper != nil {
-        b.l1iCacheMapper.Port = at.GetPortByName("Top").AsRemote()
-    }
-    if b.l1iTransMapper != nil {
-        b.l1iTransMapper.Port = tlb.GetPortByName("Top").AsRemote()
-    }
+	// Set mapper targets now that AT/TLB are built
+	if b.l1iCacheMapper != nil {
+		b.l1iCacheMapper.Port = at.GetPortByName("Top").AsRemote()
+	}
+	if b.l1iTransMapper != nil {
+		b.l1iTransMapper.Port = tlb.GetPortByName("Top").AsRemote()
+	}
 
 	l1iTopPort := l1i.GetPortByName("Top")
-	rob.BottomUnit = l1iTopPort
+	rob.BottomUnit = l1iTopPort.AsRemote()
 	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort, 8)
 
-    atTopPort := at.GetPortByName("Top")
-    b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
+	atTopPort := at.GetPortByName("Top")
+	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
 
-    tlbTopPort := tlb.GetPortByName("Top")
-    b.connectWithDirectConnection(
-        at.GetPortByName("Translation"), tlbTopPort, 8)
+	tlbTopPort := tlb.GetPortByName("Top")
+	b.connectWithDirectConnection(
+		at.GetPortByName("Translation"), tlbTopPort, 8)
 
 	robTopPort := rob.GetPortByName("Top")
 	conn := directconnection.MakeBuilder().
@@ -375,39 +375,39 @@ func (b *Builder) buildL1VReorderBuffers() {
 }
 
 func (b *Builder) buildL1VAddressTranslators() {
-    base := addresstranslator.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithDeviceID(b.gpuID).
-        WithLog2PageSize(b.log2PageSize)
+	base := addresstranslator.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithDeviceID(b.gpuID).
+		WithLog2PageSize(b.log2PageSize)
 
-    b.l1vMemMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
-    b.l1vTransMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
+	b.l1vMemMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
+	b.l1vTransMappers = make([]*mem.SinglePortMapper, 0, b.numCUs)
 
-    for i := 0; i < b.numCUs; i++ {
-        name := fmt.Sprintf("%s.L1VAddrTrans[%d]", b.name, i)
-        memMapper := &mem.SinglePortMapper{}
-        xlateMapper := &mem.SinglePortMapper{}
-        curr := base.
-            WithMemoryProviderMapper(memMapper).
-            WithTranslationProviderMapper(xlateMapper)
-        at := curr.Build(name)
-        b.l1vATs = append(b.l1vATs, at)
-        b.l1vMemMappers = append(b.l1vMemMappers, memMapper)
-        b.l1vTransMappers = append(b.l1vTransMappers, xlateMapper)
-        b.simulation.RegisterComponent(at)
-    }
+	for i := 0; i < b.numCUs; i++ {
+		name := fmt.Sprintf("%s.L1VAddrTrans[%d]", b.name, i)
+		memMapper := &mem.SinglePortMapper{}
+		xlateMapper := &mem.SinglePortMapper{}
+		curr := base.
+			WithMemoryProviderMapper(memMapper).
+			WithTranslationProviderMapper(xlateMapper)
+		at := curr.Build(name)
+		b.l1vATs = append(b.l1vATs, at)
+		b.l1vMemMappers = append(b.l1vMemMappers, memMapper)
+		b.l1vTransMappers = append(b.l1vTransMappers, xlateMapper)
+		b.simulation.RegisterComponent(at)
+	}
 }
 
 func (b *Builder) buildL1VTLBs() {
-    builder := tlb.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithNumMSHREntry(4).
-        WithNumSets(1).
-        WithNumWays(64).
-        WithNumReqPerCycle(4).
-        WithTranslationProviderMapper(b.l1TLBAddressMapper)
+	builder := tlb.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithNumMSHREntry(4).
+		WithNumSets(1).
+		WithNumWays(64).
+		WithNumReqPerCycle(4).
+		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	for i := 0; i < b.numCUs; i++ {
 		name := fmt.Sprintf("%s.L1VTLB[%d]", b.name, i)
@@ -455,36 +455,36 @@ func (b *Builder) buildL1SReorderBuffer() {
 }
 
 func (b *Builder) buildL1SAddressTranslator() {
-    // Prepare mappers and set ports later when cache/TLB are ready
-    if b.l1sMemMapper == nil {
-        b.l1sMemMapper = &mem.SinglePortMapper{}
-    }
-    if b.l1sTransMapper == nil {
-        b.l1sTransMapper = &mem.SinglePortMapper{}
-    }
-    builder := addresstranslator.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithDeviceID(b.gpuID).
-        WithLog2PageSize(b.log2PageSize).
-        WithMemoryProviderMapper(b.l1sMemMapper).
-        WithTranslationProviderMapper(b.l1sTransMapper)
+	// Prepare mappers and set ports later when cache/TLB are ready
+	if b.l1sMemMapper == nil {
+		b.l1sMemMapper = &mem.SinglePortMapper{}
+	}
+	if b.l1sTransMapper == nil {
+		b.l1sTransMapper = &mem.SinglePortMapper{}
+	}
+	builder := addresstranslator.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithDeviceID(b.gpuID).
+		WithLog2PageSize(b.log2PageSize).
+		WithMemoryProviderMapper(b.l1sMemMapper).
+		WithTranslationProviderMapper(b.l1sTransMapper)
 
-    name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
-    at := builder.Build(name)
-    b.l1sAT = at
-    b.simulation.RegisterComponent(at)
+	name := fmt.Sprintf("%s.L1SAddrTrans", b.name)
+	at := builder.Build(name)
+	b.l1sAT = at
+	b.simulation.RegisterComponent(at)
 }
 
 func (b *Builder) buildL1STLB() {
-    builder := tlb.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithNumMSHREntry(4).
-        WithNumSets(1).
-        WithNumWays(64).
-        WithNumReqPerCycle(4).
-        WithTranslationProviderMapper(b.l1TLBAddressMapper)
+	builder := tlb.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithNumMSHREntry(4).
+		WithNumSets(1).
+		WithNumWays(64).
+		WithNumReqPerCycle(4).
+		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	name := fmt.Sprintf("%s.L1STLB", b.name)
 	tlb := builder.Build(name)
@@ -528,16 +528,16 @@ func (b *Builder) buildL1IReorderBuffer() {
 }
 
 func (b *Builder) buildL1IAddressTranslator() {
-    if b.l1iTransMapper == nil {
-        b.l1iTransMapper = &mem.SinglePortMapper{}
-    }
-    builder := addresstranslator.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithDeviceID(b.gpuID).
-        WithLog2PageSize(b.log2PageSize).
-        WithMemoryProviderMapper(b.l1AddressMapper).
-        WithTranslationProviderMapper(b.l1iTransMapper)
+	if b.l1iTransMapper == nil {
+		b.l1iTransMapper = &mem.SinglePortMapper{}
+	}
+	builder := addresstranslator.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithDeviceID(b.gpuID).
+		WithLog2PageSize(b.log2PageSize).
+		WithMemoryProviderMapper(b.l1AddressMapper).
+		WithTranslationProviderMapper(b.l1iTransMapper)
 
 	name := fmt.Sprintf("%s.L1IAddrTrans", b.name)
 	at := builder.Build(name)
@@ -546,14 +546,14 @@ func (b *Builder) buildL1IAddressTranslator() {
 }
 
 func (b *Builder) buildL1ITLB() {
-    builder := tlb.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithNumMSHREntry(4).
-        WithNumSets(1).
-        WithNumWays(64).
-        WithNumReqPerCycle(4).
-        WithTranslationProviderMapper(b.l1TLBAddressMapper)
+	builder := tlb.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithNumMSHREntry(4).
+		WithNumSets(1).
+		WithNumWays(64).
+		WithNumReqPerCycle(4).
+		WithTranslationProviderMapper(b.l1TLBAddressMapper)
 
 	name := fmt.Sprintf("%s.L1ITLB", b.name)
 	tlb := builder.Build(name)
@@ -562,20 +562,20 @@ func (b *Builder) buildL1ITLB() {
 }
 
 func (b *Builder) buildL1ICache() {
-    if b.l1iCacheMapper == nil {
-        b.l1iCacheMapper = &mem.SinglePortMapper{}
-    }
-    builder := writethrough.MakeBuilder().
-        WithEngine(b.simulation.GetEngine()).
-        WithFreq(b.freq).
-        WithBankLatency(1).
-        WithNumBanks(1).
-        WithLog2BlockSize(b.log2CacheLineSize).
-        WithWayAssociativity(4).
-        WithNumMSHREntry(16).
-        WithTotalByteSize(32 * mem.KB).
-        WithNumReqsPerCycle(4).
-        WithAddressToPortMapper(b.l1iCacheMapper)
+	if b.l1iCacheMapper == nil {
+		b.l1iCacheMapper = &mem.SinglePortMapper{}
+	}
+	builder := writethrough.MakeBuilder().
+		WithEngine(b.simulation.GetEngine()).
+		WithFreq(b.freq).
+		WithBankLatency(1).
+		WithNumBanks(1).
+		WithLog2BlockSize(b.log2CacheLineSize).
+		WithWayAssociativity(4).
+		WithNumMSHREntry(16).
+		WithTotalByteSize(32 * mem.KB).
+		WithNumReqsPerCycle(4).
+		WithAddressToPortMapper(b.l1iCacheMapper)
 
 	name := fmt.Sprintf("%s.L1ICache", b.name)
 	cache := builder.Build(name)

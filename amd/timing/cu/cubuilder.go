@@ -3,6 +3,7 @@ package cu
 import (
 	"fmt"
 
+	"github.com/sarchlab/akita/v4/mem/mem"
 	"github.com/sarchlab/akita/v4/pipelining"
 	"github.com/sarchlab/akita/v4/sim"
 	"github.com/sarchlab/akita/v4/tracing"
@@ -26,6 +27,10 @@ type Builder struct {
 
 	visTracer        tracing.Tracer
 	enableVisTracing bool
+
+	instMem          sim.Port
+	scalarMem        sim.Port
+	vectorMemModules mem.AddressToPortMapper
 }
 
 // MakeBuilder returns a default builder object
@@ -87,9 +92,24 @@ func (b Builder) WithVisTracer(t tracing.Tracer) Builder {
 	return b
 }
 
+func (b Builder) WithInstMem(p sim.Port) Builder {
+	b.instMem = p
+	return b
+}
+
+func (b Builder) WithScalarMem(p sim.Port) Builder {
+	b.scalarMem = p
+	return b
+}
+
+func (b Builder) WithVectorMemModules(m mem.AddressToPortMapper) Builder {
+	b.vectorMemModules = m
+	return b
+}
+
 // Build returns a newly constructed compute unit according to the
 // configuration.
-func (b *Builder) Build(name string) *ComputeUnit {
+func (b Builder) Build(name string) *ComputeUnit {
 	b.name = name
 	cu := NewComputeUnit(name, b.engine)
 	cu.Freq = b.freq
@@ -110,6 +130,18 @@ func (b *Builder) Build(name string) *ComputeUnit {
 	b.equipLDSUnit(cu)
 	b.equipVectorMemoryUnit(cu)
 	b.equipRegisterFiles(cu)
+
+	if b.instMem != nil {
+		cu.InstMem = b.instMem
+	}
+
+	if b.scalarMem != nil {
+		cu.ScalarMem = b.scalarMem
+	}
+
+	if b.vectorMemModules != nil {
+		cu.VectorMemModules = b.vectorMemModules
+	}
 
 	return cu
 }
