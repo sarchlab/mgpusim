@@ -130,7 +130,7 @@ func (Builder) createPorts(cp *CommandProcessor, name string) {
 	cp.AddPort("ToCaches", cp.ToCaches)
 }
 
-func (b *Builder) buildDispatchers(cp *CommandProcessor) {
+func (b Builder) buildDispatchers(cp *CommandProcessor) {
 	cuResourcePool := resource.NewCUResourcePool()
 	builder := dispatching.MakeBuilder().
 		WithCP(cp).
