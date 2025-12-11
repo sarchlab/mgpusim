@@ -101,6 +101,8 @@ func (b Builder) Build(name string) *CommandProcessor {
 	for _, cu := range b.cus {
 		cp.RegisterCU(cu)
 	}
+	cp.middleware = &cpMiddleware{cp}
+	cp.ctrlMiddleware = &ctrlMiddleware{cp}
 
 	if b.perfAnalyzer != nil {
 		b.perfAnalyzer.RegisterComponent(cp)

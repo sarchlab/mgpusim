@@ -34,3 +34,5 @@ samples/**/metrics.csv
 test
 # Generated mocks (created via go:generate mockgen)
 **/mock_*_test.go
+
+.history
